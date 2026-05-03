@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coach Dashboard — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<div class="dash-shell">
+  <aside class="sidebar">
+    <div class="sidebar-section">Coach</div>
+    <button class="sidebar-tab active" data-tab="athletes" id="tab-athletes"></button>
+    <button class="sidebar-tab" data-tab="program" id="tab-program"></button>
+    <button class="sidebar-tab" data-tab="templates" id="tab-templates"></button>
+    <button class="sidebar-tab" data-tab="progress" id="tab-progress"></button>
+    <div class="sidebar-foot">
+      <div>POWALIFTA Coach</div>
+      <div class="faded">v0.3 · cloud-synced</div>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+
+    <!-- ROSTER -->
+    <section data-pane="athletes">
+      <div class="dash-header">
+        <div><h2>My athletes</h2><p class="dim text-sm">Status at a glance — click any card to open their program.</p></div>
+        <button class="btn btn-primary" onclick="openInviteModal()" id="btn-invite"></button>
+      </div>
+      <div id="rosterArea"></div>
+      <div class="card mt-24">
+        <h4 style="font-family: 'Plus Jakarta Sans'; font-size: 1rem; text-transform: none; letter-spacing: 0; margin-bottom: 6px;">Pending invite codes</h4>
+        <p class="dim text-sm mb-16">Codes you've generated but haven't been claimed yet.</p>
+        <div id="invitesList"></div>
+      </div>
+    </section>
+
+    <!-- PROGRAM BUILDER -->
+    <section data-pane="program" class="hidden">
+      <div class="dash-header">
+        <div><h2>Program builder</h2><p class="dim text-sm">Build week-by-week training. Click + on any week to duplicate it.</p></div>
+        <select id="progAthlete" style="max-width:280px" onchange="loadProgram()"></select>
+      </div>
+      <div id="programArea"></div>
+    </section>
+
+    <!-- TEMPLATES -->
+    <section data-pane="templates" class="hidden">
+      <div class="dash-header">
+        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete.</p></div>
+      </div>
+      <div id="templatesArea"></div>
+    </section>
+
+    <!-- PROGRESS -->
+    <section data-pane="progress" class="hidden">
+      <div class="dash-header">
+        <div><h2>Athlete progress</h2><p class="dim text-sm">e1RM trends, goals, bodyweight per athlete.</p></div>
+        <select id="progressAthlete" style="max-width:280px" onchange="renderProgressForAthlete()"></select>
+      </div>
+      <div id="progressArea"></div>
+    </section>
+  </main>
+</div>
+
+<!-- INVITE MODAL -->
+<div class="modal-backdrop" id="inviteModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('inviteModal')">&times;</button>
+    <h3>Invite an athlete</h3>
+    <div class="form-group">
+      <label>Athlete email</label>
+      <input type="email" id="inviteEmail" placeholder="athlete@email.com">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="generateInvite()">Generate code</button>
+    <div id="inviteResult" class="hidden">
+      <p class="dim text-sm" style="margin: 18px 0 0">Share this code with your athlete. They enter it on signup:</p>
+      <div class="code-display" id="inviteCodeDisplay"></div>
+      <button class="btn btn-block" onclick="copyCode()" id="copyCodeBtn">Copy code</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EXERCISE MODAL -->
+<div class="modal-backdrop" id="addExerciseModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="closeModal('addExerciseModal')">&times;</button>
+    <h3>Add exercise</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Category</label>
+        <select id="exLift" onchange="onLiftChange()">
+          <option value="squat">Squat</option>
+          <option value="bench">Bench</option>
+          <option value="deadlift">Deadlift</option>
+          <option value="push">Push (accessory)</option>
+          <option value="pull">Pull (accessory)</option>
+          <option value="legs">Legs (accessory)</option>
+          <option value="cardio">Cardio</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group" id="variantGroup">
+        <label>Variant</label>
+        <select id="exVariant"></select>
+      </div>
+    </div>
+    <div class="form-group" id="exNameGroup" style="display:none">
+      <label>Exercise</label>
+      <select id="exName"></select>
+    </div>
+    <div class="form-group" id="exNameOtherGroup" style="display:none">
+      <label>Exercise name</label>
+      <input type="text" id="exNameOther" placeholder="e.g. Reverse Hyperextension">
+    </div>
+
+    <div id="setsHeader" class="flex-between mt-16 mb-8">
+      <label style="margin-bottom:0">Sets</label>
+      <div class="seg" id="presetSeg">
+        <button onclick="applyPreset(3,5,7)">3×5 @ 7</button>
+        <button onclick="applyPreset(5,3,8)">5×3 @ 8</button>
+        <button onclick="applyPreset(4,6,7)">4×6 @ 7</button>
+        <button onclick="applyPreset(3,8,8)">3×8 @ 8</button>
+      </div>
+    </div>
+    <div id="setsBuilder"></div>
+    <button class="btn btn-sm mt-8" onclick="addSetRow()" id="addSetRowBtn"></button>
+
+    <div class="form-group mt-24">
+      <label>Coach note (optional, athlete will see this)</label>
+      <textarea id="exNote" class="coach-note-input" placeholder="e.g. Slow eccentric. Pause 2s at the bottom."></textarea>
+    </div>
+
+    <div class="flex gap-12 mt-24">
+      <button class="btn btn-primary btn-lg btn-block" onclick="confirmAddExercise()">Add to day</button>
+    </div>
+  </div>
+</div>
+
+<!-- SAVE TEMPLATE MODAL -->
+<div class="modal-backdrop" id="saveTplModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('saveTplModal')">&times;</button>
+    <h3>Save program as template</h3>
+    <p class="dim text-sm mb-16">Save the current program structure (lifts, sets, reps, RPE, notes) as a reusable template.</p>
+    <div class="form-group">
+      <label>Template name</label>
+      <input type="text" id="tplName" placeholder="e.g. 4-Week Hypertrophy Block">
+    </div>
+    <div class="flex gap-8">
+      <button class="btn btn-block" onclick="closeModal('saveTplModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmSaveTemplate()">Save template</button>
+    </div>
+  </div>
+</div>
+
+<!-- APPLY TEMPLATE MODAL -->
+<div class="modal-backdrop" id="applyTplModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('applyTplModal')">&times;</button>
+    <h3>Apply template</h3>
+    <p class="dim text-sm mb-16">Pick an athlete to apply the template to. <strong class="red">This replaces their current program.</strong></p>
+    <div class="form-group">
+      <label>Athlete</label>
+      <select id="applyTplAthlete"></select>
+    </div>
+    <div class="flex gap-8">
+      <button class="btn btn-block" onclick="closeModal('applyTplModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmApplyTemplate()">Apply template</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let user; let activeWeekIdx = 0;
+
+bootstrap('coach', () => {
+  user = getCurrentUser();
+  renderNav('#nav');
+
+  const setLbl = (id, icon, text) => { const e = document.getElementById(id); if (e) e.innerHTML = icon + '<span>' + text + '</span>'; };
+  setLbl('tab-athletes', ICONS.athletes, 'Roster');
+  setLbl('tab-program', ICONS.program, 'Program builder');
+  setLbl('tab-templates', ICONS.copy, 'Templates');
+  setLbl('tab-progress', ICONS.chart, 'Progress');
+  document.getElementById('btn-invite').innerHTML = ICONS.plus + '<span>Invite athlete</span>';
+  document.getElementById('addSetRowBtn').innerHTML = ICONS.plus + '<span>Add set</span>';
+
+  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
+      document.querySelector('[data-pane="' + btn.dataset.tab + '"]').classList.remove('hidden');
+      if (btn.dataset.tab === 'athletes') renderRoster();
+      if (btn.dataset.tab === 'program') populateAthleteSelect('progAthlete', loadProgram);
+      if (btn.dataset.tab === 'templates') renderTemplates();
+      if (btn.dataset.tab === 'progress') populateAthleteSelect('progressAthlete', renderProgressForAthlete);
+    });
+  });
+  renderRoster();
+});
+
+// ===== ROSTER =====
+function renderRoster() {
+  const area = document.getElementById('rosterArea');
+  if (!area) return;
+  area.innerHTML = '';
+  const overview = getRosterOverview(user.id);
+
+  if (!overview.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.athletes;
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No athletes yet'));
+    e.appendChild(el('p', {}, 'Generate an invite code and send it to your first athlete.'));
+    area.appendChild(e);
+  } else {
+    const grid = el('div', { class: 'roster-grid' });
+    overview.forEach(o => {
+      const card = el('div', { class: 'roster-card flag-' + o.flag, onclick: () => openAthleteProgram(o.athlete.id) });
+      const head = el('div', { class: 'roster-card-head' });
+      head.appendChild(el('div', { class: 'av' }, initials(o.athlete.name)));
+      const info = el('div', { class: 'info' });
+      info.appendChild(el('div', { class: 'name' }, o.athlete.name));
+      info.appendChild(el('div', { class: 'email' }, o.athlete.email));
+      head.appendChild(info);
+      card.appendChild(head);
+      const flagText = { today: 'TRAINED TODAY', recent: o.ago + 'D AGO', week: o.ago + 'D AGO', stale: o.ago + 'D — STALE', never: 'NEVER LOGGED' }[o.flag];
+      card.appendChild(el('div', {}, el('span', { class: 'roster-flag roster-flag-' + o.flag }, flagText)));
+      const meta = el('div', { class: 'roster-meta', style: 'margin-top:14px;' });
+      const m1 = el('div', { class: 'rm' });
+      m1.appendChild(el('div', { class: 'rm-lbl' }, 'Program'));
+      m1.appendChild(el('div', { class: 'rm-val' }, o.program ? o.program.name : '—'));
+      meta.appendChild(m1);
+      const m2 = el('div', { class: 'rm' });
+      m2.appendChild(el('div', { class: 'rm-lbl' }, 'Last RPE'));
+      m2.appendChild(el('div', { class: 'rm-val' }, o.lastRpe != null ? String(o.lastRpe) : '—'));
+      meta.appendChild(m2);
+      card.appendChild(meta);
+      if (o.totalSets > 0) {
+        const pct = Math.round((o.completedSets / o.totalSets) * 100);
+        const pBar = el('div', { class: 'roster-progress' });
+        pBar.appendChild(el('div', { style: 'width:' + pct + '%' }));
+        card.appendChild(pBar);
+        card.appendChild(el('div', { class: 'roster-progress-label' },
+          el('span', {}, 'Program complete'),
+          el('span', {}, o.completedSets + ' / ' + o.totalSets + ' · ' + pct + '%')
+        ));
+      }
+      if (o.lastNote) card.appendChild(el('div', { class: 'last-note' }, '"' + o.lastNote.note + '"'));
+      grid.appendChild(card);
+    });
+    area.appendChild(grid);
+  }
+
+  const inv = Store.get().invites.filter(i => i.coachId === user.id && !i.used);
+  const ic = document.getElementById('invitesList');
+  ic.innerHTML = '';
+  if (!inv.length) {
+    ic.appendChild(el('p', { class: 'faint text-sm' }, 'No pending invites.'));
+  } else {
+    inv.forEach(i => {
+      const row = el('div', { class: 'flex-between mb-8', style: 'padding:10px 14px; background:var(--bg-2); border-radius:8px; border:1px solid var(--line);' });
+      row.appendChild(el('div', {},
+        el('span', { class: 'mono fw-700', style: 'font-size:1.05rem; letter-spacing:0.15em' }, i.code),
+        el('span', { class: 'faded text-sm', style: 'margin-left: 12px' }, '→ ' + (i.email || 'any athlete'))
+      ));
+      const rev = el('button', { class: 'btn btn-sm btn-danger', onclick: async (e) => {
+        e.stopPropagation();
+        Store.update(s => { s.invites = s.invites.filter(x => x.code !== i.code); });
+        await persistDeleteInvite(i.code);
+        renderRoster();
+      }}, 'Revoke');
+      row.appendChild(rev);
+      ic.appendChild(row);
+    });
+  }
+}
+
+function openAthleteProgram(athleteId) {
+  document.querySelector('[data-tab="program"]').click();
+  setTimeout(() => { document.getElementById('progAthlete').value = athleteId; loadProgram(); }, 50);
+}
+
+// ===== INVITE =====
+function openInviteModal() {
+  document.getElementById('inviteEmail').value = '';
+  document.getElementById('inviteResult').classList.add('hidden');
+  openModal('inviteModal');
+}
+async function generateInvite() {
+  const email = document.getElementById('inviteEmail').value.trim().toLowerCase();
+  if (!email) return toast('Enter the athlete email');
+  const code = generateInviteCode();
+  const inv = { code, coachId: user.id, email, used: false, createdAt: Date.now() };
+  Store.update(s => { s.invites.push(inv); });
+  await persistAddInvite(inv);
+  document.getElementById('inviteCodeDisplay').textContent = code;
+  document.getElementById('inviteResult').classList.remove('hidden');
+  document.getElementById('copyCodeBtn').innerHTML = ICONS.copy + '<span>Copy code</span>';
+  renderRoster();
+}
+function copyCode() {
+  const code = document.getElementById('inviteCodeDisplay').textContent;
+  navigator.clipboard.writeText(code).then(() => toast('Code copied to clipboard'));
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); attachPwdToggles(); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function populateAthleteSelect(selectId, onChange) {
+  const sel = document.getElementById(selectId);
+  const s = Store.get();
+  const myAthletes = s.athletes.filter(a => a.coachId === user.id);
+  const cur = sel.value;
+  sel.innerHTML = '';
+  if (!myAthletes.length) sel.appendChild(el('option', { value: '' }, 'No athletes yet'));
+  else {
+    myAthletes.forEach(a => sel.appendChild(el('option', { value: a.id }, a.name)));
+    if (cur && myAthletes.some(a => a.id === cur)) sel.value = cur;
+  }
+  onChange && onChange();
+}
+
+// ===== PROGRAM BUILDER =====
+function loadProgram() {
+  const sel = document.getElementById('progAthlete');
+  const athleteId = sel.value;
+  const area = document.getElementById('programArea');
+  area.innerHTML = '';
+
+  if (!athleteId) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.athletes;
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No athletes yet'));
+    e.appendChild(el('p', {}, 'Invite athletes first, then come build their programs.'));
+    area.appendChild(e);
+    return;
+  }
+
+  let prog = getProgramForAthlete(athleteId);
+  if (!prog) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.program;
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No program yet'));
+    e.appendChild(el('p', {}, 'Build their first program from scratch — or apply a saved template.'));
+    const create = el('button', { class: 'btn btn-primary mt-16', onclick: () => createProgramFor(athleteId) });
+    create.innerHTML = ICONS.plus + '<span>Create program</span>';
+    e.appendChild(create);
+    const tplCount = (Store.get().programTemplates || []).filter(t => t.coachId === user.id).length;
+    if (tplCount > 0) {
+      e.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 18px;' }, 'Or use a saved template:'));
+      e.appendChild(el('button', { class: 'btn mt-8', onclick: () => document.querySelector('[data-tab="templates"]').click() }, 'View templates (' + tplCount + ')'));
+    }
+    area.appendChild(e);
+    return;
+  }
+
+  prog.weeks.forEach(wk => wk.days.forEach(d => d.exercises.forEach(ex => ensureExerciseShape(ex))));
+
+  const head = el('div', { class: 'card mb-24', style: 'padding: 18px 22px;' });
+  const headRow = el('div', { class: 'flex-between gap-16' });
+  const nameInput = el('input', {
+    type: 'text', value: prog.name,
+    style: 'background:transparent; border: 1px solid transparent; padding: 6px 10px; font-family: Anton; font-size: 1.5rem; color: var(--text); text-transform: uppercase; letter-spacing: 0.01em; max-width: 500px;',
+    oninput: e => {
+      Store.update(s => { const p = s.programs.find(p => p.athleteId === athleteId); if (p) p.name = e.target.value; });
+      persistProgram(prog.id);
+    }
+  });
+  nameInput.addEventListener('focus', () => { nameInput.style.borderColor = 'var(--line-2)'; nameInput.style.background = 'var(--bg-2)'; });
+  nameInput.addEventListener('blur', () => { nameInput.style.borderColor = 'transparent'; nameInput.style.background = 'transparent'; });
+  headRow.appendChild(nameInput);
+
+  const headActions = el('div', { class: 'flex gap-8' });
+  const saveTpl = el('button', { class: 'btn btn-sm', onclick: () => openSaveTemplate(prog) });
+  saveTpl.innerHTML = ICONS.copy + '<span>Save as template</span>';
+  headActions.appendChild(saveTpl);
+  const addWk = el('button', { class: 'btn btn-sm', onclick: () => addWeek() });
+  addWk.innerHTML = ICONS.plus + '<span>Add week</span>';
+  headActions.appendChild(addWk);
+  const delProg = el('button', { class: 'btn btn-sm btn-danger', onclick: () => deleteProgram() });
+  delProg.innerHTML = ICONS.trash + '<span>Delete</span>';
+  headActions.appendChild(delProg);
+  headRow.appendChild(headActions);
+  head.appendChild(headRow);
+  area.appendChild(head);
+
+  const builder = el('div', { class: 'builder' });
+  const aside = el('div', { class: 'builder-aside' });
+  aside.appendChild(el('h4', {}, 'Weeks'));
+  const weekNav = el('div', { class: 'week-nav' });
+  if (activeWeekIdx >= prog.weeks.length) activeWeekIdx = 0;
+  prog.weeks.forEach((wk, wi) => {
+    const totalSets = wk.days.flatMap(d => d.exercises).flatMap(e => e.sets).length;
+    const tab = el('button', { class: 'week-tab' + (wi === activeWeekIdx ? ' active' : ''), onclick: () => { activeWeekIdx = wi; loadProgram(); } },
+      el('span', {}, 'Week ' + wk.number),
+      el('span', { class: 'ct' }, String(totalSets))
+    );
+    weekNav.appendChild(tab);
+  });
+  aside.appendChild(weekNav);
+  builder.appendChild(aside);
+
+  const main = el('div');
+  const wk = prog.weeks[activeWeekIdx];
+  if (!wk) { main.appendChild(el('p', { class: 'dim' }, 'No weeks yet.')); builder.appendChild(main); area.appendChild(builder); return; }
+
+  const wkHead = el('div', { class: 'flex-between mb-16 gap-12', style: 'flex-wrap: wrap;' });
+  wkHead.appendChild(el('h3', {}, 'Week ' + wk.number));
+  const wkActions = el('div', { class: 'flex gap-8' });
+  const dupWkBtn = el('button', { class: 'btn btn-sm', onclick: () => duplicateWeekAction(prog.id, activeWeekIdx) });
+  dupWkBtn.innerHTML = ICONS.copy + '<span>Duplicate week</span>';
+  wkActions.appendChild(dupWkBtn);
+  const addDayBtn = el('button', { class: 'btn btn-sm', onclick: () => addDay(activeWeekIdx) });
+  addDayBtn.innerHTML = ICONS.plus + '<span>Add day</span>';
+  wkActions.appendChild(addDayBtn);
+  const delWkBtn = el('button', { class: 'btn btn-sm btn-danger', onclick: () => deleteWeek(activeWeekIdx) });
+  delWkBtn.innerHTML = ICONS.trash + '<span>Remove week</span>';
+  wkActions.appendChild(delWkBtn);
+  wkHead.appendChild(wkActions);
+  main.appendChild(wkHead);
+
+  wk.days.forEach((day, di) => {
+    const dayCard = el('div', { class: 'day-card' });
+    const dayHead = el('div', { class: 'day-head' });
+    const reDay = el('div', { class: 'reorder-handles', style: 'margin-right: 8px;' });
+    const upDay = el('button', { onclick: () => { reorderDay(prog.id, activeWeekIdx, di, -1); persistProgram(prog.id); loadProgram(); }, title: 'Move up' }, '▲');
+    if (di === 0) upDay.disabled = true;
+    const dnDay = el('button', { onclick: () => { reorderDay(prog.id, activeWeekIdx, di, 1); persistProgram(prog.id); loadProgram(); }, title: 'Move down' }, '▼');
+    if (di === wk.days.length - 1) dnDay.disabled = true;
+    reDay.appendChild(upDay); reDay.appendChild(dnDay);
+    dayHead.appendChild(reDay);
+    const dayInput = el('input', { class: 'day-name-input', value: day.name, onchange: e => updateDayName(activeWeekIdx, di, e.target.value) });
+    dayHead.appendChild(dayInput);
+    const delDay = el('button', { class: 'btn btn-sm btn-danger', onclick: () => deleteDay(activeWeekIdx, di) });
+    delDay.innerHTML = ICONS.trash;
+    dayHead.appendChild(delDay);
+    dayCard.appendChild(dayHead);
+
+    const dayBody = el('div', { class: 'day-body' });
+    if (!day.exercises.length) {
+      dayBody.appendChild(el('div', { class: 'day-empty' }, 'No exercises yet'));
+    } else {
+      day.exercises.forEach((ex, ei) => {
+        const row = el('div', { class: 'exercise-row' });
+        const head = el('div', { class: 'exercise-row-header' });
+        const titleBlock = el('div', { class: 'exercise-name', style: 'gap: 14px;' });
+        const reEx = el('div', { class: 'reorder-handles', style: 'margin-right: 6px;' });
+        const upEx = el('button', { onclick: () => { reorderExercise(prog.id, activeWeekIdx, di, ei, -1); persistProgram(prog.id); loadProgram(); }, title: 'Move up' }, '▲');
+        if (ei === 0) upEx.disabled = true;
+        const dnEx = el('button', { onclick: () => { reorderExercise(prog.id, activeWeekIdx, di, ei, 1); persistProgram(prog.id); loadProgram(); }, title: 'Move down' }, '▼');
+        if (ei === day.exercises.length - 1) dnEx.disabled = true;
+        reEx.appendChild(upEx); reEx.appendChild(dnEx);
+        titleBlock.appendChild(reEx);
+
+        let title = '', badge = '';
+        if (MAIN_LIFTS.includes(ex.lift)) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; badge = '×' + multiplierFor(ex.lift, ex.variant); }
+        else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
+        else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
+        else { title = ex.exerciseName; badge = 'Other'; }
+        titleBlock.appendChild(el('span', {}, title));
+        if (badge) titleBlock.appendChild(el('span', { class: 'lift-badge' }, badge));
+        head.appendChild(titleBlock);
+
+        const actions = el('div', { class: 'flex gap-4' });
+        const copyBtn = el('button', { class: 'btn btn-sm', onclick: () => { copyExercise(prog.id, activeWeekIdx, di, ei); persistProgram(prog.id); loadProgram(); }, title: 'Duplicate exercise' });
+        copyBtn.innerHTML = ICONS.copy;
+        actions.appendChild(copyBtn);
+        const delEx = el('button', { class: 'btn btn-sm btn-danger', onclick: () => deleteExercise(activeWeekIdx, di, ei), title: 'Remove' });
+        delEx.innerHTML = ICONS.trash;
+        actions.appendChild(delEx);
+        head.appendChild(actions);
+        row.appendChild(head);
+
+        const lastSet = getLastSetForExercise(athleteId, ex.lift, ex.variant, ex.exerciseName);
+        if (lastSet) {
+          row.appendChild(el('div', { class: 'mb-8 text-sm', style: 'color: var(--text-3);' },
+            'Last logged: ',
+            el('strong', { class: 'mono', style: 'color: var(--text-2);' }, lastSet.weight + 'kg × ' + lastSet.reps + ' @ RPE ' + lastSet.rpe),
+            el('span', { style: 'color: var(--text-4); margin-left: 8px;' }, '(' + fmtDateShort(lastSet.date) + ')')
+          ));
+        }
+
+        ex.sets.forEach((set, si) => {
+          const setRow = el('div', { class: 'set-row' });
+          setRow.appendChild(el('div', { class: 'set-label' }, 'Set ' + (si + 1)));
+          const isCardio = ex.lift === 'cardio';
+          setRow.appendChild(el('input', { type: 'number', value: set.weight, placeholder: isCardio ? 'min' : 'kg', step: '0.5', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', Number(e.target.value)) }));
+          setRow.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'reps', Number(e.target.value)) }));
+          setRow.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'rpe', Number(e.target.value)) }));
+          const delSetBtn = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => deleteSet(activeWeekIdx, di, ei, si) });
+          delSetBtn.innerHTML = ICONS.x;
+          setRow.appendChild(delSetBtn);
+          row.appendChild(setRow);
+        });
+
+        const addSetBtn = el('button', { class: 'btn btn-sm mt-8', onclick: () => addSet(activeWeekIdx, di, ei) });
+        addSetBtn.innerHTML = ICONS.plus + '<span>Add set</span>';
+        row.appendChild(addSetBtn);
+
+        const noteWrap = el('div', { class: 'mt-16' });
+        noteWrap.appendChild(el('label', { style: 'font-size:0.7rem; color: var(--text-4); margin-bottom: 4px;' }, 'Coach note'));
+        const noteInput = el('textarea', {
+          class: 'coach-note-input', placeholder: 'Optional cue/note for athlete (e.g. "Pause 2s at bottom")',
+          oninput: e => {
+            Store.update(s => { const p = s.programs.find(p => p.athleteId === athleteId); if (p) p.weeks[activeWeekIdx].days[di].exercises[ei].note = e.target.value; });
+            persistProgram(prog.id);
+          }
+        });
+        noteInput.value = ex.note || '';
+        noteWrap.appendChild(noteInput);
+        row.appendChild(noteWrap);
+
+        dayBody.appendChild(row);
+      });
+    }
+
+    const addExBtn = el('button', { class: 'btn mt-16', onclick: () => openAddExercise(activeWeekIdx, di) });
+    addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
+    dayBody.appendChild(addExBtn);
+    dayCard.appendChild(dayBody);
+    main.appendChild(dayCard);
+  });
+
+  builder.appendChild(main);
+  area.appendChild(builder);
+}
+
+// Helpers that mutate the program
+function progIdForAthlete(aid) { const p = Store.get().programs.find(p => p.athleteId === aid); return p ? p.id : null; }
+
+async function createProgramFor(athleteId) {
+  const newId = uid('prog');
+  const newProg = { id: newId, athleteId, coachId: user.id, name: 'New program', weeks: [newWeek(1, 3)] };
+  Store.update(s => { s.programs.push(newProg); });
+  try { await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not save program'); }
+  activeWeekIdx = 0; loadProgram();
+}
+async function deleteProgram() {
+  if (!confirm('Delete the entire program? This cannot be undone.')) return;
+  const aid = document.getElementById('progAthlete').value;
+  const pid = progIdForAthlete(aid);
+  Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); });
+  if (pid) await DB.deleteProgram(pid).catch(e => console.error(e));
+  activeWeekIdx = 0; loadProgram();
+}
+function addWeek() {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (p) { const num = (p.weeks.at(-1)?.number || 0) + 1; p.weeks.push(newWeek(num, 3)); activeWeekIdx = p.weeks.length - 1; }
+  });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+function duplicateWeekAction(programId, weekIdx) {
+  duplicateWeek(programId, weekIdx);
+  const p = Store.get().programs.find(p => p.id === programId);
+  if (p) activeWeekIdx = p.weeks.length - 1;
+  persistProgram(programId);
+  toast('Week duplicated');
+  loadProgram();
+}
+function deleteWeek(wi) {
+  if (!confirm('Delete this week?')) return;
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks.splice(wi, 1); });
+  persistProgram(progIdForAthlete(aid));
+  activeWeekIdx = Math.max(0, wi - 1); loadProgram();
+}
+function addDay(wi) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days.push(newDay('Day ' + (p.weeks[wi].days.length + 1))); });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+function deleteDay(wi, di) {
+  if (!confirm('Delete this day?')) return;
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days.splice(di, 1); });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+function updateDayName(wi, di, val) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days[di].name = val; });
+  persistProgram(progIdForAthlete(aid));
+}
+function deleteExercise(wi, di, ei) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days[di].exercises.splice(ei, 1); });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+function updateSet(wi, di, ei, si, field, val) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days[di].exercises[ei].sets[si][field] = val; });
+  persistProgram(progIdForAthlete(aid));
+}
+function addSet(wi, di, ei) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (p) { const last = p.weeks[wi].days[di].exercises[ei].sets.at(-1); p.weeks[wi].days[di].exercises[ei].sets.push(newSet(last?.weight || 0, last?.reps || 5, last?.rpe || 7)); }
+  });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+function deleteSet(wi, di, ei, si) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days[di].exercises[ei].sets.splice(si, 1); });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+
+// ===== ADD EXERCISE MODAL =====
+let addExerciseTarget = { wi: 0, di: 0 };
+let buildingSets = [];
+
+function openAddExercise(wi, di) {
+  addExerciseTarget = { wi, di };
+  buildingSets = [{ weight: 100, reps: 5, rpe: 7 }, { weight: 100, reps: 5, rpe: 7 }, { weight: 100, reps: 5, rpe: 8 }];
+  document.getElementById('exLift').value = 'squat';
+  document.getElementById('exNote').value = '';
+  document.getElementById('exNameOther').value = '';
+  onLiftChange(); renderSetsBuilder(); openModal('addExerciseModal');
+}
+
+function onLiftChange() {
+  const lift = document.getElementById('exLift').value;
+  const variantSel = document.getElementById('exVariant');
+  const variantGroup = document.getElementById('variantGroup');
+  const nameGroup = document.getElementById('exNameGroup');
+  const otherGroup = document.getElementById('exNameOtherGroup');
+  variantSel.innerHTML = '';
+  if (MAIN_LIFTS.includes(lift)) {
+    variantGroup.style.display = 'block'; nameGroup.style.display = 'none'; otherGroup.style.display = 'none';
+    variantsFor(lift).forEach(v => variantSel.appendChild(el('option', { value: v }, v + ' (×' + multiplierFor(lift, v) + ')')));
+  } else if (ACCESSORY_LIFTS.includes(lift)) {
+    variantGroup.style.display = 'none'; nameGroup.style.display = 'block'; otherGroup.style.display = 'none';
+    const nameSel = document.getElementById('exName'); nameSel.innerHTML = '';
+    exercisesFor(lift).forEach(n => nameSel.appendChild(el('option', { value: n }, n)));
+  } else if (lift === 'cardio') {
+    variantGroup.style.display = 'none'; nameGroup.style.display = 'block'; otherGroup.style.display = 'none';
+    const nameSel = document.getElementById('exName'); nameSel.innerHTML = '';
+    CARDIO_TYPES.forEach(n => nameSel.appendChild(el('option', { value: n }, n)));
+    buildingSets = [{ weight: 30, reps: 0, rpe: 7 }];
+    renderSetsBuilder();
+  } else {
+    variantGroup.style.display = 'none'; nameGroup.style.display = 'none'; otherGroup.style.display = 'block';
+  }
+}
+
+function renderSetsBuilder() {
+  const wrap = document.getElementById('setsBuilder');
+  wrap.innerHTML = '';
+  const lift = document.getElementById('exLift').value;
+  const isCardio = lift === 'cardio';
+  document.getElementById('presetSeg').style.display = isCardio ? 'none' : 'inline-flex';
+  buildingSets.forEach((set, i) => {
+    const row = el('div', { class: 'set-row' });
+    row.appendChild(el('div', { class: 'set-label' }, isCardio ? 'Bout ' + (i + 1) : 'Set ' + (i + 1)));
+    row.appendChild(el('input', { type: 'number', value: set.weight, placeholder: isCardio ? 'min' : 'kg', step: '0.5', oninput: e => buildingSets[i].weight = Number(e.target.value) }));
+    row.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => buildingSets[i].reps = Number(e.target.value) }));
+    row.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => buildingSets[i].rpe = Number(e.target.value) }));
+    const x = el('button', { class: 'btn-icon', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => { buildingSets.splice(i, 1); renderSetsBuilder(); } });
+    x.innerHTML = ICONS.x;
+    row.appendChild(x);
+    wrap.appendChild(row);
+  });
+}
+
+function applyPreset(sets, reps, rpe) {
+  const w = buildingSets[0]?.weight || 100;
+  buildingSets = [];
+  for (let i = 0; i < sets; i++) buildingSets.push({ weight: w, reps, rpe });
+  renderSetsBuilder();
+}
+
+function addSetRow() {
+  const last = buildingSets.at(-1) || { weight: 100, reps: 5, rpe: 7 };
+  buildingSets.push({ ...last });
+  renderSetsBuilder();
+}
+
+function confirmAddExercise() {
+  const lift = document.getElementById('exLift').value;
+  let variant = '', exerciseName = '';
+  if (MAIN_LIFTS.includes(lift)) variant = document.getElementById('exVariant').value;
+  else if (ACCESSORY_LIFTS.includes(lift) || lift === 'cardio') exerciseName = document.getElementById('exName').value;
+  else { exerciseName = document.getElementById('exNameOther').value.trim(); if (!exerciseName) return toast('Enter exercise name'); }
+  if (!buildingSets.length) return toast('Add at least one set');
+  const note = document.getElementById('exNote').value.trim();
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    const ex = newExercise(lift, variant, exerciseName);
+    ex.note = note;
+    ex.sets = buildingSets.map(b => newSet(b.weight, b.reps, b.rpe));
+    p.weeks[addExerciseTarget.wi].days[addExerciseTarget.di].exercises.push(ex);
+  });
+  persistProgram(progIdForAthlete(aid));
+  closeModal('addExerciseModal'); loadProgram();
+}
+
+// ===== TEMPLATES =====
+function renderTemplates() {
+  const area = document.getElementById('templatesArea');
+  area.innerHTML = '';
+  const tpls = (Store.get().programTemplates || []).filter(t => t.coachId === user.id);
+  if (!tpls.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.copy;
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No templates yet'));
+    e.appendChild(el('p', {}, 'Open any program in the builder, then click "Save as template" to add one here.'));
+    area.appendChild(e);
+    return;
+  }
+  const grid = el('div', { class: 'template-grid' });
+  tpls.forEach(t => {
+    const totalSets = t.payload.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets).length;
+    const card = el('div', { class: 'template-card' });
+    card.appendChild(el('div', { class: 'tpl-name' }, t.name));
+    card.appendChild(el('div', { class: 'tpl-meta' }, t.payload.weeks.length + ' wk · ' + totalSets + ' sets · saved ' + fmtDateShort(new Date(t.createdAt).toISOString().slice(0, 10))));
+    const actions = el('div', { class: 'tpl-actions' });
+    const apply = el('button', { class: 'btn btn-sm btn-primary', onclick: () => openApplyTemplate(t) }, 'Apply');
+    actions.appendChild(apply);
+    const del = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => { if (confirm('Delete template "' + t.name + '"?')) { Store.update(s => { s.programTemplates = s.programTemplates.filter(x => x.id !== t.id); }); await persistDeleteTemplate(t.id); renderTemplates(); }}});
+    del.innerHTML = ICONS.trash;
+    actions.appendChild(del);
+    card.appendChild(actions);
+    grid.appendChild(card);
+  });
+  area.appendChild(grid);
+}
+
+let _saveTplTarget = null;
+function openSaveTemplate(prog) {
+  _saveTplTarget = prog;
+  document.getElementById('tplName').value = prog.name + ' Template';
+  openModal('saveTplModal');
+}
+async function confirmSaveTemplate() {
+  const name = document.getElementById('tplName').value.trim();
+  if (!name) return toast('Enter a name');
+  const newId = uid('tpl');
+  const tpl = {
+    id: newId, coachId: user.id, name, createdAt: Date.now(),
+    payload: { weeks: _saveTplTarget.weeks.map(wk => ({
+      number: wk.number,
+      days: wk.days.map(d => ({
+        name: d.name,
+        exercises: d.exercises.map(ex => ({
+          lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
+          sets: ex.sets.map(set => ({ weight: set.weight, reps: set.reps, rpe: set.rpe }))
+        }))
+      }))
+    }))}
+  };
+  Store.update(s => { s.programTemplates = s.programTemplates || []; s.programTemplates.push(tpl); });
+  await persistAddTemplate(tpl);
+  closeModal('saveTplModal');
+  toast('Template saved');
+}
+
+let _applyTplTarget = null;
+function openApplyTemplate(tpl) {
+  _applyTplTarget = tpl;
+  const sel = document.getElementById('applyTplAthlete');
+  sel.innerHTML = '';
+  const myAth = Store.get().athletes.filter(a => a.coachId === user.id);
+  if (!myAth.length) sel.appendChild(el('option', { value: '' }, 'No athletes — invite first'));
+  else myAth.forEach(a => sel.appendChild(el('option', { value: a.id }, a.name)));
+  openModal('applyTplModal');
+}
+async function confirmApplyTemplate() {
+  const aid = document.getElementById('applyTplAthlete').value;
+  if (!aid) return toast('Pick an athlete');
+
+  // Reuse existing program id if any (so DB upsert with onConflict=athlete_id keeps the same row)
+  const existing = Store.get().programs.find(p => p.athleteId === aid);
+  const programId = existing ? existing.id : uid('prog');
+  const newProg = {
+    id: programId, athleteId: aid, coachId: user.id, name: _applyTplTarget.name,
+    weeks: _applyTplTarget.payload.weeks.map(wk => ({
+      id: uid('wk'), number: wk.number,
+      days: wk.days.map(d => ({
+        id: uid('day'), name: d.name,
+        exercises: d.exercises.map(ex => ({
+          id: uid('ex'),
+          lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
+          sets: ex.sets.map(set => ({ id: uid('set'), weight: set.weight, reps: set.reps, rpe: set.rpe, completed: false, actualRpe: null, completedAt: null, note: '' }))
+        }))
+      }))
+    }))
+  };
+  Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); s.programs.push(newProg); });
+  try { await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not apply template'); }
+  closeModal('applyTplModal');
+  toast('Template applied');
+  document.querySelector('[data-tab="program"]').click();
+  setTimeout(() => { document.getElementById('progAthlete').value = aid; activeWeekIdx = 0; loadProgram(); }, 50);
+}
+
+// ===== PROGRESS =====
+function renderProgressForAthlete() {
+  const aid = document.getElementById('progressAthlete').value;
+  const area = document.getElementById('progressArea');
+  area.innerHTML = '';
+
+  if (!aid) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chart;
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No athlete selected'));
+    area.appendChild(e); return;
+  }
+
+  const s = Store.get();
+  const logs = s.workoutLogs.filter(l => l.athleteId === aid && l.lift !== 'cardio');
+  const bw = s.bodyweight.filter(b => b.athleteId === aid);
+  const goals = s.goals.find(g => g.athleteId === aid);
+
+  const stat = el('div', { class: 'stat-grid' });
+  ['squat', 'bench', 'deadlift'].forEach((lift, i) => {
+    const liftLogs = logs.filter(l => l.lift === lift);
+    const best = liftLogs.length ? Math.max(...liftLogs.map(l => l.e1rmComp)) : 0;
+    const tile = el('div', { class: 'stat-tile' + (i === 0 ? ' featured' : '') });
+    const lab = el('div', { class: 'stat-label' });
+    lab.innerHTML = ICONS.trophy + '<span>Best ' + LIFT_LABELS[lift] + ' e1RM</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: Math.round(best) + '<span class="unit"> kg</span>' }));
+    stat.appendChild(tile);
+  });
+  if (bw.length) {
+    const last = [...bw].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const tile = el('div', { class: 'stat-tile' });
+    const lab = el('div', { class: 'stat-label' });
+    lab.innerHTML = ICONS.scale + '<span>Latest bodyweight</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: last.weight.toFixed(1) + '<span class="unit"> kg</span>' }));
+    stat.appendChild(tile);
+  }
+  area.appendChild(stat);
+
+  const delta = getWeeklyDelta(aid);
+  if (Object.keys(delta).length) {
+    area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'This week vs last'));
+    const grid = el('div', { class: 'delta-grid' });
+    ['squat', 'bench', 'deadlift'].forEach(lift => {
+      const d = delta[lift];
+      if (!d) return;
+      const tile = el('div', { class: 'delta-tile' });
+      tile.appendChild(el('div', { class: 'dt-lift' }, LIFT_LABELS[lift] + ' e1RM'));
+      const row = el('div', { class: 'dt-row' });
+      row.appendChild(el('div', { class: 'dt-num', html: Math.round(d.current) + '<span class="unit"> kg</span>' }));
+      if (d.delta != null) {
+        const cls = d.delta > 0 ? 'up' : d.delta < 0 ? 'down' : 'flat';
+        const arrow = d.delta > 0 ? '▲' : d.delta < 0 ? '▼' : '–';
+        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(Math.round(d.delta * 10) / 10) + 'kg'));
+      } else {
+        row.appendChild(el('span', { class: 'dt-delta flat' }, 'first week'));
+      }
+      tile.appendChild(row);
+      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(d.previous) + 'kg'));
+      grid.appendChild(tile);
+    });
+    area.appendChild(grid);
+  }
+
+  if (goals) {
+    area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'Athlete goals'));
+    const grid = el('div', { class: 'goals-grid' });
+    const goalDefs = [
+      { key: 'squat', label: 'Squat', current: bestE1RM(aid, 'squat') },
+      { key: 'bench', label: 'Bench', current: bestE1RM(aid, 'bench') },
+      { key: 'deadlift', label: 'Deadlift', current: bestE1RM(aid, 'deadlift') },
+      { key: 'total', label: 'Total', current: currentTotal(aid) }
+    ];
+    if (goals.bodyweight) goalDefs.push({ key: 'bodyweight', label: 'Bodyweight', current: latestBodyweight(aid) || 0, direction: goals.bwDirection });
+    let any = false;
+    goalDefs.forEach(def => {
+      const target = goals[def.key];
+      if (!target || target <= 0) return;
+      any = true;
+      const pct = goalProgressPct(def.current, target, def.direction);
+      const card = el('div', { class: 'goal-card' + (pct >= 100 ? ' complete' : '') });
+      card.appendChild(el('div', { class: 'gc-label' }, def.label + ' goal'));
+      const row = el('div', { class: 'gc-row' });
+      row.appendChild(el('div', { class: 'gc-current', html: (Math.round(def.current * 10) / 10) + '<span class="unit"> kg</span>' }));
+      row.appendChild(el('span', { class: 'gc-arrow' }, '→'));
+      row.appendChild(el('div', { class: 'gc-target' }, target + ' kg'));
+      card.appendChild(row);
+      const bar = el('div', { class: 'gc-bar' });
+      const fill = el('div', { class: 'gc-bar-fill' });
+      bar.appendChild(fill);
+      card.appendChild(bar);
+      card.appendChild(el('div', { class: 'gc-pct' }, el('span', {}, pct + '%'), el('span', { class: 'delta' }, def.direction === 'cut' ? (def.current <= target ? '✓ at goal' : (def.current - target).toFixed(1) + 'kg to go') : (def.current >= target ? '✓ achieved' : (target - def.current).toFixed(1) + 'kg to go'))));
+      grid.appendChild(card);
+      requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = pct + '%'; }));
+    });
+    if (any) area.appendChild(grid);
+  }
+
+  if (!logs.length && !bw.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chart;
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No data yet'));
+    e.appendChild(el('p', {}, 'Once your athlete logs sets, charts appear here.'));
+    area.appendChild(e);
+    return;
+  }
+
+  const chartCard = el('div', { class: 'chart-card' });
+  chartCard.appendChild(el('div', { class: 'chart-head' },
+    el('div', {}, el('h3', {}, 'e1RM over time'), el('div', { class: 'chart-sub' }, 'Competition equivalent — variant multipliers applied automatically.')),
+    el('div', { class: 'chart-legend' },
+      el('span', { class: 'lg-item' }, el('span', { class: 'lg-dot', style: 'background:#ff2d3f' }), 'Squat'),
+      el('span', { class: 'lg-item' }, el('span', { class: 'lg-dot', style: 'background:#ffb547' }), 'Bench'),
+      el('span', { class: 'lg-item' }, el('span', { class: 'lg-dot', style: 'background:#4ed884' }), 'Deadlift')
+    )
+  ));
+  const wrap = el('div', { class: 'chart-wrap' });
+  chartCard.appendChild(wrap);
+  area.appendChild(chartCard);
+
+  const series = [];
+  ['squat', 'bench', 'deadlift'].forEach((lift, i) => {
+    const palette = ['#ff2d3f', '#ffb547', '#4ed884'][i];
+    const liftLogs = logs.filter(l => l.lift === lift);
+    if (!liftLogs.length) return;
+    const byDate = {};
+    liftLogs.forEach(l => { if (!byDate[l.date] || l.e1rmComp > byDate[l.date]) byDate[l.date] = l.e1rmComp; });
+    const data = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b)).map(([x, y]) => ({ x, y }));
+    series.push({ name: LIFT_LABELS[lift], color: palette, data });
+  });
+  drawLineChart(wrap, { series, unit: 'kg', height: 320, area: false });
+
+  if (bw.length) {
+    const bwCard = el('div', { class: 'chart-card' });
+    bwCard.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Bodyweight')));
+    const bwWrap = el('div', { class: 'chart-wrap' });
+    bwCard.appendChild(bwWrap);
+    area.appendChild(bwCard);
+    drawLineChart(bwWrap, {
+      series: [{ name: 'Bodyweight', color: '#ff2d3f', data: [...bw].sort((a, b) => a.date.localeCompare(b.date)).map(b => ({ x: b.date, y: b.weight })) }],
+      unit: 'kg', height: 320, area: true,
+      goal: goals && goals.bodyweight ? { value: goals.bodyweight, label: 'Goal · ' + goals.bodyweight + 'kg' } : null
+    });
+  }
+
+  const notes = (s.sessionNotes || []).filter(n => n.athleteId === aid).sort((a, b) => b.date.localeCompare(a.date));
+  if (notes.length) {
+    const card = el('div', { class: 'chart-card' });
+    card.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Session notes from athlete')));
+    notes.slice(0, 8).forEach(n => {
+      const day = (Store.get().programs.find(p => p.athleteId === aid)?.weeks || []).flatMap(w => w.days).find(d => d.id === n.dayId);
+      const row = el('div', { style: 'padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px;' });
+      row.appendChild(el('div', { class: 'flex-between mb-8' },
+        el('span', { class: 'fw-700' }, day?.name || 'Session'),
+        el('span', { class: 'faint text-xs' }, fmtDate(n.date))
+      ));
+      row.appendChild(el('p', { class: 'dim text-sm' }, n.note));
+      card.appendChild(row);
+    });
+    area.appendChild(card);
+  }
+}
+</script>
+</body>
+</html>

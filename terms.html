@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terms of Service — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<main class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
+  <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
+  <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 8px;">Terms of Service</h1>
+  <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 2 May 2026</p>
+
+  <div class="card" style="padding: 30px; line-height: 1.7;">
+    <p>By using POWALIFTA you agree to these terms. If you don't, please don't use the service.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">The service</h3>
+    <p>POWALIFTA is a software platform for powerlifting coaches and athletes to plan training, log sets, and track progress. We provide the tool. We do not provide coaching, medical advice, training advice, or supervision.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Your account</h3>
+    <p>You're responsible for keeping your password secure and for everything that happens under your account. Don't share credentials. Don't impersonate other people. One person per account.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Health & safety disclaimer</h3>
+    <p><strong>Lifting heavy weights carries risk.</strong> POWALIFTA is a logging and planning tool — it doesn't know your medical history, your form, or your readiness. Programs created by coaches on POWALIFTA are between you and that coach. We are not liable for injuries, accidents, or health outcomes resulting from training. Consult a doctor before starting a strength program if you have any medical condition.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Coach-athlete relationships</h3>
+    <p>Coaches who use POWALIFTA to program for athletes are independent providers. POWALIFTA is not a party to any coaching agreement, payment, or training plan. Disputes between coaches and athletes are between those parties — we provide tools, not arbitration.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Acceptable use</h3>
+    <p>Don't use POWALIFTA to harass others, post abusive content, attempt to break the service, scrape user data, or anything illegal. We reserve the right to suspend or terminate accounts that do.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Payments (coaches)</h3>
+    <p>Paid coach plans are billed monthly via our payment processor. You can cancel any time — your plan stays active until the end of the current billing period. We don't issue prorated refunds. Tax is your responsibility.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Your content</h3>
+    <p>You retain ownership of programs, notes, and other content you create on POWALIFTA. By using the service, you grant us a non-exclusive license to host, display, and process this content as needed to provide the service. You can delete it any time.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Liability</h3>
+    <p>POWALIFTA is provided "as is" without warranty. We're a small project. Our liability for any claim related to the service is limited to the amount you paid us in the 12 months prior to the claim (or zero, if you're on a free plan). This applies to the maximum extent permitted by law.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Termination</h3>
+    <p>You can delete your account any time. We can suspend or terminate your account if you violate these terms. We'll give reasonable notice except where security or law requires otherwise.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Changes</h3>
+    <p>We may update these terms. If we make material changes, we'll update the "Last updated" date and notify users with active accounts by email.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Contact</h3>
+    <p><a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a></p>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <div class="flex gap-16">
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+</script>
+</body>
+</html>

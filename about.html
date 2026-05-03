@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<main class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
+  <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
+  <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 28px; line-height: 0.95;">ABOUT<br><span class="accent" style="background: var(--grad-red); -webkit-background-clip: text; background-clip: text; color: transparent;">POWALIFTA.</span></h1>
+
+  <div class="card" style="padding: 32px; line-height: 1.7; font-size: 1.02rem;">
+    <p>POWALIFTA exists because powerlifting coaches still program in Excel and athletes still report on WhatsApp. Spreadsheets get lost. Threads get buried. Half-finished blocks pile up. Nobody has clean data on what actually got lifted.</p>
+
+    <p style="margin-top: 14px;">It's one place to plan, train, and track. Coaches build week-by-week programs in a clean builder. Athletes open the app at the gym, see exactly what to do, tick each set, log how it felt on a 1–10 scale. That's it. Behind the scenes, every set turns into an estimated 1-rep max plotted over time, with variant multipliers (paused squat, tempo bench, deficit deadlift) handled automatically. Athletes set goals — squat / bench / deadlift / total / bodyweight — and watch the progress bars fill as the months roll. Coaches see all of it across their roster, in real time.</p>
+
+    <p style="margin-top: 14px;">The pricing model: free for athletes, forever. Free for coaches with up to 3 athletes. Paid tiers as a roster grows. The free tier is real and permanent — it's not a trial. We make money when coaches make money.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.5rem;">Who's behind it</h3>
+    <p>POWALIFTA is built by a powerlifter who got tired of spreadsheets. Reach out: <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.5rem;">What we believe</h3>
+    <p><strong>RPE over %1RM.</strong> Athletes know how a set actually felt. Trying to predict it from a max test from three weeks ago is a worse signal.</p>
+    <p style="margin-top: 8px;"><strong>Variants matter.</strong> A paused squat at 140 isn't the same as a competition squat at 140. Multipliers exist for a reason.</p>
+    <p style="margin-top: 8px;"><strong>Tools should disappear.</strong> The best logging app is the one you stop noticing. Tap, tick, log RPE, done.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.5rem;">Where it's going</h3>
+    <p>Backend port (multi-device sync, real coach-athlete connections), mobile polish, programming templates, comp prep mode with attempt selectors, and shared program library. If you have an idea, send it.</p>
+  </div>
+
+  <div style="text-align: center; margin-top: 40px;">
+    <a href="index.html" class="btn btn-primary btn-lg">Try POWALIFTA</a>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <div class="flex gap-16">
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+</script>
+</body>
+</html>

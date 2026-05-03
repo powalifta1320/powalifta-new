@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQ — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.faq-item {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  transition: background 0.15s;
+}
+.faq-q:hover { background: var(--bg-2); }
+.faq-q .toggler {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Anton'; font-size: 1.2rem; color: var(--text-3);
+  transition: transform 0.2s, color 0.2s;
+}
+.faq-item.open .faq-q .toggler { transform: rotate(45deg); color: var(--red); }
+.faq-a {
+  padding: 0 24px;
+  max-height: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  line-height: 1.7;
+  transition: max-height 0.3s, padding 0.3s;
+}
+.faq-item.open .faq-a {
+  padding: 0 24px 22px;
+  max-height: 600px;
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<main class="container" style="max-width: 800px; padding-top: 60px; padding-bottom: 80px;">
+  <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
+  <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 28px;">FAQ</h1>
+
+  <div id="faq">
+    <div class="faq-item">
+      <div class="faq-q"><span>How is my e1RM calculated?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>We use the RPE-percentage formula popular in the strength community (Tuchscherer / RTS style):</p>
+        <p style="margin-top:8px; font-family: 'Space Grotesk', monospace; background: var(--bg-2); padding: 10px 14px; border-radius: 6px;">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
+        <p style="margin-top:8px">A 1-rep set at RPE 10 returns exactly your weight (correct, that IS your 1-rep max). A 5×5 at RPE 8 returns about 1.25 × the weight. For non-competition variants we then multiply by the variant multiplier (e.g. paused squat × 1.07) to estimate what you'd hit in the comp version of the lift. The result is what gets plotted on your e1RM chart.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>What's RPE and why do you use it?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>RPE = Rate of Perceived Exertion. A 1–10 scale where 10 means you couldn't have done another rep, 9 means one rep left, 8 means two reps left, and so on. It's the most reliable way for athletes to self-regulate intensity day to day, because percentages of your true 1RM change with sleep, stress, life. RPE-based programming is what most modern powerlifting coaches use. POWALIFTA is built around it natively rather than %1RM.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Why "competition equivalent" e1RM?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Different lift variations are harder than competition lifts. A paused squat at 100kg is harder than a competition squat at 100kg. So when you log a paused squat, we scale up the e1RM by 1.07 to estimate what you'd actually be able to do in the comp version. This way your chart compares apples to apples — you can see your "comp" strength trending without having to do comp lifts every session.</p>
+        <p style="margin-top:8px">Multipliers used: paused squat ×1.07, tempo squat ×1.12, pin squat ×1.08; paused bench ×1.06, close grip ×1.09, pin press ×1.08, incline ×1.12; paused deadlift ×1.07, deficit ×1.06, RDL ×1.10.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Can I use POWALIFTA without a coach?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Yes. Sign up as an athlete without an invite code and you can build your own programs (you'd need a coach account to do that — the program builder is a coach feature). Or just log sets as you do them and let the e1RM, goals, and bodyweight tracking do their thing. The platform is designed for coach-athlete pairs but works fine self-coached.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Is there a mobile app?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Not yet — we run as a mobile-friendly website. You can save it to your phone's home screen for an app-like experience: open the site in Safari/Chrome, tap Share → Add to Home Screen. A native app is on the roadmap.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Why is my data only on this device?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>The current version is a prototype that stores everything in your browser. That means each browser/device has its own database — opening the site on your phone gives you a fresh account, separate from your laptop. We're porting to a real backend (Supabase) which will give you cross-device sync, real coach-athlete connections, and durable data. Until then, sign up on whichever device you'll mainly use.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>How do coaches get paid for plans?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Coach plans (Starter free up to 3 athletes, Pro $25/mo for 5–15, Studio $100/mo for 15–25, Gym $200/mo for 25+) are billed via Lemon Squeezy. Coaches handle athlete billing on their own — POWALIFTA is the platform, not a payment processor for coaching fees.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>What if I forget my password?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>In the prototype, we don't have password reset yet (no backend = no email sending). Once we move to the real backend, password reset via email will be standard. For now, if you've forgotten yours, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Can I export my data?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Not yet via the UI. If you want a JSON export, contact us and we'll send instructions to dump localStorage. JSON export and CSV export of workout logs are on the roadmap.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Does it work for non-powerlifting strength training?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>The platform is opinionated — built around squat / bench / deadlift, RPE, e1RM, and bodyweight tracking. You can use the "Other" exercise category for anything that doesn't fit (Olympic lifts, gymnastics, etc.) but the e1RM math is calibrated for typical powerlifting reps and won't be meaningful for, say, max-distance sprinting.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <div class="flex gap-16">
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.querySelector('.faq-q').addEventListener('click', () => item.classList.toggle('open'));
+});
+// Open the first one by default
+const first = document.querySelector('.faq-item');
+if (first) first.classList.add('open');
+</script>
+</body>
+</html>
