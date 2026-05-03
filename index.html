@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POWALIFTA — Built for the barbell.</title>
+<meta name="description" content="Powerlifting platform. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for athletes and coaches.">
+<meta property="og:title" content="POWALIFTA — Built for the barbell.">
+<meta property="og:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="og.svg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="og.svg">
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<header class="hero">
+  <div class="container">
+    <span class="eyebrow"><span class="dot"></span> POWERLIFTING'S NEW HOME</span>
+    <h1>BUILT FOR<br>THE <span class="accent">BARBELL.</span></h1>
+    <p class="lead">The platform connecting powerlifters with their coaches. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight — all in one place.</p>
+    <div class="hero-cta">
+      <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('athlete'); return false;">Sign up as Athlete</a>
+      <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('coach'); return false;">Sign up as Coach</a>
+    </div>
+    <p class="dim text-sm" style="margin-top:18px">Already have an account? <a href="#" onclick="openLoginModal(); return false;">Log in</a></p>
+
+    <!-- Hero preview: real chart driven by drawLineChart -->
+    <div class="hero-preview">
+      <div class="hero-preview-card">
+        <div class="hp-head">
+          <div>
+            <div class="hp-title">e1RM · LAST 28 DAYS</div>
+            <div class="hp-sub">Squat · Bench · Deadlift, competition equivalent</div>
+          </div>
+          <span class="hp-pill">▲ +18% / 28 days</span>
+        </div>
+        <div id="heroChart" style="position:relative;"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Marquee strip -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>RPE-NATIVE <span class="dot"></span></span>
+    <span>VARIANT MULTIPLIERS <span class="dot"></span></span>
+    <span>AUTO e1RM <span class="dot"></span></span>
+    <span>WEEKLY PROGRAMMING <span class="dot"></span></span>
+    <span>PLATE CALCULATOR <span class="dot"></span></span>
+    <span>BODYWEIGHT TRACKING <span class="dot"></span></span>
+    <span>SBD GOALS <span class="dot"></span></span>
+    <span>COACH NOTES <span class="dot"></span></span>
+    <!-- duplicate for seamless loop -->
+    <span>RPE-NATIVE <span class="dot"></span></span>
+    <span>VARIANT MULTIPLIERS <span class="dot"></span></span>
+    <span>AUTO e1RM <span class="dot"></span></span>
+    <span>WEEKLY PROGRAMMING <span class="dot"></span></span>
+    <span>PLATE CALCULATOR <span class="dot"></span></span>
+    <span>BODYWEIGHT TRACKING <span class="dot"></span></span>
+    <span>SBD GOALS <span class="dot"></span></span>
+    <span>COACH NOTES <span class="dot"></span></span>
+  </div>
+</div>
+
+<!-- INSIDE THE PLATFORM -->
+<section id="inside">
+  <div class="container">
+    <div class="section-title">
+      <div class="section-tag">Inside the platform</div>
+      <h2>Every feature your<br>spreadsheet <span class="tilt red">isn't.</span></h2>
+    </div>
+
+    <div class="inside-grid">
+
+      <!-- Hero feature: Today's session -->
+      <div class="inside-card hero-feat">
+        <div class="inside-card-content">
+          <div class="inside-card-tag">For athletes</div>
+          <h3>Train. Tick. Track.</h3>
+          <p>Open today's session at the gym. Pick the date you trained, see your sets exactly as your coach prescribed, tick each set as you finish, log how it actually felt. e1RM appears on your chart. Done.</p>
+          <ul style="list-style:none; padding:0; margin:0; color: var(--text-2); font-size: 0.93rem;">
+            <li style="padding: 4px 0;">▸ Tap any weight for plate breakdown</li>
+            <li style="padding: 4px 0;">▸ Rest timer pops up between sets</li>
+            <li style="padding: 4px 0;">▸ Mark a date as a rest day, streak preserved</li>
+            <li style="padding: 4px 0;">▸ Optional note to coach after each session</li>
+          </ul>
+        </div>
+        <div class="inside-mockup">
+          <div style="padding: 14px 16px 4px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <div style="font-family:'Anton'; font-size:1.1rem;">PAUSED SQUAT <span style="font-size:0.7rem; padding:2px 8px; background:rgba(255,45,63,0.1); color:var(--red); border:1px solid rgba(255,45,63,0.3); border-radius:100px; font-weight:700; font-family:'Plus Jakarta Sans'; margin-left:6px;">×1.07</span></div>
+              <span style="font-size:0.7rem; padding:3px 10px; background:rgba(78,216,132,0.1); color:var(--green); border:1px solid rgba(78,216,132,0.3); border-radius:100px; font-weight:700;">✓ COMPLETE</span>
+            </div>
+          </div>
+          <div style="padding: 0 16px 16px;">
+            <div class="mt-set done"><div class="num">1</div><div class="v">140<span style="color:var(--text-3); font-weight:500"> kg</span></div><div class="v dim">× 5</div><div class="v dim">@ RPE 7</div><div style="font-size:0.8rem; color: var(--text-2);">Felt: <strong>RPE 7.5</strong></div><div class="cb">✓</div></div>
+            <div class="mt-set done"><div class="num">2</div><div class="v">140<span style="color:var(--text-3); font-weight:500"> kg</span></div><div class="v dim">× 5</div><div class="v dim">@ RPE 7</div><div style="font-size:0.8rem; color: var(--text-2);">Felt: <strong>RPE 8</strong></div><div class="cb">✓</div></div>
+            <div class="mt-set done"><div class="num">3</div><div class="v">140<span style="color:var(--text-3); font-weight:500"> kg</span></div><div class="v dim">× 5</div><div class="v dim">@ RPE 8</div><div style="font-size:0.8rem; color: var(--text-2);">Felt: <strong>RPE 8.5</strong></div><div class="cb">✓</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Program builder mockup -->
+      <div class="inside-card">
+        <div class="inside-card-content">
+          <div class="inside-card-tag">For coaches</div>
+          <h3>Program builder<br>without the chaos.</h3>
+          <p>Drop weeks, days, exercises. Pick squat / bench / deadlift + variant, or accessory by category. Quick-fill presets. Coach notes per exercise.</p>
+        </div>
+        <div class="inside-mockup">
+          <div class="mp-day">
+            <div class="mp-day-head"><span>WEEK 1 · DAY 1</span><span class="pill">8 SETS</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Competition Squat</strong></span><span>3 × 5 @ RPE 7–8</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Paused Squat</strong></span><span>2 × 4 @ RPE 8</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Leg Curls</strong></span><span>3 × 12 @ RPE 8</span></div>
+          </div>
+          <div class="mp-day">
+            <div class="mp-day-head"><span>WEEK 1 · DAY 2</span><span class="pill">7 SETS</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Competition Bench</strong></span><span>3 × 5 @ RPE 7–8</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Close Grip Bench</strong></span><span>2 × 6 @ RPE 8</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goals mockup -->
+      <div class="inside-card">
+        <div class="inside-card-content">
+          <div class="inside-card-tag">For athletes</div>
+          <h3>Goals + progress<br>at a glance.</h3>
+          <p>Set targets for squat, bench, deadlift, total, and bodyweight. Live progress bars show how close you are. Goal line drawn on your bodyweight chart.</p>
+        </div>
+        <div class="inside-mockup">
+          <div class="mg-goal">
+            <div class="mg-goal-row"><span class="mg-goal-name">Squat goal</span><span class="mg-goal-num">193<span class="target">/ 220 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:88%"></div></div>
+          </div>
+          <div class="mg-goal">
+            <div class="mg-goal-row"><span class="mg-goal-name">Bench goal</span><span class="mg-goal-num">119<span class="target">/ 140 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:85%"></div></div>
+          </div>
+          <div class="mg-goal">
+            <div class="mg-goal-row"><span class="mg-goal-name">Deadlift goal</span><span class="mg-goal-num">222<span class="target">/ 260 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:85%"></div></div>
+          </div>
+          <div class="mg-goal" style="border-color: rgba(78,216,132,0.3); background: linear-gradient(180deg, rgba(78,216,132,0.06), transparent);">
+            <div class="mg-goal-row"><span class="mg-goal-name">Bodyweight · maintain</span><span class="mg-goal-num">82.4<span class="target">/ 83 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:99%; background: linear-gradient(135deg, #4ed884, #2ea05e);"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" style="background: linear-gradient(180deg, var(--bg-1), var(--bg));">
+  <div class="container">
+    <div class="section-title center">
+      <div class="section-tag">How it works</div>
+      <h2>Three roles. <span class="tilt red">One platform.</span></h2>
+      <p>Coach builds it. Athlete executes it. Strength tracked automatically.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Coach builds the program</h3>
+        <p>Pick lifts (squat / bench / deadlift + variants), accessories, sets, reps and target RPE. Quick presets and a clean week-by-week builder.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Athlete trains, ticks, reports</h3>
+        <p>Open today's session at the gym. Tick each set as you finish, log how it actually felt (RPE 1–10), done.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>e1RM calculated, charts grow</h3>
+        <p>Every working set becomes a data point. Estimated 1-rep max plotted over time per lift — variant multipliers handled automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section id="why">
+  <div class="container">
+    <div class="section-title center">
+      <div class="section-tag">Why POWALIFTA</div>
+      <h2>Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
+    </div>
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="feat-icon" id="feat-i1"></div>
+        <h4>RPE-native programming</h4>
+        <p>Programs written in RPE, not %1RM guesswork. Athletes self-regulate. Coaches see real-world feedback.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" id="feat-i2"></div>
+        <h4>Variant-aware e1RM</h4>
+        <p>Paused squat? Tempo bench? Deficit pull? Multipliers built in. Your e1RM reflects what you'd hit in comp.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" id="feat-i3"></div>
+        <h4>Goals + progress bars</h4>
+        <p>Set targets for squat, bench, deadlift, total, and bodyweight. See how close you are at a glance.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" id="feat-i4"></div>
+        <h4>Bodyweight tracking</h4>
+        <p>Daily weigh-ins logged + plotted. Stay in your weight class without thinking about it.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" id="feat-i5"></div>
+        <h4>Plate calculator</h4>
+        <p>Tap any working weight to see the exact plates needed. No standing at the rack doing maths.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" id="feat-i6"></div>
+        <h4>Rest day system</h4>
+        <p>Mark days off so they don't break your streak. Pick any session date, train when life lets you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COACHES -->
+<section id="coaches" style="background: linear-gradient(180deg, var(--bg-1), var(--bg));">
+  <div class="container">
+    <div class="section-title center">
+      <div class="section-tag">Coaches</div>
+      <h2>Browse <span class="tilt red">coaches.</span></h2>
+      <p>Find a coach to work with — or sign up as one yourself.</p>
+    </div>
+    <div id="coachGrid" class="coach-grid"></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="container">
+    <div class="section-title center">
+      <div class="section-tag">Pricing</div>
+      <h2>Free for athletes. <span class="tilt red">Forever.</span></h2>
+      <p>Coaches scale as their roster grows.</p>
+    </div>
+    <div class="price-grid">
+      <div class="price-tile">
+        <h4>Athletes</h4>
+        <div class="price">FREE<span class="per"> / forever</span></div>
+        <p>Log every set. Track e1RM, goals, and bodyweight. Get coached.</p>
+      </div>
+      <div class="price-tile">
+        <h4>Coach Starter</h4>
+        <div class="price">FREE<span class="per"> / 3 athletes</span></div>
+        <p>Up to 3 athletes. Full builder, full progress tracking.</p>
+      </div>
+      <div class="price-tile featured">
+        <h4>Coach Pro</h4>
+        <div class="price">$25<span class="per"> / mo</span></div>
+        <p>5–15 athletes. Everything in Starter.</p>
+      </div>
+      <div class="price-tile">
+        <h4>Coach Studio</h4>
+        <div class="price">$100<span class="per"> / mo</span></div>
+        <p>15–25 athletes.</p>
+      </div>
+      <div class="price-tile">
+        <h4>Coach Gym</h4>
+        <div class="price">$200<span class="per"> / mo</span></div>
+        <p>25+ athletes. Unlimited.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <div class="flex gap-16">
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<!-- LOGIN MODAL -->
+<div class="modal-backdrop" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('loginModal')">&times;</button>
+    <h3>Log in</h3>
+    <div class="form-group">
+      <label>Account type</label>
+      <select id="loginType">
+        <option value="athlete">Athlete</option>
+        <option value="coach">Coach</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-lg btn-block" onclick="doLogin()">Log in</button>
+    <p class="dim text-sm center" style="margin-top:14px">Don't have an account? <a href="#" onclick="closeModal('loginModal'); openSignupModal('athlete'); return false;">Sign up</a></p>
+  </div>
+</div>
+
+<!-- SIGNUP MODAL -->
+<div class="modal-backdrop" id="signupModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('signupModal')">&times;</button>
+    <h3 id="signupTitle">Sign up</h3>
+    <div class="form-group">
+      <label>Account type</label>
+      <select id="signupType" onchange="onSignupTypeChange()">
+        <option value="athlete">Athlete</option>
+        <option value="coach">Coach</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Full name</label>
+      <input type="text" id="signupName" placeholder="Jane Doe" autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="signupEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="signupPwd" placeholder="At least 6 chars" autocomplete="new-password">
+    </div>
+    <div class="form-group" id="bioGroup" style="display:none">
+      <label>Coach bio (shown on homepage)</label>
+      <textarea id="signupBio" placeholder="Tell athletes about your experience, certifications, training style..."></textarea>
+    </div>
+    <div class="form-group" id="codeGroup">
+      <label>Invite code (optional)</label>
+      <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
+      <p class="faded text-xs" style="margin-top:6px">No code? Sign up first, find a coach later.</p>
+    </div>
+    <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
+    <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+const featIcons = {
+  'feat-i1': ICONS.chart, 'feat-i2': ICONS.bar, 'feat-i3': ICONS.trophy,
+  'feat-i4': ICONS.scale, 'feat-i5': ICONS.weight, 'feat-i6': ICONS.today
+};
+Object.entries(featIcons).forEach(([id, svg]) => { const e = document.getElementById(id); if (e) e.innerHTML = svg; });
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+
+// Open modals from URL hash IMMEDIATELY (independent of Supabase / bootstrap)
+function _openHashModal() {
+  if (location.hash === '#login') openLoginModal();
+  else if (location.hash === '#signup' || location.hash === '#signup-athlete') openSignupModal('athlete');
+  else if (location.hash === '#signup-coach') openSignupModal('coach');
+}
+window.addEventListener('hashchange', _openHashModal);
+_openHashModal();
+
+// Auto-fill invite code from ?code=XXX URL param (deep link from coach email)
+(function autofillInviteCode() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    if (code) {
+      // Open signup modal as athlete with code prefilled
+      setTimeout(() => {
+        openSignupModal('athlete');
+        const codeInput = document.getElementById('signupCode');
+        if (codeInput) codeInput.value = code.toUpperCase();
+      }, 100);
+    }
+  } catch (e) {}
+})();
+
+bootstrap(null, () => {
+  renderNav('#nav');
+  renderCoaches();
+  renderHeroChart();
+  attachPwdToggles();
+});
+
+// Hero chart — render with realistic mock data using our actual SVG chart
+function renderHeroChart() {
+  const wrap = document.getElementById('heroChart');
+  if (!wrap) return;
+  const today = new Date();
+  const dates = [];
+  for (let i = 28; i >= 0; i -= 4) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  const squat = [180, 190, 198, 208, 215, 223, 230, 235];
+  const bench = [120, 124, 128, 132, 136, 140, 144, 147];
+  const dead = [220, 232, 244, 255, 264, 272, 278, 282];
+  drawLineChart(wrap, {
+    series: [
+      { name: 'Squat',    color: '#ff2d3f', data: dates.map((x, i) => ({ x, y: squat[i] })) },
+      { name: 'Bench',    color: '#ffb547', data: dates.map((x, i) => ({ x, y: bench[i] })) },
+      { name: 'Deadlift', color: '#4ed884', data: dates.map((x, i) => ({ x, y: dead[i] })) }
+    ],
+    unit: 'kg', height: 260, area: false
+  });
+}
+window.addEventListener('resize', () => { setTimeout(renderHeroChart, 100); });
+
+function renderCoaches() {
+  const s = Store.get();
+  const grid = document.getElementById('coachGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!s.coaches.length) {
+    const e = el('div', { class: 'empty', style: 'grid-column:1/-1' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.user;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No coaches yet'));
+    e.appendChild(el('p', {}, 'Be the first — sign up as a coach and build your roster.'));
+    grid.appendChild(e);
+    return;
+  }
+  s.coaches.forEach(c => {
+    const card = el('div', { class: 'coach-card' });
+    card.appendChild(el('div', { class: 'av' }, initials(c.name)));
+    card.appendChild(el('h4', {}, c.name));
+    card.appendChild(el('p', { class: 'coach-bio' }, c.bio || 'No bio yet.'));
+    const meta = el('div', { class: 'coach-meta' });
+    meta.appendChild(el('span', { class: 'pill' }, 'Active'));
+    card.appendChild(meta);
+    grid.appendChild(card);
+  });
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); attachPwdToggles(); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openLoginModal() { openModal('loginModal'); }
+function openSignupModal(type) {
+  document.getElementById('signupType').value = type || 'athlete';
+  onSignupTypeChange();
+  openModal('signupModal');
+}
+function onSignupTypeChange() {
+  const t = document.getElementById('signupType').value;
+  document.getElementById('bioGroup').style.display = t === 'coach' ? 'block' : 'none';
+  document.getElementById('codeGroup').style.display = t === 'athlete' ? 'block' : 'none';
+  document.getElementById('signupTitle').textContent = t === 'coach' ? 'Sign up as a coach' : 'Sign up as an athlete';
+}
+
+async function doLogin() {
+  const btn = event && event.target;
+  const type = document.getElementById('loginType').value;
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pwd = document.getElementById('loginPwd').value;
+  if (!email || !pwd) return toast('Email and password required');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  try {
+    await DB.signIn(email, pwd);
+    const session = await DB.getSession();
+    const profile = await DB.getProfile(session.user.id);
+    if (profile.user_type !== type) {
+      await DB.signOut();
+      throw new Error('This email is registered as ' + profile.user_type + ', not ' + type);
+    }
+    location.href = profile.user_type === 'coach' ? 'coach.html' : 'athlete.html';
+  } catch (e) {
+    toast(e.message || 'Login failed');
+    if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }
+  }
+}
+
+async function doSignup() {
+  const btn = event && event.target;
+  const type = document.getElementById('signupType').value;
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+  const pwd = document.getElementById('signupPwd').value;
+  const bio = document.getElementById('signupBio').value.trim();
+  const code = document.getElementById('signupCode').value.trim().toUpperCase();
+  if (!name || !email || !pwd) return toast('Name, email, password required');
+  if (pwd.length < 6) return toast('Password must be at least 6 chars');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+  try {
+    if (type === 'coach') await DB.signUpCoach(name, email, pwd, bio);
+    else await DB.signUpAthlete(name, email, pwd, code);
+    // signUp may auto-sign-in OR require email confirmation depending on Auth settings
+    const session = await DB.getSession();
+    if (!session) {
+      toast('Account created — check your email to confirm, then log in.');
+      closeModal('signupModal');
+      if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+      return;
+    }
+    location.href = type === 'coach' ? 'coach.html' : 'athlete.html';
+  } catch (e) {
+    toast(e.message || 'Signup failed');
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+  }
+}
+</script>
+</body>
+</html>
