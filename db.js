@@ -208,8 +208,15 @@ const DB = {
     return (data || []).map(mapDbProgram);
   },
   async upsertProgram(prog) {
-    const { error } = await sb.from('programs').upsert(mapJsProgram(prog), { onConflict: 'athlete_id' });
-    if (error) throw error;
+    // Postgres upsert runs INSERT-with-CHECK + UPDATE — athletes can't pass the
+    // INSERT policy (coach-only). So: UPDATE first; if no row hit, INSERT.
+    const row = mapJsProgram(prog);
+    const updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
+    if (updateRes.error) throw updateRes.error;
+    if (updateRes.data && updateRes.data.length) return;
+    // No existing row — try INSERT (only the coach can succeed here per RLS)
+    const insertRes = await sb.from('programs').insert(row);
+    if (insertRes.error) throw insertRes.error;
   },
   async deleteProgram(id) {
     const { error } = await sb.from('programs').delete().in('id', [id]);
