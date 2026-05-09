@@ -233,16 +233,40 @@ function renderCoaches() {
   if (!coaches.length) { area.appendChild(el('p', { class: 'dim' }, 'No coaches.')); return; }
   const tblWrap = el('div', { class: 'tbl-card' });
   const tbl = el('table');
-  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Athletes</th><th>Joined</th><th>Bio</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Athletes</th><th>Joined</th></tr></thead>';
   const tbody = el('tbody');
   coaches.forEach(c => {
     const aCount = cache.profiles.filter(p => p.user_type === 'athlete' && p.coach_id === c.id).length;
+    const tier = c.subscription_tier || 'free';
     const tr = el('tr');
-    tr.innerHTML = '<td><strong>' + escHtml(c.name) + '</strong></td>' +
-                   '<td class="dim">' + escHtml(c.email) + '</td>' +
-                   '<td class="mono">' + aCount + '</td>' +
-                   '<td class="dim text-sm">' + fmtDateShort(new Date(c.created_at).toISOString().slice(0,10)) + '</td>' +
-                   '<td class="dim text-sm">' + escHtml((c.bio || '').slice(0, 80)) + '</td>';
+    const nameCell = el('td', { html: '<strong>' + escHtml(c.name) + '</strong>' + (c.is_admin ? ' <span class="badge badge-gold" style="margin-left:6px">★ ADMIN</span>' : '') });
+    const emailCell = el('td', { class: 'dim', html: escHtml(c.email) });
+    const planCell = el('td');
+    const planSelect = el('select', {
+      style: 'background: var(--bg); border: 1px solid var(--line); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 0.84rem;',
+      onchange: async (e) => {
+        const newTier = e.target.value;
+        try {
+          await sb.from('profiles').update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() }).in('id', [c.id]);
+          c.subscription_tier = newTier;
+          toast('Updated ' + c.name + ' to ' + newTier);
+        } catch (err) {
+          toast('Failed: ' + err.message);
+          e.target.value = tier;
+        }
+      }
+    });
+    ['free', 'basic', 'pro', 'premium'].forEach(t => {
+      const opt = el('option', { value: t }, TIER_LABELS[t] || t);
+      if (t === tier) opt.selected = true;
+      planSelect.appendChild(opt);
+    });
+    planCell.appendChild(planSelect);
+    tr.appendChild(nameCell);
+    tr.appendChild(emailCell);
+    tr.appendChild(planCell);
+    tr.appendChild(el('td', { class: 'mono' }, String(aCount)));
+    tr.appendChild(el('td', { class: 'dim text-sm' }, fmtDateShort(new Date(c.created_at).toISOString().slice(0,10))));
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
