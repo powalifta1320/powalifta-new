@@ -890,14 +890,25 @@ function renderProgress() {
 // captures it via html2canvas, and triggers a PNG download. Athletes save
 // it to Photos so they can pull it up at the gym without internet.
 // =========================================================
-async function exportProgramAsImage() {
+async function exportProgramAsImage(weekNumber) {
   if (typeof html2canvas !== 'function') {
     return toast('Image library not loaded — try refreshing.');
   }
   const prog = getProgram();
   if (!prog) return toast('No program to export yet.');
 
-  const btn = document.getElementById('exportProgramBtn');
+  // Pick which weeks to render. If weekNumber is passed, only that week.
+  // Falsy/undefined → all weeks (legacy behavior, kept as a fallback).
+  const weeksToRender = (weekNumber != null)
+    ? prog.weeks.filter(w => w.number === weekNumber)
+    : prog.weeks;
+  if (!weeksToRender.length) return toast('Week not found.');
+
+  // Disable just the clicked button while we work
+  const btn = (weekNumber != null)
+    ? document.getElementById('exportWeekBtn-' + weekNumber)
+    : document.getElementById('exportProgramBtn');
+  const origHtml = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
   // Build the off-screen poster. We use plain inline styles (NOT CSS variables)
@@ -922,7 +933,7 @@ async function exportProgramAsImage() {
   html += '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #25252c;">';
   html +=   '<div>';
   html +=     '<div style="font-family: Anton, sans-serif; font-size: 1.9rem; letter-spacing: 0.02em; line-height: 1;">POWA<span style="color:#ff2d3f">LIFTA</span></div>';
-  html +=     '<div style="font-size: 0.78rem; color: #82828c; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;">Training program</div>';
+  html +=     '<div style="font-size: 0.78rem; color: #82828c; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;">' + (weekNumber != null ? ('Week ' + weekNumber) : 'Training program') + '</div>';
   html +=   '</div>';
   html +=   '<div style="text-align: right;">';
   html +=     '<div style="font-weight: 700; color: #f4f4f6; font-size: 1rem;">' + escHtml(user.name || 'Athlete') + '</div>';
@@ -934,7 +945,7 @@ async function exportProgramAsImage() {
   html += '<div style="font-family: Anton, sans-serif; font-size: 2rem; letter-spacing: 0.01em; line-height: 1.05; margin-bottom: 22px;">' + escHtml(prog.name || 'My program') + '</div>';
 
   // Weeks → days → exercises → sets
-  prog.weeks.forEach(wk => {
+  weeksToRender.forEach(wk => {
     html += '<div style="margin-bottom: 24px; padding: 18px 20px; background: #111114; border: 1px solid #25252c; border-radius: 14px;">';
     html +=   '<div style="font-family: Anton, sans-serif; font-size: 1.3rem; letter-spacing: 0.02em; margin-bottom: 14px; color: #f4f4f6;">WEEK ' + wk.number + '</div>';
 
@@ -996,20 +1007,21 @@ async function exportProgramAsImage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const safeName = (prog.name || 'program').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+      const suffix = (weekNumber != null) ? ('-week-' + weekNumber) : '';
       a.href = url;
-      a.download = 'powalifta-' + safeName + '.png';
+      a.download = 'powalifta-' + safeName + suffix + '.png';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast('Program saved to Downloads — open it from Photos at the gym.');
+      toast((weekNumber != null ? 'Week ' + weekNumber : 'Program') + ' saved — open it from Photos at the gym.');
     }, 'image/png');
   } catch (e) {
     console.error('exportProgramAsImage failed:', e);
     toast('Could not save image — ' + (e.message || 'unknown error'));
   } finally {
     document.body.removeChild(poster);
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save as image'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
   }
 }
 window.exportProgramAsImage = exportProgramAsImage;
@@ -1025,18 +1037,24 @@ function renderFullProgram() {
     area.appendChild(e); return;
   }
 
-  // Header row: program name + Save as Image button
-  const head = el('div', { style: 'display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;' });
-  head.appendChild(el('h3', { style: 'margin:0;' }, prog.name));
-  const exportBtn = el('button', { id: 'exportProgramBtn', class: 'btn btn-sm', title: 'Save your program as an image so you can view it offline' });
-  exportBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save as image';
-  exportBtn.setAttribute('onclick', 'exportProgramAsImage()');
-  head.appendChild(exportBtn);
-  area.appendChild(head);
+  // Program title (no program-level export button — each week has its own)
+  area.appendChild(el('h3', { class: 'mb-16' }, prog.name));
 
   prog.weeks.forEach(wk => {
     const wkCard = el('div', { class: 'card mb-24' });
-    wkCard.appendChild(el('h3', { class: 'mb-16' }, 'Week ' + wk.number));
+
+    // Week header row: "Week N" + per-week Save button
+    const wkHead = el('div', { style: 'display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;' });
+    wkHead.appendChild(el('h3', { style: 'margin:0;' }, 'Week ' + wk.number));
+    const saveBtn = el('button', {
+      id: 'exportWeekBtn-' + wk.number,
+      class: 'btn btn-sm btn-ghost',
+      title: 'Save Week ' + wk.number + ' as an image for offline gym use'
+    });
+    saveBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save image';
+    saveBtn.setAttribute('onclick', 'exportProgramAsImage(' + wk.number + ')');
+    wkHead.appendChild(saveBtn);
+    wkCard.appendChild(wkHead);
     wk.days.forEach(day => {
       const dayCard = el('div', { class: 'day-card mb-16' });
       dayCard.appendChild(el('div', { class: 'day-head' }, el('div', { class: 'day-name-input', style: 'font-family: Anton; font-size: 1.2rem; padding: 4px 10px;' }, day.name)));
