@@ -48,8 +48,36 @@ function mapJsLog(l) {
 }
 function mapDbBw(r) { return { id: r.id, athleteId: r.athlete_id, date: r.date, weight: Number(r.weight) }; }
 function mapJsBw(b) { return { id: b.id, athlete_id: b.athleteId, date: b.date, weight: b.weight }; }
-function mapDbNote(r) { return { id: r.id, athleteId: r.athlete_id, weekId: r.week_id, dayId: r.day_id, note: r.note, date: r.date }; }
-function mapJsNote(n) { return { id: n.id, athlete_id: n.athleteId, week_id: n.weekId, day_id: n.dayId, note: n.note, date: n.date }; }
+function mapDbNote(r) {
+  return {
+    id: r.id, athleteId: r.athlete_id, weekId: r.week_id, dayId: r.day_id,
+    note: r.note, date: r.date,
+    coachComment: r.coach_comment || null,
+    coachCommentAt: r.coach_comment_at || null,
+    coachId: r.coach_id || null
+  };
+}
+function mapJsNote(n) {
+  const out = { id: n.id, athlete_id: n.athleteId, week_id: n.weekId, day_id: n.dayId, note: n.note, date: n.date };
+  if (n.coachComment !== undefined) out.coach_comment = n.coachComment;
+  if (n.coachCommentAt !== undefined) out.coach_comment_at = n.coachCommentAt;
+  if (n.coachId !== undefined) out.coach_id = n.coachId;
+  return out;
+}
+function mapDbCheckin(r) {
+  return {
+    id: r.id, athleteId: r.athlete_id, weekStart: r.week_start,
+    sleep: r.sleep, soreness: r.soreness, stress: r.stress, feel: r.feel,
+    note: r.note || '', createdAt: r.created_at
+  };
+}
+function mapJsCheckin(c) {
+  return {
+    athlete_id: c.athleteId, week_start: c.weekStart,
+    sleep: c.sleep, soreness: c.soreness, stress: c.stress, feel: c.feel,
+    note: c.note || null
+  };
+}
 function mapDbGoals(r) {
   return { id: r.athlete_id, athleteId: r.athlete_id,
     squat: r.squat || null, bench: r.bench || null, deadlift: r.deadlift || null, total: r.total || null,
@@ -295,6 +323,68 @@ const DB = {
     if (error) throw error;
   },
 
+  // Upsert coach feedback for a session (athlete_id + date). Creates a row
+  // if no athlete note exists yet, otherwise updates the coach_comment columns.
+  async upsertCoachComment({ athleteId, date, coachId, comment }) {
+    // First, check if a session_notes row already exists for this athlete/date.
+    const { data: existing, error: selErr } = await sb.from('session_notes')
+      .select('id')
+      .eq('athlete_id', athleteId)
+      .eq('date', date)
+      .limit(1);
+    if (selErr) throw selErr;
+
+    if (existing && existing.length) {
+      const { error } = await sb.from('session_notes')
+        .update({
+          coach_comment: comment,
+          coach_comment_at: new Date().toISOString(),
+          coach_id: coachId
+        })
+        .in('id', [existing[0].id]);
+      if (error) throw error;
+      return existing[0].id;
+    }
+    // Create a fresh row with just the coach feedback.
+    const { data: ins, error } = await sb.from('session_notes')
+      .insert({
+        athlete_id: athleteId,
+        date,
+        coach_comment: comment,
+        coach_comment_at: new Date().toISOString(),
+        coach_id: coachId
+      })
+      .select('id');
+    if (error) throw error;
+    return ins?.[0]?.id;
+  },
+
+  // ---------- CHECK-INS ----------
+  async listCheckins(athleteId) {
+    const { data, error } = await sb.from('checkins')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('week_start', { ascending: false });
+    if (error) { console.warn('listCheckins', error); return []; }
+    return (data || []).map(mapDbCheckin);
+  },
+  async listCheckinsForAthletes(athleteIds) {
+    if (!athleteIds.length) return [];
+    const { data, error } = await sb.from('checkins')
+      .select('*')
+      .in('athlete_id', athleteIds)
+      .order('week_start', { ascending: false });
+    if (error) { console.warn('listCheckinsForAthletes', error); return []; }
+    return (data || []).map(mapDbCheckin);
+  },
+  // Upsert by (athlete_id, week_start) — if a check-in for that week exists, replace it.
+  async upsertCheckin(c) {
+    const payload = mapJsCheckin(c);
+    const { error } = await sb.from('checkins')
+      .upsert(payload, { onConflict: 'athlete_id,week_start' });
+    if (error) throw error;
+  },
+
   // ---------- GOALS ----------
   async getGoals(athleteId) {
     const { data, error } = await sb.from('goals').select('*').in('athlete_id', [athleteId]);
@@ -334,7 +424,8 @@ const DB = {
   async hydrateAll(profile) {
     const empty = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
-      workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: []
+      workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
+      checkins: []
     };
 
     // Always pull coach directory (public)
@@ -347,14 +438,15 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
         this.listNotesForAthletes(athleteIds),
-        this.listGoalsForAthletes(athleteIds)
+        this.listGoalsForAthletes(athleteIds),
+        this.listCheckinsForAthletes(athleteIds)
       ]);
       empty.invites = invs;
       empty.programs = programs;
@@ -363,15 +455,17 @@ const DB = {
       empty.bodyweight = bw;
       empty.sessionNotes = notes;
       empty.goals = goals;
+      empty.checkins = checkins;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
         this.listNotesForAthlete(profile.id),
         this.getGoals(profile.id),
-        this.listRestForAthlete(profile.id)
+        this.listRestForAthlete(profile.id),
+        this.listCheckins(profile.id)
       ]);
       empty.programs = progs;
       empty.workoutLogs = logs;
@@ -379,6 +473,7 @@ const DB = {
       empty.sessionNotes = notes;
       empty.goals = goals ? [goals] : [];
       empty.restDays = rest;
+      empty.checkins = checkins;
 
       // Athlete also needs to see their own profile + their coach
       empty.athletes = [mapDbProfileToAthlete(profile)];

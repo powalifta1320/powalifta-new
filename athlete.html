@@ -166,6 +166,43 @@
   </div>
 </div>
 
+<!-- WEEKLY CHECK-IN MODAL -->
+<div class="modal-backdrop" id="checkinModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('checkinModal')">&times;</button>
+    <h3>Weekly check-in</h3>
+    <p class="dim text-sm mb-16">How was the week? 1 = bad, 10 = great. Your coach uses this to adjust programming.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Sleep quality</label>
+        <input type="number" id="ciSleep" min="1" max="10" step="1" placeholder="7">
+      </div>
+      <div class="form-group">
+        <label>Soreness level</label>
+        <input type="number" id="ciSoreness" min="1" max="10" step="1" placeholder="4">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Life stress</label>
+        <input type="number" id="ciStress" min="1" max="10" step="1" placeholder="5">
+      </div>
+      <div class="form-group">
+        <label>Training feel</label>
+        <input type="number" id="ciFeel" min="1" max="10" step="1" placeholder="8">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Note for coach (optional)</label>
+      <textarea id="ciNote" placeholder="e.g. Slept poorly Wed, knee felt iffy on squats, otherwise good week" style="min-height: 80px"></textarea>
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('checkinModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="saveCheckin()">Save check-in</button>
+    </div>
+  </div>
+</div>
+
 <div id="restTimerEl" class="hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -326,6 +363,114 @@ async function toggleRestDay() {
   renderToday();
 }
 
+// =========================================================
+// WEEKLY CHECK-IN
+// Returns the Monday of the week containing the given date, in YYYY-MM-DD.
+// =========================================================
+function mondayOf(date) {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+  const dow = d.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const diff = (dow === 0 ? -6 : 1 - dow);
+  const m = new Date(d);
+  m.setDate(d.getDate() + diff);
+  return m.toISOString().slice(0, 10);
+}
+
+function openCheckinModal(weekStart) {
+  // Pre-fill if a check-in for this week already exists
+  const existing = (Store.get().checkins || []).find(c => c.athleteId === user.id && c.weekStart === weekStart);
+  document.getElementById('ciSleep').value    = existing?.sleep    ?? '';
+  document.getElementById('ciSoreness').value = existing?.soreness ?? '';
+  document.getElementById('ciStress').value   = existing?.stress   ?? '';
+  document.getElementById('ciFeel').value     = existing?.feel     ?? '';
+  document.getElementById('ciNote').value     = existing?.note     ?? '';
+  window._pendingCheckin = { weekStart };
+  openModal('checkinModal');
+}
+window.openCheckinModal = openCheckinModal;
+
+async function saveCheckin() {
+  const ctx = window._pendingCheckin;
+  if (!ctx) { closeModal('checkinModal'); return; }
+  const sleep    = Number(document.getElementById('ciSleep').value);
+  const soreness = Number(document.getElementById('ciSoreness').value);
+  const stress   = Number(document.getElementById('ciStress').value);
+  const feel     = Number(document.getElementById('ciFeel').value);
+  const note     = document.getElementById('ciNote').value.trim();
+  const allValid = [sleep, soreness, stress, feel].every(v => v >= 1 && v <= 10);
+  if (!allValid) return toast('All four scores must be 1–10.');
+
+  const c = { athleteId: user.id, weekStart: ctx.weekStart, sleep, soreness, stress, feel, note };
+  try {
+    await DB.upsertCheckin(c);
+    Store.update(s => {
+      const idx = (s.checkins || []).findIndex(x => x.athleteId === user.id && x.weekStart === ctx.weekStart);
+      if (idx >= 0) s.checkins[idx] = { ...s.checkins[idx], ...c };
+      else (s.checkins = s.checkins || []).push({ ...c, createdAt: new Date().toISOString() });
+    });
+    closeModal('checkinModal');
+    toast('Check-in saved.');
+    renderToday();
+  } catch (e) {
+    console.error('saveCheckin', e);
+    toast('Could not save — ' + (e.message || 'unknown error'));
+  }
+}
+window.saveCheckin = saveCheckin;
+
+// =========================================================
+// WARMUP RAMP — given working weight, produce a sensible warmup ladder.
+// Standard powerlifting approach: build to working in ~5 sets.
+// Rounded to the nearest 2.5kg (common smallest plate).
+// =========================================================
+function buildWarmupHtml(workingWeight) {
+  const w = Number(workingWeight) || 0;
+  if (w <= 0) return '';
+  const round = v => Math.max(20, Math.round(v / 2.5) * 2.5);
+  const sets = [
+    { label: 'Bar',  weight: 20,                reps: 8 },
+    { label: '40%',  weight: round(w * 0.40),   reps: 5 },
+    { label: '60%',  weight: round(w * 0.60),   reps: 3 },
+    { label: '75%',  weight: round(w * 0.75),   reps: 2 },
+    { label: '85%',  weight: round(w * 0.85),   reps: 1 }
+  ].filter(s => s.weight < w); // skip any rung that's already at/above working
+
+  if (!sets.length) return '<div class="faint text-sm">Working weight is light enough to start cold-ish — bar × 8 should be plenty.</div>';
+
+  let html = '<div class="warmup-grid">';
+  sets.forEach((s, i) => {
+    html += '<div class="warmup-row">' +
+              '<span class="warmup-pct">' + s.label + '</span>' +
+              '<span class="warmup-w">' + s.weight + ' kg</span>' +
+              '<span class="warmup-reps">× ' + s.reps + '</span>' +
+            '</div>';
+  });
+  html += '<div class="warmup-row work">' +
+            '<span class="warmup-pct">Work</span>' +
+            '<span class="warmup-w">' + w + ' kg</span>' +
+            '<span class="warmup-reps">prescribed</span>' +
+          '</div>';
+  html += '</div>';
+  return html;
+}
+
+// =========================================================
+// COPY LAST WEEK — fills the current exercise's RPE inputs with last week's
+// actual logged RPE values (set-by-set, in order).
+// =========================================================
+function copyLastWeekRpe(exId, prevEx) {
+  if (!prevEx) return toast('No data from last week.');
+  const prevSets = prevEx.sets.filter(s => s.completed);
+  if (!prevSets.length) return toast('Last week wasn\'t completed.');
+  let filled = 0;
+  prevSets.forEach((ps, i) => {
+    const inp = document.getElementById('rpe_' + exId + '_' + i);
+    if (inp) { inp.value = ps.actualRpe; filled++; }
+  });
+  toast(filled > 0 ? 'Copied ' + filled + ' RPE values from last week.' : 'No matching sets to fill.');
+}
+
 function renderToday() {
   refreshRestBtn();
   const area = document.getElementById('todayArea');
@@ -358,6 +503,35 @@ function renderToday() {
   if (!cur) { area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'Pick a day from the dropdown above'))); return; }
 
   cur.day.exercises.forEach(ex => ensureExerciseShape(ex));
+
+  // Show coach feedback for today's session at the top of the view (if any).
+  const sessionDate = getSessionDate();
+  const noteForToday = (Store.get().sessionNotes || [])
+    .find(n => n.athleteId === user.id && n.date === sessionDate && n.coachComment);
+  if (noteForToday) {
+    const fb = el('div', { class: 'coach-feedback-card' });
+    fb.appendChild(el('div', { class: 'coach-feedback-tag' }, '💬 Coach feedback'));
+    fb.appendChild(el('p', { class: 'coach-feedback-body' }, noteForToday.coachComment));
+    if (noteForToday.coachCommentAt) {
+      fb.appendChild(el('div', { class: 'coach-feedback-meta' }, fmtDate(noteForToday.coachCommentAt.slice(0, 10))));
+    }
+    area.appendChild(fb);
+  }
+
+  // Weekly check-in CTA banner — show only on Mondays or if not yet submitted this week.
+  const weekStart = mondayOf(new Date(sessionDate));
+  const submitted = (Store.get().checkins || []).some(c => c.athleteId === user.id && c.weekStart === weekStart);
+  if (!submitted) {
+    const banner = el('div', { class: 'checkin-banner' });
+    banner.appendChild(el('div', { style: 'flex:1' },
+      el('div', { class: 'fw-700' }, 'Weekly check-in pending'),
+      el('div', { class: 'faint text-sm' }, 'Tell your coach how the week is going — takes 30 seconds.')
+    ));
+    const btn = el('button', { class: 'btn btn-sm btn-primary' }, 'Check in');
+    btn.addEventListener('click', () => openCheckinModal(weekStart));
+    banner.appendChild(btn);
+    area.appendChild(banner);
+  }
 
   const allSets = cur.day.exercises.flatMap(e => e.sets);
   const done = allSets.filter(s => s.completed).length;
@@ -407,6 +581,45 @@ function renderToday() {
     if (firstSet && !exDone) {
       const hint = getProgressionHint(user.id, ex.lift, ex.variant, ex.exerciseName, firstSet.weight, firstSet.rpe);
       if (hint) card.appendChild(el('div', { class: 'prog-hint' + (hint.kind === 'hard' ? ' hard' : '') }, hint.text));
+    }
+
+    // Warmup calculator (main lifts only — accessory & cardio skip).
+    // Uses the heaviest planned set as the working weight.
+    if (MAIN_LIFTS.includes(ex.lift) && ex.sets.length) {
+      const working = Math.max(...ex.sets.map(s => Number(s.weight) || 0));
+      if (working > 0) {
+        const warmup = el('div', { class: 'warmup' });
+        const wTog = el('button', { class: 'warmup-toggle', type: 'button' });
+        wTog.innerHTML = '<span>Warmup ramp to ' + working + 'kg</span><span class="warmup-chev">▾</span>';
+        const wPanel = el('div', { class: 'warmup-panel' });
+        wPanel.innerHTML = buildWarmupHtml(working);
+        wTog.addEventListener('click', () => {
+          const open = warmup.classList.toggle('open');
+          wTog.querySelector('.warmup-chev').textContent = open ? '▴' : '▾';
+        });
+        warmup.appendChild(wTog);
+        warmup.appendChild(wPanel);
+        card.appendChild(warmup);
+      }
+    }
+
+    // Copy from last week — per-exercise. Only main lifts; matches by lift+variant
+    // in the previous week's same-numbered day (matched by position).
+    if (MAIN_LIFTS.includes(ex.lift) && cur.week.number > 1) {
+      const prevWeek = prog.weeks.find(w => w.number === cur.week.number - 1);
+      const dayIdx = cur.week.days.findIndex(d => d.id === cur.day.id);
+      const prevDay = (prevWeek && dayIdx >= 0 && prevWeek.days[dayIdx]) ? prevWeek.days[dayIdx] : null;
+      const prevEx = prevDay && prevDay.exercises.find(e2 => e2.lift === ex.lift && (e2.variant || '') === (ex.variant || ''));
+      const hasLogs = prevEx && prevEx.sets.some(s => s.completed);
+      if (hasLogs) {
+        const copyRow = el('div', { class: 'copy-last-row' });
+        const copyBtn = el('button', { class: 'btn btn-sm btn-ghost', type: 'button', title: 'Copy last week\'s actual RPE values into this exercise' });
+        copyBtn.innerHTML = '↺ Copy last week\'s RPE';
+        copyBtn.addEventListener('click', () => copyLastWeekRpe(ex.id, prevEx));
+        copyRow.appendChild(copyBtn);
+        copyRow.appendChild(el('span', { class: 'faded text-xs', style: 'margin-left:10px;' }, 'Last week: ' + prevEx.sets.filter(s => s.completed).map(s => 'RPE ' + s.actualRpe).join(' / ')));
+        card.appendChild(copyRow);
+      }
     }
 
     const isCardio = ex.lift === 'cardio';

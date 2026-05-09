@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coach — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.cp-hero {
+  position: relative;
+  padding: 70px 0 50px;
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.cp-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(255,45,63,0.18), transparent 70%);
+  pointer-events: none;
+}
+.cp-hero > .container { position: relative; z-index: 2; max-width: 760px; }
+.cp-back { color: var(--text-3); text-decoration: none; font-size: 0.88rem; }
+.cp-back:hover { color: var(--text); }
+.cp-card {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.cp-av {
+  width: 110px; height: 110px;
+  border-radius: var(--r-lg);
+  background: var(--grad-red);
+  color: #fff;
+  font-family: 'Anton', sans-serif;
+  font-size: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 12px 40px var(--red-glow);
+}
+.cp-meta { flex: 1; min-width: 240px; }
+.cp-name {
+  font-family: 'Anton', sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: 0.005em;
+  line-height: 1;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.cp-bio {
+  color: var(--text-2);
+  font-size: 1.02rem;
+  line-height: 1.55;
+  margin-bottom: 16px;
+  max-width: 540px;
+}
+.cp-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.cp-stat {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.cp-stat strong { color: var(--text); margin-right: 4px; font-family: 'Space Grotesk', monospace; }
+
+.cp-section { padding: 50px 0; }
+.cp-step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+.cp-step-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px;
+}
+.cp-step-num {
+  font-family: 'Anton', sans-serif;
+  font-size: 2.2rem;
+  background: var(--grad-red);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.cp-step-card h4 { font-size: 1.05rem; letter-spacing: 0; text-transform: none; font-family: 'Inter', sans-serif; font-weight: 700; margin-bottom: 6px; }
+.cp-step-card p { color: var(--text-2); font-size: 0.92rem; line-height: 1.55; }
+
+.cp-cta {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 36px;
+  text-align: center;
+}
+.cp-cta h3 {
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  margin-bottom: 12px;
+}
+.cp-cta p { color: var(--text-2); margin-bottom: 22px; max-width: 480px; margin-left: auto; margin-right: auto; }
+.cp-cta-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.cp-loading, .cp-error {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-3);
+}
+.cp-error h2 { color: var(--text); margin-bottom: 10px; font-size: 1.6rem; }
+
+@media (max-width: 700px) {
+  .cp-step-grid { grid-template-columns: 1fr; }
+  .cp-card { gap: 16px; }
+  .cp-av { width: 86px; height: 86px; font-size: 2.2rem; }
+  .cp-cta { padding: 24px 18px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<main id="cpRoot">
+  <div class="cp-loading">Loading coach…</div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <div class="flex gap-16">
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+function getCoachIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('id') || params.get('coach') || '';
+}
+
+function renderError(title, message) {
+  const root = document.getElementById('cpRoot');
+  root.innerHTML = '';
+  const wrap = el('div', { class: 'cp-error container' });
+  wrap.appendChild(el('h2', {}, title));
+  wrap.appendChild(el('p', {}, message));
+  wrap.appendChild(el('p', { style: 'margin-top:18px' }, el('a', { href: 'index.html', class: 'btn btn-ghost' }, '← Back to home')));
+  root.appendChild(wrap);
+}
+
+async function renderCoachProfile() {
+  const id = getCoachIdFromUrl();
+  if (!id) {
+    renderError('No coach selected', 'This link is missing a coach ID. Ask your coach for their profile link.');
+    return;
+  }
+
+  // Fetch all coaches and find this one — listCoaches is already public-readable.
+  let coaches = [];
+  try { coaches = await DB.listCoaches(); } catch (e) { console.error(e); }
+  const coach = coaches.find(c => c.id === id);
+  if (!coach) {
+    renderError('Coach not found', 'We couldn\'t find a POWALIFTA coach with that ID. Double-check the link.');
+    return;
+  }
+
+  // Athlete count is read from the public profiles list (listCoaches already returns it as athleteCount if mapped, otherwise we count via the coach.athleteCount field that mapDbProfileToCoach sets — fall back to 0).
+  const athleteCount = (typeof coach.athleteCount === 'number') ? coach.athleteCount : 0;
+
+  const root = document.getElementById('cpRoot');
+  root.innerHTML = '';
+
+  // Hero
+  const hero = el('section', { class: 'cp-hero' });
+  const heroIn = el('div', { class: 'container' });
+  heroIn.appendChild(el('a', { href: 'index.html', class: 'cp-back' }, '← Back to POWALIFTA'));
+  const card = el('div', { class: 'cp-card' });
+  card.appendChild(el('div', { class: 'cp-av' }, initials(coach.name)));
+  const meta = el('div', { class: 'cp-meta' });
+  meta.appendChild(el('div', { class: 'cp-name' }, coach.name));
+  meta.appendChild(el('p', { class: 'cp-bio' }, coach.bio || 'Powerlifting coach building strength one set at a time.'));
+  const stats = el('div', { class: 'cp-stats' });
+  stats.appendChild(el('div', { class: 'cp-stat' }, 'Coach on POWALIFTA'));
+  if (athleteCount > 0) {
+    const a = el('div', { class: 'cp-stat' });
+    a.innerHTML = '<strong>' + athleteCount + '</strong> athlete' + (athleteCount === 1 ? '' : 's');
+    stats.appendChild(a);
+  }
+  meta.appendChild(stats);
+  card.appendChild(meta);
+  heroIn.appendChild(card);
+  hero.appendChild(heroIn);
+  root.appendChild(hero);
+
+  // How to join
+  const how = el('section', { class: 'cp-section' });
+  const howIn = el('div', { class: 'container' });
+  howIn.appendChild(el('div', { class: 'section-title' },
+    el('div', { class: 'section-tag' }, 'How to join'),
+    el('h2', {}, 'Train with ' + coach.name.split(' ')[0]),
+    el('p', { class: 'dim' }, 'Three steps to start training under a real coach.')
+  ));
+  const grid = el('div', { class: 'cp-step-grid' });
+  [
+    { n: '01', h: 'Reach out', p: 'Contact ' + coach.name.split(' ')[0] + ' to discuss your goals, training history, and meet timeline.' },
+    { n: '02', h: 'Get your invite code', p: 'They\'ll generate a unique 6-character code from their POWALIFTA dashboard and send it to you.' },
+    { n: '03', h: 'Sign up & start training', p: 'Use the code to sign up here. Your program will appear in your athlete dashboard.' }
+  ].forEach(s => {
+    const c = el('div', { class: 'cp-step-card' });
+    c.appendChild(el('div', { class: 'cp-step-num' }, s.n));
+    c.appendChild(el('h4', {}, s.h));
+    c.appendChild(el('p', {}, s.p));
+    grid.appendChild(c);
+  });
+  howIn.appendChild(grid);
+  how.appendChild(howIn);
+  root.appendChild(how);
+
+  // CTA
+  const ctaSec = el('section', { class: 'cp-section', style: 'padding-top:0' });
+  const ctaIn = el('div', { class: 'container' });
+  const cta = el('div', { class: 'cp-cta' });
+  cta.appendChild(el('h3', {}, 'Already have your invite code?'));
+  cta.appendChild(el('p', {}, 'Plug it in and you\'re training under ' + coach.name + ' in 30 seconds.'));
+  const ctaRow = el('div', { class: 'cp-cta-row' });
+  const signupBtn = el('a', { class: 'btn btn-primary btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as Athlete');
+  const learnBtn = el('a', { class: 'btn btn-lg btn-ghost', href: 'about.html' }, 'Learn about POWALIFTA');
+  ctaRow.appendChild(signupBtn); ctaRow.appendChild(learnBtn);
+  cta.appendChild(ctaRow);
+  ctaIn.appendChild(cta);
+  ctaSec.appendChild(ctaIn);
+  root.appendChild(ctaSec);
+
+  document.title = coach.name + ' — POWALIFTA';
+}
+
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => { renderNav('#nav'); renderCoachProfile(); }, { staticPublic: true });
+</script>
+</body>
+</html>

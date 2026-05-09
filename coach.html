@@ -1018,18 +1018,107 @@ function renderProgressForAthlete() {
   const notes = (s.sessionNotes || []).filter(n => n.athleteId === aid).sort((a, b) => b.date.localeCompare(a.date));
   if (notes.length) {
     const card = el('div', { class: 'chart-card' });
-    card.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Session notes from athlete')));
+    card.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Session notes & feedback')));
     notes.slice(0, 8).forEach(n => {
       const day = (Store.get().programs.find(p => p.athleteId === aid)?.weeks || []).flatMap(w => w.days).find(d => d.id === n.dayId);
-      const row = el('div', { style: 'padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px;' });
+      const row = el('div', { style: 'padding: 14px 16px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px;' });
       row.appendChild(el('div', { class: 'flex-between mb-8' },
         el('span', { class: 'fw-700' }, day?.name || 'Session'),
         el('span', { class: 'faint text-xs' }, fmtDate(n.date))
       ));
-      row.appendChild(el('p', { class: 'dim text-sm' }, n.note));
+      if (n.note) row.appendChild(el('p', { class: 'dim text-sm' }, n.note));
+
+      // Coach feedback editor
+      const fbWrap = el('div', { style: 'margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);' });
+      fbWrap.appendChild(el('div', { class: 'upper text-xs faint mb-4', style: 'color: var(--gold); font-weight: 700;' }, 'Your feedback'));
+      const ta = el('textarea', {
+        id: 'coachFb_' + aid + '_' + n.date,
+        class: 'note-input',
+        placeholder: 'Leave a note for your athlete on this session…',
+        style: 'min-height: 60px;'
+      });
+      ta.value = n.coachComment || '';
+      fbWrap.appendChild(ta);
+      const saveRow = el('div', { class: 'flex-between mt-8' });
+      const meta = el('span', { class: 'faded text-xs' }, n.coachCommentAt ? ('Saved ' + fmtDate(n.coachCommentAt.slice(0, 10))) : 'Not saved yet');
+      saveRow.appendChild(meta);
+      const saveBtn = el('button', { class: 'btn btn-sm', type: 'button' }, 'Save feedback');
+      saveBtn.addEventListener('click', () => saveCoachFeedback(aid, n.date, ta, meta));
+      saveRow.appendChild(saveBtn);
+      fbWrap.appendChild(saveRow);
+      row.appendChild(fbWrap);
+
       card.appendChild(row);
     });
     area.appendChild(card);
+  }
+
+  // Weekly check-ins
+  const checkins = (s.checkins || []).filter(c => c.athleteId === aid)
+    .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+  if (checkins.length) {
+    const card = el('div', { class: 'chart-card' });
+    card.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Weekly check-ins'), el('div', { class: 'chart-sub' }, 'Sleep / soreness / stress / training feel — last ' + Math.min(checkins.length, 8) + ' weeks')));
+
+    const list = el('div', {});
+    checkins.slice(0, 8).forEach(c => {
+      const row = el('div', { style: 'padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px;' });
+      row.appendChild(el('div', { class: 'flex-between mb-8' },
+        el('span', { class: 'fw-700' }, 'Week of ' + fmtDate(c.weekStart)),
+        el('span', { class: 'faint text-xs' }, fmtDate(c.createdAt ? c.createdAt.slice(0, 10) : c.weekStart))
+      ));
+      const grid = el('div', { style: 'display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 6px;' });
+      [
+        { lbl: 'Sleep',    v: c.sleep,    color: 'var(--blue)' },
+        { lbl: 'Soreness', v: c.soreness, color: 'var(--red)' },
+        { lbl: 'Stress',   v: c.stress,   color: 'var(--gold)' },
+        { lbl: 'Feel',     v: c.feel,     color: 'var(--green)' }
+      ].forEach(m => {
+        const pill = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; text-align: center;' });
+        pill.appendChild(el('div', { class: 'faded text-xs upper', style: 'font-weight:700; letter-spacing: 0.08em;' }, m.lbl));
+        pill.appendChild(el('div', { style: 'font-family: \'Space Grotesk\', monospace; font-size: 1.1rem; font-weight: 700; color: ' + m.color + ';' }, (m.v != null ? m.v + '/10' : '—')));
+        grid.appendChild(pill);
+      });
+      row.appendChild(grid);
+      if (c.note) row.appendChild(el('p', { class: 'dim text-sm', style: 'font-style: italic; margin-top: 4px;' }, '"' + c.note + '"'));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+    area.appendChild(card);
+  }
+}
+
+// Coach feedback save → upserts session_note row (athlete_id + date) with coach_comment
+async function saveCoachFeedback(athleteId, date, textareaEl, metaEl) {
+  const comment = (textareaEl.value || '').trim();
+  if (!comment) return toast('Write something first.');
+  const btn = textareaEl.parentNode.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await DB.upsertCoachComment({ athleteId, date, coachId: user.id, comment });
+    // Update local Store so re-renders show fresh value without a full reload
+    const s = Store.get();
+    let n = (s.sessionNotes || []).find(nn => nn.athleteId === athleteId && nn.date === date);
+    if (!n) {
+      n = { id: uid('note'), athleteId, date, weekId: null, dayId: null, note: '', coachComment: comment, coachCommentAt: new Date().toISOString(), coachId: user.id };
+      Store.update(st => { st.sessionNotes.push(n); });
+    } else {
+      Store.update(st => {
+        const target = st.sessionNotes.find(nn => nn.athleteId === athleteId && nn.date === date);
+        if (target) {
+          target.coachComment = comment;
+          target.coachCommentAt = new Date().toISOString();
+          target.coachId = user.id;
+        }
+      });
+    }
+    if (metaEl) metaEl.textContent = 'Saved just now';
+    toast('Feedback saved.');
+  } catch (e) {
+    console.error('saveCoachFeedback', e);
+    toast('Could not save — ' + (e.message || 'unknown error'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save feedback'; }
   }
 }
 </script>
