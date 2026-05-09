@@ -456,13 +456,13 @@ function buildWarmupHtml(workingWeight) {
 }
 
 // =========================================================
-// SET SUMMARY — compresses identical consecutive sets into a tight string.
-// Example: 4 sets of 100x5@7  →  "4 × 100kg × 5 @ RPE 7"
-// Mixed:   145x4@7, 135x5@7, 135x5@8, 125x5@8
-//          →  "145×4@7 / 135×5@7 / 135×5@8 / 125×5@8"
+// SET SUMMARY — only shows when there's actual compression worth showing
+// (at least one group of 2+ identical sets). For fully varied sets, returns
+// null so the per-set rows stand alone (no redundant slash-soup header).
+// Returns: null OR a string like "3 × 100kg × 5 @ RPE 7" for grouped work.
 // =========================================================
 function formatSetsSummary(sets, isCardio) {
-  if (!sets || !sets.length) return '';
+  if (!sets || !sets.length) return null;
   const groups = [];
   let cur = { ...sets[0], count: 1 };
   for (let i = 1; i < sets.length; i++) {
@@ -476,13 +476,18 @@ function formatSetsSummary(sets, isCardio) {
   }
   groups.push(cur);
 
+  // Only show summary if at least one group is compressed (count > 1).
+  // Otherwise the summary is just a slash-separated dump of the per-set rows below.
+  const hasCompression = groups.some(g => g.count > 1);
+  if (!hasCompression) return null;
+
   return groups.map(g => {
     if (isCardio) {
       const repsPart = g.reps > 0 ? ' × ' + g.reps + 'km' : '';
       return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + ' @ RPE ' + g.rpe;
     }
     return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'kg × ' + g.reps + ' @ RPE ' + g.rpe;
-  }).join('  /  ');
+  }).join('   ·   ');
 }
 
 // =========================================================
@@ -654,11 +659,12 @@ function renderToday() {
 
     const isCardio = ex.lift === 'cardio';
 
-    // Smart summary line: compress identical consecutive sets.
-    // e.g. "3 × 100kg × 5 @ RPE 7" or "145×4 @7 / 135×5 @7 / 135×5 @8 / 125×5 @8"
-    const summary = el('div', { class: 'set-summary' });
-    summary.textContent = formatSetsSummary(ex.sets, isCardio);
-    card.appendChild(summary);
+    // Smart summary line: only show if at least one group is compressed.
+    // e.g. "3 × 100kg × 5 @ RPE 7" — for fully varied sets, the rows below speak for themselves.
+    const summaryText = formatSetsSummary(ex.sets, isCardio);
+    if (summaryText) {
+      card.appendChild(el('div', { class: 'set-summary' }, summaryText));
+    }
 
     // Compact set rows — one per set, no per-set textarea
     const setsList = el('div', { class: 'compact-sets' });
@@ -666,18 +672,27 @@ function renderToday() {
       const row = el('div', { class: 'compact-set' + (set.completed ? ' done' : '') });
       row.appendChild(el('div', { class: 'cs-num' }, String(si + 1)));
 
-      // Target text — inline, single span
-      const tgt = el('div', { class: 'cs-target' });
+      // Target — three distinct cells (weight | reps | rpe) wrapped in a single container
+      const tgts = el('div', { class: 'cs-targets' });
       if (isCardio) {
-        tgt.innerHTML = '<strong>' + set.weight + '</strong> min' +
-                        (set.reps > 0 ? ' · <strong>' + set.reps + '</strong> km' : '') +
-                        ' · RPE ' + set.rpe;
+        const cell1 = el('div', { class: 'cs-cell' });
+        cell1.innerHTML = '<span class="cs-val">' + set.weight + '</span><span class="cs-unit">min</span>';
+        tgts.appendChild(cell1);
+        const cell2 = el('div', { class: 'cs-cell' });
+        cell2.innerHTML = set.reps > 0
+          ? '<span class="cs-val">' + set.reps + '</span><span class="cs-unit">km</span>'
+          : '<span class="cs-val dim">—</span>';
+        tgts.appendChild(cell2);
+        tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-unit">RPE</span><span class="cs-val">' + set.rpe + '</span>' }));
       } else {
-        // Make weight clickable for plate calc
-        const wLink = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')"><strong>' + set.weight + '</strong>kg</a>';
-        tgt.innerHTML = wLink + ' × <strong>' + set.reps + '</strong> · RPE ' + set.rpe;
+        const cell1 = el('div', { class: 'cs-cell' });
+        cell1.innerHTML = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')">' +
+                          '<span class="cs-val">' + set.weight + '</span><span class="cs-unit">kg</span></a>';
+        tgts.appendChild(cell1);
+        tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-mult">×</span><span class="cs-val">' + set.reps + '</span>' }));
+        tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-unit">RPE</span><span class="cs-val">' + set.rpe + '</span>' }));
       }
-      row.appendChild(tgt);
+      row.appendChild(tgts);
 
       // Actual RPE input or "felt: X" if done
       const rpeWrap = el('div', { class: 'cs-rpe' });
