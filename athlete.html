@@ -456,6 +456,36 @@ function buildWarmupHtml(workingWeight) {
 }
 
 // =========================================================
+// SET SUMMARY — compresses identical consecutive sets into a tight string.
+// Example: 4 sets of 100x5@7  →  "4 × 100kg × 5 @ RPE 7"
+// Mixed:   145x4@7, 135x5@7, 135x5@8, 125x5@8
+//          →  "145×4@7 / 135×5@7 / 135×5@8 / 125×5@8"
+// =========================================================
+function formatSetsSummary(sets, isCardio) {
+  if (!sets || !sets.length) return '';
+  const groups = [];
+  let cur = { ...sets[0], count: 1 };
+  for (let i = 1; i < sets.length; i++) {
+    const s = sets[i];
+    if (s.weight === cur.weight && s.reps === cur.reps && s.rpe === cur.rpe) {
+      cur.count++;
+    } else {
+      groups.push(cur);
+      cur = { ...s, count: 1 };
+    }
+  }
+  groups.push(cur);
+
+  return groups.map(g => {
+    if (isCardio) {
+      const repsPart = g.reps > 0 ? ' × ' + g.reps + 'km' : '';
+      return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + ' @ RPE ' + g.rpe;
+    }
+    return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'kg × ' + g.reps + ' @ RPE ' + g.rpe;
+  }).join('  /  ');
+}
+
+// =========================================================
 // COPY LAST WEEK — fills the current exercise's RPE inputs with last week's
 // actual logged RPE values (set-by-set, in order).
 // =========================================================
@@ -623,66 +653,73 @@ function renderToday() {
     }
 
     const isCardio = ex.lift === 'cardio';
+
+    // Smart summary line: compress identical consecutive sets.
+    // e.g. "3 × 100kg × 5 @ RPE 7" or "145×4 @7 / 135×5 @7 / 135×5 @8 / 125×5 @8"
+    const summary = el('div', { class: 'set-summary' });
+    summary.textContent = formatSetsSummary(ex.sets, isCardio);
+    card.appendChild(summary);
+
+    // Compact set rows — one per set, no per-set textarea
+    const setsList = el('div', { class: 'compact-sets' });
     ex.sets.forEach((set, si) => {
-      const block = el('div', { class: 'exec-set-block' + (set.completed ? ' done' : '') });
-      const row = el('div', { class: 'exec-set-row' });
-      row.appendChild(el('div', { class: 'set-num' }, String(si + 1)));
+      const row = el('div', { class: 'compact-set' + (set.completed ? ' done' : '') });
+      row.appendChild(el('div', { class: 'cs-num' }, String(si + 1)));
 
+      // Target text — inline, single span
+      const tgt = el('div', { class: 'cs-target' });
       if (isCardio) {
-        const wEl = el('div', { class: 'target' });
-        wEl.appendChild(el('span', {}, set.weight + ''));
-        wEl.appendChild(el('span', { class: 'unit' }, ' min'));
-        row.appendChild(wEl);
-        if (set.reps > 0) {
-          const rEl = el('div', { class: 'target dim' });
-          rEl.appendChild(el('span', {}, set.reps + ''));
-          rEl.appendChild(el('span', { class: 'unit' }, ' km'));
-          row.appendChild(rEl);
-        } else row.appendChild(el('div', { class: 'target dim' }, '—'));
-        row.appendChild(el('div', { class: 'target dim' }, '@ RPE ' + set.rpe));
+        tgt.innerHTML = '<strong>' + set.weight + '</strong> min' +
+                        (set.reps > 0 ? ' · <strong>' + set.reps + '</strong> km' : '') +
+                        ' · RPE ' + set.rpe;
       } else {
-        const wEl = el('div', { class: 'target' });
-        const wLink = el('a', { class: 'weight-link', href: '#', onclick: (e) => { e.preventDefault(); openPlateCalc(set.weight); } }, set.weight + '');
-        wEl.appendChild(wLink);
-        wEl.appendChild(el('span', { class: 'unit' }, ' kg'));
-        row.appendChild(wEl);
-        row.appendChild(el('div', { class: 'target dim' }, '× ' + set.reps));
-        row.appendChild(el('div', { class: 'target dim' }, '@ RPE ' + set.rpe));
+        // Make weight clickable for plate calc
+        const wLink = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')"><strong>' + set.weight + '</strong>kg</a>';
+        tgt.innerHTML = wLink + ' × <strong>' + set.reps + '</strong> · RPE ' + set.rpe;
       }
+      row.appendChild(tgt);
 
-      const rpeWrap = el('div', {});
-      if (set.completed) rpeWrap.innerHTML = '<span class="dim text-sm">Felt: </span><strong class="num">RPE ' + set.actualRpe + '</strong>';
-      else rpeWrap.appendChild(el('input', { type: 'number', step: '0.5', min: '1', max: '10', placeholder: 'Actual RPE', id: 'rpe_' + ex.id + '_' + si, value: set.rpe }));
+      // Actual RPE input or "felt: X" if done
+      const rpeWrap = el('div', { class: 'cs-rpe' });
+      if (set.completed) {
+        rpeWrap.innerHTML = '<span class="cs-rpe-done">RPE ' + set.actualRpe + '</span>';
+      } else {
+        const inp = el('input', {
+          type: 'number', step: '0.5', min: '1', max: '10',
+          placeholder: 'RPE', id: 'rpe_' + ex.id + '_' + si, value: set.rpe
+        });
+        rpeWrap.appendChild(inp);
+      }
       row.appendChild(rpeWrap);
 
-      const cb = el('input', { type: 'checkbox' });
+      // Checkbox
+      const cb = el('input', { type: 'checkbox', class: 'cs-check' });
       cb.checked = set.completed;
       cb.addEventListener('change', () => toggleSet(ex.id, si, cb.checked));
       row.appendChild(cb);
 
-      block.appendChild(row);
-
-      const noteWrap = el('div', { class: 'exec-set-note-wrap' });
-      const noteInput = el('textarea', {
-        class: 'set-note', placeholder: 'Set note (optional) — e.g. "felt heavy on rep 4"',
-        id: 'note_' + ex.id + '_' + si,
-        oninput: (e) => {
-          Store.update(s => {
-            const p = s.programs.find(p => p.athleteId === user.id);
-            const wk = p.weeks.find(w => w.id === cur.week.id);
-            const d = wk.days.find(dd => dd.id === cur.day.id);
-            const e2 = d.exercises.find(e3 => e3.id === ex.id);
-            if (e2 && e2.sets[si]) e2.sets[si].note = e.target.value;
-          });
-          persistProgram(prog.id);
-        }
-      });
-      noteInput.value = set.note || '';
-      noteWrap.appendChild(noteInput);
-      block.appendChild(noteWrap);
-
-      card.appendChild(block);
+      setsList.appendChild(row);
     });
+    card.appendChild(setsList);
+
+    // Single per-exercise note (replaces N per-set textareas).
+    // Stored on ex.athleteNote — falls back to the first set's note if migrating from old data.
+    const exNote = el('textarea', {
+      class: 'ex-note',
+      placeholder: 'Note for this exercise (optional) — e.g. "felt heavy on the 3rd set, hip pinch"',
+      oninput: (e) => {
+        Store.update(s => {
+          const p = s.programs.find(p => p.athleteId === user.id);
+          const wk = p.weeks.find(w => w.id === cur.week.id);
+          const d = wk.days.find(dd => dd.id === cur.day.id);
+          const e2 = d.exercises.find(e3 => e3.id === ex.id);
+          if (e2) e2.athleteNote = e.target.value;
+        });
+        persistProgram(prog.id);
+      }
+    });
+    exNote.value = ex.athleteNote || (ex.sets[0] && ex.sets[0].note) || '';
+    card.appendChild(exNote);
 
     area.appendChild(card);
   });

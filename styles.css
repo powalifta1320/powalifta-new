@@ -2392,6 +2392,135 @@ footer .container { display: flex; justify-content: space-between; align-items: 
   margin: 4px 0 12px;
 }
 
+/* ============================================ COMPACT SET ROWS (athlete today) */
+.exec-card { padding: 16px 18px; margin-bottom: 12px; }
+.exec-card-head { margin-bottom: 12px; }
+.exec-card-head h3 { font-size: 1.15rem; }
+
+.set-summary {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.84rem;
+  color: var(--text-2);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 7px 11px;
+  margin-bottom: 8px;
+  letter-spacing: 0.005em;
+  font-weight: 600;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.compact-sets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.compact-set {
+  display: grid;
+  grid-template-columns: 26px 1fr 90px 22px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: background 0.15s, border-color 0.15s;
+}
+.compact-set.done {
+  background: rgba(78, 216, 132, 0.06);
+  border-color: rgba(78, 216, 132, 0.3);
+}
+.compact-set .cs-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Anton', sans-serif;
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+.compact-set.done .cs-num {
+  background: var(--green);
+  color: var(--bg);
+  border-color: var(--green);
+}
+.compact-set .cs-target {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.86rem;
+  color: var(--text-2);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.compact-set .cs-target strong { color: var(--text); font-weight: 700; }
+.compact-set .cs-w-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--text-4);
+}
+.compact-set .cs-w-link:hover { color: var(--red); border-color: var(--red); }
+.compact-set .cs-rpe input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 0.86rem;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  font-family: 'Space Grotesk', monospace;
+  text-align: center;
+}
+.compact-set .cs-rpe-done {
+  font-family: 'Space Grotesk', monospace;
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--green);
+  display: block;
+  text-align: center;
+}
+.compact-set .cs-check {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--green);
+}
+
+.ex-note {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  color: var(--text-2);
+  font-size: 0.86rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 36px;
+}
+.ex-note:focus {
+  background: var(--bg-3);
+  border-color: var(--line-2);
+  color: var(--text);
+  outline: none;
+}
+.ex-note::placeholder { color: var(--text-4); font-style: italic; }
+
+@media (max-width: 700px) {
+  .compact-set {
+    grid-template-columns: 22px 1fr 70px 22px;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+  .set-summary { font-size: 0.78rem; padding: 6px 9px; }
+  .exec-card { padding: 14px; }
+}
+
 /* ============================================ COACH FEEDBACK CARD (athlete view) */
 .coach-feedback-card {
   background: var(--bg-1);
