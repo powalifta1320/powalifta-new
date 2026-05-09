@@ -34,7 +34,10 @@
     <section data-pane="athletes">
       <div class="dash-header">
         <div><h2>My athletes</h2><p class="dim text-sm">Status at a glance — click any card to open their program.</p></div>
-        <button class="btn btn-primary" onclick="openInviteModal()" id="btn-invite"></button>
+        <div class="flex gap-8" style="align-items:center; flex-wrap:wrap;">
+          <span id="planPill"></span>
+          <button class="btn btn-primary" onclick="openInviteModal()" id="btn-invite"></button>
+        </div>
       </div>
       <div id="rosterArea"></div>
       <div class="card mt-24">
@@ -214,8 +217,30 @@ bootstrap('coach', () => {
   renderRoster();
 });
 
+// ===== PLAN PILL =====
+function renderPlanPill() {
+  const pill = document.getElementById('planPill');
+  if (!pill) return;
+  const tier = getCurrentTier();
+  const limit = getCurrentTierLimit();
+  const count = getAthleteCount(user.id);
+  const atCap = count >= limit;
+  const nearCap = !atCap && count >= Math.floor(limit * 0.8);
+  pill.innerHTML = '';
+  const wrap = el('div', { class: 'plan-pill' + (atCap ? ' cap' : nearCap ? ' warn' : '') });
+  wrap.appendChild(el('span', { class: 'plan-tier' }, TIER_LABELS[tier]));
+  wrap.appendChild(el('span', { class: 'plan-count' }, count + ' / ' + (limit >= 9999 ? '∞' : limit) + ' athletes'));
+  pill.appendChild(wrap);
+  // Always offer Upgrade button
+  if (tier !== 'premium') {
+    const btn = el('button', { class: 'btn btn-sm', onclick: () => openUpgradeModal() }, atCap ? 'Upgrade required' : 'Upgrade');
+    pill.appendChild(btn);
+  }
+}
+
 // ===== ROSTER =====
 function renderRoster() {
+  renderPlanPill();
   const area = document.getElementById('rosterArea');
   if (!area) return;
   area.innerHTML = '';
@@ -297,6 +322,11 @@ function openAthleteProgram(athleteId) {
 
 // ===== INVITE =====
 function openInviteModal() {
+  // Cap check: don't let coach generate invites if they'd exceed plan
+  if (!canAddAthlete(user.id)) {
+    openUpgradeModal('cap');
+    return;
+  }
   document.getElementById('inviteEmail').value = '';
   document.getElementById('inviteResult').classList.add('hidden');
   openModal('inviteModal');
