@@ -2636,6 +2636,28 @@ footer .container { display: flex; justify-content: space-between; align-items: 
 /* Sun rays in light, moon in dark */
 .theme-toggle:active svg { transform: rotate(180deg); }
 
+/* Unit toggle (kg/lbs) */
+.unit-toggle {
+  height: 36px;
+  min-width: 44px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: 'Space Grotesk', monospace;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  transition: all 0.15s ease;
+}
+.unit-toggle:hover {
+  border-color: var(--line-2);
+  color: var(--text);
+  background: var(--bg-3);
+}
+
 /* ============================================ MOBILE POLISH */
 @media (max-width: 700px) {
   .container { padding: 0 18px; }

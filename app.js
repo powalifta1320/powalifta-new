@@ -182,6 +182,61 @@ window.toggleTheme = toggleTheme;
 applyTheme(getTheme());
 
 // =========================================================
+// WEIGHT UNITS (kg / lbs)
+// All data stored in kg. Display layer converts. User input from a "weight"
+// field is interpreted in the current display unit and converted back to kg.
+// Stored per-device in localStorage; toggle reloads the page to avoid
+// re-rendering every dependent component manually.
+// =========================================================
+const UNIT_KEY = 'powa-unit';
+const KG_PER_LB = 0.45359237;
+function getUnit() {
+  try { return localStorage.getItem(UNIT_KEY) === 'lbs' ? 'lbs' : 'kg'; }
+  catch { return 'kg'; }
+}
+function setUnit(u) {
+  const v = u === 'lbs' ? 'lbs' : 'kg';
+  try { localStorage.setItem(UNIT_KEY, v); } catch {}
+}
+function toggleUnit() {
+  setUnit(getUnit() === 'kg' ? 'lbs' : 'kg');
+  // Hard reload — easiest way to guarantee every view re-renders with the new unit.
+  location.reload();
+}
+window.toggleUnit = toggleUnit;
+
+// Display: kg internal value → number in the user's chosen unit.
+// `decimals` defaults to 1 for lbs (220.5) and 0 for kg (100), or pass to override.
+function kgToDisplay(kg, decimals) {
+  if (kg == null || kg === '') return null;
+  const n = Number(kg);
+  if (!isFinite(n)) return null;
+  const u = getUnit();
+  if (u === 'kg') return decimals != null ? Number(n.toFixed(decimals)) : n;
+  const lbs = n / KG_PER_LB;
+  return Number(lbs.toFixed(decimals != null ? decimals : 1));
+}
+// Inverse: a number the user entered in the display unit → kg for storage.
+function displayToKg(val) {
+  if (val == null || val === '') return val;
+  const n = Number(val);
+  if (!isFinite(n)) return n;
+  return getUnit() === 'kg' ? n : (n * KG_PER_LB);
+}
+function unitLabel() { return getUnit(); }
+// "145 kg" or "319.7 lbs"
+function formatWeight(kg, decimals) {
+  const v = kgToDisplay(kg, decimals);
+  if (v == null) return '—';
+  return v + ' ' + unitLabel();
+}
+window.getUnit = getUnit;
+window.kgToDisplay = kgToDisplay;
+window.displayToKg = displayToKg;
+window.unitLabel = unitLabel;
+window.formatWeight = formatWeight;
+
+// =========================================================
 // SUBSCRIPTION TIERS + LEMON SQUEEZY CHECKOUT
 // =========================================================
 const TIER_LIMITS = {
@@ -600,21 +655,37 @@ function calcCompE1RM(weight, reps, rpe, lift, variant) {
 // =========================================================
 const PLATE_SIZES = [25, 20, 15, 10, 5, 2.5, 1.25];
 const BAR_KG = 20;
+// Pound-mode plate set — standard US powerlifting plates
+const PLATE_SIZES_LB = [45, 35, 25, 10, 5, 2.5];
+const BAR_LB = 45;
 
+// Plate breakdown — calculates in the user's selected unit (kg or lbs).
+// `targetWeight` is the kg-internal weight; the function converts to lbs internally
+// when the user is in lb mode, so the plate sizes match what the gym actually has.
 function plateBreakdown(targetWeight) {
-  if (!targetWeight || targetWeight < BAR_KG) return { plates: [], perSide: 0, error: 'Below bar weight (' + BAR_KG + 'kg)' };
-  let perSide = (targetWeight - BAR_KG) / 2;
+  const isLbs = getUnit() === 'lbs';
+  const sizes = isLbs ? PLATE_SIZES_LB : PLATE_SIZES;
+  const bar   = isLbs ? BAR_LB : BAR_KG;
+  const u     = isLbs ? 'lbs' : 'kg';
+
+  // Convert target from internal kg to display unit
+  const target = isLbs ? (targetWeight / KG_PER_LB) : targetWeight;
+
+  if (!target || target < bar) {
+    return { plates: [], perSide: 0, unit: u, error: 'Below bar weight (' + bar + ' ' + u + ')' };
+  }
+  let perSide = (target - bar) / 2;
   const plates = [];
-  PLATE_SIZES.forEach(p => {
+  sizes.forEach(p => {
     while (perSide >= p - 0.001) {
       plates.push(p);
       perSide -= p;
     }
   });
   if (perSide > 0.05) {
-    return { plates, perSide: (targetWeight - BAR_KG) / 2, error: 'Cannot reach exactly. ' + (perSide * 2).toFixed(2) + 'kg short.' };
+    return { plates, perSide: (target - bar) / 2, unit: u, error: 'Cannot reach exactly. ' + (perSide * 2).toFixed(2) + ' ' + u + ' short.' };
   }
-  return { plates, perSide: (targetWeight - BAR_KG) / 2, error: null };
+  return { plates, perSide: (target - bar) / 2, unit: u, error: null };
 }
 
 // =========================================================
@@ -1024,6 +1095,12 @@ function renderNav(target) {
     '<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
   themeBtn.setAttribute('onclick', 'toggleTheme()');
   actions.appendChild(themeBtn);
+
+  // Unit toggle (kg / lbs) — always visible, swaps and reloads
+  const unitBtn = el('button', { class: 'unit-toggle', title: 'Toggle weight units (' + getUnit() + ')', 'aria-label': 'Toggle weight units' });
+  unitBtn.textContent = getUnit().toUpperCase();
+  unitBtn.setAttribute('onclick', 'toggleUnit()');
+  actions.appendChild(unitBtn);
 
   if (user) {
     // Clickable user pill → opens settings modal

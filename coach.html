@@ -542,7 +542,7 @@ function loadProgram() {
         if (lastSet) {
           row.appendChild(el('div', { class: 'mb-8 text-sm', style: 'color: var(--text-3);' },
             'Last logged: ',
-            el('strong', { class: 'mono', style: 'color: var(--text-2);' }, lastSet.weight + 'kg × ' + lastSet.reps + ' @ RPE ' + lastSet.rpe),
+            el('strong', { class: 'mono', style: 'color: var(--text-2);' }, kgToDisplay(lastSet.weight) + ' ' + unitLabel() + ' × ' + lastSet.reps + ' @ RPE ' + lastSet.rpe),
             el('span', { style: 'color: var(--text-4); margin-left: 8px;' }, '(' + fmtDateShort(lastSet.date) + ')')
           ));
         }
@@ -551,7 +551,13 @@ function loadProgram() {
           const setRow = el('div', { class: 'set-row' });
           setRow.appendChild(el('div', { class: 'set-label' }, 'Set ' + (si + 1)));
           const isCardio = ex.lift === 'cardio';
-          setRow.appendChild(el('input', { type: 'number', value: set.weight, placeholder: isCardio ? 'min' : 'kg', step: '0.5', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', Number(e.target.value)) }));
+          setRow.appendChild(el('input', {
+            type: 'number',
+            value: isCardio ? set.weight : (set.weight ? kgToDisplay(set.weight) : ''),
+            placeholder: isCardio ? 'min' : unitLabel(),
+            step: '0.5',
+            oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', isCardio ? Number(e.target.value) : displayToKg(Number(e.target.value)))
+          }));
           setRow.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'reps', Number(e.target.value)) }));
           setRow.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'rpe', Number(e.target.value)) }));
           const delSetBtn = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => deleteSet(activeWeekIdx, di, ei, si) });
@@ -726,7 +732,13 @@ function renderSetsBuilder() {
   buildingSets.forEach((set, i) => {
     const row = el('div', { class: 'set-row' });
     row.appendChild(el('div', { class: 'set-label' }, isCardio ? 'Bout ' + (i + 1) : 'Set ' + (i + 1)));
-    row.appendChild(el('input', { type: 'number', value: set.weight, placeholder: isCardio ? 'min' : 'kg', step: '0.5', oninput: e => buildingSets[i].weight = Number(e.target.value) }));
+    row.appendChild(el('input', {
+      type: 'number',
+      value: isCardio ? set.weight : (set.weight ? kgToDisplay(set.weight) : ''),
+      placeholder: isCardio ? 'min' : unitLabel(),
+      step: '0.5',
+      oninput: e => { buildingSets[i].weight = isCardio ? Number(e.target.value) : displayToKg(Number(e.target.value)); }
+    }));
     row.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => buildingSets[i].reps = Number(e.target.value) }));
     row.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => buildingSets[i].rpe = Number(e.target.value) }));
     const x = el('button', { class: 'btn-icon', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => { buildingSets.splice(i, 1); renderSetsBuilder(); } });
@@ -895,7 +907,7 @@ function renderProgressForAthlete() {
     const lab = el('div', { class: 'stat-label' });
     lab.innerHTML = ICONS.trophy + '<span>Best ' + LIFT_LABELS[lift] + ' e1RM</span>';
     tile.appendChild(lab);
-    tile.appendChild(el('div', { class: 'stat-value', html: Math.round(best) + '<span class="unit"> kg</span>' }));
+    tile.appendChild(el('div', { class: 'stat-value', html: Math.round(kgToDisplay(best)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
     stat.appendChild(tile);
   });
   if (bw.length) {
@@ -904,7 +916,7 @@ function renderProgressForAthlete() {
     const lab = el('div', { class: 'stat-label' });
     lab.innerHTML = ICONS.scale + '<span>Latest bodyweight</span>';
     tile.appendChild(lab);
-    tile.appendChild(el('div', { class: 'stat-value', html: last.weight.toFixed(1) + '<span class="unit"> kg</span>' }));
+    tile.appendChild(el('div', { class: 'stat-value', html: kgToDisplay(last.weight, 1) + '<span class="unit"> ' + unitLabel() + '</span>' }));
     stat.appendChild(tile);
   }
   area.appendChild(stat);
@@ -919,16 +931,16 @@ function renderProgressForAthlete() {
       const tile = el('div', { class: 'delta-tile' });
       tile.appendChild(el('div', { class: 'dt-lift' }, LIFT_LABELS[lift] + ' e1RM'));
       const row = el('div', { class: 'dt-row' });
-      row.appendChild(el('div', { class: 'dt-num', html: Math.round(d.current) + '<span class="unit"> kg</span>' }));
+      row.appendChild(el('div', { class: 'dt-num', html: Math.round(kgToDisplay(d.current)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
       if (d.delta != null) {
         const cls = d.delta > 0 ? 'up' : d.delta < 0 ? 'down' : 'flat';
         const arrow = d.delta > 0 ? '▲' : d.delta < 0 ? '▼' : '–';
-        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(Math.round(d.delta * 10) / 10) + 'kg'));
+        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(kgToDisplay(d.delta, 1)) + ' ' + unitLabel()));
       } else {
         row.appendChild(el('span', { class: 'dt-delta flat' }, 'first week'));
       }
       tile.appendChild(row);
-      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(d.previous) + 'kg'));
+      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(kgToDisplay(d.previous)) + ' ' + unitLabel()));
       grid.appendChild(tile);
     });
     area.appendChild(grid);
@@ -953,15 +965,19 @@ function renderProgressForAthlete() {
       const card = el('div', { class: 'goal-card' + (pct >= 100 ? ' complete' : '') });
       card.appendChild(el('div', { class: 'gc-label' }, def.label + ' goal'));
       const row = el('div', { class: 'gc-row' });
-      row.appendChild(el('div', { class: 'gc-current', html: (Math.round(def.current * 10) / 10) + '<span class="unit"> kg</span>' }));
+      row.appendChild(el('div', { class: 'gc-current', html: kgToDisplay(def.current, 1) + '<span class="unit"> ' + unitLabel() + '</span>' }));
       row.appendChild(el('span', { class: 'gc-arrow' }, '→'));
-      row.appendChild(el('div', { class: 'gc-target' }, target + ' kg'));
+      row.appendChild(el('div', { class: 'gc-target' }, kgToDisplay(target) + ' ' + unitLabel()));
       card.appendChild(row);
       const bar = el('div', { class: 'gc-bar' });
       const fill = el('div', { class: 'gc-bar-fill' });
       bar.appendChild(fill);
       card.appendChild(bar);
-      card.appendChild(el('div', { class: 'gc-pct' }, el('span', {}, pct + '%'), el('span', { class: 'delta' }, def.direction === 'cut' ? (def.current <= target ? '✓ at goal' : (def.current - target).toFixed(1) + 'kg to go') : (def.current >= target ? '✓ achieved' : (target - def.current).toFixed(1) + 'kg to go'))));
+      const remainKg = def.direction === 'cut' ? (def.current - target) : (target - def.current);
+      const deltaText = def.direction === 'cut'
+        ? (def.current <= target ? '✓ at goal' : kgToDisplay(remainKg, 1) + ' ' + unitLabel() + ' to go')
+        : (def.current >= target ? '✓ achieved' : kgToDisplay(remainKg, 1) + ' ' + unitLabel() + ' to go');
+      card.appendChild(el('div', { class: 'gc-pct' }, el('span', {}, pct + '%'), el('span', { class: 'delta' }, deltaText)));
       grid.appendChild(card);
       requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = pct + '%'; }));
     });
@@ -1000,7 +1016,9 @@ function renderProgressForAthlete() {
     const data = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b)).map(([x, y]) => ({ x, y }));
     series.push({ name: LIFT_LABELS[lift], color: palette, data });
   });
-  drawLineChart(wrap, { series, unit: 'kg', height: 320, area: false });
+  // Convert all series y-values to display unit
+  series.forEach(s => { s.data = s.data.map(d => ({ x: d.x, y: kgToDisplay(d.y, 1) })); });
+  drawLineChart(wrap, { series, unit: unitLabel(), height: 320, area: false });
 
   if (bw.length) {
     const bwCard = el('div', { class: 'chart-card' });
@@ -1009,9 +1027,9 @@ function renderProgressForAthlete() {
     bwCard.appendChild(bwWrap);
     area.appendChild(bwCard);
     drawLineChart(bwWrap, {
-      series: [{ name: 'Bodyweight', color: '#ff2d3f', data: [...bw].sort((a, b) => a.date.localeCompare(b.date)).map(b => ({ x: b.date, y: b.weight })) }],
-      unit: 'kg', height: 320, area: true,
-      goal: goals && goals.bodyweight ? { value: goals.bodyweight, label: 'Goal · ' + goals.bodyweight + 'kg' } : null
+      series: [{ name: 'Bodyweight', color: '#ff2d3f', data: [...bw].sort((a, b) => a.date.localeCompare(b.date)).map(b => ({ x: b.date, y: kgToDisplay(b.weight, 1) })) }],
+      unit: unitLabel(), height: 320, area: true,
+      goal: goals && goals.bodyweight ? { value: kgToDisplay(goals.bodyweight, 1), label: 'Goal · ' + kgToDisplay(goals.bodyweight) + ' ' + unitLabel() } : null
     });
   }
 

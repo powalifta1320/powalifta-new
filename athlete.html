@@ -224,6 +224,30 @@ bootstrap('athlete', () => {
   document.getElementById('bwBtn').innerHTML = ICONS.plus + '<span>Log weigh-in</span>';
   document.getElementById('goalsBtn').innerHTML = ICONS.trophy + '<span>Set goals</span>';
 
+  // Localize unit-bearing labels to the user's preferred unit
+  const u = unitLabel();
+  document.querySelectorAll('label').forEach(lbl => {
+    const t = lbl.textContent;
+    if (t === 'Weight (kg)') lbl.textContent = 'Weight (' + u + ')';
+    else if (t === 'Target weight (kg)') lbl.textContent = 'Target weight (' + u + ')';
+  });
+  // Plate modal explanation (bar weight depends on unit)
+  document.querySelectorAll('#plateModal p').forEach(p => {
+    if (p.textContent.includes('Per side breakdown')) {
+      p.textContent = 'Per side breakdown for a ' + (u === 'lbs' ? '45 lb' : '20 kg') + ' bar.';
+    }
+  });
+  // Goals modal hint
+  document.querySelectorAll('#goalsModal p').forEach(p => {
+    if (p.textContent.startsWith('All in')) p.textContent = 'All in ' + u + '. Leave blank to skip a goal.';
+  });
+  // Update placeholders to roughly equivalent values in the active unit
+  if (u === 'lbs') {
+    const setPh = (id, kg) => { const e = document.getElementById(id); if (e) e.placeholder = String(Math.round(kg / KG_PER_LB)); };
+    setPh('goalSq', 200); setPh('goalBn', 140); setPh('goalDl', 240);
+    setPh('goalTot', 600); setPh('goalBw', 82.5); setPh('bwWeight', 82.5);
+  }
+
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
@@ -427,28 +451,34 @@ window.saveCheckin = saveCheckin;
 function buildWarmupHtml(workingWeight) {
   const w = Number(workingWeight) || 0;
   if (w <= 0) return '';
-  const round = v => Math.max(20, Math.round(v / 2.5) * 2.5);
+  // Round to lifter-friendly increments based on the displayed unit.
+  // kg gyms: 2.5kg increments. lb gyms: 5lb increments.
+  const isLbs = getUnit() === 'lbs';
+  const barKg = isLbs ? (45 * KG_PER_LB) : 20; // 45 lb / 20 kg standard bar
+  const stepKg = isLbs ? (5 * KG_PER_LB) : 2.5;
+  const round = v => Math.max(barKg, Math.round(v / stepKg) * stepKg);
   const sets = [
-    { label: 'Bar',  weight: 20,                reps: 8 },
-    { label: '40%',  weight: round(w * 0.40),   reps: 5 },
-    { label: '60%',  weight: round(w * 0.60),   reps: 3 },
-    { label: '75%',  weight: round(w * 0.75),   reps: 2 },
-    { label: '85%',  weight: round(w * 0.85),   reps: 1 }
-  ].filter(s => s.weight < w); // skip any rung that's already at/above working
+    { label: 'Bar',  kg: barKg,             reps: 8 },
+    { label: '40%',  kg: round(w * 0.40),   reps: 5 },
+    { label: '60%',  kg: round(w * 0.60),   reps: 3 },
+    { label: '75%',  kg: round(w * 0.75),   reps: 2 },
+    { label: '85%',  kg: round(w * 0.85),   reps: 1 }
+  ].filter(s => s.kg < w);
 
   if (!sets.length) return '<div class="faint text-sm">Working weight is light enough to start cold-ish — bar × 8 should be plenty.</div>';
 
+  const u = unitLabel();
   let html = '<div class="warmup-grid">';
-  sets.forEach((s, i) => {
+  sets.forEach((s) => {
     html += '<div class="warmup-row">' +
               '<span class="warmup-pct">' + s.label + '</span>' +
-              '<span class="warmup-w">' + s.weight + ' kg</span>' +
+              '<span class="warmup-w">' + kgToDisplay(s.kg) + ' ' + u + '</span>' +
               '<span class="warmup-reps">× ' + s.reps + '</span>' +
             '</div>';
   });
   html += '<div class="warmup-row work">' +
             '<span class="warmup-pct">Work</span>' +
-            '<span class="warmup-w">' + w + ' kg</span>' +
+            '<span class="warmup-w">' + kgToDisplay(w) + ' ' + u + '</span>' +
             '<span class="warmup-reps">prescribed</span>' +
           '</div>';
   html += '</div>';
@@ -486,7 +516,7 @@ function formatSetsSummary(sets, isCardio) {
       const repsPart = g.reps > 0 ? ' × ' + g.reps + 'km' : '';
       return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + ' @ RPE ' + g.rpe;
     }
-    return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'kg × ' + g.reps + ' @ RPE ' + g.rpe;
+    return (g.count > 1 ? g.count + ' × ' : '') + kgToDisplay(g.weight) + unitLabel() + ' × ' + g.reps + ' @ RPE ' + g.rpe;
   }).join('   ·   ');
 }
 
@@ -625,7 +655,7 @@ function renderToday() {
       if (working > 0) {
         const warmup = el('div', { class: 'warmup' });
         const wTog = el('button', { class: 'warmup-toggle', type: 'button' });
-        wTog.innerHTML = '<span>Warmup ramp to ' + working + 'kg</span><span class="warmup-chev">▾</span>';
+        wTog.innerHTML = '<span>Warmup ramp to ' + kgToDisplay(working) + ' ' + unitLabel() + '</span><span class="warmup-chev">▾</span>';
         const wPanel = el('div', { class: 'warmup-panel' });
         wPanel.innerHTML = buildWarmupHtml(working);
         wTog.addEventListener('click', () => {
@@ -687,7 +717,7 @@ function renderToday() {
       } else {
         const cell1 = el('div', { class: 'cs-cell' });
         cell1.innerHTML = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')">' +
-                          '<span class="cs-val">' + set.weight + '</span><span class="cs-unit">kg</span></a>';
+                          '<span class="cs-val">' + kgToDisplay(set.weight) + '</span><span class="cs-unit">' + unitLabel() + '</span></a>';
         tgts.appendChild(cell1);
         tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-mult">×</span><span class="cs-val">' + set.reps + '</span>' }));
         tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-unit">RPE</span><span class="cs-val">' + set.rpe + '</span>' }));
@@ -792,7 +822,7 @@ async function toggleSet(exerciseId, setIndex, checked) {
       showPRToast(ex.lift, newLogObj.e1rmComp);
     } else {
       const e1Now = calcE1RM(set.weight, set.reps, actualRpe);
-      toast('Set logged for ' + fmtDateShort(sessionDate) + ' · e1RM ' + Math.round(e1Now) + 'kg');
+      toast('Set logged for ' + fmtDateShort(sessionDate) + ' · e1RM ' + Math.round(kgToDisplay(e1Now)) + ' ' + unitLabel());
     }
     startRestTimer(MAIN_LIFTS.includes(ex.lift) ? 180 : 90);
 
@@ -848,7 +878,7 @@ function showPRToast(lift, e1rmComp) {
   const overlay = el('div', { class: 'pr-toast' });
   const card = el('div', { class: 'pr-card' });
   card.appendChild(el('div', { class: 'pr-tag' }, '🏆 NEW PR'));
-  card.appendChild(el('div', { class: 'pr-num', html: Math.round(e1rmComp) + '<span class="unit">kg</span>' }));
+  card.appendChild(el('div', { class: 'pr-num', html: Math.round(kgToDisplay(e1rmComp)) + '<span class="unit">' + unitLabel() + '</span>' }));
   card.appendChild(el('div', { class: 'pr-sub' }, LIFT_LABELS[lift] + ' e1RM (competition equivalent)'));
   overlay.appendChild(card);
   document.body.appendChild(overlay);
@@ -897,8 +927,16 @@ function renderPlateCalc(weight) {
   const vis = document.getElementById('plateVis');
   const sum = document.getElementById('plateSummary');
   vis.innerHTML = '';
-  if (!weight || weight < 20) { sum.textContent = 'Below empty bar (20kg)'; return; }
-  const { plates, perSide, error } = plateBreakdown(weight);
+  // The "weight" passed here is in kg (internal). Convert + plate-break in active unit.
+  const result = plateBreakdown(weight);
+  const u = result.unit || unitLabel();
+  const minBar = u === 'lbs' ? BAR_LB : BAR_KG;
+  const dispW = u === 'lbs' ? (weight / KG_PER_LB) : weight;
+  if (!weight || dispW < minBar) {
+    sum.textContent = 'Below empty bar (' + minBar + ' ' + u + ')';
+    return;
+  }
+  const { plates, perSide, error } = result;
   const left = el('div', { class: 'flex', style: 'gap:1px' });
   [...plates].reverse().forEach(p => left.appendChild(el('div', { class: 'plate plate-' + String(p).replace('.', '_') }, p < 1.5 ? '' : String(p))));
   vis.appendChild(left);
@@ -910,9 +948,9 @@ function renderPlateCalc(weight) {
   vis.appendChild(right);
   const counts = {};
   plates.forEach(p => counts[p] = (counts[p] || 0) + 1);
-  const breakdown = Object.entries(counts).map(([p, c]) => c + '×' + p + 'kg').join(' + ');
+  const breakdown = Object.entries(counts).map(([p, c]) => c + '×' + p + ' ' + u).join(' + ');
   if (error) sum.innerHTML = '<span class="red">' + error + '</span>';
-  else if (breakdown) sum.innerHTML = '<strong>Per side:</strong> ' + breakdown + ' = ' + perSide.toFixed(2) + 'kg';
+  else if (breakdown) sum.innerHTML = '<strong>Per side:</strong> ' + breakdown + ' = ' + perSide.toFixed(2) + ' ' + u;
   else sum.innerHTML = 'Just the bar.';
 }
 
@@ -934,23 +972,41 @@ async function saveSessionNote() {
 // ===== GOALS =====
 function openGoalsModal() {
   const g = (Store.get().goals.find(x => x.athleteId === user.id)) || {};
-  document.getElementById('goalSq').value = g.squat || '';
-  document.getElementById('goalBn').value = g.bench || '';
-  document.getElementById('goalDl').value = g.deadlift || '';
-  document.getElementById('goalTot').value = g.total || '';
-  document.getElementById('goalBw').value = g.bodyweight || '';
+  // Show stored kg values converted to the user's display unit
+  document.getElementById('goalSq').value = g.squat ? kgToDisplay(g.squat) : '';
+  document.getElementById('goalBn').value = g.bench ? kgToDisplay(g.bench) : '';
+  document.getElementById('goalDl').value = g.deadlift ? kgToDisplay(g.deadlift) : '';
+  document.getElementById('goalTot').value = g.total ? kgToDisplay(g.total) : '';
+  document.getElementById('goalBw').value = g.bodyweight ? kgToDisplay(g.bodyweight) : '';
   document.getElementById('goalBwDir').value = g.bwDirection || 'maintain';
+  // Localize the goal labels with the active unit
+  const gm = document.getElementById('goalsModal');
+  const u = unitLabel();
+  if (gm) {
+    const labels = gm.querySelectorAll('label');
+    labels.forEach(l => {
+      const t = l.textContent.replace(/\s*\((kg|lbs)\)\s*$/, '');
+      if (['Squat goal', 'Bench goal', 'Deadlift goal', 'Total goal', 'Bodyweight goal'].includes(t)) {
+        l.textContent = t + ' (' + u + ')';
+      }
+    });
+  }
   openModal('goalsModal');
 }
 
 async function saveGoals() {
+  // Inputs are in display unit; convert back to kg before storing
+  const num = id => {
+    const v = document.getElementById(id).value;
+    return v ? displayToKg(Number(v)) : null;
+  };
   const patch = {
     athleteId: user.id,
-    squat: Number(document.getElementById('goalSq').value) || null,
-    bench: Number(document.getElementById('goalBn').value) || null,
-    deadlift: Number(document.getElementById('goalDl').value) || null,
-    total: Number(document.getElementById('goalTot').value) || null,
-    bodyweight: Number(document.getElementById('goalBw').value) || null,
+    squat: num('goalSq'),
+    bench: num('goalBn'),
+    deadlift: num('goalDl'),
+    total: num('goalTot'),
+    bodyweight: num('goalBw'),
     bwDirection: document.getElementById('goalBwDir').value
   };
   Store.update(s => {
@@ -977,15 +1033,16 @@ function renderGoals(includeBw) {
     return empty;
   }
   const grid = el('div', { class: 'goals-grid' });
+  const u = unitLabel();
   const goalDefs = [
-    { key: 'squat', label: 'Squat', current: bestE1RM(user.id, 'squat'), unit: 'kg' },
-    { key: 'bench', label: 'Bench', current: bestE1RM(user.id, 'bench'), unit: 'kg' },
-    { key: 'deadlift', label: 'Deadlift', current: bestE1RM(user.id, 'deadlift'), unit: 'kg' },
-    { key: 'total', label: 'Total', current: currentTotal(user.id), unit: 'kg' }
+    { key: 'squat', label: 'Squat', current: bestE1RM(user.id, 'squat') },
+    { key: 'bench', label: 'Bench', current: bestE1RM(user.id, 'bench') },
+    { key: 'deadlift', label: 'Deadlift', current: bestE1RM(user.id, 'deadlift') },
+    { key: 'total', label: 'Total', current: currentTotal(user.id) }
   ];
   if (includeBw && g.bodyweight) {
     const cur = latestBodyweight(user.id);
-    if (cur != null) goalDefs.push({ key: 'bodyweight', label: 'Bodyweight', current: cur, unit: 'kg', direction: g.bwDirection });
+    if (cur != null) goalDefs.push({ key: 'bodyweight', label: 'Bodyweight', current: cur, direction: g.bwDirection });
   }
   goalDefs.forEach(def => {
     const target = g[def.key];
@@ -994,15 +1051,18 @@ function renderGoals(includeBw) {
     const card = el('div', { class: 'goal-card' + (pct >= 100 ? ' complete' : '') });
     card.appendChild(el('div', { class: 'gc-label' }, def.label + ' goal'));
     const row = el('div', { class: 'gc-row' });
-    row.appendChild(el('div', { class: 'gc-current', html: (Math.round(def.current * 10) / 10) + '<span class="unit"> ' + def.unit + '</span>' }));
+    row.appendChild(el('div', { class: 'gc-current', html: kgToDisplay(def.current, 1) + '<span class="unit"> ' + u + '</span>' }));
     row.appendChild(el('span', { class: 'gc-arrow' }, '→'));
-    row.appendChild(el('div', { class: 'gc-target' }, target + ' ' + def.unit));
+    row.appendChild(el('div', { class: 'gc-target' }, kgToDisplay(target) + ' ' + u));
     card.appendChild(row);
     const bar = el('div', { class: 'gc-bar' });
     const fill = el('div', { class: 'gc-bar-fill' });
     bar.appendChild(fill);
     card.appendChild(bar);
-    const delta = def.direction === 'cut' ? (def.current <= target ? '✓ at goal' : (def.current - target).toFixed(1) + 'kg to go') : (def.current >= target ? '✓ achieved!' : (target - def.current).toFixed(1) + 'kg to go');
+    const remainKg = def.direction === 'cut' ? (def.current - target) : (target - def.current);
+    const delta = def.direction === 'cut'
+      ? (def.current <= target ? '✓ at goal' : kgToDisplay(remainKg, 1) + ' ' + u + ' to go')
+      : (def.current >= target ? '✓ achieved!' : kgToDisplay(remainKg, 1) + ' ' + u + ' to go');
     card.appendChild(el('div', { class: 'gc-pct' }, el('span', {}, pct + '%'), el('span', { class: 'delta' }, delta)));
     grid.appendChild(card);
     requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = pct + '%'; }));
@@ -1025,7 +1085,7 @@ function renderProgress() {
     const lab = el('div', { class: 'stat-label' });
     lab.innerHTML = ICONS.trophy + '<span>Best ' + LIFT_LABELS[lift] + '</span>';
     tile.appendChild(lab);
-    tile.appendChild(el('div', { class: 'stat-value', html: Math.round(best) + '<span class="unit"> kg</span>' }));
+    tile.appendChild(el('div', { class: 'stat-value', html: Math.round(kgToDisplay(best)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
     stat.appendChild(tile);
   });
   const total = currentTotal(user.id);
@@ -1033,7 +1093,7 @@ function renderProgress() {
   const lab = el('div', { class: 'stat-label' });
   lab.innerHTML = ICONS.bar + '<span>Total</span>';
   totalTile.appendChild(lab);
-  totalTile.appendChild(el('div', { class: 'stat-value', html: Math.round(total) + '<span class="unit"> kg</span>' }));
+  totalTile.appendChild(el('div', { class: 'stat-value', html: Math.round(kgToDisplay(total)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
   stat.appendChild(totalTile);
   const streak = getStreak(user.id);
   const sTile = el('div', { class: 'stat-tile' });
@@ -1054,14 +1114,14 @@ function renderProgress() {
       const tile = el('div', { class: 'delta-tile' });
       tile.appendChild(el('div', { class: 'dt-lift' }, LIFT_LABELS[lift] + ' e1RM'));
       const row = el('div', { class: 'dt-row' });
-      row.appendChild(el('div', { class: 'dt-num', html: Math.round(d.current) + '<span class="unit"> kg</span>' }));
+      row.appendChild(el('div', { class: 'dt-num', html: Math.round(kgToDisplay(d.current)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
       if (d.delta != null) {
         const cls = d.delta > 0 ? 'up' : d.delta < 0 ? 'down' : 'flat';
         const arrow = d.delta > 0 ? '▲' : d.delta < 0 ? '▼' : '–';
-        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(Math.round(d.delta * 10) / 10) + 'kg'));
+        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(kgToDisplay(d.delta, 1)) + ' ' + unitLabel()));
       } else row.appendChild(el('span', { class: 'dt-delta flat' }, 'first week'));
       tile.appendChild(row);
-      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(d.previous) + 'kg'));
+      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(kgToDisplay(d.previous)) + ' ' + unitLabel()));
       grid.appendChild(tile);
     });
     area.appendChild(grid);
@@ -1076,8 +1136,8 @@ function renderProgress() {
       if (!pr) return;
       const row = el('div', { class: 'pr-table-row' });
       row.appendChild(el('div', { class: 'pr-lift' }, LIFT_LABELS[lift]));
-      row.appendChild(el('div', { class: 'pr-value', html: Math.round(pr.e1rmComp) + ' kg <span class="pr-badge-inline" style="margin-left:8px">e1RM</span>' }));
-      row.appendChild(el('div', { class: 'pr-meta' }, pr.weight + 'kg × ' + pr.reps + ' @ ' + pr.rpe + ' (' + (pr.variant || '—') + ')'));
+      row.appendChild(el('div', { class: 'pr-value', html: Math.round(kgToDisplay(pr.e1rmComp)) + ' ' + unitLabel() + ' <span class="pr-badge-inline" style="margin-left:8px">e1RM</span>' }));
+      row.appendChild(el('div', { class: 'pr-meta' }, kgToDisplay(pr.weight) + ' ' + unitLabel() + ' × ' + pr.reps + ' @ ' + pr.rpe + ' (' + (pr.variant || '—') + ')'));
       row.appendChild(el('div', { class: 'pr-date' }, fmtDateShort(pr.date)));
       wrap.appendChild(row);
     });
@@ -1120,7 +1180,9 @@ function renderProgress() {
     const data = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b)).map(([x, y]) => ({ x, y }));
     series.push({ name: LIFT_LABELS[lift], color: palette, data });
   });
-  drawLineChart(wrap, { series, unit: 'kg', height: 320, area: false });
+  // Convert all series y-values to display unit so the y-axis matches
+  series.forEach(s => { s.data = s.data.map(d => ({ x: d.x, y: kgToDisplay(d.y, 1) })); });
+  drawLineChart(wrap, { series, unit: unitLabel(), height: 320, area: false });
 
   if (logs.length) {
     const tableCard = el('div', { class: 'chart-card' });
@@ -1234,7 +1296,7 @@ async function exportProgramAsImage(weekNumber) {
             html += '<div style="font-size: 0.82rem; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,181,71,0.07); border-left: 3px solid #ffb547; border-radius: 4px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
           }
           ex.sets.forEach((set, si) => {
-            const w = (set.weight != null && set.weight !== '') ? set.weight + 'kg' : '—';
+            const w = (set.weight != null && set.weight !== '') ? (kgToDisplay(set.weight) + ' ' + unitLabel()) : '—';
             const reps = (set.reps != null && set.reps !== '') ? set.reps : '—';
             const rpe = (set.rpe != null && set.rpe !== '') ? '@ RPE ' + set.rpe : '';
             html += '<div style="font-family: \'Space Grotesk\', monospace; font-size: 0.86rem; color: #b8b8c0; padding: 3px 0;">';
@@ -1334,7 +1396,7 @@ function renderFullProgram() {
           if (ex.note) row.appendChild(el('div', { class: 'coach-note', html: '<strong>Coach:</strong> ' + escHtml(ex.note) }));
           ex.sets.forEach((set, si) => {
             const done = set.completed ? ' ✓ (felt RPE ' + set.actualRpe + ')' : '';
-            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + set.weight + 'kg × ' + set.reps + ' @ RPE ' + set.rpe + done));
+            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps + ' @ RPE ' + set.rpe + done));
           });
           body.appendChild(row);
         });
@@ -1349,8 +1411,10 @@ function renderFullProgram() {
 // ===== BODYWEIGHT =====
 async function logBodyweight() {
   const date = document.getElementById('bwDate').value;
-  const w = Number(document.getElementById('bwWeight').value);
-  if (!date || !w) return toast('Enter date and weight');
+  const wInput = Number(document.getElementById('bwWeight').value);
+  if (!date || !wInput) return toast('Enter date and weight');
+  // Input is in display unit — convert back to kg for storage
+  const w = displayToKg(wInput);
   const existing = Store.get().bodyweight.find(b => b.athleteId === user.id && b.date === date);
   const b = existing ? { ...existing, weight: w } : { id: uid('bw'), athleteId: user.id, date, weight: w };
   Store.update(s => {
@@ -1377,21 +1441,22 @@ function renderBodyweight() {
     area.appendChild(e); return;
   }
 
+  const u = unitLabel();
   const last = bw.at(-1);
   const min = Math.min(...bw.map(b => b.weight));
   const max = Math.max(...bw.map(b => b.weight));
   const stat = el('div', { class: 'stat-grid' });
   [
-    { label: 'Latest', val: last.weight.toFixed(1), feat: true },
-    { label: 'Lowest', val: min.toFixed(1) },
-    { label: 'Highest', val: max.toFixed(1) },
-    { label: 'Range', val: (max - min).toFixed(1) }
+    { label: 'Latest', val: kgToDisplay(last.weight, 1), feat: true },
+    { label: 'Lowest', val: kgToDisplay(min, 1) },
+    { label: 'Highest', val: kgToDisplay(max, 1) },
+    { label: 'Range', val: kgToDisplay(max - min, 1) }
   ].forEach(item => {
     const tile = el('div', { class: 'stat-tile' + (item.feat ? ' featured' : '') });
     const lab = el('div', { class: 'stat-label' });
     lab.innerHTML = ICONS.scale + '<span>' + item.label + '</span>';
     tile.appendChild(lab);
-    tile.appendChild(el('div', { class: 'stat-value', html: item.val + '<span class="unit"> kg</span>' }));
+    tile.appendChild(el('div', { class: 'stat-value', html: item.val + '<span class="unit"> ' + u + '</span>' }));
     stat.appendChild(tile);
   });
   area.appendChild(stat);
@@ -1407,15 +1472,19 @@ function renderBodyweight() {
     const card = el('div', { class: 'goal-card' + (pct >= 100 ? ' complete' : '') });
     card.appendChild(el('div', { class: 'gc-label' }, dir === 'cut' ? 'Cutting to' : dir === 'gain' ? 'Gaining to' : 'Maintain at'));
     const row = el('div', { class: 'gc-row' });
-    row.appendChild(el('div', { class: 'gc-current', html: cur.toFixed(1) + '<span class="unit"> kg</span>' }));
+    row.appendChild(el('div', { class: 'gc-current', html: kgToDisplay(cur, 1) + '<span class="unit"> ' + u + '</span>' }));
     row.appendChild(el('span', { class: 'gc-arrow' }, '→'));
-    row.appendChild(el('div', { class: 'gc-target' }, target + ' kg'));
+    row.appendChild(el('div', { class: 'gc-target' }, kgToDisplay(target) + ' ' + u));
     card.appendChild(row);
     const bar = el('div', { class: 'gc-bar' });
     const fill = el('div', { class: 'gc-bar-fill' });
     bar.appendChild(fill);
     card.appendChild(bar);
-    const delta = dir === 'cut' ? (cur <= target ? '✓ at goal' : (cur - target).toFixed(1) + 'kg to lose') : dir === 'gain' ? (cur >= target ? '✓ at goal' : (target - cur).toFixed(1) + 'kg to gain') : Math.abs(cur - target).toFixed(1) + 'kg from target';
+    const delta = dir === 'cut'
+      ? (cur <= target ? '✓ at goal' : kgToDisplay(cur - target, 1) + ' ' + u + ' to lose')
+      : dir === 'gain'
+        ? (cur >= target ? '✓ at goal' : kgToDisplay(target - cur, 1) + ' ' + u + ' to gain')
+        : kgToDisplay(Math.abs(cur - target), 1) + ' ' + u + ' from target';
     card.appendChild(el('div', { class: 'gc-pct' }, el('span', {}, pct + '%'), el('span', { class: 'delta' }, delta)));
     grid.appendChild(card);
     area.appendChild(grid);
@@ -1428,9 +1497,9 @@ function renderBodyweight() {
   card.appendChild(wrap);
   area.appendChild(card);
   drawLineChart(wrap, {
-    series: [{ name: 'Bodyweight', color: '#ff2d3f', data: bw.map(b => ({ x: b.date, y: b.weight })) }],
-    unit: 'kg', height: 320, area: true,
-    goal: g && g.bodyweight ? { value: g.bodyweight, label: 'Goal · ' + g.bodyweight + 'kg' } : null
+    series: [{ name: 'Bodyweight', color: '#ff2d3f', data: bw.map(b => ({ x: b.date, y: kgToDisplay(b.weight, 1) })) }],
+    unit: u, height: 320, area: true,
+    goal: g && g.bodyweight ? { value: kgToDisplay(g.bodyweight, 1), label: 'Goal · ' + kgToDisplay(g.bodyweight) + ' ' + u } : null
   });
 
   const tableCard = el('div', { class: 'chart-card' });
@@ -1441,7 +1510,7 @@ function renderBodyweight() {
   const tbody = el('tbody');
   [...bw].reverse().slice(0, 10).forEach(b => {
     const tr = el('tr');
-    tr.innerHTML = '<td>' + fmtDate(b.date) + '</td><td class="mono fw-700">' + b.weight.toFixed(1) + ' kg</td>';
+    tr.innerHTML = '<td>' + fmtDate(b.date) + '</td><td class="mono fw-700">' + kgToDisplay(b.weight, 1) + ' ' + u + '</td>';
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
