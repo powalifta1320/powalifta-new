@@ -160,13 +160,13 @@ const TIER_LABELS = {
 };
 const TIER_PRICES = {
   basic: 25,
-  pro: 100,
-  premium: 200
+  pro: 50,
+  premium: 100
 };
 const LS_CHECKOUT_URLS = {
-  basic:   'https://powalifta.lemonsqueezy.com/checkout/buy/c1b66719-98e8-4161-b557-bbfb17ffb681',
-  pro:     'https://powalifta.lemonsqueezy.com/checkout/buy/08a73a63-32ea-473b-8579-3b72152e42b5',
-  premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/e4c677bd-e26a-4747-a33b-94b6759c88a4'
+  basic:   'https://powalifta.lemonsqueezy.com/checkout/buy/d9320c9a-e603-402c-b2c0-f88189ccde14',
+  pro:     'https://powalifta.lemonsqueezy.com/checkout/buy/20e2ec1f-744c-46c9-8a86-62fa13bcb899',
+  premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/a5dbff0b-9950-4831-ab91-99e10d20c3a0'
 };
 
 // Build checkout URL with prefilled email + the coach's user id as custom data
@@ -241,8 +241,8 @@ function openUpgradeModal(reason) {
   }
   const tiers = [
     { key: 'basic',   limit: 10,   price: 25,  blurb: 'Solo coach, growing roster.' },
-    { key: 'pro',     limit: 25,   price: 100, blurb: 'Full-time independent coach.', featured: true },
-    { key: 'premium', limit: 9999, price: 200, blurb: 'Studios, teams, federations.' }
+    { key: 'pro',     limit: 25,   price: 50,  blurb: 'Full-time independent coach.', featured: true },
+    { key: 'premium', limit: 9999, price: 100, blurb: 'Studios, teams, federations.' }
   ];
   const grid = document.getElementById('upgradeTiers');
   grid.innerHTML = '';
