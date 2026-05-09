@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.admin-banner {
+  background: linear-gradient(135deg, rgba(255,181,71,0.12), rgba(255,181,71,0.04));
+  border-left: 3px solid var(--gold);
+  padding: 12px 18px;
+  border-radius: var(--r-sm);
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  color: var(--gold);
+  display: flex; align-items: center; gap: 10px;
+}
+.admin-search {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.94rem;
+  margin-bottom: 14px;
+}
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<div class="dash-shell">
+  <aside class="sidebar">
+    <div class="sidebar-section">Admin</div>
+    <button class="sidebar-tab active" data-tab="overview" id="tab-overview"></button>
+    <button class="sidebar-tab" data-tab="coaches" id="tab-coaches"></button>
+    <button class="sidebar-tab" data-tab="athletes" id="tab-athletes"></button>
+    <button class="sidebar-tab" data-tab="programs" id="tab-programs"></button>
+    <button class="sidebar-tab" data-tab="logs" id="tab-logs"></button>
+    <button class="sidebar-tab" data-tab="invites" id="tab-invites"></button>
+    <div class="sidebar-foot">
+      <div>POWALIFTA Admin</div>
+      <div class="faded">★ god mode</div>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+
+    <section data-pane="overview">
+      <div class="dash-header">
+        <div><h2>Admin overview</h2><p class="dim text-sm">Cross-platform stats. RLS bypassed via admin role.</p></div>
+      </div>
+      <div class="admin-banner">★ You're viewing as admin. You can see ALL user data. Be careful.</div>
+      <div id="overviewArea"></div>
+    </section>
+
+    <section data-pane="coaches" class="hidden">
+      <div class="dash-header"><div><h2>All coaches</h2></div></div>
+      <input class="admin-search" id="searchCoaches" placeholder="Search by name, email, bio…">
+      <div id="coachesArea"></div>
+    </section>
+
+    <section data-pane="athletes" class="hidden">
+      <div class="dash-header"><div><h2>All athletes</h2></div></div>
+      <input class="admin-search" id="searchAthletes" placeholder="Search by name, email, coach…">
+      <div id="athletesArea"></div>
+    </section>
+
+    <section data-pane="programs" class="hidden">
+      <div class="dash-header"><div><h2>All programs</h2></div></div>
+      <input class="admin-search" id="searchPrograms" placeholder="Search by program name, athlete, coach…">
+      <div id="programsArea"></div>
+    </section>
+
+    <section data-pane="logs" class="hidden">
+      <div class="dash-header"><div><h2>Workout logs</h2><p class="dim text-sm">Latest 500 sets across all athletes.</p></div></div>
+      <input class="admin-search" id="searchLogs" placeholder="Search by athlete, lift, variant…">
+      <div id="logsArea"></div>
+    </section>
+
+    <section data-pane="invites" class="hidden">
+      <div class="dash-header"><div><h2>All invites</h2></div></div>
+      <input class="admin-search" id="searchInvites" placeholder="Search by code, email, coach…">
+      <div id="invitesArea"></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let user;
+let cache = { profiles: [], invites: [], programs: [], logs: [], bw: [], goals: [] };
+
+bootstrap('coach', async () => {
+  user = getCurrentUser();
+  if (!user || !user.isAdmin) {
+    location.href = user.userType === 'coach' ? 'coach.html' : 'athlete.html';
+    return;
+  }
+  renderNav('#nav');
+
+  const setLbl = (id, icon, text) => { const e = document.getElementById(id); if (e) e.innerHTML = icon + '<span>' + text + '</span>'; };
+  setLbl('tab-overview', ICONS.chart, 'Overview');
+  setLbl('tab-coaches', ICONS.user, 'Coaches');
+  setLbl('tab-athletes', ICONS.athletes, 'Athletes');
+  setLbl('tab-programs', ICONS.program, 'Programs');
+  setLbl('tab-logs', ICONS.bar, 'Workout logs');
+  setLbl('tab-invites', ICONS.copy, 'Invites');
+
+  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
+      document.querySelector('[data-pane="' + btn.dataset.tab + '"]').classList.remove('hidden');
+      const t = btn.dataset.tab;
+      if (t === 'coaches') renderCoaches();
+      if (t === 'athletes') renderAthletes();
+      if (t === 'programs') renderPrograms();
+      if (t === 'logs') renderLogs();
+      if (t === 'invites') renderInvites();
+      if (t === 'overview') renderOverview();
+    });
+  });
+
+  document.getElementById('searchCoaches').addEventListener('input', renderCoaches);
+  document.getElementById('searchAthletes').addEventListener('input', renderAthletes);
+  document.getElementById('searchPrograms').addEventListener('input', renderPrograms);
+  document.getElementById('searchLogs').addEventListener('input', renderLogs);
+  document.getElementById('searchInvites').addEventListener('input', renderInvites);
+
+  // Load all admin data in parallel
+  try {
+    const [profiles, invites, programs, logs, bw, goals] = await Promise.all([
+      DB.listAllProfiles(),
+      DB.listAllInvites(),
+      DB.listAllPrograms(),
+      DB.listAllLogs(),
+      DB.listAllBw(),
+      DB.listAllGoals()
+    ]);
+    cache = { profiles, invites, programs, logs, bw, goals };
+    renderOverview();
+  } catch (e) {
+    toast('Failed to load admin data: ' + (e.message || ''));
+    console.error(e);
+  }
+});
+
+function profileById(id) { return cache.profiles.find(p => p.id === id); }
+function nameById(id) { const p = profileById(id); return p ? p.name : '—'; }
+
+function renderOverview() {
+  const area = document.getElementById('overviewArea');
+  area.innerHTML = '';
+  const coaches = cache.profiles.filter(p => p.user_type === 'coach');
+  const athletes = cache.profiles.filter(p => p.user_type === 'athlete');
+  const orphanAthletes = athletes.filter(a => !a.coach_id);
+  const sessionsToday = cache.logs.filter(l => l.date === todayISO()).length;
+  const last7 = (() => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    const cutoff = d.toISOString().slice(0, 10);
+    return new Set(cache.logs.filter(l => l.date >= cutoff).map(l => l.athleteId)).size;
+  })();
+  const stats = [
+    { lbl: 'Coaches', val: coaches.length, icon: ICONS.user },
+    { lbl: 'Athletes', val: athletes.length, icon: ICONS.athletes },
+    { lbl: 'Programs', val: cache.programs.length, icon: ICONS.program },
+    { lbl: 'Sets logged', val: cache.logs.length, icon: ICONS.bar },
+    { lbl: 'Sets today', val: sessionsToday, icon: ICONS.today },
+    { lbl: 'Active 7d', val: last7, icon: ICONS.flame },
+    { lbl: 'Pending invites', val: cache.invites.filter(i => !i.used).length, icon: ICONS.copy },
+    { lbl: 'Orphan athletes', val: orphanAthletes.length, icon: ICONS.x }
+  ];
+  const grid = el('div', { class: 'admin-stats' });
+  stats.forEach((s, i) => {
+    const tile = el('div', { class: 'stat-tile' + (i === 0 ? ' featured' : '') });
+    const lab = el('div', { class: 'stat-label' });
+    lab.innerHTML = s.icon + '<span>' + s.lbl + '</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: String(s.val) }));
+    grid.appendChild(tile);
+  });
+  area.appendChild(grid);
+
+  // Recent activity
+  const recent = el('div', { class: 'chart-card' });
+  recent.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Recent activity'), el('div', { class: 'chart-sub' }, 'Last 15 logged sets across the platform.')));
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Date</th><th>Athlete</th><th>Lift</th><th>Weight × Reps</th><th>RPE</th><th>e1RM</th></tr></thead>';
+  const tbody = el('tbody');
+  cache.logs.slice(0, 15).forEach(l => {
+    const tr = el('tr');
+    const aName = nameById(l.athleteId);
+    const label = l.lift === 'squat' || l.lift === 'bench' || l.lift === 'deadlift' ? l.variant + ' ' + l.lift : (l.exerciseName || l.lift);
+    tr.innerHTML = '<td class="dim text-sm">' + fmtDate(l.date) + '</td>' +
+                   '<td><strong>' + escHtml(aName) + '</strong></td>' +
+                   '<td><span class="badge">' + escHtml(label) + '</span></td>' +
+                   '<td class="mono">' + l.weight + ' × ' + l.reps + '</td>' +
+                   '<td class="mono">' + l.rpe + '</td>' +
+                   '<td class="mono fw-700">' + Math.round(l.e1rmComp) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  recent.appendChild(tblWrap);
+  area.appendChild(recent);
+}
+
+function renderCoaches() {
+  const q = document.getElementById('searchCoaches').value.toLowerCase().trim();
+  const coaches = cache.profiles.filter(p => p.user_type === 'coach' && (!q || (p.name + ' ' + p.email + ' ' + (p.bio||'')).toLowerCase().includes(q)));
+  const area = document.getElementById('coachesArea');
+  area.innerHTML = '';
+  if (!coaches.length) { area.appendChild(el('p', { class: 'dim' }, 'No coaches.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Athletes</th><th>Joined</th></tr></thead>';
+  const tbody = el('tbody');
+  coaches.forEach(c => {
+    const aCount = cache.profiles.filter(p => p.user_type === 'athlete' && p.coach_id === c.id).length;
+    const tier = c.subscription_tier || 'free';
+    const tr = el('tr');
+    const nameCell = el('td', { html: '<strong>' + escHtml(c.name) + '</strong>' + (c.is_admin ? ' <span class="badge badge-gold" style="margin-left:6px">★ ADMIN</span>' : '') });
+    const emailCell = el('td', { class: 'dim', html: escHtml(c.email) });
+    const planCell = el('td');
+    const planSelect = el('select', {
+      style: 'background: var(--bg); border: 1px solid var(--line); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 0.84rem;',
+      onchange: async (e) => {
+        const newTier = e.target.value;
+        try {
+          await sb.from('profiles').update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() }).in('id', [c.id]);
+          c.subscription_tier = newTier;
+          toast('Updated ' + c.name + ' to ' + newTier);
+        } catch (err) {
+          toast('Failed: ' + err.message);
+          e.target.value = tier;
+        }
+      }
+    });
+    ['free', 'basic', 'pro', 'premium'].forEach(t => {
+      const opt = el('option', { value: t }, TIER_LABELS[t] || t);
+      if (t === tier) opt.selected = true;
+      planSelect.appendChild(opt);
+    });
+    planCell.appendChild(planSelect);
+    tr.appendChild(nameCell);
+    tr.appendChild(emailCell);
+    tr.appendChild(planCell);
+    tr.appendChild(el('td', { class: 'mono' }, String(aCount)));
+    tr.appendChild(el('td', { class: 'dim text-sm' }, fmtDateShort(new Date(c.created_at).toISOString().slice(0,10))));
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderAthletes() {
+  const q = document.getElementById('searchAthletes').value.toLowerCase().trim();
+  const all = cache.profiles.filter(p => p.user_type === 'athlete');
+  const filtered = all.filter(a => {
+    if (!q) return true;
+    const coach = profileById(a.coach_id);
+    return (a.name + ' ' + a.email + ' ' + (coach?.name || '')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('athletesArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No athletes match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Coach</th><th>Joined</th><th>Sets logged</th><th>Last session</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.forEach(a => {
+    const coach = profileById(a.coach_id);
+    const myLogs = cache.logs.filter(l => l.athleteId === a.id);
+    const lastDate = myLogs[0]?.date || null;
+    const tr = el('tr');
+    tr.innerHTML = '<td><strong>' + escHtml(a.name) + '</strong></td>' +
+                   '<td class="dim">' + escHtml(a.email) + '</td>' +
+                   '<td>' + (coach ? escHtml(coach.name) : '<span class="faint">— unassigned</span>') + '</td>' +
+                   '<td class="dim text-sm">' + fmtDateShort(new Date(a.created_at).toISOString().slice(0,10)) + '</td>' +
+                   '<td class="mono">' + myLogs.length + '</td>' +
+                   '<td class="dim text-sm">' + (lastDate ? fmtDateShort(lastDate) : '—') + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderPrograms() {
+  const q = document.getElementById('searchPrograms').value.toLowerCase().trim();
+  const filtered = cache.programs.filter(p => {
+    if (!q) return true;
+    const ath = profileById(p.athleteId);
+    const coach = profileById(p.coachId);
+    return (p.name + ' ' + (ath?.name || '') + ' ' + (coach?.name || '')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('programsArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No programs match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Program</th><th>Athlete</th><th>Coach</th><th>Weeks</th><th>Total sets</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.forEach(p => {
+    const ath = profileById(p.athleteId);
+    const coach = profileById(p.coachId);
+    const totalSets = (p.weeks || []).flatMap(w => w.days || []).flatMap(d => d.exercises || []).flatMap(e => e.sets || []).length;
+    const tr = el('tr');
+    tr.innerHTML = '<td><strong>' + escHtml(p.name) + '</strong></td>' +
+                   '<td>' + escHtml(ath?.name || '—') + '</td>' +
+                   '<td>' + escHtml(coach?.name || '—') + '</td>' +
+                   '<td class="mono">' + (p.weeks || []).length + '</td>' +
+                   '<td class="mono">' + totalSets + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderLogs() {
+  const q = document.getElementById('searchLogs').value.toLowerCase().trim();
+  const filtered = cache.logs.filter(l => {
+    if (!q) return true;
+    const ath = profileById(l.athleteId);
+    return ((ath?.name || '') + ' ' + l.lift + ' ' + (l.variant||'') + ' ' + (l.exerciseName||'')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('logsArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No logs match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Date</th><th>Athlete</th><th>Lift</th><th>Variant / Name</th><th>Weight × Reps</th><th>RPE</th><th>e1RM</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.slice(0, 200).forEach(l => {
+    const ath = profileById(l.athleteId);
+    const label = l.lift === 'squat' || l.lift === 'bench' || l.lift === 'deadlift' ? (l.variant || '—') : (l.exerciseName || '—');
+    const tr = el('tr');
+    tr.innerHTML = '<td class="dim text-sm">' + fmtDate(l.date) + '</td>' +
+                   '<td>' + escHtml(ath?.name || '—') + '</td>' +
+                   '<td><span class="badge">' + escHtml(LIFT_LABELS[l.lift] || l.lift) + '</span></td>' +
+                   '<td class="dim">' + escHtml(label) + '</td>' +
+                   '<td class="mono">' + l.weight + ' × ' + l.reps + '</td>' +
+                   '<td class="mono">' + l.rpe + '</td>' +
+                   '<td class="mono fw-700">' + Math.round(l.e1rmComp) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderInvites() {
+  const q = document.getElementById('searchInvites').value.toLowerCase().trim();
+  const filtered = cache.invites.filter(i => {
+    if (!q) return true;
+    const coach = profileById(i.coachId);
+    return (i.code + ' ' + (i.email||'') + ' ' + (coach?.name || '')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('invitesArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No invites match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Code</th><th>Coach</th><th>Sent to</th><th>Status</th><th>Created</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.forEach(i => {
+    const coach = profileById(i.coachId);
+    const tr = el('tr');
+    tr.innerHTML = '<td><span class="mono fw-700" style="letter-spacing: 0.15em;">' + i.code + '</span></td>' +
+                   '<td>' + escHtml(coach?.name || '—') + '</td>' +
+                   '<td class="dim">' + escHtml(i.email || '—') + '</td>' +
+                   '<td>' + (i.used ? '<span class="badge badge-green">USED</span>' : '<span class="badge">PENDING</span>') + '</td>' +
+                   '<td class="dim text-sm">' + fmtDateShort(new Date(i.createdAt).toISOString().slice(0,10)) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+</script>
+</body>
+</html>
