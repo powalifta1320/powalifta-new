@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -883,6 +884,136 @@ function renderProgress() {
 }
 
 // ===== FULL PROGRAM =====
+// =========================================================
+// EXPORT PROGRAM AS IMAGE
+// Builds a self-contained, branded poster of the full program off-screen,
+// captures it via html2canvas, and triggers a PNG download. Athletes save
+// it to Photos so they can pull it up at the gym without internet.
+// =========================================================
+async function exportProgramAsImage() {
+  if (typeof html2canvas !== 'function') {
+    return toast('Image library not loaded — try refreshing.');
+  }
+  const prog = getProgram();
+  if (!prog) return toast('No program to export yet.');
+
+  const btn = document.getElementById('exportProgramBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  // Build the off-screen poster. We use plain inline styles (NOT CSS variables)
+  // because html2canvas is more reliable when colors are concrete. Always
+  // export the dark-styled version regardless of the user's current theme —
+  // that way the saved image looks the same for everyone.
+  const poster = document.createElement('div');
+  poster.style.cssText = [
+    'position: fixed', 'left: -10000px', 'top: 0',
+    'width: 760px',
+    'background: #0b0b0c',
+    'color: #f4f4f6',
+    'font-family: \'Plus Jakarta Sans\', \'Inter\', sans-serif',
+    'padding: 36px 36px 30px',
+    'box-sizing: border-box'
+  ].join(';');
+
+  const todayStr = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  let html = '';
+
+  // Header: brand + athlete + date
+  html += '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #25252c;">';
+  html +=   '<div>';
+  html +=     '<div style="font-family: Anton, sans-serif; font-size: 1.9rem; letter-spacing: 0.02em; line-height: 1;">POWA<span style="color:#ff2d3f">LIFTA</span></div>';
+  html +=     '<div style="font-size: 0.78rem; color: #82828c; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;">Training program</div>';
+  html +=   '</div>';
+  html +=   '<div style="text-align: right;">';
+  html +=     '<div style="font-weight: 700; color: #f4f4f6; font-size: 1rem;">' + escHtml(user.name || 'Athlete') + '</div>';
+  html +=     '<div style="font-size: 0.78rem; color: #82828c; margin-top: 2px; font-family: \'Space Grotesk\', monospace;">Saved ' + todayStr + '</div>';
+  html +=   '</div>';
+  html += '</div>';
+
+  // Program title
+  html += '<div style="font-family: Anton, sans-serif; font-size: 2rem; letter-spacing: 0.01em; line-height: 1.05; margin-bottom: 22px;">' + escHtml(prog.name || 'My program') + '</div>';
+
+  // Weeks → days → exercises → sets
+  prog.weeks.forEach(wk => {
+    html += '<div style="margin-bottom: 24px; padding: 18px 20px; background: #111114; border: 1px solid #25252c; border-radius: 14px;">';
+    html +=   '<div style="font-family: Anton, sans-serif; font-size: 1.3rem; letter-spacing: 0.02em; margin-bottom: 14px; color: #f4f4f6;">WEEK ' + wk.number + '</div>';
+
+    if (!wk.days.length) {
+      html += '<div style="color:#82828c; font-size: 0.9rem;">No days yet.</div>';
+    }
+
+    wk.days.forEach(day => {
+      html += '<div style="margin-bottom: 14px; padding: 14px 16px; background: #16161a; border-radius: 10px; border: 1px solid #25252c;">';
+      html +=   '<div style="font-family: Anton, sans-serif; font-size: 1.05rem; letter-spacing: 0.04em; color: #f4f4f6; margin-bottom: 10px; text-transform: uppercase;">' + escHtml(day.name || 'Day') + '</div>';
+
+      if (!day.exercises.length) {
+        html += '<div style="color: #82828c; font-size: 0.88rem; font-style: italic;">Rest day</div>';
+      } else {
+        day.exercises.forEach(ex => {
+          ensureExerciseShape(ex);
+          const title = MAIN_LIFTS.includes(ex.lift) ? ((ex.variant || '') + ' ' + (LIFT_LABELS[ex.lift] || '')).trim() : (ex.exerciseName || LIFT_LABELS[ex.lift] || 'Exercise');
+          html += '<div style="margin-bottom: 10px; padding: 10px 12px; background: #1d1d22; border-radius: 8px;">';
+          html +=   '<div style="font-weight: 700; font-size: 0.96rem; color: #f4f4f6; margin-bottom: 6px;">' + escHtml(title) + '</div>';
+          if (ex.note) {
+            html += '<div style="font-size: 0.82rem; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,181,71,0.07); border-left: 3px solid #ffb547; border-radius: 4px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
+          }
+          ex.sets.forEach((set, si) => {
+            const w = (set.weight != null && set.weight !== '') ? set.weight + 'kg' : '—';
+            const reps = (set.reps != null && set.reps !== '') ? set.reps : '—';
+            const rpe = (set.rpe != null && set.rpe !== '') ? '@ RPE ' + set.rpe : '';
+            html += '<div style="font-family: \'Space Grotesk\', monospace; font-size: 0.86rem; color: #b8b8c0; padding: 3px 0;">';
+            html +=   '<span style="color: #82828c; margin-right: 8px;">Set ' + (si + 1) + '</span>';
+            html +=   '<span style="color: #f4f4f6; font-weight: 600;">' + w + ' × ' + reps + '</span>';
+            if (rpe) html += ' <span style="color: #82828c; margin-left: 4px;">' + rpe + '</span>';
+            html += '</div>';
+          });
+          html += '</div>';
+        });
+      }
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  // Footer
+  html += '<div style="text-align: center; padding-top: 16px; border-top: 1px solid #25252c; color: #56565e; font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700;">powalifta.com · save to Photos for offline access</div>';
+
+  poster.innerHTML = html;
+  document.body.appendChild(poster);
+
+  try {
+    // Render at 2x for crisp output on retina screens
+    const canvas = await html2canvas(poster, {
+      backgroundColor: '#0b0b0c',
+      scale: 2,
+      logging: false,
+      useCORS: true
+    });
+
+    canvas.toBlob(blob => {
+      if (!blob) { toast('Could not save image.'); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName = (prog.name || 'program').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+      a.href = url;
+      a.download = 'powalifta-' + safeName + '.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('Program saved to Downloads — open it from Photos at the gym.');
+    }, 'image/png');
+  } catch (e) {
+    console.error('exportProgramAsImage failed:', e);
+    toast('Could not save image — ' + (e.message || 'unknown error'));
+  } finally {
+    document.body.removeChild(poster);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save as image'; }
+  }
+}
+window.exportProgramAsImage = exportProgramAsImage;
+
 function renderFullProgram() {
   const area = document.getElementById('fullProgram');
   area.innerHTML = '';
@@ -893,7 +1024,16 @@ function renderFullProgram() {
     e.appendChild(ic); e.appendChild(el('h3', {}, 'No program yet'));
     area.appendChild(e); return;
   }
-  area.appendChild(el('h3', { class: 'mb-16' }, prog.name));
+
+  // Header row: program name + Save as Image button
+  const head = el('div', { style: 'display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;' });
+  head.appendChild(el('h3', { style: 'margin:0;' }, prog.name));
+  const exportBtn = el('button', { id: 'exportProgramBtn', class: 'btn btn-sm', title: 'Save your program as an image so you can view it offline' });
+  exportBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save as image';
+  exportBtn.setAttribute('onclick', 'exportProgramAsImage()');
+  head.appendChild(exportBtn);
+  area.appendChild(head);
+
   prog.weeks.forEach(wk => {
     const wkCard = el('div', { class: 'card mb-24' });
     wkCard.appendChild(el('h3', { class: 'mb-16' }, 'Week ' + wk.number));
