@@ -109,7 +109,9 @@ async function bootstrap(expectedType, onReady, opts) {
     id: profile.id, name: profile.name, email: profile.email, bio: profile.bio || '',
     coachId: profile.coach_id || null,
     userType: profile.user_type,
-    isAdmin: !!profile.is_admin
+    isAdmin: !!profile.is_admin,
+    subscriptionTier: profile.subscription_tier || 'free',
+    subscriptionStatus: profile.subscription_status || 'inactive'
   };
 
   if (!expectedType) {
@@ -140,6 +142,123 @@ async function bootstrap(expectedType, onReady, opts) {
   onReady && onReady();
 }
 window.bootstrap = bootstrap;
+
+// =========================================================
+// SUBSCRIPTION TIERS + LEMON SQUEEZY CHECKOUT
+// =========================================================
+const TIER_LIMITS = {
+  free: 3,
+  basic: 10,
+  pro: 25,
+  premium: 9999
+};
+const TIER_LABELS = {
+  free: 'Free',
+  basic: 'Basic',
+  pro: 'Pro',
+  premium: 'Premium'
+};
+const TIER_PRICES = {
+  basic: 25,
+  pro: 100,
+  premium: 200
+};
+const LS_CHECKOUT_URLS = {
+  basic:   'https://powalifta.lemonsqueezy.com/checkout/buy/c1b66719-98e8-4161-b557-bbfb17ffb681',
+  pro:     'https://powalifta.lemonsqueezy.com/checkout/buy/08a73a63-32ea-473b-8579-3b72152e42b5',
+  premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/e4c677bd-e26a-4747-a33b-94b6759c88a4'
+};
+
+// Build checkout URL with prefilled email + the coach's user id as custom data
+// so the (future) webhook can match the subscription back to the right coach.
+function buildCheckoutUrl(tier, user) {
+  const base = LS_CHECKOUT_URLS[tier];
+  if (!base) return '#';
+  const params = new URLSearchParams();
+  if (user?.email) params.set('checkout[email]', user.email);
+  if (user?.id)    params.set('checkout[custom][user_id]', user.id);
+  if (user?.name)  params.set('checkout[name]', user.name);
+  return base + '?' + params.toString();
+}
+
+function getCurrentTier() {
+  const u = getCurrentUser();
+  return u?.subscriptionTier || 'free';
+}
+function getCurrentTierLimit() {
+  return TIER_LIMITS[getCurrentTier()] || 3;
+}
+function getAthleteCount(coachId) {
+  return Store.get().athletes.filter(a => a.coachId === coachId).length;
+}
+function canAddAthlete(coachId) {
+  return getAthleteCount(coachId) < getCurrentTierLimit();
+}
+
+// =========================================================
+// UPGRADE MODAL — shown when coach hits cap or clicks Upgrade
+// =========================================================
+function ensureUpgradeModal() {
+  if (document.getElementById('upgradeModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<div class="modal-backdrop" id="upgradeModal">' +
+      '<div class="modal modal-lg">' +
+        '<button class="modal-close" onclick="closeModal(\'upgradeModal\')">&times;</button>' +
+        '<h3 id="upgradeTitle">Choose your plan</h3>' +
+        '<p class="dim text-sm mb-16" id="upgradeSubtitle">Scale your coaching as your roster grows. Cancel anytime from Lemon Squeezy.</p>' +
+        '<div class="upgrade-grid" id="upgradeTiers"></div>' +
+        '<p class="faded text-xs center mt-16">Payment handled securely by Lemon Squeezy. After purchase, your plan updates within minutes.</p>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(wrap.firstChild);
+}
+
+function openUpgradeModal(reason) {
+  const u = getCurrentUser();
+  if (!u) return;
+  ensureUpgradeModal();
+  if (reason === 'cap') {
+    document.getElementById('upgradeTitle').textContent = 'You\'ve hit your plan limit';
+    document.getElementById('upgradeSubtitle').innerHTML =
+      'Your current <strong>' + TIER_LABELS[getCurrentTier()] + '</strong> plan supports up to ' +
+      getCurrentTierLimit() + ' athletes. Upgrade to add more.';
+  } else {
+    document.getElementById('upgradeTitle').textContent = 'Choose your plan';
+    document.getElementById('upgradeSubtitle').textContent = 'Scale your coaching as your roster grows. Cancel anytime from Lemon Squeezy.';
+  }
+  const tiers = [
+    { key: 'basic',   limit: 10,   price: 25,  blurb: 'Solo coach, growing roster.' },
+    { key: 'pro',     limit: 25,   price: 100, blurb: 'Full-time independent coach.', featured: true },
+    { key: 'premium', limit: 9999, price: 200, blurb: 'Studios, teams, federations.' }
+  ];
+  const grid = document.getElementById('upgradeTiers');
+  grid.innerHTML = '';
+  const current = getCurrentTier();
+  tiers.forEach(t => {
+    const isCurrent = t.key === current;
+    const card = el('div', { class: 'upgrade-tier' + (t.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
+    if (t.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'POPULAR'));
+    card.appendChild(el('h4', {}, TIER_LABELS[t.key]));
+    card.appendChild(el('div', { class: 'upgrade-price' }, '$' + t.price, el('span', { class: 'unit' }, '/mo')));
+    card.appendChild(el('div', { class: 'upgrade-limit' }, t.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + t.limit + ' athletes'));
+    card.appendChild(el('p', { class: 'upgrade-blurb' }, t.blurb));
+    if (isCurrent) {
+      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', style: 'opacity:0.6; cursor: default;' }, 'Current plan'));
+    } else {
+      const cta = el('a', {
+        class: 'btn btn-primary btn-block',
+        href: buildCheckoutUrl(t.key, u),
+        target: '_blank',
+        rel: 'noopener'
+      }, current === 'free' ? 'Subscribe' : (TIER_PRICES[t.key] > (TIER_PRICES[current] || 0) ? 'Upgrade' : 'Switch'));
+      card.appendChild(cta);
+    }
+    grid.appendChild(card);
+  });
+  document.getElementById('upgradeModal').classList.add('open');
+}
+window.openUpgradeModal = openUpgradeModal;
 
 // =========================================================
 // PERSISTENCE WRAPPERS
