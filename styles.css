@@ -2089,6 +2089,110 @@ footer .container { display: flex; justify-content: space-between; align-items: 
   border-color: rgba(94,179,255,0.25);
 }
 
+/* ============================================ UPGRADE MODAL */
+.upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.upgrade-tier {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px 18px;
+  text-align: center;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.upgrade-tier.featured {
+  border-color: var(--red);
+  background: linear-gradient(180deg, rgba(255,45,63,0.06), var(--bg-2));
+}
+.upgrade-tier.current {
+  border-color: var(--green);
+  background: linear-gradient(180deg, rgba(78,216,132,0.06), var(--bg-2));
+}
+.upgrade-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--grad-red);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 12px;
+  border-radius: 100px;
+}
+.upgrade-tier h4 {
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin-bottom: 12px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+}
+.upgrade-tier .upgrade-price {
+  font-family: 'Anton', sans-serif;
+  font-size: 2.4rem;
+  color: var(--text);
+  line-height: 1;
+}
+.upgrade-tier.featured .upgrade-price {
+  background: var(--grad-red);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.upgrade-tier .upgrade-price .unit {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 500;
+  margin-left: 2px;
+}
+.upgrade-tier .upgrade-limit {
+  font-size: 0.86rem;
+  color: var(--text-2);
+  margin-top: 6px;
+  font-weight: 600;
+}
+.upgrade-tier .upgrade-blurb {
+  font-size: 0.82rem;
+  color: var(--text-3);
+  margin: 10px 0 14px;
+  flex: 1;
+}
+@media (max-width: 700px) {
+  .upgrade-grid { grid-template-columns: 1fr; }
+}
+
+/* Plan pill in coach header */
+.plan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.plan-pill .plan-tier {
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.plan-pill .plan-count { color: var(--text-3); font-family: 'Space Grotesk', monospace; }
+.plan-pill.warn { border-color: var(--gold); color: var(--gold); }
+.plan-pill.cap  { border-color: var(--red);  color: var(--red); }
+
 /* ============================================ CALENDAR HEATMAP */
 .cal-heatmap {
   display: flex;
