@@ -191,8 +191,16 @@ function getCurrentTierLimit() {
 function getAthleteCount(coachId) {
   return Store.get().athletes.filter(a => a.coachId === coachId).length;
 }
+function getPendingInviteCount(coachId) {
+  return Store.get().invites.filter(i => i.coachId === coachId && !i.used).length;
+}
+// "Occupied slots" = athletes already signed up + pending invites that could turn into athletes.
+// We cap on this so a coach can't generate more codes than their plan allows.
+function getOccupiedSlots(coachId) {
+  return getAthleteCount(coachId) + getPendingInviteCount(coachId);
+}
 function canAddAthlete(coachId) {
-  return getAthleteCount(coachId) < getCurrentTierLimit();
+  return getOccupiedSlots(coachId) < getCurrentTierLimit();
 }
 
 // =========================================================
@@ -220,9 +228,13 @@ function openUpgradeModal(reason) {
   ensureUpgradeModal();
   if (reason === 'cap') {
     document.getElementById('upgradeTitle').textContent = 'You\'ve hit your plan limit';
+    const aCount = getAthleteCount(u.id);
+    const pCount = getPendingInviteCount(u.id);
+    let breakdown = aCount + ' athlete' + (aCount === 1 ? '' : 's');
+    if (pCount > 0) breakdown += ' + ' + pCount + ' pending invite' + (pCount === 1 ? '' : 's');
     document.getElementById('upgradeSubtitle').innerHTML =
-      'Your current <strong>' + TIER_LABELS[getCurrentTier()] + '</strong> plan supports up to ' +
-      getCurrentTierLimit() + ' athletes. Upgrade to add more.';
+      'Your <strong>' + TIER_LABELS[getCurrentTier()] + '</strong> plan supports up to ' +
+      getCurrentTierLimit() + ' athletes. You\'re at ' + breakdown + '. Upgrade to add more.';
   } else {
     document.getElementById('upgradeTitle').textContent = 'Choose your plan';
     document.getElementById('upgradeSubtitle').textContent = 'Scale your coaching as your roster grows. Cancel anytime from Lemon Squeezy.';
