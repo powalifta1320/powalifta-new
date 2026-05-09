@@ -223,15 +223,18 @@ function renderPlanPill() {
   if (!pill) return;
   const tier = getCurrentTier();
   const limit = getCurrentTierLimit();
-  const count = getAthleteCount(user.id);
-  const atCap = count >= limit;
-  const nearCap = !atCap && count >= Math.floor(limit * 0.8);
+  const aCount = getAthleteCount(user.id);
+  const pCount = getPendingInviteCount(user.id);
+  const occupied = aCount + pCount;
+  const atCap = occupied >= limit;
+  const nearCap = !atCap && occupied >= Math.floor(limit * 0.8);
   pill.innerHTML = '';
-  const wrap = el('div', { class: 'plan-pill' + (atCap ? ' cap' : nearCap ? ' warn' : '') });
+  const wrap = el('div', { class: 'plan-pill' + (atCap ? ' cap' : nearCap ? ' warn' : ''),
+    title: pCount > 0 ? aCount + ' active athlete' + (aCount === 1 ? '' : 's') + ' + ' + pCount + ' pending invite' + (pCount === 1 ? '' : 's') : aCount + ' athlete' + (aCount === 1 ? '' : 's')
+  });
   wrap.appendChild(el('span', { class: 'plan-tier' }, TIER_LABELS[tier]));
-  wrap.appendChild(el('span', { class: 'plan-count' }, count + ' / ' + (limit >= 9999 ? '∞' : limit) + ' athletes'));
+  wrap.appendChild(el('span', { class: 'plan-count' }, occupied + ' / ' + (limit >= 9999 ? '∞' : limit) + (pCount > 0 ? ' (' + aCount + '+' + pCount + ' pending)' : '')));
   pill.appendChild(wrap);
-  // Always offer Upgrade button
   if (tier !== 'premium') {
     const btn = el('button', { class: 'btn btn-sm', onclick: () => openUpgradeModal() }, atCap ? 'Upgrade required' : 'Upgrade');
     pill.appendChild(btn);
