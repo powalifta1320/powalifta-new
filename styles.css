@@ -2392,6 +2392,63 @@ footer .container { display: flex; justify-content: space-between; align-items: 
   margin: 4px 0 12px;
 }
 
+/* ============================================ UNIFORM SET ROW (coach builder) */
+.uniform-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: 'Space Grotesk', monospace;
+}
+.uniform-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.uniform-cell input {
+  width: 72px;
+  padding: 7px 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: 'Space Grotesk', monospace;
+  text-align: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+.uniform-cell input:focus {
+  outline: none;
+  border-color: var(--red);
+  background: var(--bg-3);
+}
+.uniform-lbl {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.uniform-mult {
+  font-size: 1.1rem;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.uniform-at {
+  font-size: 0.86rem;
+  color: var(--text-3);
+  margin: 0 2px;
+}
+
+@media (max-width: 600px) {
+  .uniform-row { gap: 8px; padding: 10px 12px; }
+  .uniform-cell input { width: 60px; padding: 6px 8px; font-size: 0.88rem; }
+}
+
 /* ============================================ COMPACT SET ROWS (athlete today) */
 .exec-card { padding: 16px 18px; margin-bottom: 12px; }
 .exec-card-head { margin-bottom: 12px; }
