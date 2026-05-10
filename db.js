@@ -118,6 +118,20 @@ const DB = {
   async signOut() {
     await sb.auth.signOut();
   },
+
+  // Password reset — sends an email with a recovery link that lands on
+  // /reset-password.html with a recovery token in the URL hash. Supabase
+  // picks the token up automatically when the page loads + the JS client runs.
+  async requestPasswordReset(email) {
+    const redirectTo = window.location.origin + '/reset-password.html';
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+  },
+  // Called from reset-password.html after the recovery session is established.
+  async updatePassword(newPassword) {
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  },
   async signUpCoach(name, email, password, bio) {
     // Profile row is created by the on_auth_user_created trigger using this metadata.
     const { data, error } = await sb.auth.signUp({

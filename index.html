@@ -315,9 +315,27 @@
     <div class="form-group">
       <label>Password</label>
       <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+      <p class="text-xs" style="text-align:right; margin-top:6px;">
+        <a href="#" onclick="closeModal('loginModal'); openForgotModal(); return false;" class="dim">Forgot password?</a>
+      </p>
     </div>
     <button class="btn btn-primary btn-lg btn-block" onclick="doLogin()">Log in</button>
     <p class="dim text-sm center" style="margin-top:14px">Don't have an account? <a href="#" onclick="closeModal('loginModal'); openSignupModal('athlete'); return false;">Sign up</a></p>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div class="modal-backdrop" id="forgotModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('forgotModal')">&times;</button>
+    <h3>Reset your password</h3>
+    <p class="dim text-sm mb-16">Enter the email you signed up with — we'll send you a reset link.</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="forgotEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doForgotPassword()" id="forgotBtn">Send reset link</button>
+    <p class="dim text-sm center" style="margin-top:14px"><a href="#" onclick="closeModal('forgotModal'); openLoginModal(); return false;">Back to log in</a></p>
   </div>
 </div>
 
@@ -455,6 +473,31 @@ function renderCoaches() {
 function openModal(id) { document.getElementById(id).classList.add('open'); attachPwdToggles(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function openLoginModal() { openModal('loginModal'); }
+function openForgotModal() {
+  // Pre-fill from login email if it's there
+  const loginEmail = document.getElementById('loginEmail');
+  if (loginEmail && loginEmail.value) document.getElementById('forgotEmail').value = loginEmail.value;
+  openModal('forgotModal');
+}
+window.openForgotModal = openForgotModal;
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+  if (!email) return toast('Enter your email');
+  const btn = document.getElementById('forgotBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    await DB.requestPasswordReset(email);
+    closeModal('forgotModal');
+    toast('Check your inbox for a reset link (also check spam).');
+  } catch (e) {
+    toast(e.message || 'Could not send reset email');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send reset link'; }
+  }
+}
+window.doForgotPassword = doForgotPassword;
+
 function openSignupModal(type) {
   document.getElementById('signupType').value = type || 'athlete';
   onSignupTypeChange();
