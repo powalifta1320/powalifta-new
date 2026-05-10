@@ -2715,6 +2715,90 @@ footer .container { display: flex; justify-content: space-between; align-items: 
   background: var(--bg-3);
 }
 
+/* ============================================ PWA INSTALL BANNER */
+.pwa-banner {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  animation: pwaBannerIn 0.35s ease;
+  max-width: 480px;
+  margin: 0 auto;
+}
+@keyframes pwaBannerIn {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.pwa-banner-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pwa-banner-body strong {
+  font-size: 0.92rem;
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.pwa-banner-body span {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.pwa-share-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--blue);
+  font-size: 0.85rem;
+  margin: 0 2px;
+  vertical-align: middle;
+  font-weight: 700;
+}
+.pwa-banner-cta {
+  background: var(--grad-red);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 8px 16px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pwa-banner-cta:hover { filter: brightness(1.08); }
+.pwa-banner-close {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  color: var(--text-3);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.pwa-banner-close:hover { color: var(--text); border-color: var(--line-2); }
+
+@media (max-width: 480px) {
+  .pwa-banner { padding: 10px 12px; gap: 8px; }
+  .pwa-banner-body strong { font-size: 0.86rem; }
+  .pwa-banner-body span { font-size: 0.74rem; }
+  .pwa-banner-cta { padding: 7px 12px; font-size: 0.8rem; }
+}
+
 /* ============================================ MOBILE POLISH */
 @media (max-width: 700px) {
   .container { padding: 0 18px; }

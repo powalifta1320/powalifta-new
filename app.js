@@ -182,6 +182,112 @@ window.toggleTheme = toggleTheme;
 applyTheme(getTheme());
 
 // =========================================================
+// PWA — service worker registration + install prompt banner
+// We register sw.js so the site qualifies as installable. On Android/desktop
+// Chrome we capture the beforeinstallprompt event and show our own button.
+// On iOS we show a banner with the "Share → Add to Home Screen" instructions
+// since iOS doesn't expose a programmatic install path.
+// =========================================================
+const PWA_DISMISSED_KEY = 'powa-pwa-dismissed';
+let _deferredInstallPrompt = null;
+
+function _isStandalone() {
+  // PWA is already installed if the page is in standalone display mode
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true;
+}
+function _isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function _isAndroid() {
+  return /android/i.test(navigator.userAgent);
+}
+function _pwaDismissedRecently() {
+  try {
+    const t = Number(localStorage.getItem(PWA_DISMISSED_KEY) || 0);
+    if (!t) return false;
+    // Hide banner for 14 days after dismissal
+    return (Date.now() - t) < 14 * 24 * 60 * 60 * 1000;
+  } catch { return false; }
+}
+function _markPwaDismissed() {
+  try { localStorage.setItem(PWA_DISMISSED_KEY, String(Date.now())); } catch {}
+}
+
+// Register the service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+  });
+}
+
+// Capture the install prompt on Android/desktop Chrome
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  // Show our banner if not dismissed
+  if (!_pwaDismissedRecently() && !_isStandalone()) showInstallBanner();
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredInstallPrompt = null;
+  hideInstallBanner();
+});
+
+function showInstallBanner() {
+  if (document.getElementById('pwaInstallBanner')) return;
+  if (_isStandalone()) return;
+  if (_pwaDismissedRecently()) return;
+
+  // Only show on mobile or where we have a deferred prompt
+  const showableOnIOS = _isIOS();
+  const showableViaPrompt = !!_deferredInstallPrompt;
+  if (!showableOnIOS && !showableViaPrompt) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'pwaInstallBanner';
+  banner.className = 'pwa-banner';
+  let body, action;
+  if (_deferredInstallPrompt) {
+    body = '<strong>Install POWALIFTA</strong><span>Quicker access from your home screen.</span>';
+    action = '<button class="pwa-banner-cta" onclick="triggerInstall()">Install</button>';
+  } else {
+    // iOS instructions — no programmatic install
+    body = '<strong>Install POWALIFTA</strong><span>Tap <span class="pwa-share-icon">⬆︎</span> Share, then "Add to Home Screen".</span>';
+    action = '';
+  }
+  banner.innerHTML =
+    '<div class="pwa-banner-body">' + body + '</div>' +
+    action +
+    '<button class="pwa-banner-close" onclick="dismissInstallBanner()" aria-label="Dismiss">×</button>';
+  document.body.appendChild(banner);
+}
+
+function hideInstallBanner() {
+  const b = document.getElementById('pwaInstallBanner');
+  if (b) b.remove();
+}
+function dismissInstallBanner() {
+  _markPwaDismissed();
+  hideInstallBanner();
+}
+async function triggerInstall() {
+  if (!_deferredInstallPrompt) { hideInstallBanner(); return; }
+  _deferredInstallPrompt.prompt();
+  const { outcome } = await _deferredInstallPrompt.userChoice;
+  _deferredInstallPrompt = null;
+  hideInstallBanner();
+  if (outcome === 'dismissed') _markPwaDismissed();
+}
+window.dismissInstallBanner = dismissInstallBanner;
+window.triggerInstall = triggerInstall;
+
+// On iOS, show the banner ~3 seconds after first paint (since there's no event)
+if (_isIOS() && !_isStandalone() && !_pwaDismissedRecently()) {
+  window.addEventListener('load', () => setTimeout(showInstallBanner, 3000));
+}
+
+// =========================================================
 // WEIGHT UNITS (kg / lbs)
 // All data stored in kg. Display layer converts. User input from a "weight"
 // field is interpreted in the current display unit and converted back to kg.
