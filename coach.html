@@ -221,7 +221,51 @@ bootstrap('coach', () => {
     });
   });
   renderRoster();
+
+  // Onboarding tour — runs once on first dashboard visit
+  if (!isTourDone('coach')) {
+    setTimeout(maybeStartCoachTour, 700);
+  }
 });
+
+// =========================================================
+// ONBOARDING TOUR — coach flow
+// =========================================================
+function maybeStartCoachTour() {
+  startTour('coach', [
+    {
+      selector: '#tab-athletes',
+      title: 'Your roster lives here',
+      body: 'Every athlete you coach shows up in the Roster tab. From here you generate invite codes, see who logged today, and drill into anyone\'s training.',
+      before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+    },
+    {
+      selector: '#btn-invite',
+      title: 'Invite your first athlete',
+      body: 'Tap this to generate a 6-character invite code. Send it to your athlete via text/email/IG. They sign up with that code and join your roster automatically.'
+    },
+    {
+      selector: '#tab-program',
+      title: 'Build their training',
+      body: 'Pick an athlete, build their program week-by-week. Top sets, back-down sets, accessories — full PL coverage with RPE-native programming.',
+      before: () => { const t = document.getElementById('tab-program'); if (t) t.click(); }
+    },
+    {
+      selector: '#tab-progress',
+      title: 'Watch them grow',
+      body: 'See each athlete\'s e1RM trends, weekly delta, lifetime PRs, weekly check-ins. Leave feedback on any session — they\'ll see it on their dashboard.',
+      before: () => { const t = document.getElementById('tab-progress'); if (t) t.click(); }
+    },
+    {
+      selector: '#planPill',
+      title: 'Your plan',
+      body: 'Free tier covers 3 athletes. When you grow past that, click here anytime to upgrade. Tap "Show tour again" in settings to replay this walkthrough.',
+      before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+    }
+  ]);
+}
+window.maybeStartCoachTour = maybeStartCoachTour;
+window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
 
 // ===== PLAN PILL =====
 function renderPlanPill() {

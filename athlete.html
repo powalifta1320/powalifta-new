@@ -306,7 +306,58 @@ bootstrap('athlete', () => {
   populateDaySelect();
   autoSelectFirstIncompleteDay();
   renderToday();
+
+  // Onboarding tour — runs once on first dashboard visit
+  if (!isTourDone('athlete')) {
+    setTimeout(maybeStartAthleteTour, 700);
+  }
 });
+
+// =========================================================
+// ONBOARDING TOUR — athlete flow
+// =========================================================
+function maybeStartAthleteTour() {
+  startTour('athlete', [
+    {
+      selector: '#tab-today',
+      title: 'Today\'s session',
+      body: 'Open this at the gym. You\'ll see exactly what your coach prescribed — weight, reps, RPE. Tap each set as you finish, log how it actually felt.',
+      before: () => { const t = document.getElementById('tab-today'); if (t) t.click(); }
+    },
+    {
+      selector: '#goalsBtn',
+      title: 'Set your goals',
+      body: 'Squat, bench, deadlift, total, bodyweight — pick targets and watch progress bars track your climb. Hit this anytime in the Progress tab.',
+      before: () => { const t = document.getElementById('tab-progress'); if (t) t.click(); }
+    },
+    {
+      selector: '#tab-bodyweight',
+      title: 'Log your weight',
+      body: 'Weekly weigh-ins keep you honest. Chart shows trend, goal line shows the target. Tap "+ Log weigh-in" up top.',
+      before: () => { const t = document.getElementById('tab-bodyweight'); if (t) t.click(); }
+    },
+    {
+      selector: '#tab-progress',
+      title: 'Watch your lifts climb',
+      body: 'e1RM trends, weekly delta, lifetime PRs, training calendar. Updates automatically every time you log a set.',
+      before: () => { const t = document.getElementById('tab-progress'); if (t) t.click(); }
+    },
+    {
+      selector: '#tab-coach',
+      title: 'Your coach',
+      body: 'See who\'s coaching you, drop them a note, or enter an invite code to connect with one. You can also self-coach if you prefer.',
+      before: () => { const t = document.getElementById('tab-coach'); if (t) t.click(); }
+    },
+    {
+      selector: '#tab-today',
+      title: 'You\'re ready to lift.',
+      body: 'Two tips: tap any weight on a set to see the plate breakdown, and your weekly check-in pops up every Monday. Hit "Replay tour" in settings if you want this walkthrough again.',
+      before: () => { const t = document.getElementById('tab-today'); if (t) t.click(); }
+    }
+  ]);
+}
+window.maybeStartAthleteTour = maybeStartAthleteTour;
+window.replayAthleteTour = () => { resetTour('athlete'); maybeStartAthleteTour(); };
 
 // ===== TODAY =====
 function getProgram() { return Store.get().programs.find(p => p.athleteId === user.id); }

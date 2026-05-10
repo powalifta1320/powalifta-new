@@ -2715,6 +2715,75 @@ footer .container { display: flex; justify-content: space-between; align-items: 
   background: var(--bg-3);
 }
 
+/* ============================================ ONBOARDING TOUR */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: auto;
+  animation: tourIn 0.25s ease;
+}
+@keyframes tourIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.tour-overlay::before {
+  content: '';
+  position: fixed;
+  left: var(--tx, 50%);
+  top: var(--ty, 50%);
+  width: var(--tw, 0);
+  height: var(--th, 0);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  outline: 2px solid var(--red);
+  outline-offset: 0;
+  pointer-events: none;
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+.tour-tip {
+  position: absolute;
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  padding: 22px 22px 18px;
+  max-width: 360px;
+  min-width: 280px;
+  box-shadow: var(--shadow);
+  z-index: 9001;
+}
+.tour-tip-step {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 8px;
+  font-family: 'Space Grotesk', monospace;
+}
+.tour-tip-title {
+  font-size: 1.15rem;
+  line-height: 1.2;
+  margin: 0 0 8px;
+  letter-spacing: 0.005em;
+}
+.tour-tip-body {
+  color: var(--text-2);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 0 0 18px;
+}
+.tour-tip-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+@media (max-width: 480px) {
+  .tour-tip { max-width: calc(100vw - 32px); min-width: 0; padding: 18px; }
+  .tour-tip-title { font-size: 1.05rem; }
+}
+
 /* ============================================ PWA INSTALL BANNER */
 .pwa-banner {
   position: fixed;

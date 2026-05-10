@@ -288,6 +288,146 @@ if (_isIOS() && !_isStandalone() && !_pwaDismissedRecently()) {
 }
 
 // =========================================================
+// ONBOARDING TOUR
+// Lightweight tour engine. Each step points at a DOM element via a CSS selector,
+// shows a spotlight cutout + floating tooltip, advances with Next / closes with Skip.
+// Completion is persisted per tour name in localStorage so it only auto-runs once.
+//
+// Usage:
+//   startTour('coach', [
+//     { selector: '#tab-roster', title: 'Your roster', body: 'All athletes live here.' },
+//     ...
+//   ]);
+//
+//   // To replay later:
+//   resetTour('coach'); startTour('coach', [...]);
+// =========================================================
+const _TOUR_KEY = name => 'powa-tour-' + name + '-done';
+
+function isTourDone(name) {
+  try { return localStorage.getItem(_TOUR_KEY(name)) === '1'; }
+  catch { return false; }
+}
+function markTourDone(name) {
+  try { localStorage.setItem(_TOUR_KEY(name), '1'); } catch {}
+}
+function resetTour(name) {
+  try { localStorage.removeItem(_TOUR_KEY(name)); } catch {}
+}
+window.isTourDone = isTourDone;
+window.resetTour = resetTour;
+
+let _tourState = { name: null, steps: [], idx: 0 };
+
+function startTour(name, steps) {
+  if (!steps || !steps.length) return;
+  _tourState = { name, steps, idx: 0 };
+  // Wait one frame so layout has settled
+  requestAnimationFrame(() => requestAnimationFrame(renderTourStep));
+}
+window.startTour = startTour;
+
+function renderTourStep() {
+  _closeTourOverlay();
+  const step = _tourState.steps[_tourState.idx];
+  if (!step) return;
+
+  // If the step has a "before" hook (e.g. open a tab to expose the target), run it first
+  if (typeof step.before === 'function') {
+    try { step.before(); } catch (e) { console.warn('tour before hook failed', e); }
+  }
+
+  // Allow the DOM a moment to update if before() switched panes
+  setTimeout(() => {
+    const target = step.selector ? document.querySelector(step.selector) : null;
+    const overlay = document.createElement('div');
+    overlay.id = 'tourOverlay';
+    overlay.className = 'tour-overlay';
+
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const pad = 6;
+      overlay.style.setProperty('--tx', (rect.left - pad) + 'px');
+      overlay.style.setProperty('--ty', (rect.top - pad) + 'px');
+      overlay.style.setProperty('--tw', (rect.width + pad * 2) + 'px');
+      overlay.style.setProperty('--th', (rect.height + pad * 2) + 'px');
+      // Scroll target into view if it's off-screen
+      if (rect.top < 80 || rect.bottom > window.innerHeight - 120) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else {
+      // No target — full screen dim, centered tip
+      overlay.style.setProperty('--tx', '50%');
+      overlay.style.setProperty('--ty', '50%');
+      overlay.style.setProperty('--tw', '0px');
+      overlay.style.setProperty('--th', '0px');
+    }
+
+    const tip = document.createElement('div');
+    tip.className = 'tour-tip';
+    const isLast = _tourState.idx === _tourState.steps.length - 1;
+    tip.innerHTML =
+      '<div class="tour-tip-step">' + (_tourState.idx + 1) + ' / ' + _tourState.steps.length + '</div>' +
+      '<h3 class="tour-tip-title">' + (step.title || '') + '</h3>' +
+      '<p class="tour-tip-body">' + (step.body || '') + '</p>' +
+      '<div class="tour-tip-actions">' +
+        '<button class="btn btn-sm btn-ghost" onclick="endTour(true)">' + (isLast ? 'Close' : 'Skip') + '</button>' +
+        (_tourState.idx > 0 ? '<button class="btn btn-sm" onclick="prevTourStep()">Back</button>' : '') +
+        '<button class="btn btn-sm btn-primary" onclick="nextTourStep()">' + (isLast ? 'Done' : 'Next') + '</button>' +
+      '</div>';
+    overlay.appendChild(tip);
+    document.body.appendChild(overlay);
+
+    // Position the tip relative to the target (below by default, fallback above)
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const tipRect = tip.getBoundingClientRect();
+      const margin = 16;
+      let top = rect.bottom + margin;
+      if (top + tipRect.height > window.innerHeight - margin) {
+        top = Math.max(margin, rect.top - tipRect.height - margin);
+      }
+      let left = rect.left + rect.width / 2 - tipRect.width / 2;
+      left = Math.max(margin, Math.min(window.innerWidth - tipRect.width - margin, left));
+      tip.style.top = top + 'px';
+      tip.style.left = left + 'px';
+    } else {
+      // Centered when no target
+      tip.style.top = '50%';
+      tip.style.left = '50%';
+      tip.style.transform = 'translate(-50%, -50%)';
+    }
+  }, step.before ? 200 : 0);
+}
+
+function nextTourStep() {
+  if (_tourState.idx < _tourState.steps.length - 1) {
+    _tourState.idx++;
+    renderTourStep();
+  } else {
+    endTour(true);
+  }
+}
+function prevTourStep() {
+  if (_tourState.idx > 0) {
+    _tourState.idx--;
+    renderTourStep();
+  }
+}
+function endTour(complete) {
+  _closeTourOverlay();
+  if (complete && _tourState.name) markTourDone(_tourState.name);
+  _tourState = { name: null, steps: [], idx: 0 };
+}
+function _closeTourOverlay() {
+  const o = document.getElementById('tourOverlay');
+  if (o) o.remove();
+}
+window.nextTourStep = nextTourStep;
+window.prevTourStep = prevTourStep;
+window.endTour = endTour;
+
+// =========================================================
 // WEIGHT UNITS (kg / lbs)
 // All data stored in kg. Display layer converts. User input from a "weight"
 // field is interpreted in the current display unit and converted back to kg.
@@ -518,6 +658,9 @@ function ensureSettingsModal() {
       '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
       '<div class="flex gap-8 mt-16"><button class="btn btn-block" onclick="closeSettingsModal()">Cancel</button><button class="btn btn-primary btn-block" onclick="saveSettings()">Save</button></div>' +
       '<div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);">' +
+        '<button class="btn btn-block btn-ghost" onclick="replaySettingsTour()">↺ Replay onboarding tour</button>' +
+      '</div>' +
+      '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
         '<p class="dim text-sm mb-8">Danger zone</p>' +
         '<button class="btn btn-danger btn-block" onclick="deleteMyAccount()">Delete my account</button>' +
       '</div>' +
@@ -544,8 +687,18 @@ function openSettingsModal() {
   attachPwdToggles();
 }
 function closeSettingsModal() { const m = document.getElementById('settingsModal'); if (m) m.classList.remove('open'); }
+// Dispatches to whichever page-specific replay hook is loaded (coach.html or athlete.html)
+function replaySettingsTour() {
+  closeSettingsModal();
+  setTimeout(() => {
+    if (typeof window.replayCoachTour === 'function') window.replayCoachTour();
+    else if (typeof window.replayAthleteTour === 'function') window.replayAthleteTour();
+    else toast('Tour not available on this page.');
+  }, 200);
+}
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
+window.replaySettingsTour = replaySettingsTour;
 
 async function saveSettings() {
   const u = getCurrentUser();
