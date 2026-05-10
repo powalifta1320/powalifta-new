@@ -512,11 +512,12 @@ function formatSetsSummary(sets, isCardio) {
   if (!hasCompression) return null;
 
   return groups.map(g => {
+    const rpePart = g.rpe == null ? '' : ' @ RPE ' + g.rpe;
     if (isCardio) {
       const repsPart = g.reps > 0 ? ' × ' + g.reps + 'km' : '';
-      return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + ' @ RPE ' + g.rpe;
+      return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + rpePart;
     }
-    return (g.count > 1 ? g.count + ' × ' : '') + kgToDisplay(g.weight) + unitLabel() + ' × ' + g.reps + ' @ RPE ' + g.rpe;
+    return (g.count > 1 ? g.count + ' × ' : '') + kgToDisplay(g.weight) + unitLabel() + ' × ' + g.reps + rpePart;
   }).join('   ·   ');
 }
 
@@ -720,18 +721,22 @@ function renderToday() {
                           '<span class="cs-val">' + kgToDisplay(set.weight) + '</span><span class="cs-unit">' + unitLabel() + '</span></a>';
         tgts.appendChild(cell1);
         tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-mult">×</span><span class="cs-val">' + set.reps + '</span>' }));
-        tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-unit">RPE</span><span class="cs-val">' + set.rpe + '</span>' }));
+        // Optional RPE — show "—" when not prescribed (typical of back-down sets)
+        const rpeDisp = (set.rpe == null) ? '<span class="cs-val dim">—</span>' : '<span class="cs-val">' + set.rpe + '</span>';
+        tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-unit">RPE</span>' + rpeDisp }));
       }
       row.appendChild(tgts);
 
-      // Actual RPE input or "felt: X" if done
+      // Actual RPE input or "felt: X" if done.
+      // When no prescribed RPE (null), input starts empty so the athlete can enter what they actually felt.
       const rpeWrap = el('div', { class: 'cs-rpe' });
       if (set.completed) {
         rpeWrap.innerHTML = '<span class="cs-rpe-done">RPE ' + set.actualRpe + '</span>';
       } else {
         const inp = el('input', {
           type: 'number', step: '0.5', min: '1', max: '10',
-          placeholder: 'RPE', id: 'rpe_' + ex.id + '_' + si, value: set.rpe
+          placeholder: 'RPE', id: 'rpe_' + ex.id + '_' + si,
+          value: (set.rpe == null ? '' : set.rpe)
         });
         rpeWrap.appendChild(inp);
       }
@@ -1296,7 +1301,7 @@ async function exportProgramAsImage(weekNumber) {
             html += '<div style="font-size: 0.82rem; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,181,71,0.07); border-left: 3px solid #ffb547; border-radius: 4px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
           }
           ex.sets.forEach((set, si) => {
-            const w = (set.weight != null && set.weight !== '') ? (kgToDisplay(set.weight) + ' ' + unitLabel()) : '—';
+            const w = (set.weight != null && set.weight !== '' && set.weight !== 0) ? (kgToDisplay(set.weight) + ' ' + unitLabel()) : '—';
             const reps = (set.reps != null && set.reps !== '') ? set.reps : '—';
             const rpe = (set.rpe != null && set.rpe !== '') ? '@ RPE ' + set.rpe : '';
             html += '<div style="font-family: \'Space Grotesk\', monospace; font-size: 0.86rem; color: #b8b8c0; padding: 3px 0;">';
@@ -1396,7 +1401,8 @@ function renderFullProgram() {
           if (ex.note) row.appendChild(el('div', { class: 'coach-note', html: '<strong>Coach:</strong> ' + escHtml(ex.note) }));
           ex.sets.forEach((set, si) => {
             const done = set.completed ? ' ✓ (felt RPE ' + set.actualRpe + ')' : '';
-            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps + ' @ RPE ' + set.rpe + done));
+            const rpePart = set.rpe == null ? '' : ' @ RPE ' + set.rpe;
+            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps + rpePart + done));
           });
           body.appendChild(row);
         });

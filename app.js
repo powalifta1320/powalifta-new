@@ -710,9 +710,18 @@ function newWeek(num, dayCount = 4) {
 function newExercise(lift, variant, exerciseName) {
   return { id: uid('ex'), lift, variant: variant || '', exerciseName: exerciseName || '', note: '', sets: [] };
 }
-function newSet(weight, reps, rpe) {
-  return { id: uid('set'), weight: Number(weight) || 0, reps: Number(reps) || 0, rpe: Number(rpe) || 0,
-           completed: false, actualRpe: null, completedAt: null, note: '' };
+function newSet(weight, reps, rpe, tempo) {
+  // RPE is optional — null means no prescribed RPE (typical of back-down sets in PL).
+  // Tempo is an optional cue string like "0-2-0" (eccentric-pause-concentric).
+  const rpeVal = (rpe === null || rpe === undefined || rpe === '') ? null : Number(rpe);
+  return {
+    id: uid('set'),
+    weight: Number(weight) || 0,
+    reps: Number(reps) || 0,
+    rpe: (rpeVal != null && !isNaN(rpeVal)) ? rpeVal : null,
+    tempo: tempo || '',
+    completed: false, actualRpe: null, completedAt: null, note: ''
+  };
 }
 function getProgramForAthlete(athleteId) {
   return Store.get().programs.find(p => p.athleteId === athleteId);
@@ -721,8 +730,36 @@ function getProgramForAthlete(athleteId) {
 // Migrate older exercises/sets that may not have `note`
 function ensureExerciseShape(ex) {
   if (typeof ex.note !== 'string') ex.note = '';
-  if (Array.isArray(ex.sets)) ex.sets.forEach(s => { if (typeof s.note !== 'string') s.note = ''; });
+  if (Array.isArray(ex.sets)) ex.sets.forEach(s => {
+    if (typeof s.note !== 'string') s.note = '';
+    if (typeof s.tempo !== 'string') s.tempo = '';
+    // Old data stored rpe=0 to mean "no rpe" — normalize to null
+    if (s.rpe === 0 || s.rpe === '0') s.rpe = null;
+  });
   return ex;
+}
+
+// =========================================================
+// SET GROUPING — collapse consecutive identical sets into "blocks".
+// A typical PL exercise looks like:
+//   Top set:    1 set × 4 @ 92.5kg @ RPE 5.5
+//   Back-downs: 4 sets × 5 @ 90kg (no RPE — fatigue-driven)
+// We render this as 2 blocks, not 5 separate rows.
+// =========================================================
+function groupSets(sets) {
+  if (!sets || !sets.length) return [];
+  const groups = [];
+  let cur = null;
+  sets.forEach((s, idx) => {
+    const sig = [s.weight, s.reps, (s.rpe == null ? '_' : s.rpe), s.tempo || ''].join('|');
+    if (cur && cur.sig === sig) {
+      cur.count++;
+    } else {
+      cur = { startIdx: idx, count: 1, weight: s.weight, reps: s.reps, rpe: s.rpe, tempo: s.tempo || '', sig };
+      groups.push(cur);
+    }
+  });
+  return groups;
 }
 
 // =========================================================

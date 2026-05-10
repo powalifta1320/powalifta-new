@@ -548,92 +548,94 @@ function loadProgram() {
         }
 
         const isCardio = ex.lift === 'cardio';
-        // Decide between uniform "fill-in-the-blank" mode and per-set mode.
-        // Cardio always uses per-set (durations vary). Otherwise: if all sets
-        // share the same weight/reps/RPE AND user hasn't expanded, show uniform.
-        const uniform = !isCardio && !_expandedExercises.has(ex.id) && areSetsUniform(ex.sets);
+        const u = unitLabel();
 
-        if (uniform) {
-          const tpl = ex.sets[0] || newSet(0, 5, 7);
-          const u = unitLabel();
-          const tplRow = el('div', { class: 'uniform-row' });
-          // Count input
-          const countWrap = el('div', { class: 'uniform-cell' });
-          countWrap.appendChild(el('input', {
-            type: 'number', min: '1', max: '50', step: '1',
-            value: ex.sets.length,
-            onchange: e => setUniformCount(activeWeekIdx, di, ei, Number(e.target.value))
-          }));
-          countWrap.appendChild(el('span', { class: 'uniform-lbl' }, ex.sets.length === 1 ? 'set' : 'sets'));
-          tplRow.appendChild(countWrap);
-          tplRow.appendChild(el('span', { class: 'uniform-mult' }, '×'));
-          // Reps input
-          const repsWrap = el('div', { class: 'uniform-cell' });
-          repsWrap.appendChild(el('input', {
-            type: 'number', min: '1', step: '1',
-            value: tpl.reps,
-            oninput: e => setUniformField(activeWeekIdx, di, ei, 'reps', Number(e.target.value))
-          }));
-          repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
-          tplRow.appendChild(repsWrap);
-          tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
-          // Weight input
-          const wWrap = el('div', { class: 'uniform-cell' });
-          wWrap.appendChild(el('input', {
-            type: 'number', step: '0.5',
-            value: tpl.weight ? kgToDisplay(tpl.weight) : '',
-            placeholder: u,
-            oninput: e => setUniformField(activeWeekIdx, di, ei, 'weight', displayToKg(Number(e.target.value)))
-          }));
-          wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
-          tplRow.appendChild(wWrap);
-          tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
-          // RPE input
-          const rpeWrap = el('div', { class: 'uniform-cell' });
-          rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
-          rpeWrap.appendChild(el('input', {
-            type: 'number', min: '1', max: '10', step: '0.5',
-            value: tpl.rpe,
-            oninput: e => setUniformField(activeWeekIdx, di, ei, 'rpe', Number(e.target.value))
-          }));
-          tplRow.appendChild(rpeWrap);
-          row.appendChild(tplRow);
-
-          // Toggle to expand into per-set view
-          const expandBtn = el('button', { class: 'btn btn-sm btn-ghost mt-8', onclick: () => expandSets(ex.id), title: 'Edit each set individually' });
-          expandBtn.innerHTML = '✎ Differ per set';
-          row.appendChild(expandBtn);
-        } else {
+        if (isCardio) {
+          // Cardio: per-bout view with weight=duration, reps=distance
           ex.sets.forEach((set, si) => {
             const setRow = el('div', { class: 'set-row' });
-            setRow.appendChild(el('div', { class: 'set-label' }, 'Set ' + (si + 1)));
-            setRow.appendChild(el('input', {
-              type: 'number',
-              value: isCardio ? set.weight : (set.weight ? kgToDisplay(set.weight) : ''),
-              placeholder: isCardio ? 'min' : unitLabel(),
-              step: '0.5',
-              oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', isCardio ? Number(e.target.value) : displayToKg(Number(e.target.value)))
-            }));
-            setRow.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'reps', Number(e.target.value)) }));
-            setRow.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'rpe', Number(e.target.value)) }));
+            setRow.appendChild(el('div', { class: 'set-label' }, 'Bout ' + (si + 1)));
+            setRow.appendChild(el('input', { type: 'number', value: set.weight, placeholder: 'min', step: '0.5', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', Number(e.target.value)) }));
+            setRow.appendChild(el('input', { type: 'number', value: set.reps, placeholder: 'km', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'reps', Number(e.target.value)) }));
+            setRow.appendChild(el('input', { type: 'number', value: set.rpe == null ? '' : set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
             const delSetBtn = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => deleteSet(activeWeekIdx, di, ei, si) });
             delSetBtn.innerHTML = ICONS.x;
             setRow.appendChild(delSetBtn);
             row.appendChild(setRow);
           });
+          const addBoutBtn = el('button', { class: 'btn btn-sm mt-8', onclick: () => addSet(activeWeekIdx, di, ei) });
+          addBoutBtn.innerHTML = ICONS.plus + '<span>Add bout</span>';
+          row.appendChild(addBoutBtn);
+        } else {
+          // Strength: render one row per "block" (group of identical consecutive sets)
+          const blocks = groupSets(ex.sets);
+          blocks.forEach((blk, bi) => {
+            const tplRow = el('div', { class: 'uniform-row' });
 
-          const btnRow = el('div', { class: 'flex gap-8 mt-8', style: 'flex-wrap: wrap;' });
-          const addSetBtn = el('button', { class: 'btn btn-sm', onclick: () => addSet(activeWeekIdx, di, ei) });
-          addSetBtn.innerHTML = ICONS.plus + '<span>Add set</span>';
-          btnRow.appendChild(addSetBtn);
-          // If user is in expanded mode for cardio, no unify. Otherwise if they
-          // have varied sets, offer to make them uniform.
-          if (!isCardio && ex.sets.length > 1) {
-            const unifyBtn = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => unifySets(activeWeekIdx, di, ei, ex.id), title: 'Apply Set 1\'s values to all sets and collapse the view' });
-            unifyBtn.innerHTML = '↺ Make uniform';
-            btnRow.appendChild(unifyBtn);
-          }
-          row.appendChild(btnRow);
+            // Count input
+            const countWrap = el('div', { class: 'uniform-cell' });
+            countWrap.appendChild(el('input', {
+              type: 'number', min: '1', max: '50', step: '1',
+              value: blk.count,
+              onchange: e => setBlockCount(activeWeekIdx, di, ei, blk.startIdx, blk.count, Number(e.target.value))
+            }));
+            countWrap.appendChild(el('span', { class: 'uniform-lbl' }, blk.count === 1 ? 'set' : 'sets'));
+            tplRow.appendChild(countWrap);
+            tplRow.appendChild(el('span', { class: 'uniform-mult' }, '×'));
+
+            // Reps input
+            const repsWrap = el('div', { class: 'uniform-cell' });
+            repsWrap.appendChild(el('input', {
+              type: 'number', min: '1', step: '1',
+              value: blk.reps,
+              oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value))
+            }));
+            repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
+            tplRow.appendChild(repsWrap);
+            tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
+
+            // Weight input
+            const wWrap = el('div', { class: 'uniform-cell' });
+            wWrap.appendChild(el('input', {
+              type: 'number', step: '0.5',
+              value: blk.weight ? kgToDisplay(blk.weight) : '',
+              placeholder: u,
+              oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value)))
+            }));
+            wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
+            tplRow.appendChild(wWrap);
+            tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
+
+            // RPE input — OPTIONAL. Empty input = no prescribed RPE (back-down style).
+            const rpeWrap = el('div', { class: 'uniform-cell' });
+            rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
+            rpeWrap.appendChild(el('input', {
+              type: 'number', min: '1', max: '10', step: '0.5',
+              value: blk.rpe == null ? '' : blk.rpe,
+              placeholder: '—',
+              title: 'Leave blank for back-down sets',
+              oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value))
+            }));
+            tplRow.appendChild(rpeWrap);
+
+            // Per-block delete (only show if there's more than one block — never let exercise have zero)
+            if (blocks.length > 1) {
+              const xBtn = el('button', {
+                class: 'btn-icon btn-danger',
+                style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px; margin-left: auto;',
+                onclick: () => deleteBlock(activeWeekIdx, di, ei, blk.startIdx, blk.count),
+                title: 'Remove this block'
+              });
+              xBtn.innerHTML = ICONS.x;
+              tplRow.appendChild(xBtn);
+            }
+
+            row.appendChild(tplRow);
+          });
+
+          const addBlockBtn = el('button', { class: 'btn btn-sm btn-ghost mt-8', onclick: () => addBlock(activeWeekIdx, di, ei), title: 'Add a new block (e.g. back-down sets after a top set)' });
+          addBlockBtn.innerHTML = ICONS.plus + '<span>Add set block</span>';
+          row.appendChild(addBlockBtn);
         }
 
         const noteWrap = el('div', { class: 'mt-16' });
@@ -752,57 +754,72 @@ function deleteSet(wi, di, ei, si) {
 }
 
 // =========================================================
-// UNIFORM SET MODE — when all sets share the same weight/reps/RPE,
-// the program builder collapses them into a single "fill-in-the-blank"
-// row: [N] sets × [reps] @ RPE [rpe] @ [weight]. Editing a value applies
-// it to all sets. Editing N pads or trims the sets array.
+// SET BLOCKS — each exercise is composed of one or more "blocks".
+// A block = N consecutive identical sets. PL programs typically have:
+//   Block 1 (top set):   1 × 4 @ 92.5 kg @ RPE 5.5
+//   Block 2 (back-down): 4 × 5 @ 90 kg (no RPE — fatigue-driven)
+// All edits operate on the underlying sets array; groupSets() in app.js
+// reads it to decide how to render.
 // =========================================================
-const _expandedExercises = new Set();
 
-function areSetsUniform(sets) {
-  if (!sets || sets.length < 2) return sets && sets.length === 1; // single set is trivially "uniform"
-  const a = sets[0];
-  return sets.every(s => s.weight === a.weight && s.reps === a.reps && s.rpe === a.rpe);
-}
-
-function setUniformCount(wi, di, ei, n) {
-  const aid = document.getElementById('progAthlete').value;
-  const count = Math.max(1, Math.min(50, Number(n) || 1));
-  Store.update(s => {
-    const p = s.programs.find(p => p.athleteId === aid);
-    if (!p) return;
-    const arr = p.weeks[wi].days[di].exercises[ei].sets;
-    const tpl = arr[0] || newSet(0, 5, 7);
-    while (arr.length < count) arr.push(newSet(tpl.weight, tpl.reps, tpl.rpe));
-    while (arr.length > count) arr.pop();
-  });
-  persistProgram(progIdForAthlete(aid));
-  loadProgram();
-}
-
-function setUniformField(wi, di, ei, field, val) {
-  const aid = document.getElementById('progAthlete').value;
-  Store.update(s => {
-    const p = s.programs.find(p => p.athleteId === aid);
-    if (!p) return;
-    p.weeks[wi].days[di].exercises[ei].sets.forEach(set => { set[field] = val; });
-  });
-  persistProgram(progIdForAthlete(aid));
-  // Don't reload — the user is mid-typing. Just persist.
-}
-
-function expandSets(exId)  { _expandedExercises.add(exId); loadProgram(); }
-function unifySets(wi, di, ei, exId) {
+function setBlockField(wi, di, ei, startIdx, count, field, val) {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
     const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    if (!sets.length) return;
-    const first = sets[0];
-    sets.forEach(set => { set.weight = first.weight; set.reps = first.reps; set.rpe = first.rpe; });
+    for (let i = startIdx; i < startIdx + count && i < sets.length; i++) {
+      sets[i][field] = val;
+    }
   });
-  _expandedExercises.delete(exId);
+  persistProgram(progIdForAthlete(aid));
+  // No reload — user is mid-typing
+}
+
+function setBlockCount(wi, di, ei, startIdx, oldCount, newCount) {
+  const aid = document.getElementById('progAthlete').value;
+  const target = Math.max(1, Math.min(50, Number(newCount) || 1));
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    const sets = p.weeks[wi].days[di].exercises[ei].sets;
+    if (target > oldCount) {
+      const tpl = sets[startIdx];
+      const additions = target - oldCount;
+      const fillers = [];
+      for (let i = 0; i < additions; i++) fillers.push(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo));
+      sets.splice(startIdx + oldCount, 0, ...fillers);
+    } else if (target < oldCount) {
+      sets.splice(startIdx + target, oldCount - target);
+    }
+  });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+
+function deleteBlock(wi, di, ei, startIdx, count) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    const sets = p.weeks[wi].days[di].exercises[ei].sets;
+    sets.splice(startIdx, count);
+    if (sets.length === 0) sets.push(newSet(0, 5, null));
+  });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+
+function addBlock(wi, di, ei) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    const sets = p.weeks[wi].days[di].exercises[ei].sets;
+    const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null, tempo: '' };
+    // New block = back-down style: 1 set, copies last weight/reps, NO prescribed RPE
+    sets.push(newSet(last.weight, last.reps, null, last.tempo));
+  });
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
