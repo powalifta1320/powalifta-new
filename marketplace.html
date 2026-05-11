@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Program marketplace — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<meta name="description" content="Buy powerlifting programs from real coaches. RPE-based, comp-equivalent e1RM, instant delivery to your POWALIFTA account.">
+<meta property="og:title" content="Program marketplace — POWALIFTA">
+<meta property="og:description" content="Buy powerlifting programs from real coaches. Top-set + back-down patterns, weekly structure, instant delivery to your dashboard.">
+<meta property="og:type" content="website">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.mk-hero {
+  padding: 60px 0 30px;
+  border-bottom: 1px solid var(--line);
+  background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,45,63,0.10), transparent 70%);
+}
+.mk-hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  letter-spacing: 0.005em;
+  margin-bottom: 14px;
+}
+.mk-hero p { color: var(--text-2); font-size: 1.05rem; max-width: 580px; }
+.mk-filters {
+  display: flex;
+  gap: 10px;
+  margin: 30px 0 24px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mk-tier-btn {
+  padding: 8px 16px;
+  border-radius: 100px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.mk-tier-btn:hover { color: var(--text); border-color: var(--line-2); }
+.mk-tier-btn.active {
+  background: rgba(255,45,63,0.08);
+  border-color: rgba(255,45,63,0.4);
+  color: var(--red);
+}
+.mk-search {
+  flex: 1;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 8px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.92rem;
+}
+.mk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.mk-card {
+  background: var(--bg-1);
+  background-image: var(--grad-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: flex;
+  flex-direction: column;
+}
+.mk-card:hover { border-color: rgba(255,45,63,0.35); transform: translateY(-2px); box-shadow: var(--shadow); }
+.mk-card-tier {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+.mk-card-title { font-family: 'Anton', sans-serif; font-size: 1.5rem; letter-spacing: 0.005em; line-height: 1.1; margin-bottom: 8px; text-transform: uppercase; }
+.mk-card-coach { font-size: 0.86rem; color: var(--text-3); margin-bottom: 12px; }
+.mk-card-desc { color: var(--text-2); font-size: 0.92rem; line-height: 1.55; margin-bottom: 16px; flex: 1; }
+.mk-card-foot { display: flex; justify-content: space-between; align-items: baseline; }
+.mk-card-price { font-family: 'Anton', sans-serif; font-size: 1.8rem; background: var(--grad-red); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mk-card-meta { font-size: 0.78rem; color: var(--text-3); font-family: 'Space Grotesk', monospace; }
+
+/* Detail view */
+.mk-detail {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+.mk-detail-back { color: var(--text-3); text-decoration: none; font-size: 0.88rem; }
+.mk-detail-back:hover { color: var(--text); }
+.mk-detail-tier {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 100px;
+  background: rgba(255,45,63,0.1);
+  color: var(--red);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 20px 0 12px;
+}
+.mk-detail-title {
+  font-family: 'Anton', sans-serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  letter-spacing: 0.005em;
+  line-height: 1.05;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+.mk-detail-meta { color: var(--text-3); margin-bottom: 24px; font-size: 0.95rem; }
+.mk-detail-meta strong { color: var(--text-2); }
+.mk-detail-desc {
+  color: var(--text-2);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin: 28px 0;
+  white-space: pre-wrap;
+}
+.mk-buy-card {
+  background: var(--bg-1);
+  background-image: var(--grad-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 30px;
+  text-align: center;
+  margin: 30px 0;
+}
+.mk-buy-price {
+  font-family: 'Anton', sans-serif;
+  font-size: 3.4rem;
+  background: var(--grad-red);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.mk-buy-note { color: var(--text-3); font-size: 0.86rem; margin: 12px 0 18px; }
+
+.mk-loading, .mk-empty { text-align: center; padding: 80px 20px; color: var(--text-3); }
+.mk-loading p { font-size: 0.95rem; }
+.mk-empty h3 { color: var(--text); margin-bottom: 8px; font-size: 1.4rem; }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav"></nav>
+
+<main id="mkRoot">
+  <div class="mk-loading"><p>Loading marketplace…</p></div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+const TIER_LABELS_MK = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
+let _currentUser = null;
+let _allCoaches = [];
+
+// Read the program id from the URL — if present, render the detail view
+function getProgramIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('id') || '';
+}
+
+function fmtUsd(cents) { return '$' + (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2); }
+
+async function renderMarketplace() {
+  const root = document.getElementById('mkRoot');
+  const id = getProgramIdFromUrl();
+  if (id) {
+    await renderDetail(id);
+  } else {
+    await renderBrowse();
+  }
+}
+
+async function renderBrowse() {
+  const root = document.getElementById('mkRoot');
+  root.innerHTML = '';
+
+  // Hero
+  const hero = el('section', { class: 'mk-hero' });
+  const heroIn = el('div', { class: 'container' });
+  heroIn.appendChild(el('h1', {}, 'Program marketplace'));
+  heroIn.appendChild(el('p', {}, 'Buy powerlifting programs from real coaches. RPE-native, comp-equivalent e1RM tracking. Loads into your POWALIFTA account instantly after purchase.'));
+  hero.appendChild(heroIn);
+  root.appendChild(hero);
+
+  // Body container
+  const body = el('div', { class: 'container', style: 'padding: 28px 0 60px;' });
+
+  // Filters
+  const filters = el('div', { class: 'mk-filters' });
+  const tiers = [
+    { key: '',        label: 'All' },
+    { key: 'short',   label: '$19 · Short' },
+    { key: 'block',   label: '$39 · Block' },
+    { key: 'premium', label: '$79 · Premium' }
+  ];
+  tiers.forEach((t, i) => {
+    const btn = el('button', { class: 'mk-tier-btn' + (i === 0 ? ' active' : ''), 'data-tier': t.key }, t.label);
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mk-tier-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadAndRenderGrid(t.key, document.querySelector('.mk-search').value);
+    });
+    filters.appendChild(btn);
+  });
+  const search = el('input', { type: 'text', class: 'mk-search', placeholder: 'Search programs…' });
+  let _searchTimer = null;
+  search.addEventListener('input', () => {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => {
+      const activeTier = document.querySelector('.mk-tier-btn.active')?.dataset?.tier || '';
+      loadAndRenderGrid(activeTier, search.value);
+    }, 200);
+  });
+  filters.appendChild(search);
+  body.appendChild(filters);
+
+  // Grid container (filled by loadAndRenderGrid)
+  const grid = el('div', { id: 'mkGrid' });
+  body.appendChild(grid);
+  root.appendChild(body);
+
+  // Initial load
+  loadAndRenderGrid('', '');
+}
+
+async function loadAndRenderGrid(tier, search) {
+  const grid = document.getElementById('mkGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="mk-loading"><p>Loading programs…</p></div>';
+
+  let programs = [];
+  try {
+    programs = await DB.listPublishedPrograms({ tier: tier || undefined, search: search || undefined });
+  } catch (e) {
+    console.error('listPublishedPrograms', e);
+    grid.innerHTML = '<div class="mk-empty"><h3>Could not load programs</h3><p>Try refreshing.</p></div>';
+    return;
+  }
+
+  if (!programs.length) {
+    grid.innerHTML = '';
+    const empty = el('div', { class: 'mk-empty' });
+    empty.appendChild(el('h3', {}, 'No programs match yet'));
+    empty.appendChild(el('p', {}, 'Try a different tier or come back soon — coaches are publishing new programs every week.'));
+    grid.appendChild(empty);
+    return;
+  }
+
+  grid.innerHTML = '';
+  const g = el('div', { class: 'mk-grid' });
+  programs.forEach(p => {
+    const coach = _allCoaches.find(c => c.id === p.coachId);
+    const card = el('div', { class: 'mk-card' });
+    card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
+    card.appendChild(el('div', { class: 'mk-card-tier' }, TIER_LABELS_MK[p.tier] || 'Program'));
+    card.appendChild(el('div', { class: 'mk-card-title' }, p.title));
+    card.appendChild(el('div', { class: 'mk-card-coach' }, 'by ' + (coach ? coach.name : 'a POWALIFTA coach')));
+    card.appendChild(el('p', { class: 'mk-card-desc' }, (p.description || '').slice(0, 140) + ((p.description || '').length > 140 ? '…' : '')));
+    const foot = el('div', { class: 'mk-card-foot' });
+    foot.appendChild(el('div', { class: 'mk-card-price' }, fmtUsd(p.priceCents)));
+    foot.appendChild(el('div', { class: 'mk-card-meta' }, p.weekCount + ' wk · ' + p.soldCount + ' sold'));
+    card.appendChild(foot);
+    g.appendChild(card);
+  });
+  grid.appendChild(g);
+}
+
+async function renderDetail(id) {
+  const root = document.getElementById('mkRoot');
+  root.innerHTML = '<div class="mk-loading"><p>Loading program…</p></div>';
+
+  let program;
+  try { program = await DB.getMarketplaceProgram(id); }
+  catch (e) { console.error(e); }
+
+  if (!program || program.status !== 'published') {
+    root.innerHTML = '';
+    const empty = el('div', { class: 'mk-empty container' });
+    empty.appendChild(el('h3', {}, 'Program not available'));
+    empty.appendChild(el('p', {}, 'This program is no longer listed, or the link is wrong.'));
+    empty.appendChild(el('p', { style: 'margin-top: 18px;' }, el('a', { href: 'marketplace.html', class: 'btn btn-ghost' }, '← Browse all programs')));
+    root.appendChild(empty);
+    return;
+  }
+
+  const coach = _allCoaches.find(c => c.id === program.coachId);
+
+  root.innerHTML = '';
+  const wrap = el('div', { class: 'mk-detail' });
+  wrap.appendChild(el('a', { href: 'marketplace.html', class: 'mk-detail-back' }, '← Back to marketplace'));
+  wrap.appendChild(el('div', { class: 'mk-detail-tier' }, TIER_LABELS_MK[program.tier] || 'Program'));
+  wrap.appendChild(el('h1', { class: 'mk-detail-title' }, program.title));
+
+  const meta = el('p', { class: 'mk-detail-meta' });
+  meta.innerHTML = 'by <strong>' + (coach ? coach.name : 'a POWALIFTA coach') + '</strong> · ' +
+                   program.weekCount + ' weeks · ' + program.soldCount + ' athletes own this';
+  wrap.appendChild(meta);
+
+  wrap.appendChild(el('div', { class: 'mk-detail-desc' }, program.description || ''));
+
+  // Buy card
+  const buyCard = el('div', { class: 'mk-buy-card' });
+  buyCard.appendChild(el('div', { class: 'mk-buy-price' }, fmtUsd(program.priceCents)));
+  buyCard.appendChild(el('div', { class: 'mk-buy-note' }, 'One-time purchase. The program loads into your POWALIFTA account the moment payment clears.'));
+
+  const buyBtn = el('a', { class: 'btn btn-primary btn-lg', id: 'mkBuyBtn' }, 'Buy program');
+  // Wire the buy button
+  buyBtn.addEventListener('click', e => {
+    e.preventDefault();
+    onBuyClick(program);
+  });
+  buyBtn.style.cursor = 'pointer';
+  buyCard.appendChild(buyBtn);
+
+  // Refund note + share link
+  buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. Refunds available within 7 days if you haven\'t opened the program.'));
+  wrap.appendChild(buyCard);
+
+  root.appendChild(wrap);
+
+  // Update OG / title for sharing
+  document.title = program.title + ' — POWALIFTA marketplace';
+}
+
+function onBuyClick(program) {
+  if (!_currentUser) {
+    // Not logged in — prompt to sign up or log in
+    if (confirm('Sign in (or sign up) to buy this program. Continue?')) {
+      // Send them home with a marker so they can return after auth
+      sessionStorage.setItem('mk-return', 'marketplace.html?id=' + program.id);
+      location.href = 'index.html#signup-solo';
+    }
+    return;
+  }
+
+  if (!program.lsCheckoutUrl) {
+    toast('Checkout is not configured for this program yet — admin needs to set up the LS product.');
+    return;
+  }
+
+  // Build the LS checkout URL with custom_data so the webhook can match the buyer + program.
+  // Lemon Squeezy supports `checkout[custom][key]=value` query params.
+  const url = new URL(program.lsCheckoutUrl);
+  url.searchParams.set('checkout[email]', _currentUser.email);
+  url.searchParams.set('checkout[custom][user_id]', _currentUser.id);
+  url.searchParams.set('checkout[custom][marketplace_program_id]', program.id);
+  url.searchParams.set('checkout[name]', _currentUser.name || '');
+
+  window.location.href = url.toString();
+}
+
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, async () => {
+  renderNav('#nav');
+  _currentUser = getCurrentUser();
+  // Preload the coach directory so we can show "by Coach Name" without N+1 queries
+  try { _allCoaches = await DB.listCoaches(); } catch (e) {}
+  // If we came back from a marketplace return, resume
+  const ret = sessionStorage.getItem('mk-return');
+  if (ret && _currentUser) {
+    sessionStorage.removeItem('mk-return');
+    if (location.search.indexOf('id=') < 0) {
+      location.href = ret;
+      return;
+    }
+  }
+  renderMarketplace();
+}, { staticPublic: true });
+</script>
+</body>
+</html>

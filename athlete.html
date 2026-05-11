@@ -30,6 +30,7 @@
     <button class="sidebar-tab" data-tab="progress" id="tab-progress"></button>
     <button class="sidebar-tab" data-tab="bodyweight" id="tab-bodyweight"></button>
     <button class="sidebar-tab" data-tab="coach" id="tab-coach"></button>
+    <a class="sidebar-tab" href="marketplace.html" id="tab-marketplace" style="text-decoration:none;"></a>
     <div class="sidebar-foot">
       <div>POWALIFTA Athlete</div>
       <div class="faded">v0.3 · cloud-synced</div>
@@ -273,6 +274,7 @@ bootstrap('athlete', () => {
   setLbl('tab-progress', ICONS.chart, 'Progress');
   setLbl('tab-bodyweight', ICONS.scale, 'Bodyweight');
   setLbl('tab-coach', ICONS.user, 'Coach');
+  setLbl('tab-marketplace', ICONS.bar, 'Browse programs');
   document.getElementById('bwBtn').innerHTML = ICONS.plus + '<span>Log weigh-in</span>';
   document.getElementById('goalsBtn').innerHTML = ICONS.trophy + '<span>Set goals</span>';
 
