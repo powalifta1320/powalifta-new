@@ -64,6 +64,54 @@ function mapJsNote(n) {
   if (n.coachId !== undefined) out.coach_id = n.coachId;
   return out;
 }
+// Marketplace program — db ↔ js shape
+function mapDbMarketplaceProgram(r) {
+  return {
+    id: r.id,
+    coachId: r.coach_id,
+    title: r.title,
+    description: r.description || '',
+    tier: r.tier,
+    priceCents: r.price_cents,
+    weekCount: r.week_count || 0,
+    status: r.status,
+    lsProductId: r.ls_product_id || null,
+    lsVariantId: r.ls_variant_id || null,
+    lsCheckoutUrl: r.ls_checkout_url || null,
+    programPayload: r.program_payload,
+    soldCount: r.sold_count || 0,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
+}
+function mapJsMarketplaceProgram(m) {
+  return {
+    id: m.id, coach_id: m.coachId,
+    title: m.title, description: m.description || null,
+    tier: m.tier, price_cents: m.priceCents,
+    week_count: m.weekCount || 0,
+    status: m.status || 'pending_review',
+    program_payload: m.programPayload,
+    updated_at: new Date().toISOString()
+  };
+}
+function mapDbSale(r) {
+  return {
+    id: r.id,
+    marketplaceProgramId: r.marketplace_program_id,
+    buyerId: r.buyer_id,
+    coachId: r.coach_id,
+    amountCents: r.amount_cents,
+    platformFeeCents: r.platform_fee_cents,
+    coachPayoutCents: r.coach_payout_cents,
+    payoutStatus: r.payout_status,
+    paidAt: r.paid_at,
+    lsOrderId: r.ls_order_id,
+    lsEventId: r.ls_event_id,
+    createdAt: r.created_at
+  };
+}
+
 function mapDbCheckin(r) {
   return {
     id: r.id, athleteId: r.athlete_id, weekStart: r.week_start,
@@ -428,6 +476,120 @@ const DB = {
   },
   async deleteRest(athleteId, date) {
     const { error } = await sb.from('rest_days').delete().in('athlete_id', [athleteId]).eq('date', date);
+    if (error) throw error;
+  },
+
+  // ============================================================
+  // MARKETPLACE — coach publishes a program for sale, athletes buy
+  // ============================================================
+
+  // Coach submits a new marketplace program. Lands in pending_review until admin
+  // creates the Lemon Squeezy product and flips status to 'published'.
+  async submitMarketplaceProgram(prog) {
+    const payload = mapJsMarketplaceProgram(prog);
+    if (!payload.id) delete payload.id; // let DB generate it
+    const { data, error } = await sb.from('marketplace_programs').insert(payload).select('*');
+    if (error) throw error;
+    return mapDbMarketplaceProgram(data[0]);
+  },
+
+  // Update editable fields of one of your own marketplace programs (title, desc, etc.).
+  // Status moves between 'pending_review' ↔ 'unpublished' from the coach side;
+  // 'published' is admin-only.
+  async updateMarketplaceProgram(id, patch) {
+    const allowed = {};
+    if (patch.title !== undefined)        allowed.title = patch.title;
+    if (patch.description !== undefined)  allowed.description = patch.description;
+    if (patch.tier !== undefined)         allowed.tier = patch.tier;
+    if (patch.priceCents !== undefined)   allowed.price_cents = patch.priceCents;
+    if (patch.weekCount !== undefined)    allowed.week_count = patch.weekCount;
+    if (patch.status !== undefined)       allowed.status = patch.status;
+    if (patch.programPayload !== undefined) allowed.program_payload = patch.programPayload;
+    allowed.updated_at = new Date().toISOString();
+    const { error } = await sb.from('marketplace_programs').update(allowed).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteMarketplaceProgram(id) {
+    const { error } = await sb.from('marketplace_programs').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // Public: list all published marketplace programs (anyone — signed in or not)
+  async listPublishedPrograms({ tier, search } = {}) {
+    let q = sb.from('marketplace_programs').select('*').eq('status', 'published').order('sold_count', { ascending: false });
+    if (tier) q = q.eq('tier', tier);
+    if (search) q = q.ilike('title', '%' + search + '%');
+    const { data, error } = await q;
+    if (error) { console.warn('listPublishedPrograms', error); return []; }
+    return (data || []).map(mapDbMarketplaceProgram);
+  },
+
+  // Coach: list every marketplace program I've published (any status)
+  async listMyPublishedPrograms(coachId) {
+    const { data, error } = await sb.from('marketplace_programs')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listMyPublishedPrograms', error); return []; }
+    return (data || []).map(mapDbMarketplaceProgram);
+  },
+
+  // Single program fetch for the buy page
+  async getMarketplaceProgram(id) {
+    const { data, error } = await sb.from('marketplace_programs').select('*').eq('id', id).limit(1);
+    if (error) throw error;
+    return (data && data[0]) ? mapDbMarketplaceProgram(data[0]) : null;
+  },
+
+  // Sales — buyer side: list everything I've ever bought
+  async listMyPurchases(buyerId) {
+    const { data, error } = await sb.from('program_sales')
+      .select('*')
+      .eq('buyer_id', buyerId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listMyPurchases', error); return []; }
+    return (data || []).map(mapDbSale);
+  },
+
+  // Sales — coach side: list every sale of my programs (earnings dashboard)
+  async listMySales(coachId) {
+    const { data, error } = await sb.from('program_sales')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listMySales', error); return []; }
+    return (data || []).map(mapDbSale);
+  },
+
+  // Admin: list all pending payouts grouped by coach (for monthly payout run)
+  async listPendingPayouts() {
+    const { data, error } = await sb.from('program_sales')
+      .select('*')
+      .eq('payout_status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listPendingPayouts', error); return []; }
+    return (data || []).map(mapDbSale);
+  },
+
+  // Admin: mark a sale (or batch of sales) as paid out to the coach
+  async markPayoutsPaid(saleIds) {
+    if (!saleIds || !saleIds.length) return;
+    const { error } = await sb.from('program_sales')
+      .update({ payout_status: 'paid', paid_at: new Date().toISOString() })
+      .in('id', saleIds);
+    if (error) throw error;
+  },
+
+  // Admin (in-dashboard): flip a marketplace program to published once the LS product is wired
+  async adminPublishProgram(id, lsProductId, lsVariantId, lsCheckoutUrl) {
+    const { error } = await sb.from('marketplace_programs').update({
+      status: 'published',
+      ls_product_id: lsProductId,
+      ls_variant_id: lsVariantId,
+      ls_checkout_url: lsCheckoutUrl,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
     if (error) throw error;
   },
 
