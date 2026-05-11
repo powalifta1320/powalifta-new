@@ -111,7 +111,9 @@ async function bootstrap(expectedType, onReady, opts) {
     userType: profile.user_type,
     isAdmin: !!profile.is_admin,
     subscriptionTier: profile.subscription_tier || 'free',
-    subscriptionStatus: profile.subscription_status || 'inactive'
+    subscriptionStatus: profile.subscription_status || 'inactive',
+    avatarUrl: profile.avatar_url || null,
+    countryCode: profile.country_code || null
   };
 
   if (!expectedType) {
@@ -648,10 +650,28 @@ async function persistDeleteTemplate(id)  { try { await DB.deleteTemplate(id); }
 function ensureSettingsModal() {
   if (document.getElementById('settingsModal')) return;
   const wrap = document.createElement('div');
+  // Country <option> list, prepended with a "no country" option.
+  const countryOpts = '<option value="">— None —</option>' +
+    COUNTRIES.map(c => '<option value="' + c.code + '">' + flagEmoji(c.code) + ' ' + escHtml(c.name) + '</option>').join('');
   wrap.innerHTML = '<div class="modal-backdrop" id="settingsModal">' +
     '<div class="modal">' +
       '<button class="modal-close" onclick="closeSettingsModal()">&times;</button>' +
       '<h3>Settings</h3>' +
+
+      // Avatar + country row
+      '<div class="flex gap-12 mt-8" style="align-items:center">' +
+        '<div id="setAvatarPreview" class="av" style="width:72px;height:72px;font-size:1.25rem;flex:0 0 auto"></div>' +
+        '<div style="flex:1; min-width:0">' +
+          '<label class="block dim text-xs mb-4">Profile picture (square works best, &lt; 3 MB)</label>' +
+          '<input type="file" id="setAvatarFile" accept="image/png,image/jpeg,image/webp" style="font-size: 0.85rem">' +
+          '<div id="setAvatarStatus" class="dim text-xs mt-4"></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="form-group mt-12"><label>Country (shown as flag on your profile)</label>' +
+        '<select id="setCountry" style="width:100%">' + countryOpts + '</select>' +
+      '</div>' +
+
       '<div class="form-group"><label>Display name</label><input type="text" id="setName"></div>' +
       '<div class="form-group"><label>Email</label><input type="email" id="setEmail" disabled style="opacity:0.5"></div>' +
       '<div id="setBioGroup" class="form-group" style="display:none"><label>Coach bio</label><textarea id="setBio"></textarea></div>' +
@@ -667,7 +687,38 @@ function ensureSettingsModal() {
     '</div>' +
   '</div>';
   document.body.appendChild(wrap.firstChild);
+
+  // Wire up the file input — upload immediately on choose.
+  const fileInput = document.getElementById('setAvatarFile');
+  if (fileInput) fileInput.addEventListener('change', handleAvatarUpload);
 }
+
+async function handleAvatarUpload(ev) {
+  const u = getCurrentUser();
+  if (!u) return;
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('setAvatarStatus');
+  const preview = document.getElementById('setAvatarPreview');
+  if (status) status.textContent = 'Uploading…';
+  try {
+    const url = await DB.uploadAvatar(file, u.id);
+    window._user.avatarUrl = url;
+    if (status) status.textContent = 'Uploaded ✓';
+    if (preview) {
+      preview.style.padding = '0';
+      preview.style.overflow = 'hidden';
+      preview.style.background = 'transparent';
+      preview.innerHTML = '<img src="' + escHtml(url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>';
+    }
+    renderNav('#nav');
+  } catch (e) {
+    console.error('avatar upload', e);
+    if (status) status.textContent = 'Error: ' + (e.message || 'upload failed');
+    toast(e.message || 'Could not upload avatar');
+  }
+}
+window.handleAvatarUpload = handleAvatarUpload;
 
 function openSettingsModal() {
   const u = getCurrentUser();
@@ -683,6 +734,31 @@ function openSettingsModal() {
   } else {
     bioGroup.style.display = 'none';
   }
+
+  // Avatar preview
+  const preview = document.getElementById('setAvatarPreview');
+  if (preview) {
+    if (u.avatarUrl) {
+      preview.style.padding = '0';
+      preview.style.overflow = 'hidden';
+      preview.style.background = 'transparent';
+      preview.innerHTML = '<img src="' + escHtml(u.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>';
+    } else {
+      preview.style.padding = '';
+      preview.style.overflow = '';
+      preview.style.background = '';
+      preview.innerHTML = escHtml(initials(u.name));
+    }
+  }
+
+  // Country select
+  const country = document.getElementById('setCountry');
+  if (country) country.value = u.countryCode || '';
+  const status = document.getElementById('setAvatarStatus');
+  if (status) status.textContent = '';
+  const fileInput = document.getElementById('setAvatarFile');
+  if (fileInput) fileInput.value = '';
+
   document.getElementById('settingsModal').classList.add('open');
   attachPwdToggles();
 }
@@ -706,14 +782,17 @@ async function saveSettings() {
   const name = document.getElementById('setName').value.trim();
   const pwd = document.getElementById('setPwd').value;
   const bio = u.userType === 'coach' ? document.getElementById('setBio').value.trim() : null;
+  const countrySel = document.getElementById('setCountry');
+  const country = countrySel ? (countrySel.value || null) : null;
   if (!name) return toast('Name required');
   if (pwd && pwd.length < 6) return toast('Password must be at least 6 chars');
 
   try {
-    const patch = { name };
+    const patch = { name, country_code: country };
     if (bio != null) patch.bio = bio;
     await DB.updateProfile(u.id, patch);
     window._user.name = name;
+    window._user.countryCode = country;
     if (bio != null) window._user.bio = bio;
     if (pwd) {
       const { error } = await sb.auth.updateUser({ password: pwd });
@@ -1343,6 +1422,65 @@ function initials(name) {
 }
 
 // =========================================================
+// FLAGS — convert ISO-3166-1 alpha-2 country code → 🇺🇸 emoji
+// =========================================================
+function flagEmoji(code) {
+  if (!code || typeof code !== 'string' || code.length !== 2) return '';
+  const cc = code.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return '';
+  const offset = 127397; // 'A' (65) + offset = 0x1F1E6 (regional indicator A)
+  return String.fromCodePoint(cc.charCodeAt(0) + offset, cc.charCodeAt(1) + offset);
+}
+window.flagEmoji = flagEmoji;
+
+// Common country list used in settings dropdown. Code + display name.
+// Curated — extend as needed. Sorted alphabetically by name.
+const COUNTRIES = [
+  { code: 'AR', name: 'Argentina' }, { code: 'AU', name: 'Australia' }, { code: 'AT', name: 'Austria' },
+  { code: 'BE', name: 'Belgium' }, { code: 'BR', name: 'Brazil' }, { code: 'BG', name: 'Bulgaria' },
+  { code: 'CA', name: 'Canada' }, { code: 'CL', name: 'Chile' }, { code: 'CN', name: 'China' },
+  { code: 'CO', name: 'Colombia' }, { code: 'HR', name: 'Croatia' }, { code: 'CZ', name: 'Czechia' },
+  { code: 'DK', name: 'Denmark' }, { code: 'EG', name: 'Egypt' }, { code: 'EE', name: 'Estonia' },
+  { code: 'FI', name: 'Finland' }, { code: 'FR', name: 'France' }, { code: 'DE', name: 'Germany' },
+  { code: 'GR', name: 'Greece' }, { code: 'HK', name: 'Hong Kong' }, { code: 'HU', name: 'Hungary' },
+  { code: 'IS', name: 'Iceland' }, { code: 'IN', name: 'India' }, { code: 'ID', name: 'Indonesia' },
+  { code: 'IE', name: 'Ireland' }, { code: 'IL', name: 'Israel' }, { code: 'IT', name: 'Italy' },
+  { code: 'JP', name: 'Japan' }, { code: 'KZ', name: 'Kazakhstan' }, { code: 'KE', name: 'Kenya' },
+  { code: 'KR', name: 'Korea' }, { code: 'LV', name: 'Latvia' }, { code: 'LT', name: 'Lithuania' },
+  { code: 'MY', name: 'Malaysia' }, { code: 'MX', name: 'Mexico' }, { code: 'MA', name: 'Morocco' },
+  { code: 'NL', name: 'Netherlands' }, { code: 'NZ', name: 'New Zealand' }, { code: 'NG', name: 'Nigeria' },
+  { code: 'NO', name: 'Norway' }, { code: 'PK', name: 'Pakistan' }, { code: 'PE', name: 'Peru' },
+  { code: 'PH', name: 'Philippines' }, { code: 'PL', name: 'Poland' }, { code: 'PT', name: 'Portugal' },
+  { code: 'RO', name: 'Romania' }, { code: 'RU', name: 'Russia' }, { code: 'SA', name: 'Saudi Arabia' },
+  { code: 'RS', name: 'Serbia' }, { code: 'SG', name: 'Singapore' }, { code: 'SK', name: 'Slovakia' },
+  { code: 'SI', name: 'Slovenia' }, { code: 'ZA', name: 'South Africa' }, { code: 'ES', name: 'Spain' },
+  { code: 'SE', name: 'Sweden' }, { code: 'CH', name: 'Switzerland' }, { code: 'TW', name: 'Taiwan' },
+  { code: 'TH', name: 'Thailand' }, { code: 'TR', name: 'Turkey' }, { code: 'UA', name: 'Ukraine' },
+  { code: 'AE', name: 'United Arab Emirates' }, { code: 'GB', name: 'United Kingdom' },
+  { code: 'US', name: 'United States' }, { code: 'UY', name: 'Uruguay' }, { code: 'VE', name: 'Venezuela' },
+  { code: 'VN', name: 'Vietnam' }
+];
+window.COUNTRIES = COUNTRIES;
+
+// Build an avatar element: real photo if avatarUrl set, otherwise initials.
+// opts: { size: 'sm'|'md'|'lg', user: { name, avatarUrl, countryCode } }
+function avatarHtml(user, opts) {
+  opts = opts || {};
+  const cls = opts.cls || '';
+  const sz = opts.size || 'md';
+  const sizeStyle = sz === 'sm' ? 'width:32px;height:32px;font-size:0.75rem'
+                   : sz === 'lg' ? 'width:80px;height:80px;font-size:1.5rem'
+                   : 'width:48px;height:48px;font-size:1rem';
+  if (user && user.avatarUrl) {
+    return '<div class="av ' + cls + '" style="' + sizeStyle + ';padding:0;overflow:hidden;background:transparent">' +
+      '<img src="' + escHtml(user.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' +
+    '</div>';
+  }
+  return '<div class="av ' + cls + '" style="' + sizeStyle + '">' + escHtml(initials(user ? user.name : '?')) + '</div>';
+}
+window.avatarHtml = avatarHtml;
+
+// =========================================================
 // ICONS (inline SVG strings)
 // =========================================================
 const ICONS = {
@@ -1401,7 +1539,11 @@ function renderNav(target) {
   if (user) {
     // Clickable user pill → opens settings modal
     const userPill = el('button', { class: 'nav-user', title: 'Settings' });
-    userPill.innerHTML = '<div class="av">' + escHtml(initials(user.name)) + '</div><span>' + escHtml(user.name) + '</span>';
+    const avInner = user.avatarUrl
+      ? '<div class="av" style="padding:0;overflow:hidden;background:transparent"><img src="' + escHtml(user.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
+      : '<div class="av">' + escHtml(initials(user.name)) + '</div>';
+    const flagPart = user.countryCode ? '<span style="margin-left:4px">' + flagEmoji(user.countryCode) + '</span>' : '';
+    userPill.innerHTML = avInner + '<span>' + escHtml(user.name) + '</span>' + flagPart;
     userPill.setAttribute('onclick', 'if(window.openSettingsModal){openSettingsModal()}');
     actions.appendChild(userPill);
     if (user.userType === 'coach') {

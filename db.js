@@ -19,10 +19,20 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // MAPPERS — DB row (snake_case) ↔ JS object (camelCase)
 // ============================================================
 function mapDbProfileToCoach(r) {
-  return { id: r.id, name: r.name, email: r.email, bio: r.bio || '', createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now() };
+  return {
+    id: r.id, name: r.name, email: r.email, bio: r.bio || '',
+    avatarUrl: r.avatar_url || null,
+    countryCode: r.country_code || null,
+    createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
+  };
 }
 function mapDbProfileToAthlete(r) {
-  return { id: r.id, name: r.name, email: r.email, coachId: r.coach_id, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now() };
+  return {
+    id: r.id, name: r.name, email: r.email, coachId: r.coach_id,
+    avatarUrl: r.avatar_url || null,
+    countryCode: r.country_code || null,
+    createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
+  };
 }
 function mapDbProgram(r) {
   return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: r.weeks || [] };
@@ -226,6 +236,28 @@ const DB = {
     const { data, error } = await sb.from('profiles').select('*').eq('user_type', 'coach');
     if (error) { console.warn('listCoaches', error); return []; }
     return (data || []).map(mapDbProfileToCoach);
+  },
+
+  // Upload a profile picture for the current user. File lives at avatars/{user_id}/avatar.{ext}
+  // and is publicly readable. Returns the public URL.
+  async uploadAvatar(file, userId) {
+    if (!file) throw new Error('No file given');
+    if (!userId) throw new Error('Missing user id');
+    if (file.size > 3 * 1024 * 1024) throw new Error('Image too large (max 3 MB)');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const path = userId + '/avatar.' + ext;
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, file, {
+      upsert: true,
+      cacheControl: '3600',
+      contentType: file.type || undefined
+    });
+    if (upErr) throw upErr;
+    const { data } = sb.storage.from('avatars').getPublicUrl(path);
+    // Cache-bust so the new image shows immediately
+    const url = data.publicUrl + '?t=' + Date.now();
+    // Persist URL on the profile
+    await this.updateProfile(userId, { avatar_url: url });
+    return url;
   },
 
   // ---------- ADMIN ----------

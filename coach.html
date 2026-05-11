@@ -215,13 +215,21 @@
       <textarea id="pubDesc" placeholder="Who is this for? What does it deliver? Sample week structure, expected outcomes, prerequisites." style="min-height: 100px;"></textarea>
     </div>
     <div class="form-group">
-      <label>Pricing tier</label>
+      <label>Price (USD)</label>
+      <div class="flex gap-8" style="align-items:center">
+        <span style="font-size:1.1rem;font-weight:700;color:var(--text-2)">$</span>
+        <input type="number" id="pubPrice" min="1" max="999" step="0.01" placeholder="29.99" value="29.99" style="flex:1">
+      </div>
+      <p class="faded text-xs" style="margin-top:6px">You set your own price. You earn 80% per sale — POWALIFTA keeps 20% to cover payment processing + hosting. Min $1, max $999.</p>
+      <p class="dim text-xs" id="pubPayoutPreview" style="margin-top:4px"></p>
+    </div>
+    <div class="form-group">
+      <label>Category <span class="dim text-xs">(helps athletes find it)</span></label>
       <select id="pubTier">
-        <option value="short">$19 — Short cycle (3–4 weeks, single-lift focus)</option>
-        <option value="block" selected>$39 — Full block (8–12 weeks)</option>
-        <option value="premium">$79 — Premium peaking / meet prep</option>
+        <option value="short">Short cycle (3–4 weeks, single-lift focus)</option>
+        <option value="block" selected>Full block (8–12 weeks)</option>
+        <option value="premium">Premium peaking / meet prep</option>
       </select>
-      <p class="faded text-xs" style="margin-top:6px">You earn 80% per sale: $15.20 / $31.20 / $63.20 respectively.</p>
     </div>
     <div class="flex gap-8 mt-16">
       <button class="btn btn-block" onclick="closeModal('publishModal')">Cancel</button>
@@ -1050,7 +1058,8 @@ function renderTemplates() {
 // Lets coaches publish templates as paid programs, see their listings,
 // and track earnings + pending payouts.
 // =========================================================
-const TIER_PRICES_CENTS = { short: 1900, block: 3900, premium: 7900 };
+// Pricing is now coach-set per program (no fixed tier prices). `tier` is kept
+// as a category label so buyers can filter (short cycle / full block / premium).
 const TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
 const STATUS_BADGE = {
   pending_review: { text: 'In review', cls: 'badge-gold' },
@@ -1065,21 +1074,42 @@ function openPublishModal(template) {
   document.getElementById('pubTitle').value = template.name || '';
   document.getElementById('pubDesc').value = '';
   document.getElementById('pubTier').value = 'block';
+  const priceEl = document.getElementById('pubPrice');
+  if (priceEl) {
+    priceEl.value = '29.99';
+    // Live update payout preview as the coach types
+    priceEl.oninput = updatePayoutPreview;
+  }
+  updatePayoutPreview();
   openModal('publishModal');
 }
 window.openPublishModal = openPublishModal;
+
+function updatePayoutPreview() {
+  const el = document.getElementById('pubPayoutPreview');
+  const priceEl = document.getElementById('pubPrice');
+  if (!el || !priceEl) return;
+  const v = parseFloat(priceEl.value);
+  if (!isFinite(v) || v <= 0) { el.textContent = ''; return; }
+  const earn = (v * 0.8).toFixed(2);
+  const fee = (v * 0.2).toFixed(2);
+  el.textContent = 'You earn $' + earn + ' per sale (POWALIFTA fee $' + fee + ').';
+}
+window.updatePayoutPreview = updatePayoutPreview;
 
 async function confirmPublish() {
   if (!_publishTarget) { closeModal('publishModal'); return; }
   const title = document.getElementById('pubTitle').value.trim();
   const description = document.getElementById('pubDesc').value.trim();
   const tier = document.getElementById('pubTier').value;
+  const priceUsd = parseFloat(document.getElementById('pubPrice').value);
   if (!title) return toast('Add a title.');
   if (!description) return toast('Add a description so buyers know what they\'re getting.');
   if (description.length < 60) return toast('Description should be at least a couple of sentences (60+ chars).');
+  if (!isFinite(priceUsd) || priceUsd < 1) return toast('Price must be at least $1.');
+  if (priceUsd > 999) return toast('Price must be $999 or less.');
 
-  const priceCents = TIER_PRICES_CENTS[tier];
-  if (!priceCents) return toast('Pick a tier.');
+  const priceCents = Math.round(priceUsd * 100);
 
   const btn = document.getElementById('publishBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
@@ -1157,7 +1187,7 @@ function renderCoachMarketplace() {
         el('span', { class: 'tpl-name' }, p.title),
         el('span', { class: 'badge ' + badge.cls }, badge.text)
       ));
-      card.appendChild(el('div', { class: 'tpl-meta' }, TIER_LABEL[p.tier] + ' · $' + (p.priceCents / 100) + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'));
+      card.appendChild(el('div', { class: 'tpl-meta' }, '$' + (p.priceCents / 100).toFixed(2) + ' · ' + (TIER_LABEL[p.tier] || 'Program') + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'));
       card.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 8px; line-height: 1.55;' }, (p.description || '').slice(0, 140) + (p.description && p.description.length > 140 ? '…' : '')));
 
       const actions = el('div', { class: 'tpl-actions' });

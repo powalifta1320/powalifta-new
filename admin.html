@@ -134,7 +134,8 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('approveModal')">&times;</button>
     <h3>Approve & publish</h3>
-    <p class="dim text-sm mb-16">Create a Lemon Squeezy product (one-time payment, price matching the tier) and paste the IDs + checkout URL below. Submit to make this program live on the marketplace.</p>
+    <p class="dim text-sm mb-16">Create a Lemon Squeezy product (one-time payment, price matching the coach's chosen price — shown at the top of the listing) and paste the IDs + checkout URL below. Submit to make this program live on the marketplace.</p>
+    <div id="appPriceHint" class="dim text-sm mb-12" style="padding:10px 12px;background:var(--bg-2);border-radius:var(--r-md);border:1px solid var(--line);"></div>
     <div class="form-group">
       <label>LS product ID</label>
       <input type="text" id="appProductId" placeholder="e.g. 1234567">
@@ -469,7 +470,9 @@ function renderInvites() {
 // =========================================================
 // MARKETPLACE REVIEW (admin)
 // =========================================================
-const ADMIN_TIER_LABEL = { short: 'Short cycle ($19)', block: 'Full block ($39)', premium: 'Premium ($79)' };
+// Coach-set pricing now — category label is decoupled from price.
+const ADMIN_TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
+function fmtPrice(cents) { return '$' + ((cents || 0) / 100).toFixed(2); }
 const ADMIN_STATUS_BADGE = {
   pending_review: { text: 'Pending review', cls: 'badge-gold' },
   published:      { text: 'Published',      cls: 'badge-green' },
@@ -509,7 +512,7 @@ function renderAdminMarketplace() {
 
     // Meta
     card.appendChild(el('div', { class: 'dim text-sm mb-8' },
-      ADMIN_TIER_LABEL[p.tier] + ' · ' + p.weekCount + ' weeks · ' + totalDays + ' days · ' + totalExercises + ' exercises · ' + p.soldCount + ' sold'
+      fmtPrice(p.priceCents) + ' · ' + (ADMIN_TIER_LABEL[p.tier] || 'Program') + ' · ' + p.weekCount + ' weeks · ' + totalDays + ' days · ' + totalExercises + ' exercises · ' + p.soldCount + ' sold'
     ));
 
     // Description
@@ -557,7 +560,8 @@ function previewPayload(p) {
   titleEl.textContent = p.title;
   const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
   subEl.textContent = (coach ? 'by ' + coach.name + ' · ' : '') +
-                      ADMIN_TIER_LABEL[p.tier] + ' · ' +
+                      fmtPrice(p.priceCents) + ' · ' +
+                      (ADMIN_TIER_LABEL[p.tier] || 'Program') + ' · ' +
                       p.weekCount + ' weeks';
 
   body.innerHTML = '';
@@ -638,6 +642,15 @@ function openApproveModal(p) {
   document.getElementById('appProductId').value = p.lsProductId || '';
   document.getElementById('appVariantId').value = p.lsVariantId || '';
   document.getElementById('appCheckoutUrl').value = p.lsCheckoutUrl || '';
+  const hint = document.getElementById('appPriceHint');
+  if (hint) {
+    const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+    hint.innerHTML = '<strong>Coach price:</strong> ' + fmtPrice(p.priceCents) +
+      ' &nbsp;·&nbsp; <strong>Category:</strong> ' + (ADMIN_TIER_LABEL[p.tier] || 'Program') +
+      ' &nbsp;·&nbsp; <strong>Coach payout (80%):</strong> ' + fmtPrice(Math.round(p.priceCents * 0.8)) +
+      (coach ? ' &nbsp;·&nbsp; <strong>By:</strong> ' + coach.name : '') +
+      '<br><span class="faded text-xs">Create the LS product priced at ' + fmtPrice(p.priceCents) + ' to match.</span>';
+  }
   openModal('approveModal');
 }
 window.openApproveModal = openApproveModal;

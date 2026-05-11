@@ -52,6 +52,14 @@
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 12px 40px var(--red-glow);
+  overflow: hidden;
+}
+.cp-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cp-flag {
+  font-size: 1.6rem;
+  margin-left: 8px;
+  vertical-align: middle;
+  line-height: 1;
 }
 .cp-meta { flex: 1; min-width: 240px; }
 .cp-name {
@@ -208,9 +216,24 @@ async function renderCoachProfile() {
   const heroIn = el('div', { class: 'container' });
   heroIn.appendChild(el('a', { href: 'index.html', class: 'cp-back' }, '← Back to POWALIFTA'));
   const card = el('div', { class: 'cp-card' });
-  card.appendChild(el('div', { class: 'cp-av' }, initials(coach.name)));
+  const av = el('div', { class: 'cp-av' });
+  if (coach.avatarUrl) {
+    av.innerHTML = '<img src="' + escHtml(coach.avatarUrl) + '" alt=""/>';
+  } else {
+    av.textContent = initials(coach.name);
+  }
+  card.appendChild(av);
   const meta = el('div', { class: 'cp-meta' });
-  meta.appendChild(el('div', { class: 'cp-name' }, coach.name));
+  const nameEl = el('div', { class: 'cp-name' });
+  nameEl.textContent = coach.name;
+  if (coach.countryCode) {
+    const flag = document.createElement('span');
+    flag.className = 'cp-flag';
+    flag.textContent = flagEmoji(coach.countryCode);
+    flag.title = coach.countryCode;
+    nameEl.appendChild(flag);
+  }
+  meta.appendChild(nameEl);
   meta.appendChild(el('p', { class: 'cp-bio' }, coach.bio || 'Powerlifting coach building strength one set at a time.'));
   const stats = el('div', { class: 'cp-stats' });
   stats.appendChild(el('div', { class: 'cp-stat' }, 'Coach on POWALIFTA'));

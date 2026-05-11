@@ -493,7 +493,7 @@ async function renderMarketplaceTeaser() {
     const coach = s.coaches.find(c => c.id === p.coachId);
     const card = el('div', { class: 'coach-card', style: 'cursor: pointer;' });
     card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
-    card.appendChild(el('div', { class: 'av' }, '$' + (p.priceCents / 100)));
+    card.appendChild(el('div', { class: 'av' }, '$' + (p.priceCents / 100).toFixed(0)));
     card.appendChild(el('h4', {}, p.title));
     card.appendChild(el('p', { class: 'coach-bio' }, (p.description || '').slice(0, 110) + ((p.description || '').length > 110 ? '…' : '')));
     const meta = el('div', { class: 'coach-meta' });
@@ -519,9 +519,27 @@ function renderCoaches() {
     return;
   }
   s.coaches.forEach(c => {
-    const card = el('div', { class: 'coach-card' });
-    card.appendChild(el('div', { class: 'av' }, initials(c.name)));
-    card.appendChild(el('h4', {}, c.name));
+    const card = el('div', { class: 'coach-card', style: 'cursor:pointer' });
+    card.addEventListener('click', () => { location.href = 'coach-profile.html?id=' + c.id; });
+    const av = el('div', { class: 'av' });
+    if (c.avatarUrl) {
+      av.style.padding = '0';
+      av.style.overflow = 'hidden';
+      av.style.background = 'transparent';
+      av.innerHTML = '<img src="' + escHtml(c.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>';
+    } else {
+      av.textContent = initials(c.name);
+    }
+    card.appendChild(av);
+    const nameEl = el('h4', {}, c.name);
+    if (c.countryCode) {
+      const flag = document.createElement('span');
+      flag.textContent = ' ' + flagEmoji(c.countryCode);
+      flag.title = c.countryCode;
+      flag.style.fontSize = '1.05em';
+      nameEl.appendChild(flag);
+    }
+    card.appendChild(nameEl);
     card.appendChild(el('p', { class: 'coach-bio' }, c.bio || 'No bio yet.'));
     const meta = el('div', { class: 'coach-meta' });
     meta.appendChild(el('span', { class: 'pill' }, 'Active'));
