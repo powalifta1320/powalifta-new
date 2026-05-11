@@ -601,7 +601,8 @@ const DB = {
     const empty = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
       workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
-      checkins: []
+      checkins: [],
+      marketplacePrograms: [], mySales: [], myPurchases: []
     };
 
     // Always pull coach directory (public)
@@ -614,7 +615,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, mp, sales] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -622,7 +623,9 @@ const DB = {
         this.listBwForAthletes(athleteIds),
         this.listNotesForAthletes(athleteIds),
         this.listGoalsForAthletes(athleteIds),
-        this.listCheckinsForAthletes(athleteIds)
+        this.listCheckinsForAthletes(athleteIds),
+        this.listMyPublishedPrograms(profile.id).catch(() => []),
+        this.listMySales(profile.id).catch(() => [])
       ]);
       empty.invites = invs;
       empty.programs = programs;
@@ -632,17 +635,21 @@ const DB = {
       empty.sessionNotes = notes;
       empty.goals = goals;
       empty.checkins = checkins;
+      empty.marketplacePrograms = mp;
+      empty.mySales = sales;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, purchases] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
         this.listNotesForAthlete(profile.id),
         this.getGoals(profile.id),
         this.listRestForAthlete(profile.id),
-        this.listCheckins(profile.id)
+        this.listCheckins(profile.id),
+        this.listMyPurchases(profile.id).catch(() => [])
       ]);
+      empty.myPurchases = purchases;
       empty.programs = progs;
       empty.workoutLogs = logs;
       empty.bodyweight = bw;

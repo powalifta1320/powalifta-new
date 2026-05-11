@@ -27,6 +27,7 @@
     <button class="sidebar-tab active" data-tab="athletes" id="tab-athletes"></button>
     <button class="sidebar-tab" data-tab="program" id="tab-program"></button>
     <button class="sidebar-tab" data-tab="templates" id="tab-templates"></button>
+    <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
     <button class="sidebar-tab" data-tab="progress" id="tab-progress"></button>
     <div class="sidebar-foot">
       <div>POWALIFTA Coach</div>
@@ -65,9 +66,17 @@
     <!-- TEMPLATES -->
     <section data-pane="templates" class="hidden">
       <div class="dash-header">
-        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete.</p></div>
+        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete — or publish them for sale on the marketplace.</p></div>
       </div>
       <div id="templatesArea"></div>
+    </section>
+
+    <!-- MARKETPLACE -->
+    <section data-pane="marketplace" class="hidden">
+      <div class="dash-header">
+        <div><h2>Marketplace</h2><p class="dim text-sm">Sell pre-made programs to solo athletes. You keep 80%, POWALIFTA keeps 20%. Paid out monthly.</p></div>
+      </div>
+      <div id="marketplaceArea"></div>
     </section>
 
     <!-- PROGRESS -->
@@ -190,6 +199,37 @@
   </div>
 </div>
 
+<!-- PUBLISH TO MARKETPLACE MODAL -->
+<div class="modal-backdrop" id="publishModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="closeModal('publishModal')">&times;</button>
+    <h3>Publish to marketplace</h3>
+    <p class="dim text-sm mb-16">Athletes can buy this program directly. You keep 80% (paid out monthly). POWALIFTA reviews each submission before it goes live — usually within a day.</p>
+
+    <div class="form-group">
+      <label>Program title</label>
+      <input type="text" id="pubTitle" placeholder="e.g. 12-Week Peaking Block">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="pubDesc" placeholder="Who is this for? What does it deliver? Sample week structure, expected outcomes, prerequisites." style="min-height: 100px;"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Pricing tier</label>
+      <select id="pubTier">
+        <option value="short">$19 — Short cycle (3–4 weeks, single-lift focus)</option>
+        <option value="block" selected>$39 — Full block (8–12 weeks)</option>
+        <option value="premium">$79 — Premium peaking / meet prep</option>
+      </select>
+      <p class="faded text-xs" style="margin-top:6px">You earn 80% per sale: $15.20 / $31.20 / $63.20 respectively.</p>
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('publishModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmPublish()" id="publishBtn">Submit for review</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
@@ -204,6 +244,7 @@ bootstrap('coach', () => {
   setLbl('tab-athletes', ICONS.athletes, 'Roster');
   setLbl('tab-program', ICONS.program, 'Program builder');
   setLbl('tab-templates', ICONS.copy, 'Templates');
+  setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   setLbl('tab-progress', ICONS.chart, 'Progress');
   document.getElementById('btn-invite').innerHTML = ICONS.plus + '<span>Invite athlete</span>';
   document.getElementById('addSetRowBtn').innerHTML = ICONS.plus + '<span>Add set</span>';
@@ -217,6 +258,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'athletes') renderRoster();
       if (btn.dataset.tab === 'program') populateAthleteSelect('progAthlete', loadProgram);
       if (btn.dataset.tab === 'templates') renderTemplates();
+      if (btn.dataset.tab === 'marketplace') renderCoachMarketplace();
       if (btn.dataset.tab === 'progress') populateAthleteSelect('progressAthlete', renderProgressForAthlete);
     });
   });
@@ -992,6 +1034,8 @@ function renderTemplates() {
     const actions = el('div', { class: 'tpl-actions' });
     const apply = el('button', { class: 'btn btn-sm btn-primary', onclick: () => openApplyTemplate(t) }, 'Apply');
     actions.appendChild(apply);
+    const pub = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => openPublishModal(t), title: 'List this template on the marketplace for solo athletes to buy' }, '↗ Publish');
+    actions.appendChild(pub);
     const del = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => { if (confirm('Delete template "' + t.name + '"?')) { Store.update(s => { s.programTemplates = s.programTemplates.filter(x => x.id !== t.id); }); await persistDeleteTemplate(t.id); renderTemplates(); }}});
     del.innerHTML = ICONS.trash;
     actions.appendChild(del);
@@ -1000,6 +1044,166 @@ function renderTemplates() {
   });
   area.appendChild(grid);
 }
+
+// =========================================================
+// MARKETPLACE — coach side
+// Lets coaches publish templates as paid programs, see their listings,
+// and track earnings + pending payouts.
+// =========================================================
+const TIER_PRICES_CENTS = { short: 1900, block: 3900, premium: 7900 };
+const TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
+const STATUS_BADGE = {
+  pending_review: { text: 'In review', cls: 'badge-gold' },
+  published:      { text: 'Live',      cls: 'badge-green' },
+  unpublished:    { text: 'Hidden',    cls: 'badge' },
+  rejected:       { text: 'Rejected',  cls: 'badge-red' }
+};
+
+let _publishTarget = null;
+function openPublishModal(template) {
+  _publishTarget = template;
+  document.getElementById('pubTitle').value = template.name || '';
+  document.getElementById('pubDesc').value = '';
+  document.getElementById('pubTier').value = 'block';
+  openModal('publishModal');
+}
+window.openPublishModal = openPublishModal;
+
+async function confirmPublish() {
+  if (!_publishTarget) { closeModal('publishModal'); return; }
+  const title = document.getElementById('pubTitle').value.trim();
+  const description = document.getElementById('pubDesc').value.trim();
+  const tier = document.getElementById('pubTier').value;
+  if (!title) return toast('Add a title.');
+  if (!description) return toast('Add a description so buyers know what they\'re getting.');
+  if (description.length < 60) return toast('Description should be at least a couple of sentences (60+ chars).');
+
+  const priceCents = TIER_PRICES_CENTS[tier];
+  if (!priceCents) return toast('Pick a tier.');
+
+  const btn = document.getElementById('publishBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+
+  // Snapshot the template payload — buyers get this exact program
+  const payload = _publishTarget.payload;
+  const weekCount = (payload && payload.weeks && payload.weeks.length) || 0;
+
+  try {
+    const created = await DB.submitMarketplaceProgram({
+      coachId: user.id,
+      title, description, tier, priceCents,
+      weekCount,
+      programPayload: payload,
+      status: 'pending_review'
+    });
+    // Update local Store so the marketplace tab reflects it immediately
+    Store.update(s => { (s.marketplacePrograms = s.marketplacePrograms || []).push(created); });
+    closeModal('publishModal');
+    toast('Submitted for review — usually approved within a day.');
+    _publishTarget = null;
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit for review'; }
+    renderCoachMarketplace();
+  } catch (e) {
+    console.error('publish failed', e);
+    toast('Could not publish — ' + (e.message || 'unknown error'));
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit for review'; }
+  }
+}
+window.confirmPublish = confirmPublish;
+
+function renderCoachMarketplace() {
+  const area = document.getElementById('marketplaceArea');
+  area.innerHTML = '';
+  const s = Store.get();
+  const programs = s.marketplacePrograms || [];
+  const sales = s.mySales || [];
+
+  // Earnings summary tiles
+  const totalSales = sales.length;
+  const totalEarned = sales.reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
+  const pendingPayout = sales.filter(x => x.payoutStatus === 'pending').reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
+  const paidOut = totalEarned - pendingPayout;
+
+  const tiles = el('div', { class: 'stat-grid' });
+  [
+    { label: 'Total sales',     val: totalSales,                 unit: 'sale' + (totalSales === 1 ? '' : 's'), feat: true },
+    { label: 'Pending payout',  val: '$' + (pendingPayout / 100).toFixed(2), unit: '', feat: false },
+    { label: 'Lifetime paid',   val: '$' + (paidOut / 100).toFixed(2),       unit: '', feat: false },
+    { label: 'Listings',        val: programs.length,            unit: 'live + pending', feat: false }
+  ].forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
+    tile.appendChild(el('div', { class: 'stat-label' }, t.label));
+    tile.appendChild(el('div', { class: 'stat-value', html: t.val + (t.unit ? '<span class="unit"> ' + t.unit + '</span>' : '') }));
+    tiles.appendChild(tile);
+  });
+  area.appendChild(tiles);
+
+  // Listings
+  area.appendChild(el('h3', { style: 'margin: 28px 0 14px; font-size: 1.3rem;' }, 'Your listings'));
+  if (!programs.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.bar;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No listings yet'));
+    e.appendChild(el('p', {}, 'Save a program as a template first, then hit "Publish" on the template.'));
+    e.appendChild(el('button', { class: 'btn btn-primary mt-16', onclick: () => document.querySelector('[data-tab="templates"]').click() }, 'Go to templates'));
+    area.appendChild(e);
+  } else {
+    const grid = el('div', { class: 'template-grid' });
+    programs.forEach(p => {
+      const badge = STATUS_BADGE[p.status] || STATUS_BADGE.pending_review;
+      const card = el('div', { class: 'template-card' });
+      card.appendChild(el('div', { class: 'flex-between mb-8', style: 'gap: 8px;' },
+        el('span', { class: 'tpl-name' }, p.title),
+        el('span', { class: 'badge ' + badge.cls }, badge.text)
+      ));
+      card.appendChild(el('div', { class: 'tpl-meta' }, TIER_LABEL[p.tier] + ' · $' + (p.priceCents / 100) + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'));
+      card.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 8px; line-height: 1.55;' }, (p.description || '').slice(0, 140) + (p.description && p.description.length > 140 ? '…' : '')));
+
+      const actions = el('div', { class: 'tpl-actions' });
+      if (p.status === 'published') {
+        // Copy share link
+        const shareBtn = el('button', { class: 'btn btn-sm btn-primary', onclick: () => {
+          const url = window.location.origin + '/marketplace.html?id=' + p.id;
+          navigator.clipboard.writeText(url).then(() => toast('Share link copied'));
+        }}, 'Copy share link');
+        actions.appendChild(shareBtn);
+      }
+      const delBtn = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => {
+        if (!confirm('Remove this listing? Existing buyers keep their copy of the program.')) return;
+        try {
+          await DB.deleteMarketplaceProgram(p.id);
+          Store.update(st => { st.marketplacePrograms = (st.marketplacePrograms || []).filter(x => x.id !== p.id); });
+          renderCoachMarketplace();
+          toast('Listing removed');
+        } catch (e) { toast('Could not remove — ' + (e.message || '')); }
+      }});
+      delBtn.innerHTML = ICONS.trash;
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+      grid.appendChild(card);
+    });
+    area.appendChild(grid);
+  }
+
+  // Recent sales (if any)
+  if (sales.length) {
+    area.appendChild(el('h3', { style: 'margin: 28px 0 14px; font-size: 1.3rem;' }, 'Recent sales'));
+    const wrap = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden;' });
+    sales.slice(0, 12).forEach(sale => {
+      const prog = programs.find(p => p.id === sale.marketplaceProgramId);
+      const row = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; gap: 8px;' });
+      row.appendChild(el('div', {},
+        el('div', { class: 'fw-700' }, prog ? prog.title : '(deleted program)'),
+        el('div', { class: 'faint text-xs', style: 'margin-top: 2px;' }, fmtDate(sale.createdAt ? sale.createdAt.slice(0,10) : '') + ' · ' + (sale.payoutStatus === 'paid' ? '✓ Paid out' : '⏳ Pending payout'))
+      ));
+      row.appendChild(el('div', { class: 'mono fw-700', style: 'color: var(--green);' }, '+$' + (sale.coachPayoutCents / 100).toFixed(2)));
+      wrap.appendChild(row);
+    });
+    area.appendChild(wrap);
+  }
+}
+window.renderCoachMarketplace = renderCoachMarketplace;
 
 let _saveTplTarget = null;
 function openSaveTemplate(prog) {
