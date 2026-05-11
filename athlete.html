@@ -208,6 +208,41 @@
   </div>
 </div>
 
+<!-- ADD EXERCISE MODAL (self-coached builder) -->
+<div class="modal-backdrop" id="sbAddExerciseModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('sbAddExerciseModal')">&times;</button>
+    <h3>Add exercise</h3>
+    <p class="dim text-sm mb-16">Pick a lift type. Variants get the right multiplier applied automatically (so paused squat e1RM compares to comp squat).</p>
+    <div class="form-group">
+      <label>Lift type</label>
+      <select id="sbExLift" onchange="onSbLiftChange()">
+        <option value="squat">Squat (main lift)</option>
+        <option value="bench">Bench (main lift)</option>
+        <option value="deadlift">Deadlift (main lift)</option>
+        <option value="push">Push accessory</option>
+        <option value="pull">Pull accessory</option>
+        <option value="legs">Legs accessory</option>
+        <option value="cardio">Cardio</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group" id="sbVariantGroup">
+      <label>Variant</label>
+      <select id="sbExVariant"></select>
+    </div>
+    <div class="form-group" id="sbNameGroup" style="display:none">
+      <label id="sbNameLabel">Exercise name</label>
+      <input type="text" id="sbExName" list="sbExNameList" placeholder="e.g. Lat pulldown">
+      <datalist id="sbExNameList"></datalist>
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('sbAddExerciseModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="sbConfirmAddExercise()">Add exercise</button>
+    </div>
+  </div>
+</div>
+
 <div id="restTimerEl" class="hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -231,6 +266,9 @@ bootstrap('athlete', () => {
     const s = document.getElementById('programSubtitle');
     if (t) t.textContent = 'Build your program';
     if (s) s.textContent = 'You\'re self-coaching. Build the program you\'ll train against — weeks, days, exercises, sets.';
+    // Hide the Coach tab for solo athletes — they don't have a coach to message
+    const coachTab = document.getElementById('tab-coach');
+    if (coachTab) coachTab.style.display = 'none';
   }
   setLbl('tab-progress', ICONS.chart, 'Progress');
   setLbl('tab-bodyweight', ICONS.scale, 'Bodyweight');
@@ -1623,29 +1661,82 @@ function sbDeleteExercise(progId, wi, di, ei) {
   renderSelfBuilder();
 }
 
-// Inline "add exercise" — prompts for lift + variant/name. Falls back to a simple confirm flow.
+// Open the proper "add exercise" modal (no more browser prompts)
+let _sbAddCtx = null;
 function sbOpenAddExercise(progId, wi, di) {
-  const lift = prompt('Lift type? Type one of: squat, bench, deadlift, accessory, cardio, other');
-  if (!lift) return;
-  const liftKey = lift.toLowerCase().trim();
-  let variant = '', exerciseName = '';
-  if (['squat', 'bench', 'deadlift'].includes(liftKey)) {
-    variant = prompt('Variant? (e.g. Competition, Paused, Tempo, Pin, Close Grip, RDL, Deficit). Leave blank for Competition.') || 'Competition';
+  _sbAddCtx = { progId, wi, di };
+  // Reset modal inputs
+  document.getElementById('sbExLift').value = 'squat';
+  document.getElementById('sbExName').value = '';
+  onSbLiftChange();
+  openModal('sbAddExerciseModal');
+}
+window.sbOpenAddExercise = sbOpenAddExercise;
+
+// Show / hide the right fields based on lift type + populate variant/name lists
+function onSbLiftChange() {
+  const lift = document.getElementById('sbExLift').value;
+  const variantGroup = document.getElementById('sbVariantGroup');
+  const nameGroup = document.getElementById('sbNameGroup');
+  const nameLabel = document.getElementById('sbNameLabel');
+  const variantSel = document.getElementById('sbExVariant');
+  const nameList = document.getElementById('sbExNameList');
+
+  if (MAIN_LIFTS.includes(lift)) {
+    // Main lift — show variant dropdown, hide name
+    variantGroup.style.display = 'block';
+    nameGroup.style.display = 'none';
+    variantSel.innerHTML = '';
+    variantsFor(lift).forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = v + ' (×' + multiplierFor(lift, v).toFixed(2) + ')';
+      variantSel.appendChild(opt);
+    });
   } else {
-    exerciseName = prompt('Exercise name?');
-    if (!exerciseName) return;
+    // Accessory / cardio / other — show name input, hide variant
+    variantGroup.style.display = 'none';
+    nameGroup.style.display = 'block';
+    nameLabel.textContent = lift === 'cardio' ? 'Cardio type' : 'Exercise name';
+    // Datalist suggestions
+    nameList.innerHTML = '';
+    let suggestions = [];
+    if (ACCESSORY_LIFTS.includes(lift)) suggestions = exercisesFor(lift);
+    else if (lift === 'cardio') suggestions = CARDIO_TYPES;
+    suggestions.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      nameList.appendChild(opt);
+    });
   }
+}
+window.onSbLiftChange = onSbLiftChange;
+
+function sbConfirmAddExercise() {
+  if (!_sbAddCtx) { closeModal('sbAddExerciseModal'); return; }
+  const { progId, wi, di } = _sbAddCtx;
+  const lift = document.getElementById('sbExLift').value;
+  const variant = MAIN_LIFTS.includes(lift) ? document.getElementById('sbExVariant').value : '';
+  const exerciseName = MAIN_LIFTS.includes(lift) ? '' : document.getElementById('sbExName').value.trim();
+  if (!MAIN_LIFTS.includes(lift) && !exerciseName) return toast('Enter an exercise name.');
+
   Store.update(s => {
     const p = s.programs.find(p => p.id === progId);
     if (!p) return;
-    const ex = newExercise(liftKey, variant, exerciseName);
-    // Seed with one default block: 3 × 5 @ RPE 7
-    ex.sets = [newSet(100, 5, 7), newSet(100, 5, 7), newSet(100, 5, 7)];
+    const ex = newExercise(lift, variant, exerciseName);
+    // Seed with one block of 3 default sets so the user immediately sees set inputs
+    if (lift === 'cardio') {
+      ex.sets = [newSet(30, 5, null)]; // 30 min / 5 km / no RPE
+    } else {
+      ex.sets = [newSet(100, 5, 7), newSet(100, 5, 7), newSet(100, 5, 7)];
+    }
     p.weeks[wi].days[di].exercises.push(ex);
   });
   sbPersist(progId);
+  closeModal('sbAddExerciseModal');
+  _sbAddCtx = null;
   renderSelfBuilder();
 }
+window.sbConfirmAddExercise = sbConfirmAddExercise;
 
 function renderSelfExerciseRow(progId, wi, di, ei, ex) {
   const row = el('div', { class: 'exercise-row' });
