@@ -161,6 +161,13 @@
 let user;
 let cache = { profiles: [], invites: [], programs: [], logs: [], bw: [], goals: [] };
 
+// Modal helpers — admin.html doesn't get these from app.js so we define them locally,
+// same as coach.html / athlete.html / index.html.
+function openModal(id)  { const m = document.getElementById(id); if (m) m.classList.add('open'); }
+function closeModal(id) { const m = document.getElementById(id); if (m) m.classList.remove('open'); }
+window.openModal = openModal;
+window.closeModal = closeModal;
+
 bootstrap('coach', async () => {
   user = getCurrentUser();
   if (!user || !user.isAdmin) {
