@@ -1480,11 +1480,13 @@ let _selfBuilderActiveWeek = 0;
 function getOrCreateSelfProgram() {
   let prog = getProgram();
   if (prog) return prog;
-  // Create a fresh program in memory; persist on first edit
+  // Self-coached: athlete IS their own coach. We use user.id as coachId so
+  // the existing NOT NULL constraint on programs.coach_id is satisfied
+  // without needing a schema migration.
   prog = {
     id: uid('prog'),
     athleteId: user.id,
-    coachId: null,
+    coachId: user.id,
     name: 'My program',
     weeks: [newWeek(1, 4)]
   };
