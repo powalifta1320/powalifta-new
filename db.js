@@ -584,6 +584,53 @@ const DB = {
     return (data || []).map(mapDbSale);
   },
 
+  // Buyer claims a program they've purchased. This is the manual fallback when the
+  // webhook hasn't auto-delivered. Verifies a sale exists for this buyer + program,
+  // then clones the program_payload into the buyer's `programs` table (replacing
+  // any existing program — single-program model, same as the webhook).
+  // Sets coach_id = buyer (self-coach) so the athlete RLS policy allows the insert.
+  async claimPurchase(marketplaceProgramId) {
+    const uid = await this.getUserId();
+    if (!uid) throw new Error('Not signed in');
+
+    // Verify the buyer actually purchased this program
+    const { data: sales, error: salesErr } = await sb.from('program_sales')
+      .select('id')
+      .eq('buyer_id', uid)
+      .eq('marketplace_program_id', marketplaceProgramId)
+      .limit(1);
+    if (salesErr) throw salesErr;
+    if (!sales || !sales.length) throw new Error('No purchase record found — did the payment go through?');
+
+    // Fetch the program payload (must be published — buyer reads via public RLS)
+    const { data: progRows, error: progErr } = await sb.from('marketplace_programs')
+      .select('*').eq('id', marketplaceProgramId).limit(1);
+    if (progErr) throw progErr;
+    if (!progRows || !progRows.length) throw new Error('Program not found or has been unpublished');
+    const mp = mapDbMarketplaceProgram(progRows[0]);
+    if (!mp.programPayload || !mp.programPayload.weeks || !mp.programPayload.weeks.length) {
+      throw new Error('Purchased program is empty (contact support).');
+    }
+
+    // Replace any existing program (single-program model)
+    await sb.from('programs').delete().eq('athlete_id', uid);
+
+    // Insert as self-coached so the athlete RLS policy (athlete_id=uid AND coach_id=uid) allows it
+    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16); });
+    const row = {
+      id: newId,
+      athlete_id: uid,
+      coach_id: uid,
+      name: mp.title,
+      weeks: mp.programPayload.weeks,
+      updated_at: new Date().toISOString()
+    };
+    const { error: insErr } = await sb.from('programs').insert(row);
+    if (insErr) throw insErr;
+    return mapDbProgram(row);
+  },
+
   // Sales — coach side: list every sale of my programs (earnings dashboard)
   async listMySales(coachId) {
     const { data, error } = await sb.from('program_sales')
@@ -639,6 +686,53 @@ const DB = {
       .update({ payout_status: 'paid', paid_at: new Date().toISOString() })
       .in('id', saleIds);
     if (error) throw error;
+  },
+
+  // Admin manual delivery: record a sale row when the webhook didn't fire.
+  // Admin pastes the buyer's email + LS order ID; we look up the buyer, create the
+  // sale row, and the buyer can then hit "Claim my program" on their dashboard.
+  // Requires admin RLS on program_sales (already in migration-marketplace.sql).
+  async adminDeliverSale({ marketplaceProgramId, buyerEmail, amountCents, lsOrderId }) {
+    if (!marketplaceProgramId || !buyerEmail) throw new Error('Program ID and buyer email required');
+    const { data: profs, error: profErr } = await sb.from('profiles')
+      .select('id').ilike('email', buyerEmail.trim()).limit(1);
+    if (profErr) throw profErr;
+    if (!profs || !profs.length) throw new Error('No POWALIFTA account with that email — buyer must sign up first.');
+    const buyerId = profs[0].id;
+
+    const { data: progs, error: pErr } = await sb.from('marketplace_programs')
+      .select('*').eq('id', marketplaceProgramId).limit(1);
+    if (pErr) throw pErr;
+    if (!progs || !progs.length) throw new Error('Marketplace program not found.');
+    const prog = progs[0];
+
+    const total = Number(amountCents) || prog.price_cents;
+    const fee = Math.round(total * 0.20);
+    const payout = total - fee;
+    const eventKey = 'manual-' + (lsOrderId || Date.now()) + '-' + buyerId.slice(0, 8);
+
+    const { data, error } = await sb.from('program_sales').insert({
+      marketplace_program_id: prog.id,
+      buyer_id: buyerId,
+      coach_id: prog.coach_id,
+      amount_cents: total,
+      platform_fee_cents: fee,
+      coach_payout_cents: payout,
+      payout_status: 'pending',
+      ls_order_id: lsOrderId || null,
+      ls_event_id: eventKey
+    }).select('*');
+    if (error) {
+      if (String(error.message || '').includes('duplicate')) {
+        throw new Error('A sale already exists for this LS order ID.');
+      }
+      throw error;
+    }
+    await sb.from('marketplace_programs').update({
+      sold_count: (prog.sold_count || 0) + 1,
+      updated_at: new Date().toISOString()
+    }).eq('id', prog.id);
+    return data?.[0];
   },
 
   // Admin (in-dashboard): flip a marketplace program to published once the LS product is wired

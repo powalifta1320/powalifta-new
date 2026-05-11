@@ -155,6 +155,32 @@
   </div>
 </div>
 
+<!-- DELIVER MANUALLY MODAL — webhook fallback -->
+<div class="modal-backdrop" id="deliverModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('deliverModal')">&times;</button>
+    <h3>⚡ Deliver manually</h3>
+    <p class="dim text-sm mb-12">Use this when a buyer paid in Lemon Squeezy but the webhook didn't deliver. We'll create the sale row and the buyer can hit "Claim my program" on their dashboard.</p>
+    <div id="deliverProgInfo" class="dim text-sm mb-12" style="padding:10px 12px;background:var(--bg-2);border-radius:var(--r-md);border:1px solid var(--line);"></div>
+    <div class="form-group">
+      <label>Buyer email (must match a POWALIFTA account)</label>
+      <input type="email" id="delvEmail" placeholder="buyer@example.com">
+    </div>
+    <div class="form-group">
+      <label>LS order # <span class="dim text-xs">(e.g. 35925111 — optional but recommended)</span></label>
+      <input type="text" id="delvOrderId" placeholder="35925111">
+    </div>
+    <div class="form-group">
+      <label>Amount paid (USD) <span class="dim text-xs">(leave blank to use the listing price)</span></label>
+      <input type="number" id="delvAmount" step="0.01" min="0" placeholder="79.99">
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('deliverModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmDeliver()" id="deliverBtn">Create sale record</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
@@ -538,7 +564,8 @@ function renderAdminMarketplace() {
       const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
       const unpub = el('button', { class: 'btn btn-danger btn-ghost', onclick: () => unpublishProgram(p.id) }, 'Unpublish');
       const editLs = el('button', { class: 'btn btn-ghost', onclick: () => openApproveModal(p) }, 'Edit LS info');
-      actions.appendChild(prev); actions.appendChild(editLs); actions.appendChild(unpub);
+      const deliver = el('button', { class: 'btn btn-ghost', style: 'color: var(--gold, #d4a017); border-color: var(--gold, #d4a017);', onclick: () => openDeliverModal(p) }, '⚡ Deliver manually');
+      actions.appendChild(prev); actions.appendChild(editLs); actions.appendChild(deliver); actions.appendChild(unpub);
     } else {
       const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
       actions.appendChild(prev);
@@ -680,6 +707,56 @@ async function confirmApprove() {
   }
 }
 window.confirmApprove = confirmApprove;
+
+let _deliverTarget = null;
+function openDeliverModal(p) {
+  _deliverTarget = p;
+  document.getElementById('delvEmail').value = '';
+  document.getElementById('delvOrderId').value = '';
+  document.getElementById('delvAmount').value = '';
+  const info = document.getElementById('deliverProgInfo');
+  if (info) {
+    const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+    info.innerHTML = '<strong>Program:</strong> ' + (p.title || '') +
+      ' &nbsp;·&nbsp; <strong>Listing price:</strong> ' + fmtPrice(p.priceCents) +
+      (coach ? ' &nbsp;·&nbsp; <strong>Coach:</strong> ' + coach.name : '');
+  }
+  openModal('deliverModal');
+}
+window.openDeliverModal = openDeliverModal;
+
+async function confirmDeliver() {
+  if (!_deliverTarget) { closeModal('deliverModal'); return; }
+  const email = document.getElementById('delvEmail').value.trim();
+  const orderId = document.getElementById('delvOrderId').value.trim();
+  const amountStr = document.getElementById('delvAmount').value.trim();
+  if (!email) return toast('Buyer email is required.');
+  const amountCents = amountStr ? Math.round(parseFloat(amountStr) * 100) : null;
+  if (amountStr && (!isFinite(amountCents) || amountCents <= 0)) return toast('Invalid amount.');
+
+  const btn = document.getElementById('deliverBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Delivering…'; }
+  try {
+    await DB.adminDeliverSale({
+      marketplaceProgramId: _deliverTarget.id,
+      buyerEmail: email,
+      amountCents: amountCents,
+      lsOrderId: orderId || null
+    });
+    // Reload caches
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    cache.sales = await DB.listAllSalesAdmin();
+    closeModal('deliverModal');
+    toast('Sale recorded — tell the buyer to refresh their dashboard and click "Claim my program".');
+    renderAdminMarketplace();
+  } catch (e) {
+    console.error('manual deliver failed', e);
+    toast(e.message || 'Could not deliver');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create sale record'; }
+  }
+}
+window.confirmDeliver = confirmDeliver;
 
 async function rejectProgram(id) {
   const reason = prompt('Why are you rejecting this submission? (Optional — they\'ll see it.)');
