@@ -89,6 +89,7 @@ function mapDbMarketplaceProgram(r) {
     lsVariantId: r.ls_variant_id || null,
     lsCheckoutUrl: r.ls_checkout_url || null,
     programPayload: r.program_payload,
+    reference1RMs: r.reference_1rms || null,
     soldCount: r.sold_count || 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at
@@ -102,6 +103,7 @@ function mapJsMarketplaceProgram(m) {
     week_count: m.weekCount || 0,
     status: m.status || 'pending_review',
     program_payload: m.programPayload,
+    reference_1rms: m.reference1RMs || null,
     updated_at: new Date().toISOString()
   };
 }
@@ -149,6 +151,45 @@ function mapDbRest(r) { return { id: r.id, athleteId: r.athlete_id, date: r.date
 function mapJsRest(r) { return { id: r.id, athlete_id: r.athleteId, date: r.date, note: r.note || null }; }
 function mapDbInvite(r) { return { code: r.code, coachId: r.coach_id, email: r.email, used: r.used, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now() }; }
 function mapJsInvite(i) { return { code: i.code, coach_id: i.coachId, email: i.email, used: !!i.used }; }
+
+// Rescale every exercise weight in a program by the buyer's relative strength.
+// Both coach1RMs and buyer1RMs are { squat, bench, deadlift } in kg.
+// Per-lift exercises scale by their own ratio; accessories scale by the average.
+// Round to nearest 2.5 kg (the smallest plate jump). Returns a new weeks array.
+function scaleWeeksToBuyer(weeks, coach1RMs, buyer1RMs) {
+  const ratios = {};
+  ['squat', 'bench', 'deadlift'].forEach(lift => {
+    const c = Number(coach1RMs?.[lift]);
+    const b = Number(buyer1RMs?.[lift]);
+    if (c > 0 && b > 0) ratios[lift] = b / c;
+  });
+  const vals = Object.values(ratios);
+  if (!vals.length) return weeks; // nothing to scale against
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+
+  const roundTo = (w) => Math.round(w / 2.5) * 2.5;
+  const scaleSet = (s, ratio) => {
+    if (!s || !ratio) return s;
+    const w = Number(s.weight);
+    if (!isFinite(w) || w <= 0) return s;
+    return { ...s, weight: roundTo(w * ratio) };
+  };
+
+  return weeks.map(wk => ({
+    ...wk,
+    days: (wk.days || []).map(day => ({
+      ...day,
+      exercises: (day.exercises || []).map(ex => {
+        const lift = String(ex.lift || '').toLowerCase();
+        let ratio;
+        if (ratios[lift]) ratio = ratios[lift];
+        else if (lift === 'squat' || lift === 'bench' || lift === 'deadlift') ratio = avg;
+        else ratio = avg; // accessories
+        return { ...ex, sets: (ex.sets || []).map(s => scaleSet(s, ratio)) };
+      })
+    }))
+  }));
+}
 
 // ============================================================
 // DB API — async wrappers around Supabase queries
@@ -589,7 +630,13 @@ const DB = {
   // then clones the program_payload into the buyer's `programs` table (replacing
   // any existing program — single-program model, same as the webhook).
   // Sets coach_id = buyer (self-coach) so the athlete RLS policy allows the insert.
-  async claimPurchase(marketplaceProgramId) {
+  //
+  // buyer1RMs (optional): { squat, bench, deadlift } in kg. If supplied AND the
+  // coach published their reference 1RMs, every exercise's weights are scaled by
+  // the per-lift ratio (squat exercises scale by squat ratio, etc.). Accessories
+  // use the average of the three ratios. Without buyer or reference 1RMs, weights
+  // are copied as-is.
+  async claimPurchase(marketplaceProgramId, buyer1RMs) {
     const uid = await this.getUserId();
     if (!uid) throw new Error('Not signed in');
 
@@ -612,6 +659,13 @@ const DB = {
       throw new Error('Purchased program is empty (contact support).');
     }
 
+    // Rescale weights to the buyer's strength, if both sides provided 1RMs.
+    let weeks = mp.programPayload.weeks;
+    const coachRMs = mp.reference1RMs || {};
+    if (buyer1RMs && (buyer1RMs.squat || buyer1RMs.bench || buyer1RMs.deadlift)) {
+      weeks = scaleWeeksToBuyer(weeks, coachRMs, buyer1RMs);
+    }
+
     // Replace any existing program (single-program model)
     await sb.from('programs').delete().eq('athlete_id', uid);
 
@@ -623,7 +677,7 @@ const DB = {
       athlete_id: uid,
       coach_id: uid,
       name: mp.title,
-      weeks: mp.programPayload.weeks,
+      weeks: weeks,
       updated_at: new Date().toISOString()
     };
     const { error: insErr } = await sb.from('programs').insert(row);

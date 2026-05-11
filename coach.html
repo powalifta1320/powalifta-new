@@ -231,6 +231,16 @@
         <option value="premium">Premium peaking / meet prep</option>
       </select>
     </div>
+
+    <div class="form-group" style="background: var(--bg-2); padding: 14px 16px; border-radius: var(--r-md); border: 1px solid var(--line);">
+      <label style="margin-bottom:6px">Your reference 1RMs <span class="dim text-xs">(the strength the weights in this program were written for)</span></label>
+      <p class="dim text-xs" style="margin-bottom:10px">When a buyer claims your program, every weight gets rescaled by the ratio of their 1RM to yours. <strong>This is what makes selling the program work</strong> — without it, your 200kg squat would be unliftable for a buyer who squats 100kg. Leave a lift blank if your program doesn't program that lift.</p>
+      <div class="flex gap-8" style="flex-wrap: wrap;">
+        <div style="flex:1; min-width:90px"><label class="dim text-xs">Squat (<span class="pub1rm-unit">kg</span>)</label><input type="number" id="pub1rmSquat" min="0" step="0.5" placeholder="e.g. 200" style="width:100%"></div>
+        <div style="flex:1; min-width:90px"><label class="dim text-xs">Bench (<span class="pub1rm-unit">kg</span>)</label><input type="number" id="pub1rmBench" min="0" step="0.5" placeholder="e.g. 140" style="width:100%"></div>
+        <div style="flex:1; min-width:90px"><label class="dim text-xs">Deadlift (<span class="pub1rm-unit">kg</span>)</label><input type="number" id="pub1rmDead" min="0" step="0.5" placeholder="e.g. 250" style="width:100%"></div>
+      </div>
+    </div>
     <div class="flex gap-8 mt-16">
       <button class="btn btn-block" onclick="closeModal('publishModal')">Cancel</button>
       <button class="btn btn-primary btn-block" onclick="confirmPublish()" id="publishBtn">Submit for review</button>
@@ -1074,6 +1084,12 @@ function openPublishModal(template) {
   document.getElementById('pubTitle').value = template.name || '';
   document.getElementById('pubDesc').value = '';
   document.getElementById('pubTier').value = 'block';
+  ['pub1rmSquat', 'pub1rmBench', 'pub1rmDead'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+  // Show whichever unit the coach is using (kg / lbs)
+  const unitLabel = (typeof getUnit === 'function') ? getUnit() : 'kg';
+  document.querySelectorAll('.pub1rm-unit').forEach(el => el.textContent = unitLabel);
   const priceEl = document.getElementById('pubPrice');
   if (priceEl) {
     priceEl.value = '29.99';
@@ -1111,6 +1127,30 @@ async function confirmPublish() {
 
   const priceCents = Math.round(priceUsd * 100);
 
+  // Reference 1RMs — convert from coach's display unit to kg (internal storage).
+  // displayToKg() comes from app.js; if no helper, assume kg already.
+  const conv = (v) => {
+    const n = parseFloat(v);
+    if (!isFinite(n) || n <= 0) return null;
+    if (typeof displayToKg === 'function') return displayToKg(n);
+    return n;
+  };
+  const ref1RMs = {
+    squat: conv(document.getElementById('pub1rmSquat').value),
+    bench: conv(document.getElementById('pub1rmBench').value),
+    deadlift: conv(document.getElementById('pub1rmDead').value)
+  };
+  // Strip nulls so we only persist what the coach actually filled in
+  const refClean = {};
+  Object.keys(ref1RMs).forEach(k => { if (ref1RMs[k]) refClean[k] = ref1RMs[k]; });
+  const reference1RMs = Object.keys(refClean).length ? refClean : null;
+
+  if (!reference1RMs) {
+    if (!confirm('You didn\'t enter any reference 1RMs. Without them, weights in your program won\'t scale to each buyer — they\'ll see your exact numbers. Submit anyway?')) {
+      return;
+    }
+  }
+
   const btn = document.getElementById('publishBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
@@ -1124,6 +1164,7 @@ async function confirmPublish() {
       title, description, tier, priceCents,
       weekCount,
       programPayload: payload,
+      reference1RMs,
       status: 'pending_review'
     });
     // Update local Store so the marketplace tab reflects it immediately

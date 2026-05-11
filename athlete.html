@@ -356,6 +356,9 @@ bootstrap('athlete', () => {
   autoSelectFirstIncompleteDay();
   renderToday();
 
+  // Global claim banner — visible above every tab if there's an unclaimed purchase
+  renderGlobalClaimBanner();
+
   // Onboarding tour — runs once on first dashboard visit
   if (!isTourDone('athlete')) {
     setTimeout(maybeStartAthleteTour, 700);
@@ -1472,6 +1475,159 @@ function renderProgramTab() {
   }
 }
 window.renderProgramTab = renderProgramTab;
+
+// =========================================================
+// PURCHASE CLAIM — global banner above all tabs.
+// Shows if the athlete has a sale on file that hasn't materialized as a program.
+// Clicking the banner opens a modal that asks for the buyer's 1RMs (so the
+// program gets rescaled to their strength), then installs the program.
+// =========================================================
+let _pendingClaimProgram = null;
+
+async function renderGlobalClaimBanner() {
+  const s = Store.get();
+  const purchases = s.myPurchases || [];
+  if (!purchases.length) return;
+
+  const existing = document.getElementById('globalClaimBanner');
+  if (existing) existing.remove();
+
+  // Look up the marketplace program for the most recent purchase
+  const recent = purchases[0];
+  let mp;
+  try { mp = await DB.getMarketplaceProgram(recent.marketplaceProgramId); }
+  catch (e) { console.warn('claim banner: program lookup failed', e); return; }
+  if (!mp) return;
+
+  // If the athlete's current program name already matches, treat it as claimed.
+  const myProg = s.programs.find(p => p.athleteId === user.id);
+  if (myProg && myProg.name === mp.title) return;
+
+  _pendingClaimProgram = mp;
+
+  // Pin banner to the top of the main content (above all tabs)
+  const main = document.querySelector('main .container') || document.querySelector('main') || document.body;
+  const b = el('div', { id: 'globalClaimBanner', class: 'card mb-16', style: 'padding: 16px 20px; border: 2px solid #d4a017; background: linear-gradient(135deg, rgba(212,160,23,0.10), rgba(212,160,23,0.02));' });
+  const row = el('div', { class: 'flex-between gap-16', style: 'flex-wrap: wrap; align-items: center;' });
+  const txt = el('div', { style: 'flex: 1 1 280px; min-width: 0' });
+  txt.appendChild(el('div', { style: 'font-weight: 700; font-size: 1.05rem; margin-bottom: 4px;' }, '✨ You purchased: ' + mp.title));
+  const sub = el('div', { class: 'dim text-sm' }, 'We\'ll scale it to your strength so the weights aren\'t random. ');
+  const warn = el('span', { style: 'color: #ff2d3f; font-weight:600' }, 'Installing will replace your current program.');
+  sub.appendChild(warn);
+  txt.appendChild(sub);
+  row.appendChild(txt);
+  const btn = el('button', { class: 'btn btn-primary' }, 'Set up & install →');
+  btn.addEventListener('click', openClaim1RMModal);
+  row.appendChild(btn);
+  b.appendChild(row);
+  // Prepend so it shows above whatever tab is active
+  main.prepend(b);
+}
+window.renderGlobalClaimBanner = renderGlobalClaimBanner;
+
+// Modal asks the buyer for their S/B/D 1RMs so we can scale the coach's weights
+// to their level. Built on-demand into the body.
+function openClaim1RMModal() {
+  if (!_pendingClaimProgram) return;
+  let m = document.getElementById('claim1RMModal');
+  if (!m) {
+    const wrap = document.createElement('div');
+    const u = unitLabel();
+    wrap.innerHTML = '<div class="modal-backdrop" id="claim1RMModal">' +
+      '<div class="modal">' +
+        '<button class="modal-close" onclick="closeClaim1RMModal()">&times;</button>' +
+        '<h3>Personalize your program</h3>' +
+        '<p class="dim text-sm mb-12" id="claim1rmIntro">Enter your current 1RMs so we can scale the program. The coach\'s weights are written for their own strength — we\'ll resize every set to match yours.</p>' +
+        '<div id="claim1rmNoref" class="dim text-sm mb-12" style="display:none; padding: 10px 12px; background: rgba(255,45,63,0.08); border-left: 3px solid #ff2d3f; border-radius: 6px;"></div>' +
+        '<div class="flex gap-8" style="flex-wrap:wrap">' +
+          '<div style="flex:1; min-width: 90px"><label class="dim text-xs">Squat (<span class="claim1rm-unit">kg</span>)</label><input type="number" id="cl1rmSquat" min="0" step="0.5" style="width:100%"></div>' +
+          '<div style="flex:1; min-width: 90px"><label class="dim text-xs">Bench (<span class="claim1rm-unit">kg</span>)</label><input type="number" id="cl1rmBench" min="0" step="0.5" style="width:100%"></div>' +
+          '<div style="flex:1; min-width: 90px"><label class="dim text-xs">Deadlift (<span class="claim1rm-unit">kg</span>)</label><input type="number" id="cl1rmDead" min="0" step="0.5" style="width:100%"></div>' +
+        '</div>' +
+        '<p class="faded text-xs mt-8">Tip: use a recent gym 1RM or a confident e1RM. You can always adjust individual weights later.</p>' +
+        '<div class="flex gap-8 mt-16">' +
+          '<button class="btn btn-block" onclick="closeClaim1RMModal()">Cancel</button>' +
+          '<button class="btn btn-ghost btn-block" onclick="confirmClaim(true)">Skip scaling</button>' +
+          '<button class="btn btn-primary btn-block" id="claim1rmBtn" onclick="confirmClaim(false)">Install program</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    document.body.appendChild(wrap.firstChild);
+    m = document.getElementById('claim1RMModal');
+  }
+  // Show the unit labels matching the athlete's setting
+  document.querySelectorAll('.claim1rm-unit').forEach(el => el.textContent = unitLabel());
+  // Clear inputs
+  ['cl1rmSquat', 'cl1rmBench', 'cl1rmDead'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  // If the coach didn't provide reference 1RMs, scaling is impossible — show notice
+  const intro = document.getElementById('claim1rmIntro');
+  const noref = document.getElementById('claim1rmNoref');
+  const hasRef = _pendingClaimProgram && _pendingClaimProgram.reference1RMs &&
+    Object.values(_pendingClaimProgram.reference1RMs).some(v => v > 0);
+  if (!hasRef) {
+    if (intro) intro.style.display = 'none';
+    if (noref) {
+      noref.style.display = 'block';
+      noref.innerHTML = '<strong>Heads up:</strong> the coach who published this program didn\'t set reference 1RMs, so we can\'t auto-scale the weights to you. The program will install with the coach\'s exact numbers — you\'ll need to adjust them yourself. Click <strong>Install program</strong> below.';
+    }
+  } else {
+    if (intro) intro.style.display = 'block';
+    if (noref) noref.style.display = 'none';
+  }
+  m.classList.add('open');
+}
+window.openClaim1RMModal = openClaim1RMModal;
+
+function closeClaim1RMModal() {
+  const m = document.getElementById('claim1RMModal');
+  if (m) m.classList.remove('open');
+}
+window.closeClaim1RMModal = closeClaim1RMModal;
+
+async function confirmClaim(skipScaling) {
+  if (!_pendingClaimProgram) return;
+  const btn = document.getElementById('claim1rmBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Installing…'; }
+
+  // Convert buyer inputs from display unit → kg (internal storage)
+  let buyer1RMs = null;
+  if (!skipScaling) {
+    const conv = (v) => {
+      const n = parseFloat(v);
+      if (!isFinite(n) || n <= 0) return null;
+      return displayToKg(n);
+    };
+    const sq = conv(document.getElementById('cl1rmSquat').value);
+    const bn = conv(document.getElementById('cl1rmBench').value);
+    const dl = conv(document.getElementById('cl1rmDead').value);
+    if (sq || bn || dl) {
+      buyer1RMs = {};
+      if (sq) buyer1RMs.squat = sq;
+      if (bn) buyer1RMs.bench = bn;
+      if (dl) buyer1RMs.deadlift = dl;
+    }
+  }
+
+  try {
+    const claimed = await DB.claimPurchase(_pendingClaimProgram.id, buyer1RMs);
+    const claimedJs = { id: claimed.id, athleteId: claimed.athleteId, coachId: claimed.coachId, name: claimed.name, weeks: claimed.weeks || [] };
+    Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== user.id); s.programs.push(claimedJs); });
+    toast(buyer1RMs ? 'Program installed & scaled to your 1RMs.' : 'Program installed.');
+    closeClaim1RMModal();
+    const b = document.getElementById('globalClaimBanner'); if (b) b.remove();
+    _pendingClaimProgram = null;
+    // Refresh whatever tab is active
+    renderToday();
+    if (!document.querySelector('[data-pane="program"]')?.classList.contains('hidden')) {
+      renderProgramTab();
+    }
+  } catch (e) {
+    console.error('claim failed', e);
+    toast(e.message || 'Could not claim — try again or contact support');
+    if (btn) { btn.disabled = false; btn.textContent = 'Install program'; }
+  }
+}
+window.confirmClaim = confirmClaim;
 
 // =========================================================
 // SELF-COACHED PROGRAM BUILDER
