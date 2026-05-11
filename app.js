@@ -1423,7 +1423,7 @@ function renderNav(target) {
     loginA.setAttribute('onclick', "if(window.openLoginModal){openLoginModal()}else{location.href='/index.html#login'}");
     actions.appendChild(loginA);
     const cta = el('a', { href: 'javascript:void(0)', class: 'btn btn-sm btn-primary' }, 'Get started');
-    cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('athlete')}else{location.href='/index.html#signup'}");
+    cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('solo')}else{location.href='/index.html#signup'}");
     actions.appendChild(cta);
   }
   navInner.appendChild(actions);

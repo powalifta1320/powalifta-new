@@ -32,10 +32,11 @@
   <div class="container">
     <span class="eyebrow"><span class="dot"></span> POWERLIFTING'S NEW HOME</span>
     <h1>BUILT FOR<br>THE <span class="accent">BARBELL.</span></h1>
-    <p class="lead">The platform connecting powerlifters with their coaches. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight — all in one place.</p>
+    <p class="lead">Train solo or with a coach. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight — all in one place.</p>
     <div class="hero-cta">
-      <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('athlete'); return false;">Sign up as Athlete</a>
-      <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('coach'); return false;">Sign up as Coach</a>
+      <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('solo'); return false;">Train solo</a>
+      <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('athlete'); return false;">Join your coach</a>
+      <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('coach'); return false;">Become a coach</a>
     </div>
     <p class="dim text-sm" style="margin-top:18px">Already have an account? <a href="#" onclick="openLoginModal(); return false;">Log in</a></p>
 
@@ -331,7 +332,7 @@
       </p>
     </div>
     <button class="btn btn-primary btn-lg btn-block" onclick="doLogin()">Log in</button>
-    <p class="dim text-sm center" style="margin-top:14px">Don't have an account? <a href="#" onclick="closeModal('loginModal'); openSignupModal('athlete'); return false;">Sign up</a></p>
+    <p class="dim text-sm center" style="margin-top:14px">Don't have an account? <a href="#" onclick="closeModal('loginModal'); openSignupModal('solo'); return false;">Sign up</a></p>
   </div>
 </div>
 
@@ -358,7 +359,8 @@
     <div class="form-group">
       <label>Account type</label>
       <select id="signupType" onchange="onSignupTypeChange()">
-        <option value="athlete">Athlete</option>
+        <option value="solo">Solo athlete (no coach)</option>
+        <option value="athlete">Athlete with a coach</option>
         <option value="coach">Coach</option>
       </select>
     </div>
@@ -379,9 +381,9 @@
       <textarea id="signupBio" placeholder="Tell athletes about your experience, certifications, training style..."></textarea>
     </div>
     <div class="form-group" id="codeGroup">
-      <label>Invite code (optional)</label>
+      <label id="codeLabel">Invite code</label>
       <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
-      <p class="faded text-xs" style="margin-top:6px">No code? Sign up first, find a coach later.</p>
+      <p class="faded text-xs" id="codeHint" style="margin-top:6px">Get this 6-character code from your coach.</p>
     </div>
     <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
     <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
@@ -402,7 +404,8 @@ document.getElementById('footMark').innerHTML = BRAND_MARK;
 // Open modals from URL hash IMMEDIATELY (independent of Supabase / bootstrap)
 function _openHashModal() {
   if (location.hash === '#login') openLoginModal();
-  else if (location.hash === '#signup' || location.hash === '#signup-athlete') openSignupModal('athlete');
+  else if (location.hash === '#signup' || location.hash === '#signup-solo') openSignupModal('solo');
+  else if (location.hash === '#signup-athlete') openSignupModal('athlete');
   else if (location.hash === '#signup-coach') openSignupModal('coach');
 }
 window.addEventListener('hashchange', _openHashModal);
@@ -510,15 +513,27 @@ async function doForgotPassword() {
 window.doForgotPassword = doForgotPassword;
 
 function openSignupModal(type) {
-  document.getElementById('signupType').value = type || 'athlete';
+  // type: 'solo' | 'athlete' | 'coach'
+  const valid = ['solo', 'athlete', 'coach'];
+  document.getElementById('signupType').value = valid.includes(type) ? type : 'solo';
   onSignupTypeChange();
   openModal('signupModal');
 }
 function onSignupTypeChange() {
   const t = document.getElementById('signupType').value;
+  // Coach gets the bio field
   document.getElementById('bioGroup').style.display = t === 'coach' ? 'block' : 'none';
+  // Invite code shown only for "athlete with a coach"
   document.getElementById('codeGroup').style.display = t === 'athlete' ? 'block' : 'none';
-  document.getElementById('signupTitle').textContent = t === 'coach' ? 'Sign up as a coach' : 'Sign up as an athlete';
+  // Title copy
+  const title =
+    t === 'coach' ? 'Sign up as a coach' :
+    t === 'solo'  ? 'Sign up — train solo' :
+                    'Sign up — join your coach';
+  document.getElementById('signupTitle').textContent = title;
+  // Invite code hint copy: for athlete-coached, code is required
+  const hint = document.getElementById('codeHint');
+  if (hint) hint.textContent = 'Get this 6-character code from your coach. Required to link to their roster.';
 }
 
 async function doLogin() {
@@ -545,7 +560,7 @@ async function doLogin() {
 
 async function doSignup() {
   const btn = event && event.target;
-  const type = document.getElementById('signupType').value;
+  const type = document.getElementById('signupType').value; // 'solo' | 'athlete' | 'coach'
   const name = document.getElementById('signupName').value.trim();
   const email = document.getElementById('signupEmail').value.trim().toLowerCase();
   const pwd = document.getElementById('signupPwd').value;
@@ -553,12 +568,21 @@ async function doSignup() {
   const code = document.getElementById('signupCode').value.trim().toUpperCase();
   if (!name || !email || !pwd) return toast('Name, email, password required');
   if (pwd.length < 6) return toast('Password must be at least 6 chars');
+  // Athlete-with-coach requires a code; solo and coach don't
+  if (type === 'athlete' && !code) return toast('Invite code required — ask your coach. Or sign up solo if you don\'t have one.');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   try {
-    if (type === 'coach') await DB.signUpCoach(name, email, pwd, bio);
-    else await DB.signUpAthlete(name, email, pwd, code);
-    // Fire welcome email — fire-and-forget so a slow Resend response can't block signup UX
-    sendWelcomeEmail(email, name, type);
+    if (type === 'coach') {
+      await DB.signUpCoach(name, email, pwd, bio);
+    } else if (type === 'athlete') {
+      await DB.signUpAthlete(name, email, pwd, code);
+    } else {
+      // Solo — same as athlete but no code claimed
+      await DB.signUpAthlete(name, email, pwd, '');
+    }
+    // Map to the canonical type stored in profiles for the welcome email
+    const emailType = (type === 'coach') ? 'coach' : 'athlete';
+    sendWelcomeEmail(email, name, emailType);
     // signUp may auto-sign-in OR require email confirmation depending on Auth settings
     const session = await DB.getSession();
     if (!session) {
