@@ -119,6 +119,16 @@
   </main>
 </div>
 
+<!-- PREVIEW PAYLOAD MODAL (admin) -->
+<div class="modal-backdrop" id="previewModal">
+  <div class="modal modal-lg" style="max-width: 760px;">
+    <button class="modal-close" onclick="closeModal('previewModal')">&times;</button>
+    <h3 id="previewTitle">Program preview</h3>
+    <p class="dim text-sm mb-16" id="previewSub"></p>
+    <div id="previewBody" style="max-height: 70vh; overflow-y: auto;"></div>
+  </div>
+</div>
+
 <!-- APPROVE MARKETPLACE PROGRAM MODAL -->
 <div class="modal-backdrop" id="approveModal">
   <div class="modal">
@@ -529,13 +539,91 @@ function renderAdminMarketplace() {
   });
 }
 
+// Visual preview of a marketplace program — weeks → days → exercises → set blocks.
+// Uses the same set-block grouping logic as the athlete/coach builders so the admin
+// sees what the buyer will see.
 function previewPayload(p) {
-  const win = window.open('', '_blank');
-  if (!win) { toast('Pop-up blocked — allow pop-ups to preview.'); return; }
-  win.document.title = p.title + ' — payload';
-  win.document.body.style.cssText = 'font-family: monospace; background: #0b0b0c; color: #f4f4f6; padding: 24px; white-space: pre;';
-  win.document.body.textContent = JSON.stringify(p.programPayload, null, 2);
+  const titleEl = document.getElementById('previewTitle');
+  const subEl = document.getElementById('previewSub');
+  const body = document.getElementById('previewBody');
+
+  titleEl.textContent = p.title;
+  const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+  subEl.textContent = (coach ? 'by ' + coach.name + ' · ' : '') +
+                      ADMIN_TIER_LABEL[p.tier] + ' · ' +
+                      p.weekCount + ' weeks';
+
+  body.innerHTML = '';
+
+  if (!p.programPayload || !p.programPayload.weeks || !p.programPayload.weeks.length) {
+    body.appendChild(el('p', { class: 'dim text-sm' }, 'This submission has no program data.'));
+    openModal('previewModal');
+    return;
+  }
+
+  // Description block at top
+  if (p.description) {
+    const descBlock = el('div', { style: 'background: var(--bg-2); border-left: 3px solid var(--red); padding: 12px 16px; border-radius: 6px; margin-bottom: 18px; white-space: pre-wrap; color: var(--text-2); line-height: 1.6; font-size: 0.92rem;' }, p.description);
+    body.appendChild(descBlock);
+  }
+
+  // Each week
+  p.programPayload.weeks.forEach(wk => {
+    const wkCard = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; margin-bottom: 14px;' });
+    wkCard.appendChild(el('div', { style: 'font-family: Anton, sans-serif; font-size: 1.15rem; letter-spacing: 0.04em; margin-bottom: 12px; color: var(--text);' }, 'WEEK ' + wk.number));
+
+    if (!wk.days || !wk.days.length) {
+      wkCard.appendChild(el('div', { class: 'faded text-sm' }, 'No days.'));
+    } else {
+      wk.days.forEach(day => {
+        const dayCard = el('div', { style: 'background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;' });
+        dayCard.appendChild(el('div', { style: 'font-family: Anton, sans-serif; font-size: 0.95rem; letter-spacing: 0.04em; color: var(--text); margin-bottom: 8px; text-transform: uppercase;' }, day.name || 'Day'));
+
+        if (!day.exercises || !day.exercises.length) {
+          dayCard.appendChild(el('div', { class: 'faded text-xs', style: 'font-style: italic;' }, 'Rest day'));
+        } else {
+          day.exercises.forEach(ex => {
+            const exRow = el('div', { style: 'background: var(--bg); border-radius: 6px; padding: 10px 12px; margin-bottom: 6px;' });
+            // Title
+            let title = '';
+            if (['squat', 'bench', 'deadlift'].includes(ex.lift)) {
+              title = (ex.variant || 'Competition') + ' ' + ({squat:'Squat',bench:'Bench',deadlift:'Deadlift'}[ex.lift]);
+            } else if (ex.lift === 'cardio') {
+              title = ex.exerciseName || 'Cardio';
+            } else {
+              title = ex.exerciseName || ex.lift;
+            }
+            exRow.appendChild(el('div', { style: 'font-weight: 700; color: var(--text); margin-bottom: 4px; font-size: 0.92rem;' }, title));
+            if (ex.note) {
+              exRow.appendChild(el('div', { style: 'font-size: 0.78rem; color: var(--gold); margin-bottom: 6px; font-style: italic;' }, 'Coach: ' + ex.note));
+            }
+            // Set blocks (group identical consecutive sets)
+            const sets = ex.sets || [];
+            if (typeof groupSets === 'function' && sets.length) {
+              const blocks = groupSets(sets);
+              blocks.forEach(blk => {
+                const rpePart = blk.rpe == null ? '' : ' @ RPE ' + blk.rpe;
+                const text = (blk.count > 1 ? blk.count + ' × ' : '') + blk.weight + 'kg × ' + blk.reps + rpePart;
+                exRow.appendChild(el('div', { style: 'font-family: Space Grotesk, monospace; font-size: 0.85rem; color: var(--text-2); padding: 2px 0;' }, '↳ ' + text));
+              });
+            } else {
+              sets.forEach((s, i) => {
+                const rpePart = s.rpe == null ? '' : ' @ RPE ' + s.rpe;
+                exRow.appendChild(el('div', { style: 'font-family: Space Grotesk, monospace; font-size: 0.85rem; color: var(--text-2); padding: 2px 0;' }, 'Set ' + (i + 1) + ': ' + s.weight + 'kg × ' + s.reps + rpePart));
+              });
+            }
+            dayCard.appendChild(exRow);
+          });
+        }
+        wkCard.appendChild(dayCard);
+      });
+    }
+    body.appendChild(wkCard);
+  });
+
+  openModal('previewModal');
 }
+window.previewPayload = previewPayload;
 
 let _approveTarget = null;
 function openApproveModal(p) {
