@@ -58,6 +58,8 @@
     <button class="sidebar-tab" data-tab="programs" id="tab-programs"></button>
     <button class="sidebar-tab" data-tab="logs" id="tab-logs"></button>
     <button class="sidebar-tab" data-tab="invites" id="tab-invites"></button>
+    <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
+    <button class="sidebar-tab" data-tab="payouts" id="tab-payouts"></button>
     <div class="sidebar-foot">
       <div>POWALIFTA Admin</div>
       <div class="faded">★ god mode</div>
@@ -104,7 +106,42 @@
       <div id="invitesArea"></div>
     </section>
 
+    <section data-pane="marketplace" class="hidden">
+      <div class="dash-header"><div><h2>Marketplace review</h2><p class="dim text-sm">Approve / reject coach submissions. Once you approve, you set the Lemon Squeezy product info so the buy button works.</p></div></div>
+      <div id="marketplaceArea"></div>
+    </section>
+
+    <section data-pane="payouts" class="hidden">
+      <div class="dash-header"><div><h2>Payouts</h2><p class="dim text-sm">Coaches keep 80% per sale. Pay them out monthly via Wise / Stripe / bank, then mark sales as paid here.</p></div></div>
+      <div id="payoutsArea"></div>
+    </section>
+
   </main>
+</div>
+
+<!-- APPROVE MARKETPLACE PROGRAM MODAL -->
+<div class="modal-backdrop" id="approveModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('approveModal')">&times;</button>
+    <h3>Approve & publish</h3>
+    <p class="dim text-sm mb-16">Create a Lemon Squeezy product (one-time payment, price matching the tier) and paste the IDs + checkout URL below. Submit to make this program live on the marketplace.</p>
+    <div class="form-group">
+      <label>LS product ID</label>
+      <input type="text" id="appProductId" placeholder="e.g. 1234567">
+    </div>
+    <div class="form-group">
+      <label>LS variant ID</label>
+      <input type="text" id="appVariantId" placeholder="e.g. 7654321">
+    </div>
+    <div class="form-group">
+      <label>Checkout URL</label>
+      <input type="text" id="appCheckoutUrl" placeholder="https://powalifta.lemonsqueezy.com/checkout/buy/...">
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('approveModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmApprove()" id="approveBtn">Approve & publish</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -129,6 +166,8 @@ bootstrap('coach', async () => {
   setLbl('tab-programs', ICONS.program, 'Programs');
   setLbl('tab-logs', ICONS.bar, 'Workout logs');
   setLbl('tab-invites', ICONS.copy, 'Invites');
+  setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
+  setLbl('tab-payouts', ICONS.trophy, 'Payouts');
 
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -143,6 +182,8 @@ bootstrap('coach', async () => {
       if (t === 'logs') renderLogs();
       if (t === 'invites') renderInvites();
       if (t === 'overview') renderOverview();
+      if (t === 'marketplace') renderAdminMarketplace();
+      if (t === 'payouts') renderAdminPayouts();
     });
   });
 
@@ -154,15 +195,17 @@ bootstrap('coach', async () => {
 
   // Load all admin data in parallel
   try {
-    const [profiles, invites, programs, logs, bw, goals] = await Promise.all([
+    const [profiles, invites, programs, logs, bw, goals, mp, sales] = await Promise.all([
       DB.listAllProfiles(),
       DB.listAllInvites(),
       DB.listAllPrograms(),
       DB.listAllLogs(),
       DB.listAllBw(),
-      DB.listAllGoals()
+      DB.listAllGoals(),
+      DB.listAllMarketplaceProgramsAdmin().catch(() => []),
+      DB.listAllSalesAdmin().catch(() => [])
     ]);
-    cache = { profiles, invites, programs, logs, bw, goals };
+    cache = { profiles, invites, programs, logs, bw, goals, marketplace: mp, sales };
     renderOverview();
   } catch (e) {
     toast('Failed to load admin data: ' + (e.message || ''));
@@ -404,6 +447,260 @@ function renderInvites() {
   tbl.appendChild(tbody);
   tblWrap.appendChild(tbl);
   area.appendChild(tblWrap);
+}
+
+// =========================================================
+// MARKETPLACE REVIEW (admin)
+// =========================================================
+const ADMIN_TIER_LABEL = { short: 'Short cycle ($19)', block: 'Full block ($39)', premium: 'Premium ($79)' };
+const ADMIN_STATUS_BADGE = {
+  pending_review: { text: 'Pending review', cls: 'badge-gold' },
+  published:      { text: 'Published',      cls: 'badge-green' },
+  unpublished:    { text: 'Hidden',         cls: 'badge' },
+  rejected:       { text: 'Rejected',       cls: 'badge-red' }
+};
+
+function renderAdminMarketplace() {
+  const area = document.getElementById('marketplaceArea');
+  area.innerHTML = '';
+  const mp = cache.marketplace || [];
+  if (!mp.length) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'No submissions yet'), el('p', {}, 'When a coach hits Publish on a template, it appears here for review.')));
+    return;
+  }
+
+  // Sort: pending_review first, then published, then everything else
+  const order = { pending_review: 0, published: 1, unpublished: 2, rejected: 3 };
+  const sorted = [...mp].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+
+  sorted.forEach(p => {
+    const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+    const badge = ADMIN_STATUS_BADGE[p.status] || ADMIN_STATUS_BADGE.pending_review;
+    const totalDays = (p.programPayload && p.programPayload.weeks) ? p.programPayload.weeks.reduce((sum, w) => sum + (w.days?.length || 0), 0) : 0;
+    const totalExercises = (p.programPayload && p.programPayload.weeks) ? p.programPayload.weeks.reduce((sum, w) => sum + (w.days || []).reduce((s, d) => s + (d.exercises?.length || 0), 0), 0) : 0;
+
+    const card = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px; margin-bottom: 14px;' });
+
+    // Header
+    const head = el('div', { class: 'flex-between mb-8', style: 'gap: 12px; flex-wrap: wrap;' });
+    head.appendChild(el('div', {},
+      el('h3', { style: 'margin: 0 0 4px; font-size: 1.25rem;' }, p.title),
+      el('div', { class: 'faded text-xs' }, 'by ' + (coach ? coach.name + ' · ' + coach.email : 'unknown coach') + ' · submitted ' + fmtDate(p.createdAt ? p.createdAt.slice(0, 10) : ''))
+    ));
+    head.appendChild(el('span', { class: 'badge ' + badge.cls }, badge.text));
+    card.appendChild(head);
+
+    // Meta
+    card.appendChild(el('div', { class: 'dim text-sm mb-8' },
+      ADMIN_TIER_LABEL[p.tier] + ' · ' + p.weekCount + ' weeks · ' + totalDays + ' days · ' + totalExercises + ' exercises · ' + p.soldCount + ' sold'
+    ));
+
+    // Description
+    if (p.description) {
+      card.appendChild(el('p', { class: 'dim text-sm', style: 'line-height: 1.6; margin: 10px 0; white-space: pre-wrap;' }, p.description));
+    }
+
+    // Existing LS info (when published)
+    if (p.status === 'published') {
+      card.appendChild(el('div', { class: 'mono text-xs faded', style: 'background: var(--bg-2); padding: 8px 12px; border-radius: 6px; margin: 10px 0; word-break: break-all;' },
+        'LS product: ' + (p.lsProductId || '—') + ' · variant: ' + (p.lsVariantId || '—') + ' · URL: ' + (p.lsCheckoutUrl || '—')
+      ));
+    }
+
+    // Actions
+    const actions = el('div', { class: 'flex gap-8 mt-16', style: 'flex-wrap: wrap;' });
+    if (p.status === 'pending_review') {
+      const appr = el('button', { class: 'btn btn-primary', onclick: () => openApproveModal(p) }, '✓ Approve & publish');
+      const rej = el('button', { class: 'btn btn-danger btn-ghost', onclick: () => rejectProgram(p.id) }, '✕ Reject');
+      const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
+      actions.appendChild(appr); actions.appendChild(rej); actions.appendChild(prev);
+    } else if (p.status === 'published') {
+      const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
+      const unpub = el('button', { class: 'btn btn-danger btn-ghost', onclick: () => unpublishProgram(p.id) }, 'Unpublish');
+      const editLs = el('button', { class: 'btn btn-ghost', onclick: () => openApproveModal(p) }, 'Edit LS info');
+      actions.appendChild(prev); actions.appendChild(editLs); actions.appendChild(unpub);
+    } else {
+      const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
+      actions.appendChild(prev);
+    }
+    card.appendChild(actions);
+
+    area.appendChild(card);
+  });
+}
+
+function previewPayload(p) {
+  const win = window.open('', '_blank');
+  if (!win) { toast('Pop-up blocked — allow pop-ups to preview.'); return; }
+  win.document.title = p.title + ' — payload';
+  win.document.body.style.cssText = 'font-family: monospace; background: #0b0b0c; color: #f4f4f6; padding: 24px; white-space: pre;';
+  win.document.body.textContent = JSON.stringify(p.programPayload, null, 2);
+}
+
+let _approveTarget = null;
+function openApproveModal(p) {
+  _approveTarget = p;
+  document.getElementById('appProductId').value = p.lsProductId || '';
+  document.getElementById('appVariantId').value = p.lsVariantId || '';
+  document.getElementById('appCheckoutUrl').value = p.lsCheckoutUrl || '';
+  openModal('approveModal');
+}
+window.openApproveModal = openApproveModal;
+
+async function confirmApprove() {
+  if (!_approveTarget) { closeModal('approveModal'); return; }
+  const pid = document.getElementById('appProductId').value.trim();
+  const vid = document.getElementById('appVariantId').value.trim();
+  const url = document.getElementById('appCheckoutUrl').value.trim();
+  if (!pid || !vid || !url) return toast('All three fields are required.');
+  if (!url.startsWith('https://')) return toast('Checkout URL must start with https://');
+
+  const btn = document.getElementById('approveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+  try {
+    await DB.adminPublishProgram(_approveTarget.id, pid, vid, url);
+    // Reload marketplace data
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    closeModal('approveModal');
+    toast('Published — buy button is now live.');
+    renderAdminMarketplace();
+  } catch (e) {
+    console.error('approve failed', e);
+    toast('Could not publish — ' + (e.message || ''));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Approve & publish'; }
+  }
+}
+window.confirmApprove = confirmApprove;
+
+async function rejectProgram(id) {
+  const reason = prompt('Why are you rejecting this submission? (Optional — they\'ll see it.)');
+  if (reason === null) return; // cancelled
+  try {
+    await DB.adminRejectProgram(id, reason || '');
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    renderAdminMarketplace();
+    toast('Rejected');
+  } catch (e) { toast('Could not reject — ' + (e.message || '')); }
+}
+window.rejectProgram = rejectProgram;
+
+async function unpublishProgram(id) {
+  if (!confirm('Hide this program from the public marketplace? Existing buyers keep their copy.')) return;
+  try {
+    await DB.updateMarketplaceProgram(id, { status: 'unpublished' });
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    renderAdminMarketplace();
+    toast('Hidden');
+  } catch (e) { toast('Could not unpublish — ' + (e.message || '')); }
+}
+window.unpublishProgram = unpublishProgram;
+
+// =========================================================
+// PAYOUTS (admin)
+// =========================================================
+function renderAdminPayouts() {
+  const area = document.getElementById('payoutsArea');
+  area.innerHTML = '';
+  const sales = cache.sales || [];
+
+  if (!sales.length) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'No sales yet'), el('p', {}, 'When athletes start buying marketplace programs, payout queues show up here.')));
+    return;
+  }
+
+  // Group sales by coach
+  const byCoach = new Map();
+  sales.forEach(s => {
+    if (!byCoach.has(s.coachId)) byCoach.set(s.coachId, { pending: [], paid: [] });
+    const slot = byCoach.get(s.coachId);
+    if (s.payoutStatus === 'pending') slot.pending.push(s);
+    else slot.paid.push(s);
+  });
+
+  // Top stats
+  const totalPending = sales.filter(s => s.payoutStatus === 'pending').reduce((sum, s) => sum + s.coachPayoutCents, 0);
+  const totalPaid    = sales.filter(s => s.payoutStatus === 'paid').reduce((sum, s) => sum + s.coachPayoutCents, 0);
+  const totalPlatform = sales.reduce((sum, s) => sum + s.platformFeeCents, 0);
+
+  const tiles = el('div', { class: 'stat-grid' });
+  [
+    { label: 'Pending payouts',  val: '$' + (totalPending / 100).toFixed(2),  feat: true },
+    { label: 'Lifetime paid',    val: '$' + (totalPaid / 100).toFixed(2) },
+    { label: 'POWALIFTA fees',   val: '$' + (totalPlatform / 100).toFixed(2) },
+    { label: 'Total sales',      val: String(sales.length) }
+  ].forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
+    tile.appendChild(el('div', { class: 'stat-label' }, t.label));
+    tile.appendChild(el('div', { class: 'stat-value' }, t.val));
+    tiles.appendChild(tile);
+  });
+  area.appendChild(tiles);
+
+  // Per-coach payout queues
+  area.appendChild(el('h3', { style: 'margin: 28px 0 14px; font-size: 1.3rem;' }, 'Pending payouts by coach'));
+
+  let renderedAny = false;
+  byCoach.forEach((slot, coachId) => {
+    if (!slot.pending.length) return;
+    renderedAny = true;
+    const coach = (cache.profiles || []).find(p => p.id === coachId);
+    const owed = slot.pending.reduce((sum, s) => sum + s.coachPayoutCents, 0);
+    const card = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px; margin-bottom: 14px;' });
+
+    const head = el('div', { class: 'flex-between mb-8', style: 'gap: 12px; flex-wrap: wrap;' });
+    head.appendChild(el('div', {},
+      el('div', { class: 'fw-700', style: 'font-size: 1.1rem;' }, coach ? coach.name : '(unknown)'),
+      el('div', { class: 'faded text-xs' }, coach ? coach.email : '')
+    ));
+    head.appendChild(el('div', { class: 'mono fw-700', style: 'color: var(--green); font-size: 1.4rem;' }, '+$' + (owed / 100).toFixed(2)));
+    card.appendChild(head);
+
+    // Sales list with checkboxes
+    const listId = 'payoutList-' + coachId;
+    const list = el('div', { id: listId, style: 'margin-top: 12px;' });
+    slot.pending.forEach(s => {
+      const program = (cache.marketplace || []).find(mp => mp.id === s.marketplaceProgramId);
+      const row = el('div', { style: 'display:flex; align-items:center; gap:12px; padding: 8px 12px; background: var(--bg-2); border-radius: 6px; margin-bottom: 4px;' });
+      const cb = el('input', { type: 'checkbox', class: 'payout-cb', 'data-sale-id': s.id, style: 'margin-right: 4px;' });
+      row.appendChild(cb);
+      row.appendChild(el('div', { style: 'flex:1; min-width:0;' },
+        el('div', { class: 'fw-700 text-sm' }, program ? program.title : '(program deleted)'),
+        el('div', { class: 'faded text-xs' }, fmtDate(s.createdAt ? s.createdAt.slice(0, 10) : '') + ' · order ' + (s.lsOrderId || '—'))
+      ));
+      row.appendChild(el('div', { class: 'mono fw-700' }, '$' + (s.coachPayoutCents / 100).toFixed(2)));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+
+    // Bulk actions
+    const actions = el('div', { class: 'flex gap-8 mt-16', style: 'flex-wrap: wrap;' });
+    const selectAll = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => {
+      const cbs = document.querySelectorAll('#' + listId + ' .payout-cb');
+      const allChecked = Array.from(cbs).every(c => c.checked);
+      cbs.forEach(c => { c.checked = !allChecked; });
+    }}, 'Select all');
+    const markPaid = el('button', { class: 'btn btn-sm btn-primary', onclick: async () => {
+      const ids = Array.from(document.querySelectorAll('#' + listId + ' .payout-cb:checked')).map(c => c.dataset.saleId);
+      if (!ids.length) return toast('Select at least one sale to mark paid.');
+      if (!confirm('Mark ' + ids.length + ' sale(s) as paid? Use this only after you\'ve actually sent the coach money.')) return;
+      try {
+        await DB.markPayoutsPaid(ids);
+        cache.sales = await DB.listAllSalesAdmin();
+        renderAdminPayouts();
+        toast('Marked ' + ids.length + ' sale(s) as paid');
+      } catch (e) { toast('Failed: ' + (e.message || '')); }
+    }}, 'Mark selected as paid');
+    actions.appendChild(selectAll);
+    actions.appendChild(markPaid);
+    card.appendChild(actions);
+
+    area.appendChild(card);
+  });
+
+  if (!renderedAny) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'All caught up'), el('p', {}, 'No pending payouts. Lifetime paid: $' + (totalPaid / 100).toFixed(2))));
+  }
 }
 </script>
 </body>

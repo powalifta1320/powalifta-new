@@ -572,6 +572,34 @@ const DB = {
     return (data || []).map(mapDbSale);
   },
 
+  // Admin: every marketplace program (any status) — used by admin review queue
+  async listAllMarketplaceProgramsAdmin() {
+    const { data, error } = await sb.from('marketplace_programs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listAllMarketplaceProgramsAdmin', error); return []; }
+    return (data || []).map(mapDbMarketplaceProgram);
+  },
+
+  // Admin: every sale (any status) — used for payout dashboard
+  async listAllSalesAdmin() {
+    const { data, error } = await sb.from('program_sales')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listAllSalesAdmin', error); return []; }
+    return (data || []).map(mapDbSale);
+  },
+
+  // Admin: reject a marketplace submission
+  async adminRejectProgram(id, reason) {
+    const { error } = await sb.from('marketplace_programs').update({
+      status: 'rejected',
+      // Stash reason in description for now (no separate field) — admin can DM the coach
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (error) throw error;
+  },
+
   // Admin: mark a sale (or batch of sales) as paid out to the coach
   async markPayoutsPaid(saleIds) {
     if (!saleIds || !saleIds.length) return;

@@ -252,6 +252,21 @@
   </div>
 </section>
 
+<!-- MARKETPLACE TEASER -->
+<section id="marketplace-teaser">
+  <div class="container">
+    <div class="section-title center">
+      <div class="section-tag">Marketplace</div>
+      <h2>Buy a program. <span class="tilt red">Skip the spreadsheet.</span></h2>
+      <p>Pre-made programs from real powerlifting coaches. One-time purchase, instant delivery to your dashboard.</p>
+    </div>
+    <div id="marketplaceTeaser" class="coach-grid"></div>
+    <div class="center" style="margin-top: 32px;">
+      <a href="marketplace.html" class="btn btn-primary btn-lg">Browse all programs →</a>
+    </div>
+  </div>
+</section>
+
 <!-- PRICING -->
 <section id="pricing">
   <div class="container">
@@ -430,6 +445,7 @@ _openHashModal();
 bootstrap(null, () => {
   renderNav('#nav');
   renderCoaches();
+  renderMarketplaceTeaser();
   renderHeroChart();
   attachPwdToggles();
 });
@@ -457,6 +473,36 @@ function renderHeroChart() {
   });
 }
 window.addEventListener('resize', () => { setTimeout(renderHeroChart, 100); });
+
+// Pull top 3 published programs as a teaser. Falls back silently if nothing is published.
+async function renderMarketplaceTeaser() {
+  const grid = document.getElementById('marketplaceTeaser');
+  if (!grid) return;
+  grid.innerHTML = '';
+  let programs = [];
+  try { programs = await DB.listPublishedPrograms(); } catch (e) {}
+  if (!programs.length) {
+    const e = el('div', { class: 'empty', style: 'grid-column: 1/-1; padding: 40px 20px;' });
+    e.appendChild(el('h3', {}, 'No programs published yet'));
+    e.appendChild(el('p', {}, 'Coaches are submitting programs now. Check back soon — or become a coach and publish your own.'));
+    grid.appendChild(e);
+    return;
+  }
+  const s = Store.get();
+  programs.slice(0, 3).forEach(p => {
+    const coach = s.coaches.find(c => c.id === p.coachId);
+    const card = el('div', { class: 'coach-card', style: 'cursor: pointer;' });
+    card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
+    card.appendChild(el('div', { class: 'av' }, '$' + (p.priceCents / 100)));
+    card.appendChild(el('h4', {}, p.title));
+    card.appendChild(el('p', { class: 'coach-bio' }, (p.description || '').slice(0, 110) + ((p.description || '').length > 110 ? '…' : '')));
+    const meta = el('div', { class: 'coach-meta' });
+    meta.appendChild(el('span', { class: 'pill' }, p.weekCount + ' wk'));
+    meta.appendChild(el('span', { class: 'pill' }, (coach ? 'by ' + coach.name.split(' ')[0] : 'POWALIFTA coach')));
+    card.appendChild(meta);
+    grid.appendChild(card);
+  });
+}
 
 function renderCoaches() {
   const s = Store.get();
