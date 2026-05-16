@@ -364,21 +364,31 @@ bootstrap('athlete', () => {
     renderToday();
   });
   document.getElementById('sessionDate').value = todayISO();
-  document.getElementById('sessionDate').addEventListener('change', renderToday);
+  // Helper: after any date change, jump the dropdown to whichever day was
+  // trained on the new date. If no day was trained that date, leave the
+  // dropdown alone (user can pick manually).
+  function onDateChanged() {
+    const d = getSessionDate();
+    autoSelectDayForDate(d);
+    renderToday();
+  }
+  document.getElementById('sessionDate').addEventListener('change', onDateChanged);
   document.getElementById('dateBack').addEventListener('click', () => {
     const d = new Date(getSessionDate()); d.setDate(d.getDate() - 1);
     document.getElementById('sessionDate').value = d.toISOString().slice(0, 10);
-    renderToday();
+    onDateChanged();
   });
   document.getElementById('dateFwd').addEventListener('click', () => {
     const d = new Date(getSessionDate()); d.setDate(d.getDate() + 1);
     document.getElementById('sessionDate').value = d.toISOString().slice(0, 10);
-    renderToday();
+    onDateChanged();
   });
   document.getElementById('dateToday').addEventListener('click', () => {
     document.getElementById('sessionDate').value = todayISO();
-    // Jump the day select to the next incomplete day so the user lands on what they should train
-    autoSelectFirstIncompleteDay();
+    // If a day has already been trained today, jump to it. Otherwise jump to
+    // the next incomplete day (so the user lands on what they should train).
+    const jumped = autoSelectDayForDate(todayISO());
+    if (!jumped) autoSelectFirstIncompleteDay();
     renderToday();
   });
   document.getElementById('restBtn').addEventListener('click', toggleRestDay);
@@ -546,6 +556,27 @@ function _selfHealProgramIds() {
     persistProgram(prog.id);
     populateDaySelect();
   }
+}
+
+// Find a day in the program that was trained on the given date (any set's
+// completedAt matches). Returns true if one was found AND the dropdown was
+// updated. Used to auto-link date ↔ day in both directions.
+function autoSelectDayForDate(date) {
+  const sel = document.getElementById('daySelect');
+  const prog = getProgram();
+  if (!sel || !prog || !prog.weeks?.length || !date) return false;
+  for (const wk of prog.weeks) {
+    for (const day of (wk.days || [])) {
+      const trained = (day.exercises || []).some(ex =>
+        (ex.sets || []).some(s => s.completed && s.completedAt && s.completedAt.slice(0, 10) === date)
+      );
+      if (trained) {
+        sel.value = _dayKey(wk, day);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function getCurrentDay() {
