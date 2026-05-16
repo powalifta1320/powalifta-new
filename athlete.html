@@ -30,7 +30,8 @@
     <button class="sidebar-tab" data-tab="progress" id="tab-progress"></button>
     <button class="sidebar-tab" data-tab="bodyweight" id="tab-bodyweight"></button>
     <button class="sidebar-tab" data-tab="coach" id="tab-coach"></button>
-    <a class="sidebar-tab" href="marketplace.html" id="tab-marketplace" style="text-decoration:none;"></a>
+    <button class="sidebar-tab" data-tab="library" id="tab-library"></button>
+    <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
     <div class="sidebar-foot">
       <div>POWALIFTA Athlete</div>
       <div class="faded">v0.3 · cloud-synced</div>
@@ -101,6 +102,33 @@
     <section data-pane="coach" class="hidden">
       <div class="dash-header"><div><h2>My coach</h2></div></div>
       <div id="coachArea"></div>
+    </section>
+
+    <!-- MY LIBRARY — every program the athlete has purchased -->
+    <section data-pane="library" class="hidden">
+      <div class="dash-header">
+        <div><h2>My library</h2><p class="dim text-sm">Programs you've purchased from the marketplace. Install one as your active program any time.</p></div>
+      </div>
+      <div id="libraryArea"></div>
+    </section>
+
+    <!-- BROWSE MARKETPLACE — published programs, inline -->
+    <section data-pane="marketplace" class="hidden">
+      <div class="dash-header">
+        <div><h2>Marketplace</h2><p class="dim text-sm">Programs published by coaches. Buy one to add it to your library — reps + RPE come from the coach, weights you set yourself.</p></div>
+      </div>
+      <div class="card mb-16" style="padding: 14px 18px;">
+        <div class="flex gap-12" style="flex-wrap: wrap;">
+          <input type="text" id="mpSearch" placeholder="Search programs…" style="flex: 1; min-width: 200px;">
+          <select id="mpCategory" style="max-width: 200px;">
+            <option value="">All categories</option>
+            <option value="short">Short cycle</option>
+            <option value="block">Full block</option>
+            <option value="premium">Premium</option>
+          </select>
+        </div>
+      </div>
+      <div id="marketplaceArea"></div>
     </section>
 
   </main>
@@ -274,7 +302,8 @@ bootstrap('athlete', () => {
   setLbl('tab-progress', ICONS.chart, 'Progress');
   setLbl('tab-bodyweight', ICONS.scale, 'Bodyweight');
   setLbl('tab-coach', ICONS.user, 'Coach');
-  setLbl('tab-marketplace', ICONS.bar, 'Browse programs');
+  setLbl('tab-library', ICONS.trophy, 'My library');
+  setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   document.getElementById('bwBtn').innerHTML = ICONS.plus + '<span>Log weigh-in</span>';
   document.getElementById('goalsBtn').innerHTML = ICONS.trophy + '<span>Set goals</span>';
 
@@ -312,6 +341,8 @@ bootstrap('athlete', () => {
       if (btn.dataset.tab === 'bodyweight') renderBodyweight();
       if (btn.dataset.tab === 'coach') renderCoach();
       if (btn.dataset.tab === 'program') renderProgramTab();
+      if (btn.dataset.tab === 'library') renderLibrary();
+      if (btn.dataset.tab === 'marketplace') renderMarketplace();
     });
   });
 
@@ -358,6 +389,10 @@ bootstrap('athlete', () => {
 
   // Global claim banner — visible above every tab if there's an unclaimed purchase
   renderGlobalClaimBanner();
+  // One-time toast on dashboard load if there's a new purchase
+  maybeShowPurchaseToast();
+  // Badge on the Library tab if there are purchases
+  updateLibraryBadge();
 
   // Onboarding tour — runs once on first dashboard visit
   if (!isTourDone('athlete')) {
@@ -1478,9 +1513,8 @@ window.renderProgramTab = renderProgramTab;
 
 // =========================================================
 // PURCHASE CLAIM — global banner above all tabs.
-// Shows if the athlete has a sale on file that hasn't materialized as a program.
-// Clicking the banner opens a modal that asks for the buyer's 1RMs (so the
-// program gets rescaled to their strength), then installs the program.
+// One-click install. Weights are stripped on install (buyer fills them in
+// during each session); reps, RPE, tempo, notes are preserved.
 // =========================================================
 let _pendingClaimProgram = null;
 
@@ -1492,142 +1526,343 @@ async function renderGlobalClaimBanner() {
   const existing = document.getElementById('globalClaimBanner');
   if (existing) existing.remove();
 
-  // Look up the marketplace program for the most recent purchase
   const recent = purchases[0];
   let mp;
   try { mp = await DB.getMarketplaceProgram(recent.marketplaceProgramId); }
   catch (e) { console.warn('claim banner: program lookup failed', e); return; }
   if (!mp) return;
 
-  // If the athlete's current program name already matches, treat it as claimed.
   const myProg = s.programs.find(p => p.athleteId === user.id);
   if (myProg && myProg.name === mp.title) return;
 
   _pendingClaimProgram = mp;
 
-  // Pin banner to the top of the main content (above all tabs)
   const main = document.querySelector('main .container') || document.querySelector('main') || document.body;
   const b = el('div', { id: 'globalClaimBanner', class: 'card mb-16', style: 'padding: 16px 20px; border: 2px solid #d4a017; background: linear-gradient(135deg, rgba(212,160,23,0.10), rgba(212,160,23,0.02));' });
   const row = el('div', { class: 'flex-between gap-16', style: 'flex-wrap: wrap; align-items: center;' });
   const txt = el('div', { style: 'flex: 1 1 280px; min-width: 0' });
   txt.appendChild(el('div', { style: 'font-weight: 700; font-size: 1.05rem; margin-bottom: 4px;' }, '✨ You purchased: ' + mp.title));
-  const sub = el('div', { class: 'dim text-sm' }, 'We\'ll scale it to your strength so the weights aren\'t random. ');
+  const sub = el('div', { class: 'dim text-sm' }, 'Reps and RPE come from the coach — you pick your own weights. ');
   const warn = el('span', { style: 'color: #ff2d3f; font-weight:600' }, 'Installing will replace your current program.');
   sub.appendChild(warn);
   txt.appendChild(sub);
   row.appendChild(txt);
-  const btn = el('button', { class: 'btn btn-primary' }, 'Set up & install →');
-  btn.addEventListener('click', openClaim1RMModal);
+  const btn = el('button', { class: 'btn btn-primary', id: 'globalClaimBtn' }, 'Install program');
+  btn.addEventListener('click', () => installClaimedProgram(mp.id));
   row.appendChild(btn);
   b.appendChild(row);
-  // Prepend so it shows above whatever tab is active
   main.prepend(b);
 }
 window.renderGlobalClaimBanner = renderGlobalClaimBanner;
 
-// Modal asks the buyer for their S/B/D 1RMs so we can scale the coach's weights
-// to their level. Built on-demand into the body.
-function openClaim1RMModal() {
-  if (!_pendingClaimProgram) return;
-  let m = document.getElementById('claim1RMModal');
-  if (!m) {
-    const wrap = document.createElement('div');
-    const u = unitLabel();
-    wrap.innerHTML = '<div class="modal-backdrop" id="claim1RMModal">' +
-      '<div class="modal">' +
-        '<button class="modal-close" onclick="closeClaim1RMModal()">&times;</button>' +
-        '<h3>Personalize your program</h3>' +
-        '<p class="dim text-sm mb-12" id="claim1rmIntro">Enter your current 1RMs so we can scale the program. The coach\'s weights are written for their own strength — we\'ll resize every set to match yours.</p>' +
-        '<div id="claim1rmNoref" class="dim text-sm mb-12" style="display:none; padding: 10px 12px; background: rgba(255,45,63,0.08); border-left: 3px solid #ff2d3f; border-radius: 6px;"></div>' +
-        '<div class="flex gap-8" style="flex-wrap:wrap">' +
-          '<div style="flex:1; min-width: 90px"><label class="dim text-xs">Squat (<span class="claim1rm-unit">kg</span>)</label><input type="number" id="cl1rmSquat" min="0" step="0.5" style="width:100%"></div>' +
-          '<div style="flex:1; min-width: 90px"><label class="dim text-xs">Bench (<span class="claim1rm-unit">kg</span>)</label><input type="number" id="cl1rmBench" min="0" step="0.5" style="width:100%"></div>' +
-          '<div style="flex:1; min-width: 90px"><label class="dim text-xs">Deadlift (<span class="claim1rm-unit">kg</span>)</label><input type="number" id="cl1rmDead" min="0" step="0.5" style="width:100%"></div>' +
-        '</div>' +
-        '<p class="faded text-xs mt-8">Tip: use a recent gym 1RM or a confident e1RM. You can always adjust individual weights later.</p>' +
-        '<div class="flex gap-8 mt-16">' +
-          '<button class="btn btn-block" onclick="closeClaim1RMModal()">Cancel</button>' +
-          '<button class="btn btn-ghost btn-block" onclick="confirmClaim(true)">Skip scaling</button>' +
-          '<button class="btn btn-primary btn-block" id="claim1rmBtn" onclick="confirmClaim(false)">Install program</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-    document.body.appendChild(wrap.firstChild);
-    m = document.getElementById('claim1RMModal');
-  }
-  // Show the unit labels matching the athlete's setting
-  document.querySelectorAll('.claim1rm-unit').forEach(el => el.textContent = unitLabel());
-  // Clear inputs
-  ['cl1rmSquat', 'cl1rmBench', 'cl1rmDead'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
-  // If the coach didn't provide reference 1RMs, scaling is impossible — show notice
-  const intro = document.getElementById('claim1rmIntro');
-  const noref = document.getElementById('claim1rmNoref');
-  const hasRef = _pendingClaimProgram && _pendingClaimProgram.reference1RMs &&
-    Object.values(_pendingClaimProgram.reference1RMs).some(v => v > 0);
-  if (!hasRef) {
-    if (intro) intro.style.display = 'none';
-    if (noref) {
-      noref.style.display = 'block';
-      noref.innerHTML = '<strong>Heads up:</strong> the coach who published this program didn\'t set reference 1RMs, so we can\'t auto-scale the weights to you. The program will install with the coach\'s exact numbers — you\'ll need to adjust them yourself. Click <strong>Install program</strong> below.';
-    }
-  } else {
-    if (intro) intro.style.display = 'block';
-    if (noref) noref.style.display = 'none';
-  }
-  m.classList.add('open');
-}
-window.openClaim1RMModal = openClaim1RMModal;
-
-function closeClaim1RMModal() {
-  const m = document.getElementById('claim1RMModal');
-  if (m) m.classList.remove('open');
-}
-window.closeClaim1RMModal = closeClaim1RMModal;
-
-async function confirmClaim(skipScaling) {
-  if (!_pendingClaimProgram) return;
-  const btn = document.getElementById('claim1rmBtn');
+// One-click install — strip weights, clone program into the buyer's account
+async function installClaimedProgram(marketplaceProgramId) {
+  const btn = document.getElementById('globalClaimBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Installing…'; }
-
-  // Convert buyer inputs from display unit → kg (internal storage)
-  let buyer1RMs = null;
-  if (!skipScaling) {
-    const conv = (v) => {
-      const n = parseFloat(v);
-      if (!isFinite(n) || n <= 0) return null;
-      return displayToKg(n);
-    };
-    const sq = conv(document.getElementById('cl1rmSquat').value);
-    const bn = conv(document.getElementById('cl1rmBench').value);
-    const dl = conv(document.getElementById('cl1rmDead').value);
-    if (sq || bn || dl) {
-      buyer1RMs = {};
-      if (sq) buyer1RMs.squat = sq;
-      if (bn) buyer1RMs.bench = bn;
-      if (dl) buyer1RMs.deadlift = dl;
-    }
-  }
-
   try {
-    const claimed = await DB.claimPurchase(_pendingClaimProgram.id, buyer1RMs);
+    const claimed = await DB.claimPurchase(marketplaceProgramId);
     const claimedJs = { id: claimed.id, athleteId: claimed.athleteId, coachId: claimed.coachId, name: claimed.name, weeks: claimed.weeks || [] };
     Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== user.id); s.programs.push(claimedJs); });
-    toast(buyer1RMs ? 'Program installed & scaled to your 1RMs.' : 'Program installed.');
-    closeClaim1RMModal();
+    toast('Program installed — fill in weights as you train.');
     const b = document.getElementById('globalClaimBanner'); if (b) b.remove();
     _pendingClaimProgram = null;
-    // Refresh whatever tab is active
+    populateDaySelect();
     renderToday();
     if (!document.querySelector('[data-pane="program"]')?.classList.contains('hidden')) {
       renderProgramTab();
     }
+    if (!document.querySelector('[data-pane="library"]')?.classList.contains('hidden')) {
+      renderLibrary();
+    }
   } catch (e) {
-    console.error('claim failed', e);
-    toast(e.message || 'Could not claim — try again or contact support');
+    console.error('install failed', e);
+    toast(e.message || 'Could not install — try again or contact support');
     if (btn) { btn.disabled = false; btn.textContent = 'Install program'; }
   }
 }
-window.confirmClaim = confirmClaim;
+window.installClaimedProgram = installClaimedProgram;
+
+// =========================================================
+// MY LIBRARY — every program the athlete has purchased.
+// Shows each as a card with install/reinstall buttons. Clicking install
+// opens the same 1RM scaling modal so the program rescales to the buyer.
+// =========================================================
+async function renderLibrary() {
+  const area = document.getElementById('libraryArea');
+  if (!area) return;
+  area.innerHTML = '';
+  const s = Store.get();
+  const purchases = s.myPurchases || [];
+
+  if (!purchases.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.bar;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No purchased programs yet'));
+    e.appendChild(el('p', {}, 'When you buy a program from the marketplace it lands here. You can install it as your active program, then reinstall it later if you want.'));
+    e.appendChild(el('a', { class: 'btn btn-primary mt-16', href: 'marketplace.html' }, 'Browse marketplace →'));
+    area.appendChild(e);
+    return;
+  }
+
+  // Note about how installing works
+  const note = el('div', { class: 'card mb-16', style: 'padding: 14px 18px; background: var(--bg-2); border-left: 3px solid var(--red);' });
+  note.appendChild(el('div', { class: 'dim text-sm' }, 'Installing a program replaces your current active program. You can reinstall any purchased program at any time — your purchases never expire.'));
+  area.appendChild(note);
+
+  const myProg = s.programs.find(p => p.athleteId === user.id);
+  const activeName = myProg ? myProg.name : null;
+
+  const grid = el('div', { class: 'template-grid' });
+
+  // Group purchases by program (in case of duplicate buys, show once)
+  const seen = new Set();
+  for (const p of purchases) {
+    if (seen.has(p.marketplaceProgramId)) continue;
+    seen.add(p.marketplaceProgramId);
+
+    let mp;
+    try { mp = await DB.getMarketplaceProgram(p.marketplaceProgramId); }
+    catch (e) { console.warn('library: program lookup failed', e); continue; }
+    if (!mp) {
+      // Program was removed/unpublished — still show a degraded card
+      const card = el('div', { class: 'template-card' });
+      card.appendChild(el('div', { class: 'tpl-name' }, 'Program no longer available'));
+      card.appendChild(el('div', { class: 'tpl-meta dim text-xs' }, 'Purchased ' + (p.createdAt ? p.createdAt.slice(0, 10) : '')));
+      grid.appendChild(card);
+      continue;
+    }
+
+    const coach = s.coaches.find(c => c.id === p.coachId);
+    const isActive = activeName === mp.title;
+    const card = el('div', { class: 'template-card' });
+    card.appendChild(el('div', { class: 'flex-between mb-8', style: 'gap: 8px;' },
+      el('span', { class: 'tpl-name' }, mp.title),
+      isActive ? el('span', { class: 'badge badge-green' }, 'Active') : el('span', { class: 'badge' }, 'Available')
+    ));
+    card.appendChild(el('div', { class: 'tpl-meta' },
+      (coach ? 'by ' + coach.name : 'POWALIFTA coach') +
+      ' · ' + mp.weekCount + ' wk · paid $' + ((p.amountCents || 0) / 100).toFixed(2)
+    ));
+    if (mp.description) {
+      card.appendChild(el('p', { class: 'dim text-sm', style: 'margin: 10px 0; line-height: 1.5;' },
+        mp.description.slice(0, 140) + (mp.description.length > 140 ? '…' : '')
+      ));
+    }
+    card.appendChild(el('div', { class: 'faded text-xs', style: 'margin-bottom: 10px' }, 'Reps & RPE from coach · weights are yours to set'));
+
+    const actions = el('div', { class: 'tpl-actions' });
+    const installBtn = el('button',
+      { class: 'btn btn-sm ' + (isActive ? 'btn-ghost' : 'btn-primary') },
+      isActive ? 'Reinstall' : 'Install'
+    );
+    installBtn.addEventListener('click', () => {
+      if (isActive && !confirm('Reinstall ' + mp.title + '? This wipes any weights you\'ve already filled in for this program.')) return;
+      installClaimedProgram(mp.id);
+    });
+    actions.appendChild(installBtn);
+    card.appendChild(actions);
+    grid.appendChild(card);
+  }
+  area.appendChild(grid);
+}
+window.renderLibrary = renderLibrary;
+
+// Adds a small numeric badge to the Library tab so unclaimed purchases are visible
+function updateLibraryBadge() {
+  const tab = document.getElementById('tab-library');
+  if (!tab) return;
+  const s = Store.get();
+  const purchases = s.myPurchases || [];
+  if (!purchases.length) return;
+  const myProg = s.programs.find(p => p.athleteId === user.id);
+  // Treat purchase as "new" if no active program matches the most recent purchase's title.
+  // Cheap heuristic — surface a 1 badge if there's anything to claim
+  let hasUnclaimed = false;
+  for (const p of purchases) {
+    // We don't know the program title without an extra fetch — defer to renderGlobalClaimBanner
+    hasUnclaimed = true; break;
+  }
+  if (!myProg) hasUnclaimed = true;
+  if (hasUnclaimed) {
+    const existing = tab.querySelector('.lib-badge');
+    if (existing) return;
+    const badge = document.createElement('span');
+    badge.className = 'lib-badge';
+    badge.textContent = String(purchases.length);
+    badge.style.cssText = 'background: #d4a017; color: #000; border-radius: 999px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; margin-left: 8px;';
+    tab.appendChild(badge);
+  }
+}
+window.updateLibraryBadge = updateLibraryBadge;
+
+// Toast on dashboard load if there's an unclaimed purchase (once per session).
+function maybeShowPurchaseToast() {
+  const s = Store.get();
+  const purchases = s.myPurchases || [];
+  if (!purchases.length) return;
+  const seenKey = 'powa-toast-seen-' + user.id;
+  try {
+    if (sessionStorage.getItem(seenKey)) return;
+    sessionStorage.setItem(seenKey, '1');
+  } catch {}
+  setTimeout(() => {
+    toast('🎉 You have ' + purchases.length + ' purchased program' + (purchases.length === 1 ? '' : 's') + ' — check "My library" to install.');
+  }, 800);
+}
+window.maybeShowPurchaseToast = maybeShowPurchaseToast;
+
+// =========================================================
+// MARKETPLACE BROWSE — inline in athlete dashboard.
+// Lists all published programs with category filter + search.
+// Click a program → opens detail with Buy button. Buy → LS checkout.
+// =========================================================
+let _marketplaceCache = null;
+let _marketplaceDetailId = null;
+
+async function renderMarketplace() {
+  if (!_marketplaceCache) {
+    try { _marketplaceCache = await DB.listPublishedPrograms({}); }
+    catch (e) { console.error('marketplace load', e); _marketplaceCache = []; }
+  }
+  // Wire up search/filter handlers once
+  const search = document.getElementById('mpSearch');
+  const cat = document.getElementById('mpCategory');
+  if (search && !search._wired) {
+    let t;
+    search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => renderMarketplaceList(), 200); });
+    search._wired = true;
+  }
+  if (cat && !cat._wired) {
+    cat.addEventListener('change', () => renderMarketplaceList());
+    cat._wired = true;
+  }
+  renderMarketplaceList();
+}
+window.renderMarketplace = renderMarketplace;
+
+function renderMarketplaceList() {
+  const area = document.getElementById('marketplaceArea');
+  if (!area) return;
+  area.innerHTML = '';
+  const search = (document.getElementById('mpSearch')?.value || '').toLowerCase().trim();
+  const cat = document.getElementById('mpCategory')?.value || '';
+  const purchased = new Set((Store.get().myPurchases || []).map(p => p.marketplaceProgramId));
+
+  let progs = (_marketplaceCache || []).filter(p => p.status === 'published');
+  if (cat) progs = progs.filter(p => p.tier === cat);
+  if (search) progs = progs.filter(p => p.title.toLowerCase().includes(search) || (p.description || '').toLowerCase().includes(search));
+
+  if (!progs.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.bar;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No programs match your filters'));
+    e.appendChild(el('p', {}, 'Try a different category, or clear the search.'));
+    area.appendChild(e);
+    return;
+  }
+
+  const grid = el('div', { class: 'template-grid' });
+  const TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
+  const coaches = Store.get().coaches || [];
+  progs.forEach(p => {
+    const coach = coaches.find(c => c.id === p.coachId);
+    const owned = purchased.has(p.id);
+    const card = el('div', { class: 'template-card', style: 'cursor: pointer' });
+    card.addEventListener('click', () => openMarketplaceDetail(p.id));
+    card.appendChild(el('div', { class: 'flex-between mb-8', style: 'gap: 8px;' },
+      el('span', { class: 'tpl-name' }, p.title),
+      owned ? el('span', { class: 'badge badge-green' }, 'Owned')
+            : el('span', { class: 'badge' }, '$' + (p.priceCents / 100).toFixed(2))
+    ));
+    card.appendChild(el('div', { class: 'tpl-meta' },
+      (coach ? 'by ' + coach.name : 'POWALIFTA coach') +
+      ' · ' + (TIER_LABEL[p.tier] || 'Program') + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'
+    ));
+    if (p.description) {
+      card.appendChild(el('p', { class: 'dim text-sm', style: 'margin: 10px 0; line-height: 1.5;' },
+        p.description.slice(0, 140) + (p.description.length > 140 ? '…' : '')
+      ));
+    }
+    grid.appendChild(card);
+  });
+  area.appendChild(grid);
+}
+
+function openMarketplaceDetail(programId) {
+  _marketplaceDetailId = programId;
+  const p = (_marketplaceCache || []).find(x => x.id === programId);
+  if (!p) return;
+
+  let m = document.getElementById('mpDetailModal');
+  if (!m) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = '<div class="modal-backdrop" id="mpDetailModal">' +
+      '<div class="modal modal-lg">' +
+        '<button class="modal-close" onclick="closeModal(\'mpDetailModal\')">&times;</button>' +
+        '<div id="mpDetailBody"></div>' +
+      '</div>' +
+    '</div>';
+    document.body.appendChild(wrap.firstChild);
+    m = document.getElementById('mpDetailModal');
+  }
+
+  const body = document.getElementById('mpDetailBody');
+  body.innerHTML = '';
+  const coach = (Store.get().coaches || []).find(c => c.id === p.coachId);
+  const owned = (Store.get().myPurchases || []).some(x => x.marketplaceProgramId === p.id);
+  const TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
+
+  body.appendChild(el('div', { style: 'font-family: Anton, sans-serif; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 6px;' }, p.title));
+  body.appendChild(el('div', { class: 'dim text-sm mb-12' },
+    (coach ? 'by ' + coach.name : 'POWALIFTA coach') +
+    ' · ' + (TIER_LABEL[p.tier] || 'Program') +
+    ' · ' + p.weekCount + ' weeks · ' + p.soldCount + ' sold'
+  ));
+
+  if (p.description) {
+    body.appendChild(el('div', { style: 'background: var(--bg-2); padding: 14px 18px; border-radius: 8px; border-left: 3px solid var(--red); margin-bottom: 18px; white-space: pre-wrap; line-height: 1.6;' }, p.description));
+  }
+
+  const note = el('div', { class: 'dim text-sm mb-16', style: 'padding: 12px 14px; background: var(--bg-2); border-radius: 8px;' },
+    'After purchase, the program lands in your My library tab. Reps, RPE, tempo, and notes come from the coach. Weights are blank — you choose them based on how each set feels.'
+  );
+  body.appendChild(note);
+
+  // Buy / owned button
+  const actions = el('div', { class: 'flex gap-8', style: 'flex-wrap: wrap;' });
+  if (owned) {
+    const installBtn = el('button', { class: 'btn btn-primary btn-lg' }, 'Install this program');
+    installBtn.addEventListener('click', () => {
+      closeModal('mpDetailModal');
+      installClaimedProgram(p.id);
+    });
+    actions.appendChild(installBtn);
+    actions.appendChild(el('div', { class: 'badge badge-green', style: 'align-self: center; padding: 6px 12px;' }, '✓ Already owned'));
+  } else if (!p.lsCheckoutUrl) {
+    actions.appendChild(el('div', { class: 'dim' }, 'Not available for purchase yet — admin needs to wire up checkout.'));
+  } else {
+    const buyBtn = el('button', { class: 'btn btn-primary btn-lg' }, 'Buy for $' + (p.priceCents / 100).toFixed(2));
+    buyBtn.addEventListener('click', () => buyMarketplaceProgram(p));
+    actions.appendChild(buyBtn);
+  }
+  body.appendChild(actions);
+
+  m.classList.add('open');
+}
+window.openMarketplaceDetail = openMarketplaceDetail;
+
+function buyMarketplaceProgram(p) {
+  if (!p.lsCheckoutUrl) { toast('Checkout not configured'); return; }
+  const url = new URL(p.lsCheckoutUrl);
+  url.searchParams.set('checkout[email]', user.email);
+  url.searchParams.set('checkout[custom][user_id]', user.id);
+  url.searchParams.set('checkout[custom][marketplace_program_id]', p.id);
+  url.searchParams.set('checkout[name]', user.name || '');
+  window.location.href = url.toString();
+}
+window.buyMarketplaceProgram = buyMarketplaceProgram;
 
 // =========================================================
 // SELF-COACHED PROGRAM BUILDER

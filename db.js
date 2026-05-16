@@ -659,12 +659,20 @@ const DB = {
       throw new Error('Purchased program is empty (contact support).');
     }
 
-    // Rescale weights to the buyer's strength, if both sides provided 1RMs.
-    let weeks = mp.programPayload.weeks;
-    const coachRMs = mp.reference1RMs || {};
-    if (buyer1RMs && (buyer1RMs.squat || buyer1RMs.bench || buyer1RMs.deadlift)) {
-      weeks = scaleWeeksToBuyer(weeks, coachRMs, buyer1RMs);
-    }
+    // Strip weights from the program — buyer fills them in themselves during
+    // each session based on how the prescribed reps × RPE feels. The coach's
+    // weights are irrelevant since they were written for the coach's strength.
+    // We keep reps, RPE, tempo, notes — everything except the absolute kg/lb.
+    const weeks = mp.programPayload.weeks.map(wk => ({
+      ...wk,
+      days: (wk.days || []).map(day => ({
+        ...day,
+        exercises: (day.exercises || []).map(ex => ({
+          ...ex,
+          sets: (ex.sets || []).map(s => ({ ...s, weight: 0, completed: false, completedAt: null }))
+        }))
+      }))
+    }));
 
     // Replace any existing program (single-program model)
     await sb.from('programs').delete().eq('athlete_id', uid);
