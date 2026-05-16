@@ -454,45 +454,64 @@ function getProgram() { return Store.get().programs.find(p => p.athleteId === us
 function populateDaySelect() {
   const sel = document.getElementById('daySelect');
   if (!sel) return;
+  const prevValue = sel.value; // preserve user's current selection across rebuilds
   sel.innerHTML = '';
   const prog = getProgram();
   if (!prog || !prog.weeks?.length) return;
-
-  // Find first incomplete day — we'll mark it selected explicitly so dropdown
-  // visual state and `.value` stay in sync even on browsers that are picky
-  // about dynamically added options.
-  let firstIncomplete = null;
-  outer: for (const wk of prog.weeks) {
-    for (const day of (wk.days || [])) {
-      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
-      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
-      if (total > 0 && done < total) { firstIncomplete = wk.id + '|' + day.id; break outer; }
-    }
-  }
-  if (!firstIncomplete) {
-    const w0 = prog.weeks[0], d0 = w0?.days?.[0];
-    if (w0 && d0) firstIncomplete = w0.id + '|' + d0.id;
-  }
 
   prog.weeks.forEach(wk => {
     (wk.days || []).forEach(day => {
       const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
       const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
       const val = wk.id + '|' + day.id;
-      const opt = el('option', { value: val },
+      sel.appendChild(el('option', { value: val },
         'Week ' + wk.number + ' · ' + day.name + (total > 0 ? '  (' + done + '/' + total + ')' : '')
-      );
-      if (val === firstIncomplete) opt.selected = true;
-      sel.appendChild(opt);
+      ));
     });
   });
-  // Also set .value defensively (some browsers don't sync from option.selected)
-  if (firstIncomplete) sel.value = firstIncomplete;
+
+  // Keep the user's previous selection if it's still in the list. Otherwise
+  // default to first incomplete day, falling back to first day overall.
+  const stillExists = Array.from(sel.options).some(o => o.value === prevValue);
+  if (stillExists) {
+    sel.value = prevValue;
+    return;
+  }
+  let target = null;
+  outer: for (const wk of prog.weeks) {
+    for (const day of (wk.days || [])) {
+      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
+      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
+      if (total > 0 && done < total) { target = wk.id + '|' + day.id; break outer; }
+    }
+  }
+  if (!target) {
+    const w0 = prog.weeks[0], d0 = w0?.days?.[0];
+    if (w0 && d0) target = w0.id + '|' + d0.id;
+  }
+  if (target) sel.value = target;
 }
 
+// Force-reset the dropdown to the first incomplete day (used on install / login
+// where we explicitly want to jump to "what should I train today").
 function autoSelectFirstIncompleteDay() {
-  // populateDaySelect already handles this — calling it is the canonical reset
-  populateDaySelect();
+  const sel = document.getElementById('daySelect');
+  if (!sel) return;
+  const prog = getProgram();
+  if (!prog) return;
+  let target = null;
+  outer: for (const wk of prog.weeks) {
+    for (const day of (wk.days || [])) {
+      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
+      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
+      if (total > 0 && done < total) { target = wk.id + '|' + day.id; break outer; }
+    }
+  }
+  if (!target) {
+    const w0 = prog.weeks[0], d0 = w0?.days?.[0];
+    if (w0 && d0) target = w0.id + '|' + d0.id;
+  }
+  if (target) sel.value = target;
 }
 
 function getCurrentDay() {
