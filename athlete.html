@@ -599,7 +599,8 @@ function autoSelectDayForDate(date) {
 }
 
 // Explicit "pin this day to this date" — sets scheduledDate on the day so future
-// date changes will auto-select it. Also clears any other day pinned to this date.
+// date changes will auto-select it. Toggle: clicking again on an already-pinned
+// day unpins it. Also clears any other day pinned to this date (1:1).
 function pinDayToDate() {
   const sel = document.getElementById('daySelect');
   const date = getSessionDate();
@@ -607,15 +608,30 @@ function pinDayToDate() {
   const cur = getCurrentDay();
   if (!cur) { toast('Pick a day from the dropdown first'); return; }
   const prog = getProgram();
-  // Clear any other day previously pinned to this date (one day per date)
+
+  // Toggle: if this day is already pinned to this exact date, unpin it.
+  if (cur.day.scheduledDate === date) {
+    cur.day.scheduledDate = null;
+    persistProgram(prog.id);
+    toast('Unpinned ' + cur.day.name + ' from ' + fmtDate(date));
+    populateDaySelect();
+    return;
+  }
+
+  // Otherwise pin: clear any conflicting bindings, then set new pin
   prog.weeks.forEach(wk => (wk.days || []).forEach(d => {
     if (d.scheduledDate === date && d.id !== cur.day.id) {
       d.scheduledDate = null;
     }
   }));
+  // Also clear this day's OLD pin (if it was bound to a different date)
+  const oldPin = cur.day.scheduledDate;
   cur.day.scheduledDate = date;
   persistProgram(prog.id);
-  toast('Pinned ' + cur.day.name + ' to ' + fmtDate(date) + ' — switching to this date will auto-load this day.');
+  const msg = oldPin
+    ? 'Re-pinned ' + cur.day.name + ' from ' + fmtDate(oldPin) + ' → ' + fmtDate(date)
+    : 'Pinned ' + cur.day.name + ' to ' + fmtDate(date);
+  toast(msg);
   populateDaySelect();
 }
 window.pinDayToDate = pinDayToDate;
@@ -668,8 +684,29 @@ async function toggleRestDay() {
     await persistDeleteRest(user.id, date);
     toast('Rest day removed');
   } else {
+    // If sets are logged on this date in the active program, marking rest is a
+    // contradiction. Offer to wipe those completions first so the state is clean.
     if (hasAnyLogOnDate(user.id, date)) {
-      if (!confirm('You already logged sets on this date. Mark it as a rest day anyway?')) return;
+      const ok = confirm('You have sets logged for this date. Marking it as a rest day will UNCHECK those sets and remove their logs for this date. Continue?');
+      if (!ok) return;
+      // Uncheck sets in the active program whose completedAt matches this date
+      const prog = getProgram();
+      if (prog) {
+        Store.update(s => {
+          const p = s.programs.find(x => x.athleteId === user.id);
+          if (!p) return;
+          p.weeks.forEach(wk => (wk.days || []).forEach(d => (d.exercises || []).forEach(ex => (ex.sets || []).forEach(st => {
+            if (st.completed && st.completedAt && st.completedAt.slice(0, 10) === date) {
+              st.completed = false;
+              st.completedAt = null;
+              st.actualRpe = null;
+            }
+          }))));
+          // Also drop workout_logs for this date
+          s.workoutLogs = s.workoutLogs.filter(l => !(l.athleteId === user.id && l.date === date));
+        });
+        await persistProgram(prog.id);
+      }
     }
     const r = { id: uid('rest'), athleteId: user.id, date, note: '' };
     Store.update(s => { s.restDays.push(r); });
@@ -678,6 +715,7 @@ async function toggleRestDay() {
   }
   refreshRestBtn();
   renderToday();
+  populateDaySelect();
 }
 
 // =========================================================
