@@ -2556,6 +2556,25 @@ footer .container { display: flex; justify-content: space-between; align-items: 
 .compact-set .cs-w-link:hover { color: var(--red); border-color: var(--red); }
 .compact-set .cs-w-link:hover .cs-val { color: var(--red); }
 
+/* Editable weight input — used for self-coached programs incl. marketplace purchases */
+.compact-set .cs-w-input {
+  width: 68px;
+  padding: 4px 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: 'Space Grotesk', monospace;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  text-align: center;
+}
+.compact-set .cs-w-input:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(255,45,63,0.15);
+}
+
 /* Spacer column pushes input + checkbox to the right */
 .compact-set .cs-rpe input {
   width: 100%;

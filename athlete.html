@@ -377,6 +377,8 @@ bootstrap('athlete', () => {
   });
   document.getElementById('dateToday').addEventListener('click', () => {
     document.getElementById('sessionDate').value = todayISO();
+    // Jump the day select to the next incomplete day so the user lands on what they should train
+    autoSelectFirstIncompleteDay();
     renderToday();
   });
   document.getElementById('restBtn').addEventListener('click', toggleRestDay);
@@ -860,8 +862,38 @@ function renderToday() {
         tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-unit">RPE</span><span class="cs-val">' + set.rpe + '</span>' }));
       } else {
         const cell1 = el('div', { class: 'cs-cell' });
-        cell1.innerHTML = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')">' +
-                          '<span class="cs-val">' + kgToDisplay(set.weight) + '</span><span class="cs-unit">' + unitLabel() + '</span></a>';
+        // Self-coached programs (athlete IS their own coach — includes marketplace
+        // purchases): render weight as an editable input. The buyer fills it in.
+        // Coach-assigned programs: render as a read-only display with plate-calc link.
+        const selfCoached = prog.coachId === user.id;
+        if (selfCoached && !set.completed) {
+          const wInp = el('input', {
+            type: 'number',
+            step: '0.5',
+            min: '0',
+            class: 'cs-w-input',
+            id: 'wt_' + ex.id + '_' + si,
+            placeholder: '—',
+            value: (set.weight > 0 ? kgToDisplay(set.weight) : '')
+          });
+          wInp.addEventListener('change', (e) => {
+            const display = Number(e.target.value);
+            const kg = (display > 0) ? displayToKg(display) : 0;
+            Store.update(s => {
+              const p = s.programs.find(p => p.athleteId === user.id);
+              const wk = p.weeks.find(w => w.id === cur.week.id);
+              const d = wk.days.find(dd => dd.id === cur.day.id);
+              const e2 = d.exercises.find(e3 => e3.id === ex.id);
+              if (e2 && e2.sets[si]) e2.sets[si].weight = kg;
+            });
+            persistProgram(prog.id);
+          });
+          cell1.appendChild(wInp);
+          cell1.appendChild(el('span', { class: 'cs-unit' }, unitLabel()));
+        } else {
+          cell1.innerHTML = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')">' +
+                            '<span class="cs-val">' + kgToDisplay(set.weight) + '</span><span class="cs-unit">' + unitLabel() + '</span></a>';
+        }
         tgts.appendChild(cell1);
         tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-mult">×</span><span class="cs-val">' + set.reps + '</span>' }));
         // Optional RPE — show "—" when not prescribed (typical of back-down sets)
@@ -935,6 +967,20 @@ async function toggleSet(exerciseId, setIndex, checked) {
     const actualRpe = Number(rpeIn?.value);
     if (!actualRpe || actualRpe < 1 || actualRpe > 10) { toast('Enter actual RPE (1–10)'); renderToday(); return; }
 
+    // For self-coached programs (athlete = their own coach, e.g. marketplace purchases),
+    // sync the weight input value into the set before logging — otherwise we'd log a 0kg set.
+    const selfCoached = prog.coachId === user.id;
+    if (selfCoached) {
+      const wIn = document.getElementById('wt_' + exerciseId + '_' + setIndex);
+      const display = Number(wIn?.value);
+      if (display > 0) set.weight = displayToKg(display);
+      if (!set.weight || set.weight <= 0) {
+        toast('Enter a weight for this set first');
+        renderToday();
+        return;
+      }
+    }
+
     const sessionDate = getSessionDate();
     const newLogId = uid('log');
     let newLogObj = null;
@@ -949,6 +995,8 @@ async function toggleSet(exerciseId, setIndex, checked) {
       sset.actualRpe = actualRpe;
       sset.completedAt = sessionDate;
       sset.lastLogId = newLogId;
+      // Persist any weight entered just now (self-coached case)
+      if (selfCoached && set.weight > 0) sset.weight = set.weight;
       const noteEl = document.getElementById('note_' + exerciseId + '_' + setIndex);
       if (noteEl) sset.note = noteEl.value;
 
@@ -1566,7 +1614,11 @@ async function installClaimedProgram(marketplaceProgramId) {
     toast('Program installed — fill in weights as you train.');
     const b = document.getElementById('globalClaimBanner'); if (b) b.remove();
     _pendingClaimProgram = null;
+    // Rebuild dropdown + explicitly select the first day, then render
     populateDaySelect();
+    autoSelectFirstIncompleteDay();
+    // Auto-jump to Today tab so the user sees the freshly installed program
+    document.getElementById('tab-today')?.click();
     renderToday();
     if (!document.querySelector('[data-pane="program"]')?.classList.contains('hidden')) {
       renderProgramTab();
