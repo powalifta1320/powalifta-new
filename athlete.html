@@ -451,6 +451,11 @@ window.replayAthleteTour = () => { resetTour('athlete'); maybeStartAthleteTour()
 // ===== TODAY =====
 function getProgram() { return Store.get().programs.find(p => p.athleteId === user.id); }
 
+// Compose the dropdown option value for a given week + day.
+// String()-cast both sides because program payloads sometimes store IDs as
+// numbers (when imported from JSON) — and string comparison would otherwise fail.
+function _dayKey(wk, day) { return String(wk.id) + '|' + String(day.id); }
+
 function populateDaySelect() {
   const sel = document.getElementById('daySelect');
   if (!sel) return;
@@ -463,8 +468,7 @@ function populateDaySelect() {
     (wk.days || []).forEach(day => {
       const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
       const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
-      const val = wk.id + '|' + day.id;
-      sel.appendChild(el('option', { value: val },
+      sel.appendChild(el('option', { value: _dayKey(wk, day) },
         'Week ' + wk.number + ' · ' + day.name + (total > 0 ? '  (' + done + '/' + total + ')' : '')
       ));
     });
@@ -482,18 +486,17 @@ function populateDaySelect() {
     for (const day of (wk.days || [])) {
       const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
       const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
-      if (total > 0 && done < total) { target = wk.id + '|' + day.id; break outer; }
+      if (total > 0 && done < total) { target = _dayKey(wk, day); break outer; }
     }
   }
   if (!target) {
     const w0 = prog.weeks[0], d0 = w0?.days?.[0];
-    if (w0 && d0) target = w0.id + '|' + d0.id;
+    if (w0 && d0) target = _dayKey(w0, d0);
   }
   if (target) sel.value = target;
 }
 
-// Force-reset the dropdown to the first incomplete day (used on install / login
-// where we explicitly want to jump to "what should I train today").
+// Force-reset the dropdown to the first incomplete day (used on install / login).
 function autoSelectFirstIncompleteDay() {
   const sel = document.getElementById('daySelect');
   if (!sel) return;
@@ -504,12 +507,12 @@ function autoSelectFirstIncompleteDay() {
     for (const day of (wk.days || [])) {
       const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
       const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
-      if (total > 0 && done < total) { target = wk.id + '|' + day.id; break outer; }
+      if (total > 0 && done < total) { target = _dayKey(wk, day); break outer; }
     }
   }
   if (!target) {
     const w0 = prog.weeks[0], d0 = w0?.days?.[0];
-    if (w0 && d0) target = w0.id + '|' + d0.id;
+    if (w0 && d0) target = _dayKey(w0, d0);
   }
   if (target) sel.value = target;
 }
@@ -521,9 +524,10 @@ function getCurrentDay() {
   const v = sel?.value || '';
   if (v) {
     const [wkId, dayId] = v.split('|');
-    const wk = prog.weeks.find(w => w.id === wkId);
+    // String()-cast both sides — wk.id may be number-typed in some payloads.
+    const wk = prog.weeks.find(w => String(w.id) === wkId);
     if (wk) {
-      const day = (wk.days || []).find(d => d.id === dayId);
+      const day = (wk.days || []).find(d => String(d.id) === dayId);
       if (day) return { week: wk, day };
     }
   }
@@ -532,7 +536,7 @@ function getCurrentDay() {
   const w0 = prog.weeks[0];
   const d0 = w0?.days?.[0];
   if (w0 && d0) {
-    if (sel) sel.value = w0.id + '|' + d0.id;
+    if (sel) sel.value = _dayKey(w0, d0);
     return { week: w0, day: d0 };
   }
   return null;
