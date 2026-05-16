@@ -928,6 +928,29 @@ function renderToday() {
   const cur = getCurrentDay();
   if (!cur) { area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'Pick a day from the dropdown above'))); return; }
 
+  // Is the currently-selected day actually bound to this date? Bound means:
+  //   - day is pinned (scheduledDate) to this date, OR
+  //   - some set has completedAt on this date
+  // If neither, this date has no training assigned — show a clean empty state
+  // instead of pretending Day X belongs here.
+  const boundByPin = cur.day.scheduledDate === date;
+  const boundByLog = (cur.day.exercises || []).some(ex =>
+    (ex.sets || []).some(s => s.completed && s.completedAt && s.completedAt.slice(0, 10) === date)
+  );
+  if (!boundByPin && !boundByLog) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.today;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No training assigned for ' + fmtDate(date)));
+    e.appendChild(el('p', {}, 'This date isn\'t bound to any day in your program yet. To assign a day, pick one from the dropdown above and click 📌 Pin day → date. Or click Mark as rest day to count it as recovery.'));
+    // Quick action: pin the current dropdown selection to this date
+    const pinNow = el('button', { class: 'btn btn-primary mt-16' }, '📌 Pin ' + cur.day.name + ' to ' + fmtDate(date));
+    pinNow.addEventListener('click', pinDayToDate);
+    e.appendChild(pinNow);
+    area.appendChild(e);
+    return;
+  }
+
   cur.day.exercises.forEach(ex => ensureExerciseShape(ex));
 
   // Show coach feedback for today's session at the top of the view (if any).
