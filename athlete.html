@@ -517,6 +517,37 @@ function autoSelectFirstIncompleteDay() {
   if (target) sel.value = target;
 }
 
+// Backfill missing week/day/exercise/set IDs on the in-memory program so the
+// dropdown can disambiguate days. Persist the patched program so refreshing
+// keeps the new IDs. No-op if everything already has unique IDs.
+function _selfHealProgramIds() {
+  const prog = getProgram();
+  if (!prog || !prog.weeks?.length) return;
+  let mutated = false;
+  const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2, 10) + Date.now();
+  const seen = new Set();
+  prog.weeks.forEach(wk => {
+    if (!wk.id || seen.has('w:' + wk.id)) { wk.id = newId(); mutated = true; }
+    seen.add('w:' + wk.id);
+    (wk.days || []).forEach(day => {
+      if (!day.id || seen.has('d:' + day.id)) { day.id = newId(); mutated = true; }
+      seen.add('d:' + day.id);
+      (day.exercises || []).forEach(ex => {
+        if (!ex.id || seen.has('e:' + ex.id)) { ex.id = newId(); mutated = true; }
+        seen.add('e:' + ex.id);
+        (ex.sets || []).forEach(s => {
+          if (!s.id) { s.id = newId(); mutated = true; }
+        });
+      });
+    });
+  });
+  if (mutated) {
+    persistProgram(prog.id);
+    populateDaySelect();
+  }
+}
+
 function getCurrentDay() {
   const prog = getProgram();
   if (!prog || !prog.weeks?.length) return null;
@@ -729,6 +760,9 @@ function copyLastWeekRpe(exId, prevEx) {
 
 function renderToday() {
   refreshRestBtn();
+  // Self-heal: if any dropdown option has a bad value (undefined or duplicate),
+  // backfill IDs on the program in-memory and rebuild the dropdown.
+  _selfHealProgramIds();
   const area = document.getElementById('todayArea');
   area.innerHTML = '';
   const date = getSessionDate();

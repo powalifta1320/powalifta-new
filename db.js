@@ -659,17 +659,29 @@ const DB = {
       throw new Error('Purchased program is empty (contact support).');
     }
 
-    // Strip weights from the program — buyer fills them in themselves during
-    // each session based on how the prescribed reps × RPE feels. The coach's
-    // weights are irrelevant since they were written for the coach's strength.
-    // We keep reps, RPE, tempo, notes — everything except the absolute kg/lb.
+    // Strip weights AND ensure every week/day/exercise/set has a unique ID.
+    // Marketplace payloads sometimes arrive without IDs (depends on how the
+    // coach's template was serialised) — missing IDs cause the dropdown to
+    // collapse all days into one ambiguous option.
+    const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16); });
     const weeks = mp.programPayload.weeks.map(wk => ({
       ...wk,
+      id: wk.id || newId(),
       days: (wk.days || []).map(day => ({
         ...day,
+        id: day.id || newId(),
         exercises: (day.exercises || []).map(ex => ({
           ...ex,
-          sets: (ex.sets || []).map(s => ({ ...s, weight: 0, completed: false, completedAt: null }))
+          id: ex.id || newId(),
+          sets: (ex.sets || []).map(s => ({
+            ...s,
+            id: s.id || newId(),
+            weight: 0,
+            completed: false,
+            completedAt: null
+          }))
         }))
       }))
     }));
