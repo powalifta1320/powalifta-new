@@ -58,6 +58,7 @@
             <input type="date" id="sessionDate" style="max-width:170px;">
             <button class="btn btn-sm btn-ghost btn-icon" id="dateFwd" title="Next day">›</button>
             <button class="btn btn-sm btn-ghost" id="dateToday">Today</button>
+            <button class="btn btn-sm btn-ghost" id="pinDayDate" title="Lock the currently-selected day to this date so the dropdown auto-jumps here next time you pick this date">📌 Pin day → date</button>
           </div>
         </div>
         <div class="session-bar-right">
@@ -391,6 +392,7 @@ bootstrap('athlete', () => {
     if (!jumped) autoSelectFirstIncompleteDay();
     renderToday();
   });
+  document.getElementById('pinDayDate').addEventListener('click', pinDayToDate);
   document.getElementById('restBtn').addEventListener('click', toggleRestDay);
   document.getElementById('bwDate').value = todayISO();
   document.getElementById('plateTarget').addEventListener('input', e => renderPlateCalc(Number(e.target.value)));
@@ -478,8 +480,9 @@ function populateDaySelect() {
     (wk.days || []).forEach(day => {
       const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
       const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
+      const pinSuffix = day.scheduledDate ? '  · 📌 ' + day.scheduledDate.slice(5) : '';
       sel.appendChild(el('option', { value: _dayKey(wk, day) },
-        'Week ' + wk.number + ' · ' + day.name + (total > 0 ? '  (' + done + '/' + total + ')' : '')
+        'Week ' + wk.number + ' · ' + day.name + (total > 0 ? '  (' + done + '/' + total + ')' : '') + pinSuffix
       ));
     });
   });
@@ -558,13 +561,23 @@ function _selfHealProgramIds() {
   }
 }
 
-// Find a day in the program that was trained on the given date (any set's
-// completedAt matches). Returns true if one was found AND the dropdown was
-// updated. Used to auto-link date ↔ day in both directions.
+// Find a day in the program that's bound to the given date — either by a set
+// having completedAt = date (auto-link from training) or day.scheduledDate = date
+// (explicit pin). Returns true if found AND the dropdown was updated.
 function autoSelectDayForDate(date) {
   const sel = document.getElementById('daySelect');
   const prog = getProgram();
   if (!sel || !prog || !prog.weeks?.length || !date) return false;
+  // First pass: explicit pin (most authoritative — user said "this day, this date")
+  for (const wk of prog.weeks) {
+    for (const day of (wk.days || [])) {
+      if (day.scheduledDate === date) {
+        sel.value = _dayKey(wk, day);
+        return true;
+      }
+    }
+  }
+  // Second pass: any set's completedAt matches
   for (const wk of prog.weeks) {
     for (const day of (wk.days || [])) {
       const trained = (day.exercises || []).some(ex =>
@@ -578,6 +591,28 @@ function autoSelectDayForDate(date) {
   }
   return false;
 }
+
+// Explicit "pin this day to this date" — sets scheduledDate on the day so future
+// date changes will auto-select it. Also clears any other day pinned to this date.
+function pinDayToDate() {
+  const sel = document.getElementById('daySelect');
+  const date = getSessionDate();
+  if (!sel || !date) { toast('Pick a date and a day first'); return; }
+  const cur = getCurrentDay();
+  if (!cur) { toast('Pick a day from the dropdown first'); return; }
+  const prog = getProgram();
+  // Clear any other day previously pinned to this date (one day per date)
+  prog.weeks.forEach(wk => (wk.days || []).forEach(d => {
+    if (d.scheduledDate === date && d.id !== cur.day.id) {
+      d.scheduledDate = null;
+    }
+  }));
+  cur.day.scheduledDate = date;
+  persistProgram(prog.id);
+  toast('Pinned ' + cur.day.name + ' to ' + fmtDate(date) + ' — switching to this date will auto-load this day.');
+  populateDaySelect();
+}
+window.pinDayToDate = pinDayToDate;
 
 function getCurrentDay() {
   const prog = getProgram();
