@@ -453,48 +453,70 @@ function getProgram() { return Store.get().programs.find(p => p.athleteId === us
 
 function populateDaySelect() {
   const sel = document.getElementById('daySelect');
+  if (!sel) return;
   sel.innerHTML = '';
   const prog = getProgram();
-  if (!prog) return;
+  if (!prog || !prog.weeks?.length) return;
+
+  // Find first incomplete day — we'll mark it selected explicitly so dropdown
+  // visual state and `.value` stay in sync even on browsers that are picky
+  // about dynamically added options.
+  let firstIncomplete = null;
+  outer: for (const wk of prog.weeks) {
+    for (const day of (wk.days || [])) {
+      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
+      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
+      if (total > 0 && done < total) { firstIncomplete = wk.id + '|' + day.id; break outer; }
+    }
+  }
+  if (!firstIncomplete) {
+    const w0 = prog.weeks[0], d0 = w0?.days?.[0];
+    if (w0 && d0) firstIncomplete = w0.id + '|' + d0.id;
+  }
+
   prog.weeks.forEach(wk => {
-    wk.days.forEach(day => {
-      const total = day.exercises.flatMap(e => e.sets).length;
-      const done = day.exercises.flatMap(e => e.sets).filter(s => s.completed).length;
-      sel.appendChild(el('option', { value: wk.id + '|' + day.id },
+    (wk.days || []).forEach(day => {
+      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
+      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
+      const val = wk.id + '|' + day.id;
+      const opt = el('option', { value: val },
         'Week ' + wk.number + ' · ' + day.name + (total > 0 ? '  (' + done + '/' + total + ')' : '')
-      ));
+      );
+      if (val === firstIncomplete) opt.selected = true;
+      sel.appendChild(opt);
     });
   });
+  // Also set .value defensively (some browsers don't sync from option.selected)
+  if (firstIncomplete) sel.value = firstIncomplete;
 }
 
 function autoSelectFirstIncompleteDay() {
-  const prog = getProgram();
-  if (!prog) return;
-  for (const wk of prog.weeks) {
-    for (const day of wk.days) {
-      const total = day.exercises.flatMap(e => e.sets).length;
-      const done = day.exercises.flatMap(e => e.sets).filter(s => s.completed).length;
-      if (total > 0 && done < total) {
-        document.getElementById('daySelect').value = wk.id + '|' + day.id;
-        return;
-      }
-    }
-  }
-  const first = prog.weeks[0]?.days[0];
-  if (first) document.getElementById('daySelect').value = prog.weeks[0].id + '|' + first.id;
+  // populateDaySelect already handles this — calling it is the canonical reset
+  populateDaySelect();
 }
 
 function getCurrentDay() {
   const prog = getProgram();
-  if (!prog) return null;
-  const v = document.getElementById('daySelect').value;
-  if (!v) return null;
-  const [wkId, dayId] = v.split('|');
-  const wk = prog.weeks.find(w => w.id === wkId);
-  if (!wk) return null;
-  const day = wk.days.find(d => d.id === dayId);
-  if (!day) return null;
-  return { week: wk, day };
+  if (!prog || !prog.weeks?.length) return null;
+  const sel = document.getElementById('daySelect');
+  const v = sel?.value || '';
+  if (v) {
+    const [wkId, dayId] = v.split('|');
+    const wk = prog.weeks.find(w => w.id === wkId);
+    if (wk) {
+      const day = (wk.days || []).find(d => d.id === dayId);
+      if (day) return { week: wk, day };
+    }
+  }
+  // Fall back: first day of first week. Also fix the dropdown so the user
+  // sees a consistent state on the next render.
+  const w0 = prog.weeks[0];
+  const d0 = w0?.days?.[0];
+  if (w0 && d0) {
+    if (sel) sel.value = w0.id + '|' + d0.id;
+    return { week: w0, day: d0 };
+  }
+  return null;
 }
 
 function getSessionDate() {
