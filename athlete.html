@@ -347,19 +347,25 @@ bootstrap('athlete', () => {
     });
   });
 
-  // When the user switches the program day dropdown, jump the session date
-  // to whichever date that day was actually completed on (if any). For unstarted
-  // days, leave the session date alone (defaults to today).
+  // When the user switches the program day dropdown:
+  //   1) If the day is explicitly pinned to a date → jump to that date.
+  //   2) Otherwise, if any sets are completed → jump to the most-common
+  //      completedAt date.
+  //   3) Otherwise leave the date alone.
   document.getElementById('daySelect').addEventListener('change', () => {
     const cur = getCurrentDay();
     if (cur) {
-      const completedDates = cur.day.exercises.flatMap(e => e.sets).filter(s => s.completed && s.completedAt).map(s => s.completedAt.length > 10 ? s.completedAt.slice(0, 10) : s.completedAt);
-      if (completedDates.length) {
-        // Use the most common date (handles edge case of split-day logging)
-        const counts = {};
-        completedDates.forEach(d => counts[d] = (counts[d] || 0) + 1);
-        const top = Object.entries(counts).sort(([,a],[,b]) => b - a)[0][0];
-        document.getElementById('sessionDate').value = top;
+      if (cur.day.scheduledDate) {
+        // Pinned date wins — that's the user's explicit intent
+        document.getElementById('sessionDate').value = cur.day.scheduledDate;
+      } else {
+        const completedDates = cur.day.exercises.flatMap(e => e.sets).filter(s => s.completed && s.completedAt).map(s => s.completedAt.length > 10 ? s.completedAt.slice(0, 10) : s.completedAt);
+        if (completedDates.length) {
+          const counts = {};
+          completedDates.forEach(d => counts[d] = (counts[d] || 0) + 1);
+          const top = Object.entries(counts).sort(([,a],[,b]) => b - a)[0][0];
+          document.getElementById('sessionDate').value = top;
+        }
       }
     }
     renderToday();
