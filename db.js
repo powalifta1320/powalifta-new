@@ -689,11 +689,10 @@ const DB = {
     // Replace any existing program (single-program model)
     await sb.from('programs').delete().eq('athlete_id', uid);
 
-    // Insert as self-coached so the athlete RLS policy (athlete_id=uid AND coach_id=uid) allows it
-    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
-      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16); });
+    // Insert as self-coached so the athlete RLS policy (athlete_id=uid AND coach_id=uid) allows it.
+    // Reuse the newId helper defined above.
     const row = {
-      id: newId,
+      id: newId(),
       athlete_id: uid,
       coach_id: uid,
       name: mp.title,
