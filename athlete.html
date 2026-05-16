@@ -645,19 +645,27 @@ function unpinDay() {
 }
 window.unpinDay = unpinDay;
 
-// Show Pin or Unpin button depending on whether the current day is pinned.
+// Show Pin or Unpin depending on context:
+//   - Day is pinned to the CURRENT date → "Unpin" (clears the binding)
+//   - Day is unpinned, OR pinned to a different date → "Pin day → date"
+//     (clicking will pin or re-pin to the current date)
 function refreshPinButtons() {
   const pinBtn = document.getElementById('pinDayDate');
   const unpinBtn = document.getElementById('unpinDayDate');
   if (!pinBtn || !unpinBtn) return;
   const cur = getCurrentDay();
-  if (cur && cur.day.scheduledDate) {
+  const date = getSessionDate();
+  if (cur && cur.day.scheduledDate === date) {
     pinBtn.style.display = 'none';
     unpinBtn.style.display = '';
-    unpinBtn.textContent = '✕ Unpin from ' + cur.day.scheduledDate.slice(5);
+    unpinBtn.textContent = '✕ Unpin from ' + (date ? date.slice(5) : '');
   } else {
     pinBtn.style.display = '';
     unpinBtn.style.display = 'none';
+    // If the day is pinned elsewhere, hint that clicking will re-pin
+    pinBtn.textContent = (cur && cur.day.scheduledDate)
+      ? '📌 Re-pin to this date'
+      : '📌 Pin day → date';
   }
 }
 window.refreshPinButtons = refreshPinButtons;
