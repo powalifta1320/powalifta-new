@@ -1600,7 +1600,12 @@ async function renderLibrary() {
     e.appendChild(ic);
     e.appendChild(el('h3', {}, 'No purchased programs yet'));
     e.appendChild(el('p', {}, 'When you buy a program from the marketplace it lands here. You can install it as your active program, then reinstall it later if you want.'));
-    e.appendChild(el('a', { class: 'btn btn-primary mt-16', href: 'marketplace.html' }, 'Browse marketplace →'));
+    const browseBtn = el('button', { class: 'btn btn-primary mt-16' }, 'Browse marketplace →');
+    browseBtn.addEventListener('click', () => {
+      const tab = document.getElementById('tab-marketplace');
+      if (tab) tab.click();
+    });
+    e.appendChild(browseBtn);
     area.appendChild(e);
     return;
   }
