@@ -59,6 +59,7 @@
             <button class="btn btn-sm btn-ghost btn-icon" id="dateFwd" title="Next day">›</button>
             <button class="btn btn-sm btn-ghost" id="dateToday">Today</button>
             <button class="btn btn-sm btn-ghost" id="pinDayDate" title="Lock the currently-selected day to this date so the dropdown auto-jumps here next time you pick this date">📌 Pin day → date</button>
+            <button class="btn btn-sm btn-ghost" id="unpinDayDate" title="Remove the pin from the currently-selected day" style="display:none;">✕ Unpin</button>
           </div>
         </div>
         <div class="session-bar-right">
@@ -368,6 +369,7 @@ bootstrap('athlete', () => {
         }
       }
     }
+    refreshPinButtons();
     renderToday();
   });
   document.getElementById('sessionDate').value = todayISO();
@@ -377,6 +379,7 @@ bootstrap('athlete', () => {
   function onDateChanged() {
     const d = getSessionDate();
     autoSelectDayForDate(d);
+    refreshPinButtons();
     renderToday();
   }
   document.getElementById('sessionDate').addEventListener('change', onDateChanged);
@@ -399,12 +402,14 @@ bootstrap('athlete', () => {
     renderToday();
   });
   document.getElementById('pinDayDate').addEventListener('click', pinDayToDate);
+  document.getElementById('unpinDayDate').addEventListener('click', unpinDay);
   document.getElementById('restBtn').addEventListener('click', toggleRestDay);
   document.getElementById('bwDate').value = todayISO();
   document.getElementById('plateTarget').addEventListener('input', e => renderPlateCalc(Number(e.target.value)));
 
   populateDaySelect();
   autoSelectFirstIncompleteDay();
+  refreshPinButtons();
   renderToday();
 
   // Global claim banner — visible above every tab if there's an unclaimed purchase
@@ -598,9 +603,8 @@ function autoSelectDayForDate(date) {
   return false;
 }
 
-// Explicit "pin this day to this date" — sets scheduledDate on the day so future
-// date changes will auto-select it. Toggle: clicking again on an already-pinned
-// day unpins it. Also clears any other day pinned to this date (1:1).
+// Pin the currently-selected day to the currently-selected date. Clears any
+// conflicting pin (one day per date, one pin per day).
 function pinDayToDate() {
   const sel = document.getElementById('daySelect');
   const date = getSessionDate();
@@ -609,32 +613,54 @@ function pinDayToDate() {
   if (!cur) { toast('Pick a day from the dropdown first'); return; }
   const prog = getProgram();
 
-  // Toggle: if this day is already pinned to this exact date, unpin it.
-  if (cur.day.scheduledDate === date) {
-    cur.day.scheduledDate = null;
-    persistProgram(prog.id);
-    toast('Unpinned ' + cur.day.name + ' from ' + fmtDate(date));
-    populateDaySelect();
-    return;
-  }
-
-  // Otherwise pin: clear any conflicting bindings, then set new pin
+  // Clear any OTHER day pinned to this date
   prog.weeks.forEach(wk => (wk.days || []).forEach(d => {
     if (d.scheduledDate === date && d.id !== cur.day.id) {
       d.scheduledDate = null;
     }
   }));
-  // Also clear this day's OLD pin (if it was bound to a different date)
   const oldPin = cur.day.scheduledDate;
   cur.day.scheduledDate = date;
   persistProgram(prog.id);
-  const msg = oldPin
+  const msg = (oldPin && oldPin !== date)
     ? 'Re-pinned ' + cur.day.name + ' from ' + fmtDate(oldPin) + ' → ' + fmtDate(date)
     : 'Pinned ' + cur.day.name + ' to ' + fmtDate(date);
   toast(msg);
   populateDaySelect();
+  refreshPinButtons();
 }
 window.pinDayToDate = pinDayToDate;
+
+// Unpin the currently-selected day (remove its scheduledDate entirely).
+function unpinDay() {
+  const cur = getCurrentDay();
+  if (!cur || !cur.day.scheduledDate) return;
+  const prog = getProgram();
+  const oldPin = cur.day.scheduledDate;
+  cur.day.scheduledDate = null;
+  persistProgram(prog.id);
+  toast('Unpinned ' + cur.day.name + ' from ' + fmtDate(oldPin));
+  populateDaySelect();
+  refreshPinButtons();
+}
+window.unpinDay = unpinDay;
+
+// Show Pin or Unpin button depending on whether the current day is pinned.
+function refreshPinButtons() {
+  const pinBtn = document.getElementById('pinDayDate');
+  const unpinBtn = document.getElementById('unpinDayDate');
+  if (!pinBtn || !unpinBtn) return;
+  const cur = getCurrentDay();
+  if (cur && cur.day.scheduledDate) {
+    pinBtn.style.display = 'none';
+    unpinBtn.style.display = '';
+    unpinBtn.textContent = '✕ Unpin from ' + cur.day.scheduledDate.slice(5);
+  } else {
+    pinBtn.style.display = '';
+    unpinBtn.style.display = 'none';
+  }
+}
+window.refreshPinButtons = refreshPinButtons;
 
 function getCurrentDay() {
   const prog = getProgram();
