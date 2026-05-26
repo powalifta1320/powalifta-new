@@ -628,6 +628,7 @@ function pinDayToDate() {
   toast(msg);
   populateDaySelect();
   refreshPinButtons();
+  renderToday();
 }
 window.pinDayToDate = pinDayToDate;
 
@@ -642,6 +643,7 @@ function unpinDay() {
   toast('Unpinned ' + cur.day.name + ' from ' + fmtDate(oldPin));
   populateDaySelect();
   refreshPinButtons();
+  renderToday();
 }
 window.unpinDay = unpinDay;
 
