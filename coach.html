@@ -589,6 +589,9 @@ function loadProgram() {
   const addDayBtn = el('button', { class: 'btn btn-sm', onclick: () => addDay(activeWeekIdx) });
   addDayBtn.innerHTML = ICONS.plus + '<span>Add day</span>';
   wkActions.appendChild(addDayBtn);
+  const addRestBtn = el('button', { class: 'btn btn-sm', onclick: () => addRestDay(activeWeekIdx), title: 'Add a rest day (no exercises)' });
+  addRestBtn.innerHTML = ICONS.plus + '<span>Add rest day</span>';
+  wkActions.appendChild(addRestBtn);
   const delWkBtn = el('button', { class: 'btn btn-sm btn-danger', onclick: () => deleteWeek(activeWeekIdx) });
   delWkBtn.innerHTML = ICONS.trash + '<span>Remove week</span>';
   wkActions.appendChild(delWkBtn);
@@ -614,7 +617,16 @@ function loadProgram() {
 
     const dayBody = el('div', { class: 'day-body' });
     if (!day.exercises.length) {
-      dayBody.appendChild(el('div', { class: 'day-empty' }, 'No exercises yet'));
+      const isRestDay = /\b(rest|off|recovery)\b/i.test(day.name || '');
+      if (isRestDay) {
+        const restBox = el('div', { class: 'day-empty', style: 'text-align: center; padding: 24px; font-style: italic; color: var(--text-3);' });
+        restBox.appendChild(el('div', { style: 'font-size: 1.4rem; margin-bottom: 6px;' }, '💤'));
+        restBox.appendChild(el('div', {}, 'Rest day — no exercises'));
+        restBox.appendChild(el('div', { class: 'text-sm', style: 'margin-top: 8px; color: var(--text-4);' }, 'Rename this day if you want to convert it to a training day, then add exercises.'));
+        dayBody.appendChild(restBox);
+      } else {
+        dayBody.appendChild(el('div', { class: 'day-empty' }, 'No exercises yet'));
+      }
     } else {
       day.exercises.forEach((ex, ei) => {
         const row = el('div', { class: 'exercise-row' });
@@ -820,6 +832,15 @@ function deleteWeek(wi) {
 function addDay(wi) {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days.push(newDay('Day ' + (p.weeks[wi].days.length + 1))); });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+function addRestDay(wi) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (p) p.weeks[wi].days.push(newDay('Rest'));
+  });
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
