@@ -672,6 +672,195 @@ select {
 }
 #heroChart { min-height: 260px; }
 
+/* ============================================ LIVE E1RM CALCULATOR (landing) */
+.calc-sec {
+  position: relative;
+  padding: 90px 0 100px;
+  background: linear-gradient(180deg, var(--bg-1), var(--bg));
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.calc-card {
+  max-width: 860px;
+  margin: 0 auto;
+  background: var(--bg-1);
+  background-image: var(--grad-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 38px 38px 34px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.calc-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-sheen), transparent);
+}
+.calc-inputs {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+.calc-field { display: flex; flex-direction: column; gap: 6px; }
+.calc-field label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  font-weight: 700;
+  text-align: center;
+}
+.calc-field input {
+  width: 120px;
+  padding: 12px 10px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s;
+}
+.calc-field input:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(255,45,63,0.12);
+}
+.calc-field input::-webkit-outer-spin-button,
+.calc-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.calc-field input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.calc-sym {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.5rem;
+  color: var(--text-4);
+  padding-bottom: 12px;
+}
+.calc-unit-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.calc-unit-toggle button {
+  padding: 9px 14px;
+  background: var(--bg);
+  border: none;
+  color: var(--text-3);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.calc-unit-toggle button.active { background: var(--grad-red); color: #fff; }
+.calc-result { text-align: center; margin-bottom: 8px; }
+.calc-res-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.calc-res-num {
+  font-family: 'Anton', sans-serif;
+  font-size: clamp(3.4rem, 8vw, 5.4rem);
+  line-height: 1;
+  background: var(--grad-red);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.calc-res-unit {
+  font-size: 0.32em;
+  margin-left: 6px;
+  -webkit-text-fill-color: var(--text-3);
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+.calc-bar { max-width: 560px; margin: 10px auto 18px; }
+.calc-attempts {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+.calc-att {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 22px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.calc-att span {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  font-weight: 700;
+}
+.calc-att b {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 1.15rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.calc-cta {
+  text-align: center;
+  border-top: 1px dashed var(--line);
+  padding-top: 24px;
+}
+.calc-cta p { color: var(--text-2); font-size: 0.95rem; margin-bottom: 16px; }
+@media (max-width: 700px) {
+  .calc-card { padding: 26px 18px 24px; }
+  .calc-field input { width: 92px; font-size: 1.25rem; }
+  .calc-sym { padding-bottom: 10px; }
+}
+
+/* ============================================ SCROLL PROGRESS */
+.scroll-progress {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--grad-red);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* ============================================ HERO PARALLAX ORB */
+.hero-orb {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  margin-left: -420px;
+  width: 840px;
+  height: 620px;
+  background: radial-gradient(ellipse at center, rgba(255,45,63,0.10), transparent 65%);
+  filter: blur(30px);
+  pointer-events: none;
+  z-index: 1;
+  will-change: transform;
+}
+
 /* ============================================ MARQUEE */
 .marquee {
   position: relative;

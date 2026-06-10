@@ -91,6 +91,49 @@
   </div>
 </div>
 
+<!-- LIVE E1RM CALCULATOR -->
+<section id="e1rm" class="calc-sec">
+  <div class="container">
+    <div class="section-title center">
+      <span class="section-tag">Try it right now</span>
+      <h2>WHAT'S YOUR <span class="accent tilt">REAL MAX?</span></h2>
+      <p>Type any working set. Same math POWALIFTA runs on every set you log.</p>
+    </div>
+    <div class="calc-card">
+      <div class="calc-inputs">
+        <div class="calc-field">
+          <label for="calcW">Weight</label>
+          <input id="calcW" type="number" value="140" min="1" step="2.5" inputmode="decimal">
+        </div>
+        <span class="calc-sym">×</span>
+        <div class="calc-field">
+          <label for="calcR">Reps</label>
+          <input id="calcR" type="number" value="5" min="1" max="12" step="1" inputmode="numeric">
+        </div>
+        <span class="calc-sym">@</span>
+        <div class="calc-field">
+          <label for="calcRpe">RPE</label>
+          <input id="calcRpe" type="number" value="8" min="5" max="10" step="0.5" inputmode="decimal">
+        </div>
+        <div class="calc-unit-toggle" role="group" aria-label="Unit">
+          <button type="button" id="calcKg" class="active">KG</button>
+          <button type="button" id="calcLb">LB</button>
+        </div>
+      </div>
+      <div class="calc-result">
+        <div class="calc-res-label">Estimated 1-rep max</div>
+        <div class="calc-res-num"><span id="calcOut">0</span><span class="calc-res-unit" id="calcOutUnit">kg</span></div>
+      </div>
+      <div class="calc-bar" id="calcBar" aria-hidden="true"></div>
+      <div class="calc-attempts" id="calcAttempts"></div>
+      <div class="calc-cta">
+        <p>POWALIFTA does this automatically on every set — variant-aware, charted over time.</p>
+        <a href="#" class="btn btn-primary" onclick="openSignupModal('solo'); return false;">Start tracking free</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- INSIDE THE PLATFORM -->
 <section id="inside">
   <div class="container">
@@ -710,7 +753,7 @@ function sendWelcomeEmail(email, name, type) {
   try {
     if (!('IntersectionObserver' in window)) return;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const els = document.querySelectorAll('.section-title, .feat, .step, .price-tile, .mock-card');
+    const els = document.querySelectorAll('.section-title, .feat, .step, .price-tile, .mock-card, .calc-card');
     const io = new IntersectionObserver(entries => {
       entries.forEach(en => {
         if (en.isIntersecting) { en.target.classList.add('revealed'); io.unobserve(en.target); }
@@ -722,6 +765,142 @@ function sendWelcomeEmail(email, name, type) {
       io.observe(el);
     });
   } catch (e) { /* never block the page over decoration */ }
+})();
+
+// ===== Live e1RM calculator (landing) =====
+(function () {
+  try {
+    const $ = id => document.getElementById(id);
+    const wEl = $('calcW'), rEl = $('calcR'), rpeEl = $('calcRpe');
+    if (!wEl) return;
+    let unit = 'kg';
+    let shown = 0, animFrom = 0, animTo = 0, animStart = 0;
+
+    function e1rm(w, r, rpe) {
+      if (typeof calcE1RM === 'function') return calcE1RM(w, r, rpe);
+      const adj = (r - 1) + (10 - rpe);
+      if (adj <= 0) return w;
+      const pct = 1 - adj * 0.0333;
+      return pct < 0.4 ? w / 0.4 : w / pct;
+    }
+    const round = (x, s) => Math.round(x / s) * s;
+
+    function animate(ts) {
+      if (!animStart) animStart = ts;
+      const t = Math.min((ts - animStart) / 350, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      shown = animFrom + (animTo - animFrom) * ease;
+      $('calcOut').textContent = round(shown, 0.5).toLocaleString();
+      if (t < 1) requestAnimationFrame(animate);
+    }
+
+    // IPF kg plate colors; lb plates rendered neutral
+    const KG = { sizes: [25, 20, 15, 10, 5, 2.5, 1.25], bar: 20, collar: 2.5,
+      color: { 25: '#d92638', 20: '#1d70d8', 15: '#e8b80c', 10: '#1f9e5b', 5: '#e8e8ee', 2.5: '#2a2a31', 1.25: '#9aa0aa' },
+      h: { 25: 88, 20: 82, 15: 72, 10: 60, 5: 44, 2.5: 34, 1.25: 26 } };
+    const LB = { sizes: [45, 35, 25, 10, 5, 2.5], bar: 45, collar: 0,
+      color: { 45: '#3a3a42', 35: '#44444c', 25: '#4e4e57', 10: '#5a5a63', 5: '#68686f', 2.5: '#76767e' },
+      h: { 45: 88, 35: 78, 25: 66, 10: 50, 5: 40, 2.5: 32 } };
+
+    function plates(total, cfg) {
+      let side = (total - cfg.bar - cfg.collar * 2) / 2;
+      const out = [];
+      for (const p of cfg.sizes) { while (side >= p - 1e-9 && out.length < 10) { out.push(p); side -= p; } }
+      return out;
+    }
+
+    function renderBar(total) {
+      const cfg = unit === 'kg' ? KG : LB;
+      const ps = plates(total, cfg);
+      const W = 660, H = 120, cy = H / 2;
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">';
+      s += '<rect x="20" y="' + (cy - 3) + '" width="' + (W - 40) + '" height="6" rx="3" fill="var(--line-2)"/>';
+      s += '<rect x="150" y="' + (cy - 6) + '" width="10" height="12" rx="2" fill="var(--text-4)"/>';
+      s += '<rect x="' + (W - 160) + '" y="' + (cy - 6) + '" width="10" height="12" rx="2" fill="var(--text-4)"/>';
+      let xl = 144, xr = W - 144;
+      ps.forEach(p => {
+        const h = cfg.h[p], w = p >= 10 ? 14 : 9;
+        xl -= w + 2;
+        s += '<rect x="' + xl + '" y="' + (cy - h / 2) + '" width="' + w + '" height="' + h + '" rx="3" fill="' + cfg.color[p] + '" stroke="rgba(130,130,140,0.45)" stroke-width="0.6"/>';
+        s += '<rect x="' + (xr + 2) + '" y="' + (cy - h / 2) + '" width="' + w + '" height="' + h + '" rx="3" fill="' + cfg.color[p] + '" stroke="rgba(130,130,140,0.45)" stroke-width="0.6"/>';
+        xr += w + 2;
+      });
+      s += '</svg>';
+      $('calcBar').innerHTML = s;
+    }
+
+    function recalc() {
+      const w = parseFloat(wEl.value), r = parseInt(rEl.value, 10), rpe = parseFloat(rpeEl.value);
+      if (!w || !r || !rpe || r < 1 || rpe < 5 || rpe > 10) return;
+      const max = e1rm(w, Math.min(r, 12), rpe);
+      animFrom = shown; animTo = max; animStart = 0;
+      requestAnimationFrame(animate);
+      renderBar(max);
+      const step = unit === 'kg' ? 2.5 : 5;
+      const att = [['Opener', 0.91], ['Second', 0.96], ['Third', 1.01]];
+      $('calcAttempts').innerHTML = att.map(a =>
+        '<div class="calc-att"><span>' + a[0] + '</span><b>' + round(max * a[1], step).toLocaleString() + ' ' + unit + '</b></div>'
+      ).join('');
+    }
+
+    function setUnit(u) {
+      if (u === unit) return;
+      const w = parseFloat(wEl.value);
+      if (w) wEl.value = u === 'lb' ? Math.round(w * 2.20462) : Math.round(w / 2.20462 * 2) / 2;
+      unit = u;
+      $('calcOutUnit').textContent = u;
+      $('calcKg').classList.toggle('active', u === 'kg');
+      $('calcLb').classList.toggle('active', u === 'lb');
+      recalc();
+    }
+    $('calcKg').addEventListener('click', () => setUnit('kg'));
+    $('calcLb').addEventListener('click', () => setUnit('lb'));
+    [wEl, rEl, rpeEl].forEach(el => el.addEventListener('input', recalc));
+    recalc();
+  } catch (e) { console.warn('calc init failed', e); }
+})();
+
+// ===== Scroll progress bar =====
+(function () {
+  try {
+    const bar = document.createElement('div');
+    bar.className = 'scroll-progress';
+    document.body.appendChild(bar);
+    let ticking = false;
+    function update() {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(scrollY / max, 1) : 0) + ')';
+      ticking = false;
+    }
+    addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    update();
+  } catch (e) {}
+})();
+
+// ===== Hero parallax glow (desktop, fine pointers only) =====
+(function () {
+  try {
+    if (!matchMedia('(pointer: fine)').matches || innerWidth < 900) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+    const orb = document.createElement('div');
+    orb.className = 'hero-orb';
+    hero.insertBefore(orb, hero.firstChild);
+    let tx = 0, ty = 0, cx = 0, cy = 0, raf = null;
+    function loop() {
+      cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
+      orb.style.transform = 'translate(' + cx + 'px,' + cy + 'px)';
+      if (Math.abs(tx - cx) > 0.2 || Math.abs(ty - cy) > 0.2) raf = requestAnimationFrame(loop);
+      else raf = null;
+    }
+    hero.addEventListener('mousemove', e => {
+      const r = hero.getBoundingClientRect();
+      tx = (e.clientX - r.width / 2) * 0.05;
+      ty = (e.clientY - r.top - r.height / 2) * 0.05;
+      if (!raf) raf = requestAnimationFrame(loop);
+    }, { passive: true });
+  } catch (e) {}
 })();
 </script>
 </body>
