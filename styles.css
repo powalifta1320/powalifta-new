@@ -875,6 +875,56 @@ select {
   .calc-sym { padding-bottom: 10px; }
 }
 
+/* ============================================ SKELETON LOADERS */
+.skel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 40px 0 60px;
+}
+.skel-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.skel-line {
+  height: 13px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.4s ease infinite;
+}
+.skel-tall { height: 34px; margin-top: 8px; }
+.skel-w40 { width: 40%; }
+.skel-w60 { width: 60%; }
+.skel-w80 { width: 80%; }
+.skel-w90 { width: 90%; }
+@keyframes skelShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ============================================ SKIP LINK (a11y) */
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 12px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--grad-red);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-link:focus { top: 12px; }
+
 /* ============================================ SCROLL PROGRESS */
 .scroll-progress {
   position: fixed;

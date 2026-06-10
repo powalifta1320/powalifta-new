@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /athlete.html
+Disallow: /coach.html
+Disallow: /admin.html
+Disallow: /reset-password.html
+
+Sitemap: https://www.powalifta.com/sitemap.xml
