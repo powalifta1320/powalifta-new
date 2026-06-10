@@ -1167,8 +1167,22 @@ async function confirmPublish() {
   Object.keys(ref1RMs).forEach(k => { if (ref1RMs[k]) refClean[k] = ref1RMs[k]; });
   const reference1RMs = Object.keys(refClean).length ? refClean : null;
 
-  if (!reference1RMs) {
-    if (!confirm('You didn\'t enter any reference 1RMs. Without them, weights in your program won\'t scale to each buyer — they\'ll see your exact numbers. Submit anyway?')) {
+  // HARD GUARD: any main lift that appears in the program MUST have a
+  // reference 1RM, otherwise buyers get the coach's raw weights (unliftable
+  // or trivial). Lifts not programmed can stay blank.
+  const liftsInProgram = new Set();
+  try {
+    (_publishTarget.payload && _publishTarget.payload.weeks || []).forEach(wk =>
+      (wk.days || []).forEach(d => (d.exercises || []).forEach(ex => {
+        if (ex.lift === 'squat' || ex.lift === 'bench' || ex.lift === 'deadlift') liftsInProgram.add(ex.lift);
+      })));
+  } catch (e) { /* payload shape unexpected — fall through to soft check */ }
+  const missing = [...liftsInProgram].filter(l => !(reference1RMs && reference1RMs[l]));
+  if (missing.length) {
+    return toast('Enter your reference 1RM for: ' + missing.join(', ') + '. The program weights can\'t scale to buyers without it.', 4200);
+  }
+  if (!liftsInProgram.size && !reference1RMs) {
+    if (!confirm('No reference 1RMs entered. Accessory-only programs sell with your exact weights. Submit anyway?')) {
       return;
     }
   }
