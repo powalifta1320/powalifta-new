@@ -276,7 +276,9 @@ const DB = {
   async listCoaches() {
     const { data, error } = await sb.from('profiles').select('*').eq('user_type', 'coach');
     if (error) { console.warn('listCoaches', error); return []; }
-    return (data || []).map(mapDbProfileToCoach);
+    // Filter client-side (not .eq) so this works whether or not the
+    // directory_hidden column exists yet — rows without it are visible.
+    return (data || []).filter(r => !r.directory_hidden).map(mapDbProfileToCoach);
   },
 
   // Upload a profile picture for the current user. File lives at avatars/{user_id}/avatar.{ext}

@@ -327,7 +327,7 @@ function renderCoaches() {
   if (!coaches.length) { area.appendChild(el('p', { class: 'dim' }, 'No coaches.')); return; }
   const tblWrap = el('div', { class: 'tbl-card' });
   const tbl = el('table');
-  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Athletes</th><th>Joined</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Athletes</th><th>Joined</th><th>Directory</th></tr></thead>';
   const tbody = el('tbody');
   coaches.forEach(c => {
     const aCount = cache.profiles.filter(p => p.user_type === 'athlete' && p.coach_id === c.id).length;
@@ -361,6 +361,33 @@ function renderCoaches() {
     tr.appendChild(planCell);
     tr.appendChild(el('td', { class: 'mono' }, String(aCount)));
     tr.appendChild(el('td', { class: 'dim text-sm' }, fmtDateShort(new Date(c.created_at).toISOString().slice(0,10))));
+    // Directory visibility toggle — hides the coach from the landing-page
+    // "Browse coaches" grid without touching their account or athletes.
+    const dirCell = el('td');
+    const hidden = !!c.directory_hidden;
+    const dirBtn = el('button', {
+      class: 'btn btn-sm' + (hidden ? ' btn-danger' : ''),
+      title: hidden ? 'Hidden from the homepage coach directory — click to relist' : 'Visible on the homepage coach directory — click to hide',
+      onclick: async (e) => {
+        const btn = e.currentTarget;
+        const newHidden = !c.directory_hidden;
+        btn.disabled = true;
+        try {
+          const { error } = await sb.from('profiles')
+            .update({ directory_hidden: newHidden })
+            .in('id', [c.id]);
+          if (error) throw error;
+          c.directory_hidden = newHidden;
+          toast(c.name + (newHidden ? ' hidden from directory' : ' relisted in directory'));
+          renderCoaches();
+        } catch (err) {
+          btn.disabled = false;
+          toast('Failed: ' + (err.message || 'unknown error') + (String(err.message || '').includes('directory_hidden') ? ' — run migration-directory-hidden.sql first' : ''));
+        }
+      }
+    }, hidden ? 'Hidden' : 'Listed');
+    dirCell.appendChild(dirBtn);
+    tr.appendChild(dirCell);
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
