@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Privacy Policy — POWALIFTA</title>
+<meta name="description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
+<meta property="og:title" content="Privacy Policy — POWALIFTA">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.powalifta.com/privacy.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -24,7 +29,7 @@
 <main class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
   <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
   <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 8px;">Privacy Policy</h1>
-  <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 2 May 2026</p>
+  <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 11 June 2026</p>
 
   <div class="card" style="padding: 30px; line-height: 1.7;">
     <p>POWALIFTA ("we", "us") respects your privacy. This page explains what we collect, why, and what we do with it. We've kept it short on purpose.</p>
@@ -35,13 +40,19 @@
     <p style="margin-top:10px">We do <strong>not</strong> collect: ID documents, payment card details (handled by our payment processor — Lemon Squeezy), location data, or biometric data.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Where it lives</h3>
-    <p>In the current prototype, your data is stored locally in your browser using the <code style="background:var(--bg-2); padding:2px 6px; border-radius:4px; font-family:'Space Grotesk',monospace;">localStorage</code> API. It does not leave your device. When we migrate to a hosted backend (planned), your data will move to an encrypted-at-rest Postgres database hosted in the EU.</p>
+    <p>Your account and training data are stored in a managed Postgres database operated by Supabase. Data is encrypted in transit (TLS) and at rest. We use Supabase's authentication service to manage logins; passwords are hashed and we never see or store the plaintext. Your browser also keeps a small amount of non-sensitive state (theme preference, session tokens) in <code style="background:var(--bg-2); padding:2px 6px; border-radius:4px; font-family:'Space Grotesk',monospace;">localStorage</code>.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Sub-processors</h3>
+    <p>We use a small number of service providers to run POWALIFTA: <strong>Supabase</strong> (database, authentication, file storage), <strong>Vercel</strong> (website hosting and CDN), <strong>Lemon Squeezy</strong> (payments — they act as merchant of record and handle all card details), <strong>Resend</strong> (transactional email, e.g. welcome emails), and <strong>Google Fonts</strong> (font delivery). Each only receives the data needed to do its job.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">How long we keep data</h3>
+    <p>While your account is active, we keep your data so you can see your training history. When you delete your account, we delete your personal data within 30 days, except where billing records must be retained for tax purposes (these are kept by our payment processor).</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Who we share it with</h3>
     <p>Nobody, except: coaches you have connected to (they see your training data and notes — that's the point), our payment processor for billing-related lookups (coaches only), and any authorities if compelled by law. We do not sell user data to advertisers, brokers, or any third party.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Cookies and analytics</h3>
-    <p>We do not use third-party analytics, advertising trackers, or fingerprinting. We may use a single first-party cookie to keep you logged in.</p>
+    <p>We do not use third-party analytics, advertising trackers, or fingerprinting. We keep you logged in using a session token stored in your browser's localStorage.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Your rights</h3>
     <p>You can access, export, or delete your data at any time. Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a> and we'll handle it within 30 days. If you're in the EU, UK, or California, you have specific rights under GDPR/UK-GDPR/CCPA — same email, same response time.</p>

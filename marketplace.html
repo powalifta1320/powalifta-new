@@ -6,9 +6,17 @@
 <title>Program marketplace — POWALIFTA</title>
 <meta name="theme-color" content="#0b0b0c">
 <meta name="description" content="Buy powerlifting programs from real coaches. RPE-based, comp-equivalent e1RM, instant delivery to your POWALIFTA account.">
-<meta property="og:title" content="Program marketplace — POWALIFTA">
-<meta property="og:description" content="Buy powerlifting programs from real coaches. Top-set + back-down patterns, weekly structure, instant delivery to your dashboard.">
+<meta property="og:title" content="POWALIFTA Marketplace — Programs from real coaches">
+<meta property="og:description" content="Buy powerlifting programs from real coaches. RPE-based, comp-equivalent e1RM, instant delivery to your POWALIFTA account.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://www.powalifta.com/marketplace.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POWALIFTA Marketplace — Programs from real coaches">
+<meta name="twitter:description" content="Buy RPE-based powerlifting programs. Comp-equivalent e1RM. Instant delivery.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -234,9 +242,9 @@ async function renderBrowse() {
   const filters = el('div', { class: 'mk-filters' });
   const tiers = [
     { key: '',        label: 'All' },
-    { key: 'short',   label: '$19 · Short' },
-    { key: 'block',   label: '$39 · Block' },
-    { key: 'premium', label: '$79 · Premium' }
+    { key: 'short',   label: 'Short cycle' },
+    { key: 'block',   label: 'Full block' },
+    { key: 'premium', label: 'Premium' }
   ];
   tiers.forEach((t, i) => {
     const btn = el('button', { class: 'mk-tier-btn' + (i === 0 ? ' active' : ''), 'data-tier': t.key }, t.label);
@@ -286,7 +294,7 @@ async function loadAndRenderGrid(tier, search) {
     grid.innerHTML = '';
     const empty = el('div', { class: 'mk-empty' });
     empty.appendChild(el('h3', {}, 'No programs match yet'));
-    empty.appendChild(el('p', {}, 'Try a different tier or come back soon — coaches are publishing new programs every week.'));
+    empty.appendChild(el('p', {}, 'Try a different category or come back soon — coaches are publishing new programs every week.'));
     grid.appendChild(empty);
     return;
   }
