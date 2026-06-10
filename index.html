@@ -684,6 +684,26 @@ function sendWelcomeEmail(email, name, type) {
     }).catch(err => console.warn('welcome email failed', err));
   } catch (e) { console.warn('welcome email setup failed', e); }
 }
+
+// Scroll-reveal: progressive enhancement. If JS fails or IO is unsupported,
+// nothing gets hidden — elements only get the hidden state right before observing.
+(function () {
+  try {
+    if (!('IntersectionObserver' in window)) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const els = document.querySelectorAll('.section-title, .feat, .step, .price-tile, .mock-card');
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (en.isIntersecting) { en.target.classList.add('revealed'); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    els.forEach((el, i) => {
+      el.classList.add('pre-reveal');
+      el.style.transitionDelay = Math.min((i % 6) * 60, 300) + 'ms';
+      io.observe(el);
+    });
+  } catch (e) { /* never block the page over decoration */ }
+})();
 </script>
 </body>
 </html>
