@@ -367,6 +367,38 @@ function renderRoster() {
     e.appendChild(el('p', {}, 'Generate an invite code and send it to your first athlete.'));
     area.appendChild(e);
   } else {
+    // ===== NOTES INBOX — recent athlete session notes across the whole roster.
+    // "Needs reply" = no coach comment yet. One glance instead of clicking
+    // into every athlete's progress tab.
+    const notes = (Store.get().sessionNotes || [])
+      .filter(n => n.note && n.note.trim())
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+      .slice(0, 8);
+    if (notes.length) {
+      const inbox = el('div', { class: 'card', style: 'margin-bottom: 20px; padding: 18px 20px;' });
+      const ihead = el('div', { class: 'flex', style: 'justify-content: space-between; align-items: center; margin-bottom: 12px;' });
+      const unreplied = notes.filter(n => !n.coachComment).length;
+      ihead.appendChild(el('h3', { style: 'margin: 0; font-size: 1.15rem;' }, 'Athlete notes'));
+      if (unreplied) ihead.appendChild(el('span', { class: 'badge', style: 'background: rgba(255,45,63,0.12); color: var(--red); border: 1px solid rgba(255,45,63,0.3);' }, unreplied + ' need' + (unreplied === 1 ? 's' : '') + ' a reply'));
+      inbox.appendChild(ihead);
+      notes.forEach(n => {
+        const ath = Store.get().athletes.find(a => a.id === n.athleteId);
+        const rowEl = el('div', {
+          class: 'note-inbox-row',
+          style: 'display: flex; gap: 10px; align-items: baseline; padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; transition: background 0.13s;',
+          onclick: () => openAthleteNotes(n.athleteId),
+          onmouseenter: ev => ev.currentTarget.style.background = 'var(--bg-2)',
+          onmouseleave: ev => ev.currentTarget.style.background = 'transparent'
+        });
+        rowEl.appendChild(el('strong', { style: 'white-space: nowrap; font-size: 0.88rem;' }, ath ? ath.name.split(' ')[0] : '—'));
+        rowEl.appendChild(el('span', { class: 'dim text-sm', style: 'white-space: nowrap;' }, fmtDateShort(n.date)));
+        rowEl.appendChild(el('span', { class: 'text-sm', style: 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: var(--text-2);' }, '“' + n.note.slice(0, 90) + (n.note.length > 90 ? '…' : '') + '”'));
+        if (!n.coachComment) rowEl.appendChild(el('span', { style: 'width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; align-self: center;', title: 'No reply yet' }));
+        inbox.appendChild(rowEl);
+      });
+      area.appendChild(inbox);
+    }
+
     const grid = el('div', { class: 'roster-grid' });
     overview.forEach(o => {
       const card = el('div', { class: 'roster-card flag-' + o.flag, onclick: () => openAthleteProgram(o.athlete.id) });
@@ -432,6 +464,15 @@ function renderRoster() {
 function openAthleteProgram(athleteId) {
   document.querySelector('[data-tab="program"]').click();
   setTimeout(() => { document.getElementById('progAthlete').value = athleteId; loadProgram(); }, 50);
+}
+
+// Jump from the notes inbox to that athlete's progress view (where notes + replies live)
+function openAthleteNotes(athleteId) {
+  document.querySelector('[data-tab="progress"]').click();
+  setTimeout(() => {
+    const sel = document.getElementById('progressAthlete');
+    if (sel) { sel.value = athleteId; renderProgressForAthlete(); }
+  }, 80);
 }
 
 // ===== INVITE =====

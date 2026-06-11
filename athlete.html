@@ -1629,12 +1629,64 @@ function renderProgress() {
   series.forEach(s => { s.data = s.data.map(d => ({ x: d.x, y: kgToDisplay(d.y, 1) })); });
   drawLineChart(wrap, { series, unit: unitLabel(), height: 320, area: false });
 
+  // ===== REP PRs — best weight at each rep count per main lift =====
+  if (logs.length) {
+    const repPRCard = el('div', { class: 'chart-card' });
+    repPRCard.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Rep PRs'), el('span', { class: 'dim text-sm' }, 'Best weight × reps, competition variants')));
+    const prWrap = el('div', { class: 'tbl-card' });
+    const prTbl = el('table');
+    prTbl.innerHTML = '<thead><tr><th>Reps</th><th>Squat</th><th>Bench</th><th>Deadlift</th></tr></thead>';
+    const prBody = el('tbody');
+    let anyPR = false;
+    for (let reps = 1; reps <= 8; reps++) {
+      const cells = ['squat', 'bench', 'deadlift'].map(lift => {
+        const best = logs
+          .filter(l => l.lift === lift && l.reps === reps && (!l.variant || l.variant === 'Competition'))
+          .reduce((m, l) => Math.max(m, l.weight), 0);
+        return best > 0 ? Math.round(kgToDisplay(best) * 2) / 2 + ' ' + unitLabel() : '—';
+      });
+      if (cells.some(c => c !== '—')) {
+        anyPR = true;
+        const tr = el('tr');
+        tr.innerHTML = '<td class="mono fw-700">' + reps + '</td>' + cells.map(c => '<td class="mono' + (c === '—' ? ' dim' : '') + '">' + c + '</td>').join('');
+        prBody.appendChild(tr);
+      }
+    }
+    if (anyPR) {
+      prTbl.appendChild(prBody);
+      prWrap.appendChild(prTbl);
+      repPRCard.appendChild(prWrap);
+
+      // Weekly tonnage: this week vs last week (all lifts, weight × reps)
+      const now = new Date();
+      const day = (now.getDay() + 6) % 7; // Monday = 0
+      const mondayThis = new Date(now); mondayThis.setDate(now.getDate() - day); mondayThis.setHours(0,0,0,0);
+      const mondayLast = new Date(mondayThis); mondayLast.setDate(mondayThis.getDate() - 7);
+      const iso = d => d.toISOString().slice(0, 10);
+      const tonnage = (from, to) => logs
+        .filter(l => l.date >= iso(from) && l.date < iso(to))
+        .reduce((sum, l) => sum + (l.weight * l.reps), 0);
+      const tThis = tonnage(mondayThis, new Date(mondayThis.getTime() + 7 * 864e5));
+      const tLast = tonnage(mondayLast, mondayThis);
+      if (tThis > 0 || tLast > 0) {
+        const delta = tLast > 0 ? Math.round((tThis - tLast) / tLast * 100) : null;
+        const tLine = el('div', { class: 'dim text-sm', style: 'margin-top: 12px;' },
+          'Tonnage this week: ', el('strong', { class: 'mono', style: 'color: var(--text);' }, Math.round(kgToDisplay(tThis)).toLocaleString() + ' ' + unitLabel()),
+          ' · last week: ', el('span', { class: 'mono' }, Math.round(kgToDisplay(tLast)).toLocaleString() + ' ' + unitLabel()),
+          delta === null ? '' : el('span', { style: 'margin-left: 8px; font-weight: 700; color: ' + (delta >= 0 ? 'var(--green)' : 'var(--red)') + ';' }, (delta >= 0 ? '▲ +' : '▼ ') + delta + '%')
+        );
+        repPRCard.appendChild(tLine);
+      }
+      area.appendChild(repPRCard);
+    }
+  }
+
   if (logs.length) {
     const tableCard = el('div', { class: 'chart-card' });
     tableCard.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Recent sets')));
     const tblWrap = el('div', { class: 'tbl-card' });
     const tbl = el('table');
-    tbl.innerHTML = '<thead><tr><th>Date</th><th>Lift</th><th>Variant / Name</th><th>Weight × Reps</th><th>RPE</th><th>e1RM (raw)</th><th>e1RM (comp)</th></tr></thead>';
+    tbl.innerHTML = '<thead><tr><th>Date</th><th>Lift</th><th>Variant / Name</th><th>Weight × Reps</th><th>RPE</th><th>e1RM (raw)</th><th>e1RM (comp)</th><th></th></tr></thead>';
     const tbody = el('tbody');
     [...logs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12).forEach(l => {
       const tr = el('tr');
@@ -1646,6 +1698,10 @@ function renderProgress() {
                      '<td class="mono">' + l.rpe + '</td>' +
                      '<td class="mono dim">' + Math.round(l.e1rm) + '</td>' +
                      '<td class="mono fw-700">' + Math.round(l.e1rmComp) + '</td>';
+      const editTd = el('td');
+      const editBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Fix a typo in this set', onclick: () => openEditLogModal(l.id) }, 'Edit');
+      editTd.appendChild(editBtn);
+      tr.appendChild(editTd);
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
@@ -1653,6 +1709,69 @@ function renderProgress() {
     tableCard.appendChild(tblWrap);
     area.appendChild(tableCard);
   }
+}
+
+// ===== EDIT LOGGED SET (fix typos without losing history) =====
+let _editLogId = null;
+function ensureEditLogModal() {
+  if (document.getElementById('editLogModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="modal-backdrop" id="editLogModal">' +
+    '<div class="modal">' +
+      '<button class="modal-close" onclick="closeModal(\'editLogModal\')">&times;</button>' +
+      '<h3>Edit set</h3>' +
+      '<p class="dim text-sm mb-16">Fix a mis-typed weight, reps, or RPE. Your e1RM recalculates automatically.</p>' +
+      '<div class="flex gap-8">' +
+        '<div class="form-group" style="flex:1"><label>Weight</label><input type="number" id="elWeight" step="0.5" min="0"></div>' +
+        '<div class="form-group" style="flex:1"><label>Reps</label><input type="number" id="elReps" step="1" min="1"></div>' +
+        '<div class="form-group" style="flex:1"><label>RPE</label><input type="number" id="elRpe" step="0.5" min="1" max="10"></div>' +
+      '</div>' +
+      '<div class="flex gap-8 mt-16">' +
+        '<button class="btn btn-block" onclick="closeModal(\'editLogModal\')">Cancel</button>' +
+        '<button class="btn btn-primary btn-block" onclick="saveEditedLog()">Save</button>' +
+      '</div>' +
+    '</div></div>';
+  document.body.appendChild(wrap.firstChild);
+}
+function openEditLogModal(logId) {
+  ensureEditLogModal();
+  const l = Store.get().workoutLogs.find(x => x.id === logId);
+  if (!l) return;
+  _editLogId = logId;
+  document.getElementById('elWeight').value = l.weight;
+  document.getElementById('elReps').value = l.reps;
+  document.getElementById('elRpe').value = l.rpe;
+  openModal('editLogModal');
+}
+async function saveEditedLog() {
+  const l = Store.get().workoutLogs.find(x => x.id === _editLogId);
+  if (!l) { closeModal('editLogModal'); return; }
+  const weight = parseFloat(document.getElementById('elWeight').value);
+  const reps = parseInt(document.getElementById('elReps').value, 10);
+  const rpe = parseFloat(document.getElementById('elRpe').value);
+  if (!isFinite(weight) || weight < 0) return toast('Enter a valid weight');
+  if (!isFinite(reps) || reps < 1) return toast('Enter valid reps');
+  if (!isFinite(rpe) || rpe < 1 || rpe > 10) return toast('RPE must be 1–10');
+
+  const e1rm = calcE1RM(weight, reps, rpe);
+  const e1rmComp = MAIN_LIFTS.includes(l.lift) ? calcCompE1RM(weight, reps, rpe, l.lift, l.variant) : e1rm;
+  let updated = null;
+  Store.update(s => {
+    const log = s.workoutLogs.find(x => x.id === _editLogId);
+    if (!log) return;
+    log.weight = weight; log.reps = reps; log.rpe = rpe;
+    log.e1rm = e1rm; log.e1rmComp = e1rmComp;
+    updated = log;
+  });
+  closeModal('editLogModal');
+  if (updated) {
+    // Replace server row: delete old, re-insert with same id.
+    // If offline, the insert lands in the offline queue and syncs later.
+    try { await DB.deleteLog(updated.id); } catch (e) { console.warn('edit: delete old log', e); }
+    persistAddLog(updated);
+  }
+  toast('Set updated');
+  renderProgress();
 }
 
 // ===== FULL PROGRAM =====

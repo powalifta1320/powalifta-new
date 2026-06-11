@@ -631,8 +631,63 @@ function persistProgram(programId) {
   }, 350);
 }
 
-async function persistAddLog(log)         { try { await DB.addLog(log); } catch (e) { console.error('addLog', e); toast('Could not save log'); } }
-async function persistDeleteLog(id)       { try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); } }
+// =========================================================
+// OFFLINE-SAFE LOGGING
+// If a set fails to save (gym wifi died), it's queued in
+// localStorage and retried on reconnect / next page load.
+// Sets are never silently lost.
+// =========================================================
+const _PENDING_LOGS_KEY = 'powa-pending-logs';
+function _readPendingLogs() {
+  try { return JSON.parse(localStorage.getItem(_PENDING_LOGS_KEY) || '[]'); } catch (e) { return []; }
+}
+function _writePendingLogs(q) {
+  try { localStorage.setItem(_PENDING_LOGS_KEY, JSON.stringify(q)); } catch (e) { /* storage full — nothing we can do */ }
+}
+function _queuePendingLog(log) {
+  const q = _readPendingLogs();
+  if (!q.some(l => l.id === log.id)) q.push(log);
+  _writePendingLogs(q);
+}
+let _flushingLogs = false;
+async function flushPendingLogs() {
+  if (_flushingLogs) return;
+  const q = _readPendingLogs();
+  if (!q.length) return;
+  _flushingLogs = true;
+  const failed = [];
+  let synced = 0;
+  for (const log of q) {
+    try { await DB.addLog(log); synced++; }
+    catch (e) {
+      const msg = String((e && e.message) || '');
+      // Duplicate key = it actually saved on a previous attempt → safe to drop.
+      if (/duplicate|unique|23505/i.test(msg)) { synced++; }
+      else failed.push(log);
+    }
+  }
+  _writePendingLogs(failed);
+  _flushingLogs = false;
+  if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
+}
+window.addEventListener('online', () => { setTimeout(flushPendingLogs, 800); });
+window.addEventListener('load', () => { setTimeout(flushPendingLogs, 3500); });
+
+async function persistAddLog(log) {
+  try { await DB.addLog(log); }
+  catch (e) {
+    console.error('addLog', e);
+    _queuePendingLog(log);
+    toast('No connection — set saved on this device, will sync automatically');
+  }
+}
+async function persistDeleteLog(id) {
+  // If the set is still waiting in the offline queue, deleting it just means
+  // removing it from the queue (it never reached the server).
+  const q = _readPendingLogs();
+  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); return; }
+  try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); }
+}
 async function persistAddInvite(inv)      { try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
 async function persistDeleteInvite(code)  { try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
 async function persistAddNote(n)          { try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
