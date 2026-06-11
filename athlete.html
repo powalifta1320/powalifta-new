@@ -606,6 +606,22 @@ function autoSelectDayForDate(date) {
 
 // Pin the currently-selected day to the currently-selected date. Clears any
 // conflicting pin (one day per date, one pin per day).
+// Next session worth doing: first day (in program order) with unfinished sets
+// that isn't already scheduled on some other date.
+function findNextIncompleteDay(forDate) {
+  const prog = getProgram();
+  if (!prog) return null;
+  for (const wk of (prog.weeks || [])) {
+    for (const day of (wk.days || [])) {
+      const sets = (day.exercises || []).flatMap(e => e.sets || []);
+      if (!sets.length) continue; // rest / empty days
+      if (day.scheduledDate && day.scheduledDate !== forDate) continue; // planned for another date
+      if (sets.some(s => !s.completed)) return { wk, day };
+    }
+  }
+  return null;
+}
+
 function pinDayToDate() {
   const sel = document.getElementById('daySelect');
   const date = getSessionDate();
@@ -885,7 +901,9 @@ function formatSetsSummary(sets, isCardio) {
       const repsPart = g.reps > 0 ? ' × ' + g.reps + 'km' : '';
       return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + rpePart;
     }
-    return (g.count > 1 ? g.count + ' × ' : '') + kgToDisplay(g.weight) + unitLabel() + ' × ' + g.reps + rpePart;
+    // Unfilled weights (fresh marketplace programs) read as "4 × 5 reps" instead of "0kg × 5"
+    const wPart = g.weight > 0 ? kgToDisplay(g.weight) + unitLabel() + ' × ' + g.reps : g.reps + ' reps';
+    return (g.count > 1 ? g.count + ' × ' : '') + wPart + rpePart;
   }).join('   ·   ');
 }
 
@@ -952,12 +970,23 @@ function renderToday() {
     const e = el('div', { class: 'empty' });
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.today;
     e.appendChild(ic);
-    e.appendChild(el('h3', {}, 'No training assigned for ' + fmtDate(date)));
-    e.appendChild(el('p', {}, 'This date isn\'t bound to any day in your program yet. To assign a day, pick one from the dropdown above and click 📌 Pin day → date. Or click Mark as rest day to count it as recovery.'));
-    // Quick action: pin the current dropdown selection to this date
-    const pinNow = el('button', { class: 'btn btn-primary mt-16' }, '📌 Pin ' + cur.day.name + ' to ' + fmtDate(date));
-    pinNow.addEventListener('click', pinDayToDate);
-    e.appendChild(pinNow);
+    e.appendChild(el('h3', {}, 'Nothing planned for ' + fmtDate(date)));
+    // One-tap flow: offer the next unfinished session instead of making the
+    // athlete decode the dropdown + pin mechanics.
+    const next = findNextIncompleteDay(date);
+    if (next) {
+      e.appendChild(el('p', {}, 'Training today? One tap puts your next session on this date.'));
+      const startBtn = el('button', { class: 'btn btn-primary btn-lg mt-16' }, '▶ Start ' + next.day.name + ' · Week ' + next.wk.number);
+      startBtn.addEventListener('click', () => {
+        const sel = document.getElementById('daySelect');
+        if (sel) sel.value = _dayKey(next.wk, next.day);
+        pinDayToDate();
+      });
+      e.appendChild(startBtn);
+      e.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 18px' }, 'Different session? Pick it from the dropdown above and pin it. Resting? "Mark as rest day" keeps your streak alive.'));
+    } else {
+      e.appendChild(el('p', {}, 'Every session in your program is complete. Pick any day from the dropdown to repeat it, or mark this date as a rest day.'));
+    }
     area.appendChild(e);
     return;
   }
@@ -2745,7 +2774,8 @@ function renderFullProgram() {
           ex.sets.forEach((set, si) => {
             const done = set.completed ? ' ✓ (felt RPE ' + set.actualRpe + ')' : '';
             const rpePart = set.rpe == null ? '' : ' @ RPE ' + set.rpe;
-            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps + rpePart + done));
+            const wTxt = set.weight > 0 ? kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps : set.reps + ' reps (enter weight in Today view)';
+            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + wTxt + rpePart + done));
           });
           body.appendChild(row);
         });

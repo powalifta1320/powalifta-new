@@ -2995,15 +2995,16 @@ footer .footer-base {
 }
 .compact-set {
   display: grid;
-  grid-template-columns: 28px 1fr 84px 22px;
-  gap: 14px;
+  grid-template-columns: 32px 1fr 96px 34px;
+  gap: 12px;
   align-items: center;
-  padding: 9px 14px;
+  padding: 11px 14px;
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  border-radius: var(--r);
   transition: background 0.15s, border-color 0.15s;
 }
+.compact-set:not(.done):hover { border-color: var(--line-2); }
 .compact-set .cs-targets {
   display: flex;
   align-items: center;
@@ -3015,7 +3016,7 @@ footer .footer-base {
   border-color: rgba(78, 216, 132, 0.3);
 }
 .compact-set .cs-num {
-  width: 24px; height: 24px;
+  width: 28px; height: 28px;
   border-radius: 50%;
   background: var(--bg);
   border: 1px solid var(--line);
@@ -3112,12 +3113,14 @@ footer .footer-base {
   text-align: center;
 }
 .compact-set .cs-check {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   cursor: pointer;
   accent-color: var(--green);
   justify-self: end;
+  border-radius: 6px;
 }
+.compact-set .cs-check:hover { box-shadow: 0 0 0 4px rgba(78,216,132,0.15); }
 
 .ex-note {
   width: 100%;
