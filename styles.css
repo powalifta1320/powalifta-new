@@ -2633,7 +2633,7 @@ footer .footer-base {
 /* ============================================ LIFETIME PR TABLE */
 .pr-table-row {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto auto auto;
   gap: 12px;
   align-items: center;
   padding: 12px 14px;

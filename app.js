@@ -699,6 +699,132 @@ async function persistAddTemplate(t)      { try { await DB.addTemplate(t); } cat
 async function persistDeleteTemplate(id)  { try { await DB.deleteTemplate(id); } catch (e) { console.error('template del', e); } }
 
 // =========================================================
+// SHARE CARDS — branded 1080×1350 canvas images for IG/stories.
+// One engine, many cards: PR cards, meet-day plans, weekly recaps.
+// =========================================================
+async function generateShareCard(opts) {
+  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer }
+  try {
+    await Promise.all([
+      document.fonts.load('400 100px Anton'),
+      document.fonts.load('700 40px "Plus Jakarta Sans"'),
+      document.fonts.load('400 40px "Plus Jakarta Sans"')
+    ]);
+  } catch (e) { /* fonts may already be loaded — canvas falls back gracefully */ }
+
+  const W = 1080, H = 1350;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+
+  // Background
+  x.fillStyle = '#0b0b0c';
+  x.fillRect(0, 0, W, H);
+  // Faint grid
+  x.strokeStyle = 'rgba(255,255,255,0.035)';
+  x.lineWidth = 1;
+  for (let i = 0; i <= W; i += 90) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
+  for (let i = 0; i <= H; i += 90) { x.beginPath(); x.moveTo(0, i); x.lineTo(W, i); x.stroke(); }
+  // Red glow top + bottom
+  let g = x.createRadialGradient(W / 2, -100, 0, W / 2, -100, 1000);
+  g.addColorStop(0, 'rgba(255,45,63,0.30)'); g.addColorStop(1, 'rgba(255,45,63,0)');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  g = x.createRadialGradient(W / 2, H + 150, 0, W / 2, H + 150, 800);
+  g.addColorStop(0, 'rgba(255,45,63,0.18)'); g.addColorStop(1, 'rgba(255,45,63,0)');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+
+  // Wordmark — POWA white, LIFTA red
+  x.textBaseline = 'alphabetic';
+  x.font = '400 72px Anton, Impact, sans-serif';
+  const wPowa = x.measureText('POWA').width;
+  const wLifta = x.measureText('LIFTA').width;
+  let sx = (W - wPowa - wLifta) / 2;
+  x.textAlign = 'left';
+  x.fillStyle = '#f4f4f6'; x.fillText('POWA', sx, 150);
+  x.fillStyle = '#ff2d3f'; x.fillText('LIFTA', sx + wPowa, 150);
+
+  // Tag pill
+  x.textAlign = 'center';
+  x.font = '700 34px "Plus Jakarta Sans", sans-serif';
+  const tagW = x.measureText(opts.tag).width + 80;
+  x.fillStyle = 'rgba(255,45,63,0.12)';
+  x.strokeStyle = 'rgba(255,45,63,0.45)';
+  x.lineWidth = 2;
+  if (x.roundRect) {
+    x.beginPath(); x.roundRect((W - tagW) / 2, 250, tagW, 72, 36); x.fill(); x.stroke();
+  } else {
+    x.fillRect((W - tagW) / 2, 250, tagW, 72); x.strokeRect((W - tagW) / 2, 250, tagW, 72);
+  }
+  x.fillStyle = '#ff2d3f';
+  x.fillText(opts.tag, W / 2, 298);
+
+  // Big number with gradient
+  const bigGrad = x.createLinearGradient(0, 480, 0, 760);
+  bigGrad.addColorStop(0, '#ff2d3f'); bigGrad.addColorStop(1, '#b71629');
+  x.fillStyle = bigGrad;
+  x.font = '400 260px Anton, Impact, sans-serif';
+  const bigW = x.measureText(opts.big).width;
+  x.fillText(opts.big, W / 2 - (opts.bigUnit ? 50 : 0), 700);
+  if (opts.bigUnit) {
+    x.fillStyle = '#82828c';
+    x.font = '400 80px Anton, Impact, sans-serif';
+    x.textAlign = 'left';
+    x.fillText(opts.bigUnit, W / 2 - (opts.bigUnit ? 50 : 0) + bigW / 2 + 24, 700);
+    x.textAlign = 'center';
+  }
+
+  // Sub line
+  x.fillStyle = '#f4f4f6';
+  x.font = '400 52px Anton, Impact, sans-serif';
+  x.fillText(opts.sub.toUpperCase(), W / 2, 810);
+
+  // Detail lines (left/right pairs)
+  let y = 930;
+  (opts.lines || []).forEach(ln => {
+    x.strokeStyle = 'rgba(255,255,255,0.10)';
+    x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
+    x.textAlign = 'left';
+    x.font = '700 34px "Plus Jakarta Sans", sans-serif';
+    x.fillStyle = '#82828c';
+    x.fillText(ln.l.toUpperCase(), 140, y);
+    x.textAlign = 'right';
+    x.font = '700 38px "Plus Jakarta Sans", sans-serif';
+    x.fillStyle = '#f4f4f6';
+    x.fillText(ln.r, W - 140, y);
+    x.textAlign = 'center';
+    y += 92;
+  });
+
+  // Footer
+  x.font = '700 36px "Plus Jakarta Sans", sans-serif';
+  x.fillStyle = '#56565e';
+  x.fillText(opts.footer || 'powalifta.com', W / 2, H - 70);
+
+  return c;
+}
+
+async function shareCardFromCanvas(canvas, filename, shareText) {
+  return new Promise(resolve => {
+    canvas.toBlob(async blob => {
+      if (!blob) { toast('Could not create image'); return resolve(false); }
+      const file = new File([blob], filename, { type: 'image/png' });
+      // Native share sheet where supported (iOS/Android) — download elsewhere
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], text: shareText || '' }); return resolve(true); }
+        catch (e) { /* user cancelled — fall through to download */ }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('Card saved — post it');
+      resolve(true);
+    }, 'image/png');
+  });
+}
+
+// =========================================================
 // SETTINGS MODAL
 // Injected on demand into the body. Updates name, password, deletes account.
 // =========================================================

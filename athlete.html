@@ -1354,10 +1354,154 @@ function showPRToast(lift, e1rmComp) {
   card.appendChild(el('div', { class: 'pr-tag' }, '🏆 NEW PR'));
   card.appendChild(el('div', { class: 'pr-num', html: Math.round(kgToDisplay(e1rmComp)) + '<span class="unit">' + unitLabel() + '</span>' }));
   card.appendChild(el('div', { class: 'pr-sub' }, LIFT_LABELS[lift] + ' e1RM (competition equivalent)'));
+  const share = el('button', { class: 'btn btn-primary btn-sm', style: 'margin-top: 14px;', onclick: (e) => { e.stopPropagation(); overlay.remove(); sharePRCard(lift); } }, 'Make it a card');
+  card.appendChild(share);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
-  setTimeout(() => overlay.remove(), 2400);
+  setTimeout(() => overlay.remove(), 5200);
 }
+
+// ===== MEET-DAY PLANNER — attempts from current e1RMs =====
+const MEET_STRATEGIES = {
+  conservative: { label: 'Conservative', pcts: [0.89, 0.945, 0.985] },
+  standard:     { label: 'Standard',     pcts: [0.91, 0.96, 1.005] },
+  aggressive:   { label: 'Aggressive',   pcts: [0.93, 0.975, 1.025] }
+};
+function ensureMeetModal() {
+  if (document.getElementById('meetModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="modal-backdrop" id="meetModal">' +
+    '<div class="modal modal-lg">' +
+      '<button class="modal-close" onclick="closeModal(\'meetModal\')">&times;</button>' +
+      '<h3>Meet-day plan</h3>' +
+      '<p class="dim text-sm mb-16">Attempts built from your current competition-equivalent e1RMs. Openers you can triple, thirds that build a PR total.</p>' +
+      '<div class="form-group"><label>Strategy</label><select id="meetStrategy" onchange="renderMeetPlan()">' +
+        '<option value="conservative">Conservative — first meet, secure 9/9</option>' +
+        '<option value="standard" selected>Standard — solid meet, small PRs</option>' +
+        '<option value="aggressive">Aggressive — peak meet, chase the total</option>' +
+      '</select></div>' +
+      '<div id="meetPlanArea"></div>' +
+      '<button class="btn btn-primary btn-block mt-16" onclick="shareMeetCard()">Make it a card</button>' +
+    '</div></div>';
+  document.body.appendChild(wrap.firstChild);
+}
+function roundToPlate(kg) { return Math.round(kg / 2.5) * 2.5; }
+function getMeetPlan() {
+  const strat = MEET_STRATEGIES[document.getElementById('meetStrategy')?.value || 'standard'];
+  const plan = { lifts: {}, total: 0, label: strat.label };
+  ['squat', 'bench', 'deadlift'].forEach(lift => {
+    const e1 = bestE1RM(user.id, lift);
+    if (!e1) return;
+    const attempts = strat.pcts.map(p => roundToPlate(e1 * p));
+    plan.lifts[lift] = { e1, attempts };
+    plan.total += attempts[2];
+  });
+  return plan;
+}
+function renderMeetPlan() {
+  const area = document.getElementById('meetPlanArea');
+  if (!area) return;
+  area.innerHTML = '';
+  const plan = getMeetPlan();
+  if (!Object.keys(plan.lifts).length) {
+    area.appendChild(el('p', { class: 'dim' }, 'Log some sets first — your e1RMs drive the plan.'));
+    return;
+  }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Lift</th><th>e1RM</th><th>Opener</th><th>Second</th><th>Third</th></tr></thead>';
+  const tbody = el('tbody');
+  Object.keys(plan.lifts).forEach(lift => {
+    const p = plan.lifts[lift];
+    const tr = el('tr');
+    tr.innerHTML = '<td><span class="badge">' + LIFT_LABELS[lift] + '</span></td>' +
+      '<td class="mono dim">' + Math.round(kgToDisplay(p.e1)) + '</td>' +
+      p.attempts.map((a, i) => '<td class="mono' + (i === 2 ? ' fw-700' : '') + '">' + kgToDisplay(a) + ' ' + unitLabel() + '</td>').join('');
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+  const bw = latestBodyweight(user.id);
+  let totalLine = 'Projected total (all thirds): ' + kgToDisplay(plan.total) + ' ' + unitLabel();
+  area.appendChild(el('p', { class: 'mt-16', style: 'font-weight: 700;' }, totalLine));
+  if (bw) area.appendChild(el('p', { class: 'dim text-sm' }, 'At ' + kgToDisplay(bw) + ' ' + unitLabel() + ' bodyweight — check your DOTS with the calculator on the home page.'));
+}
+function openMeetModal() {
+  ensureMeetModal();
+  renderMeetPlan();
+  openModal('meetModal');
+}
+window.openMeetModal = openMeetModal;
+window.renderMeetPlan = renderMeetPlan;
+async function shareMeetCard() {
+  const plan = getMeetPlan();
+  if (!Object.keys(plan.lifts).length) return toast('Log some sets first');
+  const lines = Object.keys(plan.lifts).map(lift => ({
+    l: LIFT_LABELS[lift],
+    r: plan.lifts[lift].attempts.map(a => kgToDisplay(a)).join(' / ') + ' ' + unitLabel()
+  }));
+  lines.push({ l: 'Strategy', r: plan.label });
+  const canvas = await generateShareCard({
+    tag: 'MEET-DAY PLAN',
+    big: String(Math.round(kgToDisplay(plan.total))),
+    bigUnit: unitLabel().toUpperCase(),
+    sub: 'Projected total',
+    lines: lines
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-meet-plan.png', 'My meet-day plan — built on powalifta.com');
+}
+window.shareMeetCard = shareMeetCard;
+
+// ===== WEEK IN IRON — weekly recap share card =====
+async function shareWeekCard() {
+  const logs = Store.get().workoutLogs.filter(l => l.athleteId === user.id && l.lift !== 'cardio');
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7;
+  const monday = new Date(now); monday.setDate(now.getDate() - day); monday.setHours(0, 0, 0, 0);
+  const iso = monday.toISOString().slice(0, 10);
+  const weekLogs = logs.filter(l => l.date >= iso);
+  if (!weekLogs.length) return toast('No sets logged this week yet — go train');
+  const sessions = new Set(weekLogs.map(l => l.date)).size;
+  const tonnage = weekLogs.reduce((s, l) => s + l.weight * l.reps, 0);
+  const top = weekLogs.reduce((m, l) => l.e1rmComp > m.e1rmComp ? l : m);
+  const prs = weekLogs.filter(l => MAIN_LIFTS.includes(l.lift) && isPRForLog(user.id, l)).length;
+  const lines = [
+    { l: 'Sessions', r: String(sessions) },
+    { l: 'Sets', r: String(weekLogs.length) },
+    { l: 'Top set', r: LIFT_LABELS[top.lift] + ' ' + kgToDisplay(top.weight) + ' ' + unitLabel() + ' × ' + top.reps }
+  ];
+  if (prs > 0) lines.push({ l: 'PRs set', r: String(prs) });
+  const canvas = await generateShareCard({
+    tag: 'WEEK IN IRON',
+    big: Math.round(kgToDisplay(tonnage)).toLocaleString(),
+    bigUnit: unitLabel().toUpperCase(),
+    sub: 'Total tonnage this week',
+    lines: lines
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-week.png', 'My week under the bar — powalifta.com');
+}
+window.shareWeekCard = shareWeekCard;
+
+// ===== PR SHARE CARD — branded IG-ready image of a lifetime PR =====
+async function sharePRCard(lift) {
+  const pr = getLifetimePRs(user.id)[lift];
+  if (!pr) return toast('No PR logged for that lift yet');
+  const canvas = await generateShareCard({
+    tag: 'LIFETIME PR',
+    big: String(Math.round(kgToDisplay(pr.e1rmComp))),
+    bigUnit: unitLabel().toUpperCase(),
+    sub: LIFT_LABELS[lift] + ' · e1RM',
+    lines: [
+      { l: 'Top set', r: kgToDisplay(pr.weight) + ' ' + unitLabel() + ' × ' + pr.reps + ' @ RPE ' + pr.rpe },
+      { l: 'Variant', r: pr.variant || 'Competition' },
+      { l: 'Date', r: fmtDate(pr.date) }
+    ]
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-pr-' + lift + '.png',
+    'New ' + LIFT_LABELS[lift] + ' PR: ' + Math.round(kgToDisplay(pr.e1rmComp)) + ' ' + unitLabel() + ' e1RM — tracked on powalifta.com');
+}
+window.sharePRCard = sharePRCard;
 
 // ===== REST TIMER =====
 let restInterval = null;
@@ -1578,6 +1722,16 @@ function renderProgress() {
   stat.appendChild(sTile);
   area.appendChild(stat);
 
+  // Signature actions: meet-day planner + weekly recap share card
+  const actionRow = el('div', { class: 'flex', style: 'gap: 10px; flex-wrap: wrap; margin-bottom: 24px;' });
+  const meetBtn = el('button', { class: 'btn', onclick: openMeetModal, title: 'Openers, seconds, and thirds built from your current e1RMs' });
+  meetBtn.innerHTML = '🏟 <span>Meet-day plan</span>';
+  actionRow.appendChild(meetBtn);
+  const weekBtn = el('button', { class: 'btn btn-ghost', onclick: shareWeekCard, title: 'Branded recap card of this week\'s training' });
+  weekBtn.innerHTML = '📸 <span>Share my week</span>';
+  actionRow.appendChild(weekBtn);
+  area.appendChild(actionRow);
+
   const delta = getWeeklyDelta(user.id);
   if (Object.keys(delta).length) {
     area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'This week vs last'));
@@ -1613,6 +1767,8 @@ function renderProgress() {
       row.appendChild(el('div', { class: 'pr-value', html: Math.round(kgToDisplay(pr.e1rmComp)) + ' ' + unitLabel() + ' <span class="pr-badge-inline" style="margin-left:8px">e1RM</span>' }));
       row.appendChild(el('div', { class: 'pr-meta' }, kgToDisplay(pr.weight) + ' ' + unitLabel() + ' × ' + pr.reps + ' @ ' + pr.rpe + ' (' + (pr.variant || '—') + ')'));
       row.appendChild(el('div', { class: 'pr-date' }, fmtDateShort(pr.date)));
+      const shareBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Generate a share card for this PR', onclick: () => sharePRCard(lift) }, 'Card');
+      row.appendChild(shareBtn);
       wrap.appendChild(row);
     });
     area.appendChild(wrap);
