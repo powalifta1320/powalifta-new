@@ -520,6 +520,7 @@ select {
 .hero h1 { animation: heroRise 0.7s 0.14s ease both; }
 .hero p.lead { animation: heroRise 0.7s 0.24s ease both; }
 .hero .hero-cta { animation: heroRise 0.7s 0.34s ease both; }
+.hero .hero-demo-line { animation: heroRise 0.7s 0.38s ease both; }
 .hero .hero-aux { animation: heroRise 0.7s 0.42s ease both; }
 .hero .hero-facts { animation: heroRise 0.7s 0.5s ease both; }
 .hero .hero-preview { animation: heroRise 0.8s 0.58s ease both; }
@@ -613,6 +614,17 @@ select {
   font-weight: 400;
 }
 .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.hero-demo-line { margin-top: 16px; }
+.hero-demo-link {
+  color: var(--text-2);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--line-2);
+  padding-bottom: 2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.hero-demo-link:hover { color: var(--red); border-color: var(--red); }
 
 /* App preview chart in hero */
 .hero-preview {
@@ -924,6 +936,38 @@ select {
   transition: top 0.15s;
 }
 .skip-link:focus { top: 12px; }
+
+/* ============================================ DEMO BANNER */
+.demo-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  z-index: 96;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(640px, calc(100vw - 28px));
+  padding: 10px 14px;
+  background: var(--bg-1);
+  border: 1px solid rgba(255,45,63,0.4);
+  border-radius: 100px;
+  box-shadow: var(--shadow);
+}
+.demo-banner-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 12px var(--red);
+  animation: pulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.demo-banner-text { font-size: 0.84rem; color: var(--text-2); line-height: 1.35; }
+.demo-banner-text strong { color: var(--text); }
+.demo-banner .btn { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .demo-banner { border-radius: var(--r-lg); flex-wrap: wrap; justify-content: center; text-align: center; }
+}
 
 /* ============================================ SCROLL PROGRESS */
 .scroll-progress {

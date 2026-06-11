@@ -69,6 +69,142 @@ async function logout() {
 }
 
 // =========================================================
+// LIVE DEMO MODE — the full athlete dashboard with a generated
+// 16-week training history. No account, no writes, no risk.
+// Activated by ?demo=1 on athlete.html. All persistence no-ops.
+// =========================================================
+window._demoMode = /[?&]demo=1/.test(location.search);
+
+function _buildDemoData() {
+  const DA = 'demo-athlete', DC = 'demo-coach';
+  const iso = d => d.toISOString().slice(0, 10);
+  const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+  // Deterministic jitter so the demo looks organic but identical every load
+  const j = (seed, range) => Math.round((Math.sin(seed * 12.9898) * 0.5 + 0.5) * range * 2) / 2;
+
+  const user = {
+    id: DA, name: 'Demo Lifter', email: 'demo@powalifta.com', bio: '',
+    coachId: DC, userType: 'athlete', isAdmin: false,
+    subscriptionTier: 'free', subscriptionStatus: 'inactive', avatarUrl: null, countryCode: null
+  };
+  const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'This is what your coach sees and writes.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
+
+  // --- 16 weeks of logged history: Mon=squat, Wed=bench, Fri=deadlift ---
+  const workoutLogs = [];
+  const cfg = [
+    { lift: 'squat', base: 142.5, perWk: 1.25, variant: 'Paused', varPct: 0.82, acc: ['legs', 'Leg Press'] },
+    { lift: 'bench', base: 92.5, perWk: 0.75, variant: 'Close Grip', varPct: 0.88, acc: ['push', 'DB Incline Press'] },
+    { lift: 'deadlift', base: 175, perWk: 1.5, variant: 'Deficit', varPct: 0.85, acc: ['pull', 'Barbell Row'] }
+  ];
+  let logSeq = 1;
+  for (let w = 15; w >= 0; w--) {
+    cfg.forEach((c2, di) => {
+      const date = daysAgo(w * 7 + (5 - di * 2)); // Fri/Wed/Mon spread
+      const top = c2.base + (15 - w) * c2.perWk + j(w * 3 + di, 2.5) - 1.25;
+      // Top sets
+      [[5, 7.5], [5, 8], [3, 8.5]].forEach(([reps, rpe], si) => {
+        const wgt = Math.round((top - si * 2.5) / 2.5) * 2.5;
+        workoutLogs.push({
+          id: 'demo-log-' + (logSeq++), athleteId: DA, lift: c2.lift, variant: 'Competition', exerciseName: '',
+          weight: wgt, reps: reps, rpe: rpe,
+          e1rm: calcE1RM(wgt, reps, rpe), e1rmComp: calcCompE1RM(wgt, reps, rpe, c2.lift, 'Competition'),
+          date: date, note: ''
+        });
+      });
+      // Variant work
+      const vw = Math.round(top * c2.varPct / 2.5) * 2.5;
+      workoutLogs.push({
+        id: 'demo-log-' + (logSeq++), athleteId: DA, lift: c2.lift, variant: c2.variant, exerciseName: '',
+        weight: vw, reps: 4, rpe: 8,
+        e1rm: calcE1RM(vw, 4, 8), e1rmComp: calcCompE1RM(vw, 4, 8, c2.lift, c2.variant),
+        date: date, note: ''
+      });
+      // Accessory
+      const aw = 40 + (15 - w) * 0.5;
+      workoutLogs.push({
+        id: 'demo-log-' + (logSeq++), athleteId: DA, lift: c2.acc[0], variant: '', exerciseName: c2.acc[1],
+        weight: aw, reps: 10, rpe: 8,
+        e1rm: calcE1RM(aw, 10, 8), e1rmComp: calcE1RM(aw, 10, 8),
+        date: date, note: ''
+      });
+    });
+  }
+
+  // --- Bodyweight: gentle recomp over 16 weeks ---
+  const bodyweight = [];
+  for (let d = 110; d >= 0; d -= 2) {
+    bodyweight.push({ id: 'demo-bw-' + d, athleteId: DA, date: daysAgo(d), weight: Math.round((84.2 - (110 - d) * 0.012 + j(d, 0.6) - 0.3) * 10) / 10 });
+  }
+
+  const goals = [{ id: DA, athleteId: DA, squat: 200, bench: 130, deadlift: 240, total: 570, bodyweight: 83, bwDirection: 'maintain' }];
+  const restDays = [2, 9, 16, 23].map(d => ({ id: 'demo-rest-' + d, athleteId: DA, date: daysAgo(d), note: '' }));
+
+  // --- Current program: 4 weeks, today's session pinned and ready to tick ---
+  const mkSet = (weight, reps, rpe, done, dt) => ({
+    id: uid('set'), weight, reps, rpe,
+    completed: !!done, actualRpe: done ? rpe + 0.5 : null, completedAt: done ? dt : null
+  });
+  const mkDay = (name, exs, done, dt, pin) => {
+    const day = { id: uid('day'), name, exercises: exs.map(e2 => ({ id: uid('ex'), lift: e2[0], variant: e2[1], exerciseName: e2[2] || '', note: e2[4] || '', sets: e2[3].map(s2 => mkSet(s2[0], s2[1], s2[2], done, dt)) })) };
+    if (pin) day.scheduledDate = pin;
+    return day;
+  };
+  const weeks = [];
+  for (let wn = 1; wn <= 4; wn++) {
+    const bump = (wn - 1) * 2.5;
+    const wkDone = wn <= 2;            // weeks 1–2 fully logged
+    const dt = daysAgo((4 - wn) * 7 + 3);
+    const pinToday = (wn === 3);       // week 3, day 1 = today's live session
+    weeks.push({
+      id: uid('wk'), number: wn, days: [
+        mkDay('Squat Day', [
+          ['squat', 'Competition', '', [[160 + bump, 5, 7.5], [160 + bump, 5, 8], [157.5 + bump, 3, 8.5]], 'Stay tight at the bottom. Drive up hard.'],
+          ['squat', 'Paused', '', [[132.5 + bump, 4, 8], [132.5 + bump, 4, 8]], '2-count pause.'],
+          ['legs', '', 'Leg Press', [[120, 10, 8], [120, 10, 8]]]
+        ], wkDone, dt, pinToday ? iso(new Date()) : null),
+        mkDay('Bench Day', [
+          ['bench', 'Competition', '', [[105 + bump, 5, 7.5], [105 + bump, 5, 8], [102.5 + bump, 3, 8.5]], 'Leg drive. Touch and go.'],
+          ['bench', 'Close Grip', '', [[92.5 + bump, 4, 8], [92.5 + bump, 4, 8]]],
+          ['push', '', 'DB Incline Press', [[32.5, 10, 8], [32.5, 10, 8]]]
+        ], wkDone, dt),
+        mkDay('Deadlift Day', [
+          ['deadlift', 'Competition', '', [[197.5 + bump, 4, 7.5], [197.5 + bump, 4, 8], [195 + bump, 2, 8.5]], 'Slack out of the bar before you pull.'],
+          ['deadlift', 'Deficit', '', [[167.5 + bump, 3, 8], [167.5 + bump, 3, 8]]],
+          ['pull', '', 'Barbell Row', [[80, 10, 8], [80, 10, 8]]]
+        ], wkDone, dt),
+        mkDay('Rest', [], false, null)
+      ]
+    });
+  }
+  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: DC, name: 'Strength Block — Wave 2', weeks }];
+
+  const sessionNotes = [
+    { id: 'demo-note-1', athleteId: DA, weekId: null, dayId: null, date: daysAgo(2), note: 'Pulls felt heavy off the floor today but lockout was easy.', coachComment: 'Bar speed on video looked fine — that\'s just deficit fatigue. We deload in two weeks. Keep the openers honest.', coachCommentAt: daysAgo(1) + 'T10:00:00Z', coachId: DC },
+    { id: 'demo-note-2', athleteId: DA, weekId: null, dayId: null, date: daysAgo(7), note: 'Bench PR! Moved fast.', coachComment: 'Saw it. Adding 2.5kg to your top sets.', coachCommentAt: daysAgo(6) + 'T10:00:00Z', coachId: DC }
+  ];
+  const checkins = [{ id: 'demo-ci-1', athleteId: DA, weekStart: daysAgo(9), sleep: 7, soreness: 6, stress: 4, feel: 8, note: 'Good week.', createdAt: daysAgo(9) + 'T08:00:00Z' }];
+
+  return {
+    user: user,
+    store: {
+      coaches, athletes: [], invites: [], programs, programTemplates: [],
+      workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins,
+      marketplacePrograms: [], mySales: [], myPurchases: []
+    }
+  };
+}
+
+function _injectDemoBanner() {
+  const bar = document.createElement('div');
+  bar.className = 'demo-banner';
+  bar.innerHTML =
+    '<span class="demo-banner-dot"></span>' +
+    '<span class="demo-banner-text"><strong>Live demo</strong> — fake lifter, real product. Tick sets, hit PRs, make share cards. Nothing saves.</span>' +
+    '<a class="btn btn-primary btn-sm" href="index.html">Start yours free</a>';
+  document.body.appendChild(bar);
+}
+
+// =========================================================
 // BOOTSTRAP — runs at the top of every page
 //
 // usage:
@@ -80,6 +216,17 @@ async function logout() {
 // =========================================================
 async function bootstrap(expectedType, onReady, opts) {
   opts = opts || {};
+
+  // Live demo: skip auth + hydration entirely, run on generated data.
+  if (window._demoMode && expectedType === 'athlete') {
+    const demo = _buildDemoData();
+    window._user = demo.user;
+    Store._data = demo.store;
+    _injectDemoBanner();
+    onReady && onReady();
+    return;
+  }
+
   let session = null;
   try { session = await DB.getSession(); }
   catch (e) {
@@ -620,7 +767,7 @@ window.openUpgradeModal = openUpgradeModal;
 // =========================================================
 const _persistTimers = {};
 
-function persistProgram(programId) {
+function persistProgram(programId) { if (window._demoMode) return;
   if (!programId) return;
   clearTimeout(_persistTimers['prog_' + programId]);
   _persistTimers['prog_' + programId] = setTimeout(async () => {
@@ -651,6 +798,7 @@ function _queuePendingLog(log) {
 }
 let _flushingLogs = false;
 async function flushPendingLogs() {
+  if (window._demoMode) return;
   if (_flushingLogs) return;
   const q = _readPendingLogs();
   if (!q.length) return;
@@ -674,6 +822,7 @@ window.addEventListener('online', () => { setTimeout(flushPendingLogs, 800); });
 window.addEventListener('load', () => { setTimeout(flushPendingLogs, 3500); });
 
 async function persistAddLog(log) {
+  if (window._demoMode) return;
   try { await DB.addLog(log); }
   catch (e) {
     console.error('addLog', e);
@@ -682,21 +831,22 @@ async function persistAddLog(log) {
   }
 }
 async function persistDeleteLog(id) {
+  if (window._demoMode) return;
   // If the set is still waiting in the offline queue, deleting it just means
   // removing it from the queue (it never reached the server).
   const q = _readPendingLogs();
   if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); return; }
   try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); }
 }
-async function persistAddInvite(inv)      { try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
-async function persistDeleteInvite(code)  { try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
-async function persistAddNote(n)          { try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
-async function persistGoals(g)            { try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); toast('Could not save goals'); } }
-async function persistBw(b)               { try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); toast('Could not save bodyweight'); } }
-async function persistRest(r)             { try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); } }
-async function persistDeleteRest(aid, d)  { try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); } }
-async function persistAddTemplate(t)      { try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
-async function persistDeleteTemplate(id)  { try { await DB.deleteTemplate(id); } catch (e) { console.error('template del', e); } }
+async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
+async function persistDeleteInvite(code)  { if (window._demoMode) return; try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
+async function persistAddNote(n)          { if (window._demoMode) return; try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
+async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); toast('Could not save goals'); } }
+async function persistBw(b)               { if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); toast('Could not save bodyweight'); } }
+async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); } }
+async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); } }
+async function persistAddTemplate(t)      { if (window._demoMode) return; try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
+async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { await DB.deleteTemplate(id); } catch (e) { console.error('template del', e); } }
 
 // =========================================================
 // SHARE CARDS — branded 1080×1350 canvas images for IG/stories.

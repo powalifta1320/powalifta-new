@@ -810,6 +810,7 @@ async function saveCheckin() {
   if (!allValid) return toast('All four scores must be 1–10.');
 
   const c = { athleteId: user.id, weekStart: ctx.weekStart, sleep, soreness, stress, feel, note };
+  if (window._demoMode) { closeModal('checkinModal'); toast('Demo mode — check-ins reach a real coach once you sign up'); return; }
   try {
     await DB.upsertCheckin(c);
     Store.update(s => {
