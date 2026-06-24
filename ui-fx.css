@@ -1,0 +1,222 @@
+/* ============================================================
+ * POWALIFTA ui-fx — global polish layer that touches every page.
+ * Button hover glow, card lift, link underline grow, selection
+ * color, sticky nav blur, smooth scroll, focus rings.
+ * Additive — does not override existing styles.css rules.
+ * ============================================================ */
+
+::selection {
+  background: #ff2d3f;
+  color: #ffffff;
+}
+:root[data-theme='light'] ::selection {
+  background: #ff2d3f;
+  color: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.btn.btn-primary,
+a.btn.btn-primary,
+button.btn.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1),
+              box-shadow 0.3s ease-out,
+              background-color 0.2s ease-out !important;
+}
+.btn.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  transform: translate(-50%, -50%);
+  transition: width 0.5s ease-out, height 0.5s ease-out;
+  pointer-events: none;
+  z-index: 0;
+}
+.btn.btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(255, 45, 63, 0.35),
+              0 0 0 1px rgba(255, 45, 63, 0.5);
+}
+.btn.btn-primary:hover::before {
+  width: 320px;
+  height: 320px;
+}
+.btn.btn-primary:active {
+  transform: translateY(0) scale(0.99);
+}
+.btn.btn-primary > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn.btn-ghost,
+a.btn.btn-ghost,
+button.btn.btn-ghost {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1),
+              box-shadow 0.3s ease-out,
+              border-color 0.2s ease-out,
+              background 0.2s ease-out !important;
+}
+.btn.btn-ghost:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 45, 63, 0.6) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3),
+              inset 0 0 0 1px rgba(255, 45, 63, 0.4);
+}
+
+.inside-card,
+.feat,
+.step,
+.coach-card,
+.price-card {
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+              box-shadow 0.4s ease-out,
+              border-color 0.3s ease-out !important;
+}
+.inside-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4),
+              0 0 0 1px rgba(255, 45, 63, 0.3),
+              0 0 32px rgba(255, 45, 63, 0.12);
+}
+.feat:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3),
+              0 0 0 1px rgba(255, 45, 63, 0.25);
+}
+.step:hover {
+  transform: translateY(-4px);
+}
+.step:hover .step-num {
+  background: linear-gradient(180deg, #ff2d3f 0%, #b71629 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero a:not(.btn):not(.hero-demo-link),
+footer a:not(.btn) {
+  position: relative;
+  transition: color 0.2s ease-out;
+}
+.hero-demo-link {
+  position: relative;
+  padding-bottom: 2px;
+  transition: color 0.2s ease-out;
+}
+.hero-demo-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0.4);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.hero-demo-link:hover::after {
+  transform: scaleX(1);
+}
+
+nav.nav {
+  transition: backdrop-filter 0.3s ease-out,
+              background-color 0.3s ease-out,
+              border-color 0.3s ease-out,
+              padding 0.25s ease-out !important;
+}
+nav.nav.fx-nav-blurred {
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background-color: rgba(11, 11, 12, 0.65) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+:root[data-theme='light'] nav.nav.fx-nav-blurred {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.marquee {
+  position: relative;
+  cursor: pointer;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+.marquee::before,
+.marquee::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+  pointer-events: none;
+}
+.marquee::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg, #0b0b0c) 0%, transparent 100%);
+}
+.marquee::after {
+  right: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--bg, #0b0b0c) 100%);
+}
+
+*:focus-visible {
+  outline: 2px solid #ff2d3f !important;
+  outline-offset: 3px !important;
+  border-radius: 4px;
+}
+
+.calc-card,
+.coach-card {
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out !important;
+}
+.calc-card:hover,
+.coach-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 45, 63, 0.2);
+}
+
+.section-tag {
+  position: relative;
+  transition: letter-spacing 0.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn.btn-primary,
+  .btn.btn-ghost,
+  .inside-card,
+  .feat,
+  .step,
+  .coach-card,
+  .price-card,
+  .calc-card,
+  nav.nav {
+    transition: none !important;
+  }
+  .btn.btn-primary:hover,
+  .btn.btn-ghost:hover,
+  .inside-card:hover,
+  .feat:hover,
+  .step:hover,
+  .coach-card:hover,
+  .price-card:hover,
+  .calc-card:hover {
+    transform: none !important;
+  }
+  .btn.btn-primary::before, .hero-demo-link::after { display: none; }
+}

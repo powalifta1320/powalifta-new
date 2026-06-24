@@ -1,16 +1,9 @@
 /* ============================================================
- * POWALIFTA scroll-fx — JS side of the scroll-triggered motion layer.
- *
- * Watches every [data-fx] / [data-fx-stagger] / [data-fx-count] /
- * [data-fx-parallax] / .fx-section-wash element, adds .fx-in when in
- * viewport (uses IntersectionObserver, not scroll listeners).
- *
- * Once an element fires, it stays in — no replay on scroll-back. Set
- * data-fx-replay on the element to re-trigger every entry.
- *
- * Safe to remove anytime: deleting the <script> tag returns the page
- * to its pre-scroll-fx state (initial hidden state is reverted by
- * adding .fx-no-fx to <html>, which scroll-fx.css can use to bail).
+ * POWALIFTA scroll-fx v2 — JS for scroll-triggered animation layer.
+ * Watches [data-fx] / [data-fx-stagger] / [data-fx-count] /
+ * [data-fx-parallax] / .fx-section-wash elements. Applies .fx-in
+ * when in viewport. Also flags parent sections so the red intro
+ * bar wipe fires once the section is reached.
  * ============================================================ */
 (function () {
   'use strict';
@@ -18,7 +11,6 @@
   function reduced() {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
-
   function ready(fn) {
     if (document.readyState !== 'loading') fn();
     else document.addEventListener('DOMContentLoaded', fn);
@@ -110,15 +102,23 @@
     });
   }
 
+  function flagParentSection(el) {
+    var p = el.parentNode;
+    while (p && p !== document.body) {
+      if (p.tagName === 'SECTION' || (p.classList && p.classList.contains('section'))) {
+        p.classList.add('fx-section-revealed');
+        break;
+      }
+      p = p.parentNode;
+    }
+  }
+
   ready(function () {
     if (reduced()) {
       document.documentElement.classList.add('fx-no-fx');
-      document.querySelectorAll('[data-fx]').forEach(function (el) {
-        el.classList.add('fx-in');
-      });
-      document.querySelectorAll('[data-fx-count]').forEach(function (el) {
-        el.classList.add('fx-in');
-      });
+      document.querySelectorAll('[data-fx]').forEach(function (el) { el.classList.add('fx-in'); });
+      document.querySelectorAll('[data-fx-count]').forEach(function (el) { el.classList.add('fx-in'); });
+      document.querySelectorAll('section, .section').forEach(function (s) { s.classList.add('fx-section-revealed'); });
       return;
     }
 
@@ -129,6 +129,7 @@
         if (!entry.isIntersecting) return;
         var el = entry.target;
         el.classList.add('fx-in');
+        flagParentSection(el);
         if (el.hasAttribute('data-fx-count')) tickCount(el);
         if (!el.hasAttribute('data-fx-replay')) obs.unobserve(el);
       });
