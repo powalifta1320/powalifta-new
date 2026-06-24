@@ -18,6 +18,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
 </head>
 <body>
 
@@ -3080,11 +3082,44 @@ function renderCoach() {
   const card = el('div', { class: 'card' });
   const top = el('div', { class: 'flex gap-16 mb-16', style: 'align-items:center;' });
   top.appendChild(el('div', { class: 'av', style: 'width:64px;height:64px;border-radius:14px;background:var(--grad-red);color:#fff;font-family:Anton;font-size:1.8rem;display:flex;align-items:center;justify-content:center; box-shadow: 0 4px 18px var(--red-glow);' }, initials(coach.name)));
-  top.appendChild(el('div', {}, el('h3', {}, coach.name), el('p', { class: 'dim text-sm' }, coach.email)));
+  const infoCol = el('div', { style: 'flex:1; min-width:0;' });
+  infoCol.appendChild(el('h3', {}, coach.name));
+  infoCol.appendChild(el('p', { class: 'dim text-sm' }, coach.email));
+  top.appendChild(infoCol);
   card.appendChild(top);
   card.appendChild(el('p', { class: 'dim' }, coach.bio || 'No bio.'));
+
+  const danger = el('div', { style: 'margin-top:24px; padding-top:18px; border-top:1px solid var(--line);' });
+  danger.appendChild(el('p', { class: 'dim text-sm mb-8' }, 'Coach relationship'));
+  const leaveBtn = el('button', { class: 'btn btn-block btn-danger', onclick: () => leaveMyCoach(coach.name) }, 'Leave ' + coach.name);
+  danger.appendChild(leaveBtn);
+  danger.appendChild(el('p', { class: 'dim text-xs', style: 'margin-top:8px;' }, 'You keep all your logs, e1RMs, goals, and bodyweight history. You lose access to programs they assigned. You\'ll need a new invite code to rejoin them or another coach.'));
+  card.appendChild(danger);
+
   area.appendChild(card);
 }
+
+async function leaveMyCoach(coachName) {
+  if (!user.coachId) return;
+  const msg = 'Leave ' + coachName + '?\n\n' +
+              'You keep your training data. You lose programs they assigned. ' +
+              'You\'ll need a new invite code to rejoin a coach.';
+  if (!confirm(msg)) return;
+  try {
+    await DB.updateProfile(user.id, { coach_id: null });
+    user.coachId = null;
+    window._user = user;
+    Store.update(s => {
+      s.programs = (s.programs || []).filter(p => p.athleteId !== user.id);
+    });
+    toast('You left ' + coachName);
+    renderCoach();
+  } catch (e) {
+    console.error('leaveMyCoach failed', e);
+    toast('Could not leave coach — try again');
+  }
+}
+window.leaveMyCoach = leaveMyCoach;
 
 async function joinCoach() {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();

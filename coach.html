@@ -17,6 +17,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
 </head>
 <body>
 
@@ -59,7 +61,10 @@
     <section data-pane="program" class="hidden">
       <div class="dash-header">
         <div><h2>Program builder</h2><p class="dim text-sm">Build week-by-week training. Click + on any week to duplicate it.</p></div>
-        <select id="progAthlete" style="max-width:280px" onchange="loadProgram()"></select>
+        <div class="flex gap-8" style="align-items:center;">
+          <select id="progAthlete" style="max-width:280px" onchange="loadProgram()"></select>
+          <button class="btn btn-sm" id="notifyAthleteBtn" onclick="notifyAthleteAssigned()" title="Email this athlete that their program is ready">📧 Notify</button>
+        </div>
       </div>
       <div id="programArea"></div>
     </section>
@@ -408,6 +413,13 @@ function renderRoster() {
       info.appendChild(el('div', { class: 'name' }, o.athlete.name));
       info.appendChild(el('div', { class: 'email' }, o.athlete.email));
       head.appendChild(info);
+      const removeBtn = el('button', {
+        class: 'btn-icon roster-remove',
+        title: 'Remove ' + o.athlete.name + ' from roster',
+        'aria-label': 'Remove athlete',
+        onclick: (e) => { e.stopPropagation(); removeAthleteFromRoster(o.athlete.id, o.athlete.name); }
+      }, '×');
+      head.appendChild(removeBtn);
       card.appendChild(head);
       const flagText = { today: 'TRAINED TODAY', recent: o.ago + 'D AGO', week: o.ago + 'D AGO', stale: o.ago + 'D — STALE', never: 'NEVER LOGGED' }[o.flag];
       card.appendChild(el('div', {}, el('span', { class: 'roster-flag roster-flag-' + o.flag }, flagText)));
@@ -465,6 +477,77 @@ function openAthleteProgram(athleteId) {
   document.querySelector('[data-tab="program"]').click();
   setTimeout(() => { document.getElementById('progAthlete').value = athleteId; loadProgram(); }, 50);
 }
+
+async function notifyAthleteAssigned() {
+  const aid = document.getElementById('progAthlete').value;
+  if (!aid) { toast('Pick an athlete first'); return; }
+  const s = Store.get();
+  const athlete = (s.athletes || []).find(a => a.id === aid);
+  if (!athlete) { toast('Athlete not found'); return; }
+  if (!athlete.email) { toast('Athlete has no email on file'); return; }
+  const prog = (s.programs || []).find(p => p.athleteId === aid);
+  const programName = (prog && prog.name) || 'a new program';
+  const coachName = user.name || 'Your coach';
+
+  const btn = document.getElementById('notifyAthleteBtn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+  try {
+    const url = (typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '') + '/functions/v1/send-program-assigned';
+    const headers = { 'Content-Type': 'application/json' };
+    if (typeof SUPABASE_ANON_KEY !== 'undefined') {
+      headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
+      headers['apikey'] = SUPABASE_ANON_KEY;
+    }
+    const session = sb && sb.auth ? await sb.auth.getSession() : null;
+    if (session && session.data && session.data.session && session.data.session.access_token) {
+      headers['Authorization'] = 'Bearer ' + session.data.session.access_token;
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        athleteEmail: athlete.email,
+        athleteName: athlete.name,
+        coachName: coachName,
+        programName: programName
+      })
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error('Email service: ' + res.status + ' ' + txt.slice(0, 200));
+    }
+    toast('Notified ' + (athlete.name.split(' ')[0]) + ' — they\'ll get an email');
+  } catch (e) {
+    console.error('notifyAthleteAssigned failed', e);
+    toast('Could not notify athlete — try again');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+window.notifyAthleteAssigned = notifyAthleteAssigned;
+
+async function removeAthleteFromRoster(athleteId, athleteName) {
+  if (!athleteId) return;
+  const msg = 'Remove ' + athleteName + ' from your roster?\n\n' +
+              'Their training data (logs, programs, bodyweight, goals) stays with them. ' +
+              'They lose access to programs you assigned, and they\'ll need a new invite code to rejoin.';
+  if (!confirm(msg)) return;
+  try {
+    await DB.updateProfile(athleteId, { coach_id: null });
+    Store.update(s => {
+      s.athletes = (s.athletes || []).filter(a => a.id !== athleteId);
+      s.programs = (s.programs || []).filter(p => p.athleteId !== athleteId);
+    });
+    toast(athleteName + ' removed from roster');
+    if (typeof renderRoster === 'function') renderRoster();
+  } catch (e) {
+    console.error('removeAthleteFromRoster failed', e);
+    toast('Could not remove ' + athleteName + ' — try again');
+  }
+}
+window.removeAthleteFromRoster = removeAthleteFromRoster;
 
 // Jump from the notes inbox to that athlete's progress view (where notes + replies live)
 function openAthleteNotes(athleteId) {
@@ -836,7 +919,7 @@ async function createProgramFor(athleteId) {
   const newId = uid('prog');
   const newProg = { id: newId, athleteId, coachId: user.id, name: 'New program', weeks: [newWeek(1, 3)] };
   Store.update(s => { s.programs.push(newProg); });
-  try { await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not save program'); }
+  try { if (!window._demoMode) await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not save program'); }
   activeWeekIdx = 0; loadProgram();
 }
 async function deleteProgram() {
@@ -844,7 +927,7 @@ async function deleteProgram() {
   const aid = document.getElementById('progAthlete').value;
   const pid = progIdForAthlete(aid);
   Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); });
-  if (pid) await DB.deleteProgram(pid).catch(e => console.error(e));
+  if (pid && !window._demoMode) await DB.deleteProgram(pid).catch(e => console.error(e));
   activeWeekIdx = 0; loadProgram();
 }
 function addWeek() {
@@ -1228,6 +1311,7 @@ async function confirmPublish() {
     }
   }
 
+  if (window._demoMode) { closeModal('publishModal'); return toast('Demo mode — publishing needs a real coach account'); }
   const btn = document.getElementById('publishBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
@@ -1320,6 +1404,7 @@ function renderCoachMarketplace() {
       const delBtn = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => {
         if (!confirm('Remove this listing? Existing buyers keep their copy of the program.')) return;
         try {
+          if (window._demoMode) return toast('Demo mode — nothing to delete for real');
           await DB.deleteMarketplaceProgram(p.id);
           Store.update(st => { st.marketplacePrograms = (st.marketplacePrograms || []).filter(x => x.id !== p.id); });
           renderCoachMarketplace();
@@ -1414,7 +1499,7 @@ async function confirmApplyTemplate() {
     }))
   };
   Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); s.programs.push(newProg); });
-  try { await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not apply template'); }
+  try { if (!window._demoMode) await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not apply template'); }
   closeModal('applyTplModal');
   toast('Template applied');
   document.querySelector('[data-tab="program"]').click();
@@ -1653,7 +1738,7 @@ async function saveCoachFeedback(athleteId, date, textareaEl, metaEl) {
   const btn = textareaEl.parentNode.querySelector('button');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    await DB.upsertCoachComment({ athleteId, date, coachId: user.id, comment });
+    if (!window._demoMode) await DB.upsertCoachComment({ athleteId, date, coachId: user.id, comment });
     // Update local Store so re-renders show fresh value without a full reload
     const s = Store.get();
     let n = (s.sessionNotes || []).find(nn => nn.athleteId === athleteId && nn.date === date);

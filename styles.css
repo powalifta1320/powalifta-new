@@ -614,7 +614,7 @@ select {
   font-weight: 400;
 }
 .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.hero-demo-line { margin-top: 16px; }
+.hero-demo-line { margin-top: 16px; color: var(--text-3); font-size: 0.92rem; }
 .hero-demo-link {
   color: var(--text-2);
   font-size: 0.92rem;
@@ -2535,6 +2535,28 @@ footer .footer-base {
 .roster-card-head .info { flex: 1; min-width: 0; }
 .roster-card-head .name { font-weight: 700; color: var(--text); }
 .roster-card-head .email { font-size: 0.78rem; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roster-card .roster-remove {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.roster-card .roster-remove:hover {
+  background: rgba(255, 45, 63, 0.12);
+  border-color: rgba(255, 45, 63, 0.5);
+  color: #ff2d3f;
+  transform: scale(1.05);
+}
 .roster-meta {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
 }
