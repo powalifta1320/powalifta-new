@@ -325,6 +325,5 @@
     setupCursor();
     setupMagnets();
     scrambleHeadline();
-    setupBarbellLoader();
   });
 })();
