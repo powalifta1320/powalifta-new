@@ -1,0 +1,142 @@
+/* ============================================================
+ * POWALIFTA hero-fx — drop-in motion layer for the landing hero.
+ * Additive: doesn't override existing heroRise stagger in styles.css.
+ * Removing this file or its <link> tag returns the page to baseline.
+ * ============================================================ */
+
+/* Drifting grid layer behind everything in the hero ----------- */
+.fx-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: 0 0;
+  animation: fxGridDrift 32s linear infinite;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 90%);
+}
+@keyframes fxGridDrift {
+  from { background-position: 0 0; }
+  to   { background-position: 56px 56px; }
+}
+
+/* Chalk dust particle layer ----------------------------------- */
+.fx-dust {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.fx-dust span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffffff;
+  opacity: 0;
+  bottom: -10px;
+  animation: fxDustDrift linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes fxDustDrift {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  10%  { opacity: 0.55; }
+  85%  { opacity: 0.45; }
+  100% { opacity: 0; transform: translate3d(60px, -780px, 0); }
+}
+
+/* Light-mode: dust darkens to be visible on white ------------- */
+:root[data-theme='light'] .fx-dust span { background: #1a1a1c; opacity: 0; }
+
+/* Expanding ring around the eyebrow red dot ------------------- */
+.hero .eyebrow .dot { position: relative; }
+.hero .eyebrow .dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  color: var(--red, #ff2d3f);
+  opacity: 0;
+  animation: fxRingPulse 1.8s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes fxRingPulse {
+  0%   { transform: scale(0.7); opacity: 0; }
+  20%  { opacity: 0.85; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Headline shimmer sweep — runs once after heroRise lands ----- */
+.hero h1 { position: relative; }
+.hero h1::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, transparent 38%, rgba(255,255,255,0.18) 50%, transparent 62%, transparent 100%);
+  background-size: 250% 100%;
+  background-position: 200% 0;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: fxShimmer 2.8s 1.2s ease-out forwards;
+}
+@keyframes fxShimmer {
+  to { background-position: -200% 0; }
+}
+
+/* Tilt accent (BARBELL.) — micro shake AFTER it lands --------- */
+.hero h1 .accent.tilt {
+  animation: fxAccentLand 0.45s 0.95s cubic-bezier(.36, .07, .19, .97) both;
+  transform-origin: center;
+}
+@keyframes fxAccentLand {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-3px) rotate(-0.5deg); }
+  40%  { transform: translateX(3px)  rotate(0.5deg); }
+  60%  { transform: translateX(-2px) rotate(-0.3deg); }
+  80%  { transform: translateX(2px)  rotate(0.2deg); }
+  100% { transform: translateX(0); }
+}
+
+/* Hero preview chart card — slight scale-in glint ------------- */
+.hero .hero-preview-card { position: relative; overflow: hidden; }
+.hero .hero-preview-card::before {
+  content: '';
+  position: absolute;
+  inset: -100% -50%;
+  background: linear-gradient(115deg, transparent 45%, rgba(255,45,63,0.10) 50%, transparent 55%);
+  pointer-events: none;
+  animation: fxCardGlint 4s 1.4s ease-out infinite;
+}
+@keyframes fxCardGlint {
+  0%, 70%, 100% { transform: translateX(-30%); opacity: 0; }
+  72%           { opacity: 1; }
+  88%           { transform: translateX(30%); opacity: 0; }
+}
+
+/* +18% pill — soft pulse to draw the eye --------------------- */
+.hero .hp-pill {
+  animation: fxPillPulse 2.4s 2.4s ease-in-out infinite;
+}
+@keyframes fxPillPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(78, 216, 132, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(78, 216, 132, 0.10); }
+}
+
+/* Respect reduced motion ------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .fx-grid,
+  .fx-dust span,
+  .hero .eyebrow .dot::after,
+  .hero h1::after,
+  .hero h1 .accent.tilt,
+  .hero .hero-preview-card::before,
+  .hero .hp-pill { animation: none !important; }
+  .fx-dust { display: none; }
+}

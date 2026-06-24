@@ -30,7 +30,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="hero-fx.css">
+<link rel="stylesheet" href="scroll-fx.css">
 <script defer src="hero-fx.js"></script>
+<script defer src="scroll-fx.js"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -67,11 +69,11 @@
     </div>
     <p class="hero-demo-line">▶ Try the live demo, no signup: <a href="athlete.html?demo=1" class="hero-demo-link">as an athlete</a> · <a href="coach.html?demo=1" class="hero-demo-link">as a coach</a></p>
     <p class="dim text-sm hero-aux" style="margin-top:18px">Already have an account? <a href="#" onclick="openLoginModal(); return false;">Log in</a> · <a href="marketplace.html">Browse programs</a></p>
-    <div class="hero-facts" aria-label="Product facts">
-      <div class="hf"><b>$0</b><span>For athletes, forever</span></div>
-      <div class="hf"><b>RPE-native</b><span>Programs &amp; logging</span></div>
-      <div class="hf"><b>Auto e1RM</b><span>Every set, charted</span></div>
-      <div class="hf"><b>SBD goals</b><span>Live progress bars</span></div>
+    <div class="hero-facts" aria-label="Product facts" data-fx-stagger>
+      <div class="hf" data-fx="up"><b>$0</b><span>For athletes, forever</span></div>
+      <div class="hf" data-fx="up"><b>RPE-native</b><span>Programs &amp; logging</span></div>
+      <div class="hf" data-fx="up"><b>Auto e1RM</b><span>Every set, charted</span></div>
+      <div class="hf" data-fx="up"><b>SBD goals</b><span>Live progress bars</span></div>
     </div>
 
     <!-- Hero preview: real chart driven by drawLineChart -->
@@ -118,7 +120,7 @@
   <div class="container">
     <div class="section-title center">
       <span class="section-tag">Try it right now</span>
-      <h2>WHAT'S YOUR <span class="accent tilt">REAL MAX?</span></h2>
+      <h2 data-fx="blur">WHAT'S YOUR <span class="accent tilt">REAL MAX?</span></h2>
       <p>Type any working set. Same math POWALIFTA runs on every set you log.</p>
     </div>
     <div class="calc-card">
@@ -193,13 +195,13 @@
   <div class="container">
     <div class="section-title">
       <div class="section-tag">Inside the platform</div>
-      <h2>Every feature your<br>spreadsheet <span class="tilt red">isn't.</span></h2>
+      <h2 data-fx="blur">Every feature your<br>spreadsheet <span class="tilt red">isn't.</span></h2>
     </div>
 
-    <div class="inside-grid">
+    <div class="inside-grid" data-fx-stagger>
 
       <!-- Hero feature: Today's session -->
-      <div class="inside-card hero-feat">
+      <div class="inside-card hero-feat" data-fx="up">
         <div class="inside-card-content">
           <div class="inside-card-tag">For athletes</div>
           <h3>Train. Tick. Track.</h3>
@@ -227,7 +229,7 @@
       </div>
 
       <!-- Program builder mockup -->
-      <div class="inside-card">
+      <div class="inside-card" data-fx="up">
         <div class="inside-card-content">
           <div class="inside-card-tag">For coaches</div>
           <h3>Program builder<br>without the chaos.</h3>
@@ -249,7 +251,7 @@
       </div>
 
       <!-- Goals mockup -->
-      <div class="inside-card">
+      <div class="inside-card" data-fx="up">
         <div class="inside-card-content">
           <div class="inside-card-tag">For athletes</div>
           <h3>Goals + progress<br>at a glance.</h3>
@@ -284,21 +286,21 @@
   <div class="container">
     <div class="section-title center">
       <div class="section-tag">How it works</div>
-      <h2>Three roles. <span class="tilt red">One platform.</span></h2>
+      <h2 data-fx="blur">Three roles. <span class="tilt red">One platform.</span></h2>
       <p>Coach builds it. Athlete executes it. Strength tracked automatically.</p>
     </div>
-    <div class="steps">
-      <div class="step">
+    <div class="steps" data-fx-stagger>
+      <div class="step" data-fx="up">
         <div class="step-num">01</div>
         <h3>Coach builds the program</h3>
         <p>Pick lifts (squat / bench / deadlift + variants), accessories, sets, reps and target RPE. Quick presets and a clean week-by-week builder.</p>
       </div>
-      <div class="step">
+      <div class="step" data-fx="up">
         <div class="step-num">02</div>
         <h3>Athlete trains, ticks, reports</h3>
         <p>Open today's session at the gym. Tick each set as you finish, log how it actually felt (RPE 1–10), done.</p>
       </div>
-      <div class="step">
+      <div class="step" data-fx="up">
         <div class="step-num">03</div>
         <h3>e1RM calculated, charts grow</h3>
         <p>Every working set becomes a data point. Estimated 1-rep max plotted over time per lift — variant multipliers handled automatically.</p>
@@ -312,35 +314,35 @@
   <div class="container">
     <div class="section-title center">
       <div class="section-tag">Why POWALIFTA</div>
-      <h2>Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
+      <h2 data-fx="blur">Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
     </div>
-    <div class="feat-grid">
-      <div class="feat">
+    <div class="feat-grid" data-fx-stagger>
+      <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i1"></div>
         <h4>RPE-native programming</h4>
         <p>Programs written in RPE, not %1RM guesswork. Athletes self-regulate. Coaches see real-world feedback.</p>
       </div>
-      <div class="feat">
+      <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i2"></div>
         <h4>Variant-aware e1RM</h4>
         <p>Paused squat? Tempo bench? Deficit pull? Multipliers built in. Your e1RM reflects what you'd hit in comp.</p>
       </div>
-      <div class="feat">
+      <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i3"></div>
         <h4>Goals + progress bars</h4>
         <p>Set targets for squat, bench, deadlift, total, and bodyweight. See how close you are at a glance.</p>
       </div>
-      <div class="feat">
+      <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i4"></div>
         <h4>Bodyweight tracking</h4>
         <p>Daily weigh-ins logged + plotted. Stay in your weight class without thinking about it.</p>
       </div>
-      <div class="feat">
+      <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i5"></div>
         <h4>Plate calculator</h4>
         <p>Tap any working weight to see the exact plates needed. No standing at the rack doing maths.</p>
       </div>
-      <div class="feat">
+      <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i6"></div>
         <h4>Rest day system</h4>
         <p>Mark days off so they don't break your streak. Pick any session date, train when life lets you.</p>
@@ -354,7 +356,7 @@
   <div class="container">
     <div class="section-title center">
       <div class="section-tag">Coaches</div>
-      <h2>Browse <span class="tilt red">coaches.</span></h2>
+      <h2 data-fx="blur">Browse <span class="tilt red">coaches.</span></h2>
       <p>Find a coach to work with — or sign up as one yourself.</p>
     </div>
     <div id="coachGrid" class="coach-grid"></div>
@@ -366,7 +368,7 @@
   <div class="container">
     <div class="section-title center">
       <div class="section-tag">Marketplace</div>
-      <h2>Buy a program. <span class="tilt red">Skip the spreadsheet.</span></h2>
+      <h2 data-fx="blur">Buy a program. <span class="tilt red">Skip the spreadsheet.</span></h2>
       <p>Pre-made programs from real powerlifting coaches. One-time purchase, instant delivery to your dashboard.</p>
     </div>
     <div id="marketplaceTeaser" class="coach-grid"></div>
@@ -381,7 +383,7 @@
   <div class="container">
     <div class="section-title center">
       <div class="section-tag">Pricing</div>
-      <h2>Free for athletes. <span class="tilt red">Forever.</span></h2>
+      <h2 data-fx="blur">Free for athletes. <span class="tilt red">Forever.</span></h2>
       <p>Coaches scale as their roster grows.</p>
     </div>
     <div class="price-grid">
@@ -417,12 +419,12 @@
 <!-- CLOSING CTA -->
 <section class="cta-band">
   <div class="container">
-    <h2>STOP TRAINING IN<br><span class="accent tilt">A SPREADSHEET.</span></h2>
+    <h2 data-fx="blur">STOP TRAINING IN<br><span class="accent tilt">A SPREADSHEET.</span></h2>
     <p>Free for athletes, forever. Coaches start free with 3 athletes. No trial, no card.</p>
-    <div class="cta-band-actions">
-      <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('solo'); return false;">Create free account</a>
-      <a href="athlete.html?demo=1" class="btn btn-lg btn-ghost">Try the live demo</a>
-      <a href="marketplace.html" class="btn btn-lg btn-ghost">Browse programs</a>
+    <div class="cta-band-actions" data-fx-stagger>
+      <a href="#" class="btn btn-primary btn-lg" data-fx="up" onclick="openSignupModal('solo'); return false;">Create free account</a>
+      <a href="athlete.html?demo=1" class="btn btn-lg btn-ghost" data-fx="up">Try the live demo</a>
+      <a href="marketplace.html" class="btn btn-lg btn-ghost" data-fx="up">Browse programs</a>
     </div>
   </div>
 </section>
