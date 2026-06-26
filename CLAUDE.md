@@ -93,7 +93,7 @@ If the policy is "users can only update their own profile," the coach-remove pat
 
 ## Edge functions
 
-In repo (need to be deployed via Supabase dashboard → Edge Functions):
+In `edge-functions/` (need to be deployed via Supabase dashboard → Edge Functions; the folder is for organization only — Supabase functions are deployed by name, not by path):
 
 - `ls-webhook.ts` — Lemon Squeezy subscription webhook → updates `profiles.subscription_tier`. Env: `LEMON_SQUEEZY_WEBHOOK_SECRET`. Verify JWT OFF.
 - `ls-marketplace-webhook.ts` — Lemon Squeezy marketplace webhook → records sale + grants program access. Env: `LEMON_SQUEEZY_WEBHOOK_SECRET`. Verify JWT OFF.
@@ -105,7 +105,7 @@ The signature verification in both LS webhooks uses HMAC-SHA-256. The old length
 
 ## SQL migrations
 
-Apply via Supabase SQL Editor in this order:
+In `sql/`. Apply via Supabase SQL Editor in this order:
 
 ```
 migration-coach-profile.sql

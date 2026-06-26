@@ -615,6 +615,8 @@ function populateAthleteSelect(selectId, onChange) {
   sel.innerHTML = '';
   if (!myAthletes.length) sel.appendChild(el('option', { value: '' }, 'No athletes yet'));
   else {
+    // The progress view gets a roster-wide overview as its default (empty value).
+    if (selectId === 'progressAthlete') sel.appendChild(el('option', { value: '' }, '📊 Roster overview'));
     myAthletes.forEach(a => sel.appendChild(el('option', { value: a.id }, a.name)));
     if (cur && myAthletes.some(a => a.id === cur)) sel.value = cur;
   }
@@ -1507,15 +1509,128 @@ async function confirmApplyTemplate() {
 }
 
 // ===== PROGRESS =====
+// =========================================================
+// ROSTER-WIDE ANALYTICS — the coach's command center.
+// Aggregates every athlete into one view: who's active, who's gone quiet,
+// who's progressing. Sorted to surface athletes who need attention first.
+// =========================================================
+function renderRosterAnalytics() {
+  const area = document.getElementById('progressArea');
+  area.innerHTML = '';
+  const s = Store.get();
+  const roster = s.athletes.filter(a => a.coachId === user.id);
+  if (!roster.length) return;
+
+  const now = new Date();
+  const dayIdx = (now.getDay() + 6) % 7;
+  const mon = new Date(now); mon.setDate(now.getDate() - dayIdx); mon.setHours(0, 0, 0, 0);
+  const weekISO = mon.toISOString().slice(0, 10);
+
+  const rows = roster.map(a => {
+    const logs = s.workoutLogs.filter(l => l.athleteId === a.id && l.lift !== 'cardio');
+    const weekLogs = logs.filter(l => l.date >= weekISO);
+    const lastDate = logs.length ? logs.reduce((m, l) => l.date > m ? l.date : m, logs[0].date) : null;
+    const daysSince = lastDate ? Math.floor((Date.now() - Date.parse(lastDate)) / 86400000) : null;
+    const total = currentTotal(a.id);
+    const delta = getWeeklyDelta(a.id);
+    const totalDelta = ['squat', 'bench', 'deadlift'].reduce((sum, lift) => sum + ((delta[lift] && delta[lift].delta) || 0), 0);
+    const tonnage = weekLogs.reduce((t, l) => t + l.weight * l.reps, 0);
+    const prs = weekLogs.filter(l => MAIN_LIFTS.includes(l.lift) && isPRForLog(a.id, l)).length;
+    return { a, started: logs.length > 0, weekSets: weekLogs.length, lastDate, daysSince, total, totalDelta, tonnage, prs };
+  });
+
+  const activeWeek = rows.filter(r => r.weekSets > 0).length;
+  const setsWeek = rows.reduce((t, r) => t + r.weekSets, 0);
+  const tonnageWeek = rows.reduce((t, r) => t + r.tonnage, 0);
+  const prsWeek = rows.reduce((t, r) => t + r.prs, 0);
+  const quiet = rows.filter(r => r.started && r.daysSince != null && r.daysSince >= 10).length;
+  const notStarted = rows.filter(r => !r.started).length;
+
+  // Headline tiles
+  const tiles = [
+    { lab: 'Athletes', val: String(roster.length), icon: ICONS.athletes, featured: true },
+    { lab: 'Trained this week', val: activeWeek + '<span class="unit"> / ' + roster.length + '</span>', icon: ICONS.flame },
+    { lab: 'Sets logged', val: String(setsWeek), icon: ICONS.bar },
+    { lab: 'Tonnage this week', val: Math.round(kgToDisplay(tonnageWeek)).toLocaleString() + '<span class="unit"> ' + unitLabel() + '</span>', icon: ICONS.chart },
+    { lab: 'PRs this week', val: String(prsWeek), icon: ICONS.trophy },
+    { lab: 'Need attention', val: String(quiet + notStarted), icon: ICONS.scale }
+  ];
+  const stat = el('div', { class: 'stat-grid' });
+  tiles.forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.featured ? ' featured' : '') });
+    const lab = el('div', { class: 'stat-label' });
+    lab.innerHTML = t.icon + '<span>' + t.lab + '</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: t.val }));
+    stat.appendChild(tile);
+  });
+  area.appendChild(stat);
+
+  // Sort: never-started last; otherwise most-stale (largest daysSince) first.
+  rows.sort((x, y) => {
+    if (x.started !== y.started) return x.started ? -1 : 1;
+    return (y.daysSince || 0) - (x.daysSince || 0);
+  });
+
+  area.appendChild(el('h3', { style: 'margin: 26px 0 14px; font-size: 1.4rem;' }, 'Roster breakdown'));
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table', { class: 'roster-analytics-tbl' });
+  tbl.innerHTML = '<thead><tr><th>Athlete</th><th>Last trained</th><th>This week</th><th>Total</th><th>Weekly Δ</th><th>Status</th></tr></thead>';
+  const tbody = el('tbody');
+  rows.forEach(r => {
+    const tr = el('tr', { style: 'cursor:pointer' });
+    tr.onclick = () => { const sel = document.getElementById('progressAthlete'); if (sel) { sel.value = r.a.id; renderProgressForAthlete(); } };
+
+    const nameTd = el('td');
+    nameTd.innerHTML = '<div class="ra-name"><span class="av av-sm">' + escHtml(initials(r.a.name)) + '</span><span>' + escHtml(r.a.name) + '</span></div>';
+    tr.appendChild(nameTd);
+
+    let lastTxt, lastCls = '';
+    if (!r.started) { lastTxt = 'Not started'; lastCls = 'dim'; }
+    else if (r.daysSince === 0) { lastTxt = 'Today'; }
+    else if (r.daysSince === 1) { lastTxt = 'Yesterday'; }
+    else { lastTxt = r.daysSince + ' days ago'; if (r.daysSince >= 10) lastCls = 'ra-warn'; }
+    tr.appendChild(el('td', { class: lastCls }, lastTxt));
+
+    tr.appendChild(el('td', { class: 'mono' }, r.weekSets ? r.weekSets + ' set' + (r.weekSets === 1 ? '' : 's') : '—'));
+    tr.appendChild(el('td', { class: 'mono' }, r.total ? Math.round(kgToDisplay(r.total)) + ' ' + unitLabel() : '—'));
+
+    const dTd = el('td', { class: 'mono' });
+    if (!r.started || r.totalDelta === 0) dTd.innerHTML = '<span class="dim">–</span>';
+    else {
+      const up = r.totalDelta > 0;
+      dTd.innerHTML = '<span class="ra-delta ' + (up ? 'up' : 'down') + '">' + (up ? '▲' : '▼') + ' ' + Math.abs(kgToDisplay(r.totalDelta, 1)) + ' ' + unitLabel() + '</span>';
+    }
+    tr.appendChild(dTd);
+
+    let badge;
+    if (!r.started) badge = '<span class="ra-status new">New</span>';
+    else if (r.daysSince >= 10) badge = '<span class="ra-status quiet">Quiet</span>';
+    else if (r.prs > 0) badge = '<span class="ra-status pr">' + r.prs + ' PR' + (r.prs === 1 ? '' : 's') + '</span>';
+    else if (r.weekSets > 0) badge = '<span class="ra-status active">On track</span>';
+    else badge = '<span class="ra-status idle">Resting</span>';
+    const stTd = el('td'); stTd.innerHTML = badge; tr.appendChild(stTd);
+
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+  area.appendChild(el('p', { class: 'dim text-sm mt-12' }, 'Tap any athlete for their full progress. Switch the dropdown above to drill into one lifter.'));
+}
+
 function renderProgressForAthlete() {
   const aid = document.getElementById('progressAthlete').value;
   const area = document.getElementById('progressArea');
   area.innerHTML = '';
 
   if (!aid) {
+    const hasRoster = Store.get().athletes.some(a => a.coachId === user.id);
+    if (hasRoster) { renderRosterAnalytics(); return; }
     const e = el('div', { class: 'empty' });
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chart;
-    e.appendChild(ic); e.appendChild(el('h3', {}, 'No athlete selected'));
+    e.appendChild(ic); e.appendChild(el('h3', {}, 'No athletes yet'));
+    e.appendChild(el('p', {}, 'Invite an athlete from the Roster tab to see roster analytics.'));
     area.appendChild(e); return;
   }
 

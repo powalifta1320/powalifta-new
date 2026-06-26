@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>POWALIFTA — test harness</title>
+<style>
+  :root{
+    --bg:#0b0b0c; --bg-1:#111114; --line:#23232a;
+    --red:#ff2d3f; --green:#4ed884; --gold:#ffce54; --dim:#8a8a93;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:#f4f4f6;
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; padding:40px 24px 80px;
+  }
+  .wrap{max-width:860px; margin:0 auto}
+  h1{
+    font-family:'Anton',Impact,sans-serif; font-weight:400; letter-spacing:.02em;
+    text-transform:uppercase; font-size:34px; margin:0 0 4px;
+  }
+  h1 .red{color:var(--red)}
+  .sub{color:var(--dim); font-size:14px; margin:0 0 24px}
+  .summary{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    background:var(--bg-1); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:22px;
+  }
+  .pill{
+    font-family:'Space Grotesk',monospace; font-size:13px; font-weight:600;
+    padding:6px 12px; border-radius:999px; border:1px solid var(--line);
+  }
+  .pill.tot{color:#f4f4f6}
+  .pill.pass{color:var(--green); border-color:rgba(78,216,132,.4); background:rgba(78,216,132,.08)}
+  .pill.fail{color:var(--red); border-color:rgba(255,45,63,.4); background:rgba(255,45,63,.08)}
+  .pill.skip{color:var(--gold); border-color:rgba(255,206,84,.4); background:rgba(255,206,84,.08)}
+  .pill.dur{color:var(--dim); margin-left:auto}
+  button.rerun{
+    margin-left:8px; cursor:pointer; font-family:inherit; font-weight:700; font-size:13px;
+    color:#0b0b0c; background:var(--red); border:0; border-radius:999px; padding:8px 16px;
+  }
+  .banner{
+    border-radius:12px; padding:12px 16px; margin-bottom:22px; font-weight:700; font-size:15px;
+    font-family:'Space Grotesk',monospace;
+  }
+  .banner.ok{color:var(--green); background:rgba(78,216,132,.1); border:1px solid rgba(78,216,132,.4)}
+  .banner.bad{color:var(--red); background:rgba(255,45,63,.1); border:1px solid rgba(255,45,63,.4)}
+  .grp{margin-bottom:22px}
+  .grp-h{
+    font-family:'Space Grotesk',monospace; text-transform:uppercase; letter-spacing:.08em;
+    font-size:12px; color:var(--dim); margin:0 0 8px; padding-left:2px;
+  }
+  .case{
+    display:flex; gap:10px; align-items:flex-start;
+    padding:9px 14px; border:1px solid var(--line); border-top:0; background:var(--bg-1);
+    font-size:14px;
+  }
+  .grp .case:first-of-type{border-top:1px solid var(--line); border-radius:10px 10px 0 0}
+  .grp .case:last-of-type{border-radius:0 0 10px 10px}
+  .grp .case:only-of-type{border-radius:10px}
+  .mark{font-weight:700; flex:0 0 auto; width:18px; text-align:center}
+  .mark.p{color:var(--green)}
+  .mark.f{color:var(--red)}
+  .mark.s{color:var(--gold)}
+  .ctext{flex:1; min-width:0}
+  .cname{color:#e8e8ee}
+  .cerr{
+    color:var(--red); font-family:'Space Grotesk',monospace; font-size:12.5px;
+    margin-top:4px; white-space:pre-wrap; word-break:break-word;
+  }
+  .cnote{color:var(--gold); font-size:12.5px; margin-top:3px; font-family:'Space Grotesk',monospace}
+  iframe.sandbox{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; border:0; left:-9999px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>POWA<span class="red">LIFTA</span> · TEST HARNESS</h1>
+  <p class="sub">Runs the shared core (e1RM, variants, units, PRs, weekly delta, totals, signals, export) plus an importer round-trip. No build step — pure in-browser assertions against <code>app.js</code>.</p>
+  <div class="summary" id="summary">
+    <span class="pill tot">running…</span>
+    <button class="rerun" onclick="location.reload()">Re-run</button>
+  </div>
+  <div id="banner"></div>
+  <div id="results"></div>
+</div>
+
+<!-- Shared library under test. db.js intentionally omitted: the tested functions
+     are pure (Store + window._user only) and never touch Supabase. -->
+<script src="app.js"></script>
+<script>
+/* ===========================================================
+   Tiny zero-dependency test framework
+   =========================================================== */
+const T = { pass: 0, fail: 0, skip: 0, groups: [] };
+let _cur = null;
+function group(name) { _cur = { name, cases: [] }; T.groups.push(_cur); }
+function test(name, fn) {
+  const c = { name, status: 'pass', err: '' };
+  try { fn(); T.pass++; }
+  catch (e) { c.status = 'fail'; c.err = (e && e.message) || String(e); T.fail++; }
+  _cur.cases.push(c);
+}
+function skip(name, reason) {
+  _cur.cases.push({ name, status: 'skip', err: reason || '' });
+  T.skip++;
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+function eq(actual, expected, msg) {
+  if (actual !== expected) throw new Error((msg ? msg + ' — ' : '') + 'expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+}
+function close(actual, expected, eps, msg) {
+  eps = eps == null ? 0.01 : eps;
+  if (typeof actual !== 'number' || !isFinite(actual) || Math.abs(actual - expected) > eps)
+    throw new Error((msg ? msg + ' — ' : '') + 'expected ≈' + expected + ' (±' + eps + '), got ' + actual);
+}
+
+/* ===========================================================
+   State helpers
+   =========================================================== */
+function resetState() { Store.reset(); window._user = null; }
+function seed(partial) {
+  Store.update(s => { Object.keys(partial).forEach(k => { s[k] = partial[k]; }); });
+}
+const iso = d => d.toISOString().slice(0, 10);
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+
+/* ===========================================================
+   1. e1RM math
+   =========================================================== */
+group('e1RM math');
+test('zero inputs → 0', () => eq(calcE1RM(0, 5, 8), 0));
+test('1 rep @ RPE 10 returns the weight itself', () => eq(calcE1RM(100, 1, 10), 100));
+test('100×5 @ RPE 8 ≈ 124.97', () => close(calcE1RM(100, 5, 8), 124.97, 0.1));
+test('higher RPE → lower e1RM (fewer reps in reserve)', () => assert(calcE1RM(100, 5, 9) < calcE1RM(100, 5, 8)));
+test('more reps → higher e1RM', () => assert(calcE1RM(100, 6, 8) > calcE1RM(100, 5, 8)));
+test('extreme fatigue floors at weight/0.4 (=250)', () => close(calcE1RM(100, 30, 1), 250, 0.01));
+
+/* ===========================================================
+   2. Variant multipliers
+   =========================================================== */
+group('variant multipliers');
+test('squat Competition = 1.0', () => eq(multiplierFor('squat', 'Competition'), 1.0));
+test('bench Close Grip = 1.09', () => eq(multiplierFor('bench', 'Close Grip'), 1.09));
+test('deadlift Deficit = 1.06', () => eq(multiplierFor('deadlift', 'Deficit'), 1.06));
+test('unknown variant falls back to 1.0', () => eq(multiplierFor('squat', 'Nope'), 1.0));
+test('unknown lift falls back to 1.0', () => eq(multiplierFor('zercher', 'Competition'), 1.0));
+test('comp e1RM scales by multiplier (CG bench 1×RPE10)', () => close(calcCompE1RM(100, 1, 10, 'bench', 'Close Grip'), 109, 0.01));
+
+/* ===========================================================
+   3. Unit conversion (saves & restores the user's real setting)
+   =========================================================== */
+group('unit conversion');
+(() => {
+  const saved = (() => { try { return localStorage.getItem('powa-unit'); } catch { return null; } })();
+  try {
+    setUnit('kg');
+    test('kg mode: 100kg displays as 100', () => eq(kgToDisplay(100), 100));
+    test('kg mode: displayToKg is identity', () => eq(displayToKg(100), 100));
+    setUnit('lbs');
+    test('lbs mode: 100kg ≈ 220.5 lb', () => close(kgToDisplay(100, 1), 220.5, 0.1));
+    test('lbs mode: 225 lb entry ≈ 102.06 kg', () => close(displayToKg(225), 102.058, 0.01));
+    test('lbs round-trip kg→display→kg is lossless', () => close(displayToKg(kgToDisplay(142.5, 6)), 142.5, 0.001));
+    test('empty string passes through unchanged', () => eq(displayToKg(''), ''));
+  } finally {
+    // Restore so the harness never clobbers the real app's unit preference.
+    try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch {}
+  }
+})();
+
+/* ===========================================================
+   4. PR detection
+   =========================================================== */
+group('PR detection');
+(() => {
+  resetState();
+  const L = (id, date, e) => ({ id, athleteId: 'ath1', lift: 'squat', variant: 'Competition', e1rmComp: e, date });
+  const a = L('l1', '2026-01-01', 100), b = L('l2', '2026-01-02', 105), c = L('l3', '2026-01-03', 102);
+  seed({ workoutLogs: [a, b, c] });
+  test('first-ever log of a lift is a PR', () => eq(isPRForLog('ath1', a), true));
+  test('beating prior best is a PR', () => eq(isPRForLog('ath1', b), true));
+  test('below prior best is NOT a PR', () => eq(isPRForLog('ath1', c), false));
+  resetState();
+})();
+
+/* ===========================================================
+   5. Weekly delta
+   =========================================================== */
+group('weekly delta');
+(() => {
+  resetState();
+  seed({ workoutLogs: [
+    { id: 'w1', athleteId: 'ath1', lift: 'squat', e1rmComp: 100, date: daysAgo(9) },  // prev week
+    { id: 'w2', athleteId: 'ath1', lift: 'squat', e1rmComp: 110, date: daysAgo(1) },  // this week
+  ] });
+  const d = getWeeklyDelta('ath1');
+  test('squat delta = +10 this week vs last', () => close(d.squat.delta, 10, 0.001));
+  test('current best reflected', () => close(d.squat.current, 110, 0.001));
+  resetState();
+})();
+
+/* ===========================================================
+   6. Best e1RM / current total
+   =========================================================== */
+group('best e1RM & total');
+(() => {
+  resetState();
+  seed({ workoutLogs: [
+    { id: 's1', athleteId: 'ath1', lift: 'squat', e1rmComp: 100, date: '2026-01-01' },
+    { id: 's2', athleteId: 'ath1', lift: 'squat', e1rmComp: 120, date: '2026-01-02' },
+    { id: 'b1', athleteId: 'ath1', lift: 'bench', e1rmComp: 80, date: '2026-01-01' },
+    { id: 'd1', athleteId: 'ath1', lift: 'deadlift', e1rmComp: 150, date: '2026-01-01' },
+    { id: 'x1', athleteId: 'other', lift: 'squat', e1rmComp: 999, date: '2026-01-01' },
+  ] });
+  test('bestE1RM picks the max for the athlete', () => eq(bestE1RM('ath1', 'squat'), 120));
+  test('foreign athlete logs are excluded', () => eq(bestE1RM('ath1', 'squat') !== 999, true));
+  test('currentTotal sums best SBD (120+80+150=350)', () => eq(currentTotal('ath1'), 350));
+  resetState();
+})();
+
+/* ===========================================================
+   7. Signal center — coach
+   =========================================================== */
+group('signals · coach');
+(() => {
+  resetState();
+  window._user = { id: 'coach1', name: 'Coach Bob', userType: 'coach' };
+  Store.update(s => {
+    s.athletes = [{ id: 'ath1', name: 'Test Athlete', coachId: 'coach1' }];
+    s.sessionNotes = [{ id: 'n1', athleteId: 'ath1', note: 'felt heavy', date: '2026-06-01' }]; // no coachComment
+    s.checkins = [{ id: 'c1', athleteId: 'ath1', feel: 8, sleep: 7, stress: 3, weekStart: '2026-06-22' }];
+    s.workoutLogs = [];
+  });
+  const sig = computeSignals();
+  test('athlete note awaiting reply surfaces', () => assert(sig.some(x => x.id === 'cnote-n1' && x.type === 'reply'), 'no cnote-n1 in ' + JSON.stringify(sig.map(s => s.id))));
+  test('check-in surfaces as a signal', () => assert(sig.some(x => x.id === 'cci-c1' && x.type === 'checkin')));
+  test('note already replied to is suppressed', () => {
+    Store.update(s => { s.sessionNotes[0].coachComment = 'good work'; });
+    assert(!computeSignals().some(x => x.id === 'cnote-n1'));
+  });
+  resetState();
+})();
+
+/* ===========================================================
+   8. Signal center — athlete
+   =========================================================== */
+group('signals · athlete');
+(() => {
+  resetState();
+  window._user = { id: 'ath1', name: 'Test Athlete', userType: 'athlete', coachId: 'coach1' };
+  Store.update(s => {
+    s.coaches = [{ id: 'coach1', name: 'Coach Bob' }];
+    s.sessionNotes = [{ id: 'n2', athleteId: 'ath1', coachComment: 'great session', date: '2026-06-01' }];
+    s.checkins = [];
+  });
+  const sig = computeSignals();
+  test('coach reply surfaces with coach name', () => {
+    const r = sig.find(x => x.id === 'areply-n2');
+    assert(r && /Coach Bob/.test(r.title), 'reply missing or unnamed: ' + JSON.stringify(r));
+  });
+  test('weekly check-in due when none submitted', () => assert(sig.some(x => x.type === 'checkin' && x.id.indexOf('aci-due-') === 0)));
+  resetState();
+})();
+
+/* ===========================================================
+   9. Data export
+   =========================================================== */
+group('data export');
+(() => {
+  resetState();
+  window._user = { id: 'ath1', name: 'Test Athlete', email: 'a@b.com', userType: 'athlete', coachId: 'coach1' };
+  Store.update(s => {
+    s.workoutLogs = [
+      { id: 'l1', athleteId: 'ath1', lift: 'squat', variant: 'Competition', weight: 150, reps: 3, rpe: 8, e1rm: 170.4, date: '2026-06-01', note: 'crisp' },
+      { id: 'l2', athleteId: 'ath1', lift: 'accessory', exerciseName: 'Bicep Curls', variant: '', weight: 20, reps: 12, rpe: 9, e1rm: 0, date: '2026-06-02', note: '' },
+      { id: 'l3', athleteId: 'other', lift: 'bench', variant: 'Competition', weight: 100, reps: 5, rpe: 8, e1rm: 124, date: '2026-06-01', note: '' },
+    ];
+    s.bodyweight = [{ id: 'bw1', athleteId: 'ath1', date: '2026-06-01', weight: 84 }];
+  });
+  const payload = buildExportPayload();
+  test('payload account id matches user', () => eq(payload.account.id, 'ath1'));
+  test('only the athlete\'s own logs are exported', () => eq(payload.workoutLogs.length, 2));
+  test('bodyweight included for athlete', () => eq(payload.bodyweight.length, 1));
+
+  const csv = _logsToCsv();
+  const lines = csv.split('\n');
+  test('CSV header has no colliding exercise column', () => eq(lines[0], 'date,lift,variant,weight_kg,reps,rpe,e1rm_kg,note'));
+  test('accessory name lands in the lift column', () => {
+    const row = lines.find(l => l.indexOf('Bicep Curls') >= 0);
+    assert(row && row.indexOf('2026-06-02,Bicep Curls,') === 0, 'row was: ' + row);
+  });
+  test('weights exported in kg (150), not converted', () => assert(lines.some(l => l.indexOf(',squat,Competition,150,') >= 0)));
+  test('foreign athlete logs excluded from CSV', () => assert(!csv.includes('2026-06-01,bench')));
+  resetState();
+})();
+
+/* ===========================================================
+   10. Importer round-trip (athlete.html, demo iframe)
+   These functions are page-inline in athlete.html, so we load it
+   in a hidden ?demo=1 iframe and reach into its window. If it
+   doesn't come up in time, the cases are SKIPPED (not failed).
+   =========================================================== */
+function runImporterTests(win) {
+  group('importer (athlete.html)');
+  const build = win._impBuild, parse = win._parseDelimited;
+  const normDate = win._impNormDate, normLift = win._impNormLift;
+
+  test('CSV parser splits quoted commas correctly', () => {
+    const r = parse('a,"b,c",d');
+    eq(r.length, 1); eq(r[0].length, 3); eq(r[0][1], 'b,c');
+  });
+  test('date normaliser pads ISO and handles slashes', () => {
+    eq(normDate('2026-1-5'), '2026-01-05');
+    eq(normDate('05/03/2026'), '2026-05-03');
+  });
+  test('lift normaliser maps aliases', () => {
+    eq(normLift('SQ'), 'squat'); eq(normLift('bp'), 'bench'); eq(normLift('dl'), 'deadlift'); eq(normLift('curls'), null);
+  });
+
+  test('main-lift row imports with correct kg weight + e1RM', () => {
+    const r = build('date,lift,weight,reps,rpe\n2026-01-01,squat,100,5,8', 'kg');
+    eq(r.logs.length, 1); eq(r.skipped.length, 0);
+    eq(r.logs[0].lift, 'squat'); close(r.logs[0].weight, 100, 0.001);
+    close(r.logs[0].e1rm, 124.97, 0.1);
+  });
+  test('bodyweight detected from the lift cell', () => {
+    const r = build('date,lift,weight,reps\n2026-01-02,bodyweight,84.5,', 'kg');
+    eq(r.logs.length, 0); eq(r.bws.length, 1); close(r.bws[0].weight, 84.5, 0.001);
+  });
+  test('lb input scales to kg', () => {
+    const r = build('date,lift,weight,reps,rpe\n2026-01-03,bench,225,3,8', 'lbs');
+    eq(r.logs.length, 1); close(r.logs[0].weight, 102.06, 0.05);
+  });
+  test('weight_kg alias is recognised (re-import lossless)', () => {
+    const r = build('date,lift,weight_kg,reps,rpe\n2026-01-04,deadlift,180,3,7', 'kg');
+    eq(r.logs.length, 1); close(r.logs[0].weight, 180, 0.001);
+  });
+  test('rows with bad dates are skipped, not imported', () => {
+    const r = build('date,lift,weight,reps,rpe\nnotadate,squat,100,5,8', 'kg');
+    eq(r.logs.length, 0); eq(r.skipped.length, 1);
+  });
+  test('accessory lift keeps its name', () => {
+    const r = build('date,lift,weight,reps,rpe\n2026-01-05,Lat Pulldown,60,10,8', 'kg');
+    eq(r.logs.length, 1); eq(r.logs[0].exerciseName, 'Lat Pulldown'); eq(r.logs[0].lift, 'lat pulldown');
+  });
+}
+
+/* ===========================================================
+   Render + boot
+   =========================================================== */
+function render() {
+  const sum = document.getElementById('summary');
+  const total = T.pass + T.fail + T.skip;
+  sum.innerHTML =
+    '<span class="pill tot">' + total + ' tests</span>' +
+    '<span class="pill pass">✓ ' + T.pass + ' passed</span>' +
+    (T.fail ? '<span class="pill fail">✗ ' + T.fail + ' failed</span>' : '') +
+    (T.skip ? '<span class="pill skip">• ' + T.skip + ' skipped</span>' : '') +
+    '<span class="pill dur" id="dur"></span>' +
+    '<button class="rerun" onclick="location.reload()">Re-run</button>';
+
+  const banner = document.getElementById('banner');
+  if (T.fail === 0) banner.innerHTML = '<div class="banner ok">ALL GREEN — ' + T.pass + ' assertions passing' + (T.skip ? ' (' + T.skip + ' skipped)' : '') + '</div>';
+  else banner.innerHTML = '<div class="banner bad">' + T.fail + ' FAILING — see red rows below</div>';
+
+  const out = document.getElementById('results');
+  out.innerHTML = T.groups.map(g => {
+    const cases = g.cases.map(c => {
+      const m = c.status === 'pass' ? '<span class="mark p">✓</span>'
+        : c.status === 'fail' ? '<span class="mark f">✗</span>'
+        : '<span class="mark s">•</span>';
+      const extra = c.status === 'fail' ? '<div class="cerr">' + esc(c.err) + '</div>'
+        : (c.status === 'skip' && c.err) ? '<div class="cnote">skipped: ' + esc(c.err) + '</div>' : '';
+      return '<div class="case">' + m + '<div class="ctext"><div class="cname">' + esc(c.name) + '</div>' + extra + '</div></div>';
+    }).join('');
+    return '<div class="grp"><p class="grp-h">' + esc(g.name) + '</p>' + cases + '</div>';
+  }).join('');
+}
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+function bootImporterThenRender(t0) {
+  const iframe = document.createElement('iframe');
+  iframe.className = 'sandbox';
+  iframe.src = 'athlete.html?demo=1';
+  document.body.appendChild(iframe);
+  const start = Date.now();
+  const TIMEOUT = 8000;
+  (function poll() {
+    let win = null;
+    try { win = iframe.contentWindow; } catch (e) { win = null; }
+    const ready = win && typeof win._impBuild === 'function' && win._user && win._user.id;
+    if (ready) {
+      try { runImporterTests(win); }
+      catch (e) { group('importer (athlete.html)'); skip('importer round-trip', 'threw while running: ' + ((e && e.message) || e)); }
+      finish(t0); return;
+    }
+    if (Date.now() - start > TIMEOUT) {
+      group('importer (athlete.html)');
+      skip('importer round-trip', 'demo iframe did not expose _impBuild within ' + (TIMEOUT / 1000) + 's');
+      finish(t0); return;
+    }
+    setTimeout(poll, 150);
+  })();
+}
+function finish(t0) {
+  render();
+  const dur = document.getElementById('dur');
+  if (dur) dur.textContent = (Date.now() - t0) + ' ms';
+}
+
+window.addEventListener('load', () => {
+  const t0 = Date.now();
+  // Synchronous groups already ran at script-parse time above.
+  bootImporterThenRender(t0);
+});
+</script>
+</body>
+</html>

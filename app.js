@@ -1122,6 +1122,14 @@ function ensureSettingsModal() {
       '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
       '<div class="flex gap-8 mt-16"><button class="btn btn-block" onclick="closeSettingsModal()">Cancel</button><button class="btn btn-primary btn-block" onclick="saveSettings()">Save</button></div>' +
       '<div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);">' +
+        '<p class="dim text-sm mb-8">Your data</p>' +
+        '<p class="dim text-xs mb-8" style="line-height:1.5">Download everything we hold for your account. JSON is the complete archive; CSV is your training log, ready to re-import anywhere.</p>' +
+        '<div class="flex gap-8">' +
+          '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">⬇ Export JSON</button>' +
+          '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">⬇ Export CSV</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
         '<button class="btn btn-block btn-ghost" onclick="replaySettingsTour()">↺ Replay onboarding tour</button>' +
       '</div>' +
       '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
@@ -1219,6 +1227,107 @@ function replaySettingsTour() {
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.replaySettingsTour = replaySettingsTour;
+
+// =========================================================
+// SELF-SERVE DATA EXPORT (GDPR portability — promised in privacy/FAQ)
+// =========================================================
+// Gathers everything in the Store that belongs to the current user and
+// downloads it client-side. No server round-trip, works in demo mode.
+function _downloadBlob(filename, mime, text) {
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+    return true;
+  } catch (e) { console.error('download', e); return false; }
+}
+function _csvEscape(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function buildExportPayload() {
+  const u = getCurrentUser();
+  const s = Store.get();
+  if (!u) return null;
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    source: 'powalifta.com',
+    account: { id: u.id, name: u.name, email: u.email, userType: u.userType, countryCode: u.countryCode || null, coachId: u.coachId || null }
+  };
+  if (u.userType === 'coach') {
+    payload.roster = (s.athletes || []).filter(a => a.coachId === u.id).map(a => ({ id: a.id, name: a.name, email: a.email, countryCode: a.countryCode || null }));
+    payload.programs = (s.programs || []).filter(p => p.coachId === u.id);
+    payload.templates = (s.programTemplates || []).filter(t => t.coachId === u.id);
+    payload.sessionNotes = (s.sessionNotes || []).filter(n => n.coachId === u.id);
+  } else {
+    payload.workoutLogs = (s.workoutLogs || []).filter(l => l.athleteId === u.id);
+    payload.bodyweight = (s.bodyweight || []).filter(b => b.athleteId === u.id);
+    payload.goals = (s.goals || []).filter(g => g.athleteId === u.id);
+    payload.program = (s.programs || []).find(p => p.athleteId === u.id) || null;
+    payload.sessionNotes = (s.sessionNotes || []).filter(n => n.athleteId === u.id);
+    payload.checkins = (s.checkins || []).filter(c => c.athleteId === u.id);
+    payload.restDays = (s.restDays || []).filter(r => r.athleteId === u.id);
+  }
+  return payload;
+}
+function _logsToCsv() {
+  const u = getCurrentUser();
+  const s = Store.get();
+  // Coach export covers all roster logs; athlete export covers their own.
+  let logs;
+  if (u.userType === 'coach') {
+    const roster = new Set((s.athletes || []).filter(a => a.coachId === u.id).map(a => a.id));
+    logs = (s.workoutLogs || []).filter(l => roster.has(l.athleteId));
+  } else {
+    logs = (s.workoutLogs || []).filter(l => l.athleteId === u.id);
+  }
+  logs = logs.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const nameOf = id => ((s.athletes || []).find(a => a.id === id) || {}).name || '';
+  const isCoach = u.userType === 'coach';
+  // Weights exported in kg (internal unit) so a re-import with unit=kg is lossless.
+  // Accessory names live in the `lift` column (no separate `exercise` column —
+  // that would collide with `lift` on re-import). e1rm_kg is informational only
+  // (the importer ignores it and recomputes).
+  const header = (isCoach ? ['athlete'] : []).concat(['date', 'lift', 'variant', 'weight_kg', 'reps', 'rpe', 'e1rm_kg', 'note']);
+  const rows = [header.map(_csvEscape).join(',')];
+  logs.forEach(l => {
+    const base = isCoach ? [nameOf(l.athleteId)] : [];
+    const liftCol = (l.lift && l.lift !== 'accessory') ? l.lift : (l.exerciseName || l.lift || '');
+    rows.push(base.concat([
+      l.date, liftCol, l.variant || '',
+      l.weight, l.reps, l.rpe, (l.e1rm != null ? Math.round(l.e1rm * 10) / 10 : ''), l.note || ''
+    ]).map(_csvEscape).join(','));
+  });
+  return rows.join('\n');
+}
+function exportMyData(format) {
+  const u = getCurrentUser();
+  if (!u) return;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const safe = (u.name || 'powalifta').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'powalifta';
+  if (format === 'csv') {
+    const csv = _logsToCsv();
+    const lines = csv.split('\n').length - 1;
+    if (lines < 1) return toast('No training logs to export yet');
+    if (_downloadBlob('powalifta-logs-' + safe + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv)) {
+      toast('Exported ' + lines + ' set' + (lines === 1 ? '' : 's') + ' as CSV');
+    }
+  } else {
+    const payload = buildExportPayload();
+    if (!payload) return;
+    if (_downloadBlob('powalifta-export-' + safe + '-' + stamp + '.json', 'application/json', JSON.stringify(payload, null, 2))) {
+      toast('Your data archive is downloading');
+    }
+  }
+}
+window.exportMyData = exportMyData;
+window.buildExportPayload = buildExportPayload;
 
 async function saveSettings() {
   const u = getCurrentUser();
@@ -1981,6 +2090,17 @@ function renderNav(target) {
   actions.appendChild(unitBtn);
 
   if (user) {
+    // Signal center bell — only on the dashboards (skip marketing pages + admin).
+    if (document.querySelector('.dash-main') && user.userType !== 'admin') {
+      const sigWrap = el('div', { class: 'sig-wrap' });
+      const bell = el('button', { class: 'sig-bell', title: 'Notifications', 'aria-label': 'Notifications' });
+      bell.innerHTML = _SIG_BELL + '<span class="sig-badge" hidden></span>';
+      bell.setAttribute('onclick', 'toggleSignalCenter(event)');
+      const panel = el('div', { class: 'sig-panel', id: 'sigPanel', hidden: '' });
+      sigWrap.appendChild(bell);
+      sigWrap.appendChild(panel);
+      actions.appendChild(sigWrap);
+    }
     // Clickable user pill → opens settings modal
     const userPill = el('button', { class: 'nav-user', title: 'Settings' });
     const avInner = user.avatarUrl
@@ -2016,6 +2136,161 @@ function renderNav(target) {
 
   const wrap = document.querySelector(target);
   if (wrap) { wrap.innerHTML = ''; wrap.appendChild(navInner); }
+  if (typeof refreshSignalBadge === 'function') refreshSignalBadge();
+}
+
+// =========================================================
+// SIGNAL CENTER — in-app notifications
+// =========================================================
+// No notifications table. Signals are derived client-side from data already
+// hydrated into the Store (coach replies, check-ins, at-risk athletes), and
+// read-state is kept per-user in localStorage. Read-only → demo-safe.
+const _SIG_BELL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+const _SIG_ICON = {
+  reply:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+  checkin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  alert:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
+function _sigReadKey(uid) { return 'powa-signals-read-' + uid; }
+function _sigSeen(uid) {
+  try { return new Set(JSON.parse(localStorage.getItem(_sigReadKey(uid)) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function _sigMarkSeen(uid, ids) {
+  const s = _sigSeen(uid);
+  ids.forEach(i => s.add(i));
+  try { localStorage.setItem(_sigReadKey(uid), JSON.stringify([...s].slice(-300))); } catch (e) {}
+}
+function _sigTimeAgo(ts) {
+  const d = (typeof ts === 'number') ? ts : Date.parse(ts);
+  if (!isFinite(d)) return '';
+  const sec = Math.max(0, (Date.now() - d) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  if (sec < 604800) return Math.floor(sec / 86400) + 'd ago';
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function _sigWeekStartISO() {
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7;
+  const mon = new Date(now); mon.setDate(now.getDate() - day); mon.setHours(0, 0, 0, 0);
+  return mon.toISOString().slice(0, 10);
+}
+function computeSignals() {
+  const u = getCurrentUser();
+  if (!u) return [];
+  const s = Store.get();
+  const out = [];
+  if (u.userType === 'coach') {
+    const roster = new Set((s.athletes || []).filter(a => a.coachId === u.id).map(a => a.id));
+    const nameOf = id => ((s.athletes || []).find(a => a.id === id) || {}).name || 'An athlete';
+    (s.sessionNotes || []).forEach(n => {
+      if (!roster.has(n.athleteId) || n.coachComment) return;
+      out.push({ id: 'cnote-' + n.id, type: 'reply', title: nameOf(n.athleteId) + ' left a note', body: n.note, ts: n.date, tab: 'athletes' });
+    });
+    (s.checkins || []).forEach(c => {
+      if (!roster.has(c.athleteId)) return;
+      out.push({ id: 'cci-' + c.id, type: 'checkin', title: nameOf(c.athleteId) + ' submitted a check-in', body: 'Feeling ' + c.feel + '/10 · sleep ' + c.sleep + 'h · stress ' + c.stress + '/10', ts: c.createdAt || c.weekStart, tab: 'athletes' });
+    });
+    (s.athletes || []).filter(a => a.coachId === u.id).forEach(a => {
+      const logs = (s.workoutLogs || []).filter(l => l.athleteId === a.id);
+      if (!logs.length) return;
+      const last = logs.reduce((m, l) => l.date > m ? l.date : m, logs[0].date);
+      const days = Math.floor((Date.now() - Date.parse(last)) / 86400000);
+      if (days >= 10) out.push({ id: 'cstale-' + a.id + '-' + last, type: 'alert', title: a.name + ' has gone quiet', body: 'No sets logged in ' + days + ' days', ts: last, tab: 'athletes' });
+    });
+  } else {
+    const coach = (s.coaches || []).find(c => c.id === u.coachId) || (s.athletes || []).find(c => c.id === u.coachId);
+    const coachName = (coach && coach.name) || 'Your coach';
+    (s.sessionNotes || []).forEach(n => {
+      if (n.athleteId !== u.id || !n.coachComment) return;
+      out.push({ id: 'areply-' + n.id, type: 'reply', title: coachName + ' replied to your note', body: n.coachComment, ts: n.coachCommentAt || n.date, tab: 'coach' });
+    });
+    const ws = _sigWeekStartISO();
+    const submitted = (s.checkins || []).some(c => c.athleteId === u.id && c.weekStart >= ws);
+    if (u.coachId && !submitted) {
+      out.push({ id: 'aci-due-' + ws, type: 'checkin', title: 'Weekly check-in is due', body: 'Let your coach know how training went this week.', ts: ws + 'T06:00:00Z', tab: 'coach' });
+    }
+  }
+  out.sort((a, b) => (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0));
+  return out.slice(0, 40);
+}
+function refreshSignalBadge() {
+  const badge = document.querySelector('.sig-badge');
+  if (!badge) return;
+  const u = getCurrentUser();
+  if (!u) { badge.hidden = true; return; }
+  const seen = _sigSeen(u.id);
+  const unread = computeSignals().filter(sg => !seen.has(sg.id)).length;
+  if (unread > 0) { badge.textContent = unread > 9 ? '9+' : String(unread); badge.hidden = false; }
+  else { badge.hidden = true; }
+}
+function _sigGo(tab) {
+  const panel = document.getElementById('sigPanel');
+  if (panel) panel.hidden = true;
+  const t = document.getElementById('tab-' + tab) || document.querySelector('[data-tab="' + tab + '"]');
+  if (t) t.click();
+}
+function renderSignalPanel() {
+  const panel = document.getElementById('sigPanel');
+  if (!panel) return;
+  const u = getCurrentUser();
+  if (!u) return;
+  const sigs = computeSignals();
+  const seen = _sigSeen(u.id);
+  panel.innerHTML = '';
+  const head = el('div', { class: 'sig-head' });
+  head.appendChild(el('span', {}, 'Notifications'));
+  if (sigs.length) {
+    const clr = el('button', { class: 'sig-clear' }, 'Mark all read');
+    clr.onclick = (e) => { e.stopPropagation(); _sigMarkSeen(u.id, sigs.map(sg => sg.id)); renderSignalPanel(); refreshSignalBadge(); };
+    head.appendChild(clr);
+  }
+  panel.appendChild(head);
+  if (!sigs.length) {
+    panel.appendChild(el('div', { class: 'sig-empty' }, "You're all caught up."));
+    return;
+  }
+  const list = el('div', { class: 'sig-list' });
+  sigs.forEach(sg => {
+    const unread = !seen.has(sg.id);
+    const item = el('button', { class: 'sig-item' + (unread ? ' unread' : '') });
+    item.innerHTML =
+      '<span class="sig-ic">' + (_SIG_ICON[sg.type] || _SIG_ICON.alert) + '</span>' +
+      '<span class="sig-main">' +
+        '<span class="sig-title">' + escHtml(sg.title) + '</span>' +
+        '<span class="sig-sub">' + escHtml((sg.body || '').slice(0, 100)) + '</span>' +
+        '<span class="sig-time">' + _sigTimeAgo(sg.ts) + '</span>' +
+      '</span>';
+    item.onclick = (e) => { e.stopPropagation(); _sigMarkSeen(u.id, [sg.id]); _sigGo(sg.tab); };
+    list.appendChild(item);
+  });
+  panel.appendChild(list);
+}
+function toggleSignalCenter(ev) {
+  if (ev) ev.stopPropagation();
+  const panel = document.getElementById('sigPanel');
+  if (!panel) return;
+  const opening = panel.hidden;
+  panel.hidden = !opening;
+  if (opening) {
+    renderSignalPanel();
+    const u = getCurrentUser();
+    // After a beat of looking, clear the unread badge (items keep their dot until reopened).
+    setTimeout(() => { if (u) { _sigMarkSeen(u.id, computeSignals().map(sg => sg.id)); refreshSignalBadge(); } }, 1500);
+  }
+}
+window.toggleSignalCenter = toggleSignalCenter;
+// Close the panel when clicking anywhere outside it.
+if (!window.__sigOutsideBound) {
+  window.__sigOutsideBound = true;
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('sigPanel');
+    if (!panel || panel.hidden) return;
+    if (e.target.closest && e.target.closest('.sig-wrap')) return;
+    panel.hidden = true;
+  });
 }
 
 // =========================================================
@@ -2234,6 +2509,7 @@ function drawLineChart(container, config) {
     line.setAttribute('stroke-width', '2.5');
     line.setAttribute('stroke-linejoin', 'round');
     line.setAttribute('stroke-linecap', 'round');
+    line.style.filter = 'drop-shadow(0 0 5px ' + s.color + '66)';
     // animate
     const len = approxPathLength(points);
     line.setAttribute('stroke-dasharray', len);
@@ -2414,6 +2690,59 @@ function goalProgressPct(current, goal, direction) {
 // SEED DEMO DATA — DEPRECATED (data now lives in Supabase)
 // =========================================================
 function seedDemoIfEmpty() { /* no-op — Supabase is the source of truth */ }
+
+// =========================================================
+// STAT COUNT-UP — big dashboard numbers tick up when they
+// scroll into view. Self-wiring: observes existing + future
+// .stat-value nodes, animates each once. Reduced-motion safe.
+// =========================================================
+function _countUpEl(valEl) {
+  const unitSpan = valEl.querySelector('.unit');
+  const unitHTML = unitSpan ? unitSpan.outerHTML : '';
+  const raw = (valEl.textContent || '').replace(/,/g, '');
+  const target = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
+  if (!isFinite(target) || target === 0) return;
+  const isInt = Number.isInteger(target);
+  const dur = 950;
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / dur);
+    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    const cur = target * eased;
+    valEl.innerHTML = (isInt ? Math.round(cur) : cur.toFixed(1)) + unitHTML;
+    if (t < 1) requestAnimationFrame(frame);
+    else valEl.innerHTML = (isInt ? Math.round(target) : target.toFixed(1)) + unitHTML;
+  }
+  requestAnimationFrame(frame);
+}
+
+function _initStatCountUp() {
+  if (typeof IntersectionObserver === 'undefined') return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      io.unobserve(en.target);
+      _countUpEl(en.target);
+    });
+  }, { threshold: 0.45 });
+  const scan = () => {
+    document.querySelectorAll('.stat-value').forEach((e) => {
+      if (e.__cuSeen) return;
+      e.__cuSeen = true;
+      io.observe(e);
+    });
+  };
+  scan();
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initStatCountUp);
+} else {
+  _initStatCountUp();
+}
 
 /* Removed legacy seed function. Kept structure for reference:
 function _legacy_seedDemo() {

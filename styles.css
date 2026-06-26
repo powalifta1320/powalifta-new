@@ -2952,6 +2952,185 @@ footer .footer-base {
 .warmup-w { color: var(--text); font-weight: 600; }
 .warmup-reps { color: var(--text-3); font-size: 0.82rem; }
 
+/* Meet-day warm-up room: collapsible ramp per opener */
+.meet-warmup-det {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.meet-warmup-det > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.meet-warmup-det > summary::-webkit-details-marker { display: none; }
+.meet-warmup-det > summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--text-3);
+  transition: transform 0.2s ease;
+}
+.meet-warmup-det[open] > summary::after { transform: rotate(180deg); }
+.meet-warmup-det > summary:hover { background: rgba(255,255,255,0.025); }
+.meet-warmup-det > div { padding: 0 12px 12px; }
+.meet-warmup-det .mono { color: var(--text-3); font-size: 0.84rem; }
+
+/* ============================================ SIGNAL CENTER */
+.sig-wrap { position: relative; display: inline-flex; }
+.sig-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--bg-1, #111114);
+  color: var(--text-2, #b8b8c0);
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.sig-bell:hover { color: var(--text); border-color: rgba(255,45,63,0.4); transform: translateY(-1px); }
+.sig-bell svg { width: 18px; height: 18px; }
+.sig-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--red, #ff2d3f);
+  color: #fff;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg, #0b0b0c), 0 0 10px rgba(255,45,63,0.6);
+}
+.sig-badge[hidden] { display: none; }
+.sig-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 340px;
+  max-width: 88vw;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-1, #111114);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 14px);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.045);
+  z-index: 9999;
+  animation: sigPop .16s ease-out;
+}
+.sig-panel[hidden] { display: none; }
+@keyframes sigPop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.sig-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+  font-size: 0.92rem;
+  position: sticky;
+  top: 0;
+  background: var(--bg-1, #111114);
+}
+.sig-clear {
+  background: none;
+  border: none;
+  color: var(--red, #ff2d3f);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.sig-clear:hover { text-decoration: underline; }
+.sig-empty { padding: 28px 16px; text-align: center; color: var(--text-3); font-size: 0.88rem; }
+.sig-list { display: flex; flex-direction: column; }
+.sig-item {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  padding: 12px 15px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.sig-item:last-child { border-bottom: none; }
+.sig-item:hover { background: rgba(255,255,255,0.03); }
+.sig-item.unread { background: rgba(255,45,63,0.05); }
+.sig-item.unread:hover { background: rgba(255,45,63,0.08); }
+.sig-ic {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--bg, #0b0b0c);
+  border: 1px solid var(--line);
+  color: var(--text-2, #b8b8c0);
+}
+.sig-item.unread .sig-ic { color: var(--red, #ff2d3f); border-color: rgba(255,45,63,0.3); }
+.sig-ic svg { width: 16px; height: 16px; }
+.sig-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sig-title { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.sig-sub {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.sig-time { font-size: 0.7rem; color: var(--text-3); font-family: 'Space Grotesk', monospace; margin-top: 1px; }
+
+/* ============================================ ROSTER ANALYTICS */
+.roster-analytics-tbl tbody tr { transition: background .12s ease; }
+.roster-analytics-tbl tbody tr:hover { background: rgba(255,45,63,0.05); }
+.ra-name { display: flex; align-items: center; gap: 9px; }
+.av-sm {
+  width: 26px; height: 26px; font-size: 0.7rem; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ra-warn { color: var(--red, #ff2d3f); font-weight: 600; }
+.ra-delta.up { color: var(--green, #4ed884); }
+.ra-delta.down { color: var(--red, #ff2d3f); }
+.ra-status {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ra-status.active { color: var(--green, #4ed884); background: rgba(78,216,132,0.1); border-color: rgba(78,216,132,0.3); }
+.ra-status.pr { color: #ffce54; background: rgba(255,206,84,0.1); border-color: rgba(255,206,84,0.35); }
+.ra-status.quiet { color: var(--red, #ff2d3f); background: rgba(255,45,63,0.1); border-color: rgba(255,45,63,0.35); }
+.ra-status.new { color: var(--text-2, #b8b8c0); background: rgba(255,255,255,0.05); border-color: var(--line); }
+.ra-status.idle { color: var(--text-3); background: rgba(255,255,255,0.03); border-color: var(--line); }
+
 /* ============================================ COPY LAST WEEK */
 .copy-last-row {
   display: flex;
@@ -3617,4 +3796,233 @@ footer .footer-base {
   .exec-set { grid-template-columns: 30px 1fr 1fr 1fr; gap: 6px; }
   .exec-set input[type=checkbox] { grid-column: 4; }
   .set-row { grid-template-columns: 40px 1fr 1fr 1fr; }
+}
+
+/* ============================================================
+   DASHBOARD GLOW-UP
+   Additive depth + motion for the athlete & coach dashboards.
+   Brings the marketing-page richness (red glow, gradient sheen,
+   gentle lift) into the previously flat dashboard surfaces.
+   Brand-true, fully removable as one block, all motion gated
+   behind prefers-reduced-motion.
+   ============================================================ */
+
+/* --- Stat tiles (athlete Progress): top sheen, corner glow, lift --- */
+.stat-tile {
+  transition: transform 0.25s cubic-bezier(.2,.7,.3,1), border-color 0.25s, box-shadow 0.25s;
+}
+.stat-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,45,63,0.6), transparent);
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+.stat-tile::after {
+  content: '';
+  position: absolute;
+  width: 150px; height: 150px;
+  right: -55px; top: -55px;
+  background: radial-gradient(circle, rgba(255,45,63,0.11), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.stat-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255,45,63,0.28);
+  box-shadow: 0 16px 32px -14px rgba(0,0,0,0.65);
+}
+.stat-tile:hover::before,
+.stat-tile:hover::after { opacity: 1; }
+
+/* Featured tile (TOTAL): persistent sheen + gradient value + breathing glow */
+.stat-tile.featured::before { opacity: 0.75; }
+.stat-tile.featured::after { opacity: 1; }
+.stat-tile.featured .stat-value {
+  background: var(--grad-red);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.stat-tile.featured .stat-value .unit {
+  -webkit-text-fill-color: var(--text-3);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stat-tile.featured { animation: statBreath 4.5s ease-in-out infinite; }
+  @keyframes statBreath {
+    0%, 100% { box-shadow: 0 0 28px rgba(255,45,63,0.07); }
+    50%      { box-shadow: 0 0 42px rgba(255,45,63,0.18); }
+  }
+}
+
+/* --- Today progress panel (athlete): depth + satisfying fill --- */
+.today-progress {
+  position: relative;
+  overflow: hidden;
+  background-image: linear-gradient(135deg, rgba(255,45,63,0.05), transparent 60%);
+}
+.today-progress::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--grad-red);
+  opacity: 0.85;
+}
+.today-progress .pbar > div {
+  position: relative;
+  box-shadow: 0 0 12px rgba(255,45,63,0.5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .today-progress .pbar > div::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    transform: translateX(-100%);
+    animation: pbarShine 2.8s ease-in-out infinite;
+  }
+  @keyframes pbarShine {
+    0%       { transform: translateX(-100%); }
+    55%, 100%{ transform: translateX(320%); }
+  }
+}
+
+/* --- Exec cards (athlete Today): subtle hover lift --- */
+.exec-card {
+  transition: transform 0.2s cubic-bezier(.2,.7,.3,1), border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.exec-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -16px rgba(0,0,0,0.6);
+}
+
+/* --- Roster cards (coach): glowing avatar, deeper lift --- */
+.roster-card {
+  transition: transform 0.2s cubic-bezier(.2,.7,.3,1), border-color 0.2s, box-shadow 0.2s;
+}
+.roster-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,45,63,0.35);
+  box-shadow: 0 20px 36px -18px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,45,63,0.1);
+}
+.roster-card.flag-stale:hover {
+  border-color: rgba(255,181,71,0.45);
+  box-shadow: 0 20px 36px -18px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,181,71,0.12);
+}
+.roster-card .av {
+  box-shadow: 0 5px 16px -5px rgba(255,45,63,0.55);
+}
+.roster-progress > div {
+  box-shadow: 0 0 8px rgba(255,45,63,0.4);
+}
+
+/* --- Sidebar active tab: red glow rail --- */
+.sidebar-tab.active {
+  box-shadow: inset 2px 0 0 var(--red), 0 0 18px -6px rgba(255,45,63,0.4);
+}
+
+/* ============================================================
+   DASHBOARD PRO LAYER
+   Design-system depth pass. Scoped to dashboard pages via
+   :has(.dash-main) so the marketing pages (which have their own
+   hero-fx) are untouched. Pure CSS, additive, removable.
+   ============================================================ */
+
+/* --- Ambient color mesh behind the whole dashboard --- */
+body:has(.dash-main) {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1200px 620px at 10% -8%, rgba(255,45,63,0.06), transparent 60%),
+    radial-gradient(1000px 720px at 102% -4%, rgba(120,140,255,0.028), transparent 55%),
+    radial-gradient(1100px 1100px at 50% 116%, rgba(255,45,63,0.028), transparent 62%);
+  background-repeat: no-repeat;
+}
+
+/* --- Fine film grain so large dark areas never read as flat --- */
+body:has(.dash-main)::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (max-width: 720px) {
+  body:has(.dash-main)::after { display: none; } /* save paint on mobile */
+}
+
+/* --- Elevation system: hairline top-light + layered shadow --- */
+/* The inset top highlight simulates a single overhead light source,
+   the staple trick that makes premium dark UIs feel three-dimensional. */
+.dash-main .card,
+.dash-main .chart-card,
+.dash-main .exec-card,
+.dash-main .tbl-card,
+.dash-main .warmup-panel,
+.stat-tile,
+.roster-card,
+.today-progress {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.045),
+    0 1px 2px rgba(0,0,0,0.30),
+    0 10px 26px -16px rgba(0,0,0,0.55);
+}
+/* Preserve the featured tile's red breathing glow (don't flatten it) */
+.stat-tile.featured {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 10px 26px -16px rgba(0,0,0,0.55),
+    0 0 32px rgba(255,45,63,0.10);
+}
+
+/* --- Premium SVG charts: soft halo + rounded line joins --- */
+.chart-card svg path {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart-card svg circle {
+  filter: drop-shadow(0 0 3px rgba(0,0,0,0.4));
+}
+/* Refined chart legend chips */
+.chart-legend .lg-item { letter-spacing: 0.01em; }
+.chart-legend .lg-dot { box-shadow: 0 0 7px currentColor; }
+
+/* --- Heatmap: bright training days glow like embers --- */
+.cal-cell.lvl-3 { box-shadow: 0 0 6px rgba(255,45,63,0.4); }
+.cal-cell.lvl-4 { box-shadow: 0 0 10px rgba(255,45,63,0.6); }
+
+/* --- Tables: premium header + red row hover --- */
+.tbl-card table th {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.tbl-card tbody tr {
+  transition: background 0.14s;
+}
+.tbl-card tbody tr:hover {
+  background: rgba(255,45,63,0.045);
+}
+
+/* --- Chart section headers: small red kicker tick --- */
+.chart-head h3 {
+  position: relative;
+  padding-left: 12px;
+}
+.chart-head h3::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 0.95em;
+  border-radius: 2px;
+  background: var(--grad-red);
 }

@@ -835,7 +835,7 @@ window.saveCheckin = saveCheckin;
 // Standard powerlifting approach: build to working in ~5 sets.
 // Rounded to the nearest 2.5kg (common smallest plate).
 // =========================================================
-function buildWarmupHtml(workingWeight) {
+function buildWarmupHtml(workingWeight, workLabel) {
   const w = Number(workingWeight) || 0;
   if (w <= 0) return '';
   // Round to lifter-friendly increments based on the displayed unit.
@@ -866,7 +866,7 @@ function buildWarmupHtml(workingWeight) {
   html += '<div class="warmup-row work">' +
             '<span class="warmup-pct">Work</span>' +
             '<span class="warmup-w">' + kgToDisplay(w) + ' ' + u + '</span>' +
-            '<span class="warmup-reps">prescribed</span>' +
+            '<span class="warmup-reps">' + (workLabel || 'prescribed') + '</span>' +
           '</div>';
   html += '</div>';
   return html;
@@ -1425,6 +1425,24 @@ function renderMeetPlan() {
   tbl.appendChild(tbody);
   tblWrap.appendChild(tbl);
   area.appendChild(tblWrap);
+
+  // Warm-up room: a ramp to each opener so there are no guesses backstage.
+  const warmWrap = el('div', { class: 'meet-warmups', style: 'margin-top: 18px;' });
+  warmWrap.appendChild(el('div', { class: 'chart-sub', style: 'margin-bottom: 8px;' }, 'Warm-up room — ramp to each opener'));
+  Object.keys(plan.lifts).forEach((lift, i) => {
+    const opener = plan.lifts[lift].attempts[0];
+    const det = el('details', { class: 'meet-warmup-det' });
+    if (i === 0) det.setAttribute('open', '');
+    const sum = el('summary');
+    sum.innerHTML = '<span class="badge">' + LIFT_LABELS[lift] + '</span> <span class="mono">opener ' + kgToDisplay(opener) + ' ' + unitLabel() + '</span>';
+    det.appendChild(sum);
+    const body = el('div', { style: 'padding-top: 8px;' });
+    body.innerHTML = buildWarmupHtml(opener, 'opener');
+    det.appendChild(body);
+    warmWrap.appendChild(det);
+  });
+  area.appendChild(warmWrap);
+
   const bw = latestBodyweight(user.id);
   let totalLine = 'Projected total (all thirds): ' + kgToDisplay(plan.total) + ' ' + unitLabel();
   area.appendChild(el('p', { class: 'mt-16', style: 'font-weight: 700;' }, totalLine));
@@ -1733,6 +1751,9 @@ function renderProgress() {
   const weekBtn = el('button', { class: 'btn btn-ghost', onclick: shareWeekCard, title: 'Branded recap card of this week\'s training' });
   weekBtn.innerHTML = '📸 <span>Share my week</span>';
   actionRow.appendChild(weekBtn);
+  const importBtn = el('button', { class: 'btn btn-ghost', onclick: openImportModal, title: 'Bring your training history in from a spreadsheet or CSV' });
+  importBtn.innerHTML = '⬆ <span>Import history</span>';
+  actionRow.appendChild(importBtn);
   area.appendChild(actionRow);
 
   const delta = getWeeklyDelta(user.id);
@@ -1961,6 +1982,252 @@ async function saveEditedLog() {
   toast('Set updated');
   renderProgress();
 }
+
+// ===== IMPORT TRAINING HISTORY (CSV / spreadsheet paste) =====
+// Reuses existing tables (workout_logs + bodyweight) — no migration needed.
+// Accepts comma- or tab-delimited data so a direct spreadsheet paste works.
+let _importParsed = null;
+
+// Minimal RFC-4180-ish parser that also accepts tabs as a delimiter.
+function _parseDelimited(text) {
+  const rows = [];
+  let field = '', row = [], inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',' || c === '\t') {
+      row.push(field); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(f => (f || '').trim() !== ''));
+}
+
+const _IMP_ALIASES = {
+  date: ['date', 'day', 'session date', 'workout date', 'logged'],
+  lift: ['lift', 'exercise', 'movement', 'name', 'exercise name', 'exercisename'],
+  weight: ['weight', 'load', 'kg', 'kgs', 'lbs', 'lb', 'wt', 'weight kg', 'weight lb', 'weight_kg', 'weight_lb', 'weightkg'],
+  reps: ['reps', 'rep', 'r', 'repetitions'],
+  rpe: ['rpe'],
+  rir: ['rir'],
+  variant: ['variant', 'type', 'style'],
+  note: ['note', 'notes', 'comment', 'comments'],
+  bw: ['bodyweight', 'body weight', 'bw', 'weigh-in', 'weighin', 'weigh in']
+};
+function _impHeaderKey(h) {
+  const v = (h || '').trim().toLowerCase();
+  for (const key in _IMP_ALIASES) { if (_IMP_ALIASES[key].includes(v)) return key; }
+  return null;
+}
+function _impNormLift(raw) {
+  const v = (raw || '').trim().toLowerCase();
+  if (/^(squat|sq|bs|back squat|comp squat|s)$/.test(v)) return 'squat';
+  if (/^(bench|bp|bench press|comp bench|b)$/.test(v)) return 'bench';
+  if (/^(deadlift|dl|dead|conventional deadlift|comp deadlift|d)$/.test(v)) return 'deadlift';
+  return null;
+}
+function _impNormDate(raw) {
+  const v = (raw || '').trim();
+  if (!v) return null;
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(v)) {
+    const [y, m, d] = v.split('-');
+    return y + '-' + m.padStart(2, '0') + '-' + d.padStart(2, '0');
+  }
+  let m = v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    let a = m[1], b = m[2], y = m[3];
+    if (y.length === 2) y = '20' + y;
+    // Day-first if first number can't be a month.
+    if (+a > 12 && +b <= 12) { const t = a; a = b; b = t; }
+    return y + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0');
+  }
+  const d = new Date(v);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+// Parse the textarea into { logs, bws, skipped, total } given the chosen unit.
+function _impBuild(text, unit) {
+  const rows = _parseDelimited(text);
+  const result = { logs: [], bws: [], skipped: [], total: 0 };
+  if (!rows.length) return result;
+
+  // Header detection: a row that maps at least two known columns.
+  let headerIdx = -1, map = {};
+  for (let i = 0; i < Math.min(rows.length, 3); i++) {
+    const m = {};
+    rows[i].forEach((h, ci) => { const k = _impHeaderKey(h); if (k) m[k] = ci; });
+    if (Object.keys(m).length >= 2) { headerIdx = i; map = m; break; }
+  }
+  if (headerIdx < 0) { result.noHeader = true; return result; }
+
+  const toKg = (n) => unit === 'kg' ? n : n * 0.45359237;
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const cells = rows[i];
+    result.total++;
+    const get = (k) => map[k] != null ? (cells[map[k]] || '').trim() : '';
+    const rowNo = i + 1;
+
+    const date = _impNormDate(get('date'));
+    if (!date) { result.skipped.push({ row: rowNo, reason: 'unreadable or missing date' }); continue; }
+
+    // Bodyweight row: either a dedicated bw column, or the lift cell itself
+    // says "bodyweight" / "bw" / "weigh-in" (common single-table layout).
+    const liftCell = get('lift');
+    const liftIsBw = /^(bodyweight|body weight|bw|weigh-?in)$/i.test(liftCell.trim());
+    const bwRaw = get('bw') || (liftIsBw ? get('weight') : '');
+    if (bwRaw && !get('reps')) {
+      const bwNum = parseFloat(bwRaw.replace(/[^0-9.\-]/g, ''));
+      if (!isFinite(bwNum) || bwNum <= 0) { result.skipped.push({ row: rowNo, reason: 'invalid bodyweight' }); continue; }
+      result.bws.push({ id: uid('bw'), athleteId: user.id, date, weight: toKg(bwNum) });
+      continue;
+    }
+
+    const wNum = parseFloat((get('weight') || '').replace(/[^0-9.\-]/g, ''));
+    const reps = parseInt(get('reps'), 10);
+    let rpe = parseFloat(get('rpe'));
+    if (!isFinite(rpe) && get('rir') !== '') { const rir = parseFloat(get('rir')); if (isFinite(rir)) rpe = 10 - rir; }
+    if (!isFinite(rpe)) rpe = 8; // sensible default when a sheet omits RPE
+
+    if (!isFinite(wNum) || wNum <= 0) { result.skipped.push({ row: rowNo, reason: 'invalid weight' }); continue; }
+    if (!isFinite(reps) || reps < 1) { result.skipped.push({ row: rowNo, reason: 'invalid reps' }); continue; }
+    if (rpe < 1 || rpe > 10) { result.skipped.push({ row: rowNo, reason: 'RPE out of range' }); continue; }
+
+    const liftRaw = get('lift');
+    const main = _impNormLift(liftRaw);
+    const weight = toKg(wNum);
+    const variant = main ? (get('variant') || 'Competition') : (get('variant') || '');
+    const e1rm = calcE1RM(weight, reps, rpe);
+    const e1rmComp = main ? calcCompE1RM(weight, reps, rpe, main, variant) : e1rm;
+    result.logs.push({
+      id: uid('log'), athleteId: user.id,
+      lift: main || (liftRaw ? liftRaw.toLowerCase() : 'accessory'),
+      variant, exerciseName: main ? '' : (liftRaw || 'Accessory'),
+      weight, reps, rpe, e1rm, e1rmComp, date, note: get('note') || ''
+    });
+  }
+  return result;
+}
+
+function ensureImportModal() {
+  if (document.getElementById('importModal')) return;
+  const sample = 'date,lift,weight,reps,rpe,variant,note\n2026-01-05,squat,180,5,8,Competition,felt strong\n2026-01-07,bench,110,5,8.5\n2026-01-05,bodyweight,84.5';
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="modal-backdrop" id="importModal">' +
+    '<div class="modal" style="max-width:640px">' +
+      '<button class="modal-close" onclick="closeModal(\'importModal\')">&times;</button>' +
+      '<h3>Import training history</h3>' +
+      '<p class="dim text-sm mb-16">Paste straight from a spreadsheet, or upload a CSV. ' +
+        'Include a header row. Recognised columns: <b>date, lift, weight, reps, rpe</b> (or rir), <b>variant, note</b>, and <b>bodyweight</b>. ' +
+        'Anything that isn\'t squat / bench / deadlift is stored as an accessory.</p>' +
+      '<div class="flex gap-8 mb-12" style="align-items:center;flex-wrap:wrap">' +
+        '<label class="btn btn-sm" style="cursor:pointer">📄 Choose CSV file' +
+          '<input type="file" id="impFile" accept=".csv,.tsv,.txt,text/csv" style="display:none" onchange="impFileChosen(this)">' +
+        '</label>' +
+        '<div class="form-group" style="margin:0">' +
+          '<label style="font-size:.72rem">Weights are in</label>' +
+          '<select id="impUnit" style="padding:6px 10px"><option value="kg">kg</option><option value="lbs">lb</option></select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-group"><label>Data</label>' +
+        '<textarea id="impText" rows="7" spellcheck="false" placeholder="' + sample.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') + '" ' +
+          'style="font-family:\'Space Grotesk\',monospace;font-size:.82rem;white-space:pre;overflow-x:auto" oninput="_importParsed=null;document.getElementById(\'impSummary\').innerHTML=\'\'"></textarea>' +
+      '</div>' +
+      '<div id="impSummary" style="margin:4px 0 12px"></div>' +
+      '<div class="flex gap-8">' +
+        '<button class="btn btn-block" onclick="closeModal(\'importModal\')">Cancel</button>' +
+        '<button class="btn btn-block" onclick="impPreview()">Preview</button>' +
+        '<button class="btn btn-primary btn-block" id="impCommitBtn" onclick="commitImport()" disabled>Import</button>' +
+      '</div>' +
+    '</div></div>';
+  document.body.appendChild(wrap.firstChild);
+}
+function openImportModal() {
+  ensureImportModal();
+  document.getElementById('impText').value = '';
+  document.getElementById('impSummary').innerHTML = '';
+  document.getElementById('impUnit').value = (typeof getUnit === 'function' ? getUnit() : 'kg');
+  document.getElementById('impCommitBtn').disabled = true;
+  _importParsed = null;
+  openModal('importModal');
+}
+function impFileChosen(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('impText').value = reader.result || '';
+    _importParsed = null;
+    document.getElementById('impSummary').innerHTML = '';
+    impPreview();
+  };
+  reader.readAsText(f);
+}
+function impPreview() {
+  const text = document.getElementById('impText').value || '';
+  const unit = document.getElementById('impUnit').value;
+  const summary = document.getElementById('impSummary');
+  const commit = document.getElementById('impCommitBtn');
+  if (!text.trim()) { summary.innerHTML = '<div class="dim text-sm">Paste some rows or choose a file first.</div>'; commit.disabled = true; return; }
+  _importParsed = _impBuild(text, unit);
+  const r = _importParsed;
+  if (r.noHeader) {
+    summary.innerHTML = '<div class="text-sm" style="color:var(--red)">Couldn\'t find a header row. Add a first line like <b>date,lift,weight,reps,rpe</b>.</div>';
+    commit.disabled = true; _importParsed = null; return;
+  }
+  const nLogs = r.logs.length, nBw = r.bws.length, nSkip = r.skipped.length;
+  if (!nLogs && !nBw) {
+    summary.innerHTML = '<div class="text-sm" style="color:var(--red)">No valid rows found' + (nSkip ? ' (' + nSkip + ' skipped).' : '.') + '</div>';
+    commit.disabled = true; return;
+  }
+  let html = '<div class="text-sm" style="line-height:1.7">' +
+    '<b style="color:var(--green)">' + nLogs + '</b> set' + (nLogs === 1 ? '' : 's') +
+    (nBw ? ' · <b style="color:var(--green)">' + nBw + '</b> weigh-in' + (nBw === 1 ? '' : 's') : '') +
+    ' ready to import.';
+  if (nSkip) {
+    const shown = r.skipped.slice(0, 4).map(s => 'row ' + s.row + ' — ' + s.reason).join('; ');
+    html += '<br><span class="dim">Skipping ' + nSkip + ' row' + (nSkip === 1 ? '' : 's') + ': ' + shown + (nSkip > 4 ? '…' : '') + '</span>';
+  }
+  html += '</div>';
+  summary.innerHTML = html;
+  commit.disabled = false;
+  commit.textContent = 'Import ' + (nLogs + nBw) + ' ' + (nLogs + nBw === 1 ? 'entry' : 'entries');
+}
+function commitImport() {
+  if (!_importParsed) return;
+  const { logs, bws } = _importParsed;
+  if (!logs.length && !bws.length) return;
+  Store.update(s => {
+    logs.forEach(l => s.workoutLogs.push(l));
+    bws.forEach(b => {
+      const ex = s.bodyweight.find(x => x.athleteId === user.id && x.date === b.date);
+      if (ex) ex.weight = b.weight; else s.bodyweight.push(b);
+    });
+  });
+  if (!window._demoMode) {
+    logs.forEach(l => persistAddLog(l));
+    bws.forEach(b => persistBw(b));
+  }
+  const total = logs.length + bws.length;
+  _importParsed = null;
+  closeModal('importModal');
+  toast('Imported ' + total + ' ' + (total === 1 ? 'entry' : 'entries') + (window._demoMode ? ' (demo — not saved)' : ''));
+  renderProgress();
+}
+window.openImportModal = openImportModal;
+window.impFileChosen = impFileChosen;
+window.impPreview = impPreview;
+window.commitImport = commitImport;
 
 // ===== FULL PROGRAM =====
 // =========================================================
