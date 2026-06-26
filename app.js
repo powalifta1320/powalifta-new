@@ -194,12 +194,97 @@ function _buildDemoData() {
   };
 }
 
-function _injectDemoBanner() {
+// Coach-side demo: a living roster — flags, compliance, notes inbox, check-ins.
+function _buildCoachDemoData() {
+  const DC = 'demo-coach';
+  const iso = d => d.toISOString().slice(0, 10);
+  const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+
+  const user = {
+    id: DC, name: 'Demo Coach', email: 'demo-coach@powalifta.com', bio: 'This is your seat.',
+    coachId: null, userType: 'coach', isAdmin: false,
+    subscriptionTier: 'pro', subscriptionStatus: 'active', avatarUrl: null, countryCode: null
+  };
+
+  // Roster engineered to show every flag state
+  const roster = [
+    { id: 'demo-a1', name: 'Arjun Mehta', email: 'arjun@demo.com', lastTrained: 0, base: { s: 170, b: 110, d: 210 } },
+    { id: 'demo-a2', name: 'Sarah Kim', email: 'sarah@demo.com', lastTrained: 2, base: { s: 120, b: 70, d: 150 } },
+    { id: 'demo-a3', name: 'Tom Boyle', email: 'tom@demo.com', lastTrained: 9, base: { s: 200, b: 140, d: 250 } },
+    { id: 'demo-a4', name: 'Nina Petrova', email: 'nina@demo.com', lastTrained: null, base: { s: 90, b: 50, d: 110 } }
+  ];
+  const athletes = roster.map(r => ({ id: r.id, name: r.name, email: r.email, coachId: DC, avatarUrl: null, countryCode: null }));
+
+  const workoutLogs = [];
+  let seq = 1;
+  roster.forEach(r => {
+    if (r.lastTrained == null) return; // Nina hasn't started
+    for (let w = 5; w >= 0; w--) {
+      [['squat', r.base.s], ['bench', r.base.b], ['deadlift', r.base.d]].forEach(([lift, base], di) => {
+        const off = w * 7 + di * 2 + r.lastTrained;
+        if (off > 42) return;
+        const date = daysAgo(off);
+        const top = base + (5 - w) * 1.25;
+        [[5, 7.5], [5, 8], [3, 8.5]].forEach(([reps, rpe], si) => {
+          const wgt = Math.round((top - si * 2.5) / 2.5) * 2.5;
+          workoutLogs.push({
+            id: 'demo-clog-' + (seq++), athleteId: r.id, lift, variant: 'Competition', exerciseName: '',
+            weight: wgt, reps, rpe, e1rm: calcE1RM(wgt, reps, rpe),
+            e1rmComp: calcCompE1RM(wgt, reps, rpe, lift, 'Competition'), date, note: ''
+          });
+        });
+      });
+    }
+  });
+
+  // One 3-week program per athlete; completion mirrors their training recency
+  const mkSet2 = (weight, reps, rpe, done) => ({ id: uid('set'), weight, reps, rpe, completed: !!done, actualRpe: done ? rpe : null, completedAt: done ? daysAgo(3) : null });
+  const programs = roster.map((r, ri) => ({
+    id: 'demo-cprog-' + ri, athleteId: r.id, coachId: DC, name: ['Strength Block', 'Hypertrophy Wave', 'Meet Prep', 'Foundation'][ri],
+    weeks: [1, 2, 3].map(wn => ({
+      id: uid('wk'), number: wn, days: [
+        { id: uid('day'), name: 'Squat Day', exercises: [{ id: uid('ex'), lift: 'squat', variant: 'Competition', exerciseName: '', note: 'Drive hard out of the hole.', sets: [mkSet2(r.base.s, 5, 7.5, r.lastTrained != null && wn === 1), mkSet2(r.base.s, 5, 8, r.lastTrained != null && wn === 1)] }] },
+        { id: uid('day'), name: 'Bench Day', exercises: [{ id: uid('ex'), lift: 'bench', variant: 'Competition', exerciseName: '', note: '', sets: [mkSet2(r.base.b, 5, 7.5, r.lastTrained != null && wn === 1), mkSet2(r.base.b, 5, 8, false)] }] },
+        { id: uid('day'), name: 'Deadlift Day', exercises: [{ id: uid('ex'), lift: 'deadlift', variant: 'Competition', exerciseName: '', note: '', sets: [mkSet2(r.base.d, 4, 7.5, false), mkSet2(r.base.d, 4, 8, false)] }] },
+        { id: uid('day'), name: 'Rest', exercises: [] }
+      ]
+    }))
+  }));
+
+  const sessionNotes = [
+    { id: 'demo-cn-1', athleteId: 'demo-a1', weekId: null, dayId: null, date: daysAgo(0), note: 'Top set moved like an opener. Want to try 175 next week?', coachComment: null, coachCommentAt: null, coachId: null },
+    { id: 'demo-cn-2', athleteId: 'demo-a3', weekId: null, dayId: null, date: daysAgo(9), note: 'Work has been brutal, missed two sessions. Back Monday.', coachComment: null, coachCommentAt: null, coachId: null },
+    { id: 'demo-cn-3', athleteId: 'demo-a2', weekId: null, dayId: null, date: daysAgo(2), note: 'Bench paused reps felt way stronger.', coachComment: 'That\'s the pause work paying off. Same weights next week, then we move.', coachCommentAt: daysAgo(1) + 'T09:00:00Z', coachId: DC }
+  ];
+  const checkins = [
+    { id: 'demo-cci-1', athleteId: 'demo-a1', weekStart: daysAgo(3), sleep: 8, soreness: 4, stress: 3, feel: 9, note: 'Feeling strong.', createdAt: daysAgo(3) + 'T08:00:00Z' },
+    { id: 'demo-cci-2', athleteId: 'demo-a3', weekStart: daysAgo(10), sleep: 4, soreness: 8, stress: 9, feel: 3, note: 'Rough week.', createdAt: daysAgo(10) + 'T08:00:00Z' }
+  ];
+  const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
+  const programTemplates = [{
+    id: 'demo-tpl-1', coachId: DC, name: '8-Week Strength Block', createdAt: Date.now(),
+    payload: { weeks: programs[0].weeks }
+  }];
+
+  return {
+    user: user,
+    store: {
+      coaches: [], athletes, invites, programs, programTemplates,
+      workoutLogs, bodyweight: [], sessionNotes, goals: [], restDays: [], checkins,
+      marketplacePrograms: [], mySales: [], myPurchases: []
+    }
+  };
+}
+
+function _injectDemoBanner(type) {
   const bar = document.createElement('div');
   bar.className = 'demo-banner';
+  const text = type === 'coach'
+    ? '<strong>Live demo</strong> — fake roster, real product. Open the builder, reply to notes, check the flags. Nothing saves.'
+    : '<strong>Live demo</strong> — fake lifter, real product. Tick sets, hit PRs, make share cards. Nothing saves.';
   bar.innerHTML =
     '<span class="demo-banner-dot"></span>' +
-    '<span class="demo-banner-text"><strong>Live demo</strong> — fake lifter, real product. Tick sets, hit PRs, make share cards. Nothing saves.</span>' +
+    '<span class="demo-banner-text">' + text + '</span>' +
     '<a class="btn btn-primary btn-sm" href="index.html">Start yours free</a>';
   document.body.appendChild(bar);
 }
@@ -218,11 +303,11 @@ async function bootstrap(expectedType, onReady, opts) {
   opts = opts || {};
 
   // Live demo: skip auth + hydration entirely, run on generated data.
-  if (window._demoMode && expectedType === 'athlete') {
-    const demo = _buildDemoData();
+  if (window._demoMode && (expectedType === 'athlete' || expectedType === 'coach')) {
+    const demo = expectedType === 'coach' ? _buildCoachDemoData() : _buildDemoData();
     window._user = demo.user;
     Store._data = demo.store;
-    _injectDemoBanner();
+    _injectDemoBanner(expectedType);
     onReady && onReady();
     return;
   }
@@ -785,11 +870,22 @@ function persistProgram(programId) { if (window._demoMode) return;
 // Sets are never silently lost.
 // =========================================================
 const _PENDING_LOGS_KEY = 'powa-pending-logs';
+const _PENDING_ATTEMPTS_KEY = 'powa-pending-log-attempts';
+// A set that keeps failing for a non-transient reason (RLS denial, deleted
+// athlete, malformed row) must not live in the queue forever — past this many
+// attempts we drop it so it can't block every future flush.
+const _MAX_LOG_ATTEMPTS = 5;
 function _readPendingLogs() {
   try { return JSON.parse(localStorage.getItem(_PENDING_LOGS_KEY) || '[]'); } catch (e) { return []; }
 }
 function _writePendingLogs(q) {
   try { localStorage.setItem(_PENDING_LOGS_KEY, JSON.stringify(q)); } catch (e) { /* storage full — nothing we can do */ }
+}
+function _readLogAttempts() {
+  try { return JSON.parse(localStorage.getItem(_PENDING_ATTEMPTS_KEY) || '{}'); } catch (e) { return {}; }
+}
+function _writeLogAttempts(m) {
+  try { localStorage.setItem(_PENDING_ATTEMPTS_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ }
 }
 function _queuePendingLog(log) {
   const q = _readPendingLogs();
@@ -803,20 +899,37 @@ async function flushPendingLogs() {
   const q = _readPendingLogs();
   if (!q.length) return;
   _flushingLogs = true;
+  const attempts = _readLogAttempts();
   const failed = [];
   let synced = 0;
+  let dropped = 0;
   for (const log of q) {
     try { await DB.addLog(log); synced++; }
     catch (e) {
       const msg = String((e && e.message) || '');
       // Duplicate key = it actually saved on a previous attempt → safe to drop.
-      if (/duplicate|unique|23505/i.test(msg)) { synced++; }
-      else failed.push(log);
+      if (/duplicate|unique|23505/i.test(msg)) { synced++; continue; }
+      const n = (attempts[log.id] || 0) + 1;
+      if (n >= _MAX_LOG_ATTEMPTS) {
+        // Give up on this one — it's never going to land. Drop it rather than
+        // re-queueing forever (which would also suppress the synced toast).
+        console.error('flushPendingLogs: dropping set after ' + n + ' failed attempts', log.id, msg);
+        delete attempts[log.id];
+        dropped++;
+      } else {
+        attempts[log.id] = n;
+        failed.push(log);
+      }
     }
   }
+  // Forget attempt counters for anything no longer queued.
+  const stillQueued = new Set(failed.map(l => l.id));
+  for (const id of Object.keys(attempts)) { if (!stillQueued.has(id)) delete attempts[id]; }
   _writePendingLogs(failed);
+  _writeLogAttempts(attempts);
   _flushingLogs = false;
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
+  if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced — please re-log");
 }
 window.addEventListener('online', () => { setTimeout(flushPendingLogs, 800); });
 window.addEventListener('load', () => { setTimeout(flushPendingLogs, 3500); });

@@ -127,7 +127,7 @@
 html, body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 15.5px;
   line-height: 1.55;
   min-height: 100vh;
@@ -1235,7 +1235,7 @@ section { padding: 72px 0; }
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 .feat-icon svg { width: 22px; height: 22px; }
-.feat h4 { font-size: 1.1rem; margin-bottom: 8px; letter-spacing: 0; text-transform: none; font-family: 'Inter', sans-serif; font-weight: 700; }
+.feat h4 { font-size: 1.1rem; margin-bottom: 8px; letter-spacing: 0; text-transform: none; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
 .feat p { color: var(--text-2); font-size: 0.93rem; line-height: 1.5; }
 
 /* ============================================ COACH GRID */
@@ -1272,7 +1272,7 @@ section { padding: 72px 0; }
   margin-bottom: 14px;
   box-shadow: 0 4px 16px var(--red-glow);
 }
-.coach-card h4 { margin-bottom: 4px; font-size: 1.15rem; letter-spacing: 0; text-transform: none; font-family: 'Inter', sans-serif; font-weight: 700; }
+.coach-card h4 { margin-bottom: 4px; font-size: 1.15rem; letter-spacing: 0; text-transform: none; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
 .coach-card .coach-bio {
   color: var(--text-2);
   font-size: 0.9rem;
@@ -1501,7 +1501,7 @@ tbody tr:hover td { background: var(--hover-tint); }
   color: var(--text-3);
   padding: 6px 10px;
   margin-bottom: 8px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
 }
 .week-nav {
@@ -1919,7 +1919,7 @@ tbody tr:hover td { background: var(--hover-tint); }
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
-.stat-tile .stat-value .unit { font-size: 0.95rem; color: var(--text-3); margin-left: 2px; font-family: 'Inter'; font-weight: 600; }
+.stat-tile .stat-value .unit { font-size: 0.95rem; color: var(--text-3); margin-left: 2px; font-family: 'Plus Jakarta Sans'; font-weight: 600; }
 .stat-tile .stat-delta {
   margin-top: 6px;
   font-size: 0.82rem;
@@ -2191,7 +2191,7 @@ footer .footer-grid {
 }
 .footer-col { display: flex; flex-direction: column; gap: 9px; }
 .footer-col h5 {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -3568,7 +3568,7 @@ footer .footer-base {
   border-radius: 100px;
   box-shadow: var(--shadow-sm);
 }
-.price-tile h4 { font-size: 0.92rem; letter-spacing: 0.08em; color: var(--text-2); margin-bottom: 14px; font-family: 'Inter'; font-weight: 700; }
+.price-tile h4 { font-size: 0.92rem; letter-spacing: 0.08em; color: var(--text-2); margin-bottom: 14px; font-family: 'Plus Jakarta Sans'; font-weight: 700; }
 .price-tile .price {
   font-family: 'Anton', sans-serif;
   font-size: 3rem;
@@ -3582,7 +3582,7 @@ footer .footer-base {
   background-clip: text;
   color: transparent;
 }
-.price-tile .price .per { font-size: 0.88rem; color: var(--text-3); font-family: 'Inter'; font-weight: 500; margin-left: 2px; }
+.price-tile .price .per { font-size: 0.88rem; color: var(--text-3); font-family: 'Plus Jakarta Sans'; font-weight: 500; margin-left: 2px; }
 .price-tile p { color: var(--text-2); font-size: 0.88rem; margin-top: 10px; }
 
 /* ============================================ RESPONSIVE */
