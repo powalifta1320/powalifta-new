@@ -103,7 +103,7 @@ In `edge-functions/` (need to be deployed via Supabase dashboard → Edge Functi
 - `send-welcome.ts` — branded welcome email after signup. Env: `RESEND_API_KEY`. Verify JWT OFF.
 - `send-client-error.ts` — NEW. Receives client-side error reports. Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Verify JWT OFF.
 - `send-program-assigned.ts` — NEW. Sends email to athlete when coach hits the "📧 Notify" button in the program builder. Env: `RESEND_API_KEY`. Verify JWT **ON** (only logged-in coach can fire).
-- `ai-chat.ts` — NEW. Secure proxy for the AI assistant. Holds `ANTHROPIC_API_KEY` server-side and forwards the browser's question + data snapshot to Claude. Env: `ANTHROPIC_API_KEY` (required), `AI_DAILY_CAP` (optional, default 25). Verify JWT **ON**. Clamps `max_tokens`/system length/history server-side and enforces a per-user daily cap via `ai_chat_usage` (service role). The browser calls it through `DB.aiChat()` (`sb.functions.invoke`), so no key is ever client-side.
+- `ai-chat.ts` — NEW. Secure proxy for the AI assistant. Holds `GEMINI_API_KEY` server-side and forwards the browser's question + data snapshot to Google's Gemini (`gemini-2.0-flash`). Env: `GEMINI_API_KEY` (required), `AI_DAILY_CAP` (optional, default 20). Verify JWT **ON**. Maps our `user`/`assistant` turns to Gemini's `user`/`model` + `system_instruction` shape, clamps `maxOutputTokens`/system length/history server-side, and enforces a per-user daily cap via `ai_chat_usage` (service role). The browser calls it through `DB.aiChat()` (`sb.functions.invoke`), so no key is ever client-side. Provider is swappable in one file — only this function knows it's Gemini.
 
 The signature verification in both LS webhooks uses HMAC-SHA-256. The old length pre-check that leaked length has been replaced with a `timingSafeEqual` helper (double-HMAC with a single-use random key → constant-time, no length side-channel) in both `ls-webhook.ts` and `ls-marketplace-webhook.ts`.
 
@@ -144,14 +144,16 @@ signed URLs (`DB.formCheckSignedUrl`), never public links.
 A floating assistant on both dashboards (`ai-chat.js` + `ai-chat.css`, loaded after the page's own scripts). Role is picked from the URL: `coach.html` → coaching assistant, else athlete training assistant.
 
 **Two runtime modes, resolved in `init()`:**
-- **LIVE** — a signed-in user on a real page. `liveReply()` → `DB.aiChat()` → `sb.functions.invoke('ai-chat')` → the `ai-chat` edge function → Claude. The Anthropic key lives only in the function's secrets; the browser never holds it. Supabase auto-attaches the session JWT, which the function (Verify JWT ON) validates.
+- **LIVE** — a signed-in user on a real page. `liveReply()` → `DB.aiChat()` → `sb.functions.invoke('ai-chat')` → the `ai-chat` edge function → Google Gemini. The Gemini key lives only in the function's secrets; the browser never holds it. Supabase auto-attaches the session JWT, which the function (Verify JWT ON) validates.
 - **MOCK** — demo mode (`?demo=1`), signed-out, or any live failure. Answers are computed locally in `ai-chat.js` from real Store data (`snapshotFor`, `athleteAnswer`, `coachAnswer`, `weekRecap`, `draftProgram`, etc.). No network, no key, no cost. Also the graceful fallback: first live failure flips `liveDown = true` and the rest of the session uses mock.
 
 `LIVE_BACKEND` (const at top of `ai-chat.js`) is the master switch — set `false` to force mock everywhere.
 
-**Cost is bounded three ways:** (1) the edge function clamps `max_tokens` (800), system length, and history; (2) a per-user daily cap (`ai_chat_usage`, `AI_DAILY_CAP` env, default 25); (3) **the spend cap you set in the Anthropic console — the hard backstop.** Use a dedicated key/workspace for this so its budget is walled off.
+**Cost is bounded three ways:** (1) the edge function clamps `maxOutputTokens` (800), system length, and history; (2) a per-user daily cap (`ai_chat_usage`, `AI_DAILY_CAP` env, default 20); (3) **the provider ceiling — Gemini's free-tier rate limits, or, once you enable billing on the Google Cloud project, the budget you set there.** On the free tier there's no spend to cap; Google just rate-limits.
 
-**To bring it live:** deploy `edge-functions/ai-chat.ts` (Verify JWT ON), set its `ANTHROPIC_API_KEY` secret, run `sql/migration-ai-chat-usage.sql`, set a spend cap in the Anthropic console. Until then it runs in mock mode for everyone (graceful). `review.html` is a **local-only** dev tool and must NOT ship to main.
+**Provider note:** the assistant is provider-agnostic above the edge function. Swapping Gemini for OpenAI / Anthropic / Groq means rewriting only `ai-chat.ts` (endpoint + request/response shape + secret name) — the client, mock fallback, and `ai_chat_usage` cap are untouched.
+
+**To bring it live:** deploy `edge-functions/ai-chat.ts` (Verify JWT ON), set its `GEMINI_API_KEY` secret (free key from aistudio.google.com/apikey), run `sql/migration-ai-chat-usage.sql`. Until then it runs in mock mode for everyone (graceful). `review.html` is a **local-only** dev tool and must NOT ship to main.
 
 ## Known gaps / pending work
 

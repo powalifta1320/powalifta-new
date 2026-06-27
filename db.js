@@ -246,7 +246,7 @@ const DB = {
   },
 
   // ---------- AI ASSISTANT ----------
-  // Calls the JWT-gated `ai-chat` edge function. The Anthropic key lives
+  // Calls the JWT-gated `ai-chat` edge function. The Gemini key lives
   // server-side; sb.functions.invoke auto-attaches the user's session, so
   // the browser never sees a secret. Returns { text } or throws.
   async aiChat(payload) {

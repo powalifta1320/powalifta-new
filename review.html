@@ -113,7 +113,7 @@
 
   <!-- ============ PART B ============ -->
   <h2 class="rv-sec-title">Part B · AI assistant</h2>
-  <p class="rv-sec-sub">Now production-ready. Live Claude via a secure server-side proxy, with mock fallback. Ships to main once the edge function is deployed (checklist below).</p>
+  <p class="rv-sec-sub">Now production-ready. Live Google Gemini via a secure server-side proxy, with mock fallback. Ships to main once the edge function is deployed (checklist below).</p>
 
   <div class="rv-grid" id="partB"></div>
 
@@ -121,11 +121,11 @@
   <div class="rv-foot">
     <h3>Going live with the AI</h3>
     <p style="color:var(--text-2,#b8b8c0);margin-bottom:14px;">Design (Part A) is already pushed and deploying. To switch the assistant on for real users, do these in order, then merge.</p>
-    <p><strong style="color:var(--text,#fff)">1. Anthropic console.</strong> Create an API key (ideally a dedicated key/workspace) and <strong>set a monthly spend cap</strong>. That cap is the hard backstop on cost.</p>
+    <p><strong style="color:var(--text,#fff)">1. Get a Gemini key.</strong> At <code>aistudio.google.com/apikey</code> create a free API key. The free tier launches at zero cost; enable billing on the Google Cloud project later for higher limits + no data-training.</p>
     <p><strong style="color:var(--text,#fff)">2. Run the migration.</strong> In the Supabase SQL editor, run <code>sql/migration-ai-chat-usage.sql</code> (the per-user daily limit table).</p>
-    <p><strong style="color:var(--text,#fff)">3. Deploy the function.</strong> Create an Edge Function named <code>ai-chat</code> from <code>edge-functions/ai-chat.ts</code>, set its <code>ANTHROPIC_API_KEY</code> secret, and toggle <strong>Verify JWT ON</strong>.</p>
-    <p><strong style="color:var(--text,#fff)">4. Merge &amp; push.</strong> Merge <code>ai-chat</code> into <code>main</code> (drop <code>review.html</code> first — it's dev-only) and push. The assistant goes live; until the function exists it safely falls back to mock.</p>
-    <p style="color:var(--text-3,#8a8a93);font-size:0.86rem;margin-top:14px;">The Anthropic key only ever lives in the edge function's secrets. It is never in the repo and never in the browser, so it can't leak through the client.</p>
+    <p><strong style="color:var(--text,#fff)">3. Deploy the function.</strong> Create an Edge Function named <code>ai-chat</code> from <code>edge-functions/ai-chat.ts</code>, set its <code>GEMINI_API_KEY</code> secret, and toggle <strong>Verify JWT ON</strong>.</p>
+    <p><strong style="color:var(--text,#fff)">4. Merge &amp; push.</strong> Merge <code>ai-chat</code> into <code>main</code> (drop <code>review.html</code> first, it's dev-only) and push. The assistant goes live; until the function exists it safely falls back to mock.</p>
+    <p style="color:var(--text-3,#8a8a93);font-size:0.86rem;margin-top:14px;">The Gemini key only ever lives in the edge function's secrets. It is never in the repo and never in the browser, so it can't leak through the client.</p>
   </div>
 
 </div>
@@ -183,7 +183,7 @@
   var PART_B = [
     {
       title: 'AI training assistant: athlete dashboard',
-      what: 'Floating "Ask AI" assistant. Signed-in users get live Claude; demo and signed-out get local mock answers computed from real data (e1RM / total / bodyweight, RPE explainer, today’s session). Brand-styled, full-width bottom sheet on mobile.',
+      what: 'Floating "Ask AI" assistant. Signed-in users get live Google Gemini; demo and signed-out get local mock answers computed from real data (e1RM / total / bodyweight, RPE explainer, today’s session). Brand-styled, full-width bottom sheet on mobile.',
       files: ['ai-chat.js', 'ai-chat.css'], commit: 'pending',
       href: 'athlete.html?demo=1', cta: 'Open & click Ask AI',
       hint: 'Demo here shows mock mode (pill reads "Demo"). Try: "what’s my total?", "squat e1rm", "explain RPE", "what should I do today?"'
@@ -197,7 +197,7 @@
     },
     {
       title: 'Secure proxy + cost caps: the key never touches the browser',
-      what: 'The Anthropic key lives only in the ai-chat edge function (Verify JWT ON). Browser → DB.aiChat() → your function → Claude. Cost is bounded three ways: server clamps (max_tokens / history), a per-user daily cap (ai_chat_usage table), and your Anthropic console spend cap. The browser has zero secrets.',
+      what: 'The Gemini key lives only in the ai-chat edge function (Verify JWT ON). Browser → DB.aiChat() → your function → Google Gemini. Cost is bounded three ways: server clamps (maxOutputTokens / history), a per-user daily cap (ai_chat_usage table), and the Gemini free-tier ceiling (or your Google Cloud budget once billing is on). The browser has zero secrets. Provider is swappable in one file.',
       files: ['edge-functions/ai-chat.ts', 'sql/migration-ai-chat-usage.sql', 'db.js'], commit: 'pending',
       href: 'edge-functions/ai-chat.ts', cta: 'View the proxy', ghost: true
     }

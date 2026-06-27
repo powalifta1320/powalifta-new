@@ -1,8 +1,8 @@
 // Supabase Edge Function: ai-chat
 //
 // Secure server-side proxy for the POWALIFTA AI assistant. The browser
-// NEVER holds the Anthropic key — it calls this function with the user's
-// Supabase session, and this function talks to Anthropic on its behalf.
+// NEVER holds the Gemini key — it calls this function with the user's
+// Supabase session, and this function talks to Google on its behalf.
 //
 // POST { role: "athlete"|"coach", system: string, messages: [{role,content}] }
 // ->   { text: string }   on success
@@ -11,21 +11,26 @@
 // Deploy: paste into a new Edge Function named "ai-chat" in the Supabase
 // dashboard. Toggle "Verify JWT" ON (only logged-in users can call it).
 // Secrets to set on the function:
-//   ANTHROPIC_API_KEY   (required)  - a key from console.anthropic.com,
-//                                     ideally a dedicated key/workspace
-//                                     with a monthly spend cap set there.
-//   AI_DAILY_CAP        (optional)  - messages per user per day. Default 25.
+//   GEMINI_API_KEY      (required)  - a key from aistudio.google.com/apikey.
+//                                     The free tier works out of the box;
+//                                     enable billing on the Google Cloud
+//                                     project to remove rate caps + stop
+//                                     your data being used for training.
+//   AI_DAILY_CAP        (optional)  - messages per user per day. Default 20.
 //   SUPABASE_URL        (auto)      - injected by the platform.
 //   SUPABASE_SERVICE_ROLE_KEY (auto)- injected by the platform.
 //
-// Cost is bounded three ways: (1) this function clamps max_tokens, system
-// length, and history; (2) a per-user daily cap (ai_chat_usage table);
-// (3) the spend cap you set in the Anthropic console. The console cap is
-// the hard backstop — set it.
+// Cost is bounded three ways: (1) this function clamps max output tokens,
+// system length, and history; (2) a per-user daily cap (ai_chat_usage
+// table); (3) the free-tier ceiling / billing budget you set in the Google
+// Cloud console. On the free tier there is no spend to cap — Google simply
+// rate-limits; flip on billing only when you want higher limits + the
+// no-training privacy guarantee.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
+// Gemini's generateContent endpoint. The model id is interpolated per call.
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // Server-side cost clamps — the client cannot exceed these.
 const MAX_TOKENS = 800;          // output ceiling per reply
@@ -33,8 +38,8 @@ const SYSTEM_CAP = 6000;         // chars of system prompt accepted
 const MSG_CAP = 4000;            // chars per message accepted
 const HISTORY_CAP = 12;          // most recent turns forwarded
 const MODELS: Record<string, string> = {
-  athlete: 'claude-sonnet-4-5',
-  coach: 'claude-sonnet-4-5'
+  athlete: 'gemini-2.0-flash',
+  coach: 'gemini-2.0-flash'
 };
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -87,17 +92,17 @@ Deno.serve(async (req) => {
     .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
     .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, MSG_CAP) }))
     .slice(-HISTORY_CAP);
-  // Anthropic requires the conversation to open on a user turn.
+  // Gemini requires the conversation to open on a user turn.
   while (messages.length && messages[0].role === 'assistant') messages.shift();
   if (!messages.length) return jsonResponse(400, { error: 'No user message' });
 
   // ---- config ----------------------------------------------------------
-  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!anthropicKey) {
-    console.error('ANTHROPIC_API_KEY not set');
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    console.error('GEMINI_API_KEY not set');
     return jsonResponse(500, { error: 'AI not configured' });
   }
-  const dailyCap = parseInt(Deno.env.get('AI_DAILY_CAP') || '25', 10) || 25;
+  const dailyCap = parseInt(Deno.env.get('AI_DAILY_CAP') || '20', 10) || 20;
 
   // ---- per-user daily rate limit (ai_chat_usage) -----------------------
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -128,29 +133,40 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ---- call Anthropic --------------------------------------------------
+  // ---- call Gemini -----------------------------------------------------
+  // Map our {role:'user'|'assistant', content} turns to Gemini's
+  // {role:'user'|'model', parts:[{text}]} shape, and lift the system
+  // prompt into system_instruction.
+  const contents = messages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+  const reqBody: any = {
+    contents,
+    generationConfig: { maxOutputTokens: MAX_TOKENS }
+  };
+  if (system) reqBody.system_instruction = { parts: [{ text: system }] };
+
   try {
-    const res = await fetch(ANTHROPIC_ENDPOINT, {
+    const endpoint = `${GEMINI_BASE}/${MODELS[role]}:generateContent`;
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01'
+        'x-goog-api-key': geminiKey
       },
-      body: JSON.stringify({
-        model: MODELS[role],
-        max_tokens: MAX_TOKENS,
-        system,
-        messages
-      })
+      body: JSON.stringify(reqBody)
     });
     if (!res.ok) {
       const detail = await res.text();
-      console.error('Anthropic error:', res.status, detail);
+      console.error('Gemini error:', res.status, detail);
       return jsonResponse(502, { error: 'Model request failed', status: res.status });
     }
     const data = await res.json();
-    const text = data?.content?.[0]?.text;
+    const parts = data?.candidates?.[0]?.content?.parts;
+    const text = Array.isArray(parts)
+      ? parts.map((p: any) => (p && typeof p.text === 'string') ? p.text : '').join('').trim()
+      : '';
     if (!text) return jsonResponse(502, { error: 'Empty response from the model' });
     return jsonResponse(200, { text });
   } catch (e) {

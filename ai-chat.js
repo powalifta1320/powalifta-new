@@ -9,14 +9,14 @@
    Modes (resolved at runtime):
      • LIVE — a signed-in user on a real page. Calls the JWT-gated
        `ai-chat` Supabase edge function (DB.aiChat), which holds the
-       Anthropic key SERVER-SIDE and talks to Claude. The browser never
-       sees a key. Per-user daily cap + console spend cap bound the cost.
+       Gemini key SERVER-SIDE and talks to Google. The browser never
+       sees a key. Per-user daily cap + provider limits bound the cost.
      • MOCK — demo mode (?demo=1), signed-out, or the live backend being
        unreachable. Answers are computed locally from real in-app data.
        Also the graceful fallback whenever a live request fails.
 
    To go fully live: deploy the `ai-chat` edge function, set its
-   ANTHROPIC_API_KEY secret, run sql/migration-ai-chat-usage.sql, and keep
+   GEMINI_API_KEY secret, run sql/migration-ai-chat-usage.sql, and keep
    LIVE_BACKEND = true below. Set it false to force mock everywhere.
 
    Depends on globals from app.js / db.js: Store, getCurrentUser, bestE1RM,
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  // Master switch for the real-Claude backend. Leave true in production;
+  // Master switch for the real (Gemini) backend. Leave true in production;
   // flip false to force local mock mode everywhere (no API calls at all).
   var LIVE_BACKEND = true;
 
@@ -35,7 +35,7 @@
 
   var ROLE = /coach\.html/i.test(location.pathname) ? 'coach' : 'athlete';
 
-  // Whether the real-Claude backend is usable for THIS visitor. Resolved
+  // Whether the real (Gemini) backend is usable for THIS visitor. Resolved
   // async in init() (needs a Supabase session check); mock until then.
   var LIVE = false;
   var liveDown = false;   // set once a live request fails → stop retrying
@@ -322,7 +322,7 @@
   }
 
   // =====================================================================
-  //  LIVE — Anthropic Messages API (localhost dev only)
+  //  LIVE — Gemini via the JWT-gated ai-chat edge proxy
   // =====================================================================
   function systemPrompt() {
     var u = me();
@@ -418,7 +418,7 @@
     function setMode(mode) {
       if (mode === 'live') {
         pill.className = 'ai-mode-pill live'; pill.textContent = 'Live';
-        footNote.textContent = 'Claude · powered by Anthropic';
+        footNote.textContent = 'Powered by Google Gemini';
       } else if (mode === 'demo') {
         pill.className = 'ai-mode-pill mock'; pill.textContent = 'Demo';
         footNote.textContent = 'Demo data · sample answers';
