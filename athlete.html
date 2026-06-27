@@ -3299,7 +3299,7 @@ function renderBodyweight() {
 
   const g = Store.get().goals.find(x => x.athleteId === user.id);
   if (g && g.bodyweight) {
-    area.appendChild(el('h3', { style: 'margin: 8px 0 14px; font-size: 1.2rem;' }, 'Bodyweight goal'));
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Bodyweight goal'));
     const grid = el('div', { class: 'goals-grid' });
     const cur = last.weight;
     const target = g.bodyweight;
@@ -3327,8 +3327,8 @@ function renderBodyweight() {
     requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = pct + '%'; }));
   }
 
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Bodyweight over time'));
   const card = el('div', { class: 'chart-card' });
-  card.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Bodyweight over time')));
   const wrap = el('div', { class: 'chart-wrap' });
   card.appendChild(wrap);
   area.appendChild(card);
@@ -3338,8 +3338,8 @@ function renderBodyweight() {
     goal: g && g.bodyweight ? { value: kgToDisplay(g.bodyweight, 1), label: 'Goal · ' + kgToDisplay(g.bodyweight) + ' ' + u } : null
   });
 
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Recent weigh-ins'));
   const tableCard = el('div', { class: 'chart-card' });
-  tableCard.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Recent weigh-ins')));
   const tblWrap = el('div', { class: 'tbl-card' });
   const tbl = el('table');
   tbl.innerHTML = '<thead><tr><th>Date</th><th>Weight</th></tr></thead>';
