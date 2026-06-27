@@ -4008,6 +4008,10 @@ footer .footer-base {
   .nav-actions { gap: 6px; }
   .nav-user span { display: none; } /* show only avatar on mobile */
   .nav-user { padding: 4px; }
+  /* On dashboard pages the sidebar already provides dashboard nav, so the
+     redundant "Dashboard" pill is dropped on phones to keep the bar from
+     overflowing. It stays on marketing pages, where it's the only way back. */
+  body:has(.dash-shell) .nav-dash-link { display: none; }
   .dash-main { padding: 16px; }
   .dash-header { gap: 10px; }
   .dash-header h2 { font-size: 1.7rem; }
@@ -4049,6 +4053,8 @@ footer .footer-base {
   .brand { font-size: 1.3rem; gap: 7px; }
   .brand-mark { width: 24px; height: 24px; }
   .nav-actions.guest .btn-sm { padding: 6px 10px; }
+  .nav-actions.auth { gap: 4px; }
+  .nav-actions.auth .btn-sm { padding: 6px 9px; }
 }
 
 /* ============================================ FLEX UTIL */
@@ -4166,6 +4172,8 @@ footer .footer-base {
   .builder { grid-template-columns: 1fr; }
   .builder-aside { position: static; }
   .week-nav { flex-direction: row; overflow-x: auto; gap: 4px; }
+  .wk-actions { flex-wrap: wrap; }
+  .wk-actions .btn-sm { flex: 1 1 auto; justify-content: center; }
   .exec-set { grid-template-columns: 30px 1fr 1fr 1fr; gap: 6px; }
   .exec-set input[type=checkbox] { grid-column: 4; }
   .set-row { grid-template-columns: 40px 1fr 1fr 1fr; }

@@ -840,7 +840,7 @@ function loadProgram() {
   prog.weeks.forEach(wk => wk.days.forEach(d => d.exercises.forEach(ex => ensureExerciseShape(ex))));
 
   const head = el('div', { class: 'card mb-24', style: 'padding: 18px 22px;' });
-  const headRow = el('div', { class: 'flex-between gap-16' });
+  const headRow = el('div', { class: 'flex-between gap-16', style: 'flex-wrap: wrap;' });
   const nameInput = el('input', {
     type: 'text', value: prog.name,
     style: 'background:transparent; border: 1px solid transparent; padding: 6px 10px; font-family: Anton; font-size: 1.5rem; color: var(--text); text-transform: uppercase; letter-spacing: 0.01em; max-width: 500px;',
@@ -853,7 +853,7 @@ function loadProgram() {
   nameInput.addEventListener('blur', () => { nameInput.style.borderColor = 'transparent'; nameInput.style.background = 'transparent'; });
   headRow.appendChild(nameInput);
 
-  const headActions = el('div', { class: 'flex gap-8' });
+  const headActions = el('div', { class: 'flex gap-8 wk-actions' });
   const sheetBtn = el('button', { class: 'btn btn-sm', title: 'Download this program as a spreadsheet (CSV) for the athlete to track offline' });
   sheetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export sheet</span>';
   sheetBtn.onclick = () => exportProgramCsv(athleteId, (Store.get().athletes.find(a => a.id === athleteId) || {}).name);
@@ -893,7 +893,7 @@ function loadProgram() {
 
   const wkHead = el('div', { class: 'flex-between mb-16 gap-12', style: 'flex-wrap: wrap;' });
   wkHead.appendChild(el('h3', {}, 'Week ' + wk.number));
-  const wkActions = el('div', { class: 'flex gap-8' });
+  const wkActions = el('div', { class: 'flex gap-8 wk-actions' });
   const dupWkBtn = el('button', { class: 'btn btn-sm', onclick: () => duplicateWeekAction(prog.id, activeWeekIdx) });
   dupWkBtn.innerHTML = ICONS.copy + '<span>Duplicate week</span>';
   wkActions.appendChild(dupWkBtn);

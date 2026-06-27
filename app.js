@@ -2314,9 +2314,9 @@ function renderNav(target) {
     userPill.setAttribute('onclick', 'if(window.openSettingsModal){openSettingsModal()}');
     actions.appendChild(userPill);
     if (user.userType === 'coach') {
-      actions.appendChild(el('a', { href: 'coach.html', class: 'btn btn-sm btn-ghost' }, 'Dashboard'));
+      actions.appendChild(el('a', { href: 'coach.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
     } else {
-      actions.appendChild(el('a', { href: 'athlete.html', class: 'btn btn-sm btn-ghost' }, 'Dashboard'));
+      actions.appendChild(el('a', { href: 'athlete.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
     }
     if (user.isAdmin) {
       const adminA = el('a', { href: 'admin.html', class: 'btn btn-sm', style: 'border-color: var(--gold); color: var(--gold);' }, '★ Admin');
