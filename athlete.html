@@ -2609,12 +2609,24 @@ window.maybeShowPurchaseToast = maybeShowPurchaseToast;
 // Click a program → opens detail with Buy button. Buy → LS checkout.
 // =========================================================
 let _marketplaceCache = null;
+let _marketplaceStats = {};   // programId → { avg, count } for rating badges
 let _marketplaceDetailId = null;
 
 async function renderMarketplace() {
   if (!_marketplaceCache) {
     try { _marketplaceCache = await DB.listPublishedPrograms({}); }
     catch (e) { console.error('marketplace load', e); _marketplaceCache = []; }
+    // Aggregate ratings per program in one batched query so each card can
+    // show social proof. Non-fatal — cards just render without a badge.
+    try {
+      const ids = (_marketplaceCache || []).map(p => p.id);
+      if (ids.length) {
+        const reviews = await DB.listReviewsForPrograms(ids);
+        const byProg = {};
+        reviews.forEach(r => { (byProg[r.marketplaceProgramId] = byProg[r.marketplaceProgramId] || []).push(r); });
+        _marketplaceCache.forEach(p => { _marketplaceStats[p.id] = reviewStats(byProg[p.id] || []); });
+      }
+    } catch (e) { console.warn('marketplace reviews', e); }
   }
   // Wire up search/filter handlers once
   const search = document.getElementById('mpSearch');
@@ -2671,6 +2683,14 @@ function renderMarketplaceList() {
       (coach ? 'by ' + coach.name : 'POWALIFTA coach') +
       ' · ' + (TIER_LABEL[p.tier] || 'Program') + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'
     ));
+    const st = _marketplaceStats[p.id];
+    if (st && st.count) {
+      const rating = el('div', { class: 'mk-rating', style: 'margin-top: 8px;' });
+      rating.innerHTML = starsHtml(st.avg) +
+        '<span class="mk-rating-num">' + st.avg.toFixed(1) + '</span>' +
+        '<span class="mk-rating-count">(' + st.count + ')</span>';
+      card.appendChild(rating);
+    }
     if (p.description) {
       card.appendChild(el('p', { class: 'dim text-sm', style: 'margin: 10px 0; line-height: 1.5;' },
         p.description.slice(0, 140) + (p.description.length > 140 ? '…' : '')
@@ -2711,6 +2731,15 @@ function openMarketplaceDetail(programId) {
     ' · ' + (TIER_LABEL[p.tier] || 'Program') +
     ' · ' + p.weekCount + ' weeks · ' + p.soldCount + ' sold'
   ));
+
+  const dst = _marketplaceStats[p.id];
+  if (dst && dst.count) {
+    const rating = el('div', { class: 'mk-rating mb-12' });
+    rating.innerHTML = starsHtml(dst.avg) +
+      '<span class="mk-rating-num">' + dst.avg.toFixed(1) + '</span>' +
+      '<span class="mk-rating-count">(' + dst.count + ' review' + (dst.count === 1 ? '' : 's') + ')</span>';
+    body.appendChild(rating);
+  }
 
   if (p.description) {
     body.appendChild(el('div', { style: 'background: var(--bg-2); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,45,63,0.25); margin-bottom: 18px; white-space: pre-wrap; line-height: 1.6;' }, p.description));
