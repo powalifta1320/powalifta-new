@@ -17,6 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="dash-fx.css">
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -43,7 +44,7 @@
     <!-- ROSTER -->
     <section data-pane="athletes">
       <div class="dash-header">
-        <div><h2>My athletes</h2><p class="dim text-sm">Status at a glance — click any card to open their program.</p></div>
+        <div><h2>My athletes</h2><p class="dim text-sm">Status at a glance. Click any card to open their program.</p></div>
         <div class="flex gap-8" style="align-items:center; flex-wrap:wrap;">
           <span id="planPill"></span>
           <button class="btn btn-primary" onclick="openInviteModal()" id="btn-invite"></button>
@@ -72,7 +73,7 @@
     <!-- TEMPLATES -->
     <section data-pane="templates" class="hidden">
       <div class="dash-header">
-        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete — or publish them for sale on the marketplace.</p></div>
+        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete, or publish them for sale on the marketplace.</p></div>
       </div>
       <div id="templatesArea"></div>
     </section>
@@ -112,6 +113,24 @@
       <a class="btn btn-primary btn-block" id="sendEmailBtn" style="margin-bottom: 8px;">📧 Send via email</a>
       <button class="btn btn-block" onclick="copyCode()" id="copyCodeBtn">Copy code</button>
     </div>
+  </div>
+</div>
+
+<!-- MESSAGE ATHLETE MODAL -->
+<div class="modal-backdrop" id="messageModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeMessageModal()">&times;</button>
+    <h3 id="messageModalTitle">Message</h3>
+    <div id="messageThreadHost" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<!-- FORM-CHECK REVIEW MODAL -->
+<div class="modal-backdrop" id="formCheckModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="closeModal('formCheckModal')">&times;</button>
+    <h3 id="formCheckTitle">Form check</h3>
+    <div id="formCheckBody" style="margin-top:14px;"></div>
   </div>
 </div>
 
@@ -210,7 +229,7 @@
   <div class="modal modal-lg">
     <button class="modal-close" onclick="closeModal('publishModal')">&times;</button>
     <h3>Publish to marketplace</h3>
-    <p class="dim text-sm mb-16">Athletes can buy this program directly. You keep 80% (paid out monthly). POWALIFTA reviews each submission before it goes live — usually within a day.</p>
+    <p class="dim text-sm mb-16">Athletes can buy this program directly. You keep 80% (paid out monthly). POWALIFTA reviews each submission before it goes live, usually within a day.</p>
 
     <div class="form-group">
       <label>Program title</label>
@@ -226,7 +245,7 @@
         <span style="font-size:1.1rem;font-weight:700;color:var(--text-2)">$</span>
         <input type="number" id="pubPrice" min="1" max="999" step="0.01" placeholder="29.99" value="29.99" style="flex:1">
       </div>
-      <p class="faded text-xs" style="margin-top:6px">You set your own price. You earn 80% per sale — POWALIFTA keeps 20% to cover payment processing + hosting. Min $1, max $999.</p>
+      <p class="faded text-xs" style="margin-top:6px">You set your own price. You earn 80% per sale. POWALIFTA keeps 20% to cover payment processing and hosting. Min $1, max $999.</p>
       <p class="dim text-xs" id="pubPayoutPreview" style="margin-top:4px"></p>
     </div>
     <div class="form-group">
@@ -240,7 +259,7 @@
 
     <div class="form-group" style="background: var(--bg-2); padding: 14px 16px; border-radius: var(--r-md); border: 1px solid var(--line);">
       <label style="margin-bottom:6px">Your reference 1RMs <span class="dim text-xs">(the strength the weights in this program were written for)</span></label>
-      <p class="dim text-xs" style="margin-bottom:10px">When a buyer claims your program, every weight gets rescaled by the ratio of their 1RM to yours. <strong>This is what makes selling the program work</strong> — without it, your 200kg squat would be unliftable for a buyer who squats 100kg. Leave a lift blank if your program doesn't program that lift.</p>
+      <p class="dim text-xs" style="margin-bottom:10px">When a buyer claims your program, every weight gets rescaled by the ratio of their 1RM to yours. <strong>This is what makes selling the program work.</strong> Without it, your 200kg squat would be unliftable for a buyer who squats 100kg. Leave a lift blank if your program doesn't program that lift.</p>
       <div class="flex gap-8" style="flex-wrap: wrap;">
         <div style="flex:1; min-width:90px"><label class="dim text-xs">Squat (<span class="pub1rm-unit">kg</span>)</label><input type="number" id="pub1rmSquat" min="0" step="0.5" placeholder="e.g. 200" style="width:100%"></div>
         <div style="flex:1; min-width:90px"><label class="dim text-xs">Bench (<span class="pub1rm-unit">kg</span>)</label><input type="number" id="pub1rmBench" min="0" step="0.5" placeholder="e.g. 140" style="width:100%"></div>
@@ -287,6 +306,8 @@ bootstrap('coach', () => {
     });
   });
   renderRoster();
+  refreshUnreadBadges();
+  refreshFormChecks();
 
   // Onboarding tour — runs once on first dashboard visit
   if (!isTourDone('coach')) {
@@ -313,13 +334,13 @@ function maybeStartCoachTour() {
     {
       selector: '#tab-program',
       title: 'Build their training',
-      body: 'Pick an athlete, build their program week-by-week. Top sets, back-down sets, accessories — full PL coverage with RPE-native programming.',
+      body: 'Pick an athlete, build their program week-by-week. Top sets, back-down sets, accessories: full PL coverage with RPE-native programming.',
       before: () => { const t = document.getElementById('tab-program'); if (t) t.click(); }
     },
     {
       selector: '#tab-progress',
       title: 'Watch them grow',
-      body: 'See each athlete\'s e1RM trends, weekly delta, lifetime PRs, weekly check-ins. Leave feedback on any session — they\'ll see it on their dashboard.',
+      body: 'See each athlete\'s e1RM trends, weekly delta, lifetime PRs, weekly check-ins. Leave feedback on any session; they\'ll see it on their dashboard.',
       before: () => { const t = document.getElementById('tab-progress'); if (t) t.click(); }
     },
     {
@@ -404,6 +425,33 @@ function renderRoster() {
       area.appendChild(inbox);
     }
 
+    // ===== FORM-CHECK INBOX — video reviews waiting on the coach.
+    if (_coachFormChecks.length) {
+      const pending = _coachFormChecks.filter(fc => !fc.coachReply);
+      const fcInbox = el('div', { class: 'card', style: 'margin-bottom: 20px; padding: 18px 20px;' });
+      const fhead = el('div', { class: 'flex', style: 'justify-content: space-between; align-items: center; margin-bottom: 12px;' });
+      fhead.appendChild(el('h3', { style: 'margin: 0; font-size: 1.15rem;' }, 'Form checks'));
+      if (pending.length) fhead.appendChild(el('span', { class: 'badge', style: 'background: rgba(255,45,63,0.12); color: var(--red); border: 1px solid rgba(255,45,63,0.3);' }, pending.length + ' to review'));
+      fcInbox.appendChild(fhead);
+      _coachFormChecks.slice(0, 8).forEach(fc => {
+        const ath = Store.get().athletes.find(a => a.id === fc.athleteId);
+        const LIFT_LBL = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift', other: 'Other' };
+        const rowEl = el('div', {
+          class: 'note-inbox-row',
+          style: 'display: flex; gap: 10px; align-items: baseline; padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; transition: background 0.13s;',
+          onclick: () => openFormCheckReview(fc.id),
+          onmouseenter: ev => ev.currentTarget.style.background = 'var(--bg-2)',
+          onmouseleave: ev => ev.currentTarget.style.background = 'transparent'
+        });
+        rowEl.appendChild(el('strong', { style: 'white-space: nowrap; font-size: 0.88rem;' }, ath ? ath.name.split(' ')[0] : '—'));
+        rowEl.appendChild(el('span', { class: 'dim text-sm', style: 'white-space: nowrap;' }, LIFT_LBL[fc.lift] || 'Form check'));
+        rowEl.appendChild(el('span', { class: 'text-sm', style: 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: var(--text-2);' }, fc.note ? '“' + fc.note.slice(0, 80) + (fc.note.length > 80 ? '…' : '') + '”' : '🎥 video'));
+        if (!fc.coachReply) rowEl.appendChild(el('span', { style: 'width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; align-self: center;', title: 'Needs review' }));
+        fcInbox.appendChild(rowEl);
+      });
+      area.appendChild(fcInbox);
+    }
+
     const grid = el('div', { class: 'roster-grid' });
     overview.forEach(o => {
       const card = el('div', { class: 'roster-card flag-' + o.flag, onclick: () => openAthleteProgram(o.athlete.id) });
@@ -413,6 +461,18 @@ function renderRoster() {
       info.appendChild(el('div', { class: 'name' }, o.athlete.name));
       info.appendChild(el('div', { class: 'email' }, o.athlete.email));
       head.appendChild(info);
+      const msgBtn = el('button', {
+        class: 'btn-icon roster-msg',
+        title: 'Message ' + o.athlete.name,
+        'aria-label': 'Message athlete',
+        onclick: (e) => { e.stopPropagation(); openAthleteMessages(o.athlete.id, o.athlete.name); }
+      }, '💬');
+      const unread = _unreadByAthlete[o.athlete.id] || 0;
+      if (unread > 0) {
+        const badge = el('span', { class: 'msg-badge roster-msg-badge' }, String(unread));
+        msgBtn.appendChild(badge);
+      }
+      head.appendChild(msgBtn);
       const removeBtn = el('button', {
         class: 'btn-icon roster-remove',
         title: 'Remove ' + o.athlete.name + ' from roster',
@@ -558,6 +618,115 @@ function openAthleteNotes(athleteId) {
   }, 80);
 }
 
+// ===== ATHLETE MESSAGING =====
+// athleteId -> count of messages the COACH hasn't read yet. Painted as a badge
+// on each roster card's chat button. Refreshed on load + after the modal closes.
+let _unreadByAthlete = {};
+
+async function refreshUnreadBadges() {
+  if (window._demoMode) { _unreadByAthlete = {}; return; }
+  try {
+    const unread = await DB.listUnreadForUser(user.id);
+    const map = {};
+    unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+    _unreadByAthlete = map;
+    if (document.querySelector('[data-tab="athletes"]').classList.contains('active') ||
+        document.getElementById('rosterArea').children.length) {
+      renderRoster();
+    }
+  } catch (e) { console.warn('refreshUnreadBadges', e); }
+}
+
+function openAthleteMessages(athleteId, athleteName) {
+  if (window._demoMode) { toast('Messaging is live for real accounts — this is the demo.'); return; }
+  document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
+  const host = document.getElementById('messageThreadHost');
+  host.innerHTML = '';
+  openModal('messageModal');
+  renderMessageThread(host, {
+    coachId: user.id,
+    athleteId: athleteId,
+    viewerId: user.id,
+    otherName: (athleteName || '').split(' ')[0]
+  });
+  // Opening the thread marks it read; clear this athlete's badge optimistically
+  // and refresh from the server once the modal is closed.
+  _unreadByAthlete[athleteId] = 0;
+}
+window.openAthleteMessages = openAthleteMessages;
+
+function closeMessageModal() {
+  closeModal('messageModal');
+  // Re-sync badges from the server (the open just marked the thread read).
+  refreshUnreadBadges();
+}
+window.closeMessageModal = closeMessageModal;
+
+// ===== FORM CHECKS (coach review side) =====
+let _coachFormChecks = [];
+
+async function refreshFormChecks() {
+  if (window._demoMode) { _coachFormChecks = []; return; }
+  try {
+    _coachFormChecks = await DB.listFormChecksForCoach(user.id);
+    if (document.getElementById('rosterArea').children.length) renderRoster();
+  } catch (e) { console.warn('refreshFormChecks', e); }
+}
+
+function openFormCheckReview(id) {
+  const fc = _coachFormChecks.find(x => x.id === id);
+  if (!fc) return;
+  const ath = Store.get().athletes.find(a => a.id === fc.athleteId);
+  const LIFT_LBL = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift', other: 'Other' };
+  document.getElementById('formCheckTitle').textContent =
+    (ath ? ath.name.split(' ')[0] + ' · ' : '') + (LIFT_LBL[fc.lift] || 'Form check');
+  const body = document.getElementById('formCheckBody');
+  body.innerHTML = '';
+
+  if (fc.note) body.appendChild(el('p', { class: 'fc-item-note' }, '“' + fc.note + '”'));
+
+  // Video (signed URL fetched on open)
+  const videoWrap = el('div', { class: 'fc-video-wrap' });
+  videoWrap.appendChild(el('p', { class: 'dim text-sm' }, 'Loading video…'));
+  body.appendChild(videoWrap);
+  DB.formCheckSignedUrl(fc.storagePath).then(url => {
+    videoWrap.innerHTML = '';
+    if (!url) { videoWrap.appendChild(el('p', { class: 'dim text-sm' }, 'Could not load video.')); return; }
+    videoWrap.appendChild(el('video', { src: url, controls: 'controls', playsinline: 'playsinline', class: 'fc-video' }));
+  });
+
+  // Reply box
+  const replyWrap = el('div', { style: 'margin-top:16px;' });
+  replyWrap.appendChild(el('label', { class: 'dim text-sm mb-8', style: 'display:block;' }, 'Your cue / reply'));
+  const ta = el('textarea', { class: 'fc-note', rows: '3', maxlength: '1000', placeholder: 'e.g. "Good depth. Drive your hips through faster out of the hole — chest stayed down on rep 3."' });
+  if (fc.coachReply) ta.value = fc.coachReply;
+  replyWrap.appendChild(ta);
+  const saveBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:10px;' }, fc.coachReply ? 'Update reply' : 'Send reply');
+  saveBtn.addEventListener('click', async () => {
+    if (!ta.value.trim()) return toast('Write a reply first');
+    saveBtn.disabled = true;
+    try {
+      const updated = await DB.replyToFormCheck(fc.id, ta.value);
+      if (updated) {
+        const idx = _coachFormChecks.findIndex(x => x.id === fc.id);
+        if (idx >= 0) _coachFormChecks[idx] = updated;
+      }
+      toast('Reply sent to ' + (ath ? ath.name.split(' ')[0] : 'athlete'));
+      closeModal('formCheckModal');
+      renderRoster();
+    } catch (e) {
+      console.error('replyToFormCheck', e);
+      toast('Could not save reply — try again');
+      saveBtn.disabled = false;
+    }
+  });
+  replyWrap.appendChild(saveBtn);
+  body.appendChild(replyWrap);
+
+  openModal('formCheckModal');
+}
+window.openFormCheckReview = openFormCheckReview;
+
 // ===== INVITE =====
 function openInviteModal() {
   // Cap check: don't let coach generate invites if they'd exceed plan
@@ -674,6 +843,10 @@ function loadProgram() {
   headRow.appendChild(nameInput);
 
   const headActions = el('div', { class: 'flex gap-8' });
+  const sheetBtn = el('button', { class: 'btn btn-sm', title: 'Download this program as a spreadsheet (CSV) for the athlete to track offline' });
+  sheetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export sheet</span>';
+  sheetBtn.onclick = () => exportProgramCsv(athleteId, (Store.get().athletes.find(a => a.id === athleteId) || {}).name);
+  headActions.appendChild(sheetBtn);
   const saveTpl = el('button', { class: 'btn btn-sm', onclick: () => openSaveTemplate(prog) });
   saveTpl.innerHTML = ICONS.copy + '<span>Save as template</span>';
   headActions.appendChild(saveTpl);
