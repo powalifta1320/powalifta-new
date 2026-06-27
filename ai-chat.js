@@ -55,13 +55,29 @@
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
-  // minimal markdown: **bold**, `code`, [[n]] number highlight, newlines
-  function fmt(s) {
-    return esc(s)
+  // minimal markdown: **bold**, `code`, [[n]] number highlight, and
+  // `*`/`-` bullet lists grouped into real <ul>s so replies stay compact
+  // instead of a tall run of asterisks + <br>s.
+  function inlineMd(t) {
+    return esc(t)
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.+?)`/g, '<code>$1</code>')
-      .replace(/\[\[(.+?)\]\]/g, '<span class="ai-num">$1</span>')
-      .replace(/\n/g, '<br>');
+      .replace(/\[\[(.+?)\]\]/g, '<span class="ai-num">$1</span>');
+  }
+  function fmt(s) {
+    var lines = String(s == null ? '' : s).split('\n');
+    var html = '', text = [], list = [];
+    function flushText() { if (text.length) { html += '<p>' + text.join('<br>') + '</p>'; text = []; } }
+    function flushList() { if (list.length) { html += '<ul>' + list.join('') + '</ul>'; list = []; } }
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      var m = ln.match(/^\s*[*\-]\s+(.*)$/);
+      if (m) { flushText(); list.push('<li>' + inlineMd(m[1]) + '</li>'); }
+      else if (ln.trim() === '') { flushList(); flushText(); }
+      else { flushList(); text.push(inlineMd(ln)); }
+    }
+    flushList(); flushText();
+    return html;
   }
 
   var ICON = {
@@ -423,7 +439,7 @@
     function setMode(mode) {
       if (mode === 'live') {
         pill.className = 'ai-mode-pill live'; pill.textContent = 'Live';
-        footNote.textContent = 'Powered by Google Gemini';
+        footNote.textContent = 'Live AI · powered by Gemini';
       } else if (mode === 'demo') {
         pill.className = 'ai-mode-pill mock'; pill.textContent = 'Demo';
         footNote.textContent = 'Demo data · sample answers';

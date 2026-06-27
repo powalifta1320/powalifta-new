@@ -12,35 +12,87 @@
 // dashboard. Toggle "Verify JWT" ON (only logged-in users can call it).
 // Secrets to set on the function:
 //   GEMINI_API_KEY      (required)  - a key from aistudio.google.com/apikey.
-//                                     The free tier works out of the box;
-//                                     enable billing on the Google Cloud
-//                                     project to remove rate caps + stop
-//                                     your data being used for training.
+//                                     Requires billing enabled on the Google
+//                                     Cloud project (the free tier returns a
+//                                     hard 429 "check your plan and billing").
 //   AI_DAILY_CAP        (optional)  - messages per user per day. Default 20.
 //   SUPABASE_URL        (auto)      - injected by the platform.
 //   SUPABASE_SERVICE_ROLE_KEY (auto)- injected by the platform.
 //
+// PROVIDER NOTE: this function is the ONLY place that knows which LLM we use.
+// Swapping to OpenAI / Anthropic / Groq means changing only this file
+// (endpoint + request/response shape + secret name) — the client
+// (DB.aiChat), the mock fallback in ai-chat.js, and the ai_chat_usage daily
+// cap are untouched.
+//
 // Cost is bounded three ways: (1) this function clamps max output tokens,
 // system length, and history; (2) a per-user daily cap (ai_chat_usage
-// table); (3) the free-tier ceiling / billing budget you set in the Google
-// Cloud console. On the free tier there is no spend to cap — Google simply
-// rate-limits; flip on billing only when you want higher limits + the
-// no-training privacy guarantee.
+// table); (3) the budget you set on the Google Cloud project. Gemini 2.0
+// Flash is ~$0.10/1M input + $0.40/1M output, so at the per-user cap this is
+// fractions of a cent per chat.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Gemini's generateContent endpoint. The model id is interpolated per call.
+// Provider endpoints. Gemini is primary (cheapest); Groq is the automatic
+// fallback so the assistant stays LIVE even when Gemini's billing/quota hiccups.
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 // Server-side cost clamps — the client cannot exceed these.
 const MAX_TOKENS = 800;          // output ceiling per reply
 const SYSTEM_CAP = 6000;         // chars of system prompt accepted
 const MSG_CAP = 4000;            // chars per message accepted
 const HISTORY_CAP = 12;          // most recent turns forwarded
-const MODELS: Record<string, string> = {
-  athlete: 'gemini-2.0-flash',
-  coach: 'gemini-2.0-flash'
-};
+
+type Turn = { role: 'user' | 'assistant'; content: string };
+type ModelResult =
+  | { ok: true; text: string }
+  | { ok: false; status: number; detail: string };
+
+// ---- Gemini (primary) ------------------------------------------------------
+// Maps our {user|assistant} turns to Gemini's {user|model}+system_instruction.
+async function callGemini(key: string, system: string, messages: Turn[]): Promise<ModelResult> {
+  const reqBody: any = {
+    contents: messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    })),
+    generationConfig: { maxOutputTokens: MAX_TOKENS }
+  };
+  if (system) reqBody.system_instruction = { parts: [{ text: system }] };
+
+  const res = await fetch(`${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify(reqBody)
+  });
+  if (!res.ok) return { ok: false, status: res.status, detail: await res.text() };
+  const data = await res.json();
+  const parts = data?.candidates?.[0]?.content?.parts;
+  const text = Array.isArray(parts)
+    ? parts.map((p: any) => (p && typeof p.text === 'string') ? p.text : '').join('').trim()
+    : '';
+  return text ? { ok: true, text } : { ok: false, status: 502, detail: 'empty Gemini response' };
+}
+
+// ---- Groq (fallback) -------------------------------------------------------
+// OpenAI-compatible: system prompt is just a leading system message.
+async function callGroq(key: string, system: string, messages: Turn[]): Promise<ModelResult> {
+  const chat = system
+    ? [{ role: 'system', content: system }, ...messages]
+    : messages;
+  const res = await fetch(GROQ_ENDPOINT, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: GROQ_MODEL, messages: chat, max_tokens: MAX_TOKENS, temperature: 0.6 })
+  });
+  if (!res.ok) return { ok: false, status: res.status, detail: await res.text() };
+  const data = await res.json();
+  const text = String(data?.choices?.[0]?.message?.content || '').trim();
+  return text ? { ok: true, text } : { ok: false, status: 502, detail: 'empty Groq response' };
+}
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -49,7 +101,7 @@ function jsonResponse(status: number, body: unknown): Response {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey'
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-api-version'
     }
   });
 }
@@ -84,7 +136,6 @@ Deno.serve(async (req) => {
   try { payload = await req.json(); }
   catch { return jsonResponse(400, { error: 'Invalid JSON' }); }
 
-  const role = payload?.role === 'coach' ? 'coach' : 'athlete';
   const system = String(payload?.system || '').slice(0, SYSTEM_CAP);
   const rawMsgs = Array.isArray(payload?.messages) ? payload.messages : [];
 
@@ -97,9 +148,12 @@ Deno.serve(async (req) => {
   if (!messages.length) return jsonResponse(400, { error: 'No user message' });
 
   // ---- config ----------------------------------------------------------
+  // At least one provider key must be present. Gemini is tried first (cheaper);
+  // Groq is the fallback when Gemini errors (billing/quota/outage).
   const geminiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!geminiKey) {
-    console.error('GEMINI_API_KEY not set');
+  const groqKey = Deno.env.get('GROQ_API_KEY');
+  if (!geminiKey && !groqKey) {
+    console.error('No provider key set (need GEMINI_API_KEY and/or GROQ_API_KEY)');
     return jsonResponse(500, { error: 'AI not configured' });
   }
   const dailyCap = parseInt(Deno.env.get('AI_DAILY_CAP') || '20', 10) || 20;
@@ -133,42 +187,34 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ---- call Gemini -----------------------------------------------------
-  // Map our {role:'user'|'assistant', content} turns to Gemini's
-  // {role:'user'|'model', parts:[{text}]} shape, and lift the system
-  // prompt into system_instruction.
-  const contents = messages.map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }]
-  }));
-  const reqBody: any = {
-    contents,
-    generationConfig: { maxOutputTokens: MAX_TOKENS }
-  };
-  if (system) reqBody.system_instruction = { parts: [{ text: system }] };
-
+  // ---- call the model: Gemini first, Groq as automatic fallback --------
   try {
-    const endpoint = `${GEMINI_BASE}/${MODELS[role]}:generateContent`;
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': geminiKey
-      },
-      body: JSON.stringify(reqBody)
-    });
-    if (!res.ok) {
-      const detail = await res.text();
-      console.error('Gemini error:', res.status, detail);
-      return jsonResponse(502, { error: 'Model request failed', status: res.status });
+    let result: ModelResult | null = null;
+
+    if (geminiKey) {
+      try {
+        result = await callGemini(geminiKey, system, messages as Turn[]);
+        if (!result.ok) console.error('Gemini failed:', result.status, result.detail);
+      } catch (e) {
+        console.error('Gemini threw:', e);
+        result = { ok: false, status: 500, detail: String((e as any)?.message || e) };
+      }
     }
-    const data = await res.json();
-    const parts = data?.candidates?.[0]?.content?.parts;
-    const text = Array.isArray(parts)
-      ? parts.map((p: any) => (p && typeof p.text === 'string') ? p.text : '').join('').trim()
-      : '';
-    if (!text) return jsonResponse(502, { error: 'Empty response from the model' });
-    return jsonResponse(200, { text });
+
+    // Fall back to Groq if Gemini is unavailable or errored.
+    if ((!result || !result.ok) && groqKey) {
+      try {
+        const groqResult = await callGroq(groqKey, system, messages as Turn[]);
+        if (!groqResult.ok) console.error('Groq failed:', groqResult.status, groqResult.detail);
+        result = groqResult;
+      } catch (e) {
+        console.error('Groq threw:', e);
+        result = { ok: false, status: 500, detail: String((e as any)?.message || e) };
+      }
+    }
+
+    if (result && result.ok) return jsonResponse(200, { text: result.text });
+    return jsonResponse(502, { error: 'Model request failed', status: result?.status ?? 502 });
   } catch (e) {
     console.error('ai-chat crashed:', e);
     return jsonResponse(500, { error: 'Unhandled exception', message: String((e as any)?.message || e) });
