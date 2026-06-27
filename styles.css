@@ -2670,6 +2670,31 @@ footer .footer-base {
   .dash-main .prog-sec { font-size: 1.3rem; margin: 28px 0 13px; }
 }
 
+/* Section head that pairs a .prog-sec title with a trailing status badge
+ * (roster inboxes: "2 need a reply", "1 to review"). The wrapper owns the
+ * vertical rhythm so the title's own margins collapse to zero inside it —
+ * keeps the badge on the title's baseline without a second heading style. */
+.dash-main .roster-sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 36px 0 16px;
+}
+.dash-main .roster-sec-head:first-of-type { margin-top: 24px; }
+.dash-main .roster-sec-head .prog-sec { margin: 0; }
+.dash-main .roster-sec-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 45, 63, 0.12);
+  color: var(--red);
+  border: 1px solid rgba(255, 45, 63, 0.3);
+}
+
 /* ============================================ SET NOTE */
 .set-note {
   margin-top: 4px;

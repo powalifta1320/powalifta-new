@@ -51,8 +51,8 @@
         </div>
       </div>
       <div id="rosterArea"></div>
-      <div class="card mt-24">
-        <h4 style="font-family: 'Plus Jakarta Sans'; font-size: 1rem; text-transform: none; letter-spacing: 0; margin-bottom: 6px;">Pending invite codes</h4>
+      <h3 class="prog-sec">Pending invites</h3>
+      <div class="card">
         <p class="dim text-sm mb-16">Codes you've generated but haven't been claimed yet.</p>
         <div id="invitesList"></div>
       </div>
@@ -278,6 +278,12 @@
 <script src="app.js"></script>
 <script>
 let user; let activeWeekIdx = 0;
+// Declared up here (not next to their refresh fns below) because bootstrap
+// calls renderRoster() synchronously, and renderRoster reads both of these.
+// A `let` lower in the file would be in the temporal dead zone at that point,
+// throwing and leaving the roster blank until the tab is re-clicked.
+let _coachFormChecks = [];
+let _unreadByAthlete = {};
 
 bootstrap('coach', () => {
   user = getCurrentUser();
@@ -401,12 +407,12 @@ function renderRoster() {
       .sort((a, b) => String(b.date).localeCompare(String(a.date)))
       .slice(0, 8);
     if (notes.length) {
-      const inbox = el('div', { class: 'card', style: 'margin-bottom: 20px; padding: 18px 20px;' });
-      const ihead = el('div', { class: 'flex', style: 'justify-content: space-between; align-items: center; margin-bottom: 12px;' });
       const unreplied = notes.filter(n => !n.coachComment).length;
-      ihead.appendChild(el('h3', { style: 'margin: 0; font-size: 1.15rem;' }, 'Athlete notes'));
-      if (unreplied) ihead.appendChild(el('span', { class: 'badge', style: 'background: rgba(255,45,63,0.12); color: var(--red); border: 1px solid rgba(255,45,63,0.3);' }, unreplied + ' need' + (unreplied === 1 ? 's' : '') + ' a reply'));
-      inbox.appendChild(ihead);
+      const ihead = el('div', { class: 'roster-sec-head' });
+      ihead.appendChild(el('h3', { class: 'prog-sec' }, 'Athlete notes'));
+      if (unreplied) ihead.appendChild(el('span', { class: 'roster-sec-badge' }, unreplied + ' need' + (unreplied === 1 ? 's' : '') + ' a reply'));
+      area.appendChild(ihead);
+      const inbox = el('div', { class: 'card', style: 'margin-bottom: 4px; padding: 7px 9px;' });
       notes.forEach(n => {
         const ath = Store.get().athletes.find(a => a.id === n.athleteId);
         const rowEl = el('div', {
@@ -428,11 +434,11 @@ function renderRoster() {
     // ===== FORM-CHECK INBOX — video reviews waiting on the coach.
     if (_coachFormChecks.length) {
       const pending = _coachFormChecks.filter(fc => !fc.coachReply);
-      const fcInbox = el('div', { class: 'card', style: 'margin-bottom: 20px; padding: 18px 20px;' });
-      const fhead = el('div', { class: 'flex', style: 'justify-content: space-between; align-items: center; margin-bottom: 12px;' });
-      fhead.appendChild(el('h3', { style: 'margin: 0; font-size: 1.15rem;' }, 'Form checks'));
-      if (pending.length) fhead.appendChild(el('span', { class: 'badge', style: 'background: rgba(255,45,63,0.12); color: var(--red); border: 1px solid rgba(255,45,63,0.3);' }, pending.length + ' to review'));
-      fcInbox.appendChild(fhead);
+      const fhead = el('div', { class: 'roster-sec-head' });
+      fhead.appendChild(el('h3', { class: 'prog-sec' }, 'Form checks'));
+      if (pending.length) fhead.appendChild(el('span', { class: 'roster-sec-badge' }, pending.length + ' to review'));
+      area.appendChild(fhead);
+      const fcInbox = el('div', { class: 'card', style: 'margin-bottom: 4px; padding: 7px 9px;' });
       _coachFormChecks.slice(0, 8).forEach(fc => {
         const ath = Store.get().athletes.find(a => a.id === fc.athleteId);
         const LIFT_LBL = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift', other: 'Other' };
@@ -452,6 +458,7 @@ function renderRoster() {
       area.appendChild(fcInbox);
     }
 
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Roster'));
     const grid = el('div', { class: 'roster-grid' });
     overview.forEach(o => {
       const card = el('div', { class: 'roster-card flag-' + o.flag, onclick: () => openAthleteProgram(o.athlete.id) });
@@ -619,9 +626,8 @@ function openAthleteNotes(athleteId) {
 }
 
 // ===== ATHLETE MESSAGING =====
-// athleteId -> count of messages the COACH hasn't read yet. Painted as a badge
-// on each roster card's chat button. Refreshed on load + after the modal closes.
-let _unreadByAthlete = {};
+// _unreadByAthlete (athleteId -> unread message count) is declared up near the
+// bootstrap call (TDZ fix — renderRoster reads it during the synchronous boot).
 
 async function refreshUnreadBadges() {
   if (window._demoMode) { _unreadByAthlete = {}; return; }
@@ -663,7 +669,7 @@ function closeMessageModal() {
 window.closeMessageModal = closeMessageModal;
 
 // ===== FORM CHECKS (coach review side) =====
-let _coachFormChecks = [];
+// _coachFormChecks is declared up near the bootstrap call (TDZ fix).
 
 async function refreshFormChecks() {
   if (window._demoMode) { _coachFormChecks = []; return; }
