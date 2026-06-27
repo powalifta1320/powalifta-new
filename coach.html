@@ -396,7 +396,12 @@ function renderRoster() {
     const e = el('div', { class: 'empty' });
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.athletes;
     e.appendChild(ic); e.appendChild(el('h3', {}, 'No athletes yet'));
-    e.appendChild(el('p', {}, 'Generate an invite code and send it to your first athlete.'));
+    e.appendChild(el('p', {}, 'Generate a 6-character invite code and send it to your first athlete. The moment they connect, their training shows up here.'));
+    const actions = el('div', { class: 'empty-actions' });
+    const inviteBtn = el('button', { class: 'btn btn-primary', onclick: openInviteModal });
+    inviteBtn.innerHTML = ICONS.plus + '<span>Invite your first athlete</span>';
+    actions.appendChild(inviteBtn);
+    e.appendChild(actions);
     area.appendChild(e);
   } else {
     // ===== NOTES INBOX — recent athlete session notes across the whole roster.

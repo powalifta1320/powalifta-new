@@ -952,10 +952,29 @@ function renderToday() {
 
   const prog = getProgram();
   if (!prog) {
+    const selfCoached = !user.coachId;
     const e = el('div', { class: 'empty' });
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.program;
-    e.appendChild(ic); e.appendChild(el('h3', {}, 'No program yet'));
-    e.appendChild(el('p', {}, 'Your coach hasn\'t built your program yet.'));
+    e.appendChild(ic);
+    const actions = el('div', { class: 'empty-actions' });
+    if (selfCoached) {
+      // Solo athlete: nothing exists until they build or buy one — point both ways.
+      e.appendChild(el('h3', {}, 'Build your first program'));
+      e.appendChild(el('p', {}, 'You\'re self-coaching. Build the program you\'ll train against — weeks, days, exercises, RPE targets — or buy a proven one from a coach on the marketplace.'));
+      const build = el('button', { class: 'btn btn-primary', onclick: () => document.getElementById('tab-program').click() });
+      build.innerHTML = ICONS.program + '<span>Build a program</span>';
+      const browse = el('button', { class: 'btn btn-ghost', onclick: () => document.getElementById('tab-marketplace').click() });
+      browse.innerHTML = ICONS.bar + '<span>Browse marketplace</span>';
+      actions.appendChild(build); actions.appendChild(browse);
+    } else {
+      // Coached athlete: waiting on the coach — reassure + offer a nudge.
+      e.appendChild(el('h3', {}, 'No program yet'));
+      e.appendChild(el('p', {}, 'Your coach hasn\'t built your program yet. You\'ll see it here the moment it\'s ready — no need to refresh.'));
+      const msg = el('button', { class: 'btn btn-ghost', onclick: () => document.getElementById('tab-coach').click() });
+      msg.innerHTML = ICONS.user + '<span>Message your coach</span>';
+      actions.appendChild(msg);
+    }
+    e.appendChild(actions);
     area.appendChild(e); return;
   }
   const cur = getCurrentDay();

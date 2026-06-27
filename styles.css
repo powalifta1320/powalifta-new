@@ -2289,7 +2289,16 @@ section[data-pane="today"] { max-width: 880px; }
 }
 .empty .empty-icon svg { width: 28px; height: 28px; }
 .empty h3 { color: var(--text); margin-bottom: 8px; font-size: 1.4rem; }
-.empty p { color: var(--text-3); }
+.empty p { color: var(--text-3); max-width: 400px; margin: 0 auto; line-height: 1.55; }
+/* CTA row for first-run empty states — keeps one primary + optional ghost
+ * action centred under the explanatory copy. */
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
 
 /* ============================================ CLOSING CTA BAND */
 .cta-band {
