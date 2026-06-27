@@ -21,3 +21,7 @@ tmp/
 # Env / secrets (none currently — the Supabase anon key in db.js is intentionally public)
 .env
 .env.*
+
+# AI assistant — local-only dev tool (ai-chat branch). The local config holds a
+# real Anthropic key and must never be committed or deployed. The .example is safe.
+ai-config.local.js
