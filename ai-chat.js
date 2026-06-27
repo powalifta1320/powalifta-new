@@ -1,45 +1,44 @@
 /* ============================================================
-   POWALIFTA — AI training assistant  (LOCALHOST-ONLY DEV TOOL)
-
-   Lives on the `ai-chat` branch only. Never merged to main, never
-   deployed. Two independent guards keep it off production:
-     1. It refuses to initialise unless the page is on localhost.
-     2. The <script> tags only exist on this branch.
+   POWALIFTA — AI training assistant
 
    Three roles, picked from the page it's on:
      • athlete.html → "Training assistant"  (e1RM/RPE Q&A, reads logs)
      • coach.html   → "Coaching assistant"  (week summaries, program drafts)
      • both         → app concierge (how-to / navigation), as a fallback.
 
-   Modes:
-     • MOCK  (no API key) — answers from real in-app data, computed locally.
-     • LIVE  (key in ai-config.local.js) — calls the Anthropic Messages API
-       with a role system prompt + a compact snapshot of the user's data.
+   Modes (resolved at runtime):
+     • LIVE — a signed-in user on a real page. Calls the JWT-gated
+       `ai-chat` Supabase edge function (DB.aiChat), which holds the
+       Anthropic key SERVER-SIDE and talks to Claude. The browser never
+       sees a key. Per-user daily cap + console spend cap bound the cost.
+     • MOCK — demo mode (?demo=1), signed-out, or the live backend being
+       unreachable. Answers are computed locally from real in-app data.
+       Also the graceful fallback whenever a live request fails.
 
-   Depends on globals from app.js: Store, getCurrentUser, bestE1RM,
+   To go fully live: deploy the `ai-chat` edge function, set its
+   ANTHROPIC_API_KEY secret, run sql/migration-ai-chat-usage.sql, and keep
+   LIVE_BACKEND = true below. Set it false to force mock everywhere.
+
+   Depends on globals from app.js / db.js: Store, getCurrentUser, bestE1RM,
    currentTotal, latestBodyweight, getProgramForAthlete, calcE1RM,
-   multiplierFor, VARIANTS, LIFT_LABELS.
+   multiplierFor, VARIANTS, LIFT_LABELS, DB.
    ============================================================ */
 (function () {
   'use strict';
 
-  // ---- Guard 1: localhost only ----------------------------------------
-  var host = location.hostname;
-  var isLocal =
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '0.0.0.0' ||
-    host === '' ||                    // file://
-    host.endsWith('.local') ||
-    /^192\.168\./.test(host) ||
-    /^10\./.test(host);
-  if (!isLocal) return;
+  // Master switch for the real-Claude backend. Leave true in production;
+  // flip false to force local mock mode everywhere (no API calls at all).
+  var LIVE_BACKEND = true;
 
   var CFG = window.POWA_AI || {};
   if (CFG.enabled === false) return;
 
   var ROLE = /coach\.html/i.test(location.pathname) ? 'coach' : 'athlete';
-  var hasKey = typeof CFG.apiKey === 'string' && CFG.apiKey.trim().length > 8;
+
+  // Whether the real-Claude backend is usable for THIS visitor. Resolved
+  // async in init() (needs a Supabase session check); mock until then.
+  var LIVE = false;
+  var liveDown = false;   // set once a live request fails → stop retrying
 
   // ---- tiny DOM helper (local; app.js's `el` may not be in scope) ------
   function h(tag, attrs, html) {
@@ -344,30 +343,28 @@
       "Use short markdown (**bold**, bullets). Keep replies under ~120 words unless asked for a full program.";
   }
 
+  // Live reply via the JWT-gated edge function. No key in the browser; the
+  // function holds it server-side. `onError(msg, isRateLimit)` lets the
+  // caller distinguish a daily-cap hit from a transient failure.
   function liveReply(history, onText, onError) {
+    if (!window.DB || typeof DB.aiChat !== 'function') {
+      onError('Assistant backend unavailable.', false);
+      return;
+    }
     var msgs = history.filter(function (m) { return m.role === 'user' || m.role === 'assistant'; })
       .map(function (m) { return { role: m.role, content: m.content }; });
-    // Anthropic requires the conversation to open on a user turn; drop the
-    // assistant greeting (and any leading assistant messages).
+    // The edge function also strips leading assistant turns, but trim here too.
     while (msgs.length && msgs[0].role === 'assistant') msgs.shift();
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': CFG.apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: CFG.model || 'claude-sonnet-4-5',
-        max_tokens: CFG.maxTokens || 700,
-        system: systemPrompt(),
-        messages: msgs
+
+    DB.aiChat({ role: ROLE, system: systemPrompt(), messages: msgs })
+      .then(function (d) {
+        if (d && d.text) onText(d.text);
+        else onError('Empty response from the assistant.', false);
       })
-    }).then(function (r) { return r.json(); }).then(function (d) {
-      if (d && d.content && d.content[0] && d.content[0].text) onText(d.content[0].text);
-      else onError(d && d.error ? d.error.message : 'Empty response from the model.');
-    }).catch(function (e) { onError(e.message); });
+      .catch(function (e) {
+        var rate = !!(e && e.detail && /limit/i.test(e.detail.error || e.detail.message || ''));
+        onError((e && e.message) || 'Request failed.', rate);
+      });
   }
 
   // =====================================================================
@@ -395,7 +392,7 @@
           '<div class="ai-head-title">' + esc(meta.title) + '</div>' +
           '<div class="ai-head-sub">' + esc(meta.sub) + '</div>' +
         '</div>' +
-        '<span class="ai-mode-pill ' + (hasKey ? 'live' : 'mock') + '">' + (hasKey ? 'Live' : 'Mock') + '</span>' +
+        '<span class="ai-mode-pill mock">Mock</span>' +
         '<button class="ai-close" aria-label="Close assistant" type="button">' + ICON.close + '</button>' +
       '</div>' +
       '<div class="ai-body"></div>' +
@@ -405,7 +402,7 @@
           '<textarea class="ai-input" rows="1" placeholder="Ask anything…" aria-label="Message the assistant"></textarea>' +
           '<button class="ai-send" aria-label="Send" type="button">' + ICON.send + '</button>' +
         '</div>' +
-        '<div class="ai-foot-note">' + (hasKey ? 'Live · Claude' : 'Local mock · answers from your real data') + ' · localhost only</div>' +
+        '<div class="ai-foot-note">Answers from your real training data</div>' +
       '</div>';
 
     document.body.appendChild(launcher);
@@ -415,6 +412,31 @@
     var chips = panel.querySelector('.ai-chips');
     var input = panel.querySelector('.ai-input');
     var sendBtn = panel.querySelector('.ai-send');
+    var pill = panel.querySelector('.ai-mode-pill');
+    var footNote = panel.querySelector('.ai-foot-note');
+
+    function setMode(mode) {
+      if (mode === 'live') {
+        pill.className = 'ai-mode-pill live'; pill.textContent = 'Live';
+        footNote.textContent = 'Claude · powered by Anthropic';
+      } else if (mode === 'demo') {
+        pill.className = 'ai-mode-pill mock'; pill.textContent = 'Demo';
+        footNote.textContent = 'Demo data · sample answers';
+      } else {
+        pill.className = 'ai-mode-pill mock'; pill.textContent = 'Mock';
+        footNote.textContent = 'Answers from your real training data';
+      }
+    }
+
+    // Resolve live capability: a signed-in user on a real (non-demo) page,
+    // with the backend enabled. Demo mode and signed-out stay in mock.
+    (function resolveMode() {
+      if (window._demoMode) { setMode('demo'); return; }
+      if (!LIVE_BACKEND || !window.DB || typeof DB.getSession !== 'function') return;
+      DB.getSession().then(function (s) {
+        if (s && s.access_token) { LIVE = true; setMode('live'); }
+      }).catch(function () { /* stay mock */ });
+    })();
 
     function open() {
       panel.classList.add('is-open');
@@ -491,15 +513,29 @@
         input.focus();
       }
 
-      if (hasKey) {
-        liveReply(history.slice(), answer, function (err) {
+      function mockAnswer() {
+        var reply = mockReply(q);
+        setTimeout(function () { answer(reply); }, 360 + Math.min(700, reply.length * 4));
+      }
+
+      if (LIVE && !liveDown) {
+        liveReply(history.slice(), answer, function (err, isRateLimit) {
+          if (isRateLimit) {
+            // Daily cap: stay on the model conceptually, just report it.
+            answer(err + "\n\nIn the meantime I can still pull numbers from your data — ask away.");
+            liveDown = true;            // route the rest of this session to mock
+            return;
+          }
+          // Transient failure → drop to mock for the rest of the session.
+          liveDown = true;
+          setMode('mock');
+          var reply = mockReply(q);
           typer.remove();
-          pushMsg('assistant', "Live request failed: `" + esc(err) + "`.\n\nFalling back to the local answer:\n\n" + mockReply(q));
+          pushMsg('assistant', "I couldn't reach the live assistant just now, so here's a quick answer from your data:\n\n" + reply);
           busy = false; sendBtn.disabled = false;
         });
       } else {
-        var reply = mockReply(q);
-        setTimeout(function () { answer(reply); }, 360 + Math.min(700, reply.length * 4));
+        mockAnswer();
       }
     }
 

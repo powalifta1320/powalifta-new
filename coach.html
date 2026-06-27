@@ -2065,8 +2065,8 @@ async function saveCoachFeedback(athleteId, date, textareaEl, metaEl) {
   }
 }
 </script>
-<!-- AI assistant — ai-chat branch only, localhost-guarded, never deployed -->
-<script src="ai-config.local.js"></script>
+<!-- AI assistant. Live via the JWT-gated `ai-chat` edge function (key stays
+     server-side); falls back to local mock answers for demo/signed-out. -->
 <script src="ai-chat.js"></script>
 </body>
 </html>

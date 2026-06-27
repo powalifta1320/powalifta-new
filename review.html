@@ -102,7 +102,7 @@
 
   <div class="rv-legend">
     <span class="rv-leg"><span class="rv-dot ship"></span> Ships to <strong style="color:var(--text,#fff)">main</strong>, deploys to powalifta.com</span>
-    <span class="rv-leg"><span class="rv-dot local"></span> Localhost only (<strong style="color:var(--text,#fff)">ai-chat</strong> branch, never deployed)</span>
+    <span class="rv-leg"><span class="rv-dot local"></span> On the <strong style="color:var(--text,#fff)">ai-chat</strong> branch, pending the go-live steps below</span>
   </div>
 
   <!-- ============ PART A ============ -->
@@ -113,16 +113,19 @@
 
   <!-- ============ PART B ============ -->
   <h2 class="rv-sec-title">Part B · AI assistant</h2>
-  <p class="rv-sec-sub">Localhost-only dev tool. Lives on <strong>ai-chat</strong>, never merged to main.</p>
+  <p class="rv-sec-sub">Now production-ready. Live Claude via a secure server-side proxy, with mock fallback. Ships to main once the edge function is deployed (checklist below).</p>
 
   <div class="rv-grid" id="partB"></div>
 
   <!-- ============ FOOTER ============ -->
   <div class="rv-foot">
-    <h3>When you're happy</h3>
-    <p><strong style="color:var(--text,#fff)">Design work → main (deploys).</strong> In GitHub Desktop, switch to the <code>main</code> branch and push; it's 8 commits ahead of origin. That ships Part A to powalifta.com.</p>
-    <p><strong style="color:var(--text,#fff)">AI assistant → stays local.</strong> The <code>ai-chat</code> branch holds the chatbot + this review page. Don't merge it into main and don't push it anywhere public. Keep it for local use, or delete the branch if you don't want it.</p>
-    <p style="color:var(--text-3,#8a8a93);font-size:0.86rem;margin-top:14px;">The Anthropic API key in <code>ai-config.local.js</code> is gitignored on both branches, so it can never be committed or deployed.</p>
+    <h3>Going live with the AI</h3>
+    <p style="color:var(--text-2,#b8b8c0);margin-bottom:14px;">Design (Part A) is already pushed and deploying. To switch the assistant on for real users, do these in order, then merge.</p>
+    <p><strong style="color:var(--text,#fff)">1. Anthropic console.</strong> Create an API key (ideally a dedicated key/workspace) and <strong>set a monthly spend cap</strong>. That cap is the hard backstop on cost.</p>
+    <p><strong style="color:var(--text,#fff)">2. Run the migration.</strong> In the Supabase SQL editor, run <code>sql/migration-ai-chat-usage.sql</code> (the per-user daily limit table).</p>
+    <p><strong style="color:var(--text,#fff)">3. Deploy the function.</strong> Create an Edge Function named <code>ai-chat</code> from <code>edge-functions/ai-chat.ts</code>, set its <code>ANTHROPIC_API_KEY</code> secret, and toggle <strong>Verify JWT ON</strong>.</p>
+    <p><strong style="color:var(--text,#fff)">4. Merge &amp; push.</strong> Merge <code>ai-chat</code> into <code>main</code> (drop <code>review.html</code> first — it's dev-only) and push. The assistant goes live; until the function exists it safely falls back to mock.</p>
+    <p style="color:var(--text-3,#8a8a93);font-size:0.86rem;margin-top:14px;">The Anthropic key only ever lives in the edge function's secrets. It is never in the repo and never in the browser, so it can't leak through the client.</p>
   </div>
 
 </div>
@@ -180,23 +183,23 @@
   var PART_B = [
     {
       title: 'AI training assistant: athlete dashboard',
-      what: 'Floating "Ask AI" assistant. In mock mode (no key) it reads your real logged data and answers e1RM / total / bodyweight questions, explains RPE and the e1RM model, and points to today’s session. Brand-styled, full-width bottom sheet on mobile.',
-      files: ['ai-chat.js', 'ai-chat.css'], commit: '05e9df1', local: true,
+      what: 'Floating "Ask AI" assistant. Signed-in users get live Claude; demo and signed-out get local mock answers computed from real data (e1RM / total / bodyweight, RPE explainer, today’s session). Brand-styled, full-width bottom sheet on mobile.',
+      files: ['ai-chat.js', 'ai-chat.css'], commit: 'pending',
       href: 'athlete.html?demo=1', cta: 'Open & click Ask AI',
-      hint: 'Try: "what’s my total?", "squat e1rm", "explain RPE", "what should I do today?"'
+      hint: 'Demo here shows mock mode (pill reads "Demo"). Try: "what’s my total?", "squat e1rm", "explain RPE", "what should I do today?"'
     },
     {
       title: 'AI coaching assistant: coach dashboard',
       what: 'Same assistant, coach role: summarises an athlete’s last 7 days from real logs, flags who’s gone quiet, drafts a 4-week RPE wave, and gives a roster overview.',
-      files: ['ai-chat.js', 'ai-chat.css'], commit: '05e9df1', local: true,
+      files: ['ai-chat.js', 'ai-chat.css'], commit: 'pending',
       href: 'coach.html?demo=1', cta: 'Open & click Ask AI',
       hint: 'Try: "who needs attention?", "summarise Arjun’s week", "draft a 4-week program", "roster overview"'
     },
     {
-      title: 'Config + safety: gitignored key, localhost guard',
-      what: 'ai-config.example.js is the committed template; ai-config.local.js (gitignored) holds your Anthropic key. With a key the assistant calls Claude live; without one it stays in mock mode. The whole module refuses to run anywhere but localhost, and the script tags only exist on this branch.',
-      files: ['ai-config.example.js', '.gitignore'], commit: '05e9df1', local: true,
-      href: 'ai-config.example.js', cta: 'View template', ghost: true
+      title: 'Secure proxy + cost caps: the key never touches the browser',
+      what: 'The Anthropic key lives only in the ai-chat edge function (Verify JWT ON). Browser → DB.aiChat() → your function → Claude. Cost is bounded three ways: server clamps (max_tokens / history), a per-user daily cap (ai_chat_usage table), and your Anthropic console spend cap. The browser has zero secrets.',
+      files: ['edge-functions/ai-chat.ts', 'sql/migration-ai-chat-usage.sql', 'db.js'], commit: 'pending',
+      href: 'edge-functions/ai-chat.ts', cta: 'View the proxy', ghost: true
     }
   ];
 
