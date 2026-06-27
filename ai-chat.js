@@ -513,9 +513,28 @@
     });
   }
 
+  // ---- Review deep-linking --------------------------------------------
+  // review.html links to e.g. athlete.html?demo=1#tab=progress so the
+  // reviewer lands on the exact tab a change touched. Tabs are rendered
+  // asynchronously by bootstrap(), so poll briefly for the button.
+  // Localhost-only by virtue of living in this guarded module.
+  function deepLinkTab() {
+    var m = (location.hash || '').match(/tab=([\w-]+)/);
+    if (!m) return;
+    var id = 'tab-' + m[1];
+    var tries = 0;
+    var iv = setInterval(function () {
+      var btn = document.getElementById(id);
+      if (btn) { clearInterval(iv); btn.click(); window.scrollTo(0, 0); }
+      else if (++tries > 40) clearInterval(iv);
+    }, 100);
+  }
+
+  function boot() { init(); deepLinkTab(); }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', boot);
   } else {
-    init();
+    boot();
   }
 })();

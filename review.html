@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Review · POWALIFTA (local)</title>
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* This page is a LOCAL review aid. It lives on the ai-chat branch and is
+     never deployed. It reuses the brand tokens from styles.css. */
+  body { background: var(--bg, #0b0b0c); }
+  .rv-wrap { max-width: 1040px; margin: 0 auto; padding: 40px 22px 80px; }
+
+  .rv-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .rv-brand { font-family: 'Anton', sans-serif; font-size: 1.5rem; letter-spacing: 0.02em; }
+  .rv-brand .r { color: var(--red, #ff2d3f); }
+  .rv-localbadge {
+    font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; color: #f0b232;
+    background: rgba(240,178,50,0.12); border: 1px solid rgba(240,178,50,0.34);
+  }
+  .rv-h1 { font-family: 'Anton', sans-serif; font-size: clamp(2.4rem, 6vw, 3.6rem); letter-spacing: 0.01em; text-transform: uppercase; line-height: 1; margin: 18px 0 12px; }
+  .rv-lede { color: var(--text-2, #b8b8c0); max-width: 64ch; line-height: 1.6; font-size: 1.02rem; }
+  .rv-lede strong { color: var(--text, #fff); }
+
+  .rv-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 26px 0 4px; }
+  .rv-leg { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-2, #b8b8c0); }
+  .rv-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .rv-dot.ship { background: #2dd4a7; }
+  .rv-dot.local { background: #f0b232; }
+
+  .rv-sec-title { font-family: 'Anton', sans-serif; font-size: 1.5rem; letter-spacing: 0.02em; text-transform: uppercase; margin: 44px 0 4px; display: flex; align-items: center; gap: 12px; }
+  .rv-sec-title::before { content: ""; width: 5px; height: 26px; border-radius: 3px; background: linear-gradient(180deg, var(--red, #ff2d3f), var(--red-deep, #b71629)); }
+  .rv-sec-sub { color: var(--text-3, #8a8a93); font-size: 0.9rem; margin: 0 0 22px 17px; }
+
+  .rv-grid { display: grid; gap: 16px; }
+  .rv-card {
+    background: var(--bg-1, #131316); border: 1px solid var(--line, #26262b);
+    border-radius: 16px; padding: 20px 22px; position: relative;
+    transition: border-color 0.18s ease, transform 0.18s ease;
+  }
+  .rv-card:hover { border-color: var(--line-2, #34343b); transform: translateY(-2px); }
+  .rv-card-head { display: flex; align-items: flex-start; gap: 14px; }
+  .rv-num { font-family: 'Space Grotesk', monospace; font-weight: 700; font-size: 1.05rem; color: var(--red, #ff2d3f); min-width: 26px; }
+  .rv-card-title { font-weight: 700; font-size: 1.12rem; color: var(--text, #f4f4f5); line-height: 1.25; }
+  .rv-tag { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .rv-tag.ship { color: #2dd4a7; background: rgba(45,212,167,0.12); border: 1px solid rgba(45,212,167,0.3); }
+  .rv-tag.local { color: #f0b232; background: rgba(240,178,50,0.12); border: 1px solid rgba(240,178,50,0.3); }
+  .rv-what { color: var(--text-2, #b8b8c0); line-height: 1.6; margin: 12px 0 0 40px; font-size: 0.95rem; }
+  .rv-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 0 40px; }
+  .rv-files { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rv-file { font-family: 'Space Grotesk', monospace; font-size: 0.74rem; color: var(--text-3, #8a8a93); background: var(--bg-2, #1c1c20); border: 1px solid var(--line, #26262b); padding: 2px 8px; border-radius: 6px; }
+  .rv-commit { font-family: 'Space Grotesk', monospace; font-size: 0.72rem; color: var(--text-3, #6f6f78); }
+  .rv-open {
+    display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
+    font-weight: 700; font-size: 0.84rem; color: #fff; text-decoration: none;
+    padding: 8px 14px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--red, #ff2d3f), var(--red-deep, #b71629));
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+  }
+  .rv-open:hover { transform: translateY(-1px); box-shadow: 0 8px 22px -8px rgba(255,45,63,0.6); }
+  .rv-open svg { width: 15px; height: 15px; }
+  .rv-open.ghost { background: var(--bg-2, #1c1c20); border: 1px solid var(--line, #26262b); color: var(--text-2, #b8b8c0); }
+  .rv-open.ghost:hover { box-shadow: none; border-color: var(--red, #ff2d3f); color: #fff; }
+  .rv-hint { margin: 12px 0 0 40px; font-size: 0.8rem; color: var(--text-3, #8a8a93); }
+  .rv-hint code { font-family: 'Space Grotesk', monospace; background: var(--bg-2, #1c1c20); padding: 1px 6px; border-radius: 5px; color: var(--text-2, #b8b8c0); }
+
+  .rv-foot { margin-top: 50px; padding: 24px; border-radius: 16px; background: var(--bg-1, #131316); border: 1px solid var(--line, #26262b); }
+  .rv-foot h3 { font-family: 'Anton', sans-serif; font-size: 1.2rem; letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 12px; }
+  .rv-foot p { color: var(--text-2, #b8b8c0); line-height: 1.65; margin-bottom: 10px; }
+  .rv-foot code { font-family: 'Space Grotesk', monospace; background: var(--bg-2, #1c1c20); padding: 2px 7px; border-radius: 6px; color: var(--text, #f4f4f5); font-size: 0.85rem; }
+  .rv-foot .rv-cmd { display: block; margin: 8px 0; padding: 10px 14px; }
+
+  @media (max-width: 620px) {
+    .rv-what, .rv-meta, .rv-hint { margin-left: 0; }
+    .rv-open { margin-left: 0; width: 100%; justify-content: center; }
+    .rv-meta { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="rv-wrap">
+
+  <div class="rv-top">
+    <span class="rv-brand">POWA<span class="r">LIFTA</span></span>
+    <span class="rv-localbadge">Local review · not part of the app</span>
+  </div>
+
+  <h1 class="rv-h1">Session review</h1>
+  <p class="rv-lede">
+    Everything built this session, with a live link to inspect each change. You're on the
+    <strong>ai-chat</strong> branch, which contains <strong>both</strong> the design work (also queued on
+    <code style="font-family:'Space Grotesk',monospace">main</code>) and the localhost-only AI assistant.
+    Walk through each card, then push when you're happy. Demo links open with seeded data so there's something to look at.
+  </p>
+
+  <div class="rv-legend">
+    <span class="rv-leg"><span class="rv-dot ship"></span> Ships to <strong style="color:var(--text,#fff)">main</strong>, deploys to powalifta.com</span>
+    <span class="rv-leg"><span class="rv-dot local"></span> Localhost only (<strong style="color:var(--text,#fff)">ai-chat</strong> branch, never deployed)</span>
+  </div>
+
+  <!-- ============ PART A ============ -->
+  <h2 class="rv-sec-title">Part A · Design &amp; UX</h2>
+  <p class="rv-sec-sub">7 changes. All committed to <strong>main</strong>, ready to deploy.</p>
+
+  <div class="rv-grid" id="partA"></div>
+
+  <!-- ============ PART B ============ -->
+  <h2 class="rv-sec-title">Part B · AI assistant</h2>
+  <p class="rv-sec-sub">Localhost-only dev tool. Lives on <strong>ai-chat</strong>, never merged to main.</p>
+
+  <div class="rv-grid" id="partB"></div>
+
+  <!-- ============ FOOTER ============ -->
+  <div class="rv-foot">
+    <h3>When you're happy</h3>
+    <p><strong style="color:var(--text,#fff)">Design work → main (deploys).</strong> In GitHub Desktop, switch to the <code>main</code> branch and push; it's 8 commits ahead of origin. That ships Part A to powalifta.com.</p>
+    <p><strong style="color:var(--text,#fff)">AI assistant → stays local.</strong> The <code>ai-chat</code> branch holds the chatbot + this review page. Don't merge it into main and don't push it anywhere public. Keep it for local use, or delete the branch if you don't want it.</p>
+    <p style="color:var(--text-3,#8a8a93);font-size:0.86rem;margin-top:14px;">The Anthropic API key in <code>ai-config.local.js</code> is gitignored on both branches, so it can never be committed or deployed.</p>
+  </div>
+
+</div>
+
+<script>
+  var OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>';
+
+  var PART_A = [
+    {
+      title: 'Progress tab: flattened boxes, clear hierarchy',
+      what: 'Nested card-in-card boxes removed. Each block now has one Anton section title with a red kicker tick; cards became pure content surfaces. Same treatment that anchors every other tab.',
+      files: ['athlete.html', 'styles.css'], commit: 'e43e1c9',
+      href: 'athlete.html?demo=1#tab=progress', cta: 'Open Progress'
+    },
+    {
+      title: 'Bodyweight tab: same unified hierarchy',
+      what: 'Bodyweight tab brought in line with Progress: single section titles, flattened surfaces, consistent spacing rhythm.',
+      files: ['athlete.html', 'styles.css'], commit: '7459b85',
+      href: 'athlete.html?demo=1#tab=bodyweight', cta: 'Open Bodyweight'
+    },
+    {
+      title: 'Athlete Marketplace + Library: review ratings on cards',
+      what: 'Browse cards and the program detail now surface star ratings / review counts so athletes can judge a program at a glance.',
+      files: ['athlete.html'], commit: 'bbd0d99',
+      href: 'athlete.html?demo=1#tab=marketplace', cta: 'Open Marketplace'
+    },
+    {
+      title: 'Coach Roster + Notes inbox: unified hierarchy (+ blank-load fix)',
+      what: 'Roster, Athlete-notes and Form-checks inboxes now ride a shared section-title pattern with status badges. Also fixed a real pre-existing bug: the roster came up blank on first load (a temporal-dead-zone error) until you re-clicked the tab.',
+      files: ['coach.html', 'styles.css'], commit: '90afaa8',
+      href: 'coach.html?demo=1#tab=athletes', cta: 'Open Roster'
+    },
+    {
+      title: 'Public marketplace: sort controls',
+      what: 'Added sort by Most popular / Top rated / Price low→high / high→low alongside the existing tier filter and search. "Top rated" reuses already-fetched review stats, so no extra queries.',
+      files: ['marketplace.html'], commit: 'b5b31a5',
+      href: 'marketplace.html', cta: 'Open Marketplace'
+    },
+    {
+      title: 'First-run empty states: give new users a next action',
+      what: 'New athletes and coaches now get an actionable empty state instead of a blank pane: self-coached athletes get "Build a program / Browse marketplace", coached athletes get "Message your coach", new coaches get "Invite your first athlete".',
+      files: ['athlete.html', 'coach.html', 'styles.css'], commit: '7988b95',
+      href: 'athlete.html?demo=1#tab=today', cta: 'Open Today',
+      hint: 'Empty states only show with no program/roster, so the seeded demo won’t trigger them. The change lives in the no-data branch of renderToday()/renderRoster().'
+    },
+    {
+      title: 'Mobile pass at 390px: stop toolbars & nav clipping',
+      what: 'The coach program-builder toolbars (~520–546px wide) now wrap to a tidy 2×2 on phones. The logged-in top nav overflowed too (~507px), so the redundant "Dashboard" pill is dropped on dashboard phones (the sidebar already links there) and nav spacing tightened. Zero horizontal overflow verified across every pane.',
+      files: ['app.js', 'coach.html', 'styles.css'], commit: 'd7a911f',
+      href: 'coach.html?demo=1#tab=program', cta: 'Open Builder',
+      hint: 'Best seen by narrowing the browser to ~390px wide, then loading a program in the builder.'
+    }
+  ];
+
+  var PART_B = [
+    {
+      title: 'AI training assistant: athlete dashboard',
+      what: 'Floating "Ask AI" assistant. In mock mode (no key) it reads your real logged data and answers e1RM / total / bodyweight questions, explains RPE and the e1RM model, and points to today’s session. Brand-styled, full-width bottom sheet on mobile.',
+      files: ['ai-chat.js', 'ai-chat.css'], commit: '05e9df1', local: true,
+      href: 'athlete.html?demo=1', cta: 'Open & click Ask AI',
+      hint: 'Try: "what’s my total?", "squat e1rm", "explain RPE", "what should I do today?"'
+    },
+    {
+      title: 'AI coaching assistant: coach dashboard',
+      what: 'Same assistant, coach role: summarises an athlete’s last 7 days from real logs, flags who’s gone quiet, drafts a 4-week RPE wave, and gives a roster overview.',
+      files: ['ai-chat.js', 'ai-chat.css'], commit: '05e9df1', local: true,
+      href: 'coach.html?demo=1', cta: 'Open & click Ask AI',
+      hint: 'Try: "who needs attention?", "summarise Arjun’s week", "draft a 4-week program", "roster overview"'
+    },
+    {
+      title: 'Config + safety: gitignored key, localhost guard',
+      what: 'ai-config.example.js is the committed template; ai-config.local.js (gitignored) holds your Anthropic key. With a key the assistant calls Claude live; without one it stays in mock mode. The whole module refuses to run anywhere but localhost, and the script tags only exist on this branch.',
+      files: ['ai-config.example.js', '.gitignore'], commit: '05e9df1', local: true,
+      href: 'ai-config.example.js', cta: 'View template', ghost: true
+    }
+  ];
+
+  function card(c) {
+    var tag = c.local ? '<span class="rv-tag local">Localhost only</span>' : '<span class="rv-tag ship">Ships to main</span>';
+    var files = c.files.map(function (f) { return '<span class="rv-file">' + f + '</span>'; }).join('');
+    var open = '<a class="rv-open' + (c.ghost ? ' ghost' : '') + '" href="' + c.href + '" target="_blank" rel="noopener">' + c.cta + ' ' + OPEN + '</a>';
+    var hint = c.hint ? '<div class="rv-hint">' + c.hint + '</div>' : '';
+    return '<div class="rv-card">' +
+      '<div class="rv-card-head">' +
+        '<span class="rv-num">' + c.n + '</span>' +
+        '<div style="flex:1"><div class="rv-card-title">' + c.title + '</div></div>' +
+        tag +
+      '</div>' +
+      '<div class="rv-what">' + c.what + '</div>' +
+      hint +
+      '<div class="rv-meta"><div class="rv-files">' + files + '</div>' +
+        '<span class="rv-commit">' + c.commit + '</span>' + open +
+      '</div>' +
+    '</div>';
+  }
+
+  var a = document.getElementById('partA');
+  PART_A.forEach(function (c, i) { c.n = i + 1; a.insertAdjacentHTML('beforeend', card(c)); });
+  var b = document.getElementById('partB');
+  PART_B.forEach(function (c, i) { c.n = i + 1; b.insertAdjacentHTML('beforeend', card(c)); });
+</script>
+</body>
+</html>
