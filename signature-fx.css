@@ -45,7 +45,7 @@
         #dfe4ec 14%,
         #aab2c0 30%,
         #6c7382 44%,
-        #4f5663 51%,
+        #646b78 51%,
         #828b9a 58%,
         #c3c9d4 74%,
         #f2f5fa 90%,
@@ -104,6 +104,11 @@
 
 /* Quiet the hero grid overlay so the steel + chalk own the stage (declutter). */
 .hero::after { opacity: 0.4; transition: opacity 0.9s ease; }
+
+/* And pull the giant POWALIFTA ghost wordmark back a step — at full strength it
+   competes with the steel headline for the peak first-load moment. It stays as
+   poster-depth texture; the headline wins. */
+.hero-ghost { opacity: 0.5; }
 
 /* ---- reduced-motion: static steel, no sweep, no canvas -------------------- */
 @media (prefers-reduced-motion: reduce) {
