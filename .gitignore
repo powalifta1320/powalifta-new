@@ -21,3 +21,7 @@ tmp/
 # Env / secrets (none currently — the Supabase anon key in db.js is intentionally public)
 .env
 .env.*
+
+# AI assistant local config — only used by the localhost-only `ai-chat` branch,
+# but ignored here too so the keyed file can never be staged on main by accident.
+ai-config.local.js
