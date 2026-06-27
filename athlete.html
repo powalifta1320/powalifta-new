@@ -1767,7 +1767,7 @@ function renderProgress() {
 
   const delta = getWeeklyDelta(user.id);
   if (Object.keys(delta).length) {
-    area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'This week vs last'));
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'This week vs last'));
     const grid = el('div', { class: 'delta-grid' });
     ['squat', 'bench', 'deadlift'].forEach(lift => {
       const d = delta[lift];
@@ -1790,7 +1790,7 @@ function renderProgress() {
 
   const prs = getLifetimePRs(user.id);
   if (Object.keys(prs).length) {
-    area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'Lifetime PRs'));
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lifetime PRs'));
     const wrap = el('div', { style: 'margin-bottom: 22px;' });
     ['squat', 'bench', 'deadlift'].forEach(lift => {
       const pr = prs[lift];
@@ -1807,22 +1807,23 @@ function renderProgress() {
     area.appendChild(wrap);
   }
 
-  area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'Training calendar'));
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
   const calCard = el('div', { class: 'chart-card' });
   calCard.appendChild(el('div', { class: 'chart-head' },
-    el('div', {}, el('h3', {}, 'Last 16 weeks'), el('div', { class: 'chart-sub' }, 'Each square is one day. Brighter red = more sets. Blue = rest day.'))
+    el('div', { class: 'chart-sub' }, 'Last 16 weeks — each square is one day. Brighter red = more sets. Blue = rest day.')
   ));
   const calWrap = el('div');
   calCard.appendChild(calWrap);
   area.appendChild(calCard);
   renderCalendarHeatmap(calWrap, { athleteId: user.id, weeks: 16 });
 
-  area.appendChild(el('h3', { style: 'margin: 24px 0 14px; font-size: 1.4rem;' }, 'Goals'));
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Goals'));
   area.appendChild(renderGoals(false));
 
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'e1RM over time'));
   const chartCard = el('div', { class: 'chart-card' });
   chartCard.appendChild(el('div', { class: 'chart-head' },
-    el('div', {}, el('h3', {}, 'e1RM over time'), el('div', { class: 'chart-sub' }, 'Competition equivalent — variant multipliers handled automatically.')),
+    el('div', {}, el('div', { class: 'chart-sub' }, 'Competition equivalent — variant multipliers handled automatically.')),
     el('div', { class: 'chart-legend' },
       el('span', { class: 'lg-item' }, el('span', { class: 'lg-dot', style: 'background:#ff2d3f' }), 'Squat'),
       el('span', { class: 'lg-item' }, el('span', { class: 'lg-dot', style: 'background:#ffb547' }), 'Bench'),
@@ -1850,7 +1851,7 @@ function renderProgress() {
   // ===== REP PRs — best weight at each rep count per main lift =====
   if (logs.length) {
     const repPRCard = el('div', { class: 'chart-card' });
-    repPRCard.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Rep PRs'), el('span', { class: 'dim text-sm' }, 'Best weight × reps, competition variants')));
+    repPRCard.appendChild(el('div', { class: 'chart-head' }, el('span', { class: 'dim text-sm' }, 'Best weight × reps, competition variants')));
     const prWrap = el('div', { class: 'tbl-card' });
     const prTbl = el('table');
     prTbl.innerHTML = '<thead><tr><th>Reps</th><th>Squat</th><th>Bench</th><th>Deadlift</th></tr></thead>';
@@ -1871,6 +1872,7 @@ function renderProgress() {
       }
     }
     if (anyPR) {
+      area.appendChild(el('h3', { class: 'prog-sec' }, 'Rep PRs'));
       prTbl.appendChild(prBody);
       prWrap.appendChild(prTbl);
       repPRCard.appendChild(prWrap);
@@ -1900,8 +1902,8 @@ function renderProgress() {
   }
 
   if (logs.length) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Recent sets'));
     const tableCard = el('div', { class: 'chart-card' });
-    tableCard.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Recent sets')));
     const tblWrap = el('div', { class: 'tbl-card' });
     const tbl = el('table');
     tbl.innerHTML = '<thead><tr><th>Date</th><th>Lift</th><th>Variant / Name</th><th>Weight × Reps</th><th>RPE</th><th>e1RM (raw)</th><th>e1RM (comp)</th><th></th></tr></thead>';

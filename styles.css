@@ -2638,6 +2638,37 @@ footer .footer-base {
 .delta-tile .dt-delta.flat { background: var(--bg-2); color: var(--text-3); border: 1px solid var(--line); }
 .delta-tile .dt-vs { font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-family: 'Space Grotesk', monospace; }
 
+/* ===== PROGRESS — unified section titles =====================
+ * One title treatment per block: an Anton display label with a
+ * red kicker tick, sitting clearly ABOVE its content card. Cards
+ * no longer repeat a title of their own, so the eye reads
+ * section → content instead of title-inside-title. */
+[data-pane="progress"] .prog-sec {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.012em;
+  line-height: 1;
+  color: var(--text);
+  margin: 36px 0 16px;
+  padding-left: 14px;
+  position: relative;
+}
+[data-pane="progress"] .prog-sec::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0.04em;
+  width: 4px; height: 1em;
+  border-radius: 2px;
+  background: var(--grad-red);
+}
+/* The very first section sits right under the action buttons —
+ * tighten so it doesn't float in a void. */
+[data-pane="progress"] .prog-sec:first-of-type { margin-top: 24px; }
+@media (max-width: 600px) {
+  [data-pane="progress"] .prog-sec { font-size: 1.3rem; margin: 28px 0 13px; }
+}
+
 /* ============================================ SET NOTE */
 .set-note {
   margin-top: 4px;
