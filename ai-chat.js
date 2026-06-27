@@ -308,6 +308,11 @@
         ? "I'm your coaching assistant. Ask me to **summarise an athlete's week**, flag **who needs attention**, **draft a program**, or explain any part of the app."
         : "I'm your training assistant. Ask me your **e1RM** or **total**, what to do **today**, how **RPE** works, or anything about using POWALIFTA.";
     }
+    if (window._demoMode) {
+      return role === 'coach'
+        ? "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below — week summary, who needs attention, draft a program. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that."
+        : "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below — your total, squat e1RM, explain RPE, what to do today. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that.";
+    }
     return role === 'coach'
       ? "I can summarise an athlete's week, flag who's gone quiet, draft an RPE program, or walk you through any feature. What do you need?"
       : "I can pull your e1RMs and total, explain RPE or e1RM, point you to today's session, or help you navigate the app. What's up?";
