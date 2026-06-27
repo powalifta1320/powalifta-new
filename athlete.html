@@ -18,6 +18,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="dash-fx.css">
+<link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
@@ -3604,5 +3605,8 @@ async function joinCoach() {
 function openModal(id) { document.getElementById(id).classList.add('open'); attachPwdToggles(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 </script>
+<!-- AI assistant. Live via the JWT-gated `ai-chat` edge function (key stays
+     server-side); falls back to local mock answers for demo/signed-out. -->
+<script src="ai-chat.js"></script>
 </body>
 </html>

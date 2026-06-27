@@ -22,6 +22,7 @@ tmp/
 .env
 .env.*
 
-# AI assistant local config — only used by the localhost-only `ai-chat` branch,
-# but ignored here too so the keyed file can never be staged on main by accident.
+# AI assistant local config (optional, non-secret toggles only). The Gemini key
+# lives in the ai-chat edge function's secrets, never here — but keep this local
+# override ignored so it's never committed. The .example.js is the safe template.
 ai-config.local.js

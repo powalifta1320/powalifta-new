@@ -103,6 +103,7 @@ In `edge-functions/` (need to be deployed via Supabase dashboard → Edge Functi
 - `send-welcome.ts` — branded welcome email after signup. Env: `RESEND_API_KEY`. Verify JWT OFF.
 - `send-client-error.ts` — NEW. Receives client-side error reports. Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Verify JWT OFF.
 - `send-program-assigned.ts` — NEW. Sends email to athlete when coach hits the "📧 Notify" button in the program builder. Env: `RESEND_API_KEY`. Verify JWT **ON** (only logged-in coach can fire).
+- `ai-chat.ts` — NEW. Secure proxy for the AI assistant. Holds `GEMINI_API_KEY` server-side and forwards the browser's question + data snapshot to Google's Gemini (`gemini-2.0-flash`). Env: `GEMINI_API_KEY` (required), `AI_DAILY_CAP` (optional, default 20). Verify JWT **ON**. Maps our `user`/`assistant` turns to Gemini's `user`/`model` + `system_instruction` shape, clamps `maxOutputTokens`/system length/history server-side, and enforces a per-user daily cap via `ai_chat_usage` (service role). The browser calls it through `DB.aiChat()` (`sb.functions.invoke`), so no key is ever client-side. Provider is swappable in one file — only this function knows it's Gemini.
 
 The signature verification in both LS webhooks uses HMAC-SHA-256. The old length pre-check that leaked length has been replaced with a `timingSafeEqual` helper (double-HMAC with a single-use random key → constant-time, no length side-channel) in both `ls-webhook.ts` and `ls-marketplace-webhook.ts`.
 
@@ -123,6 +124,7 @@ migration-profiles-rls.sql            # UPDATE policies for coach/athlete discon
 migration-marketplace-reviews.sql     # program_reviews table + RLS (verified-buyer writes)
 migration-messages.sql                # coach↔athlete direct messaging + RLS
 migration-form-checks.sql             # form_checks table + private `form-checks` Storage bucket + object policies
+migration-ai-chat-usage.sql           # ai_chat_usage table (per-user daily AI cap; RLS-locked to service role)
 ```
 
 **Storage note:** `migration-form-checks.sql` also creates a private Storage bucket
@@ -136,6 +138,22 @@ signed URLs (`DB.formCheckSignedUrl`), never public links.
 - **Marketplace reviews/ratings** — DONE. `program_reviews` table (`migration-marketplace-reviews.sql`), public read, verified-buyer writes (RLS `EXISTS` against `program_sales`), one review per buyer per program (upsert). Shared helpers in `app.js`: `reviewStats()`, `starString()`, `starsHtml()` (unit-tested in `tests.html`). UI: rating badges on `marketplace.html` browse cards, summary + list + gated write-form on the detail page, aggregate rating + testimonials section on `coach-profile.html`. db.js: `listProgramReviews`, `listReviewsForPrograms`, `listReviewsForCoach`, `hasPurchasedProgram`, `upsertProgramReview`, `deleteProgramReview`.
 - **Coach ↔ athlete messaging** — DONE. `messages` table (`migration-messages.sql`), member-only RLS, insert gated on a live coach→athlete link. Shared UI `renderMessageThread()` in `app.js` (bubbles + composer, Enter sends). Athlete: Coach tab thread. Coach: 💬 button per roster card → `messageModal`, unread badges via `DB.listUnreadForUser`. db.js: `listMessages`, `sendMessage`, `markThreadRead`, `listUnreadForUser`.
 - **Form-check video uploads** — DONE. `form_checks` table + private Storage bucket (`migration-form-checks.sql`). Athlete uploads a clip (Coach tab → Form checks) with optional lift + note; coach sees a Form-checks inbox on the roster, opens `formCheckModal` to watch (signed URL) + write a cue. db.js: `uploadFormCheck`, `listFormChecksForAthlete`, `listFormChecksForCoach`, `formCheckSignedUrl`, `replyToFormCheck`, `deleteFormCheck`. NOTE: messaging + form checks have **no demo path** (real Supabase only) — both are guarded by `window._demoMode` and skipped in the `?demo=1` hero demo.
+
+## AI assistant ("Ask AI")
+
+A floating assistant on both dashboards (`ai-chat.js` + `ai-chat.css`, loaded after the page's own scripts). Role is picked from the URL: `coach.html` → coaching assistant, else athlete training assistant.
+
+**Two runtime modes, resolved in `init()`:**
+- **LIVE** — a signed-in user on a real page. `liveReply()` → `DB.aiChat()` → `sb.functions.invoke('ai-chat')` → the `ai-chat` edge function → Google Gemini. The Gemini key lives only in the function's secrets; the browser never holds it. Supabase auto-attaches the session JWT, which the function (Verify JWT ON) validates.
+- **MOCK** — demo mode (`?demo=1`), signed-out, or any live failure. Answers are computed locally in `ai-chat.js` from real Store data (`snapshotFor`, `athleteAnswer`, `coachAnswer`, `weekRecap`, `draftProgram`, etc.). No network, no key, no cost. Also the graceful fallback: first live failure flips `liveDown = true` and the rest of the session uses mock.
+
+`LIVE_BACKEND` (const at top of `ai-chat.js`) is the master switch — set `false` to force mock everywhere.
+
+**Cost is bounded three ways:** (1) the edge function clamps `maxOutputTokens` (800), system length, and history; (2) a per-user daily cap (`ai_chat_usage`, `AI_DAILY_CAP` env, default 20); (3) **the provider ceiling — Gemini's free-tier rate limits, or, once you enable billing on the Google Cloud project, the budget you set there.** On the free tier there's no spend to cap; Google just rate-limits.
+
+**Provider note:** the assistant is provider-agnostic above the edge function. Swapping Gemini for OpenAI / Anthropic / Groq means rewriting only `ai-chat.ts` (endpoint + request/response shape + secret name) — the client, mock fallback, and `ai_chat_usage` cap are untouched.
+
+**To bring it live:** deploy `edge-functions/ai-chat.ts` (Verify JWT ON), set its `GEMINI_API_KEY` secret (free key from aistudio.google.com/apikey), run `sql/migration-ai-chat-usage.sql`. Until then it runs in mock mode for everyone (graceful). `review.html` is a **local-only** dev tool and must NOT ship to main.
 
 ## Known gaps / pending work
 

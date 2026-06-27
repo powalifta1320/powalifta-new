@@ -244,6 +244,24 @@ const DB = {
     const s = await this.getSession();
     return s ? s.user.id : null;
   },
+
+  // ---------- AI ASSISTANT ----------
+  // Calls the JWT-gated `ai-chat` edge function. The Gemini key lives
+  // server-side; sb.functions.invoke auto-attaches the user's session, so
+  // the browser never sees a secret. Returns { text } or throws.
+  async aiChat(payload) {
+    const { data, error } = await sb.functions.invoke('ai-chat', { body: payload });
+    if (error) {
+      // Surface the function's JSON body (e.g. 429 daily-limit message) if present.
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_) { /* ignore */ }
+      const e = new Error((detail && (detail.message || detail.error)) || error.message || 'AI request failed');
+      e.detail = detail;
+      throw e;
+    }
+    return data;
+  },
+
   async signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
