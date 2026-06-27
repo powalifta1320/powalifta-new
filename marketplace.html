@@ -70,16 +70,45 @@
   border-color: rgba(255,45,63,0.4);
   color: var(--red);
 }
+.mk-filters-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+  flex-wrap: nowrap;
+}
 .mk-search {
   flex: 1;
-  min-width: 220px;
-  max-width: 360px;
+  min-width: 200px;
+  max-width: 320px;
   padding: 8px 14px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   color: var(--text);
   font-size: 0.92rem;
+}
+.mk-sort {
+  padding: 8px 34px 8px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  /* native chevron via background — keeps the control aligned with .mk-search */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.mk-sort:hover { border-color: var(--line-2); color: var(--text); }
+@media (max-width: 560px) {
+  .mk-filters-right { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .mk-search { max-width: none; }
 }
 .mk-grid {
   display: grid;
@@ -269,20 +298,35 @@ async function renderBrowse() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.mk-tier-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      loadAndRenderGrid(t.key, document.querySelector('.mk-search').value);
+      reloadGrid();
     });
     filters.appendChild(btn);
   });
-  const search = el('input', { type: 'text', class: 'mk-search', placeholder: 'Search programs…' });
+
+  // Right-aligned group: free-text search + sort. Sort is applied client-side
+  // after ratings are aggregated, so "Top rated" can use the same stats the
+  // cards display (no extra round-trip).
+  const right = el('div', { class: 'mk-filters-right' });
+  const search = el('input', { type: 'text', class: 'mk-search', placeholder: 'Search programs…', 'aria-label': 'Search programs' });
   let _searchTimer = null;
   search.addEventListener('input', () => {
     clearTimeout(_searchTimer);
-    _searchTimer = setTimeout(() => {
-      const activeTier = document.querySelector('.mk-tier-btn.active')?.dataset?.tier || '';
-      loadAndRenderGrid(activeTier, search.value);
-    }, 200);
+    _searchTimer = setTimeout(reloadGrid, 200);
   });
-  filters.appendChild(search);
+  right.appendChild(search);
+
+  const sort = el('select', { class: 'mk-sort', id: 'mkSort', 'aria-label': 'Sort programs' });
+  [
+    ['featured', 'Featured'],
+    ['popular',  'Most popular'],
+    ['rating',   'Top rated'],
+    ['price-asc',  'Price: low to high'],
+    ['price-desc', 'Price: high to low']
+  ].forEach(([val, label]) => sort.appendChild(el('option', { value: val }, label)));
+  sort.addEventListener('change', reloadGrid);
+  right.appendChild(sort);
+
+  filters.appendChild(right);
   body.appendChild(filters);
 
   // Grid container (filled by loadAndRenderGrid)
@@ -291,10 +335,33 @@ async function renderBrowse() {
   root.appendChild(body);
 
   // Initial load
-  loadAndRenderGrid('', '');
+  reloadGrid();
 }
 
-async function loadAndRenderGrid(tier, search) {
+// Reads the live state of the three controls and re-renders the grid.
+function reloadGrid() {
+  const tier = document.querySelector('.mk-tier-btn.active')?.dataset?.tier || '';
+  const search = document.querySelector('.mk-search')?.value || '';
+  const sort = document.getElementById('mkSort')?.value || 'featured';
+  loadAndRenderGrid(tier, search, sort);
+}
+
+// Client-side ordering. `featured` keeps whatever order the DB returned.
+function sortPrograms(programs, sort, statsByProgram) {
+  const arr = programs.slice();
+  const avg = id => { const s = statsByProgram[id]; return s && s.count ? s.avg : -1; };
+  const cnt = id => { const s = statsByProgram[id]; return (s && s.count) || 0; };
+  switch (sort) {
+    case 'popular':    arr.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0)); break;
+    case 'rating':     arr.sort((a, b) => avg(b.id) - avg(a.id) || cnt(b.id) - cnt(a.id)); break;
+    case 'price-asc':  arr.sort((a, b) => a.priceCents - b.priceCents); break;
+    case 'price-desc': arr.sort((a, b) => b.priceCents - a.priceCents); break;
+    default: break; // featured
+  }
+  return arr;
+}
+
+async function loadAndRenderGrid(tier, search, sort) {
   const grid = document.getElementById('mkGrid');
   if (!grid) return;
   grid.innerHTML = '<div class="mk-loading"><p>Loading programs…</p></div>';
@@ -326,6 +393,10 @@ async function loadAndRenderGrid(tier, search) {
     reviews.forEach(r => { (byProg[r.marketplaceProgramId] = byProg[r.marketplaceProgramId] || []).push(r); });
     programs.forEach(p => { statsByProgram[p.id] = reviewStats(byProg[p.id] || []); });
   } catch (e) { console.warn('reviews aggregate', e); }
+
+  // Order client-side once ratings are known (so "Top rated" works without
+  // an extra query). Default "featured" leaves the DB order intact.
+  programs = sortPrograms(programs, sort || 'featured', statsByProgram);
 
   grid.innerHTML = '';
   const g = el('div', { class: 'mk-grid' });
