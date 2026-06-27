@@ -131,6 +131,34 @@
 .cp-step-card h4 { font-size: 1.05rem; letter-spacing: 0; text-transform: none; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; margin-bottom: 6px; }
 .cp-step-card p { color: var(--text-2); font-size: 0.92rem; line-height: 1.55; }
 
+.cp-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+.cp-review-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cp-review-top { line-height: 1; }
+.cp-review-body {
+  color: var(--text);
+  font-size: 0.98rem;
+  line-height: 1.6;
+  flex: 1;
+}
+.cp-review-by {
+  color: var(--text-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .cp-cta {
   background: var(--bg-1);
   border: 1px solid var(--line);
@@ -154,6 +182,7 @@
 
 @media (max-width: 700px) {
   .cp-step-grid { grid-template-columns: 1fr; }
+  .cp-review-grid { grid-template-columns: 1fr; }
   .cp-card { gap: 16px; }
   .cp-av { width: 86px; height: 86px; font-size: 2.2rem; }
   .cp-cta { padding: 24px 18px; }
@@ -226,6 +255,13 @@ async function renderCoachProfile() {
   // Athlete count is read from the public profiles list (listCoaches already returns it as athleteCount if mapped, otherwise we count via the coach.athleteCount field that mapDbProfileToCoach sets — fall back to 0).
   const athleteCount = (typeof coach.athleteCount === 'number') ? coach.athleteCount : 0;
 
+  // Aggregate marketplace rating across this coach's catalog — social proof.
+  // Non-fatal: if it fails or there are no reviews, the stat/section is omitted.
+  let coachReviews = [];
+  try { coachReviews = await DB.listReviewsForCoach(id); }
+  catch (e) { console.warn('listReviewsForCoach', e); }
+  const coachReviewStats = reviewStats(coachReviews);
+
   const root = document.getElementById('cpRoot');
   root.innerHTML = '';
 
@@ -260,6 +296,13 @@ async function renderCoachProfile() {
     a.innerHTML = '<strong>' + athleteCount + '</strong> athlete' + (athleteCount === 1 ? '' : 's');
     stats.appendChild(a);
   }
+  if (coachReviewStats.count > 0) {
+    const r = el('div', { class: 'cp-stat' });
+    r.innerHTML = starsHtml(coachReviewStats.avg) +
+      ' <strong>' + coachReviewStats.avg.toFixed(1) + '</strong> · ' +
+      coachReviewStats.count + ' review' + (coachReviewStats.count === 1 ? '' : 's');
+    stats.appendChild(r);
+  }
   meta.appendChild(stats);
   card.appendChild(meta);
   heroIn.appendChild(card);
@@ -289,6 +332,35 @@ async function renderCoachProfile() {
   howIn.appendChild(grid);
   how.appendChild(howIn);
   root.appendChild(how);
+
+  // Testimonials — real written reviews from buyers of this coach's programs.
+  // Only show the section if there's at least one review with a written body.
+  const written = coachReviews
+    .filter(r => r.body && r.body.trim())
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .slice(0, 6);
+  if (written.length) {
+    const tSec = el('section', { class: 'cp-section', style: 'padding-top:0' });
+    const tIn = el('div', { class: 'container' });
+    tIn.appendChild(el('div', { class: 'section-title' },
+      el('div', { class: 'section-tag' }, 'What lifters say'),
+      el('h2', {}, 'Reviews from athletes who ran the programs'),
+      el('p', { class: 'dim' }, 'Verified buyers on the POWALIFTA marketplace.')
+    ));
+    const tGrid = el('div', { class: 'cp-review-grid' });
+    written.forEach(r => {
+      const c = el('div', { class: 'cp-review-card' });
+      const top = el('div', { class: 'cp-review-top' });
+      top.innerHTML = starsHtml(r.rating);
+      c.appendChild(top);
+      c.appendChild(el('p', { class: 'cp-review-body' }, '“' + r.body.trim() + '”'));
+      c.appendChild(el('div', { class: 'cp-review-by' }, '— ' + (r.buyerName || 'Verified buyer')));
+      tGrid.appendChild(c);
+    });
+    tIn.appendChild(tGrid);
+    tSec.appendChild(tIn);
+    root.appendChild(tSec);
+  }
 
   // CTA
   const ctaSec = el('section', { class: 'cp-section', style: 'padding-top:0' });

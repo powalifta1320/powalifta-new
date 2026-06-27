@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local tooling (Claude preview server — not part of the app)
+.claude/
+
+# Logs / temp
+*.log
+.cache/
+tmp/
+
+# Env / secrets (none currently — the Supabase anon key in db.js is intentionally public)
+.env
+.env.*

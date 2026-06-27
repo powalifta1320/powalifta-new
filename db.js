@@ -124,6 +124,46 @@ function mapDbSale(r) {
   };
 }
 
+function mapDbReview(r) {
+  return {
+    id: r.id,
+    marketplaceProgramId: r.marketplace_program_id,
+    coachId: r.coach_id,
+    buyerId: r.buyer_id,
+    buyerName: r.buyer_name || 'Verified buyer',
+    rating: r.rating,
+    body: r.body || '',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
+}
+
+function mapDbMessage(r) {
+  return {
+    id: r.id,
+    coachId: r.coach_id,
+    athleteId: r.athlete_id,
+    senderId: r.sender_id,
+    body: r.body || '',
+    createdAt: r.created_at,
+    readAt: r.read_at || null
+  };
+}
+
+function mapDbFormCheck(r) {
+  return {
+    id: r.id,
+    athleteId: r.athlete_id,
+    coachId: r.coach_id,
+    storagePath: r.storage_path,
+    lift: r.lift || '',
+    note: r.note || '',
+    coachReply: r.coach_reply || null,
+    coachReplyAt: r.coach_reply_at || null,
+    createdAt: r.created_at
+  };
+}
+
 function mapDbCheckin(r) {
   return {
     id: r.id, athleteId: r.athlete_id, weekStart: r.week_start,
@@ -714,6 +754,203 @@ const DB = {
       .order('created_at', { ascending: false });
     if (error) { console.warn('listMySales', error); return []; }
     return (data || []).map(mapDbSale);
+  },
+
+  // ----- Marketplace reviews -------------------------------------------------
+  // Public read. Buyers (verified via program_sales by RLS) upsert one review
+  // per program. See migration-marketplace-reviews.sql.
+
+  // Public: all reviews for one program, newest first.
+  async listProgramReviews(marketplaceProgramId) {
+    const { data, error } = await sb.from('program_reviews')
+      .select('*')
+      .eq('marketplace_program_id', marketplaceProgramId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listProgramReviews', error); return []; }
+    return (data || []).map(mapDbReview);
+  },
+
+  // Public: reviews for a set of programs at once (browse-grid rating badges).
+  async listReviewsForPrograms(ids) {
+    if (!ids || !ids.length) return [];
+    const { data, error } = await sb.from('program_reviews')
+      .select('*')
+      .in('marketplace_program_id', ids);
+    if (error) { console.warn('listReviewsForPrograms', error); return []; }
+    return (data || []).map(mapDbReview);
+  },
+
+  // Public: every review across a coach's catalog (coach-profile social proof).
+  async listReviewsForCoach(coachId) {
+    const { data, error } = await sb.from('program_reviews')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listReviewsForCoach', error); return []; }
+    return (data || []).map(mapDbReview);
+  },
+
+  // Has the signed-in buyer purchased this program? (gates the review form)
+  async hasPurchasedProgram(marketplaceProgramId, buyerId) {
+    if (!buyerId) return false;
+    const { data, error } = await sb.from('program_sales')
+      .select('id')
+      .eq('marketplace_program_id', marketplaceProgramId)
+      .eq('buyer_id', buyerId)
+      .limit(1);
+    if (error) { console.warn('hasPurchasedProgram', error); return false; }
+    return !!(data && data.length);
+  },
+
+  // Buyer upserts their review (one per program — onConflict updates in place).
+  async upsertProgramReview({ marketplaceProgramId, coachId, buyerId, buyerName, rating, body }) {
+    const row = {
+      marketplace_program_id: marketplaceProgramId,
+      coach_id: coachId,
+      buyer_id: buyerId,
+      buyer_name: buyerName || null,
+      rating: rating,
+      body: body || null,
+      updated_at: new Date().toISOString()
+    };
+    const { data, error } = await sb.from('program_reviews')
+      .upsert(row, { onConflict: 'marketplace_program_id,buyer_id' })
+      .select('*');
+    if (error) throw error;
+    return data && data[0] ? mapDbReview(data[0]) : null;
+  },
+
+  async deleteProgramReview(id) {
+    const { error } = await sb.from('program_reviews').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
+  // ---- Coach ↔ athlete messaging --------------------------------------
+  // Full thread between one coach and one athlete, oldest → newest.
+  async listMessages(coachId, athleteId) {
+    if (!coachId || !athleteId) return [];
+    const { data, error } = await sb.from('messages')
+      .select('*')
+      .eq('coach_id', coachId)
+      .eq('athlete_id', athleteId)
+      .order('created_at', { ascending: true });
+    if (error) { console.warn('listMessages', error); return []; }
+    return (data || []).map(mapDbMessage);
+  },
+
+  // Post a message. `senderId` is whichever party is currently signed in.
+  async sendMessage({ coachId, athleteId, senderId, body }) {
+    const row = {
+      coach_id: coachId,
+      athlete_id: athleteId,
+      sender_id: senderId,
+      body: (body || '').trim()
+    };
+    const { data, error } = await sb.from('messages').insert(row).select('*');
+    if (error) throw error;
+    return data && data[0] ? mapDbMessage(data[0]) : null;
+  },
+
+  // Stamp read_at on every unread message in this thread that the signed-in
+  // user did NOT send (i.e. the ones addressed to them). Clears their badge.
+  async markThreadRead(coachId, athleteId, viewerId) {
+    if (!coachId || !athleteId || !viewerId) return false;
+    const { error } = await sb.from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('coach_id', coachId)
+      .eq('athlete_id', athleteId)
+      .neq('sender_id', viewerId)
+      .is('read_at', null);
+    if (error) { console.warn('markThreadRead', error); return false; }
+    return true;
+  },
+
+  // All messages addressed TO this user that are still unread — used to paint
+  // per-athlete (coach side) or single (athlete side) unread badges. One query.
+  async listUnreadForUser(viewerId) {
+    if (!viewerId) return [];
+    const { data, error } = await sb.from('messages')
+      .select('*')
+      .neq('sender_id', viewerId)
+      .is('read_at', null)
+      .or('coach_id.eq.' + viewerId + ',athlete_id.eq.' + viewerId);
+    if (error) { console.warn('listUnreadForUser', error); return []; }
+    return (data || []).map(mapDbMessage);
+  },
+
+  // ---- Form-check video uploads ---------------------------------------
+  // Athlete uploads a video to the private `form-checks` bucket, then records
+  // the metadata row. Returns the created form_check (mapped) or throws.
+  async uploadFormCheck({ athleteId, coachId, file, lift, note }) {
+    if (!athleteId || !coachId || !file) throw new Error('Missing upload fields');
+    // Path: <athlete_id>/<timestamp>-<sanitised filename>. Leading folder must
+    // be the athlete uid for the storage RLS policy to allow the write.
+    const safeName = (file.name || 'clip.mp4').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60);
+    const path = athleteId + '/' + Date.now() + '-' + safeName;
+    const up = await sb.storage.from('form-checks').upload(path, file, {
+      cacheControl: '3600', upsert: false, contentType: file.type || 'video/mp4'
+    });
+    if (up.error) throw up.error;
+    const row = {
+      athlete_id: athleteId,
+      coach_id: coachId,
+      storage_path: path,
+      lift: lift || null,
+      note: (note || '').trim() || null
+    };
+    const { data, error } = await sb.from('form_checks').insert(row).select('*');
+    if (error) {
+      // Roll back the orphaned upload so we don't leak storage on a failed row.
+      try { await sb.storage.from('form-checks').remove([path]); } catch (e) {}
+      throw error;
+    }
+    return data && data[0] ? mapDbFormCheck(data[0]) : null;
+  },
+
+  async listFormChecksForAthlete(athleteId) {
+    if (!athleteId) return [];
+    const { data, error } = await sb.from('form_checks')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listFormChecksForAthlete', error); return []; }
+    return (data || []).map(mapDbFormCheck);
+  },
+
+  async listFormChecksForCoach(coachId) {
+    if (!coachId) return [];
+    const { data, error } = await sb.from('form_checks')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listFormChecksForCoach', error); return []; }
+    return (data || []).map(mapDbFormCheck);
+  },
+
+  // Short-lived signed URL for private playback (default 1 hour).
+  async formCheckSignedUrl(storagePath, expiresInSeconds) {
+    if (!storagePath) return null;
+    const { data, error } = await sb.storage.from('form-checks')
+      .createSignedUrl(storagePath, expiresInSeconds || 3600);
+    if (error) { console.warn('formCheckSignedUrl', error); return null; }
+    return data ? data.signedUrl : null;
+  },
+
+  async replyToFormCheck(id, reply) {
+    const { data, error } = await sb.from('form_checks')
+      .update({ coach_reply: (reply || '').trim() || null, coach_reply_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*');
+    if (error) throw error;
+    return data && data[0] ? mapDbFormCheck(data[0]) : null;
+  },
+
+  async deleteFormCheck(id, storagePath) {
+    if (storagePath) { try { await sb.storage.from('form-checks').remove([storagePath]); } catch (e) {} }
+    const { error } = await sb.from('form_checks').delete().eq('id', id);
+    if (error) throw error;
+    return true;
   },
 
   // Admin: list all pending payouts grouped by coach (for monthly payout run)

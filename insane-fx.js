@@ -114,6 +114,12 @@
 
   function scrambleHeadline() {
     if (reduced()) return;
+    // Never gate the H1's legibility behind rAF. If the page first paints in a
+    // hidden/background tab, rAF is paused and the scrambled placeholder would
+    // stick as garbage until the tab is focused (and crawlers/SR could read it).
+    // The readable headline is the correct default; the scramble is a first-paint
+    // flourish only worth playing when someone is actually looking.
+    if (document.visibilityState === 'hidden') return;
     var h1 = document.querySelector('header.hero h1');
     if (!h1 || h1.dataset.fxScrambled === '1') return;
     h1.dataset.fxScrambled = '1';
@@ -152,6 +158,14 @@
     nodes.forEach(function (n) { n.nodeValue = scrambleString(n.nodeValue, 0); });
     h1.classList.add('fx-scrambling');
 
+    // rAF pauses if the tab is backgrounded mid-scramble. setTimeout keeps firing
+    // (throttled) in hidden tabs, so this guarantees the readable headline is
+    // restored even if the animation never completes a frame.
+    var safety = setTimeout(function () {
+      nodes.forEach(function (n, i) { n.nodeValue = originals[i]; });
+      h1.classList.remove('fx-scrambling');
+    }, startDelay + duration + 400);
+
     function frame(ts) {
       if (startTime === null) startTime = ts;
       var elapsed = ts - startTime - startDelay;
@@ -163,6 +177,7 @@
       });
       if (p < 1) requestAnimationFrame(frame);
       else {
+        clearTimeout(safety);
         nodes.forEach(function (n, i) { n.nodeValue = originals[i]; });
         h1.classList.remove('fx-scrambling');
       }
@@ -322,7 +337,6 @@
   }
 
   ready(function () {
-    setupCursor();
     setupMagnets();
     scrambleHeadline();
   });

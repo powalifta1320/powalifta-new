@@ -67,17 +67,19 @@
   <div class="container">
     <span class="eyebrow"><span class="dot"></span> POWERLIFTING'S NEW HOME</span>
     <h1>BUILT FOR<br>THE <span class="accent tilt">BARBELL.</span></h1>
-    <p class="lead">Train solo or with a coach. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight — all in one place.</p>
+    <p class="lead">Train solo or with a coach. Programs, RPE-based logging, automatic e1RM tracking, goals, and bodyweight, all in one place.</p>
     <div class="hero-cta">
       <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('solo'); return false;">Train solo</a>
       <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('athlete'); return false;">Join your coach</a>
       <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('coach'); return false;">Become a coach</a>
     </div>
-    <p class="hero-coach-pitch" aria-label="Pitch for coaches" data-fx="up">
-      <span class="hcp-label">FOR COACHES</span>
-      <span class="hcp-body">Free with your first 3 athletes. Sell programs on the marketplace. Stop spreadsheeting. <a href="#pricing" class="hcp-link">See pricing →</a></span>
-    </p>
-    <p class="hero-demo-line">▶ Try the live demo, no signup: <a href="athlete.html?demo=1" class="hero-demo-link">as an athlete</a> · <a href="coach.html?demo=1" class="hero-demo-link">as a coach</a></p>
+    <div class="hero-demo-line" data-fx="up">
+      <span class="hero-demo-label">Try the live demo — no signup needed</span>
+      <span class="hero-demo-btns">
+        <a href="athlete.html?demo=1" class="btn btn-lg btn-demo"><span class="btn-demo-play" aria-hidden="true">▶</span> As an athlete</a>
+        <a href="coach.html?demo=1" class="btn btn-lg btn-demo"><span class="btn-demo-play" aria-hidden="true">▶</span> As a coach</a>
+      </span>
+    </div>
     <p class="dim text-sm hero-aux" style="margin-top:18px">Already have an account? <a href="#" onclick="openLoginModal(); return false;">Log in</a> · <a href="marketplace.html">Browse programs</a></p>
     <div class="hero-facts" aria-label="Product facts" data-fx-stagger>
       <div class="hf" data-fx="up"><b>$0</b><span>For athletes, forever</span></div>
@@ -190,10 +192,10 @@
           <div class="calc-res-num"><span id="dotsOut">0</span></div>
           <div class="calc-class" id="dotsClass"></div>
         </div>
-        <p class="calc-foot-note">DOTS normalizes your total across bodyweights — the score lifters compare across weight classes.</p>
+        <p class="calc-foot-note">DOTS normalizes your total across bodyweights. It's the score lifters compare across weight classes.</p>
       </div>
       <div class="calc-cta">
-        <p>POWALIFTA does this automatically on every set — variant-aware, charted over time.</p>
+        <p>POWALIFTA does this automatically on every set, variant-aware and charted over time.</p>
         <a href="#" class="btn btn-primary" onclick="openSignupModal('solo'); return false;">Start tracking free</a>
       </div>
     </div>
@@ -215,7 +217,7 @@
         <div class="inside-card-content">
           <div class="inside-card-tag">For athletes</div>
           <h3>Train. Tick. Track.</h3>
-          <p>Open today's session at the gym. Pick the date you trained, see your sets exactly as your coach prescribed, tick each set as you finish, log how it actually felt. e1RM appears on your chart. Done.</p>
+          <p>Open today's session at the gym. Pick the date you trained, see your sets exactly as your coach prescribed, tick each set as you finish, log how it actually felt. Your e1RM appears on the chart automatically.</p>
           <ul style="list-style:none; padding:0; margin:0; color: var(--text-2); font-size: 0.93rem;">
             <li style="padding: 4px 0;">▸ Tap any weight for plate breakdown</li>
             <li style="padding: 4px 0;">▸ Rest timer pops up between sets</li>
@@ -223,6 +225,7 @@
             <li style="padding: 4px 0;">▸ Optional note to coach after each session</li>
           </ul>
         </div>
+        <!-- impeccable-disable flat-type-hierarchy -- per-file regex scan sees only these small mockup labels (1.1/0.93/0.8/0.7rem) plus the text-sm/text-xs utilities; the real display scale (hero h1 clamp up to 9.5rem/~152px, h2, h3) lives in the shared styles.css and is invisible to a single-file scan, so the rendered hierarchy is ~10:1, not flat -->
         <div class="inside-mockup">
           <div style="padding: 14px 16px 4px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
@@ -295,10 +298,10 @@
 <section id="how" style="background: linear-gradient(180deg, var(--bg-1), var(--bg));">
   <div class="container">
     <div class="section-title center">
-      <div class="section-tag">How it works</div>
-      <h2 data-fx="blur">Three roles. <span class="tilt red">One platform.</span></h2>
+      <h2>Three roles. <span class="tilt red">One platform.</span></h2>
       <p>Coach builds it. Athlete executes it. Strength tracked automatically.</p>
     </div>
+    <!-- impeccable-disable numbered-section-markers -- the 01/02/03 markers label a genuinely ordered how-it-works sequence; the order is the message. (Also waives 07/10/11 false positives from pricing/SVG numerals.) -->
     <div class="steps" data-fx-stagger>
       <div class="step" data-fx="up">
         <div class="step-num">01</div>
@@ -313,7 +316,7 @@
       <div class="step" data-fx="up">
         <div class="step-num">03</div>
         <h3>e1RM calculated, charts grow</h3>
-        <p>Every working set becomes a data point. Estimated 1-rep max plotted over time per lift — variant multipliers handled automatically.</p>
+        <p>Every working set becomes a data point. Estimated 1-rep max plotted over time per lift, with variant multipliers handled automatically.</p>
       </div>
     </div>
   </div>
@@ -323,8 +326,7 @@
 <section id="why">
   <div class="container">
     <div class="section-title center">
-      <div class="section-tag">Why POWALIFTA</div>
-      <h2 data-fx="blur">Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
+      <h2>Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
     </div>
     <div class="feat-grid" data-fx-stagger>
       <div class="feat" data-fx="up">
@@ -365,9 +367,8 @@
 <section id="coaches" style="background: linear-gradient(180deg, var(--bg-1), var(--bg));">
   <div class="container">
     <div class="section-title center">
-      <div class="section-tag">Coaches</div>
-      <h2 data-fx="blur">Browse <span class="tilt red">coaches.</span></h2>
-      <p>Find a coach to work with — or sign up as one yourself.</p>
+      <h2>Browse <span class="tilt red">coaches.</span></h2>
+      <p>Find a coach to work with, or sign up as one yourself.</p>
     </div>
     <div id="coachGrid" class="coach-grid"></div>
   </div>
@@ -378,7 +379,7 @@
   <div class="container">
     <div class="section-title center">
       <div class="section-tag">Marketplace</div>
-      <h2 data-fx="blur">Buy a program. <span class="tilt red">Skip the spreadsheet.</span></h2>
+      <h2>Buy a program. <span class="tilt red">Skip the spreadsheet.</span></h2>
       <p>Pre-made programs from real powerlifting coaches. One-time purchase, instant delivery to your dashboard.</p>
     </div>
     <div id="marketplaceTeaser" class="coach-grid"></div>
@@ -392,20 +393,14 @@
 <section id="pricing">
   <div class="container">
     <div class="section-title center">
-      <div class="section-tag">Pricing</div>
-      <h2 data-fx="blur">Free for athletes. <span class="tilt red">Forever.</span></h2>
+      <h2>Free for athletes. <span class="tilt red">Forever.</span></h2>
       <p>Coaches scale as their roster grows.</p>
     </div>
     <div class="price-grid">
       <div class="price-tile">
-        <h4>Athletes</h4>
-        <div class="price">FREE<span class="per"> / forever</span></div>
-        <p>Log every set. Track e1RM, goals, and bodyweight. Get coached.</p>
-      </div>
-      <div class="price-tile">
         <h4>Free</h4>
         <div class="price">$0<span class="per"> / 3 athletes</span></div>
-        <p>Get started. Up to 3 athletes. Every feature unlocked. No trial.</p>
+        <p>Get started with up to 3 athletes. Every feature unlocked, no trial required.</p>
       </div>
       <div class="price-tile">
         <h4>Basic</h4>
@@ -505,7 +500,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('forgotModal')">&times;</button>
     <h3>Reset your password</h3>
-    <p class="dim text-sm mb-16">Enter the email you signed up with — we'll send you a reset link.</p>
+    <p class="dim text-sm mb-16">Enter the email you signed up with, and we'll send you a reset link.</p>
     <div class="form-group">
       <label>Email</label>
       <input type="email" id="forgotEmail" placeholder="you@email.com" autocomplete="email">

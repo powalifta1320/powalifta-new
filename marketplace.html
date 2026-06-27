@@ -317,6 +317,16 @@ async function loadAndRenderGrid(tier, search) {
     return;
   }
 
+  // Aggregate ratings per program (one batched query) so each card can show
+  // social proof. Failure is non-fatal — cards just render without a badge.
+  let statsByProgram = {};
+  try {
+    const reviews = await DB.listReviewsForPrograms(programs.map(p => p.id));
+    const byProg = {};
+    reviews.forEach(r => { (byProg[r.marketplaceProgramId] = byProg[r.marketplaceProgramId] || []).push(r); });
+    programs.forEach(p => { statsByProgram[p.id] = reviewStats(byProg[p.id] || []); });
+  } catch (e) { console.warn('reviews aggregate', e); }
+
   grid.innerHTML = '';
   const g = el('div', { class: 'mk-grid' });
   programs.forEach(p => {
@@ -326,6 +336,14 @@ async function loadAndRenderGrid(tier, search) {
     card.appendChild(el('div', { class: 'mk-card-tier' }, TIER_LABELS_MK[p.tier] || 'Program'));
     card.appendChild(el('div', { class: 'mk-card-title' }, p.title));
     card.appendChild(el('div', { class: 'mk-card-coach' }, 'by ' + (coach ? coach.name : 'a POWALIFTA coach')));
+    const st = statsByProgram[p.id];
+    if (st && st.count) {
+      const rating = el('div', { class: 'mk-rating' });
+      rating.innerHTML = starsHtml(st.avg) +
+        '<span class="mk-rating-num">' + st.avg.toFixed(1) + '</span>' +
+        '<span class="mk-rating-count">(' + st.count + ')</span>';
+      card.appendChild(rating);
+    }
     card.appendChild(el('p', { class: 'mk-card-desc' }, (p.description || '').slice(0, 140) + ((p.description || '').length > 140 ? '…' : '')));
     const foot = el('div', { class: 'mk-card-foot' });
     foot.appendChild(el('div', { class: 'mk-card-price' }, fmtUsd(p.priceCents)));
@@ -387,10 +405,143 @@ async function renderDetail(id) {
   buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. Refunds available within 7 days if you haven\'t opened the program.'));
   wrap.appendChild(buyCard);
 
+  // Reviews section — rendered async so the detail above paints immediately.
+  const reviewsSection = el('div', { class: 'mk-reviews-section', id: 'mkReviews' });
+  wrap.appendChild(reviewsSection);
+
   root.appendChild(wrap);
 
   // Update OG / title for sharing
   document.title = program.title + ' — POWALIFTA marketplace';
+
+  renderReviews(program);
+}
+
+// Renders the rating summary + review list + (for verified buyers) the
+// write-a-review form into #mkReviews. Pulled out so renderDetail stays lean.
+async function renderReviews(program) {
+  const host = document.getElementById('mkReviews');
+  if (!host) return;
+
+  let reviews = [];
+  try { reviews = await DB.listProgramReviews(program.id); }
+  catch (e) { console.warn('listProgramReviews', e); }
+
+  const stats = reviewStats(reviews);
+
+  host.innerHTML = '';
+  host.appendChild(el('h2', { class: 'mk-reviews-title' }, 'Reviews'));
+
+  // Summary header
+  const summary = el('div', { class: 'mk-rating-summary' });
+  if (stats.count) {
+    summary.appendChild(el('div', { class: 'mk-rating-big' }, stats.avg.toFixed(1)));
+    const sumRight = el('div', {});
+    sumRight.innerHTML = starsHtml(stats.avg, 'lg');
+    sumRight.appendChild(el('div', { class: 'mk-rating-count', style: 'margin-top:4px;' },
+      stats.count + (stats.count === 1 ? ' review' : ' reviews')));
+    summary.appendChild(sumRight);
+  } else {
+    summary.appendChild(el('p', { class: 'mk-reviews-empty' }, 'No reviews yet — be the first to review this program after you train it.'));
+  }
+  host.appendChild(summary);
+
+  // Review list
+  if (stats.count) {
+    const list = el('div', { class: 'mk-reviews' });
+    reviews.forEach(r => {
+      const item = el('div', { class: 'mk-review' });
+      const head = el('div', { class: 'mk-review-head' });
+      const nameWrap = el('div', { class: 'mk-review-name' });
+      nameWrap.innerHTML = starsHtml(r.rating) + '<span>' + escapeHtml(r.buyerName || 'Verified buyer') + '</span>';
+      head.appendChild(nameWrap);
+      head.appendChild(el('div', { class: 'mk-review-date' }, fmtReviewDate(r.createdAt)));
+      item.appendChild(head);
+      if (r.body) item.appendChild(el('p', { class: 'mk-review-body' }, r.body));
+      list.appendChild(item);
+    });
+    host.appendChild(list);
+  }
+
+  // Write-a-review form, gated on a verified purchase.
+  if (!_currentUser) return;
+  let owns = false;
+  try { owns = await DB.hasPurchasedProgram(program.id, _currentUser.id); }
+  catch (e) { console.warn('hasPurchasedProgram', e); }
+  if (!owns) return;
+
+  const mine = reviews.find(r => r.buyerId === _currentUser.id);
+  renderReviewForm(host, program, mine);
+}
+
+function renderReviewForm(host, program, existing) {
+  const form = el('div', { class: 'mk-review-form' });
+  form.appendChild(el('h3', {}, existing ? 'Edit your review' : 'Write a review'));
+
+  let picked = existing ? existing.rating : 0;
+  const picker = el('div', { class: 'star-picker' });
+  const starBtns = [];
+  for (let i = 1; i <= 5; i++) {
+    const b = el('button', { type: 'button', 'aria-label': i + ' star' + (i > 1 ? 's' : '') }, '★');
+    b.addEventListener('click', () => { picked = i; paint(); });
+    starBtns.push(b);
+    picker.appendChild(b);
+  }
+  function paint() { starBtns.forEach((b, idx) => b.classList.toggle('on', idx < picked)); }
+  paint();
+  form.appendChild(picker);
+
+  const ta = el('textarea', { placeholder: 'How did this program go? Honest, specific reviews help other lifters.', maxlength: '1200' });
+  if (existing && existing.body) ta.value = existing.body;
+  form.appendChild(ta);
+
+  const actions = el('div', { class: 'mk-rf-actions' });
+  const submit = el('button', { class: 'btn btn-primary' }, existing ? 'Update review' : 'Post review');
+  submit.addEventListener('click', async () => {
+    if (!picked) { toast('Pick a star rating first.'); return; }
+    submit.disabled = true;
+    try {
+      await DB.upsertProgramReview({
+        marketplaceProgramId: program.id,
+        coachId: program.coachId,
+        buyerId: _currentUser.id,
+        buyerName: _currentUser.name || 'Verified buyer',
+        rating: picked,
+        body: ta.value.trim() || null
+      });
+      toast('Thanks — your review is live.');
+      renderReviews(program);
+    } catch (e) {
+      console.error('upsertProgramReview', e);
+      toast('Could not save your review. Try again.');
+      submit.disabled = false;
+    }
+  });
+  actions.appendChild(submit);
+
+  if (existing) {
+    const del = el('button', { class: 'btn btn-ghost' }, 'Delete');
+    del.addEventListener('click', async () => {
+      if (!confirm('Delete your review?')) return;
+      try { await DB.deleteProgramReview(existing.id); toast('Review deleted.'); renderReviews(program); }
+      catch (e) { console.error('deleteProgramReview', e); toast('Could not delete. Try again.'); }
+    });
+    actions.appendChild(del);
+  }
+  form.appendChild(actions);
+  host.appendChild(form);
+}
+
+function fmtReviewDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (e) { return ''; }
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function onBuyClick(program) {

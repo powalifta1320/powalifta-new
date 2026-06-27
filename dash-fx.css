@@ -1,0 +1,73 @@
+/* ============================================================
+ * POWALIFTA dash-fx — product-register motion for the athlete &
+ * coach dashboards. Loaded AFTER styles.css on app pages only
+ * (never on the marketing pages), so every selector here is
+ * implicitly dashboard-scoped.
+ *
+ * Product register: motion conveys STATE, not decoration. Three
+ * jobs only — the tab/pane view transition (the one real gap),
+ * a more confident modal entrance, and eased input focus. No
+ * page-load choreography, no per-item list staggers (the panes
+ * re-render on every data change, so item-level entrances would
+ * re-fire on every set tick — distracting, not informative).
+ *
+ * Everything collapses to instant under prefers-reduced-motion.
+ * ============================================================ */
+
+/* --- Tab / pane view transition ------------------------------
+ * Panes toggle the .hidden class (display:none). Switching from
+ * none -> flex/block restarts any animation declared on the
+ * element, so this fires exactly once per tab switch with no JS
+ * coordination. Subtle settle (fade + short rise), not a reveal. */
+[data-pane]:not(.hidden) {
+  animation: dashPaneIn 0.26s var(--ease-out-quint) both;
+}
+@keyframes dashPaneIn {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* --- Modal entrance ------------------------------------------
+ * styles.css already fades the backdrop and rises the box via
+ * slideUp. Override the box with a touch more intent: a small
+ * scale settle on the confident expo curve. The backdrop fade
+ * (fadeIn 0.2s on .modal-backdrop.open) is left as-is. */
+.modal-backdrop.open .modal {
+  animation: dashModalIn 0.28s var(--ease-out-expo) both;
+}
+@keyframes dashModalIn {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.97); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* --- Input focus easing --------------------------------------
+ * The focus ring + border already exist; just smooth their
+ * arrival so focus feels responsive rather than snapping. */
+input[type=text], input[type=email], input[type=password], input[type=number],
+input[type=date], select, textarea {
+  transition: border-color 0.15s var(--ease-out-quart),
+              box-shadow 0.15s var(--ease-out-quart),
+              background-color 0.15s var(--ease-out-quart);
+}
+
+/* --- Sidebar tab: ease the active indicator ------------------
+ * The active state shifts background + the left rule to red. The
+ * base rule uses `transition: all 0.15s`; nudge the curve so the
+ * red rule eases in decisively on selection. */
+.sidebar-tab {
+  transition: color 0.15s var(--ease-out-quart),
+              background-color 0.18s var(--ease-out-quart),
+              border-left-color 0.18s var(--ease-out-quart);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pane]:not(.hidden),
+  .modal-backdrop.open .modal {
+    animation: none !important;
+  }
+  input[type=text], input[type=email], input[type=password], input[type=number],
+  input[type=date], select, textarea,
+  .sidebar-tab {
+    transition: none !important;
+  }
+}

@@ -63,6 +63,7 @@
     <button class="sidebar-tab" data-tab="invites" id="tab-invites"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
     <button class="sidebar-tab" data-tab="payouts" id="tab-payouts"></button>
+    <button class="sidebar-tab" data-tab="tests" id="tab-tests"></button>
     <div class="sidebar-foot">
       <div>POWALIFTA Admin</div>
       <div class="faded">★ god mode</div>
@@ -117,6 +118,15 @@
     <section data-pane="payouts" class="hidden">
       <div class="dash-header"><div><h2>Payouts</h2><p class="dim text-sm">Coaches keep 80% per sale. Pay them out monthly via Wise / Stripe / bank, then mark sales as paid here.</p></div></div>
       <div id="payoutsArea"></div>
+    </section>
+
+    <section data-pane="tests" class="hidden">
+      <div class="dash-header"><div><h2>Test harness</h2><p class="dim text-sm">Runs the shared core (e1RM, variants, units, PRs, signals, export, importer) in-browser. Green here means the deployed build's logic is intact.</p></div></div>
+      <div class="flex gap-8 mb-16">
+        <button class="btn btn-sm" onclick="document.getElementById('testFrame').contentWindow.location.reload()">↻ Re-run</button>
+        <a class="btn btn-sm btn-ghost" href="tests.html" target="_blank" rel="noopener">Open full page ↗</a>
+      </div>
+      <iframe id="testFrame" title="POWALIFTA test harness" style="width:100%; height:75vh; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--bg);"></iframe>
     </section>
 
   </main>
@@ -215,6 +225,7 @@ bootstrap('coach', async () => {
   setLbl('tab-invites', ICONS.copy, 'Invites');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   setLbl('tab-payouts', ICONS.trophy, 'Payouts');
+  setLbl('tab-tests', ICONS.check, 'Test harness');
 
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -231,6 +242,7 @@ bootstrap('coach', async () => {
       if (t === 'overview') renderOverview();
       if (t === 'marketplace') renderAdminMarketplace();
       if (t === 'payouts') renderAdminPayouts();
+      if (t === 'tests') { const f = document.getElementById('testFrame'); if (f && !f.src) f.src = 'tests.html'; }
     });
   });
 

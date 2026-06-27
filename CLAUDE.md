@@ -53,9 +53,9 @@ Every fx file respects `prefers-reduced-motion`.
 
 ## Core math
 
-- **e1RM** uses RPE-percentage / Tuchscherer-style formula (`app.js` around line 1395):
-  `e1RM = weight / (1 - ((reps - 1) + (10 - RPE)) * 0.0333)`
-- **Variant multipliers** (`app.js` ~line 1362): squat 4, bench 5, deadlift 4. Multiplier scales e1RM so the chart compares competition-equivalent.
+- **e1RM** uses RPE-percentage / Tuchscherer-style formula (`calcE1RM` in `app.js` ~line 1530):
+  `e1RM = weight / (1 - ((reps - 1) + (10 - RPE)) * 0.0333)` (floored at `weight / 0.4`)
+- **Variant multipliers** (`VARIANTS` object in `app.js` ~line 1499, applied by `multiplierFor()` ~line 1521): each main lift has several variants, each with its own multiplier. **Competition is the 1.0 baseline**; harder variants scale e1RM *up* so the chart compares competition-equivalent (e.g. squat Tempo 1.12, bench Incline 1.12, deadlift RDL 1.10). Variant counts: squat 4, bench 5, deadlift 4.
 - **Plate calc** is in `athlete.html`. Tap any displayed weight → modal with plate breakdown.
 
 ## Critical fixes — do NOT regress
@@ -78,7 +78,10 @@ Every fx file respects `prefers-reduced-motion`.
 - `marketplace_sales` — purchase records, with `coach_payout_cents` + `payout_status`.
 - `invites` — 6-char codes a coach generates to connect athletes.
 - `session_notes` + `checkins` — coach feedback + weekly check-in form.
-- `client_errors` — NEW table, populated by `send-client-error` edge fn.
+- `client_errors` — populated by `send-client-error` edge fn.
+- `program_reviews` — marketplace ratings/reviews. Public read; verified-buyer writes (RLS `EXISTS` against `program_sales`). Denormalised `coach_id` + `buyer_name` so anon viewers don't read `profiles`.
+- `messages` — coach↔athlete direct messages. `(coach_id, athlete_id)` is the thread; `sender_id` is who wrote it; `read_at` drives unread badges. Member-only RLS; insert gated on a live coach→athlete link.
+- `form_checks` — athlete form-check video requests + coach reply. Video bytes live in the private `form-checks` Storage bucket (not this table); `storage_path` points at them.
 
 All tables have RLS. Anon key in `db.js` is intentionally public (Supabase pattern). **Security depends entirely on RLS policies being correct.**
 
@@ -116,17 +119,32 @@ migration-marketplace-1rm.sql
 migration-directory-hidden.sql
 migration-tier-enforcement.sql
 migration-client-errors.sql
-migration-profiles-rls.sql         # NEW — UPDATE policies for coach/athlete disconnect
+migration-profiles-rls.sql            # UPDATE policies for coach/athlete disconnect
+migration-marketplace-reviews.sql     # program_reviews table + RLS (verified-buyer writes)
+migration-messages.sql                # coach↔athlete direct messaging + RLS
+migration-form-checks.sql             # form_checks table + private `form-checks` Storage bucket + object policies
 ```
+
+**Storage note:** `migration-form-checks.sql` also creates a private Storage bucket
+(`form-checks`, 100 MB/file cap, video MIME types) and RLS policies on
+`storage.objects`. Athlete videos live at `<athlete_id>/<ts>-<name>`; the leading
+folder = owner uid, which the object policies key off. Playback uses short-lived
+signed URLs (`DB.formCheckSignedUrl`), never public links.
+
+## Recently shipped (reviews / messaging / form checks)
+
+- **Marketplace reviews/ratings** — DONE. `program_reviews` table (`migration-marketplace-reviews.sql`), public read, verified-buyer writes (RLS `EXISTS` against `program_sales`), one review per buyer per program (upsert). Shared helpers in `app.js`: `reviewStats()`, `starString()`, `starsHtml()` (unit-tested in `tests.html`). UI: rating badges on `marketplace.html` browse cards, summary + list + gated write-form on the detail page, aggregate rating + testimonials section on `coach-profile.html`. db.js: `listProgramReviews`, `listReviewsForPrograms`, `listReviewsForCoach`, `hasPurchasedProgram`, `upsertProgramReview`, `deleteProgramReview`.
+- **Coach ↔ athlete messaging** — DONE. `messages` table (`migration-messages.sql`), member-only RLS, insert gated on a live coach→athlete link. Shared UI `renderMessageThread()` in `app.js` (bubbles + composer, Enter sends). Athlete: Coach tab thread. Coach: 💬 button per roster card → `messageModal`, unread badges via `DB.listUnreadForUser`. db.js: `listMessages`, `sendMessage`, `markThreadRead`, `listUnreadForUser`.
+- **Form-check video uploads** — DONE. `form_checks` table + private Storage bucket (`migration-form-checks.sql`). Athlete uploads a clip (Coach tab → Form checks) with optional lift + note; coach sees a Form-checks inbox on the roster, opens `formCheckModal` to watch (signed URL) + write a cue. db.js: `uploadFormCheck`, `listFormChecksForAthlete`, `listFormChecksForCoach`, `formCheckSignedUrl`, `replyToFormCheck`, `deleteFormCheck`. NOTE: messaging + form checks have **no demo path** (real Supabase only) — both are guarded by `window._demoMode` and skipped in the `?demo=1` hero demo.
 
 ## Known gaps / pending work
 
-- **Marketplace reviews/ratings** — not built. Social proof gap once 5+ coaches are listing.
-- **Self-serve data export** — Privacy policy + FAQ promise it ("email us"). UI button doesn't exist. GDPR risk if scaled.
+- **Self-serve data export** — DONE this session (Settings → Export, JSON + CSV; program→spreadsheet CSV on both dashboards). Copy in privacy.html + faq.html updated to describe it.
 - **Cookie consent banner** — not built. Plausible alone doesn't require one but if you ever add a 3rd-party tracker you'll need it for EU.
 - **Bodyweight class / cut-bulk tracking** — only raw bodyweight is tracked.
-- **Marketplace search** — present but basic. No sort by price/popularity, no category filter.
+- **Marketplace search** — present but basic. No sort by price/popularity, no category filter. (Reviews now give a `soldCount`/rating signal to sort on if you build it.)
 - **Referral / affiliate program** — none.
+- **Messaging realtime** — threads load on open + poll-free; no Supabase realtime subscription. Unread badges refresh on dashboard load and after closing a thread. Fine at current scale; revisit if users expect live chat.
 
 ## Hero coach-pitch (new this session)
 

@@ -876,7 +876,7 @@ function loadProgram() {
   aside.appendChild(weekNav);
   builder.appendChild(aside);
 
-  const main = el('div');
+  const main = el('div', { class: 'builder-main' });
   const wk = prog.weeks[activeWeekIdx];
   if (!wk) { main.appendChild(el('p', { class: 'dim' }, 'No weeks yet.')); builder.appendChild(main); area.appendChild(builder); return; }
 

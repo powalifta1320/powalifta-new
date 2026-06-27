@@ -296,6 +296,88 @@ group('data export');
 })();
 
 /* ===========================================================
+   9b. Program → spreadsheet export
+   =========================================================== */
+group('program export');
+(() => {
+  const saved = (() => { try { return localStorage.getItem('powa-unit'); } catch { return null; } })();
+  try {
+    setUnit('kg');
+    const program = { id: 'p1', athleteId: 'ath1', name: 'Test Block', weeks: [
+      { number: 1, days: [
+        { id: 'd1', name: 'Squat Day', exercises: [
+          { id: 'e1', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'brace hard', sets: [
+            { weight: 150, reps: 5, rpe: 7 }, { weight: 150, reps: 5, rpe: 8 } ] },
+          { id: 'e2', lift: 'legs', variant: '', exerciseName: 'Leg Curls', note: '', sets: [
+            { weight: 30, reps: 12, rpe: 8 } ] },
+        ] },
+        { id: 'd2', name: 'Rest', exercises: [] },
+      ] },
+    ] };
+    const csv = buildProgramCsv(program);
+    const lines = csv.split('\n');
+    test('header carries the unit + tracking columns', () =>
+      eq(lines[0], 'week,day,exercise,variant,set,weight (kg),reps,target_rpe,done,actual_weight,actual_rpe,notes'));
+    test('one row per prescribed set', () =>
+      eq(lines.filter(l => l.indexOf('Week 1,Squat Day,Squat,Competition,') === 0).length, 2));
+    test('main lift labelled, variant in its own column, kg weight', () =>
+      assert(lines.some(l => l.indexOf('Week 1,Squat Day,Squat,Competition,1,150,5,7,,,,brace hard') === 0)));
+    test('coach note only on the first set of an exercise', () => {
+      const set2 = lines.find(l => l.indexOf('Week 1,Squat Day,Squat,Competition,2,') === 0);
+      assert(set2 && /,,,,$/.test(set2), 'set 2 row was: ' + set2);
+    });
+    test('accessory keeps its name', () =>
+      assert(lines.some(l => l.indexOf('Week 1,Squat Day,Leg Curls,,1,30,12,8,') === 0)));
+    test('rest day emits a marker row', () =>
+      assert(lines.some(l => l.indexOf('Week 1,Rest,— Rest day —,') === 0)));
+    setUnit('lbs');
+    test('lbs mode: header + weight convert (150kg ≈ 330.7lb)', () => {
+      const l = buildProgramCsv(program).split('\n');
+      assert(l[0].indexOf('weight (lbs)') >= 0, 'header: ' + l[0]);
+      assert(l.some(r => r.indexOf('Week 1,Squat Day,Squat,Competition,1,330.7,') === 0), 'no converted row');
+    });
+  } finally {
+    try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch {}
+  }
+})();
+
+group('marketplace reviews');
+test('reviewStats: empty list → zeros', () => {
+  const s = reviewStats([]);
+  eq(s.count, 0); eq(s.avg, 0); eq(s.rounded, 0);
+});
+test('reviewStats: average rounded to 1 decimal', () => {
+  const s = reviewStats([{ rating: 5 }, { rating: 4 }, { rating: 4 }]); // 13/3 = 4.333
+  eq(s.count, 3); eq(s.avg, 4.3); eq(s.rounded, 4);
+});
+test('reviewStats: distribution buckets each rating', () => {
+  const s = reviewStats([{ rating: 5 }, { rating: 5 }, { rating: 3 }, { rating: 1 }]);
+  eq(s.dist[5], 2); eq(s.dist[3], 1); eq(s.dist[1], 1); eq(s.dist[2], 0);
+});
+test('reviewStats: drops out-of-range / malformed entries', () => {
+  const s = reviewStats([{ rating: 5 }, { rating: 0 }, { rating: 6 }, null, { rating: 3 }]);
+  eq(s.count, 2); eq(s.avg, 4); // (5+3)/2
+});
+test('reviewStats: non-array input is safe', () => {
+  const s = reviewStats(null);
+  eq(s.count, 0); eq(s.avg, 0);
+});
+test('starString: fills round(value) of 5 glyphs', () => {
+  eq(starString(0), '☆☆☆☆☆');
+  eq(starString(4.4), '★★★★☆');
+  eq(starString(5), '★★★★★');
+});
+test('starString: clamps out-of-range input', () => {
+  eq(starString(99), '★★★★★');
+  eq(starString(-3), '☆☆☆☆☆');
+});
+test('starsHtml: emits 5 spans, filled ones marked st-on', () => {
+  const h = starsHtml(3);
+  eq((h.match(/st-on/g) || []).length, 3);
+  eq((h.match(/st-off/g) || []).length, 2);
+});
+
+/* ===========================================================
    10. Importer round-trip (athlete.html, demo iframe)
    These functions are page-inline in athlete.html, so we load it
    in a hidden ?demo=1 iframe and reach into its window. If it

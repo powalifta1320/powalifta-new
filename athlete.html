@@ -17,6 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="dash-fx.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
@@ -48,7 +49,7 @@
       <div class="dash-header">
         <div>
           <h2>Session</h2>
-          <p class="dim text-sm">Pick the date you trained, then tick each set as you finish — log your real RPE.</p>
+          <p class="dim text-sm">Pick the date you trained, then tick each set as you finish. Log your real RPE.</p>
         </div>
         <select id="daySelect" style="max-width:280px"></select>
       </div>
@@ -80,7 +81,7 @@
 
     <section data-pane="progress" class="hidden">
       <div class="dash-header">
-        <div><h2>Progress</h2><p class="dim text-sm">e1RM trends — variant multipliers applied so paused/tempo/etc. compare to comp.</p></div>
+        <div><h2>Progress</h2><p class="dim text-sm">e1RM trends with variant multipliers applied, so paused/tempo/etc. compare to comp.</p></div>
         <button class="btn" onclick="openGoalsModal()" id="goalsBtn"></button>
       </div>
       <div id="progressArea"></div>
@@ -120,7 +121,7 @@
     <!-- BROWSE MARKETPLACE — published programs, inline -->
     <section data-pane="marketplace" class="hidden">
       <div class="dash-header">
-        <div><h2>Marketplace</h2><p class="dim text-sm">Programs published by coaches. Buy one to add it to your library — reps + RPE come from the coach, weights you set yourself.</p></div>
+        <div><h2>Marketplace</h2><p class="dim text-sm">Programs published by coaches. Buy one to add it to your library. Reps and RPE come from the coach; weights you set yourself.</p></div>
       </div>
       <div class="card mb-16" style="padding: 14px 18px;">
         <div class="flex gap-12" style="flex-wrap: wrap;">
@@ -436,13 +437,13 @@ function maybeStartAthleteTour() {
     {
       selector: '#tab-today',
       title: 'Today\'s session',
-      body: 'Open this at the gym. You\'ll see exactly what your coach prescribed — weight, reps, RPE. Tap each set as you finish, log how it actually felt.',
+      body: 'Open this at the gym. You\'ll see exactly what your coach prescribed: weight, reps, RPE. Tap each set as you finish, log how it actually felt.',
       before: () => { const t = document.getElementById('tab-today'); if (t) t.click(); }
     },
     {
       selector: '#goalsBtn',
       title: 'Set your goals',
-      body: 'Squat, bench, deadlift, total, bodyweight — pick targets and watch progress bars track your climb. Hit this anytime in the Progress tab.',
+      body: 'Squat, bench, deadlift, total, bodyweight: pick targets and watch progress bars track your climb. Hit this anytime in the Progress tab.',
       before: () => { const t = document.getElementById('tab-progress'); if (t) t.click(); }
     },
     {
@@ -1017,7 +1018,7 @@ function renderToday() {
     const banner = el('div', { class: 'checkin-banner' });
     banner.appendChild(el('div', { style: 'flex:1' },
       el('div', { class: 'fw-700' }, 'Weekly check-in pending'),
-      el('div', { class: 'faint text-sm' }, 'Tell your coach how the week is going — takes 30 seconds.')
+      el('div', { class: 'faint text-sm' }, 'Tell your coach how the week is going. Takes 30 seconds.')
     ));
     const btn = el('button', { class: 'btn btn-sm btn-primary' }, 'Check in');
     btn.addEventListener('click', () => openCheckinModal(weekStart));
@@ -1123,8 +1124,14 @@ function renderToday() {
       card.appendChild(el('div', { class: 'set-summary' }, summaryText));
     }
 
-    // Compact set rows — one per set, no per-set textarea
+    // Compact set rows — one labeled ledger, one row per set
     const setsList = el('div', { class: 'compact-sets' });
+    const setsHead = el('div', { class: 'compact-set-head' });
+    setsHead.appendChild(el('div', {}, '#'));
+    setsHead.appendChild(el('div', {}, isCardio ? 'Target' : 'Prescribed'));
+    setsHead.appendChild(el('div', { class: 'csh-felt' }, 'Felt'));
+    setsHead.appendChild(el('div', {}, ''));
+    setsList.appendChild(setsHead);
     ex.sets.forEach((set, si) => {
       const row = el('div', { class: 'compact-set' + (set.completed ? ' done' : '') });
       row.appendChild(el('div', { class: 'cs-num' }, String(si + 1)));
@@ -1344,6 +1351,8 @@ async function toggleSet(exerciseId, setIndex, checked) {
     });
     persistProgram(prog.id);
     if (logIdToDelete) persistDeleteLog(logIdToDelete);
+    // Un-ticking the set that started the rest clock should clear it too.
+    stopRestTimer();
   }
   renderToday();
   populateDaySelect();
@@ -2312,7 +2321,7 @@ async function exportProgramAsImage(weekNumber) {
           html += '<div style="margin-bottom: 10px; padding: 10px 12px; background: #1d1d22; border-radius: 8px;">';
           html +=   '<div style="font-weight: 700; font-size: 0.96rem; color: #f4f4f6; margin-bottom: 6px;">' + escHtml(title) + '</div>';
           if (ex.note) {
-            html += '<div style="font-size: 0.82rem; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,181,71,0.07); border-left: 3px solid #ffb547; border-radius: 4px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
+            html += '<div style="font-size: 0.82rem; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,181,71,0.07); border: 1px solid rgba(255,181,71,0.25); border-radius: 6px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
           }
           ex.sets.forEach((set, si) => {
             const w = (set.weight != null && set.weight !== '' && set.weight !== 0) ? (kgToDisplay(set.weight) + ' ' + unitLabel()) : '—';
@@ -2486,8 +2495,8 @@ async function renderLibrary() {
   }
 
   // Note about how installing works
-  const note = el('div', { class: 'card mb-16', style: 'padding: 14px 18px; background: var(--bg-2); border-left: 3px solid var(--red);' });
-  note.appendChild(el('div', { class: 'dim text-sm' }, 'Installing a program replaces your current active program. You can reinstall any purchased program at any time — your purchases never expire.'));
+  const note = el('div', { class: 'card mb-16', style: 'padding: 14px 18px; background: var(--bg-2); border: 1px solid rgba(255,45,63,0.25);' });
+  note.appendChild(el('div', { class: 'dim text-sm' }, 'Installing a program replaces your current active program. You can reinstall any purchased program at any time. Your purchases never expire.'));
   area.appendChild(note);
 
   const myProg = s.programs.find(p => p.athleteId === user.id);
@@ -2702,7 +2711,7 @@ function openMarketplaceDetail(programId) {
   ));
 
   if (p.description) {
-    body.appendChild(el('div', { style: 'background: var(--bg-2); padding: 14px 18px; border-radius: 8px; border-left: 3px solid var(--red); margin-bottom: 18px; white-space: pre-wrap; line-height: 1.6;' }, p.description));
+    body.appendChild(el('div', { style: 'background: var(--bg-2); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,45,63,0.25); margin-bottom: 18px; white-space: pre-wrap; line-height: 1.6;' }, p.description));
   }
 
   const note = el('div', { class: 'dim text-sm mb-16', style: 'padding: 12px 14px; background: var(--bg-2); border-radius: 8px;' },
@@ -2790,6 +2799,10 @@ function renderSelfBuilder() {
   headRow.appendChild(nameInput);
 
   const headActions = el('div', { class: 'flex gap-8' });
+  const sheetBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Download the whole program as a spreadsheet (CSV) for offline tracking' });
+  sheetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export';
+  sheetBtn.setAttribute('onclick', 'exportProgramCsv()');
+  headActions.appendChild(sheetBtn);
   const addWkBtn = el('button', { class: 'btn btn-sm', onclick: () => sbAddWeek(prog.id) });
   addWkBtn.innerHTML = '+ Add week';
   headActions.appendChild(addWkBtn);
@@ -3167,8 +3180,14 @@ function renderFullProgram() {
     area.appendChild(e); return;
   }
 
-  // Program title (no program-level export button — each week has its own)
-  area.appendChild(el('h3', { class: 'mb-16' }, prog.name));
+  // Program title + program-level "export to spreadsheet" (per-week image save lives in each week header)
+  const progHead = el('div', { style: 'display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;' });
+  progHead.appendChild(el('h3', { style: 'margin:0;' }, prog.name));
+  const sheetBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Download the whole program as a spreadsheet (CSV) for offline tracking' });
+  sheetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export to spreadsheet';
+  sheetBtn.setAttribute('onclick', 'exportProgramCsv()');
+  progHead.appendChild(sheetBtn);
+  area.appendChild(progHead);
 
   prog.weeks.forEach(wk => {
     const wkCard = el('div', { class: 'card mb-24' });
@@ -3197,12 +3216,22 @@ function renderFullProgram() {
           const row = el('div', { class: 'exercise-row' });
           row.appendChild(el('div', { class: 'exercise-name mb-8' }, title));
           if (ex.note) row.appendChild(el('div', { class: 'coach-note', html: '<strong>Coach:</strong> ' + escHtml(ex.note) }));
+          const setsWrap = el('div', { class: 'prog-sets' });
           ex.sets.forEach((set, si) => {
-            const done = set.completed ? ' ✓ (felt RPE ' + set.actualRpe + ')' : '';
-            const rpePart = set.rpe == null ? '' : ' @ RPE ' + set.rpe;
-            const wTxt = set.weight > 0 ? kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps : set.reps + ' reps (enter weight in Today view)';
-            row.appendChild(el('div', { class: 'mono dim text-sm' }, 'Set ' + (si + 1) + ': ' + wTxt + rpePart + done));
+            const r = el('div', { class: 'prog-set' + (set.completed ? ' done' : '') });
+            r.appendChild(el('span', { class: 'ps-num' }, String(si + 1)));
+            const load = set.weight > 0
+              ? (kgToDisplay(set.weight) + ' ' + unitLabel() + ' × ' + set.reps)
+              : ('× ' + set.reps);
+            r.appendChild(el('span', { class: 'ps-load' }, load));
+            r.appendChild(el('span', { class: 'ps-rpe' }, set.rpe == null ? '' : 'RPE ' + set.rpe));
+            const felt = set.completed
+              ? ('✓ felt ' + set.actualRpe)
+              : (set.weight > 0 ? '' : 'set weight in Today');
+            r.appendChild(el('span', { class: 'ps-felt' }, felt));
+            setsWrap.appendChild(r);
           });
+          row.appendChild(setsWrap);
           body.appendChild(row);
         });
       }
@@ -3356,6 +3385,29 @@ function renderCoach() {
   card.appendChild(top);
   card.appendChild(el('p', { class: 'dim' }, coach.bio || 'No bio.'));
 
+  // Direct messaging with the coach. Real Supabase only — skipped in demo.
+  if (!window._demoMode) {
+    const msgSection = el('div', { style: 'margin-top:24px; padding-top:18px; border-top:1px solid var(--line);' });
+    msgSection.appendChild(el('p', { class: 'dim text-sm mb-8' }, 'Messages'));
+    const msgHost = el('div', {});
+    msgSection.appendChild(msgHost);
+    card.appendChild(msgSection);
+    renderMessageThread(msgHost, {
+      coachId: coach.id,
+      athleteId: user.id,
+      viewerId: user.id,
+      otherName: coach.name.split(' ')[0]
+    });
+
+    // Form-check video uploads
+    const fcSection = el('div', { style: 'margin-top:24px; padding-top:18px; border-top:1px solid var(--line);' });
+    fcSection.appendChild(el('p', { class: 'dim text-sm mb-8' }, 'Form checks'));
+    const fcHost = el('div', {});
+    fcSection.appendChild(fcHost);
+    card.appendChild(fcSection);
+    renderAthleteFormChecks(fcHost, coach);
+  }
+
   const danger = el('div', { style: 'margin-top:24px; padding-top:18px; border-top:1px solid var(--line);' });
   danger.appendChild(el('p', { class: 'dim text-sm mb-8' }, 'Coach relationship'));
   const leaveBtn = el('button', { class: 'btn btn-block btn-danger', onclick: () => leaveMyCoach(coach.name) }, 'Leave ' + coach.name);
@@ -3364,6 +3416,103 @@ function renderCoach() {
   card.appendChild(danger);
 
   area.appendChild(card);
+}
+
+// Athlete's form-check panel: upload a clip + see past submissions and the
+// coach's written reply. Video is private — playback uses a signed URL.
+async function renderAthleteFormChecks(host, coach) {
+  host.innerHTML = '';
+
+  // --- Upload form ---
+  const form = el('div', { class: 'fc-form' });
+  const fileInput = el('input', { type: 'file', accept: 'video/*', class: 'fc-file' });
+  const liftSel = el('select', { class: 'fc-lift' });
+  [['', 'Lift (optional)'], ['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift'], ['other', 'Other']]
+    .forEach(([v, l]) => liftSel.appendChild(el('option', { value: v }, l)));
+  const noteInput = el('textarea', { class: 'fc-note', rows: '2', maxlength: '500', placeholder: 'What do you want eyes on? (e.g. "depth on rep 3?")' });
+  const uploadBtn = el('button', { class: 'btn btn-primary' }, 'Send for review');
+  form.appendChild(fileInput);
+  form.appendChild(liftSel);
+  form.appendChild(noteInput);
+  form.appendChild(uploadBtn);
+  host.appendChild(form);
+
+  const listHost = el('div', { class: 'fc-list', style: 'margin-top:16px;' });
+  host.appendChild(listHost);
+
+  uploadBtn.addEventListener('click', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return toast('Pick a video first');
+    if (file.size > 104857600) return toast('Video is over 100 MB — trim it or lower the quality');
+    uploadBtn.disabled = true;
+    const orig = uploadBtn.textContent;
+    uploadBtn.textContent = 'Uploading…';
+    try {
+      await DB.uploadFormCheck({
+        athleteId: user.id, coachId: coach.id, file,
+        lift: liftSel.value, note: noteInput.value
+      });
+      toast('Sent to ' + coach.name.split(' ')[0] + ' for review');
+      fileInput.value = ''; noteInput.value = ''; liftSel.value = '';
+      loadList();
+    } catch (e) {
+      console.error('uploadFormCheck', e);
+      toast(e.message ? ('Upload failed: ' + e.message) : 'Upload failed — try again');
+    } finally {
+      uploadBtn.disabled = false; uploadBtn.textContent = orig;
+    }
+  });
+
+  async function loadList() {
+    listHost.innerHTML = '<p class="dim text-sm">Loading…</p>';
+    let checks = [];
+    try { checks = await DB.listFormChecksForAthlete(user.id); }
+    catch (e) { console.warn(e); }
+    listHost.innerHTML = '';
+    if (!checks.length) {
+      listHost.appendChild(el('p', { class: 'dim text-sm' }, 'No form checks yet. Upload a clip above and your coach can review it.'));
+      return;
+    }
+    checks.forEach(fc => listHost.appendChild(buildFormCheckCard(fc, coach.name.split(' ')[0], true)));
+  }
+  loadList();
+}
+
+// Shared card builder for a single form check. `isAthlete` controls the empty
+// reply copy. Used by the athlete panel; the coach reuses the video loader.
+function buildFormCheckCard(fc, otherFirst, isAthlete) {
+  const LIFT_LBL = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift', other: 'Other' };
+  const item = el('div', { class: 'fc-item' });
+  const head = el('div', { class: 'fc-item-head' });
+  head.appendChild(el('span', { class: 'fc-item-lift' }, LIFT_LBL[fc.lift] || 'Form check'));
+  head.appendChild(el('span', { class: 'fc-item-date dim text-xs' }, fmtDateShort(fc.createdAt)));
+  item.appendChild(head);
+  if (fc.note) item.appendChild(el('p', { class: 'fc-item-note' }, '“' + fc.note + '”'));
+
+  // Lazy video loader — fetch a signed URL only when they click Watch.
+  const videoWrap = el('div', { class: 'fc-video-wrap' });
+  const watchBtn = el('button', { class: 'btn btn-sm btn-ghost' }, '▶ Watch clip');
+  watchBtn.addEventListener('click', async () => {
+    watchBtn.disabled = true; watchBtn.textContent = 'Loading…';
+    const url = await DB.formCheckSignedUrl(fc.storagePath);
+    if (!url) { watchBtn.disabled = false; watchBtn.textContent = '▶ Watch clip'; return toast('Could not load video'); }
+    const v = el('video', { src: url, controls: 'controls', playsinline: 'playsinline', class: 'fc-video' });
+    videoWrap.innerHTML = '';
+    videoWrap.appendChild(v);
+  });
+  videoWrap.appendChild(watchBtn);
+  item.appendChild(videoWrap);
+
+  // Coach reply
+  const reply = el('div', { class: 'fc-reply' });
+  if (fc.coachReply) {
+    reply.appendChild(el('div', { class: 'fc-reply-lbl' }, 'Coach reply'));
+    reply.appendChild(el('p', { class: 'fc-reply-body' }, fc.coachReply));
+  } else {
+    reply.appendChild(el('p', { class: 'dim text-xs' }, isAthlete ? 'Waiting on ' + otherFirst + '’s reply…' : 'No reply yet'));
+  }
+  item.appendChild(reply);
+  return item;
 }
 
 async function leaveMyCoach(coachName) {

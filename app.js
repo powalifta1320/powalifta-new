@@ -1329,6 +1329,209 @@ function exportMyData(format) {
 window.exportMyData = exportMyData;
 window.buildExportPayload = buildExportPayload;
 
+// =========================================================
+// PROGRAM → SPREADSHEET (offline tracking)
+// Flattens a coach-built program into a CSV grid: one row per
+// prescribed set, plus empty done/actual columns the athlete fills
+// at the gym. Weights are in the user's selected unit (kg/lbs).
+// =========================================================
+function _progExLabel(ex) {
+  if (MAIN_LIFTS.includes(ex.lift)) return LIFT_LABELS[ex.lift] || ex.lift;
+  if (ACCESSORY_LIFTS.includes(ex.lift)) return ex.exerciseName || LIFT_LABELS[ex.lift] || ex.lift;
+  if (ex.lift === 'cardio') return ex.exerciseName || 'Cardio';
+  return ex.exerciseName || ex.lift || '';
+}
+function buildProgramCsv(program) {
+  const u = unitLabel();
+  const header = ['week', 'day', 'exercise', 'variant', 'set',
+    'weight (' + u + ')', 'reps', 'target_rpe', 'done', 'actual_weight', 'actual_rpe', 'notes'];
+  const rows = [header.map(_csvEscape).join(',')];
+  if (!program || !Array.isArray(program.weeks)) return rows.join('\n');
+  program.weeks.forEach(wk => {
+    const wkLabel = 'Week ' + (wk.number != null ? wk.number : '');
+    (wk.days || []).forEach(day => {
+      const dayName = day.name || 'Day';
+      const isRest = /\b(rest|off|recovery)\b/i.test(dayName) && !(day.exercises || []).length;
+      if (isRest || !(day.exercises || []).length) {
+        rows.push([wkLabel, dayName, isRest ? '— Rest day —' : '— No exercises —', '', '', '', '', '', '', '', '', '']
+          .map(_csvEscape).join(','));
+        return;
+      }
+      day.exercises.forEach(ex => {
+        const label = _progExLabel(ex);
+        const variant = MAIN_LIFTS.includes(ex.lift) ? (ex.variant || '') : (ex.variant || '');
+        const note = ex.note || '';
+        if (!(ex.sets || []).length) {
+          rows.push([wkLabel, dayName, label, variant, '', '', '', '', '', '', '', note].map(_csvEscape).join(','));
+          return;
+        }
+        ex.sets.forEach((st, si) => {
+          const w = st.weight != null && st.weight !== '' ? kgToDisplay(st.weight) : '';
+          rows.push([
+            wkLabel, dayName, label, variant, si + 1,
+            w, st.reps != null ? st.reps : '', st.rpe != null ? st.rpe : '',
+            '', '', '', si === 0 ? note : ''
+          ].map(_csvEscape).join(','));
+        });
+      });
+    });
+  });
+  return rows.join('\n');
+}
+function exportProgramCsv(athleteId, athleteName) {
+  const u = getCurrentUser();
+  if (!u) return;
+  const aid = athleteId || u.id;
+  const program = (Store.get().programs || []).find(p => p.athleteId === aid);
+  const setCount = program ? (program.weeks || []).flatMap(w => w.days || []).flatMap(d => d.exercises || []).flatMap(e => e.sets || []).length : 0;
+  if (!program || !setCount) return toast('No program to export yet');
+  const stamp = new Date().toISOString().slice(0, 10);
+  const base = (athleteName || u.name || 'powalifta').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'athlete';
+  const csv = buildProgramCsv(program);
+  if (_downloadBlob('powalifta-program-' + base + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv)) {
+    toast('Exported ' + setCount + ' set' + (setCount === 1 ? '' : 's') + ' to spreadsheet');
+  }
+}
+window.buildProgramCsv = buildProgramCsv;
+window.exportProgramCsv = exportProgramCsv;
+
+// =========================================================
+// MARKETPLACE REVIEWS — shared display helpers (pure).
+// Used by marketplace.html (browse badges + detail) and
+// coach-profile.html (catalog-wide social proof).
+// =========================================================
+// Aggregate a list of {rating} into { count, avg, rounded, dist:{1..5} }.
+function reviewStats(reviews) {
+  const list = Array.isArray(reviews) ? reviews.filter(r => r && r.rating >= 1 && r.rating <= 5) : [];
+  const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let sum = 0;
+  list.forEach(r => { const n = Math.round(r.rating); dist[n]++; sum += n; });
+  const count = list.length;
+  const avg = count ? Math.round((sum / count) * 10) / 10 : 0;
+  return { count, avg, rounded: Math.round(avg), dist };
+}
+// Five-star string. `value` 0..5; fills round(value) stars. Returns plain text
+// (★/☆) so it works in titles, alt text, and innerHTML alike.
+function starString(value) {
+  const filled = Math.max(0, Math.min(5, Math.round(value || 0)));
+  return '★★★★★'.slice(0, filled) + '☆☆☆☆☆'.slice(0, 5 - filled);
+}
+// HTML stars with the brand red on filled glyphs. `value` 0..5.
+function starsHtml(value, cls) {
+  const filled = Math.max(0, Math.min(5, Math.round(value || 0)));
+  let out = '<span class="stars' + (cls ? ' ' + cls : '') + '" aria-hidden="true">';
+  for (let i = 1; i <= 5; i++) out += '<span class="' + (i <= filled ? 'st-on' : 'st-off') + '">★</span>';
+  return out + '</span>';
+}
+window.reviewStats = reviewStats;
+window.starString = starString;
+window.starsHtml = starsHtml;
+
+// ----------------------------------------------------------------------
+// Coach ↔ athlete message thread — shared UI used by BOTH the athlete
+// dashboard (Coach tab) and the coach dashboard (per-athlete). Renders a
+// scrollable bubble list + a composer into `container`.
+//
+// opts = { coachId, athleteId, viewerId, otherName }
+//   viewerId — the signed-in user (decides sent vs received alignment)
+//   otherName — display name of the person on the far side of the thread
+// ----------------------------------------------------------------------
+function _msgTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+           ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } catch (e) { return ''; }
+}
+
+async function renderMessageThread(container, opts) {
+  const { coachId, athleteId, viewerId, otherName } = opts || {};
+  if (!container) return;
+  container.innerHTML = '';
+
+  const wrap = el('div', { class: 'msg-thread' });
+  const list = el('div', { class: 'msg-list' });
+  list.appendChild(el('div', { class: 'msg-loading dim text-sm' }, 'Loading messages…'));
+  wrap.appendChild(list);
+
+  // Composer
+  const composer = el('div', { class: 'msg-composer' });
+  const ta = el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message ' + (otherName || '') + '…', maxlength: '2000' });
+  const sendBtn = el('button', { class: 'btn btn-primary msg-send' }, 'Send');
+  composer.appendChild(ta);
+  composer.appendChild(sendBtn);
+  wrap.appendChild(composer);
+  container.appendChild(wrap);
+
+  function paint(messages) {
+    list.innerHTML = '';
+    if (!messages.length) {
+      list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
+        'No messages yet. Say hi to ' + (otherName || 'them') + '.'));
+      return;
+    }
+    let lastDay = '';
+    messages.forEach(m => {
+      const day = (m.createdAt || '').slice(0, 10);
+      if (day && day !== lastDay) {
+        lastDay = day;
+        let label = day;
+        try { label = new Date(m.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) {}
+        list.appendChild(el('div', { class: 'msg-daysep' }, label));
+      }
+      const mine = m.senderId === viewerId;
+      const row = el('div', { class: 'msg-row ' + (mine ? 'mine' : 'theirs') });
+      const bubble = el('div', { class: 'msg-bubble' });
+      bubble.appendChild(el('div', { class: 'msg-body' }, m.body));
+      bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(m.createdAt)));
+      row.appendChild(bubble);
+      list.appendChild(row);
+    });
+    list.scrollTop = list.scrollHeight;
+  }
+
+  let messages = [];
+  try {
+    messages = await DB.listMessages(coachId, athleteId);
+    paint(messages);
+    // Mark the ones addressed to me as read (fire and forget).
+    DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+  } catch (e) {
+    console.warn('renderMessageThread load', e);
+    list.innerHTML = '';
+    list.appendChild(el('div', { class: 'msg-empty dim text-sm' }, 'Could not load messages. Try reloading.'));
+  }
+
+  async function doSend() {
+    const body = ta.value.trim();
+    if (!body) return;
+    sendBtn.disabled = true; ta.disabled = true;
+    try {
+      const msg = await DB.sendMessage({ coachId, athleteId, senderId: viewerId, body });
+      if (msg) { messages.push(msg); paint(messages); }
+      ta.value = '';
+      autosize();
+    } catch (e) {
+      console.error('sendMessage', e);
+      toast('Could not send — are you still connected to them?');
+    } finally {
+      sendBtn.disabled = false; ta.disabled = false; ta.focus();
+    }
+  }
+  sendBtn.addEventListener('click', doSend);
+  // Enter sends, Shift+Enter newlines.
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+  });
+  function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
+  ta.addEventListener('input', autosize);
+}
+window.renderMessageThread = renderMessageThread;
+
 async function saveSettings() {
   const u = getCurrentUser();
   if (!u) return;
@@ -2073,7 +2276,7 @@ function renderNav(target) {
   brand.innerHTML = BRAND_MARK + '<span>POWA<span class="accent">LIFTA</span></span>';
   navInner.appendChild(brand);
 
-  const actions = el('div', { class: 'nav-actions' });
+  const actions = el('div', { class: 'nav-actions ' + (user ? 'auth' : 'guest') });
 
   // Theme toggle — always shown, anywhere in the nav
   const themeBtn = el('button', { class: 'theme-toggle', title: 'Toggle light / dark', 'aria-label': 'Toggle theme' });
