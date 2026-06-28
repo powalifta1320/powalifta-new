@@ -104,6 +104,22 @@
     }
     window.addEventListener('mousemove', onMove, { passive: true });
 
+    // ---- cursor-tracked rim-light -------------------------------------------
+    // After the one-shot forge sheen lands, the headline's rim-light stops being
+    // a canned sweep and starts following the pointer: the glint slides across
+    // the steel as the cursor crosses the hero, so the metal "catches the light".
+    // Held off until the CSS sheen finishes so the two never fight over
+    // background-position. Desktop-only (this whole module is gated to fine
+    // pointers), and it goes quiet once the hero scrolls away.
+    var rimLive = false;
+    function updateRim() {
+      if (!rimLive) return;
+      var frac = Math.max(0, Math.min(1, ppx / W));
+      // map pointer across the hero onto the sheen's travel (150% .. -50%)
+      var pos = 150 - frac * 200;
+      h1.style.backgroundPosition = pos.toFixed(1) + '% 0, 0 0';
+    }
+
     // ---- scroll: fade + lift + hand-off as the hero leaves ------------------
     var fade = 1;
     var stretch = 0;          // 0..1, drives force-line tension + steel dim
@@ -153,6 +169,7 @@
 
       var time = (now - t0) * 0.001;
 
+      updateRim();
       drawForceLine(time);
       drawChalk();
 
@@ -263,6 +280,16 @@
     // forge-in: the steel rises (CSS), and the chalk puffs off it as it lands
     hero.classList.add('fx-forge');
     setTimeout(puff, 820);
+
+    // Once the one-shot sheen has landed (0.7s delay + 2.6s sweep ≈ 3.3s), hand
+    // the rim-light to the cursor. Removing .fx-forge clears the held CSS
+    // animation so our inline background-position can take over cleanly.
+    setTimeout(function () {
+      h1.style.backgroundPosition = '-50% 0, 0 0';   // seamless from the sheen's end
+      hero.classList.remove('fx-forge');
+      rimLive = true;
+      updateRim();
+    }, 3500);
 
     // a one-time radial burst of dust from behind the headline
     function puff() {

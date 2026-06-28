@@ -67,6 +67,34 @@
        (see .hero.fx-forge h1). At rest the headline is static brushed steel. */
   }
 
+  /* Light theme: the dark-scene steel ramp (whites + pale grays) would wash out
+     to near-invisible on the light bg. Repaint with a graphite/gunmetal ramp —
+     dark brushed metal on paper — so the headline keeps its forged look and stays
+     legible (darkest band ~9:1 on #f7f7f9). The white rim-light still reads as a
+     polished glint travelling over the dark metal during the forge-in. */
+  [data-theme="light"] .hero h1 {
+    background-image:
+      linear-gradient(105deg,
+        transparent 41%,
+        rgba(255, 255, 255, 0.9) 48%,
+        #ffffff 50%,
+        rgba(255, 255, 255, 0.75) 52%,
+        transparent 57%),
+      linear-gradient(176deg,
+        #3b414c 0%,
+        #2a2e37 14%,
+        #4b5260 30%,
+        #1d212a 44%,
+        #181b22 51%,
+        #3d434f 58%,
+        #545b69 74%,
+        #2c3039 90%,
+        #3b414c 100%);
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35))
+            drop-shadow(0 14px 30px rgba(15, 15, 25, 0.22))
+            brightness(var(--fx-steel-bright, 1));
+  }
+
   /* keep BARBELL. the one red — repaint over the steel, restore its red glow */
   .hero h1 .accent {
     background-image: var(--grad-red);
@@ -111,6 +139,53 @@
    poster-depth texture; the headline wins. */
 .hero-ghost { opacity: 0.5; }
 
+/* ---- scroll cue ----------------------------------------------------------- */
+/* Sits at the foot of the hero, centred. It scrolls away with the header (it's
+   a hero child, not fixed), so it never floats over the content below. A small,
+   slow chevron bob — the only looping motion left on the hero, and a quiet one. */
+/* selector specificity (0,4,1) — must out-rank ui-fx's
+   `.hero a:not(.btn):not(.hero-demo-link)` (0,3,1) which otherwise forces
+   position:relative and knocks the cue off-centre. */
+.hero a.hero-scrollcue:not(.btn):not(.hero-demo-link) {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  z-index: 2;
+  text-decoration: none;
+  opacity: 0.62;
+  transition: opacity 0.25s ease;
+}
+.hero-scrollcue:hover { opacity: 1; }
+.hsc-label {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;          /* compensate the trailing tracking, keep it centred */
+  color: var(--text-3);
+}
+.hsc-chev {
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--red);
+  border-bottom: 2px solid var(--red);
+  transform: rotate(45deg);
+  animation: hscBob 2.1s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+@keyframes hscBob {
+  0%, 100% { transform: rotate(45deg) translate(0, 0); opacity: 0.55; }
+  50%      { transform: rotate(45deg) translate(3px, 3px); opacity: 1; }
+}
+@media (max-width: 760px) {
+  /* match the bumped base specificity (0,4,1) so the hide actually lands */
+  .hero a.hero-scrollcue:not(.btn):not(.hero-demo-link) { display: none; }
+}
+
 /* ---- reduced-motion: static steel, no sweep, no canvas -------------------- */
 @media (prefers-reduced-motion: reduce) {
   .fx-chalk-canvas { display: none !important; }
@@ -119,5 +194,39 @@
     transform: none;
     opacity: 1;
     background-position: 38% 0, 0 0;
+  }
+  .hsc-chev { animation: none; opacity: 0.85; }
+}
+
+/* ---- forced-colors (Windows High Contrast): kill the clipped-text trick ----
+   In forced-colors mode the OS owns the palette; a gradient clipped to
+   transparent text can render as nothing. Drop the steel entirely and hand the
+   headline back to a solid system color so it's guaranteed visible. */
+@media (forced-colors: active) {
+  .hero h1,
+  [data-theme="light"] .hero h1,
+  .hero h1 .accent {
+    background: none !important;
+    -webkit-text-fill-color: CanvasText !important;
+    color: CanvasText !important;
+    filter: none !important;
+    animation: none !important;
+  }
+  .fx-chalk-canvas { display: none !important; }
+}
+
+/* ---- prefers-contrast: more — push the steel toward a brighter, flatter ramp
+   so the mid-grey bands don't dip under the contrast floor for users who asked
+   for maximum legibility. Keeps the metal read, drops the dark valleys. */
+@media (prefers-contrast: more) {
+  .hero h1 {
+    background-image: linear-gradient(176deg,
+      #ffffff 0%, #e9edf3 40%, #cfd5df 50%, #e9edf3 60%, #ffffff 100%) !important;
+    background-position: 0 0 !important;
+  }
+  [data-theme="light"] .hero h1 {
+    background-image: linear-gradient(176deg,
+      #1a1d24 0%, #2c313b 40%, #3a414e 50%, #2c313b 60%, #1a1d24 100%) !important;
+    background-position: 0 0 !important;
   }
 }

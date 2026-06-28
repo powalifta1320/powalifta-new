@@ -27,6 +27,8 @@
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Preload Anton (the hero headline = LCP) so the steel type paints without a FOUT/CLS flash -->
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/anton/v27/1Ptgg87LROyAm3Kz-C8CSKlv.woff2">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="hero-fx.css">
@@ -69,7 +71,7 @@
   <div class="container">
     <span class="eyebrow"><span class="dot"></span> POWERLIFTING'S NEW HOME</span>
     <h1>BUILT FOR<br>THE <span class="accent tilt">BARBELL.</span></h1>
-    <p class="lead">Train solo or with a coach. Programs, RPE-based logging, automatic e1RM tracking, goals, and bodyweight, all in one place.</p>
+    <p class="lead">Stop training out of a spreadsheet. RPE-native programming, automatic e1RM tracking, and live SBD progress &mdash; solo or with your coach.</p>
     <div class="hero-cta">
       <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('solo'); return false;">Train solo</a>
       <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('athlete'); return false;">Join your coach</a>
@@ -104,6 +106,10 @@
       </div>
     </div>
   </div>
+  <a href="#e1rm" class="hero-scrollcue" aria-label="Scroll to features">
+    <span class="hsc-label">SCROLL</span>
+    <span class="hsc-chev" aria-hidden="true"></span>
+  </a>
 </header>
 
 <!-- Marquee strip -->
