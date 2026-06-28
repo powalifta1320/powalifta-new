@@ -220,6 +220,41 @@ group('best e1RM & total');
 })();
 
 /* ===========================================================
+   6b. Lift balance (SBD split vs typical raw ranges)
+   =========================================================== */
+group('lift balance');
+(() => {
+  test('null when any lift is missing', () => eq(liftBalance(200, 0, 240), null));
+  test('null when total is zero', () => eq(liftBalance(0, 0, 0), null));
+  test('shares sum to 1', () => {
+    const b = liftBalance(200, 130, 240);
+    close(b.rows.reduce((s, r) => s + r.share, 0), 1, 1e-9);
+  });
+  test('balanced split flags no weakest lift', () => {
+    // 35% / 23% / 42% of 600 → all inside their bands
+    const b = liftBalance(210, 138, 252);
+    eq(b.weakest, null);
+    assert(b.rows.every(r => r.status === 'balanced'), 'expected all balanced');
+  });
+  test('low bench is flagged lagging and chosen as weakest', () => {
+    // bench only ~15% of total
+    const b = liftBalance(220, 70, 250);
+    const bench = b.rows.find(r => r.lift === 'bench');
+    eq(bench.status, 'lagging');
+    eq(b.weakest.lift, 'bench');
+  });
+  test('oversized deadlift reads as strong', () => {
+    const b = liftBalance(150, 100, 320);
+    eq(b.rows.find(r => r.lift === 'deadlift').status, 'strong');
+  });
+  test('unit-agnostic: scaling all three keeps statuses', () => {
+    const a = liftBalance(220, 70, 250);
+    const b = liftBalance(220 * 2.2046, 70 * 2.2046, 250 * 2.2046);
+    eq(a.weakest.lift, b.weakest.lift);
+  });
+})();
+
+/* ===========================================================
    7. Signal center — coach
    =========================================================== */
 group('signals · coach');

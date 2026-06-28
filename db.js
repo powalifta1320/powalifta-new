@@ -262,6 +262,40 @@ const DB = {
     return data;
   },
 
+  // ---------- WEB PUSH ----------
+  // Save (upsert by endpoint) the browser's PushManager subscription for the
+  // signed-in user. `sub` is a raw PushSubscription.toJSON() shape.
+  async savePushSubscription(userId, sub, userAgent) {
+    const row = {
+      user_id: userId,
+      endpoint: sub.endpoint,
+      p256dh: sub.keys && sub.keys.p256dh,
+      auth: sub.keys && sub.keys.auth,
+      user_agent: userAgent || null
+    };
+    const { error } = await sb.from('push_subscriptions').upsert(row, { onConflict: 'endpoint' });
+    if (error) throw error;
+    return true;
+  },
+  async deletePushSubscription(endpoint) {
+    const { error } = await sb.from('push_subscriptions').delete().eq('endpoint', endpoint);
+    if (error) throw error;
+    return true;
+  },
+  // Fire a push at another user (self for a test, or a linked coach/athlete).
+  // Routes through the JWT-gated `send-push` edge function; never throws fatally.
+  async sendPush({ toUserId, title, body, url, tag }) {
+    try {
+      const { data, error } = await sb.functions.invoke('send-push', {
+        body: { toUserId, title, body, url, tag }
+      });
+      if (error) return { ok: false, error };
+      return data || { ok: true };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  },
+
   async signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;

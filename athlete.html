@@ -38,6 +38,7 @@
     <button class="sidebar-tab" data-tab="library" id="tab-library"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
     <div class="sidebar-foot">
+      <button class="btn btn-sm btn-ghost" id="notifToggle" type="button" style="display:none;width:100%;margin-bottom:10px;">🔔 Enable alerts</button>
       <div>POWALIFTA Athlete</div>
       <div class="faded">v0.3 · cloud-synced</div>
     </div>
@@ -150,6 +151,15 @@
     <div class="form-group">
       <label>Target weight (kg)</label>
       <input type="number" id="plateTarget" step="0.5" placeholder="100">
+    </div>
+    <div class="form-group">
+      <label>Bar</label>
+      <div class="plate-bar-pick" id="plateBarPick" role="group" aria-label="Bar weight">
+        <button type="button" class="pbar active" data-bar="standard">Men's</button>
+        <button type="button" class="pbar" data-bar="womens">Women's</button>
+        <button type="button" class="pbar" data-bar="custom">Custom</button>
+      </div>
+      <input type="number" id="plateBarCustom" class="plate-bar-custom" step="0.5" min="5" placeholder="25" aria-label="Custom bar weight" style="display:none">
     </div>
     <div class="plate-vis" id="plateVis"></div>
     <div class="plate-summary" id="plateSummary"></div>
@@ -287,6 +297,39 @@
 <script>
 let user;
 
+// Opt-in push toggle in the sidebar foot. Hidden unless the browser supports
+// Web Push and we're on a real (non-demo) account. Reflects live state and
+// flips between subscribe / unsubscribe. Until a VAPID key is set in app.js,
+// enable() degrades to a toast — the button just stays on "Enable alerts".
+async function wireNotifToggle() {
+  const btn = document.getElementById('notifToggle');
+  if (!btn || !window.PowaPush || !PowaPush.supported() || window._demoMode) return;
+  btn.style.display = '';
+
+  const paint = async () => {
+    if (PowaPush.permission() === 'denied') {
+      btn.innerHTML = '🔕 Alerts blocked'; btn.disabled = true; btn.dataset.on = ''; return;
+    }
+    const on = await PowaPush.isSubscribed();
+    btn.disabled = false;
+    btn.dataset.on = on ? '1' : '';
+    btn.innerHTML = on ? '🔔 Alerts on · tap to mute' : '🔔 Enable alerts';
+  };
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    if (btn.dataset.on === '1') {
+      await PowaPush.disable();
+    } else {
+      const ok = await PowaPush.enable();
+      if (ok) PowaPush.test();
+    }
+    await paint();
+  });
+
+  paint();
+}
+
 bootstrap('athlete', () => {
   user = getCurrentUser();
   renderNav('#nav');
@@ -353,6 +396,8 @@ bootstrap('athlete', () => {
     });
   });
 
+  wireNotifToggle();
+
   // When the user switches the program day dropdown:
   //   1) If the day is explicitly pinned to a date → jump to that date.
   //   2) Otherwise, if any sets are completed → jump to the most-common
@@ -411,6 +456,22 @@ bootstrap('athlete', () => {
   document.getElementById('restBtn').addEventListener('click', toggleRestDay);
   document.getElementById('bwDate').value = todayISO();
   document.getElementById('plateTarget').addEventListener('input', e => renderPlateCalc(Number(e.target.value)));
+  const plateCur = () => Number(document.getElementById('plateTarget').value);
+  document.querySelectorAll('#plateBarPick .pbar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      plateBar = btn.dataset.bar;
+      document.querySelectorAll('#plateBarPick .pbar').forEach(b => b.classList.toggle('active', b === btn));
+      const ci = document.getElementById('plateBarCustom');
+      ci.style.display = plateBar === 'custom' ? '' : 'none';
+      if (plateBar === 'custom') ci.focus();
+      renderPlateCalc(plateCur());
+    });
+  });
+  document.getElementById('plateBarCustom').addEventListener('input', e => {
+    const val = Number(e.target.value);
+    if (val > 0) plateBarCustomKg = getUnit() === 'lbs' ? (val * KG_PER_LB) : val;
+    renderPlateCalc(plateCur());
+  });
 
   populateDaySelect();
   autoSelectFirstIncompleteDay();
@@ -1554,38 +1615,172 @@ async function sharePRCard(lift) {
 window.sharePRCard = sharePRCard;
 
 // ===== REST TIMER =====
+// Timestamp-based: we track an absolute endTime and recompute the remaining
+// time each tick instead of decrementing a counter. That stays accurate across
+// phone-lock / tab-throttle (the next tick after wake self-corrects from the
+// clock), and the same model maps 1:1 onto an iOS Live Activity countdown.
 let restInterval = null;
+let restEndTime = 0;     // ms epoch when the timer fires
+let restTotalMs = 0;     // original duration, for the progress ring
+let restPausedMs = null; // null while running; ms-remaining while paused
+let restAudioCtx = null;
+
+function restFmt(s) {
+  s = Math.max(0, Math.ceil(s));
+  const m = Math.floor(s / 60), ss = s % 60;
+  return m + ':' + (ss < 10 ? '0' : '') + ss;
+}
+function restPrimeAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    restAudioCtx = restAudioCtx || new AC();
+    if (restAudioCtx.state === 'suspended') restAudioCtx.resume();
+  } catch (e) {}
+}
+function restBeep() {
+  if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200, 100, 300]); } catch (e) {} }
+  try {
+    if (!restAudioCtx) return;
+    if (restAudioCtx.state === 'suspended') restAudioCtx.resume();
+    const ctx = restAudioCtx, t0 = ctx.currentTime;
+    [0, 0.2, 0.4].forEach((t, i) => {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = i === 2 ? 1320 : 880;
+      g.gain.setValueAtTime(0.0001, t0 + t);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + t + 0.18);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0 + t); osc.stop(t0 + t + 0.2);
+    });
+  } catch (e) {}
+}
+function restRemainingMs() {
+  return restPausedMs != null ? restPausedMs : (restEndTime - Date.now());
+}
+function restPaint() {
+  const numEl = document.getElementById('rtNum');
+  const ring = document.getElementById('rtRing');
+  if (!numEl || !ring) return;
+  const remMs = restRemainingMs();
+  numEl.textContent = restFmt(remMs / 1000);
+  const pct = restTotalMs > 0 ? Math.max(0, Math.min(100, remMs / restTotalMs * 100)) : 0;
+  ring.style.setProperty('--rt-progress', pct.toFixed(1));
+}
+function restTick() {
+  if (restPausedMs != null) return;
+  if (restEndTime - Date.now() <= 0) { restFinish(); return; }
+  restPaint();
+}
+function restAdjust(deltaSec) {
+  const d = deltaSec * 1000;
+  if (restPausedMs != null) restPausedMs = Math.max(5000, restPausedMs + d);
+  else restEndTime = Math.max(Date.now() + 5000, restEndTime + d);
+  const remMs = restRemainingMs();
+  if (remMs > restTotalMs) restTotalMs = remMs; // ring stays sane if grown past start
+  restPaint();
+  nativeRestSync();
+}
+function restTogglePause() {
+  const btn = document.getElementById('rtPause');
+  const wrap = document.getElementById('restTimerEl');
+  if (restPausedMs != null) {
+    restEndTime = Date.now() + restPausedMs;
+    restPausedMs = null;
+    if (btn) btn.textContent = 'Pause';
+    if (wrap) wrap.classList.remove('paused');
+  } else {
+    restPausedMs = Math.max(0, restEndTime - Date.now());
+    if (btn) btn.textContent = 'Resume';
+    if (wrap) wrap.classList.add('paused');
+  }
+  restPaint();
+  nativeRestSync();
+}
+function restFinish() {
+  restBeep();
+  stopRestTimer();
+  toast('Rest done — next set');
+}
+// Native bridge: inside the iOS/Android Capacitor shell, mirror the rest timer
+// into a Live Activity (Dynamic Island countdown). No-ops in the browser / PWA —
+// window.Capacitor is undefined there, so every call short-circuits.
+function nativeRestPlugin() {
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.RestTimer) || null;
+}
+function nativeRestStart(endTimeMs, totalSec) {
+  const p = nativeRestPlugin(); if (!p) return;
+  try { p.start({ endTime: Math.round(endTimeMs), total: totalSec, label: 'Rest' }); } catch (e) {}
+}
+function nativeRestSync() {
+  const p = nativeRestPlugin(); if (!p) return;
+  const running = restPausedMs == null;
+  const endTime = running ? restEndTime : (Date.now() + restPausedMs);
+  try { p.update({ endTime: Math.round(endTime), paused: !running }); } catch (e) {}
+}
+function nativeRestStop() {
+  const p = nativeRestPlugin(); if (!p) return;
+  try { p.stop(); } catch (e) {}
+}
+
 function startRestTimer(seconds) {
   stopRestTimer();
-  let remaining = seconds;
+  restTotalMs = seconds * 1000;
+  restEndTime = Date.now() + restTotalMs;
+  restPausedMs = null;
+  restPrimeAudio(); // called inside the set-check gesture, so the end-beep is allowed later
+  nativeRestStart(restEndTime, seconds);
+
   const wrap = document.getElementById('restTimerEl');
-  wrap.classList.remove('hidden');
   wrap.className = 'rest-timer';
-  function fmt(s) { const m = Math.floor(s / 60); const ss = s % 60; return m + ':' + (ss < 10 ? '0' : '') + ss; }
-  function paint() {
-    wrap.innerHTML = '';
-    wrap.appendChild(el('div', {}, el('div', { class: 'rt-num' }, fmt(remaining)), el('div', { class: 'rt-label' }, 'Rest')));
-    const actions = el('div', { class: 'flex-col gap-4' });
-    const presets = el('div', { class: 'flex gap-4' });
-    [60, 90, 180].forEach(p => presets.appendChild(el('button', { class: 'btn btn-sm', onclick: () => { remaining = p; paint(); } }, p + 's')));
-    actions.appendChild(presets);
-    actions.appendChild(el('button', { class: 'btn btn-sm btn-ghost', onclick: stopRestTimer }, 'Skip'));
-    wrap.appendChild(actions);
-  }
-  paint();
-  restInterval = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) { stopRestTimer(); toast('Rest done — next set'); return; }
-    paint();
-  }, 1000);
+  wrap.setAttribute('role', 'timer');
+  wrap.innerHTML = '';
+  wrap.appendChild(
+    el('div', { class: 'rt-ring', id: 'rtRing' },
+      el('div', { class: 'rt-num', id: 'rtNum' }, restFmt(seconds)),
+      el('div', { class: 'rt-label' }, 'Rest')
+    )
+  );
+  wrap.appendChild(
+    el('div', { class: 'rt-controls' },
+      el('div', { class: 'rt-adjust' },
+        el('button', { class: 'btn btn-sm btn-ghost', onclick: () => restAdjust(-15) }, '−15s'),
+        el('button', { class: 'btn btn-sm btn-ghost', onclick: () => restAdjust(30) }, '+30s')
+      ),
+      el('div', { class: 'rt-main' },
+        el('button', { class: 'btn btn-sm', id: 'rtPause', onclick: restTogglePause }, 'Pause'),
+        el('button', { class: 'btn btn-sm btn-ghost', onclick: stopRestTimer }, 'Skip')
+      )
+    )
+  );
+
+  restPaint();
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  restInterval = setInterval(restTick, reduce ? 1000 : 250);
 }
 function stopRestTimer() {
   if (restInterval) clearInterval(restInterval);
   restInterval = null;
-  document.getElementById('restTimerEl').classList.add('hidden');
+  restPausedMs = null;
+  const wrap = document.getElementById('restTimerEl');
+  if (wrap) { wrap.classList.add('hidden'); wrap.classList.remove('paused'); }
+  nativeRestStop();
 }
 
 // ===== PLATE CALC =====
+// Plate-calc bar selection. plateBarCustomKg is stored internally in kg.
+let plateBar = 'standard';   // 'standard' | 'womens' | 'custom'
+let plateBarCustomKg = 25;
+function activeBarDisplay() {
+  const isLbs = getUnit() === 'lbs';
+  if (plateBar === 'womens') return isLbs ? 35 : 15;
+  if (plateBar === 'custom') return isLbs ? (plateBarCustomKg / KG_PER_LB) : plateBarCustomKg;
+  return isLbs ? BAR_LB : BAR_KG;
+}
+function plateBarLabel() {
+  return (Math.round(activeBarDisplay() * 10) / 10) + ' ' + unitLabel();
+}
 function openPlateCalc(weight) {
   document.getElementById('plateTarget').value = weight;
   renderPlateCalc(weight);
@@ -1596,12 +1791,15 @@ function renderPlateCalc(weight) {
   const sum = document.getElementById('plateSummary');
   vis.innerHTML = '';
   // The "weight" passed here is in kg (internal). Convert + plate-break in active unit.
-  const result = plateBreakdown(weight);
+  const barDisp = activeBarDisplay();
+  const result = plateBreakdown(weight, barDisp);
   const u = result.unit || unitLabel();
-  const minBar = u === 'lbs' ? BAR_LB : BAR_KG;
+  const minBar = barDisp;
   const dispW = u === 'lbs' ? (weight / KG_PER_LB) : weight;
+  const cap = document.querySelector('#plateModal p');
+  if (cap) cap.textContent = 'Per side breakdown for a ' + plateBarLabel() + ' bar.';
   if (!weight || dispW < minBar) {
-    sum.textContent = 'Below empty bar (' + minBar + ' ' + u + ')';
+    sum.textContent = 'Below empty bar (' + (Math.round(minBar * 10) / 10) + ' ' + u + ')';
     return;
   }
   const { plates, perSide, error } = result;
@@ -1738,6 +1936,44 @@ function renderGoals(includeBw) {
   return grid;
 }
 
+// ===== LIFT BALANCE — SBD split vs typical raw ranges (athlete's own e1RMs) =====
+function renderLiftBalanceCard(athleteId) {
+  const bal = liftBalance(bestE1RM(athleteId, 'squat'), bestE1RM(athleteId, 'bench'), bestE1RM(athleteId, 'deadlift'));
+  if (!bal) return null;
+  const card = el('div', { class: 'chart-card balance-card' });
+  card.appendChild(el('div', { class: 'chart-head' },
+    el('div', {}, el('div', { class: 'chart-sub' }, 'Each lift as a share of your total, set against typical raw splits. A guide for spotting a lagging lift — not a target.'))
+  ));
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
+  const pos = v => Math.max(0, Math.min(100, v / 0.5 * 100)); // track spans 0–50% share
+  bal.rows.forEach(r => {
+    const bandL = pos(r.lo), bandW = pos(r.hi) - pos(r.lo), markL = pos(r.share);
+    const row = el('div', { class: 'balance-row' });
+    row.innerHTML =
+      '<div class="balance-lift">' + LIFT_LABELS[r.lift] + '</div>' +
+      '<div class="balance-val">' + Math.round(kgToDisplay(r.value)) + ' ' + unitLabel() + '</div>' +
+      '<div class="balance-track" role="img" aria-label="' + LIFT_LABELS[r.lift] + ' is ' +
+        Math.round(r.share * 100) + ' percent of total, typical ' + Math.round(r.lo * 100) + ' to ' +
+        Math.round(r.hi * 100) + ' percent">' +
+        '<span class="balance-band" style="left:' + bandL.toFixed(1) + '%;width:' + bandW.toFixed(1) + '%"></span>' +
+        '<span class="balance-mark ' + r.status + '" style="left:' + markL.toFixed(1) + '%"></span>' +
+      '</div>' +
+      '<div class="balance-chip ' + r.status + '">' + Math.round(r.share * 100) + '% · ' + cap(r.status) + '</div>';
+    card.appendChild(row);
+  });
+  let verdict;
+  if (bal.weakest) {
+    const w = bal.weakest;
+    verdict = '<strong>' + LIFT_LABELS[w.lift] + '</strong> is lagging — ' + Math.round(w.share * 100) +
+      '% of your total against a typical ' + Math.round(w.lo * 100) + '–' + Math.round(w.hi * 100) +
+      '%. Extra focus here likely returns the most total.';
+  } else {
+    verdict = 'Well balanced — all three lifts sit inside their typical raw ranges. Keep driving them together.';
+  }
+  card.appendChild(el('p', { class: 'balance-verdict', html: verdict }));
+  return card;
+}
+
 // ===== PROGRESS =====
 function renderProgress() {
   const area = document.getElementById('progressArea');
@@ -1784,6 +2020,12 @@ function renderProgress() {
   importBtn.innerHTML = '⬆ <span>Import history</span>';
   actionRow.appendChild(importBtn);
   area.appendChild(actionRow);
+
+  const balCard = renderLiftBalanceCard(user.id);
+  if (balCard) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lift balance'));
+    area.appendChild(balCard);
+  }
 
   const delta = getWeeklyDelta(user.id);
   if (Object.keys(delta).length) {

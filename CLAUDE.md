@@ -12,7 +12,8 @@ This file gets you up to speed fast. Read it before changing anything.
 - **Email:** Resend (transactional via edge functions)
 - **Analytics:** Plausible (`powalifta.com`, GDPR-compliant, no cookie banner needed)
 - **Error tracking:** local `error-log.js` + optional Sentry/Supabase forwarding
-- **No build step.** Vanilla JS, plain HTML, hand-written CSS. Service Worker is network-passthrough.
+- **No build step.** Vanilla JS, plain HTML, hand-written CSS. Service Worker (`sw.js`) is **network-first**: online always fetches fresh (so a deploy is never stale), every successful same-origin GET is mirrored into the `powa-v2` cache, and the cache is read only when the network fails — so the app opens offline. `sw.js` also hosts the Web Push `push` + `notificationclick` handlers.
+- **Push:** Web Push via VAPID. `push_subscriptions` table + `send-push` edge function. Client lives in `app.js` (`PowaPush` module). iOS Web Push only fires for a Home-Screen-installed PWA on iOS 16.4+.
 
 ## Architecture
 
@@ -103,6 +104,7 @@ In `edge-functions/` (need to be deployed via Supabase dashboard → Edge Functi
 - `send-welcome.ts` — branded welcome email after signup. Env: `RESEND_API_KEY`. Verify JWT OFF.
 - `send-client-error.ts` — NEW. Receives client-side error reports. Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Verify JWT OFF.
 - `send-program-assigned.ts` — NEW. Sends email to athlete when coach hits the "📧 Notify" button in the program builder. Env: `RESEND_API_KEY`. Verify JWT **ON** (only logged-in coach can fire).
+- `send-push.ts` — NEW. Delivers a Web Push to every device a user registered (`push_subscriptions`). Caller is identified from their JWT and may push only to themselves OR the other party of a live coach↔athlete link (same gate as `messages` RLS); recipient's tokens read via service role, dead 404/410 endpoints pruned. Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`. Verify JWT **ON**. Client calls it through `DB.sendPush()`. **To bring live:** `npx web-push generate-vapid-keys`, paste the *public* key into `VAPID_PUBLIC_KEY` at the top of `app.js`, set the keypair (+subject) as function secrets, run `migration-push-subscriptions.sql`, deploy. Until the public key is set, the in-app "🔔 Enable alerts" toggle degrades to a toast — nothing breaks.
 - `ai-chat.ts` — NEW. Secure proxy for the AI assistant. Holds `GEMINI_API_KEY` server-side and forwards the browser's question + data snapshot to Google's Gemini (`gemini-2.5-flash`). Env: `GEMINI_API_KEY` (required), `AI_DAILY_CAP` (optional, default 20). Verify JWT **ON**. Maps our `user`/`assistant` turns to Gemini's `user`/`model` + `system_instruction` shape, clamps `maxOutputTokens`/system length/history server-side, and enforces a per-user daily cap via `ai_chat_usage` (service role). The browser calls it through `DB.aiChat()` (`sb.functions.invoke`), so no key is ever client-side. Provider is swappable in one file — only this function knows it's Gemini. (Note: Gemini's free tier returns a hard `429 "check your plan and billing"` for this account — billing must stay enabled on the Google Cloud project. Was briefly swapped to Groq during the billing outage; reverted once billing went through, since Gemini 2.0 Flash is ~4–6× cheaper per token.)
 
 The signature verification in both LS webhooks uses HMAC-SHA-256. The old length pre-check that leaked length has been replaced with a `timingSafeEqual` helper (double-HMAC with a single-use random key → constant-time, no length side-channel) in both `ls-webhook.ts` and `ls-marketplace-webhook.ts`.
@@ -125,6 +127,7 @@ migration-marketplace-reviews.sql     # program_reviews table + RLS (verified-bu
 migration-messages.sql                # coach↔athlete direct messaging + RLS
 migration-form-checks.sql             # form_checks table + private `form-checks` Storage bucket + object policies
 migration-ai-chat-usage.sql           # ai_chat_usage table (per-user daily AI cap; RLS-locked to service role)
+migration-push-subscriptions.sql      # push_subscriptions table + RLS (own-rows-only; send-push reads via service role)
 ```
 
 **Storage note:** `migration-form-checks.sql` also creates a private Storage bucket

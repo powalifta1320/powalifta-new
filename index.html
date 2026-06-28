@@ -147,6 +147,7 @@
       <div class="calc-tabs" role="tablist">
         <button type="button" id="tabMax" class="active" role="tab">Real Max</button>
         <button type="button" id="tabDots" role="tab">DOTS Score</button>
+        <button type="button" id="tabWarm" role="tab">Warm-up</button>
       </div>
       <div id="panelMax" class="calc-panel">
       <div class="calc-inputs">
@@ -201,6 +202,21 @@
           <div class="calc-class" id="dotsClass"></div>
         </div>
         <p class="calc-foot-note">DOTS normalizes your total across bodyweights. It's the score lifters compare across weight classes.</p>
+      </div>
+      <div id="panelWarm" class="calc-panel" style="display:none">
+        <div class="calc-inputs">
+          <div class="calc-field">
+            <label for="warmW">Top set</label>
+            <input id="warmW" type="number" value="140" min="1" step="2.5" inputmode="decimal">
+          </div>
+          <span class="calc-sym">&rarr;</span>
+          <div class="calc-field">
+            <label for="warmBar">Bar</label>
+            <input id="warmBar" type="number" value="20" min="5" step="2.5" inputmode="decimal">
+          </div>
+        </div>
+        <div class="calc-ramp" id="warmRamp"></div>
+        <p class="calc-foot-note">A clean ramp to your top set. Prime the pattern &mdash; never grind a warm-up.</p>
       </div>
       <div class="calc-cta">
         <p>POWALIFTA does this automatically on every set, variant-aware and charted over time.</p>
@@ -550,7 +566,7 @@
     <div class="form-group" id="codeGroup">
       <label id="codeLabel">Invite code</label>
       <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
-      <p class="faded text-xs" id="codeHint" style="margin-top:6px">Get this 6-character code from your coach.</p>
+      <p class="faint text-xs" id="codeHint" style="margin-top:6px">Get this 6-character code from your coach.</p>
     </div>
     <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
     <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
@@ -857,6 +873,7 @@ function sendWelcomeEmail(email, name, type) {
   try {
     const $ = id => document.getElementById(id);
     const wEl = $('calcW'), rEl = $('calcR'), rpeEl = $('calcRpe');
+    const warmWEl = $('warmW'), warmBarEl = $('warmBar');
     if (!wEl) return;
     let unit = 'kg';
     let shown = 0, animFrom = 0, animTo = 0, animStart = 0;
@@ -937,12 +954,20 @@ function sendWelcomeEmail(email, name, type) {
       const bw = parseFloat(bwEl.value), tot = parseFloat(totEl.value);
       if (bw) bwEl.value = conv(bw);
       if (tot) totEl.value = conv(tot);
+      if (warmWEl) {
+        const ww = parseFloat(warmWEl.value); if (ww) warmWEl.value = conv(ww);
+        const wb = parseFloat(warmBarEl.value);
+        if (wb) warmBarEl.value = u === 'lb'
+          ? (Math.abs(wb - 20) < 0.6 ? 45 : Math.round(wb * 2.20462))
+          : (Math.abs(wb - 45) < 1.2 ? 20 : Math.round(wb / 2.20462 * 2) / 2);
+      }
       unit = u;
       $('calcOutUnit').textContent = u;
       $('calcKg').classList.toggle('active', u === 'kg');
       $('calcLb').classList.toggle('active', u === 'lb');
       recalc();
       if ($('panelDots').style.display !== 'none') dotsCalc();
+      if ($('panelWarm').style.display !== 'none') warmCalc();
     }
     $('calcKg').addEventListener('click', () => setUnit('kg'));
     $('calcLb').addEventListener('click', () => setUnit('lb'));
@@ -952,12 +977,41 @@ function sendWelcomeEmail(email, name, type) {
     function showTab(which) {
       $('panelMax').style.display = which === 'max' ? '' : 'none';
       $('panelDots').style.display = which === 'dots' ? '' : 'none';
+      $('panelWarm').style.display = which === 'warm' ? '' : 'none';
       $('tabMax').classList.toggle('active', which === 'max');
       $('tabDots').classList.toggle('active', which === 'dots');
+      $('tabWarm').classList.toggle('active', which === 'warm');
       if (which === 'dots') dotsCalc();
+      if (which === 'warm') warmCalc();
     }
     $('tabMax').addEventListener('click', () => showTab('max'));
     $('tabDots').addEventListener('click', () => showTab('dots'));
+    $('tabWarm').addEventListener('click', () => showTab('warm'));
+
+    // --- Warm-up ramp ---
+    function warmCalc() {
+      const host = $('warmRamp');
+      if (!warmWEl || !host) return;
+      const W = parseFloat(warmWEl.value), bar = parseFloat(warmBarEl.value);
+      if (!W || !bar || bar < 1) { host.innerHTML = ''; return; }
+      const step = unit === 'kg' ? 2.5 : 5;
+      const row = (cls, name, w, reps, pct) =>
+        '<div class="ramp-row' + cls + '"><span class="ramp-fill" style="width:' +
+        Math.max(6, Math.round(pct * 100)) + '%"></span><span class="ramp-name">' + name +
+        '</span><span class="ramp-wt">' + w.toLocaleString() + ' ' + unit +
+        '</span><span class="ramp-reps">' + reps + '</span></div>';
+      if (W <= bar) { host.innerHTML = row(' ramp-work', 'Bar', bar, 'work set', 1); return; }
+      let html = row('', 'Bar', bar, '× 5', bar / W), last = bar;
+      [[0.45, 5], [0.60, 3], [0.725, 2], [0.825, 2], [0.90, 1]].forEach(pr => {
+        const wt = round(pr[0] * W, step);
+        if (wt <= last || wt >= W) return;
+        html += row('', Math.round(wt / W * 100) + '%', wt, '× ' + pr[1], wt / W);
+        last = wt;
+      });
+      html += row(' ramp-work', 'Top set', W, 'work set', 1);
+      host.innerHTML = html;
+    }
+    [warmWEl, warmBarEl].forEach(el => el && el.addEventListener('input', warmCalc));
 
     // --- DOTS ---
     let dotsSex = 'm';
@@ -1014,6 +1068,7 @@ function sendWelcomeEmail(email, name, type) {
     });
 
     recalc();
+    warmCalc();
   } catch (e) { console.warn('calc init failed', e); }
 })();
 

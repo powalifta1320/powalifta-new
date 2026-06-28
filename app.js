@@ -455,6 +455,105 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ============================================================
+// WEB PUSH — opt-in notifications (rest-day reminders, coach pings…)
+//
+// Paste your VAPID *public* key below (the private half lives only in the
+// `send-push` edge function's secrets). Generate a pair once with:
+//   npx web-push generate-vapid-keys
+// Until this is filled in, enable() degrades to a clear toast — nothing breaks.
+// On iOS, Web Push only works for a PWA added to the Home Screen (iOS 16.4+).
+// ============================================================
+const VAPID_PUBLIC_KEY = ''; // <-- paste your VAPID public key here
+
+function _b64ToUint8(base64) {
+  const pad = '='.repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+const PowaPush = {
+  supported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  },
+  configured() {
+    return typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.length > 20;
+  },
+  permission() {
+    return this.supported() ? Notification.permission : 'unsupported';
+  },
+  async isSubscribed() {
+    if (!this.supported()) return false;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      return !!(await reg.pushManager.getSubscription());
+    } catch { return false; }
+  },
+  // Ask permission, subscribe, persist. Returns true on success.
+  async enable() {
+    if (!this.supported()) { toast('Notifications are not supported on this browser'); return false; }
+    if (!this.configured()) { toast('Push not configured yet — add a VAPID key'); return false; }
+    if (window._demoMode) { toast('Notifications need a real account'); return false; }
+
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications blocked — enable them in browser settings' : 'Notifications not enabled'); return false; }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: _b64ToUint8(VAPID_PUBLIC_KEY)
+        });
+      }
+      const userId = window.DB ? await DB.getUserId() : null;
+      if (!userId) { toast('Sign in to enable notifications'); return false; }
+      await DB.savePushSubscription(userId, sub.toJSON(), navigator.userAgent);
+      toast('Notifications on');
+      return true;
+    } catch (err) {
+      console.warn('Push subscribe failed:', err);
+      toast('Could not enable notifications');
+      return false;
+    }
+  },
+  // Unsubscribe this device and forget it server-side.
+  async disable() {
+    if (!this.supported()) return false;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        if (window.DB) { try { await DB.deletePushSubscription(sub.endpoint); } catch {} }
+        await sub.unsubscribe();
+      }
+      toast('Notifications off');
+      return true;
+    } catch (err) {
+      console.warn('Push unsubscribe failed:', err);
+      return false;
+    }
+  },
+  // Fire a push at yourself to confirm the round-trip works.
+  async test() {
+    if (!window.DB) return;
+    const userId = await DB.getUserId();
+    if (!userId) return;
+    await DB.sendPush({
+      toUserId: userId,
+      title: 'POWALIFTA',
+      body: 'Notifications are live. Back to the bar.',
+      url: '/athlete.html',
+      tag: 'powa-test'
+    });
+  }
+};
+window.PowaPush = PowaPush;
+
 // Capture the install prompt on Android/desktop Chrome
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
@@ -1756,10 +1855,12 @@ const BAR_LB = 45;
 // Plate breakdown — calculates in the user's selected unit (kg or lbs).
 // `targetWeight` is the kg-internal weight; the function converts to lbs internally
 // when the user is in lb mode, so the plate sizes match what the gym actually has.
-function plateBreakdown(targetWeight) {
+// barOverride (optional) is the empty-bar weight in the active DISPLAY unit.
+// Omit it for the standard competition bar (20 kg / 45 lb).
+function plateBreakdown(targetWeight, barOverride) {
   const isLbs = getUnit() === 'lbs';
   const sizes = isLbs ? PLATE_SIZES_LB : PLATE_SIZES;
-  const bar   = isLbs ? BAR_LB : BAR_KG;
+  const bar   = (barOverride != null && barOverride > 0) ? barOverride : (isLbs ? BAR_LB : BAR_KG);
   const u     = isLbs ? 'lbs' : 'kg';
 
   // Convert target from internal kg to display unit
@@ -2864,6 +2965,33 @@ function bestE1RM(athleteId, lift) {
 
 function currentTotal(athleteId) {
   return ['squat', 'bench', 'deadlift'].reduce((sum, lift) => sum + bestE1RM(athleteId, lift), 0);
+}
+
+// Typical raw-powerlifting share of total, as midpoint + a typical band.
+// Heuristic for spotting a lagging lift — not a rule; leverages vary it a lot.
+const SBD_SPLIT = {
+  squat:    { lo: 0.32, hi: 0.38 },
+  bench:    { lo: 0.20, hi: 0.25 },
+  deadlift: { lo: 0.39, hi: 0.45 }
+};
+
+// Pure: given three e1RMs (any single unit), return each lift's share of the
+// total, a balanced/lagging/strong status vs SBD_SPLIT, and the weakest link.
+function liftBalance(squat, bench, deadlift) {
+  const vals = { squat, bench, deadlift };
+  const total = squat + bench + deadlift;
+  if (!(total > 0) || !(squat > 0) || !(bench > 0) || !(deadlift > 0)) return null;
+  const rows = ['squat', 'bench', 'deadlift'].map(lift => {
+    const share = vals[lift] / total;
+    const ref = SBD_SPLIT[lift];
+    let status = 'balanced';
+    if (share < ref.lo) status = 'lagging';
+    else if (share > ref.hi) status = 'strong';
+    return { lift, value: vals[lift], share, lo: ref.lo, hi: ref.hi, status, gap: ref.lo - share };
+  });
+  let weakest = null;
+  rows.forEach(r => { if (r.status === 'lagging' && (!weakest || r.gap > weakest.gap)) weakest = r; });
+  return { total, rows, weakest };
 }
 
 function latestBodyweight(athleteId) {
