@@ -464,7 +464,7 @@ if ('serviceWorker' in navigator) {
 // Until this is filled in, enable() degrades to a clear toast — nothing breaks.
 // On iOS, Web Push only works for a PWA added to the Home Screen (iOS 16.4+).
 // ============================================================
-const VAPID_PUBLIC_KEY = ''; // <-- paste your VAPID public key here
+const VAPID_PUBLIC_KEY = 'BP5JKLidsYTPOiC6V7_FrQApU6LoMgyIxrrsGpX7hYzSzsHTCNwSlkVjVUljnIZvbw2vhPbRY2GWQhZ4SlsDBcI'; // public half; private lives only in send-push secrets (see .env.vapid)
 
 function _b64ToUint8(base64) {
   const pad = '='.repeat((4 - (base64.length % 4)) % 4);
