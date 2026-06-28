@@ -69,14 +69,14 @@ Every fx file respects `prefers-reduced-motion`.
 
 ## Roles & data model (Supabase)
 
-- `profiles` — every user. `userType` is `athlete` | `coach` | `admin`. `coach_id` on an athlete row links them to a coach. Setting `coach_id = null` disconnects.
+- `profiles` — every user. `userType` is `athlete` | `coach` | `admin`. `coach_id` on an athlete row links them to a coach. Setting `coach_id = null` disconnects. `subscription_tier` is `free` | `basic` | `pro` | `premium` (athlete-limit 3/10/25/unlimited — see `migration-tier-enforcement.sql`); the LS subscription webhook writes it plus `subscription_status` / `ls_subscription_id` / `ls_customer_id` / `subscription_updated_at` (created by `migration-subscription-columns.sql`). `is_admin` boolean gates the admin dashboard. All three privileged columns are frozen against client self-escalation by `migration-profiles-privilege-guard.sql`.
 - `programs` — coach-built week/day/exercise/sets per athlete. `athlete_id` + `coach_id`.
 - `templates` — coach's reusable program payloads.
 - `logs` — every set logged. Drives e1RM.
 - `bodyweight` — daily weigh-ins.
 - `goals` — SBD + bodyweight targets.
 - `marketplace_programs` — public listings.
-- `marketplace_sales` — purchase records, with `coach_payout_cents` + `payout_status`.
+- `program_sales` — marketplace purchase records, with `coach_payout_cents` + `payout_status` (`pending` | `paid` | `cancelled`). `cancelled` = refunded/voided by the `order_refunded` webhook path. Idempotency keys `ls_order_id` + `ls_event_id` (both UNIQUE).
 - `invites` — 6-char codes a coach generates to connect athletes.
 - `session_notes` + `checkins` — coach feedback + weekly check-in form.
 - `client_errors` — populated by `send-client-error` edge fn.
@@ -120,9 +120,11 @@ migration-self-coached.sql
 migration-marketplace.sql
 migration-marketplace-1rm.sql
 migration-directory-hidden.sql
+migration-subscription-columns.sql    # guarantees profiles' subscription_* + ls_* cols exist (LS sub-webhook writes them)
 migration-tier-enforcement.sql
 migration-client-errors.sql
 migration-profiles-rls.sql            # UPDATE policies for coach/athlete disconnect
+migration-profiles-privilege-guard.sql # freezes subscription_tier/user_type/is_admin vs client self-escalation (run AFTER profiles-rls)
 migration-marketplace-reviews.sql     # program_reviews table + RLS (verified-buyer writes)
 migration-messages.sql                # coach↔athlete direct messaging + RLS
 migration-form-checks.sql             # form_checks table + private `form-checks` Storage bucket + object policies

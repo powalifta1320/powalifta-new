@@ -1,9 +1,19 @@
 // Supabase Edge Function: ls-marketplace-webhook
-// Receives Lemon Squeezy `order_created` events for marketplace program purchases.
-// On a successful purchase, this function:
-//   1) Records a row in program_sales with 80/20 split
-//   2) Clones the program payload into the buyer's `programs` table
-//   3) Increments sold_count on the marketplace_program
+// Receives Lemon Squeezy `order_created` + `order_refunded` events for
+// marketplace program purchases.
+//
+// On order_created this function:
+//   1) Records a row in program_sales with an 80/20 coach/platform split
+//   2) Increments sold_count on the marketplace_program
+//   (It does NOT clone the program — the buyer claims it from their dashboard
+//    via DB.claimPurchase, which rescales the weights to their own 1RMs.)
+//
+// On order_refunded it:
+//   1) Voids the matching sale (payout_status='cancelled') so the coach isn't
+//      paid out for it and it stops counting as revenue
+//   2) Decrements sold_count on the listing
+//   (An already-claimed program is left in place — a refund stops billing +
+//    payout + future claims, not a training block already in progress.)
 //
 // Deploy via Supabase dashboard → Edge Functions → Deploy new function "ls-marketplace-webhook".
 // Toggle "Verify JWT" OFF (Lemon Squeezy doesn't pass a JWT).
@@ -12,7 +22,7 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY = auto-injected
 //
 // Then in Lemon Squeezy → Settings → Webhooks:
-//   - Add a webhook for events: order_created (and optionally order_refunded later)
+//   - Enable events: order_created AND order_refunded
 //   - URL: https://<your-project>.supabase.co/functions/v1/ls-marketplace-webhook
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -70,8 +80,8 @@ Deno.serve(async (req) => {
     catch (e) { return jsonResponse(400, { error: 'invalid JSON' }) }
 
     const event = payload?.meta?.event_name as string
-    // We only handle one-time order creation here. Subscription events go to ls-webhook.
-    if (event !== 'order_created') {
+    // We handle one-time order creation + refunds here. Subscription events go to ls-webhook.
+    if (event !== 'order_created' && event !== 'order_refunded') {
       return jsonResponse(200, { ignored: event })
     }
 
@@ -88,14 +98,48 @@ Deno.serve(async (req) => {
     const buyerUserId = custom?.user_id || null
     const programId = custom?.marketplace_program_id || null
 
-    if (!programId) {
-      return jsonResponse(400, { error: 'no marketplace_program_id in custom_data', custom })
-    }
-
     const supaUrl = Deno.env.get('SUPABASE_URL') || ''
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     if (!supaUrl || !serviceKey) return jsonResponse(500, { error: 'Supabase env vars missing' })
     const supabase = createClient(supaUrl, serviceKey)
+
+    // ---- Refund path -------------------------------------------------------
+    // order_refunded fires when a buyer is refunded (by the coach or support).
+    // We VOID the sale (payout_status='cancelled') so the coach isn't paid out
+    // for it and it stops counting as revenue, and we decrement the listing's
+    // sold_count. We deliberately do NOT rip an already-claimed program out of
+    // the buyer's dashboard — a refund stops billing + payout + future claims,
+    // it isn't a clawback of a training block already in progress. The sale is
+    // matched by ls_order_id (always present on the order object), so refunds
+    // work even when the refund event carries no checkout custom_data.
+    if (event === 'order_refunded') {
+      if (!lsOrderId) return jsonResponse(400, { error: 'refund has no order id' })
+      const { data: saleRows, error: findErr } = await supabase.from('program_sales')
+        .select('id, marketplace_program_id, payout_status')
+        .eq('ls_order_id', lsOrderId).limit(1)
+      if (findErr) return jsonResponse(500, { error: 'sale lookup failed', detail: findErr.message })
+      const sale = saleRows?.[0]
+      if (!sale) return jsonResponse(200, { refund: true, note: 'no matching sale on file', lsOrderId })
+      if (sale.payout_status === 'cancelled') {
+        return jsonResponse(200, { refund: true, alreadyVoided: true, sale_id: sale.id })
+      }
+      const { error: voidErr } = await supabase.from('program_sales')
+        .update({ payout_status: 'cancelled' }).eq('id', sale.id)
+      if (voidErr) return jsonResponse(500, { error: 'failed to void sale', detail: voidErr.message })
+      // Decrement sold_count (floor at 0) so the listing's social proof stays honest.
+      const { data: progRow } = await supabase.from('marketplace_programs')
+        .select('sold_count').eq('id', sale.marketplace_program_id).limit(1)
+      const cur = Number(progRow?.[0]?.sold_count) || 0
+      await supabase.from('marketplace_programs')
+        .update({ sold_count: Math.max(0, cur - 1), updated_at: new Date().toISOString() })
+        .eq('id', sale.marketplace_program_id)
+      return jsonResponse(200, { refund: true, voided_sale_id: sale.id })
+    }
+    // ---- Purchase path (order_created) ------------------------------------
+
+    if (!programId) {
+      return jsonResponse(400, { error: 'no marketplace_program_id in custom_data', custom })
+    }
 
     // Idempotency: if we've already recorded this LS event, return success but skip
     const { data: existingSale } = await supabase.from('program_sales')

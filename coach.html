@@ -1537,10 +1537,12 @@ function renderCoachMarketplace() {
   const programs = s.marketplacePrograms || [];
   const sales = s.mySales || [];
 
-  // Earnings summary tiles
-  const totalSales = sales.length;
-  const totalEarned = sales.reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
-  const pendingPayout = sales.filter(x => x.payoutStatus === 'pending').reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
+  // Earnings summary tiles. Refunded/voided sales (payout_status='cancelled',
+  // set by the marketplace refund webhook) must not count as sales or earnings.
+  const liveSales = sales.filter(x => x.payoutStatus !== 'cancelled');
+  const totalSales = liveSales.length;
+  const totalEarned = liveSales.reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
+  const pendingPayout = liveSales.filter(x => x.payoutStatus === 'pending').reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
   const paidOut = totalEarned - pendingPayout;
 
   const tiles = el('div', { class: 'stat-grid' });

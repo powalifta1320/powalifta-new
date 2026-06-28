@@ -734,11 +734,15 @@ const DB = {
     const uid = await this.getUserId();
     if (!uid) throw new Error('Not signed in');
 
-    // Verify the buyer actually purchased this program
+    // Verify the buyer actually purchased this program — and that the sale
+    // hasn't been refunded/voided (payout_status='cancelled' is set by the
+    // marketplace webhook's order_refunded path). A refunded buyer must not be
+    // able to claim/re-claim the program.
     const { data: sales, error: salesErr } = await sb.from('program_sales')
       .select('id')
       .eq('buyer_id', uid)
       .eq('marketplace_program_id', marketplaceProgramId)
+      .neq('payout_status', 'cancelled')
       .limit(1);
     if (salesErr) throw salesErr;
     if (!sales || !sales.length) throw new Error('No purchase record found — did the payment go through?');

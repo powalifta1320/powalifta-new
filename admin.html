@@ -836,9 +836,15 @@ function renderAdminPayouts() {
     return;
   }
 
+  // Refunded/voided sales (payout_status='cancelled', set by the marketplace
+  // refund webhook) are excluded everywhere below — they aren't owed to anyone,
+  // earn no platform fee, and shouldn't pad the sales count. Without this filter
+  // a cancelled sale would fall into the `else` below and show as money "paid".
+  const liveSales = sales.filter(s => s.payoutStatus !== 'cancelled');
+
   // Group sales by coach
   const byCoach = new Map();
-  sales.forEach(s => {
+  liveSales.forEach(s => {
     if (!byCoach.has(s.coachId)) byCoach.set(s.coachId, { pending: [], paid: [] });
     const slot = byCoach.get(s.coachId);
     if (s.payoutStatus === 'pending') slot.pending.push(s);
@@ -846,9 +852,9 @@ function renderAdminPayouts() {
   });
 
   // Top stats
-  const totalPending = sales.filter(s => s.payoutStatus === 'pending').reduce((sum, s) => sum + s.coachPayoutCents, 0);
-  const totalPaid    = sales.filter(s => s.payoutStatus === 'paid').reduce((sum, s) => sum + s.coachPayoutCents, 0);
-  const totalPlatform = sales.reduce((sum, s) => sum + s.platformFeeCents, 0);
+  const totalPending = liveSales.filter(s => s.payoutStatus === 'pending').reduce((sum, s) => sum + s.coachPayoutCents, 0);
+  const totalPaid    = liveSales.filter(s => s.payoutStatus === 'paid').reduce((sum, s) => sum + s.coachPayoutCents, 0);
+  const totalPlatform = liveSales.reduce((sum, s) => sum + s.platformFeeCents, 0);
 
   const tiles = el('div', { class: 'stat-grid' });
   [
