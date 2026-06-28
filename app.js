@@ -62,6 +62,12 @@ function requireAuth(expectedType) {
   return user;
 }
 async function logout() {
+  try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
+  // Wipe the offline write queue too: it holds the OUTGOING user's edits, keyed
+  // by their athlete id. Leaving it would replay their writes under the next
+  // user's session — RLS rejects them, the attempt counter burns up, and they're
+  // silently dropped while the new user sees bogus "couldn't sync" toasts.
+  try { localStorage.removeItem(_OUTBOX_KEY); localStorage.removeItem(_OUTBOX_ATTEMPTS_KEY); } catch (e) {}
   try { await DB.signOut(); } catch (e) { console.warn(e); }
   window._user = null;
   Store.reset();
@@ -331,6 +337,19 @@ async function bootstrap(expectedType, onReady, opts) {
   try { profile = await DB.getProfile(session.user.id); }
   catch (e) {
     console.error('profile fetch failed', e);
+    // Offline cold open: the session reads from local storage but the profile
+    // fetch needs the network. Rather than bounce a logged-in user to the login
+    // page, run from the cached snapshot if we have one for this session.
+    if (expectedType && !navigator.onLine) {
+      const snap = _readSnapshot(session.user.id);
+      if (snap && snap.user && snap.user.userType === expectedType) {
+        window._user = snap.user;
+        Store._data = snap.store;
+        _refreshConnBanner();
+        onReady && onReady();
+        return;
+      }
+    }
     try { await DB.signOut(); } catch {}
     if (!expectedType) { onReady && onReady(); return; }
     location.href = 'index.html';
@@ -367,8 +386,18 @@ async function bootstrap(expectedType, onReady, opts) {
 
   try {
     Store._data = await DB.hydrateAll(profile);
+    _saveSnapshot(window._user, Store._data);
   } catch (e) {
     console.error('hydrate failed', e);
+    // Flaky / offline: fall back to the cached snapshot so the dashboard still
+    // renders the program + history instead of a blank "try refreshing" page.
+    const snap = _readSnapshot(profile.id);
+    if (snap && snap.store) {
+      Store._data = snap.store;
+      _refreshConnBanner();
+      onReady && onReady();
+      return;
+    }
     toast('Could not load your data — try refreshing.');
     return;
   }
@@ -958,7 +987,11 @@ function persistProgram(programId) { if (window._demoMode) return;
     const prog = Store.get().programs.find(p => p.id === programId);
     if (!prog) return;
     try { await DB.upsertProgram(prog); }
-    catch (e) { console.error('persistProgram', e); toast('Save failed — ' + (e.message || 'try again')); }
+    catch (e) {
+      console.error('persistProgram', e);
+      _enqueueOutbox('program', prog, 'program:' + prog.id);
+      toast('No connection — saved on this device, will sync');
+    }
   }, 350);
 }
 
@@ -1029,9 +1062,10 @@ async function flushPendingLogs() {
   _flushingLogs = false;
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
   if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced — please re-log");
+  if (typeof _refreshConnBanner === 'function') _refreshConnBanner();
 }
 window.addEventListener('online', () => { setTimeout(flushPendingLogs, 800); });
-window.addEventListener('load', () => { setTimeout(flushPendingLogs, 3500); });
+window.addEventListener('load', () => { setTimeout(() => { if (navigator.onLine) flushPendingLogs(); }, 3500); });
 
 async function persistAddLog(log) {
   if (window._demoMode) return;
@@ -1039,6 +1073,7 @@ async function persistAddLog(log) {
   catch (e) {
     console.error('addLog', e);
     _queuePendingLog(log);
+    _scheduleConnBanner();
     toast('No connection — set saved on this device, will sync automatically');
   }
 }
@@ -1053,12 +1088,166 @@ async function persistDeleteLog(id) {
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
 async function persistDeleteInvite(code)  { if (window._demoMode) return; try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
 async function persistAddNote(n)          { if (window._demoMode) return; try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
-async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); toast('Could not save goals'); } }
-async function persistBw(b)               { if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); toast('Could not save bodyweight'); } }
-async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); } }
-async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); } }
+async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); toast('No connection — saved on this device, will sync'); } }
+async function persistBw(b)               { if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection — saved on this device, will sync'); } }
+async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); } }
+async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); _enqueueOutbox('deleteRest', { athleteId: aid, date: d }, 'rest:' + aid + ':' + d); } }
 async function persistAddTemplate(t)      { if (window._demoMode) return; try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
 async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { await DB.deleteTemplate(id); } catch (e) { console.error('template del', e); } }
+
+// =========================================================
+// OFFLINE SNAPSHOT
+// Mirror the signed-in user's working set to localStorage on each
+// load (and as the tab hides). A COLD open in airplane mode then
+// hydrates the Store from it, so the program / history still show.
+// Supabase remains the source of truth — this is a read-through
+// convenience cache, last-write-wins. Skipped in demo mode.
+// =========================================================
+const _SNAP_PREFIX = 'powa-snapshot-';
+function _snapKey(uid) { return _SNAP_PREFIX + uid; }
+function _saveSnapshot(user, store) {
+  if (window._demoMode || !user || !user.id || !store) return;
+  try {
+    localStorage.setItem(_snapKey(user.id), JSON.stringify({ user, store, ts: Date.now() }));
+  } catch (e) { /* quota (e.g. big coach roster) — skip; online still works */ }
+}
+function _readSnapshot(uid) {
+  try {
+    const snap = JSON.parse(localStorage.getItem(_snapKey(uid)) || 'null');
+    return (snap && snap.store) ? snap : null;
+  } catch (e) { return null; }
+}
+function _clearSnapshot(uid) {
+  try { localStorage.removeItem(_snapKey(uid)); } catch (e) {}
+}
+// Re-snapshot the live Store right before the tab is hidden / closed, so the
+// offline cache reflects anything logged this session.
+function _snapshotNow() { if (window._user) _saveSnapshot(window._user, Store.get()); }
+window.addEventListener('pagehide', _snapshotNow);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _snapshotNow(); });
+
+// =========================================================
+// OFFLINE WRITE OUTBOX
+// Generalizes the set-log queue above to the rest of the athlete's
+// writes (bodyweight, goals, program, rest days). Failed writes are
+// stored locally and replayed on reconnect, with the same attempt
+// cap. Coalesced by a logical key so repeated edits to one row — or
+// a large program blob — keep only the latest copy.
+// =========================================================
+const _OUTBOX_KEY = 'powa-outbox';
+const _OUTBOX_ATTEMPTS_KEY = 'powa-outbox-attempts';
+const _MAX_OUTBOX_ATTEMPTS = 5;
+const _OUTBOX_DISPATCH = {
+  bw:         (p) => DB.upsertBw(p),
+  goals:      (p) => DB.upsertGoals(p),
+  program:    (p) => DB.upsertProgram(p),
+  rest:       (p) => DB.upsertRest(p),
+  deleteRest: (p) => DB.deleteRest(p.athleteId, p.date),
+};
+function _readOutbox()  { try { return JSON.parse(localStorage.getItem(_OUTBOX_KEY) || '[]'); } catch (e) { return []; } }
+function _writeOutbox(q){ try { localStorage.setItem(_OUTBOX_KEY, JSON.stringify(q)); } catch (e) {} }
+function _readOutboxAttempts()  { try { return JSON.parse(localStorage.getItem(_OUTBOX_ATTEMPTS_KEY) || '{}'); } catch (e) { return {}; } }
+function _writeOutboxAttempts(m) { try { localStorage.setItem(_OUTBOX_ATTEMPTS_KEY, JSON.stringify(m)); } catch (e) {} }
+function _enqueueOutbox(kind, payload, key) {
+  if (!_OUTBOX_DISPATCH[kind] || !key) return;
+  const q = _readOutbox().filter(e => e.key !== key); // coalesce: replace any older edit of this row
+  q.push({ key, kind, payload, ts: Date.now() });
+  _writeOutbox(q);
+  _scheduleConnBanner();
+}
+let _flushingOutbox = false;
+async function flushOutbox() {
+  if (window._demoMode || _flushingOutbox) return;
+  const q = _readOutbox();
+  if (!q.length) return;
+  _flushingOutbox = true;
+  const attempts = _readOutboxAttempts();
+  const failed = [];
+  let synced = 0, dropped = 0;
+  for (const e of q) {
+    const fn = _OUTBOX_DISPATCH[e.kind];
+    if (!fn) continue; // unknown kind (stale build) — drop quietly
+    try { await fn(e.payload); synced++; }
+    catch (err) {
+      const msg = String((err && err.message) || '');
+      const n = (attempts[e.key] || 0) + 1;
+      if (n >= _MAX_OUTBOX_ATTEMPTS) {
+        console.error('flushOutbox: dropping ' + e.kind + ' after ' + n + ' attempts', e.key, msg);
+        delete attempts[e.key];
+        dropped++;
+      } else { attempts[e.key] = n; failed.push(e); }
+    }
+  }
+  const stillQueued = new Set(failed.map(e => e.key));
+  for (const k of Object.keys(attempts)) { if (!stillQueued.has(k)) delete attempts[k]; }
+  _writeOutbox(failed);
+  _writeOutboxAttempts(attempts);
+  _flushingOutbox = false;
+  if (synced > 0 && !failed.length) toast('Changes synced');
+  if (dropped > 0) toast("Some changes couldn't be synced — please re-check");
+  _refreshConnBanner();
+}
+
+// =========================================================
+// CONNECTION BANNER
+// A quiet "Offline · changes will sync" pill. Shows while the
+// browser is offline (or while queued writes drain on reconnect),
+// hides once everything is reconciled. Reduced-motion safe.
+// =========================================================
+function _pendingCount() { return _readOutbox().length + _readPendingLogs().length; }
+function _connBannerEl() {
+  let b = document.getElementById('powa-conn-banner');
+  if (b || !document.body) return b;
+  if (!document.getElementById('powa-conn-style')) {
+    const st = document.createElement('style');
+    st.id = 'powa-conn-style';
+    st.textContent =
+      '#powa-conn-banner{position:fixed;left:50%;bottom:18px;transform:translate(-50%,150%);z-index:1200;' +
+      'display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:9px 15px;border-radius:999px;' +
+      'background:#161618;color:#f4f4f5;border:1px solid rgba(255,45,63,0.5);box-shadow:0 10px 34px rgba(0,0,0,0.4);' +
+      'font:600 13px/1 "Plus Jakarta Sans",system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;opacity:0;pointer-events:none;' +
+      'transition:transform .34s cubic-bezier(.16,1,.3,1),opacity .34s}' +
+      '#powa-conn-banner.show{transform:translate(-50%,0);opacity:1}' +
+      '#powa-conn-banner .pcb-dot{width:8px;height:8px;border-radius:50%;background:#ff2d3f;flex:none;' +
+      'box-shadow:0 0 0 0 rgba(255,45,63,.55);animation:pcbPulse 1.8s ease-out infinite}' +
+      '@keyframes pcbPulse{to{box-shadow:0 0 0 7px rgba(255,45,63,0)}}' +
+      '@media (prefers-reduced-motion: reduce){#powa-conn-banner{transition:opacity .2s}' +
+      '#powa-conn-banner .pcb-dot{animation:none}}';
+    document.head.appendChild(st);
+  }
+  b = document.createElement('div');
+  b.id = 'powa-conn-banner';
+  b.setAttribute('role', 'status');
+  b.setAttribute('aria-live', 'polite');
+  b.innerHTML = '<span class="pcb-dot"></span><span class="pcb-text"></span>';
+  document.body.appendChild(b);
+  return b;
+}
+function _refreshConnBanner() {
+  const b = _connBannerEl();
+  if (!b) return;
+  const pending = _pendingCount();
+  const offline = !navigator.onLine;
+  let show = false, msg = '';
+  if (offline) {
+    show = true;
+    msg = pending ? ('Offline · ' + pending + ' change' + (pending === 1 ? '' : 's') + ' will sync') : 'Offline · changes will sync';
+  } else if (pending) {
+    show = true;
+    msg = 'Syncing ' + pending + ' change' + (pending === 1 ? '' : 's') + '…';
+  }
+  const txt = b.querySelector('.pcb-text');
+  if (txt) txt.textContent = msg;
+  b.classList.toggle('show', show);
+}
+function _scheduleConnBanner() { try { requestAnimationFrame(_refreshConnBanner); } catch (e) { _refreshConnBanner(); } }
+
+// Reconnect / disconnect: flush queues and update the banner. (The set-log
+// queue keeps its own original online/load triggers above; these add the
+// generalized outbox + banner without disturbing that battle-tested path.)
+window.addEventListener('online',  () => { setTimeout(() => { flushPendingLogs(); flushOutbox(); }, 900); _refreshConnBanner(); });
+window.addEventListener('offline', _refreshConnBanner);
+window.addEventListener('load',    () => { setTimeout(() => { if (navigator.onLine) flushOutbox(); }, 3600); _refreshConnBanner(); });
 
 // =========================================================
 // SHARE CARDS — branded 1080×1350 canvas images for IG/stories.

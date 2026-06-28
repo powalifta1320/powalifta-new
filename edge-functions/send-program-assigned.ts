@@ -9,8 +9,12 @@
 // function's secrets. Toggle "Verify JWT" ON — only logged-in callers
 // (the coach) can trigger this.
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const FROM = 'POWALIFTA <noreply@powalifta.com>';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 function htmlEscape(str: string): string {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -84,6 +88,30 @@ Deno.serve(async (req) => {
 
   if (!athleteEmail || !athleteEmail.includes('@')) {
     return jsonResponse(400, { error: 'Invalid athlete email' });
+  }
+
+  // AUTHORIZATION. "Verify JWT ON" guarantees the caller is logged in, but that
+  // alone lets ANY authenticated user send a POWALIFTA-branded email to ANY
+  // address (a phishing / spam vector). Confirm the caller actually coaches an
+  // athlete with this email before sending. The recipient is looked up with the
+  // service role; the caller's identity comes only from their session JWT.
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    console.error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set');
+    return jsonResponse(500, { error: 'Server not configured' });
+  }
+  const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!jwt) return jsonResponse(401, { error: 'Missing auth' });
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const { data: caller, error: callerErr } = await admin.auth.getUser(jwt);
+  if (callerErr || !caller?.user) return jsonResponse(401, { error: 'Invalid session' });
+  const { data: linked } = await admin
+    .from('profiles')
+    .select('id')
+    .eq('coach_id', caller.user.id)
+    .ilike('email', athleteEmail)
+    .limit(1);
+  if (!linked || !linked.length) {
+    return jsonResponse(403, { error: 'Not your athlete' });
   }
 
   const apiKey = Deno.env.get('RESEND_API_KEY');

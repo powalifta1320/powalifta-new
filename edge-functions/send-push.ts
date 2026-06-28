@@ -75,6 +75,13 @@ Deno.serve(async (req) => {
   const url = clip(payload.url, 300) || '/athlete.html'
   const tag = clip(payload.tag, 60) || 'powa'
   if (!toUserId) return json({ error: 'toUserId required' }, 400)
+  // toUserId is interpolated into the PostgREST .or() filter below and comes
+  // straight from the request body. Pin it to a bare UUID — a crafted value
+  // containing PostgREST operator chars ( . , ( ) ) could otherwise rewrite the
+  // authorization filter and let a caller notify users they aren't linked to.
+  if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(toUserId)) {
+    return json({ error: 'toUserId must be a uuid' }, 400)
+  }
 
   // Authorize: self, or a live coach↔athlete link in either direction.
   let allowed = callerId === toUserId
