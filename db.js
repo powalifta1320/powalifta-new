@@ -23,6 +23,8 @@ function mapDbProfileToCoach(r) {
     id: r.id, name: r.name, email: r.email, bio: r.bio || '',
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
+    referralCode: r.referral_code || null,
+    referredByCode: r.referred_by_code || null,
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
   };
 }
@@ -31,6 +33,15 @@ function mapDbProfileToAthlete(r) {
     id: r.id, name: r.name, email: r.email, coachId: r.coach_id,
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
+    referralCode: r.referral_code || null,
+    referredByCode: r.referred_by_code || null,
+    createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
+  };
+}
+function mapDbReferral(r) {
+  return {
+    id: r.id, referrerId: r.referrer_id, referredId: r.referred_id,
+    referredName: r.referred_name || 'New lifter', status: r.status || 'joined',
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
   };
 }
@@ -450,6 +461,27 @@ const DB = {
     if (error) throw error;
   },
 
+  // ---------- REFERRALS ----------
+  // RLS returns only rows where the current user is the referrer (or referred).
+  async listMyReferrals(userId) {
+    const { data, error } = await sb.from('referrals')
+      .select('*').in('referrer_id', [userId])
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listMyReferrals', error); return []; }
+    return (data || []).map(mapDbReferral);
+  },
+  // Stamp the code that referred the current user onto their own profile.
+  // A SECURITY DEFINER trigger resolves code → referrer and writes the
+  // referrals row; the column is write-once, so calling this again is a no-op.
+  // Self-referrals and unknown codes are ignored server-side.
+  async applyReferral(userId, code) {
+    if (!userId || !code) return;
+    const { error } = await sb.from('profiles')
+      .update({ referred_by_code: String(code).trim().toUpperCase() })
+      .in('id', [userId]);
+    if (error) throw error;
+  },
+
   // ---------- PROGRAMS ----------
   async listProgramsForAthlete(athleteId) {
     // RLS gives athlete access to their own program only (or coach to programs they coach).
@@ -686,7 +718,12 @@ const DB = {
   async listPublishedPrograms({ tier, search } = {}) {
     let q = sb.from('marketplace_programs').select('*').eq('status', 'published').order('sold_count', { ascending: false });
     if (tier) q = q.eq('tier', tier);
-    if (search) q = q.ilike('title', '%' + search + '%');
+    if (search) {
+      // Match title OR description so search isn't title-only. Sanitize the term
+      // for PostgREST's .or() grammar (commas/parens are separators there).
+      const term = String(search).replace(/[,()]/g, ' ').trim();
+      if (term) q = q.or('title.ilike.%' + term + '%,description.ilike.%' + term + '%');
+    }
     const { data, error } = await q;
     if (error) { console.warn('listPublishedPrograms', error); return []; }
     return (data || []).map(mapDbMarketplaceProgram);

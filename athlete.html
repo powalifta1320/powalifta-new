@@ -3589,13 +3589,25 @@ function renderBodyweight() {
   area.appendChild(stat);
 
   const g = Store.get().goals.find(x => x.athleteId === user.id);
+  const dir = (g && g.bwDirection) || 'maintain';
+  // Cut/bulk analytics: 7-day trend, weekly rate, ETA, pace read (kg internally).
+  const stats = bwCutBulkStats(bw.map(b => ({ date: b.date, weight: b.weight })), (g && g.bodyweight) || null, dir);
+  const PACE_COLORS = { good: '#3fb950', slow: '#ffb547', fast: '#ff8c42', away: '#ff2d3f', flat: '#82828c' };
+  const fmtEta = weeks => {
+    if (weeks == null) return null;
+    if (weeks <= 0) return 'at goal';
+    if (weeks < 1) return '~' + Math.round(weeks * 7) + ' days';
+    if (weeks < 8) { const w = Math.round(weeks); return '~' + w + (w === 1 ? ' week' : ' weeks'); }
+    const d = new Date(Date.now() + weeks * 7 * 86400000);
+    return '~' + d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  };
+
   if (g && g.bodyweight) {
     area.appendChild(el('h3', { class: 'prog-sec' }, 'Bodyweight goal'));
     const grid = el('div', { class: 'goals-grid' });
     const cur = last.weight;
     const target = g.bodyweight;
-    const dir = g.bwDirection || 'maintain';
-    const pct = goalProgressPct(cur, target, dir);
+    const pct = goalProgressPct(cur, target, dir, stats.start);
     const card = el('div', { class: 'goal-card' + (pct >= 100 ? ' complete' : '') });
     card.appendChild(el('div', { class: 'gc-label' }, dir === 'cut' ? 'Cutting to' : dir === 'gain' ? 'Gaining to' : 'Maintain at'));
     const row = el('div', { class: 'gc-row' });
@@ -3613,6 +3625,34 @@ function renderBodyweight() {
         ? (cur >= target ? '✓ at goal' : kgToDisplay(target - cur, 1) + ' ' + u + ' to gain')
         : kgToDisplay(Math.abs(cur - target), 1) + ' ' + u + ' from target';
     card.appendChild(el('div', { class: 'gc-pct' }, el('span', {}, pct + '%'), el('span', { class: 'delta' }, delta)));
+
+    // Trend row: pace read + weekly rate + ETA. Only when we have a real rate.
+    if (stats.slopePerWeek != null) {
+      const trend = el('div');
+      trend.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);';
+      if (stats.pace) {
+        const col = PACE_COLORS[stats.pace.tone] || 'var(--text-2)';
+        const chip = el('span');
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:700; color:' + col + ';';
+        const dot = el('span');
+        dot.style.cssText = 'width:8px; height:8px; border-radius:50%; flex:none; background:' + col + '; box-shadow:0 0 8px ' + col + '88;';
+        chip.appendChild(dot);
+        chip.appendChild(el('span', {}, stats.pace.text));
+        trend.appendChild(chip);
+      }
+      const arrow = stats.slopePerWeek < -0.005 ? '↓' : stats.slopePerWeek > 0.005 ? '↑' : '→';
+      const rate = el('span', {}, arrow + ' ' + kgToDisplay(Math.abs(stats.slopePerWeek), 2) + ' ' + u + '/wk');
+      rate.style.cssText = 'font-family:"Space Grotesk",monospace; font-size:0.8rem; font-weight:600; color:var(--text-2); font-variant-numeric:tabular-nums;';
+      trend.appendChild(rate);
+      const etaStr = stats.remaining > 0 ? fmtEta(stats.etaWeeks) : null;
+      if (etaStr) {
+        const eta = el('span', {}, 'ETA ' + etaStr);
+        eta.style.cssText = 'font-family:"Space Grotesk",monospace; font-size:0.8rem; font-weight:600; color:var(--gold,#ffb547); font-variant-numeric:tabular-nums;';
+        trend.appendChild(eta);
+      }
+      card.appendChild(trend);
+    }
+
     grid.appendChild(card);
     area.appendChild(grid);
     requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = pct + '%'; }));
@@ -3623,11 +3663,31 @@ function renderBodyweight() {
   const wrap = el('div', { class: 'chart-wrap' });
   card.appendChild(wrap);
   area.appendChild(card);
+  const bwSeries = [{ name: 'Daily', color: '#ff2d3f', data: bw.map(b => ({ x: b.date, y: kgToDisplay(b.weight, 1) })) }];
+  if (stats.trend.length >= 4) {
+    bwSeries.push({ name: '7-day trend', color: '#8b93a7', noArea: true, data: stats.trend.map(t => ({ x: t.date, y: kgToDisplay(t.weight, 1) })) });
+  }
   drawLineChart(wrap, {
-    series: [{ name: 'Bodyweight', color: '#ff2d3f', data: bw.map(b => ({ x: b.date, y: kgToDisplay(b.weight, 1) })) }],
-    unit: u, height: 320, area: true,
+    series: bwSeries, unit: u, height: 320, area: true,
     goal: g && g.bodyweight ? { value: kgToDisplay(g.bodyweight, 1), label: 'Goal · ' + kgToDisplay(g.bodyweight) + ' ' + u } : null
   });
+  // Mini legend so the overlaid lines are self-explanatory.
+  if (bwSeries.length > 1 || (g && g.bodyweight)) {
+    const legend = el('div');
+    legend.style.cssText = 'display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:0.75rem; color:var(--text-2);';
+    const item = (color, label, dash) => {
+      const s = el('span'); s.style.cssText = 'display:inline-flex; align-items:center; gap:6px;';
+      const sw = el('span');
+      sw.style.cssText = dash
+        ? 'width:14px; height:0; border-top:2px dashed ' + color + ';'
+        : 'width:12px; height:3px; border-radius:2px; background:' + color + ';';
+      s.appendChild(sw); s.appendChild(el('span', {}, label)); return s;
+    };
+    legend.appendChild(item('#ff2d3f', 'Daily'));
+    if (bwSeries.length > 1) legend.appendChild(item('#8b93a7', '7-day trend'));
+    if (g && g.bodyweight) legend.appendChild(item('var(--gold,#ffb547)', 'Goal', true));
+    card.appendChild(legend);
+  }
 
   area.appendChild(el('h3', { class: 'prog-sec' }, 'Recent weigh-ins'));
   const tableCard = el('div', { class: 'chart-card' });

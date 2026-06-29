@@ -1,0 +1,130 @@
+/* ============================================================
+   POWALIFTA — cookie / privacy consent banner (drop-in module)
+
+   Honest by design: POWALIFTA sets NO ad cookies and NO cross-site
+   trackers. The only storage is an essential session token + theme
+   (localStorage) and cookieless Plausible analytics. So this banner
+   offers a real, meaningful choice — "Essential only" actually turns
+   Plausible off via its documented `plausible_ignore` flag — rather
+   than a fake accept/reject for cookies that don't exist.
+
+   Loaded after styles.css on every public page. Additive + removable.
+   Respects prefers-reduced-motion. Uses the shared brand tokens.
+   ============================================================ */
+
+.cc-banner {
+  position: fixed;
+  left: var(--space-md);
+  bottom: var(--space-md);
+  z-index: 1300;                 /* above the AI launcher (1190/1200), below modals (9000+) */
+  width: min(420px, calc(100vw - 2 * var(--space-md)));
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow), 0 0 0 1px var(--red-glow-2);
+  padding: var(--space-md);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-sm);
+  /* entrance */
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  transition: opacity 0.42s var(--ease-out-expo), transform 0.42s var(--ease-out-expo);
+  will-change: opacity, transform;
+}
+.cc-banner.cc-in  { opacity: 1; transform: translateY(0) scale(1); }
+.cc-banner.cc-out { opacity: 0; transform: translateY(12px) scale(0.98); pointer-events: none; }
+
+.cc-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  color: var(--red);
+  background: var(--grad-red-soft);
+  border: 1px solid var(--line-red);
+  flex: none;
+}
+.cc-icon svg { width: 18px; height: 18px; }
+
+.cc-body { min-width: 0; }
+
+.cc-title {
+  font-family: 'Anton', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  color: var(--text);
+  margin: 1px 0 4px;
+}
+
+.cc-text {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-2);
+  margin: 0;
+}
+.cc-text a {
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line-2);
+}
+.cc-text a:hover { color: var(--red); text-decoration-color: currentColor; }
+
+.cc-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: 2px;
+}
+
+.cc-btn {
+  flex: 1;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  color: var(--text-2);
+  transition: transform 0.12s var(--ease-out-quart),
+              background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cc-btn:hover { color: var(--text); background: var(--bg-3); border-color: var(--line-2); }
+.cc-btn:active { transform: translateY(1px); }
+.cc-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.cc-btn.cc-accept {
+  background: var(--grad-red);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-red);
+}
+.cc-btn.cc-accept:hover { color: #fff; filter: brightness(1.06); }
+
+/* Phones: dock to the bottom edge, full width, comfortable tap targets */
+@media (max-width: 560px) {
+  .cc-banner {
+    left: var(--space-xs);
+    right: var(--space-xs);
+    bottom: var(--space-xs);
+    width: auto;
+    padding: var(--space-sm);
+  }
+  .cc-btn { padding: 11px 12px; }   /* >=44px tall touch target */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-banner {
+    transition: opacity 0.2s linear;
+    transform: none;
+  }
+  .cc-banner.cc-in  { transform: none; }
+  .cc-banner.cc-out { transform: none; }
+  .cc-btn { transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .cc-btn:active { transform: none; }
+}

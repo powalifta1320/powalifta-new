@@ -91,7 +91,8 @@ function _buildDemoData() {
   const user = {
     id: DA, name: 'Demo Lifter', email: 'demo@powalifta.com', bio: '',
     coachId: DC, userType: 'athlete', isAdmin: false,
-    subscriptionTier: 'free', subscriptionStatus: 'inactive', avatarUrl: null, countryCode: null
+    subscriptionTier: 'free', subscriptionStatus: 'inactive', avatarUrl: null, countryCode: null,
+    referralCode: 'DEMO42', referredByCode: null
   };
   const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'This is what your coach sees and writes.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
 
@@ -209,7 +210,8 @@ function _buildCoachDemoData() {
   const user = {
     id: DC, name: 'Demo Coach', email: 'demo-coach@powalifta.com', bio: 'This is your seat.',
     coachId: null, userType: 'coach', isAdmin: false,
-    subscriptionTier: 'pro', subscriptionStatus: 'active', avatarUrl: null, countryCode: null
+    subscriptionTier: 'pro', subscriptionStatus: 'active', avatarUrl: null, countryCode: null,
+    referralCode: 'COACH7', referredByCode: null
   };
 
   // Roster engineered to show every flag state
@@ -305,8 +307,39 @@ function _injectDemoBanner(type) {
 //
 // Redirects if auth doesn't match expected type. Hydrates Store.
 // =========================================================
+// ---------- REFERRALS: capture + deferred attribution ----------
+const REF_KEY = 'powa-ref';
+// Read ?ref=CODE off the URL and remember it until the visitor signs up / logs
+// in. Codes are the 6-char unambiguous set the SQL generator produces.
+function captureReferralFromUrl() {
+  try {
+    const m = /[?&]ref=([A-Za-z0-9]{4,16})/.exec(location.search || '');
+    if (m && m[1]) localStorage.setItem(REF_KEY, m[1].toUpperCase());
+  } catch (e) {}
+}
+// Attribute a stashed referral to the now-authenticated user. The column is
+// write-once + self-referral-proof server-side, so this is safe to call on
+// every load; it clears the stash once attribution is on the profile.
+async function applyPendingReferral(userId, alreadyReferred) {
+  let code = null;
+  try { code = localStorage.getItem(REF_KEY); } catch (e) {}
+  if (!userId) return;
+  if (alreadyReferred) { try { localStorage.removeItem(REF_KEY); } catch (e) {} return; }
+  if (!code) return;
+  try {
+    await DB.applyReferral(userId, code);
+    try { localStorage.removeItem(REF_KEY); } catch (e) {}
+  } catch (e) { console.warn('applyReferral', e); }
+}
+window.captureReferralFromUrl = captureReferralFromUrl;
+window.applyPendingReferral = applyPendingReferral;
+
 async function bootstrap(expectedType, onReady, opts) {
   opts = opts || {};
+
+  // Stash any ?ref=CODE the moment a page loads, before auth resolves, so the
+  // attribution survives the whole signup round-trip (incl. email confirmation).
+  captureReferralFromUrl();
 
   // Live demo: skip auth + hydration entirely, run on generated data.
   if (window._demoMode && (expectedType === 'athlete' || expectedType === 'coach')) {
@@ -364,8 +397,15 @@ async function bootstrap(expectedType, onReady, opts) {
     subscriptionTier: profile.subscription_tier || 'free',
     subscriptionStatus: profile.subscription_status || 'inactive',
     avatarUrl: profile.avatar_url || null,
-    countryCode: profile.country_code || null
+    countryCode: profile.country_code || null,
+    referralCode: profile.referral_code || null,
+    referredByCode: profile.referred_by_code || null
   };
+
+  // If a referral was stashed before this user signed up / logged in, attribute
+  // it now (own-row write, idempotent + write-once server-side). Fire-and-forget
+  // so it never delays the dashboard render.
+  applyPendingReferral(window._user.id, !!profile.referred_by_code);
 
   if (!expectedType) {
     if (opts.staticPublic) {
@@ -1409,6 +1449,7 @@ function ensureSettingsModal() {
       '<div id="setBioGroup" class="form-group" style="display:none"><label>Coach bio</label><textarea id="setBio"></textarea></div>' +
       '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
       '<div class="flex gap-8 mt-16"><button class="btn btn-block" onclick="closeSettingsModal()">Cancel</button><button class="btn btn-primary btn-block" onclick="saveSettings()">Save</button></div>' +
+      '<div id="setReferralBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
       '<div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);">' +
         '<p class="dim text-sm mb-8">Your data</p>' +
         '<p class="dim text-xs mb-8" style="line-height:1.5">Download everything we hold for your account. JSON is the complete archive; CSV is your training log, ready to re-import anywhere.</p>' +
@@ -1499,6 +1540,10 @@ function openSettingsModal() {
   const fileInput = document.getElementById('setAvatarFile');
   if (fileInput) fileInput.value = '';
 
+  // Referral card — link + who's joined (async-fills its own list)
+  const refBox = document.getElementById('setReferralBox');
+  if (refBox) renderReferralCard(refBox);
+
   document.getElementById('settingsModal').classList.add('open');
   attachPwdToggles();
 }
@@ -1515,6 +1560,73 @@ function replaySettingsTour() {
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.replaySettingsTour = replaySettingsTour;
+
+// =========================================================
+// REFERRALS — shareable link + who you've brought in
+// =========================================================
+function referralLink(code) {
+  return 'https://www.powalifta.com/?ref=' + encodeURIComponent(code || '');
+}
+// Renders the referral card into `container`. Shows the user's link + a copy
+// button immediately, then fills in who's joined (async). No-ops cleanly when
+// the account has no code yet (pre-migration rows) or in demo mode.
+async function renderReferralCard(container) {
+  const u = getCurrentUser();
+  if (!container || !u) return;
+  const code = u.referralCode;
+  if (!code) { container.innerHTML = ''; return; }   // older account / demo — hide
+  const link = referralLink(code);
+  container.innerHTML =
+    '<p class="dim text-sm mb-8">Refer a lifter</p>' +
+    '<p class="dim text-xs mb-8" style="line-height:1.5">Share your link. Anyone who signs up through it shows up here — athletes and coaches both count.</p>' +
+    '<div class="flex gap-8" style="align-items:stretch">' +
+      '<input type="text" id="refLinkInput" readonly value="' + escHtml(link) + '" ' +
+        'style="flex:1; min-width:0; font-family:\'Space Grotesk\',monospace; font-size:0.8rem" onclick="this.select()">' +
+      '<button class="btn btn-ghost" id="refCopyBtn" onclick="copyReferralLink()" style="flex:0 0 auto">Copy</button>' +
+    '</div>' +
+    '<div id="refList" class="mt-12 text-xs"></div>';
+
+  const list = document.getElementById('refList');
+  if (window._demoMode) {
+    if (list) list.innerHTML = '<span style="color:var(--text-2)">No referrals yet — share your link to get started.</span>';
+    return;
+  }
+  if (list) list.innerHTML = '<span style="color:var(--text-2)">Loading…</span>';
+  try {
+    const refs = await DB.listMyReferrals(u.id);
+    const live = document.getElementById('refList');
+    if (!live) return;
+    if (!refs.length) {
+      live.innerHTML = '<span style="color:var(--text-2)">No referrals yet — share your link to get started.</span>';
+      return;
+    }
+    const rows = refs.map(r =>
+      '<div class="flex" style="justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line)">' +
+        '<span style="color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' + escHtml(r.referredName) + '</span>' +
+        '<span style="color:var(--text-2); flex:0 0 auto">' + escHtml(fmtDate(new Date(r.createdAt).toISOString().slice(0, 10))) + '</span>' +
+      '</div>').join('');
+    live.innerHTML =
+      '<p class="mb-4" style="color:var(--text)"><strong>' + refs.length + '</strong> ' +
+        (refs.length === 1 ? 'lifter' : 'lifters') + ' joined through you</p>' + rows;
+  } catch (e) {
+    const live = document.getElementById('refList');
+    if (live) live.innerHTML = '<span style="color:var(--text-2)">Couldn\'t load your referrals right now.</span>';
+  }
+}
+function copyReferralLink() {
+  const input = document.getElementById('refLinkInput');
+  if (!input) return;
+  const btn = document.getElementById('refCopyBtn');
+  const flash = () => { if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy'; }, 1600); } };
+  const fallback = () => { try { input.select(); document.execCommand('copy'); flash(); } catch (e) {} };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(flash).catch(fallback);
+    } else { fallback(); }
+  } catch (e) { fallback(); }
+}
+window.renderReferralCard = renderReferralCard;
+window.copyReferralLink = copyReferralLink;
 
 // =========================================================
 // SELF-SERVE DATA EXPORT (GDPR portability — promised in privacy/FAQ)
@@ -2985,7 +3097,7 @@ function drawLineChart(container, config) {
 
     const pathStr = smoothPath(points);
 
-    if (area) {
+    if (area && !s.noArea) {
       const baseY = h - PAD.bottom;
       const areaPath = document.createElementNS(SVG_NS, 'path');
       const areaStr = pathStr + ' L ' + points[points.length - 1].x + ' ' + baseY +
@@ -3188,22 +3300,121 @@ function latestBodyweight(athleteId) {
   return bw[0]?.weight || null;
 }
 
-// Returns 0..100. Direction-aware for bw.
-function goalProgressPct(current, goal, direction) {
+// Returns 0..100. Direction-aware for bw. Optional `start` (the first logged
+// weigh-in) turns cut/gain into a true start→goal fraction instead of a rough
+// ratio. Backward-compatible: omit `start` and the old approximation stands, so
+// the three existing 3-arg callers keep working unchanged.
+function goalProgressPct(current, goal, direction, start) {
   if (!goal || goal <= 0) return 0;
   if (direction === 'cut') {
-    // goal < starting weight; closer to (or below) goal = better
-    // We don't track starting weight, so simple approximation:
-    // if current <= goal, 100%. Otherwise, 100 * goal/current (gets closer as current drops)
     if (current <= goal) return 100;
+    // goal < starting weight; fraction of the journey already covered.
+    if (start != null && start > goal) {
+      return Math.max(0, Math.min(100, Math.round(((start - current) / (start - goal)) * 100)));
+    }
     return Math.max(0, Math.round((goal / current) * 100));
   }
   if (direction === 'gain') {
     if (current >= goal) return 100;
+    if (start != null && start < goal) {
+      return Math.max(0, Math.min(100, Math.round(((current - start) / (goal - start)) * 100)));
+    }
     return Math.max(0, Math.min(100, Math.round((current / goal) * 100)));
   }
   // strength goals (always increasing)
   return Math.max(0, Math.min(100, Math.round((current / goal) * 100)));
+}
+
+// Least-squares slope of ys over xs → units-of-y per unit-of-x (or null).
+function linregSlope(xs, ys) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2) return null;
+  let sx = 0, sy = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; }
+  const mx = sx / n, my = sy / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { const dx = xs[i] - mx; num += dx * (ys[i] - my); den += dx * dx; }
+  if (den === 0) return null;
+  return num / den;
+}
+
+const DAY_MS = 86400000;
+
+// Cut / bulk analytics over a bodyweight series. Pure + unit-agnostic: feed it
+// raw store kg and it returns kg-based rates; the caller converts for display.
+//   series    [{date:'YYYY-MM-DD', weight:Number}, ...] ascending by date
+//   goalKg    target weight (may be null)
+//   direction 'cut' | 'gain' | 'maintain'
+// → { trend, slopePerWeek, smoothedCurrent, start, remaining, etaWeeks,
+//     pctPerWeek, pace:{tone,text} }   (fields null when not computable)
+function bwCutBulkStats(series, goalKg, direction) {
+  const out = { trend: [], slopePerWeek: null, smoothedCurrent: null, start: null,
+                remaining: null, etaWeeks: null, pctPerWeek: null, pace: null };
+  if (!series || !series.length) return out;
+  out.start = series[0].weight;
+
+  // 7-day trailing moving average — smooths daily water-weight noise. Window is
+  // by date (not index) so irregular logging cadence stays honest.
+  out.trend = series.map((pt, i) => {
+    const t = Date.parse(pt.date);
+    let sum = 0, n = 0;
+    for (let j = i; j >= 0; j--) {
+      if (t - Date.parse(series[j].date) <= 7 * DAY_MS) { sum += series[j].weight; n++; }
+      else break;
+    }
+    return { date: pt.date, weight: sum / n };
+  });
+  out.smoothedCurrent = out.trend[out.trend.length - 1].weight;
+
+  // Rate of change: least-squares over the last 28 days (need ≥2 points), else
+  // fall back to the whole series.
+  const lastT = Date.parse(series[series.length - 1].date);
+  let win = series.filter(p => lastT - Date.parse(p.date) <= 28 * DAY_MS);
+  if (win.length < 2) win = series.slice();
+  if (win.length >= 2) {
+    const perDay = linregSlope(win.map(p => Date.parse(p.date) / DAY_MS), win.map(p => p.weight));
+    if (perDay != null) out.slopePerWeek = perDay * 7;
+  }
+
+  if (goalKg && goalKg > 0 && direction && direction !== 'maintain') {
+    const cur = out.smoothedCurrent;
+    out.remaining = direction === 'cut' ? cur - goalKg : goalKg - cur; // >0 = still to go
+    if (out.slopePerWeek != null) {
+      const toward = direction === 'cut' ? -out.slopePerWeek : out.slopePerWeek; // >0 = right way
+      if (out.remaining <= 0) out.etaWeeks = 0;
+      else if (toward > 0.02) out.etaWeeks = out.remaining / toward;
+    }
+  }
+
+  if (out.slopePerWeek != null && out.smoothedCurrent) {
+    out.pctPerWeek = out.slopePerWeek / out.smoothedCurrent * 100; // signed
+    out.pace = bwPace(out.slopePerWeek, out.smoothedCurrent, direction);
+  }
+  return out;
+}
+
+// Powerlifting-appropriate pace read. kg/week in → tone + one-liner out.
+// Cut sweet spot ≈ 0.5–1.0 %BW/week (strength-sparing); lean bulk ≈ 0.2–0.5 kg/week.
+function bwPace(slopeKgWk, curKg, direction) {
+  const pctWk = slopeKgWk / curKg * 100; // signed %BW/week
+  if (direction === 'cut') {
+    if (slopeKgWk > 0.05) return { tone: 'away', text: 'trending up — not cutting' };
+    const loss = -pctWk; // %/wk lost
+    if (loss < 0.2) return { tone: 'flat', text: 'holding steady' };
+    if (loss < 0.5) return { tone: 'slow', text: 'gentle cut — strength-sparing' };
+    if (loss <= 1.2) return { tone: 'good', text: 'solid cut pace' };
+    return { tone: 'fast', text: 'aggressive — strength may suffer' };
+  }
+  if (direction === 'gain') {
+    if (slopeKgWk < -0.05) return { tone: 'away', text: 'trending down — not gaining' };
+    if (slopeKgWk < 0.05) return { tone: 'flat', text: 'holding steady' };
+    if (slopeKgWk < 0.2) return { tone: 'slow', text: 'slow gain — near recomp' };
+    if (slopeKgWk <= 0.6) return { tone: 'good', text: 'lean bulk pace' };
+    return { tone: 'fast', text: 'fast — expect more fat gain' };
+  }
+  // maintain
+  if (Math.abs(pctWk) < 0.25) return { tone: 'good', text: 'steady — holding weight' };
+  return { tone: 'slow', text: 'drifting ' + (slopeKgWk > 0 ? 'up' : 'down') };
 }
 
 // =========================================================
