@@ -18,9 +18,11 @@ Icon?
 .cache/
 tmp/
 
-# Env / secrets (none currently — the Supabase anon key in db.js is intentionally public)
+# Env / secrets. Real values live in `.env` (ignored); `.env.example` is the
+# tracked manifest template. `.env.deploy.tmp` is the throwaway deploy.sh writes.
 .env
 .env.*
+!.env.example
 
 # AI assistant local config (optional, non-secret toggles only). The Gemini key
 # lives in the ai-chat edge function's secrets, never here — but keep this local

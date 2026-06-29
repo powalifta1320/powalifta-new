@@ -1,0 +1,9 @@
+# Supabase CLI project config.
+# `project_id` is your project ref — the subdomain of your project URL
+# (https://<project_id>.supabase.co). Connect the repo to the remote project once:
+#
+#   npx --yes supabase login
+#   npx --yes supabase link --project-ref cxnotrikxvzncupswvio
+#
+# After that, ./deploy.sh can deploy functions + push secrets from here.
+project_id = "cxnotrikxvzncupswvio"

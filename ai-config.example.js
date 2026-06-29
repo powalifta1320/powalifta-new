@@ -13,7 +13,7 @@
    defaults below apply.
 
    The Gemini key is NEVER set here — it lives in the edge function's
-   secrets (GEMINI_API_KEY). See edge-functions/ai-chat.ts.
+   secrets (GEMINI_API_KEY). See supabase/functions/ai-chat/index.ts.
    ============================================================ */
 window.POWA_AI = {
   // Master switch. Set false to hide the assistant entirely on a page.
