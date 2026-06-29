@@ -71,3 +71,158 @@ input[type=date], select, textarea {
     transition: none !important;
   }
 }
+
+/* ============================================================
+ * SESSION & PROGRAM SURFACE — state-driven refinement
+ * ------------------------------------------------------------
+ * Appended presentation layer for the athlete Today/Session view
+ * and the read-only Full Program view. CSS only — no markup, no JS,
+ * no wiring. State is read from the classes the renderer already
+ * emits (.exec-card.complete, .compact-set.done, .badge-green,
+ * .prog-set.done) via :has()/:focus-within, so nothing re-fires on
+ * the per-set re-render. Every colour is a theme token (red/green
+ * flip for AA contrast in light mode). Motion is state-only — no
+ * entrances, per this layer's ethos — and off under reduced-motion.
+ * ============================================================ */
+
+/* ---------- Session date stepper ----------
+ * Quiet tactile feedback on the ‹ › steppers and a branded focus
+ * ring on the date field, so the cluster reads as one instrument
+ * you operate rather than six loose chips. (ids/handlers untouched.) */
+.session-bar input[type=date] {
+  transition: border-color 0.15s var(--ease-out-quart),
+              box-shadow 0.15s var(--ease-out-quart);
+}
+.session-bar input[type=date]:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: var(--ring);
+}
+.session-bar .btn-icon {
+  transition: transform 0.12s var(--ease-out-quart), background-color 0.15s,
+              border-color 0.15s, color 0.15s;
+}
+.session-bar .btn-icon:active { transform: translateY(1px) scale(0.94); }
+
+/* ---------- Progress panel — the session's state object ----------
+ * One glance answers "how far / am I done." Default reads red (work
+ * outstanding); when every set is ticked the renderer adds the green
+ * "✓ Done" badge and the whole panel resolves to green. */
+.today-progress {
+  background-image: var(--grad-card);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.3s var(--ease-out-quint),
+              background-color 0.3s var(--ease-out-quint),
+              box-shadow 0.3s var(--ease-out-quint);
+}
+.today-progress .pct {
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s var(--ease-out-quint);
+}
+.today-progress .pbar { height: 8px; }
+.today-progress:has(.badge-green) {
+  border-color: rgba(78, 216, 132, 0.45);
+  background-image: linear-gradient(135deg, rgba(78, 216, 132, 0.10), transparent 70%);
+}
+.today-progress:has(.badge-green) .pct { color: var(--green); }
+.today-progress:has(.badge-green) .pbar > div { background: var(--green); }
+
+/* ---------- Exercise card ----------
+ * Depth so each lift reads as its own working block. The multiplier
+ * pill ("×1.12") was unstyled in the session head until now — give it
+ * the same red chip the program view uses. A finished lift drops its
+ * shadow and dims its title so attention falls on what's left. */
+.exec-card {
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s var(--ease-out-quart),
+              background-color 0.2s var(--ease-out-quart),
+              box-shadow 0.2s var(--ease-out-quart);
+}
+.exec-card-head h3 .lift-badge {
+  padding: 2px 9px;
+  background: rgba(255, 45, 63, 0.1);
+  color: var(--red);
+  border: 1px solid rgba(255, 45, 63, 0.25);
+  border-radius: 100px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.exec-card.complete { box-shadow: none; }
+.exec-card.complete .exec-card-head h3 { opacity: 0.82; }
+
+/* ---------- Set ledger ----------
+ * The surface the athlete actually drives. Raise it as the focal
+ * panel, light up the row being edited (focus-within — tint, no
+ * stripe), and give every input + the tick one red/green state
+ * language. Bigger, springier checkbox = a more satisfying log. */
+.compact-sets { box-shadow: var(--shadow-sm); }
+.compact-set:not(.done):focus-within { background: var(--red-glow-2); }
+.compact-set:not(.done):focus-within .cs-num {
+  border-color: var(--red);
+  color: var(--red);
+}
+.compact-set .cs-rpe input,
+.compact-set .cs-w-input {
+  transition: border-color 0.15s var(--ease-out-quart), box-shadow 0.15s var(--ease-out-quart);
+}
+.compact-set .cs-rpe input:focus,
+.compact-set .cs-w-input:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red-glow);
+}
+.compact-set .cs-check {
+  width: 28px; height: 28px;
+  transition: transform 0.12s var(--ease-out-quart), box-shadow 0.15s var(--ease-out-quart);
+}
+.compact-set .cs-check:active { transform: scale(0.88); }
+.compact-set .cs-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(78, 216, 132, 0.25);
+}
+.compact-set.done { transition: background-color 0.25s var(--ease-out-quint); }
+.compact-set.done .cs-targets { opacity: 0.8; }
+
+/* ---------- Today empty state ----------
+ * A scheduled-nothing day shouldn't read as a void — frame it so it
+ * feels intentional, not broken. */
+[data-pane="today"] .empty {
+  background: var(--bg-1);
+  background-image: var(--grad-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 56px 24px;
+}
+
+/* ---------- Full program (read-only) ----------
+ * Per-row hover for scanning a block; a fully-completed day quietly
+ * flags green in its header so past weeks skim at a glance. */
+#fullProgram .card { box-shadow: var(--shadow-sm); }
+#fullProgram .prog-set { transition: background-color 0.15s var(--ease-out-quart); }
+#fullProgram .prog-set:not(.done):hover { background: var(--bg-2); }
+#fullProgram .day-card:has(.prog-set):not(:has(.prog-set:not(.done))) .day-head {
+  border-color: rgba(78, 216, 132, 0.4);
+  background: linear-gradient(135deg, rgba(78, 216, 132, 0.10), var(--bg-2) 70%);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .session-bar input[type=date],
+  .session-bar .btn-icon,
+  .today-progress,
+  .today-progress .pct,
+  .exec-card,
+  .compact-set .cs-rpe input,
+  .compact-set .cs-w-input,
+  .compact-set.done,
+  .compact-set .cs-check,
+  #fullProgram .prog-set {
+    transition: none !important;
+  }
+  .session-bar .btn-icon:active,
+  .compact-set .cs-check:active { transform: none !important; }
+}

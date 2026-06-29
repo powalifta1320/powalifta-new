@@ -570,25 +570,43 @@ const PowaPush = {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications blocked — enable them in browser settings' : 'Notifications not enabled'); return false; }
 
+    // Need a real signed-in user before we subscribe — there's nowhere to save it otherwise.
+    const userId = window.DB ? await DB.getUserId() : null;
+    if (!userId) { toast('Sign in to enable notifications'); return false; }
+
+    // 1) Subscribe with the browser's push service (FCM / Mozilla / Apple).
+    //    This is the step that fails on http origins or browsers without a push service.
+    let sub;
     try {
       const reg = await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
+      sub = await reg.pushManager.getSubscription();
       if (!sub) {
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: _b64ToUint8(VAPID_PUBLIC_KEY)
         });
       }
-      const userId = window.DB ? await DB.getUserId() : null;
-      if (!userId) { toast('Sign in to enable notifications'); return false; }
-      await DB.savePushSubscription(userId, sub.toJSON(), navigator.userAgent);
-      toast('Notifications on');
-      return true;
     } catch (err) {
       console.warn('Push subscribe failed:', err);
-      toast('Could not enable notifications');
+      toast(window.isSecureContext
+        ? 'Your browser couldn’t reach a push service — try Chrome or the installed app'
+        : 'Notifications need HTTPS or the installed app');
       return false;
     }
+
+    // 2) Persist it so the server can actually reach this device.
+    //    If this fails, undo the browser subscription so the toggle never shows a false "on".
+    try {
+      await DB.savePushSubscription(userId, sub.toJSON(), navigator.userAgent);
+    } catch (err) {
+      console.warn('Saving push subscription failed:', err);
+      try { await sub.unsubscribe(); } catch {}
+      toast('Couldn’t save your alert settings — please try again');
+      return false;
+    }
+
+    toast('Notifications on');
+    return true;
   },
   // Unsubscribe this device and forget it server-side.
   async disable() {
