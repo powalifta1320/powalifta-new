@@ -4710,6 +4710,28 @@ body:has(.dash-main)::after {
 .msg-input:focus { outline: none; border-color: var(--red); }
 .msg-send { white-space: nowrap; flex-shrink: 0; }
 
+/* Session-note entries woven into a thread — read-only context, not chat.
+   Centered annotation with a dashed full border (never a side stripe). */
+.msg-note {
+  align-self: center; max-width: 92%; margin: 4px 0;
+  padding: 9px 13px; border: 1px dashed var(--line); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.msg-note-lbl {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.62rem; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--text-3); font-family: 'Space Grotesk', monospace; margin-bottom: 5px;
+}
+.msg-note-lbl::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--red); opacity: 0.65;
+}
+.msg-note-body { font-size: 0.9rem; line-height: 1.5; color: var(--text-2); white-space: pre-wrap; }
+.msg-note-meta {
+  font-size: 0.66rem; margin-top: 4px; color: var(--text-3);
+  font-family: 'Space Grotesk', monospace;
+}
+
 /* Unread badge dot (roster rows / coach tab) */
 .msg-badge {
   display: inline-flex; align-items: center; justify-content: center;

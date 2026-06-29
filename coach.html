@@ -779,10 +779,19 @@ async function renderMessages() {
     detailCol.appendChild(ph);
   }
 
-  // One query → last-message + unread per athlete (real mode only; demo has no
-  // messaging backend, so the list still renders but threads show a demo notice).
+  // One pass → last-message + unread per athlete. Real mode hits one query; demo
+  // reduces the seeded in-memory thread so the inbox previews + badges are live.
   const digestByAthlete = {};
-  if (!window._demoMode) {
+  if (window._demoMode) {
+    (Store.get().messages || []).slice()
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+      .forEach(m => {
+        const t = digestByAthlete[m.athleteId] ||
+          (digestByAthlete[m.athleteId] = { athleteId: m.athleteId, lastBody: '', lastAt: null, lastSenderId: null, unread: 0 });
+        t.lastBody = m.body; t.lastAt = m.createdAt; t.lastSenderId = m.senderId;
+        if (m.senderId !== user.id && !m.readAt) t.unread += 1;
+      });
+  } else {
     try {
       const threads = await DB.listThreadsForCoach(user.id);
       threads.forEach(t => { digestByAthlete[t.athleteId] = t; });
@@ -811,15 +820,6 @@ async function renderMessages() {
     head.appendChild(el('div', { class: 'av' }, initials(athlete.name)));
     head.appendChild(el('div', { class: 'msg-inbox-detail-name' }, athlete.name));
     detailCol.appendChild(head);
-
-    if (window._demoMode) {
-      const note = el('div', { class: 'msg-inbox-empty' });
-      const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chat;
-      note.appendChild(ic);
-      note.appendChild(el('p', { class: 'dim' }, 'Messaging goes live with a real account — this is the demo.'));
-      detailCol.appendChild(note);
-      return;
-    }
 
     const host = el('div', { class: 'msg-inbox-thread-host' });
     detailCol.appendChild(host);

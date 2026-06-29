@@ -16,7 +16,8 @@ const defaultStore = () => ({
   bodyweight: [],
   sessionNotes: [],
   goals: [],
-  restDays: []
+  restDays: [],
+  messages: []
 });
 
 const Store = {
@@ -194,11 +195,20 @@ function _buildDemoData() {
   ];
   const checkins = [{ id: 'demo-ci-1', athleteId: DA, weekStart: daysAgo(9), sleep: 7, soreness: 6, stress: 4, feel: 8, note: 'Good week.', createdAt: daysAgo(9) + 'T08:00:00Z' }];
 
+  // A live thread with the coach. The Coach tab weaves these together with the
+  // session notes above into one conversation history (see renderMessageThread).
+  const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
+  const messages = [
+    { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Heavy single on squat today — film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
+    { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Will do. Felt a little soft out of the bottom last week, not sure if it was the brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
+    { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null }
+  ];
+
   return {
     user: user,
     store: {
       coaches, athletes: [], invites: [], programs, programTemplates: [],
-      workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins,
+      workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins, messages,
       marketplacePrograms: [], mySales: [], myPurchases: []
     }
   };
@@ -281,6 +291,20 @@ function _buildCoachDemoData() {
       bodyweight.push({ id: 'demo-cbw-' + b.a + '-' + d, athleteId: b.a, date: daysAgo(d), weight: Math.round((b.kg + (2 - i) * 0.5) * 10) / 10, unit: 'kg' });
     });
   });
+  // Seeded conversations so the Messages inbox is alive: an active back-and-forth
+  // (Arjun, ends on an unread question), a wrapped-up exchange (Sarah), a re-engaged
+  // absentee (Tom, unread), and Nina with nothing yet (shows the empty state).
+  const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
+  const messages = [
+    { id: 'demo-msg-1', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'Squat day today — one top single at RPE 8.5, then two back-offs at 8. Don\'t chase a max, just move it clean.', createdAt: at(4, 9, 15), readAt: at(4, 18, 0) },
+    { id: 'demo-msg-2', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Hit 172.5 for the single, honestly felt like an opener.', createdAt: at(4, 18, 40), readAt: at(4, 19, 0) },
+    { id: 'demo-msg-3', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'That\'s exactly what I wanted to see. We\'ll go to 175 next week and hold the back-offs.', createdAt: at(4, 19, 2), readAt: at(4, 20, 0) },
+    { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one — sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
+    { id: 'demo-msg-5', coachId: DC, athleteId: 'demo-a2', senderId: 'demo-a2', body: 'Paused bench is finally clicking, the reps moved way faster this week.', createdAt: at(3, 12, 10), readAt: at(2, 8, 0) },
+    { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Good. Same weights once more, then we add load. The pause is buying you a stronger press off the chest.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
+    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'Haven\'t seen a log in over a week — everything alright?', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
+    { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Yeah man, work\'s been brutal. Back in Monday, promise.', createdAt: at(1, 22, 15), readAt: null }
+  ];
   const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
   const programTemplates = [{
     id: 'demo-tpl-1', coachId: DC, name: '8-Week Strength Block', createdAt: Date.now(),
@@ -291,7 +315,7 @@ function _buildCoachDemoData() {
     user: user,
     store: {
       coaches: [], athletes, invites, programs, programTemplates,
-      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins,
+      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages,
       marketplacePrograms: [], mySales: [], myPurchases: []
     }
   };
@@ -1909,8 +1933,15 @@ function _msgTime(iso) {
   } catch (e) { return ''; }
 }
 
+// Renders one coach<->athlete conversation: chat bubbles PLUS the session notes
+// for this pair, merged into a single time-ordered history. Notes are read-only
+// context (replying to a note still happens in the Notes inbox), so they render
+// as distinct annotations, not chat bubbles. Pass weaveNotes:false to suppress.
+// Demo mode reads/writes the in-memory Store — no Supabase, nothing persists.
 async function renderMessageThread(container, opts) {
   const { coachId, athleteId, viewerId, otherName } = opts || {};
+  const weaveNotes = !opts || opts.weaveNotes !== false;
+  const demo = !!window._demoMode;
   if (!container) return;
   container.innerHTML = '';
 
@@ -1928,43 +1959,95 @@ async function renderMessageThread(container, opts) {
   wrap.appendChild(composer);
   container.appendChild(wrap);
 
-  function paint(messages) {
+  // Merge chat messages + session notes into one chronological timeline.
+  function buildTimeline(messages, notes) {
+    const items = [];
+    (messages || []).forEach(m => items.push({
+      kind: 'msg', ts: m.createdAt || '', mine: m.senderId === viewerId, body: m.body
+    }));
+    (notes || []).forEach(n => {
+      if (n.note && n.note.trim()) items.push({
+        kind: 'note', label: 'Session note', ts: (n.date || '') + 'T00:00:01Z', body: n.note, meta: ''
+      });
+      if (n.coachComment && n.coachComment.trim()) items.push({
+        kind: 'note', label: 'Coach note', ts: n.coachCommentAt || ((n.date || '') + 'T00:00:02Z'),
+        body: n.coachComment, meta: n.coachCommentAt ? _msgTime(n.coachCommentAt) : ''
+      });
+    });
+    items.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+    return items;
+  }
+
+  function paint(items) {
     list.innerHTML = '';
-    if (!messages.length) {
+    if (!items.length) {
       list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
         'No messages yet. Say hi to ' + (otherName || 'them') + '.'));
       return;
     }
     let lastDay = '';
-    messages.forEach(m => {
-      const day = (m.createdAt || '').slice(0, 10);
+    items.forEach(it => {
+      const day = (it.ts || '').slice(0, 10);
       if (day && day !== lastDay) {
         lastDay = day;
         let label = day;
-        try { label = new Date(m.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) {}
+        try { label = new Date(it.ts).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) {}
         list.appendChild(el('div', { class: 'msg-daysep' }, label));
       }
-      const mine = m.senderId === viewerId;
-      const row = el('div', { class: 'msg-row ' + (mine ? 'mine' : 'theirs') });
-      const bubble = el('div', { class: 'msg-bubble' });
-      bubble.appendChild(el('div', { class: 'msg-body' }, m.body));
-      bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(m.createdAt)));
-      row.appendChild(bubble);
-      list.appendChild(row);
+      if (it.kind === 'note') {
+        const note = el('div', { class: 'msg-note' });
+        note.appendChild(el('div', { class: 'msg-note-lbl' }, it.label));
+        note.appendChild(el('div', { class: 'msg-note-body' }, it.body));
+        if (it.meta) note.appendChild(el('div', { class: 'msg-note-meta' }, it.meta));
+        list.appendChild(note);
+      } else {
+        const row = el('div', { class: 'msg-row ' + (it.mine ? 'mine' : 'theirs') });
+        const bubble = el('div', { class: 'msg-bubble' });
+        bubble.appendChild(el('div', { class: 'msg-body' }, it.body));
+        bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(it.ts)));
+        row.appendChild(bubble);
+        list.appendChild(row);
+      }
     });
     list.scrollTop = list.scrollHeight;
   }
 
+  // Session notes for this pair (woven into the thread). Best-effort — a notes
+  // failure must never blank the conversation.
+  async function loadNotes() {
+    if (!weaveNotes) return [];
+    try {
+      if (demo) return (Store.get().sessionNotes || []).filter(n => n.athleteId === athleteId);
+      return await DB.listNotesForAthlete(athleteId);
+    } catch (e) { console.warn('thread notes', e); return []; }
+  }
+
   let messages = [];
-  try {
-    messages = await DB.listMessages(coachId, athleteId);
-    paint(messages);
-    // Mark the ones addressed to me as read (fire and forget).
-    DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
-  } catch (e) {
-    console.warn('renderMessageThread load', e);
-    list.innerHTML = '';
-    list.appendChild(el('div', { class: 'msg-empty dim text-sm' }, 'Could not load messages. Try reloading.'));
+  let notes = [];
+  if (demo) {
+    messages = (Store.get().messages || [])
+      .filter(m => m.coachId === coachId && m.athleteId === athleteId)
+      .slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    notes = await loadNotes();
+    paint(buildTimeline(messages, notes));
+    // Clear unread on open (in-memory only — nothing persists in demo).
+    (Store.get().messages || []).forEach(m => {
+      if (m.coachId === coachId && m.athleteId === athleteId && m.senderId !== viewerId && !m.readAt) {
+        m.readAt = new Date().toISOString();
+      }
+    });
+  } else {
+    try {
+      const [msgs, nts] = await Promise.all([DB.listMessages(coachId, athleteId), loadNotes()]);
+      messages = msgs; notes = nts;
+      paint(buildTimeline(messages, notes));
+      // Mark the ones addressed to me as read (fire and forget).
+      DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+    } catch (e) {
+      console.warn('renderMessageThread load', e);
+      list.innerHTML = '';
+      list.appendChild(el('div', { class: 'msg-empty dim text-sm' }, 'Could not load messages. Try reloading.'));
+    }
   }
 
   async function doSend() {
@@ -1972,8 +2055,14 @@ async function renderMessageThread(container, opts) {
     if (!body) return;
     sendBtn.disabled = true; ta.disabled = true;
     try {
-      const msg = await DB.sendMessage({ coachId, athleteId, senderId: viewerId, body });
-      if (msg) { messages.push(msg); paint(messages); }
+      let msg;
+      if (demo) {
+        msg = { id: 'demo-msg-' + Date.now(), coachId, athleteId, senderId: viewerId, body, createdAt: new Date().toISOString(), readAt: null };
+        const s = Store.get(); (s.messages || (s.messages = [])).push(msg);
+      } else {
+        msg = await DB.sendMessage({ coachId, athleteId, senderId: viewerId, body });
+      }
+      if (msg) { messages.push(msg); paint(buildTimeline(messages, notes)); }
       ta.value = '';
       autosize();
     } catch (e) {

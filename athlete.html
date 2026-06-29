@@ -3832,16 +3832,19 @@ function renderCoach() {
   fcSection.appendChild(fcHost);
   card.appendChild(fcSection);
 
+  // Messaging uses the same thread renderer in demo + real (demo reads the
+  // in-memory Store and weaves in the seeded session notes). Form checks still
+  // split: the upload/playback round-trip needs Supabase, so demo shows a
+  // clearly-labelled illustrative version.
+  renderMessageThread(msgHost, {
+    coachId: coach.id,
+    athleteId: user.id,
+    viewerId: user.id,
+    otherName: first
+  });
   if (window._demoMode) {
-    renderDemoMessageThread(msgHost, coach);
     renderDemoFormChecks(fcHost, coach);
   } else {
-    renderMessageThread(msgHost, {
-      coachId: coach.id,
-      athleteId: user.id,
-      viewerId: user.id,
-      otherName: first
-    });
     renderAthleteFormChecks(fcHost, coach);
   }
 
@@ -3868,32 +3871,9 @@ function coachSubHead(icon, title, sub) {
   return h;
 }
 
-// --- Demo-only showcases (no Supabase) so the ?demo=1 Coach tab demonstrates
-// messaging + form checks without faking the backend. Clearly illustrative. ---
-function renderDemoMessageThread(host, coach) {
-  const first = coach.name.split(' ')[0];
-  const wrap = el('div', { class: 'msg-thread' });
-  const list = el('div', { class: 'msg-list' });
-  [
-    { mine: false, body: 'Strong week — all your top sets landed on target. How did the squats feel?', t: 'Mon 9:14 AM' },
-    { mine: true, body: 'Felt great. RPE 8 on the last set was honestly closer to a 7.', t: 'Mon 9:20 AM' },
-    { mine: false, body: 'Love it. I\'ll bump next week 2.5kg. Film the heavy single so I can see your brace out of the hole.', t: 'Mon 9:21 AM' }
-  ].forEach(m => {
-    const row = el('div', { class: 'msg-row ' + (m.mine ? 'mine' : 'theirs') });
-    const b = el('div', { class: 'msg-bubble' });
-    b.appendChild(el('div', { class: 'msg-body' }, m.body));
-    b.appendChild(el('div', { class: 'msg-meta' }, m.t));
-    row.appendChild(b); list.appendChild(row);
-  });
-  wrap.appendChild(list);
-  const composer = el('div', { class: 'msg-composer' });
-  composer.appendChild(el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message ' + first + '…' }));
-  composer.appendChild(el('button', { class: 'btn btn-primary msg-send',
-    onclick: () => toast('Messaging goes live with a real account — this is the demo.') }, 'Send'));
-  wrap.appendChild(composer);
-  host.appendChild(wrap);
-}
-
+// --- Demo-only showcase (no Supabase) so the ?demo=1 Coach tab demonstrates the
+// form-check round-trip without faking the storage backend. (Messaging shares
+// the real renderMessageThread, demo-backed by the in-memory Store.) ---
 function renderDemoFormChecks(host, coach) {
   // Upload form (visual) — the surface the user couldn't find.
   const form = el('div', { class: 'fc-form' });
