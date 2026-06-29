@@ -69,6 +69,7 @@
           </div>
         </div>
         <div class="session-bar-right">
+          <button class="btn btn-ghost" id="exportDayBtn" onclick="exportTodayCsv()" title="Download this day's session as a spreadsheet (CSV) you can take to the gym">⬇ Export day</button>
           <button class="btn" id="restBtn"></button>
         </div>
       </div>
@@ -416,6 +417,16 @@ bootstrap('athlete', () => {
       if (btn.dataset.tab === 'marketplace') renderMarketplace();
     });
   });
+
+  // Deep-link: ?tab=<name> opens that tab on load — e.g. an athlete who signed
+  // up "with a coach" but skipped the invite code is dropped on the Coach tab,
+  // where the "Join coach" input is waiting.
+  (function () {
+    const want = new URLSearchParams(location.search).get('tab');
+    if (!want) return;
+    const t = document.querySelector('.sidebar-tab[data-tab="' + want + '"]');
+    if (t) t.click();
+  })();
 
   wireNotifToggle();
   subscribeCoachMessages();
@@ -804,6 +815,27 @@ function getCurrentDay() {
 function getSessionDate() {
   return document.getElementById('sessionDate').value || todayISO();
 }
+
+// Export just the currently-selected day's session as a CSV the athlete can
+// print or take to the gym. Reuses the whole-program CSV builder (app.js) by
+// wrapping this one week+day, so the column format matches the full export.
+function exportTodayCsv() {
+  const date = getSessionDate();
+  if (isRestDay(user.id, date)) return toast('Rest day — nothing to export');
+  if (!getProgram()) return toast('No program to export yet');
+  const cur = getCurrentDay();
+  if (!cur || !cur.day) return toast('Pick a day to export first');
+  const setCount = (cur.day.exercises || []).flatMap(e => e.sets || []).length;
+  if (!setCount) return toast('This day has no sets to export');
+  const oneDay = { weeks: [{ number: cur.week && cur.week.number, days: [cur.day] }] };
+  const csv = buildProgramCsv(oneDay);
+  const dayName = (cur.day.name || 'day').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'day';
+  const fname = 'powalifta-' + dayName + '-' + (date || todayISO()) + '.csv';
+  if (_downloadBlob(fname, 'text/csv;charset=utf-8', csv)) {
+    toast('Exported ' + setCount + ' set' + (setCount === 1 ? '' : 's') + ' for ' + (cur.day.name || 'this day'));
+  }
+}
+window.exportTodayCsv = exportTodayCsv;
 
 function refreshRestBtn() {
   const date = getSessionDate();

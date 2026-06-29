@@ -30,7 +30,7 @@
 <!-- Preload Anton (the hero headline = LCP) so the steel type paints without a FOUT/CLS flash -->
 <link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/anton/v27/1Ptgg87LROyAm3Kz-C8CSKlv.woff2">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=2">
 <link rel="stylesheet" href="cookie-consent.css">
 <link rel="stylesheet" href="hero-fx.css">
 <link rel="stylesheet" href="scroll-fx.css">
@@ -566,9 +566,9 @@
       <textarea id="signupBio" placeholder="Tell athletes about your experience, certifications, training style..."></textarea>
     </div>
     <div class="form-group" id="codeGroup">
-      <label id="codeLabel">Invite code</label>
+      <label id="codeLabel">Invite code <span class="faint">(optional)</span></label>
       <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
-      <p class="faint text-xs" id="codeHint" style="margin-top:6px">Get this 6-character code from your coach.</p>
+      <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional — link to your coach now, or anytime later from your dashboard.</p>
     </div>
     <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
     <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
@@ -767,7 +767,7 @@ function onSignupTypeChange() {
   document.getElementById('signupTitle').textContent = title;
   // Invite code hint copy: for athlete-coached, code is required
   const hint = document.getElementById('codeHint');
-  if (hint) hint.textContent = 'Get this 6-character code from your coach. Required to link to their roster.';
+  if (hint) hint.textContent = 'Optional — paste a code now to link instantly, or add your coach later from your dashboard.';
 }
 
 async function doLogin() {
@@ -802,8 +802,9 @@ async function doSignup() {
   const code = document.getElementById('signupCode').value.trim().toUpperCase();
   if (!name || !email || !pwd) return toast('Name, email, password required');
   if (pwd.length < 6) return toast('Password must be at least 6 chars');
-  // Athlete-with-coach requires a code; solo and coach don't
-  if (type === 'athlete' && !code) return toast('Invite code required — ask your coach. Or sign up solo if you don\'t have one.');
+  // Athlete-with-coach: the invite code is OPTIONAL. Without it they sign up
+  // unattached and can link to a coach anytime from the dashboard Coach tab
+  // (athlete.html joinCoach → DB.claimInviteCode). No hard block here.
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   try {
     if (type === 'coach') {
@@ -825,7 +826,9 @@ async function doSignup() {
       if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
       return;
     }
-    location.href = type === 'coach' ? 'coach.html' : 'athlete.html';
+    location.href = type === 'coach' ? 'coach.html'
+      : (type === 'athlete' && !code) ? 'athlete.html?tab=coach'
+      : 'athlete.html';
   } catch (e) {
     toast(e.message || 'Signup failed');
     if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }

@@ -138,7 +138,7 @@
   background-position: 200% 0;
   mix-blend-mode: overlay;
   pointer-events: none;
-  animation: fxShimmer 3.5s 0.8s ease-out infinite;
+  animation: fxShimmer 3.5s 0.8s ease-out forwards;
 }
 @keyframes fxShimmer {
   0%      { background-position: 200% 0; }

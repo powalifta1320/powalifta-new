@@ -118,6 +118,42 @@
   .cc-btn { padding: 11px 12px; }   /* >=44px tall touch target */
 }
 
+/* Tablet + desktop: a full-width docked bottom bar, NOT a bottom-left corner
+   card. The hero's primary CTAs ("Train solo" / "Join your coach" / "Become a
+   coach") are centred and span most of the content width, so a ~420px corner
+   card unavoidably sat on top of them on common laptop widths (≈1024–1280) —
+   at 1024 it covered the primary "Train solo" button outright. A docked strip
+   clears the primary CTA row and reads as the standard, intentional consent
+   bar. Content is centred to the site container width; the bar still slides up
+   on entrance via the shared translateY transition. */
+@media (min-width: 561px) {
+  .cc-banner {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    border: none;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45), 0 -1px 0 var(--red-glow-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    /* Centre the row within the site container; never less than 24px inset. */
+    padding: 12px max(24px, calc((100vw - 1120px) / 2));
+  }
+  .cc-icon { align-self: flex-start; margin-top: 1px; }
+  .cc-body { flex: 1 1 auto; min-width: 0; }
+  .cc-actions {
+    grid-column: auto;       /* reset the corner-card full-row span */
+    margin-top: 0;
+    flex: 0 0 auto;
+    align-self: center;
+  }
+  .cc-btn { flex: 0 0 auto; padding: 9px 22px; white-space: nowrap; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cc-banner {
     transition: opacity 0.2s linear;

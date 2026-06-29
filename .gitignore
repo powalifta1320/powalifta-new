@@ -18,6 +18,10 @@ Icon?
 .cache/
 tmp/
 
+# Local-only aesthetic-overhaul proof (bold restyle). Viewed on localhost for the
+# polish-vs-bold direction call; must NOT ship to main. Same rule as review.html.
+index-bold.html
+
 # Env / secrets. Real values live in `.env` (ignored); `.env.example` is the
 # tracked manifest template. `.env.deploy.tmp` is the throwaway deploy.sh writes.
 .env

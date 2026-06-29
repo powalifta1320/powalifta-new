@@ -84,7 +84,15 @@
   function setupMagnets() {
     if (isTouch() || reduced()) return;
 
-    var targets = document.querySelectorAll('.btn.btn-primary, .btn.btn-lg, .cta-band .btn');
+    // Magnetic pull is a marketing flourish for the big hero / CTA-band buttons.
+    // It must NEVER apply to functional form controls: a submit button that leans
+    // toward the cursor becomes a moving target you have to chase, so you end up
+    // "having to press the edge". Exclude anything inside a modal and any
+    // full-width block button (login / signup / forgot submits are both).
+    var all = document.querySelectorAll('.btn.btn-primary, .btn.btn-lg, .cta-band .btn');
+    var targets = Array.prototype.filter.call(all, function (btn) {
+      return !btn.closest('.modal, .modal-backdrop, form') && !btn.classList.contains('btn-block');
+    });
     if (!targets.length) return;
 
     targets.forEach(function (btn) {

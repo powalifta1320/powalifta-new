@@ -210,6 +210,7 @@ h1, h2, h3, h4 {
   letter-spacing: 0.005em;
   line-height: 1.02;
   text-transform: uppercase;
+  text-wrap: balance; /* even line lengths on multi-line display headings */
 }
 h1 {
   font-size: clamp(3.4rem, 10vw, 8rem);
@@ -358,7 +359,7 @@ h4 { font-size: 1.05rem; letter-spacing: 0.04em; }
   background: var(--grad-red);
   border-color: transparent;
   color: #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.18);
   overflow: hidden;
 }
 .btn-primary::after {
@@ -371,7 +372,7 @@ h4 { font-size: 1.05rem; letter-spacing: 0.04em; }
   pointer-events: none;
 }
 .btn-primary:hover {
-  box-shadow: var(--shadow-red);
+  box-shadow: var(--shadow-red), inset 0 1px 0 rgba(255,255,255,0.22);
   filter: brightness(1.08);
   border-color: transparent;
 }
@@ -477,12 +478,15 @@ select {
   border-radius: var(--r-lg);
   padding: 24px;
   position: relative;
+  /* Lit top edge — the depth cue that actually reads on a near-black bg, where a
+     drop shadow would vanish. Shared across every card family for cohesion. */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .card.hover { transition: transform 0.2s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.2s ease; }
 .card.hover:hover {
   border-color: var(--line-red);
   transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(0,0,0,0.4), 0 0 0 1px var(--red-glow-2), 0 8px 24px rgba(255,45,63,0.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 34px rgba(0,0,0,0.45), 0 0 0 1px var(--red-glow), 0 10px 30px rgba(255,45,63,0.14);
 }
 .card h3 { margin-bottom: 12px; }
 .card-tight { padding: 16px; }
@@ -570,17 +574,18 @@ select {
 .hero-facts .hf b {
   font-family: 'Anton', sans-serif;
   font-weight: 400;
-  font-size: 1.3rem;
-  letter-spacing: 0.02em;
+  font-size: 1.5rem;
+  letter-spacing: 0.01em;
   color: var(--text);
   text-transform: uppercase;
+  line-height: 1;
 }
 .hero-facts .hf span {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-3);
-  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-2); /* was text-3 — bump contrast on the tiny captions */
+  font-weight: 600;
 }
 @media (max-width: 700px) {
   .hero-facts { gap: 14px; }
@@ -646,6 +651,7 @@ select {
   margin: 0 auto 38px;
   line-height: 1.62;
   font-weight: 400;
+  text-wrap: pretty; /* avoid orphans/ragged short last lines */
 }
 .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .hero-demo-line {
@@ -1177,6 +1183,17 @@ body:has(.demo-banner) { padding-bottom: 96px; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+/* The two showcase panels were inert; give them the same quiet lift the rest of
+   the page has so the fold doesn't read as dead weight between live sections. */
+.inside-card:not(.hero-feat) {
+  transition: transform 0.26s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.26s var(--ease-out-quart);
+}
+.inside-card:not(.hero-feat):hover {
+  transform: translateY(-3px);
+  border-color: var(--line-red);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 42px rgba(0,0,0,0.5), 0 0 0 1px var(--red-glow), 0 10px 30px rgba(255,45,63,0.12);
 }
 .inside-card.hero-feat {
   grid-column: 1 / -1;
@@ -1267,6 +1284,33 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
 #marketplace-teaser { padding: var(--section-y-air) 0; }
 #how, #why, #coaches { padding: var(--section-y-tight) 0; }
 
+/* Fold seams — each major boundary gets a hairline that fades to nothing at the
+   edges, so the page reads as a stack of composed panels instead of one
+   continuous black scroll. Calm light-on-dark line language, echoing the hero
+   grid; one rule per fold, never a heavy divider. */
+#inside, #how, #why, #coaches, #marketplace-teaser, #pricing { position: relative; }
+#inside::before, #how::before, #why::before, #coaches::before,
+#marketplace-teaser::before, #pricing::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1180px, 90%);
+  height: 1px;
+  background:
+    linear-gradient(90deg, transparent, var(--line-2) 18%, var(--line-2) 82%, transparent),
+    radial-gradient(58% 100% at 50% 50%, rgba(255,255,255,0.16), transparent 72%);
+  pointer-events: none;
+}
+/* Flagship folds — the feature showcase and pricing carry the pitch, so they get
+   a red crown at the top edge for focal weight. Sparing on purpose: two folds,
+   not every section (that would just be wallpaper). */
+#inside, #pricing {
+  background-image: radial-gradient(ellipse 78% 360px at 50% 0%, var(--red-glow), transparent 66%);
+  background-repeat: no-repeat;
+}
+
 .section-title { margin-bottom: var(--title-gap); }
 .section-title h2 {
   margin-bottom: 14px;
@@ -1279,6 +1323,7 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   font-size: 1.12rem;
   line-height: 1.62;
   max-width: var(--measure);
+  text-wrap: pretty;
 }
 .section-title.center { text-align: center; }
 .section-title.center p { margin: 0 auto; }
@@ -1294,6 +1339,16 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   text-transform: uppercase;
   color: var(--red);
   margin-bottom: 16px;
+}
+/* Leading tick — turns a floating label into a deliberate kicker anchored to a
+   short red rule. The .section-tag's existing gap already spaces it. */
+.section-tag::before {
+  content: '';
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--grad-red);
+  flex: none;
 }
 .section-title.center .section-tag { justify-content: center; }
 
@@ -1311,7 +1366,8 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   padding: 28px;
   position: relative;
   overflow: hidden;
-  transition: all 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform 0.24s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.24s var(--ease-out-quart);
 }
 .step::before {
   content: '';
@@ -1322,7 +1378,11 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   transition: opacity 0.2s;
   pointer-events: none;
 }
-.step:hover { border-color: var(--line-2); transform: translateY(-3px); }
+.step:hover {
+  border-color: var(--line-2);
+  transform: translateY(-3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 32px rgba(0,0,0,0.42);
+}
 .step:hover::before { opacity: 1; }
 .step > * { position: relative; z-index: 1; }
 .step-num {
@@ -1353,6 +1413,7 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
 }
 .feat {
   background: var(--bg-1);
+  background-image: var(--grad-card);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 26px 24px;
@@ -1363,7 +1424,8 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   column-gap: 16px;
   row-gap: 6px;
   align-items: start;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform 0.22s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.22s var(--ease-out-quart);
 }
 /* Red left-edge bar — withheld, then strikes in on hover. */
 .feat::before {
@@ -1379,7 +1441,7 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
 .feat:hover {
   transform: translateY(-3px);
   border-color: rgba(255,45,63,0.35);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 32px rgba(0,0,0,0.42), 0 0 0 1px var(--red-glow-2);
 }
 .feat:hover::before { transform: scaleY(1); }
 .feat:hover .feat-icon {
@@ -1427,13 +1489,14 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 24px;
-  transition: all 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform 0.24s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.24s var(--ease-out-quart);
   position: relative;
 }
 .coach-card:hover {
   border-color: rgba(255,45,63,0.35);
   transform: translateY(-3px);
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 38px rgba(0,0,0,0.45), 0 0 0 1px var(--red-glow-2);
 }
 .coach-card .av {
   width: 56px;
@@ -1602,6 +1665,15 @@ tbody tr:hover td { background: var(--hover-tint); }
   padding: 30px 30px 26px;
   width: 100%;
   max-width: 460px;
+  /* Never let a modal grow taller than the padded backdrop (20px each side).
+     Without this, a tall modal (e.g. Publish to marketplace) gets vertically
+     centred and overflows top+bottom off-screen with no way to scroll — you
+     only see a clipped middle, which reads as "too zoomed in". Cap the height
+     and let the content scroll inside instead. dvh handles the mobile URL bar;
+     the vh line is the fallback for browsers without dvh. */
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
   box-shadow: var(--shadow);
   position: relative;
   animation: slideUp 0.22s ease;
@@ -4085,6 +4157,11 @@ footer .footer-base {
 .theme-toggle svg {
   width: 17px; height: 17px;
   transition: transform 0.4s cubic-bezier(0.22, 0.8, 0.36, 1), opacity 0.2s;
+  /* Icons are line-art (fill:none); without this, a real pointer on the
+     transparent interior can miss the button (only the painted strokes were
+     hit-testable). Making the SVG pointer-transparent turns the whole 36px
+     button into one solid hit target so center clicks work like edge clicks. */
+  pointer-events: none;
 }
 .theme-toggle .icon-sun { display: none; }
 [data-theme="light"] .theme-toggle .icon-sun { display: block; }
@@ -4374,10 +4451,11 @@ footer .footer-base {
   padding: 28px;
   text-align: center;
   position: relative;
-  transition: all 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform 0.24s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.24s var(--ease-out-quart);
 }
-.price-tile:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: var(--shadow-sm); }
-.price-tile.featured:hover { box-shadow: var(--shadow-red); }
+.price-tile:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 36px rgba(0,0,0,0.45); }
+.price-tile.featured:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), var(--shadow-red); }
 .price-tile.featured {
   border-color: var(--red);
   background: linear-gradient(180deg, rgba(255,45,63,0.06), transparent);
