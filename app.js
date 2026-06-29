@@ -186,6 +186,9 @@ function _buildDemoData() {
   const programs = [{ id: 'demo-prog', athleteId: DA, coachId: DC, name: 'Strength Block — Wave 2', weeks }];
 
   const sessionNotes = [
+    // Dated TODAY so the live session leads with the "Coach feedback" card —
+    // the clearest signal in the demo that a real coach is programming for you.
+    { id: 'demo-note-today', athleteId: DA, weekId: null, dayId: null, date: iso(new Date()), note: '', coachComment: 'Before today: the top set is RPE 8.5 — leave 1–2 in the tank, this isn\'t a max. Back-offs at 8. Film the heavy single and drop it in the form-check tab, I want eyes on your brace out of the hole.', coachCommentAt: iso(new Date()) + 'T08:30:00Z', coachId: DC },
     { id: 'demo-note-1', athleteId: DA, weekId: null, dayId: null, date: daysAgo(2), note: 'Pulls felt heavy off the floor today but lockout was easy.', coachComment: 'Bar speed on video looked fine — that\'s just deficit fatigue. We deload in two weeks. Keep the openers honest.', coachCommentAt: daysAgo(1) + 'T10:00:00Z', coachId: DC },
     { id: 'demo-note-2', athleteId: DA, weekId: null, dayId: null, date: daysAgo(7), note: 'Bench PR! Moved fast.', coachComment: 'Saw it. Adding 2.5kg to your top sets.', coachCommentAt: daysAgo(6) + 'T10:00:00Z', coachId: DC }
   ];
@@ -268,6 +271,16 @@ function _buildCoachDemoData() {
     { id: 'demo-cci-1', athleteId: 'demo-a1', weekStart: daysAgo(3), sleep: 8, soreness: 4, stress: 3, feel: 9, note: 'Feeling strong.', createdAt: daysAgo(3) + 'T08:00:00Z' },
     { id: 'demo-cci-2', athleteId: 'demo-a3', weekStart: daysAgo(10), sleep: 4, soreness: 8, stress: 9, feel: 3, note: 'Rough week.', createdAt: daysAgo(10) + 'T08:00:00Z' }
   ];
+  // Per-athlete bodyweight so the pound-for-pound board has data. Weights are
+  // picked so relative-strength rank differs from raw total (Arjun, lightest,
+  // outranks heavier Tom) — that contrast is the whole point of the board.
+  // Nina never started, so she's left out and the board skips her.
+  const bodyweight = [];
+  [{ a: 'demo-a1', kg: 74.8 }, { a: 'demo-a2', kg: 62.9 }, { a: 'demo-a3', kg: 105.3 }].forEach(b => {
+    [14, 7, 1].forEach((d, i) => {
+      bodyweight.push({ id: 'demo-cbw-' + b.a + '-' + d, athleteId: b.a, date: daysAgo(d), weight: Math.round((b.kg + (2 - i) * 0.5) * 10) / 10, unit: 'kg' });
+    });
+  });
   const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
   const programTemplates = [{
     id: 'demo-tpl-1', coachId: DC, name: '8-Week Strength Block', createdAt: Date.now(),
@@ -278,7 +291,7 @@ function _buildCoachDemoData() {
     user: user,
     store: {
       coaches: [], athletes, invites, programs, programTemplates,
-      workoutLogs, bodyweight: [], sessionNotes, goals: [], restDays: [], checkins,
+      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins,
       marketplacePrograms: [], mySales: [], myPurchases: []
     }
   };
@@ -1585,6 +1598,33 @@ window.replaySettingsTour = replaySettingsTour;
 function referralLink(code) {
   return 'https://www.powalifta.com/?ref=' + encodeURIComponent(code || '');
 }
+// Milestone progress toward referral tiers. Pure status/recognition — names are
+// achievement labels, NOT a monetary promise (there is no payout backend yet).
+// Visualises the real referral count against round thresholds to motivate sharing.
+const REFERRAL_TIERS = [
+  { at: 1, name: 'First referral' },
+  { at: 3, name: 'Spotter' },
+  { at: 5, name: 'Training partner' },
+  { at: 10, name: 'Crew' },
+  { at: 25, name: 'Powerhouse' }
+];
+function referralMilestoneHtml(count) {
+  const next = REFERRAL_TIERS.find(t => t.at > count);
+  const prevAt = REFERRAL_TIERS.reduce((a, t) => (t.at <= count ? t.at : a), 0);
+  const pct = next ? Math.max(6, Math.round((count - prevAt) / (next.at - prevAt) * 100)) : 100;
+  const label = next
+    ? '<strong style="color:var(--text)">' + (next.at - count) + '</strong> more to <span style="color:var(--red)">' + escHtml(next.name) + '</span>'
+    : '<span style="color:var(--red)">Powerhouse</span> — every tier cleared';
+  return '<div style="margin-top:14px">' +
+      '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; font-size:0.78rem">' +
+        '<span style="color:var(--text-2)">' + label + '</span>' +
+        '<span style="font-family:\'Space Grotesk\',monospace; color:var(--text-2)">' + count + (next ? ' / ' + next.at : '') + '</span>' +
+      '</div>' +
+      '<div style="height:8px; background:rgba(255,255,255,0.07); border-radius:999px; overflow:hidden">' +
+        '<div style="height:100%; width:' + pct + '%; background:linear-gradient(90deg, var(--red), #ff6b78); border-radius:999px; transition:width .6s cubic-bezier(0.22,1,0.36,1)"></div>' +
+      '</div>' +
+    '</div>';
+}
 // Renders the referral card into `container`. Shows the user's link + a copy
 // button immediately, then fills in who's joined (async). No-ops cleanly when
 // the account has no code yet (pre-migration rows) or in demo mode.
@@ -1606,7 +1646,9 @@ async function renderReferralCard(container) {
 
   const list = document.getElementById('refList');
   if (window._demoMode) {
-    if (list) list.innerHTML = '<span style="color:var(--text-2)">No referrals yet — share your link to get started.</span>';
+    if (list) list.innerHTML = referralMilestoneHtml(2) +
+      '<p class="mb-4 mt-12" style="color:var(--text)"><strong>2</strong> lifters joined through you</p>' +
+      '<p style="color:var(--text-2)">Share your link and everyone who signs up shows up right here.</p>';
     return;
   }
   if (list) list.innerHTML = '<span style="color:var(--text-2)">Loading…</span>';
@@ -1615,7 +1657,8 @@ async function renderReferralCard(container) {
     const live = document.getElementById('refList');
     if (!live) return;
     if (!refs.length) {
-      live.innerHTML = '<span style="color:var(--text-2)">No referrals yet — share your link to get started.</span>';
+      live.innerHTML = referralMilestoneHtml(0) +
+        '<p class="mt-12" style="color:var(--text-2)">No referrals yet — share your link to get started.</p>';
       return;
     }
     const rows = refs.map(r =>
@@ -1623,8 +1666,8 @@ async function renderReferralCard(container) {
         '<span style="color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' + escHtml(r.referredName) + '</span>' +
         '<span style="color:var(--text-2); flex:0 0 auto">' + escHtml(fmtDate(new Date(r.createdAt).toISOString().slice(0, 10))) + '</span>' +
       '</div>').join('');
-    live.innerHTML =
-      '<p class="mb-4" style="color:var(--text)"><strong>' + refs.length + '</strong> ' +
+    live.innerHTML = referralMilestoneHtml(refs.length) +
+      '<p class="mb-4 mt-12" style="color:var(--text)"><strong>' + refs.length + '</strong> ' +
         (refs.length === 1 ? 'lifter' : 'lifters') + ' joined through you</p>' + rows;
   } catch (e) {
     const live = document.getElementById('refList');
@@ -2162,6 +2205,67 @@ function calcCompE1RM(weight, reps, rpe, lift, variant) {
 }
 
 // =========================================================
+// SCORING — DOTS, weight class, strength standards
+// Powerlifters live and die by these. All bodyweight-relative, so they
+// reuse the e1RM + bodyweight we already store. Sex is a client-side
+// preference (localStorage) — no profile column, no migration.
+// =========================================================
+function getSexPref() {
+  try { return localStorage.getItem('powa-sex') === 'female' ? 'female' : 'male'; }
+  catch (e) { return 'male'; }
+}
+function setSexPref(s) {
+  try { localStorage.setItem('powa-sex', s === 'female' ? 'female' : 'male'); } catch (e) {}
+}
+
+// DOTS — the modern bodyweight-adjusted coefficient (replaced Wilks at most feds).
+// total + bw in kg. Returns points (≈ 0–600). Coefficients are the official DOTS set.
+function dotsScore(totalKg, bwKg, sex) {
+  if (!totalKg || !bwKg || bwKg <= 0) return 0;
+  const bw = Math.min(Math.max(bwKg, 40), sex === 'female' ? 150 : 210);
+  const c = (sex === 'female')
+    ? [-0.0000010706, 0.0005158568, -0.1126655495, 13.6175032, -57.96288]
+    : [-0.000001093, 0.0007391293, -0.1918759221, 24.0900756, -307.75076];
+  const denom = c[0] * Math.pow(bw, 4) + c[1] * Math.pow(bw, 3) + c[2] * bw * bw + c[3] * bw + c[4];
+  if (!denom) return 0;
+  return Math.round((500 / denom) * totalKg * 100) / 100;
+}
+
+// IPF weight classes (open). Returns e.g. "83kg" or "120kg+".
+const IPF_CLASSES = {
+  male:   [59, 66, 74, 83, 93, 105, 120],
+  female: [47, 52, 57, 63, 69, 76, 84]
+};
+function weightClassFor(bwKg, sex) {
+  if (!bwKg || bwKg <= 0) return null;
+  const arr = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
+  for (const c of arr) if (bwKg <= c) return c + 'kg';
+  return arr[arr.length - 1] + 'kg+';
+}
+
+// Strength standards as e1RM÷bodyweight ratios (male raw). Four thresholds →
+// five tiers. Women scale by ~0.72 (rough but motivating, not a ranking).
+const STRENGTH_LEVELS = ['Beginner', 'Novice', 'Intermediate', 'Advanced', 'Elite'];
+const STRENGTH_STANDARDS = {
+  squat:    [1.0, 1.5, 2.0, 2.5],
+  bench:    [0.75, 1.0, 1.25, 1.6],
+  deadlift: [1.25, 1.75, 2.25, 2.75]
+};
+// Returns { index, level, ratio, nextRatio, toNextKg } or null when not computable.
+function strengthLevel(e1rmKg, bwKg, lift, sex) {
+  const base = STRENGTH_STANDARDS[lift];
+  if (!base || !e1rmKg || !bwKg || bwKg <= 0) return null;
+  const scale = (sex === 'female') ? 0.72 : 1.0;
+  const tiers = base.map(t => t * scale);
+  const ratio = e1rmKg / bwKg;
+  let index = 0;
+  for (let i = 0; i < tiers.length; i++) if (ratio >= tiers[i]) index = i + 1;
+  const nextRatio = index < tiers.length ? tiers[index] : null;
+  const toNextKg = nextRatio != null ? Math.max(0, nextRatio * bwKg - e1rmKg) : null;
+  return { index, level: STRENGTH_LEVELS[index], ratio, nextRatio, toNextKg };
+}
+
+// =========================================================
 // PLATE CALCULATOR
 // (assumes 20kg bar, common kg plates)
 // =========================================================
@@ -2559,6 +2663,23 @@ function hasAnyLogOnDate(athleteId, date) {
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function fmtDate(iso) { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
 function fmtDateShort(iso) { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+// Compact relative stamp for inbox/feed rows: "now", "3m", "2h", "4d", else a short date.
+function fmtRelative(iso) {
+  if (!iso) return '';
+  try {
+    const then = new Date(iso).getTime();
+    const diff = Date.now() - then;
+    if (isNaN(then)) return '';
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'now';
+    if (m < 60) return m + 'm';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    const d = Math.floor(h / 24);
+    if (d < 7) return d + 'd';
+    return fmtDateShort(iso);
+  } catch (e) { return ''; }
+}
 
 // =========================================================
 // UI HELPERS
@@ -2680,7 +2801,9 @@ const ICONS = {
   arrowUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>',
   arrowDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4M6 5h12v6a6 6 0 0 1-12 0V5zM12 17v4M9 21h6"/></svg>',
-  note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+  note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+  film: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>'
 };
 
 // Brand mark — barbell SVG
@@ -3448,7 +3571,19 @@ function seedDemoIfEmpty() { /* no-op — Supabase is the source of truth */ }
 function _countUpEl(valEl) {
   const unitSpan = valEl.querySelector('.unit');
   const unitHTML = unitSpan ? unitSpan.outerHTML : '';
-  const raw = (valEl.textContent || '').replace(/,/g, '');
+  // Read ONLY the number, excluding the .unit span — the unit text can itself
+  // contain digits (e.g. "of 4"), which would otherwise be parsed into the
+  // target ("1 of 4" → 14). The number is the leading text before the unit.
+  let numText = '';
+  if (unitSpan) {
+    for (const node of valEl.childNodes) {
+      if (node === unitSpan) break;
+      numText += node.textContent || '';
+    }
+  } else {
+    numText = valEl.textContent || '';
+  }
+  const raw = numText.replace(/,/g, '');
   const target = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
   if (!isFinite(target) || target === 0) return;
   const isInt = Number.isInteger(target);

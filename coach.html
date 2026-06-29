@@ -32,6 +32,7 @@
     <button class="sidebar-tab active" data-tab="athletes" id="tab-athletes"></button>
     <button class="sidebar-tab" data-tab="program" id="tab-program"></button>
     <button class="sidebar-tab" data-tab="templates" id="tab-templates"></button>
+    <button class="sidebar-tab" data-tab="messages" id="tab-messages"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
     <button class="sidebar-tab" data-tab="progress" id="tab-progress"></button>
     <div class="sidebar-foot">
@@ -77,6 +78,14 @@
         <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete, or publish them for sale on the marketplace.</p></div>
       </div>
       <div id="templatesArea"></div>
+    </section>
+
+    <!-- MESSAGES -->
+    <section data-pane="messages" class="hidden">
+      <div class="dash-header">
+        <div><h2>Messages</h2><p class="dim text-sm">Every athlete conversation in one place. Pick a name to open the thread.</p></div>
+      </div>
+      <div id="messagesArea"></div>
     </section>
 
     <!-- MARKETPLACE -->
@@ -294,6 +303,7 @@ bootstrap('coach', () => {
   setLbl('tab-athletes', ICONS.athletes, 'Roster');
   setLbl('tab-program', ICONS.program, 'Program builder');
   setLbl('tab-templates', ICONS.copy, 'Templates');
+  setLbl('tab-messages', ICONS.chat, 'Messages');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   setLbl('tab-progress', ICONS.chart, 'Progress');
   document.getElementById('btn-invite').innerHTML = ICONS.plus + '<span>Invite athlete</span>';
@@ -308,6 +318,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'athletes') renderRoster();
       if (btn.dataset.tab === 'program') populateAthleteSelect('progAthlete', loadProgram);
       if (btn.dataset.tab === 'templates') renderTemplates();
+      if (btn.dataset.tab === 'messages') renderMessages();
       if (btn.dataset.tab === 'marketplace') renderCoachMarketplace();
       if (btn.dataset.tab === 'progress') populateAthleteSelect('progressAthlete', renderProgressForAthlete);
     });
@@ -351,6 +362,12 @@ function maybeStartCoachTour() {
       before: () => { const t = document.getElementById('tab-progress'); if (t) t.click(); }
     },
     {
+      selector: '#tab-messages',
+      title: 'Message your roster',
+      body: 'Every athlete conversation in one place, plus their form-check videos. Pick a name to open the thread and reply — they get it on their dashboard and as a push.',
+      before: () => { const t = document.getElementById('tab-messages'); if (t) t.click(); }
+    },
+    {
       selector: '#planPill',
       title: 'Your plan',
       body: 'Free tier covers 3 athletes. When you grow past that, click here anytime to upgrade. Tap "Show tour again" in settings to replay this walkthrough.',
@@ -385,6 +402,52 @@ function renderPlanPill() {
   }
 }
 
+// ===== ROSTER COMPLIANCE — whole-roster health at a glance =====
+// Aggregates the same per-athlete flags the cards already show, so a coach
+// reads roster adherence in one strip instead of scanning every card.
+function buildComplianceStrip(overview) {
+  const roster = overview.length;
+  const trainedToday = overview.filter(o => o.flag === 'today').length;
+  const activeWeek = overview.filter(o => o.flag === 'today' || o.flag === 'recent' || o.flag === 'week').length;
+  const needsNudge = overview.filter(o => o.flag === 'stale' || o.flag === 'never').length;
+  const withProg = overview.filter(o => o.totalSets > 0);
+  const avgCompletion = withProg.length
+    ? Math.round(withProg.reduce((s, o) => s + o.completedSets / o.totalSets, 0) / withProg.length * 100)
+    : null;
+
+  const wrap = el('div', {});
+  const tiles = el('div', { class: 'stat-grid' });
+  [
+    { label: 'On roster',        val: roster,        unit: 'athlete' + (roster === 1 ? '' : 's'), feat: true },
+    { label: 'Trained today',    val: trainedToday,  unit: 'of ' + roster },
+    { label: 'Active this week',  val: activeWeek,    unit: 'of ' + roster },
+    { label: 'Needs a nudge',    val: needsNudge,    unit: needsNudge ? 'stale' : 'all current', danger: needsNudge > 0 }
+  ].forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
+    tile.appendChild(el('div', { class: 'stat-label' }, t.label));
+    tile.appendChild(el('div', {
+      class: 'stat-value', style: t.danger ? 'color: var(--red);' : '',
+      html: t.val + (t.unit ? '<span class="unit"> ' + t.unit + '</span>' : '')
+    }));
+    tiles.appendChild(tile);
+  });
+  wrap.appendChild(tiles);
+
+  if (avgCompletion != null) {
+    const adherence = roster ? Math.round(activeWeek / roster * 100) : 0;
+    wrap.appendChild(el('div', { class: 'compliance-line' },
+      el('span', {}, 'Avg program completion '),
+      el('strong', { class: 'mono' }, avgCompletion + '%'),
+      el('span', { class: 'compliance-dot' }, ' · '),
+      el('span', {}, adherence + '% of the roster logged in the last 7 days'),
+      needsNudge
+        ? el('span', { class: 'compliance-warn' }, ' · ' + needsNudge + ' to follow up with')
+        : el('span', { class: 'compliance-ok' }, ' · everyone current')
+    ));
+  }
+  return wrap;
+}
+
 // ===== ROSTER =====
 function renderRoster() {
   renderPlanPill();
@@ -405,6 +468,10 @@ function renderRoster() {
     e.appendChild(actions);
     area.appendChild(e);
   } else {
+    // ===== COMPLIANCE STRIP — roster-wide adherence at a glance.
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Roster health'));
+    area.appendChild(buildComplianceStrip(overview));
+
     // ===== NOTES INBOX — recent athlete session notes across the whole roster.
     // "Needs reply" = no coach comment yet. One glance instead of clicking
     // into every athlete's progress tab.
@@ -673,6 +740,123 @@ function closeMessageModal() {
   refreshUnreadBadges();
 }
 window.closeMessageModal = closeMessageModal;
+
+// ===== MESSAGES INBOX (dedicated sidebar tab) =====
+// Master-detail: roster thread list on the left, live conversation on the right.
+// Reuses renderMessageThread (the same bubbles+composer used by the per-card modal)
+// so this tab is purely a discovery surface over the existing messaging backend.
+let _activeThreadAthlete = null;
+
+async function renderMessages() {
+  const area = document.getElementById('messagesArea');
+  if (!area) return;
+  area.innerHTML = '';
+
+  const roster = getRosterOverview(user.id).map(o => o.athlete);
+  if (!roster.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chat;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No one to message yet'));
+    e.appendChild(el('p', {}, 'Once an athlete joins your roster, your conversation with them lives here.'));
+    area.appendChild(e);
+    return;
+  }
+
+  const shell = el('div', { class: 'msg-inbox' });
+  const listCol = el('div', { class: 'msg-inbox-list' });
+  const detailCol = el('div', { class: 'msg-inbox-detail' });
+  shell.appendChild(listCol);
+  shell.appendChild(detailCol);
+  area.appendChild(shell);
+
+  function showDetailPlaceholder() {
+    detailCol.innerHTML = '';
+    const ph = el('div', { class: 'msg-inbox-empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chat;
+    ph.appendChild(ic);
+    ph.appendChild(el('p', { class: 'dim' }, 'Select an athlete to open the conversation.'));
+    detailCol.appendChild(ph);
+  }
+
+  // One query → last-message + unread per athlete (real mode only; demo has no
+  // messaging backend, so the list still renders but threads show a demo notice).
+  const digestByAthlete = {};
+  if (!window._demoMode) {
+    try {
+      const threads = await DB.listThreadsForCoach(user.id);
+      threads.forEach(t => { digestByAthlete[t.athleteId] = t; });
+    } catch (e) { console.warn('renderMessages digest', e); }
+  }
+
+  // Threaded athletes (most-recent first), then the rest alphabetically.
+  const sorted = roster.slice().sort((a, b) => {
+    const da = digestByAthlete[a.id], db = digestByAthlete[b.id];
+    if (da && db) return String(db.lastAt).localeCompare(String(da.lastAt));
+    if (da) return -1;
+    if (db) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  function openThread(athlete, rowEl) {
+    _activeThreadAthlete = athlete.id;
+    listCol.querySelectorAll('.msg-inbox-row').forEach(r => r.classList.remove('active'));
+    if (rowEl) rowEl.classList.add('active');
+    shell.classList.add('is-detail-open');
+    detailCol.innerHTML = '';
+
+    const head = el('div', { class: 'msg-inbox-detail-head' });
+    head.appendChild(el('button', { class: 'btn-icon msg-inbox-back', 'aria-label': 'Back to conversations',
+      onclick: () => shell.classList.remove('is-detail-open') }, '‹'));
+    head.appendChild(el('div', { class: 'av' }, initials(athlete.name)));
+    head.appendChild(el('div', { class: 'msg-inbox-detail-name' }, athlete.name));
+    detailCol.appendChild(head);
+
+    if (window._demoMode) {
+      const note = el('div', { class: 'msg-inbox-empty' });
+      const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chat;
+      note.appendChild(ic);
+      note.appendChild(el('p', { class: 'dim' }, 'Messaging goes live with a real account — this is the demo.'));
+      detailCol.appendChild(note);
+      return;
+    }
+
+    const host = el('div', { class: 'msg-inbox-thread-host' });
+    detailCol.appendChild(host);
+    renderMessageThread(host, { coachId: user.id, athleteId: athlete.id, viewerId: user.id, otherName: (athlete.name || '').split(' ')[0] });
+
+    // Opening marks the thread read — clear this athlete's unread everywhere.
+    if (digestByAthlete[athlete.id]) digestByAthlete[athlete.id].unread = 0;
+    _unreadByAthlete[athlete.id] = 0;
+    const badge = rowEl && rowEl.querySelector('.msg-inbox-badge');
+    if (badge) badge.remove();
+    refreshUnreadBadges();
+  }
+
+  sorted.forEach(athlete => {
+    const d = digestByAthlete[athlete.id];
+    const row = el('div', { class: 'msg-inbox-row', onclick: () => openThread(athlete, row) });
+    row.appendChild(el('div', { class: 'av' }, initials(athlete.name)));
+    const mid = el('div', { class: 'msg-inbox-mid' });
+    const top = el('div', { class: 'msg-inbox-row-top' });
+    top.appendChild(el('span', { class: 'msg-inbox-name' }, athlete.name));
+    if (d && d.lastAt) top.appendChild(el('span', { class: 'msg-inbox-time' }, fmtRelative(d.lastAt)));
+    mid.appendChild(top);
+    const prevText = d ? ((d.lastSenderId === user.id ? 'You: ' : '') + d.lastBody) : 'No messages yet';
+    mid.appendChild(el('div', { class: 'msg-inbox-preview' + (d ? '' : ' faint') }, prevText));
+    row.appendChild(mid);
+    const unread = d ? d.unread : 0;
+    if (unread > 0) row.appendChild(el('span', { class: 'msg-badge msg-inbox-badge' }, String(unread)));
+    listCol.appendChild(row);
+  });
+
+  showDetailPlaceholder();
+  // Wide screens: open the most-recent conversation immediately (inbox feel).
+  if (window.innerWidth > 720) {
+    openThread(sorted[0], listCol.querySelector('.msg-inbox-row'));
+  }
+}
+window.renderMessages = renderMessages;
 
 // ===== FORM CHECKS (coach review side) =====
 // _coachFormChecks is declared up near the bootstrap call (TDZ fix).
@@ -1804,6 +1988,49 @@ function renderRosterAnalytics() {
   tblWrap.appendChild(tbl);
   area.appendChild(tblWrap);
   area.appendChild(el('p', { class: 'dim text-sm mt-12' }, 'Tap any athlete for their full progress. Switch the dropdown above to drill into one lifter.'));
+
+  const lb = buildRosterLeaderboard(roster);
+  if (lb) area.appendChild(lb);
+}
+
+// =========================================================
+// RELATIVE-STRENGTH LEADERBOARD — ranks the roster pound-for-pound
+// (total ÷ bodyweight). A pure ratio, NOT a sex-adjusted DOTS score:
+// per-athlete sex isn't stored, so applying DOTS coefficients across a
+// mixed roster would be silently wrong. The × BW board is honest with
+// the data we have, and surfaces the lighter lifters the raw-total
+// table hides. Reuses currentTotal + latestBodyweight. No DB changes.
+// =========================================================
+function buildRosterLeaderboard(roster) {
+  const ranked = roster.map(a => {
+    const total = currentTotal(a.id);
+    const bw = latestBodyweight(a.id);
+    return { a, total, bw, ratio: (total && bw) ? total / bw : null };
+  }).filter(r => r.ratio != null).sort((x, y) => y.ratio - x.ratio);
+  if (ranked.length < 2) return null;
+
+  const wrap = el('div', {});
+  wrap.appendChild(el('h3', { style: 'margin: 30px 0 4px; font-size: 1.4rem;' }, 'Pound-for-pound'));
+  wrap.appendChild(el('p', { class: 'dim text-sm', style: 'margin: 0 0 14px;' },
+    'Roster ranked by total ÷ bodyweight — relative strength, not raw load.'));
+
+  const list = el('div', { class: 'lb-list' });
+  ranked.forEach((r, i) => {
+    const row = el('div', { class: 'lb-row' + (i < 3 ? ' lb-top' : ''), style: 'cursor:pointer' });
+    row.onclick = () => { const sel = document.getElementById('progressAthlete'); if (sel) { sel.value = r.a.id; renderProgressForAthlete(); } };
+    row.appendChild(el('span', { class: 'lb-rank mono' }, String(i + 1)));
+    const who = el('div', { class: 'lb-who' });
+    who.innerHTML = '<span class="av av-sm">' + escHtml(initials(r.a.name)) + '</span><span class="lb-name">' + escHtml(r.a.name) + '</span>';
+    row.appendChild(who);
+    const stat = el('div', { class: 'lb-stat' });
+    stat.innerHTML = '<span class="lb-ratio mono">' + r.ratio.toFixed(2) + '<span class="lb-x">× BW</span></span>' +
+      '<span class="lb-sub mono">' + Math.round(kgToDisplay(r.total)) + ' ' + unitLabel() +
+      ' @ ' + Math.round(kgToDisplay(r.bw)) + ' ' + unitLabel() + '</span>';
+    row.appendChild(stat);
+    list.appendChild(row);
+  });
+  wrap.appendChild(list);
+  return wrap;
 }
 
 function renderProgressForAthlete() {

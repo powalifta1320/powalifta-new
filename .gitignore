@@ -28,3 +28,4 @@ tmp/
 # lives in the ai-chat edge function's secrets, never here — but keep this local
 # override ignored so it's never committed. The .example.js is the safe template.
 ai-config.local.js
+plate-fx.js

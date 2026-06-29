@@ -1974,6 +1974,80 @@ function renderLiftBalanceCard(athleteId) {
   return card;
 }
 
+// ===== STRENGTH SCORE — DOTS + tiered standards from current e1RMs =====
+// Reuses the comp-equivalent e1RMs + latest bodyweight we already store. Sex is
+// a local pref (no DB). Re-renders itself in place on the Men/Women toggle.
+function buildStrengthScoreCard(athleteId) {
+  const sex = getSexPref();
+  const bw = latestBodyweight(athleteId);   // kg, internal
+  const total = currentTotal(athleteId);    // kg, sum of best comp e1RMs
+  const card = el('div', { class: 'score-card', id: 'strengthScoreCard' });
+
+  const toggle = el('div', { class: 'sex-toggle', role: 'group', 'aria-label': 'Scoring sex' });
+  [['male', 'Men'], ['female', 'Women']].forEach(([val, lbl]) => {
+    toggle.appendChild(el('button', {
+      class: 'sex-opt' + (sex === val ? ' active' : ''), type: 'button',
+      onclick: () => {
+        if (getSexPref() === val) return;
+        setSexPref(val);
+        const cur = document.getElementById('strengthScoreCard');
+        if (cur) cur.replaceWith(buildStrengthScoreCard(athleteId));
+      }
+    }, lbl));
+  });
+  card.appendChild(el('div', { class: 'score-top' },
+    el('div', { class: 'score-title' }, 'Strength score'), toggle));
+
+  if (!bw || !total) {
+    const why = (!bw && !total)
+      ? 'Log a weigh-in and your big three — DOTS, weight class, and strength tier all read from them.'
+      : !bw ? 'Add a bodyweight entry on the Bodyweight tab. DOTS is bodyweight-adjusted, so it needs one.'
+            : 'Log a squat, bench, and deadlift to estimate your competition total.';
+    card.appendChild(el('div', { class: 'score-empty' },
+      el('div', { class: 'score-empty-t' }, 'Two numbers unlock your score'),
+      el('div', { class: 'score-empty-s' }, why)));
+    return card;
+  }
+
+  const dots = dotsScore(total, bw, sex);
+  const wc = weightClassFor(bw, sex);
+  card.appendChild(el('div', { class: 'dots-row' },
+    el('div', { class: 'dots-hero' },
+      el('div', { class: 'dots-num mono' }, dots ? dots.toFixed(1) : '—'),
+      el('div', { class: 'dots-cap' }, 'DOTS')),
+    el('div', { class: 'dots-meta' },
+      el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Est. total'),
+        el('span', { class: 'dmv mono' }, Math.round(kgToDisplay(total)).toLocaleString() + ' ' + unitLabel())),
+      el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Weight class'),
+        el('span', { class: 'dmv mono' }, wc || '—')),
+      el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Bodyweight'),
+        el('span', { class: 'dmv mono' }, kgToDisplay(bw) + ' ' + unitLabel())))
+  ));
+  card.appendChild(el('div', { class: 'score-note' },
+    'DOTS is estimated from your best competition-equivalent e1RMs — not a logged meet total.'));
+
+  const list = el('div', { class: 'std-list' });
+  ['squat', 'bench', 'deadlift'].forEach(lift => {
+    const e1 = bestE1RM(athleteId, lift);
+    const sl = strengthLevel(e1, bw, lift, sex);
+    if (!sl) return;
+    const bar = el('div', { class: 'std-bar' });
+    for (let i = 0; i < 5; i++) bar.appendChild(el('div', { class: 'std-seg' + (i <= sl.index ? ' filled' : '') }));
+    list.appendChild(el('div', { class: 'std-row' },
+      el('div', { class: 'std-head' },
+        el('span', { class: 'std-lift' }, LIFT_LABELS[lift]),
+        el('span', { class: 'std-tier' }, sl.level)),
+      bar,
+      el('div', { class: 'std-foot' },
+        el('span', { class: 'mono' }, sl.ratio.toFixed(2) + '× BW'),
+        el('span', {}, sl.toNextKg != null
+          ? (kgToDisplay(sl.toNextKg) < 1 ? '<1' : Math.round(kgToDisplay(sl.toNextKg))) + ' ' + unitLabel() + ' to ' + STRENGTH_LEVELS[sl.index + 1]
+          : 'Top tier reached'))));
+  });
+  card.appendChild(list);
+  return card;
+}
+
 // ===== PROGRESS =====
 function renderProgress() {
   const area = document.getElementById('progressArea');
@@ -2068,6 +2142,9 @@ function renderProgress() {
     });
     area.appendChild(wrap);
   }
+
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
+  area.appendChild(buildStrengthScoreCard(user.id));
 
   area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
   const calCard = el('div', { class: 'chart-card' });
@@ -3738,26 +3815,33 @@ function renderCoach() {
   card.appendChild(top);
   card.appendChild(el('p', { class: 'dim' }, coach.bio || 'No bio.'));
 
-  // Direct messaging with the coach. Real Supabase only — skipped in demo.
-  if (!window._demoMode) {
-    const msgSection = el('div', { style: 'margin-top:24px; padding-top:18px; border-top:1px solid var(--line);' });
-    msgSection.appendChild(el('p', { class: 'dim text-sm mb-8' }, 'Messages'));
-    const msgHost = el('div', {});
-    msgSection.appendChild(msgHost);
-    card.appendChild(msgSection);
+  // Messaging + form-check video review. Both are real-Supabase features; in
+  // demo we render an illustrative, non-wired version so the demo still SHOWS
+  // them (clearly labelled), and so the upload surface is easy to find.
+  const first = coach.name.split(' ')[0];
+
+  const msgSection = el('div', { class: 'coach-subsection' });
+  msgSection.appendChild(coachSubHead(ICONS.chat, 'Messages', 'Talk to ' + first + ' between sessions.'));
+  const msgHost = el('div', {});
+  msgSection.appendChild(msgHost);
+  card.appendChild(msgSection);
+
+  const fcSection = el('div', { class: 'coach-subsection' });
+  fcSection.appendChild(coachSubHead(ICONS.film, 'Form checks', 'Send a lift video, get a written cue back.'));
+  const fcHost = el('div', {});
+  fcSection.appendChild(fcHost);
+  card.appendChild(fcSection);
+
+  if (window._demoMode) {
+    renderDemoMessageThread(msgHost, coach);
+    renderDemoFormChecks(fcHost, coach);
+  } else {
     renderMessageThread(msgHost, {
       coachId: coach.id,
       athleteId: user.id,
       viewerId: user.id,
-      otherName: coach.name.split(' ')[0]
+      otherName: first
     });
-
-    // Form-check video uploads
-    const fcSection = el('div', { style: 'margin-top:24px; padding-top:18px; border-top:1px solid var(--line);' });
-    fcSection.appendChild(el('p', { class: 'dim text-sm mb-8' }, 'Form checks'));
-    const fcHost = el('div', {});
-    fcSection.appendChild(fcHost);
-    card.appendChild(fcSection);
     renderAthleteFormChecks(fcHost, coach);
   }
 
@@ -3769,6 +3853,78 @@ function renderCoach() {
   card.appendChild(danger);
 
   area.appendChild(card);
+}
+
+// Icon + title + subtitle header for a Coach-tab sub-section (messages / form
+// checks). Makes the upload surface obvious instead of a tiny dim label.
+function coachSubHead(icon, title, sub) {
+  const h = el('div', { class: 'coach-subhead' });
+  const ic = el('span', { class: 'coach-subhead-ic' }); ic.innerHTML = icon;
+  h.appendChild(ic);
+  const t = el('div', { style: 'min-width:0;' });
+  t.appendChild(el('div', { class: 'coach-subhead-t' }, title));
+  if (sub) t.appendChild(el('div', { class: 'coach-subhead-s' }, sub));
+  h.appendChild(t);
+  return h;
+}
+
+// --- Demo-only showcases (no Supabase) so the ?demo=1 Coach tab demonstrates
+// messaging + form checks without faking the backend. Clearly illustrative. ---
+function renderDemoMessageThread(host, coach) {
+  const first = coach.name.split(' ')[0];
+  const wrap = el('div', { class: 'msg-thread' });
+  const list = el('div', { class: 'msg-list' });
+  [
+    { mine: false, body: 'Strong week — all your top sets landed on target. How did the squats feel?', t: 'Mon 9:14 AM' },
+    { mine: true, body: 'Felt great. RPE 8 on the last set was honestly closer to a 7.', t: 'Mon 9:20 AM' },
+    { mine: false, body: 'Love it. I\'ll bump next week 2.5kg. Film the heavy single so I can see your brace out of the hole.', t: 'Mon 9:21 AM' }
+  ].forEach(m => {
+    const row = el('div', { class: 'msg-row ' + (m.mine ? 'mine' : 'theirs') });
+    const b = el('div', { class: 'msg-bubble' });
+    b.appendChild(el('div', { class: 'msg-body' }, m.body));
+    b.appendChild(el('div', { class: 'msg-meta' }, m.t));
+    row.appendChild(b); list.appendChild(row);
+  });
+  wrap.appendChild(list);
+  const composer = el('div', { class: 'msg-composer' });
+  composer.appendChild(el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message ' + first + '…' }));
+  composer.appendChild(el('button', { class: 'btn btn-primary msg-send',
+    onclick: () => toast('Messaging goes live with a real account — this is the demo.') }, 'Send'));
+  wrap.appendChild(composer);
+  host.appendChild(wrap);
+}
+
+function renderDemoFormChecks(host, coach) {
+  // Upload form (visual) — the surface the user couldn't find.
+  const form = el('div', { class: 'fc-form' });
+  form.appendChild(el('input', { type: 'file', accept: 'video/*', class: 'fc-file' }));
+  const liftSel = el('select', { class: 'fc-lift' });
+  [['', 'Lift (optional)'], ['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift'], ['other', 'Other']]
+    .forEach(([v, l]) => liftSel.appendChild(el('option', { value: v }, l)));
+  form.appendChild(liftSel);
+  form.appendChild(el('textarea', { class: 'fc-note', rows: '2', placeholder: 'What do you want eyes on? (e.g. "depth on rep 3?")' }));
+  form.appendChild(el('button', { class: 'btn btn-primary',
+    onclick: () => toast('Form-check uploads go live with a real account — this is the demo.') }, 'Send for review'));
+  host.appendChild(form);
+
+  // One illustrative reviewed clip so the round-trip is self-evident.
+  const listHost = el('div', { class: 'fc-list', style: 'margin-top:16px;' });
+  const item = el('div', { class: 'fc-item' });
+  const head = el('div', { class: 'fc-item-head' });
+  head.appendChild(el('span', { class: 'fc-item-lift' }, 'Squat'));
+  head.appendChild(el('span', { class: 'fc-item-date dim text-xs' }, fmtDateShort(new Date(Date.now() - 2 * 864e5).toISOString())));
+  item.appendChild(head);
+  item.appendChild(el('p', { class: 'fc-item-note' }, '“Depth check on my top single — felt high?”'));
+  const videoWrap = el('div', { class: 'fc-video-wrap' });
+  videoWrap.appendChild(el('button', { class: 'btn btn-sm btn-ghost',
+    onclick: () => toast('Video playback goes live with a real account — this is the demo.') }, '▶ Watch clip'));
+  item.appendChild(videoWrap);
+  const reply = el('div', { class: 'fc-reply' });
+  reply.appendChild(el('div', { class: 'fc-reply-lbl' }, 'Coach reply'));
+  reply.appendChild(el('p', { class: 'fc-reply-body' }, 'Depth was good — hips broke parallel. You\'re losing the upper back on the way up; cue chest tall and drive through mid-foot. Clean rep.'));
+  item.appendChild(reply);
+  listHost.appendChild(item);
+  host.appendChild(listHost);
 }
 
 // Athlete's form-check panel: upload a clip + see past submissions and the

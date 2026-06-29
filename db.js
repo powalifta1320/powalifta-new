@@ -972,6 +972,31 @@ const DB = {
     return (data || []).map(mapDbMessage);
   },
 
+  // Thread digest for a coach's Messages inbox: the most-recent message per
+  // athlete + that athlete's unread count, in ONE query. Pulls the coach's
+  // recent messages (newest first, capped) and reduces client-side — no extra
+  // round-trip per thread. Returns [{ athleteId, lastBody, lastAt, lastSenderId,
+  // unread }], newest thread first.
+  async listThreadsForCoach(coachId) {
+    if (!coachId) return [];
+    const { data, error } = await sb.from('messages')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) { console.warn('listThreadsForCoach', error); return []; }
+    const byAthlete = {};
+    (data || []).map(mapDbMessage).forEach(m => {
+      let t = byAthlete[m.athleteId];
+      if (!t) {
+        t = byAthlete[m.athleteId] = { athleteId: m.athleteId, lastBody: m.body, lastAt: m.createdAt, lastSenderId: m.senderId, unread: 0 };
+      }
+      // Rows arrive newest-first, so the first one seen per athlete is the last message.
+      if (m.senderId !== coachId && !m.readAt) t.unread += 1;
+    });
+    return Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
+  },
+
   // ---- Form-check video uploads ---------------------------------------
   // Athlete uploads a video to the private `form-checks` bucket, then records
   // the metadata row. Returns the created form_check (mapped) or throws.
