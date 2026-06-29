@@ -296,6 +296,27 @@
 <script src="app.js"></script>
 <script>
 let user;
+// Coach-tab live messaging: the mounted thread host (so we can drop its realtime
+// channel when the tab re-renders) + the always-on athlete-level subscription
+// that lights an unread dot on the Coach tab while you're on another tab.
+let _coachThreadHost = null;
+let _coachMsgCleanup = null;
+function setCoachTabDot(on) {
+  const tab = document.getElementById('tab-coach');
+  if (!tab) return;
+  let dot = tab.querySelector('.tab-dot');
+  if (on) { if (!dot) tab.appendChild(el('span', { class: 'tab-dot', 'aria-label': 'New message' })); }
+  else if (dot) dot.remove();
+}
+function subscribeCoachMessages() {
+  if (window._demoMode || !user || !user.coachId || _coachMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
+  _coachMsgCleanup = DB.subscribeMessages({ column: 'athlete_id', value: user.id }, (m) => {
+    if (!m || m.senderId === user.id) return;
+    const tab = document.getElementById('tab-coach');
+    if (!tab || !tab.classList.contains('active')) setCoachTabDot(true);
+    // When the Coach tab IS active its mounted thread appends + marks read itself.
+  });
+}
 
 // Opt-in push toggle in the sidebar foot. Hidden unless the browser supports
 // Web Push and we're on a real (non-demo) account. Reflects live state and
@@ -397,6 +418,7 @@ bootstrap('athlete', () => {
   });
 
   wireNotifToggle();
+  subscribeCoachMessages();
 
   // When the user switches the program day dropdown:
   //   1) If the day is explicitly pinned to a date → jump to that date.
@@ -2023,6 +2045,28 @@ function buildStrengthScoreCard(athleteId) {
       el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Bodyweight'),
         el('span', { class: 'dmv mono' }, kgToDisplay(bw) + ' ' + unitLabel())))
   ));
+
+  // "Make weight" — where the lifter sits inside their IPF class. Room to the
+  // ceiling before they're bumped up, and a realistic cut target below.
+  const wci = weightClassInfo(bw, sex);
+  if (wci) {
+    const gap = (kg) => { const d = kgToDisplay(kg); return (d < 1 ? '<1' : (Math.round(d * 10) / 10)) + ' ' + unitLabel(); };
+    let txt;
+    if (wci.isTop) {
+      txt = 'Top class (' + wci.cls + ')' + (wci.toCutKg != null && wci.toCutKg > 0 ? ' · cut ' + gap(wci.toCutKg) + ' to drop to ' + wci.belowLimit + 'kg' : '');
+    } else if (wci.toCeiling < 0.1) {
+      txt = 'Right on the ' + wci.cls + ' limit';
+    } else {
+      txt = gap(wci.toCeiling) + ' under the ' + wci.cls + ' ceiling';
+      if (wci.toCutKg != null && wci.toCutKg > 0 && wci.toCutKg <= 6) txt += ' · cut ' + gap(wci.toCutKg) + ' to make ' + wci.belowLimit + 'kg';
+    }
+    const wl = el('div', { class: 'wc-line' });
+    const ic = el('span', { class: 'wc-line-ic' }); ic.innerHTML = ICONS.scale;
+    wl.appendChild(ic);
+    wl.appendChild(el('span', {}, txt));
+    card.appendChild(wl);
+  }
+
   card.appendChild(el('div', { class: 'score-note' },
     'DOTS is estimated from your best competition-equivalent e1RMs — not a logged meet total.'));
 
@@ -3787,6 +3831,10 @@ function renderBodyweight() {
 function renderCoach() {
   const area = document.getElementById('coachArea');
   area.innerHTML = '';
+  // Viewing the conversation clears the unread dot; drop the previous thread's
+  // realtime channel (msgHost is rebuilt below) so tab revisits don't leak subs.
+  setCoachTabDot(false);
+  if (_coachThreadHost && _coachThreadHost._msgCleanup) { try { _coachThreadHost._msgCleanup(); } catch (e) {} _coachThreadHost._msgCleanup = null; }
   const s = Store.get();
   if (!user.coachId) {
     const e = el('div', { class: 'empty' });
@@ -3823,6 +3871,7 @@ function renderCoach() {
   const msgSection = el('div', { class: 'coach-subsection' });
   msgSection.appendChild(coachSubHead(ICONS.chat, 'Messages', 'Talk to ' + first + ' between sessions.'));
   const msgHost = el('div', {});
+  _coachThreadHost = msgHost;
   msgSection.appendChild(msgHost);
   card.appendChild(msgSection);
 

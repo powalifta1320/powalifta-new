@@ -1943,6 +1943,9 @@ async function renderMessageThread(container, opts) {
   const weaveNotes = !opts || opts.weaveNotes !== false;
   const demo = !!window._demoMode;
   if (!container) return;
+  // Tear down a realtime channel left over from a previous render of this host
+  // (re-render, modal reopen, athlete switching threads) before rebuilding.
+  if (container._msgCleanup) { try { container._msgCleanup(); } catch (e) {} container._msgCleanup = null; }
   container.innerHTML = '';
 
   const wrap = el('div', { class: 'msg-thread' });
@@ -2047,6 +2050,19 @@ async function renderMessageThread(container, opts) {
       console.warn('renderMessageThread load', e);
       list.innerHTML = '';
       list.appendChild(el('div', { class: 'msg-empty dim text-sm' }, 'Could not load messages. Try reloading.'));
+    }
+
+    // Live updates — append messages the moment they land (real mode only).
+    // Filtered server-side on athlete_id (one thread per athlete); we re-check
+    // coachId client-side and dedupe by id so the sender's own echo is a no-op.
+    if (typeof DB.subscribeMessages === 'function') {
+      container._msgCleanup = DB.subscribeMessages({ column: 'athlete_id', value: athleteId }, (m) => {
+        if (!m || m.coachId !== coachId || m.athleteId !== athleteId) return;
+        if (messages.some(x => x.id === m.id)) return;
+        messages.push(m);
+        paint(buildTimeline(messages, notes));
+        if (m.senderId !== viewerId) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+      });
     }
   }
 
@@ -2330,6 +2346,27 @@ function weightClassFor(bwKg, sex) {
   const arr = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
   for (const c of arr) if (bwKg <= c) return c + 'kg';
   return arr[arr.length - 1] + 'kg+';
+}
+
+// "Make weight" math: where the lifter sits inside their IPF class and what it
+// takes to move. All kg (classes are inherently kg; the view converts the gaps
+// to the user's unit). Returns:
+//   { cls, limit, isTop, toCeiling, belowLimit, toCutKg }
+//   - limit      = kg ceiling of the current class (null when top class+)
+//   - toCeiling  = limit - bw (room before they're bumped UP a class)
+//   - belowLimit = the next class DOWN's ceiling (a realistic cut target)
+//   - toCutKg    = bw - belowLimit (kg to drop to make that class; >0 = work to do)
+function weightClassInfo(bwKg, sex) {
+  if (!bwKg || bwKg <= 0) return null;
+  const arr = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
+  let limit = null, idx = -1;
+  for (let i = 0; i < arr.length; i++) { if (bwKg <= arr[i]) { limit = arr[i]; idx = i; break; } }
+  const isTop = limit == null;
+  const cls = isTop ? (arr[arr.length - 1] + 'kg+') : (limit + 'kg');
+  const toCeiling = isTop ? null : (limit - bwKg);
+  const belowLimit = isTop ? arr[arr.length - 1] : (idx > 0 ? arr[idx - 1] : null);
+  const toCutKg = belowLimit != null ? (bwKg - belowLimit) : null;
+  return { cls, limit, isTop, toCeiling, belowLimit, toCutKg };
 }
 
 // Strength standards as e1RM÷bodyweight ratios (male raw). Four thresholds →
@@ -2693,6 +2730,89 @@ function getRosterOverview(coachId) {
     const lastNote = (s.sessionNotes.filter(n => n.athleteId === a.id).sort((x, y) => y.date.localeCompare(x.date))[0]) || null;
     const lastRpe = lastLog ? lastLog.rpe : null;
     return { athlete: a, program: prog, lastLog, ago, flag, completedSets: completed, totalSets: total, lastNote, lastRpe };
+  });
+}
+
+// =========================================================
+// E1RM MOMENTUM (windowed) — is this lifter still progressing?
+// Weekly deltas are noisy in powerlifting (you don't top-set every lift
+// every week), so this compares the best comp-equivalent e1RM in the last
+// `windowDays` days against the best in the window before it. Per lift it
+// returns { recent, prior, delta } when BOTH windows have data (delta null
+// when only the recent window does). `stalling` = at least one main lift
+// is paired across both windows and NONE improved past `tol` — i.e. flat or
+// regressing across the board. Pure read over Store; no DB.
+// =========================================================
+function getE1RMMomentum(athleteId, windowDays) {
+  const win = windowDays || 21;
+  const tol = 0.05; // kg — ignore float noise
+  const dayMs = 86400000;
+  const now = Date.now();
+  const recentFrom = now - win * dayMs;
+  const priorFrom = now - 2 * win * dayMs;
+  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId && MAIN_LIFTS.includes(l.lift));
+  const perLift = {};
+  let anyPaired = false, anyUp = false;
+  MAIN_LIFTS.forEach(lift => {
+    const ll = logs.filter(l => l.lift === lift);
+    const bestIn = (from, to) => ll.reduce((mx, l) => {
+      const t = Date.parse(l.date);
+      return (t >= from && t < to && l.e1rmComp > mx) ? l.e1rmComp : mx;
+    }, 0);
+    const recent = bestIn(recentFrom, now + dayMs);
+    const prior = bestIn(priorFrom, recentFrom);
+    if (recent && prior) {
+      anyPaired = true;
+      const delta = recent - prior;
+      if (delta > tol) anyUp = true;
+      perLift[lift] = { recent, prior, delta };
+    } else if (recent) {
+      perLift[lift] = { recent, prior: 0, delta: null };
+    }
+  });
+  return { perLift, hasData: anyPaired, stalling: anyPaired && !anyUp };
+}
+
+// =========================================================
+// ROSTER ATTENTION TRIAGE (coach) — who needs the coach THIS week, and why.
+// Synthesises inactivity (getRosterOverview flags), e1RM stalling (windowed
+// momentum), and weak program adherence into one prioritised list, plus a
+// `prCount` of last-7-day PRs so the panel can also celebrate wins. Each item:
+//   { athlete, overview, reasons:[{type,...}], severity, momentum, prCount }
+// severity: 3 = inactive/never, 2 = stalling, 1 = low adherence, 0 = fine.
+// reasons carry structured data (lift keys, day counts, %); the view formats
+// the copy so this stays unit/label-agnostic.
+// =========================================================
+function getRosterAttention(coachId) {
+  const overview = getRosterOverview(coachId);
+  const weekAgo = Date.now() - 7 * 86400000;
+  return overview.map(o => {
+    const aId = o.athlete.id;
+    const reasons = [];
+    let severity = 0;
+    // 1) Inactivity
+    if (o.flag === 'never') { reasons.push({ type: 'inactive', days: null }); severity = Math.max(severity, 3); }
+    else if (o.flag === 'stale') { reasons.push({ type: 'inactive', days: o.ago }); severity = Math.max(severity, 3); }
+    // 2) e1RM stalling (only meaningful once they're training)
+    const momentum = getE1RMMomentum(aId);
+    if (o.flag !== 'never' && momentum.stalling) {
+      const flat = MAIN_LIFTS.filter(L => momentum.perLift[L] && momentum.perLift[L].delta != null && momentum.perLift[L].delta <= 0.05);
+      reasons.push({ type: 'stalling', lifts: flat });
+      severity = Math.max(severity, 2);
+    }
+    // 3) Low program adherence — assigned work barely touched, and slipping
+    if (o.totalSets > 0) {
+      const pct = o.completedSets / o.totalSets;
+      if (pct < 0.4 && (o.flag === 'week' || o.flag === 'stale')) {
+        reasons.push({ type: 'adherence', pct: Math.round(pct * 100) });
+        severity = Math.max(severity, 1);
+      }
+    }
+    // Wins — main-lift PRs in the last 7 days
+    const prCount = Store.get().workoutLogs.filter(l =>
+      l.athleteId === aId && MAIN_LIFTS.includes(l.lift) && Date.parse(l.date) >= weekAgo && isPRForLog(aId, l)
+    ).length;
+    return { athlete: o.athlete, overview: o, reasons, severity, momentum, prCount };
   });
 }
 

@@ -325,6 +325,7 @@ bootstrap('coach', () => {
   });
   renderRoster();
   refreshUnreadBadges();
+  subscribeRosterMessages();
   refreshFormChecks();
 
   // Onboarding tour — runs once on first dashboard visit
@@ -448,6 +449,74 @@ function buildComplianceStrip(overview) {
   return wrap;
 }
 
+// ===== NEEDS-ATTENTION TRIAGE =====
+// One synthesised panel at the top of the Roster tab: who needs the coach this
+// week (inactive / e1RM stalling / weak adherence) and who just hit a PR. Reads
+// getRosterAttention() (app.js). Returns a DOM node, or null when there's
+// genuinely nothing to say — quiet by design when everyone's on track.
+const ATT_LIFT_LBL = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+function attentionReasonText(r) {
+  if (r.type === 'inactive') return r.days == null ? 'Never logged a set' : r.days + 'd since training';
+  if (r.type === 'stalling') return 'e1RM stalling' + (r.lifts && r.lifts.length ? ' · ' + r.lifts.map(l => ATT_LIFT_LBL[l] || l).join('/') : '');
+  if (r.type === 'adherence') return r.pct + '% of program done';
+  return '';
+}
+function attentionReasonClass(type) {
+  return type === 'inactive' ? 'danger' : type === 'stalling' ? 'warn' : 'muted';
+}
+function buildAttentionPanel() {
+  const items = getRosterAttention(user.id);
+  const flagged = items.filter(i => i.reasons.length)
+    .sort((a, b) => b.severity - a.severity || ((b.overview.ago || 0) - (a.overview.ago || 0)));
+  const wins = items.filter(i => i.prCount > 0);
+  if (!flagged.length && !wins.length) return null;  // nothing worth a panel
+
+  const wrap = el('div', { class: 'attention-panel' });
+  const head = el('div', { class: 'roster-sec-head' });
+  head.appendChild(el('h3', { class: 'prog-sec' }, 'Needs attention'));
+  if (flagged.length) head.appendChild(el('span', { class: 'roster-sec-badge' }, String(flagged.length)));
+  wrap.appendChild(head);
+
+  if (!flagged.length) {
+    const ok = el('div', { class: 'att-allclear' });
+    ok.appendChild(el('span', { class: 'att-allclear-dot' }));
+    ok.appendChild(el('span', {}, 'Everyone\'s training and progressing — and ' + wins.length + ' lifter' + (wins.length === 1 ? '' : 's') + ' PR\'d this week.'));
+    wrap.appendChild(ok);
+    return wrap;
+  }
+
+  const listEl = el('div', { class: 'att-list' });
+  flagged.slice(0, 6).forEach(it => {
+    const row = el('div', { class: 'att-row sev-' + it.severity });
+    row.appendChild(el('div', { class: 'av av-sm' }, initials(it.athlete.name)));
+    const mid = el('div', { class: 'att-mid' });
+    mid.appendChild(el('div', { class: 'att-name' }, it.athlete.name));
+    const chips = el('div', { class: 'att-chips' });
+    it.reasons.forEach(r => chips.appendChild(el('span', { class: 'att-chip ' + attentionReasonClass(r.type) }, attentionReasonText(r))));
+    if (it.prCount > 0) chips.appendChild(el('span', { class: 'att-chip win' }, it.prCount + ' PR' + (it.prCount === 1 ? '' : 's') + ' this week'));
+    mid.appendChild(chips);
+    row.appendChild(mid);
+    const acts = el('div', { class: 'att-acts' });
+    const msg = el('button', { class: 'btn-icon', title: 'Message ' + it.athlete.name, 'aria-label': 'Message athlete', onclick: (e) => { e.stopPropagation(); openAthleteMessages(it.athlete.id, it.athlete.name); } }, '💬');
+    const un = _unreadByAthlete[it.athlete.id] || 0;
+    if (un > 0) msg.appendChild(el('span', { class: 'msg-badge roster-msg-badge' }, String(un)));
+    acts.appendChild(msg);
+    acts.appendChild(el('button', { class: 'btn btn-sm', onclick: () => openAthleteProgram(it.athlete.id) }, 'Open'));
+    row.appendChild(acts);
+    listEl.appendChild(row);
+  });
+  wrap.appendChild(listEl);
+
+  if (wins.length) {
+    const w = el('div', { class: 'att-wins' });
+    w.appendChild(el('span', { class: 'att-wins-ic' }, '🏆'));
+    const names = wins.slice(0, 4).map(i => i.athlete.name.split(' ')[0]).join(', ');
+    w.appendChild(el('span', {}, names + (wins.length > 4 ? ' +' + (wins.length - 4) + ' more' : '') + ' PR\'d this week.'));
+    wrap.appendChild(w);
+  }
+  return wrap;
+}
+
 // ===== ROSTER =====
 function renderRoster() {
   renderPlanPill();
@@ -468,6 +537,11 @@ function renderRoster() {
     e.appendChild(actions);
     area.appendChild(e);
   } else {
+    // ===== NEEDS ATTENTION — triage who the coach should act on first
+    // (stalling e1RM / inactive / weak adherence) + this week's PRs.
+    const att = buildAttentionPanel();
+    if (att) area.appendChild(att);
+
     // ===== COMPLIANCE STRIP — roster-wide adherence at a glance.
     area.appendChild(el('h3', { class: 'prog-sec' }, 'Roster health'));
     area.appendChild(buildComplianceStrip(overview));
@@ -716,6 +790,24 @@ async function refreshUnreadBadges() {
   } catch (e) { console.warn('refreshUnreadBadges', e); }
 }
 
+// Live unread badges: one roster-wide Realtime subscription. Any inbound
+// message (not my own) schedules a debounced badge refresh, which re-queries
+// and repaints the roster. The open thread, if any, updates itself via its own
+// per-container subscription; this just keeps the unread counts honest.
+let _rosterMsgCleanup = null;
+let _unreadRefreshTimer = null;
+function scheduleUnreadRefresh() {
+  clearTimeout(_unreadRefreshTimer);
+  _unreadRefreshTimer = setTimeout(refreshUnreadBadges, 450);
+}
+function subscribeRosterMessages() {
+  if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
+  _rosterMsgCleanup = DB.subscribeMessages({ column: 'coach_id', value: user.id }, (m) => {
+    if (!m || m.senderId === user.id) return;
+    scheduleUnreadRefresh();
+  });
+}
+
 function openAthleteMessages(athleteId, athleteName) {
   if (window._demoMode) { toast('Messaging is live for real accounts — this is the demo.'); return; }
   document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
@@ -735,6 +827,9 @@ function openAthleteMessages(athleteId, athleteName) {
 window.openAthleteMessages = openAthleteMessages;
 
 function closeMessageModal() {
+  // Drop the thread's realtime channel so closed modals don't leak subscriptions.
+  const host = document.getElementById('messageThreadHost');
+  if (host && host._msgCleanup) { try { host._msgCleanup(); } catch (e) {} host._msgCleanup = null; }
   closeModal('messageModal');
   // Re-sync badges from the server (the open just marked the thread read).
   refreshUnreadBadges();

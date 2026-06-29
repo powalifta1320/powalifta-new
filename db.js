@@ -997,6 +997,25 @@ const DB = {
     return Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
   },
 
+  // Live message stream via Supabase Realtime. `filter` is { column, value } —
+  // e.g. { column:'athlete_id', value } for one thread, or { column:'coach_id',
+  // value } to watch a whole roster for badge updates. Fires onInsert(message)
+  // for every new row matching the server-side filter; returns an unsubscribe
+  // function (or null when unavailable). Requires the `messages` table to be in
+  // the supabase_realtime publication — see migration-messages-realtime.sql.
+  subscribeMessages(filter, onInsert) {
+    if (!filter || !filter.column || !filter.value || typeof onInsert !== 'function') return null;
+    try {
+      const tag = 'msg:' + filter.column + ':' + filter.value + ':' + Math.random().toString(36).slice(2, 8);
+      const ch = sb.channel(tag)
+        .on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: filter.column + '=eq.' + filter.value },
+          payload => { try { onInsert(mapDbMessage(payload.new)); } catch (e) { console.warn('subscribeMessages cb', e); } })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribeMessages', e); return null; }
+  },
+
   // ---- Form-check video uploads ---------------------------------------
   // Athlete uploads a video to the private `form-checks` bucket, then records
   // the metadata row. Returns the created form_check (mapped) or throws.
