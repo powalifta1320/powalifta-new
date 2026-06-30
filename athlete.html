@@ -25,18 +25,22 @@
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to content</a>
+
 <nav class="nav" id="nav"></nav>
 
 <div class="dash-shell">
   <aside class="sidebar">
-    <div class="sidebar-section">Athlete</div>
-    <button class="sidebar-tab active" data-tab="today" id="tab-today"></button>
-    <button class="sidebar-tab" data-tab="program" id="tab-program"></button>
-    <button class="sidebar-tab" data-tab="progress" id="tab-progress"></button>
-    <button class="sidebar-tab" data-tab="bodyweight" id="tab-bodyweight"></button>
-    <button class="sidebar-tab" data-tab="coach" id="tab-coach"></button>
-    <button class="sidebar-tab" data-tab="library" id="tab-library"></button>
-    <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
+    <div class="sidebar-section" aria-hidden="true">Athlete</div>
+    <div class="dash-tablist" role="tablist" aria-label="Dashboard sections" aria-orientation="vertical">
+      <button class="sidebar-tab active" data-tab="today" id="tab-today" role="tab" aria-selected="true" aria-controls="pane-today" tabindex="0"></button>
+      <button class="sidebar-tab" data-tab="program" id="tab-program" role="tab" aria-selected="false" aria-controls="pane-program" tabindex="-1"></button>
+      <button class="sidebar-tab" data-tab="progress" id="tab-progress" role="tab" aria-selected="false" aria-controls="pane-progress" tabindex="-1"></button>
+      <button class="sidebar-tab" data-tab="bodyweight" id="tab-bodyweight" role="tab" aria-selected="false" aria-controls="pane-bodyweight" tabindex="-1"></button>
+      <button class="sidebar-tab" data-tab="coach" id="tab-coach" role="tab" aria-selected="false" aria-controls="pane-coach" tabindex="-1"></button>
+      <button class="sidebar-tab" data-tab="library" id="tab-library" role="tab" aria-selected="false" aria-controls="pane-library" tabindex="-1"></button>
+      <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace" role="tab" aria-selected="false" aria-controls="pane-marketplace" tabindex="-1"></button>
+    </div>
     <div class="sidebar-foot">
       <button class="btn btn-sm btn-ghost" id="notifToggle" type="button" style="display:none;width:100%;margin-bottom:10px;">🔔 Enable alerts</button>
       <div>POWALIFTA Athlete</div>
@@ -44,25 +48,25 @@
     </div>
   </aside>
 
-  <main class="dash-main">
+  <main class="dash-main" id="main-content">
 
     <!-- TODAY -->
-    <section data-pane="today">
+    <section data-pane="today" id="pane-today" role="tabpanel" aria-labelledby="tab-today" tabindex="0">
       <div class="dash-header">
         <div>
           <h2>Session</h2>
           <p class="dim text-sm">Pick the date you trained, then tick each set as you finish. Log your real RPE.</p>
         </div>
-        <select id="daySelect" style="max-width:280px"></select>
+        <select id="daySelect" style="max-width:280px" aria-label="Choose training day"></select>
       </div>
 
       <div class="session-bar">
         <div class="session-bar-left">
-          <div class="session-bar-label">Session date</div>
+          <div class="session-bar-label" id="sessionDateLabel">Session date</div>
           <div class="flex gap-8" style="align-items:center;">
-            <button class="btn btn-sm btn-ghost btn-icon" id="dateBack" title="Previous day">‹</button>
-            <input type="date" id="sessionDate" style="max-width:170px;">
-            <button class="btn btn-sm btn-ghost btn-icon" id="dateFwd" title="Next day">›</button>
+            <button class="btn btn-sm btn-ghost btn-icon" id="dateBack" title="Previous day" aria-label="Previous day">‹</button>
+            <input type="date" id="sessionDate" style="max-width:170px;" aria-labelledby="sessionDateLabel">
+            <button class="btn btn-sm btn-ghost btn-icon" id="dateFwd" title="Next day" aria-label="Next day">›</button>
             <button class="btn btn-sm btn-ghost" id="dateToday">Today</button>
             <button class="btn btn-sm btn-ghost" id="pinDayDate" title="Lock the currently-selected day to this date so the dropdown auto-jumps here next time you pick this date">📌 Pin day → date</button>
             <button class="btn btn-sm btn-ghost" id="unpinDayDate" title="Remove the pin from the currently-selected day" style="display:none;">✕ Unpin</button>
@@ -77,12 +81,12 @@
       <div id="todayArea"></div>
     </section>
 
-    <section data-pane="program" class="hidden">
+    <section data-pane="program" id="pane-program" role="tabpanel" aria-labelledby="tab-program" tabindex="0" class="hidden">
       <div class="dash-header"><div><h2 id="programTitle">Full program</h2><p class="dim text-sm" id="programSubtitle">Read-only view. Your coach edits this.</p></div></div>
       <div id="fullProgram"></div>
     </section>
 
-    <section data-pane="progress" class="hidden">
+    <section data-pane="progress" id="pane-progress" role="tabpanel" aria-labelledby="tab-progress" tabindex="0" class="hidden">
       <div class="dash-header">
         <div><h2>Progress</h2><p class="dim text-sm">e1RM trends with variant multipliers applied, so paused/tempo/etc. compare to comp.</p></div>
         <button class="btn" onclick="openGoalsModal()" id="goalsBtn"></button>
@@ -90,16 +94,16 @@
       <div id="progressArea"></div>
     </section>
 
-    <section data-pane="bodyweight" class="hidden">
+    <section data-pane="bodyweight" id="pane-bodyweight" role="tabpanel" aria-labelledby="tab-bodyweight" tabindex="0" class="hidden">
       <div class="dash-header"><div><h2>Bodyweight</h2><p class="dim text-sm">Daily weigh-ins. Stay in your weight class.</p></div></div>
       <div class="card mb-24">
         <div class="form-row">
           <div class="form-group" style="margin-bottom:0">
-            <label>Date</label>
+            <label for="bwDate">Date</label>
             <input type="date" id="bwDate">
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label>Weight (kg)</label>
+            <label for="bwWeight">Weight (kg)</label>
             <input type="number" id="bwWeight" step="0.1" placeholder="82.5">
           </div>
         </div>
@@ -108,13 +112,13 @@
       <div id="bwArea"></div>
     </section>
 
-    <section data-pane="coach" class="hidden">
+    <section data-pane="coach" id="pane-coach" role="tabpanel" aria-labelledby="tab-coach" tabindex="0" class="hidden">
       <div class="dash-header"><div><h2>My coach</h2></div></div>
       <div id="coachArea"></div>
     </section>
 
     <!-- MY LIBRARY — every program the athlete has purchased -->
-    <section data-pane="library" class="hidden">
+    <section data-pane="library" id="pane-library" role="tabpanel" aria-labelledby="tab-library" tabindex="0" class="hidden">
       <div class="dash-header">
         <div><h2>My library</h2><p class="dim text-sm">Programs you've purchased from the marketplace. Install one as your active program any time.</p></div>
       </div>
@@ -122,7 +126,7 @@
     </section>
 
     <!-- BROWSE MARKETPLACE — published programs, inline -->
-    <section data-pane="marketplace" class="hidden">
+    <section data-pane="marketplace" id="pane-marketplace" role="tabpanel" aria-labelledby="tab-marketplace" tabindex="0" class="hidden">
       <div class="dash-header">
         <div><h2>Marketplace</h2><p class="dim text-sm">Programs published by coaches. Buy one to add it to your library. Reps and RPE come from the coach; weights you set yourself.</p></div>
       </div>
@@ -188,22 +192,22 @@
     <h3>Set your goals</h3>
     <p class="dim text-sm mb-16">All in kg. Leave blank to skip a goal.</p>
     <div class="form-row-3">
-      <div class="form-group"><label>Squat goal</label><input type="number" id="goalSq" step="2.5" placeholder="200"></div>
-      <div class="form-group"><label>Bench goal</label><input type="number" id="goalBn" step="2.5" placeholder="140"></div>
-      <div class="form-group"><label>Deadlift goal</label><input type="number" id="goalDl" step="2.5" placeholder="240"></div>
+      <div class="form-group"><label for="goalSq">Squat goal</label><input type="number" id="goalSq" step="2.5" placeholder="200"></div>
+      <div class="form-group"><label for="goalBn">Bench goal</label><input type="number" id="goalBn" step="2.5" placeholder="140"></div>
+      <div class="form-group"><label for="goalDl">Deadlift goal</label><input type="number" id="goalDl" step="2.5" placeholder="240"></div>
     </div>
     <div class="form-group">
-      <label>Total goal</label>
+      <label for="goalTot">Total goal</label>
       <input type="number" id="goalTot" step="5" placeholder="600">
       <p class="faded text-xs" style="margin-top:4px">Sum of squat + bench + deadlift e1RMs (comp equivalent).</p>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>Bodyweight goal</label>
+        <label for="goalBw">Bodyweight goal</label>
         <input type="number" id="goalBw" step="0.5" placeholder="82.5">
       </div>
       <div class="form-group">
-        <label>Direction</label>
+        <label for="goalBwDir">Direction</label>
         <select id="goalBwDir">
           <option value="maintain">Maintain</option>
           <option value="cut">Cutting (lose weight)</option>
@@ -352,6 +356,93 @@ async function wireNotifToggle() {
   paint();
 }
 
+// =========================================================
+// MODAL ACCESSIBILITY
+// Additive, removable. Gives every .modal-backdrop proper dialog
+// semantics + focus management without touching each template:
+//   • role="dialog" + aria-modal + aria-labelledby (from the modal's heading)
+//   • aria-label="Close" on the icon-only ✕ close button
+//   • move focus into the dialog on open, restore it to the trigger on close
+//   • Tab/Shift+Tab wrap inside the dialog (focus trap)
+// Works for both the static modals and the ones built at runtime.
+// =========================================================
+function initModalA11y() {
+  const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  let lastTrigger = null;
+
+  function enhance(backdrop) {
+    const modal = backdrop.querySelector('.modal');
+    if (!modal || modal.dataset.a11y) return;
+    modal.dataset.a11y = '1';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    const h = modal.querySelector('h1,h2,h3,h4');
+    if (h) {
+      if (!h.id) h.id = (backdrop.id || 'modal') + '-title';
+      modal.setAttribute('aria-labelledby', h.id);
+    } else if (!modal.getAttribute('aria-label')) {
+      modal.setAttribute('aria-label', 'Dialog');
+    }
+    const close = modal.querySelector('.modal-close');
+    if (close && !close.getAttribute('aria-label')) close.setAttribute('aria-label', 'Close');
+  }
+
+  function onOpen(backdrop) {
+    enhance(backdrop);
+    lastTrigger = document.activeElement;
+    const modal = backdrop.querySelector('.modal');
+    if (!modal) return;
+    const first = modal.querySelector(FOCUSABLE);
+    // Prefer the first real field over the ✕ close button when one exists.
+    const field = modal.querySelector('input:not([type="hidden"]),select,textarea');
+    setTimeout(() => { (field || first || modal).focus(); }, 30);
+  }
+
+  function onClose() {
+    if (lastTrigger && typeof lastTrigger.focus === 'function') {
+      const t = lastTrigger; lastTrigger = null;
+      setTimeout(() => t.focus(), 0);
+    }
+  }
+
+  // Focus trap — keep Tab inside the open dialog.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const backdrop = document.querySelector('.modal-backdrop.open');
+    if (!backdrop) return;
+    const modal = backdrop.querySelector('.modal');
+    if (!modal) return;
+    const items = Array.from(modal.querySelectorAll(FOCUSABLE)).filter(el => el.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  // Watch each backdrop's class for open/close (covers ESC + backdrop-click,
+  // which just toggle .open elsewhere). One tiny observer per backdrop.
+  function watch(backdrop) {
+    enhance(backdrop);
+    let was = backdrop.classList.contains('open');
+    new MutationObserver(() => {
+      const now = backdrop.classList.contains('open');
+      if (now === was) return;
+      was = now;
+      now ? onOpen(backdrop) : onClose();
+    }).observe(backdrop, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  document.querySelectorAll('.modal-backdrop').forEach(watch);
+  // Runtime-built modals are appended later — watch the ones that appear.
+  new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (n.classList && n.classList.contains('modal-backdrop')) watch(n);
+      if (n.querySelectorAll) n.querySelectorAll('.modal-backdrop').forEach(watch);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 bootstrap('athlete', () => {
   user = getCurrentUser();
   renderNav('#nav');
@@ -402,10 +493,15 @@ bootstrap('athlete', () => {
     setPh('goalTot', 600); setPh('goalBw', 82.5); setPh('bwWeight', 82.5);
   }
 
-  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+  const _allTabs = () => Array.from(document.querySelectorAll('.sidebar-tab'));
+  _allTabs().forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      _allTabs().forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;            // roving tabindex (ARIA tab pattern)
+      });
       document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
       document.querySelector('[data-pane="' + btn.dataset.tab + '"]').classList.remove('hidden');
       if (btn.dataset.tab === 'progress') renderProgress();
@@ -414,6 +510,23 @@ bootstrap('athlete', () => {
       if (btn.dataset.tab === 'program') renderProgramTab();
       if (btn.dataset.tab === 'library') renderLibrary();
       if (btn.dataset.tab === 'marketplace') renderMarketplace();
+    });
+    // Arrow-key navigation between tabs (roving focus), per WAI-ARIA tablist
+    btn.addEventListener('keydown', e => {
+      const keys = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 };
+      if (e.key in keys) {
+        e.preventDefault();
+        const tabs = _allTabs();
+        let i = tabs.indexOf(btn) + keys[e.key];
+        if (i < 0) i = tabs.length - 1;
+        if (i >= tabs.length) i = 0;
+        tabs[i].focus();
+        tabs[i].click();
+      } else if (e.key === 'Home') {
+        e.preventDefault(); const t = _allTabs()[0]; t.focus(); t.click();
+      } else if (e.key === 'End') {
+        e.preventDefault(); const t = _allTabs(); t[t.length - 1].focus(); t[t.length - 1].click();
+      }
     });
   });
 
@@ -427,6 +540,7 @@ bootstrap('athlete', () => {
     if (t) t.click();
   })();
 
+  initModalA11y();
   wireNotifToggle();
   subscribeCoachMessages();
 
@@ -1051,6 +1165,12 @@ function renderToday() {
   area.innerHTML = '';
   const date = getSessionDate();
 
+  // Meet countdown strip: if a meet date is set and still ahead, surface the
+  // phase cue at the top of the session so it's visible without opening the
+  // planner. Reuses daysUntil() (app.js) + the date saved by the meet modal.
+  // Client-side only (localStorage) — demo-safe, no DB.
+  renderMeetStrip(area);
+
   if (isRestDay(user.id, date)) {
     const r = getRestDay(user.id, date);
     const card = el('div', { class: 'rest-day-card' });
@@ -1521,6 +1641,11 @@ function ensureMeetModal() {
       '<button class="modal-close" onclick="closeModal(\'meetModal\')">&times;</button>' +
       '<h3>Meet-day plan</h3>' +
       '<p class="dim text-sm mb-16">Attempts built from your current competition-equivalent e1RMs. Openers you can triple, thirds that build a PR total.</p>' +
+      '<div class="meet-controls">' +
+        '<div class="form-group meet-date-group"><label for="meetDate">Meet date</label>' +
+          '<input type="date" id="meetDate" onchange="onMeetDateChange()"></div>' +
+        '<div id="meetCountdown" class="meet-countdown" hidden></div>' +
+      '</div>' +
       '<div class="form-group"><label>Strategy</label><select id="meetStrategy" onchange="renderMeetPlan()">' +
         '<option value="conservative">Conservative — first meet, secure 9/9</option>' +
         '<option value="standard" selected>Standard — solid meet, small PRs</option>' +
@@ -1528,6 +1653,7 @@ function ensureMeetModal() {
       '</select></div>' +
       '<div id="meetPlanArea"></div>' +
       '<button class="btn btn-primary btn-block mt-16" onclick="shareMeetCard()">Make it a card</button>' +
+      '<button class="btn btn-ghost btn-block mt-8" onclick="generatePeakingFromMeet()">Generate a peaking block to this date →</button>' +
     '</div></div>';
   document.body.appendChild(wrap.firstChild);
 }
@@ -1591,13 +1717,95 @@ function renderMeetPlan() {
   area.appendChild(el('p', { class: 'mt-16', style: 'font-weight: 700;' }, totalLine));
   if (bw) area.appendChild(el('p', { class: 'dim text-sm' }, 'At ' + kgToDisplay(bw) + ' ' + unitLabel() + ' bodyweight — check your DOTS with the calculator on the home page.'));
 }
+// Countdown chip + training-phase cue. Date persists client-side (localStorage),
+// so it's demo-safe and needs no DB/migration. daysUntil() lives in app.js.
+function meetPhaseHint(d) {
+  if (d == null) return '';
+  if (d < 0)    return 'Past meet — set your next date.';
+  if (d === 0)  return 'Go lift. You’ve done the work.';
+  if (d <= 3)   return 'Game week — rest, eat, trust your openers.';
+  if (d <= 13)  return 'Taper — cut volume, keep the bar speed.';
+  if (d <= 28)  return 'Peak — sharpen singles, lock your openers.';
+  return 'Build phase — bank the volume while you can.';
+}
+function updateMeetCountdown() {
+  const chip = document.getElementById('meetCountdown');
+  const input = document.getElementById('meetDate');
+  if (!chip || !input) return;
+  const d = daysUntil(input.value);
+  if (d == null) { chip.hidden = true; chip.innerHTML = ''; return; }
+  chip.hidden = false;
+  chip.classList.toggle('is-past', d < 0);
+  chip.classList.toggle('is-day', d === 0);
+  let num = '', label;
+  if (d < 0)        { num = Math.abs(d); label = Math.abs(d) === 1 ? 'day ago' : 'days ago'; }
+  else if (d === 0) { label = 'Meet day'; }
+  else              { num = d; label = d === 1 ? 'day out' : 'days out'; }
+  chip.innerHTML =
+    '<div class="mc-top">' +
+      (num !== '' ? '<span class="mc-num mono">' + num + '</span>' : '') +
+      '<span class="mc-label">' + label + '</span>' +
+    '</div>' +
+    '<span class="mc-hint">' + meetPhaseHint(d) + '</span>';
+}
+// Slim countdown banner for the top of the Today session (see renderToday).
+// Renders nothing unless a meet date is saved and is today-or-future.
+function renderMeetStrip(area) {
+  let saved = null;
+  try { saved = localStorage.getItem('powa-meet-date'); } catch (e) {}
+  if (!saved) return;
+  const d = daysUntil(saved);
+  if (d == null || d < 0) return;            // no past-meet nag on the session view
+  const strip = el('div', {
+    class: 'today-meet-strip', role: 'button', tabindex: '0',
+    'aria-label': 'Open meet-day planner',
+    onclick: openMeetModal,
+    onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openMeetModal(); } }
+  });
+  const label = d === 0 ? 'Meet day' : (d + (d === 1 ? ' day out' : ' days out'));
+  strip.innerHTML =
+    '<span class="tms-ico" aria-hidden="true">🏟</span>' +
+    '<span class="tms-count mono">' + label + '</span>' +
+    '<span class="tms-hint">' + meetPhaseHint(d) + '</span>';
+  area.appendChild(strip);
+}
+function onMeetDateChange() {
+  const input = document.getElementById('meetDate');
+  try {
+    if (input && input.value) localStorage.setItem('powa-meet-date', input.value);
+    else localStorage.removeItem('powa-meet-date');
+  } catch (e) {}
+  updateMeetCountdown();
+}
+window.onMeetDateChange = onMeetDateChange;
 function openMeetModal() {
   ensureMeetModal();
   renderMeetPlan();
+  try {
+    const saved = localStorage.getItem('powa-meet-date');
+    const input = document.getElementById('meetDate');
+    if (input && saved) input.value = saved;
+  } catch (e) {}
+  updateMeetCountdown();
   openModal('meetModal');
 }
 window.openMeetModal = openMeetModal;
 window.renderMeetPlan = renderMeetPlan;
+function generatePeakingFromMeet() {
+  if (user.coachId) { toast('Your coach manages your program'); return; }
+  const input = document.getElementById('meetDate');
+  const d = daysUntil(input && input.value);
+  if (d == null) { toast('Set your meet date first'); if (input) input.focus(); return; }
+  if (d < 7) { toast('Meet is too close to build a block'); return; }
+  const weeks = Math.max(2, Math.min(8, Math.ceil(d / 7)));
+  const e1rms = {};
+  ['squat', 'bench', 'deadlift'].forEach(l => { const e = bestE1RM(user.id, l); if (e) e1rms[l] = e; });
+  if (!confirm('Replace your current program with a ' + weeks + '-week peaking block ending on meet week?')) return;
+  const prog = generatePeakingBlock({ weeks, daysPerWeek: 3, e1rms, athleteId: user.id, coachId: user.id, name: weeks + '-week peaking block' });
+  closeModal('meetModal');
+  window.__applyAIProgram(prog);
+}
+window.generatePeakingFromMeet = generatePeakingFromMeet;
 async function shareMeetCard() {
   const plan = getMeetPlan();
   if (!Object.keys(plan.lifts).length) return toast('Log some sets first');

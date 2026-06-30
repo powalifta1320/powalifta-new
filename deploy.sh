@@ -27,7 +27,7 @@ if command -v supabase >/dev/null 2>&1; then SB=(supabase); else SB=(npx --yes s
 # Public webhooks / unauthenticated callers — deploy WITHOUT JWT verification.
 NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error)
 # Require a logged-in caller's JWT.
-WITH_JWT=(send-program-assigned send-push ai-chat)
+WITH_JWT=(send-program-assigned send-push ai-chat send-invite)
 
 deploy_functions() {
   for fn in "${NO_JWT[@]}"; do

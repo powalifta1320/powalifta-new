@@ -53,7 +53,7 @@
   flex-wrap: wrap;
   align-items: center;
 }
-.mk-tier-btn {
+.mk-tier-btn, .mk-cat-btn {
   padding: 8px 16px;
   border-radius: 100px;
   background: var(--bg-2);
@@ -65,11 +65,23 @@
   font-family: inherit;
   transition: all 0.15s;
 }
-.mk-tier-btn:hover { color: var(--text); border-color: var(--line-2); }
-.mk-tier-btn.active {
+.mk-tier-btn:hover, .mk-cat-btn:hover { color: var(--text); border-color: var(--line-2); }
+.mk-tier-btn.active, .mk-cat-btn.active {
   background: rgba(255,45,63,0.08);
   border-color: rgba(255,45,63,0.4);
   color: var(--red);
+}
+/* Second filter row = training focus. Slightly smaller, secondary hierarchy. */
+.mk-cat-btn { padding: 6px 13px; font-size: 0.82rem; }
+.mk-filters.mk-cat-row { margin: -6px 0 26px; }
+.mk-cat-row-label {
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-3); align-self: center; margin-right: 2px;
+}
+.mk-cat-tag {
+  display: inline-block; padding: 3px 10px; border-radius: 100px;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--text-2);
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em;
 }
 .mk-filters-right {
   display: flex;
@@ -231,6 +243,7 @@
 <footer>
   <div class="container">
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
       <a href="about.html" class="dim">About</a>
       <a href="faq.html" class="dim">FAQ</a>
@@ -331,6 +344,22 @@ async function renderBrowse() {
   filters.appendChild(right);
   body.appendChild(filters);
 
+  // Second row: training-focus categories (distinct from the length/format
+  // tiers above). Built from the shared taxonomy so it stays in sync.
+  const catRow = el('div', { class: 'mk-filters mk-cat-row' });
+  catRow.appendChild(el('span', { class: 'mk-cat-row-label' }, 'Focus'));
+  const cats = [{ key: '', label: 'All' }].concat(window.MARKET_CATEGORIES || []);
+  cats.forEach((c, i) => {
+    const btn = el('button', { class: 'mk-cat-btn' + (i === 0 ? ' active' : ''), 'data-cat': c.key }, c.label);
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mk-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      reloadGrid();
+    });
+    catRow.appendChild(btn);
+  });
+  body.appendChild(catRow);
+
   // Grid container (filled by loadAndRenderGrid)
   const grid = el('div', { id: 'mkGrid' });
   body.appendChild(grid);
@@ -343,9 +372,10 @@ async function renderBrowse() {
 // Reads the live state of the three controls and re-renders the grid.
 function reloadGrid() {
   const tier = document.querySelector('.mk-tier-btn.active')?.dataset?.tier || '';
+  const category = document.querySelector('.mk-cat-btn.active')?.dataset?.cat || '';
   const search = document.querySelector('.mk-search')?.value || '';
   const sort = document.getElementById('mkSort')?.value || 'featured';
-  loadAndRenderGrid(tier, search, sort);
+  loadAndRenderGrid(tier, search, sort, category);
 }
 
 // Client-side ordering. `featured` keeps whatever order the DB returned.
@@ -363,7 +393,7 @@ function sortPrograms(programs, sort, statsByProgram) {
   return arr;
 }
 
-async function loadAndRenderGrid(tier, search, sort) {
+async function loadAndRenderGrid(tier, search, sort, category) {
   const grid = document.getElementById('mkGrid');
   if (!grid) return;
   grid.innerHTML = '<div class="mk-loading"><p>Loading programs…</p></div>';
@@ -376,6 +406,11 @@ async function loadAndRenderGrid(tier, search, sort) {
     grid.innerHTML = '<div class="mk-empty"><h3>Could not load programs</h3><p>Try refreshing.</p></div>';
     return;
   }
+
+  // Training-focus filter is client-side (the column may not exist pre-migration,
+  // so we never push it into the query). Listings with no category never match a
+  // specific focus filter, but still appear under "All".
+  if (category) programs = programs.filter(p => p.category === category);
 
   if (!programs.length) {
     grid.innerHTML = '';
@@ -407,6 +442,8 @@ async function loadAndRenderGrid(tier, search, sort) {
     const card = el('div', { class: 'mk-card' });
     card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
     card.appendChild(el('div', { class: 'mk-card-tier' }, TIER_LABELS_MK[p.tier] || 'Program'));
+    const cardCat = (typeof marketCategoryLabel === 'function' && p.category) ? marketCategoryLabel(p.category) : '';
+    if (cardCat) card.appendChild(el('div', { class: 'mk-cat-tag', style: 'margin-bottom:10px' }, cardCat));
     card.appendChild(el('div', { class: 'mk-card-title' }, p.title));
     card.appendChild(el('div', { class: 'mk-card-coach' }, 'by ' + (coach ? coach.name : 'a POWALIFTA coach')));
     const st = statsByProgram[p.id];
@@ -450,7 +487,11 @@ async function renderDetail(id) {
   root.innerHTML = '';
   const wrap = el('div', { class: 'mk-detail' });
   wrap.appendChild(el('a', { href: 'marketplace.html', class: 'mk-detail-back' }, '← Back to marketplace'));
-  wrap.appendChild(el('div', { class: 'mk-detail-tier' }, TIER_LABELS_MK[program.tier] || 'Program'));
+  const detCat = (typeof marketCategoryLabel === 'function' && program.category) ? marketCategoryLabel(program.category) : '';
+  const tierRow = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:20px 0 12px' });
+  tierRow.appendChild(el('span', { class: 'mk-detail-tier', style: 'margin:0' }, TIER_LABELS_MK[program.tier] || 'Program'));
+  if (detCat) tierRow.appendChild(el('span', { class: 'mk-cat-tag' }, detCat));
+  wrap.appendChild(tierRow);
   wrap.appendChild(el('h1', { class: 'mk-detail-title' }, program.title));
 
   const meta = el('p', { class: 'mk-detail-meta' });

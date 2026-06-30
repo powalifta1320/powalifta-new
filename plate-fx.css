@@ -1,42 +1,80 @@
 /* ============================================================
- * POWALIFTA plate-fx — Eleiko-style calibrated plates in the hero's
- * negative space. They sit in the empty gutters, breathe on idle, then
- * flip edge-on (like a real disc turning) and drift off as you scroll
- * into the page. Pure SVG (no images, no build step), desktop-only,
- * fully motion-safe — additive and removable like every other fx module.
+ * POWALIFTA plate-fx — LOCALHOST-ONLY hero flourish.
+ * Two POWALIFTA competition plates sit in the hero's empty side
+ * gutters, breathe on idle, then do a slight 3D flip + drift off
+ * and fade as you scroll into the page. Pure inline SVG (no image
+ * asset, no build step), desktop-only, motion-safe. The JS hard-
+ * gates to localhost, so this is a no-op anywhere else.
+ * Additive + removable like every other fx module.
  * ============================================================ */
 
+/* Visible by default — the layer is JS-built, so it only exists when JS runs.
+   The entrance is a soft opacity *enhancement* (the .in class kicks the fade),
+   but the base is opacity:1 so a frozen/paused reveal can never ship it blank. */
 .plate-fx-layer {
   position: absolute;
   inset: 0;
-  z-index: 1;                 /* above hero-ghost / chalk, below .container (z2) */
+  z-index: 1;                 /* above hero-ghost / grid, below .container (z2) */
   pointer-events: none;
-  overflow: visible;
-  perspective: 1200px;        /* gives the flip real depth */
-  opacity: 0;
-  transition: opacity 1.1s ease;
+  overflow: visible;          /* .hero (overflow:hidden) does the clipping */
+  opacity: 1;                 /* depth comes from perspective() on each spinner */
 }
-.plate-fx-layer.in { opacity: 1; }
+.plate-fx-layer.in { animation: pf-fade-in 1.1s ease; }
+@keyframes pf-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* Outer element: position + drift (translate) + fade (opacity). Deliberately
+   FLAT — opacity < 1 forces transform-style: flat, so the 3D flip can't live
+   here or backface culling dies mid-fade. The flip lives on .plate-fx__spin. */
 .plate-fx {
   position: absolute;
-  width: var(--pf-size, 120px);
-  height: var(--pf-size, 120px);
-  margin-left: calc(var(--pf-size, 120px) / -2);
-  margin-top: calc(var(--pf-size, 120px) / -2);
-  transform-style: preserve-3d;
+  width: var(--pf-size, 150px);
+  height: var(--pf-size, 150px);
+  margin-left: calc(var(--pf-size, 150px) / -2);
+  margin-top: calc(var(--pf-size, 150px) / -2);
   transform-origin: center center;
   will-change: transform, opacity;
-  filter: drop-shadow(0 26px 42px rgba(0, 0, 0, 0.55));
 }
-.plate-fx svg { display: block; width: 100%; height: 100%; }
 
-/* Phone / small tablet: keep the hero fast and uncluttered — no plates. */
-@media (max-width: 820px) {
+/* The 3D spinner: rotateY/rotateZ/scale (set by JS) with its OWN perspective()
+   in the transform, so the flip is self-contained and survives the opacity on
+   the flat parent above. preserve-3d here lets the two faces cull correctly. */
+.plate-fx__spin {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* Two stacked faces so a full rotateY reads as a real plate turning over: the
+   back is the same disc pre-rotated 180°, so the branding never shows mirrored.
+   NOTE: the drop-shadow lives on the face IMG, not on the spinner — a filter on
+   the rotating element forces transform-style: flat and would kill the 3D. */
+.plate-fx__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-origin: center center;
+}
+.plate-fx__face.is-back { transform: rotateY(180deg); }
+.plate-fx__face img,
+.plate-fx__face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  -webkit-user-drag: none;
+  user-select: none;
+  filter: drop-shadow(0 26px 42px rgba(0, 0, 0, 0.55))
+          drop-shadow(0 0 26px rgba(255, 45, 63, 0.16));
+}
+
+/* No clean gutter room below this width — pull the plates entirely. */
+@media (max-width: 1100px) {
   .plate-fx-layer { display: none !important; }
 }
 
-/* Reduced motion: show them parked in the gutters, no flip, no drift. */
+/* Reduced motion: parked in the gutters, no idle, no flip. */
 @media (prefers-reduced-motion: reduce) {
   .plate-fx-layer { transition: opacity 0.3s ease; }
 }

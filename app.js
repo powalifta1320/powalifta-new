@@ -1912,6 +1912,30 @@ window.reviewStats = reviewStats;
 window.starString = starString;
 window.starsHtml = starsHtml;
 
+// =========================================================
+// MARKETPLACE TAXONOMY — training-focus categories.
+// Distinct from `tier` (length/format: short/block/premium).
+// `category` is what the program is FOR. Client-side source of
+// truth for the labels (DB column is a free-text key, no CHECK)
+// so new categories ship without a migration. See
+// sql/migration-marketplace-taxonomy.sql.
+// =========================================================
+const MARKET_CATEGORIES = [
+  { key: 'strength',    label: 'Max Strength' },
+  { key: 'hypertrophy', label: 'Hypertrophy' },
+  { key: 'peaking',     label: 'Peaking / Meet Prep' },
+  { key: 'beginner',    label: 'Beginner' },
+  { key: 'bench',       label: 'Bench Focus' },
+  { key: 'weakpoint',   label: 'Weak-Point Focus' },
+];
+// key → label (returns '' for null/unknown so callers can hide the badge).
+function marketCategoryLabel(key) {
+  const c = MARKET_CATEGORIES.find(x => x.key === key);
+  return c ? c.label : '';
+}
+window.MARKET_CATEGORIES = MARKET_CATEGORIES;
+window.marketCategoryLabel = marketCategoryLabel;
+
 // ----------------------------------------------------------------------
 // Coach ↔ athlete message thread — shared UI used by BOTH the athlete
 // dashboard (Coach tab) and the coach dashboard (per-athlete). Renders a
@@ -2392,6 +2416,30 @@ function strengthLevel(e1rmKg, bwKg, lift, sex) {
 }
 
 // =========================================================
+// MEET DAY — countdown to the platform
+// daysUntil() powers the "X days out" chip + phase hint on the meet-day planner.
+// (The planner's attempt math + warm-up ramps already live inline in
+// athlete.html — getMeetPlan / buildWarmupHtml — so this is the only piece that
+// belonged in the shared, unit-tested library.) Both sides parse at LOCAL
+// midnight so the count never drifts by a timezone offset.
+// =========================================================
+// Whole days from `now` (default today) until an ISO meet date. Negative = past,
+// 0 = today. now accepts a Date or an ISO string; bad input → null.
+function daysUntil(dateStr, now) {
+  const parse = (v) => {
+    if (!v) return null;
+    if (v instanceof Date) { const x = new Date(v); x.setHours(0, 0, 0, 0); return x; }
+    const d = new Date(String(v).slice(0, 10) + 'T00:00:00');
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const target = parse(dateStr);
+  if (!target) return null;
+  let base = parse(now);
+  if (!base) { base = new Date(); base.setHours(0, 0, 0, 0); }
+  return Math.round((target - base) / 86400000);
+}
+
+// =========================================================
 // PLATE CALCULATOR
 // (assumes 20kg bar, common kg plates)
 // =========================================================
@@ -2562,6 +2610,83 @@ function generateProgram(opts) {
   return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
 }
 if (typeof window !== 'undefined') { window.generateProgram = generateProgram; window.weightForTarget = weightForTarget; }
+
+// =========================================================
+// PEAKING BLOCK — a meet taper, distinct from generateProgram (a general
+// build→deload block). Here intensity ASCENDS while volume DESCENDS into the
+// platform, and the final week is openers only (one fast single per lift,
+// accessories gone). Same schema + fresh uids, so the builder/Store/DB take it
+// as-is. RPE-native (weights back-computed from reps@RPE, 0 when e1RM unknown).
+// Pure + deterministic.
+//   opts = { name?, weeks=4 (to meet, clamp 2..8), daysPerWeek=3 (clamp 2..4),
+//            e1rms?:{squat,bench,deadlift}, athleteId?, coachId? }
+// =========================================================
+function generatePeakingBlock(opts) {
+  opts = opts || {};
+  const weeks = Math.max(2, Math.min(8, Math.round(opts.weeks || 4)));
+  const dpw = Math.max(2, Math.min(4, Math.round(opts.daysPerWeek || 3)));
+  const e1 = opts.e1rms || {};
+  const last = weeks - 1;
+  const OPENER_RPE = 7;   // a fast, easy single — what you'd open with on the platform
+
+  // Per-week scheme by fraction f across the block (0 = first week, 1 = meet week).
+  function topScheme(w) {
+    const f = last ? w / last : 0;
+    return { sets: 1, reps: Math.max(1, Math.round(3 - f * 2)), rpe: Math.round((7.5 + f * 1.5) * 2) / 2 };
+  }
+  function backoffScheme(w) {
+    if (w === last) return null;                       // meet week: no back-offs
+    const f = last ? w / last : 0;
+    return { sets: Math.max(1, Math.round(4 - f * 3)), reps: Math.max(2, Math.round(5 - f * 2)), rpe: Math.round((7 + f) * 2) / 2 };
+  }
+
+  const rot = {
+    2: [['squat', 'bench'], ['deadlift', 'bench']],
+    3: [['squat'], ['bench'], ['deadlift']],
+    4: [['squat'], ['bench'], ['deadlift'], ['bench']]
+  }[dpw].map(a => a.slice());
+  const accessoryByMain = { squat: 'legs', bench: 'push', deadlift: 'pull' };
+  const dayName = (mains, isMeet) =>
+    mains.map(m => LIFT_LABELS[m]).join(' / ') + (isMeet ? ' — openers' : ' day');
+
+  const wks = [];
+  for (let w = 0; w < weeks; w++) {
+    const isMeet = w === last;
+    const days = [];
+    for (let d = 0; d < dpw; d++) {
+      const mains = rot[d] || [MAIN_LIFTS[d % 3]];
+      const day = newDay(dayName(mains, isMeet));
+      mains.forEach(m => {
+        const e = e1[m] || 0;
+        const ex = newExercise(m, 'Competition', '');
+        if (isMeet) {
+          ex.sets.push(newSet(weightForTarget(e, 1, OPENER_RPE), 1, OPENER_RPE, 'Opener — fast and easy'));
+        } else {
+          const ts = topScheme(w);
+          for (let s = 0; s < ts.sets; s++) ex.sets.push(newSet(weightForTarget(e, ts.reps, ts.rpe), ts.reps, ts.rpe, s === 0 ? 'Top set' : ''));
+          const bs = backoffScheme(w);
+          if (bs) for (let s = 0; s < bs.sets; s++) ex.sets.push(newSet(weightForTarget(e, bs.reps, bs.rpe), bs.reps, bs.rpe, ''));
+        }
+        day.exercises.push(ex);
+        // Accessory volume tapers out as the meet nears; none in the meet week.
+        const accSets = isMeet ? 0 : Math.max(0, 3 - Math.round((last ? w / last : 0) * 3));
+        const grp = accessoryByMain[m];
+        const list = (ACCESSORY_EXERCISES[grp]) || [];
+        if (accSets && list.length) {
+          const accEx = newExercise(grp, '', list[(w + d) % list.length]);
+          for (let s = 0; s < accSets; s++) accEx.sets.push(newSet(0, 8, null, ''));
+          day.exercises.push(accEx);
+        }
+      });
+      days.push(day);
+    }
+    wks.push({ id: uid('wk'), number: w + 1, days });
+  }
+
+  const name = (opts.name && String(opts.name).trim()) || (weeks + '-week peaking block');
+  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
+}
+if (typeof window !== 'undefined') { window.generatePeakingBlock = generatePeakingBlock; }
 
 // Migrate older exercises/sets that may not have `note`
 function ensureExerciseShape(ex) {
@@ -3004,7 +3129,8 @@ function el(tag, attrs = {}, ...children) {
 function toast(msg, ms = 2400) {
   // remove any existing
   document.querySelectorAll('.toast').forEach(t => t.remove());
-  const t = el('div', { class: 'toast' }, msg);
+  // role=status + aria-live so screen readers announce transient feedback
+  const t = el('div', { class: 'toast', role: 'status', 'aria-live': 'polite' }, msg);
   document.body.appendChild(t);
   setTimeout(() => t.remove(), ms);
 }
@@ -3741,6 +3867,34 @@ function latestBodyweight(athleteId) {
   const bw = Store.get().bodyweight.filter(b => b.athleteId === athleteId).sort((a, b) => b.date.localeCompare(a.date));
   return bw[0]?.weight || null;
 }
+
+// Pure head-to-head: given two athletes' stat blocks, return comparison rows for
+// a "tale of the tape" coach view. Each input: { squat, bench, deadlift, total?, bw? }
+// (kg; bw nullable). Total is derived from S+B+D when omitted. Pound-for-pound
+// (total ÷ bw) is the great equalizer — a lighter lifter can out-rank a heavier
+// one. Bodyweight itself is shown but neutral (no "winner"). Rows carry the
+// leader ('a' | 'b' | 'tie' | 'none') and absolute diff so the UI just renders.
+function compareMetricRows(A, B) {
+  A = A || {}; B = B || {};
+  const total = (o) => o.total != null ? o.total : (o.squat || 0) + (o.bench || 0) + (o.deadlift || 0);
+  const tA = total(A), tB = total(B);
+  const p4p = (t, bw) => (t && bw) ? t / bw : null;
+  function row(key, label, a, b, mode, decimals) {
+    let leader = 'none';
+    if (mode === 'high' && a != null && b != null) leader = a > b ? 'a' : (b > a ? 'b' : 'tie');
+    const diff = (a != null && b != null) ? Math.abs(a - b) : null;
+    return { key, label, a, b, mode, leader, diff, decimals: decimals || 0 };
+  }
+  return [
+    row('squat', 'Squat e1RM', A.squat || 0, B.squat || 0, 'high'),
+    row('bench', 'Bench e1RM', A.bench || 0, B.bench || 0, 'high'),
+    row('deadlift', 'Deadlift e1RM', A.deadlift || 0, B.deadlift || 0, 'high'),
+    row('total', 'Total', tA, tB, 'high'),
+    row('bw', 'Bodyweight', A.bw || null, B.bw || null, 'neutral', 1),
+    row('p4p', 'Pound-for-pound', p4p(tA, A.bw), p4p(tB, B.bw), 'high', 2)
+  ];
+}
+if (typeof window !== 'undefined') { window.compareMetricRows = compareMetricRows; }
 
 // Returns 0..100. Direction-aware for bw. Optional `start` (the first logged
 // weigh-in) turns cut/gain into a true start→goal fraction instead of a rough

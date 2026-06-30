@@ -413,6 +413,85 @@ test('starsHtml: emits 5 spans, filled ones marked st-on', () => {
 });
 
 /* ===========================================================
+   9c. Meet day — countdown
+   (attempts + warm-up ramp live inline in athlete.html: getMeetPlan /
+   buildWarmupHtml — only daysUntil is in the shared library)
+   =========================================================== */
+group('meet day');
+test('daysUntil: whole-day delta, timezone-stable', () => {
+  eq(daysUntil('2026-07-10', '2026-06-30'), 10);
+  eq(daysUntil('2026-06-30', '2026-06-30'), 0);
+  eq(daysUntil('2026-06-20', '2026-06-30'), -10);
+});
+test('daysUntil: bad / empty input → null', () => {
+  eq(daysUntil(''), null); eq(daysUntil('garbage'), null); eq(daysUntil(null), null);
+});
+
+/* ===========================================================
+   9d. Peaking block — meet taper (pure, deterministic)
+   =========================================================== */
+group('peaking block');
+test('generatePeakingBlock: shape — N weeks, SBD days, meet week is openers only', () => {
+  const p = generatePeakingBlock({ weeks: 4, daysPerWeek: 3, e1rms: { squat: 200, bench: 140, deadlift: 240 } });
+  eq(p.weeks.length, 4);
+  eq(p.weeks[0].days.length, 3);
+  assert(/peaking/i.test(p.name), 'name should read as a peaking block');
+  const meetDay = p.weeks[3].days[0];
+  eq(meetDay.exercises.length, 1);                 // main lift only — accessories tapered out
+  const opener = meetDay.exercises[0].sets;
+  eq(opener.length, 1); eq(opener[0].reps, 1); eq(opener[0].rpe, 7);
+});
+test('generatePeakingBlock: intensity ascends, volume descends into the meet', () => {
+  const p = generatePeakingBlock({ weeks: 4, daysPerWeek: 3, e1rms: { squat: 200, bench: 140, deadlift: 240 } });
+  const sq = (w) => p.weeks[w].days[0].exercises[0].sets;   // exercises[0] = the main lift
+  assert(sq(2)[0].rpe > sq(0)[0].rpe, 'top-set RPE not ascending');
+  assert(sq(0).length > sq(2).length, 'main volume not descending');
+  eq(sq(0)[0].reps, 3); eq(sq(0)[0].rpe, 7.5);              // first week: top triple @ 7.5
+});
+test('generatePeakingBlock: weeks clamp to 2..8', () => {
+  eq(generatePeakingBlock({ weeks: 1 }).weeks.length, 2);
+  eq(generatePeakingBlock({ weeks: 99 }).weeks.length, 8);
+});
+test('generatePeakingBlock: unknown e1RM → weight 0 (pure work-up-to-RPE)', () => {
+  const p = generatePeakingBlock({ weeks: 3, daysPerWeek: 3 });   // no e1rms
+  eq(p.weeks[0].days[0].exercises[0].sets[0].weight, 0);
+});
+
+group('athlete compare');
+test('compareMetricRows: per-lift leader + total derived from SBD', () => {
+  const A = { squat: 200, bench: 140, deadlift: 240, bw: 90 };
+  const B = { squat: 180, bench: 150, deadlift: 240, bw: 75 };
+  const rows = compareMetricRows(A, B);
+  const by = {}; rows.forEach(r => by[r.key] = r);
+  eq(by.squat.leader, 'a');         // 200 > 180
+  eq(by.bench.leader, 'b');         // 150 > 140
+  eq(by.deadlift.leader, 'tie');    // equal
+  eq(by.total.a, 580); eq(by.total.b, 570);
+  eq(by.total.leader, 'a');
+  eq(by.squat.diff, 20);
+});
+test('compareMetricRows: pound-for-pound flips the heavier-total athlete', () => {
+  const A = { squat: 200, bench: 140, deadlift: 240, bw: 90 };  // total 580 @ 90 = 6.44
+  const B = { squat: 180, bench: 150, deadlift: 240, bw: 75 };  // total 570 @ 75 = 7.60
+  const rows = compareMetricRows(A, B);
+  const p4p = rows.find(r => r.key === 'p4p');
+  eq(p4p.leader, 'b');             // lighter lifter wins pound-for-pound
+  assert(p4p.a < p4p.b, 'B ratio should exceed A');
+});
+test('compareMetricRows: bodyweight is neutral, missing bw → p4p leader none', () => {
+  const rows = compareMetricRows({ squat: 200, bench: 140, deadlift: 240, bw: 90 }, { squat: 200, bench: 140, deadlift: 240 });
+  const by = {}; rows.forEach(r => by[r.key] = r);
+  eq(by.bw.leader, 'none');         // bodyweight never crowns a winner
+  eq(by.p4p.leader, 'none');        // B has no bw → no ratio
+  eq(by.p4p.b, null);
+});
+test('compareMetricRows: explicit total overrides SBD sum', () => {
+  const rows = compareMetricRows({ squat: 100, bench: 100, deadlift: 100, total: 999 }, { squat: 100, bench: 100, deadlift: 100 });
+  const t = rows.find(r => r.key === 'total');
+  eq(t.a, 999); eq(t.b, 300); eq(t.leader, 'a');
+});
+
+/* ===========================================================
    10. Importer round-trip (athlete.html, demo iframe)
    These functions are page-inline in athlete.html, so we load it
    in a hidden ?demo=1 iframe and reach into its window. If it

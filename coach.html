@@ -258,13 +258,19 @@
       <p class="faded text-xs" style="margin-top:6px">You set your own price. You earn 80% per sale. POWALIFTA keeps 20% to cover payment processing and hosting. Min $1, max $999.</p>
       <p class="dim text-xs" id="pubPayoutPreview" style="margin-top:4px"></p>
     </div>
-    <div class="form-group">
-      <label>Category <span class="dim text-xs">(helps athletes find it)</span></label>
-      <select id="pubTier">
-        <option value="short">Short cycle (3–4 weeks, single-lift focus)</option>
-        <option value="block" selected>Full block (8–12 weeks)</option>
-        <option value="premium">Premium peaking / meet prep</option>
-      </select>
+    <div class="flex gap-8">
+      <div class="form-group" style="flex:1">
+        <label>Length / format</label>
+        <select id="pubTier">
+          <option value="short">Short cycle (3–4 weeks, single-lift focus)</option>
+          <option value="block" selected>Full block (8–12 weeks)</option>
+          <option value="premium">Premium peaking / meet prep</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Training focus <span class="dim text-xs">(helps athletes find it)</span></label>
+        <select id="pubCategory"></select>
+      </div>
     </div>
 
     <div class="form-group" style="background: var(--bg-2); padding: 14px 16px; border-radius: var(--r-md); border: 1px solid var(--line);">
@@ -1124,6 +1130,16 @@ async function generateInvite() {
     '&body=' + encodeURIComponent(body);
   document.getElementById('sendEmailBtn').href = mailtoUrl;
 
+  // Auto-send the invite via Resend (the send-invite edge fn re-resolves the
+  // code + coach name server-side from this same row). Demo skips the network;
+  // any failure degrades silently to the visible "📧 Send via email" mailto.
+  if (!window._demoMode && typeof DB !== 'undefined' && DB.sendInvite) {
+    DB.sendInvite(email).then(r => {
+      toast(r && r.ok ? 'Invite emailed to ' + email
+                      : 'Code ready — tap 📧 Send via email to send it');
+    }).catch(() => {});
+  }
+
   renderRoster();
 }
 function copyCode() {
@@ -1762,6 +1778,13 @@ function openPublishModal(template) {
   document.getElementById('pubTitle').value = template.name || '';
   document.getElementById('pubDesc').value = '';
   document.getElementById('pubTier').value = 'block';
+  // Populate the training-focus select from the shared taxonomy (once).
+  const catSel = document.getElementById('pubCategory');
+  if (catSel && !catSel.options.length) {
+    catSel.appendChild(new Option('General / not specified', ''));
+    (window.MARKET_CATEGORIES || []).forEach(c => catSel.appendChild(new Option(c.label, c.key)));
+  }
+  if (catSel) catSel.value = '';
   ['pub1rmSquat', 'pub1rmBench', 'pub1rmDead'].forEach(id => {
     const e = document.getElementById(id); if (e) e.value = '';
   });
@@ -1796,6 +1819,7 @@ async function confirmPublish() {
   const title = document.getElementById('pubTitle').value.trim();
   const description = document.getElementById('pubDesc').value.trim();
   const tier = document.getElementById('pubTier').value;
+  const category = (document.getElementById('pubCategory') || {}).value || null;
   const priceUsd = parseFloat(document.getElementById('pubPrice').value);
   if (!title) return toast('Add a title.');
   if (!description) return toast('Add a description so buyers know what they\'re getting.');
@@ -1854,7 +1878,7 @@ async function confirmPublish() {
   try {
     const created = await DB.submitMarketplaceProgram({
       coachId: user.id,
-      title, description, tier, priceCents,
+      title, description, tier, category, priceCents,
       weekCount,
       programPayload: payload,
       reference1RMs,
@@ -1923,7 +1947,8 @@ function renderCoachMarketplace() {
         el('span', { class: 'tpl-name' }, p.title),
         el('span', { class: 'badge ' + badge.cls }, badge.text)
       ));
-      card.appendChild(el('div', { class: 'tpl-meta' }, '$' + (p.priceCents / 100).toFixed(2) + ' · ' + (TIER_LABEL[p.tier] || 'Program') + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'));
+      const catLbl = (typeof marketCategoryLabel === 'function' && p.category) ? marketCategoryLabel(p.category) : '';
+      card.appendChild(el('div', { class: 'tpl-meta' }, '$' + (p.priceCents / 100).toFixed(2) + ' · ' + (TIER_LABEL[p.tier] || 'Program') + (catLbl ? ' · ' + catLbl : '') + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'));
       card.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 8px; line-height: 1.55;' }, (p.description || '').slice(0, 140) + (p.description && p.description.length > 140 ? '…' : '')));
 
       const actions = el('div', { class: 'tpl-actions' });
@@ -2173,6 +2198,9 @@ function renderRosterAnalytics() {
 
   const lb = buildRosterLeaderboard(roster);
   if (lb) area.appendChild(lb);
+
+  const cmp = buildAthleteCompare(roster);
+  if (cmp) area.appendChild(cmp);
 }
 
 // =========================================================
@@ -2214,6 +2242,89 @@ function buildRosterLeaderboard(roster) {
   wrap.appendChild(list);
   return wrap;
 }
+
+// =========================================================
+// HEAD-TO-HEAD — pick any two athletes, compare them lift-for-lift.
+// A coach's "tale of the tape": SBD e1RMs, total, bodyweight, and the
+// pound-for-pound equalizer side by side, with the leader of each metric
+// highlighted. Read-only off Store (bestE1RM / currentTotal / latestBodyweight),
+// pure math in compareMetricRows — no DB, demo-safe. Hidden for solo rosters.
+// =========================================================
+function athleteStatBlock(aid) {
+  const a = Store.get().athletes.find(x => x.id === aid);
+  return {
+    name: a ? a.name : '',
+    squat: bestE1RM(aid, 'squat'),
+    bench: bestE1RM(aid, 'bench'),
+    deadlift: bestE1RM(aid, 'deadlift'),
+    total: currentTotal(aid),
+    bw: latestBodyweight(aid)
+  };
+}
+function buildAthleteCompare(roster) {
+  if (!roster || roster.length < 2) return null;
+  const wrap = el('div', { class: 'cmp-wrap' });
+  wrap.appendChild(el('h3', { style: 'margin: 30px 0 4px; font-size: 1.4rem;' }, 'Head to head'));
+  wrap.appendChild(el('p', { class: 'dim text-sm', style: 'margin: 0 0 14px;' },
+    'Pick any two athletes — squat, bench, deadlift, total, and pound-for-pound, side by side.'));
+
+  const picks = el('div', { class: 'cmp-picks' });
+  const optsHtml = (sel) => roster.map(a =>
+    '<option value="' + a.id + '"' + (a.id === sel ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
+  const selA = el('select', { id: 'compareA', 'aria-label': 'First athlete', onchange: renderAthleteCompare });
+  const selB = el('select', { id: 'compareB', 'aria-label': 'Second athlete', onchange: renderAthleteCompare });
+  selA.innerHTML = optsHtml(roster[0].id);
+  selB.innerHTML = optsHtml(roster[1].id);
+  picks.appendChild(selA);
+  picks.appendChild(el('span', { class: 'cmp-vs-pick' }, 'vs'));
+  picks.appendChild(selB);
+  wrap.appendChild(picks);
+
+  wrap.appendChild(el('div', { class: 'cmp-body', id: 'compareBody' }));
+  setTimeout(renderAthleteCompare, 0);
+  return wrap;
+}
+function renderAthleteCompare() {
+  const body = document.getElementById('compareBody');
+  if (!body) return;
+  const aid = (document.getElementById('compareA') || {}).value;
+  const bid = (document.getElementById('compareB') || {}).value;
+  body.innerHTML = '';
+  if (!aid || !bid) { body.appendChild(el('p', { class: 'dim text-sm' }, 'Pick two athletes to compare.')); return; }
+  if (aid === bid) { body.appendChild(el('p', { class: 'dim text-sm' }, 'Pick two different athletes to see the comparison.')); return; }
+
+  const A = athleteStatBlock(aid), B = athleteStatBlock(bid);
+  const rows = compareMetricRows(A, B);
+  const fmt = (r, v) => v == null ? '—' : (r.key === 'p4p'
+    ? v.toFixed(2) + '<span class="cmp-unit">×BW</span>'
+    : (r.decimals ? kgToDisplay(v, r.decimals) : Math.round(kgToDisplay(v))) + '<span class="cmp-unit"> ' + unitLabel() + '</span>');
+
+  let aWins = 0, bWins = 0;
+  rows.forEach(r => { if (r.leader === 'a') aWins++; else if (r.leader === 'b') bWins++; });
+
+  const head = el('div', { class: 'cmp-head' });
+  head.innerHTML =
+    '<div class="cmp-who' + (aWins > bWins ? ' lead' : '') + '"><span class="av av-sm">' + escHtml(initials(A.name)) + '</span><span class="cmp-name">' + escHtml(A.name) + '</span><span class="cmp-tally mono">' + aWins + '</span></div>' +
+    '<div class="cmp-vs">VS</div>' +
+    '<div class="cmp-who b' + (bWins > aWins ? ' lead' : '') + '"><span class="cmp-tally mono">' + bWins + '</span><span class="cmp-name">' + escHtml(B.name) + '</span><span class="av av-sm">' + escHtml(initials(B.name)) + '</span></div>';
+  body.appendChild(head);
+
+  rows.forEach(r => {
+    const row = el('div', { class: 'cmp-row' });
+    row.appendChild(el('div', { class: 'cmp-val a' + (r.leader === 'a' ? ' win' : ''), html: fmt(r, r.a) }));
+    const mid = el('div', { class: 'cmp-mid' });
+    mid.appendChild(el('div', { class: 'cmp-label' }, r.label));
+    if (r.leader === 'tie') mid.appendChild(el('div', { class: 'cmp-diff even' }, 'even'));
+    else if (r.diff != null && r.leader !== 'none') {
+      const diffTxt = r.key === 'p4p' ? r.diff.toFixed(2) + '×' : (r.decimals ? kgToDisplay(r.diff, r.decimals) : Math.round(kgToDisplay(r.diff))) + ' ' + unitLabel();
+      mid.appendChild(el('div', { class: 'cmp-diff' }, 'Δ ' + diffTxt));
+    }
+    row.appendChild(mid);
+    row.appendChild(el('div', { class: 'cmp-val b' + (r.leader === 'b' ? ' win' : ''), html: fmt(r, r.b) }));
+    body.appendChild(row);
+  });
+}
+window.renderAthleteCompare = renderAthleteCompare;
 
 function renderProgressForAthlete() {
   const aid = document.getElementById('progressAthlete').value;

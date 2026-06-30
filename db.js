@@ -101,6 +101,7 @@ function mapDbMarketplaceProgram(r) {
     title: r.title,
     description: r.description || '',
     tier: r.tier,
+    category: r.category || null,
     priceCents: r.price_cents,
     weekCount: r.week_count || 0,
     status: r.status,
@@ -115,7 +116,7 @@ function mapDbMarketplaceProgram(r) {
   };
 }
 function mapJsMarketplaceProgram(m) {
-  return {
+  const out = {
     id: m.id, coach_id: m.coachId,
     title: m.title, description: m.description || null,
     tier: m.tier, price_cents: m.priceCents,
@@ -125,6 +126,10 @@ function mapJsMarketplaceProgram(m) {
     reference_1rms: m.reference1RMs || null,
     updated_at: new Date().toISOString()
   };
+  // Only send `category` when set — keeps inserts working before the
+  // taxonomy migration has been applied (missing column → key absent).
+  if (m.category) out.category = m.category;
+  return out;
 }
 function mapDbSale(r) {
   return {
@@ -310,6 +315,24 @@ const DB = {
       });
       if (error) return { ok: false, error };
       return data || { ok: true };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  },
+
+  // ---------- INVITE EMAIL ----------
+  // Emails a prospective athlete that their coach invited them. The code +
+  // coach name are resolved server-side from the caller's own unused invite
+  // (see send-invite/index.ts), so the client only passes the recipient.
+  // Routes through the JWT-gated `send-invite` edge function; never throws
+  // fatally — caller keeps the manual "📧 Send via email" mailto as fallback.
+  async sendInvite(athleteEmail) {
+    try {
+      const { data, error } = await sb.functions.invoke('send-invite', {
+        body: { athleteEmail }
+      });
+      if (error) return { ok: false, error };
+      return data && data.sent ? { ok: true, id: data.id } : { ok: false, error: data };
     } catch (e) {
       return { ok: false, error: e };
     }
@@ -738,7 +761,13 @@ const DB = {
   async submitMarketplaceProgram(prog) {
     const payload = mapJsMarketplaceProgram(prog);
     if (!payload.id) delete payload.id; // let DB generate it
-    const { data, error } = await sb.from('marketplace_programs').insert(payload).select('*');
+    let { data, error } = await sb.from('marketplace_programs').insert(payload).select('*');
+    // If the taxonomy migration hasn't run yet the `category` column is
+    // missing — drop it and retry so publishing still works pre-migration.
+    if (error && payload.category && /category/i.test(error.message || '')) {
+      delete payload.category;
+      ({ data, error } = await sb.from('marketplace_programs').insert(payload).select('*'));
+    }
     if (error) throw error;
     return mapDbMarketplaceProgram(data[0]);
   },
@@ -751,12 +780,18 @@ const DB = {
     if (patch.title !== undefined)        allowed.title = patch.title;
     if (patch.description !== undefined)  allowed.description = patch.description;
     if (patch.tier !== undefined)         allowed.tier = patch.tier;
+    if (patch.category !== undefined)     allowed.category = patch.category;
     if (patch.priceCents !== undefined)   allowed.price_cents = patch.priceCents;
     if (patch.weekCount !== undefined)    allowed.week_count = patch.weekCount;
     if (patch.status !== undefined)       allowed.status = patch.status;
     if (patch.programPayload !== undefined) allowed.program_payload = patch.programPayload;
     allowed.updated_at = new Date().toISOString();
-    const { error } = await sb.from('marketplace_programs').update(allowed).eq('id', id);
+    let { error } = await sb.from('marketplace_programs').update(allowed).eq('id', id);
+    // Retry without category if the column doesn't exist yet (pre-migration).
+    if (error && allowed.category !== undefined && /category/i.test(error.message || '')) {
+      delete allowed.category;
+      ({ error } = await sb.from('marketplace_programs').update(allowed).eq('id', id));
+    }
     if (error) throw error;
   },
 
