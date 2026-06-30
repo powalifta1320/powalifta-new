@@ -517,6 +517,66 @@ function buildAttentionPanel() {
   return wrap;
 }
 
+// ===== JOIN REQUESTS — athletes who found this coach in the directory and
+// asked to connect. Accept links them (accept_coach_request RPC); Decline is a
+// plain status UPDATE. Real-Supabase only; demo has no request loop.
+async function renderJoinRequests(host) {
+  if (!host || window._demoMode) return;
+  let reqs = [];
+  try { reqs = await DB.listCoachRequestsForCoach(user.id); } catch (e) { return; }
+  if (!reqs.length) return;
+
+  const card = el('div', { class: 'card', style: 'margin-bottom:16px; border-color:var(--line-red); box-shadow:0 0 0 1px var(--red-glow-2);' });
+  const head = el('div', { class: 'roster-sec-head' });
+  head.appendChild(el('h3', { class: 'prog-sec', style: 'margin:0;' }, 'Join requests'));
+  head.appendChild(el('span', { class: 'roster-sec-badge' }, reqs.length + ' waiting'));
+  card.appendChild(head);
+
+  reqs.forEach(req => {
+    const row = el('div', { style: 'display:flex; gap:12px; align-items:center; padding:10px 4px; border-top:1px solid var(--line);' });
+    const av = el('div', { class: 'av', style: 'width:40px; height:40px; border-radius:10px; background:var(--grad-red); color:#fff; font-family:Anton; font-size:1.05rem; display:flex; align-items:center; justify-content:center; flex:none;' }, initials(req.athleteName));
+    row.appendChild(av);
+    const info = el('div', { style: 'flex:1; min-width:0;' });
+    info.appendChild(el('div', { style: 'font-weight:700;' }, req.athleteName));
+    info.appendChild(el('p', { class: 'dim text-sm', style: 'margin:2px 0 0;' }, req.note ? req.note : 'Wants to train with you.'));
+    row.appendChild(info);
+    const acceptBtn = el('button', { class: 'btn btn-primary btn-sm', style: 'white-space:nowrap;' }, 'Accept');
+    const declineBtn = el('button', { class: 'btn btn-ghost btn-sm', style: 'white-space:nowrap;' }, 'Decline');
+    acceptBtn.onclick = () => acceptJoinRequest(req, row, acceptBtn, declineBtn);
+    declineBtn.onclick = () => declineJoinRequest(req, row);
+    const btns = el('div', { style: 'display:flex; gap:6px; flex:none;' });
+    btns.appendChild(declineBtn); btns.appendChild(acceptBtn);
+    row.appendChild(btns);
+    card.appendChild(row);
+  });
+  host.appendChild(card);
+}
+
+async function acceptJoinRequest(req, rowEl, acceptBtn, declineBtn) {
+  if (acceptBtn) acceptBtn.disabled = true;
+  if (declineBtn) declineBtn.disabled = true;
+  try {
+    await DB.acceptCoachRequest(req.id);
+    toast(req.athleteName + ' joined your roster');
+    // Rehydrate so the new athlete shows up across the roster/program tabs.
+    setTimeout(() => location.reload(), 700);
+  } catch (e) {
+    if (acceptBtn) acceptBtn.disabled = false;
+    if (declineBtn) declineBtn.disabled = false;
+    toast(e.message || 'Could not accept request');
+  }
+}
+
+async function declineJoinRequest(req, rowEl) {
+  try {
+    await DB.declineCoachRequest(req.id);
+    toast('Request declined');
+    if (rowEl) rowEl.remove();
+  } catch (e) {
+    toast(e.message || 'Could not decline request');
+  }
+}
+
 // ===== ROSTER =====
 function renderRoster() {
   renderPlanPill();
@@ -524,6 +584,12 @@ function renderRoster() {
   if (!area) return;
   area.innerHTML = '';
   const overview = getRosterOverview(user.id);
+
+  // ===== JOIN REQUESTS — coachless athletes asking to connect (coach discovery).
+  // Async-fills a host pinned at the top so it shows even with an empty roster.
+  const reqHost = el('div', {});
+  area.appendChild(reqHost);
+  renderJoinRequests(reqHost);
 
   if (!overview.length) {
     const e = el('div', { class: 'empty' });
@@ -1973,6 +2039,27 @@ async function confirmApplyTemplate() {
   document.querySelector('[data-tab="program"]').click();
   setTimeout(() => { document.getElementById('progAthlete').value = aid; activeWeekIdx = 0; loadProgram(); }, 50);
 }
+
+// Hook the AI assistant's "Insert into builder" button. Targets the athlete
+// selected in the Program tab (or the first roster athlete as a fallback),
+// REPLACES their program (reusing the id so the DB row updates), saves it,
+// then jumps to the builder focused on that athlete — same flow as a template.
+window.__applyAIProgram = function (program) {
+  if (!program || !program.weeks) { toast('Nothing to insert'); return { ok: false }; }
+  const sel = document.getElementById('progAthlete');
+  let aid = sel && sel.value ? sel.value : null;
+  if (!aid) { const first = (Store.get().athletes || []).find(a => a.coachId === user.id); aid = first ? first.id : null; }
+  if (!aid) { toast('Add an athlete first'); return { ok: false }; }
+  const existing = Store.get().programs.find(p => p.athleteId === aid);
+  const programId = existing ? existing.id : (program.id || uid('prog'));
+  const prog = Object.assign({}, program, { id: programId, athleteId: aid, coachId: user.id });
+  Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); s.programs.push(prog); });
+  (async () => { try { if (!window._demoMode) await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved locally — sync failed'); } })();
+  toast('Program inserted');
+  document.querySelector('[data-tab="program"]').click();
+  setTimeout(() => { document.getElementById('progAthlete').value = aid; activeWeekIdx = 0; loadProgram(); }, 60);
+  return { ok: true };
+};
 
 // ===== PROGRESS =====
 // =========================================================

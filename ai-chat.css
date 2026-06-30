@@ -262,6 +262,94 @@
   background: var(--bg-3, #25252b);
 }
 
+/* ---- Program preview card (AI-designed program) ---------------------- */
+.ai-prog-card {
+  margin-top: 10px;
+  border: 1px solid rgba(255, 45, 63, 0.32);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 45, 63, 0.08), rgba(255, 45, 63, 0.02));
+  padding: 11px 12px 12px;
+}
+.ai-prog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ai-prog-name {
+  font-family: 'Anton', sans-serif;
+  font-size: 0.94rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text, #f4f4f5);
+  line-height: 1.1;
+}
+.ai-prog-meta {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--red, #ff2d3f);
+  white-space: nowrap;
+  flex: none;
+}
+.ai-prog-sub {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3, #8a8a93);
+  margin-bottom: 6px;
+}
+.ai-prog-days {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 11px;
+}
+.ai-prog-day {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ai-prog-day:last-child { border-bottom: none; }
+.ai-prog-day-name {
+  font-size: 0.76rem;
+  color: var(--text-2, #b8b8c0);
+}
+.ai-prog-day-set {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.72rem;
+  color: var(--text, #f4f4f5);
+  white-space: nowrap;
+  flex: none;
+}
+.ai-prog-apply {
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--red, #ff2d3f), var(--red-deep, #b71629));
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+}
+.ai-prog-apply:hover { transform: translateY(-1px); }
+.ai-prog-apply:active { transform: scale(0.98); }
+.ai-prog-apply:disabled { cursor: default; transform: none; }
+.ai-prog-apply.done {
+  background: rgba(45, 212, 167, 0.16);
+  border: 1px solid rgba(45, 212, 167, 0.4);
+  color: #2dd4a7;
+}
+
 /* ---- Composer --------------------------------------------------------- */
 .ai-foot {
   padding: 10px 14px 14px;

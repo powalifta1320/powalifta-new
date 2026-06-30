@@ -367,13 +367,12 @@ bootstrap('athlete', () => {
     const s = document.getElementById('programSubtitle');
     if (t) t.textContent = 'Build your program';
     if (s) s.textContent = 'You\'re self-coaching. Build the program you\'ll train against — weeks, days, exercises, sets.';
-    // Hide the Coach tab for solo athletes — they don't have a coach to message
-    const coachTab = document.getElementById('tab-coach');
-    if (coachTab) coachTab.style.display = 'none';
+    // Solo athletes keep the Coach tab — repurposed into a "Find a coach"
+    // directory + request-to-join surface (relabelled just below).
   }
   setLbl('tab-progress', ICONS.chart, 'Progress');
   setLbl('tab-bodyweight', ICONS.scale, 'Bodyweight');
-  setLbl('tab-coach', ICONS.user, 'Coach');
+  setLbl('tab-coach', ICONS.user, _selfCoached ? 'Find a coach' : 'Coach');
   setLbl('tab-library', ICONS.trophy, 'My library');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   document.getElementById('bwBtn').innerHTML = ICONS.plus + '<span>Log weigh-in</span>';
@@ -3223,6 +3222,25 @@ function getOrCreateSelfProgram() {
   return prog;
 }
 
+// Hook the AI assistant's "Insert into builder" button calls. Coached
+// athletes can't self-assign (the coach owns their program), so we block
+// that and tell them. Otherwise the generated program REPLACES the current
+// self-program (keeping its id so the row updates, not duplicates).
+window.__applyAIProgram = function (program) {
+  if (user.coachId) { toast('Your coach manages your program'); return { ok: false }; }
+  if (!program || !program.weeks) { toast('Nothing to insert'); return { ok: false }; }
+  const existing = getProgram();
+  const programId = existing ? existing.id : (program.id || uid('prog'));
+  const prog = Object.assign({}, program, { id: programId, athleteId: user.id, coachId: user.id });
+  Store.update(s => { s.programs = (s.programs || []).filter(p => p.athleteId !== user.id); s.programs.push(prog); });
+  if (!window._demoMode) { try { persistProgram(prog.id); } catch (e) {} }
+  _selfBuilderActiveWeek = 0;
+  toast('Program inserted — edit it in the builder');
+  const tab = document.getElementById('tab-program'); if (tab) tab.click();
+  setTimeout(() => { try { renderProgramTab(); populateDaySelect(); } catch (e) {} }, 60);
+  return { ok: true };
+};
+
 function renderSelfBuilder() {
   const area = document.getElementById('fullProgram');
   area.innerHTML = '';
@@ -3869,15 +3887,7 @@ function renderCoach() {
   if (_coachThreadHost && _coachThreadHost._msgCleanup) { try { _coachThreadHost._msgCleanup(); } catch (e) {} _coachThreadHost._msgCleanup = null; }
   const s = Store.get();
   if (!user.coachId) {
-    const e = el('div', { class: 'empty' });
-    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.user;
-    e.appendChild(ic); e.appendChild(el('h3', {}, 'No coach assigned'));
-    e.appendChild(el('p', {}, 'Got an invite code from a coach? Enter it below.'));
-    const formWrap = el('div', { class: 'mt-16', style: 'max-width:280px; margin:18px auto 0;' });
-    formWrap.appendChild(el('input', { type: 'text', id: 'joinCode', placeholder: 'Code', maxlength: '6', style: 'text-transform:uppercase; text-align:center; letter-spacing:0.2em; font-family: Anton; font-size:1.4rem;' }));
-    e.appendChild(formWrap);
-    e.appendChild(el('button', { class: 'btn btn-primary mt-16', onclick: joinCoach }, 'Join coach'));
-    area.appendChild(e);
+    renderFindCoach(area);
     return;
   }
   const coach = s.coaches.find(c => c.id === user.coachId);
@@ -4106,6 +4116,101 @@ async function leaveMyCoach(coachName) {
   }
 }
 window.leaveMyCoach = leaveMyCoach;
+
+// ===== FIND A COACH — directory + request-to-join for coachless athletes.
+// Pairs with the invite-code path: a coach's 6-char code links instantly; if
+// the athlete has no code, they browse coaches here and send a join request the
+// coach accepts on their Roster tab (see DB.createCoachRequest / accept_coach_request).
+async function renderFindCoach(area) {
+  const s = Store.get();
+  const coaches = (s.coaches || []).slice();
+
+  // Which coaches I've already pinged (so the button reads "Requested"). Real
+  // mode only — demo has no request loop.
+  let reqByCoach = {};
+  if (!window._demoMode) {
+    try {
+      (await DB.listMyCoachRequests(user.id)).forEach(r => { reqByCoach[r.coachId] = r.status; });
+    } catch (e) { /* non-fatal — buttons just default to "Request to join" */ }
+  }
+
+  // --- Header
+  const head = el('div', { class: 'mb-16' });
+  head.appendChild(el('h2', { style: 'font-family:Anton; letter-spacing:0.01em; margin:0 0 4px;' }, 'Find a coach'));
+  head.appendChild(el('p', { class: 'dim' }, 'Browse coaches on POWALIFTA and ask one to take you on — or drop in a code if a coach already gave you one.'));
+  area.appendChild(head);
+
+  // --- Invite-code card (instant link)
+  const codeCard = el('div', { class: 'card', style: 'margin-bottom:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;' });
+  const codeLeft = el('div', { style: 'min-width:0;' });
+  codeLeft.appendChild(el('div', { style: 'font-weight:700; margin-bottom:2px;' }, 'Have an invite code?'));
+  codeLeft.appendChild(el('p', { class: 'dim text-sm', style: 'margin:0;' }, 'Connect to your coach instantly.'));
+  codeCard.appendChild(codeLeft);
+  const codeForm = el('div', { style: 'display:flex; gap:8px; align-items:center;' });
+  codeForm.appendChild(el('input', { type: 'text', id: 'joinCode', placeholder: 'CODE', maxlength: '6', style: 'width:130px; text-transform:uppercase; text-align:center; letter-spacing:0.18em; font-family:Anton; font-size:1.2rem; padding:8px 10px;' }));
+  codeForm.appendChild(el('button', { class: 'btn btn-primary', onclick: joinCoach, style: 'white-space:nowrap;' }, 'Join'));
+  codeCard.appendChild(codeForm);
+  area.appendChild(codeCard);
+
+  // --- Directory
+  if (!coaches.length) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'No coaches listed yet'), el('p', {}, 'Check back soon — or use an invite code above.')));
+    return;
+  }
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Available coaches'));
+  const grid = el('div', { style: 'display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;' });
+  coaches.forEach(c => grid.appendChild(coachDirCard(c, reqByCoach[c.id])));
+  area.appendChild(grid);
+}
+
+// One coach card in the Find-a-coach directory.
+function coachDirCard(c, reqStatus) {
+  const card = el('div', { class: 'card', style: 'display:flex; flex-direction:column; gap:10px; padding:16px;' });
+  const top = el('div', { style: 'display:flex; gap:11px; align-items:center; min-width:0;' });
+  const av = el('div', { class: 'av', style: 'width:46px; height:46px; border-radius:12px; background:var(--grad-red); color:#fff; font-family:Anton; font-size:1.2rem; display:flex; align-items:center; justify-content:center; flex:none; box-shadow:0 3px 12px var(--red-glow);' });
+  if (c.avatarUrl) { av.style.background = 'center/cover no-repeat url(' + c.avatarUrl + ')'; av.textContent = ''; }
+  else av.textContent = initials(c.name);
+  top.appendChild(av);
+  const idCol = el('div', { style: 'min-width:0;' });
+  const nameLine = el('div', { style: 'font-weight:700; display:flex; align-items:center; gap:6px; min-width:0;' });
+  nameLine.appendChild(el('span', { style: 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' }, c.name || 'Coach'));
+  if (c.countryCode) nameLine.appendChild(el('span', { style: 'flex:none;' }, flagEmoji(c.countryCode)));
+  idCol.appendChild(nameLine);
+  idCol.appendChild(el('p', { class: 'dim text-xs', style: 'margin:2px 0 0;' }, 'Coach'));
+  top.appendChild(idCol);
+  card.appendChild(top);
+
+  const bio = (c.bio || '').trim();
+  card.appendChild(el('p', { class: 'dim text-sm', style: 'margin:0; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;' }, bio || 'No bio yet.'));
+
+  const actions = el('div', { style: 'display:flex; gap:8px;' });
+  actions.appendChild(el('a', { class: 'btn btn-ghost', href: 'coach-profile.html?id=' + encodeURIComponent(c.id), target: '_blank', rel: 'noopener', style: 'flex:1; text-align:center; text-decoration:none;' }, 'View profile'));
+  const reqBtn = el('button', { class: 'btn btn-primary', style: 'flex:1; white-space:nowrap;' });
+  if (reqStatus === 'pending') { reqBtn.textContent = 'Requested'; reqBtn.disabled = true; reqBtn.className = 'btn'; reqBtn.style.flex = '1'; }
+  else if (reqStatus === 'accepted') { reqBtn.textContent = 'Linked'; reqBtn.disabled = true; reqBtn.className = 'btn'; reqBtn.style.flex = '1'; }
+  else { reqBtn.textContent = 'Request to join'; reqBtn.onclick = () => requestCoach(c, reqBtn); }
+  actions.appendChild(reqBtn);
+  card.appendChild(actions);
+  return card;
+}
+
+// Send (or re-send) a join request to a coach.
+async function requestCoach(coach, btn) {
+  if (window._demoMode) {
+    toast('Request sent to ' + (coach.name || 'coach') + ' (demo)');
+    if (btn) { btn.disabled = true; btn.textContent = 'Requested'; btn.className = 'btn'; btn.style.flex = '1'; }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  try {
+    await DB.createCoachRequest(user.id, user.name, coach.id, '');
+    toast('Request sent to ' + (coach.name || 'coach'));
+    if (btn) { btn.textContent = 'Requested'; btn.className = 'btn'; btn.style.flex = '1'; }
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    toast(e.message || 'Could not send request');
+  }
+}
 
 async function joinCoach() {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();

@@ -45,6 +45,14 @@ function mapDbReferral(r) {
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
   };
 }
+function mapDbCoachRequest(r) {
+  return {
+    id: r.id, athleteId: r.athlete_id, coachId: r.coach_id,
+    athleteName: r.athlete_name || 'An athlete', note: r.note || '',
+    status: r.status || 'pending',
+    createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
+  };
+}
 function mapDbProgram(r) {
   return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: r.weeks || [] };
 }
@@ -382,6 +390,49 @@ const DB = {
     // Filter client-side (not .eq) so this works whether or not the
     // directory_hidden column exists yet — rows without it are visible.
     return (data || []).filter(r => !r.directory_hidden).map(mapDbProfileToCoach);
+  },
+
+  // ---------- COACH REQUESTS (coachless athlete → coach "request to join") ----------
+  // Athlete files/refiles a request. Upsert on the (athlete_id, coach_id) unique
+  // pair so re-requesting after a decline flips it back to 'pending' instead of
+  // erroring. athlete_name is denormalised so the coach (who can't read an
+  // unlinked athlete's profile) can show who's asking. See migration-coach-requests.sql.
+  async createCoachRequest(athleteId, athleteName, coachId, note) {
+    const row = {
+      athlete_id: athleteId, coach_id: coachId,
+      athlete_name: athleteName || 'An athlete', note: note || '',
+      status: 'pending', updated_at: new Date().toISOString()
+    };
+    const { error } = await sb.from('coach_requests').upsert(row, { onConflict: 'athlete_id,coach_id' });
+    if (error) throw error;
+    return true;
+  },
+  // Athlete: my outstanding requests (drives the "Requested" button state).
+  async listMyCoachRequests(athleteId) {
+    const { data, error } = await sb.from('coach_requests').select('*').in('athlete_id', [athleteId]);
+    if (error) { console.warn('listMyCoachRequests', error); return []; }
+    return (data || []).map(mapDbCoachRequest);
+  },
+  // Coach: pending requests addressed to me (Roster-tab panel).
+  async listCoachRequestsForCoach(coachId) {
+    const { data, error } = await sb.from('coach_requests')
+      .select('*').in('coach_id', [coachId]).eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('listCoachRequestsForCoach', error); return []; }
+    return (data || []).map(mapDbCoachRequest);
+  },
+  // Coach accepts → SECURITY DEFINER links the athlete + marks accepted. Returns athlete uuid.
+  async acceptCoachRequest(requestId) {
+    const { data, error } = await sb.rpc('accept_coach_request', { request_id: requestId });
+    if (error) throw error;
+    return data;
+  },
+  // Coach declines → ordinary status UPDATE (allowed by cr_coach_update).
+  async declineCoachRequest(requestId) {
+    const { error } = await sb.from('coach_requests')
+      .update({ status: 'declined', updated_at: new Date().toISOString() }).in('id', [requestId]);
+    if (error) throw error;
+    return true;
   },
 
   // Upload a profile picture for the current user. File lives at avatars/{user_id}/avatar.{ext}

@@ -2471,6 +2471,98 @@ function getProgramForAthlete(athleteId) {
   return Store.get().programs.find(p => p.athleteId === athleteId);
 }
 
+// =========================================================
+// AI PROGRAM GENERATOR — "let the AI design the program directly"
+// Pure + deterministic. Returns a full, schema-correct program object (fresh
+// uids everywhere) the builder/Store/DB can use as-is. RPE-native: when an
+// athlete e1RM is known for a main lift, each set's weight is back-computed
+// from its prescribed reps+RPE (inverse of calcE1RM) and rounded to the
+// nearest 2.5kg; when unknown, weight stays 0 so it reads as a pure
+// "work up to the RPE" prescription — legit PL programming, on brand.
+//   opts = { name?, weeks=4, daysPerWeek=4, focus?(squat|bench|deadlift),
+//            e1rms?:{squat,bench,deadlift}, athleteId?, coachId? }
+// =========================================================
+function _roundToPlate(kg) {
+  if (!kg || kg <= 0) return 0;
+  return Math.round(kg / 2.5) * 2.5;
+}
+// Weight that sits at reps@rpe given a known 1RM-equivalent (inverse calcE1RM).
+function weightForTarget(e1rm, reps, rpe) {
+  if (!e1rm || !reps || !rpe) return 0;
+  const pct = 1 - ((reps - 1) + (10 - rpe)) * 0.0333;
+  return _roundToPlate(e1rm * Math.max(0.4, pct));
+}
+function generateProgram(opts) {
+  opts = opts || {};
+  const weeks = Math.max(1, Math.min(16, Math.round(opts.weeks || 4)));
+  const dpw = Math.max(2, Math.min(6, Math.round(opts.daysPerWeek || 4)));
+  const focus = (opts.focus && MAIN_LIFTS.indexOf(opts.focus) !== -1) ? opts.focus : null;
+  const e1 = opts.e1rms || {};
+
+  // RPE/rep wave across the block: build → overreach, last week deloads (≥4wk).
+  const lastIsDeload = weeks >= 4;
+  const span = Math.max(1, (lastIsDeload ? weeks - 1 : weeks) - 1);
+  const isDeloadWeek = (w) => lastIsDeload && w === weeks - 1;
+  function mainScheme(w) {
+    if (isDeloadWeek(w)) return { sets: 3, reps: 3, rpe: 6 };
+    const f = span ? w / span : 0;                  // 0..1 across working weeks
+    return { sets: 4, reps: Math.max(2, Math.round(5 - f * 3)), rpe: Math.round((7 + f * 1.5) * 2) / 2 };
+  }
+  function backoffScheme(w) {
+    if (isDeloadWeek(w)) return null;
+    const f = span ? w / span : 0;
+    return { sets: 3, reps: Math.max(4, Math.round(6 - f * 2)), rpe: Math.round((7 + f) * 2) / 2 };
+  }
+
+  // Which main lift(s) anchor each training day. Focus lift gets an extra day.
+  const rot = {
+    2: [['squat', 'bench'], ['deadlift', 'bench']],
+    3: [['squat'], ['bench'], ['deadlift']],
+    4: [['squat'], ['bench'], ['deadlift'], ['bench']],
+    5: [['squat'], ['bench'], ['deadlift'], ['squat'], ['bench']],
+    6: [['squat'], ['bench'], ['deadlift'], ['squat'], ['bench'], ['deadlift']]
+  }[dpw].map(a => a.slice());
+  if (focus && rot.length) {
+    rot[rot.length - 1] = [focus];
+    rot.sort((a, b) => (b[0] === focus) - (a[0] === focus));
+  }
+  const accessoryByMain = { squat: 'legs', bench: 'push', deadlift: 'pull' };
+  const dayName = (mains) => mains.map(m => LIFT_LABELS[m]).join(' / ') + ' day';
+
+  const wks = [];
+  for (let w = 0; w < weeks; w++) {
+    const days = [];
+    for (let d = 0; d < dpw; d++) {
+      const mains = rot[d] || [MAIN_LIFTS[d % 3]];
+      const day = newDay(dayName(mains));
+      mains.forEach(m => {
+        const e = e1[m] || 0;
+        const ex = newExercise(m, 'Competition', '');
+        const ms = mainScheme(w);
+        for (let s = 0; s < ms.sets; s++) ex.sets.push(newSet(weightForTarget(e, ms.reps, ms.rpe), ms.reps, ms.rpe, ''));
+        const bs = backoffScheme(w);
+        if (bs) for (let s = 0; s < bs.sets; s++) ex.sets.push(newSet(weightForTarget(e, bs.reps, bs.rpe), bs.reps, bs.rpe, ''));
+        day.exercises.push(ex);
+        // One matched accessory (RPE-free hypertrophy work).
+        const grp = accessoryByMain[m];
+        const list = (ACCESSORY_EXERCISES[grp]) || [];
+        if (list.length) {
+          const accEx = newExercise(grp, '', list[(w + d) % list.length]);
+          for (let s = 0; s < 3; s++) accEx.sets.push(newSet(0, 8, null, ''));
+          day.exercises.push(accEx);
+        }
+      });
+      days.push(day);
+    }
+    wks.push({ id: uid('wk'), number: w + 1, days });
+  }
+
+  const name = (opts.name && String(opts.name).trim())
+    || ((focus ? LIFT_LABELS[focus] + '-focus ' : '') + weeks + '-week block');
+  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
+}
+if (typeof window !== 'undefined') { window.generateProgram = generateProgram; window.weightForTarget = weightForTarget; }
+
 // Migrate older exercises/sets that may not have `note`
 function ensureExerciseShape(ex) {
   if (typeof ex.note !== 'string') ex.note = '';

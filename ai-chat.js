@@ -343,6 +343,137 @@
   }
 
   // =====================================================================
+  //  PROGRAM DESIGN — the assistant builds a real program object
+  //  Routed to app.js's deterministic generateProgram() (NOT the LLM):
+  //  schema-correct every time, weights back-calc'd from real e1RMs, and
+  //  it yields a one-tap "insert into builder" card. Works live OR mock.
+  // =====================================================================
+  function wantsProgram(t) {
+    return /(build|make|create|writ|draft|design|generat|put together|plan out|give me|need|want)\b[\s\S]{0,28}(program|block|mesocycl|cycle|routine|peak|peaking|training plan)/.test(t)
+      || /(program|block|mesocycl|routine)\b[\s\S]{0,18}(for me|for my|please|i can use)/.test(t)
+      || /\b\d{1,2}\s*[-\s]?week\b[\s\S]{0,22}(program|block|cycle|routine|peak|plan)/.test(t);
+  }
+
+  function parseProgramOpts(t) {
+    var opts = {};
+    var wk = t.match(/(\d{1,2})\s*[-\s]?week/);
+    if (wk) opts.weeks = Math.max(1, Math.min(16, parseInt(wk[1], 10)));
+    var dpw = t.match(/(\d)\s*(?:days?|x|sessions?)\s*(?:\/|per|a|each)?\s*week/) ||
+      t.match(/(\d)\s*[-\s]?days?\b/);
+    if (dpw) opts.daysPerWeek = Math.max(2, Math.min(6, parseInt(dpw[1], 10)));
+    if (/\bsquat\b/.test(t)) opts.focus = 'squat';
+    else if (/\bbench\b/.test(t)) opts.focus = 'bench';
+    else if (/\b(dead ?lift|deadlift|dl)\b/.test(t)) opts.focus = 'deadlift';
+    return opts;
+  }
+
+  function pullE1RMs(snap) {
+    var e = {};
+    ['squat', 'bench', 'deadlift'].forEach(function (l) {
+      if (snap && snap.mains && snap.mains[l] && snap.mains[l].best) e[l] = snap.mains[l].best;
+    });
+    return Object.keys(e).length ? e : null;
+  }
+
+  // Build a program from the user's words + their real numbers.
+  function designProgram(q) {
+    if (typeof window.generateProgram !== 'function') return null;
+    var t = q.toLowerCase();
+    var opts = parseProgramOpts(t);
+    var forName = null;
+    if (ROLE === 'coach') {
+      var match = matchAthlete(t, rosterSummary());
+      if (match) {
+        forName = (match.name || '').split(/\s+/)[0];
+        var ce = pullE1RMs(match.snap);
+        if (ce) opts.e1rms = ce;
+      }
+    } else {
+      var u = me();
+      if (u) {
+        var ae = pullE1RMs(snapshotFor(u.id));
+        if (ae) opts.e1rms = ae;
+      }
+    }
+    var program;
+    try { program = window.generateProgram(opts); }
+    catch (e) { return null; }
+    if (!program || !program.weeks || !program.weeks.length) return null;
+    return { program: program, text: programSummary(program, opts, forName) };
+  }
+
+  function programSummary(p, opts, forName) {
+    var dayCount = (p.weeks[0] && p.weeks[0].days.length) || 0;
+    var hasWeights = false;
+    ((p.weeks[0] && p.weeks[0].days) || []).forEach(function (d) {
+      (d.exercises || []).forEach(function (ex) {
+        (ex.sets || []).forEach(function (s) { if (s.weight) hasWeights = true; });
+      });
+    });
+    var who = (ROLE === 'coach' && forName) ? forName + "'s" : 'your';
+    var lines = [
+      "Done — I drafted **" + esc(p.name) + "**" + (forName ? " for **" + esc(forName) + "**" : "") + ".",
+      "",
+      "• " + p.weeks.length + " week" + (p.weeks.length === 1 ? '' : 's') + " · " + dayCount + " day" + (dayCount === 1 ? '' : 's') + "/week",
+      "• RPE-waved mains + matched back-off and one accessory each",
+      (opts && opts.focus) ? "• Weighted toward **" + LABEL[opts.focus] + "**" : null,
+      "• " + (hasWeights ? "Loads back-calculated from " + who + " current e1RMs" : "Pure RPE targets — dial in the loads to feel"),
+      "",
+      "Preview it below, then drop it straight into the builder."
+    ].filter(Boolean);
+    return lines.join("\n");
+  }
+
+  // Renders the preview card + one-tap apply under an assistant bubble.
+  function appendProgramCard(bubble, program) {
+    if (!bubble || !program || !program.weeks || !program.weeks.length) return;
+    var wk1 = program.weeks[0] || { days: [] };
+    var card = h('div', { class: 'ai-prog-card' });
+    var rows = (wk1.days || []).map(function (d) {
+      var mains = (d.exercises || []).filter(function (ex) {
+        return ['squat', 'bench', 'deadlift'].indexOf(ex.lift) !== -1;
+      });
+      var top = mains[0];
+      var setLine = '';
+      if (top && top.sets.length) {
+        // Main + back-off are merged onto one exercise; sets[0] is the top set
+        // (heaviest). Show set count + that top set so the line stays honest.
+        var ts = top.sets[0];
+        var topPart = ts.weight ? fU(ts.weight) + (ts.rpe != null ? ' @' + ts.rpe : '')
+          : (ts.reps + ' reps' + (ts.rpe != null ? ' @' + ts.rpe : ''));
+        setLine = top.sets.length + ' sets · ' + topPart;
+      }
+      return '<div class="ai-prog-day">' +
+        '<span class="ai-prog-day-name">' + esc(d.name) + '</span>' +
+        '<span class="ai-prog-day-set">' + esc(setLine) + '</span></div>';
+    }).join('');
+    card.innerHTML =
+      '<div class="ai-prog-head">' +
+        '<span class="ai-prog-name">' + esc(program.name) + '</span>' +
+        '<span class="ai-prog-meta">' + program.weeks.length + ' wk · ' + wk1.days.length + ' day/wk</span>' +
+      '</div>' +
+      '<div class="ai-prog-sub">Week 1 preview</div>' +
+      '<div class="ai-prog-days">' + rows + '</div>' +
+      '<button class="ai-prog-apply" type="button">Insert into builder</button>';
+    bubble.appendChild(card);
+
+    var applyBtn = card.querySelector('.ai-prog-apply');
+    applyBtn.addEventListener('click', function () {
+      if (typeof window.__applyAIProgram !== 'function') {
+        applyBtn.textContent = 'Open a dashboard to insert';
+        applyBtn.disabled = true;
+        return;
+      }
+      var res = window.__applyAIProgram(program);
+      if (res && res.ok) {
+        applyBtn.textContent = 'Inserted ✓';
+        applyBtn.classList.add('done');
+        applyBtn.disabled = true;
+      }
+    });
+  }
+
+  // =====================================================================
   //  LIVE — Gemini via the JWT-gated ai-chat edge proxy
   // =====================================================================
   function systemPrompt() {
@@ -392,7 +523,7 @@
   //  UI
   // =====================================================================
   var roleMeta = {
-    athlete: { title: 'Training assistant', sub: 'e1RM, RPE & your program', chips: ["What's my total?", "Squat e1RM", "Explain RPE", "What should I do today?"] },
+    athlete: { title: 'Training assistant', sub: 'e1RM, RPE & your program', chips: ["What's my total?", "Explain RPE", "Build me a 4-week program", "What should I do today?"] },
     coach: { title: 'Coaching assistant', sub: 'Roster, recaps & program drafts', chips: ["Who needs attention?", "Summarise this week", "Draft a 4-week program", "Roster overview"] }
   };
   var meta = roleMeta[ROLE];
@@ -526,9 +657,10 @@
       sendBtn.disabled = true;
       var typer = typing();
 
-      function answer(text) {
+      function answer(text, program) {
         typer.remove();
-        pushMsg('assistant', text);
+        var bubble = pushMsg('assistant', text);
+        if (program) appendProgramCard(bubble, program);
         busy = false;
         sendBtn.disabled = false;
         input.focus();
@@ -537,6 +669,17 @@
       function mockAnswer() {
         var reply = mockReply(q);
         setTimeout(function () { answer(reply); }, 360 + Math.min(700, reply.length * 4));
+      }
+
+      // Program-design intent short-circuits to the local generator in BOTH
+      // live and mock modes — a real, schema-correct program object the user
+      // can insert with one tap, instead of prose the LLM might malform.
+      if (wantsProgram(q.toLowerCase())) {
+        var designed = designProgram(q);
+        if (designed && designed.program) {
+          setTimeout(function () { answer(designed.text, designed.program); }, 480);
+          return;
+        }
       }
 
       if (LIVE && !liveDown) {
