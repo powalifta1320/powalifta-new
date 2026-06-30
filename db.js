@@ -331,10 +331,30 @@ const DB = {
       const { data, error } = await sb.functions.invoke('send-invite', {
         body: { athleteEmail }
       });
-      if (error) return { ok: false, error };
-      return data && data.sent ? { ok: true, id: data.id } : { ok: false, error: data };
+      if (error) {
+        // supabase-js surfaces non-2xx as a FunctionsHttpError and hides the
+        // function's JSON body in error.context (the raw Response). Dig it out
+        // so the real cause ("No matching invite" / "Email send failed" / …)
+        // reaches the UI + console instead of a generic failure.
+        let status, reason = error.message || String(error);
+        try {
+          if (error.context && typeof error.context.clone === 'function') {
+            status = error.context.status;
+            const body = await error.context.clone().json();
+            if (body && (body.error || body.detail)) {
+              reason = body.error + (body.detail ? ' — ' + body.detail : '');
+            }
+          }
+        } catch (_) { /* body wasn't JSON */ }
+        console.error('sendInvite failed', status, reason, error);
+        return { ok: false, status, reason, error };
+      }
+      if (data && data.sent) return { ok: true, id: data.id };
+      console.error('sendInvite unexpected response', data);
+      return { ok: false, reason: (data && data.error) || 'Unexpected response', error: data };
     } catch (e) {
-      return { ok: false, error: e };
+      console.error('sendInvite threw', e);
+      return { ok: false, reason: String((e && e.message) || e), error: e };
     }
   },
 

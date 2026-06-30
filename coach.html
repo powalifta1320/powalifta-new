@@ -1142,11 +1142,15 @@ async function sendInviteEmail(email) {
       if (statusEl) statusEl.textContent = '✓ Emailed to ' + email;
       toast('Invite emailed to ' + email);
     } else {
-      if (statusEl) statusEl.textContent = 'Could not send — tap to retry';
-      toast('Could not email the invite — code is still valid');
+      // Surface the real server reason (set by DB.sendInvite from error.context).
+      const why = (r && r.reason) ? r.reason : 'unknown error';
+      if (statusEl) statusEl.textContent = 'Could not send: ' + why + ' — tap to retry';
+      console.error('Invite email failed:', r);
+      toast('Could not email the invite (' + why + ') — code is still valid');
     }
   } catch (e) {
-    if (statusEl) statusEl.textContent = 'Could not send — tap to retry';
+    if (statusEl) statusEl.textContent = 'Could not send: ' + ((e && e.message) || e) + ' — tap to retry';
+    console.error('Invite email threw:', e);
     toast('Could not email the invite — code is still valid');
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = original || '📧 Resend email'; }
