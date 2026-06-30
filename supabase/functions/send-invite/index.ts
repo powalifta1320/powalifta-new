@@ -73,7 +73,11 @@ function jsonResponse(status: number, body: any): Response {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey'
+      // Must include x-client-info: supabase-js's functions.invoke() attaches it,
+      // so the browser's CORS preflight asks for it. Omitting it makes the
+      // preflight fail with "Failed to send a request to the Edge Function"
+      // (the POST never fires). Mirror send-push / ai-chat exactly.
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-api-version'
     }
   });
 }
