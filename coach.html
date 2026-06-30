@@ -120,7 +120,8 @@
     <div id="inviteResult" class="hidden">
       <p class="dim text-sm" style="margin: 18px 0 0">Share this code with your athlete. They enter it on signup:</p>
       <div class="code-display" id="inviteCodeDisplay"></div>
-      <a class="btn btn-primary btn-block" id="sendEmailBtn" style="margin-bottom: 8px;">📧 Send via email</a>
+      <p class="dim text-sm" id="inviteSendStatus" style="margin: 0 0 10px; text-align: center;"></p>
+      <button class="btn btn-block" id="sendEmailBtn" onclick="resendInvite()" style="margin-bottom: 8px;">📧 Resend email</button>
       <button class="btn btn-block" onclick="copyCode()" id="copyCodeBtn">Copy code</button>
     </div>
   </div>
@@ -1112,35 +1113,48 @@ async function generateInvite() {
   document.getElementById('inviteResult').classList.remove('hidden');
   document.getElementById('copyCodeBtn').innerHTML = ICONS.copy + '<span>Copy code</span>';
 
-  // Build a polished mailto: link
-  const origin = location.origin;
-  const signupUrl = origin + '/index.html?code=' + code + '#signup-athlete';
-  const coachName = user.name || 'your coach';
-  const subject = '[POWALIFTA] Your invite from ' + coachName;
-  const body =
-    'Hey,\n\n' +
-    coachName + ' has invited you to join POWALIFTA — the platform powerlifting coaches use to program training and track progress.\n\n' +
-    'Sign up with one click: ' + signupUrl + '\n\n' +
-    'Or go to ' + origin + ' and enter this invite code on signup:\n\n' +
-    '    ' + code + '\n\n' +
-    'POWALIFTA logs every set, calculates your e1RM automatically, tracks your goals, and lets your coach see your progress in real time. Free for athletes, forever.\n\n' +
-    'See you in the gym.';
-  const mailtoUrl = 'mailto:' + encodeURIComponent(email) +
-    '?subject=' + encodeURIComponent(subject) +
-    '&body=' + encodeURIComponent(body);
-  document.getElementById('sendEmailBtn').href = mailtoUrl;
+  // Stash the email so the "Resend email" button can fire again later.
+  document.getElementById('inviteResult').dataset.email = email;
 
   // Auto-send the invite via Resend (the send-invite edge fn re-resolves the
-  // code + coach name server-side from this same row). Demo skips the network;
-  // any failure degrades silently to the visible "📧 Send via email" mailto.
-  if (!window._demoMode && typeof DB !== 'undefined' && DB.sendInvite) {
-    DB.sendInvite(email).then(r => {
-      toast(r && r.ok ? 'Invite emailed to ' + email
-                      : 'Code ready — tap 📧 Send via email to send it');
-    }).catch(() => {});
-  }
+  // code + coach name server-side from this same row). In-app — never opens Mail.
+  sendInviteEmail(email);
 
   renderRoster();
+}
+// Sends the invite email through Resend (DB.sendInvite → send-invite edge fn).
+// Demo skips the network. Updates the modal status line + button; no Mail.app.
+async function sendInviteEmail(email) {
+  const statusEl = document.getElementById('inviteSendStatus');
+  const btn = document.getElementById('sendEmailBtn');
+  if (window._demoMode) {
+    if (statusEl) statusEl.textContent = 'Demo mode — email skipped';
+    toast('Invite emailed to ' + email + ' (simulated)');
+    return;
+  }
+  if (typeof DB === 'undefined' || !DB.sendInvite) return;
+  const original = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
+  if (statusEl) statusEl.textContent = 'Sending…';
+  try {
+    const r = await DB.sendInvite(email);
+    if (r && r.ok) {
+      if (statusEl) statusEl.textContent = '✓ Emailed to ' + email;
+      toast('Invite emailed to ' + email);
+    } else {
+      if (statusEl) statusEl.textContent = 'Could not send — tap to retry';
+      toast('Could not email the invite — code is still valid');
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Could not send — tap to retry';
+    toast('Could not email the invite — code is still valid');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original || '📧 Resend email'; }
+  }
+}
+function resendInvite() {
+  const email = document.getElementById('inviteResult').dataset.email;
+  if (email) sendInviteEmail(email);
 }
 function copyCode() {
   const code = document.getElementById('inviteCodeDisplay').textContent;
