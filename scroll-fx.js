@@ -113,36 +113,70 @@
     }
   }
 
+  // Reveal everything immediately — the safe state. Used for reduced-motion and as
+  // the fallback whenever the scroll-reveal machinery can't run, so the page is
+  // never left stuck at the [data-fx] opacity:0 default (i.e. never ships blank).
+  function revealAll() {
+    document.querySelectorAll('[data-fx], [data-fx-stagger], [data-fx-count], .fx-section-wash')
+      .forEach(function (el) { el.classList.add('fx-in'); });
+    document.querySelectorAll('section, .section')
+      .forEach(function (s) { s.classList.add('fx-section-revealed'); });
+  }
+
   ready(function () {
     if (reduced()) {
       document.documentElement.classList.add('fx-no-fx');
-      document.querySelectorAll('[data-fx]').forEach(function (el) { el.classList.add('fx-in'); });
-      document.querySelectorAll('[data-fx-count]').forEach(function (el) { el.classList.add('fx-in'); });
-      document.querySelectorAll('section, .section').forEach(function (s) { s.classList.add('fx-section-revealed'); });
+      revealAll();
       return;
     }
 
+    // Old browsers / some headless renderers lack IntersectionObserver — show it all
+    // rather than leave the page invisible behind the opacity:0 default.
+    if (!('IntersectionObserver' in window)) { revealAll(); return; }
+
     setupSectionWashes();
 
-    var observer = new IntersectionObserver(function (entries, obs) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        var el = entry.target;
-        el.classList.add('fx-in');
-        flagParentSection(el);
-        if (el.hasAttribute('data-fx-count')) tickCount(el);
-        if (!el.hasAttribute('data-fx-replay')) obs.unobserve(el);
+    try {
+      var observer = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var el = entry.target;
+          el.classList.add('fx-in');
+          flagParentSection(el);
+          if (el.hasAttribute('data-fx-count')) tickCount(el);
+          if (!el.hasAttribute('data-fx-replay')) obs.unobserve(el);
+        });
+      }, {
+        root: null,
+        rootMargin: '0px 0px -8% 0px',
+        threshold: 0.12
       });
-    }, {
-      root: null,
-      rootMargin: '0px 0px -8% 0px',
-      threshold: 0.12
-    });
 
-    document.querySelectorAll('[data-fx], [data-fx-stagger], [data-fx-count], .fx-section-wash').forEach(function (el) {
-      observer.observe(el);
-    });
+      document.querySelectorAll('[data-fx], [data-fx-stagger], [data-fx-count], .fx-section-wash').forEach(function (el) {
+        observer.observe(el);
+      });
+    } catch (e) {
+      // If the observer construction/observe throws, fall back to fully-visible.
+      revealAll();
+      return;
+    }
 
     setupParallax();
+
+    // Failsafe: reveal anything already at/above the fold that the observer didn't
+    // catch (deep-link hash landing mid-page, attach race, bfcache restore). Only
+    // touches elements that are already on screen, so below-the-fold scroll reveals
+    // still fire normally — this just guarantees nothing visible lingers blank.
+    setTimeout(function () {
+      var vh = window.innerHeight || document.documentElement.clientHeight || 800;
+      document.querySelectorAll('[data-fx]:not(.fx-in), [data-fx-stagger]:not(.fx-in), [data-fx-count]:not(.fx-in)')
+        .forEach(function (el) {
+          if (el.getBoundingClientRect().top < vh * 0.92) {
+            el.classList.add('fx-in');
+            flagParentSection(el);
+            if (el.hasAttribute('data-fx-count')) tickCount(el);
+          }
+        });
+    }, 1400);
   });
 })();

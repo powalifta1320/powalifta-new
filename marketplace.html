@@ -266,6 +266,11 @@
 const TIER_LABELS_MK = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
 let _currentUser = null;
 let _allCoaches = [];
+// Marketplace pagination — fetch once into _mkPrograms/_mkStats, page client-side.
+let _mkPrograms = [];
+let _mkStats = {};
+let _mkPage = 1;
+const MK_PER_PAGE = 6;
 
 // Read the program id from the URL — if present, render the detail view
 function getProgramIdFromUrl() {
@@ -435,9 +440,26 @@ async function loadAndRenderGrid(tier, search, sort, category) {
   // an extra query). Default "featured" leaves the DB order intact.
   programs = sortPrograms(programs, sort || 'featured', statsByProgram);
 
+  // Stash the full result set + reset to page 1; paging is pure client-side
+  // from here (filter/sort changes refetch, page changes don't).
+  _mkPrograms = programs;
+  _mkStats = statsByProgram;
+  _mkPage = 1;
+  renderMkPage();
+}
+
+// Render just the current page window of _mkPrograms into the grid + a pager.
+function renderMkPage() {
+  const grid = document.getElementById('mkGrid');
+  if (!grid) return;
+  const pageCount = Math.max(1, Math.ceil(_mkPrograms.length / MK_PER_PAGE));
+  if (_mkPage > pageCount) _mkPage = pageCount;
+  const start = (_mkPage - 1) * MK_PER_PAGE;
+  const pagePrograms = _mkPrograms.slice(start, start + MK_PER_PAGE);
+
   grid.innerHTML = '';
   const g = el('div', { class: 'mk-grid' });
-  programs.forEach(p => {
+  pagePrograms.forEach(p => {
     const coach = _allCoaches.find(c => c.id === p.coachId);
     const card = el('div', { class: 'mk-card' });
     card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
@@ -446,7 +468,7 @@ async function loadAndRenderGrid(tier, search, sort, category) {
     if (cardCat) card.appendChild(el('div', { class: 'mk-cat-tag', style: 'margin-bottom:10px' }, cardCat));
     card.appendChild(el('div', { class: 'mk-card-title' }, p.title));
     card.appendChild(el('div', { class: 'mk-card-coach' }, 'by ' + (coach ? coach.name : 'a POWALIFTA coach')));
-    const st = statsByProgram[p.id];
+    const st = _mkStats[p.id];
     if (st && st.count) {
       const rating = el('div', { class: 'mk-rating' });
       rating.innerHTML = starsHtml(st.avg) +
@@ -462,6 +484,13 @@ async function loadAndRenderGrid(tier, search, sort, category) {
     g.appendChild(card);
   });
   grid.appendChild(g);
+
+  const pager = buildPager(_mkPrograms.length, MK_PER_PAGE, _mkPage, function (pg) {
+    _mkPage = pg;
+    renderMkPage();
+    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  if (pager) grid.appendChild(pager);
 }
 
 async function renderDetail(id) {

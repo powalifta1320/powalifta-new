@@ -38,6 +38,7 @@
 <link rel="stylesheet" href="insane-fx.css">
 <link rel="stylesheet" href="signature-fx.css">
 <link rel="stylesheet" href="plate-fx.css">
+<noscript><style>[data-fx],[data-fx-stagger]>[data-fx]{opacity:1!important;transform:none!important;filter:none!important}</style></noscript>
 <script defer src="hero-fx.js"></script>
 <script defer src="scroll-fx.js"></script>
 <script defer src="ui-fx.js"></script>
@@ -382,10 +383,15 @@
       <h2>Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
     </div>
     <div class="feat-grid" data-fx-stagger>
-      <div class="feat" data-fx="up">
+      <div class="feat feat--hero" data-fx="up">
         <div class="feat-icon" id="feat-i1"></div>
         <h4>RPE-native programming</h4>
-        <p>Programs written in RPE, not %1RM guesswork. Athletes self-regulate. Coaches see real-world feedback.</p>
+        <p>Programs written in RPE, not %1RM guesswork. Athletes self-regulate to the day they're having; coaches see the real-world feedback that fixed loads hide.</p>
+        <div class="feat-proof" aria-hidden="true">
+          <span><b>146kg × 5</b> @ RPE 8</span>
+          <span class="feat-proof-arrow">→</span>
+          <span><b>182.5kg</b> e1RM</span>
+        </div>
       </div>
       <div class="feat" data-fx="up">
         <div class="feat-icon" id="feat-i2"></div>
@@ -778,11 +784,17 @@ async function renderMarketplaceTeaser() {
   });
 }
 
+let _coachPage = 1;
+const COACHES_PER_PAGE = 6;
+
 function renderCoaches() {
   const s = Store.get();
   const grid = document.getElementById('coachGrid');
   if (!grid) return;
   grid.innerHTML = '';
+  // Drop any pager from a previous render (it lives as a sibling of the grid).
+  const oldPager = grid.parentNode.querySelector(':scope > .grid-pager');
+  if (oldPager) oldPager.remove();
   if (!s.coaches.length) {
     const e = el('div', { class: 'empty', style: 'grid-column:1/-1' });
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.user;
@@ -792,7 +804,11 @@ function renderCoaches() {
     grid.appendChild(e);
     return;
   }
-  s.coaches.forEach(c => {
+  const pageCount = Math.max(1, Math.ceil(s.coaches.length / COACHES_PER_PAGE));
+  if (_coachPage > pageCount) _coachPage = pageCount;
+  const start = (_coachPage - 1) * COACHES_PER_PAGE;
+  const pageCoaches = s.coaches.slice(start, start + COACHES_PER_PAGE);
+  pageCoaches.forEach(c => {
     const card = el('div', { class: 'coach-card', style: 'cursor:pointer' });
     card.addEventListener('click', () => { location.href = 'coach-profile.html?id=' + c.id; });
     const av = el('div', { class: 'av' });
@@ -820,6 +836,12 @@ function renderCoaches() {
     card.appendChild(meta);
     grid.appendChild(card);
   });
+  const pager = buildPager(s.coaches.length, COACHES_PER_PAGE, _coachPage, function (p) {
+    _coachPage = p;
+    renderCoaches();
+    document.getElementById('coaches').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  if (pager) grid.parentNode.insertBefore(pager, grid.nextSibling);
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); attachPwdToggles(); }

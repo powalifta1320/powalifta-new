@@ -63,13 +63,18 @@ section, .section {
   position: absolute;
   /* Horizontal inset stays at 0 — the glow is a centred radial that fades out
      well before the edges, so bleeding it past the section only created a
-     phantom horizontal scrollbar on narrow viewports. */
-  inset: -10% 0 auto 0;
-  height: 280px;
+     phantom horizontal scrollbar on narrow viewports.
+     Top inset is 0 (was -10%): the wash must NOT reach above its own section,
+     or a section's glow spills into the empty bottom of the section above it
+     (most visible where a short section — e.g. a one-coach directory — sits
+     over the marketplace). Keeping it pinned to the section top contains the
+     "ignition" glow to the section it belongs to. */
+  inset: 0 0 auto 0;
+  height: 200px;
   z-index: -1;
-  background: radial-gradient(ellipse 50% 100% at 50% 0%, rgba(255, 45, 63, 0.10) 0%, transparent 70%);
+  background: radial-gradient(ellipse 46% 100% at 50% 0%, rgba(255, 45, 63, 0.07) 0%, transparent 66%);
   opacity: 0;
-  transform: translateY(48px);
+  transform: translateY(40px);
   transition: opacity 0.8s ease-out, transform 0.8s var(--ease-out-quint);
   pointer-events: none;
 }

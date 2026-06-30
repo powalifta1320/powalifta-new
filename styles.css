@@ -1520,6 +1520,56 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
 }
 .feat p { grid-column: 2; color: var(--text-2); font-size: 0.93rem; line-height: 1.5; margin: 0; }
 
+/* Featured bento cell — the lead feature earns 2×2 weight on desktop so the
+   "why" grid reads as a designed hierarchy, not six identical cards. Fully
+   additive: strip the .feat--hero class + .feat-proof markup and this block to
+   return to the uniform grid. Desktop-only; ≤940px stays a clean uniform grid. */
+.feat-proof { display: none; }
+@media (min-width: 941px) {
+  .feat-grid { grid-auto-flow: dense; }
+  .feat--hero {
+    grid-column: span 2;
+    grid-row: span 2;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    row-gap: 14px;
+    padding: 34px 32px;
+  }
+  .feat--hero .feat-icon {
+    grid-row: auto;
+    width: 56px; height: 56px;
+    border-radius: var(--r);
+  }
+  .feat--hero .feat-icon svg { width: 28px; height: 28px; }
+  .feat--hero h4 {
+    grid-column: 1;
+    align-self: start;
+    font-size: clamp(1.4rem, 2.1vw, 1.85rem);
+    line-height: 1.12;
+  }
+  .feat--hero p {
+    grid-column: 1;
+    align-self: start;
+    font-size: 1.02rem;
+    line-height: 1.6;
+    max-width: 44ch;
+  }
+  .feat--hero .feat-proof {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    align-self: end;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.92rem;
+    color: var(--text-3);
+    letter-spacing: 0.01em;
+  }
+  .feat--hero .feat-proof b { color: var(--text); font-weight: 600; }
+  .feat--hero .feat-proof .feat-proof-arrow { color: var(--red); font-weight: 700; font-size: 1.05rem; }
+}
+
 /* ============================================ COACH GRID */
 .coach-grid {
   display: grid;
@@ -1578,6 +1628,56 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   border: 1px solid var(--line);
   border-radius: 100px;
   letter-spacing: 0.04em;
+}
+
+/* Pagination — shared by the landing coach directory + marketplace grid.
+   buildPager() in app.js emits this markup; styled once here, brand-locked. */
+.grid-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 38px auto 0;
+}
+.grid-pager .gp-btn {
+  min-width: 44px;
+  height: 44px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 0.92rem/1 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-2);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.grid-pager .gp-btn:hover:not(:disabled):not(.active) {
+  color: var(--text);
+  border-color: var(--red);
+  transform: translateY(-1px);
+}
+.grid-pager .gp-btn:active:not(:disabled) { transform: translateY(0); }
+.grid-pager .gp-btn.active {
+  color: #fff;
+  background: var(--grad-red);
+  border-color: transparent;
+  cursor: default;
+}
+.grid-pager .gp-btn.gp-nav { font-size: 1.15rem; }
+.grid-pager .gp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.grid-pager .gp-ellip {
+  min-width: 24px;
+  text-align: center;
+  color: var(--text-3);
+  user-select: none;
+}
+@media (max-width: 420px) {
+  .grid-pager { gap: 6px; }
+  .grid-pager .gp-btn { min-width: 40px; height: 40px; padding: 0 9px; }
 }
 
 /* ============================================ DASHBOARD SHELL */
@@ -3074,12 +3174,15 @@ footer .footer-base {
   padding: 10px 12px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--line);
   border-radius: var(--r);
 }
-.att-row.sev-3 { border-left-color: var(--red); }
-.att-row.sev-2 { border-left-color: #f5a623; }
-.att-row.sev-1 { border-left-color: var(--text-4); }
+.att-row::before {
+  content: ''; width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0; background: var(--text-4);
+}
+.att-row.sev-3::before { background: var(--red); box-shadow: 0 0 10px rgba(255, 45, 63, 0.6); }
+.att-row.sev-2::before { background: #f5a623; box-shadow: 0 0 10px rgba(245, 166, 35, 0.55); }
+.att-row.sev-1::before { background: var(--text-4); }
 .att-mid { flex: 1; min-width: 0; }
 .att-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 5px; }
 .att-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -4650,12 +4753,25 @@ footer .footer-base {
   .nav-actions.guest .unit-toggle { display: none; }
 }
 @media (max-width: 400px) {
-  .nav-inner { padding: 12px 14px; }
+  .nav-inner { padding: 12px 10px; gap: 8px; }
   .brand { font-size: 1.3rem; gap: 7px; }
   .brand-mark { width: 24px; height: 24px; }
   .nav-actions.guest .btn-sm { padding: 6px 10px; }
   .nav-actions.auth { gap: 4px; }
   .nav-actions.auth .btn-sm { padding: 6px 9px; }
+}
+
+/* Log out: full "icon + label" only matters on desktop's auth nav. On phones the
+   fixed-width cluster (theme + unit + bell + avatar + Log out) plus the wordmark
+   intrinsically exceeds narrow viewports — the dashboards spilled ~13px at 375px.
+   Collapsing Log out to just its exit icon below 700px (mirrors the .nav-user
+   span-hide) reclaims ~38px so the auth nav fits cleanly down to ~340px. The icon
+   stays hidden on desktop, so the desktop nav is visually unchanged. */
+.nav-logout svg { display: none; }
+@media (max-width: 700px) {
+  .nav-logout svg { display: inline-block; }
+  .nav-logout span { display: none; }
+  .nav-logout { padding-left: 9px; padding-right: 9px; }
 }
 
 /* ============================================ FLEX UTIL */

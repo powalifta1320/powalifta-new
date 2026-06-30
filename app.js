@@ -3126,6 +3126,41 @@ function el(tag, attrs = {}, ...children) {
   return e;
 }
 
+// Shared client-side pager for paginated grids (landing coach directory,
+// marketplace browse). Returns a <nav.grid-pager> with prev / windowed page
+// numbers / next, or null when everything fits on one page. onGo(page) is the
+// caller's "render this page" callback. Pure + stateless: the caller owns the
+// current-page variable and re-invokes its render on each onGo.
+function buildPager(totalItems, perPage, currentPage, onGo) {
+  const pages = Math.max(1, Math.ceil(totalItems / perPage));
+  if (pages <= 1) return null;
+  currentPage = Math.min(Math.max(1, currentPage), pages);
+  const nav = el('nav', { class: 'grid-pager', 'aria-label': 'Pagination' });
+  const btn = (label, page, opts = {}) => {
+    const b = el('button', { class: 'gp-btn' + (opts.active ? ' active' : '') + (opts.nav ? ' gp-nav' : ''), type: 'button', 'aria-label': opts.aria || ('Page ' + label) }, label);
+    if (opts.disabled) b.disabled = true;
+    else b.addEventListener('click', () => onGo(page));
+    if (opts.active) b.setAttribute('aria-current', 'page');
+    return b;
+  };
+  nav.appendChild(btn('‹', currentPage - 1, { disabled: currentPage <= 1, nav: true, aria: 'Previous page' }));
+  // Windowed numbers: always first + last, plus a ±1 window around current.
+  // Collapse the rest into ellipses so the control never overflows on mobile.
+  const nums = [];
+  for (let i = 1; i <= pages; i++) {
+    if (i === 1 || i === pages || Math.abs(i - currentPage) <= 1) nums.push(i);
+    else if (nums[nums.length - 1] !== '…') nums.push('…');
+  }
+  nums.forEach(n => {
+    nav.appendChild(n === '…'
+      ? el('span', { class: 'gp-ellip', 'aria-hidden': 'true' }, '…')
+      : btn(String(n), n, { active: n === currentPage }));
+  });
+  nav.appendChild(btn('›', currentPage + 1, { disabled: currentPage >= pages, nav: true, aria: 'Next page' }));
+  return nav;
+}
+window.buildPager = buildPager;
+
 function toast(msg, ms = 2400) {
   // remove any existing
   document.querySelectorAll('.toast').forEach(t => t.remove());
@@ -3230,7 +3265,8 @@ const ICONS = {
   trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4M6 5h12v6a6 6 0 0 1-12 0V5zM12 17v4M9 21h6"/></svg>',
   note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
-  film: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>'
+  film: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>',
+  logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
 };
 
 // Brand mark — barbell SVG
@@ -3292,7 +3328,8 @@ function renderNav(target) {
       const adminA = el('a', { href: 'admin.html', class: 'btn btn-sm', style: 'border-color: var(--gold); color: var(--gold);' }, '★ Admin');
       actions.appendChild(adminA);
     }
-    const logoutBtn = el('button', { class: 'btn btn-sm btn-ghost' }, 'Log out');
+    const logoutBtn = el('button', { class: 'btn btn-sm btn-ghost nav-logout', title: 'Log out', 'aria-label': 'Log out' });
+    logoutBtn.innerHTML = ICONS.logout + '<span>Log out</span>';
     logoutBtn.setAttribute('onclick', 'logout()');
     actions.appendChild(logoutBtn);
   } else {
