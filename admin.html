@@ -20,7 +20,7 @@
 <style>
 .admin-banner {
   background: linear-gradient(135deg, rgba(255,181,71,0.12), rgba(255,181,71,0.04));
-  border-left: 3px solid var(--gold);
+  border: 1px solid rgba(255,181,71,0.28);
   padding: 12px 18px;
   border-radius: var(--r-sm);
   margin-bottom: 24px;
@@ -44,12 +44,22 @@
   gap: 12px;
   margin-bottom: 24px;
 }
+.mrr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 20px; }
+.mrr-chip {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.78rem; font-weight: 600;
+  padding: 5px 11px; border-radius: 100px;
+  background: rgba(255,45,63,0.08); color: var(--text-2);
+  border: 1px solid rgba(255,45,63,0.22);
+  letter-spacing: 0.02em;
+}
 </style>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
 <body>
 
+<a class="skip-link" href="#main">Skip to content</a>
 <nav class="nav" id="nav"></nav>
 
 <div class="dash-shell">
@@ -63,6 +73,7 @@
     <button class="sidebar-tab" data-tab="invites" id="tab-invites"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
     <button class="sidebar-tab" data-tab="payouts" id="tab-payouts"></button>
+    <button class="sidebar-tab" data-tab="errors" id="tab-errors"></button>
     <button class="sidebar-tab" data-tab="tests" id="tab-tests"></button>
     <div class="sidebar-foot">
       <div>POWALIFTA Admin</div>
@@ -70,7 +81,7 @@
     </div>
   </aside>
 
-  <main class="dash-main">
+  <main id="main" class="dash-main">
 
     <section data-pane="overview">
       <div class="dash-header">
@@ -120,6 +131,12 @@
       <div id="payoutsArea"></div>
     </section>
 
+    <section data-pane="errors" class="hidden">
+      <div class="dash-header"><div><h2>Client errors</h2><p class="dim text-sm">Uncaught JS exceptions + promise rejections forwarded from real browsers, grouped by signature. Newest first.</p></div></div>
+      <input class="admin-search" id="searchErrors" placeholder="Search by message, URL, source file…">
+      <div id="errorsArea"></div>
+    </section>
+
     <section data-pane="tests" class="hidden">
       <div class="dash-header"><div><h2>Test harness</h2><p class="dim text-sm">Runs the shared core (e1RM, variants, units, PRs, signals, export, importer) in-browser. Green here means the deployed build's logic is intact.</p></div></div>
       <div class="flex gap-8 mb-16">
@@ -135,7 +152,7 @@
 <!-- PREVIEW PAYLOAD MODAL (admin) -->
 <div class="modal-backdrop" id="previewModal">
   <div class="modal modal-lg" style="max-width: 760px;">
-    <button class="modal-close" onclick="closeModal('previewModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('previewModal')">&times;</button>
     <h3 id="previewTitle">Program preview</h3>
     <p class="dim text-sm mb-16" id="previewSub"></p>
     <div id="previewBody" style="max-height: 70vh; overflow-y: auto;"></div>
@@ -145,7 +162,7 @@
 <!-- APPROVE MARKETPLACE PROGRAM MODAL -->
 <div class="modal-backdrop" id="approveModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('approveModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('approveModal')">&times;</button>
     <h3>Approve & publish</h3>
     <p class="dim text-sm mb-16">Create a Lemon Squeezy product (one-time payment, price matching the coach's chosen price — shown at the top of the listing) and paste the IDs + checkout URL below. Submit to make this program live on the marketplace.</p>
     <div id="appPriceHint" class="dim text-sm mb-12" style="padding:10px 12px;background:var(--bg-2);border-radius:var(--r-md);border:1px solid var(--line);"></div>
@@ -171,7 +188,7 @@
 <!-- DELIVER MANUALLY MODAL — webhook fallback -->
 <div class="modal-backdrop" id="deliverModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('deliverModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('deliverModal')">&times;</button>
     <h3>⚡ Deliver manually</h3>
     <p class="dim text-sm mb-12">Use this when a buyer paid in Lemon Squeezy but the webhook didn't deliver. We'll create the sale row and the buyer can hit "Claim my program" on their dashboard.</p>
     <div id="deliverProgInfo" class="dim text-sm mb-12" style="padding:10px 12px;background:var(--bg-2);border-radius:var(--r-md);border:1px solid var(--line);"></div>
@@ -225,6 +242,7 @@ bootstrap('coach', async () => {
   setLbl('tab-invites', ICONS.copy, 'Invites');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   setLbl('tab-payouts', ICONS.trophy, 'Payouts');
+  setLbl('tab-errors', ICONS.note, 'Client errors');
   setLbl('tab-tests', ICONS.check, 'Test harness');
 
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
@@ -242,6 +260,7 @@ bootstrap('coach', async () => {
       if (t === 'overview') renderOverview();
       if (t === 'marketplace') renderAdminMarketplace();
       if (t === 'payouts') renderAdminPayouts();
+      if (t === 'errors') loadClientErrors();
       if (t === 'tests') { const f = document.getElementById('testFrame'); if (f && !f.src) f.src = 'tests.html'; }
     });
   });
@@ -251,6 +270,7 @@ bootstrap('coach', async () => {
   document.getElementById('searchPrograms').addEventListener('input', renderPrograms);
   document.getElementById('searchLogs').addEventListener('input', renderLogs);
   document.getElementById('searchInvites').addEventListener('input', renderInvites);
+  document.getElementById('searchErrors').addEventListener('input', renderClientErrors);
 
   // Load all admin data in parallel
   try {
@@ -275,9 +295,65 @@ bootstrap('coach', async () => {
 function profileById(id) { return cache.profiles.find(p => p.id === id); }
 function nameById(id) { const p = profileById(id); return p ? p.name : '—'; }
 
+// #31 — Growth & revenue card at the top of the Overview. All figures come from
+// the pure computePlatformAnalytics() helper (app.js) over the already-loaded
+// cache (profiles raw snake_case, sales mapped) — no new DB call, no migration.
+function renderGrowthRevenue(area) {
+  const a = computePlatformAnalytics(cache.profiles, cache.sales || []);
+  const card = el('div', { class: 'chart-card' });
+  card.appendChild(el('div', { class: 'chart-head' },
+    el('h3', {}, 'Growth & revenue'),
+    el('div', { class: 'chart-sub' }, 'Recurring subscription revenue, marketplace GMV, and new-signup momentum.')
+  ));
+
+  const conv = a.conversionPct;
+  const tiles = [
+    { lbl: 'Est. MRR',        val: fmtMoneyCents(a.mrr * 100), icon: ICONS.arrowUp, feat: true, sub: fmtMoneyCents(a.arr * 100) + ' ARR' },
+    { lbl: 'Paying coaches',  val: String(a.payingCoaches),    icon: ICONS.trophy,  sub: (conv < 10 ? conv.toFixed(1) : Math.round(conv)) + '% of ' + a.coachCount + ' coaches' },
+    { lbl: 'GMV all-time',    val: fmtMoneyCents(a.gmvCents),  icon: ICONS.bar,     sub: a.salesCount + ' sale' + (a.salesCount === 1 ? '' : 's') },
+    { lbl: 'Platform take',   val: fmtMoneyCents(a.takeCents), icon: ICONS.chart,   sub: 'marketplace fees' },
+    { lbl: 'New signups 30d', val: String(a.signups30),        icon: ICONS.flame,   sub: a.totalUsers + ' total users' },
+    { lbl: 'GMV 30d',         val: fmtMoneyCents(a.gmv30Cents), icon: ICONS.today,  sub: 'last 30 days' }
+  ];
+  const grid = el('div', { class: 'admin-stats' });
+  tiles.forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
+    const lab = el('div', { class: 'stat-label' }); lab.innerHTML = (t.icon || '') + '<span>' + t.lbl + '</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: t.val }));
+    if (t.sub) tile.appendChild(el('div', { class: 'stat-delta' }, t.sub));
+    grid.appendChild(tile);
+  });
+  card.appendChild(grid);
+
+  // MRR-by-tier breakdown chips
+  const chips = el('div', { class: 'mrr-chips' });
+  ['basic', 'pro', 'premium'].forEach(tier => {
+    chips.appendChild(el('span', { class: 'mrr-chip' }, (TIER_LABELS[tier] || tier) + ' · ' + (a.mrrByTier[tier] || 0)));
+  });
+  card.appendChild(chips);
+
+  // Signups by week — athletes vs coaches
+  card.appendChild(el('div', { class: 'chart-head', style: 'margin-top:20px' },
+    el('h3', { style: 'font-size:1.05rem' }, 'New signups by week'),
+    el('div', { class: 'chart-sub' }, 'Last 12 weeks · athletes vs coaches')
+  ));
+  const wrap = el('div', { class: 'chart-wrap' });
+  card.appendChild(wrap);
+  area.appendChild(card);
+  drawLineChart(wrap, {
+    height: 280,
+    series: [
+      { name: 'Athletes', color: '#ff2d3f', data: a.signupSeries.map(b => ({ x: b.x, y: b.athletes })) },
+      { name: 'Coaches',  color: '#8b93a7', noArea: true, data: a.signupSeries.map(b => ({ x: b.x, y: b.coaches })) }
+    ]
+  });
+}
+
 function renderOverview() {
   const area = document.getElementById('overviewArea');
   area.innerHTML = '';
+  renderGrowthRevenue(area);
   const coaches = cache.profiles.filter(p => p.user_type === 'coach');
   const athletes = cache.profiles.filter(p => p.user_type === 'athlete');
   const orphanAthletes = athletes.filter(a => !a.coach_id);
@@ -536,6 +612,101 @@ function renderInvites() {
 }
 
 // =========================================================
+// CLIENT ERRORS (admin) — forwarded by error-log.js → send-client-error →
+// client_errors. Admin-only read (migration-client-errors-admin-read.sql).
+// Lazy-loaded on first tab open; grouped by signature, newest first. All
+// error-derived strings are escHtml'd before innerHTML (the edge fn stores
+// whatever the browser POSTs, so msg/stack are untrusted).
+// =========================================================
+function errRelTime(ms) {
+  if (!ms) return '—';
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 60) return Math.floor(s) + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  const d = Math.floor(s / 86400);
+  return d < 30 ? d + 'd ago' : new Date(ms).toISOString().slice(0, 10);
+}
+
+function groupClientErrors(list) {
+  const groups = new Map();
+  (list || []).forEach(e => {
+    const sig = (e.kind || '') + '|' + (e.msg || '') + '|' + (e.src || '') + '|' + (e.line || '');
+    let g = groups.get(sig);
+    if (!g) { g = { kind: e.kind, msg: e.msg, src: e.src, line: e.line, count: 0, last: 0, sample: e }; groups.set(sig, g); }
+    g.count++;
+    const t = e.receivedAt || e.ts || 0;
+    if (t >= g.last) { g.last = t; g.sample = e; }
+  });
+  return Array.from(groups.values()).sort((a, b) => b.last - a.last);
+}
+
+async function loadClientErrors() {
+  const area = document.getElementById('errorsArea');
+  if (cache.errors === undefined) {
+    area.innerHTML = '';
+    area.appendChild(el('p', { class: 'dim' }, 'Loading…'));
+    try { cache.errors = await DB.listClientErrors(500); }
+    catch (e) { cache.errors = []; }
+  }
+  renderClientErrors();
+}
+
+function renderClientErrors() {
+  const area = document.getElementById('errorsArea');
+  area.innerHTML = '';
+  const rows = cache.errors || [];
+  if (!rows.length) {
+    const empty = el('div', { class: 'tbl-card', style: 'padding:28px; text-align:center' });
+    empty.appendChild(el('p', { class: 'fw-700', style: 'margin-bottom:6px' }, 'No client errors captured'));
+    empty.appendChild(el('p', { class: 'dim text-sm', style: 'max-width:560px; margin:0 auto; line-height:1.6' },
+      'Either the app is behaving, or error forwarding is not enabled yet. To turn it on: set SUPABASE_ERROR_ENDPOINT in error-log.js to the send-client-error function URL, deploy that function, then run migration-client-errors.sql and migration-client-errors-admin-read.sql.'));
+    area.appendChild(empty);
+    return;
+  }
+  const q = document.getElementById('searchErrors').value.toLowerCase().trim();
+  let groups = groupClientErrors(rows);
+  if (q) groups = groups.filter(g => ((g.msg || '') + ' ' + (g.src || '') + ' ' + (g.sample.url || '')).toLowerCase().includes(q));
+
+  const totalOcc = rows.length;
+  area.appendChild(el('p', { class: 'dim text-sm mb-16' },
+    totalOcc + ' occurrence' + (totalOcc === 1 ? '' : 's') + ' · ' + groups.length + ' unique' +
+    (groups[0] ? ' · newest ' + errRelTime(groups[0].last) : '')));
+
+  if (!groups.length) { area.appendChild(el('p', { class: 'dim' }, 'No errors match.')); return; }
+
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>#</th><th>Kind</th><th>Error</th><th>Source</th><th>Last seen</th></tr></thead>';
+  const tbody = el('tbody');
+  groups.forEach(g => {
+    const kindBadge = g.kind === 'promise'
+      ? '<span class="badge badge-gold">PROMISE</span>'
+      : '<span class="badge badge-red">JS</span>';
+    const s = g.sample;
+    const loc = g.src ? (String(g.src).split('/').pop() + (g.line ? ':' + g.line : '')) : '—';
+    const bits = [];
+    if (s.url) bits.push('URL:  ' + escHtml(s.url));
+    if (g.src) bits.push('File: ' + escHtml(g.src) + (g.line ? ' :' + g.line + (s.col ? ':' + s.col : '') : ''));
+    if (s.ua) bits.push('UA:   ' + escHtml(s.ua));
+    if (s.stack) bits.push('\n' + escHtml(s.stack));
+    const tr = el('tr');
+    tr.innerHTML =
+      '<td><span class="mono fw-700">' + g.count + '</span></td>' +
+      '<td>' + kindBadge + '</td>' +
+      '<td style="max-width:460px"><div class="fw-600" style="word-break:break-word">' + escHtml(g.msg || '(no message)') + '</div>' +
+        (bits.length ? '<details style="margin-top:6px"><summary class="dim text-sm" style="cursor:pointer">Details</summary><pre class="mono text-sm" style="white-space:pre-wrap; word-break:break-word; margin-top:8px; color:var(--text-2)">' + bits.join('\n') + '</pre></details>' : '') +
+      '</td>' +
+      '<td class="dim text-sm mono">' + escHtml(loc) + '</td>' +
+      '<td class="dim text-sm" style="white-space:nowrap">' + errRelTime(g.last) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+// =========================================================
 // MARKETPLACE REVIEW (admin)
 // =========================================================
 // Coach-set pricing now — category label is decoupled from price.
@@ -643,7 +814,7 @@ function previewPayload(p) {
 
   // Description block at top
   if (p.description) {
-    const descBlock = el('div', { style: 'background: var(--bg-2); border-left: 3px solid var(--red); padding: 12px 16px; border-radius: 6px; margin-bottom: 18px; white-space: pre-wrap; color: var(--text-2); line-height: 1.6; font-size: 0.92rem;' }, p.description);
+    const descBlock = el('div', { style: 'background: rgba(255,45,63,0.06); border: 1px solid rgba(255,45,63,0.22); padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; white-space: pre-wrap; color: var(--text-2); line-height: 1.6; font-size: 0.92rem;' }, p.description);
     body.appendChild(descBlock);
   }
 

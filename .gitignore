@@ -18,8 +18,10 @@ Icon?
 .cache/
 tmp/
 
-# Local-only aesthetic-overhaul proof (bold restyle). Viewed on localhost for the
-# polish-vs-bold direction call; must NOT ship to main. Same rule as review.html.
+# Local-only dev tools / experiments — viewed on localhost only, must NOT ship to
+# main. review.html is the AI-assistant dev harness (CLAUDE.md); index-bold.html is
+# the bold-restyle proof used for the polish-vs-bold direction call.
+review.html
 index-bold.html
 
 # Env / secrets. Real values live in `.env` (ignored); `.env.example` is the

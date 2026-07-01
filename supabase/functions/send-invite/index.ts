@@ -15,6 +15,7 @@
 // only the logged-in coach can fire it.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const FROM = 'POWALIFTA <noreply@powalifta.com>';
@@ -110,6 +111,14 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: caller, error: callerErr } = await admin.auth.getUser(jwt);
   if (callerErr || !caller?.user) return jsonResponse(401, { error: 'Invalid session' });
+
+  // Per-coach ceiling: a logged-in caller is already gated to their own unused
+  // invites, but cap the rate so a compromised/looping session can't fan out
+  // POWALIFTA-branded mail. Fails open if the meter isn't deployed.
+  const rl = await rateLimit(admin, {
+    bucket: 'invite', identity: caller.user.id, limit: 40, windowSecs: 3600,
+  });
+  if (!rl.ok) return rateLimitResponse(rl, { 'Access-Control-Allow-Origin': '*' });
 
   const { data: invites, error: invErr } = await admin
     .from('invites')

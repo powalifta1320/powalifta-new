@@ -17,7 +17,8 @@ const defaultStore = () => ({
   sessionNotes: [],
   goals: [],
   restDays: [],
-  messages: []
+  messages: [],
+  meets: []
 });
 
 const Store = {
@@ -204,11 +205,18 @@ function _buildDemoData() {
     { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null }
   ];
 
+  // --- Competition history: two past meets so Progress shows a best total + a
+  // PR trend. Best successful lift per discipline (kg). ---
+  const meets = [
+    { id: 'demo-meet-1', athleteId: DA, name: 'Winter Open', date: daysAgo(217), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.6, squat: 175, bench: 110, deadlift: 205, notes: 'First meet — went 8/9, missed third squat.', createdAt: daysAgo(217) + 'T18:00:00Z' },
+    { id: 'demo-meet-2', athleteId: DA, name: 'Spring Classic', date: daysAgo(96), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.9, squat: 185, bench: 115, deadlift: 215, notes: '9/9 day. New total PR.', createdAt: daysAgo(96) + 'T18:00:00Z' }
+  ];
+
   return {
     user: user,
     store: {
       coaches, athletes: [], invites: [], programs, programTemplates: [],
-      workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins, messages,
+      workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins, messages, meets,
       marketplacePrograms: [], mySales: [], myPurchases: []
     }
   };
@@ -311,12 +319,59 @@ function _buildCoachDemoData() {
     payload: { weeks: programs[0].weeks }
   }];
 
+  // Marketplace — two live listings + one in review, so the earnings
+  // dashboard has real numbers (per-program breakdown, pending vs paid,
+  // a "this month" figure, and a refund) instead of an empty state.
+  const tsAgo = n => daysAgo(n) + 'T12:00:00Z';
+  const marketplacePrograms = [
+    { id: 'demo-mkt-1', coachId: DC, title: '8-Week Strength Block', description: 'A linear-to-RPE strength block for intermediate lifters chasing a bigger squat and pull. Wave loading, autoregulated top sets, built-in deloads.', tier: 'block', category: 'strength', priceCents: 2999, weekCount: 8, status: 'published', soldCount: 9, createdAt: tsAgo(120), programPayload: { weeks: programs[0].weeks }, reference1RMs: { squat: 215, bench: 140, deadlift: 260 } },
+    { id: 'demo-mkt-2', coachId: DC, title: 'Peaking Protocol', description: 'A 4-week meet peak — taper volume, sharpen openers, and walk in primed. Includes attempt-selection guidance and a final-week template.', tier: 'short', category: 'peaking', priceCents: 3999, weekCount: 4, status: 'published', soldCount: 5, createdAt: tsAgo(90), programPayload: { weeks: programs[2].weeks }, reference1RMs: { squat: 215, bench: 140, deadlift: 260 } },
+    { id: 'demo-mkt-3', coachId: DC, title: 'Bench Specialization', description: 'Six weeks to a stronger press: paused work, larsen presses, and triceps overload. Built for lifters whose bench lags their squat and pull.', tier: 'short', category: 'bench', priceCents: 1999, weekCount: 6, status: 'pending_review', soldCount: 0, createdAt: tsAgo(6), programPayload: { weeks: programs[1].weeks }, reference1RMs: { bench: 140 } }
+  ];
+  // Sale rows: payout = 80% of price (the platform fee is 20%). Mix of
+  // statuses — older sales paid out, recent ones pending, one refunded.
+  // Dates are precise instants (now − N days) rather than UTC date-strings,
+  // so an offset of 0 lands exactly at "now" and always counts toward the
+  // current month regardless of the viewer's timezone (a date-string pinned
+  // to noon UTC can fall on the wrong side of a local month boundary).
+  const tsAgoMs = n => new Date(Date.now() - n * 86400000).toISOString();
+  const mkSale = (i, progId, price, ago, status) => {
+    const payout = Math.round(price * 0.8);
+    return {
+      id: 'demo-sale-' + i, marketplaceProgramId: progId, buyerId: 'demo-buyer-' + i, coachId: DC,
+      amountCents: price, platformFeeCents: price - payout, coachPayoutCents: payout,
+      payoutStatus: status, paidAt: status === 'paid' ? tsAgoMs(ago - 2) : null,
+      lsOrderId: 'demo-ord-' + i, lsEventId: 'demo-evt-' + i, createdAt: tsAgoMs(ago)
+    };
+  };
+  // Newest few are dated today so the "This month" tile always has a figure
+  // in the demo, regardless of which day of the month it's viewed.
+  const mySales = [
+    mkSale(1,  'demo-mkt-1', 2999, 96, 'paid'),
+    mkSale(2,  'demo-mkt-1', 2999, 88, 'paid'),
+    mkSale(3,  'demo-mkt-2', 3999, 74, 'paid'),
+    mkSale(4,  'demo-mkt-1', 2999, 70, 'paid'),
+    mkSale(5,  'demo-mkt-2', 3999, 61, 'cancelled'), // refunded
+    mkSale(6,  'demo-mkt-1', 2999, 48, 'paid'),
+    mkSale(7,  'demo-mkt-2', 3999, 40, 'paid'),
+    mkSale(8,  'demo-mkt-1', 2999, 33, 'paid'),
+    mkSale(9,  'demo-mkt-1', 2999, 12, 'pending'),
+    mkSale(10, 'demo-mkt-2', 3999, 8,  'pending'),
+    mkSale(11, 'demo-mkt-1', 2999, 0,  'pending'),
+    mkSale(12, 'demo-mkt-2', 3999, 0,  'pending'),
+    mkSale(13, 'demo-mkt-1', 2999, 0,  'pending'),
+    mkSale(14, 'demo-mkt-1', 2999, 0,  'pending')
+  ];
+  // Newest-first, to mirror what DB.listMySales returns (created_at desc) so
+  // the "Recent sales" list shows the latest activity at the top.
+  mySales.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
   return {
     user: user,
     store: {
       coaches: [], athletes, invites, programs, programTemplates,
-      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages,
-      marketplacePrograms: [], mySales: [], myPurchases: []
+      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages, meets: [],
+      marketplacePrograms, mySales, myPurchases: []
     }
   };
 }
@@ -1008,7 +1063,7 @@ function ensureUpgradeModal() {
   wrap.innerHTML =
     '<div class="modal-backdrop" id="upgradeModal">' +
       '<div class="modal modal-lg">' +
-        '<button class="modal-close" onclick="closeModal(\'upgradeModal\')">&times;</button>' +
+        '<button class="modal-close" aria-label="Close" onclick="closeModal(\'upgradeModal\')">&times;</button>' +
         '<h3 id="upgradeTitle">Choose your plan</h3>' +
         '<p class="dim text-sm mb-16" id="upgradeSubtitle">Scale your coaching as your roster grows. Cancel anytime from Lemon Squeezy.</p>' +
         '<div class="upgrade-grid" id="upgradeTiers"></div>' +
@@ -1067,6 +1122,219 @@ function openUpgradeModal(reason) {
   document.getElementById('upgradeModal').classList.add('open');
 }
 window.openUpgradeModal = openUpgradeModal;
+
+// =========================================================
+// SUBSCRIPTION MANAGEMENT (#34) — for EXISTING subscribers
+//
+// The upgrade modal above handles buying a NEW plan. This block is the other
+// half: letting a coach who already pays see their plan status and reach the
+// Lemon Squeezy customer portal to update their card, switch, pause, or cancel.
+//
+// Two tiers of "Manage billing":
+//   1. Buildable NOW, no secret — the LS no-code portal (email magic-link):
+//      LS_BILLING_PORTAL. Works for any customer with just their email.
+//   2. PREP enhancement — a per-subscription SIGNED deep link from the LS API,
+//      served by the `ls-portal` edge function (gated on LEMON_SQUEEZY_API_KEY).
+//      openBillingPortal() prefers the signed link and silently falls back to
+//      the no-code portal, so it's correct before OR after the secret is set.
+// =========================================================
+const LS_BILLING_PORTAL = 'https://powalifta.lemonsqueezy.com/billing';
+
+// Map Lemon Squeezy's raw subscription_status (stored verbatim by ls-webhook)
+// to a human label + a tone for the badge. Returns null for statuses that mean
+// "no live paid subscription" (expired / inactive / unknown) so the card can
+// treat them as effectively free. Pure — unit-testable.
+function subscriptionStatusInfo(status) {
+  switch (String(status || '').toLowerCase()) {
+    case 'active':    return { label: 'Active', tone: 'ok' };
+    case 'on_trial':  return { label: 'On trial', tone: 'ok' };
+    case 'paused':    return { label: 'Paused', tone: 'warn' };
+    case 'past_due':  return { label: 'Payment problem', tone: 'bad' };
+    case 'unpaid':    return { label: 'Payment problem', tone: 'bad' };
+    case 'cancelled': return { label: 'Cancels at period end', tone: 'warn' };
+    default:          return null; // expired / inactive / '' / unknown
+  }
+}
+window.subscriptionStatusInfo = subscriptionStatusInfo;
+
+// Tone → colour for the status badge (theme-aware where a token exists).
+function _subStatusColor(tone) {
+  if (tone === 'ok')   return 'var(--green)';
+  if (tone === 'bad')  return 'var(--red)';
+  return '#f5a623'; // warn — amber, reads on both themes
+}
+
+// Open the Lemon Squeezy customer portal. Opens the tab synchronously (so the
+// popup blocker doesn't eat it after the await), then upgrades the URL to the
+// signed per-subscription deep link if the ls-portal function returns one.
+async function openBillingPortal() {
+  if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+  const tab = window.open('', '_blank'); // reserve the tab inside the click gesture
+  let url = LS_BILLING_PORTAL;
+  try {
+    const res = await DB.subscriptionPortal();
+    if (res && res.ok && res.url) url = res.url;
+  } catch (_) { /* fall back to the no-code portal */ }
+  if (tab) { try { tab.opener = null; } catch (_) {} tab.location = url; }
+  else { location.href = url; } // popup blocked → navigate this tab
+}
+window.openBillingPortal = openBillingPortal;
+
+// Settings-modal card: current plan + status + usage + manage buttons.
+// Coaches only (athletes never subscribe) — clears the box for everyone else.
+// Follows the same async-fill pattern as renderReferralCard / renderEmailPrefs.
+function renderPlanManageCard(container) {
+  const u = getCurrentUser();
+  if (!container) return;
+  // Athletes never subscribe — collapse the box entirely (no stray hairline/gap).
+  if (!u || u.userType !== 'coach') { container.innerHTML = ''; container.style.display = 'none'; return; }
+  container.style.display = '';
+
+  const tier = getCurrentTier();
+  const limit = getCurrentTierLimit();
+  const occupied = getOccupiedSlots(u.id);
+  const info = tier !== 'free' ? subscriptionStatusInfo(u.subscriptionStatus) : null;
+  const badge = info
+    ? '<span style="display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;' +
+      'font-size:0.72rem;font-weight:700;letter-spacing:0.02em;vertical-align:middle;' +
+      'color:' + _subStatusColor(info.tone) + ';border:1px solid ' + _subStatusColor(info.tone) + ';' +
+      'background:transparent">' + escHtml(info.label) + '</span>'
+    : '';
+
+  const usage = 'Using ' + occupied + ' of ' + (limit >= 9999 ? 'unlimited' : limit) +
+    ' athlete slot' + (limit === 1 ? '' : 's') + '.';
+
+  // Payment-problem statuses get a one-line nudge in danger tone.
+  const problem = info && info.tone === 'bad'
+    ? '<p class="text-xs" style="margin:8px 0 0;color:' + _subStatusColor('bad') + ';line-height:1.5">' +
+      'We couldn\'t take your last payment. Update your card in the billing portal to keep your plan.</p>'
+    : (info && info.tone === 'warn' && u.subscriptionStatus === 'cancelled'
+        ? '<p class="dim text-xs" style="margin:8px 0 0;line-height:1.5">' +
+          'Your plan stays active until the end of the current period, then reverts to Free.</p>'
+        : '');
+
+  const changeLabel = tier === 'free' ? 'See plans' : 'Change plan';
+  const manageBtn = tier !== 'free'
+    ? '<button class="btn btn-block btn-ghost" onclick="openBillingPortal()">Manage billing</button>'
+    : '';
+
+  container.innerHTML =
+    '<p class="dim text-sm mb-8">Your plan</p>' +
+    '<div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin-bottom:4px">' +
+      '<span style="font-family:\'Anton\',sans-serif;font-size:1.35rem;letter-spacing:0.01em">' +
+        escHtml((TIER_LABELS[tier] || 'Free').toUpperCase()) + '</span>' + badge +
+    '</div>' +
+    '<p class="dim text-xs" style="line-height:1.5">' + escHtml(usage) + '</p>' +
+    problem +
+    '<div class="flex gap-8 mt-12">' +
+      '<button class="btn btn-block btn-ghost" onclick="closeSettingsModal();openUpgradeModal()">' + changeLabel + '</button>' +
+      manageBtn +
+    '</div>' +
+    (tier !== 'free'
+      ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Update your card, switch plans, or cancel — all in the secure Lemon Squeezy portal.</p>'
+      : '');
+}
+window.renderPlanManageCard = renderPlanManageCard;
+
+// =========================================================
+// DUNNING BANNER (#35) — failed-payment / plan-lapse UX
+//
+// A prominent, page-top banner on the coach dashboard that fires off the raw
+// `subscription_status` (stored verbatim by ls-webhook). The Settings plan card
+// (#34) is where you go to fix it; THIS is what makes sure you SEE it in the
+// first place, because a silent past_due means a coach loses roster access with
+// no warning. Three severities:
+//   • past_due / unpaid  → CRITICAL (red, non-dismissible) — card declined,
+//     access is at risk. "Fix billing" → the LS portal.
+//   • cancelled          → WARN (amber, dismissible) — set to cancel at period
+//     end; offer to resume.
+//   • paused             → WARN (amber, dismissible) — subscription paused.
+// Anything else (active / on_trial / free) → nothing.
+//
+// Dismissal is per-session + keyed by status (sessionStorage) so a warn banner
+// doesn't nag on every tab switch but re-appears next session / if status
+// changes. Critical banners ignore dismissal — they stay until billing is fixed.
+// =========================================================
+function dunningInfo() {
+  const u = getCurrentUser();
+  if (!u || u.userType !== 'coach') return null;
+  const tier = getCurrentTier();
+  if (tier === 'free') return null; // nothing to dun on the free plan
+  const status = String(u.subscriptionStatus || '').toLowerCase();
+  const label = TIER_LABELS[tier] || 'your';
+  const floor = 'Free (' + (TIER_LIMITS.free || 3) + ' athletes)';
+  switch (status) {
+    case 'past_due':
+    case 'unpaid':
+      return {
+        key: status, severity: 'critical', icon: '⚠',
+        title: 'Payment problem',
+        body: 'We couldn\'t process the payment for your ' + label + ' plan. ' +
+              'Update your card to keep your roster access — repeated failures drop you to ' + floor + '.',
+        cta: 'Fix billing'
+      };
+    case 'cancelled':
+      return {
+        key: status, severity: 'warn', icon: '⏳',
+        title: 'Your plan is set to cancel',
+        body: 'You\'ll keep ' + label + ' until the end of the current billing period, then revert to ' + floor + '. ' +
+              'Changed your mind? You can resume anytime.',
+        cta: 'Resume plan'
+      };
+    case 'paused':
+      return {
+        key: status, severity: 'warn', icon: '⏸',
+        title: 'Your plan is paused',
+        body: 'Billing for your ' + label + ' plan is paused. Resume it whenever you\'re ready to pick coaching back up.',
+        cta: 'Resume plan'
+      };
+    default:
+      return null;
+  }
+}
+window.dunningInfo = dunningInfo;
+
+function dismissDunning(key) {
+  try { sessionStorage.setItem('powa-dun-dismiss-' + key, '1'); } catch (_) {}
+  const b = document.getElementById('dunningBanner');
+  if (b) b.remove();
+}
+window.dismissDunning = dismissDunning;
+
+// Render (or clear) the banner into `container`. Idempotent — call it on every
+// dashboard render; it rebuilds from the live status each time.
+function renderDunningBanner(container) {
+  if (!container) return;
+  const info = dunningInfo();
+  if (!info) { container.innerHTML = ''; return; }
+
+  // Warn banners honour a per-session dismissal; critical ones never hide.
+  if (info.severity === 'warn') {
+    let dismissed = false;
+    try { dismissed = sessionStorage.getItem('powa-dun-dismiss-' + info.key) === '1'; } catch (_) {}
+    if (dismissed) { container.innerHTML = ''; return; }
+  }
+
+  const dismissBtn = info.severity === 'warn'
+    ? '<button class="dun-dismiss" type="button" aria-label="Dismiss" ' +
+      'onclick="dismissDunning(\'' + info.key + '\')">&times;</button>'
+    : '';
+
+  container.innerHTML =
+    '<div id="dunningBanner" class="dunning-banner ' + info.severity + '" role="alert">' +
+      '<span class="dun-icon" aria-hidden="true">' + info.icon + '</span>' +
+      '<div class="dun-text">' +
+        '<strong class="dun-title">' + escHtml(info.title) + '</strong>' +
+        '<span class="dun-body">' + escHtml(info.body) + '</span>' +
+      '</div>' +
+      '<div class="dun-actions">' +
+        '<button class="btn btn-sm ' + (info.severity === 'critical' ? 'btn-primary' : '') + '" ' +
+          'type="button" onclick="openBillingPortal()">' + escHtml(info.cta) + '</button>' +
+        dismissBtn +
+      '</div>' +
+    '</div>';
+}
+window.renderDunningBanner = renderDunningBanner;
 
 // =========================================================
 // PERSISTENCE WRAPPERS
@@ -1482,7 +1750,7 @@ function ensureSettingsModal() {
     COUNTRIES.map(c => '<option value="' + c.code + '">' + flagEmoji(c.code) + ' ' + escHtml(c.name) + '</option>').join('');
   wrap.innerHTML = '<div class="modal-backdrop" id="settingsModal">' +
     '<div class="modal">' +
-      '<button class="modal-close" onclick="closeSettingsModal()">&times;</button>' +
+      '<button class="modal-close" aria-label="Close" onclick="closeSettingsModal()">&times;</button>' +
       '<h3>Settings</h3>' +
 
       // Avatar + country row
@@ -1504,7 +1772,11 @@ function ensureSettingsModal() {
       '<div id="setBioGroup" class="form-group" style="display:none"><label>Coach bio</label><textarea id="setBio"></textarea></div>' +
       '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
       '<div class="flex gap-8 mt-16"><button class="btn btn-block" onclick="closeSettingsModal()">Cancel</button><button class="btn btn-primary btn-block" onclick="saveSettings()">Save</button></div>' +
+      '<div id="setPlanBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
       '<div id="setReferralBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
+      '<div id="setEmailPrefsBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
+      '<div id="setNotifPrefsBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
+      '<div id="setMfaBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
       '<div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);">' +
         '<p class="dim text-sm mb-8">Your data</p>' +
         '<p class="dim text-xs mb-8" style="line-height:1.5">Download everything we hold for your account. JSON is the complete archive; CSV is your training log, ready to re-import anywhere.</p>' +
@@ -1595,9 +1867,25 @@ function openSettingsModal() {
   const fileInput = document.getElementById('setAvatarFile');
   if (fileInput) fileInput.value = '';
 
+  // Plan management (coaches only) — tier + status + manage-billing (#34)
+  const planBox = document.getElementById('setPlanBox');
+  if (planBox) renderPlanManageCard(planBox);
+
   // Referral card — link + who's joined (async-fills its own list)
   const refBox = document.getElementById('setReferralBox');
   if (refBox) renderReferralCard(refBox);
+
+  // Email preferences — weekly digest + product emails (async-fills)
+  const emailBox = document.getElementById('setEmailPrefsBox');
+  if (emailBox) renderEmailPrefs(emailBox);
+
+  // Push notifications — device enable + per-category toggles (async-fills)
+  const notifBox = document.getElementById('setNotifPrefsBox');
+  if (notifBox) renderNotifPrefs(notifBox);
+
+  // Two-factor authentication — status + enable/disable (async-fills, #37)
+  const mfaBox = document.getElementById('setMfaBox');
+  if (mfaBox) renderMfaCard(mfaBox);
 
   document.getElementById('settingsModal').classList.add('open');
   attachPwdToggles();
@@ -1614,6 +1902,144 @@ function replaySettingsTour() {
 }
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
+
+// ---------- Two-factor authentication (#37) ----------
+// Client-only TOTP 2FA on top of Supabase Auth's native MFA. No secret, no
+// edge function, no migration — see DB.mfa* wrappers in db.js. The Settings
+// card shows status + enable/disable; the enroll modal renders the QR + secret
+// and verifies a code; the login-time challenge lives in index.html's doLogin.
+let _mfaPendingFactor = null;
+
+// Status line + tinted pill, mirroring renderPlanManageCard's badge treatment.
+function _mfaStatusRow(label, tone, sub) {
+  const c = _subStatusColor(tone);
+  return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
+      '<span style="font-family:\'Anton\',sans-serif;font-size:1.35rem;letter-spacing:0.01em">2FA</span>' +
+      '<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:0.72rem;' +
+        'font-weight:700;letter-spacing:0.02em;color:' + c + ';border:1px solid ' + c + ';background:transparent">' +
+        escHtml(label) + '</span>' +
+    '</div>' +
+    '<p class="dim text-xs" style="line-height:1.5">' + escHtml(sub) + '</p>';
+}
+
+async function renderMfaCard(container) {
+  if (!container) return;
+  const u = getCurrentUser();
+  if (!u) { container.innerHTML = ''; container.style.display = 'none'; return; }
+  container.style.display = '';
+  const head = '<p class="dim text-sm mb-8">Two-factor authentication</p>';
+
+  // Demo has no real auth session — show the off-state, gate the action.
+  if (window._demoMode) {
+    container.innerHTML = head +
+      _mfaStatusRow('Off', 'bad', 'Add a second step at login with an authenticator app.') +
+      '<button class="btn btn-block btn-ghost mt-12" onclick="openMfaEnrollModal()">Enable 2FA</button>';
+    return;
+  }
+
+  container.innerHTML = head + '<p class="dim text-xs" style="line-height:1.5">Checking…</p>';
+  const res = await DB.mfaListFactors();
+
+  // Project has TOTP MFA disabled in the dashboard → hide the whole section.
+  if (!res.ok && res.unsupported) { container.innerHTML = ''; container.style.display = 'none'; return; }
+  if (!res.ok) {
+    container.innerHTML = head + '<p class="dim text-xs" style="line-height:1.5">Couldn\'t load your security settings — reopen Settings to retry.</p>';
+    return;
+  }
+
+  if (res.verified.length > 0) {
+    const fid = res.verified[0].id;
+    container.innerHTML = head +
+      _mfaStatusRow('On', 'ok', 'Logins require a code from your authenticator app.') +
+      '<button class="btn btn-block btn-ghost mt-12" onclick="disableMfa(\'' + escHtml(fid) + '\')">Turn off 2FA</button>';
+  } else {
+    container.innerHTML = head +
+      _mfaStatusRow('Off', 'bad', 'Add a second step at login with an authenticator app (Google Authenticator, Authy, 1Password).') +
+      '<button class="btn btn-block btn-ghost mt-12" onclick="openMfaEnrollModal()">Enable 2FA</button>';
+  }
+}
+
+function ensureMfaEnrollModal() {
+  if (document.getElementById('mfaEnrollModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="modal-backdrop" id="mfaEnrollModal">' +
+    '<div class="modal">' +
+      '<button class="modal-close" aria-label="Close" onclick="closeModal(\'mfaEnrollModal\')">&times;</button>' +
+      '<h2 style="margin-bottom:6px">Enable two-factor</h2>' +
+      '<p class="dim text-sm mb-16" style="line-height:1.5">Scan the QR code with an authenticator app, then enter the 6-digit code it shows.</p>' +
+      '<div id="mfaEnrollBody"><p class="dim text-sm">Preparing…</p></div>' +
+    '</div>' +
+  '</div>';
+  document.body.appendChild(wrap.firstChild);
+}
+
+async function openMfaEnrollModal() {
+  if (window._demoMode) return toast('Preview only in demo mode');
+  ensureMfaEnrollModal();
+  const body = document.getElementById('mfaEnrollBody');
+  if (body) body.innerHTML = '<p class="dim text-sm">Preparing…</p>';
+  openModal('mfaEnrollModal');
+  const res = await DB.mfaEnrollTotp('POWALIFTA');
+  if (!res.ok) {
+    if (body) body.innerHTML = '<p style="color:var(--red);line-height:1.5">' +
+      (res.unsupported ? 'Two-factor isn\'t enabled on this account yet.' : escHtml(res.reason || 'Could not start enrollment.')) + '</p>';
+    return;
+  }
+  _mfaPendingFactor = res.factorId;
+  const qr = res.qr
+    ? '<img src="' + escHtml(res.qr) + '" alt="Two-factor QR code" style="width:180px;height:180px;display:block"/>'
+    : '<p class="dim text-xs" style="width:180px;text-align:center">QR unavailable — use the key below.</p>';
+  if (body) body.innerHTML =
+    '<div style="display:flex;justify-content:center;margin-bottom:14px">' +
+      '<div style="background:#fff;padding:12px;border-radius:12px;line-height:0">' + qr + '</div>' +
+    '</div>' +
+    '<p class="dim text-xs mb-4" style="text-align:center">Can\'t scan? Enter this key manually:</p>' +
+    '<p style="text-align:center;font-family:\'Space Grotesk\',monospace;font-size:0.9rem;letter-spacing:0.05em;word-break:break-all;margin:0 0 16px;color:var(--text-2)">' + escHtml(res.secret || '') + '</p>' +
+    '<div class="form-group"><label>6-digit code</label>' +
+      '<input type="text" id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
+    '<div id="mfaEnrollErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
+    '<button class="btn btn-primary btn-block" id="mfaVerifyBtn" onclick="submitMfaEnroll()">Verify &amp; turn on</button>';
+  const inp = document.getElementById('mfaCode');
+  if (inp) { try { inp.focus(); } catch (_) {} inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitMfaEnroll(); }); }
+}
+
+async function submitMfaEnroll() {
+  const inp = document.getElementById('mfaCode');
+  const err = document.getElementById('mfaEnrollErr');
+  const btn = document.getElementById('mfaVerifyBtn');
+  const code = ((inp && inp.value) || '').replace(/\D/g, '');
+  if (code.length !== 6) { if (err) err.textContent = 'Enter the 6-digit code.'; return; }
+  if (!_mfaPendingFactor) { if (err) err.textContent = 'Enrollment expired — close and try again.'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+  if (err) err.textContent = '';
+  const res = await DB.mfaVerifyEnroll(_mfaPendingFactor, code);
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Verify &amp; turn on'; }
+  if (!res.ok) {
+    if (err) err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
+      ? 'That code didn\'t match — enter the current one.' : (res.reason || 'Verification failed.');
+    return;
+  }
+  _mfaPendingFactor = null;
+  closeModal('mfaEnrollModal');
+  toast('Two-factor is on');
+  const box = document.getElementById('setMfaBox');
+  if (box) renderMfaCard(box);
+}
+
+async function disableMfa(factorId) {
+  if (window._demoMode) return toast('Preview only in demo mode');
+  if (!confirm('Turn off two-factor authentication? Your account will be protected by password only.')) return;
+  const res = await DB.mfaUnenroll(factorId);
+  if (!res.ok) return toast(res.reason || 'Could not turn off 2FA');
+  toast('Two-factor turned off');
+  const box = document.getElementById('setMfaBox');
+  if (box) renderMfaCard(box);
+}
+
+window.renderMfaCard = renderMfaCard;
+window.openMfaEnrollModal = openMfaEnrollModal;
+window.submitMfaEnroll = submitMfaEnroll;
+window.disableMfa = disableMfa;
 window.replaySettingsTour = replaySettingsTour;
 
 // =========================================================
@@ -1625,13 +2051,66 @@ function referralLink(code) {
 // Milestone progress toward referral tiers. Pure status/recognition — names are
 // achievement labels, NOT a monetary promise (there is no payout backend yet).
 // Visualises the real referral count against round thresholds to motivate sharing.
+// `reward` is the perk each tier grants — copy lives here (client-side) so it can
+// be tuned without a migration; the server only certifies the tier was earned.
+// These are comp/coupon perks an admin fulfils by hand (no payout backend), in
+// keeping with the honest "recognition, not a cash promise" framing.
 const REFERRAL_TIERS = [
-  { at: 1, name: 'First referral' },
-  { at: 3, name: 'Spotter' },
-  { at: 5, name: 'Training partner' },
-  { at: 10, name: 'Crew' },
-  { at: 25, name: 'Powerhouse' }
+  { at: 1,  name: 'First referral',   reward: 'Founding Referrer badge' },
+  { at: 3,  name: 'Spotter',          reward: '1 month of Basic, on us' },
+  { at: 5,  name: 'Training partner', reward: '3 months of Basic, on us' },
+  { at: 10, name: 'Crew',             reward: '1 year of Pro, on us' },
+  { at: 25, name: 'Powerhouse',       reward: 'Lifetime Premium + featured spot' }
 ];
+// Pure: merge tier defs with the real referral `count` + the user's `claimed`
+// rows. `claimed` accepts claim objects ({tierAt,status}) or plain tier numbers.
+// Returns one row per tier with earned/claimed/status/remaining so the UI can
+// render locked / claimable / requested / fulfilled states without more logic.
+function referralRewardsLedger(count, claimed) {
+  const n = Math.max(0, Number(count) || 0);
+  const byTier = {};
+  (claimed || []).forEach(c => {
+    if (typeof c === 'number') byTier[c] = 'requested';
+    else if (c && c.tierAt != null) byTier[c.tierAt] = c.status || 'requested';
+  });
+  return REFERRAL_TIERS.map(t => ({
+    at: t.at,
+    name: t.name,
+    reward: t.reward || '',
+    earned: n >= t.at,
+    claimed: byTier[t.at] != null,
+    status: byTier[t.at] || null,
+    remaining: Math.max(0, t.at - n)
+  }));
+}
+// Renders the rewards ledger from a pre-computed `ledger` (see above). Earned +
+// unclaimed tiers get a Claim button; claimed tiers show their status; locked
+// tiers show how many more referrals remain.
+function referralRewardsHtml(ledger) {
+  const rows = (ledger || []).map(r => {
+    let action;
+    if (r.claimed) {
+      const done = r.status === 'fulfilled';
+      action = '<span class="rr-state' + (done ? ' is-done' : '') + '">' +
+        (done ? 'Fulfilled ✓' : 'Requested') + '</span>';
+    } else if (r.earned) {
+      action = '<button class="btn btn-sm btn-primary rr-claim" onclick="claimReferralReward(' + r.at + ', this)">Claim</button>';
+    } else {
+      action = '<span class="rr-lock">' + r.remaining + ' more</span>';
+    }
+    const cls = 'ref-reward' + (r.earned ? '' : ' is-locked') + (r.earned && !r.claimed ? ' is-ready' : '');
+    return '<div class="' + cls + '">' +
+        '<span class="rr-tier">' + r.at + '</span>' +
+        '<div class="rr-copy">' +
+          '<span class="rr-name">' + escHtml(r.name) + '</span>' +
+          '<span class="rr-reward">' + escHtml(r.reward) + '</span>' +
+        '</div>' + action +
+      '</div>';
+  }).join('');
+  return '<div class="ref-rewards mt-12">' +
+    '<p class="dim text-xs mb-8" style="text-transform:uppercase; letter-spacing:0.08em">Rewards</p>' +
+    rows + '</div>';
+}
 function referralMilestoneHtml(count) {
   const next = REFERRAL_TIERS.find(t => t.at > count);
   const prevAt = REFERRAL_TIERS.reduce((a, t) => (t.at <= count ? t.at : a), 0);
@@ -1670,19 +2149,30 @@ async function renderReferralCard(container) {
 
   const list = document.getElementById('refList');
   if (window._demoMode) {
-    if (list) list.innerHTML = referralMilestoneHtml(2) +
+    // Demo: 2 referrals → only tier 1 is earned, so it shows a live Claim button
+    // (locked tiers below it). Clicking it appends to _demoRewardClaims and
+    // re-renders → the tier flips to 'Requested', demoing both states with no net.
+    const demoCount = 2;
+    const demoClaims = (window._demoRewardClaims || []);
+    if (list) list.innerHTML = referralMilestoneHtml(demoCount) +
       '<p class="mb-4 mt-12" style="color:var(--text)"><strong>2</strong> lifters joined through you</p>' +
-      '<p style="color:var(--text-2)">Share your link and everyone who signs up shows up right here.</p>';
+      '<p style="color:var(--text-2)">Share your link and everyone who signs up shows up right here.</p>' +
+      referralRewardsHtml(referralRewardsLedger(demoCount, demoClaims));
     return;
   }
   if (list) list.innerHTML = '<span style="color:var(--text-2)">Loading…</span>';
   try {
-    const refs = await DB.listMyReferrals(u.id);
+    const [refs, claims] = await Promise.all([
+      DB.listMyReferrals(u.id),
+      DB.listMyRewardClaims(u.id)
+    ]);
     const live = document.getElementById('refList');
     if (!live) return;
+    const rewards = referralRewardsHtml(referralRewardsLedger(refs.length, claims));
     if (!refs.length) {
       live.innerHTML = referralMilestoneHtml(0) +
-        '<p class="mt-12" style="color:var(--text-2)">No referrals yet — share your link to get started.</p>';
+        '<p class="mt-12" style="color:var(--text-2)">No referrals yet — share your link to get started.</p>' +
+        rewards;
       return;
     }
     const rows = refs.map(r =>
@@ -1692,12 +2182,188 @@ async function renderReferralCard(container) {
       '</div>').join('');
     live.innerHTML = referralMilestoneHtml(refs.length) +
       '<p class="mb-4 mt-12" style="color:var(--text)"><strong>' + refs.length + '</strong> ' +
-        (refs.length === 1 ? 'lifter' : 'lifters') + ' joined through you</p>' + rows;
+        (refs.length === 1 ? 'lifter' : 'lifters') + ' joined through you</p>' + rows + rewards;
   } catch (e) {
     const live = document.getElementById('refList');
     if (live) live.innerHTML = '<span style="color:var(--text-2)">Couldn\'t load your referrals right now.</span>';
   }
 }
+// Claim an earned referral tier. Demo: flips locally to 'Requested' (no network).
+// Real: the SECURITY DEFINER rpc re-checks earned-ness server-side, then we
+// re-render so the tier shows its new claimed state.
+async function claimReferralReward(tierAt, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window._demoMode) {
+    window._demoRewardClaims = (window._demoRewardClaims || []).concat([{ tierAt: tierAt, status: 'requested' }]);
+    toast('Reward requested — we\'ll be in touch to set it up.');
+    const box = document.getElementById('setReferralBox');
+    if (box) renderReferralCard(box);
+    return;
+  }
+  try {
+    await DB.claimReferralReward(tierAt);
+    toast('Reward requested — we\'ll be in touch to set it up.');
+  } catch (e) {
+    toast('Couldn\'t claim that reward right now.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Claim'; }
+    return;
+  }
+  const box = document.getElementById('setReferralBox');
+  if (box) renderReferralCard(box);
+}
+window.claimReferralReward = claimReferralReward;
+
+// =========================================================
+// EMAIL PREFERENCES — weekly digest opt-out + product emails
+// Two toggles in the Settings modal. `weekly_digest` gates the scheduled
+// send-weekly-digest edge fn; `product_emails` gates announcements. Both
+// default ON (a recap of your OWN training is a service email). Missing row
+// = opted in, so the first toggle-off is what creates the row (upsert).
+// Demo-safe: renders the defaults, no network on change.
+// =========================================================
+function emailPrefRow(id, label, sub, checked) {
+  return '<label class="email-pref-row" for="' + id + '">' +
+    '<span class="epr-text">' +
+      '<span class="epr-label">' + escHtml(label) + '</span>' +
+      '<span class="epr-sub dim text-xs">' + escHtml(sub) + '</span>' +
+    '</span>' +
+    '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + '>' +
+  '</label>';
+}
+async function renderEmailPrefs(container) {
+  const u = getCurrentUser();
+  if (!container || !u) { if (container) container.innerHTML = ''; return; }
+  const paint = (prefs, demo) =>
+    '<p class="dim text-sm mb-8">Email</p>' +
+    emailPrefRow('epWeekly', 'Weekly progress email',
+      'A Monday recap of your last 7 days — sessions, tonnage, best e1RMs.', prefs.weeklyDigest) +
+    emailPrefRow('epProduct', 'Product tips & announcements',
+      'Occasional notes on new features. No spam, unsubscribe anytime.', prefs.productEmails) +
+    (demo ? '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>' : '') +
+    '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>';
+
+  if (window._demoMode) {
+    container.innerHTML = paint({ weeklyDigest: true, productEmails: true }, true);
+    // Demo: reflect the flip visually, but never hit the network.
+    const wire = (id) => { const el = document.getElementById(id); if (el) el.addEventListener('change', () => toast('Preview only in demo mode.')); };
+    wire('epWeekly'); wire('epProduct');
+    return;
+  }
+
+  container.innerHTML = '<p class="dim text-sm mb-8">Email</p><p class="dim text-xs">Loading…</p>';
+  let prefs;
+  try { prefs = await DB.getEmailPrefs(u.id); }
+  catch (e) { prefs = { weeklyDigest: true, productEmails: true }; }
+  container.innerHTML = paint(prefs, false);
+
+  const save = async (patch, box) => {
+    const prev = !box.checked; // we're in the change handler; prev is the pre-toggle state
+    try {
+      await DB.updateEmailPrefs(u.id, patch);
+      toast('Email preferences saved.');
+    } catch (e) {
+      box.checked = prev;           // revert the toggle on failure
+      toast('Couldn\'t save that right now.');
+    }
+  };
+  const w = document.getElementById('epWeekly');
+  if (w) w.addEventListener('change', () => save({ weeklyDigest: w.checked }, w));
+  const p = document.getElementById('epProduct');
+  if (p) p.addEventListener('change', () => save({ productEmails: p.checked }, p));
+}
+window.renderEmailPrefs = renderEmailPrefs;
+
+// Push-notification preferences (#30) — shared Settings card on BOTH dashboards.
+// Two layers: (1) a DEVICE control (this browser's Web Push subscription, via
+// PowaPush) and (2) per-CATEGORY toggles that live on the account (email_prefs
+// push_* columns) so they apply to every device and are read server-side by
+// send-push before it delivers. Demo-safe: preview only, no network.
+async function renderNotifPrefs(container) {
+  const u = getCurrentUser();
+  if (!container || !u) { if (container) container.innerHTML = ''; return; }
+  const supported = !!(window.PowaPush && PowaPush.supported());
+
+  const catRows = (prefs) =>
+    emailPrefRow('npMsg',  'Messages',
+      'A push when your coach or an athlete sends you a message.', prefs.pushMessages) +
+    emailPrefRow('npForm', 'Form-check replies',
+      'A push when a coach replies to a form-check you uploaded.', prefs.pushFormChecks) +
+    emailPrefRow('npProg', 'Program updates',
+      'A push when a new or updated program is assigned to you.', prefs.pushProgram);
+
+  // DEMO — reflect the flips visually, never hit the network.
+  if (window._demoMode) {
+    container.innerHTML =
+      '<p class="dim text-sm mb-8">Push notifications</p>' +
+      '<p class="dim text-xs mb-8" style="line-height:1.5">Get alerts even when POWALIFTA is closed. Choose what gets pushed:</p>' +
+      catRows({ pushMessages: true, pushFormChecks: true, pushProgram: true }) +
+      '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>';
+    ['npMsg', 'npForm', 'npProg'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.addEventListener('change', () => toast('Preview only in demo mode.'));
+    });
+    return;
+  }
+
+  container.innerHTML = '<p class="dim text-sm mb-8">Push notifications</p><p class="dim text-xs">Loading…</p>';
+  let prefs;
+  try { prefs = await DB.getEmailPrefs(u.id); }
+  catch (e) { prefs = { pushMessages: true, pushFormChecks: true, pushProgram: true }; }
+
+  const perm = supported ? PowaPush.permission() : 'unsupported';
+  let on = false;
+  if (supported && perm === 'granted') { try { on = await PowaPush.isSubscribed(); } catch (e) {} }
+
+  const deviceHtml = () => {
+    const wrap = (inner) => '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">' + inner + '</div>';
+    if (!supported) return wrap('<span class="dim text-xs">This browser doesn’t support push. On iPhone, add POWALIFTA to your Home Screen to get alerts.</span>');
+    if (perm === 'denied') return wrap('<span class="dim text-xs">Alerts are blocked — turn notifications back on for POWALIFTA in your browser settings.</span>');
+    return wrap(
+      '<span class="text-sm">' + (on ? '🔔 Alerts on for this device' : '🔕 Off on this device') + '</span>' +
+      '<button class="btn btn-sm ' + (on ? 'btn-ghost' : 'btn-primary') + '" id="npDeviceBtn" type="button">' +
+        (on ? 'Turn off' : 'Enable on this device') + '</button>'
+    );
+  };
+
+  const paint = () => {
+    container.innerHTML =
+      '<p class="dim text-sm mb-8">Push notifications</p>' +
+      deviceHtml() +
+      '<p class="dim text-xs mt-8 mb-8" style="line-height:1.5">Choose what gets pushed. Applies to every device where alerts are on.</p>' +
+      catRows(prefs);
+
+    const dbtn = document.getElementById('npDeviceBtn');
+    if (dbtn) dbtn.addEventListener('click', async () => {
+      dbtn.disabled = true;
+      if (on) { await PowaPush.disable(); }
+      else { const ok = await PowaPush.enable(); if (ok) PowaPush.test(); }
+      on = (supported && PowaPush.permission() === 'granted') ? await PowaPush.isSubscribed() : false;
+      paint();
+    });
+
+    const wire = (id, key) => {
+      const box = document.getElementById(id);
+      if (!box) return;
+      box.addEventListener('change', async () => {
+        const prev = !box.checked;
+        try {
+          await DB.updateEmailPrefs(u.id, { [key]: box.checked });
+          prefs[key] = box.checked;
+          toast('Notification preferences saved.');
+        } catch (e) {
+          box.checked = prev;
+          toast('Couldn’t save that right now.');
+        }
+      });
+    };
+    wire('npMsg', 'pushMessages');
+    wire('npForm', 'pushFormChecks');
+    wire('npProg', 'pushProgram');
+  };
+  paint();
+}
+window.renderNotifPrefs = renderNotifPrefs;
+
 function copyReferralLink() {
   const input = document.getElementById('refLinkInput');
   if (!input) return;
@@ -1936,6 +2602,176 @@ function marketCategoryLabel(key) {
 window.MARKET_CATEGORIES = MARKET_CATEGORIES;
 window.marketCategoryLabel = marketCategoryLabel;
 
+// =========================================================
+// COACH EARNINGS — pure rollup over program_sales (camelCase
+// store shape, see mapDbSale). Powers the coach marketplace
+// earnings dashboard. No DB, no globals → unit-testable.
+//
+// Cancelled sales = refunded/voided by the marketplace refund
+// webhook (payout_status='cancelled'); they NEVER count toward
+// earnings, and are surfaced separately as refunds so a coach
+// can see money that was clawed back. `now` is injectable so
+// the "this month" boundary is deterministic in tests.
+// =========================================================
+function coachEarningsSummary(sales, now) {
+  const list = Array.isArray(sales) ? sales : [];
+  const ref = now != null ? new Date(now) : new Date();
+  const monthStart = new Date(ref.getFullYear(), ref.getMonth(), 1).getTime();
+  const out = {
+    salesCount: 0, totalEarned: 0, thisMonth: 0, pending: 0, paid: 0,
+    refundCount: 0, refundedCents: 0, perProgram: {}
+  };
+  list.forEach(s => {
+    const cents = s.coachPayoutCents || 0;
+    if (s.payoutStatus === 'cancelled') {
+      out.refundCount++;
+      out.refundedCents += cents;
+      return;
+    }
+    out.salesCount++;
+    out.totalEarned += cents;
+    if (s.payoutStatus === 'paid') out.paid += cents; else out.pending += cents;
+    const t = s.createdAt ? new Date(s.createdAt).getTime() : 0;
+    if (t >= monthStart) out.thisMonth += cents;
+    const pid = s.marketplaceProgramId || '_';
+    const pp = out.perProgram[pid] || (out.perProgram[pid] = { count: 0, earned: 0 });
+    pp.count++;
+    pp.earned += cents;
+  });
+  return out;
+}
+window.coachEarningsSummary = coachEarningsSummary;
+
+// Cents → "$1,234.56". Used across the earnings dashboard (coach-facing, USD).
+function fmtMoneyCents(c) {
+  return '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+window.fmtMoneyCents = fmtMoneyCents;
+
+// Platform growth + revenue analytics for the admin Overview (#31). PURE +
+// unit-testable: takes the profile rows (admin.html keeps them RAW snake_case)
+// and the mapped sale rows (camelCase via mapDbSale) and returns every KPI the
+// dashboard renders. Tolerant of snake_case OR camelCase on BOTH inputs so it
+// works against mapped or raw data and stays trivial to test. `opts.now` is
+// injectable for deterministic tests; `opts.tierPrices` / `opts.weeks` override
+// the defaults.
+//
+//   MRR  = Σ each PAYING coach's monthly tier price, counting only subs whose
+//          status is billing-live (active | on_trial | past_due). ARR = 12·MRR.
+//   GMV  = gross marketplace $ over every non-cancelled sale (amount_cents).
+//          Platform take = our fee slice (platform_fee_cents) on the same set.
+//   Signups = total, last-30-days, and a `weeks`-long Monday-bucketed series
+//          split coach vs athlete (catch-all → athlete) for the line chart.
+//   Conversion = paying coaches ÷ all coaches.
+function computePlatformAnalytics(profiles, sales, opts) {
+  opts = opts || {};
+  const prices = opts.tierPrices || { basic: 25, pro: 50, premium: 100 };
+  const weeks = opts.weeks || 12;
+  const now = opts.now ? new Date(opts.now) : new Date();
+  const nowMs = now.getTime();
+  profiles = profiles || [];
+  sales = sales || [];
+
+  const pick = (o, ...keys) => { for (const k of keys) { if (o && o[k] != null) return o[k]; } return undefined; };
+  // Billing-live LS statuses: money is flowing or imminently retried. paused /
+  // unpaid / cancelled / expired are NOT counted toward MRR.
+  const LIVE = { active: 1, on_trial: 1, trialing: 1, past_due: 1 };
+
+  // ---- Subscriptions / MRR ----
+  const byTier = { basic: 0, pro: 0, premium: 0 };
+  let payingCoaches = 0, coachCount = 0, athleteCount = 0, mrr = 0;
+  profiles.forEach(p => {
+    const type = pick(p, 'user_type', 'userType');
+    if (type === 'coach') coachCount++;
+    else if (type === 'athlete') athleteCount++;
+    const tier = pick(p, 'subscription_tier', 'subscriptionTier');
+    const status = pick(p, 'subscription_status', 'subscriptionStatus');
+    const price = prices[tier];
+    // Paid tier + billing-live (or status absent — e.g. an admin manual tier
+    // set, which writes tier without a LS status) → counts toward MRR.
+    if (price && (status == null || LIVE[status])) {
+      mrr += price;
+      if (byTier[tier] != null) byTier[tier]++;
+      payingCoaches++;
+    }
+  });
+
+  // ---- Marketplace GMV / platform take ----
+  let gmvCents = 0, takeCents = 0, salesCount = 0, gmv30Cents = 0;
+  const cutoff30 = nowMs - 30 * 864e5;
+  sales.forEach(s => {
+    const status = pick(s, 'payoutStatus', 'payout_status');
+    if (status === 'cancelled') return; // refunded / voided — not revenue
+    const amt = pick(s, 'amountCents', 'amount_cents') || 0;
+    const fee = pick(s, 'platformFeeCents', 'platform_fee_cents') || 0;
+    gmvCents += amt; takeCents += fee; salesCount++;
+    const created = pick(s, 'createdAt', 'created_at');
+    const t = created ? new Date(created).getTime() : 0;
+    if (t && t >= cutoff30) gmv30Cents += amt;
+  });
+
+  // ---- Signups: total, 30d, Monday-bucketed split series ----
+  const startOfWeek = (ms) => {
+    const d = new Date(ms); d.setHours(0, 0, 0, 0);
+    const day = (d.getDay() + 6) % 7;    // 0 = Mon … 6 = Sun
+    d.setDate(d.getDate() - day);
+    return d;
+  };
+  const thisMon = startOfWeek(nowMs);
+  const buckets = [], idx = {};
+  for (let i = weeks - 1; i >= 0; i--) {
+    const d = new Date(thisMon); d.setDate(d.getDate() - i * 7);
+    const key = d.toISOString().slice(0, 10);
+    idx[key] = buckets.length;
+    buckets.push({ x: key, coaches: 0, athletes: 0 });
+  }
+  let signups30 = 0;
+  profiles.forEach(p => {
+    const created = pick(p, 'created_at', 'createdAt');
+    const t = created ? new Date(created).getTime() : NaN;
+    if (!t || isNaN(t)) return;
+    if (t >= cutoff30) signups30++;
+    const b = buckets[idx[startOfWeek(t).toISOString().slice(0, 10)]];
+    if (b) { if (pick(p, 'user_type', 'userType') === 'coach') b.coaches++; else b.athletes++; }
+  });
+
+  return {
+    coachCount, athleteCount, totalUsers: profiles.length,
+    payingCoaches, mrr, arr: mrr * 12, mrrByTier: byTier,
+    conversionPct: coachCount ? (payingCoaches / coachCount) * 100 : 0,
+    gmvCents, takeCents, salesCount, gmv30Cents,
+    signups30, signupSeries: buckets
+  };
+}
+window.computePlatformAnalytics = computePlatformAnalytics;
+
+// Locale-aware BUYER-FACING price formatter for the marketplace. Programs are
+// stored + charged in USD — Lemon Squeezy is Merchant of Record and shows each
+// buyer their exact localized total at checkout — so this formats the USD
+// *reference* price through the viewer's own locale. Two wins, zero network:
+//   1. grouping reads naturally per locale (1,299 / 1.299 / 1 299);
+//   2. most non-US locales render USD as "US$…", disambiguating it from the
+//      viewer's local dollar (AUD/CAD/NZD/etc.) — the actual point of the task.
+// Pure Intl: no FX rate table to go stale, no secret, demo-safe. Falls back to
+// a plain "$X" string if Intl/currency is somehow unavailable.
+function fmtPrice(cents, opts) {
+  opts = opts || {};
+  const v = (cents || 0) / 100;
+  const whole = v % 1 === 0;
+  let locale;
+  try { locale = (navigator.languages && navigator.languages[0]) || navigator.language; } catch (e) {}
+  try {
+    return new Intl.NumberFormat(locale || 'en-US', {
+      style: 'currency', currency: 'USD',
+      minimumFractionDigits: (whole && !opts.cents) ? 0 : 2,
+      maximumFractionDigits: 2
+    }).format(v);
+  } catch (e) {
+    return '$' + (whole && !opts.cents ? v.toFixed(0) : v.toFixed(2));
+  }
+}
+window.fmtPrice = fmtPrice;
+
 // ----------------------------------------------------------------------
 // Coach ↔ athlete message thread — shared UI used by BOTH the athlete
 // dashboard (Coach tab) and the coach dashboard (per-athlete). Renders a
@@ -1990,7 +2826,7 @@ async function renderMessageThread(container, opts) {
   function buildTimeline(messages, notes) {
     const items = [];
     (messages || []).forEach(m => items.push({
-      kind: 'msg', ts: m.createdAt || '', mine: m.senderId === viewerId, body: m.body
+      kind: 'msg', id: m.id, ts: m.createdAt || '', mine: m.senderId === viewerId, body: m.body, readAt: m.readAt || null
     }));
     (notes || []).forEach(n => {
       if (n.note && n.note.trim()) items.push({
@@ -2012,8 +2848,12 @@ async function renderMessageThread(container, opts) {
         'No messages yet. Say hi to ' + (otherName || 'them') + '.'));
       return;
     }
+    // The most recent message I sent is the only one that carries a Sent/Seen
+    // receipt (iMessage-style — the status rides the last of mine).
+    let lastMineIdx = -1;
+    items.forEach((it, i) => { if (it.kind === 'msg' && it.mine) lastMineIdx = i; });
     let lastDay = '';
-    items.forEach(it => {
+    items.forEach((it, i) => {
       const day = (it.ts || '').slice(0, 10);
       if (day && day !== lastDay) {
         lastDay = day;
@@ -2034,6 +2874,12 @@ async function renderMessageThread(container, opts) {
         bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(it.ts)));
         row.appendChild(bubble);
         list.appendChild(row);
+        if (i === lastMineIdx) {
+          const seen = !!it.readAt;
+          const rt = seen ? _msgTime(it.readAt) : '';
+          list.appendChild(el('div', { class: 'msg-status' + (seen ? ' is-seen' : '') },
+            seen ? ('Seen' + (rt ? ' · ' + rt : '')) : 'Sent'));
+        }
       }
     });
     list.scrollTop = list.scrollHeight;
@@ -2079,14 +2925,31 @@ async function renderMessageThread(container, opts) {
     // Live updates — append messages the moment they land (real mode only).
     // Filtered server-side on athlete_id (one thread per athlete); we re-check
     // coachId client-side and dedupe by id so the sender's own echo is a no-op.
-    if (typeof DB.subscribeMessages === 'function') {
-      container._msgCleanup = DB.subscribeMessages({ column: 'athlete_id', value: athleteId }, (m) => {
-        if (!m || m.coachId !== coachId || m.athleteId !== athleteId) return;
-        if (messages.some(x => x.id === m.id)) return;
-        messages.push(m);
-        paint(buildTimeline(messages, notes));
-        if (m.senderId !== viewerId) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
-      });
+    const insertCleanup = (typeof DB.subscribeMessages === 'function')
+      ? DB.subscribeMessages({ column: 'athlete_id', value: athleteId }, (m) => {
+          if (!m || m.coachId !== coachId || m.athleteId !== athleteId) return;
+          if (messages.some(x => x.id === m.id)) return;
+          messages.push(m);
+          paint(buildTimeline(messages, notes));
+          if (m.senderId !== viewerId) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+        })
+      : null;
+    // Live read-receipts — when the other party opens the thread, their read of
+    // my messages stamps read_at; reflect it as "Seen" without a reload.
+    const readCleanup = (typeof DB.subscribeMessageReads === 'function')
+      ? DB.subscribeMessageReads({ column: 'athlete_id', value: athleteId }, (m) => {
+          if (!m || m.coachId !== coachId || m.athleteId !== athleteId) return;
+          const local = messages.find(x => x.id === m.id);
+          if (!local || local.readAt === m.readAt) return;
+          local.readAt = m.readAt;
+          paint(buildTimeline(messages, notes));
+        })
+      : null;
+    if (insertCleanup || readCleanup) {
+      container._msgCleanup = () => {
+        try { if (insertCleanup) insertCleanup(); } catch (e) {}
+        try { if (readCleanup) readCleanup(); } catch (e) {}
+      };
     }
   }
 
@@ -2101,6 +2964,22 @@ async function renderMessageThread(container, opts) {
         const s = Store.get(); (s.messages || (s.messages = [])).push(msg);
       } else {
         msg = await DB.sendMessage({ coachId, athleteId, senderId: viewerId, body });
+        // Fire-and-forget push to the OTHER party (never block the send on it).
+        // Recipient = whoever isn't the sender; deep-link to their dashboard.
+        const toUserId = viewerId === coachId ? athleteId : coachId;
+        const recipientIsAthlete = toUserId === athleteId;
+        if (toUserId && typeof DB.sendPush === 'function') {
+          let fromName = '';
+          try { const me = getCurrentUser(); fromName = (me && me.name || '').split(' ')[0]; } catch (e) {}
+          DB.sendPush({
+            toUserId,
+            title: fromName ? ('New message from ' + fromName) : 'New message',
+            body: body.slice(0, 140),
+            url: recipientIsAthlete ? '/athlete.html' : '/coach.html',
+            tag: 'powa-msg-' + (recipientIsAthlete ? athleteId : coachId),
+            category: 'messages'
+          }).catch(() => {});
+        }
       }
       if (msg) { messages.push(msg); paint(buildTimeline(messages, notes)); }
       ta.value = '';
@@ -2153,21 +3032,91 @@ async function saveSettings() {
 }
 window.saveSettings = saveSettings;
 
-async function deleteMyAccount() {
-  if (!confirm('Permanently delete your account and ALL your data? This cannot be undone.')) return;
-  if (!confirm('Last chance — really delete?')) return;
-  const u = getCurrentUser();
-  try {
-    // Delete the profile row — RLS allows updating own profile, and the auth user removal cascade will handle the rest of the data via FK on delete cascade.
-    // Fully removing the auth user requires a server-side admin call. As a workaround, sign out and let an admin clean up if needed.
-    await sb.from('profiles').delete().eq('id', u.id);
-    await DB.signOut();
-    location.href = 'index.html';
-  } catch (e) {
-    toast(e.message || 'Could not delete account');
-  }
+// Type-to-confirm account deletion. Replaces the old double-confirm() facade
+// that ran a client-side profiles.delete() — an RLS-blocked no-op that never
+// removed the auth user and never cascaded. Real erasure now happens
+// server-side in the `delete-account` edge function (uid derived from the JWT →
+// auth.admin.deleteUser + Storage sweep); this modal is the honest UX in front
+// of it: export-first, type DELETE, and a truthful failure path (we do NOT sign
+// you out or pretend it worked if the server call fails).
+function deleteMyAccount() {
+  if (window._demoMode) { toast('Account deletion is disabled in the demo.'); return; }
+  ensureDeleteAccountModal();
+  const input = document.getElementById('delAcctInput');
+  const btn = document.getElementById('delAcctConfirm');
+  const err = document.getElementById('delAcctError');
+  if (input) input.value = '';
+  if (err) err.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Delete everything'; }
+  const m = document.getElementById('deleteAccountModal');
+  if (m) m.classList.add('open');
+  if (input) setTimeout(() => { try { input.focus(); } catch (_) {} }, 60);
 }
 window.deleteMyAccount = deleteMyAccount;
+
+function ensureDeleteAccountModal() {
+  if (document.getElementById('deleteAccountModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="modal-backdrop" id="deleteAccountModal">' +
+    '<div class="modal">' +
+      '<button class="modal-close" aria-label="Close" onclick="closeDeleteAccountModal()">&times;</button>' +
+      '<h3>Delete account</h3>' +
+      '<p class="text-sm" style="line-height:1.6;color:var(--text-2)">This permanently erases your account and all your training data. <strong style="color:var(--text)">It cannot be undone.</strong></p>' +
+      '<div style="margin:14px 0; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,0.02)">' +
+        '<p class="text-xs" style="line-height:1.65;margin:0;color:var(--text-3)"><strong style="color:var(--text-2)">Erased:</strong> your profile, programs, logs, bodyweight, goals, meets, messages, form-check videos, reviews, referrals, notifications and coaching links.<br><strong style="color:var(--text-2)">Kept (anonymized):</strong> past marketplace purchase records we\'re legally required to retain for tax — with your identity removed.</p>' +
+      '</div>' +
+      '<p class="text-xs mb-8" style="color:var(--text-3)">Want a copy of your data first?</p>' +
+      '<div class="flex gap-8 mb-16">' +
+        '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">⬇ Export JSON</button>' +
+        '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">⬇ Export CSV</button>' +
+      '</div>' +
+      '<label class="block text-xs mb-4" style="color:var(--text-3)">Type <strong style="color:var(--red);letter-spacing:0.1em">DELETE</strong> to confirm</label>' +
+      '<input type="text" id="delAcctInput" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="DELETE" oninput="onDelAcctInput()" style="width:100%">' +
+      '<div id="delAcctError" class="text-xs mt-8" style="color:var(--red);line-height:1.5"></div>' +
+      '<div class="flex gap-8 mt-16">' +
+        '<button class="btn btn-block" onclick="closeDeleteAccountModal()">Cancel</button>' +
+        '<button class="btn btn-danger btn-block" id="delAcctConfirm" disabled onclick="confirmDeleteMyAccount()">Delete everything</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.body.appendChild(wrap.firstChild);
+}
+
+function onDelAcctInput() {
+  const input = document.getElementById('delAcctInput');
+  const btn = document.getElementById('delAcctConfirm');
+  if (!input || !btn) return;
+  btn.disabled = input.value.trim().toUpperCase() !== 'DELETE';
+}
+window.onDelAcctInput = onDelAcctInput;
+
+function closeDeleteAccountModal() {
+  const m = document.getElementById('deleteAccountModal');
+  if (m) m.classList.remove('open');
+}
+window.closeDeleteAccountModal = closeDeleteAccountModal;
+
+async function confirmDeleteMyAccount() {
+  const input = document.getElementById('delAcctInput');
+  const btn = document.getElementById('delAcctConfirm');
+  const err = document.getElementById('delAcctError');
+  if (!input || input.value.trim().toUpperCase() !== 'DELETE') return;
+  if (err) err.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  const res = await DB.deleteAccount();
+  if (res && res.ok) {
+    toast('Account deleted. Signing you out…');
+    try { await DB.signOut(); } catch (_) {}
+    location.href = 'index.html';
+    return;
+  }
+  // Honest failure — never sign out or pretend it worked. Surface the real
+  // reason and point at the manual erasure fallback.
+  const reason = (res && res.reason) || 'Deletion failed';
+  if (err) err.textContent = reason + ' — email powalifta1320@gmail.com and we\'ll erase it manually.';
+  if (btn) { btn.disabled = false; btn.textContent = 'Delete everything'; }
+}
+window.confirmDeleteMyAccount = confirmDeleteMyAccount;
 
 // =========================================================
 // CALENDAR HEATMAP — GitHub-style training history
@@ -2318,6 +3267,330 @@ function multiplierFor(lift, variant) {
 function exercisesFor(lift) { return ACCESSORY_EXERCISES[lift] || []; }
 
 // =========================================================
+// EXERCISE LIBRARY — coaching cues for the competition lifts, their
+// training variants, and the core accessories. Pure data + lookups,
+// keyed off the SAME lift/variant taxonomy as logging (VARIANTS /
+// ACCESSORY_EXERCISES) so the log flow can pull contextual cues via
+// cuesForLift(). Surfaced as the public reference page exercises.html.
+// All content is authored/trusted — safe to template into HTML.
+// =========================================================
+const EXERCISE_GROUP_LABELS = {
+  squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift',
+  push: 'Push', pull: 'Pull', legs: 'Legs'
+};
+
+const EXERCISE_LIBRARY = [
+  // ---------------- SQUAT ----------------
+  {
+    key: 'squat-competition', group: 'squat', lift: 'squat', variant: 'Competition', multiplier: 1.0,
+    name: 'Competition Squat', pattern: 'Squat · knees + hips',
+    summary: 'Low-bar back squat to legal depth — the contested movement and the 1.0 baseline every squat variant is scored against.',
+    setup: [
+      'Bar across the rear delts, not the neck — pull the shoulder blades together to build the shelf.',
+      'Grip as narrow as the shoulders allow pain-free; elbows tucked down, wrists stacked over the bar.',
+      'Feet just outside hip width, toes turned out 20–30°, weight centred over the mid-foot.'
+    ],
+    cues: [
+      'Take a full belly of air and brace against your belt before you unrack; walk it out in three steps.',
+      'Break at the hips and knees together and spread the floor with your feet.',
+      'Hit depth — hip crease below the top of the knee — then drive the whole foot through the platform.'
+    ],
+    faults: [
+      'Knees caving: think "push the knees out to track over the toes".',
+      'Chest folding forward out of the hole: more upper-back tightness and a harder brace, not a lighter bar.',
+      'Cutting depth: film from the side at hip height — front-on hides it.'
+    ]
+  },
+  {
+    key: 'squat-paused', group: 'squat', lift: 'squat', variant: 'Paused', multiplier: 1.07,
+    name: 'Paused Squat', pattern: 'Squat · positional',
+    summary: 'A 2–3s hold at depth kills the stretch reflex, so it carries over above competition — that is why it scores 1.07× of a comp squat.',
+    cues: [
+      'Stay braced through the pause; do not bleed air or let the chest drop.',
+      'Hold at your true competition depth, not an inch higher.',
+      'Explode out of the hole on the count — no rocking or re-bending to build momentum.'
+    ]
+  },
+  {
+    key: 'squat-tempo', group: 'squat', lift: 'squat', variant: 'Tempo', multiplier: 1.12,
+    name: 'Tempo Squat', pattern: 'Squat · control',
+    summary: 'A slow eccentric (commonly 3–4s down) builds position and control under load; the time under tension is why it carries the highest squat multiplier at 1.12×.',
+    cues: [
+      'Count the descent honestly — most lifters rush the last third.',
+      'Keep the bar over the mid-foot the whole way down; control is the point, not speed.',
+      'Normal, hard drive up once you reach depth.'
+    ]
+  },
+  {
+    key: 'squat-pin', group: 'squat', lift: 'squat', variant: 'Pin', multiplier: 1.08,
+    name: 'Pin Squat', pattern: 'Squat · dead-stop',
+    summary: 'Squatting up from pins set near depth removes all stretch reflex and trains a dead-stop drive out of the hole — scored at 1.08×.',
+    cues: [
+      'Set the pins at or just above your sticking point.',
+      'Settle on the pins for a beat — relax slightly without losing your brace — then drive.',
+      'No bouncing the bar off the pins; the dead-stop is the whole exercise.'
+    ]
+  },
+  // ---------------- BENCH ----------------
+  {
+    key: 'bench-competition', group: 'bench', lift: 'bench', variant: 'Competition', multiplier: 1.0,
+    name: 'Competition Bench Press', pattern: 'Horizontal press',
+    summary: 'Paused bench to a motionless chest touch — the contested press and the 1.0 baseline for every bench variant.',
+    setup: [
+      'Shoulder blades retracted and pinned down; build a tight upper-back arch.',
+      'Eyes under the bar, feet planted for leg drive, glutes stay on the bench.',
+      'Grip width inside the rings — find the width that keeps the forearms vertical at the chest.'
+    ],
+    cues: [
+      'Pull the bar out of the rack rather than press it out; keep the lats tight.',
+      'Lower under control to the same touch point each rep and pause it dead-still.',
+      'Press back and slightly toward the rack, driving through the legs without lifting the hips.'
+    ],
+    faults: [
+      'Flaring the elbows to 90°: tuck toward 45–70° to protect the shoulders and keep the press in the groove.',
+      'Bouncing the bar off the chest: a real comp pause exposes the weak range — train it.',
+      'Hips rising on the drive: more leg drive into the bench, not up off it.'
+    ]
+  },
+  {
+    key: 'bench-paused', group: 'bench', lift: 'bench', variant: 'Paused', multiplier: 1.06,
+    name: 'Paused Bench (long pause)', pattern: 'Horizontal press · positional',
+    summary: 'A deliberate 2–3s pause on the chest — longer than a meet command — overloads the dead-stop press, scoring 1.06×.',
+    cues: [
+      'Stay tight and keep the air in during the pause; do not sink into the chest.',
+      'Hold at your true touch point, not high on the belly.',
+      'Press the instant the count ends — explosive off the chest.'
+    ]
+  },
+  {
+    key: 'bench-closegrip', group: 'bench', lift: 'bench', variant: 'Close Grip', multiplier: 1.09,
+    name: 'Close-Grip Bench Press', pattern: 'Horizontal press · triceps',
+    summary: 'A grip ~2 hands narrower shifts load to the triceps and the lockout — a top builder for a weak finish, scored at 1.09×.',
+    cues: [
+      'Grip about shoulder width — narrow enough to load the triceps, not so narrow the wrists hurt.',
+      'Keep the elbows tucked; the bar tracks lower on the torso than a comp bench.',
+      'Drive the lockout with the triceps, not by flaring.'
+    ]
+  },
+  {
+    key: 'bench-pinpress', group: 'bench', lift: 'bench', variant: 'Pin Press', multiplier: 1.08,
+    name: 'Pin Press', pattern: 'Horizontal press · dead-stop',
+    summary: 'Pressing from pins at a chosen height trains a dead-stop drive through a specific sticking point; scored at 1.08×.',
+    cues: [
+      'Set the pins at your sticking height — usually 2–4cm off the chest.',
+      'Let the bar settle dead on the pins, stay tight, then press.',
+      'No pre-load bounce; start each rep from a true stop.'
+    ]
+  },
+  {
+    key: 'bench-incline', group: 'bench', lift: 'bench', variant: 'Incline', multiplier: 1.12,
+    name: 'Incline Bench Press', pattern: 'Incline press · upper chest',
+    summary: 'A 15–30° incline biases the upper chest and front delts and lengthens the press — the hardest bench variant, scored at 1.12×.',
+    cues: [
+      'Keep the same retracted, tight setup; the bench angle does the work.',
+      'Touch high on the chest, just below the collarbone.',
+      'Press straight up over the shoulders, not back toward your face.'
+    ]
+  },
+  // ---------------- DEADLIFT ----------------
+  {
+    key: 'deadlift-competition', group: 'deadlift', lift: 'deadlift', variant: 'Competition', multiplier: 1.0,
+    name: 'Competition Deadlift', pattern: 'Hip hinge',
+    summary: 'Conventional or sumo pull to lockout — the contested lift and the 1.0 baseline for every deadlift variant.',
+    setup: [
+      'Bar over the mid-foot, roughly an inch from the shins.',
+      'Take the slack out of the bar — pull the chest up until the plates just lift the bar tension.',
+      'Lats engaged, shoulders slightly ahead of or over the bar, neutral spine.'
+    ],
+    cues: [
+      'Push the floor away rather than yanking the bar up.',
+      'Keep the bar dragging up the legs — let it drift forward and the lift stalls.',
+      'Finish by driving the hips through to a tall lockout; do not lean back past straight.'
+    ],
+    faults: [
+      'Hips shooting up first: the bar should leave the floor with the hips and chest rising together.',
+      'Rounding the lower back: brace harder and set the lats before the pull, or drop the load.',
+      'Bar drifting away from the shins: think "lats on, bar in".'
+    ]
+  },
+  {
+    key: 'deadlift-paused', group: 'deadlift', lift: 'deadlift', variant: 'Paused', multiplier: 1.07,
+    name: 'Paused Deadlift', pattern: 'Hip hinge · positional',
+    summary: 'A 1–2s pause just below the knee overloads the most common sticking point off the floor; scored at 1.07×.',
+    cues: [
+      'Pause about 2–5cm below the knee with the bar against the legs.',
+      'Stay braced and keep the lats tight through the hold.',
+      'Resume in one piece — no hitching or re-bending the hips.'
+    ]
+  },
+  {
+    key: 'deadlift-deficit', group: 'deadlift', lift: 'deadlift', variant: 'Deficit', multiplier: 1.06,
+    name: 'Deficit Deadlift', pattern: 'Hip hinge · range',
+    summary: 'Standing on a 2–5cm block lengthens the pull and builds strength off the floor; scored at 1.06×.',
+    cues: [
+      'Use only as much deficit as you can keep a flat back through.',
+      'Same mid-foot setup — the extra range comes from the higher start, not a forward bar.',
+      'Drive the floor away; expect the bottom to feel heavier than a comp pull.'
+    ]
+  },
+  {
+    key: 'deadlift-rdl', group: 'deadlift', lift: 'deadlift', variant: 'RDL', multiplier: 1.10,
+    name: 'Romanian Deadlift (RDL)', pattern: 'Hip hinge · hamstrings',
+    summary: 'A top-down hinge with soft knees that overloads the hamstrings and glutes through the eccentric — the highest-carryover deadlift accessory, scored at 1.10×.',
+    cues: [
+      'Start standing; push the hips back and slide the bar down the thighs.',
+      'Keep a slight, fixed knee bend — this is a hinge, not a squat.',
+      'Stop when the hamstrings run out of stretch (usually mid-shin), then drive the hips back through.'
+    ]
+  },
+  // ---------------- PUSH (accessory) ----------------
+  {
+    key: 'push-ohp', group: 'push', lift: 'push', name: 'Overhead Press', pattern: 'Vertical press',
+    summary: 'Standing barbell press — the anchor upper-body push accessory; builds delts, triceps and the bench lockout.',
+    cues: [
+      'Squeeze the glutes and brace so the press does not become a lean-back.',
+      'Bar starts on the front delts; move the head back to clear it, then press around the face.',
+      'Finish with the bar stacked over the mid-foot, biceps by the ears.'
+    ]
+  },
+  {
+    key: 'push-dips', group: 'push', lift: 'push', name: 'Weighted Dips', pattern: 'Vertical press · chest/triceps',
+    summary: 'A loaded bodyweight press that hammers the lower chest and triceps through a deep range.',
+    cues: [
+      'Lean the torso forward slightly for chest, stay upright for triceps.',
+      'Lower until the upper arms reach parallel — no deeper if the shoulders complain.',
+      'Lock out fully at the top without shrugging.'
+    ]
+  },
+  {
+    key: 'push-pushdown', group: 'push', lift: 'push', name: 'Triceps Pushdown', pattern: 'Isolation · triceps',
+    summary: 'Cable isolation for the triceps — cheap volume for the bench lockout with no axial fatigue.',
+    cues: [
+      'Pin the elbows to your sides and keep them there.',
+      'Lock out fully and squeeze, then control the weight back up.',
+      'Chase reps and a stretch, not a heavy ego load.'
+    ]
+  },
+  // ---------------- PULL (accessory) ----------------
+  {
+    key: 'pull-row', group: 'pull', lift: 'pull', name: 'Barbell Row', pattern: 'Horizontal pull',
+    summary: 'A hinged barbell row — the workhorse back builder that supports the squat brace and deadlift lockout.',
+    cues: [
+      'Hinge to around 45° and hold the torso angle still — no jerking upright each rep.',
+      'Row to the lower ribs / upper stomach, leading with the elbows.',
+      'Control the bar down; do not let it pull you out of position.'
+    ]
+  },
+  {
+    key: 'pull-pullup', group: 'pull', lift: 'pull', name: 'Pull-ups', pattern: 'Vertical pull',
+    summary: 'Bodyweight (or loaded) vertical pull for lats and upper-back width.',
+    cues: [
+      'Start from a full dead hang with the shoulders set down.',
+      'Drive the elbows down and back; clear the chin over the bar.',
+      'Lower all the way under control — half reps train half a back.'
+    ]
+  },
+  {
+    key: 'pull-facepull', group: 'pull', lift: 'pull', name: 'Face Pulls', pattern: 'Isolation · rear delts',
+    summary: 'Rear-delt and external-rotation work — cheap shoulder insurance for big benchers.',
+    cues: [
+      'Pull the rope to your forehead with the elbows high.',
+      'Externally rotate at the end — thumbs back, like a double biceps pose.',
+      'Light weight, high reps, full control.'
+    ]
+  },
+  // ---------------- LEGS (accessory) ----------------
+  {
+    key: 'legs-frontsquat', group: 'legs', lift: 'legs', name: 'Front Squat', pattern: 'Squat · quads',
+    summary: 'A front-loaded squat that builds the quads and the upright torso strength your back squat depends on.',
+    cues: [
+      'Rack the bar on the front delts with the elbows high; fingertips only is fine.',
+      'Stay as upright as possible and keep the elbows up through the whole rep.',
+      'Squat to full depth — losing the elbows means losing the bar.'
+    ]
+  },
+  {
+    key: 'legs-legpress', group: 'legs', lift: 'legs', name: 'Leg Press', pattern: 'Squat · quads',
+    summary: 'Machine quad volume with low systemic fatigue — easy to load and easy to recover from.',
+    cues: [
+      'Set the feet so the knees track over the toes; do not let the lower back round off the pad.',
+      'Lower to a deep but pain-free knee bend.',
+      'Stop short of locking the knees out hard at the top.'
+    ]
+  },
+  {
+    key: 'legs-bulgarian', group: 'legs', lift: 'legs', name: 'Bulgarian Split Squat', pattern: 'Single-leg',
+    summary: 'A single-leg squat that builds quads and glutes and irons out left/right imbalances.',
+    cues: [
+      'Rear foot on the bench, front foot far enough out to keep the knee behind the toes at the bottom.',
+      'Drop straight down and drive through the whole front foot.',
+      'Keep the torso tall; lean forward slightly to bias the glute.'
+    ]
+  },
+  {
+    key: 'legs-hipthrust', group: 'legs', lift: 'legs', name: 'Hip Thrust', pattern: 'Hip extension · glutes',
+    summary: 'Loaded hip extension for the glutes — direct lockout power for both the squat and the deadlift.',
+    cues: [
+      'Upper back on the bench, chin tucked, bar over the hips on a pad.',
+      'Drive through the heels to full hip extension and squeeze the glutes hard.',
+      'Stop at a flat torso — do not hyperextend the lower back to chase height.'
+    ]
+  }
+];
+
+function exerciseLibrary() { return EXERCISE_LIBRARY.slice(); }
+function exerciseGroups() {
+  const seen = [];
+  EXERCISE_LIBRARY.forEach(e => { if (seen.indexOf(e.group) === -1) seen.push(e.group); });
+  return seen;
+}
+function exerciseGroupLabel(g) { return EXERCISE_GROUP_LABELS[g] || (g ? g.charAt(0).toUpperCase() + g.slice(1) : ''); }
+function findExercise(key) { return EXERCISE_LIBRARY.find(e => e.key === key) || null; }
+
+// Best cue entry for a logged lift+variant — used for contextual cues in the log flow.
+function cuesForLift(lift, variant) {
+  if (!lift) return null;
+  const L = String(lift).toLowerCase();
+  if (variant) {
+    const V = String(variant).toLowerCase();
+    const exact = EXERCISE_LIBRARY.find(e => e.lift === L && e.variant && e.variant.toLowerCase() === V);
+    if (exact) return exact;
+  }
+  const base = EXERCISE_LIBRARY.find(e => e.lift === L && (e.variant === 'Competition' || !e.variant));
+  if (base) return base;
+  return EXERCISE_LIBRARY.find(e => e.lift === L) || null;
+}
+
+// Free-text search across name / pattern / summary / cues / faults.
+function searchExercises(q) {
+  const s = String(q == null ? '' : q).trim().toLowerCase();
+  if (!s) return EXERCISE_LIBRARY.slice();
+  return EXERCISE_LIBRARY.filter(e => {
+    const hay = [e.name, e.pattern, e.summary, e.variant || '',
+      (e.setup || []).join(' '), (e.cues || []).join(' '), (e.faults || []).join(' ')
+    ].join(' ').toLowerCase();
+    return hay.indexOf(s) !== -1;
+  });
+}
+
+// Pure HTML for one exercise's cue body (summary + setup/cues/faults lists).
+// Authored/trusted content — safe to template. Used by exercises.html and the log-flow cue popover.
+function exerciseCueBodyHtml(e) {
+  if (!e) return '';
+  let h = '<p class="exlib-summary">' + e.summary + '</p>';
+  const block = (title, items, cls) => {
+    if (!items || !items.length) return '';
+    return '<div class="exlib-block ' + cls + '">' +
+      '<h4 class="exlib-block-title">' + title + '</h4><ul>' +
+      items.map(i => '<li>' + i + '</li>').join('') + '</ul></div>';
+  };
+  h += block('Set up', e.setup, 'exlib-setup');
+  h += block('Execution', e.cues, 'exlib-cues');
+  h += block('Fix the common faults', e.faults, 'exlib-faults');
+  return h;
+}
+
+// =========================================================
 // E1RM (RPE-percentage / Tuchscherer-style)
 // =========================================================
 function calcE1RM(weight, reps, rpe) {
@@ -2437,6 +3710,47 @@ function daysUntil(dateStr, now) {
   let base = parse(now);
   if (!base) { base = new Date(); base.setHours(0, 0, 0, 0); }
   return Math.round((target - base) / 86400000);
+}
+
+// =========================================================
+// MEET RESULTS — competition history math (pure, unit-tested)
+// A meet stores the best SUCCESSFUL lift per discipline in kg; null = bombed /
+// not contested. The total sums only the good lifts, so a bombed bench still
+// yields a (lower) squat+deadlift sub-total rather than NaN.
+// =========================================================
+function meetTotal(meet) {
+  if (!meet) return 0;
+  return ['squat', 'bench', 'deadlift'].reduce((s, k) => {
+    const v = meet[k];
+    return s + (v == null || isNaN(v) ? 0 : Number(v));
+  }, 0);
+}
+// True only when all three lifts have a good attempt — a "full" total
+// (a bombed lift makes the number not comparable as a competition total).
+function meetIsFullTotal(meet) {
+  if (!meet) return false;
+  return ['squat', 'bench', 'deadlift'].every(k => meet[k] != null && !isNaN(meet[k]));
+}
+// Best (highest) FULL total across a list of meets, optionally filtered to one
+// athlete. Returns { total, meet } or null when no full-total meet exists.
+function bestMeet(meets, athleteId) {
+  if (!Array.isArray(meets)) return null;
+  let best = null;
+  meets.forEach(m => {
+    if (athleteId && m.athleteId !== athleteId) return;
+    if (!meetIsFullTotal(m)) return;
+    const t = meetTotal(m);
+    if (!best || t > best.total) best = { total: t, meet: m };
+  });
+  return best;
+}
+// DOTS for a finished meet from its REAL total + weigh-in bodyweight (kg).
+// Falls back to null when bodyweight is missing. sex is the client-side pref.
+function meetDots(meet, sex) {
+  if (!meet || !meet.bodyweight) return null;
+  const t = meetTotal(meet);
+  if (!t) return null;
+  return dotsScore(t, meet.bodyweight, sex);
 }
 
 // =========================================================
@@ -3905,6 +5219,215 @@ function latestBodyweight(athleteId) {
   return bw[0]?.weight || null;
 }
 
+// ================= VOLUME LANDMARKS (weekly working sets) =================
+// Evidence-informed weekly working-set ranges per movement pattern.
+//   MEV — minimum effective volume (least that still drives progress)
+//   MAV — the productive working range you live in most of a block
+//   MRV — max recoverable volume (past this, fatigue outpaces recovery)
+// A fatigue-management guide, NOT a prescription — individual recovery,
+// intensity, and exercise selection move these a lot. Sets count off the log's
+// own `lift` bucket (squat/bench/deadlift + push/pull/legs accessories), so no
+// fuzzy name-matching; cardio/other never count.
+const VOLUME_LANDMARKS = {
+  squat:    { label: 'Squat',    mev: 8,  mav: 14, mrv: 20 },
+  bench:    { label: 'Bench',    mev: 10, mav: 16, mrv: 22 },
+  deadlift: { label: 'Deadlift', mev: 6,  mav: 10, mrv: 14 },
+  push:     { label: 'Push',     mev: 8,  mav: 14, mrv: 22 },
+  pull:     { label: 'Pull',     mev: 10, mav: 16, mrv: 25 },
+  legs:     { label: 'Legs',     mev: 8,  mav: 14, mrv: 20 }
+};
+const VOLUME_BUCKET_ORDER = ['squat', 'bench', 'deadlift', 'push', 'pull', 'legs'];
+const VOLUME_ZONE_LABEL = {
+  none: 'Untrained', under: 'Below MEV', productive: 'Productive',
+  high: 'Near MRV', over: 'Over MRV', unknown: ''
+};
+
+// Which landmark bucket a logged set counts toward (null = cardio/other/unknown).
+function volumeBucketFor(log) {
+  const lift = log && (log.lift || '').toLowerCase();
+  return (lift && VOLUME_LANDMARKS[lift]) ? lift : null;
+}
+
+// Zone of a weekly set count against a bucket's landmarks.
+function volumeZone(sets, lm) {
+  if (!lm) return 'unknown';
+  if (sets <= 0) return 'none';
+  if (sets < lm.mev) return 'under';
+  if (sets < lm.mav) return 'productive';
+  if (sets <= lm.mrv) return 'high';
+  return 'over';
+}
+
+// Pure: weekly working-set volume per movement bucket within [from, to)
+// (ms timestamps). Counts every logged working set; `hardSets` = sets at
+// RPE ≥ 7. Returns buckets in fixed order with landmark, zone, label and
+// percent-of-MRV (for a progress bar). Independent of Store/DB — testable.
+function weeklyVolumeLandmarks(logs, athleteId, from, to) {
+  const out = VOLUME_BUCKET_ORDER.map(k => ({
+    key: k, label: VOLUME_LANDMARKS[k].label, lm: VOLUME_LANDMARKS[k],
+    sets: 0, hardSets: 0
+  }));
+  const idx = {};
+  out.forEach(o => { idx[o.key] = o; });
+  (logs || []).forEach(l => {
+    if (!l || l.athleteId !== athleteId) return;
+    const t = Date.parse(l.date);
+    if (!(t >= from && t < to)) return;
+    const b = volumeBucketFor(l);
+    if (!b) return;
+    idx[b].sets += 1;
+    if (Number(l.rpe) >= 7) idx[b].hardSets += 1;
+  });
+  out.forEach(o => {
+    o.zone = volumeZone(o.sets, o.lm);
+    o.zoneLabel = VOLUME_ZONE_LABEL[o.zone] || '';
+    o.pctOfMrv = o.lm.mrv ? Math.min(100, Math.round((o.sets / o.lm.mrv) * 100)) : 0;
+  });
+  return out;
+}
+
+// ================= LEADERBOARD (opt-in public DOTS board) =================
+// Pure: rank published board entries. Drops non-positive DOTS, sorts by DOTS desc
+// then total desc (tiebreak), and assigns STANDARD competition ranks — ties share
+// a rank and the next rank skips (1, 2, 2, 4). Never mutates the input array.
+function rankLeaderboard(entries) {
+  const rows = (entries || [])
+    .filter(e => e && Number(e.dots) > 0)
+    .map(e => Object.assign({}, e, { dots: Number(e.dots), totalKg: Number(e.totalKg) || 0 }))
+    .sort((a, b) => (b.dots - a.dots) || (b.totalKg - a.totalKg));
+  let lastDots = null, lastRank = 0;
+  return rows.map((e, i) => {
+    let rank;
+    if (lastDots != null && e.dots === lastDots) { rank = lastRank; }
+    else { rank = i + 1; lastRank = rank; lastDots = e.dots; }
+    return Object.assign({}, e, { rank });
+  });
+}
+
+// Pure: ranked entries → HTML string. opts: { highlightUserId, emptyHtml }.
+// Top-3 get a medal class; the caller's own row is flagged. Weight class is
+// derived from bodyweight + sex; total respects the viewer's unit pref.
+function leaderboardRowsHtml(ranked, opts = {}) {
+  const list = ranked || [];
+  if (!list.length) {
+    return opts.emptyHtml ||
+      '<div class="lb-empty dim">No lifters on the board yet — be the first to publish.</div>';
+  }
+  return list.map(e => {
+    const me = opts.highlightUserId && e.userId === opts.highlightUserId;
+    const medal = e.rank <= 3 ? ' lb-medal lb-medal-' + e.rank : '';
+    const cls = e.sex ? weightClassFor(e.bodyweightKg, e.sex) : null;
+    const sexBadge = e.sex
+      ? '<span class="lb-sex lb-sex-' + e.sex + '">' + (e.sex === 'female' ? 'F' : 'M') + '</span>' : '';
+    const flag = e.countryCode ? '<span class="lb-flag">' + flagEmoji(e.countryCode) + '</span>' : '';
+    const meetBadge = e.basis === 'meet'
+      ? '<span class="lb-meet" title="From a logged meet total">MEET</span>' : '';
+    const youTag = me ? '<span class="lb-you">YOU</span>' : '';
+    return '<div class="lb-row' + medal + (me ? ' lb-me' : '') + '" data-rank="' + e.rank + '">' +
+        '<span class="lb-rank mono">' + e.rank + '</span>' +
+        '<span class="lb-id">' +
+          '<span class="lb-name">' + escHtml(e.displayName || 'Lifter') + '</span>' +
+          sexBadge + meetBadge + youTag +
+        '</span>' +
+        '<span class="lb-cls mono">' + (cls || '—') + flag + '</span>' +
+        '<span class="lb-total mono">' + formatWeight(e.totalKg, 0) + '</span>' +
+        '<span class="lb-dots mono">' + (Math.round(e.dots * 10) / 10).toFixed(1) + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+// A believable demo board so the ?demo=1 showcase + signed-out preview render.
+// DOTS is computed from each total+bw+sex so the numbers are internally honest.
+function demoLeaderboard() {
+  const seed = [
+    { userId: 'lb_a', displayName: 'Priya Nair',      sex: 'female', bodyweightKg: 63, totalKg: 467.5, basis: 'meet', countryCode: 'IN' },
+    { userId: 'lb_b', displayName: 'Marcus Okonkwo',  sex: 'male',   bodyweightKg: 92, totalKg: 832.5, basis: 'meet', countryCode: 'GB' },
+    { userId: 'lb_c', displayName: 'Sofia Almeida',   sex: 'female', bodyweightKg: 57, totalKg: 412.5, basis: 'gym',  countryCode: 'BR' },
+    { userId: 'lb_d', displayName: 'Kenji Tanaka',    sex: 'male',   bodyweightKg: 74, totalKg: 705,   basis: 'gym',  countryCode: 'JP' },
+    { userId: 'DEMO_ME', displayName: 'You (demo)',   sex: 'male',   bodyweightKg: 83, totalKg: 600,   basis: 'gym',  countryCode: null },
+    { userId: 'lb_e', displayName: 'Lena Fischer',    sex: 'female', bodyweightKg: 69, totalKg: 445,   basis: 'gym',  countryCode: 'DE' },
+    { userId: 'lb_f', displayName: 'Diego Ramirez',   sex: 'male',   bodyweightKg: 83, totalKg: 580,   basis: 'meet', countryCode: 'MX' },
+    { userId: 'lb_g', displayName: 'Amara Diallo',    sex: 'female', bodyweightKg: 76, totalKg: 397.5, basis: 'gym',  countryCode: 'SN' }
+  ];
+  return seed.map(e => Object.assign({}, e, {
+    dots: dotsScore(e.totalKg, e.bodyweightKg, e.sex), updatedAt: Date.now()
+  }));
+}
+
+// Async: fetch (or demo-seed) → rank → render into a container. opts:
+//   { sex, limit, highlightUserId, demo }. Safe to call on any page.
+async function renderLeaderboard(container, opts = {}) {
+  if (!container) return;
+  const sex = (opts.sex === 'male' || opts.sex === 'female') ? opts.sex : null;
+  const limit = opts.limit || 100;
+  let entries;
+  if (window._demoMode || opts.demo) {
+    entries = demoLeaderboard().filter(e => !sex || e.sex === sex);
+  } else {
+    try { entries = await DB.listLeaderboard({ sex, limit }); }
+    catch (e) { console.warn('renderLeaderboard', e); entries = []; }
+  }
+  const ranked = rankLeaderboard(entries).slice(0, limit);
+  container.innerHTML = leaderboardRowsHtml(ranked, { highlightUserId: opts.highlightUserId });
+  return ranked;
+}
+
+// Build the caller's OWN board row from data they already own, or null if they
+// don't have enough to be ranked (need a bodyweight AND a positive total → DOTS).
+function computeMyLeaderboardEntry() {
+  const u = window._user;
+  if (!u || !u.id) return null;
+  const bw = latestBodyweight(u.id);
+  const total = currentTotal(u.id);
+  const sex = getSexPref();
+  if (!bw || !(total > 0)) return null;
+  const dots = dotsScore(total, bw, sex);
+  if (!(dots > 0)) return null;
+  return {
+    userId: u.id,
+    displayName: u.name || 'Lifter',
+    sex,
+    bodyweightKg: Math.round(bw * 10) / 10,
+    totalKg: Math.round(total * 10) / 10,
+    dots,
+    basis: 'gym',
+    countryCode: u.countryCode || null
+  };
+}
+
+// Reflect current membership onto an opt-in button (label + data-on + class).
+async function refreshLeaderboardButton(btn) {
+  if (!btn) return;
+  const u = window._user;
+  let on = false;
+  if (window._demoMode) on = !!window._demoOnBoard;
+  else if (u && u.id) { try { on = !!(await DB.myLeaderboardEntry(u.id)); } catch (e) {} }
+  btn.setAttribute('data-on', on ? '1' : '0');
+  btn.textContent = on ? 'On the leaderboard — tap to leave' : 'Publish to leaderboard';
+  btn.classList.toggle('is-on', on);
+}
+
+// Toggle the caller's board membership. Publishing writes their denormalised row;
+// leaving deletes it. Demo-safe (flips a local flag, never touches the network).
+async function toggleLeaderboard(btn) {
+  const entry = computeMyLeaderboardEntry();
+  if (!entry) { toast('Log a weigh-in and your big three first'); return; }
+  const on = btn && btn.getAttribute('data-on') === '1';
+  if (window._demoMode) {
+    window._demoOnBoard = !on;
+    toast(on ? 'Removed from the leaderboard' : 'Published — you’re on the board');
+    refreshLeaderboardButton(btn);
+    return;
+  }
+  try {
+    if (on) { await DB.removeLeaderboardEntry(entry.userId); toast('Removed from the leaderboard'); }
+    else { await DB.upsertLeaderboardEntry(entry); toast('Published — you’re on the board'); }
+  } catch (e) { console.error('leaderboard toggle', e); toast('Could not update the leaderboard'); return; }
+  refreshLeaderboardButton(btn);
+}
+window.renderLeaderboard = renderLeaderboard;
+window.toggleLeaderboard = toggleLeaderboard;
+
 // Pure head-to-head: given two athletes' stat blocks, return comparison rows for
 // a "tale of the tape" coach view. Each input: { squat, bench, deadlift, total?, bw? }
 // (kg; bw nullable). Total is derived from S+B+D when omitted. Pound-for-pound
@@ -4075,19 +5598,31 @@ function _countUpEl(valEl) {
   } else {
     numText = valEl.textContent || '';
   }
-  const raw = numText.replace(/,/g, '');
-  const target = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
+  // Split into a non-numeric prefix (e.g. "$"), the numeric core (with optional
+  // thousands separators + decimals), and a trailing suffix (e.g. "%", "kg").
+  // Preserving all three means money and unit-bearing values count up WITHOUT
+  // losing their symbol or precision — "$1,234.56" stays "$1,234.56", not
+  // "1234.6". Faithful to the source format frame by frame.
+  const m = numText.trim().match(/^(\D*?)(-?[\d,]*\.?\d+)(\D*)$/);
+  if (!m) return;
+  const prefix = m[1], coreRaw = m[2], suffix = m[3];
+  const core = coreRaw.replace(/,/g, '');
+  const target = parseFloat(core);
   if (!isFinite(target) || target === 0) return;
-  const isInt = Number.isInteger(target);
+  const dotIdx = core.indexOf('.');
+  const decimals = dotIdx === -1 ? 0 : (core.length - dotIdx - 1);
+  const grouped = coreRaw.indexOf(',') !== -1;
+  const fmt = (n) => prefix + (grouped
+    ? n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : n.toFixed(decimals)) + suffix;
   const dur = 950;
   const start = performance.now();
   function frame(now) {
     const t = Math.min(1, (now - start) / dur);
     const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-    const cur = target * eased;
-    valEl.innerHTML = (isInt ? Math.round(cur) : cur.toFixed(1)) + unitHTML;
+    valEl.innerHTML = fmt(target * eased) + unitHTML;
     if (t < 1) requestAnimationFrame(frame);
-    else valEl.innerHTML = (isInt ? Math.round(target) : target.toFixed(1)) + unitHTML;
+    else valEl.innerHTML = fmt(target) + unitHTML;
   }
   requestAnimationFrame(frame);
 }

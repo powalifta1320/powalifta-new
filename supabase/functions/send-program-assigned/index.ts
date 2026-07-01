@@ -10,6 +10,7 @@
 // (the coach) can trigger this.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const FROM = 'POWALIFTA <noreply@powalifta.com>';
@@ -104,6 +105,14 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: caller, error: callerErr } = await admin.auth.getUser(jwt);
   if (callerErr || !caller?.user) return jsonResponse(401, { error: 'Invalid session' });
+
+  // Per-coach ceiling so a looping session can't spam program-assigned mail.
+  // Fails open if the meter (rl_bump) isn't deployed yet.
+  const rl = await rateLimit(admin, {
+    bucket: 'program-assigned', identity: caller.user.id, limit: 60, windowSecs: 3600,
+  });
+  if (!rl.ok) return rateLimitResponse(rl, { 'Access-Control-Allow-Origin': '*' });
+
   const { data: linked } = await admin
     .from('profiles')
     .select('id')

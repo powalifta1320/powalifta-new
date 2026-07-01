@@ -45,6 +45,66 @@ function mapDbReferral(r) {
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
   };
 }
+function mapDbRewardClaim(r) {
+  return {
+    id: r.id, userId: r.user_id, tierAt: r.tier_at,
+    status: r.status || 'requested',
+    createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
+  };
+}
+function mapDbClientError(r) {
+  return {
+    id: r.id, kind: r.kind || 'error',
+    msg: r.msg || '', stack: r.stack || null,
+    url: r.url || null, ua: r.ua || null,
+    src: r.src || null, line: r.line, col: r.col,
+    ts: r.ts ? new Date(r.ts).getTime() : null,
+    receivedAt: r.received_at ? new Date(r.received_at).getTime() : (r.ts ? new Date(r.ts).getTime() : Date.now())
+  };
+}
+function mapDbEmailPrefs(r) {
+  // Missing row = opted in (the digest job treats absence as default-true too).
+  // The push_* columns arrive with migration-notification-prefs.sql; before that
+  // migration runs they're simply absent → still default-true here (opted in),
+  // and send-push falls back to sending. So reads are safe pre- or post-migration.
+  return {
+    userId: r ? r.user_id : null,
+    weeklyDigest: r ? r.weekly_digest !== false : true,
+    productEmails: r ? r.product_emails !== false : true,
+    unsubToken: r ? (r.unsub_token || null) : null,
+    // Push notification categories (#30) — default on.
+    pushMessages: r ? r.push_messages !== false : true,
+    pushFormChecks: r ? r.push_form_checks !== false : true,
+    pushProgram: r ? r.push_program !== false : true
+  };
+}
+function mapDbLeaderboardEntry(r) {
+  return {
+    userId: r.user_id,
+    displayName: r.display_name || 'Lifter',
+    sex: r.sex || null,
+    bodyweightKg: r.bodyweight_kg != null ? Number(r.bodyweight_kg) : null,
+    totalKg: r.total_kg != null ? Number(r.total_kg) : 0,
+    dots: r.dots != null ? Number(r.dots) : 0,
+    basis: r.basis || 'gym',
+    countryCode: r.country_code || null,
+    updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : Date.now()
+  };
+}
+function mapJsLeaderboardEntry(e) {
+  const row = {
+    user_id: e.userId,
+    display_name: e.displayName || 'Lifter',
+    total_kg: e.totalKg,
+    dots: e.dots,
+    basis: e.basis || 'gym',
+    updated_at: new Date().toISOString()
+  };
+  if (e.sex) row.sex = e.sex;
+  if (e.bodyweightKg != null) row.bodyweight_kg = e.bodyweightKg;
+  if (e.countryCode) row.country_code = e.countryCode;
+  return row;
+}
 function mapDbCoachRequest(r) {
   return {
     id: r.id, athleteId: r.athlete_id, coachId: r.coach_id,
@@ -77,6 +137,34 @@ function mapJsLog(l) {
 }
 function mapDbBw(r) { return { id: r.id, athleteId: r.athlete_id, date: r.date, weight: Number(r.weight) }; }
 function mapJsBw(b) { return { id: b.id, athlete_id: b.athleteId, date: b.date, weight: b.weight }; }
+
+// MEETS — a finished competition result. Best successful lift per discipline
+// is stored in kg (internal unit); null = bombed / not contested (so the total
+// must sum only the non-null lifts, never coerce null → 0).
+function mapDbMeet(r) {
+  const n = (v) => (v == null ? null : Number(v));
+  return {
+    id: r.id, athleteId: r.athlete_id,
+    name: r.name || 'Meet', date: r.meet_date,
+    federation: r.federation || '', weightClass: r.weight_class || '',
+    bodyweight: n(r.bodyweight_kg),
+    squat: n(r.squat_kg), bench: n(r.bench_kg), deadlift: n(r.deadlift_kg),
+    notes: r.notes || '', createdAt: r.created_at
+  };
+}
+function mapJsMeet(m) {
+  const n = (v) => (v == null || v === '' ? null : Number(v));
+  const out = {
+    athlete_id: m.athleteId,
+    name: m.name || 'Meet', meet_date: m.date,
+    federation: m.federation || '', weight_class: m.weightClass || '',
+    bodyweight_kg: n(m.bodyweight),
+    squat_kg: n(m.squat), bench_kg: n(m.bench), deadlift_kg: n(m.deadlift),
+    notes: m.notes || ''
+  };
+  if (m.id) out.id = m.id;   // present → upsert on PK; absent → DB generates
+  return out;
+}
 function mapDbNote(r) {
   return {
     id: r.id, athleteId: r.athlete_id, weekId: r.week_id, dayId: r.day_id,
@@ -308,10 +396,10 @@ const DB = {
   },
   // Fire a push at another user (self for a test, or a linked coach/athlete).
   // Routes through the JWT-gated `send-push` edge function; never throws fatally.
-  async sendPush({ toUserId, title, body, url, tag }) {
+  async sendPush({ toUserId, title, body, url, tag, category }) {
     try {
       const { data, error } = await sb.functions.invoke('send-push', {
-        body: { toUserId, title, body, url, tag }
+        body: { toUserId, title, body, url, tag, category }
       });
       if (error) return { ok: false, error };
       return data || { ok: true };
@@ -358,6 +446,69 @@ const DB = {
     }
   },
 
+  // ---------- ACCOUNT DELETION / GDPR ERASURE ----------
+  // Hard-deletes the CALLER's account + all cascading data. The uid is derived
+  // server-side from the session JWT (never sent), so a caller can only ever
+  // erase themselves. Routes through the JWT-gated `delete-account` edge
+  // function (service role → auth.admin.deleteUser + Storage sweep). Never
+  // throws fatally — the caller decides what to do with {ok:false} (we do NOT
+  // sign the user out on failure; we surface the reason + the email fallback).
+  async deleteAccount() {
+    try {
+      const { data, error } = await sb.functions.invoke('delete-account', { body: {} });
+      if (error) {
+        // Same FunctionsHttpError unwrap as sendInvite — the function's JSON
+        // body (real cause) is hidden in error.context (the raw Response).
+        let status, reason = error.message || String(error);
+        try {
+          if (error.context && typeof error.context.clone === 'function') {
+            status = error.context.status;
+            const body = await error.context.clone().json();
+            if (body && (body.error || body.detail)) {
+              reason = body.error + (body.detail ? ' — ' + body.detail : '');
+            }
+          }
+        } catch (_) { /* body wasn't JSON */ }
+        console.error('deleteAccount failed', status, reason, error);
+        return { ok: false, status, reason, error };
+      }
+      if (data && data.deleted) return { ok: true, purged: data.purged };
+      console.error('deleteAccount unexpected response', data);
+      return { ok: false, reason: (data && data.error) || 'Unexpected response', error: data };
+    } catch (e) {
+      console.error('deleteAccount threw', e);
+      return { ok: false, reason: String((e && e.message) || e), error: e };
+    }
+  },
+
+  // ---------- SUBSCRIPTION / BILLING PORTAL (#34) ----------
+  // Asks the `ls-portal` edge function for a SIGNED per-subscription Lemon
+  // Squeezy customer-portal link. The uid is derived server-side from the JWT;
+  // the function resolves the caller's own ls_subscription_id via service role
+  // and calls the LS API (gated on LEMON_SQUEEZY_API_KEY). Returns {ok,url} on
+  // success. Never throws fatally — on any {ok:false} the client falls back to
+  // the no-code email-magic-link portal, so this is safe to call before the
+  // secret/function are deployed (the invoke just errors → {ok:false}).
+  async subscriptionPortal() {
+    try {
+      const { data, error } = await sb.functions.invoke('ls-portal', { body: {} });
+      if (error) {
+        let reason = error.message || String(error);
+        try {
+          if (error.context && typeof error.context.clone === 'function') {
+            const body = await error.context.clone().json();
+            if (body && (body.error || body.reason)) reason = body.error || body.reason;
+          }
+        } catch (_) { /* body wasn't JSON */ }
+        return { ok: false, reason };
+      }
+      if (data && data.ok && data.url) return { ok: true, url: data.url };
+      return { ok: false, reason: (data && (data.reason || data.error)) || 'no portal link' };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  },
+
   async signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -385,6 +536,91 @@ const DB = {
     const { error } = await sb.auth.updateUser({ password: newPassword });
     if (error) throw error;
   },
+
+  // ---------- 2FA / MFA (TOTP, Supabase Auth native) ----------
+  // All of this runs entirely against Supabase Auth (GoTrue) with the anon
+  // client — NO service role, NO edge function, NO migration, NO new secret.
+  // Every wrapper is soft-failing: it returns {ok:false, reason} instead of
+  // throwing, so the UI can degrade gracefully if the project has TOTP MFA
+  // disabled in the dashboard (Authentication → Multi-Factor). `unsupported`
+  // is surfaced so callers can hide the feature rather than show an error.
+  _mfaUnavailable(reason) {
+    const r = String(reason || '').toLowerCase();
+    return r.includes('not enabled') || r.includes('disabled') ||
+           r.includes('unsupported') || r.includes('mfa_') || r.includes('not available');
+  },
+  // List this user's TOTP factors. `verified` = the ones actually protecting
+  // the account (an abandoned enroll leaves an `unverified` factor behind).
+  async mfaListFactors() {
+    try {
+      const { data, error } = await sb.auth.mfa.listFactors();
+      if (error) return { ok: false, reason: error.message, unsupported: this._mfaUnavailable(error.message), factors: [], verified: [] };
+      const totp = (data && data.totp) || [];
+      return { ok: true, factors: totp, verified: totp.filter(f => f.status === 'verified') };
+    } catch (e) { const m = String((e && e.message) || e); return { ok: false, reason: m, unsupported: this._mfaUnavailable(m), factors: [], verified: [] }; }
+  },
+  // Begin TOTP enrollment. Prunes abandoned unverified factors first so a
+  // repeat enroll never collides. Returns the QR (SVG data URL), the manual
+  // secret, and the otpauth URI + the new factor id to verify against.
+  async mfaEnrollTotp(friendlyName) {
+    try {
+      try {
+        const list = await sb.auth.mfa.listFactors();
+        const all = (list && list.data && (list.data.all || list.data.totp)) || [];
+        for (const f of all) { if (f && f.status === 'unverified') { try { await sb.auth.mfa.unenroll({ factorId: f.id }); } catch (_) {} } }
+      } catch (_) { /* pruning is best-effort */ }
+      const opts = { factorType: 'totp' };
+      if (friendlyName) opts.friendlyName = friendlyName;
+      const { data, error } = await sb.auth.mfa.enroll(opts);
+      if (error) return { ok: false, reason: error.message, unsupported: this._mfaUnavailable(error.message) };
+      const totp = (data && data.totp) || {};
+      return { ok: true, factorId: data.id, qr: totp.qr_code || '', secret: totp.secret || '', uri: totp.uri || '' };
+    } catch (e) { const m = String((e && e.message) || e); return { ok: false, reason: m, unsupported: this._mfaUnavailable(m) }; }
+  },
+  // Confirm enrollment: challenge the new factor then verify the 6-digit code.
+  // On success the current session is auto-elevated to AAL2 by Supabase.
+  async mfaVerifyEnroll(factorId, code) {
+    try {
+      const ch = await sb.auth.mfa.challenge({ factorId });
+      if (ch.error) return { ok: false, reason: ch.error.message };
+      const { error } = await sb.auth.mfa.verify({ factorId, challengeId: ch.data.id, code: String(code || '').trim() });
+      if (error) return { ok: false, reason: error.message };
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+  },
+  // Turn 2FA off by removing a factor.
+  async mfaUnenroll(factorId) {
+    try {
+      const { error } = await sb.auth.mfa.unenroll({ factorId });
+      if (error) return { ok: false, reason: error.message };
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+  },
+  // Current vs required assurance level. After a password login on an account
+  // WITH 2FA, currentLevel='aal1' + nextLevel='aal2' → a challenge is owed.
+  async mfaAssurance() {
+    try {
+      const { data, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (error) return { ok: false, reason: error.message };
+      return { ok: true, currentLevel: data.currentLevel, nextLevel: data.nextLevel };
+    } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+  },
+  // Login-time step-up: verify a 6-digit code against the first VERIFIED TOTP
+  // factor to lift the fresh session from AAL1 → AAL2.
+  async mfaChallengeVerify(code) {
+    try {
+      const list = await sb.auth.mfa.listFactors();
+      if (list.error) return { ok: false, reason: list.error.message };
+      const factor = ((list.data && list.data.totp) || []).find(f => f.status === 'verified');
+      if (!factor) return { ok: false, reason: 'no verified authenticator on this account' };
+      const ch = await sb.auth.mfa.challenge({ factorId: factor.id });
+      if (ch.error) return { ok: false, reason: ch.error.message };
+      const { error } = await sb.auth.mfa.verify({ factorId: factor.id, challengeId: ch.data.id, code: String(code || '').trim() });
+      if (error) return { ok: false, reason: error.message };
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+  },
+
   async signUpCoach(name, email, password, bio) {
     // Profile row is created by the on_auth_user_created trigger using this metadata.
     const { data, error } = await sb.auth.signUp({
@@ -531,6 +767,15 @@ const DB = {
     if (error) { console.warn('admin listAllGoals', error); return []; }
     return (data || []).map(mapDbGoals);
   },
+  // Forwarded client-side errors (send-client-error edge fn → client_errors).
+  // Admin-only read (migration-client-errors-admin-read.sql). Returns [] when
+  // the table/policy/endpoint isn't live yet, so the Errors tab stays graceful.
+  async listClientErrors(limit) {
+    const { data, error } = await sb.from('client_errors')
+      .select('*').order('received_at', { ascending: false }).limit(limit || 500);
+    if (error) { console.warn('admin listClientErrors', error); return []; }
+    return (data || []).map(mapDbClientError);
+  },
   async listAthletesForCoach(coachId) {
     // RLS allows coach to read profiles where coach_id = auth.uid() — combined
     // with user_type filter, this returns only athletes coached by current user.
@@ -573,6 +818,137 @@ const DB = {
     const { error } = await sb.from('profiles')
       .update({ referred_by_code: String(code).trim().toUpperCase() })
       .in('id', [userId]);
+    if (error) throw error;
+  },
+  // Reward claims the current user has already made (RLS: own rows only).
+  async listMyRewardClaims(userId) {
+    const { data, error } = await sb.from('referral_reward_claims')
+      .select('*').in('user_id', [userId])
+      .order('tier_at', { ascending: true });
+    if (error) { console.warn('listMyRewardClaims', error); return []; }
+    return (data || []).map(mapDbRewardClaim);
+  },
+  // Claim a referral tier reward. A SECURITY DEFINER rpc counts the caller's OWN
+  // referrals and refuses any tier they haven't earned (clients have no direct
+  // INSERT policy). Idempotent server-side — re-claiming returns the same row.
+  async claimReferralReward(tierAt) {
+    const { data, error } = await sb.rpc('claim_referral_reward', { p_tier_at: tierAt });
+    if (error) throw error;
+    return Array.isArray(data) ? (data[0] ? mapDbRewardClaim(data[0]) : null)
+                               : (data ? mapDbRewardClaim(data) : null);
+  },
+
+  // ---------- EMAIL PREFERENCES ----------
+  // One row per user (RLS: own row only). Backs the weekly-digest opt-out (#19)
+  // and product-email/unsubscribe prefs (#36). Absence of a row = opted in, so
+  // a read miss returns sensible defaults rather than erroring.
+  async getEmailPrefs(userId) {
+    if (!userId) return mapDbEmailPrefs(null);
+    const { data, error } = await sb.from('email_preferences')
+      .select('*').in('user_id', [userId]).limit(1);
+    if (error) { console.warn('getEmailPrefs', error); return mapDbEmailPrefs(null); }
+    return mapDbEmailPrefs((data && data[0]) || null);
+  },
+  // Toggle the caller's own flags. UPSERT so the first toggle creates the row
+  // (WITH CHECK user_id = auth.uid() on both insert + update). Never touches
+  // unsub_token (server default / stable). `patch` keys: weeklyDigest, productEmails.
+  // `patch` keys: weeklyDigest, productEmails (email) + pushMessages,
+  // pushFormChecks, pushProgram (#30). If the push_* columns don't exist yet
+  // (migration-notification-prefs.sql not run), the upsert fails with a
+  // column-missing error → we strip the push keys and retry with just the email
+  // columns, so email prefs keep working before the notif migration lands
+  // (same forward-compat pattern as the marketplace-category writes).
+  async updateEmailPrefs(userId, patch) {
+    if (!userId) throw new Error('No user');
+    const full = { user_id: userId };
+    if (typeof patch.weeklyDigest === 'boolean')   full.weekly_digest = patch.weeklyDigest;
+    if (typeof patch.productEmails === 'boolean')  full.product_emails = patch.productEmails;
+    if (typeof patch.pushMessages === 'boolean')   full.push_messages = patch.pushMessages;
+    if (typeof patch.pushFormChecks === 'boolean') full.push_form_checks = patch.pushFormChecks;
+    if (typeof patch.pushProgram === 'boolean')    full.push_program = patch.pushProgram;
+    let res = await sb.from('email_preferences')
+      .upsert(full, { onConflict: 'user_id' }).select('*').limit(1);
+    if (res.error && /push_(messages|form_checks|program)/.test(res.error.message || '')) {
+      const { push_messages, push_form_checks, push_program, ...safe } = full;
+      res = await sb.from('email_preferences')
+        .upsert(safe, { onConflict: 'user_id' }).select('*').limit(1);
+    }
+    if (res.error) throw res.error;
+    return mapDbEmailPrefs((res.data && res.data[0]) || full);
+  },
+
+  // One-click email unsubscribe by token (#36). UNAUTHENTICATED — powers
+  // unsubscribe.html, which the footer link in every email points at. The
+  // `unsub_token` is the capability; the `unsubscribe` edge function (Verify
+  // JWT OFF) resolves it server-side via the service role. Pass `set` to
+  // mutate ({ weeklyDigest?, productEmails? }) or omit it to just read state.
+  // Always resolves to { ok, weeklyDigest?, productEmails?, reason? } — never
+  // throws, so the landing page can render a friendly state on any failure.
+  async unsubscribeEmail(token, set) {
+    try {
+      const body = { token: String(token || '') };
+      if (set && typeof set === 'object') body.set = set;
+      const { data, error } = await sb.functions.invoke('unsubscribe', { body });
+      if (error) {
+        let reason = error.message || String(error);
+        try {
+          if (error.context && typeof error.context.clone === 'function') {
+            const b = await error.context.clone().json();
+            if (b && (b.reason || b.error)) reason = b.reason || b.error;
+          }
+        } catch (_) {}
+        return { ok: false, reason };
+      }
+      if (data && data.ok) {
+        return { ok: true, weeklyDigest: data.weeklyDigest !== false, productEmails: data.productEmails !== false };
+      }
+      return { ok: false, reason: (data && (data.reason || data.error)) || 'unavailable' };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  },
+
+  // ---------- LEADERBOARD ----------
+  // Public, opt-in DOTS board. Every row exists only because its owner published
+  // it (publishing IS the opt-in; deleting IS the opt-out) and every column is one
+  // the owner chose to share — so anon + authenticated read all rows. profiles is
+  // never exposed; this denormalised projection is read instead (same pattern as
+  // program_reviews). Ordered by DOTS desc (indexed).
+  async listLeaderboard(opts = {}) {
+    let q = sb.from('leaderboard_entries').select('*')
+      .order('dots', { ascending: false });
+    if (opts.sex === 'male' || opts.sex === 'female') q = q.eq('sex', opts.sex);
+    if (opts.limit) q = q.limit(opts.limit);
+    const { data, error } = await q;
+    if (error) { console.warn('listLeaderboard', error); return []; }
+    return (data || []).map(mapDbLeaderboardEntry);
+  },
+  // The current user's own row, or null if they haven't opted in.
+  async myLeaderboardEntry(userId) {
+    if (!userId) return null;
+    const { data, error } = await sb.from('leaderboard_entries')
+      .select('*').in('user_id', [userId]).limit(1);
+    if (error) { console.warn('myLeaderboardEntry', error); return null; }
+    return data && data[0] ? mapDbLeaderboardEntry(data[0]) : null;
+  },
+  // Publish / refresh the caller's row. UPDATE-then-INSERT (RLS-safe upsert: the
+  // UPDATE path succeeds for an existing row where a plain INSERT-with-CHECK can
+  // trip RLS). user_id must equal auth.uid() per the owner-only write policies.
+  async upsertLeaderboardEntry(entry) {
+    const row = mapJsLeaderboardEntry(entry);
+    const { data: upd, error: uErr } = await sb.from('leaderboard_entries')
+      .update(row).in('user_id', [entry.userId]).select();
+    if (uErr) throw uErr;
+    if (upd && upd.length) return mapDbLeaderboardEntry(upd[0]);
+    const { data: ins, error: iErr } = await sb.from('leaderboard_entries')
+      .insert(row).select();
+    if (iErr) throw iErr;
+    return ins && ins[0] ? mapDbLeaderboardEntry(ins[0]) : null;
+  },
+  // Leave the board. RLS lets a caller delete only their own row.
+  async removeLeaderboardEntry(userId) {
+    const { error } = await sb.from('leaderboard_entries')
+      .delete().in('user_id', [userId]);
     if (error) throw error;
   },
 
@@ -658,6 +1034,30 @@ const DB = {
   },
   async upsertBw(b) {
     const { error } = await sb.from('bodyweight').upsert(mapJsBw(b), { onConflict: 'athlete_id,date' });
+    if (error) throw error;
+  },
+
+  // ---------- MEETS (competition results) ----------
+  async listMeetsForAthlete(athleteId) {
+    const { data, error } = await sb.from('meets').select('*').in('athlete_id', [athleteId]).order('meet_date', { ascending: false });
+    if (error) { console.warn('listMeets', error); return []; }
+    return (data || []).map(mapDbMeet);
+  },
+  async listMeetsForAthletes(athleteIds) {
+    if (!athleteIds.length) return [];
+    const { data, error } = await sb.from('meets').select('*').in('athlete_id', athleteIds).order('meet_date', { ascending: false });
+    if (error) { console.warn('listMeetsForAthletes', error); return []; }
+    return (data || []).map(mapDbMeet);
+  },
+  // Insert (no id) or update (id present) — upsert on the PK. Returns the saved
+  // row so the caller picks up the DB-generated id on first save.
+  async saveMeet(m) {
+    const { data, error } = await sb.from('meets').upsert(mapJsMeet(m)).select('*');
+    if (error) throw error;
+    return (data && data.length) ? mapDbMeet(data[0]) : null;
+  },
+  async deleteMeet(id) {
+    const { error } = await sb.from('meets').delete().in('id', [id]);
     if (error) throw error;
   },
 
@@ -1122,6 +1522,25 @@ const DB = {
     } catch (e) { console.warn('subscribeMessages', e); return null; }
   },
 
+  // Live read-receipt stream. Same shape as subscribeMessages but listens for
+  // UPDATE (read_at stamped when the other party opens the thread). Fires
+  // onUpdate(message) with the full mapped row — possible only because
+  // migration-messages-realtime.sql sets REPLICA IDENTITY FULL on `messages`,
+  // so UPDATE payloads carry every column, not just the PK. Returns an
+  // unsubscribe function (or null when unavailable).
+  subscribeMessageReads(filter, onUpdate) {
+    if (!filter || !filter.column || !filter.value || typeof onUpdate !== 'function') return null;
+    try {
+      const tag = 'msgread:' + filter.column + ':' + filter.value + ':' + Math.random().toString(36).slice(2, 8);
+      const ch = sb.channel(tag)
+        .on('postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'messages', filter: filter.column + '=eq.' + filter.value },
+          payload => { try { onUpdate(mapDbMessage(payload.new)); } catch (e) { console.warn('subscribeMessageReads cb', e); } })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribeMessageReads', e); return null; }
+  },
+
   // ---- Form-check video uploads ---------------------------------------
   // Athlete uploads a video to the private `form-checks` bucket, then records
   // the metadata row. Returns the created form_check (mapped) or throws.
@@ -1310,7 +1729,7 @@ const DB = {
     const empty = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
       workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
-      checkins: [],
+      checkins: [], meets: [],
       marketplacePrograms: [], mySales: [], myPurchases: []
     };
 
@@ -1324,7 +1743,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, mp, sales] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -1333,6 +1752,7 @@ const DB = {
         this.listNotesForAthletes(athleteIds),
         this.listGoalsForAthletes(athleteIds),
         this.listCheckinsForAthletes(athleteIds),
+        this.listMeetsForAthletes(athleteIds),
         this.listMyPublishedPrograms(profile.id).catch(() => []),
         this.listMySales(profile.id).catch(() => [])
       ]);
@@ -1344,11 +1764,12 @@ const DB = {
       empty.sessionNotes = notes;
       empty.goals = goals;
       empty.checkins = checkins;
+      empty.meets = meets;
       empty.marketplacePrograms = mp;
       empty.mySales = sales;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, purchases] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -1356,6 +1777,7 @@ const DB = {
         this.getGoals(profile.id),
         this.listRestForAthlete(profile.id),
         this.listCheckins(profile.id),
+        this.listMeetsForAthlete(profile.id),
         this.listMyPurchases(profile.id).catch(() => [])
       ]);
       empty.myPurchases = purchases;
@@ -1366,6 +1788,7 @@ const DB = {
       empty.goals = goals ? [goals] : [];
       empty.restDays = rest;
       empty.checkins = checkins;
+      empty.meets = meets;
 
       // Athlete also needs to see their own profile + their coach
       empty.athletes = [mapDbProfileToAthlete(profile)];

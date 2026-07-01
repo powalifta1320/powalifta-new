@@ -8,6 +8,7 @@
 <meta property="og:title" content="Coach on POWALIFTA">
 <meta property="og:description" content="Powerlifting coach profile — programs, philosophy, athlete results.">
 <meta property="og:type" content="profile">
+<link rel="canonical" href="https://www.powalifta.com/coach-profile.html">
 <meta property="og:url" content="https://www.powalifta.com/coach-profile.html">
 <meta property="og:image" content="https://www.powalifta.com/og.png">
 <meta property="og:image:width" content="1200">
@@ -195,6 +196,7 @@
 </head>
 <body>
 
+<a class="skip-link" href="#cpRoot">Skip to content</a>
 <nav class="nav" id="nav"></nav>
 
 <main id="cpRoot">
@@ -206,6 +208,8 @@
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
     <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="exercises.html" class="dim">Exercises</a>
       <a href="about.html" class="dim">About</a>
       <a href="faq.html" class="dim">FAQ</a>
       <a href="privacy.html" class="dim">Privacy</a>
@@ -381,6 +385,20 @@ async function renderCoachProfile() {
   root.appendChild(ctaSec);
 
   document.title = coach.name + ' — POWALIFTA';
+
+  // Per-coach SEO refinement (crawlers that run JS + social unfurlers get the specific coach).
+  const canonUrl = 'https://www.powalifta.com/coach-profile.html?id=' + encodeURIComponent(id);
+  const ogTitle = coach.name + ' — Powerlifting coach on POWALIFTA';
+  const ogDesc = (coach.bio && coach.bio.trim()) ? coach.bio.trim().slice(0, 155)
+    : ('Train with ' + coach.name + ' on POWALIFTA — programs, philosophy, and athlete results.');
+  const setMeta = (sel, attr, val) => { const m = document.querySelector(sel); if (m) m.setAttribute(attr, val); };
+  setMeta('link[rel="canonical"]', 'href', canonUrl);
+  setMeta('meta[property="og:url"]', 'content', canonUrl);
+  setMeta('meta[property="og:title"]', 'content', ogTitle);
+  setMeta('meta[name="twitter:title"]', 'content', ogTitle);
+  setMeta('meta[name="description"]', 'content', ogDesc);
+  setMeta('meta[property="og:description"]', 'content', ogDesc);
+  setMeta('meta[name="twitter:description"]', 'content', ogDesc);
 }
 
 document.getElementById('footMark').innerHTML = BRAND_MARK;

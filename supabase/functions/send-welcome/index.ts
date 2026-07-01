@@ -5,8 +5,17 @@
 // then set the env var RESEND_API_KEY in the function's secrets.
 // Toggle "Verify JWT" OFF — this needs to be callable during signup before login.
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { clientIp, rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
+
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const FROM = 'POWALIFTA <noreply@powalifta.com>';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey'
+};
 
 function htmlEscape(str: string): string {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -117,6 +126,26 @@ Deno.serve(async (req) => {
   const name = String(payload?.name || '').trim();
   const type = (payload?.type === 'coach') ? 'coach' : 'athlete';
   if (!email || !email.includes('@')) return jsonResponse(400, { error: 'Invalid email' });
+
+  // Abuse guard. This is unauthenticated (signup fires it before login), so
+  // without a ceiling anyone could loop it to email-bomb a victim and burn
+  // Resend quota + domain reputation. Two limits, keyed by the service role
+  // (SUPABASE_* are auto-injected in every edge function): burst-per-IP and a
+  // strict per-recipient/day cap so one address can't be flooded. Fails open
+  // if the meter isn't deployed yet, so this never blocks a real signup.
+  const rlUrl = Deno.env.get('SUPABASE_URL');
+  const rlKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (rlUrl && rlKey) {
+    const admin = createClient(rlUrl, rlKey);
+    const ipRl = await rateLimit(admin, {
+      bucket: 'welcome-ip', identity: clientIp(req), limit: 20, windowSecs: 3600,
+    });
+    if (!ipRl.ok) return rateLimitResponse(ipRl, CORS);
+    const emailRl = await rateLimit(admin, {
+      bucket: 'welcome-email', identity: email, limit: 3, windowSecs: 86400,
+    });
+    if (!emailRl.ok) return rateLimitResponse(emailRl, CORS);
+  }
 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) {

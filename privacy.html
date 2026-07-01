@@ -6,10 +6,17 @@
 <title>Privacy Policy — POWALIFTA</title>
 <meta name="description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
 <meta property="og:title" content="Privacy Policy — POWALIFTA">
+<meta property="og:description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/privacy.html">
 <meta property="og:url" content="https://www.powalifta.com/privacy.html">
 <meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacy Policy — POWALIFTA">
+<meta name="twitter:description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -29,9 +36,10 @@
 </head>
 <body>
 
+<a class="skip-link" href="#main">Skip to content</a>
 <nav class="nav" id="nav"></nav>
 
-<main class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
+<main id="main" class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
   <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
   <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 8px;">Privacy Policy</h1>
   <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 11 June 2026</p>
@@ -54,7 +62,7 @@
     <p>The in-app assistant ("Ask AI") is optional: you only use it if you open it and ask a question. When you do, the question plus a short summary of the relevant training data (for example your recent lifts, e1RM and program, or for coaches a roster overview) is sent to <strong>Google</strong> to generate a reply with their Gemini model. We send only what's needed to answer, never your password or payment details. The request goes through our own server first so the API key is never exposed to your browser. If you never open the assistant, none of your data is sent to Google.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">How long we keep data</h3>
-    <p>While your account is active, we keep your data so you can see your training history. When you delete your account, we delete your personal data within 30 days, except where billing records must be retained for tax purposes (these are kept by our payment processor).</p>
+    <p>While your account is active, we keep your data so you can see your training history. When you delete your account, the erasure is immediate — your profile, programs, logs, messages, uploaded form-check videos and everything else tied to you are removed straight away, not queued for later. The one exception is billing/purchase records we're legally required to keep for tax: those rows survive with your personal details stripped out (the amount and date remain; the identity is anonymized).</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Who we share it with</h3>
     <p>Nobody, except: coaches you have connected to (they see your training data and notes — that's the point), our payment processor for billing-related lookups (coaches only), and any authorities if compelled by law. We do not sell user data to advertisers, brokers, or any third party.</p>
@@ -63,7 +71,7 @@
     <p>We don't use advertising trackers, cross-site cookies, or fingerprinting, and we never sell your data. We keep you logged in with a session token in your browser's localStorage; that's essential, and clearing it just signs you out. For visit counts we use <a href="https://plausible.io/privacy-focused-web-analytics" target="_blank" rel="noopener">Plausible</a>, a privacy-friendly, cookieless analytics tool that stores no personal data and never tracks you across sites. Prefer not to be counted? Choose "Essential only" on the privacy banner when you first visit, and we'll remember it.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Your rights</h3>
-    <p>You can access, export, or delete your data at any time. <strong>Export is self-serve and instant</strong> — open Settings on your dashboard and use the Export buttons under "Your data" to download a full JSON archive or a CSV of your training log. For deletion, or anything else, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a> and we'll handle it within 30 days. If you're in the EU, UK, or California, you have specific rights under GDPR/UK-GDPR/CCPA — same email, same response time.</p>
+    <p>You can access, export, or delete your data at any time — all self-serve from Settings on your dashboard. <strong>Export is instant</strong>: use the Export buttons under "Your data" for a full JSON archive or a CSV of your training log. <strong>Deletion is self-serve too</strong>: open Settings → Danger zone → "Delete my account", type <code>DELETE</code> to confirm, and your account and data are erased immediately (billing records are retained anonymized, as above). Prefer we do it for you, or need anything else? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a> and we'll handle it within 30 days. If you're in the EU, UK, or California, you have specific rights under GDPR/UK-GDPR/CCPA — same options, same response time.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Children</h3>
     <p>POWALIFTA is not intended for use by anyone under 16. We do not knowingly collect data from children. If you believe a child has signed up, contact us and we'll remove the account.</p>
@@ -81,6 +89,8 @@
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
     <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="exercises.html" class="dim">Exercises</a>
       <a href="about.html" class="dim">About</a>
       <a href="faq.html" class="dim">FAQ</a>
       <a href="privacy.html" class="dim">Privacy</a>

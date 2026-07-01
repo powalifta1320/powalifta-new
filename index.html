@@ -581,6 +581,9 @@
       <a href="#inside" class="dim">Features</a>
       <a href="#e1rm" class="dim">Max calculator</a>
       <a href="marketplace.html" class="dim">Marketplace</a>
+      <a href="leaderboard.html" class="dim">Leaderboard</a>
+      <a href="exercises.html" class="dim">Exercise library</a>
+      <a href="guides.html" class="dim">Guides</a>
       <a href="#pricing" class="dim">Pricing</a>
     </div>
     <div class="footer-col">
@@ -606,7 +609,7 @@
 <!-- LOGIN MODAL -->
 <div class="modal-backdrop" id="loginModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('loginModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('loginModal')">&times;</button>
     <h3>Log in</h3>
     <div class="form-group">
       <label>Account type</label>
@@ -634,7 +637,7 @@
 <!-- FORGOT PASSWORD MODAL -->
 <div class="modal-backdrop" id="forgotModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('forgotModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('forgotModal')">&times;</button>
     <h3>Reset your password</h3>
     <p class="dim text-sm mb-16">Enter the email you signed up with, and we'll send you a reset link.</p>
     <div class="form-group">
@@ -649,7 +652,7 @@
 <!-- SIGNUP MODAL -->
 <div class="modal-backdrop" id="signupModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('signupModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('signupModal')">&times;</button>
     <h3 id="signupTitle">Sign up</h3>
     <div class="form-group">
       <label>Account type</label>
@@ -905,6 +908,14 @@ async function doLogin() {
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
   try {
     await DB.signIn(email, pwd);
+    // Step-up (#37): accounts with 2FA sit at AAL1 right after the password —
+    // challenge for the authenticator code before proceeding. mfaAssurance is
+    // soft-failing, so users without 2FA (or if MFA is unsupported) sail past.
+    const aal = await DB.mfaAssurance();
+    if (aal && aal.ok && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      const passed = await promptMfaChallenge();
+      if (!passed) { await DB.signOut(); throw new Error('Two-factor verification required'); }
+    }
     const session = await DB.getSession();
     const profile = await DB.getProfile(session.user.id);
     if (profile.user_type !== type) {
@@ -917,6 +928,58 @@ async function doLogin() {
     if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }
   }
 }
+
+// Login-time 2FA challenge (#37). Resolves true once the code verifies (session
+// elevates to AAL2), false on cancel. Self-contained modal reusing the shared
+// .modal-backdrop styles; DB.mfaChallengeVerify does the challenge+verify.
+function promptMfaChallenge() {
+  return new Promise((resolve) => {
+    let modal = document.getElementById('mfaChallengeModal');
+    if (!modal) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = '<div class="modal-backdrop" id="mfaChallengeModal">' +
+        '<div class="modal">' +
+          '<h2 style="margin-bottom:6px">Two-factor verification</h2>' +
+          '<p class="dim text-sm mb-16" style="line-height:1.5">Enter the 6-digit code from your authenticator app to finish signing in.</p>' +
+          '<div class="form-group"><label>Code</label>' +
+            '<input type="text" id="mfaChalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
+          '<div id="mfaChalErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
+          '<button class="btn btn-primary btn-block" id="mfaChalVerify">Verify</button>' +
+          '<button class="btn btn-block btn-ghost mt-8" id="mfaChalCancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+      modal = wrap.firstChild;
+      document.body.appendChild(modal);
+    }
+    const codeInp = modal.querySelector('#mfaChalCode');
+    const err = modal.querySelector('#mfaChalErr');
+    const verifyBtn = modal.querySelector('#mfaChalVerify');
+    const cancelBtn = modal.querySelector('#mfaChalCancel');
+    codeInp.value = ''; err.textContent = '';
+    modal.classList.add('open');
+    setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
+
+    function cleanup(result) {
+      modal.classList.remove('open');
+      verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
+      resolve(result);
+    }
+    async function attempt() {
+      const code = (codeInp.value || '').replace(/\D/g, '');
+      if (code.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
+      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…'; err.textContent = '';
+      const res = await DB.mfaChallengeVerify(code);
+      verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+      if (res.ok) return cleanup(true);
+      err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
+        ? 'That code didn\'t match — try the current one.' : (res.reason || 'Verification failed.');
+    }
+    verifyBtn.onclick = attempt;
+    cancelBtn.onclick = function () { cleanup(false); };
+    codeInp.onkeydown = function (e) { if (e.key === 'Enter') attempt(); };
+  });
+}
+window.promptMfaChallenge = promptMfaChallenge;
 
 async function doSignup() {
   const btn = event && event.target;

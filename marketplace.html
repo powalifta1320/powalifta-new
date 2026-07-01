@@ -211,6 +211,7 @@
   line-height: 1;
   margin-bottom: 8px;
 }
+.mk-buy-cur { color: var(--text-3); font-size: 0.74rem; letter-spacing: 0.02em; margin-top: 2px; }
 .mk-buy-note { color: var(--text-3); font-size: 0.86rem; margin: 12px 0 18px; }
 
 .mk-loading, .mk-empty { text-align: center; padding: 80px 20px; color: var(--text-3); }
@@ -223,6 +224,7 @@
 </head>
 <body>
 
+<a class="skip-link" href="#mkRoot">Skip to content</a>
 <nav class="nav" id="nav"></nav>
 
 <main id="mkRoot">
@@ -245,6 +247,9 @@
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
     <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="leaderboard.html" class="dim">Leaderboard</a>
+      <a href="exercises.html" class="dim">Exercise library</a>
+      <a href="guides.html" class="dim">Guides</a>
       <a href="about.html" class="dim">About</a>
       <a href="faq.html" class="dim">FAQ</a>
       <a href="privacy.html" class="dim">Privacy</a>
@@ -278,7 +283,13 @@ function getProgramIdFromUrl() {
   return params.get('id') || '';
 }
 
-function fmtUsd(cents) { return '$' + (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2); }
+// Delegate to app.js's locale-aware formatter (shows international buyers "US$…"
+// and localizes grouping). Falls back to a plain "$X" if app.js hasn't loaded.
+function fmtUsd(cents) {
+  return (typeof fmtPrice === 'function')
+    ? fmtPrice(cents)
+    : '$' + (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
+}
 
 async function renderMarketplace() {
   const root = document.getElementById('mkRoot');
@@ -533,6 +544,7 @@ async function renderDetail(id) {
   // Buy card
   const buyCard = el('div', { class: 'mk-buy-card' });
   buyCard.appendChild(el('div', { class: 'mk-buy-price' }, fmtUsd(program.priceCents)));
+  buyCard.appendChild(el('div', { class: 'mk-buy-cur' }, 'Priced in USD · your local total is shown at checkout'));
   buyCard.appendChild(el('div', { class: 'mk-buy-note' }, 'One-time purchase. The program loads into your POWALIFTA account the moment payment clears.'));
 
   const buyBtn = el('a', { class: 'btn btn-primary btn-lg', id: 'mkBuyBtn' }, 'Buy program');

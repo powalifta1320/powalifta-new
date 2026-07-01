@@ -24,6 +24,7 @@
 </head>
 <body>
 
+<a class="skip-link" href="#main">Skip to content</a>
 <nav class="nav" id="nav"></nav>
 
 <div class="dash-shell">
@@ -41,7 +42,10 @@
     </div>
   </aside>
 
-  <main class="dash-main">
+  <main id="main" class="dash-main">
+
+    <!-- DUNNING / BILLING BANNER (#35) — page-wide, above every tab -->
+    <div id="dunningMount"></div>
 
     <!-- ROSTER -->
     <section data-pane="athletes">
@@ -110,7 +114,7 @@
 <!-- INVITE MODAL -->
 <div class="modal-backdrop" id="inviteModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('inviteModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('inviteModal')">&times;</button>
     <h3>Invite an athlete</h3>
     <div class="form-group">
       <label>Athlete email</label>
@@ -130,7 +134,7 @@
 <!-- MESSAGE ATHLETE MODAL -->
 <div class="modal-backdrop" id="messageModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeMessageModal()">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeMessageModal()">&times;</button>
     <h3 id="messageModalTitle">Message</h3>
     <div id="messageThreadHost" style="margin-top:14px;"></div>
   </div>
@@ -139,7 +143,7 @@
 <!-- FORM-CHECK REVIEW MODAL -->
 <div class="modal-backdrop" id="formCheckModal">
   <div class="modal modal-lg">
-    <button class="modal-close" onclick="closeModal('formCheckModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('formCheckModal')">&times;</button>
     <h3 id="formCheckTitle">Form check</h3>
     <div id="formCheckBody" style="margin-top:14px;"></div>
   </div>
@@ -148,7 +152,7 @@
 <!-- ADD EXERCISE MODAL -->
 <div class="modal-backdrop" id="addExerciseModal">
   <div class="modal modal-lg">
-    <button class="modal-close" onclick="closeModal('addExerciseModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('addExerciseModal')">&times;</button>
     <h3>Add exercise</h3>
     <div class="form-row">
       <div class="form-group">
@@ -204,7 +208,7 @@
 <!-- SAVE TEMPLATE MODAL -->
 <div class="modal-backdrop" id="saveTplModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('saveTplModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('saveTplModal')">&times;</button>
     <h3>Save program as template</h3>
     <p class="dim text-sm mb-16">Save the current program structure (lifts, sets, reps, RPE, notes) as a reusable template.</p>
     <div class="form-group">
@@ -221,16 +225,17 @@
 <!-- APPLY TEMPLATE MODAL -->
 <div class="modal-backdrop" id="applyTplModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('applyTplModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('applyTplModal')">&times;</button>
     <h3>Apply template</h3>
-    <p class="dim text-sm mb-16">Pick an athlete to apply the template to. <strong class="red">This replaces their current program.</strong></p>
-    <div class="form-group">
-      <label>Athlete</label>
-      <select id="applyTplAthlete"></select>
+    <p class="dim text-sm mb-16">Pick one or more athletes to assign <strong id="applyTplName">this template</strong> to. <strong class="red">It replaces the current program for everyone you select.</strong></p>
+    <div class="cohort-head">
+      <label class="cohort-all"><input type="checkbox" id="applyTplAll" onchange="toggleApplyTplAll()"> Select all</label>
+      <span class="cohort-count dim text-sm" id="applyTplCount">0 selected</span>
     </div>
-    <div class="flex gap-8">
+    <div class="cohort-list" id="applyTplList"></div>
+    <div class="flex gap-8" style="margin-top: 4px;">
       <button class="btn btn-block" onclick="closeModal('applyTplModal')">Cancel</button>
-      <button class="btn btn-primary btn-block" onclick="confirmApplyTemplate()">Apply template</button>
+      <button class="btn btn-primary btn-block" id="applyTplBtn" onclick="confirmApplyTemplate()">Apply template</button>
     </div>
   </div>
 </div>
@@ -238,7 +243,7 @@
 <!-- PUBLISH TO MARKETPLACE MODAL -->
 <div class="modal-backdrop" id="publishModal">
   <div class="modal modal-lg">
-    <button class="modal-close" onclick="closeModal('publishModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('publishModal')">&times;</button>
     <h3>Publish to marketplace</h3>
     <p class="dim text-sm mb-16">Athletes can buy this program directly. You keep 80% (paid out monthly). POWALIFTA reviews each submission before it goes live, usually within a day.</p>
 
@@ -331,6 +336,7 @@ bootstrap('coach', () => {
     });
   });
   renderRoster();
+  renderDunningBanner(document.getElementById('dunningMount')); // #35 failed-payment/plan-lapse banner
   refreshUnreadBadges();
   subscribeRosterMessages();
   refreshFormChecks();
@@ -585,6 +591,8 @@ async function declineJoinRequest(req, rowEl) {
 }
 
 // ===== ROSTER =====
+let _rosterPage = 1;
+const ROSTER_PER_PAGE = 6;
 function renderRoster() {
   renderPlanPill();
   const area = document.getElementById('rosterArea');
@@ -678,9 +686,16 @@ function renderRoster() {
       area.appendChild(fcInbox);
     }
 
-    area.appendChild(el('h3', { class: 'prog-sec' }, 'Roster'));
+    const rosterHead = el('div', { class: 'roster-sec-head' });
+    rosterHead.appendChild(el('h3', { class: 'prog-sec' }, 'Roster'));
+    if (overview.length > ROSTER_PER_PAGE) rosterHead.appendChild(el('span', { class: 'roster-sec-badge' }, overview.length + ' athletes'));
+    area.appendChild(rosterHead);
+    const rosterPageCount = Math.max(1, Math.ceil(overview.length / ROSTER_PER_PAGE));
+    if (_rosterPage > rosterPageCount) _rosterPage = rosterPageCount;
+    const rosterStart = (_rosterPage - 1) * ROSTER_PER_PAGE;
+    const pageOverview = overview.slice(rosterStart, rosterStart + ROSTER_PER_PAGE);
     const grid = el('div', { class: 'roster-grid' });
-    overview.forEach(o => {
+    pageOverview.forEach(o => {
       const card = el('div', { class: 'roster-card flag-' + o.flag, onclick: () => openAthleteProgram(o.athlete.id) });
       const head = el('div', { class: 'roster-card-head' });
       head.appendChild(el('div', { class: 'av' }, initials(o.athlete.name)));
@@ -734,6 +749,12 @@ function renderRoster() {
       grid.appendChild(card);
     });
     area.appendChild(grid);
+    const rosterPager = buildPager(overview.length, ROSTER_PER_PAGE, _rosterPage, function (p) {
+      _rosterPage = p; renderRoster();
+      const rg = document.querySelector('.roster-grid');
+      if (rg) rg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    if (rosterPager) area.appendChild(rosterPager);
   }
 
   const inv = Store.get().invites.filter(i => i.coachId === user.id && !i.used);
@@ -771,10 +792,24 @@ async function notifyAthleteAssigned() {
   const s = Store.get();
   const athlete = (s.athletes || []).find(a => a.id === aid);
   if (!athlete) { toast('Athlete not found'); return; }
-  if (!athlete.email) { toast('Athlete has no email on file'); return; }
   const prog = (s.programs || []).find(p => p.athleteId === aid);
   const programName = (prog && prog.name) || 'a new program';
   const coachName = user.name || 'Your coach';
+
+  // Fire-and-forget push (independent of email — reaches athletes with no email
+  // on file too, and never blocks the email path).
+  if (DB && typeof DB.sendPush === 'function') {
+    DB.sendPush({
+      toUserId: aid,
+      title: 'New program from ' + (coachName.split(' ')[0] || 'your coach'),
+      body: programName === 'a new program' ? 'Your coach assigned you a new program.' : ('"' + programName + '" is ready — open it in Today.'),
+      url: '/athlete.html',
+      tag: 'powa-prog-' + aid,
+      category: 'program'
+    }).catch(() => {});
+  }
+
+  if (!athlete.email) { toast('Push sent · no email on file for a backup'); return; }
 
   const btn = document.getElementById('notifyAthleteBtn');
   const orig = btn ? btn.textContent : '';
@@ -1074,6 +1109,19 @@ function openFormCheckReview(id) {
       if (updated) {
         const idx = _coachFormChecks.findIndex(x => x.id === fc.id);
         if (idx >= 0) _coachFormChecks[idx] = updated;
+      }
+      // Fire-and-forget push to the athlete (never block the reply on it).
+      if (fc.athleteId && DB && typeof DB.sendPush === 'function') {
+        const coachFirst = (user && user.name || '').split(' ')[0];
+        const liftLabel = fc.lift ? (fc.lift.charAt(0).toUpperCase() + fc.lift.slice(1) + ' ') : '';
+        DB.sendPush({
+          toUserId: fc.athleteId,
+          title: coachFirst ? (coachFirst + ' replied to your form check') : 'Form-check reply',
+          body: liftLabel + ta.value.trim().slice(0, 140),
+          url: '/athlete.html',
+          tag: 'powa-fc-' + fc.id,
+          category: 'form_checks'
+        }).catch(() => {});
       }
       toast('Reply sent to ' + (ath ? ath.name.split(' ')[0] : 'athlete'));
       closeModal('formCheckModal');
@@ -1924,20 +1972,21 @@ function renderCoachMarketplace() {
   const programs = s.marketplacePrograms || [];
   const sales = s.mySales || [];
 
-  // Earnings summary tiles. Refunded/voided sales (payout_status='cancelled',
-  // set by the marketplace refund webhook) must not count as sales or earnings.
-  const liveSales = sales.filter(x => x.payoutStatus !== 'cancelled');
-  const totalSales = liveSales.length;
-  const totalEarned = liveSales.reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
-  const pendingPayout = liveSales.filter(x => x.payoutStatus === 'pending').reduce((sum, x) => sum + (x.coachPayoutCents || 0), 0);
-  const paidOut = totalEarned - pendingPayout;
+  // Earnings rollup — pure helper in app.js. Cancelled/refunded sales
+  // (payout_status='cancelled', set by the marketplace refund webhook) are
+  // excluded from earnings and surfaced separately below. `earn` is reused
+  // for the per-program breakdown on each listing card.
+  const earn = (typeof coachEarningsSummary === 'function')
+    ? coachEarningsSummary(sales)
+    : { salesCount: 0, totalEarned: 0, thisMonth: 0, pending: 0, paid: 0, refundCount: 0, refundedCents: 0, perProgram: {} };
+  const money = (typeof fmtMoneyCents === 'function') ? fmtMoneyCents : (c => '$' + ((c || 0) / 100).toFixed(2));
 
   const tiles = el('div', { class: 'stat-grid' });
   [
-    { label: 'Total sales',     val: totalSales,                 unit: 'sale' + (totalSales === 1 ? '' : 's'), feat: true },
-    { label: 'Pending payout',  val: '$' + (pendingPayout / 100).toFixed(2), unit: '', feat: false },
-    { label: 'Lifetime paid',   val: '$' + (paidOut / 100).toFixed(2),       unit: '', feat: false },
-    { label: 'Listings',        val: programs.length,            unit: 'live + pending', feat: false }
+    { label: 'Total earned',   val: money(earn.totalEarned), unit: earn.salesCount + ' sale' + (earn.salesCount === 1 ? '' : 's'), feat: true },
+    { label: 'This month',     val: money(earn.thisMonth),   unit: '', feat: false },
+    { label: 'Pending payout', val: money(earn.pending),     unit: '', feat: false },
+    { label: 'Lifetime paid',  val: money(earn.paid),        unit: '', feat: false }
   ].forEach(t => {
     const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
     tile.appendChild(el('div', { class: 'stat-label' }, t.label));
@@ -1945,6 +1994,12 @@ function renderCoachMarketplace() {
     tiles.appendChild(tile);
   });
   area.appendChild(tiles);
+
+  // Refund note — only when money was clawed back.
+  if (earn.refundCount > 0) {
+    area.appendChild(el('div', { class: 'faint text-sm', style: 'margin-top: 10px;' },
+      earn.refundCount + ' refund' + (earn.refundCount === 1 ? '' : 's') + ' · −' + money(earn.refundedCents) + ' reversed'));
+  }
 
   // Listings
   area.appendChild(el('h3', { style: 'margin: 28px 0 14px; font-size: 1.3rem;' }, 'Your listings'));
@@ -1967,6 +2022,11 @@ function renderCoachMarketplace() {
       ));
       const catLbl = (typeof marketCategoryLabel === 'function' && p.category) ? marketCategoryLabel(p.category) : '';
       card.appendChild(el('div', { class: 'tpl-meta' }, '$' + (p.priceCents / 100).toFixed(2) + ' · ' + (TIER_LABEL[p.tier] || 'Program') + (catLbl ? ' · ' + catLbl : '') + ' · ' + p.weekCount + ' wk · ' + p.soldCount + ' sold'));
+      // Per-program earnings — ties the dashboard's totals back to each listing.
+      const pe = earn.perProgram[p.id];
+      if (pe && pe.earned) {
+        card.appendChild(el('div', { class: 'tpl-meta', style: 'color: var(--green); font-weight: 700; margin-top: 4px;' }, money(pe.earned) + ' earned · ' + pe.count + ' sale' + (pe.count === 1 ? '' : 's')));
+      }
       card.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 8px; line-height: 1.55;' }, (p.description || '').slice(0, 140) + (p.description && p.description.length > 140 ? '…' : '')));
 
       const actions = el('div', { class: 'tpl-actions' });
@@ -2003,11 +2063,13 @@ function renderCoachMarketplace() {
     sales.slice(0, 12).forEach(sale => {
       const prog = programs.find(p => p.id === sale.marketplaceProgramId);
       const row = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; gap: 8px;' });
+      const refunded = sale.payoutStatus === 'cancelled';
+      const statusLabel = refunded ? '↩ Refunded' : (sale.payoutStatus === 'paid' ? '✓ Paid out' : '⏳ Pending payout');
       row.appendChild(el('div', {},
         el('div', { class: 'fw-700' }, prog ? prog.title : '(deleted program)'),
-        el('div', { class: 'faint text-xs', style: 'margin-top: 2px;' }, fmtDate(sale.createdAt ? sale.createdAt.slice(0,10) : '') + ' · ' + (sale.payoutStatus === 'paid' ? '✓ Paid out' : '⏳ Pending payout'))
+        el('div', { class: 'faint text-xs', style: 'margin-top: 2px;' }, fmtDate(sale.createdAt ? sale.createdAt.slice(0,10) : '') + ' · ' + statusLabel)
       ));
-      row.appendChild(el('div', { class: 'mono fw-700', style: 'color: var(--green);' }, '+$' + (sale.coachPayoutCents / 100).toFixed(2)));
+      row.appendChild(el('div', { class: 'mono fw-700', style: 'color: ' + (refunded ? 'var(--text-3)' : 'var(--green)') + (refunded ? '; text-decoration: line-through;' : '') }, (refunded ? '−$' : '+$') + (sale.coachPayoutCents / 100).toFixed(2)));
       wrap.appendChild(row);
     });
     area.appendChild(wrap);
@@ -2047,23 +2109,65 @@ async function confirmSaveTemplate() {
 let _applyTplTarget = null;
 function openApplyTemplate(tpl) {
   _applyTplTarget = tpl;
-  const sel = document.getElementById('applyTplAthlete');
-  sel.innerHTML = '';
+  document.getElementById('applyTplName').textContent = '“' + (tpl.name || 'this template') + '”';
+  const list = document.getElementById('applyTplList');
+  list.innerHTML = '';
+  const allCb = document.getElementById('applyTplAll');
+  allCb.checked = false;
   const myAth = Store.get().athletes.filter(a => a.coachId === user.id);
-  if (!myAth.length) sel.appendChild(el('option', { value: '' }, 'No athletes — invite first'));
-  else myAth.forEach(a => sel.appendChild(el('option', { value: a.id }, a.name)));
+  if (!myAth.length) {
+    allCb.disabled = true;
+    list.appendChild(el('div', { class: 'cohort-empty' }, 'No athletes yet — invite one first, then assign templates in bulk.'));
+  } else {
+    allCb.disabled = false;
+    const programs = Store.get().programs;
+    myAth.forEach(a => {
+      const hasProg = programs.some(p => p.athleteId === a.id);
+      const row = el('label', { class: 'cohort-row' });
+      const cb = el('input', { type: 'checkbox', class: 'cohort-cb', value: a.id });
+      cb.addEventListener('change', () => { row.classList.toggle('is-on', cb.checked); updateApplyTplCount(); });
+      row.appendChild(cb);
+      row.appendChild(el('span', { class: 'cohort-name' }, a.name));
+      row.appendChild(el('span', { class: 'cohort-sub' + (hasProg ? ' warn' : '') },
+        hasProg ? 'Replaces current program' : 'No program yet'));
+      list.appendChild(row);
+    });
+  }
+  updateApplyTplCount();
   openModal('applyTplModal');
 }
-async function confirmApplyTemplate() {
-  const aid = document.getElementById('applyTplAthlete').value;
-  if (!aid) return toast('Pick an athlete');
-
-  // Reuse existing program id if any (so DB upsert with onConflict=athlete_id keeps the same row)
-  const existing = Store.get().programs.find(p => p.athleteId === aid);
+function _applyTplCheckedIds() {
+  return [...document.querySelectorAll('#applyTplList .cohort-cb:checked')].map(c => c.value);
+}
+function updateApplyTplCount() {
+  const ids = _applyTplCheckedIds();
+  const n = ids.length;
+  const countEl = document.getElementById('applyTplCount');
+  if (countEl) countEl.textContent = n + ' selected';
+  const btn = document.getElementById('applyTplBtn');
+  if (btn) btn.textContent = n <= 1 ? 'Apply template' : ('Apply to ' + n + ' athletes');
+  const boxes = [...document.querySelectorAll('#applyTplList .cohort-cb')];
+  const allCb = document.getElementById('applyTplAll');
+  if (allCb && boxes.length) allCb.checked = n === boxes.length;
+}
+function toggleApplyTplAll() {
+  const on = document.getElementById('applyTplAll').checked;
+  document.querySelectorAll('#applyTplList .cohort-cb').forEach(cb => {
+    cb.checked = on;
+    const row = cb.closest('.cohort-row');
+    if (row) row.classList.toggle('is-on', on);
+  });
+  updateApplyTplCount();
+}
+// Build a fresh program payload from a template for one athlete. Reuses the
+// athlete's existing program id when present so the DB upsert (onConflict=
+// athlete_id) keeps the same row. Pure-ish: only reads Store for the id.
+function buildProgramFromTemplate(tpl, athleteId) {
+  const existing = Store.get().programs.find(p => p.athleteId === athleteId);
   const programId = existing ? existing.id : uid('prog');
-  const newProg = {
-    id: programId, athleteId: aid, coachId: user.id, name: _applyTplTarget.name,
-    weeks: _applyTplTarget.payload.weeks.map(wk => ({
+  return {
+    id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name,
+    weeks: tpl.payload.weeks.map(wk => ({
       id: uid('wk'), number: wk.number,
       days: wk.days.map(d => ({
         id: uid('day'), name: d.name,
@@ -2075,12 +2179,35 @@ async function confirmApplyTemplate() {
       }))
     }))
   };
-  Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); s.programs.push(newProg); });
-  try { if (!window._demoMode) await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not apply template'); }
+}
+async function confirmApplyTemplate() {
+  const ids = _applyTplCheckedIds();
+  if (!ids.length) return toast('Pick at least one athlete');
+
+  // Build all programs first, then commit to the Store in a single update so the
+  // roster/program panes re-render once. Each athlete's existing program (if any)
+  // is replaced by id, matching the single-athlete behaviour.
+  const built = ids.map(aid => buildProgramFromTemplate(_applyTplTarget, aid));
+  Store.update(s => {
+    s.programs = s.programs.filter(p => !ids.includes(p.athleteId));
+    built.forEach(p => s.programs.push(p));
+  });
+
+  let failed = 0;
+  if (!window._demoMode) {
+    for (const prog of built) {
+      try { await DB.upsertProgram(prog); }
+      catch (e) { console.error('apply template →', prog.athleteId, e); failed++; }
+    }
+  }
   closeModal('applyTplModal');
-  toast('Template applied');
+  if (failed) toast('Applied to ' + (built.length - failed) + ' of ' + built.length + ' — ' + failed + ' failed');
+  else toast(built.length === 1 ? 'Template applied' : ('Template applied to ' + built.length + ' athletes'));
+
+  // Jump to the builder focused on the first athlete we just assigned.
+  const firstId = ids[0];
   document.querySelector('[data-tab="program"]').click();
-  setTimeout(() => { document.getElementById('progAthlete').value = aid; activeWeekIdx = 0; loadProgram(); }, 50);
+  setTimeout(() => { document.getElementById('progAthlete').value = firstId; activeWeekIdx = 0; loadProgram(); }, 50);
 }
 
 // Hook the AI assistant's "Insert into builder" button. Targets the athlete

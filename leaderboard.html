@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOTS leaderboard — POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<meta name="description" content="The opt-in POWALIFTA leaderboard. See where your competition-equivalent total and DOTS stack up against lifters worldwide. Publish your numbers, or just browse.">
+<meta property="og:title" content="POWALIFTA DOTS Leaderboard — see where you stack up">
+<meta property="og:description" content="An opt-in, bodyweight-adjusted DOTS leaderboard for real lifters. Publish your total, browse the rankings.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://www.powalifta.com/leaderboard.html">
+<meta property="og:url" content="https://www.powalifta.com/leaderboard.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POWALIFTA DOTS Leaderboard — see where you stack up">
+<meta name="twitter:description" content="An opt-in, bodyweight-adjusted DOTS leaderboard for real lifters.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<link rel="stylesheet" href="ui-fx.css">
+<link rel="stylesheet" href="insane-fx.css">
+<script defer src="ui-fx.js"></script>
+<script defer src="insane-fx.js"></script>
+<style>
+.lb-hero {
+  padding: 60px 0 30px;
+  border-bottom: 1px solid var(--line);
+  background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,45,63,0.10), transparent 70%);
+}
+.lb-hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); letter-spacing: 0.005em; margin-bottom: 14px; }
+.lb-hero p { color: var(--text-2); font-size: 1.05rem; max-width: 600px; }
+.lb-toolbar {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin: 28px 0 20px;
+}
+.lb-seg {
+  display: inline-flex; padding: 4px; gap: 4px;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 100px;
+}
+.lb-seg-btn {
+  padding: 7px 16px; border-radius: 100px; border: 0; cursor: pointer;
+  background: transparent; color: var(--text-2);
+  font: inherit; font-weight: 600; font-size: 0.85rem; transition: all 0.18s ease;
+}
+.lb-seg-btn.active { background: var(--grad-red); color: #fff; }
+.lb-count { color: var(--text-3); font-size: 0.85rem; font-family: 'Space Grotesk', monospace; }
+.lb-cta-card {
+  margin: 8px 0 30px; padding: 18px 20px;
+  border: 1px solid var(--line-red); border-radius: 14px;
+  background: rgba(255,45,63,0.05);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.lb-cta-card .lcc-t { font-weight: 700; margin-bottom: 3px; }
+.lb-cta-card .lcc-s { color: var(--text-2); font-size: 0.88rem; }
+</style>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#lbRoot">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="lbRoot">
+  <section class="lb-hero">
+    <div class="container">
+      <h1>DOTS leaderboard</h1>
+      <p>Bodyweight-adjusted, opt-in, and built from competition-equivalent e1RMs — the same DOTS your strength-score card shows. Publish your numbers to join, or just see where you'd land.</p>
+    </div>
+  </section>
+
+  <div class="container" style="padding: 8px 0 64px;">
+    <div id="lbCta"></div>
+    <div class="lb-toolbar">
+      <div class="lb-seg" role="group" aria-label="Filter by sex">
+        <button class="lb-seg-btn active" type="button" data-sex="">All</button>
+        <button class="lb-seg-btn" type="button" data-sex="male">Men</button>
+        <button class="lb-seg-btn" type="button" data-sex="female">Women</button>
+      </div>
+      <span class="lb-count" id="lbCount"></span>
+    </div>
+
+    <div class="lb-head" aria-hidden="true">
+      <span class="lbh-rank">#</span>
+      <span class="lbh-id">Lifter</span>
+      <span class="lbh-cls">Class</span>
+      <span>Total</span>
+      <span>DOTS</span>
+    </div>
+    <div class="lb-board" id="lbBoard">
+      <div class="lb-empty dim">Loading the board…</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="exercises.html" class="dim">Exercises</a>
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let _lbUser = null;
+let _lbSex = '';
+
+async function renderBoard() {
+  const board = document.getElementById('lbBoard');
+  const ranked = await renderLeaderboard(board, {
+    sex: _lbSex,
+    highlightUserId: window._demoMode ? 'DEMO_ME' : (_lbUser ? _lbUser.id : null)
+  });
+  const n = (ranked || []).length;
+  const cnt = document.getElementById('lbCount');
+  cnt.textContent = n ? (n + ' lifter' + (n === 1 ? '' : 's') + (_lbSex ? ' · ' + (_lbSex === 'female' ? 'Women' : 'Men') : '')) : '';
+}
+
+function renderCta() {
+  const host = document.getElementById('lbCta');
+  host.innerHTML = '';
+  // Signed-in athletes publish from their dashboard; signed-out get a sign-up nudge.
+  const card = el('div', { class: 'lb-cta-card' });
+  const left = el('div', {});
+  if (_lbUser) {
+    left.appendChild(el('div', { class: 'lcc-t' }, 'Want on the board?'));
+    left.appendChild(el('div', { class: 'lcc-s' }, 'Publish your numbers from your strength-score card — one tap, and you can leave anytime.'));
+    card.appendChild(left);
+    card.appendChild(el('a', { class: 'btn btn-primary btn-sm', href: 'athlete.html#progress' }, 'Go to my dashboard'));
+  } else {
+    left.appendChild(el('div', { class: 'lcc-t' }, 'See where you stack up'));
+    left.appendChild(el('div', { class: 'lcc-s' }, 'Free for athletes. Log your lifts, get your DOTS, and publish to the board when you’re ready.'));
+    card.appendChild(left);
+    card.appendChild(el('a', { class: 'btn btn-primary btn-sm', href: 'index.html#signup' }, 'Start free'));
+  }
+  host.appendChild(card);
+}
+
+document.querySelectorAll('.lb-seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('active')) return;
+    document.querySelectorAll('.lb-seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _lbSex = btn.getAttribute('data-sex') || '';
+    renderBoard();
+  });
+});
+
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, async () => {
+  renderNav('#nav');
+  _lbUser = getCurrentUser();
+  renderCta();
+  renderBoard();
+}, { staticPublic: true });
+</script>
+</body>
+</html>

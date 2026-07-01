@@ -30,6 +30,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
+import { rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -66,6 +67,15 @@ Deno.serve(async (req) => {
   if (userErr || !userData?.user) return json({ error: 'invalid session' }, 401)
   const callerId = userData.user.id
 
+  // Per-caller ceiling. Push is authorized to self or a linked party, but a
+  // looping session could still spam a target's devices — cap the send rate.
+  // Higher than the mail limits (notifications are legitimately chattier).
+  // Fails open if the meter (rl_bump) isn't deployed yet.
+  const rl = await rateLimit(admin, {
+    bucket: 'push', identity: callerId, limit: 180, windowSecs: 3600,
+  })
+  if (!rl.ok) return rateLimitResponse(rl, cors)
+
   let payload: any
   try { payload = await req.json() } catch { return json({ error: 'invalid json' }, 400) }
 
@@ -74,6 +84,7 @@ Deno.serve(async (req) => {
   const body = clip(payload.body, 300)
   const url = clip(payload.url, 300) || '/athlete.html'
   const tag = clip(payload.tag, 60) || 'powa'
+  const category = clip(payload.category, 30) // 'messages' | 'form_checks' | 'program' | ''
   if (!toUserId) return json({ error: 'toUserId required' }, 400)
   // toUserId is interpolated into the PostgREST .or() filter below and comes
   // straight from the request body. Pin it to a bare UUID — a crafted value
@@ -94,6 +105,31 @@ Deno.serve(async (req) => {
     allowed = !!(link && link.length)
   }
   if (!allowed) return json({ error: 'not authorized to notify this user' }, 403)
+
+  // Respect the RECIPIENT's per-category push preference (#30). The column set
+  // ships with migration-notification-prefs.sql; until then (or if the row is
+  // absent) we FAIL OPEN and send — matching "absence = opted in" everywhere
+  // else. Only an explicit `false` mutes the delivery.
+  const CATEGORY_COL: Record<string, string> = {
+    messages: 'push_messages',
+    form_checks: 'push_form_checks',
+    program: 'push_program',
+  }
+  const prefCol = CATEGORY_COL[category]
+  if (prefCol) {
+    try {
+      const { data: pref, error: prefErr } = await admin
+        .from('email_preferences')
+        .select(prefCol)
+        .eq('user_id', toUserId)
+        .limit(1)
+        .maybeSingle()
+      // Only skip on an explicit opt-out; ignore errors (e.g. column not yet migrated).
+      if (!prefErr && pref && (pref as Record<string, unknown>)[prefCol] === false) {
+        return json({ ok: true, sent: 0, note: 'muted' })
+      }
+    } catch (_e) { /* fail open */ }
+  }
 
   // Look up the recipient's devices.
   const { data: subs, error: subErr } = await admin

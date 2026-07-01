@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estimated 1RM (e1RM): The Formula &amp; Why It Beats Maxing Out | POWALIFTA</title>
+<meta name="description" content="How estimated 1RM works: the RPE-based formula POWALIFTA uses to turn any submaximal set into a one-rep-max estimate, a worked example, variant multipliers, and why it is a better progress signal than testing a true max.">
+<meta property="og:title" content="Estimated 1RM (e1RM): The Formula & Why It Beats Maxing Out">
+<meta property="og:description" content="The RPE-based formula that turns every set into a one-rep-max estimate, worked through with real numbers.">
+<meta property="og:type" content="article">
+<link rel="canonical" href="https://www.powalifta.com/guide-e1rm.html">
+<meta property="og:url" content="https://www.powalifta.com/guide-e1rm.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Estimated 1RM (e1RM): The Formula & Why It Beats Maxing Out">
+<meta name="twitter:description" content="The RPE-based formula that turns every set into a one-rep-max estimate, worked through with real numbers.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<link rel="stylesheet" href="scroll-fx.css">
+<link rel="stylesheet" href="ui-fx.css">
+<link rel="stylesheet" href="insane-fx.css">
+<script defer src="scroll-fx.js"></script>
+<script defer src="ui-fx.js"></script>
+<script defer src="insane-fx.js"></script>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Estimated 1RM (e1RM): The Formula, and Why It Beats Maxing Out",
+  "description": "How estimated 1RM works: the RPE-based formula POWALIFTA uses to turn any submaximal set into a one-rep-max estimate, a worked example, variant multipliers, and why it is a better progress signal than testing a true max.",
+  "image": "https://www.powalifta.com/og.png",
+  "author": { "@type": "Organization", "name": "POWALIFTA" },
+  "publisher": { "@type": "Organization", "name": "POWALIFTA", "logo": { "@type": "ImageObject", "url": "https://www.powalifta.com/icon-512.png" } },
+  "mainEntityOfPage": "https://www.powalifta.com/guide-e1rm.html",
+  "articleSection": "Powerlifting Guides"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.powalifta.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://www.powalifta.com/guides.html" },
+    { "@type": "ListItem", "position": 3, "name": "Estimated 1RM", "item": "https://www.powalifta.com/guide-e1rm.html" }
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="main" class="guide-wrap">
+  <nav class="guide-crumbs" aria-label="Breadcrumb">
+    <a href="index.html">Home</a><span class="sep">/</span><a href="guides.html">Guides</a><span class="sep">/</span><span class="here">Estimated 1RM</span>
+  </nav>
+
+  <header data-fx="up">
+    <span class="guide-eyebrow">Progress tracking</span>
+    <h1 class="guide-title">Estimated 1RM</h1>
+    <p class="guide-standfirst">You do not have to grind out a true max to know you got stronger. A submaximal set plus an honest RPE is enough to estimate your one-rep max, and that estimate is a cleaner progress signal than the number on the platform.</p>
+    <div class="guide-meta">
+      <span>Guide</span><span class="dot"></span><span>8 min read</span><span class="dot"></span><span>The math</span>
+    </div>
+  </header>
+
+  <nav class="guide-toc" aria-label="Contents">
+    <h2>On this page</h2>
+    <ol>
+      <li><a href="#what">What e1RM is</a></li>
+      <li><a href="#formula">The formula POWALIFTA uses</a></li>
+      <li><a href="#worked">A worked example</a></li>
+      <li><a href="#table">A quick reference table</a></li>
+      <li><a href="#variants">Variant multipliers</a></li>
+      <li><a href="#why">Why it beats testing a max</a></li>
+    </ol>
+  </nav>
+
+  <article class="prose" data-fx="up">
+    <p>e1RM is short for estimated one-rep max. It answers a simple question: based on the weight you just lifted, the reps you got, and how hard it was, what would your single have been? Get that estimate from every working set and you have a strength curve that updates almost every session, no max-out required.</p>
+
+    <h2 id="what">What e1RM is</h2>
+    <p>A true one-rep max is one data point, taken rarely, on a day that may or may not represent your real strength. e1RM flips that. Every set you log becomes a small experiment that predicts the same underlying number, so instead of one noisy reading a few times a year you get a running estimate you can trend.</p>
+    <p>The catch is that the estimate is only as good as the RPE you feed it. That is why the honest rating covered in the <a href="guide-rpe.html">RPE guide</a> is the whole foundation. Garbage RPE in, garbage e1RM out.</p>
+
+    <h2 id="formula">The formula POWALIFTA uses</h2>
+    <p>The app uses an RPE-percentage model in the Tuchscherer tradition. Every rep below a true single, and every RPE point below 10, shaves a fixed slice off the estimate. That fixed slice is one thirtieth, or about 3.33%.</p>
+    <div class="guide-formula">
+      e1RM = weight &divide; ( 1 &minus; ( (reps &minus; 1) + (10 &minus; RPE) ) &times; 0.0333 )
+      <span class="fx-note">Floored at weight &divide; 0.4, so the estimate never claims more than 2.5&times; the weight you actually moved. That cap stops absurd extrapolation from very high-rep sets.</span>
+    </div>
+    <p>Read it in plain English: count how far the set was from a maximal single. Two things push it away from a max. First, extra reps: a triple is two reps past a single. Second, reps left in the tank: an RPE 8 left two more. Add those, multiply by 3.33%, and that is the discount off your estimated single.</p>
+
+    <h2 id="worked">A worked example</h2>
+    <p>Say you squat 140 kg for 3 reps and rate it RPE 8.</p>
+    <div class="guide-formula">
+      reps past a single:&nbsp;&nbsp;3 &minus; 1 = 2<br>
+      reps left in reserve:&nbsp;10 &minus; 8 = 2<br>
+      total distance from max:&nbsp;2 + 2 = 4<br>
+      discount:&nbsp;4 &times; 0.0333 = 0.1332<br>
+      e1RM = 140 &divide; (1 &minus; 0.1332) = 140 &divide; 0.8668 &asymp; <strong>161.5 kg</strong>
+    </div>
+    <p>Next week the same triple feels like an RPE 7, meaning you had three in the tank instead of two. The distance from max drops to 5, and the estimate climbs to roughly 167 kg on the identical bar weight. Nothing on the bar changed, but the set told you your ceiling moved. That is the signal a percentage program would have missed entirely.</p>
+
+    <h2 id="table">A quick reference table</h2>
+    <p>You do not need to memorise this, but it helps to see how much of your e1RM a given set represents. These are the exact percentages the formula produces.</p>
+    <div class="guide-formula">
+      1 rep @ RPE 10&nbsp;&nbsp;&rarr;&nbsp;&nbsp;100% of e1RM<br>
+      1 rep @ RPE 9&nbsp;&nbsp;&nbsp;&rarr;&nbsp;&nbsp;96.7%<br>
+      2 reps @ RPE 9&nbsp;&nbsp;&rarr;&nbsp;&nbsp;93.3%<br>
+      3 reps @ RPE 8&nbsp;&nbsp;&rarr;&nbsp;&nbsp;86.7%<br>
+      5 reps @ RPE 9&nbsp;&nbsp;&rarr;&nbsp;&nbsp;83.4%<br>
+      5 reps @ RPE 8&nbsp;&nbsp;&rarr;&nbsp;&nbsp;80.0%
+      <span class="fx-note">Notice that 1 @ RPE 8 and 2 @ RPE 9 land on the same 93.3%. Different sets, same estimated single. That is the model doing its job.</span>
+    </div>
+
+    <h2 id="variants">Variant multipliers</h2>
+    <p>A paused squat and a competition squat are not the same lift, so comparing their raw e1RMs would be unfair to the harder one. POWALIFTA normalises this with a multiplier per variant, where the competition lift is the 1.0 baseline and harder variants scale the estimate up to a competition-equivalent number.</p>
+    <div class="guide-formula">
+      Squat&nbsp;&nbsp;&nbsp;&nbsp;Competition 1.00 &middot; Paused 1.07 &middot; Pin 1.08 &middot; Tempo 1.12<br>
+      Bench&nbsp;&nbsp;&nbsp;&nbsp;Competition 1.00 &middot; Paused 1.06 &middot; Pin Press 1.08 &middot; Close Grip 1.09 &middot; Incline 1.12<br>
+      Deadlift&nbsp;Competition 1.00 &middot; Deficit 1.06 &middot; Paused 1.07 &middot; RDL 1.10
+    </div>
+    <p>So a tempo squat e1RM of 150 kg is charted as 150 &times; 1.12 = 168 kg of competition-equivalent strength. This is why your progress chart can blend heavy competition work with harder variant days and still read as one honest line instead of a sawtooth.</p>
+
+    <div class="guide-callout">
+      <span class="gc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></span>
+      <div class="gc-body">
+        <strong>From three e1RMs to one number</strong>
+        <p>Add your best squat, bench, and deadlift e1RMs and you have an estimated total. Bodyweight-adjust that total and you get a DOTS score you can compare against any lifter. <a href="guide-dots.html">See how DOTS works</a>.</p>
+      </div>
+    </div>
+
+    <h2 id="why">Why it beats testing a max</h2>
+    <p>Testing a true single has real costs. It is fatiguing, it eats into a training day, and it carries the most injury risk of anything you do. Worst of all it is a single sample: miss on a bad day and you conclude you got weaker when you did not.</p>
+    <ul>
+      <li><strong>Frequency.</strong> e1RM updates from ordinary work, so you see the trend in weeks, not months.</li>
+      <li><strong>Lower risk.</strong> No maximal grinders means no maximal grinder injuries.</li>
+      <li><strong>Noise cancellation.</strong> One flat day barely dents a line built from dozens of sets.</li>
+      <li><strong>It respects readiness.</strong> Because it rides on RPE, a strong day and a weak day both produce a fair estimate.</li>
+    </ul>
+    <p>Save the true max for the platform, where it counts. In training, let the math read your strength off the work you were already doing.</p>
+
+    <div class="guide-cta">
+      <h2>Every set, an estimate.</h2>
+      <p>POWALIFTA computes e1RM the moment you log a set and plots it into a strength curve you can actually read. Free for athletes, forever.</p>
+      <a href="index.html" class="btn btn-primary btn-lg">Start training free</a>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Keep reading</h2>
+      <div class="guide-rel-grid">
+        <a class="guide-rel-card" href="guide-rpe.html"><span class="grc-kicker">Autoregulation</span><span class="grc-title">RPE and RIR, explained</span></a>
+        <a class="guide-rel-card" href="guide-dots.html"><span class="grc-kicker">Scoring</span><span class="grc-title">DOTS score, explained</span></a>
+        <a class="guide-rel-card" href="guide-peaking.html"><span class="grc-kicker">Meet prep</span><span class="grc-title">How to peak for a meet</span></a>
+      </div>
+    </nav>
+  </article>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="exercises.html" class="dim">Exercises</a>
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" title="Follow @powa.lifta on Instagram" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" title="Email us" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+</script>
+</body>
+</html>

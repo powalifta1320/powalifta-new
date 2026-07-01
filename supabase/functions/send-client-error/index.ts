@@ -31,6 +31,7 @@
 //   -- No public read/write; only service_role (this edge function) can insert.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { clientIp, rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -59,6 +60,17 @@ Deno.serve(async (req) => {
     })
   }
 
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  // Server-side flood guard, keyed by client IP. The client-side caps in
+  // error-log.js only slow honest browsers; this stops a scripted loop from
+  // stuffing client_errors. Generous ceiling — a legit page can throw a burst.
+  // Fails open if the meter (rl_bump) isn't deployed yet.
+  const rl = await rateLimit(sb, {
+    bucket: 'client-error', identity: clientIp(req), limit: 60, windowSecs: 60,
+  })
+  if (!rl.ok) return rateLimitResponse(rl, corsHeaders)
+
   let payload: any
   try {
     payload = await req.json()
@@ -85,7 +97,6 @@ Deno.serve(async (req) => {
     col: typeof payload.col === 'number' ? payload.col : null
   }
 
-  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   const { error } = await sb.from('client_errors').insert(row)
   if (error) {
     console.error('insert failed:', error)

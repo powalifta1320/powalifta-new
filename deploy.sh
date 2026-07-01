@@ -25,9 +25,10 @@ cd "$(dirname "$0")"
 if command -v supabase >/dev/null 2>&1; then SB=(supabase); else SB=(npx --yes supabase); fi
 
 # Public webhooks / unauthenticated callers — deploy WITHOUT JWT verification.
-NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error)
+# send-weekly-digest is cron-triggered (no user session) → gates on CRON_SECRET.
+NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error send-weekly-digest unsubscribe)
 # Require a logged-in caller's JWT.
-WITH_JWT=(send-program-assigned send-push ai-chat send-invite)
+WITH_JWT=(send-program-assigned send-push ai-chat send-invite delete-account ls-portal)
 
 deploy_functions() {
   for fn in "${NO_JWT[@]}"; do

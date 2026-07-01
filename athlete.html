@@ -150,7 +150,7 @@
 <!-- PLATE CALC -->
 <div class="modal-backdrop" id="plateModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('plateModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('plateModal')">&times;</button>
     <h3>Plate calculator</h3>
     <p class="dim text-sm mb-16">Per side breakdown for a 20kg bar.</p>
     <div class="form-group">
@@ -174,7 +174,7 @@
 <!-- SESSION NOTE MODAL -->
 <div class="modal-backdrop" id="noteModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('noteModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('noteModal')">&times;</button>
     <h3>Day complete · note for coach</h3>
     <p class="dim text-sm mb-16">Optional. Your coach will see this with the session.</p>
     <textarea id="noteText" placeholder="e.g. Bar speed was crisp, felt strong. Slight twinge in left hip on third set." style="min-height: 110px"></textarea>
@@ -188,7 +188,7 @@
 <!-- GOALS MODAL -->
 <div class="modal-backdrop" id="goalsModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('goalsModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('goalsModal')">&times;</button>
     <h3>Set your goals</h3>
     <p class="dim text-sm mb-16">All in kg. Leave blank to skip a goal.</p>
     <div class="form-row-3">
@@ -225,7 +225,7 @@
 <!-- WEEKLY CHECK-IN MODAL -->
 <div class="modal-backdrop" id="checkinModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('checkinModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('checkinModal')">&times;</button>
     <h3>Weekly check-in</h3>
     <p class="dim text-sm mb-16">How was the week? 1 = bad, 10 = great. Your coach uses this to adjust programming.</p>
     <div class="form-row">
@@ -262,7 +262,7 @@
 <!-- ADD EXERCISE MODAL (self-coached builder) -->
 <div class="modal-backdrop" id="sbAddExerciseModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('sbAddExerciseModal')">&times;</button>
+    <button class="modal-close" aria-label="Close" onclick="closeModal('sbAddExerciseModal')">&times;</button>
     <h3>Add exercise</h3>
     <p class="dim text-sm mb-16">Pick a lift type. Variants get the right multiplier applied automatically (so paused squat e1RM compares to comp squat).</p>
     <div class="form-group">
@@ -1350,6 +1350,27 @@ function renderToday() {
       }
     }
 
+    // Form cues — contextual coaching cues for the competition lift + variant
+    // (same authored content as exercises.html). Main lifts only: lift+variant
+    // identifies the cue entry exactly, where form matters most. Additive + collapsible.
+    if (MAIN_LIFTS.includes(ex.lift)) {
+      const cueEx = cuesForLift(ex.lift, ex.variant);
+      if (cueEx) {
+        const cue = el('div', { class: 'cue' });
+        const cTog = el('button', { class: 'cue-toggle', type: 'button' });
+        cTog.innerHTML = '<span>Form cues</span><span class="cue-chev">▾</span>';
+        const cPanel = el('div', { class: 'cue-panel' });
+        cPanel.innerHTML = exerciseCueBodyHtml(cueEx);
+        cTog.addEventListener('click', () => {
+          const open = cue.classList.toggle('open');
+          cTog.querySelector('.cue-chev').textContent = open ? '▴' : '▾';
+        });
+        cue.appendChild(cTog);
+        cue.appendChild(cPanel);
+        card.appendChild(cue);
+      }
+    }
+
     // Copy from last week — per-exercise. Only main lifts; matches by lift+variant
     // in the previous week's same-numbered day (matched by position).
     if (MAIN_LIFTS.includes(ex.lift) && cur.week.number > 1) {
@@ -1638,7 +1659,7 @@ function ensureMeetModal() {
   const wrap = document.createElement('div');
   wrap.innerHTML = '<div class="modal-backdrop" id="meetModal">' +
     '<div class="modal modal-lg">' +
-      '<button class="modal-close" onclick="closeModal(\'meetModal\')">&times;</button>' +
+      '<button class="modal-close" aria-label="Close" onclick="closeModal(\'meetModal\')">&times;</button>' +
       '<h3>Meet-day plan</h3>' +
       '<p class="dim text-sm mb-16">Attempts built from your current competition-equivalent e1RMs. Openers you can triple, thirds that build a PR total.</p>' +
       '<div class="meet-controls">' +
@@ -1825,6 +1846,207 @@ async function shareMeetCard() {
 }
 window.shareMeetCard = shareMeetCard;
 
+// ===== MEET RESULTS — log finished competitions + history on Progress =====
+// The planner above is forward-looking (attempts from e1RMs). This persists the
+// OUTCOME: best successful lift per discipline. Stored in kg via DB.saveMeet;
+// demo mode keeps it in-memory only. Drives the "Competition history" section.
+function renderMeetHistory(area) {
+  const meets = (Store.get().meets || [])
+    .filter(m => m.athleteId === user.id)
+    .slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  const head = el('div', { class: 'meet-hist-head' });
+  head.appendChild(el('h3', { class: 'prog-sec', style: 'margin: 0;' }, 'Competition history'));
+  head.appendChild(el('button', { class: 'btn btn-sm btn-ghost', onclick: () => openMeetResultModal() }, '+ Log a meet'));
+  area.appendChild(head);
+
+  if (!meets.length) {
+    const empty = el('div', { class: 'meet-empty' });
+    empty.appendChild(el('p', { class: 'dim' }, 'No meets logged yet. Add your platform results to track your best total and DOTS over time.'));
+    empty.appendChild(el('button', { class: 'btn btn-sm mt-8', onclick: () => openMeetResultModal() }, 'Log your first meet'));
+    area.appendChild(empty);
+    return;
+  }
+
+  const sex = getSexPref();
+  const best = bestMeet(meets, user.id);
+  if (best) {
+    const dots = meetDots(best.meet, sex);
+    const badge = el('div', { class: 'meet-best' });
+    badge.innerHTML =
+      '<span class="mb-label">Best total</span>' +
+      '<span class="mb-total mono">' + Math.round(kgToDisplay(best.total)) + '<span class="unit"> ' + unitLabel() + '</span></span>' +
+      '<span class="mb-meta">' + escHtml(best.meet.name) + ' · ' + fmtDateShort(best.meet.date) +
+        (dots ? ' · ' + dots.toFixed(1) + ' DOTS' : '') + '</span>';
+    area.appendChild(badge);
+  }
+
+  const list = el('div', { class: 'meet-list' });
+  meets.forEach(m => {
+    const total = meetTotal(m);
+    const full = meetIsFullTotal(m);
+    const dots = meetDots(m, sex);
+    const card = el('div', { class: 'meet-card' + (best && best.meet.id === m.id ? ' is-best' : '') });
+
+    const top = el('div', { class: 'meet-card-top' });
+    top.innerHTML =
+      '<div class="mc-name">' + escHtml(m.name) +
+        (m.federation ? ' <span class="mc-fed">' + escHtml(m.federation) + '</span>' : '') + '</div>' +
+      '<div class="mc-date mono">' + fmtDateShort(m.date) + '</div>';
+    card.appendChild(top);
+
+    const meta = [];
+    if (m.weightClass) meta.push(escHtml(m.weightClass) + ' class');
+    if (m.bodyweight) meta.push(kgToDisplay(m.bodyweight) + ' ' + unitLabel() + ' BW');
+    if (dots) meta.push(dots.toFixed(1) + ' DOTS');
+    if (meta.length) card.appendChild(el('div', { class: 'mc-meta dim' }, meta.join(' · ')));
+
+    const lifts = el('div', { class: 'mc-lifts' });
+    ['squat', 'bench', 'deadlift'].forEach(k => {
+      const v = m[k];
+      const cell = el('div', { class: 'mc-lift' });
+      cell.innerHTML = '<span class="mcl-lab">' + LIFT_LABELS[k] + '</span>' +
+        '<span class="mcl-val mono">' + (v == null ? '<span class="dim">—</span>' : kgToDisplay(v)) + '</span>';
+      lifts.appendChild(cell);
+    });
+    const totCell = el('div', { class: 'mc-lift mc-total' });
+    totCell.innerHTML = '<span class="mcl-lab">' + (full ? 'Total' : 'Subtotal') + '</span>' +
+      '<span class="mcl-val mono">' + Math.round(kgToDisplay(total)) + '</span>';
+    lifts.appendChild(totCell);
+    card.appendChild(lifts);
+
+    if (m.notes) card.appendChild(el('div', { class: 'mc-notes dim text-sm' }, m.notes));
+
+    const acts = el('div', { class: 'mc-acts' });
+    acts.appendChild(el('button', { class: 'btn btn-xs btn-ghost', onclick: () => openMeetResultModal(m.id) }, 'Edit'));
+    acts.appendChild(el('button', { class: 'btn btn-xs btn-ghost', onclick: () => deleteMeetResult(m.id) }, 'Delete'));
+    card.appendChild(acts);
+
+    list.appendChild(card);
+  });
+  area.appendChild(list);
+}
+window.renderMeetHistory = renderMeetHistory;
+
+// Build fresh each open so the unit labels (kg/lb) always match the live pref.
+function ensureMeetResultModal() {
+  const existing = document.getElementById('meetResultModal');
+  if (existing) existing.remove();
+  const u = unitLabel();
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="modal-backdrop" id="meetResultModal">' +
+    '<div class="modal">' +
+      '<button class="modal-close" aria-label="Close" onclick="closeModal(\'meetResultModal\')">&times;</button>' +
+      '<h3 id="mrTitle">Log a meet</h3>' +
+      '<p class="dim text-sm mb-16">Your best successful attempt for each lift. Leave a lift blank if you bombed it.</p>' +
+      '<div class="form-group"><label for="mrName">Meet name</label><input id="mrName" type="text" maxlength="80" placeholder="Winter Open"></div>' +
+      '<div class="meet-form-row">' +
+        '<div class="form-group"><label for="mrDate">Date</label><input id="mrDate" type="date"></div>' +
+        '<div class="form-group"><label for="mrFed">Federation</label><input id="mrFed" type="text" maxlength="40" placeholder="USAPL"></div>' +
+      '</div>' +
+      '<div class="meet-form-row">' +
+        '<div class="form-group"><label for="mrClass">Weight class</label><input id="mrClass" type="text" maxlength="20" placeholder="83kg"></div>' +
+        '<div class="form-group"><label for="mrBw">Bodyweight (' + u + ')</label><input id="mrBw" type="number" step="0.1" inputmode="decimal"></div>' +
+      '</div>' +
+      '<div class="meet-form-row meet-form-lifts">' +
+        '<div class="form-group"><label for="mrSquat">Squat (' + u + ')</label><input id="mrSquat" type="number" step="0.5" inputmode="decimal"></div>' +
+        '<div class="form-group"><label for="mrBench">Bench (' + u + ')</label><input id="mrBench" type="number" step="0.5" inputmode="decimal"></div>' +
+        '<div class="form-group"><label for="mrDead">Deadlift (' + u + ')</label><input id="mrDead" type="number" step="0.5" inputmode="decimal"></div>' +
+      '</div>' +
+      '<div class="form-group"><label for="mrNotes">Notes</label><textarea id="mrNotes" rows="2" maxlength="280" placeholder="9/9 day, new total PR"></textarea></div>' +
+      '<button class="btn btn-primary btn-block mt-8" onclick="saveMeetResult()">Save meet</button>' +
+    '</div></div>';
+  document.body.appendChild(wrap.firstChild);
+}
+function openMeetResultModal(meetId) {
+  ensureMeetResultModal();
+  const modal = document.getElementById('meetResultModal');
+  const f = id => document.getElementById(id);
+  modal.dataset.editId = '';
+  f('mrTitle').textContent = 'Log a meet';
+  if (meetId) {
+    const m = (Store.get().meets || []).find(x => x.id === meetId);
+    if (m) {
+      modal.dataset.editId = m.id;
+      f('mrTitle').textContent = 'Edit meet';
+      const disp = v => (v == null ? '' : (Math.round(kgToDisplay(v) * 10) / 10));
+      f('mrName').value = m.name || '';
+      f('mrDate').value = m.date || '';
+      f('mrFed').value = m.federation || '';
+      f('mrClass').value = m.weightClass || '';
+      f('mrBw').value = disp(m.bodyweight);
+      f('mrSquat').value = disp(m.squat);
+      f('mrBench').value = disp(m.bench);
+      f('mrDead').value = disp(m.deadlift);
+      f('mrNotes').value = m.notes || '';
+    }
+  } else {
+    f('mrDate').value = new Date().toISOString().slice(0, 10);
+  }
+  openModal('meetResultModal');
+  setTimeout(() => { const n = f('mrName'); if (n) n.focus(); }, 30);
+}
+window.openMeetResultModal = openMeetResultModal;
+
+async function saveMeetResult() {
+  const f = id => document.getElementById(id);
+  const date = f('mrDate').value;
+  if (!date) { toast('Pick a meet date'); f('mrDate').focus(); return; }
+  const toKg = v => {
+    if (v == null || String(v).trim() === '') return null;
+    const n = parseFloat(v);
+    if (isNaN(n) || n <= 0) return null;
+    return Math.round(displayToKg(n) * 10) / 10;
+  };
+  const editId = f('meetResultModal').dataset.editId || '';
+  const meet = {
+    athleteId: user.id,
+    name: (f('mrName').value || '').trim() || 'Meet',
+    date: date,
+    federation: (f('mrFed').value || '').trim(),
+    weightClass: (f('mrClass').value || '').trim(),
+    bodyweight: toKg(f('mrBw').value),
+    squat: toKg(f('mrSquat').value),
+    bench: toKg(f('mrBench').value),
+    deadlift: toKg(f('mrDead').value),
+    notes: (f('mrNotes').value || '').trim()
+  };
+  if (editId) meet.id = editId;
+  if (meet.squat == null && meet.bench == null && meet.deadlift == null) {
+    toast('Add at least one lift'); f('mrSquat').focus(); return;
+  }
+
+  let saved = meet;
+  if (window._demoMode) {
+    if (!meet.id) saved = Object.assign({}, meet, { id: 'demo-meet-' + Date.now() });
+  } else {
+    try { saved = (await DB.saveMeet(meet)) || meet; }
+    catch (e) { console.error('saveMeet', e); toast('Could not save — try again'); return; }
+  }
+
+  Store.update(s => {
+    if (!s.meets) s.meets = [];
+    const i = s.meets.findIndex(x => x.id === saved.id);
+    if (i >= 0) s.meets[i] = saved; else s.meets.push(saved);
+  });
+  closeModal('meetResultModal');
+  toast(editId ? 'Meet updated' : 'Meet saved');
+  renderProgress();
+}
+window.saveMeetResult = saveMeetResult;
+
+async function deleteMeetResult(id) {
+  if (!confirm('Delete this meet from your history?')) return;
+  if (!window._demoMode) {
+    try { await DB.deleteMeet(id); }
+    catch (e) { console.error('deleteMeet', e); toast('Could not delete — try again'); return; }
+  }
+  Store.update(s => { s.meets = (s.meets || []).filter(x => x.id !== id); });
+  toast('Meet deleted');
+  renderProgress();
+}
+window.deleteMeetResult = deleteMeetResult;
+
 // ===== WEEK IN IRON — weekly recap share card =====
 async function shareWeekCard() {
   const logs = Store.get().workoutLogs.filter(l => l.athleteId === user.id && l.lift !== 'cardio');
@@ -1874,6 +2096,34 @@ async function sharePRCard(lift) {
     'New ' + LIFT_LABELS[lift] + ' PR: ' + Math.round(kgToDisplay(pr.e1rmComp)) + ' ' + unitLabel() + ' e1RM — tracked on powalifta.com');
 }
 window.sharePRCard = sharePRCard;
+
+// Strength-score share card: DOTS hero + weight class + best-lift breakdown.
+// Reuses generateShareCard/shareCardFromCanvas — only reachable when bw + total
+// exist (same gate as the DOTS readout and the leaderboard opt-in).
+async function shareStrengthCard() {
+  const sex = getSexPref();
+  const bw = latestBodyweight(user.id);
+  const total = currentTotal(user.id);
+  if (!bw || !total) return toast('Log a weigh-in and your big three first');
+  const dots = dotsScore(total, bw, sex);
+  const wc = weightClassFor(bw, sex);
+  const disp = kg => Math.round(kgToDisplay(kg)).toLocaleString() + ' ' + unitLabel();
+  const lines = [{ l: 'Est. total', r: disp(total) }];
+  [['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift']].forEach(([lift, lbl]) => {
+    const e1 = bestE1RM(user.id, lift);
+    if (e1) lines.push({ l: lbl, r: disp(e1) });
+  });
+  const canvas = await generateShareCard({
+    tag: 'STRENGTH SCORE',
+    big: dots ? dots.toFixed(1) : '—',
+    bigUnit: 'DOTS',
+    sub: (sex === 'female' ? "Women's " : "Men's ") + (wc || '—') + ' class',
+    lines
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-dots.png',
+    (dots ? dots.toFixed(1) + ' DOTS' : 'My strength score') + ' at ' + kgToDisplay(bw) + ' ' + unitLabel() + ' — tracked on powalifta.com');
+}
+window.shareStrengthCard = shareStrengthCard;
 
 // ===== REST TIMER =====
 // Timestamp-based: we track an absolute endTime and recompute the remaining
@@ -2328,7 +2578,87 @@ function buildStrengthScoreCard(athleteId) {
           : 'Top tier reached'))));
   });
   card.appendChild(list);
+
+  // Share the score as a branded card (reuses generateShareCard). Sits above the
+  // leaderboard opt-in; both are "put your number out there" actions.
+  const shareRow = el('div', { class: 'score-share' });
+  const shareBtn = el('button', {
+    class: 'btn btn-sm btn-ghost', type: 'button',
+    title: 'Generate a branded card of your DOTS, total and best lifts',
+    onclick: shareStrengthCard
+  });
+  shareBtn.innerHTML = '📸 <span>Make a card</span>';
+  shareRow.appendChild(shareBtn);
+  card.appendChild(shareRow);
+
+  // Opt-in public leaderboard. Publishing the row IS the opt-in; leaving deletes
+  // it. Only reachable here because bw + total are present (DOTS is real).
+  const lb = el('div', { class: 'lb-optin' });
+  const lbBtn = el('button', {
+    class: 'btn btn-sm lb-optin-btn', type: 'button', 'data-on': '0',
+    onclick: function () { toggleLeaderboard(this); }
+  }, 'Publish to leaderboard');
+  lb.appendChild(lbBtn);
+  lb.appendChild(el('div', { class: 'lb-optin-note dim' },
+    'Shares your name, weight class, total and DOTS on the ',
+    el('a', { href: 'leaderboard.html', class: 'lb-optin-link' }, 'public leaderboard'),
+    '. Leave anytime.'));
+  card.appendChild(lb);
+  refreshLeaderboardButton(lbBtn);
+
   return card;
+}
+
+// ===== WEEKLY VOLUME LANDMARKS =====
+// Per-movement weekly working-set counts plotted against MEV/MAV/MRV zones, so
+// an athlete can see at a glance whether a pattern is under-stimulated or being
+// run into the ground. Pure math lives in app.js (weeklyVolumeLandmarks).
+function renderVolumeLandmarks(area) {
+  const from = Date.parse(mondayOf(new Date())); // mondayOf returns a 'YYYY-MM-DD' string, not a Date
+  const to = from + 7 * 864e5;
+  const logs = Store.get().workoutLogs;
+  const buckets = weeklyVolumeLandmarks(logs, user.id, from, to);
+  const totalSets = buckets.reduce((n, b) => n + b.sets, 0);
+  if (!totalSets) return; // nothing logged this week — skip the section entirely
+
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Weekly volume'));
+  const card = el('div', { class: 'chart-card vol-card' });
+  card.appendChild(el('div', { class: 'chart-head' },
+    el('div', { class: 'chart-sub' }, 'Working sets this week per movement, against effective (MEV) → productive → max-recoverable (MRV) ranges. A guide for managing fatigue, not a rule.')
+  ));
+
+  const grid = el('div', { class: 'vol-grid' });
+  buckets.forEach(b => {
+    if (b.sets === 0 && b.zone === 'none') return; // hide untrained patterns to cut noise
+    const row = el('div', { class: 'vol-row vol-' + b.zone });
+    const head = el('div', { class: 'vol-row-head' });
+    head.appendChild(el('span', { class: 'vol-name' }, b.label));
+    const count = el('span', { class: 'vol-count' });
+    count.innerHTML = '<strong>' + b.sets + '</strong> <span class="vol-unit">set' + (b.sets === 1 ? '' : 's') + '</span>';
+    head.appendChild(count);
+    row.appendChild(head);
+
+    // Track with MEV / MAV / MRV tick positions (scaled to MRV = 100%, capped a
+    // touch past MRV so an over-MRV bar visibly overshoots).
+    const scaleMax = b.lm.mrv * 1.15;
+    const pct = v => Math.max(0, Math.min(100, (v / scaleMax) * 100));
+    const track = el('div', { class: 'vol-track' });
+    track.appendChild(el('span', { class: 'vol-tick vol-tick-mev', style: 'left:' + pct(b.lm.mev) + '%', title: 'MEV ' + b.lm.mev }));
+    track.appendChild(el('span', { class: 'vol-tick vol-tick-mav', style: 'left:' + pct(b.lm.mav) + '%', title: 'MAV ' + b.lm.mav }));
+    track.appendChild(el('span', { class: 'vol-tick vol-tick-mrv', style: 'left:' + pct(b.lm.mrv) + '%', title: 'MRV ' + b.lm.mrv }));
+    const fill = el('div', { class: 'vol-fill', style: 'width:' + pct(b.sets) + '%' });
+    track.appendChild(fill);
+    row.appendChild(track);
+
+    const foot = el('div', { class: 'vol-row-foot' });
+    foot.appendChild(el('span', { class: 'vol-zone' }, b.zoneLabel));
+    const range = el('span', { class: 'vol-range dim' }, 'MEV ' + b.lm.mev + ' · MAV ' + b.lm.mav + ' · MRV ' + b.lm.mrv);
+    foot.appendChild(range);
+    row.appendChild(foot);
+    grid.appendChild(row);
+  });
+  card.appendChild(grid);
+  area.appendChild(card);
 }
 
 // ===== PROGRESS =====
@@ -2337,6 +2667,26 @@ function renderProgress() {
   area.innerHTML = '';
   const s = Store.get();
   const logs = s.workoutLogs.filter(l => l.athleteId === user.id && l.lift !== 'cardio');
+
+  // First-run: no sets logged yet. Lead with guidance instead of a wall of
+  // zero-stats and empty charts — one clear path to the first log.
+  if (!logs.length) {
+    const e = el('div', { class: 'empty' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.bar;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'Your progress starts with one set'));
+    e.appendChild(el('p', {}, 'Log a working set on the Today tab and it lands here instantly — e1RM per lift, competition total, PRs, and your strength score climb as you train.'));
+    const actions = el('div', { class: 'empty-actions' });
+    const goBtn = el('button', { class: 'btn btn-primary' }, 'Log your first set →');
+    goBtn.addEventListener('click', () => document.getElementById('tab-today')?.click());
+    actions.appendChild(goBtn);
+    const impBtn = el('button', { class: 'btn btn-ghost' }, 'Import history');
+    impBtn.addEventListener('click', () => openImportModal());
+    actions.appendChild(impBtn);
+    e.appendChild(actions);
+    area.appendChild(e);
+    return;
+  }
 
   const stat = el('div', { class: 'stat-grid' });
   ['squat', 'bench', 'deadlift'].forEach((lift, i) => {
@@ -2384,6 +2734,8 @@ function renderProgress() {
     area.appendChild(balCard);
   }
 
+  renderVolumeLandmarks(area);
+
   const delta = getWeeklyDelta(user.id);
   if (Object.keys(delta).length) {
     area.appendChild(el('h3', { class: 'prog-sec' }, 'This week vs last'));
@@ -2425,6 +2777,8 @@ function renderProgress() {
     });
     area.appendChild(wrap);
   }
+
+  renderMeetHistory(area);
 
   area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
   area.appendChild(buildStrengthScoreCard(user.id));
@@ -2560,7 +2914,7 @@ function ensureEditLogModal() {
   const wrap = document.createElement('div');
   wrap.innerHTML = '<div class="modal-backdrop" id="editLogModal">' +
     '<div class="modal">' +
-      '<button class="modal-close" onclick="closeModal(\'editLogModal\')">&times;</button>' +
+      '<button class="modal-close" aria-label="Close" onclick="closeModal(\'editLogModal\')">&times;</button>' +
       '<h3>Edit set</h3>' +
       '<p class="dim text-sm mb-16">Fix a mis-typed weight, reps, or RPE. Your e1RM recalculates automatically.</p>' +
       '<div class="flex gap-8">' +
@@ -2758,7 +3112,7 @@ function ensureImportModal() {
   const wrap = document.createElement('div');
   wrap.innerHTML = '<div class="modal-backdrop" id="importModal">' +
     '<div class="modal" style="max-width:640px">' +
-      '<button class="modal-close" onclick="closeModal(\'importModal\')">&times;</button>' +
+      '<button class="modal-close" aria-label="Close" onclick="closeModal(\'importModal\')">&times;</button>' +
       '<h3>Import training history</h3>' +
       '<p class="dim text-sm mb-16">Paste straight from a spreadsheet, or upload a CSV. ' +
         'Include a header row. Recognised columns: <b>date, lift, weight, reps, rpe</b> (or rir), <b>variant, note</b>, and <b>bodyweight</b>. ' +
@@ -3095,6 +3449,8 @@ window.installClaimedProgram = installClaimedProgram;
 // Shows each as a card with install/reinstall buttons. Clicking install
 // opens the same 1RM scaling modal so the program rescales to the buyer.
 // =========================================================
+let _libPage = 1;
+const LIB_PER_PAGE = 6;
 async function renderLibrary() {
   const area = document.getElementById('libraryArea');
   if (!area) return;
@@ -3126,14 +3482,22 @@ async function renderLibrary() {
   const myProg = s.programs.find(p => p.athleteId === user.id);
   const activeName = myProg ? myProg.name : null;
 
-  const grid = el('div', { class: 'template-grid' });
-
-  // Group purchases by program (in case of duplicate buys, show once)
+  // Group purchases by program (in case of duplicate buys, show once),
+  // then page the deduped list so we only fetch the current page's programs.
   const seen = new Set();
+  const uniquePurchases = [];
   for (const p of purchases) {
     if (seen.has(p.marketplaceProgramId)) continue;
     seen.add(p.marketplaceProgramId);
+    uniquePurchases.push(p);
+  }
+  const libPageCount = Math.max(1, Math.ceil(uniquePurchases.length / LIB_PER_PAGE));
+  if (_libPage > libPageCount) _libPage = libPageCount;
+  const libStart = (_libPage - 1) * LIB_PER_PAGE;
+  const pagePurchases = uniquePurchases.slice(libStart, libStart + LIB_PER_PAGE);
 
+  const grid = el('div', { class: 'template-grid' });
+  for (const p of pagePurchases) {
     let mp;
     try { mp = await DB.getMarketplaceProgram(p.marketplaceProgramId); }
     catch (e) { console.warn('library: program lookup failed', e); continue; }
@@ -3178,6 +3542,11 @@ async function renderLibrary() {
     grid.appendChild(card);
   }
   area.appendChild(grid);
+  const libPager = buildPager(uniquePurchases.length, LIB_PER_PAGE, _libPage, function (pg) {
+    _libPage = pg; renderLibrary();
+    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  if (libPager) area.appendChild(libPager);
 }
 window.renderLibrary = renderLibrary;
 
@@ -3233,6 +3602,8 @@ window.maybeShowPurchaseToast = maybeShowPurchaseToast;
 let _marketplaceCache = null;
 let _marketplaceStats = {};   // programId → { avg, count } for rating badges
 let _marketplaceDetailId = null;
+let _athMktPage = 1;
+const ATH_MKT_PER_PAGE = 6;
 
 async function renderMarketplace() {
   if (!_marketplaceCache) {
@@ -3255,11 +3626,11 @@ async function renderMarketplace() {
   const cat = document.getElementById('mpCategory');
   if (search && !search._wired) {
     let t;
-    search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => renderMarketplaceList(), 200); });
+    search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { _athMktPage = 1; renderMarketplaceList(); }, 200); });
     search._wired = true;
   }
   if (cat && !cat._wired) {
-    cat.addEventListener('change', () => renderMarketplaceList());
+    cat.addEventListener('change', () => { _athMktPage = 1; renderMarketplaceList(); });
     cat._wired = true;
   }
   renderMarketplaceList();
@@ -3288,10 +3659,14 @@ function renderMarketplaceList() {
     return;
   }
 
+  const mktPageCount = Math.max(1, Math.ceil(progs.length / ATH_MKT_PER_PAGE));
+  if (_athMktPage > mktPageCount) _athMktPage = mktPageCount;
+  const mktStart = (_athMktPage - 1) * ATH_MKT_PER_PAGE;
+  const pageProgs = progs.slice(mktStart, mktStart + ATH_MKT_PER_PAGE);
   const grid = el('div', { class: 'template-grid' });
   const TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
   const coaches = Store.get().coaches || [];
-  progs.forEach(p => {
+  pageProgs.forEach(p => {
     const coach = coaches.find(c => c.id === p.coachId);
     const owned = purchased.has(p.id);
     const card = el('div', { class: 'template-card', style: 'cursor: pointer' });
@@ -3321,6 +3696,11 @@ function renderMarketplaceList() {
     grid.appendChild(card);
   });
   area.appendChild(grid);
+  const mktPager = buildPager(progs.length, ATH_MKT_PER_PAGE, _athMktPage, function (p) {
+    _athMktPage = p; renderMarketplaceList();
+    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  if (mktPager) area.appendChild(mktPager);
 }
 
 function openMarketplaceDetail(programId) {
@@ -3333,7 +3713,7 @@ function openMarketplaceDetail(programId) {
     const wrap = document.createElement('div');
     wrap.innerHTML = '<div class="modal-backdrop" id="mpDetailModal">' +
       '<div class="modal modal-lg">' +
-        '<button class="modal-close" onclick="closeModal(\'mpDetailModal\')">&times;</button>' +
+        '<button class="modal-close" aria-label="Close" onclick="closeModal(\'mpDetailModal\')">&times;</button>' +
         '<div id="mpDetailBody"></div>' +
       '</div>' +
     '</div>';

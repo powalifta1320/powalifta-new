@@ -413,6 +413,313 @@ test('starsHtml: emits 5 spans, filled ones marked st-on', () => {
 });
 
 /* ===========================================================
+   8b. Referral rewards ledger (migration-referral-rewards)
+   Pure earn-gating: a tier is `earned` only when count >= at; claims
+   merge in by tier_at; the server still re-checks on claim.
+   =========================================================== */
+group('referral rewards');
+test('ledger: one row per tier, in order', () => {
+  const l = referralRewardsLedger(0, []);
+  eq(l.length, REFERRAL_TIERS.length);
+  eq(l[0].at, 1); eq(l[l.length - 1].at, 25);
+  assert(l.every(r => r.reward && r.reward.length), 'every tier carries reward copy');
+});
+test('ledger: count gates earned + remaining', () => {
+  const l = referralRewardsLedger(5, []);
+  const byAt = {}; l.forEach(r => { byAt[r.at] = r; });
+  eq(byAt[1].earned, true); eq(byAt[3].earned, true); eq(byAt[5].earned, true);
+  eq(byAt[10].earned, false); eq(byAt[25].earned, false);
+  eq(byAt[5].remaining, 0); eq(byAt[10].remaining, 5); eq(byAt[25].remaining, 20);
+});
+test('ledger: zero referrals earns nothing', () => {
+  const l = referralRewardsLedger(0, []);
+  assert(l.every(r => !r.earned), 'nothing earned at 0');
+  assert(l.every(r => !r.claimed), 'nothing claimed at 0');
+});
+test('ledger: claims merge by tier (object form)', () => {
+  const l = referralRewardsLedger(10, [{ tierAt: 1, status: 'requested' }, { tierAt: 3, status: 'fulfilled' }]);
+  const byAt = {}; l.forEach(r => { byAt[r.at] = r; });
+  eq(byAt[1].claimed, true); eq(byAt[1].status, 'requested');
+  eq(byAt[3].claimed, true); eq(byAt[3].status, 'fulfilled');
+  eq(byAt[5].claimed, false); eq(byAt[5].status, null);
+});
+test('ledger: claims accept plain tier numbers', () => {
+  const l = referralRewardsLedger(3, [1, 3]);
+  const byAt = {}; l.forEach(r => { byAt[r.at] = r; });
+  eq(byAt[1].claimed, true); eq(byAt[1].status, 'requested');
+  eq(byAt[3].claimed, true);
+});
+test('ledger: bad / missing count is treated as zero', () => {
+  assert(referralRewardsLedger(null, []).every(r => !r.earned), 'null → 0');
+  assert(referralRewardsLedger(undefined).every(r => !r.earned), 'undefined → 0, claims optional');
+  assert(referralRewardsLedger(-4, []).every(r => !r.earned), 'negative → 0');
+});
+test('rewards html: claimable tier renders a Claim button, locked shows "more"', () => {
+  const h = referralRewardsHtml(referralRewardsLedger(1, []));
+  assert(/rr-claim/.test(h), 'tier 1 earned → claim button');
+  assert(/claimReferralReward\(1,/.test(h), 'wires the tier into the handler');
+  assert(/2 more/.test(h), 'tier 3 locked shows remaining');
+});
+test('rewards html: claimed tier shows its status, not a button', () => {
+  const h = referralRewardsHtml(referralRewardsLedger(3, [{ tierAt: 1, status: 'requested' }]));
+  assert(/Requested/.test(h), 'requested state shown');
+  assert(!/claimReferralReward\(1,/.test(h), 'no claim button for the claimed tier');
+  assert(/claimReferralReward\(3,/.test(h), 'tier 3 is earned + unclaimed → still claimable');
+});
+
+/* ===========================================================
+   9b-ii. DOTS leaderboard — pure rank + row rendering
+   (rankLeaderboard / leaderboardRowsHtml in app.js; the opt-in toggle +
+   DB layer are integration-only and excluded from this pure harness)
+   =========================================================== */
+group('leaderboard');
+test('rank: sorts by DOTS desc, total breaks ties', () => {
+  const r = rankLeaderboard([
+    { userId: 'a', dots: 460, totalKg: 700 },
+    { userId: 'b', dots: 500, totalKg: 600 },
+    { userId: 'c', dots: 480, totalKg: 550 },
+    { userId: 'd', dots: 480, totalKg: 800 }  // same DOTS as c, bigger total → ahead
+  ]);
+  eq(r.map(e => e.userId).join(','), 'b,d,c,a');
+});
+test('rank: standard competition ranks, ties share (1,2,2,4)', () => {
+  const r = rankLeaderboard([
+    { userId: 'a', dots: 500, totalKg: 600 },
+    { userId: 'b', dots: 480, totalKg: 600 },
+    { userId: 'c', dots: 480, totalKg: 590 },
+    { userId: 'd', dots: 460, totalKg: 600 }
+  ]);
+  eq(r.map(e => e.rank).join(','), '1,2,2,4');
+});
+test('rank: drops non-positive DOTS', () => {
+  const r = rankLeaderboard([
+    { userId: 'a', dots: 400, totalKg: 500 },
+    { userId: 'b', dots: 0, totalKg: 500 },
+    { userId: 'c', dots: -5, totalKg: 500 },
+    { userId: 'd', dots: null, totalKg: 500 }
+  ]);
+  eq(r.length, 1); eq(r[0].userId, 'a');
+});
+test('rank: does not mutate the input array', () => {
+  const input = [{ userId: 'a', dots: 400, totalKg: 500 }, { userId: 'b', dots: 450, totalKg: 500 }];
+  const snapshot = input.map(e => e.userId).join(',');
+  rankLeaderboard(input);
+  eq(input.map(e => e.userId).join(','), snapshot);  // order untouched
+  assert(input[0].rank === undefined, 'no rank stamped onto the source objects');
+});
+test('rows html: empty board → friendly empty state', () => {
+  const h = leaderboardRowsHtml([]);
+  assert(/lb-empty/.test(h), 'empty class present');
+  assert(!/lb-row/.test(h), 'no rows rendered');
+});
+test('rows html: renders rank, escaped name, and DOTS', () => {
+  const ranked = rankLeaderboard([
+    { userId: 'a', displayName: 'Priya <3', sex: 'female', bodyweightKg: 63, totalKg: 460, dots: 470 }
+  ]);
+  const h = leaderboardRowsHtml(ranked);
+  assert(/lb-row/.test(h), 'a row is rendered');
+  assert(/Priya &lt;3/.test(h), 'name is HTML-escaped');
+  assert(/470\.0/.test(h), 'DOTS shown to one decimal');
+});
+test('rows html: highlightUserId flags the caller, top 3 get medals', () => {
+  const ranked = rankLeaderboard([
+    { userId: 'a', displayName: 'A', dots: 500, totalKg: 600 },
+    { userId: 'b', displayName: 'B', dots: 480, totalKg: 600 },
+    { userId: 'c', displayName: 'C', dots: 460, totalKg: 600 },
+    { userId: 'd', displayName: 'D', dots: 440, totalKg: 600 }
+  ]);
+  const h = leaderboardRowsHtml(ranked, { highlightUserId: 'b' });
+  assert(/lb-medal-1/.test(h) && /lb-medal-2/.test(h) && /lb-medal-3/.test(h), 'top three medalled');
+  assert(/lb-me/.test(h), 'caller row carries lb-me');
+  assert(/lb-you/.test(h), 'caller row carries the YOU tag');
+});
+
+/* ===========================================================
+   9b. Weekly volume landmarks (MEV/MAV/MRV)
+   =========================================================== */
+group('volume landmarks');
+const VL_LM = { mev: 8, mav: 14, mrv: 20 };
+test('volumeZone: boundaries map to the right zone', () => {
+  assert(volumeZone(0, VL_LM) === 'none', 'zero sets → none');
+  assert(volumeZone(5, VL_LM) === 'under', 'below MEV → under');
+  assert(volumeZone(8, VL_LM) === 'productive', 'at MEV → productive');
+  assert(volumeZone(13, VL_LM) === 'productive', 'below MAV → productive');
+  assert(volumeZone(14, VL_LM) === 'high', 'at MAV → high');
+  assert(volumeZone(20, VL_LM) === 'high', 'at MRV → high');
+  assert(volumeZone(21, VL_LM) === 'over', 'above MRV → over');
+});
+test('volumeBucketFor: keys off lift, ignores cardio/other/missing', () => {
+  assert(volumeBucketFor({ lift: 'squat' }) === 'squat', 'squat → squat');
+  assert(volumeBucketFor({ lift: 'push' }) === 'push', 'push accessory → push');
+  assert(volumeBucketFor({ lift: 'cardio' }) === null, 'cardio → null');
+  assert(volumeBucketFor({ lift: 'other' }) === null, 'other → null');
+  assert(volumeBucketFor({}) === null, 'no lift → null');
+  assert(volumeBucketFor(null) === null, 'null log → null');
+});
+test('weeklyVolumeLandmarks: counts within window/athlete/bucket', () => {
+  const T0 = Date.parse('2026-06-01'); // Monday
+  const wkFrom = T0, wkTo = T0 + 7 * 864e5;
+  const ds = off => new Date(T0 + off * 864e5).toISOString().slice(0, 10);
+  const logs = [
+    { athleteId: 'a', lift: 'squat', rpe: 8, date: ds(0) },  // squat, hard
+    { athleteId: 'a', lift: 'squat', rpe: 6, date: ds(1) },  // squat, soft
+    { athleteId: 'a', lift: 'bench', rpe: 9, date: ds(2) },  // bench, hard
+    { athleteId: 'a', lift: 'cardio', rpe: 5, date: ds(1) }, // excluded (cardio)
+    { athleteId: 'a', lift: 'squat', rpe: 8, date: ds(8) },  // out of window
+    { athleteId: 'b', lift: 'squat', rpe: 9, date: ds(0) }   // other athlete
+  ];
+  const out = weeklyVolumeLandmarks(logs, 'a', wkFrom, wkTo);
+  assert(out.length === 6, 'six buckets in fixed order');
+  assert(out[0].key === 'squat', 'squat is first bucket');
+  const squat = out.find(b => b.key === 'squat');
+  const bench = out.find(b => b.key === 'bench');
+  const dead = out.find(b => b.key === 'deadlift');
+  assert(squat.sets === 2, 'squat counts only this-week, this-athlete sets (2)');
+  assert(squat.hardSets === 1, 'squat hardSets = RPE≥7 only (1)');
+  assert(bench.sets === 1, 'bench counted once');
+  assert(dead.sets === 0 && dead.zone === 'none', 'untrained deadlift → none');
+  assert(squat.zone === 'under', 'squat 2 sets below MEV 8 → under');
+  assert(squat.pctOfMrv === 10, 'squat 2/20 → 10% of MRV');
+});
+
+/* ===========================================================
+   8b. Exercise library — form-cue data + lookups (exercises.html)
+   =========================================================== */
+group('exercise library');
+test('exerciseGroups: six groups in lift/accessory order', () => {
+  const g = exerciseGroups();
+  eq(g.length, 6, 'six distinct groups');
+  eq(g.join(','), 'squat,bench,deadlift,push,pull,legs');
+});
+test('exerciseGroupLabel: known + fallback', () => {
+  eq(exerciseGroupLabel('squat'), 'Squat');
+  eq(exerciseGroupLabel('legs'), 'Legs');
+  eq(exerciseGroupLabel('zercher'), 'Zercher', 'capitalises unknown group');
+  eq(exerciseGroupLabel(''), '', 'empty → empty');
+});
+test('findExercise: hit + miss', () => {
+  const e = findExercise('deadlift-rdl');
+  assert(e && e.variant === 'RDL', 'finds deadlift-rdl');
+  eq(e.multiplier, 1.10, 'carries its multiplier');
+  eq(findExercise('nope'), null, 'unknown key → null');
+});
+test('cuesForLift: exact lift+variant match', () => {
+  const e = cuesForLift('squat', 'Tempo');
+  assert(e && e.key === 'squat-tempo', 'squat+Tempo → squat-tempo');
+});
+test('cuesForLift: case-insensitive variant', () => {
+  const e = cuesForLift('bench', 'close grip');
+  assert(e && e.key === 'bench-closegrip', 'lowercase variant still matches');
+});
+test('cuesForLift: unknown variant falls back to Competition', () => {
+  const e = cuesForLift('bench', 'Nope');
+  assert(e && e.key === 'bench-competition', 'falls back to comp entry');
+});
+test('cuesForLift: no variant → base/Competition', () => {
+  const e = cuesForLift('deadlift');
+  assert(e && e.key === 'deadlift-competition', 'base comp entry');
+});
+test('cuesForLift: accessory group (no Competition) → first of lift', () => {
+  const e = cuesForLift('legs');
+  assert(e && e.group === 'legs', 'returns a legs entry');
+  assert(e.key === 'legs-frontsquat', 'first legs entry');
+});
+test('cuesForLift: empty/unknown lift → null', () => {
+  eq(cuesForLift(''), null);
+  eq(cuesForLift('zercher'), null, 'no entries for lift → null');
+});
+test('searchExercises: empty query returns the full library', () => {
+  eq(searchExercises('').length, EXERCISE_LIBRARY.length);
+  eq(searchExercises(null).length, EXERCISE_LIBRARY.length, 'null → all');
+});
+test('searchExercises: matches cue / fault / summary text', () => {
+  assert(searchExercises('brace').length > 0, '"brace" hits cues');
+  assert(searchExercises('lockout').length > 0, '"lockout" hits copy');
+  assert(searchExercises('hamstring').some(e => e.key === 'deadlift-rdl'), 'RDL by hamstring');
+});
+test('searchExercises: no match → empty array', () => {
+  eq(searchExercises('zzzqqq').length, 0);
+});
+test('exerciseCueBodyHtml: renders summary + execution, null → empty', () => {
+  const e = findExercise('squat-competition');
+  const html = exerciseCueBodyHtml(e);
+  assert(html.indexOf(e.summary) !== -1, 'includes the summary');
+  assert(html.indexOf('Execution') !== -1, 'includes the Execution block');
+  assert(html.indexOf('Set up') !== -1, 'main lift includes Set up');
+  assert(html.indexOf('Fix the common faults') !== -1, 'main lift includes faults');
+  eq(exerciseCueBodyHtml(null), '', 'null entry → empty string');
+});
+test('exerciseCueBodyHtml: accessory omits setup/faults blocks', () => {
+  const html = exerciseCueBodyHtml(findExercise('push-ohp'));
+  assert(html.indexOf('Execution') !== -1, 'still has execution cues');
+  assert(html.indexOf('Set up') === -1, 'no Set up block for accessory');
+  assert(html.indexOf('Fix the common faults') === -1, 'no faults block for accessory');
+});
+
+/* ===========================================================
+   8d. Coach earnings — coachEarningsSummary / fmtMoneyCents
+   Pure rollup over program_sales (camelCase). Cancelled sales are
+   refunds: excluded from earnings, counted separately. `now` is
+   injected so the "this month" boundary is deterministic.
+   =========================================================== */
+group('coach earnings');
+// Fixed clock: 2026-07-15. Month start = 2026-07-01.
+const _now = '2026-07-15T12:00:00Z';
+const _sale = (pid, payout, status, date) => ({
+  marketplaceProgramId: pid, coachPayoutCents: payout, payoutStatus: status, createdAt: date
+});
+const _salesFix = [
+  _sale('p1', 2399, 'paid',      '2026-05-02T12:00:00Z'),
+  _sale('p1', 2399, 'paid',      '2026-06-10T12:00:00Z'),
+  _sale('p2', 3199, 'paid',      '2026-06-20T12:00:00Z'),
+  _sale('p1', 2399, 'pending',   '2026-07-05T12:00:00Z'), // this month
+  _sale('p2', 3199, 'pending',   '2026-07-12T12:00:00Z'), // this month
+  _sale('p2', 3199, 'cancelled', '2026-07-08T12:00:00Z')  // refund — excluded
+];
+test('coachEarningsSummary: counts only non-cancelled sales', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.salesCount, 5);
+});
+test('coachEarningsSummary: total earned excludes refunds', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.totalEarned, 2399 + 2399 + 3199 + 2399 + 3199); // 13595
+});
+test('coachEarningsSummary: pending vs paid split', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.paid, 2399 + 2399 + 3199);   // 7997
+  eq(r.pending, 2399 + 3199);       // 5598
+  eq(r.paid + r.pending, r.totalEarned);
+});
+test('coachEarningsSummary: this month uses injected clock', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.thisMonth, 2399 + 3199); // only the two July sales (refund excluded)
+});
+test('coachEarningsSummary: refunds counted separately', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.refundCount, 1);
+  eq(r.refundedCents, 3199);
+});
+test('coachEarningsSummary: per-program breakdown', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.perProgram.p1.count, 3);
+  eq(r.perProgram.p1.earned, 2399 * 3); // 7197
+  eq(r.perProgram.p2.count, 2);         // cancelled p2 excluded
+  eq(r.perProgram.p2.earned, 3199 * 2); // 6398
+});
+test('coachEarningsSummary: empty / non-array → zeros', () => {
+  const a = coachEarningsSummary([], _now);
+  eq(a.totalEarned, 0); eq(a.salesCount, 0); eq(a.refundCount, 0);
+  const b = coachEarningsSummary(null, _now);
+  eq(b.totalEarned, 0); eq(b.salesCount, 0);
+});
+test('fmtMoneyCents: formats with thousands + 2 decimals', () => {
+  eq(fmtMoneyCents(13595), '$135.95');
+  eq(fmtMoneyCents(123456789), '$1,234,567.89');
+  eq(fmtMoneyCents(0), '$0.00');
+  eq(fmtMoneyCents(null), '$0.00');
+});
+
+/* ===========================================================
    9c. Meet day — countdown
    (attempts + warm-up ramp live inline in athlete.html: getMeetPlan /
    buildWarmupHtml — only daysUntil is in the shared library)
@@ -425,6 +732,44 @@ test('daysUntil: whole-day delta, timezone-stable', () => {
 });
 test('daysUntil: bad / empty input → null', () => {
   eq(daysUntil(''), null); eq(daysUntil('garbage'), null); eq(daysUntil(null), null);
+});
+
+/* ===========================================================
+   9c. Meet results — best total / DOTS (migration-meets)
+   A bombed lift is null and MUST stay out of the total math.
+   =========================================================== */
+group('meet results');
+test('meetTotal: sums S+B+D', () => {
+  eq(meetTotal({ squat: 200, bench: 140, deadlift: 240 }), 580);
+});
+test('meetTotal: null/bombed lift counts as 0, not NaN', () => {
+  eq(meetTotal({ squat: 200, bench: null, deadlift: 240 }), 440);
+  eq(meetTotal({ squat: null, bench: null, deadlift: null }), 0);
+});
+test('meetTotal: null meet → 0', () => { eq(meetTotal(null), 0); });
+test('meetIsFullTotal: true only when all three lifts present', () => {
+  eq(meetIsFullTotal({ squat: 200, bench: 140, deadlift: 240 }), true);
+  eq(meetIsFullTotal({ squat: 200, bench: null, deadlift: 240 }), false);
+  eq(meetIsFullTotal(null), false);
+});
+test('bestMeet: picks highest FULL total for the athlete, ignores bombed meets', () => {
+  const meets = [
+    { id: 'm1', athleteId: 'a', squat: 200, bench: 140, deadlift: 240 }, // 580 full
+    { id: 'm2', athleteId: 'a', squat: 210, bench: 150, deadlift: 250 }, // 610 full ← best
+    { id: 'm3', athleteId: 'a', squat: 300, bench: 300, deadlift: null },// bombed → excluded
+    { id: 'm4', athleteId: 'b', squat: 400, bench: 400, deadlift: 400 }  // other athlete
+  ];
+  const best = bestMeet(meets, 'a');
+  eq(best.meet.id, 'm2'); eq(best.total, 610);
+});
+test('bestMeet: no full-total meets → null', () => {
+  eq(bestMeet([{ id: 'x', athleteId: 'a', squat: 200, bench: null, deadlift: null }], 'a'), null);
+  eq(bestMeet([], 'a'), null);
+});
+test('meetDots: needs bodyweight, derives from real total', () => {
+  const m = { squat: 200, bench: 140, deadlift: 240, bodyweight: 90 };
+  close(meetDots(m, 'male'), dotsScore(580, 90, 'male'), 0.001);
+  eq(meetDots({ squat: 200, bench: 140, deadlift: 240 }, 'male'), null); // no BW
 });
 
 /* ===========================================================
@@ -489,6 +834,162 @@ test('compareMetricRows: explicit total overrides SBD sum', () => {
   const rows = compareMetricRows({ squat: 100, bench: 100, deadlift: 100, total: 999 }, { squat: 100, bench: 100, deadlift: 100 });
   const t = rows.find(r => r.key === 'total');
   eq(t.a, 999); eq(t.b, 300); eq(t.leader, 'a');
+});
+
+/* ===========================================================
+   9e. Pagination — buildPager (pure DOM factory, app.js)
+   Shared by the landing coach directory, marketplace browse,
+   coach roster, and athlete Library/Marketplace tabs.
+   =========================================================== */
+group('pagination · buildPager');
+const _noop = () => {};
+const _nums = nav => [...nav.querySelectorAll('.gp-btn:not(.gp-nav)')].map(b => b.textContent.trim());
+const _prev = nav => nav.querySelector('.gp-nav[aria-label="Previous page"]');
+const _next = nav => nav.querySelector('.gp-nav[aria-label="Next page"]');
+
+test('returns null when there is one page or less (0 / partial / exact)', () => {
+  assert(buildPager(0, 6, 1, _noop) === null, 'empty → null');
+  assert(buildPager(5, 6, 1, _noop) === null, 'partial page → null');
+  assert(buildPager(6, 6, 1, _noop) === null, 'exactly one full page → null');
+});
+test('two pages: nav element, brand class, aria-label', () => {
+  const nav = buildPager(9, 6, 1, _noop);
+  assert(nav && nav.tagName === 'NAV', 'should be a <nav>');
+  assert(nav.classList.contains('grid-pager'), 'missing .grid-pager');
+  eq(nav.getAttribute('aria-label'), 'Pagination');
+  eq(_nums(nav).join(','), '1,2');
+});
+test('first page: prev disabled, next enabled, page 1 active + aria-current', () => {
+  const nav = buildPager(18, 6, 1, _noop);          // 3 pages
+  assert(_prev(nav).disabled, 'prev should be disabled on page 1');
+  assert(!_next(nav).disabled, 'next should be enabled on page 1');
+  const active = nav.querySelector('.gp-btn.active');
+  eq(active.textContent.trim(), '1');
+  eq(active.getAttribute('aria-current'), 'page');
+});
+test('last page: next disabled, prev enabled, last number active', () => {
+  const nav = buildPager(18, 6, 3, _noop);          // 3 pages, on last
+  assert(_next(nav).disabled, 'next should be disabled on last page');
+  assert(!_prev(nav).disabled, 'prev should be enabled on last page');
+  eq(nav.querySelector('.gp-btn.active').textContent.trim(), '3');
+});
+test('currentPage clamps into range (overshoot → last page)', () => {
+  const nav = buildPager(18, 6, 99, _noop);         // 3 pages, asked for 99
+  eq(nav.querySelector('.gp-btn.active').textContent.trim(), '3');
+  assert(_next(nav).disabled, 'clamped-to-last → next disabled');
+});
+test('clicking a number button calls onGo with that page', () => {
+  let got = null;
+  const nav = buildPager(18, 6, 1, p => { got = p; });
+  [...nav.querySelectorAll('.gp-btn:not(.gp-nav)')].find(b => b.textContent.trim() === '2').click();
+  eq(got, 2);
+});
+test('clicking prev / next steps by one from current', () => {
+  let got = null;
+  const nav = buildPager(18, 6, 2, p => { got = p; }); // middle page
+  _next(nav).click(); eq(got, 3, 'next → +1');
+  _prev(nav).click(); eq(got, 1, 'prev → -1');
+});
+test('disabled prev/next carry no click handler (no-op at the ends)', () => {
+  let calls = 0;
+  const nav = buildPager(18, 6, 1, () => { calls++; });
+  _prev(nav).click();                                // disabled → nothing
+  eq(calls, 0);
+});
+test('many pages: windowed with ellipsis, first + last always shown', () => {
+  const nav = buildPager(204, 6, 10, _noop);         // 34 pages, current 10
+  const nums = _nums(nav);
+  eq(nums[0], '1', 'first page always present');
+  eq(nums[nums.length - 1], '34', 'last page always present');
+  assert(nav.querySelector('.gp-ellip'), 'expected at least one ellipsis');
+  assert(nums.includes('9') && nums.includes('10') && nums.includes('11'), 'missing ±1 window: ' + nums.join(','));
+  assert(!nums.includes('5'), 'distant page 5 should be collapsed: ' + nums.join(','));
+  eq(nav.querySelector('.gp-btn.active').textContent.trim(), '10');
+});
+test('ellipsis is aria-hidden and not a button', () => {
+  const nav = buildPager(204, 6, 10, _noop);
+  const ell = nav.querySelector('.gp-ellip');
+  eq(ell.tagName, 'SPAN');
+  eq(ell.getAttribute('aria-hidden'), 'true');
+});
+test('window near the front collapses to exactly one ellipsis', () => {
+  // current near the front: 1 2 3 … 34  (single trailing ellipsis, no leading gap)
+  const nav = buildPager(204, 6, 2, _noop);
+  const nums = _nums(nav);
+  eq(nums[0], '1'); eq(nums[nums.length - 1], '34');
+  eq(nav.querySelectorAll('.gp-ellip').length, 1, 'should collapse to exactly one ellipsis: ' + nums.join(','));
+});
+
+/* ===========================================================
+   9e. Platform analytics — computePlatformAnalytics (#31)
+   Admin Overview growth/revenue rollup. Profiles come in RAW
+   snake_case (admin.html doesn't map them); sales come in mapped
+   camelCase. MRR counts only billing-live paid subs; GMV excludes
+   cancelled (refunded) sales; signups bucket by Monday. `now` is
+   injected so the 30-day + 12-week windows are deterministic.
+   =========================================================== */
+group('platform analytics');
+const _paNow = '2026-07-01T12:00:00Z';
+const _paDay = 864e5, _paNowMs = new Date(_paNow).getTime();
+const _ago = n => new Date(_paNowMs - n * _paDay).toISOString();
+const _paProfiles = [
+  { user_type: 'coach',   subscription_tier: 'pro',     subscription_status: 'active',    created_at: _ago(2) },
+  { user_type: 'coach',   subscription_tier: 'basic',   subscription_status: 'on_trial',  created_at: _ago(10) },
+  { user_type: 'coach',   subscription_tier: 'premium', subscription_status: 'cancelled', created_at: _ago(40) }, // not billing-live
+  { user_type: 'coach',   subscription_tier: 'free',                                      created_at: _ago(5) },  // free
+  { user_type: 'coach',   subscription_tier: 'pro',                                       created_at: _ago(3) },  // admin manual set, no status → counts
+  { user_type: 'athlete',                                                                 created_at: _ago(1) },
+  { user_type: 'athlete',                                                                 created_at: _ago(8) },
+  { user_type: 'athlete',                                                                 created_at: _ago(60) }
+];
+const _paSales = [
+  { amountCents: 5000, platformFeeCents: 1000, payoutStatus: 'paid',      createdAt: _ago(3) },
+  { amountCents: 3000, platformFeeCents: 600,  payoutStatus: 'pending',   createdAt: _ago(40) },
+  { amountCents: 9999, platformFeeCents: 2000, payoutStatus: 'cancelled', createdAt: _ago(2) } // refund — excluded
+];
+test('MRR counts billing-live paid subs (active/on_trial/status-absent), skips free + cancelled', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.mrr, 50 + 25 + 50);          // pro + basic + pro(manual)
+  eq(a.arr, (50 + 25 + 50) * 12);
+  eq(a.payingCoaches, 3);
+  eq(JSON.stringify(a.mrrByTier), JSON.stringify({ basic: 1, pro: 2, premium: 0 }));
+});
+test('conversion = paying ÷ all coaches', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.coachCount, 5); eq(a.athleteCount, 3);
+  close(a.conversionPct, 60, 0.01);
+});
+test('GMV + platform take exclude cancelled sales', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.gmvCents, 5000 + 3000);
+  eq(a.takeCents, 1000 + 600);
+  eq(a.salesCount, 2);
+  eq(a.gmv30Cents, 5000);           // only the 3-day-old sale is within 30d
+});
+test('signups: 30-day count + 12-week Monday-bucketed split series', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.signups30, 6);               // all but the 40d + 60d profiles
+  eq(a.signupSeries.length, 12);
+  const tot = a.signupSeries.reduce((s, b) => s + b.coaches + b.athletes, 0);
+  eq(tot, 8);                       // every fixture profile is within 12 weeks
+  const c = a.signupSeries.reduce((s, b) => s + b.coaches, 0);
+  const at = a.signupSeries.reduce((s, b) => s + b.athletes, 0);
+  eq(c, 5); eq(at, 3);              // split matches coach/athlete counts
+});
+test('empty / null inputs → all-zero, still 12 buckets', () => {
+  const a = computePlatformAnalytics([], [], { now: _paNow });
+  eq(a.mrr, 0); eq(a.gmvCents, 0); eq(a.payingCoaches, 0); eq(a.conversionPct, 0);
+  eq(a.signupSeries.length, 12);
+  const b = computePlatformAnalytics(null, null, { now: _paNow });
+  eq(b.totalUsers, 0); eq(b.salesCount, 0);
+});
+test('tolerates camelCase profiles + snake_case sales too', () => {
+  const a = computePlatformAnalytics(
+    [{ userType: 'coach', subscriptionTier: 'pro', subscriptionStatus: 'active', createdAt: _ago(1) }],
+    [{ amount_cents: 4000, platform_fee_cents: 800, payout_status: 'paid', created_at: _ago(1) }],
+    { now: _paNow }
+  );
+  eq(a.mrr, 50); eq(a.gmvCents, 4000); eq(a.takeCents, 800); eq(a.salesCount, 1);
 });
 
 /* ===========================================================
