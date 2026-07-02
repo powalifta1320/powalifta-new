@@ -5,6 +5,11 @@
 -- and migration-rls-hardening.sql (this file re-creates objects they define).
 -- Idempotent (DROP ... IF EXISTS / CREATE OR REPLACE) — safe to re-run.
 --
+-- ORDER-SAFE: the program_reviews block below self-SKIPS (with a NOTICE) if that
+-- table isn't in the DB yet, so running this before migration-marketplace-reviews
+-- no longer errors — it just hardens whatever exists. Re-run after you add the
+-- reviews table and the fix lands then.
+--
 -- Two findings from the overnight audit:
 --
 --  [HIGH] program_reviews trusted the client-supplied denormalized coach_id.
