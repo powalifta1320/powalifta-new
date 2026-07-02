@@ -1119,6 +1119,60 @@ test('ignores other athletes + non-positive e1RM', () => {
   eq(prTimeline(logs, 'A').length, 0);
 });
 
+group('achievements + streak');
+const _acNow = '2026-07-01T12:00:00Z'; // Wed; current week Monday = 2026-06-29
+const _acLog = (date) => ({ id: date, athleteId: 'A', lift: 'squat', date, e1rmComp: 200 });
+test('empty → nothing earned, zero streak', () => {
+  const a = trainingAchievements([], 'A', _acNow);
+  eq(a.stats.totalSessions, 0); eq(a.stats.weekStreak, 0);
+  assert(a.badges.every(b => !b.earned), 'no badges earned on empty');
+});
+test('3 consecutive weeks incl. current → streak 3', () => {
+  const logs = [_acLog('2026-06-30'), _acLog('2026-06-23'), _acLog('2026-06-16')];
+  const a = trainingAchievements(logs, 'A', _acNow);
+  eq(a.stats.weekStreak, 3);
+});
+test('a skipped week breaks the streak', () => {
+  const logs = [_acLog('2026-06-30'), _acLog('2026-06-16')]; // missing week of 06-22
+  eq(trainingAchievements(logs, 'A', _acNow).stats.weekStreak, 1);
+});
+test('empty current week counts streak from last week', () => {
+  const logs = [_acLog('2026-06-23'), _acLog('2026-06-16')]; // nothing in current week
+  eq(trainingAchievements(logs, 'A', _acNow).stats.weekStreak, 2);
+});
+test('session + PR badges gate on counts', () => {
+  const logs = [];
+  for (let i = 0; i < 10; i++) logs.push(_acLog('2026-05-' + String(i + 1).padStart(2, '0')));
+  const a = trainingAchievements(logs, 'A', _acNow);
+  eq(a.stats.totalSessions, 10);
+  assert(a.badges.find(b => b.key === 'sessions-10').earned, '10 sessions earned');
+  assert(!a.badges.find(b => b.key === 'sessions-50').earned, '50 not yet');
+  assert(a.badges.find(b => b.key === 'first-pr').earned, 'first PR from the first log');
+});
+
+group('e1RM trend');
+const _etNow = '2026-07-01T12:00:00Z';
+const _etLog = (date, e1rmComp) => ({ athleteId: 'A', lift: 'squat', date, e1rmComp });
+test('too little data → null', () => {
+  eq(e1rmTrend([_etLog('2026-06-30', 200)], 'A', 'squat', _etNow), null);
+});
+test('rising e1RM → positive kg/week', () => {
+  // +10kg over ~28 days ≈ +2.5 kg/wk
+  const logs = [_etLog('2026-06-03', 200), _etLog('2026-06-17', 205), _etLog('2026-07-01', 210)];
+  const t = e1rmTrend(logs, 'A', 'squat', _etNow);
+  assert(t > 0, 'trend should be positive, got ' + t);
+  close(t, 2.5, 0.6);
+});
+test('falling e1RM → negative', () => {
+  const logs = [_etLog('2026-06-03', 210), _etLog('2026-07-01', 200)];
+  assert(e1rmTrend(logs, 'A', 'squat', _etNow) < 0, 'declining trend should be negative');
+});
+test('respects the window (old data excluded)', () => {
+  const logs = [_etLog('2026-01-01', 100), _etLog('2026-06-25', 205), _etLog('2026-07-01', 210)];
+  const t = e1rmTrend(logs, 'A', 'squat', _etNow, 56); // 8wk window excludes January
+  assert(t > 0 && t < 20, 'January outlier must not dominate, got ' + t);
+});
+
 /* ===========================================================
    10. Importer round-trip (athlete.html, demo iframe)
    These functions are page-inline in athlete.html, so we load it

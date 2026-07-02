@@ -3173,6 +3173,28 @@ footer .footer-base {
 .deload-nudge .dl-title { font-weight: 700; color: var(--gold); margin-bottom: 2px; }
 .deload-nudge .dl-note { color: var(--text-2); font-size: 14px; line-height: 1.5; }
 
+/* e1RM trend chips — 8-week slope readout under the chart */
+.e1rm-trend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; }
+.e1rm-trend { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.e1rm-trend .ett-lift { color: var(--text-2); font-weight: 600; }
+.e1rm-trend .ett-val { font-family: var(--font-mono, 'Space Grotesk', monospace); font-weight: 700; }
+.e1rm-trend.up .ett-val { color: var(--green); }
+.e1rm-trend.down .ett-val { color: var(--red); }
+.e1rm-trend.flat .ett-val { color: var(--text-3); }
+.e1rm-trend-cap { font-size: 11px; color: var(--text-3); margin-left: auto; }
+
+/* Achievements strip — streak stats + milestone badges */
+.ach-card { margin-bottom: 22px; }
+.ach-stats { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 14px; font-family: var(--font-mono, 'Space Grotesk', monospace); font-weight: 700; color: var(--text-1); }
+.ach-stats span { position: relative; }
+.ach-stats span + span::before { content: '·'; position: absolute; left: -11px; color: var(--text-3); }
+.ach-strip { display: flex; flex-wrap: wrap; gap: 10px; }
+.ach-badge { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 78px; padding: 12px 6px; border-radius: 12px; border: 1px solid var(--line); text-align: center; }
+.ach-badge.earned { border-color: color-mix(in srgb, var(--red) 45%, transparent); background: color-mix(in srgb, var(--red) 8%, var(--bg-1)); }
+.ach-badge.locked { opacity: .4; filter: grayscale(1); }
+.ach-badge .ach-ic { font-size: 22px; line-height: 1; }
+.ach-badge .ach-lab { font-size: 10px; font-weight: 600; color: var(--text-2); line-height: 1.2; }
+
 /* Training calendar heatmap (GitHub-style, red intensity ramp) */
 .hm-card { margin-bottom: 22px; }
 .hm-grid { display: flex; gap: 3px; overflow-x: auto; padding: 8px 0 2px; }

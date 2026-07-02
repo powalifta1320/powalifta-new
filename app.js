@@ -5453,6 +5453,45 @@ function trainingHeatmap(logs, athleteId, now, weeks) {
 }
 window.trainingHeatmap = trainingHeatmap;
 
+// Training achievements + weekly streak — pure. A distinct training DAY = a
+// session. weekStreak = consecutive calendar weeks (UTC Mon–Sun) each with ≥1
+// session, counting back from the current week; if the current week has no
+// session yet the streak counts from last week (so Monday doesn't reset it).
+// Returns { stats:{totalSessions, prCount, weekStreak}, badges:[{key,label,icon,earned}] }.
+const ACHIEVEMENTS = [
+  { key: 'first-session', label: 'First session', icon: '🎯', test: s => s.totalSessions >= 1 },
+  { key: 'sessions-10',   label: '10 sessions',   icon: '💪', test: s => s.totalSessions >= 10 },
+  { key: 'sessions-50',   label: '50 sessions',   icon: '🔥', test: s => s.totalSessions >= 50 },
+  { key: 'sessions-100',  label: '100 sessions',  icon: '🏛️', test: s => s.totalSessions >= 100 },
+  { key: 'first-pr',      label: 'First PR',       icon: '🏆', test: s => s.prCount >= 1 },
+  { key: 'pr-10',         label: '10 PRs',         icon: '📈', test: s => s.prCount >= 10 },
+  { key: 'streak-4',      label: '4-week streak',  icon: '⚡', test: s => s.weekStreak >= 4 },
+  { key: 'streak-12',     label: '12-week streak', icon: '🗓️', test: s => s.weekStreak >= 12 }
+];
+function trainingAchievements(logs, athleteId, now) {
+  const nowMs = now == null ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
+  const DAY = 864e5, WEEK = 7 * DAY;
+  const monKey = (ms) => { const d = new Date(ms); const dow = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - dow * DAY; };
+  const days = new Set(), weeks = new Set();
+  (logs || []).forEach(l => {
+    if (!l || l.athleteId !== athleteId) return;
+    const t = Date.parse(l.date);
+    if (!isFinite(t)) return;
+    days.add(new Date(t).toISOString().slice(0, 10));
+    weeks.add(monKey(t));
+  });
+  let streak = 0;
+  if (isFinite(nowMs)) {
+    const curMon = monKey(nowMs);
+    let wk = weeks.has(curMon) ? curMon : curMon - WEEK;
+    while (weeks.has(wk)) { streak++; wk -= WEEK; }
+  }
+  const stats = { totalSessions: days.size, prCount: prTimeline(logs, athleteId).length, weekStreak: streak };
+  const badges = ACHIEVEMENTS.map(a => ({ key: a.key, label: a.label, icon: a.icon, earned: !!a.test(stats) }));
+  return { stats, badges };
+}
+window.trainingAchievements = trainingAchievements;
+
 // ================= LEADERBOARD (opt-in public DOTS board) =================
 // Pure: rank published board entries. Drops non-positive DOTS, sorts by DOTS desc
 // then total desc (tiebreak), and assigns STANDARD competition ranks — ties share
@@ -5660,6 +5699,34 @@ function linregSlope(xs, ys) {
   if (den === 0) return null;
   return num / den;
 }
+
+// e1RM trend — pure. Least-squares slope of a lift's best-per-day competition
+// e1RM over the last `windowDays` (default 56 = 8 weeks), returned in kg/WEEK
+// (+ = rising). null if fewer than 2 distinct training days in the window.
+// Reuses the shared linregSlope. Safe text-readout companion to the e1RM chart.
+function e1rmTrend(logs, athleteId, lift, now, windowDays) {
+  windowDays = windowDays || 56;
+  const nowMs = now == null ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
+  if (!isFinite(nowMs)) return null;
+  const DAY = 864e5;
+  const from = nowMs - windowDays * DAY;
+  const byDate = {};
+  (logs || []).forEach(l => {
+    if (!l || l.athleteId !== athleteId || l.lift !== lift) return;
+    const t = Date.parse(l.date);
+    if (!isFinite(t) || t < from || t > nowMs) return;
+    const e = Number(l.e1rmComp);
+    if (!(e > 0)) return;
+    const k = new Date(t).toISOString().slice(0, 10);
+    if (byDate[k] == null || e > byDate[k]) byDate[k] = e;
+  });
+  const keys = Object.keys(byDate).sort();
+  if (keys.length < 2) return null;
+  const perDay = linregSlope(keys.map(k => Date.parse(k) / DAY), keys.map(k => byDate[k]));
+  if (perDay == null) return null;
+  return Math.round(perDay * 7 * 10) / 10; // kg/week
+}
+window.e1rmTrend = e1rmTrend;
 
 const DAY_MS = 86400000;
 

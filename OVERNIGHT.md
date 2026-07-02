@@ -89,11 +89,30 @@ Every item below: pure helper + unit tests + demo-verified at 1280 & 375, 0 cons
 - **[13] Training calendar heatmap** — GitHub-style 12-week grid on Progress, red
   intensity ramp, cell = day's set count, future days dimmed. Pure `trainingHeatmap()`
   + 4 tests. Verify: demo Progress → "Training calendar" (35 sessions / 175 sets).
+- **[24] PR timeline** — chronological feed of every e1RM PR on Progress (newest
+  first, +kg jump badge, "first" for a lift's opener). Pure `prTimeline()` + 4 tests.
+  Verify: demo Progress → "PR timeline" (8 rows, e.g. "Jun 24 Deadlift 252 kg +3.2 kg").
+- **[17] Session tonnage** — "N kg moved" line in the Today session summary (sum of
+  completed sets' weight×reps; unit-aware; hidden at 0). Weekly tonnage on Progress
+  already existed. Verify: complete a set in demo Today → "825 kg moved" appears.
+- **[30] PR haptic** — `navigator.vibrate([40,60,120])` on the PR overlay
+  (feature-detected, try/catch, desktop no-op). Verify: fires on a new PR (mobile).
+- **[18] Streaks & badges** — Achievements card on Progress: weekly streak +
+  session/PR milestone badges (earned vs locked). Pure `trainingAchievements()` + 5
+  tests. Verify: demo Progress → "17-week streak · 48 sessions · 24 PRs", 6/8 badges lit.
+- **[14] e1RM trend readout** — per-lift 8-week least-squares slope chips under the
+  e1RM chart ("Squat ↗ 1.9 kg/wk", up=green / down=red). Pure `e1rmTrend()` + 4 tests.
+  NOTE: delivered as a **text readout**, NOT the dashed on-chart projection line — the
+  shared `drawLineChart` animates via `stroke-dasharray`, which conflicts with a
+  dashed style; adding it safely needs a `drawLineChart` refactor, deferred as too
+  risky for an unattended run. The trend numbers give the same signal.
 
-tests.html: 162/162 green (was 143 at session start; +19 new assertions).
+tests.html: 175/175 green (was 143 at session start; +32 new assertions).
 
-### PENDING
-- Phase 2 remainder: 12,14,15,16,17,18,19,20,21,22,24,26,27,28,29,30
+### PENDING (Phase 2 remainder)
+- 12 rest timer, 15 command palette, 16 exercise-history popover, 19 plate-calc gym
+  inventory, 20 post-session recap, 21 rounding pref, 22 session sRPE, 26 leaderboard
+  percentile, 27 custom accessories, 28 notes journal, 29 wake lock.
 - Phase 3 coach (31-42), Phase 4 marketplace (43-47), Phase 5 PWA (48-54),
   Phase 6 tools (55-59), Phase 7 growth (60-69), Phase 8 quality (70-77).
 

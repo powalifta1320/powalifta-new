@@ -1284,11 +1284,19 @@ function renderToday() {
   const done = allSets.filter(s => s.completed).length;
   const total = allSets.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
+  // Session tonnage — total weight moved across completed sets today (weight × reps).
+  const doneTonnage = allSets.filter(s => s.completed)
+    .reduce((sum, s) => sum + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0);
   const prog1 = el('div', { class: 'today-progress' });
-  prog1.appendChild(el('div', {},
+  const summaryBox = el('div', {},
     el('div', { class: 'pct' }, pct + '%'),
     el('div', { class: 'faint text-sm upper' }, done + ' / ' + total + ' sets done')
-  ));
+  );
+  if (doneTonnage > 0) {
+    summaryBox.appendChild(el('div', { class: 'faint text-sm' },
+      Math.round(kgToDisplay(doneTonnage)).toLocaleString() + ' ' + unitLabel() + ' moved'));
+  }
+  prog1.appendChild(summaryBox);
   const pbar = el('div', { class: 'pbar' });
   const pfill = el('div', { style: 'width:' + pct + '%' });
   pbar.appendChild(pfill);
@@ -1645,6 +1653,8 @@ function showPRToast(lift, e1rmComp) {
   card.appendChild(share);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
+  // Celebratory haptic on a PR (feature-detected; no-op where unsupported / desktop).
+  try { if (navigator.vibrate) navigator.vibrate([40, 60, 120]); } catch (e) {}
   setTimeout(() => overlay.remove(), 5200);
 }
 
@@ -2616,6 +2626,27 @@ function buildStrengthScoreCard(athleteId) {
 // Per-movement weekly working-set counts plotted against MEV/MAV/MRV zones, so
 // an athlete can see at a glance whether a pattern is under-stimulated or being
 // run into the ground. Pure math lives in app.js (weeklyVolumeLandmarks).
+// Achievements strip — weekly streak + session/PR milestone badges (pure helper).
+function renderAchievements(area) {
+  const a = trainingAchievements(Store.get().workoutLogs, user.id, Date.now());
+  if (!a.stats.totalSessions) return; // brand-new athlete — nothing to celebrate yet
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Achievements'));
+  const card = el('div', { class: 'chart-card ach-card' });
+  card.appendChild(el('div', { class: 'ach-stats' },
+    el('span', {}, a.stats.weekStreak + '-week streak'),
+    el('span', {}, a.stats.totalSessions + ' session' + (a.stats.totalSessions === 1 ? '' : 's')),
+    el('span', {}, a.stats.prCount + ' PR' + (a.stats.prCount === 1 ? '' : 's'))));
+  const strip = el('div', { class: 'ach-strip' });
+  a.badges.forEach(b => {
+    const badge = el('div', { class: 'ach-badge ' + (b.earned ? 'earned' : 'locked'), title: b.label });
+    badge.appendChild(el('div', { class: 'ach-ic' }, b.icon));
+    badge.appendChild(el('div', { class: 'ach-lab' }, b.label));
+    strip.appendChild(badge);
+  });
+  card.appendChild(strip);
+  area.appendChild(card);
+}
+
 // GitHub-style 12-week training calendar. Columns = weeks, rows = Mon→Sun,
 // cell intensity = that day's logged-set count (pure trainingHeatmap helper).
 function renderTrainingHeatmap(area) {
@@ -2779,6 +2810,7 @@ function renderProgress() {
   }
 
   renderTrainingHeatmap(area);
+  renderAchievements(area);
 
   const delta = getWeeklyDelta(user.id);
   if (Object.keys(delta).length) {
@@ -2884,6 +2916,25 @@ function renderProgress() {
   // Convert all series y-values to display unit so the y-axis matches
   series.forEach(s => { s.data = s.data.map(d => ({ x: d.x, y: kgToDisplay(d.y, 1) })); });
   drawLineChart(wrap, { series, unit: unitLabel(), height: 320, area: false });
+
+  // e1RM trend readout — 8-week least-squares slope per lift (pure e1rmTrend).
+  const trendRow = el('div', { class: 'e1rm-trend-row' });
+  let anyTrend = false;
+  ['squat', 'bench', 'deadlift'].forEach(lift => {
+    const slope = e1rmTrend(logs, user.id, lift, Date.now());
+    if (slope == null) return;
+    anyTrend = true;
+    const cls = slope > 0.05 ? 'up' : slope < -0.05 ? 'down' : 'flat';
+    const arrow = cls === 'up' ? '↗' : cls === 'down' ? '↘' : '→';
+    const disp = Math.round(kgToDisplay(Math.abs(slope)) * 10) / 10;
+    trendRow.appendChild(el('span', { class: 'e1rm-trend ' + cls },
+      el('span', { class: 'ett-lift' }, LIFT_LABELS[lift]),
+      el('span', { class: 'ett-val' }, arrow + ' ' + disp + ' ' + unitLabel() + '/wk')));
+  });
+  if (anyTrend) {
+    trendRow.appendChild(el('span', { class: 'e1rm-trend-cap' }, '8-week trend'));
+    chartCard.appendChild(trendRow);
+  }
 
   // ===== REP PRs — best weight at each rep count per main lift =====
   if (logs.length) {
