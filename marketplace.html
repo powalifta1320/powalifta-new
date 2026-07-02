@@ -264,7 +264,7 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -535,7 +535,7 @@ async function renderDetail(id) {
   wrap.appendChild(el('h1', { class: 'mk-detail-title' }, program.title));
 
   const meta = el('p', { class: 'mk-detail-meta' });
-  meta.innerHTML = 'by <strong>' + (coach ? coach.name : 'a POWALIFTA coach') + '</strong> · ' +
+  meta.innerHTML = 'by <strong>' + (coach ? escapeHtml(coach.name) : 'a POWALIFTA coach') + '</strong> · ' +
                    program.weekCount + ' weeks · ' + program.soldCount + ' athletes own this';
   wrap.appendChild(meta);
 

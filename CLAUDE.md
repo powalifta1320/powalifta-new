@@ -76,7 +76,7 @@ Every fx file respects `prefers-reduced-motion`.
 - `profiles` — every user. `userType` is `athlete` | `coach` | `admin`. `coach_id` on an athlete row links them to a coach. Setting `coach_id = null` disconnects. `subscription_tier` is `free` | `basic` | `pro` | `premium` (athlete-limit 3/10/25/unlimited — see `migration-tier-enforcement.sql`); the LS subscription webhook writes it plus `subscription_status` / `ls_subscription_id` / `ls_customer_id` / `subscription_updated_at` (created by `migration-subscription-columns.sql`). `is_admin` boolean gates the admin dashboard. All three privileged columns are frozen against client self-escalation by `migration-profiles-privilege-guard.sql`.
 - `programs` — coach-built week/day/exercise/sets per athlete. `athlete_id` + `coach_id`.
 - `templates` — coach's reusable program payloads.
-- `logs` — every set logged. Drives e1RM.
+- `workout_logs` — every set logged (client-side: `workoutLogs`, mapped in db.js). Drives e1RM. Older notes sometimes say "logs" — the real table is `workout_logs`.
 - `bodyweight` — daily weigh-ins.
 - `goals` — SBD + bodyweight targets.
 - `marketplace_programs` — public listings.
@@ -154,6 +154,7 @@ migration-client-errors-admin-read.sql # admin-only SELECT policy (is_admin()) o
 migration-edge-rate-limits.sql        # edge_rate_limits table (service-role only, no policies) + atomic rl_bump(bucket,identity,window_secs,limit) RPC (fixed-window counter) for edge-function abuse guards. Idempotent/independent — apply any time. Every caller FAILS OPEN if the RPC isn't there yet, so deploy order never matters.
 migration-account-deletion.sql        # makes self-serve erasure (#33) cascade-safe: program_sales buyer_id/coach_id/marketplace_program_id → DROP NOT NULL + ON DELETE SET NULL (retain the tax record, null the identity) so deleting a user/coach/listing no longer hits a RESTRICT FK; plus a guarded DO block that upgrades profiles→auth.users to ON DELETE CASCADE iff it isn't already. Idempotent/order-independent. Run BEFORE deploying delete-account (until then deleteUser fails cleanly and the client shows the manual email fallback).
 migration-rls-hardening.sql           # RUN LAST — security-audit hardening pass (#24). Column-level immutability triggers + tightened policies across profiles (coach-detach guard), messages, session_notes, coach_requests, marketplace_programs (self-publish guard), form_checks, and storage.objects (avatars owner-update). Recreates accept_coach_request → depends on migration-coach-requests. Idempotent (CREATE OR REPLACE / DROP IF EXISTS); apply after every table/policy it references exists.
+migration-rls-hardening-2.sql         # RUN AFTER rls-hardening (audit pass #2). Fixes: (HIGH) program_reviews INSERT/UPDATE now bind the client-supplied denormalized coach_id to the program's REAL coach (marketplace_programs join) so a buyer can't inject a review onto a rival coach's public rating; (MED) pins `SET search_path = public` on the SECURITY DEFINER mp_prevent_self_publish() (was the only DEFINER fn missing it). Idempotent; verification queries in the file header. Depends on migration-marketplace-reviews + migration-rls-hardening.
 ```
 
 **Storage note:** `migration-form-checks.sql` also creates a private Storage bucket
@@ -206,6 +207,11 @@ Single source of truth for taking the whole backlog live. The site itself (stati
 | Error forwarding (#25) | deploy `send-client-error` + `migration-client-errors.sql` (+ `-admin-read` for the admin tab) |
 | Rate limiting (#26) | `migration-edge-rate-limits.sql` (callers fail open until then) |
 | Everything else (client-only) | already live on Vercel push — no backend action |
+
+## Recently shipped (overnight security + athlete-analytics batch)
+
+- **Security hardening pass** — DONE (client live on push; edge fns need redeploy; 1 new migration). Two audit workflows (adversarial-verified) surfaced + fixed: **4 stored-XSS sinks** now `escHtml`/`escapeHtml`'d (admin approve/deliver/invites modals + the anon-facing `marketplace.html` program-detail "by <coach>" line); **6 demo-write leaks** gated on `window._demoMode` (athlete saveEditedLog/leaveMyCoach, coach removeAthleteFromRoster/notifyAthleteAssigned, app.js saveSettings/handleAvatarUpload); **5 edge fns hardened** (ai-chat + ls-webhook + ls-marketplace-webhook no longer leak stack/exception text; ls-webhook invalid-sig no longer leaks body length; send-weekly-digest now uses constant-time `timingSafeEqual` on CRON_SECRET; send-client-error caps body at 20KB pre-parse + validates `ts`); **`sql/migration-rls-hardening-2.sql`** (new, RUN LAST) binds `program_reviews.coach_id` to the program's real coach in RLS (was review-injection-able) + pins `search_path` on `mp_prevent_self_publish`. `error-log.js` `SUPABASE_ERROR_ENDPOINT` set live. Signup got a pure `pwdStrength()` meter. Full triage + morning actions in `OVERNIGHT.md`.
+- **Athlete analytics (pure helpers, all unit-tested, all on the Progress tab / strength card)** — DONE. `ipfGlPoints()` (official IPF GoodLift score beside DOTS in the strength card); `deloadSignal()` (amber "deload might be due" nudge after 3 rising-load weeks at RPE≥8); `trainingHeatmap()` (GitHub-style 12-week calendar, red intensity ramp); `prTimeline()` (chronological e1RM-PR feed, newest first, +kg jump badges); `trainingAchievements()` (weekly streak + session/PR milestone badge strip); session tonnage ("N kg moved") in the Today summary; PR haptic (`navigator.vibrate`, feature-detected). All in `app.js` (window-exported), rendered in `athlete.html`, styled in `styles.css`, demo-safe. tests.html 143→171 green.
 
 ## Recently shipped (reviews / messaging / form checks)
 

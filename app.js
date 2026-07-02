@@ -1806,6 +1806,7 @@ async function handleAvatarUpload(ev) {
   if (!u) return;
   const file = ev.target.files && ev.target.files[0];
   if (!file) return;
+  if (window._demoMode) { toast('Preview only in demo mode'); return; }
   const status = document.getElementById('setAvatarStatus');
   const preview = document.getElementById('setAvatarPreview');
   if (status) status.textContent = 'Uploading…';
@@ -3004,6 +3005,7 @@ window.renderMessageThread = renderMessageThread;
 async function saveSettings() {
   const u = getCurrentUser();
   if (!u) return;
+  if (window._demoMode) { toast('Preview only in demo mode'); return; }
   const name = document.getElementById('setName').value.trim();
   const pwd = document.getElementById('setPwd').value;
   const bio = u.userType === 'coach' ? document.getElementById('setBio').value.trim() : null;
@@ -3633,6 +3635,22 @@ function dotsScore(totalKg, bwKg, sex) {
   return Math.round((500 / denom) * totalKg * 100) / 100;
 }
 
+// IPF GoodLift (GL) points — the IPF's official bodyweight-adjusted score, using
+// the Classic (raw) coefficients that replaced the old IPF points in 2020.
+// total + bw in kg. Formula: 100 / (A − B·e^(−C·bw)) · total. World-class ≈ 100.
+// Complements DOTS (different feds prefer different scores) — same inputs.
+function ipfGlPoints(totalKg, bwKg, sex) {
+  if (!totalKg || !bwKg || bwKg <= 0) return 0;
+  const c = (sex === 'female')
+    ? { A: 610.32796, B: 1045.59282, C: 0.03048 }
+    : { A: 1199.72839, B: 1025.18162, C: 0.00921 };
+  const denom = c.A - c.B * Math.exp(-c.C * bwKg);
+  if (denom <= 0) return 0;
+  const pts = (100 / denom) * totalKg;
+  return isFinite(pts) && pts > 0 ? Math.round(pts * 100) / 100 : 0;
+}
+window.ipfGlPoints = ipfGlPoints;
+
 // IPF weight classes (open). Returns e.g. "83kg" or "120kg+".
 const IPF_CLASSES = {
   male:   [59, 66, 74, 83, 93, 105, 120],
@@ -4223,6 +4241,38 @@ function getLifetimePRs(athleteId) {
   return result;
 }
 
+// Chronological PR feed — pure. Walks each main lift's logs oldest→newest,
+// tracking the running best competition-equivalent e1RM; every set that beats the
+// prior best (by >0.05) is a PR event. Returns events NEWEST-first:
+// { date, lift, e1rm, prev, jump } — prev 0 = first ever for that lift, jump = kg
+// over the old best. `opts.limit` caps the count. Never mutates input.
+function prTimeline(logs, athleteId, opts) {
+  opts = opts || {};
+  const events = [];
+  ['squat', 'bench', 'deadlift'].forEach(lift => {
+    const mine = (logs || [])
+      .filter(l => l && l.athleteId === athleteId && l.lift === lift && Number(l.e1rmComp) > 0)
+      .slice()
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id).localeCompare(String(b.id)));
+    let best = 0;
+    mine.forEach(l => {
+      const e = Number(l.e1rmComp);
+      if (e > best + 0.05) {
+        events.push({
+          date: l.date, lift,
+          e1rm: Math.round(e * 10) / 10,
+          prev: Math.round(best * 10) / 10,
+          jump: Math.round((e - best) * 10) / 10
+        });
+        best = e;
+      }
+    });
+  });
+  events.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return opts.limit ? events.slice(0, opts.limit) : events;
+}
+window.prTimeline = prTimeline;
+
 function getWeeklyDelta(athleteId) {
   const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId);
   const today = new Date(); today.setHours(0,0,0,0);
@@ -4493,6 +4543,23 @@ function initials(name) {
   const parts = String(name).trim().split(/\s+/);
   return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
 }
+
+// Password strength hint (pure). Hand-rolled, no libs. 6 chars is the signup
+// floor; below that = "Too short" (score 0). Otherwise score 1..4 from length
+// + character variety. Purely advisory UI — never blocks submit.
+function pwdStrength(pw) {
+  pw = String(pw || '');
+  if (pw.length < 6) return { score: 0, label: 'Too short', pct: 12 };
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (pw.length >= 12) s++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  s = Math.max(1, Math.min(4, s));
+  return { score: s, label: { 1: 'Weak', 2: 'Fair', 3: 'Good', 4: 'Strong' }[s], pct: s * 25 };
+}
+window.pwdStrength = pwdStrength;
 
 // =========================================================
 // FLAGS — convert ISO-3166-1 alpha-2 country code → 🇺🇸 emoji
@@ -5286,6 +5353,99 @@ function weeklyVolumeLandmarks(logs, athleteId, from, to) {
   return out;
 }
 
+// Deload suggestion — pure. Powerlifting blocks accumulate fatigue; after ~3
+// consecutive weeks of RISING working-set tonnage at sustained high RPE with no
+// down week, a deload banks that fatigue into strength. Returns a nudge ONLY when
+// the pattern is unambiguous (never nags on noisy/thin data). Weeks are 7-day
+// windows counting back from `now`; the current partial week (index 0) is
+// EXCLUDED so an in-progress week can't fake a trend. Every completed week in the
+// lookback must have logged sets — a gap → null (not enough continuous data).
+// Returns { suggest, risingStreak, recentAvgRpe, weeks:[{tonnage,avgRpe,sets}], note } | null.
+function deloadSignal(logs, athleteId, now, opts) {
+  opts = opts || {};
+  const lookback = opts.weeks || 3;   // completed weeks the pattern must span
+  const rpeThresh = opts.rpe || 8;    // "high" recent average RPE
+  const nowMs = now == null ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
+  if (!isFinite(nowMs)) return null;
+  const WEEK = 7 * 864e5;
+  const buckets = {};
+  (logs || []).forEach(l => {
+    if (!l || l.athleteId !== athleteId) return;
+    const t = Date.parse(l.date);
+    if (!isFinite(t) || t > nowMs) return;
+    const wi = Math.floor((nowMs - t) / WEEK);   // 0 = current partial week
+    if (wi < 1 || wi > lookback) return;          // only completed weeks in range
+    const w = Number(l.weight) || 0, reps = Number(l.reps) || 0, rpe = Number(l.rpe);
+    const b = buckets[wi] || (buckets[wi] = { tonnage: 0, rpeSum: 0, rpeN: 0, sets: 0 });
+    b.tonnage += w * reps;
+    b.sets += 1;
+    if (rpe > 0) { b.rpeSum += rpe; b.rpeN += 1; }
+  });
+  const weeks = [];
+  for (let wi = lookback; wi >= 1; wi--) {         // oldest → newest
+    const b = buckets[wi];
+    if (!b || b.sets === 0) return null;           // gap = not enough continuous data
+    weeks.push({ tonnage: b.tonnage, avgRpe: b.rpeN ? b.rpeSum / b.rpeN : 0, sets: b.sets });
+  }
+  let risingStreak = 1;
+  for (let i = 1; i < weeks.length; i++) {
+    if (weeks[i].tonnage > weeks[i - 1].tonnage) risingStreak++;
+    else risingStreak = 1;
+  }
+  const recentAvgRpe = weeks[weeks.length - 1].avgRpe;
+  const recentRounded = Math.round(recentAvgRpe * 10) / 10;
+  const suggest = risingStreak >= lookback && recentAvgRpe >= rpeThresh;
+  return {
+    suggest,
+    risingStreak,
+    recentAvgRpe: recentRounded,
+    weeks,
+    note: suggest
+      ? (lookback + ' weeks of rising load at RPE ' + recentRounded + ' — a deload week could turn that fatigue into strength.')
+      : ''
+  };
+}
+window.deloadSignal = deloadSignal;
+
+// Training achievements + weekly streak — pure. A distinct training DAY = a
+// session. weekStreak = consecutive calendar weeks (UTC Mon–Sun) each with ≥1
+// session, counting back from the current week; if the current week has no
+// session yet the streak counts from last week (so Monday doesn't reset it).
+// Returns { stats:{totalSessions, prCount, weekStreak}, badges:[{key,label,icon,earned}] }.
+const ACHIEVEMENTS = [
+  { key: 'first-session', label: 'First session', icon: '🎯', test: s => s.totalSessions >= 1 },
+  { key: 'sessions-10',   label: '10 sessions',   icon: '💪', test: s => s.totalSessions >= 10 },
+  { key: 'sessions-50',   label: '50 sessions',   icon: '🔥', test: s => s.totalSessions >= 50 },
+  { key: 'sessions-100',  label: '100 sessions',  icon: '🏛️', test: s => s.totalSessions >= 100 },
+  { key: 'first-pr',      label: 'First PR',       icon: '🏆', test: s => s.prCount >= 1 },
+  { key: 'pr-10',         label: '10 PRs',         icon: '📈', test: s => s.prCount >= 10 },
+  { key: 'streak-4',      label: '4-week streak',  icon: '⚡', test: s => s.weekStreak >= 4 },
+  { key: 'streak-12',     label: '12-week streak', icon: '🗓️', test: s => s.weekStreak >= 12 }
+];
+function trainingAchievements(logs, athleteId, now) {
+  const nowMs = now == null ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
+  const DAY = 864e5, WEEK = 7 * DAY;
+  const monKey = (ms) => { const d = new Date(ms); const dow = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - dow * DAY; };
+  const days = new Set(), weeks = new Set();
+  (logs || []).forEach(l => {
+    if (!l || l.athleteId !== athleteId) return;
+    const t = Date.parse(l.date);
+    if (!isFinite(t)) return;
+    days.add(new Date(t).toISOString().slice(0, 10));
+    weeks.add(monKey(t));
+  });
+  let streak = 0;
+  if (isFinite(nowMs)) {
+    const curMon = monKey(nowMs);
+    let wk = weeks.has(curMon) ? curMon : curMon - WEEK;
+    while (weeks.has(wk)) { streak++; wk -= WEEK; }
+  }
+  const stats = { totalSessions: days.size, prCount: prTimeline(logs, athleteId).length, weekStreak: streak };
+  const badges = ACHIEVEMENTS.map(a => ({ key: a.key, label: a.label, icon: a.icon, earned: !!a.test(stats) }));
+  return { stats, badges };
+}
+window.trainingAchievements = trainingAchievements;
+
 // ================= LEADERBOARD (opt-in public DOTS board) =================
 // Pure: rank published board entries. Drops non-positive DOTS, sorts by DOTS desc
 // then total desc (tiebreak), and assigns STANDARD competition ranks — ties share
@@ -5493,6 +5653,34 @@ function linregSlope(xs, ys) {
   if (den === 0) return null;
   return num / den;
 }
+
+// e1RM trend — pure. Least-squares slope of a lift's best-per-day competition
+// e1RM over the last `windowDays` (default 56 = 8 weeks), returned in kg/WEEK
+// (+ = rising). null if fewer than 2 distinct training days in the window.
+// Reuses the shared linregSlope. Safe text-readout companion to the e1RM chart.
+function e1rmTrend(logs, athleteId, lift, now, windowDays) {
+  windowDays = windowDays || 56;
+  const nowMs = now == null ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
+  if (!isFinite(nowMs)) return null;
+  const DAY = 864e5;
+  const from = nowMs - windowDays * DAY;
+  const byDate = {};
+  (logs || []).forEach(l => {
+    if (!l || l.athleteId !== athleteId || l.lift !== lift) return;
+    const t = Date.parse(l.date);
+    if (!isFinite(t) || t < from || t > nowMs) return;
+    const e = Number(l.e1rmComp);
+    if (!(e > 0)) return;
+    const k = new Date(t).toISOString().slice(0, 10);
+    if (byDate[k] == null || e > byDate[k]) byDate[k] = e;
+  });
+  const keys = Object.keys(byDate).sort();
+  if (keys.length < 2) return null;
+  const perDay = linregSlope(keys.map(k => Date.parse(k) / DAY), keys.map(k => byDate[k]));
+  if (perDay == null) return null;
+  return Math.round(perDay * 7 * 10) / 10; // kg/week
+}
+window.e1rmTrend = e1rmTrend;
 
 const DAY_MS = 86400000;
 

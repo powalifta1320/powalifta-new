@@ -211,7 +211,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -599,7 +599,7 @@ function renderInvites() {
   filtered.forEach(i => {
     const coach = profileById(i.coachId);
     const tr = el('tr');
-    tr.innerHTML = '<td><span class="mono fw-700" style="letter-spacing: 0.15em;">' + i.code + '</span></td>' +
+    tr.innerHTML = '<td><span class="mono fw-700" style="letter-spacing: 0.15em;">' + escHtml(i.code) + '</span></td>' +
                    '<td>' + escHtml(coach?.name || '—') + '</td>' +
                    '<td class="dim">' + escHtml(i.email || '—') + '</td>' +
                    '<td>' + (i.used ? '<span class="badge badge-green">USED</span>' : '<span class="badge">PENDING</span>') + '</td>' +
@@ -888,7 +888,7 @@ function openApproveModal(p) {
     hint.innerHTML = '<strong>Coach price:</strong> ' + fmtPrice(p.priceCents) +
       ' &nbsp;·&nbsp; <strong>Category:</strong> ' + (ADMIN_TIER_LABEL[p.tier] || 'Program') +
       ' &nbsp;·&nbsp; <strong>Coach payout (80%):</strong> ' + fmtPrice(Math.round(p.priceCents * 0.8)) +
-      (coach ? ' &nbsp;·&nbsp; <strong>By:</strong> ' + coach.name : '') +
+      (coach ? ' &nbsp;·&nbsp; <strong>By:</strong> ' + escHtml(coach.name) : '') +
       '<br><span class="faded text-xs">Create the LS product priced at ' + fmtPrice(p.priceCents) + ' to match.</span>';
   }
   openModal('approveModal');
@@ -930,9 +930,9 @@ function openDeliverModal(p) {
   const info = document.getElementById('deliverProgInfo');
   if (info) {
     const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
-    info.innerHTML = '<strong>Program:</strong> ' + (p.title || '') +
+    info.innerHTML = '<strong>Program:</strong> ' + escHtml(p.title || '') +
       ' &nbsp;·&nbsp; <strong>Listing price:</strong> ' + fmtPrice(p.priceCents) +
-      (coach ? ' &nbsp;·&nbsp; <strong>Coach:</strong> ' + coach.name : '');
+      (coach ? ' &nbsp;·&nbsp; <strong>Coach:</strong> ' + escHtml(coach.name) : '');
   }
   openModal('deliverModal');
 }
