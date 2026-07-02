@@ -216,7 +216,9 @@ Deno.serve(async (req) => {
     if (result && result.ok) return jsonResponse(200, { text: result.text });
     return jsonResponse(502, { error: 'Model request failed', status: result?.status ?? 502 });
   } catch (e) {
+    // Keep the specifics server-side only (matches the provider-failure path above);
+    // never echo raw runtime exception text to the client (recon-grade info leak).
     console.error('ai-chat crashed:', e);
-    return jsonResponse(500, { error: 'Unhandled exception', message: String((e as any)?.message || e) });
+    return jsonResponse(500, { error: 'Unhandled exception' });
   }
 });

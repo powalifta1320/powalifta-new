@@ -992,6 +992,133 @@ test('tolerates camelCase profiles + snake_case sales too', () => {
   eq(a.mrr, 50); eq(a.gmvCents, 4000); eq(a.takeCents, 800); eq(a.salesCount, 1);
 });
 
+group('password strength');
+test('below 6 chars → score 0 "Too short"', () => {
+  eq(pwdStrength('abc').score, 0);
+  eq(pwdStrength('abc').label, 'Too short');
+  eq(pwdStrength('').score, 0);
+});
+test('score clamps to 1..4 and pct tracks score', () => {
+  const weak = pwdStrength('abcdef');   // 6 lowercase → min score 1
+  eq(weak.score, 1); eq(weak.label, 'Weak'); eq(weak.pct, 25);
+  const strong = pwdStrength('Abcdefgh1!xyz'); // long + mixed + digit + symbol
+  eq(strong.score, 4); eq(strong.label, 'Strong'); eq(strong.pct, 100);
+});
+test('variety raises score', () => {
+  assert(pwdStrength('Abcdefg1').score > pwdStrength('abcdefg').score, 'mixed+digit should beat plain');
+});
+test('null/undefined safe', () => {
+  eq(pwdStrength(null).score, 0);
+  eq(pwdStrength(undefined).label, 'Too short');
+});
+
+group('IPF GL points');
+test('invalid inputs → 0', () => {
+  eq(ipfGlPoints(0, 100, 'male'), 0);
+  eq(ipfGlPoints(700, 0, 'male'), 0);
+  eq(ipfGlPoints(700, -5, 'male'), 0);
+});
+test('men 700kg @ 100kg ≈ 88.4', () => close(ipfGlPoints(700, 100, 'male'), 88.4, 0.5));
+test('heavier bodyweight, same total → fewer GL points', () => {
+  assert(ipfGlPoints(700, 120, 'male') < ipfGlPoints(700, 100, 'male'), 'GL should drop as bw rises');
+});
+test('women coefficients differ from men', () => {
+  assert(ipfGlPoints(400, 60, 'female') !== ipfGlPoints(400, 60, 'male'), 'sex should change the score');
+});
+test('higher total → higher GL (same lifter)', () => {
+  assert(ipfGlPoints(750, 100, 'male') > ipfGlPoints(700, 100, 'male'));
+});
+
+group('deload signal');
+const _dlNow = Date.parse('2026-07-01T12:00:00Z');
+const _dlDay = 864e5;
+const _dlLog = (daysAgo, weight, reps, rpe) => ({ athleteId: 'A', date: new Date(_dlNow - daysAgo * _dlDay).toISOString(), weight, reps, rpe });
+test('no data → null', () => eq(deloadSignal([], 'A', _dlNow), null));
+test('3 rising weeks at high RPE → suggest', () => {
+  const logs = [_dlLog(22, 100, 5, 8), _dlLog(15, 100, 8, 8), _dlLog(8, 100, 10, 9)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.suggest === true, 'expected suggest true, got ' + JSON.stringify(r));
+  eq(r.risingStreak, 3);
+});
+test('rising load but low RPE → no suggest', () => {
+  const logs = [_dlLog(22, 100, 5, 6), _dlLog(15, 100, 8, 6), _dlLog(8, 100, 10, 6)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.suggest === false, 'low RPE should not suggest');
+});
+test('non-monotonic load → no suggest', () => {
+  const logs = [_dlLog(22, 100, 5, 9), _dlLog(15, 100, 10, 9), _dlLog(8, 100, 8, 9)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.suggest === false && r.risingStreak < 3, 'a down week should reset the streak');
+});
+test('gap in completed weeks → null (not enough continuous data)', () => {
+  const logs = [_dlLog(22, 100, 5, 9), _dlLog(8, 100, 10, 9)]; // missing week 2
+  eq(deloadSignal(logs, 'A', _dlNow), null);
+});
+test('current partial week is excluded from the trend', () => {
+  // a huge current-week (2-days-ago) session must not count toward the streak
+  const logs = [_dlLog(22, 100, 5, 8), _dlLog(15, 100, 8, 8), _dlLog(8, 100, 10, 9), _dlLog(2, 999, 20, 10)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.weeks.length === 3, 'only 3 completed weeks should be measured');
+});
+
+group('training heatmap');
+const _hmNow = '2026-07-01T12:00:00Z'; // a Wednesday (UTC)
+test('empty logs → weeks×7 grid, all zero', () => {
+  const h = trainingHeatmap([], 'A', _hmNow, 12);
+  eq(h.grid.length, 12);
+  assert(h.grid.every(col => col.length === 7), 'each column has 7 day cells');
+  eq(h.totalSessions, 0); eq(h.totalSets, 0); eq(h.maxSets, 0);
+});
+test('sets on a day land in the right cell with the right level', () => {
+  const logs = [
+    { athleteId: 'A', date: '2026-07-01', weight: 100, reps: 5, rpe: 8 },
+    { athleteId: 'A', date: '2026-07-01', weight: 100, reps: 5, rpe: 8 },
+    { athleteId: 'A', date: '2026-07-01', weight: 100, reps: 5, rpe: 8 }
+  ];
+  const h = trainingHeatmap(logs, 'A', _hmNow, 12);
+  const cell = h.grid[11][2]; // last column, Wednesday (Mon=0)
+  eq(cell.date, '2026-07-01');
+  eq(cell.sets, 3);
+  eq(cell.level, 2);           // 3 sets → level 2
+  eq(h.totalSessions, 1);
+  eq(h.totalSets, 3);
+  eq(h.maxSets, 3);
+});
+test('days after now are flagged future + zeroed', () => {
+  const h = trainingHeatmap([], 'A', _hmNow, 12);
+  eq(h.grid[11][3].future, true);  // Thursday 07-02
+  eq(h.grid[11][2].future, false); // Wednesday 07-01 (today)
+});
+test('other athletes ignored', () => {
+  const logs = [{ athleteId: 'B', date: '2026-07-01', weight: 100, reps: 5, rpe: 8 }];
+  eq(trainingHeatmap(logs, 'A', _hmNow, 12).totalSets, 0);
+});
+
+group('PR timeline');
+const _prL = (id, lift, date, e1rmComp) => ({ id, athleteId: 'A', lift, date, e1rmComp });
+test('empty → []', () => eq(prTimeline([], 'A').length, 0));
+test('escalating lifts → one event per new best, newest first', () => {
+  const logs = [
+    _prL('1', 'squat', '2026-01-01', 200),
+    _prL('2', 'squat', '2026-02-01', 210),
+    _prL('3', 'squat', '2026-03-01', 205), // not a PR (below 210)
+    _prL('4', 'squat', '2026-04-01', 220)
+  ];
+  const t = prTimeline(logs, 'A');
+  eq(t.length, 3);                 // 200, 210, 220
+  eq(t[0].date, '2026-04-01');     // newest first
+  eq(t[0].e1rm, 220); eq(t[0].prev, 210); eq(t[0].jump, 10);
+  eq(t[2].prev, 0);                // first ever
+});
+test('limit caps the feed', () => {
+  const logs = [_prL('1','bench','2026-01-01',100), _prL('2','bench','2026-02-01',110), _prL('3','bench','2026-03-01',120)];
+  eq(prTimeline(logs, 'A', { limit: 2 }).length, 2);
+});
+test('ignores other athletes + non-positive e1RM', () => {
+  const logs = [{ id:'x', athleteId:'B', lift:'squat', date:'2026-01-01', e1rmComp:300 }, _prL('y','squat','2026-01-02',0)];
+  eq(prTimeline(logs, 'A').length, 0);
+});
+
 /* ===========================================================
    10. Importer round-trip (athlete.html, demo iframe)
    These functions are page-inline in athlete.html, so we load it

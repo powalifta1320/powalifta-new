@@ -76,7 +76,7 @@ Every fx file respects `prefers-reduced-motion`.
 - `profiles` — every user. `userType` is `athlete` | `coach` | `admin`. `coach_id` on an athlete row links them to a coach. Setting `coach_id = null` disconnects. `subscription_tier` is `free` | `basic` | `pro` | `premium` (athlete-limit 3/10/25/unlimited — see `migration-tier-enforcement.sql`); the LS subscription webhook writes it plus `subscription_status` / `ls_subscription_id` / `ls_customer_id` / `subscription_updated_at` (created by `migration-subscription-columns.sql`). `is_admin` boolean gates the admin dashboard. All three privileged columns are frozen against client self-escalation by `migration-profiles-privilege-guard.sql`.
 - `programs` — coach-built week/day/exercise/sets per athlete. `athlete_id` + `coach_id`.
 - `templates` — coach's reusable program payloads.
-- `logs` — every set logged. Drives e1RM.
+- `workout_logs` — every set logged (client-side: `workoutLogs`, mapped in db.js). Drives e1RM. Older notes sometimes say "logs" — the real table is `workout_logs`.
 - `bodyweight` — daily weigh-ins.
 - `goals` — SBD + bodyweight targets.
 - `marketplace_programs` — public listings.
@@ -154,6 +154,7 @@ migration-client-errors-admin-read.sql # admin-only SELECT policy (is_admin()) o
 migration-edge-rate-limits.sql        # edge_rate_limits table (service-role only, no policies) + atomic rl_bump(bucket,identity,window_secs,limit) RPC (fixed-window counter) for edge-function abuse guards. Idempotent/independent — apply any time. Every caller FAILS OPEN if the RPC isn't there yet, so deploy order never matters.
 migration-account-deletion.sql        # makes self-serve erasure (#33) cascade-safe: program_sales buyer_id/coach_id/marketplace_program_id → DROP NOT NULL + ON DELETE SET NULL (retain the tax record, null the identity) so deleting a user/coach/listing no longer hits a RESTRICT FK; plus a guarded DO block that upgrades profiles→auth.users to ON DELETE CASCADE iff it isn't already. Idempotent/order-independent. Run BEFORE deploying delete-account (until then deleteUser fails cleanly and the client shows the manual email fallback).
 migration-rls-hardening.sql           # RUN LAST — security-audit hardening pass (#24). Column-level immutability triggers + tightened policies across profiles (coach-detach guard), messages, session_notes, coach_requests, marketplace_programs (self-publish guard), form_checks, and storage.objects (avatars owner-update). Recreates accept_coach_request → depends on migration-coach-requests. Idempotent (CREATE OR REPLACE / DROP IF EXISTS); apply after every table/policy it references exists.
+migration-rls-hardening-2.sql         # RUN AFTER rls-hardening (audit pass #2). Fixes: (HIGH) program_reviews INSERT/UPDATE now bind the client-supplied denormalized coach_id to the program's REAL coach (marketplace_programs join) so a buyer can't inject a review onto a rival coach's public rating; (MED) pins `SET search_path = public` on the SECURITY DEFINER mp_prevent_self_publish() (was the only DEFINER fn missing it). Idempotent; verification queries in the file header. Depends on migration-marketplace-reviews + migration-rls-hardening.
 ```
 
 **Storage note:** `migration-form-checks.sql` also creates a private Storage bucket

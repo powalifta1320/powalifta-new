@@ -98,12 +98,9 @@ Deno.serve(async (req) => {
 
     const valid = await verifySignature(rawBody, signature, secret)
     if (!valid) {
-      return jsonResponse(401, {
-        error: 'invalid signature',
-        signaturePresent: !!signature,
-        bodyLength: rawBody.length,
-        hint: 'Make sure the signing secret matches between Lemon Squeezy and Supabase'
-      })
+      // Return nothing beyond the verdict — body length / signature-presence /
+      // hint are a free oracle for an unauthenticated caller probing the endpoint.
+      return jsonResponse(401, { error: 'invalid signature' })
     }
 
     let payload: any
@@ -218,11 +215,8 @@ Deno.serve(async (req) => {
       email: customerEmail
     })
   } catch (e) {
+    // Keep stack/message in the logs only — never serialize internals to the caller.
     console.error('Unhandled exception:', e, (e as any)?.stack)
-    return jsonResponse(500, {
-      error: 'unhandled exception',
-      message: String((e as any)?.message || e),
-      stack: String((e as any)?.stack || '')
-    })
+    return jsonResponse(500, { error: 'internal error' })
   }
 })

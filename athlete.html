@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="dash-fx.css">
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -296,7 +296,7 @@
 
 <div id="restTimerEl" class="hidden"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -2521,12 +2521,15 @@ function buildStrengthScoreCard(athleteId) {
   }
 
   const dots = dotsScore(total, bw, sex);
+  const gl = ipfGlPoints(total, bw, sex);
   const wc = weightClassFor(bw, sex);
   card.appendChild(el('div', { class: 'dots-row' },
     el('div', { class: 'dots-hero' },
       el('div', { class: 'dots-num mono' }, dots ? dots.toFixed(1) : '—'),
       el('div', { class: 'dots-cap' }, 'DOTS')),
     el('div', { class: 'dots-meta' },
+      el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'IPF GL'),
+        el('span', { class: 'dmv mono' }, gl ? gl.toFixed(1) : '—')),
       el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Est. total'),
         el('span', { class: 'dmv mono' }, Math.round(kgToDisplay(total)).toLocaleString() + ' ' + unitLabel())),
       el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Weight class'),
@@ -2613,6 +2616,35 @@ function buildStrengthScoreCard(athleteId) {
 // Per-movement weekly working-set counts plotted against MEV/MAV/MRV zones, so
 // an athlete can see at a glance whether a pattern is under-stimulated or being
 // run into the ground. Pure math lives in app.js (weeklyVolumeLandmarks).
+// GitHub-style 12-week training calendar. Columns = weeks, rows = Mon→Sun,
+// cell intensity = that day's logged-set count (pure trainingHeatmap helper).
+function renderTrainingHeatmap(area) {
+  const hm = trainingHeatmap(Store.get().workoutLogs, user.id, Date.now(), 12);
+  if (!hm.totalSessions) return; // nothing logged in the window — skip
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
+  const card = el('div', { class: 'chart-card hm-card' });
+  card.appendChild(el('div', { class: 'chart-sub' },
+    hm.totalSessions + ' session' + (hm.totalSessions === 1 ? '' : 's') + ' · ' +
+    hm.totalSets + ' sets logged in the last 12 weeks'));
+  const gridEl = el('div', { class: 'hm-grid' });
+  hm.grid.forEach(col => {
+    const colEl = el('div', { class: 'hm-col' });
+    col.forEach(cell => {
+      const c = el('div', { class: 'hm-cell l' + cell.level + (cell.future ? ' hm-future' : '') });
+      c.title = cell.date + (cell.sets ? ' · ' + cell.sets + ' set' + (cell.sets > 1 ? 's' : '') : (cell.future ? '' : ' · rest'));
+      colEl.appendChild(c);
+    });
+    gridEl.appendChild(colEl);
+  });
+  card.appendChild(gridEl);
+  const legend = el('div', { class: 'hm-legend' });
+  legend.appendChild(el('span', { class: 'hm-leg-txt' }, 'Less'));
+  [0, 1, 2, 3, 4].forEach(l => legend.appendChild(el('span', { class: 'hm-cell l' + l })));
+  legend.appendChild(el('span', { class: 'hm-leg-txt' }, 'More'));
+  card.appendChild(legend);
+  area.appendChild(card);
+}
+
 function renderVolumeLandmarks(area) {
   const from = Date.parse(mondayOf(new Date())); // mondayOf returns a 'YYYY-MM-DD' string, not a Date
   const to = from + 7 * 864e5;
@@ -2736,6 +2768,18 @@ function renderProgress() {
 
   renderVolumeLandmarks(area);
 
+  // Deload nudge — only when 3 straight weeks of rising load at high RPE (pure helper).
+  const dl = deloadSignal(Store.get().workoutLogs, user.id, Date.now());
+  if (dl && dl.suggest) {
+    area.appendChild(el('div', { class: 'deload-nudge' },
+      el('span', { class: 'dl-icon' }, '🔋'),
+      el('div', { class: 'dl-body' },
+        el('div', { class: 'dl-title' }, 'A deload might be due'),
+        el('div', { class: 'dl-note' }, dl.note))));
+  }
+
+  renderTrainingHeatmap(area);
+
   const delta = getWeeklyDelta(user.id);
   if (Object.keys(delta).length) {
     area.appendChild(el('h3', { class: 'prog-sec' }, 'This week vs last'));
@@ -2776,6 +2820,23 @@ function renderProgress() {
       wrap.appendChild(row);
     });
     area.appendChild(wrap);
+  }
+
+  // PR timeline — chronological feed of every e1RM PR, newest first (pure helper).
+  const prEvents = prTimeline(Store.get().workoutLogs, user.id, { limit: 8 });
+  if (prEvents.length) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'PR timeline'));
+    const tl = el('div', { class: 'pr-timeline' });
+    prEvents.forEach(ev => {
+      const row = el('div', { class: 'prt-row' });
+      row.appendChild(el('div', { class: 'prt-date' }, fmtDateShort(ev.date)));
+      row.appendChild(el('div', { class: 'prt-lift' }, LIFT_LABELS[ev.lift]));
+      row.appendChild(el('div', { class: 'prt-val mono' }, Math.round(kgToDisplay(ev.e1rm)) + ' ' + unitLabel()));
+      row.appendChild(el('div', { class: 'prt-jump' },
+        ev.prev > 0 ? '+' + (Math.round(kgToDisplay(ev.jump) * 10) / 10) + ' ' + unitLabel() : 'first'));
+      tl.appendChild(row);
+    });
+    area.appendChild(tl);
   }
 
   renderMeetHistory(area);
@@ -2963,7 +3024,10 @@ async function saveEditedLog() {
   if (updated) {
     // Replace server row: delete old, re-insert with same id.
     // If offline, the insert lands in the offline queue and syncs later.
-    try { await DB.deleteLog(updated.id); } catch (e) { console.warn('edit: delete old log', e); }
+    // Demo mode never touches the network (persistAddLog is already gated).
+    if (!window._demoMode) {
+      try { await DB.deleteLog(updated.id); } catch (e) { console.warn('edit: delete old log', e); }
+    }
     persistAddLog(updated);
   }
   toast('Set updated');
@@ -4685,6 +4749,7 @@ function buildFormCheckCard(fc, otherFirst, isAthlete) {
 
 async function leaveMyCoach(coachName) {
   if (!user.coachId) return;
+  if (window._demoMode) { toast('Preview only in demo mode'); return; }
   const msg = 'Leave ' + coachName + '?\n\n' +
               'You keep your training data. You lose programs they assigned. ' +
               'You\'ll need a new invite code to rejoin a coach.';

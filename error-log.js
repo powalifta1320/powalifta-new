@@ -28,7 +28,7 @@
   'use strict';
 
   var SENTRY_DSN = '';
-  var SUPABASE_ERROR_ENDPOINT = '';
+  var SUPABASE_ERROR_ENDPOINT = 'https://cxnotrikxvzncupswvio.supabase.co/functions/v1/send-client-error';
 
   var STORAGE_KEY = 'powa_errors';
   var MAX_KEEP = 50;

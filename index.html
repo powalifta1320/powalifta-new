@@ -673,6 +673,10 @@
     <div class="form-group">
       <label>Password</label>
       <input type="password" id="signupPwd" placeholder="At least 6 chars" autocomplete="new-password">
+      <div class="pwd-meter" id="pwdMeter" aria-live="polite" hidden>
+        <div class="pwd-meter-track"><div class="pwd-meter-fill" id="pwdMeterFill"></div></div>
+        <span class="pwd-meter-label" id="pwdMeterLabel"></span>
+      </div>
     </div>
     <div class="form-group" id="bioGroup" style="display:none">
       <label>Coach bio (shown on homepage)</label>
@@ -688,7 +692,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -708,6 +712,24 @@ function _openHashModal() {
 }
 window.addEventListener('hashchange', _openHashModal);
 _openHashModal();
+
+// Password-strength hint on signup (advisory only — never blocks submit).
+(function () {
+  var pw = document.getElementById('signupPwd');
+  var meter = document.getElementById('pwdMeter');
+  if (!pw || !meter || typeof pwdStrength !== 'function') return;
+  var fill = document.getElementById('pwdMeterFill');
+  var lab = document.getElementById('pwdMeterLabel');
+  pw.addEventListener('input', function () {
+    if (!pw.value) { meter.hidden = true; return; }
+    var s = pwdStrength(pw.value);
+    meter.hidden = false;
+    fill.style.width = s.pct + '%';
+    fill.className = 'pwd-meter-fill s' + s.score;
+    lab.textContent = s.label;
+    lab.className = 'pwd-meter-label s' + s.score;
+  });
+})();
 
 // Auto-fill invite code from ?code=XXX URL param (deep link from coach email)
 (function autofillInviteCode() {

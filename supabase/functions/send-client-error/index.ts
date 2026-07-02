@@ -71,9 +71,28 @@ Deno.serve(async (req) => {
   })
   if (!rl.ok) return rateLimitResponse(rl, corsHeaders)
 
+  // Reject oversized bodies BEFORE parsing — the stored fields sum to <12KB, so
+  // anything past ~20KB is abuse. Guards this unauthenticated (Verify-JWT-OFF)
+  // endpoint against multi-MB buffer+parse amplification even if the rate meter
+  // is failing open. Checks the declared length, then hard-caps the actual read.
+  const MAX_BODY = 20000
+  const declaredLen = Number(req.headers.get('content-length') || 0)
+  if (declaredLen > MAX_BODY) {
+    return new Response(JSON.stringify({ error: 'payload too large' }), {
+      status: 413,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
   let payload: any
   try {
-    payload = await req.json()
+    const raw = await req.text()
+    if (raw.length > MAX_BODY) {
+      return new Response(JSON.stringify({ error: 'payload too large' }), {
+        status: 413,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+    payload = JSON.parse(raw)
   } catch {
     return new Response(JSON.stringify({ error: 'invalid json' }), {
       status: 400,
@@ -85,9 +104,14 @@ Deno.serve(async (req) => {
   const clip = (s: unknown, n: number) =>
     typeof s === 'string' ? s.slice(0, n) : (s == null ? null : String(s).slice(0, n))
 
+  // Validate the client-supplied timestamp rather than trusting it into a
+  // `timestamptz NOT NULL` column; fall back to server time on anything invalid.
+  const _tsParsed = typeof payload.ts === 'string' ? Date.parse(payload.ts) : NaN
+  const _tsIso = Number.isFinite(_tsParsed) ? new Date(_tsParsed).toISOString() : new Date().toISOString()
+
   const row = {
     kind: clip(payload.kind, 32),
-    ts: payload.ts || new Date().toISOString(),
+    ts: _tsIso,
     url: clip(payload.url, 800),
     ua: clip(payload.ua, 400),
     msg: clip(payload.msg, 2000),

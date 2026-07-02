@@ -71,6 +71,22 @@ function jsonResponse(status: number, body: any): Response {
   });
 }
 
+// Constant-time secret compare with no length side-channel (same helper the LS
+// webhooks use). Both inputs are HMAC'd under a single-use random key, so only
+// fixed-length digests are compared — neither length nor content leaks via timing.
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const randKey = await crypto.subtle.importKey(
+    'raw', crypto.getRandomValues(new Uint8Array(32)),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const da = new Uint8Array(await crypto.subtle.sign('HMAC', randKey, enc.encode(a)));
+  const db = new Uint8Array(await crypto.subtle.sign('HMAC', randKey, enc.encode(b)));
+  let diff = 0;
+  for (let i = 0; i < da.length; i++) diff |= da[i] ^ db[i];
+  return diff === 0;
+}
+
 // --- Per-athlete recap, computed purely from stored rows (no e1RM math here:
 // e1rm_comp is already competition-equivalent per row, so we just aggregate). ---
 interface Recap {
@@ -214,7 +230,9 @@ Deno.serve(async (req) => {
   }
   const auth = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const headerSecret = req.headers.get('x-cron-secret') || auth;
-  if (headerSecret !== CRON_SECRET) return jsonResponse(401, { error: 'Unauthorized' });
+  if (!headerSecret || !(await timingSafeEqual(headerSecret, CRON_SECRET))) {
+    return jsonResponse(401, { error: 'Unauthorized' });
+  }
 
   if (!SUPABASE_URL || !SERVICE_ROLE) {
     console.error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set');

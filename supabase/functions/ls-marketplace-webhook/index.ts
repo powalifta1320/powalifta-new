@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const secret = Deno.env.get('LEMON_SQUEEZY_WEBHOOK_SECRET') || ''
     if (!secret) return jsonResponse(500, { error: 'webhook secret not configured' })
     if (!await verifySignature(rawBody, signature, secret)) {
-      return jsonResponse(401, { error: 'invalid signature', signaturePresent: !!signature })
+      return jsonResponse(401, { error: 'invalid signature' })
     }
 
     let payload: any
@@ -218,11 +218,8 @@ Deno.serve(async (req) => {
       platform_fee_cents: platformFeeCents
     })
   } catch (e) {
-    console.error('Unhandled exception:', e)
-    return jsonResponse(500, {
-      error: 'unhandled exception',
-      message: String((e as any)?.message || e),
-      stack: String((e as any)?.stack || '')
-    })
+    // Keep stack/message in the logs only — never serialize internals to the caller.
+    console.error('Unhandled exception:', e, (e as any)?.stack)
+    return jsonResponse(500, { error: 'internal error' })
   }
 })

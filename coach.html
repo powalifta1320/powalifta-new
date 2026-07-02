@@ -295,7 +295,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -787,6 +787,7 @@ function openAthleteProgram(athleteId) {
 }
 
 async function notifyAthleteAssigned() {
+  if (window._demoMode) { toast('Preview only in demo mode'); return; }
   const aid = document.getElementById('progAthlete').value;
   if (!aid) { toast('Pick an athlete first'); return; }
   const s = Store.get();
@@ -852,6 +853,7 @@ window.notifyAthleteAssigned = notifyAthleteAssigned;
 
 async function removeAthleteFromRoster(athleteId, athleteName) {
   if (!athleteId) return;
+  if (window._demoMode) { toast('Preview only in demo mode'); return; }
   const msg = 'Remove ' + athleteName + ' from your roster?\n\n' +
               'Their training data (logs, programs, bodyweight, goals) stays with them. ' +
               'They lose access to programs you assigned, and they\'ll need a new invite code to rejoin.';
