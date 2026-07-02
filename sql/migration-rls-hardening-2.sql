@@ -29,73 +29,64 @@
 -- ============================================================
 
 -- ── HIGH — program_reviews: coach_id must match the program's real coach ──────
+-- Guarded so it no-ops cleanly if program_reviews isn't in the DB yet.
 -- INSERT: buyer, a real sale for the program, AND coach_id = the program's coach.
-DROP POLICY IF EXISTS "pr_buyer_insert" ON program_reviews;
-CREATE POLICY "pr_buyer_insert" ON program_reviews
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    buyer_id = auth.uid()
-    AND EXISTS (
-      SELECT 1
-      FROM program_sales s
-      JOIN marketplace_programs mp ON mp.id = s.marketplace_program_id
-      WHERE s.marketplace_program_id = program_reviews.marketplace_program_id
-        AND s.buyer_id = auth.uid()
-        AND mp.coach_id = program_reviews.coach_id     -- the binding the old policy lacked
-    )
-  );
-
 -- UPDATE: own review, and the (possibly edited) coach_id still matches the program.
-DROP POLICY IF EXISTS "pr_buyer_update" ON program_reviews;
-CREATE POLICY "pr_buyer_update" ON program_reviews
-  FOR UPDATE TO authenticated
-  USING (buyer_id = auth.uid())
-  WITH CHECK (
-    buyer_id = auth.uid()
-    AND EXISTS (
-      SELECT 1
-      FROM marketplace_programs mp
-      WHERE mp.id = program_reviews.marketplace_program_id
-        AND mp.coach_id = program_reviews.coach_id
-    )
-  );
+DO $do$
+BEGIN
+  IF to_regclass('public.program_reviews') IS NULL THEN
+    RAISE NOTICE 'program_reviews not present — skipping review-policy hardening. Run migration-marketplace-reviews.sql first, then re-run this file.';
+  ELSE
+    DROP POLICY IF EXISTS "pr_buyer_insert" ON program_reviews;
+    EXECUTE $q$
+      CREATE POLICY "pr_buyer_insert" ON program_reviews
+        FOR INSERT TO authenticated
+        WITH CHECK (
+          buyer_id = auth.uid()
+          AND EXISTS (
+            SELECT 1
+            FROM program_sales s
+            JOIN marketplace_programs mp ON mp.id = s.marketplace_program_id
+            WHERE s.marketplace_program_id = program_reviews.marketplace_program_id
+              AND s.buyer_id = auth.uid()
+              AND mp.coach_id = program_reviews.coach_id
+          )
+        )
+    $q$;
+
+    DROP POLICY IF EXISTS "pr_buyer_update" ON program_reviews;
+    EXECUTE $q$
+      CREATE POLICY "pr_buyer_update" ON program_reviews
+        FOR UPDATE TO authenticated
+        USING (buyer_id = auth.uid())
+        WITH CHECK (
+          buyer_id = auth.uid()
+          AND EXISTS (
+            SELECT 1
+            FROM marketplace_programs mp
+            WHERE mp.id = program_reviews.marketplace_program_id
+              AND mp.coach_id = program_reviews.coach_id
+          )
+        )
+    $q$;
+    RAISE NOTICE 'program_reviews buyer policies hardened (coach_id bound to the program).';
+  END IF;
+END
+$do$;
 
 -- ── MED — pin search_path on the SECURITY DEFINER self-publish guard ──────────
--- Re-create the function body verbatim + `SET search_path = public`. The trigger
--- already bound to this function name keeps working (no trigger change needed).
-CREATE OR REPLACE FUNCTION mp_prevent_self_publish()
-RETURNS TRIGGER AS $$
+-- Just add the config to the EXISTING function (no body change, no trigger change).
+-- Guarded so it no-ops cleanly if the function isn't in the DB yet.
+DO $do$
 BEGIN
-  -- Admin / service_role may do anything.
-  IF auth.uid() IS NULL OR is_admin() THEN RETURN NEW; END IF;
-
-  -- A coach can never set 'published' or 'rejected' directly (INSERT or UPDATE).
-  IF NEW.status IN ('published', 'rejected') THEN
-    IF TG_OP = 'INSERT' OR NEW.status IS DISTINCT FROM OLD.status THEN
-      RAISE EXCEPTION 'Only admin can publish or reject a marketplace program.';
-    END IF;
+  IF to_regprocedure('public.mp_prevent_self_publish()') IS NOT NULL THEN
+    ALTER FUNCTION public.mp_prevent_self_publish() SET search_path = public;
+    RAISE NOTICE 'mp_prevent_self_publish search_path pinned to public.';
+  ELSE
+    RAISE NOTICE 'mp_prevent_self_publish not present — skipping search_path pin. Run migration-rls-hardening.sql first, then re-run this file.';
   END IF;
-
-  -- sold_count + LS identifiers are admin/webhook-managed.
-  IF TG_OP = 'UPDATE' THEN
-    IF NEW.sold_count    IS DISTINCT FROM OLD.sold_count
-       OR NEW.ls_product_id  IS DISTINCT FROM OLD.ls_product_id
-       OR NEW.ls_variant_id  IS DISTINCT FROM OLD.ls_variant_id
-       OR NEW.ls_checkout_url IS DISTINCT FROM OLD.ls_checkout_url THEN
-      RAISE EXCEPTION 'These fields are managed by admin / webhook only.';
-    END IF;
-  ELSIF TG_OP = 'INSERT' THEN
-    IF coalesce(NEW.sold_count, 0) <> 0
-       OR NEW.ls_product_id  IS NOT NULL
-       OR NEW.ls_variant_id  IS NOT NULL
-       OR NEW.ls_checkout_url IS NOT NULL THEN
-      RAISE EXCEPTION 'These fields are managed by admin / webhook only.';
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+END
+$do$;
 
 -- ============================================================
 -- VERIFICATION (run after applying; all should hold)
