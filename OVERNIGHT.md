@@ -139,10 +139,18 @@ tests.html: 175/175 green (was 143 at session start; +32 new assertions).
 - `vercel.json` + `docs/vercel-headers-snippet.json` — Plausible CSP fix
   (analytics were blocked in prod). `CLAUDE.md` — workout_logs table-name fix.
 
-## MODIFIED FILES SO FAR (for your push)
-Client: `app.js`, `index.html`, `styles.css`, `tests.html`, `admin.html`,
-`marketplace.html`, `athlete.html`, `coach.html`, `error-log.js`.
-Edge (redeploy): `supabase/functions/{ai-chat,send-weekly-digest,send-client-error,ls-webhook,ls-marketplace-webhook}/index.ts`.
-New SQL: `sql/migration-rls-hardening-2.sql`. Docs: `CLAUDE.md`.
-(Plus the pre-existing `vercel.json`, `docs/vercel-headers-snippet.json`.)
-Checkpoints of every feature snapshotted under `tmp/checkpoints/` (gitignored).
+## GIT STATE (you committed mid-run — read this)
+You created commit **`dec13cc "idkkk"`** partway through the session. It already
+captured most of the Phase-1 security work: `admin.html`, `marketplace.html`,
+`coach.html`, `index.html`, `error-log.js`, the 5 edge functions, `vercel.json` +
+`docs/vercel-headers-snippet.json`, and `sql/migration-rls-hardening-2.sql`.
+The remaining edits (the Phase-2 athlete features) are staged/modified but
+**uncommitted**: `app.js`, `athlete.html`, `styles.css`, `tests.html`, `CLAUDE.md`,
+`OVERNIGHT.md`. All of it is on disk and coherent (tests 175/175 green).
+
+**To ship:** `git status` + `git log` to see both; review the diff; commit the
+remaining 6 files; push. Every feature is also snapshotted under
+`tmp/checkpoints/` (gitignored) as a backup.
+
+Edge fns to REDEPLOY after push (they were committed but Supabase needs the deploy):
+`ai-chat`, `send-weekly-digest`, `send-client-error`, `ls-webhook`, `ls-marketplace-webhook`.
