@@ -132,6 +132,11 @@ Every item below: pure helper + unit tests + demo-verified at 1280 & 375, 0 cons
   downloads one row per athlete (recency, adherence %, best comp e1RMs, est total,
   last RPE). Reuses `_csvEscape`/`_downloadBlob`. Verify: demo coach Roster → button →
   `powalifta-roster-<date>.csv` (4 rows).
+- **[15] Command palette (⌘K / Ctrl+K)** — quick jump to any tab or action on BOTH
+  dashboards. Auto-discovers `.sidebar-tab` buttons + Settings / unit / theme toggles,
+  so one impl covers both pages; no-ops on public pages (guarded). Arrow-nav, Enter
+  runs, Esc/click-out closes. All in app.js (isolated keydown listener + lazy modal).
+  Verify: demo dashboard → press ⌘K → filter "progress" → Enter jumps there.
 
 tests.html: 171/171 green (was 143 at session start; +28 net new assertions; the 4 heatmap tests were removed with the duplicate). Notes journal + roster CSV read the Store directly (no new pure helper), so no test-count change.
 

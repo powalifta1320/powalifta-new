@@ -4573,6 +4573,107 @@ function flagEmoji(code) {
 }
 window.flagEmoji = flagEmoji;
 
+// =========================================================
+// COMMAND PALETTE (⌘K / Ctrl+K) — quick jump to any tab or action.
+// Auto-discovers the page's .sidebar-tab buttons + a few global actions, so it
+// works on both dashboards with zero per-page wiring. Isolated: a keydown
+// listener + a lazily-built modal; it touches no existing flow, and does
+// nothing on pages without sidebar tabs (public pages).
+// =========================================================
+function _cmdCommands() {
+  const cmds = [];
+  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+    const label = (btn.textContent || '').trim();
+    if (label) cmds.push({ label: 'Go to ' + label, kind: 'Tab', run: () => btn.click() });
+  });
+  if (typeof openSettingsModal === 'function') cmds.push({ label: 'Settings', kind: 'Action', run: () => openSettingsModal() });
+  if (typeof toggleUnit === 'function') cmds.push({ label: 'Toggle kg / lb', kind: 'Action', run: () => toggleUnit() });
+  if (typeof toggleTheme === 'function') cmds.push({ label: 'Toggle light / dark', kind: 'Action', run: () => toggleTheme() });
+  return cmds;
+}
+let _cmdEl = null, _cmdIdx = 0, _cmdFiltered = [];
+function _cmdEnsure() {
+  if (_cmdEl) return _cmdEl;
+  const back = document.createElement('div');
+  back.className = 'cmdk-backdrop';
+  back.innerHTML =
+    '<div class="cmdk" role="dialog" aria-label="Command palette">' +
+      '<input class="cmdk-input" type="text" placeholder="Jump to a tab or action…" aria-label="Command search" autocomplete="off">' +
+      '<div class="cmdk-list" role="listbox"></div>' +
+    '</div>';
+  back.addEventListener('click', e => { if (e.target === back) closeCommandPalette(); });
+  document.body.appendChild(back);
+  const input = back.querySelector('.cmdk-input');
+  input.addEventListener('input', () => _cmdRender(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); _cmdMove(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _cmdMove(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); _cmdRun(_cmdIdx); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeCommandPalette(); }
+  });
+  _cmdEl = back;
+  return back;
+}
+function _cmdRender(q) {
+  const all = _cmdCommands();
+  q = (q || '').trim().toLowerCase();
+  _cmdFiltered = q ? all.filter(c => c.label.toLowerCase().includes(q)) : all;
+  _cmdIdx = 0;
+  const list = _cmdEl.querySelector('.cmdk-list');
+  list.innerHTML = '';
+  if (!_cmdFiltered.length) {
+    const e = document.createElement('div'); e.className = 'cmdk-empty'; e.textContent = 'No matches';
+    list.appendChild(e); return;
+  }
+  _cmdFiltered.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'cmdk-item' + (i === 0 ? ' active' : '');
+    row.setAttribute('role', 'option');
+    const t = document.createElement('span'); t.className = 'cmdk-label'; t.textContent = c.label;
+    const k = document.createElement('span'); k.className = 'cmdk-kind'; k.textContent = c.kind;
+    row.appendChild(t); row.appendChild(k);
+    row.addEventListener('mouseenter', () => { _cmdIdx = i; _cmdHighlight(); });
+    row.addEventListener('click', () => _cmdRun(i));
+    list.appendChild(row);
+  });
+}
+function _cmdHighlight() {
+  const items = _cmdEl.querySelectorAll('.cmdk-item');
+  items.forEach((it, i) => it.classList.toggle('active', i === _cmdIdx));
+  const active = items[_cmdIdx];
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+function _cmdMove(d) {
+  if (!_cmdFiltered.length) return;
+  _cmdIdx = (_cmdIdx + d + _cmdFiltered.length) % _cmdFiltered.length;
+  _cmdHighlight();
+}
+function _cmdRun(i) {
+  const c = _cmdFiltered[i];
+  closeCommandPalette();
+  if (c && typeof c.run === 'function') setTimeout(c.run, 0);
+}
+function openCommandPalette() {
+  if (!document.querySelector('.sidebar-tab')) return; // dashboards only
+  _cmdEnsure();
+  _cmdEl.classList.add('open');
+  const input = _cmdEl.querySelector('.cmdk-input');
+  input.value = '';
+  _cmdRender('');
+  setTimeout(() => input.focus(), 0);
+}
+function closeCommandPalette() { if (_cmdEl) _cmdEl.classList.remove('open'); }
+window.openCommandPalette = openCommandPalette;
+window.closeCommandPalette = closeCommandPalette;
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+    if (!document.querySelector('.sidebar-tab')) return; // no-op on public pages
+    e.preventDefault();
+    if (_cmdEl && _cmdEl.classList.contains('open')) closeCommandPalette();
+    else openCommandPalette();
+  }
+});
+
 // Common country list used in settings dropdown. Code + display name.
 // Curated — extend as needed. Sorted alphabetically by name.
 const COUNTRIES = [
