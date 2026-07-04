@@ -593,6 +593,39 @@ async function declineJoinRequest(req, rowEl) {
 // ===== ROSTER =====
 let _rosterPage = 1;
 const ROSTER_PER_PAGE = 6;
+
+// Download the whole roster as a CSV — one row per athlete with recency,
+// adherence, best comp-equivalent e1RMs + total. Reuses the shared CSV +
+// download helpers. Local file only (no network), so it's demo-safe.
+function exportRosterCsv() {
+  const overview = getRosterOverview(user.id);
+  if (!overview.length) { toast('No athletes to export yet'); return; }
+  const u = unitLabel();
+  const disp = v => v ? Math.round(kgToDisplay(v)) : '';
+  const header = ['Athlete', 'Email', 'Last session (days ago)', 'Status',
+    'Programmed sets', 'Completed sets', 'Adherence %',
+    'Best squat (' + u + ')', 'Best bench (' + u + ')', 'Best deadlift (' + u + ')',
+    'Est total (' + u + ')', 'Last RPE'];
+  const rows = [header.map(_csvEscape).join(',')];
+  overview.forEach(o => {
+    const a = o.athlete;
+    const adh = o.totalSets ? Math.round(o.completedSets / o.totalSets * 100) : '';
+    rows.push([
+      a.name || '', a.email || '',
+      o.ago == null ? 'never' : o.ago, o.flag,
+      o.totalSets || 0, o.completedSets || 0, adh,
+      disp(bestE1RM(a.id, 'squat')), disp(bestE1RM(a.id, 'bench')), disp(bestE1RM(a.id, 'deadlift')),
+      disp(currentTotal(a.id)),
+      o.lastRpe == null ? '' : o.lastRpe
+    ].map(_csvEscape).join(','));
+  });
+  const stamp = new Date().toISOString().slice(0, 10);
+  if (_downloadBlob('powalifta-roster-' + stamp + '.csv', 'text/csv;charset=utf-8', rows.join('\n'))) {
+    toast('Exported ' + overview.length + ' athlete' + (overview.length === 1 ? '' : 's') + ' as CSV');
+  }
+}
+window.exportRosterCsv = exportRosterCsv;
+
 function renderRoster() {
   renderPlanPill();
   const area = document.getElementById('rosterArea');
@@ -622,6 +655,12 @@ function renderRoster() {
     // (stalling e1RM / inactive / weak adherence) + this week's PRs.
     const att = buildAttentionPanel();
     if (att) area.appendChild(att);
+
+    // Roster export
+    const csvRow = el('div', { class: 'roster-csv-row' });
+    const csvBtn = el('button', { class: 'btn btn-sm btn-ghost', onclick: exportRosterCsv }, '⬇ Export roster CSV');
+    csvRow.appendChild(csvBtn);
+    area.appendChild(csvRow);
 
     // ===== COMPLIANCE STRIP — roster-wide adherence at a glance.
     area.appendChild(el('h3', { class: 'prog-sec' }, 'Roster health'));

@@ -3195,6 +3195,23 @@ footer .footer-base {
 .ach-badge .ach-ic { font-size: 22px; line-height: 1; }
 .ach-badge .ach-lab { font-size: 10px; font-weight: 600; color: var(--text-2); line-height: 1.2; }
 
+/* Notes journal — searchable coach-feedback / session-note timeline */
+.nj-card { margin-bottom: 22px; }
+.nj-search { width: 100%; margin-bottom: 12px; padding: 9px 12px; font: inherit; font-size: 14px;
+  color: var(--text-1); background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; }
+.nj-search::placeholder { color: var(--text-3); }
+.nj-search:focus { outline: none; border-color: var(--red); }
+.nj-list { display: flex; flex-direction: column; gap: 12px; }
+.nj-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-1); }
+.nj-date { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
+.nj-line { display: flex; gap: 8px; align-items: baseline; line-height: 1.5; }
+.nj-line + .nj-line { margin-top: 6px; }
+.nj-tag { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--text-3) 22%, transparent); color: var(--text-2); }
+.nj-tag.coach { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+.nj-txt { color: var(--text-2); font-size: 14px; }
+.nj-empty { padding: 14px 4px; font-size: 14px; }
+
 /* PR timeline — chronological feed of e1RM PRs */
 .pr-timeline { display: flex; flex-direction: column; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .prt-row { display: grid; grid-template-columns: 84px 1fr auto auto; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
@@ -6459,3 +6476,6 @@ body:has(.dash-main)::after {
   .guide-wrap { padding: 28px 16px 64px; }
   .prose { font-size: 1.01rem; }
 }
+
+/* Roster CSV export button row */
+.roster-csv-row { display: flex; justify-content: flex-end; margin-bottom: 14px; }

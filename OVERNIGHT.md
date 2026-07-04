@@ -124,12 +124,21 @@ Every item below: pure helper + unit tests + demo-verified at 1280 & 375, 0 cons
   dashed style; adding it safely needs a `drawLineChart` refactor, deferred as too
   risky for an unattended run. The trend numbers give the same signal.
 
-tests.html: 171/171 green (was 143 at session start; +28 net new assertions; the 4 heatmap tests were removed with the duplicate).
+- **[28] Notes journal** — searchable timeline of coach feedback + own session notes
+  on the athlete Progress tab. Display-only, **XSS-safe** (text nodes, not innerHTML —
+  verified an `<img onerror>` coach note renders inert). Verify: demo Progress → "Notes
+  journal", type in the search box to filter.
+- **[33] Roster CSV export** — coach Roster tab "⬇ Export roster CSV" button →
+  downloads one row per athlete (recency, adherence %, best comp e1RMs, est total,
+  last RPE). Reuses `_csvEscape`/`_downloadBlob`. Verify: demo coach Roster → button →
+  `powalifta-roster-<date>.csv` (4 rows).
 
-### PENDING (Phase 2 remainder)
-- 12 rest timer, 15 command palette, 16 exercise-history popover, 19 plate-calc gym
-  inventory, 20 post-session recap, 21 rounding pref, 22 session sRPE, 26 leaderboard
-  percentile, 27 custom accessories, 28 notes journal, 29 wake lock.
+tests.html: 171/171 green (was 143 at session start; +28 net new assertions; the 4 heatmap tests were removed with the duplicate). Notes journal + roster CSV read the Store directly (no new pure helper), so no test-count change.
+
+### PENDING (remainder — fire the overnight prompt again for these)
+- Phase 2: 12 rest timer, 15 command palette, 16 exercise-history popover, 19 plate-calc
+  gym inventory, 20 post-session recap, 21 rounding pref, 22 session sRPE, 26 leaderboard
+  percentile, 27 custom accessories, 29 wake lock.
 - Phase 3 coach (31-42), Phase 4 marketplace (43-47), Phase 5 PWA (48-54),
   Phase 6 tools (55-59), Phase 7 growth (60-69), Phase 8 quality (70-77).
 

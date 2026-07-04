@@ -2647,6 +2647,56 @@ function renderAchievements(area) {
   area.appendChild(card);
 }
 
+// Notes journal — searchable timeline of coach feedback + the athlete's own
+// session notes. Display-only; text is set via textContent (never innerHTML)
+// since notes are user/coach-authored content.
+function renderNotesJournal(area) {
+  const notes = (Store.get().sessionNotes || [])
+    .filter(n => n && n.athleteId === user.id &&
+      (((n.note || '').trim()) || ((n.coachComment || '').trim())))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  if (!notes.length) return; // no notes yet — skip the section
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Notes journal'));
+  const card = el('div', { class: 'chart-card nj-card' });
+  const search = el('input', { class: 'nj-search', type: 'search', placeholder: 'Search notes…', 'aria-label': 'Search notes' });
+  card.appendChild(search);
+  const list = el('div', { class: 'nj-list' });
+  notes.forEach(n => {
+    const item = el('div', { class: 'nj-item' });
+    item.appendChild(el('div', { class: 'nj-date' }, fmtDateShort(n.date)));
+    if ((n.note || '').trim()) {
+      const line = el('div', { class: 'nj-line nj-you' });
+      line.appendChild(el('span', { class: 'nj-tag' }, 'You'));
+      const t = el('span', { class: 'nj-txt' }); t.textContent = n.note;
+      line.appendChild(t);
+      item.appendChild(line);
+    }
+    if ((n.coachComment || '').trim()) {
+      const line = el('div', { class: 'nj-line nj-coach' });
+      line.appendChild(el('span', { class: 'nj-tag coach' }, 'Coach'));
+      const t = el('span', { class: 'nj-txt' }); t.textContent = n.coachComment;
+      line.appendChild(t);
+      item.appendChild(line);
+    }
+    item._search = ((n.note || '') + ' ' + (n.coachComment || '')).toLowerCase();
+    list.appendChild(item);
+  });
+  card.appendChild(list);
+  const empty = el('div', { class: 'nj-empty dim', style: 'display:none' }, 'No notes match that search.');
+  card.appendChild(empty);
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    [...list.children].forEach(it => {
+      const match = !q || it._search.includes(q);
+      it.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    empty.style.display = shown ? 'none' : '';
+  });
+  area.appendChild(card);
+}
+
 function renderVolumeLandmarks(area) {
   const from = Date.parse(mondayOf(new Date())); // mondayOf returns a 'YYYY-MM-DD' string, not a Date
   const to = from + 7 * 864e5;
@@ -2845,6 +2895,8 @@ function renderProgress() {
 
   area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
   area.appendChild(buildStrengthScoreCard(user.id));
+
+  renderNotesJournal(area);
 
   area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
   const calCard = el('div', { class: 'chart-card' });
