@@ -1,0 +1,6 @@
+# Capacitor build artifacts — regenerate with npm install + npx cap add + npm run copyweb
+node_modules/
+ios/
+android/
+www/
+.DS_Store

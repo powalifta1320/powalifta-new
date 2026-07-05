@@ -266,6 +266,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script src="db.js"></script>
+<script src="native-bridge.js"></script>
 <script src="app.js"></script>
 <script>
 const TIER_LABELS_MK = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
@@ -547,17 +548,24 @@ async function renderDetail(id) {
   buyCard.appendChild(el('div', { class: 'mk-buy-cur' }, 'Priced in USD · your local total is shown at checkout'));
   buyCard.appendChild(el('div', { class: 'mk-buy-note' }, 'One-time purchase. The program loads into your POWALIFTA account the moment payment clears.'));
 
-  const buyBtn = el('a', { class: 'btn btn-primary btn-lg', id: 'mkBuyBtn' }, 'Buy program');
-  // Wire the buy button
-  buyBtn.addEventListener('click', e => {
-    e.preventDefault();
-    onBuyClick(program);
-  });
-  buyBtn.style.cursor = 'pointer';
-  buyCard.appendChild(buyBtn);
-
-  // Refund note + share link
-  buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. Refunds available within 7 days if you haven\'t opened the program.'));
+  // Apple 3.1.1: the iOS app can't sell digital goods or link out to external
+  // web payment. On native, replace the buy CTA with a plain, non-linked note.
+  const _nativeShell = !!(window.PowaNative && PowaNative.isNative());
+  if (_nativeShell) {
+    buyCard.appendChild(el('div', { class: 'btn btn-lg', style: 'opacity:.6; cursor:default; pointer-events:none;' }, 'Available on the web'));
+    buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Programs are purchased on powalifta.com. Once you own one, it appears in your library here.'));
+  } else {
+    const buyBtn = el('a', { class: 'btn btn-primary btn-lg', id: 'mkBuyBtn' }, 'Buy program');
+    // Wire the buy button
+    buyBtn.addEventListener('click', e => {
+      e.preventDefault();
+      onBuyClick(program);
+    });
+    buyBtn.style.cursor = 'pointer';
+    buyCard.appendChild(buyBtn);
+    // Refund note + share link
+    buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. Refunds available within 7 days if you haven\'t opened the program.'));
+  }
   wrap.appendChild(buyCard);
 
   // Reviews section — rendered async so the detail above paints immediately.

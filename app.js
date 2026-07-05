@@ -636,17 +636,23 @@ function _b64ToUint8(base64) {
   return out;
 }
 
+const _isNativeShell = () => !!(window.PowaNative && PowaNative.isNative());
+
 const PowaPush = {
   supported() {
+    if (_isNativeShell()) return true; // native push via the Capacitor plugin
     return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   },
   configured() {
+    if (_isNativeShell()) return true; // configured natively via APNs/FCM entitlements
     return typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.length > 20;
   },
   permission() {
+    if (_isNativeShell()) return PowaNative._perm === 'granted' ? 'granted' : 'default';
     return this.supported() ? Notification.permission : 'unsupported';
   },
   async isSubscribed() {
+    if (_isNativeShell()) return !!PowaNative._subscribed;
     if (!this.supported()) return false;
     try {
       const reg = await navigator.serviceWorker.ready;
@@ -655,6 +661,14 @@ const PowaPush = {
   },
   // Ask permission, subscribe, persist. Returns true on success.
   async enable() {
+    // Native shell: register with APNs/FCM through the Capacitor plugin instead
+    // of Web Push. The rest of the app (Settings toggle, send-push) is unchanged.
+    if (_isNativeShell()) {
+      if (window._demoMode) { toast('Notifications need a real account'); return false; }
+      const ok = await PowaNative.registerPush();
+      toast(ok ? 'Notifications on' : 'Couldn’t enable notifications — check iOS Settings › POWALIFTA');
+      return ok;
+    }
     if (!this.supported()) { toast('Notifications are not supported on this browser'); return false; }
     if (!this.configured()) { toast('Push not configured yet — add a VAPID key'); return false; }
     if (window._demoMode) { toast('Notifications need a real account'); return false; }
@@ -702,6 +716,14 @@ const PowaPush = {
   },
   // Unsubscribe this device and forget it server-side.
   async disable() {
+    if (_isNativeShell()) {
+      // The OS keeps the app's registration; we just drop the token so the
+      // server stops targeting this device. Full mute is in iOS/Android Settings.
+      try { if (window.DB && PowaNative._token) await DB.deletePushSubscription(PowaNative._token); } catch (e) {}
+      PowaNative._subscribed = false;
+      toast('Notifications off');
+      return true;
+    }
     if (!this.supported()) return false;
     try {
       const reg = await navigator.serviceWorker.ready;
@@ -1076,6 +1098,9 @@ function ensureUpgradeModal() {
 function openUpgradeModal(reason) {
   const u = getCurrentUser();
   if (!u) return;
+  // Apple 3.1.1: the iOS app must not steer users to external web payment for
+  // digital goods. On native, don't open the LS checkout — point to the web.
+  if (_isNativeShell()) { toast('Manage your plan at powalifta.com'); return; }
   ensureUpgradeModal();
   if (reason === 'cap') {
     document.getElementById('upgradeTitle').textContent = 'You\'ve hit your plan limit';
@@ -1169,6 +1194,8 @@ function _subStatusColor(tone) {
 // signed per-subscription deep link if the ls-portal function returns one.
 async function openBillingPortal() {
   if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+  // Apple 3.1.1: no external-payment path from inside the iOS app.
+  if (_isNativeShell()) { toast('Manage billing at powalifta.com'); return; }
   const tab = window.open('', '_blank'); // reserve the tab inside the click gesture
   let url = LS_BILLING_PORTAL;
   try {
@@ -4583,7 +4610,11 @@ window.flagEmoji = flagEmoji;
 function _cmdCommands() {
   const cmds = [];
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
-    const label = (btn.textContent || '').trim();
+    // Read the label's own <span> (set by setLbl), not the whole button — the
+    // button can also hold a badge (e.g. the Library unclaimed-count span), which
+    // would otherwise leak into the label as "My library1".
+    const labelEl = btn.querySelector('span');
+    const label = ((labelEl ? labelEl.textContent : btn.textContent) || '').trim();
     if (label) cmds.push({ label: 'Go to ' + label, kind: 'Tab', run: () => btn.click() });
   });
   if (typeof openSettingsModal === 'function') cmds.push({ label: 'Settings', kind: 'Action', run: () => openSettingsModal() });

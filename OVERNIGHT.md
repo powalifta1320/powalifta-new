@@ -3,6 +3,43 @@
 Autonomous overnight run. Status per item: SHIPPED / SKIPPED / PREP / IN-PROGRESS.
 **Morning actions for Hitesh are at the bottom — read those first.**
 
+═══════════════════════════════════════════════════════════════
+## 🍎 NATIVE iOS APP — everything code-side is DONE (upload steps below)
+═══════════════════════════════════════════════════════════════
+All the web/code work to make POWALIFTA an App-Store-ready native app is done and
+**feature-detected so the live website is 100% untouched** (verified: web demos
+load, 171/171 tests green, native paths simulated). Full detail in
+`docs/native-app-spike.md`; the paste-ready store listing is `native/APP-STORE.md`.
+
+**What's built:** Capacitor config, `native-bridge.js` (native push registration +
+status bar/splash/haptics), `PowaPush` native-aware, `DB.saveNativePushToken` +
+`sql/migration-push-platform.sql`, and **Apple 3.1.1 compliance** (coach upgrade /
+billing / marketplace-Buy all disabled inside the native shell — no external
+payment path, which is the #1 rejection reason after 4.2).
+
+**YOUR steps to upload — NO LOCAL XCODE NEEDED (your disk is nearly full):**
+Build in the cloud with **Codemagic** — full walkthrough in `native/CLOUD-BUILD.md`.
+1. codemagic.io → sign up with GitHub → connect the `powalifta-new` repo.
+2. Add app → **Capacitor**, project path = `native`.
+3. Code signing: **Automatic** → create an App Store Connect API key (App Store
+   Connect → Users and Access → Integrations) and paste it into Codemagic.
+4. Bundle id `com.powalifta.app`, distribution App Store/TestFlight → **Start build**.
+   (Codemagic's cloud Mac runs cap add ios + sync + pod install + archive + sign + upload.)
+5. App Store Connect: add screenshots + paste everything from `native/APP-STORE.md`,
+   fill privacy labels, submit for review.
+6. **Run** `sql/migration-push-platform.sql` in the Supabase SQL Editor (native push tokens).
+(Local-Xcode path still documented in `native/README.md` if you free up ~40 GB.)
+
+**Push DELIVERY to iOS** (notifications actually arriving) needs one more piece I
+didn't finish tonight — the `send-push` APNs branch + your APNs key as a secret.
+It's Phase B in the spike doc; NOT required to upload or pass review (the app
+*registering* for push is what Apple sees). I'll build it next if you want.
+
+**The one thing that could still get you rejected:** guideline 4.2 (thin wrapper).
+We ship native push registration + camera (form-check video) + offline + native
+chrome, which is the answer — but be ready to state that in App Review notes
+(text is pre-written in `native/APP-STORE.md`).
+
 > ⚠️ **GIT / BRANCH SITUATION — READ FIRST (nothing is lost).**
 > During the run you created a branch **`idk`** and committed the whole session
 > there (commits `dekk…`→`5a1f26f`), then `git checkout main`. `main` is the

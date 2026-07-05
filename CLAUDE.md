@@ -143,6 +143,7 @@ migration-form-checks.sql             # form_checks table + private `form-checks
 migration-form-checks-rls-fix.sql     # fixes coach playback: DROPs+recreates the `fc_obj_read` storage.objects policy so a coach can read a linked athlete's video without depending on brittle profiles-SELECT visibility. Run AFTER migration-form-checks. Idempotent.
 migration-ai-chat-usage.sql           # ai_chat_usage table (per-user daily AI cap; RLS-locked to service role)
 migration-push-subscriptions.sql      # push_subscriptions table + RLS (own-rows-only; send-push reads via service role)
+migration-push-platform.sql           # adds push_subscriptions.platform (web|ios|android) + makes p256dh/auth NULLABLE so NATIVE device tokens (APNs/FCM) coexist with Web Push rows (#32 native app). Client DB.saveNativePushToken fails open if not applied yet. Run AFTER migration-push-subscriptions. Idempotent.
 migration-referrals.sql               # referral_code/referred_by_code on profiles + referrals table + SECURITY DEFINER attribution trigger + RLS (run AFTER profiles-rls + privilege-guard)
 migration-referral-rewards.sql        # referral_reward_claims ledger + select-own RLS + SECURITY DEFINER claim_referral_reward(tier) earn-gate (run AFTER migration-referrals)
 migration-marketplace-taxonomy.sql    # marketplace_programs.category (training-focus taxonomy, distinct from tier/length) + index; nullable, no CHECK (keys ship client-side)
@@ -207,6 +208,10 @@ Single source of truth for taking the whole backlog live. The site itself (stati
 | Error forwarding (#25) | deploy `send-client-error` + `migration-client-errors.sql` (+ `-admin-read` for the admin tab) |
 | Rate limiting (#26) | `migration-edge-rate-limits.sql` (callers fail open until then) |
 | Everything else (client-only) | already live on Vercel push — no backend action |
+
+## Recently shipped (native iOS app prep — Capacitor)
+
+- **Native app (#32) promoted spike → build** — DONE (web-side; native shell + submission are developer GUI steps). All additive + **feature-detected via `window.Capacitor` / `window.PowaNative` → total no-op on the web** (verified: web demos load, 171/171 tests green, native paths simulated with a mocked Capacitor runtime). Pieces: `native/capacitor.config.json` (appId `com.powalifta.app`, brand chrome) + `native/README.md` (scaffold cmds) + `native/APP-STORE.md` (paste-ready listing, privacy labels, review notes); **`native-bridge.js`** (loaded after db.js on index/athlete/coach/marketplace — Capacitor detect + dark StatusBar + SplashScreen hide + Haptics + native push registration: APNs/FCM token → `push_subscriptions` via `DB.saveNativePushToken`); `PowaPush` (app.js) made native-aware (enable/disable/isSubscribed/permission branch to the plugin inside the shell; Web-Push/VAPID path unchanged on web); `sql/migration-push-platform.sql` (adds `platform` col + nullable p256dh/auth; client fails open pre-migration). **Apple 3.1.1 compliance:** `openUpgradeModal`, `openBillingPortal`, and the marketplace **Buy** button are gated OFF inside the native shell (no external web-payment path) — web monetization byte-for-byte unchanged. Camera already covered (form-check `<input type=file accept=video/*>` uses the iOS native camera). REMAINING (developer): install Xcode + CocoaPods, `cap add ios`, icons, signing + Push capability + APNs key, App Store Connect submit; plus the `send-push` APNs delivery branch (Phase B, needs APNs secret — not required to upload/pass review).
 
 ## Recently shipped (overnight security + athlete-analytics batch)
 

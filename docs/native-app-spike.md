@@ -1,9 +1,22 @@
-# Native iOS / Android app — SPIKE (#32)
+# Native iOS / Android app (#32) — PROMOTED TO BUILD
 
-**Status:** design spike. No native code shipped, no tooling installed. This
-documents the recommended path + an inert scaffold so a future build starts from a
-decision, not a blank page. The marketing site already promises "iOS & Android apps
-— coming soon" (store badges + chip in `index.html`); this is the plan behind that.
+**Status (updated):** promoted from spike to an active build. The web-side code is
+DONE and web-safe; the native shell itself (Xcode/CocoaPods/`cap add ios`) + App
+Store submission are the remaining GUI/account-gated steps on the developer.
+
+**DONE (in-repo, all feature-detected — total no-op on the web):**
+- `native/capacitor.config.json` + `native/README.md` (scaffold commands) + `native/APP-STORE.md` (listing copy, privacy labels, review notes, 3.1.1 guidance).
+- `native-bridge.js` — Capacitor detection, dark status bar + splash hide, haptics, and NATIVE push registration (APNs/FCM token → `push_subscriptions`). Loaded on index/athlete/coach/marketplace after `db.js`.
+- `PowaPush` (app.js) made native-aware: `enable/disable/isSubscribed/permission` route to the native plugin inside the shell, Web Push path byte-for-byte unchanged on the web.
+- `DB.saveNativePushToken` (db.js) + `sql/migration-push-platform.sql` (platform column + nullable Web-Push keys). Client fails open pre-migration.
+- **Apple 3.1.1 compliance:** coach upgrade (`openUpgradeModal`), billing (`openBillingPortal`), and the marketplace Buy button are gated OFF inside the native shell (no external web-payment path). Web monetization untouched.
+- Camera: the form-check `<input type=file accept="video/*">` already invokes the iOS native camera — no change needed.
+
+**REMAINING (developer, outside the repo):** install full Xcode + CocoaPods; run the `native/README.md` scaffold; `cap add ios`; app icons via `@capacitor/assets`; Xcode signing + Push capability + APNs key; App Store Connect listing (use `native/APP-STORE.md`) + screenshots; submit. Push DELIVERY to iOS also needs the `send-push` APNs branch + the APNs key secret (Phase B).
+
+---
+
+_Original spike write-up below (still the reference for the decision + phases)._
 
 ## The decision: Capacitor, not a rewrite
 

@@ -394,6 +394,26 @@ const DB = {
     if (error) throw error;
     return true;
   },
+  // Save a NATIVE push token (APNs on iOS / FCM on Android) for the signed-in
+  // user. The device token goes in `endpoint` (still the UNIQUE key) with
+  // platform ios|android; p256dh/auth are Web-Push-only so they're left null
+  // (needs migration-push-platform.sql). Retries without `platform` if that
+  // column isn't there yet, so this is safe to ship before the migration runs.
+  async saveNativePushToken(userId, token, platform, userAgent) {
+    const base = { user_id: userId, endpoint: token, user_agent: userAgent || null };
+    let { error } = await sb.from('push_subscriptions').upsert(
+      Object.assign({}, base, { platform: platform || 'ios', p256dh: null, auth: null }),
+      { onConflict: 'endpoint' }
+    );
+    if (error && /platform|p256dh|auth|column/i.test(error.message || '')) {
+      // Pre-migration DB: platform col missing OR p256dh/auth still NOT NULL.
+      ({ error } = await sb.from('push_subscriptions').upsert(
+        Object.assign({}, base, { p256dh: '', auth: '' }), { onConflict: 'endpoint' }
+      ));
+    }
+    if (error) throw error;
+    return true;
+  },
   // Fire a push at another user (self for a test, or a linked coach/athlete).
   // Routes through the JWT-gated `send-push` edge function; never throws fatally.
   async sendPush({ toUserId, title, body, url, tag, category }) {
