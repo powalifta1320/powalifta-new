@@ -457,6 +457,16 @@ input:focus, select:focus, textarea:focus {
 input::placeholder, textarea::placeholder { color: var(--text-4); }
 textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
 
+/* iOS/Safari render input[type=date] with the native control's own height + an
+   inset value box, so a date field sits taller and its text baseline lands lower
+   than the sibling number/text input in the same .form-row (e.g. Bodyweight
+   Date | Weight). Strip the native chrome and zero the value box so date inputs
+   share the exact box model of every other field and line up cleanly. Desktop
+   keeps the calendar-picker indicator. */
+input[type=date] { -webkit-appearance: none; appearance: none; }
+input[type=date]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+input[type=date]::-webkit-calendar-picker-indicator { margin-left: auto; }
+
 select {
   appearance: none;
   -webkit-appearance: none;
@@ -2301,7 +2311,12 @@ tbody tr:hover td { background: var(--hover-tint); }
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
-.session-bar-left { display: flex; flex-direction: column; gap: 6px; }
+.session-bar-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* The date-controls row (‹ date › · Today · Pin · Unpin) is a non-wrapping flex,
+   so on a phone its trailing buttons (esp. "✕ Unpin") ran off the right edge.
+   Let it wrap inside the padded container — desktop still fits on one line, so no
+   visual change there; narrow screens wrap and stay within the safe area. */
+.session-bar-left .flex { flex-wrap: wrap; }
 .session-bar-right { display: flex; gap: 8px; }
 .session-bar-label {
   font-size: 0.7rem;
