@@ -164,7 +164,7 @@
     document.addEventListener('click', function (ev) {
       try {
         var hit = ev.target && ev.target.closest
-          ? ev.target.closest('.btn, .dash-tab, .tab-btn, .nav-user, .theme-toggle, .unit-toggle, .sig-bell, [role="button"]')
+          ? ev.target.closest('.btn, .dash-tab, .tab-btn, .bottom-tab, .bms-item, .sidebar-tab, .nav-user, .theme-toggle, .unit-toggle, .sig-bell, [role="button"]')
           : null;
         if (hit) PowaNative.haptic('LIGHT');
       } catch (e) {}
