@@ -856,6 +856,7 @@ window.isTourDone = isTourDone;
 window.resetTour = resetTour;
 
 let _tourState = { name: null, steps: [], idx: 0 };
+let _tourRepos = null; // active scroll/resize reposition handler, torn down on close
 
 function startTour(name, steps) {
   if (!steps || !steps.length) return;
@@ -875,32 +876,12 @@ function renderTourStep() {
     try { step.before(); } catch (e) { console.warn('tour before hook failed', e); }
   }
 
-  // Allow the DOM a moment to update if before() switched panes
-  setTimeout(() => {
-    const target = step.selector ? document.querySelector(step.selector) : null;
+  const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  const mount = () => {
     const overlay = document.createElement('div');
     overlay.id = 'tourOverlay';
     overlay.className = 'tour-overlay';
-
-    if (target) {
-      const rect = target.getBoundingClientRect();
-      const pad = 6;
-      overlay.style.setProperty('--tx', (rect.left - pad) + 'px');
-      overlay.style.setProperty('--ty', (rect.top - pad) + 'px');
-      overlay.style.setProperty('--tw', (rect.width + pad * 2) + 'px');
-      overlay.style.setProperty('--th', (rect.height + pad * 2) + 'px');
-      // Scroll target into view if it's off-screen
-      if (rect.top < 80 || rect.bottom > window.innerHeight - 120) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    } else {
-      // No target — full screen dim, centered tip
-      overlay.style.setProperty('--tx', '50%');
-      overlay.style.setProperty('--ty', '50%');
-      overlay.style.setProperty('--tw', '0px');
-      overlay.style.setProperty('--th', '0px');
-    }
-
     const tip = document.createElement('div');
     tip.className = 'tour-tip';
     const isLast = _tourState.idx === _tourState.steps.length - 1;
@@ -916,26 +897,75 @@ function renderTourStep() {
     overlay.appendChild(tip);
     document.body.appendChild(overlay);
 
-    // Position the tip relative to the target (below by default, fallback above)
-    if (target) {
+    // Place the spotlight cutout + tip against the target's LIVE rect. Re-queried
+    // every call (not captured once) so a late-rendered target from a before()
+    // pane-switch, plus any scroll/resize, keeps everything aligned. The overlay is
+    // position:fixed inset:0, so getBoundingClientRect() viewport coords map 1:1 to
+    // the fixed spotlight vars and the absolutely-positioned tip inside it.
+    const place = () => {
+      if (!document.getElementById('tourOverlay')) return;
+      const target = step.selector ? document.querySelector(step.selector) : null;
+      if (!target) {
+        overlay.style.setProperty('--tx', '50%');
+        overlay.style.setProperty('--ty', '50%');
+        overlay.style.setProperty('--tw', '0px');
+        overlay.style.setProperty('--th', '0px');
+        tip.style.transform = 'translate(-50%, -50%)';
+        tip.style.top = '50%';
+        tip.style.left = '50%';
+        return;
+      }
       const rect = target.getBoundingClientRect();
+      const pad = 6;
+      overlay.style.setProperty('--tx', (rect.left - pad) + 'px');
+      overlay.style.setProperty('--ty', (rect.top - pad) + 'px');
+      overlay.style.setProperty('--tw', (rect.width + pad * 2) + 'px');
+      overlay.style.setProperty('--th', (rect.height + pad * 2) + 'px');
+
+      // Tip: below the target by default; flip above if it would spill past the
+      // bottom; clamp within a margin on all sides (belt-and-braces vs the global
+      // overflow guard, and keeps clear of the notch/home-indicator).
       const tipRect = tip.getBoundingClientRect();
       const margin = 16;
+      tip.style.transform = '';
       let top = rect.bottom + margin;
       if (top + tipRect.height > window.innerHeight - margin) {
-        top = Math.max(margin, rect.top - tipRect.height - margin);
+        top = rect.top - tipRect.height - margin;
       }
+      top = Math.max(margin, Math.min(window.innerHeight - tipRect.height - margin, top));
       let left = rect.left + rect.width / 2 - tipRect.width / 2;
       left = Math.max(margin, Math.min(window.innerWidth - tipRect.width - margin, left));
       tip.style.top = top + 'px';
       tip.style.left = left + 'px';
-    } else {
-      // Centered when no target
-      tip.style.top = '50%';
-      tip.style.left = '50%';
-      tip.style.transform = 'translate(-50%, -50%)';
+    };
+
+    // Bring the target on-screen FIRST, then place — so we never measure a
+    // pre-scroll rect. Reduced motion → instant scroll (no animation to chase).
+    const target = step.selector ? document.querySelector(step.selector) : null;
+    if (target) {
+      const r = target.getBoundingClientRect();
+      if (r.top < 80 || r.bottom > window.innerHeight - 160) {
+        target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+      }
     }
-  }, step.before ? 200 : 0);
+
+    // rAF-debounced reposition, run now + across the smooth-scroll settle window,
+    // and on every scroll/resize while the step is open. Capture-phase scroll
+    // catches the inner .dash-main scroll container (its events don't bubble to window).
+    let raf = 0;
+    const schedule = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; place(); }); };
+    place();
+    if (!reduce) { setTimeout(place, 260); setTimeout(place, 440); }
+    else { setTimeout(place, 0); }
+
+    _tourRepos = schedule;
+    window.addEventListener('scroll', schedule, { passive: true, capture: true });
+    window.addEventListener('resize', schedule, { passive: true });
+  };
+
+  // Give the DOM a couple of frames to settle if before() switched panes.
+  if (step.before) requestAnimationFrame(() => requestAnimationFrame(mount));
+  else mount();
 }
 
 function nextTourStep() {
@@ -958,6 +988,11 @@ function endTour(complete) {
   _tourState = { name: null, steps: [], idx: 0 };
 }
 function _closeTourOverlay() {
+  if (_tourRepos) {
+    window.removeEventListener('scroll', _tourRepos, { capture: true });
+    window.removeEventListener('resize', _tourRepos);
+    _tourRepos = null;
+  }
   const o = document.getElementById('tourOverlay');
   if (o) o.remove();
 }
