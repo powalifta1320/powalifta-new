@@ -4623,7 +4623,13 @@ function buildBottomTabs() {
   try {
     if (!document.documentElement.classList.contains('native')) return; // native shell only
     if (document.getElementById('bottomTabs')) return;                  // build once
-    const tabs = Array.from(document.querySelectorAll('.sidebar-tab')); // athlete wraps in .dash-tablist, coach doesn't
+    // Tabs kept out of the bottom bar (feature/code stays — still reachable via the
+    // in-app "View templates" buttons). Dropping 'templates' takes the coach from
+    // 6 tabs to 5, so all 5 (incl. Progress) render as primary instead of Progress
+    // getting pushed into the "More" overflow sheet.
+    const BTAB_HIDE = { templates: true };
+    const tabs = Array.from(document.querySelectorAll('.sidebar-tab')) // athlete wraps in .dash-tablist, coach doesn't
+      .filter(t => !BTAB_HIDE[t.dataset.tab]);
     if (tabs.length < 2) return;
 
     const labelFor = (t) => BTAB_SHORT[t.dataset.tab] || (t.querySelector('span') && t.querySelector('span').textContent) || t.dataset.tab;
