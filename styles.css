@@ -34,13 +34,18 @@
   /* Gradients */
   --grad-red:   linear-gradient(135deg, #ff2d3f 0%, #b71629 100%);
   --grad-red-soft: linear-gradient(135deg, rgba(255,45,63,0.18), rgba(183,22,41,0.06));
-  --grad-card:  linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0));
+  --grad-card:  linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 42%);
 
   /* Effects */
   --shadow-sm: 0 2px 6px rgba(0,0,0,0.3);
   --shadow:    0 12px 30px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset;
   --shadow-red: 0 8px 30px rgba(255,45,63,0.28);
   --ring:      0 0 0 3px rgba(255,45,63,0.22);
+  /* Card depth on near-black: a lit top rim + a shadowed bottom rim = a subtle
+     bevel that actually reads (drop shadows vanish on #0b0b0c). This is the single
+     biggest "premium" lever for the dark surfaces; every card family shares it. */
+  --card-edge:  inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.28);
+  --elev-card:  var(--card-edge), 0 2px 4px rgba(0,0,0,0.4), 0 22px 44px -24px rgba(0,0,0,0.85);
 
   /* Radii */
   --r-sm: 6px;
@@ -119,7 +124,9 @@
 
   --grad-red:      linear-gradient(135deg, #d81e30 0%, #8a1020 100%);
   --grad-red-soft: linear-gradient(135deg, rgba(216,30,48,0.12), rgba(216,30,48,0.02));
-  --grad-card:     linear-gradient(180deg, rgba(0,0,0,0.012), rgba(0,0,0,0));
+  --grad-card:     linear-gradient(180deg, rgba(0,0,0,0.014), rgba(0,0,0,0) 42%);
+  --card-edge:  inset 0 1px 0 rgba(255,255,255,0.7);
+  --elev-card:  var(--card-edge), 0 1px 2px rgba(15,15,25,0.05), 0 16px 32px -18px rgba(15,15,25,0.14);
 
   --shadow-sm:  0 1px 2px rgba(15,15,25,0.06), 0 2px 6px rgba(15,15,25,0.04);
   --shadow:     0 12px 28px rgba(15,15,25,0.10), 0 2px 6px rgba(15,15,25,0.04);
@@ -514,9 +521,10 @@ select {
   border-radius: var(--r-lg);
   padding: 24px;
   position: relative;
-  /* Lit top edge — the depth cue that actually reads on a near-black bg, where a
-     drop shadow would vanish. Shared across every card family for cohesion. */
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  /* Beveled depth (lit top rim + shadowed bottom rim) — the cue that actually
+     reads on a near-black bg where a drop shadow vanishes. Shared token so every
+     card family lifts off the surface identically. */
+  box-shadow: var(--elev-card);
 }
 .card.hover { transition: transform 0.2s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.2s ease; }
 .card.hover:hover {
@@ -2562,6 +2570,7 @@ section[data-pane="today"] { max-width: 880px; }
 /* ============================================ CHART CARD */
 .chart-card {
   background: var(--bg-1);
+  background-image: var(--grad-card);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 24px;
@@ -5495,10 +5504,7 @@ body:has(.dash-main)::after {
 .stat-tile,
 .roster-card,
 .today-progress {
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.045),
-    0 1px 2px rgba(0,0,0,0.30),
-    0 10px 26px -16px rgba(0,0,0,0.55);
+  box-shadow: var(--elev-card);
 }
 /* Featured tile: same clean elevation as the rest — the red border tint +
    solid red value carry the emphasis, no halo. */
