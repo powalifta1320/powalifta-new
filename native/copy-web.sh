@@ -28,6 +28,7 @@ rsync -a --delete \
   --exclude '.env.*' \
   --exclude 'ai-config.local.js' \
   --exclude 'tests.html' \
+  --exclude 'test' \
   --exclude 'index-bold.html' \
   --exclude 'review.html' \
   --exclude 'vercel.json' \
