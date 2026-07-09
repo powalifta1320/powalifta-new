@@ -387,9 +387,11 @@ input[type=date], select, textarea {
 .score-card {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
+  background: var(--bg-1);
   background-image: var(--grad-card);
   padding: 22px 22px 24px;
   margin-bottom: 22px;
+  box-shadow: var(--elev-card);
 }
 .score-top {
   display: flex; align-items: center; justify-content: space-between;

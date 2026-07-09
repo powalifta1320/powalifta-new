@@ -818,9 +818,9 @@ select {
 }
 .calc-field { display: flex; flex-direction: column; gap: 6px; }
 .calc-field label {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--text-3);
   font-weight: 700;
   text-align: center;
@@ -2465,7 +2465,9 @@ tbody tr:hover td { background: var(--hover-tint); }
   margin-bottom: 22px;
 }
 .today-progress .pct {
-  font-family: 'Anton', sans-serif;
+  font-family: 'Space Grotesk', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   font-size: 2.4rem;
   color: var(--red);
   line-height: 1;
@@ -2605,11 +2607,11 @@ section[data-pane="today"] { max-width: 880px; }
 .stat-tile.featured {
   border-color: var(--red);
   background-image: linear-gradient(140deg, rgba(255,45,63,0.32), rgba(255,45,63,0.05) 62%);
-  /* Commanding hero: a full red border, a strong wash, and a real glow that
-     throws red light onto the black around it. This tile should own the grid. */
-  box-shadow: var(--card-edge), 0 0 0 1px rgba(255,45,63,0.45), 0 24px 64px -18px rgba(255,45,63,0.6);
+  /* The one focal per view: red border + wash, a restrained red halo (set on the
+     single winning box-shadow rule further down), and a solid red value. The old
+     commanding-glow box-shadow that lived here was dead code — overridden later. */
 }
-.stat-tile.featured .stat-value { font-size: 3.1rem; color: #fff; text-shadow: 0 2px 34px rgba(255,45,63,0.45); }
+.stat-tile.featured .stat-value { font-size: 3.1rem; }
 .stat-tile.featured .stat-label { color: #fff; }
 .stat-tile.featured .stat-label svg { color: var(--red); opacity: 1; }
 .stat-tile .stat-label {
@@ -2770,6 +2772,7 @@ section[data-pane="today"] { max-width: 880px; }
   padding: 18px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--elev-card);
 }
 .goal-card.complete {
   border-color: rgba(78, 216, 132, 0.3);
@@ -2790,7 +2793,9 @@ section[data-pane="today"] { max-width: 880px; }
   margin-bottom: 10px;
 }
 .goal-card .gc-current {
-  font-family: 'Anton', sans-serif;
+  font-family: 'Space Grotesk', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   font-size: 2rem;
   color: var(--text);
   line-height: 1;
@@ -3075,7 +3080,8 @@ footer .footer-base {
 .rest-timer .rt-num {
   position: relative;
   z-index: 1;
-  font-family: 'Anton', sans-serif;
+  font-family: 'Space Grotesk', monospace;
+  font-weight: 700;
   font-size: 1.85rem;
   color: var(--red);
   line-height: 1;
@@ -3253,7 +3259,9 @@ footer .footer-base {
   margin-bottom: 4px;
 }
 .pr-toast .pr-num {
-  font-family: 'Anton', sans-serif;
+  font-family: 'Space Grotesk', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   font-size: 4rem;
   line-height: 1;
   color: var(--text);
@@ -3318,7 +3326,7 @@ footer .footer-base {
 .ach-badge.earned { border-color: color-mix(in srgb, var(--red) 45%, transparent); background: color-mix(in srgb, var(--red) 8%, var(--bg-1)); }
 .ach-badge.locked { opacity: .4; filter: grayscale(1); }
 .ach-badge .ach-ic { font-size: 22px; line-height: 1; }
-.ach-badge .ach-lab { font-size: 10px; font-weight: 600; color: var(--text-2); line-height: 1.2; }
+.ach-badge .ach-lab { font-size: 12px; font-weight: 600; color: var(--text-2); line-height: 1.2; }
 
 /* Notes journal — searchable coach-feedback / session-note timeline */
 .nj-card { margin-bottom: 22px; }
@@ -3338,7 +3346,7 @@ footer .footer-base {
 .nj-empty { padding: 14px 4px; font-size: 14px; }
 
 /* PR timeline — chronological feed of e1RM PRs */
-.pr-timeline { display: flex; flex-direction: column; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.pr-timeline { display: flex; flex-direction: column; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--elev-card); }
 .prt-row { display: grid; grid-template-columns: 84px 1fr auto auto; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
 .prt-row:last-child { border-bottom: none; }
 .prt-date { font-size: 12px; color: var(--text-3); }
@@ -3403,6 +3411,7 @@ footer .footer-base {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 16px;
+  box-shadow: var(--elev-card);
 }
 .delta-tile .dt-lift {
   font-size: 0.72rem;
@@ -3417,7 +3426,9 @@ footer .footer-base {
   margin-bottom: 6px;
 }
 .delta-tile .dt-num {
-  font-family: 'Anton', sans-serif;
+  font-family: 'Space Grotesk', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   font-size: 1.7rem;
   line-height: 1;
 }
@@ -3458,11 +3469,13 @@ footer .footer-base {
   content: '';
   position: absolute;
   left: 0; top: -0.02em;
-  width: 5px; height: 1.08em;
+  width: 4px; height: 1.02em;
   border-radius: 3px;
-  background: var(--grad-red);
-  box-shadow: 0 0 18px rgba(255,45,63,0.55);   /* the accent bar throws light */
+  background: var(--line-2);   /* neutral by default — red is spent once per view */
 }
+/* The first section title in a sub-view carries the red ignition mark; the rest
+   read as quiet structure. One focal per view, not a red bar on all fourteen. */
+.dash-main .prog-sec:first-of-type::before { background: var(--grad-red); }
 /* The very first section sits right under the stat grid / actions —
  * tighten so it doesn't float in a void. */
 .dash-main .prog-sec:first-of-type { margin-top: 24px; }
@@ -5588,13 +5601,14 @@ body:has(.dash-main)::after {
 .today-progress {
   box-shadow: var(--elev-card);
 }
-/* Featured tile: same clean elevation as the rest — the red border tint +
-   solid red value carry the emphasis, no halo. */
+/* Featured tile: the shared card elevation + a restrained red halo (far below the
+   old 0.6-alpha / 64px light-pollution). This is the single focal on the grid, so
+   red is spent here — once — and nowhere else in the stat row. */
 .stat-tile.featured {
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    0 1px 2px rgba(0,0,0,0.30),
-    0 10px 26px -16px rgba(0,0,0,0.55);
+    var(--card-edge),
+    0 10px 26px -16px rgba(0,0,0,0.55),
+    0 10px 34px -20px rgba(255,45,63,0.38);
 }
 
 /* --- Premium SVG charts: soft halo + rounded line joins --- */
@@ -5729,7 +5743,7 @@ body:has(.dash-main)::after {
 .msg-row.theirs .msg-bubble { border-bottom-left-radius: 5px; }
 .msg-body { font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; }
 .msg-meta {
-  font-size: 0.68rem; margin-top: 4px; opacity: 0.7;
+  font-size: 0.72rem; margin-top: 4px; opacity: 0.72;
   font-family: 'Space Grotesk', monospace;
 }
 .msg-row.mine .msg-meta { text-align: right; }
