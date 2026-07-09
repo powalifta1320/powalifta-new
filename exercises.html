@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exercise library — squat, bench, deadlift form cues | POWALIFTA</title>
+<meta name="theme-color" content="#0b0b0c">
+<meta name="description" content="Coaching cues for the powerlifts and their training variants — setup, execution, and the common faults to fix. Squat, bench, deadlift, and the accessories that carry over, with the variant multipliers POWALIFTA scores them at.">
+<meta property="og:title" content="POWALIFTA Exercise Library — form cues for the powerlifts">
+<meta property="og:description" content="Setup, execution, and fault-fixing cues for squat, bench, deadlift, their variants, and the core accessories.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://www.powalifta.com/exercises.html">
+<meta property="og:url" content="https://www.powalifta.com/exercises.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POWALIFTA Exercise Library — form cues for the powerlifts">
+<meta name="twitter:description" content="Setup, execution, and fault-fixing cues for squat, bench, deadlift, their variants, and the core accessories.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<link rel="stylesheet" href="ui-fx.css">
+<link rel="stylesheet" href="insane-fx.css">
+<script defer src="ui-fx.js"></script>
+<script defer src="insane-fx.js"></script>
+<style>
+.exlib-hero {
+  padding: 60px 0 30px;
+  border-bottom: 1px solid var(--line);
+  background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,45,63,0.10), transparent 70%);
+}
+.exlib-hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); letter-spacing: 0.005em; margin-bottom: 14px; }
+.exlib-hero p { color: var(--text-2); font-size: 1.05rem; max-width: 640px; }
+.exlib-toolbar {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin: 28px 0 8px;
+}
+.exlib-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.exlib-chip {
+  padding: 7px 15px; border-radius: 100px; cursor: pointer;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--text-2);
+  font: inherit; font-weight: 600; font-size: 0.85rem; transition: all 0.18s ease;
+}
+.exlib-chip:hover { color: var(--text); border-color: var(--line-2); }
+.exlib-chip.active { background: var(--grad-red); color: #fff; border-color: transparent; }
+.exlib-search {
+  flex: 1 1 200px; min-width: 0; max-width: 320px; margin-left: auto;
+  padding: 9px 14px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
+  font: inherit; font-size: 0.9rem;
+}
+.exlib-search::placeholder { color: var(--text-3); }
+.exlib-search:focus { outline: none; border-color: var(--red); }
+.exlib-count { color: var(--text-3); font-size: 0.82rem; font-family: 'Space Grotesk', monospace; margin: 0 0 22px; }
+.exlib-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px; align-items: start;
+}
+.exlib-card {
+  border: 1px solid var(--line); border-radius: 16px; background: var(--bg-1);
+  padding: 22px 22px 8px; transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.exlib-card:hover { border-color: var(--line-2); }
+.exlib-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.exlib-name { font-family: 'Anton', sans-serif; font-size: 1.3rem; letter-spacing: 0.01em; line-height: 1.1; text-transform: uppercase; }
+.exlib-pattern { color: var(--text-3); font-size: 0.72rem; font-family: 'Space Grotesk', monospace; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; display: block; }
+.exlib-mult {
+  font-family: 'Space Grotesk', monospace; font-size: 0.7rem; font-weight: 700;
+  padding: 3px 9px; border-radius: 100px; white-space: nowrap;
+  background: rgba(255,45,63,0.10); color: var(--red); border: 1px solid var(--line-red);
+}
+.exlib-mult.is-base { background: var(--bg-2); color: var(--text-2); border-color: var(--line); }
+.exlib-summary { color: var(--text-2); font-size: 0.92rem; line-height: 1.6; margin-bottom: 14px; }
+.exlib-block { margin-bottom: 14px; }
+.exlib-block-title {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+  color: var(--text-3); margin-bottom: 7px;
+}
+.exlib-block ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
+.exlib-block li { position: relative; padding-left: 18px; color: var(--text-2); font-size: 0.88rem; line-height: 1.5; }
+.exlib-block li::before { content: ''; position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.exlib-cues li::before { background: var(--red); }
+.exlib-faults li::before { width: 0; height: 0; border-radius: 0; left: 0; top: 4px; content: '\2192'; background: none; color: var(--text-3); font-weight: 700; }
+.exlib-empty { color: var(--text-3); padding: 40px 0; text-align: center; }
+.exlib-note {
+  margin: 30px 0 0; padding: 16px 18px; border-radius: 12px;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--text-2);
+  font-size: 0.86rem; line-height: 1.6;
+}
+@media (max-width: 560px) {
+  .exlib-grid { grid-template-columns: 1fr; }
+  .exlib-search { margin-left: 0; max-width: none; }
+}
+</style>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#exlibRoot">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="exlibRoot">
+  <section class="exlib-hero">
+    <div class="container">
+      <h1>Exercise library</h1>
+      <p>Coaching cues for the powerlifts, their training variants, and the accessories that carry over — setup, execution, and the common faults to fix. The carryover multiplier is what POWALIFTA scores each variant at versus a competition lift.</p>
+    </div>
+  </section>
+
+  <div class="container" style="padding-top: 8px; padding-bottom: 64px;">
+    <div class="exlib-toolbar">
+      <div class="exlib-chips" id="exlibChips" role="group" aria-label="Filter by movement"></div>
+      <input type="search" class="exlib-search" id="exlibSearch" placeholder="Search cues, faults, lifts…" aria-label="Search the exercise library" autocomplete="off">
+    </div>
+    <p class="exlib-count" id="exlibCount"></p>
+
+    <div class="exlib-grid" id="exlibGrid"></div>
+
+    <p class="exlib-note">
+      Cues are a starting point, not a rulebook — every lifter has slightly different leverages. If something hurts, back off and get eyes on it. Variant multipliers (e.g. tempo squat 1.12×) are how the app converts a variant lift to a competition-equivalent e1RM, so your strength chart compares like for like.
+    </p>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let _exGroup = 'all';
+let _exQuery = '';
+
+function multBadge(e) {
+  if (e.multiplier == null) return '';
+  if (e.variant === 'Competition' || e.multiplier === 1.0) {
+    return '<span class="exlib-mult is-base">1.0× · baseline</span>';
+  }
+  // trim trailing zero: 1.10 -> 1.1
+  const m = String(e.multiplier).replace(/0$/, '').replace(/\.$/, '');
+  return '<span class="exlib-mult">' + m + '× carryover</span>';
+}
+
+function exCardHtml(e) {
+  return '<article class="exlib-card" data-fx="up">' +
+    '<div class="exlib-card-head">' +
+      '<span class="exlib-name">' + e.name + '</span>' + multBadge(e) +
+    '</div>' +
+    '<span class="exlib-pattern">' + e.pattern + '</span>' +
+    exerciseCueBodyHtml(e) +
+  '</article>';
+}
+
+function renderExlib() {
+  const grid = document.getElementById('exlibGrid');
+  let list = searchExercises(_exQuery);
+  if (_exGroup !== 'all') list = list.filter(e => e.group === _exGroup);
+  const cnt = document.getElementById('exlibCount');
+  cnt.textContent = list.length + ' exercise' + (list.length === 1 ? '' : 's') +
+    (_exGroup === 'all' ? '' : ' · ' + exerciseGroupLabel(_exGroup)) +
+    (_exQuery ? ' matching “' + _exQuery + '”' : '');
+  if (!list.length) {
+    grid.innerHTML = '<div class="exlib-empty">No exercises match that search. Try a lift name or a cue word like “brace” or “lockout”.</div>';
+    return;
+  }
+  grid.innerHTML = list.map(exCardHtml).join('');
+  if (window.PowaScrollFX && window.PowaScrollFX.refresh) window.PowaScrollFX.refresh();
+}
+
+function buildChips() {
+  const host = document.getElementById('exlibChips');
+  const groups = ['all'].concat(exerciseGroups());
+  host.innerHTML = groups.map(g =>
+    '<button class="exlib-chip' + (g === _exGroup ? ' active' : '') + '" type="button" data-group="' + g + '">' +
+    (g === 'all' ? 'All' : exerciseGroupLabel(g)) + '</button>'
+  ).join('');
+  host.querySelectorAll('.exlib-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _exGroup = btn.getAttribute('data-group');
+      host.querySelectorAll('.exlib-chip').forEach(b => b.classList.toggle('active', b === btn));
+      renderExlib();
+    });
+  });
+}
+
+let _exDebounce = null;
+document.getElementById('exlibSearch').addEventListener('input', (ev) => {
+  clearTimeout(_exDebounce);
+  const v = ev.target.value;
+  _exDebounce = setTimeout(() => { _exQuery = v; renderExlib(); }, 180);
+});
+
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, async () => {
+  renderNav('#nav');
+  buildChips();
+  renderExlib();
+}, { staticPublic: true });
+</script>
+</body>
+</html>

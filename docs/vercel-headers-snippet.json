@@ -1,0 +1,55 @@
+{
+  "_comment_README": "Drop the 'headers' array below into your repo's vercel.json. This REPLACES your current single Cache-Control rule with a split strategy: HTML never caches (so deploys are instant) and static assets cache hard. Plus security headers. The CSP is conservative — it allows the things your site already does (Supabase, Lemon Squeezy, Google Fonts, jsdelivr CDN, inline theme/scripts). If you load anything else, expand the allowlist or drop CSP and add it later.",
+
+  "headers": [
+    {
+      "source": "/(.*)\\.(html)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(js|css|svg|png|jpg|jpeg|webp|gif|ico|woff|woff2|ttf|otf)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://plausible.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://cxnotrikxvzncupswvio.supabase.co wss://cxnotrikxvzncupswvio.supabase.co https://*.lemonsqueezy.com https://plausible.io; frame-src 'self' https://*.lemonsqueezy.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" }
+      ]
+    }
+  ],
+
+  "_notes_after_paste": [
+    "1. frame-ancestors 'self' (not 'none') replaces X-Frame-Options while still allowing the in-app test harness: admin.html embeds tests.html, which embeds athlete.html?demo=1 — all same-origin. frame-src 'self' is needed for the same reason (admin embeds tests). 'self' still blocks all cross-origin framing, so clickjacking protection is intact.",
+    "2. The 'unsafe-inline' for script-src exists because index.html has inline theme script and inline onclick handlers (openSignupModal etc). Removing it would require refactoring those out into addEventListener. Acceptable for launch but worth a follow-up.",
+    "3. connect-src includes wss:// for Supabase realtime subscriptions — drop it if you don't use realtime.",
+    "4. If you add Plausible/PostHog/GA, you'll need to extend script-src and connect-src.",
+    "5. Test after deploying: open devtools console on every page and check for CSP violation errors. Common breaks: external images, embedded YouTube, Stripe Elements. Adjust allowlist accordingly.",
+    "6. Verify HSTS only AFTER you're certain you'll stay on HTTPS — once preloaded, hard to undo."
+  ]
+}

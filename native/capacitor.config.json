@@ -1,0 +1,13 @@
+{
+  "appId": "com.powalifta.app",
+  "appName": "POWALIFTA",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "backgroundColor": "#0b0b0c",
+  "ios": { "backgroundColor": "#0b0b0c", "contentInset": "never" },
+  "plugins": {
+    "SplashScreen": { "backgroundColor": "#0b0b0c", "showSpinner": false, "launchAutoHide": true },
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#0b0b0c" }
+  }
+}

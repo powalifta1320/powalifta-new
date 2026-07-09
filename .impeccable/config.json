@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "reason": "Brand identity font, user-confirmed keep",
+        "createdAt": "2026-06-26T21:58:18.306Z"
+      },
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "reason": "Brand mono/chart font, user-confirmed keep",
+        "createdAt": "2026-06-26T21:58:33.749Z"
+      }
+    ]
+  }
+}

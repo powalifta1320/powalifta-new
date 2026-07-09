@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POWALIFTA — Built for the barbell.</title>
+<meta name="description" content="Powerlifting platform. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for athletes and coaches.">
+<meta property="og:title" content="POWALIFTA — Built for the barbell.">
+<meta property="og:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://www.powalifta.com/">
+<meta property="og:url" content="https://www.powalifta.com/">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POWALIFTA — Built for the barbell.">
+<meta name="twitter:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<!-- Native shell detect — runs BEFORE the render-blocking app scripts (Supabase CDN /
+     app.js) so the native welcome screen (#nativeWelcome) paints on first frame instead
+     of waiting for native-bridge.js to add html.native. Idempotent with native-bridge.
+     .has-session suppresses the welcome for a returning signed-in user (Supabase token in
+     storage) → they get splash → dashboard with no welcome flash. No-op on the web. -->
+<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){var h=document.documentElement;h.classList.add('native');if(!localStorage.getItem('powa-theme'))h.setAttribute('data-theme','dark');for(var i=0;i<localStorage.length;i++){var kk=localStorage.key(i);if(kk&&/^sb-.*-auth-token$/.test(kk)&&localStorage.getItem(kk)){h.classList.add('has-session');break;}}}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Preload Anton (the hero headline = LCP) so the steel type paints without a FOUT/CLS flash -->
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/anton/v27/1Ptgg87LROyAm3Kz-C8CSKlv.woff2">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="cookie-consent.css">
+<link rel="stylesheet" href="hero-fx.css">
+<link rel="stylesheet" href="scroll-fx.css">
+<link rel="stylesheet" href="ui-fx.css">
+<link rel="stylesheet" href="insane-fx.css">
+<link rel="stylesheet" href="signature-fx.css">
+<link rel="stylesheet" href="plate-fx.css">
+<noscript><style>[data-fx],[data-fx-stagger]>[data-fx]{opacity:1!important;transform:none!important;filter:none!important}</style></noscript>
+<script defer src="hero-fx.js"></script>
+<script defer src="scroll-fx.js"></script>
+<script defer src="ui-fx.js"></script>
+<script defer src="insane-fx.js"></script>
+<script defer src="signature-fx.js"></script>
+<script defer src="plate-fx.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "POWALIFTA",
+  "url": "https://www.powalifta.com/",
+  "applicationCategory": "HealthApplication",
+  "operatingSystem": "Web",
+  "description": "Powerlifting platform for athletes and coaches. RPE-based logging, automatic e1RM tracking, week-by-week programming, goals and bodyweight tracking.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "Free for athletes, forever. Coach plans from $25/month."
+  }
+}
+</script>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- NATIVE APP WELCOME — shown ONLY inside the Capacitor shell (html.native), and only
+     while logged out (html:not(.has-session)). Static markup so the app opens on a real
+     app screen with instant buttons, not the marketing website (Apple 4.2) and not a
+     blank nav waiting on app.js. Logged-in users are redirected to their dashboard by the
+     bootstrap callback. Completely inert + invisible on the web. -->
+<div id="nativeWelcome" class="native-welcome">
+  <div class="nw-inner">
+    <div class="nw-brand"><span class="nw-dot" aria-hidden="true"></span>POWALIFTA</div>
+    <h1 class="nw-title">BUILT FOR<br>THE <span class="accent">BARBELL.</span></h1>
+    <p class="nw-sub">RPE-native programming, automatic e1RM tracking, and live SBD progress.</p>
+    <div class="nw-actions">
+      <button type="button" class="btn btn-primary btn-lg btn-block" onclick="openSignupModal('solo')">Create account</button>
+      <button type="button" class="btn btn-lg btn-ghost btn-block" onclick="openLoginModal()">Log in</button>
+    </div>
+    <div class="nw-demo-block">
+      <span class="nw-demo-label">Or explore a demo (no signup)</span>
+      <div class="nw-demo-row">
+        <a class="nw-demo-btn" href="athlete.html?demo=1"><span class="nw-demo-play" aria-hidden="true">▶</span> Athlete</a>
+        <a class="nw-demo-btn" href="coach.html?demo=1"><span class="nw-demo-play" aria-hidden="true">▶</span> Coach</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="nav" id="nav"></nav>
+
+<header class="hero" id="main">
+  <div class="hero-ghost" aria-hidden="true">POWALIFTA</div>
+  <div class="container">
+    <span class="eyebrow"><span class="dot"></span> POWERLIFTING'S NEW HOME</span>
+    <h1>BUILT FOR<br>THE <span class="accent tilt">BARBELL.</span></h1>
+    <p class="lead">Stop training out of a spreadsheet. RPE-native programming, automatic e1RM tracking, and live SBD progress &mdash; solo or with your coach.</p>
+    <div class="hero-cta">
+      <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('solo'); return false;">Train solo</a>
+      <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('athlete'); return false;">Join your coach</a>
+      <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('coach'); return false;">Become a coach</a>
+    </div>
+    <div class="hero-demo-line" data-fx="up">
+      <span class="hero-demo-label">Try the live demo — no signup needed</span>
+      <span class="hero-demo-btns">
+        <a href="athlete.html?demo=1" class="btn btn-lg btn-demo"><span class="btn-demo-play" aria-hidden="true">▶</span> As an athlete</a>
+        <a href="coach.html?demo=1" class="btn btn-lg btn-demo"><span class="btn-demo-play" aria-hidden="true">▶</span> As a coach</a>
+      </span>
+    </div>
+    <p class="dim text-sm hero-aux" style="margin-top:18px">Already have an account? <a href="#" onclick="openLoginModal(); return false;">Log in</a> · <a href="marketplace.html">Browse programs</a></p>
+    <div class="hero-facts" aria-label="Product facts" data-fx-stagger>
+      <div class="hf" data-fx="up"><b>$0</b><span>For athletes, forever</span></div>
+      <div class="hf" data-fx="up"><b>RPE-native</b><span>Programs &amp; logging</span></div>
+      <div class="hf" data-fx="up"><b>Auto e1RM</b><span>Every set, charted</span></div>
+      <div class="hf" data-fx="up"><b>SBD goals</b><span>Live progress bars</span></div>
+    </div>
+
+    <!-- Hero preview: real chart driven by drawLineChart -->
+    <div class="hero-preview">
+      <div class="hero-preview-card">
+        <div class="hp-head">
+          <div>
+            <div class="hp-title">e1RM · LAST 28 DAYS</div>
+            <div class="hp-sub">Squat · Bench · Deadlift, competition equivalent</div>
+          </div>
+          <span class="hp-pill">▲ +18% / 28 days</span>
+        </div>
+        <div id="heroChart" style="position:relative;"></div>
+      </div>
+    </div>
+  </div>
+  <a href="#e1rm" class="hero-scrollcue" aria-label="Scroll to features">
+    <span class="hsc-label">SCROLL</span>
+    <span class="hsc-chev" aria-hidden="true"></span>
+  </a>
+</header>
+
+<!-- Marquee strip -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>RPE-NATIVE <span class="dot"></span></span>
+    <span>VARIANT MULTIPLIERS <span class="dot"></span></span>
+    <span>AUTO e1RM <span class="dot"></span></span>
+    <span>WEEKLY PROGRAMMING <span class="dot"></span></span>
+    <span>PLATE CALCULATOR <span class="dot"></span></span>
+    <span>BODYWEIGHT TRACKING <span class="dot"></span></span>
+    <span>SBD GOALS <span class="dot"></span></span>
+    <span>COACH NOTES <span class="dot"></span></span>
+    <!-- duplicate for seamless loop -->
+    <span>RPE-NATIVE <span class="dot"></span></span>
+    <span>VARIANT MULTIPLIERS <span class="dot"></span></span>
+    <span>AUTO e1RM <span class="dot"></span></span>
+    <span>WEEKLY PROGRAMMING <span class="dot"></span></span>
+    <span>PLATE CALCULATOR <span class="dot"></span></span>
+    <span>BODYWEIGHT TRACKING <span class="dot"></span></span>
+    <span>SBD GOALS <span class="dot"></span></span>
+    <span>COACH NOTES <span class="dot"></span></span>
+  </div>
+</div>
+
+<!-- LIVE E1RM CALCULATOR -->
+<section id="e1rm" class="calc-sec">
+  <div class="container">
+    <div class="section-title center">
+      <span class="section-tag">Try it right now</span>
+      <h2 data-fx="blur">WHAT'S YOUR <span class="accent tilt">REAL MAX?</span></h2>
+      <p>Type any working set. Same math POWALIFTA runs on every set you log.</p>
+    </div>
+    <div class="calc-card">
+      <div class="calc-tabs" role="tablist">
+        <button type="button" id="tabMax" class="active" role="tab">Real Max</button>
+        <button type="button" id="tabTarget" role="tab">Target Load</button>
+        <button type="button" id="tabDots" role="tab">DOTS Score</button>
+        <button type="button" id="tabWarm" role="tab">Warm-up</button>
+      </div>
+      <div id="panelMax" class="calc-panel">
+      <div class="calc-inputs">
+        <div class="calc-field">
+          <label for="calcW">Weight</label>
+          <input id="calcW" type="number" value="140" min="1" step="2.5" inputmode="decimal">
+        </div>
+        <span class="calc-sym">×</span>
+        <div class="calc-field">
+          <label for="calcR">Reps</label>
+          <input id="calcR" type="number" value="5" min="1" max="12" step="1" inputmode="numeric">
+        </div>
+        <span class="calc-sym">@</span>
+        <div class="calc-field">
+          <label for="calcRpe">RPE</label>
+          <input id="calcRpe" type="number" value="8" min="5" max="10" step="0.5" inputmode="decimal">
+        </div>
+        <div class="calc-unit-toggle" role="group" aria-label="Unit">
+          <button type="button" id="calcKg" class="active">KG</button>
+          <button type="button" id="calcLb">LB</button>
+        </div>
+      </div>
+      <div class="calc-result">
+        <div class="calc-res-label">Estimated 1-rep max</div>
+        <div class="calc-res-num"><span id="calcOut">0</span><span class="calc-res-unit" id="calcOutUnit">kg</span></div>
+      </div>
+      <div class="calc-bar" id="calcBar" aria-hidden="true"></div>
+      <div class="calc-attempts" id="calcAttempts"></div>
+      <div style="text-align:center; margin-bottom: 26px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="calcShare">Share your max</button>
+      </div>
+      </div>
+      <div id="panelDots" class="calc-panel" style="display:none">
+        <div class="calc-inputs">
+          <div class="calc-unit-toggle" role="group" aria-label="Sex" style="margin-bottom:6px">
+            <button type="button" id="dotsM" class="active">M</button>
+            <button type="button" id="dotsF">F</button>
+          </div>
+          <div class="calc-field">
+            <label for="dotsBw">Bodyweight</label>
+            <input id="dotsBw" type="number" value="83" min="30" max="250" step="0.5" inputmode="decimal">
+          </div>
+          <span class="calc-sym">+</span>
+          <div class="calc-field">
+            <label for="dotsTot">SBD Total</label>
+            <input id="dotsTot" type="number" value="500" min="1" step="2.5" inputmode="decimal">
+          </div>
+        </div>
+        <div class="calc-result">
+          <div class="calc-res-label">DOTS score</div>
+          <div class="calc-res-num"><span id="dotsOut">0</span></div>
+          <div class="calc-class" id="dotsClass"></div>
+        </div>
+        <p class="calc-foot-note">DOTS normalizes your total across bodyweights. It's the score lifters compare across weight classes.</p>
+      </div>
+      <div id="panelWarm" class="calc-panel" style="display:none">
+        <div class="calc-inputs">
+          <div class="calc-field">
+            <label for="warmW">Top set</label>
+            <input id="warmW" type="number" value="140" min="1" step="2.5" inputmode="decimal">
+          </div>
+          <span class="calc-sym">&rarr;</span>
+          <div class="calc-field">
+            <label for="warmBar">Bar</label>
+            <input id="warmBar" type="number" value="20" min="5" step="2.5" inputmode="decimal">
+          </div>
+        </div>
+        <div class="calc-ramp" id="warmRamp"></div>
+        <p class="calc-foot-note">A clean ramp to your top set. Prime the pattern &mdash; never grind a warm-up.</p>
+      </div>
+      <div id="panelTarget" class="calc-panel" style="display:none">
+        <div class="calc-inputs">
+          <div class="calc-field">
+            <label for="tgtMax">Your max</label>
+            <input id="tgtMax" type="number" value="180" min="1" step="2.5" inputmode="decimal">
+          </div>
+          <span class="calc-sym">&rarr;</span>
+          <div class="calc-field">
+            <label for="tgtR">Reps</label>
+            <input id="tgtR" type="number" value="3" min="1" max="12" step="1" inputmode="numeric">
+          </div>
+          <span class="calc-sym">@</span>
+          <div class="calc-field">
+            <label for="tgtRpe">RPE</label>
+            <input id="tgtRpe" type="number" value="8" min="5" max="10" step="0.5" inputmode="decimal">
+          </div>
+        </div>
+        <div class="calc-result">
+          <div class="calc-res-label">Load on the bar</div>
+          <div class="calc-res-num"><span id="tgtOut">0</span><span class="calc-res-unit" id="tgtOutUnit">kg</span></div>
+        </div>
+        <div class="calc-rpe-grid" id="tgtGrid" aria-label="Load at each RPE"></div>
+        <p class="calc-foot-note">Work back from your max to today's bar weight. The grid is your RPE chart for <span id="tgtRepsLabel">3</span> reps &mdash; the table lifters keep on their phone.</p>
+      </div>
+      <div class="calc-cta">
+        <p>POWALIFTA does this automatically on every set, variant-aware and charted over time.</p>
+        <a href="#" class="btn btn-primary" onclick="openSignupModal('solo'); return false;">Start tracking free</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSIDE THE PLATFORM -->
+<section id="inside">
+  <div class="container">
+    <div class="section-title">
+      <div class="section-tag">Inside the platform</div>
+      <h2 data-fx="blur">Every feature your<br>spreadsheet <span class="tilt red">isn't.</span></h2>
+    </div>
+
+    <div class="inside-grid" data-fx-stagger>
+
+      <!-- Hero feature: Today's session -->
+      <div class="inside-card hero-feat" data-fx="up">
+        <div class="inside-card-content">
+          <div class="inside-card-tag">For athletes</div>
+          <h3>Train. Tick. Track.</h3>
+          <p>Open today's session at the gym. Pick the date you trained, see your sets exactly as your coach prescribed, tick each set as you finish, log how it actually felt. Your e1RM appears on the chart automatically.</p>
+          <ul style="list-style:none; padding:0; margin:0; color: var(--text-2); font-size: 0.93rem;">
+            <li style="padding: 4px 0;">▸ Tap any weight for plate breakdown</li>
+            <li style="padding: 4px 0;">▸ Rest timer pops up between sets</li>
+            <li style="padding: 4px 0;">▸ Mark a date as a rest day, streak preserved</li>
+            <li style="padding: 4px 0;">▸ Optional note to coach after each session</li>
+          </ul>
+        </div>
+        <!-- impeccable-disable flat-type-hierarchy -- per-file regex scan sees only these small mockup labels (1.1/0.93/0.8/0.7rem) plus the text-sm/text-xs utilities; the real display scale (hero h1 clamp up to 9.5rem/~152px, h2, h3) lives in the shared styles.css and is invisible to a single-file scan, so the rendered hierarchy is ~10:1, not flat -->
+        <div class="inside-mockup">
+          <div style="padding: 14px 16px 4px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <div style="font-family:'Anton'; font-size:1.1rem;">PAUSED SQUAT <span style="font-size:0.7rem; padding:2px 8px; background:rgba(255,45,63,0.1); color:var(--red); border:1px solid rgba(255,45,63,0.3); border-radius:100px; font-weight:700; font-family:'Plus Jakarta Sans'; margin-left:6px;">×1.07</span></div>
+              <span style="font-size:0.7rem; padding:3px 10px; background:rgba(78,216,132,0.1); color:var(--green); border:1px solid rgba(78,216,132,0.3); border-radius:100px; font-weight:700;">✓ COMPLETE</span>
+            </div>
+          </div>
+          <div style="padding: 0 16px 16px;">
+            <div class="mt-set done"><div class="num">1</div><div class="v">140<span style="color:var(--text-3); font-weight:500"> kg</span></div><div class="v dim">× 5</div><div class="v dim">@ RPE 7</div><div style="font-size:0.8rem; color: var(--text-2);">Felt: <strong>RPE 7.5</strong></div><div class="cb">✓</div></div>
+            <div class="mt-set done"><div class="num">2</div><div class="v">140<span style="color:var(--text-3); font-weight:500"> kg</span></div><div class="v dim">× 5</div><div class="v dim">@ RPE 7</div><div style="font-size:0.8rem; color: var(--text-2);">Felt: <strong>RPE 8</strong></div><div class="cb">✓</div></div>
+            <div class="mt-set done"><div class="num">3</div><div class="v">140<span style="color:var(--text-3); font-weight:500"> kg</span></div><div class="v dim">× 5</div><div class="v dim">@ RPE 8</div><div style="font-size:0.8rem; color: var(--text-2);">Felt: <strong>RPE 8.5</strong></div><div class="cb">✓</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Program builder mockup -->
+      <div class="inside-card" data-fx="up">
+        <div class="inside-card-content">
+          <div class="inside-card-tag">For coaches</div>
+          <h3>Program builder<br>without the chaos.</h3>
+          <p>Drop weeks, days, exercises. Pick squat / bench / deadlift + variant, or accessory by category. Quick-fill presets. Coach notes per exercise.</p>
+        </div>
+        <div class="inside-mockup">
+          <div class="mp-day">
+            <div class="mp-day-head"><span>WEEK 1 · DAY 1</span><span class="pill">8 SETS</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Competition Squat</strong></span><span>3 × 5 @ RPE 7–8</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Paused Squat</strong></span><span>2 × 4 @ RPE 8</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Leg Curls</strong></span><span>3 × 12 @ RPE 8</span></div>
+          </div>
+          <div class="mp-day">
+            <div class="mp-day-head"><span>WEEK 1 · DAY 2</span><span class="pill">7 SETS</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Competition Bench</strong></span><span>3 × 5 @ RPE 7–8</span></div>
+            <div class="mp-row"><span><strong style="color:var(--text)">Close Grip Bench</strong></span><span>2 × 6 @ RPE 8</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goals mockup -->
+      <div class="inside-card" data-fx="up">
+        <div class="inside-card-content">
+          <div class="inside-card-tag">For athletes</div>
+          <h3>Goals + progress<br>at a glance.</h3>
+          <p>Set targets for squat, bench, deadlift, total, and bodyweight. Live progress bars show how close you are. Goal line drawn on your bodyweight chart.</p>
+        </div>
+        <div class="inside-mockup">
+          <div class="mg-goal">
+            <div class="mg-goal-row"><span class="mg-goal-name">Squat goal</span><span class="mg-goal-num">193<span class="target">/ 220 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:88%"></div></div>
+          </div>
+          <div class="mg-goal">
+            <div class="mg-goal-row"><span class="mg-goal-name">Bench goal</span><span class="mg-goal-num">119<span class="target">/ 140 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:85%"></div></div>
+          </div>
+          <div class="mg-goal">
+            <div class="mg-goal-row"><span class="mg-goal-name">Deadlift goal</span><span class="mg-goal-num">222<span class="target">/ 260 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:85%"></div></div>
+          </div>
+          <div class="mg-goal" style="border-color: rgba(78,216,132,0.3); background: linear-gradient(180deg, rgba(78,216,132,0.06), transparent);">
+            <div class="mg-goal-row"><span class="mg-goal-name">Bodyweight · maintain</span><span class="mg-goal-num">82.4<span class="target">/ 83 kg</span></span></div>
+            <div class="mg-bar"><div class="fill" style="width:99%; background: linear-gradient(135deg, #4ed884, #2ea05e);"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" style="background: linear-gradient(180deg, var(--bg-1), var(--bg));">
+  <div class="container">
+    <div class="section-title center">
+      <h2>Three roles. <span class="tilt red">One platform.</span></h2>
+      <p>Coach builds it. Athlete executes it. Strength tracked automatically.</p>
+    </div>
+    <!-- impeccable-disable numbered-section-markers -- the 01/02/03 markers label a genuinely ordered how-it-works sequence; the order is the message. (Also waives 07/10/11 false positives from pricing/SVG numerals.) -->
+    <div class="steps" data-fx-stagger>
+      <div class="step" data-fx="up">
+        <div class="step-num">01</div>
+        <h3>Coach builds the program</h3>
+        <p>Pick lifts (squat / bench / deadlift + variants), accessories, sets, reps and target RPE. Quick presets and a clean week-by-week builder.</p>
+      </div>
+      <div class="step" data-fx="up">
+        <div class="step-num">02</div>
+        <h3>Athlete trains, ticks, reports</h3>
+        <p>Open today's session at the gym. Tick each set as you finish, log how it actually felt (RPE 1–10), done.</p>
+      </div>
+      <div class="step" data-fx="up">
+        <div class="step-num">03</div>
+        <h3>e1RM calculated, charts grow</h3>
+        <p>Every working set becomes a data point. Estimated 1-rep max plotted over time per lift, with variant multipliers handled automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section id="why">
+  <div class="container">
+    <div class="section-title center">
+      <h2>Built for the way<br>lifters <span class="tilt red">actually</span> work.</h2>
+    </div>
+    <div class="feat-grid" data-fx-stagger>
+      <div class="feat feat--hero" data-fx="up">
+        <div class="feat-icon" id="feat-i1"></div>
+        <h4>RPE-native programming</h4>
+        <p>Programs written in RPE, not %1RM guesswork. Athletes self-regulate to the day they're having; coaches see the real-world feedback that fixed loads hide.</p>
+        <div class="feat-proof" aria-hidden="true">
+          <span><b>146kg × 5</b> @ RPE 8</span>
+          <span class="feat-proof-arrow">→</span>
+          <span><b>182.5kg</b> e1RM</span>
+        </div>
+      </div>
+      <div class="feat" data-fx="up">
+        <div class="feat-icon" id="feat-i2"></div>
+        <h4>Variant-aware e1RM</h4>
+        <p>Paused squat? Tempo bench? Deficit pull? Multipliers built in. Your e1RM reflects what you'd hit in comp.</p>
+      </div>
+      <div class="feat" data-fx="up">
+        <div class="feat-icon" id="feat-i3"></div>
+        <h4>Goals + progress bars</h4>
+        <p>Set targets for squat, bench, deadlift, total, and bodyweight. See how close you are at a glance.</p>
+      </div>
+      <div class="feat" data-fx="up">
+        <div class="feat-icon" id="feat-i4"></div>
+        <h4>Bodyweight tracking</h4>
+        <p>Daily weigh-ins logged + plotted. Stay in your weight class without thinking about it.</p>
+      </div>
+      <div class="feat" data-fx="up">
+        <div class="feat-icon" id="feat-i5"></div>
+        <h4>Plate calculator</h4>
+        <p>Tap any working weight to see the exact plates needed. No standing at the rack doing maths.</p>
+      </div>
+      <div class="feat" data-fx="up">
+        <div class="feat-icon" id="feat-i6"></div>
+        <h4>Rest day system</h4>
+        <p>Mark days off so they don't break your streak. Pick any session date, train when life lets you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COACHES -->
+<section id="coaches" style="background: linear-gradient(180deg, var(--bg-1), var(--bg));">
+  <div class="container">
+    <div class="section-title center">
+      <h2>Browse <span class="tilt red">coaches.</span></h2>
+      <p>Find a coach to work with, or sign up as one yourself.</p>
+    </div>
+    <div id="coachGrid" class="coach-grid"></div>
+  </div>
+</section>
+
+<!-- MARKETPLACE TEASER -->
+<section id="marketplace-teaser">
+  <div class="container">
+    <div class="section-title center">
+      <div class="section-tag">Marketplace</div>
+      <h2>Buy a program. <span class="tilt red">Skip the spreadsheet.</span></h2>
+      <p>Pre-made programs from real powerlifting coaches. One-time purchase, instant delivery to your dashboard.</p>
+    </div>
+    <div id="marketplaceTeaser" class="coach-grid"></div>
+    <div class="center" style="margin-top: 32px;">
+      <a href="marketplace.html" class="btn btn-primary btn-lg">Browse all programs →</a>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="container">
+    <div class="section-title center">
+      <h2>Free for athletes. <span class="tilt red">Forever.</span></h2>
+      <p>Coaches scale as their roster grows.</p>
+    </div>
+    <div class="price-grid">
+      <div class="price-tile">
+        <h4>Free</h4>
+        <div class="price">$0<span class="per"> / 3 athletes</span></div>
+        <p>Get started with up to 3 athletes. Every feature unlocked, no trial required.</p>
+      </div>
+      <div class="price-tile">
+        <h4>Basic</h4>
+        <div class="price">$25<span class="per"> / mo</span></div>
+        <p>4–10 athletes. For solo coaches with a growing roster.</p>
+      </div>
+      <div class="price-tile featured">
+        <h4>Pro</h4>
+        <div class="price">$50<span class="per"> / mo</span></div>
+        <p>11–25 athletes. For full-time independent coaches. Priority support.</p>
+      </div>
+      <div class="price-tile">
+        <h4>Premium</h4>
+        <div class="price">$100<span class="per"> / mo</span></div>
+        <p>26+ athletes. Studios, teams, federations. Dedicated onboarding.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- APPS COMING SOON -->
+<section id="apps" class="appshow">
+  <div class="container appshow-grid">
+
+    <div class="appshow-copy">
+      <div class="section-tag">Coming soon</div>
+      <h2 data-fx="up">The gym floor,<br><span class="tilt red">in your pocket.</span></h2>
+      <p class="appshow-lead" data-fx="up">POWALIFTA already runs in your phone's browser — add it to your home screen and it installs as an app that opens offline. Native iOS and Android are next: one-handed logging built for between attempts.</p>
+
+      <ul class="appshow-feats" data-fx-stagger>
+        <li data-fx="up">
+          <span class="af-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+          <span><strong>One-handed set logging.</strong> Tick a set without putting your phone down.</span>
+        </li>
+        <li data-fx="up">
+          <span class="af-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg></span>
+          <span><strong>Rest timers, offline-first.</strong> Your whole session loads before you leave the car.</span>
+        </li>
+        <li data-fx="up">
+          <span class="af-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span><strong>Coach alerts on your wrist.</strong> New program or note, pushed the second it lands.</span>
+        </li>
+      </ul>
+
+      <div class="appshow-badges" data-fx="up">
+        <span class="store-badge" role="img" aria-label="iOS app — coming soon">
+          <svg class="sb-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 1.43c.09 1.02-.32 2.02-.95 2.74-.66.76-1.74 1.35-2.79 1.27-.11-1 .38-2.04.99-2.71.68-.76 1.86-1.32 2.75-1.3zM20.3 17.1c-.5 1.15-.74 1.66-1.39 2.68-.9 1.42-2.18 3.19-3.76 3.2-1.4.01-1.76-.91-3.66-.9-1.9.01-2.3.92-3.7.91-1.58-.01-2.79-1.61-3.7-3.03-2.53-3.98-2.8-8.65-1.24-11.13 1.11-1.76 2.86-2.79 4.5-2.79 1.68 0 2.73.92 4.12.92 1.34 0 2.16-.92 4.1-.92 1.47 0 3.02.8 4.13 2.18-3.63 1.99-3.04 7.17.2 8.6z"/></svg>
+          <span class="sb-text"><small>Coming soon to</small><strong>the App Store</strong></span>
+        </span>
+        <span class="store-badge" role="img" aria-label="Android app — coming soon">
+          <svg class="sb-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3.3c-.5-.3-1.2.12-1.2.74v15.92c0 .62.7 1.05 1.2.74l13.86-7.96c.52-.3.52-1.18 0-1.48z"/></svg>
+          <span class="sb-text"><small>Coming soon to</small><strong>Google Play</strong></span>
+        </span>
+      </div>
+
+      <a class="appshow-link" href="athlete.html?demo=1">Try it in your browser today<span class="appshow-arrow" aria-hidden="true">&nbsp;→</span></a>
+    </div>
+
+    <div class="appshow-device" data-fx="right" aria-hidden="true">
+      <div class="phone">
+        <div class="phone-glow"></div>
+        <span class="phone-island"></span>
+        <div class="phone-screen">
+          <div class="ph-status"><span>9:41</span><span class="ph-status-ic"><i></i><i></i><i></i></span></div>
+          <div class="ph-bar">
+            <span class="ph-word">POWALIFTA</span>
+            <span class="ph-streak">12-day streak</span>
+          </div>
+          <div class="ph-today">
+            <div class="ph-today-h">
+              <div><div class="ph-day">TODAY</div><div class="ph-sub">Wed · Squat day</div></div>
+              <span class="ph-variant">×1.07</span>
+            </div>
+            <div class="ph-set done"><span class="ph-n">1</span><span class="ph-w">140<small>kg</small></span><span class="ph-meta">×5 @7</span><span class="ph-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></div>
+            <div class="ph-set done"><span class="ph-n">2</span><span class="ph-w">140<small>kg</small></span><span class="ph-meta">×5 @7</span><span class="ph-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></div>
+            <div class="ph-set active"><span class="ph-n">3</span><span class="ph-w">142.5<small>kg</small></span><span class="ph-meta">×5 @8</span><span class="ph-ck open"></span></div>
+          </div>
+          <div class="ph-rest">
+            <span class="ph-rest-dot"></span>
+            <span class="ph-rest-label">Rest</span>
+            <span class="ph-rest-time">1:48</span>
+            <span class="ph-rest-track"><span class="ph-rest-fill"></span></span>
+          </div>
+          <div class="ph-tabs">
+            <span class="ph-tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h3v11h-3zM14.5 6.5h3v11h-3zM3 9h3.5v6H3zM17.5 9H21v6h-3.5zM9.5 11h5v2h-5z"/></svg><b>Today</b></span>
+            <span class="ph-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><b>Program</b></span>
+            <span class="ph-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 7-8"/><path d="M21 4v5h-5"/></svg><b>Progress</b></span>
+            <span class="ph-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg><b>Coach</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- CLOSING CTA -->
+<section class="cta-band">
+  <div class="container">
+    <h2 data-fx="blur">STOP TRAINING IN<br><span class="accent tilt">A SPREADSHEET.</span></h2>
+    <p>Free for athletes, forever. Coaches start free with 3 athletes. No trial, no card.</p>
+    <div class="cta-band-actions" data-fx-stagger>
+      <a href="#" class="btn btn-primary btn-lg" data-fx="up" onclick="openSignupModal('solo'); return false;">Create free account</a>
+      <a href="athlete.html?demo=1" class="btn btn-lg btn-ghost" data-fx="up">Try the live demo</a>
+      <a href="marketplace.html" class="btn btn-lg btn-ghost" data-fx="up">Browse programs</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span class="footer-word">POWALIFTA</span></div>
+      <p>Built for the barbell. Programs, RPE-native logging, automatic e1RM — free for athletes, forever.</p>
+      <a class="apps-soon-chip" href="#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    </div>
+    <div class="footer-col">
+      <h5>Product</h5>
+      <a href="#inside" class="dim">Features</a>
+      <a href="#e1rm" class="dim">Max calculator</a>
+      <a href="marketplace.html" class="dim">Marketplace</a>
+      <a href="leaderboard.html" class="dim">Leaderboard</a>
+      <a href="exercises.html" class="dim">Exercise library</a>
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="#pricing" class="dim">Pricing</a>
+    </div>
+    <div class="footer-col">
+      <h5>Company</h5>
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+    </div>
+    <div class="footer-col footer-social">
+      <h5>Contact</h5>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" title="Follow @powa.lifta on Instagram" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" title="Email us" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="container footer-base">© 2026 POWALIFTA · Lift heavy, lift smart.</div>
+</footer>
+
+<!-- LOGIN MODAL -->
+<div class="modal-backdrop" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" aria-label="Close" onclick="closeModal('loginModal')">&times;</button>
+    <h3>Log in</h3>
+    <div class="form-group">
+      <label>Account type</label>
+      <select id="loginType">
+        <option value="athlete">Athlete</option>
+        <option value="coach">Coach</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+      <p class="text-xs" style="text-align:right; margin-top:6px;">
+        <a href="#" onclick="closeModal('loginModal'); openForgotModal(); return false;" class="dim">Forgot password?</a>
+      </p>
+    </div>
+    <button class="btn btn-primary btn-lg btn-block" onclick="doLogin()">Log in</button>
+    <p class="dim text-sm center" style="margin-top:14px">Don't have an account? <a href="#" onclick="closeModal('loginModal'); openSignupModal('solo'); return false;">Sign up</a></p>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div class="modal-backdrop" id="forgotModal">
+  <div class="modal">
+    <button class="modal-close" aria-label="Close" onclick="closeModal('forgotModal')">&times;</button>
+    <h3>Reset your password</h3>
+    <p class="dim text-sm mb-16">Enter the email you signed up with, and we'll send you a reset link.</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="forgotEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doForgotPassword()" id="forgotBtn">Send reset link</button>
+    <p class="dim text-sm center" style="margin-top:14px"><a href="#" onclick="closeModal('forgotModal'); openLoginModal(); return false;">Back to log in</a></p>
+  </div>
+</div>
+
+<!-- SIGNUP MODAL -->
+<div class="modal-backdrop" id="signupModal">
+  <div class="modal">
+    <button class="modal-close" aria-label="Close" onclick="closeModal('signupModal')">&times;</button>
+    <h3 id="signupTitle">Sign up</h3>
+    <div class="form-group">
+      <label>Account type</label>
+      <select id="signupType" onchange="onSignupTypeChange()">
+        <option value="solo">Solo athlete (no coach)</option>
+        <option value="athlete">Athlete with a coach</option>
+        <option value="coach">Coach</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Full name</label>
+      <input type="text" id="signupName" placeholder="Jane Doe" autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="signupEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="signupPwd" placeholder="At least 6 chars" autocomplete="new-password">
+      <div class="pwd-meter" id="pwdMeter" aria-live="polite" hidden>
+        <div class="pwd-meter-track"><div class="pwd-meter-fill" id="pwdMeterFill"></div></div>
+        <span class="pwd-meter-label" id="pwdMeterLabel"></span>
+      </div>
+    </div>
+    <div class="form-group" id="bioGroup" style="display:none">
+      <label>Coach bio (shown on homepage)</label>
+      <textarea id="signupBio" placeholder="Tell athletes about your experience, certifications, training style..."></textarea>
+    </div>
+    <div class="form-group" id="codeGroup">
+      <label id="codeLabel">Invite code <span class="faint">(optional)</span></label>
+      <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
+      <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional — link to your coach now, or anytime later from your dashboard.</p>
+    </div>
+    <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
+    <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="native-bridge.js"></script>
+<script src="app.js"></script>
+<script>
+const featIcons = {
+  'feat-i1': ICONS.chart, 'feat-i2': ICONS.bar, 'feat-i3': ICONS.trophy,
+  'feat-i4': ICONS.scale, 'feat-i5': ICONS.weight, 'feat-i6': ICONS.today
+};
+Object.entries(featIcons).forEach(([id, svg]) => { const e = document.getElementById(id); if (e) e.innerHTML = svg; });
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+
+// Open modals from URL hash IMMEDIATELY (independent of Supabase / bootstrap)
+function _openHashModal() {
+  if (location.hash === '#login') openLoginModal();
+  else if (location.hash === '#signup' || location.hash === '#signup-solo') openSignupModal('solo');
+  else if (location.hash === '#signup-athlete') openSignupModal('athlete');
+  else if (location.hash === '#signup-coach') openSignupModal('coach');
+}
+window.addEventListener('hashchange', _openHashModal);
+_openHashModal();
+
+// Password-strength hint on signup (advisory only — never blocks submit).
+(function () {
+  var pw = document.getElementById('signupPwd');
+  var meter = document.getElementById('pwdMeter');
+  if (!pw || !meter || typeof pwdStrength !== 'function') return;
+  var fill = document.getElementById('pwdMeterFill');
+  var lab = document.getElementById('pwdMeterLabel');
+  pw.addEventListener('input', function () {
+    if (!pw.value) { meter.hidden = true; return; }
+    var s = pwdStrength(pw.value);
+    meter.hidden = false;
+    fill.style.width = s.pct + '%';
+    fill.className = 'pwd-meter-fill s' + s.score;
+    lab.textContent = s.label;
+    lab.className = 'pwd-meter-label s' + s.score;
+  });
+})();
+
+// Auto-fill invite code from ?code=XXX URL param (deep link from coach email)
+(function autofillInviteCode() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    if (code) {
+      // Open signup modal as athlete with code prefilled
+      setTimeout(() => {
+        openSignupModal('athlete');
+        const codeInput = document.getElementById('signupCode');
+        if (codeInput) codeInput.value = code.toUpperCase();
+      }, 100);
+    }
+  } catch (e) {}
+})();
+
+bootstrap(null, () => {
+  // Native shell routing: an app never shows its marketing site / welcome to someone
+  // already signed in — send them straight to their dashboard. If the stored session was
+  // stale (welcome pre-suppressed by .has-session but auth resolved logged-out), reveal
+  // the welcome. No-op on the web.
+  const nativeShell = document.documentElement.classList.contains('native');
+  if (nativeShell) {
+    if (window._user) {
+      const u = window._user;
+      const dest = u.userType === 'coach' ? 'coach.html' : (u.userType === 'admin' ? 'admin.html' : 'athlete.html');
+      location.replace(dest);
+      return;
+    }
+    document.documentElement.classList.remove('has-session'); // show welcome if session was stale
+  }
+  renderNav('#nav');
+  renderCoaches();
+  renderMarketplaceTeaser();
+  renderHeroChart();
+  attachPwdToggles();
+});
+
+// Hero chart — render with realistic mock data using our actual SVG chart
+function renderHeroChart() {
+  const wrap = document.getElementById('heroChart');
+  if (!wrap) return;
+  const today = new Date();
+  const dates = [];
+  for (let i = 28; i >= 0; i -= 4) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  const squat = [180, 190, 198, 208, 215, 223, 230, 235];
+  const bench = [120, 124, 128, 132, 136, 140, 144, 147];
+  const dead = [220, 232, 244, 255, 264, 272, 278, 282];
+  drawLineChart(wrap, {
+    series: [
+      { name: 'Squat',    color: '#ff2d3f', data: dates.map((x, i) => ({ x, y: squat[i] })) },
+      { name: 'Bench',    color: '#ffb547', data: dates.map((x, i) => ({ x, y: bench[i] })) },
+      { name: 'Deadlift', color: '#4ed884', data: dates.map((x, i) => ({ x, y: dead[i] })) }
+    ],
+    unit: 'kg', height: 260, area: false
+  });
+}
+window.addEventListener('resize', () => { setTimeout(renderHeroChart, 100); });
+
+// Pull top 3 published programs as a teaser. Falls back silently if nothing is published.
+async function renderMarketplaceTeaser() {
+  const grid = document.getElementById('marketplaceTeaser');
+  if (!grid) return;
+  grid.innerHTML = '';
+  let programs = [];
+  try { programs = await DB.listPublishedPrograms(); } catch (e) {}
+  if (!programs.length) {
+    const e = el('div', { class: 'empty', style: 'grid-column: 1/-1; padding: 40px 20px;' });
+    e.appendChild(el('h3', {}, 'No programs published yet'));
+    e.appendChild(el('p', {}, 'Coaches are submitting programs now. Check back soon — or become a coach and publish your own.'));
+    grid.appendChild(e);
+    return;
+  }
+  const s = Store.get();
+  programs.slice(0, 3).forEach(p => {
+    const coach = s.coaches.find(c => c.id === p.coachId);
+    const card = el('div', { class: 'coach-card', style: 'cursor: pointer;' });
+    card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
+    card.appendChild(el('div', { class: 'av' }, '$' + (p.priceCents / 100).toFixed(0)));
+    card.appendChild(el('h4', {}, p.title));
+    card.appendChild(el('p', { class: 'coach-bio' }, (p.description || '').slice(0, 110) + ((p.description || '').length > 110 ? '…' : '')));
+    const meta = el('div', { class: 'coach-meta' });
+    meta.appendChild(el('span', { class: 'pill' }, p.weekCount + ' wk'));
+    meta.appendChild(el('span', { class: 'pill' }, (coach ? 'by ' + coach.name.split(' ')[0] : 'POWALIFTA coach')));
+    card.appendChild(meta);
+    grid.appendChild(card);
+  });
+}
+
+let _coachPage = 1;
+const COACHES_PER_PAGE = 6;
+
+function renderCoaches() {
+  const s = Store.get();
+  const grid = document.getElementById('coachGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  // Drop any pager from a previous render (it lives as a sibling of the grid).
+  const oldPager = grid.parentNode.querySelector(':scope > .grid-pager');
+  if (oldPager) oldPager.remove();
+  if (!s.coaches.length) {
+    const e = el('div', { class: 'empty', style: 'grid-column:1/-1' });
+    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.user;
+    e.appendChild(ic);
+    e.appendChild(el('h3', {}, 'No coaches yet'));
+    e.appendChild(el('p', {}, 'Be the first — sign up as a coach and build your roster.'));
+    grid.appendChild(e);
+    return;
+  }
+  const pageCount = Math.max(1, Math.ceil(s.coaches.length / COACHES_PER_PAGE));
+  if (_coachPage > pageCount) _coachPage = pageCount;
+  const start = (_coachPage - 1) * COACHES_PER_PAGE;
+  const pageCoaches = s.coaches.slice(start, start + COACHES_PER_PAGE);
+  pageCoaches.forEach(c => {
+    const card = el('div', { class: 'coach-card', style: 'cursor:pointer' });
+    card.addEventListener('click', () => { location.href = 'coach-profile.html?id=' + c.id; });
+    const av = el('div', { class: 'av' });
+    if (c.avatarUrl) {
+      av.style.padding = '0';
+      av.style.overflow = 'hidden';
+      av.style.background = 'transparent';
+      av.innerHTML = '<img src="' + escHtml(c.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>';
+    } else {
+      av.textContent = initials(c.name);
+    }
+    card.appendChild(av);
+    const nameEl = el('h4', {}, c.name);
+    if (c.countryCode) {
+      const flag = document.createElement('span');
+      flag.textContent = ' ' + flagEmoji(c.countryCode);
+      flag.title = c.countryCode;
+      flag.style.fontSize = '1.05em';
+      nameEl.appendChild(flag);
+    }
+    card.appendChild(nameEl);
+    card.appendChild(el('p', { class: 'coach-bio' }, c.bio || 'No bio yet.'));
+    const meta = el('div', { class: 'coach-meta' });
+    meta.appendChild(el('span', { class: 'pill' }, 'Active'));
+    card.appendChild(meta);
+    grid.appendChild(card);
+  });
+  const pager = buildPager(s.coaches.length, COACHES_PER_PAGE, _coachPage, function (p) {
+    _coachPage = p;
+    renderCoaches();
+    document.getElementById('coaches').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  if (pager) grid.parentNode.insertBefore(pager, grid.nextSibling);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); attachPwdToggles(); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openLoginModal() { openModal('loginModal'); }
+function openForgotModal() {
+  // Pre-fill from login email if it's there
+  const loginEmail = document.getElementById('loginEmail');
+  if (loginEmail && loginEmail.value) document.getElementById('forgotEmail').value = loginEmail.value;
+  openModal('forgotModal');
+}
+window.openForgotModal = openForgotModal;
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+  if (!email) return toast('Enter your email');
+  const btn = document.getElementById('forgotBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    await DB.requestPasswordReset(email);
+    closeModal('forgotModal');
+    toast('Check your inbox for a reset link (also check spam).');
+  } catch (e) {
+    toast(e.message || 'Could not send reset email');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send reset link'; }
+  }
+}
+window.doForgotPassword = doForgotPassword;
+
+function openSignupModal(type) {
+  // type: 'solo' | 'athlete' | 'coach'
+  const valid = ['solo', 'athlete', 'coach'];
+  document.getElementById('signupType').value = valid.includes(type) ? type : 'solo';
+  onSignupTypeChange();
+  openModal('signupModal');
+}
+function onSignupTypeChange() {
+  const t = document.getElementById('signupType').value;
+  // Coach gets the bio field
+  document.getElementById('bioGroup').style.display = t === 'coach' ? 'block' : 'none';
+  // Invite code shown only for "athlete with a coach"
+  document.getElementById('codeGroup').style.display = t === 'athlete' ? 'block' : 'none';
+  // Title copy
+  const title =
+    t === 'coach' ? 'Sign up as a coach' :
+    t === 'solo'  ? 'Sign up — train solo' :
+                    'Sign up — join your coach';
+  document.getElementById('signupTitle').textContent = title;
+  // Invite code hint copy: for athlete-coached, code is required
+  const hint = document.getElementById('codeHint');
+  if (hint) hint.textContent = 'Optional — paste a code now to link instantly, or add your coach later from your dashboard.';
+}
+
+async function doLogin() {
+  const btn = event && event.target;
+  const type = document.getElementById('loginType').value;
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pwd = document.getElementById('loginPwd').value;
+  if (!email || !pwd) return toast('Email and password required');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  try {
+    await DB.signIn(email, pwd);
+    // Step-up (#37): accounts with 2FA sit at AAL1 right after the password —
+    // challenge for the authenticator code before proceeding. mfaAssurance is
+    // soft-failing, so users without 2FA (or if MFA is unsupported) sail past.
+    const aal = await DB.mfaAssurance();
+    if (aal && aal.ok && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      const passed = await promptMfaChallenge();
+      if (!passed) { await DB.signOut(); throw new Error('Two-factor verification required'); }
+    }
+    const session = await DB.getSession();
+    const profile = await DB.getProfile(session.user.id);
+    if (profile.user_type !== type) {
+      await DB.signOut();
+      throw new Error('This email is registered as ' + profile.user_type + ', not ' + type);
+    }
+    location.href = profile.user_type === 'coach' ? 'coach.html' : 'athlete.html';
+  } catch (e) {
+    toast(e.message || 'Login failed');
+    if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }
+  }
+}
+
+// Login-time 2FA challenge (#37). Resolves true once the code verifies (session
+// elevates to AAL2), false on cancel. Self-contained modal reusing the shared
+// .modal-backdrop styles; DB.mfaChallengeVerify does the challenge+verify.
+function promptMfaChallenge() {
+  return new Promise((resolve) => {
+    let modal = document.getElementById('mfaChallengeModal');
+    if (!modal) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = '<div class="modal-backdrop" id="mfaChallengeModal">' +
+        '<div class="modal">' +
+          '<h2 style="margin-bottom:6px">Two-factor verification</h2>' +
+          '<p class="dim text-sm mb-16" style="line-height:1.5">Enter the 6-digit code from your authenticator app to finish signing in.</p>' +
+          '<div class="form-group"><label>Code</label>' +
+            '<input type="text" id="mfaChalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
+          '<div id="mfaChalErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
+          '<button class="btn btn-primary btn-block" id="mfaChalVerify">Verify</button>' +
+          '<button class="btn btn-block btn-ghost mt-8" id="mfaChalCancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+      modal = wrap.firstChild;
+      document.body.appendChild(modal);
+    }
+    const codeInp = modal.querySelector('#mfaChalCode');
+    const err = modal.querySelector('#mfaChalErr');
+    const verifyBtn = modal.querySelector('#mfaChalVerify');
+    const cancelBtn = modal.querySelector('#mfaChalCancel');
+    codeInp.value = ''; err.textContent = '';
+    modal.classList.add('open');
+    setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
+
+    function cleanup(result) {
+      modal.classList.remove('open');
+      verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
+      resolve(result);
+    }
+    async function attempt() {
+      const code = (codeInp.value || '').replace(/\D/g, '');
+      if (code.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
+      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…'; err.textContent = '';
+      const res = await DB.mfaChallengeVerify(code);
+      verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+      if (res.ok) return cleanup(true);
+      err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
+        ? 'That code didn\'t match — try the current one.' : (res.reason || 'Verification failed.');
+    }
+    verifyBtn.onclick = attempt;
+    cancelBtn.onclick = function () { cleanup(false); };
+    codeInp.onkeydown = function (e) { if (e.key === 'Enter') attempt(); };
+  });
+}
+window.promptMfaChallenge = promptMfaChallenge;
+
+async function doSignup() {
+  const btn = event && event.target;
+  const type = document.getElementById('signupType').value; // 'solo' | 'athlete' | 'coach'
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+  const pwd = document.getElementById('signupPwd').value;
+  const bio = document.getElementById('signupBio').value.trim();
+  const code = document.getElementById('signupCode').value.trim().toUpperCase();
+  if (!name || !email || !pwd) return toast('Name, email, password required');
+  if (pwd.length < 6) return toast('Password must be at least 6 chars');
+  // Athlete-with-coach: the invite code is OPTIONAL. Without it they sign up
+  // unattached and can link to a coach anytime from the dashboard Coach tab
+  // (athlete.html joinCoach → DB.claimInviteCode). No hard block here.
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+  try {
+    if (type === 'coach') {
+      await DB.signUpCoach(name, email, pwd, bio);
+    } else if (type === 'athlete') {
+      await DB.signUpAthlete(name, email, pwd, code);
+    } else {
+      // Solo — same as athlete but no code claimed
+      await DB.signUpAthlete(name, email, pwd, '');
+    }
+    // Map to the canonical type stored in profiles for the welcome email
+    const emailType = (type === 'coach') ? 'coach' : 'athlete';
+    sendWelcomeEmail(email, name, emailType);
+    // signUp may auto-sign-in OR require email confirmation depending on Auth settings
+    const session = await DB.getSession();
+    if (!session) {
+      toast('Account created — check your email to confirm, then log in.');
+      closeModal('signupModal');
+      if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+      return;
+    }
+    location.href = type === 'coach' ? 'coach.html'
+      : (type === 'athlete' && !code) ? 'athlete.html?tab=coach'
+      : 'athlete.html';
+  } catch (e) {
+    toast(e.message || 'Signup failed');
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+  }
+}
+
+// Fire-and-forget welcome email via the send-welcome Edge Function.
+// Failures are logged but never block signup.
+function sendWelcomeEmail(email, name, type) {
+  try {
+    const url = SUPABASE_URL + '/functions/v1/send-welcome';
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ email, name, type })
+    }).then(r => {
+      if (!r.ok) console.warn('welcome email status', r.status);
+    }).catch(err => console.warn('welcome email failed', err));
+  } catch (e) { console.warn('welcome email setup failed', e); }
+}
+
+// Scroll-reveal: progressive enhancement. If JS fails or IO is unsupported,
+// nothing gets hidden — elements only get the hidden state right before observing.
+(function () {
+  try {
+    if (!('IntersectionObserver' in window)) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const els = document.querySelectorAll('.section-title, .feat, .step, .price-tile, .mock-card, .calc-card');
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (en.isIntersecting) { en.target.classList.add('revealed'); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    els.forEach((el, i) => {
+      el.classList.add('pre-reveal');
+      el.style.transitionDelay = Math.min((i % 6) * 60, 300) + 'ms';
+      io.observe(el);
+    });
+  } catch (e) { /* never block the page over decoration */ }
+})();
+
+// ===== Live e1RM calculator (landing) =====
+(function () {
+  try {
+    const $ = id => document.getElementById(id);
+    const wEl = $('calcW'), rEl = $('calcR'), rpeEl = $('calcRpe');
+    const warmWEl = $('warmW'), warmBarEl = $('warmBar');
+    const tgtMaxEl = $('tgtMax'), tgtREl = $('tgtR'), tgtRpeEl = $('tgtRpe');
+    if (!wEl) return;
+    let unit = 'kg';
+    let shown = 0, animFrom = 0, animTo = 0, animStart = 0;
+
+    function e1rm(w, r, rpe) {
+      if (typeof calcE1RM === 'function') return calcE1RM(w, r, rpe);
+      const adj = (r - 1) + (10 - rpe);
+      if (adj <= 0) return w;
+      const pct = 1 - adj * 0.0333;
+      return pct < 0.4 ? w / 0.4 : w / pct;
+    }
+    const round = (x, s) => Math.round(x / s) * s;
+
+    function animate(ts) {
+      if (!animStart) animStart = ts;
+      const t = Math.min((ts - animStart) / 350, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      shown = animFrom + (animTo - animFrom) * ease;
+      $('calcOut').textContent = round(shown, 0.5).toLocaleString();
+      if (t < 1) requestAnimationFrame(animate);
+    }
+
+    // IPF kg plate colors; lb plates rendered neutral
+    const KG = { sizes: [25, 20, 15, 10, 5, 2.5, 1.25], bar: 20, collar: 2.5,
+      color: { 25: '#d92638', 20: '#1d70d8', 15: '#e8b80c', 10: '#1f9e5b', 5: '#e8e8ee', 2.5: '#2a2a31', 1.25: '#9aa0aa' },
+      h: { 25: 88, 20: 82, 15: 72, 10: 60, 5: 44, 2.5: 34, 1.25: 26 } };
+    const LB = { sizes: [45, 35, 25, 10, 5, 2.5], bar: 45, collar: 0,
+      color: { 45: '#3a3a42', 35: '#44444c', 25: '#4e4e57', 10: '#5a5a63', 5: '#68686f', 2.5: '#76767e' },
+      h: { 45: 88, 35: 78, 25: 66, 10: 50, 5: 40, 2.5: 32 } };
+
+    function plates(total, cfg) {
+      let side = (total - cfg.bar - cfg.collar * 2) / 2;
+      const out = [];
+      for (const p of cfg.sizes) { while (side >= p - 1e-9 && out.length < 10) { out.push(p); side -= p; } }
+      return out;
+    }
+
+    function renderBar(total) {
+      const cfg = unit === 'kg' ? KG : LB;
+      const ps = plates(total, cfg);
+      const W = 660, H = 120, cy = H / 2;
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">';
+      s += '<rect x="20" y="' + (cy - 3) + '" width="' + (W - 40) + '" height="6" rx="3" fill="var(--line-2)"/>';
+      s += '<rect x="150" y="' + (cy - 6) + '" width="10" height="12" rx="2" fill="var(--text-4)"/>';
+      s += '<rect x="' + (W - 160) + '" y="' + (cy - 6) + '" width="10" height="12" rx="2" fill="var(--text-4)"/>';
+      let xl = 144, xr = W - 144;
+      ps.forEach(p => {
+        const h = cfg.h[p], w = p >= 10 ? 14 : 9;
+        xl -= w + 2;
+        s += '<rect x="' + xl + '" y="' + (cy - h / 2) + '" width="' + w + '" height="' + h + '" rx="3" fill="' + cfg.color[p] + '" stroke="rgba(130,130,140,0.45)" stroke-width="0.6"/>';
+        s += '<rect x="' + (xr + 2) + '" y="' + (cy - h / 2) + '" width="' + w + '" height="' + h + '" rx="3" fill="' + cfg.color[p] + '" stroke="rgba(130,130,140,0.45)" stroke-width="0.6"/>';
+        xr += w + 2;
+      });
+      s += '</svg>';
+      $('calcBar').innerHTML = s;
+    }
+
+    function recalc() {
+      const w = parseFloat(wEl.value), r = parseInt(rEl.value, 10), rpe = parseFloat(rpeEl.value);
+      if (!w || !r || !rpe || r < 1 || rpe < 5 || rpe > 10) return;
+      const max = e1rm(w, Math.min(r, 12), rpe);
+      animFrom = shown; animTo = max; animStart = 0;
+      requestAnimationFrame(animate);
+      renderBar(max);
+      const step = unit === 'kg' ? 2.5 : 5;
+      const att = [['Opener', 0.91], ['Second', 0.96], ['Third', 1.01]];
+      $('calcAttempts').innerHTML = att.map(a =>
+        '<div class="calc-att"><span>' + a[0] + '</span><b>' + round(max * a[1], step).toLocaleString() + ' ' + unit + '</b></div>'
+      ).join('');
+    }
+
+    function setUnit(u) {
+      if (u === unit) return;
+      const conv = v => u === 'lb' ? Math.round(v * 2.20462) : Math.round(v / 2.20462 * 2) / 2;
+      const w = parseFloat(wEl.value);
+      if (w) wEl.value = conv(w);
+      const bwEl = $('dotsBw'), totEl = $('dotsTot');
+      const bw = parseFloat(bwEl.value), tot = parseFloat(totEl.value);
+      if (bw) bwEl.value = conv(bw);
+      if (tot) totEl.value = conv(tot);
+      if (warmWEl) {
+        const ww = parseFloat(warmWEl.value); if (ww) warmWEl.value = conv(ww);
+        const wb = parseFloat(warmBarEl.value);
+        if (wb) warmBarEl.value = u === 'lb'
+          ? (Math.abs(wb - 20) < 0.6 ? 45 : Math.round(wb * 2.20462))
+          : (Math.abs(wb - 45) < 1.2 ? 20 : Math.round(wb / 2.20462 * 2) / 2);
+      }
+      if (tgtMaxEl) { const tm = parseFloat(tgtMaxEl.value); if (tm) tgtMaxEl.value = conv(tm); }
+      unit = u;
+      $('calcOutUnit').textContent = u;
+      if ($('tgtOutUnit')) $('tgtOutUnit').textContent = u;
+      $('calcKg').classList.toggle('active', u === 'kg');
+      $('calcLb').classList.toggle('active', u === 'lb');
+      recalc();
+      if ($('panelTarget').style.display !== 'none') targetCalc();
+      if ($('panelDots').style.display !== 'none') dotsCalc();
+      if ($('panelWarm').style.display !== 'none') warmCalc();
+    }
+    $('calcKg').addEventListener('click', () => setUnit('kg'));
+    $('calcLb').addEventListener('click', () => setUnit('lb'));
+    [wEl, rEl, rpeEl].forEach(el => el.addEventListener('input', recalc));
+
+    // --- Tabs ---
+    function showTab(which) {
+      $('panelMax').style.display = which === 'max' ? '' : 'none';
+      $('panelTarget').style.display = which === 'target' ? '' : 'none';
+      $('panelDots').style.display = which === 'dots' ? '' : 'none';
+      $('panelWarm').style.display = which === 'warm' ? '' : 'none';
+      $('tabMax').classList.toggle('active', which === 'max');
+      $('tabTarget').classList.toggle('active', which === 'target');
+      $('tabDots').classList.toggle('active', which === 'dots');
+      $('tabWarm').classList.toggle('active', which === 'warm');
+      if (which === 'target') targetCalc();
+      if (which === 'dots') dotsCalc();
+      if (which === 'warm') warmCalc();
+    }
+    $('tabMax').addEventListener('click', () => showTab('max'));
+    $('tabTarget').addEventListener('click', () => showTab('target'));
+    $('tabDots').addEventListener('click', () => showTab('dots'));
+    $('tabWarm').addEventListener('click', () => showTab('warm'));
+
+    // --- Warm-up ramp ---
+    function warmCalc() {
+      const host = $('warmRamp');
+      if (!warmWEl || !host) return;
+      const W = parseFloat(warmWEl.value), bar = parseFloat(warmBarEl.value);
+      if (!W || !bar || bar < 1) { host.innerHTML = ''; return; }
+      const step = unit === 'kg' ? 2.5 : 5;
+      const row = (cls, name, w, reps, pct) =>
+        '<div class="ramp-row' + cls + '"><span class="ramp-fill" style="width:' +
+        Math.max(6, Math.round(pct * 100)) + '%"></span><span class="ramp-name">' + name +
+        '</span><span class="ramp-wt">' + w.toLocaleString() + ' ' + unit +
+        '</span><span class="ramp-reps">' + reps + '</span></div>';
+      if (W <= bar) { host.innerHTML = row(' ramp-work', 'Bar', bar, 'work set', 1); return; }
+      let html = row('', 'Bar', bar, '× 5', bar / W), last = bar;
+      [[0.45, 5], [0.60, 3], [0.725, 2], [0.825, 2], [0.90, 1]].forEach(pr => {
+        const wt = round(pr[0] * W, step);
+        if (wt <= last || wt >= W) return;
+        html += row('', Math.round(wt / W * 100) + '%', wt, '× ' + pr[1], wt / W);
+        last = wt;
+      });
+      html += row(' ramp-work', 'Top set', W, 'work set', 1);
+      host.innerHTML = html;
+    }
+    [warmWEl, warmBarEl].forEach(el => el && el.addEventListener('input', warmCalc));
+
+    // --- Target Load (inverse: max -> bar weight for a target reps x RPE) ---
+    // Same RPE-percentage curve calcE1RM inverts (mirrors weightForTarget in app.js),
+    // but rounded to the panel's display step so LB mode stays honest.
+    function loadFor(max, reps, rpe) {
+      const pct = 1 - ((reps - 1) + (10 - rpe)) * 0.0333;
+      return max * Math.max(0.4, pct);
+    }
+    let tgtShown = 0;
+    function targetCalc() {
+      if (!tgtMaxEl) return;
+      const max = parseFloat(tgtMaxEl.value);
+      const r = Math.min(parseInt(tgtREl.value, 10) || 0, 12);
+      const rpe = parseFloat(tgtRpeEl.value);
+      if (!max || !r || !rpe || r < 1 || rpe < 5 || rpe > 10) return;
+      const step = unit === 'kg' ? 2.5 : 5;
+      const target = round(loadFor(max, r, rpe), step);
+      const from = tgtShown, start = performance.now();
+      (function tick(now) {
+        const t = Math.min((now - start) / 350, 1), e2 = 1 - Math.pow(1 - t, 3);
+        tgtShown = from + (target - from) * e2;
+        $('tgtOut').textContent = round(tgtShown, 0.5).toLocaleString();
+        if (t < 1) requestAnimationFrame(tick);
+      })(start);
+      $('tgtRepsLabel').textContent = r;
+      const rpes = [7, 7.5, 8, 8.5, 9, 9.5, 10];
+      $('tgtGrid').innerHTML = rpes.map(R => {
+        const wt = round(loadFor(max, r, R), step);
+        const on = Math.abs(R - rpe) < 0.01;
+        return '<div class="calc-rpe' + (on ? ' on' : '') + '"><span class="cr-rpe">@' + R + '</span><b>' + wt.toLocaleString() + '</b></div>';
+      }).join('');
+    }
+    [tgtMaxEl, tgtREl, tgtRpeEl].forEach(el => el && el.addEventListener('input', targetCalc));
+
+    // --- DOTS ---
+    let dotsSex = 'm';
+    const DOTS_C = {
+      m: [-307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093],
+      f: [-57.96288, 13.6175032, -0.1126655495, 0.0005158568, -0.0000010706]
+    };
+    function dotsScore(bwKg, totalKg, sex) {
+      const c = DOTS_C[sex];
+      const x = Math.min(Math.max(bwKg, 40), sex === 'm' ? 210 : 150);
+      const denom = c[0] + c[1] * x + c[2] * x * x + c[3] * x * x * x + c[4] * x * x * x * x;
+      return totalKg * 500 / denom;
+    }
+    function dotsClass(s) {
+      if (s >= 500) return ['WORLD CLASS', 'var(--red)'];
+      if (s >= 450) return ['ELITE', 'var(--red)'];
+      if (s >= 400) return ['ADVANCED', 'var(--gold)'];
+      if (s >= 325) return ['INTERMEDIATE', 'var(--green)'];
+      if (s >= 250) return ['NOVICE', 'var(--blue)'];
+      return ['FIRST MEET LOADING…', 'var(--text-3)'];
+    }
+    let dotsShown = 0;
+    function dotsCalc() {
+      const toKg = v => unit === 'lb' ? v / 2.20462 : v;
+      const bw = toKg(parseFloat($('dotsBw').value));
+      const tot = toKg(parseFloat($('dotsTot').value));
+      if (!bw || !tot) return;
+      const s = dotsScore(bw, tot, dotsSex);
+      const from = dotsShown, start = performance.now();
+      (function tick(now) {
+        const t = Math.min((now - start) / 350, 1), e2 = 1 - Math.pow(1 - t, 3);
+        dotsShown = from + (s - from) * e2;
+        $('dotsOut').textContent = dotsShown.toFixed(1);
+        if (t < 1) requestAnimationFrame(tick);
+      })(start);
+      const cl = dotsClass(s);
+      $('dotsClass').textContent = cl[0];
+      $('dotsClass').style.color = cl[1];
+    }
+    $('dotsM').addEventListener('click', () => { dotsSex = 'm'; $('dotsM').classList.add('active'); $('dotsF').classList.remove('active'); dotsCalc(); });
+    $('dotsF').addEventListener('click', () => { dotsSex = 'f'; $('dotsF').classList.add('active'); $('dotsM').classList.remove('active'); dotsCalc(); });
+    ['dotsBw', 'dotsTot'].forEach(id => $(id).addEventListener('input', dotsCalc));
+
+    // --- Share ---
+    $('calcShare').addEventListener('click', async () => {
+      const max = $('calcOut').textContent;
+      const text = 'My estimated 1RM: ' + max + ' ' + unit + ' (' + wEl.value + '×' + rEl.value + ' @ RPE ' + rpeEl.value + ') — calculated at powalifta.com';
+      try {
+        if (navigator.share) { await navigator.share({ text: text, url: 'https://www.powalifta.com/' }); return; }
+        await navigator.clipboard.writeText(text + ' https://www.powalifta.com/');
+        if (typeof toast === 'function') toast('Copied — go flex it');
+        else { $('calcShare').textContent = 'Copied!'; setTimeout(() => $('calcShare').textContent = 'Share your max', 1600); }
+      } catch (e) { /* user cancelled share — fine */ }
+    });
+
+    recalc();
+    warmCalc();
+    targetCalc();
+  } catch (e) { console.warn('calc init failed', e); }
+})();
+
+// ===== Scroll progress bar =====
+(function () {
+  try {
+    const bar = document.createElement('div');
+    bar.className = 'scroll-progress';
+    document.body.appendChild(bar);
+    let ticking = false;
+    function update() {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(scrollY / max, 1) : 0) + ')';
+      ticking = false;
+    }
+    addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    update();
+  } catch (e) {}
+})();
+
+// ===== Hero parallax glow (desktop, fine pointers only) =====
+(function () {
+  try {
+    if (!matchMedia('(pointer: fine)').matches || innerWidth < 900) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+    const orb = document.createElement('div');
+    orb.className = 'hero-orb';
+    hero.insertBefore(orb, hero.firstChild);
+    let tx = 0, ty = 0, cx = 0, cy = 0, raf = null;
+    function loop() {
+      cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
+      orb.style.transform = 'translate(' + cx + 'px,' + cy + 'px)';
+      if (Math.abs(tx - cx) > 0.2 || Math.abs(ty - cy) > 0.2) raf = requestAnimationFrame(loop);
+      else raf = null;
+    }
+    hero.addEventListener('mousemove', e => {
+      const r = hero.getBoundingClientRect();
+      tx = (e.clientX - r.width / 2) * 0.05;
+      ty = (e.clientY - r.top - r.height / 2) * 0.05;
+      if (!raf) raf = requestAnimationFrame(loop);
+    }, { passive: true });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

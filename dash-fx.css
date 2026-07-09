@@ -1,0 +1,524 @@
+/* ============================================================
+ * POWALIFTA dash-fx — product-register motion for the athlete &
+ * coach dashboards. Loaded AFTER styles.css on app pages only
+ * (never on the marketing pages), so every selector here is
+ * implicitly dashboard-scoped.
+ *
+ * Product register: motion conveys STATE, not decoration. Three
+ * jobs only — the tab/pane view transition (the one real gap),
+ * a more confident modal entrance, and eased input focus. No
+ * page-load choreography, no per-item list staggers (the panes
+ * re-render on every data change, so item-level entrances would
+ * re-fire on every set tick — distracting, not informative).
+ *
+ * Everything collapses to instant under prefers-reduced-motion.
+ * ============================================================ */
+
+/* --- Tab / pane view transition ------------------------------
+ * Panes toggle the .hidden class (display:none). Switching from
+ * none -> flex/block restarts any animation declared on the
+ * element, so this fires exactly once per tab switch with no JS
+ * coordination. Subtle settle (fade + short rise), not a reveal. */
+[data-pane]:not(.hidden) {
+  animation: dashPaneIn 0.26s var(--ease-out-quint) both;
+}
+@keyframes dashPaneIn {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* --- Modal entrance ------------------------------------------
+ * styles.css already fades the backdrop and rises the box via
+ * slideUp. Override the box with a touch more intent: a small
+ * scale settle on the confident expo curve. The backdrop fade
+ * (fadeIn 0.2s on .modal-backdrop.open) is left as-is. */
+.modal-backdrop.open .modal {
+  animation: dashModalIn 0.28s var(--ease-out-expo) both;
+}
+@keyframes dashModalIn {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.97); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* --- Input focus easing --------------------------------------
+ * The focus ring + border already exist; just smooth their
+ * arrival so focus feels responsive rather than snapping. */
+input[type=text], input[type=email], input[type=password], input[type=number],
+input[type=date], select, textarea {
+  transition: border-color 0.15s var(--ease-out-quart),
+              box-shadow 0.15s var(--ease-out-quart),
+              background-color 0.15s var(--ease-out-quart);
+}
+
+/* --- Sidebar tab: ease the active indicator ------------------
+ * The active state shifts background + the left rule to red. The
+ * base rule uses `transition: all 0.15s`; nudge the curve so the
+ * red rule eases in decisively on selection. */
+.sidebar-tab {
+  transition: color 0.15s var(--ease-out-quart),
+              background-color 0.18s var(--ease-out-quart),
+              border-left-color 0.18s var(--ease-out-quart);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pane]:not(.hidden),
+  .modal-backdrop.open .modal {
+    animation: none !important;
+  }
+  input[type=text], input[type=email], input[type=password], input[type=number],
+  input[type=date], select, textarea,
+  .sidebar-tab {
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+ * SESSION & PROGRAM SURFACE — state-driven refinement
+ * ------------------------------------------------------------
+ * Appended presentation layer for the athlete Today/Session view
+ * and the read-only Full Program view. CSS only — no markup, no JS,
+ * no wiring. State is read from the classes the renderer already
+ * emits (.exec-card.complete, .compact-set.done, .badge-green,
+ * .prog-set.done) via :has()/:focus-within, so nothing re-fires on
+ * the per-set re-render. Every colour is a theme token (red/green
+ * flip for AA contrast in light mode). Motion is state-only — no
+ * entrances, per this layer's ethos — and off under reduced-motion.
+ * ============================================================ */
+
+/* ---------- Session date stepper ----------
+ * Quiet tactile feedback on the ‹ › steppers and a branded focus
+ * ring on the date field, so the cluster reads as one instrument
+ * you operate rather than six loose chips. (ids/handlers untouched.) */
+.session-bar input[type=date] {
+  transition: border-color 0.15s var(--ease-out-quart),
+              box-shadow 0.15s var(--ease-out-quart);
+}
+.session-bar input[type=date]:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: var(--ring);
+}
+.session-bar .btn-icon {
+  transition: transform 0.12s var(--ease-out-quart), background-color 0.15s,
+              border-color 0.15s, color 0.15s;
+}
+.session-bar .btn-icon:active { transform: translateY(1px) scale(0.94); }
+
+/* ---------- Progress panel — the session's state object ----------
+ * One glance answers "how far / am I done." Default reads red (work
+ * outstanding); when every set is ticked the renderer adds the green
+ * "✓ Done" badge and the whole panel resolves to green. */
+.today-progress {
+  background-image: var(--grad-card);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.3s var(--ease-out-quint),
+              background-color 0.3s var(--ease-out-quint),
+              box-shadow 0.3s var(--ease-out-quint);
+}
+.today-progress .pct {
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s var(--ease-out-quint);
+}
+.today-progress .pbar { height: 8px; }
+.today-progress:has(.badge-green) {
+  border-color: rgba(78, 216, 132, 0.45);
+  background-image: linear-gradient(135deg, rgba(78, 216, 132, 0.10), transparent 70%);
+}
+.today-progress:has(.badge-green) .pct { color: var(--green); }
+.today-progress:has(.badge-green) .pbar > div { background: var(--green); }
+
+/* ---------- Exercise card ----------
+ * Depth so each lift reads as its own working block. The multiplier
+ * pill ("×1.12") was unstyled in the session head until now — give it
+ * the same red chip the program view uses. A finished lift drops its
+ * shadow and dims its title so attention falls on what's left. */
+.exec-card {
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s var(--ease-out-quart),
+              background-color 0.2s var(--ease-out-quart),
+              box-shadow 0.2s var(--ease-out-quart);
+}
+.exec-card-head h3 .lift-badge {
+  padding: 2px 9px;
+  background: rgba(255, 45, 63, 0.1);
+  color: var(--red);
+  border: 1px solid rgba(255, 45, 63, 0.25);
+  border-radius: 100px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.exec-card.complete { box-shadow: none; }
+.exec-card.complete .exec-card-head h3 { opacity: 0.82; }
+
+/* ---------- Set ledger ----------
+ * The surface the athlete actually drives. Raise it as the focal
+ * panel, light up the row being edited (focus-within — tint, no
+ * stripe), and give every input + the tick one red/green state
+ * language. Bigger, springier checkbox = a more satisfying log. */
+.compact-sets { box-shadow: var(--shadow-sm); }
+.compact-set:not(.done):focus-within { background: var(--red-glow-2); }
+.compact-set:not(.done):focus-within .cs-num {
+  border-color: var(--red);
+  color: var(--red);
+}
+.compact-set .cs-rpe input,
+.compact-set .cs-w-input {
+  transition: border-color 0.15s var(--ease-out-quart), box-shadow 0.15s var(--ease-out-quart);
+}
+.compact-set .cs-rpe input:focus,
+.compact-set .cs-w-input:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red-glow);
+}
+.compact-set .cs-check {
+  width: 28px; height: 28px;
+  transition: transform 0.12s var(--ease-out-quart), box-shadow 0.15s var(--ease-out-quart);
+}
+.compact-set .cs-check:active { transform: scale(0.88); }
+.compact-set .cs-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(78, 216, 132, 0.25);
+}
+.compact-set.done { transition: background-color 0.25s var(--ease-out-quint); }
+.compact-set.done .cs-targets { opacity: 0.8; }
+
+/* ---------- Today empty state ----------
+ * A scheduled-nothing day shouldn't read as a void — frame it so it
+ * feels intentional, not broken. */
+[data-pane="today"] .empty {
+  background: var(--bg-1);
+  background-image: var(--grad-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 56px 24px;
+}
+
+/* ---------- Full program (read-only) ----------
+ * Per-row hover for scanning a block; a fully-completed day quietly
+ * flags green in its header so past weeks skim at a glance. */
+#fullProgram .card { box-shadow: var(--shadow-sm); }
+#fullProgram .prog-set { transition: background-color 0.15s var(--ease-out-quart); }
+#fullProgram .prog-set:not(.done):hover { background: var(--bg-2); }
+#fullProgram .day-card:has(.prog-set):not(:has(.prog-set:not(.done))) .day-head {
+  border-color: rgba(78, 216, 132, 0.4);
+  background: linear-gradient(135deg, rgba(78, 216, 132, 0.10), var(--bg-2) 70%);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .session-bar input[type=date],
+  .session-bar .btn-icon,
+  .today-progress,
+  .today-progress .pct,
+  .exec-card,
+  .compact-set .cs-rpe input,
+  .compact-set .cs-w-input,
+  .compact-set.done,
+  .compact-set .cs-check,
+  #fullProgram .prog-set {
+    transition: none !important;
+  }
+  .session-bar .btn-icon:active,
+  .compact-set .cs-check:active { transform: none !important; }
+}
+
+/* ============================================================
+ * MESSAGES INBOX — dedicated coach tab (master/detail)
+ * ------------------------------------------------------------
+ * Thread list (left) + live conversation (right), reusing the
+ * existing .msg-thread bubbles. App-like internal scroll; collapses
+ * to a single column with a back affordance on narrow screens.
+ * ============================================================ */
+.msg-inbox {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: min(640px, calc(100dvh - 230px));
+  min-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+  background-image: var(--grad-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.msg-inbox-list {
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  min-height: 0;
+  padding: 6px;
+}
+.msg-inbox-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 11px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background-color 0.14s var(--ease-out-quart);
+}
+.msg-inbox-row:hover { background: var(--bg-2); }
+.msg-inbox-row.active { background: var(--red-glow-2); }
+.msg-inbox-row .av {
+  width: 40px; height: 40px;
+  border-radius: var(--r-sm);
+  background: var(--grad-red);
+  color: #fff;
+  font-family: 'Anton'; font-size: 1.02rem;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.msg-inbox-mid { flex: 1; min-width: 0; }
+.msg-inbox-row-top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.msg-inbox-name {
+  font-weight: 700; color: var(--text); font-size: 0.92rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.msg-inbox-row.active .msg-inbox-name { color: var(--red); }
+.msg-inbox-time {
+  font-size: 0.68rem; color: var(--text-3); flex-shrink: 0;
+  font-family: 'Space Grotesk', monospace;
+}
+.msg-inbox-preview {
+  font-size: 0.8rem; color: var(--text-2); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.msg-inbox-preview.faint { color: var(--text-3); font-style: italic; }
+.msg-inbox-badge { flex-shrink: 0; align-self: center; }
+
+.msg-inbox-detail {
+  display: flex; flex-direction: column;
+  min-height: 0; min-width: 0;
+  padding: 14px 16px;
+}
+.msg-inbox-detail-head {
+  display: flex; align-items: center; gap: 11px;
+  padding-bottom: 12px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.msg-inbox-detail-head .av {
+  width: 36px; height: 36px;
+  border-radius: var(--r-sm);
+  background: var(--grad-red);
+  color: #fff;
+  font-family: 'Anton'; font-size: 0.95rem;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.msg-inbox-detail-name { font-weight: 700; color: var(--text); font-size: 1.02rem; }
+.msg-inbox-back {
+  display: none;
+  width: 32px; height: 32px; flex-shrink: 0;
+  font-size: 1.5rem; line-height: 1;
+  align-items: center; justify-content: center;
+}
+/* The reused thread fills the detail column instead of its modal max-height. */
+.msg-inbox-thread-host { flex: 1; min-height: 0; display: flex; }
+.msg-inbox-thread-host .msg-thread { flex: 1; min-height: 0; }
+.msg-inbox-thread-host .msg-list { max-height: none; flex: 1; min-height: 0; }
+.msg-inbox-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  text-align: center; padding: 24px;
+}
+.msg-inbox-empty .empty-icon {
+  width: 54px; height: 54px; border-radius: 14px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-3);
+}
+.msg-inbox-empty .empty-icon svg { width: 24px; height: 24px; }
+
+@media (max-width: 720px) {
+  .msg-inbox { grid-template-columns: 1fr; height: calc(100dvh - 200px); }
+  .msg-inbox-list { border-right: none; }
+  .msg-inbox-detail { display: none; }
+  .msg-inbox.is-detail-open .msg-inbox-list { display: none; }
+  .msg-inbox.is-detail-open .msg-inbox-detail { display: flex; }
+  .msg-inbox-back { display: flex; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg-inbox-row { transition: none !important; }
+}
+
+/* ---------- Coach-tab sub-sections (athlete: Messages / Form checks) ----------
+ * Replaces a tiny dim label with an icon + title + one-line explainer, so the
+ * form-check upload surface is obvious instead of buried. */
+.coach-subsection {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.coach-subhead {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+}
+.coach-subhead-ic {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--red-glow-2);
+  border: 1px solid rgba(255, 45, 63, 0.22);
+  color: var(--red);
+  display: flex; align-items: center; justify-content: center;
+}
+.coach-subhead-ic svg { width: 18px; height: 18px; }
+.coach-subhead-t {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.12rem;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  line-height: 1.1;
+}
+.coach-subhead-s {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ===== Strength score — DOTS + tiered standards (Progress tab) ===== */
+.score-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background-image: var(--grad-card);
+  padding: 22px 22px 24px;
+  margin-bottom: 22px;
+}
+.score-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-bottom: 20px;
+}
+.score-title {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.05rem; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text);
+}
+.sex-toggle {
+  display: inline-flex; padding: 3px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.sex-opt {
+  font: inherit; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--text-3); background: transparent; border: 0; border-radius: 999px;
+  padding: 6px 15px; cursor: pointer;
+  transition: color 0.18s var(--ease-out-quint), background-color 0.18s var(--ease-out-quint);
+}
+.sex-opt.active { background: var(--red); color: #fff; }
+.sex-opt:not(.active):hover { color: var(--text); }
+
+.dots-row { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+.dots-hero { display: flex; flex-direction: column; align-items: flex-start; min-width: 124px; }
+.dots-num {
+  font-weight: 700; font-size: 3.2rem; line-height: 1;
+  color: var(--red); letter-spacing: -0.02em;
+}
+.dots-cap {
+  font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--text-3); margin-top: 7px;
+}
+.dots-meta { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 210px; }
+.dots-meta-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--line); padding-bottom: 7px;
+}
+.dots-meta-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.dmk { font-size: 0.82rem; color: var(--text-3); }
+.dmv { font-size: 0.92rem; color: var(--text); font-weight: 600; }
+.score-note { font-size: 0.74rem; color: var(--text-3); margin: 14px 0 2px; line-height: 1.5; }
+
+.std-list {
+  display: flex; flex-direction: column; gap: 17px;
+  margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.std-row { display: flex; flex-direction: column; gap: 8px; }
+.std-head { display: flex; align-items: center; justify-content: space-between; }
+.std-lift { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.std-tier {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--red);
+}
+.std-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.std-seg {
+  height: 7px; border-radius: 3px; background: rgba(255, 255, 255, 0.07);
+  transition: background-color 0.35s var(--ease-out-quint);
+}
+.std-seg.filled { background: var(--red); box-shadow: 0 0 10px var(--red-glow); }
+.std-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.76rem; color: var(--text-3);
+}
+.std-foot .mono { color: var(--text-2); }
+
+.score-empty { padding: 6px 0 2px; }
+.score-empty-t { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.score-empty-s { font-size: 0.82rem; color: var(--text-3); line-height: 1.55; max-width: 60ch; }
+
+@media (max-width: 560px) {
+  .dots-num { font-size: 2.6rem; }
+  .dots-row { gap: 18px; }
+  .dots-hero { min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .std-seg, .sex-opt { transition: none; }
+}
+
+/* ===== Roster compliance summary line (coach roster) ===== */
+.compliance-line {
+  margin: 12px 2px 4px;
+  font-size: 0.84rem;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+.compliance-line strong { color: var(--text); font-weight: 700; }
+.compliance-dot { color: var(--line); }
+.compliance-warn { color: var(--red); font-weight: 600; }
+.compliance-ok { color: var(--text-2); }
+
+/* ===== ROSTER LEADERBOARD (pound-for-pound) ===== */
+.lb-list { display: flex; flex-direction: column; }
+.lb-row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 10px;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r-sm, 8px);
+  transition: background .18s var(--ease-out-quint, ease), transform .18s var(--ease-out-quint, ease);
+}
+.lb-row:last-child { border-bottom: 0; }
+.lb-row:hover { background: rgba(255,255,255,0.03); transform: translateX(2px); }
+.lb-rank {
+  font-size: 0.95rem;
+  color: var(--text-3);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.lb-top .lb-rank { color: var(--red); font-size: 1.15rem; font-weight: 700; }
+.lb-who { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.lb-name {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lb-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.lb-ratio { font-size: 1.18rem; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.lb-top .lb-ratio { color: var(--red); }
+.lb-x { font-size: 0.7rem; color: var(--text-3); margin-left: 3px; font-weight: 500; }
+.lb-sub { font-size: 0.72rem; color: var(--text-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .lb-row { gap: 10px; padding: 11px 6px; }
+  .lb-ratio { font-size: 1.05rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lb-row { transition: none; }
+  .lb-row:hover { transform: none; }
+}

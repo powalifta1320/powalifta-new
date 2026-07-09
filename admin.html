@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Native shell detect — runs before app scripts so html.native + viewport-fit=cover are
+     set on the first frame (env(safe-area-*) resolves immediately). No-op on the web. -->
+<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
+<title>Admin — POWALIFTA</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.admin-banner {
+  background: linear-gradient(135deg, rgba(255,181,71,0.12), rgba(255,181,71,0.04));
+  border: 1px solid rgba(255,181,71,0.28);
+  padding: 12px 18px;
+  border-radius: var(--r-sm);
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  color: var(--gold);
+  display: flex; align-items: center; gap: 10px;
+}
+.admin-search {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.94rem;
+  margin-bottom: 14px;
+}
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.mrr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 20px; }
+.mrr-chip {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.78rem; font-weight: 600;
+  padding: 5px 11px; border-radius: 100px;
+  background: rgba(255,45,63,0.08); color: var(--text-2);
+  border: 1px solid rgba(255,45,63,0.22);
+  letter-spacing: 0.02em;
+}
+</style>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<div class="dash-shell">
+  <aside class="sidebar">
+    <div class="sidebar-section">Admin</div>
+    <button class="sidebar-tab active" data-tab="overview" id="tab-overview"></button>
+    <button class="sidebar-tab" data-tab="coaches" id="tab-coaches"></button>
+    <button class="sidebar-tab" data-tab="athletes" id="tab-athletes"></button>
+    <button class="sidebar-tab" data-tab="programs" id="tab-programs"></button>
+    <button class="sidebar-tab" data-tab="logs" id="tab-logs"></button>
+    <button class="sidebar-tab" data-tab="invites" id="tab-invites"></button>
+    <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace"></button>
+    <button class="sidebar-tab" data-tab="payouts" id="tab-payouts"></button>
+    <button class="sidebar-tab" data-tab="errors" id="tab-errors"></button>
+    <button class="sidebar-tab" data-tab="tests" id="tab-tests"></button>
+    <div class="sidebar-foot">
+      <div>POWALIFTA Admin</div>
+      <div class="faded">★ god mode</div>
+    </div>
+  </aside>
+
+  <main id="main" class="dash-main">
+
+    <section data-pane="overview">
+      <div class="dash-header">
+        <div><h2>Admin overview</h2><p class="dim text-sm">Cross-platform stats. RLS bypassed via admin role.</p></div>
+      </div>
+      <div class="admin-banner">★ You're viewing as admin. You can see ALL user data. Be careful.</div>
+      <div id="overviewArea"></div>
+    </section>
+
+    <section data-pane="coaches" class="hidden">
+      <div class="dash-header"><div><h2>All coaches</h2></div></div>
+      <input class="admin-search" id="searchCoaches" placeholder="Search by name, email, bio…">
+      <div id="coachesArea"></div>
+    </section>
+
+    <section data-pane="athletes" class="hidden">
+      <div class="dash-header"><div><h2>All athletes</h2></div></div>
+      <input class="admin-search" id="searchAthletes" placeholder="Search by name, email, coach…">
+      <div id="athletesArea"></div>
+    </section>
+
+    <section data-pane="programs" class="hidden">
+      <div class="dash-header"><div><h2>All programs</h2></div></div>
+      <input class="admin-search" id="searchPrograms" placeholder="Search by program name, athlete, coach…">
+      <div id="programsArea"></div>
+    </section>
+
+    <section data-pane="logs" class="hidden">
+      <div class="dash-header"><div><h2>Workout logs</h2><p class="dim text-sm">Latest 500 sets across all athletes.</p></div></div>
+      <input class="admin-search" id="searchLogs" placeholder="Search by athlete, lift, variant…">
+      <div id="logsArea"></div>
+    </section>
+
+    <section data-pane="invites" class="hidden">
+      <div class="dash-header"><div><h2>All invites</h2></div></div>
+      <input class="admin-search" id="searchInvites" placeholder="Search by code, email, coach…">
+      <div id="invitesArea"></div>
+    </section>
+
+    <section data-pane="marketplace" class="hidden">
+      <div class="dash-header"><div><h2>Marketplace review</h2><p class="dim text-sm">Approve / reject coach submissions. Once you approve, you set the Lemon Squeezy product info so the buy button works.</p></div></div>
+      <div id="marketplaceArea"></div>
+    </section>
+
+    <section data-pane="payouts" class="hidden">
+      <div class="dash-header"><div><h2>Payouts</h2><p class="dim text-sm">Coaches keep 80% per sale. Pay them out monthly via Wise / Stripe / bank, then mark sales as paid here.</p></div></div>
+      <div id="payoutsArea"></div>
+    </section>
+
+    <section data-pane="errors" class="hidden">
+      <div class="dash-header"><div><h2>Client errors</h2><p class="dim text-sm">Uncaught JS exceptions + promise rejections forwarded from real browsers, grouped by signature. Newest first.</p></div></div>
+      <input class="admin-search" id="searchErrors" placeholder="Search by message, URL, source file…">
+      <div id="errorsArea"></div>
+    </section>
+
+    <section data-pane="tests" class="hidden">
+      <div class="dash-header"><div><h2>Test harness</h2><p class="dim text-sm">Runs the shared core (e1RM, variants, units, PRs, signals, export, importer) in-browser. Green here means the deployed build's logic is intact.</p></div></div>
+      <div class="flex gap-8 mb-16">
+        <button class="btn btn-sm" onclick="document.getElementById('testFrame').contentWindow.location.reload()">↻ Re-run</button>
+        <a class="btn btn-sm btn-ghost" href="tests.html" target="_blank" rel="noopener">Open full page ↗</a>
+      </div>
+      <iframe id="testFrame" title="POWALIFTA test harness" style="width:100%; height:75vh; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--bg);"></iframe>
+    </section>
+
+  </main>
+</div>
+
+<!-- PREVIEW PAYLOAD MODAL (admin) -->
+<div class="modal-backdrop" id="previewModal">
+  <div class="modal modal-lg" style="max-width: 760px;">
+    <button class="modal-close" aria-label="Close" onclick="closeModal('previewModal')">&times;</button>
+    <h3 id="previewTitle">Program preview</h3>
+    <p class="dim text-sm mb-16" id="previewSub"></p>
+    <div id="previewBody" style="max-height: 70vh; overflow-y: auto;"></div>
+  </div>
+</div>
+
+<!-- APPROVE MARKETPLACE PROGRAM MODAL -->
+<div class="modal-backdrop" id="approveModal">
+  <div class="modal">
+    <button class="modal-close" aria-label="Close" onclick="closeModal('approveModal')">&times;</button>
+    <h3>Approve & publish</h3>
+    <p class="dim text-sm mb-16">Create a Lemon Squeezy product (one-time payment, price matching the coach's chosen price — shown at the top of the listing) and paste the IDs + checkout URL below. Submit to make this program live on the marketplace.</p>
+    <div id="appPriceHint" class="dim text-sm mb-12" style="padding:10px 12px;background:var(--bg-2);border-radius:var(--r-md);border:1px solid var(--line);"></div>
+    <div class="form-group">
+      <label>LS product ID</label>
+      <input type="text" id="appProductId" placeholder="e.g. 1234567">
+    </div>
+    <div class="form-group">
+      <label>LS variant ID</label>
+      <input type="text" id="appVariantId" placeholder="e.g. 7654321">
+    </div>
+    <div class="form-group">
+      <label>Checkout URL</label>
+      <input type="text" id="appCheckoutUrl" placeholder="https://powalifta.lemonsqueezy.com/checkout/buy/...">
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('approveModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmApprove()" id="approveBtn">Approve & publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELIVER MANUALLY MODAL — webhook fallback -->
+<div class="modal-backdrop" id="deliverModal">
+  <div class="modal">
+    <button class="modal-close" aria-label="Close" onclick="closeModal('deliverModal')">&times;</button>
+    <h3>⚡ Deliver manually</h3>
+    <p class="dim text-sm mb-12">Use this when a buyer paid in Lemon Squeezy but the webhook didn't deliver. We'll create the sale row and the buyer can hit "Claim my program" on their dashboard.</p>
+    <div id="deliverProgInfo" class="dim text-sm mb-12" style="padding:10px 12px;background:var(--bg-2);border-radius:var(--r-md);border:1px solid var(--line);"></div>
+    <div class="form-group">
+      <label>Buyer email (must match a POWALIFTA account)</label>
+      <input type="email" id="delvEmail" placeholder="buyer@example.com">
+    </div>
+    <div class="form-group">
+      <label>LS order # <span class="dim text-xs">(e.g. 35925111 — optional but recommended)</span></label>
+      <input type="text" id="delvOrderId" placeholder="35925111">
+    </div>
+    <div class="form-group">
+      <label>Amount paid (USD) <span class="dim text-xs">(leave blank to use the listing price)</span></label>
+      <input type="number" id="delvAmount" step="0.01" min="0" placeholder="79.99">
+    </div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn btn-block" onclick="closeModal('deliverModal')">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmDeliver()" id="deliverBtn">Create sale record</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let user;
+let cache = { profiles: [], invites: [], programs: [], logs: [], bw: [], goals: [] };
+
+// Modal helpers — admin.html doesn't get these from app.js so we define them locally,
+// same as coach.html / athlete.html / index.html.
+function openModal(id)  { const m = document.getElementById(id); if (m) m.classList.add('open'); }
+function closeModal(id) { const m = document.getElementById(id); if (m) m.classList.remove('open'); }
+window.openModal = openModal;
+window.closeModal = closeModal;
+
+bootstrap('coach', async () => {
+  user = getCurrentUser();
+  if (!user || !user.isAdmin) {
+    location.href = user.userType === 'coach' ? 'coach.html' : 'athlete.html';
+    return;
+  }
+  renderNav('#nav');
+
+  const setLbl = (id, icon, text) => { const e = document.getElementById(id); if (e) e.innerHTML = icon + '<span>' + text + '</span>'; };
+  setLbl('tab-overview', ICONS.chart, 'Overview');
+  setLbl('tab-coaches', ICONS.user, 'Coaches');
+  setLbl('tab-athletes', ICONS.athletes, 'Athletes');
+  setLbl('tab-programs', ICONS.program, 'Programs');
+  setLbl('tab-logs', ICONS.bar, 'Workout logs');
+  setLbl('tab-invites', ICONS.copy, 'Invites');
+  setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
+  setLbl('tab-payouts', ICONS.trophy, 'Payouts');
+  setLbl('tab-errors', ICONS.note, 'Client errors');
+  setLbl('tab-tests', ICONS.check, 'Test harness');
+
+  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
+      document.querySelector('[data-pane="' + btn.dataset.tab + '"]').classList.remove('hidden');
+      const t = btn.dataset.tab;
+      if (t === 'coaches') renderCoaches();
+      if (t === 'athletes') renderAthletes();
+      if (t === 'programs') renderPrograms();
+      if (t === 'logs') renderLogs();
+      if (t === 'invites') renderInvites();
+      if (t === 'overview') renderOverview();
+      if (t === 'marketplace') renderAdminMarketplace();
+      if (t === 'payouts') renderAdminPayouts();
+      if (t === 'errors') loadClientErrors();
+      if (t === 'tests') { const f = document.getElementById('testFrame'); if (f && !f.src) f.src = 'tests.html'; }
+    });
+  });
+
+  document.getElementById('searchCoaches').addEventListener('input', renderCoaches);
+  document.getElementById('searchAthletes').addEventListener('input', renderAthletes);
+  document.getElementById('searchPrograms').addEventListener('input', renderPrograms);
+  document.getElementById('searchLogs').addEventListener('input', renderLogs);
+  document.getElementById('searchInvites').addEventListener('input', renderInvites);
+  document.getElementById('searchErrors').addEventListener('input', renderClientErrors);
+
+  // Load all admin data in parallel
+  try {
+    const [profiles, invites, programs, logs, bw, goals, mp, sales] = await Promise.all([
+      DB.listAllProfiles(),
+      DB.listAllInvites(),
+      DB.listAllPrograms(),
+      DB.listAllLogs(),
+      DB.listAllBw(),
+      DB.listAllGoals(),
+      DB.listAllMarketplaceProgramsAdmin().catch(() => []),
+      DB.listAllSalesAdmin().catch(() => [])
+    ]);
+    cache = { profiles, invites, programs, logs, bw, goals, marketplace: mp, sales };
+    renderOverview();
+  } catch (e) {
+    toast('Failed to load admin data: ' + (e.message || ''));
+    console.error(e);
+  }
+});
+
+function profileById(id) { return cache.profiles.find(p => p.id === id); }
+function nameById(id) { const p = profileById(id); return p ? p.name : '—'; }
+
+// #31 — Growth & revenue card at the top of the Overview. All figures come from
+// the pure computePlatformAnalytics() helper (app.js) over the already-loaded
+// cache (profiles raw snake_case, sales mapped) — no new DB call, no migration.
+function renderGrowthRevenue(area) {
+  const a = computePlatformAnalytics(cache.profiles, cache.sales || []);
+  const card = el('div', { class: 'chart-card' });
+  card.appendChild(el('div', { class: 'chart-head' },
+    el('h3', {}, 'Growth & revenue'),
+    el('div', { class: 'chart-sub' }, 'Recurring subscription revenue, marketplace GMV, and new-signup momentum.')
+  ));
+
+  const conv = a.conversionPct;
+  const tiles = [
+    { lbl: 'Est. MRR',        val: fmtMoneyCents(a.mrr * 100), icon: ICONS.arrowUp, feat: true, sub: fmtMoneyCents(a.arr * 100) + ' ARR' },
+    { lbl: 'Paying coaches',  val: String(a.payingCoaches),    icon: ICONS.trophy,  sub: (conv < 10 ? conv.toFixed(1) : Math.round(conv)) + '% of ' + a.coachCount + ' coaches' },
+    { lbl: 'GMV all-time',    val: fmtMoneyCents(a.gmvCents),  icon: ICONS.bar,     sub: a.salesCount + ' sale' + (a.salesCount === 1 ? '' : 's') },
+    { lbl: 'Platform take',   val: fmtMoneyCents(a.takeCents), icon: ICONS.chart,   sub: 'marketplace fees' },
+    { lbl: 'New signups 30d', val: String(a.signups30),        icon: ICONS.flame,   sub: a.totalUsers + ' total users' },
+    { lbl: 'GMV 30d',         val: fmtMoneyCents(a.gmv30Cents), icon: ICONS.today,  sub: 'last 30 days' }
+  ];
+  const grid = el('div', { class: 'admin-stats' });
+  tiles.forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
+    const lab = el('div', { class: 'stat-label' }); lab.innerHTML = (t.icon || '') + '<span>' + t.lbl + '</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: t.val }));
+    if (t.sub) tile.appendChild(el('div', { class: 'stat-delta' }, t.sub));
+    grid.appendChild(tile);
+  });
+  card.appendChild(grid);
+
+  // MRR-by-tier breakdown chips
+  const chips = el('div', { class: 'mrr-chips' });
+  ['basic', 'pro', 'premium'].forEach(tier => {
+    chips.appendChild(el('span', { class: 'mrr-chip' }, (TIER_LABELS[tier] || tier) + ' · ' + (a.mrrByTier[tier] || 0)));
+  });
+  card.appendChild(chips);
+
+  // Signups by week — athletes vs coaches
+  card.appendChild(el('div', { class: 'chart-head', style: 'margin-top:20px' },
+    el('h3', { style: 'font-size:1.05rem' }, 'New signups by week'),
+    el('div', { class: 'chart-sub' }, 'Last 12 weeks · athletes vs coaches')
+  ));
+  const wrap = el('div', { class: 'chart-wrap' });
+  card.appendChild(wrap);
+  area.appendChild(card);
+  drawLineChart(wrap, {
+    height: 280,
+    series: [
+      { name: 'Athletes', color: '#ff2d3f', data: a.signupSeries.map(b => ({ x: b.x, y: b.athletes })) },
+      { name: 'Coaches',  color: '#8b93a7', noArea: true, data: a.signupSeries.map(b => ({ x: b.x, y: b.coaches })) }
+    ]
+  });
+}
+
+function renderOverview() {
+  const area = document.getElementById('overviewArea');
+  area.innerHTML = '';
+  renderGrowthRevenue(area);
+  const coaches = cache.profiles.filter(p => p.user_type === 'coach');
+  const athletes = cache.profiles.filter(p => p.user_type === 'athlete');
+  const orphanAthletes = athletes.filter(a => !a.coach_id);
+  const sessionsToday = cache.logs.filter(l => l.date === todayISO()).length;
+  const last7 = (() => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    const cutoff = d.toISOString().slice(0, 10);
+    return new Set(cache.logs.filter(l => l.date >= cutoff).map(l => l.athleteId)).size;
+  })();
+  const stats = [
+    { lbl: 'Coaches', val: coaches.length, icon: ICONS.user },
+    { lbl: 'Athletes', val: athletes.length, icon: ICONS.athletes },
+    { lbl: 'Programs', val: cache.programs.length, icon: ICONS.program },
+    { lbl: 'Sets logged', val: cache.logs.length, icon: ICONS.bar },
+    { lbl: 'Sets today', val: sessionsToday, icon: ICONS.today },
+    { lbl: 'Active 7d', val: last7, icon: ICONS.flame },
+    { lbl: 'Pending invites', val: cache.invites.filter(i => !i.used).length, icon: ICONS.copy },
+    { lbl: 'Orphan athletes', val: orphanAthletes.length, icon: ICONS.x }
+  ];
+  const grid = el('div', { class: 'admin-stats' });
+  stats.forEach((s, i) => {
+    const tile = el('div', { class: 'stat-tile' + (i === 0 ? ' featured' : '') });
+    const lab = el('div', { class: 'stat-label' });
+    lab.innerHTML = s.icon + '<span>' + s.lbl + '</span>';
+    tile.appendChild(lab);
+    tile.appendChild(el('div', { class: 'stat-value', html: String(s.val) }));
+    grid.appendChild(tile);
+  });
+  area.appendChild(grid);
+
+  // Recent activity
+  const recent = el('div', { class: 'chart-card' });
+  recent.appendChild(el('div', { class: 'chart-head' }, el('h3', {}, 'Recent activity'), el('div', { class: 'chart-sub' }, 'Last 15 logged sets across the platform.')));
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Date</th><th>Athlete</th><th>Lift</th><th>Weight × Reps</th><th>RPE</th><th>e1RM</th></tr></thead>';
+  const tbody = el('tbody');
+  cache.logs.slice(0, 15).forEach(l => {
+    const tr = el('tr');
+    const aName = nameById(l.athleteId);
+    const label = l.lift === 'squat' || l.lift === 'bench' || l.lift === 'deadlift' ? l.variant + ' ' + l.lift : (l.exerciseName || l.lift);
+    tr.innerHTML = '<td class="dim text-sm">' + fmtDate(l.date) + '</td>' +
+                   '<td><strong>' + escHtml(aName) + '</strong></td>' +
+                   '<td><span class="badge">' + escHtml(label) + '</span></td>' +
+                   '<td class="mono">' + l.weight + ' × ' + l.reps + '</td>' +
+                   '<td class="mono">' + l.rpe + '</td>' +
+                   '<td class="mono fw-700">' + Math.round(l.e1rmComp) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  recent.appendChild(tblWrap);
+  area.appendChild(recent);
+}
+
+function renderCoaches() {
+  const q = document.getElementById('searchCoaches').value.toLowerCase().trim();
+  const coaches = cache.profiles.filter(p => p.user_type === 'coach' && (!q || (p.name + ' ' + p.email + ' ' + (p.bio||'')).toLowerCase().includes(q)));
+  const area = document.getElementById('coachesArea');
+  area.innerHTML = '';
+  if (!coaches.length) { area.appendChild(el('p', { class: 'dim' }, 'No coaches.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Athletes</th><th>Joined</th><th>Directory</th></tr></thead>';
+  const tbody = el('tbody');
+  coaches.forEach(c => {
+    const aCount = cache.profiles.filter(p => p.user_type === 'athlete' && p.coach_id === c.id).length;
+    const tier = c.subscription_tier || 'free';
+    const tr = el('tr');
+    const nameCell = el('td', { html: '<strong>' + escHtml(c.name) + '</strong>' + (c.is_admin ? ' <span class="badge badge-gold" style="margin-left:6px">★ ADMIN</span>' : '') });
+    const emailCell = el('td', { class: 'dim', html: escHtml(c.email) });
+    const planCell = el('td');
+    const planSelect = el('select', {
+      style: 'background: var(--bg); border: 1px solid var(--line); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 0.84rem;',
+      onchange: async (e) => {
+        const newTier = e.target.value;
+        try {
+          await sb.from('profiles').update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() }).in('id', [c.id]);
+          c.subscription_tier = newTier;
+          toast('Updated ' + c.name + ' to ' + newTier);
+        } catch (err) {
+          toast('Failed: ' + err.message);
+          e.target.value = tier;
+        }
+      }
+    });
+    ['free', 'basic', 'pro', 'premium'].forEach(t => {
+      const opt = el('option', { value: t }, TIER_LABELS[t] || t);
+      if (t === tier) opt.selected = true;
+      planSelect.appendChild(opt);
+    });
+    planCell.appendChild(planSelect);
+    tr.appendChild(nameCell);
+    tr.appendChild(emailCell);
+    tr.appendChild(planCell);
+    tr.appendChild(el('td', { class: 'mono' }, String(aCount)));
+    tr.appendChild(el('td', { class: 'dim text-sm' }, fmtDateShort(new Date(c.created_at).toISOString().slice(0,10))));
+    // Directory visibility toggle — hides the coach from the landing-page
+    // "Browse coaches" grid without touching their account or athletes.
+    const dirCell = el('td');
+    const hidden = !!c.directory_hidden;
+    const dirBtn = el('button', {
+      class: 'btn btn-sm' + (hidden ? ' btn-danger' : ''),
+      title: hidden ? 'Hidden from the homepage coach directory — click to relist' : 'Visible on the homepage coach directory — click to hide',
+      onclick: async (e) => {
+        const btn = e.currentTarget;
+        const newHidden = !c.directory_hidden;
+        btn.disabled = true;
+        try {
+          const { error } = await sb.from('profiles')
+            .update({ directory_hidden: newHidden })
+            .in('id', [c.id]);
+          if (error) throw error;
+          c.directory_hidden = newHidden;
+          toast(c.name + (newHidden ? ' hidden from directory' : ' relisted in directory'));
+          renderCoaches();
+        } catch (err) {
+          btn.disabled = false;
+          toast('Failed: ' + (err.message || 'unknown error') + (String(err.message || '').includes('directory_hidden') ? ' — run migration-directory-hidden.sql first' : ''));
+        }
+      }
+    }, hidden ? 'Hidden' : 'Listed');
+    dirCell.appendChild(dirBtn);
+    tr.appendChild(dirCell);
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderAthletes() {
+  const q = document.getElementById('searchAthletes').value.toLowerCase().trim();
+  const all = cache.profiles.filter(p => p.user_type === 'athlete');
+  const filtered = all.filter(a => {
+    if (!q) return true;
+    const coach = profileById(a.coach_id);
+    return (a.name + ' ' + a.email + ' ' + (coach?.name || '')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('athletesArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No athletes match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Email</th><th>Coach</th><th>Joined</th><th>Sets logged</th><th>Last session</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.forEach(a => {
+    const coach = profileById(a.coach_id);
+    const myLogs = cache.logs.filter(l => l.athleteId === a.id);
+    const lastDate = myLogs[0]?.date || null;
+    const tr = el('tr');
+    tr.innerHTML = '<td><strong>' + escHtml(a.name) + '</strong></td>' +
+                   '<td class="dim">' + escHtml(a.email) + '</td>' +
+                   '<td>' + (coach ? escHtml(coach.name) : '<span class="faint">— unassigned</span>') + '</td>' +
+                   '<td class="dim text-sm">' + fmtDateShort(new Date(a.created_at).toISOString().slice(0,10)) + '</td>' +
+                   '<td class="mono">' + myLogs.length + '</td>' +
+                   '<td class="dim text-sm">' + (lastDate ? fmtDateShort(lastDate) : '—') + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderPrograms() {
+  const q = document.getElementById('searchPrograms').value.toLowerCase().trim();
+  const filtered = cache.programs.filter(p => {
+    if (!q) return true;
+    const ath = profileById(p.athleteId);
+    const coach = profileById(p.coachId);
+    return (p.name + ' ' + (ath?.name || '') + ' ' + (coach?.name || '')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('programsArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No programs match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Program</th><th>Athlete</th><th>Coach</th><th>Weeks</th><th>Total sets</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.forEach(p => {
+    const ath = profileById(p.athleteId);
+    const coach = profileById(p.coachId);
+    const totalSets = (p.weeks || []).flatMap(w => w.days || []).flatMap(d => d.exercises || []).flatMap(e => e.sets || []).length;
+    const tr = el('tr');
+    tr.innerHTML = '<td><strong>' + escHtml(p.name) + '</strong></td>' +
+                   '<td>' + escHtml(ath?.name || '—') + '</td>' +
+                   '<td>' + escHtml(coach?.name || '—') + '</td>' +
+                   '<td class="mono">' + (p.weeks || []).length + '</td>' +
+                   '<td class="mono">' + totalSets + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderLogs() {
+  const q = document.getElementById('searchLogs').value.toLowerCase().trim();
+  const filtered = cache.logs.filter(l => {
+    if (!q) return true;
+    const ath = profileById(l.athleteId);
+    return ((ath?.name || '') + ' ' + l.lift + ' ' + (l.variant||'') + ' ' + (l.exerciseName||'')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('logsArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No logs match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Date</th><th>Athlete</th><th>Lift</th><th>Variant / Name</th><th>Weight × Reps</th><th>RPE</th><th>e1RM</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.slice(0, 200).forEach(l => {
+    const ath = profileById(l.athleteId);
+    const label = l.lift === 'squat' || l.lift === 'bench' || l.lift === 'deadlift' ? (l.variant || '—') : (l.exerciseName || '—');
+    const tr = el('tr');
+    tr.innerHTML = '<td class="dim text-sm">' + fmtDate(l.date) + '</td>' +
+                   '<td>' + escHtml(ath?.name || '—') + '</td>' +
+                   '<td><span class="badge">' + escHtml(LIFT_LABELS[l.lift] || l.lift) + '</span></td>' +
+                   '<td class="dim">' + escHtml(label) + '</td>' +
+                   '<td class="mono">' + l.weight + ' × ' + l.reps + '</td>' +
+                   '<td class="mono">' + l.rpe + '</td>' +
+                   '<td class="mono fw-700">' + Math.round(l.e1rmComp) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+function renderInvites() {
+  const q = document.getElementById('searchInvites').value.toLowerCase().trim();
+  const filtered = cache.invites.filter(i => {
+    if (!q) return true;
+    const coach = profileById(i.coachId);
+    return (i.code + ' ' + (i.email||'') + ' ' + (coach?.name || '')).toLowerCase().includes(q);
+  });
+  const area = document.getElementById('invitesArea');
+  area.innerHTML = '';
+  if (!filtered.length) { area.appendChild(el('p', { class: 'dim' }, 'No invites match.')); return; }
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>Code</th><th>Coach</th><th>Sent to</th><th>Status</th><th>Created</th></tr></thead>';
+  const tbody = el('tbody');
+  filtered.forEach(i => {
+    const coach = profileById(i.coachId);
+    const tr = el('tr');
+    tr.innerHTML = '<td><span class="mono fw-700" style="letter-spacing: 0.15em;">' + escHtml(i.code) + '</span></td>' +
+                   '<td>' + escHtml(coach?.name || '—') + '</td>' +
+                   '<td class="dim">' + escHtml(i.email || '—') + '</td>' +
+                   '<td>' + (i.used ? '<span class="badge badge-green">USED</span>' : '<span class="badge">PENDING</span>') + '</td>' +
+                   '<td class="dim text-sm">' + fmtDateShort(new Date(i.createdAt).toISOString().slice(0,10)) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+// =========================================================
+// CLIENT ERRORS (admin) — forwarded by error-log.js → send-client-error →
+// client_errors. Admin-only read (migration-client-errors-admin-read.sql).
+// Lazy-loaded on first tab open; grouped by signature, newest first. All
+// error-derived strings are escHtml'd before innerHTML (the edge fn stores
+// whatever the browser POSTs, so msg/stack are untrusted).
+// =========================================================
+function errRelTime(ms) {
+  if (!ms) return '—';
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 60) return Math.floor(s) + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  const d = Math.floor(s / 86400);
+  return d < 30 ? d + 'd ago' : new Date(ms).toISOString().slice(0, 10);
+}
+
+function groupClientErrors(list) {
+  const groups = new Map();
+  (list || []).forEach(e => {
+    const sig = (e.kind || '') + '|' + (e.msg || '') + '|' + (e.src || '') + '|' + (e.line || '');
+    let g = groups.get(sig);
+    if (!g) { g = { kind: e.kind, msg: e.msg, src: e.src, line: e.line, count: 0, last: 0, sample: e }; groups.set(sig, g); }
+    g.count++;
+    const t = e.receivedAt || e.ts || 0;
+    if (t >= g.last) { g.last = t; g.sample = e; }
+  });
+  return Array.from(groups.values()).sort((a, b) => b.last - a.last);
+}
+
+async function loadClientErrors() {
+  const area = document.getElementById('errorsArea');
+  if (cache.errors === undefined) {
+    area.innerHTML = '';
+    area.appendChild(el('p', { class: 'dim' }, 'Loading…'));
+    try { cache.errors = await DB.listClientErrors(500); }
+    catch (e) { cache.errors = []; }
+  }
+  renderClientErrors();
+}
+
+function renderClientErrors() {
+  const area = document.getElementById('errorsArea');
+  area.innerHTML = '';
+  const rows = cache.errors || [];
+  if (!rows.length) {
+    const empty = el('div', { class: 'tbl-card', style: 'padding:28px; text-align:center' });
+    empty.appendChild(el('p', { class: 'fw-700', style: 'margin-bottom:6px' }, 'No client errors captured'));
+    empty.appendChild(el('p', { class: 'dim text-sm', style: 'max-width:560px; margin:0 auto; line-height:1.6' },
+      'Either the app is behaving, or error forwarding is not enabled yet. To turn it on: set SUPABASE_ERROR_ENDPOINT in error-log.js to the send-client-error function URL, deploy that function, then run migration-client-errors.sql and migration-client-errors-admin-read.sql.'));
+    area.appendChild(empty);
+    return;
+  }
+  const q = document.getElementById('searchErrors').value.toLowerCase().trim();
+  let groups = groupClientErrors(rows);
+  if (q) groups = groups.filter(g => ((g.msg || '') + ' ' + (g.src || '') + ' ' + (g.sample.url || '')).toLowerCase().includes(q));
+
+  const totalOcc = rows.length;
+  area.appendChild(el('p', { class: 'dim text-sm mb-16' },
+    totalOcc + ' occurrence' + (totalOcc === 1 ? '' : 's') + ' · ' + groups.length + ' unique' +
+    (groups[0] ? ' · newest ' + errRelTime(groups[0].last) : '')));
+
+  if (!groups.length) { area.appendChild(el('p', { class: 'dim' }, 'No errors match.')); return; }
+
+  const tblWrap = el('div', { class: 'tbl-card' });
+  const tbl = el('table');
+  tbl.innerHTML = '<thead><tr><th>#</th><th>Kind</th><th>Error</th><th>Source</th><th>Last seen</th></tr></thead>';
+  const tbody = el('tbody');
+  groups.forEach(g => {
+    const kindBadge = g.kind === 'promise'
+      ? '<span class="badge badge-gold">PROMISE</span>'
+      : '<span class="badge badge-red">JS</span>';
+    const s = g.sample;
+    const loc = g.src ? (String(g.src).split('/').pop() + (g.line ? ':' + g.line : '')) : '—';
+    const bits = [];
+    if (s.url) bits.push('URL:  ' + escHtml(s.url));
+    if (g.src) bits.push('File: ' + escHtml(g.src) + (g.line ? ' :' + g.line + (s.col ? ':' + s.col : '') : ''));
+    if (s.ua) bits.push('UA:   ' + escHtml(s.ua));
+    if (s.stack) bits.push('\n' + escHtml(s.stack));
+    const tr = el('tr');
+    tr.innerHTML =
+      '<td><span class="mono fw-700">' + g.count + '</span></td>' +
+      '<td>' + kindBadge + '</td>' +
+      '<td style="max-width:460px"><div class="fw-600" style="word-break:break-word">' + escHtml(g.msg || '(no message)') + '</div>' +
+        (bits.length ? '<details style="margin-top:6px"><summary class="dim text-sm" style="cursor:pointer">Details</summary><pre class="mono text-sm" style="white-space:pre-wrap; word-break:break-word; margin-top:8px; color:var(--text-2)">' + bits.join('\n') + '</pre></details>' : '') +
+      '</td>' +
+      '<td class="dim text-sm mono">' + escHtml(loc) + '</td>' +
+      '<td class="dim text-sm" style="white-space:nowrap">' + errRelTime(g.last) + '</td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tblWrap.appendChild(tbl);
+  area.appendChild(tblWrap);
+}
+
+// =========================================================
+// MARKETPLACE REVIEW (admin)
+// =========================================================
+// Coach-set pricing now — category label is decoupled from price.
+const ADMIN_TIER_LABEL = { short: 'Short cycle', block: 'Full block', premium: 'Premium' };
+function fmtPrice(cents) { return '$' + ((cents || 0) / 100).toFixed(2); }
+const ADMIN_STATUS_BADGE = {
+  pending_review: { text: 'Pending review', cls: 'badge-gold' },
+  published:      { text: 'Published',      cls: 'badge-green' },
+  unpublished:    { text: 'Hidden',         cls: 'badge' },
+  rejected:       { text: 'Rejected',       cls: 'badge-red' }
+};
+
+function renderAdminMarketplace() {
+  const area = document.getElementById('marketplaceArea');
+  area.innerHTML = '';
+  const mp = cache.marketplace || [];
+  if (!mp.length) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'No submissions yet'), el('p', {}, 'When a coach hits Publish on a template, it appears here for review.')));
+    return;
+  }
+
+  // Sort: pending_review first, then published, then everything else
+  const order = { pending_review: 0, published: 1, unpublished: 2, rejected: 3 };
+  const sorted = [...mp].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+
+  sorted.forEach(p => {
+    const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+    const badge = ADMIN_STATUS_BADGE[p.status] || ADMIN_STATUS_BADGE.pending_review;
+    const totalDays = (p.programPayload && p.programPayload.weeks) ? p.programPayload.weeks.reduce((sum, w) => sum + (w.days?.length || 0), 0) : 0;
+    const totalExercises = (p.programPayload && p.programPayload.weeks) ? p.programPayload.weeks.reduce((sum, w) => sum + (w.days || []).reduce((s, d) => s + (d.exercises?.length || 0), 0), 0) : 0;
+
+    const card = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px; margin-bottom: 14px;' });
+
+    // Header
+    const head = el('div', { class: 'flex-between mb-8', style: 'gap: 12px; flex-wrap: wrap;' });
+    head.appendChild(el('div', {},
+      el('h3', { style: 'margin: 0 0 4px; font-size: 1.25rem;' }, p.title),
+      el('div', { class: 'faded text-xs' }, 'by ' + (coach ? coach.name + ' · ' + coach.email : 'unknown coach') + ' · submitted ' + fmtDate(p.createdAt ? p.createdAt.slice(0, 10) : ''))
+    ));
+    head.appendChild(el('span', { class: 'badge ' + badge.cls }, badge.text));
+    card.appendChild(head);
+
+    // Meta
+    card.appendChild(el('div', { class: 'dim text-sm mb-8' },
+      fmtPrice(p.priceCents) + ' · ' + (ADMIN_TIER_LABEL[p.tier] || 'Program') + ' · ' + p.weekCount + ' weeks · ' + totalDays + ' days · ' + totalExercises + ' exercises · ' + p.soldCount + ' sold'
+    ));
+
+    // Description
+    if (p.description) {
+      card.appendChild(el('p', { class: 'dim text-sm', style: 'line-height: 1.6; margin: 10px 0; white-space: pre-wrap;' }, p.description));
+    }
+
+    // Existing LS info (when published)
+    if (p.status === 'published') {
+      card.appendChild(el('div', { class: 'mono text-xs faded', style: 'background: var(--bg-2); padding: 8px 12px; border-radius: 6px; margin: 10px 0; word-break: break-all;' },
+        'LS product: ' + (p.lsProductId || '—') + ' · variant: ' + (p.lsVariantId || '—') + ' · URL: ' + (p.lsCheckoutUrl || '—')
+      ));
+    }
+
+    // Actions
+    const actions = el('div', { class: 'flex gap-8 mt-16', style: 'flex-wrap: wrap;' });
+    if (p.status === 'pending_review') {
+      const appr = el('button', { class: 'btn btn-primary', onclick: () => openApproveModal(p) }, '✓ Approve & publish');
+      const rej = el('button', { class: 'btn btn-danger btn-ghost', onclick: () => rejectProgram(p.id) }, '✕ Reject');
+      const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
+      actions.appendChild(appr); actions.appendChild(rej); actions.appendChild(prev);
+    } else if (p.status === 'published') {
+      const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
+      const unpub = el('button', { class: 'btn btn-danger btn-ghost', onclick: () => unpublishProgram(p.id) }, 'Unpublish');
+      const editLs = el('button', { class: 'btn btn-ghost', onclick: () => openApproveModal(p) }, 'Edit LS info');
+      const deliver = el('button', { class: 'btn btn-ghost', style: 'color: var(--gold, #d4a017); border-color: var(--gold, #d4a017);', onclick: () => openDeliverModal(p) }, '⚡ Deliver manually');
+      actions.appendChild(prev); actions.appendChild(editLs); actions.appendChild(deliver); actions.appendChild(unpub);
+    } else {
+      const prev = el('button', { class: 'btn btn-ghost', onclick: () => previewPayload(p) }, 'Preview payload');
+      actions.appendChild(prev);
+    }
+    card.appendChild(actions);
+
+    area.appendChild(card);
+  });
+}
+
+// Visual preview of a marketplace program — weeks → days → exercises → set blocks.
+// Uses the same set-block grouping logic as the athlete/coach builders so the admin
+// sees what the buyer will see.
+function previewPayload(p) {
+  const titleEl = document.getElementById('previewTitle');
+  const subEl = document.getElementById('previewSub');
+  const body = document.getElementById('previewBody');
+
+  titleEl.textContent = p.title;
+  const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+  subEl.textContent = (coach ? 'by ' + coach.name + ' · ' : '') +
+                      fmtPrice(p.priceCents) + ' · ' +
+                      (ADMIN_TIER_LABEL[p.tier] || 'Program') + ' · ' +
+                      p.weekCount + ' weeks';
+
+  body.innerHTML = '';
+
+  if (!p.programPayload || !p.programPayload.weeks || !p.programPayload.weeks.length) {
+    body.appendChild(el('p', { class: 'dim text-sm' }, 'This submission has no program data.'));
+    openModal('previewModal');
+    return;
+  }
+
+  // Description block at top
+  if (p.description) {
+    const descBlock = el('div', { style: 'background: rgba(255,45,63,0.06); border: 1px solid rgba(255,45,63,0.22); padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; white-space: pre-wrap; color: var(--text-2); line-height: 1.6; font-size: 0.92rem;' }, p.description);
+    body.appendChild(descBlock);
+  }
+
+  // Each week
+  p.programPayload.weeks.forEach(wk => {
+    const wkCard = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; margin-bottom: 14px;' });
+    wkCard.appendChild(el('div', { style: 'font-family: Anton, sans-serif; font-size: 1.15rem; letter-spacing: 0.04em; margin-bottom: 12px; color: var(--text);' }, 'WEEK ' + wk.number));
+
+    if (!wk.days || !wk.days.length) {
+      wkCard.appendChild(el('div', { class: 'faded text-sm' }, 'No days.'));
+    } else {
+      wk.days.forEach(day => {
+        const dayCard = el('div', { style: 'background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;' });
+        dayCard.appendChild(el('div', { style: 'font-family: Anton, sans-serif; font-size: 0.95rem; letter-spacing: 0.04em; color: var(--text); margin-bottom: 8px; text-transform: uppercase;' }, day.name || 'Day'));
+
+        if (!day.exercises || !day.exercises.length) {
+          dayCard.appendChild(el('div', { class: 'faded text-xs', style: 'font-style: italic;' }, 'Rest day'));
+        } else {
+          day.exercises.forEach(ex => {
+            const exRow = el('div', { style: 'background: var(--bg); border-radius: 6px; padding: 10px 12px; margin-bottom: 6px;' });
+            // Title
+            let title = '';
+            if (['squat', 'bench', 'deadlift'].includes(ex.lift)) {
+              title = (ex.variant || 'Competition') + ' ' + ({squat:'Squat',bench:'Bench',deadlift:'Deadlift'}[ex.lift]);
+            } else if (ex.lift === 'cardio') {
+              title = ex.exerciseName || 'Cardio';
+            } else {
+              title = ex.exerciseName || ex.lift;
+            }
+            exRow.appendChild(el('div', { style: 'font-weight: 700; color: var(--text); margin-bottom: 4px; font-size: 0.92rem;' }, title));
+            if (ex.note) {
+              exRow.appendChild(el('div', { style: 'font-size: 0.78rem; color: var(--gold); margin-bottom: 6px; font-style: italic;' }, 'Coach: ' + ex.note));
+            }
+            // Set blocks (group identical consecutive sets)
+            const sets = ex.sets || [];
+            if (typeof groupSets === 'function' && sets.length) {
+              const blocks = groupSets(sets);
+              blocks.forEach(blk => {
+                const rpePart = blk.rpe == null ? '' : ' @ RPE ' + blk.rpe;
+                const text = (blk.count > 1 ? blk.count + ' × ' : '') + blk.weight + 'kg × ' + blk.reps + rpePart;
+                exRow.appendChild(el('div', { style: 'font-family: Space Grotesk, monospace; font-size: 0.85rem; color: var(--text-2); padding: 2px 0;' }, '↳ ' + text));
+              });
+            } else {
+              sets.forEach((s, i) => {
+                const rpePart = s.rpe == null ? '' : ' @ RPE ' + s.rpe;
+                exRow.appendChild(el('div', { style: 'font-family: Space Grotesk, monospace; font-size: 0.85rem; color: var(--text-2); padding: 2px 0;' }, 'Set ' + (i + 1) + ': ' + s.weight + 'kg × ' + s.reps + rpePart));
+              });
+            }
+            dayCard.appendChild(exRow);
+          });
+        }
+        wkCard.appendChild(dayCard);
+      });
+    }
+    body.appendChild(wkCard);
+  });
+
+  openModal('previewModal');
+}
+window.previewPayload = previewPayload;
+
+let _approveTarget = null;
+function openApproveModal(p) {
+  _approveTarget = p;
+  document.getElementById('appProductId').value = p.lsProductId || '';
+  document.getElementById('appVariantId').value = p.lsVariantId || '';
+  document.getElementById('appCheckoutUrl').value = p.lsCheckoutUrl || '';
+  const hint = document.getElementById('appPriceHint');
+  if (hint) {
+    const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+    hint.innerHTML = '<strong>Coach price:</strong> ' + fmtPrice(p.priceCents) +
+      ' &nbsp;·&nbsp; <strong>Category:</strong> ' + (ADMIN_TIER_LABEL[p.tier] || 'Program') +
+      ' &nbsp;·&nbsp; <strong>Coach payout (80%):</strong> ' + fmtPrice(Math.round(p.priceCents * 0.8)) +
+      (coach ? ' &nbsp;·&nbsp; <strong>By:</strong> ' + escHtml(coach.name) : '') +
+      '<br><span class="faded text-xs">Create the LS product priced at ' + fmtPrice(p.priceCents) + ' to match.</span>';
+  }
+  openModal('approveModal');
+}
+window.openApproveModal = openApproveModal;
+
+async function confirmApprove() {
+  if (!_approveTarget) { closeModal('approveModal'); return; }
+  const pid = document.getElementById('appProductId').value.trim();
+  const vid = document.getElementById('appVariantId').value.trim();
+  const url = document.getElementById('appCheckoutUrl').value.trim();
+  if (!pid || !vid || !url) return toast('All three fields are required.');
+  if (!url.startsWith('https://')) return toast('Checkout URL must start with https://');
+
+  const btn = document.getElementById('approveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+  try {
+    await DB.adminPublishProgram(_approveTarget.id, pid, vid, url);
+    // Reload marketplace data
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    closeModal('approveModal');
+    toast('Published — buy button is now live.');
+    renderAdminMarketplace();
+  } catch (e) {
+    console.error('approve failed', e);
+    toast('Could not publish — ' + (e.message || ''));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Approve & publish'; }
+  }
+}
+window.confirmApprove = confirmApprove;
+
+let _deliverTarget = null;
+function openDeliverModal(p) {
+  _deliverTarget = p;
+  document.getElementById('delvEmail').value = '';
+  document.getElementById('delvOrderId').value = '';
+  document.getElementById('delvAmount').value = '';
+  const info = document.getElementById('deliverProgInfo');
+  if (info) {
+    const coach = (cache.profiles || []).find(prof => prof.id === p.coachId);
+    info.innerHTML = '<strong>Program:</strong> ' + escHtml(p.title || '') +
+      ' &nbsp;·&nbsp; <strong>Listing price:</strong> ' + fmtPrice(p.priceCents) +
+      (coach ? ' &nbsp;·&nbsp; <strong>Coach:</strong> ' + escHtml(coach.name) : '');
+  }
+  openModal('deliverModal');
+}
+window.openDeliverModal = openDeliverModal;
+
+async function confirmDeliver() {
+  if (!_deliverTarget) { closeModal('deliverModal'); return; }
+  const email = document.getElementById('delvEmail').value.trim();
+  const orderId = document.getElementById('delvOrderId').value.trim();
+  const amountStr = document.getElementById('delvAmount').value.trim();
+  if (!email) return toast('Buyer email is required.');
+  const amountCents = amountStr ? Math.round(parseFloat(amountStr) * 100) : null;
+  if (amountStr && (!isFinite(amountCents) || amountCents <= 0)) return toast('Invalid amount.');
+
+  const btn = document.getElementById('deliverBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Delivering…'; }
+  try {
+    await DB.adminDeliverSale({
+      marketplaceProgramId: _deliverTarget.id,
+      buyerEmail: email,
+      amountCents: amountCents,
+      lsOrderId: orderId || null
+    });
+    // Reload caches
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    cache.sales = await DB.listAllSalesAdmin();
+    closeModal('deliverModal');
+    toast('Sale recorded — tell the buyer to refresh their dashboard and click "Claim my program".');
+    renderAdminMarketplace();
+  } catch (e) {
+    console.error('manual deliver failed', e);
+    toast(e.message || 'Could not deliver');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create sale record'; }
+  }
+}
+window.confirmDeliver = confirmDeliver;
+
+async function rejectProgram(id) {
+  const reason = prompt('Why are you rejecting this submission? (Optional — they\'ll see it.)');
+  if (reason === null) return; // cancelled
+  try {
+    await DB.adminRejectProgram(id, reason || '');
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    renderAdminMarketplace();
+    toast('Rejected');
+  } catch (e) { toast('Could not reject — ' + (e.message || '')); }
+}
+window.rejectProgram = rejectProgram;
+
+async function unpublishProgram(id) {
+  if (!confirm('Hide this program from the public marketplace? Existing buyers keep their copy.')) return;
+  try {
+    await DB.updateMarketplaceProgram(id, { status: 'unpublished' });
+    cache.marketplace = await DB.listAllMarketplaceProgramsAdmin();
+    renderAdminMarketplace();
+    toast('Hidden');
+  } catch (e) { toast('Could not unpublish — ' + (e.message || '')); }
+}
+window.unpublishProgram = unpublishProgram;
+
+// =========================================================
+// PAYOUTS (admin)
+// =========================================================
+function renderAdminPayouts() {
+  const area = document.getElementById('payoutsArea');
+  area.innerHTML = '';
+  const sales = cache.sales || [];
+
+  if (!sales.length) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'No sales yet'), el('p', {}, 'When athletes start buying marketplace programs, payout queues show up here.')));
+    return;
+  }
+
+  // Refunded/voided sales (payout_status='cancelled', set by the marketplace
+  // refund webhook) are excluded everywhere below — they aren't owed to anyone,
+  // earn no platform fee, and shouldn't pad the sales count. Without this filter
+  // a cancelled sale would fall into the `else` below and show as money "paid".
+  const liveSales = sales.filter(s => s.payoutStatus !== 'cancelled');
+
+  // Group sales by coach
+  const byCoach = new Map();
+  liveSales.forEach(s => {
+    if (!byCoach.has(s.coachId)) byCoach.set(s.coachId, { pending: [], paid: [] });
+    const slot = byCoach.get(s.coachId);
+    if (s.payoutStatus === 'pending') slot.pending.push(s);
+    else slot.paid.push(s);
+  });
+
+  // Top stats
+  const totalPending = liveSales.filter(s => s.payoutStatus === 'pending').reduce((sum, s) => sum + s.coachPayoutCents, 0);
+  const totalPaid    = liveSales.filter(s => s.payoutStatus === 'paid').reduce((sum, s) => sum + s.coachPayoutCents, 0);
+  const totalPlatform = liveSales.reduce((sum, s) => sum + s.platformFeeCents, 0);
+
+  const tiles = el('div', { class: 'stat-grid' });
+  [
+    { label: 'Pending payouts',  val: '$' + (totalPending / 100).toFixed(2),  feat: true },
+    { label: 'Lifetime paid',    val: '$' + (totalPaid / 100).toFixed(2) },
+    { label: 'POWALIFTA fees',   val: '$' + (totalPlatform / 100).toFixed(2) },
+    { label: 'Total sales',      val: String(sales.length) }
+  ].forEach(t => {
+    const tile = el('div', { class: 'stat-tile' + (t.feat ? ' featured' : '') });
+    tile.appendChild(el('div', { class: 'stat-label' }, t.label));
+    tile.appendChild(el('div', { class: 'stat-value' }, t.val));
+    tiles.appendChild(tile);
+  });
+  area.appendChild(tiles);
+
+  // Per-coach payout queues
+  area.appendChild(el('h3', { style: 'margin: 28px 0 14px; font-size: 1.3rem;' }, 'Pending payouts by coach'));
+
+  let renderedAny = false;
+  byCoach.forEach((slot, coachId) => {
+    if (!slot.pending.length) return;
+    renderedAny = true;
+    const coach = (cache.profiles || []).find(p => p.id === coachId);
+    const owed = slot.pending.reduce((sum, s) => sum + s.coachPayoutCents, 0);
+    const card = el('div', { style: 'background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px; margin-bottom: 14px;' });
+
+    const head = el('div', { class: 'flex-between mb-8', style: 'gap: 12px; flex-wrap: wrap;' });
+    head.appendChild(el('div', {},
+      el('div', { class: 'fw-700', style: 'font-size: 1.1rem;' }, coach ? coach.name : '(unknown)'),
+      el('div', { class: 'faded text-xs' }, coach ? coach.email : '')
+    ));
+    head.appendChild(el('div', { class: 'mono fw-700', style: 'color: var(--green); font-size: 1.4rem;' }, '+$' + (owed / 100).toFixed(2)));
+    card.appendChild(head);
+
+    // Sales list with checkboxes
+    const listId = 'payoutList-' + coachId;
+    const list = el('div', { id: listId, style: 'margin-top: 12px;' });
+    slot.pending.forEach(s => {
+      const program = (cache.marketplace || []).find(mp => mp.id === s.marketplaceProgramId);
+      const row = el('div', { style: 'display:flex; align-items:center; gap:12px; padding: 8px 12px; background: var(--bg-2); border-radius: 6px; margin-bottom: 4px;' });
+      const cb = el('input', { type: 'checkbox', class: 'payout-cb', 'data-sale-id': s.id, style: 'margin-right: 4px;' });
+      row.appendChild(cb);
+      row.appendChild(el('div', { style: 'flex:1; min-width:0;' },
+        el('div', { class: 'fw-700 text-sm' }, program ? program.title : '(program deleted)'),
+        el('div', { class: 'faded text-xs' }, fmtDate(s.createdAt ? s.createdAt.slice(0, 10) : '') + ' · order ' + (s.lsOrderId || '—'))
+      ));
+      row.appendChild(el('div', { class: 'mono fw-700' }, '$' + (s.coachPayoutCents / 100).toFixed(2)));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+
+    // Bulk actions
+    const actions = el('div', { class: 'flex gap-8 mt-16', style: 'flex-wrap: wrap;' });
+    const selectAll = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => {
+      const cbs = document.querySelectorAll('#' + listId + ' .payout-cb');
+      const allChecked = Array.from(cbs).every(c => c.checked);
+      cbs.forEach(c => { c.checked = !allChecked; });
+    }}, 'Select all');
+    const markPaid = el('button', { class: 'btn btn-sm btn-primary', onclick: async () => {
+      const ids = Array.from(document.querySelectorAll('#' + listId + ' .payout-cb:checked')).map(c => c.dataset.saleId);
+      if (!ids.length) return toast('Select at least one sale to mark paid.');
+      if (!confirm('Mark ' + ids.length + ' sale(s) as paid? Use this only after you\'ve actually sent the coach money.')) return;
+      try {
+        await DB.markPayoutsPaid(ids);
+        cache.sales = await DB.listAllSalesAdmin();
+        renderAdminPayouts();
+        toast('Marked ' + ids.length + ' sale(s) as paid');
+      } catch (e) { toast('Failed: ' + (e.message || '')); }
+    }}, 'Mark selected as paid');
+    actions.appendChild(selectAll);
+    actions.appendChild(markPaid);
+    card.appendChild(actions);
+
+    area.appendChild(card);
+  });
+
+  if (!renderedAny) {
+    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'All caught up'), el('p', {}, 'No pending payouts. Lifetime paid: $' + (totalPaid / 100).toFixed(2))));
+  }
+}
+</script>
+</body>
+</html>

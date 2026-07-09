@@ -1,0 +1,67 @@
+workflows:
+  ios-appstore:
+    name: POWALIFTA iOS (App Store)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      # The App Store Connect API key you saved in Codemagic → Teams → Integrations.
+      app_store_connect: CODEMAGIC_ASC_KEY
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.powalifta.app
+      vars:
+        XCODE_SCHEME: "App"
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install native deps
+        script: cd native && npm install
+      # native/www is gitignored — mirror the repo's static web app into it,
+      # otherwise `cap sync` copies an empty webDir and the app is a white screen.
+      - name: Mirror web app into www
+        script: cd native && npm run copyweb
+      # native/ios is gitignored and rebuilt fresh every run, so it starts with
+      # Capacitor's DEFAULT placeholder icon.
+      - name: Add iOS platform
+        script: cd native && (npx cap add ios || true)
+      # Best-effort: capacitor-assets generates every retina icon/splash variant
+      # from native/assets/ if it runs cleanly. It's flaky across versions, so it
+      # is NON-fatal (|| true) — the committed overlay below is the guarantee.
+      - name: Generate brand icon + splash (best-effort)
+        script: cd native && npx capacitor-assets generate --ios || true
+      # THE guaranteed icon fix: overlay the committed brand asset catalog
+      # (native/ios-overlay/) onto the freshly-scaffolded ios project, replacing
+      # Capacitor's placeholder AppIcon + Splash. Plain cp — cannot fail like the
+      # generator can. Runs AFTER `cap add ios` created the target dirs.
+      - name: Apply committed brand icon + splash overlay
+        script: cd native && cp -Rf ios-overlay/App/App/Assets.xcassets/. ios/App/App/Assets.xcassets/
+      - name: Sync iOS
+        script: cd native && npx cap sync ios
+      - name: Pods
+        script: cd native/ios/App && pod install
+      # FLAGSHIP: re-apply the committed native sources (native/ios-native/) onto the
+      # freshly-scaffolded, gitignored ios project — adds the RestTimer Capacitor plugin
+      # to the App target and creates the PowaWidget app-extension target that renders the
+      # rest-timer Live Activity (Dynamic Island + Lock Screen). Runs AFTER pod install
+      # (so the App target's pods are settled) and BEFORE use-profiles (so the widget
+      # bundle id com.powalifta.app.PowaWidget is present for signing). Idempotent.
+      - name: Inject Live Activity (RestTimer plugin + PowaWidget)
+        script: |
+          cd native
+          gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document || true
+          DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}" ruby scripts/inject-live-activity.rb
+      - name: Use provisioning profiles
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/native/ios/App/App.xcworkspace" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

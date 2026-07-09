@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — POWALIFTA</title>
+<meta name="description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
+<meta property="og:title" content="Privacy Policy — POWALIFTA">
+<meta property="og:description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://www.powalifta.com/privacy.html">
+<meta property="og:url" content="https://www.powalifta.com/privacy.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacy Policy — POWALIFTA">
+<meta name="twitter:description" content="POWALIFTA privacy policy — what data we collect, how we store it, your rights.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="main" class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
+  <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
+  <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 8px;">Privacy Policy</h1>
+  <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 11 June 2026</p>
+
+  <div class="card" style="padding: 30px; line-height: 1.7;">
+    <p>POWALIFTA ("we", "us") respects your privacy. This page explains what we collect, why, and what we do with it. We've kept it short on purpose.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">What we collect</h3>
+    <p>When you sign up, we ask for your <strong>name</strong>, <strong>email address</strong>, and a <strong>password</strong>. Coaches additionally provide a <strong>bio</strong> shown on the public coach directory.</p>
+    <p style="margin-top:10px">As you use POWALIFTA, we store your <strong>training data</strong>: the programs your coach builds, the sets you log (weight, reps, RPE, notes, dates), your bodyweight entries, your training goals, and any session notes you write. Coaches can see this data for athletes connected to their account.</p>
+    <p style="margin-top:10px">We do <strong>not</strong> collect: ID documents, payment card details (handled by our payment processor — Lemon Squeezy), location data, or biometric data.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Where it lives</h3>
+    <p>Your account and training data are stored in a managed Postgres database operated by Supabase. Data is encrypted in transit (TLS) and at rest. We use Supabase's authentication service to manage logins; passwords are hashed and we never see or store the plaintext. Your browser also keeps a small amount of non-sensitive state (theme preference, session tokens) in <code style="background:var(--bg-2); padding:2px 6px; border-radius:4px; font-family:'Space Grotesk',monospace;">localStorage</code>.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Sub-processors</h3>
+    <p>We use a small number of service providers to run POWALIFTA: <strong>Supabase</strong> (database, authentication, file storage), <strong>Vercel</strong> (website hosting and CDN), <strong>Lemon Squeezy</strong> (payments — they act as merchant of record and handle all card details), <strong>Resend</strong> (transactional email, e.g. welcome emails), <strong>Google</strong> (the Gemini AI assistant, see below; also Google Fonts for font delivery). Each only receives the data needed to do its job.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">AI assistant</h3>
+    <p>The in-app assistant ("Ask AI") is optional: you only use it if you open it and ask a question. When you do, the question plus a short summary of the relevant training data (for example your recent lifts, e1RM and program, or for coaches a roster overview) is sent to <strong>Google</strong> to generate a reply with their Gemini model. We send only what's needed to answer, never your password or payment details. The request goes through our own server first so the API key is never exposed to your browser. If you never open the assistant, none of your data is sent to Google.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">How long we keep data</h3>
+    <p>While your account is active, we keep your data so you can see your training history. When you delete your account, the erasure is immediate — your profile, programs, logs, messages, uploaded form-check videos and everything else tied to you are removed straight away, not queued for later. The one exception is billing/purchase records we're legally required to keep for tax: those rows survive with your personal details stripped out (the amount and date remain; the identity is anonymized).</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Who we share it with</h3>
+    <p>Nobody, except: coaches you have connected to (they see your training data and notes — that's the point), our payment processor for billing-related lookups (coaches only), and any authorities if compelled by law. We do not sell user data to advertisers, brokers, or any third party.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Cookies and analytics</h3>
+    <p>We don't use advertising trackers, cross-site cookies, or fingerprinting, and we never sell your data. We keep you logged in with a session token in your browser's localStorage; that's essential, and clearing it just signs you out. For visit counts we use <a href="https://plausible.io/privacy-focused-web-analytics" target="_blank" rel="noopener">Plausible</a>, a privacy-friendly, cookieless analytics tool that stores no personal data and never tracks you across sites. Prefer not to be counted? Choose "Essential only" on the privacy banner when you first visit, and we'll remember it.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Your rights</h3>
+    <p>You can access, export, or delete your data at any time — all self-serve from Settings on your dashboard. <strong>Export is instant</strong>: use the Export buttons under "Your data" for a full JSON archive or a CSV of your training log. <strong>Deletion is self-serve too</strong>: open Settings → Danger zone → "Delete my account", type <code>DELETE</code> to confirm, and your account and data are erased immediately (billing records are retained anonymized, as above). Prefer we do it for you, or need anything else? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a> and we'll handle it within 30 days. If you're in the EU, UK, or California, you have specific rights under GDPR/UK-GDPR/CCPA — same options, same response time.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Children</h3>
+    <p>POWALIFTA is not intended for use by anyone under 16. We do not knowingly collect data from children. If you believe a child has signed up, contact us and we'll remove the account.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Changes</h3>
+    <p>If we materially change this policy we'll update the "Last updated" date and, where required, notify you by email.</p>
+
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Contact</h3>
+    <p>Questions: <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a></p>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="exercises.html" class="dim">Exercises</a>
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" title="Follow @powa.lifta on Instagram" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" title="Email us" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+</script>
+</body>
+</html>

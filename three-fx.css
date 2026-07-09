@@ -1,0 +1,49 @@
+/* ============================================================
+ * POWALIFTA three-fx — 3D scene styling.
+ * Canvas sits behind the hero text, in front of the gradient mesh.
+ * Loaded only when Three.js is available.
+ * ============================================================ */
+
+.fx-three-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}
+.fx-three-canvas.fx-ready {
+  opacity: 1;
+}
+
+.fx-three-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: rgba(255, 45, 63, 0.6);
+  z-index: 0;
+  pointer-events: none;
+  text-transform: uppercase;
+  animation: fxThreeLoadPulse 1.4s ease-in-out infinite;
+}
+@keyframes fxThreeLoadPulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 0.9; }
+}
+.fx-three-loading.fx-hide { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-three-canvas { display: none; }
+  .fx-three-loading { display: none; }
+}
+
+@media (max-width: 640px) {
+  .fx-three-canvas { opacity: 0.5; }
+}

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQ — POWALIFTA</title>
+<meta name="description" content="Common questions about POWALIFTA — pricing, how RPE logging works, how coaches and athletes use the platform, payments, refunds.">
+<meta property="og:title" content="POWALIFTA FAQ — How it works">
+<meta property="og:description" content="Pricing, RPE logging, coach/athlete workflow, payments, refunds — common questions answered.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://www.powalifta.com/faq.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How is my e1RM calculated?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Every working set you log (weight, reps, RPE) becomes an estimated 1-rep max data point, adjusted for the rep count and how hard the set felt. Variant lifts like paused squat or tempo bench use built-in multipliers so your e1RM reflects competition-equivalent strength." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use POWALIFTA without a coach?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — sign up as a solo athlete. You get the full logging, e1RM tracking, goals and bodyweight features, and you can buy programs from the marketplace or connect with a coach later." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is POWALIFTA free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Free for athletes, forever. Coaches are free up to 3 athletes, then plans scale: Basic $25/mo (4–10 athletes), Pro $50/mo (11–25), Premium $100/mo (26+)." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is my data synced across devices?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your account and training data live in a secure cloud database — log in from any device and you'll see the same programs, logs, and charts." }
+    }
+  ]
+}
+</script>
+<meta property="og:url" content="https://www.powalifta.com/faq.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POWALIFTA FAQ — How it works">
+<meta name="twitter:description" content="Pricing, RPE logging, coach/athlete workflow, payments, refunds.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<link rel="stylesheet" href="scroll-fx.css">
+<link rel="stylesheet" href="ui-fx.css">
+<link rel="stylesheet" href="insane-fx.css">
+<script defer src="scroll-fx.js"></script>
+<script defer src="ui-fx.js"></script>
+<script defer src="insane-fx.js"></script>
+<style>
+.faq-item {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  transition: background 0.15s;
+}
+.faq-q:hover { background: var(--bg-2); }
+.faq-q .toggler {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Anton'; font-size: 1.2rem; color: var(--text-3);
+  transition: transform 0.2s, color 0.2s;
+}
+.faq-item.open .faq-q .toggler { transform: rotate(45deg); color: var(--red); }
+.faq-a {
+  padding: 0 24px;
+  max-height: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  line-height: 1.7;
+  transition: max-height 0.3s, padding 0.3s;
+}
+.faq-item.open .faq-a {
+  padding: 0 24px 22px;
+  max-height: 600px;
+}
+</style>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="main" class="container" style="max-width: 800px; padding-top: 60px; padding-bottom: 80px;">
+  <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
+  <h1 data-fx="blur" style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 28px;">FAQ</h1>
+
+  <div id="faq">
+    <div class="faq-item">
+      <div class="faq-q"><span>How is my e1RM calculated?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>We use the RPE-percentage formula popular in the strength community (Tuchscherer / RTS style):</p>
+        <p style="margin-top:8px; font-family: 'Space Grotesk', monospace; background: var(--bg-2); padding: 10px 14px; border-radius: 6px;">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
+        <p style="margin-top:8px">A 1-rep set at RPE 10 returns exactly your weight (correct, that IS your 1-rep max). A 5×5 at RPE 8 returns about 1.25 × the weight. For non-competition variants we then multiply by the variant multiplier (e.g. paused squat × 1.07) to estimate what you'd hit in the comp version of the lift. The result is what gets plotted on your e1RM chart.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>What's RPE and why do you use it?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>RPE = Rate of Perceived Exertion. A 1–10 scale where 10 means you couldn't have done another rep, 9 means one rep left, 8 means two reps left, and so on. It's the most reliable way for athletes to self-regulate intensity day to day, because percentages of your true 1RM change with sleep, stress, life. RPE-based programming is what most modern powerlifting coaches use. POWALIFTA is built around it natively rather than %1RM.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Why "competition equivalent" e1RM?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Different lift variations are harder than competition lifts. A paused squat at 100kg is harder than a competition squat at 100kg. So when you log a paused squat, we scale up the e1RM by 1.07 to estimate what you'd actually be able to do in the comp version. This way your chart compares apples to apples — you can see your "comp" strength trending without having to do comp lifts every session.</p>
+        <p style="margin-top:8px">Multipliers used: paused squat ×1.07, tempo squat ×1.12, pin squat ×1.08; paused bench ×1.06, close grip ×1.09, pin press ×1.08, incline ×1.12; paused deadlift ×1.07, deficit ×1.06, RDL ×1.10.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Can I use POWALIFTA without a coach?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Yes. Sign up as an athlete without an invite code and you can build your own programs (you'd need a coach account to do that — the program builder is a coach feature). Or just log sets as you do them and let the e1RM, goals, and bodyweight tracking do their thing. The platform is designed for coach-athlete pairs but works fine self-coached.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Is there a mobile app?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Not yet — we run as a mobile-friendly website. You can save it to your phone's home screen for an app-like experience: open the site in Safari/Chrome, tap Share → Add to Home Screen. A native app is on the roadmap.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Is my data synced across devices?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Yes. Your account and training data live in a secure cloud database — log in from your phone at the gym and your laptop at home and you'll see the same programs, logs, and charts everywhere. Coach-athlete connections are live too: when you log a set, your coach sees it.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>How do coaches get paid for plans?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Coach plans (Free up to 3 athletes, Basic $25/mo for 4–10, Pro $50/mo for 11–25, Premium $100/mo for 26+) are billed via Lemon Squeezy. Coaches handle athlete billing on their own — POWALIFTA is the platform, not a payment processor for coaching fees.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>What if I forget my password?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Click "Forgot password?" under the login form. We'll email you a reset link — open it on the same device and you'll be taken to a page where you can set a new password. The link expires after about an hour for security. Check your spam folder if you don't see the email within a couple of minutes. If you still can't get in, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Can I export my data?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>Yes — instantly, no waiting. Open <strong>Settings</strong> from the top-right menu on your dashboard and use the <strong>Export</strong> buttons under "Your data." <strong>JSON</strong> is the complete archive of everything we hold for your account; <strong>CSV</strong> is your training log, ready to open in Sheets/Excel or re-import anywhere. Coaches can also export any athlete's program as a spreadsheet from the program builder. Still prefer we handle it? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Does it work for non-powerlifting strength training?</span><span class="toggler">+</span></div>
+      <div class="faq-a">
+        <p>The platform is opinionated — built around squat / bench / deadlift, RPE, e1RM, and bodyweight tracking. You can use the "Other" exercise category for anything that doesn't fit (Olympic lifts, gymnastics, etc.) but the e1RM math is calibrated for typical powerlifting reps and won't be meaningful for, say, max-distance sprinting.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
+      <a href="guides.html" class="dim">Guides</a>
+      <a href="exercises.html" class="dim">Exercises</a>
+      <a href="about.html" class="dim">About</a>
+      <a href="faq.html" class="dim">FAQ</a>
+      <a href="privacy.html" class="dim">Privacy</a>
+      <a href="terms.html" class="dim">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" title="Follow @powa.lifta on Instagram" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      </a>
+      <a href="mailto:powalifta1320@gmail.com" class="dim" title="Email us" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('footMark').innerHTML = BRAND_MARK;
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.querySelector('.faq-q').addEventListener('click', () => item.classList.toggle('open'));
+});
+// Open the first one by default
+const first = document.querySelector('.faq-item');
+if (first) first.classList.add('open');
+</script>
+</body>
+</html>

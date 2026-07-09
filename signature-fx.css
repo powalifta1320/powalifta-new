@@ -1,0 +1,232 @@
+/* ============================================================
+ * POWALIFTA signature-fx — Kinetic Steel + Chalk Force.
+ *
+ * The hero's signature moment, rebuilt to be bulletproof:
+ *   1. The headline "BUILT FOR THE" renders as brushed liquid steel with a
+ *      rim-light that sweeps across it — done in PURE CSS on the real, selectable
+ *      <h1>. No WebGL, no canvas dependency: the text can never disappear.
+ *      "BARBELL." keeps the brand's one red.
+ *   2. A lightweight 2D-canvas chalk-dust field drifts behind the type, billows
+ *      off the cursor, settles on idle — and a single #ff2d3f force-line threads
+ *      through it. (signature-fx.js — additive, removable, motion-only.)
+ *
+ * Honoured hard rules: vanilla, no build step; real headline stays in the DOM
+ * for SEO + a11y; full reduced-motion fallback (static steel, no sweep, no
+ * canvas); mobile keeps a fast, clean LCP (canvas is desktop-gated in JS).
+ * ============================================================ */
+
+/* ---- the chalk + force-line canvas ---------------------------------------- */
+.fx-chalk-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;               /* above .hero-ghost (z1, painted earlier), below .container (z2) */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease;
+  will-change: opacity, transform;
+}
+.fx-chalk-canvas.fx-chalk-in { opacity: 1; }
+
+/* ---- liquid-steel headline ------------------------------------------------ */
+/* Guarded behind @supports so a browser without background-clip:text keeps the
+   normal solid headline instead of going transparent-and-invisible. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero h1 {
+    /* layer 1 = the travelling rim-light; layer 2 = the brushed-steel body */
+    background-image:
+      linear-gradient(105deg,
+        transparent 41%,
+        rgba(255, 255, 255, 0.85) 48%,
+        #ffffff 50%,
+        rgba(255, 255, 255, 0.7) 52%,
+        transparent 57%),
+      linear-gradient(176deg,
+        #ffffff 0%,
+        #dfe4ec 14%,
+        #aab2c0 30%,
+        #6c7382 44%,
+        #646b78 51%,
+        #828b9a 58%,
+        #c3c9d4 74%,
+        #f2f5fa 90%,
+        #ffffff 100%);
+    background-size: 280% 100%, 100% 100%;
+    background-position: 150% 0, 0 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    /* a faint cold cast so the metal sits in the dark scene; the brightness var
+       lets JS dim the steel as the hero hands off to the features section. */
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.08))
+            drop-shadow(0 18px 38px rgba(0, 0, 0, 0.55))
+            brightness(var(--fx-steel-bright, 1));
+    transition: filter 0.18s linear;
+    /* No looping sheen — the rim-light sweep fires once during the forge-in
+       (see .hero.fx-forge h1). At rest the headline is static brushed steel. */
+  }
+
+  /* Light theme: the dark-scene steel ramp (whites + pale grays) would wash out
+     to near-invisible on the light bg. Repaint with a graphite/gunmetal ramp —
+     dark brushed metal on paper — so the headline keeps its forged look and stays
+     legible (darkest band ~9:1 on #f7f7f9). The white rim-light still reads as a
+     polished glint travelling over the dark metal during the forge-in. */
+  [data-theme="light"] .hero h1 {
+    background-image:
+      linear-gradient(105deg,
+        transparent 41%,
+        rgba(255, 255, 255, 0.9) 48%,
+        #ffffff 50%,
+        rgba(255, 255, 255, 0.75) 52%,
+        transparent 57%),
+      linear-gradient(176deg,
+        #3b414c 0%,
+        #2a2e37 14%,
+        #4b5260 30%,
+        #1d212a 44%,
+        #181b22 51%,
+        #3d434f 58%,
+        #545b69 74%,
+        #2c3039 90%,
+        #3b414c 100%);
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35))
+            drop-shadow(0 14px 30px rgba(15, 15, 25, 0.22))
+            brightness(var(--fx-steel-bright, 1));
+  }
+
+  /* keep BARBELL. the one red — repaint over the steel, restore its red glow */
+  .hero h1 .accent {
+    background-image: var(--grad-red);
+    background-size: 100% 100%;
+    background-position: 0 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    filter: none;
+    animation: none;
+  }
+}
+
+@keyframes fxSteelSheen {
+  0%   { background-position: 150% 0, 0 0; }
+  55%  { background-position: -50% 0, 0 0; }
+  100% { background-position: -50% 0, 0 0; }   /* hold dark, then sweep again */
+}
+
+/* ---- forge-in entrance ---------------------------------------------------- */
+/* JS adds .fx-forge to .hero on first paint. The headline rises into place, then
+   the very first rim-light sweep lands as it settles (sheen is delayed to meet it).
+   Default (no JS / no class) = headline fully visible, so a headless render or a
+   failed script can never ship a blank hero. */
+.hero.fx-forge h1 {
+  animation:
+    fxForge 1.1s cubic-bezier(0.16, 1, 0.3, 1) both,
+    fxSteelSheen 2.6s cubic-bezier(0.45, 0, 0.2, 1) 0.7s 1 both;
+}
+@keyframes fxForge {
+  0%   { transform: translateY(0.16em) scale(0.984); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+
+/* Quiet the hero grid overlay so the steel + chalk own the stage (declutter). */
+.hero::after { opacity: 0.4; transition: opacity 0.9s ease; }
+
+/* And pull the giant POWALIFTA ghost wordmark back a step — at full strength it
+   competes with the steel headline for the peak first-load moment. It stays as
+   poster-depth texture; the headline wins. */
+.hero-ghost { opacity: 0.5; }
+
+/* ---- scroll cue ----------------------------------------------------------- */
+/* Sits at the foot of the hero, centred. It scrolls away with the header (it's
+   a hero child, not fixed), so it never floats over the content below. A small,
+   slow chevron bob — the only looping motion left on the hero, and a quiet one. */
+/* selector specificity (0,4,1) — must out-rank ui-fx's
+   `.hero a:not(.btn):not(.hero-demo-link)` (0,3,1) which otherwise forces
+   position:relative and knocks the cue off-centre. */
+.hero a.hero-scrollcue:not(.btn):not(.hero-demo-link) {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  z-index: 2;
+  text-decoration: none;
+  opacity: 0.62;
+  transition: opacity 0.25s ease;
+}
+.hero-scrollcue:hover { opacity: 1; }
+.hsc-label {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;          /* compensate the trailing tracking, keep it centred */
+  color: var(--text-3);
+}
+.hsc-chev {
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--red);
+  border-bottom: 2px solid var(--red);
+  transform: rotate(45deg);
+  animation: hscBob 2.1s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+@keyframes hscBob {
+  0%, 100% { transform: rotate(45deg) translate(0, 0); opacity: 0.55; }
+  50%      { transform: rotate(45deg) translate(3px, 3px); opacity: 1; }
+}
+@media (max-width: 760px) {
+  /* match the bumped base specificity (0,4,1) so the hide actually lands */
+  .hero a.hero-scrollcue:not(.btn):not(.hero-demo-link) { display: none; }
+}
+
+/* ---- reduced-motion: static steel, no sweep, no canvas -------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .fx-chalk-canvas { display: none !important; }
+  .hero h1, .hero.fx-forge h1 {
+    animation: none;
+    transform: none;
+    opacity: 1;
+    background-position: 38% 0, 0 0;
+  }
+  .hsc-chev { animation: none; opacity: 0.85; }
+}
+
+/* ---- forced-colors (Windows High Contrast): kill the clipped-text trick ----
+   In forced-colors mode the OS owns the palette; a gradient clipped to
+   transparent text can render as nothing. Drop the steel entirely and hand the
+   headline back to a solid system color so it's guaranteed visible. */
+@media (forced-colors: active) {
+  .hero h1,
+  [data-theme="light"] .hero h1,
+  .hero h1 .accent {
+    background: none !important;
+    -webkit-text-fill-color: CanvasText !important;
+    color: CanvasText !important;
+    filter: none !important;
+    animation: none !important;
+  }
+  .fx-chalk-canvas { display: none !important; }
+}
+
+/* ---- prefers-contrast: more — push the steel toward a brighter, flatter ramp
+   so the mid-grey bands don't dip under the contrast floor for users who asked
+   for maximum legibility. Keeps the metal read, drops the dark valleys. */
+@media (prefers-contrast: more) {
+  .hero h1 {
+    background-image: linear-gradient(176deg,
+      #ffffff 0%, #e9edf3 40%, #cfd5df 50%, #e9edf3 60%, #ffffff 100%) !important;
+    background-position: 0 0 !important;
+  }
+  [data-theme="light"] .hero h1 {
+    background-image: linear-gradient(176deg,
+      #1a1d24 0%, #2c313b 40%, #3a414e 50%, #2c313b 60%, #1a1d24 100%) !important;
+    background-position: 0 0 !important;
+  }
+}

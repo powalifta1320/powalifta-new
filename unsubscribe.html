@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email preferences — POWALIFTA</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<style>
+.unsub-wrap {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.unsub-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 36px 32px;
+  box-shadow: var(--shadow);
+}
+.unsub-card h1 {
+  font-size: 1.7rem;
+  letter-spacing: 0.005em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.unsub-card .unsub-sub { color: var(--text-2); font-size: 0.92rem; margin-bottom: 22px; line-height: 1.55; }
+/* Result banner atop the card once the one-click has resolved. */
+.unsub-result {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border-radius: var(--r);
+  margin-bottom: 22px; font-size: 0.92rem; line-height: 1.5;
+}
+.unsub-result.ok  { background: rgba(78,216,132,0.07); border: 1px solid rgba(78,216,132,0.28); color: var(--text); }
+.unsub-result.err { background: rgba(255,45,63,0.07);  border: 1px solid rgba(255,45,63,0.3);  color: var(--text); }
+.unsub-result .ur-ic {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700;
+}
+.unsub-result.ok  .ur-ic { background: rgba(78,216,132,0.16); color: var(--green); }
+.unsub-result.err .ur-ic { background: rgba(255,45,63,0.16);  color: var(--red); }
+.unsub-result .ur-title { display: block; font-weight: 700; margin-bottom: 3px; }
+.unsub-result .ur-body  { display: block; color: var(--text-2); }
+.unsub-prefs-head {
+  font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); font-weight: 700; margin: 4px 0 4px;
+}
+.unsub-loading { color: var(--text-3); font-size: 0.9rem; padding: 8px 0 18px; }
+.unsub-saving { min-height: 18px; font-size: 0.8rem; color: var(--text-3); margin-top: 10px; transition: opacity .2s; }
+</style>
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="main" class="unsub-wrap">
+  <div class="unsub-card">
+    <h1>Email <span style="color:var(--red)">preferences</span></h1>
+    <p class="unsub-sub">Manage which emails POWALIFTA sends you. Changes save instantly — no account login needed.</p>
+
+    <div id="unsubBody">
+      <div class="unsub-loading" id="unsubLoading">Updating your preferences…</div>
+    </div>
+
+    <p class="dim text-sm center" style="margin-top: 20px;">
+      <a href="index.html">← Back to home</a>
+    </p>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+// Token-based, unauthenticated email-preference manager (#36). The ?token=
+// UUID is the whole credential; the `unsubscribe` edge function resolves it
+// server-side. On load we honour the one-click intent — the footer link is a
+// weekly-digest unsubscribe — then render toggles for granular control + undo.
+(function () {
+  const params = new URLSearchParams(location.search);
+  const token = (params.get('token') || '').trim();
+  const body = document.getElementById('unsubBody');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function prefRow(id, label, sub, checked) {
+    return '<label class="email-pref-row" for="' + id + '">' +
+      '<span class="epr-text">' +
+        '<span class="epr-label">' + esc(label) + '</span>' +
+        '<span class="epr-sub dim text-xs">' + esc(sub) + '</span>' +
+      '</span>' +
+      '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + '>' +
+    '</label>';
+  }
+
+  function renderInvalid(msg) {
+    body.innerHTML =
+      '<div class="unsub-result err">' +
+        '<span class="ur-ic">!</span>' +
+        '<span><span class="ur-title">This link isn\'t valid</span>' +
+        '<span class="ur-body">' + esc(msg || 'The unsubscribe link is invalid or has expired. You can manage every email preference from Settings inside the app.') + '</span></span>' +
+      '</div>' +
+      '<a class="btn btn-primary btn-block" href="athlete.html">Manage preferences in Settings</a>';
+  }
+
+  function renderPrefs(state, note) {
+    const weekly = state.weeklyDigest !== false;
+    const product = state.productEmails !== false;
+    body.innerHTML =
+      '<div class="unsub-result ok">' +
+        '<span class="ur-ic">&#10003;</span>' +
+        '<span><span class="ur-title">' + esc(note.title) + '</span>' +
+        '<span class="ur-body">' + esc(note.msg) + '</span></span>' +
+      '</div>' +
+      '<div class="unsub-prefs-head">Your emails</div>' +
+      prefRow('epWeekly', 'Weekly progress email',
+        'A Monday recap of your last 7 days — sessions, tonnage, best e1RMs.', weekly) +
+      prefRow('epProduct', 'Product tips & announcements',
+        'Occasional notes on new features. No spam, ever.', product) +
+      '<div class="unsub-saving" id="unsubSaving"></div>';
+
+    const saving = document.getElementById('unsubSaving');
+    let hideTimer = null;
+    function flash(text, isErr) {
+      saving.textContent = text;
+      saving.style.color = isErr ? 'var(--red)' : 'var(--text-3)';
+      saving.style.opacity = '1';
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(function () { saving.style.opacity = '0'; }, 2200);
+    }
+
+    function wire(elId, key) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.addEventListener('change', async function () {
+        const want = el.checked;
+        el.disabled = true;
+        flash('Saving…', false);
+        const patch = {}; patch[key] = want;
+        const res = await DB.unsubscribeEmail(token, patch);
+        el.disabled = false;
+        if (res && res.ok) {
+          // Trust the server's returned state (source of truth).
+          if (key === 'weeklyDigest') el.checked = res.weeklyDigest !== false;
+          if (key === 'productEmails') el.checked = res.productEmails !== false;
+          flash('Saved.', false);
+        } else {
+          el.checked = !want; // revert the optimistic flip
+          flash('Couldn\'t save — try again.', true);
+        }
+      });
+    }
+    wire('epWeekly', 'weeklyDigest');
+    wire('epProduct', 'productEmails');
+  }
+
+  async function boot() {
+    if (!token) { renderInvalid('This page needs the unsubscribe link from one of your emails.'); return; }
+    // Honour the one-click intent: the footer link unsubscribes from the weekly
+    // digest. This mutates then returns the full resulting state.
+    const res = await DB.unsubscribeEmail(token, { weeklyDigest: false });
+    if (!res || !res.ok) {
+      if (res && res.reason === 'invalid link') { renderInvalid(); return; }
+      renderInvalid('Something went wrong reaching our servers. You can manage every email preference from Settings inside the app.');
+      return;
+    }
+    renderPrefs(res, {
+      title: 'You\'re unsubscribed from weekly emails',
+      msg: 'We won\'t send the Monday progress recap anymore. Changed your mind? Flip it back on below.'
+    });
+  }
+
+  // Render nav + theme via the shared bootstrap (static/public mode), then boot.
+  bootstrap(null, function () {
+    if (typeof renderNav === 'function') renderNav('#nav');
+    boot();
+  }, { staticPublic: true });
+})();
+</script>
+</body>
+</html>

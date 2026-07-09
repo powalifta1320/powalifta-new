@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>POWALIFTA — test harness</title>
+<style>
+  :root{
+    --bg:#0b0b0c; --bg-1:#111114; --line:#23232a;
+    --red:#ff2d3f; --green:#4ed884; --gold:#ffce54; --dim:#8a8a93;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:#f4f4f6;
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; padding:40px 24px 80px;
+  }
+  .wrap{max-width:860px; margin:0 auto}
+  h1{
+    font-family:'Anton',Impact,sans-serif; font-weight:400; letter-spacing:.02em;
+    text-transform:uppercase; font-size:34px; margin:0 0 4px;
+  }
+  h1 .red{color:var(--red)}
+  .sub{color:var(--dim); font-size:14px; margin:0 0 24px}
+  .summary{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    background:var(--bg-1); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:22px;
+  }
+  .pill{
+    font-family:'Space Grotesk',monospace; font-size:13px; font-weight:600;
+    padding:6px 12px; border-radius:999px; border:1px solid var(--line);
+  }
+  .pill.tot{color:#f4f4f6}
+  .pill.pass{color:var(--green); border-color:rgba(78,216,132,.4); background:rgba(78,216,132,.08)}
+  .pill.fail{color:var(--red); border-color:rgba(255,45,63,.4); background:rgba(255,45,63,.08)}
+  .pill.skip{color:var(--gold); border-color:rgba(255,206,84,.4); background:rgba(255,206,84,.08)}
+  .pill.dur{color:var(--dim); margin-left:auto}
+  button.rerun{
+    margin-left:8px; cursor:pointer; font-family:inherit; font-weight:700; font-size:13px;
+    color:#0b0b0c; background:var(--red); border:0; border-radius:999px; padding:8px 16px;
+  }
+  .banner{
+    border-radius:12px; padding:12px 16px; margin-bottom:22px; font-weight:700; font-size:15px;
+    font-family:'Space Grotesk',monospace;
+  }
+  .banner.ok{color:var(--green); background:rgba(78,216,132,.1); border:1px solid rgba(78,216,132,.4)}
+  .banner.bad{color:var(--red); background:rgba(255,45,63,.1); border:1px solid rgba(255,45,63,.4)}
+  .grp{margin-bottom:22px}
+  .grp-h{
+    font-family:'Space Grotesk',monospace; text-transform:uppercase; letter-spacing:.08em;
+    font-size:12px; color:var(--dim); margin:0 0 8px; padding-left:2px;
+  }
+  .case{
+    display:flex; gap:10px; align-items:flex-start;
+    padding:9px 14px; border:1px solid var(--line); border-top:0; background:var(--bg-1);
+    font-size:14px;
+  }
+  .grp .case:first-of-type{border-top:1px solid var(--line); border-radius:10px 10px 0 0}
+  .grp .case:last-of-type{border-radius:0 0 10px 10px}
+  .grp .case:only-of-type{border-radius:10px}
+  .mark{font-weight:700; flex:0 0 auto; width:18px; text-align:center}
+  .mark.p{color:var(--green)}
+  .mark.f{color:var(--red)}
+  .mark.s{color:var(--gold)}
+  .ctext{flex:1; min-width:0}
+  .cname{color:#e8e8ee}
+  .cerr{
+    color:var(--red); font-family:'Space Grotesk',monospace; font-size:12.5px;
+    margin-top:4px; white-space:pre-wrap; word-break:break-word;
+  }
+  .cnote{color:var(--gold); font-size:12.5px; margin-top:3px; font-family:'Space Grotesk',monospace}
+  iframe.sandbox{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; border:0; left:-9999px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>POWA<span class="red">LIFTA</span> · TEST HARNESS</h1>
+  <p class="sub">Runs the shared core (e1RM, variants, units, PRs, weekly delta, totals, signals, export) plus an importer round-trip. No build step — pure in-browser assertions against <code>app.js</code>.</p>
+  <div class="summary" id="summary">
+    <span class="pill tot">running…</span>
+    <button class="rerun" onclick="location.reload()">Re-run</button>
+  </div>
+  <div id="banner"></div>
+  <div id="results"></div>
+</div>
+
+<!-- Shared library under test. db.js intentionally omitted: the tested functions
+     are pure (Store + window._user only) and never touch Supabase. -->
+<script src="app.js"></script>
+<script>
+/* ===========================================================
+   Tiny zero-dependency test framework
+   =========================================================== */
+const T = { pass: 0, fail: 0, skip: 0, groups: [] };
+let _cur = null;
+function group(name) { _cur = { name, cases: [] }; T.groups.push(_cur); }
+function test(name, fn) {
+  const c = { name, status: 'pass', err: '' };
+  try { fn(); T.pass++; }
+  catch (e) { c.status = 'fail'; c.err = (e && e.message) || String(e); T.fail++; }
+  _cur.cases.push(c);
+}
+function skip(name, reason) {
+  _cur.cases.push({ name, status: 'skip', err: reason || '' });
+  T.skip++;
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+function eq(actual, expected, msg) {
+  if (actual !== expected) throw new Error((msg ? msg + ' — ' : '') + 'expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+}
+function close(actual, expected, eps, msg) {
+  eps = eps == null ? 0.01 : eps;
+  if (typeof actual !== 'number' || !isFinite(actual) || Math.abs(actual - expected) > eps)
+    throw new Error((msg ? msg + ' — ' : '') + 'expected ≈' + expected + ' (±' + eps + '), got ' + actual);
+}
+
+/* ===========================================================
+   State helpers
+   =========================================================== */
+function resetState() { Store.reset(); window._user = null; }
+function seed(partial) {
+  Store.update(s => { Object.keys(partial).forEach(k => { s[k] = partial[k]; }); });
+}
+const iso = d => d.toISOString().slice(0, 10);
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+
+/* ===========================================================
+   1. e1RM math
+   =========================================================== */
+group('e1RM math');
+test('zero inputs → 0', () => eq(calcE1RM(0, 5, 8), 0));
+test('1 rep @ RPE 10 returns the weight itself', () => eq(calcE1RM(100, 1, 10), 100));
+test('100×5 @ RPE 8 ≈ 124.97', () => close(calcE1RM(100, 5, 8), 124.97, 0.1));
+test('higher RPE → lower e1RM (fewer reps in reserve)', () => assert(calcE1RM(100, 5, 9) < calcE1RM(100, 5, 8)));
+test('more reps → higher e1RM', () => assert(calcE1RM(100, 6, 8) > calcE1RM(100, 5, 8)));
+test('extreme fatigue floors at weight/0.4 (=250)', () => close(calcE1RM(100, 30, 1), 250, 0.01));
+
+/* ===========================================================
+   2. Variant multipliers
+   =========================================================== */
+group('variant multipliers');
+test('squat Competition = 1.0', () => eq(multiplierFor('squat', 'Competition'), 1.0));
+test('bench Close Grip = 1.09', () => eq(multiplierFor('bench', 'Close Grip'), 1.09));
+test('deadlift Deficit = 1.06', () => eq(multiplierFor('deadlift', 'Deficit'), 1.06));
+test('unknown variant falls back to 1.0', () => eq(multiplierFor('squat', 'Nope'), 1.0));
+test('unknown lift falls back to 1.0', () => eq(multiplierFor('zercher', 'Competition'), 1.0));
+test('comp e1RM scales by multiplier (CG bench 1×RPE10)', () => close(calcCompE1RM(100, 1, 10, 'bench', 'Close Grip'), 109, 0.01));
+
+/* ===========================================================
+   3. Unit conversion (saves & restores the user's real setting)
+   =========================================================== */
+group('unit conversion');
+(() => {
+  const saved = (() => { try { return localStorage.getItem('powa-unit'); } catch { return null; } })();
+  try {
+    setUnit('kg');
+    test('kg mode: 100kg displays as 100', () => eq(kgToDisplay(100), 100));
+    test('kg mode: displayToKg is identity', () => eq(displayToKg(100), 100));
+    setUnit('lbs');
+    test('lbs mode: 100kg ≈ 220.5 lb', () => close(kgToDisplay(100, 1), 220.5, 0.1));
+    test('lbs mode: 225 lb entry ≈ 102.06 kg', () => close(displayToKg(225), 102.058, 0.01));
+    test('lbs round-trip kg→display→kg is lossless', () => close(displayToKg(kgToDisplay(142.5, 6)), 142.5, 0.001));
+    test('empty string passes through unchanged', () => eq(displayToKg(''), ''));
+  } finally {
+    // Restore so the harness never clobbers the real app's unit preference.
+    try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch {}
+  }
+})();
+
+/* ===========================================================
+   4. PR detection
+   =========================================================== */
+group('PR detection');
+(() => {
+  resetState();
+  const L = (id, date, e) => ({ id, athleteId: 'ath1', lift: 'squat', variant: 'Competition', e1rmComp: e, date });
+  const a = L('l1', '2026-01-01', 100), b = L('l2', '2026-01-02', 105), c = L('l3', '2026-01-03', 102);
+  seed({ workoutLogs: [a, b, c] });
+  test('first-ever log of a lift is a PR', () => eq(isPRForLog('ath1', a), true));
+  test('beating prior best is a PR', () => eq(isPRForLog('ath1', b), true));
+  test('below prior best is NOT a PR', () => eq(isPRForLog('ath1', c), false));
+  resetState();
+})();
+
+/* ===========================================================
+   5. Weekly delta
+   =========================================================== */
+group('weekly delta');
+(() => {
+  resetState();
+  seed({ workoutLogs: [
+    { id: 'w1', athleteId: 'ath1', lift: 'squat', e1rmComp: 100, date: daysAgo(9) },  // prev week
+    { id: 'w2', athleteId: 'ath1', lift: 'squat', e1rmComp: 110, date: daysAgo(1) },  // this week
+  ] });
+  const d = getWeeklyDelta('ath1');
+  test('squat delta = +10 this week vs last', () => close(d.squat.delta, 10, 0.001));
+  test('current best reflected', () => close(d.squat.current, 110, 0.001));
+  resetState();
+})();
+
+/* ===========================================================
+   6. Best e1RM / current total
+   =========================================================== */
+group('best e1RM & total');
+(() => {
+  resetState();
+  seed({ workoutLogs: [
+    { id: 's1', athleteId: 'ath1', lift: 'squat', e1rmComp: 100, date: '2026-01-01' },
+    { id: 's2', athleteId: 'ath1', lift: 'squat', e1rmComp: 120, date: '2026-01-02' },
+    { id: 'b1', athleteId: 'ath1', lift: 'bench', e1rmComp: 80, date: '2026-01-01' },
+    { id: 'd1', athleteId: 'ath1', lift: 'deadlift', e1rmComp: 150, date: '2026-01-01' },
+    { id: 'x1', athleteId: 'other', lift: 'squat', e1rmComp: 999, date: '2026-01-01' },
+  ] });
+  test('bestE1RM picks the max for the athlete', () => eq(bestE1RM('ath1', 'squat'), 120));
+  test('foreign athlete logs are excluded', () => eq(bestE1RM('ath1', 'squat') !== 999, true));
+  test('currentTotal sums best SBD (120+80+150=350)', () => eq(currentTotal('ath1'), 350));
+  resetState();
+})();
+
+/* ===========================================================
+   6b. Lift balance (SBD split vs typical raw ranges)
+   =========================================================== */
+group('lift balance');
+(() => {
+  test('null when any lift is missing', () => eq(liftBalance(200, 0, 240), null));
+  test('null when total is zero', () => eq(liftBalance(0, 0, 0), null));
+  test('shares sum to 1', () => {
+    const b = liftBalance(200, 130, 240);
+    close(b.rows.reduce((s, r) => s + r.share, 0), 1, 1e-9);
+  });
+  test('balanced split flags no weakest lift', () => {
+    // 35% / 23% / 42% of 600 → all inside their bands
+    const b = liftBalance(210, 138, 252);
+    eq(b.weakest, null);
+    assert(b.rows.every(r => r.status === 'balanced'), 'expected all balanced');
+  });
+  test('low bench is flagged lagging and chosen as weakest', () => {
+    // bench only ~15% of total
+    const b = liftBalance(220, 70, 250);
+    const bench = b.rows.find(r => r.lift === 'bench');
+    eq(bench.status, 'lagging');
+    eq(b.weakest.lift, 'bench');
+  });
+  test('oversized deadlift reads as strong', () => {
+    const b = liftBalance(150, 100, 320);
+    eq(b.rows.find(r => r.lift === 'deadlift').status, 'strong');
+  });
+  test('unit-agnostic: scaling all three keeps statuses', () => {
+    const a = liftBalance(220, 70, 250);
+    const b = liftBalance(220 * 2.2046, 70 * 2.2046, 250 * 2.2046);
+    eq(a.weakest.lift, b.weakest.lift);
+  });
+})();
+
+/* ===========================================================
+   7. Signal center — coach
+   =========================================================== */
+group('signals · coach');
+(() => {
+  resetState();
+  window._user = { id: 'coach1', name: 'Coach Bob', userType: 'coach' };
+  Store.update(s => {
+    s.athletes = [{ id: 'ath1', name: 'Test Athlete', coachId: 'coach1' }];
+    s.sessionNotes = [{ id: 'n1', athleteId: 'ath1', note: 'felt heavy', date: '2026-06-01' }]; // no coachComment
+    s.checkins = [{ id: 'c1', athleteId: 'ath1', feel: 8, sleep: 7, stress: 3, weekStart: '2026-06-22' }];
+    s.workoutLogs = [];
+  });
+  const sig = computeSignals();
+  test('athlete note awaiting reply surfaces', () => assert(sig.some(x => x.id === 'cnote-n1' && x.type === 'reply'), 'no cnote-n1 in ' + JSON.stringify(sig.map(s => s.id))));
+  test('check-in surfaces as a signal', () => assert(sig.some(x => x.id === 'cci-c1' && x.type === 'checkin')));
+  test('note already replied to is suppressed', () => {
+    Store.update(s => { s.sessionNotes[0].coachComment = 'good work'; });
+    assert(!computeSignals().some(x => x.id === 'cnote-n1'));
+  });
+  resetState();
+})();
+
+/* ===========================================================
+   8. Signal center — athlete
+   =========================================================== */
+group('signals · athlete');
+(() => {
+  resetState();
+  window._user = { id: 'ath1', name: 'Test Athlete', userType: 'athlete', coachId: 'coach1' };
+  Store.update(s => {
+    s.coaches = [{ id: 'coach1', name: 'Coach Bob' }];
+    s.sessionNotes = [{ id: 'n2', athleteId: 'ath1', coachComment: 'great session', date: '2026-06-01' }];
+    s.checkins = [];
+  });
+  const sig = computeSignals();
+  test('coach reply surfaces with coach name', () => {
+    const r = sig.find(x => x.id === 'areply-n2');
+    assert(r && /Coach Bob/.test(r.title), 'reply missing or unnamed: ' + JSON.stringify(r));
+  });
+  test('weekly check-in due when none submitted', () => assert(sig.some(x => x.type === 'checkin' && x.id.indexOf('aci-due-') === 0)));
+  resetState();
+})();
+
+/* ===========================================================
+   9. Data export
+   =========================================================== */
+group('data export');
+(() => {
+  resetState();
+  window._user = { id: 'ath1', name: 'Test Athlete', email: 'a@b.com', userType: 'athlete', coachId: 'coach1' };
+  Store.update(s => {
+    s.workoutLogs = [
+      { id: 'l1', athleteId: 'ath1', lift: 'squat', variant: 'Competition', weight: 150, reps: 3, rpe: 8, e1rm: 170.4, date: '2026-06-01', note: 'crisp' },
+      { id: 'l2', athleteId: 'ath1', lift: 'accessory', exerciseName: 'Bicep Curls', variant: '', weight: 20, reps: 12, rpe: 9, e1rm: 0, date: '2026-06-02', note: '' },
+      { id: 'l3', athleteId: 'other', lift: 'bench', variant: 'Competition', weight: 100, reps: 5, rpe: 8, e1rm: 124, date: '2026-06-01', note: '' },
+    ];
+    s.bodyweight = [{ id: 'bw1', athleteId: 'ath1', date: '2026-06-01', weight: 84 }];
+  });
+  const payload = buildExportPayload();
+  test('payload account id matches user', () => eq(payload.account.id, 'ath1'));
+  test('only the athlete\'s own logs are exported', () => eq(payload.workoutLogs.length, 2));
+  test('bodyweight included for athlete', () => eq(payload.bodyweight.length, 1));
+
+  const csv = _logsToCsv();
+  const lines = csv.split('\n');
+  test('CSV header has no colliding exercise column', () => eq(lines[0], 'date,lift,variant,weight_kg,reps,rpe,e1rm_kg,note'));
+  test('accessory name lands in the lift column', () => {
+    const row = lines.find(l => l.indexOf('Bicep Curls') >= 0);
+    assert(row && row.indexOf('2026-06-02,Bicep Curls,') === 0, 'row was: ' + row);
+  });
+  test('weights exported in kg (150), not converted', () => assert(lines.some(l => l.indexOf(',squat,Competition,150,') >= 0)));
+  test('foreign athlete logs excluded from CSV', () => assert(!csv.includes('2026-06-01,bench')));
+  resetState();
+})();
+
+/* ===========================================================
+   9b. Program → spreadsheet export
+   =========================================================== */
+group('program export');
+(() => {
+  const saved = (() => { try { return localStorage.getItem('powa-unit'); } catch { return null; } })();
+  try {
+    setUnit('kg');
+    const program = { id: 'p1', athleteId: 'ath1', name: 'Test Block', weeks: [
+      { number: 1, days: [
+        { id: 'd1', name: 'Squat Day', exercises: [
+          { id: 'e1', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'brace hard', sets: [
+            { weight: 150, reps: 5, rpe: 7 }, { weight: 150, reps: 5, rpe: 8 } ] },
+          { id: 'e2', lift: 'legs', variant: '', exerciseName: 'Leg Curls', note: '', sets: [
+            { weight: 30, reps: 12, rpe: 8 } ] },
+        ] },
+        { id: 'd2', name: 'Rest', exercises: [] },
+      ] },
+    ] };
+    const csv = buildProgramCsv(program);
+    const lines = csv.split('\n');
+    test('header carries the unit + tracking columns', () =>
+      eq(lines[0], 'week,day,exercise,variant,set,weight (kg),reps,target_rpe,done,actual_weight,actual_rpe,notes'));
+    test('one row per prescribed set', () =>
+      eq(lines.filter(l => l.indexOf('Week 1,Squat Day,Squat,Competition,') === 0).length, 2));
+    test('main lift labelled, variant in its own column, kg weight', () =>
+      assert(lines.some(l => l.indexOf('Week 1,Squat Day,Squat,Competition,1,150,5,7,,,,brace hard') === 0)));
+    test('coach note only on the first set of an exercise', () => {
+      const set2 = lines.find(l => l.indexOf('Week 1,Squat Day,Squat,Competition,2,') === 0);
+      assert(set2 && /,,,,$/.test(set2), 'set 2 row was: ' + set2);
+    });
+    test('accessory keeps its name', () =>
+      assert(lines.some(l => l.indexOf('Week 1,Squat Day,Leg Curls,,1,30,12,8,') === 0)));
+    test('rest day emits a marker row', () =>
+      assert(lines.some(l => l.indexOf('Week 1,Rest,— Rest day —,') === 0)));
+    setUnit('lbs');
+    test('lbs mode: header + weight convert (150kg ≈ 330.7lb)', () => {
+      const l = buildProgramCsv(program).split('\n');
+      assert(l[0].indexOf('weight (lbs)') >= 0, 'header: ' + l[0]);
+      assert(l.some(r => r.indexOf('Week 1,Squat Day,Squat,Competition,1,330.7,') === 0), 'no converted row');
+    });
+  } finally {
+    try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch {}
+  }
+})();
+
+group('marketplace reviews');
+test('reviewStats: empty list → zeros', () => {
+  const s = reviewStats([]);
+  eq(s.count, 0); eq(s.avg, 0); eq(s.rounded, 0);
+});
+test('reviewStats: average rounded to 1 decimal', () => {
+  const s = reviewStats([{ rating: 5 }, { rating: 4 }, { rating: 4 }]); // 13/3 = 4.333
+  eq(s.count, 3); eq(s.avg, 4.3); eq(s.rounded, 4);
+});
+test('reviewStats: distribution buckets each rating', () => {
+  const s = reviewStats([{ rating: 5 }, { rating: 5 }, { rating: 3 }, { rating: 1 }]);
+  eq(s.dist[5], 2); eq(s.dist[3], 1); eq(s.dist[1], 1); eq(s.dist[2], 0);
+});
+test('reviewStats: drops out-of-range / malformed entries', () => {
+  const s = reviewStats([{ rating: 5 }, { rating: 0 }, { rating: 6 }, null, { rating: 3 }]);
+  eq(s.count, 2); eq(s.avg, 4); // (5+3)/2
+});
+test('reviewStats: non-array input is safe', () => {
+  const s = reviewStats(null);
+  eq(s.count, 0); eq(s.avg, 0);
+});
+test('starString: fills round(value) of 5 glyphs', () => {
+  eq(starString(0), '☆☆☆☆☆');
+  eq(starString(4.4), '★★★★☆');
+  eq(starString(5), '★★★★★');
+});
+test('starString: clamps out-of-range input', () => {
+  eq(starString(99), '★★★★★');
+  eq(starString(-3), '☆☆☆☆☆');
+});
+test('starsHtml: emits 5 spans, filled ones marked st-on', () => {
+  const h = starsHtml(3);
+  eq((h.match(/st-on/g) || []).length, 3);
+  eq((h.match(/st-off/g) || []).length, 2);
+});
+
+/* ===========================================================
+   8b. Referral rewards ledger (migration-referral-rewards)
+   Pure earn-gating: a tier is `earned` only when count >= at; claims
+   merge in by tier_at; the server still re-checks on claim.
+   =========================================================== */
+group('referral rewards');
+test('ledger: one row per tier, in order', () => {
+  const l = referralRewardsLedger(0, []);
+  eq(l.length, REFERRAL_TIERS.length);
+  eq(l[0].at, 1); eq(l[l.length - 1].at, 25);
+  assert(l.every(r => r.reward && r.reward.length), 'every tier carries reward copy');
+});
+test('ledger: count gates earned + remaining', () => {
+  const l = referralRewardsLedger(5, []);
+  const byAt = {}; l.forEach(r => { byAt[r.at] = r; });
+  eq(byAt[1].earned, true); eq(byAt[3].earned, true); eq(byAt[5].earned, true);
+  eq(byAt[10].earned, false); eq(byAt[25].earned, false);
+  eq(byAt[5].remaining, 0); eq(byAt[10].remaining, 5); eq(byAt[25].remaining, 20);
+});
+test('ledger: zero referrals earns nothing', () => {
+  const l = referralRewardsLedger(0, []);
+  assert(l.every(r => !r.earned), 'nothing earned at 0');
+  assert(l.every(r => !r.claimed), 'nothing claimed at 0');
+});
+test('ledger: claims merge by tier (object form)', () => {
+  const l = referralRewardsLedger(10, [{ tierAt: 1, status: 'requested' }, { tierAt: 3, status: 'fulfilled' }]);
+  const byAt = {}; l.forEach(r => { byAt[r.at] = r; });
+  eq(byAt[1].claimed, true); eq(byAt[1].status, 'requested');
+  eq(byAt[3].claimed, true); eq(byAt[3].status, 'fulfilled');
+  eq(byAt[5].claimed, false); eq(byAt[5].status, null);
+});
+test('ledger: claims accept plain tier numbers', () => {
+  const l = referralRewardsLedger(3, [1, 3]);
+  const byAt = {}; l.forEach(r => { byAt[r.at] = r; });
+  eq(byAt[1].claimed, true); eq(byAt[1].status, 'requested');
+  eq(byAt[3].claimed, true);
+});
+test('ledger: bad / missing count is treated as zero', () => {
+  assert(referralRewardsLedger(null, []).every(r => !r.earned), 'null → 0');
+  assert(referralRewardsLedger(undefined).every(r => !r.earned), 'undefined → 0, claims optional');
+  assert(referralRewardsLedger(-4, []).every(r => !r.earned), 'negative → 0');
+});
+test('rewards html: claimable tier renders a Claim button, locked shows "more"', () => {
+  const h = referralRewardsHtml(referralRewardsLedger(1, []));
+  assert(/rr-claim/.test(h), 'tier 1 earned → claim button');
+  assert(/claimReferralReward\(1,/.test(h), 'wires the tier into the handler');
+  assert(/2 more/.test(h), 'tier 3 locked shows remaining');
+});
+test('rewards html: claimed tier shows its status, not a button', () => {
+  const h = referralRewardsHtml(referralRewardsLedger(3, [{ tierAt: 1, status: 'requested' }]));
+  assert(/Requested/.test(h), 'requested state shown');
+  assert(!/claimReferralReward\(1,/.test(h), 'no claim button for the claimed tier');
+  assert(/claimReferralReward\(3,/.test(h), 'tier 3 is earned + unclaimed → still claimable');
+});
+
+/* ===========================================================
+   9b-ii. DOTS leaderboard — pure rank + row rendering
+   (rankLeaderboard / leaderboardRowsHtml in app.js; the opt-in toggle +
+   DB layer are integration-only and excluded from this pure harness)
+   =========================================================== */
+group('leaderboard');
+test('rank: sorts by DOTS desc, total breaks ties', () => {
+  const r = rankLeaderboard([
+    { userId: 'a', dots: 460, totalKg: 700 },
+    { userId: 'b', dots: 500, totalKg: 600 },
+    { userId: 'c', dots: 480, totalKg: 550 },
+    { userId: 'd', dots: 480, totalKg: 800 }  // same DOTS as c, bigger total → ahead
+  ]);
+  eq(r.map(e => e.userId).join(','), 'b,d,c,a');
+});
+test('rank: standard competition ranks, ties share (1,2,2,4)', () => {
+  const r = rankLeaderboard([
+    { userId: 'a', dots: 500, totalKg: 600 },
+    { userId: 'b', dots: 480, totalKg: 600 },
+    { userId: 'c', dots: 480, totalKg: 590 },
+    { userId: 'd', dots: 460, totalKg: 600 }
+  ]);
+  eq(r.map(e => e.rank).join(','), '1,2,2,4');
+});
+test('rank: drops non-positive DOTS', () => {
+  const r = rankLeaderboard([
+    { userId: 'a', dots: 400, totalKg: 500 },
+    { userId: 'b', dots: 0, totalKg: 500 },
+    { userId: 'c', dots: -5, totalKg: 500 },
+    { userId: 'd', dots: null, totalKg: 500 }
+  ]);
+  eq(r.length, 1); eq(r[0].userId, 'a');
+});
+test('rank: does not mutate the input array', () => {
+  const input = [{ userId: 'a', dots: 400, totalKg: 500 }, { userId: 'b', dots: 450, totalKg: 500 }];
+  const snapshot = input.map(e => e.userId).join(',');
+  rankLeaderboard(input);
+  eq(input.map(e => e.userId).join(','), snapshot);  // order untouched
+  assert(input[0].rank === undefined, 'no rank stamped onto the source objects');
+});
+test('rows html: empty board → friendly empty state', () => {
+  const h = leaderboardRowsHtml([]);
+  assert(/lb-empty/.test(h), 'empty class present');
+  assert(!/lb-row/.test(h), 'no rows rendered');
+});
+test('rows html: renders rank, escaped name, and DOTS', () => {
+  const ranked = rankLeaderboard([
+    { userId: 'a', displayName: 'Priya <3', sex: 'female', bodyweightKg: 63, totalKg: 460, dots: 470 }
+  ]);
+  const h = leaderboardRowsHtml(ranked);
+  assert(/lb-row/.test(h), 'a row is rendered');
+  assert(/Priya &lt;3/.test(h), 'name is HTML-escaped');
+  assert(/470\.0/.test(h), 'DOTS shown to one decimal');
+});
+test('rows html: highlightUserId flags the caller, top 3 get medals', () => {
+  const ranked = rankLeaderboard([
+    { userId: 'a', displayName: 'A', dots: 500, totalKg: 600 },
+    { userId: 'b', displayName: 'B', dots: 480, totalKg: 600 },
+    { userId: 'c', displayName: 'C', dots: 460, totalKg: 600 },
+    { userId: 'd', displayName: 'D', dots: 440, totalKg: 600 }
+  ]);
+  const h = leaderboardRowsHtml(ranked, { highlightUserId: 'b' });
+  assert(/lb-medal-1/.test(h) && /lb-medal-2/.test(h) && /lb-medal-3/.test(h), 'top three medalled');
+  assert(/lb-me/.test(h), 'caller row carries lb-me');
+  assert(/lb-you/.test(h), 'caller row carries the YOU tag');
+});
+
+/* ===========================================================
+   9b. Weekly volume landmarks (MEV/MAV/MRV)
+   =========================================================== */
+group('volume landmarks');
+const VL_LM = { mev: 8, mav: 14, mrv: 20 };
+test('volumeZone: boundaries map to the right zone', () => {
+  assert(volumeZone(0, VL_LM) === 'none', 'zero sets → none');
+  assert(volumeZone(5, VL_LM) === 'under', 'below MEV → under');
+  assert(volumeZone(8, VL_LM) === 'productive', 'at MEV → productive');
+  assert(volumeZone(13, VL_LM) === 'productive', 'below MAV → productive');
+  assert(volumeZone(14, VL_LM) === 'high', 'at MAV → high');
+  assert(volumeZone(20, VL_LM) === 'high', 'at MRV → high');
+  assert(volumeZone(21, VL_LM) === 'over', 'above MRV → over');
+});
+test('volumeBucketFor: keys off lift, ignores cardio/other/missing', () => {
+  assert(volumeBucketFor({ lift: 'squat' }) === 'squat', 'squat → squat');
+  assert(volumeBucketFor({ lift: 'push' }) === 'push', 'push accessory → push');
+  assert(volumeBucketFor({ lift: 'cardio' }) === null, 'cardio → null');
+  assert(volumeBucketFor({ lift: 'other' }) === null, 'other → null');
+  assert(volumeBucketFor({}) === null, 'no lift → null');
+  assert(volumeBucketFor(null) === null, 'null log → null');
+});
+test('weeklyVolumeLandmarks: counts within window/athlete/bucket', () => {
+  const T0 = Date.parse('2026-06-01'); // Monday
+  const wkFrom = T0, wkTo = T0 + 7 * 864e5;
+  const ds = off => new Date(T0 + off * 864e5).toISOString().slice(0, 10);
+  const logs = [
+    { athleteId: 'a', lift: 'squat', rpe: 8, date: ds(0) },  // squat, hard
+    { athleteId: 'a', lift: 'squat', rpe: 6, date: ds(1) },  // squat, soft
+    { athleteId: 'a', lift: 'bench', rpe: 9, date: ds(2) },  // bench, hard
+    { athleteId: 'a', lift: 'cardio', rpe: 5, date: ds(1) }, // excluded (cardio)
+    { athleteId: 'a', lift: 'squat', rpe: 8, date: ds(8) },  // out of window
+    { athleteId: 'b', lift: 'squat', rpe: 9, date: ds(0) }   // other athlete
+  ];
+  const out = weeklyVolumeLandmarks(logs, 'a', wkFrom, wkTo);
+  assert(out.length === 6, 'six buckets in fixed order');
+  assert(out[0].key === 'squat', 'squat is first bucket');
+  const squat = out.find(b => b.key === 'squat');
+  const bench = out.find(b => b.key === 'bench');
+  const dead = out.find(b => b.key === 'deadlift');
+  assert(squat.sets === 2, 'squat counts only this-week, this-athlete sets (2)');
+  assert(squat.hardSets === 1, 'squat hardSets = RPE≥7 only (1)');
+  assert(bench.sets === 1, 'bench counted once');
+  assert(dead.sets === 0 && dead.zone === 'none', 'untrained deadlift → none');
+  assert(squat.zone === 'under', 'squat 2 sets below MEV 8 → under');
+  assert(squat.pctOfMrv === 10, 'squat 2/20 → 10% of MRV');
+});
+
+/* ===========================================================
+   8b. Exercise library — form-cue data + lookups (exercises.html)
+   =========================================================== */
+group('exercise library');
+test('exerciseGroups: six groups in lift/accessory order', () => {
+  const g = exerciseGroups();
+  eq(g.length, 6, 'six distinct groups');
+  eq(g.join(','), 'squat,bench,deadlift,push,pull,legs');
+});
+test('exerciseGroupLabel: known + fallback', () => {
+  eq(exerciseGroupLabel('squat'), 'Squat');
+  eq(exerciseGroupLabel('legs'), 'Legs');
+  eq(exerciseGroupLabel('zercher'), 'Zercher', 'capitalises unknown group');
+  eq(exerciseGroupLabel(''), '', 'empty → empty');
+});
+test('findExercise: hit + miss', () => {
+  const e = findExercise('deadlift-rdl');
+  assert(e && e.variant === 'RDL', 'finds deadlift-rdl');
+  eq(e.multiplier, 1.10, 'carries its multiplier');
+  eq(findExercise('nope'), null, 'unknown key → null');
+});
+test('cuesForLift: exact lift+variant match', () => {
+  const e = cuesForLift('squat', 'Tempo');
+  assert(e && e.key === 'squat-tempo', 'squat+Tempo → squat-tempo');
+});
+test('cuesForLift: case-insensitive variant', () => {
+  const e = cuesForLift('bench', 'close grip');
+  assert(e && e.key === 'bench-closegrip', 'lowercase variant still matches');
+});
+test('cuesForLift: unknown variant falls back to Competition', () => {
+  const e = cuesForLift('bench', 'Nope');
+  assert(e && e.key === 'bench-competition', 'falls back to comp entry');
+});
+test('cuesForLift: no variant → base/Competition', () => {
+  const e = cuesForLift('deadlift');
+  assert(e && e.key === 'deadlift-competition', 'base comp entry');
+});
+test('cuesForLift: accessory group (no Competition) → first of lift', () => {
+  const e = cuesForLift('legs');
+  assert(e && e.group === 'legs', 'returns a legs entry');
+  assert(e.key === 'legs-frontsquat', 'first legs entry');
+});
+test('cuesForLift: empty/unknown lift → null', () => {
+  eq(cuesForLift(''), null);
+  eq(cuesForLift('zercher'), null, 'no entries for lift → null');
+});
+test('searchExercises: empty query returns the full library', () => {
+  eq(searchExercises('').length, EXERCISE_LIBRARY.length);
+  eq(searchExercises(null).length, EXERCISE_LIBRARY.length, 'null → all');
+});
+test('searchExercises: matches cue / fault / summary text', () => {
+  assert(searchExercises('brace').length > 0, '"brace" hits cues');
+  assert(searchExercises('lockout').length > 0, '"lockout" hits copy');
+  assert(searchExercises('hamstring').some(e => e.key === 'deadlift-rdl'), 'RDL by hamstring');
+});
+test('searchExercises: no match → empty array', () => {
+  eq(searchExercises('zzzqqq').length, 0);
+});
+test('exerciseCueBodyHtml: renders summary + execution, null → empty', () => {
+  const e = findExercise('squat-competition');
+  const html = exerciseCueBodyHtml(e);
+  assert(html.indexOf(e.summary) !== -1, 'includes the summary');
+  assert(html.indexOf('Execution') !== -1, 'includes the Execution block');
+  assert(html.indexOf('Set up') !== -1, 'main lift includes Set up');
+  assert(html.indexOf('Fix the common faults') !== -1, 'main lift includes faults');
+  eq(exerciseCueBodyHtml(null), '', 'null entry → empty string');
+});
+test('exerciseCueBodyHtml: accessory omits setup/faults blocks', () => {
+  const html = exerciseCueBodyHtml(findExercise('push-ohp'));
+  assert(html.indexOf('Execution') !== -1, 'still has execution cues');
+  assert(html.indexOf('Set up') === -1, 'no Set up block for accessory');
+  assert(html.indexOf('Fix the common faults') === -1, 'no faults block for accessory');
+});
+
+/* ===========================================================
+   8d. Coach earnings — coachEarningsSummary / fmtMoneyCents
+   Pure rollup over program_sales (camelCase). Cancelled sales are
+   refunds: excluded from earnings, counted separately. `now` is
+   injected so the "this month" boundary is deterministic.
+   =========================================================== */
+group('coach earnings');
+// Fixed clock: 2026-07-15. Month start = 2026-07-01.
+const _now = '2026-07-15T12:00:00Z';
+const _sale = (pid, payout, status, date) => ({
+  marketplaceProgramId: pid, coachPayoutCents: payout, payoutStatus: status, createdAt: date
+});
+const _salesFix = [
+  _sale('p1', 2399, 'paid',      '2026-05-02T12:00:00Z'),
+  _sale('p1', 2399, 'paid',      '2026-06-10T12:00:00Z'),
+  _sale('p2', 3199, 'paid',      '2026-06-20T12:00:00Z'),
+  _sale('p1', 2399, 'pending',   '2026-07-05T12:00:00Z'), // this month
+  _sale('p2', 3199, 'pending',   '2026-07-12T12:00:00Z'), // this month
+  _sale('p2', 3199, 'cancelled', '2026-07-08T12:00:00Z')  // refund — excluded
+];
+test('coachEarningsSummary: counts only non-cancelled sales', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.salesCount, 5);
+});
+test('coachEarningsSummary: total earned excludes refunds', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.totalEarned, 2399 + 2399 + 3199 + 2399 + 3199); // 13595
+});
+test('coachEarningsSummary: pending vs paid split', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.paid, 2399 + 2399 + 3199);   // 7997
+  eq(r.pending, 2399 + 3199);       // 5598
+  eq(r.paid + r.pending, r.totalEarned);
+});
+test('coachEarningsSummary: this month uses injected clock', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.thisMonth, 2399 + 3199); // only the two July sales (refund excluded)
+});
+test('coachEarningsSummary: refunds counted separately', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.refundCount, 1);
+  eq(r.refundedCents, 3199);
+});
+test('coachEarningsSummary: per-program breakdown', () => {
+  const r = coachEarningsSummary(_salesFix, _now);
+  eq(r.perProgram.p1.count, 3);
+  eq(r.perProgram.p1.earned, 2399 * 3); // 7197
+  eq(r.perProgram.p2.count, 2);         // cancelled p2 excluded
+  eq(r.perProgram.p2.earned, 3199 * 2); // 6398
+});
+test('coachEarningsSummary: empty / non-array → zeros', () => {
+  const a = coachEarningsSummary([], _now);
+  eq(a.totalEarned, 0); eq(a.salesCount, 0); eq(a.refundCount, 0);
+  const b = coachEarningsSummary(null, _now);
+  eq(b.totalEarned, 0); eq(b.salesCount, 0);
+});
+test('fmtMoneyCents: formats with thousands + 2 decimals', () => {
+  eq(fmtMoneyCents(13595), '$135.95');
+  eq(fmtMoneyCents(123456789), '$1,234,567.89');
+  eq(fmtMoneyCents(0), '$0.00');
+  eq(fmtMoneyCents(null), '$0.00');
+});
+
+/* ===========================================================
+   9c. Meet day — countdown
+   (attempts + warm-up ramp live inline in athlete.html: getMeetPlan /
+   buildWarmupHtml — only daysUntil is in the shared library)
+   =========================================================== */
+group('meet day');
+test('daysUntil: whole-day delta, timezone-stable', () => {
+  eq(daysUntil('2026-07-10', '2026-06-30'), 10);
+  eq(daysUntil('2026-06-30', '2026-06-30'), 0);
+  eq(daysUntil('2026-06-20', '2026-06-30'), -10);
+});
+test('daysUntil: bad / empty input → null', () => {
+  eq(daysUntil(''), null); eq(daysUntil('garbage'), null); eq(daysUntil(null), null);
+});
+
+/* ===========================================================
+   9c. Meet results — best total / DOTS (migration-meets)
+   A bombed lift is null and MUST stay out of the total math.
+   =========================================================== */
+group('meet results');
+test('meetTotal: sums S+B+D', () => {
+  eq(meetTotal({ squat: 200, bench: 140, deadlift: 240 }), 580);
+});
+test('meetTotal: null/bombed lift counts as 0, not NaN', () => {
+  eq(meetTotal({ squat: 200, bench: null, deadlift: 240 }), 440);
+  eq(meetTotal({ squat: null, bench: null, deadlift: null }), 0);
+});
+test('meetTotal: null meet → 0', () => { eq(meetTotal(null), 0); });
+test('meetIsFullTotal: true only when all three lifts present', () => {
+  eq(meetIsFullTotal({ squat: 200, bench: 140, deadlift: 240 }), true);
+  eq(meetIsFullTotal({ squat: 200, bench: null, deadlift: 240 }), false);
+  eq(meetIsFullTotal(null), false);
+});
+test('bestMeet: picks highest FULL total for the athlete, ignores bombed meets', () => {
+  const meets = [
+    { id: 'm1', athleteId: 'a', squat: 200, bench: 140, deadlift: 240 }, // 580 full
+    { id: 'm2', athleteId: 'a', squat: 210, bench: 150, deadlift: 250 }, // 610 full ← best
+    { id: 'm3', athleteId: 'a', squat: 300, bench: 300, deadlift: null },// bombed → excluded
+    { id: 'm4', athleteId: 'b', squat: 400, bench: 400, deadlift: 400 }  // other athlete
+  ];
+  const best = bestMeet(meets, 'a');
+  eq(best.meet.id, 'm2'); eq(best.total, 610);
+});
+test('bestMeet: no full-total meets → null', () => {
+  eq(bestMeet([{ id: 'x', athleteId: 'a', squat: 200, bench: null, deadlift: null }], 'a'), null);
+  eq(bestMeet([], 'a'), null);
+});
+test('meetDots: needs bodyweight, derives from real total', () => {
+  const m = { squat: 200, bench: 140, deadlift: 240, bodyweight: 90 };
+  close(meetDots(m, 'male'), dotsScore(580, 90, 'male'), 0.001);
+  eq(meetDots({ squat: 200, bench: 140, deadlift: 240 }, 'male'), null); // no BW
+});
+
+/* ===========================================================
+   9d. Peaking block — meet taper (pure, deterministic)
+   =========================================================== */
+group('peaking block');
+test('generatePeakingBlock: shape — N weeks, SBD days, meet week is openers only', () => {
+  const p = generatePeakingBlock({ weeks: 4, daysPerWeek: 3, e1rms: { squat: 200, bench: 140, deadlift: 240 } });
+  eq(p.weeks.length, 4);
+  eq(p.weeks[0].days.length, 3);
+  assert(/peaking/i.test(p.name), 'name should read as a peaking block');
+  const meetDay = p.weeks[3].days[0];
+  eq(meetDay.exercises.length, 1);                 // main lift only — accessories tapered out
+  const opener = meetDay.exercises[0].sets;
+  eq(opener.length, 1); eq(opener[0].reps, 1); eq(opener[0].rpe, 7);
+});
+test('generatePeakingBlock: intensity ascends, volume descends into the meet', () => {
+  const p = generatePeakingBlock({ weeks: 4, daysPerWeek: 3, e1rms: { squat: 200, bench: 140, deadlift: 240 } });
+  const sq = (w) => p.weeks[w].days[0].exercises[0].sets;   // exercises[0] = the main lift
+  assert(sq(2)[0].rpe > sq(0)[0].rpe, 'top-set RPE not ascending');
+  assert(sq(0).length > sq(2).length, 'main volume not descending');
+  eq(sq(0)[0].reps, 3); eq(sq(0)[0].rpe, 7.5);              // first week: top triple @ 7.5
+});
+test('generatePeakingBlock: weeks clamp to 2..8', () => {
+  eq(generatePeakingBlock({ weeks: 1 }).weeks.length, 2);
+  eq(generatePeakingBlock({ weeks: 99 }).weeks.length, 8);
+});
+test('generatePeakingBlock: unknown e1RM → weight 0 (pure work-up-to-RPE)', () => {
+  const p = generatePeakingBlock({ weeks: 3, daysPerWeek: 3 });   // no e1rms
+  eq(p.weeks[0].days[0].exercises[0].sets[0].weight, 0);
+});
+
+group('athlete compare');
+test('compareMetricRows: per-lift leader + total derived from SBD', () => {
+  const A = { squat: 200, bench: 140, deadlift: 240, bw: 90 };
+  const B = { squat: 180, bench: 150, deadlift: 240, bw: 75 };
+  const rows = compareMetricRows(A, B);
+  const by = {}; rows.forEach(r => by[r.key] = r);
+  eq(by.squat.leader, 'a');         // 200 > 180
+  eq(by.bench.leader, 'b');         // 150 > 140
+  eq(by.deadlift.leader, 'tie');    // equal
+  eq(by.total.a, 580); eq(by.total.b, 570);
+  eq(by.total.leader, 'a');
+  eq(by.squat.diff, 20);
+});
+test('compareMetricRows: pound-for-pound flips the heavier-total athlete', () => {
+  const A = { squat: 200, bench: 140, deadlift: 240, bw: 90 };  // total 580 @ 90 = 6.44
+  const B = { squat: 180, bench: 150, deadlift: 240, bw: 75 };  // total 570 @ 75 = 7.60
+  const rows = compareMetricRows(A, B);
+  const p4p = rows.find(r => r.key === 'p4p');
+  eq(p4p.leader, 'b');             // lighter lifter wins pound-for-pound
+  assert(p4p.a < p4p.b, 'B ratio should exceed A');
+});
+test('compareMetricRows: bodyweight is neutral, missing bw → p4p leader none', () => {
+  const rows = compareMetricRows({ squat: 200, bench: 140, deadlift: 240, bw: 90 }, { squat: 200, bench: 140, deadlift: 240 });
+  const by = {}; rows.forEach(r => by[r.key] = r);
+  eq(by.bw.leader, 'none');         // bodyweight never crowns a winner
+  eq(by.p4p.leader, 'none');        // B has no bw → no ratio
+  eq(by.p4p.b, null);
+});
+test('compareMetricRows: explicit total overrides SBD sum', () => {
+  const rows = compareMetricRows({ squat: 100, bench: 100, deadlift: 100, total: 999 }, { squat: 100, bench: 100, deadlift: 100 });
+  const t = rows.find(r => r.key === 'total');
+  eq(t.a, 999); eq(t.b, 300); eq(t.leader, 'a');
+});
+
+/* ===========================================================
+   9e. Pagination — buildPager (pure DOM factory, app.js)
+   Shared by the landing coach directory, marketplace browse,
+   coach roster, and athlete Library/Marketplace tabs.
+   =========================================================== */
+group('pagination · buildPager');
+const _noop = () => {};
+const _nums = nav => [...nav.querySelectorAll('.gp-btn:not(.gp-nav)')].map(b => b.textContent.trim());
+const _prev = nav => nav.querySelector('.gp-nav[aria-label="Previous page"]');
+const _next = nav => nav.querySelector('.gp-nav[aria-label="Next page"]');
+
+test('returns null when there is one page or less (0 / partial / exact)', () => {
+  assert(buildPager(0, 6, 1, _noop) === null, 'empty → null');
+  assert(buildPager(5, 6, 1, _noop) === null, 'partial page → null');
+  assert(buildPager(6, 6, 1, _noop) === null, 'exactly one full page → null');
+});
+test('two pages: nav element, brand class, aria-label', () => {
+  const nav = buildPager(9, 6, 1, _noop);
+  assert(nav && nav.tagName === 'NAV', 'should be a <nav>');
+  assert(nav.classList.contains('grid-pager'), 'missing .grid-pager');
+  eq(nav.getAttribute('aria-label'), 'Pagination');
+  eq(_nums(nav).join(','), '1,2');
+});
+test('first page: prev disabled, next enabled, page 1 active + aria-current', () => {
+  const nav = buildPager(18, 6, 1, _noop);          // 3 pages
+  assert(_prev(nav).disabled, 'prev should be disabled on page 1');
+  assert(!_next(nav).disabled, 'next should be enabled on page 1');
+  const active = nav.querySelector('.gp-btn.active');
+  eq(active.textContent.trim(), '1');
+  eq(active.getAttribute('aria-current'), 'page');
+});
+test('last page: next disabled, prev enabled, last number active', () => {
+  const nav = buildPager(18, 6, 3, _noop);          // 3 pages, on last
+  assert(_next(nav).disabled, 'next should be disabled on last page');
+  assert(!_prev(nav).disabled, 'prev should be enabled on last page');
+  eq(nav.querySelector('.gp-btn.active').textContent.trim(), '3');
+});
+test('currentPage clamps into range (overshoot → last page)', () => {
+  const nav = buildPager(18, 6, 99, _noop);         // 3 pages, asked for 99
+  eq(nav.querySelector('.gp-btn.active').textContent.trim(), '3');
+  assert(_next(nav).disabled, 'clamped-to-last → next disabled');
+});
+test('clicking a number button calls onGo with that page', () => {
+  let got = null;
+  const nav = buildPager(18, 6, 1, p => { got = p; });
+  [...nav.querySelectorAll('.gp-btn:not(.gp-nav)')].find(b => b.textContent.trim() === '2').click();
+  eq(got, 2);
+});
+test('clicking prev / next steps by one from current', () => {
+  let got = null;
+  const nav = buildPager(18, 6, 2, p => { got = p; }); // middle page
+  _next(nav).click(); eq(got, 3, 'next → +1');
+  _prev(nav).click(); eq(got, 1, 'prev → -1');
+});
+test('disabled prev/next carry no click handler (no-op at the ends)', () => {
+  let calls = 0;
+  const nav = buildPager(18, 6, 1, () => { calls++; });
+  _prev(nav).click();                                // disabled → nothing
+  eq(calls, 0);
+});
+test('many pages: windowed with ellipsis, first + last always shown', () => {
+  const nav = buildPager(204, 6, 10, _noop);         // 34 pages, current 10
+  const nums = _nums(nav);
+  eq(nums[0], '1', 'first page always present');
+  eq(nums[nums.length - 1], '34', 'last page always present');
+  assert(nav.querySelector('.gp-ellip'), 'expected at least one ellipsis');
+  assert(nums.includes('9') && nums.includes('10') && nums.includes('11'), 'missing ±1 window: ' + nums.join(','));
+  assert(!nums.includes('5'), 'distant page 5 should be collapsed: ' + nums.join(','));
+  eq(nav.querySelector('.gp-btn.active').textContent.trim(), '10');
+});
+test('ellipsis is aria-hidden and not a button', () => {
+  const nav = buildPager(204, 6, 10, _noop);
+  const ell = nav.querySelector('.gp-ellip');
+  eq(ell.tagName, 'SPAN');
+  eq(ell.getAttribute('aria-hidden'), 'true');
+});
+test('window near the front collapses to exactly one ellipsis', () => {
+  // current near the front: 1 2 3 … 34  (single trailing ellipsis, no leading gap)
+  const nav = buildPager(204, 6, 2, _noop);
+  const nums = _nums(nav);
+  eq(nums[0], '1'); eq(nums[nums.length - 1], '34');
+  eq(nav.querySelectorAll('.gp-ellip').length, 1, 'should collapse to exactly one ellipsis: ' + nums.join(','));
+});
+
+/* ===========================================================
+   9e. Platform analytics — computePlatformAnalytics (#31)
+   Admin Overview growth/revenue rollup. Profiles come in RAW
+   snake_case (admin.html doesn't map them); sales come in mapped
+   camelCase. MRR counts only billing-live paid subs; GMV excludes
+   cancelled (refunded) sales; signups bucket by Monday. `now` is
+   injected so the 30-day + 12-week windows are deterministic.
+   =========================================================== */
+group('platform analytics');
+const _paNow = '2026-07-01T12:00:00Z';
+const _paDay = 864e5, _paNowMs = new Date(_paNow).getTime();
+const _ago = n => new Date(_paNowMs - n * _paDay).toISOString();
+const _paProfiles = [
+  { user_type: 'coach',   subscription_tier: 'pro',     subscription_status: 'active',    created_at: _ago(2) },
+  { user_type: 'coach',   subscription_tier: 'basic',   subscription_status: 'on_trial',  created_at: _ago(10) },
+  { user_type: 'coach',   subscription_tier: 'premium', subscription_status: 'cancelled', created_at: _ago(40) }, // not billing-live
+  { user_type: 'coach',   subscription_tier: 'free',                                      created_at: _ago(5) },  // free
+  { user_type: 'coach',   subscription_tier: 'pro',                                       created_at: _ago(3) },  // admin manual set, no status → counts
+  { user_type: 'athlete',                                                                 created_at: _ago(1) },
+  { user_type: 'athlete',                                                                 created_at: _ago(8) },
+  { user_type: 'athlete',                                                                 created_at: _ago(60) }
+];
+const _paSales = [
+  { amountCents: 5000, platformFeeCents: 1000, payoutStatus: 'paid',      createdAt: _ago(3) },
+  { amountCents: 3000, platformFeeCents: 600,  payoutStatus: 'pending',   createdAt: _ago(40) },
+  { amountCents: 9999, platformFeeCents: 2000, payoutStatus: 'cancelled', createdAt: _ago(2) } // refund — excluded
+];
+test('MRR counts billing-live paid subs (active/on_trial/status-absent), skips free + cancelled', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.mrr, 50 + 25 + 50);          // pro + basic + pro(manual)
+  eq(a.arr, (50 + 25 + 50) * 12);
+  eq(a.payingCoaches, 3);
+  eq(JSON.stringify(a.mrrByTier), JSON.stringify({ basic: 1, pro: 2, premium: 0 }));
+});
+test('conversion = paying ÷ all coaches', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.coachCount, 5); eq(a.athleteCount, 3);
+  close(a.conversionPct, 60, 0.01);
+});
+test('GMV + platform take exclude cancelled sales', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.gmvCents, 5000 + 3000);
+  eq(a.takeCents, 1000 + 600);
+  eq(a.salesCount, 2);
+  eq(a.gmv30Cents, 5000);           // only the 3-day-old sale is within 30d
+});
+test('signups: 30-day count + 12-week Monday-bucketed split series', () => {
+  const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
+  eq(a.signups30, 6);               // all but the 40d + 60d profiles
+  eq(a.signupSeries.length, 12);
+  const tot = a.signupSeries.reduce((s, b) => s + b.coaches + b.athletes, 0);
+  eq(tot, 8);                       // every fixture profile is within 12 weeks
+  const c = a.signupSeries.reduce((s, b) => s + b.coaches, 0);
+  const at = a.signupSeries.reduce((s, b) => s + b.athletes, 0);
+  eq(c, 5); eq(at, 3);              // split matches coach/athlete counts
+});
+test('empty / null inputs → all-zero, still 12 buckets', () => {
+  const a = computePlatformAnalytics([], [], { now: _paNow });
+  eq(a.mrr, 0); eq(a.gmvCents, 0); eq(a.payingCoaches, 0); eq(a.conversionPct, 0);
+  eq(a.signupSeries.length, 12);
+  const b = computePlatformAnalytics(null, null, { now: _paNow });
+  eq(b.totalUsers, 0); eq(b.salesCount, 0);
+});
+test('tolerates camelCase profiles + snake_case sales too', () => {
+  const a = computePlatformAnalytics(
+    [{ userType: 'coach', subscriptionTier: 'pro', subscriptionStatus: 'active', createdAt: _ago(1) }],
+    [{ amount_cents: 4000, platform_fee_cents: 800, payout_status: 'paid', created_at: _ago(1) }],
+    { now: _paNow }
+  );
+  eq(a.mrr, 50); eq(a.gmvCents, 4000); eq(a.takeCents, 800); eq(a.salesCount, 1);
+});
+
+group('password strength');
+test('below 6 chars → score 0 "Too short"', () => {
+  eq(pwdStrength('abc').score, 0);
+  eq(pwdStrength('abc').label, 'Too short');
+  eq(pwdStrength('').score, 0);
+});
+test('score clamps to 1..4 and pct tracks score', () => {
+  const weak = pwdStrength('abcdef');   // 6 lowercase → min score 1
+  eq(weak.score, 1); eq(weak.label, 'Weak'); eq(weak.pct, 25);
+  const strong = pwdStrength('Abcdefgh1!xyz'); // long + mixed + digit + symbol
+  eq(strong.score, 4); eq(strong.label, 'Strong'); eq(strong.pct, 100);
+});
+test('variety raises score', () => {
+  assert(pwdStrength('Abcdefg1').score > pwdStrength('abcdefg').score, 'mixed+digit should beat plain');
+});
+test('null/undefined safe', () => {
+  eq(pwdStrength(null).score, 0);
+  eq(pwdStrength(undefined).label, 'Too short');
+});
+
+group('IPF GL points');
+test('invalid inputs → 0', () => {
+  eq(ipfGlPoints(0, 100, 'male'), 0);
+  eq(ipfGlPoints(700, 0, 'male'), 0);
+  eq(ipfGlPoints(700, -5, 'male'), 0);
+});
+test('men 700kg @ 100kg ≈ 88.4', () => close(ipfGlPoints(700, 100, 'male'), 88.4, 0.5));
+test('heavier bodyweight, same total → fewer GL points', () => {
+  assert(ipfGlPoints(700, 120, 'male') < ipfGlPoints(700, 100, 'male'), 'GL should drop as bw rises');
+});
+test('women coefficients differ from men', () => {
+  assert(ipfGlPoints(400, 60, 'female') !== ipfGlPoints(400, 60, 'male'), 'sex should change the score');
+});
+test('higher total → higher GL (same lifter)', () => {
+  assert(ipfGlPoints(750, 100, 'male') > ipfGlPoints(700, 100, 'male'));
+});
+
+group('deload signal');
+const _dlNow = Date.parse('2026-07-01T12:00:00Z');
+const _dlDay = 864e5;
+const _dlLog = (daysAgo, weight, reps, rpe) => ({ athleteId: 'A', date: new Date(_dlNow - daysAgo * _dlDay).toISOString(), weight, reps, rpe });
+test('no data → null', () => eq(deloadSignal([], 'A', _dlNow), null));
+test('3 rising weeks at high RPE → suggest', () => {
+  const logs = [_dlLog(22, 100, 5, 8), _dlLog(15, 100, 8, 8), _dlLog(8, 100, 10, 9)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.suggest === true, 'expected suggest true, got ' + JSON.stringify(r));
+  eq(r.risingStreak, 3);
+});
+test('rising load but low RPE → no suggest', () => {
+  const logs = [_dlLog(22, 100, 5, 6), _dlLog(15, 100, 8, 6), _dlLog(8, 100, 10, 6)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.suggest === false, 'low RPE should not suggest');
+});
+test('non-monotonic load → no suggest', () => {
+  const logs = [_dlLog(22, 100, 5, 9), _dlLog(15, 100, 10, 9), _dlLog(8, 100, 8, 9)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.suggest === false && r.risingStreak < 3, 'a down week should reset the streak');
+});
+test('gap in completed weeks → null (not enough continuous data)', () => {
+  const logs = [_dlLog(22, 100, 5, 9), _dlLog(8, 100, 10, 9)]; // missing week 2
+  eq(deloadSignal(logs, 'A', _dlNow), null);
+});
+test('current partial week is excluded from the trend', () => {
+  // a huge current-week (2-days-ago) session must not count toward the streak
+  const logs = [_dlLog(22, 100, 5, 8), _dlLog(15, 100, 8, 8), _dlLog(8, 100, 10, 9), _dlLog(2, 999, 20, 10)];
+  const r = deloadSignal(logs, 'A', _dlNow);
+  assert(r && r.weeks.length === 3, 'only 3 completed weeks should be measured');
+});
+
+
+group('PR timeline');
+const _prL = (id, lift, date, e1rmComp) => ({ id, athleteId: 'A', lift, date, e1rmComp });
+test('empty → []', () => eq(prTimeline([], 'A').length, 0));
+test('escalating lifts → one event per new best, newest first', () => {
+  const logs = [
+    _prL('1', 'squat', '2026-01-01', 200),
+    _prL('2', 'squat', '2026-02-01', 210),
+    _prL('3', 'squat', '2026-03-01', 205), // not a PR (below 210)
+    _prL('4', 'squat', '2026-04-01', 220)
+  ];
+  const t = prTimeline(logs, 'A');
+  eq(t.length, 3);                 // 200, 210, 220
+  eq(t[0].date, '2026-04-01');     // newest first
+  eq(t[0].e1rm, 220); eq(t[0].prev, 210); eq(t[0].jump, 10);
+  eq(t[2].prev, 0);                // first ever
+});
+test('limit caps the feed', () => {
+  const logs = [_prL('1','bench','2026-01-01',100), _prL('2','bench','2026-02-01',110), _prL('3','bench','2026-03-01',120)];
+  eq(prTimeline(logs, 'A', { limit: 2 }).length, 2);
+});
+test('ignores other athletes + non-positive e1RM', () => {
+  const logs = [{ id:'x', athleteId:'B', lift:'squat', date:'2026-01-01', e1rmComp:300 }, _prL('y','squat','2026-01-02',0)];
+  eq(prTimeline(logs, 'A').length, 0);
+});
+
+group('achievements + streak');
+const _acNow = '2026-07-01T12:00:00Z'; // Wed; current week Monday = 2026-06-29
+const _acLog = (date) => ({ id: date, athleteId: 'A', lift: 'squat', date, e1rmComp: 200 });
+test('empty → nothing earned, zero streak', () => {
+  const a = trainingAchievements([], 'A', _acNow);
+  eq(a.stats.totalSessions, 0); eq(a.stats.weekStreak, 0);
+  assert(a.badges.every(b => !b.earned), 'no badges earned on empty');
+});
+test('3 consecutive weeks incl. current → streak 3', () => {
+  const logs = [_acLog('2026-06-30'), _acLog('2026-06-23'), _acLog('2026-06-16')];
+  const a = trainingAchievements(logs, 'A', _acNow);
+  eq(a.stats.weekStreak, 3);
+});
+test('a skipped week breaks the streak', () => {
+  const logs = [_acLog('2026-06-30'), _acLog('2026-06-16')]; // missing week of 06-22
+  eq(trainingAchievements(logs, 'A', _acNow).stats.weekStreak, 1);
+});
+test('empty current week counts streak from last week', () => {
+  const logs = [_acLog('2026-06-23'), _acLog('2026-06-16')]; // nothing in current week
+  eq(trainingAchievements(logs, 'A', _acNow).stats.weekStreak, 2);
+});
+test('session + PR badges gate on counts', () => {
+  const logs = [];
+  for (let i = 0; i < 10; i++) logs.push(_acLog('2026-05-' + String(i + 1).padStart(2, '0')));
+  const a = trainingAchievements(logs, 'A', _acNow);
+  eq(a.stats.totalSessions, 10);
+  assert(a.badges.find(b => b.key === 'sessions-10').earned, '10 sessions earned');
+  assert(!a.badges.find(b => b.key === 'sessions-50').earned, '50 not yet');
+  assert(a.badges.find(b => b.key === 'first-pr').earned, 'first PR from the first log');
+});
+
+group('e1RM trend');
+const _etNow = '2026-07-01T12:00:00Z';
+const _etLog = (date, e1rmComp) => ({ athleteId: 'A', lift: 'squat', date, e1rmComp });
+test('too little data → null', () => {
+  eq(e1rmTrend([_etLog('2026-06-30', 200)], 'A', 'squat', _etNow), null);
+});
+test('rising e1RM → positive kg/week', () => {
+  // +10kg over ~28 days ≈ +2.5 kg/wk
+  const logs = [_etLog('2026-06-03', 200), _etLog('2026-06-17', 205), _etLog('2026-07-01', 210)];
+  const t = e1rmTrend(logs, 'A', 'squat', _etNow);
+  assert(t > 0, 'trend should be positive, got ' + t);
+  close(t, 2.5, 0.6);
+});
+test('falling e1RM → negative', () => {
+  const logs = [_etLog('2026-06-03', 210), _etLog('2026-07-01', 200)];
+  assert(e1rmTrend(logs, 'A', 'squat', _etNow) < 0, 'declining trend should be negative');
+});
+test('respects the window (old data excluded)', () => {
+  const logs = [_etLog('2026-01-01', 100), _etLog('2026-06-25', 205), _etLog('2026-07-01', 210)];
+  const t = e1rmTrend(logs, 'A', 'squat', _etNow, 56); // 8wk window excludes January
+  assert(t > 0 && t < 20, 'January outlier must not dominate, got ' + t);
+});
+
+/* ===========================================================
+   10. Importer round-trip (athlete.html, demo iframe)
+   These functions are page-inline in athlete.html, so we load it
+   in a hidden ?demo=1 iframe and reach into its window. If it
+   doesn't come up in time, the cases are SKIPPED (not failed).
+   =========================================================== */
+function runImporterTests(win) {
+  group('importer (athlete.html)');
+  const build = win._impBuild, parse = win._parseDelimited;
+  const normDate = win._impNormDate, normLift = win._impNormLift;
+
+  test('CSV parser splits quoted commas correctly', () => {
+    const r = parse('a,"b,c",d');
+    eq(r.length, 1); eq(r[0].length, 3); eq(r[0][1], 'b,c');
+  });
+  test('date normaliser pads ISO and handles slashes', () => {
+    eq(normDate('2026-1-5'), '2026-01-05');
+    eq(normDate('05/03/2026'), '2026-05-03');
+  });
+  test('lift normaliser maps aliases', () => {
+    eq(normLift('SQ'), 'squat'); eq(normLift('bp'), 'bench'); eq(normLift('dl'), 'deadlift'); eq(normLift('curls'), null);
+  });
+
+  test('main-lift row imports with correct kg weight + e1RM', () => {
+    const r = build('date,lift,weight,reps,rpe\n2026-01-01,squat,100,5,8', 'kg');
+    eq(r.logs.length, 1); eq(r.skipped.length, 0);
+    eq(r.logs[0].lift, 'squat'); close(r.logs[0].weight, 100, 0.001);
+    close(r.logs[0].e1rm, 124.97, 0.1);
+  });
+  test('bodyweight detected from the lift cell', () => {
+    const r = build('date,lift,weight,reps\n2026-01-02,bodyweight,84.5,', 'kg');
+    eq(r.logs.length, 0); eq(r.bws.length, 1); close(r.bws[0].weight, 84.5, 0.001);
+  });
+  test('lb input scales to kg', () => {
+    const r = build('date,lift,weight,reps,rpe\n2026-01-03,bench,225,3,8', 'lbs');
+    eq(r.logs.length, 1); close(r.logs[0].weight, 102.06, 0.05);
+  });
+  test('weight_kg alias is recognised (re-import lossless)', () => {
+    const r = build('date,lift,weight_kg,reps,rpe\n2026-01-04,deadlift,180,3,7', 'kg');
+    eq(r.logs.length, 1); close(r.logs[0].weight, 180, 0.001);
+  });
+  test('rows with bad dates are skipped, not imported', () => {
+    const r = build('date,lift,weight,reps,rpe\nnotadate,squat,100,5,8', 'kg');
+    eq(r.logs.length, 0); eq(r.skipped.length, 1);
+  });
+  test('accessory lift keeps its name', () => {
+    const r = build('date,lift,weight,reps,rpe\n2026-01-05,Lat Pulldown,60,10,8', 'kg');
+    eq(r.logs.length, 1); eq(r.logs[0].exerciseName, 'Lat Pulldown'); eq(r.logs[0].lift, 'lat pulldown');
+  });
+}
+
+/* ===========================================================
+   Render + boot
+   =========================================================== */
+function render() {
+  const sum = document.getElementById('summary');
+  const total = T.pass + T.fail + T.skip;
+  sum.innerHTML =
+    '<span class="pill tot">' + total + ' tests</span>' +
+    '<span class="pill pass">✓ ' + T.pass + ' passed</span>' +
+    (T.fail ? '<span class="pill fail">✗ ' + T.fail + ' failed</span>' : '') +
+    (T.skip ? '<span class="pill skip">• ' + T.skip + ' skipped</span>' : '') +
+    '<span class="pill dur" id="dur"></span>' +
+    '<button class="rerun" onclick="location.reload()">Re-run</button>';
+
+  const banner = document.getElementById('banner');
+  if (T.fail === 0) banner.innerHTML = '<div class="banner ok">ALL GREEN — ' + T.pass + ' assertions passing' + (T.skip ? ' (' + T.skip + ' skipped)' : '') + '</div>';
+  else banner.innerHTML = '<div class="banner bad">' + T.fail + ' FAILING — see red rows below</div>';
+
+  const out = document.getElementById('results');
+  out.innerHTML = T.groups.map(g => {
+    const cases = g.cases.map(c => {
+      const m = c.status === 'pass' ? '<span class="mark p">✓</span>'
+        : c.status === 'fail' ? '<span class="mark f">✗</span>'
+        : '<span class="mark s">•</span>';
+      const extra = c.status === 'fail' ? '<div class="cerr">' + esc(c.err) + '</div>'
+        : (c.status === 'skip' && c.err) ? '<div class="cnote">skipped: ' + esc(c.err) + '</div>' : '';
+      return '<div class="case">' + m + '<div class="ctext"><div class="cname">' + esc(c.name) + '</div>' + extra + '</div></div>';
+    }).join('');
+    return '<div class="grp"><p class="grp-h">' + esc(g.name) + '</p>' + cases + '</div>';
+  }).join('');
+}
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+function bootImporterThenRender(t0) {
+  const iframe = document.createElement('iframe');
+  iframe.className = 'sandbox';
+  iframe.src = 'athlete.html?demo=1';
+  document.body.appendChild(iframe);
+  const start = Date.now();
+  const TIMEOUT = 8000;
+  (function poll() {
+    let win = null;
+    try { win = iframe.contentWindow; } catch (e) { win = null; }
+    const ready = win && typeof win._impBuild === 'function' && win._user && win._user.id;
+    if (ready) {
+      try { runImporterTests(win); }
+      catch (e) { group('importer (athlete.html)'); skip('importer round-trip', 'threw while running: ' + ((e && e.message) || e)); }
+      finish(t0); return;
+    }
+    if (Date.now() - start > TIMEOUT) {
+      group('importer (athlete.html)');
+      skip('importer round-trip', 'demo iframe did not expose _impBuild within ' + (TIMEOUT / 1000) + 's');
+      finish(t0); return;
+    }
+    setTimeout(poll, 150);
+  })();
+}
+function finish(t0) {
+  render();
+  const dur = document.getElementById('dur');
+  if (dur) dur.textContent = (Date.now() - t0) + ' ms';
+}
+
+window.addEventListener('load', () => {
+  const t0 = Date.now();
+  // Synchronous groups already ran at script-parse time above.
+  bootImporterThenRender(t0);
+});
+</script>
+</body>
+</html>

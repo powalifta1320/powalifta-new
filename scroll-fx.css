@@ -1,0 +1,154 @@
+/* ============================================================
+ * POWALIFTA scroll-fx v3 — decisive reveals, reserved for moments
+ * that earn them. Tightened from the old "bigger/slower/stronger-blur"
+ * v2: entrance timing now lands in the 0.55–0.9s band, single easing
+ * curve (--ease-out-quint), lighter blur. Triggered by scroll-fx.js
+ * when an element enters the viewport.
+ * ============================================================ */
+
+[data-fx] {
+  opacity: 0;
+  will-change: opacity, transform, filter;
+  transition:
+    opacity 0.6s var(--ease-out-quint),
+    transform 0.6s var(--ease-out-quint),
+    filter 0.7s var(--ease-out-quint);
+}
+
+[data-fx="up"]    { transform: translate3d(0, 48px, 0); }
+[data-fx="down"]  { transform: translate3d(0, -48px, 0); }
+[data-fx="left"]  { transform: translate3d(-64px, 0, 0); }
+[data-fx="right"] { transform: translate3d(64px, 0, 0); }
+[data-fx="scale"] { transform: scale(0.9); }
+[data-fx="blur"]  { filter: blur(14px); transform: translate3d(0, 24px, 0); }
+
+[data-fx].fx-in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+/* Sibling stagger for genuine grids/lists — capped at 70ms/step. */
+[data-fx-stagger] > [data-fx] { transition-delay: 0ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(1) { transition-delay: 0ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(2) { transition-delay: 70ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(3) { transition-delay: 140ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(4) { transition-delay: 210ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(5) { transition-delay: 280ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(6) { transition-delay: 350ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(7) { transition-delay: 420ms; }
+[data-fx-stagger].fx-in > [data-fx]:nth-child(8) { transition-delay: 490ms; }
+
+[data-fx-stagger].fx-in > [data-fx] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+[data-fx-count] {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-fx-parallax] {
+  will-change: transform;
+  transition: none;
+}
+
+section, .section {
+  position: relative;
+  isolation: isolate;
+}
+
+.fx-section-wash {
+  position: absolute;
+  /* Horizontal inset stays at 0 — the glow is a centred radial that fades out
+     well before the edges, so bleeding it past the section only created a
+     phantom horizontal scrollbar on narrow viewports.
+     Top inset is 0 (was -10%): the wash must NOT reach above its own section,
+     or a section's glow spills into the empty bottom of the section above it
+     (most visible where a short section — e.g. a one-coach directory — sits
+     over the marketplace). Keeping it pinned to the section top contains the
+     "ignition" glow to the section it belongs to. */
+  inset: 0 0 auto 0;
+  height: 200px;
+  z-index: -1;
+  background: radial-gradient(ellipse 46% 100% at 50% 0%, rgba(255, 45, 63, 0.07) 0%, transparent 66%);
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s ease-out, transform 0.8s var(--ease-out-quint);
+  pointer-events: none;
+}
+.fx-section-wash.fx-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The single red-rule device: a thin bar wipes in above every section title
+   on reveal. This is the page's recurring "ignition" mark. */
+section .section-title::before,
+.section-title::before {
+  content: '';
+  display: block;
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, #ff2d3f 0%, transparent 100%);
+  margin-bottom: 12px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.7s 0.1s var(--ease-out-quint);
+}
+.section-title.center::before { margin-left: auto; margin-right: auto; transform-origin: center; }
+section.fx-section-revealed .section-title::before,
+.section.fx-section-revealed .section-title::before {
+  transform: scaleX(1);
+}
+
+.cta-band [data-fx="blur"] {
+  text-shadow: 0 0 30px rgba(255, 45, 63, 0);
+  transition:
+    opacity 0.7s var(--ease-out-quint),
+    transform 0.7s var(--ease-out-quint),
+    filter 0.8s var(--ease-out-quint),
+    text-shadow 1.0s 0.3s ease-out;
+}
+.cta-band [data-fx="blur"].fx-in {
+  text-shadow: 0 0 40px rgba(255, 45, 63, 0.32);
+}
+
+.inside-card[data-fx] {
+  transition:
+    opacity 0.65s var(--ease-out-quint),
+    transform 0.65s var(--ease-out-quint),
+    filter 0.65s var(--ease-out-quint),
+    box-shadow 0.4s ease-out;
+}
+.inside-card[data-fx="up"] {
+  transform: translate3d(0, 64px, 0) scale(0.98);
+}
+.inside-card[data-fx].fx-in {
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.step[data-fx] {
+  transform-origin: center bottom;
+}
+.step[data-fx="up"] {
+  transform: translate3d(0, 56px, 0) scale(0.96);
+}
+
+.feat[data-fx="up"] {
+  transform: translate3d(0, 40px, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-fx] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+  [data-fx-parallax] { transform: none !important; }
+  .fx-section-wash { opacity: 1; transform: none; }
+  section .section-title::before, .section-title::before { transform: scaleX(1) !important; transition: none !important; }
+  .cta-band [data-fx="blur"] { text-shadow: none !important; }
+}

@@ -1,0 +1,17 @@
+<!--
+  Info.plist.additions.xml
+
+  Paste these keys into ios/App/App/Info.plist (inside the top-level <dict>).
+  NSSupportsLiveActivities is what lets the app register ActivityKit activities;
+  without it Activity.request(...) throws and the Dynamic Island timer never shows.
+-->
+<key>NSSupportsLiveActivities</key>
+<true/>
+
+<!--
+  Optional: allow the running rest activity to refresh more promptly. Live
+  Activities tick on their own via Text(timerInterval:), so this is not required
+  for the countdown — include it only if you later push remote updates.
+-->
+<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+<true/>
