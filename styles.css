@@ -44,8 +44,8 @@
   /* Card depth on near-black: a lit top rim + a shadowed bottom rim = a subtle
      bevel that actually reads (drop shadows vanish on #0b0b0c). This is the single
      biggest "premium" lever for the dark surfaces; every card family shares it. */
-  --card-edge:  inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.28);
-  --elev-card:  var(--card-edge), 0 2px 4px rgba(0,0,0,0.4), 0 22px 44px -24px rgba(0,0,0,0.85);
+  --card-edge:  inset 0 1px 0 rgba(255,255,255,0.11), inset 0 -1px 0 rgba(0,0,0,0.35);
+  --elev-card:  var(--card-edge), 0 3px 8px rgba(0,0,0,0.45), 0 28px 56px -22px rgba(0,0,0,0.95);
 
   /* Radii */
   --r-sm: 6px;
@@ -1813,7 +1813,15 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
   .skip-link { transition: none; }
 }
 
-.dash-main { padding: 32px 40px 60px; overflow-y: auto; }
+.dash-main {
+  padding: 32px 40px 60px;
+  overflow-y: auto;
+  /* Ambient brand energy so the surface isn't dead-flat black — two soft red
+     wells at the top corners. Stays put as content scrolls (bg on the scroll box). */
+  background:
+    radial-gradient(1100px 460px at 100% -6%, rgba(255,45,63,0.10), transparent 58%),
+    radial-gradient(820px 320px at -5% 2%, rgba(255,45,63,0.05), transparent 55%);
+}
 /* Cap content width on wide monitors so rows don't stretch edge-to-edge.
    Applied to children (not .dash-main itself) so the full area stays scrollable. */
 .dash-main > * { max-width: 1380px; margin-left: auto; margin-right: auto; }
@@ -2531,14 +2539,14 @@ section[data-pane="today"] { max-width: 880px; }
   overflow: hidden;
 }
 .stat-tile.featured {
-  border-color: rgba(255,45,63,0.45);
-  background-image: linear-gradient(140deg, rgba(255,45,63,0.16), rgba(255,45,63,0.02) 55%);
-  /* Keeps the shared bevel, adds a real (perceptible) accent glow so the hero
-     tile genuinely leads instead of blending into the grid. */
-  box-shadow: var(--card-edge), 0 0 0 1px rgba(255,45,63,0.18), 0 16px 38px -16px rgba(255,45,63,0.38);
+  border-color: var(--red);
+  background-image: linear-gradient(140deg, rgba(255,45,63,0.32), rgba(255,45,63,0.05) 62%);
+  /* Commanding hero: a full red border, a strong wash, and a real glow that
+     throws red light onto the black around it. This tile should own the grid. */
+  box-shadow: var(--card-edge), 0 0 0 1px rgba(255,45,63,0.45), 0 24px 64px -18px rgba(255,45,63,0.6);
 }
-.stat-tile.featured .stat-value { font-size: 2.7rem; }
-.stat-tile.featured .stat-label { color: var(--text-2); }
+.stat-tile.featured .stat-value { font-size: 3.1rem; color: #fff; text-shadow: 0 2px 34px rgba(255,45,63,0.45); }
+.stat-tile.featured .stat-label { color: #fff; }
 .stat-tile.featured .stat-label svg { color: var(--red); opacity: 1; }
 .stat-tile .stat-label {
   font-size: 0.72rem;
@@ -2556,7 +2564,7 @@ section[data-pane="today"] { max-width: 880px; }
   /* Data numbers ride Space Grotesk (the brand's data/mono face), not the Anton
      poster face — tabular, tight, precise. Anton stays for true headlines. */
   font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
-  font-size: 2.15rem;
+  font-size: 2.55rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1;
@@ -3373,28 +3381,29 @@ footer .footer-base {
  * the Progress and Bodyweight panes (and any future pane). */
 .dash-main .prog-sec {
   font-family: 'Anton', sans-serif;
-  font-size: 1.55rem;
+  font-size: 1.8rem;
   text-transform: uppercase;
   letter-spacing: 0.012em;
   line-height: 1;
   color: var(--text);
-  margin: 36px 0 16px;
-  padding-left: 14px;
+  margin: 40px 0 16px;
+  padding-left: 16px;
   position: relative;
 }
 .dash-main .prog-sec::before {
   content: '';
   position: absolute;
-  left: 0; top: 0.04em;
-  width: 4px; height: 1em;
-  border-radius: 2px;
+  left: 0; top: -0.02em;
+  width: 5px; height: 1.08em;
+  border-radius: 3px;
   background: var(--grad-red);
+  box-shadow: 0 0 18px rgba(255,45,63,0.55);   /* the accent bar throws light */
 }
 /* The very first section sits right under the stat grid / actions —
  * tighten so it doesn't float in a void. */
 .dash-main .prog-sec:first-of-type { margin-top: 24px; }
 @media (max-width: 600px) {
-  .dash-main .prog-sec { font-size: 1.3rem; margin: 28px 0 13px; }
+  .dash-main .prog-sec { font-size: 1.5rem; margin: 30px 0 13px; }
 }
 
 /* Section head that pairs a .prog-sec title with a trailing status badge
@@ -5230,8 +5239,9 @@ footer .footer-base {
   .exec-card-head h3 { font-size: 1.15rem; }
   .exec-set-block .exec-set-row { grid-template-columns: 30px 1fr 1fr 1fr auto; gap: 6px; padding: 8px 10px; }
   .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .stat-tile { padding: 14px; }
-  .stat-tile .stat-value { font-size: 1.9rem; }
+  .stat-tile { padding: 15px; }
+  .stat-tile .stat-value { font-size: 2.25rem; }
+  .stat-tile.featured .stat-value { font-size: 2.55rem; }
   .delta-grid { grid-template-columns: 1fr; }
   .goals-grid { grid-template-columns: 1fr; }
   .roster-grid { grid-template-columns: 1fr; }
