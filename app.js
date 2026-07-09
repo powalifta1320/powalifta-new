@@ -609,11 +609,22 @@ function _markPwaDismissed() {
   try { localStorage.setItem(PWA_DISMISSED_KEY, String(Date.now())); } catch {}
 }
 
-// Register the service worker
+// Register the service worker — WEB ONLY.
+// In the native Capacitor shell the app already bundles every file (inherently
+// offline) and uses APNs (not Web Push), so the SW is redundant — and worse, its
+// cache served STALE assets after a bundle update ("looks old" after a sync). So
+// in the native shell we skip registration AND proactively unregister + purge any
+// SW/cache a previous build left behind, so the app always loads the fresh bundle.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
-  });
+  const _isNativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (_isNativeShell) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    try { if (window.caches && caches.keys) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {}); } catch (e) {}
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+    });
+  }
 }
 
 // ============================================================
