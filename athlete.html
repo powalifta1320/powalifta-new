@@ -2834,6 +2834,9 @@ function renderProgress() {
     return;
   }
 
+  // ── GROUP 1 · SNAPSHOT ──────────────────────────────────────────────
+  // Headline numbers first, then THE progress visual (e1RM over time), then
+  // this week's momentum. Everything else is grouped below in logical blocks.
   const stat = el('div', { class: 'stat-grid' });
   ['squat', 'bench', 'deadlift'].forEach((lift, i) => {
     const liftLogs = logs.filter(l => l.lift === lift);
@@ -2861,118 +2864,8 @@ function renderProgress() {
   stat.appendChild(sTile);
   area.appendChild(stat);
 
-  // Signature actions: meet-day planner + weekly recap share card
-  const actionRow = el('div', { class: 'flex', style: 'gap: 10px; flex-wrap: wrap; margin-bottom: 24px;' });
-  const meetBtn = el('button', { class: 'btn', onclick: openMeetModal, title: 'Openers, seconds, and thirds built from your current e1RMs' });
-  meetBtn.innerHTML = '🏟 <span>Meet-day plan</span>';
-  actionRow.appendChild(meetBtn);
-  const weekBtn = el('button', { class: 'btn btn-ghost', onclick: shareWeekCard, title: 'Branded recap card of this week\'s training' });
-  weekBtn.innerHTML = '📸 <span>Share my week</span>';
-  actionRow.appendChild(weekBtn);
-  const importBtn = el('button', { class: 'btn btn-ghost', onclick: openImportModal, title: 'Bring your training history in from a spreadsheet or CSV' });
-  importBtn.innerHTML = '⬆ <span>Import history</span>';
-  actionRow.appendChild(importBtn);
-  area.appendChild(actionRow);
-
-  const balCard = renderLiftBalanceCard(user.id);
-  if (balCard) {
-    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lift balance'));
-    area.appendChild(balCard);
-  }
-
-  renderVolumeLandmarks(area);
-
-  // Deload nudge — only when 3 straight weeks of rising load at high RPE (pure helper).
-  const dl = deloadSignal(Store.get().workoutLogs, user.id, Date.now());
-  if (dl && dl.suggest) {
-    area.appendChild(el('div', { class: 'deload-nudge' },
-      el('span', { class: 'dl-icon' }, '🔋'),
-      el('div', { class: 'dl-body' },
-        el('div', { class: 'dl-title' }, 'A deload might be due'),
-        el('div', { class: 'dl-note' }, dl.note))));
-  }
-
-  renderAchievements(area);
-
-  const delta = getWeeklyDelta(user.id);
-  if (Object.keys(delta).length) {
-    area.appendChild(el('h3', { class: 'prog-sec' }, 'This week vs last'));
-    const grid = el('div', { class: 'delta-grid' });
-    ['squat', 'bench', 'deadlift'].forEach(lift => {
-      const d = delta[lift];
-      if (!d) return;
-      const tile = el('div', { class: 'delta-tile' });
-      tile.appendChild(el('div', { class: 'dt-lift' }, LIFT_LABELS[lift] + ' e1RM'));
-      const row = el('div', { class: 'dt-row' });
-      row.appendChild(el('div', { class: 'dt-num', html: Math.round(kgToDisplay(d.current)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
-      if (d.delta != null) {
-        const cls = d.delta > 0 ? 'up' : d.delta < 0 ? 'down' : 'flat';
-        const arrow = d.delta > 0 ? '▲' : d.delta < 0 ? '▼' : '–';
-        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(kgToDisplay(d.delta, 1)) + ' ' + unitLabel()));
-      } else row.appendChild(el('span', { class: 'dt-delta flat' }, 'first week'));
-      tile.appendChild(row);
-      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(kgToDisplay(d.previous)) + ' ' + unitLabel()));
-      grid.appendChild(tile);
-    });
-    area.appendChild(grid);
-  }
-
-  const prs = getLifetimePRs(user.id);
-  if (Object.keys(prs).length) {
-    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lifetime PRs'));
-    const wrap = el('div', { style: 'margin-bottom: 22px;' });
-    ['squat', 'bench', 'deadlift'].forEach(lift => {
-      const pr = prs[lift];
-      if (!pr) return;
-      const row = el('div', { class: 'pr-table-row' });
-      row.appendChild(el('div', { class: 'pr-lift' }, LIFT_LABELS[lift]));
-      row.appendChild(el('div', { class: 'pr-value', html: Math.round(kgToDisplay(pr.e1rmComp)) + ' ' + unitLabel() + ' <span class="pr-badge-inline" style="margin-left:8px">e1RM</span>' }));
-      row.appendChild(el('div', { class: 'pr-meta' }, kgToDisplay(pr.weight) + ' ' + unitLabel() + ' × ' + pr.reps + ' @ ' + pr.rpe + ' (' + (pr.variant || '—') + ')'));
-      row.appendChild(el('div', { class: 'pr-date' }, fmtDateShort(pr.date)));
-      const shareBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Generate a share card for this PR', onclick: () => sharePRCard(lift) }, 'Card');
-      row.appendChild(shareBtn);
-      wrap.appendChild(row);
-    });
-    area.appendChild(wrap);
-  }
-
-  // PR timeline — chronological feed of every e1RM PR, newest first (pure helper).
-  const prEvents = prTimeline(Store.get().workoutLogs, user.id, { limit: 8 });
-  if (prEvents.length) {
-    area.appendChild(el('h3', { class: 'prog-sec' }, 'PR timeline'));
-    const tl = el('div', { class: 'pr-timeline' });
-    prEvents.forEach(ev => {
-      const row = el('div', { class: 'prt-row' });
-      row.appendChild(el('div', { class: 'prt-date' }, fmtDateShort(ev.date)));
-      row.appendChild(el('div', { class: 'prt-lift' }, LIFT_LABELS[ev.lift]));
-      row.appendChild(el('div', { class: 'prt-val mono' }, Math.round(kgToDisplay(ev.e1rm)) + ' ' + unitLabel()));
-      row.appendChild(el('div', { class: 'prt-jump' },
-        ev.prev > 0 ? '+' + (Math.round(kgToDisplay(ev.jump) * 10) / 10) + ' ' + unitLabel() : 'first'));
-      tl.appendChild(row);
-    });
-    area.appendChild(tl);
-  }
-
-  renderMeetHistory(area);
-
-  area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
-  area.appendChild(buildStrengthScoreCard(user.id));
-
-  renderNotesJournal(area);
-
-  area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
-  const calCard = el('div', { class: 'chart-card' });
-  calCard.appendChild(el('div', { class: 'chart-head' },
-    el('div', { class: 'chart-sub' }, 'Last 16 weeks — each square is one day. Brighter red = more sets. Blue = rest day.')
-  ));
-  const calWrap = el('div');
-  calCard.appendChild(calWrap);
-  area.appendChild(calCard);
-  renderCalendarHeatmap(calWrap, { athleteId: user.id, weeks: 16 });
-
-  area.appendChild(el('h3', { class: 'prog-sec' }, 'Goals'));
-  area.appendChild(renderGoals(false));
-
+  // e1RM over time — moved to the TOP (was near the bottom). The single most
+  // important chart on the page, right under the headline stats.
   area.appendChild(el('h3', { class: 'prog-sec' }, 'e1RM over time'));
   const chartCard = el('div', { class: 'chart-card' });
   chartCard.appendChild(el('div', { class: 'chart-head' },
@@ -3020,6 +2913,125 @@ function renderProgress() {
     chartCard.appendChild(trendRow);
   }
 
+  const delta = getWeeklyDelta(user.id);
+  if (Object.keys(delta).length) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'This week vs last'));
+    const grid = el('div', { class: 'delta-grid' });
+    ['squat', 'bench', 'deadlift'].forEach(lift => {
+      const d = delta[lift];
+      if (!d) return;
+      const tile = el('div', { class: 'delta-tile' });
+      tile.appendChild(el('div', { class: 'dt-lift' }, LIFT_LABELS[lift] + ' e1RM'));
+      const row = el('div', { class: 'dt-row' });
+      row.appendChild(el('div', { class: 'dt-num', html: Math.round(kgToDisplay(d.current)) + '<span class="unit"> ' + unitLabel() + '</span>' }));
+      if (d.delta != null) {
+        const cls = d.delta > 0 ? 'up' : d.delta < 0 ? 'down' : 'flat';
+        const arrow = d.delta > 0 ? '▲' : d.delta < 0 ? '▼' : '–';
+        row.appendChild(el('span', { class: 'dt-delta ' + cls }, arrow + ' ' + Math.abs(kgToDisplay(d.delta, 1)) + ' ' + unitLabel()));
+      } else row.appendChild(el('span', { class: 'dt-delta flat' }, 'first week'));
+      tile.appendChild(row);
+      if (d.delta != null) tile.appendChild(el('div', { class: 'dt-vs' }, 'vs last week ' + Math.round(kgToDisplay(d.previous)) + ' ' + unitLabel()));
+      grid.appendChild(tile);
+    });
+    area.appendChild(grid);
+  }
+
+  // ── GROUP 2 · QUICK ACTIONS ─────────────────────────────────────────
+  const actionRow = el('div', { class: 'flex', style: 'gap: 10px; flex-wrap: wrap; margin-bottom: 24px;' });
+  const meetBtn = el('button', { class: 'btn', onclick: openMeetModal, title: 'Openers, seconds, and thirds built from your current e1RMs' });
+  meetBtn.innerHTML = '🏟 <span>Meet-day plan</span>';
+  actionRow.appendChild(meetBtn);
+  const weekBtn = el('button', { class: 'btn btn-ghost', onclick: shareWeekCard, title: 'Branded recap card of this week\'s training' });
+  weekBtn.innerHTML = '📸 <span>Share my week</span>';
+  actionRow.appendChild(weekBtn);
+  const importBtn = el('button', { class: 'btn btn-ghost', onclick: openImportModal, title: 'Bring your training history in from a spreadsheet or CSV' });
+  importBtn.innerHTML = '⬆ <span>Import history</span>';
+  actionRow.appendChild(importBtn);
+  area.appendChild(actionRow);
+
+  // ── GROUP 3 · PRs & MILESTONES ──────────────────────────────────────
+  const prs = getLifetimePRs(user.id);
+  if (Object.keys(prs).length) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lifetime PRs'));
+    const wrap = el('div', { style: 'margin-bottom: 22px;' });
+    ['squat', 'bench', 'deadlift'].forEach(lift => {
+      const pr = prs[lift];
+      if (!pr) return;
+      const row = el('div', { class: 'pr-table-row' });
+      row.appendChild(el('div', { class: 'pr-lift' }, LIFT_LABELS[lift]));
+      row.appendChild(el('div', { class: 'pr-value', html: Math.round(kgToDisplay(pr.e1rmComp)) + ' ' + unitLabel() + ' <span class="pr-badge-inline" style="margin-left:8px">e1RM</span>' }));
+      row.appendChild(el('div', { class: 'pr-meta' }, kgToDisplay(pr.weight) + ' ' + unitLabel() + ' × ' + pr.reps + ' @ ' + pr.rpe + ' (' + (pr.variant || '—') + ')'));
+      row.appendChild(el('div', { class: 'pr-date' }, fmtDateShort(pr.date)));
+      const shareBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Generate a share card for this PR', onclick: () => sharePRCard(lift) }, 'Card');
+      row.appendChild(shareBtn);
+      wrap.appendChild(row);
+    });
+    area.appendChild(wrap);
+  }
+
+  // PR timeline — chronological feed of every e1RM PR, newest first (pure helper).
+  const prEvents = prTimeline(Store.get().workoutLogs, user.id, { limit: 8 });
+  if (prEvents.length) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'PR timeline'));
+    const tl = el('div', { class: 'pr-timeline' });
+    prEvents.forEach(ev => {
+      const row = el('div', { class: 'prt-row' });
+      row.appendChild(el('div', { class: 'prt-date' }, fmtDateShort(ev.date)));
+      row.appendChild(el('div', { class: 'prt-lift' }, LIFT_LABELS[ev.lift]));
+      row.appendChild(el('div', { class: 'prt-val mono' }, Math.round(kgToDisplay(ev.e1rm)) + ' ' + unitLabel()));
+      row.appendChild(el('div', { class: 'prt-jump' },
+        ev.prev > 0 ? '+' + (Math.round(kgToDisplay(ev.jump) * 10) / 10) + ' ' + unitLabel() : 'first'));
+      tl.appendChild(row);
+    });
+    area.appendChild(tl);
+  }
+
+  // Milestone badge strip (weekly streak + session/PR milestones).
+  renderAchievements(area);
+
+  // ── GROUP 4 · STRENGTH & CLASS ──────────────────────────────────────
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
+  area.appendChild(buildStrengthScoreCard(user.id));
+
+  // ── GROUP 5 · TRAINING LOAD & RECOVERY ──────────────────────────────
+  const balCard = renderLiftBalanceCard(user.id);
+  if (balCard) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lift balance'));
+    area.appendChild(balCard);
+  }
+
+  renderVolumeLandmarks(area);
+
+  // Deload nudge — only when 3 straight weeks of rising load at high RPE (pure helper).
+  const dl = deloadSignal(Store.get().workoutLogs, user.id, Date.now());
+  if (dl && dl.suggest) {
+    area.appendChild(el('div', { class: 'deload-nudge' },
+      el('span', { class: 'dl-icon' }, '🔋'),
+      el('div', { class: 'dl-body' },
+        el('div', { class: 'dl-title' }, 'A deload might be due'),
+        el('div', { class: 'dl-note' }, dl.note))));
+  }
+
+  // ── GROUP 6 · COMPETITION ───────────────────────────────────────────
+  renderMeetHistory(area);
+
+  // ── GROUP 7 · CONSISTENCY ───────────────────────────────────────────
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
+  const calCard = el('div', { class: 'chart-card' });
+  calCard.appendChild(el('div', { class: 'chart-head' },
+    el('div', { class: 'chart-sub' }, 'Last 16 weeks — each square is one day. Brighter red = more sets. Blue = rest day.')
+  ));
+  const calWrap = el('div');
+  calCard.appendChild(calWrap);
+  area.appendChild(calCard);
+  renderCalendarHeatmap(calWrap, { athleteId: user.id, weeks: 16 });
+
+  // ── GROUP 8 · GOALS ─────────────────────────────────────────────────
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Goals'));
+  area.appendChild(renderGoals(false));
+
+  // ── GROUP 9 · DETAILED LOG ──────────────────────────────────────────
+  // Dense reference tables + coach notes at the very bottom.
   // ===== REP PRs — best weight at each rep count per main lift =====
   if (logs.length) {
     const repPRCard = el('div', { class: 'chart-card' });
@@ -3072,6 +3084,9 @@ function renderProgress() {
       area.appendChild(repPRCard);
     }
   }
+
+  // Coach notes / journal feed (moved to the detailed-log group at the bottom).
+  renderNotesJournal(area);
 
   if (logs.length) {
     area.appendChild(el('h3', { class: 'prog-sec' }, 'Recent sets'));
