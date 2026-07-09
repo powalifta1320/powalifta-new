@@ -324,7 +324,9 @@ bootstrap('coach', () => {
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   setLbl('tab-progress', ICONS.chart, 'Progress');
   // Native shell: mirror the tabs into an iOS-style bottom bar (no-op on the web).
-  buildBottomTabs();
+  // Bar: Roster · Program · Progress · Messages · More (Marketplace under More;
+  // Templates already excluded). Consistent 4-primary + More shape with athlete.
+  buildBottomTabs(['athletes', 'program', 'progress', 'messages']);
   document.getElementById('btn-invite').innerHTML = ICONS.plus + '<span>Invite athlete</span>';
   document.getElementById('addSetRowBtn').innerHTML = ICONS.plus + '<span>Add set</span>';
 

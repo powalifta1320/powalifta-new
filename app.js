@@ -4665,7 +4665,7 @@ const BTAB_SHORT = {
   coach: 'Coach', library: 'Library', marketplace: 'Market',
   athletes: 'Roster', templates: 'Templates', messages: 'Messages'
 };
-function buildBottomTabs() {
+function buildBottomTabs(primaryKeys) {
   try {
     if (!document.documentElement.classList.contains('native')) return; // native shell only
     if (document.getElementById('bottomTabs')) return;                  // build once
@@ -4681,8 +4681,21 @@ function buildBottomTabs() {
     const labelFor = (t) => BTAB_SHORT[t.dataset.tab] || (t.querySelector('span') && t.querySelector('span').textContent) || t.dataset.tab;
     const iconOf = (t) => { const s = t.querySelector('svg'); return s ? s.cloneNode(true) : null; };
 
-    const primary  = tabs.length <= 5 ? tabs : tabs.slice(0, 4);
-    const overflow = tabs.length <= 5 ? []   : tabs.slice(4);
+    // Primary vs overflow. A caller may pass an explicit ordered list of
+    // data-tab keys (e.g. the athlete bar shows Coach only when linked, else
+    // Program); those become the bar in that order and everything else spills
+    // to "More". Without it, fall back to the first-4 heuristic.
+    let primary, overflow;
+    if (Array.isArray(primaryKeys) && primaryKeys.length) {
+      const byKey = {};
+      tabs.forEach(t => { byKey[t.dataset.tab] = t; });
+      primary = primaryKeys.map(k => byKey[k]).filter(Boolean);
+      const inPrimary = new Set(primary);
+      overflow = tabs.filter(t => !inPrimary.has(t));
+    } else {
+      primary  = tabs.length <= 5 ? tabs : tabs.slice(0, 4);
+      overflow = tabs.length <= 5 ? []   : tabs.slice(4);
+    }
 
     const bar = el('nav', { class: 'bottom-tabs', id: 'bottomTabs', role: 'tablist', 'aria-label': 'Primary sections' });
     let moreBtn = null, sheet = null;

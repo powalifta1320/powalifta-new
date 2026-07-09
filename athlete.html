@@ -475,7 +475,10 @@ bootstrap('athlete', () => {
   document.getElementById('goalsBtn').innerHTML = ICONS.trophy + '<span>Set goals</span>';
 
   // Native shell: mirror the tabs into an iOS-style bottom bar (no-op on the web).
-  buildBottomTabs();
+  // Bar: Today · Progress · Weight · [Coach when linked, else Program] · More.
+  // Self-coached athletes get Program in slot 4 instead of an empty Coach tab;
+  // the demoted tab (plus Library + Marketplace) lives under More.
+  buildBottomTabs(['today', 'progress', 'bodyweight', _selfCoached ? 'program' : 'coach']);
   // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo).
   if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder();
 
@@ -2602,8 +2605,8 @@ function buildStrengthScoreCard(athleteId) {
     el('div', { class: 'dots-meta' },
       el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'IPF GL'),
         el('span', { class: 'dmv mono' }, gl ? gl.toFixed(1) : '—')),
-      el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Est. total'),
-        el('span', { class: 'dmv mono' }, Math.round(kgToDisplay(total)).toLocaleString() + ' ' + unitLabel())),
+      // Est. total intentionally omitted here — the Overview headline "Total" tile
+      // already states it in the same view (dedupe: one datum, one place).
       el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Weight class'),
         el('span', { class: 'dmv mono' }, wc || '—')),
       el('div', { class: 'dots-meta-row' }, el('span', { class: 'dmk' }, 'Bodyweight'),
@@ -2834,9 +2837,60 @@ function renderProgress() {
     return;
   }
 
-  // ── GROUP 1 · SNAPSHOT ──────────────────────────────────────────────
-  // Headline numbers first, then THE progress visual (e1RM over time), then
-  // this week's momentum. Everything else is grouped below in logical blocks.
+  // ── SUB-TABS ────────────────────────────────────────────────────────
+  // The Progress pane was 16 sections in one scroll. Route them into four
+  // focused sub-views so the pane is one decision deep. The active view is
+  // rendered lazily on select (charts must measure a live, non-hidden width —
+  // building them in a display:none container renders them blank). Last view
+  // persists per session. Pure helpers are untouched.
+  const SUBTABS = [
+    { key: 'overview', label: 'Overview',    fn: renderProgOverview },
+    { key: 'analysis', label: 'Analysis',    fn: renderProgAnalysis },
+    { key: 'prs',      label: 'PRs & Meets', fn: renderProgPRs },
+    { key: 'history',  label: 'History',     fn: renderProgHistory },
+  ];
+  let activeSub = sessionStorage.getItem('powa-prog-subtab') || 'overview';
+  if (!SUBTABS.some(t => t.key === activeSub)) activeSub = 'overview';
+
+  const seg = el('div', { class: 'prog-subtabs', role: 'tablist', 'aria-label': 'Progress views' });
+  const view = el('div', { class: 'prog-subview' });
+  const draw = (key) => {
+    view.innerHTML = '';
+    (SUBTABS.find(t => t.key === key) || SUBTABS[0]).fn(view, logs);
+    seg.querySelectorAll('.prog-subtab').forEach(b => {
+      const on = b.dataset.sub === key;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  };
+  SUBTABS.forEach(t => {
+    const on = t.key === activeSub;
+    const b = el('button', { class: 'prog-subtab' + (on ? ' active' : ''), type: 'button', role: 'tab', 'data-sub': t.key, 'aria-selected': on ? 'true' : 'false' }, t.label);
+    b.addEventListener('click', () => {
+      if (activeSub === t.key) return;
+      activeSub = t.key;
+      sessionStorage.setItem('powa-prog-subtab', activeSub);
+      draw(activeSub);
+    });
+    seg.appendChild(b);
+  });
+  area.appendChild(seg);
+  area.appendChild(view);
+  draw(activeSub);
+}
+
+// A tiny shared empty note for a sub-view that has no data yet (past the
+// first-run guard, but this particular view's sections all no-op).
+function _progEmptyNote(area, title, body) {
+  area.appendChild(el('div', { class: 'card prog-empty' },
+    el('div', { class: 'pe-title' }, title),
+    el('p', { class: 'dim', style: 'margin:0' }, body)));
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────
+// Headline numbers → THE progress visual (e1RM over time) → this week's
+// momentum → strength score. The "where do I stand right now" view.
+function renderProgOverview(area, logs) {
   const stat = el('div', { class: 'stat-grid' });
   ['squat', 'bench', 'deadlift'].forEach((lift, i) => {
     const liftLogs = logs.filter(l => l.lift === lift);
@@ -2949,7 +3003,42 @@ function renderProgress() {
   actionRow.appendChild(importBtn);
   area.appendChild(actionRow);
 
-  // ── GROUP 3 · PRs & MILESTONES ──────────────────────────────────────
+  // Strength score closes the Overview — "where do I stand right now."
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
+  area.appendChild(buildStrengthScoreCard(user.id));
+}
+
+// ── ANALYSIS ──────────────────────────────────────────────────────────
+// Training-load & recovery lenses: lift balance, weekly volume landmarks
+// (MEV/MAV/MRV), and the deload signal.
+function renderProgAnalysis(area, logs) {
+  const balCard = renderLiftBalanceCard(user.id);
+  if (balCard) {
+    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lift balance'));
+    area.appendChild(balCard);
+  }
+
+  renderVolumeLandmarks(area);
+
+  // Deload nudge — only when 3 straight weeks of rising load at high RPE (pure helper).
+  const dl = deloadSignal(Store.get().workoutLogs, user.id, Date.now());
+  if (dl && dl.suggest) {
+    area.appendChild(el('div', { class: 'deload-nudge' },
+      el('span', { class: 'dl-icon' }, '🔋'),
+      el('div', { class: 'dl-body' },
+        el('div', { class: 'dl-title' }, 'A deload might be due'),
+        el('div', { class: 'dl-note' }, dl.note))));
+  }
+
+  if (!area.children.length) {
+    _progEmptyNote(area, 'Analysis builds as you train', 'Lift balance, weekly volume landmarks, and the deload signal need a few sessions of data. Keep logging and they populate here.');
+  }
+}
+
+// ── PRs & MEETS ───────────────────────────────────────────────────────
+// Every PR surface + competition history in one place: lifetime bests, the
+// chronological PR timeline, milestone badges, meet results, and the rep-PR grid.
+function renderProgPRs(area, logs) {
   const prs = getLifetimePRs(user.id);
   if (Object.keys(prs).length) {
     area.appendChild(el('h3', { class: 'prog-sec' }, 'Lifetime PRs'));
@@ -2989,49 +3078,9 @@ function renderProgress() {
   // Milestone badge strip (weekly streak + session/PR milestones).
   renderAchievements(area);
 
-  // ── GROUP 4 · STRENGTH & CLASS ──────────────────────────────────────
-  area.appendChild(el('h3', { class: 'prog-sec' }, 'Strength score'));
-  area.appendChild(buildStrengthScoreCard(user.id));
-
-  // ── GROUP 5 · TRAINING LOAD & RECOVERY ──────────────────────────────
-  const balCard = renderLiftBalanceCard(user.id);
-  if (balCard) {
-    area.appendChild(el('h3', { class: 'prog-sec' }, 'Lift balance'));
-    area.appendChild(balCard);
-  }
-
-  renderVolumeLandmarks(area);
-
-  // Deload nudge — only when 3 straight weeks of rising load at high RPE (pure helper).
-  const dl = deloadSignal(Store.get().workoutLogs, user.id, Date.now());
-  if (dl && dl.suggest) {
-    area.appendChild(el('div', { class: 'deload-nudge' },
-      el('span', { class: 'dl-icon' }, '🔋'),
-      el('div', { class: 'dl-body' },
-        el('div', { class: 'dl-title' }, 'A deload might be due'),
-        el('div', { class: 'dl-note' }, dl.note))));
-  }
-
-  // ── GROUP 6 · COMPETITION ───────────────────────────────────────────
+  // Competition history — best good lift per discipline + best total.
   renderMeetHistory(area);
 
-  // ── GROUP 7 · CONSISTENCY ───────────────────────────────────────────
-  area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
-  const calCard = el('div', { class: 'chart-card' });
-  calCard.appendChild(el('div', { class: 'chart-head' },
-    el('div', { class: 'chart-sub' }, 'Last 16 weeks — each square is one day. Brighter red = more sets. Blue = rest day.')
-  ));
-  const calWrap = el('div');
-  calCard.appendChild(calWrap);
-  area.appendChild(calCard);
-  renderCalendarHeatmap(calWrap, { athleteId: user.id, weeks: 16 });
-
-  // ── GROUP 8 · GOALS ─────────────────────────────────────────────────
-  area.appendChild(el('h3', { class: 'prog-sec' }, 'Goals'));
-  area.appendChild(renderGoals(false));
-
-  // ── GROUP 9 · DETAILED LOG ──────────────────────────────────────────
-  // Dense reference tables + coach notes at the very bottom.
   // ===== REP PRs — best weight at each rep count per main lift =====
   if (logs.length) {
     const repPRCard = el('div', { class: 'chart-card' });
@@ -3085,7 +3134,28 @@ function renderProgress() {
     }
   }
 
-  // Coach notes / journal feed (moved to the detailed-log group at the bottom).
+  if (!area.children.length) {
+    _progEmptyNote(area, 'No PRs on record yet', 'Log your main lifts and your lifetime bests, PR timeline, and rep PRs land here. Competition results you add show up here too.');
+  }
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────
+// The record: training calendar, goals, the notes journal, and the raw set log.
+function renderProgHistory(area, logs) {
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Training calendar'));
+  const calCard = el('div', { class: 'chart-card' });
+  calCard.appendChild(el('div', { class: 'chart-head' },
+    el('div', { class: 'chart-sub' }, 'Last 16 weeks — each square is one day. Brighter red = more sets. Blue = rest day.')
+  ));
+  const calWrap = el('div');
+  calCard.appendChild(calWrap);
+  area.appendChild(calCard);
+  renderCalendarHeatmap(calWrap, { athleteId: user.id, weeks: 16 });
+
+  area.appendChild(el('h3', { class: 'prog-sec' }, 'Goals'));
+  area.appendChild(renderGoals(false));
+
+  // Coach notes / journal feed.
   renderNotesJournal(area);
 
   if (logs.length) {

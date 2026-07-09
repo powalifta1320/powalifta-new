@@ -2048,6 +2048,70 @@ tbody tr:hover td { background: var(--hover-tint); }
 .seg button:hover { color: var(--text); }
 .seg button.active { background: var(--red); color: #fff; }
 
+/* Progress sub-tabs — a full-width segmented control that routes the Progress
+   pane into four sub-views (Overview / Analysis / PRs & Meets / History). Scrolls
+   internally on narrow phones so the page itself never gains horizontal overflow.
+   Active segment reads as a physically raised pill on near-black (the shared bevel),
+   with the label brightening and a scarce red underline as the single accent —
+   red stays a weapon, not a wash. */
+.prog-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: var(--space-lg);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.prog-subtabs::-webkit-scrollbar { display: none; }
+.prog-subtab {
+  position: relative;
+  flex: 1 0 auto;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  padding: 9px 16px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.prog-subtab:hover { color: var(--text-2); }
+.prog-subtab.active {
+  color: var(--text);
+  background: var(--bg-3);
+  box-shadow: var(--card-edge);
+}
+.prog-subtab.active::after {
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; bottom: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--red);
+}
+@media (prefers-reduced-motion: reduce) {
+  .prog-subtab { transition: none; }
+}
+/* A sub-view with no data yet (past first-run, but this view's sections no-op). */
+.prog-empty { text-align: left; }
+.prog-empty .pe-title {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
 /* ============================================ BADGES */
 .badge {
   display: inline-flex;
