@@ -427,6 +427,10 @@ html.native .ai-launcher {
     border-radius: 18px 18px 0 0;
     border-bottom: none;
   }
+  /* The panel is a bottom-anchored sheet, so its composer sits on the home
+     indicator in the native shell. Pad the send row clear of it. env() is 0 on
+     mobile web, so this is a no-op there. */
+  .ai-foot { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
   .ai-launcher { right: 16px; bottom: 16px; }
   .ai-launcher .ai-launcher-label { display: none; }
   .ai-launcher { padding: 0; width: 52px; justify-content: center; }
