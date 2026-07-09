@@ -625,9 +625,9 @@ select {
   line-height: 1;
 }
 .hero-facts .hf span {
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-2); /* was text-3 — bump contrast on the tiny captions */
   font-weight: 600;
 }
@@ -770,7 +770,7 @@ select {
   color: var(--text-3);
 }
 .hero-preview-card .hp-pill {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 10px;
   background: rgba(78, 216, 132, 0.12);
