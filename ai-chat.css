@@ -43,6 +43,16 @@
 .ai-launcher .ai-launcher-label { white-space: nowrap; }
 .ai-launcher.is-open { transform: scale(0.6); opacity: 0; pointer-events: none; }
 
+/* Native shell: the fixed bottom tab bar (.bottom-tabs, ~72px + home indicator)
+   owns the bottom edge, so lift the launcher clear of it — it must never cover a
+   tab. Scoped to html.native → desktop + mobile web are untouched (no bottom bar
+   there). Higher specificity than the .ai-launcher mobile rule below, so it wins
+   regardless of source order. Applies on BOTH dashboards (shared stylesheet). */
+html.native .ai-launcher {
+  bottom: calc(72px + 14px + env(safe-area-inset-bottom));
+  right: max(16px, env(safe-area-inset-right));
+}
+
 /* Pulse ring to draw the eye on first paint */
 .ai-launcher::after {
   content: "";
