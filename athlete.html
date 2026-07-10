@@ -2844,10 +2844,12 @@ function renderProgress() {
   // building them in a display:none container renders them blank). Last view
   // persists per session. Pure helpers are untouched.
   const SUBTABS = [
-    { key: 'overview', label: 'Overview',    fn: renderProgOverview },
-    { key: 'analysis', label: 'Analysis',    fn: renderProgAnalysis },
-    { key: 'prs',      label: 'PRs & Meets', fn: renderProgPRs },
-    { key: 'history',  label: 'History',     fn: renderProgHistory },
+    { key: 'overview', label: 'Overview', fn: renderProgOverview },
+    { key: 'analysis', label: 'Analysis', fn: renderProgAnalysis },
+    // Label shortened from "PRs & Meets" so all four fit legibly at 375px; the
+    // view keeps its "Competition history" section so meets stay signposted.
+    { key: 'prs',      label: 'PRs',      fn: renderProgPRs },
+    { key: 'history',  label: 'History',  fn: renderProgHistory },
   ];
   let activeSub = sessionStorage.getItem('powa-prog-subtab') || 'overview';
   if (!SUBTABS.some(t => t.key === activeSub)) activeSub = 'overview';
