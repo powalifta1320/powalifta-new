@@ -529,6 +529,39 @@ const DB = {
     }
   },
 
+  // ---- Apple In-App Purchase (native shell only) --------------------------
+  // Redeem a StoreKit 2 signed transaction: the `apple-iap` edge function
+  // verifies Apple's signature chain server-side and writes subscription_tier.
+  // Same FunctionsHttpError unwrap pattern as subscriptionPortal above.
+  async appleIapSync(signedTransaction) {
+    try {
+      const { data, error } = await sb.functions.invoke('apple-iap', { body: { signedTransaction } });
+      if (error) {
+        let reason = error.message || String(error);
+        try {
+          if (error.context && typeof error.context.clone === 'function') {
+            const body = await error.context.clone().json();
+            if (body && (body.error || body.reason)) reason = body.error || body.reason;
+          }
+        } catch (_) { /* body wasn't JSON */ }
+        return { ok: false, reason };
+      }
+      if (data && data.ok) return { ok: true, tier: data.tier, expiresAt: data.expiresAt || null };
+      return { ok: false, reason: (data && (data.reason || data.error)) || 'sync failed' };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  },
+  // Device reports no active Apple entitlement → self-downgrade (server checks
+  // the profile really is Apple-billed before touching anything).
+  async appleIapClear() {
+    try {
+      const { data, error } = await sb.functions.invoke('apple-iap', { body: { action: 'clear' } });
+      if (error) return { ok: false };
+      return data && data.ok ? { ok: true, tier: data.tier } : { ok: false };
+    } catch (_) { return { ok: false }; }
+  },
+
   async signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;

@@ -28,7 +28,7 @@ if command -v supabase >/dev/null 2>&1; then SB=(supabase); else SB=(npx --yes s
 # send-weekly-digest is cron-triggered (no user session) → gates on CRON_SECRET.
 NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error send-weekly-digest unsubscribe)
 # Require a logged-in caller's JWT.
-WITH_JWT=(send-program-assigned send-push ai-chat send-invite delete-account ls-portal)
+WITH_JWT=(send-program-assigned send-push ai-chat send-invite delete-account ls-portal apple-iap)
 
 deploy_functions() {
   for fn in "${NO_JWT[@]}"; do

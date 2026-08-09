@@ -10,7 +10,7 @@ here is drawn from the live product; edit to taste. Character limits noted inlin
 - **Primary category:** Health & Fitness
 - **Secondary category:** Sports
 - **Age rating:** 4+ (no objectionable content)
-- **Price:** Free (in-app: none on iOS v1 — coach subscriptions are billed on the web via Lemon Squeezy, NOT via Apple IAP; see the "IAP" note at the bottom)
+- **Price:** Free, with three auto-renewable coach subscriptions via Apple In-App Purchase (see "In-App Purchase setup" below). Web billing (Lemon Squeezy) continues to exist for web signups — allowed under 3.1.3(b) because the same tiers are also purchasable in-app.
 
 ## Listing copy (paste into App Store Connect → App Information / Version)
 
@@ -52,12 +52,12 @@ FOR COACHES
 • Manage your whole roster from one dashboard — who logged, who's stalling, who just PR'd.
 • Build programs in RPE and assign them in a click. Save templates, reuse them across athletes.
 • Review form checks, message athletes, and track adherence.
-• Free with your first 3 athletes.
+• Invite an athlete with a 6-character code — they're on your roster in seconds.
 
 WHY RPE
 Powerlifting runs on autoregulation. POWALIFTA is RPE-native from the ground up — your e1RM math, your programming, and your progress all speak the same language your coach does.
 
-Free for athletes, forever. Coaches start free and grow into paid tiers only when their roster does.
+Free for athletes, forever.
 
 Built for the barbell.
 ```
@@ -106,9 +106,8 @@ experience without creating an account, open the app and tap "Try the demo"
 For a real account: sign up as a Solo athlete (free, no card) — email + password
 only. Coach features are visible by signing up as a Coach.
 
-Subscriptions: coach paid tiers are sold on our website (Lemon Squeezy, Merchant
-of Record) and are NOT offered as Apple in-app purchases. The iOS app contains no
-purchasable content; athletes use it free. Please see guideline note below.
+The app is entirely free. It contains no purchases, no subscriptions, no paid
+content, and no references or links to any purchasing mechanism.
 ```
 
 ## Signing & capabilities checklist (Xcode — you drive)
@@ -126,11 +125,39 @@ purchasable content; athletes use it free. Please see guideline note below.
   notification registration (APNs), camera capture for form checks (the video
   upload uses the device camera), offline logging (network-first service worker),
   and native chrome (status bar / splash / haptics). Say this in review notes if asked.
-- **3.1.1 (in-app purchase):** the app sells NOTHING inside iOS. Athlete features
-  are free; coach subscriptions are a separate web purchase (Merchant of Record =
-  Lemon Squeezy). Do NOT add "buy/upgrade" buttons that link out to web payment
-  from inside the iOS app — that violates 3.1.1. The upgrade/billing UI must be
-  hidden or inert on native (see the TODO in docs/native-app-spike.md).
+- **3.1.1 (in-app purchase):** RESOLVED by adding real StoreKit IAP (2026-07,
+  after 5 rejection rounds). Coach tiers are purchasable in-app via the native
+  paywall (`openNativePaywall` in app.js → StoreKitPlugin.swift). Still true:
+  NEVER link to web payment or name the website as a place to pay from inside
+  the app — steering remains prohibited. Web Lemon Squeezy billing coexists
+  legally under 3.1.3(b) because the same tiers exist as IAP.
+
+## In-App Purchase setup (App Store Connect — one-time)
+
+1. **Agreements, Tax, and Banking** → sign the Paid Applications agreement +
+   complete banking/tax. NOTHING below works until this clears.
+2. **Small Business Program** → enroll (App Store Connect → Business). 15%
+   commission instead of 30% under $1M/yr.
+3. **App → Subscriptions** → create group **"Coach Plans"**, then three
+   auto-renewable subscriptions, 1-month duration, EXACT product IDs
+   (must match StoreKitPlugin.swift + supabase/functions/apple-iap/index.ts):
+   - `com.powalifta.app.coach.basic`   — $24.99/mo — "Basic — up to 10 athletes"
+   - `com.powalifta.app.coach.pro`     — $49.99/mo — "Pro — up to 25 athletes"
+   - `com.powalifta.app.coach.premium` — $99.99/mo — "Premium — unlimited athletes"
+   Each needs a localization (display name + description) and a review
+   screenshot (screenshot the in-app paywall once it runs in the simulator).
+4. **Xcode** → App target → Signing & Capabilities → **+ In-App Purchase**.
+5. **Backend** → run `sql/migration-apple-iap.sql` in the SQL Editor, then
+   `./deploy.sh` (deploys the `apple-iap` verifier — no new secret; optional
+   `APPLE_ROOT_CA_B64` pins Apple's root cert offline).
+6. **Submit** → with the next build, ATTACH all three subscriptions to the
+   version submission (first-ever IAPs ride along with a binary review).
+   App metadata also needs a Terms of Use (EULA) link — Apple's standard EULA
+   (linked in App Store Connect's version page) is acceptable.
+7. **Renewal/cancellation sync**: v1 syncs entitlements at purchase, restore,
+   and app-launch (Transaction.currentEntitlements → apple-iap). App Store
+   Server Notifications V2 (a webhook for server-pushed renewals/refunds) is
+   the documented hardening step — add before scale.
 - **5.1.1 (account deletion):** we have self-serve deletion (Settings → Delete my
   account, the `delete-account` function). Required by Apple. ✅ already built.
 ```

@@ -491,7 +491,9 @@ async function bootstrap(expectedType, onReady, opts) {
     avatarUrl: profile.avatar_url || null,
     countryCode: profile.country_code || null,
     referralCode: profile.referral_code || null,
-    referredByCode: profile.referred_by_code || null
+    referredByCode: profile.referred_by_code || null,
+    // Apple-billed coach sub (IAP)? Drives which "manage" surface shows on iOS.
+    appleBilled: !!profile.apple_original_transaction_id
   };
 
   // If a referral was stashed before this user signed up / logged in, attribute
@@ -549,8 +551,14 @@ function getTheme() {
     const stored = localStorage.getItem(THEME_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {}
-  // Fall back to system preference for first-time visitors. We default to dark
-  // because the brand is dark-first; only honor explicit "light" pref.
+  // Native shell is dark-first, ALWAYS: a light-mode POWALIFTA on a light-appearance
+  // phone reads as off-brand/generic. Ignore the OS pref there (the head snippet already
+  // set data-theme=dark) — the user can still switch explicitly via the Settings toggle.
+  try {
+    if (document.documentElement.classList.contains('native')) return 'dark';
+  } catch {}
+  // Web: honor system preference for first-time visitors (a11y). Dark otherwise —
+  // the brand is dark-first; only auto-adopt an explicit "light" OS pref.
   try {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
       return 'light';
@@ -1148,9 +1156,16 @@ function ensureUpgradeModal() {
 function openUpgradeModal(reason) {
   const u = getCurrentUser();
   if (!u) return;
-  // Apple 3.1.1: the iOS app must not steer users to external web payment for
-  // digital goods. On native, don't open the LS checkout — point to the web.
-  if (_isNativeShell()) { toast('Manage your plan at powalifta.com'); return; }
+  // Native shell: tiers are now purchasable IN-APP via StoreKit (Apple 3.1.1
+  // compliant), so the paywall may show — but ONLY when StoreKit is actually
+  // available (window._iapReady, set by native-bridge). Old iOS / missing
+  // plugin → stay fully tier-blind: neutral cap message, nothing else. The web
+  // Lemon Squeezy modal below never renders in the shell either way.
+  if (_isNativeShell()) {
+    if (window._iapReady) { openNativePaywall(reason); return; }
+    if (reason === 'cap') toast('You\'ve reached your athlete limit.');
+    return;
+  }
   ensureUpgradeModal();
   if (reason === 'cap') {
     document.getElementById('upgradeTitle').textContent = 'You\'ve hit your plan limit';
@@ -1199,6 +1214,146 @@ function openUpgradeModal(reason) {
 window.openUpgradeModal = openUpgradeModal;
 
 // =========================================================
+// NATIVE PAYWALL — StoreKit In-App Purchase (iOS shell only)
+// The 3.1.1-compliant twin of the web upgrade modal: same .upgrade-* look,
+// but every price is Apple's localized displayPrice and every CTA is a real
+// StoreKit purchase. Includes the affordances Apple requires on subscription
+// paywalls: a Restore Purchases action, Terms + Privacy links, and a renewal
+// disclosure. Never renders on the web (openUpgradeModal routes there first).
+// =========================================================
+const IAP_TIER_META = {
+  'com.powalifta.app.coach.basic':   { key: 'basic',   limit: 10,   blurb: 'Solo coach, growing roster.' },
+  'com.powalifta.app.coach.pro':     { key: 'pro',     limit: 25,   blurb: 'Full-time independent coach.', featured: true },
+  'com.powalifta.app.coach.premium': { key: 'premium', limit: 9999, blurb: 'Studios, teams, federations.' }
+};
+
+function ensureIapPaywall() {
+  if (document.getElementById('iapPaywallModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<div class="modal-backdrop" id="iapPaywallModal">' +
+      '<div class="modal modal-lg">' +
+        '<button class="modal-close" aria-label="Close" onclick="closeModal(\'iapPaywallModal\')">&times;</button>' +
+        '<h3 id="iapPaywallTitle">Choose your plan</h3>' +
+        '<p class="dim text-sm mb-16" id="iapPaywallSubtitle">Scale your coaching as your roster grows.</p>' +
+        '<div class="upgrade-grid" id="iapPaywallTiers"></div>' +
+        '<div class="center mt-16">' +
+          '<button class="btn btn-sm btn-ghost" onclick="iapRestorePurchases(this)">Restore Purchases</button>' +
+        '</div>' +
+        '<p class="faded text-xs center mt-12">Subscriptions are billed monthly through your Apple ID and renew ' +
+          'automatically until cancelled in your App Store settings at least 24 hours before the period ends.</p>' +
+        '<p class="faded text-xs center mt-8">' +
+          '<a href="terms.html" class="dim">Terms of Use</a> &nbsp;·&nbsp; <a href="privacy.html" class="dim">Privacy Policy</a>' +
+        '</p>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(wrap.firstChild);
+}
+
+async function openNativePaywall(reason) {
+  const u = getCurrentUser();
+  if (!u) return;
+  if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+  ensureIapPaywall();
+  const grid = document.getElementById('iapPaywallTiers');
+  if (reason === 'cap') {
+    document.getElementById('iapPaywallTitle').textContent = 'You\'ve hit your plan limit';
+    document.getElementById('iapPaywallSubtitle').textContent =
+      'Your roster is full on the ' + (TIER_LABELS[getCurrentTier()] || 'Free') + ' plan. Upgrade to add more athletes.';
+  } else {
+    document.getElementById('iapPaywallTitle').textContent = 'Choose your plan';
+    document.getElementById('iapPaywallSubtitle').textContent = 'Scale your coaching as your roster grows.';
+  }
+  grid.innerHTML = '<p class="dim text-sm">Loading plans…</p>';
+  document.getElementById('iapPaywallModal').classList.add('open');
+
+  const products = await PowaNative.iapProducts();
+  if (!products.length) {
+    // Honest failure — never invent prices the App Store didn't return.
+    grid.innerHTML = '<p class="dim text-sm">Couldn\'t reach the App Store. Check your connection and try again.</p>';
+    return;
+  }
+  grid.innerHTML = '';
+  const current = getCurrentTier();
+  // Stable order: basic → pro → premium regardless of App Store response order.
+  const ordered = Object.keys(IAP_TIER_META)
+    .map(id => products.find(p => p.id === id)).filter(Boolean);
+  ordered.forEach(p => {
+    const meta = IAP_TIER_META[p.id];
+    const isCurrent = meta.key === current;
+    const card = el('div', { class: 'upgrade-tier' + (meta.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
+    if (meta.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'POPULAR'));
+    card.appendChild(el('h4', {}, TIER_LABELS[meta.key] || p.displayName));
+    card.appendChild(el('div', { class: 'upgrade-price' }, p.displayPrice, el('span', { class: 'unit' }, '/mo')));
+    card.appendChild(el('div', { class: 'upgrade-limit' }, meta.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + meta.limit + ' athletes'));
+    card.appendChild(el('p', { class: 'upgrade-blurb' }, meta.blurb));
+    if (isCurrent) {
+      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', style: 'opacity:0.6; cursor: default;' }, 'Current plan'));
+    } else {
+      const cta = el('button', { class: 'btn btn-primary btn-block' }, current === 'free' ? 'Subscribe' : 'Switch');
+      cta.addEventListener('click', () => iapBuy(p.id, cta));
+      card.appendChild(cta);
+    }
+    grid.appendChild(card);
+  });
+}
+
+async function iapBuy(productId, btn) {
+  const u = getCurrentUser();
+  if (!u) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Waiting for App Store…'; }
+  const done = (label) => { if (btn) { btn.disabled = false; btn.textContent = label || 'Subscribe'; } };
+  try {
+    const res = await PowaNative.iapPurchase(productId, u.id);
+    if (res.state === 'cancelled') { done(); return; }
+    if (res.state === 'pending') { done(); toast('Purchase pending approval.'); return; }
+    if (res.state !== 'purchased' || !res.jws) { done(); toast('Purchase didn\'t complete — nothing was charged.'); return; }
+    if (btn) btn.textContent = 'Activating…';
+    const sync = await DB.appleIapSync(res.jws);
+    if (sync.ok) {
+      await refreshMyPlan();
+      closeModal('iapPaywallModal');
+      toast('You\'re on ' + (TIER_LABELS[sync.tier] || sync.tier) + '. Welcome aboard.');
+      try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+      try { const box = document.getElementById('setPlanBox'); if (box && box.offsetParent) renderPlanManageCard(box); } catch (e) {}
+    } else if (sync.reason === 'web_billing_active') {
+      done(); toast('This account already has an active plan.');
+    } else {
+      // Purchase exists on Apple's side; the entitlement re-syncs on next launch.
+      done(); toast('Purchased — activating shortly.');
+    }
+  } catch (e) {
+    done(); toast('Purchase failed — nothing was charged.');
+  }
+}
+
+async function iapRestorePurchases(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  const done = () => { if (btn) { btn.disabled = false; btn.textContent = 'Restore Purchases'; } };
+  try {
+    const ents = await PowaNative.iapRestore();
+    if (!ents.length) { done(); toast('No active subscription found for this Apple ID.'); return; }
+    let mismatch = false;
+    for (const ent of ents) {
+      const sync = await DB.appleIapSync(ent.jws);
+      if (sync.ok) {
+        await refreshMyPlan();
+        closeModal('iapPaywallModal');
+        toast('Subscription restored — you\'re on ' + (TIER_LABELS[sync.tier] || sync.tier) + '.');
+        try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+        done(); return;
+      }
+      if (sync.reason === 'account_mismatch') mismatch = true;
+    }
+    done();
+    toast(mismatch ? 'That subscription belongs to a different POWALIFTA account.' : 'Couldn\'t restore — try again later.');
+  } catch (e) { done(); toast('Couldn\'t restore — try again later.'); }
+}
+window.openNativePaywall = openNativePaywall;
+window.iapBuy = iapBuy;
+window.iapRestorePurchases = iapRestorePurchases;
+
+// =========================================================
 // SUBSCRIPTION MANAGEMENT (#34) — for EXISTING subscribers
 //
 // The upgrade modal above handles buying a NEW plan. This block is the other
@@ -1244,8 +1399,16 @@ function _subStatusColor(tone) {
 // signed per-subscription deep link if the ls-portal function returns one.
 async function openBillingPortal() {
   if (window._demoMode) { toast('Preview only in demo mode.'); return; }
-  // Apple 3.1.1: no external-payment path from inside the iOS app.
-  if (_isNativeShell()) { toast('Manage billing at powalifta.com'); return; }
+  // Native shell: Apple-billed subs manage through Apple's own subscription
+  // sheet (that's IAP management, not external purchasing — allowed). Web-billed
+  // subs get nothing here — naming the website would be steering (3.1.1).
+  if (_isNativeShell()) {
+    const nu = getCurrentUser();
+    if (nu && nu.appleBilled) {
+      try { window.open('https://apps.apple.com/account/subscriptions', '_blank'); } catch (e) {}
+    }
+    return;
+  }
   const tab = window.open('', '_blank'); // reserve the tab inside the click gesture
   let url = LS_BILLING_PORTAL;
   try {
@@ -1264,8 +1427,12 @@ function renderPlanManageCard(container) {
   const u = getCurrentUser();
   if (!container) return;
   // Athletes never subscribe — collapse the box entirely (no stray hairline/gap).
-  if (!u || u.userType !== 'coach') { container.innerHTML = ''; container.style.display = 'none'; return; }
+  // Native shell: shows ONLY when StoreKit IAP is live (window._iapReady) —
+  // tiers are then purchasable in-app, which is what makes displaying them
+  // 3.1.1-compliant. No StoreKit → stay tier-blind and collapse.
+  if (!u || u.userType !== 'coach' || (_isNativeShell() && !window._iapReady)) { container.innerHTML = ''; container.style.display = 'none'; return; }
   container.style.display = '';
+  const native = _isNativeShell();
 
   const tier = getCurrentTier();
   const limit = getCurrentTierLimit();
@@ -1281,8 +1448,10 @@ function renderPlanManageCard(container) {
   const usage = 'Using ' + occupied + ' of ' + (limit >= 9999 ? 'unlimited' : limit) +
     ' athlete slot' + (limit === 1 ? '' : 's') + '.';
 
-  // Payment-problem statuses get a one-line nudge in danger tone.
-  const problem = info && info.tone === 'bad'
+  // Payment-problem statuses get a one-line nudge in danger tone. The card-update
+  // copy is Lemon Squeezy-specific — suppressed on native (Apple runs its own
+  // billing retry + grace period for IAP subs).
+  const problem = !native && info && info.tone === 'bad'
     ? '<p class="text-xs" style="margin:8px 0 0;color:' + _subStatusColor('bad') + ';line-height:1.5">' +
       'We couldn\'t take your last payment. Update your card in the billing portal to keep your plan.</p>'
     : (info && info.tone === 'warn' && u.subscriptionStatus === 'cancelled'
@@ -1291,8 +1460,12 @@ function renderPlanManageCard(container) {
         : '');
 
   const changeLabel = tier === 'free' ? 'See plans' : 'Change plan';
-  const manageBtn = tier !== 'free'
-    ? '<button class="btn btn-block btn-ghost" onclick="openBillingPortal()">Manage billing</button>'
+  // Manage button: web → LS billing portal. Native → Apple's own subscription
+  // management, and ONLY for Apple-billed subs (a web-billed sub viewed on iOS
+  // gets no manage affordance at all — pointing at the website is steering).
+  const manageBtn = tier !== 'free' && (!native || u.appleBilled)
+    ? '<button class="btn btn-block btn-ghost" onclick="openBillingPortal()">' +
+      (native ? 'Manage subscription' : 'Manage billing') + '</button>'
     : '';
 
   container.innerHTML =
@@ -1307,9 +1480,11 @@ function renderPlanManageCard(container) {
       '<button class="btn btn-block btn-ghost" onclick="closeSettingsModal();openUpgradeModal()">' + changeLabel + '</button>' +
       manageBtn +
     '</div>' +
-    (tier !== 'free'
+    (tier !== 'free' && !native
       ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Update your card, switch plans, or cancel — all in the secure Lemon Squeezy portal.</p>'
-      : '');
+      : (tier !== 'free' && native && u.appleBilled
+          ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Billed through your Apple ID. Cancel or switch anytime in your App Store settings.</p>'
+          : ''));
 }
 window.renderPlanManageCard = renderPlanManageCard;
 
@@ -1382,6 +1557,10 @@ window.dismissDunning = dismissDunning;
 // dashboard render; it rebuilds from the live status each time.
 function renderDunningBanner(container) {
   if (!container) return;
+  // Apple 3.1.1: this banner exists solely to route a coach to an external
+  // billing portal ("Fix billing" / "Resume plan"), so the native shell renders
+  // nothing at all. Plan lapses are surfaced on the web, where they subscribed.
+  if (_isNativeShell()) { container.innerHTML = ''; return; }
   const info = dunningInfo();
   if (!info) { container.innerHTML = ''; return; }
 
@@ -1563,6 +1742,33 @@ function _clearSnapshot(uid) {
 // Re-snapshot the live Store right before the tab is hidden / closed, so the
 // offline cache reflects anything logged this session.
 function _snapshotNow() { if (window._user) _saveSnapshot(window._user, Store.get()); }
+
+// Re-read the signed-in user's subscription fields from the DB and reconcile the
+// in-memory user. This is how a coach's athlete-limit reflects a payment WITHOUT a
+// full reload: LS checkout opens in a new tab, the webhook writes subscription_tier,
+// and when the coach tabs back here we pull the fresh tier so canAddAthlete() and the
+// plan card update immediately. Returns true if the tier/status actually changed.
+// No-ops in demo mode and for signed-out/unknown users; never throws into the caller.
+async function refreshMyPlan() {
+  try {
+    const u = window._user;
+    if (!u || !u.id || window._demoMode) return false;
+    if (!(typeof DB !== 'undefined' && DB.getProfile)) return false;
+    const p = await DB.getProfile(u.id);
+    if (!p) return false;
+    const nextTier = p.subscription_tier || 'free';
+    const nextStatus = p.subscription_status || 'inactive';
+    const changed = nextTier !== u.subscriptionTier || nextStatus !== u.subscriptionStatus;
+    u.subscriptionTier = nextTier;
+    u.subscriptionStatus = nextStatus;
+    u.appleBilled = !!p.apple_original_transaction_id;
+    if (changed) {
+      try { _saveSnapshot(u, Store.get()); } catch (e) {}
+    }
+    return changed;
+  } catch (e) { return false; }
+}
+window.refreshMyPlan = refreshMyPlan;
 window.addEventListener('pagehide', _snapshotNow);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _snapshotNow(); });
 
@@ -1830,7 +2036,7 @@ function ensureSettingsModal() {
       '<button class="modal-close" aria-label="Close" onclick="closeSettingsModal()">&times;</button>' +
       '<h3>Settings</h3>' +
 
-      // Avatar + country row
+      // ---- Profile essentials (always visible) ----
       '<div class="flex gap-12 mt-8" style="align-items:center">' +
         '<div id="setAvatarPreview" class="av" style="width:72px;height:72px;font-size:1.25rem;flex:0 0 auto"></div>' +
         '<div style="flex:1; min-width:0">' +
@@ -1840,35 +2046,50 @@ function ensureSettingsModal() {
         '</div>' +
       '</div>' +
 
-      '<div class="form-group mt-12"><label>Country (shown as flag on your profile)</label>' +
+      '<div class="form-group mt-12"><label>Display name</label><input type="text" id="setName"></div>' +
+      '<div class="form-group"><label>Country (shown as flag on your profile)</label>' +
         '<select id="setCountry" style="width:100%">' + countryOpts + '</select>' +
       '</div>' +
-
-      '<div class="form-group"><label>Display name</label><input type="text" id="setName"></div>' +
-      '<div class="form-group"><label>Email</label><input type="email" id="setEmail" disabled style="opacity:0.5"></div>' +
       '<div id="setBioGroup" class="form-group" style="display:none"><label>Coach bio</label><textarea id="setBio"></textarea></div>' +
-      '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
       '<div class="flex gap-8 mt-16"><button class="btn btn-block" onclick="closeSettingsModal()">Cancel</button><button class="btn btn-primary btn-block" onclick="saveSettings()">Save</button></div>' +
-      '<div id="setPlanBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setReferralBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setEmailPrefsBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setNotifPrefsBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setMfaBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);">' +
-        '<p class="dim text-sm mb-8">Your data</p>' +
+
+      // ---- Quick prefs: theme + units. Instant-apply, no Save needed. Also the ONLY
+      //      dark/light control inside the native shell (the nav toggle is hidden there). ----
+      '<div class="set-quick">' +
+        '<button type="button" class="set-quick-btn" id="setThemeBtn" onclick="toggleTheme(); _syncSetQuick();"></button>' +
+        '<button type="button" class="set-quick-btn" id="setUnitBtn" onclick="toggleUnit()"></button>' +
+      '</div>' +
+
+      // ---- Everything else: collapsed groups. Boxes keep their ids so the existing
+      //      render fns (plan / referral / email / push / MFA) mount unchanged. ----
+      '<details class="set-group" id="sgPlan"><summary>Plan &amp; billing</summary><div class="sg-body">' +
+        '<div id="setPlanBox"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgNotif"><summary>Notifications</summary><div class="sg-body">' +
+        '<div id="setNotifPrefsBox"></div>' +
+        '<div id="setEmailPrefsBox" class="mt-16"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgSecurity"><summary>Security</summary><div class="sg-body">' +
+        '<div class="form-group"><label>Account email</label><input type="email" id="setEmail" disabled style="opacity:0.5"></div>' +
+        '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
+        '<p class="dim text-xs mb-8" style="line-height:1.5">A new password is applied when you hit Save above.</p>' +
+        '<div id="setMfaBox" class="mt-12"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgReferral"><summary>Refer a lifter</summary><div class="sg-body">' +
+        '<div id="setReferralBox"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgData"><summary>Your data &amp; account</summary><div class="sg-body">' +
         '<p class="dim text-xs mb-8" style="line-height:1.5">Download everything we hold for your account. JSON is the complete archive; CSV is your training log, ready to re-import anywhere.</p>' +
         '<div class="flex gap-8">' +
           '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">⬇ Export JSON</button>' +
           '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">⬇ Export CSV</button>' +
         '</div>' +
-      '</div>' +
-      '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
-        '<button class="btn btn-block btn-ghost" onclick="replaySettingsTour()">↺ Replay onboarding tour</button>' +
-      '</div>' +
-      '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
-        '<p class="dim text-sm mb-8">Danger zone</p>' +
-        '<button class="btn btn-danger btn-block" onclick="deleteMyAccount()">Delete my account</button>' +
-      '</div>' +
+        '<button class="btn btn-block btn-ghost mt-12" onclick="replaySettingsTour()">↺ Replay onboarding tour</button>' +
+        '<div class="sg-danger">' +
+          '<p class="dim text-xs mb-8" style="line-height:1.5">Deleting your account erases your data permanently.</p>' +
+          '<button class="btn btn-danger btn-block" onclick="deleteMyAccount()">Delete my account</button>' +
+        '</div>' +
+      '</div></details>' +
     '</div>' +
   '</div>';
   document.body.appendChild(wrap.firstChild);
@@ -1945,6 +2166,16 @@ function openSettingsModal() {
   const fileInput = document.getElementById('setAvatarFile');
   if (fileInput) fileInput.value = '';
 
+  // Quick prefs — labels reflect live state (theme flips without closing the modal)
+  _syncSetQuick();
+
+  // Plan & billing is a coach-only concept — hide the whole group for athletes
+  // (renderPlanManageCard would only blank the inner box, leaving an empty shell).
+  // Native shell: visible only when StoreKit IAP is live (tiers purchasable
+  // in-app = compliant); without it the header alone reveals a paid-tier system.
+  const planGroup = document.getElementById('sgPlan');
+  if (planGroup) planGroup.style.display = (u.userType === 'coach' && (!_isNativeShell() || !!window._iapReady)) ? '' : 'none';
+
   // Plan management (coaches only) — tier + status + manage-billing (#34)
   const planBox = document.getElementById('setPlanBox');
   if (planBox) renderPlanManageCard(planBox);
@@ -1969,6 +2200,23 @@ function openSettingsModal() {
   attachPwdToggles();
 }
 function closeSettingsModal() { const m = document.getElementById('settingsModal'); if (m) m.classList.remove('open'); }
+// Keep the Settings quick-pref buttons honest about live state. Called on open
+// and after each toggle (theme flips in place; the unit toggle hard-reloads, so
+// its label only needs to be right at render time).
+function _syncSetQuick() {
+  const tb = document.getElementById('setThemeBtn');
+  if (tb) {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    tb.innerHTML = (light ? '☀️' : '🌙') + ' <span>' + (light ? 'Light mode' : 'Dark mode') + '</span>';
+    tb.title = 'Switch to ' + (light ? 'dark' : 'light') + ' mode';
+  }
+  const ub = document.getElementById('setUnitBtn');
+  if (ub) {
+    ub.innerHTML = '🏋️ <span>Units: ' + getUnit().toUpperCase() + '</span>';
+    ub.title = 'Switch to ' + (getUnit() === 'kg' ? 'lbs' : 'kg');
+  }
+}
+window._syncSetQuick = _syncSetQuick;
 // Dispatches to whichever page-specific replay hook is loaded (coach.html or athlete.html)
 function replaySettingsTour() {
   closeSettingsModal();
@@ -2212,6 +2460,12 @@ function referralMilestoneHtml(count) {
 async function renderReferralCard(container) {
   const u = getCurrentUser();
   if (!container || !u) return;
+  // Apple 3.1.1 round 3: the REWARDS LADDER names the paid tiers as prizes
+  // ("1 month of Basic, on us" / "1 year of Pro" / "Lifetime Premium") — the
+  // App Review rejection quoted BASIC/PRO/PREMIUM verbatim from this card. In
+  // the native shell the referral link + count still render (sharing is fine);
+  // the tier-comp ladder does not. Web unchanged.
+  const _tierBlind = _isNativeShell();
   const code = u.referralCode;
   if (!code) { container.innerHTML = ''; return; }   // older account / demo — hide
   const link = referralLink(code);
@@ -2235,7 +2489,7 @@ async function renderReferralCard(container) {
     if (list) list.innerHTML = referralMilestoneHtml(demoCount) +
       '<p class="mb-4 mt-12" style="color:var(--text)"><strong>2</strong> lifters joined through you</p>' +
       '<p style="color:var(--text-2)">Share your link and everyone who signs up shows up right here.</p>' +
-      referralRewardsHtml(referralRewardsLedger(demoCount, demoClaims));
+      (_tierBlind ? '' : referralRewardsHtml(referralRewardsLedger(demoCount, demoClaims)));
     return;
   }
   if (list) list.innerHTML = '<span style="color:var(--text-2)">Loading…</span>';
@@ -2246,7 +2500,7 @@ async function renderReferralCard(container) {
     ]);
     const live = document.getElementById('refList');
     if (!live) return;
-    const rewards = referralRewardsHtml(referralRewardsLedger(refs.length, claims));
+    const rewards = _tierBlind ? '' : referralRewardsHtml(referralRewardsLedger(refs.length, claims));
     if (!refs.length) {
       live.innerHTML = referralMilestoneHtml(0) +
         '<p class="mt-12" style="color:var(--text-2)">No referrals yet — share your link to get started.</p>' +
@@ -3654,6 +3908,10 @@ function searchExercises(q) {
 
 // Pure HTML for one exercise's cue body (summary + setup/cues/faults lists).
 // Authored/trusted content — safe to template. Used by exercises.html and the log-flow cue popover.
+// ⚠️ SECURITY INVARIANT: `e` MUST come only from the static EXERCISE_LIBRARY constant
+// (via cuesForLift/findExercise). The fields below are interpolated into innerHTML
+// WITHOUT escaping. If this is ever fed coach/DB/user-authored data, escHtml() every
+// interpolation first or it becomes stored XSS. (2026-07-13 audit note.)
 function exerciseCueBodyHtml(e) {
   if (!e) return '';
   let h = '<p class="exlib-summary">' + e.summary + '</p>';
@@ -4673,7 +4931,13 @@ function buildBottomTabs(primaryKeys) {
     // in-app "View templates" buttons). Dropping 'templates' takes the coach from
     // 6 tabs to 5, so all 5 (incl. Progress) render as primary instead of Progress
     // getting pushed into the "More" overflow sheet.
-    const BTAB_HIDE = { templates: true };
+    // 'marketplace' is dropped for Apple 3.1.1 / 3.1.3(c): it lists digital
+    // programs with prices and an external Lemon Squeezy checkout, which the iOS
+    // app must not offer. Nothing already bought is lost — purchased programs
+    // live in "My library", which keeps its own tab and can reinstall any of them.
+    // On native the sidebar is hidden, so the bottom bar IS the nav: removing the
+    // tab here removes the only route to the pane.
+    const BTAB_HIDE = { templates: true, marketplace: true };
     const tabs = Array.from(document.querySelectorAll('.sidebar-tab')) // athlete wraps in .dash-tablist, coach doesn't
       .filter(t => !BTAB_HIDE[t.dataset.tab]);
     if (tabs.length < 2) return;

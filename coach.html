@@ -299,7 +299,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
@@ -350,6 +350,31 @@ bootstrap('coach', () => {
   subscribeRosterMessages();
   refreshFormChecks();
 
+  // Instant plan reflect: LS checkout opens in a new tab; when the coach tabs back,
+  // re-read their subscription and, if the webhook has upgraded them, refresh the
+  // athlete-limit surfaces (roster header count, dunning banner, plan card) without
+  // a full reload. Debounced against rapid focus flaps; demo-safe (refreshMyPlan no-ops).
+  let _planRefreshing = false;
+  async function reflectPlanIfChanged() {
+    if (_planRefreshing || document.visibilityState !== 'visible') return;
+    _planRefreshing = true;
+    try {
+      const changed = await refreshMyPlan();
+      if (changed) {
+        user = getCurrentUser();
+        renderRoster();
+        renderDunningBanner(document.getElementById('dunningMount'));
+        const planBox = document.getElementById('setPlanBox');
+        if (planBox && document.getElementById('settingsModal')?.classList.contains('open')) renderPlanManageCard(planBox);
+        // Apple 3.1.1: never surface a tier NAME inside the shell.
+        if (!document.documentElement.classList.contains('native')) {
+          toast('Plan updated — you\'re on ' + (TIER_LABELS[user.subscriptionTier] || user.subscriptionTier) + '.');
+        }
+      }
+    } finally { _planRefreshing = false; }
+  }
+  document.addEventListener('visibilitychange', reflectPlanIfChanged);
+
   // Onboarding tour — runs once on first dashboard visit (real users only; demo stays clean).
   if (!isTourDone('coach') && !window._demoMode) {
     setTimeout(maybeStartCoachTour, 700);
@@ -360,7 +385,7 @@ bootstrap('coach', () => {
 // ONBOARDING TOUR — coach flow
 // =========================================================
 function maybeStartCoachTour() {
-  startTour('coach', [
+  const steps = [
     {
       selector: '#tab-athletes',
       title: 'Your roster lives here',
@@ -390,13 +415,18 @@ function maybeStartCoachTour() {
       body: 'Every athlete conversation in one place, plus their form-check videos. Pick a name to open the thread and reply — they get it on their dashboard and as a push.',
       before: () => { const t = document.getElementById('tab-messages'); if (t) t.click(); }
     },
-    {
+  ];
+  // Apple 3.1.1: this step names the free tier + an "upgrade" path AND points at
+  // #planPill (hidden on native). Web only — dropped entirely inside the shell.
+  if (!document.documentElement.classList.contains('native')) {
+    steps.push({
       selector: '#planPill',
       title: 'Your plan',
       body: 'Free tier covers 3 athletes. When you grow past that, click here anytime to upgrade. Tap "Show tour again" in settings to replay this walkthrough.',
       before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
-    }
-  ]);
+    });
+  }
+  startTour('coach', steps);
 }
 window.maybeStartCoachTour = maybeStartCoachTour;
 window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
@@ -405,6 +435,11 @@ window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
 function renderPlanPill() {
   const pill = document.getElementById('planPill');
   if (!pill) return;
+  // Native shell: the pill (tier name + slot count + Upgrade) may show ONLY once
+  // StoreKit IAP is confirmed live (window._iapReady) — displaying tiers is
+  // 3.1.1-compliant exactly because they're purchasable in-app. Until/unless
+  // IAP is available, stay tier-blind. native-bridge re-calls this on ready.
+  if (document.documentElement.classList.contains('native') && !window._iapReady) { pill.innerHTML = ''; return; }
   const tier = getCurrentTier();
   const limit = getCurrentTierLimit();
   const aCount = getAthleteCount(user.id);
@@ -419,6 +454,9 @@ function renderPlanPill() {
   wrap.appendChild(el('span', { class: 'plan-tier' }, TIER_LABELS[tier]));
   wrap.appendChild(el('span', { class: 'plan-count' }, occupied + ' / ' + (limit >= 9999 ? '∞' : limit) + (pCount > 0 ? ' (' + aCount + '+' + pCount + ' pending)' : '')));
   pill.appendChild(wrap);
+  // Upgrade CTA is fine on both surfaces now: web → LS modal, native → the
+  // StoreKit paywall (openUpgradeModal routes; the early-return above already
+  // guaranteed IAP is live if we got here on native).
   if (tier !== 'premium') {
     const btn = el('button', { class: 'btn btn-sm', onclick: () => openUpgradeModal() }, atCap ? 'Upgrade required' : 'Upgrade');
     pill.appendChild(btn);

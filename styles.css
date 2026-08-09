@@ -1999,6 +1999,63 @@ tbody tr:hover td { background: var(--hover-tint); }
   accent-color: var(--red);
   cursor: pointer;
 }
+
+/* ---- Settings modal: quick prefs + collapsed groups ----
+   The modal used to be 14 flat sections; everything non-essential now lives in
+   native <details> groups (zero-JS accordions). Summary rows read as section
+   bars; the chevron rotates via transform (compositor-only). */
+.set-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.set-quick-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: inherit; font-size: 0.88rem; font-weight: 600;
+  cursor: pointer;
+}
+.set-quick-btn:active { background: var(--bg-3); }
+.set-group {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.set-group:first-of-type { margin-top: 16px; }
+.set-group summary {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 2px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700; font-size: 0.92rem; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.set-group summary::-webkit-details-marker { display: none; }
+.set-group summary::after {
+  content: '';
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--text-3);
+  border-bottom: 2px solid var(--text-3);
+  transform: rotate(45deg);
+  transition: transform 0.18s ease;
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+.set-group[open] summary::after { transform: rotate(225deg); }
+.set-group .sg-body { padding: 2px 2px 18px; }
+.sg-danger {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--red) 6%, transparent);
+}
 .cohort-empty {
   padding: 18px;
   text-align: center;
@@ -2466,18 +2523,23 @@ tbody tr:hover td { background: var(--hover-tint); }
   align-items: center;
   justify-content: space-between;
   background: var(--bg-1);
+  background-image: var(--grad-card);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  padding: 18px 22px;
+  box-shadow: var(--elev-card);
+  padding: 20px 24px;
   margin-bottom: 22px;
 }
 .today-progress .pct {
   font-family: 'Space Grotesk', monospace;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: 2.4rem;
+  /* The completion number is the session's headline stat — let it read as one.
+     Fixed rem (product register: no fluid UI type), tightened, optically aligned. */
+  font-size: 2.9rem;
+  letter-spacing: -0.02em;
   color: var(--red);
-  line-height: 1;
+  line-height: 0.92;
 }
 .today-progress .pbar {
   flex: 1;
@@ -2539,14 +2601,17 @@ section[data-pane="today"] { max-width: 880px; }
   align-items: center;
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  padding: 10px 14px;
-  margin-bottom: 6px;
-  transition: all 0.18s;
+  border-radius: var(--r);
+  padding: 11px 14px;
+  margin-bottom: 7px;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.1s var(--ease-out-quart);
 }
+.exec-set:active { transform: scale(0.994); }
 .exec-set.done {
-  background: rgba(78,216,132,0.06);
-  border-color: rgba(78,216,132,0.3);
+  background: rgba(78,216,132,0.07);
+  border-color: rgba(78,216,132,0.32);
+  /* completed sets settle back visually — the eye should land on what's still to do */
+  box-shadow: inset 0 1px 0 rgba(78,216,132,0.12);
 }
 .exec-set .set-num {
   width: 28px;
@@ -5074,11 +5139,24 @@ footer .footer-base {
   align-items: center;
   gap: 14px;
   background: var(--bg-1);
-  border: 1px dashed var(--line-2);
+  background-image: var(--grad-card);
+  border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  padding: 14px 18px;
+  box-shadow: var(--card-edge);
+  padding: 15px 18px;
   margin-bottom: 18px;
   flex-wrap: wrap;
+}
+/* Leading status pip — replaces the dashed border as the "needs attention" cue
+   (dashed borders read as unfinished on product UI). A solid full border + a
+   pulsing gold pip is calmer and more intentional. */
+.checkin-banner::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 4px rgba(255,181,71,0.14);
 }
 
 /* ============================================ THEME TOGGLE */
@@ -5420,9 +5498,16 @@ footer .footer-base {
   padding: 28px;
   text-align: center;
   position: relative;
+  /* Flex column so the CTA aligns to a common baseline across tiles whose blurbs
+     differ in length — the buttons line up, which reads as intentional not ragged. */
+  display: flex;
+  flex-direction: column;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: transform 0.24s var(--ease-out-quart), border-color 0.2s ease, box-shadow 0.24s var(--ease-out-quart);
 }
+.price-tile .price-cta { margin-top: auto; }        /* pin CTA to the tile bottom */
+.price-tile p { margin-bottom: 18px; }
+.price-foot { margin-top: 22px; max-width: 46ch; margin-left: auto; margin-right: auto; }
 .price-tile:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 36px rgba(0,0,0,0.45); }
 .price-tile.featured:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), var(--shadow-red); }
 .price-tile.featured {
@@ -5500,6 +5585,14 @@ footer .footer-base {
   .exec-set { grid-template-columns: 30px 1fr 1fr 1fr; gap: 6px; }
   .exec-set input[type=checkbox] { grid-column: 4; }
   .set-row { grid-template-columns: 40px 1fr 1fr 1fr; }
+
+  /* Admin (and any dense) tables: SCROLL horizontally instead of clipping. The base
+     `.tbl-card { overflow: hidden }` (there to clip the border-radius) chopped wide
+     admin tables off-screen on phones/iPad-portrait — you couldn't reach the plan
+     <select> or payout columns. Keep a sensible min-width so columns don't crush, and
+     let the card scroll. Momentum scroll + a hairline hint that there's more. */
+  .tbl-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl-card table { min-width: 640px; }
 }
 
 /* ============================================================
@@ -6855,3 +6948,61 @@ html.native .pwa-banner { display: none !important; }
   html.native .nav-actions.guest .theme-toggle,
   html.native .nav-actions.guest .unit-toggle { display: inline-flex; }
 }
+
+/* ============================================================
+   APPLE 3.1.1 / 3.1.3(c) — NO PURCHASE SURFACE IN THE NATIVE SHELL
+   ------------------------------------------------------------
+   App Store review rejected v1.0 (7) because the iOS app displayed digital
+   goods (coach plans, marketplace programs) purchasable outside In-App
+   Purchase. The remedy chosen was to remove the purchase surface from the app
+   entirely rather than adopt IAP — coaches subscribe on the web, and anything
+   already bought stays fully usable under "My library".
+
+   Every rule here is scoped to html.native, a class native-bridge.js adds ONLY
+   inside the Capacitor shell — so THE WEB BUILD IS UNCHANGED.
+
+   This is the DISPLAY layer. The BEHAVIOUR layer (functions that refuse to open
+   checkout, tabs removed from the bottom bar) lives in app.js / athlete.html /
+   coach.html, so a leak has to defeat both layers to reach a reviewer.
+   ============================================================ */
+
+/* Landing page: pricing tiles + the priced marketplace teaser. Both sit beneath
+   the #nativeWelcome overlay, but the marketing DOM is still present. */
+html.native #pricing,
+html.native #marketplace-teaser { display: none !important; }
+
+/* Any link pointing at pricing or the marketplace, on every bundled page
+   (the footers carry both). Attribute selectors so this holds without having
+   to edit nine separate footers. */
+html.native a[href="#pricing"],
+html.native a[href="marketplace.html"],
+html.native a[href="/marketplace.html"] { display: none !important; }
+
+/* FAQ answer listing all four tier prices. */
+html.native .pricing-copy { display: none !important; }
+
+/* Athlete dashboard marketplace. The tab is already dropped from the native
+   bottom bar (BTAB_HIDE in app.js) and the sidebar is hidden on native, so this
+   is the third layer, not the first. */
+html.native #tab-marketplace,
+html.native #pane-marketplace { display: none !important; }
+
+/* Dunning "Fix billing" banner: still never renders on native (its CTAs are
+   Lemon Squeezy-specific; Apple IAP billing problems are handled by Apple).
+   NOTE: #setPlanBox is no longer CSS-hidden — with StoreKit IAP live the plan
+   card is legal on native and renderPlanManageCard gates it in JS instead. */
+html.native #dunningMount,
+html.native .dunning-banner { display: none !important; }
+
+/* marketplace.html redirects before first paint on native — if that ever fails,
+   no price renders anyway. */
+html.native .mk-card-price,
+html.native .mk-buy-price,
+html.native .mk-buy-cur { display: none !important; }
+
+/* Apple 3.1.1 round 3 — the referral REWARDS ladder names the paid tiers as
+   prizes ("1 month of Basic", "1 year of Pro", "Lifetime Premium"); App Review
+   quoted BASIC/PRO/PREMIUM verbatim from this card. JS already skips rendering
+   it on native (renderReferralCard); this is the display-layer backstop. The
+   referral link + milestone bar stay — sharing isn't purchase surface. */
+html.native .ref-rewards { display: none !important; }

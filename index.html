@@ -490,23 +490,28 @@
         <h4>Free</h4>
         <div class="price">$0<span class="per"> / 3 athletes</span></div>
         <p>Get started with up to 3 athletes. Every feature unlocked, no trial required.</p>
+        <a href="#" class="btn btn-block btn-ghost price-cta" onclick="openSignupModal('coach'); return false;">Start free</a>
       </div>
       <div class="price-tile">
         <h4>Basic</h4>
         <div class="price">$25<span class="per"> / mo</span></div>
         <p>4–10 athletes. For solo coaches with a growing roster.</p>
+        <a href="#" class="btn btn-block btn-ghost price-cta" onclick="openSignupModal('coach'); return false;">Start free →</a>
       </div>
       <div class="price-tile featured">
         <h4>Pro</h4>
         <div class="price">$50<span class="per"> / mo</span></div>
         <p>11–25 athletes. For full-time independent coaches. Priority support.</p>
+        <a href="#" class="btn btn-block btn-primary price-cta" onclick="openSignupModal('coach'); return false;">Start free →</a>
       </div>
       <div class="price-tile">
         <h4>Premium</h4>
         <div class="price">$100<span class="per"> / mo</span></div>
         <p>26+ athletes. Studios, teams, federations. Dedicated onboarding.</p>
+        <a href="#" class="btn btn-block btn-ghost price-cta" onclick="openSignupModal('coach'); return false;">Start free →</a>
       </div>
     </div>
+    <p class="dim text-sm center price-foot">Every coach starts free with 3 athletes. Upgrade in-app the day you need the room, no card to start.</p>
   </div>
 </section>
 
@@ -722,7 +727,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
