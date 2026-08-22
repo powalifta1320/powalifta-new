@@ -28,8 +28,25 @@ public class RestTimerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise)
     ]
+
+    // Island buttons (RestTimerIntents) → NotificationCenter → webview "restAction"
+    // event, so the in-page timer mirrors what the lifter did on the Dynamic Island.
+    override public func load() {
+        NotificationCenter.default.addObserver(
+            forName: .powaRestAction, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self = self, let info = note.userInfo else { return }
+            self.notifyListeners("restAction", data: [
+                "action": info["action"] as? String ?? "",
+                "endTime": info["endTime"] as? Double ?? 0,
+                "paused": info["paused"] as? Bool ?? false,
+                "remaining": info["remaining"] as? Double ?? 0
+            ])
+        }
+    }
 
     // Convert the JS millisecond epoch into a Date.
     private func date(fromMs ms: Double) -> Date {
@@ -108,6 +125,32 @@ public class RestTimerPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         #endif
         call.resolve(["updated": false])
+    }
+
+    // Foreground-resync read: the webview calls this when it becomes visible to pick
+    // up whatever the island buttons did while it was suspended. remaining is in MS
+    // (matches the JS timer's ms-epoch model and the restAction event payload).
+    @objc func getState(_ call: CAPPluginCall) {
+        #if canImport(ActivityKit)
+        if #available(iOS 16.2, *) {
+            if let a = Activity<RestTimerAttributes>.activities.first {
+                let st = a.content.state
+                call.resolve([
+                    "active": true,
+                    "endTime": st.endDate.timeIntervalSince1970 * 1000,
+                    "paused": st.paused,
+                    "remaining": st.paused
+                        ? st.pausedRemaining * 1000
+                        : max(0, st.endDate.timeIntervalSinceNow) * 1000,
+                    "total": a.attributes.totalSeconds
+                ])
+                return
+            }
+            call.resolve(["active": false])
+            return
+        }
+        #endif
+        call.resolve(["active": false])
     }
 
     @objc func stop(_ call: CAPPluginCall) {

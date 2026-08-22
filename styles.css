@@ -50,6 +50,12 @@
   /* Radii */
   --r-sm: 6px;
   --r:    10px;
+  /* Alias of --r. The scale reads sm / _ / lg / xl, so every author reaches
+     for --r-md by instinct — and until now that resolved to nothing, silently
+     collapsing the corner to 0. Three shipped call sites were square because
+     of it (admin.html x2, coach.html x1). Naming the gap is the fix; patching
+     the call sites would just wait for the next one. */
+  --r-md: 10px;
   --r-lg: 14px;
   --r-xl: 20px;
 
@@ -544,26 +550,62 @@ select {
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
+/* KEY LIGHT — one directional source, not a flat wash.
+   The old version was two static radial gradients (top + bottom) which read
+   as ambient fog: it lit everything equally, so nothing dominated and nothing
+   receded. This is a single source high behind the headline with a tighter
+   falloff and a hot core, plus a slow breathe so the scene is never frozen.
+   Only opacity/transform animate, so it composites on the GPU. */
 .hero::before {
   content: '';
   position: absolute;
-  inset: 0;
+  top: -26%;
+  left: 50%;
+  width: min(1040px, 116%);
+  height: 76%;
+  transform: translateX(-50%);
+  /* Tight core, fast falloff. A first pass at 0.30 alpha over 88% height read
+     as saturation rather than illumination — the whole viewport went red, which
+     is the exact failure the old flat wash had, just brighter. A light source
+     is defined by its FALLOFF, not its peak: hot centre, gone by 60%. */
   background:
-    radial-gradient(ellipse 90% 65% at 50% 0%, rgba(255,45,63,0.22), transparent 65%),
-    radial-gradient(ellipse 60% 45% at 50% 100%, rgba(255,45,63,0.08), transparent 70%);
+    radial-gradient(ellipse at center, rgba(255,45,63,0.26) 0%, rgba(255,45,63,0.06) 34%, transparent 60%),
+    radial-gradient(ellipse 34% 24% at 50% 20%, rgba(255,105,118,0.14), transparent 66%);
+  animation: heroBeam 7s var(--ease-out-quart) infinite alternate;
+  will-change: transform, opacity;
   pointer-events: none;
 }
+@keyframes heroBeam {
+  from { opacity: 0.82; transform: translateX(-50%) scale(0.98); }
+  to   { opacity: 1;    transform: translateX(-50%) scale(1.06); }
+}
+
+/* GROUND PLANE — the grid, raked into perspective so it reads as a floor
+   receding to a horizon rather than a flat overlay pinned to the glass.
+   This is what turns the hero from stacked layers into a space, and it's
+   the cheapest depth cue available: one transform, no extra elements. */
 .hero::after {
   content: '';
   position: absolute;
-  inset: 0;
+  left: -30%;
+  right: -30%;
+  bottom: -6%;
+  height: 62%;
   background-image:
     linear-gradient(var(--grid-overlay) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-overlay) 1px, transparent 1px);
   background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  transform: perspective(560px) rotateX(64deg);
+  transform-origin: bottom center;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 46%, transparent 96%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 46%, transparent 96%);
+  animation: heroFloor 9s linear infinite;
+  will-change: transform;
   pointer-events: none;
+}
+@keyframes heroFloor {
+  from { transform: perspective(560px) rotateX(64deg) translateY(0); }
+  to   { transform: perspective(560px) rotateX(64deg) translateY(64px); }
 }
 .hero > .container { position: relative; z-index: 2; }
 
@@ -585,19 +627,34 @@ select {
   z-index: 1;
 }
 
-/* Staggered entrance */
+/* Staggered entrance.
+   Every step used the browser default `ease`, which is the weakest curve in
+   CSS — it eases in AND out, so the motion starts slow at exactly the moment
+   the eye is most attentive, and the whole reveal feels sluggish. These now
+   use the project's own --ease-out-quint (already defined in :root and used
+   in dash-fx.css, just never wired up here): fast off the line, settling
+   gently. The headline drops further and harder on --ease-out-expo, the
+   most decisive curve in the set: it arrives fast and stops dead. An
+   overshoot was tried here and removed — bounce reads playful, and a
+   loaded bar hitting the rack does not bounce, it thuds. Deceleration
+   without rebound is the weight cue. (--ease-out-expo was defined in
+   :root and used by name nowhere in styles.css until now.) */
 @keyframes heroRise {
   from { opacity: 0; transform: translateY(26px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.hero .eyebrow { animation: heroRise 0.6s 0.05s ease both; }
-.hero h1 { animation: heroRise 0.7s 0.14s ease both; }
-.hero p.lead { animation: heroRise 0.7s 0.24s ease both; }
-.hero .hero-cta { animation: heroRise 0.7s 0.34s ease both; }
-.hero .hero-demo-line { animation: heroRise 0.7s 0.38s ease both; }
-.hero .hero-aux { animation: heroRise 0.7s 0.42s ease both; }
-.hero .hero-facts { animation: heroRise 0.7s 0.5s ease both; }
-.hero .hero-preview { animation: heroRise 0.8s 0.58s ease both; }
+@keyframes heroLand {
+  0%   { opacity: 0; transform: translateY(34px) scale(0.99); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.hero .eyebrow { animation: heroRise 0.6s 0.05s var(--ease-out-quint) both; }
+.hero h1 { animation: heroLand 0.72s 0.12s var(--ease-out-expo) both; }
+.hero p.lead { animation: heroRise 0.7s 0.24s var(--ease-out-quint) both; }
+.hero .hero-cta { animation: heroRise 0.7s 0.34s var(--ease-out-quint) both; }
+.hero .hero-demo-line { animation: heroRise 0.7s 0.38s var(--ease-out-quint) both; }
+.hero .hero-aux { animation: heroRise 0.7s 0.42s var(--ease-out-quint) both; }
+.hero .hero-facts { animation: heroRise 0.7s 0.5s var(--ease-out-quint) both; }
+.hero .hero-preview { animation: heroRise 0.8s 0.58s var(--ease-out-quint) both; }
 
 /* Product fact strip */
 .hero-facts {
@@ -669,25 +726,23 @@ select {
   line-height: 0.88;
   letter-spacing: -0.022em;
 }
+/* ACCENT WORD — solid, full-chroma red with a real emissive bloom.
+   It used to be gradient-filled text (--grad-red runs #ff2d3f -> #b71629),
+   which meant the bottom half of the word faded into a dark maroon: the
+   single biggest reason the headline read muddy instead of hot. Display
+   type wants maximum contrast; the depth should come from the LIGHT around
+   the letterforms, not from draining the letterforms themselves. */
 .hero h1 .accent {
-  background: var(--grad-red);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--red);
   position: relative;
   display: inline-block;
+  text-shadow:
+    0 0 34px rgba(255,45,63,0.50),
+    0 0 84px rgba(255,45,63,0.26);
 }
-.hero h1 .accent::after {
-  content: '';
-  position: absolute;
-  left: 6%; right: 6%;
-  bottom: 0.06em;
-  height: 0.08em;
-  background: var(--grad-red);
-  filter: blur(8px);
-  opacity: 0.6;
-  z-index: -1;
-}
+/* The old blurred bar under the word is gone — with a solid fill the glow
+   reads as emission from the letters themselves, which is what a lit sign
+   actually does. */
 .hero p.lead {
   font-size: clamp(1.1rem, 1.9vw, 1.3rem);
   color: var(--text-2);
@@ -4780,6 +4835,20 @@ footer .footer-base {
   transition: border-color 0.15s;
 }
 .uniform-row:hover { border-color: var(--line-2); }
+/* Volume clause ("3 sets x 5 reps") and load clause ("@ 170 kg @ RPE 8") each
+   hold together as one unit. The ROW may wrap between them; neither may wrap
+   inside itself, so a separator can never be orphaned onto its own line. */
+.uniform-grp {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+/* Narrow: stack the two clauses and let each span the row, so the numbers stay
+   left-aligned in a column instead of drifting to wherever the wrap landed. */
+@media (max-width: 560px) {
+  .uniform-grp { flex: 1 1 100%; }
+}
 .uniform-cell {
   display: inline-flex;
   align-items: center;
@@ -7006,3 +7075,57 @@ html.native .mk-buy-cur { display: none !important; }
    it on native (renderReferralCard); this is the display-layer backstop. The
    referral link + milestone bar stay — sharing isn't purchase surface. */
 html.native .ref-rewards { display: none !important; }
+
+/* ============================================================
+   BUILD FROM A GOAL — the current-to-target prescription form.
+   Each lift is one line that reads as a sentence: "Squat 150 → 180 kg",
+   with the feasibility verdict landing to the right of the numbers that
+   produced it, so cause and judgement sit on the same line.
+   ============================================================ */
+.goal-grid { display: flex; flex-direction: column; gap: var(--space-xs, 8px); }
+.goal-row {
+  display: grid;
+  grid-template-columns: 74px 1fr auto 1fr auto minmax(0, 1.15fr);
+  align-items: center;
+  gap: 8px;
+}
+.goal-lift {
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.goal-row input {
+  width: 100%; padding: 9px 10px;
+  font-family: 'Space Grotesk', monospace; font-size: 0.95rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.goal-arrow { color: var(--text-4); font-size: 0.95rem; }
+.goal-unit { font-size: 0.78rem; color: var(--text-4); text-transform: uppercase; }
+/* The verdict is the point of the form, so it gets colour — but only ever one
+   of three, and only once a target exists. An empty row stays neutral. */
+.goal-verdict {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.goal-verdict.ok   { color: var(--green); }
+.goal-verdict.warn { color: var(--gold); }
+.goal-verdict.bad  { color: var(--red); }
+
+.goal-readout { margin-top: 14px; min-height: 44px; }
+.goal-msg {
+  margin: 0; padding: 11px 13px;
+  border-radius: var(--r-sm); font-size: 0.86rem; line-height: 1.55;
+  border: 1px solid var(--line);
+  background: var(--bg-2); color: var(--text-2);
+}
+.goal-msg strong { color: var(--text); }
+.goal-msg.ok  { border-color: rgba(78,216,132,0.28); }
+/* A refusal is information, not an error — it still hands you a usable number,
+   so it's toned as a caution rather than a failure. */
+.goal-msg.bad { border-color: rgba(255,45,63,0.32); background: rgba(255,45,63,0.05); }
+
+@media (max-width: 560px) {
+  /* Stack into two rows: the numbers keep their own line, the verdict gets the
+     full width beneath rather than being squeezed to an ellipsis. */
+  .goal-row { grid-template-columns: 58px 1fr auto 1fr auto; }
+  .goal-verdict { grid-column: 1 / -1; text-align: right; }
+}

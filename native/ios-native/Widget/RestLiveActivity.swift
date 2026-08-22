@@ -13,6 +13,9 @@
 import SwiftUI
 import WidgetKit
 import ActivityKit
+#if canImport(AppIntents)
+import AppIntents
+#endif
 
 // MARK: - Brand
 
@@ -74,6 +77,43 @@ private struct Bar: View {
     }
 }
 
+// MARK: - Controls (iOS 17+: Button(intent:) in Live Activities)
+
+/// Pause/resume, ±time, and skip — executed by RestTimerIntents in the APP's
+/// process (LiveActivityIntent), so they work with the app suspended. On iOS 16
+/// this renders nothing and the activity stays display-only.
+@available(iOS 16.1, *)
+private struct Controls: View {
+    let ctx: ActivityViewContext<RestTimerAttributes>
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            HStack(spacing: 8) {
+                Button(intent: RestAdjustIntent(seconds: -15)) {
+                    Text("−15s").font(.system(.caption2, design: .rounded).weight(.bold))
+                }
+                Button(intent: RestPauseResumeIntent()) {
+                    Image(systemName: ctx.state.paused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                Button(intent: RestAdjustIntent(seconds: 30)) {
+                    Text("+30s").font(.system(.caption2, design: .rounded).weight(.bold))
+                }
+                Spacer(minLength: 0)
+                Button(intent: RestStopIntent()) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .tint(.white.opacity(0.25))
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .controlSize(.small)
+            .tint(Powa.red)
+            .foregroundColor(.white)
+        }
+    }
+}
+
 // MARK: - Lock Screen
 
 @available(iOS 16.1, *)
@@ -93,6 +133,7 @@ private struct LockScreenView: View {
                 Countdown(ctx: ctx, font: .system(size: 34, weight: .heavy, design: .rounded))
             }
             Bar(ctx: ctx)
+            Controls(ctx: ctx)
         }
         .padding(16)
         .activityBackgroundTint(Powa.bg)
@@ -118,7 +159,10 @@ struct RestLiveActivityWidget: Widget {
                     Countdown(ctx: context, font: .system(.title2, design: .rounded).weight(.bold))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Bar(ctx: context)
+                    VStack(spacing: 10) {
+                        Bar(ctx: context)
+                        Controls(ctx: context)
+                    }
                 }
             } compactLeading: {
                 Image(systemName: "timer").foregroundColor(Powa.red)

@@ -51,7 +51,20 @@
 html.native .ai-launcher {
   bottom: calc(72px + 14px + env(safe-area-inset-bottom));
   right: max(16px, env(safe-area-inset-right));
+  /* In the app the label is hidden, so a full-red circle reads as a stray badge
+     competing with the real primary (red) CTAs. Ration the red: dark glass surface,
+     red sparkle icon + hairline. The FAB now reads clearly as a secondary tool, and
+     red stays reserved for the actions that matter (Check in, Save, etc). */
+  background: rgba(20, 20, 24, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 45, 63, 0.55);
+  color: var(--red, #ff2d3f);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
+html.native .ai-launcher svg { color: var(--red, #ff2d3f); }
+/* The attention pulse ring is also red — drop it in-app so the FAB sits quietly. */
+html.native .ai-launcher::after { display: none; }
 
 /* Pulse ring to draw the eye on first paint */
 .ai-launcher::after {

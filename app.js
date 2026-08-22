@@ -4207,12 +4207,135 @@ function weightForTarget(e1rm, reps, rpe) {
   const pct = 1 - ((reps - 1) + (10 - rpe)) * 0.0333;
   return _roundToPlate(e1rm * Math.max(0.4, pct));
 }
+// =========================================================
+// GOAL FEASIBILITY — "I squat 150, I want 180, I have 10 weeks."
+//
+// generateProgram() below already builds a sound block FROM a set of current
+// e1RMs. What it could never answer is whether the lifter's GOAL is reachable
+// in the time they have, or what to aim at when it isn't. That's this.
+//
+// Deliberately arithmetic, not an LLM call: a language model asked to judge
+// "is +30kg in 10 weeks realistic" will give a different answer each time and
+// charges a round-trip to do it. Rate-of-gain is a well-studied number; the
+// honest version is a lookup and a division.
+//
+// The most valuable output here is often the REFUSAL — telling someone that
+// +40kg on their bench in 8 weeks is not happening, and handing them the
+// number that is, beats generating a block built on a fantasy that will bury
+// them in missed reps by week 4.
+// =========================================================
+
+// Ceilings on rate of gain, as a fraction of current 1RM per WEEK, for a
+// well-run block. Bench climbs slowest — least muscle mass, shortest range of
+// motion, least room to grow — so it carries its own band rather than being
+// lumped in with the lower-body lifts.
+const GAIN_RATE = {
+  squat:    { comfortable: 0.006, realistic: 0.011, aggressive: 0.017 },
+  bench:    { comfortable: 0.004, realistic: 0.008, aggressive: 0.013 },
+  deadlift: { comfortable: 0.006, realistic: 0.012, aggressive: 0.018 }
+};
+
+// How developed a lift already is changes what's plausible: a 60kg bench has
+// far more headroom than a 160kg bench. Scaled against bodyweight, because
+// that's the only normaliser we reliably have. Novices really do add faster.
+function gainCeilingFactor(currentKg, bodyweightKg, lift) {
+  if (!bodyweightKg || bodyweightKg <= 0) return 1;
+  const developed = lift === 'bench' ? 1.5 : lift === 'squat' ? 2.0 : 2.5; // × bodyweight
+  const pct = Math.min(1.4, (currentKg / bodyweightKg) / developed);
+  return Math.max(0.55, 1.85 - pct * 0.95);   // ~1.85× early, ~0.6× when advanced
+}
+
+// One lift: required weekly rate vs the ceiling it's judged against, plus the
+// target that IS reachable if the ask is too big.
+function liftFeasibility(lift, startKg, targetKg, weeks, bodyweightKg) {
+  const s = Number(startKg) || 0, t = Number(targetKg) || 0, w = Number(weeks) || 0;
+  if (s <= 0 || w <= 0) return null;
+  const gainKg = t - s;
+  const weeklyPct = (gainKg / s) / w;
+  const band = GAIN_RATE[lift] || GAIN_RATE.squat;
+  const f = gainCeilingFactor(s, bodyweightKg, lift);
+  const comfortable = band.comfortable * f, realistic = band.realistic * f, aggressive = band.aggressive * f;
+
+  let verdict;
+  if (gainKg <= 0) verdict = 'maintain';
+  else if (weeklyPct <= comfortable) verdict = 'comfortable';
+  else if (weeklyPct <= realistic) verdict = 'realistic';
+  else if (weeklyPct <= aggressive) verdict = 'aggressive';
+  else verdict = 'unrealistic';
+
+  return {
+    lift, startKg: s, targetKg: t, gainKg, weeklyPct, verdict,
+    reachableKg: Math.round(s * (1 + realistic * w) * 2) / 2,   // hard but sane
+    stretchKg:   Math.round(s * (1 + aggressive * w) * 2) / 2   // everything goes right
+  };
+}
+
+// Whole plan across S/B/D. `verdict` is the worst lift — a block is only as
+// feasible as its most over-reaching lift.
+function planFeasibility(start, target, weeks, bodyweightKg) {
+  const LIFTS = ['squat', 'bench', 'deadlift'];
+  const ORDER = ['maintain', 'comfortable', 'realistic', 'aggressive', 'unrealistic'];
+  const perLift = {};
+  let worst = 'maintain';
+  LIFTS.forEach(function (l) {
+    const r = liftFeasibility(l, (start || {})[l], (target || {})[l], weeks, bodyweightKg);
+    if (!r) return;
+    perLift[l] = r;
+    if (ORDER.indexOf(r.verdict) > ORDER.indexOf(worst)) worst = r.verdict;
+  });
+  const sum = function (o, k) { return LIFTS.reduce(function (a, l) { return a + (Number((o || {})[l]) || 0); }, 0); };
+  const startTotal = sum(start), targetTotal = sum(target);
+  const reachableTotal = LIFTS.reduce(function (a, l) { return a + (perLift[l] ? perLift[l].reachableKg : 0); }, 0);
+  return {
+    perLift, verdict: worst,
+    feasible: worst !== 'unrealistic',
+    startTotal, targetTotal, gainTotal: targetTotal - startTotal,
+    reachableTotal, weeks: Number(weeks) || 0
+  };
+}
+
+// The target actually worth training toward: the ask where it's achievable,
+// the reachable number where it isn't. Feeds generateProgram({targets}).
+function feasibleTargets(start, target, weeks, bodyweightKg) {
+  const feas = planFeasibility(start, target, weeks, bodyweightKg);
+  const out = {};
+  ['squat', 'bench', 'deadlift'].forEach(function (l) {
+    const f = feas.perLift[l];
+    if (!f) return;
+    out[l] = f.verdict === 'unrealistic' ? f.reachableKg : f.targetKg;
+  });
+  return { targets: out, feasibility: feas };
+}
+
+if (typeof window !== 'undefined') {
+  window.GAIN_RATE = GAIN_RATE;
+  window.gainCeilingFactor = gainCeilingFactor;
+  window.liftFeasibility = liftFeasibility;
+  window.planFeasibility = planFeasibility;
+  window.feasibleTargets = feasibleTargets;
+}
+
 function generateProgram(opts) {
   opts = opts || {};
   const weeks = Math.max(1, Math.min(16, Math.round(opts.weeks || 4)));
   const dpw = Math.max(2, Math.min(6, Math.round(opts.daysPerWeek || 4)));
   const focus = (opts.focus && MAIN_LIFTS.indexOf(opts.focus) !== -1) ? opts.focus : null;
   const e1 = opts.e1rms || {};
+  // Optional GOAL. Without it the block holds today's e1RM flat and only waves
+  // RPE — which is exactly why generated loads never climbed toward anything.
+  // With it, each week's prescription comes from an e1RM interpolated between
+  // where the lifter is and where they're going, so the numbers on the page
+  // walk to the target instead of restating the present.
+  // Expects targets already filtered through feasibleTargets(); this function
+  // trusts them and does not re-judge whether the goal is sane.
+  const targets = opts.targets || null;
+  function e1At(lift, weekIdx) {
+    const from = e1[lift] || 0;
+    const to = targets && targets[lift];
+    if (!from || !to) return from;
+    const p = weeks <= 1 ? 1 : weekIdx / (weeks - 1);
+    return from + (to - from) * p;
+  }
 
   // RPE/rep wave across the block: build → overreach, last week deloads (≥4wk).
   const lastIsDeload = weeks >= 4;
@@ -4251,7 +4374,7 @@ function generateProgram(opts) {
       const mains = rot[d] || [MAIN_LIFTS[d % 3]];
       const day = newDay(dayName(mains));
       mains.forEach(m => {
-        const e = e1[m] || 0;
+        const e = e1At(m, w);
         const ex = newExercise(m, 'Competition', '');
         const ms = mainScheme(w);
         for (let s = 0; s < ms.sets; s++) ex.sets.push(newSet(weightForTarget(e, ms.reps, ms.rpe), ms.reps, ms.rpe, ''));
@@ -4277,6 +4400,204 @@ function generateProgram(opts) {
   return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
 }
 if (typeof window !== 'undefined') { window.generateProgram = generateProgram; window.weightForTarget = weightForTarget; }
+
+// =========================================================
+// BUILD FROM A GOAL — "here's where they are, here's where they're going,
+// here's how long I've got." The generator and the feasibility engine already
+// exist in app.js; this is the surface that finally makes them reachable
+// without typing a sentence into a chat box and hoping.
+//
+// Current numbers pre-fill from logged e1RMs when there are any, but every
+// field stays editable — a new athlete has no history, and "I know he squats
+// 150" should be enough to get a block. That gap was the actual reason the
+// AI kept producing programs with no weights in them: it could only ever read
+// history, so an athlete without history got zeros.
+// =========================================================
+const GOAL_LIFTS = ['squat', 'bench', 'deadlift'];
+
+function _goalNum(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const v = parseFloat(el.value);
+  if (!isFinite(v) || v <= 0) return 0;
+  return displayToKg(v);   // fields are in the user's display unit
+}
+
+function ensureGoalModal() {
+  if (document.getElementById('goalModal')) return;
+  const u = unitLabel();
+  const row = (lift, label) =>
+    '<div class="goal-row">' +
+      '<span class="goal-lift">' + label + '</span>' +
+      '<input type="number" step="2.5" min="0" id="goalNow-' + lift + '" placeholder="now" aria-label="Current ' + label + '">' +
+      '<span class="goal-arrow" aria-hidden="true">&rarr;</span>' +
+      '<input type="number" step="2.5" min="0" id="goalTgt-' + lift + '" placeholder="target" aria-label="Target ' + label + '">' +
+      '<span class="goal-unit">' + u + '</span>' +
+      '<span class="goal-verdict" id="goalV-' + lift + '"></span>' +
+    '</div>';
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<div class="modal-backdrop" id="goalModal">' +
+      '<div class="modal modal-lg">' +
+        '<button class="modal-close" aria-label="Close" onclick="closeModal(\'goalModal\')">&times;</button>' +
+        '<h3>Build from a goal</h3>' +
+        '<p class="dim text-sm mb-16">Where they are now, where you want them, and how long you have. ' +
+          'The block gets built backwards from that &mdash; and if the goal will not fit in the time, you get told before you write it.</p>' +
+        '<div class="goal-grid">' +
+          row('squat', 'Squat') + row('bench', 'Bench') + row('deadlift', 'Deadlift') +
+        '</div>' +
+        '<div class="form-row mt-16">' +
+          '<div class="form-group"><label for="goalWeeks">Weeks</label>' +
+            '<input type="number" id="goalWeeks" min="3" max="16" step="1" value="10"></div>' +
+          '<div class="form-group"><label for="goalDays">Days / week</label>' +
+            '<select id="goalDays"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select></div>' +
+        '</div>' +
+        '<div id="goalReadout" class="goal-readout"></div>' +
+        '<div class="flex gap-8 mt-16">' +
+          '<button class="btn btn-primary btn-block" id="goalBuildBtn" onclick="buildFromGoal()">Build the block</button>' +
+          '<button class="btn btn-ghost" onclick="closeModal(\'goalModal\')">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(wrap.firstChild);
+
+  // Live feasibility as they type. Cheap (pure arithmetic), so no debounce
+  // needed and the verdict never lags behind the number they just entered.
+  ['goalWeeks', 'goalDays'].concat(
+    GOAL_LIFTS.flatMap(l => ['goalNow-' + l, 'goalTgt-' + l])
+  ).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', refreshGoalReadout);
+  });
+}
+
+// Pre-fill "now" from logged history where it exists. Blank when it doesn't —
+// a placeholder is honest, a zero is a lie.
+function openGoalModal(athleteId) {
+  ensureGoalModal();
+  window._goalAthleteId = athleteId || null;
+  GOAL_LIFTS.forEach(l => {
+    const best = athleteId && typeof bestE1RM === 'function' ? bestE1RM(athleteId, l) : 0;
+    const now = document.getElementById('goalNow-' + l);
+    const tgt = document.getElementById('goalTgt-' + l);
+    if (now) now.value = best ? Math.round(kgToDisplay(best) * 2) / 2 : '';
+    if (tgt) tgt.value = '';
+  });
+  refreshGoalReadout();
+  openModal('goalModal');
+}
+
+// "Squat, Bench and Deadlift" — not "Squat and Bench and Deadlift".
+function _goalJoin(items) {
+  if (items.length <= 1) return items[0] || '';
+  if (items.length === 2) return items[0] + ' and ' + items[1];
+  return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+}
+// "an aggressive ask" / "a realistic ask" — the verdict words are a closed set,
+// so a vowel test is exact here rather than a guess.
+function _goalArticle(word) {
+  return (/^[aeiou]/i.test(word) ? 'an ' : 'a ') + word;
+}
+
+const _GOAL_TONE = {
+  maintain:    { cls: 'ok',   word: 'maintenance' },
+  comfortable: { cls: 'ok',   word: 'comfortable' },
+  realistic:   { cls: 'ok',   word: 'realistic' },
+  aggressive:  { cls: 'warn', word: 'aggressive' },
+  unrealistic: { cls: 'bad',  word: 'not in this timeframe' }
+};
+
+function refreshGoalReadout() {
+  const start = {}, target = {};
+  GOAL_LIFTS.forEach(l => { start[l] = _goalNum('goalNow-' + l); target[l] = _goalNum('goalTgt-' + l); });
+  const weeks = Math.max(3, Math.min(16, parseInt((document.getElementById('goalWeeks') || {}).value, 10) || 10));
+  const bw = typeof latestBodyweight === 'function' ? (latestBodyweight(window._goalAthleteId) || 0) : 0;
+  const out = document.getElementById('goalReadout');
+  const btn = document.getElementById('goalBuildBtn');
+  if (!out) return;
+
+  const anyStart = GOAL_LIFTS.some(l => start[l] > 0);
+  const anyTarget = GOAL_LIFTS.some(l => target[l] > 0);
+  GOAL_LIFTS.forEach(l => { const v = document.getElementById('goalV-' + l); if (v) { v.textContent = ''; v.className = 'goal-verdict'; } });
+
+  if (!anyStart) {
+    out.innerHTML = '<p class="dim text-sm">Enter at least one current lift to begin.</p>';
+    if (btn) btn.disabled = true;
+    return;
+  }
+  if (btn) btn.disabled = false;
+  if (!anyTarget) {
+    out.innerHTML = '<p class="dim text-sm">No targets set &mdash; the block will wave RPE around their current numbers. ' +
+      'Add a target to make the loads climb.</p>';
+    return;
+  }
+
+  const feas = planFeasibility(start, target, weeks, bw);
+  GOAL_LIFTS.forEach(l => {
+    const f = feas.perLift[l];
+    const v = document.getElementById('goalV-' + l);
+    if (!v || !f || !target[l]) return;
+    const tone = _GOAL_TONE[f.verdict] || _GOAL_TONE.realistic;
+    v.className = 'goal-verdict ' + tone.cls;
+    v.textContent = f.verdict === 'unrealistic'
+      ? '→ ' + Math.round(kgToDisplay(f.reachableKg) * 2) / 2 + ' realistic'
+      : tone.word;
+  });
+
+  const over = GOAL_LIFTS.filter(l => feas.perLift[l] && feas.perLift[l].verdict === 'unrealistic');
+  const gain = Math.round(kgToDisplay(feas.gainTotal));
+  if (over.length) {
+    out.innerHTML =
+      '<p class="goal-msg bad"><strong>That will not fit in ' + weeks + ' weeks.</strong> ' +
+      escHtml(_goalJoin(over.map(l => LIFT_LABELS[l] || l))) +
+      (over.length === 1 ? ' is' : ' are') + ' asking for more than a well-run block gives. ' +
+      'Build it anyway and the numbers get capped at what is reachable &mdash; the rest of the plan is unchanged.</p>';
+  } else {
+    out.innerHTML =
+      '<p class="goal-msg ok"><strong>+' + gain + unitLabel() + ' on the total across ' + weeks + ' weeks.</strong> ' +
+      'That is ' + escHtml(_goalArticle((_GOAL_TONE[feas.verdict] || {}).word || 'realistic')) + ' ask. Loads climb week to week and deload before the heaviest work.</p>';
+  }
+}
+
+// Build + install. Replaces the athlete's program, so it confirms first.
+function buildFromGoal() {
+  const athleteId = window._goalAthleteId;
+  const start = {}, target = {};
+  GOAL_LIFTS.forEach(l => { start[l] = _goalNum('goalNow-' + l); target[l] = _goalNum('goalTgt-' + l); });
+  if (!GOAL_LIFTS.some(l => start[l] > 0)) { toast('Enter at least one current lift.'); return; }
+
+  const weeks = Math.max(3, Math.min(16, parseInt((document.getElementById('goalWeeks') || {}).value, 10) || 10));
+  const daysPerWeek = parseInt((document.getElementById('goalDays') || {}).value, 10) || 4;
+  const bw = typeof latestBodyweight === 'function' ? (latestBodyweight(athleteId) || 0) : 0;
+
+  // Only pass targets the lifter actually set; feasibleTargets caps anything
+  // out of reach so the block is built toward a number they can hit.
+  const hasTargets = GOAL_LIFTS.some(l => target[l] > 0);
+  let targets = null, feas = null;
+  if (hasTargets) {
+    const ft = feasibleTargets(start, target, weeks, bw);
+    targets = ft.targets; feas = ft.feasibility;
+  }
+
+  const prog = generateProgram({ weeks, daysPerWeek, e1rms: start, targets });
+  if (!prog || !prog.weeks || !prog.weeks.length) { toast('Could not build that block.'); return; }
+
+  if (typeof window.__applyGeneratedProgram === 'function') {
+    const ok = window.__applyGeneratedProgram(prog, athleteId);
+    if (!ok) return;
+  } else { toast('Open a program in the builder first.'); return; }
+
+  closeModal('goalModal');
+  const capped = feas && GOAL_LIFTS.filter(l => feas.perLift[l] && feas.perLift[l].verdict === 'unrealistic');
+  toast(capped && capped.length
+    ? 'Built ' + weeks + ' weeks — ' + capped.map(l => LIFT_LABELS[l] || l).join(' & ') + ' capped to what is reachable.'
+    : 'Built ' + weeks + ' weeks. Loads climb to the target.');
+}
+
+window.openGoalModal = openGoalModal;
+window.buildFromGoal = buildFromGoal;
+window.refreshGoalReadout = refreshGoalReadout;
 
 // =========================================================
 // PEAKING BLOCK — a meet taper, distinct from generateProgram (a general

@@ -1484,8 +1484,14 @@ function renderToday() {
           cell1.appendChild(wInp);
           cell1.appendChild(el('span', { class: 'cs-unit' }, unitLabel()));
         } else {
-          cell1.innerHTML = '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')">' +
-                            '<span class="cs-val">' + kgToDisplay(set.weight) + '</span><span class="cs-unit">' + unitLabel() + '</span></a>';
+          // No prescribed load (accessories, and anything a generated block left
+          // to feel) shows an em dash, not "0 kg" — same convention as the RPE
+          // cell below. A zero is a number the coach never wrote, and it also
+          // makes no sense to open a plate calculator for it.
+          cell1.innerHTML = set.weight > 0
+            ? '<a class="cs-w-link" href="#" onclick="event.preventDefault(); openPlateCalc(' + set.weight + ')">' +
+              '<span class="cs-val">' + kgToDisplay(set.weight) + '</span><span class="cs-unit">' + unitLabel() + '</span></a>'
+            : '<span class="cs-val dim">—</span>';
         }
         tgts.appendChild(cell1);
         tgts.appendChild(el('div', { class: 'cs-cell', html: '<span class="cs-mult">×</span><span class="cs-val">' + set.reps + '</span>' }));
@@ -3743,7 +3749,7 @@ async function renderGlobalClaimBanner() {
   const txt = el('div', { style: 'flex: 1 1 280px; min-width: 0' });
   txt.appendChild(el('div', { style: 'font-weight: 700; font-size: 1.05rem; margin-bottom: 4px;' }, '✨ You purchased: ' + mp.title));
   const sub = el('div', { class: 'dim text-sm' }, 'Reps and RPE come from the coach — you pick your own weights. ');
-  const warn = el('span', { style: 'color: #ff2d3f; font-weight:600' }, 'Installing will replace your current program.');
+  const warn = el('span', { style: 'color: var(--red); font-weight:600' }, 'Installing will replace your current program.');
   sub.appendChild(warn);
   txt.appendChild(sub);
   row.appendChild(txt);

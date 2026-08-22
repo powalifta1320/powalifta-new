@@ -214,7 +214,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -434,11 +434,22 @@ function renderCoaches() {
       onchange: async (e) => {
         const newTier = e.target.value;
         try {
-          await sb.from('profiles').update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() }).in('id', [c.id]);
-          c.subscription_tier = newTier;
-          toast('Updated ' + c.name + ' to ' + newTier);
+          // Ask PostgREST to return the row so we can tell a real write from an
+          // RLS-filtered no-op (0 rows, no error) — the exact silent-failure the
+          // missing profiles_admin_update policy caused. `.select()` makes it honest.
+          const { data, error } = await sb.from('profiles')
+            .update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() })
+            .in('id', [c.id])
+            .select('id, subscription_tier');
+          if (error) throw error;
+          if (!data || !data.length) {
+            throw new Error('no rows updated — run sql/migration-admin-plan-comp.sql (admin RLS policy missing)');
+          }
+          c.subscription_tier = data[0].subscription_tier;
+          e.target.value = c.subscription_tier;
+          toast('Updated ' + c.name + ' to ' + (TIER_LABELS[c.subscription_tier] || c.subscription_tier));
         } catch (err) {
-          toast('Failed: ' + err.message);
+          toast('Failed: ' + (err.message || err));
           e.target.value = tier;
         }
       }

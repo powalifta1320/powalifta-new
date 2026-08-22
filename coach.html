@@ -431,6 +431,34 @@ function maybeStartCoachTour() {
 window.maybeStartCoachTour = maybeStartCoachTour;
 window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
 
+// Install a generated block onto the athlete currently open in the builder.
+// Replaces their program, so it confirms first — this is destructive and the
+// coach may have hand-built what's already there.
+window.__applyGeneratedProgram = function (generated, athleteId) {
+  const aid = athleteId || currentAthleteId;
+  if (!aid) { toast('Pick an athlete first.'); return false; }
+  const existing = Store.get().programs.find(p => p.athleteId === aid);
+  const hasContent = existing && (existing.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).length));
+  if (hasContent && !confirm('This replaces the current program for this athlete. Continue?')) return false;
+
+  const prog = {
+    // Reuse the existing row id so the upsert (onConflict=athlete_id) updates
+    // in place rather than orphaning the old program.
+    id: existing ? existing.id : uid('prog'),
+    athleteId: aid,
+    coachId: user.id,
+    name: existing && existing.name ? existing.name : (generated.name || 'Training block'),
+    weeks: generated.weeks
+  };
+  Store.update(s => {
+    s.programs = s.programs.filter(p => p.athleteId !== aid).concat([prog]);
+  });
+  if (!window._demoMode) persistProgram(prog);
+  activeWeekIdx = 0;
+  loadProgram();
+  return true;
+};
+
 // ===== PLAN PILL =====
 function renderPlanPill() {
   const pill = document.getElementById('planPill');
@@ -1374,6 +1402,12 @@ function loadProgram() {
   sheetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export sheet</span>';
   sheetBtn.onclick = () => exportProgramCsv(athleteId, (Store.get().athletes.find(a => a.id === athleteId) || {}).name);
   headActions.appendChild(sheetBtn);
+  // Goal-driven build. Sits first because it's the shortest path from "new
+  // athlete, empty program" to a full block — the flow the builder previously
+  // had no answer for at all.
+  const goalBtn = el('button', { class: 'btn btn-sm btn-primary', onclick: () => openGoalModal(athleteId), title: 'Generate a full block from current and target lifts' });
+  goalBtn.innerHTML = ICONS.bar + '<span>Build from goal</span>';
+  headActions.appendChild(goalBtn);
   const saveTpl = el('button', { class: 'btn btn-sm', onclick: () => openSaveTemplate(prog) });
   saveTpl.innerHTML = ICONS.copy + '<span>Save as template</span>';
   headActions.appendChild(saveTpl);
@@ -1528,8 +1562,19 @@ function loadProgram() {
               onchange: e => setBlockCount(activeWeekIdx, di, ei, blk.startIdx, blk.count, Number(e.target.value))
             }));
             countWrap.appendChild(el('span', { class: 'uniform-lbl' }, blk.count === 1 ? 'set' : 'sets'));
-            tplRow.appendChild(countWrap);
-            tplRow.appendChild(el('span', { class: 'uniform-mult' }, '×'));
+            // Two atomic groups so the prescription can only break at ONE sensible
+            // seam. Previously all 8 atoms were direct flex children of a wrapping
+            // row, so at narrow widths it fragmented mid-equation and orphaned the
+            // separators — "1 set x 5 reps @ 170" / "kg @ RPE 7.5". Volume and load
+            // now each wrap as a unit: the row either reads on one line, or as two
+            // whole clauses. Never a dangling "x" or "@".
+            const grpVolume = el('div', { class: 'uniform-grp' });
+            const grpLoad = el('div', { class: 'uniform-grp' });
+            tplRow.appendChild(grpVolume);
+            tplRow.appendChild(grpLoad);
+
+            grpVolume.appendChild(countWrap);
+            grpVolume.appendChild(el('span', { class: 'uniform-mult' }, '×'));
 
             // Reps input
             const repsWrap = el('div', { class: 'uniform-cell' });
@@ -1539,8 +1584,8 @@ function loadProgram() {
               oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value))
             }));
             repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
-            tplRow.appendChild(repsWrap);
-            tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
+            grpVolume.appendChild(repsWrap);
+            grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
 
             // Weight input
             const wWrap = el('div', { class: 'uniform-cell' });
@@ -1551,8 +1596,8 @@ function loadProgram() {
               oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value)))
             }));
             wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
-            tplRow.appendChild(wWrap);
-            tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
+            grpLoad.appendChild(wWrap);
+            grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
 
             // RPE input — OPTIONAL. Empty input = no prescribed RPE (back-down style).
             const rpeWrap = el('div', { class: 'uniform-cell' });
@@ -1564,7 +1609,7 @@ function loadProgram() {
               title: 'Leave blank for back-down sets',
               oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value))
             }));
-            tplRow.appendChild(rpeWrap);
+            grpLoad.appendChild(rpeWrap);
 
             // Per-block delete (only show if there's more than one block — never let exercise have zero)
             if (blocks.length > 1) {

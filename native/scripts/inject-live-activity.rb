@@ -41,11 +41,15 @@ abort "[inject] no Xcode project at #{PROJ_PATH} — run `npx cap add ios` first
 
 # ---- 1. copy committed sources into the scaffolded tree -----------------------------
 FileUtils.mkdir_p(WIDGET_DIR)
-# Shared attributes + plugin -> App target dir
+# Shared attributes + plugin + intents -> App target dir
 FileUtils.cp(File.join(SRC, "App", "RestActivityAttributes.swift"), File.join(APP_DIR, "RestActivityAttributes.swift"))
 FileUtils.cp(File.join(SRC, "App", "RestTimerPlugin.swift"),        File.join(APP_DIR, "RestTimerPlugin.swift"))
-# Widget sources -> widget dir (attributes is shared: compiled into BOTH targets)
+FileUtils.cp(File.join(SRC, "App", "RestTimerIntents.swift"),       File.join(APP_DIR, "RestTimerIntents.swift"))
+# Widget sources -> widget dir (attributes + intents are shared: compiled into BOTH
+# targets — the widget needs the intent TYPES for Button(intent:); LiveActivityIntent
+# conformance makes iOS execute perform() in the App's process).
 FileUtils.cp(File.join(SRC, "App", "RestActivityAttributes.swift"), File.join(WIDGET_DIR, "RestActivityAttributes.swift"))
+FileUtils.cp(File.join(SRC, "App", "RestTimerIntents.swift"),       File.join(WIDGET_DIR, "RestTimerIntents.swift"))
 FileUtils.cp(File.join(SRC, "Widget", "RestLiveActivity.swift"),    File.join(WIDGET_DIR, "RestLiveActivity.swift"))
 FileUtils.cp(File.join(SRC, "Widget", "PowaWidgetBundle.swift"),    File.join(WIDGET_DIR, "PowaWidgetBundle.swift"))
 FileUtils.cp(File.join(SRC, "Widget", "Info.plist"),                File.join(WIDGET_DIR, "Info.plist"))
@@ -74,7 +78,8 @@ end
 
 ensure_file_in_target(project, app_group, app_target, File.join(APP_DIR, "RestActivityAttributes.swift"))
 ensure_file_in_target(project, app_group, app_target, File.join(APP_DIR, "RestTimerPlugin.swift"))
-puts "[inject] RestTimer plugin added to App target."
+ensure_file_in_target(project, app_group, app_target, File.join(APP_DIR, "RestTimerIntents.swift"))
+puts "[inject] RestTimer plugin + intents added to App target."
 
 # ---- 3. create the PowaWidget app-extension target (idempotent) ---------------------
 widget_target = project.targets.find { |t| t.name == WIDGET_NAME }
@@ -86,7 +91,7 @@ else
 end
 
 widget_group = project.main_group[WIDGET_NAME] || project.main_group.new_group(WIDGET_NAME, WIDGET_NAME)
-%w[RestActivityAttributes.swift RestLiveActivity.swift PowaWidgetBundle.swift].each do |fname|
+%w[RestActivityAttributes.swift RestTimerIntents.swift RestLiveActivity.swift PowaWidgetBundle.swift].each do |fname|
   ensure_file_in_target(project, widget_group, widget_target, File.join(WIDGET_DIR, fname))
 end
 
@@ -147,15 +152,51 @@ puts "[inject] silenced [CP] run-every-build warnings."
 project.save
 puts "[inject] project saved."
 
-# ---- 6. flip on Live Activities support in the App Info.plist -----------------------
+# ---- 6. Info.plist: Live Activities + permission usage strings ----------------------
+# `cap add ios` regenerates a stock Info.plist WITHOUT our keys, so (re)apply them here
+# on every build. The usage strings are REQUIRED by App Review — a form-check video
+# capture touches the camera/photo library, and iOS hard-crashes (→ rejection) if the
+# app reads those without a purpose string. Empty/absent = guaranteed 3.x rejection.
 app_plist = File.join(APP_DIR, "Info.plist")
 if File.exist?(app_plist)
   plist = Xcodeproj::Plist.read_from_path(app_plist)
   plist["NSSupportsLiveActivities"] = true
+  # Form-check clips: the athlete records/uploads a lift video for coach feedback.
+  plist["NSCameraUsageDescription"] =
+    "POWALIFTA uses the camera so you can film a lift and send it to your coach for a form check."
+  plist["NSPhotoLibraryUsageDescription"] =
+    "POWALIFTA needs photo library access so you can attach an existing lift video or a profile photo."
+  plist["NSPhotoLibraryAddUsageDescription"] =
+    "POWALIFTA saves your generated PR / strength-score share cards to your photo library."
+  # Microphone rides along with video capture on iOS; declare it so audio-enabled
+  # recordings don't trip a crash even though the clip is mainly visual.
+  plist["NSMicrophoneUsageDescription"] =
+    "POWALIFTA records audio together with your form-check video so your coach hears any cues."
   Xcodeproj::Plist.write_to_path(plist, app_plist)
-  puts "[inject] NSSupportsLiveActivities = YES set in App Info.plist."
+  puts "[inject] Info.plist: Live Activities + camera/photo/mic usage strings set."
 else
-  warn "[inject] App Info.plist not found at #{app_plist} — NSSupportsLiveActivities NOT set."
+  warn "[inject] App Info.plist not found at #{app_plist} — usage strings NOT set."
+end
+
+# ---- 6b. Privacy manifest (PrivacyInfo.xcprivacy) -----------------------------------
+# Apple has REQUIRED this since May 2024. It declares (a) collected data types and
+# (b) "required reason" API usage. Missing it = automatic rejection at upload. We ship
+# a source copy in native/ios-native/App and copy+add it to the App target here so it
+# survives every `cap add ios` regeneration. Content mirrors privacy.html's data map.
+privacy_src = File.join(SRC, "App", "PrivacyInfo.xcprivacy")
+if File.exist?(privacy_src)
+  privacy_dst = File.join(APP_DIR, "PrivacyInfo.xcprivacy")
+  FileUtils.cp(privacy_src, privacy_dst)
+  # Add as a resource (not a compiled source) to the App target.
+  pref = app_group.files.find { |f| f.display_name == "PrivacyInfo.xcprivacy" } ||
+         app_group.new_reference(privacy_dst)
+  unless app_target.resources_build_phase.files_references.include?(pref)
+    app_target.resources_build_phase.add_file_reference(pref, true)
+  end
+  project.save
+  puts "[inject] PrivacyInfo.xcprivacy copied + added to App target resources."
+else
+  warn "[inject] PrivacyInfo.xcprivacy source missing at #{privacy_src} — App Store will REJECT without it."
 end
 
 # ---- 7. Capacitor archive-rsync fix -------------------------------------------------
