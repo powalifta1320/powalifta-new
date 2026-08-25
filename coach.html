@@ -311,6 +311,13 @@ let user; let activeWeekIdx = 0;
 // throwing and leaving the roster blank until the tab is re-clicked.
 let _coachFormChecks = [];
 let _unreadByAthlete = {};
+// Same reason, and the bug the note above was written about: renderRoster()
+// also reads the roster paging state, so a `let`/`const` further down the file
+// sat in the temporal dead zone when bootstrap ran. It threw on every load and
+// the roster came up EMPTY until you clicked the tab again. Two of the three
+// variables got hoisted when that was first found; these are the ones missed.
+let _rosterPage = 1;
+const ROSTER_PER_PAGE = 6;
 
 bootstrap('coach', () => {
   user = getCurrentUser();
@@ -666,8 +673,6 @@ async function declineJoinRequest(req, rowEl) {
 }
 
 // ===== ROSTER =====
-let _rosterPage = 1;
-const ROSTER_PER_PAGE = 6;
 
 // Download the whole roster as a CSV — one row per athlete with recency,
 // adherence, best comp-equivalent e1RMs + total. Reuses the shared CSV +

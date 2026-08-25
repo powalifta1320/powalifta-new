@@ -1901,7 +1901,19 @@ a:focus-visible,
   gap: 16px;
   flex-wrap: wrap;
 }
-.dash-header h2 { margin-bottom: 0; }
+/* Dashboard page titles run on their own scale, not the global h2 ramp
+   (which tops out at 3.6rem and is built for marketing sections).
+   "SESSION" and "PROGRAM BUILDER" are LABELS on a tool a coach opens every
+   day — at 3.6rem they shout a word the user already knows and push the
+   actual work below the fold. The hero earns display size because it has one
+   job and you see it once; a dashboard header is chrome, and chrome should
+   sit down so the content can stand up. Still Anton, still uppercase, still
+   unmistakably the brand — just proportionate to what it's telling you. */
+.dash-header h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.9rem, 2.8vw, 2.6rem);
+  line-height: 1.05;
+}
 
 /* ============================================ TABLE */
 .tbl-card {
@@ -2308,24 +2320,39 @@ tbody tr:hover td { background: var(--hover-tint); }
 }
 .week-tab.active .ct { color: var(--red); background: rgba(255,45,63,0.15); }
 
+/* A training day is ONE bounded block. It used to be the opposite: .day-card
+   was fully transparent while .day-head carried a closed, rounded, bordered
+   box — so the header read as a finished card and its own exercises hung
+   underneath it with no visible owner. That's what made the builder look
+   chopped: you could not see where a day ended and the next began.
+   The card is now the container and the head is a band inside it, which also
+   buys a real depth ladder:
+     page (--bg) -> day (--bg-1) -> exercise (--bg-2) -> input well (--bg)
+   Each level is a step lighter than the one holding it, except the wells,
+   which drop back to page-dark to read as recessed. */
 .day-card {
-  background: transparent;
-  border: none;
-  border-radius: 0;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
   padding: 0;
-  margin-bottom: 22px;
+  overflow: hidden;          /* lets the head band square off against the radius */
+  margin-bottom: 18px;
 }
 .day-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 12px 16px;
   background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
 }
 .day-head + .day-body { padding-top: 14px; }
+/* Rest days carry no body, so the head is the whole card — round it back off
+   and drop the divider that would otherwise underline nothing. */
+.day-card:not(:has(.day-body)) .day-head { border-bottom: none; }
 .day-head .day-name-input {
   background: transparent;
   border: 1px solid transparent;
@@ -2339,7 +2366,7 @@ tbody tr:hover td { background: var(--hover-tint); }
   text-transform: uppercase;
 }
 .day-head .day-name-input:hover, .day-head .day-name-input:focus { background: var(--bg); border-color: var(--line); }
-.day-body { padding: 14px 6px 2px; }
+.day-body { padding: 14px 14px 12px; }
 .day-empty {
   padding: 30px 18px;
   text-align: center;
@@ -5648,7 +5675,11 @@ footer .footer-base {
   .form-row, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
   .builder { grid-template-columns: 1fr; }
   .builder-aside { position: static; }
+  /* Horizontal scroller on mobile, so each tab must hold its own line —
+     without this "Week 1" breaks across two lines and the pill grows taller
+     than the row it sits in. */
   .week-nav { flex-direction: row; overflow-x: auto; gap: 4px; }
+  .week-tab { white-space: nowrap; flex: 0 0 auto; }
   .wk-actions { flex-wrap: wrap; }
   .wk-actions .btn-sm { flex: 1 1 auto; justify-content: center; }
   .exec-set { grid-template-columns: 30px 1fr 1fr 1fr; gap: 6px; }
