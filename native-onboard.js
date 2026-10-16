@@ -176,6 +176,9 @@
     return h('label', { class: 'ob-field' }, [h('span', { text: label }), extra ? h('div', { class: 'ob-input-wrap' }, [input, extra]) : input]);
   }
   function eyeToggle(input) {
+    // The sheet owns this field's show/hide button; tell app.js attachPwdToggles()
+    // to leave it alone (it was adding a second, overlapping eye).
+    input.setAttribute('data-pwd-bound', '1');
     var b = h('button', { class: 'ob-eye', type: 'button', 'aria-label': 'Show password', html: I.eye });
     b.addEventListener('click', function () {
       var show = input.type === 'password';

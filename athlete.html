@@ -1231,9 +1231,9 @@ function renderTodayHeader(cur, date, titleOverride) {
   const d = new Date(date + 'T12:00:00');
   const dayStr = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   const isToday = date === todayISO();
-  const parts = [isToday ? 'Today · ' + dayStr : 'Logging for ' + dayStr];
-  if (cur && cur.week) parts.push('Week ' + cur.week.number);
-  eb.textContent = parts.join(' · ');
+  // One separator, max: "Fri 16 Oct · Week 3" (today is implied; past days say so).
+  const when = isToday ? dayStr : 'Logging for ' + dayStr;
+  eb.textContent = (cur && cur.week) ? when + ' · Week ' + cur.week.number : when;
   eb.classList.toggle('is-past', !isToday);
   tt.textContent = titleOverride || (cur && cur.day && cur.day.name) || 'Train';
   // No program → no day to pick and no session options: hide the ▾ and the ⋯.
@@ -1478,27 +1478,38 @@ function renderToday() {
 
   area.appendChild(buildTodayHero(cur));
 
-  // One-line notes: coach feedback for this date, and the weekly check-in.
+  // From your coach: today's note and the weekly check-in share ONE grouped list
+  // (the coach's face leads the note) instead of two more boxes on the stack.
   const sessionDate = date;
   const noteForToday = (Store.get().sessionNotes || [])
     .find(n => n.athleteId === user.id && n.date === sessionDate && n.coachComment);
-  if (noteForToday) {
-    const n = el('button', { class: 'today-note', type: 'button', 'aria-expanded': 'false' });
-    n.innerHTML = '<span class="tn-dot tn-coach" aria-hidden="true"></span>' +
-      '<span class="tn-body"><span class="tn-title">Coach note</span><span class="tn-text">' + escHtml(noteForToday.coachComment) + '</span></span>';
-    n.addEventListener('click', () => { const o = n.classList.toggle('open'); n.setAttribute('aria-expanded', o ? 'true' : 'false'); });
-    area.appendChild(n);
-  }
   const weekStart = mondayOf(new Date(sessionDate));
   const submitted = (Store.get().checkins || []).some(c => c.athleteId === user.id && c.weekStart === weekStart);
+  const coachRows = [];
+  if (noteForToday) {
+    const coach = (Store.get().coaches || []).find(c => c.id === user.coachId);
+    const coachName = coach ? coach.name : 'Your coach';
+    const n = el('button', { class: 'today-note tn-row', type: 'button', 'aria-expanded': 'false' });
+    const av = el('span', { class: 'ui-av tn-av', 'data-name': coachName }, initials(coachName));
+    if (coach && coach.avatarUrl) av.innerHTML = '<img src="' + escHtml(coach.avatarUrl) + '" alt="">';
+    n.appendChild(av);
+    n.insertAdjacentHTML('beforeend', '<span class="tn-body"><span class="tn-title">' + escHtml(coach ? coach.name : 'Your coach') + '</span><span class="tn-text">' + escHtml(noteForToday.coachComment) + '</span></span>');
+    n.addEventListener('click', () => { const o = n.classList.toggle('open'); n.setAttribute('aria-expanded', o ? 'true' : 'false'); });
+    coachRows.push(n);
+  }
   if (!submitted && user.coachId) {
-    const c = el('div', { class: 'today-note' });
-    c.innerHTML = '<span class="tn-dot tn-gold" aria-hidden="true"></span>' +
+    const c = el('div', { class: 'today-note tn-row' });
+    c.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg></span>' +
       '<span class="tn-body"><span class="tn-title">Weekly check-in</span><span class="tn-text tn-one">30 seconds for your coach</span></span>';
-    const b = el('button', { class: 'btn btn-sm btn-ghost', type: 'button' }, 'Check in');
+    const b = el('button', { class: 'btn btn-sm tn-act', type: 'button' }, 'Check in');
     b.addEventListener('click', () => openCheckinModal(weekStart));
     c.appendChild(b);
-    area.appendChild(c);
+    coachRows.push(c);
+  }
+  if (coachRows.length) {
+    const grp = el('div', { class: 'tn-group' });
+    coachRows.forEach(r => grp.appendChild(r));
+    area.appendChild(grp);
   }
 
   // The next undone set, so its row can carry the "you are here" marker.

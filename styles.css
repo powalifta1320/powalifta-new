@@ -9899,3 +9899,148 @@ html.native body.powa-app :is(#coachArea .coach-thread, .msg-inbox-detail) .msg-
 html.native body.powa-app .msg-inbox { height: auto; }
 html.native body.powa-app .msg-inbox-detail .msg-list { max-height: none; min-height: 0; overflow: visible; padding-bottom: 150px; }
 html.native body.powa-app #coachArea .coach-thread .msg-list { padding-bottom: 150px; }
+
+/* ============================================================
+   UI v5 · REFINED                                   (2026-10-16)
+   ------------------------------------------------------------
+   Owner, after v4: "elements here and there, as well as the pages after
+   signing in, look cheap". The tells that were left (critique with
+   /impeccable + /design-taste-frontend):
+     · ALL-CAPS micro-labels everywhere (SESSIONS, ATHLETES, COACH,
+       TUE 13 OCT, SEEN · …) and "KG" in caps (the unit symbol is kg)
+     · stat numbers coloured gold/green/red with no meaning
+     · decorative dots in front of labels
+     · bordered web buttons next to pills next to circles; outlined chips
+     · a marker on every chart point (fixed in drawLineChart)
+     · card-on-card stacks; full-width separators; a logo bar on every screen
+   Rules from here on:
+     · sentence case everywhere; caps only for true acronyms (RPE, PR, DOTS)
+     · units lowercase; numbers are ink, colour only for a real delta
+     · ONE shape system: buttons + chips = capsules, cards 20px, fields 12px,
+       segmented control = iOS rounded segments
+     · iOS inset separators (the line starts where the text starts)
+     · no brand bar inside the native app: the large title leads
+   Dark only (light keeps v3/v4).
+   ============================================================ */
+
+/* 1 · Chrome: the large title leads; the logo lives on the icon + welcome. */
+html.native body.powa-app .nav .brand { visibility: hidden; }
+body.powa-app .sig-badge { top: -2px; right: -2px; min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; border-radius: 8px; box-shadow: 0 0 0 2px var(--bg); background: var(--brand-red); }
+
+/* 2 · Sentence case + lowercase units. */
+body.powa-app :is(.tdh-presc small, .cp-nums small, .rh-stat b small, .ui-stat b small, .cr-val small, .tdh-presc .tdh-rpe, .cp-rpe) { text-transform: none; letter-spacing: 0; }
+body.powa-app :is(.tdh-presc small, .cp-nums small) { font-size: 15px; font-weight: 600; color: var(--text-3); }
+body.powa-app :is(.rh-stat span, .ui-stat span) { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 550; color: var(--text-3); margin-top: 3px; }
+body.powa-app :is(.rh-stat b small, .ui-stat b small) { font-size: 13px; font-weight: 600; margin-left: 3px; }
+body.powa-app .compact-set-head { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; color: var(--text-3); background: transparent; }
+body.powa-app .builder-main .uniform-head span { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
+body.powa-app .ech-coach span { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 650; color: var(--text); margin-right: 6px; }
+body.powa-app .msg-daysep { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; color: var(--text-3); }
+body.powa-app .msg-status { text-transform: none; letter-spacing: 0; font-family: var(--font-body); font-size: 11.5px; font-weight: 500; }
+body.powa-app .msg-note-lbl { text-transform: none; letter-spacing: 0; font-family: var(--font-body); font-size: 12px; font-weight: 650; color: var(--text-3); }
+body.powa-app .msg-note-lbl::before { display: none; }
+body.powa-app .cr-name em, body.powa-app .cp-who b .cp-role { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 650; padding: 2px 7px; border-radius: 6px; }
+body.powa-app .cr-name em:not(.cr-tag) { background: rgba(255, 255, 255, 0.92); color: #0b0b0d; }
+body.powa-app .cr-name em.cr-tag, body.powa-app .cp-who b .cp-role { background: rgba(255, 255, 255, 0.08); color: var(--text-2); box-shadow: none; }
+body.powa-app :is(.club-priv, .pm-tier) { text-transform: none; letter-spacing: 0; font-weight: 650; }
+body.powa-app .cr-val small { font-size: 11.5px; font-weight: 600; }
+
+/* 3 · Numbers are ink. Colour stays only on real deltas (+13) and alerts. */
+body.powa-app :is(.rh-stat, .ui-stat):is(.tone-acc, .tone-ok, .tone-warn, .tone-bad) b { color: var(--text); }
+body.powa-app .club-row.medal.gold .cr-val b { color: var(--text); }
+
+/* 4 · No decorative dots. A list dot only when it means "needs you". */
+body.powa-app .ui-row > .ui-dot:not(.bad):not(.warn):not(.ok) { visibility: hidden; }
+body.powa-app .ui-dot { width: 7px; height: 7px; }
+
+/* 5 · One shape system. */
+body.powa-app :is(.btn, .ui-btn-soft) { border-radius: 999px; }
+body.powa-app .btn-sm { min-height: 34px; padding: 0 15px; font-size: 14px; font-weight: 600; }
+html:not([data-theme="light"]) body.powa-app .btn:not(.btn-primary):not(.btn-danger) { border: 0; background: rgba(255, 255, 255, 0.09); color: var(--text); box-shadow: none; }
+html:not([data-theme="light"]) body.powa-app .ex-tool { border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: var(--text-2); font-weight: 600; }
+body.powa-app .compact-set .cs-rpe input { border: 0; border-radius: 12px; background: rgba(255, 255, 255, 0.07); }
+body.powa-app .week-tab { border-radius: 999px; }
+html:not([data-theme="light"]) body.powa-app .week-tab:not(.active) { background: rgba(255, 255, 255, 0.07); border-color: transparent; color: var(--text-2); }
+/* iOS segmented control: a recessed track, the selected segment raised. */
+html:not([data-theme="light"]) body.powa-app .ui-seg { border: 0; border-radius: 11px; padding: 3px; background: rgba(118, 118, 128, 0.2); }
+body.powa-app .ui-seg button { border-radius: 8px; min-height: 34px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+html:not([data-theme="light"]) body.powa-app .ui-seg button.on, html:not([data-theme="light"]) body.powa-app .prog-subtab.active {
+  background: #5a5a60; color: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.32), 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+/* ⋯ buttons are quiet glyphs, not more grey circles on every card. */
+body.powa-app .ui-icon-btn { background: transparent; color: var(--text-2); }
+body.powa-app .ui-icon-btn:active { background: rgba(255, 255, 255, 0.08); }
+body.powa-app :is(.nav-ai, .sig-bell) { background: rgba(255, 255, 255, 0.07); }
+
+/* 6 · iOS inset separators: the hairline starts where the text starts. */
+body.powa-app .ui-list > .ui-row { position: relative; border-bottom: 0; }
+body.powa-app .ui-list > .ui-row:not(:last-child)::after {
+  content: ''; position: absolute; left: 16px; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, 0.07); pointer-events: none;
+}
+body.powa-app .ui-list > .ui-row:has(> .ui-av):not(:last-child)::after { left: 68px; }
+body.powa-app .ui-list > .ui-row:has(> .yr-ic, > .cd-crest):not(:last-child)::after { left: 62px; }
+body.powa-app .yg-list .you-row { position: relative; border-bottom: 0; }
+body.powa-app .yg-list .you-row:not(:last-child)::after { content: ''; position: absolute; left: 62px; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, 0.07); }
+body.powa-app .club-board .club-row { position: relative; border-bottom: 0; }
+body.powa-app .club-board .club-row:not(:last-child)::after { content: ''; position: absolute; left: 102px; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, 0.07); }
+body.powa-app .msg-inbox-row { position: relative; border-bottom: 0; }
+body.powa-app .msg-inbox-row:not(:last-child)::after { content: ''; position: absolute; left: 78px; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, 0.07); }
+
+/* 7 · Train: today's coach note + check-in are ONE grouped list. */
+.tn-group { margin-top: 12px; border-radius: var(--u-r, 20px); border: 1px solid var(--edge, var(--line)); background: var(--bg-1); overflow: hidden; }
+.tn-group .today-note.tn-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin: 0; padding: 13px 14px 13px 14px;
+  border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; color: var(--text); font: inherit;
+}
+.tn-group .tn-row + .tn-row { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+.tn-group .tn-av { width: 36px; height: 36px; font-size: 13px; align-self: flex-start; flex: none; }
+.tn-group .tn-ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; background: rgba(255, 255, 255, 0.07); color: var(--text-2); }
+.tn-group .tn-ic svg { width: 19px; height: 19px; }
+.tn-group .tn-body { gap: 2px; }
+body.powa-app .tn-group .tn-title { font-family: var(--font-body); font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text); }
+.tn-group .today-note .tn-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 14px; line-height: 1.45; color: var(--text-2); }
+.tn-group .today-note .tn-text.tn-one { -webkit-line-clamp: 1; }
+.tn-group .today-note.open .tn-text { display: block; -webkit-line-clamp: unset; }
+.tn-group .tn-act { flex: none; }
+.tn-group + .exec-card { margin-top: 14px; }
+
+/* 8 · Quieter surfaces inside content. */
+body.powa-app .cp-lift { background: rgba(255, 255, 255, 0.035); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+body.powa-app .cp-e1 { color: var(--text-3); }
+body.powa-app .cp-rpe { background: rgba(255, 255, 255, 0.07); color: var(--text-2); }
+body.powa-app .cp-who span { color: var(--text-3); }
+body.powa-app .cp-card.is-pr .cp-who span { color: #e9c46a; }
+/* Plan: a line under the title, not another box. */
+html:not([data-theme="light"]) body.powa-app .plan-meter { background: none; border: 0; box-shadow: none; padding: 0 2px; margin: -4px 0 18px; }
+body.powa-app .plan-meter .pm-tier { background: rgba(255, 255, 255, 0.08); }
+
+/* 9 · You: flat iOS system-colour tiles, not gradients. */
+body.powa-app .yr-ic { box-shadow: none; color: #fff; }
+body.powa-app .yr-ic.t-red    { background: #ff453a; }
+body.powa-app .yr-ic.t-orange { background: #ff9f0a; }
+body.powa-app .yr-ic.t-gold   { background: #ffcc00; color: #fff; }
+body.powa-app .yr-ic.t-green  { background: #30d158; color: #fff; }
+body.powa-app .yr-ic.t-teal   { background: #32ade6; color: #fff; }
+body.powa-app .yr-ic.t-sky    { background: #0a84ff; }
+body.powa-app .yr-ic.t-iris   { background: #5e5ce6; }
+body.powa-app .yr-ic.t-pink   { background: #ff375f; }
+body.powa-app .yr-ic.t-gray   { background: #636366; }
+/* v5: the last caps units (Progress total, You + Club hero stats) and the
+   Progress sub-tabs as the same iOS segmented control. */
+body.powa-app .ui-num-xl small,
+body.powa-app .you-stats-v3 .rh-stat b small,
+body.powa-app .club-hero .rh-stat b small { text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 600; color: var(--text-3); }
+body.powa-app .you-stats-v3 .rh-stat b small, body.powa-app .club-hero .rh-stat b small { font-size: 13px; }
+html:not([data-theme="light"]) body.powa-app .prog-subtabs { border: 0; border-radius: 11px; padding: 3px; gap: 2px; background: rgba(118, 118, 128, 0.2); }
+body.powa-app .prog-subtab { border-radius: 8px; min-height: 34px; font-size: 14px; font-weight: 600; }
+/* v5 builder: filled fields on the card, not bordered boxes inside a grey row. */
+body.powa-app .builder-main .uniform-row { background: none; padding: 4px 0; }
+body.powa-app .builder-main .uniform-head { padding: 0 0 6px; }
+html:not([data-theme="light"]) body.powa-app .builder-main .uniform-cell input { border: 0; border-radius: 12px; background: rgba(255, 255, 255, 0.07); min-height: 42px; font-weight: 600; }
+body.powa-app .builder-main .uniform-cell input:focus { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5); outline: none; }
+/* v5: the PR moment speaks in the same voice: "New PR", lowercase kg. */
+body.powa-app .pr-toast .pr-tag { text-transform: none; letter-spacing: -0.01em; font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 700; color: #f2c25b; }
+body.powa-app .pr-toast .pr-num .unit { text-transform: none; letter-spacing: 0; font-size: 22px; font-weight: 600; color: var(--text-3); margin-left: 4px; }
+body.powa-app .pr-toast .pr-sub { color: var(--text-2); }
+/* v5: in-app fields focus with a brighter edge, not a coloured glow ring. */
+html:not([data-theme="light"]) body.powa-app :is(input, select, textarea):focus { border-color: rgba(255, 255, 255, 0.5); box-shadow: none; }

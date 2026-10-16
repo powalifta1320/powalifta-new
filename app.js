@@ -6077,8 +6077,10 @@ function drawLineChart(container, config) {
     requestAnimationFrame(() => requestAnimationFrame(() => { line.style.strokeDashoffset = '0'; }));
     svg.appendChild(line);
 
-    // Dots
+    // One dot: the latest value. A marker on every point read as a spreadsheet
+    // chart (the hover crosshair below still shows any point's value).
     points.forEach((p, pi) => {
+      if (pi !== points.length - 1) return;
       const c = document.createElementNS(SVG_NS, 'circle');
       c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
       c.setAttribute('r', pi === points.length - 1 ? 4.5 : 3.2);

@@ -219,6 +219,21 @@ Single source of truth for taking the whole backlog live. The site itself (stati
 | Rate limiting (#26) | `migration-edge-rate-limits.sql` (callers fail open until then) |
 | Everything else (client-only) | already live on Vercel push — no backend action |
 
+## Recently shipped (2026-10-16 · UI v5 REFINED)
+
+Owner, after v4: the sign-up screen "looks better", but "elements here and there as well as the pages after signing in look cheap". v5 = "UI v5 · REFINED" block at the end of styles.css (dark only, overrides on top of v4) plus small markup changes in athlete.html + app.js. The tells it removes, which are now **rules**:
+- **Sentence case everywhere.** Caps are only for true acronyms (RPE, PR, DOTS) and the POWALIFTA wordmark. No ALL-CAPS micro-labels (SESSIONS, TUE 13 OCT, SEEN · …).
+- **Units are lowercase `kg`**, including the welcome deck cards (native-onboard.css v5 tail).
+- **Numbers are ink.** Colour only for a real delta (green up / coral down), never decoration.
+- **No decorative dots** in front of labels, and only the LAST chart point gets a marker (`drawLineChart`: `if (pi !== points.length - 1) return;`).
+- **One shape system:** buttons + chips = capsules, cards 20px, fields 12px, iOS-style segmented controls (`.prog-subtabs` included).
+- **iOS inset separators** (the line starts where the text starts) instead of full-width rules. No card-on-card stacks.
+- **No brand bar inside the native app** (`html.native .nav .brand` hidden): the large title leads.
+- **Train screen:** the coach note + weekly check-in are one `.tn-group` list (coach avatar row + calendar-icon row with a capsule "Check in"). The hero eyebrow reads `Fri 16 Oct · Week 3`, or `Logging for …` when you're on another day.
+- **Onboarding:** flat iOS system-colour role tiles; focus = brighter edge, no red glow. The doubled password eye is fixed (`eyeToggle` sets `data-pwd-bound`).
+
+App Store art for v1.1 build 2 was re-rendered from v5 captures: `APP-STORE-1.1/` (gitignored), raws in `native/store/` (gitignored).
+
 ## Recently shipped (2026-10-16 · UI v4 PREMIUM)
 
 Owner: "as clean and amazing as the app looks it also looks cheap… make it not look cheap, more premium". The cheap signals were all LOUDNESS (colour wash behind every screen, tinted heroes with glowing borders, glowing gradient buttons + tab pill, rainbow gradient avatars, wide-caps titles everywhere, red warning text). v4 = "UI v4 · PREMIUM" block at the end of styles.css (dark theme only; light keeps v3), all overrides, no markup changes:
