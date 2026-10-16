@@ -46,4 +46,4 @@ native/package-lock.json
 
 # App Store screenshot exports (large PNGs, regenerate any time)
 native/store/
-APP-STORE-1.1.1/
+APP-STORE-*/
