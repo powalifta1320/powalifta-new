@@ -54,9 +54,9 @@ got into powerlifting.
 
 - Background `#0b0b0c`; surfaces step up from there.
 - Primary red `#ff2d3f` (deep variant `#b71629`). Accents: gold `#ffb547`, green `#4ed884`.
-- Display: **Anton** (the condensed all-caps shout). Body: **Plus Jakarta Sans**.
-  Mono/chart labels: **Space Grotesk**. These are committed identity fonts — the
-  reflex-reject list does not apply; identity-preservation wins.
+- Type: **Archivo** only (variable width/weight) in three roles — wide 800 display
+  (`--font-display`), body, tabular numbers. Anton / Plus Jakarta Sans / Space Grotesk
+  were retired in the 2026-10 rebrand; identity-preservation applies to Archivo now.
 - Radii `--r-sm 6px`, `--r-lg 14px`. Caps eyebrows, sentence-case body.
 
 The brief is explicit: **same soul, sharper execution.** Push palette/type/spacing/
@@ -106,3 +106,16 @@ go light-mode-first.
 - Skip-link present; keep focus rings visible (red focus rings via ui-fx).
 - Charts/SVGs need text alternatives or adjacent legible labels — don't let the
   data-as-imagery principle strand screen-reader users.
+
+
+## App register (athlete + coach dashboards, native iOS)
+
+Product register, but the owner rejected Restrained-graphite as "grey, dead, plain"
+(2026-10-16). App surfaces use a **full palette with roles**: brand fire for the one
+primary action, one accent hue per destination for wayfinding (Train/Roster fire,
+Progress/Program cyan, Club gold, Coach/Messages green, You violet), lift identity
+colours (squat cyan, bench iris, deadlift gold), a stable colour per person, semantic
+green/orange. Depth (lit surfaces, accent glow) and motion (press feedback, staggered
+entrances, rings, count-ups) are part of the system — "UI v3 · LIVING DARK" in
+styles.css. In the iOS app everything must read native: sheets from the bottom, step
+flows, a tab bar with a gliding pill — never the website squeezed into a phone.

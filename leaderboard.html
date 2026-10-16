@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DOTS leaderboard — POWALIFTA</title>
+<title>DOTS leaderboard | POWALIFTA</title>
 <meta name="theme-color" content="#0b0b0c">
 <meta name="description" content="The opt-in POWALIFTA leaderboard. See where your competition-equivalent total and DOTS stack up against lifters worldwide. Publish your numbers, or just browse.">
-<meta property="og:title" content="POWALIFTA DOTS Leaderboard — see where you stack up">
+<meta property="og:title" content="POWALIFTA DOTS Leaderboard: see where you stack up">
 <meta property="og:description" content="An opt-in, bodyweight-adjusted DOTS leaderboard for real lifters. Publish your total, browse the rankings.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/leaderboard.html">
@@ -15,7 +15,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="POWALIFTA DOTS Leaderboard — see where you stack up">
+<meta name="twitter:title" content="POWALIFTA DOTS Leaderboard: see where you stack up">
 <meta name="twitter:description" content="An opt-in, bodyweight-adjusted DOTS leaderboard for real lifters.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
@@ -27,7 +27,7 @@
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="cookie-consent.css">
 <link rel="stylesheet" href="ui-fx.css">
@@ -56,7 +56,7 @@
   font: inherit; font-weight: 600; font-size: 0.85rem; transition: all 0.18s ease;
 }
 .lb-seg-btn.active { background: var(--grad-red); color: #fff; }
-.lb-count { color: var(--text-3); font-size: 0.85rem; font-family: 'Space Grotesk', monospace; }
+.lb-count { color: var(--text-3); font-size: 0.85rem; font-family: var(--font-num); }
 .lb-cta-card {
   margin: 8px 0 30px; padding: 18px 20px;
   border: 1px solid var(--line-red); border-radius: 14px;
@@ -79,7 +79,7 @@
   <section class="lb-hero">
     <div class="container">
       <h1>DOTS leaderboard</h1>
-      <p>Bodyweight-adjusted, opt-in, and built from competition-equivalent e1RMs — the same DOTS your strength-score card shows. Publish your numbers to join, or just see where you'd land.</p>
+      <p>Bodyweight-adjusted, opt-in, and built from competition-equivalent e1RMs. It's the same DOTS your strength-score card shows. Publish your numbers to join, or just see where you'd land.</p>
     </div>
   </section>
 
@@ -110,7 +110,7 @@
 <footer>
   <div class="container">
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
-    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
       <a href="guides.html" class="dim">Guides</a>
       <a href="exercises.html" class="dim">Exercises</a>
@@ -128,7 +128,7 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -154,7 +154,7 @@ function renderCta() {
   const left = el('div', {});
   if (_lbUser) {
     left.appendChild(el('div', { class: 'lcc-t' }, 'Want on the board?'));
-    left.appendChild(el('div', { class: 'lcc-s' }, 'Publish your numbers from your strength-score card — one tap, and you can leave anytime.'));
+    left.appendChild(el('div', { class: 'lcc-s' }, 'Publish your numbers from your strength-score card. One tap, and you can leave anytime.'));
     card.appendChild(left);
     card.appendChild(el('a', { class: 'btn btn-primary btn-sm', href: 'athlete.html#progress' }, 'Go to my dashboard'));
   } else {

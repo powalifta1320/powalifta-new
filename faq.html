@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FAQ — POWALIFTA</title>
-<meta name="description" content="Common questions about POWALIFTA — pricing, how RPE logging works, how coaches and athletes use the platform, payments, refunds.">
-<meta property="og:title" content="POWALIFTA FAQ — How it works">
-<meta property="og:description" content="Pricing, RPE logging, coach/athlete workflow, payments, refunds — common questions answered.">
+<title>FAQ | POWALIFTA</title>
+<meta name="description" content="Common questions about POWALIFTA: pricing, how RPE logging works, how coaches and athletes use the platform, payments, refunds.">
+<meta property="og:title" content="POWALIFTA FAQ | How it works">
+<meta property="og:description" content="Common questions answered: pricing, RPE logging, coach/athlete workflow, payments, refunds.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/faq.html">
 <script type="application/ld+json">
@@ -22,7 +22,7 @@
     {
       "@type": "Question",
       "name": "Can I use POWALIFTA without a coach?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Yes — sign up as a solo athlete. You get the full logging, e1RM tracking, goals and bodyweight features, and you can buy programs from the marketplace or connect with a coach later." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Sign up as a solo athlete. You get the full logging, e1RM tracking, goals and bodyweight features, and you can buy programs from the marketplace or connect with a coach later." }
     },
     {
       "@type": "Question",
@@ -32,7 +32,7 @@
     {
       "@type": "Question",
       "name": "Is my data synced across devices?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your account and training data live in a secure cloud database — log in from any device and you'll see the same programs, logs, and charts." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your account and training data live in a secure cloud database, so you can log in from any device and see the same programs, logs, and charts." }
     }
   ]
 }
@@ -42,7 +42,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="POWALIFTA FAQ — How it works">
+<meta name="twitter:title" content="POWALIFTA FAQ | How it works">
 <meta name="twitter:description" content="Pricing, RPE logging, coach/athlete workflow, payments, refunds.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
@@ -55,7 +55,7 @@
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="cookie-consent.css">
 <link rel="stylesheet" href="scroll-fx.css">
@@ -88,7 +88,7 @@
   width: 28px; height: 28px; border-radius: 50%;
   background: var(--bg-2);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Anton'; font-size: 1.2rem; color: var(--text-3);
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800; font-size: 1.2rem; color: var(--text-3);
   transition: transform 0.2s, color 0.2s;
 }
 .faq-item.open .faq-q .toggler { transform: rotate(45deg); color: var(--red); }
@@ -123,7 +123,7 @@
       <div class="faq-q"><span>How is my e1RM calculated?</span><span class="toggler">+</span></div>
       <div class="faq-a">
         <p>We use the RPE-percentage formula popular in the strength community (Tuchscherer / RTS style):</p>
-        <p style="margin-top:8px; font-family: 'Space Grotesk', monospace; background: var(--bg-2); padding: 10px 14px; border-radius: 6px;">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
+        <p style="margin-top:8px; font-family:var(--font-num); background: var(--bg-2); padding: 10px 14px; border-radius: 6px;">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
         <p style="margin-top:8px">A 1-rep set at RPE 10 returns exactly your weight (correct, that IS your 1-rep max). A 5×5 at RPE 8 returns about 1.25 × the weight. For non-competition variants we then multiply by the variant multiplier (e.g. paused squat × 1.07) to estimate what you'd hit in the comp version of the lift. The result is what gets plotted on your e1RM chart.</p>
       </div>
     </div>
@@ -138,7 +138,7 @@
     <div class="faq-item">
       <div class="faq-q"><span>Why "competition equivalent" e1RM?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Different lift variations are harder than competition lifts. A paused squat at 100kg is harder than a competition squat at 100kg. So when you log a paused squat, we scale up the e1RM by 1.07 to estimate what you'd actually be able to do in the comp version. This way your chart compares apples to apples — you can see your "comp" strength trending without having to do comp lifts every session.</p>
+        <p>Different lift variations are harder than competition lifts. A paused squat at 100kg is harder than a competition squat at 100kg. So when you log a paused squat, we scale up the e1RM by 1.07 to estimate what you'd actually be able to do in the comp version. This way your chart compares apples to apples. You can see your "comp" strength trending without having to do comp lifts every session.</p>
         <p style="margin-top:8px">Multipliers used: paused squat ×1.07, tempo squat ×1.12, pin squat ×1.08; paused bench ×1.06, close grip ×1.09, pin press ×1.08, incline ×1.12; paused deadlift ×1.07, deficit ×1.06, RDL ×1.10.</p>
       </div>
     </div>
@@ -146,49 +146,51 @@
     <div class="faq-item">
       <div class="faq-q"><span>Can I use POWALIFTA without a coach?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Yes. Sign up as an athlete without an invite code and you can build your own programs (you'd need a coach account to do that — the program builder is a coach feature). Or just log sets as you do them and let the e1RM, goals, and bodyweight tracking do their thing. The platform is designed for coach-athlete pairs but works fine self-coached.</p>
+        <p>Yes. Sign up as an athlete without an invite code and you can build your own programs (you'd need a coach account for that, since the program builder is a coach feature). Or just log sets as you do them and let the e1RM, goals, and bodyweight tracking do their thing. The platform is designed for coach-athlete pairs but works fine self-coached.</p>
       </div>
     </div>
 
     <div class="faq-item">
       <div class="faq-q"><span>Is there a mobile app?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Not yet — we run as a mobile-friendly website. You can save it to your phone's home screen for an app-like experience: open the site in Safari/Chrome, tap Share → Add to Home Screen. A native app is on the roadmap.</p>
+        <p>Not yet. We run as a mobile-friendly website. You can save it to your phone's home screen for an app-like experience: open the site in Safari/Chrome, tap Share → Add to Home Screen. A native app is on the roadmap.</p>
       </div>
     </div>
 
     <div class="faq-item">
       <div class="faq-q"><span>Is my data synced across devices?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Yes. Your account and training data live in a secure cloud database — log in from your phone at the gym and your laptop at home and you'll see the same programs, logs, and charts everywhere. Coach-athlete connections are live too: when you log a set, your coach sees it.</p>
+        <p>Yes. Your account and training data live in a secure cloud database. Log in from your phone at the gym and your laptop at home, and you'll see the same programs, logs, and charts everywhere. Coach-athlete connections are live too: when you log a set, your coach sees it.</p>
       </div>
     </div>
 
-    <div class="faq-item">
+    <!-- .pricing-copy — hidden inside the iOS shell (Apple 3.1.1): names all four
+         tier prices, which is purchase surface the app must not display. -->
+    <div class="faq-item pricing-copy">
       <div class="faq-q"><span>How do coaches get paid for plans?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Coach plans (Free up to 3 athletes, Basic $25/mo for 4–10, Pro $50/mo for 11–25, Premium $100/mo for 26+) are billed via Lemon Squeezy. Coaches handle athlete billing on their own — POWALIFTA is the platform, not a payment processor for coaching fees.</p>
+        <p>Coach plans (Free up to 3 athletes, Basic $25/mo for 4–10, Pro $50/mo for 11–25, Premium $100/mo for 26+) are billed via Lemon Squeezy. Coaches handle athlete billing on their own. POWALIFTA is the platform, not a payment processor for coaching fees.</p>
       </div>
     </div>
 
     <div class="faq-item">
       <div class="faq-q"><span>What if I forget my password?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Click "Forgot password?" under the login form. We'll email you a reset link — open it on the same device and you'll be taken to a page where you can set a new password. The link expires after about an hour for security. Check your spam folder if you don't see the email within a couple of minutes. If you still can't get in, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+        <p>Click "Forgot password?" under the login form. We'll email you a reset link. Open it on the same device and you'll be taken to a page where you can set a new password. The link expires after about an hour for security. Check your spam folder if you don't see the email within a couple of minutes. If you still can't get in, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
       </div>
     </div>
 
     <div class="faq-item">
       <div class="faq-q"><span>Can I export my data?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>Yes — instantly, no waiting. Open <strong>Settings</strong> from the top-right menu on your dashboard and use the <strong>Export</strong> buttons under "Your data." <strong>JSON</strong> is the complete archive of everything we hold for your account; <strong>CSV</strong> is your training log, ready to open in Sheets/Excel or re-import anywhere. Coaches can also export any athlete's program as a spreadsheet from the program builder. Still prefer we handle it? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+        <p>Yes, instantly. Open <strong>Settings</strong> from the top-right menu on your dashboard and use the <strong>Export</strong> buttons under "Your data." <strong>JSON</strong> is the complete archive of everything we hold for your account; <strong>CSV</strong> is your training log, ready to open in Sheets/Excel or re-import anywhere. Coaches can also export any athlete's program as a spreadsheet from the program builder. Still prefer we handle it? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
       </div>
     </div>
 
     <div class="faq-item">
       <div class="faq-q"><span>Does it work for non-powerlifting strength training?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>The platform is opinionated — built around squat / bench / deadlift, RPE, e1RM, and bodyweight tracking. You can use the "Other" exercise category for anything that doesn't fit (Olympic lifts, gymnastics, etc.) but the e1RM math is calibrated for typical powerlifting reps and won't be meaningful for, say, max-distance sprinting.</p>
+        <p>The platform is opinionated. It's built around squat / bench / deadlift, RPE, e1RM, and bodyweight tracking. You can use the "Other" exercise category for anything that doesn't fit (Olympic lifts, gymnastics, etc.) but the e1RM math is calibrated for typical powerlifting reps and won't be meaningful for, say, max-distance sprinting.</p>
       </div>
     </div>
   </div>
@@ -197,7 +199,7 @@
 <footer>
   <div class="container">
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
-    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
       <a href="guides.html" class="dim">Guides</a>
       <a href="exercises.html" class="dim">Exercises</a>
@@ -215,7 +217,7 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>

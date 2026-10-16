@@ -11,7 +11,7 @@ const SUPABASE_URL = 'https://cxnotrikxvzncupswvio.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4bm90cmlreHZ6bmN1cHN3dmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3OTgwNDAsImV4cCI6MjA5MzM3NDA0MH0.fLl1sXdHnI8IeKUIKOB9Sh0HVATCdshcLXZs5oKuCuU';
 
 if (!window.supabase || !window.supabase.createClient) {
-  console.error('Supabase JS not loaded — make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
+  console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -78,6 +78,75 @@ function mapDbEmailPrefs(r) {
     pushProgram: r ? r.push_program !== false : true
   };
 }
+// ---------- CLUBS (migration-clubs.sql) ----------
+function mapDbClub(r) {
+  if (!r) return null;
+  return {
+    id: r.id, name: r.name, city: r.city || '', description: r.description || '',
+    code: r.code, visibility: r.visibility || 'public', ownerId: r.owner_id,
+    memberCount: r.member_count || 0, createdAt: r.created_at
+  };
+}
+function mapDbClubMember(r) {
+  const n = (v) => (v == null ? null : Number(v));   // keep null ≠ 0 (no stats ≠ zero stats)
+  return {
+    clubId: r.club_id, userId: r.user_id, role: r.role, displayName: r.display_name,
+    sex: r.sex || null, bodyweightKg: n(r.bodyweight_kg),
+    squatKg: n(r.squat_kg), benchKg: n(r.bench_kg), deadliftKg: n(r.deadlift_kg),
+    totalKg: n(r.total_kg), dots: n(r.dots),
+    weekStart: r.week_start || null, weekSessions: r.week_sessions || 0,
+    weekTonnageKg: Number(r.week_tonnage_kg) || 0,
+    statsUpdatedAt: r.stats_updated_at || null, joinedAt: r.joined_at
+  };
+}
+function mapJsClubStats(s) {
+  return {
+    display_name: String(s.displayName || 'Lifter').slice(0, 60),
+    sex: s.sex === 'female' ? 'female' : (s.sex === 'male' ? 'male' : null),
+    bodyweight_kg: s.bodyweightKg, squat_kg: s.squatKg, bench_kg: s.benchKg, deadlift_kg: s.deadliftKg,
+    total_kg: s.totalKg, dots: s.dots,
+    week_start: s.weekStart || null, week_sessions: s.weekSessions || 0, week_tonnage_kg: s.weekTonnageKg || 0,
+    stats_updated_at: new Date().toISOString()
+  };
+}
+// A friendly Error from a PostgREST/RPC failure. Before the migration runs the
+// tables/functions don't exist — say so plainly instead of leaking SQL.
+function _clubErr(error, notReadyMsg) {
+  const m = String((error && (error.message || error.details)) || '');
+  if (/does not exist|could not find the function|schema cache|PGRST20[0-9]|42P01|42883/i.test(m + ' ' + (error && error.code))) {
+    const e = new Error(notReadyMsg || 'Clubs aren\'t switched on yet.'); e.notReady = true; return e;
+  }
+  return new Error(m.replace(/^.*?:\s*/, '') || 'Something went wrong. Try again.');
+}
+// ---------- CLUBS v2 (migration-clubs-social.sql): requests + feed ----------
+function mapDbClubRequest(r) {
+  return { id: r.id, clubId: r.club_id, userId: r.user_id, displayName: r.display_name || 'Lifter',
+    message: r.message || '', status: r.status || 'pending', createdAt: r.created_at };
+}
+function mapDbClubPost(r) {
+  const n = (v) => (v == null ? null : Number(v));
+  return {
+    id: r.id, clubId: r.club_id, userId: r.user_id, displayName: r.display_name || 'Lifter',
+    kind: r.kind || 'set', lift: r.lift || null, exercise: r.exercise || '',
+    weightKg: n(r.weight_kg), reps: n(r.reps), rpe: n(r.rpe), e1rmKg: n(r.e1rm_kg),
+    setsCount: n(r.sets_count), tonnageKg: n(r.tonnage_kg), caption: r.caption || '', createdAt: r.created_at
+  };
+}
+const CLUB_POST_LIFTS = ['squat', 'bench', 'deadlift', 'push', 'pull', 'legs', 'cardio', 'other'];
+function mapJsClubPost(p) {
+  const r1 = (v) => (v == null || !isFinite(v) ? null : Math.round(Number(v) * 10) / 10);
+  const int = (v) => (v == null || !isFinite(v) ? null : Math.round(Number(v)));
+  return {
+    club_id: p.clubId, user_id: p.userId,
+    kind: ['set', 'pr', 'session', 'note'].includes(p.kind) ? p.kind : 'set',
+    lift: CLUB_POST_LIFTS.includes(p.lift) ? p.lift : (p.lift ? 'other' : null),
+    exercise: p.exercise ? String(p.exercise).slice(0, 60) : null,
+    weight_kg: r1(p.weightKg), reps: int(p.reps), rpe: p.rpe >= 1 && p.rpe <= 10 ? r1(p.rpe) : null, e1rm_kg: r1(p.e1rmKg),
+    sets_count: int(p.setsCount), tonnage_kg: int(p.tonnageKg),
+    caption: p.caption ? String(p.caption).slice(0, 280) : null
+  };
+}
+
 function mapDbLeaderboardEntry(r) {
   return {
     userId: r.user_id,
@@ -450,7 +519,7 @@ const DB = {
             status = error.context.status;
             const body = await error.context.clone().json();
             if (body && (body.error || body.detail)) {
-              reason = body.error + (body.detail ? ' — ' + body.detail : '');
+              reason = body.error + (body.detail ? ' – ' + body.detail : '');
             }
           }
         } catch (_) { /* body wasn't JSON */ }
@@ -485,7 +554,7 @@ const DB = {
             status = error.context.status;
             const body = await error.context.clone().json();
             if (body && (body.error || body.detail)) {
-              reason = body.error + (body.detail ? ' — ' + body.detail : '');
+              reason = body.error + (body.detail ? ' – ' + body.detail : '');
             }
           }
         } catch (_) { /* body wasn't JSON */ }
@@ -527,6 +596,39 @@ const DB = {
     } catch (e) {
       return { ok: false, reason: String((e && e.message) || e) };
     }
+  },
+
+  // ---- Apple In-App Purchase (native shell only) --------------------------
+  // Redeem a StoreKit 2 signed transaction: the `apple-iap` edge function
+  // verifies Apple's signature chain server-side and writes subscription_tier.
+  // Same FunctionsHttpError unwrap pattern as subscriptionPortal above.
+  async appleIapSync(signedTransaction) {
+    try {
+      const { data, error } = await sb.functions.invoke('apple-iap', { body: { signedTransaction } });
+      if (error) {
+        let reason = error.message || String(error);
+        try {
+          if (error.context && typeof error.context.clone === 'function') {
+            const body = await error.context.clone().json();
+            if (body && (body.error || body.reason)) reason = body.error || body.reason;
+          }
+        } catch (_) { /* body wasn't JSON */ }
+        return { ok: false, reason };
+      }
+      if (data && data.ok) return { ok: true, tier: data.tier, expiresAt: data.expiresAt || null };
+      return { ok: false, reason: (data && (data.reason || data.error)) || 'sync failed' };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  },
+  // Device reports no active Apple entitlement → self-downgrade (server checks
+  // the profile really is Apple-billed before touching anything).
+  async appleIapClear() {
+    try {
+      const { data, error } = await sb.functions.invoke('apple-iap', { body: { action: 'clear' } });
+      if (error) return { ok: false };
+      return data && data.ok ? { ok: true, tier: data.tier } : { ok: false };
+    } catch (_) { return { ok: false }; }
   },
 
   async signIn(email, password) {
@@ -796,6 +898,143 @@ const DB = {
     if (error) { console.warn('admin listClientErrors', error); return []; }
     return (data || []).map(mapDbClientError);
   },
+  // Club + post reports for the admin Reports tab (App Store 1.2: act on
+  // reports). Admin read/delete policies live in migration-clubs-social.sql.
+  // Returns { reports, posts: {id: post}, clubs: {id: club} }; empty pre-migration.
+  async listClubReportsAdmin(limit) {
+    const { data, error } = await sb.from('club_reports').select('*')
+      .order('created_at', { ascending: false }).limit(limit || 200);
+    if (error) { console.warn('admin listClubReports', error); return { reports: [], posts: {}, clubs: {} }; }
+    const reports = (data || []).map(r => ({ id: r.id, clubId: r.club_id, postId: r.post_id || null,
+      reportedUserId: r.reported_user_id || null, reporterId: r.reporter_id || null, reason: r.reason || '', createdAt: r.created_at,
+      clubName: r.club_name || '', postSnapshot: r.post_snapshot ? mapDbClubPost(r.post_snapshot) : null }));
+    const postIds = [...new Set(reports.map(r => r.postId).filter(Boolean))];
+    const clubIds = [...new Set(reports.map(r => r.clubId).filter(Boolean))];
+    const [pRes, cRes] = await Promise.all([
+      postIds.length ? sb.from('club_posts').select('*').in('id', postIds) : Promise.resolve({ data: [] }),
+      clubIds.length ? sb.from('clubs').select('*').in('id', clubIds) : Promise.resolve({ data: [] })
+    ]);
+    const posts = {}; ((pRes && pRes.data) || []).forEach(p => { posts[p.id] = mapDbClubPost(p); });
+    const clubs = {}; ((cRes && cRes.data) || []).forEach(c => { clubs[c.id] = mapDbClub(c); });
+    return { reports, posts, clubs };
+  },
+  async dismissClubReport(reportId) {
+    const { error } = await sb.from('club_reports').delete().in('id', [reportId]);
+    if (error) throw _clubErr(error);
+  },
+  async adminDeleteClubPost(postId) {
+    const { data, error } = await sb.from('club_posts').delete().in('id', [postId]).select('id');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('Couldn\'t remove that post');
+  },
+  // ---------- ADMIN · CLUBS (migration-clubs-admin.sql) ----------
+  // The admin Clubs tab: every club (public AND private), its members, pending
+  // requests, bans and recent posts, plus edit / remove / allow back / delete.
+  // Admin-only RLS lives in migration-clubs-admin.sql (all keyed on is_admin()).
+  // Reads fail soft ([] / nulls) so the tab shows its setup state before the
+  // migrations land. Writes .select() what they touched and treat 0 rows as a
+  // failure: an RLS-filtered write returns no error, it just changes nothing.
+  // Biggest first. Each club also carries ownerName (the owner's club display
+  // name) as a fallback for when the owner's profile isn't in the admin cache.
+  async listAllClubsAdmin() {
+    const [cRes, oRes] = await Promise.all([
+      sb.from('clubs').select('*')
+        .order('member_count', { ascending: false }).order('created_at', { ascending: false }).limit(1000),
+      sb.from('club_members').select('club_id, display_name').eq('role', 'owner').limit(1000)
+    ]).catch(e => [{ error: e }, { error: e }]);
+    if (!cRes || cRes.error) { console.warn('admin listAllClubs', cRes && cRes.error); return []; }
+    const owners = {};
+    ((oRes && !oRes.error && oRes.data) || []).forEach(m => { owners[m.club_id] = m.display_name || ''; });
+    return (cRes.data || []).map(r => Object.assign(mapDbClub(r), { ownerName: owners[r.id] || '' }));
+  },
+  async listClubMembersAdmin(clubId) {
+    const { data, error } = await sb.from('club_members').select('*').in('club_id', [clubId])
+      .order('joined_at', { ascending: true });
+    if (error) { console.warn('admin listClubMembers', error); return []; }
+    return (data || []).map(mapDbClubMember);
+  },
+  // Newest first.
+  async listClubPostsAdmin(clubId, limit = 50) {
+    const { data, error } = await sb.from('club_posts').select('*').in('club_id', [clubId])
+      .order('created_at', { ascending: false }).limit(limit || 50);
+    if (error) { console.warn('admin listClubPosts', error); return []; }
+    return (data || []).map(mapDbClubPost);
+  },
+  // Pending only, oldest first (declined rows only exist to hold the 7-day cooldown).
+  async listClubRequestsAdmin(clubId) {
+    const { data, error } = await sb.from('club_join_requests').select('*').in('club_id', [clubId])
+      .eq('status', 'pending').order('created_at', { ascending: true });
+    if (error) { console.warn('admin listClubRequests', error); return []; }
+    return (data || []).map(mapDbClubRequest);
+  },
+  async listClubBansAdmin(clubId) {
+    const { data, error } = await sb.from('club_bans').select('*').in('club_id', [clubId])
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('admin listClubBans', error); return []; }
+    return (data || []).map(r => ({ clubId: r.club_id, userId: r.user_id, displayName: r.display_name || 'Lifter',
+      bannedBy: r.banned_by || null, createdAt: r.created_at }));
+  },
+  // Header counts for the Clubs tab (HEAD requests, no rows shipped). null = couldn't count.
+  async clubActivityCountsAdmin(sinceIso) {
+    const n = async (q) => { try { const { count, error } = await q; return error || count == null ? null : count; } catch (e) { return null; } };
+    const [postsSince, openReports] = await Promise.all([
+      n(sb.from('club_posts').select('id', { count: 'exact', head: true }).gte('created_at', sinceIso)),
+      n(sb.from('club_reports').select('id', { count: 'exact', head: true }))
+    ]);
+    return { postsSince, openReports };
+  },
+  // Name / city / description / visibility only. clubs_guard freezes code /
+  // owner / count regardless, and rotates the code on a public → private switch.
+  // Lengths mirror the clubs CHECK constraints so the admin gets a plain message.
+  async adminUpdateClub(clubId, patch) {
+    const p = patch || {};
+    const len = (s) => Array.from(s).length;   // code points, like Postgres char_length
+    const row = {};
+    if (p.name != null) {
+      const v = String(p.name).trim();
+      if (len(v) < 2 || len(v) > 60) throw new Error('The club name needs 2 to 60 characters');
+      row.name = v;
+    }
+    if (p.city != null) {
+      const v = String(p.city).trim();
+      if (len(v) > 60) throw new Error('City can be 60 characters at most');
+      row.city = v || null;
+    }
+    if (p.description != null) {
+      const v = String(p.description).trim();
+      if (len(v) > 280) throw new Error('About can be 280 characters at most');
+      row.description = v || null;
+    }
+    if (p.visibility != null) {
+      if (p.visibility !== 'public' && p.visibility !== 'private') throw new Error('Visibility must be public or private');
+      row.visibility = p.visibility;
+    }
+    if (!Object.keys(row).length) throw new Error('Nothing to save');
+    const { data, error } = await sb.from('clubs').update(row).in('id', [clubId]).select('*');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('Nothing was saved. The club may be gone, or sql/migration-clubs-admin.sql hasn\'t been run');
+    return mapDbClub(data[0]);
+  },
+  // Never the owner (club_members_owner_stays refuses; delete the club instead).
+  // The ban-on-remove trigger bans them from this club, banned_by = the admin.
+  async adminRemoveClubMember(clubId, userId) {
+    const { data, error } = await sb.from('club_members').delete()
+      .in('club_id', [clubId]).in('user_id', [userId]).select('user_id');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('Nobody was removed. They may have left already, or sql/migration-clubs-admin.sql hasn\'t been run');
+  },
+  async adminUnbanClubMember(clubId, userId) {
+    const { data, error } = await sb.from('club_bans').delete()
+      .in('club_id', [clubId]).in('user_id', [userId]).select('user_id');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('No ban was lifted. It may be gone already, or sql/migration-clubs-admin.sql hasn\'t been run');
+  },
+  // Cascades members, posts, requests and bans. Reports stay (club_id → NULL, club_name kept).
+  async adminDeleteClub(clubId) {
+    const { data, error } = await sb.from('clubs').delete().in('id', [clubId]).select('id');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('Nothing was deleted. The club may be gone already, or sql/migration-clubs-admin.sql hasn\'t been run');
+  },
   async listAthletesForCoach(coachId) {
     // RLS allows coach to read profiles where coach_id = auth.uid() — combined
     // with user_type filter, this returns only athletes coached by current user.
@@ -970,6 +1209,184 @@ const DB = {
     const { error } = await sb.from('leaderboard_entries')
       .delete().in('user_id', [userId]);
     if (error) throw error;
+  },
+
+  // ---------- CLUBS (migration-clubs.sql) ----------
+  // Reads fail soft (null / []) so the Club tab falls back to its join screen
+  // before the migration lands; writes throw a readable Error (see _clubErr).
+  // UUID columns are filtered with .in(col, [id]), same as the leaderboard.
+  async getMyClub(userId) {
+    if (!userId) return null;
+    const { data: mine, error } = await sb.from('club_members').select('club_id, role').in('user_id', [userId]).limit(1);
+    if (error || !mine || !mine[0]) return null;
+    const clubId = mine[0].club_id;
+    const [cRes, mRes] = await Promise.all([
+      sb.from('clubs').select('*').in('id', [clubId]).limit(1),
+      sb.from('club_members').select('*').in('club_id', [clubId])
+    ]);
+    if (cRes.error || !cRes.data || !cRes.data[0]) return null;
+    return { club: mapDbClub(cRes.data[0]), role: mine[0].role, members: (mRes.data || []).map(mapDbClubMember) };
+  },
+  async listPublicClubs(opts = {}) {
+    let q = sb.from('clubs').select('*').eq('visibility', 'public')
+      .order('member_count', { ascending: false }).limit(opts.limit || 30);
+    // .or() takes a filter STRING — strip the characters that would break out of it.
+    const s = String(opts.search || '').replace(/[%,()*\\]/g, ' ').trim();
+    if (s) q = q.or('name.ilike.%' + s + '%,city.ilike.%' + s + '%');
+    const { data, error } = await q;
+    if (error) { console.warn('listPublicClubs', error); return []; }
+    return (data || []).map(mapDbClub);
+  },
+  async createClub(fields) {
+    const { data, error } = await sb.rpc('create_club', {
+      p_name: fields.name, p_city: fields.city || null, p_description: fields.description || null,
+      p_visibility: fields.visibility === 'private' ? 'private' : 'public', p_display_name: fields.displayName || null
+    });
+    if (error) throw _clubErr(error);
+    return mapDbClub(Array.isArray(data) ? data[0] : data);
+  },
+  async joinClub(code, displayName) {
+    const { data, error } = await sb.rpc('join_club', { p_code: String(code || '').trim().toUpperCase(), p_display_name: displayName || null });
+    if (error) throw _clubErr(error);
+    // A wrong code comes back empty (NULL), not as an error (see migration-clubs-social-2).
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || !row.id) throw new Error('No club with that code');
+    return mapDbClub(row);
+  },
+  async leaveClub(userId) {
+    const { error } = await sb.from('club_members').delete().in('user_id', [userId]);
+    if (error) throw _clubErr(error);
+  },
+  // The caller's own shared stats row (RLS: self-update only; club/role are trigger-guarded).
+  async updateMyClubStats(userId, stats) {
+    const { error } = await sb.from('club_members').update(mapJsClubStats(stats)).in('user_id', [userId]);
+    if (error) { console.warn('updateMyClubStats', error); return false; }
+    return true;
+  },
+  async updateClub(clubId, patch) {
+    const row = {};
+    if (patch.name != null) row.name = String(patch.name).trim();
+    if (patch.city != null) row.city = String(patch.city).trim() || null;
+    if (patch.description != null) row.description = String(patch.description).trim() || null;
+    if (patch.visibility) row.visibility = patch.visibility === 'private' ? 'private' : 'public';
+    const { data, error } = await sb.from('clubs').update(row).in('id', [clubId]).select();
+    if (error) throw _clubErr(error);
+    return data && data[0] ? mapDbClub(data[0]) : null;
+  },
+  async removeClubMember(clubId, userId) {
+    const { error } = await sb.from('club_members').delete().in('club_id', [clubId]).in('user_id', [userId]);
+    if (error) throw _clubErr(error);
+  },
+  async deleteClub(clubId) {
+    const { error } = await sb.from('clubs').delete().in('id', [clubId]);
+    if (error) throw _clubErr(error);
+  },
+  async reportClub(clubId, reporterId, reason) {
+    const { error } = await sb.from('club_reports').insert({ club_id: clubId, reporter_id: reporterId, reason: String(reason || '').slice(0, 500) });
+    if (error) throw _clubErr(error);
+  },
+
+  // ---------- CLUBS v2 (migration-clubs-social.sql) ----------
+  // Directory: public AND private clubs (cards only, never codes or members),
+  // with the caller's status. Before the migration lands it falls back to the
+  // v1 public-only read, so the join screen still lists something.
+  async searchClubs(query, limit) {
+    const { data, error } = await sb.rpc('search_clubs', { p_query: query || null, p_limit: limit || 30 });
+    if (error) {
+      const list = await this.listPublicClubs({ search: query, limit: limit || 30 });
+      return list.map(c => Object.assign({}, c, { myStatus: null, legacy: true }));
+    }
+    return (data || []).map(r => ({
+      id: r.id, name: r.name, city: r.city || '', description: r.description || '',
+      visibility: r.visibility || 'public', memberCount: r.member_count || 0, myStatus: r.my_status || null
+    }));
+  },
+  // 'joined' (public) | 'requested' (private) | 'member' (already in it).
+  async joinOrRequestClub(clubId, displayName, message) {
+    const { data, error } = await sb.rpc('join_or_request_club', { p_club: clubId, p_display_name: displayName || null, p_message: message || null });
+    if (error) throw _clubErr(error, 'Finding clubs needs one more update. Use a club code for now.');
+    return Array.isArray(data) ? data[0] : data;
+  },
+  async cancelClubRequest(clubId, userId) {
+    const { error } = await sb.from('club_join_requests').delete().in('club_id', [clubId]).in('user_id', [userId]);
+    if (error) throw _clubErr(error);
+  },
+  // Owner/admin: who's waiting. [] before the migration (fails soft).
+  async listClubRequests(clubId) {
+    const { data, error } = await sb.from('club_join_requests').select('*').in('club_id', [clubId])
+      .eq('status', 'pending').order('created_at', { ascending: true });
+    if (error) return [];
+    return (data || []).map(mapDbClubRequest);
+  },
+  // 'accepted' | 'declined' | 'stale' (they joined another club meanwhile).
+  async respondClubRequest(requestId, accept) {
+    const { data, error } = await sb.rpc('respond_club_request', { p_request: requestId, p_accept: !!accept });
+    if (error) throw _clubErr(error);
+    return Array.isArray(data) ? data[0] : data;
+  },
+  // Newest first. null = the feed isn't switched on yet (pre-migration).
+  async listClubPosts(clubId, opts = {}) {
+    let q = sb.from('club_posts').select('*').in('club_id', [clubId])
+      .order('created_at', { ascending: false }).limit(opts.limit || 40);
+    if (opts.before) q = q.lt('created_at', opts.before);
+    const { data, error } = await q;
+    if (error) { console.warn('listClubPosts', error); return null; }
+    return (data || []).map(mapDbClubPost);
+  },
+  async createClubPost(post) {
+    const { data, error } = await sb.from('club_posts').insert(mapJsClubPost(post)).select('*');
+    if (error) throw _clubErr(error, 'The club feed isn\'t switched on yet.');
+    return data && data[0] ? mapDbClubPost(data[0]) : null;
+  },
+  // .select() so a delete RLS quietly skipped (0 rows) reads as a failure, not "deleted".
+  async deleteClubPost(postId) {
+    const { data, error } = await sb.from('club_posts').delete().in('id', [postId]).select('id');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('Couldn\'t delete that post');
+  },
+  // Owner/admin: a fresh join code (the old one stops working).
+  async rotateClubCode(clubId) {
+    const { data, error } = await sb.rpc('rotate_club_code', { p_club: clubId });
+    if (error) throw _clubErr(error, 'This needs the latest club update.');
+    return Array.isArray(data) ? data[0] : data;
+  },
+  // Owner/admin: lifters removed from the club (they can't rejoin until let back).
+  async listClubBans(clubId) {
+    const { data, error } = await sb.from('club_bans').select('*').in('club_id', [clubId]).order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(r => ({ clubId: r.club_id, userId: r.user_id, displayName: r.display_name || 'Lifter', createdAt: r.created_at }));
+  },
+  async unbanClubMember(clubId, userId) {
+    const { data, error } = await sb.from('club_bans').delete().in('club_id', [clubId]).in('user_id', [userId]).select('user_id');
+    if (error) throw _clubErr(error);
+    if (!data || !data.length) throw new Error('Couldn\'t update that');
+  },
+  async reportClubPost(post, reporterId, reason) {
+    const { error } = await sb.from('club_reports').insert({
+      club_id: post.clubId, post_id: post.id, reported_user_id: post.userId,
+      reporter_id: reporterId, reason: String(reason || '').slice(0, 500)
+    });
+    if (error) throw _clubErr(error);
+  },
+  // Block: their posts drop out of your feed (enforced by the club_posts RLS).
+  // Live feed: new posts in this club as they land (club_posts is on the
+  // supabase_realtime publication; RLS still decides who receives what, so
+  // non-members and blockers get nothing). Returns an unsubscribe fn or null.
+  subscribeClubPosts(clubId, onInsert) {
+    if (!clubId || typeof onInsert !== 'function') return null;
+    try {
+      const ch = sb.channel('clubposts:' + clubId + ':' + Math.random().toString(36).slice(2, 8))
+        .on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'club_posts', filter: 'club_id=eq.' + clubId },
+          payload => { try { onInsert(mapDbClubPost(payload.new)); } catch (e) { console.warn('subscribeClubPosts cb', e); } })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribeClubPosts', e); return null; }
+  },
+  async blockLifter(blockerId, blockedId) {
+    const { error } = await sb.from('club_blocks')
+      .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
+    if (error) throw _clubErr(error);
   },
 
   // ---------- PROGRAMS ----------
@@ -1308,7 +1725,7 @@ const DB = {
       .neq('payout_status', 'cancelled')
       .limit(1);
     if (salesErr) throw salesErr;
-    if (!sales || !sales.length) throw new Error('No purchase record found — did the payment go through?');
+    if (!sales || !sales.length) throw new Error('No purchase record found. Did the payment go through?');
 
     // Fetch the program payload (must be published — buyer reads via public RLS)
     const { data: progRows, error: progErr } = await sb.from('marketplace_programs')
@@ -1691,7 +2108,7 @@ const DB = {
     const { data: profs, error: profErr } = await sb.from('profiles')
       .select('id').ilike('email', buyerEmail.trim()).limit(1);
     if (profErr) throw profErr;
-    if (!profs || !profs.length) throw new Error('No POWALIFTA account with that email — buyer must sign up first.');
+    if (!profs || !profs.length) throw new Error('No POWALIFTA account with that email. Buyer must sign up first.');
     const buyerId = profs[0].id;
 
     const { data: progs, error: pErr } = await sb.from('marketplace_programs')

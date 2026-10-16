@@ -40,15 +40,22 @@
         #ffffff 50%,
         rgba(255, 255, 255, 0.7) 52%,
         transparent 57%),
+      /* POLISHED steel, not brushed. The previous ramp bottomed out at #646b78
+         — a mid-grey around 40% luminance — straight through the middle of the
+         letterforms, so the headline read washed and soft at exactly the point
+         the eye lands. Metal is still the right idea for a barbell app; it just
+         has to be LIT metal. The dark bands are raised so the ramp never drops
+         below ~65% luminance, and the bright/dark boundary is tightened so it
+         reads as a specular highlight travelling across chrome rather than a
+         slow fade to grey. Same effect, considerably more punch. */
       linear-gradient(176deg,
         #ffffff 0%,
-        #dfe4ec 14%,
-        #aab2c0 30%,
-        #6c7382 44%,
-        #646b78 51%,
-        #828b9a 58%,
-        #c3c9d4 74%,
-        #f2f5fa 90%,
+        #eef1f7 12%,
+        #c7cedb 26%,
+        #a6aec0 40%,
+        #b4bbcb 50%,
+        #d2d8e3 62%,
+        #f0f3f9 80%,
         #ffffff 100%);
     background-size: 280% 100%, 100% 100%;
     background-position: 150% 0, 0 0;
@@ -95,15 +102,16 @@
             brightness(var(--fx-steel-bright, 1));
   }
 
-  /* keep BARBELL. the one red — repaint over the steel, restore its red glow */
+  /* keep BARBELL. the one red — repaint over the steel, restore its red glow.
+     Filled SOLID now, not with --grad-red: that gradient runs #ff2d3f -> #b71629,
+     so the lower half of the word sank into a dark maroon and the hottest word
+     on the page was its dullest. Display type wants maximum chroma; the depth
+     comes from the bloom around the letterforms (text-shadow, set in styles.css),
+     which is how a lit sign actually behaves — emission, not a fade. */
   .hero h1 .accent {
-    background-image: var(--grad-red);
-    background-size: 100% 100%;
-    background-position: 0 0;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+    background-image: none;
+    -webkit-text-fill-color: var(--red);
+    color: var(--red);
     filter: none;
     animation: none;
   }
@@ -162,7 +170,7 @@
 }
 .hero-scrollcue:hover { opacity: 1; }
 .hsc-label {
-  font-family: 'Space Grotesk', monospace;
+  font-family: var(--font-num);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.32em;
@@ -229,4 +237,24 @@
       #1a1d24 0%, #2c313b 40%, #3a414e 50%, #2c313b 60%, #1a1d24 100%) !important;
     background-position: 0 0 !important;
   }
+}
+
+/* ---- REBRAND 2026-10: solid headline -----------------------------------------
+   The steel ramp is clipped to the glyphs with background-clip:text. In the new
+   wide display face, BARBELL. (an animated inline-block) wraps to its own line and
+   Chromium paints its glyphs into the parent's text clip at the PRE-wrap position —
+   a ghost "BARBELL" through line one. The rebrand wants calm chrome anyway: solid
+   ink headline, the accent word stays the one red. */
+.hero h1,
+[data-theme="light"] .hero h1,
+.hero.fx-forge h1 {
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--text) !important;
+}
+.hero h1 .accent {
+  -webkit-text-fill-color: var(--red) !important;
+  color: var(--red) !important;
 }

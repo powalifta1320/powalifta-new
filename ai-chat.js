@@ -149,7 +149,7 @@
   //  MOCK ENGINE — genuinely useful answers from local data
   // =====================================================================
   function fU(n) { // format weight in active unit
-    if (n == null || !n) return '—';
+    if (n == null || !n) return '–';
     if (unit() === 'lb') return round(n * 2.2046) + ' lb';
     return round(n) + ' kg';
   }
@@ -162,7 +162,7 @@
 
     // RPE education
     if (/\brpe\b/.test(t) && /(what|explain|mean|scale|how)/.test(t)) {
-      return "**RPE** is Rate of Perceived Exertion — how hard a set felt, 1–10.\n\n" +
+      return "**RPE** is Rate of Perceived Exertion. How hard a set felt, 1–10.\n\n" +
         "• **RPE 10** = no reps left in the tank\n• **RPE 9** = ~1 rep left\n• **RPE 8** = ~2 reps left\n• **RPE 7** = ~3 reps left\n\n" +
         "POWALIFTA turns weight × reps × RPE into an estimated 1RM, so a hard triple and an easy single can be compared on one line.";
     }
@@ -182,7 +182,7 @@
     }
     // bodyweight
     if (/(body ?weight|bw|weigh)/.test(t)) {
-      if (snap.bw == null) return "No bodyweight logged yet — add a weigh-in on the **Bodyweight** tab and I'll track the trend.";
+      if (snap.bw == null) return "No bodyweight logged yet. Add a weigh-in on the **Bodyweight** tab and I'll track the trend.";
       return "Your latest weigh-in is [[" + fU(snap.bw) + "]]. Log daily on the Bodyweight tab for a clean trend line and an auto wilks-style comparison against your total.";
     }
     // a specific lift's e1rm / trend
@@ -193,10 +193,10 @@
       var out = "Your **" + LABEL[lift] + "** e1RM is [[" + fU(info.best) + "]] across " + info.count + " logged set" + (info.count === 1 ? '' : 's') + ".";
       if (info.lastSet) {
         var ls = info.lastSet;
-        out += "\n\nLast entry: `" + ls.weight + (unit() === 'lb' ? '' : 'kg') + " × " + ls.reps + " @ RPE " + (ls.rpe != null ? ls.rpe : '—') + "` on " + ls.date + ".";
+        out += "\n\nLast entry: `" + ls.weight + (unit() === 'lb' ? '' : 'kg') + " × " + ls.reps + " @ RPE " + (ls.rpe != null ? ls.rpe : '–') + "` on " + ls.date + ".";
       }
       if (/(trend|progress|improv|going|moving)/.test(t)) {
-        out += "\n\nOpen the **Progress** tab to see the full e1RM curve — it plots every session and flags PRs.";
+        out += "\n\nOpen the **Progress** tab to see the full e1RM curve. It plots every session and flags PRs.";
       }
       return out;
     }
@@ -204,7 +204,7 @@
     if (/(today|next session|workout|train|what.*do)/.test(t)) {
       if (!snap.program) return "You don't have an active program yet. If you're self-coaching, build one on the **Program** tab, or grab a proven block from the **Marketplace**.";
       return "Your program **" + esc(snap.program.name) + "** has " + snap.program.weeks + " week" + (snap.program.weeks === 1 ? '' : 's') +
-        " loaded. Head to the **Today** tab — it surfaces the day pinned to today's date with every set, target RPE and a plate breakdown on tap.";
+        " loaded. Head to the **Today** tab. It surfaces the day pinned to today's date with every set, target RPE and a plate breakdown on tap.";
     }
     // e1rm catch-all
     if (/(e1rm|1rm|max|strong|pr)/.test(t)) {
@@ -227,9 +227,9 @@
     if (/(who|which).*(attention|behind|stale|inactive|missing|hasn|not logg|quiet)/.test(t) || /needs? a check/.test(t)) {
       if (!roster.length) return "No athletes connected yet. Generate an invite code on the **Roster** tab to get your first lifter in.";
       var stale = roster.filter(function (r) { return r.stale; });
-      if (!stale.length) return "Everyone's logged within the last 7 days — roster's healthy. Nice.";
+      if (!stale.length) return "Everyone's logged within the last 7 days. Roster's healthy. Nice.";
       return "These athletes haven't logged in the last week:\n\n" + stale.map(function (r) {
-        return "• **" + esc(r.name) + "** — last logged " + (r.snap.lastDate || "never");
+        return "• **" + esc(r.name) + "**: last logged " + (r.snap.lastDate || "never");
       }).join("\n") + "\n\nA quick check-in message from the Roster card usually does it.";
     }
     // summarise a named athlete's week
@@ -238,7 +238,7 @@
       if (!match && roster.length) {
         return "Which athlete? I can summarise any of: " + roster.map(function (r) { return "**" + esc(r.name) + "**"; }).join(", ") + ".";
       }
-      if (!match) return "No athletes connected yet — invite a lifter from the Roster tab first.";
+      if (!match) return "No athletes connected yet. Invite a lifter from the Roster tab first.";
       return weekRecap(match);
     }
     // roster overview
@@ -246,7 +246,7 @@
       if (!roster.length) return "No athletes connected yet. Generate an invite code on the Roster tab.";
       return "You're coaching **" + roster.length + "** athlete" + (roster.length === 1 ? '' : 's') + ":\n\n" +
         roster.map(function (r) {
-          return "• **" + esc(r.name) + "** — total [[" + fU(r.snap.total) + "]], " + r.snap.last7.sessions + " session" +
+          return "• **" + esc(r.name) + "**: total [[" + fU(r.snap.total) + "]], " + r.snap.last7.sessions + " session" +
             (r.snap.last7.sessions === 1 ? '' : 's') + " this week" + (r.stale ? " ⚠ quiet" : "");
         }).join("\n");
     }
@@ -274,7 +274,7 @@
         "). Might be worth a nudge.";
     }
     var lines = [
-      "**" + esc(r.name) + " — last 7 days**",
+      "**" + esc(r.name) + " · last 7 days**",
       "",
       "• " + s.last7.sessions + " session" + (s.last7.sessions === 1 ? '' : 's') + ", " + s.last7.sets + " sets logged",
       "• Tonnage [[" + (unit() === 'lb' ? Math.round(s.last7.tonnage * 2.2046) + ' lb' : s.last7.tonnage + ' kg') + "]]",
@@ -289,10 +289,10 @@
     var lift = /squat/.test(t) ? 'Squat' : /bench/.test(t) ? 'Bench' : /(dead|dl)/.test(t) ? 'Deadlift' : null;
     var focus = lift ? lift + "-focused" : "full SBD";
     return "Here's a 4-week RPE wave you can drop into the **Program builder** (" + focus + "):\n\n" +
-      "**Week 1 — introduce**\n• Main: 4×4 @ RPE 7\n• Back-off: 3×6 @ RPE 7\n\n" +
-      "**Week 2 — build**\n• Main: 4×3 @ RPE 8\n• Back-off: 3×5 @ RPE 7.5\n\n" +
-      "**Week 3 — overreach**\n• Main: 3×2 @ RPE 8.5\n• Back-off: 3×4 @ RPE 8\n\n" +
-      "**Week 4 — deload**\n• Main: 3×3 @ RPE 6\n• Back-off: skip\n\n" +
+      "**Week 1: introduce**\n• Main: 4×4 @ RPE 7\n• Back-off: 3×6 @ RPE 7\n\n" +
+      "**Week 2: build**\n• Main: 4×3 @ RPE 8\n• Back-off: 3×5 @ RPE 7.5\n\n" +
+      "**Week 3: overreach**\n• Main: 3×2 @ RPE 8.5\n• Back-off: 3×4 @ RPE 8\n\n" +
+      "**Week 4: deload**\n• Main: 3×3 @ RPE 6\n• Back-off: skip\n\n" +
       "Set RPE targets per set in the builder and the athlete's e1RM chart will track competition-equivalent progress automatically. Want me to tailor the rep scheme to a specific lift or athlete?";
   }
 
@@ -304,17 +304,17 @@
         : "Athletes log their own sets on the Today tab. As a coach you set the prescription (weight + target RPE) per set in the **Program builder**.";
     }
     if (/(plate|bar|load|how much)/.test(t)) {
-      return "Tap any prescribed weight to open the **plate calculator** — it shows the exact plates per side for a 20kg bar (or 45lb in pound mode).";
+      return "Tap any prescribed weight to open the **plate calculator**. It shows the exact plates per side for a 20kg bar (or 45lb in pound mode).";
     }
     if (/(marketplace|buy|sell|program.*sale|listing)/.test(t)) {
       return role === 'coach'
-        ? "List a program for sale from the **Marketplace** tab — set a price and POWALIFTA handles checkout (Lemon Squeezy) and pays out your share."
+        ? "List a program for sale from the **Marketplace** tab. Set a price and POWALIFTA handles checkout (Lemon Squeezy) and pays out your share."
         : "The **Marketplace** tab has coach-built programs you can buy. Filter by tier, sort by rating or price, and it loads straight into your dashboard.";
     }
     if (/(invite|connect|coach|athlete|link)/.test(t)) {
       return role === 'coach'
         ? "Generate a 6-character invite code on the **Roster** tab and send it to your athlete. The moment they enter it, their training shows up in your roster."
-        : "Your coach gives you a 6-character invite code. Enter it on the **Coach** tab to connect — they'll then build and manage your program.";
+        : "Your coach gives you a 6-character invite code. Enter it on the **Coach** tab to connect. They'll then build and manage your program.";
     }
     if (/(export|download|csv|backup|data)/.test(t)) {
       return "Settings → **Export** gives you everything as JSON, plus per-program CSV spreadsheets. Your data is always yours to take.";
@@ -326,8 +326,8 @@
     }
     if (window._demoMode) {
       return role === 'coach'
-        ? "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below — week summary, who needs attention, draft a program. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that."
-        : "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below — your total, squat e1RM, explain RPE, what to do today. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that.";
+        ? "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below: week summary, who needs attention, draft a program. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that."
+        : "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below: your total, squat e1RM, explain RPE, what to do today. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that.";
     }
     return role === 'coach'
       ? "I can summarise an athlete's week, flag who's gone quiet, draft an RPE program, or walk you through any feature. What do you need?"
@@ -412,12 +412,12 @@
     });
     var who = (ROLE === 'coach' && forName) ? forName + "'s" : 'your';
     var lines = [
-      "Done — I drafted **" + esc(p.name) + "**" + (forName ? " for **" + esc(forName) + "**" : "") + ".",
+      "Done: I drafted **" + esc(p.name) + "**" + (forName ? " for **" + esc(forName) + "**" : "") + ".",
       "",
       "• " + p.weeks.length + " week" + (p.weeks.length === 1 ? '' : 's') + " · " + dayCount + " day" + (dayCount === 1 ? '' : 's') + "/week",
       "• RPE-waved mains + matched back-off and one accessory each",
       (opts && opts.focus) ? "• Weighted toward **" + LABEL[opts.focus] + "**" : null,
-      "• " + (hasWeights ? "Loads back-calculated from " + who + " current e1RMs" : "Pure RPE targets — dial in the loads to feel"),
+      "• " + (hasWeights ? "Loads back-calculated from " + who + " current e1RMs" : "Pure RPE targets: dial in the loads to feel"),
       "",
       "Preview it below, then drop it straight into the builder."
     ].filter(Boolean);
@@ -491,7 +491,7 @@
         "Their snapshot (JSON): " + JSON.stringify(snap);
     }
     return ctx + "\n\nPOWALIFTA is an RPE-native powerlifting app. e1RM = weight/(1-((reps-1)+(10-RPE))*0.0333). " +
-      "Units: " + unit() + ". Be concise, concrete and barbell-literate. Use the snapshot data for any numbers — never invent them. " +
+      "Units: " + unit() + ". Be concise, concrete and barbell-literate. Use the snapshot data for any numbers. Never invent them. " +
       "Use short markdown (**bold**, bullets). Keep replies under ~120 words unless asked for a full program.";
   }
 
@@ -686,7 +686,7 @@
         liveReply(history.slice(), answer, function (err, isRateLimit) {
           if (isRateLimit) {
             // Daily cap: stay on the model conceptually, just report it.
-            answer(err + "\n\nIn the meantime I can still pull numbers from your data — ask away.");
+            answer(err + "\n\nIn the meantime I can still pull numbers from your data. Ask away.");
             liveDown = true;            // route the rest of this session to mock
             return;
           }

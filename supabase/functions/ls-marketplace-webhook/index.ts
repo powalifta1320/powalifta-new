@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       const { data: saleRows, error: findErr } = await supabase.from('program_sales')
         .select('id, marketplace_program_id, payout_status')
         .eq('ls_order_id', lsOrderId).limit(1)
-      if (findErr) return jsonResponse(500, { error: 'sale lookup failed', detail: findErr.message })
+      if (findErr) { console.error('mkt-webhook: sale lookup failed', findErr.message); return jsonResponse(500, { error: 'internal error' }) }
       const sale = saleRows?.[0]
       if (!sale) return jsonResponse(200, { refund: true, note: 'no matching sale on file', lsOrderId })
       if (sale.payout_status === 'cancelled') {
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       }
       const { error: voidErr } = await supabase.from('program_sales')
         .update({ payout_status: 'cancelled' }).eq('id', sale.id)
-      if (voidErr) return jsonResponse(500, { error: 'failed to void sale', detail: voidErr.message })
+      if (voidErr) { console.error('mkt-webhook: void failed', voidErr.message); return jsonResponse(500, { error: 'internal error' }) }
       // Decrement sold_count (floor at 0) so the listing's social proof stays honest.
       const { data: progRow } = await supabase.from('marketplace_programs')
         .select('sold_count').eq('id', sale.marketplace_program_id).limit(1)
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     // ---- Purchase path (order_created) ------------------------------------
 
     if (!programId) {
-      return jsonResponse(400, { error: 'no marketplace_program_id in custom_data', custom })
+      console.warn('mkt-webhook: no marketplace_program_id in custom_data'); return jsonResponse(400, { error: 'bad request' })
     }
 
     // Idempotency: if we've already recorded this LS event, return success but skip
@@ -152,21 +152,36 @@ Deno.serve(async (req) => {
     const { data: progRows, error: progErr } = await supabase.from('marketplace_programs')
       .select('*').eq('id', programId).limit(1)
     if (progErr || !progRows || !progRows.length) {
-      return jsonResponse(404, { error: 'marketplace program not found', programId, detail: progErr?.message })
+      console.warn('mkt-webhook: program not found', programId, progErr?.message); return jsonResponse(404, { error: 'not found' })
     }
     const program = progRows[0]
 
-    // Resolve buyer (prefer user_id from custom_data, fall back to email lookup)
-    let buyerId = buyerUserId
+    // Resolve buyer AUTHORITATIVELY (mirrors ls-webhook). custom_data.user_id rides
+    // the checkout URL and is client-controlled, so it must NEVER decide the entitled
+    // account on its own — a buyer could tamper it to grant the program to a victim, or
+    // decouple the paying email from the entitled account. We accept the custom user_id
+    // only when THAT profile's email equals the HMAC-signed checkout email; otherwise we
+    // resolve strictly by the signed email. Bug parity with the ls-webhook hardening.
+    let buyerId: string | null = null
+    if (buyerUserId) {
+      const { data: byId } = await supabase.from('profiles')
+        .select('id, email').eq('id', String(buyerUserId)).limit(1)
+      const row = byId?.[0]
+      if (row && buyerEmail && String(row.email || '').toLowerCase().trim() === buyerEmail) {
+        buyerId = row.id
+      } else {
+        console.warn('mkt-webhook: custom_data.user_id did not match signed checkout email — falling back to email lookup')
+      }
+    }
     if (!buyerId && buyerEmail) {
       const { data: lookup } = await supabase.from('profiles').select('id').eq('email', buyerEmail).limit(1)
       buyerId = lookup?.[0]?.id || null
     }
     if (!buyerId) {
+      console.warn('mkt-webhook: buyer not found for order', { lsOrderId })
       return jsonResponse(404, {
         error: 'buyer not found',
-        hint: 'The email used at checkout must match an existing POWALIFTA account. Have them sign up first, then try again.',
-        email: buyerEmail
+        hint: 'The email used at checkout must match an existing POWALIFTA account. Have them sign up first, then try again.'
       })
     }
 
@@ -191,7 +206,7 @@ Deno.serve(async (req) => {
       if (String(saleErr.message || '').includes('duplicate key')) {
         return jsonResponse(200, { duplicate: true })
       }
-      return jsonResponse(500, { error: 'failed to record sale', detail: saleErr.message })
+      console.error('mkt-webhook: record sale failed', saleErr.message); return jsonResponse(500, { error: 'internal error' })
     }
     const saleId = saleRows?.[0]?.id
 

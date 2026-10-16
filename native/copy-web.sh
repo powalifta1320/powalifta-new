@@ -28,9 +28,18 @@ rsync -a --delete \
   --exclude '.env.*' \
   --exclude 'ai-config.local.js' \
   --exclude 'tests.html' \
+  --exclude 'test' \
   --exclude 'index-bold.html' \
+  --exclude 'review.html' \
   --exclude 'vercel.json' \
   --exclude '.DS_Store' \
+  --exclude '.claude' \
+  --exclude '.claude-flow' \
+  --exclude '.impeccable' \
+  --exclude '*.db' \
+  --exclude 'scratchpad' \
+  --exclude 'ds-bundle' \
+  --exclude '.design-sync' \
   "$ROOT/" "$DEST/"
 
 echo "Copied web app into $DEST"

@@ -1,5 +1,7 @@
 # POWALIFTA — App Store submission kit
 
+> v1.1.1 (2026-10-16): screenshots, header + search-results art and all paste-ready copy were generated into the gitignored `APP-STORE-1.1.1/` folder at the repo root (iPhone 6.3" 1206×2622 is now the REQUIRED iPhone size; 6.9" is optional; iPad 13" 2064×2752 required). Raw simulator captures live in `native/store/raw-*`.
+
 Paste-ready metadata for App Store Connect + the pre-submit checklist. Everything
 here is drawn from the live product; edit to taste. Character limits noted inline.
 
@@ -10,7 +12,7 @@ here is drawn from the live product; edit to taste. Character limits noted inlin
 - **Primary category:** Health & Fitness
 - **Secondary category:** Sports
 - **Age rating:** 4+ (no objectionable content)
-- **Price:** Free (in-app: none on iOS v1 — coach subscriptions are billed on the web via Lemon Squeezy, NOT via Apple IAP; see the "IAP" note at the bottom)
+- **Price:** Free, with three auto-renewable coach subscriptions via Apple In-App Purchase (see "In-App Purchase setup" below). Web billing (Lemon Squeezy) continues to exist for web signups — allowed under 3.1.3(b) because the same tiers are also purchasable in-app.
 
 ## Listing copy (paste into App Store Connect → App Information / Version)
 
@@ -28,7 +30,7 @@ Built for the barbell
 
 **Promotional text** (≤170 chars, editable anytime without review):
 ```
-RPE-native programming, automatic e1RM tracking, and real coaching — all in one place. Free for athletes. Built for squat, bench, and deadlift.
+New: share lifts with your club, climb your club's board, and a rest timer that adjusts to every set. Free for lifters. Built for squat, bench and deadlift.
 ```
 
 **Keywords** (≤100 chars, comma-separated, no spaces after commas):
@@ -36,35 +38,50 @@ RPE-native programming, automatic e1RM tracking, and real coaching — all in on
 powerlifting,rpe,e1rm,strength,squat,bench,deadlift,coach,barbell,dots,program,gym,lifting,tracker
 ```
 
-**Description** (≤4000 chars):
+**Description** (≤4000 chars) — v1.1.1:
 ```
-POWALIFTA is powerlifting software built for the barbell — not a generic fitness app bent into shape. If you train squat, bench, and deadlift by RPE, this is your log, your programming, and your line to your coach, in one place.
+POWALIFTA is a powerlifting app built for the barbell. Log every set by weight, reps and RPE, watch your total climb, and train with your club and your coach in one place.
 
-FOR ATHLETES — free
-• Log every set by weight, reps, and RPE. Your e1RM updates automatically, competition-equivalent across variants.
-• Track your DOTS and IPF GoodLift score, weight class, and estimated total as you get stronger.
-• See your progress: e1RM over time, a training calendar, PR timeline, weekly volume, and lift balance.
-• Get programming from your coach — weights, reps, RPE, tempo, and notes, session by session.
-• Send form-check videos to your coach and get cues back.
-• Plan your meet: openers, seconds, and thirds from your real e1RMs, plus a warm-up ramp.
+TRAIN
+- The next set is always the first thing you see. Logging it is one tap.
+- Log by RPE. Your e1RM updates automatically, competition-equivalent across squat, bench and deadlift variants.
+- Smart rest timer: heavier and harder sets rest longer, and it keeps counting on your Lock Screen.
+- No coach? Build an 8-week block from your best lifts, or write your own program.
 
-FOR COACHES
-• Manage your whole roster from one dashboard — who logged, who's stalling, who just PR'd.
-• Build programs in RPE and assign them in a click. Save templates, reuse them across athletes.
-• Review form checks, message athletes, and track adherence.
-• Free with your first 3 athletes.
+PROGRESS
+- e1RM over time for every lift, your PRs, DOTS, IPF GoodLift score and weight class.
+- Weekly volume, a training calendar, lift balance and meet results.
+- Plan meet day: openers, seconds and thirds from your real numbers.
 
-WHY RPE
-Powerlifting runs on autoregulation. POWALIFTA is RPE-native from the ground up — your e1RM math, your programming, and your progress all speak the same language your coach does.
+CLUBS
+- Join your gym team, uni club or barbell crew. Find clubs by name or city, or join with a code.
+- Share any set, PR or whole session to your club's feed.
+- Climb your club's leaderboard, ranked by DOTS or this week's training.
+- Clubs can be public or private. Private clubs approve who joins.
+- Your club sees what you share and your stats, never your program or logs.
 
-Free for athletes, forever. Coaches start free and grow into paid tiers only when their roster does.
+COACHING
+- Get your program from your coach, message them, send form-check videos and do weekly check-ins.
+- Coaches: manage your roster, see who trained and who's stalling, build RPE programs, save templates and give one program to many athletes at once.
+- Free for coaches with up to 3 athletes. Bigger rosters are available as in-app subscriptions.
 
-Built for the barbell.
+Free for lifters. Built for the barbell.
+
+Terms of Use: https://www.powalifta.com/terms.html
+Privacy Policy: https://www.powalifta.com/privacy.html
 ```
 
-**What's New** (version notes, ≤4000):
+**What's New** (version notes, ≤4000) — v1.1.1:
 ```
-First release on iOS. Everything from powalifta.com, now native: push notifications from your coach, home-screen access, and offline logging at the gym.
+New in 1.1.1
+
+- Clubs are now social: share any set, PR or whole session to your club's feed
+- Find clubs by name or city. Join public clubs in one tap, or request to join private ones
+- Club leaderboards, ranked by DOTS or by this week's training
+- Smart rest timer: heavier and harder sets rest longer. Pick Short, Standard or Long in You > Rest timer
+- A cleaner rest timer with a bigger countdown and a "Go" when rest is done
+- Coaches: a tidier program builder, roster and inbox
+- Report and block in clubs, plus polish on every screen
 ```
 
 ## URLs
@@ -106,9 +123,8 @@ experience without creating an account, open the app and tap "Try the demo"
 For a real account: sign up as a Solo athlete (free, no card) — email + password
 only. Coach features are visible by signing up as a Coach.
 
-Subscriptions: coach paid tiers are sold on our website (Lemon Squeezy, Merchant
-of Record) and are NOT offered as Apple in-app purchases. The iOS app contains no
-purchasable content; athletes use it free. Please see guideline note below.
+The app is entirely free. It contains no purchases, no subscriptions, no paid
+content, and no references or links to any purchasing mechanism.
 ```
 
 ## Signing & capabilities checklist (Xcode — you drive)
@@ -126,11 +142,39 @@ purchasable content; athletes use it free. Please see guideline note below.
   notification registration (APNs), camera capture for form checks (the video
   upload uses the device camera), offline logging (network-first service worker),
   and native chrome (status bar / splash / haptics). Say this in review notes if asked.
-- **3.1.1 (in-app purchase):** the app sells NOTHING inside iOS. Athlete features
-  are free; coach subscriptions are a separate web purchase (Merchant of Record =
-  Lemon Squeezy). Do NOT add "buy/upgrade" buttons that link out to web payment
-  from inside the iOS app — that violates 3.1.1. The upgrade/billing UI must be
-  hidden or inert on native (see the TODO in docs/native-app-spike.md).
+- **3.1.1 (in-app purchase):** RESOLVED by adding real StoreKit IAP (2026-07,
+  after 5 rejection rounds). Coach tiers are purchasable in-app via the native
+  paywall (`openNativePaywall` in app.js → StoreKitPlugin.swift). Still true:
+  NEVER link to web payment or name the website as a place to pay from inside
+  the app — steering remains prohibited. Web Lemon Squeezy billing coexists
+  legally under 3.1.3(b) because the same tiers exist as IAP.
+
+## In-App Purchase setup (App Store Connect — one-time)
+
+1. **Agreements, Tax, and Banking** → sign the Paid Applications agreement +
+   complete banking/tax. NOTHING below works until this clears.
+2. **Small Business Program** → enroll (App Store Connect → Business). 15%
+   commission instead of 30% under $1M/yr.
+3. **App → Subscriptions** → create group **"Coach Plans"**, then three
+   auto-renewable subscriptions, 1-month duration, EXACT product IDs
+   (must match StoreKitPlugin.swift + supabase/functions/apple-iap/index.ts):
+   - `com.powalifta.app.coach.basic`   — $24.99/mo — "Basic — up to 10 athletes"
+   - `com.powalifta.app.coach.pro`     — $49.99/mo — "Pro — up to 25 athletes"
+   - `com.powalifta.app.coach.premium` — $99.99/mo — "Premium — unlimited athletes"
+   Each needs a localization (display name + description) and a review
+   screenshot (screenshot the in-app paywall once it runs in the simulator).
+4. **Xcode** → App target → Signing & Capabilities → **+ In-App Purchase**.
+5. **Backend** → run `sql/migration-apple-iap.sql` in the SQL Editor, then
+   `./deploy.sh` (deploys the `apple-iap` verifier — no new secret; optional
+   `APPLE_ROOT_CA_B64` pins Apple's root cert offline).
+6. **Submit** → with the next build, ATTACH all three subscriptions to the
+   version submission (first-ever IAPs ride along with a binary review).
+   App metadata also needs a Terms of Use (EULA) link — Apple's standard EULA
+   (linked in App Store Connect's version page) is acceptable.
+7. **Renewal/cancellation sync**: v1 syncs entitlements at purchase, restore,
+   and app-launch (Transaction.currentEntitlements → apple-iap). App Store
+   Server Notifications V2 (a webhook for server-pushed renewals/refunds) is
+   the documented hardening step — add before scale.
 - **5.1.1 (account deletion):** we have self-serve deletion (Settings → Delete my
   account, the `delete-account` function). Required by Apple. ✅ already built.
 ```

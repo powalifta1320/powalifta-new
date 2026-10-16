@@ -40,6 +40,20 @@
       } catch (e) {}
     },
 
+    // Notification haptic — the richer SUCCESS/WARNING/ERROR buzz iOS reserves for
+    // completed actions (timer done, PR hit, publish). Native Haptics.notification on
+    // the shell; a distinctive vibrate pattern on the web. Feature-detected everywhere.
+    notify: function (type) {
+      var t = (type || 'SUCCESS').toUpperCase();
+      try {
+        var H = plugins().Haptics;
+        if (isNative && H && H.notification) { H.notification({ type: t }); return; }
+        if (navigator.vibrate) {
+          navigator.vibrate(t === 'ERROR' ? [80, 60, 80] : t === 'WARNING' ? [40, 40, 40] : [30, 40, 120]);
+        }
+      } catch (e) {}
+    },
+
     // Register for native push. Resolves true once the OS hands back a token and
     // we've stored it. No-op (false) on web — the web path stays on PowaPush/VAPID.
     registerPush: async function () {
@@ -75,19 +89,135 @@
           setTimeout(function () { if (!done) { done = true; resolve(false); } }, 8000);
         });
       } catch (e) { console.warn('registerPush failed', e); return false; }
+    },
+
+    // Schedule a daily local notification nudging the athlete to log bodyweight.
+    // Native-only, idempotent (fixed id → cancel + reschedule), fires ~8am local. Uses
+    // @capacitor/local-notifications; a total no-op on the web and if the plugin/permission
+    // isn't available. Caller gates on !demo + athlete.
+    scheduleWeightReminder: async function () {
+      if (!isNative) return false;
+      var LN = plugins().LocalNotifications;
+      if (!LN) return false;
+      try {
+        var perm = await LN.checkPermissions();
+        if (perm.display !== 'granted') perm = await LN.requestPermissions();
+        if (perm.display !== 'granted') return false;
+        var ID = 8080; // stable id for the daily weigh-in reminder
+        try { await LN.cancel({ notifications: [{ id: ID }] }); } catch (e) {}
+        await LN.schedule({ notifications: [{
+          id: ID,
+          title: 'POWALIFTA',
+          body: "Time to weigh in. Log today's bodyweight.",
+          schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true },
+          extra: { url: 'athlete.html' }
+        }] });
+        return true;
+      } catch (e) { console.warn('weight reminder schedule failed', e); return false; }
+    },
+
+    // Turn the daily reminder off (used if we later add a settings toggle).
+    cancelWeightReminder: async function () {
+      if (!isNative) return;
+      var LN = plugins().LocalNotifications;
+      if (!LN) return;
+      try { await LN.cancel({ notifications: [{ id: 8080 }] }); } catch (e) {}
+    },
+
+    // ---- Apple In-App Purchase (StoreKitPlugin, JS name "PowaIAP") ----------
+    // Thin feature-detected wrappers; every path resolves to a safe null/false
+    // on web, on old iOS, or when the plugin isn't injected.
+    iapSupported: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return false;
+      try { return !!(await P.isSupported()).supported; } catch (e) { return false; }
+    },
+    iapProducts: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return [];
+      try { return (await P.getProducts()).products || []; } catch (e) { return []; }
+    },
+    // uid rides along as Apple's appAccountToken so the server can bind the
+    // signed transaction to THIS account (anti-replay).
+    iapPurchase: async function (productId, uid) {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return { state: 'unavailable' };
+      try { return await P.purchase({ productId: productId, appAccountToken: uid }); }
+      catch (e) { return { state: 'error', message: String(e && e.message || e) }; }
+    },
+    iapRestore: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return [];
+      try { return (await P.restore()).entitlements || []; } catch (e) { return []; }
+    },
+    iapEntitlements: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return [];
+      try { return (await P.getEntitlements()).entitlements || []; } catch (e) { return []; }
     }
   };
   window.PowaNative = PowaNative;
 
+  // Tag the document the INSTANT we know we're native (before first paint) so
+  // CSS can adapt the shell: safe-area insets for the notch / home indicator,
+  // no text-selection or long-press callouts, no rubber-band overscroll — the
+  // things that otherwise make a WebView read as "a web page in a box".
+  if (isNative) {
+    document.documentElement.classList.add('native', 'native-' + platform);
+    // Apple 5.1.2(i): force analytics fully OFF in the shell BEFORE the deferred
+    // Plausible tag fires (this non-deferred bridge executes during parse, ahead
+    // of any defer script). Cookieless Plausible isn't "tracking" by Apple's
+    // definition, but the app should transmit ZERO analytics so "we do not track"
+    // is provable at the network layer. Web untouched — native branch only.
+    try { localStorage.setItem('plausible_ignore', 'true'); } catch (e) {}
+    // Opt this WebView into the full screen so env(safe-area-inset-*) resolves
+    // to the real notch / Dynamic Island / home-indicator sizes. Done in JS so
+    // the web build's <meta viewport> is never touched (zero risk to the site).
+    var vp = document.querySelector('meta[name="viewport"]');
+    if (vp && !/viewport-fit/.test(vp.getAttribute('content') || '')) {
+      vp.setAttribute('content', vp.getAttribute('content') + ', viewport-fit=cover');
+    }
+    // Kill pinch / double-tap zoom INSIDE the shell only — zooming then panning
+    // sideways is the #1 "this is a website in a box" tell. The WEB build keeps
+    // the zoomable viewport (WCAG 1.4.4 — the a11y audit deliberately left it);
+    // native apps handle text size via OS settings instead.
+    if (vp && !/maximum-scale/.test(vp.getAttribute('content') || '')) {
+      vp.setAttribute('content', vp.getAttribute('content') + ', maximum-scale=1, user-scalable=no');
+    }
+  }
+
   if (!isNative) return; // ---- everything below is native-only ----
+
+  // Keep the native status bar in sync with the in-app theme toggle: light
+  // theme → dark text, dark theme → light text. (app.js fires 'themechange'.)
+  function syncStatusBar(theme) {
+    var SB = plugins().StatusBar;
+    if (!SB) return;
+    var light = theme === 'light';
+    try { SB.setStyle({ style: light ? 'LIGHT' : 'DARK' }); } catch (e) {}
+    try { SB.setBackgroundColor({ color: light ? '#ffffff' : '#0b0b0c' }); } catch (e) {}
+  }
+  window.addEventListener('themechange', function (e) {
+    syncStatusBar(e && e.detail && e.detail.theme);
+  });
 
   document.addEventListener('DOMContentLoaded', function () {
     var P = plugins();
-    // Dark status bar + brand background.
-    if (P.StatusBar) {
-      try { P.StatusBar.setStyle({ style: 'DARK' }); } catch (e) {}
-      try { P.StatusBar.setBackgroundColor({ color: '#0b0b0c' }); } catch (e) {}
-    }
+    // Light haptic on primary tap targets — a big "this is a real app" tell.
+    // Capture-phase + closest() so it fires once per logical control without
+    // every handler needing to opt in.
+    document.addEventListener('click', function (ev) {
+      try {
+        var hit = ev.target && ev.target.closest
+          ? ev.target.closest('.btn, .dash-tab, .tab-btn, .bottom-tab, .bms-item, .sidebar-tab, .nav-user, .theme-toggle, .unit-toggle, .sig-bell, button.ui-row, .ui-chip, .ui-seg button, .ui-icon-btn, .ui-text-btn, .ui-btn-soft, .prog-subtab, .nw-btn, .ob-card, [role="button"]')
+          : null;
+        if (hit) PowaNative.haptic('LIGHT');
+      } catch (e) {}
+    }, true);
+    // Status bar matched to the CURRENT theme (app.js has already applied
+    // data-theme before paint), so a light-theme user doesn't get white text
+    // on a white bar on first launch.
+    syncStatusBar(document.documentElement.getAttribute('data-theme'));
     // Hide the splash once the web app has painted.
     if (P.SplashScreen) { setTimeout(function () { try { P.SplashScreen.hide(); } catch (e) {} }, 450); }
     // Tapping a push → follow its deep link.
@@ -95,6 +225,34 @@
       try {
         P.PushNotifications.addListener('pushNotificationActionPerformed', function (action) {
           var url = action && action.notification && action.notification.data && action.notification.data.url;
+          if (url) { try { location.assign(url); } catch (e) {} }
+        });
+      } catch (e) {}
+    }
+    // IAP wiring: mark availability (drives whether the tier UI shows at all —
+    // no StoreKit means the app stays tier-blind, Apple 3.1.1), re-render the
+    // plan pill once known, and sync any renewal/Ask-to-Buy transaction that
+    // lands while the app is open.
+    if (P.PowaIAP) {
+      PowaNative.iapSupported().then(function (ok) {
+        window._iapReady = !!ok;
+        try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+      });
+      try {
+        P.PowaIAP.addListener('iapTransaction', function (ev) {
+          var jws = ev && ev.jws;
+          if (!jws || !window.DB || !DB.appleIapSync) return;
+          DB.appleIapSync(jws).then(function (res) {
+            if (res && res.ok && window.refreshMyPlan) refreshMyPlan();
+          }).catch(function () {});
+        });
+      } catch (e) {}
+    }
+    // Tapping the daily weigh-in reminder opens the athlete dashboard.
+    if (P.LocalNotifications) {
+      try {
+        P.LocalNotifications.addListener('localNotificationActionPerformed', function (action) {
+          var url = action && action.notification && action.notification.extra && action.notification.extra.url;
           if (url) { try { location.assign(url); } catch (e) {} }
         });
       } catch (e) {}

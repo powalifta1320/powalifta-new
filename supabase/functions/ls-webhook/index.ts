@@ -86,14 +86,14 @@ Deno.serve(async (req) => {
 
     let rawBody = ''
     try { rawBody = await req.text() }
-    catch (e) { return jsonResponse(400, { error: 'cannot read body', detail: String(e) }) }
+    catch (e) { console.warn('LS webhook: cannot read body', String(e)); return jsonResponse(400, { error: 'cannot read body' }) }
 
     const signature = req.headers.get('X-Signature') || req.headers.get('x-signature') || ''
     const secret = Deno.env.get('LEMON_SQUEEZY_WEBHOOK_SECRET') || ''
 
     if (!secret) {
       console.error('LEMON_SQUEEZY_WEBHOOK_SECRET env var is not set')
-      return jsonResponse(500, { error: 'webhook secret not configured', hint: 'Add LEMON_SQUEEZY_WEBHOOK_SECRET to Edge Function secrets' })
+      return jsonResponse(500, { error: 'internal error' })
     }
 
     const valid = await verifySignature(rawBody, signature, secret)
@@ -105,12 +105,13 @@ Deno.serve(async (req) => {
 
     let payload: any
     try { payload = JSON.parse(rawBody) }
-    catch (e) { return jsonResponse(400, { error: 'invalid JSON', detail: String(e) }) }
+    catch (e) { console.warn('LS webhook: invalid JSON', String(e)); return jsonResponse(400, { error: 'invalid JSON' }) }
 
     const event = payload?.meta?.event_name as string
     const data = payload?.data
     if (!event || !data) {
-      return jsonResponse(400, { error: 'unexpected payload shape', meta: payload?.meta, hasData: !!data })
+      console.warn('LS webhook: unexpected payload shape', { hasMeta: !!payload?.meta, hasData: !!data })
+      return jsonResponse(400, { error: 'unexpected payload shape' })
     }
 
     const attrs = data.attributes || {}
@@ -154,41 +155,71 @@ Deno.serve(async (req) => {
 
     if (!tier) {
       console.warn('No tier match — webhook ignored', { variantName, priceCents })
-      return jsonResponse(200, { ignored: event, reason: 'no tier match', variantName, priceCents })
+      return jsonResponse(200, { ignored: event, reason: 'no tier match' })
     }
 
     const supaUrl = Deno.env.get('SUPABASE_URL') || ''
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     if (!supaUrl || !serviceKey) {
-      return jsonResponse(500, {
-        error: 'Supabase env vars missing',
-        hasUrl: !!supaUrl,
-        hasServiceKey: !!serviceKey,
-        hint: 'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY should be auto-injected; add manually if not'
-      })
+      console.error('Supabase env vars missing', { hasUrl: !!supaUrl, hasServiceKey: !!serviceKey })
+      return jsonResponse(500, { error: 'internal error' })
     }
 
     const supabase = createClient(supaUrl, serviceKey)
 
-    let userId: string | null = customUserId
-    if (!userId && customerEmail) {
-      const lookup = await supabase
+    // ---- Resolve the target profile, AUTHORITATIVELY ----
+    // custom_data.user_id is client-controlled (it rides the checkout URL, app.js),
+    // so it must NEVER be trusted on its own to pick whose tier we write — an
+    // attacker could point their own paid checkout at a victim's uuid. We resolve a
+    // candidate, then require the candidate profile's email to equal the LS
+    // checkout email (user_email is part of the HMAC-signed body). Only an
+    // email-verified match is accepted.
+    let candidateId: string | null = customUserId ? String(customUserId) : null
+    let profileRow: { id: string; email: string; subscription_updated_at: string | null } | null = null
+
+    if (candidateId) {
+      const byId = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, email, subscription_updated_at')
+        .eq('id', candidateId)
+        .limit(1)
+      if (byId.error) { console.error('profile lookup (id) failed:', byId.error.message); return jsonResponse(500, { error: 'internal error' }) }
+      const row = byId.data?.[0]
+      // Accept only if the row's email matches the signed checkout email.
+      if (row && customerEmail && String(row.email || '').toLowerCase().trim() === customerEmail) {
+        profileRow = row as any
+      } else {
+        console.warn('custom_data.user_id did not match checkout email — falling back to email lookup', { hadRow: !!row })
+      }
+    }
+    if (!profileRow && customerEmail) {
+      const byEmail = await supabase
+        .from('profiles')
+        .select('id, email, subscription_updated_at')
         .eq('email', customerEmail)
         .limit(1)
-      if (lookup.error) {
-        return jsonResponse(500, { error: 'profile lookup failed', detail: lookup.error.message })
-      }
-      userId = lookup.data?.[0]?.id || null
+      if (byEmail.error) { console.error('profile lookup (email) failed:', byEmail.error.message); return jsonResponse(500, { error: 'internal error' }) }
+      profileRow = (byEmail.data?.[0] as any) || null
     }
 
-    if (!userId) {
-      return jsonResponse(404, {
-        error: 'no matching user',
-        email: customerEmail,
-        hint: 'The email used at LS checkout must match a POWALIFTA account email exactly.'
-      })
+    if (!profileRow) {
+      // Don't echo the email back (avoid confirming which addresses have accounts).
+      console.warn('LS webhook: no matching user for event', { event })
+      return jsonResponse(404, { error: 'no matching user' })
+    }
+    const userId = profileRow.id
+
+    // ---- Replay / out-of-order guard ----
+    // The subscription webhook has no idempotency key, so a captured signed body
+    // could be replayed (stale re-upgrade / downgrade), and LS retries can arrive
+    // out of order. LS stamps every subscription with a monotonic `updated_at`; we
+    // persist it into subscription_updated_at and refuse to apply an event that is
+    // OLDER than the one we last stored. (First event for a user always applies.)
+    const lsUpdatedMs = Date.parse(String(attrs.updated_at || '')) || 0
+    const storedMs = Date.parse(String(profileRow.subscription_updated_at || '')) || 0
+    if (lsUpdatedMs && storedMs && lsUpdatedMs < storedMs) {
+      console.warn('LS webhook: stale/out-of-order event ignored', { event, lsUpdatedMs, storedMs })
+      return jsonResponse(200, { ignored: event, reason: 'stale event' })
     }
 
     const updateRes = await supabase
@@ -198,22 +229,18 @@ Deno.serve(async (req) => {
         subscription_status: status,
         ls_subscription_id: subscriptionId,
         ls_customer_id: customerId,
-        subscription_updated_at: new Date().toISOString()
+        // Store LS's authoritative event time so the guard above is monotonic.
+        subscription_updated_at: lsUpdatedMs ? new Date(lsUpdatedMs).toISOString() : new Date().toISOString()
       })
       .eq('id', userId)
 
     if (updateRes.error) {
-      return jsonResponse(500, { error: 'profile update failed', detail: updateRes.error.message })
+      console.error('profile update failed:', updateRes.error.message)
+      return jsonResponse(500, { error: 'internal error' })
     }
 
-    return jsonResponse(200, {
-      success: true,
-      user_id: userId,
-      tier,
-      event,
-      status,
-      email: customerEmail
-    })
+    // Success: no PII echoed (user matched, that's all the caller needs).
+    return jsonResponse(200, { success: true, tier, event })
   } catch (e) {
     // Keep stack/message in the logs only — never serialize internals to the caller.
     console.error('Unhandled exception:', e, (e as any)?.stack)

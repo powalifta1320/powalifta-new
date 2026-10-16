@@ -131,7 +131,12 @@ Deno.serve(async (req) => {
   const toUserId = clip(payload.toUserId, 64)
   const title = clip(payload.title, 120) || 'POWALIFTA'
   const body = clip(payload.body, 300)
-  const url = clip(payload.url, 300) || '/athlete.html'
+  // url opens on notificationclick (sw.js). It's caller-supplied, so a linked coach
+  // could otherwise push an off-origin phishing link under the POWALIFTA brand. Force
+  // a same-origin PATH: accept only a leading-slash relative path; anything else
+  // (absolute http(s):, javascript:, //host) falls back to the safe default.
+  const _rawUrl = clip(payload.url, 300) || '/athlete.html'
+  const url = (/^\/[^/]/.test(_rawUrl)) ? _rawUrl : '/athlete.html'
   const tag = clip(payload.tag, 60) || 'powa'
   const category = clip(payload.category, 30) // 'messages' | 'form_checks' | 'program' | ''
   if (!toUserId) return json({ error: 'toUserId required' }, 400)

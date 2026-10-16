@@ -11,7 +11,7 @@
 // specifically to avoid serving stale code after a deploy. Network-first preserves
 // that guarantee — the cache is only ever read when the network actually fails.
 
-const CACHE = 'powa-v2';
+const CACHE = 'powa-v3';
 
 // The app shell: enough to boot the dashboards offline. User DATA is never precached
 // (it comes from Supabase, cross-origin, and is left to pass straight through).

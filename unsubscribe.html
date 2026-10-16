@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Email preferences — POWALIFTA</title>
+<title>Email preferences | POWALIFTA</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="cookie-consent.css">
 <style>
@@ -78,7 +78,7 @@
 <main id="main" class="unsub-wrap">
   <div class="unsub-card">
     <h1>Email <span style="color:var(--red)">preferences</span></h1>
-    <p class="unsub-sub">Manage which emails POWALIFTA sends you. Changes save instantly — no account login needed.</p>
+    <p class="unsub-sub">Manage which emails POWALIFTA sends you. Changes save instantly. No login needed.</p>
 
     <div id="unsubBody">
       <div class="unsub-loading" id="unsubLoading">Updating your preferences…</div>
@@ -90,7 +90,7 @@
   </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
@@ -140,7 +140,7 @@
       '</div>' +
       '<div class="unsub-prefs-head">Your emails</div>' +
       prefRow('epWeekly', 'Weekly progress email',
-        'A Monday recap of your last 7 days — sessions, tonnage, best e1RMs.', weekly) +
+        'A Monday recap of your last 7 days: sessions, tonnage, best e1RMs.', weekly) +
       prefRow('epProduct', 'Product tips & announcements',
         'Occasional notes on new features. No spam, ever.', product) +
       '<div class="unsub-saving" id="unsubSaving"></div>';
@@ -172,7 +172,7 @@
           flash('Saved.', false);
         } else {
           el.checked = !want; // revert the optimistic flip
-          flash('Couldn\'t save — try again.', true);
+          flash('Couldn\'t save. Try again.', true);
         }
       });
     }

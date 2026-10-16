@@ -14,12 +14,19 @@
   inset: -10%;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.55;
+  /* KEY + FILL, not four suns. This was four radial sources at 20%/30%,
+     80%/20%, 60%/80% and 30%/70% — light arriving from four directions
+     simultaneously, which is why the hero read as red FOG rather than a lit
+     scene: with sources everywhere, nothing casts and nothing recedes.
+     Now it does what a lighting setup does — reinforce the key (which lives
+     at top-centre in .hero::before) and add one low bounce for depth. Alpha
+     is down because this layer's job is support, not another headline. */
+  opacity: 0.42;
   background:
-    radial-gradient(circle at 20% 30%, rgba(255, 45, 63, 0.35) 0%, transparent 35%),
-    radial-gradient(circle at 80% 20%, rgba(183, 22, 41, 0.30) 0%, transparent 40%),
-    radial-gradient(circle at 60% 80%, rgba(255, 45, 63, 0.22) 0%, transparent 45%),
-    radial-gradient(circle at 30% 70%, rgba(120, 12, 22, 0.30) 0%, transparent 40%);
+    /* key reinforcement — agrees with .hero::before */
+    radial-gradient(ellipse 62% 46% at 50% 8%, rgba(255, 45, 63, 0.26) 0%, transparent 62%),
+    /* low bounce — deeper, cooler, gives the floor something to catch */
+    radial-gradient(ellipse 70% 40% at 50% 104%, rgba(140, 16, 30, 0.30) 0%, transparent 64%);
   animation: fxMeshFlow 24s ease-in-out infinite alternate;
   filter: blur(40px);
   mix-blend-mode: screen;
@@ -47,7 +54,12 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.65;
+  /* Dropped from 0.65 to 0.2. Two grids were drawing at once — this flat
+     drifting one AND .hero::after, which is now raked into a perspective
+     floor. Two grids at different angles cancel into noise. The floor owns
+     the structure; this stays as faint upper atmosphere so the top of the
+     scene isn't empty. */
+  opacity: 0.2;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);

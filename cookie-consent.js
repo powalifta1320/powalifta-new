@@ -19,6 +19,22 @@
 (function () {
   'use strict';
 
+  // Apple 5.1.2(i): inside the native shell there is NO cookie/consent surface.
+  // The app uses no tracking cookies (auth + theme are localStorage; Plausible is
+  // cookieless), so the web consent banner is both unnecessary and — to an App
+  // Review reader — misleading ("this app deals in cookies → it must track"). We
+  // suppress the banner entirely AND force analytics fully OFF via Plausible's
+  // documented opt-out flag, so the app transmits zero analytics: the honest,
+  // provable "we do not track" posture. A total no-op on the web.
+  var _nativeShell = !!(
+    (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+    (document.documentElement && document.documentElement.classList.contains('native'))
+  );
+  if (_nativeShell) {
+    try { localStorage.setItem('plausible_ignore', 'true'); } catch (e) {}
+    return;
+  }
+
   var CHOICE_KEY = 'powa-consent';     // 'all' | 'essential'
   var PLAUSIBLE_OPT_OUT = 'plausible_ignore';  // Plausible reads this before sending
 

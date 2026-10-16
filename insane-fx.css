@@ -143,14 +143,14 @@
   transform: scale(1);
 }
 .fx-barbell-bar .progress-label {
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
   font-size: 11px;
   letter-spacing: 0.18em;
   fill: #ff2d3f;
   text-transform: uppercase;
 }
 .fx-barbell-bar .progress-pct {
-  font-family: 'Anton', Impact, sans-serif;
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
   font-size: 14px;
   fill: #ffffff;
   letter-spacing: 0.04em;

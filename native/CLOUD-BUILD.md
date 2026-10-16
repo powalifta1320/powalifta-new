@@ -7,8 +7,15 @@ free tier, handles signing + uploads to App Store Connect).
 ## What you need first
 - Apple Developer account ✅ (you have it)
 - Your repo on GitHub ✅ (`powalifta1320/powalifta-new`)
-- These files, committed: `native/capacitor.config.json`, `native/package.json`
-  (both already in the repo). `native/ios` stays gitignored — the cloud rebuilds it.
+- These files, committed: `native/capacitor.config.json`, `native/package.json`,
+  **and `native/assets/` (the brand icon + splash source art)**. `native/ios`
+  stays gitignored — the cloud rebuilds it fresh, which means it starts with
+  Capacitor's placeholder icon and the build MUST regenerate the real one from
+  `native/assets/` (see the icon step below). If `native/assets/` isn't committed,
+  every build ships the blue placeholder icon — this was the original bug.
+- Easiest path is **config-as-code**: commit the repo-root `codemagic.yaml`
+  (already added). It encodes the correct order — install → copyweb → cap add →
+  **generate icon/splash** → sync → pods → archive — so you can't miss a step.
 
 ## Step-by-step (Codemagic, UI-guided — easiest)
 1. Go to **codemagic.io** → sign up with GitHub → authorize your `powalifta-new` repo.
@@ -22,9 +29,14 @@ free tier, handles signing + uploads to App Store Connect).
    Issuer ID, and paste those into Codemagic. This replaces certificates entirely.
 5. **Bundle ID:** `com.powalifta.app`. Team: your Apple Developer team.
 6. Distribution: **App Store / TestFlight**.
-7. Hit **Start build**. Codemagic runs, in its cloud Mac:
-   `npm install` → `npx cap add ios` → `npx cap sync ios` → `pod install` →
-   archive → sign → upload to App Store Connect. ~15–25 min.
+7. Hit **Start build**. With the root `codemagic.yaml` present Codemagic uses it
+   automatically and runs, in its cloud Mac:
+   `npm install` → `npm run copyweb` → `npx cap add ios` →
+   **`npx capacitor-assets generate --ios`** (brand icon + splash) →
+   `npx cap sync ios` → `pod install` → archive → sign → upload to App Store
+   Connect. ~15–25 min. (If you use the UI script fields instead of the yaml, add
+   those two extra lines — `npm run copyweb` and the `capacitor-assets generate`
+   step — or the app ships blank + placeholder-iconned.)
 8. When it lands in App Store Connect: add screenshots + the listing from
    `native/APP-STORE.md`, then submit for review.
 

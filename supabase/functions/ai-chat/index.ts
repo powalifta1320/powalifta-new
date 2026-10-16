@@ -32,6 +32,7 @@
 // fractions of a cent per chat.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { rateLimit } from '../_shared/rate-limit.ts';
 
 // Provider endpoints. Gemini is primary (cheapest); Groq is the automatic
 // fallback so the assistant stays LIVE even when Gemini's billing/quota hiccups.
@@ -164,23 +165,33 @@ Deno.serve(async (req) => {
   if (supabaseUrl && serviceKey) {
     try {
       const admin = createClient(supabaseUrl, serviceKey);
-      const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
-      const { data: row } = await admin
-        .from('ai_chat_usage')
-        .select('count')
-        .eq('user_id', uid)
-        .eq('day', today)
-        .maybeSingle();
-      const used = (row && typeof row.count === 'number') ? row.count : 0;
-      if (used >= dailyCap) {
+      // ATOMIC caps via rl_bump (edge_rate_limits) — the old read-then-upsert on
+      // ai_chat_usage was a race: N concurrent requests all read the same count,
+      // all passed the check, and each billed a model call while the counter moved
+      // by 1. rl_bump does a single race-free increment-and-check, so a burst can't
+      // blow past the cap and rack up unbounded Gemini/Groq spend. Two windows:
+      //   • daily   — the real cost ceiling (AI_DAILY_CAP, default 20)
+      //   • 60s burst — stops a parallel flood even within the day
+      // Both fail OPEN if rl_bump isn't deployed yet (migration-edge-rate-limits),
+      // exactly as before — atomicity engages once that migration is applied.
+      const day = await rateLimit(admin, {
+        bucket: 'ai-chat-day', identity: uid, windowSecs: 86400, limit: dailyCap,
+      });
+      if (!day.ok && !day.degraded) {
         return jsonResponse(429, {
           error: 'Daily limit reached',
-          message: "You've hit today's assistant limit. It resets tomorrow."
+          message: "You've hit today's assistant limit. It resets tomorrow.",
         });
       }
-      await admin
-        .from('ai_chat_usage')
-        .upsert({ user_id: uid, day: today, count: used + 1 }, { onConflict: 'user_id,day' });
+      const burst = await rateLimit(admin, {
+        bucket: 'ai-chat-burst', identity: uid, windowSecs: 60, limit: 6,
+      });
+      if (!burst.ok && !burst.degraded) {
+        return jsonResponse(429, {
+          error: 'Too fast',
+          message: 'Give the assistant a moment between questions.',
+        });
+      }
     } catch (e) {
       // Don't hard-fail the chat if the meter hiccups; just log it.
       console.error('rate-limit check failed:', e);

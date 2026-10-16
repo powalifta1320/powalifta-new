@@ -54,9 +54,16 @@ function uid(prefix = 'id') {
 function getCurrentUser() {
   return window._user || null;
 }
+// Leaving for the welcome screen on purpose (signed out, stale session, deleted
+// account): forget the remembered role and tell index.html's launch script not to
+// route straight back into a dashboard.
+function _toWelcome() {
+  try { localStorage.removeItem('powa-last-role'); sessionStorage.setItem('powa-no-autoroute', '1'); } catch (e) {}
+  location.href = 'index.html';
+}
 function requireAuth(expectedType) {
   const user = getCurrentUser();
-  if (!user) { location.href = 'index.html'; return null; }
+  if (!user) { _toWelcome(); return null; }
   if (expectedType && user.userType !== expectedType) {
     location.href = user.userType === 'coach' ? 'coach.html' : 'athlete.html';
     return null;
@@ -73,7 +80,7 @@ async function logout() {
   try { await DB.signOut(); } catch (e) { console.warn(e); }
   window._user = null;
   Store.reset();
-  location.href = 'index.html';
+  _toWelcome();
 }
 
 // =========================================================
@@ -185,13 +192,13 @@ function _buildDemoData() {
       ]
     });
   }
-  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: DC, name: 'Strength Block — Wave 2', weeks }];
+  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: DC, name: 'Strength Block · Wave 2', weeks }];
 
   const sessionNotes = [
     // Dated TODAY so the live session leads with the "Coach feedback" card —
     // the clearest signal in the demo that a real coach is programming for you.
-    { id: 'demo-note-today', athleteId: DA, weekId: null, dayId: null, date: iso(new Date()), note: '', coachComment: 'Before today: the top set is RPE 8.5 — leave 1–2 in the tank, this isn\'t a max. Back-offs at 8. Film the heavy single and drop it in the form-check tab, I want eyes on your brace out of the hole.', coachCommentAt: iso(new Date()) + 'T08:30:00Z', coachId: DC },
-    { id: 'demo-note-1', athleteId: DA, weekId: null, dayId: null, date: daysAgo(2), note: 'Pulls felt heavy off the floor today but lockout was easy.', coachComment: 'Bar speed on video looked fine — that\'s just deficit fatigue. We deload in two weeks. Keep the openers honest.', coachCommentAt: daysAgo(1) + 'T10:00:00Z', coachId: DC },
+    { id: 'demo-note-today', athleteId: DA, weekId: null, dayId: null, date: iso(new Date()), note: '', coachComment: 'Before today: the top set is RPE 8.5. Leave 1–2 in the tank, this isn\'t a max. Back-offs at 8. Film the heavy single and drop it in the form-check tab, I want eyes on your brace out of the hole.', coachCommentAt: iso(new Date()) + 'T08:30:00Z', coachId: DC },
+    { id: 'demo-note-1', athleteId: DA, weekId: null, dayId: null, date: daysAgo(2), note: 'Pulls felt heavy off the floor today but lockout was easy.', coachComment: 'Bar speed on video looked fine. That\'s just deficit fatigue. We deload in two weeks. Keep the openers honest.', coachCommentAt: daysAgo(1) + 'T10:00:00Z', coachId: DC },
     { id: 'demo-note-2', athleteId: DA, weekId: null, dayId: null, date: daysAgo(7), note: 'Bench PR! Moved fast.', coachComment: 'Saw it. Adding 2.5kg to your top sets.', coachCommentAt: daysAgo(6) + 'T10:00:00Z', coachId: DC }
   ];
   const checkins = [{ id: 'demo-ci-1', athleteId: DA, weekStart: daysAgo(9), sleep: 7, soreness: 6, stress: 4, feel: 8, note: 'Good week.', createdAt: daysAgo(9) + 'T08:00:00Z' }];
@@ -200,7 +207,7 @@ function _buildDemoData() {
   // session notes above into one conversation history (see renderMessageThread).
   const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
   const messages = [
-    { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Heavy single on squat today — film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
+    { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Heavy single on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
     { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Will do. Felt a little soft out of the bottom last week, not sure if it was the brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null }
   ];
@@ -208,7 +215,7 @@ function _buildDemoData() {
   // --- Competition history: two past meets so Progress shows a best total + a
   // PR trend. Best successful lift per discipline (kg). ---
   const meets = [
-    { id: 'demo-meet-1', athleteId: DA, name: 'Winter Open', date: daysAgo(217), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.6, squat: 175, bench: 110, deadlift: 205, notes: 'First meet — went 8/9, missed third squat.', createdAt: daysAgo(217) + 'T18:00:00Z' },
+    { id: 'demo-meet-1', athleteId: DA, name: 'Winter Open', date: daysAgo(217), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.6, squat: 175, bench: 110, deadlift: 205, notes: 'First meet: went 8/9, missed third squat.', createdAt: daysAgo(217) + 'T18:00:00Z' },
     { id: 'demo-meet-2', athleteId: DA, name: 'Spring Classic', date: daysAgo(96), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.9, squat: 185, bench: 115, deadlift: 215, notes: '9/9 day. New total PR.', createdAt: daysAgo(96) + 'T18:00:00Z' }
   ];
 
@@ -304,13 +311,13 @@ function _buildCoachDemoData() {
   // absentee (Tom, unread), and Nina with nothing yet (shows the empty state).
   const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
   const messages = [
-    { id: 'demo-msg-1', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'Squat day today — one top single at RPE 8.5, then two back-offs at 8. Don\'t chase a max, just move it clean.', createdAt: at(4, 9, 15), readAt: at(4, 18, 0) },
+    { id: 'demo-msg-1', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'Squat day today: one top single at RPE 8.5, then two back-offs at 8. Don\'t chase a max, just move it clean.', createdAt: at(4, 9, 15), readAt: at(4, 18, 0) },
     { id: 'demo-msg-2', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Hit 172.5 for the single, honestly felt like an opener.', createdAt: at(4, 18, 40), readAt: at(4, 19, 0) },
     { id: 'demo-msg-3', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'That\'s exactly what I wanted to see. We\'ll go to 175 next week and hold the back-offs.', createdAt: at(4, 19, 2), readAt: at(4, 20, 0) },
-    { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one — sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
+    { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one: sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
     { id: 'demo-msg-5', coachId: DC, athleteId: 'demo-a2', senderId: 'demo-a2', body: 'Paused bench is finally clicking, the reps moved way faster this week.', createdAt: at(3, 12, 10), readAt: at(2, 8, 0) },
     { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Good. Same weights once more, then we add load. The pause is buying you a stronger press off the chest.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
-    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'Haven\'t seen a log in over a week — everything alright?', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
+    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'Haven\'t seen a log in over a week. Everything alright?', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
     { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Yeah man, work\'s been brutal. Back in Monday, promise.', createdAt: at(1, 22, 15), readAt: null }
   ];
   const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
@@ -325,7 +332,7 @@ function _buildCoachDemoData() {
   const tsAgo = n => daysAgo(n) + 'T12:00:00Z';
   const marketplacePrograms = [
     { id: 'demo-mkt-1', coachId: DC, title: '8-Week Strength Block', description: 'A linear-to-RPE strength block for intermediate lifters chasing a bigger squat and pull. Wave loading, autoregulated top sets, built-in deloads.', tier: 'block', category: 'strength', priceCents: 2999, weekCount: 8, status: 'published', soldCount: 9, createdAt: tsAgo(120), programPayload: { weeks: programs[0].weeks }, reference1RMs: { squat: 215, bench: 140, deadlift: 260 } },
-    { id: 'demo-mkt-2', coachId: DC, title: 'Peaking Protocol', description: 'A 4-week meet peak — taper volume, sharpen openers, and walk in primed. Includes attempt-selection guidance and a final-week template.', tier: 'short', category: 'peaking', priceCents: 3999, weekCount: 4, status: 'published', soldCount: 5, createdAt: tsAgo(90), programPayload: { weeks: programs[2].weeks }, reference1RMs: { squat: 215, bench: 140, deadlift: 260 } },
+    { id: 'demo-mkt-2', coachId: DC, title: 'Peaking Protocol', description: 'A 4-week meet peak. Taper volume, sharpen openers, and walk in primed. Includes attempt-selection guidance and a final-week template.', tier: 'short', category: 'peaking', priceCents: 3999, weekCount: 4, status: 'published', soldCount: 5, createdAt: tsAgo(90), programPayload: { weeks: programs[2].weeks }, reference1RMs: { squat: 215, bench: 140, deadlift: 260 } },
     { id: 'demo-mkt-3', coachId: DC, title: 'Bench Specialization', description: 'Six weeks to a stronger press: paused work, larsen presses, and triceps overload. Built for lifters whose bench lags their squat and pull.', tier: 'short', category: 'bench', priceCents: 1999, weekCount: 6, status: 'pending_review', soldCount: 0, createdAt: tsAgo(6), programPayload: { weeks: programs[1].weeks }, reference1RMs: { bench: 140 } }
   ];
   // Sale rows: payout = 80% of price (the platform fee is 20%). Mix of
@@ -380,8 +387,8 @@ function _injectDemoBanner(type) {
   const bar = document.createElement('div');
   bar.className = 'demo-banner';
   const text = type === 'coach'
-    ? '<strong>Live demo</strong> — fake roster, real product. Open the builder, reply to notes, check the flags. Nothing saves.'
-    : '<strong>Live demo</strong> — fake lifter, real product. Tick sets, hit PRs, make share cards. Nothing saves.';
+    ? '<strong>Live demo</strong>: fake roster, real product. Open the builder, reply to notes, check the flags. Nothing saves.'
+    : '<strong>Live demo</strong>: fake lifter, real product. Tick sets, hit PRs, make share cards. Nothing saves.';
   bar.innerHTML =
     '<span class="demo-banner-dot"></span>' +
     '<span class="demo-banner-text">' + text + '</span>' +
@@ -449,11 +456,11 @@ async function bootstrap(expectedType, onReady, opts) {
     console.error('getSession failed', e);
     // If we can't even talk to Supabase, still let public pages render
     if (!expectedType) { onReady && onReady(); return; }
-    toast('Could not reach the server — check your connection.');
+    toast('Could not reach the server. Check your connection.');
     return;
   }
   if (!session) {
-    if (expectedType) { location.href = 'index.html'; return; }
+    if (expectedType) { _toWelcome(); return; }
     try { Store._data.coaches = await DB.listCoaches(); } catch (e) { console.warn('coach list', e); }
     onReady && onReady();
     return;
@@ -477,7 +484,7 @@ async function bootstrap(expectedType, onReady, opts) {
     }
     try { await DB.signOut(); } catch {}
     if (!expectedType) { onReady && onReady(); return; }
-    location.href = 'index.html';
+    _toWelcome();
     return;
   }
 
@@ -491,8 +498,14 @@ async function bootstrap(expectedType, onReady, opts) {
     avatarUrl: profile.avatar_url || null,
     countryCode: profile.country_code || null,
     referralCode: profile.referral_code || null,
-    referredByCode: profile.referred_by_code || null
+    referredByCode: profile.referred_by_code || null,
+    // Apple-billed coach sub (IAP)? Drives which "manage" surface shows on iOS.
+    appleBilled: !!profile.apple_original_transaction_id
   };
+
+  // Remember the role so the app can open straight into the right dashboard next
+  // launch (index.html head script) instead of flashing the welcome screen.
+  try { localStorage.setItem('powa-last-role', profile.user_type); } catch (e) {}
 
   // If a referral was stashed before this user signed up / logged in, attribute
   // it now (own-row write, idempotent + write-once server-side). Fire-and-forget
@@ -530,7 +543,7 @@ async function bootstrap(expectedType, onReady, opts) {
       onReady && onReady();
       return;
     }
-    toast('Could not load your data — try refreshing.');
+    toast('Could not load your data. Try refreshing.');
     return;
   }
 
@@ -549,8 +562,14 @@ function getTheme() {
     const stored = localStorage.getItem(THEME_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {}
-  // Fall back to system preference for first-time visitors. We default to dark
-  // because the brand is dark-first; only honor explicit "light" pref.
+  // Native shell is dark-first, ALWAYS: a light-mode POWALIFTA on a light-appearance
+  // phone reads as off-brand/generic. Ignore the OS pref there (the head snippet already
+  // set data-theme=dark) — the user can still switch explicitly via the Settings toggle.
+  try {
+    if (document.documentElement.classList.contains('native')) return 'dark';
+  } catch {}
+  // Web: honor system preference for first-time visitors (a11y). Dark otherwise —
+  // the brand is dark-first; only auto-adopt an explicit "light" OS pref.
   try {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
       return 'light';
@@ -609,11 +628,22 @@ function _markPwaDismissed() {
   try { localStorage.setItem(PWA_DISMISSED_KEY, String(Date.now())); } catch {}
 }
 
-// Register the service worker
+// Register the service worker — WEB ONLY.
+// In the native Capacitor shell the app already bundles every file (inherently
+// offline) and uses APNs (not Web Push), so the SW is redundant — and worse, its
+// cache served STALE assets after a bundle update ("looks old" after a sync). So
+// in the native shell we skip registration AND proactively unregister + purge any
+// SW/cache a previous build left behind, so the app always loads the fresh bundle.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
-  });
+  const _isNativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (_isNativeShell) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    try { if (window.caches && caches.keys) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {}); } catch (e) {}
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+    });
+  }
 }
 
 // ============================================================
@@ -666,15 +696,15 @@ const PowaPush = {
     if (_isNativeShell()) {
       if (window._demoMode) { toast('Notifications need a real account'); return false; }
       const ok = await PowaNative.registerPush();
-      toast(ok ? 'Notifications on' : 'Couldn’t enable notifications — check iOS Settings › POWALIFTA');
+      toast(ok ? 'Notifications on' : 'Couldn’t enable notifications: check iOS Settings › POWALIFTA');
       return ok;
     }
     if (!this.supported()) { toast('Notifications are not supported on this browser'); return false; }
-    if (!this.configured()) { toast('Push not configured yet — add a VAPID key'); return false; }
+    if (!this.configured()) { toast('Push not configured yet. Add a VAPID key'); return false; }
     if (window._demoMode) { toast('Notifications need a real account'); return false; }
 
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications blocked — enable them in browser settings' : 'Notifications not enabled'); return false; }
+    if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications blocked: enable them in browser settings' : 'Notifications not enabled'); return false; }
 
     // Need a real signed-in user before we subscribe — there's nowhere to save it otherwise.
     const userId = window.DB ? await DB.getUserId() : null;
@@ -695,7 +725,7 @@ const PowaPush = {
     } catch (err) {
       console.warn('Push subscribe failed:', err);
       toast(window.isSecureContext
-        ? 'Your browser couldn’t reach a push service — try Chrome or the installed app'
+        ? 'Your browser couldn’t reach a push service. Try Chrome or the installed app'
         : 'Notifications need HTTPS or the installed app');
       return false;
     }
@@ -707,7 +737,7 @@ const PowaPush = {
     } catch (err) {
       console.warn('Saving push subscription failed:', err);
       try { await sub.unsubscribe(); } catch {}
-      toast('Couldn’t save your alert settings — please try again');
+      toast('Couldn’t save your alert settings. Please try again');
       return false;
     }
 
@@ -759,8 +789,8 @@ window.PowaPush = PowaPush;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _deferredInstallPrompt = e;
-  // Show our banner if not dismissed
-  if (!_pwaDismissedRecently() && !_isStandalone()) showInstallBanner();
+  // Show our banner if not dismissed (never in the native shell)
+  if (!_isNativeShell() && !_pwaDismissedRecently() && !_isStandalone()) showInstallBanner();
 });
 
 window.addEventListener('appinstalled', () => {
@@ -769,6 +799,10 @@ window.addEventListener('appinstalled', () => {
 });
 
 function showInstallBanner() {
+  // Never inside the native app — it's already installed from the App Store,
+  // and prompting to "Add to Home Screen" would fail App Store review (3.2.2 /
+  // web-wrapper signals) besides being nonsense to the user.
+  if (_isNativeShell()) return;
   if (document.getElementById('pwaInstallBanner')) return;
   if (_isStandalone()) return;
   if (_pwaDismissedRecently()) return;
@@ -852,6 +886,7 @@ window.isTourDone = isTourDone;
 window.resetTour = resetTour;
 
 let _tourState = { name: null, steps: [], idx: 0 };
+let _tourRepos = null; // active scroll/resize reposition handler, torn down on close
 
 function startTour(name, steps) {
   if (!steps || !steps.length) return;
@@ -871,32 +906,12 @@ function renderTourStep() {
     try { step.before(); } catch (e) { console.warn('tour before hook failed', e); }
   }
 
-  // Allow the DOM a moment to update if before() switched panes
-  setTimeout(() => {
-    const target = step.selector ? document.querySelector(step.selector) : null;
+  const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  const mount = () => {
     const overlay = document.createElement('div');
     overlay.id = 'tourOverlay';
     overlay.className = 'tour-overlay';
-
-    if (target) {
-      const rect = target.getBoundingClientRect();
-      const pad = 6;
-      overlay.style.setProperty('--tx', (rect.left - pad) + 'px');
-      overlay.style.setProperty('--ty', (rect.top - pad) + 'px');
-      overlay.style.setProperty('--tw', (rect.width + pad * 2) + 'px');
-      overlay.style.setProperty('--th', (rect.height + pad * 2) + 'px');
-      // Scroll target into view if it's off-screen
-      if (rect.top < 80 || rect.bottom > window.innerHeight - 120) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    } else {
-      // No target — full screen dim, centered tip
-      overlay.style.setProperty('--tx', '50%');
-      overlay.style.setProperty('--ty', '50%');
-      overlay.style.setProperty('--tw', '0px');
-      overlay.style.setProperty('--th', '0px');
-    }
-
     const tip = document.createElement('div');
     tip.className = 'tour-tip';
     const isLast = _tourState.idx === _tourState.steps.length - 1;
@@ -912,26 +927,84 @@ function renderTourStep() {
     overlay.appendChild(tip);
     document.body.appendChild(overlay);
 
-    // Position the tip relative to the target (below by default, fallback above)
-    if (target) {
+    // Place the spotlight cutout + tip against the target's LIVE rect. Re-queried
+    // every call (not captured once) so a late-rendered target from a before()
+    // pane-switch, plus any scroll/resize, keeps everything aligned. The overlay is
+    // position:fixed inset:0, so getBoundingClientRect() viewport coords map 1:1 to
+    // the fixed spotlight vars and the absolutely-positioned tip inside it.
+    const place = () => {
+      if (!document.getElementById('tourOverlay')) return;
+      let target = step.selector ? document.querySelector(step.selector) : null;
+      // A sidebar tab that isn't on screen (the app's bottom bar replaces the
+      // sidebar; sub-screens are hidden from it) → spotlight its bottom-bar twin,
+      // or its parent's, instead of a zero-size rect in the corner.
+      if (target && target.classList.contains('sidebar-tab') && !target.offsetWidth) {
+        const twin = document.querySelector('.bottom-tab[data-src="' + target.dataset.tab + '"]') ||
+                     document.querySelector('.bottom-tab[data-src="' + (target.dataset.parent || '') + '"]') ||
+                     document.querySelector('.sidebar-tab[data-tab="' + (target.dataset.parent || '') + '"]');
+        if (twin && twin.offsetWidth) target = twin;
+      }
+      if (!target) {
+        overlay.style.setProperty('--tx', '50%');
+        overlay.style.setProperty('--ty', '50%');
+        overlay.style.setProperty('--tw', '0px');
+        overlay.style.setProperty('--th', '0px');
+        tip.style.transform = 'translate(-50%, -50%)';
+        tip.style.top = '50%';
+        tip.style.left = '50%';
+        return;
+      }
       const rect = target.getBoundingClientRect();
+      const pad = 6;
+      overlay.style.setProperty('--tx', (rect.left - pad) + 'px');
+      overlay.style.setProperty('--ty', (rect.top - pad) + 'px');
+      overlay.style.setProperty('--tw', (rect.width + pad * 2) + 'px');
+      overlay.style.setProperty('--th', (rect.height + pad * 2) + 'px');
+
+      // Tip: below the target by default; flip above if it would spill past the
+      // bottom; clamp within a margin on all sides (belt-and-braces vs the global
+      // overflow guard, and keeps clear of the notch/home-indicator).
       const tipRect = tip.getBoundingClientRect();
       const margin = 16;
+      tip.style.transform = '';
       let top = rect.bottom + margin;
       if (top + tipRect.height > window.innerHeight - margin) {
-        top = Math.max(margin, rect.top - tipRect.height - margin);
+        top = rect.top - tipRect.height - margin;
       }
+      top = Math.max(margin, Math.min(window.innerHeight - tipRect.height - margin, top));
       let left = rect.left + rect.width / 2 - tipRect.width / 2;
       left = Math.max(margin, Math.min(window.innerWidth - tipRect.width - margin, left));
       tip.style.top = top + 'px';
       tip.style.left = left + 'px';
-    } else {
-      // Centered when no target
-      tip.style.top = '50%';
-      tip.style.left = '50%';
-      tip.style.transform = 'translate(-50%, -50%)';
+    };
+
+    // Bring the target on-screen FIRST, then place — so we never measure a
+    // pre-scroll rect. Reduced motion → instant scroll (no animation to chase).
+    const target = step.selector ? document.querySelector(step.selector) : null;
+    if (target) {
+      const r = target.getBoundingClientRect();
+      if (r.top < 80 || r.bottom > window.innerHeight - 160) {
+        target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+      }
     }
-  }, step.before ? 200 : 0);
+
+    // rAF-debounced reposition, run now + across the smooth-scroll settle window,
+    // and on every scroll/resize while the step is open. Capture-phase scroll
+    // catches the inner .dash-main scroll container (its events don't bubble to window).
+    let raf = 0;
+    const schedule = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; place(); }); };
+    place();
+    if (!reduce) { setTimeout(place, 260); setTimeout(place, 440); }
+    else { setTimeout(place, 0); }
+
+    _tourRepos = schedule;
+    window.addEventListener('scroll', schedule, { passive: true, capture: true });
+    window.addEventListener('resize', schedule, { passive: true });
+  };
+
+  // Give the DOM a couple of frames to settle if before() switched panes.
+  if (step.before) requestAnimationFrame(() => requestAnimationFrame(mount));
+  else mount();
 }
 
 function nextTourStep() {
@@ -954,6 +1027,11 @@ function endTour(complete) {
   _tourState = { name: null, steps: [], idx: 0 };
 }
 function _closeTourOverlay() {
+  if (_tourRepos) {
+    window.removeEventListener('scroll', _tourRepos, { capture: true });
+    window.removeEventListener('resize', _tourRepos);
+    _tourRepos = null;
+  }
   const o = document.getElementById('tourOverlay');
   if (o) o.remove();
 }
@@ -1007,7 +1085,7 @@ function unitLabel() { return getUnit(); }
 // "145 kg" or "319.7 lbs"
 function formatWeight(kg, decimals) {
   const v = kgToDisplay(kg, decimals);
-  if (v == null) return '—';
+  if (v == null) return '–';
   return v + ' ' + unitLabel();
 }
 window.getUnit = getUnit;
@@ -1098,9 +1176,16 @@ function ensureUpgradeModal() {
 function openUpgradeModal(reason) {
   const u = getCurrentUser();
   if (!u) return;
-  // Apple 3.1.1: the iOS app must not steer users to external web payment for
-  // digital goods. On native, don't open the LS checkout — point to the web.
-  if (_isNativeShell()) { toast('Manage your plan at powalifta.com'); return; }
+  // Native shell: tiers are now purchasable IN-APP via StoreKit (Apple 3.1.1
+  // compliant), so the paywall may show — but ONLY when StoreKit is actually
+  // available (window._iapReady, set by native-bridge). Old iOS / missing
+  // plugin → stay fully tier-blind: neutral cap message, nothing else. The web
+  // Lemon Squeezy modal below never renders in the shell either way.
+  if (_isNativeShell()) {
+    if (window._iapReady) { openNativePaywall(reason); return; }
+    if (reason === 'cap') toast('You\'ve reached your athlete limit.');
+    return;
+  }
   ensureUpgradeModal();
   if (reason === 'cap') {
     document.getElementById('upgradeTitle').textContent = 'You\'ve hit your plan limit';
@@ -1149,6 +1234,146 @@ function openUpgradeModal(reason) {
 window.openUpgradeModal = openUpgradeModal;
 
 // =========================================================
+// NATIVE PAYWALL — StoreKit In-App Purchase (iOS shell only)
+// The 3.1.1-compliant twin of the web upgrade modal: same .upgrade-* look,
+// but every price is Apple's localized displayPrice and every CTA is a real
+// StoreKit purchase. Includes the affordances Apple requires on subscription
+// paywalls: a Restore Purchases action, Terms + Privacy links, and a renewal
+// disclosure. Never renders on the web (openUpgradeModal routes there first).
+// =========================================================
+const IAP_TIER_META = {
+  'com.powalifta.app.coach.basic':   { key: 'basic',   limit: 10,   blurb: 'Solo coach, growing roster.' },
+  'com.powalifta.app.coach.pro':     { key: 'pro',     limit: 25,   blurb: 'Full-time independent coach.', featured: true },
+  'com.powalifta.app.coach.premium': { key: 'premium', limit: 9999, blurb: 'Studios, teams, federations.' }
+};
+
+function ensureIapPaywall() {
+  if (document.getElementById('iapPaywallModal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<div class="modal-backdrop" id="iapPaywallModal">' +
+      '<div class="modal modal-lg">' +
+        '<button class="modal-close" aria-label="Close" onclick="closeModal(\'iapPaywallModal\')">&times;</button>' +
+        '<h3 id="iapPaywallTitle">Choose your plan</h3>' +
+        '<p class="dim text-sm mb-16" id="iapPaywallSubtitle">Scale your coaching as your roster grows.</p>' +
+        '<div class="upgrade-grid" id="iapPaywallTiers"></div>' +
+        '<div class="center mt-16">' +
+          '<button class="btn btn-sm btn-ghost" onclick="iapRestorePurchases(this)">Restore Purchases</button>' +
+        '</div>' +
+        '<p class="faded text-xs center mt-12">Subscriptions are billed monthly through your Apple ID and renew ' +
+          'automatically until cancelled in your App Store settings at least 24 hours before the period ends.</p>' +
+        '<p class="faded text-xs center mt-8">' +
+          '<a href="terms.html" class="dim">Terms of Use</a> &nbsp;·&nbsp; <a href="privacy.html" class="dim">Privacy Policy</a>' +
+        '</p>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(wrap.firstChild);
+}
+
+async function openNativePaywall(reason) {
+  const u = getCurrentUser();
+  if (!u) return;
+  if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+  ensureIapPaywall();
+  const grid = document.getElementById('iapPaywallTiers');
+  if (reason === 'cap') {
+    document.getElementById('iapPaywallTitle').textContent = 'You\'ve hit your plan limit';
+    document.getElementById('iapPaywallSubtitle').textContent =
+      'Your roster is full on the ' + (TIER_LABELS[getCurrentTier()] || 'Free') + ' plan. Upgrade to add more athletes.';
+  } else {
+    document.getElementById('iapPaywallTitle').textContent = 'Choose your plan';
+    document.getElementById('iapPaywallSubtitle').textContent = 'Scale your coaching as your roster grows.';
+  }
+  grid.innerHTML = '<p class="dim text-sm">Loading plans…</p>';
+  document.getElementById('iapPaywallModal').classList.add('open');
+
+  const products = await PowaNative.iapProducts();
+  if (!products.length) {
+    // Honest failure — never invent prices the App Store didn't return.
+    grid.innerHTML = '<p class="dim text-sm">Couldn\'t reach the App Store. Check your connection and try again.</p>';
+    return;
+  }
+  grid.innerHTML = '';
+  const current = getCurrentTier();
+  // Stable order: basic → pro → premium regardless of App Store response order.
+  const ordered = Object.keys(IAP_TIER_META)
+    .map(id => products.find(p => p.id === id)).filter(Boolean);
+  ordered.forEach(p => {
+    const meta = IAP_TIER_META[p.id];
+    const isCurrent = meta.key === current;
+    const card = el('div', { class: 'upgrade-tier' + (meta.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
+    if (meta.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'POPULAR'));
+    card.appendChild(el('h4', {}, TIER_LABELS[meta.key] || p.displayName));
+    card.appendChild(el('div', { class: 'upgrade-price' }, p.displayPrice, el('span', { class: 'unit' }, '/mo')));
+    card.appendChild(el('div', { class: 'upgrade-limit' }, meta.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + meta.limit + ' athletes'));
+    card.appendChild(el('p', { class: 'upgrade-blurb' }, meta.blurb));
+    if (isCurrent) {
+      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', style: 'opacity:0.6; cursor: default;' }, 'Current plan'));
+    } else {
+      const cta = el('button', { class: 'btn btn-primary btn-block' }, current === 'free' ? 'Subscribe' : 'Switch');
+      cta.addEventListener('click', () => iapBuy(p.id, cta));
+      card.appendChild(cta);
+    }
+    grid.appendChild(card);
+  });
+}
+
+async function iapBuy(productId, btn) {
+  const u = getCurrentUser();
+  if (!u) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Waiting for App Store…'; }
+  const done = (label) => { if (btn) { btn.disabled = false; btn.textContent = label || 'Subscribe'; } };
+  try {
+    const res = await PowaNative.iapPurchase(productId, u.id);
+    if (res.state === 'cancelled') { done(); return; }
+    if (res.state === 'pending') { done(); toast('Purchase pending approval.'); return; }
+    if (res.state !== 'purchased' || !res.jws) { done(); toast('Purchase didn\'t complete: nothing was charged.'); return; }
+    if (btn) btn.textContent = 'Activating…';
+    const sync = await DB.appleIapSync(res.jws);
+    if (sync.ok) {
+      await refreshMyPlan();
+      closeModal('iapPaywallModal');
+      toast('You\'re on ' + (TIER_LABELS[sync.tier] || sync.tier) + '. Welcome aboard.');
+      try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+      try { const box = document.getElementById('setPlanBox'); if (box && box.offsetParent) renderPlanManageCard(box); } catch (e) {}
+    } else if (sync.reason === 'web_billing_active') {
+      done(); toast('This account already has an active plan.');
+    } else {
+      // Purchase exists on Apple's side; the entitlement re-syncs on next launch.
+      done(); toast('Purchased: activating shortly.');
+    }
+  } catch (e) {
+    done(); toast('Purchase failed: nothing was charged.');
+  }
+}
+
+async function iapRestorePurchases(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  const done = () => { if (btn) { btn.disabled = false; btn.textContent = 'Restore Purchases'; } };
+  try {
+    const ents = await PowaNative.iapRestore();
+    if (!ents.length) { done(); toast('No active subscription found for this Apple ID.'); return; }
+    let mismatch = false;
+    for (const ent of ents) {
+      const sync = await DB.appleIapSync(ent.jws);
+      if (sync.ok) {
+        await refreshMyPlan();
+        closeModal('iapPaywallModal');
+        toast('Subscription restored: you\'re on ' + (TIER_LABELS[sync.tier] || sync.tier) + '.');
+        try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+        done(); return;
+      }
+      if (sync.reason === 'account_mismatch') mismatch = true;
+    }
+    done();
+    toast(mismatch ? 'That subscription belongs to a different POWALIFTA account.' : 'Couldn\'t restore. Try again later.');
+  } catch (e) { done(); toast('Couldn\'t restore. Try again later.'); }
+}
+window.openNativePaywall = openNativePaywall;
+window.iapBuy = iapBuy;
+window.iapRestorePurchases = iapRestorePurchases;
+
+// =========================================================
 // SUBSCRIPTION MANAGEMENT (#34) — for EXISTING subscribers
 //
 // The upgrade modal above handles buying a NEW plan. This block is the other
@@ -1194,8 +1419,16 @@ function _subStatusColor(tone) {
 // signed per-subscription deep link if the ls-portal function returns one.
 async function openBillingPortal() {
   if (window._demoMode) { toast('Preview only in demo mode.'); return; }
-  // Apple 3.1.1: no external-payment path from inside the iOS app.
-  if (_isNativeShell()) { toast('Manage billing at powalifta.com'); return; }
+  // Native shell: Apple-billed subs manage through Apple's own subscription
+  // sheet (that's IAP management, not external purchasing — allowed). Web-billed
+  // subs get nothing here — naming the website would be steering (3.1.1).
+  if (_isNativeShell()) {
+    const nu = getCurrentUser();
+    if (nu && nu.appleBilled) {
+      try { window.open('https://apps.apple.com/account/subscriptions', '_blank'); } catch (e) {}
+    }
+    return;
+  }
   const tab = window.open('', '_blank'); // reserve the tab inside the click gesture
   let url = LS_BILLING_PORTAL;
   try {
@@ -1214,8 +1447,12 @@ function renderPlanManageCard(container) {
   const u = getCurrentUser();
   if (!container) return;
   // Athletes never subscribe — collapse the box entirely (no stray hairline/gap).
-  if (!u || u.userType !== 'coach') { container.innerHTML = ''; container.style.display = 'none'; return; }
+  // Native shell: shows ONLY when StoreKit IAP is live (window._iapReady) —
+  // tiers are then purchasable in-app, which is what makes displaying them
+  // 3.1.1-compliant. No StoreKit → stay tier-blind and collapse.
+  if (!u || u.userType !== 'coach' || (_isNativeShell() && !window._iapReady)) { container.innerHTML = ''; container.style.display = 'none'; return; }
   container.style.display = '';
+  const native = _isNativeShell();
 
   const tier = getCurrentTier();
   const limit = getCurrentTierLimit();
@@ -1223,7 +1460,7 @@ function renderPlanManageCard(container) {
   const info = tier !== 'free' ? subscriptionStatusInfo(u.subscriptionStatus) : null;
   const badge = info
     ? '<span style="display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;' +
-      'font-size:0.72rem;font-weight:700;letter-spacing:0.02em;vertical-align:middle;' +
+      'font-size:11px;font-weight:700;letter-spacing:0.02em;vertical-align:middle;' +
       'color:' + _subStatusColor(info.tone) + ';border:1px solid ' + _subStatusColor(info.tone) + ';' +
       'background:transparent">' + escHtml(info.label) + '</span>'
     : '';
@@ -1231,8 +1468,10 @@ function renderPlanManageCard(container) {
   const usage = 'Using ' + occupied + ' of ' + (limit >= 9999 ? 'unlimited' : limit) +
     ' athlete slot' + (limit === 1 ? '' : 's') + '.';
 
-  // Payment-problem statuses get a one-line nudge in danger tone.
-  const problem = info && info.tone === 'bad'
+  // Payment-problem statuses get a one-line nudge in danger tone. The card-update
+  // copy is Lemon Squeezy-specific — suppressed on native (Apple runs its own
+  // billing retry + grace period for IAP subs).
+  const problem = !native && info && info.tone === 'bad'
     ? '<p class="text-xs" style="margin:8px 0 0;color:' + _subStatusColor('bad') + ';line-height:1.5">' +
       'We couldn\'t take your last payment. Update your card in the billing portal to keep your plan.</p>'
     : (info && info.tone === 'warn' && u.subscriptionStatus === 'cancelled'
@@ -1241,14 +1480,18 @@ function renderPlanManageCard(container) {
         : '');
 
   const changeLabel = tier === 'free' ? 'See plans' : 'Change plan';
-  const manageBtn = tier !== 'free'
-    ? '<button class="btn btn-block btn-ghost" onclick="openBillingPortal()">Manage billing</button>'
+  // Manage button: web → LS billing portal. Native → Apple's own subscription
+  // management, and ONLY for Apple-billed subs (a web-billed sub viewed on iOS
+  // gets no manage affordance at all — pointing at the website is steering).
+  const manageBtn = tier !== 'free' && (!native || u.appleBilled)
+    ? '<button class="btn btn-block btn-ghost" onclick="openBillingPortal()">' +
+      (native ? 'Manage subscription' : 'Manage billing') + '</button>'
     : '';
 
   container.innerHTML =
     '<p class="dim text-sm mb-8">Your plan</p>' +
     '<div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin-bottom:4px">' +
-      '<span style="font-family:\'Anton\',sans-serif;font-size:1.35rem;letter-spacing:0.01em">' +
+      '<span style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800;font-size:22px;letter-spacing:0.01em">' +
         escHtml((TIER_LABELS[tier] || 'Free').toUpperCase()) + '</span>' + badge +
     '</div>' +
     '<p class="dim text-xs" style="line-height:1.5">' + escHtml(usage) + '</p>' +
@@ -1257,9 +1500,11 @@ function renderPlanManageCard(container) {
       '<button class="btn btn-block btn-ghost" onclick="closeSettingsModal();openUpgradeModal()">' + changeLabel + '</button>' +
       manageBtn +
     '</div>' +
-    (tier !== 'free'
-      ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Update your card, switch plans, or cancel — all in the secure Lemon Squeezy portal.</p>'
-      : '');
+    (tier !== 'free' && !native
+      ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Update your card, switch plans, or cancel. All in the secure Lemon Squeezy portal.</p>'
+      : (tier !== 'free' && native && u.appleBilled
+          ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Billed through your Apple ID. Cancel or switch anytime in your App Store settings.</p>'
+          : ''));
 }
 window.renderPlanManageCard = renderPlanManageCard;
 
@@ -1297,7 +1542,7 @@ function dunningInfo() {
         key: status, severity: 'critical', icon: '⚠',
         title: 'Payment problem',
         body: 'We couldn\'t process the payment for your ' + label + ' plan. ' +
-              'Update your card to keep your roster access — repeated failures drop you to ' + floor + '.',
+              'Update your card to keep your roster access. Repeated failures drop you to ' + floor + '.',
         cta: 'Fix billing'
       };
     case 'cancelled':
@@ -1332,6 +1577,10 @@ window.dismissDunning = dismissDunning;
 // dashboard render; it rebuilds from the live status each time.
 function renderDunningBanner(container) {
   if (!container) return;
+  // Apple 3.1.1: this banner exists solely to route a coach to an external
+  // billing portal ("Fix billing" / "Resume plan"), so the native shell renders
+  // nothing at all. Plan lapses are surfaced on the web, where they subscribed.
+  if (_isNativeShell()) { container.innerHTML = ''; return; }
   const info = dunningInfo();
   if (!info) { container.innerHTML = ''; return; }
 
@@ -1380,7 +1629,7 @@ function persistProgram(programId) { if (window._demoMode) return;
     catch (e) {
       console.error('persistProgram', e);
       _enqueueOutbox('program', prog, 'program:' + prog.id);
-      toast('No connection — saved on this device, will sync');
+      toast('No connection: saved on this device, will sync');
     }
   }, 350);
 }
@@ -1451,7 +1700,7 @@ async function flushPendingLogs() {
   _writeLogAttempts(attempts);
   _flushingLogs = false;
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
-  if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced — please re-log");
+  if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced: please re-log");
   if (typeof _refreshConnBanner === 'function') _refreshConnBanner();
 }
 window.addEventListener('online', () => { setTimeout(flushPendingLogs, 800); });
@@ -1464,7 +1713,7 @@ async function persistAddLog(log) {
     console.error('addLog', e);
     _queuePendingLog(log);
     _scheduleConnBanner();
-    toast('No connection — set saved on this device, will sync automatically');
+    toast('No connection: set saved on this device, will sync automatically');
   }
 }
 async function persistDeleteLog(id) {
@@ -1478,8 +1727,8 @@ async function persistDeleteLog(id) {
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
 async function persistDeleteInvite(code)  { if (window._demoMode) return; try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
 async function persistAddNote(n)          { if (window._demoMode) return; try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
-async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); toast('No connection — saved on this device, will sync'); } }
-async function persistBw(b)               { if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection — saved on this device, will sync'); } }
+async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); toast('No connection: saved on this device, will sync'); } }
+async function persistBw(b)               { if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection: saved on this device, will sync'); } }
 async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); } }
 async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); _enqueueOutbox('deleteRest', { athleteId: aid, date: d }, 'rest:' + aid + ':' + d); } }
 async function persistAddTemplate(t)      { if (window._demoMode) return; try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
@@ -1513,6 +1762,33 @@ function _clearSnapshot(uid) {
 // Re-snapshot the live Store right before the tab is hidden / closed, so the
 // offline cache reflects anything logged this session.
 function _snapshotNow() { if (window._user) _saveSnapshot(window._user, Store.get()); }
+
+// Re-read the signed-in user's subscription fields from the DB and reconcile the
+// in-memory user. This is how a coach's athlete-limit reflects a payment WITHOUT a
+// full reload: LS checkout opens in a new tab, the webhook writes subscription_tier,
+// and when the coach tabs back here we pull the fresh tier so canAddAthlete() and the
+// plan card update immediately. Returns true if the tier/status actually changed.
+// No-ops in demo mode and for signed-out/unknown users; never throws into the caller.
+async function refreshMyPlan() {
+  try {
+    const u = window._user;
+    if (!u || !u.id || window._demoMode) return false;
+    if (!(typeof DB !== 'undefined' && DB.getProfile)) return false;
+    const p = await DB.getProfile(u.id);
+    if (!p) return false;
+    const nextTier = p.subscription_tier || 'free';
+    const nextStatus = p.subscription_status || 'inactive';
+    const changed = nextTier !== u.subscriptionTier || nextStatus !== u.subscriptionStatus;
+    u.subscriptionTier = nextTier;
+    u.subscriptionStatus = nextStatus;
+    u.appleBilled = !!p.apple_original_transaction_id;
+    if (changed) {
+      try { _saveSnapshot(u, Store.get()); } catch (e) {}
+    }
+    return changed;
+  } catch (e) { return false; }
+}
+window.refreshMyPlan = refreshMyPlan;
 window.addEventListener('pagehide', _snapshotNow);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _snapshotNow(); });
 
@@ -1574,7 +1850,7 @@ async function flushOutbox() {
   _writeOutboxAttempts(attempts);
   _flushingOutbox = false;
   if (synced > 0 && !failed.length) toast('Changes synced');
-  if (dropped > 0) toast("Some changes couldn't be synced — please re-check");
+  if (dropped > 0) toast("Some changes couldn't be synced. Please re-check");
   _refreshConnBanner();
 }
 
@@ -1595,7 +1871,7 @@ function _connBannerEl() {
       '#powa-conn-banner{position:fixed;left:50%;bottom:18px;transform:translate(-50%,150%);z-index:1200;' +
       'display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:9px 15px;border-radius:999px;' +
       'background:#161618;color:#f4f4f5;border:1px solid rgba(255,45,63,0.5);box-shadow:0 10px 34px rgba(0,0,0,0.4);' +
-      'font:600 13px/1 "Plus Jakarta Sans",system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;opacity:0;pointer-events:none;' +
+      'font:600 13px/1 Archivo,system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;opacity:0;pointer-events:none;' +
       'transition:transform .34s cubic-bezier(.16,1,.3,1),opacity .34s}' +
       '#powa-conn-banner.show{transform:translate(-50%,0);opacity:1}' +
       '#powa-conn-banner .pcb-dot{width:8px;height:8px;border-radius:50%;background:#ff2d3f;flex:none;' +
@@ -1647,9 +1923,9 @@ async function generateShareCard(opts) {
   // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer }
   try {
     await Promise.all([
-      document.fonts.load('400 100px Anton'),
-      document.fonts.load('700 40px "Plus Jakarta Sans"'),
-      document.fonts.load('400 40px "Plus Jakarta Sans"')
+      document.fonts.load('800 100px Archivo'),
+      document.fonts.load('700 40px Archivo'),
+      document.fonts.load('400 40px Archivo')
     ]);
   } catch (e) { /* fonts may already be loaded — canvas falls back gracefully */ }
 
@@ -1666,57 +1942,70 @@ async function generateShareCard(opts) {
   x.lineWidth = 1;
   for (let i = 0; i <= W; i += 90) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
   for (let i = 0; i <= H; i += 90) { x.beginPath(); x.moveTo(0, i); x.lineTo(W, i); x.stroke(); }
-  // Red glow top + bottom
-  let g = x.createRadialGradient(W / 2, -100, 0, W / 2, -100, 1000);
-  g.addColorStop(0, 'rgba(255,45,63,0.30)'); g.addColorStop(1, 'rgba(255,45,63,0)');
+  // One soft overhead light — neutral, like the app (red is spent on the mark only).
+  const g = x.createRadialGradient(W / 2, -160, 0, W / 2, -160, 1050);
+  g.addColorStop(0, 'rgba(255,255,255,0.07)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
-  g = x.createRadialGradient(W / 2, H + 150, 0, W / 2, H + 150, 800);
-  g.addColorStop(0, 'rgba(255,45,63,0.18)'); g.addColorStop(1, 'rgba(255,45,63,0)');
-  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  if ('fontStretch' in x) x.fontStretch = 'expanded';   // Archivo's wide display cut where supported
 
-  // Wordmark — POWA white, LIFTA red
+  // Logo — the plate mark (the ONE red element) + an all-ink wordmark, centred.
   x.textBaseline = 'alphabetic';
-  x.font = '400 72px Anton, Impact, sans-serif';
-  const wPowa = x.measureText('POWA').width;
-  const wLifta = x.measureText('LIFTA').width;
-  let sx = (W - wPowa - wLifta) / 2;
+  x.font = '800 64px Archivo, \"Arial Black\", sans-serif';
+  const word = 'POWALIFTA';
+  const wordW = x.measureText(word).width;
+  const markW = 88, gap = 22;
+  const lx = (W - markW - gap - wordW) / 2, ly = 104;
+  const rr = (rx, ry, rw, rh, r) => { x.beginPath(); if (x.roundRect) x.roundRect(rx, ry, rw, rh, r); else x.rect(rx, ry, rw, rh); x.fill(); };
+  const s = markW / 32;                                   // the 32-unit BRAND_MARK grid
+  x.fillStyle = '#f4f4f6'; rr(lx + 1.5 * s, ly + 14.6 * s, 29 * s, 2.8 * s, 1.4 * s);
+  x.fillStyle = '#ff2d3f'; rr(lx + 8 * s, ly + 3 * s, 7.5 * s, 26 * s, 2.2 * s);
+  x.fillStyle = '#f4f4f6'; rr(lx + 17 * s, ly + 7.5 * s, 4 * s, 17 * s, 1.6 * s);
+  rr(lx + 22.5 * s, ly + 12 * s, 2.6 * s, 8 * s, 1.1 * s);
   x.textAlign = 'left';
-  x.fillStyle = '#f4f4f6'; x.fillText('POWA', sx, 150);
-  x.fillStyle = '#ff2d3f'; x.fillText('LIFTA', sx + wPowa, 150);
+  x.fillText(word, lx + markW + gap, ly + 16 * s + 22);
 
-  // Tag pill
+  // Tag pill — quiet ink, not red
   x.textAlign = 'center';
-  x.font = '700 34px "Plus Jakarta Sans", sans-serif';
+  x.font = '700 32px Archivo, sans-serif';
   const tagW = x.measureText(opts.tag).width + 80;
-  x.fillStyle = 'rgba(255,45,63,0.12)';
-  x.strokeStyle = 'rgba(255,45,63,0.45)';
+  x.fillStyle = 'rgba(255,255,255,0.06)';
+  x.strokeStyle = 'rgba(255,255,255,0.22)';
   x.lineWidth = 2;
   if (x.roundRect) {
     x.beginPath(); x.roundRect((W - tagW) / 2, 250, tagW, 72, 36); x.fill(); x.stroke();
   } else {
     x.fillRect((W - tagW) / 2, 250, tagW, 72); x.strokeRect((W - tagW) / 2, 250, tagW, 72);
   }
-  x.fillStyle = '#ff2d3f';
-  x.fillText(opts.tag, W / 2, 298);
+  x.fillStyle = '#f4f4f6';
+  x.fillText(opts.tag, W / 2, 297);
 
-  // Big number with gradient
-  const bigGrad = x.createLinearGradient(0, 480, 0, 760);
-  bigGrad.addColorStop(0, '#ff2d3f'); bigGrad.addColorStop(1, '#b71629');
-  x.fillStyle = bigGrad;
-  x.font = '400 260px Anton, Impact, sans-serif';
-  const bigW = x.measureText(opts.big).width;
-  x.fillText(opts.big, W / 2 - (opts.bigUnit ? 50 : 0), 700);
+  // Big number — solid ink, the loudest thing on the card
+  // Number + unit are centred as ONE group, and the group steps down in size
+  // until it fits the card — the wide display face makes "400.4 DOTS" long.
+  let bigSize = 260, unitSize = 80, bigW = 0, unitW = 0;
+  for (;;) {
+    x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
+    bigW = x.measureText(opts.big).width;
+    x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
+    unitW = opts.bigUnit ? x.measureText(opts.bigUnit).width + 24 : 0;
+    if (bigW + unitW <= W - 160 || bigSize <= 140) break;
+    bigSize -= 10; unitSize = Math.round(bigSize * 0.31);
+  }
+  const gx = (W - bigW - unitW) / 2;
+  x.textAlign = 'left';
+  x.fillStyle = '#f4f4f6';
+  x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
+  x.fillText(opts.big, gx, 700);
   if (opts.bigUnit) {
     x.fillStyle = '#82828c';
-    x.font = '400 80px Anton, Impact, sans-serif';
-    x.textAlign = 'left';
-    x.fillText(opts.bigUnit, W / 2 - (opts.bigUnit ? 50 : 0) + bigW / 2 + 24, 700);
-    x.textAlign = 'center';
+    x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
+    x.fillText(opts.bigUnit, gx + bigW + 24, 700);
   }
+  x.textAlign = 'center';
 
   // Sub line
   x.fillStyle = '#f4f4f6';
-  x.font = '400 52px Anton, Impact, sans-serif';
+  x.font = '800 52px Archivo, \"Arial Black\", sans-serif';
   x.fillText(opts.sub.toUpperCase(), W / 2, 810);
 
   // Detail lines (left/right pairs)
@@ -1725,11 +2014,11 @@ async function generateShareCard(opts) {
     x.strokeStyle = 'rgba(255,255,255,0.10)';
     x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
     x.textAlign = 'left';
-    x.font = '700 34px "Plus Jakarta Sans", sans-serif';
+    x.font = '700 34px Archivo, sans-serif';
     x.fillStyle = '#82828c';
     x.fillText(ln.l.toUpperCase(), 140, y);
     x.textAlign = 'right';
-    x.font = '700 38px "Plus Jakarta Sans", sans-serif';
+    x.font = '700 38px Archivo, sans-serif';
     x.fillStyle = '#f4f4f6';
     x.fillText(ln.r, W - 140, y);
     x.textAlign = 'center';
@@ -1737,8 +2026,8 @@ async function generateShareCard(opts) {
   });
 
   // Footer
-  x.font = '700 36px "Plus Jakarta Sans", sans-serif';
-  x.fillStyle = '#56565e';
+  x.font = '700 34px Archivo, sans-serif';
+  x.fillStyle = '#808089';
   x.fillText(opts.footer || 'powalifta.com', W / 2, H - 70);
 
   return c;
@@ -1759,7 +2048,7 @@ async function shareCardFromCanvas(canvas, filename, shareText) {
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast('Card saved — post it');
+      toast('Card saved: post it');
       resolve(true);
     }, 'image/png');
   });
@@ -1773,52 +2062,67 @@ function ensureSettingsModal() {
   if (document.getElementById('settingsModal')) return;
   const wrap = document.createElement('div');
   // Country <option> list, prepended with a "no country" option.
-  const countryOpts = '<option value="">— None —</option>' +
+  const countryOpts = '<option value="">None</option>' +
     COUNTRIES.map(c => '<option value="' + c.code + '">' + flagEmoji(c.code) + ' ' + escHtml(c.name) + '</option>').join('');
   wrap.innerHTML = '<div class="modal-backdrop" id="settingsModal">' +
     '<div class="modal">' +
       '<button class="modal-close" aria-label="Close" onclick="closeSettingsModal()">&times;</button>' +
       '<h3>Settings</h3>' +
 
-      // Avatar + country row
+      // ---- Profile essentials (always visible) ----
       '<div class="flex gap-12 mt-8" style="align-items:center">' +
         '<div id="setAvatarPreview" class="av" style="width:72px;height:72px;font-size:1.25rem;flex:0 0 auto"></div>' +
         '<div style="flex:1; min-width:0">' +
           '<label class="block dim text-xs mb-4">Profile picture (square works best, &lt; 3 MB)</label>' +
-          '<input type="file" id="setAvatarFile" accept="image/png,image/jpeg,image/webp" style="font-size: 0.85rem">' +
+          '<input type="file" id="setAvatarFile" accept="image/png,image/jpeg,image/webp" style="font-size: 13px">' +
           '<div id="setAvatarStatus" class="dim text-xs mt-4"></div>' +
         '</div>' +
       '</div>' +
 
-      '<div class="form-group mt-12"><label>Country (shown as flag on your profile)</label>' +
+      '<div class="form-group mt-12"><label>Display name</label><input type="text" id="setName"></div>' +
+      '<div class="form-group"><label>Country (shown as flag on your profile)</label>' +
         '<select id="setCountry" style="width:100%">' + countryOpts + '</select>' +
       '</div>' +
-
-      '<div class="form-group"><label>Display name</label><input type="text" id="setName"></div>' +
-      '<div class="form-group"><label>Email</label><input type="email" id="setEmail" disabled style="opacity:0.5"></div>' +
       '<div id="setBioGroup" class="form-group" style="display:none"><label>Coach bio</label><textarea id="setBio"></textarea></div>' +
-      '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
       '<div class="flex gap-8 mt-16"><button class="btn btn-block" onclick="closeSettingsModal()">Cancel</button><button class="btn btn-primary btn-block" onclick="saveSettings()">Save</button></div>' +
-      '<div id="setPlanBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setReferralBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setEmailPrefsBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setNotifPrefsBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div id="setMfaBox" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);"></div>' +
-      '<div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);">' +
-        '<p class="dim text-sm mb-8">Your data</p>' +
+
+      // ---- Quick prefs: theme + units. Instant-apply, no Save needed. Also the ONLY
+      //      dark/light control inside the native shell (the nav toggle is hidden there). ----
+      '<div class="set-quick">' +
+        '<button type="button" class="set-quick-btn" id="setThemeBtn" onclick="toggleTheme(); _syncSetQuick();"></button>' +
+        '<button type="button" class="set-quick-btn" id="setUnitBtn" onclick="toggleUnit()"></button>' +
+      '</div>' +
+
+      // ---- Everything else: collapsed groups. Boxes keep their ids so the existing
+      //      render fns (plan / referral / email / push / MFA) mount unchanged. ----
+      '<details class="set-group" id="sgPlan"><summary>Plan &amp; billing</summary><div class="sg-body">' +
+        '<div id="setPlanBox"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgNotif"><summary>Notifications</summary><div class="sg-body">' +
+        '<div id="setNotifPrefsBox"></div>' +
+        '<div id="setEmailPrefsBox" class="mt-16"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgSecurity"><summary>Security</summary><div class="sg-body">' +
+        '<div class="form-group"><label>Account email</label><input type="email" id="setEmail" disabled style="opacity:0.5"></div>' +
+        '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
+        '<p class="dim text-xs mb-8" style="line-height:1.5">A new password is applied when you hit Save above.</p>' +
+        '<div id="setMfaBox" class="mt-12"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgReferral"><summary>Refer a lifter</summary><div class="sg-body">' +
+        '<div id="setReferralBox"></div>' +
+      '</div></details>' +
+      '<details class="set-group" id="sgData"><summary>Your data &amp; account</summary><div class="sg-body">' +
         '<p class="dim text-xs mb-8" style="line-height:1.5">Download everything we hold for your account. JSON is the complete archive; CSV is your training log, ready to re-import anywhere.</p>' +
         '<div class="flex gap-8">' +
-          '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">⬇ Export JSON</button>' +
-          '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">⬇ Export CSV</button>' +
+          '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">Export JSON</button>' +
+          '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">Export CSV</button>' +
         '</div>' +
-      '</div>' +
-      '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
-        '<button class="btn btn-block btn-ghost" onclick="replaySettingsTour()">↺ Replay onboarding tour</button>' +
-      '</div>' +
-      '<div style="margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line);">' +
-        '<p class="dim text-sm mb-8">Danger zone</p>' +
-        '<button class="btn btn-danger btn-block" onclick="deleteMyAccount()">Delete my account</button>' +
-      '</div>' +
+        '<button class="btn btn-block btn-ghost mt-12" onclick="replaySettingsTour()">↺ Replay onboarding tour</button>' +
+        '<div class="sg-danger">' +
+          '<p class="dim text-xs mb-8" style="line-height:1.5">Deleting your account erases your data permanently.</p>' +
+          '<button class="btn btn-danger btn-block" onclick="deleteMyAccount()">Delete my account</button>' +
+        '</div>' +
+      '</div></details>' +
     '</div>' +
   '</div>';
   document.body.appendChild(wrap.firstChild);
@@ -1895,6 +2199,16 @@ function openSettingsModal() {
   const fileInput = document.getElementById('setAvatarFile');
   if (fileInput) fileInput.value = '';
 
+  // Quick prefs — labels reflect live state (theme flips without closing the modal)
+  _syncSetQuick();
+
+  // Plan & billing is a coach-only concept — hide the whole group for athletes
+  // (renderPlanManageCard would only blank the inner box, leaving an empty shell).
+  // Native shell: visible only when StoreKit IAP is live (tiers purchasable
+  // in-app = compliant); without it the header alone reveals a paid-tier system.
+  const planGroup = document.getElementById('sgPlan');
+  if (planGroup) planGroup.style.display = (u.userType === 'coach' && (!_isNativeShell() || !!window._iapReady)) ? '' : 'none';
+
   // Plan management (coaches only) — tier + status + manage-billing (#34)
   const planBox = document.getElementById('setPlanBox');
   if (planBox) renderPlanManageCard(planBox);
@@ -1919,6 +2233,23 @@ function openSettingsModal() {
   attachPwdToggles();
 }
 function closeSettingsModal() { const m = document.getElementById('settingsModal'); if (m) m.classList.remove('open'); }
+// Keep the Settings quick-pref buttons honest about live state. Called on open
+// and after each toggle (theme flips in place; the unit toggle hard-reloads, so
+// its label only needs to be right at render time).
+function _syncSetQuick() {
+  const tb = document.getElementById('setThemeBtn');
+  if (tb) {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    tb.innerHTML = (light ? '☀️' : '🌙') + ' <span>' + (light ? 'Light mode' : 'Dark mode') + '</span>';
+    tb.title = 'Switch to ' + (light ? 'dark' : 'light') + ' mode';
+  }
+  const ub = document.getElementById('setUnitBtn');
+  if (ub) {
+    ub.innerHTML = '🏋️ <span>Units: ' + getUnit().toUpperCase() + '</span>';
+    ub.title = 'Switch to ' + (getUnit() === 'kg' ? 'lbs' : 'kg');
+  }
+}
+window._syncSetQuick = _syncSetQuick;
 // Dispatches to whichever page-specific replay hook is loaded (coach.html or athlete.html)
 function replaySettingsTour() {
   closeSettingsModal();
@@ -1942,8 +2273,8 @@ let _mfaPendingFactor = null;
 function _mfaStatusRow(label, tone, sub) {
   const c = _subStatusColor(tone);
   return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
-      '<span style="font-family:\'Anton\',sans-serif;font-size:1.35rem;letter-spacing:0.01em">2FA</span>' +
-      '<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:0.72rem;' +
+      '<span style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800;font-size:22px;letter-spacing:0.01em">2FA</span>' +
+      '<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;' +
         'font-weight:700;letter-spacing:0.02em;color:' + c + ';border:1px solid ' + c + ';background:transparent">' +
         escHtml(label) + '</span>' +
     '</div>' +
@@ -1971,7 +2302,7 @@ async function renderMfaCard(container) {
   // Project has TOTP MFA disabled in the dashboard → hide the whole section.
   if (!res.ok && res.unsupported) { container.innerHTML = ''; container.style.display = 'none'; return; }
   if (!res.ok) {
-    container.innerHTML = head + '<p class="dim text-xs" style="line-height:1.5">Couldn\'t load your security settings — reopen Settings to retry.</p>';
+    container.innerHTML = head + '<p class="dim text-xs" style="line-height:1.5">Couldn\'t load your security settings. Reopen Settings to retry.</p>';
     return;
   }
 
@@ -2016,15 +2347,15 @@ async function openMfaEnrollModal() {
   _mfaPendingFactor = res.factorId;
   const qr = res.qr
     ? '<img src="' + escHtml(res.qr) + '" alt="Two-factor QR code" style="width:180px;height:180px;display:block"/>'
-    : '<p class="dim text-xs" style="width:180px;text-align:center">QR unavailable — use the key below.</p>';
+    : '<p class="dim text-xs" style="width:180px;text-align:center">QR unavailable: use the key below.</p>';
   if (body) body.innerHTML =
     '<div style="display:flex;justify-content:center;margin-bottom:14px">' +
       '<div style="background:#fff;padding:12px;border-radius:12px;line-height:0">' + qr + '</div>' +
     '</div>' +
     '<p class="dim text-xs mb-4" style="text-align:center">Can\'t scan? Enter this key manually:</p>' +
-    '<p style="text-align:center;font-family:\'Space Grotesk\',monospace;font-size:0.9rem;letter-spacing:0.05em;word-break:break-all;margin:0 0 16px;color:var(--text-2)">' + escHtml(res.secret || '') + '</p>' +
+    '<p style="text-align:center;font-family:var(--font-num);font-size:15px;letter-spacing:0.05em;word-break:break-all;margin:0 0 16px;color:var(--text-2)">' + escHtml(res.secret || '') + '</p>' +
     '<div class="form-group"><label>6-digit code</label>' +
-      '<input type="text" id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
+      '<input type="text" id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:16px"></div>' +
     '<div id="mfaEnrollErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
     '<button class="btn btn-primary btn-block" id="mfaVerifyBtn" onclick="submitMfaEnroll()">Verify &amp; turn on</button>';
   const inp = document.getElementById('mfaCode');
@@ -2037,14 +2368,14 @@ async function submitMfaEnroll() {
   const btn = document.getElementById('mfaVerifyBtn');
   const code = ((inp && inp.value) || '').replace(/\D/g, '');
   if (code.length !== 6) { if (err) err.textContent = 'Enter the 6-digit code.'; return; }
-  if (!_mfaPendingFactor) { if (err) err.textContent = 'Enrollment expired — close and try again.'; return; }
+  if (!_mfaPendingFactor) { if (err) err.textContent = 'Enrollment expired: close and try again.'; return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
   if (err) err.textContent = '';
   const res = await DB.mfaVerifyEnroll(_mfaPendingFactor, code);
   if (btn) { btn.disabled = false; btn.innerHTML = 'Verify &amp; turn on'; }
   if (!res.ok) {
     if (err) err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
-      ? 'That code didn\'t match — enter the current one.' : (res.reason || 'Verification failed.');
+      ? 'That code didn\'t match. Enter the current one.' : (res.reason || 'Verification failed.');
     return;
   }
   _mfaPendingFactor = null;
@@ -2145,14 +2476,14 @@ function referralMilestoneHtml(count) {
   const pct = next ? Math.max(6, Math.round((count - prevAt) / (next.at - prevAt) * 100)) : 100;
   const label = next
     ? '<strong style="color:var(--text)">' + (next.at - count) + '</strong> more to <span style="color:var(--red)">' + escHtml(next.name) + '</span>'
-    : '<span style="color:var(--red)">Powerhouse</span> — every tier cleared';
+    : '<span style="color:var(--red)">Powerhouse</span>: every tier cleared';
   return '<div style="margin-top:14px">' +
-      '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; font-size:0.78rem">' +
+      '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; font-size:13px">' +
         '<span style="color:var(--text-2)">' + label + '</span>' +
-        '<span style="font-family:\'Space Grotesk\',monospace; color:var(--text-2)">' + count + (next ? ' / ' + next.at : '') + '</span>' +
+        '<span style="font-family:var(--font-num); color:var(--text-2)">' + count + (next ? ' / ' + next.at : '') + '</span>' +
       '</div>' +
       '<div style="height:8px; background:rgba(255,255,255,0.07); border-radius:999px; overflow:hidden">' +
-        '<div style="height:100%; width:' + pct + '%; background:linear-gradient(90deg, var(--red), #ff6b78); border-radius:999px; transition:width .6s cubic-bezier(0.22,1,0.36,1)"></div>' +
+        '<div style="height:100%; width:100%; transform:scaleX(' + (pct / 100) + '); transform-origin:left; background:linear-gradient(90deg, var(--brand-red), #ff6b78); border-radius:999px; transition:transform .6s cubic-bezier(0.22,1,0.36,1)"></div>' +
       '</div>' +
     '</div>';
 }
@@ -2162,15 +2493,21 @@ function referralMilestoneHtml(count) {
 async function renderReferralCard(container) {
   const u = getCurrentUser();
   if (!container || !u) return;
+  // Apple 3.1.1 round 3: the REWARDS LADDER names the paid tiers as prizes
+  // ("1 month of Basic, on us" / "1 year of Pro" / "Lifetime Premium") — the
+  // App Review rejection quoted BASIC/PRO/PREMIUM verbatim from this card. In
+  // the native shell the referral link + count still render (sharing is fine);
+  // the tier-comp ladder does not. Web unchanged.
+  const _tierBlind = _isNativeShell();
   const code = u.referralCode;
   if (!code) { container.innerHTML = ''; return; }   // older account / demo — hide
   const link = referralLink(code);
   container.innerHTML =
     '<p class="dim text-sm mb-8">Refer a lifter</p>' +
-    '<p class="dim text-xs mb-8" style="line-height:1.5">Share your link. Anyone who signs up through it shows up here — athletes and coaches both count.</p>' +
+    '<p class="dim text-xs mb-8" style="line-height:1.5">Share your link. Anyone who signs up through it shows up here. Athletes and coaches both count.</p>' +
     '<div class="flex gap-8" style="align-items:stretch">' +
       '<input type="text" id="refLinkInput" readonly value="' + escHtml(link) + '" ' +
-        'style="flex:1; min-width:0; font-family:\'Space Grotesk\',monospace; font-size:0.8rem" onclick="this.select()">' +
+        'style="flex:1; min-width:0; font-family:var(--font-num); font-size:13px" onclick="this.select()">' +
       '<button class="btn btn-ghost" id="refCopyBtn" onclick="copyReferralLink()" style="flex:0 0 auto">Copy</button>' +
     '</div>' +
     '<div id="refList" class="mt-12 text-xs"></div>';
@@ -2185,7 +2522,7 @@ async function renderReferralCard(container) {
     if (list) list.innerHTML = referralMilestoneHtml(demoCount) +
       '<p class="mb-4 mt-12" style="color:var(--text)"><strong>2</strong> lifters joined through you</p>' +
       '<p style="color:var(--text-2)">Share your link and everyone who signs up shows up right here.</p>' +
-      referralRewardsHtml(referralRewardsLedger(demoCount, demoClaims));
+      (_tierBlind ? '' : referralRewardsHtml(referralRewardsLedger(demoCount, demoClaims)));
     return;
   }
   if (list) list.innerHTML = '<span style="color:var(--text-2)">Loading…</span>';
@@ -2196,10 +2533,10 @@ async function renderReferralCard(container) {
     ]);
     const live = document.getElementById('refList');
     if (!live) return;
-    const rewards = referralRewardsHtml(referralRewardsLedger(refs.length, claims));
+    const rewards = _tierBlind ? '' : referralRewardsHtml(referralRewardsLedger(refs.length, claims));
     if (!refs.length) {
       live.innerHTML = referralMilestoneHtml(0) +
-        '<p class="mt-12" style="color:var(--text-2)">No referrals yet — share your link to get started.</p>' +
+        '<p class="mt-12" style="color:var(--text-2)">No referrals yet. Share your link to get started.</p>' +
         rewards;
       return;
     }
@@ -2223,14 +2560,14 @@ async function claimReferralReward(tierAt, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   if (window._demoMode) {
     window._demoRewardClaims = (window._demoRewardClaims || []).concat([{ tierAt: tierAt, status: 'requested' }]);
-    toast('Reward requested — we\'ll be in touch to set it up.');
+    toast('Reward requested: we\'ll be in touch to set it up.');
     const box = document.getElementById('setReferralBox');
     if (box) renderReferralCard(box);
     return;
   }
   try {
     await DB.claimReferralReward(tierAt);
-    toast('Reward requested — we\'ll be in touch to set it up.');
+    toast('Reward requested: we\'ll be in touch to set it up.');
   } catch (e) {
     toast('Couldn\'t claim that reward right now.');
     if (btn) { btn.disabled = false; btn.textContent = 'Claim'; }
@@ -2264,7 +2601,7 @@ async function renderEmailPrefs(container) {
   const paint = (prefs, demo) =>
     '<p class="dim text-sm mb-8">Email</p>' +
     emailPrefRow('epWeekly', 'Weekly progress email',
-      'A Monday recap of your last 7 days — sessions, tonnage, best e1RMs.', prefs.weeklyDigest) +
+      'A Monday recap of your last 7 days. Sessions, tonnage, best e1RMs.', prefs.weeklyDigest) +
     emailPrefRow('epProduct', 'Product tips & announcements',
       'Occasional notes on new features. No spam, unsubscribe anytime.', prefs.productEmails) +
     (demo ? '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>' : '') +
@@ -2345,7 +2682,7 @@ async function renderNotifPrefs(container) {
   const deviceHtml = () => {
     const wrap = (inner) => '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">' + inner + '</div>';
     if (!supported) return wrap('<span class="dim text-xs">This browser doesn’t support push. On iPhone, add POWALIFTA to your Home Screen to get alerts.</span>');
-    if (perm === 'denied') return wrap('<span class="dim text-xs">Alerts are blocked — turn notifications back on for POWALIFTA in your browser settings.</span>');
+    if (perm === 'denied') return wrap('<span class="dim text-xs">Alerts are blocked: turn notifications back on for POWALIFTA in your browser settings.</span>');
     return wrap(
       '<span class="text-sm">' + (on ? '🔔 Alerts on for this device' : '🔕 Off on this device') + '</span>' +
       '<button class="btn btn-sm ' + (on ? 'btn-ghost' : 'btn-primary') + '" id="npDeviceBtn" type="button">' +
@@ -2532,7 +2869,7 @@ function buildProgramCsv(program) {
       const dayName = day.name || 'Day';
       const isRest = /\b(rest|off|recovery)\b/i.test(dayName) && !(day.exercises || []).length;
       if (isRest || !(day.exercises || []).length) {
-        rows.push([wkLabel, dayName, isRest ? '— Rest day —' : '— No exercises —', '', '', '', '', '', '', '', '', '']
+        rows.push([wkLabel, dayName, isRest ? 'Rest day' : 'No exercises', '', '', '', '', '', '', '', '', '']
           .map(_csvEscape).join(','));
         return;
       }
@@ -3014,7 +3351,7 @@ async function renderMessageThread(container, opts) {
       autosize();
     } catch (e) {
       console.error('sendMessage', e);
-      toast('Could not send — are you still connected to them?');
+      toast('Could not send: are you still connected to them?');
     } finally {
       sendBtn.disabled = false; ta.disabled = false; ta.focus();
     }
@@ -3092,12 +3429,12 @@ function ensureDeleteAccountModal() {
       '<h3>Delete account</h3>' +
       '<p class="text-sm" style="line-height:1.6;color:var(--text-2)">This permanently erases your account and all your training data. <strong style="color:var(--text)">It cannot be undone.</strong></p>' +
       '<div style="margin:14px 0; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,0.02)">' +
-        '<p class="text-xs" style="line-height:1.65;margin:0;color:var(--text-3)"><strong style="color:var(--text-2)">Erased:</strong> your profile, programs, logs, bodyweight, goals, meets, messages, form-check videos, reviews, referrals, notifications and coaching links.<br><strong style="color:var(--text-2)">Kept (anonymized):</strong> past marketplace purchase records we\'re legally required to retain for tax — with your identity removed.</p>' +
+        '<p class="text-xs" style="line-height:1.65;margin:0;color:var(--text-3)"><strong style="color:var(--text-2)">Erased:</strong> your profile, programs, logs, bodyweight, goals, meets, messages, form-check videos, reviews, referrals, notifications and coaching links.<br><strong style="color:var(--text-2)">Kept (anonymized):</strong> past marketplace purchase records we\'re legally required to retain for tax. With your identity removed.</p>' +
       '</div>' +
       '<p class="text-xs mb-8" style="color:var(--text-3)">Want a copy of your data first?</p>' +
       '<div class="flex gap-8 mb-16">' +
-        '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">⬇ Export JSON</button>' +
-        '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">⬇ Export CSV</button>' +
+        '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">Export JSON</button>' +
+        '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'csv\')">Export CSV</button>' +
       '</div>' +
       '<label class="block text-xs mb-4" style="color:var(--text-3)">Type <strong style="color:var(--red);letter-spacing:0.1em">DELETE</strong> to confirm</label>' +
       '<input type="text" id="delAcctInput" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="DELETE" oninput="onDelAcctInput()" style="width:100%">' +
@@ -3136,13 +3473,13 @@ async function confirmDeleteMyAccount() {
   if (res && res.ok) {
     toast('Account deleted. Signing you out…');
     try { await DB.signOut(); } catch (_) {}
-    location.href = 'index.html';
+    _toWelcome();
     return;
   }
   // Honest failure — never sign out or pretend it worked. Surface the real
   // reason and point at the manual erasure fallback.
   const reason = (res && res.reason) || 'Deletion failed';
-  if (err) err.textContent = reason + ' — email powalifta1320@gmail.com and we\'ll erase it manually.';
+  if (err) err.textContent = reason + '. Email powalifta1320@gmail.com and we\'ll erase it manually.';
   if (btn) { btn.disabled = false; btn.textContent = 'Delete everything'; }
 }
 window.confirmDeleteMyAccount = confirmDeleteMyAccount;
@@ -3217,7 +3554,8 @@ function renderCalendarHeatmap(container, opts) {
   legend.appendChild(el('span', { class: 'cal-legend-label' }, 'Less'));
   [0, 1, 2, 3, 4].forEach(l => legend.appendChild(el('div', { class: 'cal-cell lvl-' + l })));
   legend.appendChild(el('span', { class: 'cal-legend-label' }, 'More'));
-  legend.appendChild(el('span', { class: 'cal-legend-label', style: 'margin-left: 16px;' }, '🛌 Rest day'));
+  legend.appendChild(el('div', { class: 'cal-cell rest', style: 'margin-left: 14px;' }));
+  legend.appendChild(el('span', { class: 'cal-legend-label' }, 'Rest'));
   container.appendChild(legend);
 }
 window.renderCalendarHeatmap = renderCalendarHeatmap;
@@ -3313,31 +3651,31 @@ const EXERCISE_LIBRARY = [
   {
     key: 'squat-competition', group: 'squat', lift: 'squat', variant: 'Competition', multiplier: 1.0,
     name: 'Competition Squat', pattern: 'Squat · knees + hips',
-    summary: 'Low-bar back squat to legal depth — the contested movement and the 1.0 baseline every squat variant is scored against.',
+    summary: 'Low-bar back squat to legal depth. The contested movement and the 1.0 baseline every squat variant is scored against.',
     setup: [
-      'Bar across the rear delts, not the neck — pull the shoulder blades together to build the shelf.',
+      'Bar across the rear delts, not the neck. Pull the shoulder blades together to build the shelf.',
       'Grip as narrow as the shoulders allow pain-free; elbows tucked down, wrists stacked over the bar.',
       'Feet just outside hip width, toes turned out 20–30°, weight centred over the mid-foot.'
     ],
     cues: [
       'Take a full belly of air and brace against your belt before you unrack; walk it out in three steps.',
       'Break at the hips and knees together and spread the floor with your feet.',
-      'Hit depth — hip crease below the top of the knee — then drive the whole foot through the platform.'
+      'Hit depth (hip crease below the top of the knee) then drive the whole foot through the platform.'
     ],
     faults: [
       'Knees caving: think "push the knees out to track over the toes".',
       'Chest folding forward out of the hole: more upper-back tightness and a harder brace, not a lighter bar.',
-      'Cutting depth: film from the side at hip height — front-on hides it.'
+      'Cutting depth: film from the side at hip height. Front-on hides it.'
     ]
   },
   {
     key: 'squat-paused', group: 'squat', lift: 'squat', variant: 'Paused', multiplier: 1.07,
     name: 'Paused Squat', pattern: 'Squat · positional',
-    summary: 'A 2–3s hold at depth kills the stretch reflex, so it carries over above competition — that is why it scores 1.07× of a comp squat.',
+    summary: 'A 2–3s hold at depth kills the stretch reflex, so it carries over above competition. That is why it scores 1.07× of a comp squat.',
     cues: [
       'Stay braced through the pause; do not bleed air or let the chest drop.',
       'Hold at your true competition depth, not an inch higher.',
-      'Explode out of the hole on the count — no rocking or re-bending to build momentum.'
+      'Explode out of the hole on the count. No rocking or re-bending to build momentum.'
     ]
   },
   {
@@ -3345,7 +3683,7 @@ const EXERCISE_LIBRARY = [
     name: 'Tempo Squat', pattern: 'Squat · control',
     summary: 'A slow eccentric (commonly 3–4s down) builds position and control under load; the time under tension is why it carries the highest squat multiplier at 1.12×.',
     cues: [
-      'Count the descent honestly — most lifters rush the last third.',
+      'Count the descent honestly. Most lifters rush the last third.',
       'Keep the bar over the mid-foot the whole way down; control is the point, not speed.',
       'Normal, hard drive up once you reach depth.'
     ]
@@ -3353,10 +3691,10 @@ const EXERCISE_LIBRARY = [
   {
     key: 'squat-pin', group: 'squat', lift: 'squat', variant: 'Pin', multiplier: 1.08,
     name: 'Pin Squat', pattern: 'Squat · dead-stop',
-    summary: 'Squatting up from pins set near depth removes all stretch reflex and trains a dead-stop drive out of the hole — scored at 1.08×.',
+    summary: 'Squatting up from pins set near depth removes all stretch reflex and trains a dead-stop drive out of the hole. Scored at 1.08×.',
     cues: [
       'Set the pins at or just above your sticking point.',
-      'Settle on the pins for a beat — relax slightly without losing your brace — then drive.',
+      'Settle on the pins for a beat (relax slightly without losing your brace) then drive.',
       'No bouncing the bar off the pins; the dead-stop is the whole exercise.'
     ]
   },
@@ -3364,11 +3702,11 @@ const EXERCISE_LIBRARY = [
   {
     key: 'bench-competition', group: 'bench', lift: 'bench', variant: 'Competition', multiplier: 1.0,
     name: 'Competition Bench Press', pattern: 'Horizontal press',
-    summary: 'Paused bench to a motionless chest touch — the contested press and the 1.0 baseline for every bench variant.',
+    summary: 'Paused bench to a motionless chest touch. The contested press and the 1.0 baseline for every bench variant.',
     setup: [
       'Shoulder blades retracted and pinned down; build a tight upper-back arch.',
       'Eyes under the bar, feet planted for leg drive, glutes stay on the bench.',
-      'Grip width inside the rings — find the width that keeps the forearms vertical at the chest.'
+      'Grip width inside the rings. Find the width that keeps the forearms vertical at the chest.'
     ],
     cues: [
       'Pull the bar out of the rack rather than press it out; keep the lats tight.',
@@ -3377,26 +3715,26 @@ const EXERCISE_LIBRARY = [
     ],
     faults: [
       'Flaring the elbows to 90°: tuck toward 45–70° to protect the shoulders and keep the press in the groove.',
-      'Bouncing the bar off the chest: a real comp pause exposes the weak range — train it.',
+      'Bouncing the bar off the chest: a real comp pause exposes the weak range. Train it.',
       'Hips rising on the drive: more leg drive into the bench, not up off it.'
     ]
   },
   {
     key: 'bench-paused', group: 'bench', lift: 'bench', variant: 'Paused', multiplier: 1.06,
     name: 'Paused Bench (long pause)', pattern: 'Horizontal press · positional',
-    summary: 'A deliberate 2–3s pause on the chest — longer than a meet command — overloads the dead-stop press, scoring 1.06×.',
+    summary: 'A deliberate 2–3s pause on the chest (longer than a meet command) overloads the dead-stop press, scoring 1.06×.',
     cues: [
       'Stay tight and keep the air in during the pause; do not sink into the chest.',
       'Hold at your true touch point, not high on the belly.',
-      'Press the instant the count ends — explosive off the chest.'
+      'Press the instant the count ends. Explosive off the chest.'
     ]
   },
   {
     key: 'bench-closegrip', group: 'bench', lift: 'bench', variant: 'Close Grip', multiplier: 1.09,
     name: 'Close-Grip Bench Press', pattern: 'Horizontal press · triceps',
-    summary: 'A grip ~2 hands narrower shifts load to the triceps and the lockout — a top builder for a weak finish, scored at 1.09×.',
+    summary: 'A grip ~2 hands narrower shifts load to the triceps and the lockout. A top builder for a weak finish, scored at 1.09×.',
     cues: [
-      'Grip about shoulder width — narrow enough to load the triceps, not so narrow the wrists hurt.',
+      'Grip about shoulder width. Narrow enough to load the triceps, not so narrow the wrists hurt.',
       'Keep the elbows tucked; the bar tracks lower on the torso than a comp bench.',
       'Drive the lockout with the triceps, not by flaring.'
     ]
@@ -3406,7 +3744,7 @@ const EXERCISE_LIBRARY = [
     name: 'Pin Press', pattern: 'Horizontal press · dead-stop',
     summary: 'Pressing from pins at a chosen height trains a dead-stop drive through a specific sticking point; scored at 1.08×.',
     cues: [
-      'Set the pins at your sticking height — usually 2–4cm off the chest.',
+      'Set the pins at your sticking height. Usually 2–4cm off the chest.',
       'Let the bar settle dead on the pins, stay tight, then press.',
       'No pre-load bounce; start each rep from a true stop.'
     ]
@@ -3414,7 +3752,7 @@ const EXERCISE_LIBRARY = [
   {
     key: 'bench-incline', group: 'bench', lift: 'bench', variant: 'Incline', multiplier: 1.12,
     name: 'Incline Bench Press', pattern: 'Incline press · upper chest',
-    summary: 'A 15–30° incline biases the upper chest and front delts and lengthens the press — the hardest bench variant, scored at 1.12×.',
+    summary: 'A 15–30° incline biases the upper chest and front delts and lengthens the press. The hardest bench variant, scored at 1.12×.',
     cues: [
       'Keep the same retracted, tight setup; the bench angle does the work.',
       'Touch high on the chest, just below the collarbone.',
@@ -3425,15 +3763,15 @@ const EXERCISE_LIBRARY = [
   {
     key: 'deadlift-competition', group: 'deadlift', lift: 'deadlift', variant: 'Competition', multiplier: 1.0,
     name: 'Competition Deadlift', pattern: 'Hip hinge',
-    summary: 'Conventional or sumo pull to lockout — the contested lift and the 1.0 baseline for every deadlift variant.',
+    summary: 'Conventional or sumo pull to lockout. The contested lift and the 1.0 baseline for every deadlift variant.',
     setup: [
       'Bar over the mid-foot, roughly an inch from the shins.',
-      'Take the slack out of the bar — pull the chest up until the plates just lift the bar tension.',
+      'Take the slack out of the bar. Pull the chest up until the plates just lift the bar tension.',
       'Lats engaged, shoulders slightly ahead of or over the bar, neutral spine.'
     ],
     cues: [
       'Push the floor away rather than yanking the bar up.',
-      'Keep the bar dragging up the legs — let it drift forward and the lift stalls.',
+      'Keep the bar dragging up the legs. Let it drift forward and the lift stalls.',
       'Finish by driving the hips through to a tall lockout; do not lean back past straight.'
     ],
     faults: [
@@ -3449,7 +3787,7 @@ const EXERCISE_LIBRARY = [
     cues: [
       'Pause about 2–5cm below the knee with the bar against the legs.',
       'Stay braced and keep the lats tight through the hold.',
-      'Resume in one piece — no hitching or re-bending the hips.'
+      'Resume in one piece. No hitching or re-bending the hips.'
     ]
   },
   {
@@ -3458,24 +3796,24 @@ const EXERCISE_LIBRARY = [
     summary: 'Standing on a 2–5cm block lengthens the pull and builds strength off the floor; scored at 1.06×.',
     cues: [
       'Use only as much deficit as you can keep a flat back through.',
-      'Same mid-foot setup — the extra range comes from the higher start, not a forward bar.',
+      'Same mid-foot setup: the extra range comes from the higher start, not a forward bar.',
       'Drive the floor away; expect the bottom to feel heavier than a comp pull.'
     ]
   },
   {
     key: 'deadlift-rdl', group: 'deadlift', lift: 'deadlift', variant: 'RDL', multiplier: 1.10,
     name: 'Romanian Deadlift (RDL)', pattern: 'Hip hinge · hamstrings',
-    summary: 'A top-down hinge with soft knees that overloads the hamstrings and glutes through the eccentric — the highest-carryover deadlift accessory, scored at 1.10×.',
+    summary: 'A top-down hinge with soft knees that overloads the hamstrings and glutes through the eccentric. The highest-carryover deadlift accessory, scored at 1.10×.',
     cues: [
       'Start standing; push the hips back and slide the bar down the thighs.',
-      'Keep a slight, fixed knee bend — this is a hinge, not a squat.',
+      'Keep a slight, fixed knee bend. This is a hinge, not a squat.',
       'Stop when the hamstrings run out of stretch (usually mid-shin), then drive the hips back through.'
     ]
   },
   // ---------------- PUSH (accessory) ----------------
   {
     key: 'push-ohp', group: 'push', lift: 'push', name: 'Overhead Press', pattern: 'Vertical press',
-    summary: 'Standing barbell press — the anchor upper-body push accessory; builds delts, triceps and the bench lockout.',
+    summary: 'Standing barbell press: the anchor upper-body push accessory; builds delts, triceps and the bench lockout.',
     cues: [
       'Squeeze the glutes and brace so the press does not become a lean-back.',
       'Bar starts on the front delts; move the head back to clear it, then press around the face.',
@@ -3487,13 +3825,13 @@ const EXERCISE_LIBRARY = [
     summary: 'A loaded bodyweight press that hammers the lower chest and triceps through a deep range.',
     cues: [
       'Lean the torso forward slightly for chest, stay upright for triceps.',
-      'Lower until the upper arms reach parallel — no deeper if the shoulders complain.',
+      'Lower until the upper arms reach parallel. No deeper if the shoulders complain.',
       'Lock out fully at the top without shrugging.'
     ]
   },
   {
     key: 'push-pushdown', group: 'push', lift: 'push', name: 'Triceps Pushdown', pattern: 'Isolation · triceps',
-    summary: 'Cable isolation for the triceps — cheap volume for the bench lockout with no axial fatigue.',
+    summary: 'Cable isolation for the triceps. Cheap volume for the bench lockout with no axial fatigue.',
     cues: [
       'Pin the elbows to your sides and keep them there.',
       'Lock out fully and squeeze, then control the weight back up.',
@@ -3503,9 +3841,9 @@ const EXERCISE_LIBRARY = [
   // ---------------- PULL (accessory) ----------------
   {
     key: 'pull-row', group: 'pull', lift: 'pull', name: 'Barbell Row', pattern: 'Horizontal pull',
-    summary: 'A hinged barbell row — the workhorse back builder that supports the squat brace and deadlift lockout.',
+    summary: 'A hinged barbell row. The workhorse back builder that supports the squat brace and deadlift lockout.',
     cues: [
-      'Hinge to around 45° and hold the torso angle still — no jerking upright each rep.',
+      'Hinge to around 45° and hold the torso angle still. No jerking upright each rep.',
       'Row to the lower ribs / upper stomach, leading with the elbows.',
       'Control the bar down; do not let it pull you out of position.'
     ]
@@ -3516,15 +3854,15 @@ const EXERCISE_LIBRARY = [
     cues: [
       'Start from a full dead hang with the shoulders set down.',
       'Drive the elbows down and back; clear the chin over the bar.',
-      'Lower all the way under control — half reps train half a back.'
+      'Lower all the way under control. Half reps train half a back.'
     ]
   },
   {
     key: 'pull-facepull', group: 'pull', lift: 'pull', name: 'Face Pulls', pattern: 'Isolation · rear delts',
-    summary: 'Rear-delt and external-rotation work — cheap shoulder insurance for big benchers.',
+    summary: 'Rear-delt and external-rotation work. Cheap shoulder insurance for big benchers.',
     cues: [
       'Pull the rope to your forehead with the elbows high.',
-      'Externally rotate at the end — thumbs back, like a double biceps pose.',
+      'Externally rotate at the end. Thumbs back, like a double biceps pose.',
       'Light weight, high reps, full control.'
     ]
   },
@@ -3535,12 +3873,12 @@ const EXERCISE_LIBRARY = [
     cues: [
       'Rack the bar on the front delts with the elbows high; fingertips only is fine.',
       'Stay as upright as possible and keep the elbows up through the whole rep.',
-      'Squat to full depth — losing the elbows means losing the bar.'
+      'Squat to full depth. Losing the elbows means losing the bar.'
     ]
   },
   {
     key: 'legs-legpress', group: 'legs', lift: 'legs', name: 'Leg Press', pattern: 'Squat · quads',
-    summary: 'Machine quad volume with low systemic fatigue — easy to load and easy to recover from.',
+    summary: 'Machine quad volume with low systemic fatigue. Easy to load and easy to recover from.',
     cues: [
       'Set the feet so the knees track over the toes; do not let the lower back round off the pad.',
       'Lower to a deep but pain-free knee bend.',
@@ -3558,11 +3896,11 @@ const EXERCISE_LIBRARY = [
   },
   {
     key: 'legs-hipthrust', group: 'legs', lift: 'legs', name: 'Hip Thrust', pattern: 'Hip extension · glutes',
-    summary: 'Loaded hip extension for the glutes — direct lockout power for both the squat and the deadlift.',
+    summary: 'Loaded hip extension for the glutes. Direct lockout power for both the squat and the deadlift.',
     cues: [
       'Upper back on the bench, chin tucked, bar over the hips on a pad.',
       'Drive through the heels to full hip extension and squeeze the glutes hard.',
-      'Stop at a flat torso — do not hyperextend the lower back to chase height.'
+      'Stop at a flat torso. Do not hyperextend the lower back to chase height.'
     ]
   }
 ];
@@ -3604,6 +3942,10 @@ function searchExercises(q) {
 
 // Pure HTML for one exercise's cue body (summary + setup/cues/faults lists).
 // Authored/trusted content — safe to template. Used by exercises.html and the log-flow cue popover.
+// ⚠️ SECURITY INVARIANT: `e` MUST come only from the static EXERCISE_LIBRARY constant
+// (via cuesForLift/findExercise). The fields below are interpolated into innerHTML
+// WITHOUT escaping. If this is ever fed coach/DB/user-authored data, escHtml() every
+// interpolation first or it becomes stored XSS. (2026-07-13 audit note.)
 function exerciseCueBodyHtml(e) {
   if (!e) return '';
   let h = '<p class="exlib-summary">' + e.summary + '</p>';
@@ -3899,12 +4241,135 @@ function weightForTarget(e1rm, reps, rpe) {
   const pct = 1 - ((reps - 1) + (10 - rpe)) * 0.0333;
   return _roundToPlate(e1rm * Math.max(0.4, pct));
 }
+// =========================================================
+// GOAL FEASIBILITY — "I squat 150, I want 180, I have 10 weeks."
+//
+// generateProgram() below already builds a sound block FROM a set of current
+// e1RMs. What it could never answer is whether the lifter's GOAL is reachable
+// in the time they have, or what to aim at when it isn't. That's this.
+//
+// Deliberately arithmetic, not an LLM call: a language model asked to judge
+// "is +30kg in 10 weeks realistic" will give a different answer each time and
+// charges a round-trip to do it. Rate-of-gain is a well-studied number; the
+// honest version is a lookup and a division.
+//
+// The most valuable output here is often the REFUSAL — telling someone that
+// +40kg on their bench in 8 weeks is not happening, and handing them the
+// number that is, beats generating a block built on a fantasy that will bury
+// them in missed reps by week 4.
+// =========================================================
+
+// Ceilings on rate of gain, as a fraction of current 1RM per WEEK, for a
+// well-run block. Bench climbs slowest — least muscle mass, shortest range of
+// motion, least room to grow — so it carries its own band rather than being
+// lumped in with the lower-body lifts.
+const GAIN_RATE = {
+  squat:    { comfortable: 0.006, realistic: 0.011, aggressive: 0.017 },
+  bench:    { comfortable: 0.004, realistic: 0.008, aggressive: 0.013 },
+  deadlift: { comfortable: 0.006, realistic: 0.012, aggressive: 0.018 }
+};
+
+// How developed a lift already is changes what's plausible: a 60kg bench has
+// far more headroom than a 160kg bench. Scaled against bodyweight, because
+// that's the only normaliser we reliably have. Novices really do add faster.
+function gainCeilingFactor(currentKg, bodyweightKg, lift) {
+  if (!bodyweightKg || bodyweightKg <= 0) return 1;
+  const developed = lift === 'bench' ? 1.5 : lift === 'squat' ? 2.0 : 2.5; // × bodyweight
+  const pct = Math.min(1.4, (currentKg / bodyweightKg) / developed);
+  return Math.max(0.55, 1.85 - pct * 0.95);   // ~1.85× early, ~0.6× when advanced
+}
+
+// One lift: required weekly rate vs the ceiling it's judged against, plus the
+// target that IS reachable if the ask is too big.
+function liftFeasibility(lift, startKg, targetKg, weeks, bodyweightKg) {
+  const s = Number(startKg) || 0, t = Number(targetKg) || 0, w = Number(weeks) || 0;
+  if (s <= 0 || w <= 0) return null;
+  const gainKg = t - s;
+  const weeklyPct = (gainKg / s) / w;
+  const band = GAIN_RATE[lift] || GAIN_RATE.squat;
+  const f = gainCeilingFactor(s, bodyweightKg, lift);
+  const comfortable = band.comfortable * f, realistic = band.realistic * f, aggressive = band.aggressive * f;
+
+  let verdict;
+  if (gainKg <= 0) verdict = 'maintain';
+  else if (weeklyPct <= comfortable) verdict = 'comfortable';
+  else if (weeklyPct <= realistic) verdict = 'realistic';
+  else if (weeklyPct <= aggressive) verdict = 'aggressive';
+  else verdict = 'unrealistic';
+
+  return {
+    lift, startKg: s, targetKg: t, gainKg, weeklyPct, verdict,
+    reachableKg: Math.round(s * (1 + realistic * w) * 2) / 2,   // hard but sane
+    stretchKg:   Math.round(s * (1 + aggressive * w) * 2) / 2   // everything goes right
+  };
+}
+
+// Whole plan across S/B/D. `verdict` is the worst lift — a block is only as
+// feasible as its most over-reaching lift.
+function planFeasibility(start, target, weeks, bodyweightKg) {
+  const LIFTS = ['squat', 'bench', 'deadlift'];
+  const ORDER = ['maintain', 'comfortable', 'realistic', 'aggressive', 'unrealistic'];
+  const perLift = {};
+  let worst = 'maintain';
+  LIFTS.forEach(function (l) {
+    const r = liftFeasibility(l, (start || {})[l], (target || {})[l], weeks, bodyweightKg);
+    if (!r) return;
+    perLift[l] = r;
+    if (ORDER.indexOf(r.verdict) > ORDER.indexOf(worst)) worst = r.verdict;
+  });
+  const sum = function (o, k) { return LIFTS.reduce(function (a, l) { return a + (Number((o || {})[l]) || 0); }, 0); };
+  const startTotal = sum(start), targetTotal = sum(target);
+  const reachableTotal = LIFTS.reduce(function (a, l) { return a + (perLift[l] ? perLift[l].reachableKg : 0); }, 0);
+  return {
+    perLift, verdict: worst,
+    feasible: worst !== 'unrealistic',
+    startTotal, targetTotal, gainTotal: targetTotal - startTotal,
+    reachableTotal, weeks: Number(weeks) || 0
+  };
+}
+
+// The target actually worth training toward: the ask where it's achievable,
+// the reachable number where it isn't. Feeds generateProgram({targets}).
+function feasibleTargets(start, target, weeks, bodyweightKg) {
+  const feas = planFeasibility(start, target, weeks, bodyweightKg);
+  const out = {};
+  ['squat', 'bench', 'deadlift'].forEach(function (l) {
+    const f = feas.perLift[l];
+    if (!f) return;
+    out[l] = f.verdict === 'unrealistic' ? f.reachableKg : f.targetKg;
+  });
+  return { targets: out, feasibility: feas };
+}
+
+if (typeof window !== 'undefined') {
+  window.GAIN_RATE = GAIN_RATE;
+  window.gainCeilingFactor = gainCeilingFactor;
+  window.liftFeasibility = liftFeasibility;
+  window.planFeasibility = planFeasibility;
+  window.feasibleTargets = feasibleTargets;
+}
+
 function generateProgram(opts) {
   opts = opts || {};
   const weeks = Math.max(1, Math.min(16, Math.round(opts.weeks || 4)));
   const dpw = Math.max(2, Math.min(6, Math.round(opts.daysPerWeek || 4)));
   const focus = (opts.focus && MAIN_LIFTS.indexOf(opts.focus) !== -1) ? opts.focus : null;
   const e1 = opts.e1rms || {};
+  // Optional GOAL. Without it the block holds today's e1RM flat and only waves
+  // RPE — which is exactly why generated loads never climbed toward anything.
+  // With it, each week's prescription comes from an e1RM interpolated between
+  // where the lifter is and where they're going, so the numbers on the page
+  // walk to the target instead of restating the present.
+  // Expects targets already filtered through feasibleTargets(); this function
+  // trusts them and does not re-judge whether the goal is sane.
+  const targets = opts.targets || null;
+  function e1At(lift, weekIdx) {
+    const from = e1[lift] || 0;
+    const to = targets && targets[lift];
+    if (!from || !to) return from;
+    const p = weeks <= 1 ? 1 : weekIdx / (weeks - 1);
+    return from + (to - from) * p;
+  }
 
   // RPE/rep wave across the block: build → overreach, last week deloads (≥4wk).
   const lastIsDeload = weeks >= 4;
@@ -3943,7 +4408,7 @@ function generateProgram(opts) {
       const mains = rot[d] || [MAIN_LIFTS[d % 3]];
       const day = newDay(dayName(mains));
       mains.forEach(m => {
-        const e = e1[m] || 0;
+        const e = e1At(m, w);
         const ex = newExercise(m, 'Competition', '');
         const ms = mainScheme(w);
         for (let s = 0; s < ms.sets; s++) ex.sets.push(newSet(weightForTarget(e, ms.reps, ms.rpe), ms.reps, ms.rpe, ''));
@@ -3969,6 +4434,204 @@ function generateProgram(opts) {
   return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
 }
 if (typeof window !== 'undefined') { window.generateProgram = generateProgram; window.weightForTarget = weightForTarget; }
+
+// =========================================================
+// BUILD FROM A GOAL — "here's where they are, here's where they're going,
+// here's how long I've got." The generator and the feasibility engine already
+// exist in app.js; this is the surface that finally makes them reachable
+// without typing a sentence into a chat box and hoping.
+//
+// Current numbers pre-fill from logged e1RMs when there are any, but every
+// field stays editable — a new athlete has no history, and "I know he squats
+// 150" should be enough to get a block. That gap was the actual reason the
+// AI kept producing programs with no weights in them: it could only ever read
+// history, so an athlete without history got zeros.
+// =========================================================
+const GOAL_LIFTS = ['squat', 'bench', 'deadlift'];
+
+function _goalNum(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const v = parseFloat(el.value);
+  if (!isFinite(v) || v <= 0) return 0;
+  return displayToKg(v);   // fields are in the user's display unit
+}
+
+function ensureGoalModal() {
+  if (document.getElementById('goalModal')) return;
+  const u = unitLabel();
+  const row = (lift, label) =>
+    '<div class="goal-row">' +
+      '<span class="goal-lift">' + label + '</span>' +
+      '<input type="number" step="2.5" min="0" id="goalNow-' + lift + '" placeholder="now" aria-label="Current ' + label + '">' +
+      '<span class="goal-arrow" aria-hidden="true">&rarr;</span>' +
+      '<input type="number" step="2.5" min="0" id="goalTgt-' + lift + '" placeholder="target" aria-label="Target ' + label + '">' +
+      '<span class="goal-unit">' + u + '</span>' +
+      '<span class="goal-verdict" id="goalV-' + lift + '"></span>' +
+    '</div>';
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<div class="modal-backdrop" id="goalModal">' +
+      '<div class="modal modal-lg">' +
+        '<button class="modal-close" aria-label="Close" onclick="closeModal(\'goalModal\')">&times;</button>' +
+        '<h3>Build from a goal</h3>' +
+        '<p class="dim text-sm mb-16">Where they are now, where you want them, and how long you have. ' +
+          'The block gets built backwards from that &mdash; and if the goal will not fit in the time, you get told before you write it.</p>' +
+        '<div class="goal-grid">' +
+          row('squat', 'Squat') + row('bench', 'Bench') + row('deadlift', 'Deadlift') +
+        '</div>' +
+        '<div class="form-row mt-16">' +
+          '<div class="form-group"><label for="goalWeeks">Weeks</label>' +
+            '<input type="number" id="goalWeeks" min="3" max="16" step="1" value="10"></div>' +
+          '<div class="form-group"><label for="goalDays">Days / week</label>' +
+            '<select id="goalDays"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select></div>' +
+        '</div>' +
+        '<div id="goalReadout" class="goal-readout"></div>' +
+        '<div class="flex gap-8 mt-16">' +
+          '<button class="btn btn-primary btn-block" id="goalBuildBtn" onclick="buildFromGoal()">Build the block</button>' +
+          '<button class="btn btn-ghost" onclick="closeModal(\'goalModal\')">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(wrap.firstChild);
+
+  // Live feasibility as they type. Cheap (pure arithmetic), so no debounce
+  // needed and the verdict never lags behind the number they just entered.
+  ['goalWeeks', 'goalDays'].concat(
+    GOAL_LIFTS.flatMap(l => ['goalNow-' + l, 'goalTgt-' + l])
+  ).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', refreshGoalReadout);
+  });
+}
+
+// Pre-fill "now" from logged history where it exists. Blank when it doesn't —
+// a placeholder is honest, a zero is a lie.
+function openGoalModal(athleteId) {
+  ensureGoalModal();
+  window._goalAthleteId = athleteId || null;
+  GOAL_LIFTS.forEach(l => {
+    const best = athleteId && typeof bestE1RM === 'function' ? bestE1RM(athleteId, l) : 0;
+    const now = document.getElementById('goalNow-' + l);
+    const tgt = document.getElementById('goalTgt-' + l);
+    if (now) now.value = best ? Math.round(kgToDisplay(best) * 2) / 2 : '';
+    if (tgt) tgt.value = '';
+  });
+  refreshGoalReadout();
+  openModal('goalModal');
+}
+
+// "Squat, Bench and Deadlift" — not "Squat and Bench and Deadlift".
+function _goalJoin(items) {
+  if (items.length <= 1) return items[0] || '';
+  if (items.length === 2) return items[0] + ' and ' + items[1];
+  return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+}
+// "an aggressive ask" / "a realistic ask" — the verdict words are a closed set,
+// so a vowel test is exact here rather than a guess.
+function _goalArticle(word) {
+  return (/^[aeiou]/i.test(word) ? 'an ' : 'a ') + word;
+}
+
+const _GOAL_TONE = {
+  maintain:    { cls: 'ok',   word: 'maintenance' },
+  comfortable: { cls: 'ok',   word: 'comfortable' },
+  realistic:   { cls: 'ok',   word: 'realistic' },
+  aggressive:  { cls: 'warn', word: 'aggressive' },
+  unrealistic: { cls: 'bad',  word: 'not in this timeframe' }
+};
+
+function refreshGoalReadout() {
+  const start = {}, target = {};
+  GOAL_LIFTS.forEach(l => { start[l] = _goalNum('goalNow-' + l); target[l] = _goalNum('goalTgt-' + l); });
+  const weeks = Math.max(3, Math.min(16, parseInt((document.getElementById('goalWeeks') || {}).value, 10) || 10));
+  const bw = typeof latestBodyweight === 'function' ? (latestBodyweight(window._goalAthleteId) || 0) : 0;
+  const out = document.getElementById('goalReadout');
+  const btn = document.getElementById('goalBuildBtn');
+  if (!out) return;
+
+  const anyStart = GOAL_LIFTS.some(l => start[l] > 0);
+  const anyTarget = GOAL_LIFTS.some(l => target[l] > 0);
+  GOAL_LIFTS.forEach(l => { const v = document.getElementById('goalV-' + l); if (v) { v.textContent = ''; v.className = 'goal-verdict'; } });
+
+  if (!anyStart) {
+    out.innerHTML = '<p class="dim text-sm">Enter at least one current lift to begin.</p>';
+    if (btn) btn.disabled = true;
+    return;
+  }
+  if (btn) btn.disabled = false;
+  if (!anyTarget) {
+    out.innerHTML = '<p class="dim text-sm">No targets set &mdash; the block will wave RPE around their current numbers. ' +
+      'Add a target to make the loads climb.</p>';
+    return;
+  }
+
+  const feas = planFeasibility(start, target, weeks, bw);
+  GOAL_LIFTS.forEach(l => {
+    const f = feas.perLift[l];
+    const v = document.getElementById('goalV-' + l);
+    if (!v || !f || !target[l]) return;
+    const tone = _GOAL_TONE[f.verdict] || _GOAL_TONE.realistic;
+    v.className = 'goal-verdict ' + tone.cls;
+    v.textContent = f.verdict === 'unrealistic'
+      ? '→ ' + Math.round(kgToDisplay(f.reachableKg) * 2) / 2 + ' realistic'
+      : tone.word;
+  });
+
+  const over = GOAL_LIFTS.filter(l => feas.perLift[l] && feas.perLift[l].verdict === 'unrealistic');
+  const gain = Math.round(kgToDisplay(feas.gainTotal));
+  if (over.length) {
+    out.innerHTML =
+      '<p class="goal-msg bad"><strong>That will not fit in ' + weeks + ' weeks.</strong> ' +
+      escHtml(_goalJoin(over.map(l => LIFT_LABELS[l] || l))) +
+      (over.length === 1 ? ' is' : ' are') + ' asking for more than a well-run block gives. ' +
+      'Build it anyway and the numbers get capped at what is reachable &mdash; the rest of the plan is unchanged.</p>';
+  } else {
+    out.innerHTML =
+      '<p class="goal-msg ok"><strong>+' + gain + unitLabel() + ' on the total across ' + weeks + ' weeks.</strong> ' +
+      'That is ' + escHtml(_goalArticle((_GOAL_TONE[feas.verdict] || {}).word || 'realistic')) + ' ask. Loads climb week to week and deload before the heaviest work.</p>';
+  }
+}
+
+// Build + install. Replaces the athlete's program, so it confirms first.
+function buildFromGoal() {
+  const athleteId = window._goalAthleteId;
+  const start = {}, target = {};
+  GOAL_LIFTS.forEach(l => { start[l] = _goalNum('goalNow-' + l); target[l] = _goalNum('goalTgt-' + l); });
+  if (!GOAL_LIFTS.some(l => start[l] > 0)) { toast('Enter at least one current lift.'); return; }
+
+  const weeks = Math.max(3, Math.min(16, parseInt((document.getElementById('goalWeeks') || {}).value, 10) || 10));
+  const daysPerWeek = parseInt((document.getElementById('goalDays') || {}).value, 10) || 4;
+  const bw = typeof latestBodyweight === 'function' ? (latestBodyweight(athleteId) || 0) : 0;
+
+  // Only pass targets the lifter actually set; feasibleTargets caps anything
+  // out of reach so the block is built toward a number they can hit.
+  const hasTargets = GOAL_LIFTS.some(l => target[l] > 0);
+  let targets = null, feas = null;
+  if (hasTargets) {
+    const ft = feasibleTargets(start, target, weeks, bw);
+    targets = ft.targets; feas = ft.feasibility;
+  }
+
+  const prog = generateProgram({ weeks, daysPerWeek, e1rms: start, targets });
+  if (!prog || !prog.weeks || !prog.weeks.length) { toast('Could not build that block.'); return; }
+
+  if (typeof window.__applyGeneratedProgram === 'function') {
+    const ok = window.__applyGeneratedProgram(prog, athleteId);
+    if (!ok) return;
+  } else { toast('Open a program in the builder first.'); return; }
+
+  closeModal('goalModal');
+  const capped = feas && GOAL_LIFTS.filter(l => feas.perLift[l] && feas.perLift[l].verdict === 'unrealistic');
+  toast(capped && capped.length
+    ? 'Built ' + weeks + ' weeks: ' + capped.map(l => LIFT_LABELS[l] || l).join(' & ') + ' capped to what is reachable.'
+    : 'Built ' + weeks + ' weeks. Loads climb to the target.');
+}
+
+window.openGoalModal = openGoalModal;
+window.buildFromGoal = buildFromGoal;
+window.refreshGoalReadout = refreshGoalReadout;
 
 // =========================================================
 // PEAKING BLOCK — a meet taper, distinct from generateProgram (a general
@@ -4006,7 +4669,7 @@ function generatePeakingBlock(opts) {
   }[dpw].map(a => a.slice());
   const accessoryByMain = { squat: 'legs', bench: 'push', deadlift: 'pull' };
   const dayName = (mains, isMeet) =>
-    mains.map(m => LIFT_LABELS[m]).join(' / ') + (isMeet ? ' — openers' : ' day');
+    mains.map(m => LIFT_LABELS[m]).join(' / ') + (isMeet ? ' · openers' : ' day');
 
   const wks = [];
   for (let w = 0; w < weeks; w++) {
@@ -4019,7 +4682,7 @@ function generatePeakingBlock(opts) {
         const e = e1[m] || 0;
         const ex = newExercise(m, 'Competition', '');
         if (isMeet) {
-          ex.sets.push(newSet(weightForTarget(e, 1, OPENER_RPE), 1, OPENER_RPE, 'Opener — fast and easy'));
+          ex.sets.push(newSet(weightForTarget(e, 1, OPENER_RPE), 1, OPENER_RPE, 'Opener: fast and easy'));
         } else {
           const ts = topScheme(w);
           for (let s = 0; s < ts.sets; s++) ex.sets.push(newSet(weightForTarget(e, ts.reps, ts.rpe), ts.reps, ts.rpe, s === 0 ? 'Top set' : ''));
@@ -4234,9 +4897,9 @@ function getProgressionHint(athleteId, lift, variant, exerciseName, prescribedWe
   if (logs.length < 2) return null;
   const recent = logs.slice(0, 3);
   const allEasier = recent.every(l => l.weight >= prescribedWeight && l.rpe <= prescribedRpe - 1);
-  if (allEasier) return { text: 'Last ' + recent.length + ' sessions felt at or below RPE ' + (prescribedRpe - 1) + ' — try +2.5kg?', kind: 'easy' };
+  if (allEasier) return { text: 'Last ' + recent.length + ' sessions felt at or below RPE ' + (prescribedRpe - 1) + '. Try +2.5kg?', kind: 'easy' };
   const allHard = recent.every(l => l.weight <= prescribedWeight && l.rpe >= prescribedRpe + 1);
-  if (allHard) return { text: 'Last ' + recent.length + ' sessions felt above RPE ' + (prescribedRpe + 1) + ' — back off 2.5kg?', kind: 'hard' };
+  if (allHard) return { text: 'Last ' + recent.length + ' sessions felt above RPE ' + (prescribedRpe + 1) + '. Back off 2.5kg?', kind: 'hard' };
   return null;
 }
 
@@ -4601,6 +5264,156 @@ function flagEmoji(code) {
 window.flagEmoji = flagEmoji;
 
 // =========================================================
+// NATIVE BOTTOM TAB BAR (Capacitor shell only)
+// Mirrors the dashboard's .sidebar-tab set into an iOS-style fixed bottom bar. It's a
+// PURE PROXY: each bottom button .click()s its source .sidebar-tab, so every bit of the
+// existing tab-switching logic is reused untouched. Active state stays in sync via a
+// MutationObserver on the source tabs' class — no new state machine. ≤5 tabs render
+// inline; more collapse the tail into a "More" bottom sheet. Native-only + built once;
+// a total no-op on the web (guard on html.native). Called from each dashboard bootstrap
+// after the tab labels/icons are set.
+// =========================================================
+const BTAB_SHORT = {
+  today: 'Train', program: 'Program', progress: 'Progress', bodyweight: 'Weight',
+  coach: 'Coach', library: 'Library', marketplace: 'Market',
+  athletes: 'Roster', templates: 'Templates', messages: 'Messages',
+  club: 'Club', you: 'You'
+};
+
+// =========================================================
+// SUB-SCREENS — a pane that belongs to a parent tab (Bodyweight → Progress,
+// Library → You) gets a "‹ Parent" back link at the top while it's open.
+// Driven by data-parent on its .sidebar-tab; one call after each tab switch.
+// =========================================================
+function syncPaneBack() {
+  document.querySelectorAll('.pane-back').forEach(b => b.remove());
+  const active = document.querySelector('.sidebar-tab.active[data-parent]');
+  if (!active) return;
+  const pane = document.querySelector('[data-pane="' + active.dataset.tab + '"]');
+  const parent = document.querySelector('.sidebar-tab[data-tab="' + active.dataset.parent + '"]');
+  if (!pane || !parent) return;
+  const label = (parent.querySelector('span') && parent.querySelector('span').textContent) || BTAB_SHORT[active.dataset.parent] || 'Back';
+  const back = el('button', { class: 'pane-back', type: 'button' });
+  back.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>' + escHtml(label) + '</span>';
+  back.addEventListener('click', () => parent.click());
+  pane.insertBefore(back, pane.firstChild);
+}
+window.syncPaneBack = syncPaneBack;
+function buildBottomTabs(primaryKeys) {
+  try {
+    if (!document.documentElement.classList.contains('native')) return; // native shell only
+    if (document.getElementById('bottomTabs')) return;                  // build once
+    // Tabs kept out of the bottom bar (feature/code stays — still reachable via the
+    // in-app "View templates" buttons). Dropping 'templates' takes the coach from
+    // 6 tabs to 5, so all 5 (incl. Progress) render as primary instead of Progress
+    // getting pushed into the "More" overflow sheet.
+    // 'marketplace' is dropped for Apple 3.1.1 / 3.1.3(c): it lists digital
+    // programs with prices and an external Lemon Squeezy checkout, which the iOS
+    // app must not offer. Nothing already bought is lost — purchased programs
+    // live in "My library", which keeps its own tab and can reinstall any of them.
+    // On native the sidebar is hidden, so the bottom bar IS the nav: removing the
+    // tab here removes the only route to the pane.
+    const BTAB_HIDE = { templates: true, marketplace: true };
+    // A tab with data-parent is a SUB-SCREEN (Bodyweight under Progress, Library
+    // under You): it never takes a slot in the bar or spills into "More" — you
+    // reach it from its parent screen, and while it's open the parent's button
+    // stays lit. That's what lets the bar be five real destinations and nothing else.
+    const allTabs = Array.from(document.querySelectorAll('.sidebar-tab')); // athlete wraps in .dash-tablist, coach doesn't
+    const tabs = allTabs.filter(t => !BTAB_HIDE[t.dataset.tab] && !t.dataset.parent);
+    if (tabs.length < 2) return;
+
+    const labelFor = (t) => BTAB_SHORT[t.dataset.tab] || (t.querySelector('span') && t.querySelector('span').textContent) || t.dataset.tab;
+    const iconOf = (t) => { const s = t.querySelector('svg'); return s ? s.cloneNode(true) : null; };
+
+    // Primary vs overflow. A caller may pass an explicit ordered list of
+    // data-tab keys (e.g. the athlete bar shows Coach only when linked, else
+    // Program); those become the bar in that order and everything else spills
+    // to "More". Without it, fall back to the first-4 heuristic.
+    let primary, overflow;
+    if (Array.isArray(primaryKeys) && primaryKeys.length) {
+      const byKey = {};
+      tabs.forEach(t => { byKey[t.dataset.tab] = t; });
+      primary = primaryKeys.map(k => byKey[k]).filter(Boolean);
+      const inPrimary = new Set(primary);
+      overflow = tabs.filter(t => !inPrimary.has(t));
+    } else {
+      primary  = tabs.length <= 5 ? tabs : tabs.slice(0, 4);
+      overflow = tabs.length <= 5 ? []   : tabs.slice(4);
+    }
+
+    const bar = el('nav', { class: 'bottom-tabs', id: 'bottomTabs', role: 'tablist', 'aria-label': 'Primary sections' });
+    // The lit pill behind the active icon. It slides between tabs (transform only)
+    // and takes the destination's accent, so switching tabs reads as one motion.
+    const pill = el('span', { class: 'bt-pill', 'aria-hidden': 'true' });
+    bar.appendChild(pill);
+    let moreBtn = null, sheet = null;
+    const closeMore = () => { if (sheet) sheet.classList.remove('open'); if (moreBtn) moreBtn.setAttribute('aria-expanded', 'false'); };
+
+    const makeBtn = (src) => {
+      const b = el('button', { class: 'bottom-tab', type: 'button', 'data-src': src.dataset.tab, 'aria-label': labelFor(src) });
+      const ic = iconOf(src); if (ic) b.appendChild(ic);
+      b.appendChild(el('span', { class: 'bt-label' }, labelFor(src)));
+      b.addEventListener('click', () => { closeMore(); src.click(); });
+      return b;
+    };
+    primary.forEach(t => bar.appendChild(makeBtn(t)));
+
+    if (overflow.length) {
+      moreBtn = el('button', { class: 'bottom-tab', id: 'btabMore', type: 'button', 'aria-label': 'More sections', 'aria-expanded': 'false' });
+      const mi = el('span', { class: 'bt-ico' }); mi.innerHTML = ICONS.dots || '•••'; moreBtn.appendChild(mi);
+      moreBtn.appendChild(el('span', { class: 'bt-label' }, 'More'));
+
+      sheet = el('div', { class: 'bottom-more-sheet', id: 'btabSheet', role: 'menu' });
+      const inner = el('div', { class: 'bms-inner' });
+      inner.appendChild(el('div', { class: 'bms-grip', 'aria-hidden': 'true' }));
+      overflow.forEach(src => {
+        const row = el('button', { class: 'bms-item', type: 'button' });
+        const ic = iconOf(src); if (ic) row.appendChild(ic);
+        row.appendChild(el('span', {}, labelFor(src)));
+        row.addEventListener('click', () => { closeMore(); src.click(); });
+        inner.appendChild(row);
+      });
+      sheet.appendChild(inner);
+      sheet.addEventListener('click', (e) => { if (e.target === sheet) closeMore(); }); // tap backdrop closes
+      moreBtn.addEventListener('click', () => {
+        const open = sheet.classList.toggle('open');
+        moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      bar.appendChild(moreBtn);
+      document.body.appendChild(sheet);
+    }
+    document.body.appendChild(bar);
+
+    const placePill = (btn) => {
+      if (!btn) { pill.style.opacity = '0'; return; }
+      const w = Math.max(56, Math.min(72, btn.offsetWidth - 14));
+      pill.style.width = w + 'px';
+      pill.style.transform = 'translateX(' + Math.round(btn.offsetLeft + (btn.offsetWidth - w) / 2) + 'px)';
+      pill.style.opacity = '1';
+    };
+    // Mirror active state from the source tabs (no new state — pure reflection).
+    let lit = null;
+    const sync = () => {
+      const active = allTabs.find(t => t.classList.contains('active'));
+      bar.querySelectorAll('.bottom-tab').forEach(b => b.classList.remove('active'));
+      if (!active) { placePill(null); return; }
+      const key = active.dataset.parent || active.dataset.tab;   // sub-screen → its parent
+      const match = bar.querySelector('.bottom-tab[data-src="' + key + '"]');
+      lit = match || (moreBtn && overflow.indexOf(active) !== -1 ? moreBtn : null);
+      if (lit) lit.classList.add('active');
+      placePill(lit);
+    };
+    const obs = new MutationObserver(sync);
+    allTabs.forEach(t => obs.observe(t, { attributes: true, attributeFilter: ['class'] }));
+    sync();
+    // First placement snaps; after that the pill glides.
+    setTimeout(() => bar.classList.add('bt-ready'), 60);
+    window.addEventListener('resize', () => placePill(lit));
+  } catch (e) { console.warn('buildBottomTabs failed', e); }
+}
+window.buildBottomTabs = buildBottomTabs;
+
+// =========================================================
 // COMMAND PALETTE (⌘K / Ctrl+K) — quick jump to any tab or action.
 // Auto-discovers the page's .sidebar-tab buttons + a few global actions, so it
 // works on both dashboards with zero per-page wiring. Isolated: a keydown
@@ -4740,15 +5553,15 @@ function avatarHtml(user, opts) {
   opts = opts || {};
   const cls = opts.cls || '';
   const sz = opts.size || 'md';
-  const sizeStyle = sz === 'sm' ? 'width:32px;height:32px;font-size:0.75rem'
-                   : sz === 'lg' ? 'width:80px;height:80px;font-size:1.5rem'
+  const sizeStyle = sz === 'sm' ? 'width:32px;height:32px;font-size:13px'
+                   : sz === 'lg' ? 'width:80px;height:80px;font-size:22px'
                    : 'width:48px;height:48px;font-size:1rem';
   if (user && user.avatarUrl) {
     return '<div class="av ' + cls + '" style="' + sizeStyle + ';padding:0;overflow:hidden;background:transparent">' +
       '<img src="' + escHtml(user.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' +
     '</div>';
   }
-  return '<div class="av ' + cls + '" style="' + sizeStyle + '">' + escHtml(initials(user ? user.name : '?')) + '</div>';
+  return '<div class="av ' + cls + '" data-name="' + escHtml(user ? (user.name || '?') : '?') + '" style="' + sizeStyle + '">' + escHtml(initials(user ? user.name : '?')) + '</div>';
 }
 window.avatarHtml = avatarHtml;
 
@@ -4779,11 +5592,16 @@ const ICONS = {
   note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
   film: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>',
   logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
 };
 
 // Brand mark — barbell SVG
-const BRAND_MARK = '<svg class="brand-mark" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="bg-r" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff2d3f"/><stop offset="100%" stop-color="#b71629"/></linearGradient></defs><rect x="2" y="11" width="3.5" height="6" rx="1" fill="url(#bg-r)"/><rect x="6.5" y="9" width="2.2" height="10" rx="0.5" fill="url(#bg-r)"/><rect x="9.5" y="13" width="9" height="2" fill="url(#bg-r)"/><rect x="19.3" y="9" width="2.2" height="10" rx="0.5" fill="url(#bg-r)"/><rect x="22.5" y="11" width="3.5" height="6" rx="1" fill="url(#bg-r)"/></svg>';
+// The mark: one sleeve of a loaded bar, side on — a red 25 kg plate (the IPF colour for
+// the heaviest disc), a smaller plate and the collar. The plate is the only red in the
+// identity; bar, plates and wordmark take the ink colour (currentColor).
+const BRAND_MARK = '<svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg>';
 
 // =========================================================
 // NAV
@@ -4791,8 +5609,17 @@ const BRAND_MARK = '<svg class="brand-mark" viewBox="0 0 28 28" xmlns="http://ww
 function renderNav(target) {
   const user = getCurrentUser();
   const navInner = el('div', { class: 'nav-inner' });
-  const brand = el('a', { href: 'index.html', class: 'brand' });
-  brand.innerHTML = BRAND_MARK + '<span>POWA<span class="accent">LIFTA</span></span>';
+  // Logo destination: a signed-in user goes STRAIGHT to their own dashboard.
+  // Pointing it at index.html made the marketing page flash for a beat before
+  // index.html's own location.replace() bounced them back to the dashboard —
+  // most visible inside the native shell. Logged-out users still get the landing page.
+  const brandHref = user
+    ? (user.userType === 'coach' ? 'coach.html'
+       : user.userType === 'admin' ? 'admin.html'
+       : 'athlete.html')
+    : 'index.html';
+  const brand = el('a', { href: brandHref, class: 'brand' });
+  brand.innerHTML = BRAND_MARK + '<span class="brand-word">POWALIFTA</span>';
   navInner.appendChild(brand);
 
   const actions = el('div', { class: 'nav-actions ' + (user ? 'auth' : 'guest') });
@@ -4812,6 +5639,14 @@ function renderNav(target) {
   actions.appendChild(unitBtn);
 
   if (user) {
+    // Ask AI — in the app (and on phones) the assistant opens from the top bar
+    // instead of a floating button that sat on top of the set checkboxes.
+    if (document.querySelector('.dash-main') && user.userType !== 'admin') {
+      const aiBtn = el('button', { class: 'nav-ai', type: 'button', title: 'Ask AI', 'aria-label': 'Ask the AI assistant' });
+      aiBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>';
+      aiBtn.setAttribute('onclick', 'openAIAssistant()');
+      actions.appendChild(aiBtn);
+    }
     // Signal center bell — only on the dashboards (skip marketing pages + admin).
     if (document.querySelector('.dash-main') && user.userType !== 'admin') {
       const sigWrap = el('div', { class: 'sig-wrap' });
@@ -4827,7 +5662,7 @@ function renderNav(target) {
     const userPill = el('button', { class: 'nav-user', title: 'Settings' });
     const avInner = user.avatarUrl
       ? '<div class="av" style="padding:0;overflow:hidden;background:transparent"><img src="' + escHtml(user.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
-      : '<div class="av">' + escHtml(initials(user.name)) + '</div>';
+      : '<div class="av" data-name="' + escHtml(user.name || '?') + '">' + escHtml(initials(user.name)) + '</div>';
     const flagPart = user.countryCode ? '<span style="margin-left:4px">' + flagEmoji(user.countryCode) + '</span>' : '';
     userPill.innerHTML = avInner + '<span>' + escHtml(user.name) + '</span>' + flagPart;
     userPill.setAttribute('onclick', 'if(window.openSettingsModal){openSettingsModal()}');
@@ -5095,7 +5930,7 @@ function drawLineChart(container, config) {
   const hasData = series.some(s => s.data && s.data.length);
   if (!hasData) {
     const e = el('div', { class: 'chart-empty' });
-    e.innerHTML = ICONS.chart + '<p>No data yet — log some sets and your trend will appear here.</p>';
+    e.innerHTML = ICONS.chart + '<p>No data yet: log some sets and your trend will appear here.</p>';
     container.appendChild(e);
     return;
   }
@@ -5162,8 +5997,9 @@ function drawLineChart(container, config) {
     t.setAttribute('x', PAD.left - 10); t.setAttribute('y', yv + 4);
     t.setAttribute('text-anchor', 'end');
     t.setAttribute('fill', C_AXIS); t.setAttribute('font-size', '11');
-    t.setAttribute('font-family', "'Space Grotesk', monospace");
-    t.textContent = Math.round(v);
+    t.setAttribute('font-family', "'Archivo', sans-serif");
+    // Keep the decimals the step needs: a 0.5-step bodyweight axis read "84 84 83 83".
+    t.textContent = niceStep < 1 ? (Math.round(v * 10) / 10).toFixed(1) : Math.round(v);
     svg.appendChild(t);
   }
 
@@ -5182,7 +6018,7 @@ function drawLineChart(container, config) {
       lbl.setAttribute('text-anchor', 'end');
       lbl.setAttribute('fill', C_GOAL); lbl.setAttribute('font-size', '11');
       lbl.setAttribute('font-weight', '700');
-      lbl.setAttribute('font-family', "'Plus Jakarta Sans', sans-serif");
+      lbl.setAttribute('font-family', "'Archivo', sans-serif");
       lbl.textContent = goal.label || ('Goal · ' + goal.value + unit);
       svg.appendChild(lbl);
     }
@@ -5196,7 +6032,7 @@ function drawLineChart(container, config) {
     t.setAttribute('x', x); t.setAttribute('y', h - PAD.bottom + 18);
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('fill', C_AXIS); t.setAttribute('font-size', '11');
-    t.setAttribute('font-family', "'Plus Jakarta Sans', sans-serif");
+    t.setAttribute('font-family', "'Archivo', sans-serif");
     const d = new Date(allDates[i]);
     t.textContent = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     svg.appendChild(t);
@@ -5288,7 +6124,7 @@ function drawLineChart(container, config) {
     cross.setAttribute('x1', xPos); cross.setAttribute('x2', xPos);
     cross.setAttribute('opacity', '1');
 
-    let html = '<div style="font-size:0.7rem; color:' + C_TIP_TITLE + '; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:8px;">' +
+    let html = '<div style="font-size:11px; color:' + C_TIP_TITLE + '; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:8px;">' +
                new Date(date).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + '</div>';
     let any = false;
     series.forEach(s => {
@@ -5296,8 +6132,8 @@ function drawLineChart(container, config) {
       if (d != null && d.y != null) {
         any = true;
         html += '<div style="display:flex; justify-content:space-between; gap:18px; align-items:center; padding:3px 0;">' +
-                  '<span style="display:flex; align-items:center; gap:8px; font-size:0.85rem;"><span style="width:8px; height:8px; border-radius:50%; background:' + s.color + ';"></span><span style="color:' + C_TIP_NAME + ';">' + s.name + '</span></span>' +
-                  '<span style="font-family:\'Space Grotesk\',monospace; color:' + C_TIP_VAL + '; font-weight:700; font-variant-numeric: tabular-nums;">' + (Math.round(d.y * 10) / 10) + ' ' + unit + '</span>' +
+                  '<span style="display:flex; align-items:center; gap:8px; font-size:13px;"><span style="width:8px; height:8px; border-radius:50%; background:' + s.color + ';"></span><span style="color:' + C_TIP_NAME + ';">' + s.name + '</span></span>' +
+                  '<span style="font-family:var(--font-num); color:' + C_TIP_VAL + '; font-weight:700; font-variant-numeric: tabular-nums;">' + (Math.round(d.y * 10) / 10) + ' ' + unit + '</span>' +
                 '</div>';
       }
     });
@@ -5437,8 +6273,8 @@ const VOLUME_LANDMARKS = {
 };
 const VOLUME_BUCKET_ORDER = ['squat', 'bench', 'deadlift', 'push', 'pull', 'legs'];
 const VOLUME_ZONE_LABEL = {
-  none: 'Untrained', under: 'Below MEV', productive: 'Productive',
-  high: 'Near MRV', over: 'Over MRV', unknown: ''
+  none: 'Untrained', under: 'Below minimum', productive: 'Productive',
+  high: 'Near the max', over: 'Over the max', unknown: ''
 };
 
 // Which landmark bucket a logged set counts toward (null = cardio/other/unknown).
@@ -5533,7 +6369,7 @@ function deloadSignal(logs, athleteId, now, opts) {
     recentAvgRpe: recentRounded,
     weeks,
     note: suggest
-      ? (lookback + ' weeks of rising load at RPE ' + recentRounded + ' — a deload week could turn that fatigue into strength.')
+      ? (lookback + ' weeks of rising load at RPE ' + recentRounded + '. A deload week could turn that fatigue into strength.')
       : ''
   };
 }
@@ -5603,7 +6439,7 @@ function leaderboardRowsHtml(ranked, opts = {}) {
   const list = ranked || [];
   if (!list.length) {
     return opts.emptyHtml ||
-      '<div class="lb-empty dim">No lifters on the board yet — be the first to publish.</div>';
+      '<div class="lb-empty dim">No lifters on the board yet. Be the first to publish.</div>';
   }
   return list.map(e => {
     const me = opts.highlightUserId && e.userId === opts.highlightUserId;
@@ -5621,7 +6457,7 @@ function leaderboardRowsHtml(ranked, opts = {}) {
           '<span class="lb-name">' + escHtml(e.displayName || 'Lifter') + '</span>' +
           sexBadge + meetBadge + youTag +
         '</span>' +
-        '<span class="lb-cls mono">' + (cls || '—') + flag + '</span>' +
+        '<span class="lb-cls mono">' + (cls || '–') + flag + '</span>' +
         '<span class="lb-total mono">' + formatWeight(e.totalKg, 0) + '</span>' +
         '<span class="lb-dots mono">' + (Math.round(e.dots * 10) / 10).toFixed(1) + '</span>' +
       '</div>';
@@ -5695,7 +6531,7 @@ async function refreshLeaderboardButton(btn) {
   if (window._demoMode) on = !!window._demoOnBoard;
   else if (u && u.id) { try { on = !!(await DB.myLeaderboardEntry(u.id)); } catch (e) {} }
   btn.setAttribute('data-on', on ? '1' : '0');
-  btn.textContent = on ? 'On the leaderboard — tap to leave' : 'Publish to leaderboard';
+  btn.textContent = on ? 'On the leaderboard: tap to leave' : 'Publish to leaderboard';
   btn.classList.toggle('is-on', on);
 }
 
@@ -5707,13 +6543,13 @@ async function toggleLeaderboard(btn) {
   const on = btn && btn.getAttribute('data-on') === '1';
   if (window._demoMode) {
     window._demoOnBoard = !on;
-    toast(on ? 'Removed from the leaderboard' : 'Published — you’re on the board');
+    toast(on ? 'Removed from the leaderboard' : 'Published: you’re on the board');
     refreshLeaderboardButton(btn);
     return;
   }
   try {
     if (on) { await DB.removeLeaderboardEntry(entry.userId); toast('Removed from the leaderboard'); }
-    else { await DB.upsertLeaderboardEntry(entry); toast('Published — you’re on the board'); }
+    else { await DB.upsertLeaderboardEntry(entry); toast('Published: you’re on the board'); }
   } catch (e) { console.error('leaderboard toggle', e); toast('Could not update the leaderboard'); return; }
   refreshLeaderboardButton(btn);
 }
@@ -5874,22 +6710,22 @@ function bwCutBulkStats(series, goalKg, direction) {
 function bwPace(slopeKgWk, curKg, direction) {
   const pctWk = slopeKgWk / curKg * 100; // signed %BW/week
   if (direction === 'cut') {
-    if (slopeKgWk > 0.05) return { tone: 'away', text: 'trending up — not cutting' };
+    if (slopeKgWk > 0.05) return { tone: 'away', text: 'trending up: not cutting' };
     const loss = -pctWk; // %/wk lost
     if (loss < 0.2) return { tone: 'flat', text: 'holding steady' };
-    if (loss < 0.5) return { tone: 'slow', text: 'gentle cut — strength-sparing' };
+    if (loss < 0.5) return { tone: 'slow', text: 'gentle cut: strength-sparing' };
     if (loss <= 1.2) return { tone: 'good', text: 'solid cut pace' };
-    return { tone: 'fast', text: 'aggressive — strength may suffer' };
+    return { tone: 'fast', text: 'aggressive: strength may suffer' };
   }
   if (direction === 'gain') {
-    if (slopeKgWk < -0.05) return { tone: 'away', text: 'trending down — not gaining' };
+    if (slopeKgWk < -0.05) return { tone: 'away', text: 'trending down: not gaining' };
     if (slopeKgWk < 0.05) return { tone: 'flat', text: 'holding steady' };
-    if (slopeKgWk < 0.2) return { tone: 'slow', text: 'slow gain — near recomp' };
+    if (slopeKgWk < 0.2) return { tone: 'slow', text: 'slow gain: near recomp' };
     if (slopeKgWk <= 0.6) return { tone: 'good', text: 'lean bulk pace' };
-    return { tone: 'fast', text: 'fast — expect more fat gain' };
+    return { tone: 'fast', text: 'fast: expect more fat gain' };
   }
   // maintain
-  if (Math.abs(pctWk) < 0.25) return { tone: 'good', text: 'steady — holding weight' };
+  if (Math.abs(pctWk) < 0.25) return { tone: 'good', text: 'steady: holding weight' };
   return { tone: 'slow', text: 'drifting ' + (slopeKgWk > 0 ? 'up' : 'down') };
 }
 
@@ -5904,7 +6740,7 @@ function seedDemoIfEmpty() { /* no-op — Supabase is the source of truth */ }
 // .stat-value nodes, animates each once. Reduced-motion safe.
 // =========================================================
 function _countUpEl(valEl) {
-  const unitSpan = valEl.querySelector('.unit');
+  const unitSpan = valEl.querySelector('.unit, small');
   const unitHTML = unitSpan ? unitSpan.outerHTML : '';
   // Read ONLY the number, excluding the .unit span — the unit text can itself
   // contain digits (e.g. "of 4"), which would otherwise be parsed into the
@@ -5954,11 +6790,13 @@ function _initStatCountUp() {
     entries.forEach((en) => {
       if (!en.isIntersecting) return;
       io.unobserve(en.target);
+      // Inside the app, numbers count up as their screen opens, not on every re-render.
+      if (document.body.classList.contains('powa-app') && !document.body.classList.contains('screen-enter')) return;
       _countUpEl(en.target);
     });
   }, { threshold: 0.45 });
   const scan = () => {
-    document.querySelectorAll('.stat-value').forEach((e) => {
+    document.querySelectorAll('.stat-value, body.powa-app .ui-num-xl, body.powa-app .ui-stat b').forEach((e) => {
       if (e.__cuSeen) return;
       e.__cuSeen = true;
       io.observe(e);
@@ -6078,3 +6916,609 @@ function _legacy_seedDemo() {
 
 }
 */
+
+// =========================================================
+// YOU — the profile hub (both dashboards).
+// One screen for everything that isn't the day's work: who you are, your three
+// headline numbers, and grouped rows into every secondary screen (bodyweight,
+// library, settings, units, log out…). It's what lets the bottom bar stay at five
+// real destinations, and it takes units + log out off the top bar.
+// model = { name, avatarUrl, sub, stats:[{label,value,unit}], action:{label,onClick},
+//           groups:[{ title, rows:[{ label, value, onClick, tone, id }] }] }
+// =========================================================
+const _YOU_CHEV = '<svg class="yr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+// Settings-style icon tiles for the YOU rows: each destination gets a glyph and a
+// colour, so the list reads at a glance instead of as a wall of grey labels.
+const _YI = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+const YOU_ROW_META = {
+  'Full program':        { tint: 'sky',    icon: () => ICONS.program },
+  'Bodyweight':          { tint: 'teal',   icon: () => ICONS.scale },
+  'Goals':               { tint: 'gold',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>') },
+  'Rest timer':          { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
+  'My library':          { tint: 'iris',   icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M8 7h7"/>') },
+  'Browse programs':     { tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
+  'Leaderboard':         { tint: 'gold',   icon: () => _YI('<path d="M8 21V11h8v10"/><path d="M3 21v-6h5"/><path d="M16 21v-8h5v8"/><path d="M2 21h20"/>') },
+  'Find a coach':        { tint: 'green',  icon: () => ICONS.athletes },
+  'Refer a lifter':      { tint: 'pink',   icon: () => _YI('<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13"/><path d="M3 12h18"/><path d="M12 8c-2-4-6-4-6-1.5S10 8 12 8zM12 8c2-4 6-4 6-1.5S14 8 12 8z"/>') },
+  'Ask AI':              { tint: 'iris',   icon: () => _YI('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>') },
+  'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
+  'Units':               { tint: 'sky',    icon: () => ICONS.weight },
+  'Replay the tour':     { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>') },
+  'Log out':             { tint: 'red',    icon: () => ICONS.logout },
+  'Athlete progress':    { tint: 'sky',    icon: () => ICONS.chart },
+  'Templates':           { tint: 'iris',   icon: () => ICONS.copy },
+  'Marketplace listings':{ tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
+  'Invite an athlete':   { tint: 'green',  icon: () => _YI('<path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>') }
+};
+
+function renderYouHub(container, model) {
+  if (!container) return;
+  container.innerHTML = '';
+  // Who you are, in the screen's hue: avatar, name, the three numbers that
+  // matter, and the one thing worth doing from here.
+  const hero = el('div', { class: 'ui-hero you-hero' });
+  const head = el('div', { class: 'you-head' });
+  const av = el('div', { class: 'you-av' });
+  if (model.avatarUrl) av.innerHTML = '<img src="' + escHtml(model.avatarUrl) + '" alt="">';
+  else { av.textContent = initials(model.name || ''); av.setAttribute('data-name', model.name || ''); }
+  head.appendChild(av);
+  const id = el('div', { class: 'you-id' });
+  id.appendChild(el('h2', {}, model.name || 'You'));
+  if (model.sub) id.appendChild(el('div', { class: 'you-sub' }, model.sub));
+  head.appendChild(id);
+  hero.appendChild(head);
+  if (model.stats && model.stats.length) {
+    const st = el('div', { class: 'rh-stats you-stats-v3' });
+    model.stats.forEach(s => {
+      const c = el('div', { class: 'rh-stat' });
+      c.appendChild(el('b', { html: escHtml(String(s.value)) + (s.unit ? '<small>' + escHtml(s.unit) + '</small>' : '') }));
+      c.appendChild(el('span', {}, s.label));
+      st.appendChild(c);
+    });
+    hero.appendChild(st);
+  }
+  if (model.action) {
+    const a = el('button', { class: 'ui-btn-soft you-action', type: 'button' }, model.action.label);
+    a.addEventListener('click', model.action.onClick);
+    hero.appendChild(a);
+  }
+  container.appendChild(hero);
+
+  (model.groups || []).forEach(g => {
+    const rows = (g.rows || []).filter(Boolean);
+    if (!rows.length) return;
+    const grp = el('div', { class: 'you-group' });
+    grp.appendChild(el('div', { class: 'yg-title' }, g.title));
+    const list = el('div', { class: 'yg-list ui-list' });
+    rows.forEach(r => {
+      const row = el('button', { class: 'you-row' + (r.tone ? ' tone-' + r.tone : ''), type: 'button' });
+      if (r.id) row.id = r.id;
+      const meta = r.icon ? { tint: r.tint || 'gray', icon: () => r.icon } : YOU_ROW_META[r.label];
+      if (meta) row.appendChild(el('span', { class: 'yr-ic t-' + meta.tint, html: meta.icon() || '' }));
+      row.appendChild(el('span', { class: 'yr-label' }, r.label));
+      const v = el('span', { class: 'yr-value' }, r.value == null ? '' : String(r.value));
+      row.appendChild(v);
+      if (r.tone !== 'plain') row.insertAdjacentHTML('beforeend', _YOU_CHEV);
+      row.addEventListener('click', () => r.onClick && r.onClick(row, v));
+      list.appendChild(row);
+    });
+    grp.appendChild(list);
+    container.appendChild(grp);
+  });
+}
+window.renderYouHub = renderYouHub;
+
+// Open the AI assistant from anywhere (the floating launcher is hidden in the app,
+// where it covered the set checkboxes — the top bar + YOU carry the entry instead).
+function openAIAssistant() {
+  const l = document.querySelector('.ai-launcher');
+  if (l) l.click(); else toast('Assistant is still loading. Try again in a second');
+}
+window.openAIAssistant = openAIAssistant;
+
+// Lift colours for charts + legends — the same identity colours the app uses
+// everywhere (styles.css --lift-*): squat cyan, bench iris, deadlift gold. Red
+// stays the action colour, so no lift is red. Light theme gets deeper shades so
+// every line holds 3:1 against a white card.
+function liftColors() {
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  return light
+    ? { squat: '#0a86c9', bench: '#6a4fe0', deadlift: '#a86f00', line: '#0f8f7d' }
+    : { squat: '#38c6ff', bench: '#a98bff', deadlift: '#ffbf3c', line: '#2fe0c2' };
+}
+window.liftColors = liftColors;
+
+// =========================================================
+// SMART REST (2026-10-16). The owner asked why the timer was "stuck at 3 mins":
+// it was a flat 180 s after every main-lift set and 90 s after everything else.
+// Now the rest follows the set. Fewer reps (heavier) and higher RPE (harder) earn
+// longer, deadlifts a touch more, accessories less. A coach-prescribed rest on
+// the exercise (restSec) wins outright; the lifter's preference (Short /
+// Standard / Long) scales the smart value. Pure: unit-tested in tests.html.
+// =========================================================
+const REST_PREFS = { short: 0.75, standard: 1, long: 1.3 };
+const REST_PREF_LABEL = { short: 'Short', standard: 'Standard', long: 'Long' };
+function getRestPref() {
+  let v = null; try { v = localStorage.getItem('powa-rest-pref'); } catch (e) {}
+  return REST_PREFS[v] ? v : 'standard';
+}
+function setRestPref(v) { try { localStorage.setItem('powa-rest-pref', REST_PREFS[v] ? v : 'standard'); } catch (e) {} }
+function getRestAuto() { try { return localStorage.getItem('powa-rest-auto') !== '0'; } catch (e) { return true; } }
+function setRestAuto(on) { try { localStorage.setItem('powa-rest-auto', on ? '1' : '0'); } catch (e) {} }
+
+// opts: { lift, reps, rpe, restSec (coach override, seconds), pref }
+function smartRestSeconds(opts) {
+  opts = opts || {};
+  const fixed = Number(opts.restSec);
+  if (fixed > 0) return Math.max(15, Math.min(600, Math.round(fixed / 15) * 15));
+  const main = opts.lift === 'squat' || opts.lift === 'bench' || opts.lift === 'deadlift';
+  const reps = Math.max(1, Number(opts.reps) || (main ? 5 : 10));
+  const rpe = Number(opts.rpe) || 0;
+  let s = main ? (reps <= 3 ? 210 : reps <= 6 ? 180 : 150)
+               : (reps <= 6 ? 120 : reps <= 12 ? 90 : 60);
+  if (rpe >= 9.5) s += main ? 60 : 30;
+  else if (rpe >= 9) s += 30;
+  else if (rpe > 0 && rpe <= 7) s -= main ? 30 : 15;
+  if (opts.lift === 'deadlift' && reps <= 5) s += 30;
+  s *= REST_PREFS[opts.pref] || 1;
+  const lo = main ? 90 : 45, hi = main ? 360 : 240;
+  return Math.max(lo, Math.min(hi, Math.round(s / 15) * 15));
+}
+function fmtClock(sec) {
+  sec = Math.max(0, Math.round(Number(sec) || 0));
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+
+// iOS-style switch. Returns the <label>; read/write state on .input.
+function uiSwitch(checked, onChange, ariaLabel) {
+  const wrap = el('label', { class: 'ui-switch' });
+  const input = el('input', { type: 'checkbox', role: 'switch', 'aria-label': ariaLabel || '' });
+  input.checked = !!checked;
+  input.addEventListener('change', () => onChange && onChange(input.checked));
+  wrap.appendChild(input);
+  wrap.appendChild(el('span', { class: 'ui-switch-track', 'aria-hidden': 'true' }, el('span', { class: 'ui-switch-knob' })));
+  wrap.input = input;
+  return wrap;
+}
+
+// iOS can deliver a late synthetic click from the tap that OPENED a sheet; it then
+// lands on whatever row of the new sheet sits under the finger. Like a native
+// sheet, ignore clicks while it's still presenting.
+function _sheetSwallowEarlyClicks(veil) {
+  const openedAt = Date.now();
+  veil.addEventListener('click', (e) => {
+    if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+}
+
+// A bottom sheet with arbitrary content (uiActionSheet is the menu version).
+// build(sheet, close) fills it. Returns close().
+function uiSheet(title, build, opts) {
+  opts = opts || {};
+  const veil = el('div', { class: 'ui-sheet-veil', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Sheet' });
+  const sheet = el('div', { class: 'ui-sheet ui-sheet-form' + (opts.cls ? ' ' + opts.cls : '') });
+  sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
+  if (title) sheet.appendChild(el('h3', { class: 'ui-sheet-h' }, title));
+  let closed = false;
+  const close = () => {
+    if (closed) return; closed = true;
+    document.removeEventListener('keydown', onKey);
+    veil.classList.add('leaving');
+    setTimeout(() => { veil.remove(); if (opts.onClose) opts.onClose(); }, 200);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  veil.appendChild(sheet);
+  _sheetSwallowEarlyClicks(veil);
+  veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(veil);
+  build(sheet, close);
+  return close;
+}
+
+// Rest settings: how long (Short / Standard / Long, previewed on three real
+// sets) and whether the timer starts on its own after each set.
+function openRestSettings(onDone) {
+  uiSheet('Rest timer', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Rest follows the set. Heavier and harder sets rest longer.'));
+    const seg = el('div', { class: 'ui-seg rest-seg', role: 'radiogroup', 'aria-label': 'Rest length' });
+    const examples = [
+      { title: 'Heavy triple', sub: 'Squat · 3 reps at RPE 9', lift: 'squat', reps: 3, rpe: 9 },
+      { title: 'Volume set', sub: 'Bench · 8 reps at RPE 7', lift: 'bench', reps: 8, rpe: 7 },
+      { title: 'Accessory', sub: 'Rows · 12 reps at RPE 8', lift: 'pull', reps: 12, rpe: 8 }
+    ];
+    const ends = [];
+    const preview = uiList(examples.map(x => {
+      const end = el('b', { class: 'rest-ex-val' });
+      ends.push(end);
+      return uiRow({ title: x.title, sub: x.sub, endNode: end });
+    }));
+    preview.classList.add('rest-preview');
+    const paint = () => {
+      const p = getRestPref();
+      seg.querySelectorAll('button').forEach(b => { const on = b.dataset.v === p; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      examples.forEach((x, i) => { ends[i].textContent = fmtClock(smartRestSeconds(Object.assign({ pref: p }, x))); });
+    };
+    Object.keys(REST_PREFS).forEach(k => {
+      const b = el('button', { type: 'button', role: 'radio', 'data-v': k }, REST_PREF_LABEL[k]);
+      b.addEventListener('click', () => { setRestPref(k); paint(); });
+      seg.appendChild(b);
+    });
+    sheet.appendChild(seg);
+    sheet.appendChild(preview);
+    const autoRow = el('div', { class: 'ui-row rest-auto' });
+    const autoMain = el('span', { class: 'ui-row-main' });
+    autoMain.appendChild(el('span', { class: 'ui-row-title' }, 'Start after each set'));
+    autoMain.appendChild(el('span', { class: 'ui-row-sub' }, 'Off: no timer pops up when you tick a set'));
+    autoRow.appendChild(autoMain);
+    autoRow.appendChild(uiSwitch(getRestAuto(), on => setRestAuto(on), 'Start the rest timer after each set'));
+    sheet.appendChild(uiList([autoRow]));
+    const done = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Done');
+    done.addEventListener('click', close);
+    sheet.appendChild(done);
+    paint();
+  }, { cls: 'rest-sheet', onClose: onDone });
+}
+function restSettingsSummary() {
+  return getRestAuto() ? 'Smart · ' + REST_PREF_LABEL[getRestPref()] : 'Off';
+}
+Object.assign(window, { REST_PREFS, getRestPref, setRestPref, getRestAuto, setRestAuto, smartRestSeconds, fmtClock, uiSwitch, uiSheet, openRestSettings, restSettingsSummary });
+
+// =========================================================
+// UI v2 BUILDERS — every rebuilt screen is assembled from these, so the
+// whole app shares one row, one stat strip, one empty state, one sheet.
+// (Styles: "UI v2 — PRIMITIVES" in styles.css.)
+// =========================================================
+const UI_CHEV = '<svg class="ui-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const UI_DOTS = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+
+function uiLabel(text, opts) {
+  opts = opts || {};
+  const l = el('div', { class: 'ui-label' }, text);
+  if (opts.count) l.appendChild(el('span', { class: 'ui-count' }, String(opts.count)));
+  if (opts.action) {
+    const b = el('button', { class: 'ui-label-end', type: 'button' }, opts.action.label);
+    b.addEventListener('click', opts.action.onClick);
+    l.appendChild(b);
+  }
+  return l;
+}
+
+// opts: { title, sub, subTone ('alert'|'ok'), av (name for initials), avUrl, lead (node),
+//         end (text), endHtml, endNode, chevron (bool), onClick }
+function uiRow(opts) {
+  const row = el(opts.onClick ? 'button' : 'div', { class: 'ui-row', type: opts.onClick ? 'button' : null });
+  if (!opts.onClick) row.removeAttribute('type');
+  if (opts.av != null || opts.avUrl) {
+    const av = el('span', { class: 'ui-av' });
+    if (opts.avUrl) av.innerHTML = '<img src="' + escHtml(opts.avUrl) + '" alt="">';
+    else { av.textContent = initials(opts.av || '?'); av.setAttribute('data-name', opts.av || '?'); av.classList.add('av-h' + avatarHue(opts.av || '?')); }
+    row.appendChild(av);
+  }
+  if (opts.lead) row.appendChild(opts.lead);
+  const main = el('span', { class: 'ui-row-main' });
+  main.appendChild(el('span', { class: 'ui-row-title' }, opts.title || ''));
+  if (opts.sub) main.appendChild(el('span', { class: 'ui-row-sub' + (opts.subTone ? ' ' + opts.subTone : '') }, opts.sub));
+  row.appendChild(main);
+  if (opts.end != null || opts.endHtml || opts.endNode || opts.chevron) {
+    const end = el('span', { class: 'ui-row-end' });
+    if (opts.endNode) end.appendChild(opts.endNode);
+    else if (opts.endHtml) end.innerHTML = opts.endHtml;
+    else if (opts.end != null) end.textContent = String(opts.end);
+    if (opts.chevron) end.insertAdjacentHTML('beforeend', UI_CHEV);
+    row.appendChild(end);
+  }
+  if (opts.onClick) row.addEventListener('click', opts.onClick);
+  return row;
+}
+
+function uiList(rows) {
+  const list = el('div', { class: 'ui-list' });
+  rows.filter(Boolean).forEach(r => list.appendChild(r));
+  return list;
+}
+
+// items: [{ value, unit, label }]
+function uiStats(items) {
+  const s = el('div', { class: 'ui-stats' });
+  items.filter(Boolean).forEach(it => {
+    const c = el('div', { class: 'ui-stat' + (it.tone ? ' tone-' + it.tone : '') });
+    c.appendChild(el('b', { html: escHtml(String(it.value)) + (it.unit ? '<small>' + escHtml(it.unit) + '</small>' : '') }));
+    c.appendChild(el('span', {}, it.label));
+    s.appendChild(c);
+  });
+  return s;
+}
+
+// opts: { icon (svg), title, text, primary: {label, onClick}, secondary: {label, onClick} }
+function uiEmpty(opts) {
+  const e = el('div', { class: 'ui-empty' });
+  if (opts.icon) e.appendChild(el('div', { class: 'ui-empty-icon', html: opts.icon }));
+  e.appendChild(el('h3', {}, opts.title));
+  if (opts.text) e.appendChild(el('p', {}, opts.text));
+  if (opts.primary) {
+    const b = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, opts.primary.label);
+    b.addEventListener('click', opts.primary.onClick);
+    e.appendChild(b);
+  }
+  if (opts.secondary) {
+    const t = el('button', { class: 'ui-text-btn', type: 'button', style: 'display:block;margin:10px auto 0' }, opts.secondary.label);
+    t.addEventListener('click', opts.secondary.onClick);
+    e.appendChild(t);
+  }
+  return e;
+}
+
+// ⋯ menu as a bottom sheet. actions: [{ label, icon?, danger?, onClick }]
+function uiActionSheet(title, actions) {
+  const veil = el('div', { class: 'ui-sheet-veil', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Options' });
+  const sheet = el('div', { class: 'ui-sheet' });
+  sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
+  if (title) sheet.appendChild(el('div', { class: 'ui-sheet-title' }, title));
+  const close = () => { veil.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  actions.filter(Boolean).forEach(a => {
+    const b = el('button', { type: 'button', class: a.danger ? 'danger' : '' });
+    b.innerHTML = (a.icon || '') + '<span>' + escHtml(a.label) + '</span>';
+    b.addEventListener('click', () => { close(); a.onClick && a.onClick(); });
+    sheet.appendChild(b);
+  });
+  const cancel = el('button', { type: 'button', class: 'ui-sheet-cancel' }, 'Cancel');
+  cancel.addEventListener('click', close);
+  sheet.appendChild(cancel);
+  veil.appendChild(sheet);
+  _sheetSwallowEarlyClicks(veil);
+  veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(veil);
+  const first = sheet.querySelector('button:not(.ui-sheet-cancel)');
+  if (first) setTimeout(() => { try { first.focus(); } catch (e) {} }, 30);
+  return close;
+}
+
+// Tiny inline sparkline (no axes) — values: number[]. Ink line + soft fill.
+function uiSparkline(values) {
+  const v = (values || []).filter(n => isFinite(n));
+  if (v.length < 2) return '';
+  const W = 300, H = 56, pad = 3;
+  const min = Math.min(...v), max = Math.max(...v), span = (max - min) || 1;
+  const pts = v.map((n, i) => [pad + (i / (v.length - 1)) * (W - pad * 2), H - pad - ((n - min) / span) * (H - pad * 2)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = d + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + H + ' L' + pts[0][0].toFixed(1) + ' ' + H + ' Z';
+  const last = pts[pts.length - 1];
+  return '<svg class="ui-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+    '<path d="' + area + '" fill="currentColor" opacity="0.08"/>' +
+    '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>' +
+    '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.2" fill="currentColor"/></svg>';
+}
+
+// Goal rows for one athlete: where they are on the right, the target and
+// what's left underneath, a thin bar for the distance. Returns a .ui-list, or
+// null when no target is set. Shared by the athlete History view and the
+// coach's per-athlete progress view.
+function uiGoalList(goals, athleteId, includeBw) {
+  if (!goals) return null;
+  const u = unitLabel();
+  const defs = [
+    { key: 'squat', label: 'Squat', current: bestE1RM(athleteId, 'squat') },
+    { key: 'bench', label: 'Bench', current: bestE1RM(athleteId, 'bench') },
+    { key: 'deadlift', label: 'Deadlift', current: bestE1RM(athleteId, 'deadlift') },
+    { key: 'total', label: 'Total', current: currentTotal(athleteId) }
+  ];
+  if (includeBw && goals.bodyweight) {
+    const cur = latestBodyweight(athleteId);
+    if (cur != null) defs.push({ key: 'bodyweight', label: 'Bodyweight', current: cur, direction: goals.bwDirection });
+  }
+  const rows = [];
+  defs.forEach(def => {
+    const target = goals[def.key];
+    if (!target || target <= 0) return;
+    const pct = goalProgressPct(def.current, target, def.direction);
+    const done = def.direction === 'cut' ? def.current <= target : def.current >= target;
+    const remainKg = def.direction === 'cut' ? (def.current - target) : (target - def.current);
+    const row = uiRow({
+      title: def.label,
+      sub: 'Goal ' + kgToDisplay(target) + ' ' + u + ' · ' + (done ? 'done' : kgToDisplay(remainKg, 1) + ' ' + u + ' to go'),
+      subTone: done ? 'ok' : null,
+      endHtml: '<b>' + kgToDisplay(def.current, 1) + '</b>' + u
+    });
+    row.querySelector('.ui-row-main').appendChild(
+      el('span', { class: 'goal-bar' + (done ? ' done' : '') }, el('i', { style: 'width:' + Math.max(0, Math.min(100, pct)) + '%' })));
+    rows.push(row);
+  });
+  return rows.length ? uiList(rows) : null;
+}
+
+Object.assign(window, { UI_CHEV, UI_DOTS, uiLabel, uiRow, uiList, uiStats, uiEmpty, uiActionSheet, uiSparkline, uiGoalList });
+
+// =========================================================
+// UI v3 · LIVING DARK (2026-10-16)
+// The owner's verdict on v2: "all grey, dead, plain". v3 gives colour a job and
+// makes the app answer the finger:
+//   · each of the five destinations owns one hue (wayfinding) — Train/Roster
+//     fire, Progress/Program cyan, Club gold, Coach/Messages green, You violet;
+//     sub-screens wear their parent's hue. body[data-accent] drives it all.
+//   · every person gets a stable avatar colour (hash of their name/initials).
+//   · lists rise in when a screen opens, big numbers count up, rings fill.
+// Styles: "UI v3 · LIVING DARK" at the end of styles.css.
+// =========================================================
+const SCREEN_ACCENT = {
+  today: 'fire', athletes: 'fire',
+  progress: 'cyan', bodyweight: 'cyan', program: 'cyan', templates: 'cyan',
+  club: 'gold',
+  coach: 'green', messages: 'green',
+  you: 'violet', library: 'violet', marketplace: 'violet'
+};
+function screenAccentFor(key) {
+  // The athlete's own Program sits in the Coach slot when self-coached.
+  if (key === 'program' && !/coach\.html/.test(location.pathname)) return 'green';
+  return SCREEN_ACCENT[key] || 'fire';
+}
+
+// Mark the screen as "entering" for a moment so its lists stagger in and its
+// numbers count up, once per visit (re-renders while you stay don't replay it).
+let _enterTimer = null;
+function markScreenEnter() {
+  const b = document.body;
+  if (!b) return;
+  b.classList.remove('screen-enter');
+  void b.offsetWidth; // restart the CSS animations on a quick tab change
+  b.classList.add('screen-enter');
+  clearTimeout(_enterTimer);
+  _enterTimer = setTimeout(() => b.classList.remove('screen-enter'), 900);
+}
+
+function initScreenAccent() {
+  const b = document.body;
+  if (!b || !b.classList.contains('powa-app')) return;
+  const tabs = Array.from(document.querySelectorAll('.sidebar-tab'));
+  if (!tabs.length) return;
+  let lastKey = null;
+  const apply = () => {
+    const active = tabs.find(t => t.classList.contains('active'));
+    if (!active) return;
+    const key = active.dataset.parent || active.dataset.tab;
+    b.dataset.accent = screenAccentFor(key);
+    b.dataset.screen = active.dataset.tab;
+    if (active.dataset.tab !== lastKey) { lastKey = active.dataset.tab; markScreenEnter(); }
+  };
+  const obs = new MutationObserver(apply);
+  tabs.forEach(t => obs.observe(t, { attributes: true, attributeFilter: ['class', 'data-parent'] }));
+  apply();
+}
+
+// Stable avatar colour per person: the same lifter is the same colour on the
+// roster, in messages and in the club. 8 hues, picked by a hash of the name.
+function avatarHue(name) {
+  // FNV-1a + a final avalanche, so short names and initials still spread across
+  // all eight hues instead of clumping.
+  const s = String(name || '').trim().toUpperCase();
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h = (h ^ s.charCodeAt(i)) >>> 0; h = Math.imul(h, 0x01000193) >>> 0; }
+  h = (h ^ (h >>> 15)) >>> 0; h = Math.imul(h, 0x2c1b3c6d) >>> 0; h = (h ^ (h >>> 12)) >>> 0;
+  return h % 8;
+}
+// Paint every initials avatar the app renders (uiRow, legacy .av, inbox rows,
+// club members) without touching each renderer: one batched observer pass.
+const AVATAR_SEL = '.ui-av, .av, .msg-inbox-av, .cr-av, .club-av, .cm-av, .coach-av, .you-av, .cp-av, .cd-crest';
+function paintAvatars(root) {
+  (root || document).querySelectorAll(AVATAR_SEL).forEach(a => {
+    if (a.querySelector('img')) { a.classList.add('has-img'); return; }
+    const key = a.getAttribute('data-name') || a.textContent;
+    const h = avatarHue(key);
+    if (a.dataset.h === String(h)) return;
+    for (let i = 0; i < 8; i++) a.classList.remove('av-h' + i);
+    a.classList.add('av-h' + h);
+    a.dataset.h = String(h);
+  });
+}
+function initAvatarPaint() {
+  if (!document.body) return;
+  paintAvatars(document);
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    (window.requestAnimationFrame || setTimeout)(() => { queued = false; paintAvatars(document); });
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
+// Progress ring (Apple-Fitness style): track + gradient arc in the screen's
+// accent. frac 0..1. The arc fills in when its screen opens.
+let _ringSeq = 0;
+function uiRing(frac, opts) {
+  opts = opts || {};
+  const size = opts.size || 72, sw = opts.stroke || 8;
+  const r = (size - sw) / 2, cx = size / 2, c = 2 * Math.PI * r;
+  const f = Math.max(0, Math.min(1, Number(frac) || 0));
+  const id = 'uiRingG' + (++_ringSeq);
+  const wrap = el('span', { class: 'ui-ring' + (opts.cls ? ' ' + opts.cls : ''), style: 'width:' + size + 'px;height:' + size + 'px' });
+  wrap.innerHTML =
+    '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+      '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="ui-ring-s1"/><stop offset="1" class="ui-ring-s2"/></linearGradient></defs>' +
+      '<circle class="ui-ring-track" cx="' + cx + '" cy="' + cx + '" r="' + r + '" fill="none" stroke-width="' + sw + '"/>' +
+      '<circle class="ui-ring-fill" cx="' + cx + '" cy="' + cx + '" r="' + r + '" fill="none" stroke="url(#' + id + ')" stroke-width="' + sw + '" stroke-linecap="round"' +
+        ' stroke-dasharray="' + c.toFixed(2) + '" stroke-dashoffset="' + (c * (1 - f)).toFixed(2) + '" style="--c:' + c.toFixed(2) + '"' +
+        ' transform="rotate(-90 ' + cx + ' ' + cx + ')"/>' +
+    '</svg>';
+  // One inner span so the number and its small unit share a baseline AND the pair
+  // centres in the ring (WebKit puts baseline-aligned flex items at the top).
+  if (opts.label != null) wrap.appendChild(el('span', { class: 'ui-ring-label', html: '<span>' + opts.label + '</span>' }));
+  return wrap;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { initScreenAccent(); initAvatarPaint(); });
+} else {
+  initScreenAccent(); initAvatarPaint();
+}
+// iOS WebKit only applies :active press states when the page listens for touches.
+try { document.addEventListener('touchstart', function () {}, { passive: true }); } catch (e) {}
+
+// Hero with a progress ring: the ring on the left, the headline beside it,
+// optional mini stats underneath. Wears the screen's accent like every .ui-hero.
+// opts: { frac, ringLabel (html), label, title, sub, stats: [{ value, label, tone }] }
+function uiRingHero(opts) {
+  const hero = el('div', { class: 'ui-hero ring-hero' });
+  const top = el('div', { class: 'rh-top' });
+  top.appendChild(uiRing(opts.frac, { size: 88, stroke: 9, label: opts.ringLabel }));
+  const txt = el('div', { class: 'rh-text' });
+  if (opts.label) txt.appendChild(el('div', { class: 'ui-hero-label' }, opts.label));
+  txt.appendChild(el('div', { class: 'rh-title' }, opts.title || ''));
+  if (opts.sub) txt.appendChild(el('div', { class: 'rh-sub' }, opts.sub));
+  top.appendChild(txt);
+  hero.appendChild(top);
+  if (opts.stats && opts.stats.length) {
+    const row = el('div', { class: 'rh-stats' });
+    opts.stats.forEach(s => {
+      const c = el('div', { class: 'rh-stat' + (s.tone ? ' tone-' + s.tone : '') });
+      c.appendChild(el('b', {}, String(s.value)));
+      c.appendChild(el('span', {}, s.label));
+      row.appendChild(c);
+    });
+    hero.appendChild(row);
+  }
+  return hero;
+}
+
+// Commit a primary action on finger-up instead of waiting for WebKit's synthetic
+// click, which iOS sometimes withholds (hover-reveal heuristics) — the set you
+// just lifted must never fail to log. Movement over 10px is a scroll, not a tap;
+// the trailing click is swallowed so the action fires exactly once.
+let _fastTap = { at: 0, x: 0, y: 0 };
+function uiFastTap(node, fn) {
+  if (!node || typeof fn !== 'function') return node;
+  let sx = 0, sy = 0, down = false;
+  node.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; down = true; sx = e.clientX; sy = e.clientY; }, { passive: true });
+  node.addEventListener('pointercancel', () => { down = false; });
+  node.addEventListener('pointerup', (e) => {
+    if (!down || e.pointerType === 'mouse') return;
+    down = false;
+    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) return;
+    _fastTap = { at: Date.now(), x: e.clientX, y: e.clientY };
+    fn(e);
+  });
+  node.addEventListener('click', (e) => { if (Date.now() - _fastTap.at < 700) return; fn(e); });
+  return node;
+}
+// The action may re-render the screen, so iOS's late synthetic click can land on
+// whatever now sits under the finger (e.g. the NEXT set's Log button). Swallow any
+// click at that spot just after a fast tap — page-wide, capture phase.
+document.addEventListener('click', (e) => {
+  if (Date.now() - _fastTap.at < 700 && Math.abs(e.clientX - _fastTap.x) < 40 && Math.abs(e.clientY - _fastTap.y) < 40) {
+    e.stopPropagation(); e.preventDefault();
+  }
+}, true);
+
+// Same idea for every sheet: while a modal sheet or ui-sheet is still sliding up,
+// a click inside it is the late echo of the tap that opened it, not a choice.
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!t || !t.closest) return;
+  const m = t.closest('.modal-backdrop.open .modal, .ui-sheet');
+  if (!m || typeof m.getAnimations !== 'function') return;
+  const presenting = m.getAnimations().some(a => a.playState === 'running' && /SheetUp/.test(a.animationName || ''));
+  if (presenting) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+
+Object.assign(window, { SCREEN_ACCENT, screenAccentFor, markScreenEnter, initScreenAccent, avatarHue, paintAvatars, uiRing, uiRingHero, uiFastTap });
