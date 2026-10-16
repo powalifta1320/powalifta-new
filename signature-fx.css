@@ -170,7 +170,7 @@
 }
 .hero-scrollcue:hover { opacity: 1; }
 .hsc-label {
-  font-family: 'Space Grotesk', monospace;
+  font-family: var(--font-num);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.32em;
@@ -237,4 +237,24 @@
       #1a1d24 0%, #2c313b 40%, #3a414e 50%, #2c313b 60%, #1a1d24 100%) !important;
     background-position: 0 0 !important;
   }
+}
+
+/* ---- REBRAND 2026-10: solid headline -----------------------------------------
+   The steel ramp is clipped to the glyphs with background-clip:text. In the new
+   wide display face, BARBELL. (an animated inline-block) wraps to its own line and
+   Chromium paints its glyphs into the parent's text clip at the PRE-wrap position —
+   a ghost "BARBELL" through line one. The rebrand wants calm chrome anyway: solid
+   ink headline, the accent word stays the one red. */
+.hero h1,
+[data-theme="light"] .hero h1,
+.hero.fx-forge h1 {
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--text) !important;
+}
+.hero h1 .accent {
+  -webkit-text-fill-color: var(--red) !important;
+  color: var(--red) !important;
 }

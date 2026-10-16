@@ -1,5 +1,7 @@
 # POWALIFTA — App Store submission kit
 
+> v1.1.1 (2026-10-16): screenshots, header + search-results art and all paste-ready copy were generated into the gitignored `APP-STORE-1.1.1/` folder at the repo root (iPhone 6.3" 1206×2622 is now the REQUIRED iPhone size; 6.9" is optional; iPad 13" 2064×2752 required). Raw simulator captures live in `native/store/raw-*`.
+
 Paste-ready metadata for App Store Connect + the pre-submit checklist. Everything
 here is drawn from the live product; edit to taste. Character limits noted inline.
 
@@ -28,7 +30,7 @@ Built for the barbell
 
 **Promotional text** (≤170 chars, editable anytime without review):
 ```
-RPE-native programming, automatic e1RM tracking, and real coaching — all in one place. Free for athletes. Built for squat, bench, and deadlift.
+New: share lifts with your club, climb your club's board, and a rest timer that adjusts to every set. Free for lifters. Built for squat, bench and deadlift.
 ```
 
 **Keywords** (≤100 chars, comma-separated, no spaces after commas):
@@ -36,35 +38,50 @@ RPE-native programming, automatic e1RM tracking, and real coaching — all in on
 powerlifting,rpe,e1rm,strength,squat,bench,deadlift,coach,barbell,dots,program,gym,lifting,tracker
 ```
 
-**Description** (≤4000 chars):
+**Description** (≤4000 chars) — v1.1.1:
 ```
-POWALIFTA is powerlifting software built for the barbell — not a generic fitness app bent into shape. If you train squat, bench, and deadlift by RPE, this is your log, your programming, and your line to your coach, in one place.
+POWALIFTA is a powerlifting app built for the barbell. Log every set by weight, reps and RPE, watch your total climb, and train with your club and your coach in one place.
 
-FOR ATHLETES — free
-• Log every set by weight, reps, and RPE. Your e1RM updates automatically, competition-equivalent across variants.
-• Track your DOTS and IPF GoodLift score, weight class, and estimated total as you get stronger.
-• See your progress: e1RM over time, a training calendar, PR timeline, weekly volume, and lift balance.
-• Get programming from your coach — weights, reps, RPE, tempo, and notes, session by session.
-• Send form-check videos to your coach and get cues back.
-• Plan your meet: openers, seconds, and thirds from your real e1RMs, plus a warm-up ramp.
+TRAIN
+- The next set is always the first thing you see. Logging it is one tap.
+- Log by RPE. Your e1RM updates automatically, competition-equivalent across squat, bench and deadlift variants.
+- Smart rest timer: heavier and harder sets rest longer, and it keeps counting on your Lock Screen.
+- No coach? Build an 8-week block from your best lifts, or write your own program.
 
-FOR COACHES
-• Manage your whole roster from one dashboard — who logged, who's stalling, who just PR'd.
-• Build programs in RPE and assign them in a click. Save templates, reuse them across athletes.
-• Review form checks, message athletes, and track adherence.
-• Invite an athlete with a 6-character code — they're on your roster in seconds.
+PROGRESS
+- e1RM over time for every lift, your PRs, DOTS, IPF GoodLift score and weight class.
+- Weekly volume, a training calendar, lift balance and meet results.
+- Plan meet day: openers, seconds and thirds from your real numbers.
 
-WHY RPE
-Powerlifting runs on autoregulation. POWALIFTA is RPE-native from the ground up — your e1RM math, your programming, and your progress all speak the same language your coach does.
+CLUBS
+- Join your gym team, uni club or barbell crew. Find clubs by name or city, or join with a code.
+- Share any set, PR or whole session to your club's feed.
+- Climb your club's leaderboard, ranked by DOTS or this week's training.
+- Clubs can be public or private. Private clubs approve who joins.
+- Your club sees what you share and your stats, never your program or logs.
 
-Free for athletes, forever.
+COACHING
+- Get your program from your coach, message them, send form-check videos and do weekly check-ins.
+- Coaches: manage your roster, see who trained and who's stalling, build RPE programs, save templates and give one program to many athletes at once.
+- Free for coaches with up to 3 athletes. Bigger rosters are available as in-app subscriptions.
 
-Built for the barbell.
+Free for lifters. Built for the barbell.
+
+Terms of Use: https://www.powalifta.com/terms.html
+Privacy Policy: https://www.powalifta.com/privacy.html
 ```
 
-**What's New** (version notes, ≤4000):
+**What's New** (version notes, ≤4000) — v1.1.1:
 ```
-First release on iOS. Everything from powalifta.com, now native: push notifications from your coach, home-screen access, and offline logging at the gym.
+New in 1.1.1
+
+- Clubs are now social: share any set, PR or whole session to your club's feed
+- Find clubs by name or city. Join public clubs in one tap, or request to join private ones
+- Club leaderboards, ranked by DOTS or by this week's training
+- Smart rest timer: heavier and harder sets rest longer. Pick Short, Standard or Long in You > Rest timer
+- A cleaner rest timer with a bigger countdown and a "Go" when rest is done
+- Coaches: a tidier program builder, roster and inbox
+- Report and block in clubs, plus polish on every screen
 ```
 
 ## URLs

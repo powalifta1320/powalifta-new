@@ -108,7 +108,7 @@
         await LN.schedule({ notifications: [{
           id: ID,
           title: 'POWALIFTA',
-          body: "Time to weigh in — log today's bodyweight.",
+          body: "Time to weigh in. Log today's bodyweight.",
           schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true },
           extra: { url: 'athlete.html' }
         }] });
@@ -209,7 +209,7 @@
     document.addEventListener('click', function (ev) {
       try {
         var hit = ev.target && ev.target.closest
-          ? ev.target.closest('.btn, .dash-tab, .tab-btn, .bottom-tab, .bms-item, .sidebar-tab, .nav-user, .theme-toggle, .unit-toggle, .sig-bell, [role="button"]')
+          ? ev.target.closest('.btn, .dash-tab, .tab-btn, .bottom-tab, .bms-item, .sidebar-tab, .nav-user, .theme-toggle, .unit-toggle, .sig-bell, button.ui-row, .ui-chip, .ui-seg button, .ui-icon-btn, .ui-text-btn, .ui-btn-soft, .prog-subtab, .nw-btn, .ob-card, [role="button"]')
           : null;
         if (hit) PowaNative.haptic('LIGHT');
       } catch (e) {}

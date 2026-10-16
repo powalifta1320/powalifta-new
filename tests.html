@@ -13,12 +13,12 @@
   *{box-sizing:border-box}
   body{
     margin:0; background:var(--bg); color:#f4f4f6;
-    font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    font-family: var(--font-body);
     -webkit-font-smoothing:antialiased; padding:40px 24px 80px;
   }
   .wrap{max-width:860px; margin:0 auto}
   h1{
-    font-family:'Anton',Impact,sans-serif; font-weight:400; letter-spacing:.02em;
+    font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800; letter-spacing:.02em;
     text-transform:uppercase; font-size:34px; margin:0 0 4px;
   }
   h1 .red{color:var(--red)}
@@ -29,7 +29,7 @@
     padding:16px 18px; margin-bottom:22px;
   }
   .pill{
-    font-family:'Space Grotesk',monospace; font-size:13px; font-weight:600;
+    font-family: var(--font-num); font-size:13px; font-weight:600;
     padding:6px 12px; border-radius:999px; border:1px solid var(--line);
   }
   .pill.tot{color:#f4f4f6}
@@ -43,13 +43,13 @@
   }
   .banner{
     border-radius:12px; padding:12px 16px; margin-bottom:22px; font-weight:700; font-size:15px;
-    font-family:'Space Grotesk',monospace;
+    font-family: var(--font-num);
   }
   .banner.ok{color:var(--green); background:rgba(78,216,132,.1); border:1px solid rgba(78,216,132,.4)}
   .banner.bad{color:var(--red); background:rgba(255,45,63,.1); border:1px solid rgba(255,45,63,.4)}
   .grp{margin-bottom:22px}
   .grp-h{
-    font-family:'Space Grotesk',monospace; text-transform:uppercase; letter-spacing:.08em;
+    font-family: var(--font-num); text-transform:uppercase; letter-spacing:.08em;
     font-size:12px; color:var(--dim); margin:0 0 8px; padding-left:2px;
   }
   .case{
@@ -67,10 +67,10 @@
   .ctext{flex:1; min-width:0}
   .cname{color:#e8e8ee}
   .cerr{
-    color:var(--red); font-family:'Space Grotesk',monospace; font-size:12.5px;
+    color:var(--red); font-family: var(--font-num); font-size:12.5px;
     margin-top:4px; white-space:pre-wrap; word-break:break-word;
   }
-  .cnote{color:var(--gold); font-size:12.5px; margin-top:3px; font-family:'Space Grotesk',monospace}
+  .cnote{color:var(--gold); font-size:12.5px; margin-top:3px; font-family: var(--font-num);}
   iframe.sandbox{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; border:0; left:-9999px}
 </style>
 </head>
@@ -89,6 +89,7 @@
 <!-- Shared library under test. db.js intentionally omitted: the tested functions
      are pure (Store + window._user only) and never touch Supabase. -->
 <script src="app.js"></script>
+<script src="clubs.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -364,7 +365,7 @@ group('program export');
     test('accessory keeps its name', () =>
       assert(lines.some(l => l.indexOf('Week 1,Squat Day,Leg Curls,,1,30,12,8,') === 0)));
     test('rest day emits a marker row', () =>
-      assert(lines.some(l => l.indexOf('Week 1,Rest,— Rest day —,') === 0)));
+      assert(lines.some(l => l.indexOf('Week 1,Rest,Rest day,') === 0)));
     setUnit('lbs');
     test('lbs mode: header + weight convert (150kg ≈ 330.7lb)', () => {
       const l = buildProgramCsv(program).split('\n');
@@ -533,6 +534,113 @@ test('rows html: highlightUserId flags the caller, top 3 get medals', () => {
   assert(/lb-me/.test(h), 'caller row carries lb-me');
   assert(/lb-you/.test(h), 'caller row carries the YOU tag');
 });
+
+/* ===========================================================
+   9b-iii. Clubs — pure board ranking + weekly pulse
+   (rankClubMembers / clubWeekPulse in clubs.js; joining, the stats push and
+   the DB layer are integration-only and excluded from this pure harness)
+   =========================================================== */
+group('clubs');
+test('club board: DOTS desc, ties share a rank, total breaks the order', () => {
+  const r = rankClubMembers([
+    { userId: 'a', displayName: 'A', dots: 400, totalKg: 600 },
+    { userId: 'b', displayName: 'B', dots: 450, totalKg: 500 },
+    { userId: 'c', displayName: 'C', dots: 400, totalKg: 650 },
+    { userId: 'd', displayName: 'D', dots: 380, totalKg: 700 }
+  ], 'dots');
+  eq(r.map(m => m.userId).join(','), 'b,c,a,d');
+  eq(r.map(m => m.rank).join(','), '1,2,2,4');
+});
+test('club board: members with no numbers sit at the bottom, unranked', () => {
+  const r = rankClubMembers([
+    { userId: 'x', displayName: 'Zed', dots: null },
+    { userId: 'y', displayName: 'Amy', dots: 300 }
+  ], 'dots');
+  eq(r.map(m => m.userId).join(','), 'y,x');
+  eq(r[1].rank, null);
+});
+test('club board: week mode ranks sessions, then tonnage, and ignores stale weeks', () => {
+  const wk = '2026-10-12';
+  const r = rankClubMembers([
+    { userId: 'a', displayName: 'A', weekStart: wk, weekSessions: 3, weekTonnageKg: 9000 },
+    { userId: 'b', displayName: 'B', weekStart: wk, weekSessions: 3, weekTonnageKg: 12000 },
+    { userId: 'c', displayName: 'C', weekStart: '2026-10-05', weekSessions: 5, weekTonnageKg: 20000 }
+  ], 'week', wk);
+  eq(r.map(m => m.userId).join(','), 'b,a,c');
+  eq(r[2].rank, null);
+});
+test('club board: never mutates its input', () => {
+  const input = [{ userId: 'a', displayName: 'A', dots: 1 }, { userId: 'b', displayName: 'B', dots: 2 }];
+  rankClubMembers(input, 'dots');
+  eq(input[0].userId, 'a'); eq(input[0].rank, undefined);
+});
+test('club pulse: sums only this week, counts who trained', () => {
+  const wk = '2026-10-12';
+  const p = clubWeekPulse([
+    { weekStart: wk, weekSessions: 3, weekTonnageKg: 9000 },
+    { weekStart: wk, weekSessions: 0, weekTonnageKg: 0 },
+    { weekStart: '2026-10-05', weekSessions: 4, weekTonnageKg: 15000 }
+  ], wk);
+  eq(p.sessions, 3); eq(p.tonnageKg, 9000); eq(p.active, 1); eq(p.total, 3);
+});
+
+test('club feed: shareableSets keeps the best set per lift per day, newest first', () => {
+  const L = (id, date, lift, w, r, e, extra) => Object.assign({ id, athleteId: 'me', date, lift, variant: lift === 'pull' ? '' : 'Competition', exerciseName: lift === 'pull' ? 'Row' : '', weight: w, reps: r, rpe: 8, e1rm: e, e1rmComp: e }, extra);
+  const logs = [
+    L('a', '2026-10-14', 'squat', 150, 5, 175), L('b', '2026-10-14', 'squat', 160, 3, 178),
+    L('c', '2026-10-15', 'bench', 100, 5, 116), L('d', '2026-10-15', 'pull', 60, 10, 80),
+    L('e', '2026-09-01', 'squat', 200, 1, 200),                         // too old
+    L('f', '2026-10-15', 'squat', 140, 5, 160, { athleteId: 'other' }), // someone else
+    L('g', '2026-10-15', 'cardio', 30, 5, 0)                            // not a lift
+  ];
+  const r = shareableSets(logs, 'me', { days: 14, today: '2026-10-16' });
+  eq(r.map(l => l.id).join(','), 'c,d,b');
+});
+test('club feed: sessionSummary counts the day and names it after the main lift', () => {
+  const logs = [
+    { athleteId: 'me', date: '2026-10-16', lift: 'squat', weight: 100, reps: 5 },
+    { athleteId: 'me', date: '2026-10-16', lift: 'squat', weight: 110, reps: 3 },
+    { athleteId: 'me', date: '2026-10-16', lift: 'pull', weight: 50, reps: 10 },
+    { athleteId: 'me', date: '2026-10-15', lift: 'bench', weight: 90, reps: 5 }
+  ];
+  const s = sessionSummary(logs, 'me', '2026-10-16');
+  eq(s.sets, 3); eq(s.tonnageKg, 1330); eq(s.name, 'Squat day');
+  eq(sessionSummary(logs, 'me', '2026-10-10').sets, 0);
+});
+
+/* ===========================================================
+   9b-iv. Smart rest (smartRestSeconds in app.js)
+   =========================================================== */
+group('smart rest');
+test('smart rest: a heavy triple rests longer than a volume set', () => {
+  const heavy = smartRestSeconds({ lift: 'squat', reps: 3, rpe: 9 });
+  const volume = smartRestSeconds({ lift: 'squat', reps: 8, rpe: 7 });
+  eq(heavy, 240); eq(volume, 120);
+});
+test('smart rest: RPE 9.5+ adds a minute on a main lift, deadlift adds 30 s', () => {
+  eq(smartRestSeconds({ lift: 'bench', reps: 1, rpe: 9.5 }), 270);
+  eq(smartRestSeconds({ lift: 'deadlift', reps: 5, rpe: 8 }), 210);
+});
+test('smart rest: accessories rest less, by rep range', () => {
+  eq(smartRestSeconds({ lift: 'pull', reps: 12, rpe: 8 }), 90);
+  eq(smartRestSeconds({ lift: 'push', reps: 15, rpe: 7 }), 45);
+  eq(smartRestSeconds({ lift: 'legs', reps: 5, rpe: 9 }), 150);
+});
+test('smart rest: preference scales it, snapped to 15 s and clamped', () => {
+  eq(smartRestSeconds({ lift: 'squat', reps: 5, rpe: 8, pref: 'short' }), 135);
+  eq(smartRestSeconds({ lift: 'squat', reps: 5, rpe: 8, pref: 'long' }), 240);
+  eq(smartRestSeconds({ lift: 'squat', reps: 10, rpe: 6, pref: 'short' }), 90);
+  eq(smartRestSeconds({ lift: 'bench', reps: 1, rpe: 10, pref: 'long' }), 345);
+});
+test('smart rest: a coach-set rest wins over the smart value', () => {
+  eq(smartRestSeconds({ lift: 'squat', reps: 3, rpe: 9, restSec: 300, pref: 'short' }), 300);
+  eq(smartRestSeconds({ lift: 'pull', reps: 12, restSec: 70 }), 75);
+});
+test('smart rest: missing reps/RPE fall back to sane defaults', () => {
+  eq(smartRestSeconds({ lift: 'squat' }), 180);
+  eq(smartRestSeconds({}), 90);
+});
+test('fmtClock: m:ss', () => { eq(fmtClock(225), '3:45'); eq(fmtClock(5), '0:05'); eq(fmtClock(600), '10:00'); });
 
 /* ===========================================================
    9b. Weekly volume landmarks (MEV/MAV/MRV)

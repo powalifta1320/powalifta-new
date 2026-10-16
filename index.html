@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POWALIFTA — Built for the barbell.</title>
+<title>POWALIFTA | Built for the barbell.</title>
 <meta name="description" content="Powerlifting platform. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for athletes and coaches.">
-<meta property="og:title" content="POWALIFTA — Built for the barbell.">
+<meta property="og:title" content="POWALIFTA | Built for the barbell.">
 <meta property="og:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/">
@@ -14,17 +14,20 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="POWALIFTA — Built for the barbell.">
+<meta name="twitter:title" content="POWALIFTA | Built for the barbell.">
 <meta name="twitter:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
-<!-- Native shell detect — runs BEFORE the render-blocking app scripts (Supabase CDN /
-     app.js) so the native welcome screen (#nativeWelcome) paints on first frame instead
-     of waiting for native-bridge.js to add html.native. Idempotent with native-bridge.
-     .has-session suppresses the welcome for a returning signed-in user (Supabase token in
-     storage) → they get splash → dashboard with no welcome flash. No-op on the web. -->
-<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){var h=document.documentElement;h.classList.add('native');if(!localStorage.getItem('powa-theme'))h.setAttribute('data-theme','dark');for(var i=0;i<localStorage.length;i++){var kk=localStorage.key(i);if(kk&&/^sb-.*-auth-token$/.test(kk)&&localStorage.getItem(kk)){h.classList.add('has-session');break;}}}}catch(e){}})();</script>
+<!-- Native shell launch — runs before anything paints. Adds html.native so the native
+     welcome (#nativeWelcome) is the first frame. For a returning signed-in user (Supabase
+     token in storage) it routes STRAIGHT to their dashboard using the role remembered at
+     the last sign-in (app.js bootstrap → powa-last-role), so the app never shows the
+     welcome or the website first. No remembered role yet → html.has-session paints a
+     branded splash (styles.css) until bootstrap resolves. powa-no-autoroute (set by
+     app.js _toWelcome on sign-out / stale session) skips the jump once, so there's no
+     bounce loop. Invite deep links (?code=) also skip it. No-op on the web. -->
+<script>(function(){try{var C=window.Capacitor;if(!(C&&C.isNativePlatform&&C.isNativePlatform()))return;var h=document.documentElement;h.classList.add('native');if(!localStorage.getItem('powa-theme'))h.setAttribute('data-theme','dark');var signed=false;for(var i=0;i<localStorage.length;i++){var kk=localStorage.key(i);if(kk&&/^sb-.*-auth-token$/.test(kk)&&localStorage.getItem(kk)){signed=true;break;}}if(!signed)return;h.classList.add('has-session');var skip=sessionStorage.getItem('powa-no-autoroute');if(skip){sessionStorage.removeItem('powa-no-autoroute');return;}if(/[?&]code=/.test(location.search))return;var role=localStorage.getItem('powa-last-role');var dest=role==='coach'?'coach.html':role==='athlete'?'athlete.html':role==='admin'?'admin.html':null;if(dest)location.replace(dest);}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -33,9 +36,7 @@
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Preload Anton (the hero headline = LCP) so the steel type paints without a FOUT/CLS flash -->
-<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/anton/v27/1Ptgg87LROyAm3Kz-C8CSKlv.woff2">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=2">
 <link rel="stylesheet" href="cookie-consent.css">
 <link rel="stylesheet" href="hero-fx.css">
@@ -44,6 +45,7 @@
 <link rel="stylesheet" href="insane-fx.css">
 <link rel="stylesheet" href="signature-fx.css">
 <link rel="stylesheet" href="plate-fx.css">
+<link rel="stylesheet" href="native-onboard.css">
 <noscript><style>[data-fx],[data-fx-stagger]>[data-fx]{opacity:1!important;transform:none!important;filter:none!important}</style></noscript>
 <script defer src="hero-fx.js"></script>
 <script defer src="scroll-fx.js"></script>
@@ -75,26 +77,75 @@
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
-<!-- NATIVE APP WELCOME — shown ONLY inside the Capacitor shell (html.native), and only
-     while logged out (html:not(.has-session)). Static markup so the app opens on a real
-     app screen with instant buttons, not the marketing website (Apple 4.2) and not a
-     blank nav waiting on app.js. Logged-in users are redirected to their dashboard by the
-     bootstrap callback. Completely inert + invisible on the web. -->
+<!-- NATIVE APP WELCOME — the app's real first screen (logged out), inside the Capacitor
+     shell only (html.native:not(.has-session)). Static markup so it paints on the first
+     frame with no website underneath. A swipeable three-card story made of live mini-UI
+     (the set card, the climbing total, the club board), not screenshots. "Get started" /
+     "I already have an account" open the native sign-up / log-in flows (native-onboard.js);
+     the inline fallbacks keep the buttons working if that script hasn't loaded yet.
+     Completely inert + invisible on the web. -->
 <div id="nativeWelcome" class="native-welcome">
-  <div class="nw-inner">
-    <div class="nw-brand"><span class="nw-dot" aria-hidden="true"></span>POWALIFTA</div>
-    <h1 class="nw-title">BUILT FOR<br>THE <span class="accent">BARBELL.</span></h1>
-    <p class="nw-sub">RPE-native programming, automatic e1RM tracking, and live SBD progress.</p>
-    <div class="nw-actions">
-      <button type="button" class="btn btn-primary btn-lg btn-block" onclick="openSignupModal('solo')">Create account</button>
-      <button type="button" class="btn btn-lg btn-ghost btn-block" onclick="openLoginModal()">Log in</button>
-    </div>
-    <div class="nw-demo-block">
-      <span class="nw-demo-label">Or explore a demo (no signup)</span>
-      <div class="nw-demo-row">
-        <a class="nw-demo-btn" href="athlete.html?demo=1"><span class="nw-demo-play" aria-hidden="true">▶</span> Athlete</a>
-        <a class="nw-demo-btn" href="coach.html?demo=1"><span class="nw-demo-play" aria-hidden="true">▶</span> Coach</a>
+  <div class="nw-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="nw2">
+    <div class="nw2-brand"><span id="nwMark" class="nw-mark" aria-hidden="true"></span>POWALIFTA</div>
+
+    <div class="nw2-deck" id="nwDeck" aria-roledescription="carousel" aria-label="What POWALIFTA does">
+      <div class="nw2-slide on" aria-roledescription="slide" aria-label="1 of 3">
+        <div class="vg vg-log" aria-hidden="true">
+          <div class="vg-chip vg-top vg-timer"><span class="vg-ring"><svg viewBox="0 0 36 36"><circle class="vg-ring-t" cx="18" cy="18" r="15"/><circle class="vg-ring-f" cx="18" cy="18" r="15"/></svg></span><span><b>2:30</b> rest</span></div>
+          <div class="vg-card">
+            <div class="vg-row"><span class="vg-k"><i class="vg-dot squat"></i>Competition squat</span><span class="vg-n">Set 2 of 3</span></div>
+            <div class="vg-presc"><b>165</b><small>kg</small><em>×</em><b>5</b><span class="vg-rpe">RPE <b>8</b></span></div>
+            <div class="vg-sets"><i class="done"></i><i class="cur"></i><i></i></div>
+            <div class="vg-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Log set</div>
+          </div>
+          <div class="vg-chip vg-pr"><span>+5 kg</span>New squat PR</div>
+        </div>
       </div>
+      <div class="nw2-slide" aria-roledescription="slide" aria-label="2 of 3">
+        <div class="vg vg-total" aria-hidden="true">
+          <div class="vg-chip vg-top vg-dots-chip"><b>400.4</b> DOTS<span class="vg-tag">Advanced</span></div>
+          <div class="vg-card">
+            <div class="vg-k">Your total</div>
+            <div class="vg-big"><b class="vg-count" data-from="541" data-to="593">593</b><small>kg</small></div>
+            <div class="vg-up">+22 kg in 4 weeks</div>
+            <svg class="vg-spark" viewBox="0 0 300 74" preserveAspectRatio="none">
+              <defs><linearGradient id="vgSparkG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff3b4a"/><stop offset="1" stop-color="#ffbf3c"/></linearGradient>
+              <linearGradient id="vgSparkF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a3d" stop-opacity=".28"/><stop offset="1" stop-color="#ff5a3d" stop-opacity="0"/></linearGradient></defs>
+              <path class="vg-spark-fill" d="M4 64 L40 58 L76 60 L112 46 L148 44 L184 34 L220 30 L256 18 L296 10 L296 74 L4 74 Z"/>
+              <path class="vg-spark-line" pathLength="1" d="M4 64 L40 58 L76 60 L112 46 L148 44 L184 34 L220 30 L256 18 L296 10"/>
+              <circle class="vg-spark-dot" cx="296" cy="10" r="4.5"/>
+            </svg>
+            <div class="vg-lifts"><span><i class="vg-dot squat"></i>Squat <b>207</b></span><span><i class="vg-dot bench"></i>Bench <b>134</b></span><span><i class="vg-dot dead"></i>Dead <b>252</b></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="nw2-slide" aria-roledescription="slide" aria-label="3 of 3">
+        <div class="vg vg-crew" aria-hidden="true">
+          <div class="vg-chip vg-top vg-streak"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3.5 4.5 5.4 4.5 10a4.5 4.5 0 0 1-9 0c0-1.9.8-3.3 1.8-4.4.2 1.6 1 2.7 2.2 3.1C11 8.6 10.7 5.4 12 2z"/></svg><span><b>17-week</b> streak</span></div>
+          <div class="vg-card">
+            <div class="vg-club"><span class="vg-crest">IT</span><span><span class="vg-k">Your club</span><b>Iron Temple</b></span></div>
+            <ol class="vg-board">
+              <li><span class="vg-medal gold">1</span><span class="vg-av h5">KM</span><span class="vg-name">Kofi</span><b>437.5</b></li>
+              <li><span class="vg-medal silver">2</span><span class="vg-av h7">SK</span><span class="vg-name">Sarah</span><b>432.7</b></li>
+              <li class="me"><span class="vg-medal bronze">3</span><span class="vg-av h1">YOU</span><span class="vg-name">You</span><b>421.3</b></li>
+            </ol>
+          </div>
+          <div class="vg-chip vg-msg"><span class="vg-av h3 sm">CD</span>Top set moved fast. Add 2.5</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nw2-copy">
+      <h1 class="nw2-title" id="nwTitle">Every set, one tap.</h1>
+      <p class="nw2-sub" id="nwSub">Your program says what's next. Log it with RPE and move on.</p>
+    </div>
+    <div class="nw2-dots" id="nwDots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+
+    <div class="nw2-actions">
+      <button type="button" class="nw-btn nw-btn-primary" onclick="window.obOpen ? obOpen('signup') : openSignupModal('solo')">Get started</button>
+      <button type="button" class="nw-btn nw-btn-text" onclick="window.obOpen ? obOpen('login') : openLoginModal()">I already have an account</button>
+      <div class="nw2-demo">Just looking? <a href="athlete.html?demo=1">Athlete demo</a> · <a href="coach.html?demo=1">Coach demo</a></div>
     </div>
   </div>
 </div>
@@ -106,14 +157,14 @@
   <div class="container">
     <span class="eyebrow"><span class="dot"></span> POWERLIFTING'S NEW HOME</span>
     <h1>BUILT FOR<br>THE <span class="accent tilt">BARBELL.</span></h1>
-    <p class="lead">Stop training out of a spreadsheet. RPE-native programming, automatic e1RM tracking, and live SBD progress &mdash; solo or with your coach.</p>
+    <p class="lead">Stop training out of a spreadsheet. RPE-native programming, automatic e1RM tracking, and live SBD progress. Solo or with your coach.</p>
     <div class="hero-cta">
       <a href="#" class="btn btn-primary btn-lg" onclick="openSignupModal('solo'); return false;">Train solo</a>
       <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('athlete'); return false;">Join your coach</a>
       <a href="#" class="btn btn-lg btn-ghost" onclick="openSignupModal('coach'); return false;">Become a coach</a>
     </div>
     <div class="hero-demo-line" data-fx="up">
-      <span class="hero-demo-label">Try the live demo — no signup needed</span>
+      <span class="hero-demo-label">Try the live demo. No signup needed</span>
       <span class="hero-demo-btns">
         <a href="athlete.html?demo=1" class="btn btn-lg btn-demo"><span class="btn-demo-play" aria-hidden="true">▶</span> As an athlete</a>
         <a href="coach.html?demo=1" class="btn btn-lg btn-demo"><span class="btn-demo-play" aria-hidden="true">▶</span> As a coach</a>
@@ -252,7 +303,7 @@
           </div>
         </div>
         <div class="calc-ramp" id="warmRamp"></div>
-        <p class="calc-foot-note">A clean ramp to your top set. Prime the pattern &mdash; never grind a warm-up.</p>
+        <p class="calc-foot-note">A clean ramp to your top set. Prime the pattern. Never grind a warm-up.</p>
       </div>
       <div id="panelTarget" class="calc-panel" style="display:none">
         <div class="calc-inputs">
@@ -276,7 +327,7 @@
           <div class="calc-res-num"><span id="tgtOut">0</span><span class="calc-res-unit" id="tgtOutUnit">kg</span></div>
         </div>
         <div class="calc-rpe-grid" id="tgtGrid" aria-label="Load at each RPE"></div>
-        <p class="calc-foot-note">Work back from your max to today's bar weight. The grid is your RPE chart for <span id="tgtRepsLabel">3</span> reps &mdash; the table lifters keep on their phone.</p>
+        <p class="calc-foot-note">Work back from your max to today's bar weight. The grid is your RPE chart for <span id="tgtRepsLabel">3</span> reps: the table lifters keep on their phone.</p>
       </div>
       <div class="calc-cta">
         <p>POWALIFTA does this automatically on every set, variant-aware and charted over time.</p>
@@ -313,7 +364,7 @@
         <div class="inside-mockup">
           <div style="padding: 14px 16px 4px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-              <div style="font-family:'Anton'; font-size:1.1rem;">PAUSED SQUAT <span style="font-size:0.7rem; padding:2px 8px; background:rgba(255,45,63,0.1); color:var(--red); border:1px solid rgba(255,45,63,0.3); border-radius:100px; font-weight:700; font-family:'Plus Jakarta Sans'; margin-left:6px;">×1.07</span></div>
+              <div style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800; font-size:1.1rem;">PAUSED SQUAT <span style="font-size:0.7rem; padding:2px 8px; background:rgba(255,45,63,0.1); color:var(--red); border:1px solid rgba(255,45,63,0.3); border-radius:100px; font-weight:700; font-family:var(--font-body); margin-left:6px;">×1.07</span></div>
               <span style="font-size:0.7rem; padding:3px 10px; background:rgba(78,216,132,0.1); color:var(--green); border:1px solid rgba(78,216,132,0.3); border-radius:100px; font-weight:700;">✓ COMPLETE</span>
             </div>
           </div>
@@ -522,7 +573,7 @@
     <div class="appshow-copy">
       <div class="section-tag">Coming soon</div>
       <h2 data-fx="up">The gym floor,<br><span class="tilt red">in your pocket.</span></h2>
-      <p class="appshow-lead" data-fx="up">POWALIFTA already runs in your phone's browser — add it to your home screen and it installs as an app that opens offline. Native iOS and Android are next: one-handed logging built for between attempts.</p>
+      <p class="appshow-lead" data-fx="up">POWALIFTA already runs in your phone's browser. Add it to your home screen and it installs as an app that opens offline. Native iOS and Android are next: one-handed logging built for between attempts.</p>
 
       <ul class="appshow-feats" data-fx-stagger>
         <li data-fx="up">
@@ -540,11 +591,11 @@
       </ul>
 
       <div class="appshow-badges" data-fx="up">
-        <span class="store-badge" role="img" aria-label="iOS app — coming soon">
+        <span class="store-badge" role="img" aria-label="iOS app coming soon">
           <svg class="sb-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 1.43c.09 1.02-.32 2.02-.95 2.74-.66.76-1.74 1.35-2.79 1.27-.11-1 .38-2.04.99-2.71.68-.76 1.86-1.32 2.75-1.3zM20.3 17.1c-.5 1.15-.74 1.66-1.39 2.68-.9 1.42-2.18 3.19-3.76 3.2-1.4.01-1.76-.91-3.66-.9-1.9.01-2.3.92-3.7.91-1.58-.01-2.79-1.61-3.7-3.03-2.53-3.98-2.8-8.65-1.24-11.13 1.11-1.76 2.86-2.79 4.5-2.79 1.68 0 2.73.92 4.12.92 1.34 0 2.16-.92 4.1-.92 1.47 0 3.02.8 4.13 2.18-3.63 1.99-3.04 7.17.2 8.6z"/></svg>
           <span class="sb-text"><small>Coming soon to</small><strong>the App Store</strong></span>
         </span>
-        <span class="store-badge" role="img" aria-label="Android app — coming soon">
+        <span class="store-badge" role="img" aria-label="Android app coming soon">
           <svg class="sb-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3.3c-.5-.3-1.2.12-1.2.74v15.92c0 .62.7 1.05 1.2.74l13.86-7.96c.52-.3.52-1.18 0-1.48z"/></svg>
           <span class="sb-text"><small>Coming soon to</small><strong>Google Play</strong></span>
         </span>
@@ -608,8 +659,8 @@
   <div class="container footer-grid">
     <div class="footer-brand">
       <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span class="footer-word">POWALIFTA</span></div>
-      <p>Built for the barbell. Programs, RPE-native logging, automatic e1RM — free for athletes, forever.</p>
-      <a class="apps-soon-chip" href="#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+      <p>Built for the barbell. Programs, RPE-native logging, automatic e1RM. Free for athletes, forever.</p>
+      <a class="apps-soon-chip" href="#apps"><span class="asc-dot"></span>iOS &amp; Android apps coming soon</a>
     </div>
     <div class="footer-col">
       <h5>Product</h5>
@@ -646,13 +697,14 @@
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('loginModal')">&times;</button>
     <h3>Log in</h3>
-    <div class="form-group">
-      <label>Account type</label>
-      <select id="loginType">
-        <option value="athlete">Athlete</option>
-        <option value="coach">Coach</option>
-      </select>
+    <div class="auth-seg" data-for="loginType" role="radiogroup" aria-label="Account type">
+      <button type="button" data-v="athlete" class="on">Athlete</button>
+      <button type="button" data-v="coach">Coach</button>
     </div>
+    <select id="loginType" class="auth-seg-src" aria-hidden="true" tabindex="-1">
+      <option value="athlete">Athlete</option>
+      <option value="coach">Coach</option>
+    </select>
     <div class="form-group">
       <label>Email</label>
       <input type="email" id="loginEmail" placeholder="you@email.com" autocomplete="email">
@@ -674,7 +726,7 @@
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('forgotModal')">&times;</button>
     <h3>Reset your password</h3>
-    <p class="dim text-sm mb-16">Enter the email you signed up with, and we'll send you a reset link.</p>
+    <p class="dim text-sm mb-16">We'll email you a reset link.</p>
     <div class="form-group">
       <label>Email</label>
       <input type="email" id="forgotEmail" placeholder="you@email.com" autocomplete="email">
@@ -689,14 +741,16 @@
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('signupModal')">&times;</button>
     <h3 id="signupTitle">Sign up</h3>
-    <div class="form-group">
-      <label>Account type</label>
-      <select id="signupType" onchange="onSignupTypeChange()">
-        <option value="solo">Solo athlete (no coach)</option>
-        <option value="athlete">Athlete with a coach</option>
-        <option value="coach">Coach</option>
-      </select>
+    <div class="auth-seg auth-seg-3" data-for="signupType" role="radiogroup" aria-label="I am a">
+      <button type="button" data-v="solo" class="on"><b>Lifter</b><span>On my own</span></button>
+      <button type="button" data-v="athlete"><b>Lifter</b><span>With a coach</span></button>
+      <button type="button" data-v="coach"><b>Coach</b><span>I train people</span></button>
     </div>
+    <select id="signupType" class="auth-seg-src" onchange="onSignupTypeChange()" aria-hidden="true" tabindex="-1">
+      <option value="solo">Solo athlete (no coach)</option>
+      <option value="athlete">Athlete with a coach</option>
+      <option value="coach">Coach</option>
+    </select>
     <div class="form-group">
       <label>Full name</label>
       <input type="text" id="signupName" placeholder="Jane Doe" autocomplete="name">
@@ -714,13 +768,13 @@
       </div>
     </div>
     <div class="form-group" id="bioGroup" style="display:none">
-      <label>Coach bio (shown on homepage)</label>
-      <textarea id="signupBio" placeholder="Tell athletes about your experience, certifications, training style..."></textarea>
+      <label>Short bio</label>
+      <textarea id="signupBio" placeholder="Your experience and coaching style"></textarea>
     </div>
     <div class="form-group" id="codeGroup">
       <label id="codeLabel">Invite code <span class="faint">(optional)</span></label>
       <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
-      <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional — link to your coach now, or anytime later from your dashboard.</p>
+      <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional. You can add it later.</p>
     </div>
     <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
     <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
@@ -738,6 +792,18 @@ const featIcons = {
 };
 Object.entries(featIcons).forEach(([id, svg]) => { const e = document.getElementById(id); if (e) e.innerHTML = svg; });
 document.getElementById('footMark').innerHTML = BRAND_MARK;
+{ const nm = document.getElementById('nwMark'); if (nm) nm.innerHTML = BRAND_MARK; }
+// Auth switches drive their hidden <select> (the existing logic reads the select).
+document.querySelectorAll('.auth-seg').forEach(seg => {
+  const sel = document.getElementById(seg.dataset.for);
+  const sync = () => seg.querySelectorAll('button').forEach(b => { const on = b.dataset.v === sel.value; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+  seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    sel.value = b.dataset.v; sel.dispatchEvent(new Event('change')); sync();
+  }));
+  sel.addEventListener('change', sync);
+  window['_syncSeg_' + seg.dataset.for] = sync;
+  sync();
+});
 
 // Open modals from URL hash IMMEDIATELY (independent of Supabase / bootstrap)
 function _openHashModal() {
@@ -770,6 +836,7 @@ _openHashModal();
 // Auto-fill invite code from ?code=XXX URL param (deep link from coach email)
 (function autofillInviteCode() {
   try {
+    if (document.documentElement.classList.contains('native')) return; // native-onboard.js owns this in the app
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     if (code) {
@@ -839,7 +906,7 @@ async function renderMarketplaceTeaser() {
   if (!programs.length) {
     const e = el('div', { class: 'empty', style: 'grid-column: 1/-1; padding: 40px 20px;' });
     e.appendChild(el('h3', {}, 'No programs published yet'));
-    e.appendChild(el('p', {}, 'Coaches are submitting programs now. Check back soon — or become a coach and publish your own.'));
+    e.appendChild(el('p', {}, 'Coaches are submitting programs now. Check back soon, or become a coach and publish your own.'));
     grid.appendChild(e);
     return;
   }
@@ -875,7 +942,7 @@ function renderCoaches() {
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.user;
     e.appendChild(ic);
     e.appendChild(el('h3', {}, 'No coaches yet'));
-    e.appendChild(el('p', {}, 'Be the first — sign up as a coach and build your roster.'));
+    e.appendChild(el('p', {}, 'Be the first: sign up as a coach and build your roster.'));
     grid.appendChild(e);
     return;
   }
@@ -952,6 +1019,7 @@ function openSignupModal(type) {
   const valid = ['solo', 'athlete', 'coach'];
   document.getElementById('signupType').value = valid.includes(type) ? type : 'solo';
   onSignupTypeChange();
+  if (window._syncSeg_signupType) window._syncSeg_signupType();
   openModal('signupModal');
 }
 function onSignupTypeChange() {
@@ -962,13 +1030,11 @@ function onSignupTypeChange() {
   document.getElementById('codeGroup').style.display = t === 'athlete' ? 'block' : 'none';
   // Title copy
   const title =
-    t === 'coach' ? 'Sign up as a coach' :
-    t === 'solo'  ? 'Sign up — train solo' :
-                    'Sign up — join your coach';
+    t === 'coach' ? 'Create your coach account' : 'Create your account';
   document.getElementById('signupTitle').textContent = title;
   // Invite code hint copy: for athlete-coached, code is required
   const hint = document.getElementById('codeHint');
-  if (hint) hint.textContent = 'Optional — paste a code now to link instantly, or add your coach later from your dashboard.';
+  if (hint) hint.textContent = 'Optional. You can add it later.';
 }
 
 async function doLogin() {
@@ -1044,7 +1110,7 @@ function promptMfaChallenge() {
       verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
       if (res.ok) return cleanup(true);
       err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
-        ? 'That code didn\'t match — try the current one.' : (res.reason || 'Verification failed.');
+        ? 'That code didn\'t match. Try the current one.' : (res.reason || 'Verification failed.');
     }
     verifyBtn.onclick = attempt;
     cancelBtn.onclick = function () { cleanup(false); };
@@ -1082,7 +1148,7 @@ async function doSignup() {
     // signUp may auto-sign-in OR require email confirmation depending on Auth settings
     const session = await DB.getSession();
     if (!session) {
-      toast('Account created — check your email to confirm, then log in.');
+      toast('Account created: check your email to confirm, then log in.');
       closeModal('signupModal');
       if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
       return;
@@ -1365,11 +1431,11 @@ function sendWelcomeEmail(email, name, type) {
     // --- Share ---
     $('calcShare').addEventListener('click', async () => {
       const max = $('calcOut').textContent;
-      const text = 'My estimated 1RM: ' + max + ' ' + unit + ' (' + wEl.value + '×' + rEl.value + ' @ RPE ' + rpeEl.value + ') — calculated at powalifta.com';
+      const text = 'My estimated 1RM: ' + max + ' ' + unit + ' (' + wEl.value + '×' + rEl.value + ' @ RPE ' + rpeEl.value + ') · calculated at powalifta.com';
       try {
         if (navigator.share) { await navigator.share({ text: text, url: 'https://www.powalifta.com/' }); return; }
         await navigator.clipboard.writeText(text + ' https://www.powalifta.com/');
-        if (typeof toast === 'function') toast('Copied — go flex it');
+        if (typeof toast === 'function') toast('Copied: go flex it');
         else { $('calcShare').textContent = 'Copied!'; setTimeout(() => $('calcShare').textContent = 'Share your max', 1600); }
       } catch (e) { /* user cancelled share — fine */ }
     });
@@ -1423,5 +1489,6 @@ function sendWelcomeEmail(email, name, type) {
   } catch (e) {}
 })();
 </script>
+<script src="native-onboard.js"></script>
 </body>
 </html>

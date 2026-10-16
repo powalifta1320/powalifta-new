@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Coach — POWALIFTA</title>
+<title>Coach | POWALIFTA</title>
 <meta name="description" content="Powerlifting coach profile on POWALIFTA. See their programs, training philosophy, and athlete results.">
 <meta property="og:title" content="Coach on POWALIFTA">
-<meta property="og:description" content="Powerlifting coach profile — programs, philosophy, athlete results.">
+<meta property="og:description" content="Powerlifting coach profile: programs, philosophy, athlete results.">
 <meta property="og:type" content="profile">
 <link rel="canonical" href="https://www.powalifta.com/coach-profile.html">
 <meta property="og:url" content="https://www.powalifta.com/coach-profile.html">
@@ -15,7 +15,7 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Coach on POWALIFTA">
-<meta name="twitter:description" content="Powerlifting coach — programs, philosophy, athlete results.">
+<meta name="twitter:description" content="Powerlifting coach profile: programs, philosophy, athlete results.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
@@ -27,7 +27,7 @@
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="cookie-consent.css">
 <link rel="stylesheet" href="ui-fx.css">
@@ -63,7 +63,7 @@
   border-radius: var(--r-lg);
   background: var(--grad-red);
   color: #fff;
-  font-family: 'Anton', sans-serif;
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
   font-size: 3rem;
   display: flex;
   align-items: center;
@@ -81,7 +81,7 @@
 }
 .cp-meta { flex: 1; min-width: 240px; }
 .cp-name {
-  font-family: 'Anton', sans-serif;
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
   font-size: clamp(2rem, 5vw, 3rem);
   letter-spacing: 0.005em;
   line-height: 1;
@@ -105,7 +105,7 @@
   font-weight: 600;
   color: var(--text-2);
 }
-.cp-stat strong { color: var(--text); margin-right: 4px; font-family: 'Space Grotesk', monospace; }
+.cp-stat strong { color: var(--text); margin-right: 4px; font-family: var(--font-num); }
 
 .cp-section { padding: 50px 0; }
 .cp-step-grid {
@@ -121,7 +121,7 @@
   padding: 24px;
 }
 .cp-step-num {
-  font-family: 'Anton', sans-serif;
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
   font-size: 2.2rem;
   background: var(--grad-red);
   -webkit-background-clip: text;
@@ -130,7 +130,7 @@
   line-height: 1;
   margin-bottom: 10px;
 }
-.cp-step-card h4 { font-size: 1.05rem; letter-spacing: 0; text-transform: none; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; margin-bottom: 6px; }
+.cp-step-card h4 { font-size: 1.05rem; letter-spacing: 0; text-transform: none; font-family: var(--font-body); font-weight: 700; margin-bottom: 6px; }
 .cp-step-card p { color: var(--text-2); font-size: 0.92rem; line-height: 1.55; }
 
 .cp-review-grid {
@@ -206,7 +206,7 @@
 <footer>
   <div class="container">
     <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
-    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps — coming soon</a>
+    <a class="apps-soon-chip" href="index.html#apps"><span class="asc-dot"></span>iOS &amp; Android apps coming soon</a>
     <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
       <a href="guides.html" class="dim">Guides</a>
       <a href="exercises.html" class="dim">Exercises</a>
@@ -361,7 +361,7 @@ async function renderCoachProfile() {
       top.innerHTML = starsHtml(r.rating);
       c.appendChild(top);
       c.appendChild(el('p', { class: 'cp-review-body' }, '“' + r.body.trim() + '”'));
-      c.appendChild(el('div', { class: 'cp-review-by' }, '— ' + (r.buyerName || 'Verified buyer')));
+      c.appendChild(el('div', { class: 'cp-review-by' }, r.buyerName || 'Verified buyer'));
       tGrid.appendChild(c);
     });
     tIn.appendChild(tGrid);
@@ -384,13 +384,13 @@ async function renderCoachProfile() {
   ctaSec.appendChild(ctaIn);
   root.appendChild(ctaSec);
 
-  document.title = coach.name + ' — POWALIFTA';
+  document.title = coach.name + ' | POWALIFTA';
 
   // Per-coach SEO refinement (crawlers that run JS + social unfurlers get the specific coach).
   const canonUrl = 'https://www.powalifta.com/coach-profile.html?id=' + encodeURIComponent(id);
-  const ogTitle = coach.name + ' — Powerlifting coach on POWALIFTA';
+  const ogTitle = coach.name + ' | Powerlifting coach on POWALIFTA';
   const ogDesc = (coach.bio && coach.bio.trim()) ? coach.bio.trim().slice(0, 155)
-    : ('Train with ' + coach.name + ' on POWALIFTA — programs, philosophy, and athlete results.');
+    : ('Train with ' + coach.name + ' on POWALIFTA. See their programs, philosophy, and athlete results.');
   const setMeta = (sel, attr, val) => { const m = document.querySelector(sel); if (m) m.setAttribute(attr, val); };
   setMeta('link[rel="canonical"]', 'href', canonUrl);
   setMeta('meta[property="og:url"]', 'content', canonUrl);

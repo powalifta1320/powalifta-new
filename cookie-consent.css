@@ -51,7 +51,7 @@
 .cc-body { min-width: 0; }
 
 .cc-title {
-  font-family: 'Anton', system-ui, sans-serif;
+  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   font-size: 0.95rem;

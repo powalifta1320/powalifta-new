@@ -38,6 +38,8 @@ rsync -a --delete \
   --exclude '.impeccable' \
   --exclude '*.db' \
   --exclude 'scratchpad' \
+  --exclude 'ds-bundle' \
+  --exclude '.design-sync' \
   "$ROOT/" "$DEST/"
 
 echo "Copied web app into $DEST"
