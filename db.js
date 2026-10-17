@@ -1058,7 +1058,11 @@ const DB = {
   async listAthletesForCoach(coachId) {
     // RLS allows coach to read profiles where coach_id = auth.uid() — combined
     // with user_type filter, this returns only athletes coached by current user.
-    const { data, error } = await sb.from('profiles').select('*').eq('user_type', 'athlete');
+    // Filter on coach_id too: an admin who also coaches can read every profile,
+    // and must still only load their own roster.
+    let q = sb.from('profiles').select('*').eq('user_type', 'athlete');
+    if (coachId) q = q.eq('coach_id', coachId);
+    const { data, error } = await q;
     if (error) { console.warn('listAthletesForCoach', error); return []; }
     return (data || []).map(mapDbProfileToAthlete);
   },

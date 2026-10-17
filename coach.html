@@ -2468,7 +2468,7 @@ async function confirmSaveTemplate() {
         name: d.name,
         exercises: d.exercises.map(ex => ({
           lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-          sets: ex.sets.map(set => ({ weight: set.weight, reps: set.reps, rpe: set.rpe }))
+          sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe }))
         }))
       }))
     }))}

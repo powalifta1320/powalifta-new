@@ -329,6 +329,9 @@ let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
 // Declared up here because the first render runs inside bootstrap (TDZ).
 const _feltRpe = {};
+// Smart next set (app.js smartNextLoad): the load the next set moved to after the
+// last one felt harder or easier than planned (key exId_si → {kg, fromKg, kept}).
+const _smartLoad = {};
 // Coach-tab live messaging: the mounted thread host (so we can drop its realtime
 // channel when the tab re-renders) + the always-on athlete-level subscription
 // that lights an unread dot on the Coach tab while you're on another tab.
@@ -510,6 +513,7 @@ bootstrap('athlete', () => {
   buildBottomTabs(['today', 'progress', 'club', _selfCoached ? 'program' : 'coach', 'you']);
   // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo).
   if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder();
+  if (!window._demoMode) applyPendingWeighIn();
 
   // Localize unit-bearing labels to the user's preferred unit
   const u = unitLabel();
@@ -1043,6 +1047,8 @@ async function toggleRestDay() {
               st.completed = false;
               st.completedAt = null;
               st.actualRpe = null;
+              // A smart-moved set goes back to the plan's load.
+              if ('plannedWeight' in st) { st.weight = st.plannedWeight; delete st.plannedWeight; }
             }
           }))));
           // Also drop workout_logs for this date
@@ -1283,6 +1289,34 @@ function syncRowFelt(exId, si) {
   chip.style.setProperty('--rc', r == null ? 'var(--text-3)' : rpeColor(r));
 }
 
+// SMART NEXT SET (app.js smartNextLoad). A set that felt harder or easier than
+// its target moves the next set of the same exercise; the NOW card shows the new
+// load with a one-tap "Keep 160 kg", and the move applies when that set is logged.
+function smartFor(ex, si) {
+  const s = _smartLoad[ex.id + '_' + si];
+  if (!s || s.kept || !getSmartLoadOn()) return null;
+  const set = ex.sets[si], prev = ex.sets[si - 1];
+  return set && !set.completed && prev && prev.completed ? s : null;
+}
+function planSmartNext(ex, si, felt) {
+  const k = ex.id + '_' + (si + 1);
+  delete _smartLoad[k];
+  const done = ex.sets[si], next = ex.sets[si + 1];
+  if (!done || !next || next.completed || ex.lift === 'cardio' || !getSmartLoadOn()) return null;
+  const s = smartNextLoad(
+    { weight: done.weight, planned: done.plannedWeight || done.weight, reps: done.reps, rpe: felt, target: done.rpe },
+    { weight: next.plannedWeight || next.weight, reps: next.reps, rpe: next.rpe }, getUnit());
+  if (s) _smartLoad[k] = s;
+  return s;
+}
+// Why the load moved, in one line: "Set 1 felt RPE 9, planned 8".
+function smartWhy(ex, si) {
+  const p = ex.sets[si - 1];
+  if (!p || !p.completed) return '';
+  const off = p.rpe != null && p.rpe !== '' && Math.abs(Number(p.actualRpe) - Number(p.rpe)) > 0.5;
+  return off ? 'Set ' + si + ' felt RPE ' + p.actualRpe + ', planned ' + p.rpe : 'Set ' + si + ' felt right at today\'s load';
+}
+
 // The hero's Log set: the same path as ticking the row, so there is exactly one
 // way a set gets logged.
 function heroLogNext(exId, si, rpe) {
@@ -1339,26 +1373,50 @@ function buildTodayHero(cur) {
   hero.appendChild(exRow);
 
   const s = next.set;
+  // Smart next set: the load today says, not just the one on the plan.
+  const smart = isCardio ? null : smartFor(next.ex, next.si);
+  const wKg = smart ? smart.kg : Number(s.weight) || 0;
   const load = el('div', { class: 'tx-load' });
   const presc = el('div', { class: 'tdh-presc' });
   if (isCardio) {
     presc.innerHTML = '<b>' + escHtml(String(s.weight)) + '</b><small>min</small>' +
       (s.reps > 0 ? '<i>·</i><b>' + escHtml(String(s.reps)) + '</b><small>km</small>' : '');
   } else {
-    const w = Number(s.weight) > 0 ? kgToDisplay(s.weight) : null;
+    const w = wKg > 0 ? kgToDisplay(wKg) : null;
     presc.innerHTML = (w != null ? '<b>' + w + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b><small>' + unitLabel() + '</small>') +
       '<i>×</i><b>' + escHtml(String(s.reps)) + '</b>';
+    if (String(w || '').length + String(s.reps).length >= 6) presc.classList.add('is-long');
   }
   load.appendChild(presc);
-  if (!isCardio && Number(s.weight) > 0) {
-    const bar = el('button', { class: 'tx-bar', type: 'button', 'aria-label': 'Plates: ' + plateSummaryText(s.weight) });
-    bar.innerHTML = uiBarbell(s.weight);
-    bar.addEventListener('click', () => openPlateCalc(s.weight));
+  if (!isCardio && wKg > 0) {
+    const bar = el('button', { class: 'tx-bar', type: 'button', 'aria-label': 'Plates: ' + plateSummaryText(wKg) });
+    bar.innerHTML = uiBarbell(wKg);
+    bar.addEventListener('click', () => openPlateCalc(wKg));
     load.appendChild(bar);
   }
   hero.appendChild(load);
-  if (!isCardio && Number(s.weight) > 0) {
-    hero.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(s.weight) }));
+  if (!isCardio && wKg > 0) {
+    hero.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(wKg) }));
+  }
+  if (smart) {
+    const sm = el('div', { class: 'tx-smart is-' + smart.dir });
+    sm.appendChild(el('span', { class: 'tx-smart-ic', 'aria-hidden': 'true', html: smart.dir === 'down'
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>'
+      : smart.dir === 'up'
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/></svg>' }));
+    const txt = el('span', { class: 'tx-smart-txt' });
+    txt.appendChild(el('b', {}, smart.fromKg > 0
+      ? (smart.delta > 0 ? '+' : '−') + kgToDisplay(Math.abs(smart.delta)) + ' ' + unitLabel() + ' from the plan'
+      : 'Load from today\'s sets'));
+    txt.appendChild(el('small', {}, smartWhy(next.ex, next.si)));
+    sm.appendChild(txt);
+    if (smart.fromKg > 0) {
+      const keep = el('button', { class: 'ui-text-btn tx-smart-keep', type: 'button' }, 'Keep ' + formatWeight(smart.fromKg));
+      keep.addEventListener('click', () => { smart.kept = true; renderToday(); });
+      sm.appendChild(keep);
+    }
+    hero.appendChild(sm);
   }
 
   // This exercise's sets: done · now · to go.
@@ -1446,12 +1504,18 @@ function weighInRow() {
   const row = el('button', { class: 'today-note tn-row tx-weigh' + (todays ? ' is-done' : ''), type: 'button' });
   row.appendChild(el('span', { class: 'tn-ic tx-weigh-ic', 'aria-hidden': 'true', html: ICONS.scale }));
   const body = el('span', { class: 'tn-body' });
+  // The habit: days in a row + this week's average against last week's.
+  const habit = bwHabit(list, today);
+  const signed = (kg) => (kg > 0 ? '+' : '−') + Math.abs(kgToDisplay(kg)).toFixed(1) + ' ' + unitLabel();
   if (todays) {
     const d = prev ? todays.weight - prev.weight : null;
     body.appendChild(el('span', { class: 'tn-title' }, 'Weighed in · ' + formatWeight(todays.weight)));
     const dTxt = d == null ? 'Your first weigh-in' : Math.abs(d) < 0.05 ? 'Same as ' + _relDay(prev.date)
-      : (d > 0 ? '+' : '−') + Math.abs(kgToDisplay(d)).toFixed(1) + ' ' + unitLabel() + ' since ' + _relDay(prev.date);
-    body.appendChild(el('span', { class: 'tn-text tn-one' }, dTxt));
+      : signed(d) + ' since ' + _relDay(prev.date);
+    const parts = [];
+    if (habit.streak >= 2) parts.push(habit.streak + ' days in a row');
+    parts.push(habit.delta != null ? (Math.abs(habit.delta) < 0.05 ? 'week level with last' : 'week ' + signed(habit.delta)) : dTxt);
+    body.appendChild(el('span', { class: 'tn-text tn-one' }, parts.join(' · ')));
     row.appendChild(body);
     // The smoothed 7-day trend, not the raw daily noise.
     const tr = bwCutBulkStats(list.map(b => ({ date: b.date, weight: b.weight })), null, 'maintain').trend;
@@ -1460,7 +1524,8 @@ function weighInRow() {
     row.addEventListener('click', () => { const t = document.getElementById('tab-bodyweight'); if (t) t.click(); });
   } else {
     body.appendChild(el('span', { class: 'tn-title' }, 'Morning weigh-in'));
-    body.appendChild(el('span', { class: 'tn-text tn-one' }, prev ? 'Last ' + formatWeight(prev.weight) + ' · ' + _relDay(prev.date) : 'Start your bodyweight trend'));
+    body.appendChild(el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
+      : prev ? 'Last ' + formatWeight(prev.weight) + ' · ' + _relDay(prev.date) : 'Start your bodyweight trend'));
     row.appendChild(body);
     row.appendChild(el('span', { class: 'btn btn-sm tn-act', 'aria-hidden': 'true' }, 'Log'));
     row.addEventListener('click', () => openWeighInSheet(() => renderToday()));
@@ -1485,8 +1550,24 @@ function openWeighInSheet(onSaved) {
   const start = last ? Number(kgToDisplay(last.weight, 1)) : (getUnit() === 'lbs' ? 180 : 80);
   uiSheet('Weigh-in', (sheet, close) => {
     sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Same time each day, ideally first thing. The trend matters more than any one day.'));
-    const step = uiStepper({ value: start, step: 0.1, min: 20, max: 450, input: true, suffix: unitLabel(), label: 'bodyweight', cls: 'bw-stepper' });
+    // Where this number sits in the IPF classes, live as you nudge it.
+    const cls = el('div', { class: 'bw-class-line' });
+    const paintClass = (v) => {
+      const info = weightClassInfo(displayToKg(Number(v)), getSexPref());
+      if (!info) { cls.textContent = ''; return; }
+      // Just over a class is the number a lifter cares about ("0.4 kg over 83").
+      if (info.toCutKg != null && info.toCutKg > 0.05 && info.toCutKg <= 3) {
+        cls.textContent = kgToDisplay(info.toCutKg).toFixed(1) + ' ' + unitLabel() + ' over the ' + info.belowLimit + ' kg class'; return;
+      }
+      if (info.isTop) { cls.textContent = 'Top class: ' + info.cls; return; }
+      const under = info.toCeiling;
+      cls.textContent = under < 0.05 ? 'Right on the ' + info.limit + ' kg limit'
+        : kgToDisplay(under).toFixed(1) + ' ' + unitLabel() + ' under the ' + info.limit + ' kg limit';
+    };
+    const step = uiStepper({ value: start, step: 0.1, min: 20, max: 450, input: true, suffix: unitLabel(), label: 'bodyweight', cls: 'bw-stepper', onChange: paintClass });
     sheet.appendChild(step);
+    sheet.appendChild(cls);
+    paintClass(start);
     const dateRow = el('label', { class: 'bw-date-row' });
     dateRow.appendChild(el('span', {}, 'Date'));
     const di = el('input', { type: 'date', value: todayISO(), max: todayISO(), 'aria-label': 'Weigh-in date' });
@@ -1505,9 +1586,45 @@ function openWeighInSheet(onSaved) {
       try { if (typeof renderAthleteYou === 'function') renderAthleteYou(); } catch (e) {}
     });
     sheet.appendChild(save);
+    // iPhone: a morning notification you can answer with the number itself.
+    if (window.PowaNative && PowaNative.isNative && PowaNative.isNative() && PowaNative.scheduleWeightReminder) {
+      const getOn = () => { try { return localStorage.getItem('powa-weigh-remind') !== '0'; } catch (e) { return true; } };
+      const getTime = () => { try { return localStorage.getItem('powa-weigh-time') || '08:00'; } catch (e) { return '08:00'; } };
+      const remRow = el('div', { class: 'ui-row bw-remind' });
+      const remMain = el('span', { class: 'ui-row-main' });
+      remMain.appendChild(el('span', { class: 'ui-row-title' }, 'Morning reminder'));
+      remMain.appendChild(el('span', { class: 'ui-row-sub' }, 'Press and hold it to type your weight. No need to open the app'));
+      remRow.appendChild(remMain);
+      const time = el('input', { type: 'time', class: 'bw-remind-time', value: getTime(), 'aria-label': 'Reminder time' });
+      time.disabled = !getOn();
+      time.addEventListener('change', () => { try { localStorage.setItem('powa-weigh-time', time.value || '08:00'); } catch (e) {} PowaNative.scheduleWeightReminder(); });
+      remRow.appendChild(time);
+      remRow.appendChild(uiSwitch(getOn(), (on) => {
+        try { localStorage.setItem('powa-weigh-remind', on ? '1' : '0'); } catch (e) {}
+        time.disabled = !on;
+        PowaNative.scheduleWeightReminder();
+      }, 'Morning weigh-in reminder'));
+      sheet.appendChild(uiList([remRow]));
+    }
   }, { cls: 'weigh-sheet' });
 }
 window.openWeighInSheet = openWeighInSheet;
+
+// A weight typed straight into the morning notification (native-bridge.js keeps
+// it in localStorage until the dashboard is up), saved as today's weigh-in.
+async function applyPendingWeighIn() {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem('powa-pending-weighin') || 'null'); localStorage.removeItem('powa-pending-weighin'); } catch (e) {}
+  if (!p || window._demoMode || !user) return;
+  if (Date.now() - (Number(p.at) || 0) > 36 * 3600 * 1000) return;
+  const v = parseFloat(String(p.v || '').replace(',', '.').replace(/[^0-9.]/g, ''));
+  if (!(v > 20 && v < 700)) { toast('Couldn\'t read "' + String(p.v).slice(0, 12) + '" as a weight. Log it here instead'); return; }
+  const ok = await saveBodyweightEntry(todayISO(), displayToKg(v));
+  if (!ok) return;
+  toast('Weigh-in saved · ' + v.toFixed(1) + ' ' + unitLabel());
+  try { renderToday(); } catch (e) {}
+}
+window.applyPendingWeighIn = applyPendingWeighIn;
 
 // The session at a glance: one chip per exercise, its colour, sets done. Tap to jump.
 function buildSessionRail(cur, nextKey) {
@@ -1614,7 +1731,9 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   ex.sets.forEach((set, si) => {
     const isNext = nextKey === ex.id + '_' + si;
     const justDone = set.completed && window._txJustLogged === ex.id + '_' + si;
-    const row = el('div', { class: 'tx-set' + (set.completed ? ' is-done' : '') + (isNext ? ' is-next' : '') + (justDone ? ' just-done' : ''), id: 'set_' + ex.id + '_' + si });
+    const smart = isCardio ? null : smartFor(ex, si);
+    const shownKg = smart ? smart.kg : Number(set.weight) || 0;
+    const row = el('div', { class: 'tx-set' + (set.completed ? ' is-done' : '') + (isNext ? ' is-next' : '') + (justDone ? ' just-done' : '') + (smart ? ' is-smart' : ''), id: 'set_' + ex.id + '_' + si });
     row.appendChild(el('span', { class: 'tx-n' }, String(si + 1)));
 
     const main = el('div', { class: 'tx-set-main' });
@@ -1625,9 +1744,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       // Self-coached (incl. marketplace plans): the lifter writes the load.
       const wInp = el('input', {
         type: 'number', step: '0.5', min: '0', inputmode: 'decimal', class: 'tx-w-input', id: 'wt_' + ex.id + '_' + si, placeholder: '–',
-        'aria-label': 'Set ' + (si + 1) + ' weight (' + unitLabel() + ')', value: (set.weight > 0 ? kgToDisplay(set.weight) : '')
+        'aria-label': 'Set ' + (si + 1) + ' weight (' + unitLabel() + ')', value: (shownKg > 0 ? kgToDisplay(shownKg) : '')
       });
       wInp.addEventListener('change', (e) => {
+        delete _smartLoad[ex.id + '_' + si];   // a typed load beats the suggestion
         const display = Number(e.target.value);
         const kg = (display > 0) ? displayToKg(display) : 0;
         Store.update(s => {
@@ -1642,22 +1762,23 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       loadEl.appendChild(wInp);
       loadEl.insertAdjacentHTML('beforeend', '<small>' + unitLabel() + '</small><i>×</i><b>' + escHtml(String(set.reps)) + '</b>');
     } else {
-      loadEl.innerHTML = (set.weight > 0 ? '<b>' + kgToDisplay(set.weight) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') +
+      loadEl.innerHTML = (shownKg > 0 ? '<b>' + kgToDisplay(shownKg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') +
         '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>';
-      if (set.weight > 0) {
+      if (shownKg > 0) {
         loadEl.classList.add('is-tap');
         loadEl.setAttribute('role', 'button');
         loadEl.setAttribute('tabindex', '0');
-        loadEl.setAttribute('aria-label', 'Plates for ' + formatWeight(set.weight));
-        loadEl.addEventListener('click', () => openPlateCalc(set.weight));
+        loadEl.setAttribute('aria-label', 'Plates for ' + formatWeight(shownKg));
+        loadEl.addEventListener('click', () => openPlateCalc(shownKg));
       }
     }
     main.appendChild(loadEl);
     let sub = '';
     if (set.completed && !isCardio && set.weight > 0 && set.actualRpe) {
       const e1 = isMain ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
-      sub = 'e1RM ' + formatWeight(Math.round(e1));
-    } else if (set.rpe != null && set.rpe !== '') sub = 'Target RPE ' + set.rpe;
+      sub = 'e1RM ' + formatWeight(Math.round(e1)) + (set.plannedWeight > 0 && Math.abs(set.plannedWeight - set.weight) > 0.01 ? ' · plan ' + formatWeight(set.plannedWeight) : '');
+    } else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) + ' · target RPE ' + set.rpe : 'From today\'s sets · target RPE ' + set.rpe;
+    else if (set.rpe != null && set.rpe !== '') sub = 'Target RPE ' + set.rpe;
     else if (!set.completed) sub = 'No target. Log how it felt';
     if (sub) main.appendChild(el('div', { class: 'tx-set-sub' }, sub));
     row.appendChild(main);
@@ -1723,14 +1844,17 @@ function openSetSheet(ex, si) {
   if (!set) return;
   const key = ex.id + '_' + si;
   const isCardio = ex.lift === 'cardio';
+  const sm = isCardio ? null : smartFor(ex, si);
+  const wKg = sm ? sm.kg : Number(set.weight) || 0;
   uiSheet('Set ' + (si + 1) + ' · ' + exTitleOf(ex), (sheet, close) => {
     const load = el('div', { class: 'set-sheet-load' });
     load.appendChild(el('div', { class: 'tdh-presc', html: isCardio
       ? '<b>' + escHtml(String(set.weight)) + '</b><small>min</small>'
-      : (set.weight > 0 ? '<b>' + kgToDisplay(set.weight) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>' }));
-    if (!isCardio && set.weight > 0) load.appendChild(el('span', { class: 'tx-bar is-static', html: uiBarbell(set.weight) }));
+      : (wKg > 0 ? '<b>' + kgToDisplay(wKg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>' }));
+    if (!isCardio && wKg > 0) load.appendChild(el('span', { class: 'tx-bar is-static', html: uiBarbell(wKg) }));
     sheet.appendChild(load);
-    if (!isCardio && set.weight > 0) sheet.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(set.weight) }));
+    if (!isCardio && wKg > 0) sheet.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(wKg) }));
+    if (sm && sm.fromKg > 0) sheet.appendChild(el('p', { class: 'ui-sheet-sub tx-smart-note' }, 'Moved from ' + formatWeight(sm.fromKg) + '. ' + smartWhy(ex, si) + '.'));
     if (set.completed) {
       const e1 = MAIN_LIFTS.includes(ex.lift) ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
       sheet.appendChild(uiList([
@@ -2082,6 +2206,8 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     if (!okRpe(actualRpe) && set.rpe != null && set.rpe !== '') actualRpe = Number(set.rpe);
     if (!okRpe(actualRpe)) { openSetSheet(ex, setIndex); return; }
     delete _feltRpe[key];
+    const smart = smartFor(ex, setIndex);
+    delete _smartLoad[key];
     window._txJustLogged = key;
     setTimeout(() => { if (window._txJustLogged === key) window._txJustLogged = null; }, 1500);
 
@@ -2115,6 +2241,11 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       sset.lastLogId = newLogId;
       // Persist any weight entered just now (self-coached case)
       if (selfCoached && set.weight > 0) sset.weight = set.weight;
+      // Smart next set: lift the moved load, keep what the plan said beside it.
+      if (smart) {
+        if (!('plannedWeight' in sset)) sset.plannedWeight = smart.fromKg;
+        if (!selfCoached) sset.weight = smart.kg;
+      }
       const noteEl = document.getElementById('note_' + exerciseId + '_' + setIndex);
       if (noteEl) sset.note = noteEl.value;
 
@@ -2131,12 +2262,27 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
 
     persistProgram(prog.id);
     persistAddLog(newLogObj);
+    // How that set felt decides the next one.
+    const freshEx = (getCurrentDay() || { day: { exercises: [] } }).day.exercises.find(e => e.id === exerciseId);
+    const nextSmart = freshEx ? planSmartNext(freshEx, setIndex, actualRpe) : null;
 
-    if (MAIN_LIFTS.includes(ex.lift) && newLogObj && isPRForLog(user.id, newLogObj)) {
+    // First time a lift reaches N plates a side: its own moment (it outranks a PR).
+    let plates = null;
+    if (MAIN_LIFTS.includes(ex.lift) && newLogObj) {
+      const prevBest = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift === ex.lift && l.id !== newLogObj.id)
+        .reduce((m, l) => Math.max(m, Number(l.weight) || 0), 0);
+      plates = newPlateMilestone(prevBest, newLogObj.weight, getUnit());
+    }
+    const isPR = MAIN_LIFTS.includes(ex.lift) && newLogObj && isPRForLog(user.id, newLogObj);
+    if (plates) {
+      showPlateMoment(ex.lift, plates, newLogObj, isPR);
+    } else if (isPR) {
       showPRToast(ex.lift, newLogObj.e1rmComp, newLogObj);
     } else {
       const e1Now = calcE1RM(set.weight, set.reps, actualRpe);
-      const msg = ex.lift === 'cardio' ? 'Logged' : 'Logged · e1RM ' + Math.round(kgToDisplay(e1Now)) + ' ' + unitLabel();
+      const msg = ex.lift === 'cardio' ? 'Logged'
+        : nextSmart ? 'Logged · next set ' + (nextSmart.dir === 'down' ? 'lighter, ' : nextSmart.dir === 'up' ? 'heavier, ' : '') + formatWeight(nextSmart.kg)
+        : 'Logged · e1RM ' + Math.round(kgToDisplay(e1Now)) + ' ' + unitLabel();
       // In a coached plan, the set can go straight to the coach from the toast.
       if (user.coachId && newLogObj) { const lg = newLogObj; toastAction(msg, 'Send to coach', () => sendLogToCoach(lg)); }
       else toast(msg);
@@ -2191,11 +2337,18 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
         );
         if (idx >= 0) { logIdToDelete = s.workoutLogs[idx].id; s.workoutLogs.splice(idx, 1); }
       }
+      // A smart-moved set goes back to the plan's load when it's undone.
+      if ('plannedWeight' in sset) { sset.weight = sset.plannedWeight; delete sset.plannedWeight; }
     });
     persistProgram(prog.id);
     if (logIdToDelete) persistDeleteLog(logIdToDelete);
     // Un-ticking the set that started the rest clock should clear it too.
     stopRestTimer();
+    // The suggestion this set made for the next one goes; its own comes back.
+    delete _smartLoad[exerciseId + '_' + (setIndex + 1)];
+    const undoEx = (getCurrentDay() || { day: { exercises: [] } }).day.exercises.find(e => e.id === exerciseId);
+    const before = undoEx && undoEx.sets[setIndex - 1];
+    if (before && before.completed) planSmartNext(undoEx, setIndex - 1, before.actualRpe);
   }
   renderToday();
   populateDaySelect();
@@ -2243,7 +2396,63 @@ function showPRToast(lift, e1rmComp, log) {
     else if (navigator.vibrate) navigator.vibrate([40, 60, 120]);
   } catch (e) {}
   setTimeout(() => overlay.remove(), inClub ? 7000 : 5200);
+  try { maybeAskForRating('pr'); } catch (e) {}
 }
+
+// ===== PLATE MOMENT — "your first 3-plate squat" =====
+// The loaded bar with exactly that many plates a side, the set that did it, and
+// the same ways out as a PR (club, card, coach).
+function plateWord(n) { return n + '-plate'; }
+function showPlateMoment(lift, n, log, isPR) {
+  const overlay = el('div', { class: 'pr-toast plate-moment' });
+  const card = el('div', { class: 'pr-card' });
+  card.appendChild(el('div', { class: 'pm-bar', html: uiBarbell(plateMilestoneKg(n, getUnit())) }));
+  card.appendChild(el('div', { class: 'pr-tag' }, isPR ? 'Plate milestone · new PR' : 'Plate milestone'));
+  card.appendChild(el('div', { class: 'pm-title' }, 'Your first ' + plateWord(n) + ' ' + LIFT_LABELS[lift].toLowerCase()));
+  card.appendChild(el('div', { class: 'pr-sub' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '') + ' · ' + n + (n === 1 ? ' plate' : ' plates') + ' a side'));
+  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    // Confetti in competition plate colours.
+    const burst = el('div', { class: 'pr-burst', 'aria-hidden': 'true' });
+    const cols = ['#e5262f', '#2f6fde', '#f2c230', '#2fa84f', '#f4f4f6'];
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2 + Math.random() * 0.4, d = 110 + Math.random() * 120;
+      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's' }));
+    }
+    overlay.appendChild(burst);
+  }
+  const inClub = !!(window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName());
+  const acts = el('div', { class: 'pr-acts' });
+  if (inClub) acts.appendChild(el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName()));
+  acts.appendChild(el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sharePlateCard(lift, n, log); } }, 'Make it a card'));
+  if (user.coachId) acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sendLogToCoach(log); } }, 'Send to coach'));
+  card.appendChild(acts);
+  overlay.appendChild(card);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  try {
+    if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.notify('SUCCESS');
+    else if (navigator.vibrate) navigator.vibrate([40, 60, 120]);
+  } catch (e) {}
+  setTimeout(() => overlay.remove(), 9000);
+  try { maybeAskForRating('plates'); } catch (e) {}
+}
+window.showPlateMoment = showPlateMoment;
+async function sharePlateCard(lift, n, log) {
+  const canvas = await generateShareCard({
+    tag: 'PLATE MILESTONE',
+    big: String(n),
+    bigUnit: n === 1 ? 'PLATE' : 'PLATES',
+    sub: LIFT_LABELS[lift] + ' · ' + formatWeight(log.weight) + ' × ' + log.reps,
+    lines: [
+      { l: 'A side', r: plateSummaryText(log.weight) },
+      { l: 'RPE', r: log.rpe ? String(log.rpe) : '–' },
+      { l: 'Date', r: fmtDate(log.date) }
+    ]
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-' + n + '-plate-' + lift + '.png',
+    'First ' + plateWord(n) + ' ' + LIFT_LABELS[lift].toLowerCase() + ': ' + formatWeight(log.weight) + ' · tracked on powalifta.com');
+}
+window.sharePlateCard = sharePlateCard;
 
 // ===== MEET-DAY PLANNER — attempts from current e1RMs =====
 const MEET_STRATEGIES = {
@@ -2841,7 +3050,7 @@ function renderAthleteYou() {
       { title: 'Training', rows: [
         selfCoached ? null : { label: 'Full program', onClick: go('program') },
         { label: 'Goals', onClick: () => openGoalsModal() },
-        { label: 'Rest timer', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
+        { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
         { label: 'My library', onClick: go('library') },
         inShell ? null : { label: 'Browse programs', onClick: go('marketplace') }
       ] },
@@ -3789,6 +3998,25 @@ function renderProgPRs(area, logs) {
         title: LIFT_LABELS[lift],
         sub: kgToDisplay(pr.weight) + ' × ' + pr.reps + ' @ RPE ' + pr.rpe + ' · ' + fmtDateShort(pr.date),
         endNode: end
+      });
+    })));
+  }
+
+  // Plates on the bar: the milestones every lifter counts (1 to 5 a side).
+  const club = plateClub(Store.get().workoutLogs, user.id, getUnit());
+  if (club.squat.length || club.bench.length || club.deadlift.length) {
+    area.appendChild(uiLabel('Plates on the bar'));
+    area.appendChild(uiList(['squat', 'bench', 'deadlift'].map(lift => {
+      const got = club[lift];
+      const top = got.length ? got[got.length - 1] : null;
+      const pips = el('span', { class: 'pc-pips', 'aria-hidden': 'true' });
+      for (let i = 1; i <= Math.max(5, top ? top.n : 0); i++) pips.appendChild(el('i', { class: top && i <= top.n ? 'on' : '' }));
+      const nextKg = plateMilestoneKg((top ? top.n : 0) + 1, getUnit());
+      return uiRow({
+        lead: el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }),
+        title: top ? plateWord(top.n) + ' ' + LIFT_LABELS[lift].toLowerCase() : LIFT_LABELS[lift],
+        sub: top ? 'Since ' + fmtDateShort(top.date) + ' · next at ' + formatWeight(nextKg) : 'First plate at ' + formatWeight(nextKg),
+        endNode: pips
       });
     })));
   }
@@ -4952,7 +5180,7 @@ function sbDuplicateWeek(progId, wi) {
     const p = s.programs.find(p => p.id === progId);
     if (!p || !p.weeks[wi]) return;
     const src = p.weeks[wi];
-    const cloneSets = sets => sets.map(set => ({ ...set, id: uid('set'), completed: false, actualRpe: null, completedAt: null, lastLogId: null, note: '' }));
+    const cloneSets = sets => sets.map(set => { const c = { ...set, id: uid('set'), completed: false, actualRpe: null, completedAt: null, lastLogId: null, note: '', weight: planWeight(set) }; delete c.plannedWeight; return c; });
     const cloneDay = d => ({ id: uid('day'), name: d.name, exercises: d.exercises.map(ex => ({ id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '', sets: cloneSets(ex.sets) })) });
     const nextNum = Math.max(...p.weeks.map(w => w.number)) + 1;
     p.weeks.push({ id: uid('wk'), number: nextNum, days: src.days.map(cloneDay) });

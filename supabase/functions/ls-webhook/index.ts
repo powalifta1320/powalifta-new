@@ -195,12 +195,12 @@ Deno.serve(async (req) => {
     // checkout email (user_email is part of the HMAC-signed body). Only an
     // email-verified match is accepted.
     let candidateId: string | null = customUserId ? String(customUserId) : null
-    let profileRow: { id: string; email: string; subscription_updated_at: string | null } | null = null
+    let profileRow: { id: string; email: string; subscription_updated_at: string | null; subscription_status: string | null; ls_subscription_id: string | null; apple_original_transaction_id: string | null } | null = null
 
     if (candidateId) {
       const byId = await supabase
         .from('profiles')
-        .select('id, email, subscription_updated_at')
+        .select('id, email, subscription_updated_at, subscription_status, ls_subscription_id, apple_original_transaction_id')
         .eq('id', candidateId)
         .limit(1)
       if (byId.error) { console.error('profile lookup (id) failed:', byId.error.message); return jsonResponse(500, { error: 'internal error' }) }
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     if (!profileRow && customerEmail) {
       const byEmail = await supabase
         .from('profiles')
-        .select('id, email, subscription_updated_at')
+        .select('id, email, subscription_updated_at, subscription_status, ls_subscription_id, apple_original_transaction_id')
         .eq('email', customerEmail)
         .limit(1)
       if (byEmail.error) { console.error('profile lookup (email) failed:', byEmail.error.message); return jsonResponse(500, { error: 'internal error' }) }
@@ -228,6 +228,20 @@ Deno.serve(async (req) => {
       return jsonResponse(404, { error: 'no matching user' })
     }
     const userId = profileRow.id
+
+    // One biller, one subscription (ECC security review, 2026-10-17). The
+    // checkout email is typed by the buyer, so someone else's LS subscription
+    // under this email must not move a coach who pays through Apple, and events
+    // for an LS subscription that isn't the one on file are ignored (only a new
+    // subscription_created may replace it).
+    if (profileRow.apple_original_transaction_id && profileRow.subscription_status === 'active' && !profileRow.ls_subscription_id) {
+      console.warn('LS webhook: coach is billed through Apple — ignored', { event })
+      return jsonResponse(200, { ignored: event, reason: 'apple billing' })
+    }
+    if (event !== 'subscription_created' && profileRow.ls_subscription_id && profileRow.ls_subscription_id !== subscriptionId) {
+      console.warn('LS webhook: event for a different subscription — ignored', { event })
+      return jsonResponse(200, { ignored: event, reason: 'other subscription' })
+    }
 
     // ---- Replay / out-of-order guard ----
     // The subscription webhook has no idempotency key, so a captured signed body

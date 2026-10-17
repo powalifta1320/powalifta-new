@@ -4092,6 +4092,77 @@ function calcCompE1RM(weight, reps, rpe, lift, variant) {
 }
 
 // =========================================================
+// SMART NEXT SET — autoregulation. When a set feels harder or easier than its
+// target, the next set of the same exercise moves by the same amount of
+// "today", using the e1RM maths above. Pure: unit-tested in tests.html.
+//   prev: { weight, planned (kg the plan had for it), reps, rpe (felt), target }
+//   next: { weight (kg planned; 0 = no load given), reps, rpe (target) }
+//   unit: 'kg' | 'lbs' → rounds to a loadable jump (2.5 kg / 5 lb)
+// Half an RPE off is noise, so it doesn't move anything. An earlier adjustment
+// carries forward (lifted 152.5 instead of 160 and it felt right → stay there).
+// Never more than 10% from the plan. Returns { kg, fromKg, delta, dir } or null.
+// =========================================================
+function rpeLoadPct(reps, rpe) {
+  const adj = (Number(reps) - 1) + (10 - Number(rpe));
+  return adj <= 0 ? 1 : Math.max(0.4, 1 - adj * 0.0333);
+}
+function smartNextLoad(prev, next, unit) {
+  if (!prev || !next) return null;
+  const okR = v => isFinite(v) && v >= 5 && v <= 10;
+  const pw = Number(prev.weight), pr = Number(prev.reps), felt = Number(prev.rpe), tgt = Number(prev.target);
+  const nr = Number(next.reps), nt = Number(next.rpe), planned = Number(next.weight) || 0;
+  if (!(pw > 0) || !(pr > 0) || !(nr > 0) || !okR(felt) || !okR(nt)) return null;
+  let raw;
+  if (planned > 0) {
+    if (!okR(tgt)) return null;
+    const prevPlan = Number(prev.planned) > 0 ? Number(prev.planned) : pw;
+    const feltEff = Math.abs(felt - tgt) <= 0.5 ? tgt : felt;
+    const ratio = (pw / rpeLoadPct(pr, feltEff)) / (prevPlan / rpeLoadPct(pr, tgt));
+    raw = Math.min(planned * 1.1, Math.max(planned * 0.9, planned * ratio));
+  } else {
+    raw = pw / rpeLoadPct(pr, felt) * rpeLoadPct(nr, nt);
+  }
+  const step = unit === 'lbs' ? 5 * KG_PER_LB : 2.5;
+  const kg = Math.round(raw / step) * step;
+  if (!(kg > 0)) return null;
+  if (planned > 0 && Math.abs(kg - planned) < step / 2) return null;
+  return { kg: Math.round(kg * 1000) / 1000, fromKg: planned, delta: Math.round((kg - planned) * 1000) / 1000, dir: planned > 0 ? (kg < planned ? 'down' : 'up') : 'set' };
+}
+// The load the PLAN had for a set, even after smart next set moved it (copies,
+// templates and duplicated weeks must carry the coach's number, not today's).
+function planWeight(set) { return set && set.plannedWeight != null ? set.plannedWeight : (set ? set.weight : 0); }
+// =========================================================
+// PLATE MILESTONES — "your first 3-plate squat". Counted in the plate the
+// lifter's gym counts in: 25 kg plates on a 20 kg bar (70 / 120 / 170 / 220 /
+// 270 kg) or 45 lb plates on a 45 lb bar (135 / 225 / 315 / 405 / 495 lb).
+// Pure: unit-tested in tests.html.
+// =========================================================
+function plateCountFor(kg, unit) {
+  const w = Number(kg) || 0;
+  const n = unit === 'lbs' ? Math.floor((w / KG_PER_LB - 45 + 0.5) / 90) : Math.floor((w - 20 + 0.01) / 50);
+  return Math.max(0, Math.min(8, n));
+}
+function plateMilestoneKg(n, unit) { return unit === 'lbs' ? (45 + 90 * n) * KG_PER_LB : 20 + 50 * n; }
+function newPlateMilestone(prevBestKg, newKg, unit) {
+  const now = plateCountFor(newKg, unit);
+  return now >= 1 && now > plateCountFor(prevBestKg || 0, unit) ? now : null;
+}
+// Every milestone a lifter holds on the big three, with the day it first happened.
+function plateClub(logs, athleteId, unit) {
+  const out = { squat: [], bench: [], deadlift: [] }, best = { squat: 0, bench: 0, deadlift: 0 };
+  (logs || []).filter(l => l && l.athleteId === athleteId && out[l.lift] && Number(l.weight) > 0)
+    .slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .forEach(l => {
+      const before = plateCountFor(best[l.lift], unit), now = plateCountFor(l.weight, unit);
+      for (let n = before + 1; n <= now; n++) out[l.lift].push({ n, date: l.date, kg: Number(l.weight) });
+      if (Number(l.weight) > best[l.lift]) best[l.lift] = Number(l.weight);
+    });
+  return out;
+}
+function getSmartLoadOn() { try { return localStorage.getItem('powa-smart-load') !== '0'; } catch (e) { return true; } }
+function setSmartLoadOn(on) { try { localStorage.setItem('powa-smart-load', on ? '1' : '0'); } catch (e) {} }
+
+// =========================================================
 // SCORING — DOTS, weight class, strength standards
 // Powerlifters live and die by these. All bodyweight-relative, so they
 // reuse the e1RM + bodyweight we already store. Sex is a client-side
@@ -4165,6 +4236,25 @@ function weightClassInfo(bwKg, sex) {
   const belowLimit = isTop ? arr[arr.length - 1] : (idx > 0 ? arr[idx - 1] : null);
   const toCutKg = belowLimit != null ? (bwKg - belowLimit) : null;
   return { cls, limit, isTop, toCeiling, belowLimit, toCutKg };
+}
+
+// The weigh-in habit: days in a row, and this week's average against last
+// week's (the number that means something; one morning is noise).
+// series: [{ date: 'YYYY-MM-DD', weight }] in any order. Pure: unit-tested.
+function bwHabit(series, todayIso) {
+  const byDate = {};
+  (series || []).forEach(b => { if (b && b.date && Number(b.weight) > 0) byDate[b.date] = Number(b.weight); });
+  const shift = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const loggedToday = byDate[todayIso] != null;
+  let streak = 0, cur = loggedToday ? todayIso : shift(todayIso, -1);
+  while (byDate[cur] != null) { streak++; cur = shift(cur, -1); }
+  const avg = (from, to) => {
+    const v = [];
+    for (let i = from; i <= to; i++) { const w = byDate[shift(todayIso, -i)]; if (w != null) v.push(w); }
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const weekAvg = avg(0, 6), prevWeekAvg = avg(7, 13);
+  return { loggedToday, streak, weekAvg, prevWeekAvg, delta: weekAvg != null && prevWeekAvg != null ? weekAvg - prevWeekAvg : null };
 }
 
 // Strength standards as e1RM÷bodyweight ratios (male raw). Four thresholds →
@@ -4896,7 +4986,7 @@ function copyExercise(programId, weekIdx, dayIdx, exIdx) {
       lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
       sets: ex.sets.map(set => ({
         id: uid('set'),
-        weight: set.weight, reps: set.reps, rpe: set.rpe,
+        weight: planWeight(set), reps: set.reps, rpe: set.rpe,
         completed: false, actualRpe: null, completedAt: null, note: ''
       }))
     };
@@ -4919,7 +5009,7 @@ function duplicateWeek(programId, weekIdx) {
           lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
           sets: ex.sets.map(set => ({
             id: uid('set'),
-            weight: set.weight, reps: set.reps, rpe: set.rpe,
+            weight: planWeight(set), reps: set.reps, rpe: set.rpe,
             completed: false, actualRpe: null, completedAt: null, note: ''
           }))
         }))
@@ -4947,7 +5037,7 @@ function saveProgramAsTemplate(programId, name) {
             name: d.name,
             exercises: d.exercises.map(ex => ({
               lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-              sets: ex.sets.map(set => ({ weight: set.weight, reps: set.reps, rpe: set.rpe }))
+              sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe }))
             }))
           }))
         }))
@@ -6245,7 +6335,7 @@ function drawLineChart(container, config) {
     cross.setAttribute('x1', xPos); cross.setAttribute('x2', xPos);
     cross.setAttribute('opacity', '1');
 
-    let html = '<div style="font-size:11px; color:' + C_TIP_TITLE + '; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:8px;">' +
+    let html = '<div style="font-size:12px; color:' + C_TIP_TITLE + '; font-weight:650; margin-bottom:8px;">' +
                new Date(date).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + '</div>';
     let any = false;
     series.forEach(s => {
@@ -6278,6 +6368,30 @@ function drawLineChart(container, config) {
   svg.addEventListener('mouseleave', () => {
     cross.setAttribute('opacity', '0');
     tooltip.style.opacity = '0';
+  });
+  // Touch: drag a finger along the line to read any day (iOS sends no
+  // mousemove while a finger moves). Sideways drags scrub, up/down still scrolls,
+  // and each new day under the finger gives a selection click.
+  svg.style.touchAction = 'pan-y';
+  let tx0 = 0, ty0 = 0, scrubbing = false, lastX = null;
+  svg.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; tx0 = e.touches[0].clientX; ty0 = e.touches[0].clientY; scrubbing = false; }, { passive: true });
+  svg.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (!scrubbing) {
+      const ax = Math.abs(t.clientX - tx0), ay = Math.abs(t.clientY - ty0);
+      if (ax < 6 || ax < ay) return;
+      scrubbing = true;
+    }
+    e.preventDefault();
+    svg.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+    const x = cross.getAttribute('x1');
+    if (x !== lastX) { lastX = x; hapticTick(); }
+  }, { passive: false });
+  svg.addEventListener('touchend', () => {
+    if (!scrubbing) return;
+    scrubbing = false;
+    setTimeout(() => { cross.setAttribute('opacity', '0'); tooltip.style.opacity = '0'; }, 1400);
   });
 }
 
@@ -7056,6 +7170,7 @@ const YOU_ROW_META = {
   'Bodyweight':          { tint: 'teal',   icon: () => ICONS.scale },
   'Goals':               { tint: 'gold',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>') },
   'Rest timer':          { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
+  'Rest and sets':       { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
   'My library':          { tint: 'iris',   icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M8 7h7"/>') },
   'Browse programs':     { tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
   'Leaderboard':         { tint: 'gold',   icon: () => _YI('<path d="M8 21V11h8v10"/><path d="M3 21v-6h5"/><path d="M16 21v-8h5v8"/><path d="M2 21h20"/>') },
@@ -7214,7 +7329,7 @@ function uiSwitch(checked, onChange, ariaLabel) {
   const wrap = el('label', { class: 'ui-switch' });
   const input = el('input', { type: 'checkbox', role: 'switch', 'aria-label': ariaLabel || '' });
   input.checked = !!checked;
-  input.addEventListener('change', () => onChange && onChange(input.checked));
+  input.addEventListener('change', () => { hapticTick(); if (onChange) onChange(input.checked); });
   wrap.appendChild(input);
   wrap.appendChild(el('span', { class: 'ui-switch-track', 'aria-hidden': 'true' }, el('span', { class: 'ui-switch-knob' })));
   wrap.input = input;
@@ -7249,6 +7364,7 @@ function uiSheet(title, build, opts) {
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   veil.appendChild(sheet);
   _sheetSwallowEarlyClicks(veil);
+  _sheetDrag(veil, sheet, close);
   veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
   document.addEventListener('keydown', onKey);
   document.body.appendChild(veil);
@@ -7259,7 +7375,7 @@ function uiSheet(title, build, opts) {
 // Rest settings: how long (Short / Standard / Long, previewed on three real
 // sets) and whether the timer starts on its own after each set.
 function openRestSettings(onDone) {
-  uiSheet('Rest timer', (sheet, close) => {
+  uiSheet('Rest and sets', (sheet, close) => {
     sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Rest follows the set. Heavier and harder sets rest longer.'));
     const seg = el('div', { class: 'ui-seg rest-seg', role: 'radiogroup', 'aria-label': 'Rest length' });
     const examples = [
@@ -7293,6 +7409,14 @@ function openRestSettings(onDone) {
     autoRow.appendChild(autoMain);
     autoRow.appendChild(uiSwitch(getRestAuto(), on => setRestAuto(on), 'Start the rest timer after each set'));
     sheet.appendChild(uiList([autoRow]));
+    // Smart next set (smartNextLoad): a harder or easier set moves the next one.
+    const smartRow = el('div', { class: 'ui-row rest-auto' });
+    const smartMain = el('span', { class: 'ui-row-main' });
+    smartMain.appendChild(el('span', { class: 'ui-row-title' }, 'Adjust the next set'));
+    smartMain.appendChild(el('span', { class: 'ui-row-sub' }, 'When a set feels harder or easier than planned, the next one moves to match'));
+    smartRow.appendChild(smartMain);
+    smartRow.appendChild(uiSwitch(getSmartLoadOn(), on => setSmartLoadOn(on), 'Adjust the next set to how the last one felt'));
+    sheet.appendChild(uiList([smartRow]));
     const done = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Done');
     done.addEventListener('click', close);
     sheet.appendChild(done);
@@ -7395,7 +7519,13 @@ function uiActionSheet(title, actions) {
   const sheet = el('div', { class: 'ui-sheet' });
   sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
   if (title) sheet.appendChild(el('div', { class: 'ui-sheet-title' }, title));
-  const close = () => { veil.remove(); document.removeEventListener('keydown', onKey); };
+  let closed = false;
+  const close = () => {
+    if (closed) return; closed = true;
+    document.removeEventListener('keydown', onKey);
+    veil.classList.add('leaving');
+    setTimeout(() => veil.remove(), 200);
+  };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   actions.filter(Boolean).forEach(a => {
     const b = el('button', { type: 'button', class: a.danger ? 'danger' : '' });
@@ -7408,6 +7538,7 @@ function uiActionSheet(title, actions) {
   sheet.appendChild(cancel);
   veil.appendChild(sheet);
   _sheetSwallowEarlyClicks(veil);
+  _sheetDrag(veil, sheet, close);
   veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
   document.addEventListener('keydown', onKey);
   document.body.appendChild(veil);
@@ -7755,7 +7886,7 @@ function uiRpeScale(value, onPick, opts) {
     const b = el('button', { type: 'button', role: 'radio', 'data-rpe': String(r), style: '--rc:' + rpeColor(r) }, String(r));
     b.addEventListener('click', () => {
       cur = r; paint();
-      try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic('LIGHT'); } catch (e) {}
+      hapticTick();
       if (onPick) onPick(r);
     });
     row.appendChild(b);
@@ -7800,7 +7931,7 @@ function uiStepper(opts) {
     else val.innerHTML = opts.fmt ? opts.fmt(v) : String(v);
     syncBtns();
   };
-  const bump = (d) => { const n = clamp(v + d); if (n === v) return; v = n; paint(); if (opts.onChange) opts.onChange(v); };
+  const bump = (d) => { const n = clamp(v + d); if (n === v) return; v = n; paint(); hapticTick(); if (opts.onChange) opts.onChange(v); };
   [[minus, -step], [plus, step]].forEach(([b, d]) => {
     let t = null, rep = null;
     const stop = () => { clearTimeout(t); clearInterval(rep); t = rep = null; };
@@ -8135,3 +8266,168 @@ function youSettingsRows(role, rerender) {
   ];
 }
 Object.assign(window, { pickAvatar, openProfileSheet, openNotificationsSheet, openSecuritySheet, openPlanSheet, openReferralSheet, openDataSheet, youSettingsRows });
+
+// =========================================================
+// NATIVE FEEL (2026-10-17): the physical details an iPhone app has.
+//   hapticTick()   the selection click (RPE pick, stepper, switch, chart scrub)
+//   _sheetDrag()   drag any bottom sheet down to close it (flick or pull a third)
+//   edge swipe     from the left edge on a sub-screen goes back to its parent
+//   folding title  the large title moves into the top bar as you scroll
+// The swipe and the title only run in the native shell (html.native).
+// =========================================================
+function hapticTick() { try { if (window.PowaNative && PowaNative.tick) PowaNative.tick(); } catch (e) {} }
+function hapticTap(style) { try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic(style || 'LIGHT'); } catch (e) {} }
+
+// The sheet follows the finger 1:1 from the top of its scroll after 8px of
+// downward travel (so taps, fields and inner scrolling behave as before). Past a
+// third of its height, or a downward flick, it closes; anything less springs back.
+function _sheetDrag(veil, sheet, close) {
+  let y0 = 0, x0 = 0, dy = 0, armed = false, dragging = false, crossed = false, samples = [];
+  const height = () => sheet.getBoundingClientRect().height || 1;
+  sheet.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const t = e.target;
+    if (t.closest && t.closest('input, textarea, select, [contenteditable], .no-sheet-drag')) return;
+    for (let n = t; n && n !== veil; n = n.parentElement) { if (n.scrollTop > 0) return; }
+    armed = true; dragging = false; crossed = false; dy = 0;
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+    samples = [{ y: y0, t: e.timeStamp }];
+  }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => {
+    if (!armed) return;
+    const y = e.touches[0].clientY, x = e.touches[0].clientX, d = y - y0;
+    if (!dragging) {
+      if (Math.abs(x - x0) > 10 && Math.abs(x - x0) > Math.abs(d)) { armed = false; return; }
+      if (d < -8) { armed = false; return; }
+      if (d < 8) return;
+      dragging = true;
+      sheet.style.transition = 'none';
+    }
+    e.preventDefault();
+    dy = Math.max(0, d - 8);
+    sheet.style.transform = 'translateY(' + dy + 'px)';
+    veil.style.backgroundColor = 'rgba(0, 0, 0, ' + (0.55 * Math.max(0, 1 - dy / height())).toFixed(3) + ')';
+    samples.push({ y, t: e.timeStamp }); if (samples.length > 6) samples.shift();
+    const over = dy > height() / 3;
+    if (over !== crossed) { crossed = over; hapticTick(); }
+  }, { passive: false });
+  const end = () => {
+    if (!armed) return;
+    armed = false;
+    if (!dragging) return;
+    dragging = false;
+    // The finger-up after a drag must not also tap whatever is under it.
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    sheet.addEventListener('click', swallow, true);
+    setTimeout(() => sheet.removeEventListener('click', swallow, true), 350);
+    // Release speed over the last ~100 ms (needs a real 16 ms+ span to count).
+    const b = samples[samples.length - 1];
+    const a = samples.find(p => b.t - p.t <= 100) || samples[0];
+    const v = (b && a && b.t - a.t >= 16) ? (b.y - a.y) / (b.t - a.t) : 0;   // px per ms
+    if (dy > height() / 3 || (v > 0.6 && dy > 24)) {
+      veil.style.backgroundColor = '';
+      close();
+    } else {
+      sheet.style.transition = 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1)';
+      sheet.style.transform = '';
+      veil.style.backgroundColor = '';
+      setTimeout(() => { sheet.style.transition = ''; }, 340);
+    }
+  };
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
+}
+
+// Swipe from the left edge on a sub-screen ("‹ Progress" above it) to go back.
+(function edgeSwipeBack() {
+  let x0 = 0, y0 = 0, dx = 0, vx = 0, lastX = 0, lastT = 0, pane = null, back = null, armed = false, live = false;
+  document.addEventListener('touchstart', (e) => {
+    if (!document.documentElement.classList.contains('native') || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (t.clientX > 24) return;
+    if (document.querySelector('.ui-sheet-veil, .pr-toast')) return;
+    back = document.querySelector('.pane-back');
+    pane = back && back.closest('[data-pane]');
+    if (!pane) return;
+    armed = true; live = false; dx = 0; vx = 0;
+    x0 = lastX = t.clientX; y0 = t.clientY; lastT = e.timeStamp;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!armed) return;
+    const t = e.touches[0], mx = t.clientX - x0, my = t.clientY - y0;
+    if (!live) {
+      if (Math.abs(my) > 10 && Math.abs(my) > mx) { armed = false; return; }
+      if (mx < 8) return;
+      live = true;
+      pane.style.transition = 'none';
+    }
+    e.preventDefault();
+    dx = Math.max(0, mx);
+    if (e.timeStamp > lastT) vx = (t.clientX - lastX) / (e.timeStamp - lastT);
+    lastX = t.clientX; lastT = e.timeStamp;
+    pane.style.transform = 'translateX(' + dx + 'px)';
+    pane.style.opacity = String(Math.max(0.55, 1 - dx / innerWidth * 0.6));
+  }, { passive: false });
+  const end = () => {
+    if (!armed) return;
+    armed = false;
+    if (!live) return;
+    live = false;
+    const p = pane, b = back, w = innerWidth;
+    p.style.transition = 'transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms cubic-bezier(0.22, 1, 0.36, 1)';
+    if (dx > w * 0.35 || (vx > 0.5 && dx > 40)) {
+      p.style.transform = 'translateX(' + w + 'px)';
+      p.style.opacity = '0.55';
+      hapticTap('LIGHT');
+      setTimeout(() => { b.click(); p.style.transition = ''; p.style.transform = ''; p.style.opacity = ''; }, 200);
+    } else {
+      p.style.transform = ''; p.style.opacity = '';
+      setTimeout(() => { p.style.transition = ''; }, 260);
+    }
+  };
+  document.addEventListener('touchend', end);
+  document.addEventListener('touchcancel', end);
+})();
+
+// The large page title folds into the top bar once it scrolls under it.
+(function foldingTitle() {
+  let mini = null, queued = false;
+  const update = () => {
+    queued = false;
+    if (!document.documentElement.classList.contains('native')) return;
+    const nav = document.querySelector('.nav');
+    if (!nav) return;
+    if (!mini) { mini = el('div', { class: 'nav-mini-title', 'aria-hidden': 'true' }); nav.appendChild(mini); }
+    const pane = Array.from(document.querySelectorAll('.dash-main > section[data-pane]')).find(p => p.offsetParent !== null);
+    const h = pane && pane.querySelector('h1, h2');
+    const show = !!(h && h.textContent.trim() && h.getBoundingClientRect().bottom < nav.getBoundingClientRect().bottom + 2);
+    if (show) mini.textContent = h.textContent.trim();
+    mini.classList.toggle('on', show);
+  };
+  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+  document.addEventListener('scroll', queue, { capture: true, passive: true });
+  document.addEventListener('click', () => setTimeout(queue, 80), true);
+})();
+Object.assign(window, { hapticTick, hapticTap });
+
+// =========================================================
+// RATE THE APP (2026-10-17): ask for an App Store rating at a high point (a PR,
+// a plate milestone), once every four months at most and only after three
+// training days. iOS decides whether the prompt shows (3 times a year at most).
+// Native only; inert until the shell exposes PowaIAP.requestReview (build 4).
+// =========================================================
+function maybeAskForRating(reason) {
+  try {
+    if (!(window.PowaNative && PowaNative.isNative && PowaNative.isNative()) || window._demoMode) return;
+    const P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PowaIAP;
+    if (!P || typeof P.requestReview !== 'function') return;
+    const last = Number(localStorage.getItem('powa-rate-asked') || 0);
+    if (Date.now() - last < 120 * 86400000) return;
+    const me = window._user && window._user.id;
+    const days = new Set((Store.get().workoutLogs || []).filter(l => !me || l.athleteId === me).map(l => l.date));
+    if (days.size < 3) return;
+    localStorage.setItem('powa-rate-asked', String(Date.now()));
+    setTimeout(() => { try { P.requestReview({ reason: reason || '' }); } catch (e) {} }, 3500);
+  } catch (e) {}
+}
+window.maybeAskForRating = maybeAskForRating;

@@ -40,6 +40,18 @@
       } catch (e) {}
     },
 
+    // Selection tick: the light click iOS gives a picker wheel, a stepper or a
+    // switch. Native only (on the web it would buzz on every pick).
+    _selArmed: false,
+    tick: function () {
+      try {
+        var H = plugins().Haptics;
+        if (!isNative || !H || !H.selectionChanged) return;
+        if (!PowaNative._selArmed && H.selectionStart) { H.selectionStart(); PowaNative._selArmed = true; }
+        H.selectionChanged();
+      } catch (e) {}
+    },
+
     // Notification haptic — the richer SUCCESS/WARNING/ERROR buzz iOS reserves for
     // completed actions (timer done, PR hit, publish). Native Haptics.notification on
     // the shell; a distinctive vibrate pattern on the web. Feature-detected everywhere.
@@ -95,22 +107,39 @@
     // Native-only, idempotent (fixed id → cancel + reschedule), fires ~8am local. Uses
     // @capacitor/local-notifications; a total no-op on the web and if the plugin/permission
     // isn't available. Caller gates on !demo + athlete.
+    // The lifter picks the time (powa-weigh-time, default 08:00) or turns it off
+    // (powa-weigh-remind = '0') in the weigh-in sheet. Press-and-hold the
+    // notification and type the number: the "Log weight" text action opens the
+    // app with it, and the athlete dashboard saves it (applyPendingWeighIn).
     scheduleWeightReminder: async function () {
       if (!isNative) return false;
       var LN = plugins().LocalNotifications;
       if (!LN) return false;
       try {
+        var ID = 8080; // stable id for the daily weigh-in reminder
+        try { await LN.cancel({ notifications: [{ id: ID }] }); } catch (e) {}
+        var on = true, hh = 8, mm = 0;
+        try {
+          on = localStorage.getItem('powa-weigh-remind') !== '0';
+          var t = localStorage.getItem('powa-weigh-time');
+          if (t && /^\d{1,2}:\d{2}$/.test(t)) { hh = Number(t.split(':')[0]); mm = Number(t.split(':')[1]); }
+        } catch (e) {}
+        if (!on) return true;
         var perm = await LN.checkPermissions();
         if (perm.display !== 'granted') perm = await LN.requestPermissions();
         if (perm.display !== 'granted') return false;
-        var ID = 8080; // stable id for the daily weigh-in reminder
-        try { await LN.cancel({ notifications: [{ id: ID }] }); } catch (e) {}
+        try {
+          await LN.registerActionTypes({ types: [{ id: 'POWA_WEIGH_IN', actions: [
+            { id: 'log', title: 'Log weight', input: true, inputButtonTitle: 'Save', inputPlaceholder: "Today's weight", foreground: true }
+          ] }] });
+        } catch (e) {}
         await LN.schedule({ notifications: [{
           id: ID,
-          title: 'POWALIFTA',
-          body: "Time to weigh in. Log today's bodyweight.",
-          schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true },
-          extra: { url: 'athlete.html' }
+          title: 'Morning weigh-in',
+          body: "Press and hold to type today's weight.",
+          schedule: { on: { hour: hh, minute: mm }, allowWhileIdle: true },
+          actionTypeId: 'POWA_WEIGH_IN',
+          extra: { url: 'athlete.html', kind: 'weigh-in' }
         }] });
         return true;
       } catch (e) { console.warn('weight reminder schedule failed', e); return false; }
@@ -252,8 +281,14 @@
     if (P.LocalNotifications) {
       try {
         P.LocalNotifications.addListener('localNotificationActionPerformed', function (action) {
+          // A weight typed into the morning reminder: keep it until the athlete
+          // dashboard is up, which saves it as today's weigh-in.
+          if (action && action.actionId === 'log' && action.inputValue) {
+            try { localStorage.setItem('powa-pending-weighin', JSON.stringify({ v: String(action.inputValue).slice(0, 16), at: Date.now() })); } catch (e) {}
+            if (typeof window.applyPendingWeighIn === 'function') { window.applyPendingWeighIn(); return; }
+          }
           var url = action && action.notification && action.notification.extra && action.notification.extra.url;
-          if (url) { try { location.assign(url); } catch (e) {} }
+          if (url && location.pathname.indexOf(url) < 0) { try { location.assign(url); } catch (e) {} }
         });
       } catch (e) {}
     }

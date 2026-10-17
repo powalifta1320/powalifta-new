@@ -11,10 +11,12 @@
 //
 // Security model:
 //   - Verify JWT ON: the caller is identified ONLY from their session JWT.
-//   - The JWS x5c certificate chain is validated leaf->intermediate->root and the
-//     root must be byte-identical to Apple Root CA - G3 (fetched once from
-//     apple.com over TLS and cached; pin via APPLE_ROOT_CA_B64 to remove even that).
-//   - The ES256 signature is verified against the leaf certificate's public key.
+//   - The JWS is checked by _shared/apple-jws.ts (shared with apple-notifications):
+//     three-certificate x5c chain to Apple Root CA - G3, Apple's marker
+//     extensions on the intermediate and leaf, ES256 signature.
+//   - A refunded / revoked transaction (revocationDate) never grants a plan, and a
+//     transaction signed before the last Apple event we stored (e.g. a REFUND
+//     notification) can't be replayed to win the plan back.
 //   - payload.appAccountToken must equal the caller's uid (StoreKitPlugin sets it
 //     at purchase time), so a JWS replayed from another account is rejected.
 //   - bundleId + productId are allowlisted; only user_type='coach' rows are written.
@@ -27,10 +29,8 @@
 // Deploy: WITH_JWT group in deploy.sh. Rate-limited via the #26 shared helper.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import * as jose from "npm:jose@5";
-import { X509Certificate } from "node:crypto";
-import { Buffer } from "node:buffer";
 import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
+import { verifyAppleJws } from "../_shared/apple-jws.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -46,51 +46,11 @@ const PRODUCT_TIERS: Record<string, string> = {
   "com.powalifta.app.coach.premium": "premium",
 };
 
-const APPLE_ROOT_URL = "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer";
-let _appleRootDer: Buffer | null = null;
-
-async function appleRootDer(): Promise<Buffer> {
-  if (_appleRootDer) return _appleRootDer;
-  const pinned = Deno.env.get("APPLE_ROOT_CA_B64");
-  if (pinned) {
-    _appleRootDer = Buffer.from(pinned, "base64");
-    return _appleRootDer;
-  }
-  // Bootstrap trust via TLS to apple.com; cached for the life of the isolate.
-  const res = await fetch(APPLE_ROOT_URL);
-  if (!res.ok) throw new Error("apple_root_fetch_failed");
-  _appleRootDer = Buffer.from(await res.arrayBuffer());
-  return _appleRootDer;
-}
-
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
-}
-
-// Validate the x5c chain and return the leaf's public key as a PEM string.
-async function verifyChainAndGetLeafKey(jws: string): Promise<string> {
-  const header = jose.decodeProtectedHeader(jws);
-  const x5c = header.x5c as string[] | undefined;
-  if (!header.alg || header.alg !== "ES256" || !x5c || x5c.length < 2) {
-    throw new Error("bad_header");
-  }
-  const certs = x5c.map((b64) => new X509Certificate(Buffer.from(b64, "base64")));
-  const now = new Date();
-  for (const c of certs) {
-    if (new Date(c.validFrom) > now || new Date(c.validTo) < now) throw new Error("cert_expired");
-  }
-  // Each cert must be signed by the next one up.
-  for (let i = 0; i < certs.length - 1; i++) {
-    if (!certs[i].verify(certs[i + 1].publicKey)) throw new Error("chain_broken");
-  }
-  // The chain's root must BE Apple's root, byte for byte.
-  const root = certs[certs.length - 1];
-  const appleRoot = await appleRootDer();
-  if (Buffer.compare(root.raw, appleRoot) !== 0) throw new Error("untrusted_root");
-  return certs[0].publicKey.export({ type: "spki", format: "pem" }) as string;
 }
 
 Deno.serve(async (req) => {
@@ -121,7 +81,7 @@ Deno.serve(async (req) => {
 
   const { data: profile, error: profErr } = await admin
     .from("profiles")
-    .select("id, user_type, subscription_tier, subscription_status, ls_subscription_id, apple_original_transaction_id")
+    .select("id, user_type, subscription_tier, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at")
     .eq("id", uid)
     .single();
   if (profErr || !profile) return json(404, { error: "profile_not_found" });
@@ -151,10 +111,7 @@ Deno.serve(async (req) => {
 
   let payload: Record<string, unknown>;
   try {
-    const leafPem = await verifyChainAndGetLeafKey(jws);
-    const key = await jose.importSPKI(leafPem, "ES256");
-    const { payload: raw } = await jose.compactVerify(jws, key, { algorithms: ["ES256"] });
-    payload = JSON.parse(new TextDecoder().decode(raw));
+    payload = await verifyAppleJws(jws);
   } catch (_e) {
     return json(400, { error: "invalid_transaction" });
   }
@@ -172,6 +129,15 @@ Deno.serve(async (req) => {
 
   const expiresMs = Number(payload.expiresDate ?? 0);
   if (!expiresMs || expiresMs < Date.now()) return json(400, { error: "expired" });
+  if (payload.revocationDate) return json(400, { error: "revoked" });
+
+  // Apple's clock orders events: a transaction signed before the last Apple event
+  // we stored (a REFUND / EXPIRED notification) is old news, not a new grant.
+  const signedMs = Number(payload.signedDate ?? 0) || Date.now();
+  const storedMs = Date.parse(String(profile.subscription_updated_at ?? "")) || 0;
+  if (profile.apple_original_transaction_id && storedMs && signedMs < storedMs) {
+    return json(200, { ok: true, tier: profile.subscription_tier, unchanged: "older_than_last_event" });
+  }
 
   if (profile.user_type !== "coach") return json(403, { error: "coach_only" });
 
@@ -183,7 +149,7 @@ Deno.serve(async (req) => {
     subscription_tier: tier,
     subscription_status: "active",
     apple_original_transaction_id: String(payload.originalTransactionId ?? ""),
-    subscription_updated_at: new Date().toISOString(),
+    subscription_updated_at: new Date(signedMs).toISOString(),
   }).eq("id", uid);
   if (upErr) return json(500, { error: "update_failed" });
 

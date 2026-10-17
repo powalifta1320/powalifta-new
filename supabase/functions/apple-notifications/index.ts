@@ -15,15 +15,15 @@
 //     checked by _shared/apple-jws.ts (x5c chain to Apple Root CA - G3 + Apple's
 //     marker OIDs + ES256 signature).
 //   - bundleId + productId are allowlisted (same table as apple-iap).
-//   - The profile is found by apple_original_transaction_id (written by
-//     apple-iap). A first SUBSCRIBED / DID_RENEW can arrive before the app has
-//     called apple-iap, so an event that GRANTS a plan may also match by the
-//     transaction's appAccountToken (the buyer's uid, set by StoreKitPlugin and
-//     covered by Apple's signature). An event that REMOVES a plan only ever
-//     matches the stored original transaction id.
+//   - The profile is found ONLY by apple_original_transaction_id, which only
+//     apple-iap (after checking appAccountToken == the caller) writes, and which
+//     users can't edit (migration-billing-guard.sql). A first SUBSCRIBED that
+//     beats the app's own apple-iap call is simply ignored; the app links it a
+//     moment later. (Reviewed with ECC's security-reviewer, 2026-10-17.)
 //   - A live Lemon Squeezy subscription wins (one biller), same as apple-iap.
-//   - Out-of-order or retried deliveries: signedDate is compared with
-//     subscription_updated_at and older notifications are acknowledged unchanged.
+//   - Out-of-order or retried deliveries: the UPDATE only applies when its
+//     signedDate is newer than subscription_updated_at, in one statement.
+//   - Rate-limited per IP (fail-open), x5c capped before parsing (apple-jws.ts).
 //
 // Set it up: App Store Connect → the app → App Information → App Store Server
 // Notifications → Production AND Sandbox URL =
@@ -35,6 +35,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verifyAppleJws } from "../_shared/apple-jws.ts";
+import { clientIp, rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const BUNDLE_ID = "com.powalifta.app";
 // Keep in sync with apple-iap + StoreKitPlugin.productIds + App Store Connect.
@@ -77,6 +78,10 @@ export function decidePlan(
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const rl = await rateLimit(admin, { bucket: "apple-notifications", identity: clientIp(req), limit: 600, windowSecs: 3600 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   let body: { signedPayload?: string };
   try {
     body = await req.json();
@@ -116,22 +121,10 @@ Deno.serve(async (req) => {
   const otid = String(txn.originalTransactionId ?? "");
   if (!otid) return json(200, { ignored: "no_original_transaction" });
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const cols = "id, user_type, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at";
-
   const byTxn = await admin.from("profiles").select(cols).eq("apple_original_transaction_id", otid).limit(1);
   if (byTxn.error) return json(500, { error: "lookup_failed" });
-  let profile = byTxn.data?.[0] ?? null;
-
-  if (!profile && decision.tier !== "free") {
-    const token = String(txn.appAccountToken ?? "").toLowerCase();
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)) {
-      const byUser = await admin.from("profiles").select(cols).eq("id", token).limit(1);
-      if (byUser.error) return json(500, { error: "lookup_failed" });
-      const p = byUser.data?.[0];
-      if (p && (!p.apple_original_transaction_id || p.apple_original_transaction_id === otid)) profile = p;
-    }
-  }
+  const profile = byTxn.data?.[0] ?? null;
   if (!profile) return json(200, { ignored: "no_matching_coach" });
   if (profile.user_type !== "coach") return json(200, { ignored: "not_a_coach" });
 
@@ -139,17 +132,17 @@ Deno.serve(async (req) => {
     ["active", "on_trial", "trialing", "past_due"].includes(profile.subscription_status ?? "");
   if (lsLive) return json(200, { ignored: "web_billing_active" });
 
-  const signedMs = Number(note.signedDate ?? 0) || Date.now();
-  const storedMs = Date.parse(String(profile.subscription_updated_at ?? "")) || 0;
-  if (storedMs && signedMs < storedMs) return json(200, { ignored: "stale" });
-
-  const { error } = await admin.from("profiles").update({
+  // Newer than what we hold, checked and written in one statement.
+  const signedIso = new Date(Number(note.signedDate ?? 0) || Date.now()).toISOString();
+  const { data: done, error } = await admin.from("profiles").update({
     subscription_tier: decision.tier,
     subscription_status: decision.status,
-    apple_original_transaction_id: otid,
-    subscription_updated_at: new Date(signedMs).toISOString(),
-  }).eq("id", profile.id);
+    subscription_updated_at: signedIso,
+  }).eq("id", profile.id)
+    .or("subscription_updated_at.is.null,subscription_updated_at.lt." + signedIso)
+    .select("id");
   if (error) return json(500, { error: "update_failed" });
+  if (!done || !done.length) return json(200, { ignored: "stale" });
 
   return json(200, { ok: true, tier: decision.tier });
 });

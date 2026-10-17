@@ -1,16 +1,19 @@
 // Shared: verify a JWS signed by the App Store (StoreKit 2 transactions,
 // renewal info, and App Store Server Notifications V2 payloads all use it).
+// apple-iap and apple-notifications both call this one function.
 //
 // Checks, in order:
-//   - header alg is ES256 and carries an x5c chain (leaf, intermediate, root)
+//   - header alg is ES256 and carries exactly three x5c certificates
+//     (leaf, intermediate, root), none oversized
 //   - every certificate is inside its validity window
 //   - each certificate is signed by the next one up the chain
 //   - the root is byte-identical to Apple Root CA - G3 (fetched once from
 //     apple.com over TLS and cached; pin it offline with APPLE_ROOT_CA_B64)
-//   - the intermediate carries Apple's WWDR marker OID 1.2.840.113635.100.6.2.1
-//     and the leaf carries the App Store signing OID 1.2.840.113635.100.6.11.1,
-//     so a certificate Apple issued for some other purpose (which also chains
-//     to the G3 root) can't be used to sign a fake transaction
+//   - the intermediate is a CA (basicConstraints) and carries Apple's WWDR
+//     marker extension 1.2.840.113635.100.6.2.1; the leaf carries the App Store
+//     signing extension 1.2.840.113635.100.6.11.1. Both are read as real v3
+//     extensions (der.ts), so a certificate Apple issued for some other purpose
+//     that also chains to the G3 root can't sign a fake transaction.
 //   - the ES256 signature verifies against the leaf's public key
 //
 // Returns the decoded JSON payload. Throws on any failure.
@@ -18,6 +21,7 @@
 import * as jose from "npm:jose@5";
 import { X509Certificate } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { certExtensions, isCaCert, OID_APPLE_APPSTORE_LEAF, OID_APPLE_WWDR_INTERMEDIATE } from "./der.ts";
 
 const APPLE_ROOT_URL = "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer";
 let _appleRootDer: Buffer | null = null;
@@ -35,17 +39,15 @@ async function appleRootDer(): Promise<Buffer> {
   return _appleRootDer;
 }
 
-// DER encodings of the two marker OIDs (tag 06, length 0A, value).
-const OID_WWDR_INTERMEDIATE = Buffer.from([0x06, 0x0a, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x63, 0x64, 0x06, 0x02, 0x01]);
-const OID_APPSTORE_LEAF = Buffer.from([0x06, 0x0a, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x63, 0x64, 0x06, 0x0b, 0x01]);
-
 export async function verifyAppleJws(jws: string): Promise<Record<string, unknown>> {
   if (!jws || typeof jws !== "string" || jws.length > 30000) throw new Error("bad_jws");
   const header = jose.decodeProtectedHeader(jws);
   const x5c = header.x5c as string[] | undefined;
-  if (header.alg !== "ES256" || !x5c || x5c.length < 3) throw new Error("bad_header");
+  if (header.alg !== "ES256" || !Array.isArray(x5c) || x5c.length !== 3) throw new Error("bad_header");
+  if (x5c.some((b64) => typeof b64 !== "string" || b64.length > 8000)) throw new Error("bad_header");
 
-  const certs = x5c.map((b64) => new X509Certificate(Buffer.from(b64, "base64")));
+  const ders = x5c.map((b64) => Buffer.from(b64, "base64"));
+  const certs = ders.map((d) => new X509Certificate(d));
   const now = new Date();
   for (const c of certs) {
     if (new Date(c.validFrom) > now || new Date(c.validTo) < now) throw new Error("cert_expired");
@@ -53,10 +55,9 @@ export async function verifyAppleJws(jws: string): Promise<Record<string, unknow
   for (let i = 0; i < certs.length - 1; i++) {
     if (!certs[i].verify(certs[i + 1].publicKey)) throw new Error("chain_broken");
   }
-  const root = certs[certs.length - 1];
-  if (Buffer.compare(root.raw, await appleRootDer()) !== 0) throw new Error("untrusted_root");
-  if (certs[1].raw.indexOf(OID_WWDR_INTERMEDIATE) < 0) throw new Error("bad_intermediate");
-  if (certs[0].raw.indexOf(OID_APPSTORE_LEAF) < 0) throw new Error("bad_leaf");
+  if (Buffer.compare(certs[2].raw, await appleRootDer()) !== 0) throw new Error("untrusted_root");
+  if (!isCaCert(ders[1]) || !certExtensions(ders[1])[OID_APPLE_WWDR_INTERMEDIATE]) throw new Error("bad_intermediate");
+  if (!certExtensions(ders[0])[OID_APPLE_APPSTORE_LEAF]) throw new Error("bad_leaf");
 
   const leafPem = certs[0].publicKey.export({ type: "spki", format: "pem" }) as string;
   const key = await jose.importSPKI(leafPem, "ES256");
