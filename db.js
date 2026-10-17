@@ -802,6 +802,10 @@ const DB = {
     if (error) throw error;
   },
   async listCoaches() {
+    // Public directory: safe columns only (migration-profiles-privacy.sql). Before
+    // that migration runs the function doesn't exist and we fall back to the old read.
+    const rpc = await sb.rpc('list_public_coaches');
+    if (!rpc.error) return (rpc.data || []).map(mapDbProfileToCoach);
     const { data, error } = await sb.from('profiles').select('*').eq('user_type', 'coach');
     if (error) { console.warn('listCoaches', error); return []; }
     // Filter client-side (not .eq) so this works whether or not the

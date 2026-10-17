@@ -13,7 +13,7 @@ const VARIANT_TO_TIER: Record<string, 'basic' | 'pro' | 'premium'> = {
   'premium': 'premium'
 }
 
-function resolveTier(variantName: string, priceCents?: number): 'basic' | 'pro' | 'premium' | null {
+function resolveTier(variantName: string, priceCents?: number, productName?: string): 'basic' | 'pro' | 'premium' | null {
   const v = (variantName || '').toLowerCase().trim()
   // Exact match first
   if (VARIANT_TO_TIER[v]) return VARIANT_TO_TIER[v]
@@ -21,14 +21,33 @@ function resolveTier(variantName: string, priceCents?: number): 'basic' | 'pro' 
   if (v.includes('premium')) return 'premium'
   if (v.includes('pro')) return 'pro'  // catches "pro plan", "powalifta pro"
   if (v.includes('basic') || v.includes('starter') || v.includes('lite')) return 'basic'
-  // Last resort: map by price ($25/$50/$100 from app.js TIER_PRICES)
+  // Then the product name, whole words only ("POWALIFTA Pro yearly" → pro;
+  // "Coach Program" must not read as pro). Live store today: product
+  // "POWALIFTA Coach Plan", variants Basic / Pro / Premium.
+  const p = (productName || '').toLowerCase()
+  if (/\bpremium\b/.test(p)) return 'premium'
+  if (/\bpro\b/.test(p)) return 'pro'
+  if (/\b(basic|starter|lite)\b/.test(p)) return 'basic'
+  // Last resort: map by price ($25/$50/$100 a month from app.js TIER_PRICES;
+  // a yearly variant is read as roughly ten months).
   if (typeof priceCents === 'number' && priceCents > 0) {
-    const usd = priceCents / 100
+    const yearly = /\b(year|yearly|annual|annually)\b/.test(v + ' ' + p)
+    const usd = priceCents / 100 / (yearly ? 10 : 1)
     if (usd >= 80) return 'premium'
     if (usd >= 40) return 'pro'
     if (usd >= 15) return 'basic'
   }
   return null
+}
+
+// LS keeps sending subscription_updated after a plan stops being paid for, with
+// the variant still named "Pro". Only these states pay (or are in their paid-up
+// grace) — anything else is the free tier, whatever the event is called.
+// A pause keeps access only when the store paused it in "free" mode.
+function statusKeepsPlan(status: string, pauseMode: string): boolean {
+  if (['active', 'on_trial', 'past_due', 'cancelled'].includes(status)) return true
+  if (status === 'paused') return pauseMode === 'free'
+  return false
 }
 
 async function verifySignature(rawBody: string, signature: string, secret: string): Promise<boolean> {
@@ -137,18 +156,19 @@ Deno.serve(async (req) => {
     // No PII in logs (function logs are retained) — log event shape only.
     console.log('LS webhook fired:', { event, variantName, priceCents, hasEmail: !!customerEmail, hasUserId: !!customUserId })
 
+    const productName = String(attrs.product_name || '')
+    const pauseMode = String(attrs?.pause?.mode || '')
     let tier: 'free' | 'basic' | 'pro' | 'premium' | null = null
     if (
       event === 'subscription_created' ||
       event === 'subscription_updated' ||
       event === 'subscription_resumed' ||
-      event === 'subscription_unpaused'
+      event === 'subscription_unpaused' ||
+      event === 'subscription_cancelled'   // still paid up until ends_at
     ) {
-      tier = resolveTier(variantName, priceCents)
+      tier = (!status || statusKeepsPlan(status, pauseMode)) ? resolveTier(variantName, priceCents, productName) : 'free'
     } else if (event === 'subscription_expired') {
       tier = 'free'
-    } else if (event === 'subscription_cancelled') {
-      tier = resolveTier(variantName, priceCents)
     } else {
       return jsonResponse(200, { ignored: event })
     }
