@@ -437,6 +437,14 @@ async function applyPendingReferral(userId, alreadyReferred) {
   } catch (e) { console.warn('applyReferral', e); }
 }
 window.captureReferralFromUrl = captureReferralFromUrl;
+// Club invite links (?club=CODE, the QR on a gym poster): keep the code through
+// sign-up, so the Club tab offers it once the lifter is in (clubs.js renderJoin).
+function captureClubFromUrl() {
+  try {
+    const m = /[?&]club=([A-Za-z0-9]{6})\b/.exec(location.search || '');
+    if (m && m[1]) localStorage.setItem('powa-club-code', m[1].toUpperCase());
+  } catch (e) {}
+}
 window.applyPendingReferral = applyPendingReferral;
 
 async function bootstrap(expectedType, onReady, opts) {
@@ -445,6 +453,7 @@ async function bootstrap(expectedType, onReady, opts) {
   // Stash any ?ref=CODE the moment a page loads, before auth resolves, so the
   // attribution survives the whole signup round-trip (incl. email confirmation).
   captureReferralFromUrl();
+  captureClubFromUrl();
 
   // Live demo: skip auth + hydration entirely, run on generated data.
   if (window._demoMode && (expectedType === 'athlete' || expectedType === 'coach')) {
@@ -7170,6 +7179,7 @@ const YOU_ROW_META = {
   'Bodyweight':          { tint: 'teal',   icon: () => ICONS.scale },
   'Goals':               { tint: 'gold',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>') },
   'Rest timer':          { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
+  'Year in lifting':     { tint: 'gold',   icon: () => _YI('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/>') },
   'Rest and sets':       { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
   'My library':          { tint: 'iris',   icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M8 7h7"/>') },
   'Browse programs':     { tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
@@ -8431,3 +8441,274 @@ function maybeAskForRating(reason) {
   } catch (e) {}
 }
 window.maybeAskForRating = maybeAskForRating;
+
+// =========================================================
+// MEET MODE (2026-10-17): meet day, live. Three attempts a lift; the lifter (or
+// their handler) marks the three judge lights and how the bar moved, and the
+// next attempt is picked from that. Pure helpers, unit-tested in tests.html.
+// =========================================================
+function meetStep(unit) { return unit === 'lbs' ? 5 * KG_PER_LB : 2.5; }
+function roundMeet(kg, unit) { const s = meetStep(unit); return Math.round(Number(kg) / s) * s; }
+// Good lift = two or more white lights. null until all three are in.
+function meetLightsResult(lights) {
+  const l = lights || [];
+  const w = l.filter(x => x === 'white').length, r = l.filter(x => x === 'red').length;
+  return w + r < 3 ? null : (w >= 2 ? 'good' : 'no');
+}
+// Made it: the planned jump, a step bigger if the bar flew, two steps smaller if
+// it ground (never under one step). Missed it: take it again.
+function meetNextAttempt(prevKg, result, feel, plannedNextKg, unit) {
+  const step = meetStep(unit);
+  if (result !== 'good') return roundMeet(prevKg, unit);
+  let jump = Math.max(step, (Number(plannedNextKg) || 0) - prevKg);
+  if (feel === 'fast') jump += step;
+  else if (feel === 'grind') jump = Math.max(step, jump - 2 * step);
+  return roundMeet(prevKg + jump, unit);
+}
+// Best good lift per discipline, total so far, made / taken, and bomb-outs.
+function meetStanding(lifts) {
+  const out = { best: {}, total: 0, made: 0, taken: 0, bombed: [] };
+  ['squat', 'bench', 'deadlift'].forEach(l => {
+    const att = (lifts && lifts[l] && lifts[l].attempts) || [];
+    const good = att.filter(a => a.result === 'good').map(a => Number(a.kg));
+    out.taken += att.filter(a => a.result).length;
+    out.made += good.length;
+    out.best[l] = good.length ? Math.max(...good) : null;
+    if (out.best[l]) out.total += out.best[l];
+    if (att.length === 3 && att.every(a => a.result === 'no')) out.bombed.push(l);
+  });
+  return out;
+}
+// Warm-up caller: when to take each warm-up, counted in attempts still to go
+// before yours (about a minute each); the last one about four out.
+function warmupCaller(openerKg, unit) {
+  const barKg = unit === 'lbs' ? 45 * KG_PER_LB : 20, step = meetStep(unit);
+  const r = (p) => Math.max(barKg, Math.round(openerKg * p / step) * step);
+  const ramp = [
+    { kg: barKg, reps: 5, out: 24 }, { kg: r(0.5), reps: 3, out: 20 }, { kg: r(0.65), reps: 2, out: 16 },
+    { kg: r(0.75), reps: 1, out: 12 }, { kg: r(0.85), reps: 1, out: 8 }, { kg: r(0.92), reps: 1, out: 4 }
+  ];
+  const seen = new Set();
+  return ramp.filter(s => s.kg < openerKg && !seen.has(s.kg) && seen.add(s.kg));
+}
+Object.assign(window, { meetStep, roundMeet, meetLightsResult, meetNextAttempt, meetStanding, warmupCaller });
+
+// =========================================================
+// PROGRAM FROM A SPREADSHEET (2026-10-17): a coach pastes a program straight
+// out of Google Sheets, Excel or Notes and it becomes a POWALIFTA program.
+// Reads both shapes coaches use: a table with a header row (Week | Day |
+// Exercise | Sets | Reps | Load | RPE …) or written blocks ("Week 1",
+// "Day 1", "Squat 3x5 @8", "Bench 5x3 @ 82.5kg"). Percentages ride along in
+// the exercise note (the program has no %-of-max field). Pure: tests.html.
+// =========================================================
+function _sheetCells(line, delim) {
+  if (delim === '\t') return line.split('\t').map(c => c.trim());
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === delim) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+// "Paused bench" → { lift: 'bench', variant: 'Paused' }; accessories keep their name.
+function matchExercise(name) {
+  const n = String(name || '').replace(/\s+/g, ' ').trim(), s = n.toLowerCase();
+  const variantOf = (lift) => Object.keys(VARIANTS[lift]).find(v => v !== 'Competition' && s.includes(v.toLowerCase())) || 'Competition';
+  if (/\brdl\b|romanian/.test(s)) return { lift: 'deadlift', variant: 'RDL', exerciseName: '' };
+  if (/front squat|hack squat|split squat|goblet|leg press|lunge|leg curl|leg extension|calf|hip thrust|glute|hamstring|\bquad/.test(s)) return { lift: 'legs', variant: '', exerciseName: n };
+  if (/squat/.test(s)) return { lift: 'squat', variant: variantOf('squat'), exerciseName: '' };
+  if (/bench/.test(s) && !/dumbbell|\bdb\b/.test(s)) return { lift: 'bench', variant: variantOf('bench'), exerciseName: '' };
+  if (/deadlift|\bdl\b|\bdead\b|\bdeads\b/.test(s)) return { lift: 'deadlift', variant: variantOf('deadlift'), exerciseName: '' };
+  if (/row|pull|chin|lat\b|pulldown|curl|face pull|shrug|rear delt/.test(s)) return { lift: 'pull', variant: '', exerciseName: n };
+  if (/press|dip|tricep|push|raise|fly|flye|pec/.test(s)) return { lift: 'push', variant: '', exerciseName: n };
+  return { lift: 'other', variant: '', exerciseName: n };
+}
+// "3x5 @8", "5 x 3 @ RPE 7.5", "1x2 82.5kg", "4x8 70%", "3 sets of 10".
+function parsePrescription(str, unit) {
+  const s = String(str || '');
+  let m, sets = null, reps = null, rpe = null, kg = null, pct = null;
+  if ((m = s.match(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i))) { sets = +m[1]; reps = +m[2]; }
+  if ((m = s.match(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)(\d{1,2}(?:\.5)?)(?!\d|\.\d|\s*(?:kg|lb|%))/i))) { const v = +m[1]; if (v >= 5 && v <= 10) rpe = v; }
+  if ((m = s.match(/\brir\s*(\d)/i)) && rpe == null) rpe = 10 - +m[1];
+  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(kgs?|lbs?)\b/i))) kg = /lb/i.test(m[2]) ? +m[1] * KG_PER_LB : +m[1];
+  if ((m = s.match(/(\d{2,3}(?:\.\d+)?)\s*%/))) pct = +m[1];
+  if (kg == null && sets != null) {
+    // A bare load after the scheme ("Squat 3x5 180") is in the coach's unit.
+    const rest = s.replace(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i, ' ').replace(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)\d{1,2}(?:\.5)?/i, ' ').replace(/\d{2,3}(?:\.\d+)?\s*%/, ' ');
+    const b = rest.match(/(?:^|\s)(\d{2,3}(?:\.\d+)?)(?=\s|$)/);
+    if (b && +b[1] >= 20) kg = unit === 'lbs' ? +b[1] * KG_PER_LB : +b[1];
+  }
+  return { sets, reps, rpe, kg, pct };
+}
+function parseProgramSheet(text, opts) {
+  opts = opts || {};
+  const unit = opts.unit || 'kg';
+  const lines = String(text || '').replace(/\r/g, '').split('\n').filter(l => l.trim());
+  const weeks = [], warnings = [];
+  let wk = null, day = null, lastEx = null;
+  const ensureWeek = (n) => {
+    if (wk && (n == null || wk.number === n)) return wk;
+    wk = weeks.find(w => w.number === n) || null;
+    if (!wk) { wk = { id: uid('wk'), number: n != null ? n : weeks.length + 1, days: [] }; weeks.push(wk); }
+    day = null; lastEx = null;
+    return wk;
+  };
+  const ensureDay = (name) => {
+    ensureWeek(wk ? wk.number : 1);
+    const nm = (name || 'Day ' + (wk.days.length + 1)).trim();
+    if (day && day.name === nm) return day;
+    day = wk.days.find(d => d.name === nm) || null;
+    if (!day) { day = { id: uid('day'), name: nm, exercises: [] }; wk.days.push(day); }
+    lastEx = null;
+    return day;
+  };
+  const addSets = (name, p, note) => {
+    if (!day) ensureDay(null);
+    const ex = matchExercise(name);
+    const key = ex.lift + '|' + ex.variant + '|' + ex.exerciseName;
+    let target = lastEx && lastEx._key === key ? lastEx : null;
+    if (!target) {
+      target = newExercise(ex.lift, ex.variant, ex.exerciseName);
+      target._key = key;
+      day.exercises.push(target);
+      lastEx = target;
+    }
+    const n = Math.max(1, Math.min(20, p.sets || 1));
+    for (let i = 0; i < n; i++) target.sets.push(newSet(p.kg ? Math.round(p.kg * 100) / 100 : 0, p.reps || 0, p.rpe));
+    const bits = [];
+    if (p.pct) bits.push(p.pct + '%');
+    if (note) bits.push(note);
+    if (bits.length) target.note = (target.note ? target.note + ' · ' : '') + bits.join(' · ');
+  };
+
+  const delim = lines.some(l => l.includes('\t')) ? '\t' : (lines.some(l => l.includes(',')) ? ',' : null);
+  let header = null, hi = -1;
+  if (delim) {
+    for (let i = 0; i < Math.min(lines.length, 6) && !header; i++) {
+      const cells = _sheetCells(lines[i], delim).map(c => c.toLowerCase());
+      const col = (re) => cells.findIndex(c => re.test(c));
+      const ex = col(/exercise|movement|^lift$|^lifts?\b/);
+      if (ex >= 0 && (col(/^reps?$|sets?\s*x\s*reps?|scheme|prescription/) >= 0 || col(/^sets?$/) >= 0)) {
+        header = { week: col(/^w(ee)?k/), day: col(/^day|session/), ex, sets: col(/^sets?$/), reps: col(/^reps?$/),
+          scheme: col(/sets?\s*x\s*reps?|scheme|prescription/), load: col(/load|weight|^kg|^lbs?$|intensity/),
+          rpe: col(/^rpe|^@|^rir/), pct: col(/%|percent/), note: col(/note|cue|comment/) };
+        header.rir = header.rpe >= 0 && /rir/.test(cells[header.rpe]);
+        hi = i;
+      }
+    }
+  }
+  if (header) {
+    lines.slice(hi + 1).forEach(line => {
+      const c = _sheetCells(line, delim);
+      const get = (k) => (header[k] >= 0 ? (c[header[k]] || '').trim() : '');
+      const wkTxt = get('week'), dayTxt = get('day'), name = get('ex');
+      if (wkTxt) { const n = parseInt(wkTxt.replace(/[^0-9]/g, ''), 10); if (n) ensureWeek(n); }
+      if (dayTxt) ensureDay(/^\d+$/.test(dayTxt) ? 'Day ' + dayTxt : dayTxt);
+      if (!name) { if (!wkTxt && !dayTxt) warnings.push(line.trim()); return; }
+      const scheme = parsePrescription(get('scheme') + ' ' + get('load') + ' ' + (get('rpe') ? '@' + get('rpe') : ''), unit);
+      const p = {
+        sets: parseInt(get('sets'), 10) || scheme.sets || 1,
+        reps: parseInt(get('reps'), 10) || scheme.reps || 0,
+        rpe: scheme.rpe,
+        kg: scheme.kg,
+        pct: (get('pct') ? parseFloat(get('pct')) : null) || scheme.pct
+      };
+      if (header.rir) { const r = parseFloat(get('rpe')); p.rpe = !isNaN(r) && r >= 0 && r <= 5 ? 10 - r : null; }
+      if (p.kg == null && get('load') && /^\d+(\.\d+)?$/.test(get('load'))) p.kg = unit === 'lbs' ? +get('load') * KG_PER_LB : +get('load');
+      if (!p.reps) { warnings.push(line.trim()); return; }
+      addSets(name, p, get('note'));
+    });
+  } else {
+    const DAY_RE = /^(day\s*\d+\b.*|(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?\b.*|session\s*\d+.*)$/i;
+    lines.forEach(raw => {
+      const line = raw.replace(/^[\s•\-*–]+/, '').trim();
+      let m;
+      if ((m = line.match(/^(?:week|wk)\s*(\d+)\b/i))) { ensureWeek(+m[1]); const after = line.slice(m[0].length).replace(/^[\s:–\-,|]+/, ''); if (DAY_RE.test(after)) ensureDay(after.replace(/[:\s]+$/, '')); return; }
+      const p = parsePrescription(line, unit);
+      if (p.sets != null && p.reps) {
+        const idx = line.search(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i);
+        const name = line.slice(0, idx).replace(/[\s:–\-,|@]+$/, '').trim();
+        if (!name) { warnings.push(raw.trim()); return; }
+        addSets(name, p, null);
+        return;
+      }
+      if (DAY_RE.test(line) || (/:$/.test(line) && !/\d+\s*x\s*\d+/i.test(line))) { ensureDay(line.replace(/[:\s]+$/, '')); return; }
+      warnings.push(raw.trim());
+    });
+  }
+  weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => { delete e._key; })));
+  const days = weeks.reduce((a, w) => a + w.days.length, 0);
+  const exercises = weeks.reduce((a, w) => a + w.days.reduce((b, d) => b + d.exercises.length, 0), 0);
+  const sets = weeks.reduce((a, w) => a + w.days.reduce((b, d) => b + d.exercises.reduce((c, e) => c + e.sets.length, 0), 0), 0);
+  return { name: opts.name || 'Imported program', weeks: weeks.sort((a, b) => a.number - b.number), warnings, stats: { weeks: weeks.length, days, exercises, sets } };
+}
+Object.assign(window, { parseProgramSheet, parsePrescription, matchExercise });
+
+// =========================================================
+// YOUR YEAR IN LIFTING (2026-10-17): POWALIFTA Wrapped. Everything here comes
+// from the lifter's own logs and weigh-ins. Pure: unit-tested in tests.html.
+//   logs: workout logs (any athlete), bw: bodyweight rows, year: 2026
+// =========================================================
+const WRAP_DAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+const WRAP_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function yearInLifting(logs, bw, athleteId, year) {
+  const y = String(year);
+  const all = (logs || []).filter(l => l && l.athleteId === athleteId && String(l.date || '').slice(0, 4) <= y).slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id || '').localeCompare(String(b.id || '')));
+  const mine = all.filter(l => String(l.date).slice(0, 4) === y);
+  const lifting = mine.filter(l => l.lift !== 'cardio');
+  const days = Array.from(new Set(mine.map(l => l.date))).sort();
+  const tonnageKg = Math.round(lifting.reduce((a, l) => a + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0));
+  // PRs: a main-lift set whose competition-equivalent e1RM beats everything before it.
+  const best = {}, startOfYear = {}, prs = { count: 0 };
+  all.forEach(l => {
+    if (!['squat', 'bench', 'deadlift'].includes(l.lift) || !(l.e1rmComp > 0)) return;
+    const inYear = String(l.date).slice(0, 4) === y;
+    if (!inYear) { best[l.lift] = Math.max(best[l.lift] || 0, l.e1rmComp); return; }
+    if (startOfYear[l.lift] == null) startOfYear[l.lift] = best[l.lift] || null;
+    if (!(best[l.lift] > 0) || l.e1rmComp > best[l.lift] + 0.05) { if (best[l.lift] > 0) prs.count++; best[l.lift] = l.e1rmComp; }
+  });
+  const yearBest = {};
+  lifting.forEach(l => { if (['squat', 'bench', 'deadlift'].includes(l.lift) && l.e1rmComp > (yearBest[l.lift] || 0)) yearBest[l.lift] = l.e1rmComp; });
+  let jump = null;
+  Object.keys(yearBest).forEach(k => {
+    const from = startOfYear[k] || lifting.filter(l => l.lift === k).map(l => l.e1rmComp).find(v => v > 0) || 0;
+    const d = yearBest[k] - from;
+    if (from > 0 && d > 0 && (!jump || d > jump.gainKg)) jump = { lift: k, fromKg: from, toKg: yearBest[k], gainKg: d };
+  });
+  const byDow = [0, 0, 0, 0, 0, 0, 0], byMonth = new Array(12).fill(0);
+  days.forEach(d => { const dt = new Date(d + 'T12:00:00Z'); byDow[dt.getUTCDay()]++; byMonth[dt.getUTCMonth()]++; });
+  const topDow = days.length ? byDow.indexOf(Math.max(...byDow)) : null;
+  const topMonth = days.length ? byMonth.indexOf(Math.max(...byMonth)) : null;
+  // Longest run of consecutive ISO weeks with at least one session.
+  const weekKey = (d) => { const dt = new Date(d + 'T12:00:00Z'); const dow = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - dow); return dt.getTime(); };
+  const weeks = Array.from(new Set(days.map(weekKey))).sort((a, b) => a - b);
+  let streak = weeks.length ? 1 : 0, run = 1;
+  for (let i = 1; i < weeks.length; i++) { run = weeks[i] - weeks[i - 1] === 7 * 86400000 ? run + 1 : 1; streak = Math.max(streak, run); }
+  const bws = (bw || []).filter(b => b && b.athleteId === athleteId && String(b.date).slice(0, 4) === y && b.weight > 0).sort((a, b) => a.date.localeCompare(b.date));
+  return {
+    year: Number(year), sessions: days.length, sets: mine.length, tonnageKg,
+    prs: prs.count, jump, best: yearBest,
+    topDay: topDow == null ? null : WRAP_DAYS[topDow], topMonth: topMonth == null ? null : WRAP_MONTHS[topMonth],
+    longestStreakWeeks: streak,
+    bw: bws.length >= 2 ? { startKg: bws[0].weight, endKg: bws[bws.length - 1].weight } : null
+  };
+}
+// "That's 52 elephants": the friendliest big comparison for a tonnage.
+function tonnageComparison(kg) {
+  const things = [
+    { kg: 150000, one: 'blue whale', many: 'blue whales' },
+    { kg: 6000, one: 'African elephant', many: 'African elephants' },
+    { kg: 1500, one: 'car', many: 'cars' },
+    { kg: 450, one: 'grand piano', many: 'grand pianos' },
+    { kg: 20, one: 'Olympic bar', many: 'Olympic bars' }
+  ];
+  const t = things.find(x => kg / x.kg >= 2) || things[things.length - 1];
+  const n = Math.round(kg / t.kg);
+  return n + ' ' + (n === 1 ? t.one : t.many);
+}
+Object.assign(window, { yearInLifting, tonnageComparison });

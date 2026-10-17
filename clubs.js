@@ -130,6 +130,29 @@
   }
 
   // The club's week in three numbers.
+  // WEEKLY CHALLENGE: a different one every Monday (most sessions, most weight
+  // moved, most PRs shared), scored only from what the club already shares.
+  // Pure: unit-tested in tests.html.
+  const CHALLENGES = [
+    { key: 'sessions', title: 'Most sessions', val: (m, wk) => (m.weekStart === wk ? (m.weekSessions || 0) : 0) },
+    { key: 'tonnage', title: 'Most weight moved', val: (m, wk) => (m.weekStart === wk ? (m.weekTonnageKg || 0) : 0) },
+    { key: 'prs', title: 'Most PRs shared', val: (m, wk, posts) => (posts || []).filter(p => p.userId === m.userId && p.kind === 'pr' && String(p.createdAt || '').slice(0, 10) >= wk).length }
+  ];
+  function weekChallenge(members, posts, weekStart) {
+    const weekNo = Math.floor(Date.parse(weekStart + 'T12:00:00Z') / (7 * 86400000));
+    const c = CHALLENGES[((weekNo % CHALLENGES.length) + CHALLENGES.length) % CHALLENGES.length];
+    const rows = (members || []).map(m => ({ m, v: c.val(m, weekStart, posts) })).filter(r => r.v > 0)
+      .sort((a, b) => b.v - a.v || String(a.m.displayName || '').localeCompare(String(b.m.displayName || '')));
+    let rank = 0, prev = null;
+    rows.forEach((r, i) => { if (r.v !== prev) { rank = i + 1; prev = r.v; } r.rank = rank; });
+    return { key: c.key, title: c.title, rows };
+  }
+  function challengeValueText(key, v) {
+    if (key === 'tonnage') return tonnageText(v) + ' moved';
+    if (key === 'prs') return v + (v === 1 ? ' PR' : ' PRs');
+    return v + (v === 1 ? ' session' : ' sessions');
+  }
+
   function clubWeekPulse(members, weekStart) {
     const wk = weekStart || mondayISO();
     const cur = (members || []).filter(m => m.weekStart === wk);
@@ -383,6 +406,7 @@
 
   function renderClub(root) {
     const { club, role, members } = _data;
+    try { localStorage.removeItem('powa-club-code'); } catch (e) {}   // already in a club
     const staff = role === 'owner' || role === 'admin';
     const wk = mondayISO();
     root.innerHTML = '';
@@ -401,7 +425,7 @@
     idc.appendChild(el('h2', { class: 'club-hero-name' }, club.name));
     top.appendChild(idc);
     const invite = el('button', { class: 'club-invite-icon', type: 'button', 'aria-label': 'Invite lifters to ' + club.name, html: IC.share });
-    invite.addEventListener('click', () => shareClub(club));
+    invite.addEventListener('click', () => openInviteSheet(club));
     top.appendChild(invite);
     hero.appendChild(top);
     if (club.description) hero.appendChild(el('p', { class: 'club-desc' }, club.description));
@@ -770,6 +794,9 @@
       (m) => { _mode = m; renderClub(_container); }, 'Rank the club by', 'club-rank-seg'));
     root.appendChild(head);
 
+    const ch = challengeCard(members, wk);
+    if (ch) root.appendChild(ch);
+
     const ranked = rankClubMembers(members, _mode, wk);
     const pod = podium(ranked, _mode, wk);
     if (pod) root.appendChild(pod);
@@ -969,7 +996,8 @@
     root.appendChild(el('p', { class: 'club-fine' }, 'Joining shares your name, class, best lifts, DOTS and how often you train with that club only. Never your program or logs.'));
 
     fetchDir(list, '');
-    const pre = new URLSearchParams(location.search).get('club');
+    let pre = new URLSearchParams(location.search).get('club');
+    if (!pre) { try { pre = localStorage.getItem('powa-club-code'); } catch (e) {} }
     if (pre && !_codeSheetShown) { _codeSheetShown = true; setTimeout(() => openCodeSheet(pre), 250); }
   }
 
@@ -1075,12 +1103,12 @@
   async function joinWithCode(code, btn) {
     code = String(code || '').trim().toUpperCase();
     if (!/^[A-Z0-9]{6}$/.test(code)) { toast('Club codes are 6 characters'); return false; }
-    if (isDemo()) { window._demoClubLeft = false; toast('Joined: welcome to the club'); _loaded = false; renderClubTab(); return true; }
+    if (isDemo()) { window._demoClubLeft = false; toast('Joined: welcome to the club'); try { localStorage.removeItem('powa-club-code'); } catch (e) {} _loaded = false; renderClubTab(); return true; }
     if (btn) { btn.disabled = true; }
     try {
       await DB.joinClub(code, (me() || {}).name);
       try { localStorage.removeItem('powa-club-stats'); } catch (e) {}
-      toast('Joined: welcome to the club');
+      toast('Joined: welcome to the club'); try { localStorage.removeItem('powa-club-code'); } catch (e) {}
       _loaded = false; _view = 'feed';
       await renderClubTab();
       return true;
@@ -1110,6 +1138,168 @@
       try { await DB.reportClub(club.id, me().id, r); toast('Thanks: we\'ll take a look'); }
       catch (e) { toast(e.message || 'Couldn\'t send the report'); }
     } })));
+  }
+
+  // ---- WEEKLY CHALLENGE card (Board) --------------------------------------------
+  function challengeCard(members, wk) {
+    const ch = weekChallenge(members, _posts, wk);
+    const u = me();
+    const card = el('div', { class: 'club-ch' });
+    const head = el('div', { class: 'club-ch-head' });
+    head.appendChild(el('span', { class: 'club-ch-ic', 'aria-hidden': 'true', html: IC.trophy || '' }));
+    const t = el('div', { class: 'club-ch-t' });
+    t.appendChild(el('span', { class: 'club-ch-lbl' }, 'This week\'s challenge'));
+    t.appendChild(el('b', {}, ch.title));
+    head.appendChild(t);
+    const daysLeft = 7 - ((new Date().getDay() + 6) % 7);
+    head.appendChild(el('span', { class: 'club-ch-left' }, daysLeft <= 1 ? 'Ends today' : daysLeft + ' days left'));
+    card.appendChild(head);
+    if (!ch.rows.length) {
+      card.appendChild(el('p', { class: 'club-ch-empty' }, 'Nobody on the board yet. First one in takes the lead.'));
+      return card;
+    }
+    const list = el('div', { class: 'club-ch-rows' });
+    ch.rows.slice(0, 3).forEach(r => {
+      const isMe = u && r.m.userId === u.id;
+      list.appendChild(el('div', { class: 'club-ch-row' + (isMe ? ' is-me' : '') + (r.rank === 1 ? ' first' : '') },
+        el('span', { class: 'club-ch-rank' }, String(r.rank)),
+        el('span', { class: 'club-ch-name' }, isMe ? 'You' : (r.m.displayName || 'Lifter')),
+        el('span', { class: 'club-ch-val' }, challengeValueText(ch.key, r.v))));
+    });
+    card.appendChild(list);
+    const mine = u && ch.rows.find(r => r.m.userId === u.id);
+    const nth = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
+    if (u && (!mine || mine.rank > 3)) card.appendChild(el('p', { class: 'club-ch-you' }, mine ? 'You\'re ' + nth(mine.rank) + ' · ' + challengeValueText(ch.key, mine.v) : 'You\'re not on it yet this week'));
+    return card;
+  }
+
+  // ---- INVITE: QR, gym poster, gym TV --------------------------------------------
+  function inviteUrl(club) { return 'https://www.powalifta.com/athlete.html?tab=club&club=' + encodeURIComponent(club.code); }
+  function openInviteSheet(club) {
+    const staff = _data && (_data.role === 'owner' || _data.role === 'admin');
+    const canPoster = club.visibility !== 'private' || staff;
+    uiSheet('Invite to ' + club.name, (sheet, close) => {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, club.visibility === 'private'
+        ? 'Anyone with this code can join, so share it with lifters you know.'
+        : 'Point a phone camera at the code to join.'));
+      if (typeof qrSvg === 'function') sheet.appendChild(el('div', { class: 'club-qr', html: qrSvg(inviteUrl(club), { dark: '#0b0b0c', light: '#ffffff', quiet: 2 }) }));
+      sheet.appendChild(el('div', { class: 'club-qr-code' }, el('span', {}, 'Code'), el('b', {}, club.code)));
+      const acts = el('div', { class: 'club-qr-acts' });
+      const share = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Share invite');
+      share.addEventListener('click', () => shareClub(club));
+      acts.appendChild(share);
+      if (canPoster && typeof qrDraw === 'function') {
+        const poster = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Make a poster for the gym');
+        poster.addEventListener('click', () => makeClubPoster(club));
+        acts.appendChild(poster);
+      }
+      if (staff) {
+        const tv = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Gym TV mode');
+        tv.addEventListener('click', () => { close(); setTimeout(openClubTV, 240); });
+        acts.appendChild(tv);
+      }
+      sheet.appendChild(acts);
+    }, { cls: 'invite-sheet' });
+  }
+  function _round(x, X, Y, W, H, R, fill) {
+    x.beginPath(); x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R);
+    x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath(); x.fillStyle = fill; x.fill();
+  }
+  // A 1080 × 1350 poster for the gym wall: club name, the QR, the code.
+  async function makeClubPoster(club) {
+    const W = 1080, H = 1350, c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    try { await document.fonts.load('800 80px Archivo'); await document.fonts.load('600 40px Archivo'); } catch (e) {}
+    x.fillStyle = '#0b0b0c'; x.fillRect(0, 0, W, H);
+    const g = x.createRadialGradient(W / 2, -80, 60, W / 2, -80, 980);
+    g.addColorStop(0, 'rgba(242, 194, 91, 0.24)'); g.addColorStop(1, 'rgba(242, 194, 91, 0)');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.textAlign = 'center';
+    x.font = '600 40px Archivo'; x.fillStyle = 'rgba(244, 244, 246, 0.62)';
+    x.fillText('Join our club on POWALIFTA', W / 2, 150);
+    let fs = 96; x.font = '800 ' + fs + 'px Archivo';
+    while (x.measureText(club.name).width > W - 140 && fs > 44) { fs -= 4; x.font = '800 ' + fs + 'px Archivo'; }
+    x.fillStyle = '#f4f4f6'; x.fillText(club.name, W / 2, 262);
+    const q = 560, qx = (W - q) / 2, qy = 350;
+    _round(x, qx - 30, qy - 30, q + 60, q + 60, 40, '#ffffff');
+    qrDraw(x, inviteUrl(club), qx, qy, q, { quiet: 0, dark: '#0b0b0c' });
+    x.font = '600 38px Archivo'; x.fillStyle = 'rgba(244, 244, 246, 0.7)';
+    x.fillText('Point your phone camera at it', W / 2, qy + q + 112);
+    x.font = '800 66px Archivo'; x.fillStyle = '#f2c25b';
+    x.fillText('Code ' + club.code, W / 2, qy + q + 200);
+    x.font = '600 32px Archivo'; x.fillStyle = 'rgba(244, 244, 246, 0.5)';
+    x.fillText('Share lifts · climb the board · train together', W / 2, H - 112);
+    x.fillText('powalifta.com', W / 2, H - 62);
+    await shareCardFromCanvas(c, 'powalifta-club-' + club.code + '.png', 'Join ' + club.name + ' on POWALIFTA: ' + inviteUrl(club));
+  }
+  // GYM TV MODE: the club on the gym's screen. Rotates the board, the week's
+  // challenge and the club records every 15 s, refreshes every 2 min, keeps the
+  // screen awake, and shows the join QR in the corner. Any tap closes it.
+  function openClubTV() {
+    if (!_data || !_data.club) return;
+    const tv = el('div', { class: 'club-tv', role: 'dialog', 'aria-label': 'Gym TV mode' });
+    document.body.appendChild(tv);
+    document.documentElement.classList.add('club-tv-open');
+    let lock = null, panel = 0;
+    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { lock = l; }).catch(() => {}); } catch (e) {}
+    try { if (tv.requestFullscreen) tv.requestFullscreen().catch(() => {}); } catch (e) {}
+    const PANELS = ['board', 'challenge', 'records'];
+    const paint = () => {
+      const { club, members } = _data;
+      const wk = mondayISO();
+      tv.innerHTML = '';
+      const head = el('div', { class: 'tv-head' });
+      head.appendChild(el('span', { class: 'club-crest', 'aria-hidden': 'true' }, initials(club.name || 'Club')));
+      const id = el('div', { class: 'tv-id' });
+      id.appendChild(el('div', { class: 'tv-name' }, club.name));
+      const titles = { board: 'Leaderboard · DOTS', challenge: 'This week\'s challenge', records: 'Club records' };
+      id.appendChild(el('div', { class: 'tv-panel' }, titles[PANELS[panel]]));
+      head.appendChild(id);
+      if (typeof qrSvg === 'function') {
+        const j = el('div', { class: 'tv-join' });
+        j.appendChild(el('div', { class: 'tv-qr', html: qrSvg(inviteUrl(club), { dark: '#0b0b0c', light: '#ffffff', quiet: 2 }) }));
+        j.appendChild(el('div', { class: 'tv-join-t' }, el('b', {}, 'Join us'), el('span', {}, 'Code ' + club.code)));
+        head.appendChild(j);
+      }
+      tv.appendChild(head);
+      const body = el('div', { class: 'tv-body' });
+      if (PANELS[panel] === 'board') {
+        rankClubMembers(members, 'dots', wk).filter(m => m.rank != null).slice(0, 7).forEach(m => {
+          body.appendChild(el('div', { class: 'tv-row' + (m.rank <= 3 ? ' top' + m.rank : '') },
+            el('span', { class: 'tv-rank' }, String(m.rank)),
+            el('span', { class: 'tv-who' }, m.displayName || 'Lifter'),
+            el('span', { class: 'tv-meta' }, [m.bodyweightKg ? weightClassFor(m.bodyweightKg, m.sex) : null, m.totalKg ? formatWeight(m.totalKg, 0) + ' total' : null].filter(Boolean).join(' · ')),
+            el('span', { class: 'tv-val' }, fmtNum(m.dots))));
+        });
+      } else if (PANELS[panel] === 'challenge') {
+        const ch = weekChallenge(members, _posts, wk);
+        body.appendChild(el('div', { class: 'tv-ch-title' }, ch.title));
+        if (!ch.rows.length) body.appendChild(el('div', { class: 'tv-empty' }, 'Wide open. Log a session and take the lead.'));
+        ch.rows.slice(0, 6).forEach(r => body.appendChild(el('div', { class: 'tv-row' + (r.rank <= 3 ? ' top' + r.rank : '') },
+          el('span', { class: 'tv-rank' }, String(r.rank)), el('span', { class: 'tv-who' }, r.m.displayName || 'Lifter'),
+          el('span', { class: 'tv-meta' }, ''), el('span', { class: 'tv-val' }, challengeValueText(ch.key, r.v)))));
+      } else {
+        const recs = clubRecords(members);
+        if (recs) { recs.classList.add('tv-recs'); body.appendChild(recs); }
+        else body.appendChild(el('div', { class: 'tv-empty' }, 'No records yet. Somebody set the first one.'));
+      }
+      tv.appendChild(body);
+      tv.appendChild(el('div', { class: 'tv-dots', 'aria-hidden': 'true' }, ...PANELS.map((p, i) => el('i', { class: i === panel ? 'on' : '' }))));
+    };
+    const rot = setInterval(() => { panel = (panel + 1) % PANELS.length; paint(); }, 15000);
+    const refresh = setInterval(async () => { try { _loaded = false; await load(); } catch (e) {} paint(); }, 120000);
+    const exit = () => {
+      clearInterval(rot); clearInterval(refresh);
+      tv.remove(); document.documentElement.classList.remove('club-tv-open');
+      try { if (lock) lock.release(); } catch (e) {}
+      try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') exit(); };
+    tv.addEventListener('click', exit);
+    document.addEventListener('keydown', onKey);
+    paint();
   }
 
   async function shareClub(club) {
@@ -1318,6 +1508,7 @@
 
   window.renderClubTab = renderClubTab;
   window.rankClubMembers = rankClubMembers;   // pure — unit-tested in tests.html
+  window.weekChallenge = weekChallenge;       // pure — unit-tested in tests.html
   window.clubWeekPulse = clubWeekPulse;       // pure — unit-tested in tests.html
   window.shareableSets = shareableSets;       // pure — unit-tested in tests.html
   window.sessionSummary = sessionSummary;     // pure — unit-tested in tests.html
@@ -1327,6 +1518,8 @@
     shareLog,
     myClubStats,
     syncMyStats,
-    openLifterCard
+    openLifterCard,
+    openClubTV,
+    openInviteSheet: () => { if (_data && _data.club) openInviteSheet(_data.club); }
   };
 })();

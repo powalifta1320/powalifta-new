@@ -323,6 +323,7 @@
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
+<script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script>
 let user;
@@ -514,6 +515,12 @@ bootstrap('athlete', () => {
   // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo).
   if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder();
   if (!window._demoMode) applyPendingWeighIn();
+  // Came in through a club invite (QR / link) before signing up: take them to it.
+  try {
+    if (!window._demoMode && localStorage.getItem('powa-club-code') && !new URLSearchParams(location.search).get('tab')) {
+      const ct = document.getElementById('tab-club'); if (ct) setTimeout(() => ct.click(), 300);
+    }
+  } catch (e) {}
 
   // Localize unit-bearing labels to the user's preferred unit
   const u = unitLabel();
@@ -2062,6 +2069,15 @@ function renderToday() {
   // Meet countdown strip: if a meet date is set and still ahead, surface the
   // phase cue at the top of the session (localStorage only — demo-safe, no DB).
   renderMeetStrip(area);
+  // December into mid-January: the year in lifting leads Train.
+  if (wrapSeason()) {
+    const yr = wrapYear();
+    const w = el('button', { class: 'today-wrap', type: 'button' });
+    w.appendChild(el('span', { class: 'tw-ic', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></svg>' }));
+    w.appendChild(el('span', { class: 'tw-t' }, el('b', {}, 'Your ' + yr + ' in lifting'), el('small', {}, 'Sessions, PRs, your strongest lift')));
+    w.addEventListener('click', () => openYearWrapped(yr));
+    area.appendChild(w);
+  }
 
   if (isRestDay(user.id, date)) {
     renderTodayHeader(null, date, 'Rest day');
@@ -2589,11 +2605,13 @@ function renderMeetStrip(area) {
   if (!saved) return;
   const d = daysUntil(saved);
   if (d == null || d < 0) return;            // no past-meet nag on the session view
+  // On meet day (or with a meet in progress) the strip opens meet mode itself.
+  const go = (d === 0 || meetLiveToday()) ? openMeetMode : openMeetModal;
   const strip = el('div', {
     class: 'today-meet-strip', role: 'button', tabindex: '0',
-    'aria-label': 'Open meet-day planner',
-    onclick: openMeetModal,
-    onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openMeetModal(); } }
+    'aria-label': d === 0 ? 'Open meet mode' : 'Open meet-day planner',
+    onclick: go,
+    onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } }
   });
   const label = d === 0 ? 'Meet day' : (d + (d === 1 ? ' day out' : ' days out'));
   strip.innerHTML =
@@ -2693,7 +2711,11 @@ function openMeetSheet() {
     paintPlan();
 
     const acts = el('div', { class: 'meet-acts' });
-    const share = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Make it a card');
+    // Meet mode: the live version, for the day itself (or a mock meet).
+    const live = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, meetLiveToday() ? 'Back to meet mode' : 'Start meet mode');
+    live.addEventListener('click', () => { close(); setTimeout(openMeetMode, 220); });
+    acts.appendChild(live);
+    const share = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Make it a card');
     share.addEventListener('click', () => shareMeetCard());
     acts.appendChild(share);
     if (!user.coachId) {
@@ -2707,6 +2729,325 @@ function openMeetSheet() {
 window.openMeetSheet = openMeetSheet;
 window.openMeetModal = openMeetModal;
 window.renderMeetPlan = renderMeetPlan;
+// ===== YOUR YEAR IN LIFTING (Wrapped) =====
+// Full-screen stories from the lifter's own year (app.js yearInLifting): tap
+// right for the next one, left to go back, hold to pause. Each one can be
+// shared as a 9:16 story image. Shown on Train from 1 December to 15 January.
+function wrapYear() { const d = new Date(); return d.getMonth() === 0 && d.getDate() <= 15 ? d.getFullYear() - 1 : d.getFullYear(); }
+function wrapSeason() { const d = new Date(); return d.getMonth() === 11 || (d.getMonth() === 0 && d.getDate() <= 15); }
+function openYearWrapped(year) {
+  const st = Store.get();
+  const y = yearInLifting(st.workoutLogs, st.bodyweight, user.id, year);
+  if (!y.sessions) { toast('Log a few sessions and your year shows up here'); return; }
+  const u = unitLabel();
+  const thisYear = year === new Date().getFullYear() && !(new Date().getMonth() === 11 && new Date().getDate() >= 24);
+  const so = thisYear ? ' so far' : '';
+  const tonText = (kg) => kg >= 10000 ? (Math.round(kgToDisplay(kg) / 100) / 10).toLocaleString() + (getUnit() === 'lbs' ? 'k' : '') : Math.round(kgToDisplay(kg)).toLocaleString();
+  const tonUnit = (kg) => kg >= 10000 ? (getUnit() === 'lbs' ? 'lb' : 'tonnes') : u;
+  const lifts = ['squat', 'bench', 'deadlift'].filter(l => y.best[l]);
+  const top = lifts.slice().sort((a, b) => y.best[b] - y.best[a])[0];
+  const total = currentTotal(user.id), bwNow = latestBodyweight(user.id);
+  const slides = [
+    { tint: '#ff4a55', kicker: 'Your ' + year + ' in lifting' + so, big: String(y.sessions), unit: y.sessions === 1 ? 'session' : 'sessions', line: y.sets.toLocaleString() + ' sets logged' },
+    { tint: '#38c6ff', kicker: 'You moved', big: tonText(y.tonnageKg), unit: tonUnit(y.tonnageKg), line: 'That\'s about ' + tonnageComparison(y.tonnageKg) },
+    { tint: '#f2c25b', kicker: 'Personal records', big: String(y.prs), unit: y.prs === 1 ? 'PR' : 'PRs',
+      line: y.jump ? LIFT_LABELS[y.jump.lift] + ' went from ' + Math.round(kgToDisplay(y.jump.fromKg)) + ' to ' + Math.round(kgToDisplay(y.jump.toKg)) + ' ' + u : 'Every PR starts with showing up' },
+    top ? { tint: '#ffbf3c', kicker: 'Strongest lift', big: String(Math.round(kgToDisplay(y.best[top]))), unit: u + ' ' + LIFT_LABELS[top].toLowerCase(),
+      line: lifts.filter(l => l !== top).map(l => LIFT_LABELS[l] + ' ' + Math.round(kgToDisplay(y.best[l]))).join(' · ') || 'Best estimated max, competition equivalent', bar: y.best[top] } : null,
+    { tint: '#34d982', kicker: y.topDay ? y.topDay + ' were your day' : 'Your habits', big: String(y.longestStreakWeeks), unit: y.longestStreakWeeks === 1 ? 'week streak' : 'weeks in a row',
+      line: (y.topMonth ? 'Busiest month: ' + y.topMonth : '') + (y.bw ? ' · bodyweight ' + (y.bw.endKg - y.bw.startKg >= 0 ? '+' : '−') + kgToDisplay(Math.abs(y.bw.endKg - y.bw.startKg)).toFixed(1) + ' ' + u : '') },
+    { tint: '#a98bff', kicker: year + ', lifted.', big: total > 0 ? String(Math.round(kgToDisplay(total))) : String(y.sessions), unit: total > 0 ? u + ' total' : 'sessions',
+      line: (total > 0 && bwNow ? 'DOTS ' + dotsScore(total, bwNow, getSexPref()).toFixed(1) + ' · ' : '') + 'See you on the platform', last: true }
+  ].filter(Boolean);
+
+  let i = 0, timer = null, paused = false;
+  const root = el('div', { class: 'wrap-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Your year in lifting' });
+  document.documentElement.classList.add('meet-mode-open');
+  document.body.appendChild(root);
+  const close = () => { clearTimeout(timer); root.remove(); document.documentElement.classList.remove('meet-mode-open'); };
+  const go = (d) => { const n = i + d; if (n < 0) return; if (n >= slides.length) { close(); return; } i = n; paint(); };
+  const schedule = () => { clearTimeout(timer); if (!paused && !slides[i].last) timer = setTimeout(() => go(1), 6500); };
+  const paint = () => {
+    const sl = slides[i];
+    root.innerHTML = '';
+    root.style.setProperty('--wt', sl.tint);
+    const bars = el('div', { class: 'wrap-bars', 'aria-hidden': 'true' });
+    slides.forEach((_, k) => bars.appendChild(el('i', { class: k < i ? 'done' : k === i ? 'now' + (slides[k].last ? ' done' : '') : '' })));
+    root.appendChild(bars);
+    const x = el('button', { class: 'wrap-x', type: 'button', 'aria-label': 'Close', html: ICONS.x });
+    x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    root.appendChild(x);
+    const card = el('div', { class: 'wrap-card' });
+    card.appendChild(el('div', { class: 'wrap-kicker' }, sl.kicker));
+    if (sl.bar) card.appendChild(el('div', { class: 'wrap-bar', 'aria-hidden': 'true', html: uiBarbell(Math.round(sl.bar / 2.5) * 2.5) }));
+    card.appendChild(el('div', { class: 'wrap-big' }, sl.big));
+    card.appendChild(el('div', { class: 'wrap-unit' }, sl.unit));
+    if (sl.line) card.appendChild(el('div', { class: 'wrap-line' }, sl.line));
+    root.appendChild(card);
+    const acts = el('div', { class: 'wrap-acts' });
+    const share = el('button', { class: 'btn btn-lg ' + (sl.last ? 'btn-primary' : 'ui-btn-soft'), type: 'button' }, 'Share this');
+    share.addEventListener('click', (e) => { e.stopPropagation(); shareWrapSlide(sl, year); });
+    acts.appendChild(share);
+    if (sl.last) { const d = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Done'); d.addEventListener('click', (e) => { e.stopPropagation(); close(); }); acts.appendChild(d); }
+    root.appendChild(acts);
+    schedule();
+  };
+  root.addEventListener('click', (e) => { if (e.target.closest('button')) return; go(e.clientX > innerWidth * 0.33 ? 1 : -1); });
+  root.addEventListener('pointerdown', () => { paused = true; clearTimeout(timer); });
+  root.addEventListener('pointerup', () => { paused = false; schedule(); });
+  document.addEventListener('keydown', function onKey(e) {
+    if (!document.body.contains(root)) { document.removeEventListener('keydown', onKey); return; }
+    if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1);
+  });
+  paint();
+}
+window.openYearWrapped = openYearWrapped;
+// One story as a 1080 × 1920 image for Instagram Stories.
+async function shareWrapSlide(sl, year) {
+  const W = 1080, H = 1920, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  try { await document.fonts.load('800 200px Archivo'); await document.fonts.load('600 48px Archivo'); } catch (e) {}
+  x.fillStyle = '#050506'; x.fillRect(0, 0, W, H);
+  const g = x.createRadialGradient(W / 2, H * 0.38, 40, W / 2, H * 0.38, 900);
+  g.addColorStop(0, sl.tint + '55'); g.addColorStop(1, sl.tint + '00');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.textAlign = 'center';
+  x.fillStyle = 'rgba(244, 244, 246, 0.7)'; x.font = '600 52px Archivo';
+  x.fillText(sl.kicker, W / 2, H * 0.3);
+  let fs = 300; x.font = '800 ' + fs + 'px Archivo';
+  while (x.measureText(sl.big).width > W - 120 && fs > 120) { fs -= 10; x.font = '800 ' + fs + 'px Archivo'; }
+  x.fillStyle = '#f4f4f6'; x.fillText(sl.big, W / 2, H * 0.3 + 60 + fs * 0.85);
+  x.fillStyle = sl.tint; x.font = '700 64px Archivo';
+  x.fillText(sl.unit, W / 2, H * 0.3 + 160 + fs * 0.85);
+  if (sl.line) {
+    x.fillStyle = 'rgba(244, 244, 246, 0.75)'; x.font = '600 44px Archivo';
+    const words = String(sl.line).split(' '), lines = []; let cur = '';
+    words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > W - 160) { lines.push(cur); cur = w; } else cur = t; });
+    if (cur) lines.push(cur);
+    lines.slice(0, 3).forEach((ln, k) => x.fillText(ln, W / 2, H * 0.3 + 300 + fs * 0.85 + k * 62));
+  }
+  x.fillStyle = 'rgba(244, 244, 246, 0.5)'; x.font = '700 40px Archivo';
+  x.fillText('POWALIFTA · ' + year, W / 2, H - 140);
+  await shareCardFromCanvas(c, 'powalifta-' + year + '.png', 'My ' + year + ' in lifting · powalifta.com');
+}
+
+// ===== MEET MODE — meet day, live =====
+// Full screen: the attempt on the bar (with the loaders' plates), three judge
+// lights, how it moved, and the next attempt picked from that (app.js
+// meetNextAttempt). A warm-up caller counts you down to the opener. The state
+// survives closing the app (localStorage powa-meet-live, one meet per day).
+const MEET_LIVE_KEY = 'powa-meet-live';
+const MEET_ATT_NAMES = ['Opener', 'Second', 'Third'];
+const MEET_ORDER = ['squat', 'bench', 'deadlift'];
+function _meetLoad() { try { return JSON.parse(localStorage.getItem(MEET_LIVE_KEY) || 'null'); } catch (e) { return null; } }
+function _meetSave(st) { try { localStorage.setItem(MEET_LIVE_KEY, JSON.stringify(st)); } catch (e) {} }
+function _meetNew() {
+  const plan = getMeetPlan(getMeetStrategy());
+  const lifts = {};
+  MEET_ORDER.forEach(l => {
+    const a = plan.lifts[l] ? plan.lifts[l].attempts : [60, 65, 70];
+    lifts[l] = { plan: a.slice(), attempts: a.map(kg => ({ kg, lights: [null, null, null], result: null, feel: null })) };
+  });
+  return { v: 1, date: todayISO(), lifts, cur: { lift: 'squat', i: 0 }, ahead: 12, done: false };
+}
+function meetLiveToday() { const st = _meetLoad(); return !!(st && st.date === todayISO() && !st.saved); }
+function openMeetMode() {
+  let st = _meetLoad();
+  if (!st || st.date !== todayISO() || st.saved) st = _meetNew();
+  const unit = getUnit();
+  const root = el('div', { class: 'meet-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Meet mode' });
+  const close = () => { root.remove(); document.documentElement.classList.remove('meet-mode-open'); try { renderToday(); } catch (e) {} };
+  document.documentElement.classList.add('meet-mode-open');
+  document.body.appendChild(root);
+
+  const paint = () => {
+    _meetSave(st);
+    root.innerHTML = '';
+    const stand = meetStanding(st.lifts);
+    const head = el('div', { class: 'mm-head' });
+    const x = el('button', { class: 'mm-x', type: 'button', 'aria-label': 'Close meet mode', html: ICONS.x });
+    x.addEventListener('click', close);
+    head.appendChild(x);
+    head.appendChild(el('div', { class: 'mm-title' }, 'Meet day'));
+    head.appendChild(el('div', { class: 'mm-total' }, el('b', {}, stand.total ? formatWeight(stand.total) : '–'), el('span', {}, stand.taken ? stand.made + ' of ' + stand.taken + ' made' : 'Total')));
+    root.appendChild(head);
+
+    const tabs = el('div', { class: 'mm-tabs', role: 'tablist', 'aria-label': 'Lifts' });
+    MEET_ORDER.forEach(l => {
+      const att = st.lifts[l].attempts;
+      const t = el('button', { class: 'mm-tab lift-' + l + (st.cur.lift === l && !st.done ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': st.cur.lift === l ? 'true' : 'false' });
+      t.appendChild(el('span', { class: 'mm-tab-name' }, el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }), LIFT_LABELS[l]));
+      const marks = el('span', { class: 'mm-marks', 'aria-hidden': 'true' });
+      att.forEach(a => marks.appendChild(el('i', { class: a.result || '' })));
+      t.appendChild(marks);
+      t.addEventListener('click', () => { const i = att.findIndex(a => !a.result); st.cur = { lift: l, i: i < 0 ? 2 : i }; st.done = false; paint(); });
+      tabs.appendChild(t);
+    });
+    root.appendChild(tabs);
+    root.appendChild(st.done ? summary() : attempt());
+  };
+
+  const attempt = () => {
+    const L = st.cur.lift, i = st.cur.i, A = st.lifts[L].attempts[i];
+    const body = el('div', { class: 'mm-body lift-' + L });
+    body.appendChild(el('div', { class: 'mm-att-label' }, LIFT_LABELS[L] + ' · ' + MEET_ATT_NAMES[i] + ' · attempt ' + (i + 1) + ' of 3'));
+    const att = st.lifts[L].attempts;
+    if (i === 2 && att[0].result === 'no' && att[1].result === 'no' && !A.result) body.appendChild(el('div', { class: 'mm-warn' }, 'Make this one to stay in the meet'));
+    body.appendChild(el('div', { class: 'mm-weight' }, el('b', {}, String(kgToDisplay(A.kg))), el('small', {}, unitLabel())));
+    if (!A.result) {
+      const adj = el('div', { class: 'mm-adj' });
+      const minus = el('button', { class: 'mm-adj-btn', type: 'button', 'aria-label': 'Lighter attempt' }, '−');
+      const plus = el('button', { class: 'mm-adj-btn', type: 'button', 'aria-label': 'Heavier attempt' }, '+');
+      minus.addEventListener('click', () => { A.kg = Math.max(20, roundMeet(A.kg - meetStep(unit), unit)); hapticTick(); paint(); });
+      plus.addEventListener('click', () => { A.kg = roundMeet(A.kg + meetStep(unit), unit); hapticTick(); paint(); });
+      adj.appendChild(minus); adj.appendChild(el('span', {}, 'Change the attempt')); adj.appendChild(plus);
+      body.appendChild(adj);
+    }
+    body.appendChild(el('div', { class: 'mm-bar', 'aria-hidden': 'true', html: uiBarbell(A.kg) }));
+    body.appendChild(el('div', { class: 'tx-plates mm-plates', html: '<span class="tx-plates-lbl">Loaders, a side</span>' + plateChipsHtml(A.kg) }));
+
+    const settle = () => {
+      A.result = meetLightsResult(A.lights);
+      if (A.result) { try { if (window.PowaNative && PowaNative.notify) PowaNative.notify(A.result === 'good' ? 'SUCCESS' : 'WARNING'); } catch (e) {} }
+      else hapticTick();
+      paint();
+    };
+    const lights = el('div', { class: 'mm-lights', role: 'group', 'aria-label': 'Judges\' lights. Tap to set white or red' });
+    A.lights.forEach((v, j) => {
+      const b = el('button', { class: 'mm-light' + (v ? ' is-' + v : ''), type: 'button', 'aria-label': 'Judge ' + (j + 1) + ': ' + (v || 'not set') });
+      b.addEventListener('click', () => { A.lights[j] = A.lights[j] === 'white' ? 'red' : 'white'; settle(); });
+      lights.appendChild(b);
+    });
+    body.appendChild(lights);
+    if (!A.result) body.appendChild(el('div', { class: 'mm-lights-cap' }, 'Tap each judge\'s light, or call it in one tap'));
+
+    if (!A.result) {
+      const quick = el('div', { class: 'mm-quick' });
+      const good = el('button', { class: 'btn btn-lg mm-good', type: 'button' }, 'Good lift');
+      const no = el('button', { class: 'btn btn-lg mm-no', type: 'button' }, 'No lift');
+      good.addEventListener('click', () => { A.lights = ['white', 'white', 'white']; settle(); });
+      no.addEventListener('click', () => { A.lights = ['red', 'red', 'red']; settle(); });
+      quick.appendChild(good); quick.appendChild(no);
+      body.appendChild(quick);
+    } else {
+      body.appendChild(el('div', { class: 'mm-result is-' + A.result }, A.result === 'good' ? 'Good lift' : 'No lift'));
+      const last = i === 2;
+      if (A.result === 'good' && !last) {
+        body.appendChild(el('div', { class: 'mm-q' }, 'How did it move?'));
+        const feel = el('div', { class: 'ui-seg mm-feel', role: 'radiogroup', 'aria-label': 'How it moved' });
+        [['fast', 'Flew'], ['solid', 'Solid'], ['grind', 'Ground']].forEach(([k, lbl]) => {
+          const b = el('button', { type: 'button', role: 'radio', class: (A.feel || 'solid') === k ? 'on' : '', 'aria-checked': (A.feel || 'solid') === k ? 'true' : 'false' }, lbl);
+          b.addEventListener('click', () => { A.feel = k; hapticTick(); paint(); });
+          feel.appendChild(b);
+        });
+        body.appendChild(feel);
+      }
+      const next = el('button', { class: 'btn btn-primary btn-lg btn-block mm-next', type: 'button' });
+      if (!last) {
+        const nextKg = meetNextAttempt(A.kg, A.result, A.feel || 'solid', st.lifts[L].plan[i + 1], unit);
+        next.textContent = (A.result === 'good' ? '' : 'Again: ') + MEET_ATT_NAMES[i + 1] + ' ' + formatWeight(nextKg);
+        next.addEventListener('click', () => { const N = st.lifts[L].attempts[i + 1]; if (!N.result) N.kg = nextKg; st.cur = { lift: L, i: i + 1 }; paint(); });
+      } else {
+        const li = MEET_ORDER.indexOf(L);
+        if (li < 2) {
+          next.textContent = 'On to ' + LIFT_LABELS[MEET_ORDER[li + 1]].toLowerCase();
+          next.addEventListener('click', () => { st.cur = { lift: MEET_ORDER[li + 1], i: 0 }; paint(); });
+        } else {
+          next.textContent = 'See the total';
+          next.addEventListener('click', () => { st.done = true; paint(); });
+        }
+      }
+      body.appendChild(next);
+    }
+
+    // Warm-up caller: count the attempts before yours down; it tells you which
+    // warm-up to take now.
+    if (i === 0 && !A.result) {
+      const wc = el('details', { class: 'mm-warm' });
+      wc.appendChild(el('summary', {}, 'Warm-up caller'));
+      const inner = el('div', { class: 'mm-warm-body' });
+      inner.appendChild(el('p', { class: 'mm-warm-sub' }, 'Attempts before yours. Tap − as each one goes.'));
+      const rows = el('div', { class: 'mm-warm-rows' });
+      const paintRows = () => {
+        rows.innerHTML = '';
+        const list = warmupCaller(A.kg, unit);
+        let now = -1;
+        list.forEach((w, k) => { if (st.ahead <= w.out) now = k; });
+        list.forEach((w, k) => rows.appendChild(el('div', { class: 'mm-wu' + (k === now ? ' now' : k < now ? ' past' : '') },
+          el('span', { class: 'mm-wu-out' }, w.out + ' out'),
+          el('b', {}, formatWeight(w.kg) + ' × ' + w.reps),
+          el('span', { class: 'mm-wu-pl', html: plateChipsHtml(w.kg) }))));
+        if (st.ahead <= 2) rows.appendChild(el('div', { class: 'mm-wu now' }, el('span', { class: 'mm-wu-out' }, 'Now'), el('b', {}, 'Chalk up. You\'re next')));
+      };
+      inner.appendChild(uiStepper({ value: st.ahead == null ? 12 : st.ahead, step: 1, min: 0, max: 60, label: 'attempts before yours', cls: 'mm-ahead',
+        onChange: (v) => { st.ahead = v; _meetSave(st); paintRows(); } }));
+      paintRows();
+      inner.appendChild(rows);
+      wc.appendChild(inner);
+      wc.open = !!st.warmOpen;
+      wc.addEventListener('toggle', () => { st.warmOpen = wc.open; _meetSave(st); });
+      body.appendChild(wc);
+    }
+    return body;
+  };
+
+  const summary = () => {
+    const s = meetStanding(st.lifts);
+    const body = el('div', { class: 'mm-body mm-sum' });
+    body.appendChild(el('div', { class: 'mm-att-label' }, s.bombed.length ? 'No total today' : 'Your total'));
+    body.appendChild(el('div', { class: 'mm-weight' }, el('b', {}, String(Math.round(kgToDisplay(s.total) * 10) / 10)), el('small', {}, unitLabel())));
+    const bw = latestBodyweight(user.id);
+    const full = MEET_ORDER.every(l => s.best[l]);
+    body.appendChild(el('div', { class: 'mm-sub' }, s.made + ' of 9 made' + (full && bw ? ' · DOTS ' + dotsScore(s.total, bw, getSexPref()).toFixed(1) : '') +
+      (s.bombed.length ? ' · bombed on ' + s.bombed.map(l => LIFT_LABELS[l].toLowerCase()).join(', ') : '')));
+    body.appendChild(uiList(MEET_ORDER.map(l => uiRow({
+      lead: el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }),
+      title: LIFT_LABELS[l],
+      sub: st.lifts[l].attempts.map(a => (a.result === 'good' ? '' : '✕ ') + kgToDisplay(a.kg)).join(' · '),
+      end: s.best[l] ? formatWeight(s.best[l]) : '–'
+    }))));
+    const acts = el('div', { class: 'mm-acts' });
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save to my meets');
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      const meet = { athleteId: user.id, name: 'Meet', date: st.date, federation: '', weightClass: '', bodyweight: bw ? Math.round(bw * 10) / 10 : null,
+        squat: s.best.squat, bench: s.best.bench, deadlift: s.best.deadlift, notes: s.made + ' of 9 made · logged in meet mode' };
+      let saved = meet;
+      if (window._demoMode) saved = Object.assign({}, meet, { id: 'demo-meet-' + Date.now() });
+      else { try { saved = (await DB.saveMeet(meet)) || meet; } catch (e) { console.error('saveMeet', e); toast('Could not save. Try again'); save.disabled = false; return; } }
+      Store.update(x => { if (!x.meets) x.meets = []; x.meets.push(saved); });
+      st.saved = true; _meetSave(st);
+      toast('Saved to your meets');
+      close();
+    });
+    acts.appendChild(save);
+    const card = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Make it a card');
+    card.addEventListener('click', () => shareMeetResultCard(st));
+    acts.appendChild(card);
+    const again = el('button', { class: 'ui-text-btn', type: 'button' }, 'Start over');
+    again.addEventListener('click', () => uiActionSheet('Start the meet over?', [
+      { label: 'Clear every attempt', danger: true, onClick: () => { st = _meetNew(); paint(); } }
+    ]));
+    acts.appendChild(again);
+    body.appendChild(acts);
+    return body;
+  };
+  paint();
+}
+window.openMeetMode = openMeetMode;
+async function shareMeetResultCard(st) {
+  const s = meetStanding(st.lifts);
+  const canvas = await generateShareCard({
+    tag: 'MEET DAY',
+    big: String(Math.round(kgToDisplay(s.total))),
+    bigUnit: unitLabel().toUpperCase(),
+    sub: s.made + ' of 9 made',
+    lines: MEET_ORDER.map(l => ({ l: LIFT_LABELS[l], r: s.best[l] ? formatWeight(s.best[l]) : 'no lift' }))
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-meet-total.png', 'Meet total: ' + formatWeight(s.total) + ' · ' + s.made + '/9 · tracked on powalifta.com');
+}
+
 function generatePeakingFromMeet(dateStr) {
   if (user.coachId) { toast('Your coach manages your program'); return; }
   const input = document.getElementById('meetDate');
@@ -3050,6 +3391,7 @@ function renderAthleteYou() {
       { title: 'Training', rows: [
         selfCoached ? null : { label: 'Full program', onClick: go('program') },
         { label: 'Goals', onClick: () => openGoalsModal() },
+        { label: 'Year in lifting', value: String(wrapYear()), onClick: () => openYearWrapped(wrapYear()) },
         { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
         { label: 'My library', onClick: go('library') },
         inShell ? null : { label: 'Browse programs', onClick: go('marketplace') }
