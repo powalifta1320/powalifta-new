@@ -38,6 +38,8 @@
   let _morePosts = null;   // false once an older-posts page comes back short
   let _feedClubId = null;
   let _codeSheetShown = false;
+  let _reacts = {};        // postId → [{ userId, reaction }] (club_post_reactions)
+  let _unsubReacts = null; // live reactions channel teardown
 
   const MAIN = ['squat', 'bench', 'deadlift'];
   const me = () => window._user || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
@@ -58,7 +60,9 @@
     people: SVG('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
     share: SVG('<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>'),
     trophy: SVG('<path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4M6 5h12v6a6 6 0 0 1-12 0V5zM12 17v4M9 21h6"/>'),
-    check: SVG('<path d="M5 12.5l4.5 4.5L19 7.5"/>', ' stroke-width="2.4"')
+    check: SVG('<path d="M5 12.5l4.5 4.5L19 7.5"/>', ' stroke-width="2.4"'),
+    crown: SVG('<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', ' stroke-width="1.8"'),
+    star: SVG('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>')
   };
 
   // ---- dates ---------------------------------------------------------------
@@ -96,6 +100,7 @@
     const r1 = (v) => (v > 0 ? Math.round(v * 10) / 10 : null);
     return {
       displayName: u.name || 'Lifter', sex,
+      instagram: u.instagram || null,
       bodyweightKg: bw ? Math.round(bw * 10) / 10 : null,
       squatKg: r1(sq), benchKg: r1(bn), deadliftKg: r1(dl), totalKg: r1(total), dots: r1(dots),
       weekStart: wk,
@@ -193,9 +198,9 @@
     const seed = [
       ['Sarah Kim', 'female', 62.4, 145, 82.5, 172.5, 4, 9850],
       ['Arjun Mehta', 'male', 82.1, 215, 140, 250, 3, 14200],
-      ['Tom Boyle', 'male', 104.6, 240, 160, 280, 1, 5200],
+      ['Tom Boyle', 'male', 104.6, 240, 160, 310, 1, 5200],
       ['Nina Petrova', 'female', 71.8, 150, 87.5, 185, 5, 11800],
-      ['Marcus Hale', 'male', 92.7, 230, 152.5, 270, 2, 9100],
+      ['Marcus Hale', 'male', 92.7, 230, 187.5, 270, 2, 9100],
       ['Priya Shah', 'female', 56.9, 120, 67.5, 150, 3, 6400],
       ['Jonah Reyes', 'male', 74.3, 190, 125, 225, 4, 12300],
       ['Ella Nowak', 'female', 83.5, 165, 95, 195, 0, 0],
@@ -207,7 +212,8 @@
         clubId: 'demo-club', userId: 'demo-m' + i, role: i === 1 ? 'owner' : 'member',
         displayName: s[0], sex: s[1], bodyweightKg: s[2], squatKg: s[3], benchKg: s[4], deadliftKg: s[5],
         totalKg: total, dots: Math.round(dotsScore(total, s[2], s[1]) * 10) / 10,
-        weekStart: wk, weekSessions: s[6], weekTonnageKg: s[7]
+        weekStart: wk, weekSessions: s[6], weekTonnageKg: s[7],
+        instagram: ['sarah.lifts', 'arjun.pulls', null, 'nina.deadlifts', 'marcus.benches', null, 'jonah.squats', null, 'kofi.totals'][i] || null
       };
     });
     members.push(mine);
@@ -241,12 +247,58 @@
     ].map(c => Object.assign({ myStatus: req[c.id] ? 'requested' : null }, c));
   }
 
+  // ---- reactions ---------------------------------------------------------------
+  function demoReacts() {
+    if (window._demoPostReacts) return window._demoPostReacts;
+    const r = {};
+    const add = (pid, arr) => { r[pid] = arr.map(([uid, k]) => ({ userId: uid, reaction: k })); };
+    add('demo-p3', [['demo-m0', 'fire'], ['demo-m1', 'trophy'], ['demo-m4', 'fire'], ['demo-m6', 'strong'], ['demo-m8', 'clap'], ['demo-m5', 'fire']]);
+    add('demo-p1', [['demo-m3', 'strong'], ['demo-m0', 'fire']]);
+    add('demo-p6', [['demo-m1', 'clap'], ['demo-m3', 'strong']]);
+    add('demo-p0', [['demo-m3', 'fire']]);
+    add('demo-p8', [['demo-m1', 'trophy'], ['demo-m3', 'fire'], ['demo-m4', 'trophy'], ['demo-m6', 'fire']]);
+    window._demoPostReacts = r;
+    return r;
+  }
+  function putReact(r) {
+    if (!r || !r.postId) return;
+    const arr = _reacts[r.postId] || (_reacts[r.postId] = []);
+    const i = arr.findIndex(x => x.userId === r.userId);
+    if (i >= 0) arr[i] = { userId: r.userId, reaction: r.reaction }; else arr.push({ userId: r.userId, reaction: r.reaction });
+  }
+  function reactRow(p) {
+    const u = me();
+    return reactionChips(reactionSummary(_reacts[p.id], u && u.id), POST_REACT_KEYS, (key) => reactToPost(p, key), { add: true, addLabel: 'React', cls: 'cp-reacts' });
+  }
+  function repaintReacts(postId, bumpKey) {
+    if (!_container) return;
+    const card = Array.prototype.find.call(_container.querySelectorAll('.cp-card'), c => c.dataset.postId === postId);
+    const p = (_posts || []).find(x => x.id === postId);
+    if (!card || !p) return;
+    const fresh = reactRow(p);
+    if (bumpKey) { const b = fresh.children[POST_REACT_KEYS.indexOf(bumpKey)]; if (b) b.classList.add('bump'); }
+    const old = card.querySelector('.cp-reacts');
+    if (old) old.replaceWith(fresh); else card.appendChild(fresh);
+  }
+  async function reactToPost(p, key) {
+    const u = me(); if (!u || !_data) return;
+    const before = (_reacts[p.id] || []).map(x => Object.assign({}, x));
+    putReact({ postId: p.id, userId: u.id, reaction: key });
+    repaintReacts(p.id, key);
+    try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic('LIGHT'); } catch (e) {}
+    if (isDemo()) { window._demoPostReacts = _reacts; return; }
+    try { await DB.setPostReaction({ postId: p.id, clubId: _data.club.id, userId: u.id, reaction: key }); }
+    catch (e) { _reacts[p.id] = before; repaintReacts(p.id); toast(e.message || 'Could not react'); }
+  }
+  const reactTotal = (pid) => (_reacts[pid] || []).filter(r => r.reaction).length;
+
   // ---- load ------------------------------------------------------------------
   async function load() {
     const u = me();
     if (isDemo()) {
       _data = window._demoClubLeft ? null : demoClubData();
       _posts = _data ? demoPosts() : null;
+      _reacts = _data ? demoReacts() : {};
       _requests = [];
       _loaded = true; return;
     }
@@ -260,6 +312,11 @@
         staff && DB.listClubRequests ? DB.listClubRequests(_data.club.id).catch(() => []) : []
       ]);
       _posts = posts; _requests = reqs || []; _morePosts = null;
+      _reacts = {};
+      if (posts && posts.length && DB.listPostReactions) {
+        const rx = await DB.listPostReactions(posts.map(p => p.id)).catch(() => []);
+        (rx || []).forEach(putReact);
+      }
       watchFeed(_data.club.id);
       // Refresh the row this lifter shares (only when something changed since last push).
       const stats = myClubStats();
@@ -281,8 +338,18 @@
   function watchFeed(clubId) {
     if (clubId === _feedClubId) return;
     if (_unsubFeed) { try { _unsubFeed(); } catch (e) {} _unsubFeed = null; }
+    if (_unsubReacts) { try { _unsubReacts(); } catch (e) {} _unsubReacts = null; }
     _feedClubId = clubId;
     if (!clubId || isDemo() || !window.DB || !DB.subscribeClubPosts) return;
+    if (_unsubReacts) { try { _unsubReacts(); } catch (e) {} _unsubReacts = null; }
+    if (DB.subscribePostReactions) {
+      _unsubReacts = DB.subscribePostReactions(clubId, (r) => {
+        const u = me();
+        if (!r || (u && r.userId === u.id)) return;
+        putReact(r);
+        repaintReacts(r.postId);
+      });
+    }
     _unsubFeed = DB.subscribeClubPosts(clubId, (p) => {
       if (!p || !_posts || _posts.some(x => x.id === p.id)) return;
       p._fresh = true;
@@ -338,6 +405,18 @@
     top.appendChild(invite);
     hero.appendChild(top);
     if (club.description) hero.appendChild(el('p', { class: 'club-desc' }, club.description));
+    // Who's in this week: faces of everyone who trained, the rest stay off.
+    const trained = members.filter(m => m.weekStart === wk && (m.weekSessions || 0) > 0)
+      .sort((a, b) => (b.weekSessions || 0) - (a.weekSessions || 0));
+    const stack = el('div', { class: 'club-stack' });
+    const avs = el('span', { class: 'cs-avs', 'aria-hidden': 'true' });
+    trained.slice(0, 7).forEach((m, i) => avs.appendChild(el('span', { class: 'cs-av', 'data-name': m.displayName || '?', style: '--i:' + i }, firstName(m.displayName).charAt(0).toUpperCase())));
+    if (trained.length > 7) avs.appendChild(el('span', { class: 'cs-av more' }, '+' + (trained.length - 7)));
+    if (trained.length) stack.appendChild(avs);
+    stack.appendChild(el('span', { class: 'cs-txt' }, trained.length
+      ? (trained.length === members.length ? 'Everyone trained this week' : trained.length + ' of ' + members.length + ' trained this week')
+      : 'Nobody has trained yet this week'));
+    hero.appendChild(stack);
     const stats = el('div', { class: 'rh-stats' });
     const cell = (val, unit, label, tone) => {
       const c = el('div', { class: 'rh-stat' + (tone ? ' tone-' + tone : '') });
@@ -348,7 +427,8 @@
     const ton = kgToDisplay(pulse.tonnageKg) || 0;
     stats.appendChild(cell(pulse.sessions, '', 'Sessions', pulse.sessions ? 'acc' : null));
     stats.appendChild(cell(ton >= 10000 ? (Math.round(ton / 100) / 10).toLocaleString() : Math.round(ton).toLocaleString(), ton >= 10000 ? (getUnit() === 'lbs' ? 'k lb' : 't') : unitLabel(), 'Moved'));
-    stats.appendChild(cell(pulse.active + '/' + pulse.total, '', 'Trained', pulse.active ? 'ok' : null));
+    const prsWeek = (_posts || []).filter(x => x.kind === 'pr' && String(x.createdAt || '').slice(0, 10) >= wk).length;
+    stats.appendChild(cell(prsWeek, '', prsWeek === 1 ? 'PR this week' : 'PRs this week', prsWeek ? 'acc' : null));
     hero.appendChild(stats);
     root.appendChild(hero);
 
@@ -400,6 +480,8 @@
       root.appendChild(uiEmpty({ icon: IC.feed, title: 'No posts yet', text: 'Share your best set this week and get the club going.' }));
       return;
     }
+    const spot = liftOfTheWeek();
+    if (spot) root.appendChild(spot);
     const list = el('div', { class: 'club-feed' });
     _posts.forEach((p, i) => { const c = postCard(p); c.style.setProperty('--i', String(Math.min(i, 8))); list.appendChild(c); });
     root.appendChild(list);
@@ -420,13 +502,82 @@
     }
   }
 
+  // The week's most-loved lift (2+ reactions): a gold strip at the top of the feed.
+  function liftOfTheWeek() {
+    const wk = mondayISO();
+    const cand = (_posts || []).filter(p => p.kind !== 'note' && String(p.createdAt || '').slice(0, 10) >= wk)
+      .map(p => ({ p, n: reactTotal(p.id) })).filter(x => x.n >= 2)
+      .sort((a, b) => b.n - a.n || String(b.p.createdAt).localeCompare(String(a.p.createdAt)))[0];
+    if (!cand) return null;
+    const p = cand.p;
+    const b = el('button', { class: 'club-spot', type: 'button' });
+    b.appendChild(el('span', { class: 'cs-ic', html: IC.star }));
+    const t = el('span', { class: 'cs-main' });
+    t.appendChild(el('span', { class: 'cs-k' }, 'Lift of the week'));
+    const what = p.kind === 'session' ? (p.exercise || 'Session') : (String(p.exercise || 'Lift').replace(/^Competition /, '') + (p.weightKg ? ' ' + w1(p.weightKg) + ' ' + unitLabel() + (p.reps ? ' × ' + p.reps : '') : ''));
+    t.appendChild(el('span', { class: 'cs-t' }, firstName(p.displayName) + ' · ' + what));
+    b.appendChild(t);
+    const sum = reactionSummary(_reacts[p.id]);
+    const top = Object.keys(sum.counts).sort((a, c) => sum.counts[c] - sum.counts[a]).slice(0, 3).map(k => REACT_EMOJI[k]).join('');
+    b.appendChild(el('span', { class: 'cs-n' }, top + ' ' + sum.total));
+    b.addEventListener('click', () => {
+      const card = Array.prototype.find.call(_container.querySelectorAll('.cp-card'), c => c.dataset.postId === p.id);
+      if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('is-flash'); setTimeout(() => card.classList.remove('is-flash'), 1300); }
+    });
+    return b;
+  }
+  // Top three on a podium: second · first · third.
+  function podium(ranked, mode, wk) {
+    const top = ranked.filter(m => m.rank != null).slice(0, 3);
+    if (top.length < 3) return null;
+    const u = me();
+    const wrap = el('div', { class: 'club-podium', role: 'list', 'aria-label': 'Top three' });
+    [top[1], top[0], top[2]].forEach(m => {
+      const place = m === top[0] ? 1 : m === top[1] ? 2 : 3;
+      const col = el('button', { type: 'button', class: 'cpd-col p' + place + (u && m.userId === u.id ? ' is-me' : ''), role: 'listitem', 'aria-label': (m.displayName || 'Lifter') + ', place ' + place });
+      col.addEventListener('click', () => openLifterCard(m));
+      if (place === 1) col.appendChild(el('span', { class: 'cpd-crown', html: IC.crown }));
+      col.appendChild(el('span', { class: 'cpd-av', 'data-name': m.displayName || '?' }, initials(m.displayName || '?')));
+      col.appendChild(el('span', { class: 'cpd-name' }, u && m.userId === u.id ? 'You' : firstName(m.displayName)));
+      const v = mode === 'week' ? (m.weekStart === wk ? (m.weekSessions || 0) : 0) : fmtNum(m.dots);
+      col.appendChild(el('span', { class: 'cpd-val', html: '<b>' + escHtml(String(v)) + '</b><small>' + (mode === 'week' ? (v === 1 ? 'session' : 'sessions') : 'DOTS') + '</small>' }));
+      col.appendChild(el('span', { class: 'cpd-block' }, String(place)));
+      wrap.appendChild(col);
+    });
+    return wrap;
+  }
+  // Who holds each lift in the club (best competition-equivalent e1RM shared).
+  function clubRecords(members) {
+    const u = me();
+    const recs = [['squat', 'squatKg', 'Squat'], ['bench', 'benchKg', 'Bench'], ['deadlift', 'deadliftKg', 'Deadlift'], ['total', 'totalKg', 'Total']];
+    const row = el('div', { class: 'club-records' });
+    recs.forEach(([k, f, label]) => {
+      const best = (members || []).filter(m => (m[f] || 0) > 0).sort((a, b) => b[f] - a[f])[0];
+      if (!best) return;
+      const c = el('div', { class: 'crec lift-' + k });
+      c.appendChild(el('span', { class: 'crec-lbl' }, label));
+      c.appendChild(el('b', { class: 'crec-val', html: Math.round(kgToDisplay(best[f])).toLocaleString() + '<small>' + unitLabel() + '</small>' }));
+      const who = el('span', { class: 'crec-who' });
+      who.appendChild(el('span', { class: 'crec-av', 'data-name': best.displayName || '?' }, initials(best.displayName || '?')));
+      who.appendChild(el('span', {}, u && best.userId === u.id ? 'You' : firstName(best.displayName)));
+      c.appendChild(who);
+      row.appendChild(c);
+    });
+    return row.children.length ? row : null;
+  }
+
   const KIND_LABEL = { pr: 'New PR', session: 'Session', set: '', note: '' };
   function postCard(p) {
     const card = el('article', { class: 'cp-card' + (p.kind === 'pr' ? ' is-pr' : '') + (p._fresh ? ' is-fresh' : '') });
+    card.dataset.postId = p.id;
     delete p._fresh;
     const head = el('div', { class: 'cp-head' });
-    head.appendChild(el('span', { class: 'cp-av', 'data-name': p.displayName }, initials(p.displayName)));
+    const openCard = () => { const m = _data && _data.members ? _data.members.find(x => x.userId === p.userId) : null; openLifterCard(m || { userId: p.userId, displayName: p.displayName }); };
+    const avBtn = el('button', { class: 'cp-av', type: 'button', 'data-name': p.displayName, 'aria-label': 'See ' + p.displayName + '\'s lifter card' }, initials(p.displayName));
+    avBtn.addEventListener('click', (e) => { e.stopPropagation(); openCard(); });
+    head.appendChild(avBtn);
     const who = el('div', { class: 'cp-who' });
+    who.addEventListener('click', (e) => { if (e.target.closest('b')) { e.stopPropagation(); openCard(); } });
     const nameLine = el('b', {}, p.displayName);
     // Staff are marked by their ROLE, never their name (names can collide).
     const author = _data && _data.members ? _data.members.find(m => m.userId === p.userId) : null;
@@ -441,6 +592,13 @@
     if (p.kind === 'session') card.appendChild(sessionBlock(p));
     else if (p.kind !== 'note') card.appendChild(liftBlock(p));
     if (p.caption) card.appendChild(el('p', { class: 'cp-cap' }, p.caption));
+    card.appendChild(reactRow(p));
+    // Long-press / double-tap the card: the quick picker (double-tap = a fire).
+    uiLongPress(card, (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('button')) return;
+      const u = me();
+      openReactionPicker(card.querySelector('.cp-lift') || card, POST_REACT_KEYS, reactionSummary(_reacts[p.id], u && u.id).mine, (k) => reactToPost(p, k));
+    });
     return card;
   }
   function liftBlock(p) {
@@ -458,6 +616,10 @@
       (p.rpe ? '<span class="cp-rpe">RPE <b>' + escHtml(String(p.rpe)) + '</b></span>' : '');
     b.appendChild(nums);
     if (p.e1rmKg) b.appendChild(el('div', { class: 'cp-e1' }, 'e1RM ' + formatWeight(p.e1rmKg, 0)));
+    if (p.weightKg > 0 && typeof uiBarbell === 'function') {
+      b.classList.add('has-bar');
+      b.appendChild(el('span', { class: 'cp-bar', 'aria-hidden': 'true', html: uiBarbell(p.weightKg) }));
+    }
     return b;
   }
   function sessionBlock(p) {
@@ -608,11 +770,16 @@
       (m) => { _mode = m; renderClub(_container); }, 'Rank the club by', 'club-rank-seg'));
     root.appendChild(head);
 
+    const ranked = rankClubMembers(members, _mode, wk);
+    const pod = podium(ranked, _mode, wk);
+    if (pod) root.appendChild(pod);
     const board = el('div', { class: 'club-board ui-list' });
-    rankClubMembers(members, _mode, wk).forEach(m => {
+    const onPodium = new Set(pod ? ranked.filter(m => m.rank != null).slice(0, 3).map(m => m.userId) : []);
+    ranked.filter(m => !onPodium.has(m.userId)).forEach(m => {
       const isMe = u && m.userId === u.id;
       const medal = m.rank === 1 ? ' gold' : m.rank === 2 ? ' silver' : m.rank === 3 ? ' bronze' : '';
-      const row = el('div', { class: 'club-row' + (isMe ? ' is-me' : '') + (medal ? ' medal' + medal : '') });
+      const row = el('button', { type: 'button', class: 'club-row' + (isMe ? ' is-me' : '') + (medal ? ' medal' + medal : '') });
+      row.addEventListener('click', () => openLifterCard(m));
       row.appendChild(el('span', { class: 'cr-rank' + medal }, m.rank == null ? '–' : String(m.rank)));
       row.appendChild(el('span', { class: 'cr-av', 'data-name': m.displayName || '?' }, initials(m.displayName || '?')));
       const id = el('span', { class: 'cr-id' });
@@ -636,8 +803,73 @@
       row.appendChild(val);
       board.appendChild(row);
     });
-    root.appendChild(board);
+    if (board.children.length) root.appendChild(board);
+    if (_mode === 'dots') {
+      const recs = clubRecords(members);
+      if (recs) {
+        root.appendChild(uiLabel('Club records'));
+        root.appendChild(recs);
+        root.appendChild(el('p', { class: 'club-fine tight' }, 'Best estimated maxes, competition equivalent.'));
+      }
+    }
     root.appendChild(el('p', { class: 'club-fine' }, 'Your club sees your name, class, best lifts, DOTS and how often you train, plus anything you post. Never your program or logs.'));
+  }
+
+  // ---- LIFTER CARD -------------------------------------------------------------
+  // Tap anyone on the board or in the feed: who they are, their numbers, what
+  // they did this week, and their Instagram. Only what a club already shares.
+  function openLifterCard(m) {
+    if (!m) return;
+    const u = me();
+    const mine = !!(u && m.userId === u.id);
+    const wk = mondayISO();
+    const ranked = _data ? rankClubMembers(_data.members, 'dots', wk) : [];
+    const r = ranked.find(x => x.userId === m.userId);
+    const posts = (_posts || []).filter(p => p.userId === m.userId);
+    const prs = posts.filter(p => p.kind === 'pr').length;
+    uiSheet('', (sheet, close) => {
+      const head = el('div', { class: 'lc-head' });
+      head.appendChild(el('span', { class: 'lc-av', 'data-name': m.displayName || '?' }, initials(m.displayName || '?')));
+      const id = el('div', { class: 'lc-id' });
+      const nm = el('h3', {}, mine ? 'You' : (m.displayName || 'Lifter'));
+      if (m.role === 'owner' || m.role === 'admin') nm.appendChild(el('em', { class: 'cp-role' }, m.role === 'owner' ? 'Owner' : 'Admin'));
+      id.appendChild(nm);
+      const cls = m.bodyweightKg ? weightClassFor(m.bodyweightKg, m.sex) : null;
+      const meta = [m.sex === 'female' ? 'Women' : (m.sex === 'male' ? 'Men' : null), cls ? cls + ' class' : null,
+        r && r.rank && _data ? '#' + r.rank + ' in ' + shortName(_data.club.name) : null].filter(Boolean).join(' · ');
+      if (meta) id.appendChild(el('div', { class: 'lc-meta' }, meta));
+      head.appendChild(id);
+      sheet.appendChild(head);
+      const lifts = el('div', { class: 'lc-lifts' });
+      [['squat', m.squatKg, 'Squat'], ['bench', m.benchKg, 'Bench'], ['deadlift', m.deadliftKg, 'Deadlift'], ['total', m.totalKg, 'Total']].forEach(([k, v, label]) => {
+        const c = el('div', { class: 'lc-lift lift-' + k });
+        c.appendChild(el('span', { class: 'lc-l' }, label));
+        c.appendChild(el('b', { html: v ? Math.round(kgToDisplay(v)).toLocaleString() + '<small>' + unitLabel() + '</small>' : '–' }));
+        lifts.appendChild(c);
+      });
+      sheet.appendChild(lifts);
+      const cur = m.weekStart === wk;
+      sheet.appendChild(uiStats([
+        { value: m.dots ? fmtNum(m.dots) : '–', label: 'DOTS' },
+        { value: cur ? (m.weekSessions || 0) : 0, label: 'This week' },
+        { value: prs, label: prs === 1 ? 'PR shared' : 'PRs shared', tone: prs ? 'acc' : null }
+      ]));
+      const ig = m.instagram ? uiInstagramChip(m.instagram, { big: true }) : null;
+      if (ig) sheet.appendChild(ig);
+      else if (mine) {
+        const add = el('button', { class: 'btn btn-lg ui-btn-soft lc-add-ig', type: 'button', html: '<span class="ig-ic">' + IG_GLYPH + '</span><span>Add your Instagram</span>' });
+        add.addEventListener('click', () => { close(); setTimeout(() => openProfileSheet(), 220); });
+        sheet.appendChild(add);
+      }
+      sheet.appendChild(el('p', { class: 'club-fine tight' }, 'Best estimated maxes, competition equivalent. Shared with the club only.'));
+    }, { cls: 'lifter-sheet' });
+  }
+  // Push my shared row now (after a profile edit) instead of on the next visit.
+  function syncMyStats() {
+    const u = me(); if (!u || isDemo() || !window.DB || !DB.updateMyClubStats) return;
+    const stats = myClubStats(); if (!stats) return;
+    DB.updateMyClubStats(u.id, stats).then(ok => { if (ok) { try { localStorage.setItem('powa-club-stats', JSON.stringify(stats)); } catch (e) {} } });
+    if (_data) { const i = _data.members.findIndex(x => x.userId === u.id); if (i >= 0) _data.members[i] = Object.assign({}, _data.members[i], stats); }
   }
 
   // ---- REQUESTS (owner / admin) -------------------------------------------------
@@ -1093,6 +1325,8 @@
     refresh: () => { _loaded = false; return renderClubTab(); },
     cachedName: () => { if (isDemo()) return window._demoClubLeft ? null : 'Iron Temple Barbell'; if (_data && _data.club) return _data.club.name; try { return localStorage.getItem('powa-club-name') || null; } catch (e) { return null; } },
     shareLog,
-    myClubStats
+    myClubStats,
+    syncMyStats,
+    openLifterCard
   };
 })();

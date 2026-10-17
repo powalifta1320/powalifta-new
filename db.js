@@ -23,6 +23,7 @@ function mapDbProfileToCoach(r) {
     id: r.id, name: r.name, email: r.email, bio: r.bio || '',
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
+    instagram: r.instagram || null,
     referralCode: r.referral_code || null,
     referredByCode: r.referred_by_code || null,
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
@@ -33,6 +34,7 @@ function mapDbProfileToAthlete(r) {
     id: r.id, name: r.name, email: r.email, coachId: r.coach_id,
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
+    instagram: r.instagram || null,
     referralCode: r.referral_code || null,
     referredByCode: r.referred_by_code || null,
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
@@ -96,6 +98,7 @@ function mapDbClubMember(r) {
     totalKg: n(r.total_kg), dots: n(r.dots),
     weekStart: r.week_start || null, weekSessions: r.week_sessions || 0,
     weekTonnageKg: Number(r.week_tonnage_kg) || 0,
+    instagram: r.instagram || null,
     statsUpdatedAt: r.stats_updated_at || null, joinedAt: r.joined_at
   };
 }
@@ -106,6 +109,7 @@ function mapJsClubStats(s) {
     bodyweight_kg: s.bodyweightKg, squat_kg: s.squatKg, bench_kg: s.benchKg, deadlift_kg: s.deadliftKg,
     total_kg: s.totalKg, dots: s.dots,
     week_start: s.weekStart || null, week_sessions: s.weekSessions || 0, week_tonnage_kg: s.weekTonnageKg || 0,
+    instagram: s.instagram || null,
     stats_updated_at: new Date().toISOString()
   };
 }
@@ -326,10 +330,16 @@ function mapDbMessage(r) {
     athleteId: r.athlete_id,
     senderId: r.sender_id,
     body: r.body || '',
+    meta: (r.meta && typeof r.meta === 'object') ? r.meta : null,
     createdAt: r.created_at,
     readAt: r.read_at || null
   };
 }
+function mapDbReaction(r) {
+  return { messageId: r.message_id || null, postId: r.post_id || null, userId: r.user_id, reaction: r.reaction || null,
+    coachId: r.coach_id || null, athleteId: r.athlete_id || null, clubId: r.club_id || null, updatedAt: r.updated_at };
+}
+const _isNotReady = (error) => /does not exist|could not find|schema cache|PGRST20[0-9]|42P01|42703|42883/i.test(String((error && (error.message || error.details)) || '') + ' ' + (error && error.code));
 
 function mapDbFormCheck(r) {
   return {
@@ -782,7 +792,13 @@ const DB = {
     return data[0];
   },
   async updateProfile(userId, patch) {
-    const { error } = await sb.from('profiles').update(patch).in('id', [userId]);
+    let { error } = await sb.from('profiles').update(patch).in('id', [userId]);
+    // Before migration-instagram.sql runs there is no column: save the rest, say so.
+    if (error && patch && 'instagram' in patch && /instagram/i.test(String(error.message || error.details || ''))) {
+      const rest = Object.assign({}, patch); delete rest.instagram;
+      ({ error } = await sb.from('profiles').update(rest).in('id', [userId]));
+      if (!error) { const e = new Error('Saved. Instagram links switch on with the next update'); e.partial = true; throw e; }
+    }
     if (error) throw error;
   },
   async listCoaches() {
@@ -1259,7 +1275,12 @@ const DB = {
   },
   // The caller's own shared stats row (RLS: self-update only; club/role are trigger-guarded).
   async updateMyClubStats(userId, stats) {
-    const { error } = await sb.from('club_members').update(mapJsClubStats(stats)).in('user_id', [userId]);
+    const row = mapJsClubStats(stats);
+    let { error } = await sb.from('club_members').update(row).in('user_id', [userId]);
+    if (error && /instagram/i.test(String(error.message || error.details || ''))) {
+      delete row.instagram;
+      ({ error } = await sb.from('club_members').update(row).in('user_id', [userId]));
+    }
     if (error) { console.warn('updateMyClubStats', error); return false; }
     return true;
   },
@@ -1876,16 +1897,77 @@ const DB = {
   },
 
   // Post a message. `senderId` is whichever party is currently signed in.
-  async sendMessage({ coachId, athleteId, senderId, body }) {
+  async sendMessage({ coachId, athleteId, senderId, body, meta }) {
     const row = {
       coach_id: coachId,
       athlete_id: athleteId,
       sender_id: senderId,
       body: (body || '').trim()
     };
-    const { data, error } = await sb.from('messages').insert(row).select('*');
+    if (meta && typeof meta === 'object') row.meta = meta;
+    let { data, error } = await sb.from('messages').insert(row).select('*');
+    // Before migration-reactions.sql there is no `meta` column: send the text alone.
+    if (error && row.meta && _isNotReady(error)) {
+      delete row.meta;
+      ({ data, error } = await sb.from('messages').insert(row).select('*'));
+    }
     if (error) throw error;
-    return data && data[0] ? mapDbMessage(data[0]) : null;
+    const m = data && data[0] ? mapDbMessage(data[0]) : null;
+    if (m && !m.meta && meta) m.meta = meta;
+    return m;
+  },
+
+  // ---- Reactions (migration-reactions.sql). One per person per message / post;
+  // reaction null = removed. Reads fail soft to [] before the migration runs.
+  async listMessageReactions(coachId, athleteId) {
+    if (!coachId || !athleteId) return [];
+    const { data, error } = await sb.from('message_reactions').select('*').eq('coach_id', coachId).eq('athlete_id', athleteId);
+    if (error) { if (_isNotReady(error)) return []; throw error; }
+    return (data || []).map(mapDbReaction);
+  },
+  async setMessageReaction({ messageId, coachId, athleteId, userId, reaction }) {
+    const { error } = await sb.from('message_reactions').upsert({
+      message_id: messageId, user_id: userId, coach_id: coachId, athlete_id: athleteId, reaction: reaction || null
+    }, { onConflict: 'message_id,user_id' });
+    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); throw e; }
+    return true;
+  },
+  subscribeMessageReactions(filter, onChange) {
+    if (!filter || !filter.column || !filter.value || typeof onChange !== 'function') return null;
+    try {
+      const tag = 'msgreact:' + filter.column + ':' + filter.value + ':' + Math.random().toString(36).slice(2, 8);
+      const cb = payload => { try { if (payload.new) onChange(mapDbReaction(payload.new)); } catch (e) { console.warn('subscribeMessageReactions cb', e); } };
+      const ch = sb.channel(tag)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: filter.column + '=eq.' + filter.value }, cb)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'message_reactions', filter: filter.column + '=eq.' + filter.value }, cb)
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribeMessageReactions', e); return null; }
+  },
+  async listPostReactions(postIds) {
+    const ids = (postIds || []).filter(Boolean);
+    if (!ids.length) return [];
+    const { data, error } = await sb.from('club_post_reactions').select('*').in('post_id', ids.slice(0, 200));
+    if (error) { if (_isNotReady(error)) return []; throw error; }
+    return (data || []).map(mapDbReaction);
+  },
+  async setPostReaction({ postId, clubId, userId, reaction }) {
+    const { error } = await sb.from('club_post_reactions').upsert({
+      post_id: postId, user_id: userId, club_id: clubId, reaction: reaction || null
+    }, { onConflict: 'post_id,user_id' });
+    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); throw e; }
+    return true;
+  },
+  subscribePostReactions(clubId, onChange) {
+    if (!clubId || typeof onChange !== 'function') return null;
+    try {
+      const cb = payload => { try { if (payload.new) onChange(mapDbReaction(payload.new)); } catch (e) { console.warn('subscribePostReactions cb', e); } };
+      const ch = sb.channel('postreact:' + clubId + ':' + Math.random().toString(36).slice(2, 8))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'club_post_reactions', filter: 'club_id=eq.' + clubId }, cb)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'club_post_reactions', filter: 'club_id=eq.' + clubId }, cb)
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribePostReactions', e); return null; }
   },
 
   // Stamp read_at on every unread message in this thread that the signed-in

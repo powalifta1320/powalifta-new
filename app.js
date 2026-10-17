@@ -101,6 +101,7 @@ function _buildDemoData() {
     id: DA, name: 'Demo Lifter', email: 'demo@powalifta.com', bio: '',
     coachId: DC, userType: 'athlete', isAdmin: false,
     subscriptionTier: 'free', subscriptionStatus: 'inactive', avatarUrl: null, countryCode: null,
+    instagram: 'demo.lifter',
     referralCode: 'DEMO42', referredByCode: null
   };
   const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'This is what your coach sees and writes.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
@@ -208,6 +209,7 @@ function _buildDemoData() {
   const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
   const messages = [
     { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Heavy single on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
+    { id: 'demo-amsg-2a', coachId: DC, athleteId: DA, senderId: DA, body: 'Competition Squat: 160 kg × 3 @ RPE 8 (e1RM 179 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 160, reps: 3, rpe: 8, e1rmKg: 179.0 }, createdAt: at(2, 18, 3), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Will do. Felt a little soft out of the bottom last week, not sure if it was the brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null }
   ];
@@ -224,6 +226,7 @@ function _buildDemoData() {
     store: {
       coaches, athletes: [], invites: [], programs, programTemplates: [],
       workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins, messages, meets,
+      messageReactions: [{ messageId: 'demo-amsg-2a', userId: DC, reaction: 'fire' }],
       marketplacePrograms: [], mySales: [], myPurchases: []
     }
   };
@@ -249,7 +252,8 @@ function _buildCoachDemoData() {
     { id: 'demo-a3', name: 'Tom Boyle', email: 'tom@demo.com', lastTrained: 9, base: { s: 200, b: 140, d: 250 } },
     { id: 'demo-a4', name: 'Nina Petrova', email: 'nina@demo.com', lastTrained: null, base: { s: 90, b: 50, d: 110 } }
   ];
-  const athletes = roster.map(r => ({ id: r.id, name: r.name, email: r.email, coachId: DC, avatarUrl: null, countryCode: null }));
+  const igs = { 'demo-a1': 'arjun.pulls', 'demo-a2': 'sarah.lifts' };
+  const athletes = roster.map(r => ({ id: r.id, name: r.name, email: r.email, coachId: DC, avatarUrl: null, countryCode: null, instagram: igs[r.id] || null }));
 
   const workoutLogs = [];
   let seq = 1;
@@ -312,6 +316,7 @@ function _buildCoachDemoData() {
   const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
   const messages = [
     { id: 'demo-msg-1', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'Squat day today: one top single at RPE 8.5, then two back-offs at 8. Don\'t chase a max, just move it clean.', createdAt: at(4, 9, 15), readAt: at(4, 18, 0) },
+    { id: 'demo-msg-1b', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Competition Squat: 172.5 kg × 1 @ RPE 8 (e1RM 185 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 172.5, reps: 1, rpe: 8, e1rmKg: 184.8, pr: true }, createdAt: at(4, 18, 38), readAt: at(4, 19, 0) },
     { id: 'demo-msg-2', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Hit 172.5 for the single, honestly felt like an opener.', createdAt: at(4, 18, 40), readAt: at(4, 19, 0) },
     { id: 'demo-msg-3', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'That\'s exactly what I wanted to see. We\'ll go to 175 next week and hold the back-offs.', createdAt: at(4, 19, 2), readAt: at(4, 20, 0) },
     { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one: sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
@@ -378,6 +383,7 @@ function _buildCoachDemoData() {
     store: {
       coaches: [], athletes, invites, programs, programTemplates,
       workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages, meets: [],
+      messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
       marketplacePrograms, mySales, myPurchases: []
     }
   };
@@ -497,6 +503,7 @@ async function bootstrap(expectedType, onReady, opts) {
     subscriptionStatus: profile.subscription_status || 'inactive',
     avatarUrl: profile.avatar_url || null,
     countryCode: profile.country_code || null,
+    instagram: profile.instagram || null,
     referralCode: profile.referral_code || null,
     referredByCode: profile.referred_by_code || null,
     // Apple-billed coach sub (IAP)? Drives which "manage" surface shows on iOS.
@@ -3178,8 +3185,13 @@ async function renderMessageThread(container, opts) {
   list.appendChild(el('div', { class: 'msg-loading dim text-sm' }, 'Loading messages…'));
   wrap.appendChild(list);
 
-  // Composer
+  // Composer. The athlete side gets a + that sends a logged set as a card.
   const composer = el('div', { class: 'msg-composer' });
+  if (opts && typeof opts.onAttach === 'function') {
+    const plus = el('button', { class: 'msg-attach', type: 'button', 'aria-label': 'Send a set', html: ICONS.plus });
+    plus.addEventListener('click', () => opts.onAttach());
+    composer.appendChild(plus);
+  }
   const ta = el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message ' + (otherName || '') + '…', maxlength: '2000' });
   const sendBtn = el('button', { class: 'btn btn-primary msg-send' }, 'Send');
   composer.appendChild(ta);
@@ -3187,11 +3199,20 @@ async function renderMessageThread(container, opts) {
   wrap.appendChild(composer);
   container.appendChild(wrap);
 
+  // Reactions: messageId → [{ userId, reaction }]. Demo keeps them in memory.
+  const reacts = {};
+  const putReaction = (r) => {
+    if (!r || !r.messageId) return;
+    const arr = reacts[r.messageId] || (reacts[r.messageId] = []);
+    const i = arr.findIndex(x => x.userId === r.userId);
+    if (i >= 0) arr[i] = { userId: r.userId, reaction: r.reaction }; else arr.push({ userId: r.userId, reaction: r.reaction });
+  };
+
   // Merge chat messages + session notes into one chronological timeline.
   function buildTimeline(messages, notes) {
     const items = [];
     (messages || []).forEach(m => items.push({
-      kind: 'msg', id: m.id, ts: m.createdAt || '', mine: m.senderId === viewerId, body: m.body, readAt: m.readAt || null
+      kind: 'msg', id: m.id, ts: m.createdAt || '', mine: m.senderId === viewerId, body: m.body, meta: m.meta || null, readAt: m.readAt || null
     }));
     (notes || []).forEach(n => {
       if (n.note && n.note.trim()) items.push({
@@ -3206,7 +3227,44 @@ async function renderMessageThread(container, opts) {
     return items;
   }
 
-  function paint(items) {
+  // A set or a whole session, sent from Train: a card in the lift's colour.
+  function setCard(meta) {
+    if (meta.type === 'session') {
+      const c = el('div', { class: 'msg-card msg-card-session' });
+      c.appendChild(el('div', { class: 'mc-kind' }, 'Session'));
+      c.appendChild(el('div', { class: 'mc-title' }, meta.name || 'Training session'));
+      const ton = Number(meta.tonnageKg) || 0;
+      c.appendChild(el('div', { class: 'mc-nums', html: '<b>' + escHtml(String(meta.sets || 0)) + '</b><small>sets</small><i>·</i><b>' + Math.round(kgToDisplay(ton)).toLocaleString() + '</b><small>' + unitLabel() + ' moved</small>' }));
+      const best = meta.best || {};
+      const lifts = ['squat', 'bench', 'deadlift'].filter(l => best[l]);
+      if (lifts.length) {
+        const strip = el('div', { class: 'mc-best' });
+        lifts.forEach(l => strip.appendChild(el('span', { class: 'mc-best-lift lift-' + l }, el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }),
+          LIFT_LABELS[l] + ' ', el('b', {}, String(Math.round(kgToDisplay(best[l])))))));
+        c.appendChild(strip);
+      }
+      return c;
+    }
+    const lift = ['squat', 'bench', 'deadlift'].includes(meta.lift) ? meta.lift : 'acc';
+    const c = el('div', { class: 'msg-card lift-' + lift + (meta.pr ? ' is-pr' : '') });
+    const w = Number(meta.weightKg) || 0;
+    const top = el('div', { class: 'mc-top' });
+    const id = el('div', { class: 'mc-id' });
+    id.appendChild(el('div', { class: 'mc-kind' }, meta.pr ? 'New PR' : 'Set'));
+    id.appendChild(el('div', { class: 'mc-title' }, lift !== 'acc' ? el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }) : null, meta.name || 'Set'));
+    top.appendChild(id);
+    if (w > 0 && typeof uiBarbell === 'function') top.appendChild(el('span', { class: 'mc-bar', 'aria-hidden': 'true', html: uiBarbell(w) }));
+    c.appendChild(top);
+    c.appendChild(el('div', { class: 'mc-nums', html: (w > 0 ? '<b>' + kgToDisplay(w) + '</b><small>' + unitLabel() + '</small><i>×</i>' : '') +
+      '<b>' + escHtml(String(meta.reps || 0)) + '</b>' + (meta.rpe ? '<span class="mc-rpe" style="--rc:' + rpeColor(meta.rpe) + '">RPE ' + escHtml(String(meta.rpe)) + '</span>' : '') }));
+    if (meta.e1rmKg) c.appendChild(el('div', { class: 'mc-e1' }, 'e1RM ' + formatWeight(Math.round(meta.e1rmKg))));
+    return c;
+  }
+
+  let lastItems = [];
+  function paint(items, keepScroll) {
+    lastItems = items;
+    const prevTop = list.scrollTop;
     list.innerHTML = '';
     if (!items.length) {
       list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
@@ -3232,22 +3290,59 @@ async function renderMessageThread(container, opts) {
         note.appendChild(el('div', { class: 'msg-note-body' }, it.body));
         if (it.meta) note.appendChild(el('div', { class: 'msg-note-meta' }, it.meta));
         list.appendChild(note);
-      } else {
-        const row = el('div', { class: 'msg-row ' + (it.mine ? 'mine' : 'theirs') });
-        const bubble = el('div', { class: 'msg-bubble' });
-        bubble.appendChild(el('div', { class: 'msg-body' }, it.body));
-        bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(it.ts)));
-        row.appendChild(bubble);
-        list.appendChild(row);
-        if (i === lastMineIdx) {
-          const seen = !!it.readAt;
-          const rt = seen ? _msgTime(it.readAt) : '';
-          list.appendChild(el('div', { class: 'msg-status' + (seen ? ' is-seen' : '') },
-            seen ? ('Seen' + (rt ? ' · ' + rt : '')) : 'Sent'));
-        }
+        return;
+      }
+      const sum = reactionSummary(reacts[it.id], viewerId);
+      const row = el('div', { class: 'msg-row ' + (it.mine ? 'mine' : 'theirs') + (sum.total ? ' has-react' : '') });
+      const isCard = it.meta && (it.meta.type === 'set' || it.meta.type === 'session');
+      const bubble = el('div', { class: 'msg-bubble' + (isCard ? ' is-card' : '') });
+      if (isCard) bubble.appendChild(setCard(it.meta));
+      else bubble.appendChild(el('div', { class: 'msg-body' }, it.body));
+      bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(it.ts)));
+      if (sum.total) {
+        const tb = el('button', { class: 'msg-react', type: 'button', 'aria-label': 'Reactions' });
+        Object.keys(sum.counts).forEach(k => tb.appendChild(el('span', {}, REACT_EMOJI[k])));
+        if (sum.total > 1) tb.appendChild(el('b', {}, String(sum.total)));
+        if (sum.mine) tb.classList.add('mine');
+        tb.addEventListener('click', (e) => { e.stopPropagation(); openPicker(it, bubble); });
+        bubble.appendChild(tb);
+      }
+      uiLongPress(bubble, () => openPicker(it, bubble));
+      row.appendChild(bubble);
+      list.appendChild(row);
+      if (i === lastMineIdx) {
+        const seen = !!it.readAt;
+        const rt = seen ? _msgTime(it.readAt) : '';
+        list.appendChild(el('div', { class: 'msg-status' + (seen ? ' is-seen' : '') },
+          seen ? ('Seen' + (rt ? ' · ' + rt : '')) : 'Sent'));
       }
     });
-    list.scrollTop = list.scrollHeight;
+    list.scrollTop = keepScroll ? prevTop : list.scrollHeight;
+  }
+
+  // Long-press / double-tap a bubble: react, or copy the text.
+  function openPicker(it, bubble) {
+    const sum = reactionSummary(reacts[it.id], viewerId);
+    const extra = [];
+    if (!(it.meta && it.meta.type) && navigator.clipboard) extra.push({ label: 'Copy', onClick: () => { navigator.clipboard.writeText(it.body || '').then(() => toast('Copied'), () => {}); } });
+    openReactionPicker(bubble, MSG_REACT_KEYS, sum.mine, (key) => react(it, key), extra);
+  }
+  async function react(it, key) {
+    const before = (reacts[it.id] || []).map(x => Object.assign({}, x));
+    putReaction({ messageId: it.id, userId: viewerId, reaction: key });
+    paint(lastItems, true);
+    if (demo || String(it.id).indexOf('demo-') === 0) {
+      const s = Store.get(); const arr = s.messageReactions || (s.messageReactions = []);
+      const i = arr.findIndex(x => x.messageId === it.id && x.userId === viewerId);
+      if (i >= 0) arr[i].reaction = key; else arr.push({ messageId: it.id, userId: viewerId, reaction: key });
+      return;
+    }
+    try {
+      await DB.setMessageReaction({ messageId: it.id, coachId, athleteId, userId: viewerId, reaction: key });
+    } catch (e) {
+      reacts[it.id] = before; paint(lastItems, true);
+      toast(e.message || 'Could not react');
+    }
   }
 
   // Session notes for this pair (woven into the thread). Best-effort — a notes
@@ -3266,6 +3361,7 @@ async function renderMessageThread(container, opts) {
     messages = (Store.get().messages || [])
       .filter(m => m.coachId === coachId && m.athleteId === athleteId)
       .slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    (Store.get().messageReactions || []).forEach(r => { if (messages.some(m => m.id === r.messageId)) putReaction(r); });
     notes = await loadNotes();
     paint(buildTimeline(messages, notes));
     // Clear unread on open (in-memory only — nothing persists in demo).
@@ -3276,8 +3372,10 @@ async function renderMessageThread(container, opts) {
     });
   } else {
     try {
-      const [msgs, nts] = await Promise.all([DB.listMessages(coachId, athleteId), loadNotes()]);
+      const [msgs, nts, rx] = await Promise.all([DB.listMessages(coachId, athleteId), loadNotes(),
+        (typeof DB.listMessageReactions === 'function' ? DB.listMessageReactions(coachId, athleteId).catch(() => []) : [])]);
       messages = msgs; notes = nts;
+      (rx || []).forEach(putReaction);
       paint(buildTimeline(messages, notes));
       // Mark the ones addressed to me as read (fire and forget).
       DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
@@ -3307,13 +3405,22 @@ async function renderMessageThread(container, opts) {
           const local = messages.find(x => x.id === m.id);
           if (!local || local.readAt === m.readAt) return;
           local.readAt = m.readAt;
-          paint(buildTimeline(messages, notes));
+          paint(buildTimeline(messages, notes), true);
         })
       : null;
-    if (insertCleanup || readCleanup) {
+    // Live reactions from the other side.
+    const reactCleanup = (typeof DB.subscribeMessageReactions === 'function')
+      ? DB.subscribeMessageReactions({ column: 'athlete_id', value: athleteId }, (r) => {
+          if (!r || r.coachId !== coachId || r.userId === viewerId) return;
+          putReaction(r);
+          paint(lastItems, true);
+        })
+      : null;
+    if (insertCleanup || readCleanup || reactCleanup) {
       container._msgCleanup = () => {
         try { if (insertCleanup) insertCleanup(); } catch (e) {}
         try { if (readCleanup) readCleanup(); } catch (e) {}
+        try { if (reactCleanup) reactCleanup(); } catch (e) {}
       };
     }
   }
@@ -3363,6 +3470,13 @@ async function renderMessageThread(container, opts) {
   });
   function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
   ta.addEventListener('input', autosize);
+  // Anything sent from elsewhere (Train's "Send to coach") lands here on repaint.
+  container._msgRefresh = () => {
+    if (!demo) return;
+    messages = (Store.get().messages || []).filter(m => m.coachId === coachId && m.athleteId === athleteId)
+      .slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    paint(buildTimeline(messages, notes));
+  };
 }
 window.renderMessageThread = renderMessageThread;
 
@@ -5574,7 +5688,7 @@ const ICONS = {
   program: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>',
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
   today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h20l-2 13H4z"/><path d="M8 7V4a4 4 0 0 1 8 0v3"/></svg>',
+  scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M8 10a4.5 4.5 0 0 1 8 0"/><path d="M12 10.2l1.6-2.3"/></svg>',
   flame: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
   user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -5658,15 +5772,20 @@ function renderNav(target) {
       sigWrap.appendChild(panel);
       actions.appendChild(sigWrap);
     }
-    // Clickable user pill → opens settings modal
-    const userPill = el('button', { class: 'nav-user', title: 'Settings' });
+    // The user pill. In the app it's gone: everything it opened lives under You.
+    // On a web dashboard it opens You; on public pages, the Settings sheet.
+    const onDash = !!document.querySelector('.dash-main');
+    const inShell = document.documentElement.classList.contains('native');
+    const userPill = el('button', { class: 'nav-user', title: onDash ? 'You' : 'Settings' });
     const avInner = user.avatarUrl
       ? '<div class="av" style="padding:0;overflow:hidden;background:transparent"><img src="' + escHtml(user.avatarUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
       : '<div class="av" data-name="' + escHtml(user.name || '?') + '">' + escHtml(initials(user.name)) + '</div>';
     const flagPart = user.countryCode ? '<span style="margin-left:4px">' + flagEmoji(user.countryCode) + '</span>' : '';
     userPill.innerHTML = avInner + '<span>' + escHtml(user.name) + '</span>' + flagPart;
-    userPill.setAttribute('onclick', 'if(window.openSettingsModal){openSettingsModal()}');
-    actions.appendChild(userPill);
+    userPill.setAttribute('onclick', onDash
+      ? "var t=document.getElementById('tab-you');if(t){t.click();window.scrollTo(0,0);}else if(window.openSettingsModal){openSettingsModal()}"
+      : 'if(window.openSettingsModal){openSettingsModal()}');
+    if (!(onDash && inShell)) actions.appendChild(userPill);
     if (user.userType === 'coach') {
       actions.appendChild(el('a', { href: 'coach.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
     } else {
@@ -6950,7 +7069,12 @@ const YOU_ROW_META = {
   'Athlete progress':    { tint: 'sky',    icon: () => ICONS.chart },
   'Templates':           { tint: 'iris',   icon: () => ICONS.copy },
   'Marketplace listings':{ tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
-  'Invite an athlete':   { tint: 'green',  icon: () => _YI('<path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>') }
+  'Invite an athlete':   { tint: 'green',  icon: () => _YI('<path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>') },
+  'Profile':             { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>') },
+  'Notifications':       { tint: 'red',    icon: () => _YI('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>') },
+  'Security':            { tint: 'green',  icon: () => _YI('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>') },
+  'Plan & billing':      { tint: 'iris',   icon: () => _YI('<rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19M6.5 15h4"/>') },
+  'Your data':           { tint: 'sky',    icon: () => _YI('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>') }
 };
 
 function renderYouHub(container, model) {
@@ -6960,13 +7084,17 @@ function renderYouHub(container, model) {
   // matter, and the one thing worth doing from here.
   const hero = el('div', { class: 'ui-hero you-hero' });
   const head = el('div', { class: 'you-head' });
-  const av = el('div', { class: 'you-av' });
+  const av = el(model.onAvatar ? 'button' : 'div', { class: 'you-av' + (model.onAvatar ? ' is-tap' : '') });
+  if (model.onAvatar) { av.setAttribute('type', 'button'); av.setAttribute('aria-label', 'Change profile photo'); av.addEventListener('click', model.onAvatar); }
   if (model.avatarUrl) av.innerHTML = '<img src="' + escHtml(model.avatarUrl) + '" alt="">';
   else { av.textContent = initials(model.name || ''); av.setAttribute('data-name', model.name || ''); }
+  if (model.onAvatar) av.appendChild(el('span', { class: 'you-av-cam', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>' }));
   head.appendChild(av);
   const id = el('div', { class: 'you-id' });
   id.appendChild(el('h2', {}, model.name || 'You'));
   if (model.sub) id.appendChild(el('div', { class: 'you-sub' }, model.sub));
+  const igc = model.instagram ? uiInstagramChip(model.instagram) : null;
+  if (igc) id.appendChild(igc);
   head.appendChild(id);
   hero.appendChild(head);
   if (model.stats && model.stats.length) {
@@ -6979,18 +7107,28 @@ function renderYouHub(container, model) {
     });
     hero.appendChild(st);
   }
-  if (model.action) {
-    const a = el('button', { class: 'ui-btn-soft you-action', type: 'button' }, model.action.label);
-    a.addEventListener('click', model.action.onClick);
-    hero.appendChild(a);
+  if (model.action || model.edit) {
+    const acts = el('div', { class: 'you-actions' });
+    if (model.edit) {
+      const e = el('button', { class: 'ui-btn-soft you-action', type: 'button' }, 'Edit profile');
+      e.addEventListener('click', model.edit);
+      acts.appendChild(e);
+    }
+    if (model.action) {
+      const a = el('button', { class: 'ui-btn-soft you-action', type: 'button' }, model.action.label);
+      a.addEventListener('click', model.action.onClick);
+      acts.appendChild(a);
+    }
+    hero.appendChild(acts);
   }
   container.appendChild(hero);
+  if (model.afterHero) container.appendChild(model.afterHero);
 
   (model.groups || []).forEach(g => {
     const rows = (g.rows || []).filter(Boolean);
     if (!rows.length) return;
-    const grp = el('div', { class: 'you-group' });
-    grp.appendChild(el('div', { class: 'yg-title' }, g.title));
+    const grp = el('div', { class: 'you-group' + (g.title ? '' : ' no-title') });
+    if (g.title) grp.appendChild(el('div', { class: 'yg-title' }, g.title));
     const list = el('div', { class: 'yg-list ui-list' });
     rows.forEach(r => {
       const row = el('button', { class: 'you-row' + (r.tone ? ' tone-' + r.tone : ''), type: 'button' });
@@ -7402,7 +7540,7 @@ function avatarHue(name) {
 }
 // Paint every initials avatar the app renders (uiRow, legacy .av, inbox rows,
 // club members) without touching each renderer: one batched observer pass.
-const AVATAR_SEL = '.ui-av, .av, .msg-inbox-av, .cr-av, .club-av, .cm-av, .coach-av, .you-av, .cp-av, .cd-crest';
+const AVATAR_SEL = '.ui-av, .av, .msg-inbox-av, .cr-av, .club-av, .cm-av, .coach-av, .you-av, .cp-av, .cd-crest, .cs-av, .cpd-av, .crec-av, .rs-av, .rq-av, .lc-av';
 function paintAvatars(root) {
   (root || document).querySelectorAll(AVATAR_SEL).forEach(a => {
     if (a.querySelector('img')) { a.classList.add('has-img'); return; }
@@ -7524,3 +7662,476 @@ document.addEventListener('click', (e) => {
 }, true);
 
 Object.assign(window, { SCREEN_ACCENT, screenAccentFor, markScreenEnter, initScreenAccent, avatarHue, paintAvatars, uiRing, uiRingHero, uiFastTap });
+
+// =========================================================
+// UI v6 · ALIVE (2026-10-16). Owner review after v5: Train "plain and boring
+// and hard to use", Clubs "too simple", Roster "not sexy and fun", tools that
+// read as web forms, Settings buried behind the avatar. The shared pieces the
+// rebuilt screens use:
+//   uiBarbell(kg)    one sleeve of the loaded bar, side-on, in competition plate
+//                    colours: the brand mark, showing the real load
+//   uiRpeScale()     tap-to-pick RPE 6–10 (green → red) with the "reps left in
+//                    the tank" read under it
+//   uiStepper()      − value + for weights and reps (hold to repeat)
+//   toastAction()    a toast that carries one action ("Send to coach")
+//   uiLongPress()    long-press / double-tap / right-click → callback
+//   reactions        fixed keys (never free text) for messages + club posts
+// =========================================================
+
+// IPF competition colours: [colour, height %, thickness]. lb plates wear the
+// colour of the kg plate they stand in for (45 ≈ 20, 35 ≈ 15, 25 ≈ 10, 10 ≈ 5).
+const PLATE_LOOK = {
+  kg:  { 25: ['#e5262f', 100, 15], 20: ['#2563eb', 100, 13], 15: ['#f5c518', 88, 11], 10: ['#1f9d55', 76, 10], 5: ['#ececef', 58, 8], 2.5: ['#2b2b30', 48, 7], 1.25: ['#b8bcc6', 40, 6] },
+  lbs: { 45: ['#2563eb', 100, 14], 35: ['#f5c518', 92, 12], 25: ['#1f9d55', 80, 10], 10: ['#ececef', 60, 8], 5: ['#2b2b30', 50, 7], 2.5: ['#b8bcc6', 42, 6] }
+};
+function _barDisplay() { try { return typeof activeBarDisplay === 'function' ? activeBarDisplay() : undefined; } catch (e) { return undefined; } }
+// The plates on ONE side, heaviest first, in the active unit.
+function plateLoadout(kg) {
+  const r = plateBreakdown(Number(kg) || 0, _barDisplay());
+  return { plates: r.plates || [], unit: r.unit === 'lbs' ? 'lbs' : 'kg', error: r.error || null };
+}
+function plateColor(p, unit) { const l = PLATE_LOOK[unit === 'lbs' ? 'lbs' : 'kg'][p]; return l ? l[0] : '#9aa0aa'; }
+function plateSummaryText(kg) {
+  const r = plateLoadout(kg);
+  if (!r.plates.length) return 'Empty bar';
+  return r.plates.map(p => String(p)).join(' · ') + ' ' + (r.unit === 'lbs' ? 'lb' : 'kg') + ' a side';
+}
+// Plate chips, grouped: "2×25  15  2.5".
+function plateChipsHtml(kg) {
+  const r = plateLoadout(kg);
+  if (!r.plates.length) return '<span class="pl-chip is-bar">Just the bar</span>';
+  const groups = [];
+  r.plates.forEach(p => { const g = groups[groups.length - 1]; if (g && g.p === p) g.n++; else groups.push({ p, n: 1 }); });
+  return groups.map(g => '<span class="pl-chip" style="--pc:' + plateColor(g.p, r.unit) + '">' + (g.n > 1 ? '<i>' + g.n + '×</i>' : '') + g.p + '</span>').join('');
+}
+function uiBarbell(kg, opts) {
+  opts = opts || {};
+  const r = plateLoadout(kg);
+  const look = PLATE_LOOK[r.unit];
+  const mid = 50, gap = 1.6;
+  let x = 31, body = '';
+  r.plates.filter(p => look[p]).forEach((p, i) => {
+    const l = look[p], h = l[1] * 0.92, w = l[2], y = mid - h / 2;
+    body += '<g class="bb-plate" style="--i:' + i + '"><rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w + '" height="' + h.toFixed(1) + '" rx="2.2" fill="' + l[0] + '" stroke="rgba(255,255,255,' + (l[0] === '#2b2b30' ? '0.34' : '0.16') + ')" stroke-width="0.9"/>' +
+      '<rect x="' + (x + w * 0.6).toFixed(1) + '" y="' + (y + 3).toFixed(1) + '" width="' + (w * 0.22).toFixed(1) + '" height="' + (h - 6).toFixed(1) + '" rx="1" fill="#fff" opacity="0.16"/></g>';
+    x += w + gap;
+  });
+  const collarX = x + 0.4, end = collarX + 7 + 16, W = end + 1;
+  return '<svg class="ui-barbell' + (opts.cls ? ' ' + opts.cls : '') + '" viewBox="0 0 ' + W.toFixed(1) + ' 100" preserveAspectRatio="xMinYMid meet" role="img" aria-label="' + escHtml(plateSummaryText(kg)) + '">' +
+    '<rect x="0" y="' + (mid - 3.4) + '" width="26" height="6.8" rx="1.6" fill="#5d616a"/>' +
+    '<rect x="23" y="' + (mid - 13) + '" width="7" height="26" rx="1.8" fill="#8e949e"/>' +
+    '<rect x="30" y="' + (mid - 5.6) + '" width="' + (end - 30).toFixed(1) + '" height="11.2" rx="2.4" fill="#a3a9b3"/>' +
+    body +
+    (r.plates.length ? '<rect x="' + collarX.toFixed(1) + '" y="' + (mid - 10) + '" width="7" height="20" rx="1.8" fill="#d4d7dd"/>' : '') +
+    '</svg>';
+}
+
+// RPE: 6 is easy speed, 10 is a true max. Colours run green → amber → red.
+const RPE_STEPS = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+const RPE_COLORS = { 6: '#34d982', 6.5: '#5ad672', 7: '#93d35d', 7.5: '#cfcb4c', 8: '#ffbf3c', 8.5: '#ffa142', 9: '#ff8045', 9.5: '#ff6048', 10: '#ff3b4a' };
+const RPE_TANK = {
+  6: 'Four or more reps left. Moving fast', 6.5: 'Three or four reps left', 7: 'Three reps left in the tank',
+  7.5: 'Two or three reps left', 8: 'Two reps left in the tank', 8.5: 'One or two reps left',
+  9: 'One rep left in the tank', 9.5: 'Maybe one more. Could have added a little', 10: 'Nothing left. A true max'
+};
+function rpeColor(r) { const n = Math.round(Number(r) * 2) / 2; return RPE_COLORS[n] || (n > 10 ? RPE_COLORS[10] : RPE_COLORS[6]); }
+function rpeTankText(r) { return RPE_TANK[Math.round(Number(r) * 2) / 2] || ''; }
+function uiRpeScale(value, onPick, opts) {
+  opts = opts || {};
+  const wrap = el('div', { class: 'rpe-scale' + (opts.cls ? ' ' + opts.cls : '') });
+  const row = el('div', { class: 'rpe-steps', role: 'radiogroup', 'aria-label': opts.label || 'How hard was it? RPE' });
+  const hint = el('div', { class: 'rpe-hint', 'aria-live': 'polite' });
+  let cur = (value == null || value === '') ? null : Number(value);
+  const paint = () => {
+    row.querySelectorAll('button').forEach(b => {
+      const on = Number(b.dataset.rpe) === cur;
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    wrap.classList.toggle('has-value', cur != null);
+    if (cur != null) wrap.style.setProperty('--rc', rpeColor(cur));
+    hint.innerHTML = cur != null ? '<b>RPE ' + cur + '</b> · ' + escHtml(rpeTankText(cur)) : escHtml(opts.empty || 'Tap how hard it felt');
+  };
+  RPE_STEPS.forEach(r => {
+    const b = el('button', { type: 'button', role: 'radio', 'data-rpe': String(r), style: '--rc:' + rpeColor(r) }, String(r));
+    b.addEventListener('click', () => {
+      cur = r; paint();
+      try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic('LIGHT'); } catch (e) {}
+      if (onPick) onPick(r);
+    });
+    row.appendChild(b);
+  });
+  wrap.appendChild(row);
+  if (opts.hint !== false) wrap.appendChild(hint);
+  wrap.setValue = (v) => { cur = (v == null || v === '') ? null : Number(v); paint(); };
+  wrap.getValue = () => cur;
+  wrap.nudge = () => { wrap.classList.remove('nudge'); void wrap.offsetWidth; wrap.classList.add('nudge'); };
+  paint();
+  return wrap;
+}
+
+// − value +. opts: { value, step, min, max, fmt(v) → html, onChange(v), label,
+// input: true → the value is a typeable number field, suffix: unit after it }
+function uiStepper(opts) {
+  opts = opts || {};
+  const step = Number(opts.step) || 1;
+  const w = el('div', { class: 'ui-stepper' + (opts.input ? ' is-input' : '') + (opts.cls ? ' ' + opts.cls : '') });
+  const minus = el('button', { type: 'button', class: 'st-btn', 'aria-label': 'Less ' + (opts.label || '') }, '−');
+  const plus = el('button', { type: 'button', class: 'st-btn', 'aria-label': 'More ' + (opts.label || '') }, '+');
+  const dec = (String(step).split('.')[1] || '').length;
+  let v = Number(opts.value) || 0;
+  const clamp = (n) => { if (opts.min != null) n = Math.max(opts.min, n); if (opts.max != null) n = Math.min(opts.max, n); return Number(n.toFixed(dec)); };
+  let val, inp = null;
+  if (opts.input) {
+    val = el('label', { class: 'st-val' });
+    inp = el('input', { type: 'number', inputmode: 'decimal', step: String(step), class: 'st-input', 'aria-label': opts.label || 'Value' });
+    val.appendChild(inp);
+    if (opts.suffix) val.appendChild(el('small', {}, opts.suffix));
+    inp.addEventListener('input', () => { const n = Number(inp.value); if (inp.value !== '' && isFinite(n)) { v = n; syncBtns(); if (opts.onChange) opts.onChange(v); } });
+    inp.addEventListener('blur', () => { v = clamp(v); paint(); });
+  } else {
+    val = el('span', { class: 'st-val', 'aria-live': 'polite' });
+  }
+  const syncBtns = () => {
+    minus.disabled = opts.min != null && v <= opts.min;
+    plus.disabled = opts.max != null && v >= opts.max;
+  };
+  const paint = () => {
+    if (inp) inp.value = v.toFixed(dec);
+    else val.innerHTML = opts.fmt ? opts.fmt(v) : String(v);
+    syncBtns();
+  };
+  const bump = (d) => { const n = clamp(v + d); if (n === v) return; v = n; paint(); if (opts.onChange) opts.onChange(v); };
+  [[minus, -step], [plus, step]].forEach(([b, d]) => {
+    let t = null, rep = null;
+    const stop = () => { clearTimeout(t); clearInterval(rep); t = rep = null; };
+    b.addEventListener('pointerdown', () => { stop(); t = setTimeout(() => { rep = setInterval(() => bump(d), 80); }, 420); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+    b.addEventListener('click', () => bump(d));
+  });
+  w.appendChild(minus); w.appendChild(val); w.appendChild(plus);
+  w.setValue = (n) => { v = clamp(Number(n) || 0); paint(); };
+  w.getValue = () => { if (inp && inp.value !== '' && isFinite(Number(inp.value))) v = clamp(Number(inp.value)); return v; };
+  paint();
+  return w;
+}
+
+// A toast with one action button. Stays up a little longer than a plain one.
+function toastAction(msg, label, onAction, ms) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = el('div', { class: 'toast toast-act', role: 'status', 'aria-live': 'polite' });
+  t.appendChild(el('span', { class: 'ta-msg' }, msg));
+  const b = el('button', { class: 'ta-btn', type: 'button' }, label);
+  b.addEventListener('click', (e) => { e.stopPropagation(); t.remove(); if (onAction) onAction(); });
+  t.appendChild(b);
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms || 4600);
+  return t;
+}
+
+// Long-press (≈0.42 s), double-tap and right-click all call fn(event). The
+// click that ends a long-press is swallowed so it can't also "tap" the node.
+function uiLongPress(node, fn) {
+  if (!node || typeof fn !== 'function') return node;
+  let timer = null, sx = 0, sy = 0, fired = false, lastTap = 0;
+  const clear = () => { clearTimeout(timer); timer = null; };
+  node.addEventListener('pointerdown', (e) => {
+    if (e.button && e.button !== 0) return;
+    fired = false; sx = e.clientX; sy = e.clientY; clear();
+    timer = setTimeout(() => { fired = true; fn(e); }, 420);
+  });
+  node.addEventListener('pointermove', (e) => { if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) clear(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => node.addEventListener(ev, clear));
+  node.addEventListener('click', (e) => {
+    if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; return; }
+    const now = Date.now();
+    if (now - lastTap < 300) { lastTap = 0; fn(e); return; }
+    lastTap = now;
+  });
+  node.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!fired) fn(e); });
+  return node;
+}
+
+// Reactions are fixed keys, never free text, so they need no moderation path.
+const REACT_EMOJI = { fire: '🔥', strong: '💪', clap: '👏', trophy: '🏆', heart: '❤️', up: '👍', laugh: '😂', q: '❓' };
+const POST_REACT_KEYS = ['fire', 'strong', 'clap', 'trophy'];
+const MSG_REACT_KEYS = ['heart', 'up', 'fire', 'strong', 'laugh', 'q'];
+// rows: [{ userId, reaction }] → { counts: {key:n}, mine: key|null, total }
+function reactionSummary(rows, myId) {
+  const counts = {}; let mine = null, total = 0;
+  (rows || []).forEach(r => {
+    if (!r || !r.reaction || !REACT_EMOJI[r.reaction]) return;
+    counts[r.reaction] = (counts[r.reaction] || 0) + 1; total++;
+    if (myId && r.userId === myId) mine = r.reaction;
+  });
+  return { counts, mine, total };
+}
+// A floating row of reactions above (or below) the anchor. Returns close().
+function openReactionPicker(anchor, keys, current, onPick, extra) {
+  document.querySelectorAll('.react-pop-veil').forEach(v => v.remove());
+  const veil = el('div', { class: 'react-pop-veil' });
+  const pop = el('div', { class: 'react-pop', role: 'menu', 'aria-label': 'React' });
+  const close = () => { veil.classList.add('leaving'); setTimeout(() => veil.remove(), 160); };
+  keys.forEach(k => {
+    const b = el('button', { type: 'button', role: 'menuitem', class: k === current ? 'on' : '', 'aria-label': 'React ' + k }, REACT_EMOJI[k]);
+    b.addEventListener('click', (e) => {
+      e.stopPropagation(); close();
+      try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic('LIGHT'); } catch (er) {}
+      onPick(k === current ? null : k);
+    });
+    pop.appendChild(b);
+  });
+  if (extra && extra.length) {
+    const ex = el('div', { class: 'react-extra' });
+    extra.forEach(x => {
+      const b = el('button', { type: 'button' }, x.label);
+      b.addEventListener('click', (e) => { e.stopPropagation(); close(); x.onClick(); });
+      ex.appendChild(b);
+    });
+    pop.appendChild(ex);
+  }
+  veil.appendChild(pop);
+  veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
+  _sheetSwallowEarlyClicks(veil);
+  document.body.appendChild(veil);
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = r.left + r.width / 2 - pw / 2;
+  left = Math.max(10, Math.min(window.innerWidth - pw - 10, left));
+  let top = r.top - ph - 10;
+  const below = top < (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0) + 54;
+  if (below) top = r.bottom + 10;
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  pop.style.transformOrigin = (r.left + r.width / 2 - left) + 'px ' + (below ? '0' : '100%');
+  try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic('MEDIUM'); } catch (e) {}
+  return close;
+}
+// Reaction chips under a post / bubble. onToggle(key) flips my reaction.
+const _REACT_ADD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.2A8.5 8.5 0 1 1 12.8 3.5"/><path d="M8.5 14.5s1.3 1.8 3.5 1.8 3.5-1.8 3.5-1.8"/><path d="M9 9.5h.01M15 9.5h.01"/><path d="M19 2v6M16 5h6"/></svg>';
+// Chips for the reactions a post / message has, then one "add" button that
+// opens the picker. opts.add = show the add button; opts.showAll = legacy.
+function reactionChips(summary, keys, onToggle, opts) {
+  opts = opts || {};
+  const wrap = el('div', { class: 'react-chips' + (opts.cls ? ' ' + opts.cls : '') });
+  keys.forEach(k => {
+    const n = summary.counts[k] || 0;
+    if (!n && !opts.showAll) return;
+    const b = el('button', { type: 'button', class: 'react-chip' + (summary.mine === k ? ' mine' : ''), 'aria-pressed': summary.mine === k ? 'true' : 'false', 'aria-label': k + ' ' + n },
+      el('span', { class: 'rc-e' }, REACT_EMOJI[k]), n ? el('b', {}, String(n)) : null);
+    b.addEventListener('click', (e) => { e.stopPropagation(); onToggle(summary.mine === k ? null : k); });
+    wrap.appendChild(b);
+  });
+  if (opts.add) {
+    const add = el('button', { type: 'button', class: 'react-add' + (summary.total ? '' : ' is-first'), 'aria-label': 'Add a reaction', html: _REACT_ADD });
+    if (!summary.total && opts.addLabel) add.appendChild(el('span', {}, opts.addLabel));
+    add.addEventListener('click', (e) => { e.stopPropagation(); openReactionPicker(add, keys, summary.mine, (k) => onToggle(k)); });
+    wrap.appendChild(add);
+  }
+  return wrap;
+}
+
+// INSTAGRAM. A profile can carry one handle. Stored bare + lower case and
+// checked against Instagram's own rules, so it can only ever open
+// instagram.com/<handle>. '' = cleared, null = not a handle.
+function normalizeInstagram(v) {
+  let s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  s = s.replace(/^https?:\/\//i, '').replace(/^(www\.)?(instagram\.com|instagr\.am)\//i, '');
+  s = s.split(/[/?#]/)[0].replace(/^@+/, '').toLowerCase();
+  return /^[a-z0-9._]{1,30}$/.test(s) ? s : null;
+}
+function instagramUrl(handle) { return 'https://instagram.com/' + encodeURIComponent(handle); }
+const IG_GLYPH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>';
+function openInstagram(handle) {
+  const h = normalizeInstagram(handle);
+  if (!h) return;
+  if (window._demoMode) { toast('Opens @' + h + ' on Instagram'); return; }
+  try { window.open(instagramUrl(h), '_blank', 'noopener'); } catch (e) {}
+}
+// "@handle" link. opts.big = the full-width button used on lifter cards.
+function uiInstagramChip(handle, opts) {
+  opts = opts || {};
+  const h = normalizeInstagram(handle);
+  if (!h) return null;
+  const a = el('a', { class: 'ig-chip' + (opts.big ? ' is-big' : ''), href: instagramUrl(h), target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Instagram: @' + h });
+  a.innerHTML = '<span class="ig-ic">' + IG_GLYPH + '</span><span class="ig-h">@' + escHtml(h) + '</span>';
+  a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openInstagram(h); });
+  return a;
+}
+
+Object.assign(window, { normalizeInstagram, instagramUrl, openInstagram, uiInstagramChip, IG_GLYPH, PLATE_LOOK, plateLoadout, plateColor, plateSummaryText, plateChipsHtml, uiBarbell,
+  RPE_STEPS, rpeColor, rpeTankText, uiRpeScale, uiStepper, toastAction, uiLongPress,
+  REACT_EMOJI, POST_REACT_KEYS, MSG_REACT_KEYS, reactionSummary, openReactionPicker, reactionChips });
+
+// =========================================================
+// SETTINGS, UNDER YOU (v6). The owner: the avatar menu at the top "is very
+// dirty… allat can come under You". In the app the avatar is gone from the top
+// bar; every part of the old Settings sheet is its own clean sheet, opened from
+// a You row (same render fns, same backend).
+// =========================================================
+function pickAvatar(onDone) {
+  const u = getCurrentUser(); if (!u) return;
+  if (window._demoMode) { toast('Preview only in demo mode'); return; }
+  const inp = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'position:fixed;left:-9999px;top:0' });
+  document.body.appendChild(inp);
+  inp.addEventListener('change', async () => {
+    const file = inp.files && inp.files[0];
+    inp.remove();
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { toast('That photo is over 3 MB. Try a smaller one'); return; }
+    toast('Uploading…', 9000);
+    try {
+      const url = await DB.uploadAvatar(file, u.id);
+      window._user.avatarUrl = url;
+      toast('Photo updated');
+      try { renderNav('#nav'); } catch (e) {}
+      if (onDone) onDone(url);
+    } catch (e) { toast(e.message || 'Could not upload that photo'); }
+  });
+  inp.click();
+}
+function _fieldRow(label, input, stacked) {
+  const r = el('label', { class: 'ui-field' + (stacked ? ' stacked' : '') });
+  r.appendChild(el('span', { class: 'uf-label' }, label));
+  r.appendChild(input);
+  return r;
+}
+function openProfileSheet(onSaved) {
+  const u = getCurrentUser(); if (!u) return;
+  uiSheet('Profile', (sheet, close) => {
+    const top = el('div', { class: 'ps-top' });
+    const av = el('button', { class: 'you-av is-tap ps-av', type: 'button', 'aria-label': 'Change profile photo' });
+    const paintAv = () => {
+      if (window._user && window._user.avatarUrl) av.innerHTML = '<img src="' + escHtml(window._user.avatarUrl) + '" alt="">';
+      else { av.textContent = initials(u.name || ''); av.setAttribute('data-name', u.name || ''); }
+    };
+    paintAv();
+    av.addEventListener('click', () => pickAvatar(paintAv));
+    top.appendChild(av);
+    const ch = el('button', { class: 'ui-text-btn', type: 'button' }, 'Change photo');
+    ch.addEventListener('click', () => pickAvatar(paintAv));
+    top.appendChild(ch);
+    sheet.appendChild(top);
+    const form = el('div', { class: 'ui-list ps-form' });
+    const name = el('input', { type: 'text', autocomplete: 'name', maxlength: '60', 'aria-label': 'Display name' });
+    name.value = u.name || '';
+    form.appendChild(_fieldRow('Name', name));
+    const sel = el('select', { 'aria-label': 'Country' });
+    sel.appendChild(el('option', { value: '' }, 'None'));
+    (window.COUNTRIES || []).forEach(c => sel.appendChild(el('option', { value: c.code }, flagEmoji(c.code) + ' ' + c.name)));
+    sel.value = u.countryCode || '';
+    form.appendChild(_fieldRow('Country', sel));
+    const ig = el('input', { type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', maxlength: '80', placeholder: '@yourhandle', 'aria-label': 'Instagram handle' });
+    ig.value = u.instagram ? '@' + u.instagram : '';
+    form.appendChild(_fieldRow('Instagram', ig));
+    let bio = null;
+    if (u.userType === 'coach') {
+      bio = el('textarea', { rows: '4', maxlength: '600', 'aria-label': 'Coach bio', placeholder: 'Who you coach and how' });
+      bio.value = u.bio || '';
+      form.appendChild(_fieldRow('Bio', bio, true));
+    }
+    sheet.appendChild(form);
+    sheet.appendChild(el('p', { class: 'ui-sheet-note' }, 'Your name, flag and Instagram show on your club board and lifter card.'));
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save');
+    save.addEventListener('click', async () => {
+      if (window._demoMode) { toast('Preview only in demo mode'); return; }
+      const nm = name.value.trim();
+      if (!nm) { toast('Add your name'); name.focus(); return; }
+      const handle = normalizeInstagram(ig.value);
+      if (handle === null) { toast('That isn\'t an Instagram handle'); ig.focus(); return; }
+      save.disabled = true;
+      const done = (msg) => {
+        window._user.name = nm; window._user.countryCode = sel.value || null;
+        if (bio) window._user.bio = bio.value.trim();
+        toast(msg);
+        close();
+        try { renderNav('#nav'); } catch (e) {}
+        try { if (window.PowaClubs && PowaClubs.syncMyStats) PowaClubs.syncMyStats(); } catch (e) {}
+        if (onSaved) onSaved();
+      };
+      try {
+        const patch = { name: nm, country_code: sel.value || null, instagram: handle || null };
+        if (bio) patch.bio = bio.value.trim();
+        await DB.updateProfile(u.id, patch);
+        window._user.instagram = handle || null;
+        done('Profile saved');
+      } catch (e) {
+        if (e && e.partial) { done(e.message); return; }
+        save.disabled = false; toast(e.message || 'Could not save');
+      }
+    });
+    sheet.appendChild(save);
+  }, { cls: 'profile-sheet' });
+}
+function openNotificationsSheet() {
+  uiSheet('Notifications', (sheet) => {
+    const a = el('div', { class: 'set-sheet-box' });
+    const b = el('div', { class: 'set-sheet-box' });
+    sheet.appendChild(a); sheet.appendChild(b);
+    renderNotifPrefs(a); renderEmailPrefs(b);
+  }, { cls: 'settings-sheet' });
+}
+function openSecuritySheet() {
+  const u = getCurrentUser(); if (!u) return;
+  uiSheet('Security', (sheet) => {
+    sheet.appendChild(uiList([uiRow({ title: 'Account email', end: u.email || '–' })]));
+    const pwd = el('input', { type: 'password', autocomplete: 'new-password', placeholder: 'At least 6 characters', 'aria-label': 'New password' });
+    const f = el('div', { class: 'ui-list ps-form' });
+    f.appendChild(_fieldRow('New password', pwd, true));
+    sheet.appendChild(f);
+    const save = el('button', { class: 'btn btn-lg btn-block ui-btn-soft set-gap', type: 'button' }, 'Change password');
+    save.addEventListener('click', async () => {
+      if (window._demoMode) { toast('Preview only in demo mode'); return; }
+      const v = pwd.value;
+      if (!v || v.length < 6) { toast('Use at least 6 characters'); pwd.focus(); return; }
+      save.disabled = true;
+      try { const { error } = await sb.auth.updateUser({ password: v }); if (error) throw error; pwd.value = ''; toast('Password changed'); }
+      catch (e) { toast(e.message || 'Could not change it'); }
+      finally { save.disabled = false; }
+    });
+    sheet.appendChild(save);
+    const mfa = el('div', { class: 'set-sheet-box' });
+    sheet.appendChild(mfa);
+    renderMfaCard(mfa);
+    try { attachPwdToggles(); } catch (e) {}
+  }, { cls: 'settings-sheet' });
+}
+function openPlanSheet() {
+  uiSheet('Plan & billing', (sheet) => { const b = el('div', { class: 'set-sheet-box' }); sheet.appendChild(b); renderPlanManageCard(b); }, { cls: 'settings-sheet' });
+}
+function openReferralSheet() {
+  uiSheet('Refer a lifter', (sheet) => { const b = el('div', { class: 'set-sheet-box' }); sheet.appendChild(b); renderReferralCard(b); }, { cls: 'settings-sheet' });
+}
+function openDataSheet() {
+  uiSheet('Your data', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Download everything we hold for your account. JSON is the full archive; CSV is your training log, ready to re-import anywhere.'));
+    const row = el('div', { class: 'set-sheet-2' });
+    const j = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Export JSON');
+    j.addEventListener('click', () => exportMyData('json'));
+    const c = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Export CSV');
+    c.addEventListener('click', () => exportMyData('csv'));
+    row.appendChild(j); row.appendChild(c);
+    sheet.appendChild(row);
+    const danger = el('div', { class: 'set-danger' });
+    danger.appendChild(el('p', {}, 'Deleting your account erases your training data for good.'));
+    const del = el('button', { class: 'btn btn-danger btn-lg btn-block', type: 'button' }, 'Delete my account');
+    del.addEventListener('click', () => { close(); setTimeout(() => deleteMyAccount(), 240); });
+    danger.appendChild(del);
+    sheet.appendChild(danger);
+  }, { cls: 'settings-sheet' });
+}
+// The Settings rows both You hubs share.
+function youSettingsRows(role, rerender) {
+  const u = getCurrentUser() || {};
+  const inShell = document.documentElement.classList.contains('native');
+  const showPlan = role === 'coach' && (!inShell || !!window._iapReady);
+  const tier = (window._user && window._user.subscriptionTier) || 'free';
+  return [
+    { label: 'Profile', value: u.countryCode ? flagEmoji(u.countryCode) : '', onClick: () => openProfileSheet(rerender) },
+    showPlan ? { label: 'Plan & billing', value: (typeof TIER_LABELS !== 'undefined' && TIER_LABELS[tier]) || '', onClick: () => openPlanSheet() } : null,
+    { label: 'Notifications', onClick: () => openNotificationsSheet() },
+    { label: 'Security', onClick: () => openSecuritySheet() },
+    { label: 'Units', value: getUnit() === 'lbs' ? 'lb' : 'kg', onClick: () => toggleUnit() },
+    { label: 'Your data', onClick: () => openDataSheet() }
+  ];
+}
+Object.assign(window, { pickAvatar, openProfileSheet, openNotificationsSheet, openSecuritySheet, openPlanSheet, openReferralSheet, openDataSheet, youSettingsRows });

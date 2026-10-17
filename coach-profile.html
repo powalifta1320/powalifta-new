@@ -311,6 +311,11 @@ async function renderCoachProfile() {
     stats.appendChild(r);
   }
   meta.appendChild(stats);
+  // Instagram, when the coach has added one (opens instagram.com/<handle>).
+  if (coach.instagram && typeof uiInstagramChip === 'function') {
+    const ig = uiInstagramChip(coach.instagram);
+    if (ig) { ig.classList.add('cp-ig'); meta.appendChild(ig); }
+  }
   card.appendChild(meta);
   heroIn.appendChild(card);
   hero.appendChild(heroIn);

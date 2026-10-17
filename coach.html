@@ -319,6 +319,8 @@
 <script src="clubs.js"></script>
 <script>
 let user; let activeWeekIdx = 0;
+// Builder exercises whose editor is open (survives the re-render every edit does).
+const _pbOpen = new Set();
 // Declared up here (not next to their refresh fns below) because bootstrap
 // calls renderRoster() synchronously, and renderRoster reads both of these.
 // A `let` lower in the file would be in the temporal dead zone at that point,
@@ -474,6 +476,9 @@ function renderCoachYou() {
   renderYouHub(area, {
     name: user.name,
     avatarUrl: user.avatarUrl,
+    instagram: user.instagram,
+    onAvatar: () => pickAvatar(() => renderCoachYou()),
+    edit: () => openProfileSheet(() => renderCoachYou()),
     sub: ['Coach', club].filter(Boolean).join(' · '),
     stats: [
       { label: 'Athletes', value: roster.length },
@@ -487,13 +492,12 @@ function renderCoachYou() {
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
         { label: 'Invite an athlete', onClick: () => openInviteModal() }
       ] },
-      { title: 'Account', rows: [
+      { title: 'Settings', rows: youSettingsRows('coach', () => renderCoachYou()).concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
+      { title: 'Help', rows: [
         { label: 'Ask AI', onClick: () => openAIAssistant() },
-        { label: 'Settings', value: showPlan ? 'Plan & billing' : null, onClick: () => openSettingsModal() },
-        { label: 'Units', value: getUnit().toUpperCase(), onClick: () => toggleUnit() },
-        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() },
-        { label: 'Log out', tone: 'plain', onClick: () => logout() }
-      ] }
+        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() }
+      ] },
+      { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
     ]
   });
 }
@@ -779,6 +783,117 @@ function exportRosterCsv() {
 }
 window.exportRosterCsv = exportRosterCsv;
 
+// ===== ROSTER v6: faces, training strips, the quick look =====
+// Which of the last n days an athlete logged anything (oldest → today).
+function trainingDays(athleteId, n) {
+  const days = [];
+  const set = new Set((Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId).map(l => l.date));
+  const t = new Date(); t.setHours(12, 0, 0, 0);
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(t.getTime() - i * 86400000);
+    const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    days.push({ iso, on: set.has(iso), dow: d.getDay() });
+  }
+  return days;
+}
+function dayStrip(athleteId, n, cls) {
+  const s = el('span', { class: 'roster-days' + (cls ? ' ' + cls : ''), 'aria-label': 'Trained ' + trainingDays(athleteId, n).filter(d => d.on).length + ' of the last ' + n + ' days' });
+  trainingDays(athleteId, n).forEach((d, i, arr) => s.appendChild(el('i', { class: (d.on ? 'on' : '') + (i === arr.length - 1 ? ' today' : '') })));
+  return s;
+}
+// One status per athlete for the face ring: today / pr / alert / quiet.
+function rosterStatus(o, att) {
+  if (att && att.prCount > 0) return 'pr';
+  if (o.flag === 'today') return 'today';
+  if (att && att.severity >= 2) return 'alert';
+  if (o.flag === 'stale' || o.flag === 'never') return 'alert';
+  return 'quiet';
+}
+function buildRosterFaces(overview, items) {
+  const byId = {};
+  (items || []).forEach(i => { byId[i.athlete.id] = i; });
+  const order = { today: 0, pr: 1, alert: 2, quiet: 3 };
+  const list = overview.slice().sort((a, b) => order[rosterStatus(a, byId[a.athlete.id])] - order[rosterStatus(b, byId[b.athlete.id])] || (a.ago == null ? 99 : a.ago) - (b.ago == null ? 99 : b.ago));
+  const strip = el('div', { class: 'roster-faces', role: 'list', 'aria-label': 'Your athletes' });
+  list.forEach(o => {
+    const st = rosterStatus(o, byId[o.athlete.id]);
+    const b = el('button', { class: 'rf st-' + st, type: 'button', role: 'listitem', 'aria-label': o.athlete.name });
+    const ring = el('span', { class: 'rf-ring' });
+    const av = el('span', { class: 'rs-av', 'data-name': o.athlete.name }, initials(o.athlete.name));
+    if (o.athlete.avatarUrl) av.innerHTML = '<img src="' + escHtml(o.athlete.avatarUrl) + '" alt="">';
+    ring.appendChild(av);
+    if (st !== 'quiet') ring.appendChild(el('span', { class: 'rf-badge', html: st === 'today' ? ICONS.check : st === 'pr' ? ICONS.trophy : '!' }));
+    b.appendChild(ring);
+    b.appendChild(el('span', { class: 'rf-name' }, (o.athlete.name || '').split(' ')[0]));
+    b.appendChild(el('span', { class: 'rf-sub' }, st === 'pr' ? 'PR this week' : o.flag === 'today' ? 'Trained today' : o.ago == null ? 'Not started' : o.ago + 'd ago'));
+    b.addEventListener('click', () => openAthleteSheet(o.athlete.id));
+    strip.appendChild(b);
+  });
+  return strip;
+}
+// The quick look: who they are, where their lifts sit, how the last two weeks
+// went, and the three things a coach does next.
+function openAthleteSheet(athleteId) {
+  const o = getRosterOverview(user.id).find(x => x.athlete.id === athleteId);
+  if (!o) return;
+  const a = o.athlete;
+  const mom = getE1RMMomentum(a.id, 21);
+  const unread = _unreadByAthlete[a.id] || 0;
+  uiSheet('', (sheet, close) => {
+    const head = el('div', { class: 'aq-head' });
+    const av = el('span', { class: 'rs-av aq-av', 'data-name': a.name }, initials(a.name));
+    if (a.avatarUrl) av.innerHTML = '<img src="' + escHtml(a.avatarUrl) + '" alt="">';
+    head.appendChild(av);
+    const id = el('div', { class: 'aq-id' });
+    id.appendChild(el('h3', {}, a.name));
+    const pct = o.totalSets > 0 ? Math.round(o.completedSets / o.totalSets * 100) : null;
+    id.appendChild(el('div', { class: 'aq-sub' }, o.program ? o.program.name + (pct != null ? ' · ' + pct + '% done' : '') : 'No program yet'));
+    const igc = a.instagram ? uiInstagramChip(a.instagram) : null;
+    if (igc) id.appendChild(igc);
+    head.appendChild(id);
+    sheet.appendChild(head);
+    const bw = latestBodyweight(a.id);
+    const total = currentTotal(a.id);
+    const sex = a.sex || 'male';
+    sheet.appendChild(uiStats([
+      { value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '', label: 'Total' },
+      { value: (bw && total > 0) ? dotsScore(total, bw, sex).toFixed(1) : '–', label: 'DOTS' },
+      { value: o.flag === 'today' ? 'Today' : o.ago == null ? '–' : o.ago + 'd', label: 'Last session', tone: o.flag === 'stale' || o.flag === 'never' ? 'bad' : null }
+    ]));
+    const lifts = el('div', { class: 'aq-lifts' });
+    ['squat', 'bench', 'deadlift'].forEach(l => {
+      const best = bestE1RM(a.id, l);
+      const m = mom && mom.perLift ? mom.perLift[l] : null;
+      const d = m && m.delta != null ? Math.round(kgToDisplay(m.delta)) : null;
+      const c = el('div', { class: 'aq-lift lift-' + l });
+      c.appendChild(el('span', { class: 'aq-l' }, el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }), LIFT_LABELS[l]));
+      c.appendChild(el('b', { html: best ? Math.round(kgToDisplay(best)) + '<small>' + unitLabel() + '</small>' : '–' }));
+      c.appendChild(el('span', { class: 'aq-d' + (d > 0 ? ' up' : d < 0 ? ' down' : '') }, d == null ? 'No trend yet' : d > 0 ? '+' + d + ' in 3 wks' : d < 0 ? d + ' in 3 wks' : 'Flat, 3 wks'));
+      lifts.appendChild(c);
+    });
+    sheet.appendChild(lifts);
+    const two = el('div', { class: 'aq-days' });
+    two.appendChild(el('span', { class: 'aq-days-lbl' }, 'Last 14 days'));
+    two.appendChild(dayStrip(a.id, 14, 'is-big'));
+    sheet.appendChild(two);
+    if (o.lastLog) {
+      const day = (Store.get().workoutLogs || []).filter(l => l.athleteId === a.id && l.date === o.lastLog.date);
+      const ton = day.reduce((x, l) => x + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0);
+      sheet.appendChild(uiList([uiRow({ title: 'Last session · ' + fmtDateShort(o.lastLog.date), sub: day.length + (day.length === 1 ? ' set · ' : ' sets · ') + Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved' + (o.lastRpe ? ' · last RPE ' + o.lastRpe : '') })]));
+    }
+    const acts = el('div', { class: 'aq-acts' });
+    const msg = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, unread ? 'Message (' + unread + ' new)' : 'Message');
+    msg.addEventListener('click', () => { close(); setTimeout(() => openAthleteMessages(a.id, a.name), 220); });
+    const prog = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Program');
+    prog.addEventListener('click', () => { close(); setTimeout(() => openAthleteProgram(a.id), 220); });
+    const prg = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Progress');
+    prg.addEventListener('click', () => { close(); setTimeout(() => openAthleteNotes(a.id), 220); });
+    acts.appendChild(msg); acts.appendChild(prog); acts.appendChild(prg);
+    sheet.appendChild(acts);
+  }, { cls: 'athlete-sheet' });
+}
+window.openAthleteSheet = openAthleteSheet;
+
 function renderRoster() {
   renderPlanPill();
   const area = document.getElementById('rosterArea');
@@ -818,6 +933,9 @@ function renderRoster() {
       ]
     }));
 
+    // The faces: everyone on the roster, ringed by how their week is going.
+    area.appendChild(buildRosterFaces(overview, items));
+
     // Needs attention: who to look at first, and this week's PRs.
     const flagged = items.filter(i => i.reasons.length)
       .sort((a, b) => b.severity - a.severity || ((b.overview.ago || 0) - (a.overview.ago || 0)));
@@ -830,7 +948,7 @@ function renderRoster() {
         sub: it.reasons.map(attentionReasonText).join(' · '),
         subTone: it.severity >= 3 ? 'alert' : null,
         chevron: true,
-        onClick: () => openAthleteProgram(it.athlete.id)
+        onClick: () => openAthleteSheet(it.athlete.id)
       }));
       if (wins.length) {
         const names = wins.slice(0, 4).map(i => i.athlete.name.split(' ')[0]).join(', ') + (wins.length > 4 ? ' +' + (wins.length - 4) : '');
@@ -850,7 +968,10 @@ function renderRoster() {
       const last = LAST[o.flag] || (o.ago != null ? o.ago + 'd ago' : '');
       const unread = _unreadByAthlete[o.athlete.id] || 0;
       const end = el('span', { class: 'ui-row-end' });
-      end.appendChild(el('span', { class: 'roster-last' + (o.flag === 'stale' || o.flag === 'never' ? ' is-stale' : '') }, last));
+      const when = el('span', { class: 'roster-when' });
+      when.appendChild(dayStrip(o.athlete.id, 7));
+      when.appendChild(el('span', { class: 'roster-last' + (o.flag === 'stale' || o.flag === 'never' ? ' is-stale' : '') }, last));
+      end.appendChild(when);
       const more = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Options for ' + o.athlete.name, html: UI_DOTS });
       if (unread) more.appendChild(el('span', { class: 'msg-badge' }, String(unread)));
       more.addEventListener('click', (ev) => {
@@ -867,7 +988,7 @@ function renderRoster() {
         title: o.athlete.name,
         sub: o.program ? o.program.name + (pct != null ? ' · ' + pct + '%' : '') : 'No program yet',
         endNode: end,
-        onClick: () => openAthleteProgram(o.athlete.id)
+        onClick: () => openAthleteSheet(o.athlete.id)
       });
     })));
     const pager = buildPager(overview.length, ROSTER_PER_PAGE, _rosterPage, function (pg) { _rosterPage = pg; renderRoster(); });
@@ -1183,6 +1304,10 @@ async function renderMessages() {
     const host = el('div', { class: 'msg-inbox-thread-host' });
     detailCol.appendChild(host);
     renderMessageThread(host, { coachId: user.id, athleteId: athlete.id, viewerId: user.id, otherName: (athlete.name || '').split(' ')[0] });
+    // On a phone the thread scrolls with the page: land on the newest message.
+    if (window.innerWidth <= 720) [80, 450, 1100].forEach(ms => setTimeout(() => {
+      if (shell.classList.contains('is-detail-open')) window.scrollTo(0, document.documentElement.scrollHeight);
+    }, ms));
 
     // Opening marks the thread read — clear this athlete's unread everywhere.
     if (digestByAthlete[athlete.id]) digestByAthlete[athlete.id].unread = 0;
@@ -1192,10 +1317,17 @@ async function renderMessages() {
     refreshUnreadBadges();
   }
 
+  // Same status ring as the Roster faces: trained today / PR / needs you / quiet.
+  const ovById = {}, attById = {};
+  getRosterOverview(user.id).forEach(o => { ovById[o.athlete.id] = o; });
+  getRosterAttention(user.id).forEach(i => { attById[i.athlete.id] = i; });
   sorted.forEach(athlete => {
     const d = digestByAthlete[athlete.id];
     const row = el('div', { class: 'msg-inbox-row', onclick: () => openThread(athlete, row) });
-    row.appendChild(el('div', { class: 'av', 'data-name': athlete.name }, initials(athlete.name)));
+    const st = ovById[athlete.id] ? rosterStatus(ovById[athlete.id], attById[athlete.id]) : 'quiet';
+    const ring = el('span', { class: 'msg-ring st-' + st });
+    ring.appendChild(el('div', { class: 'av', 'data-name': athlete.name }, initials(athlete.name)));
+    row.appendChild(ring);
     const mid = el('div', { class: 'msg-inbox-mid' });
     const top = el('div', { class: 'msg-inbox-row-top' });
     top.appendChild(el('span', { class: 'msg-inbox-name' }, athlete.name));
@@ -1415,6 +1547,196 @@ function _programAthleteStrip(activeId) {
   });
   return strip;
 }
+// ===== BUILDER v6: an exercise reads as one line until you open it =====
+// Closed: lift tile, name, the prescription as chips ("2 × 5 · 170 kg · RPE 8"),
+// the coach note. Open (tap): the block editors, last performance, the note.
+// Open state survives the re-render every edit triggers.
+// (_pbOpen lives next to `let user` at the top: the boot renders the builder
+// before this line would run.)
+function _pbTile(ex) {
+  if (ex.lift === 'squat') return 'S';
+  if (ex.lift === 'bench') return 'B';
+  if (ex.lift === 'deadlift') return 'D';
+  return String(ex.exerciseName || LIFT_LABELS[ex.lift] || '?').trim().charAt(0).toUpperCase();
+}
+function _pbChips(ex) {
+  const wrap = el('span', { class: 'pb-chips' });
+  if (ex.lift === 'cardio') { wrap.appendChild(el('span', { class: 'pb-chip' }, ex.sets.length + (ex.sets.length === 1 ? ' bout' : ' bouts'))); return wrap; }
+  const blocks = groupSets(ex.sets);
+  if (!blocks.length) { wrap.appendChild(el('span', { class: 'pb-chip is-empty' }, 'No sets yet')); return wrap; }
+  blocks.forEach(b => {
+    const c = el('span', { class: 'pb-chip' });
+    c.innerHTML = '<b>' + b.count + ' × ' + escHtml(String(b.reps)) + '</b>' +
+      (b.weight ? '<i>' + kgToDisplay(b.weight) + ' ' + unitLabel() + '</i>' : '') +
+      (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">RPE ' + escHtml(String(b.rpe)) + '</em>' : '');
+    wrap.appendChild(c);
+  });
+  return wrap;
+}
+function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
+  const isMain = MAIN_LIFTS.includes(ex.lift);
+  const open = _pbOpen.has(ex.id);
+  const row = el('div', { class: 'pb-ex' + (open ? ' is-open' : '') + (isMain ? ' lift-' + ex.lift : ' lift-acc') });
+  let title = '', badge = '';
+  if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; const m = multiplierFor(ex.lift, ex.variant); badge = m !== 1 ? '×' + m : ''; }
+  else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
+  else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
+  else { title = ex.exerciseName; }
+  const head = el('div', { class: 'pb-ex-head' });
+  const toggle = el('button', { class: 'pb-ex-toggle', type: 'button', 'aria-expanded': open ? 'true' : 'false' });
+  toggle.appendChild(el('span', { class: 'tx-tile pb-tile', 'aria-hidden': 'true', html: ex.lift === 'cardio' ? ICONS.flame : escHtml(_pbTile(ex)) }));
+  const mid = el('span', { class: 'pb-ex-mid' });
+  const t = el('span', { class: 'pb-ex-title' }, title || 'Exercise');
+  if (badge) t.appendChild(el('span', { class: 'pb-badge' }, badge));
+  mid.appendChild(t);
+  mid.appendChild(_pbChips(ex));
+  toggle.appendChild(mid);
+  toggle.addEventListener('click', () => { if (_pbOpen.has(ex.id)) _pbOpen.delete(ex.id); else _pbOpen.add(ex.id); loadProgram(); });
+  head.appendChild(toggle);
+  const exMore = el('button', { class: 'ui-icon-btn pb-more', type: 'button', 'aria-label': 'Exercise options', html: UI_DOTS });
+  exMore.addEventListener('click', () => uiActionSheet(title, [
+    ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderExercise(prog.id, activeWeekIdx, di, ei, -1); persistProgram(prog.id); loadProgram(); } } : null,
+    ei < day.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: () => { reorderExercise(prog.id, activeWeekIdx, di, ei, 1); persistProgram(prog.id); loadProgram(); } } : null,
+    { label: 'Duplicate', icon: ICONS.copy, onClick: () => { copyExercise(prog.id, activeWeekIdx, di, ei); persistProgram(prog.id); loadProgram(); } },
+    { label: 'Remove', icon: ICONS.trash, danger: true, onClick: () => deleteExercise(activeWeekIdx, di, ei) }
+  ]));
+  head.appendChild(exMore);
+  row.appendChild(head);
+  if (!open) {
+    if (ex.note) row.appendChild(el('div', { class: 'pb-ex-note' }, ex.note));
+    return row;
+  }
+  const edit = el('div', { class: 'pb-ex-edit' });
+  (function (row) {
+    const lastSet = getLastSetForExercise(athleteId, ex.lift, ex.variant, ex.exerciseName);
+    if (lastSet) {
+      row.appendChild(el('div', { class: 'pb-last' }, 'Last: ' + kgToDisplay(lastSet.weight) + ' ' + unitLabel() + ' × ' + lastSet.reps + ' @ RPE ' + lastSet.rpe + ' · ' + fmtDateShort(lastSet.date)));
+    }
+
+    const isCardio = ex.lift === 'cardio';
+    const u = unitLabel();
+
+    if (isCardio) {
+      // Cardio: per-bout view with weight=duration, reps=distance
+      ex.sets.forEach((set, si) => {
+        const setRow = el('div', { class: 'set-row' });
+        setRow.appendChild(el('div', { class: 'set-label' }, 'Bout ' + (si + 1)));
+        setRow.appendChild(el('input', { type: 'number', value: set.weight, placeholder: 'min', step: '0.5', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', Number(e.target.value)) }));
+        setRow.appendChild(el('input', { type: 'number', value: set.reps, placeholder: 'km', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'reps', Number(e.target.value)) }));
+        setRow.appendChild(el('input', { type: 'number', value: set.rpe == null ? '' : set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
+        const delSetBtn = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => deleteSet(activeWeekIdx, di, ei, si) });
+        delSetBtn.innerHTML = ICONS.x;
+        setRow.appendChild(delSetBtn);
+        row.appendChild(setRow);
+      });
+      const addBoutBtn = el('button', { class: 'btn btn-sm mt-8', onclick: () => addSet(activeWeekIdx, di, ei) });
+      addBoutBtn.innerHTML = ICONS.plus + '<span>Add bout</span>';
+      row.appendChild(addBoutBtn);
+    } else {
+      // Strength: render one row per "block" (group of identical consecutive sets)
+      const blocks = groupSets(ex.sets);
+      // Column labels once per exercise (the app hides the inline ones), so every
+      // block row reads as a clean grid: Sets × Reps · Load · RPE.
+      const head = el('div', { class: 'uniform-head', 'aria-hidden': 'true' });
+      ['Sets', '', 'Reps', u, 'RPE'].forEach(t => head.appendChild(el('span', {}, t)));
+      row.appendChild(head);
+      blocks.forEach((blk, bi) => {
+        const tplRow = el('div', { class: 'uniform-row' });
+
+        // Count input
+        const countWrap = el('div', { class: 'uniform-cell' });
+        countWrap.appendChild(el('input', {
+          type: 'number', min: '1', max: '50', step: '1',
+          value: blk.count,
+          onchange: e => setBlockCount(activeWeekIdx, di, ei, blk.startIdx, blk.count, Number(e.target.value))
+        }));
+        countWrap.appendChild(el('span', { class: 'uniform-lbl' }, blk.count === 1 ? 'set' : 'sets'));
+        // Two atomic groups so the prescription can only break at ONE sensible
+        // seam. Previously all 8 atoms were direct flex children of a wrapping
+        // row, so at narrow widths it fragmented mid-equation and orphaned the
+        // separators — "1 set x 5 reps @ 170" / "kg @ RPE 7.5". Volume and load
+        // now each wrap as a unit: the row either reads on one line, or as two
+        // whole clauses. Never a dangling "x" or "@".
+        const grpVolume = el('div', { class: 'uniform-grp' });
+        const grpLoad = el('div', { class: 'uniform-grp' });
+        tplRow.appendChild(grpVolume);
+        tplRow.appendChild(grpLoad);
+
+        grpVolume.appendChild(countWrap);
+        grpVolume.appendChild(el('span', { class: 'uniform-mult' }, '×'));
+
+        // Reps input
+        const repsWrap = el('div', { class: 'uniform-cell' });
+        repsWrap.appendChild(el('input', {
+          type: 'number', min: '1', step: '1',
+          value: blk.reps,
+          oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value))
+        }));
+        repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
+        grpVolume.appendChild(repsWrap);
+        grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
+
+        // Weight input
+        const wWrap = el('div', { class: 'uniform-cell' });
+        wWrap.appendChild(el('input', {
+          type: 'number', step: '0.5',
+          value: blk.weight ? kgToDisplay(blk.weight) : '',
+          placeholder: u,
+          oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value)))
+        }));
+        wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
+        grpLoad.appendChild(wWrap);
+        grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
+
+        // RPE input — OPTIONAL. Empty input = no prescribed RPE (back-down style).
+        const rpeWrap = el('div', { class: 'uniform-cell' });
+        rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
+        rpeWrap.appendChild(el('input', {
+          type: 'number', min: '1', max: '10', step: '0.5',
+          value: blk.rpe == null ? '' : blk.rpe,
+          placeholder: 'opt',
+          title: 'Leave blank for back-down sets',
+          oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value))
+        }));
+        grpLoad.appendChild(rpeWrap);
+
+        // Per-block delete (only show if there's more than one block — never let exercise have zero)
+        if (blocks.length > 1) {
+          const xBtn = el('button', {
+            class: 'btn-icon btn-danger',
+            style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px; margin-left: auto;',
+            onclick: () => deleteBlock(activeWeekIdx, di, ei, blk.startIdx, blk.count),
+            title: 'Remove this block'
+          });
+          xBtn.innerHTML = ICONS.x;
+          tplRow.appendChild(xBtn);
+        }
+
+        row.appendChild(tplRow);
+      });
+
+      const addBlockBtn = el('button', { class: 'ui-text-btn pb-add-block', type: 'button', onclick: () => addBlock(activeWeekIdx, di, ei), title: 'Add a block, e.g. back-down sets after a top set' });
+      addBlockBtn.textContent = '+ Add sets';
+      row.appendChild(addBlockBtn);
+    }
+
+    const noteWrap = el('div', { class: 'pb-note' });
+    const noteInput = el('textarea', {
+      class: 'coach-note-input', placeholder: 'Coach note (optional)', 'aria-label': 'Coach note',
+      oninput: e => {
+        Store.update(s => { const p = s.programs.find(p => p.athleteId === athleteId); if (p) p.weeks[activeWeekIdx].days[di].exercises[ei].note = e.target.value; });
+        persistProgram(prog.id);
+      }
+    });
+    noteInput.value = ex.note || '';
+    noteWrap.appendChild(noteInput);
+    row.appendChild(noteWrap);
+
+  })(edit);
+  row.appendChild(edit);
+  return row;
+}
+
 function loadProgram() {
   const sel = document.getElementById('progAthlete');
   const athleteId = sel.value;
@@ -1520,10 +1842,18 @@ function loadProgram() {
   main.appendChild(wkHead);
 
   wk.days.forEach((day, di) => {
-    const dayCard = el('div', { class: 'day-card' });
-    const dayHead = el('div', { class: 'day-head' });
-    const dayInput = el('input', { class: 'day-name-input', value: day.name, 'aria-label': 'Day name', onchange: e => updateDayName(activeWeekIdx, di, e.target.value) });
-    dayHead.appendChild(dayInput);
+    const dayCard = el('div', { class: 'pb-day' });
+    const dayHead = el('div', { class: 'pb-day-head' });
+    const idw = el('div', { class: 'pb-day-id' });
+    const dayInput = el('input', { class: 'pb-day-name', value: day.name, 'aria-label': 'Day name', onchange: e => updateDayName(activeWeekIdx, di, e.target.value) });
+    idw.appendChild(dayInput);
+    const exN = day.exercises.length, setN = day.exercises.reduce((a, e) => a + e.sets.length, 0);
+    const liftsIn = MAIN_LIFTS.filter(l => day.exercises.some(e => e.lift === l));
+    const meta = el('div', { class: 'pb-day-meta' });
+    liftsIn.forEach(l => meta.appendChild(el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' })));
+    meta.appendChild(document.createTextNode(exN ? exN + (exN === 1 ? ' exercise · ' : ' exercises · ') + setN + (setN === 1 ? ' set' : ' sets') : (/\b(rest|off|recovery)\b/i.test(day.name || '') ? 'Recovery' : 'No exercises yet')));
+    idw.appendChild(meta);
+    dayHead.appendChild(idw);
     const dayMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Day options', html: UI_DOTS });
     dayMore.addEventListener('click', () => uiActionSheet(day.name || 'Day', [
       di > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderDay(prog.id, activeWeekIdx, di, -1); persistProgram(prog.id); loadProgram(); } } : null,
@@ -1533,7 +1863,7 @@ function loadProgram() {
     dayHead.appendChild(dayMore);
     dayCard.appendChild(dayHead);
 
-    const dayBody = el('div', { class: 'day-body' });
+    const dayBody = el('div', { class: 'pb-day-body' });
     if (!day.exercises.length) {
       const isRestDay = /\b(rest|off|recovery)\b/i.test(day.name || '');
       if (isRestDay) {
@@ -1541,162 +1871,11 @@ function loadProgram() {
         restBox.appendChild(el('div', { class: 'pb-rest-title' }, 'Rest day'));
         restBox.appendChild(el('div', { class: 'pb-rest-sub' }, 'Rename it to make it a training day.'));
         dayBody.appendChild(restBox);
-      } else {
-        dayBody.appendChild(el('div', { class: 'day-empty' }, 'No exercises yet'));
       }
     } else {
-      day.exercises.forEach((ex, ei) => {
-        const row = el('div', { class: 'exercise-row' });
-        const head = el('div', { class: 'exercise-row-header' });
-        const titleBlock = el('div', { class: 'exercise-name' });
-        let title = '', badge = '';
-        if (MAIN_LIFTS.includes(ex.lift)) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; const m = multiplierFor(ex.lift, ex.variant); badge = m !== 1 ? '×' + m : ''; }
-        else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
-        else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
-        else { title = ex.exerciseName; badge = ''; }
-        titleBlock.appendChild(el('span', { class: 'lift-dot ' + (MAIN_LIFTS.includes(ex.lift) ? 'lift-' + ex.lift : 'lift-acc'), 'aria-hidden': 'true' }));
-        titleBlock.appendChild(el('span', {}, title));
-        if (badge) titleBlock.appendChild(el('span', { class: 'lift-badge' }, badge));
-        head.appendChild(titleBlock);
-        const exMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Exercise options', html: UI_DOTS });
-        exMore.addEventListener('click', () => uiActionSheet(title, [
-          ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderExercise(prog.id, activeWeekIdx, di, ei, -1); persistProgram(prog.id); loadProgram(); } } : null,
-          ei < day.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: () => { reorderExercise(prog.id, activeWeekIdx, di, ei, 1); persistProgram(prog.id); loadProgram(); } } : null,
-          { label: 'Duplicate', icon: ICONS.copy, onClick: () => { copyExercise(prog.id, activeWeekIdx, di, ei); persistProgram(prog.id); loadProgram(); } },
-          { label: 'Remove', icon: ICONS.trash, danger: true, onClick: () => deleteExercise(activeWeekIdx, di, ei) }
-        ]));
-        head.appendChild(exMore);
-        row.appendChild(head);
-
-        const lastSet = getLastSetForExercise(athleteId, ex.lift, ex.variant, ex.exerciseName);
-        if (lastSet) {
-          row.appendChild(el('div', { class: 'pb-last' }, 'Last: ' + kgToDisplay(lastSet.weight) + ' ' + unitLabel() + ' × ' + lastSet.reps + ' @ RPE ' + lastSet.rpe + ' · ' + fmtDateShort(lastSet.date)));
-        }
-
-        const isCardio = ex.lift === 'cardio';
-        const u = unitLabel();
-
-        if (isCardio) {
-          // Cardio: per-bout view with weight=duration, reps=distance
-          ex.sets.forEach((set, si) => {
-            const setRow = el('div', { class: 'set-row' });
-            setRow.appendChild(el('div', { class: 'set-label' }, 'Bout ' + (si + 1)));
-            setRow.appendChild(el('input', { type: 'number', value: set.weight, placeholder: 'min', step: '0.5', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'weight', Number(e.target.value)) }));
-            setRow.appendChild(el('input', { type: 'number', value: set.reps, placeholder: 'km', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'reps', Number(e.target.value)) }));
-            setRow.appendChild(el('input', { type: 'number', value: set.rpe == null ? '' : set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => updateSet(activeWeekIdx, di, ei, si, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
-            const delSetBtn = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => deleteSet(activeWeekIdx, di, ei, si) });
-            delSetBtn.innerHTML = ICONS.x;
-            setRow.appendChild(delSetBtn);
-            row.appendChild(setRow);
-          });
-          const addBoutBtn = el('button', { class: 'btn btn-sm mt-8', onclick: () => addSet(activeWeekIdx, di, ei) });
-          addBoutBtn.innerHTML = ICONS.plus + '<span>Add bout</span>';
-          row.appendChild(addBoutBtn);
-        } else {
-          // Strength: render one row per "block" (group of identical consecutive sets)
-          const blocks = groupSets(ex.sets);
-          // Column labels once per exercise (the app hides the inline ones), so every
-          // block row reads as a clean grid: Sets × Reps · Load · RPE.
-          const head = el('div', { class: 'uniform-head', 'aria-hidden': 'true' });
-          ['Sets', '', 'Reps', u, 'RPE'].forEach(t => head.appendChild(el('span', {}, t)));
-          row.appendChild(head);
-          blocks.forEach((blk, bi) => {
-            const tplRow = el('div', { class: 'uniform-row' });
-
-            // Count input
-            const countWrap = el('div', { class: 'uniform-cell' });
-            countWrap.appendChild(el('input', {
-              type: 'number', min: '1', max: '50', step: '1',
-              value: blk.count,
-              onchange: e => setBlockCount(activeWeekIdx, di, ei, blk.startIdx, blk.count, Number(e.target.value))
-            }));
-            countWrap.appendChild(el('span', { class: 'uniform-lbl' }, blk.count === 1 ? 'set' : 'sets'));
-            // Two atomic groups so the prescription can only break at ONE sensible
-            // seam. Previously all 8 atoms were direct flex children of a wrapping
-            // row, so at narrow widths it fragmented mid-equation and orphaned the
-            // separators — "1 set x 5 reps @ 170" / "kg @ RPE 7.5". Volume and load
-            // now each wrap as a unit: the row either reads on one line, or as two
-            // whole clauses. Never a dangling "x" or "@".
-            const grpVolume = el('div', { class: 'uniform-grp' });
-            const grpLoad = el('div', { class: 'uniform-grp' });
-            tplRow.appendChild(grpVolume);
-            tplRow.appendChild(grpLoad);
-
-            grpVolume.appendChild(countWrap);
-            grpVolume.appendChild(el('span', { class: 'uniform-mult' }, '×'));
-
-            // Reps input
-            const repsWrap = el('div', { class: 'uniform-cell' });
-            repsWrap.appendChild(el('input', {
-              type: 'number', min: '1', step: '1',
-              value: blk.reps,
-              oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value))
-            }));
-            repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
-            grpVolume.appendChild(repsWrap);
-            grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
-
-            // Weight input
-            const wWrap = el('div', { class: 'uniform-cell' });
-            wWrap.appendChild(el('input', {
-              type: 'number', step: '0.5',
-              value: blk.weight ? kgToDisplay(blk.weight) : '',
-              placeholder: u,
-              oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value)))
-            }));
-            wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
-            grpLoad.appendChild(wWrap);
-            grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
-
-            // RPE input — OPTIONAL. Empty input = no prescribed RPE (back-down style).
-            const rpeWrap = el('div', { class: 'uniform-cell' });
-            rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
-            rpeWrap.appendChild(el('input', {
-              type: 'number', min: '1', max: '10', step: '0.5',
-              value: blk.rpe == null ? '' : blk.rpe,
-              placeholder: 'opt',
-              title: 'Leave blank for back-down sets',
-              oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value))
-            }));
-            grpLoad.appendChild(rpeWrap);
-
-            // Per-block delete (only show if there's more than one block — never let exercise have zero)
-            if (blocks.length > 1) {
-              const xBtn = el('button', {
-                class: 'btn-icon btn-danger',
-                style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px; margin-left: auto;',
-                onclick: () => deleteBlock(activeWeekIdx, di, ei, blk.startIdx, blk.count),
-                title: 'Remove this block'
-              });
-              xBtn.innerHTML = ICONS.x;
-              tplRow.appendChild(xBtn);
-            }
-
-            row.appendChild(tplRow);
-          });
-
-          const addBlockBtn = el('button', { class: 'ui-text-btn pb-add-block', type: 'button', onclick: () => addBlock(activeWeekIdx, di, ei), title: 'Add a block, e.g. back-down sets after a top set' });
-          addBlockBtn.textContent = '+ Add sets';
-          row.appendChild(addBlockBtn);
-        }
-
-        const noteWrap = el('div', { class: 'pb-note' });
-        const noteInput = el('textarea', {
-          class: 'coach-note-input', placeholder: 'Coach note (optional)', 'aria-label': 'Coach note',
-          oninput: e => {
-            Store.update(s => { const p = s.programs.find(p => p.athleteId === athleteId); if (p) p.weeks[activeWeekIdx].days[di].exercises[ei].note = e.target.value; });
-            persistProgram(prog.id);
-          }
-        });
-        noteInput.value = ex.note || '';
-        noteWrap.appendChild(noteInput);
-        row.appendChild(noteWrap);
-
-        dayBody.appendChild(row);
-      });
+      day.exercises.forEach((ex, ei) => dayBody.appendChild(buildPbExercise(prog, athleteId, wk, day, di, ex, ei)));
     }
-
-    const addExBtn = el('button', { class: 'ui-btn-soft pb-add-ex', type: 'button', onclick: () => openAddExercise(activeWeekIdx, di) });
+    const addExBtn = el('button', { class: 'pb-add-ex2', type: 'button', onclick: () => openAddExercise(activeWeekIdx, di) });
     addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
     dayBody.appendChild(addExBtn);
     dayCard.appendChild(dayBody);

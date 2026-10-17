@@ -609,6 +609,43 @@ test('club feed: sessionSummary counts the day and names it after the main lift'
 });
 
 /* ===========================================================
+   9b-v. UI v6 pure helpers: the loaded bar, RPE reads, reactions
+   =========================================================== */
+group('v6 helpers');
+test('plate loadout: 165 kg on a 20 kg bar is 25 25 20 2.5 a side', () => {
+  const prev = localStorage.getItem('powa-unit'); localStorage.setItem('powa-unit', 'kg');
+  try {
+    const r = plateLoadout(165);
+    eq(r.plates.join(','), '25,25,20,2.5'); eq(r.unit, 'kg');
+    eq(plateLoadout(20).plates.length, 0);
+    eq(plateSummaryText(100), '25 · 15 kg a side');
+  } finally { if (prev == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', prev); }
+});
+test('rpe reads: colours run green to red, half steps snap, tank text says reps left', () => {
+  eq(rpeColor(6), '#34d982'); eq(rpeColor(10), '#ff3b4a'); eq(rpeColor(8.4), rpeColor(8.5));
+  eq(rpeTankText(8), 'Two reps left in the tank');
+  eq(rpeTankText(10), 'Nothing left. A true max');
+});
+test('instagram: handles, @, links and junk', () => {
+  eq(normalizeInstagram('@Nina.Deadlifts'), 'nina.deadlifts');
+  eq(normalizeInstagram('https://www.instagram.com/kofi_totals/?hl=en'), 'kofi_totals');
+  eq(normalizeInstagram('instagram.com/arjun.pulls'), 'arjun.pulls');
+  eq(normalizeInstagram(''), '');
+  eq(normalizeInstagram('not a handle'), null);
+  eq(normalizeInstagram('bad$name'), null);
+  eq(normalizeInstagram('x'.repeat(31)), null);
+  eq(instagramUrl('a.b_c'), 'https://instagram.com/a.b_c');
+});
+test('reaction summary: one per person, counts by key, my pick, nulls ignored', () => {
+  const s = reactionSummary([
+    { userId: 'a', reaction: 'fire' }, { userId: 'b', reaction: 'fire' },
+    { userId: 'me', reaction: 'strong' }, { userId: 'c', reaction: null }, { userId: 'd', reaction: 'nope' }
+  ], 'me');
+  eq(s.counts.fire, 2); eq(s.counts.strong, 1); eq(s.total, 3); eq(s.mine, 'strong');
+  eq(reactionSummary([], 'me').mine, null);
+});
+
+/* ===========================================================
    9b-iv. Smart rest (smartRestSeconds in app.js)
    =========================================================== */
 group('smart rest');

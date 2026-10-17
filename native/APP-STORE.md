@@ -97,7 +97,9 @@ Source of truth is `privacy.html`. Declare:
 | Name | Yes | Yes | No | App functionality (your profile, coach roster) |
 | Email address | Yes | Yes | No | App functionality (account, auth, transactional email) |
 | Health & Fitness (workouts, bodyweight) | Yes | Yes | No | App functionality (your training log) |
-| User content (notes, form-check videos, messages) | Yes | Yes | No | App functionality |
+| User content (notes, form-check videos, messages, club posts + reactions) | Yes | Yes | No | App functionality |
+| Photos or videos (profile photo, form-check videos) | Yes | Yes | No | App functionality |
+| Other user contact info (Instagram handle, optional) | Yes | Yes | No | App functionality (shown on your profile, club lifter card, coach page) |
 | Coarse/precise location | No | — | — | — |
 | Financial info / payment | No | — | — | Card data never touches us — Lemon Squeezy is Merchant of Record |
 | Identifiers (device push token) | Yes | Yes | No | App functionality (push notifications) |

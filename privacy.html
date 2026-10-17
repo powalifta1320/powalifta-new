@@ -42,7 +42,7 @@
 <main id="main" class="container" style="max-width: 760px; padding-top: 60px; padding-bottom: 80px;">
   <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
   <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 8px;">Privacy Policy</h1>
-  <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 11 June 2026</p>
+  <p class="dim text-sm" style="margin-bottom: 30px;">Last updated: 17 October 2026</p>
 
   <div class="card" style="padding: 30px; line-height: 1.7;">
     <p>POWALIFTA ("we", "us") respects your privacy. This page explains what we collect, why, and what we do with it. We've kept it short on purpose.</p>
@@ -50,13 +50,14 @@
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">What we collect</h3>
     <p>When you sign up, we ask for your <strong>name</strong>, <strong>email address</strong>, and a <strong>password</strong>. Coaches additionally provide a <strong>bio</strong> shown on the public coach directory.</p>
     <p style="margin-top:10px">As you use POWALIFTA, we store your <strong>training data</strong>: the programs your coach builds, the sets you log (weight, reps, RPE, notes, dates), your bodyweight entries, your training goals, and any session notes you write. Coaches can see this data for athletes connected to their account.</p>
-    <p style="margin-top:10px">We do <strong>not</strong> collect: ID documents, payment card details (handled by our payment processor, Lemon Squeezy), location data, or biometric data.</p>
+    <p style="margin-top:10px">If you choose to add them, we also store a <strong>profile photo</strong>, your <strong>country</strong> and your <strong>Instagram handle</strong>, plus the messages you send your coach, the form-check videos you upload, and the <strong>posts and reactions</strong> you share in a club.</p>
+    <p style="margin-top:10px">We do <strong>not</strong> collect: ID documents, payment card details (handled by Lemon Squeezy on the web and by Apple for purchases in the iPhone app), location data, or biometric data.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Where it lives</h3>
     <p>Your account and training data are stored in a managed Postgres database operated by Supabase. Data is encrypted in transit (TLS) and at rest. We use Supabase's authentication service to manage logins; passwords are hashed and we never see or store the plaintext. Your browser also keeps a small amount of non-sensitive state (theme preference, session tokens) in <code style="background:var(--bg-2); padding:2px 6px; border-radius:4px; font-family:var(--font-num);">localStorage</code>.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Sub-processors</h3>
-    <p>We use a small number of service providers to run POWALIFTA: <strong>Supabase</strong> (database, authentication, file storage), <strong>Vercel</strong> (website hosting and CDN), <strong>Lemon Squeezy</strong> (payments and all card details, as merchant of record), <strong>Resend</strong> (transactional email, e.g. welcome emails), <strong>Google</strong> (the Gemini AI assistant, see below; also Google Fonts for font delivery). Each only receives the data needed to do its job.</p>
+    <p>We use a small number of service providers to run POWALIFTA: <strong>Supabase</strong> (database, authentication, file storage), <strong>Vercel</strong> (website hosting and CDN), <strong>Lemon Squeezy</strong> (payments and all card details, as merchant of record), <strong>Resend</strong> (transactional email, e.g. welcome emails), <strong>Google</strong> (the Gemini AI assistant, see below; also Google Fonts for font delivery), <strong>Apple</strong> (in-app purchases and push notifications in the iPhone app). Each only receives the data needed to do its job.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">AI assistant</h3>
     <p>The in-app assistant ("Ask AI") is optional: you only use it if you open it and ask a question. When you do, the question plus a short summary of the relevant training data (for example your recent lifts, e1RM and program, or for coaches a roster overview) is sent to <strong>Google</strong> to generate a reply with their Gemini model. We send only what's needed to answer, never your password or payment details. The request goes through our own server first so the API key is never exposed to your browser. If you never open the assistant, none of your data is sent to Google.</p>
@@ -64,8 +65,12 @@
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">How long we keep data</h3>
     <p>While your account is active, we keep your data so you can see your training history. When you delete your account, the erasure is immediate: your profile, programs, logs, messages, uploaded form-check videos and everything else tied to you are removed straight away, not queued for later. The one exception is billing/purchase records we're legally required to keep for tax: those rows survive with your personal details stripped out (the amount and date remain; the identity is anonymized).</p>
 
+    <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Clubs, the leaderboard and public pages</h3>
+    <p>When you join a club, its other members can see your name, profile photo, Instagram handle (if you added one), and the numbers behind the club board: your best squat, bench, deadlift and total, your DOTS score, your latest bodyweight, your sex category, and how many sessions and how much weight you lifted this week. They also see the posts and reactions you share in the club. They never see your program, your full training log, your bodyweight history, your messages or your email. Leaving a club removes your posts from it. If someone reports a post, we keep a copy with the report so we can review it.</p>
+    <p style="margin-top:10px">The public DOTS leaderboard is opt-in. If you publish to it, your name, total, DOTS score, bodyweight, sex category and country are public until you remove yourself. A coach's public profile shows their name, photo, bio and Instagram handle.</p>
+
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Who we share it with</h3>
-    <p>Nobody, except: coaches you have connected to (they see your training data and notes, which is the point), our payment processor for billing-related lookups (coaches only), and any authorities if compelled by law. We do not sell user data to advertisers, brokers, or any third party.</p>
+    <p>Nobody, except: coaches you have connected to (they see your training data and notes, which is the point), members of a club you join (they see what's listed above), everyone if you publish to the leaderboard, our payment processor for billing-related lookups (coaches only), and any authorities if compelled by law. We do not sell user data to advertisers, brokers, or any third party.</p>
 
     <h3 style="margin: 28px 0 10px; font-size: 1.4rem;">Cookies and analytics</h3>
     <p>We don't use advertising trackers, cross-site cookies, or fingerprinting, and we never sell your data. We keep you logged in with a session token in your browser's localStorage; that's essential, and clearing it just signs you out. For visit counts we use <a href="https://plausible.io/privacy-focused-web-analytics" target="_blank" rel="noopener">Plausible</a>, a privacy-friendly, cookieless analytics tool that stores no personal data and never tracks you across sites. Prefer not to be counted? Choose "Essential only" on the privacy banner when you first visit, and we'll remember it.</p>
