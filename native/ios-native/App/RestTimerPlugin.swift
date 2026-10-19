@@ -3,7 +3,8 @@
 //  POWALIFTA — Capacitor plugin bridging the web rest timer to an iOS Live Activity.
 //
 //  JS name: "RestTimer". The web app (athlete.html) already calls, feature-detected:
-//      window.Capacitor.Plugins.RestTimer.start({ endTime, total, label })
+//      window.Capacitor.Plugins.RestTimer.start({ endTime, total, label, queue })
+//      window.Capacitor.Plugins.RestTimer.takePendingLogs() → { keys }
 //      window.Capacitor.Plugins.RestTimer.update({ endTime, paused })
 //      window.Capacitor.Plugins.RestTimer.stop()
 //  so this plugin lights up the Dynamic Island / Lock Screen countdown without any
@@ -29,7 +30,8 @@ public class RestTimerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takePendingLogs", returnType: CAPPluginReturnPromise)
     ]
 
     // Island buttons (RestTimerIntents) → NotificationCenter → webview "restAction"
@@ -73,12 +75,19 @@ public class RestTimerPlugin: CAPPlugin, CAPBridgedPlugin {
             let total = call.getDouble("total") ?? 90
             let label = call.getString("label") ?? "Rest"
             let end = date(fromMs: endMs)
+            // The next sets the Lock Screen can log, in order: [{ key, label }].
+            let queue: [RestQueue.Item] = (call.getArray("queue") ?? []).compactMap { v in
+                guard let d = v as? [String: Any], let k = d["key"] as? String, !k.isEmpty else { return nil }
+                return RestQueue.Item(key: k, label: (d["label"] as? String) ?? "")
+            }
+            RestQueue.save(queue)
 
             // Only one rest Activity at a time — clear any straggler first.
             endAllActivities()
 
             let attributes = RestTimerAttributes(liftName: label, totalSeconds: max(1, total))
-            let state = RestTimerAttributes.ContentState(endDate: end, paused: false, pausedRemaining: 0)
+            let state = RestTimerAttributes.ContentState(endDate: end, paused: false, pausedRemaining: 0,
+                                                         nextLabel: queue.first?.label ?? "", canLog: !queue.isEmpty)
             do {
                 if #available(iOS 16.2, *) {
                     _ = try Activity.request(
@@ -106,13 +115,18 @@ public class RestTimerPlugin: CAPPlugin, CAPBridgedPlugin {
             let endMs = call.getDouble("endTime") ?? (Date().timeIntervalSince1970 * 1000)
             let end = date(fromMs: endMs)
             let remaining = max(0, end.timeIntervalSinceNow)
-            let state = RestTimerAttributes.ContentState(
-                endDate: end,
-                paused: paused,
-                pausedRemaining: paused ? remaining : 0
-            )
             Task {
                 for activity in Activity<RestTimerAttributes>.activities {
+                    // Keep the next-set line + Log button the activity already shows.
+                    let cur: RestTimerAttributes.ContentState
+                    if #available(iOS 16.2, *) { cur = activity.content.state } else { cur = activity.contentState }
+                    let state = RestTimerAttributes.ContentState(
+                        endDate: end,
+                        paused: paused,
+                        pausedRemaining: paused ? remaining : 0,
+                        nextLabel: cur.nextLabel,
+                        canLog: cur.canLog
+                    )
                     if #available(iOS 16.2, *) {
                         await activity.update(ActivityContent(state: state, staleDate: end.addingTimeInterval(300)))
                     } else {
@@ -153,7 +167,13 @@ public class RestTimerPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["active": false])
     }
 
+    // Sets logged from the Lock Screen since the webview last looked ("exId|setIndex").
+    @objc func takePendingLogs(_ call: CAPPluginCall) {
+        call.resolve(["keys": RestQueue.takePending()])
+    }
+
     @objc func stop(_ call: CAPPluginCall) {
+        RestQueue.save([])
         #if canImport(ActivityKit)
         if #available(iOS 16.1, *) {
             endAllActivities()

@@ -177,6 +177,11 @@ Built in `app.js`; reuse them before writing new markup.
   + `openReactionPicker`
 - `uiInstagramChip(handle)` the "@handle" link (`{big:true}` on lifter cards); handles go through
   `normalizeInstagram()` and open only `instagram.com/<handle>`.
+- `uiTikTokChip(handle)` the same pill for TikTok (ink glyph: TikTok's brand is black and white), and
+  `uiSocialChips(model)` = Instagram + TikTok side by side, whichever the lifter has. Handles go through
+  `normalizeTikTok()` and open only `tiktok.com/@<handle>`.
+- `uiRpeScale(value, onPick, { target, simple })`: the planned RPE gets the one quiet tick; `simple`
+  (new lifters) shows five "reps left" buttons 4+ · 3 · 2 · 1 · 0 instead of nine numbers.
 - Screen patterns: Train NOW card (`buildTodayHero`), exercise card (`buildExerciseCard`), lifter card
   (`openLifterCard`), athlete quick look (`openAthleteSheet`), meet / plate / load sheets.
 
@@ -194,3 +199,7 @@ focus ring on the web. Touch targets are at least 44px.
 | Bottom sheets for tasks, action sheets for menus | Web modals, `confirm()`, `prompt()` inside the app |
 | Animate state changes 150–420ms with ease-out | Bounce, elastic, or entrance choreography on every list |
 | Test in the iOS simulator and the light website theme | Ship a component that only works in dark |
+| Say each fact once (calm, v7): the target lives on the scale, plates in the bar | Repeat it as a pill, a sub-line and a read-out on the same card |
+| Show tools where the lifter is: the current exercise only | The same three chips on every exercise card |
+| Flat lists with inset separators inside a card | A tile per row, a card inside a card |
+| Colour where something is being chosen (the RPE pick, a real delta) | A rainbow of RPE colours on every row |

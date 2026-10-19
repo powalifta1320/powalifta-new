@@ -17,6 +17,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<meta name="apple-itunes-app" content="app-id=6788506689">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
@@ -333,6 +334,7 @@ const _feltRpe = {};
 // Smart next set (app.js smartNextLoad): the load the next set moved to after the
 // last one felt harder or easier than planned (key exId_si → {kg, fromKg, kept}).
 const _smartLoad = {};
+const _readyLoad = {};   // readiness: today's lighter loads per set (see smartFor)
 // Coach-tab live messaging: the mounted thread host (so we can drop its realtime
 // channel when the tab re-renders) + the always-on athlete-level subscription
 // that lights an unread dot on the Coach tab while you're on another tab.
@@ -1300,10 +1302,19 @@ function syncRowFelt(exId, si) {
 // its target moves the next set of the same exercise; the NOW card shows the new
 // load with a one-tap "Keep 160 kg", and the move applies when that set is logged.
 function smartFor(ex, si) {
-  const s = _smartLoad[ex.id + '_' + si];
-  if (!s || s.kept || !getSmartLoadOn()) return null;
+  const key = ex.id + '_' + si;
+  const s = _smartLoad[key];
   const set = ex.sets[si], prev = ex.sets[si - 1];
-  return set && !set.completed && prev && prev.completed ? s : null;
+  // The smart next set has the say once it has looked at this set (even "no change").
+  if (s) return (!s.none && !s.kept && getSmartLoadOn() && set && !set.completed && prev && prev.completed) ? s : null;
+  // Readiness: on a "beat up" day every set still to do starts 5% under the plan.
+  if (!set || set.completed || ex.lift === 'cardio' || getReadiness(getSessionDate()) !== 'rough') return null;
+  if (!(key in _readyLoad)) {
+    const from = planWeight(set), kg = readinessLoad(from, 'rough', getUnit());
+    _readyLoad[key] = kg ? { kg, fromKg: from, delta: Math.round((kg - from) * 1000) / 1000, dir: 'down', ready: true } : null;
+  }
+  const r = _readyLoad[key];
+  return r && !r.kept ? r : null;
 }
 function planSmartNext(ex, si, felt) {
   const k = ex.id + '_' + (si + 1);
@@ -1313,11 +1324,13 @@ function planSmartNext(ex, si, felt) {
   const s = smartNextLoad(
     { weight: done.weight, planned: done.plannedWeight || done.weight, reps: done.reps, rpe: felt, target: done.rpe },
     { weight: next.plannedWeight || next.weight, reps: next.reps, rpe: next.rpe }, getUnit());
-  if (s) _smartLoad[k] = s;
+  _smartLoad[k] = s || { none: true };   // "no change" is an answer too (readiness won't override it)
   return s;
 }
 // Why the load moved, in one line: "Set 1 felt RPE 9, planned 8".
 function smartWhy(ex, si) {
+  const r = _readyLoad[ex.id + '_' + si];
+  if (r && !_smartLoad[ex.id + '_' + si]) return 'You\'re beat up today, so it starts a little lighter';
   const p = ex.sets[si - 1];
   if (!p || !p.completed) return '';
   const off = p.rpe != null && p.rpe !== '' && Math.abs(Number(p.actualRpe) - Number(p.rpe)) > 0.5;
@@ -1369,14 +1382,11 @@ function buildTodayHero(cur) {
   const advancing = !!window._txJustLogged;
   const hero = el('div', { class: 'ui-hero today-hero tx-hero' + (isMain ? ' lift-' + next.ex.lift : '') + (advancing ? ' is-advancing' : '') });
 
-  const top = el('div', { class: 'tdh-row' });
-  top.appendChild(el('span', { class: 'tdh-label' }, (done === 0 ? 'First up' : 'Next up') + ' · set ' + (next.si + 1) + ' of ' + next.ex.sets.length));
-  top.appendChild(el('span', { class: 'tdh-count' }, done + '/' + total + ' sets'));
-  hero.appendChild(top);
-
+  // Calm (v7): every fact once. The lift + where you are in it; the target RPE
+  // lives on the scale, the plates in the bar (tap it), session progress in the rail.
   const exRow = el('div', { class: 'tx-ex-row' });
   exRow.appendChild(el('div', { class: 'tdh-ex' }, isMain ? el('span', { class: 'lift-dot lift-' + next.ex.lift, 'aria-hidden': 'true' }) : null, exTitleOf(next.ex)));
-  if (next.set.rpe != null && next.set.rpe !== '') exRow.appendChild(el('span', { class: 'tx-target' }, 'Target RPE ' + next.set.rpe));
+  exRow.appendChild(el('span', { class: 'tx-setof', 'aria-label': 'Set ' + (next.si + 1) + ' of ' + next.ex.sets.length + ', ' + done + ' of ' + total + ' sets done today' }, 'Set ' + (next.si + 1) + ' of ' + next.ex.sets.length));
   hero.appendChild(exRow);
 
   const s = next.set;
@@ -1402,9 +1412,6 @@ function buildTodayHero(cur) {
     load.appendChild(bar);
   }
   hero.appendChild(load);
-  if (!isCardio && wKg > 0) {
-    hero.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(wKg) }));
-  }
   if (smart) {
     const sm = el('div', { class: 'tx-smart is-' + smart.dir });
     sm.appendChild(el('span', { class: 'tx-smart-ic', 'aria-hidden': 'true', html: smart.dir === 'down'
@@ -1426,14 +1433,9 @@ function buildTodayHero(cur) {
     hero.appendChild(sm);
   }
 
-  // This exercise's sets: done · now · to go.
-  const track = el('div', { class: 'tx-track', 'aria-hidden': 'true' });
-  next.ex.sets.forEach((x, i) => track.appendChild(el('i', { class: x.completed ? 'done' : (i === next.si ? 'now' : '') })));
-  hero.appendChild(track);
-
   const key = next.ex.id + '_' + next.si;
   const scale = uiRpeScale(feltRpeFor(next.ex, next.si), (r) => { _feltRpe[key] = r; syncRowFelt(next.ex.id, next.si); },
-    { cls: 'tx-rpe', empty: 'How hard was it? Tap the RPE', label: 'How hard was set ' + (next.si + 1) + '? RPE' });
+    { cls: 'tx-rpe', target: s.rpe, empty: 'How hard was it? Tap the RPE', label: 'How hard was set ' + (next.si + 1) + '? RPE' });
   hero.appendChild(scale);
 
   const btn = el('button', { class: 'btn btn-primary btn-lg tdh-log', type: 'button' });
@@ -1503,6 +1505,83 @@ function _relDay(iso) {
   const d = Math.round((Date.parse(todayISO()) - Date.parse(iso)) / 86400000);
   return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 7 ? d + ' days ago' : fmtDateShort(iso);
 }
+// READINESS (app.js READINESS / readinessLoad): one tap before the first set.
+// Beat up → every set still to do starts 5% under the plan (smartFor applies
+// it); fresh and normal change nothing and the row goes away.
+function readinessRow(date) {
+  const r = el('div', { class: 'today-note tn-row tn-ready' });
+  r.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span>' +
+    '<span class="tn-body"><span class="tn-title">How do you feel today?</span><span class="tn-text tn-one">Sleep, soreness, the lot</span></span>';
+  const seg = el('div', { class: 'tn-ready-seg', role: 'group', 'aria-label': 'How do you feel today?' });
+  Object.keys(READINESS).forEach(k => {
+    const b = el('button', { type: 'button', class: 'tn-ready-btn' + (k === 'rough' ? ' is-rough' : '') }, READINESS[k].label);
+    b.addEventListener('click', () => {
+      setReadiness(date, k);
+      Object.keys(_readyLoad).forEach(x => delete _readyLoad[x]);
+      try { hapticTick(); } catch (e) {}
+      renderToday();
+      if (k === 'rough') toast('Today starts 5% lighter. The next set still follows how you feel');
+    });
+    seg.appendChild(b);
+  });
+  r.appendChild(seg);
+  return r;
+}
+function readinessDoneRow(date) {
+  const r = el('div', { class: 'today-note tn-row tn-ready is-set' });
+  r.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span>' +
+    '<span class="tn-body"><span class="tn-title">Easier day</span><span class="tn-text tn-one">You\'re beat up, so loads start 5% lighter</span></span>';
+  const b = el('button', { class: 'btn btn-sm tn-act', type: 'button' }, 'Change');
+  b.addEventListener('click', () => { try { localStorage.removeItem('powa-ready-' + date); } catch (e) {} Object.keys(_readyLoad).forEach(x => delete _readyLoad[x]); renderToday(); });
+  r.appendChild(b);
+  return r;
+}
+
+// WEEKLY GOAL (app.js weeklyGoalStatus): sessions this week against a goal you
+// pick, and a streak of weeks you hit it, so a planned rest day never breaks it.
+function defaultWeekGoal() {
+  const cur = getCurrentDay();
+  const n = cur && cur.week && cur.week.days ? cur.week.days.length : 0;
+  return n >= 2 ? Math.min(6, n) : 3;
+}
+function weekGoalStatusNow() {
+  const dates = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift !== 'cardio').map(l => l.date);
+  return weeklyGoalStatus(dates, getWeekGoal() || defaultWeekGoal(), todayISO());
+}
+function weekGoalRow() {
+  const st = weekGoalStatusNow();
+  const r = el('button', { class: 'today-note tn-row tn-goal' + (st.met ? ' is-met' : ''), type: 'button', 'aria-label': st.done + ' of ' + st.goal + ' sessions this week. Change your weekly goal' });
+  r.appendChild(uiRing(Math.min(1, st.done / st.goal), { size: 40, stroke: 4, cls: 'tn-goal-ring', label: st.met ? ICONS.check : String(st.done) }));
+  const title = st.met ? 'Week done' : st.done + ' of ' + st.goal + ' sessions this week';
+  const sub = st.met
+    ? (st.streak > 1 ? st.streak + ' weeks in a row' : 'Goal hit. The streak starts here')
+    : (st.streak ? st.streak + '-week streak · ' + st.left + ' to go' : st.left + ' to go. Rest days never break it');
+  r.insertAdjacentHTML('beforeend', '<span class="tn-body"><span class="tn-title">' + escHtml(title) + '</span><span class="tn-text tn-one">' + escHtml(sub) + '</span></span>');
+  r.addEventListener('click', () => openWeekGoalSheet());
+  return r;
+}
+function openWeekGoalSheet(onDone) {
+  uiSheet('Weekly goal', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'How many sessions a week? Hit it and your streak grows. A planned rest day never breaks it, only a whole week short does.'));
+    const cur = getWeekGoal() || defaultWeekGoal();
+    const seg = el('div', { class: 'ui-seg goal-seg', role: 'radiogroup', 'aria-label': 'Sessions a week' });
+    [2, 3, 4, 5, 6].forEach(n => {
+      const b = el('button', { type: 'button', role: 'radio', class: n === cur ? 'on' : '', 'aria-checked': n === cur ? 'true' : 'false' }, String(n));
+      b.addEventListener('click', () => {
+        setWeekGoal(n);
+        seg.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+        try { hapticTick(); } catch (e) {}
+      });
+      seg.appendChild(b);
+    });
+    sheet.appendChild(seg);
+    const done = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Done');
+    done.addEventListener('click', close);
+    sheet.appendChild(done);
+  }, { cls: 'goal-sheet', onClose: () => { renderToday(); if (onDone) onDone(); } });
+}
+window.openWeekGoalSheet = openWeekGoalSheet;
+
 function weighInRow() {
   const list = _bwSeries();
   const today = todayISO();
@@ -1688,7 +1767,9 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     if (hint) card.appendChild(el('div', { class: 'prog-hint' + (hint.kind === 'hard' ? ' hard' : '') }, hint.text));
   }
 
-  // Tools: warm-up / form cues / last week. One open at a time.
+  // Tools: warm-up / form cues / last week. One open at a time. Calm (v7): only on
+  // the exercise you're on — done and later ones don't need them yet.
+  const isCurrent = !!(nextKey && nextKey.indexOf(ex.id + '_') === 0);
   const tools = el('div', { class: 'ex-tools' });
   const panel = el('div', { class: 'ex-panel' });
   const addTool = (label, icon, build) => {
@@ -1732,7 +1813,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       });
     }
   }
-  if (tools.children.length) { card.appendChild(tools); card.appendChild(panel); }
+  if (isCurrent && tools.children.length) { card.appendChild(tools); card.appendChild(panel); }
 
   const list = el('div', { class: 'tx-sets' });
   ex.sets.forEach((set, si) => {
@@ -1755,6 +1836,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       });
       wInp.addEventListener('change', (e) => {
         delete _smartLoad[ex.id + '_' + si];   // a typed load beats the suggestion
+        _readyLoad[ex.id + '_' + si] = null;   // …and today's readiness discount
         const display = Number(e.target.value);
         const kg = (display > 0) ? displayToKg(display) : 0;
         Store.update(s => {
@@ -1784,9 +1866,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     if (set.completed && !isCardio && set.weight > 0 && set.actualRpe) {
       const e1 = isMain ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
       sub = 'e1RM ' + formatWeight(Math.round(e1)) + (set.plannedWeight > 0 && Math.abs(set.plannedWeight - set.weight) > 0.01 ? ' · plan ' + formatWeight(set.plannedWeight) : '');
-    } else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) + ' · target RPE ' + set.rpe : 'From today\'s sets · target RPE ' + set.rpe;
-    else if (set.rpe != null && set.rpe !== '') sub = 'Target RPE ' + set.rpe;
-    else if (!set.completed) sub = 'No target. Log how it felt';
+    } else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) : 'From today\'s sets';
+    // The RPE chip beside the load already shows the target, so no "Target RPE" line.
     if (sub) main.appendChild(el('div', { class: 'tx-set-sub' }, sub));
     row.appendChild(main);
 
@@ -1810,7 +1891,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       if (r == null) { openSetSheet(ex, si); return; }
       if (selfCoached) {
         const w = document.getElementById('wt_' + ex.id + '_' + si);
-        if (w && !(Number(w.value) > 0)) { toast('Enter the weight first'); focusSetRow(ex.id, si, 'wt'); return; }
+        if (w && !(Number(w.value) > 0) && MAIN_LIFTS.includes(ex.lift)) { toast('Enter the weight first'); focusSetRow(ex.id, si, 'wt'); return; }
       }
       toggleSet(ex.id, si, true, { rpe: r });
     });
@@ -1836,7 +1917,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   });
   exNote.value = existingNote;
   if (existingNote) card.appendChild(exNote);
-  else {
+  else if (isCurrent || doneCount > 0) {   // nothing to say about a lift you haven't started
     const addNote = el('button', { class: 'ex-note-add', type: 'button' }, '+ Add a note');
     addNote.addEventListener('click', () => { addNote.replaceWith(exNote); exNote.focus(); });
     card.appendChild(addNote);
@@ -1881,7 +1962,7 @@ function openSetSheet(ex, si) {
       return;
     }
     const scale = uiRpeScale(feltRpeFor(ex, si), (r) => { _feltRpe[key] = r; syncRowFelt(ex.id, si); },
-      { cls: 'tx-rpe', empty: 'How hard was it? Tap the RPE' });
+      { cls: 'tx-rpe', target: set.rpe, empty: 'How hard was it? Tap the RPE' });
     sheet.appendChild(scale);
     const log = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' });
     log.innerHTML = ICONS.check + '<span>Log set</span>';
@@ -1890,7 +1971,7 @@ function openSetSheet(ex, si) {
       if (r == null) { scale.nudge(); return; }
       if (getProgram() && getProgram().coachId === user.id) {
         const w = document.getElementById('wt_' + ex.id + '_' + si);
-        if (w && !(Number(w.value) > 0)) { close(); toast('Enter the weight first'); focusSetRow(ex.id, si, 'wt'); return; }
+        if (w && !(Number(w.value) > 0) && MAIN_LIFTS.includes(ex.lift)) { close(); toast('Enter the weight first'); focusSetRow(ex.id, si, 'wt'); return; }
       }
       close();
       toggleSet(ex.id, si, true, { rpe: r });
@@ -1992,9 +2073,21 @@ async function sendSessionToCoach(cur) {
 // a real 8-week block with the same generator coaches use, then drop the lifter
 // straight into their first session. "Build it myself" keeps the manual builder.
 let _setupDays = 4;
+// 'new' = never trained with a barbell / no idea of a max; 'know' = has numbers.
+// First run with nothing logged starts on 'new'. One tap switches.
+let _setupMode = null;
 function buildFirstProgramSetup() {
+  if (!_setupMode) _setupMode = (Store.get().workoutLogs || []).some(l => l.athleteId === user.id) ? 'know' : 'new';
   const card = el('div', { class: 'ui-hero setup-card' });
   card.appendChild(el('div', { class: 'ui-hero-label' }, 'Set up your program'));
+  const mode = el('div', { class: 'ui-seg setup-mode', role: 'radiogroup', 'aria-label': 'How much have you lifted?' });
+  [['new', 'I\'m new to lifting'], ['know', 'I know my lifts']].forEach(([k, label]) => {
+    const b = el('button', { type: 'button', role: 'radio', class: _setupMode === k ? 'on' : '', 'aria-checked': _setupMode === k ? 'true' : 'false' }, label);
+    b.addEventListener('click', () => { if (_setupMode !== k) { _setupMode = k; renderToday(); } });
+    mode.appendChild(b);
+  });
+  card.appendChild(mode);
+  if (_setupMode === 'new') return buildStarterSetup(card);
   card.appendChild(el('h3', { class: 'setup-title' }, 'Your best lifts'));
   card.appendChild(el('p', { class: 'setup-sub' }, 'A one-rep max or a good guess.'));
   const u = unitLabel();
@@ -2022,7 +2115,44 @@ function buildFirstProgramSetup() {
   const go = el('button', { class: 'btn btn-primary ui-btn-wide setup-go', type: 'button' }, 'Build my program');
   go.addEventListener('click', buildFirstProgram);
   card.appendChild(go);
-  // The other ways in: write your own, get a coach, or (web) buy a coach's plan.
+  return setupWrap(card);
+}
+// NEW TO LIFTING: no maxes asked. Bodyweight (if they know it) sets light
+// starting weights; generateStarterProgram does 3 × 5 full-body, 3 days a week,
+// and the simple "reps left" scale is switched on.
+function buildStarterSetup(card) {
+  card.appendChild(el('h3', { class: 'setup-title' }, 'Start from zero'));
+  card.appendChild(el('p', { class: 'setup-sub' }, 'No maxes needed. Three full-body days a week, starting light. Tell the app how many reps you had left and it picks your next weight.'));
+  const u = unitLabel();
+  const grid = el('div', { class: 'setup-lifts' });
+  const row = el('label', { class: 'setup-lift', for: 'setup-bw' });
+  row.appendChild(el('span', { class: 'setup-lift-name' }, 'Bodyweight'));
+  const bwIn = el('input', { id: 'setup-bw', type: 'number', inputmode: 'decimal', step: '0.1', min: '0', placeholder: u === 'lbs' ? '170' : '78' });
+  const lastBw = latestBodyweight(user.id);
+  if (lastBw) bwIn.value = String(kgToDisplay(lastBw));
+  row.appendChild(bwIn);
+  row.appendChild(el('span', { class: 'setup-unit' }, u));
+  grid.appendChild(row);
+  card.appendChild(grid);
+  card.appendChild(el('div', { class: 'setup-days-label' }, 'Starting weights for'));
+  const sex = el('div', { class: 'ui-seg setup-days', role: 'radiogroup', 'aria-label': 'Starting weights for' });
+  [['male', 'Men'], ['female', 'Women']].forEach(([k, label]) => {
+    const on = getSexPref() === k;
+    const b = el('button', { type: 'button', role: 'radio', class: on ? 'on' : '', 'aria-checked': on ? 'true' : 'false' }, label);
+    b.addEventListener('click', () => {
+      setSexPref(k);
+      sex.querySelectorAll('button').forEach(x => { const o = x === b; x.classList.toggle('on', o); x.setAttribute('aria-checked', o ? 'true' : 'false'); });
+    });
+    sex.appendChild(b);
+  });
+  card.appendChild(sex);
+  const go = el('button', { class: 'btn btn-primary ui-btn-wide setup-go', type: 'button' }, 'Start my first program');
+  go.addEventListener('click', buildStarterFirstProgram);
+  card.appendChild(go);
+  return setupWrap(card);
+}
+// The other ways in: write your own, get a coach, or (web) buy a coach's plan.
+function setupWrap(card) {
   const wrap = el('div', { class: 'setup-wrap' });
   wrap.appendChild(card);
   const tab = (id) => () => { const t = document.getElementById('tab-' + id); if (t) t.click(); };
@@ -2043,6 +2173,16 @@ function buildFirstProgram() {
   const prog = generateProgram({ weeks: 8, daysPerWeek: _setupDays, e1rms, athleteId: user.id, coachId: user.id });
   if (!prog || !prog.weeks || !prog.weeks.length) { toast('Could not build that. Try again.'); return; }
   prog.name = prog.name || '8-week strength block';
+  installFirstProgram(prog, 'Your ' + prog.weeks.length + '-week program is ready');
+}
+function buildStarterFirstProgram() {
+  const v = Number((document.getElementById('setup-bw') || {}).value);
+  const prog = generateStarterProgram({ weeks: 8, bodyweightKg: v > 0 ? displayToKg(v) : null, sex: getSexPref(), unit: getUnit(), athleteId: user.id, coachId: user.id });
+  setSimpleEffort(true);   // new lifters log "reps left"; You → Rest and sets switches it off
+  installFirstProgram(prog, 'Your starter program is ready. Go light and tell it how each set felt');
+}
+window.buildStarterFirstProgram = buildStarterFirstProgram;
+function installFirstProgram(prog, msg) {
   Store.update(s => { s.programs = s.programs.filter(x => x.athleteId !== user.id).concat([prog]); });
   persistProgram(prog.id);
   populateDaySelect();
@@ -2050,7 +2190,7 @@ function buildFirstProgram() {
   document.getElementById('sessionDate').value = todayISO();
   renderToday();
   window.scrollTo(0, 0);
-  toast('Your ' + prog.weeks.length + '-week program is ready');
+  toast(msg);
 }
 window.buildFirstProgram = buildFirstProgram;
 
@@ -2179,7 +2319,15 @@ function renderToday() {
     n.addEventListener('click', () => { const o = n.classList.toggle('open'); n.setAttribute('aria-expanded', o ? 'true' : 'false'); });
     dayRows.push(n);
   }
+  // Readiness: before today's first set, one tap. A beat-up day keeps a small row.
+  if (sessionDate === todayISO()) {
+    const started = cur.day.exercises.some(e => e.sets.some(st => st.completed && String(st.completedAt || '').slice(0, 10) === sessionDate));
+    const ready = getReadiness(sessionDate);
+    if (!ready && !started) dayRows.unshift(readinessRow(sessionDate));
+    else if (ready === 'rough') dayRows.push(readinessDoneRow(sessionDate));
+  }
   if (sessionDate === todayISO()) dayRows.push(weighInRow());
+  dayRows.push(weekGoalRow());
   if (!submitted && user.coachId) {
     const c = el('div', { class: 'today-note tn-row' });
     c.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg></span>' +
@@ -2234,7 +2382,9 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       const wIn = document.getElementById('wt_' + exerciseId + '_' + setIndex);
       const display = Number(wIn?.value);
       if (display > 0) set.weight = displayToKg(display);
-      if (!set.weight || set.weight <= 0) {
+      // The big three need a load; accessories can be bodyweight (push-ups, dips,
+      // planks), so a blank load there just logs the reps.
+      if ((!set.weight || set.weight <= 0) && MAIN_LIFTS.includes(ex.lift)) {
         toast('Enter a weight for this set first');
         renderToday();
         return;
@@ -2278,20 +2428,26 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
 
     persistProgram(prog.id);
     persistAddLog(newLogObj);
+    // Keep the club's weekly board live (one write per burst of sets).
+    try { if (window.PowaClubs && PowaClubs.syncSoon) PowaClubs.syncSoon(); } catch (e) {}
     // How that set felt decides the next one.
     const freshEx = (getCurrentDay() || { day: { exercises: [] } }).day.exercises.find(e => e.id === exerciseId);
     const nextSmart = freshEx ? planSmartNext(freshEx, setIndex, actualRpe) : null;
 
     // First time a lift reaches N plates a side: its own moment (it outranks a PR).
-    let plates = null;
+    let plates = null, bwm = null;
     if (MAIN_LIFTS.includes(ex.lift) && newLogObj) {
       const prevBest = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift === ex.lift && l.id !== newLogObj.id)
         .reduce((m, l) => Math.max(m, Number(l.weight) || 0), 0);
       plates = newPlateMilestone(prevBest, newLogObj.weight, getUnit());
+      // Your first bodyweight bench, a 1.5× squat… (relative, so fair to every size)
+      bwm = newBwMilestone(prevBest, newLogObj.weight, latestBodyweight(user.id), ex.lift, getSexPref());
     }
     const isPR = MAIN_LIFTS.includes(ex.lift) && newLogObj && isPRForLog(user.id, newLogObj);
     if (plates) {
       showPlateMoment(ex.lift, plates, newLogObj, isPR);
+    } else if (bwm) {
+      showBwMoment(bwm, newLogObj, isPR);
     } else if (isPR) {
       showPRToast(ex.lift, newLogObj.e1rmComp, newLogObj);
     } else {
@@ -2308,7 +2464,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     // Smart rest (app.js smartRestSeconds): the set's reps + actual RPE decide the
     // length, a coach's per-exercise rest (restSec) wins, Short/Standard/Long scales
     // it, and the lifter can switch the auto-start off in You → Rest timer.
-    if (getRestAuto()) {
+    if (getRestAuto() && !(opts && opts.noRest)) {
       startRestTimer(
         smartRestSeconds({ lift: ex.lift, reps: set.reps, rpe: actualRpe, restSec: ex.restSec, pref: getRestPref() }),
         ex.exerciseName || (ex.lift ? ex.lift.charAt(0).toUpperCase() + ex.lift.slice(1) : 'Rest')
@@ -2469,6 +2625,58 @@ async function sharePlateCard(lift, n, log) {
     'First ' + plateWord(n) + ' ' + LIFT_LABELS[lift].toLowerCase() + ': ' + formatWeight(log.weight) + ' · tracked on powalifta.com');
 }
 window.sharePlateCard = sharePlateCard;
+// BODYWEIGHT MILESTONE (app.js newBwMilestone): same moment as plates, its own words.
+function showBwMoment(m, log, isPR) {
+  const overlay = el('div', { class: 'pr-toast plate-moment bw-moment' });
+  const card = el('div', { class: 'pr-card' });
+  card.appendChild(el('div', { class: 'pm-bar', html: uiBarbell(log.weight) }));
+  card.appendChild(el('div', { class: 'pr-tag' }, isPR ? 'Bodyweight milestone · new PR' : 'Bodyweight milestone'));
+  card.appendChild(el('div', { class: 'pm-title' }, 'Your first ' + m.title.charAt(0).toLowerCase() + m.title.slice(1)));
+  const bw = latestBodyweight(user.id);
+  card.appendChild(el('div', { class: 'pr-sub' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '') + (bw ? ' · you weigh ' + formatWeight(bw) : '')));
+  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    const burst = el('div', { class: 'pr-burst', 'aria-hidden': 'true' });
+    const cols = ['#e5262f', '#2f6fde', '#f2c230', '#2fa84f', '#f4f4f6'];
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2 + Math.random() * 0.4, d = 100 + Math.random() * 120;
+      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's' }));
+    }
+    overlay.appendChild(burst);
+  }
+  const inClub = !!(window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName());
+  const acts = el('div', { class: 'pr-acts' });
+  if (inClub) acts.appendChild(el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName()));
+  acts.appendChild(el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); shareBwCard(m, log); } }, 'Make it a card'));
+  if (user.coachId) acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sendLogToCoach(log); } }, 'Send to coach'));
+  card.appendChild(acts);
+  overlay.appendChild(card);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  try {
+    if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.notify('SUCCESS');
+    else if (navigator.vibrate) navigator.vibrate([40, 60, 120]);
+  } catch (e) {}
+  setTimeout(() => overlay.remove(), 9000);
+  try { maybeAskForRating('bodyweight'); } catch (e) {}
+}
+window.showBwMoment = showBwMoment;
+async function shareBwCard(m, log) {
+  const bw = latestBodyweight(user.id);
+  const canvas = await generateShareCard({
+    tag: 'BODYWEIGHT MILESTONE',
+    big: (m.ratio === 1 ? '1' : String(m.ratio)) + '×',
+    bigUnit: 'BODYWEIGHT',
+    sub: LIFT_LABELS[m.lift] + ' · ' + formatWeight(log.weight) + ' × ' + log.reps,
+    lines: [
+      { l: 'Bodyweight', r: bw ? formatWeight(bw) : '–' },
+      { l: 'RPE', r: log.rpe ? String(log.rpe) : '–' },
+      { l: 'Date', r: fmtDate(log.date) }
+    ]
+  });
+  await shareCardFromCanvas(canvas, 'powalifta-' + String(m.ratio).replace('.', '_') + 'x-bodyweight-' + m.lift + '.png',
+    m.title + ': ' + formatWeight(log.weight) + ' · tracked on powalifta.com');
+}
+window.shareBwCard = shareBwCard;
 
 // ===== MEET-DAY PLANNER — attempts from current e1RMs =====
 const MEET_STRATEGIES = {
@@ -2719,6 +2927,9 @@ function openMeetSheet() {
     share.addEventListener('click', () => shareMeetCard());
     acts.appendChild(share);
     if (!user.coachId) {
+      const fm = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Plan my first meet');
+      fm.addEventListener('click', () => { close(); setTimeout(openFirstMeetSheet, 220); });
+      acts.appendChild(fm);
       const pk = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Build a peaking block to this date');
       pk.addEventListener('click', () => { const v = di.value; close(); setTimeout(() => generatePeakingFromMeet(v), 220); });
       acts.appendChild(pk);
@@ -2727,6 +2938,65 @@ function openMeetSheet() {
   }, { cls: 'meet-sheet' });
 }
 window.openMeetSheet = openMeetSheet;
+
+// FIRST MEET (app.js generateMeetPrep): pick the date, get a plan that ends on
+// meet week — build, get strong, peak, openers — and meet mode takes over on
+// the day (the meet strip counts down to it). Self-coached lifters only: a
+// coach plans their athletes' prep.
+function openFirstMeetSheet() {
+  uiSheet('Your first meet', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Pick the meet date. The plan ends on meet week: build, get strong, peak, then openers. On the day, meet mode runs your attempts.'));
+    const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const def = (() => { const d = new Date(); d.setDate(d.getDate() + 77); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7)); return iso(d); })();   // a Saturday, 12 weeks of prep
+    const row = el('label', { class: 'meet-date fm-date' });
+    row.appendChild(el('span', {}, 'Meet date'));
+    const di = el('input', { type: 'date', 'aria-label': 'Meet date' });
+    let saved = null; try { saved = localStorage.getItem('powa-meet-date'); } catch (e) {}
+    di.value = saved && daysUntil(saved) >= 49 ? saved : def;
+    row.appendChild(di);
+    sheet.appendChild(row);
+    const info = el('div', { class: 'fm-info' });
+    sheet.appendChild(info);
+    const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Build my meet plan');
+    const weeksTo = () => { const d = daysUntil(di.value); return d == null ? null : Math.floor(d / 7) + 1; };   // incl. meet week
+    const paint = () => {
+      const w = weeksTo();
+      info.innerHTML = '';
+      go.disabled = true;
+      if (w == null) { info.appendChild(el('p', {}, 'Pick the date of the meet.')); return; }
+      if (w < 8) { info.appendChild(el('p', {}, 'That\'s ' + Math.max(0, w) + (w === 1 ? ' week' : ' weeks') + ' away. A first meet wants at least 8. Pick a later one, or build a short peaking block from Meet day.')); return; }
+      if (w > 16) { info.appendChild(el('p', {}, 'That\'s ' + w + ' weeks away. Keep training and come back 16 weeks out; the plan starts the day you build it.')); return; }
+      const sS = Math.round((w - 4) / 2), pS = w - 4;
+      const span = (a, b) => (a === b ? 'Week ' + a : 'Weeks ' + a + '–' + b);
+      info.appendChild(uiList([
+        uiRow({ title: span(1, sS), sub: 'Build: sets of 5' }),
+        uiRow({ title: span(sS + 1, pS), sub: 'Strength: triples' }),
+        uiRow({ title: span(pS + 1, w - 1), sub: 'Peak: a heavy single, then doubles' }),
+        uiRow({ title: 'Week ' + w, sub: 'Openers early in the week, then meet day' })
+      ]));
+      go.disabled = false;
+    };
+    di.addEventListener('change', paint);
+    paint();
+    go.addEventListener('click', () => {
+      const w = weeksTo();
+      if (w == null || w < 8 || w > 16) return;
+      const est = starterE1rms(latestBodyweight(user.id), getSexPref());
+      const e1 = {};
+      MAIN_LIFTS.forEach(l => { e1[l] = bestE1RM(user.id, l) || est[l]; });
+      const prog = generateMeetPrep({ weeks: w, e1rms: e1, unit: getUnit(), athleteId: user.id, coachId: user.id, meetDate: di.value });
+      const install = () => {
+        try { localStorage.setItem('powa-meet-date', di.value); } catch (e) {}
+        close();
+        installFirstProgram(prog, 'Your ' + w + '-week meet plan is ready. Meet mode opens on meet day');
+      };
+      if (getProgram()) uiActionSheet('This replaces your current program. Your logged sets stay in your history.', [{ label: 'Build the meet plan', onClick: install }]);
+      else install();
+    });
+    sheet.appendChild(go);
+  }, { cls: 'first-meet-sheet' });
+}
+window.openFirstMeetSheet = openFirstMeetSheet;
 window.openMeetModal = openMeetModal;
 window.renderMeetPlan = renderMeetPlan;
 // ===== YOUR YEAR IN LIFTING (Wrapped) =====
@@ -3367,7 +3637,8 @@ function renderAthleteYou() {
   const total = currentTotal(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, sex) : 0;
   const cls = bw ? weightClassFor(bw, sex) : null;
-  const streak = getStreak(user.id);
+  // Weeks in a row hitting your weekly goal (a rest day never breaks it, unlike a day streak).
+  const streak = weekGoalStatusNow().streak;
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
   const selfCoached = !user.coachId;
   const inShell = document.documentElement.classList.contains('native');
@@ -3377,13 +3648,14 @@ function renderAthleteYou() {
     name: user.name,
     avatarUrl: user.avatarUrl,
     instagram: user.instagram,
+    tiktok: user.tiktok,
     onAvatar: () => pickAvatar(() => renderAthleteYou()),
     edit: () => openProfileSheet(() => renderAthleteYou()),
     sub: [cls ? cls + ' class' : null, club].filter(Boolean).join(' · ') || 'Lifter',
     stats: [
       { label: 'Total', value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '' },
       { label: 'DOTS', value: dots > 0 ? dots.toFixed(1) : '–' },
-      { label: 'Streak', value: streak || 0, unit: streak === 1 ? 'day' : 'days' }
+      { label: 'Streak', value: streak || 0, unit: streak === 1 ? 'week' : 'weeks' }
     ],
     action: (bw && total > 0) ? { label: 'Share card', onClick: () => shareStrengthCard() } : null,
     afterHero: buildYouBodyweight(),
@@ -3408,6 +3680,7 @@ function renderAthleteYou() {
       { title: 'Settings', rows: youSettingsRows('athlete', () => renderAthleteYou()) },
       { title: 'Help', rows: [
         { label: 'Ask AI', onClick: () => openAIAssistant() },
+        { label: 'Lifting words, explained', onClick: () => openGlossary() },
         { label: 'Replay the tour', onClick: () => window.replayAthleteTour && window.replayAthleteTour() }
       ] },
       { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
@@ -3530,7 +3803,9 @@ function restFinish() {
   if (restInterval) clearInterval(restInterval);
   restInterval = null;
   restPausedMs = null;
-  nativeRestStop();
+  // Keep the Live Activity up at 0:00 while there's a next set to log from the
+  // Lock Screen (that's exactly when you want the button); otherwise end it.
+  if (!restLogQueue().length) nativeRestStop();
   // The dock says "Go" on a green ring for a beat, then drops away (no toast).
   const wrap = document.getElementById('restTimerEl');
   const num = document.getElementById('rtNum');
@@ -3553,6 +3828,61 @@ function restFinish() {
 function nativeRestPlugin() {
   return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.RestTimer) || null;
 }
+// LOCK-SCREEN LOGGING (RestTimerIntents.swift RestLogSetIntent). At rest start
+// the Live Activity gets the next sets that can be logged with one tap: in order
+// from the next one, each with a known RPE (your pick or the plan's target) and a
+// load (or bodyweight work). Keys are "exerciseId|setIndex".
+function restLogQueue() {
+  const cur = getCurrentDay();
+  if (!cur || getSessionDate() !== todayISO()) return [];
+  const out = [];
+  for (const ex of cur.day.exercises) {
+    for (let si = 0; si < ex.sets.length; si++) {
+      const set = ex.sets[si];
+      if (set.completed) continue;
+      const rpe = feltRpeFor(ex, si);
+      const sm = ex.lift === 'cardio' ? null : smartFor(ex, si);
+      const kg = sm ? sm.kg : Number(set.weight) || 0;
+      if (rpe == null || ex.lift === 'cardio' || (!(kg > 0) && MAIN_LIFTS.includes(ex.lift))) return out;   // stop at the first set that needs the app
+      // Short enough for one Lock Screen line: "Squat 165 × 5" (the comp lift goes by its plain name).
+      const name = MAIN_LIFTS.includes(ex.lift) && (!ex.variant || ex.variant === 'Competition') ? LIFT_LABELS[ex.lift] : shortExTitle(ex);
+      out.push({ key: ex.id + '|' + si, label: name + ' ' + (kg > 0 ? kgToDisplay(kg) + ' × ' + set.reps : set.reps + ' reps') });
+      if (out.length >= 6) return out;
+    }
+  }
+  return out;
+}
+// Sets logged from the Lock Screen while the app was asleep: log them now (each
+// at its planned RPE), then pick the rest countdown up where the Lock Screen left it.
+let _drainingLogs = false;
+async function drainLockScreenLogs() {
+  const p = nativeRestPlugin();
+  if (!p || typeof p.takePendingLogs !== 'function' || _drainingLogs) return;
+  if (typeof user === 'undefined' || !user || !getCurrentDay()) return;   // program not loaded yet: leave them queued
+  _drainingLogs = true;
+  try {
+    const r = await p.takePendingLogs();
+    const keys = (r && r.keys) || [];
+    if (!keys.length) return;
+    let n = 0, lastEx = null;
+    for (const k of keys) {
+      const [exId, siStr] = String(k).split('|');
+      const si = Number(siStr);
+      const cur = getCurrentDay();
+      const ex = cur && cur.day.exercises.find(e => String(e.id) === exId);
+      if (!ex || !ex.sets[si] || ex.sets[si].completed) continue;
+      const rpe = feltRpeFor(ex, si);
+      if (rpe == null) continue;
+      await toggleSet(ex.id, si, true, { rpe, noRest: true });
+      n++; lastEx = ex;
+    }
+    if (!n) return;
+    toast(n === 1 ? 'Logged from your Lock Screen' : n + ' sets logged from your Lock Screen');
+    const st = p.getState ? await p.getState().catch(() => null) : null;
+    if (st && st.active && st.remaining > 2000 && getRestAuto()) startRestTimer(Math.round(st.remaining / 1000), lastEx ? (lastEx.exerciseName || LIFT_LABELS[lastEx.lift] || 'Rest') : 'Rest');
+  } catch (e) {} finally { _drainingLogs = false; }
+}
+window.drainLockScreenLogs = drainLockScreenLogs;
 function nativeRestStart(endTimeMs, totalSec, label) {
   const p = nativeRestPlugin();
   const isNativeShell = !!(window.PowaNative && PowaNative.isNative && PowaNative.isNative());
@@ -3573,7 +3903,7 @@ function nativeRestStart(endTimeMs, totalSec, label) {
     return;
   }
   try {
-    const r = p.start({ endTime: Math.round(endTimeMs), total: totalSec, label: label || 'Rest' });
+    const r = p.start({ endTime: Math.round(endTimeMs), total: totalSec, label: label || 'Rest', queue: restLogQueue() });
     if (r && r.then) r.then(v => {
       try { console.info('[PowaRest] start →', v); } catch (e) {}
       if (isNativeShell && v && v.started === false) {
@@ -3606,6 +3936,7 @@ function nativeRestStop() {
 // change to the in-page timer. All times are ms (endTime = epoch, remaining = ms).
 function _nativeRestApply(d) {
   if (!d) return;
+  if (d.action === 'logSet') { drainLockScreenLogs(); return; }
   const wrap = document.getElementById('restTimerEl');
   if (d.action === 'stop' || d.active === false) {
     // Native already ended the Activity — clear the page UI WITHOUT re-calling
@@ -3637,6 +3968,9 @@ function _nativeRestApply(d) {
   const p = nativeRestPlugin();
   if (!p || typeof p.addListener !== 'function') return; // web build: no-op
   try { p.addListener('restAction', _nativeRestApply); } catch (e) {}
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') drainLockScreenLogs(); });
+  setTimeout(drainLockScreenLogs, 1500);   // cold start: sets logged while the app was closed
+  setTimeout(drainLockScreenLogs, 5000);   // …and again once a slow sign-in has loaded the program
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible' || restInterval == null) return;
     try {
@@ -4361,6 +4695,29 @@ function renderProgPRs(area, logs) {
         endNode: pips
       });
     })));
+  }
+
+  // Bodyweight goals (app.js bwMilestoneLadder): relative to you, so every size has them.
+  const bwNow = latestBodyweight(user.id);
+  if (bwNow) {
+    const bests = {};
+    MAIN_LIFTS.forEach(l => { bests[l] = (Store.get().workoutLogs || []).filter(x => x.athleteId === user.id && x.lift === l).reduce((m, x) => Math.max(m, Number(x.weight) || 0), 0); });
+    const ladder = bwMilestoneLadder(bests, bwNow, getSexPref());
+    if (ladder.some(r => r.best > 0)) {
+      area.appendChild(uiLabel('Bodyweight goals'));
+      area.appendChild(uiList(ladder.map(r => {
+        const all = BW_LADDER[getSexPref() === 'female' ? 'female' : 'male'][r.lift];
+        const pips = el('span', { class: 'pc-pips', 'aria-hidden': 'true' });
+        all.forEach(x => pips.appendChild(el('i', { class: r.held.indexOf(x) >= 0 ? 'on' : '' })));
+        const top = r.held.length ? r.held[r.held.length - 1] : null;
+        return uiRow({
+          lead: el('span', { class: 'lift-dot lift-' + r.lift, 'aria-hidden': 'true' }),
+          title: top ? bwMilestoneTitle(r.lift, top) : LIFT_LABELS[r.lift],
+          sub: r.next ? 'Next: ' + bwMilestoneTitle(r.lift, r.next).toLowerCase() + ' · ' + formatWeight(r.toGoKg) + ' to go' : 'Top of the ladder',
+          endNode: pips
+        });
+      })));
+    }
   }
 
   renderMeetHistory(area);

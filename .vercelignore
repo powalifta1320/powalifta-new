@@ -1,0 +1,32 @@
+# Files Vercel must NOT publish. Without this, everything in git is served at
+# www.powalifta.com/<path> — the security audit (2026-10-17) found CLAUDE.md,
+# the SQL migrations, edge-function source and the payments runbook all public.
+# Nothing the site loads lives here (checked: no page, script or sw.js refers to
+# these paths). tests.html stays: admin.html runs it in an iframe.
+
+# Notes, docs and design records
+*.md
+docs/
+.impeccable/
+
+# Database + backend source
+sql/
+supabase/
+deploy.sh
+seed-demo.mjs
+.env*
+
+# Native app + build config
+native/
+native-ios/
+codemagic.yaml
+
+# Local tooling state
+test/
+.claude-flow/
+ruvector.db
+ds-bundle/
+.design-sync/
+
+# Local-only motion reel (never deploy)
+showreel/

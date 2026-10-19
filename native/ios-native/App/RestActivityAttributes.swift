@@ -8,8 +8,9 @@
 //
 //  Kind: RestTimerAttributes.
 //  - Fixed attributes (set once at start): the lift name + total duration for the ring.
-//  - ContentState (mutable per update): the target end date, paused flag, and the
-//    frozen remaining seconds used to render a static readout while paused.
+//  - ContentState (mutable per update): the target end date, paused flag, the
+//    frozen remaining seconds used to render a static readout while paused, and
+//    the next set (label + whether the Lock Screen "Log set" button can log it).
 //
 //  Countdown strategy: while running we hand SwiftUI `endDate` and let the OS tick the
 //  label every second via `Text(timerInterval:)` / `ProgressView(timerInterval:)` — no
@@ -30,11 +31,28 @@ public struct RestTimerAttributes: ActivityAttributes {
         public var paused: Bool
         /// Seconds left at the moment of pause — renders the frozen numerals + ring.
         public var pausedRemaining: Double
+        /// The next set, e.g. "Squat · 165 kg × 5" ("" = none handed over).
+        public var nextLabel: String
+        /// True while there's a set the Lock Screen "Log set" button can log.
+        public var canLog: Bool
 
-        public init(endDate: Date, paused: Bool, pausedRemaining: Double) {
+        public init(endDate: Date, paused: Bool, pausedRemaining: Double, nextLabel: String = "", canLog: Bool = false) {
             self.endDate = endDate
             self.paused = paused
             self.pausedRemaining = pausedRemaining
+            self.nextLabel = nextLabel
+            self.canLog = canLog
+        }
+
+        // Tolerant decode: a state written by an older build has no next-set fields.
+        private enum CodingKeys: String, CodingKey { case endDate, paused, pausedRemaining, nextLabel, canLog }
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            endDate = try c.decode(Date.self, forKey: .endDate)
+            paused = try c.decode(Bool.self, forKey: .paused)
+            pausedRemaining = try c.decode(Double.self, forKey: .pausedRemaining)
+            nextLabel = try c.decodeIfPresent(String.self, forKey: .nextLabel) ?? ""
+            canLog = try c.decodeIfPresent(Bool.self, forKey: .canLog) ?? false
         }
     }
 

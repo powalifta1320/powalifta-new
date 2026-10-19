@@ -40,6 +40,7 @@ rsync -a --delete \
   --exclude 'scratchpad' \
   --exclude 'ds-bundle' \
   --exclude '.design-sync' \
+  --exclude 'showreel' \
   "$ROOT/" "$DEST/"
 
 echo "Copied web app into $DEST"

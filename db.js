@@ -24,6 +24,7 @@ function mapDbProfileToCoach(r) {
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
     instagram: r.instagram || null,
+    tiktok: r.tiktok || null,
     referralCode: r.referral_code || null,
     referredByCode: r.referred_by_code || null,
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
@@ -35,6 +36,7 @@ function mapDbProfileToAthlete(r) {
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
     instagram: r.instagram || null,
+    tiktok: r.tiktok || null,
     referralCode: r.referral_code || null,
     referredByCode: r.referred_by_code || null,
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
@@ -99,6 +101,11 @@ function mapDbClubMember(r) {
     weekStart: r.week_start || null, weekSessions: r.week_sessions || 0,
     weekTonnageKg: Number(r.week_tonnage_kg) || 0,
     instagram: r.instagram || null,
+    tiktok: r.tiktok || null,
+    // Fair boards (migration-boards-tiktok.sql); null on rows from before it.
+    weekPoints: n(r.week_points), weekPrs: n(r.week_prs), weekHardSets: n(r.week_hard_sets),
+    improvePct: n(r.improve_pct),
+    seasonId: n(r.season_id), seasonPoints: n(r.season_points), prevSeasonPoints: n(r.prev_season_points),
     statsUpdatedAt: r.stats_updated_at || null, joinedAt: r.joined_at
   };
 }
@@ -110,8 +117,22 @@ function mapJsClubStats(s) {
     total_kg: s.totalKg, dots: s.dots,
     week_start: s.weekStart || null, week_sessions: s.weekSessions || 0, week_tonnage_kg: s.weekTonnageKg || 0,
     instagram: s.instagram || null,
+    tiktok: s.tiktok || null,
+    week_points: s.weekPoints == null ? null : Math.max(0, Math.min(1000, Math.round(s.weekPoints))),
+    week_prs: s.weekPrs == null ? null : Math.max(0, Math.min(10, s.weekPrs)),
+    week_hard_sets: s.weekHardSets == null ? null : Math.max(0, Math.min(500, s.weekHardSets)),
+    improve_pct: s.improvePct == null ? null : Math.max(-100, Math.min(1000, s.improvePct)),
+    season_id: s.seasonId == null ? null : Math.round(s.seasonId),
+    season_points: s.seasonPoints == null ? null : Math.max(0, Math.min(10000, Math.round(s.seasonPoints))),
+    prev_season_points: s.prevSeasonPoints == null ? null : Math.max(0, Math.min(10000, Math.round(s.prevSeasonPoints))),
     stats_updated_at: new Date().toISOString()
   };
+}
+// Which of `cols` a PostgREST error says is missing ("Could not find the 'tiktok'
+// column of 'profiles' in the schema cache"), or null when it's some other error.
+function _missingCol(error, cols) {
+  const msg = String((error && (error.message || error.details || error.hint)) || '');
+  return (cols || []).find(c => new RegExp("['\"\\s.]" + c + "['\"\\s]|column[^a-z]*" + c + "\\b", 'i').test(msg)) || null;
 }
 // A friendly Error from a PostgREST/RPC failure. Before the migration runs the
 // tables/functions don't exist — say so plainly instead of leaking SQL.
@@ -123,6 +144,10 @@ function _clubErr(error, notReadyMsg) {
   return new Error(m.replace(/^.*?:\s*/, '') || 'Something went wrong. Try again.');
 }
 // ---------- CLUBS v2 (migration-clubs-social.sql): requests + feed ----------
+function mapDbBuddy(r) {
+  return { id: r.id, clubId: r.club_id, requesterId: r.requester_id, addresseeId: r.addressee_id, status: r.status,
+    createdAt: r.created_at, acceptedAt: r.accepted_at || null, lastNudgeBy: r.last_nudge_by || null, lastNudgeAt: r.last_nudge_at || null };
+}
 function mapDbClubRequest(r) {
   return { id: r.id, clubId: r.club_id, userId: r.user_id, displayName: r.display_name || 'Lifter',
     message: r.message || '', status: r.status || 'pending', createdAt: r.created_at };
@@ -792,12 +817,19 @@ const DB = {
     return data[0];
   },
   async updateProfile(userId, patch) {
-    let { error } = await sb.from('profiles').update(patch).in('id', [userId]);
-    // Before migration-instagram.sql runs there is no column: save the rest, say so.
-    if (error && patch && 'instagram' in patch && /instagram/i.test(String(error.message || error.details || ''))) {
-      const rest = Object.assign({}, patch); delete rest.instagram;
+    // Before a column's migration runs (instagram, tiktok) PostgREST names the
+    // missing column: drop just that one, save the rest, and say so.
+    const rest = Object.assign({}, patch);
+    let { error } = await sb.from('profiles').update(rest).in('id', [userId]);
+    let dropped = null;
+    for (let i = 0; error && i < 2; i++) {
+      const col = _missingCol(error, ['instagram', 'tiktok'].filter(c => c in rest));
+      if (!col) break;
+      delete rest[col]; dropped = col;
       ({ error } = await sb.from('profiles').update(rest).in('id', [userId]));
-      if (!error) { const e = new Error('Saved. Instagram links switch on with the next update'); e.partial = true; throw e; }
+    }
+    if (!error && dropped) {
+      const e = new Error('Saved. ' + (dropped === 'tiktok' ? 'TikTok' : 'Instagram') + ' links switch on with the next update'); e.partial = true; throw e;
     }
     if (error) throw error;
   },
@@ -1285,8 +1317,12 @@ const DB = {
   async updateMyClubStats(userId, stats) {
     const row = mapJsClubStats(stats);
     let { error } = await sb.from('club_members').update(row).in('user_id', [userId]);
-    if (error && /instagram/i.test(String(error.message || error.details || ''))) {
-      delete row.instagram;
+    // Columns that arrive with later migrations: drop whichever one isn't there yet.
+    const optional = ['instagram', 'tiktok', 'week_points', 'week_prs', 'week_hard_sets', 'improve_pct', 'season_id', 'season_points', 'prev_season_points'];
+    for (let i = 0; error && i < optional.length; i++) {
+      const col = _missingCol(error, optional.filter(c => c in row));
+      if (!col) break;
+      delete row[col];
       ({ error } = await sb.from('club_members').update(row).in('user_id', [userId]));
     }
     if (error) { console.warn('updateMyClubStats', error); return false; }
@@ -1416,6 +1452,35 @@ const DB = {
     const { error } = await sb.from('club_blocks')
       .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
     if (error) throw _clubErr(error);
+  },
+
+  // ---------- CLUB TRAINING BUDDIES (migration-boards-tiktok.sql) ----------
+  // RLS only returns rows I'm in; writes are RPCs (one buddy each, blocks respected,
+  // one nudge per 12 h). Reads fail soft to [] before the migration runs.
+  async listMyBuddies() {
+    const { data, error } = await sb.from('club_buddies').select('*');
+    if (error) return [];
+    return (data || []).map(mapDbBuddy);
+  },
+  async requestBuddy(buddyId) {
+    const { data, error } = await sb.rpc('request_club_buddy', { p_buddy: buddyId });
+    if (error) throw _clubErr(error, 'Training buddies switch on with the next update.');
+    return Array.isArray(data) ? data[0] : data;   // 'pending' | 'active'
+  },
+  async respondBuddy(id, accept) {
+    const { data, error } = await sb.rpc('respond_club_buddy', { p_id: id, p_accept: !!accept });
+    if (error) throw _clubErr(error, 'Training buddies switch on with the next update.');
+    return Array.isArray(data) ? data[0] : data;   // 'active' | 'declined' | 'taken'
+  },
+  async endBuddy() {
+    const { error } = await sb.rpc('end_club_buddy');
+    if (error) throw _clubErr(error, 'Training buddies switch on with the next update.');
+  },
+  // The buddy's id when a nudge went out; null when I already nudged in the last 12 hours.
+  async nudgeBuddy() {
+    const { data, error } = await sb.rpc('nudge_club_buddy');
+    if (error) throw _clubErr(error, 'Training buddies switch on with the next update.');
+    return (Array.isArray(data) ? data[0] : data) || null;
   },
 
   // ---------- PROGRAMS ----------

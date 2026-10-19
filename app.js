@@ -102,6 +102,7 @@ function _buildDemoData() {
     coachId: DC, userType: 'athlete', isAdmin: false,
     subscriptionTier: 'free', subscriptionStatus: 'inactive', avatarUrl: null, countryCode: null,
     instagram: 'demo.lifter',
+    tiktok: 'demo.lifter',
     referralCode: 'DEMO42', referredByCode: null
   };
   const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'This is what your coach sees and writes.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
@@ -513,6 +514,7 @@ async function bootstrap(expectedType, onReady, opts) {
     avatarUrl: profile.avatar_url || null,
     countryCode: profile.country_code || null,
     instagram: profile.instagram || null,
+    tiktok: profile.tiktok || null,
     referralCode: profile.referral_code || null,
     referredByCode: profile.referred_by_code || null,
     // Apple-billed coach sub (IAP)? Drives which "manage" surface shows on iOS.
@@ -836,9 +838,15 @@ function showInstallBanner() {
     body = '<strong>Install POWALIFTA</strong><span>Quicker access from your home screen.</span>';
     action = '<button class="pwa-banner-cta" onclick="triggerInstall()">Install</button>';
   } else {
-    // iOS instructions — no programmatic install
-    body = '<strong>Install POWALIFTA</strong><span>Tap <span class="pwa-share-icon">⬆︎</span> Share, then "Add to Home Screen".</span>';
-    action = '';
+    // iOS: the real app is on the App Store, so point there (not "Add to Home Screen").
+    // iPhone Safari already shows Apple's own app banner on pages that carry the
+    // apple-itunes-app meta tag, so stay quiet there; in-app browsers (Instagram,
+    // TikTok) and Chrome/Firefox on iOS have no such banner, so they get this one.
+    const ua = navigator.userAgent || '';
+    const otherBrowser = /CriOS|FxiOS|EdgiOS|OPiOS|Instagram|FBAN|FBAV|musical_ly|TikTok|Line\//.test(ua);
+    if (!otherBrowser && document.querySelector('meta[name="apple-itunes-app"]')) return;
+    body = '<strong>Get the iPhone app</strong><span>POWALIFTA is on the App Store.</span>';
+    action = '<a class="pwa-banner-cta" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener" onclick="dismissInstallBanner()">Get</a>';
   }
   banner.innerHTML =
     '<div class="pwa-banner-body">' + body + '</div>' +
@@ -4168,6 +4176,90 @@ function plateClub(logs, athleteId, unit) {
     });
   return out;
 }
+
+// =========================================================
+// BODYWEIGHT MILESTONES — the gym's own goals, fair to every size because
+// they're relative: your first bodyweight bench, a 1.5× bodyweight squat, a
+// double-bodyweight deadlift. Women's ladders start lower (that's where the
+// standards sit). Counts the weight actually on the bar, against today's
+// bodyweight. Pure: unit-tested in tests.html.
+// =========================================================
+const BW_LADDER = {
+  male:   { squat: [1, 1.5, 2, 2.5], bench: [0.75, 1, 1.25, 1.5], deadlift: [1, 1.5, 2, 2.5, 3] },
+  female: { squat: [0.75, 1, 1.5, 2], bench: [0.5, 0.75, 1, 1.25], deadlift: [1, 1.5, 2, 2.5] }
+};
+function bwMilestoneTitle(lift, ratio) {
+  const l = (LIFT_LABELS[lift] || lift).toLowerCase();
+  if (ratio === 1) return 'Bodyweight ' + l;
+  if (ratio === 2) return 'Double bodyweight ' + l;
+  if (ratio === 3) return 'Triple bodyweight ' + l;
+  return ratio + '× bodyweight ' + l;
+}
+// The highest rung a new set crosses for the first time (null = none).
+function newBwMilestone(prevBestKg, newKg, bodyweightKg, lift, sex) {
+  const bw = Number(bodyweightKg), w = Number(newKg), prev = Number(prevBestKg) || 0;
+  const ladder = (BW_LADDER[sex === 'female' ? 'female' : 'male'] || {})[lift];
+  if (!ladder || !(bw > 0) || !(w > 0)) return null;
+  const crossed = ladder.filter(x => w >= x * bw - 0.01 && prev < x * bw - 0.01);
+  if (!crossed.length) return null;
+  const x = crossed[crossed.length - 1];
+  return { lift, ratio: x, kg: Math.round(x * bw * 10) / 10, title: bwMilestoneTitle(lift, x) };
+}
+// Per lift: the rungs already held (by best weight on the bar) and the next one.
+function bwMilestoneLadder(bestKgByLift, bodyweightKg, sex) {
+  const bw = Number(bodyweightKg);
+  if (!(bw > 0)) return [];
+  const lad = BW_LADDER[sex === 'female' ? 'female' : 'male'];
+  return MAIN_LIFTS.map(lift => {
+    const best = Number((bestKgByLift || {})[lift]) || 0;
+    const held = lad[lift].filter(x => best >= x * bw - 0.01);
+    const next = lad[lift].find(x => best < x * bw - 0.01) || null;
+    return { lift, best, held, next, nextKg: next ? Math.round(next * bw * 10) / 10 : null, toGoKg: next ? Math.max(0, Math.round((next * bw - best) * 10) / 10) : 0 };
+  });
+}
+
+// =========================================================
+// WEEKLY GOAL — how many sessions a week (2–6). The streak counts weeks in a
+// row the goal was hit, so a planned rest day can never break it: only a
+// whole week short does. A week in progress never breaks it (it only adds once
+// it's hit). Dates are YYYY-MM-DD session days. Pure: unit-tested.
+// =========================================================
+function _monISO(iso) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }
+function _addDaysISO(iso, n) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function weeklyGoalStatus(dates, goal, today) {
+  goal = Math.max(2, Math.min(6, Math.round(Number(goal) || 3)));
+  const perWeek = {};
+  new Set((dates || []).filter(Boolean)).forEach(d => { const w = _monISO(d); perWeek[w] = (perWeek[w] || 0) + 1; });
+  const thisWk = _monISO(today);
+  const done = perWeek[thisWk] || 0;
+  let streak = done >= goal ? 1 : 0;
+  for (let wk = _addDaysISO(thisWk, -7), i = 0; (perWeek[wk] || 0) >= goal && i < 520; wk = _addDaysISO(wk, -7), i++) streak++;
+  return { goal, done, met: done >= goal, left: Math.max(0, goal - done), streak };
+}
+function getWeekGoal() { try { const n = Number(localStorage.getItem('powa-week-goal')); return n >= 2 && n <= 6 ? n : null; } catch (e) { return null; } }
+function setWeekGoal(n) { try { localStorage.setItem('powa-week-goal', String(Math.max(2, Math.min(6, Math.round(n))))); } catch (e) {} }
+
+// =========================================================
+// READINESS — one tap before a session: fresh / normal / beat up. Beat up
+// takes ~5% off today's planned loads (the nearest weight you can load); the
+// smart next set carries on from there. Stored per day on this device.
+// =========================================================
+const READINESS = { fresh: { label: 'Fresh', factor: 1 }, normal: { label: 'Normal', factor: 1 }, rough: { label: 'Beat up', factor: 0.95 } };
+function readinessLoad(kg, level, unit) {
+  const r = READINESS[level];
+  const w = Number(kg) || 0;
+  if (!r || r.factor === 1 || !(w > 0)) return null;
+  const step = unit === 'lbs' ? 5 * KG_PER_LB : 2.5;
+  // Nearest loadable weight to 95%; if that rounds back up to the plan, one step down.
+  let out = Math.round(w * r.factor / step) * step;
+  if (out >= w) out = Math.floor(w * r.factor / step) * step;
+  return out > 0 && out < w ? Math.round(out * 1000) / 1000 : null;
+}
+function getReadiness(dateIso) { try { const v = localStorage.getItem('powa-ready-' + dateIso); return READINESS[v] ? v : null; } catch (e) { return null; } }
+function setReadiness(dateIso, level) { try { localStorage.setItem('powa-ready-' + dateIso, level); } catch (e) {} }
+
+if (typeof window !== 'undefined') Object.assign(window, { BW_LADDER, bwMilestoneTitle, newBwMilestone, bwMilestoneLadder,
+  weeklyGoalStatus, getWeekGoal, setWeekGoal, READINESS, readinessLoad, getReadiness, setReadiness });
 function getSmartLoadOn() { try { return localStorage.getItem('powa-smart-load') !== '0'; } catch (e) { return true; } }
 function setSmartLoadOn(on) { try { localStorage.setItem('powa-smart-load', on ? '1' : '0'); } catch (e) {} }
 
@@ -4647,6 +4739,144 @@ function generateProgram(opts) {
   return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
 }
 if (typeof window !== 'undefined') { window.generateProgram = generateProgram; window.weightForTarget = weightForTarget; }
+
+// STARTER PROGRAM — for someone new to the barbell who doesn't know a max (and
+// shouldn't be testing one). No numbers needed: starting weights come from
+// bodyweight with deliberately low novice ratios (never below the empty bar),
+// then it's 3 × 5 on three full-body days, the load climbing ~2% a week while
+// the target RPE walks 7 → 8. The smart next set does the fine-tuning: too
+// easy and the next set goes up, too hard and it comes down. Pure.
+const STARTER_RATIO = { male: { squat: 0.8, bench: 0.6, deadlift: 1.0 }, female: { squat: 0.6, bench: 0.35, deadlift: 0.75 } };
+function starterE1rms(bodyweightKg, sex) {
+  const fem = sex === 'female';
+  const bw = Number(bodyweightKg) > 30 ? Number(bodyweightKg) : (fem ? 62 : 78);
+  const r = STARTER_RATIO[fem ? 'female' : 'male'];
+  return { squat: bw * r.squat, bench: bw * r.bench, deadlift: bw * r.deadlift };
+}
+function generateStarterProgram(opts) {
+  opts = opts || {};
+  const weeks = Math.max(4, Math.min(12, Math.round(opts.weeks || 8)));
+  const base = starterE1rms(opts.bodyweightKg, opts.sex);
+  Object.keys(opts.e1rms || {}).forEach(k => { if (Number(opts.e1rms[k]) > 0) base[k] = Number(opts.e1rms[k]); });
+  const bar = opts.unit === 'lbs' ? 45 * KG_PER_LB : 20;
+  // Target RPE 7 → 8 (3 → 2 reps left). Not lower: the scale's floor is RPE 6,
+  // so "4+ left" must sit a full step under the target to move the next set up.
+  const rpeAt = (w) => Math.round((7 + (weeks <= 1 ? 1 : w / (weeks - 1))) * 2) / 2;
+  const load = (lift, w, reps) => Math.max(bar, weightForTarget(base[lift] * (1 + 0.02 * w), reps, rpeAt(w)));
+  const main = (lift, w, sets) => {
+    const ex = newExercise(lift, 'Competition', '');
+    for (let s = 0; s < sets; s++) ex.sets.push(newSet(load(lift, w, 5), 5, rpeAt(w), ''));
+    return ex;
+  };
+  // Accessories you can do on day one: push-ups and lunges need no load; the row starts at the bar.
+  const acc = (grp, name, reps, kg) => {
+    const ex = newExercise(grp, '', name);
+    for (let s = 0; s < 3; s++) ex.sets.push(newSet(kg, reps, 7, ''));
+    return ex;
+  };
+  const wks = [];
+  for (let w = 0; w < weeks; w++) {
+    const a = newDay('Squat + bench'); a.exercises.push(main('squat', w, 3), main('bench', w, 3), acc('push', 'Push-ups', 10, 0));
+    const b = newDay('Squat + deadlift'); b.exercises.push(main('squat', w, 3), main('deadlift', w, 2), acc('legs', 'Lunges', 8, 0));
+    const c = newDay('Squat + bench'); c.exercises.push(main('squat', w, 3), main('bench', w, 3), acc('pull', 'Barbell Row', 8, Math.max(bar, weightForTarget(base.bench, 8, 7))));
+    wks.push({ id: uid('wk'), number: w + 1, days: [a, b, c] });
+  }
+  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name: 'Starter strength', starter: true, weeks: wks };
+}
+if (typeof window !== 'undefined') { window.generateStarterProgram = generateStarterProgram; window.starterE1rms = starterE1rms; }
+
+// FIRST MEET — a block that ends on meet week (8–16 weeks, 12 by default):
+// base (5s at RPE 7 → 7.5), strength (triples at 7.5 → 8.5), peak (a heavy
+// single at RPE 8 → 9 plus doubles), then meet week: openers early in the week
+// (a single at RPE 7 ≈ 90%), light technique after. Meet day itself is meet
+// mode (attempts + judges' lights), not a session. Three days a week: squat +
+// bench, deadlift + bench, squat + bench. Loads come from the lifter's e1RMs,
+// nudged up ~1% a week. Pure: unit-tested.
+function generateMeetPrep(opts) {
+  opts = opts || {};
+  const W = Math.max(8, Math.min(16, Math.round(opts.weeks || 12)));
+  const e1 = opts.e1rms || {};
+  const bar = opts.unit === 'lbs' ? 45 * KG_PER_LB : 20;
+  const strengthStart = Math.round((W - 4) / 2), peakStart = W - 4, meetWk = W - 1;
+  const half = (v) => Math.round(v * 2) / 2;
+  const at = (w, a, b, from, to) => half(a + (b - a) * (to > from ? (w - from) / (to - from) : 1));
+  const load = (lift, w, reps, rpe) => Math.max(bar, weightForTarget((Number(e1[lift]) || 0) * (1 + 0.01 * Math.min(w, 10)), reps, rpe));
+  // [sets, reps, rpe] for the day's main lift and its second lift, by week.
+  function scheme(w, second) {
+    if (w < strengthStart) return second ? [3, 6, 7] : [4, 5, at(w, 7, 7.5, 0, strengthStart - 1)];
+    if (w < peakStart) return second ? [3, 4, 7.5] : [4, 3, at(w, 7.5, 8.5, strengthStart, peakStart - 1)];
+    return second ? [3, 3, 7.5] : null;   // peak: built below (single + doubles)
+  }
+  const rot = [['squat', 'bench'], ['deadlift', 'bench'], ['squat', 'bench']];
+  const NAMES = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  const wks = [];
+  for (let w = 0; w < W; w++) {
+    const days = [];
+    if (w === meetWk) {
+      const op = newDay('Openers');
+      ['squat', 'bench'].forEach(l => { const ex = newExercise(l, 'Competition', ''); ex.sets.push(newSet(load(l, w, 1, 7), 1, 7, '')); op.exercises.push(ex); });
+      const dl = newExercise('deadlift', 'Competition', ''); dl.sets.push(newSet(load('deadlift', w, 1, 7), 1, 7, '')); op.exercises.push(dl);
+      const lt = newDay('Light technique');
+      ['squat', 'bench'].forEach(l => { const ex = newExercise(l, 'Competition', ''); for (let s = 0; s < 2; s++) ex.sets.push(newSet(load(l, w, 2, 6), 2, 6, '')); lt.exercises.push(ex); });
+      days.push(op, lt);
+    } else {
+      rot.forEach((pair, d) => {
+        const day = newDay(pair.map(l => NAMES[l]).join(' + '));
+        pair.forEach((l, i) => {
+          const ex = newExercise(l, 'Competition', '');
+          const sc = scheme(w, i > 0);
+          if (sc) { for (let s = 0; s < sc[0]; s++) ex.sets.push(newSet(load(l, w, sc[1], sc[2]), sc[1], sc[2], '')); }
+          else {
+            const top = at(w, 8, 9, peakStart, meetWk - 1);
+            ex.sets.push(newSet(load(l, w, 1, top), 1, top, ''));
+            for (let s = 0; s < 3; s++) ex.sets.push(newSet(load(l, w, 2, 8), 2, 8, ''));
+          }
+          day.exercises.push(ex);
+        });
+        days.push(day);
+      });
+    }
+    wks.push({ id: uid('wk'), number: w + 1, days });
+  }
+  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name: 'First meet · ' + W + ' weeks', meetPrep: true, meetDate: opts.meetDate || null, weeks: wks };
+}
+if (typeof window !== 'undefined') window.generateMeetPrep = generateMeetPrep;
+
+// SIMPLE EFFORT SCALE — new lifters answer "how many more reps could you have
+// done?" (4+ · 3 · 2 · 1 · 0) instead of nine RPE numbers. Same data underneath
+// (RPE 6–10); the read-out still names the RPE so the word gets learnt.
+function isSimpleEffort() { try { return localStorage.getItem('powa-simple-effort') === '1'; } catch (e) { return false; } }
+function setSimpleEffort(on) { try { localStorage.setItem('powa-simple-effort', on ? '1' : '0'); } catch (e) {} }
+if (typeof window !== 'undefined') { window.isSimpleEffort = isSimpleEffort; window.setSimpleEffort = setSimpleEffort; }
+
+// PLAIN WORDS. The app's jargon, the way a coach would say it out loud.
+// (The numbers in the e1RM line come from calcE1RM: 100 kg × 5 @ RPE 8 ≈ 125.)
+const GLOSSARY = [
+  { key: 'rpe', term: 'RPE', text: 'How hard a set was, out of 10. 10 means you had nothing left. 8 means you could have done two more reps. Most training sits between 6 and 9.' },
+  { key: 'rir', term: 'Reps left in the tank', text: 'How many more reps you could have done with good form. It\'s RPE said the other way round: two reps left is RPE 8. Not sure? Pick the closer one. You get better at judging it every week.' },
+  { key: 'e1rm', term: 'e1RM, your estimated max', text: 'The most you could lift once, worked out from a set you did. 100 kg for 5 at RPE 8 works out to about 125 kg. You never have to test it.' },
+  { key: 'pr', term: 'PR', text: 'Personal record: your best ever. Here it means your estimated max went up, so a better set of 5 counts as much as a heavier single.' },
+  { key: 'hard', term: 'Hard set', text: 'A set at RPE 7 or more, so three or fewer reps left. These are the sets that build strength, and the ones club points count.' },
+  { key: 'top', term: 'Top set and back-off sets', text: 'The top set is the heaviest set of the day. Back-off sets come after it, a little lighter, for more good practice.' },
+  { key: 'comp', term: 'Competition equivalent', text: 'Harder variations, like a paused squat, are scaled up to what that effort means for the normal lift, so your charts compare like with like.' },
+  { key: 'deload', term: 'Deload', text: 'A planned easier week so your body catches up. You come back stronger, not weaker.' },
+  { key: 'total', term: 'Total', text: 'Your best squat, bench and deadlift added together. It\'s what decides a powerlifting meet.' },
+  { key: 'dots', term: 'DOTS', text: 'A score that adjusts your total for bodyweight, so a 60 kg lifter and a 120 kg lifter can be compared fairly.' }
+];
+function openGlossary(focusKey) {
+  uiSheet('Lifting words, explained', (sheet) => {
+    const list = el('div', { class: 'ui-list gloss-list' });
+    GLOSSARY.forEach(g => {
+      const item = el('div', { class: 'gloss-item' + (g.key === focusKey ? ' is-focus' : ''), id: 'gloss-' + g.key });
+      item.appendChild(el('b', {}, g.term));
+      item.appendChild(el('p', {}, g.text));
+      list.appendChild(item);
+    });
+    sheet.appendChild(list);
+    if (focusKey) setTimeout(() => { const f = document.getElementById('gloss-' + focusKey); if (f) f.scrollIntoView({ block: 'center' }); }, 80);
+  }, { cls: 'gloss-sheet' });
+}
+if (typeof window !== 'undefined') { window.GLOSSARY = GLOSSARY; window.openGlossary = openGlossary; }
 
 // =========================================================
 // BUILD FROM A GOAL — "here's where they are, here's where they're going,
@@ -7190,6 +7420,7 @@ const YOU_ROW_META = {
   'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
   'Units':               { tint: 'sky',    icon: () => ICONS.weight },
   'Replay the tour':     { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>') },
+  'Lifting words, explained': { tint: 'sky', icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M9 8h6M9 12h4"/>') },
   'Log out':             { tint: 'red',    icon: () => ICONS.logout },
   'Athlete progress':    { tint: 'sky',    icon: () => ICONS.chart },
   'Templates':           { tint: 'iris',   icon: () => ICONS.copy },
@@ -7218,7 +7449,7 @@ function renderYouHub(container, model) {
   const id = el('div', { class: 'you-id' });
   id.appendChild(el('h2', {}, model.name || 'You'));
   if (model.sub) id.appendChild(el('div', { class: 'you-sub' }, model.sub));
-  const igc = model.instagram ? uiInstagramChip(model.instagram) : null;
+  const igc = uiSocialChips(model);   // Instagram + TikTok, whichever they have
   if (igc) id.appendChild(igc);
   head.appendChild(id);
   hero.appendChild(head);
@@ -7426,7 +7657,14 @@ function openRestSettings(onDone) {
     smartMain.appendChild(el('span', { class: 'ui-row-sub' }, 'When a set feels harder or easier than planned, the next one moves to match'));
     smartRow.appendChild(smartMain);
     smartRow.appendChild(uiSwitch(getSmartLoadOn(), on => setSmartLoadOn(on), 'Adjust the next set to how the last one felt'));
-    sheet.appendChild(uiList([smartRow]));
+    // New to RPE: answer "how many reps were left?" instead of a number.
+    const simpleRow = el('div', { class: 'ui-row rest-auto' });
+    const simpleMain = el('span', { class: 'ui-row-main' });
+    simpleMain.appendChild(el('span', { class: 'ui-row-title' }, 'Simple effort scale'));
+    simpleMain.appendChild(el('span', { class: 'ui-row-sub' }, 'Tap how many reps you had left (4+ to 0) instead of an RPE number'));
+    simpleRow.appendChild(simpleMain);
+    simpleRow.appendChild(uiSwitch(isSimpleEffort(), on => setSimpleEffort(on), 'Use the simple reps-left effort scale'));
+    sheet.appendChild(uiList([smartRow, simpleRow]));
     const done = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Done');
     done.addEventListener('click', close);
     sheet.appendChild(done);
@@ -7877,12 +8115,22 @@ const RPE_TANK = {
 };
 function rpeColor(r) { const n = Math.round(Number(r) * 2) / 2; return RPE_COLORS[n] || (n > 10 ? RPE_COLORS[10] : RPE_COLORS[6]); }
 function rpeTankText(r) { return RPE_TANK[Math.round(Number(r) * 2) / 2] || ''; }
+const SIMPLE_SHORT = { 6: '4+', 7: '3', 8: '2', 9: '1', 10: '0' };
+const SIMPLE_LEFT = { 6: 'Four or more reps left', 7: 'Three reps left', 8: 'Two reps left', 9: 'One rep left', 10: 'Nothing left' };
 function uiRpeScale(value, onPick, opts) {
   opts = opts || {};
-  const wrap = el('div', { class: 'rpe-scale' + (opts.cls ? ' ' + opts.cls : '') });
-  const row = el('div', { class: 'rpe-steps', role: 'radiogroup', 'aria-label': opts.label || 'How hard was it? RPE' });
+  // Simple mode (new lifters; You → Rest and sets): five "reps left" buttons
+  // instead of nine RPE numbers. Half steps round to the nearest whole one.
+  const simple = opts.simple != null ? !!opts.simple : isSimpleEffort();
+  const steps = simple ? [6, 7, 8, 9, 10] : RPE_STEPS;
+  const near = (v) => (v == null ? null : simple ? Math.max(6, Math.min(10, Math.round(v))) : v);
+  const wrap = el('div', { class: 'rpe-scale' + (simple ? ' is-simple' : '') + (opts.cls ? ' ' + opts.cls : '') });
+  const row = el('div', { class: 'rpe-steps', role: 'radiogroup', 'aria-label': opts.label || (simple ? 'Reps left in the tank' : 'How hard was it? RPE') });
   const hint = el('div', { class: 'rpe-hint', 'aria-live': 'polite' });
-  let cur = (value == null || value === '') ? null : Number(value);
+  let cur = near((value == null || value === '') ? null : Number(value));
+  // opts.target: the planned RPE. It gets the one quiet tick under the scale, and
+  // the read-out names it once you pick something else. No rainbow of ticks.
+  const target = near((opts.target == null || opts.target === '') ? null : Number(opts.target));
   const paint = () => {
     row.querySelectorAll('button').forEach(b => {
       const on = Number(b.dataset.rpe) === cur;
@@ -7890,10 +8138,16 @@ function uiRpeScale(value, onPick, opts) {
     });
     wrap.classList.toggle('has-value', cur != null);
     if (cur != null) wrap.style.setProperty('--rc', rpeColor(cur));
-    hint.innerHTML = cur != null ? '<b>RPE ' + cur + '</b> · ' + escHtml(rpeTankText(cur)) : escHtml(opts.empty || 'Tap how hard it felt');
+    const off = target != null && cur !== target;
+    hint.innerHTML = cur == null
+      ? escHtml(simple ? 'How many more reps could you have done?' : (opts.empty || 'Tap how hard it felt'))
+      : simple
+        ? '<b>' + SIMPLE_LEFT[cur] + '</b> · RPE ' + cur + (off ? ' · plan was ' + SIMPLE_SHORT[target] + ' left' : '')
+        : '<b>RPE ' + cur + '</b> · ' + escHtml(rpeTankText(cur)) + (off ? ' · target ' + target : '');
   };
-  RPE_STEPS.forEach(r => {
-    const b = el('button', { type: 'button', role: 'radio', 'data-rpe': String(r), style: '--rc:' + rpeColor(r) }, String(r));
+  steps.forEach(r => {
+    const b = el('button', { type: 'button', role: 'radio', class: target === r ? 'is-target' : '', 'data-rpe': String(r), style: '--rc:' + rpeColor(r) }, simple ? SIMPLE_SHORT[r] : String(r));
+    if (simple) b.setAttribute('aria-label', SIMPLE_LEFT[r]);
     b.addEventListener('click', () => {
       cur = r; paint();
       hapticTick();
@@ -7903,7 +8157,12 @@ function uiRpeScale(value, onPick, opts) {
   });
   wrap.appendChild(row);
   if (opts.hint !== false) wrap.appendChild(hint);
-  wrap.setValue = (v) => { cur = (v == null || v === '') ? null : Number(v); paint(); };
+  if (simple && opts.hint !== false) {
+    const what = el('button', { class: 'ui-text-btn rpe-what', type: 'button' }, 'What does this mean?');
+    what.addEventListener('click', () => openGlossary('rir'));
+    wrap.appendChild(what);
+  }
+  wrap.setValue = (v) => { cur = near((v == null || v === '') ? null : Number(v)); paint(); };
   wrap.getValue = () => cur;
   wrap.nudge = () => { wrap.classList.remove('nudge'); void wrap.offsetWidth; wrap.classList.add('nudge'); };
   paint();
@@ -8099,7 +8358,48 @@ function uiInstagramChip(handle, opts) {
   return a;
 }
 
-Object.assign(window, { normalizeInstagram, instagramUrl, openInstagram, uiInstagramChip, IG_GLYPH, PLATE_LOOK, plateLoadout, plateColor, plateSummaryText, plateChipsHtml, uiBarbell,
+// TIKTOK. Same deal: one handle, bare + lower case, TikTok's rules (2–24
+// letters, numbers, _ and ., never ending in a period), so it can only ever
+// open tiktok.com/@<handle>. '' = cleared, null = not a handle. Short links
+// (vm.tiktok.com/…) carry no handle, so they're refused rather than guessed.
+function normalizeTikTok(v) {
+  let s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  s = s.replace(/^https?:\/\//i, '').replace(/^((www|m)\.)?tiktok\.com\//i, '');
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(s)) return null;   // another site, or a short link
+  s = s.split(/[/?#]/)[0].replace(/^@+/, '').toLowerCase();
+  return /^[a-z0-9._]{1,23}[a-z0-9_]$/.test(s) ? s : null;
+}
+function tiktokUrl(handle) { return 'https://www.tiktok.com/@' + encodeURIComponent(handle); }
+const TT_GLYPH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 3c.4 2.6 2.2 4.4 5 4.8"/></svg>';
+function openTikTok(handle) {
+  const h = normalizeTikTok(handle);
+  if (!h) return;
+  if (window._demoMode) { toast('Opens @' + h + ' on TikTok'); return; }
+  try { window.open(tiktokUrl(h), '_blank', 'noopener'); } catch (e) {}
+}
+function uiTikTokChip(handle, opts) {
+  opts = opts || {};
+  const h = normalizeTikTok(handle);
+  if (!h) return null;
+  const a = el('a', { class: 'ig-chip tt-chip' + (opts.big ? ' is-big' : ''), href: tiktokUrl(h), target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'TikTok: @' + h });
+  a.innerHTML = '<span class="ig-ic">' + TT_GLYPH + '</span><span class="ig-h">@' + escHtml(h) + '</span>';
+  a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openTikTok(h); });
+  return a;
+}
+// Instagram + TikTok side by side, whichever the lifter has. null = neither.
+function uiSocialChips(model, opts) {
+  const ig = model && model.instagram ? uiInstagramChip(model.instagram, opts) : null;
+  const tt = model && model.tiktok ? uiTikTokChip(model.tiktok, opts) : null;
+  if (!ig && !tt) return null;
+  const row = el('div', { class: 'social-chips' + (opts && opts.big ? ' is-big' : '') });
+  if (ig) row.appendChild(ig);
+  if (tt) row.appendChild(tt);
+  return row;
+}
+
+Object.assign(window, { normalizeInstagram, instagramUrl, openInstagram, uiInstagramChip, IG_GLYPH,
+  normalizeTikTok, tiktokUrl, openTikTok, uiTikTokChip, uiSocialChips, TT_GLYPH, PLATE_LOOK, plateLoadout, plateColor, plateSummaryText, plateChipsHtml, uiBarbell,
   RPE_STEPS, rpeColor, rpeTankText, uiRpeScale, uiStepper, toastAction, uiLongPress,
   REACT_EMOJI, POST_REACT_KEYS, MSG_REACT_KEYS, reactionSummary, openReactionPicker, reactionChips });
 
@@ -8164,6 +8464,9 @@ function openProfileSheet(onSaved) {
     const ig = el('input', { type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', maxlength: '80', placeholder: '@yourhandle', 'aria-label': 'Instagram handle' });
     ig.value = u.instagram ? '@' + u.instagram : '';
     form.appendChild(_fieldRow('Instagram', ig));
+    const tt = el('input', { type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', maxlength: '80', placeholder: '@yourhandle', 'aria-label': 'TikTok handle' });
+    tt.value = u.tiktok ? '@' + u.tiktok : '';
+    form.appendChild(_fieldRow('TikTok', tt));
     let bio = null;
     if (u.userType === 'coach') {
       bio = el('textarea', { rows: '4', maxlength: '600', 'aria-label': 'Coach bio', placeholder: 'Who you coach and how' });
@@ -8171,7 +8474,7 @@ function openProfileSheet(onSaved) {
       form.appendChild(_fieldRow('Bio', bio, true));
     }
     sheet.appendChild(form);
-    sheet.appendChild(el('p', { class: 'ui-sheet-note' }, 'Your name, flag and Instagram show on your club board and lifter card.'));
+    sheet.appendChild(el('p', { class: 'ui-sheet-note' }, 'Your name, flag, Instagram and TikTok show on your club board and lifter card.'));
     const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save');
     save.addEventListener('click', async () => {
       if (window._demoMode) { toast('Preview only in demo mode'); return; }
@@ -8179,6 +8482,8 @@ function openProfileSheet(onSaved) {
       if (!nm) { toast('Add your name'); name.focus(); return; }
       const handle = normalizeInstagram(ig.value);
       if (handle === null) { toast('That isn\'t an Instagram handle'); ig.focus(); return; }
+      const ttHandle = normalizeTikTok(tt.value);
+      if (ttHandle === null) { toast('That isn\'t a TikTok handle. Paste tiktok.com/@you or just @you'); tt.focus(); return; }
       save.disabled = true;
       const done = (msg) => {
         window._user.name = nm; window._user.countryCode = sel.value || null;
@@ -8190,13 +8495,18 @@ function openProfileSheet(onSaved) {
         if (onSaved) onSaved();
       };
       try {
-        const patch = { name: nm, country_code: sel.value || null, instagram: handle || null };
+        const patch = { name: nm, country_code: sel.value || null, instagram: handle || null, tiktok: ttHandle || null };
         if (bio) patch.bio = bio.value.trim();
         await DB.updateProfile(u.id, patch);
         window._user.instagram = handle || null;
+        window._user.tiktok = ttHandle || null;
         done('Profile saved');
       } catch (e) {
-        if (e && e.partial) { done(e.message); return; }
+        if (e && e.partial) {   // one column isn't live yet: keep the one that saved
+          if (!/tiktok/i.test(e.message)) window._user.tiktok = ttHandle || null;
+          if (!/instagram/i.test(e.message)) window._user.instagram = handle || null;
+          done(e.message); return;
+        }
         save.disabled = false; toast(e.message || 'Could not save');
       }
     });

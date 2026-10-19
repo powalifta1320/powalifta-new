@@ -1478,7 +1478,8 @@ section:not([data-pane]) { padding: var(--section-y) 0; }
 .section-title { margin-bottom: var(--title-gap); }
 .section-title h2 {
   margin-bottom: 14px;
-  font-size: clamp(2.4rem, 6vw, 4.4rem);
+  /* phones: never wider than the column (long words like "spreadsheet" can't wrap) */
+  font-size: min(clamp(2.4rem, 6vw, 4.4rem), calc((100vw - 36px) / 10.4));
   line-height: 0.95;
   letter-spacing: -0.018em;
 }
@@ -3096,7 +3097,9 @@ section[data-pane="today"] { max-width: 880px; }
 }
 .cta-band > .container { position: relative; z-index: 2; }
 .cta-band h2 {
-  font-size: clamp(2.8rem, 7.5vw, 5.6rem);
+  /* "SPREADSHEET." is ~10× its font size wide in the wide display face and can't
+     wrap, so on phones the size follows the column (desktop/tablet unchanged). */
+  font-size: min(clamp(2.8rem, 7.5vw, 5.6rem), calc((100vw - 36px) / 10.4));
   line-height: 0.94;
   margin-bottom: 20px;
 }
@@ -6168,11 +6171,13 @@ body:has(.dash-main)::after {
 }
 .af-ic svg { width: 19px; height: 19px; }
 
-/* store badges — non-clickable "coming soon" markers */
+/* store badges: Apple's official App Store badge (a link; Apple's artwork, never
+   redrawn) + the Google Play "coming soon" marker */
 .appshow-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  align-items: center;
+  gap: 14px; /* Apple asks for clear space of a quarter of the badge height */
   margin-bottom: 26px;
 }
 .store-badge {
@@ -6196,6 +6201,11 @@ body:has(.dash-main)::after {
   color: var(--text-3);
 }
 .sb-text strong { font-size: 0.95rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.store-badge-link { display: inline-flex; border-radius: 10px; transition: transform 0.15s var(--ease-out-quart); }
+.store-badge-link:hover { transform: translateY(-1px); }
+.store-badge-link:active { transform: scale(0.98); }
+.store-badge-link:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+.as-badge { display: block; height: 52px; width: auto; }
 
 /* the one real CTA */
 .appshow-link {
@@ -6489,7 +6499,7 @@ body:has(.dash-main)::after {
   .ph-rest-dot { animation: none; }
 }
 
-/* site-wide "apps coming soon" footer chip --------------------------------- */
+/* site-wide footer chip: "Get the iPhone app" → the App Store --------------- */
 .apps-soon-chip {
   display: inline-flex;
   align-items: center;
@@ -6525,6 +6535,8 @@ body:has(.dash-main)::after {
 @media (prefers-reduced-motion: reduce) {
   .asc-dot { animation: none; }
 }
+/* App Store links make no sense inside the iPhone app itself */
+html.native .app-store-link { display: none !important; }
 
 /* =========================================================
    GUIDES — SEO long-form content (guides.html + guide-*.html)
@@ -10121,7 +10133,7 @@ html:not([data-theme="light"]) body.powa-app :is(input, select, textarea):focus 
 .ui-stepper .st-btn:active { transform: scale(0.92); background: var(--fill-4); }
 .ui-stepper .st-btn:disabled { opacity: 0.35; }
 .ui-stepper .st-val { text-align: center; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 700; }
-.ui-stepper.is-input .st-val { display: flex; align-items: baseline; justify-content: center; gap: 6px; cursor: text; }
+.ui-stepper.is-input .st-val { display: flex; align-items: baseline; justify-content: center; gap: 6px; cursor: text; text-transform: none; letter-spacing: normal; } /* it's a <label>: undo the global caps label so the unit reads "kg" */
 .ui-stepper .st-input { width: 5ch; padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--text); text-align: center; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 750; -moz-appearance: textfield; }
 .ui-stepper .st-input::-webkit-outer-spin-button, .ui-stepper .st-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .ui-stepper .st-val small { font-size: 18px; font-weight: 600; color: var(--text-3); }
@@ -10941,3 +10953,121 @@ html.club-tv-open .ai-launcher, html.meet-mode-open .ai-launcher { display: none
 .tw-t b { font-size: var(--fs-row, 16px); }
 .tw-t small { font-size: var(--fs-meta, 13px); color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) { .wrap-card { animation: none; } .wrap-bars i.now::after { animation-duration: 0.01s; } }
+
+/* =====================================================================
+   UI v7 · CALM (2026-10-17). Owner: "still not clean enough, it's
+   overwhelming". Say each thing once; tools only where you are; flat lists
+   instead of tile stacks; colour only where you're choosing something.
+   ===================================================================== */
+/* Train hero: one header row — the lift, and where you are in it. */
+.tx-hero .tx-ex-row { margin-top: 0; }
+.tx-setof { flex: none; font-size: var(--fs-meta, 13px); font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* RPE scale: no rainbow of ticks. The planned RPE gets one quiet tick; your
+   pick wears its colour. */
+.rpe-steps button::after { opacity: 0; }
+.rpe-steps button.is-target::after { opacity: 1; background: var(--text-3); }
+.rpe-steps button.on::after { opacity: 1; background: var(--rc); }
+
+/* Set rows: one flat list with iOS inset separators, not a stack of tiles.
+   The next set is the only lit row. */
+.tx-sets { gap: 0; margin-top: 8px; }
+.tx-set { position: relative; min-height: 54px; padding: 6px 4px 6px 6px; background: transparent; }
+.tx-set::before { content: ''; position: absolute; top: 0; left: 38px; right: 4px; height: 1px; background: var(--hair); pointer-events: none; }
+.tx-set:first-child::before, .tx-set.is-next::before, .tx-set.is-next + .tx-set::before { display: none; }
+.tx-set.is-done { background: transparent; }
+.tx-set.is-next { background: color-mix(in srgb, var(--lc) 8%, transparent); box-shadow: none; }
+/* The RPE chip is ink; colour belongs to the scale where you pick it. */
+.tx-felt, [data-theme="light"] .tx-felt { background: var(--fill-2); color: var(--text); }
+.tx-set.is-done .tx-felt { color: var(--text-2); }
+.tx-felt.is-empty { color: var(--text-3); }
+
+/* Club board: three boards, one line saying what this one measures. */
+.ui-seg.club-rank-seg { width: 100%; margin: 2px 0 0; }
+.club-board-note { margin: 8px 4px 14px; font-size: var(--fs-meta, 13px); line-height: 1.4; color: var(--text-3); }
+.cr-val.is-up b { color: var(--ok, #34d982); }
+.club-ch { margin: 0 0 16px; padding: 12px 14px; }
+.club-ch-you { margin-top: 6px; color: var(--text-2); }
+
+/* Instagram + TikTok side by side. TikTok's glyph is ink (its brand is black
+   and white); pink stays Instagram's. */
+.social-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.social-chips .ig-chip { margin-top: 0; }
+.social-chips.is-big { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); margin-top: 14px; }
+.tt-chip .ig-ic, [data-theme="light"] .tt-chip .ig-ic { color: var(--text); }
+.tt-chip:focus-visible { outline-color: var(--text); }
+.ig-chip.tt-chip.is-big { background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--hair); }
+/* Club header: the week is one line under the faces (sessions · PRs muted below). */
+.cs-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cs-txt small { font-size: var(--fs-meta, 13px); color: var(--text-3); font-variant-numeric: tabular-nums; }
+/* Club posts: the lift IS the post's content, not a card inside the card. */
+body.powa-app .cp-card .cp-lift { margin-top: 10px; padding: 2px 0; border-radius: 0; background: none; box-shadow: none; }
+body.powa-app .cp-card .cp-lift.has-bar { padding-right: 104px; }
+
+/* Beginners (v7): the setup's "new / know my lifts" switch, the five-button
+   reps-left scale, and the plain-words glossary sheet. */
+.ui-seg.setup-mode { width: 100%; margin: 12px 0 4px; }
+.ui-seg.setup-mode button { min-height: 36px; font-size: var(--fs-sm, 14px); }
+.rpe-scale.is-simple .rpe-steps { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.rpe-scale.is-simple .rpe-steps button { font-size: var(--fs-row, 16px); }
+.rpe-what { margin-top: 2px; padding: 4px 0; font-size: var(--fs-meta, 13px); color: var(--text-3); text-decoration: underline; text-underline-offset: 3px; }
+.gloss-list { margin-top: 4px; }
+.gloss-item { padding: 12px 16px; border-bottom: 1px solid var(--hair); scroll-margin: 24px; }
+.gloss-item:last-child { border-bottom: 0; }
+.gloss-item b { display: block; font-size: var(--fs-row, 16px); font-weight: 700; color: var(--text); }
+.gloss-item p { margin: 4px 0 0; font-size: var(--fs-sm, 14px); line-height: 1.45; color: var(--text-2); }
+.gloss-item.is-focus { background: var(--fill-1); }
+/* Setup card: sentence case + lowercase units here too (v5 rules). */
+.setup-days-label { text-transform: none; letter-spacing: 0; font-size: var(--fs-meta, 13px); font-weight: 600; }
+.setup-unit { text-transform: none; letter-spacing: 0; }
+
+/* Seasons (v7): four boards fit one segmented row; last season's champion is
+   one gold line with a crown, and a crown line on their lifter card. */
+.ui-seg.club-rank-seg button { font-size: var(--fs-meta, 13px); padding-left: 4px; padding-right: 4px; }
+.club-champ { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 14px; padding: 10px 14px; border: 0; border-radius: var(--r-inner, 14px);
+  background: color-mix(in srgb, var(--pr, #f2c25b) 9%, var(--fill-1)); color: var(--text); text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; }
+.club-champ:active { transform: scale(0.98); }
+.club-champ-ic { flex: none; width: 22px; height: 22px; color: var(--pr, #f2c25b); }
+.club-champ-ic svg { width: 22px; height: 22px; }
+.club-champ-t { display: flex; flex-direction: column; font-size: var(--fs-sm, 14px); font-weight: 650; }
+.club-champ-t small { font-size: var(--fs-meta, 13px); font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.lc-champ { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--fs-meta, 13px); font-weight: 650; color: var(--pr, #f2c25b); }
+.lc-champ svg { width: 15px; height: 15px; }
+
+/* =====================================================================
+   v7 · seven features (2026-10-17): readiness, weekly goal, bodyweight
+   milestones, first meet, club seasons + training buddies. All live inside
+   surfaces that already exist: Train's grouped list, the club header, sheets.
+   ===================================================================== */
+/* Readiness: one row before the first set; three equal buttons under the text. */
+.tn-group .tn-ready { flex-wrap: wrap; }
+.tn-ready-seg { flex-basis: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.tn-ready-btn { height: 36px; border: 0; border-radius: var(--r-chip, 999px); background: var(--fill-2); color: var(--text); font: inherit; font-size: var(--fs-sm, 14px); font-weight: 650; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press, 150ms) var(--ease-out-quint, ease-out); }
+.tn-ready-btn:active { transform: scale(0.95); }
+.tn-ready-btn.is-rough { color: var(--soft-alert, #ff8a7a); }
+.tn-group .tn-ready.is-set .tn-ic { color: var(--soft-alert, #ff8a7a); }
+/* Weekly goal: the ring leads the row; full = green. */
+.tn-group .tn-goal { text-align: left; }
+.tn-goal .tn-goal-ring { flex: none; }
+.tn-goal .tn-goal-ring .ui-ring-label { font-size: var(--fs-sm, 14px); font-weight: 750; font-variant-numeric: tabular-nums; }
+.tn-goal .tn-goal-ring .ui-ring-label svg { width: 16px; height: 16px; color: var(--ok, #34d982); }
+.tn-goal .ui-ring-s1, .tn-goal .ui-ring-s2 { stop-color: var(--acc, #ff4a55); }
+.tn-goal.is-met .ui-ring-s1, .tn-goal.is-met .ui-ring-s2 { stop-color: var(--ok, #34d982); }
+.ui-seg.goal-seg { width: 100%; margin: 14px 0 18px; }
+.ui-seg.goal-seg button { min-height: 44px; font-size: var(--fs-row, 16px); font-variant-numeric: tabular-nums; }
+/* First meet: the plan's four phases as a short list. */
+.first-meet-sheet .fm-date { margin: 12px 0; }
+.fm-info { margin: 4px 0 16px; }
+.fm-info p { margin: 0; font-size: var(--fs-sm, 14px); line-height: 1.45; color: var(--text-2); }
+/* Training buddy: one row above Feed/Board. */
+.club-buddy { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 12px 14px; border-radius: var(--u-r, 20px); background: var(--bg-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.cbud-av { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; display: grid; place-items: center; font: inherit; font-size: 14px; font-weight: 700; color: var(--text); background: var(--fill-3); -webkit-tap-highlight-color: transparent; }
+.cbud-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cbud-t b { font-size: var(--fs-sm, 14px); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cbud-t span { font-size: var(--fs-meta, 13px); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.club-buddy .cbud-nudge { flex: none; }
+.club-buddy .cbud-nudge:disabled { opacity: 0.55; }
+.club-buddy.is-ask { flex-wrap: wrap; }
+.club-buddy .cbud-no { flex: none; padding: 0 4px; font-size: var(--fs-meta, 13px); color: var(--text-3); }
+.lifter-sheet .lc-buddy { width: 100%; margin-top: 10px; }
+.lifter-sheet .lc-buddy.is-on { color: var(--text-2); }

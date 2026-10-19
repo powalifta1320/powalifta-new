@@ -79,7 +79,8 @@ private struct Bar: View {
 
 // MARK: - Controls (iOS 17+: Button(intent:) in Live Activities)
 
-/// Pause/resume, ±time, and skip — executed by RestTimerIntents in the APP's
+/// Pause/resume, ±time, Log set (when the app handed over a next set) and skip —
+/// executed by RestTimerIntents in the APP's
 /// process (LiveActivityIntent), so they work with the app suspended. On iOS 16
 /// this renders nothing and the activity stays display-only.
 @available(iOS 16.1, *)
@@ -99,6 +100,14 @@ private struct Controls: View {
                     Text("+30s").font(.system(.caption2, design: .rounded).weight(.bold))
                 }
                 Spacer(minLength: 0)
+                if ctx.state.canLog {
+                    // Logs the next set at its planned RPE (RestLogSetIntent).
+                    Button(intent: RestLogSetIntent()) {
+                        Label("Log set", systemImage: "checkmark")
+                            .font(.system(.caption2, design: .rounded).weight(.bold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
                 Button(intent: RestStopIntent()) {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
@@ -125,9 +134,11 @@ private struct LockScreenView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("POWALIFTA").font(.system(.caption2, design: .rounded).weight(.heavy))
                         .foregroundColor(Powa.red).tracking(1.5)
-                    Text(ctx.state.paused ? "\(ctx.attributes.liftName) · PAUSED" : "\(ctx.attributes.liftName) rest")
+                    Text(ctx.state.paused ? "\(ctx.attributes.liftName) · PAUSED"
+                         : (ctx.state.nextLabel.isEmpty ? "\(ctx.attributes.liftName) rest" : "Next · \(ctx.state.nextLabel)"))
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
                         .foregroundColor(.white)
+                        .lineLimit(1)
                 }
                 Spacer()
                 Countdown(ctx: ctx, font: .system(size: 34, weight: .heavy, design: .rounded))

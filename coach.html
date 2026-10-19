@@ -17,6 +17,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<meta name="apple-itunes-app" content="app-id=6788506689">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
@@ -478,6 +479,7 @@ function renderCoachYou() {
     name: user.name,
     avatarUrl: user.avatarUrl,
     instagram: user.instagram,
+    tiktok: user.tiktok,
     onAvatar: () => pickAvatar(() => renderCoachYou()),
     edit: () => openProfileSheet(() => renderCoachYou()),
     sub: ['Coach', club].filter(Boolean).join(' · '),
@@ -849,7 +851,7 @@ function openAthleteSheet(athleteId) {
     id.appendChild(el('h3', {}, a.name));
     const pct = o.totalSets > 0 ? Math.round(o.completedSets / o.totalSets * 100) : null;
     id.appendChild(el('div', { class: 'aq-sub' }, o.program ? o.program.name + (pct != null ? ' · ' + pct + '% done' : '') : 'No program yet'));
-    const igc = a.instagram ? uiInstagramChip(a.instagram) : null;
+    const igc = uiSocialChips(a);
     if (igc) id.appendChild(igc);
     head.appendChild(id);
     sheet.appendChild(head);

@@ -30,6 +30,7 @@
 //  regenerates the project config and would otherwise drop the registration).
 //
 import Foundation
+import UIKit
 import Capacitor
 import StoreKit
 
@@ -42,7 +43,8 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getEntitlements", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise)
     ]
 
     // The three coach auto-renewable subscriptions (App Store Connect product ids).
@@ -71,6 +73,22 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     deinit { updatesTask?.cancel() }
+
+    // Ask for an App Store rating (app.js maybeAskForRating calls this after a PR
+    // or a plate milestone, at most once every four months). iOS decides whether
+    // the prompt actually shows: three times a year at most, never in TestFlight.
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if #available(iOS 14.0, *),
+               let scene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: scene)
+            } else {
+                SKStoreReviewController.requestReview()
+            }
+            call.resolve()
+        }
+    }
 
     @objc func isSupported(_ call: CAPPluginCall) {
         if #available(iOS 15.0, *) { call.resolve(["supported": true]) }

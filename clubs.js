@@ -28,10 +28,11 @@
 
   let _data = null;        // { club, role, members } | null (not in a club)
   let _loaded = false;
-  let _mode = 'dots';      // board ranking: 'dots' | 'week'
+  let _mode = (() => { try { return localStorage.getItem('powa-club-board') || 'week'; } catch (e) { return 'week'; } })();   // board: 'week' | 'improved' | 'dots'
   let _view = 'feed';      // club view: 'feed' | 'board'
   let _posts = null;       // club posts, newest first | null (feed not switched on)
   let _requests = [];      // owner/admin: pending requests to join
+  let _buddies = [];       // club_buddies rows I'm in (pending either way, or active)
   let _container = null;
   let _dirSeq = 0;         // drops stale directory searches
   let _unsubFeed = null;   // live feed channel teardown
@@ -96,47 +97,169 @@
     const total = sq + bn + dl;
     const dots = (bw && total > 0) ? dotsScore(total, bw, sex) : 0;
     const wk = mondayISO();
-    const logs = ((Store.get().workoutLogs) || []).filter(l => l.athleteId === u.id && l.date >= wk);
+    const all = ((Store.get().workoutLogs) || []).filter(l => l.athleteId === u.id);
+    const logs = all.filter(l => l.date >= wk);
     const r1 = (v) => (v > 0 ? Math.round(v * 10) / 10 : null);
+    const score = clubWeekScore(all, wk);
+    const season = seasonOf(wk);
     return {
       displayName: u.name || 'Lifter', sex,
       instagram: u.instagram || null,
+      tiktok: u.tiktok || null,
       bodyweightKg: bw ? Math.round(bw * 10) / 10 : null,
       squatKg: r1(sq), benchKg: r1(bn), deadliftKg: r1(dl), totalKg: r1(total), dots: r1(dots),
       weekStart: wk,
       weekSessions: new Set(logs.map(l => l.date)).size,
-      weekTonnageKg: Math.round(logs.reduce((a, l) => a + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0))
+      weekTonnageKg: Math.round(logs.reduce((a, l) => a + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0)),
+      // The fair boards (migration-boards-tiktok.sql): points, PRs + hard sets this week, 4-week improvement.
+      weekPoints: score.points, weekPrs: score.prs, weekHardSets: score.hardSets,
+      improvePct: clubImprovePct(all),
+      // Season board: this season so far + last season's final (for the champion).
+      seasonId: season.id,
+      seasonPoints: clubSeasonScore(all, season.start, wk),
+      prevSeasonPoints: clubSeasonScore(all, isoDaysAgo(SEASON_WEEKS * 7, season.start), isoDaysAgo(7, season.start))
     };
   }
 
   // ---- pure helpers (unit-tested in tests.html) -------------------------------
-  // Rank members for the board. DOTS mode ranks by DOTS (members with no
-  // numbers yet sit at the bottom, unranked); week mode by sessions then tonnage.
-  // Standard competition ranking — ties share a rank, the next one skips.
+  // THREE BOARDS. Ranked by DOTS alone, the same strong lifters win every week,
+  // so the default board is one anyone can win:
+  //   'week'     points this week — turn up, work hard, beat your own best
+  //   'improved' how far your maxes moved in 4 weeks vs YOUR earlier best (%)
+  //   'dots'     strongest for their bodyweight (all-time)
+  const BOARD_MODES = ['week', 'season', 'improved', 'dots'];
+  // Points: 10 a session (5 count), 1 a hard set (RPE 7+, 30 count), 15 a PR.
+  const POINTS = { session: 10, sessionCap: 5, hardSet: 1, hardSetCap: 30, pr: 15 };
+
+  // My week, scored from my own logs. A PR = a main lift's best competition-
+  // equivalent e1RM this week beats everything logged before this week (your
+  // first week has nothing to beat yet, so it can't be a PR).
+  function clubWeekScore(logs, weekStart) {
+    const wk = weekStart || mondayISO();
+    const end = isoDaysAgo(-7, wk);                        // the Monday after
+    const all = (logs || []).filter(l => l && l.lift !== 'cardio');
+    const week = all.filter(l => l.date >= wk && l.date < end);
+    const sessions = new Set(week.map(l => l.date)).size;
+    const hardSets = week.filter(l => Number(l.rpe) >= 7 && Number(l.weight) > 0).length;
+    const best = (ls) => ls.reduce((a, l) => Math.max(a, Number(l.e1rmComp) || 0), 0);
+    let prs = 0;
+    MAIN.forEach(lift => {
+      const before = best(all.filter(l => l.lift === lift && l.date < wk));
+      const now = best(week.filter(l => l.lift === lift));
+      if (before > 0 && now > before + 0.01) prs++;
+    });
+    const points = Math.min(sessions, POINTS.sessionCap) * POINTS.session +
+      Math.min(hardSets, POINTS.hardSetCap) * POINTS.hardSet + prs * POINTS.pr;
+    return { points, sessions, hardSets, prs };
+  }
+
+  // Most improved: per main lift, your best competition-equivalent e1RM in the
+  // last `days` vs your best before that. New lifters (nothing older) compare
+  // with their first session, once a week separates the two. Average of the
+  // lifts with data, as a % with one decimal; null = not enough history.
+  function clubImprovePct(logs, today, days) {
+    days = days || 28;
+    const t = today || isoLocal(new Date());
+    const from = isoDaysAgo(days, t);
+    const gains = [];
+    MAIN.forEach(lift => {
+      const ls = (logs || []).filter(l => l && l.lift === lift && Number(l.e1rmComp) > 0 && l.date <= t);
+      const recent = ls.filter(l => l.date >= from);
+      if (!recent.length) return;
+      const top = recent.reduce((a, l) => (Number(l.e1rmComp) > Number(a.e1rmComp) ? l : a));
+      const older = ls.filter(l => l.date < from);
+      let base = 0;
+      if (older.length) base = older.reduce((a, l) => Math.max(a, Number(l.e1rmComp)), 0);
+      else {
+        const firstDay = recent.reduce((a, l) => (l.date < a ? l.date : a), recent[0].date);
+        if ((Date.parse(top.date) - Date.parse(firstDay)) / 86400000 < 7) return;
+        base = recent.filter(l => l.date === firstDay).reduce((a, l) => Math.max(a, Number(l.e1rmComp)), 0);
+      }
+      if (base > 0) gains.push(Number(top.e1rmComp) / base - 1);
+    });
+    if (!gains.length) return null;
+    const pct = gains.reduce((a, g) => a + g, 0) / gains.length * 100;
+    return Math.max(-100, Math.min(1000, Math.round(pct * 10) / 10));
+  }
+
+  // SEASONS: 8-week blocks on one calendar every club shares (season 1 began
+  // Monday 5 Jan 2026), so weekly points add up and the top lifter after 8
+  // weeks is champion. My season total is scored from my own logs, week by week.
+  const SEASON_WEEKS = 8, SEASON_EPOCH = '2026-01-05';
+  function seasonOf(weekStart) {
+    const w = Math.floor((Date.parse(weekStart + 'T12:00:00Z') - Date.parse(SEASON_EPOCH + 'T12:00:00Z')) / (7 * 86400000));
+    const idx = Math.floor(w / SEASON_WEEKS), inSeason = w - idx * SEASON_WEEKS;
+    return { id: idx + 1, week: inSeason + 1, weeksLeft: SEASON_WEEKS - inSeason - 1, start: isoDaysAgo(-idx * SEASON_WEEKS * 7, SEASON_EPOCH) };
+  }
+  function clubSeasonScore(logs, seasonStart, uptoWeekStart) {
+    let total = 0;
+    for (let wk = seasonStart, i = 0; wk <= uptoWeekStart && i < SEASON_WEEKS; wk = isoDaysAgo(-7, wk), i++) total += clubWeekScore(logs, wk).points;
+    return total;
+  }
+  function memberSeasonPoints(m, seasonId) {
+    if (!m) return 0;
+    if (m.seasonId === seasonId && m.seasonPoints != null) return Number(m.seasonPoints) || 0;
+    return 0;
+  }
+  // Last season's total for a member, from whichever row they last synced.
+  function memberPrevSeasonPoints(m, seasonId) {
+    if (!m) return null;
+    if (m.seasonId === seasonId && m.prevSeasonPoints != null) return Number(m.prevSeasonPoints);
+    if (m.seasonId === seasonId - 1 && m.seasonPoints != null) return Number(m.seasonPoints);
+    return null;
+  }
+  // Last season's champion: the most points, ties to whoever's first by name. null = nobody scored.
+  function seasonChampion(members, seasonId) {
+    const rows = (members || []).map(m => ({ m, p: memberPrevSeasonPoints(m, seasonId) })).filter(r => r.p > 0)
+      .sort((a, b) => b.p - a.p || String(a.m.displayName || '').localeCompare(String(b.m.displayName || '')));
+    return rows.length ? { member: rows[0].m, points: rows[0].p, seasonId: seasonId - 1 } : null;
+  }
+
+  // What a member's shared row says, read safely (rows from before a field existed).
+  function memberWeekPoints(m, wk) {
+    if (!m || m.weekStart !== wk) return 0;
+    if (m.weekPoints != null) return Number(m.weekPoints) || 0;
+    return Math.min(m.weekSessions || 0, POINTS.sessionCap) * POINTS.session;
+  }
+  function memberImprovePct(m, wk) {
+    if (!m || m.improvePct == null || !m.weekStart) return null;
+    // Two weeks without opening the app and the 4-week window has moved on.
+    return (Date.parse(wk) - Date.parse(m.weekStart)) <= 14 * 86400000 ? Number(m.improvePct) : null;
+  }
+
+  // Rank members for a board. Standard competition ranking — ties share a rank,
+  // the next one skips. Members with nothing to rank sit at the bottom, unranked.
+  // The weekly boards never break a tie on strength (that's the whole point).
   function rankClubMembers(members, mode, weekStart) {
     const wk = weekStart || mondayISO();
-    const score = mode === 'week'
-      ? (m) => (m.weekStart === wk ? (m.weekSessions || 0) * 1e7 + (m.weekTonnageKg || 0) : 0)
+    const sid = seasonOf(wk).id;
+    const val = mode === 'week' ? (m) => memberWeekPoints(m, wk)
+      : mode === 'season' ? (m) => memberSeasonPoints(m, sid)
+      : mode === 'improved' ? (m) => memberImprovePct(m, wk)
       : (m) => m.dots || 0;
-    const sorted = (members || []).slice().sort((a, b) =>
-      score(b) - score(a) || (b.totalKg || 0) - (a.totalKg || 0) ||
+    const ranked = mode === 'improved' ? (v) => v != null : (v) => v > 0;
+    const key = (m) => { const v = val(m); return ranked(v) ? v : -Infinity; };
+    const tie = mode === 'dots' ? (a, b) => (b.totalKg || 0) - (a.totalKg || 0)
+      : mode === 'week' ? (a, b) => (b.weekStart === wk ? b.weekSessions || 0 : 0) - (a.weekStart === wk ? a.weekSessions || 0 : 0)
+      : () => 0;
+    const sorted = (members || []).slice().sort((a, b) => (key(b) - key(a)) || tie(a, b) ||
       String(a.displayName || '').localeCompare(String(b.displayName || '')));
     let rank = 0, prev = null;
     return sorted.map((m, i) => {
-      const s = score(m);
-      if (s !== prev) { rank = i + 1; prev = s; }
-      return Object.assign({}, m, { rank: s > 0 ? rank : null });
+      const k = key(m);
+      if (i === 0 || k !== prev) { rank = i + 1; prev = k; }
+      return Object.assign({}, m, { rank: k === -Infinity ? null : rank });
     });
   }
 
-  // The club's week in three numbers.
-  // WEEKLY CHALLENGE: a different one every Monday (most sessions, most weight
-  // moved, most PRs shared), scored only from what the club already shares.
-  // Pure: unit-tested in tests.html.
+  // WEEKLY CHALLENGE: a different one every Monday, all things anyone can win —
+  // most sessions, most hard sets, most PRs. Scored only from what the club
+  // already shares. Pure: unit-tested in tests.html.
   const CHALLENGES = [
     { key: 'sessions', title: 'Most sessions', val: (m, wk) => (m.weekStart === wk ? (m.weekSessions || 0) : 0) },
-    { key: 'tonnage', title: 'Most weight moved', val: (m, wk) => (m.weekStart === wk ? (m.weekTonnageKg || 0) : 0) },
-    { key: 'prs', title: 'Most PRs shared', val: (m, wk, posts) => (posts || []).filter(p => p.userId === m.userId && p.kind === 'pr' && String(p.createdAt || '').slice(0, 10) >= wk).length }
+    { key: 'hardsets', title: 'Most hard sets', val: (m, wk) => (m.weekStart === wk ? (m.weekHardSets || 0) : 0) },
+    { key: 'prs', title: 'Most PRs', val: (m, wk, posts) => (m.weekStart === wk && m.weekPrs != null) ? m.weekPrs
+      : (posts || []).filter(p => p.userId === m.userId && p.kind === 'pr' && String(p.createdAt || '').slice(0, 10) >= wk).length }
   ];
   function weekChallenge(members, posts, weekStart) {
     const weekNo = Math.floor(Date.parse(weekStart + 'T12:00:00Z') / (7 * 86400000));
@@ -148,7 +271,7 @@
     return { key: c.key, title: c.title, rows };
   }
   function challengeValueText(key, v) {
-    if (key === 'tonnage') return tonnageText(v) + ' moved';
+    if (key === 'hardsets') return v + (v === 1 ? ' hard set' : ' hard sets');
     if (key === 'prs') return v + (v === 1 ? ' PR' : ' PRs');
     return v + (v === 1 ? ' session' : ' sessions');
   }
@@ -218,16 +341,18 @@
     const wk = mondayISO();
     const u = me() || { id: 'demo-athlete', name: 'Demo Lifter' };
     const mine = Object.assign({ clubId: 'demo-club', userId: u.id, role: 'member' }, myClubStats() || {});
+    // name, sex, bw, squat, bench, deadlift, sessions, tonnage, hard sets, PRs, 4-week gain %.
+    // Different lifters lead each board: Nina this week, Priya most improved, the heavies on DOTS.
     const seed = [
-      ['Sarah Kim', 'female', 62.4, 145, 82.5, 172.5, 4, 9850],
-      ['Arjun Mehta', 'male', 82.1, 215, 140, 250, 3, 14200],
-      ['Tom Boyle', 'male', 104.6, 240, 160, 310, 1, 5200],
-      ['Nina Petrova', 'female', 71.8, 150, 87.5, 185, 5, 11800],
-      ['Marcus Hale', 'male', 92.7, 230, 187.5, 270, 2, 9100],
-      ['Priya Shah', 'female', 56.9, 120, 67.5, 150, 3, 6400],
-      ['Jonah Reyes', 'male', 74.3, 190, 125, 225, 4, 12300],
-      ['Ella Nowak', 'female', 83.5, 165, 95, 195, 0, 0],
-      ['Kofi Mensah', 'male', 119.2, 275, 185, 300, 2, 13100]
+      ['Sarah Kim', 'female', 62.4, 145, 82.5, 172.5, 4, 9850, 18, 1, 3.1],
+      ['Arjun Mehta', 'male', 82.1, 215, 140, 250, 3, 14200, 14, 0, 0.8],
+      ['Tom Boyle', 'male', 104.6, 240, 160, 310, 1, 5200, 5, 0, -1.2],
+      ['Nina Petrova', 'female', 71.8, 150, 87.5, 185, 5, 11800, 24, 2, 4.6],
+      ['Marcus Hale', 'male', 92.7, 230, 187.5, 270, 2, 9100, 10, 0, 0.4],
+      ['Priya Shah', 'female', 56.9, 120, 67.5, 150, 3, 6400, 16, 2, 9.8],
+      ['Jonah Reyes', 'male', 74.3, 190, 125, 225, 4, 12300, 20, 1, 2.2],
+      ['Ella Nowak', 'female', 83.5, 165, 95, 195, 0, 0, 0, 0, 6.5],
+      ['Kofi Mensah', 'male', 119.2, 275, 185, 300, 2, 13100, 9, 0, 0.6]
     ];
     const members = seed.map((s, i) => {
       const total = s[3] + s[4] + s[5];
@@ -236,7 +361,16 @@
         displayName: s[0], sex: s[1], bodyweightKg: s[2], squatKg: s[3], benchKg: s[4], deadliftKg: s[5],
         totalKg: total, dots: Math.round(dotsScore(total, s[2], s[1]) * 10) / 10,
         weekStart: wk, weekSessions: s[6], weekTonnageKg: s[7],
-        instagram: ['sarah.lifts', 'arjun.pulls', null, 'nina.deadlifts', 'marcus.benches', null, 'jonah.squats', null, 'kofi.totals'][i] || null
+        weekHardSets: s[8], weekPrs: s[9], improvePct: s[10],
+        // Seasons: this season = this week + a usual week for each week before it
+        // (so the totals always add up); Priya (newer, lighter) won the last one.
+        seasonId: seasonOf(wk).id,
+        seasonPoints: Math.min(s[6], POINTS.sessionCap) * POINTS.session + Math.min(s[8], POINTS.hardSetCap) + s[9] * POINTS.pr +
+          [60, 45, 20, 85, 35, 70, 62, 40, 30][i] * (seasonOf(wk).week - 1),
+        prevSeasonPoints: [520, 480, 210, 590, 400, 615, 505, 380, 430][i],
+        weekPoints: Math.min(s[6], POINTS.sessionCap) * POINTS.session + Math.min(s[8], POINTS.hardSetCap) + s[9] * POINTS.pr,
+        instagram: ['sarah.lifts', 'arjun.pulls', null, 'nina.deadlifts', 'marcus.benches', null, 'jonah.squats', null, 'kofi.totals'][i] || null,
+        tiktok: ['sarahkim.lifts', null, null, 'nina.pulls', null, 'priya.lifts', 'jonah.lifts', null, null][i] || null
       };
     });
     members.push(mine);
@@ -323,6 +457,10 @@
       _posts = _data ? demoPosts() : null;
       _reacts = _data ? demoReacts() : {};
       _requests = [];
+      // Demo: Nina is your training buddy and nudged you this morning.
+      if (!window._demoBuddies) window._demoBuddies = _data ? [{ id: 'demo-bud', clubId: 'demo-club', requesterId: 'demo-m3', addresseeId: (u && u.id) || 'demo-athlete', status: 'active',
+        lastNudgeBy: 'demo-m3', lastNudgeAt: new Date(Date.now() - 2 * 3600000).toISOString() }] : [];
+      _buddies = window._demoBuddies;
       _loaded = true; return;
     }
     if (!u || !window.DB || !DB.getMyClub) { _data = null; _loaded = true; return; }
@@ -330,11 +468,13 @@
     _loaded = true;
     if (_data) {
       const staff = _data.role === 'owner' || _data.role === 'admin';
-      const [posts, reqs] = await Promise.all([
+      const [posts, reqs, buds] = await Promise.all([
         DB.listClubPosts ? DB.listClubPosts(_data.club.id).catch(() => null) : null,
-        staff && DB.listClubRequests ? DB.listClubRequests(_data.club.id).catch(() => []) : []
+        staff && DB.listClubRequests ? DB.listClubRequests(_data.club.id).catch(() => []) : [],
+        DB.listMyBuddies ? DB.listMyBuddies().catch(() => []) : []
       ]);
       _posts = posts; _requests = reqs || []; _morePosts = null;
+      _buddies = (buds || []).filter(b => b.clubId === _data.club.id);
       _reacts = {};
       if (posts && posts.length && DB.listPostReactions) {
         const rx = await DB.listPostReactions(posts.map(p => p.id)).catch(() => []);
@@ -352,7 +492,7 @@
         }
         if (mineIdx >= 0) _data.members[mineIdx] = Object.assign({}, _data.members[mineIdx], stats);
       }
-    } else { _posts = null; _requests = []; watchFeed(null); }
+    } else { _posts = null; _requests = []; _buddies = []; watchFeed(null); }
     try { localStorage.setItem('powa-club-name', _data && _data.club ? _data.club.name : ''); } catch (e) {}
   }
 
@@ -437,27 +577,25 @@
     trained.slice(0, 7).forEach((m, i) => avs.appendChild(el('span', { class: 'cs-av', 'data-name': m.displayName || '?', style: '--i:' + i }, firstName(m.displayName).charAt(0).toUpperCase())));
     if (trained.length > 7) avs.appendChild(el('span', { class: 'cs-av more' }, '+' + (trained.length - 7)));
     if (trained.length) stack.appendChild(avs);
-    stack.appendChild(el('span', { class: 'cs-txt' }, trained.length
+    // Calm (v7): the week is one line under the faces, not a band of three
+    // numbers (and not tonnage, which is a strength contest by another name).
+    const prsWeek = members.some(m => m.weekStart === wk && m.weekPrs != null)
+      ? members.reduce((a, m) => a + (m.weekStart === wk ? (m.weekPrs || 0) : 0), 0)
+      : (_posts || []).filter(x => x.kind === 'pr' && String(x.createdAt || '').slice(0, 10) >= wk).length;
+    const sub = [pulse.sessions ? pulse.sessions + (pulse.sessions === 1 ? ' session' : ' sessions') : null,
+      prsWeek ? prsWeek + (prsWeek === 1 ? ' PR' : ' PRs') : null].filter(Boolean).join(' · ');
+    const txt = el('span', { class: 'cs-txt' }, trained.length
       ? (trained.length === members.length ? 'Everyone trained this week' : trained.length + ' of ' + members.length + ' trained this week')
-      : 'Nobody has trained yet this week'));
+      : 'Nobody has trained yet this week');
+    if (sub) txt.appendChild(el('small', {}, sub));
+    stack.appendChild(txt);
     hero.appendChild(stack);
-    const stats = el('div', { class: 'rh-stats' });
-    const cell = (val, unit, label, tone) => {
-      const c = el('div', { class: 'rh-stat' + (tone ? ' tone-' + tone : '') });
-      c.appendChild(el('b', { html: escHtml(String(val)) + (unit ? '<small>' + escHtml(unit) + '</small>' : '') }));
-      c.appendChild(el('span', {}, label));
-      return c;
-    };
-    const ton = kgToDisplay(pulse.tonnageKg) || 0;
-    stats.appendChild(cell(pulse.sessions, '', 'Sessions', pulse.sessions ? 'acc' : null));
-    stats.appendChild(cell(ton >= 10000 ? (Math.round(ton / 100) / 10).toLocaleString() : Math.round(ton).toLocaleString(), ton >= 10000 ? (getUnit() === 'lbs' ? 'k lb' : 't') : unitLabel(), 'Moved'));
-    const prsWeek = (_posts || []).filter(x => x.kind === 'pr' && String(x.createdAt || '').slice(0, 10) >= wk).length;
-    stats.appendChild(cell(prsWeek, '', prsWeek === 1 ? 'PR this week' : 'PRs this week', prsWeek ? 'acc' : null));
-    hero.appendChild(stats);
     root.appendChild(hero);
 
     // Owner/admin: who's waiting to get in.
     if (staff && _requests.length) root.appendChild(requestsRow());
+    const bud = buddyRow();
+    if (bud) root.appendChild(bud);
 
     root.appendChild(segmented([['feed', 'Feed'], ['board', 'Board']], _view,
       (v) => { _view = v; renderClub(root); }, 'Club view', 'club-view-seg'));
@@ -550,6 +688,38 @@
     });
     return b;
   }
+  // What a board shows for a member: the number + its unit, and one quiet line.
+  function boardValue(m, mode, wk) {
+    if (mode === 'week') return { num: String(memberWeekPoints(m, wk)), unit: 'pts' };
+    if (mode === 'season') return { num: String(memberSeasonPoints(m, seasonOf(wk).id)), unit: 'pts' };
+    if (mode === 'improved') {
+      const x = memberImprovePct(m, wk);
+      return x == null ? { num: '–', unit: '' } : { num: (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(1) + '%', unit: '' };
+    }
+    return { num: fmtNum(m.dots), unit: 'DOTS' };
+  }
+  function boardMeta(m, mode, wk) {
+    if (mode === 'week') {
+      if (m.weekStart !== wk || !(m.weekSessions > 0)) return 'Not in yet this week';
+      const s = m.weekSessions, p = m.weekPrs || 0;
+      return s + (s === 1 ? ' session' : ' sessions') + (p ? ' · ' + p + (p === 1 ? ' PR' : ' PRs') : '');
+    }
+    if (mode === 'season') {
+      const w = memberWeekPoints(m, wk);
+      return w ? '+' + w + ' this week' : 'Nothing yet this week';
+    }
+    const cls = m.bodyweightKg ? weightClassFor(m.bodyweightKg, m.sex) : null;
+    const who = [m.sex === 'female' ? 'F' : (m.sex === 'male' ? 'M' : null), cls];
+    if (mode === 'improved') return memberImprovePct(m, wk) == null ? 'Needs a few weeks of lifts' : (who.filter(Boolean).join(' · ') || 'Lifter');
+    return who.concat([m.totalKg ? formatWeight(m.totalKg, 0) + ' total' : null]).filter(Boolean).join(' · ') || 'No numbers yet';
+  }
+  const BOARD_NOTE = {
+    week: 'Points this week: 10 a session, 1 a hard set, 15 a PR. Resets Monday.',
+    season: '',   // built per week in renderBoard (season N · week W of 8)
+    improved: 'Your best in the last 4 weeks against your own earlier best.',
+    dots: 'DOTS: total adjusted for bodyweight, so every size competes.'
+  };
+
   // Top three on a podium: second · first · third.
   function podium(ranked, mode, wk) {
     const top = ranked.filter(m => m.rank != null).slice(0, 3);
@@ -563,8 +733,8 @@
       if (place === 1) col.appendChild(el('span', { class: 'cpd-crown', html: IC.crown }));
       col.appendChild(el('span', { class: 'cpd-av', 'data-name': m.displayName || '?' }, initials(m.displayName || '?')));
       col.appendChild(el('span', { class: 'cpd-name' }, u && m.userId === u.id ? 'You' : firstName(m.displayName)));
-      const v = mode === 'week' ? (m.weekStart === wk ? (m.weekSessions || 0) : 0) : fmtNum(m.dots);
-      col.appendChild(el('span', { class: 'cpd-val', html: '<b>' + escHtml(String(v)) + '</b><small>' + (mode === 'week' ? (v === 1 ? 'session' : 'sessions') : 'DOTS') + '</small>' }));
+      const bv = boardValue(m, mode, wk);
+      col.appendChild(el('span', { class: 'cpd-val', html: '<b>' + escHtml(bv.num) + '</b>' + (bv.unit ? '<small>' + bv.unit + '</small>' : '') }));
       col.appendChild(el('span', { class: 'cpd-block' }, String(place)));
       wrap.appendChild(col);
     });
@@ -788,14 +958,29 @@
     const { members } = _data;
     const u = me();
     const wk = mondayISO();
-    const head = el('div', { class: 'club-board-head' });
-    head.appendChild(el('span', { class: 'cbh-title' }, 'Ranked by'));
-    head.appendChild(segmented([['dots', 'DOTS'], ['week', 'This week']], _mode,
-      (m) => { _mode = m; renderClub(_container); }, 'Rank the club by', 'club-rank-seg'));
-    root.appendChild(head);
+    if (BOARD_MODES.indexOf(_mode) < 0) _mode = 'week';
+    root.appendChild(segmented([['week', 'This week'], ['season', 'Season'], ['improved', 'Improved'], ['dots', 'Strongest']], _mode,
+      (m) => { _mode = m; try { localStorage.setItem('powa-club-board', m); } catch (e) {} renderClub(_container); }, 'Club board', 'club-rank-seg'));
+    const season = seasonOf(wk);
+    root.appendChild(el('p', { class: 'club-board-note' }, _mode === 'season'
+      ? 'Season ' + season.id + ' · week ' + season.week + ' of ' + SEASON_WEEKS + '. Weekly points add up; the most after ' + SEASON_WEEKS + ' weeks is champion.'
+      : BOARD_NOTE[_mode]));
+    // Last season's champion: one line with a crown, on the season board.
+    if (_mode === 'season') {
+      const champ = seasonChampion(members, season.id);
+      if (champ) {
+        const isMe = u && champ.member.userId === u.id;
+        const line = el('button', { type: 'button', class: 'club-champ' });
+        line.addEventListener('click', () => openLifterCard(champ.member));
+        line.appendChild(el('span', { class: 'club-champ-ic', 'aria-hidden': 'true', html: IC.crown }));
+        line.appendChild(el('span', { class: 'club-champ-t' }, (isMe ? 'You' : (champ.member.displayName || 'Lifter')) + (isMe ? ' won' : ' won') + ' season ' + champ.seasonId,
+          el('small', {}, champ.points + ' pts')));
+        root.appendChild(line);
+      }
+    }
 
-    const ch = challengeCard(members, wk);
-    if (ch) root.appendChild(ch);
+    // The weekly challenge belongs to the weekly board; the others stay simple.
+    if (_mode === 'week') { const ch = challengeCard(members, wk); if (ch) root.appendChild(ch); }
 
     const ranked = rankClubMembers(members, _mode, wk);
     const pod = podium(ranked, _mode, wk);
@@ -814,19 +999,11 @@
       if (isMe) nm.appendChild(el('em', {}, 'You'));
       if (m.role === 'owner') nm.appendChild(el('em', { class: 'cr-tag' }, 'Owner'));
       id.appendChild(nm);
-      const cls = m.bodyweightKg ? weightClassFor(m.bodyweightKg, m.sex) : null;
-      const meta = [m.sex === 'female' ? 'F' : (m.sex === 'male' ? 'M' : null), cls,
-        _mode === 'week' ? (m.weekStart === wk && m.weekTonnageKg ? formatWeight(m.weekTonnageKg, 0) + ' moved' : null)
-                         : (m.totalKg ? formatWeight(m.totalKg, 0) + ' total' : null)].filter(Boolean).join(' · ');
-      id.appendChild(el('span', { class: 'cr-meta' }, meta || 'No numbers yet'));
+      id.appendChild(el('span', { class: 'cr-meta' }, boardMeta(m, _mode, wk)));
       row.appendChild(id);
-      const val = el('span', { class: 'cr-val' });
-      if (_mode === 'week') {
-        const n = m.weekStart === wk ? (m.weekSessions || 0) : 0;
-        val.innerHTML = '<b>' + n + '</b><small>' + (n === 1 ? 'session' : 'sessions') + '</small>';
-      } else {
-        val.innerHTML = '<b>' + fmtNum(m.dots) + '</b><small>DOTS</small>';
-      }
+      const bv = boardValue(m, _mode, wk);
+      const val = el('span', { class: 'cr-val' + (_mode === 'improved' && /^\+/.test(bv.num) ? ' is-up' : '') });
+      val.innerHTML = '<b>' + escHtml(bv.num) + '</b>' + (bv.unit ? '<small>' + bv.unit + '</small>' : '');
       row.appendChild(val);
       board.appendChild(row);
     });
@@ -850,10 +1027,8 @@
     const u = me();
     const mine = !!(u && m.userId === u.id);
     const wk = mondayISO();
-    const ranked = _data ? rankClubMembers(_data.members, 'dots', wk) : [];
-    const r = ranked.find(x => x.userId === m.userId);
-    const posts = (_posts || []).filter(p => p.userId === m.userId);
-    const prs = posts.filter(p => p.kind === 'pr').length;
+    const rankIn = (mode) => { const x = _data ? rankClubMembers(_data.members, mode, wk).find(y => y.userId === m.userId) : null; return x && x.rank; };
+    const wkRank = rankIn('week'), dotsRank = rankIn('dots');
     uiSheet('', (sheet, close) => {
       const head = el('div', { class: 'lc-head' });
       head.appendChild(el('span', { class: 'lc-av', 'data-name': m.displayName || '?' }, initials(m.displayName || '?')));
@@ -863,8 +1038,10 @@
       id.appendChild(nm);
       const cls = m.bodyweightKg ? weightClassFor(m.bodyweightKg, m.sex) : null;
       const meta = [m.sex === 'female' ? 'Women' : (m.sex === 'male' ? 'Men' : null), cls ? cls + ' class' : null,
-        r && r.rank && _data ? '#' + r.rank + ' in ' + shortName(_data.club.name) : null].filter(Boolean).join(' · ');
+        wkRank ? '#' + wkRank + ' this week' : null, dotsRank ? '#' + dotsRank + ' strongest' : null].filter(Boolean).join(' · ');
       if (meta) id.appendChild(el('div', { class: 'lc-meta' }, meta));
+      const champ = _data ? seasonChampion(_data.members, seasonOf(wk).id) : null;
+      if (champ && champ.member.userId === m.userId) id.appendChild(el('div', { class: 'lc-champ', html: IC.crown + '<span>Season ' + champ.seasonId + ' champion</span>' }));
       head.appendChild(id);
       sheet.appendChild(head);
       const lifts = el('div', { class: 'lc-lifts' });
@@ -875,18 +1052,40 @@
         lifts.appendChild(c);
       });
       sheet.appendChild(lifts);
-      const cur = m.weekStart === wk;
+      const imp = boardValue(m, 'improved', wk).num;
       sheet.appendChild(uiStats([
-        { value: m.dots ? fmtNum(m.dots) : '–', label: 'DOTS' },
-        { value: cur ? (m.weekSessions || 0) : 0, label: 'This week' },
-        { value: prs, label: prs === 1 ? 'PR shared' : 'PRs shared', tone: prs ? 'acc' : null }
+        { value: memberWeekPoints(m, wk), label: 'Points this week' },
+        { value: imp, label: 'Improved', tone: /^\+/.test(imp) ? 'ok' : null },
+        { value: m.dots ? fmtNum(m.dots) : '–', label: 'DOTS' }
       ]));
-      const ig = m.instagram ? uiInstagramChip(m.instagram, { big: true }) : null;
-      if (ig) sheet.appendChild(ig);
+      const socials = typeof uiSocialChips === 'function' ? uiSocialChips(m, { big: true })
+        : (m.instagram ? uiInstagramChip(m.instagram, { big: true }) : null);
+      if (socials) sheet.appendChild(socials);
       else if (mine) {
-        const add = el('button', { class: 'btn btn-lg ui-btn-soft lc-add-ig', type: 'button', html: '<span class="ig-ic">' + IG_GLYPH + '</span><span>Add your Instagram</span>' });
+        const add = el('button', { class: 'btn btn-lg ui-btn-soft lc-add-ig', type: 'button', html: '<span class="ig-ic">' + IG_GLYPH + '</span><span>Add your Instagram or TikTok</span>' });
         add.addEventListener('click', () => { close(); setTimeout(() => openProfileSheet(), 220); });
         sheet.appendChild(add);
+      }
+      // Training buddies: ask, say yes, or stop (one buddy each).
+      if (!mine) {
+        const st = buddyState(m.userId);
+        const nm = firstName(m.displayName);
+        const inc = st.incoming.find(x => x.id === m.userId);
+        let bb = null;
+        if (st.active && st.active.id === m.userId) {
+          bb = el('button', { class: 'btn btn-lg ui-btn-soft lc-buddy is-on', type: 'button' }, 'Training buddies · stop');
+          bb.addEventListener('click', () => endBuddy(nm, close));
+        } else if (inc) {
+          bb = el('button', { class: 'btn btn-lg btn-primary lc-buddy', type: 'button' }, 'Say yes to ' + nm);
+          bb.addEventListener('click', () => { close(); answerBuddy(inc, true); });
+        } else if (st.outgoing && st.outgoing.addresseeId === m.userId) {
+          bb = el('button', { class: 'btn btn-lg ui-btn-soft lc-buddy', type: 'button' }, 'Asked. Waiting for ' + nm);
+          bb.disabled = true;
+        } else if (!st.active) {
+          bb = el('button', { class: 'btn btn-lg ui-btn-soft lc-buddy', type: 'button' }, 'Be training buddies');
+          bb.addEventListener('click', () => askBuddy(m, close));
+        }
+        if (bb) sheet.appendChild(bb);
       }
       sheet.appendChild(el('p', { class: 'club-fine tight' }, 'Best estimated maxes, competition equivalent. Shared with the club only.'));
     }, { cls: 'lifter-sheet' });
@@ -897,6 +1096,119 @@
     const stats = myClubStats(); if (!stats) return;
     DB.updateMyClubStats(u.id, stats).then(ok => { if (ok) { try { localStorage.setItem('powa-club-stats', JSON.stringify(stats)); } catch (e) {} } });
     if (_data) { const i = _data.members.findIndex(x => x.userId === u.id); if (i >= 0) _data.members[i] = Object.assign({}, _data.members[i], stats); }
+  }
+
+  // ---- TRAINING BUDDIES -----------------------------------------------------------
+  // Two members pair up (ask → yes). Each sees the other's week and can nudge
+  // once every 12 hours; the nudge arrives as a push with fixed words.
+  const NUDGE_GAP = 12 * 3600000;
+  function buddyState(userId) {
+    const u = me(); if (!u) return {};
+    const active = _buddies.find(b => b.status === 'active');
+    const other = (b) => (b.requesterId === u.id ? b.addresseeId : b.requesterId);
+    const member = (id) => (_data && _data.members || []).find(m => m.userId === id) || null;
+    const out = {
+      active: active ? { row: active, id: other(active), member: member(other(active)) } : null,
+      incoming: _buddies.filter(b => b.status === 'pending' && b.addresseeId === u.id).map(b => ({ row: b, id: b.requesterId, member: member(b.requesterId) })),
+      outgoing: _buddies.find(b => b.status === 'pending' && b.requesterId === u.id) || null
+    };
+    if (userId) {
+      out.withThem = _buddies.find(b => b.requesterId === userId || b.addresseeId === userId) || null;
+    }
+    return out;
+  }
+  const ago = (iso) => {
+    const m = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    return m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+  };
+  // One row above Feed/Board: your buddy's week + Nudge, or an ask waiting for you.
+  function buddyRow() {
+    const u = me(); if (!u || !_data) return null;
+    const st = buddyState();
+    const wk = mondayISO();
+    if (st.active && st.active.member) {
+      const b = st.active, m = b.member;
+      const row = el('div', { class: 'club-buddy' });
+      const av = el('button', { class: 'cbud-av', type: 'button', 'data-name': m.displayName || '?', 'aria-label': 'See ' + (m.displayName || 'your buddy') + '\'s lifter card' }, initials(m.displayName || '?'));
+      av.addEventListener('click', () => openLifterCard(m));
+      row.appendChild(av);
+      const mine = (_data.members || []).find(x => x.userId === u.id) || {};
+      const n = (x) => (x && x.weekStart === wk ? (x.weekSessions || 0) : 0);
+      const t = el('div', { class: 'cbud-t' });
+      t.appendChild(el('b', {}, 'You & ' + firstName(m.displayName)));
+      const theyNudged = b.row.lastNudgeBy === b.id && b.row.lastNudgeAt && (Date.now() - Date.parse(b.row.lastNudgeAt)) < 24 * 3600000;
+      t.appendChild(el('span', {}, theyNudged
+        ? firstName(m.displayName) + ' nudged you ' + ago(b.row.lastNudgeAt)
+        : 'This week: ' + firstName(m.displayName) + ' ' + n(m) + ', you ' + n(mine)));
+      row.appendChild(t);
+      const iNudged = b.row.lastNudgeBy === u.id && b.row.lastNudgeAt && (Date.now() - Date.parse(b.row.lastNudgeAt)) < NUDGE_GAP;
+      const btn = el('button', { class: 'btn btn-sm cbud-nudge', type: 'button' }, iNudged ? 'Nudged' : 'Nudge');
+      btn.disabled = !!iNudged;
+      btn.addEventListener('click', () => nudgeBuddy(b, btn));
+      row.appendChild(btn);
+      return row;
+    }
+    const inc = st.incoming.find(x => x.member);
+    if (inc) {
+      const row = el('div', { class: 'club-buddy is-ask' });
+      row.appendChild(el('span', { class: 'cbud-av', 'data-name': inc.member.displayName || '?' }, initials(inc.member.displayName || '?')));
+      const t = el('div', { class: 'cbud-t' });
+      t.appendChild(el('b', {}, firstName(inc.member.displayName) + ' wants to be training buddies'));
+      t.appendChild(el('span', {}, 'You\'ll see each other\'s week and can nudge'));
+      row.appendChild(t);
+      const yes = el('button', { class: 'btn btn-sm btn-primary', type: 'button' }, 'Yes');
+      yes.addEventListener('click', () => answerBuddy(inc, true));
+      const no = el('button', { class: 'ui-text-btn cbud-no', type: 'button' }, 'Not now');
+      no.addEventListener('click', () => answerBuddy(inc, false));
+      row.appendChild(yes); row.appendChild(no);
+      return row;
+    }
+    return null;
+  }
+  async function refreshBuddies() {
+    if (isDemo()) { _buddies = window._demoBuddies || []; return; }
+    if (window.DB && DB.listMyBuddies) _buddies = (await DB.listMyBuddies().catch(() => [])).filter(b => _data && b.clubId === _data.club.id);
+  }
+  async function askBuddy(m, done) {
+    if (isDemo()) {
+      window._demoBuddies = [{ id: 'demo-bud', clubId: 'demo-club', requesterId: me().id, addresseeId: m.userId, status: 'active', lastNudgeBy: null, lastNudgeAt: null }];
+      await refreshBuddies(); toast('You and ' + firstName(m.displayName) + ' are training buddies (demo)'); if (done) done(); renderClub(_container); return;
+    }
+    try {
+      const r = await DB.requestBuddy(m.userId);
+      toast(r === 'active' ? 'You and ' + firstName(m.displayName) + ' are training buddies' : 'Asked ' + firstName(m.displayName) + '. You\'ll pair up when they say yes');
+      await refreshBuddies(); if (done) done(); renderClub(_container);
+    } catch (e) { toast(e.message || 'Could not ask'); }
+  }
+  async function answerBuddy(inc, yes) {
+    if (isDemo()) { toast('Preview only in demo mode'); return; }
+    try {
+      const r = await DB.respondBuddy(inc.row.id, yes);
+      toast(r === 'active' ? 'You and ' + firstName(inc.member.displayName) + ' are training buddies' : r === 'taken' ? 'They already have a buddy' : 'Okay, not now');
+      await refreshBuddies(); renderClub(_container);
+    } catch (e) { toast(e.message || 'Could not answer'); }
+  }
+  async function endBuddy(name, done) {
+    uiActionSheet('Stop being training buddies with ' + name + '?', [{ label: 'Stop', danger: true, onClick: async () => {
+      if (isDemo()) { window._demoBuddies = []; await refreshBuddies(); toast('Done (demo)'); if (done) done(); renderClub(_container); return; }
+      try { await DB.endBuddy(); await refreshBuddies(); toast('You\'re not buddies any more'); if (done) done(); renderClub(_container); }
+      catch (e) { toast(e.message || 'Could not do that'); }
+    } }]);
+  }
+  async function nudgeBuddy(b, btn) {
+    const name = firstName(b.member && b.member.displayName);
+    if (btn) btn.disabled = true;
+    if (isDemo()) { toast('Nudged ' + name + ' (demo)'); if (btn) btn.textContent = 'Nudged'; return; }
+    try {
+      const other = await DB.nudgeBuddy();
+      if (!other) { toast('You nudged ' + name + ' already today'); if (btn) btn.textContent = 'Nudged'; return; }
+      // send-push writes the words itself for a buddy ("<name> nudged you"); these are placeholders.
+      if (DB.sendPush) DB.sendPush({ toUserId: other, title: 'Nudge', body: 'Nudge', url: '/athlete.html?tab=club', tag: 'powa-buddy', category: 'buddy' }).catch(() => {});
+      try { hapticTap(); } catch (e) {}
+      toast('Nudged ' + name);
+      if (btn) btn.textContent = 'Nudged';
+      await refreshBuddies();
+    } catch (e) { toast(e.message || 'Could not nudge'); if (btn) btn.disabled = false; }
   }
 
   // ---- REQUESTS (owner / admin) -------------------------------------------------
@@ -1154,22 +1466,17 @@
     const daysLeft = 7 - ((new Date().getDay() + 6) % 7);
     head.appendChild(el('span', { class: 'club-ch-left' }, daysLeft <= 1 ? 'Ends today' : daysLeft + ' days left'));
     card.appendChild(head);
+    // Calm (v7): two lines, not a second top-three above the podium.
     if (!ch.rows.length) {
-      card.appendChild(el('p', { class: 'club-ch-empty' }, 'Nobody on the board yet. First one in takes the lead.'));
+      card.appendChild(el('p', { class: 'club-ch-empty' }, 'Nobody on it yet. First one in takes the lead.'));
       return card;
     }
-    const list = el('div', { class: 'club-ch-rows' });
-    ch.rows.slice(0, 3).forEach(r => {
-      const isMe = u && r.m.userId === u.id;
-      list.appendChild(el('div', { class: 'club-ch-row' + (isMe ? ' is-me' : '') + (r.rank === 1 ? ' first' : '') },
-        el('span', { class: 'club-ch-rank' }, String(r.rank)),
-        el('span', { class: 'club-ch-name' }, isMe ? 'You' : (r.m.displayName || 'Lifter')),
-        el('span', { class: 'club-ch-val' }, challengeValueText(ch.key, r.v))));
-    });
-    card.appendChild(list);
+    const lead = ch.rows[0];
     const mine = u && ch.rows.find(r => r.m.userId === u.id);
     const nth = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
-    if (u && (!mine || mine.rank > 3)) card.appendChild(el('p', { class: 'club-ch-you' }, mine ? 'You\'re ' + nth(mine.rank) + ' · ' + challengeValueText(ch.key, mine.v) : 'You\'re not on it yet this week'));
+    const leadName = u && lead.m.userId === u.id ? 'You lead' : firstName(lead.m.displayName) + ' leads';
+    const you = !u || (mine && mine.rank === 1) ? '' : mine ? ' · you\'re ' + nth(mine.rank) : ' · you\'re not on it yet';
+    card.appendChild(el('p', { class: 'club-ch-you' }, leadName + ' with ' + challengeValueText(ch.key, lead.v) + you));
     return card;
   }
 
@@ -1253,7 +1560,7 @@
       head.appendChild(el('span', { class: 'club-crest', 'aria-hidden': 'true' }, initials(club.name || 'Club')));
       const id = el('div', { class: 'tv-id' });
       id.appendChild(el('div', { class: 'tv-name' }, club.name));
-      const titles = { board: 'Leaderboard · DOTS', challenge: 'This week\'s challenge', records: 'Club records' };
+      const titles = { board: 'This week · points', challenge: 'This week\'s challenge', records: 'Club records' };
       id.appendChild(el('div', { class: 'tv-panel' }, titles[PANELS[panel]]));
       head.appendChild(id);
       if (typeof qrSvg === 'function') {
@@ -1265,12 +1572,13 @@
       tv.appendChild(head);
       const body = el('div', { class: 'tv-body' });
       if (PANELS[panel] === 'board') {
-        rankClubMembers(members, 'dots', wk).filter(m => m.rank != null).slice(0, 7).forEach(m => {
+        // The gym screen shows the board anyone can win this week.
+        rankClubMembers(members, 'week', wk).filter(m => m.rank != null).slice(0, 7).forEach(m => {
           body.appendChild(el('div', { class: 'tv-row' + (m.rank <= 3 ? ' top' + m.rank : '') },
             el('span', { class: 'tv-rank' }, String(m.rank)),
             el('span', { class: 'tv-who' }, m.displayName || 'Lifter'),
-            el('span', { class: 'tv-meta' }, [m.bodyweightKg ? weightClassFor(m.bodyweightKg, m.sex) : null, m.totalKg ? formatWeight(m.totalKg, 0) + ' total' : null].filter(Boolean).join(' · ')),
-            el('span', { class: 'tv-val' }, fmtNum(m.dots))));
+            el('span', { class: 'tv-meta' }, boardMeta(m, 'week', wk)),
+            el('span', { class: 'tv-val' }, memberWeekPoints(m, wk) + ' pts')));
         });
       } else if (PANELS[panel] === 'challenge') {
         const ch = weekChallenge(members, _posts, wk);
@@ -1512,12 +1820,27 @@
   window.clubWeekPulse = clubWeekPulse;       // pure — unit-tested in tests.html
   window.shareableSets = shareableSets;       // pure — unit-tested in tests.html
   window.sessionSummary = sessionSummary;     // pure — unit-tested in tests.html
+  window.clubWeekScore = clubWeekScore;       // pure — unit-tested in tests.html
+  window.clubImprovePct = clubImprovePct;     // pure — unit-tested in tests.html
+  window.seasonOf = seasonOf;                 // pure — unit-tested in tests.html
+  window.clubSeasonScore = clubSeasonScore;   // pure — unit-tested in tests.html
+  window.seasonChampion = seasonChampion;     // pure — unit-tested in tests.html
+  const cachedName = () => { if (isDemo()) return window._demoClubLeft ? null : 'Iron Temple Barbell'; if (_data && _data.club) return _data.club.name; try { return localStorage.getItem('powa-club-name') || null; } catch (e) { return null; } };
+  // After a logged set: push my row a little later (one write per burst of sets),
+  // so the weekly board is live without anyone opening the Club tab.
+  let _syncT = null;
+  function syncSoon() {
+    if (isDemo() || !cachedName()) return;
+    clearTimeout(_syncT);
+    _syncT = setTimeout(syncMyStats, 20000);
+  }
   window.PowaClubs = {
     refresh: () => { _loaded = false; return renderClubTab(); },
-    cachedName: () => { if (isDemo()) return window._demoClubLeft ? null : 'Iron Temple Barbell'; if (_data && _data.club) return _data.club.name; try { return localStorage.getItem('powa-club-name') || null; } catch (e) { return null; } },
+    cachedName,
     shareLog,
     myClubStats,
     syncMyStats,
+    syncSoon,
     openLifterCard,
     openClubTV,
     openInviteSheet: () => { if (_data && _data.club) openInviteSheet(_data.club); }

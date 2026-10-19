@@ -8,8 +8,10 @@
 // session JWT. A caller may push to:
 //   - themselves (the "send a test notification" button), or
 //   - the other party of a LIVE coach↔athlete link (so a coach can
-//     ping their athlete when a program/message lands, and vice-versa).
-// This mirrors the messages-table RLS exactly. Anyone else → 403.
+//     ping their athlete when a program/message lands, and vice-versa), or
+//   - their ACTIVE club training buddy, and then ONLY a nudge: fixed words
+//     set here, right after nudge_club_buddy stamped one (1 per 12 h).
+// The coach link mirrors the messages-table RLS exactly. Anyone else → 403.
 //
 // The recipient's subscription rows are read with the SERVICE ROLE
 // (bypasses RLS) — callers can never read someone else's push tokens.
@@ -129,16 +131,16 @@ Deno.serve(async (req) => {
   try { payload = await req.json() } catch { return json({ error: 'invalid json' }, 400) }
 
   const toUserId = clip(payload.toUserId, 64)
-  const title = clip(payload.title, 120) || 'POWALIFTA'
-  const body = clip(payload.body, 300)
+  let title = clip(payload.title, 120) || 'POWALIFTA'
+  let body = clip(payload.body, 300)
   // url opens on notificationclick (sw.js). It's caller-supplied, so a linked coach
   // could otherwise push an off-origin phishing link under the POWALIFTA brand. Force
   // a same-origin PATH: accept only a leading-slash relative path; anything else
   // (absolute http(s):, javascript:, //host) falls back to the safe default.
   const _rawUrl = clip(payload.url, 300) || '/athlete.html'
-  const url = (/^\/[^/]/.test(_rawUrl)) ? _rawUrl : '/athlete.html'
-  const tag = clip(payload.tag, 60) || 'powa'
-  const category = clip(payload.category, 30) // 'messages' | 'form_checks' | 'program' | ''
+  let url = (/^\/[^/]/.test(_rawUrl)) ? _rawUrl : '/athlete.html'
+  let tag = clip(payload.tag, 60) || 'powa'
+  let category = clip(payload.category, 30) // 'messages' | 'form_checks' | 'program' | 'buddy' | ''
   if (!toUserId) return json({ error: 'toUserId required' }, 400)
   // toUserId is interpolated into the PostgREST .or() filter below and comes
   // straight from the request body. Pin it to a bare UUID — a crafted value
@@ -157,6 +159,39 @@ Deno.serve(async (req) => {
       .or(`and(id.eq.${callerId},coach_id.eq.${toUserId}),and(id.eq.${toUserId},coach_id.eq.${callerId})`)
       .limit(1)
     allowed = !!(link && link.length)
+  }
+  // …or an ACTIVE club training buddy (migration-boards-tiktok.sql). A buddy may
+  // only NUDGE: the words are written here (never the caller's), the push must
+  // follow a nudge the nudge_club_buddy RPC just stamped (one per 12 h), and it
+  // has its own small limit. Fails closed: no table / any error = not a buddy.
+  if (!allowed) {
+    try {
+      const { data: bud, error: budErr } = await admin
+        .from('club_buddies')
+        .select('id, last_nudge_by, last_nudge_at')
+        .eq('status', 'active')
+        .or(`and(requester_id.eq.${callerId},addressee_id.eq.${toUserId}),and(requester_id.eq.${toUserId},addressee_id.eq.${callerId})`)
+        .limit(1)
+      const b = !budErr && bud && bud[0]
+      const fresh = !!(b && b.last_nudge_by === callerId && b.last_nudge_at &&
+        (Date.now() - Date.parse(String(b.last_nudge_at))) < 2 * 60 * 1000)
+      if (fresh) {
+        const brl = await rateLimit(admin, { bucket: 'push-buddy', identity: callerId, limit: 6, windowSecs: 3600 })
+        if (!brl.ok) return rateLimitResponse(brl, cors)
+        let who = 'Your training buddy'
+        try {
+          const { data: cm } = await admin.from('club_members').select('display_name').eq('user_id', callerId).limit(1).maybeSingle()
+          const first = cm ? String((cm as Record<string, unknown>).display_name || '').trim().split(/\s+/)[0] : ''
+          if (first) who = first.slice(0, 40)
+        } catch (_e) { /* keep the generic name */ }
+        title = who + ' nudged you'
+        body = 'Your training buddy is checking in. Time to lift?'
+        url = '/athlete.html?tab=club'
+        tag = 'powa-buddy'
+        category = 'buddy'
+        allowed = true
+      }
+    } catch (_e) { /* fail closed */ }
   }
   if (!allowed) return json({ error: 'not authorized to notify this user' }, 403)
 

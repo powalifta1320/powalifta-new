@@ -559,15 +559,73 @@ test('club board: members with no numbers sit at the bottom, unranked', () => {
   eq(r.map(m => m.userId).join(','), 'y,x');
   eq(r[1].rank, null);
 });
-test('club board: week mode ranks sessions, then tonnage, and ignores stale weeks', () => {
+test('club board: week mode ranks points, ignores stale weeks, never breaks a tie on strength', () => {
   const wk = '2026-10-12';
   const r = rankClubMembers([
-    { userId: 'a', displayName: 'A', weekStart: wk, weekSessions: 3, weekTonnageKg: 9000 },
-    { userId: 'b', displayName: 'B', weekStart: wk, weekSessions: 3, weekTonnageKg: 12000 },
-    { userId: 'c', displayName: 'C', weekStart: '2026-10-05', weekSessions: 5, weekTonnageKg: 20000 }
+    { userId: 'a', displayName: 'Ana', weekStart: wk, weekSessions: 3, weekPoints: 64, totalKg: 300 },
+    { userId: 'b', displayName: 'Ben', weekStart: wk, weekSessions: 3, weekPoints: 64, totalKg: 800 },
+    { userId: 'c', displayName: 'Cy', weekStart: '2026-10-05', weekSessions: 5, weekPoints: 120, totalKg: 900 },
+    { userId: 'd', displayName: 'Di', weekStart: wk, weekSessions: 2, weekPoints: 91, totalKg: 250 },
+    { userId: 'e', displayName: 'Ed', weekStart: wk, weekSessions: 4 }          // a row from before points: 10 a session
   ], 'week', wk);
-  eq(r.map(m => m.userId).join(','), 'b,a,c');
-  eq(r[2].rank, null);
+  eq(r.map(m => m.userId).join(','), 'd,a,b,e,c');   // the 800 kg lifter does NOT jump the tie
+  eq(r.map(m => m.rank).join(','), '1,2,2,4,');
+});
+test('club board: most improved ranks % gain, shows declines last, drops stale rows', () => {
+  const wk = '2026-10-12';
+  const r = rankClubMembers([
+    { userId: 'a', displayName: 'A', weekStart: wk, improvePct: 2.5 },
+    { userId: 'b', displayName: 'B', weekStart: wk, improvePct: 11.2 },
+    { userId: 'c', displayName: 'C', weekStart: wk, improvePct: -1.5 },
+    { userId: 'd', displayName: 'D', weekStart: '2026-09-21', improvePct: 40 },   // 3 weeks stale
+    { userId: 'e', displayName: 'E', weekStart: wk, improvePct: null }
+  ], 'improved', wk);
+  eq(r.map(m => m.userId).join(','), 'b,a,c,d,e');
+  eq(r.map(m => m.rank).join(','), '1,2,3,,');
+});
+test('club week score: sessions, hard sets, PRs vs before this week, caps', () => {
+  const wk = '2026-10-12';
+  const L = (date, lift, weight, rpe, e1) => ({ date, lift, weight, reps: 5, rpe, e1rmComp: e1 });
+  const logs = [
+    L('2026-10-05', 'squat', 140, 8, 170), L('2026-10-05', 'bench', 100, 8, 125),
+    L('2026-10-12', 'squat', 145, 8, 175),          // squat PR
+    L('2026-10-12', 'squat', 120, 6, 140),          // not hard
+    L('2026-10-14', 'bench', 100, 8.5, 124),        // no bench PR
+    L('2026-10-14', 'deadlift', 180, 8, 220),       // first deadlift ever: nothing to beat, not a PR
+    L('2026-10-15', 'cardio', 30, 9, 0)             // cardio isn't a session or a hard set
+  ];
+  const s = clubWeekScore(logs, wk);
+  eq(s.sessions, 2); eq(s.hardSets, 3); eq(s.prs, 1);
+  eq(s.points, 2 * 10 + 3 * 1 + 1 * 15);
+  const many = [];
+  for (let d = 12; d <= 18; d++) for (let k = 0; k < 6; k++) many.push(L('2026-10-' + d, 'bench', 60, 8, 75));
+  eq(clubWeekScore(many, wk).points, 5 * 10 + 30 * 1);   // 7 sessions + 42 hard sets → capped at 5 and 30
+});
+test('club improvement: vs older best; new lifters vs day one after a week; else null', () => {
+  const L = (date, lift, e1) => ({ date, lift, e1rmComp: e1 });
+  eq(clubImprovePct([L('2026-08-01', 'squat', 200), L('2026-10-10', 'squat', 210)], '2026-10-15'), 5);
+  eq(clubImprovePct([L('2026-10-01', 'squat', 60), L('2026-10-01', 'squat', 55), L('2026-10-12', 'squat', 75)], '2026-10-15'), 25);
+  eq(clubImprovePct([L('2026-10-10', 'squat', 60), L('2026-10-14', 'squat', 70)], '2026-10-15'), null);   // under a week apart
+  eq(clubImprovePct([L('2026-08-01', 'squat', 200), L('2026-10-10', 'squat', 190), L('2026-08-01', 'bench', 100), L('2026-10-10', 'bench', 110)], '2026-10-15'), 2.5);
+  eq(clubImprovePct([], '2026-10-15'), null);
+});
+test('club seasons: 8-week calendar, season board ranks season points, champion from last season', () => {
+  const wk = '2026-10-12';
+  const r = rankClubMembers([
+    { userId: 'a', displayName: 'Ana', weekStart: wk, seasonId: 6, seasonPoints: 120, prevSeasonPoints: 400 },
+    { userId: 'b', displayName: 'Ben', weekStart: wk, seasonId: 6, seasonPoints: 300, prevSeasonPoints: 380 },
+    { userId: 'c', displayName: 'Cy', weekStart: '2026-09-28', seasonId: 5, seasonPoints: 450 }   // last synced in season 5
+  ], 'season', wk);
+  eq(r.map(m => m.userId).join(','), 'b,a,c'); eq(r[2].rank, null);
+  eq(r.find(m => m.userId === 'c').rank, null);
+  eq(seasonOf('2026-01-05').id, 1); eq(seasonOf('2026-01-05').week, 1);
+  eq(seasonOf('2026-03-02').id, 2); eq(seasonOf('2026-02-23').week, 8); eq(seasonOf('2026-02-23').weeksLeft, 0);
+  eq(seasonOf(wk).start, '2026-10-12');
+  // Champion: the most points last season, from whichever row each member synced (Cy's season-5 row counts).
+  eq(seasonChampion(r, 6).member.userId, 'c'); eq(seasonChampion(r, 6).points, 450); eq(seasonChampion(r, 6).seasonId, 5);
+  eq(seasonChampion([{ userId: 'z', seasonId: 6, seasonPoints: 10 }], 6), null);
+  const L = (date, lift, rpe, e1) => ({ date, lift, weight: 100, reps: 5, rpe, e1rmComp: e1 });
+  eq(clubSeasonScore([L('2026-10-12', 'squat', 8, 150), L('2026-10-20', 'squat', 8, 155)], '2026-10-12', '2026-10-19'), (10 + 1) + (10 + 1 + 15));
 });
 test('club board: never mutates its input', () => {
   const input = [{ userId: 'a', displayName: 'A', dots: 1 }, { userId: 'b', displayName: 'B', dots: 2 }];
@@ -726,17 +784,18 @@ test('program from a spreadsheet: written blocks, percentages and junk lines', (
 test('weekly club challenge: rotates by week, ranks with ties, ignores last week', () => {
   const wk = '2026-10-12';
   const members = [
-    { userId: 'a', displayName: 'Ana', weekStart: wk, weekSessions: 4, weekTonnageKg: 9000 },
-    { userId: 'b', displayName: 'Ben', weekStart: wk, weekSessions: 4, weekTonnageKg: 12000 },
-    { userId: 'c', displayName: 'Cy', weekStart: '2026-10-05', weekSessions: 6, weekTonnageKg: 20000 },
-    { userId: 'd', displayName: 'Di', weekStart: wk, weekSessions: 1, weekTonnageKg: 1000 }
+    { userId: 'a', displayName: 'Ana', weekStart: wk, weekSessions: 4, weekTonnageKg: 9000, weekHardSets: 12 },
+    { userId: 'b', displayName: 'Ben', weekStart: wk, weekSessions: 4, weekTonnageKg: 12000, weekHardSets: 20 },
+    { userId: 'c', displayName: 'Cy', weekStart: '2026-10-05', weekSessions: 6, weekTonnageKg: 20000, weekHardSets: 30 },
+    { userId: 'd', displayName: 'Di', weekStart: wk, weekSessions: 1, weekTonnageKg: 1000, weekHardSets: 4 }
   ];
   const posts = [{ userId: 'd', kind: 'pr', createdAt: '2026-10-13T10:00:00Z' }, { userId: 'd', kind: 'pr', createdAt: '2026-10-01T10:00:00Z' }];
   const keys = new Set(['2026-10-12', '2026-10-19', '2026-10-26'].map(w => weekChallenge(members, posts, w).key));
   eq(keys.size, 3);                                            // three weeks, three different challenges
   const ch = weekChallenge(members, posts, wk);
   if (ch.key === 'sessions') { eq(ch.rows[0].rank, 1); eq(ch.rows[1].rank, 1); eq(ch.rows[2].rank, 3); eq(ch.rows.some(r => r.m.userId === 'c'), false); }
-  if (ch.key === 'tonnage') { eq(ch.rows[0].m.userId, 'b'); eq(ch.rows.length, 3); }
+  if (ch.key === 'hardsets') { eq(ch.rows[0].m.userId, 'b'); eq(ch.rows.length, 3); }
+  eq(['sessions', 'hardsets', 'prs'].includes(ch.key), true);   // no strength-biased challenge (tonnage) any more
   if (ch.key === 'prs') { eq(ch.rows.length, 1); eq(ch.rows[0].v, 1); }
 });
 test('year in lifting: sessions, tonnage, PRs, biggest jump, habits, streaks', () => {
@@ -771,6 +830,81 @@ test('instagram: handles, @, links and junk', () => {
   eq(normalizeInstagram('bad$name'), null);
   eq(normalizeInstagram('x'.repeat(31)), null);
   eq(instagramUrl('a.b_c'), 'https://instagram.com/a.b_c');
+});
+test('tiktok: handles, @, links, short links and junk', () => {
+  eq(normalizeTikTok('@Nina.Pulls'), 'nina.pulls');
+  eq(normalizeTikTok('https://www.tiktok.com/@kofi_totals?lang=en'), 'kofi_totals');
+  eq(normalizeTikTok('tiktok.com/@arjun.pulls/video/7300'), 'arjun.pulls');
+  eq(normalizeTikTok(''), '');
+  eq(normalizeTikTok('vm.tiktok.com/ZMabc123/'), null);   // a short link has no handle in it
+  eq(normalizeTikTok('instagram.com/abc'), null);
+  eq(normalizeTikTok('ends.with.dot.'), null);
+  eq(normalizeTikTok('a'), null);
+  eq(normalizeTikTok('x'.repeat(25)), null);
+  eq(tiktokUrl('a.b_c'), 'https://www.tiktok.com/@a.b_c');
+});
+test('starter program: 3 full-body days of 3 x 5, light, climbing, never below the bar', () => {
+  const p = generateStarterProgram({ weeks: 8, bodyweightKg: 80, sex: 'male', unit: 'kg' });
+  eq(p.weeks.length, 8); eq(p.starter, true);
+  eq(p.weeks.every(w => w.days.length === 3), true);
+  eq(p.weeks.every(w => w.days.every(d => d.exercises[0].lift === 'squat')), true);   // squat every session
+  const mains = p.weeks.flatMap(w => w.days.flatMap(d => d.exercises.filter(e => MAIN_LIFTS.includes(e.lift))));
+  eq(mains.every(e => e.sets.every(st => st.reps === 5 && st.rpe >= 7 && st.rpe <= 8 && st.weight >= 20)), true);
+  const sq = (w) => p.weeks[w].days[0].exercises[0].sets[0].weight;
+  eq(sq(7) > sq(0), true);                                  // load climbs
+  eq(sq(0) < 0.8 * 80, true);                               // and starts well under an estimated max
+  const acc = p.weeks[0].days.map(d => d.exercises[d.exercises.length - 1]);
+  eq(acc.every(e => e.sets.every(st => st.rpe === 7)), true);   // one-tap logging: every set has a target
+  const f = generateStarterProgram({ bodyweightKg: 62, sex: 'female', unit: 'kg' });
+  eq(f.weeks[0].days[0].exercises[1].sets[0].weight, 20);   // a light bench starts at the empty bar
+  const known = generateStarterProgram({ bodyweightKg: 80, sex: 'male', e1rms: { squat: 140 } });
+  eq(known.weeks[0].days[0].exercises[0].sets[0].weight > sq(0), true);   // a real number beats the estimate
+});
+test('bodyweight milestones: first crossing only, highest rung, sex ladders, titles', () => {
+  eq(newBwMilestone(70, 82, 82, 'bench', 'male').title, 'Bodyweight bench');           // 82 kg on an 82 kg lifter
+  eq(newBwMilestone(82, 85, 82, 'bench', 'male'), null);                               // already held
+  eq(newBwMilestone(100, 165, 82, 'deadlift', 'male').ratio, 2);                        // jumps 1.5× and 2× → the higher
+  eq(newBwMilestone(100, 165, 82, 'deadlift', 'male').title, 'Double bodyweight deadlift');
+  eq(newBwMilestone(28, 31, 62, 'bench', 'female').title, '0.5× bodyweight bench');     // women's ladder starts at 0.5×
+  eq(newBwMilestone(28, 31, 62, 'bench', 'male'), null);                                // men's first bench rung is 0.75×
+  eq(newBwMilestone(0, 100, 0, 'squat', 'male'), null);                                 // no bodyweight, no milestone
+  const lad = bwMilestoneLadder({ squat: 125, bench: 60, deadlift: 160 }, 80, 'male');
+  const sq = lad.find(x => x.lift === 'squat');
+  eq(sq.held.join(','), '1,1.5'); eq(sq.next, 2); eq(sq.toGoKg, 35);
+});
+test('weekly goal: streak counts whole weeks hit; a week in progress never breaks it', () => {
+  const d = ['2026-09-28', '2026-09-30', '2026-10-02',   // week of 28 Sep: 3
+             '2026-10-05', '2026-10-07', '2026-10-09',   // week of 5 Oct: 3
+             '2026-10-12'];                              // this week (Thu 15 Oct): 1 so far
+  let st = weeklyGoalStatus(d, 3, '2026-10-15');
+  eq(st.done, 1); eq(st.left, 2); eq(st.met, false); eq(st.streak, 2);
+  st = weeklyGoalStatus(d.concat(['2026-10-13', '2026-10-14']), 3, '2026-10-15');
+  eq(st.met, true); eq(st.streak, 3);
+  eq(weeklyGoalStatus(d, 4, '2026-10-15').streak, 0);                 // a 4-a-week goal was never hit
+  eq(weeklyGoalStatus(['2026-10-12', '2026-10-12'], 2, '2026-10-15').done, 1);   // same day twice = one session
+});
+test('readiness: beat up takes ~5% off to the nearest loadable weight, always lighter; others unchanged', () => {
+  eq(readinessLoad(100, 'rough', 'kg'), 95);
+  eq(readinessLoad(165, 'rough', 'kg'), 157.5);        // 156.75 → nearest loadable, still lighter
+  eq(readinessLoad(100, 'fresh', 'kg'), null);
+  eq(readinessLoad(100, 'normal', 'kg'), null);
+  eq(readinessLoad(20, 'rough', 'kg'), 17.5);
+  eq(readinessLoad(0, 'rough', 'kg'), null);
+});
+test('first meet prep: ends on meet week (openers + light), peaks with singles, climbs', () => {
+  const p = generateMeetPrep({ weeks: 12, e1rms: { squat: 180, bench: 120, deadlift: 220 }, unit: 'kg' });
+  eq(p.weeks.length, 12); eq(p.meetPrep, true);
+  const meet = p.weeks[11];
+  eq(meet.days.map(d => d.name).join(','), 'Openers,Light technique');
+  const opener = meet.days[0].exercises.find(e => e.lift === 'squat').sets[0];
+  eq(opener.reps, 1); eq(opener.rpe, 7);
+  eq(Math.abs(opener.weight - 180 * 1.1 * 0.9) < 5, true);            // ≈ 90% of the (nudged) e1RM
+  const peak = p.weeks[9].days[0].exercises[0].sets;                    // week 10: squat day
+  eq(peak[0].reps, 1); eq(peak.slice(1).every(st => st.reps === 2), true);
+  const base = p.weeks[0].days[0].exercises[0].sets;
+  eq(base.length, 4); eq(base[0].reps, 5); eq(base[0].rpe, 7);
+  eq(p.weeks.every(w => w.days.every(d => d.exercises.every(e => e.sets.every(st => st.weight >= 20)))), true);
+  eq(generateMeetPrep({ weeks: 8, e1rms: { squat: 100 } }).weeks.length, 8);
 });
 test('reaction summary: one per person, counts by key, my pick, nulls ignored', () => {
   const s = reactionSummary([
