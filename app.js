@@ -72,6 +72,7 @@ function requireAuth(expectedType) {
 }
 async function logout() {
   try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
+  try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}   // the Home Screen widget forgets you too
   // Wipe the offline write queue too: it holds the OUTGOING user's edits, keyed
   // by their athlete id. Leaving it would replay their writes under the next
   // user's session — RLS rejects them, the attempt counter burns up, and they're
@@ -1943,8 +1944,39 @@ window.addEventListener('load',    () => { setTimeout(() => { if (navigator.onLi
 // SHARE CARDS — branded 1080×1350 canvas images for IG/stories.
 // One engine, many cards: PR cards, meet-day plans, weekly recaps.
 // =========================================================
+// UI v8: Story (9:16, Instagram/TikTok stories) or post (4:5, the feed)? One tap; the last
+// pick comes first next time. Resolves 'story' | 'post', or null if the sheet is dismissed.
+const CARD_FORMAT_LABEL = { story: 'Story', post: 'Post' };
+function cardFormatLabel() { let f = ''; try { f = localStorage.getItem('powa-card-format') || ''; } catch (e) {} return CARD_FORMAT_LABEL[f] || 'Ask'; }
+// Asked the first time a card is shared, then remembered (You → Settings → Share cards changes it).
+function pickCardFormat() {
+  let saved = null; try { saved = localStorage.getItem('powa-card-format'); } catch (e) {}
+  if (CARD_FORMAT_LABEL[saved]) return Promise.resolve(saved);
+  return new Promise((resolve) => {
+    let chosen = null, last = 'story';
+    uiSheet('Share as', (sheet, close) => {
+      const row = el('div', { class: 'cf-pick' });
+      [['story', 'Story', 'Tall, for Instagram and TikTok stories'], ['post', 'Post', 'For the feed']].forEach(([k, t, sub]) => {
+        const b = el('button', { type: 'button', class: 'cf-opt' + (k === last ? ' on' : '') });
+        b.appendChild(el('span', { class: 'cf-shape cf-' + k, 'aria-hidden': 'true' }));
+        b.appendChild(el('b', {}, t));
+        b.appendChild(el('small', {}, sub));
+        b.addEventListener('click', () => { chosen = k; try { localStorage.setItem('powa-card-format', k); } catch (e) {} close(); });
+        row.appendChild(b);
+      });
+      sheet.appendChild(row);
+    }, { cls: 'cf-sheet', onClose: () => resolve(chosen) });
+  });
+}
+
 async function generateShareCard(opts) {
-  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer }
+  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer, format: 'story' | 'post' (asked when left out) }
+  const format = opts.format || await pickCardFormat();
+  if (!format) return null;
+  const story = format === 'story';
+  // Story keeps everything clear of Instagram's name strip (top) and reply bar (bottom).
+  const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, foot: 1920 - 330 }
+    : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, foot: 1350 - 70 };
   try {
     await Promise.all([
       document.fonts.load('800 100px Archivo'),
@@ -1953,7 +1985,7 @@ async function generateShareCard(opts) {
     ]);
   } catch (e) { /* fonts may already be loaded — canvas falls back gracefully */ }
 
-  const W = 1080, H = 1350;
+  const W = 1080, H = story ? 1920 : 1350;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
@@ -1978,7 +2010,7 @@ async function generateShareCard(opts) {
   const word = 'POWALIFTA';
   const wordW = x.measureText(word).width;
   const markW = 88, gap = 22;
-  const lx = (W - markW - gap - wordW) / 2, ly = 104;
+  const lx = (W - markW - gap - wordW) / 2, ly = Y.logo;
   const rr = (rx, ry, rw, rh, r) => { x.beginPath(); if (x.roundRect) x.roundRect(rx, ry, rw, rh, r); else x.rect(rx, ry, rw, rh); x.fill(); };
   const s = markW / 32;                                   // the 32-unit BRAND_MARK grid
   x.fillStyle = '#f4f4f6'; rr(lx + 1.5 * s, ly + 14.6 * s, 29 * s, 2.8 * s, 1.4 * s);
@@ -1996,12 +2028,12 @@ async function generateShareCard(opts) {
   x.strokeStyle = 'rgba(255,255,255,0.22)';
   x.lineWidth = 2;
   if (x.roundRect) {
-    x.beginPath(); x.roundRect((W - tagW) / 2, 250, tagW, 72, 36); x.fill(); x.stroke();
+    x.beginPath(); x.roundRect((W - tagW) / 2, Y.tag, tagW, 72, 36); x.fill(); x.stroke();
   } else {
-    x.fillRect((W - tagW) / 2, 250, tagW, 72); x.strokeRect((W - tagW) / 2, 250, tagW, 72);
+    x.fillRect((W - tagW) / 2, Y.tag, tagW, 72); x.strokeRect((W - tagW) / 2, Y.tag, tagW, 72);
   }
   x.fillStyle = '#f4f4f6';
-  x.fillText(opts.tag, W / 2, 297);
+  x.fillText(opts.tag, W / 2, Y.tag + 47);
 
   // Big number — solid ink, the loudest thing on the card
   // Number + unit are centred as ONE group, and the group steps down in size
@@ -2019,21 +2051,21 @@ async function generateShareCard(opts) {
   x.textAlign = 'left';
   x.fillStyle = '#f4f4f6';
   x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
-  x.fillText(opts.big, gx, 700);
+  x.fillText(opts.big, gx, Y.big);
   if (opts.bigUnit) {
     x.fillStyle = '#82828c';
     x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
-    x.fillText(opts.bigUnit, gx + bigW + 24, 700);
+    x.fillText(opts.bigUnit, gx + bigW + 24, Y.big);
   }
   x.textAlign = 'center';
 
   // Sub line
   x.fillStyle = '#f4f4f6';
   x.font = '800 52px Archivo, \"Arial Black\", sans-serif';
-  x.fillText(opts.sub.toUpperCase(), W / 2, 810);
+  x.fillText(opts.sub.toUpperCase(), W / 2, Y.sub);
 
   // Detail lines (left/right pairs)
-  let y = 930;
+  let y = Y.lines;
   (opts.lines || []).forEach(ln => {
     x.strokeStyle = 'rgba(255,255,255,0.10)';
     x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
@@ -2052,12 +2084,14 @@ async function generateShareCard(opts) {
   // Footer
   x.font = '700 34px Archivo, sans-serif';
   x.fillStyle = '#808089';
-  x.fillText(opts.footer || 'powalifta.com', W / 2, H - 70);
+  x.fillText(opts.footer || 'powalifta.com', W / 2, Y.foot);
 
   return c;
 }
 
 async function shareCardFromCanvas(canvas, filename, shareText) {
+  if (!canvas) return false;   // the Story / post sheet was dismissed
+  if (canvas.height > canvas.width * 1.5) filename = filename.replace(/\.png$/, '-story.png');
   return new Promise(resolve => {
     canvas.toBlob(async blob => {
       if (!blob) { toast('Could not create image'); return resolve(false); }
@@ -3603,6 +3637,7 @@ async function confirmDeleteMyAccount() {
   const res = await DB.deleteAccount();
   if (res && res.ok) {
     toast('Account deleted. Signing you out…');
+    try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (_) {}
     try { await DB.signOut(); } catch (_) {}
     _toWelcome();
     return;
@@ -7419,6 +7454,8 @@ const YOU_ROW_META = {
   'Ask AI':              { tint: 'iris',   icon: () => _YI('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>') },
   'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
   'Units':               { tint: 'sky',    icon: () => ICONS.weight },
+  'Share cards':         { tint: 'violet', icon: () => ICONS.share },
+  'App icon':            { tint: 'gray',   icon: () => BRAND_MARK },
   'Replay the tour':     { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>') },
   'Lifting words, explained': { tint: 'sky', icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M9 8h6M9 12h4"/>') },
   'Log out':             { tint: 'red',    icon: () => ICONS.logout },
@@ -8088,21 +8125,178 @@ function uiBarbell(kg, opts) {
   const r = plateLoadout(kg);
   const look = PLATE_LOOK[r.unit];
   const mid = 50, gap = 1.6;
-  let x = 31, body = '';
-  r.plates.filter(p => look[p]).forEach((p, i) => {
-    const l = look[p], h = l[1] * 0.92, w = l[2], y = mid - h / 2;
-    body += '<g class="bb-plate" style="--i:' + i + '"><rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w + '" height="' + h.toFixed(1) + '" rx="2.2" fill="' + l[0] + '" stroke="rgba(255,255,255,' + (l[0] === '#2b2b30' ? '0.34' : '0.16') + ')" stroke-width="0.9"/>' +
-      '<rect x="' + (x + w * 0.6).toFixed(1) + '" y="' + (y + 3).toFixed(1) + '" width="' + (w * 0.22).toFixed(1) + '" height="' + (h - 6).toFixed(1) + '" rx="1" fill="#fff" opacity="0.16"/></g>';
-    x += w + gap;
-  });
-  const collarX = x + 0.4, end = collarX + 7 + 16, W = end + 1;
-  return '<svg class="ui-barbell' + (opts.cls ? ' ' + opts.cls : '') + '" viewBox="0 0 ' + W.toFixed(1) + ' 100" preserveAspectRatio="xMinYMid meet" role="img" aria-label="' + escHtml(plateSummaryText(kg)) + '">' +
+  // Each plate's spot on the sleeve, inside out.
+  const lay = (plates) => { let x = 31; return plates.filter(p => look[p]).map((p) => { const o = { p, x }; x += look[p][2] + gap; return o; }); };
+  const now = lay(r.plates);
+  // UI v8: opts.from = the weight this bar showed last. A change loads it like a real bar:
+  // the collar comes off, the outer plates that change slide off, the new ones slide on
+  // (heaviest first), the collar clamps back. Plates that stay put don't move; the same
+  // weight again doesn't move at all.
+  let was = null, keep = 0;
+  if (opts.from != null) {
+    const fr = Number(opts.from) === Number(kg) ? null : plateLoadout(opts.from);
+    was = fr && fr.unit === r.unit ? lay(fr.plates) : [];
+    if (fr) while (keep < now.length && keep < was.length && now[keep].p === was[keep].p) keep++;
+    else keep = now.length;
+  }
+  const moving = was != null && (keep < now.length || keep < was.length);
+  const plate = (o, cls, i) => {
+    const l = look[o.p], h = l[1] * 0.92, w = l[2], y = mid - h / 2;
+    return '<g class="bb-plate' + cls + '" style="--i:' + i + '"><rect x="' + o.x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w + '" height="' + h.toFixed(1) + '" rx="2.2" fill="' + l[0] + '" stroke="rgba(255,255,255,' + (l[0] === '#2b2b30' ? '0.34' : '0.16') + ')" stroke-width="0.9"/>' +
+      '<rect x="' + (o.x + w * 0.6).toFixed(1) + '" y="' + (y + 3).toFixed(1) + '" width="' + (w * 0.22).toFixed(1) + '" height="' + (h - 6).toFixed(1) + '" rx="1" fill="#fff" opacity="0.16"/></g>';
+  };
+  const edge = (list) => (list.length ? list[list.length - 1].x + look[list[list.length - 1].p][2] + gap : 31);
+  let body = '';
+  if (moving) body += was.slice(keep).map((o, i) => plate(o, ' is-off', i)).join('');   // under the new ones
+  body += now.map((o, i) => plate(o, was == null ? '' : i < keep ? ' is-kept' : ' is-on', was == null ? i : i - keep)).join('');
+  const collarX = edge(now) + 0.4, end = collarX + 7 + 16, W = end + 1;
+  let collar = '';
+  if (now.length) {
+    const dx = moving ? (edge(was) + 0.4) - collarX : 0;
+    collar = '<rect class="bb-collar' + (moving ? ' is-moving' : '') + '" style="--dx:' + dx.toFixed(1) + 'px;--out:' + (Math.max(dx, 0) + 22).toFixed(1) + 'px;--n:' + (now.length - keep) + '" x="' + collarX.toFixed(1) + '" y="' + (mid - 10) + '" width="7" height="20" rx="1.8" fill="#d4d7dd"/>';
+  }
+  return '<svg class="ui-barbell' + (moving ? ' is-loading' : '') + (opts.cls ? ' ' + opts.cls : '') + '" viewBox="0 0 ' + W.toFixed(1) + ' 100" preserveAspectRatio="xMinYMid meet" role="img" aria-label="' + escHtml(plateSummaryText(kg)) + '">' +
     '<rect x="0" y="' + (mid - 3.4) + '" width="26" height="6.8" rx="1.6" fill="#5d616a"/>' +
     '<rect x="23" y="' + (mid - 13) + '" width="7" height="26" rx="1.8" fill="#8e949e"/>' +
     '<rect x="30" y="' + (mid - 5.6) + '" width="' + (end - 30).toFixed(1) + '" height="11.2" rx="2.4" fill="#a3a9b3"/>' +
-    body +
-    (r.plates.length ? '<rect x="' + collarX.toFixed(1) + '" y="' + (mid - 10) + '" width="7" height="20" rx="1.8" fill="#d4d7dd"/>' : '') +
-    '</svg>';
+    body + collar + '</svg>';
+}
+
+// ---- Progress chart (UI v8) ----------------------------------------------------------
+// Weekly points for the strength chart, oldest first, one per Monday that has data.
+// lift 'squat' | 'bench' | 'deadlift': that week's best competition-equivalent e1RM, with the
+// set that made it; pr = it beat everything before it (older logs count as the baseline).
+// lift 'total': the three running bests summed at the end of each week; pr = it went up.
+function _isoMonday(s) { const d = new Date(String(s).slice(0, 10) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }
+function _isoAddDays(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function strengthSeries(logs, lift, opts) {
+  opts = opts || {};
+  const weeks = opts.weeks || 16;
+  const today = opts.today || (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+  const last = _isoMonday(today), first = _isoAddDays(last, -7 * (weeks - 1));
+  const ok = (l) => l && l.date && Number(l.e1rmComp) > 0;
+  const out = [];
+  if (lift === 'total') {
+    const main = ['squat', 'bench', 'deadlift'];
+    const best = { squat: 0, bench: 0, deadlift: 0 };
+    const sorted = (logs || []).filter(l => ok(l) && main.includes(l.lift)).sort((a, b) => a.date.localeCompare(b.date));
+    let i = 0, prev = null;
+    for (let wk = first; wk <= last; wk = _isoAddDays(wk, 7)) {
+      const end = _isoAddDays(wk, 7);
+      let moved = false;
+      while (i < sorted.length && sorted[i].date < end) { const l = sorted[i++]; if (l.date >= wk) moved = true; if (Number(l.e1rmComp) > best[l.lift]) best[l.lift] = Number(l.e1rmComp); }
+      const v = best.squat + best.bench + best.deadlift;
+      if (v > 0 && (moved || prev)) { out.push({ week: wk, value: v, pr: prev != null && v > prev.value + 0.01 }); prev = out[out.length - 1]; }
+    }
+    return out;
+  }
+  const ls = (logs || []).filter(l => ok(l) && l.lift === lift);
+  let top = ls.filter(l => l.date < first).reduce((m, l) => Math.max(m, Number(l.e1rmComp)), 0);
+  for (let wk = first; wk <= last; wk = _isoAddDays(wk, 7)) {
+    const end = _isoAddDays(wk, 7);
+    const b = ls.filter(l => l.date >= wk && l.date < end).sort((x, y) => Number(y.e1rmComp) - Number(x.e1rmComp))[0];
+    if (!b) continue;
+    const v = Number(b.e1rmComp);
+    out.push({ week: wk, value: v, pr: v > top + 0.01, top: { weight: b.weight, reps: b.reps, rpe: b.rpe, date: b.date } });
+    top = Math.max(top, v);
+  }
+  return out;
+}
+// The last four weeks against the four before them: { now, before, delta } (best of each), or null.
+function strengthBlockDelta(points) {
+  if (!points || !points.length) return null;
+  const lastWk = points[points.length - 1].week, cut = _isoAddDays(lastWk, -21), cut0 = _isoAddDays(cut, -28);
+  const a = points.filter(p => p.week >= cut), b = points.filter(p => p.week < cut && p.week >= cut0);
+  if (!a.length || !b.length) return null;
+  const now = Math.max(...a.map(p => p.value)), before = Math.max(...b.map(p => p.value));
+  return { now, before, delta: now - before };
+}
+// Where a line (the total or one lift) lands on meet day if the last eight weeks' trend holds: least squares,
+// never below today's value and capped at +15% (it's a guide, not a promise). Null without
+// three recent points or a meet date that's still ahead.
+function strengthProjection(points, meetDate) {
+  if (!points || !points.length || !meetDate || !/^\d{4}-\d{2}-\d{2}$/.test(meetDate)) return null;
+  const lastWk = points[points.length - 1].week;
+  if (meetDate <= lastWk) return null;
+  const recent = points.filter(p => p.week >= _isoAddDays(lastWk, -49));
+  if (recent.length < 3) return null;
+  const day = (s) => Date.parse(s + 'T00:00:00Z') / 864e5;
+  const xs = recent.map(p => day(p.week)), ys = recent.map(p => p.value);
+  const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
+  let num = 0, den = 0; xs.forEach((x, i) => { num += (x - mx) * (ys[i] - my); den += (x - mx) * (x - mx); });
+  const slope = den ? num / den : 0;
+  const lastV = points[points.length - 1].value;
+  const v = Math.min(lastV * 1.15, Math.max(lastV, my + slope * (day(meetDate) - mx)));
+  return { date: meetDate, value: v, perWeek: slope * 7 };
+}
+
+// The strength chart itself: one line in the series' colour, gold dots on PR weeks, an optional
+// dashed run to meet day, and a finger scrub that reads out any week (with a tick you feel).
+// opts: { color, width, fmt(v) → text, label(p) → readout html, projection, empty, prDots (default on) }
+function uiStrengthChart(points, opts) {
+  opts = opts || {};
+  const wrap = el('div', { class: 'sc-chart' });
+  if (!points || points.length < 2) { wrap.appendChild(el('p', { class: 'sc-empty' }, opts.empty || 'Log a few weeks and your line shows up here.')); return wrap; }
+  const W = Math.round(Math.max(260, opts.width || 340)), H = 184, padL = 8, padR = 12, padT = 12, padB = 26;
+  const color = opts.color || 'currentColor', proj = opts.projection || null;   // currentColor = the theme's ink (.sc-svg)
+  const tx = points.map(p => Date.parse(p.week + 'T00:00:00Z'));
+  const xMin = tx[0], xMax = Math.max(tx[tx.length - 1], proj ? Date.parse(proj.date + 'T00:00:00Z') : 0);
+  const vals = points.map(p => p.value).concat(proj ? [proj.value] : []);
+  let yMin = Math.min(...vals), yMax = Math.max(...vals);
+  const span = Math.max(1, yMax - yMin); yMin -= span * 0.12; yMax += span * 0.08;
+  const X = (t) => padL + (W - padL - padR) * (t - xMin) / Math.max(1, xMax - xMin);
+  const Y = (v) => padT + (H - padT - padB) * (1 - (v - yMin) / (yMax - yMin));
+  const pts = points.map((p, i) => [X(tx[i]), Y(p.value)]);
+  const d = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
+  const gid = 'scg' + Math.random().toString(36).slice(2, 8);
+  const lastP = pts[pts.length - 1];
+  const fmtD = (s) => { const dt = new Date(s + 'T00:00:00Z'); return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
+  const latest = points[points.length - 1].value;
+  const aria = (opts.ariaLabel || 'Strength over time') + '. Latest ' + (opts.fmt ? opts.fmt(latest) : Math.round(latest)) + (proj ? ', about ' + (opts.fmt ? opts.fmt(proj.value) : Math.round(proj.value)) + ' by meet day' : '');
+  let svg = '<svg class="sc-svg" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="' + escHtml(aria) + '">' +
+    '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity="0.28"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
+    '<path d="' + d + ' L' + lastP[0].toFixed(1) + ' ' + (H - padB) + ' L' + pts[0][0].toFixed(1) + ' ' + (H - padB) + ' Z" fill="url(#' + gid + ')"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+  if (proj) {
+    const px = X(Date.parse(proj.date + 'T00:00:00Z')), py = Y(proj.value);
+    svg += '<path d="M' + lastP[0].toFixed(1) + ' ' + lastP[1].toFixed(1) + ' L' + px.toFixed(1) + ' ' + py.toFixed(1) + '" stroke="' + color + '" stroke-width="2" stroke-dasharray="4 5" stroke-linecap="round" opacity="0.6" fill="none"/>' +
+      '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5" class="sc-hole" stroke="' + color + '" stroke-width="2"/>';
+  }
+  if (opts.prDots !== false) points.forEach((p, i) => { if (p.pr) svg += '<circle class="sc-pr sc-ring" cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="4" fill="#f2c25b" stroke-width="2"/>'; });
+  svg += '<circle cx="' + lastP[0].toFixed(1) + '" cy="' + lastP[1].toFixed(1) + '" r="5" class="sc-ring" fill="' + color + '" stroke-width="2.5"/>';
+  svg += '<text class="sc-x" x="' + padL + '" y="' + (H - 6) + '" text-anchor="start">' + escHtml(fmtD(points[0].week)) + '</text>' +
+    '<text class="sc-x" x="' + (W - padR) + '" y="' + (H - 6) + '" text-anchor="end">' + escHtml(proj ? 'Meet day' : fmtD(points[points.length - 1].week)) + '</text>';
+  svg += '<g class="sc-cursor"><line x1="0" x2="0" y1="' + padT + '" y2="' + (H - padB) + '" stroke="currentColor" stroke-opacity="0.35" stroke-width="1"/><circle r="5.5" class="sc-ring" fill="' + color + '" stroke-width="2.5"/></g></svg>';
+  wrap.innerHTML = svg;
+  const read = el('div', { class: 'sc-read', 'aria-live': 'polite' });
+  wrap.appendChild(read);
+  const svgEl = wrap.querySelector('svg'), cur = svgEl.querySelector('.sc-cursor');
+  const line = cur.querySelector('line'), dot = cur.querySelector('circle');
+  let shown = -1;
+  const show = (i) => {
+    if (i === shown) return;
+    shown = i;
+    const [x, y] = pts[i];
+    line.setAttribute('x1', x); line.setAttribute('x2', x); dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+    read.innerHTML = opts.label ? opts.label(points[i]) : escHtml(fmtD(points[i].week)) + ' · <b>' + escHtml(opts.fmt ? opts.fmt(points[i].value) : String(Math.round(points[i].value))) + '</b>';
+    const cw = wrap.clientWidth || W, rw = read.offsetWidth || 160;   // keep the readout inside the card
+    read.style.left = Math.max(rw / 2, Math.min(cw - rw / 2, x / W * cw)).toFixed(1) + 'px';
+    wrap.classList.add('is-scrub');
+    try { hapticTick(); } catch (e) {}
+  };
+  const at = (clientX) => {
+    const b = svgEl.getBoundingClientRect(), vx = (clientX - b.left) / b.width * W;
+    let best = 0; pts.forEach((q, i) => { if (Math.abs(q[0] - vx) < Math.abs(pts[best][0] - vx)) best = i; });
+    return best;
+  };
+  const end = () => { wrap.classList.remove('is-scrub'); shown = -1; };
+  let down = false;
+  svgEl.addEventListener('pointerdown', (e) => { down = true; try { svgEl.setPointerCapture(e.pointerId); } catch (x) {} show(at(e.clientX)); });
+  svgEl.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') show(at(e.clientX)); });
+  svgEl.addEventListener('pointerup', () => { down = false; end(); });
+  svgEl.addEventListener('pointercancel', () => { down = false; end(); });
+  svgEl.addEventListener('pointerleave', () => { if (!down) end(); });
+  return wrap;
 }
 
 // RPE: 6 is easy speed, 10 is a true max. Colours run green → amber → red.
@@ -8122,6 +8316,7 @@ function uiRpeScale(value, onPick, opts) {
   // Simple mode (new lifters; You → Rest and sets): five "reps left" buttons
   // instead of nine RPE numbers. Half steps round to the nearest whole one.
   const simple = opts.simple != null ? !!opts.simple : isSimpleEffort();
+  if (!simple) return uiRpeSlider(value, onPick, opts);
   const steps = simple ? [6, 7, 8, 9, 10] : RPE_STEPS;
   const near = (v) => (v == null ? null : simple ? Math.max(6, Math.min(10, Math.round(v))) : v);
   const wrap = el('div', { class: 'rpe-scale' + (simple ? ' is-simple' : '') + (opts.cls ? ' ' + opts.cls : '') });
@@ -8163,6 +8358,87 @@ function uiRpeScale(value, onPick, opts) {
     wrap.appendChild(what);
   }
   wrap.setValue = (v) => { cur = near((v == null || v === '') ? null : Number(v)); paint(); };
+  wrap.getValue = () => cur;
+  wrap.nudge = () => { wrap.classList.remove('nudge'); void wrap.offsetWidth; wrap.classList.add('nudge'); };
+  paint();
+  return wrap;
+}
+
+// UI v8: the full RPE scale as a slider you tap or drag with your thumb (nine 30 pt chips were
+// below Apple's 44 pt minimum). Snaps to half steps with a tick you feel, the value rides on the
+// knob, the planned RPE keeps its quiet mark. A vertical scroll that starts on the track is
+// handed back to the page (touch-action: pan-y → pointercancel → the pick is undone).
+// Same surface as uiRpeScale: onPick(r) on release, wrap.setValue / getValue / nudge.
+function uiRpeSlider(value, onPick, opts) {
+  opts = opts || {};
+  const steps = RPE_STEPS, last = steps.length - 1;
+  const num = (v) => (v == null || v === '' ? null : Number(v));
+  const wrap = el('div', { class: 'rpe-scale rpe-slider' + (opts.cls ? ' ' + opts.cls : '') });
+  const track = el('div', { class: 'rpe-track', role: 'slider', tabindex: '0', 'aria-label': opts.label || 'How hard was it? RPE', 'aria-valuemin': '6', 'aria-valuemax': '10' });
+  const hint = el('div', { class: 'rpe-hint', 'aria-live': 'polite' });
+  const target = num(opts.target);
+  let cur = num(value);
+  steps.forEach((r, i) => {
+    const whole = r % 1 === 0;
+    track.appendChild(el('span', { class: 'rpe-stop' + (whole ? ' is-whole' : '') + (r === target ? ' is-target' : ''), style: '--i:' + i, 'aria-hidden': 'true' }, whole ? String(r) : ''));
+  });
+  const fill = el('span', { class: 'rpe-fill', 'aria-hidden': 'true' });
+  const knob = el('span', { class: 'rpe-knob', 'aria-hidden': 'true' });
+  track.appendChild(fill); track.appendChild(knob);
+  const paint = () => {
+    wrap.classList.toggle('has-value', cur != null);
+    if (cur != null) {
+      wrap.style.setProperty('--rc', rpeColor(cur));
+      wrap.style.setProperty('--rpe-t', String(steps.indexOf(cur) / last));
+      knob.textContent = String(cur);
+      track.setAttribute('aria-valuenow', String(cur));
+      track.setAttribute('aria-valuetext', 'RPE ' + cur + ', ' + rpeTankText(cur));
+    } else {
+      track.removeAttribute('aria-valuenow');
+      track.setAttribute('aria-valuetext', 'Not set');
+    }
+    const off = target != null && cur !== target;
+    hint.innerHTML = cur == null
+      ? escHtml(opts.empty || 'Tap or slide to how hard it felt')
+      : '<b>RPE ' + cur + '</b> · ' + escHtml(rpeTankText(cur)) + (off ? ' · target ' + target : '');
+  };
+  const at = (clientX) => {
+    const b = track.getBoundingClientRect(), pad = 22;
+    const t = Math.min(1, Math.max(0, (clientX - b.left - pad) / Math.max(1, b.width - pad * 2)));
+    return steps[Math.round(t * last)];
+  };
+  const move = (v) => { if (v !== cur) { cur = v; paint(); hapticTick(); } };
+  let down = false, before = null;
+  track.addEventListener('pointerdown', (e) => {
+    down = true; before = cur;
+    try { track.setPointerCapture(e.pointerId); } catch (err) {}
+    wrap.classList.add('is-dragging');
+    move(at(e.clientX));
+  });
+  track.addEventListener('pointermove', (e) => { if (down) move(at(e.clientX)); });
+  track.addEventListener('pointerup', () => {
+    if (!down) return;
+    down = false; wrap.classList.remove('is-dragging');
+    if (cur != null && onPick) onPick(cur);
+  });
+  track.addEventListener('pointercancel', () => {
+    if (!down) return;
+    down = false; wrap.classList.remove('is-dragging');
+    cur = before; paint();
+  });
+  track.addEventListener('keydown', (e) => {
+    const i = steps.indexOf(cur != null ? cur : (target != null ? target : 8));
+    const n = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? Math.min(last, i + 1)
+      : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? Math.max(0, i - 1)
+      : e.key === 'Home' ? 0 : e.key === 'End' ? last : null;
+    if (n == null) return;
+    e.preventDefault();
+    move(steps[n]);
+    if (onPick) onPick(cur);
+  });
+  wrap.appendChild(track);
+  if (opts.hint !== false) wrap.appendChild(hint);
+  wrap.setValue = (v) => { cur = num(v); paint(); };
   wrap.getValue = () => cur;
   wrap.nudge = () => { wrap.classList.remove('nudge'); void wrap.offsetWidth; wrap.classList.add('nudge'); };
   paint();
@@ -8661,6 +8937,48 @@ function openDataSheet() {
   }, { cls: 'settings-sheet' });
 }
 // The Settings rows both You hubs share.
+// APP ICON (native, UI v8): the plate on the Home Screen. The red 25 kg plate is the
+// primary icon; the others are alternate icons (native/assets/icons, AppIconPlugin).
+const APP_ICONS = [
+  { name: '', label: 'Red', color: '#ff2d3f' },
+  { name: 'AppIcon-Blue', label: 'Blue', color: '#2563eb' },
+  { name: 'AppIcon-Yellow', label: 'Yellow', color: '#f5c518' },
+  { name: 'AppIcon-Green', label: 'Green', color: '#1f9d55' },
+  { name: 'AppIcon-White', label: 'White', color: '#e6e6ea' }
+];
+function appIconLabel() {
+  let n = ''; try { n = localStorage.getItem('powa-app-icon') || ''; } catch (e) {}
+  const ic = APP_ICONS.find(x => x.name === n);
+  return ic ? ic.label : 'Red';
+}
+function openAppIconSheet(onDone) {
+  uiSheet('App icon', async (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'The plate on your Home Screen.'));
+    const grid = el('div', { class: 'ic-pick', role: 'radiogroup', 'aria-label': 'App icon' });
+    sheet.appendChild(grid);
+    let cur = window.PowaNative ? await PowaNative.appIcon() : null;
+    if (cur === null) { close(); toast('Change the icon in the iPhone app'); return; }
+    const paint = () => grid.querySelectorAll('.ic-opt').forEach(b => { const on = b.dataset.n === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    APP_ICONS.forEach(ic => {
+      const b = el('button', { type: 'button', role: 'radio', class: 'ic-opt', 'data-n': ic.name, 'aria-label': ic.label + ' plate' });
+      b.appendChild(el('span', { class: 'ic-tile', 'aria-hidden': 'true', html: BRAND_MARK.replace('#ff2d3f', ic.color) }));
+      b.appendChild(el('span', {}, ic.label));
+      b.addEventListener('click', async () => {
+        if (ic.name === cur) return;
+        hapticTick();
+        const ok = await PowaNative.setAppIcon(ic.name);
+        if (!ok) { toast('Could not change the icon'); return; }
+        cur = ic.name;
+        try { localStorage.setItem('powa-app-icon', cur); } catch (e) {}
+        paint();
+        if (onDone) onDone(ic.label);
+      });
+      grid.appendChild(b);
+    });
+    paint();
+  });
+}
+
 function youSettingsRows(role, rerender) {
   const u = getCurrentUser() || {};
   const inShell = document.documentElement.classList.contains('native');
@@ -8672,6 +8990,8 @@ function youSettingsRows(role, rerender) {
     { label: 'Notifications', onClick: () => openNotificationsSheet() },
     { label: 'Security', onClick: () => openSecuritySheet() },
     { label: 'Units', value: getUnit() === 'lbs' ? 'lb' : 'kg', onClick: () => toggleUnit() },
+    inShell ? { label: 'App icon', value: appIconLabel(), onClick: (row, v) => openAppIconSheet((l) => { v.textContent = l; }) } : null,
+    { label: 'Share cards', value: cardFormatLabel(), onClick: (row, v) => { const next = cardFormatLabel() === 'Story' ? 'post' : 'story'; try { localStorage.setItem('powa-card-format', next); } catch (e) {} v.textContent = CARD_FORMAT_LABEL[next]; hapticTick(); } },
     { label: 'Your data', onClick: () => openDataSheet() }
   ];
 }
@@ -8810,13 +9130,38 @@ function _sheetDrag(veil, sheet, close) {
     if (!mini) { mini = el('div', { class: 'nav-mini-title', 'aria-hidden': 'true' }); nav.appendChild(mini); }
     const pane = Array.from(document.querySelectorAll('.dash-main > section[data-pane]')).find(p => p.offsetParent !== null);
     const h = pane && pane.querySelector('h1, h2');
-    const show = !!(h && h.textContent.trim() && h.getBoundingClientRect().bottom < nav.getBoundingClientRect().bottom + 2);
+    const navBottom = nav.getBoundingClientRect().bottom;
+    // UI v8: a page's big title sits IN the bar's row at rest (styles.css "UI v8" 1), so it
+    // counts as scrolled away once its middle passes up behind the status bar. Pages without
+    // a header (Club, You) keep the old rule: their first heading slides under the bar.
+    const head = pane && pane.querySelector(':scope > .dash-header');
+    const ttl = head && head.querySelector('h1, h2');
+    const tr = ttl ? ttl.getBoundingClientRect() : null;
+    const barTop = navBottom - 44, barMid = navBottom - 22;
+    const show = !!(h && h.textContent.trim() && (tr ? tr.top + tr.height / 2 < barTop + 8 : h.getBoundingClientRect().bottom < navBottom + 2));
     if (show) mini.textContent = h.textContent.trim();
     mini.classList.toggle('on', show);
+    // The AI + bell icons ride on the big title's row, then dock in the bar.
+    const actions = nav.querySelector('.nav-actions');
+    let y = 0;
+    if (tr) y = Math.max(0, tr.top + tr.height / 2 - barMid);
+    if (actions) {
+      actions.style.transform = y > 0.5 ? 'translateY(' + y.toFixed(1) + 'px)' : '';
+      document.documentElement.style.setProperty('--nav-actions-w', (actions.offsetWidth + 14) + 'px');
+    }
+    const scrolled = (document.scrollingElement || document.documentElement).scrollTop > 4;
+    nav.classList.toggle('is-docked', ttl ? show : scrolled);
+    // The club's Feed / Board switch sticks under the docked bar (styles.css "UI v8" 4).
+    document.querySelectorAll('.club-view-seg').forEach((seg) => {
+      seg.classList.toggle('is-stuck', scrolled && seg.getBoundingClientRect().top <= navBottom + 1);
+    });
   };
   const queue = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
   document.addEventListener('scroll', queue, { capture: true, passive: true });
   document.addEventListener('click', () => setTimeout(queue, 80), true);
+  window.addEventListener('resize', queue);
+  window.addEventListener('load', queue);
+  setTimeout(queue, 400);
 })();
 Object.assign(window, { hapticTick, hapticTap });
 
@@ -8892,6 +9237,173 @@ function warmupCaller(openerKg, unit) {
   return ramp.filter(s => s.kg < openerKg && !seen.has(s.kg) && seen.add(s.kg));
 }
 Object.assign(window, { meetStep, roundMeet, meetLightsResult, meetNextAttempt, meetStanding, warmupCaller });
+// =========================================================
+// THE MINUTE (2026-10-20): after a result you have about a minute to hand in the next
+// attempt. Three choices, no maths: SAFE (the smallest legal move), PLAN (the jump the
+// plan had), SEND (a PR if one is in reach, never more than three steps past the plan).
+// After a miss: the same bar, one step, two steps. Pure, unit-tested in tests.html.
+//   meetAttemptOptions({ kg, result, plannedNext, best, unit }) → [{ key, kg, why, prBy }]
+//   kg: the attempt just taken · best: the lifter's best for the lift, kg (meet or e1RM)
+// =========================================================
+const MEET_MINUTE_MS = 60000;
+function meetAttemptOptions(o) {
+  const unit = o.unit || 'kg', step = meetStep(unit);
+  const kg = Number(o.kg) || 0, best = Number(o.best) || 0;
+  let out;
+  if (o.result !== 'good') {
+    out = [
+      { key: 'safe', kg: roundMeet(kg, unit), why: 'The same bar. Fix the lift', prBy: 0 },
+      { key: 'plan', kg: roundMeet(kg + step, unit), why: 'One step up', prBy: 0 },
+      { key: 'send', kg: roundMeet(kg + 2 * step, unit), why: 'Two steps up', prBy: 0 }
+    ];
+  } else {
+    const safe = roundMeet(kg + step, unit);
+    const plan = Math.max(safe, meetNextAttempt(kg, 'good', 'solid', o.plannedNext, unit));
+    let send = roundMeet(Math.max(plan + step, best > 0 ? best + step : 0), unit);
+    send = Math.min(send, roundMeet(plan + 3 * step, unit));
+    const pr = (v) => { const d = roundMeet(v - best, unit); return best > 0 && d >= step ? d : 0; };
+    out = [
+      { key: 'safe', kg: safe, why: 'The smallest jump', prBy: pr(safe) },
+      { key: 'plan', kg: plan, why: 'What the plan had', prBy: pr(plan) },
+      { key: 'send', kg: send, why: 'Past the plan', prBy: pr(send) }
+    ];
+  }
+  // Two slabs with the same bar would be one choice twice: keep the first.
+  const seen = new Set();
+  return out.filter(x => !seen.has(x.kg) && seen.add(x.kg));
+}
+
+// =========================================================
+// THE LIE DETECTOR (2026-10-20): your RPE calls, checked against each other. On a day
+// with a heavy set AND lighter sets of the same lift, the set closest to a max (fewest
+// reps in reserve, five reps or fewer) is the reference — the hardest call to get wrong.
+// It implies a max, and that max says what RPE every other set really was. Said 7, bar
+// says 8 → drift +1: you call those sets easier than they are. A set that comes out past
+// the max is a 10 that was called lower. Per rep range over `days`. Pure, unit-tested.
+//   rpeDrift(logs, lift, { days, today }) → { buckets: { '1-3' | '4-6' | '7+': { n, drift } }, n, worst, refMax }
+//   worst: the rep range that drifts most, only with three or more checks and ≥ 0.4 RPE.
+//   refMax: the best max a reference set implied (kg, competition-equivalent) — the honest
+//   base for a corrected load, since the best e1RM may itself come from an under-called set.
+// =========================================================
+function _rpeBucket(reps) { return reps <= 3 ? '1-3' : reps <= 6 ? '4-6' : '7+'; }
+function rpeDrift(logs, lift, opts) {
+  opts = opts || {};
+  const today = opts.today || todayISO(), since = _isoAddDays(today, -(opts.days || 42));
+  const ok = (l) => l && l.lift === lift && l.date && l.date >= since && l.date <= today &&
+    Number(l.weight) > 0 && Number(l.reps) > 0 && Number(l.rpe) >= 5 && Number(l.rpe) <= 10;
+  const byDay = {};
+  (logs || []).filter(ok).forEach(l => { (byDay[l.date] = byDay[l.date] || []).push(l); });
+  const acc = { '1-3': [], '4-6': [], '7+': [] };
+  let bestRef = 0;
+  Object.values(byDay).forEach(sets => {
+    if (sets.length < 2) return;
+    const eq = (l) => Number(l.weight) * multiplierFor(lift, l.variant);   // competition-equivalent
+    const left = (l) => (Number(l.reps) - 1) + (10 - Number(l.rpe));        // reps in reserve, roughly
+    const ref = sets.filter(l => Number(l.reps) <= 5).sort((a, b) => left(a) - left(b) || eq(b) - eq(a))[0];
+    if (!ref) return;
+    const refMax = calcE1RM(eq(ref), Number(ref.reps), Number(ref.rpe));
+    if (!(refMax > 0)) return;
+    if (refMax > bestRef) bestRef = refMax;
+    sets.forEach(l => {
+      if (l === ref || Number(l.reps) === Number(ref.reps)) return;
+      const pct = eq(l) / refMax;
+      if (pct < 0.4) return;
+      const barRpe = Math.min(10, 10 - ((1 - pct) / 0.0333 - (Number(l.reps) - 1)));
+      if (barRpe < 4) return;   // a warm-up, not a working set
+      acc[_rpeBucket(Number(l.reps))].push(barRpe - Number(l.rpe));
+    });
+  });
+  const buckets = {}; let n = 0, worst = null;
+  Object.keys(acc).forEach(k => {
+    const a = acc[k]; if (!a.length) return;
+    const d = Math.round(a.reduce((x, y) => x + y, 0) / a.length * 10) / 10;
+    buckets[k] = { n: a.length, drift: d };
+    n += a.length;
+    if (a.length >= 3 && Math.abs(d) >= 0.4 && (!worst || Math.abs(d) > Math.abs(worst.drift))) worst = { bucket: k, drift: d, n: a.length };
+  });
+  return { buckets, n, worst, refMax: Math.round(bestRef * 10) / 10 };
+}
+
+// =========================================================
+// THE BOUNCER (2026-10-20): the app says no, twice. (1) Inside ten days of a meet, a
+// single at or above your opener stays on the platform. (2) On the day, an opener past
+// 95% of your best recent heavy set (a normal opener sits near 91%) is a max, not an
+// opener. Pure rules, unit-tested; the
+// slab + hold-to-override UI is openBouncer / uiHoldButton below.
+//   bouncerSingle({ reps, kg, openerKg, daysOut }) → { pct, daysOut } | null
+//   bouncerOpener({ openerKg, refKg }, unit) → { pct, suggestKg } | null
+// =========================================================
+function bouncerSingle(o) {
+  const days = Number(o.daysOut), kg = Number(o.kg) || 0, opener = Number(o.openerKg) || 0;
+  if (!(days >= 0 && days <= 10) || !(opener > 0) || Number(o.reps) !== 1 || !(kg >= opener)) return null;
+  return { pct: Math.round(kg / opener * 100), daysOut: days };
+}
+function bouncerOpener(o, unit) {
+  const opener = Number(o.openerKg) || 0, ref = Number(o.refKg) || 0;
+  if (!(opener > 0) || !(ref > 0) || opener / ref <= 0.95) return null;
+  return { pct: Math.round(opener / ref * 100), suggestKg: roundMeet(ref * 0.91, unit || 'kg') };
+}
+
+// Press and hold for `ms` to go against the app's advice. The fill grows under the
+// finger with a tick every 400 ms and a thud when it commits; letting go resets it.
+// Pointer Events, so it works with chalk on the glass. opts: { cls }
+function uiHoldButton(label, ms, onDone, opts) {
+  opts = opts || {};
+  const b = el('button', { type: 'button', class: 'ui-hold' + (opts.cls ? ' ' + opts.cls : ''), 'aria-label': label + '. Press and hold' });
+  b.appendChild(el('span', { class: 'ui-hold-fill', 'aria-hidden': 'true' }));
+  b.appendChild(el('span', { class: 'ui-hold-label' }, label));
+  let t0 = 0, raf = 0, tick = 0, done = false, sawPointer = false;
+  const reset = () => { cancelAnimationFrame(raf); clearInterval(tick); t0 = 0; b.classList.remove('is-holding'); b.style.setProperty('--p', '0'); };
+  const frame = () => {
+    if (!t0) return;
+    const p = Math.min(1, (performance.now() - t0) / ms);
+    b.style.setProperty('--p', p.toFixed(3));
+    if (p >= 1) { done = true; reset(); b.classList.add('is-done'); hapticTap('HEAVY'); onDone(); return; }
+    raf = requestAnimationFrame(frame);
+  };
+  const start = () => { if (done || t0) return; t0 = performance.now(); b.classList.add('is-holding'); tick = setInterval(hapticTick, 400); raf = requestAnimationFrame(frame); };
+  b.addEventListener('pointerdown', (e) => { sawPointer = true; e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} start(); });
+  // VoiceOver's double-tap arrives as a click with no pointer sequence: that IS the deliberate act.
+  b.addEventListener('click', () => { if (!sawPointer && !done) { done = true; b.classList.add('is-done'); onDone(); } });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, () => { if (!done) reset(); }));
+  b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(); } });
+  b.addEventListener('keyup', () => { if (!done) reset(); });
+  b.addEventListener('contextmenu', (e) => e.preventDefault());
+  return b;
+}
+
+// The bouncer's slab: black, one red rule, the reason in two lines, the safe choice as a
+// button and the override as a two-second hold. Overrides are kept (powa-bouncer-log).
+// opts: { kind, head, line, body, keep, hold, onKeep }
+function openBouncer(opts, onOverride) {
+  const root = el('div', { class: 'bouncer', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': opts.head + '. ' + opts.line, tabindex: '-1' });
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); keep.click(); } };
+  const close = () => { document.removeEventListener('keydown', onKey); root.classList.add('is-leaving'); setTimeout(() => root.remove(), 200); };
+  root.appendChild(el('div', { class: 'bn-rule', 'aria-hidden': 'true' }));
+  root.appendChild(el('div', { class: 'bn-head' }, opts.head));
+  root.appendChild(el('div', { class: 'bn-line' }, opts.line));
+  root.appendChild(el('p', { class: 'bn-body' }, opts.body));
+  const acts = el('div', { class: 'bn-acts' });
+  const keep = el('button', { class: 'bn-keep', type: 'button' }, opts.keep || 'Leave it');
+  keep.addEventListener('click', () => { close(); if (opts.onKeep) opts.onKeep(); });
+  acts.appendChild(keep);
+  acts.appendChild(uiHoldButton(opts.hold || 'Hold to go anyway', 2000, () => {
+    try {
+      const log = JSON.parse(localStorage.getItem('powa-bouncer-log') || '[]');
+      log.push({ d: todayISO(), kind: opts.kind || '', line: opts.line });
+      localStorage.setItem('powa-bouncer-log', JSON.stringify(log.slice(-50)));
+    } catch (e) {}
+    close(); if (onOverride) onOverride();
+  }, { cls: 'bn-hold' }));
+  root.appendChild(acts);
+  document.body.appendChild(root);
+  document.addEventListener('keydown', onKey);
+  setTimeout(() => { try { keep.focus({ preventScroll: true }); } catch (e) {} }, 60);
+  try { if (window.PowaNative && PowaNative.notify) PowaNative.notify('WARNING'); } catch (e) {}
+  return close;
+}
+Object.assign(window, { meetAttemptOptions, rpeDrift, bouncerSingle, bouncerOpener, uiHoldButton, openBouncer, MEET_MINUTE_MS });
+
 
 // =========================================================
 // PROGRAM FROM A SPREADSHEET (2026-10-17): a coach pastes a program straight

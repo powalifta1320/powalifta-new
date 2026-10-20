@@ -50,6 +50,15 @@ self.addEventListener('activate', event => {
 
 // Network-first for same-origin GETs; cross-origin (Supabase, Plausible, fonts)
 // passes straight through and is never cached.
+//
+// One bar of signal (a gym basement) is the case that matters: a request that neither
+// succeeds nor fails would hang the app on a blank page. So a PAGE with a cached copy
+// gives the network SLOW_NETWORK_MS, then the copy is served while the fetch carries on
+// and refreshes the cache for next time. Scripts and styles always wait for the network
+// (or fail over to the cache when it errors), so a page never runs with a stale app.js.
+// With nothing cached we wait for the network however long it takes.
+const SLOW_NETWORK_MS = 1500;
+
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -57,32 +66,50 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith((async () => {
-    try {
-      const fresh = await fetch(req);
-      // Mirror good, cacheable responses. Opaque/error responses are left alone.
-      if (fresh && fresh.ok && fresh.type === 'basic') {
-        const copy = fresh.clone();
-        caches.open(CACHE).then(cache => cache.put(req, copy)).catch(() => {});
-      }
-      return fresh;
-    } catch (err) {
-      // Offline: serve the cached copy if we have one.
-      const cached = await caches.match(req);
-      if (cached) return cached;
-      // For navigations with no cached match, fall back to the app shell.
-      if (req.mode === 'navigate') {
-        const shell = await caches.match('/index.html') || await caches.match('/');
-        if (shell) return shell;
-      }
-      return new Response('You are offline.', {
-        status: 503,
-        statusText: 'Offline',
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    }
-  })());
+  event.respondWith(networkFirst(event));
 });
+
+async function networkFirst(event) {
+  const req = event.request;
+  const cached = await caches.match(req).catch(() => undefined);
+  let stored = Promise.resolve();
+  const net = fetch(req).then(fresh => {
+    // Mirror good, cacheable responses. Opaque/error responses are left alone.
+    if (fresh && fresh.ok && fresh.type === 'basic') {
+      const copy = fresh.clone();
+      stored = caches.open(CACHE).then(cache => cache.put(req, copy)).catch(() => {});
+    }
+    return fresh;
+  });
+  // Keep the worker alive until the fetch AND the cache write settle, even after we've
+  // answered from the cache.
+  event.waitUntil(net.then(() => stored, () => {}));
+
+  if (cached && req.mode === 'navigate') {
+    const slow = new Promise(resolve => setTimeout(() => resolve(null), SLOW_NETWORK_MS));
+    try {
+      const fresh = await Promise.race([net, slow]);
+      if (fresh) return fresh;
+    } catch (err) { /* offline: the copy below */ }
+    return cached;
+  }
+
+  try {
+    return await net;
+  } catch (err) {
+    if (cached) return cached;
+    // Offline with nothing cached: for navigations, fall back to the app shell.
+    if (req.mode === 'navigate') {
+      const shell = await caches.match('/index.html') || await caches.match('/');
+      if (shell) return shell;
+    }
+    return new Response('You are offline.', {
+      status: 503,
+      statusText: 'Offline',
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+}
 
 // ---- Web Push ----------------------------------------------------------------
 

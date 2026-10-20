@@ -91,13 +91,15 @@
   <key>NSPrivacyAccessedAPITypes</key>
   <array>
     <!-- WKWebView localStorage / Capacitor Preferences → UserDefaults. Reason CA92.1:
-         access info stored by this app only. -->
+         access info stored by this app only. 1C8F.1: the Total widget's snapshot in the
+         App Group (group.com.powalifta.app), shared only with our own widget extension. -->
     <dict>
       <key>NSPrivacyAccessedAPIType</key>
       <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
       <key>NSPrivacyAccessedAPITypeReasons</key>
       <array>
         <string>CA92.1</string>
+        <string>1C8F.1</string>
       </array>
     </dict>
     <!-- File timestamps (offline cache / Storage handling). Reason C617.1: files

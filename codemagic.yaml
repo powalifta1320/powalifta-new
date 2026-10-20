@@ -47,11 +47,14 @@ workflows:
       # rest-timer Live Activity (Dynamic Island + Lock Screen). Runs AFTER pod install
       # (so the App target's pods are settled) and BEFORE use-profiles (so the widget
       # bundle id com.powalifta.app.PowaWidget is present for signing). Idempotent.
-      - name: Inject Live Activity (RestTimer plugin + PowaWidget)
+      # All three injectors: Live Activity (creates the PowaWidget target), StoreKit, then the
+      # Home Screen pair (plate-colour icons + the Total widget, App Group on both targets —
+      # group.com.powalifta.app must be enabled on BOTH App IDs in the developer portal).
+      - name: Inject native pieces (Live Activity, IAP, Home Screen)
         script: |
           cd native
           gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document || true
-          DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}" ruby scripts/inject-live-activity.rb
+          DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}" bash scripts/inject-all.sh
       - name: Use provisioning profiles
         script: xcode-project use-profiles
       - name: Build IPA

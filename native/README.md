@@ -100,7 +100,7 @@ in-page timer is unchanged. **No APNs, no app group** — the countdown self-tic
    `com.powalifta.app.PowaWidget`. Optionally export `DEVELOPMENT_TEAM=<teamId>` as a
    Codemagic env var so the injector stamps it onto the widget target.
 3. **Local Xcode (if you build locally instead of cloud):** after `npx cap add ios`, run
-   `ruby native/scripts/inject-live-activity.rb`, then in Xcode select your Team on **both**
+   `bash native/scripts/inject-all.sh`, then in Xcode select your Team on **both**
    the `App` and `PowaWidget` targets under Signing & Capabilities.
 
 ### See it live (on a physical device — the Simulator's Dynamic Island support is flaky)
@@ -122,7 +122,7 @@ classes — it only registers the class names in the bundle's generated
 **unregistered** (`window.Capacitor.Plugins.RestTimer` is `undefined`, every timer call
 no-ops). The injector fixes this by appending `"RestTimerPlugin"` to `packageClassList`
 **after** `cap sync`. ⚠️ **`cap sync` regenerates that file and drops it** — so if you
-ever re-sync, **re-run `ruby native/scripts/inject-live-activity.rb`** before building.
+ever re-sync, **re-run `bash native/scripts/inject-all.sh`** (all three injectors) before building.
 
 ### Verify / troubleshoot on device (Safari Web Inspector)
 

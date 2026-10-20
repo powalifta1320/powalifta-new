@@ -183,6 +183,26 @@
       var P = plugins().PowaIAP;
       if (!isNative || !P) return [];
       try { return (await P.getEntitlements()).entitlements || []; } catch (e) { return []; }
+    },
+
+    // ---- Home Screen (AppIconPlugin "PowaIcon", WidgetBridgePlugin "PowaWidget") ----
+    // The icon's asset name ("" = the red primary), or null where icons can't change.
+    appIcon: async function () {
+      var P = plugins().PowaIcon;
+      if (!isNative || !P) return null;
+      try { var r = await P.get(); return r && r.supported ? (r.name || '') : null; } catch (e) { return null; }
+    },
+    setAppIcon: async function (name) {
+      var P = plugins().PowaIcon;
+      if (!isNative || !P) return false;
+      try { return !!(await P.set({ name: name || '' })).ok; } catch (e) { return false; }
+    },
+    // One snapshot of display-ready strings for the Total widget; fire-and-forget.
+    // null clears it (sign-out, account deletion): the widget shows its empty state.
+    updateWidget: function (snapshot) {
+      var P = plugins().PowaWidget;
+      if (!isNative || !P) return;
+      try { P.update({ json: snapshot ? JSON.stringify(snapshot) : '' }).catch(function () {}); } catch (e) {}
     }
   };
   window.PowaNative = PowaNative;

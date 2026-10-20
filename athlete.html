@@ -331,6 +331,8 @@ let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
 // Declared up here because the first render runs inside bootstrap (TDZ).
 const _feltRpe = {};
+const _bouncerAsked = new Set();   // sets the bouncer has already asked about this visit
+let _heroBarKg = null;   // the weight the Train card's bar showed last, so a change loads plates on (uiBarbell opts.from)
 // Smart next set (app.js smartNextLoad): the load the next set moved to after the
 // last one felt harder or easier than planned (key exId_si → {kg, fromKg, kept}).
 const _smartLoad = {};
@@ -1407,7 +1409,8 @@ function buildTodayHero(cur) {
   load.appendChild(presc);
   if (!isCardio && wKg > 0) {
     const bar = el('button', { class: 'tx-bar', type: 'button', 'aria-label': 'Plates: ' + plateSummaryText(wKg) });
-    bar.innerHTML = uiBarbell(wKg);
+    bar.innerHTML = uiBarbell(wKg, { from: _heroBarKg });
+    _heroBarKg = wKg;
     bar.addEventListener('click', () => openPlateCalc(wKg));
     load.appendChild(bar);
   }
@@ -1757,6 +1760,12 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   tb.appendChild(el('div', { class: 'tx-meta' }, meta.join(' · ')));
   head.appendChild(tb);
   head.appendChild(uiRing(ex.sets.length ? doneCount / ex.sets.length : 0, { size: 40, stroke: 4, cls: 'tx-ring', label: exDone ? ICONS.check : doneCount + '<small>/' + ex.sets.length + '</small>' }));
+  if (!isCardio) {   // UI v8: the head opens the exercise detail (openExerciseDetail)
+    tb.querySelector('h3').insertAdjacentHTML('beforeend', '<span class="tx-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>');
+    const hit = el('button', { class: 'tx-head-hit', type: 'button', 'aria-label': exTitleOf(ex) + ': last time, your best and form cues' });
+    hit.addEventListener('click', () => openExerciseDetail(ex.id));
+    head.appendChild(hit);
+  }
   card.appendChild(head);
 
   if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>Coach</span>' + escHtml(ex.note) }));
@@ -1767,53 +1776,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     if (hint) card.appendChild(el('div', { class: 'prog-hint' + (hint.kind === 'hard' ? ' hard' : '') }, hint.text));
   }
 
-  // Tools: warm-up / form cues / last week. One open at a time. Calm (v7): only on
-  // the exercise you're on — done and later ones don't need them yet.
-  const isCurrent = !!(nextKey && nextKey.indexOf(ex.id + '_') === 0);
-  const tools = el('div', { class: 'ex-tools' });
-  const panel = el('div', { class: 'ex-panel' });
-  const addTool = (label, icon, build) => {
-    const b = el('button', { class: 'ex-tool', type: 'button', 'aria-expanded': 'false', html: icon + '<span>' + escHtml(label) + '</span>' });
-    b.addEventListener('click', () => {
-      const wasOpen = b.getAttribute('aria-expanded') === 'true';
-      tools.querySelectorAll('.ex-tool').forEach(x => x.setAttribute('aria-expanded', 'false'));
-      panel.innerHTML = '';
-      panel.classList.remove('open');
-      if (!wasOpen) { b.setAttribute('aria-expanded', 'true'); build(panel); panel.classList.add('open'); }
-    });
-    tools.appendChild(b);
-  };
-  const IC_WARM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h3V11H4zM10.5 18h3V7h-3zM17 18h3V4h-3z"/></svg>';
-  const IC_CUE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2h5c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3z"/></svg>';
-  const IC_LAST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>';
-  if (isMain && ex.sets.length) {
-    const working = Math.max(...ex.sets.map(s => Number(s.weight) || 0));
-    if (working > 0) addTool('Warm-up', IC_WARM, p => { p.innerHTML = buildWarmupHtml(working); });
-    const cueEx = cuesForLift(ex.lift, ex.variant);
-    if (cueEx) addTool('Form cues', IC_CUE, p => { p.innerHTML = '<div class="cue-panel">' + exerciseCueBodyHtml(cueEx) + '</div>'; });
-  }
-  if (isMain && cur.week.number > 1) {
-    const prevWeek = prog.weeks.find(w => w.number === cur.week.number - 1);
-    const dayIdx = cur.week.days.findIndex(d => d.id === cur.day.id);
-    const prevDay = (prevWeek && dayIdx >= 0 && prevWeek.days[dayIdx]) ? prevWeek.days[dayIdx] : null;
-    const prevEx = prevDay && prevDay.exercises.find(e2 => e2.lift === ex.lift && (e2.variant || '') === (ex.variant || ''));
-    if (prevEx && prevEx.sets.some(s => s.completed)) {
-      addTool('Last week', IC_LAST, p => {
-        const lw = el('div', { class: 'lw-list' });
-        prevEx.sets.filter(s => s.completed).forEach((s, i) => lw.appendChild(el('div', { class: 'lw-row' },
-          el('span', { class: 'lw-n' }, String(i + 1)),
-          el('span', { class: 'lw-load' }, (s.weight > 0 ? formatWeight(s.weight) : '–') + ' × ' + s.reps),
-          el('span', { class: 'lw-rpe', style: '--rc:' + rpeColor(s.actualRpe) }, 'RPE ' + s.actualRpe))));
-        p.appendChild(lw);
-        if (!exDone) {
-          const copyBtn = el('button', { class: 'btn btn-sm ui-btn-soft', type: 'button' }, 'Use these RPEs');
-          copyBtn.addEventListener('click', () => copyLastWeekRpe(ex.id, prevEx));
-          p.appendChild(copyBtn);
-        }
-      });
-    }
-  }
-  if (isCurrent && tools.children.length) { card.appendChild(tools); card.appendChild(panel); }
+  const isCurrent = !!(nextKey && nextKey.indexOf(ex.id + '_') === 0);   // warm-up, cues and last week live in the exercise detail (UI v8)
 
   const list = el('div', { class: 'tx-sets' });
   ex.sets.forEach((set, si) => {
@@ -1924,6 +1887,157 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   }
   return card;
 }
+
+// EXERCISE DETAIL (UI v8). Tap an exercise's head on Train and it opens full height: today's
+// sets (tap one to log it), last time, its estimated max over 16 weeks with the best set, the
+// warm-up and the form cues. Today stays live: renderToday() calls window._exDetailRefresh after
+// every log or undo, and the rest timer rides above the sheet (body.xd-open).
+function _exNameKey(s) { return String(s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z]/g, '').replace(/s$/, ''); }
+function _exLogMatcher(ex) {
+  if (MAIN_LIFTS.includes(ex.lift)) {
+    const v = String(ex.variant || 'Competition').toLowerCase();
+    return (l) => l.lift === ex.lift && String(l.variant || 'Competition').toLowerCase() === v;
+  }
+  const k = _exNameKey(ex.exerciseName);
+  return (l) => l.lift === ex.lift && (!k || _exNameKey(l.exerciseName) === k);
+}
+function _exCues(ex) {
+  if (MAIN_LIFTS.includes(ex.lift)) return cuesForLift(ex.lift, ex.variant);
+  const k = _exNameKey(ex.exerciseName);
+  return k ? (EXERCISE_LIBRARY.find(e => _exNameKey(e.name) === k) || null) : null;
+}
+function openExerciseDetail(exId) {
+  const find = () => { const c = getCurrentDay(); return c ? c.day.exercises.find(e => e.id === exId) : null; };
+  const ex0 = find();
+  if (!ex0 || ex0.lift === 'cardio') return;
+  const isMain = MAIN_LIFTS.includes(ex0.lift);
+  const u = unitLabel();
+  const match = _exLogMatcher(ex0);
+  const sessionDay = getSessionDate();
+  const raw = (l) => Number(l.e1rm) || calcE1RM(Number(l.weight) || 0, Number(l.reps) || 0, Number(l.rpe) || 0);
+  const mine = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && match(l));
+  const before = mine.filter(l => l.date < sessionDay);
+  const lastDate = before.reduce((m, l) => (l.date > m ? l.date : m), '');
+  const lastSets = lastDate ? before.filter(l => l.date === lastDate) : [];
+  const setLine = (w, r, rpe) => (Number(w) > 0 ? formatWeight(w) + ' × ' : '') + r + (rpe ? ' @ RPE ' + rpe : '');
+  document.body.classList.add('xd-open');
+  uiSheet(null, (sheet, close) => {
+    const body = el('div', { class: 'xd-body lift-' + (isMain ? ex0.lift : 'acc') });
+    sheet.appendChild(body);
+
+    // Head: the tile, the name, what it counts as, and Done.
+    const head = el('div', { class: 'xd-head' });
+    head.appendChild(el('span', { class: 'tx-tile xd-tile', 'aria-hidden': 'true' }, exTileText(ex0)));
+    const tt = el('div', { class: 'xd-title' });
+    tt.appendChild(el('h2', {}, exTitleOf(ex0)));
+    const m = isMain ? multiplierFor(ex0.lift, ex0.variant) : 1;
+    tt.appendChild(el('div', { class: 'xd-meta' }, isMain ? (m !== 1 ? '×' + m + ' vs competition' : 'Competition lift') : (LIFT_LABELS[ex0.lift] || 'Accessory')));
+    head.appendChild(tt);
+    const done = el('button', { class: 'xd-done', type: 'button' }, 'Done');
+    done.addEventListener('click', close);
+    head.appendChild(done);
+    body.appendChild(head);
+
+    // Today: one row per set. Tap one to log it (or see it, once logged).
+    const todaySec = el('div', { class: 'xd-sec' });
+    body.appendChild(todaySec);
+    const paintToday = () => {
+      const ex = find();
+      if (!ex) { close(); return; }
+      todaySec.innerHTML = '';
+      const n = ex.sets.length, d = ex.sets.filter(x => x.completed).length;
+      todaySec.appendChild(uiLabel('Today', { count: n ? d + ' of ' + n : null }));
+      const list = el('div', { class: 'xd-sets' });
+      ex.sets.forEach((set, si) => {
+        const sm = set.completed ? null : smartFor(ex, si);
+        const kg = sm ? sm.kg : Number(set.weight) || 0;
+        const felt = set.completed ? Number(set.actualRpe) : feltRpeFor(ex, si);
+        const row = el('button', { type: 'button', class: 'xd-set' + (set.completed ? ' is-done' : ''),
+          'aria-label': 'Set ' + (si + 1) + ': ' + setLine(kg, set.reps, felt) + (set.completed ? ', done' : '') });
+        row.innerHTML = '<span class="xd-n">' + (set.completed ? ICONS.check : String(si + 1)) + '</span>' +
+          '<span class="xd-load">' + (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + u + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b></span>' +
+          '<span class="xd-rpe" style="--rc:' + (felt == null ? 'var(--text-3)' : rpeColor(felt)) + '">' + (felt == null ? 'RPE' : 'RPE ' + felt) + '</span>';
+        row.addEventListener('click', () => {
+          const selfCoached = (getProgram() || {}).coachId === user.id;
+          if (selfCoached && !set.completed && isMain && !(kg > 0)) { close(); setTimeout(() => focusSetRow(ex.id, si, 'wt'), 240); return; }
+          openSetSheet(ex, si);
+        });
+        list.appendChild(row);
+      });
+      todaySec.appendChild(list);
+    };
+    paintToday();
+    window._exDetailRefresh = paintToday;
+
+    // Last time: the most recent earlier session with this exercise, set by set. If last
+    // week's program had this exercise, its RPEs can be copied onto this week's sets.
+    let prevEx = null;
+    const curDay = getCurrentDay(), prog = getProgram();
+    if (curDay && prog && curDay.week.number > 1) {
+      const pw = prog.weeks.find(w => w.number === curDay.week.number - 1);
+      const di = curDay.week.days.findIndex(d => d.id === curDay.day.id);
+      const pd = pw && di >= 0 ? pw.days[di] : null;
+      prevEx = (pd && pd.exercises.find(e2 => e2.lift === ex0.lift && (e2.variant || '') === (ex0.variant || ''))) || null;
+      if (prevEx && !prevEx.sets.some(x => x.completed)) prevEx = null;
+    }
+    if (lastSets.length) {
+      const sec = el('div', { class: 'xd-sec' });
+      sec.appendChild(uiLabel('Last time', { count: _relDay(lastDate) }));
+      const lw = el('div', { class: 'lw-list' });
+      lastSets.forEach((l, i) => lw.appendChild(el('div', { class: 'lw-row' },
+        el('span', { class: 'lw-n' }, String(i + 1)),
+        el('span', { class: 'lw-load' }, (Number(l.weight) > 0 ? formatWeight(l.weight) : '–') + ' × ' + l.reps),
+        el('span', { class: 'lw-rpe', style: '--rc:' + (l.rpe ? rpeColor(l.rpe) : 'var(--text-3)') }, l.rpe ? 'RPE ' + l.rpe : ''))));
+      sec.appendChild(lw);
+      if (prevEx && !ex0.sets.every(x => x.completed)) {
+        const cp = el('button', { class: 'btn btn-sm ui-btn-soft xd-copy', type: 'button' }, 'Use last week\'s RPEs');
+        cp.addEventListener('click', () => { copyLastWeekRpe(ex0.id, prevEx); toast('RPEs copied'); });
+        sec.appendChild(cp);
+      }
+      body.appendChild(sec);
+    }
+
+    // Estimated max (the big three): this exercise's own line, PR weeks in gold, drag to read.
+    if (isMain) {
+      const sec = el('div', { class: 'xd-sec' });
+      sec.appendChild(uiLabel('Estimated max'));
+      const card = el('div', { class: 'ui-card xd-chart' });
+      sec.appendChild(card);
+      body.appendChild(sec);
+      const pts = strengthSeries(mine.map(l => Object.assign({}, l, { e1rmComp: raw(l) })), ex0.lift);
+      card.appendChild(uiStrengthChart(pts, {
+        color: liftColors()[ex0.lift],
+        width: card.clientWidth - 28,
+        ariaLabel: exTitleOf(ex0) + ' estimated max over the last 16 weeks', fmt: (v) => Math.round(kgToDisplay(v)) + ' ' + u,
+        label: (p) => escHtml('Week of ' + fmtDateShort(p.week + 'T12:00:00')) + ' · <b>' + Math.round(kgToDisplay(p.value)) + ' ' + u + '</b>' + (p.pr ? '<span class="sc-pr-tag">PR</span>' : '') +
+          (p.top ? '<small>' + escHtml(setLine(p.top.weight, p.top.reps, p.top.rpe)) + '</small>' : ''),
+        empty: 'Log this lift for a few weeks and its line shows up here.'
+      }));
+      const best = mine.reduce((b, l) => (raw(l) > (b ? raw(b) : 0) ? l : b), null);
+      if (best) card.appendChild(el('p', { class: 'xd-best', html: 'Best <b>' + Math.round(kgToDisplay(raw(best))) + ' ' + u + '</b> from ' + escHtml(setLine(best.weight, best.reps, best.rpe)) + ' · ' + escHtml(_relDay(best.date)) }));
+    } else if (mine.length) {
+      const best = mine.reduce((b, l) => (Number(l.weight) > (b ? Number(b.weight) : -1) ? l : b), null);
+      if (best && Number(best.weight) > 0) body.appendChild(el('p', { class: 'xd-best xd-best-acc', html: 'Heaviest <b>' + escHtml(setLine(best.weight, best.reps, best.rpe)) + '</b> · ' + escHtml(_relDay(best.date)) }));
+    }
+
+    // Warm-up to today's heaviest set, then the cues.
+    const working = isMain ? Math.max(0, ...ex0.sets.map(x => Number(x.weight) || 0)) : 0;
+    if (working > 0) {
+      const sec = el('div', { class: 'xd-sec' });
+      sec.appendChild(uiLabel('Warm-up'));
+      sec.appendChild(el('div', { class: 'xd-warm', html: buildWarmupHtml(working) }));   // its rows are the surface (no card in a card)
+      body.appendChild(sec);
+    }
+    const cues = _exCues(ex0);
+    if (cues) {
+      const sec = el('div', { class: 'xd-sec' });
+      sec.appendChild(uiLabel('Form cues'));
+      sec.appendChild(el('div', { class: 'ui-card cue-panel xd-cues', html: exerciseCueBodyHtml(cues) }));
+      body.appendChild(sec);
+    }
+  }, { cls: 'xd-sheet', onClose: () => { window._exDetailRefresh = null; document.body.classList.remove('xd-open'); } });
+}
+window.openExerciseDetail = openExerciseDetail;
 
 // One set, up close: its load + plates, the RPE scale, and Log (or, once logged,
 // what it was worth and a line to send it to the coach).
@@ -2196,6 +2310,7 @@ window.buildFirstProgram = buildFirstProgram;
 
 function renderToday() {
   refreshRestBtn();
+  syncHomeWidget();   // the Home Screen widget shows the same session (native, debounced)
   // Self-heal: if any dropdown option has a bad value (undefined or duplicate),
   // backfill IDs on the program in-memory and rebuild the dropdown.
   _selfHealProgramIds();
@@ -2296,6 +2411,14 @@ function renderToday() {
     const si = ex.sets.findIndex(s => !s.completed);
     if (si >= 0) { nextKey = ex.id + '_' + si; break; }
   }
+  // THE BOUNCER (app.js bouncerSingle): BEFORE the lift. When a single at or over your
+  // opener comes up next inside ten days of the meet, the slab asks once per set.
+  if (nextKey && !_bouncerAsked.has(nextKey)) {
+    const cut = nextKey.lastIndexOf('_');
+    const bex = cur.day.exercises.find(e => String(e.id) === nextKey.slice(0, cut)), bsi = Number(nextKey.slice(cut + 1));
+    const b = bex && bex.sets[bsi] ? bouncerForSet(bex, bex.sets[bsi], bsi) : null;
+    if (b) { _bouncerAsked.add(nextKey); setTimeout(() => openBouncer(b), 350); }
+  }
 
   area.appendChild(buildTodayHero(cur));
 
@@ -2338,9 +2461,10 @@ function renderToday() {
     dayRows.push(c);
   }
   if (dayRows.length) {
-    const grp = el('div', { class: 'tn-group' });
-    dayRows.forEach(r => grp.appendChild(r));
-    area.appendChild(grp);
+    // UI v8: one swipeable strip of small cards (styles.css "UI v8" 2), so the session sits right under the hero.
+    const strip = el('div', { class: 'tn-group today-strip', role: 'list', 'aria-label': 'Today' });
+    dayRows.forEach(r => strip.appendChild(el('div', { class: 'ts-tile', role: 'listitem' }, r)));
+    area.appendChild(strip);
   }
 
   // The session: a chip per lift (tap to jump), then a card per lift.
@@ -2349,6 +2473,28 @@ function renderToday() {
   const rail = buildSessionRail(cur, nextKey);
   if (rail) area.appendChild(rail);
   cur.day.exercises.forEach(ex => area.appendChild(buildExerciseCard(ex, cur, prog, nextKey)));
+  if (window._exDetailRefresh) window._exDetailRefresh();   // an open exercise detail shows the same sets
+}
+
+// What the bouncer says about this set, or null. Needs a meet date within ten days and
+// a plan opener for the lift; the load is what the set will be lifted at.
+function bouncerForSet(ex, set, si) {
+  if (!MAIN_LIFTS.includes(ex.lift) || Number(set.reps) !== 1) return null;
+  let md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
+  const dd = md ? daysUntil(md) : null;
+  if (dd == null || dd < 0 || dd > 10) return null;
+  const plan = getMeetPlan(getMeetStrategy()).lifts[ex.lift];
+  if (!plan) return null;
+  const sm = smartFor(ex, si);
+  const inp = document.getElementById('wt_' + ex.id + '_' + si);
+  const kg = sm ? sm.kg : (inp && Number(inp.value) > 0 ? displayToKg(Number(inp.value)) : Number(set.weight) || 0);
+  const r = bouncerSingle({ reps: set.reps, kg, openerKg: plan.attempts[0], daysOut: dd });
+  if (!r) return null;
+  return {
+    kind: 'single', head: dd === 0 ? 'Meet day' : dd + (dd === 1 ? ' day out' : ' days out'), line: r.pct + '% of your opener',
+    body: 'A single this heavy now is one you pay for on the platform. The taper is working; let it.',
+    keep: 'Leave it for the platform', hold: 'Hold to lift it anyway'
+  };
 }
 
 async function toggleSet(exerciseId, setIndex, checked, opts) {
@@ -2529,45 +2675,73 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
 
 // ===== PR TOAST =====
 function showPRToast(lift, e1rmComp, log) {
-  const overlay = el('div', { class: 'pr-toast' });
-  const card = el('div', { class: 'pr-card' });
-  // A gold medal, the number, and a burst of confetti in the lift colours.
-  card.appendChild(el('div', { class: 'pr-medal', html: ICONS.trophy }));
-  card.appendChild(el('div', { class: 'pr-tag' }, 'New PR'));
-  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+  // UI v8: the PR moment, full screen. A gold plate rolls in and lands with a thud you feel,
+  // the number counts up from your old best, the jump shows in green, and one tap makes the
+  // tall Story card. Tap anywhere else (or Done) to get back to the session.
+  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const before = (Store.get().workoutLogs || [])
+    .filter(l => l.athleteId === user.id && l.lift === lift && (!log || l.id !== log.id))
+    .reduce((m, l) => Math.max(m, Number(l.e1rmComp) || 0), 0);
+  const toD = (kg) => Math.round(kgToDisplay(kg));
+  const now = toD(e1rmComp), was = before > 0 ? toD(before) : null;
+  const overlay = el('div', { class: 'pr-toast pr-moment', role: 'dialog', 'aria-label': 'New PR: ' + now + ' ' + unitLabel() });
+  overlay.appendChild(el('div', { class: 'prm-light', 'aria-hidden': 'true' }));
+  if (!reduce) {
     const burst = el('div', { class: 'pr-burst', 'aria-hidden': 'true' });
-    const cols = ['#ff3b4a', '#ff7a3d', '#ffbf3c', '#38c6ff', '#a98bff', '#34d982'];
-    for (let i = 0; i < 26; i++) {
-      const a = (i / 26) * Math.PI * 2 + Math.random() * 0.4, d = 110 + Math.random() * 120;
-      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's' }));
+    const cols = ['#f2c25b', '#ffd98a', '#ff3b4a', '#38c6ff', '#a98bff', '#34d982'];
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2 + Math.random() * 0.4, d = 110 + Math.random() * 120;
+      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's;animation-delay:0.9s' }));
     }
     overlay.appendChild(burst);
   }
-  card.appendChild(el('div', { class: 'pr-num', html: Math.round(kgToDisplay(e1rmComp)) + '<span class="unit">' + unitLabel() + '</span>' }));
-  card.appendChild(el('div', { class: 'pr-sub' }, LIFT_LABELS[lift] + ' e1RM (competition equivalent)'));
-  // In a club? Sharing the PR there is the main move; the image card is the other.
+  const stage = el('div', { class: 'prm-stage' });
+  const plate = el('div', { class: 'prm-plate', 'aria-hidden': 'true', html:
+    '<svg viewBox="0 0 120 120"><defs><radialGradient id="prmGold" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.55" stop-color="#f2c25b"/><stop offset="1" stop-color="#a87a24"/></radialGradient></defs>' +
+    '<circle cx="60" cy="60" r="58" fill="url(#prmGold)"/><circle cx="60" cy="60" r="45" fill="none" stroke="rgba(60,40,0,0.22)" stroke-width="2"/>' +
+    '<circle cx="60" cy="60" r="19" fill="#dcdfe5"/><circle cx="60" cy="60" r="19" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/><circle cx="60" cy="60" r="8" fill="#0b0b0c"/>' +
+    '<text x="60" y="33" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="800" fill="rgba(60,40,0,0.5)">PR</text></svg>' });
+  stage.appendChild(plate);
+  stage.appendChild(el('div', { class: 'prm-tag' }, 'New PR'));
+  const val = el('span', { class: 'prm-val' }, String(reduce || was == null ? now : was));
+  stage.appendChild(el('div', { class: 'prm-num' }, val, el('span', { class: 'prm-unit' }, unitLabel())));
+  const delta = was != null && now > was ? el('div', { class: 'prm-delta' + (reduce ? ' on' : '') }, '+' + (now - was) + ' ' + unitLabel()) : null;
+  if (delta) stage.appendChild(delta);
+  stage.appendChild(el('div', { class: 'prm-sub' }, LIFT_LABELS[lift] + ' · estimated max'));
+  if (log && log.weight > 0) stage.appendChild(el('div', { class: 'prm-set' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '')));
+  const acts = el('div', { class: 'prm-acts' });
+  const leave = () => { clearTimeout(timer); overlay.classList.add('is-leaving'); setTimeout(() => overlay.remove(), 220); };
+  const act = (cls, label, fn) => { const b = el('button', { class: cls, type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); leave(); fn(); }); acts.appendChild(b); };
+  act('btn btn-primary btn-lg', 'Share to Story', () => sharePRCard(lift, { format: 'story' }));
   const inClub = !!(log && window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName());
-  const acts = el('div', { class: 'pr-acts' });
-  if (inClub) {
-    const toClub = el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName());
-    acts.appendChild(toClub);
-  }
-  const share = el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sharePRCard(lift); } }, 'Make it a card');
-  acts.appendChild(share);
-  // A PR is exactly the set a coach wants to see.
-  if (log && user.coachId) {
-    acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sendLogToCoach(log); } }, 'Send to coach'));
-  }
-  card.appendChild(acts);
-  overlay.appendChild(card);
+  if (inClub) act('btn btn-ghost btn-lg', 'Share with ' + PowaClubs.cachedName(), () => PowaClubs.shareLog(log));
+  if (log && user.coachId) act('ui-text-btn', 'Send to coach', () => sendLogToCoach(log));
+  act('ui-text-btn prm-done', 'Done', () => {});
+  stage.appendChild(acts);
+  stage.addEventListener('click', (e) => e.stopPropagation());
+  overlay.appendChild(stage);
+  overlay.addEventListener('click', leave);
   document.body.appendChild(overlay);
-  // Celebratory haptic on a PR. On the native shell use the richer iOS success
-  // notification haptic; on the web fall back to navigator.vibrate (unchanged).
-  try {
-    if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.notify('SUCCESS');
-    else if (navigator.vibrate) navigator.vibrate([40, 60, 120]);
-  } catch (e) {}
-  setTimeout(() => overlay.remove(), inClub ? 7000 : 5200);
+  // The success haptic now; a heavy thud as the plate lands.
+  const native = !!(window.PowaNative && PowaNative.isNative && PowaNative.isNative());
+  try { if (native) PowaNative.notify('SUCCESS'); else if (navigator.vibrate) navigator.vibrate([40, 60, 120]); } catch (e) {}
+  if (!reduce) {
+    setTimeout(() => {
+      plate.classList.add('landed');
+      try { if (native && PowaNative.haptic) PowaNative.haptic('HEAVY'); else if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
+    }, 820);
+    // Count up from the old best (or the last tenth of the way when there wasn't one).
+    const from = was != null ? was : Math.round(now * 0.9), t0 = performance.now() + 250, dur = 900;
+    const tick = (t) => {
+      const k = Math.min(1, Math.max(0, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 3);
+      val.textContent = String(Math.round(from + (now - from) * e));
+      if (k < 1) requestAnimationFrame(tick);
+      else if (delta) delta.classList.add('on');
+    };
+    requestAnimationFrame(tick);
+  }
+  let timer = setTimeout(leave, 9000);
+  stage.addEventListener('pointerdown', () => clearTimeout(timer), { once: true });
   try { maybeAskForRating('pr'); } catch (e) {}
 }
 
@@ -2923,17 +3097,15 @@ function openMeetSheet() {
     const live = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, meetLiveToday() ? 'Back to meet mode' : 'Start meet mode');
     live.addEventListener('click', () => { close(); setTimeout(openMeetMode, 220); });
     acts.appendChild(live);
-    const share = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Make it a card');
-    share.addEventListener('click', () => shareMeetCard());
-    acts.appendChild(share);
-    if (!user.coachId) {
-      const fm = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Plan my first meet');
-      fm.addEventListener('click', () => { close(); setTimeout(openFirstMeetSheet, 220); });
-      acts.appendChild(fm);
-      const pk = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Build a peaking block to this date');
-      pk.addEventListener('click', () => { const v = di.value; close(); setTimeout(() => generatePeakingFromMeet(v), 220); });
-      acts.appendChild(pk);
-    }
+    // Everything else is a row, not another button (UI v8): the commands drill, the
+    // first-meet plan and the peaking block for self-coached lifters, the card.
+    const later = (fn) => () => { close(); setTimeout(fn, 220); };
+    acts.appendChild(uiList([
+      uiRow({ title: 'Practise the commands', sub: 'A referee\'s pause, then the call. Tap early and it\'s a red', chevron: true, onClick: later(() => openCommandsDrill()) }),
+      user.coachId ? null : uiRow({ title: 'Plan my first meet', sub: 'Twelve weeks that end on meet week', chevron: true, onClick: later(openFirstMeetSheet) }),
+      user.coachId ? null : uiRow({ title: 'Build a peaking block to this date', chevron: true, onClick: () => { const v = di.value; close(); setTimeout(() => generatePeakingFromMeet(v), 220); } }),
+      uiRow({ title: 'Make it a card', chevron: true, onClick: () => shareMeetCard() })
+    ]));
     sheet.appendChild(acts);
   }, { cls: 'meet-sheet' });
 }
@@ -3102,6 +3274,106 @@ async function shareWrapSlide(sl, year) {
   await shareCardFromCanvas(c, 'powalifta-' + year + '.png', 'My ' + year + ' in lifting · powalifta.com');
 }
 
+// ===== COMMANDS (2026-10-20): a referee in your pocket =====
+// Prop the phone up. Your partner taps when the bar is settled (or on the chest, or
+// locked out); after a referee's pause the whole screen is the command, with a buzzer
+// and a thud. Tap during the pause and it's EARLY — the habit this exists to break.
+// Three slabs are the judges; the tally is meet-legal reps over the last six weeks.
+const CMD_SEQ = {
+  squat: [['Squat', 'Stand it up and settle, then tap'], ['Rack', 'Stand it up again, then tap']],
+  bench: [['Start', 'Arms locked at the top, then tap'], ['Press', 'Bar still on the chest, then tap'], ['Rack', 'Locked out, then tap']],
+  deadlift: [['Down', 'Locked out, knees and shoulders, then tap']]
+};
+const CMD_KEY = 'powa-cmd-log';
+function _cmdLog() { try { return JSON.parse(localStorage.getItem(CMD_KEY) || '[]'); } catch (e) { return []; } }
+function cmdTally(lift) {
+  const since = _isoAddDays(todayISO(), -42);
+  const a = _cmdLog().filter(r => r.lift === lift && r.d >= since);
+  return { n: a.length, ok: a.filter(r => r.ok).length };
+}
+function openCommandsDrill(lift0) {
+  let lift = MEET_ORDER.includes(lift0) ? lift0 : 'squat', step = 0, state = 'armed', hold = null, lights = null;
+  const root = el('div', { class: 'cmd-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Commands' });
+  document.documentElement.classList.add('meet-mode-open');
+  const close = () => { clearTimeout(hold); root.remove(); document.documentElement.classList.remove('meet-mode-open'); };
+  document.body.appendChild(root);
+  const buzz = () => {
+    try {
+      const ctx = restAudioCtx;
+      if (ctx) {
+        const t0 = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.type = 'square'; osc.frequency.value = 180;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+        osc.connect(g); g.connect(ctx.destination); osc.start(t0); osc.stop(t0 + 0.24);
+      }
+    } catch (e) {}
+    hapticTap('HEAVY');
+  };
+  const record = (ok) => {
+    try { const log = _cmdLog(); log.push({ d: todayISO(), lift, ok }); localStorage.setItem(CMD_KEY, JSON.stringify(log.slice(-400))); } catch (e) {}
+    try { if (window.PowaNative && PowaNative.notify) PowaNative.notify(ok ? 'SUCCESS' : 'WARNING'); } catch (e) {}
+    step = 0; state = 'armed'; lights = null; paint();
+  };
+  const paint = () => {
+    root.innerHTML = '';
+    root.className = 'cmd-mode is-' + state;
+    const head = el('div', { class: 'cmd-head' });
+    const x = el('button', { class: 'mm-x', type: 'button', 'aria-label': 'Close', html: ICONS.x });
+    x.addEventListener('click', close);
+    head.appendChild(x);
+    const t = cmdTally(lift);
+    head.appendChild(el('div', { class: 'cmd-tally' }, t.n ? t.ok + ' of ' + t.n + ' meet-legal' : 'Commands'));
+    root.appendChild(head);
+    const tabs = el('div', { class: 'cmd-lifts', role: 'tablist', 'aria-label': 'Lift' });
+    MEET_ORDER.forEach(l => {
+      const b = el('button', { type: 'button', role: 'tab', class: 'cmd-lift' + (l === lift ? ' on' : ''), 'aria-selected': l === lift ? 'true' : 'false' }, LIFT_LABELS[l]);
+      b.addEventListener('click', () => { lift = l; step = 0; state = 'armed'; lights = null; clearTimeout(hold); paint(); });
+      tabs.appendChild(b);
+    });
+    root.appendChild(tabs);
+    const stage = el('div', { class: 'cmd-stage' });
+    const seq = CMD_SEQ[lift];
+    if (state === 'armed') { stage.appendChild(el('div', { class: 'cmd-word is-dim' }, seq[step][0])); stage.appendChild(el('div', { class: 'cmd-hint' }, seq[step][1])); }
+    else if (state === 'hold') stage.appendChild(el('div', { class: 'cmd-hint' }, 'Hold it'));
+    else if (state === 'command') stage.appendChild(el('div', { class: 'cmd-word' }, seq[step][0]));
+    else if (state === 'early') { stage.appendChild(el('div', { class: 'cmd-word is-bad' }, 'Early')); stage.appendChild(el('div', { class: 'cmd-hint' }, 'You moved before the call. Red lights')); }
+    else if (state === 'verdict') {
+      const row = el('div', { class: 'cmd-judges', role: 'group', 'aria-label': 'Judges. Tap one for a red light' });
+      lights.forEach((v, j) => {
+        const b = el('button', { type: 'button', class: 'cmd-judge is-' + v, 'aria-label': 'Judge ' + (j + 1) + ': ' + v + ' light' });
+        b.addEventListener('click', (e) => { e.stopPropagation(); lights[j] = v === 'white' ? 'red' : 'white'; hapticTick(); paint(); });
+        row.appendChild(b);
+      });
+      stage.appendChild(row);
+      stage.appendChild(el('div', { class: 'cmd-hint' }, 'Tap a judge for a red light'));
+      const rec = el('button', { type: 'button', class: 'cmd-record' }, 'Next rep');
+      rec.addEventListener('click', (e) => { e.stopPropagation(); record(lights.filter(v => v === 'white').length >= 2); });
+      stage.appendChild(rec);
+    }
+    root.appendChild(stage);
+  };
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.cmd-head, .cmd-lifts, .cmd-judges, .cmd-record')) return;
+    restPrimeAudio();   // the tap that unlocks audio on iOS; the buzzer plays later from a timer
+    if (state === 'armed') {
+      state = 'hold'; paint();
+      hold = setTimeout(() => {
+        state = 'command'; buzz(); paint();
+        hold = setTimeout(() => {
+          if (step >= CMD_SEQ[lift].length - 1) { lights = ['white', 'white', 'white']; state = 'verdict'; }
+          else { step += 1; state = 'armed'; }
+          paint();
+        }, 800);
+      }, 400 + Math.random() * 1200);
+    } else if (state === 'hold') {
+      clearTimeout(hold); state = 'early'; hapticTap('HEAVY'); paint();
+      hold = setTimeout(() => record(false), 1300);
+    }
+  });
+  paint();
+}
+window.openCommandsDrill = openCommandsDrill;
+
 // ===== MEET MODE — meet day, live =====
 // Full screen: the attempt on the bar (with the loaders' plates), three judge
 // lights, how it moved, and the next attempt picked from that (app.js
@@ -3117,7 +3389,7 @@ function _meetNew() {
   const lifts = {};
   MEET_ORDER.forEach(l => {
     const a = plan.lifts[l] ? plan.lifts[l].attempts : [60, 65, 70];
-    lifts[l] = { plan: a.slice(), attempts: a.map(kg => ({ kg, lights: [null, null, null], result: null, feel: null })) };
+    lifts[l] = { plan: a.slice(), attempts: a.map(kg => ({ kg, lights: [null, null, null], result: null })) };
   });
   return { v: 1, date: todayISO(), lifts, cur: { lift: 'squat', i: 0 }, ahead: 12, done: false };
 }
@@ -3127,11 +3399,70 @@ function openMeetMode() {
   if (!st || st.date !== todayISO() || st.saved) st = _meetNew();
   const unit = getUnit();
   const root = el('div', { class: 'meet-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Meet mode' });
-  const close = () => { root.remove(); document.documentElement.classList.remove('meet-mode-open'); try { renderToday(); } catch (e) {} };
+  let minuteTimer = null;
+  const close = () => { clearInterval(minuteTimer); root.remove(); document.documentElement.classList.remove('meet-mode-open'); try { renderToday(); } catch (e) {} };
   document.documentElement.classList.add('meet-mode-open');
   document.body.appendChild(root);
 
+  // THE MINUTE (app.js meetAttemptOptions): the bar burns for a minute from the lights,
+  // three slabs underneath — SAFE / PLAN / SEND — and one tap hands the attempt in and
+  // shows the card for the table. Ticks at 30, 15 and 10 s; survives a reopen.
+  const minute = (L, i, A) => {
+    const wrap = el('div', { class: 'mm-minute' });
+    const clock = el('b', { class: 'mmm-clock' });
+    const title = el('span', {}, 'Hand in the next attempt');
+    wrap.appendChild(el('div', { class: 'mmm-top' }, title, clock));
+    const fill = el('i', {});
+    wrap.appendChild(el('div', { class: 'mmm-bar', role: 'timer', 'aria-label': 'Time to hand in the next attempt' }, fill));
+    const best = Math.max(bestE1RM(user.id, L), ...(Store.get().meets || []).filter(m => m.athleteId === user.id).map(m => Number(m[L]) || 0));
+    const slabs = el('div', { class: 'mmm-slabs' });
+    meetAttemptOptions({ kg: A.kg, result: A.result, plannedNext: st.lifts[L].plan[i + 1], best, unit }).forEach(o => {
+      const s = el('button', { type: 'button', class: 'mmm-slab is-' + o.key });
+      s.appendChild(el('span', { class: 'mmm-key' }, o.key));
+      s.appendChild(el('b', { class: 'mmm-kg' }, String(kgToDisplay(o.kg))));
+      s.appendChild(el('span', { class: 'mmm-why' }, o.prBy ? 'A PR by ' + formatWeight(o.prBy) : o.why));
+      s.addEventListener('click', () => {
+        const N = st.lifts[L].attempts[i + 1];
+        if (!N.result) N.kg = o.kg;
+        st.cur = { lift: L, i: i + 1 }; _meetSave(st);
+        hapticTap('MEDIUM');
+        attemptCard(L, i + 1, N.kg, paint);
+      });
+      slabs.appendChild(s);
+    });
+    wrap.appendChild(slabs);
+    const t0 = A.decidedAt || Date.now(), warned = {}, step = meetStep(unit);
+    const s0 = Math.ceil(Math.max(0, t0 + MEET_MINUTE_MS - Date.now()) / 1000);
+    [30, 15, 10].forEach(m => { if (s0 <= m) warned[m] = true; });   // a reopen doesn't replay the warnings
+    const tick = () => {
+      const left = Math.max(0, t0 + MEET_MINUTE_MS - Date.now()), s = Math.ceil(left / 1000);
+      clock.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      fill.style.transform = 'scaleX(' + (left / MEET_MINUTE_MS).toFixed(4) + ')';
+      wrap.classList.toggle('is-late', s <= 10);
+      [30, 15, 10].forEach(m => { if (s <= m && !warned[m]) { warned[m] = true; if (m === 10) hapticTap('HEAVY'); else hapticTick(); } });
+      if (left <= 0) {
+        wrap.classList.add('is-up');
+        title.textContent = 'Minute\'s up. By rule you get ' + (A.result === 'good' ? '+' + formatWeight(step) : 'the same bar');
+        clearInterval(minuteTimer);
+      }
+    };
+    clearInterval(minuteTimer); tick(); minuteTimer = setInterval(tick, 250);
+    return wrap;
+  };
+  // The attempt card: black on white, readable by the table at arm's length. Tap to go on.
+  const attemptCard = (L, i, kg, onDone) => {
+    const card = el('button', { type: 'button', class: 'mm-card lift-' + L, 'aria-label': 'Attempt card: ' + LIFT_LABELS[L] + ' ' + MEET_ATT_NAMES[i] + ' ' + formatWeight(kg) + '. Tap to go on' });
+    card.appendChild(el('span', { class: 'mmc-top' }, LIFT_LABELS[L] + ' · ' + ['1st', '2nd', '3rd'][i]));
+    card.appendChild(el('b', { class: 'mmc-kg' }, String(kgToDisplay(kg))));
+    card.appendChild(el('span', { class: 'mmc-unit' }, unitLabel()));
+    card.appendChild(el('span', { class: 'mmc-hint' }, 'Show the table. Tap to go on'));
+    card.addEventListener('click', () => { card.remove(); onDone(); });
+    document.body.appendChild(card);
+    setTimeout(() => { try { card.focus({ preventScroll: true }); } catch (e) {} }, 60);
+  };
+
   const paint = () => {
+    clearInterval(minuteTimer);
     _meetSave(st);
     root.innerHTML = '';
     const stand = meetStanding(st.lifts);
@@ -3162,6 +3493,26 @@ function openMeetMode() {
     const L = st.cur.lift, i = st.cur.i, A = st.lifts[L].attempts[i];
     const body = el('div', { class: 'mm-body lift-' + L });
     body.appendChild(el('div', { class: 'mm-att-label' }, LIFT_LABELS[L] + ' · ' + MEET_ATT_NAMES[i] + ' · attempt ' + (i + 1) + ' of 3'));
+    // THE BOUNCER (app.js bouncerOpener): an opener past 95% of your best heavy set this
+    // month is a max, not an opener. Once per lift per meet; needs a heavy set to compare.
+    if (i === 0 && !A.result && !st.lifts[L].bounced) {
+      st.lifts[L].bounced = true; _meetSave(st);
+      const since = _isoAddDays(todayISO(), -28);
+      const ref = Math.max(0, ...(Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift === L && l.date >= since && Number(l.reps) <= 3).map(l => Number(l.e1rmComp) || 0));
+      const b = bouncerOpener({ openerKg: A.kg, refKg: ref }, unit);
+      if (b) setTimeout(() => openBouncer({
+        kind: 'opener', head: 'Opener too heavy', line: b.pct + '% of your best this month',
+        body: 'Openers are for three white lights, not a PR. ' + formatWeight(b.suggestKg) + ' opens the meet; the PR comes on the third.',
+        keep: 'Open at ' + formatWeight(b.suggestKg), hold: 'Hold to keep ' + formatWeight(A.kg),
+        onKeep: () => {
+          // The plan was built on a stale max: rebuild it on the recent one.
+          const pcts = (MEET_STRATEGIES[getMeetStrategy()] || MEET_STRATEGIES.standard).pcts;
+          st.lifts[L].plan = [b.suggestKg, roundMeet(ref * pcts[1], unit), roundMeet(ref * pcts[2], unit)];
+          st.lifts[L].attempts.forEach((a, k) => { if (!a.result) a.kg = st.lifts[L].plan[k]; });
+          _meetSave(st); paint();
+        }
+      }), 60);
+    }
     const att = st.lifts[L].attempts;
     if (i === 2 && att[0].result === 'no' && att[1].result === 'no' && !A.result) body.appendChild(el('div', { class: 'mm-warn' }, 'Make this one to stay in the meet'));
     body.appendChild(el('div', { class: 'mm-weight' }, el('b', {}, String(kgToDisplay(A.kg))), el('small', {}, unitLabel())));
@@ -3179,6 +3530,7 @@ function openMeetMode() {
 
     const settle = () => {
       A.result = meetLightsResult(A.lights);
+      A.decidedAt = A.result ? (A.decidedAt || Date.now()) : null;   // the minute starts with the lights
       if (A.result) { try { if (window.PowaNative && PowaNative.notify) PowaNative.notify(A.result === 'good' ? 'SUCCESS' : 'WARNING'); } catch (e) {} }
       else hapticTick();
       paint();
@@ -3203,22 +3555,9 @@ function openMeetMode() {
     } else {
       body.appendChild(el('div', { class: 'mm-result is-' + A.result }, A.result === 'good' ? 'Good lift' : 'No lift'));
       const last = i === 2;
-      if (A.result === 'good' && !last) {
-        body.appendChild(el('div', { class: 'mm-q' }, 'How did it move?'));
-        const feel = el('div', { class: 'ui-seg mm-feel', role: 'radiogroup', 'aria-label': 'How it moved' });
-        [['fast', 'Flew'], ['solid', 'Solid'], ['grind', 'Ground']].forEach(([k, lbl]) => {
-          const b = el('button', { type: 'button', role: 'radio', class: (A.feel || 'solid') === k ? 'on' : '', 'aria-checked': (A.feel || 'solid') === k ? 'true' : 'false' }, lbl);
-          b.addEventListener('click', () => { A.feel = k; hapticTick(); paint(); });
-          feel.appendChild(b);
-        });
-        body.appendChild(feel);
-      }
-      const next = el('button', { class: 'btn btn-primary btn-lg btn-block mm-next', type: 'button' });
-      if (!last) {
-        const nextKg = meetNextAttempt(A.kg, A.result, A.feel || 'solid', st.lifts[L].plan[i + 1], unit);
-        next.textContent = (A.result === 'good' ? '' : 'Again: ') + MEET_ATT_NAMES[i + 1] + ' ' + formatWeight(nextKg);
-        next.addEventListener('click', () => { const N = st.lifts[L].attempts[i + 1]; if (!N.result) N.kg = nextKg; st.cur = { lift: L, i: i + 1 }; paint(); });
-      } else {
+      if (!last) body.appendChild(minute(L, i, A));   // THE MINUTE: the next attempt, handed in on the clock
+      else {
+        const next = el('button', { class: 'btn btn-primary btn-lg btn-block mm-next', type: 'button' });
         const li = MEET_ORDER.indexOf(L);
         if (li < 2) {
           next.textContent = 'On to ' + LIFT_LABELS[MEET_ORDER[li + 1]].toLowerCase();
@@ -3227,8 +3566,8 @@ function openMeetMode() {
           next.textContent = 'See the total';
           next.addEventListener('click', () => { st.done = true; paint(); });
         }
+        body.appendChild(next);
       }
-      body.appendChild(next);
     }
 
     // Warm-up caller: count the attempts before yours down; it tells you which
@@ -3538,10 +3877,11 @@ async function shareWeekCard() {
 window.shareWeekCard = shareWeekCard;
 
 // ===== PR SHARE CARD — branded IG-ready image of a lifetime PR =====
-async function sharePRCard(lift) {
+async function sharePRCard(lift, opts) {
   const pr = getLifetimePRs(user.id)[lift];
   if (!pr) return toast('No PR logged for that lift yet');
   const canvas = await generateShareCard({
+    format: opts && opts.format,
     tag: 'LIFETIME PR',
     big: String(Math.round(kgToDisplay(pr.e1rmComp))),
     bigUnit: unitLabel().toUpperCase(),
@@ -3560,6 +3900,99 @@ window.sharePRCard = sharePRCard;
 // Strength-score share card: DOTS hero + weight class + best-lift breakdown.
 // Reuses generateShareCard/shareCardFromCanvas — only reachable when bw + total
 // exist (same gate as the DOTS readout and the leaderboard opt-in).
+// UI v8: the lifter card. Your total, DOTS, class and best lifts as a trading card that tilts
+// with your finger (or with the phone, where iOS allows motion); a sheen in the three lift
+// colours follows the light. Share still makes the image card (shareStrengthCard).
+function openLifterCardView() {
+  const sex = getSexPref();
+  const bw = latestBodyweight(user.id);
+  const total = currentTotal(user.id);
+  const dots = (bw && total > 0) ? dotsScore(total, bw, sex) : 0;
+  const cls = bw ? weightClassFor(bw, sex) : null;
+  const prs = getLifetimePRs(user.id) || {};
+  const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
+  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const view = el('div', { class: 'lc-view', role: 'dialog', 'aria-label': 'Your lifter card' });
+  const stage = el('div', { class: 'lc-stage' });
+  const tilt = el('div', { class: 'lc-tilt' });
+  const card = el('div', { class: 'lc-card' });
+  card.appendChild(el('div', { class: 'lc-sheen', 'aria-hidden': 'true' }));
+  card.appendChild(el('div', { class: 'lc-top' }, el('span', { class: 'lc-mark', html: BRAND_MARK }), el('span', { class: 'lc-word' }, 'POWALIFTA'),
+    cls ? el('span', { class: 'lc-class' }, cls) : null));
+  const av = el('span', { class: 'lc-av', 'data-name': user.name || '' }, initials(user.name || ''));
+  if (user.avatarUrl) av.innerHTML = '<img src="' + escHtml(user.avatarUrl) + '" alt="">';
+  card.appendChild(el('div', { class: 'lc-who' }, av, el('div', { class: 'lc-id' }, el('div', { class: 'lc-name' }, user.name || 'Lifter'), club ? el('div', { class: 'lc-club' }, club) : null)));
+  const big = el('div', { class: 'lc-big' });
+  big.appendChild(el('div', { class: 'lc-total' }, el('b', {}, total > 0 ? String(Math.round(kgToDisplay(total))) : '–'), el('small', {}, unitLabel() + ' total')));
+  big.appendChild(el('div', { class: 'lc-dots' }, el('b', {}, dots > 0 ? dots.toFixed(1) : '–'), el('small', {}, 'DOTS')));
+  card.appendChild(big);
+  const lifts = el('div', { class: 'lc-lifts' });
+  ['squat', 'bench', 'deadlift'].forEach(l => {
+    const pr = prs[l];
+    lifts.appendChild(el('div', { class: 'lc-lift lc-' + l }, el('span', {}, LIFT_LABELS[l]), el('b', {}, pr && pr.e1rmComp ? String(Math.round(kgToDisplay(pr.e1rmComp))) : '–')));
+  });
+  card.appendChild(lifts);
+  card.appendChild(el('div', { class: 'lc-foot' }, el('span', {}, (sex === 'female' ? "Women's" : "Men's") + (bw ? ' · ' + formatWeight(bw) + ' bodyweight' : '')), el('span', {}, 'powalifta.com')));
+  tilt.appendChild(card);
+  stage.appendChild(tilt);
+  const hint = el('p', { class: 'lc-hint' }, reduce ? '' : 'Drag the card to tilt it');
+  stage.appendChild(hint);
+  // Tilt: finger position → up to 14° each way; the sheen follows the light.
+  const set = (rx, ry, mx, my) => {
+    tilt.style.setProperty('--rx', rx.toFixed(2) + 'deg'); tilt.style.setProperty('--ry', ry.toFixed(2) + 'deg');
+    card.style.setProperty('--mx', mx.toFixed(1) + '%'); card.style.setProperty('--my', my.toFixed(1) + '%');
+  };
+  const rest = () => { tilt.classList.remove('is-live'); set(0, 0, 50, 30); };
+  if (!reduce) {
+    const fromPoint = (e) => {
+      const r = card.getBoundingClientRect();
+      const px = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), py = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      tilt.classList.add('is-live');
+      set((0.5 - py) * 28, (px - 0.5) * 28, px * 100, py * 100);
+    };
+    card.addEventListener('pointerdown', (e) => { try { card.setPointerCapture(e.pointerId); } catch (x) {} fromPoint(e); });
+    card.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.buttons) fromPoint(e); });
+    card.addEventListener('pointerup', rest); card.addEventListener('pointercancel', rest); card.addEventListener('pointerleave', rest);
+    // Motion: iOS asks first (needs a tap); elsewhere it just works on phones.
+    let base = null;
+    const onTilt = (e) => {
+      if (e.beta == null || e.gamma == null) return;
+      if (!base) base = { b: e.beta, g: e.gamma };
+      const ry = Math.max(-14, Math.min(14, (e.gamma - base.g) * 0.7)), rx = Math.max(-14, Math.min(14, -(e.beta - base.b) * 0.7));
+      tilt.classList.add('is-live');
+      set(rx, ry, 50 + ry * 3, 30 - rx * 3);
+    };
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      const ask = el('button', { class: 'ui-text-btn lc-motion', type: 'button' }, 'Tilt with your phone');
+      ask.addEventListener('click', async () => {
+        try { if (await DOE.requestPermission() === 'granted') { window.addEventListener('deviceorientation', onTilt); ask.remove(); hint.textContent = 'Tilt your phone'; } }
+        catch (err) { ask.remove(); }
+      });
+      stage.appendChild(ask);
+    } else if (DOE && matchMedia('(pointer: coarse)').matches) {
+      window.addEventListener('deviceorientation', onTilt);
+    }
+    view._stopTilt = () => window.removeEventListener('deviceorientation', onTilt);
+  }
+  const acts = el('div', { class: 'lc-acts' });
+  const close = () => { if (view._stopTilt) view._stopTilt(); view.classList.add('is-leaving'); setTimeout(() => view.remove(), 220); };
+  const shareBtn = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Share');
+  shareBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); shareStrengthCard(); });
+  const done = el('button', { class: 'ui-text-btn', type: 'button' }, 'Done');
+  done.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+  if (bw && total > 0) acts.appendChild(shareBtn);
+  else acts.appendChild(el('p', { class: 'lc-need' }, 'Log a weigh-in and a set of each lift to fill in your card.'));
+  acts.appendChild(done);
+  stage.appendChild(acts);
+  stage.addEventListener('click', (e) => e.stopPropagation());
+  view.appendChild(stage);
+  view.addEventListener('click', close);
+  document.body.appendChild(view);
+  rest();
+}
+window.openLifterCardView = openLifterCardView;
+
 async function shareStrengthCard() {
   const sex = getSexPref();
   const bw = latestBodyweight(user.id);
@@ -3657,7 +4090,7 @@ function renderAthleteYou() {
       { label: 'DOTS', value: dots > 0 ? dots.toFixed(1) : '–' },
       { label: 'Streak', value: streak || 0, unit: streak === 1 ? 'week' : 'weeks' }
     ],
-    action: (bw && total > 0) ? { label: 'Share card', onClick: () => shareStrengthCard() } : null,
+    action: { label: 'Lifter card', onClick: () => openLifterCardView() },
     afterHero: buildYouBodyweight(),
     groups: [
       { title: 'Training', rows: [
@@ -3697,6 +4130,33 @@ function renderAthleteYou() {
   }
 }
 window.renderAthleteYou = renderAthleteYou;
+
+// ===== HOME SCREEN WIDGET (native) =====
+// What the Total widget shows, as strings: the app does the unit maths so the widget
+// never has to. Called on every Train render (every logged set), debounced.
+let _widgetT = null;
+function syncHomeWidget() {
+  if (!(window.PowaNative && PowaNative.isNative()) || window._demoMode) return;
+  clearTimeout(_widgetT);
+  _widgetT = setTimeout(() => {
+    try {
+      const n = (kg) => kg > 0 ? String(Math.round(kgToDisplay(kg))) : '–';
+      const date = getSessionDate();
+      const cur = getProgram() ? getCurrentDay() : null;
+      let session = null, sets = null;
+      if (isRestDay(user.id, date)) session = 'Rest day';
+      else if (cur) {
+        const all = cur.day.exercises.flatMap(e => e.sets || []);
+        session = cur.day.name;
+        if (all.length) sets = all.filter(s => s.completed).length + ' of ' + all.length + ' sets';
+      }
+      let meet = null;
+      try { const md = localStorage.getItem('powa-meet-date'); const dd = md ? daysUntil(md) : null; if (dd != null && dd >= 0) meet = dd === 0 ? 'Meet day' : dd + (dd === 1 ? ' day out' : ' days out'); } catch (e) {}
+      PowaNative.updateWidget({ total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
+        deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now() });
+    } catch (e) {}
+  }, 600);
+}
 
 // ===== REST TIMER =====
 // Timestamp-based: we track an absolute endTime and recompute the remaining
@@ -4076,10 +4536,11 @@ function openPlateSheet(kg) {
     });
     sheet.appendChild(seg);
     sheet.appendChild(note);
-    let first = true;
+    let first = true, shown = null;
     function paint() {
       const kgv = displayToKg(w);
-      vis.innerHTML = uiBarbell(kgv);
+      vis.innerHTML = uiBarbell(kgv, first ? {} : { from: shown });
+      shown = kgv;
       vis.classList.toggle('settled', !first); first = false;
       chips.innerHTML = '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(kgv);
       const r = plateLoadout(kgv);
@@ -4112,14 +4573,23 @@ function openLoadFinder() {
     function paint() {
       const e1 = bestE1RM(user.id, lift);
       if (!e1) { out.innerHTML = '<p class="pm-note">Log a ' + LIFT_LABELS[lift].toLowerCase() + ' set first. The finder works from your best e1RM.</p>'; return; }
-      const pct = Math.max(0.4, 1 - ((reps - 1) + (10 - rpe)) * 0.0333);
-      const disp = kgToDisplay(e1 * pct);
+      // THE LIE DETECTOR: ask for the RPE the bar will agree with, from the max your heavy
+      // sets imply (your best e1RM may itself come from an under-called set).
+      const dr = rpeCorrectOn() ? rpeDrift(Store.get().workoutLogs.filter(l => l.athleteId === user.id), lift) : null;
+      const bk = dr ? dr.buckets[_rpeBucket(reps)] : null;
+      const drift = bk && bk.n >= 3 && Math.abs(bk.drift) >= 0.4 ? bk.drift : 0;
+      const base = drift && dr.refMax > 0 ? dr.refMax : e1;
+      const rpeEff = Math.min(10, Math.max(5, rpe + drift));
+      const pct = Math.max(0.4, 1 - ((reps - 1) + (10 - rpeEff)) * 0.0333);
+      const disp = kgToDisplay(base * pct);
       const stepD = getUnit() === 'lbs' ? 5 : 2.5;
       const kg = displayToKg(Math.round(disp / stepD) * stepD);
       out.innerHTML = '<div class="lf-big lift-' + lift + '"><div class="tdh-presc"><b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small><i>×</i><b>' + reps + '</b></div>' +
         '<span class="tx-bar is-static">' + uiBarbell(kg) + '</span></div>' +
         '<div class="tx-plates"><span class="tx-plates-lbl">A side</span>' + plateChipsHtml(kg) + '</div>' +
-        '<p class="pm-note">About ' + Math.round(pct * 100) + '% of your best ' + LIFT_LABELS[lift].toLowerCase() + ' e1RM, ' + formatWeight(Math.round(e1)) + '.</p>';
+        '<p class="pm-note">' + (drift
+          ? 'About ' + Math.round(pct * 100) + '% of the max your heavy ' + LIFT_LABELS[lift].toLowerCase() + ' sets imply, ' + formatWeight(Math.round(base)) + '. Corrected ' + (drift > 0 ? '+' : '') + drift.toFixed(1) + ' RPE for how you call ' + _rpeBucket(reps) + ' reps.'
+          : 'About ' + Math.round(pct * 100) + '% of your best ' + LIFT_LABELS[lift].toLowerCase() + ' e1RM, ' + formatWeight(Math.round(e1)) + '.') + '</p>';
     }
     paint();
   }, { cls: 'plate-sheet lf-sheet' });
@@ -4548,9 +5018,7 @@ function renderProgOverview(area, logs) {
   }
   if (dots > 0) sub.appendChild(el('span', {}, dots.toFixed(1) + ' DOTS'));
   if (sub.children.length) hero.appendChild(sub);
-  const spark = uiSparkline(series.slice(-40).map(p => kgToDisplay(p.total)));
-  if (spark) hero.insertAdjacentHTML('beforeend', spark);
-  area.appendChild(hero);
+  area.appendChild(hero);   // the trend lives in the strength chart below, so no sparkline here
 
   // The three lifts. The sub line is the set that earned the number.
   const prs = getLifetimePRs(user.id);
@@ -4571,27 +5039,54 @@ function renderProgOverview(area, logs) {
     });
   })));
 
-  // e1RM over time — one chart, a quiet legend, no caption.
-  area.appendChild(uiLabel('e1RM over time'));
-  const card = el('div', { class: 'ui-card prog-chart' });
-  const legend = el('div', { class: 'prog-legend' });
+  // UI v8: one big strength chart (app.js uiStrengthChart). Chips pick the total or a lift,
+  // PR weeks are gold dots, drag to read any week; with a meet date the total runs on to it.
+  area.appendChild(uiLabel('Strength'));
+  const sc = el('div', { class: 'ui-card sc-card' });
+  const chips = el('div', { class: 'sc-chips', role: 'radiogroup', 'aria-label': 'Show' });
+  const body = el('div', { class: 'sc-body' });
+  sc.appendChild(chips); sc.appendChild(body);
+  area.appendChild(sc);
   const lc = liftColors();
-  [['squat', lc.squat], ['bench', lc.bench], ['deadlift', lc.deadlift]].forEach(([lift, col]) => {
-    legend.appendChild(el('span', {}, el('i', { style: 'background:' + col }), LIFT_LABELS[lift]));
+  let pick = 'total'; try { pick = localStorage.getItem('powa-prog-chart') || 'total'; } catch (e) {}
+  let meetDay = null; try { meetDay = localStorage.getItem('powa-meet-date'); } catch (e) {}
+  const wkLabel = (s) => 'Week of ' + new Date(s + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const disp = (v) => Math.round(kgToDisplay(v)) + ' ' + u;
+  const draw = () => {
+    chips.querySelectorAll('button').forEach(b => { const on = b.dataset.k === pick; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    body.innerHTML = '';
+    const pts = strengthSeries(logs, pick);
+    const proj = strengthProjection(pts, meetDay);
+    body.appendChild(uiStrengthChart(pts, {
+      color: pick === 'total' ? null : lc[pick],   // the total wears the theme's ink
+      width: body.clientWidth || (area.clientWidth - 34),
+      projection: proj,
+      prDots: pick !== 'total',   // the total rises with every lift PR, so gold would carpet the line
+      ariaLabel: (pick === 'total' ? 'Total' : LIFT_LABELS[pick]) + ' over the last 16 weeks', fmt: disp,
+      label: (p) => escHtml(wkLabel(p.week)) + ' · <b>' + disp(p.value) + '</b>' + (p.pr && pick !== 'total' ? '<span class="sc-pr-tag">PR</span>' : '') +
+        (p.top ? '<small>' + escHtml(formatWeight(p.top.weight) + ' × ' + p.top.reps + (p.top.rpe ? ' @ RPE ' + p.top.rpe : '')) + '</small>' : ''),
+      empty: pick === 'total' ? 'Log the three lifts for a few weeks and your total shows up here.' : 'Log ' + LIFT_LABELS[pick].toLowerCase() + ' for a few weeks and your line shows up here.'
+    }));
+    // This block vs last (best of the last four weeks against the four before), plus meet day.
+    const bd = pick === 'total' ? null : strengthBlockDelta(pts);   // the hero already says the total's four-week move
+    const cells = [];
+    if (bd) {
+      const dv = Math.round(kgToDisplay(bd.delta));
+      cells.push(['This block', Math.round(kgToDisplay(bd.now)), dv ? '<em class="' + (dv > 0 ? 'ui-up' : 'ui-flat') + '">' + (dv > 0 ? '+' : '') + dv + '</em>' : '']);
+      cells.push(['Last block', Math.round(kgToDisplay(bd.before)), '']);
+    }
+    if (proj) cells.push(['Meet · ' + new Date(proj.date + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }), '~' + Math.round(kgToDisplay(proj.value)), '']);
+    if (cells.length) body.appendChild(el('div', { class: 'sc-stats', html: cells.map(([k, v, extra]) =>
+      '<div><span>' + escHtml(k) + '</span><b>' + v + '<small>' + u + '</small>' + extra + '</b></div>').join('') }));
+  };
+  [['total', 'Total', null], ['squat', 'Squat', lc.squat], ['bench', 'Bench', lc.bench], ['deadlift', 'Deadlift', lc.deadlift]].forEach(([k, label, c]) => {
+    const b = el('button', { type: 'button', role: 'radio', class: 'sc-chip', 'data-k': k });
+    if (c) b.appendChild(el('i', { style: 'background:' + c, 'aria-hidden': 'true' }));
+    b.appendChild(document.createTextNode(label));
+    b.addEventListener('click', () => { if (pick === k) return; pick = k; try { localStorage.setItem('powa-prog-chart', k); } catch (e) {} try { hapticTick(); } catch (e) {} draw(); });
+    chips.appendChild(b);
   });
-  card.appendChild(legend);
-  const wrap = el('div', { class: 'chart-wrap' });
-  card.appendChild(wrap);
-  area.appendChild(card);
-  const chartSeries = [];
-  ['squat', 'bench', 'deadlift'].forEach(lift => {
-    const liftLogs = logs.filter(l => l.lift === lift);
-    if (!liftLogs.length) return;
-    const byDate = {};
-    liftLogs.forEach(l => { if (!byDate[l.date] || l.e1rmComp > byDate[l.date]) byDate[l.date] = l.e1rmComp; });
-    chartSeries.push({ name: LIFT_LABELS[lift], color: lc[lift], data: Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b)).map(([x, y]) => ({ x, y: kgToDisplay(y, 1) })) });
-  });
-  drawLineChart(wrap, { series: chartSeries, unit: u, height: 220, area: false });
+  draw();
 
   // This week, in three numbers.
   const wk = mondayOf(new Date());
@@ -4637,6 +5132,10 @@ function renderProgAnalysis(area, logs) {
   area.appendChild(uiLabel('Strength score'));
   area.appendChild(buildStrengthScoreCard(user.id));
 
+  // THE LIE DETECTOR (app.js rpeDrift): your RPE calls checked against each other.
+  const drift = renderRpeDriftCard(logs);
+  if (drift) { area.appendChild(uiLabel('Your RPE, checked')); area.appendChild(drift); }
+
   const bal = renderLiftBalanceCard(user.id);
   if (bal) {
     area.appendChild(uiLabel('Lift balance'));
@@ -4651,6 +5150,37 @@ function renderProgAnalysis(area, logs) {
     area.appendChild(uiLabel('Recovery'));
     area.appendChild(uiList([uiRow({ lead: el('span', { class: 'ui-dot warn' }), title: 'A deload might be due', sub: dl.note })]));
   }
+}
+
+// One row per lift: the rep range that drifts and by how much; a switch for whether the
+// load finder corrects for it. Nothing shows until there's something to check.
+function rpeCorrectOn() { try { return localStorage.getItem('powa-rpe-correct') !== '0'; } catch (e) { return true; } }
+function renderRpeDriftCard(logs) {
+  const mine = (logs || []).filter(l => l.athleteId === user.id);
+  const rows = [];
+  MAIN_LIFTS.forEach(lift => {
+    const d = rpeDrift(mine, lift);
+    if (!d.n) return;
+    const parts = Object.keys(d.buckets).filter(k => d.buckets[k].n >= 3 && Math.abs(d.buckets[k].drift) >= 0.4)
+      .map(k => k + ' reps ' + (d.buckets[k].drift > 0 ? '+' : '') + d.buckets[k].drift.toFixed(1));
+    rows.push(uiRow({
+      lead: el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }), title: LIFT_LABELS[lift],
+      sub: parts.length ? parts.join(' · ') : 'Your calls match the bar',
+      endHtml: d.worst ? '<b class="ld-d">' + (d.worst.drift > 0 ? '+' : '') + d.worst.drift.toFixed(1) + '</b>' : '<b class="ld-d is-ok">' + ICONS.check + '</b>'
+    }));
+  });
+  if (!rows.length) return null;
+  const sw = el('div', { class: 'ui-row rest-auto' });
+  const main = el('span', { class: 'ui-row-main' });
+  main.appendChild(el('span', { class: 'ui-row-title' }, 'Correct the load finder'));
+  main.appendChild(el('span', { class: 'ui-row-sub' }, 'Its answers allow for how you call each rep range'));
+  sw.appendChild(main);
+  sw.appendChild(uiSwitch(rpeCorrectOn(), on => { try { localStorage.setItem('powa-rpe-correct', on ? '1' : '0'); } catch (e) {} }, 'Correct the load finder for your RPE drift'));
+  rows.push(sw);
+  const card = el('div', { class: 'ld-card' });
+  card.appendChild(uiList(rows));
+  card.appendChild(el('p', { class: 'ld-note' }, 'Six weeks. On a day with a heavy set, that set says what RPE the lighter ones really were. + means you call them easier than they are.'));
+  return card;
 }
 
 // ── PRs & MEETS ───────────────────────────────────────────────────────

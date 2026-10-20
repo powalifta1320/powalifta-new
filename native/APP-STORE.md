@@ -86,6 +86,12 @@ New in 1.2
 - Coaches: paste a program straight from your spreadsheet
 - Share your club with a QR code, or put the board on the gym TV
 - A calmer, cleaner design, TikTok on profiles and an automatic word filter in clubs
+- Progress: one strength chart with PR weeks in gold, drag to read, projected to meet day
+- Tap any exercise for its sets, last time, warm-up and form cues
+- A bigger PR moment, a lifter card that tilts with your phone, Story-size share cards
+- Meet day: hand in the next attempt on the clock, practise the referee's commands, and the app stops a heavy single in the last ten days
+- Your RPE, checked: which rep ranges you call easier than they are
+- Pick your app icon in plate colours, and a Home Screen widget with your total
 ```
 
 ## URLs

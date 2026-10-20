@@ -862,6 +862,72 @@ test('content filter: blocks slurs, sexual words and threats; stars swearing; le
   eq(filterUserText(null).text, '');
   eq(maskUserText('old post: fag'), 'old post: f**');              // showing older text: blocked words starred too
 });
+test('strength chart: weekly bests, PR weeks, the total, block vs block, meet projection', () => {
+  const L = (date, lift, e) => ({ date, lift, e1rmComp: e, weight: e * 0.8, reps: 5, rpe: 8 });
+  const logs = [L('2026-05-04', 'squat', 180), L('2026-09-01', 'squat', 170), L('2026-09-08', 'squat', 182), L('2026-09-09', 'squat', 185),
+    L('2026-09-15', 'squat', 181), L('2026-10-13', 'squat', 190), L('2026-09-08', 'bench', 120), L('2026-09-08', 'deadlift', 230), L('2026-10-14', 'deadlift', 240)];
+  const sq = strengthSeries(logs, 'squat', { today: '2026-10-20', weeks: 16 });
+  eq(sq.map(p => p.week).join(), '2026-08-31,2026-09-07,2026-09-14,2026-10-12');
+  eq(sq.map(p => p.value).join(), '170,185,181,190');                      // each week's best set
+  eq(sq.map(p => p.pr).join(), 'false,true,false,true');                   // 180 in May is the old best
+  eq(sq[1].top.date, '2026-09-09');
+  const tot = strengthSeries(logs, 'total', { today: '2026-10-20', weeks: 16 });
+  eq(tot[0].week, '2026-08-31'); eq(tot[0].value, 180);                     // the May squat counts from the start
+  eq(tot[tot.length - 1].value, 190 + 120 + 240);
+  eq(tot.filter(p => p.pr).length > 0, true);
+  const bd = strengthBlockDelta(sq);
+  eq(bd.now, 190); eq(bd.before, 185); eq(bd.delta, 5);
+  eq(strengthBlockDelta([]), null);
+  const pts = [100, 102, 104, 106].map((v, i) => ({ week: _isoAddDays('2026-09-28', i * 7), value: v }));
+  const pj = strengthProjection(pts, '2026-11-16');
+  eq(Math.round(pj.value), 114); eq(pj.perWeek, 2);                       // 106, then +2 a week for four weeks
+  eq(strengthProjection(pts, '2026-10-01'), null);                          // the meet is already past
+  eq(strengthProjection([], '2026-11-16'), null);                           // nothing logged in the window
+  eq(strengthProjection(pts.slice(0, 2), '2026-11-16'), null);              // not enough recent weeks
+  eq(Math.round(strengthProjection(pts.map(p => ({ week: p.week, value: 200 - p.value })), '2026-11-16').value), 94);   // never below today
+});
+test('the minute: safe < plan < send after a good lift, the same bar after a miss, no duplicate slabs', () => {
+  const g = meetAttemptOptions({ kg: 230, result: 'good', plannedNext: 237.5, best: 240, unit: 'kg' });
+  eq(g.map(o => o.key).join(), 'safe,plan,send');
+  eq(g.map(o => o.kg).join(), '232.5,237.5,242.5');
+  eq(g[2].prBy, 2.5); eq(g[0].prBy, 0);
+  const m = meetAttemptOptions({ kg: 230, result: 'no', plannedNext: 237.5, best: 240, unit: 'kg' });
+  eq(m.map(o => o.kg).join(), '230,232.5,235');
+  eq(meetAttemptOptions({ kg: 230, result: 'good', plannedNext: 232.5, best: 0, unit: 'kg' }).length, 2);   // plan == safe folds
+  eq(meetAttemptOptions({ kg: 230, result: 'good', plannedNext: 237.5, best: 300, unit: 'kg' })[2].kg, 245);   // never more than three steps past the plan
+});
+test('the lie detector: a heavy single says what the fives really were', () => {
+  const L = (date, w, r, rpe) => ({ date, lift: 'squat', variant: 'Competition', weight: w, reps: r, rpe });
+  // 200 × 1 @ 9 ⇒ max ≈ 206.9; 170 × 5 said @ 7, the bar says ≈ 8.6 ⇒ drift ≈ +1.6
+  const logs = [L('2026-10-01', 200, 1, 9), L('2026-10-01', 170, 5, 7), L('2026-10-08', 200, 1, 9), L('2026-10-08', 170, 5, 7), L('2026-10-15', 200, 1, 9), L('2026-10-15', 170, 5, 7),
+    L('2026-10-15', 120, 8, 6)];   // one eight: not enough to judge
+  const d = rpeDrift(logs, 'squat', { today: '2026-10-20' });
+  eq(d.buckets['4-6'].n, 3);
+  eq(d.buckets['4-6'].drift > 1.3 && d.buckets['4-6'].drift < 1.9, true);
+  eq(d.worst.bucket, '4-6');
+  eq(d.buckets['7+'].n, 1); eq(d.n, 4);
+  eq(rpeDrift(logs, 'bench', { today: '2026-10-20' }).n, 0);
+  eq(rpeDrift(logs, 'squat', { today: '2026-12-20' }).n, 0);                        // out of the window
+  eq(Math.round(d.refMax), 207);                                            // the single's max, not the inflated five's 222
+  // 165 × 5 said @ 7.5 beside 162.5 × 3 @ 8.5: by the triple's max the five is past a max ⇒ reads as a 10, drift +2.5
+  const lie = [L('2026-10-01', 162.5, 3, 8.5), L('2026-10-01', 165, 5, 7.5), L('2026-10-08', 162.5, 3, 8.5), L('2026-10-08', 165, 5, 7.5), L('2026-10-15', 162.5, 3, 8.5), L('2026-10-15', 165, 5, 7.5)];
+  eq(rpeDrift(lie, 'squat', { today: '2026-10-20' }).buckets['4-6'].drift, 2.5);
+  // honest calls: 170 × 5 @ 8.6-ish ⇒ no drift
+  const fair = [L('2026-10-01', 200, 1, 9), L('2026-10-01', 170, 5, 8.5), L('2026-10-08', 200, 1, 9), L('2026-10-08', 170, 5, 8.5), L('2026-10-15', 200, 1, 9), L('2026-10-15', 170, 5, 8.5)];
+  eq(Math.abs(rpeDrift(fair, 'squat', { today: '2026-10-20' }).buckets['4-6'].drift) < 0.3, true);
+});
+test('the bouncer: singles at the opener inside ten days, openers past 95% of the recent best', () => {
+  eq(bouncerSingle({ reps: 1, kg: 232.5, openerKg: 230, daysOut: 9 }).pct, 101);
+  eq(bouncerSingle({ reps: 1, kg: 232.5, openerKg: 230, daysOut: 11 }), null);
+  eq(bouncerSingle({ reps: 2, kg: 232.5, openerKg: 230, daysOut: 9 }), null);
+  eq(bouncerSingle({ reps: 1, kg: 220, openerKg: 230, daysOut: 9 }), null);
+  eq(bouncerSingle({ reps: 1, kg: 232.5, openerKg: 0, daysOut: 9 }), null);
+  const o = bouncerOpener({ openerKg: 235, refKg: 245 }, 'kg');
+  eq(o.pct, 96); eq(o.suggestKg, 222.5);                                        // back to a normal opener
+  eq(bouncerOpener({ openerKg: 230, refKg: 245 }, 'kg'), null);                   // 94%: a bold opener, allowed
+  eq(bouncerOpener({ openerKg: 225, refKg: 245 }, 'kg'), null);
+  eq(bouncerOpener({ openerKg: 225, refKg: 0 }, 'kg'), null);
+});
 test('content filter: names are only ever blocked, never starred; server refusals read as the filter message', () => {
   eq(checkUserText(['Dick Smith'], { name: true })[0], 'Dick Smith');
   eq(checkUserText(['Dick Smith'])[0], 'D*** Smith');
