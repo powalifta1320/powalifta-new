@@ -7,7 +7,7 @@ This file gets you up to speed fast. Read it before changing anything.
 ## Project memory lives in the Obsidian vault
 
 `~/Documents/Obsidian Vault/` is the primary memory for everything that isn't "how the code works". Read `Current state.md` first (what's live, what's built, what's next), then whatever the task needs:
-- `Roadmap.md` (the plan) · `Changelog.md` (dated log) · `App Store 1.1.md` (release checklist) · `Fundraising.md` (applications, deck, videos).
+- `Roadmap.md` (the plan) · `Changelog.md` (dated log) · `App Store 1.2.md` (the current release checklist) · `Fundraising.md` (applications, deck, videos).
 - `History/Shipped log - October 2026.md` and `History/Shipped log - before October 2026.md`: every shipped feature in full technical detail, with the gotchas found while building it. Search there before re-deriving how a feature works.
 - `Features/` (one note per feature; `Features.base` is the board), `Decisions.md`, `Deploy checklist.md`, `Ideas.md` (the owner's inbox).
 

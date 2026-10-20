@@ -778,20 +778,22 @@ const DB = {
     } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
   },
 
-  async signUpCoach(name, email, password, bio) {
+  // `consent` ({ age_16_plus, terms_accepted_at }) rides in the auth user's metadata: the record
+  // that they confirmed they're 16+ and accepted the Terms at sign-up (privacy.html "Children").
+  async signUpCoach(name, email, password, bio, consent) {
     // Profile row is created by the on_auth_user_created trigger using this metadata.
     const { data, error } = await sb.auth.signUp({
       email, password,
-      options: { data: { name, user_type: 'coach', bio: bio || '' } }
+      options: { data: { name, user_type: 'coach', bio: bio || '', ...(consent || {}) } }
     });
     if (error) throw error;
     if (!data.user) throw new Error('Signup did not return a user.');
     return data.user;
   },
-  async signUpAthlete(name, email, password, code) {
+  async signUpAthlete(name, email, password, code, consent) {
     const { data, error } = await sb.auth.signUp({
       email, password,
-      options: { data: { name, user_type: 'athlete' } }
+      options: { data: { name, user_type: 'athlete', ...(consent || {}) } }
     });
     if (error) throw error;
     if (!data.user) throw new Error('Signup did not return a user.');

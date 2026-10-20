@@ -777,6 +777,10 @@
       <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
       <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional. You can add it later.</p>
     </div>
+    <label class="age-check" for="signupAge">
+      <input type="checkbox" id="signupAge">
+      <span>I'm 16 or older and I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+    </label>
     <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
     <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
   </div>
@@ -1130,18 +1134,23 @@ async function doSignup() {
   const code = document.getElementById('signupCode').value.trim().toUpperCase();
   if (!name || !email || !pwd) return toast('Name, email, password required');
   if (pwd.length < 6) return toast('Password must be at least 6 chars');
+  if (!document.getElementById('signupAge').checked) return toast('Please confirm you\'re 16 or older.');
+  if (!checkUserText([name], { name: true })) return;          // the content filter: no slurs as a name
+  const bioOk = type === 'coach' ? checkUserText([bio]) : [''];
+  if (!bioOk) return;
+  const consent = { age_16_plus: true, terms_accepted_at: new Date().toISOString() };
   // Athlete-with-coach: the invite code is OPTIONAL. Without it they sign up
   // unattached and can link to a coach anytime from the dashboard Coach tab
   // (athlete.html joinCoach → DB.claimInviteCode). No hard block here.
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   try {
     if (type === 'coach') {
-      await DB.signUpCoach(name, email, pwd, bio);
+      await DB.signUpCoach(name, email, pwd, bioOk[0], consent);
     } else if (type === 'athlete') {
-      await DB.signUpAthlete(name, email, pwd, code);
+      await DB.signUpAthlete(name, email, pwd, code, consent);
     } else {
       // Solo — same as athlete but no code claimed
-      await DB.signUpAthlete(name, email, pwd, '');
+      await DB.signUpAthlete(name, email, pwd, '', consent);
     }
     // Map to the canonical type stored in profiles for the welcome email
     const emailType = (type === 'coach') ? 'coach' : 'athlete';

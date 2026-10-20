@@ -568,7 +568,7 @@
     invite.addEventListener('click', () => openInviteSheet(club));
     top.appendChild(invite);
     hero.appendChild(top);
-    if (club.description) hero.appendChild(el('p', { class: 'club-desc' }, club.description));
+    if (club.description) hero.appendChild(el('p', { class: 'club-desc' }, maskUserText(club.description)));
     // Who's in this week: faces of everyone who trained, the rest stay off.
     const trained = members.filter(m => m.weekStart === wk && (m.weekSessions || 0) > 0)
       .sort((a, b) => (b.weekSessions || 0) - (a.weekSessions || 0));
@@ -785,7 +785,7 @@
     card.appendChild(head);
     if (p.kind === 'session') card.appendChild(sessionBlock(p));
     else if (p.kind !== 'note') card.appendChild(liftBlock(p));
-    if (p.caption) card.appendChild(el('p', { class: 'cp-cap' }, p.caption));
+    if (p.caption) card.appendChild(el('p', { class: 'cp-cap' }, maskUserText(p.caption)));
     card.appendChild(reactRow(p));
     // Long-press / double-tap the card: the quick picker (double-tap = a fire).
     uiLongPress(card, (e) => {
@@ -925,7 +925,9 @@
           ? { kind: 'session', exercise: sess.name, setsCount: sess.sets, tonnageKg: sess.tonnageKg }
           : { kind: prOf[pick.log.id] ? 'pr' : 'set', lift: pick.log.lift, exercise: logTitle(pick.log),
               weightKg: pick.log.weight, reps: pick.log.reps, rpe: pick.log.rpe, e1rmKg: pick.log.e1rmComp || pick.log.e1rm };
-        Object.assign(body, { clubId: _data.club.id, userId: u.id, caption: cap.value.trim() });
+        const capOk = checkUserText([cap.value.trim()]);   // the content filter (Apple 1.2): refuse slurs, star swearing
+        if (!capOk) { cap.focus(); return; }
+        Object.assign(body, { clubId: _data.club.id, userId: u.id, caption: capOk[0] });
         if (isDemo()) {
           const p = Object.assign({ id: 'demo-p' + Date.now(), displayName: u.name || 'Demo Lifter', createdAt: new Date().toISOString(), _fresh: true }, body);
           window._demoClubPosts = [p].concat(window._demoClubPosts || []);
@@ -937,7 +939,7 @@
           const saved = await DB.createClubPost(body);
           if (saved) { saved._fresh = true; _posts = [saved].concat(_posts || []); }
           close(); afterPost();
-        } catch (e) { toast(e.message || 'Couldn\'t post. Try again'); }
+        } catch (e) { toast(filterErrorText(e) || e.message || 'Couldn\'t post. Try again'); }
         finally { post.disabled = false; }
       });
       sheet.appendChild(post);
@@ -1679,15 +1681,17 @@
     create.addEventListener('click', async () => {
       const n = name.value.trim();
       if (n.length < 2) { toast('Give your club a name'); name.focus(); return; }
+      const f = checkUserText([n, city.value, desc.value]);
+      if (!f) return;
       if (isDemo()) { toast('Preview only in demo mode'); m.classList.remove('open'); return; }
       create.disabled = true;
       try {
-        await DB.createClub({ name: n, city: city.value, description: desc.value, visibility: vis.dataset.value, displayName: (me() || {}).name });
+        await DB.createClub({ name: f[0], city: f[1], description: f[2], visibility: vis.dataset.value, displayName: (me() || {}).name });
         m.classList.remove('open');
         toast('Club created: share the code to fill it');
         _loaded = false; _view = 'feed';
         await renderClubTab();
-      } catch (e) { toast(e.message || 'Couldn\'t create the club'); }
+      } catch (e) { toast(filterErrorText(e) || e.message || 'Couldn\'t create the club'); }
       finally { create.disabled = false; }
     });
     box.appendChild(create);
@@ -1712,10 +1716,12 @@
       box.appendChild(vis.note);
       const save = el('button', { class: 'btn btn-primary btn-block mt-16', type: 'button' }, 'Save');
       save.addEventListener('click', async () => {
+        const f = checkUserText([name.value, city.value, desc.value]);
+        if (!f) return;
         if (isDemo()) { toast('Preview only in demo mode'); return; }
         save.disabled = true;
-        try { await DB.updateClub(club.id, { name: name.value, city: city.value, description: desc.value, visibility: vis.dataset.value }); toast('Saved'); m.classList.remove('open'); _loaded = false; renderClubTab(); }
-        catch (e) { toast(e.message || 'Couldn\'t save'); }
+        try { await DB.updateClub(club.id, { name: f[0], city: f[1], description: f[2], visibility: vis.dataset.value }); toast('Saved'); m.classList.remove('open'); _loaded = false; renderClubTab(); }
+        catch (e) { toast(filterErrorText(e) || e.message || 'Couldn\'t save'); }
         finally { save.disabled = false; }
       });
       box.appendChild(save);

@@ -71,17 +71,21 @@ Terms of Use: https://www.powalifta.com/terms.html
 Privacy Policy: https://www.powalifta.com/privacy.html
 ```
 
-**What's New** (version notes, ≤4000) — v1.1.1:
+**What's New** (version notes, ≤4000) — v1.2:
 ```
-New in 1.1.1
+New in 1.2
 
-- Clubs are now social: share any set, PR or whole session to your club's feed
-- Find clubs by name or city. Join public clubs in one tap, or request to join private ones
-- Club leaderboards, ranked by DOTS or by this week's training
-- Smart rest timer: heavier and harder sets rest longer. Pick Short, Standard or Long in You > Rest timer
-- A cleaner rest timer with a bigger countdown and a "Go" when rest is done
-- Coaches: a tidier program builder, roster and inbox
-- Report and block in clubs, plus polish on every screen
+- Smart next set: the weight adjusts to how your last set felt
+- Log your next set from the Lock Screen while the rest timer runs (iOS 17+)
+- Club boards anyone can win: this week, most improved, strongest and 8-week seasons
+- Training buddies: pair up with a clubmate, see each other's week, send a nudge
+- Meet mode for competition day, plus a plan for your first meet
+- New to lifting? A starter program and a simple "reps left" effort scale
+- Morning weigh-in reminder, a weekly goal and a readiness check
+- Milestones for plates on the bar and bodyweight lifts
+- Coaches: paste a program straight from your spreadsheet
+- Share your club with a QR code, or put the board on the gym TV
+- A calmer, cleaner design, TikTok on profiles and an automatic word filter in clubs
 ```
 
 ## URLs
@@ -117,17 +121,27 @@ Shot list — run the app (or powalifta.com on a phone), these screens sell it:
 Tip: use a real-looking demo account; hide any test data that looks fake.
 
 ## App Review notes (App Store Connect → submit)
+Fill in the demo account line first: sign up as a lifter on a spare email, join a public club, post a set, then paste the login here.
 ```
-POWALIFTA is a powerlifting training + coaching platform. To review the full
-experience without creating an account, open the app and tap "Try the demo"
-(or visit powalifta.com/athlete.html?demo=1) for a seeded athlete dashboard.
+POWALIFTA is a powerlifting training and coaching app. Lifters log sets by weight, reps and RPE; coaches run their athletes; lifters can join clubs to share lifts.
 
-For a real account: sign up as a Solo athlete (free, no card) — email + password
-only. Coach features are visible by signing up as a Coach.
+No account needed to look around: on the welcome screen tap "Athlete demo" or "Coach demo" at the bottom. The demo is seeded with sample data, including a club feed, and nothing in it is saved.
 
-The app is entirely free. It contains no purchases, no subscriptions, no paid
-content, and no references or links to any purchasing mechanism.
+Demo account (live backend): [email] / [password]. An athlete in a club with posts, so you can post, report and block.
+
+In-app purchases: coach plans (Basic, Pro, Premium) are auto-renewable subscriptions sold with In-App Purchase. On a coach account they're under You → Plan & billing, and the paywall also opens when a coach adds a 4th athlete. Lifters never pay. The app has no links or buttons to buy anything outside the App Store.
+
+User-generated content (1.2): club posts, club names and profile names go through an automatic word filter (slurs, sexual content and threats are refused; swearing is starred). Any post or club can be reported (⋯ → Report), any lifter can be blocked, reports are reviewed within 24 hours, and the contact address is in the Terms: powalifta1320@gmail.com.
+
+Age: POWALIFTA is for people 16 and older; sign-up asks people to confirm this.
+
+Account deletion: You → Your data → Delete my account. It erases the account and its data straight away.
+
+Live Activity: after a set is logged, the rest timer shows on the Lock Screen and in the Dynamic Island; on iOS 17+ it has a Log set button.
 ```
+
+## Age rating (App Store Connect → App Information → Age Rating)
+1.1 went out rated 4+, which doesn't fit: the app has clubs (people post to each other) and coach chat, and the Terms and Privacy Policy set a minimum age of 16. Answer the questionnaire honestly (user-generated content: yes; messaging/chat: yes) and set the rating to 16+, using the age-rating override if the questionnaire lands lower.
 
 ## Signing & capabilities checklist (Xcode — you drive)
 - [ ] Signing & Capabilities → select your Team (your Apple Developer account).

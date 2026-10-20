@@ -2345,8 +2345,8 @@ window.updatePayoutPreview = updatePayoutPreview;
 
 async function confirmPublish() {
   if (!_publishTarget) { closeModal('publishModal'); return; }
-  const title = document.getElementById('pubTitle').value.trim();
-  const description = document.getElementById('pubDesc').value.trim();
+  let title = document.getElementById('pubTitle').value.trim();
+  let description = document.getElementById('pubDesc').value.trim();
   const tier = document.getElementById('pubTier').value;
   const category = (document.getElementById('pubCategory') || {}).value || null;
   const priceUsd = parseFloat(document.getElementById('pubPrice').value);
@@ -2355,6 +2355,9 @@ async function confirmPublish() {
   if (description.length < 60) return toast('Description should be at least a couple of sentences (60+ chars).');
   if (!isFinite(priceUsd) || priceUsd < 1) return toast('Price must be at least $1.');
   if (priceUsd > 999) return toast('Price must be $999 or less.');
+  const filtered = checkUserText([title, description]);   // public listing: the content filter applies
+  if (!filtered) return;
+  [title, description] = filtered;
 
   const priceCents = Math.round(priceUsd * 100);
 

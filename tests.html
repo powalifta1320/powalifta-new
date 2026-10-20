@@ -843,6 +843,32 @@ test('tiktok: handles, @, links, short links and junk', () => {
   eq(normalizeTikTok('x'.repeat(25)), null);
   eq(tiktokUrl('a.b_c'), 'https://www.tiktok.com/@a.b_c');
 });
+test('content filter: blocks slurs, sexual words and threats; stars swearing; leaves lifting talk alone', () => {
+  eq(filterUserText('Squat day, 180 for a single').text, 'Squat day, 180 for a single');
+  eq(filterUserText('that was fucking heavy').text, 'that was f****** heavy');
+  eq(filterUserText('FUUUCK yes').text, 'F***** yes');            // stretched spellings still match
+  eq(filterUserText('sh1t').text, 's***');                         // number swaps undone
+  eq(filterUserText('a$$hole').text, 'a******');
+  eq(filterUserText('you n1gger').ok, false);
+  eq(filterUserText('f a g').ok, false);                           // letters typed one at a time are joined
+  eq(filterUserText('k.y.s').ok, false);
+  eq(filterUserText('kill yourself').ok, false);
+  eq(filterUserText('skill yourself up').ok, true);
+  eq(filterUserText('Scunthorpe class grape Niger Dickinson').text, 'Scunthorpe class grape Niger Dickinson');   // whole words only
+  eq(filterUserText('pedometer and cumulative volume, rapeseed oil').ok, true);
+  eq(filterUserText('love you all xxx').ok, true);                 // UK kisses, not a blocked word
+  eq(filterUserText('5 x 5 x 5').ok, true);
+  eq(filterUserText('').text, '');
+  eq(filterUserText(null).text, '');
+  eq(maskUserText('old post: fag'), 'old post: f**');              // showing older text: blocked words starred too
+});
+test('content filter: names are only ever blocked, never starred; server refusals read as the filter message', () => {
+  eq(checkUserText(['Dick Smith'], { name: true })[0], 'Dick Smith');
+  eq(checkUserText(['Dick Smith'])[0], 'D*** Smith');
+  eq(checkUserText(['retard'], { name: true }), null);
+  eq(filterErrorText({ message: 'content_blocked' }), FILTER_MSG);
+  eq(filterErrorText({ message: 'duplicate key' }), '');
+});
 test('starter program: 3 full-body days of 3 x 5, light, climbing, never below the bar', () => {
   const p = generateStarterProgram({ weeks: 8, bodyweightKg: 80, sex: 'male', unit: 'kg' });
   eq(p.weeks.length, 8); eq(p.starter, true);

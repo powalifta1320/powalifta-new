@@ -11071,3 +11071,8 @@ body.powa-app .cp-card .cp-lift.has-bar { padding-right: 104px; }
 .club-buddy .cbud-no { flex: none; padding: 0 4px; font-size: var(--fs-meta, 13px); color: var(--text-3); }
 .lifter-sheet .lc-buddy { width: 100%; margin-top: 10px; }
 .lifter-sheet .lc-buddy.is-on { color: var(--text-2); }
+
+/* Sign-up: confirm age 16+ and accept the terms (web modal; the app uses .ob-check). */
+.modal .age-check { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 16px; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 500; line-height: 1.45; color: var(--text-2); cursor: pointer; }
+.modal .age-check input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--brand-red); }
+.modal .age-check a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }

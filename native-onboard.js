@@ -246,6 +246,7 @@
     var next2 = h('button', { class: 'nw-btn nw-btn-primary', type: 'button', text: 'Continue' });
     function go2() {
       if (name.value.trim().length < 2) { err2.textContent = 'Add your name to keep going.'; haptic('error'); name.focus(); return; }
+      if (typeof filterUserText === 'function' && !filterUserText(name.value).ok) { err2.textContent = 'Please choose a different name.'; haptic('error'); name.focus(); return; }
       err2.textContent = '';
       haptic('light');
       api.go(2);
@@ -276,11 +277,15 @@
       meterLabel.textContent = s.label;
     });
     onEnter(email, function () { pwd.focus(); });
+    // Minimum age 16 (privacy.html "Children"): a confirmation they tick, not a date of birth we'd have to keep.
+    var ageBox = h('input', { class: 'ob-check-input', type: 'checkbox' });
+    s3.appendChild(h('label', { class: 'ob-check' }, [ageBox, h('span', { class: 'ob-check-box', 'aria-hidden': 'true' }),
+      h('span', { class: 'ob-check-text', html: 'I\'m 16 or older and I agree to the <a href="terms.html">Terms</a> and <a href="privacy.html">Privacy Policy</a>.' })]));
+    ageBox.addEventListener('change', function () { if (ageBox.checked) { err3.textContent = ''; haptic('light'); } });
     var err3 = h('div', { class: 'ob-err', role: 'alert' });
     s3.appendChild(err3);
     var create = h('button', { class: 'nw-btn nw-btn-primary', type: 'button', text: 'Create account' });
     s3.appendChild(create);
-    s3.appendChild(h('p', { class: 'ob-fine', html: 'By continuing you agree to the <a href="terms.html">Terms</a> and <a href="privacy.html">Privacy Policy</a>.' }));
 
     async function submit() {
       var nm = name.value.trim(), em = email.value.trim().toLowerCase(), pw = pwd.value, cd = code.value.trim().toUpperCase();
@@ -288,11 +293,13 @@
       if (!nm) { api.go(1); return; }
       if (!EMAIL_RE.test(em)) { err3.textContent = 'That email doesn\'t look right.'; haptic('error'); email.focus(); return; }
       if (pw.length < 6) { err3.textContent = 'Use at least 6 characters.'; haptic('error'); pwd.focus(); return; }
+      if (!ageBox.checked) { err3.textContent = 'Please confirm you\'re 16 or older.'; haptic('error'); return; }
+      var consent = { age_16_plus: true, terms_accepted_at: new Date().toISOString() };
       err3.textContent = '';
       busy(create, true, 'Creating account…');
       try {
-        if (st.role === 'coach') await DB.signUpCoach(nm, em, pw, '');
-        else await DB.signUpAthlete(nm, em, pw, st.role === 'athlete' ? cd : '');
+        if (st.role === 'coach') await DB.signUpCoach(nm, em, pw, '', consent);
+        else await DB.signUpAthlete(nm, em, pw, st.role === 'athlete' ? cd : '', consent);
         try { if (typeof sendWelcomeEmail === 'function') sendWelcomeEmail(em, nm, st.role === 'coach' ? 'coach' : 'athlete'); } catch (e) {}
         var session = await DB.getSession();
         haptic('success');

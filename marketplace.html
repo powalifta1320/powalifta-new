@@ -667,6 +667,8 @@ function renderReviewForm(host, program, existing) {
   const submit = el('button', { class: 'btn btn-primary' }, existing ? 'Update review' : 'Post review');
   submit.addEventListener('click', async () => {
     if (!picked) { toast('Pick a star rating first.'); return; }
+    const reviewText = checkUserText([ta.value.trim()]);   // public review: the content filter applies
+    if (!reviewText) return;
     submit.disabled = true;
     try {
       await DB.upsertProgramReview({
@@ -675,7 +677,7 @@ function renderReviewForm(host, program, existing) {
         buyerId: _currentUser.id,
         buyerName: _currentUser.name || 'Verified buyer',
         rating: picked,
-        body: ta.value.trim() || null
+        body: reviewText[0] || null
       });
       toast('Thanks. Your review is live.');
       renderReviews(program);

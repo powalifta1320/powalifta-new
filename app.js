@@ -8362,6 +8362,93 @@ function uiInstagramChip(handle, opts) {
 // letters, numbers, _ and ., never ending in a period), so it can only ever
 // open tiktok.com/@<handle>. '' = cleared, null = not a handle. Short links
 // (vm.tiktok.com/…) carry no handle, so they're refused rather than guessed.
+// ---- Content filter (Apple 1.2, 2026-10-19) ------------------------------------
+// Apps with user content need a filter, a report path, blocking and contact details.
+// Clubs already have report + block; this is the filter, used wherever someone types
+// text other people see: club posts and clubs, names, handles, coach bios, listings
+// and reviews. BLOCKED words (slurs, sexual content, threats) stop the text saving;
+// MASKED words (everyday swearing) save but show as f***. Each word is compared after
+// lower-casing, dropping accents and undoing number/symbol swaps (0→o 1→i 3→e 4→a 5→s
+// 7→t @→a $→s); every letter may repeat ("fuuuck"); letters typed one at a time
+// ("f u c k", "f.u.c.k") are joined first. Whole words only, so "class", "grape",
+// "Niger" and "Scunthorpe" pass. An entry ending in * matches any ending.
+// sql/migration-content-filter.sql enforces the same BLOCKED list on club text server-side.
+const FILTER_BLOCKED = [
+  'nigg*', 'sandnigg*', 'niga', 'nigas', 'fagg*', 'fag', 'fags', 'retard*', 'tranny', 'trannies', 'kike', 'kikes',
+  'spic', 'spics', 'chink', 'chinks', 'gook', 'gooks', 'wetback*', 'paki', 'pakis', 'raghead*', 'towelhead*',
+  'coon', 'coons', 'beaner*', 'cunt*', 'slut*', 'whore*', 'porn*', 'nudes', 'onlyfans', 'blowjob*',
+  'handjob*', 'dildo*', 'cum', 'cumshot*', 'rape', 'raped', 'rapes', 'raping', 'rapist', 'rapists', 'pedo',
+  'pedos', 'pedophil*', 'paedo', 'paedos', 'paedophil*', 'molest*', 'kys'
+];
+const FILTER_PHRASES = ['kill yourself', 'kill urself', 'kill your self', 'hang yourself', 'neck yourself', 'heil hitler', 'sieg heil'];
+const FILTER_MASKED = [
+  'fuck*', 'motherfuck*', 'fck', 'fcking', 'fuk', 'fuks', 'fukin*', 'fking', 'shit*', 'bullshit*', 'shite', 'bitch*',
+  'bastard*', 'asshole*', 'arsehole*', 'dick', 'dicks', 'dickhead*', 'piss', 'pissed', 'wank*', 'twat*', 'bollocks',
+  'prick', 'pricks', 'pussy', 'pussies', 'tits', 'titties', 'cock', 'cocks'
+];
+const FILTER_MSG = 'That has a word we don\'t allow on POWALIFTA. Please change it.';
+// "fuck" → f+u+c+k+ so stretched spellings match too; "nigg*" → n+i+g+g+[a-z]* (two g's: "Niger" passes).
+const _filterWord = (w) => w.replace(/\*$/, '').split('').map((ch) => ch + '+').join('') + (/\*$/.test(w) ? '[a-z]*' : '');
+const _FILTER_BLOCK_RE = new RegExp('^(?:' + FILTER_BLOCKED.map(_filterWord).join('|') + ')$');
+const _FILTER_MASK_RE = new RegExp('^(?:' + FILTER_MASKED.map(_filterWord).join('|') + ')$');
+const _FILTER_PHRASE_RES = FILTER_PHRASES.map((ph) => new RegExp(' ' + ph.split(' ').map(_filterWord).join(' ') + ' '));
+const _FILTER_LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '@': 'a', '$': 's' };
+function _filterNorm(word) {
+  return String(word).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[013457@$]/g, (c) => _FILTER_LEET[c]).replace(/[^a-z]/g, '');
+}
+// The words of a text with where each one sits, single letters typed one at a time joined up.
+function _filterScan(text) {
+  const s = String(text == null ? '' : text);
+  const toks = [], re = /[\p{L}\p{N}@$]+/gu;
+  let m;
+  while ((m = re.exec(s))) toks.push({ i: m.index, raw: m[0], n: _filterNorm(m[0]) });
+  const words = [];
+  for (let k = 0; k < toks.length; k++) {
+    if (toks[k].n.length === 1) {
+      let j = k;
+      while (j + 1 < toks.length && toks[j + 1].n.length === 1 && toks[j + 1].i - (toks[j].i + toks[j].raw.length) <= 2) j++;
+      if (j - k >= 2) { const parts = toks.slice(k, j + 1); words.push({ parts, n: parts.map((t) => t.n).join('') }); k = j; continue; }
+    }
+    words.push({ parts: [toks[k]], n: toks[k].n });
+  }
+  return { s, words };
+}
+function _filterMaskWords(s, words, test) {
+  const cuts = [];
+  words.forEach((w) => { if (w.n && test(w.n)) w.parts.forEach((p, idx) => cuts.push({ i: p.i, len: p.raw.length, first: idx === 0 })); });
+  if (!cuts.length) return s;
+  let out = '', at = 0;
+  cuts.sort((a, b) => a.i - b.i).forEach((c) => { out += s.slice(at, c.i) + (c.first ? s[c.i] : '*') + '*'.repeat(c.len - 1); at = c.i + c.len; });
+  return out + s.slice(at);
+}
+// { ok: true, text } with everyday swearing masked, or { ok: false } when the text holds a blocked word or phrase.
+function filterUserText(text) {
+  const { s, words } = _filterScan(text);
+  if (words.some((w) => w.n && _FILTER_BLOCK_RE.test(w.n))) return { ok: false };
+  const line = ' ' + words.map((w) => w.n).filter(Boolean).join(' ') + ' ';
+  if (_FILTER_PHRASE_RES.some((r) => r.test(line))) return { ok: false };
+  return { ok: true, text: _filterMaskWords(s, words, (n) => _FILTER_MASK_RE.test(n)) };
+}
+// For showing text written before the filter (or that got past it): blocked and masked words both starred.
+function maskUserText(text) {
+  const { s, words } = _filterScan(text);
+  return _filterMaskWords(s, words, (n) => _FILTER_BLOCK_RE.test(n) || _FILTER_MASK_RE.test(n));
+}
+// Check several fields at once: their filtered text, or null after telling the person to change it.
+// Pass { name: true } for names and handles, which are only ever blocked, never starred ("Dick" is a name).
+function checkUserText(values, opts) {
+  const out = [];
+  for (const v of values) {
+    const r = filterUserText(v);
+    if (!r.ok) { toast(FILTER_MSG); return null; }
+    out.push(opts && opts.name ? String(v == null ? '' : v) : r.text);
+  }
+  return out;
+}
+// A save the server refused because of the filter (sql/migration-content-filter.sql) reads as FILTER_MSG.
+function filterErrorText(e) { return /content_blocked/.test(String((e && (e.message || e.hint)) || e)) ? FILTER_MSG : ''; }
+
 function normalizeTikTok(v) {
   let s = String(v == null ? '' : v).trim();
   if (!s) return '';
@@ -8484,6 +8571,9 @@ function openProfileSheet(onSaved) {
       if (handle === null) { toast('That isn\'t an Instagram handle'); ig.focus(); return; }
       const ttHandle = normalizeTikTok(tt.value);
       if (ttHandle === null) { toast('That isn\'t a TikTok handle. Paste tiktok.com/@you or just @you'); tt.focus(); return; }
+      if (!checkUserText([nm, handle, ttHandle], { name: true })) return;
+      let bioText = bio ? bio.value.trim() : '';
+      if (bio) { const b = checkUserText([bioText]); if (!b) { bio.focus(); return; } bioText = b[0]; bio.value = bioText; }
       save.disabled = true;
       const done = (msg) => {
         window._user.name = nm; window._user.countryCode = sel.value || null;
