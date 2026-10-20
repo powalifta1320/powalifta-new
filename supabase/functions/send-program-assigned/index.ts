@@ -84,8 +84,10 @@ Deno.serve(async (req) => {
 
   const athleteEmail = String(payload?.athleteEmail || '').trim().toLowerCase();
   const athleteName = String(payload?.athleteName || '').trim();
-  const coachName = String(payload?.coachName || '').trim();
-  const programName = String(payload?.programName || '').trim();
+  // Both land in the subject line: no links, no line breaks, short.
+  const clean = (v: unknown) => String(v || '').replace(/https?:\/\/\S+/gi, '').replace(/[\r\n]+/g, ' ').trim().slice(0, 80);
+  const coachName = clean(payload?.coachName);
+  const programName = clean(payload?.programName);
 
   if (!athleteEmail || !athleteEmail.includes('@')) {
     return jsonResponse(400, { error: 'Invalid athlete email' });
@@ -117,7 +119,7 @@ Deno.serve(async (req) => {
     .from('profiles')
     .select('id')
     .eq('coach_id', caller.user.id)
-    .ilike('email', athleteEmail)
+    .ilike('email', athleteEmail.replace(/[\\%_]/g, '\\$&'))   // a literal match: no pattern characters
     .limit(1);
   if (!linked || !linked.length) {
     return jsonResponse(403, { error: 'Not your athlete' });

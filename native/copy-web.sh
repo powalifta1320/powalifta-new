@@ -41,6 +41,15 @@ rsync -a --delete \
   --exclude 'ds-bundle' \
   --exclude '.design-sync' \
   --exclude 'showreel' \
+  --exclude 'admin.html' \
+  --exclude 'codemagic.yaml' \
+  --exclude '* 2.*' \
+  --delete-excluded \
   "$ROOT/" "$DEST/"
 
+# The shell transmits no analytics (Apple 5.1.2): drop the Plausible tag from the bundled
+# pages rather than loading a remote script into the privileged WebView and muting it.
+for f in "$DEST"/*.html; do
+  sed -i '' -E '/<script[^>]*plausible\.io\/js\/script[^>]*><\/script>/d' "$f"
+done
 echo "Copied web app into $DEST"

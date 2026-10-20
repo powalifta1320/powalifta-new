@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- iPhone app: tag the document as native before first paint (same snippet as athlete.html). -->
+<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
 <title>Coach | POWALIFTA</title>
 <meta name="description" content="Powerlifting coach profile on POWALIFTA. See their programs, training philosophy, and athlete results.">
 <meta property="og:title" content="Coach on POWALIFTA">
@@ -357,7 +359,7 @@ async function renderCoachProfile() {
     tIn.appendChild(el('div', { class: 'section-title' },
       el('div', { class: 'section-tag' }, 'What lifters say'),
       el('h2', {}, 'Reviews from athletes who ran the programs'),
-      el('p', { class: 'dim' }, 'Verified buyers on the POWALIFTA marketplace.')
+      el('p', { class: 'dim web-only' }, 'Verified buyers on the POWALIFTA marketplace.')
     ));
     const tGrid = el('div', { class: 'cp-review-grid' });
     written.forEach(r => {

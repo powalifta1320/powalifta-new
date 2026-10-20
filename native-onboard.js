@@ -280,7 +280,7 @@
     // Minimum age 16 (privacy.html "Children"): a confirmation they tick, not a date of birth we'd have to keep.
     var ageBox = h('input', { class: 'ob-check-input', type: 'checkbox' });
     s3.appendChild(h('label', { class: 'ob-check' }, [ageBox, h('span', { class: 'ob-check-box', 'aria-hidden': 'true' }),
-      h('span', { class: 'ob-check-text', html: 'I\'m 16 or older and I agree to the <a href="terms.html">Terms</a> and <a href="privacy.html">Privacy Policy</a>.' })]));
+      h('span', { class: 'ob-check-text', html: 'I\'m 16 or older and I agree to the <a href="terms.html" onclick="window.open(\'https://www.powalifta.com/terms.html\',\'_blank\');return false">Terms</a> and <a href="privacy.html" onclick="window.open(\'https://www.powalifta.com/privacy.html\',\'_blank\');return false">Privacy Policy</a>.' })]));
     ageBox.addEventListener('change', function () { if (ageBox.checked) { err3.textContent = ''; haptic('light'); } });
     var err3 = h('div', { class: 'ob-err', role: 'alert' });
     s3.appendChild(err3);

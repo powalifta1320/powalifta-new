@@ -57,6 +57,14 @@ function getCurrentUser() {
 // Leaving for the welcome screen on purpose (signed out, stale session, deleted
 // account): forget the remembered role and tell index.html's launch script not to
 // route straight back into a dashboard.
+// A policy page from inside the iPhone app opens in Safari, so a sheet or paywall under
+// it survives; on the web the link just follows. Used as onclick="return openDoc(this)".
+function openDoc(a) {
+  if (!_isNativeShell()) return true;
+  try { window.open('https://www.powalifta.com/' + a.getAttribute('href'), '_blank'); } catch (e) {}
+  return false;
+}
+window.openDoc = openDoc;
 function _toWelcome() {
   try { localStorage.removeItem('powa-last-role'); sessionStorage.setItem('powa-no-autoroute', '1'); } catch (e) {}
   location.href = 'index.html';
@@ -70,14 +78,16 @@ function requireAuth(expectedType) {
   }
   return user;
 }
-async function logout() {
+// Everything of the outgoing user that lives on this device: the snapshot, the offline
+// write queue and the pending-set queue (they'd replay under the next account and be
+// rejected by RLS, burning the attempt counters), and the Home Screen widget.
+function _wipeLocalUserData() {
   try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
-  try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}   // the Home Screen widget forgets you too
-  // Wipe the offline write queue too: it holds the OUTGOING user's edits, keyed
-  // by their athlete id. Leaving it would replay their writes under the next
-  // user's session — RLS rejects them, the attempt counter burns up, and they're
-  // silently dropped while the new user sees bogus "couldn't sync" toasts.
-  try { localStorage.removeItem(_OUTBOX_KEY); localStorage.removeItem(_OUTBOX_ATTEMPTS_KEY); } catch (e) {}
+  try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
+  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+}
+async function logout() {
+  _wipeLocalUserData();
   try { await DB.signOut(); } catch (e) { console.warn(e); }
   window._user = null;
   Store.reset();
@@ -1288,7 +1298,7 @@ function ensureIapPaywall() {
         '<p class="faded text-xs center mt-12">Subscriptions are billed monthly through your Apple ID and renew ' +
           'automatically until cancelled in your App Store settings at least 24 hours before the period ends.</p>' +
         '<p class="faded text-xs center mt-8">' +
-          '<a href="terms.html" class="dim">Terms of Use</a> &nbsp;·&nbsp; <a href="privacy.html" class="dim">Privacy Policy</a>' +
+          '<a href="terms.html" class="dim" onclick="return openDoc(this)">Terms of Use</a> &nbsp;·&nbsp; <a href="privacy.html" class="dim" onclick="return openDoc(this)">Privacy Policy</a>' +
         '</p>' +
       '</div>' +
     '</div>';
@@ -3594,8 +3604,9 @@ function ensureDeleteAccountModal() {
       '<h3>Delete account</h3>' +
       '<p class="text-sm" style="line-height:1.6;color:var(--text-2)">This permanently erases your account and all your training data. <strong style="color:var(--text)">It cannot be undone.</strong></p>' +
       '<div style="margin:14px 0; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,0.02)">' +
-        '<p class="text-xs" style="line-height:1.65;margin:0;color:var(--text-3)"><strong style="color:var(--text-2)">Erased:</strong> your profile, programs, logs, bodyweight, goals, meets, messages, form-check videos, reviews, referrals, notifications and coaching links.<br><strong style="color:var(--text-2)">Kept (anonymized):</strong> past marketplace purchase records we\'re legally required to retain for tax. With your identity removed.</p>' +
+        '<p class="text-xs" style="line-height:1.65;margin:0;color:var(--text-3)"><strong style="color:var(--text-2)">Erased:</strong> your profile, programs, logs, bodyweight, goals, meets, messages, form-check videos, reviews, referrals, notifications and coaching links.<br><strong style="color:var(--text-2)">Kept (anonymized):</strong> past purchase records we\'re legally required to retain for tax. With your identity removed.</p>' +
       '</div>' +
+      '<p class="text-xs" style="line-height:1.6;margin:0 0 12px;color:var(--text-3)">Pay for a coach plan through the App Store? Deleting the account doesn\'t cancel that subscription — cancel it in <a href="https://apps.apple.com/account/subscriptions" target="_blank" rel="noopener">Settings → Apple ID → Subscriptions</a>.</p>' +
       '<p class="text-xs mb-8" style="color:var(--text-3)">Want a copy of your data first?</p>' +
       '<div class="flex gap-8 mb-16">' +
         '<button class="btn btn-block btn-ghost" onclick="exportMyData(\'json\')">Export JSON</button>' +
@@ -3637,7 +3648,7 @@ async function confirmDeleteMyAccount() {
   const res = await DB.deleteAccount();
   if (res && res.ok) {
     toast('Account deleted. Signing you out…');
-    try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (_) {}
+    _wipeLocalUserData();
     try { await DB.signOut(); } catch (_) {}
     _toWelcome();
     return;
@@ -4526,8 +4537,10 @@ function plateBreakdown(targetWeight, barOverride) {
 // =========================================================
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const buf = new Uint8Array(6);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(buf); else for (let i = 0; i < 6; i++) buf[i] = Math.floor(Math.random() * 256);
   let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) code += chars[buf[i] % chars.length];   // 32 symbols: no modulo bias
   return code;
 }
 
@@ -7454,6 +7467,7 @@ const YOU_ROW_META = {
   'Ask AI':              { tint: 'iris',   icon: () => _YI('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>') },
   'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
   'Units':               { tint: 'sky',    icon: () => ICONS.weight },
+  'Contact us':          { tint: 'green',  icon: () => ICONS.chat },
   'Share cards':         { tint: 'violet', icon: () => ICONS.share },
   'App icon':            { tint: 'gray',   icon: () => BRAND_MARK },
   'Replay the tour':     { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>') },
@@ -8230,6 +8244,26 @@ function strengthProjection(points, meetDate) {
   return { date: meetDate, value: v, perWeek: slope * 7 };
 }
 
+// Monotone cubic through the points, as cubic béziers: a curve that never overshoots a week.
+function _smoothPath(p) {
+  const n = p.length, f = (v) => v.toFixed(1);
+  if (n < 3) return p.map((q, i) => (i ? 'L' : 'M') + f(q[0]) + ' ' + f(q[1])).join(' ');
+  const d = [], m = [];
+  for (let i = 0; i < n - 1; i++) d.push((p[i + 1][1] - p[i][1]) / Math.max(1e-6, p[i + 1][0] - p[i][0]));
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
+    const a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b;
+    if (s > 9) { const t = 3 / Math.sqrt(s); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i]; }
+  }
+  let out = 'M' + f(p[0][0]) + ' ' + f(p[0][1]);
+  for (let i = 0; i < n - 1; i++) {
+    const dx = (p[i + 1][0] - p[i][0]) / 3;
+    out += ' C' + f(p[i][0] + dx) + ' ' + f(p[i][1] + m[i] * dx) + ' ' + f(p[i + 1][0] - dx) + ' ' + f(p[i + 1][1] - m[i + 1] * dx) + ' ' + f(p[i + 1][0]) + ' ' + f(p[i + 1][1]);
+  }
+  return out;
+}
 // The strength chart itself: one line in the series' colour, gold dots on PR weeks, an optional
 // dashed run to meet day, and a finger scrub that reads out any week (with a tick you feel).
 // opts: { color, width, fmt(v) → text, label(p) → readout html, projection, empty, prDots (default on) }
@@ -8247,23 +8281,26 @@ function uiStrengthChart(points, opts) {
   const X = (t) => padL + (W - padL - padR) * (t - xMin) / Math.max(1, xMax - xMin);
   const Y = (v) => padT + (H - padT - padB) * (1 - (v - yMin) / (yMax - yMin));
   const pts = points.map((p, i) => [X(tx[i]), Y(p.value)]);
-  const d = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
+  const d = _smoothPath(pts);
   const gid = 'scg' + Math.random().toString(36).slice(2, 8);
-  const lastP = pts[pts.length - 1];
+  const lastP = pts[pts.length - 1], latest = points[points.length - 1].value;
   const fmtD = (s) => { const dt = new Date(s + 'T00:00:00Z'); return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
-  const latest = points[points.length - 1].value;
   const aria = (opts.ariaLabel || 'Strength over time') + '. Latest ' + (opts.fmt ? opts.fmt(latest) : Math.round(latest)) + (proj ? ', about ' + (opts.fmt ? opts.fmt(proj.value) : Math.round(proj.value)) + ' by meet day' : '');
   let svg = '<svg class="sc-svg" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="' + escHtml(aria) + '">' +
-    '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity="0.28"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
+    '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity="0.36"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient>' +
+    '<filter id="' + gid + 'g" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="5"/></filter></defs>' +
     '<path d="' + d + ' L' + lastP[0].toFixed(1) + ' ' + (H - padB) + ' L' + pts[0][0].toFixed(1) + ' ' + (H - padB) + ' Z" fill="url(#' + gid + ')"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity="0.32" filter="url(#' + gid + 'g)"/>' +
     '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
   if (proj) {
     const px = X(Date.parse(proj.date + 'T00:00:00Z')), py = Y(proj.value);
     svg += '<path d="M' + lastP[0].toFixed(1) + ' ' + lastP[1].toFixed(1) + ' L' + px.toFixed(1) + ' ' + py.toFixed(1) + '" stroke="' + color + '" stroke-width="2" stroke-dasharray="4 5" stroke-linecap="round" opacity="0.6" fill="none"/>' +
       '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5" class="sc-hole" stroke="' + color + '" stroke-width="2"/>';
   }
-  if (opts.prDots !== false) points.forEach((p, i) => { if (p.pr) svg += '<circle class="sc-pr sc-ring" cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="4" fill="#f2c25b" stroke-width="2"/>'; });
-  svg += '<circle cx="' + lastP[0].toFixed(1) + '" cy="' + lastP[1].toFixed(1) + '" r="5" class="sc-ring" fill="' + color + '" stroke-width="2.5"/>';
+  if (opts.prDots !== false) points.forEach((p, i) => { if (p.pr) svg += '<circle cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="9" fill="#f2c25b" opacity="0.16"/><circle class="sc-pr sc-ring" cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="4.5" fill="#f2c25b" stroke-width="2"/>'; });
+  svg += '<circle class="sc-end-halo" cx="' + lastP[0].toFixed(1) + '" cy="' + lastP[1].toFixed(1) + '" r="9" fill="' + color + '"/>' +
+    '<circle cx="' + lastP[0].toFixed(1) + '" cy="' + lastP[1].toFixed(1) + '" r="5" class="sc-ring" fill="' + color + '" stroke-width="2.5"/>' +
+    '<text class="sc-last" x="' + (lastP[0] - 11).toFixed(1) + '" y="' + Math.max(padT + 2, lastP[1] - 12).toFixed(1) + '" text-anchor="end" fill="' + color + '">' + escHtml(opts.fmt ? opts.fmt(latest) : String(Math.round(latest))) + '</text>';
   svg += '<text class="sc-x" x="' + padL + '" y="' + (H - 6) + '" text-anchor="start">' + escHtml(fmtD(points[0].week)) + '</text>' +
     '<text class="sc-x" x="' + (W - padR) + '" y="' + (H - 6) + '" text-anchor="end">' + escHtml(proj ? 'Meet day' : fmtD(points[points.length - 1].week)) + '</text>';
   svg += '<g class="sc-cursor"><line x1="0" x2="0" y1="' + padT + '" y2="' + (H - padB) + '" stroke="currentColor" stroke-opacity="0.35" stroke-width="1"/><circle r="5.5" class="sc-ring" fill="' + color + '" stroke-width="2.5"/></g></svg>';

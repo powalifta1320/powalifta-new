@@ -11,7 +11,7 @@ here is drawn from the live product; edit to taste. Character limits noted inlin
 - **Bundle ID:** `com.powalifta.app` (matches `native/capacitor.config.json`)
 - **Primary category:** Health & Fitness
 - **Secondary category:** Sports
-- **Age rating:** 4+ (no objectionable content)
+- **Age rating:** 16+ (clubs + chat + a 16+ policy; see the age-rating section) (no objectionable content)
 - **Price:** Free, with three auto-renewable coach subscriptions via Apple In-App Purchase (see "In-App Purchase setup" below). Web billing (Lemon Squeezy) continues to exist for web signups — allowed under 3.1.3(b) because the same tiers are also purchasable in-app.
 
 ## Listing copy (paste into App Store Connect → App Information / Version)
@@ -88,6 +88,7 @@ New in 1.2
 - A calmer, cleaner design, TikTok on profiles and an automatic word filter in clubs
 - Progress: one strength chart with PR weeks in gold, drag to read, projected to meet day
 - Tap any exercise for its sets, last time, warm-up and form cues
+- Lift mode: the session as a full-screen player, one set at a time, the rest as a ring
 - A bigger PR moment, a lifter card that tilts with your phone, Story-size share cards
 - Meet day: hand in the next attempt on the clock, practise the referee's commands, and the app stops a heavy single in the last ten days
 - Your RPE, checked: which rep ranges you call easier than they are
@@ -113,18 +114,23 @@ Source of truth is `privacy.html`. Declare:
 | Coarse/precise location | No | — | — | — |
 | Financial info / payment | No | — | — | Card data never touches us — Lemon Squeezy is Merchant of Record |
 | Identifiers (device push token) | Yes | Yes | No | App functionality (push notifications) |
-| Usage data (analytics) | Yes | No | No | Analytics — Plausible, cookieless, no cross-app tracking |
+| Usage data (analytics) | No | — | — | Plausible is disabled inside the app (native-bridge.js; the bundle carries no analytics tag) |
+| Purchases (coach subscription status) | Yes | Yes | No | App functionality — Apple in-app subscription, from Apple's signed transaction; no card data |
+| User ID (account id) | Yes | Yes | No | App functionality — the account the data belongs to |
 
 **Tracking:** NO. The app does not track users across apps/sites. (Plausible is privacy-first + cookieless; declare "Data Not Used to Track You".)
 
 ## Screenshots (you capture from the running app — 6.7" + 6.1" iPhone required)
-Shot list — run the app (or powalifta.com on a phone), these screens sell it:
-1. **Today session** — a coach-programmed day with sets/RPE (the core loop).
-2. **Progress** — e1RM-over-time chart + strength score (DOTS/IPF GL).
-3. **Strength score card** — DOTS, weight class, best lifts.
-4. **Coach roster** (if pitching coaches) — the dashboard with attention flags.
-5. **Meet planner** — openers/seconds/thirds.
-Tip: use a real-looking demo account; hide any test data that looks fake.
+Shot list for 1.2 (captured from the simulator build in the athlete + coach demos; raw 1320×2868 in `native/store/raw-iphone-1.2/`):
+1. **Train** — the hero: the next set, the loaded bar, the RPE scale, Log set.
+2. **Lift mode** — the set as a full-screen player.
+3. **Rest ring** — Lift mode's rest with the next set under it.
+4. **PR moment** — the gold plate and the count-up.
+5. **Progress** — the strength chart with PR weeks and the meet projection.
+6. **Club feed** and 7. **Club board**.
+8. **Meet mode** — the minute: SAFE / PLAN / SEND.
+9. **Coach roster** and 10. **Program builder**.
+Tip: the demos are seeded with real-looking data; keep the status bar (9:41) and hide nothing.
 
 ## App Review notes (App Store Connect → submit)
 Fill in the demo account line first: sign up as a lifter on a spare email, join a public club, post a set, then paste the login here.
@@ -152,7 +158,6 @@ Live Activity: after a set is logged, the rest timer shows on the Lock Screen an
 ## Signing & capabilities checklist (Xcode — you drive)
 - [ ] Signing & Capabilities → select your Team (your Apple Developer account).
 - [ ] Add capability: **Push Notifications**.
-- [ ] Add capability: **Background Modes** → Remote notifications (for push).
 - [ ] Create an **APNs Auth Key (.p8)** in the Developer portal → Keys; note the
       Key ID + your Team ID. (These become the `send-push` secrets — see
       `docs/native-app-spike.md` Phase B. Not needed to UPLOAD, needed for push to

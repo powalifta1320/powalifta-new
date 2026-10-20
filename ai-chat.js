@@ -202,7 +202,9 @@
     }
     // today / what should I do
     if (/(today|next session|workout|train|what.*do)/.test(t)) {
-      if (!snap.program) return "You don't have an active program yet. If you're self-coaching, build one on the **Program** tab, or grab a proven block from the **Marketplace**.";
+      if (!snap.program) return document.documentElement.classList.contains('native')
+        ? "You don't have an active program yet. If you're self-coaching, build one on the **Program** tab."
+        : "You don't have an active program yet. If you're self-coaching, build one on the **Program** tab, or grab a proven block from the **Marketplace**.";
       return "Your program **" + esc(snap.program.name) + "** has " + snap.program.weeks + " week" + (snap.program.weeks === 1 ? '' : 's') +
         " loaded. Head to the **Today** tab. It surfaces the day pinned to today's date with every set, target RPE and a plate breakdown on tap.";
     }
@@ -307,6 +309,7 @@
       return "Tap any prescribed weight to open the **plate calculator**. It shows the exact plates per side for a 20kg bar (or 45lb in pound mode).";
     }
     if (/(marketplace|buy|sell|program.*sale|listing)/.test(t)) {
+      if (document.documentElement.classList.contains('native')) return 'Programs are shared with your athletes from the **Program** tab.';
       return role === 'coach'
         ? "List a program for sale from the **Marketplace** tab. Set a price and POWALIFTA handles checkout (Lemon Squeezy) and pays out your share."
         : "The **Marketplace** tab has coach-built programs you can buy. Filter by tier, sort by rating or price, and it loads straight into your dashboard.";

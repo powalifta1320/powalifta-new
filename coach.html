@@ -87,7 +87,7 @@
     <!-- TEMPLATES -->
     <section data-pane="templates" class="hidden">
       <div class="dash-header">
-        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete, or publish them for sale on the marketplace.</p></div>
+        <div><h2>Program templates</h2><p class="dim text-sm">Save finished programs as reusable templates. Apply to any athlete<span class="web-only">, or publish them for sale on the marketplace</span>.</p></div>
       </div>
       <div id="templatesArea"></div>
     </section>
@@ -498,7 +498,8 @@ function renderCoachYou() {
       { title: 'Settings', rows: youSettingsRows('coach', () => renderCoachYou()).concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
       { title: 'Help', rows: [
         { label: 'Ask AI', onClick: () => openAIAssistant() },
-        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() }
+        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() },
+        { label: 'Contact us', onClick: () => { location.href = 'mailto:powalifta1320@gmail.com'; } }
       ] },
       { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
     ]
@@ -542,7 +543,7 @@ function renderPlanPill() {
   // StoreKit IAP is confirmed live (window._iapReady) — displaying tiers is
   // 3.1.1-compliant exactly because they're purchasable in-app. Until/unless
   // IAP is available, stay tier-blind. native-bridge re-calls this on ready.
-  if (document.documentElement.classList.contains('native') && !window._iapReady) { pill.innerHTML = ''; return; }
+  if (document.documentElement.classList.contains('native') && (!window._iapReady || window._demoMode)) { pill.innerHTML = ''; return; }   // the demo can't buy, so no Upgrade to tap
   const tier = getCurrentTier();
   const limit = getCurrentTierLimit();
   const aCount = getAthleteCount(user.id);
@@ -2275,8 +2276,11 @@ function renderTemplates() {
     const actions = el('div', { class: 'tpl-actions' });
     const apply = el('button', { class: 'btn btn-sm btn-primary', onclick: () => openApplyTemplate(t) }, 'Apply');
     actions.appendChild(apply);
-    const pub = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => openPublishModal(t), title: 'List this template on the marketplace for solo athletes to buy' }, '↗ Publish');
-    actions.appendChild(pub);
+    // The marketplace is web-only (Apple 3.1.1): no Publish flow inside the shell.
+    if (!document.documentElement.classList.contains('native')) {
+      const pub = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => openPublishModal(t), title: 'List this template on the marketplace for solo athletes to buy' }, '↗ Publish');
+      actions.appendChild(pub);
+    }
     const del = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => { if (confirm('Delete template "' + t.name + '"?')) { Store.update(s => { s.programTemplates = s.programTemplates.filter(x => x.id !== t.id); }); await persistDeleteTemplate(t.id); renderTemplates(); }}});
     del.innerHTML = ICONS.trash;
     actions.appendChild(del);

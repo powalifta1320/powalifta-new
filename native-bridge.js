@@ -274,7 +274,8 @@
       try {
         P.PushNotifications.addListener('pushNotificationActionPerformed', function (action) {
           var url = action && action.notification && action.notification.data && action.notification.data.url;
-          if (url) { try { location.assign(url); } catch (e) {} }
+          // Only a path on our own origin: a push is server-filtered, but never trust it alone.
+          if (url) { try { var u = new URL(url, location.origin); if (u.origin === location.origin) location.assign(u.pathname + u.search); } catch (e) {} }
         });
       } catch (e) {}
     }

@@ -225,7 +225,7 @@ function mapJsTemplate(t) {
 }
 function mapDbLog(r) {
   return { id: r.id, athleteId: r.athlete_id, lift: r.lift, variant: r.variant || '', exerciseName: r.exercise_name || '',
-    weight: Number(r.weight), reps: r.reps, rpe: Number(r.rpe), e1rm: Number(r.e1rm), e1rmComp: Number(r.e1rm_comp),
+    weight: Number(r.weight), reps: Number(r.reps), rpe: Number(r.rpe), e1rm: Number(r.e1rm), e1rmComp: Number(r.e1rm_comp),
     note: r.note || '', date: r.date };
 }
 function mapJsLog(l) {
@@ -280,6 +280,9 @@ function mapJsNote(n) {
   return out;
 }
 // Marketplace program — db ↔ js shape
+// Every column but program_payload (sql/migration-security-2026-10-20.sql revokes it from
+// the public role; buyers, the owner and admins read it through get_marketplace_payload).
+const MP_COLS = 'category, coach_id, created_at, description, id, ls_checkout_url, ls_product_id, ls_variant_id, price_cents, reference_1rms, sold_count, status, tier, title, updated_at, week_count';
 function mapDbMarketplaceProgram(r) {
   return {
     id: r.id,
@@ -1714,12 +1717,12 @@ const DB = {
   async submitMarketplaceProgram(prog) {
     const payload = mapJsMarketplaceProgram(prog);
     if (!payload.id) delete payload.id; // let DB generate it
-    let { data, error } = await sb.from('marketplace_programs').insert(payload).select('*');
+    let { data, error } = await sb.from('marketplace_programs').insert(payload).select(MP_COLS);
     // If the taxonomy migration hasn't run yet the `category` column is
     // missing — drop it and retry so publishing still works pre-migration.
     if (error && payload.category && /category/i.test(error.message || '')) {
       delete payload.category;
-      ({ data, error } = await sb.from('marketplace_programs').insert(payload).select('*'));
+      ({ data, error } = await sb.from('marketplace_programs').insert(payload).select(MP_COLS));
     }
     if (error) throw error;
     return mapDbMarketplaceProgram(data[0]);
@@ -1755,7 +1758,7 @@ const DB = {
 
   // Public: list all published marketplace programs (anyone — signed in or not)
   async listPublishedPrograms({ tier, search } = {}) {
-    let q = sb.from('marketplace_programs').select('*').eq('status', 'published').order('sold_count', { ascending: false });
+    let q = sb.from('marketplace_programs').select(MP_COLS).eq('status', 'published').order('sold_count', { ascending: false });
     if (tier) q = q.eq('tier', tier);
     if (search) {
       // Match title OR description so search isn't title-only. Sanitize the term
@@ -1771,7 +1774,7 @@ const DB = {
   // Coach: list every marketplace program I've published (any status)
   async listMyPublishedPrograms(coachId) {
     const { data, error } = await sb.from('marketplace_programs')
-      .select('*')
+      .select(MP_COLS)
       .eq('coach_id', coachId)
       .order('created_at', { ascending: false });
     if (error) { console.warn('listMyPublishedPrograms', error); return []; }
@@ -1780,7 +1783,7 @@ const DB = {
 
   // Single program fetch for the buy page
   async getMarketplaceProgram(id) {
-    const { data, error } = await sb.from('marketplace_programs').select('*').eq('id', id).limit(1);
+    const { data, error } = await sb.from('marketplace_programs').select(MP_COLS).eq('id', id).limit(1);
     if (error) throw error;
     return (data && data[0]) ? mapDbMarketplaceProgram(data[0]) : null;
   },
@@ -1825,10 +1828,13 @@ const DB = {
 
     // Fetch the program payload (must be published — buyer reads via public RLS)
     const { data: progRows, error: progErr } = await sb.from('marketplace_programs')
-      .select('*').eq('id', marketplaceProgramId).limit(1);
+      .select(MP_COLS).eq('id', marketplaceProgramId).limit(1);
     if (progErr) throw progErr;
     if (!progRows || !progRows.length) throw new Error('Program not found or has been unpublished');
     const mp = mapDbMarketplaceProgram(progRows[0]);
+    const { data: payload, error: payErr } = await sb.rpc('get_marketplace_payload', { p_id: marketplaceProgramId });
+    if (payErr) throw payErr;
+    mp.programPayload = payload;
     if (!mp.programPayload || !mp.programPayload.weeks || !mp.programPayload.weeks.length) {
       throw new Error('Purchased program is empty (contact support).');
     }
@@ -2222,10 +2228,13 @@ const DB = {
   // Admin: every marketplace program (any status) — used by admin review queue
   async listAllMarketplaceProgramsAdmin() {
     const { data, error } = await sb.from('marketplace_programs')
-      .select('*')
+      .select(MP_COLS)
       .order('created_at', { ascending: false });
     if (error) { console.warn('listAllMarketplaceProgramsAdmin', error); return []; }
-    return (data || []).map(mapDbMarketplaceProgram);
+    const rows = (data || []).map(mapDbMarketplaceProgram);
+    // The review queue needs the payloads: the RPC hands them to an admin.
+    await Promise.all(rows.map(async r => { try { const { data: p } = await sb.rpc('get_marketplace_payload', { p_id: r.id }); r.programPayload = p || null; } catch (e) { r.programPayload = null; } }));
+    return rows;
   },
 
   // Admin: every sale (any status) — used for payout dashboard
@@ -2269,7 +2278,7 @@ const DB = {
     const buyerId = profs[0].id;
 
     const { data: progs, error: pErr } = await sb.from('marketplace_programs')
-      .select('*').eq('id', marketplaceProgramId).limit(1);
+      .select(MP_COLS).eq('id', marketplaceProgramId).limit(1);
     if (pErr) throw pErr;
     if (!progs || !progs.length) throw new Error('Marketplace program not found.');
     const prog = progs[0];

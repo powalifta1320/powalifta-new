@@ -128,6 +128,11 @@ Deno.serve(async (req) => {
 
     const event = payload?.meta?.event_name as string
     const data = payload?.data
+    // Test-mode events (the 4242 card) are signed exactly like live ones. They count only
+    // while LS_ALLOW_TEST=1 (checkouts are still in test mode); drop that secret at go-live.
+    if (payload?.meta?.test_mode === true && Deno.env.get('LS_ALLOW_TEST') !== '1') {
+      return jsonResponse(200, { ignored: event, reason: 'test_mode' })
+    }
     if (!event || !data) {
       console.warn('LS webhook: unexpected payload shape', { hasMeta: !!payload?.meta, hasData: !!data })
       return jsonResponse(400, { error: 'unexpected payload shape' })
@@ -238,7 +243,10 @@ Deno.serve(async (req) => {
       console.warn('LS webhook: coach is billed through Apple — ignored', { event })
       return jsonResponse(200, { ignored: event, reason: 'apple billing' })
     }
-    if (event !== 'subscription_created' && profileRow.ls_subscription_id && profileRow.ls_subscription_id !== subscriptionId) {
+    // ...and a NEW subscription under this email can't push aside one that is still live:
+    // anyone can type a coach's email at checkout (ECC security pass, 2026-10-20).
+    if (profileRow.ls_subscription_id && profileRow.ls_subscription_id !== subscriptionId &&
+        (event !== 'subscription_created' || profileRow.subscription_status === 'active')) {
       console.warn('LS webhook: event for a different subscription — ignored', { event })
       return jsonResponse(200, { ignored: event, reason: 'other subscription' })
     }

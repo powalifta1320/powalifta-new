@@ -135,7 +135,12 @@ self.addEventListener('push', event => {
 // Tapping the notification focuses an existing tab on that URL, or opens a new one.
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || '/athlete.html';
+  // Same-origin paths only, whatever the payload said (a linked coach writes the url).
+  let target = '/athlete.html';
+  try {
+    const u = new URL((event.notification.data && event.notification.data.url) || target, self.location.origin);
+    if (u.origin === self.location.origin) target = u.pathname + u.search;
+  } catch (_) { /* keep the default */ }
 
   event.waitUntil((async () => {
     const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });

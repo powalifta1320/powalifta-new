@@ -1389,6 +1389,9 @@ function buildTodayHero(cur) {
   const exRow = el('div', { class: 'tx-ex-row' });
   exRow.appendChild(el('div', { class: 'tdh-ex' }, isMain ? el('span', { class: 'lift-dot lift-' + next.ex.lift, 'aria-hidden': 'true' }) : null, exTitleOf(next.ex)));
   exRow.appendChild(el('span', { class: 'tx-setof', 'aria-label': 'Set ' + (next.si + 1) + ' of ' + next.ex.sets.length + ', ' + done + ' of ' + total + ' sets done today' }, 'Set ' + (next.si + 1) + ' of ' + next.ex.sets.length));
+  const lm = el('button', { class: 'tx-lift', type: 'button', 'aria-label': 'Lift mode: one set at a time, full screen', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>' });
+  lm.addEventListener('click', () => openLiftMode());
+  exRow.appendChild(lm);
   hero.appendChild(exRow);
 
   const s = next.set;
@@ -1612,12 +1615,41 @@ function weighInRow() {
     if (spark) row.appendChild(el('span', { class: 'tx-weigh-spark', html: spark }));
     row.addEventListener('click', () => { const t = document.getElementById('tab-bodyweight'); if (t) t.click(); });
   } else {
-    body.appendChild(el('span', { class: 'tn-title' }, 'Morning weigh-in'));
-    body.appendChild(el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
+    // Not weighed in yet: the last number is already on the dial. Nudge by 0.1 and log,
+    // one tap when nothing changed. The title opens the full sheet (another date).
+    const quick = el('div', { class: 'today-note tn-row tx-weigh is-quick' });
+    const top = el('button', { class: 'tw-top', type: 'button' });
+    top.appendChild(el('span', { class: 'tn-ic tx-weigh-ic', 'aria-hidden': 'true', html: ICONS.scale }));
+    const tb = el('span', { class: 'tn-body' });
+    tb.appendChild(el('span', { class: 'tn-title' }, 'Morning weigh-in'));
+    tb.appendChild(el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
       : prev ? 'Last ' + formatWeight(prev.weight) + ' · ' + _relDay(prev.date) : 'Start your bodyweight trend'));
-    row.appendChild(body);
-    row.appendChild(el('span', { class: 'btn btn-sm tn-act', 'aria-hidden': 'true' }, 'Log'));
-    row.addEventListener('click', () => openWeighInSheet(() => renderToday()));
+    top.appendChild(tb);
+    top.addEventListener('click', () => openWeighInSheet(() => renderToday()));
+    quick.appendChild(top);
+    let v = prev ? Number(kgToDisplay(prev.weight, 1)) : (getUnit() === 'lbs' ? 180 : 80);
+    const bar = el('div', { class: 'tw-quick' });
+    const val = el('b', { class: 'tw-val', 'aria-live': 'polite' });
+    const paintV = () => { val.innerHTML = v.toFixed(1) + '<small>' + unitLabel() + '</small>'; };
+    const nudge = (d) => { v = Math.round(Math.min(450, Math.max(20, v + d)) * 10) / 10; hapticTick(); paintV(); };
+    const minus = el('button', { class: 'tw-btn', type: 'button', 'aria-label': 'Down 0.1' }, '−');
+    const plus = el('button', { class: 'tw-btn', type: 'button', 'aria-label': 'Up 0.1' }, '+');
+    minus.addEventListener('click', () => nudge(-0.1));
+    plus.addEventListener('click', () => nudge(0.1));
+    const save = el('button', { class: 'btn btn-sm tn-act tw-save', type: 'button' }, 'Log');
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      const ok = await saveBodyweightEntry(today, displayToKg(v));
+      if (!ok) { save.disabled = false; return; }
+      toast('Weigh-in saved · ' + v.toFixed(1) + ' ' + unitLabel());
+      hapticTap('MEDIUM');
+      renderToday();
+      try { if (typeof renderAthleteYou === 'function') renderAthleteYou(); } catch (e) {}
+    });
+    paintV();
+    bar.appendChild(minus); bar.appendChild(val); bar.appendChild(plus); bar.appendChild(save);
+    quick.appendChild(bar);
+    return quick;
   }
   return row;
 }
@@ -2474,6 +2506,7 @@ function renderToday() {
   if (rail) area.appendChild(rail);
   cur.day.exercises.forEach(ex => area.appendChild(buildExerciseCard(ex, cur, prog, nextKey)));
   if (window._exDetailRefresh) window._exDetailRefresh();   // an open exercise detail shows the same sets
+  if (window._liftModeRefresh) window._liftModeRefresh();   // and so does lift mode
 }
 
 // What the bouncer says about this set, or null. Needs a meet date within ten days and
@@ -3273,6 +3306,180 @@ async function shareWrapSlide(sl, year) {
   x.fillText('POWALIFTA · ' + year, W / 2, H - 140);
   await shareCardFromCanvas(c, 'powalifta-' + year + '.png', 'My ' + year + ' in lifting · powalifta.com');
 }
+
+// ===== LIFT MODE (2026-10-20): the session as a player for the gym floor =====
+// One set at a time in signage type: the lift, the bar, reps and target; the RPE scale
+// and one slab to log it (or swipe up); then the rest as a full-screen ring with the
+// next set under it, moving on by itself when the rest ends. The screen stays awake.
+// Same data as Train: logging goes through toggleSet, so the list, the Live Activity
+// and the club sync follow; renderToday calls window._liftModeRefresh after each log.
+let _liftWake = null;
+async function _liftWakeOn() {
+  try {
+    if ('wakeLock' in navigator && !_liftWake) {
+      _liftWake = await navigator.wakeLock.request('screen');
+      _liftWake.addEventListener('release', () => { _liftWake = null; });
+    }
+  } catch (e) {}
+}
+function _liftWakeOff() { try { if (_liftWake) { _liftWake.release(); _liftWake = null; } } catch (e) {} }
+// The set that's up next, or { done: true } once every set is in.
+function _liftNext() {
+  const cur = getCurrentDay();
+  if (!cur) return null;
+  for (const ex of cur.day.exercises) {
+    const si = ex.sets.findIndex(s => !s.completed);
+    if (si >= 0) return { cur, ex, si, set: ex.sets[si] };
+  }
+  return { cur, done: true };
+}
+// Self-coached lifters type the load: one stepper, one Save.
+function promptSetWeight(ex, si, onDone) {
+  const cur = getCurrentDay();
+  const prev = ex.sets.slice(0, si).reverse().find(s => Number(s.weight) > 0);
+  let w = prev ? Number(kgToDisplay(prev.weight, 1)) : (getUnit() === 'lbs' ? 135 : 60);
+  uiSheet('Set ' + (si + 1) + ' · ' + exTitleOf(ex), (sheet, close) => {
+    sheet.appendChild(uiStepper({ value: w, step: getUnit() === 'lbs' ? 5 : 2.5, min: 0, max: 700, input: true, suffix: unitLabel(), label: 'weight', cls: 'bw-stepper', onChange: (v) => { w = v; } }));
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save');
+    save.addEventListener('click', () => {
+      const kg = w > 0 ? displayToKg(w) : 0;
+      Store.update(s => {
+        const p = s.programs.find(p => p.athleteId === user.id);
+        const wk = p && p.weeks.find(x => String(x.id) === String(cur.week.id));
+        const d = wk && wk.days.find(x => String(x.id) === String(cur.day.id));
+        const e2 = d && d.exercises.find(e => e.id === ex.id);
+        if (e2 && e2.sets[si]) e2.sets[si].weight = kg;
+      });
+      persistProgram(getProgram().id);
+      close(); renderToday(); if (onDone) onDone();
+    });
+    sheet.appendChild(save);
+  });
+}
+function openLiftMode() {
+  if (!getCurrentDay()) return;
+  const root = el('div', { class: 'lift-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Lift mode' });
+  document.documentElement.classList.add('meet-mode-open');
+  let tick = null;
+  const onVis = () => { if (document.visibilityState === 'visible') _liftWakeOn(); };
+  const close = () => {
+    clearInterval(tick); window._liftModeRefresh = null;
+    document.removeEventListener('visibilitychange', onVis); _liftWakeOff();
+    root.remove(); document.documentElement.classList.remove('meet-mode-open');
+  };
+  document.addEventListener('visibilitychange', onVis);
+  document.body.appendChild(root);
+  _liftWakeOn();
+
+  const setView = (n) => {
+    const { ex, si, set } = n;
+    const isMain = MAIN_LIFTS.includes(ex.lift), isCardio = ex.lift === 'cardio';
+    const selfCoached = (getProgram() || {}).coachId === user.id;
+    const stage = el('div', { class: 'lm-stage lift-' + (isMain ? ex.lift : 'acc') });
+    stage.appendChild(el('div', { class: 'lm-lift' }, exTitleOf(ex)));
+    const sm = isCardio ? null : smartFor(ex, si);
+    const kg = sm ? sm.kg : Number(set.weight) || 0;
+    const num = el('button', { class: 'lm-num', type: 'button', 'aria-label': isCardio ? set.weight + ' minutes' : (kg > 0 ? formatWeight(kg) + ' for ' + set.reps + '. Plates' : 'Enter the weight') });
+    if (isCardio) num.innerHTML = '<b>' + escHtml(String(set.weight)) + '</b><small>min</small>';
+    else num.innerHTML = (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>× ' + escHtml(String(set.reps)) + '</i>';
+    num.addEventListener('click', () => { if (!isCardio && !(kg > 0) && selfCoached) promptSetWeight(ex, si); else if (kg > 0) openPlateCalc(kg); });
+    stage.appendChild(num);
+    if (!isCardio && kg > 0) stage.appendChild(el('div', { class: 'lm-bar', 'aria-hidden': 'true', html: uiBarbell(kg) }));
+    const meta = [];
+    if (set.rpe != null && set.rpe !== '') meta.push('Target RPE ' + set.rpe);
+    if (sm) meta.push(sm.fromKg > 0 ? (sm.delta > 0 ? '+' : '−') + kgToDisplay(Math.abs(sm.delta)) + ' ' + unitLabel() + ' from the plan' : 'From today\'s sets');
+    if (ex.note) meta.push(ex.note);
+    if (meta.length) stage.appendChild(el('div', { class: 'lm-meta' }, meta.join(' · ')));
+    const key = ex.id + '_' + si;
+    const scale = isCardio ? null : uiRpeScale(feltRpeFor(ex, si), (r) => { _feltRpe[key] = r; }, { cls: 'lm-rpe', target: set.rpe, empty: 'How hard was it?' });
+    const doLog = () => {
+      const r = scale ? scale.getValue() : feltRpeFor(ex, si);
+      if (scale && r == null) { scale.nudge(); return; }
+      if (!isCardio && !(kg > 0) && selfCoached && isMain) { promptSetWeight(ex, si); return; }
+      toggleSet(ex.id, si, true, { rpe: r });
+    };
+    const foot = el('div', { class: 'lm-foot' });
+    if (scale) foot.appendChild(scale);
+    const log = el('button', { class: 'lm-log', type: 'button' }, 'Log set');
+    uiFastTap(log, doLog);
+    foot.appendChild(log);
+    stage.appendChild(foot);
+    // A swipe up anywhere on the stage logs it too (chalk, no aiming).
+    let y0 = null;
+    stage.addEventListener('touchstart', (e) => { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+    stage.addEventListener('touchend', (e) => {
+      if (y0 != null && y0 - e.changedTouches[0].clientY > 90 && !e.target.closest('.lm-rpe, .lm-num, .lm-log')) doLog();
+      y0 = null;
+    }, { passive: true });
+    return stage;
+  };
+
+  const restView = (n) => {
+    const stage = el('div', { class: 'lm-stage lm-rest' });
+    stage.appendChild(el('div', { class: 'lm-lift' }, restPausedMs != null ? 'Paused' : 'Rest'));
+    const C = 2 * Math.PI * 88;
+    const ring = el('div', { class: 'lm-ring', role: 'timer', 'aria-label': 'Rest' });
+    ring.innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true"><circle class="lmr-track" cx="100" cy="100" r="88"/><circle class="lmr-prog" cx="100" cy="100" r="88" stroke-dasharray="' + C.toFixed(1) + '"/></svg>';
+    const num = el('b', { class: 'lm-rest-num' });
+    ring.appendChild(num);
+    stage.appendChild(ring);
+    const sm = n.ex.lift === 'cardio' ? null : smartFor(n.ex, n.si);
+    const kg = sm ? sm.kg : Number(n.set.weight) || 0;
+    stage.appendChild(el('div', { class: 'lm-next' }, 'Next · ' + shortExTitle(n.ex) + ' · ' + (kg > 0 ? formatWeight(kg) + ' × ' : '') + n.set.reps + (n.set.rpe ? ' @ ' + n.set.rpe : '')));
+    const acts = el('div', { class: 'lm-rest-acts' });
+    [['−15', () => restAdjust(-15)], ['+30', () => restAdjust(30)], [restPausedMs != null ? 'Go' : 'Pause', () => restTogglePause()], ['Skip', () => stopRestTimer()]].forEach(([t, fn]) => {
+      const b = el('button', { type: 'button' }, t);
+      b.addEventListener('click', () => { fn(); hapticTick(); paint(); });
+      acts.appendChild(b);
+    });
+    stage.appendChild(acts);
+    const prog = ring.querySelector('.lmr-prog');
+    const refresh = () => {
+      if (restInterval == null) { paint(); return; }   // the rest ended (or was skipped): on to the set
+      const rem = restRemainingMs();
+      num.textContent = restFmt(rem / 1000);
+      prog.style.strokeDashoffset = (C * (1 - (restTotalMs > 0 ? Math.max(0, Math.min(1, rem / restTotalMs)) : 0))).toFixed(1);
+    };
+    refresh();
+    tick = setInterval(refresh, 250);
+    return stage;
+  };
+
+  const doneView = (cur) => {
+    const rows = cur.day.exercises.flatMap(e => e.sets.filter(s => s.completed && e.lift !== 'cardio'));
+    const ton = rows.reduce((a, s) => a + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0);
+    const stage = el('div', { class: 'lm-stage lm-done' });
+    stage.appendChild(el('div', { class: 'lm-lift' }, 'Session done'));
+    stage.appendChild(el('div', { class: 'lm-num', html: '<b>' + rows.length + '</b><small>sets</small>' }));
+    if (ton > 0) stage.appendChild(el('div', { class: 'lm-meta' }, Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved'));
+    const foot = el('div', { class: 'lm-foot' });
+    const back = el('button', { class: 'lm-log', type: 'button' }, 'Back to Train');
+    back.addEventListener('click', close);
+    foot.appendChild(back);
+    stage.appendChild(foot);
+    return stage;
+  };
+
+  const paint = () => {
+    clearInterval(tick);
+    root.innerHTML = '';
+    const n = _liftNext();
+    if (!n) { close(); return; }
+    const all = n.cur.day.exercises.flatMap(e => e.sets), done = all.filter(s => s.completed).length;
+    const head = el('div', { class: 'lm-head' });
+    const x = el('button', { class: 'mm-x', type: 'button', 'aria-label': 'Leave lift mode', html: ICONS.x });
+    x.addEventListener('click', close);
+    head.appendChild(x);
+    head.appendChild(el('div', { class: 'lm-count' }, n.done ? n.cur.day.name : 'Set ' + (done + 1) + ' of ' + all.length));
+    head.appendChild(el('span', {}));
+    root.appendChild(head);
+    root.appendChild(el('div', { class: 'lm-prog', 'aria-hidden': 'true' }, el('i', { style: 'transform: scaleX(' + (all.length ? done / all.length : 0).toFixed(3) + ')' })));
+    root.appendChild(n.done ? doneView(n.cur) : (restInterval != null ? restView(n) : setView(n)));
+  };
+  window._liftModeRefresh = paint;
+  paint();
+}
+window.openLiftMode = openLiftMode;
 
 // ===== COMMANDS (2026-10-20): a referee in your pocket =====
 // Prop the phone up. Your partner taps when the bar is settled (or on the chest, or
@@ -4114,7 +4321,8 @@ function renderAthleteYou() {
       { title: 'Help', rows: [
         { label: 'Ask AI', onClick: () => openAIAssistant() },
         { label: 'Lifting words, explained', onClick: () => openGlossary() },
-        { label: 'Replay the tour', onClick: () => window.replayAthleteTour && window.replayAthleteTour() }
+        { label: 'Replay the tour', onClick: () => window.replayAthleteTour && window.replayAthleteTour() },
+        { label: 'Contact us', onClick: () => { location.href = 'mailto:powalifta1320@gmail.com'; } }
       ] },
       { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
     ]
@@ -5020,25 +5228,6 @@ function renderProgOverview(area, logs) {
   if (sub.children.length) hero.appendChild(sub);
   area.appendChild(hero);   // the trend lives in the strength chart below, so no sparkline here
 
-  // The three lifts. The sub line is the set that earned the number.
-  const prs = getLifetimePRs(user.id);
-  area.appendChild(uiLabel('Lifts'));
-  area.appendChild(uiList(['squat', 'bench', 'deadlift'].map(lift => {
-    const now = lastPt[lift] || 0;
-    const dot = el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' });
-    if (!now) return uiRow({ lead: dot, title: LIFT_LABELS[lift], sub: 'Not logged yet' });
-    const pr = prs[lift];
-    const before = prevPt ? prevPt[lift] : 0;
-    const d = before ? Math.round(kgToDisplay(now - before)) : 0;
-    return uiRow({
-      lead: dot,
-      title: LIFT_LABELS[lift],
-      sub: pr ? kgToDisplay(pr.weight) + ' × ' + pr.reps + ' @ RPE ' + pr.rpe : null,
-      endHtml: (d ? '<span class="' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') +
-        '<b>' + Math.round(kgToDisplay(now)) + '</b>' + u
-    });
-  })));
-
   // UI v8: one big strength chart (app.js uiStrengthChart). Chips pick the total or a lift,
   // PR weeks are gold dots, drag to read any week; with a meet date the total runs on to it.
   area.appendChild(uiLabel('Strength'));
@@ -5087,6 +5276,25 @@ function renderProgOverview(area, logs) {
     chips.appendChild(b);
   });
   draw();
+
+  // The three lifts. The sub line is the set that earned the number.
+  const prs = getLifetimePRs(user.id);
+  area.appendChild(uiLabel('Lifts'));
+  area.appendChild(uiList(['squat', 'bench', 'deadlift'].map(lift => {
+    const now = lastPt[lift] || 0;
+    const dot = el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' });
+    if (!now) return uiRow({ lead: dot, title: LIFT_LABELS[lift], sub: 'Not logged yet' });
+    const pr = prs[lift];
+    const before = prevPt ? prevPt[lift] : 0;
+    const d = before ? Math.round(kgToDisplay(now - before)) : 0;
+    return uiRow({
+      lead: dot,
+      title: LIFT_LABELS[lift],
+      sub: pr ? kgToDisplay(pr.weight) + ' × ' + pr.reps + ' @ RPE ' + pr.rpe : null,
+      endHtml: (d ? '<span class="' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') +
+        '<b>' + Math.round(kgToDisplay(now)) + '</b>' + u
+    });
+  })));
 
   // This week, in three numbers.
   const wk = mondayOf(new Date());
@@ -5705,7 +5913,7 @@ async function exportProgramAsImage(weekNumber) {
   // Weeks → days → exercises → sets
   weeksToRender.forEach(wk => {
     html += '<div style="margin-bottom: 24px; padding: 18px 20px; background: #111114; border: 1px solid #25252c; border-radius: 14px;">';
-    html +=   '<div style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800; font-size: 20px; letter-spacing: 0.02em; margin-bottom: 14px; color: #f4f4f6;">WEEK ' + wk.number + '</div>';
+    html +=   '<div style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800; font-size: 20px; letter-spacing: 0.02em; margin-bottom: 14px; color: #f4f4f6;">WEEK ' + escHtml(String(wk.number)) + '</div>';
 
     if (!wk.days.length) {
       html += '<div style="color:#82828c; font-size: 15px;">No days yet.</div>';
@@ -5728,8 +5936,8 @@ async function exportProgramAsImage(weekNumber) {
           }
           ex.sets.forEach((set, si) => {
             const w = (set.weight != null && set.weight !== '' && set.weight !== 0) ? (kgToDisplay(set.weight) + ' ' + unitLabel()) : '–';
-            const reps = (set.reps != null && set.reps !== '') ? set.reps : '–';
-            const rpe = (set.rpe != null && set.rpe !== '') ? '@ RPE ' + set.rpe : '';
+            const reps = (set.reps != null && set.reps !== '') ? escHtml(String(set.reps)) : '–';
+            const rpe = (set.rpe != null && set.rpe !== '') ? '@ RPE ' + escHtml(String(set.rpe)) : '';
             html += '<div style="font-family:var(--font-num); font-size: 13px; color: #b8b8c0; padding: 3px 0;">';
             html +=   '<span style="color: #82828c; margin-right: 8px;">Set ' + (si + 1) + '</span>';
             html +=   '<span style="color: #f4f4f6; font-weight: 600;">' + w + ' × ' + reps + '</span>';

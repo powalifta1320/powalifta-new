@@ -138,7 +138,13 @@ Deno.serve(async (req) => {
   // a same-origin PATH: accept only a leading-slash relative path; anything else
   // (absolute http(s):, javascript:, //host) falls back to the safe default.
   const _rawUrl = clip(payload.url, 300) || '/athlete.html'
-  let url = (/^\/[^/]/.test(_rawUrl)) ? _rawUrl : '/athlete.html'
+  let url = '/athlete.html'
+  try {
+    // Parse against our origin and keep only a same-origin path: "/\\evil.com" or a control
+    // character in the path would otherwise resolve off-site in the browser.
+    const u = new URL(_rawUrl, 'https://www.powalifta.com')
+    if (u.origin === 'https://www.powalifta.com' && !/[\\\u0000-\u001f]/.test(_rawUrl)) url = u.pathname + u.search
+  } catch (_) { /* the default */ }
   let tag = clip(payload.tag, 60) || 'powa'
   let category = clip(payload.category, 30) // 'messages' | 'form_checks' | 'program' | 'buddy' | ''
   if (!toUserId) return json({ error: 'toUserId required' }, 400)
@@ -242,7 +248,9 @@ Deno.serve(async (req) => {
   if (webSubs.length) {
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
     const notification = JSON.stringify(notif)
+    const PUSH_HOST = /^https:\/\/(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com|web\.push\.apple\.com)\//i
     await Promise.all(webSubs.map(async (s: any) => {
+      if (!PUSH_HOST.test(String(s.endpoint || ''))) { dead.push(s.id); return }   // a stored endpoint that isn't a push service: never contacted, pruned
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
@@ -262,6 +270,7 @@ Deno.serve(async (req) => {
     try {
       const jwt = await apnsJwt()
       await Promise.all(iosSubs.map(async (s: any) => {
+        if (!/^[0-9a-f]{64,200}$/i.test(String(s.endpoint || ''))) { dead.push(s.id); return }   // APNs tokens are hex
         const r = await sendApns(jwt, s.endpoint, notif)
         if (r === 'sent') sent++
         else if (r === 'dead') dead.push(s.id)

@@ -192,6 +192,16 @@ Deno.serve(async (req) => {
           message: 'Give the assistant a moment between questions.',
         });
       }
+      // One ceiling for everyone: many accounts can't multiply the bill past this.
+      const all = await rateLimit(admin, {
+        bucket: 'ai-chat-global', identity: 'all', windowSecs: 86400, limit: Number(Deno.env.get('AI_GLOBAL_DAILY_CAP') || 1500),
+      });
+      if (!all.ok && !all.degraded) {
+        return jsonResponse(429, {
+          error: 'Busy today',
+          message: 'The assistant has had a big day. It resets tomorrow.',
+        });
+      }
     } catch (e) {
       // Don't hard-fail the chat if the meter hiccups; just log it.
       console.error('rate-limit check failed:', e);

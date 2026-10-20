@@ -11431,3 +11431,59 @@ body.powa-app .xd-cues .exlib-block { margin-bottom: 16px; }
 .ld-d.is-ok { color: var(--ok, #34d982); }
 .ld-d.is-ok svg { width: 18px; height: 18px; vertical-align: -3px; }
 .ld-note { margin: 10px 4px 0; font-size: 13px; line-height: 1.45; color: var(--text-3); }
+
+/* 14. Lift mode (athlete.html openLiftMode): the session as a player for the gym floor,
+   in the slab language. */
+.tx-lift { width: 34px; height: 34px; flex: none; margin-left: 8px; border: 0; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.08)); color: var(--text-2); display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press, 150ms) var(--ease-out-quint, ease-out); }
+.tx-lift svg { width: 16px; height: 16px; }
+.tx-lift:active { transform: scale(0.92); }
+.lift-mode { position: fixed; inset: 0; z-index: 150; display: flex; flex-direction: column; background: var(--bg); color: var(--text); padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px calc(env(safe-area-inset-bottom, 0px) + 12px); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: contain; }
+.lm-head { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; min-height: 52px; }
+.lm-count { text-align: center; font-family: var(--slab-num); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.lm-prog { height: 4px; margin-top: 2px; background: var(--fill-2); }
+.lm-prog i { display: block; height: 100%; background: var(--text); transform-origin: left center; transition: transform 0.3s var(--ease-out-quint, ease-out); }
+.lm-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding-top: 10px; text-align: center; }
+.lm-lift { font-family: var(--slab-word); font-stretch: 70%; font-weight: 900; font-size: 26px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--lc, var(--text)); }
+.lm-num { border: 0; padding: 0; background: none; color: var(--text); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lm-num b { font-family: var(--slab-num); font-size: min(28vw, 136px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.lm-num b.dim { color: var(--text-3); }
+.lm-num small { margin-left: 5px; font-family: var(--slab-word); font-stretch: 70%; font-weight: 900; font-size: 24px; text-transform: uppercase; color: var(--text-3); }
+.lm-num i { display: block; margin-top: 2px; font-family: var(--slab-num); font-style: normal; font-size: 38px; font-weight: 700; color: var(--text-2); }
+.lm-bar { height: 80px; }
+.lm-bar svg { height: 100%; width: auto; }
+.lm-meta { max-width: 340px; font-size: 15px; line-height: 1.4; color: var(--text-3); }
+.lm-foot { width: 100%; max-width: 480px; margin-top: auto; display: grid; gap: 10px; }
+.lm-log { min-height: 68px; border: 0; border-top: 4px solid var(--brand-red); background: var(--fill-1); color: var(--text); font-family: var(--slab-word); font-stretch: 70%; font-weight: 900; font-size: 24px; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lm-log:active { background: var(--text); color: var(--bg); }
+.lm-ring { position: relative; width: min(62vw, 270px); aspect-ratio: 1; }
+.lm-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.lmr-track { fill: none; stroke: var(--fill-2); stroke-width: 10; }
+.lmr-prog { fill: none; stroke: var(--text); stroke-width: 10; transition: stroke-dashoffset 0.25s linear; }
+.lm-rest-num { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--slab-num); font-size: min(16vw, 72px); font-weight: 700; font-variant-numeric: tabular-nums; }
+.lm-next { font-size: 17px; font-weight: 650; color: var(--text-2); }
+.lm-rest-acts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; max-width: 480px; margin-top: auto; }
+.lm-rest-acts button { min-height: 60px; border: 0; border-top: 4px solid var(--fill-3); background: var(--fill-1); color: var(--text); font-family: var(--slab-word); font-stretch: 70%; font-weight: 900; font-size: 18px; text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lm-rest-acts button:active { background: var(--text); color: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .lmr-prog, .lm-prog i { transition: none; } }
+
+/* 15. Web-only bits (the marketplace and anything billed outside the App Store) never show in the shell. */
+html.native .web-only { display: none !important; }
+
+/* 16. Polish round (2026-10-20): the rail's first chip was snapping to the scrollport's edge
+   (the rail is edge to edge), the chart breathes, weigh-ins are one tap on Train. */
+.tx-rail, .today-strip { scroll-padding-inline: 16px; }
+.sc-svg .sc-end-halo { opacity: 0.32; transform-box: fill-box; transform-origin: center; animation: scPulse 2.6s var(--ease-out-quint, ease-out) infinite; }
+@keyframes scPulse { 0% { transform: scale(0.5); opacity: 0.45; } 100% { transform: scale(2.6); opacity: 0; } }
+.sc-last { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sc-svg .sc-last { paint-order: stroke; stroke: var(--bg-1); stroke-width: 4px; stroke-linejoin: round; }
+body.powa-app .today-note.tn-row.tx-weigh.is-quick { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 10px; }
+.tw-top .tn-body { flex: 1; min-width: 0; }
+.tw-top .tn-title { white-space: nowrap; }
+.tw-top { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tw-quick { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px auto; align-items: center; gap: 8px; }
+.tw-btn { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.08)); color: var(--text); font-size: 22px; font-weight: 500; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press, 150ms) var(--ease-out-quint, ease-out); }
+.tw-btn:active { transform: scale(0.9); }
+.tw-val { text-align: center; font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tw-val small { margin-left: 3px; font-family: var(--font-body); font-stretch: normal; font-size: 13px; font-weight: 600; color: var(--text-3); }
+.tw-save { min-width: 64px; }
+@media (prefers-reduced-motion: reduce) { .sc-svg .sc-end-halo { animation: none; } }

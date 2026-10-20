@@ -80,6 +80,11 @@ Deno.serve(async (req) => {
     catch (e) { return jsonResponse(400, { error: 'invalid JSON' }) }
 
     const event = payload?.meta?.event_name as string
+    // Test-mode events (the 4242 card) are signed exactly like live ones. They count only
+    // while LS_ALLOW_TEST=1 (checkouts are still in test mode); drop that secret at go-live.
+    if (payload?.meta?.test_mode === true && Deno.env.get('LS_ALLOW_TEST') !== '1') {
+      return jsonResponse(200, { ignored: event, reason: 'test_mode' })
+    }
     // We handle one-time order creation + refunds here. Subscription events go to ls-webhook.
     if (event !== 'order_created' && event !== 'order_refunded') {
       return jsonResponse(200, { ignored: event })
@@ -183,6 +188,15 @@ Deno.serve(async (req) => {
         error: 'buyer not found',
         hint: 'The email used at checkout must match an existing POWALIFTA account. Have them sign up first, then try again.'
       })
+    }
+
+    // The program id came from the checkout URL (editable), so the paid variant and the
+    // amount must match the program, and the order must actually be paid.
+    if (event === 'order_created') {
+      if (String(attrs.status || '') !== 'paid') return jsonResponse(200, { ignored: event, reason: 'not paid' })
+      const paidVariant = String(attrs?.first_order_item?.variant_id ?? '')
+      if (program.ls_variant_id && paidVariant !== String(program.ls_variant_id)) return jsonResponse(400, { error: 'variant does not match the program' })
+      if (totalCents < Number(program.price_cents || 0)) return jsonResponse(400, { error: 'amount below the program price' })
     }
 
     // Split: coach 80%, platform 20%

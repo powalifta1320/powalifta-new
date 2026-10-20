@@ -135,7 +135,8 @@ Deno.serve(async (req) => {
   // we stored (a REFUND / EXPIRED notification) is old news, not a new grant.
   const signedMs = Number(payload.signedDate ?? 0) || Date.now();
   const storedMs = Date.parse(String(profile.subscription_updated_at ?? "")) || 0;
-  if (profile.apple_original_transaction_id && storedMs && signedMs < storedMs) {
+  // ...whatever the stored id says: clearing it must not reopen the door to a replayed JWS.
+  if (storedMs && signedMs < storedMs) {
     return json(200, { ok: true, tier: profile.subscription_tier, unchanged: "older_than_last_event" });
   }
 

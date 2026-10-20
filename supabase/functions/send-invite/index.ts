@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     .from('invites')
     .select('code, created_at')
     .eq('coach_id', caller.user.id)
-    .ilike('email', athleteEmail)
+    .ilike('email', athleteEmail.replace(/[\\%_]/g, '\\$&'))   // a literal match: no pattern characters
     .eq('used', false)
     .order('created_at', { ascending: false })
     .limit(1);

@@ -45,13 +45,16 @@ export interface RateOpts {
   windowSecs: number;   // window length in seconds
 }
 
-// Best-effort client IP. Supabase/Cloud fronts requests with x-forwarded-for;
-// the first hop is the real client. Never throws — returns 'unknown' if absent.
+// Best-effort client IP. The edge is fronted by Cloudflare, whose cf-connecting-ip is
+// set by the proxy itself; x-forwarded-for is appended to, so its FIRST entry is whatever
+// the client sent (spoofable) — take the last hop instead. Never throws.
 export function clientIp(req: Request): string {
   try {
+    const cf = (req.headers.get('cf-connecting-ip') || '').trim();
+    if (cf) return cf.slice(0, 64);
     const xff = req.headers.get('x-forwarded-for') || '';
-    const first = xff.split(',')[0].trim();
-    if (first) return first.slice(0, 64);
+    const hops = xff.split(',').map(s => s.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1].slice(0, 64);
     const real = (req.headers.get('x-real-ip') || '').trim();
     if (real) return real.slice(0, 64);
   } catch { /* fall through */ }

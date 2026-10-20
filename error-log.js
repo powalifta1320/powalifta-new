@@ -84,7 +84,7 @@
     var entry = {
       kind: kind,
       ts: new Date().toISOString(),
-      url: location.href,
+      url: location.origin + location.pathname,   // never the query/hash: recovery and unsubscribe tokens live there
       ua: (navigator.userAgent || '').slice(0, 200),
       msg: payload.msg,
       stack: payload.stack ? String(payload.stack).slice(0, 4000) : null,

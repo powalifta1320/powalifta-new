@@ -120,14 +120,19 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let productId = call.getString("productId") else {
             call.reject("productId required"); return
         }
-        let token = call.getString("appAccountToken").flatMap { UUID(uuidString: $0) }
+        // The token binds the receipt to THIS account server-side; without it the buyer would
+        // pay and get no plan. And only our three products are ever bought here.
+        guard let token = call.getString("appAccountToken").flatMap({ UUID(uuidString: $0) }) else {
+            call.reject("appAccountToken required"); return
+        }
+        guard Self.productIds.contains(productId) else { call.reject("unknown_product"); return }
         Task {
             do {
                 guard let product = try await Product.products(for: [productId]).first else {
                     call.reject("unknown_product"); return
                 }
                 var options: Set<Product.PurchaseOption> = []
-                if let token = token { options.insert(.appAccountToken(token)) }
+                options.insert(.appAccountToken(token))
                 let result = try await product.purchase(options: options)
                 switch result {
                 case .success(let verification):
