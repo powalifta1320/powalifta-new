@@ -2466,7 +2466,7 @@ function renderToday() {
   if (noteForToday) {
     const coach = (Store.get().coaches || []).find(c => c.id === user.coachId);
     const coachName = coach ? coach.name : 'Your coach';
-    const n = el('button', { class: 'today-note tn-row', type: 'button', 'aria-expanded': 'false' });
+    const n = el('button', { class: 'today-note tn-row tn-note', type: 'button', 'aria-expanded': 'false' });
     const av = el('span', { class: 'ui-av tn-av', 'data-name': coachName }, initials(coachName));
     if (coach && coach.avatarUrl) av.innerHTML = '<img src="' + escHtml(coach.avatarUrl) + '" alt="">';
     n.appendChild(av);
@@ -2484,7 +2484,7 @@ function renderToday() {
   if (sessionDate === todayISO()) dayRows.push(weighInRow());
   dayRows.push(weekGoalRow());
   if (!submitted && user.coachId) {
-    const c = el('div', { class: 'today-note tn-row' });
+    const c = el('div', { class: 'today-note tn-row tn-checkin' });
     c.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg></span>' +
       '<span class="tn-body"><span class="tn-title">Weekly check-in</span><span class="tn-text tn-one">30 seconds for your coach</span></span>';
     const b = el('button', { class: 'btn btn-sm tn-act', type: 'button' }, 'Check in');
@@ -3313,7 +3313,7 @@ async function shareWrapSlide(sl, year) {
 // next set under it, moving on by itself when the rest ends. The screen stays awake.
 // Same data as Train: logging goes through toggleSet, so the list, the Live Activity
 // and the club sync follow; renderToday calls window._liftModeRefresh after each log.
-let _liftWake = null;
+let _liftWake = null, _lmBarKg = null;
 async function _liftWakeOn() {
   try {
     if ('wakeLock' in navigator && !_liftWake) {
@@ -3377,6 +3377,10 @@ function openLiftMode() {
     const selfCoached = (getProgram() || {}).coachId === user.id;
     const stage = el('div', { class: 'lm-stage lift-' + (isMain ? ex.lift : 'acc') });
     stage.appendChild(el('div', { class: 'lm-lift' }, exTitleOf(ex)));
+    // One dot per set of this exercise: done, this one, still to come.
+    const dots = el('div', { class: 'lm-dots', 'aria-label': 'Set ' + (si + 1) + ' of ' + ex.sets.length });
+    ex.sets.forEach((x, k) => dots.appendChild(el('i', { class: x.completed ? 'is-done' : k === si ? 'is-now' : '' })));
+    stage.appendChild(dots);
     const sm = isCardio ? null : smartFor(ex, si);
     const kg = sm ? sm.kg : Number(set.weight) || 0;
     const num = el('button', { class: 'lm-num', type: 'button', 'aria-label': isCardio ? set.weight + ' minutes' : (kg > 0 ? formatWeight(kg) + ' for ' + set.reps + '. Plates' : 'Enter the weight') });
@@ -3384,7 +3388,7 @@ function openLiftMode() {
     else num.innerHTML = (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>× ' + escHtml(String(set.reps)) + '</i>';
     num.addEventListener('click', () => { if (!isCardio && !(kg > 0) && selfCoached) promptSetWeight(ex, si); else if (kg > 0) openPlateCalc(kg); });
     stage.appendChild(num);
-    if (!isCardio && kg > 0) stage.appendChild(el('div', { class: 'lm-bar', 'aria-hidden': 'true', html: uiBarbell(kg) }));
+    if (!isCardio && kg > 0) { stage.appendChild(el('div', { class: 'lm-bar', 'aria-hidden': 'true', html: uiBarbell(kg, { from: _lmBarKg }) })); _lmBarKg = kg; }
     const meta = [];
     if (set.rpe != null && set.rpe !== '') meta.push('Target RPE ' + set.rpe);
     if (sm) meta.push(sm.fromKg > 0 ? (sm.delta > 0 ? '+' : '−') + kgToDisplay(Math.abs(sm.delta)) + ' ' + unitLabel() + ' from the plan' : 'From today\'s sets');
@@ -3398,7 +3402,16 @@ function openLiftMode() {
       if (!isCardio && !(kg > 0) && selfCoached && isMain) { promptSetWeight(ex, si); return; }
       toggleSet(ex.id, si, true, { rpe: r });
     };
+    // What follows this set, so the next load is already in your head.
+    const after = (() => {
+      const nx = ex.sets[si + 1];
+      if (nx) return 'Then · ' + (Number(nx.weight) > 0 ? formatWeight(nx.weight) + ' × ' : '') + nx.reps + (nx.rpe ? ' @ ' + nx.rpe : '');
+      const exs = n.cur.day.exercises, i = exs.indexOf(ex);
+      const ne = exs.slice(i + 1).find(e => e.sets.some(s2 => !s2.completed));
+      return ne ? 'Then · ' + exTitleOf(ne) : 'Then · session done';
+    })();
     const foot = el('div', { class: 'lm-foot' });
+    foot.appendChild(el('div', { class: 'lm-then' }, after));
     if (scale) foot.appendChild(scale);
     const log = el('button', { class: 'lm-log', type: 'button' }, 'Log set');
     uiFastTap(log, doLog);
