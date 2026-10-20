@@ -197,7 +197,14 @@
       if (!isNative || !P) return false;
       try { return !!(await P.set({ name: name || '' })).ok; } catch (e) { return false; }
     },
-    // One snapshot of display-ready strings for the Total widget; fire-and-forget.
+    // What the widgets queued while the app was away (weigh-ins logged from the Home
+    // Screen) and the powalifta:// URL that opened the app, cleared on read.
+    takeWidgetPending: async function () {
+      var P = plugins().PowaWidget;
+      if (!isNative || !P || !P.takePending) return null;
+      try { return await P.takePending(); } catch (e) { return null; }
+    },
+    // One snapshot of display-ready strings for the widgets; fire-and-forget.
     // null clears it (sign-out, account deletion): the widget shows its empty state.
     updateWidget: function (snapshot) {
       var P = plugins().PowaWidget;

@@ -4371,12 +4371,53 @@ function syncHomeWidget() {
         session = cur.day.name;
         if (all.length) sets = all.filter(s => s.completed).length + ' of ' + all.length + ' sets';
       }
-      let meet = null;
-      try { const md = localStorage.getItem('powa-meet-date'); const dd = md ? daysUntil(md) : null; if (dd != null && dd >= 0) meet = dd === 0 ? 'Meet day' : dd + (dd === 1 ? ' day out' : ' days out'); } catch (e) {}
+      let meet = null, meetDays = null, openers = null;
+      try {
+        const md = localStorage.getItem('powa-meet-date'); const dd = md ? daysUntil(md) : null;
+        if (dd != null && dd >= 0) {
+          meet = dd === 0 ? 'Meet day' : dd + (dd === 1 ? ' day out' : ' days out'); meetDays = dd;
+          const pl = getMeetPlan(getMeetStrategy()).lifts;
+          openers = { squat: pl.squat ? n(pl.squat.attempts[0]) : null, bench: pl.bench ? n(pl.bench.attempts[0]) : null, deadlift: pl.deadlift ? n(pl.deadlift.attempts[0]) : null };
+        }
+      } catch (e) {}
+      const allSets = cur ? cur.day.exercises.flatMap(e => e.sets || []) : [];
+      const wk = weekGoalStatusNow();
+      const bwl = _bwSeries(), lastBw = bwl[bwl.length - 1];
       PowaNative.updateWidget({ total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
-        deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now() });
+        deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now(),
+        setsDone: allSets.filter(s => s.completed).length, setsTotal: allSets.length,
+        weekDone: wk.done || 0, weekGoal: getWeekGoal() || defaultWeekGoal(), streak: wk.streak || 0,
+        meetDays, openers,
+        lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()) });
     } catch (e) {}
   }, 600);
+}
+
+// Weigh-ins logged from the Home Screen widget, and the powalifta:// URL a widget (or the
+// Live Activity) opened the app with. Runs on boot and whenever the app comes back.
+let _drainingWidget = false;
+async function drainWidgetPending() {
+  if (!(window.PowaNative && PowaNative.isNative()) || window._demoMode || _drainingWidget) return;
+  if (typeof user === 'undefined' || !user) return;
+  _drainingWidget = true;
+  try {
+    const r = await PowaNative.takeWidgetPending();
+    if (!r) return;
+    let saved = 0;
+    for (const w of (r.weighins || [])) {
+      const v = Number(w.value);
+      if (!(v > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(String(w.date || ''))) continue;
+      const kg = w.unit === 'lbs' ? v * KG_PER_LB : v;
+      if (await saveBodyweightEntry(w.date, kg)) saved++;
+    }
+    if (saved) { toast(saved === 1 ? 'Weigh-in from your widget saved' : saved + ' weigh-ins from your widget saved'); renderToday(); try { renderAthleteYou(); } catch (e) {} }
+    const open = String(r.open || '');
+    if (/^powalifta:\/\/lift/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => { try { openLiftMode(); } catch (e) {} }, 350); }
+    else if (/^powalifta:\/\/weigh/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => openWeighInSheet(() => renderToday()), 350); }
+    else if (/^powalifta:\/\/meet/.test(open)) { setTimeout(() => { try { (meetLiveToday() ? openMeetMode : openMeetSheet)(); } catch (e) {} }, 350); }
+    else if (/^powalifta:\/\/(train|rest)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
+  } catch (e) { console.warn('widget pending', e); }
+  finally { _drainingWidget = false; }
 }
 
 // ===== REST TIMER =====
@@ -4649,7 +4690,9 @@ function _nativeRestApply(d) {
   const p = nativeRestPlugin();
   if (!p || typeof p.addListener !== 'function') return; // web build: no-op
   try { p.addListener('restAction', _nativeRestApply); } catch (e) {}
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') drainLockScreenLogs(); });
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { drainLockScreenLogs(); drainWidgetPending(); } });
+  try { if (window.PowaNative && PowaNative.isNative()) { const P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PowaWidget; if (P && P.addListener) P.addListener('widgetOpen', () => drainWidgetPending()); } } catch (e) {}
+  setTimeout(drainWidgetPending, 1500);
   setTimeout(drainLockScreenLogs, 1500);   // cold start: sets logged while the app was closed
   setTimeout(drainLockScreenLogs, 5000);   // …and again once a slow sign-in has loaded the program
   document.addEventListener('visibilitychange', function () {

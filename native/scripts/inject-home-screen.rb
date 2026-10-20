@@ -65,8 +65,10 @@ end
   ensure_source(app_group, app_target, File.join(APP_DIR, f))
 end
 FileUtils.mkdir_p(WIDGET_DIR)
-FileUtils.cp(File.join(SRC, "Widget", "PowaHomeWidget.swift"), File.join(WIDGET_DIR, "PowaHomeWidget.swift"))
-ensure_source(widget_group, widget_target, File.join(WIDGET_DIR, "PowaHomeWidget.swift"))
+%w[PowaHomeWidget.swift PowaWidgets.swift PowaWidgetIntents.swift].each do |f|
+  FileUtils.cp(File.join(SRC, "Widget", f), File.join(WIDGET_DIR, f))
+  ensure_source(widget_group, widget_target, File.join(WIDGET_DIR, f))
+end
 puts "[inject-home] AppIconPlugin + WidgetBridgePlugin (App) and PowaHomeWidget (PowaWidget) in place."
 
 # ---- 3. App Group on both targets' entitlements (merged in, never overwritten) ---------
@@ -145,6 +147,19 @@ end
 
 project.save
 puts "[inject-home] project saved."
+
+# ---- 4b. the powalifta:// scheme (widgets and the Live Activity open the app with it) --
+app_plist = File.join(APP_DIR, "Info.plist")
+if File.exist?(app_plist)
+  plist = Xcodeproj::Plist.read_from_path(app_plist)
+  types = Array(plist["CFBundleURLTypes"])
+  unless types.any? { |t| Array(t["CFBundleURLSchemes"]).include?("powalifta") }
+    types << { "CFBundleURLName" => "com.powalifta.app", "CFBundleURLSchemes" => ["powalifta"] }
+    plist["CFBundleURLTypes"] = types
+    Xcodeproj::Plist.write_to_path(plist, app_plist)
+  end
+  puts "[inject-home] Info.plist: powalifta:// URL scheme registered."
+end
 
 # ---- 5. register the plugin classes (cap sync regenerates this list) ---------------
 cfg_path = File.join(APP_DIR, "capacitor.config.json")

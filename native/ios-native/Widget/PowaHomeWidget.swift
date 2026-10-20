@@ -21,8 +21,25 @@ struct PowaSnapshot: Codable {
     var sets: String?
     var meet: String?
     var at: Double?
+    // 2026-10-20, for the Session / Week / Meet / Weigh-in widgets (all optional: an older
+    // app build writes fewer fields and the widgets degrade to their empty states).
+    var setsDone: Int?
+    var setsTotal: Int?
+    var weekDone: Int?
+    var weekGoal: Int?
+    var streak: Int?
+    var meetDays: Int?
+    var openers: Openers?
+    var lastWeight: String?
+    var weighedToday: Bool?
 
-    static let suite = "group.com.powalifta.app"
+    struct Openers: Codable {
+        var squat: String?
+        var bench: String?
+        var deadlift: String?
+    }
+
+    static let suite = PowaStore.suite
     static let key = "powa.widget.snapshot"
 
     static func load() -> PowaSnapshot? {
@@ -32,6 +49,22 @@ struct PowaSnapshot: Codable {
 
     static let sample = PowaSnapshot(total: "593", unit: "kg", squat: "207", bench: "134", deadlift: "252",
                                      session: "Squat day", sets: "1 of 3 sets", meet: nil, at: nil)
+}
+
+/// The App Group keys the widgets and WidgetBridgePlugin share (keep the plugin in sync).
+enum PowaStore {
+    static let suite = "group.com.powalifta.app"
+    static var defaults: UserDefaults? { UserDefaults(suiteName: suite) }
+    static let draftKey = "powa.weigh.draft"          // Double, display units, the weigh-in widget's dial
+    static let loggedKey = "powa.weigh.loggedDate"    // "YYYY-MM-DD": logged from the widget today
+    static let pendingKey = "powa.widget.pending"     // JSON [{date, value, unit}] the app still has to save
+    static func todayISO() -> String {
+        let f = DateFormatter(); f.calendar = Calendar(identifier: .gregorian); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = .current; f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+    static func nextMidnight() -> Date {
+        Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 0, minute: 0, second: 10), matchingPolicy: .nextTime) ?? Date().addingTimeInterval(6 * 3600)
+    }
 }
 
 struct PowaEntry: TimelineEntry {
@@ -55,13 +88,13 @@ struct PowaProvider: TimelineProvider {
 }
 
 // The lift identity colours the app uses everywhere (styles.css --lift-*).
-private enum Lift {
+enum Lift {
     static let squat = Color(red: 0.220, green: 0.776, blue: 1.0)      // #38c6ff
     static let bench = Color(red: 0.663, green: 0.545, blue: 1.0)      // #a98bff
     static let deadlift = Color(red: 1.0, green: 0.749, blue: 0.235)   // #ffbf3c
 }
 
-private struct LiftCell: View {
+struct LiftCell: View {
     let name: String
     let color: Color
     let value: String
@@ -80,7 +113,7 @@ private struct LiftCell: View {
     }
 }
 
-private struct Wordmark: View {
+struct Wordmark: View {
     var body: some View {
         Text("POWALIFTA")
             .font(.system(.caption2, design: .rounded).weight(.heavy))

@@ -22,11 +22,32 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "WidgetBridgePlugin"
     public let jsName = "PowaWidget"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takePending", returnType: CAPPluginReturnPromise)
     ]
 
     static let suite = "group.com.powalifta.app"
     static let key = "powa.widget.snapshot"
+    // Shared with the widget extension (PowaHomeWidget.swift: PowaStore). Keep in sync.
+    static let draftKey = "powa.weigh.draft"
+    static let loggedKey = "powa.weigh.loggedDate"
+    static let pendingKey = "powa.widget.pending"
+
+    // The powalifta:// URL a widget (or the Live Activity) opened the app with. Capacitor
+    // posts it on open; the app collects it with takePending and routes it in JS.
+    private var launchURL: String?
+
+    override public func load() {
+        NotificationCenter.default.addObserver(forName: Notification.Name.capacitorOpenURL, object: nil, queue: .main) { [weak self] note in
+            var url: URL?
+            if let dict = note.object as? [String: Any] { url = dict["url"] as? URL }
+            if url == nil, let dict = note.userInfo { url = dict["url"] as? URL }
+            if let u = url, u.scheme == "powalifta" {
+                self?.launchURL = u.absoluteString
+                self?.notifyListeners("widgetOpen", data: ["url": u.absoluteString])
+            }
+        }
+    }
 
     @objc func update(_ call: CAPPluginCall) {
         let json = call.getString("json") ?? ""
@@ -36,13 +57,33 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
               let defaults = UserDefaults(suiteName: Self.suite) else { call.resolve(["ok": false, "reason": "no app group"]); return }
         if json.isEmpty || json == "{}" {
             defaults.removeObject(forKey: Self.key)
+            defaults.removeObject(forKey: Self.draftKey)
+            defaults.removeObject(forKey: Self.loggedKey)
         } else {
             guard json.utf8.count <= 8192 else { call.resolve(["ok": false, "reason": "too big"]); return }
             defaults.set(json, forKey: Self.key)
+            // The app's number is the truth: the weigh-in dial restarts from it, and a
+            // widget-logged day the app has now saved stops reading as "logged" here.
+            if let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let lw = obj["lastWeight"] as? String, let v = Double(lw) { defaults.set(v, forKey: Self.draftKey) }
+                if (obj["weighedToday"] as? Bool) == true { defaults.removeObject(forKey: Self.loggedKey) }
+            }
         }
         #if canImport(WidgetKit)
         if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
         #endif
         call.resolve(["ok": true])
+    }
+
+    /// Everything the widgets queued while the app was away, and the URL that opened it.
+    /// Both are cleared on read: { weighins: [{date, value, unit}], open: "powalifta://…" | null }.
+    @objc func takePending(_ call: CAPPluginCall) {
+        var out: [String: Any] = ["weighins": [], "open": NSNull()]
+        if let d = UserDefaults(suiteName: Self.suite) {
+            if let data = d.data(forKey: Self.pendingKey), let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] { out["weighins"] = arr }
+            d.removeObject(forKey: Self.pendingKey)
+        }
+        if let u = launchURL { out["open"] = u; launchURL = nil }
+        call.resolve(out)
     }
 }
