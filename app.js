@@ -20,7 +20,8 @@ const defaultStore = () => ({
   messages: [],
   meets: [],
   checkinQuestions: [],
-  checkinAnswers: []
+  checkinAnswers: [],
+  programBlocks: []
 });
 
 const Store = {
@@ -446,6 +447,19 @@ function _buildCoachDemoData() {
   // middling, Tom has gone quiet and his last answers were rough (pain on two days).
   const ciQs = CHECKIN_STARTERS.map((q, i) => Object.assign({ id: 'demo-ciq-' + i, coachId: DC, athleteIds: null, position: i, active: true, createdAt: daysAgo(30) + 'T12:00:00Z' }, q, { choices: q.choices || null }));
   const ciAs = [];
+  // Arjun's block before this one, kept when this one started: the five weeks of his log above
+  // (one squat triple went heavier than written), after a set of tested triples the week before.
+  [['squat', 195, 46], ['bench', 127.5, 48], ['deadlift', 240, 50]].forEach(([lift, wgt, off]) => workoutLogs.push({
+    id: 'demo-clog-' + (seq++), athleteId: 'demo-a1', lift, variant: 'Competition', exerciseName: '', weight: wgt, reps: 3, rpe: 9,
+    e1rm: calcE1RM(wgt, 3, 9), e1rmComp: calcCompE1RM(wgt, 3, 9, lift, 'Competition'), date: daysAgo(off), note: '' }));
+  const pastWeeks = [5, 4, 3, 2, 1].map((w, wi) => ({ id: 'demo-pbw-' + w, number: wi + 1, days: [['squat', 'Squat Day'], ['bench', 'Bench Day'], ['deadlift', 'Deadlift Day']].map(([lift, name], di) => {
+    const date = daysAgo(w * 7 + di * 2);
+    const sets = workoutLogs.filter(l => l.athleteId === 'demo-a1' && l.lift === lift && l.date === date).map((l, si) => ({
+      id: 'demo-pbs-' + w + lift + si, weight: l.weight, reps: l.reps, rpe: l.rpe, completed: true,
+      actualRpe: l.rpe + (w === 3 && lift === 'squat' && si === 2 ? 1 : 0), completedAt: date }));
+    return { id: 'demo-pbd-' + w + lift, name, exercises: [{ id: 'demo-pbe-' + w + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets }] };
+  }) }));
+  const programBlocks = [{ id: 'demo-blk-1', athleteId: 'demo-a1', coachId: DC, name: 'Volume Block', weeks: pastWeeks, maxes: null, stats: blockStats(pastWeeks), startedOn: daysAgo(39), endedOn: daysAgo(7), createdAt: daysAgo(6) + 'T09:00:00Z' }];
   const ans = (qi, a, d, num, text) => ciAs.push({ id: 'demo-cia-' + ciAs.length, questionId: 'demo-ciq-' + qi, athleteId: a, coachId: DC,
     period: qi === 3 ? _monISO(daysAgo(d)) : daysAgo(d), num: num == null ? null : num, text: text || null });
   for (let d = 0; d < 10; d++) {
@@ -460,7 +474,7 @@ function _buildCoachDemoData() {
   return {
     user: user,
     store: {
-      checkinQuestions: ciQs, checkinAnswers: ciAs,
+      checkinQuestions: ciQs, checkinAnswers: ciAs, programBlocks,
       coaches: [], athletes, invites, programs, programTemplates,
       workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages, meets: [],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
@@ -6009,14 +6023,14 @@ function programMaxKg(prog, athleteId, lift) {
 // Work every % set in a block out for one lifter, from their best estimated max per lift.
 // Accessories have no max here: their % stays as written, the weight as it was.
 // Returns how many sets got a load and the lifts that had no max yet.
-function applyPctLoads(weeks, athleteId, unit) {
+function applyPctLoads(weeks, athleteId, unit, maxes) {
   const out = { filled: 0, noMax: [] };
   const maxOf = {};
   (weeks || []).forEach(wk => (wk.days || []).forEach(d => (d.exercises || []).forEach(ex => {
     if (!['squat', 'bench', 'deadlift'].includes(ex.lift)) return;
     (ex.sets || []).forEach(s => {
       if (s.pct == null || s.pct === '' || s.completed) return;
-      if (!(ex.lift in maxOf)) maxOf[ex.lift] = typeof bestE1RM === 'function' ? bestE1RM(athleteId, ex.lift) : 0;
+      if (!(ex.lift in maxOf)) maxOf[ex.lift] = (maxes && Number(maxes[ex.lift]) > 0) ? Number(maxes[ex.lift]) : (typeof bestE1RM === 'function' ? bestE1RM(athleteId, ex.lift) : 0);
       const kg = pctLoadKg(s.pct, maxOf[ex.lift], unit);
       if (kg > 0) { s.weight = kg; out.filled++; }
       else if (!out.noMax.includes(ex.lift)) out.noMax.push(ex.lift);
@@ -8961,6 +8975,70 @@ function agoText(days) {
   if (days === 1) return 'Yesterday';
   if (days < 14) return days + 'd ago';
   return Math.round(days / 7) + 'w ago';
+}
+
+// ===== BLOCKS (2026-10-22) =====
+// A program with logged training is kept as a past block before anything replaces it (the next
+// block, a template, a pasted sheet, a block from a goal, a delete). Resolves { kept, notReady }.
+function programHasTraining(prog) {
+  return !!(prog && (prog.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s.completed)))));
+}
+// Sets, sets logged and sessions with something logged: kept with a block so a list of blocks
+// doesn't need every block's sets.
+function blockStats(weeks) {
+  let sets = 0, done = 0;
+  const days = new Set();
+  (weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(s => {
+    sets++;
+    if (s.completed) { done++; days.add(w.number + '|' + d.name); }
+  }))));
+  return { sets, done, sessions: days.size };
+}
+function blockFromProgram(prog) {
+  const dates = [];
+  (prog.weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(s => { if (s.completed && s.completedAt) dates.push(String(s.completedAt).slice(0, 10)); }))));
+  dates.sort();
+  return { id: uid('blk'), athleteId: prog.athleteId, coachId: prog.coachId && prog.coachId !== prog.athleteId ? prog.coachId : null,
+    name: prog.name || 'Block', weeks: JSON.parse(JSON.stringify(prog.weeks || [])), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
+    startedOn: dates[0] || null, endedOn: dates[dates.length - 1] || null, createdAt: new Date().toISOString() };
+}
+async function archiveProgramIfTrained(prog) {
+  if (!programHasTraining(prog)) return { kept: false };
+  const b = blockFromProgram(prog);
+  Store.update(s => { s.programBlocks = (s.programBlocks || []).concat([b]); });
+  if (window._demoMode || !(window.DB && DB.addProgramBlock)) return { kept: true };
+  const r = await DB.addProgramBlock(b);
+  if (r.ok) { Store.update(s => { const i = (s.programBlocks || []).findIndex(x => x.id === b.id); if (i >= 0) s.programBlocks[i] = r.block; }); return { kept: true }; }
+  Store.update(s => { s.programBlocks = (s.programBlocks || []).filter(x => x.id !== b.id); });
+  if (r.notReady) { try { toast('Past blocks are kept once a quick database update runs'); } catch (e) {} }
+  return { kept: false, notReady: !!r.notReady };
+}
+// The next block from this one: the same weeks, fresh, with the main lifts' loads a step heavier
+// (+stepKg on weights, +2.5 on percentages). Accessories stay as they were.
+function nextBlockWeeks(prog, stepKg) {
+  return (prog.weeks || []).map(w => ({ id: uid('wk'), number: w.number, days: (w.days || []).map(d => ({ id: uid('day'), name: d.name, exercises: (d.exercises || []).map(e => ({
+    id: uid('ex'), lift: e.lift, variant: e.variant || '', exerciseName: e.exerciseName || '', note: e.note || '',
+    sets: (e.sets || []).filter(s => !s.extra).map(s => {
+      const main = ['squat', 'bench', 'deadlift'].includes(e.lift);
+      const n = Object.assign(newSet(planWeight(s), s.plannedReps || s.reps, s.rpe, s.tempo), rxOf(s));
+      if (main && n.pct != null) n.pct = Math.round((Number(n.pct) + 2.5) * 10) / 10;
+      else if (main && n.weight > 0 && stepKg > 0) n.weight = Math.round((n.weight + stepKg) * 100) / 100;
+      return n;
+    })
+  })) })) }));
+}
+// How a block went: share of sets logged, sessions, and each lift's best e1RM in it against the
+// best before it began.
+function blockSummary(block, athleteId) {
+  const st = block.weeks ? blockStats(block.weeks) : (block.stats || { sets: 0, done: 0, sessions: 0 });
+  const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId && MAIN_LIFTS.includes(l.lift) && Number(l.e1rmComp) > 0);
+  const change = {};
+  if (block.startedOn && block.endedOn) MAIN_LIFTS.forEach(L => {
+    const before = logs.filter(l => l.lift === L && l.date < block.startedOn).reduce((m, l) => Math.max(m, Number(l.e1rmComp)), 0);
+    const inBlock = logs.filter(l => l.lift === L && l.date >= block.startedOn && l.date <= block.endedOn).reduce((m, l) => Math.max(m, Number(l.e1rmComp)), 0);
+    if (before > 0 && inBlock > 0) change[L] = inBlock - before;
+  });
+  return { pct: st.sets ? Math.round(st.done / st.sets * 100) : 0, sessions: st.sessions || 0, change };
 }
 
 function uiSparkline(values) {

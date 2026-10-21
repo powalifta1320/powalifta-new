@@ -74,6 +74,8 @@ with checks(n, migration, applied) as (values
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'invite_preview')),
   (30, 'migration-checkin-questions-2026-10-22.sql',
-        to_regclass('public.checkin_answers') is not null)
+        to_regclass('public.checkin_answers') is not null),
+  (31, 'migration-blocks-2026-10-22.sql',
+        to_regclass('public.program_blocks') is not null)
 )
 select n, migration, applied from checks order by n;

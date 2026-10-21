@@ -517,7 +517,8 @@ window.__applyGeneratedProgram = function (generated, athleteId) {
   if (!aid) { toast('Pick an athlete first.'); return false; }
   const existing = Store.get().programs.find(p => p.athleteId === aid);
   const hasContent = existing && (existing.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).length));
-  if (hasContent && !confirm('This replaces the current program for this athlete. Continue?')) return false;
+  if (hasContent && !confirm(programHasTraining(existing) ? 'This replaces the current program. Its logged training is kept as a past block. Continue?' : 'This replaces the current program for this athlete. Continue?')) return false;
+  if (existing) archiveProgramIfTrained(existing);
 
   const prog = {
     // Reuse the existing row id so the upsert (onConflict=athlete_id) updates
@@ -1382,6 +1383,49 @@ function renderAthletePage(athleteId) {
   else right.appendChild(el('p', { class: 'ap-empty' }, 'No meets yet. They add them under Progress, or link their OpenPowerlifting profile.'));
   cols.appendChild(left); cols.appendChild(right);
   host.appendChild(cols);
+  // Blocks: this one, then every one before it (kept when the next replaced it). A past block
+  // opens below as the grid, what was written and what was lifted.
+  const blocks = (Store.get().programBlocks || []).filter(b => b.athleteId === a.id)
+    .sort((x, y) => String(y.endedOn || y.createdAt || '').localeCompare(String(x.endedOn || x.createdAt || '')));
+  if (st.program || blocks.length) {
+    host.appendChild(uiLabel('Blocks', blocks.length ? { count: blocks.length + (st.program ? 1 : 0) } : null));
+    const view = el('div', { class: 'ap-block-view' });
+    let openId = null;
+    const rowsB = [];
+    if (st.program) {
+      const all = st.program.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
+      const pct = all.length ? Math.round(all.filter(s => s.completed).length / all.length * 100) : 0;
+      rowsB.push(uiRow({ lead: el('span', { class: 'ui-dot ok' }), title: st.program.name || 'Program', sub: 'Now · ' + (st.week ? (st.week.finished ? 'finished' : 'week ' + st.week.number + ' of ' + st.week.total) : '') + ' · ' + pct + '% logged', chevron: true, onClick: () => openAthleteProgram(a.id) }));
+    }
+    blocks.forEach(b => {
+      const sm = blockSummary(b, a.id);
+      const ch = MAIN_LIFTS.filter(L => sm.change[L] != null).map(L => LIFT_LABELS[L].charAt(0) + ' ' + (sm.change[L] >= 0 ? '+' : '') + Math.round(kgToDisplay(sm.change[L]))).join(' · ');
+      const dates = b.startedOn ? fmtDateShort(b.startedOn) + (b.endedOn && b.endedOn !== b.startedOn ? ' – ' + fmtDateShort(b.endedOn) : '') : '';
+      const r = uiRow({ lead: el('span', { class: 'ui-dot' }), title: b.name, sub: [dates, sm.pct + '% logged', sm.sessions + (sm.sessions === 1 ? ' session' : ' sessions'), ch ? 'e1RM ' + ch + ' ' + u : null].filter(Boolean).join(' · '), chevron: true,
+        onClick: async () => {
+          view.innerHTML = '';
+          if (openId === b.id) { openId = null; return; }
+          openId = b.id;
+          view.appendChild(el('div', { class: 'ap-block-h' }, b.name + (dates ? ' · ' + dates : '')));
+          // A block's sets load when it's opened (the list only carries its stats).
+          let weeks = b.weeks;
+          if (!weeks && window.DB && DB.getProgramBlockWeeks) {
+            const wait = el('p', { class: 'ap-empty' }, 'Opening the block…');
+            view.appendChild(wait);
+            weeks = await DB.getProgramBlockWeeks(b.id).catch(() => null);
+            if (openId !== b.id) return;
+            wait.remove();
+            if (weeks) Store.update(s => { const x = (s.programBlocks || []).find(y => y.id === b.id); if (x) x.weeks = weeks; });
+          }
+          if (!weeks) { view.appendChild(el('p', { class: 'ap-empty' }, 'This block didn\'t open. Check the connection and try again.')); return; }
+          view.appendChild(buildProgramGrid({ id: b.id, weeks, maxes: b.maxes }, a.id, { readOnly: true }));
+          setTimeout(() => view.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+        } });
+      rowsB.push(r);
+    });
+    host.appendChild(uiList(rowsB));
+    host.appendChild(view);
+  }
 }
 function _apCalendar(logs, weeks) {
   const byDay = {};
@@ -2524,8 +2568,9 @@ function openSheetImport(athleteId) {
     if (use) use.addEventListener('click', () => {
       const go = async () => {
         const existing = getProgramForAthlete(athleteId);
-        const pctRes = applyPctLoads(parsed.weeks, athleteId);
-        const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name.value.trim() || 'Imported program', weeks: parsed.weeks };
+        await archiveProgramIfTrained(existing);   // its logged training stays as a past block
+        const pctRes = applyPctLoads(parsed.weeks, athleteId, undefined, existing && existing.maxes);
+        const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name.value.trim() || 'Imported program', weeks: parsed.weeks, maxes: existing ? existing.maxes || null : null };
         if (pctRes.noMax.length) setTimeout(() => toast('No max yet for ' + pctRes.noMax.map(l => LIFT_LABELS[l]).join(' and ') + ': those % sets have no load until they log one'), 1600);
         Store.update(st => { st.programs = st.programs.filter(p => p.athleteId !== athleteId); st.programs.push(prog); });
         if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
@@ -2554,6 +2599,82 @@ function openSheetImport(athleteId) {
   }, { cls: 'imp-sheet' });
 }
 window.openSheetImport = openSheetImport;
+
+// ===== MAXES AND THE NEXT BLOCK (2026-10-22) =====
+// The max each lift's % sets work from, for this block. Blank = their best e1RM.
+function openMaxesSheet(progId, athleteId) {
+  const prog = Store.get().programs.find(p => p.id === progId);
+  if (!prog) return;
+  const ath = (Store.get().athletes || []).find(a => a.id === athleteId) || {};
+  const u = unitLabel();
+  uiSheet('Maxes for % work', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'The max ' + ((ath.name || 'their').split(' ')[0]) + '\'s % sets work from in this block. Leave one blank to use their best e1RM.'));
+    const inputs = {};
+    const list = el('div', { class: 'mx-list' });
+    MAIN_LIFTS.forEach(L => {
+      const e1 = bestE1RM(athleteId, L), one = bestSingle(athleteId, L);
+      const own = prog.maxes && Number(prog.maxes[L]) > 0 ? Number(prog.maxes[L]) : null;
+      const row = el('label', { class: 'mx-row' });
+      // The dimmed number in the field is their e1RM (what a blank uses); under the lift, their best single.
+      const hint = one ? 'Best single ' + exactW(one.kg) + ' ' + u : (e1 ? null : 'No max yet');
+      row.appendChild(el('span', { class: 'mx-name' },
+        el('span', { class: 'mx-lift' }, el('span', { class: 'lift-dot lift-' + L, 'aria-hidden': 'true' }), LIFT_LABELS[L]),
+        hint ? el('span', { class: 'mx-hint' }, hint) : null));
+      const inp = el('input', { type: 'text', inputmode: 'decimal', class: 'mx-input', placeholder: e1 ? String(Math.round(kgToDisplay(e1))) : u, value: own ? String(kgToDisplay(own, 1)) : '', 'aria-label': LIFT_LABELS[L] + ' max in ' + u });
+      row.appendChild(inp);
+      row.appendChild(el('span', { class: 'mx-unit' }, u));
+      inputs[L] = inp;
+      list.appendChild(row);
+    });
+    sheet.appendChild(list);
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save and update % loads');
+    save.addEventListener('click', () => {
+      const maxes = {};
+      for (const L of MAIN_LIFTS) {
+        const t = String(inputs[L].value || '').trim().replace(',', '.');
+        if (!t) continue;
+        const v = Number(t);
+        if (!(v > 0) || v > 2000) { toast('Check the ' + LIFT_LABELS[L].toLowerCase() + ' max'); inputs[L].focus(); return; }
+        maxes[L] = Math.round(displayToKg(v) * 100) / 100;
+      }
+      let res = null;
+      Store.update(s => { const p = s.programs.find(x => x.id === progId); if (p) { p.maxes = Object.keys(maxes).length ? maxes : null; res = applyPctLoads(p.weeks, athleteId, undefined, p.maxes); } });
+      persistProgram(progId);
+      close();
+      toast('Maxes saved' + (res && res.filled ? ' · ' + res.filled + (res.filled === 1 ? ' % set' : ' % sets') + ' updated' : ''));
+      loadProgram();
+    });
+    sheet.appendChild(save);
+  }, { cls: 'mx-sheet' });
+}
+// The next block: the same one heavier, a template, a pasted sheet or one built from a goal.
+// Whichever it is, this block's logged training is kept as a past block first.
+function openNextBlockSheet(progId, athleteId) {
+  const prog = Store.get().programs.find(p => p.id === progId);
+  if (!prog) return;
+  const lbs = getUnit() === 'lbs';
+  const stepKg = lbs ? 5 * KG_PER_LB : 2.5;
+  const nextName = (() => { const m = /^(.*?)(\d+)\s*$/.exec(prog.name || ''); return m ? m[1] + (Number(m[2]) + 1) : (prog.name || 'Block') + ' 2'; })();
+  uiSheet('Start the next block', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, (programHasTraining(prog) ? '"' + (prog.name || 'This block') + '" is kept as a past block, with everything they logged. ' : '') + 'Start the next one from:'));
+    const go = (fn) => () => { close(); setTimeout(fn, 230); };
+    sheet.appendChild(uiList([
+      uiRow({ title: 'The same block, heavier', sub: 'Every week again: main lifts +' + (lbs ? '5 lb' : '2.5 kg') + ' (or +2.5% on % sets). Named "' + nextName + '".', chevron: true, onClick: go(async () => {
+        await archiveProgramIfTrained(prog);
+        const weeks = nextBlockWeeks(prog, stepKg);
+        applyPctLoads(weeks, athleteId, undefined, prog.maxes);
+        Store.update(s => { const p = s.programs.find(x => x.id === progId); if (p) { p.name = nextName; p.weeks = weeks; } });
+        persistProgram(progId);
+        activeWeekIdx = 0;
+        toast('"' + nextName + '" is ready');
+        loadProgram();
+      }) }),
+      uiRow({ title: 'A template', sub: 'Pick one from your templates.', chevron: true, onClick: go(() => { const t = document.querySelector('[data-tab="templates"]'); if (t) t.click(); }) }),
+      uiRow({ title: 'Paste from a spreadsheet', sub: 'Copy the cells from Sheets or Excel.', chevron: true, onClick: go(() => openSheetImport(athleteId)) }),
+      uiRow({ title: 'Build from a goal', sub: 'A full block from their current and target lifts.', chevron: true, onClick: go(() => openGoalModal(athleteId)) })
+    ]));
+  }, { cls: 'nb-sheet' });
+}
 
 // ===== GRID VIEW (2026-10-22) =====
 // The block as a spreadsheet: a row per exercise (grouped by day), a column per week, each cell
@@ -2597,8 +2718,9 @@ function _gridParse(text, athleteId, lift, prog) {
   }
   return out;
 }
-function buildProgramGrid(prog, athleteId) {
-  const wrap = el('div', { class: 'pg-grid-wrap' });
+function buildProgramGrid(prog, athleteId, opts) {
+  const ro = !!(opts && opts.readOnly);   // a past block: look, don't touch
+  const wrap = el('div', { class: 'pg-grid-wrap' + (ro ? ' is-ro' : '') });
   const lbs = getUnit() === 'lbs';
   const unitTag = lbs ? 'lb' : 'kg';
   const weeks = prog.weeks || [];
@@ -2636,7 +2758,7 @@ function buildProgramGrid(prog, athleteId) {
   undoBtn.addEventListener('click', () => doUndo());
   tools.appendChild(undoBtn);
   bar.appendChild(tools);
-  wrap.appendChild(bar);
+  if (!ro) wrap.appendChild(bar);
   const paintUndo = () => { undoBtn.disabled = !undo.length; };
   const paintFillLbl = () => {
     if (!lastCell) { fillLbl.textContent = 'Pick a cell, then fill the weeks after it:'; return; }
@@ -2761,7 +2883,7 @@ function buildProgramGrid(prog, athleteId) {
       const inp = el('input', { type: 'text', class: 'pg-cell' + (logged ? ' is-logged' : ''), spellcheck: 'false', autocomplete: 'off',
         'aria-label': r.label + ', week ' + w.number, value: _gridCellText(ex), placeholder: ex ? '' : '–' });
       inp.dataset.orig = inp.value; inp.dataset.wi = wi; inp.dataset.di = r.di; inp.dataset.ei = r.ei; inp.dataset.row = ri;
-      if (logged) { inp.readOnly = true; inp.title = 'Logged by the athlete. Edit in Weeks view.'; }
+      if (logged || ro) { inp.readOnly = true; inp.title = ro ? 'A past block' : 'Logged by the athlete. Edit in Weeks view.'; }
       inp.addEventListener('focus', () => { lastCell = inp; paintFillLbl(); table.querySelectorAll('td.is-src').forEach(n => n.classList.remove('is-src')); td.classList.add('is-src'); });
       inp.addEventListener('blur', () => { if (!inp.readOnly) commit(inp); });
       inp.addEventListener('keydown', (e) => {
@@ -2792,7 +2914,8 @@ function buildProgramGrid(prog, athleteId) {
         if (group.length) { undo.push(group); paintUndo(); }
         toast(group.length ? 'Pasted ' + group.length + (group.length === 1 ? ' cell' : ' cells') : 'Nothing pasted: those cells are logged');
       });
-      td.appendChild(inp);
+      // A past block isn't typed into: its cells wrap instead of clipping like an input's.
+      td.appendChild(ro ? el('div', { class: 'pg-cell pg-cell-ro' + (logged ? ' is-logged' : '') }, _gridCellText(ex) || '–') : inp);
       // What they actually did, under what was written: overshoots in red, misses crossed out.
       const act = ex ? _gridActualHtml(ex) : '';
       if (act) td.appendChild(el('div', { class: 'pg-actual', html: act }));
@@ -2819,7 +2942,7 @@ function buildProgramGrid(prog, athleteId) {
   });
   const ton = (kg) => { const v = kgToDisplay(kg); return v >= 1000 ? (Math.round(v / 100) / 10) + (lbs ? 'k lb' : ' t') : Math.round(v) + ' ' + unitTag; };
   const paintFoot = () => {
-    const p = Store.get().programs.find(x => x.id === prog.id);
+    const p = ro ? prog : Store.get().programs.find(x => x.id === prog.id);
     (p ? p.weeks : []).forEach((w, wi) => {
       const exs = w.days.flatMap(d => d.exercises);
       lifts.forEach(L => {
@@ -2945,11 +3068,13 @@ function loadProgram() {
     blockOpen ? { label: 'Rebuild from goal…', icon: ICONS.program, onClick: () => openGoalModal(athleteId) } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
     { label: 'Save as template', icon: ICONS.copy, onClick: () => openSaveTemplate(prog) },
+    { label: 'Maxes for % work', icon: ICONS.chart, onClick: () => openMaxesSheet(prog.id, athleteId) },
+    _pbSets.length ? { label: 'Start the next block', icon: ICONS.program, onClick: () => openNextBlockSheet(prog.id, athleteId) } : null,
     _pbSets.some(s => s.pct != null && !s.completed) ? { label: 'Update % loads from their maxes', icon: ICONS.chart, onClick: () => {
       let res = null;
-      Store.update(s => { const p = s.programs.find(x => x.id === prog.id); if (p) res = applyPctLoads(p.weeks, athleteId); });
+      Store.update(s => { const p = s.programs.find(x => x.id === prog.id); if (p) res = applyPctLoads(p.weeks, athleteId, undefined, p.maxes); });
       persistProgram(prog.id); loadProgram();
-      toast(res && res.filled ? 'Updated ' + res.filled + (res.filled === 1 ? ' set' : ' sets') + ' from current maxes' : 'No max to work from yet');
+      toast(res && res.filled ? 'Updated ' + res.filled + (res.filled === 1 ? ' set' : ' sets') + ' from their maxes' : 'No max to work from yet');
     } } : null,
     { label: 'Replace from a spreadsheet', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
@@ -2964,11 +3089,23 @@ function loadProgram() {
   head.appendChild(el('div', { class: 'pb-meta' },
     prog.weeks.length + (prog.weeks.length === 1 ? ' week' : ' weeks') + ' · ' + sessions + (sessions === 1 ? ' session' : ' sessions') +
     (allSets.length ? ' · ' + Math.round(doneSets / allSets.length * 100) + '% logged' : '')));
-  // The shortest path from an empty block to a full one: the screen's one red action.
-  if (!blockOpen) {
+  // The maxes % sets work from (the coach's for this block, else their best e1RM): tap to set.
+  if (_pbSets.some(s => s.pct != null) || (prog.maxes && Object.keys(prog.maxes).length)) {
+    const mx = el('button', { class: 'pb-maxes', type: 'button', title: 'The maxes % sets work from' });
+    const bits = MAIN_LIFTS.map(L => { const v = programMaxKg(prog, athleteId, L); const own = prog.maxes && Number(prog.maxes[L]) > 0; return v > 0 ? LIFT_LABELS[L].charAt(0) + ' ' + Math.round(kgToDisplay(v)) + (own ? '' : '*') : null; }).filter(Boolean);
+    mx.innerHTML = '<span>Maxes for %</span><b>' + (bits.length ? escHtml(bits.join(' · ')) + ' ' + unitLabel() : 'not set') + '</b>' + (bits.some(b => /\*$/.test(b)) ? '<small>* their best e1RM</small>' : '');
+    mx.addEventListener('click', () => openMaxesSheet(prog.id, athleteId));
+    head.appendChild(mx);
+  }
+  // The red action: an empty program builds from a goal; a finished one starts the next block.
+  if (!blockOpen && !_pbSets.length) {
     const goalBtn = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button', title: 'Generate a full block from current and target lifts' }, 'Build from goal');
     goalBtn.addEventListener('click', () => openGoalModal(athleteId));
     head.appendChild(goalBtn);
+  } else if (!blockOpen) {
+    const nb = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button' }, 'Start the next block');
+    nb.addEventListener('click', () => openNextBlockSheet(prog.id, athleteId));
+    head.appendChild(nb);
   }
   area.appendChild(head);
 
@@ -3085,8 +3222,11 @@ async function createProgramFor(athleteId) {
   activeWeekIdx = 0; loadProgram();
 }
 async function deleteProgram() {
-  if (!confirm('Delete the entire program? This cannot be undone.')) return;
   const aid = document.getElementById('progAthlete').value;
+  const cur = getProgramForAthlete(aid);
+  const trained = programHasTraining(cur);
+  if (!confirm(trained ? 'Delete this program? Its logged training is kept as a past block.' : 'Delete the entire program? This cannot be undone.')) return;
+  if (trained) await archiveProgramIfTrained(cur);
   const pid = progIdForAthlete(aid);
   Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); });
   if (pid && !window._demoMode) await DB.deleteProgram(pid).catch(e => console.error(e));
@@ -3798,9 +3938,9 @@ function buildProgramFromTemplate(tpl, athleteId) {
       }))
     }))
   }));
-  // A template written in % gets this athlete's loads from their own maxes.
-  applyPctLoads(weeks, athleteId);
-  return { id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name, weeks };
+  // A template written in % gets this athlete's loads from their own maxes (the coach's, if set).
+  applyPctLoads(weeks, athleteId, undefined, existing && existing.maxes);
+  return { id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name, weeks, maxes: existing ? existing.maxes || null : null };
 }
 async function confirmApplyTemplate() {
   const ids = _applyTplCheckedIds();
@@ -3809,6 +3949,8 @@ async function confirmApplyTemplate() {
   // Build all programs first, then commit to the Store in a single update so the
   // roster/program panes re-render once. Each athlete's existing program (if any)
   // is replaced by id, matching the single-athlete behaviour.
+  // Programs with logged training are kept as past blocks before the template replaces them.
+  for (const aid of ids) { const ex = Store.get().programs.find(p => p.athleteId === aid); if (ex) await archiveProgramIfTrained(ex); }
   const built = ids.map(aid => buildProgramFromTemplate(_applyTplTarget, aid));
   Store.update(s => {
     s.programs = s.programs.filter(p => !ids.includes(p.athleteId));

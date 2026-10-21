@@ -827,6 +827,50 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
 });
+test('blocks: keep a trained block, the next one heavier, how a block went', () => {
+  const saved = Store.get();
+  const mk = (w, r, rpe, done, at, extra) => Object.assign({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: done ? rpe : null, completedAt: at || null }, extra || {});
+  const prog = { id: 'p', athleteId: 'a', coachId: 'c', name: 'Peak 1', maxes: { squat: 200 }, weeks: [
+    { id: 'w1', number: 1, days: [
+      { id: 'd1', name: 'Squat', exercises: [
+        { id: 'e1', lift: 'squat', variant: 'Competition', sets: [mk(150, 5, 7, true, '2026-09-01'), mk(150, 5, 8, true, '2026-09-01', { pct: 75 }), mk(140, 5, 8, true, '2026-09-01', { extra: true })] },
+        { id: 'e2', lift: 'accessory', exerciseName: 'Leg press', sets: [mk(200, 10, 8, true, '2026-09-01')] } ] },
+      { id: 'd2', name: 'Bench', exercises: [{ id: 'e3', lift: 'bench', variant: 'Competition', sets: [mk(100, 5, 8, false, null, { rpeHi: 9 })] }] } ] },
+    { id: 'w2', number: 2, days: [ { id: 'd3', name: 'Squat', exercises: [{ id: 'e4', lift: 'squat', variant: 'Competition', sets: [mk(155, 5, 7, true, '2026-09-08')] }] } ] }
+  ] };
+  Store.set(Object.assign(defaultStore(), { athletes: [{ id: 'a', name: 'Ana', coachId: 'c' }], programs: [prog],
+    workoutLogs: [
+      { id: 'l0', athleteId: 'a', lift: 'squat', variant: 'Competition', weight: 170, reps: 3, rpe: 9, e1rm: 180, e1rmComp: 180, date: '2026-08-20' },
+      { id: 'l1', athleteId: 'a', lift: 'squat', variant: 'Competition', weight: 155, reps: 5, rpe: 7, e1rm: 186, e1rmComp: 186, date: '2026-09-08' } ] }));
+  try {
+    eq(programHasTraining(prog), true);
+    eq(programHasTraining({ weeks: [{ days: [{ exercises: [{ sets: [mk(100, 5, 8, false)] }] }] }] }), false);
+    const b = blockFromProgram(prog);
+    eq(b.name, 'Peak 1'); eq(b.athleteId, 'a'); eq(b.coachId, 'c'); eq(b.startedOn, '2026-09-01'); eq(b.endedOn, '2026-09-08');
+    eq(b.maxes.squat, 200);
+    b.weeks[0].days[0].exercises[0].sets[0].weight = 1;   // a copy, not the live program
+    eq(prog.weeks[0].days[0].exercises[0].sets[0].weight, 150);
+    eq(blockFromProgram(Object.assign({}, prog, { coachId: 'a' })).coachId, null);   // a lifter's own block
+    const nw = nextBlockWeeks(prog, 2.5);
+    const sq = nw[0].days[0].exercises[0].sets;
+    eq(sq.length, 2);                                  // the extra set they added isn't programmed again
+    eq(sq[0].weight, 152.5); eq(sq[0].completed, false); eq(sq[0].actualRpe == null, true);
+    eq(sq[1].pct, 77.5);                               // % sets step +2.5 points
+    eq(nw[0].days[0].exercises[1].sets[0].weight, 200); // accessories as they were
+    eq(nw[0].days[1].exercises[0].sets[0].rpeHi, 9);   // the RPE range carries
+    eq(nw[1].days[0].exercises[0].sets[0].weight, 157.5);
+    eq(nw[0].id !== prog.weeks[0].id, true);
+    const sm = blockSummary(b, 'a');
+    eq(sm.pct, 83);           // 5 of 6 sets logged
+    eq(sm.sessions, 2);       // week 1 squat day, week 2 squat day
+    eq(sm.change.squat, 6);   // best e1RM in the block 186 vs 180 before it
+    eq(sm.change.bench, undefined);
+    eq(JSON.stringify(b.stats), JSON.stringify({ sets: 6, done: 5, sessions: 2 }));
+    // a block listed from the database carries stats, not its sets
+    const listed = Object.assign({}, b, { weeks: null });
+    eq(blockSummary(listed, 'a').pct, 83); eq(blockSummary(listed, 'a').sessions, 2); eq(blockSummary(listed, 'a').change.squat, 6);
+  } finally { Store.set(saved); }
+});
 test('check-in alerts: pain, high soreness, short sleep, today or yesterday only', () => {
   const qs = [
     { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily' },

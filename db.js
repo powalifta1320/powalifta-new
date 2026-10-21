@@ -233,11 +233,21 @@ function _cleanWeekNumbers(weeks) {
   });
 }
 function mapDbProgram(r) {
-  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks) };
+  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
 }
+// programs.maxes arrives with migration-blocks-2026-10-22.sql; until then it's left out.
+let _noProgramMaxes = false;
 function mapJsProgram(p) {
-  return { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
+  const row = { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
+  if (!_noProgramMaxes && p.maxes !== undefined) row.maxes = p.maxes && Object.keys(p.maxes).length ? p.maxes : null;
+  return row;
 }
+// weeks is null until the block is opened (getProgramBlockWeeks): the list carries stats only.
+function mapDbBlock(r) {
+  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name || 'Block', weeks: r.weeks ? _cleanWeekNumbers(r.weeks) : null, maxes: r.maxes || null,
+    stats: r.stats || null, startedOn: r.started_on, endedOn: r.ended_on, createdAt: r.created_at };
+}
+const _BLOCK_COLS = 'id, athlete_id, coach_id, name, maxes, stats, started_on, ended_on, created_at';
 function mapDbTemplate(r) {
   return { id: r.id, coachId: r.coach_id, name: r.name, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(), payload: r.payload };
 }
@@ -1574,8 +1584,13 @@ const DB = {
   async upsertProgram(prog) {
     // Postgres upsert runs INSERT-with-CHECK + UPDATE — athletes can't pass the
     // INSERT policy (coach-only). So: UPDATE first; if no row hit, INSERT.
-    const row = mapJsProgram(prog);
-    const updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
+    let row = mapJsProgram(prog);
+    let updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
+    if (updateRes.error && 'maxes' in row && _missingCol(updateRes.error, ['maxes'])) {
+      _noProgramMaxes = true;   // the column isn't there yet: save without it
+      row = mapJsProgram(prog);
+      updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
+    }
     if (updateRes.error) throw updateRes.error;
     if (updateRes.data && updateRes.data.length) return;
     // No existing row — try INSERT (only the coach can succeed here per RLS)
@@ -1585,6 +1600,30 @@ const DB = {
   async deleteProgram(id) {
     const { error } = await sb.from('programs').delete().in('id', [id]);
     if (error) throw error;
+  },
+  // ---------- PAST BLOCKS (migration-blocks-2026-10-22.sql) ----------
+  async listProgramBlocks(athleteIds) {
+    if (!athleteIds || !athleteIds.length) return [];
+    const { data, error } = await sb.from('program_blocks').select(_BLOCK_COLS).in('athlete_id', athleteIds).order('ended_on', { ascending: false }).limit(300);
+    if (error) { if (!_isNotReady(error)) console.warn('listProgramBlocks', error); return []; }
+    return (data || []).map(mapDbBlock);
+  },
+  async getProgramBlockWeeks(id) {
+    const { data, error } = await sb.from('program_blocks').select('weeks').in('id', [id]).maybeSingle();
+    if (error || !data) { if (error) console.warn('getProgramBlockWeeks', error); return null; }
+    return _cleanWeekNumbers(data.weeks || []);
+  },
+  async addProgramBlock(b) {
+    const row = { athlete_id: b.athleteId, coach_id: b.coachId || null, name: String(b.name || 'Block').slice(0, 120), weeks: b.weeks || [], maxes: b.maxes || null,
+      stats: b.stats || null, started_on: b.startedOn || null, ended_on: b.endedOn || null };
+    const { data, error } = await sb.from('program_blocks').insert(row).select(_BLOCK_COLS).single();
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true, block: Object.assign(mapDbBlock(data), { weeks: b.weeks || [] }) };
+  },
+  async deleteProgramBlock(id) {
+    const { error } = await sb.from('program_blocks').delete().eq('id', id);
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true };
   },
 
   // ---------- PROGRAM TEMPLATES ----------
@@ -2445,7 +2484,7 @@ const DB = {
     const empty = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
       workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
-      checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [],
+      checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [], programBlocks: [],
       marketplacePrograms: [], mySales: [], myPurchases: []
     };
     // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
@@ -2461,7 +2500,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2474,10 +2513,12 @@ const DB = {
         this.listMyPublishedPrograms(profile.id).catch(() => []),
         this.listMySales(profile.id).catch(() => []),
         this.listCheckinQuestions().catch(() => []),
-        this.listCheckinAnswers(_ciSince).catch(() => [])
+        this.listCheckinAnswers(_ciSince).catch(() => []),
+        this.listProgramBlocks(athleteIds).catch(() => [])
       ]);
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;
+      empty.programBlocks = blocks;
       empty.invites = invs;
       empty.programs = programs;
       empty.programTemplates = tpls;
@@ -2491,7 +2532,7 @@ const DB = {
       empty.mySales = sales;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -2502,8 +2543,10 @@ const DB = {
         this.listMeetsForAthlete(profile.id),
         this.listMyPurchases(profile.id).catch(() => []),
         profile.coach_id ? this.listCheckinQuestions().catch(() => []) : Promise.resolve([]),
-        profile.coach_id ? this.listCheckinAnswers(_ciSince).catch(() => []) : Promise.resolve([])
+        profile.coach_id ? this.listCheckinAnswers(_ciSince).catch(() => []) : Promise.resolve([]),
+        this.listProgramBlocks([profile.id]).catch(() => [])
       ]);
+      empty.programBlocks = blocks;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;
       empty.myPurchases = purchases;

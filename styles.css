@@ -12233,3 +12233,23 @@ body.powa-app .dash-main .pg-grid tr.pg-day th { color: var(--text-3); }
 .pg-grid tfoot .pg-sum th .lift-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
 [data-theme="light"] .pg-grid .pg-actual, [data-theme="light"] .pg-grid tfoot .pg-sum td small.pg-best { color: #0a7a43; }
 [data-theme="light"] .pg-grid .pg-actual .is-over { color: #c63a24; }
+
+/* Maxes for % work, past blocks (2026-10-22). */
+.pb-maxes { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin-top: 10px; padding: 7px 12px; border: 0; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.pb-maxes b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pb-maxes small { color: var(--text-3); font-size: 12px; }
+.mx-sheet .mx-list { display: grid; gap: 8px; margin: 8px 0 16px; }
+.mx-sheet .mx-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--bg-2); }
+.mx-sheet .mx-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mx-sheet .mx-lift { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; color: var(--text); }
+.mx-sheet .mx-hint { font-size: 12.5px; color: var(--text-3); }
+.mx-sheet .mx-input { flex: 0 0 110px; width: 110px; height: 44px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-1); color: var(--text); font: 700 17px var(--font-num); text-align: right; font-variant-numeric: tabular-nums; }
+.mx-sheet .mx-unit { color: var(--text-3); font-size: 13px; }
+.ap-block-view { margin-top: 14px; }
+.ap-block-h { margin: 6px 2px 10px; font-weight: 700; color: var(--text); }
+.pg-grid-wrap.is-ro .pg-cell { cursor: default; }
+.pg-grid .pg-cell-ro { height: auto; min-height: 44px; padding: 12px 12px 10px; white-space: normal; line-height: 1.4; }
+/* the rows are <label>s: no form-label caps */
+.mx-sheet .mx-row, .mx-sheet .mx-row * { text-transform: none; letter-spacing: normal; }
+.mx-sheet .mx-lift { font-size: 15px; }
+.mx-sheet .mx-input::placeholder { color: var(--text-4, var(--text-3)); font-weight: 600; }
