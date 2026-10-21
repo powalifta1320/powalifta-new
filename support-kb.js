@@ -365,6 +365,21 @@ window.POWA_SUPPORT_KB = [
   "app": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged; open powalifta.com on a laptop and open the athlete from Roster to see every past block with what it did for their e1RM."
  },
  {
+  "id": "coach-branding",
+  "q": "Can my athletes see my team's logo and colour?",
+  "t": [
+   "branding",
+   "brand",
+   "custom colour",
+   "logo",
+   "my logo",
+   "team name",
+   "white label"
+  ],
+  "a": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your athletes see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. On a lower plan you can set it up now and it switches on when you move to Pro; if a plan ends, the app goes back to its own look.",
+  "app": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your athletes see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. If a plan ends, the app goes back to its own look."
+ },
+ {
   "id": "coach-templates",
   "q": "As a coach, how do I save and reuse a program as a template?",
   "t": [

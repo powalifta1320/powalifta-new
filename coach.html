@@ -493,6 +493,7 @@ function renderCoachYou() {
         !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
         { label: 'Athlete progress', onClick: go('progress') },
         { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
+        brandRow(tier, showPlan),
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
         { label: 'Invite an athlete', onClick: () => openInviteModal() }
@@ -862,6 +863,121 @@ async function _saveCheckinQ(q) {
   Store.update(s => { s.checkinQuestions = (s.checkinQuestions || []).filter(x => x.id !== q.id && x.id !== r.question.id).concat([r.question]); });
   return true;
 }
+// ===== BRANDING (2026-10-22) =====
+// Pro and Premium: the coach's team name, logo and colour on their athletes' app. A coach on a
+// lower plan can set it up (the server shows it to nobody until they're on Pro); in the iPhone
+// app without in-app purchase the row stays out of sight, like every other plan mention.
+function brandRow(tier, showPlan) {
+  const pro = (TIER_RANK[tier] || 0) >= TIER_RANK.pro;
+  if (!pro && !showPlan) return null;
+  const has = !!(user.brandName || user.brandLogoUrl || user.brandColor);
+  return { label: 'Branding', value: pro ? (user.brandName || (has ? 'On' : 'Off')) : 'Pro', tint: 'iris', onClick: () => openBrandSheet(),
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.9 1.2-1.8-.5-1-.1-2.2 1.1-2.2H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="8" r="1"/></svg>' };
+}
+function openBrandSheet() {
+  const pro = (TIER_RANK[getCurrentTier()] || 0) >= TIER_RANK.pro;
+  const canUpgrade = !document.documentElement.classList.contains('native') || !!window._iapReady;
+  const st = { name: user.brandName || '', color: user.brandColor || null, logoUrl: user.brandLogoUrl || null };
+  uiSheet('Branding', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, pro ? 'Your team name, logo and colour on your athletes\' app.' : 'Your team name, logo and colour on your athletes\' app. Set it up now: they see it once you\'re on Pro.'));
+    // What Train looks like to them.
+    const pv = el('div', { class: 'bs-preview', 'aria-label': 'Preview of your athletes\' Train screen' });
+    const pvBrand = el('div', { class: 'bs-pv-brand' });
+    const pvBtn = el('div', { class: 'bs-pv-btn', 'aria-hidden': 'true' }, 'Log set');
+    pv.appendChild(pvBrand);
+    pv.appendChild(el('div', { class: 'bs-pv-day', 'aria-hidden': 'true' }, 'Squat Day'));
+    pv.appendChild(pvBtn);
+    sheet.appendChild(pv);
+    const logoMark = el('span', { class: 'bs-logo-mark' });
+    const paint = () => {
+      const b = { name: st.name.trim() || 'Your team', color: st.color, logoUrl: st.logoUrl };
+      pvBrand.innerHTML = ''; pvBrand.appendChild(brandMark(b)); pvBrand.appendChild(el('span', {}, b.name));
+      pvBtn.style.background = st.color ? 'linear-gradient(135deg, ' + st.color + ' 0%, ' + brandTint(st.color, 0.2) + ' 100%)' : '';
+      logoMark.innerHTML = ''; logoMark.appendChild(brandMark(b));
+      rm.hidden = !st.logoUrl;
+    };
+    // Team name
+    sheet.appendChild(el('div', { class: 'bs-label' }, 'Team name'));
+    const nameIn = el('input', { type: 'text', class: 'bs-input', maxlength: '40', value: st.name, placeholder: 'e.g. Barbell Lab', 'aria-label': 'Team name', autocomplete: 'organization' });
+    nameIn.addEventListener('input', () => { st.name = nameIn.value; paint(); });
+    sheet.appendChild(nameIn);
+    // Logo
+    sheet.appendChild(el('div', { class: 'bs-label' }, 'Logo'));
+    const logoRow = el('div', { class: 'bs-logo' });
+    logoRow.appendChild(logoMark);
+    const up = el('button', { class: 'btn ui-btn-soft', type: 'button' }, st.logoUrl ? 'Change logo' : 'Upload a logo');
+    const rm = el('button', { class: 'ui-text-btn', type: 'button' }, 'Remove');
+    logoRow.appendChild(up); logoRow.appendChild(rm);
+    sheet.appendChild(logoRow);
+    sheet.appendChild(el('p', { class: 'bs-hint' }, 'A square PNG works best. It shows small, beside the team name.'));
+    up.addEventListener('click', () => {
+      const inp = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'position:fixed;left:-9999px;top:0' });
+      document.body.appendChild(inp);
+      inp.addEventListener('change', async () => {
+        const file = inp.files && inp.files[0];
+        inp.remove();
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) { toast('That picture is over 8 MB. Try a smaller one'); return; }
+        up.disabled = true; up.textContent = 'Uploading…';
+        try {
+          const blob = await shrinkLogo(file, 256);
+          if (window._demoMode) st.logoUrl = URL.createObjectURL(blob);
+          else st.logoUrl = await DB.uploadBrandLogo(blob, user.id);
+          paint();
+        } catch (e) { toast(e.message || 'Could not upload that picture'); }
+        finally { up.disabled = false; up.textContent = st.logoUrl ? 'Change logo' : 'Upload a logo'; }
+      });
+      inp.click();
+    });
+    rm.addEventListener('click', () => { st.logoUrl = null; up.textContent = 'Upload a logo'; paint(); });
+    // Colour
+    sheet.appendChild(el('div', { class: 'bs-label' }, 'Colour'));
+    const sw = el('div', { class: 'bs-swatches', role: 'radiogroup', 'aria-label': 'Colour' });
+    brandColors().forEach(c => {
+      const on = (c.hex || null) === (st.color || null);
+      const b = el('button', { class: 'bs-sw', type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', 'aria-label': c.name, title: c.name, style: '--sw:' + (c.hex || c.swatch) });
+      b.addEventListener('click', () => {
+        st.color = c.hex || null;
+        sw.querySelectorAll('.bs-sw').forEach(x => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+        paint();
+      });
+      sw.appendChild(b);
+    });
+    sheet.appendChild(sw);
+    // Save
+    const acts = el('div', { class: 'bs-actions' });
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save branding');
+    save.addEventListener('click', async () => {
+      const name = st.name.trim();
+      if (name.length > 40) { toast('Keep the team name under 40 characters'); nameIn.focus(); return; }
+      const fields = { name: name || null, color: st.color || null, logoUrl: st.logoUrl && !/^blob:/.test(st.logoUrl) ? st.logoUrl : (window._demoMode ? st.logoUrl : null) };
+      if (!window._demoMode) {
+        save.disabled = true;
+        const r = await DB.saveBrand(user.id, fields);
+        save.disabled = false;
+        if (!r.ok) {
+          const msg = String((r.error && r.error.message) || '');
+          toast(r.notReady ? 'Branding switches on after a quick database update' : /isn.t allowed/.test(msg) ? 'That team name isn\'t allowed' : /logo/.test(msg) ? 'Upload the logo again' : 'Could not save. Try again');
+          return;
+        }
+      }
+      user.brandName = fields.name; user.brandColor = fields.color; user.brandLogoUrl = fields.logoUrl;
+      close();
+      toast(window._demoMode ? 'Saved in the demo' : pro ? 'Saved. Your athletes see it next time they open the app' : 'Saved. Your athletes see it once you\'re on Pro');
+      try { renderCoachYou(); } catch (e) {}
+    });
+    acts.appendChild(save);
+    if (!pro && canUpgrade) {
+      const see = el('button', { class: 'btn ui-btn-soft btn-block', type: 'button' }, 'See Pro');
+      see.addEventListener('click', () => { close(); setTimeout(() => openUpgradeModal('brand'), 230); });
+      acts.appendChild(see);
+    }
+    sheet.appendChild(acts);
+    paint();
+  }, { cls: 'brand-sheet' });
+}
+window.openBrandSheet = openBrandSheet;
+
 function openCheckinQuestionsSheet() {
   uiSheet('Check-in questions', (sheet, close) => {
     const draw = () => {

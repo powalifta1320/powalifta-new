@@ -285,7 +285,9 @@ function _buildDemoData() {
       sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
       goals, checkins: SOLO ? [] : checkins, messages: SOLO ? [] : messages,
       messageReactions: SOLO ? [] : [{ messageId: 'demo-amsg-2a', userId: DC, reaction: 'fire' }],
-      marketplacePrograms: [], mySales: [], myPurchases: []
+      marketplacePrograms: [], mySales: [], myPurchases: [],
+      // ?demo=1&brand=1: the app as a branded Pro coach's athletes see it.
+      coachBrand: !SOLO && /[?&]brand=1/.test(location.search) ? demoCoachBrand() : null
     }
   };
 }
@@ -648,6 +650,8 @@ async function bootstrap(expectedType, onReady, opts) {
     tiktok: profile.tiktok || null,
     referralCode: profile.referral_code || null,
     referredByCode: profile.referred_by_code || null,
+    // A coach's branding (migration-coach-brand-2026-10-22.sql); athletes see it only on Pro and up.
+    brandName: profile.brand_name || null, brandLogoUrl: profile.brand_logo_url || null, brandColor: profile.brand_color || null,
     // Who bills the coach's plan ('apple' | 'ls' | null) and when its paid period
     // ends: getCurrentTier() treats the plan as Free 3 days after that.
     billingProvider: billingProviderOf(profile),
@@ -9163,6 +9167,89 @@ function blockSummary(block, athleteId) {
     if (before > 0 && inBlock > 0) change[L] = inBlock - before;
   });
   return { pct: st.sets ? Math.round(st.done / st.sets * 100) : 0, sessions: st.sessions || 0, change };
+}
+
+// ===== COACH BRANDING (2026-10-22) =====
+// A Pro coach's team name, logo and colour on their athletes' app. The server hands an athlete
+// their coach's branding only while that coach is on Pro or Premium (my_coach_brand()).
+// The palette: colours that hold white text on a button in both themes. Red is the app's own
+// (saved as no colour).
+function brandColors() {
+  return [
+    { hex: null, name: 'POWALIFTA red', swatch: '#ff3b4a' },
+    { hex: '#f2661d', name: 'Orange' },
+    { hex: '#15a35a', name: 'Green' },
+    { hex: '#0b9da3', name: 'Teal' },
+    { hex: '#2f6bff', name: 'Blue' },
+    { hex: '#5b4dff', name: 'Indigo' },
+    { hex: '#9b4dff', name: 'Purple' },
+    { hex: '#e33f86', name: 'Pink' },
+    { hex: '#50505c', name: 'Graphite' }
+  ];
+}
+// A colour lifted toward white (amount 0-1), as #rrggbb: the gradient's second stop. Worked out
+// here, not with CSS color-mix(), which iPhones before iOS 16.2 don't read.
+function brandTint(hex, amount) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return null;
+  const n = parseInt(m[1], 16), k = Math.max(0, Math.min(1, amount == null ? 0.2 : amount));
+  const ch = (v) => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0');
+  return '#' + ch((n >> 16) & 255) + ch((n >> 8) & 255) + ch(n & 255);
+}
+function brandInitials(name) {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase();
+}
+// The team's mark: their logo, else their initials on their colour.
+function brandMark(brand, cls) {
+  if (brand && brand.logoUrl) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
+  return el('span', { class: 'brand-mark brand-mono ' + (cls || ''), style: brand && brand.color ? '--brand-c:' + brand.color : '', 'aria-hidden': 'true' }, brandInitials(brand && brand.name));
+}
+function demoCoachBrand() {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0f1a33"/>' +
+    '<path d="M12 32h40" stroke="#9db8ff" stroke-width="4" stroke-linecap="round"/><rect x="18" y="19" width="7" height="26" rx="2" fill="#2f6bff"/>' +
+    '<rect x="39" y="19" width="7" height="26" rx="2" fill="#2f6bff"/></svg>';
+  return { coachId: 'demo-coach', name: 'Iron Temple Barbell', color: '#2f6bff', logoUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) };
+}
+// Wear a brand: the colour on the primary action (and the Train screen's accent), the name
+// and mark in every [data-brand-slot]. Null puts the app back to its own look.
+function applyCoachBrand(brand) {
+  const body = document.body;
+  if (!body) return;
+  const on = !!(brand && (brand.name || brand.logoUrl || brand.color));
+  const color = on && /^#[0-9a-f]{6}$/i.test(String(brand.color || '')) ? brand.color : null;
+  body.classList.toggle('is-branded', !!color);
+  if (color) { body.style.setProperty('--brand', color); body.style.setProperty('--brand-2', brandTint(color, 0.2)); }
+  else { body.style.removeProperty('--brand'); body.style.removeProperty('--brand-2'); }
+  document.querySelectorAll('[data-brand-slot]').forEach(slot => {
+    slot.innerHTML = '';
+    const show = on && !!(brand.name || brand.logoUrl);
+    slot.hidden = !show;
+    if (!show) return;
+    slot.appendChild(brandMark(brand));
+    if (brand.name) slot.appendChild(el('span', { class: 'brand-name' }, brand.name));
+  });
+}
+// A picked logo as a 256 px square PNG: the whole logo fits (no cropping), transparency kept,
+// photos' location data gone. Rejects what isn't a picture.
+function shrinkLogo(file, size) {
+  size = size || 256;
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\/(png|jpe?g|webp)$/i.test(file.type || '')) { reject(new Error('Pick a PNG, JPG or WebP picture')); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (!(w > 0 && h > 0)) { URL.revokeObjectURL(url); reject(new Error('Could not read that picture')); return; }
+      const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const k = Math.min(size / w, size / h), dw = Math.round(w * k), dh = Math.round(h * k);
+      c.getContext('2d').drawImage(img, Math.round((size - dw) / 2), Math.round((size - dh) / 2), dw, dh);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => (b ? resolve(b) : reject(new Error('Could not read that picture'))), 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that picture')); };
+    img.src = url;
+  });
 }
 
 function uiSparkline(values) {

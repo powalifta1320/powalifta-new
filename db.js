@@ -1601,6 +1601,34 @@ const DB = {
     const { error } = await sb.from('programs').delete().in('id', [id]);
     if (error) throw error;
   },
+  // ---------- COACH BRANDING (migration-coach-brand-2026-10-22.sql) ----------
+  // An athlete's coach's team name, logo and colour: answered only while that coach is on Pro or
+  // Premium (the server decides), else null. Null too before the migration runs.
+  async getMyCoachBrand() {
+    const { data, error } = await sb.rpc('my_coach_brand');
+    if (error) { if (!_isNotReady(error)) console.warn('getMyCoachBrand', error); return null; }
+    const r = (data || [])[0];
+    return r ? { coachId: r.coach_id, name: r.brand_name || null, logoUrl: r.brand_logo_url || null, color: r.brand_color || null } : null;
+  },
+  // A coach's own branding: { name, color, logoUrl }; undefined leaves a field, null clears it.
+  async saveBrand(userId, fields) {
+    const row = {};
+    if (fields.name !== undefined) row.brand_name = fields.name ? String(fields.name).trim().slice(0, 40) : null;
+    if (fields.color !== undefined) row.brand_color = fields.color || null;
+    if (fields.logoUrl !== undefined) row.brand_logo_url = fields.logoUrl || null;
+    const { error } = await sb.from('profiles').update(row).in('id', [userId]);
+    if (error) return { ok: false, notReady: _isNotReady(error) || !!_missingCol(error, ['brand_name', 'brand_color', 'brand_logo_url']), error };
+    return { ok: true };
+  },
+  // The logo file: avatars/<id>/brand.png (the database accepts only this path for a logo).
+  async uploadBrandLogo(blob, userId) {
+    const path = userId + '/brand.png';
+    const { error } = await sb.storage.from('avatars').upload(path, blob, { upsert: true, cacheControl: '3600', contentType: 'image/png' });
+    if (error) throw error;
+    const { data } = sb.storage.from('avatars').getPublicUrl(path);
+    return data.publicUrl + '?t=' + Date.now();
+  },
+
   // ---------- PAST BLOCKS (migration-blocks-2026-10-22.sql) ----------
   async listProgramBlocks(athleteIds) {
     if (!athleteIds || !athleteIds.length) return [];
@@ -2539,7 +2567,7 @@ const DB = {
       empty.mySales = sales;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -2551,8 +2579,10 @@ const DB = {
         this.listMyPurchases(profile.id).catch(() => []),
         profile.coach_id ? this.listCheckinQuestions().catch(() => []) : Promise.resolve([]),
         profile.coach_id ? this.listCheckinAnswers(_ciSince).catch(() => []) : Promise.resolve([]),
-        this.listProgramBlocks([profile.id]).catch(() => [])
+        this.listProgramBlocks([profile.id]).catch(() => []),
+        profile.coach_id ? this.getMyCoachBrand().catch(() => null) : Promise.resolve(null)
       ]);
+      empty.coachBrand = brand;
       empty.programBlocks = blocks;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;

@@ -66,6 +66,7 @@
            rest live behind ⋯ (always open on desktop, where there's room). -->
       <div class="dash-header today-head">
         <div class="th-text">
+          <div class="th-brand" data-brand-slot hidden></div>
           <div class="th-eyebrow" id="todayEyebrow">Today</div>
           <div class="th-day">
             <h2 id="todayTitle">Train</h2>
@@ -125,7 +126,7 @@
     </section>
 
     <section data-pane="coach" id="pane-coach" role="tabpanel" aria-labelledby="tab-coach" tabindex="0" class="hidden">
-      <div class="dash-header"><div><h2>My coach</h2></div></div>
+      <div class="dash-header"><div><div class="th-brand" data-brand-slot hidden></div><h2>My coach</h2></div></div>
       <div id="coachArea"></div>
     </section>
 
@@ -482,6 +483,8 @@ function initModalA11y() {
 bootstrap('athlete', () => {
   user = getCurrentUser();
   renderNav('#nav');
+  // A Pro coach's team name, logo and colour (null for everyone else).
+  try { applyCoachBrand(user.coachId ? Store.get().coachBrand : null); } catch (e) {}
 
   const setLbl = (id, icon, text) => { const e = document.getElementById(id); if (e) e.innerHTML = icon + '<span>' + text + '</span>'; };
   // Self-coached athletes get to BUILD their own program in this tab.

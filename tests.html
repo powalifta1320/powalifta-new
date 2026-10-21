@@ -827,6 +827,13 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
 });
+test('coach branding: palette, tint, initials', () => {
+  eq(brandTint('#2f6bff', 0.2), '#5989ff'); eq(brandTint('#000000', 0.5), '#808080'); eq(brandTint('red'), null);
+  eq(brandInitials('Iron Temple Barbell'), 'IT'); eq(brandInitials('lab'), 'L'); eq(brandInitials(''), '?');
+  eq(brandColors()[0].hex, null);                                        // red is the app's own: saved as no colour
+  eq(brandColors().every(c => c.hex == null || /^#[0-9a-f]{6}$/.test(c.hex)), true);   // what the database accepts
+  // applying a brand to the page is checked in the browser (scratchpad brandcheck)
+});
 test('weight ranges: 140-145 kg, 70-75%, carried, progressed, capped', () => {
   const p = (s, u) => parsePrescription(s, u || 'kg');
   eq(p('3x5 140-145kg').kg, 140); eq(p('3x5 140-145kg').kgHi, 145); eq(p('3x5 145–140 kg').kg, 140);
