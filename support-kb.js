@@ -380,6 +380,21 @@ window.POWA_SUPPORT_KB = [
   "app": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your athletes see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. If a plan ends, the app goes back to its own look."
  },
  {
+  "id": "apple-health",
+  "q": "Does POWALIFTA work with Apple Health?",
+  "t": [
+   "apple health",
+   "health app",
+   "healthkit",
+   "resting heart rate",
+   "sleep",
+   "smart scale",
+   "withings"
+  ],
+  "a": "In the iPhone app, yes: You → Apple Health, then turn it on and allow access. Weigh-ins from your scale (or any app that writes to Health) come into POWALIFTA, and the ones you log here go to Health; if the same day has two different weights, the app asks which to keep (POWALIFTA's stays if you skip it). Every finished session is saved to Health as a strength training workout, with its sets and total lifted. Last night's sleep and your resting heart rate show on Train's \"How do you feel today?\" (with a suggestion) and on Progress. They stay on your phone unless you switch on Share with your coach in the same sheet. Turn it off any time there, or change access in the Health app: tap your picture, then Apps → POWALIFTA.",
+  "app": "Yes: You → Apple Health, then turn it on and allow access. Weigh-ins from your scale (or any app that writes to Health) come into POWALIFTA, and the ones you log here go to Health; if the same day has two different weights, the app asks which to keep (POWALIFTA's stays if you skip it). Every finished session is saved to Health as a strength training workout, with its sets and total lifted. Last night's sleep and your resting heart rate show on Train's \"How do you feel today?\" (with a suggestion) and on Progress. They stay on your phone unless you switch on Share with your coach in the same sheet. Turn it off any time there, or change access in the Health app: tap your picture, then Apps → POWALIFTA."
+ },
+ {
   "id": "coach-templates",
   "q": "As a coach, how do I save and reuse a program as a template?",
   "t": [

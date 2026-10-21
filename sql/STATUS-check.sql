@@ -79,6 +79,8 @@ with checks(n, migration, applied) as (values
         to_regclass('public.program_blocks') is not null),
   (32, 'migration-coach-brand-2026-10-22.sql',
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
-                 where s.nspname = 'public' and p.proname = 'my_coach_brand'))
+                 where s.nspname = 'public' and p.proname = 'my_coach_brand')),
+  (33, 'migration-health-2026-10-22.sql  (1.3, Apple Health)',
+        to_regclass('public.health_daily') is not null)
 )
 select n, migration, applied from checks order by n;

@@ -8,3 +8,4 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 ruby inject-live-activity.rb   # RestTimer plugin + PowaWidget target (Live Activity)
 ruby inject-iap.rb             # StoreKit coach subscriptions
 ruby inject-home-screen.rb     # plate-colour app icons + the Total widget
+ruby inject-health.rb          # Apple Health (1.3): plugin, entitlement, permission texts

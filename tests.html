@@ -90,6 +90,7 @@
      are pure (Store + window._user only) and never touch Supabase. -->
 <script src="app.js"></script>
 <script src="clubs.js"></script>
+<script src="health.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -838,6 +839,52 @@ test('App Store paywall: says which failure it hit', () => {
   eq(iapDiagnosticText({ environment: 'Production', storefront: 'GBR', canMakePayments: true,
     requested: ['a', 'b', 'c'], returned: [], products: [] }), 'Store: Production · GBR · payments allowed · asked 3, got 0');
   eq(iapDiagnosticText({ products: [plan], error: 'boom' }), 'Store: unknown · no storefront · payments allowed · asked 0, got 1 · boom');
+});
+test('apple health: weigh-ins in, workouts out, recovery', () => {
+  const H = window.PowaHealthJS;
+  // weigh-ins: the last reading of each day; new days come in, a different weight asks once
+  const samples = [{ day: '2026-10-20', kg: 82.04, date: '2026-10-20T06:10:00Z', source: 'Withings' }, { day: '2026-10-20', kg: 82.4, date: '2026-10-20T07:00:00Z', source: 'Withings' },
+    { day: '2026-10-21', kg: 81.9, date: '2026-10-21T06:00:00Z' }, { day: '2026-10-19', kg: 82.0, date: '2026-10-19T06:00:00Z' }, { day: '2026-10-18', kg: 83.3, date: '2026-10-18T06:00:00Z' }];
+  const mine = [{ id: 'b1', date: '2026-10-21', weight: 81.0 }, { id: 'b2', date: '2026-10-19', weight: 82.02 }, { id: 'b3', date: '2026-10-18', weight: 82.0 }];
+  const p = H._planWeights(samples, mine, {}, { b3: true });
+  eq(p.toImport.map(x => x.day + ':' + x.kg).join(','), '2026-10-20:82.4');      // the day's last reading, one decimal
+  eq(p.conflicts.map(x => x.day + ':' + x.ours + '/' + x.health).join(','), '2026-10-21:81/81.9');   // 82.02 vs 82.0 is the same
+  eq(p.updates.map(x => x.id + ':' + x.kg).join(','), 'b3:83.3');                // a day that came from Health follows it
+  eq(H._planWeights(samples, mine, { '2026-10-21': 'ours' }, { b3: true }).conflicts.length, 0);   // answered once, never again
+  eq(H._planWeights(samples, mine, {}, { b3: 82 }).updates.map(x => x.id).join(','), 'b3');      // marks now hold the kg
+  // a finished day → one workout; anything still to do → none
+  const day = { name: 'Squat Day', exercises: [
+    { lift: 'squat', variant: 'Competition', sets: [{ weight: 140, reps: 5, completed: true }, { weight: 140, reps: 5, completed: true }] },
+    { lift: 'bench', variant: 'Competition', sets: [{ weight: 100, reps: 5, completed: true }, { weight: 100, reps: 5, skipped: true }] } ] };
+  const w = H._sessionWorkout(day, { first: '2026-10-21T18:00:00Z', last: '2026-10-21T18:50:00Z' }, '2026-10-21T19:00:00Z');
+  eq(w.sets, 3); eq(w.totalKg, 1900); eq(w.title, 'Squat Day');
+  eq(w.start, '2026-10-21T17:50:00.000Z'); eq(w.end, '2026-10-21T18:52:00.000Z');
+  eq(/140 kg × 5, 140 kg × 5/.test(w.summary), true);
+  const open = JSON.parse(JSON.stringify(day)); delete open.exercises[1].sets[1].skipped;
+  eq(H._sessionWorkout(open, null, '2026-10-21T19:00:00Z'), null);
+  const quick = H._sessionWorkout(day, null, '2026-10-21T19:00:00Z');                // no clock times: at least 20 minutes
+  eq((Date.parse(quick.end) - Date.parse(quick.start)) / 60000, 20);
+  // recovery
+  const hr = [54, 58, 55, 56, 57, 55, 56].map((b, i) => ({ day: '2026-10-' + String(21 - i).padStart(2, '0'), bpm: b }));
+  eq(H._rhrBaseline(hr), 56);
+  eq(H.suggestReadiness({ sleepMin: 330, rhr: 54, rhrBase: 56 }), 'rough');      // under 6 h
+  eq(H.suggestReadiness({ sleepMin: 450, rhr: 64, rhrBase: 56 }), 'rough');      // 8 over the usual
+  eq(H.suggestReadiness({ sleepMin: 500, rhr: 55, rhrBase: 56 }), 'fresh');
+  eq(H.suggestReadiness({ sleepMin: 420, rhr: 57, rhrBase: 56 }), 'normal');
+  eq(H.suggestReadiness({ sleepMin: null, rhr: null }), null);
+  eq(H.recoveryLine({ sleepMin: 440, rhr: 59, rhrBase: 55 }), 'Slept 7 h 20 · resting HR 59 (+4)');
+  eq(H.sleepText(425), '7 h 05'); eq(H.sleepText(480), '8 h');
+  // shared with the coach
+  const saved = Store.get();
+  try {
+    Store.set(Object.assign(defaultStore(), { healthDaily: [
+      { athleteId: 'a', day: '2026-10-21', sleepMin: 330, rhr: 63 }, { athleteId: 'a', day: '2026-10-20', sleepMin: 450, rhr: 55 }, { athleteId: 'b', day: '2026-10-21', sleepMin: 480, rhr: 50 } ] }));
+    const rec = athleteRecovery('a', '2026-10-21');
+    eq(rec.sleepMin, 330); eq(rec.rhr, 63); eq(rec.sleepAvg, 390); eq(rec.rhrAvg, 59);
+    eq(athleteRecovery('z', '2026-10-21'), null);
+    eq(athleteRecovery('a', '2026-10-25').sleepMin, null);   // nothing from last night: no "last night"
+    eq(sleepHm(330), '5 h 30');
+  } finally { Store.set(saved); }
 });
 test('yearly plans: months free, checkout links by billing', () => {
   eq(yearlyMonthsFree(49.99, 499.99), 2); eq(yearlyMonthsFree(24.99, 249.99), 2); eq(yearlyMonthsFree(99.99, 1199.88), 0);

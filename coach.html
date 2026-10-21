@@ -1146,6 +1146,9 @@ function openAthleteSheet(athleteId) {
     two.appendChild(el('span', { class: 'aq-days-lbl' }, 'Last 14 days'));
     two.appendChild(dayStrip(a.id, 14, 'is-big'));
     sheet.appendChild(two);
+    // Shared from Apple Health (only when they share): last night and the resting heart rate.
+    const rcv = recoveryRows(athleteRecovery(a.id));
+    if (rcv.length) { sheet.appendChild(uiLabel('Recovery')); sheet.appendChild(uiList(rcv)); }
     // Their answers to your check-in questions: the latest, and the average or the yes count.
     const ciQs = checkinQuestionsFor((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id), a.id);
     if (ciQs.length) {
@@ -1468,6 +1471,9 @@ function renderAthletePage(athleteId) {
   // Training calendar: the last 20 weeks, a square per day, darker = more sets.
   left.appendChild(uiLabel('Training'));
   left.appendChild(_apCalendar(logs, 20));
+  // Shared from Apple Health (only when they share)
+  const rcv = recoveryRows(athleteRecovery(a.id));
+  if (rcv.length) { right.appendChild(uiLabel('Recovery')); right.appendChild(uiList(rcv)); }
   // Check-in answers
   const qs = checkinQuestionsFor((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id), a.id);
   if (qs.length) {

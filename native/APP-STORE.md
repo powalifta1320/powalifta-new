@@ -112,6 +112,7 @@ Source of truth is `privacy.html`. Declare:
 | Name | Yes | Yes | No | App functionality (your profile, coach roster) |
 | Email address | Yes | Yes | No | App functionality (account, auth, transactional email) |
 | Health & Fitness (workouts, bodyweight) | Yes | Yes | No | App functionality (your training log) |
+| Health (sleep, resting heart rate; 1.3, only if the lifter shares with their coach) | Yes | Yes | No | App functionality: shown to their own coach. Read from Apple Health; off by default |
 | User content (notes, form-check videos, messages, club posts + reactions) | Yes | Yes | No | App functionality |
 | Photos or videos (profile photo, form-check videos) | Yes | Yes | No | App functionality |
 | Other user contact info (Instagram and TikTok handles, optional) | Yes | Yes | No | App functionality (shown on your profile, club lifter card, coach page) |
@@ -121,6 +122,12 @@ Source of truth is `privacy.html`. Declare:
 | Usage data (analytics) | No | — | — | Plausible is disabled inside the app (native-bridge.js; the bundle carries no analytics tag) |
 | Purchases (coach subscription status) | Yes | Yes | No | App functionality — Apple in-app subscription, from Apple's signed transaction; no card data |
 | User ID (account id) | Yes | Yes | No | App functionality — the account the data belongs to |
+
+### Apple Health (1.3, branch feat/apple-health)
+- **Xcode:** App target → Signing & Capabilities → **+ HealthKit** (inject-health.rb already adds the entitlement, the capability flag and both permission texts; with automatic signing, Xcode registers HealthKit on the App ID). Leave "Clinical Health Records" and "Background Delivery" off.
+- **App Store Connect → App Privacy:** Health (sleep, resting heart rate) as in the table above; Health & Fitness already declared. The app uses Apple Health data only for the lifter's own features and, if they turn it on, to show their coach; never for ads, never sold, never in iCloud (privacy.html → Apple Health).
+- **Review notes:** "Apple Health is optional (You → Apple Health). It reads bodyweight, sleep and resting heart rate, and writes weigh-ins and strength workouts. To try it on the review account: turn it on, allow access, log a weigh-in (it appears in Health → Body Measurements → Weight), finish a session (Health → Workouts). The demo does not use Apple Health."
+- **Guidelines:** 5.1.3 (Health data only for health/fitness features, user consent for sharing) and 27.x HealthKit: the app shows clearly what it does with Health (the Apple Health sheet), has a privacy policy covering it, and doesn't store Health data in iCloud.
 
 **Tracking:** NO. The app does not track users across apps/sites. (Plausible is privacy-first + cookieless; declare "Data Not Used to Track You".)
 

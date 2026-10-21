@@ -510,6 +510,11 @@ function _buildCoachDemoData() {
       checkinQuestions: ciQs, checkinAnswers: ciAs, programBlocks,
       coaches: [], athletes, invites, programs, programTemplates,
       workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages,
+      // Shared from Apple Health: Arjun sleeps well; Tom, having a rough week, doesn't.
+      healthDaily: [0, 1, 2, 3, 4, 5, 6].flatMap(i => [
+        { athleteId: 'demo-a1', day: daysAgo(i), sleepMin: [452, 431, 470, 418, 445, 462, 438][i], rhr: [52, 53, 52, 54, 53, 52, 53][i] },
+        { athleteId: 'demo-a3', day: daysAgo(i), sleepMin: [318, 342, 365, 401, 330, 420, 410][i], rhr: [64, 62, 60, 58, 61, 57, 57][i] }
+      ]),
       // Arjun's last two meets, as they come in from OpenPowerlifting: his real 1RMs.
       meets: [
         { id: 'demo-cmeet-1', athleteId: 'demo-a1', name: 'Spring Classic', date: daysAgo(152), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.6, squat: 200, bench: 132.5, deadlift: 240,
@@ -652,6 +657,8 @@ async function bootstrap(expectedType, onReady, opts) {
     referredByCode: profile.referred_by_code || null,
     // A coach's branding (migration-coach-brand-2026-10-22.sql); athletes see it only on Pro and up.
     brandName: profile.brand_name || null, brandLogoUrl: profile.brand_logo_url || null, brandColor: profile.brand_color || null,
+    // Apple Health (1.3): the lifter shares sleep + resting HR with their coach.
+    shareHealth: !!profile.share_health_with_coach,
     // Who bills the coach's plan ('apple' | 'ls' | null) and when its paid period
     // ends: getCurrentTier() treats the plan as Free 3 days after that.
     billingProvider: billingProviderOf(profile),
@@ -2322,7 +2329,8 @@ async function persistAddInvite(inv)      { if (window._demoMode) return; try { 
 async function persistDeleteInvite(code)  { if (window._demoMode) return; try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
 async function persistAddNote(n)          { if (window._demoMode) return; try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
 async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); toast('No connection: saved on this device, will sync'); } }
-async function persistBw(b)               { if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection: saved on this device, will sync'); } }
+async function persistBw(b)               { try { if (window.PowaHealthJS) PowaHealthJS.weightSaved(b); } catch (e) {}   // Apple Health (on the phone, when on)
+                                           if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection: saved on this device, will sync'); } }
 async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); } }
 async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); _enqueueOutbox('deleteRest', { athleteId: aid, date: d }, 'rest:' + aid + ':' + d); } }
 async function persistAddTemplate(t)      { if (window._demoMode) return; try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
@@ -9380,6 +9388,34 @@ function shrinkLogo(file, size) {
   });
 }
 
+// ===== APPLE HEALTH, SHARED (1.3) =====
+// What a lifter shares with their coach (health_daily, only while they share): last night,
+// the resting heart rate, and the week around them. Null when nothing is shared. Pure on Store.
+function athleteRecovery(athleteId, today) {
+  const rows = (Store.get().healthDaily || []).filter(r => r.athleteId === athleteId).sort((a, b) => String(b.day).localeCompare(String(a.day)));
+  if (!rows.length) return null;
+  const t = today || (typeof todayISO === 'function' ? todayISO() : '');
+  const yest = (() => { const d = new Date(t + 'T12:00:00'); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })();
+  const last = rows.find(r => r.day >= yest && (r.sleepMin > 0 || r.rhr > 0)) || null;
+  const week = rows.slice(0, 7);
+  const sl = week.filter(r => r.sleepMin > 0), hr = week.filter(r => r.rhr > 0);
+  return {
+    day: last ? last.day : null,
+    sleepMin: last && last.sleepMin > 0 ? last.sleepMin : null,
+    rhr: last && last.rhr > 0 ? Number(last.rhr) : null,
+    sleepAvg: sl.length ? Math.round(sl.reduce((a, r) => a + r.sleepMin, 0) / sl.length) : null,
+    rhrAvg: hr.length ? Math.round(hr.reduce((a, r) => a + Number(r.rhr), 0) / hr.length) : null
+  };
+}
+function sleepHm(min) { if (!(Number(min) > 0)) return ''; const h = Math.floor(min / 60), m = Math.round(min % 60); return h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : ''); }
+function recoveryRows(rec) {
+  const rows = [];
+  if (!rec) return rows;
+  if (rec.sleepMin != null || rec.sleepAvg != null) rows.push(uiRow({ title: rec.sleepMin != null ? 'Slept ' + sleepHm(rec.sleepMin) : 'Sleep', sub: rec.sleepAvg != null ? '7-night average ' + sleepHm(rec.sleepAvg) : '', subTone: rec.sleepMin != null && rec.sleepMin < 360 ? 'alert' : null }));
+  if (rec.rhr != null || rec.rhrAvg != null) rows.push(uiRow({ title: rec.rhr != null ? 'Resting HR ' + Math.round(rec.rhr) : 'Resting heart rate', sub: rec.rhrAvg != null ? 'Week average ' + rec.rhrAvg : '', subTone: rec.rhr != null && rec.rhrAvg != null && rec.rhr >= rec.rhrAvg + 7 ? 'alert' : null }));
+  return rows;
+}
+
 function uiSparkline(values) {
   const v = (values || []).filter(n => isFinite(n));
   if (v.length < 2) return '';
@@ -10583,6 +10619,11 @@ function youSettingsRows(role, rerender) {
     { label: 'Security', onClick: () => openSecuritySheet() },
     { label: 'Units', value: getUnit() === 'lbs' ? 'lb' : 'kg', onClick: () => toggleUnit() },
     role === 'athlete' ? { label: 'Plates', value: gymPlatesLabel(), onClick: (row, v) => openGymPlatesSheet(() => { if (v) v.textContent = gymPlatesLabel(); }) } : null,
+    // Apple Health (1.3, health.js): the iPhone app, for lifters.
+    role === 'athlete' && window.PowaHealthJS && PowaHealthJS.couldOffer() && typeof openHealthSheet === 'function'
+      ? { label: 'Apple Health', value: PowaHealthJS.isOn() ? 'On' : 'Off', tint: 'pink',
+          icon: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.9c0 5.6-7.5 10-7.5 10z"/></svg>',
+          onClick: (row, v) => openHealthSheet(() => { if (v) v.textContent = PowaHealthJS.isOn() ? 'On' : 'Off'; }) } : null,
     inShell ? { label: 'App icon', value: appIconLabel(), onClick: (row, v) => openAppIconSheet((l) => { v.textContent = l; }) } : null,
     { label: 'Share cards', value: cardFormatLabel(), onClick: (row, v) => { const next = cardFormatLabel() === 'Story' ? 'post' : 'story'; try { localStorage.setItem('powa-card-format', next); } catch (e) {} v.textContent = CARD_FORMAT_LABEL[next]; hapticTick(); } },
     { label: 'Your data', onClick: () => openDataSheet() }
