@@ -32,3 +32,15 @@ node test/check-mobile-overflow.mjs
 
 Without puppeteer it prints the enable step and skips (exit 0), so it never
 blocks a machine that doesn't have a browser installed.
+
+## Small-stuff scanner (needs playwright-core)
+
+Opens 100 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
+public page at desktop and phone width, dark and light) and reports overlapping text or buttons,
+text cut off by its box, sideways scroll, controls outside their card, side-by-side buttons that
+don't match, tiny tap targets and unreadable text. Run it before every App Store build.
+
+```bash
+python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in another tab
+node test/uiscan.mjs /tmp/powa-uiscan             # screenshots + issues.json for anything found
+```
