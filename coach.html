@@ -2252,6 +2252,191 @@ function openSheetImport(athleteId) {
 }
 window.openSheetImport = openSheetImport;
 
+// ===== GRID VIEW (2026-10-22) =====
+// The block as a spreadsheet: a row per exercise (grouped by day), a column per week, each cell
+// the sets as a coach writes them: "3x5 @7-8", "1x3 @8, 3x5 160kg @7", "4x6 75%", "3x8 2RIR".
+// Enter / Shift+Enter move down / up, Tab across; paste a block of cells from Sheets or Excel and
+// it fills across and down. A cell with logged sets is locked: what happened isn't rewritten.
+let _pbView = (() => { try { return localStorage.getItem('powa-pb-view') || 'weeks'; } catch (e) { return 'weeks'; } })();
+function exTitle(ex) {
+  if (!ex) return '';
+  if (MAIN_LIFTS.includes(ex.lift)) return ((ex.variant && ex.variant !== 'Competition' ? ex.variant + ' ' : 'Competition ') + LIFT_LABELS[ex.lift]).trim();
+  return ex.exerciseName || LIFT_LABELS[ex.lift] || 'Exercise';
+}
+function _gridCellText(ex) {
+  if (!ex || !(ex.sets || []).length) return '';
+  const unitTag = getUnit() === 'lbs' ? 'lb' : 'kg';
+  const plan = ex.sets.map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps }));
+  return groupSets(plan).map(b => {
+    let t = b.count + 'x' + b.reps;
+    if (b.pct != null) t += ' ' + _num(b.pct) + '%';
+    else if (b.weight > 0) t += ' ' + kgToDisplay(b.weight) + unitTag;
+    if (b.rpe != null) t += b.rir ? ' ' + effortInputText(b, true) + 'RIR' : ' @' + effortInputText(b, false);
+    return t;
+  }).join(', ');
+}
+// Text → sets, or null when a part doesn't read (each part needs "sets x reps").
+function _gridParse(text, athleteId, lift) {
+  const parts = String(text || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  const maxKg = MAIN_LIFTS.includes(lift) ? bestE1RM(athleteId, lift) : 0;
+  for (const part of parts) {
+    const p = parsePrescription(part, getUnit());
+    if (!(p.sets > 0) || !(p.reps > 0)) return null;
+    for (let i = 0; i < Math.min(20, p.sets); i++) {
+      const kg = p.pct ? (maxKg ? pctLoadKg(p.pct, maxKg) : 0) : (p.kg ? Math.round(p.kg * 100) / 100 : 0);
+      const s = newSet(kg, p.reps, p.rpe);
+      if (p.rpeHi != null) s.rpeHi = p.rpeHi;
+      if (p.rir) s.rir = true;
+      if (p.pct) s.pct = p.pct;
+      out.push(s);
+    }
+  }
+  return out;
+}
+function buildProgramGrid(prog, athleteId) {
+  const wrap = el('div', { class: 'pg-grid-wrap' });
+  wrap.appendChild(el('p', { class: 'pg-grid-hint' }, 'Type sets like a sheet: 3x5 @8 · 3x5 @7-8 · 4x6 75% · 3x8 2RIR · 1x3 @8, 3x5 160' + (getUnit() === 'lbs' ? 'lb' : 'kg') + '. Paste cells from Sheets or Excel. Logged cells are locked.'));
+  const weeks = prog.weeks || [];
+  // Rows: every day position, every exercise position any week has there.
+  const rows = [];
+  const maxDays = Math.max(0, ...weeks.map(w => (w.days || []).length));
+  for (let di = 0; di < maxDays; di++) {
+    const dayName = (weeks.find(w => w.days[di]) || { days: [] }).days[di]?.name || ('Day ' + (di + 1));
+    const maxEx = Math.max(0, ...weeks.map(w => ((w.days[di] || {}).exercises || []).length));
+    rows.push({ day: true, di, name: dayName, maxEx });
+    for (let ei = 0; ei < maxEx; ei++) {
+      const proto = weeks.map(w => ((w.days[di] || {}).exercises || [])[ei]).find(Boolean);
+      rows.push({ di, ei, proto, label: proto ? exTitle(proto) : 'Exercise' });
+    }
+  }
+  const table = el('table', { class: 'pg-grid' });
+  const thead = el('thead');
+  const hr = el('tr');
+  hr.appendChild(el('th', { class: 'pg-corner', scope: 'col' }, 'Exercise'));
+  weeks.forEach(w => hr.appendChild(el('th', { scope: 'col' }, 'Week ' + w.number)));
+  thead.appendChild(hr);
+  table.appendChild(thead);
+  const tbody = el('tbody');
+  const cells = [];   // [rowIdx][wi] → input (exercise rows only)
+  const commit = (inp) => {
+    const { wi, di, ei } = inp.dataset;
+    const W = Number(wi), D = Number(di), E = Number(ei);
+    const text = inp.value.trim();
+    if (text === inp.dataset.orig) { inp.classList.remove('is-bad'); return; }
+    const proto = rows.find(r => !r.day && r.di === D && r.ei === E).proto;
+    const parsed = text ? _gridParse(text, athleteId, proto ? proto.lift : '') : [];
+    if (parsed == null) { inp.classList.add('is-bad'); inp.title = 'Each part needs sets x reps, like 3x5 @8'; return; }
+    inp.classList.remove('is-bad'); inp.removeAttribute('title');
+    Store.update(s => {
+      const p = s.programs.find(x => x.id === prog.id);
+      const wk = p && p.weeks[W];
+      if (!wk) return;
+      while (wk.days.length <= D) wk.days.push({ id: uid('day'), name: 'Day ' + (wk.days.length + 1), exercises: [] });
+      const day = wk.days[D];
+      let ex = day.exercises[E];
+      if (!ex) {
+        if (!parsed.length || !proto) return;
+        while (day.exercises.length < E) day.exercises.push(newExercise(proto.lift, proto.variant, proto.exerciseName));
+        ex = newExercise(proto.lift, proto.variant, proto.exerciseName);
+        day.exercises.push(ex);
+      }
+      // Unchanged sets keep their ids and anything else they carry (a coach note, tempo).
+      ex.sets = parsed.map((ns, i) => {
+        const old = ex.sets[i];
+        if (old && !old.completed && Math.abs(planWeight(old) - ns.weight) < 0.06 && old.reps === ns.reps && old.rpe === ns.rpe && (old.rpeHi == null) === (ns.rpeHi == null) && !!old.rir === !!ns.rir && old.pct == ns.pct) return old;
+        return ns;
+      });
+    });
+    persistProgram(prog.id);
+    inp.dataset.orig = text;
+    const fresh = Store.get().programs.find(x => x.id === prog.id);
+    const ex = fresh && fresh.weeks[W] && fresh.weeks[W].days[D] && fresh.weeks[W].days[D].exercises[E];
+    inp.value = _gridCellText(ex); inp.dataset.orig = inp.value;
+    paintFoot();
+  };
+  const move = (inp, dRow, dCol) => {
+    const r = Number(inp.dataset.row), c = Number(inp.dataset.wi);
+    for (let rr = r + dRow; rr >= 0 && rr < cells.length; rr += (dRow || 1)) {
+      if (cells[rr] && cells[rr][c + dCol]) { const t = cells[rr][c + dCol]; if (!t.readOnly || dRow) { t.focus(); t.select(); return; } }
+      if (!dRow) break;
+    }
+  };
+  rows.forEach((r, ri) => {
+    const tr = el('tr', { class: r.day ? 'pg-day' : '' });
+    if (r.day) {
+      tr.appendChild(el('th', { scope: 'row', colspan: String(weeks.length + 1) }, r.name));
+      tbody.appendChild(tr);
+      return;
+    }
+    const th = el('th', { scope: 'row' });
+    th.appendChild(el('span', { class: 'lift-dot lift-' + (MAIN_LIFTS.includes(r.proto && r.proto.lift) ? r.proto.lift : 'acc'), 'aria-hidden': 'true' }));
+    th.appendChild(document.createTextNode(r.label));
+    tr.appendChild(th);
+    cells[ri] = [];
+    weeks.forEach((w, wi) => {
+      const ex = ((w.days[r.di] || {}).exercises || [])[r.ei];
+      const td = el('td');
+      const logged = !!(ex && ex.sets.some(s => s.completed));
+      const nameDiff = ex && r.proto && exTitle(ex) !== r.label;
+      if (nameDiff) td.appendChild(el('span', { class: 'pg-alt' }, exTitle(ex)));
+      const inp = el('input', { type: 'text', class: 'pg-cell' + (logged ? ' is-logged' : ''), spellcheck: 'false', autocomplete: 'off',
+        'aria-label': r.label + ', week ' + w.number, value: _gridCellText(ex), placeholder: ex ? '' : '–' });
+      inp.dataset.orig = inp.value; inp.dataset.wi = wi; inp.dataset.di = r.di; inp.dataset.ei = r.ei; inp.dataset.row = ri;
+      if (logged) { inp.readOnly = true; inp.title = 'Logged by the athlete. Edit in Weeks view.'; }
+      inp.addEventListener('blur', () => { if (!inp.readOnly) commit(inp); });
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, e.shiftKey ? -1 : 1, 0); }
+        else if (e.key === 'Escape') { inp.value = inp.dataset.orig; inp.classList.remove('is-bad'); inp.blur(); }
+        else if (e.key === 'ArrowDown' && (e.metaKey || e.altKey)) { e.preventDefault(); move(inp, 1, 0); }
+        else if (e.key === 'ArrowUp' && (e.metaKey || e.altKey)) { e.preventDefault(); move(inp, -1, 0); }
+      });
+      // A block pasted from a spreadsheet fills across (weeks) and down (exercises).
+      inp.addEventListener('paste', (e) => {
+        const t = (e.clipboardData || window.clipboardData).getData('text');
+        if (!/[\t\n]/.test(t.trim())) return;
+        e.preventDefault();
+        const lines = t.replace(/\r/g, '').split('\n').filter((l, i, a) => l.length || i < a.length - 1);
+        let r0 = ri, filled = 0;
+        lines.forEach(line => {
+          while (r0 < cells.length && !cells[r0]) r0++;
+          if (r0 >= cells.length) return;
+          line.split('\t').forEach((val, k) => { const tgt = cells[r0][wi + k]; if (tgt && !tgt.readOnly) { tgt.value = val.trim(); commit(tgt); filled++; } });
+          r0++;
+        });
+        toast(filled ? 'Pasted ' + filled + (filled === 1 ? ' cell' : ' cells') : 'Nothing pasted: those cells are logged');
+      });
+      td.appendChild(inp);
+      tr.appendChild(td);
+      cells[ri][wi] = inp;
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  // Per week: sets, and how many are squat / bench / deadlift.
+  const tfoot = el('tfoot');
+  const fr = el('tr');
+  fr.appendChild(el('th', { scope: 'row' }, 'Sets'));
+  const footCells = weeks.map(() => { const td = el('td'); fr.appendChild(td); return td; });
+  const paintFoot = () => {
+    const p = Store.get().programs.find(x => x.id === prog.id);
+    (p ? p.weeks : []).forEach((w, wi) => {
+      const ex = w.days.flatMap(d => d.exercises);
+      const n = (l) => ex.filter(e => e.lift === l).reduce((a, e) => a + e.sets.length, 0);
+      const all = ex.reduce((a, e) => a + e.sets.length, 0);
+      if (footCells[wi]) footCells[wi].innerHTML = '<b>' + all + '</b><small>S ' + n('squat') + ' · B ' + n('bench') + ' · D ' + n('deadlift') + '</small>';
+    });
+  };
+  tfoot.appendChild(fr);
+  table.appendChild(tfoot);
+  paintFoot();
+  const scroller = el('div', { class: 'pg-grid-scroll' });
+  scroller.appendChild(table);
+  wrap.appendChild(scroller);
+  if (!rows.some(r => !r.day)) wrap.appendChild(uiEmpty({ title: 'No exercises yet', text: 'Add them in Weeks view, or paste a whole program in.', primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(athleteId) } }));
+  return wrap;
+}
+
 function loadProgram() {
   const sel = document.getElementById('progAthlete');
   const athleteId = sel.value;
@@ -2352,6 +2537,19 @@ function loadProgram() {
     head.appendChild(goalBtn);
   }
   area.appendChild(head);
+
+  // On a desktop: Weeks (one week, day cards) or Grid (every week side by side, typed like a sheet).
+  const canGrid = !document.documentElement.classList.contains('native') && window.matchMedia && matchMedia('(min-width: 900px)').matches;
+  if (canGrid) {
+    const seg = el('div', { class: 'pb-view', role: 'radiogroup', 'aria-label': 'Builder view' });
+    [['weeks', 'Weeks'], ['grid', 'Grid']].forEach(([k, t]) => {
+      const b = el('button', { class: 'pb-view-btn' + (_pbView === k ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': _pbView === k ? 'true' : 'false' }, t);
+      b.addEventListener('click', () => { if (_pbView === k) return; _pbView = k; try { localStorage.setItem('powa-pb-view', k); } catch (e) {} loadProgram(); });
+      seg.appendChild(b);
+    });
+    head.querySelector('.pb-head-row').insertBefore(seg, progMore);
+    if (_pbView === 'grid') { area.appendChild(buildProgramGrid(prog, athleteId)); return; }
+  }
 
   const builder = el('div', { class: 'builder' });
   const aside = el('div', { class: 'builder-aside' });

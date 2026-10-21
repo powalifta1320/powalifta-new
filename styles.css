@@ -11978,3 +11978,32 @@ body.powa-app .tx-set.is-missed { opacity: 0.85; }
 .pg-1rm { font-size: 13px; color: var(--text-3); white-space: nowrap; }
 .pg-1rm b { color: var(--text-2); font-weight: 700; }
 .aq-1rm { display: block; margin-top: 2px; font-size: 12px; color: var(--text-3); }
+
+/* Program builder, Grid view (desktop, 2026-10-22): every week side by side, typed like a sheet. */
+.pb-view { display: inline-flex; gap: 2px; padding: 3px; margin-left: auto; margin-right: 8px; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+.pb-view-btn { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.pb-view-btn.on { background: var(--text); color: var(--bg); }
+.pg-grid-wrap { margin-top: 18px; }
+.pg-grid-hint { margin: 0 2px 12px; color: var(--text-3); font-size: 13px; line-height: 1.5; }
+.pg-grid-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--bg-1); }
+.pg-grid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 14px; }
+.pg-grid th, .pg-grid td { border-bottom: 1px solid var(--line); }
+.pg-grid thead th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; background: var(--bg-2); color: var(--text-2); font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; }
+.pg-grid tbody th, .pg-grid tfoot th, .pg-grid .pg-corner { position: sticky; left: 0; z-index: 1; min-width: 200px; max-width: 240px; padding: 0 14px; background: var(--bg-1); color: var(--text); font-weight: 650; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: inset -1px 0 0 var(--line); }
+.pg-grid .pg-corner { z-index: 3; background: var(--bg-2); }
+.pg-grid tbody th .lift-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
+.pg-grid tr.pg-day th { position: sticky; left: 0; padding: 14px 14px 6px; background: var(--bg-1); color: var(--text-3); font-size: 12px; font-weight: 700; box-shadow: none; }
+.pg-grid td { position: relative; min-width: 168px; padding: 0; border-left: 1px solid var(--line); }
+.pg-grid .pg-cell { display: block; width: 100%; height: 44px; padding: 0 12px; border: 0; border-radius: 0; background: transparent; color: var(--text); font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
+.pg-grid .pg-cell:focus { outline: none; background: color-mix(in srgb, var(--acc, #ff3b4a) 7%, transparent); box-shadow: inset 0 0 0 2px var(--acc, #ff3b4a); }
+.pg-grid .pg-cell.is-bad { box-shadow: inset 0 0 0 2px var(--soft-alert, #ff8f80); }
+.pg-grid .pg-cell.is-logged { color: var(--text-3); cursor: default; }
+.pg-grid .pg-cell::placeholder { color: var(--text-4, var(--text-3)); }
+.pg-grid .pg-alt { position: absolute; top: 3px; left: 12px; font-size: 10px; font-weight: 650; color: var(--text-3); pointer-events: none; }
+.pg-grid .pg-alt + .pg-cell { padding-top: 12px; }
+.pg-grid tfoot td, .pg-grid tfoot th { height: 52px; border-bottom: 0; }
+.pg-grid tfoot td { padding: 0 12px; }
+.pg-grid tfoot td b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+.pg-grid tfoot td small { color: var(--text-3); font-size: 12px; }
+.pg-grid th, .pg-grid td, .pg-grid small { text-transform: none; letter-spacing: 0; }
+.pg-grid tbody th { font-size: 14px; }
