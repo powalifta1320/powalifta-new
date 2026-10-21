@@ -64,7 +64,8 @@
       </div>
       <div id="planPill"></div>
       <div id="rosterArea"><div class="ui-skel" aria-hidden="true"><div class="sk sk-hero"></div><div class="sk sk-title"></div><div class="sk sk-list"><i></i><i></i><i></i></div></div></div>
-      <div id="invitesWrap">
+      <!-- Hidden until renderRoster knows there are some (it flashed empty under the loading skeleton). -->
+      <div id="invitesWrap" style="display:none">
         <div class="ui-label">Pending invites</div>
         <div id="invitesList" class="invites-list"></div>
       </div>
@@ -1124,15 +1125,23 @@ function renderRoster() {
   const invWrap = document.getElementById('invitesWrap');
   if (invWrap) invWrap.style.display = inv.length ? '' : 'none';
   if (inv.length) {
+    // ⋯ per invite: send the same link again (it still works for one athlete), copy it, or revoke it.
     ic.appendChild(uiList(inv.map(i => {
-      const rev = el('button', { class: 'ui-text-btn danger', type: 'button' }, 'Revoke');
-      rev.addEventListener('click', async (e) => {
+      const url = _inviteUrl(i.code);
+      const more = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Options for invite ' + i.code, html: UI_DOTS });
+      more.addEventListener('click', (e) => {
         e.stopPropagation();
-        Store.update(s => { s.invites = s.invites.filter(x => x.code !== i.code); });
-        await persistDeleteInvite(i.code);
-        renderRoster();
+        uiActionSheet('Invite ' + i.code, [
+          navigator.share ? { label: 'Share the link again', icon: ICONS.chat, onClick: () => { navigator.share({ title: 'Train with me on POWALIFTA', text: _inviteMessage(), url }).catch(() => {}); } } : null,
+          { label: 'Copy the link', icon: ICONS.copy, onClick: () => { _copyText(_inviteMessage() + ' ' + url).then(() => toast('Invite link copied')).catch(() => toast(url)); } },
+          { label: 'Revoke', icon: ICONS.trash, danger: true, onClick: async () => {
+            Store.update(s => { s.invites = s.invites.filter(x => x.code !== i.code); });
+            await persistDeleteInvite(i.code);
+            renderRoster();
+          } }
+        ]);
       });
-      return uiRow({ title: i.code, sub: i.email || 'Any athlete', endNode: rev });
+      return uiRow({ title: i.code, sub: i.email || 'Any athlete · powalifta.com/j/' + i.code, endNode: more });
     })));
   }
 }
@@ -1550,14 +1559,16 @@ window.openFormCheckReview = openFormCheckReview;
 // own one-use code (powalifta.com/j/CODE). The join page sends iPhones to the App Store, the
 // athlete signs up with the code and lands on this roster. A share the coach cancels deletes
 // its code again, because an unused invite holds a seat.
-const INVITE_BASE = 'https://www.powalifta.com/j/';
+// A function, not a const: the demo renders the roster while this script is still running, and a
+// const declared down here would still be in its dead zone then.
+function _inviteUrl(code) { return 'https://www.powalifta.com/j/' + code; }
 const _SHARE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 function _newInvite(email) {
   const code = generateInviteCode();
   const inv = { code, coachId: user.id, email: email || '', used: false, createdAt: Date.now() };
   Store.update(s => { s.invites.push(inv); });
   const saved = window._demoMode ? Promise.resolve() : DB.addInvite(inv);
-  const out = { code, url: INVITE_BASE + code, saved };
+  const out = { code, url: _inviteUrl(code), saved };
   saved.then(() => { try { renderRoster(); } catch (e) {} }).catch(e => {
     console.error('addInvite', e);
     out.failed = true;
@@ -1571,10 +1582,13 @@ function _dropInvite(code) {
   persistDeleteInvite(code);
   try { renderRoster(); } catch (e) {}
 }
+function _inviteMessage() {
+  const first = (user.name || '').trim().split(/\s+/)[0] || 'Your coach';
+  return first + ' invited you to train on POWALIFTA. Your program is waiting:';
+}
 function openInviteModal() {
   if (!canAddAthlete(user.id)) { openUpgradeModal('cap'); return; }
-  const first = (user.name || '').trim().split(/\s+/)[0] || 'Your coach';
-  const message = first + ' invited you to train on POWALIFTA. Your program is waiting:';
+  const message = _inviteMessage();
   uiSheet('Invite an athlete', (sheet, close) => {
     sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Send them a link. They get the app, sign up, and land on your roster. Each link works for one athlete.'));
 
