@@ -7694,6 +7694,8 @@ function bestSingle(athleteId, lift) {
   });
   return best;
 }
+// A lifted weight as it was on the bar: 187.5, never rounded to 188 (estimates round, lifts don't).
+function exactW(kg) { return String(Math.round(kgToDisplay(kg) * 10) / 10); }
 // The three best singles added up, once all three exist.
 function bestSinglesTotal(athleteId) {
   const parts = {};

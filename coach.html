@@ -1016,7 +1016,7 @@ function openAthleteSheet(athleteId) {
       c.appendChild(el('span', { class: 'aq-d' + (d > 0 ? ' up' : d < 0 ? ' down' : '') }, d == null ? 'No trend yet' : d > 0 ? '+' + d + ' in 3 wks' : d < 0 ? d + ' in 3 wks' : 'Flat, 3 wks'));
       // The best single actually lifted (training or a meet), under the estimate.
       const one = bestSingle(a.id, l);
-      c.appendChild(el('span', { class: 'aq-1rm' }, one ? '1RM ' + Math.round(kgToDisplay(one.kg)) + ' ' + unitLabel() : 'No single yet'));
+      c.appendChild(el('span', { class: 'aq-1rm' }, one ? '1RM ' + exactW(one.kg) + ' ' + unitLabel() : 'No single yet'));
       lifts.appendChild(c);
     });
     sheet.appendChild(lifts);

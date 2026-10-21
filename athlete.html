@@ -5971,7 +5971,7 @@ function renderProgOverview(area, logs) {
   const colR = el('div', { class: 'pg-total pg-real' });
   colR.appendChild(el('div', { class: 'ui-hero-label' }, 'Total'));
   if (singles) {
-    colR.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(singles.kg)) + '<small>' + u + '</small>' }));
+    colR.appendChild(el('div', { class: 'ui-num-xl', html: exactW(singles.kg) + '<small>' + u + '</small>' }));
     const meets = new Set(['squat', 'bench', 'deadlift'].map(l => singles.parts[l].source === 'meet' ? singles.parts[l].meet : null).filter(Boolean));
     colR.appendChild(el('div', { class: 'ui-hero-sub' }, el('span', {}, meets.size === 1 && ['squat', 'bench', 'deadlift'].every(l => singles.parts[l].source === 'meet') ? 'Best singles · ' + Array.from(meets)[0] : 'Your best singles')));
   } else {
@@ -6049,7 +6049,7 @@ function renderProgOverview(area, logs) {
       sub: pr ? kgToDisplay(pr.weight) + ' × ' + pr.reps + ' @ RPE ' + pr.rpe : null,
       endHtml: '<span class="pg-lift-end"><span class="pg-e1">' + (d ? '<span class="' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') +
         '<b>' + Math.round(kgToDisplay(now)) + '</b>' + u + '<small> e1RM</small></span>' +
-        '<span class="pg-1rm">' + (one ? '1RM <b>' + Math.round(kgToDisplay(one.kg)) + '</b> ' + u : 'No single yet') + '</span></span>'
+        '<span class="pg-1rm">' + (one ? '1RM <b>' + exactW(one.kg) + '</b> ' + u : 'No single yet') + '</span></span>'
     });
   })));
 
