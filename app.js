@@ -6825,7 +6825,7 @@ function renderNav(target) {
     if (!(onDash && inShell)) actions.appendChild(userPill);
     // A way back to the dashboard from the website; never on the dashboard itself.
     if (!onDash) actions.appendChild(el('a', { href: user.userType === 'coach' ? 'coach.html' : 'athlete.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
-    if (user.isAdmin) {
+    if (user.isAdmin && !inShell) {   // admin.html isn't in the app bundle, and the link crowded the app's header
       const adminA = el('a', { href: 'admin.html', class: 'btn btn-sm', style: 'border-color: var(--gold); color: var(--gold);' }, '★ Admin');
       actions.appendChild(adminA);
     }

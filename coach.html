@@ -551,11 +551,13 @@ function renderPlanPill() {
   const wrap = el('div', { class: 'plan-meter' + (atCap ? ' cap' : nearCap ? ' warn' : '') });
   wrap.appendChild(el('span', { class: 'pm-tier' }, TIER_LABELS[tier]));
   const txt = el('span', { class: 'pm-text' });
+  // The line counts real athletes; pending invites hold seats too (the server counts them), so
+  // the line under it says so, and the bar shows every seat in use.
   const line = el('span', { class: 'pm-line' });
-  line.appendChild(el('b', {}, occupied + (unlimited ? '' : ' of ' + limit)));
-  line.appendChild(document.createTextNode(occupied === 1 && unlimited ? ' athlete' : ' athletes'));
+  line.appendChild(el('b', {}, aCount + (unlimited ? '' : ' of ' + limit)));
+  line.appendChild(document.createTextNode(aCount === 1 && unlimited ? ' athlete' : ' athletes'));
   txt.appendChild(line);
-  if (pCount > 0) txt.appendChild(el('small', {}, pCount + ' invite' + (pCount === 1 ? '' : 's') + ' pending'));
+  if (pCount > 0) txt.appendChild(el('small', {}, pCount + (pCount === 1 ? ' invite pending, holding a seat' : ' invites pending, holding seats')));
   wrap.appendChild(txt);
   if (!unlimited) {
     const bar = el('span', { class: 'pm-bar', 'aria-hidden': 'true' });

@@ -11618,13 +11618,17 @@ body.powa-app .builder-main :is(.uniform-row, .set-row) > .btn-icon svg { width:
 .sb-build-sheet .sb-row.is-wide .ui-seg button { padding: 0 4px; }
 .sb-build-sheet .pm-note { margin: 10px 2px 14px; }
 
-/* Roster header on small iPhones (SE, 12/13 mini, 375 pt): the Invite pill became a round
-   icon button the size of the bell and the assistant, so it no longer covers the title. */
+/* Roster header: the Invite pill is a round icon button the size of the bell and the
+   assistant, so it never covers the title (small iPhones) or runs under those icons (the
+   labelled pill did on Plus/Pro Max widths in the app). The label stays for screen readers. */
 @media (max-width: 399px) {
   body.powa-app #btn-invite { width: 40px; height: 40px; min-width: 40px; padding: 0; border-radius: 50%; justify-content: center; }
   body.powa-app #btn-invite span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   body.powa-app #btn-invite svg { margin: 0; }
 }
+html.native body.powa-app #btn-invite { width: 40px; height: 40px; min-width: 40px; padding: 0; border-radius: 50%; justify-content: center; }
+html.native body.powa-app #btn-invite span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+html.native body.powa-app #btn-invite svg { margin: 0; }
 
 /* Bell rows: two lines with an ellipsis instead of a hard cut, and a quiet unread icon
    (the unread dot/background carries the state; a red ring read as an error). */
