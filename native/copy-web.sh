@@ -41,6 +41,7 @@ rsync -a --delete \
   --exclude 'ds-bundle' \
   --exclude '.design-sync' \
   --exclude 'showreel' \
+  --exclude 'APP-STORE-*' \
   --exclude 'admin.html' \
   --exclude 'codemagic.yaml' \
   --exclude '* 2.*' \
