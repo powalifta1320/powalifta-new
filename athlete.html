@@ -906,6 +906,22 @@ function findNextIncompleteDay(forDate) {
   return null;
 }
 
+// Is the selected day bound to this date: pinned to it, or a set logged on it? Train only shows
+// a day as today's session when it is; otherwise it offers the next one ("Start session").
+function _dayBound(cur, date) {
+  return !!cur && (cur.day.scheduledDate === date || (cur.day.exercises || []).some(ex =>
+    (ex.sets || []).some(s => s.completed && s.completedAt && s.completedAt.slice(0, 10) === date)));
+}
+// The widget's Lift mode starts the session Train offers, exactly as Start session does.
+function _startOfferedSession() {
+  const cur = getProgram() ? getCurrentDay() : null, date = getSessionDate();
+  if (!cur || isRestDay(user.id, date) || _dayBound(cur, date)) return;
+  const next = findNextIncompleteDay(date);
+  if (!next) return;
+  const sel = document.getElementById('daySelect');
+  if (sel) sel.value = _dayKey(next.wk, next.day);
+  pinDayToDate();
+}
 function pinDayToDate() {
   const sel = document.getElementById('daySelect');
   const date = getSessionDate();
@@ -1662,6 +1678,7 @@ async function saveBodyweightEntry(date, kg) {
     if (e) e.weight = kg; else s.bodyweight.push(b);
   });
   await persistBw(b);
+  syncHomeWidget();
   return true;
 }
 // The weigh-in sheet: a big number you can type or nudge by 0.1, today's date.
@@ -2398,11 +2415,7 @@ function renderToday() {
   // Is the selected day actually bound to this date? (pinned to it, or sets
   // completed on it). If neither, this date has no training — say so cleanly
   // instead of pretending Day X belongs here.
-  const boundByPin = cur.day.scheduledDate === date;
-  const boundByLog = (cur.day.exercises || []).some(ex =>
-    (ex.sets || []).some(s => s.completed && s.completedAt && s.completedAt.slice(0, 10) === date)
-  );
-  if (!boundByPin && !boundByLog) {
+  if (!_dayBound(cur, date)) {
     renderTodayHeader(cur, date, date === todayISO() ? 'Ready to train?' : 'Nothing logged');
     const e = el('div', { class: 'empty today-start' });
     const next = findNextIncompleteDay(date);
@@ -4335,7 +4348,7 @@ function renderAthleteYou() {
         { label: 'Ask AI', onClick: () => openAIAssistant() },
         { label: 'Lifting words, explained', onClick: () => openGlossary() },
         { label: 'Replay the tour', onClick: () => window.replayAthleteTour && window.replayAthleteTour() },
-        { label: 'Contact us', onClick: () => { location.href = 'mailto:powalifta1320@gmail.com'; } }
+        { label: 'Help & support', onClick: () => openAIAssistant('support') }
       ] },
       { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
     ]
@@ -4362,15 +4375,18 @@ function syncHomeWidget() {
   _widgetT = setTimeout(() => {
     try {
       const n = (kg) => kg > 0 ? String(Math.round(kgToDisplay(kg))) : '–';
+      // Cut by code point, never through an emoji: half a surrogate pair makes the whole
+      // snapshot undecodable and blanks every widget.
+      const cut = (v, max) => v != null && v !== '' ? Array.from(String(v)).slice(0, max).join('') : null;
       const date = getSessionDate();
       const cur = getProgram() ? getCurrentDay() : null;
-      let session = null, sets = null;
-      if (isRestDay(user.id, date)) session = 'Rest day';
-      else if (cur) {
-        const all = cur.day.exercises.flatMap(e => e.sets || []);
-        session = cur.day.name;
-        if (all.length) sets = all.filter(s => s.completed).length + ' of ' + all.length + ' sets';
-      }
+      const rest = isRestDay(user.id, date);
+      // The session Train offers for this date: the selected day when it belongs to the date,
+      // otherwise the next one in the program ("Ready to train? · Start session").
+      const offered = rest || !cur ? null : _dayBound(cur, date) ? cur : findNextIncompleteDay(date);
+      const allSets = offered ? (offered.day.exercises || []).flatMap(e => e.sets || []) : [];
+      const session = rest ? 'Rest day' : offered ? offered.day.name : null;
+      const sets = allSets.length ? allSets.filter(s => s.completed).length + ' of ' + allSets.length + ' sets' : null;
       let meet = null, meetDays = null, openers = null;
       try {
         const md = localStorage.getItem('powa-meet-date'); const dd = md ? daysUntil(md) : null;
@@ -4380,15 +4396,56 @@ function syncHomeWidget() {
           openers = { squat: pl.squat ? n(pl.squat.attempts[0]) : null, bench: pl.bench ? n(pl.bench.attempts[0]) : null, deadlift: pl.deadlift ? n(pl.deadlift.attempts[0]) : null };
         }
       } catch (e) {}
-      const allSets = cur ? cur.day.exercises.flatMap(e => e.sets || []) : [];
       const wk = weekGoalStatusNow();
       const bwl = _bwSeries(), lastBw = bwl[bwl.length - 1];
+      // The widget redesign (2026-10-21): the next set as Train shows it (smart load included),
+      // the days trained this week, the weigh-in trend and change, the total's four-week move.
+      let next = null;
+      try {
+        let nx = null;
+        for (const ex of (offered ? offered.day.exercises || [] : [])) {
+          const si = (ex.sets || []).findIndex(s => !s.completed);
+          if (si >= 0) { nx = { ex, si, set: ex.sets[si] }; break; }
+        }
+        if (nx) {
+          const cardio = nx.ex.lift === 'cardio';   // minutes and km, never shown as a load
+          const smart = cardio ? null : smartFor(nx.ex, nx.si);
+          const wKg = smart ? smart.kg : Number(nx.set.weight) || 0;
+          next = { lift: MAIN_LIFTS.includes(nx.ex.lift) ? nx.ex.lift : 'other', name: cut(exTitleOf(nx.ex), 32),
+            load: !cardio && wKg > 0 ? String(kgToDisplay(wKg, 2)) : null,
+            reps: cardio ? null : cut(nx.set.reps, 6), rpe: cardio ? null : cut(nx.set.rpe, 4) };
+        }
+      } catch (e) {}
+      let totalDelta = null, weekStart = null, weekDays = null, weighTrend = null, weighDelta = null;
+      try {
+        const mine = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id);
+        // The move Progress shows: the total now against 28 days ago (only ever up: it's a running best).
+        const ser = _progTotalSeries(mine), last = ser[ser.length - 1];
+        const cutoff = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
+        const prev = ser.slice().reverse().find(p => p.date <= cutoff);
+        const dv = last && prev && prev.total > 0 ? Math.round(kgToDisplay(last.total - prev.total)) : 0;
+        if (dv > 0) totalDelta = '+' + dv;
+        const days = new Set(mine.filter(l => l.lift !== 'cardio').map(l => l.date));
+        weekStart = _monISO(todayISO());
+        weekDays = [0, 1, 2, 3, 4, 5, 6].map(i => days.has(_addDaysISO(weekStart, i)) ? 1 : 0);
+      } catch (e) {}
+      try {
+        const recent = bwl.filter(b => b.date >= _addDaysISO(todayISO(), -30)).slice(-12);
+        if (recent.length >= 2) weighTrend = recent.map(b => Number(kgToDisplay(b.weight, 1)));
+        // Train's own number: this week's average against last week's (one morning is noise).
+        const h = bwHabit(bwl, todayISO());
+        if (h.delta != null) {
+          const d = Number(kgToDisplay(h.delta, 1));
+          weighDelta = (d >= 0.05 ? '+' : d <= -0.05 ? '−' : '±') + Math.abs(d).toFixed(1);
+        }
+      } catch (e) {}
       PowaNative.updateWidget({ total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
         deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now(),
         setsDone: allSets.filter(s => s.completed).length, setsTotal: allSets.length,
         weekDone: wk.done || 0, weekGoal: getWeekGoal() || defaultWeekGoal(), streak: wk.streak || 0,
         meetDays, openers,
-        lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()) });
+        lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()),
+        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta });
     } catch (e) {}
   }, 600);
 }
@@ -4412,7 +4469,7 @@ async function drainWidgetPending() {
     }
     if (saved) { toast(saved === 1 ? 'Weigh-in from your widget saved' : saved + ' weigh-ins from your widget saved'); renderToday(); try { renderAthleteYou(); } catch (e) {} }
     const open = String(r.open || '');
-    if (/^powalifta:\/\/lift/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => { try { openLiftMode(); } catch (e) {} }, 350); }
+    if (/^powalifta:\/\/lift/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => { try { _startOfferedSession(); openLiftMode(); } catch (e) {} }, 350); }
     else if (/^powalifta:\/\/weigh/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => openWeighInSheet(() => renderToday()), 350); }
     else if (/^powalifta:\/\/meet/.test(open)) { setTimeout(() => { try { (meetLiveToday() ? openMeetMode : openMeetSheet)(); } catch (e) {} }, 350); }
     else if (/^powalifta:\/\/(train|rest)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
@@ -7016,6 +7073,7 @@ async function logBodyweight() {
     else s.bodyweight.push(b);
   });
   await persistBw(b);
+  syncHomeWidget();
   document.getElementById('bwWeight').value = '';
   toast('Bodyweight logged');
   renderBodyweight();
@@ -7464,6 +7522,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 </script>
 <!-- AI assistant. Live via the JWT-gated `ai-chat` edge function (key stays
      server-side); falls back to local mock answers for demo/signed-out. -->
+<script src="support-kb.js"></script>
 <script src="ai-chat.js"></script>
 </body>
 </html>

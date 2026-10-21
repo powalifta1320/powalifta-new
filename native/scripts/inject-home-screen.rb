@@ -65,7 +65,9 @@ end
   ensure_source(app_group, app_target, File.join(APP_DIR, f))
 end
 FileUtils.mkdir_p(WIDGET_DIR)
-%w[PowaHomeWidget.swift PowaWidgets.swift PowaWidgetIntents.swift].each do |f|
+# The bundle file is copied here too (not only by inject-live-activity.rb): it names
+# every widget, so a newer committed bundle must land even when only this injector runs.
+%w[PowaWidgetBundle.swift PowaHomeWidget.swift PowaWidgets.swift PowaWidgetIntents.swift].each do |f|
   FileUtils.cp(File.join(SRC, "Widget", f), File.join(WIDGET_DIR, f))
   ensure_source(widget_group, widget_target, File.join(WIDGET_DIR, f))
 end

@@ -7467,7 +7467,7 @@ const YOU_ROW_META = {
   'Ask AI':              { tint: 'iris',   icon: () => _YI('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>') },
   'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
   'Units':               { tint: 'sky',    icon: () => ICONS.weight },
-  'Contact us':          { tint: 'green',  icon: () => ICONS.chat },
+  'Help & support':      { tint: 'green',  icon: () => ICONS.chat },
   'Share cards':         { tint: 'violet', icon: () => ICONS.share },
   'App icon':            { tint: 'gray',   icon: () => BRAND_MARK },
   'Replay the tour':     { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>') },
@@ -7557,7 +7557,9 @@ window.renderYouHub = renderYouHub;
 
 // Open the AI assistant from anywhere (the floating launcher is hidden in the app,
 // where it covered the set checkboxes — the top bar + YOU carry the entry instead).
-function openAIAssistant() {
+// mode: undefined keeps the last mode, 'support' lands on the help desk.
+function openAIAssistant(mode) {
+  if (window.PowaAI) { PowaAI.open(mode); return; }
   const l = document.querySelector('.ai-launcher');
   if (l) l.click(); else toast('Assistant is still loading. Try again in a second');
 }
