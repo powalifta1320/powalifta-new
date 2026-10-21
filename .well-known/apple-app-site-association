@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["M6X8998H58.com.powalifta.app"],
+        "appID": "M6X8998H58.com.powalifta.app",
+        "components": [
+          { "/": "/j/*", "comment": "Coach invite links open the app when it's installed" }
+        ],
+        "paths": ["/j/*"]
+      }
+    ]
+  }
+}

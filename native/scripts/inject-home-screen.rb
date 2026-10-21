@@ -38,6 +38,7 @@ PROJ_PATH  = File.join(IOS, "App.xcodeproj")
 APP_DIR    = File.join(IOS, "App")
 WIDGET_DIR = File.join(IOS, "PowaWidget")
 APP_GROUP  = "group.com.powalifta.app"
+APP_LINKS  = "applinks:www.powalifta.com"
 
 abort "[inject-home] no Xcode project at #{PROJ_PATH} — run `npx cap add ios` first." unless Dir.exist?(PROJ_PATH)
 
@@ -95,11 +96,22 @@ end
       next
     end
     plist = Xcodeproj::Plist.read_from_path(path)
+    changed = false
     groups = Array(plist["com.apple.security.application-groups"])
     unless groups.include?(APP_GROUP)
       plist["com.apple.security.application-groups"] = groups + [APP_GROUP]
-      Xcodeproj::Plist.write_to_path(plist, path)
+      changed = true
     end
+    # Universal Links (the App only): www.powalifta.com/j/CODE invite links open the installed
+    # app. The site serves /.well-known/apple-app-site-association for this team + bundle id.
+    if target == app_target
+      domains = Array(plist["com.apple.developer.associated-domains"])
+      unless domains.include?(APP_LINKS)
+        plist["com.apple.developer.associated-domains"] = domains + [APP_LINKS]
+        changed = true
+      end
+    end
+    Xcodeproj::Plist.write_to_path(plist, path) if changed
   end
   ensure_reference(group, dst) if File.exist?(dst)
 end

@@ -6,5 +6,9 @@
 	<array>
 		<string>group.com.powalifta.app</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:www.powalifta.com</string>
+	</array>
 </dict>
 </plist>

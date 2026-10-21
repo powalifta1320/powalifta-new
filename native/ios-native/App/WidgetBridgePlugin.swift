@@ -39,15 +39,36 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     private var launchURL: String?
 
     override public func load() {
-        NotificationCenter.default.addObserver(forName: Notification.Name.capacitorOpenURL, object: nil, queue: .main) { [weak self] note in
+        let handle: (Notification) -> Void = { [weak self] note in
             var url: URL?
             if let dict = note.object as? [String: Any] { url = dict["url"] as? URL }
             if url == nil, let dict = note.userInfo { url = dict["url"] as? URL }
-            if let u = url, u.scheme == "powalifta" {
-                self?.launchURL = u.absoluteString
-                self?.notifyListeners("widgetOpen", data: ["url": u.absoluteString])
+            if let u = url { self?.route(u) }
+        }
+        NotificationCenter.default.addObserver(forName: Notification.Name.capacitorOpenURL, object: nil, queue: .main, using: handle)
+        // Universal Links: an invite link tapped in Messages or Mail opens the installed app.
+        NotificationCenter.default.addObserver(forName: Notification.Name.capacitorOpenUniversalLink, object: nil, queue: .main, using: handle)
+        // Opened by a link before this plugin loaded: Capacitor keeps the last one.
+        if let u = ApplicationDelegateProxy.shared.lastURL { route(u) }
+    }
+
+    /// powalifta://… goes to the web app as it is. An invite link (https://www.powalifta.com/j/ABC123)
+    /// goes as powalifta://join?code=ABC123, so the web app routes both the same way: sign-up with
+    /// the code when signed out, "Join the coach who sent this invite?" when signed in.
+    private func route(_ u: URL) {
+        var out: String?
+        if u.scheme == "powalifta" {
+            out = u.absoluteString
+        } else if let host = u.host?.lowercased(), host == "www.powalifta.com" || host == "powalifta.com" {
+            let parts = u.path.split(separator: "/").map(String.init)
+            if parts.count == 2, parts[0] == "j" {
+                let code = parts[1].uppercased()
+                if code.range(of: "^[A-Z0-9]{6}$", options: .regularExpression) != nil { out = "powalifta://join?code=" + code }
             }
         }
+        guard let s = out else { return }
+        launchURL = s
+        notifyListeners("widgetOpen", data: ["url": s])
     }
 
     @objc func update(_ call: CAPPluginCall) {
