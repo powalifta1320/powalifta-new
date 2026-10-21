@@ -12093,3 +12093,12 @@ body.powa-app .pb-head.ui-hero { padding: 18px 18px 16px; min-height: 0; }
 body.powa-app .pb-head .pb-meta { margin-top: 4px; }
 body.powa-app .pb-head .pb-meta { margin-bottom: 0; }
 .pg-real-line span { margin-right: 2px; }
+/* The Today strip's fade: an overlay on a wrapper (works in WebKit, unlike a mask on the scroller). */
+html.native .tn-group.today-strip, html:not(.native) .tn-group.today-strip { -webkit-mask-image: none; mask-image: none; }
+.today-strip-wrap { position: relative; }
+.today-strip-wrap.has-more::after {
+  content: ''; position: absolute; top: 14px; bottom: 6px; right: -16px; width: 64px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--bg, #050506) 85%); transition: opacity 200ms ease-out;
+}
+.today-strip-wrap.has-more.at-end::after { opacity: 0; }
+@media (min-width: 701px) { html:not(.native) .today-strip-wrap::after { display: none; } }

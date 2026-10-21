@@ -3017,7 +3017,12 @@ function renderToday() {
     // UI v8: one swipeable strip of small cards (styles.css "UI v8" 2), so the session sits right under the hero.
     const strip = el('div', { class: 'tn-group today-strip', role: 'list', 'aria-label': 'Today' });
     dayRows.forEach(r => strip.appendChild(el('div', { class: 'ts-tile', role: 'listitem' }, r)));
-    area.appendChild(strip);
+    // A fade over the right edge so the next card peeks instead of cutting a word in half (a
+    // wrapper, because WebKit ignores mask-image on a scrolling row).
+    const sw = el('div', { class: 'today-strip-wrap' + (dayRows.length > 1 ? ' has-more' : '') });
+    sw.appendChild(strip);
+    strip.addEventListener('scroll', () => sw.classList.toggle('at-end', strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 8), { passive: true });
+    area.appendChild(sw);
   }
 
   // The session: a chip per lift (tap to jump), then a card per lift.
