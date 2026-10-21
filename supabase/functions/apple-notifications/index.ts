@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
   const otid = String(txn.originalTransactionId ?? "");
   if (!otid) return json(200, { ignored: "no_original_transaction" });
 
-  const cols = "id, user_type, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at";
+  const cols = "id, user_type, subscription_tier, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at";
   const byTxn = await selectProfilesSoft(admin, cols, (q) => q.eq("apple_original_transaction_id", otid).limit(1));
   if (byTxn.error) return json(500, { error: "lookup_failed" });
   let profile = byTxn.data?.[0] ?? null;
@@ -138,7 +138,11 @@ Deno.serve(async (req) => {
     const byToken = await selectProfilesSoft(admin, cols, (q) => q.eq("id", token).limit(1));
     if (byToken.error) return json(500, { error: "lookup_failed" });
     const cand = byToken.data?.[0] ?? null;
-    if (cand && (!cand.apple_original_transaction_id || cand.apple_original_transaction_id === otid)) {
+    // The token is chosen by whoever bought, so it only ever links an account that has no plan
+    // to lose (a refund of a "gift" would otherwise wipe a comp or a paid-up plan); a real
+    // buyer on a plan is linked by the app's own signed-in sync instead (apple-iap).
+    if (cand && (!cand.apple_original_transaction_id || cand.apple_original_transaction_id === otid)
+        && (cand.subscription_tier ?? "free") === "free") {
       profile = cand;
       linkTxn = true;
     }
@@ -150,7 +154,16 @@ Deno.serve(async (req) => {
 
   // Newer than what we hold, checked and written in one statement.
   const signedIso = new Date(Number(note.signedDate ?? 0) || Date.now()).toISOString();
-  const expiresMs = Number(txn.expiresDate ?? 0);
+  let expiresMs = Number(txn.expiresDate ?? 0);
+  // In Apple's billing grace period (status 4, or a failed renewal flagged GRACE_PERIOD) the plan
+  // runs to the grace end (up to 16 days), not to expiresDate plus our 3 days.
+  if (grants && data.signedRenewalInfo && (status === 4 || subtype === "GRACE_PERIOD")) {
+    try {
+      const renewal = await verifyAppleJws(String(data.signedRenewalInfo));
+      const graceMs = Number(renewal.gracePeriodExpiresDate ?? 0);
+      if (graceMs > expiresMs) expiresMs = graceMs;
+    } catch (_e) { /* keep expiresDate */ }
+  }
   const patch: Record<string, unknown> = {
     subscription_tier: decision.tier,
     subscription_status: decision.status,

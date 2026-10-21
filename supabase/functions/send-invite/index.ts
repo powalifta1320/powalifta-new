@@ -135,8 +135,11 @@ Deno.serve(async (req) => {
   if (!invites || !invites.length) {
     return jsonResponse(403, { error: 'No matching invite for this email' });
   }
-  const code = String(invites[0].code || '');
+  const code = String(invites[0].code || '').toUpperCase();
   if (!code) return jsonResponse(409, { error: 'Invite has no code' });
+  // Only a code the app could have made (generateInviteCode: 6 of A-Z without I/O, 2-9): the
+  // row is client-written, and anything else (a URL, a sentence) would ride our email.
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return jsonResponse(422, { error: 'Invite code is not valid' });
 
   // Coach display name, resolved server-side (don't trust the client for it).
   let coachName = 'Your coach';

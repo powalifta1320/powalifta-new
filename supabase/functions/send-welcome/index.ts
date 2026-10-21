@@ -21,8 +21,27 @@ function htmlEscape(str: string): string {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
+// The greeting's first name: the first word (split on any whitespace, not just spaces), letters,
+// numbers, apostrophes and hyphens only, at most 30 characters. This function runs before login,
+// so the name is attacker-chosen: it must never be able to carry a sentence or a link into a
+// DKIM-signed POWALIFTA email (security sweep 2026-10-21).
+function cleanFirstName(name: string): string {
+  const first = String(name || '').trim().split(/\s+/)[0] || '';
+  const safe = first.replace(/[^\p{L}\p{N}'\-]/gu, '').slice(0, 30);
+  return safe || 'lifter';
+}
+
+// The address the per-recipient cap counts: lower case, no +tag, and no dots for Gmail, so
+// you+1@gmail.com, you+2@… and y.o.u@… share one daily cap.
+function capKey(email: string): string {
+  const [local, domain] = email.split('@');
+  let l = (local || '').split('+')[0];
+  if (domain === 'gmail.com' || domain === 'googlemail.com') l = l.replace(/\./g, '');
+  return l + '@' + (domain === 'googlemail.com' ? 'gmail.com' : domain);
+}
+
 function buildEmail(name: string, type: 'athlete' | 'coach'): { subject: string, html: string, text: string } {
-  const firstName = (name || 'lifter').split(' ')[0];
+  const firstName = cleanFirstName(name);
   const safeName = htmlEscape(firstName);
 
   if (type === 'coach') {
@@ -37,7 +56,7 @@ Your next steps:
 3. Send it to your first athlete — they sign up with that code
 4. Build their first program: weeks, days, exercises, sets
 
-Free plan covers 3 athletes. When you grow past that, the upgrade modal will walk you through the paid tiers ($25 / $50 / $100 per month).
+Free plan covers 3 athletes. When you grow past that, the upgrade screen will walk you through the paid plans ($24.99 / $49.99 / $99.99 a month).
 
 Questions? Just reply to this email.
 
@@ -55,7 +74,7 @@ https://powalifta.com`;
     <li>Send it to your first athlete — they sign up with that code</li>
     <li>Build their first program: weeks, days, exercises, sets</li>
   </ol>
-  <p style="color: #82828c; font-size: 0.9rem; line-height: 1.6; margin: 0 0 14px;">Free plan covers 3 athletes. Upgrade tiers ($25 / $50 / $100 per month) appear when you grow past that.</p>
+  <p style="color: #82828c; font-size: 0.9rem; line-height: 1.6; margin: 0 0 14px;">Free plan covers 3 athletes. Paid plans ($24.99 / $49.99 / $99.99 a month) appear when you grow past that.</p>
   <p style="color: #82828c; font-size: 0.85rem; line-height: 1.6; margin-top: 32px; padding-top: 22px; border-top: 1px solid #25252c;">Questions? Just reply to this email.<br>— POWALIFTA</p>
 </div></body></html>`;
     return { subject, html, text };
@@ -142,7 +161,7 @@ Deno.serve(async (req) => {
     });
     if (!ipRl.ok) return rateLimitResponse(ipRl, CORS);
     const emailRl = await rateLimit(admin, {
-      bucket: 'welcome-email', identity: email, limit: 3, windowSecs: 86400,
+      bucket: 'welcome-email', identity: capKey(email), limit: 3, windowSecs: 86400,
     });
     if (!emailRl.ok) return rateLimitResponse(emailRl, CORS);
   }
@@ -166,13 +185,13 @@ Deno.serve(async (req) => {
     });
     if (!res.ok) {
       const detail = await res.text();
-      console.error('Resend error:', res.status, detail);
-      return jsonResponse(502, { error: 'Email send failed', status: res.status, detail });
+      console.error('Resend error:', res.status, detail);   // logged, never returned to the caller
+      return jsonResponse(502, { error: 'Email send failed' });
     }
     const body = await res.json();
     return jsonResponse(200, { sent: true, id: body?.id });
   } catch (e) {
     console.error('Welcome email crashed:', e);
-    return jsonResponse(500, { error: 'Unhandled exception', message: String((e as any)?.message || e) });
+    return jsonResponse(500, { error: 'Email send failed' });
   }
 });

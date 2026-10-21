@@ -105,7 +105,7 @@
   function unit() { try { return localStorage.getItem('powa-units') === 'lb' ? 'lb' : 'kg'; } catch (e) { return 'kg'; } }
   function isoDaysAgo(n) {
     var d = new Date(); d.setDate(d.getDate() - n);
-    return d.toISOString().slice(0, 10);
+    return window.isoLocal ? window.isoLocal(d) : d.toISOString().slice(0, 10);   // the lifter's local day, like todayISO()
   }
   function round(n) { return Math.round(n * 10) / 10; }
   var LABEL = (typeof LIFT_LABELS !== 'undefined') ? LIFT_LABELS : { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
@@ -643,8 +643,8 @@
   var supportMeta = {
     title: 'Support', sub: 'The app, your account & your plan',
     chips: ROLE === 'coach'
-      ? ["Invite an athlete", SHELL ? "Manage my plan" : "Change my plan", "Export a program", "Talk to a human"]
-      : ["Connect to my coach", "Export my data", "Change my units", "Delete my account", "Talk to a human"]
+      ? ["Invite an athlete", SHELL ? "Manage my plan" : "Change my plan", "Export a program"]
+      : ["Connect to my coach", "Export my data", "Change my units", "Delete my account"]   // (the human row below the chat is the way to a person)
   };
   var meta = roleMeta[ROLE];
   var chats = { train: [], support: [] };   // one thread per mode

@@ -633,7 +633,7 @@
     // Composer: you, a prompt, and the one red + on the screen.
     const comp = el('button', { class: 'club-compose', type: 'button', 'aria-label': 'Share a lift with ' + _data.club.name });
     comp.appendChild(el('span', { class: 'cp-av', 'data-name': (u && u.name) || 'You' }, initials((u && u.name) || 'You')));
-    comp.appendChild(el('span', { class: 'cc-text' }, 'Share a lift with ' + shortName(_data.club.name)));
+    comp.appendChild(el('span', { class: 'cc-text' }, 'Share a lift'));   // the club's name truncated mid-word
     comp.appendChild(el('span', { class: 'cc-plus', html: IC.plus }));
     comp.addEventListener('click', () => openShareSheet());
     root.appendChild(comp);
@@ -672,6 +672,8 @@
       .sort((a, b) => b.n - a.n || String(b.p.createdAt).localeCompare(String(a.p.createdAt)))[0];
     if (!cand) return null;
     const p = cand.p;
+    // Already among the first posts on screen: the banner would only repeat it.
+    if ((_posts || []).slice(0, 3).some(x => x.id === p.id)) return null;
     const b = el('button', { class: 'club-spot', type: 'button' });
     b.appendChild(el('span', { class: 'cs-ic', html: IC.star }));
     const t = el('span', { class: 'cs-main' });

@@ -576,3 +576,11 @@ html.native .ai-launcher::after { display: none; }
 :where(body.powa-app) .ai-input { font-size: 15px; }
 :where(body.powa-app) .ai-foot-note { font-size: 11px; }
 /* TYPE SNAP END */
+
+/* Calm assistant (2026-10-21, both review panels): a sentence-case title, a quiet mark and
+   pill, a neutral focus ring. The send arrow stays the one coloured action. */
+.ai-head-title { font-family: var(--font-body); font-stretch: 100%; text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 1.02rem; }
+.ai-head-mark { background: var(--bg-3, #24242a); color: var(--text, #f4f4f5); }
+.ai-mode-pill { text-transform: none; letter-spacing: 0; font-size: 0.68rem; font-weight: 700; }
+.ai-input-row:focus-within { border-color: var(--line-2, rgba(255, 255, 255, 0.22)); }
+.ai-send { background: var(--brand-red, #ff2d3f); }

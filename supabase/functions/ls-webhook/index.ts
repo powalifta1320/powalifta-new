@@ -130,13 +130,13 @@ Deno.serve(async (req) => {
     const event = payload?.meta?.event_name as string
     const data = payload?.data
     // Test-mode events (the 4242 card) are signed exactly like live ones. They count only
-    // while LS_ALLOW_TEST=1 (checkouts are still in test mode), and when LS_TEST_EMAILS is set
-    // only for those buyers: otherwise anyone could take a plan with the test card. Drop both
-    // secrets at go-live.
+    // while LS_ALLOW_TEST=1 AND the buyer is listed in LS_TEST_EMAILS. Fails closed: with no
+    // list, nobody's test payment counts (otherwise anyone could take a plan with the test
+    // card; security sweep 2026-10-21). Drop both secrets at go-live.
     if (payload?.meta?.test_mode === true) {
       const testers = (Deno.env.get('LS_TEST_EMAILS') || '').toLowerCase().split(',').map(t => t.trim()).filter(Boolean)
       const buyer = String(data?.attributes?.user_email || '').toLowerCase().trim()
-      if (Deno.env.get('LS_ALLOW_TEST') !== '1' || (testers.length && !testers.includes(buyer))) {
+      if (Deno.env.get('LS_ALLOW_TEST') !== '1' || !buyer || !testers.includes(buyer)) {
         return jsonResponse(200, { ignored: event, reason: 'test_mode' })
       }
     }

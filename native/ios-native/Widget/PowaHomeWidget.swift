@@ -97,11 +97,11 @@ struct PowaSnapshot: Codable {
                 Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|5")])
 
     /// The app writes `at` (ms) with every snapshot. Facts tied to a date (weighed today, a rest
-    /// day, a finished session) only hold on the UTC day it was written: the app's own day
-    /// (todayISO()). No `at` means the gallery sample, which is always "today".
+    /// day, a finished session) only hold on the day it was written: the lifter's own calendar
+    /// day, as the app counts it (todayISO()). No `at` means the gallery sample, always "today".
     var writtenToday: Bool {
         guard let at else { return true }
-        return PowaStore.utc.isDate(Date(timeIntervalSince1970: at / 1000), inSameDayAs: Date())
+        return PowaStore.day.isDate(Date(timeIntervalSince1970: at / 1000), inSameDayAs: Date())
     }
 
     /// The meet countdown, counted on from when the app wrote it (daysUntil counts local days),
@@ -123,11 +123,11 @@ struct PowaSnapshot: Codable {
         return session == "Rest day" || (total > 0 && (setsDone ?? 0) >= total)
     }
 
-    /// This week, read against today's UTC date: once a new week starts, last week's dots and
+    /// This week, read against today's date: once a new week starts, last week's dots and
     /// count clear even before the app writes again, and the streak only carries over when last
     /// week hit the goal.
     var week: (days: [Int]?, today: Int?, done: Int, streak: Int) {
-        let cal = PowaStore.utc
+        let cal = PowaStore.day
         let now = Date()
         let idx = (cal.component(.weekday, from: now) + 5) % 7                     // Monday = 0
         guard let ws = weekStart, let written = PowaStore.date(ws) else { return (weekDays, todayIdx, weekDone ?? 0, streak ?? 0) }
@@ -147,27 +147,29 @@ enum PowaStore {
     static let loggedKey = "powa.weigh.loggedDate"    // "YYYY-MM-DD": logged from the widget today
     static let pendingKey = "powa.widget.pending"     // JSON [{date, value, unit}] the app still has to save
     static let setsPendingKey = "powa.widget.pendingSets" // JSON [{key, date}] sets logged from the session widget
-    /// The app's dates are UTC days (todayISO() in app.js), so the widgets count days the same way:
-    /// a weigh-in logged from the widget lands on the same date the app would give it.
-    static let utc: Calendar = {
+    /// The app's dates are the lifter's local calendar days (todayISO() in app.js, since
+    /// 2026-10-21), so the widgets count days the same way: a weigh-in or a set logged from a
+    /// widget lands on the date the app would give it. Gregorian, so a Buddhist or Japanese
+    /// system calendar can't change the year in the 'YYYY-MM-DD' strings.
+    static var day: Calendar {
         var c = Calendar(identifier: .gregorian)
-        c.timeZone = TimeZone(identifier: "UTC") ?? .current
+        c.timeZone = .current
         return c
-    }()
+    }
     private static func formatter() -> DateFormatter {
         let f = DateFormatter()
-        f.calendar = utc; f.timeZone = utc.timeZone; f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        let c = day
+        f.calendar = c; f.timeZone = c.timeZone; f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
         return f
     }
     static func iso(_ date: Date) -> String { formatter().string(from: date) }
     static func date(_ iso: String) -> Date? { formatter().date(from: iso) }
     static func todayISO() -> String { iso(Date()) }
-    /// The next redraw: whichever comes first of local midnight (the meet countdown) and UTC
-    /// midnight (the app's day: the week, weighed today, a finished session).
+    /// The next redraw: local midnight (the app's day: the week, weighed today, a finished
+    /// session, the meet countdown).
     static func nextMidnight() -> Date {
         let t = DateComponents(hour: 0, minute: 0, second: 10)
-        return [Calendar.current, utc].compactMap { $0.nextDate(after: Date(), matching: t, matchingPolicy: .nextTime) }.min()
-            ?? Date().addingTimeInterval(6 * 3600)
+        return day.nextDate(after: Date(), matching: t, matchingPolicy: .nextTime) ?? Date().addingTimeInterval(6 * 3600)
     }
 }
 

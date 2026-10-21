@@ -129,7 +129,7 @@ function _buildDemoData() {
   // ?demo=1&solo=1: the same lifter training on their own (no coach, a self-written program,
   // no coach notes or messages), for the solo flows: Program builder, Find a coach, library.
   const SOLO = /[?&]solo=1/.test(location.search);
-  const iso = d => d.toISOString().slice(0, 10);
+  const iso = d => isoLocal(d);
   const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
   // Deterministic jitter so the demo looks organic but identical every load
   const j = (seed, range) => Math.round((Math.sin(seed * 12.9898) * 0.5 + 0.5) * range * 2) / 2;
@@ -275,7 +275,7 @@ function _buildDemoData() {
 // Coach-side demo: a living roster — flags, compliance, notes inbox, check-ins.
 function _buildCoachDemoData() {
   const DC = 'demo-coach';
-  const iso = d => d.toISOString().slice(0, 10);
+  const iso = d => isoLocal(d);
   const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
 
   const user = {
@@ -1238,7 +1238,7 @@ function billingProviderOf(p) {
     return p.billing_provider === 'apple' || p.billing_provider === 'ls' ? p.billing_provider : null;
   }
   const st = String(p.subscription_status || '');
-  if (p.apple_original_transaction_id && st === 'active') return 'apple';
+  if (p.apple_original_transaction_id && !p.ls_subscription_id && st === 'active') return 'apple';   // both ids: LS (as the backfill)
   if (p.ls_subscription_id && ['active', 'on_trial', 'trialing', 'past_due', 'cancelled', 'paused'].indexOf(st) >= 0) return 'ls';
   return null;
 }
@@ -1856,11 +1856,14 @@ function renderPlanManageCard(container, opts) {
   if (info) head.appendChild(el('span', { class: 'plan-card-badge tone-' + info.tone }, info.label));
   container.appendChild(head);
   const lines = el('div', { class: 'plan-card-lines' });
-  // Over the limit after a plan ends: everyone already on the roster stays (the
-  // database only refuses new links), so say that instead of "5 of 3".
+  // Athletes and pending invites said apart (the roster shows athletes only), and over the
+  // limit after a plan ends: everyone already on the roster stays (the database only refuses
+  // new links), so say that instead of "5 of 3".
+  const aN = getAthleteCount(u.id), pN = getPendingInviteCount(u.id);
+  const who = aN + (aN === 1 ? ' athlete' : ' athletes') + (pN ? ' + ' + pN + ' pending invite' + (pN === 1 ? '' : 's') : '');
   lines.appendChild(el('p', {}, limit < 9999 && occupied > limit
-    ? occupied + ' athletes on a plan for ' + limit + '. Everyone stays; adding more needs a bigger plan.'
-    : 'Using ' + occupied + ' of ' + (limit >= 9999 ? 'unlimited' : limit) + ' athlete slots.'));
+    ? who + ' on a plan for ' + limit + '. Everyone stays; adding more needs a bigger plan.'
+    : who + ' · ' + (limit >= 9999 ? 'unlimited' : limit + ' slots')));
   if (when) lines.appendChild(el('p', {}, when));
   container.appendChild(lines);
   if (problem) container.appendChild(el('p', { class: 'plan-card-problem' }, problem));
@@ -2992,7 +2995,7 @@ async function renderReferralCard(container) {
     const rows = refs.map(r =>
       '<div class="flex" style="justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line)">' +
         '<span style="color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' + escHtml(r.referredName) + '</span>' +
-        '<span style="color:var(--text-2); flex:0 0 auto">' + escHtml(fmtDate(new Date(r.createdAt).toISOString().slice(0, 10))) + '</span>' +
+        '<span style="color:var(--text-2); flex:0 0 auto">' + escHtml(fmtDate(isoLocal(new Date(r.createdAt)))) + '</span>' +
       '</div>').join('');
     live.innerHTML = referralMilestoneHtml(refs.length) +
       '<p class="mb-4 mt-12" style="color:var(--text)"><strong>' + refs.length + '</strong> ' +
@@ -3057,7 +3060,7 @@ async function renderEmailPrefs(container) {
     '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>';
 
   if (window._demoMode) {
-    container.innerHTML = paint({ weeklyDigest: true, productEmails: true }, true);
+    container.innerHTML = paint({ weeklyDigest: true, productEmails: false }, true);
     // Demo: reflect the flip visually, but never hit the network.
     const wire = (id) => { const el = document.getElementById(id); if (el) el.addEventListener('change', () => toast('Preview only in demo mode.')); };
     wire('epWeekly'); wire('epProduct');
@@ -3067,7 +3070,7 @@ async function renderEmailPrefs(container) {
   container.innerHTML = '<p class="dim text-sm mb-8">Email</p><p class="dim text-xs">Loading…</p>';
   let prefs;
   try { prefs = await DB.getEmailPrefs(u.id); }
-  catch (e) { prefs = { weeklyDigest: true, productEmails: true }; }
+  catch (e) { prefs = { weeklyDigest: true, productEmails: false }; }
   container.innerHTML = paint(prefs, false);
 
   const save = async (patch, box) => {
@@ -3097,7 +3100,10 @@ async function renderNotifPrefs(container) {
   if (!container || !u) { if (container) container.innerHTML = ''; return; }
   const supported = !!(window.PowaPush && PowaPush.supported());
 
-  const catRows = (prefs) =>
+  // Messages, form checks and program updates come from a coach: a lifter training on their own
+  // has none of them (buddy nudges from their club still arrive).
+  const coachLinked = u.userType === 'coach' || !!u.coachId;
+  const catRows = (prefs) => !coachLinked ? '<p class="dim text-xs" style="line-height:1.5;margin:0">Training-buddy nudges from your club arrive here. Messages, form checks and program updates join them once you have a coach.</p>' :
     emailPrefRow('npMsg',  'Messages',
       'A push when your coach or an athlete sends you a message.', prefs.pushMessages) +
     emailPrefRow('npForm', 'Form-check replies',
@@ -3109,7 +3115,7 @@ async function renderNotifPrefs(container) {
   if (window._demoMode) {
     container.innerHTML =
       '<p class="dim text-sm mb-8">Push notifications</p>' +
-      '<p class="dim text-xs mb-8" style="line-height:1.5">Get alerts even when POWALIFTA is closed. Choose what gets pushed:</p>' +
+      '<p class="dim text-xs mb-8" style="line-height:1.5">Get alerts even when POWALIFTA is closed.' + (coachLinked ? ' Choose what gets pushed:' : '') + '</p>' +
       catRows({ pushMessages: true, pushFormChecks: true, pushProgram: true }) +
       '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>';
     ['npMsg', 'npForm', 'npProg'].forEach(id => {
@@ -3145,7 +3151,7 @@ async function renderNotifPrefs(container) {
     container.innerHTML =
       '<p class="dim text-sm mb-8">Push notifications</p>' +
       deviceHtml() +
-      '<p class="dim text-xs mt-8 mb-8" style="line-height:1.5">Choose what gets pushed. Applies to every device where alerts are on.</p>' +
+      (coachLinked ? '<p class="dim text-xs mt-8 mb-8" style="line-height:1.5">Choose what gets pushed. Applies to every device where alerts are on.</p>' : '') +
       catRows(prefs);
 
     const dbtn = document.getElementById('npDeviceBtn');
@@ -3310,7 +3316,7 @@ function _logsToCsv() {
 function exportMyData(format) {
   const u = getCurrentUser();
   if (!u) return;
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayISO();
   const safe = (u.name || 'powalifta').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'powalifta';
   if (format === 'csv') {
     const csv = _logsToCsv();
@@ -3386,7 +3392,7 @@ function exportProgramCsv(athleteId, athleteName) {
   const program = (Store.get().programs || []).find(p => p.athleteId === aid);
   const setCount = program ? (program.weeks || []).flatMap(w => w.days || []).flatMap(d => d.exercises || []).flatMap(e => e.sets || []).length : 0;
   if (!program || !setCount) return toast('No program to export yet');
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayISO();
   const base = (athleteName || u.name || 'powalifta').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'athlete';
   const csv = buildProgramCsv(program);
   _downloadBlob('powalifta-program-' + base + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv).then(done => {
@@ -4101,17 +4107,18 @@ function renderCalendarHeatmap(container, opts) {
   const maxV = Math.max(1, ...Object.values(volume));
 
   const today = new Date(); today.setHours(0,0,0,0);
-  // Find the most recent Sunday (so columns align)
-  const dayOfWeek = today.getDay(); // 0=Sun
-  const lastSun = new Date(today); lastSun.setDate(today.getDate() - dayOfWeek);
-  const start = new Date(lastSun); start.setDate(lastSun.getDate() - (weeks - 1) * 7);
+  // Columns are Monday-to-Sunday weeks, like every other "this week" in the app.
+  const dow = (today.getDay() + 6) % 7; // 0 = Monday
+  const thisMon = new Date(today); thisMon.setDate(today.getDate() - dow);
+  const start = new Date(thisMon); start.setDate(thisMon.getDate() - (weeks - 1) * 7);
 
   const grid = document.createElement('div');
   grid.className = 'cal-heatmap';
   // Day labels column
   const labels = document.createElement('div');
   labels.className = 'cal-labels';
-  ['Mon', 'Wed', 'Fri'].forEach(d => labels.appendChild(el('div', { class: 'cal-lbl' }, d)));
+  // One label slot per row (the same height as a cell), so Mon / Wed / Fri sit on their rows.
+  ['Mon', '', 'Wed', '', 'Fri', '', ''].forEach(d => labels.appendChild(el('div', { class: 'cal-lbl' }, d)));
   grid.appendChild(labels);
 
   for (let w = 0; w < weeks; w++) {
@@ -4120,7 +4127,7 @@ function renderCalendarHeatmap(container, opts) {
     for (let d = 0; d < 7; d++) {
       const date = new Date(start);
       date.setDate(start.getDate() + w * 7 + d);
-      const iso = date.toISOString().slice(0, 10);
+      const iso = isoLocal(date);
       const isFuture = date > today;
       let cls = 'cal-cell';
       let title = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -4771,7 +4778,7 @@ function ipfGlPoints(totalKg, bwKg, sex) {
 }
 window.ipfGlPoints = ipfGlPoints;
 
-// IPF weight classes (open). Returns e.g. "83kg" or "120kg+".
+// IPF weight classes (open). Returns e.g. "83 kg" or "120 kg+" (display strings, never compared).
 const IPF_CLASSES = {
   male:   [59, 66, 74, 83, 93, 105, 120],
   female: [47, 52, 57, 63, 69, 76, 84]
@@ -4779,8 +4786,8 @@ const IPF_CLASSES = {
 function weightClassFor(bwKg, sex) {
   if (!bwKg || bwKg <= 0) return null;
   const arr = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
-  for (const c of arr) if (bwKg <= c) return c + 'kg';
-  return arr[arr.length - 1] + 'kg+';
+  for (const c of arr) if (bwKg <= c) return c + ' kg';
+  return arr[arr.length - 1] + ' kg+';
 }
 
 // "Make weight" math: where the lifter sits inside their IPF class and what it
@@ -4797,11 +4804,26 @@ function weightClassInfo(bwKg, sex) {
   let limit = null, idx = -1;
   for (let i = 0; i < arr.length; i++) { if (bwKg <= arr[i]) { limit = arr[i]; idx = i; break; } }
   const isTop = limit == null;
-  const cls = isTop ? (arr[arr.length - 1] + 'kg+') : (limit + 'kg');
+  const cls = isTop ? (arr[arr.length - 1] + ' kg+') : (limit + ' kg');
   const toCeiling = isTop ? null : (limit - bwKg);
   const belowLimit = isTop ? arr[arr.length - 1] : (idx > 0 ? arr[idx - 1] : null);
   const toCutKg = belowLimit != null ? (bwKg - belowLimit) : null;
   return { cls, limit, isTop, toCeiling, belowLimit, toCutKg };
+}
+
+// One sentence for where a bodyweight sits in the IPF classes, said the same way on the
+// weigh-in, You and Analysis. Limits are kg by definition; the gaps are in the lifter's unit.
+// Just over a class (within 3 kg): "0.1 kg over 83 kg · 9.9 under 93 kg"; otherwise
+// "9.9 kg under 93 kg"; past the last limit "Top class (120 kg+)".
+function weightClassLine(bwKg, sex) {
+  const wc = weightClassInfo(bwKg, sex);
+  if (!wc) return '';
+  const u = unitLabel();
+  const g = (kg) => (Math.round(kgToDisplay(kg) * 10) / 10).toFixed(1);
+  const over = wc.toCutKg != null && wc.toCutKg > 0.05 && wc.toCutKg <= 3 ? g(wc.toCutKg) + ' ' + u + ' over ' + wc.belowLimit + ' kg' : '';
+  if (wc.isTop) return (over ? over + ' · top' : 'Top') + ' class (' + wc.belowLimit + ' kg+)';
+  const under = wc.toCeiling < 0.05 ? 'right on ' + wc.limit + ' kg' : g(wc.toCeiling) + (over ? '' : ' ' + u) + ' under ' + wc.limit + ' kg';
+  return over ? over + ' · ' + under : under.charAt(0).toUpperCase() + under.slice(1);
 }
 
 // The weigh-in habit: days in a row, and this week's average against last
@@ -5839,6 +5861,35 @@ function reorderDay(programId, weekIdx, dayIdx, dir) {
   });
 }
 
+// Duplicate a day right after itself (fresh ids, nothing logged, the plan's loads).
+function duplicateDay(programId, weekIdx, dayIdx) {
+  Store.update(s => {
+    const p = s.programs.find(p => p.id === programId);
+    const d = p && p.weeks[weekIdx] && p.weeks[weekIdx].days[dayIdx];
+    if (!d) return;
+    const clone = { id: uid('day'), name: (d.name || 'Day') + ' (copy)', exercises: (d.exercises || []).map(ex => ({
+      id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '',
+      sets: (ex.sets || []).map(set => ({ id: uid('set'), weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '',
+        completed: false, actualRpe: null, completedAt: null, note: '' }))
+    })) };
+    p.weeks[weekIdx].days.splice(dayIdx + 1, 0, clone);
+  });
+}
+// A starting load for a new exercise in a builder: the lifter's last set of it, else (the
+// big three) their best e1RM at these reps and RPE rounded to their gym's jump, else blank.
+// Never a flat 100 kg (lateral raises included) the coach or lifter has to overwrite.
+function suggestNewLoad(athleteId, lift, variant, exerciseName, reps, rpe) {
+  const last = athleteId ? getLastSetForExercise(athleteId, lift, variant, exerciseName) : null;
+  if (last && Number(last.weight) > 0) return Number(last.weight);
+  if (athleteId && MAIN_LIFTS.includes(lift) && reps > 0 && rpe > 0) {
+    const e1 = bestE1RM(athleteId, lift);
+    if (e1 > 0) {
+      const step = loadStepKg(getUnit() === 'lbs' ? 'lbs' : 'kg');
+      return Math.round(e1 / multiplierFor(lift, variant) * rpeLoadPct(reps, rpe) / step) * step;
+    }
+  }
+  return 0;
+}
 function copyExercise(programId, weekIdx, dayIdx, exIdx) {
   Store.update(s => {
     const p = s.programs.find(p => p.id === programId);
@@ -5981,7 +6032,8 @@ function isPRForLog(athleteId, log) {
     l.id !== log.id &&
     (l.date < log.date || (l.date === log.date && l.id < log.id))
   );
-  if (!earlier.length) return true;
+  // A lift's first set beats nothing yet: no PR moment, no club PR points on day one.
+  if (!earlier.length) return false;
   const prevMax = Math.max(...earlier.map(l => l.e1rmComp));
   return log.e1rmComp > prevMax + 0.05;
 }
@@ -6036,7 +6088,7 @@ function getWeeklyDelta(athleteId) {
   const range = (offset) => {
     const end = new Date(today); end.setDate(end.getDate() - 7 * offset);
     const start = new Date(end); start.setDate(start.getDate() - 6);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: isoLocal(start), end: isoLocal(end) };
   };
   const cur = range(0), prev = range(1);
   const result = {};
@@ -6171,7 +6223,7 @@ function getStreak(athleteId) {
   // walk back day-by-day from today (or yesterday if today has nothing)
   let started = false;
   for (let i = 0; i < 365; i++) {
-    const dStr = cursor.toISOString().slice(0, 10);
+    const dStr = isoLocal(cursor);
     if (trainSet.has(dStr)) { trainingStreak++; started = true; }
     else if (restSet.has(dStr)) { /* bridge — don't increment, don't break */ }
     else if (started) { break; }
@@ -6207,9 +6259,19 @@ function hasAnyLogOnDate(athleteId, date) {
 // =========================================================
 // DATE HELPERS
 // =========================================================
-function todayISO() { return new Date().toISOString().slice(0, 10); }
-function fmtDate(iso) { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
-function fmtDateShort(iso) { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+// The lifter's own calendar day as 'YYYY-MM-DD'. Never the UTC date: an evening session in
+// New York is still today there, and local midnight in London isn't yesterday. Every "today"
+// and every date built from a local Date goes through isoLocal (2026-10-21, coach panel).
+function isoLocal(d) {
+  d = d instanceof Date && !isNaN(d) ? d : new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function todayISO() { return isoLocal(new Date()); }
+// A plain 'YYYY-MM-DD' reads as that day where the lifter is (UTC midnight is the evening
+// before across the Americas, which showed every date a day early).
+function _dateArg(iso) { return /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? new Date(iso + 'T12:00:00') : new Date(iso); }
+function fmtDate(iso) { return _dateArg(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+function fmtDateShort(iso) { return _dateArg(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
 // Compact relative stamp for inbox/feed rows: "now", "3m", "2h", "4d", else a short date.
 function fmtRelative(iso) {
   if (!iso) return '';
@@ -6805,7 +6867,7 @@ function _sigWeekStartISO() {
   const now = new Date();
   const day = (now.getDay() + 6) % 7;
   const mon = new Date(now); mon.setDate(now.getDate() - day); mon.setHours(0, 0, 0, 0);
-  return mon.toISOString().slice(0, 10);
+  return isoLocal(mon);
 }
 function computeSignals() {
   const u = getCurrentUser();
@@ -6890,7 +6952,7 @@ function renderSignalPanel() {
       '<span class="sig-ic">' + (_SIG_ICON[sg.type] || _SIG_ICON.alert) + '</span>' +
       '<span class="sig-main">' +
         '<span class="sig-title">' + escHtml(sg.title) + '</span>' +
-        '<span class="sig-sub">' + escHtml((sg.body || '').slice(0, 100)) + '</span>' +
+        '<span class="sig-sub">' + escHtml((sg.body || '').slice(0, 240)) + '</span>' +
         '<span class="sig-time">' + _sigTimeAgo(sg.ts) + '</span>' +
       '</span>';
     item.onclick = (e) => { e.stopPropagation(); _sigMarkSeen(u.id, [sg.id]); _sigGo(sg.tab); };
@@ -7157,7 +7219,7 @@ function drawLineChart(container, config) {
     line.setAttribute('stroke-width', '2.5');
     line.setAttribute('stroke-linejoin', 'round');
     line.setAttribute('stroke-linecap', 'round');
-    line.style.filter = 'drop-shadow(0 0 5px ' + s.color + '66)';
+    // (no glow: the line itself is the signal)
     // animate
     const len = approxPathLength(points);
     line.setAttribute('stroke-dasharray', len);
@@ -8016,7 +8078,7 @@ function _legacy_seedDemo() {
   for (let i = 28; i >= 0; i -= 4) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    histDates.push(d.toISOString().slice(0, 10));
+    histDates.push(isoLocal(d));
   }
   let baseSquat = 130, baseBench = 85, baseDead = 165;
   histDates.forEach((d, i) => {
@@ -8062,7 +8124,7 @@ const YOU_ROW_META = {
   'Units':               { tint: 'sky',    icon: () => ICONS.weight },
   'Plates':              { tint: 'teal',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.8"/>') },
   'Help & support':      { tint: 'green',  icon: () => ICONS.chat },
-  'Share cards':         { tint: 'violet', icon: () => ICONS.share },
+  'Share cards':         { tint: 'iris',   icon: () => ICONS.share },
   'App icon':            { tint: 'gray',   icon: () => BRAND_MARK },
   'Replay the tour':     { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/>') },
   'Lifting words, explained': { tint: 'sky', icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M9 8h6M9 12h4"/>') },
@@ -8231,6 +8293,9 @@ function _sheetSwallowEarlyClicks(veil) {
   const openedAt = Date.now();
   const s = veil.querySelector('.ui-sheet');
   if (s) s._presentAt = openedAt;   // the early-tap guard's clock starts at open
+  // Over a full-screen mode (Lift mode, meet mode, the commands drill, the year wrap, all at
+  // z-index 150) a sheet opens above it, not invisibly underneath (Plate math from Lift mode).
+  if (document.querySelector('.lift-mode, .meet-mode, .cmd-mode, .wrap-mode')) veil.style.zIndex = '155';
   veil.addEventListener('click', (e) => {
     if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); }
   }, true);
@@ -8484,17 +8549,22 @@ function uiGoalList(goals, athleteId, includeBw) {
     const pct = goalProgressPct(def.current, target, def.direction);
     const done = def.direction === 'cut' ? def.current <= target : def.current >= target;
     const remainKg = def.direction === 'cut' ? (def.current - target) : (target - def.current);
+    // Estimated maxes and totals in whole numbers, as everywhere else; bodyweight to 0.1.
+    const dp = def.key === 'bodyweight' ? 1 : 0;
     const row = uiRow({
       title: def.label,
-      sub: 'Goal ' + kgToDisplay(target) + ' ' + u + ' · ' + (done ? 'done' : kgToDisplay(remainKg, 1) + ' ' + u + ' to go'),
+      sub: 'Goal ' + kgToDisplay(target, dp) + ' ' + u + ' · ' + (done ? (def.key === 'bodyweight' ? 'done' : 'e1RM reached') : kgToDisplay(Math.max(0, remainKg), dp) + ' ' + u + ' to go'),
       subTone: done ? 'ok' : null,
-      endHtml: '<b>' + kgToDisplay(def.current, 1) + '</b>' + u
+      endHtml: '<b>' + kgToDisplay(def.current, dp) + '</b>' + u
     });
     row.querySelector('.ui-row-main').appendChild(
       el('span', { class: 'goal-bar' + (done ? ' done' : '') }, el('i', { style: 'width:' + Math.max(0, Math.min(100, pct)) + '%' })));
     rows.push(row);
   });
-  return rows.length ? uiList(rows) : null;
+  if (!rows.length) return null;
+  const list = uiList(rows);
+  list.classList.add('goal-list');
+  return list;
 }
 
 Object.assign(window, { UI_CHEV, UI_DOTS, uiLabel, uiRow, uiList, uiStats, uiEmpty, uiActionSheet, uiSparkline, uiGoalList });
@@ -8726,7 +8796,7 @@ function plateColor(p, unit) { const l = PLATE_LOOK[unit === 'lbs' ? 'lbs' : 'kg
 function plateSummaryText(kg) {
   const r = plateLoadout(kg);
   if (!r.plates.length) return 'Empty bar';
-  return r.plates.map(p => String(p)).join(' · ') + ' ' + (r.unit === 'lbs' ? 'lb' : 'kg') + ' a side';
+  return r.plates.map(p => String(p)).join(' · ') + ' ' + (r.unit === 'lbs' ? 'lb' : 'kg') + ' per side';
 }
 // Plate chips, grouped: "2×25  15  2.5".
 function plateChipsHtml(kg) {
@@ -8889,17 +8959,19 @@ function uiStrengthChart(points, opts) {
   const fmtD = (s) => { const dt = new Date(s + 'T00:00:00Z'); return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
   const aria = (opts.ariaLabel || 'Strength over time') + '. Latest ' + (opts.fmt ? opts.fmt(latest) : Math.round(latest)) + (proj ? ', about ' + (opts.fmt ? opts.fmt(proj.value) : Math.round(proj.value)) + ' by meet day' : '');
   let svg = '<svg class="sc-svg" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="' + escHtml(aria) + '">' +
-    '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity="0.36"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient>' +
-    '<filter id="' + gid + 'g" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="5"/></filter></defs>' +
+    '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity="0.2"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient>' +
+    '</defs>' +
+    // The area fill and one clean line: no blurred glow under it (it read cheap).
     '<path d="' + d + ' L' + lastP[0].toFixed(1) + ' ' + (H - padB) + ' L' + pts[0][0].toFixed(1) + ' ' + (H - padB) + ' Z" fill="url(#' + gid + ')"/>' +
-    '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity="0.32" filter="url(#' + gid + 'g)"/>' +
     '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
   if (proj) {
     const px = X(Date.parse(proj.date + 'T00:00:00Z')), py = Y(proj.value);
     svg += '<path d="M' + lastP[0].toFixed(1) + ' ' + lastP[1].toFixed(1) + ' L' + px.toFixed(1) + ' ' + py.toFixed(1) + '" stroke="' + color + '" stroke-width="2" stroke-dasharray="4 5" stroke-linecap="round" opacity="0.6" fill="none"/>' +
       '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4.5" class="sc-hole" stroke="' + color + '" stroke-width="2"/>';
   }
-  if (opts.prDots !== false) points.forEach((p, i) => { if (p.pr) svg += '<circle cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="9" fill="#f2c25b" opacity="0.16"/><circle class="sc-pr sc-ring" cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="4.5" fill="#f2c25b" stroke-width="2"/>'; });
+  // PR weeks: a hollow ring in the line's own colour (gold dots with halos read as "deadlift"
+  // on the squat and bench charts).
+  if (opts.prDots !== false) points.forEach((p, i) => { if (p.pr) svg += '<circle class="sc-pr" cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="4" fill="var(--bg-1, #121214)" stroke="' + color + '" stroke-width="2"/>'; });
   svg += '<circle class="sc-end-halo" cx="' + lastP[0].toFixed(1) + '" cy="' + lastP[1].toFixed(1) + '" r="9" fill="' + color + '"/>' +
     '<circle cx="' + lastP[0].toFixed(1) + '" cy="' + lastP[1].toFixed(1) + '" r="5" class="sc-ring" fill="' + color + '" stroke-width="2.5"/>' +
     '<text class="sc-last" x="' + (lastP[0] - 11).toFixed(1) + '" y="' + Math.max(padT + 2, lastP[1] - 12).toFixed(1) + '" text-anchor="end" fill="' + color + '">' + escHtml(opts.fmt ? opts.fmt(latest) : String(Math.round(latest))) + '</text>';
@@ -9469,6 +9541,15 @@ function openProfileSheet(onSaved) {
     const tt = el('input', { type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', maxlength: '80', placeholder: '@yourhandle', 'aria-label': 'TikTok handle' });
     tt.value = u.tiktok ? '@' + u.tiktok : '';
     form.appendChild(_fieldRow('TikTok', tt));
+    // Men's / women's: the weight classes, DOTS and standards depend on it (it used to sit
+    // only on the DOTS card, defaulting to men's).
+    let catSel = null;
+    if (u.userType !== 'coach') {
+      catSel = el('select', { 'aria-label': 'Competition category' });
+      [['male', 'Men\'s'], ['female', 'Women\'s']].forEach(([v, t]) => catSel.appendChild(el('option', { value: v }, t)));
+      catSel.value = getSexPref();
+      form.appendChild(_fieldRow('Category', catSel));
+    }
     let bio = null;
     if (u.userType === 'coach') {
       bio = el('textarea', { rows: '4', maxlength: '600', 'aria-label': 'Coach bio', placeholder: 'Who you coach and how' });
@@ -9476,10 +9557,12 @@ function openProfileSheet(onSaved) {
       form.appendChild(_fieldRow('Bio', bio, true));
     }
     sheet.appendChild(form);
-    sheet.appendChild(el('p', { class: 'ui-sheet-note' }, 'Your name, flag, Instagram and TikTok show on your club board and lifter card.'));
+    sheet.appendChild(el('p', { class: 'ui-sheet-note' }, 'Your name, flag, Instagram and TikTok show on your club board and lifter card.' + (catSel ? ' Your category sets your weight classes and DOTS.' : '')));
     const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save');
     save.addEventListener('click', async () => {
-      if (window._demoMode) { toast('Preview only in demo mode'); return; }
+      // The category lives on this device (no network), so it saves even in the demo.
+      if (catSel && catSel.value !== getSexPref()) { setSexPref(catSel.value); try { if (window.PowaClubs && PowaClubs.syncSoon) PowaClubs.syncSoon(); } catch (e) {} }
+      if (window._demoMode) { toast('Preview only in demo mode'); if (onSaved) onSaved(); return; }
       const nm = name.value.trim();
       if (!nm) { toast('Add your name'); name.focus(); return; }
       const handle = normalizeInstagram(ig.value);
@@ -9774,7 +9857,9 @@ function _sheetDrag(veil, sheet, close) {
     // UI v8: a page's big title sits IN the bar's row at rest (styles.css "UI v8" 1), so it
     // counts as scrolled away once its middle passes up behind the status bar. Pages without
     // a header (Club, You) keep the old rule: their first heading slides under the bar.
-    const head = pane && pane.querySelector(':scope > .dash-header');
+    // Only a title that opens the page: on a sub-screen the "‹ Back" link comes first, and the
+    // icons stay docked in the bar instead of dropping to a title further down (2026-10-21).
+    const head = pane && pane.querySelector(':scope > .dash-header:first-child');
     const ttl = head && head.querySelector('h1, h2');
     const tr = ttl ? ttl.getBoundingClientRect() : null;
     const barTop = navBottom - 44, barMid = navBottom - 22;
@@ -9798,7 +9883,9 @@ function _sheetDrag(veil, sheet, close) {
   };
   const queue = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
   document.addEventListener('scroll', queue, { capture: true, passive: true });
-  document.addEventListener('click', () => setTimeout(queue, 80), true);
+  // Again once a new screen has finished sliding in (its title moves during the entrance).
+  document.addEventListener('click', () => { setTimeout(queue, 80); setTimeout(queue, 460); }, true);
+  document.addEventListener('animationend', (e) => { if (e.target && e.target.matches && e.target.matches('[data-pane], .dash-header, .dash-header *')) queue(); }, true);
   window.addEventListener('resize', queue);
   window.addEventListener('load', queue);
   setTimeout(queue, 400);

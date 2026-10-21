@@ -8553,7 +8553,7 @@ body.powa-app .dash-main .today-start h3 { text-align: left; }
 
 /* Coach roster v2 */
 .roster-last { font-size: var(--fs-meta, 13px); font-weight: 600; color: var(--text-3); }
-.roster-last.is-stale { color: var(--gold); }
+.roster-last.is-stale { color: var(--soft-alert, #ff8f80); }   /* gold means a PR on this screen */
 .ui-av.roster-win { background: rgba(255, 181, 71, 0.12); box-shadow: none; color: var(--gold); }
 .ui-av.roster-win svg { width: 18px; height: 18px; }
 .roster-csv { display: block; margin: 18px auto 0; font-size: var(--fs-meta, 13px); color: var(--text-3); }
@@ -10473,7 +10473,7 @@ body.powa-app .club-podium .cpd-av { box-shadow: 0 0 0 3px var(--bg, #050506), 0
 .tool-tile:active { transform: scale(0.97); }
 .tool-tile.t-gold { --tt: var(--pr); } .tool-tile.t-fire { --tt: #ff5a4f; } .tool-tile.t-cyan { --tt: #38c6ff; }
 .tool-tile.t-teal { --tt: var(--bw); } .tool-tile.t-violet { --tt: #a98bff; } .tool-tile.t-gray { --tt: var(--lift-acc); }
-.tt-ic { width: 38px; height: 38px; border-radius: var(--r-ctl); display: grid; place-items: center; margin-bottom: auto; background: color-mix(in srgb, var(--tt) 20%, transparent); color: var(--tt); }
+.tt-ic { width: 38px; height: 38px; border-radius: var(--r-ctl); display: grid; place-items: center; margin-bottom: 12px; background: color-mix(in srgb, var(--tt) 20%, transparent); color: var(--tt); }
 .tt-ic svg { width: 20px; height: 20px; }
 .tt-t { margin-top: 14px; font-size: var(--fs-body, 15px); font-weight: 700; letter-spacing: -0.012em; }
 .tt-s { font-size: var(--fs-meta, 13px); line-height: 1.3; color: var(--text-3); }
@@ -11617,3 +11617,86 @@ body.powa-app .builder-main :is(.uniform-row, .set-row) > .btn-icon svg { width:
 .sb-build-sheet .sb-row.is-wide .ui-seg { flex: 1 1 100%; min-width: 0; }
 .sb-build-sheet .sb-row.is-wide .ui-seg button { padding: 0 4px; }
 .sb-build-sheet .pm-note { margin: 10px 2px 14px; }
+
+/* Roster header on small iPhones (SE, 12/13 mini, 375 pt): the Invite pill became a round
+   icon button the size of the bell and the assistant, so it no longer covers the title. */
+@media (max-width: 399px) {
+  body.powa-app #btn-invite { width: 40px; height: 40px; min-width: 40px; padding: 0; border-radius: 50%; justify-content: center; }
+  body.powa-app #btn-invite span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body.powa-app #btn-invite svg { margin: 0; }
+}
+
+/* Bell rows: two lines with an ellipsis instead of a hard cut, and a quiet unread icon
+   (the unread dot/background carries the state; a red ring read as an error). */
+.sig-sub { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sig-item.unread .sig-ic, body.powa-app .sig-item.unread .sig-ic { color: var(--text); border-color: var(--line-2, rgba(255, 255, 255, 0.14)); }
+
+/* Exercise detail: "Last time" rows sit on the same grid as "Today" (.xd-set), so each
+   weight and RPE lines up under the one above it. */
+.xd-sec .lw-row { grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; min-height: 44px; padding: 0 14px 0 12px; border-radius: 14px; }
+.xd-sec .lw-n { width: 30px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.xd-sec .lw-load { font-stretch: var(--num-stretch, 112%); font-size: 16px; font-weight: 700; color: var(--text-2); white-space: nowrap; }
+.xd-sec .lw-rpe { font-size: 14px; }
+
+/* Heatmap day labels: seven slots on the cell grid (no hand-tuned offsets that drifted). */
+.cal-labels .cal-lbl, .cal-labels .cal-lbl:nth-child(n) { margin-top: 0; height: 14px; line-height: 14px; }
+
+/* Goals: the value column has one width, so every bar is as long as the next (a done goal's
+   bar used to end wherever its number let it). */
+.goal-list .ui-row-main { flex: 1 1 auto; }
+.goal-list .ui-row-end { min-width: 96px; justify-content: flex-end; text-align: right; }
+
+/* Club: the buddy row sits apart from the club card above it. */
+.club-buddy { margin-top: 12px; }
+
+/* Plate math: the weight stepper on the same centred grid as the weigh-in's, over the bar. */
+.plate-sheet .bw-stepper { display: grid; grid-template-columns: 60px 1fr 60px; align-items: center; justify-items: center; width: 100%; }
+
+/* ===== Title rows line up on every tab (2026-10-21, design panel A1) =====
+   The AI and bell icons ride on the page title's row, so the title has to start at the same
+   height everywhere: Train's date line moves under its day name, and Club and You now have
+   titles of their own (sub-screens keep the icons docked in the bar). */
+html.native body.powa-app .today-head .th-text { display: flex; flex-direction: column-reverse; align-items: flex-start; }
+html.native body.powa-app .today-head .th-eyebrow { margin: 2px 0 0; }
+html.native body.powa-app .today-head .th-more { align-self: flex-start; margin-bottom: 0; }
+
+/* Progress: Goals lives in History and under You; in the app its header pill was a third copy. */
+html.native body.powa-app #goalsBtn { display: none; }
+
+/* ===== Design panel pass (2026-10-21): alignment, touch targets, one meaning per colour ===== */
+/* Bars: solid enough that coloured tiles don't tint them as they scroll under. */
+html.native body.powa-app .bottom-tabs { background: rgba(22, 22, 26, 0.86); }
+html.native body.powa-app .nav.is-docked { background: rgba(5, 5, 6, 0.86); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06); }
+/* One 16 px side margin: the chat composer and the bell panel line up with the tab bar. */
+html.native body.powa-app :is(#coachArea .coach-thread, .msg-inbox-detail) .msg-composer { left: 16px; right: 16px; }
+@media (max-width: 560px) { .sig-panel { left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); } }
+/* Sheet titles start on the same edge as the cards under them. */
+.ui-sheet-form .ui-sheet-h { margin-left: 0; margin-right: 0; }
+/* Controls hit mid-set reach 44 pt (the visible size stays). */
+.tx-check { width: 44px; height: 44px; }
+.tx-felt { height: 40px; }
+.tn-ready-btn, .xd-done { height: 44px; }
+.react-chip { height: 36px; }
+.ui-stepper .st-btn { width: 44px; height: 44px; }
+/* Club: one corner radius, even gaps between the cards. */
+body.powa-app .club-spot { margin: 0 0 12px; }
+body.powa-app .club-compose { border-radius: var(--u-r, 20px); margin-bottom: 12px; }
+body.powa-app .cp-card { border-radius: var(--u-r, 20px); }
+body.powa-app .cp-card::before { border-radius: 0 20px 0 0; }
+/* Colour means one thing: plate pips are the lift's (set per lift below), not decorative red. */
+.pc-pips i.on { background: var(--lc, var(--text)); }
+.pc-pips.lift-squat { --lc: var(--lift-squat, #38c6ff); } .pc-pips.lift-bench { --lc: var(--lift-bench, #a98bff); } .pc-pips.lift-deadlift { --lc: var(--lift-deadlift, #ffbf3c); }
+/* Progress tools: one colour, the screen's own (six tile colours read as noise). */
+.tool-tile[class*="t-"] { --tt: var(--acc, var(--text-2)); }
+/* Train's card: "Set 1 of 3" sits after the exercise name, not floating mid-row. */
+.tx-hero .tx-ex-row .tdh-ex { flex: 1; }
+/* Builders: the exercise tile tops align with the title; the ⋯ buttons share one edge. */
+.pb-ex-toggle { align-items: flex-start; }
+.pb-tile { margin-top: 2px; }
+.pb-week-head { margin: 22px 0 10px; }
+/* The coach's notes read as messages (they were small centred grey text, like timestamps). */
+body.powa-app .msg-note { align-self: flex-start; max-width: 86%; margin: 6px 0; padding: 10px 14px; text-align: left; border-radius: 18px 18px 18px 6px; background: var(--bg-2); }
+body.powa-app .msg-note-body { font-size: 15px; line-height: 1.45; color: var(--text); }
+/* You: the avatar loses its old ring and glow, and sits level with the name. */
+body.powa-app .you-hero .you-av { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+body.powa-app .you-hero .you-head { align-items: flex-start; }

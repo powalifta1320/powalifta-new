@@ -74,7 +74,8 @@ function mapDbEmailPrefs(r) {
   return {
     userId: r ? r.user_id : null,
     weeklyDigest: r ? r.weekly_digest !== false : true,
-    productEmails: r ? r.product_emails !== false : true,
+    // Marketing is opt-in (2026-10-21): off unless the person switched it on.
+    productEmails: r ? r.product_emails === true : false,
     unsubToken: r ? (r.unsub_token || null) : null,
     // Push notification categories (#30) — default on.
     pushMessages: r ? r.push_messages !== false : true,

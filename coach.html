@@ -119,11 +119,13 @@
 
     <!-- CLUB — non-coaching community (clubs.js). A coach can run their team's club. -->
     <section data-pane="club" class="hidden">
+      <div class="dash-header"><div><h2>Club</h2></div></div>
       <div id="clubArea"></div>
     </section>
 
     <!-- YOU — profile, plan, and everything that isn't the roster (renderCoachYou) -->
     <section data-pane="you" class="hidden">
+      <div class="dash-header"><div><h2>You</h2></div></div>
       <div id="youArea"></div>
     </section>
   </main>
@@ -773,7 +775,7 @@ function exportRosterCsv() {
       o.lastRpe == null ? '' : o.lastRpe
     ].map(_csvEscape).join(','));
   });
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayISO();
   _downloadBlob('powalifta-roster-' + stamp + '.csv', 'text/csv;charset=utf-8', rows.join('\n')).then(done => {
     if (done) toast('Exported ' + overview.length + ' athlete' + (overview.length === 1 ? '' : 's') + ' as CSV');
   });
@@ -947,7 +949,9 @@ function renderRoster() {
         chevron: true,
         onClick: () => openAthleteSheet(it.athlete.id)
       }));
-      if (wins.length) {
+      // This week's PRs get their own row only when nobody needs attention (the hero counts
+      // them and the faces wear a trophy): a "Needs attention 2" list with three rows read wrong.
+      if (wins.length && !flagged.length) {
         const names = wins.slice(0, 4).map(i => i.athlete.name.split(' ')[0]).join(', ') + (wins.length > 4 ? ' +' + (wins.length - 4) : '');
         rows.push(uiRow({ lead: el('span', { class: 'ui-av roster-win', html: ICONS.trophy }), title: names, sub: 'Hit a PR this week' }));
       }
@@ -991,14 +995,15 @@ function renderRoster() {
     const pager = buildPager(overview.length, ROSTER_PER_PAGE, _rosterPage, function (pg) { _rosterPage = pg; renderRoster(); });
     if (pager) area.appendChild(pager);
 
-    // Athlete notes waiting on a reply.
-    const notes = (Store.get().sessionNotes || [])
+    // Athlete notes waiting on a reply; when every note is answered, the latest few. The count
+    // and the rows always agree.
+    const allNotes = (Store.get().sessionNotes || [])
       .filter(n => n.note && n.note.trim())
-      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-      .slice(0, 6);
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const waiting = allNotes.filter(n => !n.coachComment);
+    const notes = (waiting.length ? waiting : allNotes).slice(0, waiting.length ? 6 : 3);
     if (notes.length) {
-      const unreplied = notes.filter(n => !n.coachComment).length;
-      area.appendChild(uiLabel('Notes', unreplied ? { count: unreplied } : null));
+      area.appendChild(waiting.length ? uiLabel('Notes to answer', { count: waiting.length }) : uiLabel('Recent notes'));
       area.appendChild(uiList(notes.map(n => {
         const ath = Store.get().athletes.find(a => a.id === n.athleteId);
         return uiRow({
@@ -1556,7 +1561,7 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
   const open = _pbOpen.has(ex.id);
   const row = el('div', { class: 'pb-ex' + (open ? ' is-open' : '') + (isMain ? ' lift-' + ex.lift : ' lift-acc') });
   let title = '', badge = '';
-  if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; const m = multiplierFor(ex.lift, ex.variant); badge = m !== 1 ? '×' + m : ''; }
+  if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
   else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
   else { title = ex.exerciseName; }
@@ -1851,8 +1856,13 @@ function loadProgram() {
   });
   headRow.appendChild(nameInput);
   const progMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Program options', html: UI_DOTS });
+  // Build from goal replaces the block: the screen's red action only on an empty or fully
+  // logged program; otherwise it waits in ⋯.
+  const _pbSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
+  const blockOpen = _pbSets.length > 0 && _pbSets.some(s => !s.completed);
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
     { label: 'Notify ' + ((athName || 'athlete').split(' ')[0]), icon: ICONS.chat, onClick: () => notifyAthleteAssigned() },
+    blockOpen ? { label: 'Rebuild from goal…', icon: ICONS.program, onClick: () => openGoalModal(athleteId) } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
     { label: 'Save as template', icon: ICONS.copy, onClick: () => openSaveTemplate(prog) },
     { label: 'Replace from a spreadsheet', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
@@ -1869,9 +1879,11 @@ function loadProgram() {
     prog.weeks.length + (prog.weeks.length === 1 ? ' week' : ' weeks') + ' · ' + sessions + (sessions === 1 ? ' session' : ' sessions') +
     (allSets.length ? ' · ' + Math.round(doneSets / allSets.length * 100) + '% logged' : '')));
   // The shortest path from an empty block to a full one: the screen's one red action.
-  const goalBtn = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button', title: 'Generate a full block from current and target lifts' }, 'Build from goal');
-  goalBtn.addEventListener('click', () => openGoalModal(athleteId));
-  head.appendChild(goalBtn);
+  if (!blockOpen) {
+    const goalBtn = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button', title: 'Generate a full block from current and target lifts' }, 'Build from goal');
+    goalBtn.addEventListener('click', () => openGoalModal(athleteId));
+    head.appendChild(goalBtn);
+  }
   area.appendChild(head);
 
   const builder = el('div', { class: 'builder' });
@@ -1880,9 +1892,9 @@ function loadProgram() {
   if (activeWeekIdx >= prog.weeks.length) activeWeekIdx = 0;
   prog.weeks.forEach((wk, wi) => {
     const totalSets = wk.days.flatMap(d => d.exercises).flatMap(e => e.sets).length;
-    const tab = el('button', { class: 'week-tab' + (wi === activeWeekIdx ? ' active' : ''), onclick: () => { activeWeekIdx = wi; loadProgram(); } },
-      el('span', {}, 'Week ' + wk.number),
-      el('span', { class: 'ct' }, String(totalSets))
+    const tab = el('button', { class: 'week-tab' + (wi === activeWeekIdx ? ' active' : ''), onclick: () => { activeWeekIdx = wi; loadProgram(); },
+      'aria-label': 'Week ' + wk.number + ', ' + totalSets + (totalSets === 1 ? ' set' : ' sets') },
+      el('span', {}, 'Week ' + wk.number)
     );
     weekNav.appendChild(tab);
   });
@@ -1925,6 +1937,7 @@ function loadProgram() {
     dayMore.addEventListener('click', () => uiActionSheet(day.name || 'Day', [
       di > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderDay(prog.id, activeWeekIdx, di, -1); persistProgram(prog.id); loadProgram(); } } : null,
       di < wk.days.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: () => { reorderDay(prog.id, activeWeekIdx, di, 1); persistProgram(prog.id); loadProgram(); } } : null,
+      { label: 'Duplicate day', icon: ICONS.copy, onClick: () => { duplicateDay(prog.id, activeWeekIdx, di); persistProgram(prog.id); loadProgram(); } },
       { label: 'Delete day', icon: ICONS.trash, danger: true, onClick: () => deleteDay(activeWeekIdx, di) }
     ]));
     dayHead.appendChild(dayMore);
@@ -1934,17 +1947,17 @@ function loadProgram() {
     if (!day.exercises.length) {
       const isRestDay = /\b(rest|off|recovery)\b/i.test(day.name || '');
       if (isRestDay) {
-        const restBox = el('div', { class: 'day-empty pb-rest' });
-        restBox.appendChild(el('div', { class: 'pb-rest-title' }, 'Rest day'));
-        restBox.appendChild(el('div', { class: 'pb-rest-sub' }, 'Rename it to make it a training day.'));
-        dayBody.appendChild(restBox);
+        // One quiet line; rename the day to train on it.
+        dayBody.appendChild(el('div', { class: 'day-empty pb-rest' }, el('div', { class: 'pb-rest-title' }, 'Rest · No training')));
       }
     } else {
       day.exercises.forEach((ex, ei) => dayBody.appendChild(buildPbExercise(prog, athleteId, wk, day, di, ex, ei)));
     }
-    const addExBtn = el('button', { class: 'pb-add-ex2', type: 'button', onclick: () => openAddExercise(activeWeekIdx, di) });
-    addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
-    dayBody.appendChild(addExBtn);
+    if (day.exercises.length || !/\b(rest|off|recovery)\b/i.test(day.name || '')) {
+      const addExBtn = el('button', { class: 'pb-add-ex2', type: 'button', onclick: () => openAddExercise(activeWeekIdx, di) });
+      addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
+      dayBody.appendChild(addExBtn);
+    }
     dayCard.appendChild(dayBody);
     main.appendChild(dayCard);
   });
@@ -2135,9 +2148,19 @@ function addBlock(wi, di, ei) {
 let addExerciseTarget = { wi: 0, di: 0 };
 let buildingSets = [];
 
+// The new exercise's starting load comes from the athlete (suggestNewLoad, app.js): their last
+// set of it or their e1RM at 5 @ 7, else blank. _autoLoad remembers it so a lift change can
+// swap it for the new lift's, without touching loads the coach typed.
+let _autoLoad = 0;
+function _autoBuildingSets(lift, variant) {
+  const aid = document.getElementById('progAthlete').value;
+  const w = suggestNewLoad(aid, lift, variant || 'Competition', '', 5, 7);
+  _autoLoad = w;
+  return [{ weight: w, reps: 5, rpe: 7 }, { weight: w, reps: 5, rpe: 7 }, { weight: w, reps: 5, rpe: 8 }];
+}
 function openAddExercise(wi, di) {
   addExerciseTarget = { wi, di };
-  buildingSets = [{ weight: 100, reps: 5, rpe: 7 }, { weight: 100, reps: 5, rpe: 7 }, { weight: 100, reps: 5, rpe: 8 }];
+  buildingSets = _autoBuildingSets('squat', 'Competition');
   document.getElementById('exLift').value = 'squat';
   document.getElementById('exNote').value = '';
   document.getElementById('exNameOther').value = '';
@@ -2153,7 +2176,14 @@ function onLiftChange() {
   variantSel.innerHTML = '';
   if (MAIN_LIFTS.includes(lift)) {
     variantGroup.style.display = 'block'; nameGroup.style.display = 'none'; otherGroup.style.display = 'none';
-    variantsFor(lift).forEach(v => variantSel.appendChild(el('option', { value: v }, v + ' (×' + multiplierFor(lift, v) + ')')));
+    variantsFor(lift).forEach(v => variantSel.appendChild(el('option', { value: v }, v)));
+    // Loads still at the old lift's suggestion follow the new lift; typed ones stay.
+    if (buildingSets.length && buildingSets.every(b => Number(b.weight) === _autoLoad)) {
+      const w = suggestNewLoad(document.getElementById('progAthlete').value, lift, variantSel.value, '', 5, 7);
+      buildingSets.forEach(b => { b.weight = w; });
+      _autoLoad = w;
+      renderSetsBuilder();
+    }
   } else if (ACCESSORY_LIFTS.includes(lift)) {
     variantGroup.style.display = 'none'; nameGroup.style.display = 'block'; otherGroup.style.display = 'none';
     const nameSel = document.getElementById('exName'); nameSel.innerHTML = '';
@@ -2195,14 +2225,14 @@ function renderSetsBuilder() {
 }
 
 function applyPreset(sets, reps, rpe) {
-  const w = buildingSets[0]?.weight || 100;
+  const w = buildingSets[0]?.weight || 0;
   buildingSets = [];
   for (let i = 0; i < sets; i++) buildingSets.push({ weight: w, reps, rpe });
   renderSetsBuilder();
 }
 
 function addSetRow() {
-  const last = buildingSets.at(-1) || { weight: 100, reps: 5, rpe: 7 };
+  const last = buildingSets.at(-1) || { weight: 0, reps: 5, rpe: 7 };
   buildingSets.push({ ...last });
   renderSetsBuilder();
 }
@@ -2246,7 +2276,7 @@ function renderTemplates() {
     const totalSets = t.payload.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets).length;
     const card = el('div', { class: 'template-card' });
     card.appendChild(el('div', { class: 'tpl-name' }, t.name));
-    card.appendChild(el('div', { class: 'tpl-meta' }, t.payload.weeks.length + ' wk · ' + totalSets + ' sets · saved ' + fmtDateShort(new Date(t.createdAt).toISOString().slice(0, 10))));
+    card.appendChild(el('div', { class: 'tpl-meta' }, t.payload.weeks.length + ' wk · ' + totalSets + ' sets · saved ' + fmtDateShort(isoLocal(new Date(t.createdAt)))));
     const actions = el('div', { class: 'tpl-actions' });
     const apply = el('button', { class: 'btn btn-sm btn-primary', onclick: () => openApplyTemplate(t) }, 'Apply');
     actions.appendChild(apply);
@@ -2693,7 +2723,7 @@ function renderRosterAnalytics() {
   const now = new Date();
   const dayIdx = (now.getDay() + 6) % 7;
   const mon = new Date(now); mon.setDate(now.getDate() - dayIdx); mon.setHours(0, 0, 0, 0);
-  const weekISO = mon.toISOString().slice(0, 10);
+  const weekISO = isoLocal(mon);
   const u = unitLabel();
 
   const rows = roster.map(a => {

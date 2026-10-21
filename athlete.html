@@ -133,11 +133,13 @@
 
     <!-- CLUB — non-coaching community: your club's board + this week (clubs.js) -->
     <section data-pane="club" id="pane-club" role="tabpanel" aria-labelledby="tab-club" tabindex="0" class="hidden">
+      <div class="dash-header"><div><h2>Club</h2></div></div>
       <div id="clubArea"></div>
     </section>
 
     <!-- YOU — profile, numbers, and everything that isn't training (app.js renderYouHub) -->
     <section data-pane="you" id="pane-you" role="tabpanel" aria-labelledby="tab-you" tabindex="0" class="hidden">
+      <div class="dash-header"><div><h2>You</h2></div></div>
       <div id="youArea"></div>
     </section>
 
@@ -645,13 +647,11 @@ bootstrap('athlete', () => {
   }
   document.getElementById('sessionDate').addEventListener('change', onDateChanged);
   document.getElementById('dateBack').addEventListener('click', () => {
-    const d = new Date(getSessionDate()); d.setDate(d.getDate() - 1);
-    document.getElementById('sessionDate').value = d.toISOString().slice(0, 10);
+    document.getElementById('sessionDate').value = _addDaysISO(getSessionDate(), -1);
     onDateChanged();
   });
   document.getElementById('dateFwd').addEventListener('click', () => {
-    const d = new Date(getSessionDate()); d.setDate(d.getDate() + 1);
-    document.getElementById('sessionDate').value = d.toISOString().slice(0, 10);
+    document.getElementById('sessionDate').value = _addDaysISO(getSessionDate(), 1);
     onDateChanged();
   });
   document.getElementById('dateToday').addEventListener('click', () => {
@@ -1099,13 +1099,11 @@ async function toggleRestDay() {
 // Returns the Monday of the week containing the given date, in YYYY-MM-DD.
 // =========================================================
 function mondayOf(date) {
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
-  const dow = d.getDay(); // 0 = Sunday, 1 = Monday, ...
-  const diff = (dow === 0 ? -6 : 1 - dow);
-  const m = new Date(d);
-  m.setDate(d.getDate() + diff);
-  return m.toISOString().slice(0, 10);
+  // A 'YYYY-MM-DD' is that day; a Date is the lifter's local day (never UTC: a Monday read
+  // at UTC midnight was Sunday evening in the Americas and gave last week's Monday).
+  const s = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10)
+    : (date instanceof Date && !isNaN(date.getTime()) ? isoLocal(date) : todayISO());
+  return _monISO(s);
 }
 
 function openCheckinModal(weekStart) {
@@ -1563,7 +1561,10 @@ function readinessDoneRow(date) {
 // pick, and a streak of weeks you hit it, so a planned rest day never breaks it.
 function defaultWeekGoal() {
   const cur = getCurrentDay();
-  const n = cur && cur.week && cur.week.days ? cur.week.days.length : 0;
+  // Training days only: a rest day in the program (the builder's "Add rest day") isn't a
+  // session to hit, and counting it made a 3-day lifter's goal 4 and their streak 0.
+  const n = cur && cur.week && cur.week.days
+    ? cur.week.days.filter(d => (d.exercises || []).length && !/\b(rest|off|recovery)\b/i.test(d.name || '')).length : 0;
   return n >= 2 ? Math.min(6, n) : 3;
 }
 function weekGoalStatusNow() {
@@ -1691,16 +1692,8 @@ function openWeighInSheet(onSaved) {
     // Where this number sits in the IPF classes, live as you nudge it.
     const cls = el('div', { class: 'bw-class-line' });
     const paintClass = (v) => {
-      const info = weightClassInfo(displayToKg(Number(v)), getSexPref());
-      if (!info) { cls.textContent = ''; return; }
-      // Just over a class is the number a lifter cares about ("0.4 kg over 83").
-      if (info.toCutKg != null && info.toCutKg > 0.05 && info.toCutKg <= 3) {
-        cls.textContent = kgToDisplay(info.toCutKg).toFixed(1) + ' ' + unitLabel() + ' over the ' + info.belowLimit + ' kg class'; return;
-      }
-      if (info.isTop) { cls.textContent = 'Top class: ' + info.cls; return; }
-      const under = info.toCeiling;
-      cls.textContent = under < 0.05 ? 'Right on the ' + info.limit + ' kg limit'
-        : kgToDisplay(under).toFixed(1) + ' ' + unitLabel() + ' under the ' + info.limit + ' kg limit';
+      // The same sentence as You and Analysis (weightClassLine, app.js).
+      cls.textContent = weightClassLine(displayToKg(Number(v)), getSexPref());
     };
     const step = uiStepper({ value: start, step: 0.1, min: 20, max: 450, input: true, suffix: unitLabel(), label: 'bodyweight', cls: 'bw-stepper', onChange: paintClass });
     sheet.appendChild(step);
@@ -1802,7 +1795,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   const tb = el('div', { class: 'tx-title' });
   tb.appendChild(el('h3', {}, exTitleOf(ex)));
   const meta = [];
-  if (isMain) { const m = multiplierFor(ex.lift, ex.variant); if (m !== 1) meta.push('×' + m + ' vs comp'); else meta.push('Competition lift'); }
+  // A variant is "a squat variation"; the competition lift needs no label (its name says it).
+  if (isMain) { if (multiplierFor(ex.lift, ex.variant) !== 1) meta.push(LIFT_LABELS[ex.lift] + ' variation'); }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) meta.push(LIFT_LABELS[ex.lift]);
   else if (isCardio) meta.push('Cardio');
   meta.push(ex.sets.length + (ex.sets.length === 1 ? ' set' : ' sets'));
@@ -1840,10 +1834,12 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     const loadEl = el('div', { class: 'tx-set-load' });
     if (isCardio) {
       loadEl.innerHTML = '<b>' + escHtml(String(set.weight)) + '</b><small>min</small>' + (set.reps > 0 ? '<i>·</i><b>' + escHtml(String(set.reps)) + '</b><small>km</small>' : '');
-    } else if (selfCoached && !set.completed) {
-      // Self-coached (incl. marketplace plans): the lifter writes the load.
+    } else if (!set.completed && liftWritesLoad(ex, set)) {
+      // The lifter writes the load: self-coached (incl. marketplace plans), or a coach set
+      // with no load. An empty box suggests one from the lifter's best e1RM.
+      const sug = shownKg > 0 ? 0 : _suggestedLoad(ex, set);
       const wInp = el('input', {
-        type: 'number', step: '0.5', min: '0', inputmode: 'decimal', class: 'tx-w-input', id: 'wt_' + ex.id + '_' + si, placeholder: '–',
+        type: 'number', step: '0.5', min: '0', inputmode: 'decimal', class: 'tx-w-input', id: 'wt_' + ex.id + '_' + si, placeholder: sug > 0 ? String(kgToDisplay(sug)) : '–',
         'aria-label': 'Set ' + (si + 1) + ' weight (' + unitLabel() + ')', value: (shownKg > 0 ? kgToDisplay(shownKg) : '')
       });
       wInp.addEventListener('change', (e) => {
@@ -1856,7 +1852,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
           const wk = p.weeks.find(w => w.id === cur.week.id);
           const d = wk.days.find(dd => dd.id === cur.day.id);
           const e2 = d.exercises.find(e3 => e3.id === ex.id);
-          if (e2 && e2.sets[si]) e2.sets[si].weight = kg;
+          if (e2 && e2.sets[si]) _writeSetLoad(e2.sets[si], kg);
         });
         persistProgram(prog.id);
       });
@@ -1901,7 +1897,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       }
       const r = feltRpeFor(ex, si);
       if (r == null) { openSetSheet(ex, si); return; }
-      if (selfCoached) {
+      if (liftWritesLoad(ex, set)) {
         const w = document.getElementById('wt_' + ex.id + '_' + si);
         if (w && !(Number(w.value) > 0) && MAIN_LIFTS.includes(ex.lift)) { toast('Enter the weight first'); focusSetRow(ex.id, si, 'wt'); return; }
       }
@@ -1980,7 +1976,8 @@ function openExerciseDetail(exId) {
     const tt = el('div', { class: 'xd-title' });
     tt.appendChild(el('h2', {}, exTitleOf(ex0)));
     const m = isMain ? multiplierFor(ex0.lift, ex0.variant) : 1;
-    tt.appendChild(el('div', { class: 'xd-meta' }, isMain ? (m !== 1 ? '×' + m + ' vs competition' : 'Competition lift') : (LIFT_LABELS[ex0.lift] || 'Accessory')));
+    const xdMeta = isMain ? (m !== 1 ? LIFT_LABELS[ex0.lift] + ' variation' : '') : (LIFT_LABELS[ex0.lift] || 'Accessory');
+    if (xdMeta) tt.appendChild(el('div', { class: 'xd-meta' }, xdMeta));
     head.appendChild(tt);
     const done = el('button', { class: 'xd-done', type: 'button' }, 'Done');
     done.addEventListener('click', close);
@@ -2007,8 +2004,7 @@ function openExerciseDetail(exId) {
           '<span class="xd-load">' + (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + u + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b></span>' +
           '<span class="xd-rpe" style="--rc:' + (felt == null ? 'var(--text-3)' : rpeColor(felt)) + '">' + (felt == null ? 'RPE' : 'RPE ' + felt) + '</span>';
         row.addEventListener('click', () => {
-          const selfCoached = (getProgram() || {}).coachId === user.id;
-          if (selfCoached && !set.completed && isMain && !(kg > 0)) { close(); setTimeout(() => focusSetRow(ex.id, si, 'wt'), 240); return; }
+          if (liftWritesLoad(ex, set) && !set.completed && isMain && !(kg > 0)) { close(); setTimeout(() => focusSetRow(ex.id, si, 'wt'), 240); return; }
           openSetSheet(ex, si);
         });
         list.appendChild(row);
@@ -2038,11 +2034,8 @@ function openExerciseDetail(exId) {
         el('span', { class: 'lw-load' }, (Number(l.weight) > 0 ? formatWeight(l.weight) : '–') + ' × ' + l.reps),
         el('span', { class: 'lw-rpe', style: '--rc:' + (l.rpe ? rpeColor(l.rpe) : 'var(--text-3)') }, l.rpe ? 'RPE ' + l.rpe : ''))));
       sec.appendChild(lw);
-      if (prevEx && !ex0.sets.every(x => x.completed)) {
-        const cp = el('button', { class: 'btn btn-sm ui-btn-soft xd-copy', type: 'button' }, 'Use last week\'s RPEs');
-        cp.addEventListener('click', () => { copyLastWeekRpe(ex0.id, prevEx); toast('RPEs copied'); });
-        sec.appendChild(cp);
-      }
+      // (No "Use last week's RPEs": an RPE is how this set felt, which nothing can know
+      // before it's lifted. The scale starts at the target.)
       body.appendChild(sec);
     }
 
@@ -2104,7 +2097,7 @@ function openSetSheet(ex, si) {
       : (wKg > 0 ? '<b>' + kgToDisplay(wKg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>' }));
     if (!isCardio && wKg > 0) load.appendChild(el('span', { class: 'tx-bar is-static', html: uiBarbell(wKg) }));
     sheet.appendChild(load);
-    if (!isCardio && wKg > 0) sheet.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(wKg) }));
+    if (!isCardio && wKg > 0) sheet.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">Per side</span>' + plateChipsHtml(wKg) }));
     if (sm && sm.fromKg > 0) sheet.appendChild(el('p', { class: 'ui-sheet-sub tx-smart-note' }, 'Moved from ' + formatWeight(sm.fromKg) + '. ' + smartWhy(ex, si) + '.'));
     if (set.completed) {
       const e1 = MAIN_LIFTS.includes(ex.lift) ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
@@ -2191,7 +2184,7 @@ async function sendLogToCoach(log) {
 window.sendLogToCoach = sendLogToCoach;
 // From the chat's +: pick a recent set (newest first, last 14 days) and send it as a card.
 function openSendSetSheet(threadHost) {
-  const cutoff = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+  const cutoff = _addDaysISO(todayISO(), -14);
   const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.date >= cutoff)
     .slice().sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.e1rmComp || 0) - (a.e1rmComp || 0)).slice(0, 24);
   uiSheet('Send a set', (sheet, close) => {
@@ -2435,9 +2428,20 @@ function renderToday() {
       const rest = el('button', { class: 'ts-link', type: 'button' }, 'Resting today? Mark a rest day');
       rest.addEventListener('click', toggleRestDay);
       e.appendChild(rest);
+    } else if (!user.coachId) {
+      // A solo lifter's block is done: the next one is one tap away (their own maxes moved).
+      e.appendChild(el('div', { class: 'ts-eyebrow' }, 'Block complete'));
+      e.appendChild(el('h3', {}, 'Build your next block'));
+      e.appendChild(el('p', {}, 'Every session is done. Your next block starts from the maxes you just built.'));
+      const nb = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Build my next block');
+      nb.addEventListener('click', () => openSoloBlockSheet());
+      e.appendChild(nb);
+      const own = el('button', { class: 'ts-link', type: 'button' }, 'Write it myself');
+      own.addEventListener('click', () => { const t = document.getElementById('tab-program'); if (t) t.click(); });
+      e.appendChild(own);
     } else {
       e.appendChild(el('h3', {}, 'Program complete'));
-      e.appendChild(el('p', {}, 'Every session is done. Pick any day from the title to repeat it.'));
+      e.appendChild(el('p', {}, 'Every session is done. Your coach writes the next block; pick any day from the title to repeat one meanwhile.'));
     }
     area.appendChild(e);
     return;
@@ -2473,7 +2477,7 @@ function renderToday() {
   const sessionDate = date;
   const noteForToday = (Store.get().sessionNotes || [])
     .find(n => n.athleteId === user.id && n.date === sessionDate && n.coachComment);
-  const weekStart = mondayOf(new Date(sessionDate));
+  const weekStart = mondayOf(sessionDate);
   const submitted = (Store.get().checkins || []).some(c => c.athleteId === user.id && c.weekStart === weekStart);
   const dayRows = [];
   if (noteForToday) {
@@ -2570,7 +2574,8 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     // For self-coached programs (athlete = their own coach, e.g. marketplace purchases),
     // sync the weight input value into the set before logging — otherwise we'd log a 0kg set.
     const selfCoached = prog.coachId === user.id;
-    if (selfCoached) {
+    const writes = liftWritesLoad(ex, set);
+    if (writes) {
       const wIn = document.getElementById('wt_' + exerciseId + '_' + setIndex);
       const display = Number(wIn?.value);
       if (display > 0) set.weight = displayToKg(display);
@@ -2597,12 +2602,12 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       sset.actualRpe = actualRpe;
       sset.completedAt = sessionDate;
       sset.lastLogId = newLogId;
-      // Persist any weight entered just now (self-coached case)
-      if (selfCoached && set.weight > 0) sset.weight = set.weight;
+      // Persist any weight entered just now (the lifter's own load)
+      if (writes && set.weight > 0) _writeSetLoad(sset, set.weight);
       // Smart next set: lift the moved load, keep what the plan said beside it.
       if (smart) {
         if (!('plannedWeight' in sset)) sset.plannedWeight = smart.fromKg;
-        if (!selfCoached) sset.weight = smart.kg;
+        if (!writes) sset.weight = smart.kg;
       }
       const noteEl = document.getElementById('note_' + exerciseId + '_' + setIndex);
       if (noteEl) sset.note = noteEl.value;
@@ -2836,7 +2841,7 @@ async function sharePlateCard(lift, n, log) {
     bigUnit: n === 1 ? 'PLATE' : 'PLATES',
     sub: LIFT_LABELS[lift] + ' · ' + formatWeight(log.weight) + ' × ' + log.reps,
     lines: [
-      { l: 'A side', r: plateSummaryText(log.weight) },
+      { l: 'Per side', r: plateSummaryText(log.weight) },
       { l: 'RPE', r: log.rpe ? String(log.rpe) : '–' },
       { l: 'Date', r: fmtDate(log.date) }
     ]
@@ -3347,6 +3352,27 @@ function _liftNext() {
   return { cur, done: true };
 }
 // Self-coached lifters type the load: one stepper, one Save.
+// Whose number is the load? The lifter's when they program themselves, and under a coach
+// when the coach left that load blank ("work up to RPE 8", percentages in the note, a pasted
+// "Squat 3x5 @7"): otherwise those sets logged 0 kg and no e1RM (coach panel, 2026-10-21).
+function liftWritesLoad(ex, set) {
+  return (getProgram() || {}).coachId === user.id || !(Number(planWeight(set)) > 0);
+}
+// Write the lifter's load into a set. Under a coach the blank stays on record as the plan
+// (plannedWeight 0), so the set stays the lifter's to fill and the coach still sees the plan.
+function _writeSetLoad(sset, kg) {
+  if ((getProgram() || {}).coachId !== user.id && !('plannedWeight' in sset)) sset.plannedWeight = Number(sset.weight) || 0;
+  sset.weight = kg;
+}
+// What the load box suggests when it's empty: the lifter's best e1RM at the set's reps and
+// target RPE, rounded to the gym's smallest jump (only for the big three).
+function _suggestedLoad(ex, set) {
+  if (!MAIN_LIFTS.includes(ex.lift) || set.rpe == null || set.rpe === '' || !(Number(set.reps) > 0)) return 0;
+  const e1 = bestE1RM(user.id, ex.lift);
+  if (!(e1 > 0)) return 0;
+  const step = loadStepKg(getUnit() === 'lbs' ? 'lbs' : 'kg');
+  return Math.round(e1 / multiplierFor(ex.lift, ex.variant) * rpeLoadPct(set.reps, set.rpe) / step) * step;
+}
 function promptSetWeight(ex, si, onDone) {
   const cur = getCurrentDay();
   const prev = ex.sets.slice(0, si).reverse().find(s => Number(s.weight) > 0);
@@ -3361,7 +3387,7 @@ function promptSetWeight(ex, si, onDone) {
         const wk = p && p.weeks.find(x => String(x.id) === String(cur.week.id));
         const d = wk && wk.days.find(x => String(x.id) === String(cur.day.id));
         const e2 = d && d.exercises.find(e => e.id === ex.id);
-        if (e2 && e2.sets[si]) e2.sets[si].weight = kg;
+        if (e2 && e2.sets[si]) _writeSetLoad(e2.sets[si], kg);
       });
       persistProgram(getProgram().id);
       close(); renderToday(); if (onDone) onDone();
@@ -3387,7 +3413,7 @@ function openLiftMode() {
   const setView = (n) => {
     const { ex, si, set } = n;
     const isMain = MAIN_LIFTS.includes(ex.lift), isCardio = ex.lift === 'cardio';
-    const selfCoached = (getProgram() || {}).coachId === user.id;
+    const writes = liftWritesLoad(ex, set);
     const stage = el('div', { class: 'lm-stage lift-' + (isMain ? ex.lift : 'acc') });
     stage.appendChild(el('div', { class: 'lm-lift' }, exTitleOf(ex)));
     // One dot per set of this exercise: done, this one, still to come.
@@ -3399,11 +3425,10 @@ function openLiftMode() {
     const num = el('button', { class: 'lm-num', type: 'button', 'aria-label': isCardio ? set.weight + ' minutes' : (kg > 0 ? formatWeight(kg) + ' for ' + set.reps + '. Plates' : 'Enter the weight') });
     if (isCardio) num.innerHTML = '<b>' + escHtml(String(set.weight)) + '</b><small>min</small>';
     else num.innerHTML = (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>× ' + escHtml(String(set.reps)) + '</i>';
-    num.addEventListener('click', () => { if (!isCardio && !(kg > 0) && selfCoached) promptSetWeight(ex, si); else if (kg > 0) openPlateCalc(kg); });
+    num.addEventListener('click', () => { if (!isCardio && !(kg > 0) && writes) promptSetWeight(ex, si); else if (kg > 0) openPlateCalc(kg); });
     stage.appendChild(num);
     if (!isCardio && kg > 0) { stage.appendChild(el('div', { class: 'lm-bar', 'aria-hidden': 'true', html: uiBarbell(kg, { from: _lmBarKg }) })); _lmBarKg = kg; }
-    const meta = [];
-    if (set.rpe != null && set.rpe !== '') meta.push('Target RPE ' + set.rpe);
+    const meta = [];   // (the target RPE is the tick on the scale below, not said twice)
     if (sm) meta.push(sm.fromKg > 0 ? (sm.delta > 0 ? '+' : '−') + kgToDisplay(Math.abs(sm.delta)) + ' ' + unitLabel() + ' from the plan' : 'From today\'s sets');
     if (ex.note) meta.push(ex.note);
     if (meta.length) stage.appendChild(el('div', { class: 'lm-meta' }, meta.join(' · ')));
@@ -3412,7 +3437,7 @@ function openLiftMode() {
     const doLog = () => {
       const r = scale ? scale.getValue() : feltRpeFor(ex, si);
       if (scale && r == null) { scale.nudge(); return; }
-      if (!isCardio && !(kg > 0) && selfCoached && isMain) { promptSetWeight(ex, si); return; }
+      if (!isCardio && !(kg > 0) && writes && isMain) { promptSetWeight(ex, si); return; }
       toggleSet(ex.id, si, true, { rpe: r });
     };
     // What follows this set, so the next load is already in your head.
@@ -3496,7 +3521,9 @@ function openLiftMode() {
     const x = el('button', { class: 'mm-x', type: 'button', 'aria-label': 'Leave lift mode', html: ICONS.x });
     x.addEventListener('click', close);
     head.appendChild(x);
-    head.appendChild(el('div', { class: 'lm-count' }, n.done ? n.cur.day.name : 'Set ' + (done + 1) + ' of ' + all.length));
+    // This exercise's sets, as the dots and Train say; the thin bar below shows the session.
+    head.appendChild(el('div', { class: 'lm-count' }, n.done ? n.cur.day.name
+      : (n.ex && n.si != null ? 'Set ' + (n.si + 1) + ' of ' + n.ex.sets.length : 'Set ' + (done + 1) + ' of ' + all.length)));
     head.appendChild(el('span', {}));
     root.appendChild(head);
     root.appendChild(el('div', { class: 'lm-prog', 'aria-hidden': 'true' }, el('i', { style: 'transform: scaleX(' + (all.length ? done / all.length : 0).toFixed(3) + ')' })));
@@ -4015,7 +4042,7 @@ function openMeetResultModal(meetId) {
       f('mrNotes').value = m.notes || '';
     }
   } else {
-    f('mrDate').value = new Date().toISOString().slice(0, 10);
+    f('mrDate').value = todayISO();
   }
   openModal('meetResultModal');
   setTimeout(() => { const n = f('mrName'); if (n) n.focus(); }, 30);
@@ -4087,7 +4114,7 @@ async function shareWeekCard() {
   const now = new Date();
   const day = (now.getDay() + 6) % 7;
   const monday = new Date(now); monday.setDate(now.getDate() - day); monday.setHours(0, 0, 0, 0);
-  const iso = monday.toISOString().slice(0, 10);
+  const iso = isoLocal(monday);
   const weekLogs = logs.filter(l => l.date >= iso);
   if (!weekLogs.length) return toast('No sets logged this week yet. Go train');
   const sessions = new Set(weekLogs.map(l => l.date)).size;
@@ -4283,11 +4310,8 @@ function buildYouBodyweight() {
     card.appendChild(top);
     const spark = uiSparkline(st.trend.slice(-45).map(p => kgToDisplay(p.weight)));
     if (spark) card.appendChild(el('div', { class: 'bw-spark', html: spark }));
-    const wc = weightClassInfo(last.weight, getSexPref());
-    if (wc) {
-      const t = wc.isTop ? wc.cls + ' class' : wc.cls + ' class · ' + Number(kgToDisplay(wc.toCeiling)).toFixed(1) + ' ' + unitLabel() + ' under the limit';
-      card.appendChild(el('div', { class: 'bw-class' }, t));
-    }
+    const wcLine = weightClassLine(last.weight, getSexPref());
+    if (wcLine) card.appendChild(el('div', { class: 'bw-class' }, wcLine));
     card.addEventListener('click', (e) => { if (!e.target.closest('button')) goBw(); });
   }
   const btn = el('button', { class: 'btn btn-lg bw-log ' + (loggedToday ? 'ui-btn-soft' : 'btn-primary'), type: 'button' }, loggedToday ? 'Update today\'s weigh-in' : 'Log weigh-in');
@@ -4321,7 +4345,7 @@ function renderAthleteYou() {
     edit: () => openProfileSheet(() => renderAthleteYou()),
     sub: [cls ? cls + ' class' : null, club].filter(Boolean).join(' · ') || 'Lifter',
     stats: [
-      { label: 'Total', value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '' },
+      { label: 'e1RM total', value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '' },
       { label: 'DOTS', value: dots > 0 ? dots.toFixed(1) : '–' },
       { label: 'Streak', value: streak || 0, unit: streak === 1 ? 'week' : 'weeks' }
     ],
@@ -4418,7 +4442,8 @@ function syncHomeWidget() {
           next = { lift: MAIN_LIFTS.includes(nx.ex.lift) ? nx.ex.lift : 'other', name: cut(exTitleOf(nx.ex), 32),
             load: !cardio && wKg > 0 ? String(kgToDisplay(wKg, 2)) : null,
             reps: cardio ? null : cut(nx.set.reps, 6), rpe: cardio ? null : cut(nx.set.rpe, 4),
-            key: !cardio && feltRpeFor(nx.ex, nx.si) != null ? nx.ex.id + '|' + nx.si : null };
+            // Loggable from the widget on the Lock Screen's rule: a target RPE, and a load for the big three.
+            key: !cardio && feltRpeFor(nx.ex, nx.si) != null && (wKg > 0 || !MAIN_LIFTS.includes(nx.ex.lift)) ? nx.ex.id + '|' + nx.si : null };
         }
       } catch (e) {}
       // Up to six sets from the next one on, for the session widget's Log set (iOS 17). A set
@@ -4436,7 +4461,7 @@ function syncHomeWidget() {
             q.push({ lift: MAIN_LIFTS.includes(ex.lift) ? ex.lift : 'other', name: cut(exTitleOf(ex), 32),
               load: !cardio && wKg > 0 ? String(kgToDisplay(wKg, 2)) : null,
               reps: cardio ? null : cut(st.reps, 6), rpe: cardio ? null : cut(st.rpe, 4),
-              key: !cardio && feltRpeFor(ex, si) != null ? ex.id + '|' + si : null });
+              key: !cardio && feltRpeFor(ex, si) != null && (wKg > 0 || !MAIN_LIFTS.includes(ex.lift)) ? ex.id + '|' + si : null });
           });
           if (q.length >= 6) break;
         }
@@ -4447,7 +4472,7 @@ function syncHomeWidget() {
         const mine = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id);
         // The move Progress shows: the total now against 28 days ago (only ever up: it's a running best).
         const ser = _progTotalSeries(mine), last = ser[ser.length - 1];
-        const cutoff = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
+        const cutoff = _addDaysISO(todayISO(), -28);
         const prev = ser.slice().reverse().find(p => p.date <= cutoff);
         const dv = last && prev && prev.total > 0 ? Math.round(kgToDisplay(last.total - prev.total)) : 0;
         if (dv > 0) totalDelta = '+' + dv;
@@ -4920,9 +4945,9 @@ function openPlateSheet(kg) {
       vis.innerHTML = uiBarbell(kgv, first ? {} : { from: shown });
       shown = kgv;
       vis.classList.toggle('settled', !first); first = false;
-      chips.innerHTML = '<span class="tx-plates-lbl">A side</span>' + plateChipsHtml(kgv);
+      chips.innerHTML = '<span class="tx-plates-lbl">Per side</span>' + plateChipsHtml(kgv);
       const r = plateLoadout(kgv);
-      note.textContent = r.error ? r.error : ('On a ' + plateBarLabel() + ' bar. Collars not counted.');
+      note.textContent = r.error ? r.error : 'Collars not counted.';   // the bar is the switch just above
     }
     paint();
   }, { cls: 'plate-sheet' });
@@ -4964,7 +4989,7 @@ function openLoadFinder() {
       const kg = displayToKg(Math.round(disp / stepD) * stepD);
       out.innerHTML = '<div class="lf-big lift-' + lift + '"><div class="tdh-presc"><b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small><i>×</i><b>' + reps + '</b></div>' +
         '<span class="tx-bar is-static">' + uiBarbell(kg) + '</span></div>' +
-        '<div class="tx-plates"><span class="tx-plates-lbl">A side</span>' + plateChipsHtml(kg) + '</div>' +
+        '<div class="tx-plates"><span class="tx-plates-lbl">Per side</span>' + plateChipsHtml(kg) + '</div>' +
         '<p class="pm-note">' + (drift
           ? 'About ' + Math.round(pct * 100) + '% of the max your heavy ' + LIFT_LABELS[lift].toLowerCase() + ' sets imply, ' + formatWeight(Math.round(base)) + '. Corrected ' + (drift > 0 ? '+' : '') + drift.toFixed(1) + ' RPE for how you call ' + _rpeBucket(reps) + ' reps.'
           : 'About ' + Math.round(pct * 100) + '% of your best ' + LIFT_LABELS[lift].toLowerCase() + ' e1RM, ' + formatWeight(Math.round(e1)) + '.') + '</p>';
@@ -5141,33 +5166,22 @@ function buildStrengthScoreCard(athleteId) {
   const rows = [];
   const wci = weightClassInfo(bw, sex);
   if (wci) {
-    const gap = (kg) => { const d = kgToDisplay(kg); return (d < 1 ? '<1' : (Math.round(d * 10) / 10)) + ' ' + u; };
-    let txt;
-    if (wci.isTop) {
-      txt = 'Top class' + (wci.toCutKg != null && wci.toCutKg > 0 ? ' · cut ' + gap(wci.toCutKg) + ' to make ' + wci.belowLimit + 'kg' : '');
-    } else if (wci.toCeiling < 0.1) {
-      txt = 'Right on the limit';
-    } else {
-      txt = gap(wci.toCeiling) + ' under the limit';
-      if (wci.toCutKg != null && wci.toCutKg > 0 && wci.toCutKg <= 6) txt += ' · cut ' + gap(wci.toCutKg) + ' to make ' + wci.belowLimit + 'kg';
-    }
-    rows.push(uiRow({ title: 'Weight class', sub: txt, endHtml: '<b>' + escHtml(String(wci.cls)) + '</b>' }));
+    rows.push(uiRow({ title: 'Weight class', sub: weightClassLine(bw, sex), endHtml: '<b>' + escHtml(String(wci.cls)) + '</b>' }));
   }
   ['squat', 'bench', 'deadlift'].forEach(lift => {
     const sl = strengthLevel(bestE1RM(athleteId, lift), bw, lift, sex);
     if (!sl) return;
-    const next = sl.toNextKg != null
-      ? (kgToDisplay(sl.toNextKg) < 1 ? '<1' : Math.round(kgToDisplay(sl.toNextKg))) + ' ' + u + ' to ' + STRENGTH_LEVELS[sl.index + 1]
-      : 'Top tier';
-    const meter = '<span class="tier-dots" aria-hidden="true">' + [0, 1, 2, 3, 4].map(i => '<i' + (i <= sl.index ? ' class="on"' : '') + '></i>').join('') + '</span>';
+    // The multiple and five dots; no "Elite" / "Top tier" names (fixed bodyweight cut-offs
+    // called an 83 kg 1.6× bench elite, and said the level three ways).
+    const meter = '<span class="tier-dots" role="img" aria-label="' + escHtml(sl.level) + ' (' + (sl.index + 1) + ' of 5)">' + [0, 1, 2, 3, 4].map(i => '<i' + (i <= sl.index ? ' class="on"' : '') + '></i>').join('') + '</span>';
     rows.push(uiRow({
       title: LIFT_LABELS[lift],
-      sub: sl.ratio.toFixed(2) + '× bodyweight · ' + next,
-      endHtml: meter + '<span class="tier-name">' + escHtml(sl.level) + '</span>'
+      sub: sl.ratio.toFixed(2) + '× bodyweight (e1RM)',
+      endHtml: meter
     }));
   });
   if (rows.length) {
-    wrap.appendChild(uiLabel('Standards'));
+    wrap.appendChild(uiLabel('Bodyweight multiples'));
     wrap.appendChild(uiList(rows));
   }
   return wrap;
@@ -5380,14 +5394,14 @@ function renderProgOverview(area, logs) {
   const u = unitLabel();
   const series = _progTotalSeries(logs);
   const lastPt = series[series.length - 1] || { total: 0, squat: 0, bench: 0, deadlift: 0 };
-  const cutoff = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
+  const cutoff = _addDaysISO(todayISO(), -28);
   const prevPt = series.slice().reverse().find(p => p.date <= cutoff) || null;
   const total = lastPt.total;
   const bw = latestBodyweight(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, getSexPref()) : 0;
 
   const hero = el('div', { class: 'ui-hero' });
-  hero.appendChild(el('div', { class: 'ui-hero-label' }, 'Total'));
+  hero.appendChild(el('div', { class: 'ui-hero-label' }, 'e1RM total'));   // estimated, not a meet total
   hero.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(total)) + '<small>' + u + '</small>' }));
   const sub = el('div', { class: 'ui-hero-sub' });
   if (prevPt && prevPt.total > 0) {
@@ -5471,9 +5485,10 @@ function renderProgOverview(area, logs) {
   const wkLogs = logs.filter(l => l.date >= wk);
   const ton = kgToDisplay(wkLogs.reduce((a, l) => a + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0));
   area.appendChild(uiLabel('This week'));
+  const wkSessions = new Set(wkLogs.map(l => l.date)).size;
   area.appendChild(uiStats([
-    { value: new Set(wkLogs.map(l => l.date)).size, label: 'Sessions' },
-    { value: wkLogs.length, label: 'Sets' },
+    { value: wkSessions, label: wkSessions === 1 ? 'Session' : 'Sessions' },
+    { value: wkLogs.length, label: wkLogs.length === 1 ? 'Set' : 'Sets' },
     ton >= 10000 ? { value: (Math.round(ton / 100) / 10).toLocaleString(), unit: getUnit() === 'lbs' ? 'k lb' : 't', label: 'Moved' }
                  : { value: Math.round(ton).toLocaleString(), unit: u, label: 'Moved' }
   ]));
@@ -5568,7 +5583,7 @@ function renderProgPRs(area, logs) {
   const u = unitLabel();
   const prs = getLifetimePRs(user.id);
   if (Object.keys(prs).length) {
-    area.appendChild(uiLabel('Lifetime PRs'));
+    area.appendChild(uiLabel('Best e1RMs'));   // estimated maxes, so they don't read as lifts made
     area.appendChild(uiList(['squat', 'bench', 'deadlift'].map(lift => {
       const pr = prs[lift];
       if (!pr) return null;
@@ -5594,7 +5609,7 @@ function renderProgPRs(area, logs) {
     area.appendChild(uiList(['squat', 'bench', 'deadlift'].map(lift => {
       const got = club[lift];
       const top = got.length ? got[got.length - 1] : null;
-      const pips = el('span', { class: 'pc-pips', 'aria-hidden': 'true' });
+      const pips = el('span', { class: 'pc-pips lift-' + lift, 'aria-hidden': 'true' });
       for (let i = 1; i <= Math.max(5, top ? top.n : 0); i++) pips.appendChild(el('i', { class: top && i <= top.n ? 'on' : '' }));
       const nextKg = plateMilestoneKg((top ? top.n : 0) + 1, getUnit(), big);
       return uiRow({
@@ -5616,7 +5631,7 @@ function renderProgPRs(area, logs) {
       area.appendChild(uiLabel('Bodyweight goals'));
       area.appendChild(uiList(ladder.map(r => {
         const all = BW_LADDER[getSexPref() === 'female' ? 'female' : 'male'][r.lift];
-        const pips = el('span', { class: 'pc-pips', 'aria-hidden': 'true' });
+        const pips = el('span', { class: 'pc-pips lift-' + r.lift, 'aria-hidden': 'true' });
         all.forEach(x => pips.appendChild(el('i', { class: r.held.indexOf(x) >= 0 ? 'on' : '' })));
         const top = r.held.length ? r.held[r.held.length - 1] : null;
         return uiRow({
@@ -5719,7 +5734,7 @@ function ensureEditLogModal() {
       '<h3>Edit set</h3>' +
       '<p class="dim text-sm mb-16">Fix a mis-typed weight, reps, or RPE. Your e1RM recalculates automatically.</p>' +
       '<div class="flex gap-8">' +
-        '<div class="form-group" style="flex:1"><label>Weight</label><input type="number" id="elWeight" step="0.5" min="0"></div>' +
+        '<div class="form-group" style="flex:1"><label id="elWeightLbl">Weight</label><input type="number" id="elWeight" step="0.5" min="0" inputmode="decimal"></div>' +
         '<div class="form-group" style="flex:1"><label>Reps</label><input type="number" id="elReps" step="1" min="1"></div>' +
         '<div class="form-group" style="flex:1"><label>RPE</label><input type="number" id="elRpe" step="0.5" min="1" max="10"></div>' +
       '</div>' +
@@ -5735,7 +5750,9 @@ function openEditLogModal(logId) {
   const l = Store.get().workoutLogs.find(x => x.id === logId);
   if (!l) return;
   _editLogId = logId;
-  document.getElementById('elWeight').value = l.weight;
+  // In the lifter's unit (the log is kg): a pound lifter typing 405 meant 405 lb.
+  document.getElementById('elWeight').value = Number(l.weight) > 0 ? kgToDisplay(l.weight, 2) : 0;
+  const lbl = document.getElementById('elWeightLbl'); if (lbl) lbl.textContent = 'Weight (' + unitLabel() + ')';
   document.getElementById('elReps').value = l.reps;
   document.getElementById('elRpe').value = l.rpe;
   openModal('editLogModal');
@@ -5743,7 +5760,8 @@ function openEditLogModal(logId) {
 async function saveEditedLog() {
   const l = Store.get().workoutLogs.find(x => x.id === _editLogId);
   if (!l) { closeModal('editLogModal'); return; }
-  const weight = parseFloat(document.getElementById('elWeight').value);
+  const shown = parseFloat(document.getElementById('elWeight').value);
+  const weight = isFinite(shown) && shown > 0 ? Math.round(displayToKg(shown) * 1000) / 1000 : shown;
   const reps = parseInt(document.getElementById('elReps').value, 10);
   const rpe = parseFloat(document.getElementById('elRpe').value);
   if (!isFinite(weight) || weight < 0) return toast('Enter a valid weight');
@@ -5842,7 +5860,7 @@ function _impNormDate(raw) {
     return y + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0');
   }
   const d = new Date(v);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  if (!isNaN(d.getTime())) return isoLocal(d);
   return null;
 }
 
@@ -6677,7 +6695,12 @@ function renderSelfBuilder() {
   });
   headRow.appendChild(nameInput);
   const progMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Program options', html: UI_DOTS });
+  // Building a block replaces this one: the screen's red action only on an empty or fully
+  // logged program (the next block); mid-block it waits in ⋯.
+  const _sbSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
+  const blockOpen = _sbSets.length > 0 && _sbSets.some(s => !s.completed);
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
+    blockOpen ? { label: 'Build a new block…', icon: ICONS.program, onClick: () => openSoloBlockSheet() } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => sbAddWeek(prog.id) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv() }
   ]));
@@ -6689,9 +6712,11 @@ function renderSelfBuilder() {
   head.appendChild(el('div', { class: 'pb-meta' },
     prog.weeks.length + (prog.weeks.length === 1 ? ' week' : ' weeks') + ' · ' + sessions + (sessions === 1 ? ' session' : ' sessions') +
     (allSets.length ? ' · ' + Math.round(doneSets / allSets.length * 100) + '% logged' : '')));
-  const buildBtn = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button' }, 'Build a block for me');
-  buildBtn.addEventListener('click', () => openSoloBlockSheet());
-  head.appendChild(buildBtn);
+  if (!blockOpen) {
+    const buildBtn = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button' }, allSets.length ? 'Build my next block' : 'Build a block for me');
+    buildBtn.addEventListener('click', () => openSoloBlockSheet());
+    head.appendChild(buildBtn);
+  }
   area.appendChild(head);
 
   if (!prog.weeks.length) {
@@ -6712,8 +6737,9 @@ function renderSelfBuilder() {
   prog.weeks.forEach((wk, wi) => {
     const totalSets = wk.days.flatMap(d => d.exercises).flatMap(e => e.sets).length;
     weekNav.appendChild(el('button', { class: 'week-tab' + (wi === _selfBuilderActiveWeek ? ' active' : ''), type: 'button',
+      'aria-label': 'Week ' + wk.number + ', ' + totalSets + (totalSets === 1 ? ' set' : ' sets'),
       onclick: () => { _selfBuilderActiveWeek = wi; renderSelfBuilder(); } },
-      el('span', {}, 'Week ' + wk.number), el('span', { class: 'ct' }, String(totalSets))));
+      el('span', {}, 'Week ' + wk.number)));
   });
   const addWkChip = el('button', { class: 'week-tab week-add', type: 'button', 'aria-label': 'Add week', html: ICONS.plus });
   addWkChip.addEventListener('click', () => sbAddWeek(prog.id));
@@ -6752,6 +6778,7 @@ function renderSelfBuilder() {
     dayMore.addEventListener('click', () => uiActionSheet(day.name || 'Day', [
       di > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderDay(prog.id, wi, di, -1); sbPersist(prog.id); renderSelfBuilder(); } } : null,
       di < wk.days.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: () => { reorderDay(prog.id, wi, di, 1); sbPersist(prog.id); renderSelfBuilder(); } } : null,
+      { label: 'Duplicate day', icon: ICONS.copy, onClick: () => { duplicateDay(prog.id, wi, di); sbPersist(prog.id); renderSelfBuilder(); } },
       { label: 'Delete day', icon: ICONS.trash, danger: true, onClick: () => sbDeleteDay(prog.id, wi, di) }
     ]));
     dayHead.appendChild(dayMore);
@@ -6759,15 +6786,15 @@ function renderSelfBuilder() {
 
     const dayBody = el('div', { class: 'pb-day-body' });
     if (!exN && restish) {
-      const restBox = el('div', { class: 'day-empty pb-rest' });
-      restBox.appendChild(el('div', { class: 'pb-rest-title' }, 'Rest day'));
-      restBox.appendChild(el('div', { class: 'pb-rest-sub' }, 'Rename it to make it a training day.'));
-      dayBody.appendChild(restBox);
+      // One quiet line; rename the day to train on it.
+      dayBody.appendChild(el('div', { class: 'day-empty pb-rest' }, el('div', { class: 'pb-rest-title' }, 'Rest · No training')));
     }
     day.exercises.forEach((ex, ei) => dayBody.appendChild(buildSbExercise(prog, wi, day, di, ex, ei)));
-    const addExBtn = el('button', { class: 'pb-add-ex2', type: 'button', onclick: () => sbOpenAddExercise(prog.id, wi, di) });
-    addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
-    dayBody.appendChild(addExBtn);
+    if (exN || !restish) {
+      const addExBtn = el('button', { class: 'pb-add-ex2', type: 'button', onclick: () => sbOpenAddExercise(prog.id, wi, di) });
+      addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
+      dayBody.appendChild(addExBtn);
+    }
     dayCard.appendChild(dayBody);
     main.appendChild(dayCard);
   });
@@ -6793,7 +6820,7 @@ function buildSbExercise(prog, wi, day, di, ex, ei) {
   const open = openSet.has(ex.id);
   const row = el('div', { class: 'pb-ex' + (open ? ' is-open' : '') + (isMain ? ' lift-' + ex.lift : ' lift-acc') });
   let title = '', badge = '';
-  if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; const m = multiplierFor(ex.lift, ex.variant); badge = m !== 1 ? '×' + m : ''; }
+  if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
   else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
   else { title = ex.exerciseName; }
@@ -7027,7 +7054,7 @@ function onSbLiftChange() {
     variantSel.innerHTML = '';
     variantsFor(lift).forEach(v => {
       const opt = document.createElement('option');
-      opt.value = v; opt.textContent = v + ' (×' + multiplierFor(lift, v).toFixed(2) + ')';
+      opt.value = v; opt.textContent = v;
       variantSel.appendChild(opt);
     });
   } else {
@@ -7061,11 +7088,13 @@ function sbConfirmAddExercise() {
     const p = s.programs.find(p => p.id === progId);
     if (!p) return;
     const ex = newExercise(lift, variant, exerciseName);
-    // Seed with one block of 3 default sets so the user immediately sees set inputs
+    // Seed with one block of 3 sets so the inputs show at once, loaded from the lifter's own
+    // history (blank when there's none: they write it).
     if (lift === 'cardio') {
       ex.sets = [newSet(30, 5, null)]; // 30 min / 5 km / no RPE
     } else {
-      ex.sets = [newSet(100, 5, 7), newSet(100, 5, 7), newSet(100, 5, 7)];
+      const w = suggestNewLoad(user.id, lift, variant, exerciseName, 5, 7);
+      ex.sets = [newSet(w, 5, 7), newSet(w, 5, 7), newSet(w, 5, 7)];
     }
     p.weeks[wi].days[di].exercises.push(ex);
   });
@@ -7337,11 +7366,14 @@ function renderCoach() {
   if (_coachThreadHost && _coachThreadHost._msgCleanup) { try { _coachThreadHost._msgCleanup(); } catch (e) {} _coachThreadHost._msgCleanup = null; }
   const s = Store.get();
   if (!user.coachId) {
+    // One title: the pane's own header says "Find a coach" (it said "My coach" above a
+    // second "Find a coach" heading).
     const ph = document.querySelector('#pane-coach > .dash-header');
-    if (ph) ph.style.display = '';
+    if (ph) { ph.style.display = ''; const h = ph.querySelector('h2'); if (h) h.textContent = 'Find a coach'; }
     renderFindCoach(area);
     return;
   }
+  { const h = document.querySelector('#pane-coach > .dash-header h2'); if (h) h.textContent = 'My coach'; }
   const coach = s.coaches.find(c => c.id === user.coachId);
   if (!coach) {
     area.appendChild(uiEmpty({ icon: ICONS.user, title: 'Coach not found', text: 'Close and reopen the app to refresh.' }));
@@ -7588,10 +7620,9 @@ async function renderFindCoach(area) {
     } catch (e) { /* non-fatal — buttons just default to "Request to join" */ }
   }
 
-  // --- Header
+  // --- One line under the pane's title
   const head = el('div', { class: 'mb-16' });
-  head.appendChild(el('h2', { style: 'font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800; letter-spacing:0.01em; margin:0 0 4px;' }, 'Find a coach'));
-  head.appendChild(el('p', { class: 'dim' }, 'Browse coaches on POWALIFTA and ask one to take you on. Or drop in a code if a coach already gave you one.'));
+  head.appendChild(el('p', { class: 'dim', style: 'margin:0;' }, 'Ask a coach to take you on, or enter the code a coach gave you.'));
   area.appendChild(head);
 
   // --- Invite-code card (instant link)
@@ -7630,7 +7661,6 @@ function coachDirCard(c, reqStatus) {
   nameLine.appendChild(el('span', { style: 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' }, c.name || 'Coach'));
   if (c.countryCode) nameLine.appendChild(el('span', { style: 'flex:none;' }, flagEmoji(c.countryCode)));
   idCol.appendChild(nameLine);
-  idCol.appendChild(el('p', { class: 'dim text-xs', style: 'margin:2px 0 0;' }, 'Coach'));
   top.appendChild(idCol);
   card.appendChild(top);
 
@@ -7638,8 +7668,11 @@ function coachDirCard(c, reqStatus) {
   card.appendChild(el('p', { class: 'dim text-sm', style: 'margin:0; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;' }, bio || 'No bio yet.'));
 
   const actions = el('div', { style: 'display:flex; gap:8px;' });
-  actions.appendChild(el('a', { class: 'btn btn-ghost', href: 'coach-profile.html?id=' + encodeURIComponent(c.id), target: '_blank', rel: 'noopener', style: 'flex:1; text-align:center; text-decoration:none;' }, 'View profile'));
-  const reqBtn = el('button', { class: 'btn btn-primary', style: 'flex:1; white-space:nowrap;' });
+  const inShell = document.documentElement.classList.contains('native');
+  actions.appendChild(el('a', Object.assign({ class: 'btn btn-ghost', href: 'coach-profile.html?id=' + encodeURIComponent(c.id), style: 'flex:1; text-align:center; text-decoration:none;' },
+    inShell ? {} : { target: '_blank', rel: 'noopener' }), 'View profile'));
+  // Soft, not red: the screen's one red action is Join with a code.
+  const reqBtn = el('button', { class: 'btn ui-btn-soft', style: 'flex:1; white-space:nowrap;' });
   if (reqStatus === 'pending') { reqBtn.textContent = 'Requested'; reqBtn.disabled = true; reqBtn.className = 'btn'; reqBtn.style.flex = '1'; }
   else if (reqStatus === 'accepted') { reqBtn.textContent = 'Linked'; reqBtn.disabled = true; reqBtn.className = 'btn'; reqBtn.style.flex = '1'; }
   else { reqBtn.textContent = 'Request to join'; reqBtn.onclick = () => requestCoach(c, reqBtn); }

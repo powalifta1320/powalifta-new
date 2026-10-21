@@ -97,6 +97,16 @@ JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.prosecdef = true
 ORDER BY (p.proconfig IS NULL) DESC, p.proname;   -- unpinned (NULL) sorts to top
 
+-- ------------------------------------------------------------
+-- §7 Who can write programs and invites (2026-10-21 sweep: these policies were created in the
+-- live database, not in a migration). A coach INSERT/UPDATE on programs must require a live
+-- link (the athlete's profiles.coach_id = auth.uid()), not just programs.coach_id = auth.uid();
+-- invites INSERT must be the coach's own rows only.
+SELECT tablename, policyname, cmd, roles, qual AS using_expr, with_check
+FROM pg_policies
+WHERE schemaname = 'public' AND tablename IN ('programs', 'invites')
+ORDER BY tablename, cmd, policyname;
+
 -- ============================================================
 -- WHAT TO DO WITH THE OUTPUT:
 --   §1 any data table rls_enabled=false  → run migration-rls-hardening-4.sql +
@@ -105,5 +115,7 @@ ORDER BY (p.proconfig IS NULL) DESC, p.proname;   -- unpinned (NULL) sorts to to
 --   §4 is_admin not SECURITY DEFINER / no search_path → fix immediately.
 --   §5 a missing trigger → re-run the hardening migration that creates it.
 --   §6 any DEFINER fn with NULL config → add SET search_path = public.
+--   §7 a programs coach policy without a coach_id link check, or an invites INSERT that
+--       doesn't pin coach_id = auth.uid() → paste it back; it needs tightening.
 -- Paste the output back and I'll tell you exactly what (if anything) to change.
 -- ============================================================

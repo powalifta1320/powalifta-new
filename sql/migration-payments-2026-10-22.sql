@@ -37,6 +37,7 @@ end $$;
 -- Who bills the coaches already on a plan (the newest biller wins; unclear rows stay null).
 update public.profiles set billing_provider = 'apple'
  where billing_provider is null and apple_original_transaction_id is not null
+   and ls_subscription_id is null                -- both ids: the webhooks treated it as LS (below)
    and coalesce(subscription_status, '') = 'active';
 update public.profiles set billing_provider = 'ls'
  where billing_provider is null and ls_subscription_id is not null

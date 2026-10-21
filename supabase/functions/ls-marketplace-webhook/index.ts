@@ -81,9 +81,15 @@ Deno.serve(async (req) => {
 
     const event = payload?.meta?.event_name as string
     // Test-mode events (the 4242 card) are signed exactly like live ones. They count only
-    // while LS_ALLOW_TEST=1 (checkouts are still in test mode); drop that secret at go-live.
-    if (payload?.meta?.test_mode === true && Deno.env.get('LS_ALLOW_TEST') !== '1') {
-      return jsonResponse(200, { ignored: event, reason: 'test_mode' })
+    // while LS_ALLOW_TEST=1 AND the buyer is in LS_TEST_EMAILS (fails closed with no list):
+    // a test order would otherwise release a paid program and add a payout row. Drop both
+    // secrets at go-live.
+    if (payload?.meta?.test_mode === true) {
+      const testers = (Deno.env.get('LS_TEST_EMAILS') || '').toLowerCase().split(',').map(t => t.trim()).filter(Boolean)
+      const buyer = String(payload?.data?.attributes?.user_email || '').toLowerCase().trim()
+      if (Deno.env.get('LS_ALLOW_TEST') !== '1' || !buyer || !testers.includes(buyer)) {
+        return jsonResponse(200, { ignored: event, reason: 'test_mode' })
+      }
     }
     // We handle one-time order creation + refunds here. Subscription events go to ls-webhook.
     if (event !== 'order_created' && event !== 'order_refunded') {

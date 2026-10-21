@@ -179,7 +179,7 @@ group('PR detection');
   const L = (id, date, e) => ({ id, athleteId: 'ath1', lift: 'squat', variant: 'Competition', e1rmComp: e, date });
   const a = L('l1', '2026-01-01', 100), b = L('l2', '2026-01-02', 105), c = L('l3', '2026-01-03', 102);
   seed({ workoutLogs: [a, b, c] });
-  test('first-ever log of a lift is a PR', () => eq(isPRForLog('ath1', a), true));
+  test('first-ever log of a lift is not a PR (it beats nothing yet)', () => eq(isPRForLog('ath1', a), false));
   test('beating prior best is a PR', () => eq(isPRForLog('ath1', b), true));
   test('below prior best is NOT a PR', () => eq(isPRForLog('ath1', c), false));
   resetState();
@@ -676,7 +676,7 @@ test('plate loadout: 165 kg on a 20 kg bar is 25 25 20 2.5 a side', () => {
     const r = plateLoadout(165);
     eq(r.plates.join(','), '25,25,20,2.5'); eq(r.unit, 'kg');
     eq(plateLoadout(20).plates.length, 0);
-    eq(plateSummaryText(100), '25 · 15 kg a side');
+    eq(plateSummaryText(100), '25 · 15 kg per side');
   } finally { if (prev == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', prev); }
 });
 test('rpe reads: colours run green to red, half steps snap, tank text says reps left', () => {
@@ -1531,6 +1531,7 @@ test('billing provider: before the column, guess from ids + a live status', () =
   eq(billingProviderOf({ apple_original_transaction_id: '200', subscription_status: 'expired' }), null);
   eq(billingProviderOf({ ls_subscription_id: '9', subscription_status: 'past_due' }), 'ls');
   eq(billingProviderOf({ ls_subscription_id: '9', subscription_status: 'expired' }), null);
+  eq(billingProviderOf({ apple_original_transaction_id: '200', ls_subscription_id: '9', subscription_status: 'active' }), 'ls');
   eq(billingProviderOf(null), null);
 });
 test('biller now: mirrors the server (a store retrying a card still bills)', () => {
@@ -1544,6 +1545,22 @@ test('biller now: mirrors the server (a store retrying a card still bills)', () 
 });
 test('plan prices match the checkouts ($24.99 / $49.99 / $99.99)', () => {
   eq(TIER_PRICES.basic, 24.99); eq(TIER_PRICES.pro, 49.99); eq(TIER_PRICES.premium, 99.99);
+});
+
+/* ===========================================================
+   9h. Local days (2026-10-21): "today" is the lifter's calendar day, and a
+   plain date shows as that day in every time zone (run the suite with
+   TZ=America/Los_Angeles and TZ=Australia/Sydney too).
+   =========================================================== */
+group('local days');
+test('isoLocal formats the local calendar day', () => {
+  eq(isoLocal(new Date(2026, 9, 21, 23, 30)), '2026-10-21');   // 11.30 pm local stays the 21st
+  eq(isoLocal(new Date(2026, 0, 5, 0, 15)), '2026-01-05');     // just after local midnight
+  eq(todayISO(), isoLocal(new Date()));
+});
+test('a plain date displays as that day, whatever the time zone', () => {
+  const s = fmtDateShort('2026-10-21');
+  eq(/21/.test(s) && !/20(?!\d)/.test(s.replace('2026', '')), true);
 });
 
 /* ===========================================================
