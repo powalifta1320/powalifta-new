@@ -11827,3 +11827,4 @@ body.powa-app .tx-set.is-skipped .tx-set-sub { color: var(--text-3); }
 .join-code-form .join-code-input { flex: 1 1 0%; min-width: 0; width: 0;   /* an input's built-in width (20 characters) would push Join out of the card */ height: 48px; padding: 0 12px; border-radius: 14px; text-transform: uppercase; text-align: center; letter-spacing: 0.24em; font-family: var(--font-num); font-weight: 800; font-size: 20px; }
 .join-code-form .join-code-btn { height: 48px; padding: 0 24px; white-space: nowrap; }
 @media (max-width: 560px) { .join-code-form { max-width: none; } }
+#invitesWrap.after-first-run { margin-top: var(--u-gap, 28px); }

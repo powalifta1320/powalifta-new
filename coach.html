@@ -1123,7 +1123,10 @@ function renderRoster() {
   const ic = document.getElementById('invitesList');
   ic.innerHTML = '';
   const invWrap = document.getElementById('invitesWrap');
-  if (invWrap) invWrap.style.display = inv.length ? '' : 'none';
+  if (invWrap) {
+    invWrap.style.display = inv.length ? '' : 'none';
+    invWrap.classList.toggle('after-first-run', !overview.length);   // a section's gap under the sample, not 10px
+  }
   if (inv.length) {
     // ⋯ per invite: send the same link again (it still works for one athlete), copy it, or revoke it.
     ic.appendChild(uiList(inv.map(i => {

@@ -8589,10 +8589,15 @@ function uiActionSheet(title, actions) {
   veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
   document.addEventListener('keydown', onKey);
   document.body.appendChild(veil);
+  // Focus the first action for keyboard users only: after a tap, WebKit drew its focus ring round
+  // the first row of every action sheet in the app.
   const first = sheet.querySelector('button:not(.ui-sheet-cancel)');
-  if (first) setTimeout(() => { try { first.focus(); } catch (e) {} }, 30);
+  if (first && _lastInputWasKey) setTimeout(() => { try { first.focus(); } catch (e) {} }, 30);
   return close;
 }
+var _lastInputWasKey = false;   // var: hoisted, so a sheet opened during boot reads false, never a dead-zone error
+document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') _lastInputWasKey = true; }, true);
+document.addEventListener('pointerdown', () => { _lastInputWasKey = false; }, true);
 
 // Tiny inline sparkline (no axes) — values: number[]. Ink line + soft fill.
 function uiSparkline(values) {
