@@ -215,17 +215,18 @@ function _buildDemoData() {
     weeks.push({
       id: uid('wk'), number: wn, days: [
         mkDay('Squat Day', [
-          ['squat', 'Competition', '', [[160 + bump, 5, 7.5], [160 + bump, 5, 8], [157.5 + bump, 3, 8.5]], 'Stay tight at the bottom. Drive up hard.'],
+          // A top set, then back-offs (RTS: 3 @ 8.5 ≈ 88% of the 207 e1RM, 5 @ 8 ≈ 81%).
+          ['squat', 'Competition', '', [[177.5 + bump, 3, 8.5], [162.5 + bump, 5, 8], [162.5 + bump, 5, 8]], 'Stay tight at the bottom. Drive up hard.'],
           ['squat', 'Paused', '', [[132.5 + bump, 4, 8], [132.5 + bump, 4, 8]], '2-count pause.'],
           ['legs', '', 'Leg Press', [[120, 10, 8], [120, 10, 8]]]
         ], wkDone, dt, pinToday ? iso(new Date()) : null),
         mkDay('Bench Day', [
-          ['bench', 'Competition', '', [[105 + bump, 5, 7.5], [105 + bump, 5, 8], [102.5 + bump, 3, 8.5]], 'Leg drive. Touch and go.'],
+          ['bench', 'Competition', '', [[112.5 + bump, 3, 8.5], [102.5 + bump, 5, 8], [102.5 + bump, 5, 8]], 'Leg drive. Touch and go.'],
           ['bench', 'Close Grip', '', [[92.5 + bump, 4, 8], [92.5 + bump, 4, 8]]],
           ['push', '', 'DB Incline Press', [[32.5, 10, 8], [32.5, 10, 8]]]
         ], wkDone, dt),
         mkDay('Deadlift Day', [
-          ['deadlift', 'Competition', '', [[197.5 + bump, 4, 7.5], [197.5 + bump, 4, 8], [195 + bump, 2, 8.5]], 'Slack out of the bar before you pull.'],
+          ['deadlift', 'Competition', '', [[222.5 + bump, 2, 8.5], [205 + bump, 4, 8], [205 + bump, 4, 8]], 'Slack out of the bar before you pull.'],
           ['deadlift', 'Deficit', '', [[167.5 + bump, 3, 8], [167.5 + bump, 3, 8]]],
           ['pull', '', 'Barbell Row', [[80, 10, 8], [80, 10, 8]]]
         ], wkDone, dt),
@@ -238,7 +239,7 @@ function _buildDemoData() {
   const sessionNotes = [
     // Dated TODAY so the live session leads with the "Coach feedback" card —
     // the clearest signal in the demo that a real coach is programming for you.
-    { id: 'demo-note-today', athleteId: DA, weekId: null, dayId: null, date: iso(new Date()), note: '', coachComment: 'Before today: the top set is RPE 8.5. Leave 1–2 in the tank, this isn\'t a max. Back-offs at 8. Film the heavy single and drop it in the form-check tab, I want eyes on your brace out of the hole.', coachCommentAt: iso(new Date()) + 'T08:30:00Z', coachId: DC },
+    { id: 'demo-note-today', athleteId: DA, weekId: null, dayId: null, date: iso(new Date()), note: '', coachComment: 'Before today: the top triple is RPE 8.5. Leave 1–2 in the tank, this isn\'t a max. Back-offs at 8. Film the triple and drop it in the form-check tab, I want eyes on your brace out of the hole.', coachCommentAt: iso(new Date()) + 'T08:30:00Z', coachId: DC },
     { id: 'demo-note-1', athleteId: DA, weekId: null, dayId: null, date: daysAgo(2), note: 'Pulls felt heavy off the floor today but lockout was easy.', coachComment: 'Bar speed on video looked fine. That\'s just deficit fatigue. We deload in two weeks. Keep the openers honest.', coachCommentAt: daysAgo(1) + 'T10:00:00Z', coachId: DC },
     { id: 'demo-note-2', athleteId: DA, weekId: null, dayId: null, date: daysAgo(7), note: 'Bench PR! Moved fast.', coachComment: 'Saw it. Adding 2.5kg to your top sets.', coachCommentAt: daysAgo(6) + 'T10:00:00Z', coachId: DC }
   ];
@@ -248,7 +249,7 @@ function _buildDemoData() {
   // session notes above into one conversation history (see renderMessageThread).
   const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
   const messages = [
-    { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Heavy single on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
+    { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Top triple on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
     { id: 'demo-amsg-2a', coachId: DC, athleteId: DA, senderId: DA, body: 'Competition Squat: 160 kg × 3 @ RPE 8 (e1RM 179 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 160, reps: 3, rpe: 8, e1rmKg: 179.0 }, createdAt: at(2, 18, 3), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Will do. Felt a little soft out of the bottom last week, not sure if it was the brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null }
@@ -449,7 +450,8 @@ function _buildCoachDemoData() {
     period: qi === 3 ? _monISO(daysAgo(d)) : daysAgo(d), num: num == null ? null : num, text: text || null });
   for (let d = 0; d < 10; d++) {
     ans(0, 'demo-a1', d, [8, 7.5, 8, 7, 8.5, 8, 7, 8, 7.5, 8][d]); ans(1, 'demo-a1', d, [3, 4, 3, 5, 4, 3, 4, 3, 4, 3][d]); ans(2, 'demo-a1', d, 0);
-    if (d >= 1) { ans(0, 'demo-a2', d, [7, 6.5, 7, 6, 7.5, 6, 7, 6.5, 7][d - 1]); ans(1, 'demo-a2', d, [5, 6, 5, 6, 4, 6, 5, 6, 5][d - 1]); ans(2, 'demo-a2', d, 0); }
+    // Sarah flagged a niggle yesterday: the coach's Needs attention shows it.
+    if (d >= 1) { ans(0, 'demo-a2', d, [7, 6.5, 7, 6, 7.5, 6, 7, 6.5, 7][d - 1]); ans(1, 'demo-a2', d, [8, 6, 5, 6, 4, 6, 5, 6, 5][d - 1]); ans(2, 'demo-a2', d, d === 1 ? 1 : 0); }
     if (d >= 9) { ans(0, 'demo-a3', d, 5); ans(1, 'demo-a3', d, 8); ans(2, 'demo-a3', d, 1); }
   }
   [11, 12, 13].forEach((d, i) => { ans(0, 'demo-a3', d, [5.5, 6, 5][i]); ans(1, 'demo-a3', d, [7, 8, 7][i]); ans(2, 'demo-a3', d, i === 1 ? 1 : 0); });
@@ -3707,8 +3709,13 @@ async function renderMessageThread(container, opts) {
     plus.addEventListener('click', () => opts.onAttach());
     composer.appendChild(plus);
   }
-  const ta = el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message ' + (otherName || '') + '…', maxlength: '2000' });
-  const sendBtn = el('button', { class: 'btn btn-primary msg-send' }, 'Send');
+  // "Message" (the name was cut off), and a round send arrow that turns red only once there's
+  // something to send.
+  const ta = el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message', 'aria-label': 'Message ' + (otherName || ''), maxlength: '2000' });
+  const sendBtn = el('button', { class: 'btn btn-primary msg-send is-empty', type: 'button', 'aria-label': 'Send',
+    html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>' });
+  const syncSend = () => sendBtn.classList.toggle('is-empty', !ta.value.trim());
+  ta.addEventListener('input', syncSend);
   composer.appendChild(ta);
   composer.appendChild(sendBtn);
   wrap.appendChild(composer);
@@ -3734,7 +3741,7 @@ async function renderMessageThread(container, opts) {
         kind: 'note', label: 'Session note', ts: (n.date || '') + 'T00:00:01Z', body: n.note, meta: ''
       });
       if (n.coachComment && n.coachComment.trim()) items.push({
-        kind: 'note', label: 'Coach note', ts: n.coachCommentAt || ((n.date || '') + 'T00:00:02Z'),
+        kind: 'note', label: '', ts: n.coachCommentAt || ((n.date || '') + 'T00:00:02Z'),   // a 1:1 thread: no label on the coach's own words
         body: n.coachComment, meta: n.coachCommentAt ? _msgTime(n.coachCommentAt) : ''
       });
     });
@@ -3801,7 +3808,7 @@ async function renderMessageThread(container, opts) {
       }
       if (it.kind === 'note') {
         const note = el('div', { class: 'msg-note' });
-        note.appendChild(el('div', { class: 'msg-note-lbl' }, it.label));
+        if (it.label) note.appendChild(el('div', { class: 'msg-note-lbl' }, it.label));
         note.appendChild(el('div', { class: 'msg-note-body' }, it.body));
         if (it.meta) note.appendChild(el('div', { class: 'msg-note-meta' }, it.meta));
         list.appendChild(note);
@@ -4800,6 +4807,29 @@ function checkinSummaryText(q, s, todayIso) {
   }
   if (q.kind === 'yesno' && s.answered > 1) parts.push('yes on ' + s.yes + ' of the last ' + s.answered + (q.cadence === 'daily' ? ' days' : ' weeks'));
   return parts.join(' · ');
+}
+
+// What a coach should see first from check-ins answered today or yesterday: pain said yes, a
+// soreness / stress 8+ out of 10, a mood / energy / sleep-quality 3 or less, under 6 hours' sleep.
+// [{ text: 'Pain yesterday', severity: 1..3 }], worst first.
+function checkinAlerts(questions, answers, athleteId, todayIso) {
+  const t = todayIso || todayISO();
+  const yday = _addDaysISO(t, -1);
+  const short = (p) => /sore/i.test(p) ? 'Soreness' : /pain|niggle|injur|hurt/i.test(p) ? 'Pain' : /stress/i.test(p) ? 'Stress'
+    : /sleep/i.test(p) ? 'Sleep' : /tired|fatigue|energy/i.test(p) ? 'Energy' : /mood/i.test(p) ? 'Mood' : String(p).replace(/\?$/, '').slice(0, 24);
+  const out = [];
+  checkinQuestionsFor(questions, athleteId).forEach(q => {
+    const a = (answers || []).filter(x => x.questionId === q.id && x.athleteId === athleteId && (x.period === t || x.period === yday))
+      .sort((x, y) => String(y.period).localeCompare(String(x.period)))[0];
+    if (!a || a.num == null) return;
+    const when = a.period === t ? 'today' : 'yesterday';
+    const p = q.prompt || '';
+    if (q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(p) && a.num >= 1) out.push({ text: 'Pain ' + when, severity: 3 });
+    else if (q.kind === 'scale' && /sore|pain|stress|tired|fatigue/i.test(p) && a.num >= 8) out.push({ text: short(p) + ' ' + _num(a.num) + '/10 ' + when, severity: 2 });
+    else if (q.kind === 'scale' && /mood|energy|sleep|ready|readiness|feel/i.test(p) && !/sore|pain|stress/i.test(p) && a.num <= 3) out.push({ text: short(p) + ' ' + _num(a.num) + '/10 ' + when, severity: 2 });
+    else if (q.kind === 'number' && /sleep/i.test(p) && a.num > 0 && a.num < 6) out.push({ text: 'Slept ' + _num(a.num) + ' h', severity: 1 });
+  });
+  return out.sort((x, y) => y.severity - x.severity);
 }
 
 function _monISO(iso) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }
@@ -6894,6 +6924,7 @@ window.avatarHtml = avatarHtml;
 // ICONS (inline SVG strings)
 // =========================================================
 const ICONS = {
+  club: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9.2 12.2l1.9 1.9 3.8-4"/></svg>',
   bar: '<svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="11" width="3" height="6" rx="1" fill="currentColor"/><rect x="6" y="9" width="2" height="10" rx="0.5" fill="currentColor"/><rect x="9" y="13" width="10" height="2" fill="currentColor"/><rect x="20" y="9" width="2" height="10" rx="0.5" fill="currentColor"/><rect x="23" y="11" width="3" height="6" rx="1" fill="currentColor"/></svg>',
   athletes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   program: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>',

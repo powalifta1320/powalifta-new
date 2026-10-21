@@ -116,6 +116,8 @@ function scan(isApp) {
   while (tw.nextNode()) {
     const n = tw.currentNode, p = n.parentElement;
     if (!p || skip(p) || !shown(p) || ['SCRIPT', 'STYLE', 'NOSCRIPT', 'OPTION', 'TEXTAREA'].includes(p.tagName)) continue;
+    // Visually hidden on purpose (a screen-reader label in a 1px clipped box).
+    if (p.clientWidth <= 1 && p.clientHeight <= 1 && cs(p).position === 'absolute') continue;
     const rg = document.createRange(); rg.selectNodeContents(n);
     [...rg.getClientRects()].forEach(r0 => { const r = visRect(p, r0); if (r && r.r - r.l > 2 && r.b - r.t > 4) texts.push({ n, p, r, layer: layerOf(p), s: n.textContent.trim().slice(0, 30) }); });
   }

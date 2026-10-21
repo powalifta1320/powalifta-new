@@ -498,7 +498,7 @@ bootstrap('athlete', () => {
   }
   setLbl('tab-today', ICONS.today, 'Train');
   setLbl('tab-progress', ICONS.chart, 'Progress');
-  setLbl('tab-club', ICONS.athletes, 'Club');
+  setLbl('tab-club', ICONS.club, 'Club');
   setLbl('tab-you', ICONS.user, 'You');
   setLbl('tab-bodyweight', ICONS.scale, 'Bodyweight');
   setLbl('tab-coach', ICONS.chat, _selfCoached ? 'Find a coach' : 'Coach');
@@ -1009,6 +1009,10 @@ function openSessionPicker() {
       onClick: () => { try { if (dIn.showPicker) dIn.showPicker(); else dIn.focus(); } catch (e) { dIn.focus(); } } });
     dRow.appendChild(dIn);
     other.push(dRow);
+    if (curBound && cur && (cur.day.exercises || []).length) {
+      other.push(uiRow({ lead: el('span', { class: 'sp-ic is-date', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>' }),
+        title: 'Export this session', sub: 'A spreadsheet to print or take to the gym', chevron: true, onClick: () => { close(); exportTodayCsv(); } }));
+    }
     sheet.appendChild(uiLabel('Or'));
     sheet.appendChild(uiList(other));
     if (prog.weeks.length > 1) {
@@ -3017,10 +3021,9 @@ function renderToday() {
   }
 
   // The session: a chip per lift (tap to jump), then a card per lift.
+  // The lifts, as cards. (A chip row repeated them between the hero and the cards: removed.)
   const exCount = cur.day.exercises.length;
-  area.appendChild(uiLabel(exCount === 1 ? 'The lift' : 'The session', { count: exCount > 1 ? exCount : null }));
-  const rail = buildSessionRail(cur, nextKey);
-  if (rail) area.appendChild(rail);
+  area.appendChild(uiLabel(exCount === 1 ? 'The lift' : 'The session'));
   cur.day.exercises.forEach(ex => area.appendChild(buildExerciseCard(ex, cur, prog, nextKey)));
   // Stopping early: once a set is in and some are left, the end of the list offers to finish.
   const _all = cur.day.exercises.flatMap(e => e.sets);
@@ -4863,7 +4866,10 @@ function renderAthleteYou() {
   if (!area) return;
   const sex = getSexPref();
   const bw = latestBodyweight(user.id);
-  const total = currentTotal(user.id);
+  // Who you are as a lifter: the total you've actually lifted (best singles, training or a meet),
+  // falling back to the estimate until there's a single on all three. Progress has the e1RM.
+  const singles = bestSinglesTotal(user.id);
+  const total = singles ? singles.kg : currentTotal(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, sex) : 0;
   const cls = bw ? weightClassFor(bw, sex) : null;
   // Weeks in a row hitting your weekly goal (a rest day never breaks it, unlike a day streak).
@@ -4882,7 +4888,7 @@ function renderAthleteYou() {
     edit: () => openProfileSheet(() => renderAthleteYou()),
     sub: [cls ? cls + ' class' : null, club].filter(Boolean).join(' · ') || 'Lifter',
     stats: [
-      { label: 'e1RM total', value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '' },
+      { label: singles ? 'Total' : 'e1RM total', value: total > 0 ? (singles ? exactW(total) : Math.round(kgToDisplay(total))) : '–', unit: total > 0 ? unitLabel() : '' },
       { label: 'DOTS', value: dots > 0 ? dots.toFixed(1) : '–' },
       { label: 'Streak', value: streak || 0, unit: streak === 1 ? 'week' : 'weeks' }
     ],
@@ -5952,34 +5958,28 @@ function renderProgOverview(area, logs) {
   const bw = latestBodyweight(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, getSexPref()) : 0;
 
-  // Two totals, side by side: the estimate from training (e1RM) and what has actually been on the
-  // bar (the three best singles, from training or a meet).
+  // One big number, the estimate from training; under it, one line for what has actually been
+  // on the bar (the three best singles, training or a meet) with its DOTS. DOTS belongs to a
+  // real total, so it moves to that line when there is one.
   const singles = bestSinglesTotal(user.id);
   const hero = el('div', { class: 'ui-hero pg-hero' });
-  const totals = el('div', { class: 'pg-totals' });
-  const colE = el('div', { class: 'pg-total' });
-  colE.appendChild(el('div', { class: 'ui-hero-label' }, 'e1RM total'));
-  colE.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(total)) + '<small>' + u + '</small>' }));
+  hero.appendChild(el('div', { class: 'ui-hero-label' }, 'e1RM total'));
+  hero.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(total)) + '<small>' + u + '</small>' }));
   const sub = el('div', { class: 'ui-hero-sub' });
   if (prevPt && prevPt.total > 0) {
     const d = Math.round(kgToDisplay(total - prevPt.total));
     sub.appendChild(el('span', { class: d > 0 ? 'ui-up' : 'ui-flat' }, (d > 0 ? '+' : '') + d + ' ' + u + ' in 4 weeks'));
   }
-  if (dots > 0) sub.appendChild(el('span', {}, dots.toFixed(1) + ' DOTS'));
-  if (sub.children.length) colE.appendChild(sub);
-  totals.appendChild(colE);
-  const colR = el('div', { class: 'pg-total pg-real' });
-  colR.appendChild(el('div', { class: 'ui-hero-label' }, 'Total'));
+  if (!singles && dots > 0) sub.appendChild(el('span', {}, dots.toFixed(1) + ' DOTS'));
+  if (sub.children.length) hero.appendChild(sub);
   if (singles) {
-    colR.appendChild(el('div', { class: 'ui-num-xl', html: exactW(singles.kg) + '<small>' + u + '</small>' }));
-    const meets = new Set(['squat', 'bench', 'deadlift'].map(l => singles.parts[l].source === 'meet' ? singles.parts[l].meet : null).filter(Boolean));
-    colR.appendChild(el('div', { class: 'ui-hero-sub' }, el('span', {}, meets.size === 1 && ['squat', 'bench', 'deadlift'].every(l => singles.parts[l].source === 'meet') ? 'Best singles · ' + Array.from(meets)[0] : 'Your best singles')));
-  } else {
-    colR.appendChild(el('div', { class: 'ui-num-xl is-empty' }, '–'));
-    colR.appendChild(el('div', { class: 'ui-hero-sub' }, el('span', {}, 'A single on all three')));
+    const allMeet = ['squat', 'bench', 'deadlift'].every(l => singles.parts[l].source === 'meet');
+    const meetNames = new Set(['squat', 'bench', 'deadlift'].map(l => singles.parts[l].meet).filter(Boolean));
+    const rd = bw ? dotsScore(singles.kg, bw, getSexPref()) : 0;
+    hero.appendChild(el('div', { class: 'pg-real-line', html:
+      '<span>' + (allMeet && meetNames.size === 1 ? 'Meet total' : 'Total') + '</span> <b>' + exactW(singles.kg) + '</b> ' + u +
+      (allMeet && meetNames.size === 1 ? ' · ' + escHtml(Array.from(meetNames)[0]) : ' · best singles') + (rd > 0 ? ' · ' + rd.toFixed(1) + ' DOTS' : '') }));
   }
-  totals.appendChild(colR);
-  hero.appendChild(totals);
   area.appendChild(hero);   // the trend lives in the strength chart below, so no sparkline here
 
   // UI v8: one big strength chart (app.js uiStrengthChart). Chips pick the total or a lift,
@@ -6047,8 +6047,9 @@ function renderProgOverview(area, logs) {
       lead: dot,
       title: LIFT_LABELS[lift],
       sub: pr ? kgToDisplay(pr.weight) + ' × ' + pr.reps + ' @ RPE ' + pr.rpe : null,
-      endHtml: '<span class="pg-lift-end"><span class="pg-e1">' + (d ? '<span class="' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') +
-        '<b>' + Math.round(kgToDisplay(now)) + '</b>' + u + '<small> e1RM</small></span>' +
+      // "207 kg  +10", then the real 1RM under it.
+      endHtml: '<span class="pg-lift-end"><span class="pg-e1"><b>' + Math.round(kgToDisplay(now)) + '</b> ' + u +
+        (d ? '<span class="pg-d ' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</span>' +
         '<span class="pg-1rm">' + (one ? '1RM <b>' + exactW(one.kg) + '</b> ' + u : 'No single yet') + '</span></span>'
     });
   })));

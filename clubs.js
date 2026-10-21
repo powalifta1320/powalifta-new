@@ -558,8 +558,8 @@
     const top = el('div', { class: 'club-hero-top' });
     top.appendChild(el('span', { class: 'club-crest', 'aria-hidden': 'true' }, initials(club.name || 'Club')));
     const idc = el('div', { class: 'club-hero-id' });
-    const metaBits = [club.city, members.length + (members.length === 1 ? ' member' : ' members')].filter(Boolean).join(' · ');
-    const meta = el('div', { class: 'ui-hero-label' }, metaBits);
+    // City only up here: the member count lives in the one line about the week below.
+    const meta = el('div', { class: 'ui-hero-label' }, club.city || 'Club');
     if (club.visibility === 'private') meta.insertAdjacentHTML('beforeend', '<span class="club-priv">' + IC.lock + 'Private</span>');
     idc.appendChild(meta);
     idc.appendChild(el('h2', { class: 'club-hero-name' }, club.name));
@@ -582,12 +582,11 @@
     const prsWeek = members.some(m => m.weekStart === wk && m.weekPrs != null)
       ? members.reduce((a, m) => a + (m.weekStart === wk ? (m.weekPrs || 0) : 0), 0)
       : (_posts || []).filter(x => x.kind === 'pr' && String(x.createdAt || '').slice(0, 10) >= wk).length;
-    const sub = [pulse.sessions ? pulse.sessions + (pulse.sessions === 1 ? ' session' : ' sessions') : null,
-      prsWeek ? prsWeek + (prsWeek === 1 ? ' PR' : ' PRs') : null].filter(Boolean).join(' · ');
+    // One line: who trained of how many. (Sessions and PRs live in the feed and the board.)
+    void prsWeek;
     const txt = el('span', { class: 'cs-txt' }, trained.length
-      ? (trained.length === members.length ? 'Everyone trained this week' : trained.length + ' of ' + members.length + ' trained this week')
-      : 'Nobody has trained yet this week');
-    if (sub) txt.appendChild(el('small', {}, sub));
+      ? (trained.length === members.length ? 'All ' + members.length + ' trained this week' : trained.length + ' of ' + members.length + ' trained this week')
+      : 'Nobody has trained yet this week · ' + members.length + (members.length === 1 ? ' member' : ' members'));
     stack.appendChild(txt);
     hero.appendChild(stack);
     root.appendChild(hero);
@@ -779,7 +778,7 @@
     const author = _data && _data.members ? _data.members.find(m => m.userId === p.userId) : null;
     if (author && (author.role === 'owner' || author.role === 'admin')) nameLine.appendChild(el('em', { class: 'cp-role' }, author.role === 'owner' ? 'Owner' : 'Admin'));
     who.appendChild(nameLine);
-    who.appendChild(el('span', {}, [fmtRelative(p.createdAt), KIND_LABEL[p.kind]].filter(Boolean).join(' · ')));
+    who.appendChild(el('span', {}, [fmtRelative(p.createdAt), p.kind === 'pr' ? '' : KIND_LABEL[p.kind]].filter(Boolean).join(' · ')));   // the PR badge already says PR
     head.appendChild(who);
     const more = el('button', { class: 'cp-more', type: 'button', 'aria-label': 'Options for ' + p.displayName + '\'s post', html: UI_DOTS });
     more.addEventListener('click', () => postMenu(p));

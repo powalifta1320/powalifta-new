@@ -349,7 +349,7 @@ bootstrap('coach', () => {
   setLbl('tab-messages', ICONS.chat, 'Messages');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
   setLbl('tab-progress', ICONS.chart, 'Athlete progress');
-  setLbl('tab-club', ICONS.athletes, 'Club');
+  setLbl('tab-club', ICONS.club, 'Club');   // not the Roster icon (two people) again
   setLbl('tab-you', ICONS.user, 'You');
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
   // progress and marketplace are sub-screens of Program / You.
@@ -1171,17 +1171,20 @@ function renderRoster() {
     // The faces: everyone on the roster, ringed by how their week is going.
     area.appendChild(buildRosterFaces(overview, items));
 
-    // Needs attention: who to look at first, and this week's PRs.
-    const flagged = items.filter(i => i.reasons.length)
-      .sort((a, b) => b.severity - a.severity || ((b.overview.ago || 0) - (a.overview.ago || 0)));
+    // Needs attention: who to look at first, and this week's PRs. Check-in answers count too
+    // (pain said yes, soreness 8/10, under 6 hours' sleep): today's and yesterday's only.
+    const myQs = (Store.get().checkinQuestions || []).filter(q => q.coachId === user.id);
+    items.forEach(i => { i.ciAlerts = myQs.length ? checkinAlerts(myQs, Store.get().checkinAnswers, i.athlete.id) : []; });
+    const flagged = items.filter(i => i.reasons.length || i.ciAlerts.length)
+      .sort((a, b) => Math.max(b.severity, ...b.ciAlerts.map(x => x.severity)) - Math.max(a.severity, ...a.ciAlerts.map(x => x.severity)) || ((b.overview.ago || 0) - (a.overview.ago || 0)));
     const wins = items.filter(i => i.prCount > 0);
     if (flagged.length || wins.length) {
       area.appendChild(flagged.length ? uiLabel('Needs attention', { count: flagged.length }) : uiLabel('This week'));
       const rows = flagged.slice(0, 6).map(it => uiRow({
         av: it.athlete.name,
         title: it.athlete.name,
-        sub: it.reasons.map(attentionReasonText).join(' · '),
-        subTone: it.severity >= 3 ? 'alert' : null,
+        sub: it.ciAlerts.map(x => x.text).concat(it.reasons.map(attentionReasonText)).join(' · '),
+        subTone: (it.severity >= 3 || it.ciAlerts.some(x => x.severity >= 2)) ? 'alert' : null,
         chevron: true,
         onClick: () => openAthleteSheet(it.athlete.id)
       }));
@@ -1269,9 +1272,12 @@ function renderRoster() {
       })));
     }
 
+    // At the very bottom of the screen (after pending invites), not floating mid-page.
     const csv = el('button', { class: 'ui-text-btn roster-csv', type: 'button' }, 'Export roster as CSV');
     csv.addEventListener('click', exportRosterCsv);
-    area.appendChild(csv);
+    const invW = document.getElementById('invitesWrap');
+    document.querySelectorAll('.roster-csv').forEach(n => n.remove());
+    if (invW && invW.parentNode) invW.parentNode.insertBefore(csv, invW.nextSibling); else area.appendChild(csv);
   }
 
   // Pending invites (static card below): code, who it's for, revoke.
@@ -2573,17 +2579,15 @@ function loadProgram() {
   const wk = prog.weeks[activeWeekIdx];
   if (!wk) { main.appendChild(el('p', { class: 'dim' }, 'No weeks yet.')); builder.appendChild(main); area.appendChild(builder); return; }
 
-  const wkHead = el('div', { class: 'pb-week-head' });
-  wkHead.appendChild(el('div', { class: 'pb-week-title' }, 'Week ' + wk.number));
-  const wkMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Week options', html: UI_DOTS });
+  // The week's options sit at the end of the week chips (a "Week 1" heading repeated the chip).
+  const wkMore = el('button', { class: 'week-tab week-more', type: 'button', 'aria-label': 'Week ' + wk.number + ' options', html: UI_DOTS });
   wkMore.addEventListener('click', () => uiActionSheet('Week ' + wk.number, [
     { label: 'Duplicate week', icon: ICONS.copy, onClick: () => duplicateWeekAction(prog.id, activeWeekIdx) },
     { label: 'Add day', icon: ICONS.plus, onClick: () => addDay(activeWeekIdx) },
     { label: 'Add rest day', icon: ICONS.plus, onClick: () => addRestDay(activeWeekIdx) },
     { label: 'Remove week', icon: ICONS.trash, danger: true, onClick: () => deleteWeek(activeWeekIdx) }
   ]));
-  wkHead.appendChild(wkMore);
-  main.appendChild(wkHead);
+  weekNav.appendChild(wkMore);
 
   wk.days.forEach((day, di) => {
     const dayCard = el('div', { class: 'pb-day' });

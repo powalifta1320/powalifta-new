@@ -12013,3 +12013,83 @@ body.powa-app .tx-set.is-missed { opacity: 0.85; }
    sit in one column down the card (165 / 165 / 162.5). */
 body.powa-app .tx-set-load > b:first-child { display: inline-block; min-width: 4.6ch; text-align: right; }
 body.powa-app .tx-set-load > .tx-w-input { text-align: right; }
+
+/* ===== Design review fixes, round 1 (2026-10-22) ===== */
+/* The RPE slider: neutral. Colour made the 7.5 track an olive stain and the thumb a chartreuse
+   ring; the number on the white thumb says it all. */
+.rpe-slider .rpe-fill { background: rgba(255, 255, 255, 0.10); }
+.rpe-slider .rpe-knob { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
+.rpe-hint b, [data-theme="light"] .rpe-hint b { color: var(--text); }
+[data-theme="light"] .rpe-slider .rpe-fill { background: rgba(15, 15, 25, 0.08); }
+/* Today strip: the next card peeks under a soft fade instead of a word cut in half. */
+html.native .tn-group.today-strip, html:not(.native) .tn-group.today-strip {
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 44px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 44px), transparent 100%);
+}
+.tn-group.today-strip.ci-alone, .tn-group.today-strip:has(> .ts-tile:only-child) { -webkit-mask-image: none; mask-image: none; }
+@media (min-width: 701px) { html:not(.native) .tn-group.today-strip { -webkit-mask-image: none; mask-image: none; } }
+/* One red per screen: "Beat up" is a choice, not an alarm. */
+.tn-ready-btn.is-rough, [data-theme="light"] body .tn-ready-btn.is-rough, [data-theme="light"] body.powa-app .tn-ready-btn.is-rough { color: var(--text); }
+/* In the app the day's name is the menu (Today's session); no second ⋯ beside it. */
+html.native .today-head .th-more { display: none !important; }
+@media (max-width: 700px) { .today-head .th-more { display: none !important; } }
+/* Progress: one big number, the real total on one line under it. */
+.pg-real-line { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 15px; color: var(--text-2); }
+.pg-real-line span { color: var(--text-3); margin-right: 6px; }
+.pg-real-line b { color: var(--text); font-weight: 750; font-variant-numeric: tabular-nums; }
+.pg-e1 { gap: 0; }
+.pg-e1 .pg-d { margin-left: 8px; font-size: 13px; font-weight: 700; }
+
+/* The floating tab bar and the docked top bar: solid enough that text never shows through. */
+html.native body.powa-app .bottom-tabs { background: rgba(20, 20, 24, 0.94); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); }
+html.native[data-theme="light"] body.powa-app .bottom-tabs { background: rgba(250, 250, 252, 0.94); }
+html.native body.powa-app .nav.is-docked { background: rgba(6, 6, 8, 0.94); }
+html.native[data-theme="light"] body.powa-app .nav.is-docked { background: rgba(255, 255, 255, 0.94); }
+/* The bell: a small dot, not a red number on every screen. */
+body.powa-app .sig-badge { min-width: 0; width: 9px; height: 9px; padding: 0; top: 4px; right: 4px; border-radius: 50%; font-size: 0; line-height: 0; box-shadow: 0 0 0 2px var(--bg); }
+/* Roster's + is the same 36pt as the header's other buttons (the title no longer jumps). */
+html.native body.powa-app #btn-invite { width: 36px; height: 36px; min-width: 36px; }
+/* No coloured glows inside cards (they read as brown smudges on the Today strip and club posts):
+   the hue lives in the icon tile and the lift colour. Secondary buttons are neutral graphite on
+   every tab; red stays the only interface accent. */
+body.powa-app .today-strip .ts-tile > .today-note.tn-row::before, body.powa-app .cp-card::before { display: none; }
+body.powa-app .ui-btn-soft { background: #2c2c2e; color: var(--text); }
+[data-theme="light"] body.powa-app .ui-btn-soft { background: rgba(15, 15, 25, 0.07); color: var(--text); }
+/* Strength chart: the end of the line is a plain dot (the pulsing halo spilled past the card). */
+.sc-svg .sc-end-halo { display: none; }
+/* Chat box: field and a round arrow, grey until there's text. */
+body.powa-app .msg-send { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50% !important; display: grid; place-items: center; transition: background-color 160ms ease-out, opacity 160ms ease-out; }
+body.powa-app .msg-send svg { width: 20px; height: 20px; }
+body.powa-app .msg-send.is-empty { background: #3a3a3c; box-shadow: none; color: rgba(255, 255, 255, 0.55); pointer-events: none; }
+[data-theme="light"] body.powa-app .msg-send.is-empty { background: rgba(15, 15, 25, 0.1); color: rgba(15, 15, 25, 0.4); }
+/* Pending invite codes: a code, not spaced-out capitals. */
+.invites-list .ui-row-title { letter-spacing: 0.02em; font-size: 17px; font-weight: 650; }
+/* Builder: the week ⋯ as the last chip. */
+.week-tab.week-more { padding: 0 10px; }
+.week-tab.week-more svg { width: 16px; height: 16px; }
+.roster-csv { display: block; margin: 18px auto 6px; }
+.roster-faces .rf-sub { display: none; }   /* the ring and its badge say it; the lists below say it in words */
+/* Club card: the faces of who trained are neutral graphite discs (eight colours read as confetti). */
+body.powa-app .club-stack .cs-av { background: #2c2c2e !important; color: var(--text) !important; }
+[data-theme="light"] body.powa-app .club-stack .cs-av { background: rgba(15, 15, 25, 0.08) !important; }
+/* You: the camera badge sits fully on the avatar's edge (overflow clipped it in half); handles on one row. */
+.you-av.is-tap { overflow: visible; }
+.you-av.is-tap img { border-radius: 50%; }
+body.powa-app .you-hero .you-av-cam { right: -4px; bottom: -4px; width: 28px; height: 28px; box-shadow: 0 0 0 2px var(--bg-1, #0f0f11); }
+body.powa-app .you-hero .social-chips { flex-wrap: nowrap; overflow: hidden; }
+body.powa-app .you-hero .social-chips .ig-chip { min-width: 0; flex: 0 1 auto; }
+/* You: the handles as two round icon buttons (the names were truncated side by side). */
+body.powa-app .you-hero .social-chips .ig-chip { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; }
+body.powa-app .you-hero .social-chips .ig-chip .ig-h { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.powa-app .you-hero .social-chips .ig-chip .ig-ic { margin: 0; }
+/* A PR post's time is a time, not gold: the PR badge carries the gold. */
+body.powa-app .cp-card.is-pr .cp-who span, [data-theme="light"] body .cp-card.is-pr .cp-who span, [data-theme="light"] body.powa-app .cp-card.is-pr .cp-who span { color: var(--text-3); }
+/* Builder: RPE in the set chips reads in ink (the yellow-to-orange ramp was the only colour on the
+   card); "Add exercise" is a quiet row, not a dashed wireframe; the program card hugs its text. */
+body.powa-app .pb-chip em, body .pb-chip em, [data-theme="light"] body .pb-chip em, [data-theme="light"] body.powa-app .pb-chip em { color: var(--text-2); }
+.pb-add-ex2 { border: 0; background: var(--fill-1, rgba(255, 255, 255, 0.04)); }
+@media (hover: hover) { .pb-add-ex2:hover { background: var(--fill-2, rgba(255, 255, 255, 0.07)); color: var(--text); } }
+body.powa-app .pb-head.ui-hero { padding: 18px 18px 16px; min-height: 0; }
+body.powa-app .pb-head .pb-meta { margin-top: 4px; }
+body.powa-app .pb-head .pb-meta { margin-bottom: 0; }
+.pg-real-line span { margin-right: 2px; }

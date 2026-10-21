@@ -798,6 +798,26 @@ test('prescriptions: RPE ranges, RIR and % of max', () => {
   eq(sq.pct, 75); eq(sq.rir, true); eq(sq.rpe, 8); eq(sq.rpeHi, 9); eq(be.rpe, 8); eq(be.rir, true); eq(be.pct, undefined);
   eq(groupSets([sq, Object.assign({}, sq), Object.assign({}, sq, { rpeHi: null })]).length, 2);   // a different range is its own block
 });
+test('check-in alerts: pain, high soreness, short sleep, today or yesterday only', () => {
+  const qs = [
+    { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily' },
+    { id: 's', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily' },
+    { id: 'h', prompt: 'How many hours did you sleep?', kind: 'number', cadence: 'daily' },
+    { id: 'm', prompt: 'Mood today?', kind: 'scale', cadence: 'daily' }
+  ];
+  const t = '2026-10-21';
+  const ans = [
+    { questionId: 'p', athleteId: 'a', period: '2026-10-20', num: 1 },
+    { questionId: 's', athleteId: 'a', period: '2026-10-21', num: 8 },
+    { questionId: 'h', athleteId: 'a', period: '2026-10-21', num: 5 },
+    { questionId: 'm', athleteId: 'a', period: '2026-10-21', num: 7 },
+    { questionId: 'p', athleteId: 'b', period: '2026-10-15', num: 1 },   // last week: no alert
+    { questionId: 's', athleteId: 'b', period: '2026-10-21', num: 4 }
+  ];
+  const a = checkinAlerts(qs, ans, 'a', t);
+  eq(a.map(x => x.text).join(' | '), 'Pain yesterday | Soreness 8/10 today | Slept 5 h');
+  eq(checkinAlerts(qs, ans, 'b', t).length, 0);
+});
 test('best singles: logged 1-rep sets and meet results, competition lift only', () => {
   const saved = Store.get();
   Store.set(Object.assign(defaultStore(), {
