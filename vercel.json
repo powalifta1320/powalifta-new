@@ -1,5 +1,14 @@
 {
+  "rewrites": [
+    { "source": "/j/:code", "destination": "/join.html" }
+  ],
   "headers": [
+    {
+      "source": "/j/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
     {
       "source": "/(.*)\\.(html)",
       "headers": [

@@ -286,6 +286,12 @@ function _buildCoachDemoData() {
     subscriptionPeriodEnd: new Date(Date.now() + 19 * 864e5).toISOString(),
     referralCode: 'COACH7', referredByCode: null
   };
+  // ?demo=1&fresh=1: the first minute of a brand-new coach account (free plan, nobody yet),
+  // so the empty screens can be seen and judged without signing up.
+  if (/[?&]fresh=1/.test(location.search)) {
+    Object.assign(user, { name: 'Alex Morgan', bio: '', subscriptionTier: 'free', subscriptionStatus: 'inactive', subscriptionPeriodEnd: null, billingProvider: null });
+    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [] } };
+  }
 
   // Roster engineered to show every flag state
   const roster = [
@@ -2722,15 +2728,17 @@ window.closeSettingsModal = closeSettingsModal;
 let _mfaPendingFactor = null;
 
 // Status line + tinted pill, mirroring renderPlanManageCard's badge treatment.
+// One row like the rest of Security (title, what it does, On / Off at the end), then one button.
+// It used to be a 22px "2FA" heading with an outlined pill, louder than the sheet's own title.
 function _mfaStatusRow(label, tone, sub) {
-  const c = _subStatusColor(tone);
-  return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
-      '<span style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800;font-size:22px;letter-spacing:0.01em">2FA</span>' +
-      '<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;' +
-        'font-weight:700;letter-spacing:0.02em;color:' + c + ';border:1px solid ' + c + ';background:transparent">' +
-        escHtml(label) + '</span>' +
-    '</div>' +
-    '<p class="dim text-xs" style="line-height:1.5">' + escHtml(sub) + '</p>';
+  return '<div class="ui-list mfa-status"><div class="ui-row">' +
+      '<span class="ui-row-main"><span class="ui-row-title">Two-factor authentication</span>' +
+      '<span class="ui-row-sub">' + escHtml(sub) + '</span></span>' +
+      (label ? '<span class="ui-row-end mfa-state" style="color:' + _subStatusColor(tone) + '">' + escHtml(label) + '</span>' : '') +
+    '</div></div>';
+}
+function _mfaButton(label, onclick) {
+  return '<button type="button" class="btn btn-lg btn-block ui-btn-soft set-gap" onclick="' + onclick + '">' + escHtml(label) + '</button>';
 }
 
 async function renderMfaCard(container) {
@@ -2738,113 +2746,106 @@ async function renderMfaCard(container) {
   const u = getCurrentUser();
   if (!u) { container.innerHTML = ''; container.style.display = 'none'; return; }
   container.style.display = '';
-  const head = '<p class="dim text-sm mb-8">Two-factor authentication</p>';
+  const OFF_SUB = 'A code from an authenticator app (Google Authenticator, Authy, 1Password) at every login.';
 
   // Demo has no real auth session — show the off-state, gate the action.
   if (window._demoMode) {
-    container.innerHTML = head +
-      _mfaStatusRow('Off', 'bad', 'Add a second step at login with an authenticator app.') +
-      '<button class="btn btn-block btn-ghost mt-12" onclick="openMfaEnrollModal()">Enable 2FA</button>';
+    container.innerHTML = _mfaStatusRow('Off', 'bad', OFF_SUB) + _mfaButton('Turn on two-factor', 'openMfaEnrollModal()');
     return;
   }
 
-  container.innerHTML = head + '<p class="dim text-xs" style="line-height:1.5">Checking…</p>';
+  container.innerHTML = _mfaStatusRow('', null, 'Checking…');
   const res = await DB.mfaListFactors();
 
   // Project has TOTP MFA disabled in the dashboard → hide the whole section.
   if (!res.ok && res.unsupported) { container.innerHTML = ''; container.style.display = 'none'; return; }
   if (!res.ok) {
-    container.innerHTML = head + '<p class="dim text-xs" style="line-height:1.5">Couldn\'t load your security settings. Reopen Settings to retry.</p>';
+    container.innerHTML = _mfaStatusRow('', null, 'Couldn\'t load this. Close Security and open it again.');
     return;
   }
 
   if (res.verified.length > 0) {
     const fid = res.verified[0].id;
-    container.innerHTML = head +
-      _mfaStatusRow('On', 'ok', 'Logins require a code from your authenticator app.') +
-      '<button class="btn btn-block btn-ghost mt-12" onclick="disableMfa(\'' + escHtml(fid) + '\')">Turn off 2FA</button>';
+    container.innerHTML = _mfaStatusRow('On', 'ok', 'Logins need a code from your authenticator app.') +
+      _mfaButton('Turn off two-factor', 'disableMfa(\'' + escHtml(fid) + '\')');
   } else {
-    container.innerHTML = head +
-      _mfaStatusRow('Off', 'bad', 'Add a second step at login with an authenticator app (Google Authenticator, Authy, 1Password).') +
-      '<button class="btn btn-block btn-ghost mt-12" onclick="openMfaEnrollModal()">Enable 2FA</button>';
+    container.innerHTML = _mfaStatusRow('Off', 'bad', OFF_SUB) + _mfaButton('Turn on two-factor', 'openMfaEnrollModal()');
   }
 }
 
-function ensureMfaEnrollModal() {
-  if (document.getElementById('mfaEnrollModal')) return;
-  const wrap = document.createElement('div');
-  wrap.innerHTML = '<div class="modal-backdrop" id="mfaEnrollModal">' +
-    '<div class="modal">' +
-      '<button class="modal-close" aria-label="Close" onclick="closeModal(\'mfaEnrollModal\')">&times;</button>' +
-      '<h2 style="margin-bottom:6px">Enable two-factor</h2>' +
-      '<p class="dim text-sm mb-16" style="line-height:1.5">Scan the QR code with an authenticator app, then enter the 6-digit code it shows.</p>' +
-      '<div id="mfaEnrollBody"><p class="dim text-sm">Preparing…</p></div>' +
-    '</div>' +
-  '</div>';
-  document.body.appendChild(wrap.firstChild);
+// Close every open sheet (they animate out over 200 ms), so the next window is the only one.
+function _closeOpenSheets() {
+  document.querySelectorAll('.ui-sheet-veil:not(.leaving)').forEach(v => {
+    try { v.dispatchEvent(new MouseEvent('click', { bubbles: true })); } catch (e) {}
+  });
 }
+window._closeOpenSheets = _closeOpenSheets;
 
+// Turning 2FA on is its own sheet that takes the Security sheet's place (or the Settings
+// window's): the old modal opened BEHIND the sheet, with both windows on screen.
 async function openMfaEnrollModal() {
   if (window._demoMode) return toast('Preview only in demo mode');
-  ensureMfaEnrollModal();
-  const body = document.getElementById('mfaEnrollBody');
-  if (body) body.innerHTML = '<p class="dim text-sm">Preparing…</p>';
-  openModal('mfaEnrollModal');
-  const res = await DB.mfaEnrollTotp('POWALIFTA');
-  if (!res.ok) {
-    if (body) body.innerHTML = '<p style="color:var(--red);line-height:1.5">' +
-      (res.unsupported ? 'Two-factor isn\'t enabled on this account yet.' : escHtml(res.reason || 'Could not start enrollment.')) + '</p>';
-    return;
-  }
-  _mfaPendingFactor = res.factorId;
-  const qr = res.qr
-    ? '<img src="' + escHtml(res.qr) + '" alt="Two-factor QR code" style="width:180px;height:180px;display:block"/>'
-    : '<p class="dim text-xs" style="width:180px;text-align:center">QR unavailable: use the key below.</p>';
-  if (body) body.innerHTML =
-    '<div style="display:flex;justify-content:center;margin-bottom:14px">' +
-      '<div style="background:#fff;padding:12px;border-radius:12px;line-height:0">' + qr + '</div>' +
-    '</div>' +
-    '<p class="dim text-xs mb-4" style="text-align:center">Can\'t scan? Enter this key manually:</p>' +
-    '<p style="text-align:center;font-family:var(--font-num);font-size:15px;letter-spacing:0.05em;word-break:break-all;margin:0 0 16px;color:var(--text-2)">' + escHtml(res.secret || '') + '</p>' +
-    '<div class="form-group"><label>6-digit code</label>' +
-      '<input type="text" id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:16px"></div>' +
-    '<div id="mfaEnrollErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
-    '<button class="btn btn-primary btn-block" id="mfaVerifyBtn" onclick="submitMfaEnroll()">Verify &amp; turn on</button>';
-  const inp = document.getElementById('mfaCode');
-  if (inp) { try { inp.focus(); } catch (_) {} inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitMfaEnroll(); }); }
+  _closeOpenSheets();
+  if (typeof closeSettingsModal === 'function') closeSettingsModal();
+  setTimeout(() => uiSheet('Turn on two-factor', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Scan the code with an authenticator app (Google Authenticator, Authy, 1Password), then type the 6-digit code it shows.'));
+    const body = el('div', { class: 'mfa-body' }, el('p', { class: 'ui-sheet-sub' }, 'Preparing…'));
+    sheet.appendChild(body);
+    DB.mfaEnrollTotp('POWALIFTA').then(res => {
+      body.innerHTML = '';
+      if (!res.ok) {
+        body.appendChild(el('p', { class: 'mfa-err' }, res.unsupported ? 'Two-factor isn\'t available on this account yet.' : (res.reason || 'Could not start setup. Close this and try again.')));
+        return;
+      }
+      _mfaPendingFactor = res.factorId;
+      const qrBox = el('div', { class: 'mfa-qr' });
+      if (res.qr) qrBox.appendChild(el('img', { src: res.qr, alt: 'Two-factor QR code', width: '180', height: '180' }));
+      else qrBox.appendChild(el('p', { class: 'ui-sheet-sub' }, 'QR unavailable: use the key below.'));
+      body.appendChild(qrBox);
+      body.appendChild(el('p', { class: 'mfa-key-label' }, 'Can\'t scan? Enter this key:'));
+      body.appendChild(el('p', { class: 'mfa-key' }, res.secret || ''));
+      const code = el('input', { type: 'text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', placeholder: '000000', 'aria-label': '6-digit code', class: 'mfa-code' });
+      body.appendChild(code);
+      const err = el('p', { class: 'mfa-err', role: 'alert' });
+      body.appendChild(err);
+      const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Verify and turn on');
+      const submit = async () => {
+        const v = (code.value || '').replace(/\D/g, '');
+        if (v.length !== 6) { err.textContent = 'Enter the 6-digit code.'; code.focus(); return; }
+        if (!_mfaPendingFactor) { err.textContent = 'Setup expired. Close this and start again.'; return; }
+        go.disabled = true; go.textContent = 'Verifying…'; err.textContent = '';
+        const r = await DB.mfaVerifyEnroll(_mfaPendingFactor, v);
+        go.disabled = false; go.textContent = 'Verify and turn on';
+        if (!r.ok) {
+          err.textContent = /invalid|incorrect|expired|match/i.test(r.reason || '') ? 'That code didn\'t match. Enter the current one.' : (r.reason || 'Verification failed.');
+          return;
+        }
+        _mfaPendingFactor = null;
+        close();
+        toast('Two-factor is on');
+        const box = document.getElementById('setMfaBox');
+        if (box) renderMfaCard(box);
+      };
+      go.addEventListener('click', submit);
+      code.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+      body.appendChild(go);
+      setTimeout(() => { try { code.focus(); } catch (e) {} }, 350);
+    });
+  }, { cls: 'mfa-sheet' }), 220);
 }
-
-async function submitMfaEnroll() {
-  const inp = document.getElementById('mfaCode');
-  const err = document.getElementById('mfaEnrollErr');
-  const btn = document.getElementById('mfaVerifyBtn');
-  const code = ((inp && inp.value) || '').replace(/\D/g, '');
-  if (code.length !== 6) { if (err) err.textContent = 'Enter the 6-digit code.'; return; }
-  if (!_mfaPendingFactor) { if (err) err.textContent = 'Enrollment expired: close and try again.'; return; }
-  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
-  if (err) err.textContent = '';
-  const res = await DB.mfaVerifyEnroll(_mfaPendingFactor, code);
-  if (btn) { btn.disabled = false; btn.innerHTML = 'Verify &amp; turn on'; }
-  if (!res.ok) {
-    if (err) err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
-      ? 'That code didn\'t match. Enter the current one.' : (res.reason || 'Verification failed.');
-    return;
-  }
-  _mfaPendingFactor = null;
-  closeModal('mfaEnrollModal');
-  toast('Two-factor is on');
-  const box = document.getElementById('setMfaBox');
-  if (box) renderMfaCard(box);
-}
+// Old entry point (index.html and older pages call it); the sheet replaces the modal.
+function submitMfaEnroll() { const b = document.querySelector('.mfa-sheet .btn-primary'); if (b) b.click(); }
 
 async function disableMfa(factorId) {
   if (window._demoMode) return toast('Preview only in demo mode');
-  if (!confirm('Turn off two-factor authentication? Your account will be protected by password only.')) return;
-  const res = await DB.mfaUnenroll(factorId);
-  if (!res.ok) return toast(res.reason || 'Could not turn off 2FA');
-  toast('Two-factor turned off');
-  const box = document.getElementById('setMfaBox');
-  if (box) renderMfaCard(box);
+  uiActionSheet('Turn off two-factor? Logins will need only your password.', [
+    { label: 'Turn off two-factor', danger: true, onClick: async () => {
+      const res = await DB.mfaUnenroll(factorId);
+      if (!res.ok) return toast(res.reason || 'Could not turn off 2FA');
+      toast('Two-factor turned off');
+      document.querySelectorAll('#setMfaBox, .settings-sheet .set-sheet-box').forEach(b => { if (b.querySelector('.mfa-status, button[onclick*="Mfa"]')) renderMfaCard(b); });
+    } }
+  ]);
 }
 
 window.renderMfaCard = renderMfaCard;

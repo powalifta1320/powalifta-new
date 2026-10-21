@@ -19,7 +19,7 @@ import { rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const FROM = 'POWALIFTA <noreply@powalifta.com>';
-const SITE = 'https://powalifta.com';
+const SITE = 'https://www.powalifta.com';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -30,38 +30,35 @@ function htmlEscape(str: string): string {
 function buildEmail(opts: { coachName: string; code: string }): { subject: string; html: string; text: string } {
   const safeCoach = htmlEscape(opts.coachName || 'Your coach');
   const safeCode = htmlEscape(opts.code);
-  const signupUrl = `${SITE}/index.html?code=${encodeURIComponent(opts.code)}#signup-athlete`;
+  // The join page: shows who invited them, sends iPhones to the App Store, and keeps the code.
+  const signupUrl = `${SITE}/j/${encodeURIComponent(opts.code)}`;
 
-  const subject = `${opts.coachName || 'Your coach'} invited you to POWALIFTA`;
+  const subject = `${opts.coachName || 'Your coach'} invited you to train on POWALIFTA`;
 
   const text = `Hey,
 
-${opts.coachName || 'Your coach'} has invited you to train on POWALIFTA — the platform powerlifting coaches use to program training and track progress.
+${opts.coachName || 'Your coach'} invited you to train on POWALIFTA. They'll write your program there and see every set you log.
 
-Sign up with one click (your invite is pre-filled):
+Accept the invite:
 ${signupUrl}
 
-Or go to ${SITE} and enter this invite code at signup:
+On an iPhone, the link takes you to the app. Sign up with "I have a coach" and use this code:
 
     ${opts.code}
 
-POWALIFTA logs every set, calculates your e1RM automatically, tracks your goals, and lets your coach see your progress in real time. Free for athletes, forever.
+POWALIFTA is free for athletes. See you in the gym.
 
-See you in the gym.
-— POWALIFTA`;
+POWALIFTA`;
 
-  const html = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0b0b0c; color: #f4f4f6; padding: 0; margin: 0;">
-<div style="max-width: 540px; margin: 0 auto; padding: 32px 24px;">
-  <div style="font-family: 'Anton', Impact, sans-serif; font-size: 1.8rem; letter-spacing: 0.02em; margin-bottom: 24px;">POWA<span style="color:#ff2d3f">LIFTA</span></div>
-  <h1 style="font-size: 1.5rem; line-height: 1.25; margin: 0 0 18px;">${safeCoach} invited you to train.</h1>
-  <p style="color: #b8b8c0; line-height: 1.6; margin: 0 0 22px;">They coach on POWALIFTA — RPE-native programming, automatic e1RM tracking, free for athletes forever.</p>
-  <div style="margin: 0 0 26px;">
-    <a href="${signupUrl}" style="display:inline-block; background:#ff2d3f; color:#fff; text-decoration:none; padding:12px 22px; border-radius:10px; font-weight:700; letter-spacing:0.02em;">Accept invite &amp; sign up</a>
-  </div>
-  <p style="color: #b8b8c0; line-height: 1.6; margin: 0 0 8px;">Or enter this code at signup:</p>
-  <div style="font-family: 'Space Grotesk', monospace; font-size: 1.6rem; font-weight: 700; letter-spacing: 0.2em; color:#f4f4f6; background:#16161a; border:1px solid #25252c; border-radius:10px; padding:14px 18px; text-align:center; margin: 0 0 26px;">${safeCode}</div>
-  <p style="color: #b8b8c0; line-height: 1.6; margin: 0 0 22px;">Once you're in: log every set, mark RPE 1–10 on your working sets, and your e1RM updates itself. Your coach sees it in real time.</p>
-  <p style="color: #82828c; font-size: 0.85rem; line-height: 1.6; margin-top: 32px; padding-top: 22px; border-top: 1px solid #25252c;">Didn't expect this? You can ignore the email — nothing happens until you sign up.<br>— POWALIFTA</p>
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#060607;color:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<div style="max-width:520px;margin:0 auto;padding:36px 24px;">
+  <div style="font-weight:800;font-size:15px;letter-spacing:0.08em;margin:0 0 30px;">POWALIFTA</div>
+  <h1 style="font-size:26px;line-height:1.2;letter-spacing:-0.02em;margin:0 0 14px;">${safeCoach} invited you to train.</h1>
+  <p style="color:#b9b9c1;font-size:16px;line-height:1.6;margin:0 0 26px;">They'll write your program on POWALIFTA and see every set you log. Free for athletes.</p>
+  <a href="${signupUrl}" style="display:inline-block;background:#ee2b3b;color:#ffffff;text-decoration:none;padding:14px 26px;border-radius:999px;font-weight:650;font-size:16px;">Accept the invite</a>
+  <p style="color:#8e8e98;font-size:14px;line-height:1.6;margin:28px 0 8px;">On an iPhone, sign up in the app with "I have a coach" and this code:</p>
+  <div style="font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:24px;font-weight:700;letter-spacing:0.22em;color:#f5f5f7;background:#0f0f11;border:1px solid #232327;border-radius:16px;padding:16px 18px;text-align:center;margin:0 0 30px;">${safeCode}</div>
+  <p style="color:#6f6f78;font-size:13px;line-height:1.6;margin:0;padding-top:20px;border-top:1px solid #1d1d22;">Didn't expect this? Ignore it: nothing happens until you sign up.</p>
 </div></body></html>`;
 
   return { subject, html, text };

@@ -8195,7 +8195,7 @@ body.powa-app .dash-header h2 { font-size: var(--fs-display) !important; line-he
   font-family: var(--font-num); letter-spacing: 0; padding: 2px 7px; border-radius: 100px;
   background: var(--bg-3); color: var(--text-2); font-size: var(--fs-label, 11px);
 }
-.ui-label .ui-label-end { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: var(--fs-meta, 13px); font-weight: 600; color: var(--text-2); background: none; border: 0; cursor: pointer; padding: 0; font-family: inherit; }
+.ui-label .ui-label-end { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: var(--fs-meta, 13px); font-weight: 600; color: var(--text-2); background: none; border: 0; cursor: pointer; padding: 12px 8px; margin-top: -12px; margin-bottom: -12px; margin-right: -8px; font-family: inherit; }   /* a 40px tap area around a 16px word */
 
 /* Card */
 .ui-card {
@@ -11736,3 +11736,94 @@ body.powa-app .tx-set.is-skipped .tx-set-sub { color: var(--text-3); }
 /* Every sheet stays clear of the notch and scrolls inside itself (2026-10-22): action sheets had
    no cap, so a long one ran under the status bar. */
 .ui-sheet, .ui-sheet.ui-sheet-form { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px); overflow-y: auto; overscroll-behavior: contain; }
+
+/* Two-factor setup as its own sheet (2026-10-22): the QR on white, the key underneath, one code field. */
+.mfa-sheet .mfa-qr { display: grid; place-items: center; width: 212px; height: 212px; margin: 4px auto 14px; padding: 16px; border-radius: 18px; background: #fff; }
+.mfa-sheet .mfa-qr img { width: 180px; height: 180px; display: block; }
+.mfa-sheet .mfa-key-label { text-align: center; color: var(--text-3); font-size: 13px; margin: 0 0 4px; }
+.mfa-sheet .mfa-key { text-align: center; font: 600 15px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.06em; color: var(--text-2); word-break: break-all; margin: 0 8px 16px; user-select: all; -webkit-user-select: all; }
+.mfa-sheet .mfa-code { width: 100%; height: 56px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); text-align: center; font: 700 24px/1 var(--font-num); letter-spacing: 0.35em; padding: 0 0 0 0.35em; }
+.mfa-sheet .mfa-code:focus { outline: none; border-color: var(--acc, #ff3b4a); }
+.mfa-sheet .mfa-err { min-height: 20px; margin: 8px 4px 10px; color: var(--soft-alert, #ff8f80); font-size: 14px; text-align: center; }
+
+/* Invite sheet (2026-10-22): share a link first, then copy / QR, then email. */
+.invite-sheet .inv-share { display: inline-flex; align-items: center; justify-content: center; gap: 10px; margin-top: 2px; }
+.invite-sheet .inv-share svg { width: 20px; height: 20px; color: inherit; }   /* not the grey of action-sheet row icons */
+.invite-sheet .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.invite-sheet .inv-qr { margin: 14px 0 2px; text-align: center; }
+.invite-sheet .inv-qr-img { width: 200px; margin: 0 auto; padding: 12px; border-radius: 18px; background: #fff; line-height: 0; }
+.invite-sheet .inv-qr-img svg { width: 100%; height: auto; display: block; }
+.invite-sheet .inv-qr-cap { margin: 10px 0 0; color: var(--text-3); font-size: 14px; }
+.invite-sheet .inv-or { display: flex; align-items: center; gap: 12px; margin: 22px 2px 10px; color: var(--text-3); font-size: 14px; font-weight: 600; }
+.invite-sheet .inv-or::before, .invite-sheet .inv-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.invite-sheet .inv-mail-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.invite-sheet .inv-mail { min-width: 0; height: 52px; padding: 0 16px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); font: inherit; font-size: 16px; }
+.invite-sheet .inv-mail:focus { outline: none; border-color: var(--acc, #ff3b4a); }
+.invite-sheet .inv-mail-row .btn { height: 52px; padding: 0 22px; }
+.invite-sheet .inv-status { min-height: 20px; margin: 10px 4px 0; color: var(--text-3); font-size: 14px; line-height: 1.45; word-break: break-word; }
+
+/* Coach first run (2026-10-22): three setup steps, then the roster it turns into (a sample drawn
+   by the real components), so a new coach's first screen is never an empty black page. */
+.fr-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--u-gap, 28px); }
+.fr-wrap > * { min-width: 0; }
+@media (min-width: 1000px) { .fr-wrap { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; } }
+.fr-setup { padding: 22px var(--u-pad, 18px) 0; overflow: hidden; }
+.fr-count { font-size: var(--fs-meta, 13px); font-weight: 650; color: var(--text-3); }
+.fr-title { margin: 6px 0 0; font-family: var(--font-body); font-stretch: 100%; text-transform: none; font-size: 26px; font-weight: 750; letter-spacing: -0.025em; line-height: 1.12; color: var(--text); }
+.fr-sub { margin: 6px 0 0; color: var(--text-2); font-size: var(--fs-body, 15px); line-height: 1.45; }
+.fr-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 18px 0 10px; }
+.fr-bar i { height: 4px; border-radius: 4px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+.fr-bar i.on { background: var(--ok, #34d982); }
+.fr-steps { margin: 0 calc(-1 * var(--u-pad, 18px)); }
+.fr-step { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 14px var(--u-pad, 18px); background: none; border: 0; border-top: 1px solid var(--line); color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 160ms ease-out; }
+.fr-step:active { background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+@media (hover: hover) { .fr-step:hover { background: var(--fill-3, rgba(255, 255, 255, 0.05)); } }
+.fr-num { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 700 14px/1 var(--font-num, var(--font-body)); color: var(--text-3); box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.fr-num svg { width: 15px; height: 15px; }
+.fr-step.is-next .fr-num { background: var(--text); color: var(--bg); box-shadow: none; }
+.fr-step.is-done .fr-num { background: color-mix(in srgb, var(--ok, #34d982) 16%, transparent); color: var(--ok, #34d982); box-shadow: none; }
+.fr-step-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.fr-step-title { font-size: var(--fs-body, 15px); font-weight: 650; letter-spacing: -0.01em; line-height: 1.3; }
+.fr-step.is-done .fr-step-title { color: var(--text-2); }
+.fr-step-sub { font-size: var(--fs-meta, 13px); line-height: 1.4; color: var(--text-3); }
+.fr-step .ui-chev { flex: none; width: 18px; height: 18px; color: var(--text-3); }
+.fr-chip { margin-left: auto; padding: 3px 9px; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); font-family: var(--font-body); font-size: 12px; font-weight: 650; letter-spacing: 0; text-transform: none; }
+.fr-sample { display: flex; flex-direction: column; gap: 10px; }
+.fr-sample .roster-faces { margin-top: 0; margin-bottom: 0; overflow: hidden; scroll-snap-type: none; }
+.fr-cap { margin: 14px 2px 0; color: var(--text-3); font-size: var(--fs-meta, 13px); line-height: 1.5; }
+
+/* Messages with nobody yet: a sample thread above the invite. */
+.fr-msgs { max-width: 560px; margin: 0 auto; }
+.fr-thread { display: flex; flex-direction: column; gap: 8px; padding: 14px 14px 16px; border-radius: var(--u-r, 20px); background: var(--bg-1); border: 1px solid var(--line); }
+.fr-thread-who { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: var(--fs-body, 15px); color: var(--text); }
+.fr-thread-who .ui-av { width: 32px; height: 32px; font-size: 12px; }
+.fr-thread .msg-bubble { max-width: 86%; }
+.fr-msgs .ui-empty { padding-top: 28px; }
+
+/* Light theme legibility (2026-10-22): the lift, RPE, PR and alert colours were tuned for dark
+   backgrounds and washed out on white (squat cyan letters, RPE 7.5 to 8 yellow, PR gold, coral
+   alerts). As text they take a darker shade of the same hue; dots, rings and fills keep the bright one. */
+[data-theme="light"] { --soft-alert: #c63a24; }
+[data-theme="light"] .ui-row-sub.alert, [data-theme="light"] body.powa-app .ui-row-sub.alert { color: #c63a24; }
+[data-theme="light"] body .trc-tile, [data-theme="light"] body .tx-tile,
+[data-theme="light"] body.powa-app .trc-tile, [data-theme="light"] body.powa-app .tx-tile,
+[data-theme="light"] body .tx-set.is-next .tx-n, [data-theme="light"] body.powa-app .tx-set.is-next .tx-n { color: color-mix(in srgb, var(--lc) 56%, #000); }
+[data-theme="light"] body .mc-rpe, [data-theme="light"] body .pb-chip em,
+[data-theme="light"] body.powa-app .mc-rpe, [data-theme="light"] body.powa-app .pb-chip em { color: color-mix(in srgb, var(--rc) 52%, #000); }
+[data-theme="light"] body .cp-card.is-pr .cp-who span, [data-theme="light"] body.powa-app .cp-card.is-pr .cp-who span { color: #8a5d00; }
+[data-theme="light"] body .cp-pr, [data-theme="light"] body.powa-app .cp-pr { color: #8a5d00; }
+[data-theme="light"] body .tn-ready-btn.is-rough, [data-theme="light"] body.powa-app .tn-ready-btn.is-rough { color: #c63a24; }
+[data-theme="light"] body .roster-last.is-stale, [data-theme="light"] body.powa-app .roster-last.is-stale { color: #c63a24; }
+
+/* Two-factor in Security: a row like the others, not a heading (2026-10-22). */
+.ui-sheet-form .ui-list.mfa-status, .mfa-status { margin: 22px 0 0; }
+.set-sheet-box .mfa-status + .btn { margin-top: 14px; min-height: 54px; font-size: var(--fs-row, 16px); font-weight: 600; }   /* same size as Change password above it */
+.mfa-status .ui-row { align-items: flex-start; padding-top: 14px; padding-bottom: 14px; }
+.mfa-status .ui-row-sub { line-height: 1.45; }
+.mfa-status .mfa-state { flex: none; margin-left: 12px; font-size: var(--fs-body, 15px); font-weight: 700; }
+
+/* Find a coach: the invite-code row (2026-10-22). */
+.join-code-form { display: flex; gap: 10px; align-items: stretch; flex: 1 1 260px; min-width: 0; max-width: 360px; }
+.join-code-form .join-code-input { flex: 1 1 0%; min-width: 0; width: 0;   /* an input's built-in width (20 characters) would push Join out of the card */ height: 48px; padding: 0 12px; border-radius: 14px; text-transform: uppercase; text-align: center; letter-spacing: 0.24em; font-family: var(--font-num); font-weight: 800; font-size: 20px; }
+.join-code-form .join-code-btn { height: 48px; padding: 0 24px; white-space: nowrap; }
+@media (max-width: 560px) { .join-code-form { max-width: none; } }

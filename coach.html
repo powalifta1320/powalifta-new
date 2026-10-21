@@ -476,13 +476,15 @@ function renderCoachYou() {
     onAvatar: () => pickAvatar(() => renderCoachYou()),
     edit: () => openProfileSheet(() => renderCoachYou()),
     sub: ['Coach', club].filter(Boolean).join(' · '),
-    stats: [
+    // Nobody on the roster yet: no row of zeros, the setup steps instead (Coaching, first row).
+    stats: !roster.length ? [] : [
       { label: 'Athletes', value: roster.length },
       { label: 'Trained', value: activeWeek + '/' + roster.length, unit: '' },
       showPlan ? { label: 'Plan', value: (TIER_LABELS && TIER_LABELS[tier]) || tier } : { label: 'Notes', value: (Store.get().sessionNotes || []).filter(n => roster.some(r => r.athlete.id === n.athleteId) && !n.coachComment).length }
     ],
     groups: [
       { title: 'Coaching', rows: [
+        !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
         { label: 'Athlete progress', onClick: go('progress') },
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
@@ -893,6 +895,80 @@ function openAthleteSheet(athleteId) {
 }
 window.openAthleteSheet = openAthleteSheet;
 
+// ===== FIRST RUN =====
+// A coach with nobody on the roster yet. Instead of an empty screen: the three steps that get
+// them coaching (their program in from the spreadsheet, invite links out, a face on the
+// profile), then the roster this screen turns into once athletes log.
+function coachSetupSteps() {
+  const s = Store.get();
+  const tplN = (s.programTemplates || []).filter(t => t.coachId === user.id).length;
+  const hasProgram = tplN > 0 || (s.programs || []).some(p => p.coachId === user.id);
+  const pending = (s.invites || []).filter(i => i.coachId === user.id && !i.used).length;
+  const invited = pending > 0 || getAthleteCount(user.id) > 0;
+  const profiled = !!(user.avatarUrl || String(user.bio || '').trim());
+  const goTemplates = () => { const t = document.querySelector('[data-tab="templates"]'); if (t) t.click(); };
+  return [
+    { done: hasProgram, title: 'Bring your program in',
+      sub: hasProgram ? 'Saved as a template. Athletes get it in one tap when they join.' : 'Paste it from Google Sheets or Excel. Nothing to retype.',
+      onClick: () => hasProgram ? goTemplates() : openSheetImport(null) },
+    { done: invited, title: 'Invite your athletes',
+      sub: invited ? pending + (pending === 1 ? ' invite out. They appear here when they sign up.' : ' invites out. They appear here when they sign up.') : 'One link each. They get the app and land on your roster.',
+      onClick: () => openInviteModal() },
+    { done: profiled, title: 'Put a face to your name',
+      sub: profiled ? 'Athletes see it when they join.' : 'A photo and a line on how you coach.',
+      onClick: () => openProfileSheet(() => { renderRoster(); try { renderCoachYou(); } catch (e) {} }) }
+  ];
+}
+function buildCoachSetup() {
+  const steps = coachSetupSteps();
+  const done = steps.filter(x => x.done).length;
+  const first = String(user.name || '').trim().split(/\s+/)[0];
+  const card = el('div', { class: 'ui-hero fr-setup' });
+  card.appendChild(el('div', { class: 'fr-count' }, done === steps.length ? 'All set' : done + ' of ' + steps.length + ' done'));
+  card.appendChild(el('h2', { class: 'fr-title' }, done === steps.length ? 'Ready when they are' : first ? 'Welcome, ' + first : 'Welcome'));
+  card.appendChild(el('p', { class: 'fr-sub' }, done === steps.length ? 'Your athletes appear here the moment they sign up with your link.' : 'Three steps and you\'re coaching.'));
+  const bar = el('div', { class: 'fr-bar', 'aria-hidden': 'true' });
+  steps.forEach(x => bar.appendChild(el('i', { class: x.done ? 'on' : '' })));
+  card.appendChild(bar);
+  const next = steps.findIndex(x => !x.done);
+  const list = el('div', { class: 'fr-steps' });
+  steps.forEach((x, i) => {
+    const b = el('button', { class: 'fr-step' + (x.done ? ' is-done' : i === next ? ' is-next' : ''), type: 'button' });
+    b.appendChild(el('span', { class: 'fr-num', 'aria-hidden': 'true', html: x.done ? ICONS.check : String(i + 1) }));
+    const main = el('span', { class: 'fr-step-main' });
+    main.appendChild(el('span', { class: 'fr-step-title' }, x.title));
+    main.appendChild(el('span', { class: 'fr-step-sub' }, x.sub));
+    b.appendChild(main);
+    b.insertAdjacentHTML('beforeend', UI_CHEV);
+    if (x.done) b.setAttribute('aria-label', x.title + ', done');
+    b.addEventListener('click', x.onClick);
+    list.appendChild(b);
+  });
+  card.appendChild(list);
+  return card;
+}
+// The roster with athletes in it, drawn by the real components from a made-up week. Not tappable.
+function buildRosterSample() {
+  const box = el('div', { class: 'fr-sample', 'aria-hidden': 'true' });
+  box.inert = true;
+  const people = [
+    { id: 'fr-1', name: 'Maya Chen', flag: 'today', ago: 0 },
+    { id: 'fr-2', name: 'Leo Grant', flag: 'recent', ago: 1, pr: 1 },
+    { id: 'fr-3', name: 'Priya Shah', flag: 'recent', ago: 2, pr: 1 },
+    { id: 'fr-4', name: 'Jonah Reed', flag: 'stale', ago: 9, sev: 3 },
+    { id: 'fr-5', name: 'Sam Ortiz', flag: 'recent', ago: 3 }
+  ];
+  const overview = people.map(p => ({ athlete: { id: p.id, name: p.name }, flag: p.flag, ago: p.ago }));
+  const items = people.map(p => ({ athlete: { id: p.id, name: p.name }, prCount: p.pr || 0, severity: p.sev || 0, reasons: [] }));
+  box.appendChild(uiRingHero({ frac: 4 / 5, ringLabel: '4<small>/5</small>', label: 'This week', title: '1 still to train', sub: 'Maya is training today' }));
+  box.appendChild(buildRosterFaces(overview, items));
+  box.appendChild(uiList([
+    uiRow({ av: 'Jonah Reed', title: 'Jonah Reed', sub: '9d since training · 20% of program done', subTone: 'alert', chevron: true }),
+    uiRow({ lead: el('span', { class: 'ui-av roster-win', html: ICONS.trophy }), title: 'Leo, Priya', sub: 'Hit a PR this week' })
+  ]));
+  return box;
+}
+
 function renderRoster() {
   renderPlanPill();
   const area = document.getElementById('rosterArea');
@@ -906,12 +982,16 @@ function renderRoster() {
   renderJoinRequests(reqHost);
 
   if (!overview.length) {
-    area.appendChild(uiEmpty({
-      icon: ICONS.athletes,
-      title: 'Add your first athlete',
-      text: 'Send an invite code. Their training shows up here the moment they join.',
-      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() }
-    }));
+    const fr = el('div', { class: 'fr-wrap' });
+    fr.appendChild(buildCoachSetup());
+    const side = el('div', { class: 'fr-side' });
+    const lbl = uiLabel('Your roster, once they train');
+    lbl.appendChild(el('span', { class: 'fr-chip' }, 'Sample'));
+    side.appendChild(lbl);
+    side.appendChild(buildRosterSample());
+    side.appendChild(el('p', { class: 'fr-cap' }, 'Who trained, who is slipping and every PR, the moment they log a set. No opening a spreadsheet per athlete.'));
+    fr.appendChild(side);
+    area.appendChild(fr);
   } else {
     // The week at a glance, each fact once: the ring says how many trained, the title who's
     // left, the line under it who's training today. PRs are the trophies on the faces below.
@@ -1228,6 +1308,35 @@ window.closeMessageModal = closeMessageModal;
 // so this tab is purely a discovery surface over the existing messaging backend.
 let _activeThreadAthlete = null;
 
+// A made-up exchange drawn with the real message classes: a PR set card, the note under it, the reply.
+function _sampleThread() {
+  const box = el('div', { class: 'fr-thread', 'aria-hidden': 'true' });
+  box.inert = true;
+  const card = el('div', { class: 'msg-card lift-squat is-pr' });
+  const top = el('div', { class: 'mc-top' });
+  const id = el('div', { class: 'mc-id' });
+  id.appendChild(el('div', { class: 'mc-kind' }, 'New PR'));
+  id.appendChild(el('div', { class: 'mc-title' }, el('span', { class: 'lift-dot lift-squat', 'aria-hidden': 'true' }), 'Competition Squat'));
+  top.appendChild(id);
+  if (typeof uiBarbell === 'function') top.appendChild(el('span', { class: 'mc-bar', html: uiBarbell(172.5) }));
+  card.appendChild(top);
+  card.appendChild(el('div', { class: 'mc-nums', html: '<b>' + kgToDisplay(172.5) + '</b><small>' + unitLabel() + '</small><i>×</i><b>1</b><span class="mc-rpe" style="--rc:' + rpeColor(8) + '">RPE 8</span>' }));
+  card.appendChild(el('div', { class: 'mc-e1' }, 'e1RM ' + formatWeight(185)));
+  const bubble = (mine, body, time, isCard) => {
+    const row = el('div', { class: 'msg-row ' + (mine ? 'mine' : 'theirs') });
+    const b = el('div', { class: 'msg-bubble' + (isCard ? ' is-card' : '') });
+    b.appendChild(isCard ? body : el('div', { class: 'msg-body' }, body));
+    b.appendChild(el('div', { class: 'msg-meta' }, time));
+    row.appendChild(b);
+    return row;
+  };
+  box.appendChild(el('div', { class: 'fr-thread-who' }, el('span', { class: 'ui-av av-h' + avatarHue('Maya Chen'), 'data-name': 'Maya Chen' }, 'MC'), el('b', {}, 'Maya Chen'), el('span', { class: 'fr-chip' }, 'Sample')));
+  box.appendChild(bubble(false, card, '18:38', true));
+  box.appendChild(bubble(false, 'Moved like an opener. Try 175 next week?', '18:40'));
+  box.appendChild(bubble(true, 'That\'s what I wanted to see. 175 next week, same back-offs.', '19:02'));
+  return box;
+}
+
 async function renderMessages() {
   const area = document.getElementById('messagesArea');
   if (!area) return;
@@ -1235,12 +1344,15 @@ async function renderMessages() {
 
   const roster = getRosterOverview(user.id).map(o => o.athlete);
   if (!roster.length) {
-    const e = el('div', { class: 'empty' });
-    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.chat;
-    e.appendChild(ic);
-    e.appendChild(el('h3', {}, 'No one to message yet'));
-    e.appendChild(el('p', {}, 'Once an athlete joins your roster, your conversation with them lives here.'));
-    area.appendChild(e);
+    // Nobody yet: a sample of the thread it becomes (a logged set arrives as a card), then the invite.
+    const wrap = el('div', { class: 'fr-msgs' });
+    wrap.appendChild(_sampleThread());
+    wrap.appendChild(uiEmpty({
+      title: 'Every athlete, one thread',
+      text: 'The sets they log arrive here as cards you can answer. No more screenshots in your DMs.',
+      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() }
+    }));
+    area.appendChild(wrap);
     return;
   }
 
@@ -1433,15 +1545,116 @@ function openFormCheckReview(id) {
 window.openFormCheckReview = openFormCheckReview;
 
 // ===== INVITE =====
+// One sheet, built around a link: share it (the iPhone share sheet: Messages, WhatsApp, your
+// recent contacts), copy it, show its QR to someone at the gym, or email it. Every link is its
+// own one-use code (powalifta.com/j/CODE). The join page sends iPhones to the App Store, the
+// athlete signs up with the code and lands on this roster. A share the coach cancels deletes
+// its code again, because an unused invite holds a seat.
+const INVITE_BASE = 'https://www.powalifta.com/j/';
+const _SHARE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+function _newInvite(email) {
+  const code = generateInviteCode();
+  const inv = { code, coachId: user.id, email: email || '', used: false, createdAt: Date.now() };
+  Store.update(s => { s.invites.push(inv); });
+  const saved = window._demoMode ? Promise.resolve() : DB.addInvite(inv);
+  const out = { code, url: INVITE_BASE + code, saved };
+  saved.then(() => { try { renderRoster(); } catch (e) {} }).catch(e => {
+    console.error('addInvite', e);
+    out.failed = true;
+    Store.update(s => { s.invites = s.invites.filter(i => i.code !== code); });
+    toast((e && /limit|seat|athlete/i.test(e.message || '')) ? 'Your plan is full: upgrade to invite more' : 'Could not save that invite. Try again');
+  });
+  return out;
+}
+function _dropInvite(code) {
+  Store.update(s => { s.invites = s.invites.filter(i => i.code !== code); });
+  persistDeleteInvite(code);
+  try { renderRoster(); } catch (e) {}
+}
 function openInviteModal() {
-  // Cap check: don't let coach generate invites if they'd exceed plan
-  if (!canAddAthlete(user.id)) {
-    openUpgradeModal('cap');
-    return;
-  }
-  document.getElementById('inviteEmail').value = '';
-  document.getElementById('inviteResult').classList.add('hidden');
-  openModal('inviteModal');
+  if (!canAddAthlete(user.id)) { openUpgradeModal('cap'); return; }
+  const first = (user.name || '').trim().split(/\s+/)[0] || 'Your coach';
+  const message = first + ' invited you to train on POWALIFTA. Your program is waiting:';
+  uiSheet('Invite an athlete', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Send them a link. They get the app, sign up, and land on your roster. Each link works for one athlete.'));
+
+    // One link per sheet: Share, Copy and the QR hand out the same code, so a second tap doesn't
+    // take a second seat. A cancelled share gives it back unless it was already copied or shown.
+    // Email makes its own (that code is tied to the address).
+    let cur = null;
+    const take = () => (cur && !cur.failed) ? cur : (cur = _newInvite(''));
+    const shareBtn = el('button', { class: 'btn btn-primary btn-lg btn-block inv-share', type: 'button', html: _SHARE_IC + '<span>Share an invite link</span>' });
+    shareBtn.addEventListener('click', () => {
+      const inv = take();
+      if (navigator.share) {
+        // Called straight from the tap (no await first), or iOS drops the share sheet.
+        navigator.share({ title: 'Train with me on POWALIFTA', text: message, url: inv.url })
+          .then(() => { inv.handed = true; toast('Invite sent. They join with the link'); close(); })
+          .catch(err => {
+            if (err && err.name === 'AbortError') { if (!inv.handed) { _dropInvite(inv.code); cur = null; } }
+            else { inv.handed = true; _copyText(inv.url); toast('Link copied'); }
+          });
+      } else {
+        inv.handed = true;
+        _copyText(message + ' ' + inv.url).then(() => toast('Invite link copied. Paste it in a message')).catch(() => toast(inv.url));
+      }
+    });
+    sheet.appendChild(shareBtn);
+
+    const row = el('div', { class: 'inv-row' });
+    const copyBtn = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Copy link');
+    copyBtn.addEventListener('click', () => {
+      const inv = take();
+      inv.handed = true;
+      _copyText(message + ' ' + inv.url).then(() => { copyBtn.textContent = 'Copied'; toast('Invite link copied'); setTimeout(() => { copyBtn.textContent = 'Copy link'; }, 1600); })
+        .catch(() => toast(inv.url));
+    });
+    const qrBtn = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Show QR code');
+    const qrBox = el('div', { class: 'inv-qr', hidden: '' });
+    qrBtn.addEventListener('click', () => {
+      if (!qrBox.hidden) { qrBox.hidden = true; qrBtn.textContent = 'Show QR code'; return; }
+      const inv = take();
+      inv.handed = true;
+      qrBox.innerHTML = '';
+      if (typeof qrSvg === 'function') qrBox.appendChild(el('div', { class: 'inv-qr-img', html: qrSvg(inv.url, { dark: '#0b0b0c', light: '#ffffff', quiet: 2 }) }));
+      qrBox.appendChild(el('p', { class: 'inv-qr-cap' }, 'Point their iPhone camera at this. Code ' + inv.code + '.'));
+      qrBox.hidden = false;
+      qrBtn.textContent = 'Hide QR code';
+    });
+    row.appendChild(copyBtn); row.appendChild(qrBtn);
+    sheet.appendChild(row);
+    sheet.appendChild(qrBox);
+
+    // Email, for coaches who'd rather send it from here.
+    sheet.appendChild(el('div', { class: 'inv-or' }, 'Or email it'));
+    const mail = el('input', { type: 'email', class: 'inv-mail', placeholder: 'athlete@email.com', autocomplete: 'email', 'aria-label': 'Athlete email' });
+    const send = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Send');
+    const mailRow = el('div', { class: 'inv-mail-row' }, mail, send);
+    const status = el('p', { class: 'inv-status', role: 'status' });
+    send.addEventListener('click', async () => {
+      const email = (mail.value || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { status.textContent = 'Enter their email.'; mail.focus(); return; }
+      const inv = _newInvite(email);
+      send.disabled = true; status.textContent = 'Sending…';
+      try { await inv.saved; } catch (e) { send.disabled = false; status.textContent = ''; return; }
+      if (window._demoMode) { status.textContent = 'Demo: email skipped. Code ' + inv.code + '.'; send.disabled = false; return; }
+      try {
+        const r = await DB.sendInvite(email);
+        status.textContent = (r && r.ok) ? 'Sent to ' + email + '. Their code is ' + inv.code + '.' : 'Could not email it (' + ((r && r.reason) || 'unknown error') + '). The link still works: ' + inv.url;
+        if (r && r.ok) mail.value = '';
+      } catch (e) { status.textContent = 'Could not email it. The link still works: ' + inv.url; }
+      finally { send.disabled = false; }
+    });
+    mail.addEventListener('keydown', (e) => { if (e.key === 'Enter') send.click(); });
+    sheet.appendChild(mailRow);
+    sheet.appendChild(status);
+  }, { cls: 'invite-sheet' });
+}
+function _copyText(t) {
+  try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t); } catch (e) {}
+  return new Promise((res, rej) => {
+    try { const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); ok ? res() : rej(); } catch (e) { rej(e); }
+  });
 }
 async function generateInvite() {
   const email = document.getElementById('inviteEmail').value.trim().toLowerCase();
@@ -1723,9 +1936,9 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
 // Excel or Notes. A live preview shows what was understood (and which lines
 // weren't) before it replaces the athlete's program or becomes a template.
 function openSheetImport(athleteId) {
-  const ath = (Store.get().athletes || []).find(a => a.id === athleteId) || {};
-  const first = (ath.name || 'athlete').split(' ')[0];
-  uiSheet('Paste a program', (sheet, close) => {
+  const ath = athleteId ? ((Store.get().athletes || []).find(a => a.id === athleteId) || {}) : null;
+  const first = ath ? (ath.name || 'athlete').split(' ')[0] : '';
+  uiSheet(ath ? 'Paste a program' : 'Paste your program', (sheet, close) => {
     sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Copy the cells from Google Sheets or Excel and paste them here. Written programs work too: "Week 1", "Day 1", "Squat 3x5 @8".'));
     const ta = el('textarea', { class: 'imp-text', rows: '8', spellcheck: 'false', 'aria-label': 'Program to import',
       placeholder: 'Week\tDay\tExercise\tSets\tReps\tLoad\tRPE\n1\tDay 1\tSquat\t3\t5\t160\t7\n\nor\n\nWeek 1\nDay 1\nSquat 3x5 @7\nBench 4x6 @ 82.5kg' });
@@ -1736,16 +1949,19 @@ function openSheetImport(athleteId) {
     const nameRow = el('label', { class: 'imp-name-row' }, el('span', {}, 'Name'), name);
     sheet.appendChild(nameRow);
     const acts = el('div', { class: 'imp-acts' });
-    const use = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button', disabled: true }, 'Use for ' + first);
-    const tpl = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button', disabled: true }, 'Save as template');
-    acts.appendChild(use); acts.appendChild(tpl);
+    // No athlete (a new coach bringing their sheet in): it becomes a template, the one action.
+    const use = ath ? el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button', disabled: true }, 'Use for ' + first) : null;
+    const tpl = el('button', { class: 'btn btn-lg btn-block ' + (ath ? 'ui-btn-soft' : 'btn-primary'), type: 'button', disabled: true }, 'Save as template');
+    if (use) acts.appendChild(use);
+    acts.appendChild(tpl);
     sheet.appendChild(acts);
     let parsed = null;
     const paint = () => {
       parsed = parseProgramSheet(ta.value, { unit: getUnit(), name: name.value.trim() || 'Imported program' });
       preview.innerHTML = '';
       const ok = parsed.stats.sets > 0;
-      use.disabled = tpl.disabled = !ok;
+      if (use) use.disabled = !ok;
+      tpl.disabled = !ok;
       if (!ta.value.trim()) return;
       if (!ok) { preview.appendChild(el('p', { class: 'imp-none' }, 'Nothing read yet. Each exercise needs sets and reps, like "Squat 3x5" or Sets and Reps columns.')); return; }
       const st = parsed.stats;
@@ -1775,7 +1991,7 @@ function openSheetImport(athleteId) {
     };
     ta.addEventListener('input', paint);
     name.addEventListener('input', () => { if (parsed) parsed.name = name.value.trim() || 'Imported program'; });
-    use.addEventListener('click', () => {
+    if (use) use.addEventListener('click', () => {
       const go = async () => {
         const existing = getProgramForAthlete(athleteId);
         const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name.value.trim() || 'Imported program', weeks: parsed.weeks };
@@ -1798,7 +2014,9 @@ function openSheetImport(athleteId) {
       Store.update(st => { st.programTemplates = st.programTemplates || []; st.programTemplates.push(t); });
       try { await persistAddTemplate(t); } catch (e) { console.error(e); }
       close();
-      toast('Saved as a template');
+      toast(ath ? 'Saved as a template' : 'Saved. Athletes get it in one tap when they join');
+      // The checklist, the builder and the templates list all read the templates.
+      [renderTemplates, renderRoster, loadProgram].forEach(fn => { try { fn(); } catch (e) {} });
     });
     setTimeout(() => { try { ta.focus(); } catch (e) {} }, 350);
   }, { cls: 'imp-sheet' });
@@ -1811,12 +2029,27 @@ function loadProgram() {
   const area = document.getElementById('programArea');
   area.innerHTML = '';
 
+  // Nobody to pick or notify yet: no empty dropdown, no Notify.
+  const notifyBtn = document.getElementById('notifyAthleteBtn');
+  if (notifyBtn) notifyBtn.style.display = athleteId ? '' : 'none';
+  sel.style.display = athleteId ? '' : 'none';
   if (!athleteId) {
-    const e = el('div', { class: 'empty' });
-    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.athletes;
-    e.appendChild(ic); e.appendChild(el('h3', {}, 'No athletes yet'));
-    e.appendChild(el('p', {}, 'Invite athletes first, then come build their programs.'));
-    area.appendChild(e);
+    // Nobody to program for yet: the program comes first, as a template they get on joining.
+    const tplN = (Store.get().programTemplates || []).filter(t => t.coachId === user.id).length;
+    const toTemplates = () => { const t = document.querySelector('[data-tab="templates"]'); if (t) t.click(); };
+    area.appendChild(uiEmpty(tplN ? {
+      icon: ICONS.program,
+      title: 'Your program is ready',
+      text: 'It\'s saved as a template. Once an athlete joins, open them here and apply it in one tap.',
+      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() },
+      secondary: { label: tplN === 1 ? 'See your template' : 'See your ' + tplN + ' templates', onClick: toTemplates }
+    } : {
+      icon: ICONS.program,
+      title: 'Start with your program',
+      text: 'Paste it from your spreadsheet and keep it as a template. Athletes get it in one tap when they join.',
+      primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(null) },
+      secondary: { label: 'Invite an athlete first', onClick: () => openInviteModal() }
+    }));
     return;
   }
 
@@ -2263,11 +2496,12 @@ function renderTemplates() {
   area.innerHTML = '';
   const tpls = (Store.get().programTemplates || []).filter(t => t.coachId === user.id);
   if (!tpls.length) {
-    const e = el('div', { class: 'empty' });
-    const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.copy;
-    e.appendChild(ic); e.appendChild(el('h3', {}, 'No templates yet'));
-    e.appendChild(el('p', {}, 'Open any program in the builder, then click "Save as template" to add one here.'));
-    area.appendChild(e);
+    area.appendChild(uiEmpty({
+      icon: ICONS.copy,
+      title: 'No templates yet',
+      text: 'Paste a program from your spreadsheet, or save any athlete\'s program from the builder. Then give it to anyone in one tap.',
+      primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(null) }
+    }));
     return;
   }
   const grid = el('div', { class: 'template-grid' });
@@ -2455,6 +2689,20 @@ function renderCoachMarketplace() {
     ? coachEarningsSummary(sales)
     : { salesCount: 0, totalEarned: 0, thisMonth: 0, pending: 0, paid: 0, refundCount: 0, refundedCents: 0, perProgram: {} };
   const money = (typeof fmtMoneyCents === 'function') ? fmtMoneyCents : (c => '$' + ((c || 0) / 100).toFixed(2));
+
+  // Nothing listed or sold yet: the pitch, not four tiles of $0.00.
+  if (!programs.length && !sales.length) {
+    const hasTpl = (s.programTemplates || []).some(t => t.coachId === user.id);
+    area.appendChild(uiEmpty({
+      icon: ICONS.bar,
+      title: 'Sell your programs',
+      text: 'List a template for lifters who train on their own. You set the price and keep 80% of every sale.',
+      primary: hasTpl
+        ? { label: 'Go to templates', onClick: () => document.querySelector('[data-tab="templates"]').click() }
+        : { label: 'Paste a program in', onClick: () => openSheetImport(null) }
+    }));
+    return;
+  }
 
   const tiles = el('div', { class: 'stat-grid' });
   [
@@ -2898,7 +3146,7 @@ function renderProgressForAthlete() {
   if (!aid) {
     const hasRoster = Store.get().athletes.some(a => a.coachId === user.id);
     if (hasRoster) { renderRosterAnalytics(); return; }
-    area.appendChild(uiEmpty({ icon: ICONS.chart, title: 'No athletes yet', text: 'Invite an athlete from the Roster tab to see their progress here.' }));
+    area.appendChild(uiEmpty({ icon: ICONS.chart, title: 'No athletes yet', text: 'Every lift, PR and trend for each athlete lands here once they log.', primary: { label: 'Invite an athlete', onClick: () => openInviteModal() } }));
     return;
   }
 

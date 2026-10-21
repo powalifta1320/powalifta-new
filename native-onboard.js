@@ -238,7 +238,18 @@
     var code = h('input', { class: 'ob-input ob-code', type: 'text', maxlength: '6', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', placeholder: 'CODE', 'aria-label': 'Coach code' });
     code.value = st.code;
     code.addEventListener('input', function () { code.value = code.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
-    var codeWrap = h('div', {}, [field('Coach code (optional)', code), h('p', { class: 'ob-fine', style: 'text-align:left;margin:-6px 4px 16px', text: 'No code yet? Skip it and connect from the Coach tab later.' })]);
+    // Paste: the join page copies "POWALIFTA invite code ABC123" on the way to the App Store, and a
+    // coach's message has the link in it. Either way the six-character code comes out of it.
+    var paste = h('button', { class: 'ob-paste', type: 'button', text: 'Paste' });
+    paste.addEventListener('click', function () {
+      if (!(navigator.clipboard && navigator.clipboard.readText)) { code.focus(); return; }
+      navigator.clipboard.readText().then(function (t) {
+        var u = String(t || '').toUpperCase();
+        var m = /\/J\/([A-HJ-NP-Z2-9]{6})\b/.exec(u) || /CODE[:=\s]+([A-HJ-NP-Z2-9]{6})\b/.exec(u) || /^\s*([A-HJ-NP-Z2-9]{6})\s*$/.exec(u);
+        if (m) { code.value = m[1]; haptic('light'); } else { code.focus(); }
+      }).catch(function () { code.focus(); });
+    });
+    var codeWrap = h('div', {}, [field('Coach code (optional)', code, paste), h('p', { class: 'ob-fine', style: 'text-align:left;margin:-6px 4px 16px', text: 'In your invite link or email. No code yet? Skip it and connect from the Coach tab later.' })]);
     codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
     s2.appendChild(codeWrap);
     // Units, asked once: lb for a US phone, kg anywhere else; changeable later under You.
@@ -445,6 +456,21 @@
   window.openSignupModal = function (type) { window.obOpen('signup', { role: type === 'solo' ? null : type }); };
   window.openLoginModal = function () { window.obOpen('login'); };
 
+  // "Open it and join" on the invite page opens powalifta://join?code=ABC123. The native link
+  // catcher (WidgetBridgePlugin) holds the URL; a signed-out welcome screen takes it here and goes
+  // straight to the coached sign-up with the code filled in.
+  function routeAppLink(url) {
+    var m = /^powalifta:\/\/join\?(?:.*&)?code=([A-Za-z0-9]{6})/i.exec(String(url || ''));
+    if (m && !root.classList.contains('has-session')) window.obOpen('signup', { role: 'athlete', code: m[1].toUpperCase() });
+  }
+  function takeAppLink() {
+    try {
+      var P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PowaWidget;
+      if (!P || !P.takePending) return;
+      P.takePending().then(function (r) { if (r && r.open) routeAppLink(r.open); }).catch(function () {});
+    } catch (e) {}
+  }
+
   function boot() {
     initWelcome();
     // Coach invite deep link (index.html?code=ABC123) → straight to the coached sign-up.
@@ -452,6 +478,13 @@
       var code = new URLSearchParams(location.search).get('code');
       if (code && !root.classList.contains('has-session')) window.obOpen('signup', { role: 'athlete', code: code });
     } catch (e) {}
+    if (root.classList.contains('native') && !root.classList.contains('has-session')) {
+      setTimeout(takeAppLink, 400);
+      try {
+        var P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PowaWidget;
+        if (P && P.addListener) P.addListener('widgetOpen', takeAppLink);
+      } catch (e) {}
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

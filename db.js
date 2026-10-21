@@ -10,6 +10,18 @@
 const SUPABASE_URL = 'https://cxnotrikxvzncupswvio.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4bm90cmlreHZ6bmN1cHN3dmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3OTgwNDAsImV4cCI6MjA5MzM3NDA0MH0.fLl1sXdHnI8IeKUIKOB9Sh0HVATCdshcLXZs5oKuCuU';
 
+// A password-reset link that lands anywhere but the reset page goes there first, token and
+// all, before the client below reads it and signs the visitor in. (Supabase falls back to the
+// site's home page when a reset's return address isn't on its allow list; the lifter then saw
+// their account instead of a "choose a new password" page.)
+(function routeRecoveryLink() {
+  try {
+    if (/(^|[#&])type=recovery(&|$)/.test(location.hash) && !/\/reset-password\.html$/.test(location.pathname)) {
+      location.replace('/reset-password.html' + location.hash);
+    }
+  } catch (e) {}
+})();
+
 if (!window.supabase || !window.supabase.createClient) {
   console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
@@ -720,7 +732,10 @@ const DB = {
   // /reset-password.html with a recovery token in the URL hash. Supabase
   // picks the token up automatically when the page loads + the JS client runs.
   async requestPasswordReset(email) {
-    const redirectTo = window.location.origin + '/reset-password.html';
+    // Always the website's reset page: from the iPhone app the origin is capacitor://localhost,
+    // which Supabase rejects (and the email is usually opened on another device anyway).
+    const base = /^https?:$/.test(location.protocol) ? location.origin : 'https://www.powalifta.com';
+    const redirectTo = base + '/reset-password.html';
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
   },

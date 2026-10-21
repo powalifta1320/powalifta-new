@@ -83,7 +83,7 @@ html.native #nativeWelcome::before { display: none; }
 .nw-btn-text { min-height: 50px; background: none; color: #f2f2f4; font-weight: 600; }
 .nw-btn[disabled] { opacity: 0.55; pointer-events: none; }
 .nw2-demo { margin-top: 2px; text-align: center; font-size: 13px; color: #7d7d88; }
-.nw2-demo a { color: #c9c9d2; font-weight: 600; }
+.nw2-demo a, #nativeWelcome .nw2-demo a { color: #d6d6de; font-weight: 600; text-decoration: none; display: inline-block; padding: 8px 3px; margin: -8px 0; }   /* the welcome is always dark; a tap target, not a 14px line */
 
 /* ---------- Vignettes: small live pieces of the real app ---------- */
 .vg { position: relative; width: 100%; max-width: 352px; }
@@ -381,6 +381,21 @@ html.native .nw2-slide { place-items: center; padding: 86px 26px 24px; }
 
 /* Units, asked once at sign-up (2026-10-22): a two-way capsule like the app's segmented controls. */
 .ob-unit { margin-top: 4px; }
+/* The Paste button inside the coach-code field (uses the same wrapper as the password eye). */
+.ob-paste { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #f5f5f7; font: 650 15px/1 var(--font-body, system-ui); cursor: pointer; }
+.ob-paste:active { background: rgba(255, 255, 255, 0.18); }
 .ob-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
 .ob-seg-btn { min-width: 84px; height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: rgba(245, 245, 247, 0.72); font: 650 16px/1 var(--font-body, system-ui); cursor: pointer; transition: background-color 0.2s, color 0.2s; }
 .ob-seg-btn.on { background: #f5f5f7; color: #0b0b0c; }
+
+/* The onboarding's own fields and links, stronger than the app's generic input[type=…] and
+   body.site a rules, which won on specificity: 6px corners and 14px padding in every theme, and
+   in light mode white fields and dark links on this always-dark screen. (2026-10-22) */
+.ob-sheet input.ob-input {
+  padding: 0 18px; border-radius: 16px; background: #121216; border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f6f6f8; font-family: inherit; font-size: 18px; font-weight: 600;
+}
+.ob-sheet input.ob-input.has-eye { padding-right: 58px; }
+.ob-sheet input.ob-input.ob-code { font-size: 24px; font-weight: 800; }
+.ob-sheet input.ob-input:focus { border-color: rgba(255, 255, 255, 0.55); box-shadow: none; }
+.ob-sheet .ob-fine a { color: #c9c9d2; }

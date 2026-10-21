@@ -69,6 +69,9 @@ with checks(n, migration, applied) as (values
                  where table_schema = 'public' and table_name = 'profiles' and column_name = 'billing_provider')),
   (28, '  ...its realtime part (profiles in supabase_realtime)',
         exists (select 1 from pg_publication_tables
-                 where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'profiles'))
+                 where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'profiles')),
+  (29, 'migration-invite-links-2026-10-22.sql',
+        exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+                 where s.nspname = 'public' and p.proname = 'invite_preview'))
 )
 select n, migration, applied from checks order by n;
