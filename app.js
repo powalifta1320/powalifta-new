@@ -6769,7 +6769,8 @@ function renderNav(target) {
       links.appendChild(login);
     }
     navInner.appendChild(links);
-    siteProgramsReady();
+    // The app never shows the website (or the shop), so it never asks.
+    if (!document.documentElement.classList.contains('native')) siteProgramsReady();
   }
 
   const actions = el('div', { class: 'nav-actions ' + (user ? 'auth' : 'guest') });
