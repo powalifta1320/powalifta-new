@@ -12009,3 +12009,7 @@ body.powa-app .tx-set.is-missed { opacity: 0.85; }
 .pg-grid tbody th { font-size: 14px; }
 .fp-detail .fp-today { margin: 4px 0 10px; }
 .pr-moment .prm-num.is-long { font-size: min(88px, 19vw); }   /* "187.5", "1102.5" stay on screen */
+/* Loads line up like a table: the weight right-aligned in a fixed column, so "kg ×" and the reps
+   sit in one column down the card (165 / 165 / 162.5). */
+body.powa-app .tx-set-load > b:first-child { display: inline-block; min-width: 4.6ch; text-align: right; }
+body.powa-app .tx-set-load > .tx-w-input { text-align: right; }
