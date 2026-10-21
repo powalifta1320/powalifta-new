@@ -81,7 +81,7 @@ WHERE n.nspname = 'public' AND NOT t.tgisinternal
   AND t.tgname IN (
     'trg_guard_profile_privileged_cols',
     'trg_enforce_athlete_limit',
-    'trg_mp_prevent_self_publish'
+    'mp_prevent_self_publish_trig'
   )
 ORDER BY c.relname, t.tgname;
 

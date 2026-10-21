@@ -94,7 +94,13 @@ Deno.serve(async (req) => {
     const attrs = data?.attributes || {}
     const lsOrderId = String(data?.id || '')
     const lsEventId = String(payload?.meta?.event_id || lsOrderId) // idempotency key
-    const totalCents = Number(attrs.total) || 0
+    // What the program sold for, in USD cents, before tax and after any discount: the coach's 80%
+    // is worked out on it (attrs.total includes sales tax, which isn't revenue, and is in the
+    // buyer's currency). The price check uses the pre-discount USD subtotal.
+    const cents = (v: unknown): number | null => (v === undefined || v === null || v === '') ? null : (Number(v) || 0)
+    const subtotalUsdCents = cents(attrs.subtotal_usd) ?? cents(attrs.subtotal) ?? (Number(attrs.total) || 0)
+    const discountUsdCents = cents(attrs.discount_total_usd) ?? cents(attrs.discount_total) ?? 0
+    const totalCents = Math.max(0, subtotalUsdCents - discountUsdCents)
     const buyerEmail = String(attrs.user_email || '').toLowerCase().trim()
     // Pull custom_data — we passed user_id + marketplace_program_id in the checkout URL
     const custom = payload?.meta?.custom_data
@@ -143,7 +149,9 @@ Deno.serve(async (req) => {
     // ---- Purchase path (order_created) ------------------------------------
 
     if (!programId) {
-      console.warn('mkt-webhook: no marketplace_program_id in custom_data'); return jsonResponse(400, { error: 'bad request' })
+      // A coach-plan order from the same store (ls-webhook handles those) or a stray one:
+      // acknowledge it, so Lemon Squeezy's delivery log only shows real failures.
+      return jsonResponse(200, { ignored: event, reason: 'not a marketplace order' })
     }
 
     // Idempotency: if we've already recorded this LS event, return success but skip
@@ -196,7 +204,7 @@ Deno.serve(async (req) => {
       if (String(attrs.status || '') !== 'paid') return jsonResponse(200, { ignored: event, reason: 'not paid' })
       const paidVariant = String(attrs?.first_order_item?.variant_id ?? '')
       if (program.ls_variant_id && paidVariant !== String(program.ls_variant_id)) return jsonResponse(400, { error: 'variant does not match the program' })
-      if (totalCents < Number(program.price_cents || 0)) return jsonResponse(400, { error: 'amount below the program price' })
+      if (subtotalUsdCents < Number(program.price_cents || 0)) return jsonResponse(400, { error: 'amount below the program price' })
     }
 
     // Split: coach 80%, platform 20%

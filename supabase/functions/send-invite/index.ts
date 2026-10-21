@@ -146,7 +146,12 @@ Deno.serve(async (req) => {
     .eq('id', caller.user.id)
     .limit(1)
     .single();
-  if (prof?.name) coachName = String(prof.name);
+  // The name is whatever the coach typed: no links, no line breaks, a sane length, so it can't
+  // turn the subject line or the email into someone else's message.
+  if (prof?.name) {
+    const cleaned = String(prof.name).replace(/https?:\/\/\S+/gi, '').replace(/www\.\S+/gi, '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 60);
+    if (cleaned) coachName = cleaned;
+  }
 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) {

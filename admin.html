@@ -483,10 +483,17 @@ function renderCoaches() {
           // Ask PostgREST to return the row so we can tell a real write from an
           // RLS-filtered no-op (0 rows, no error) — the exact silent-failure the
           // missing profiles_admin_update policy caused. `.select()` makes it honest.
-          const { data, error } = await sb.from('profiles')
-            .update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() })
-            .in('id', [c.id])
-            .select('id, subscription_tier');
+          // admin_set_plan (migration-payments-2026-10-22.sql) also clears the biller and the
+          // end date, so a comp never lapses; before that migration, the direct update.
+          let data = null, error = null;
+          const rpc = await sb.rpc('admin_set_plan', { p_user: c.id, p_tier: newTier });
+          if (!rpc.error) data = [{ id: c.id, subscription_tier: rpc.data || newTier }];
+          else if (/PGRST202|Could not find the function/i.test((rpc.error.code || '') + ' ' + (rpc.error.message || ''))) {
+            ({ data, error } = await sb.from('profiles')
+              .update({ subscription_tier: newTier, subscription_updated_at: new Date().toISOString() })
+              .in('id', [c.id])
+              .select('id, subscription_tier'));
+          } else error = rpc.error;
           if (error) throw error;
           if (!data || !data.length) {
             throw new Error('no rows updated (admin RLS policy missing). Run sql/migration-admin-plan-comp.sql');

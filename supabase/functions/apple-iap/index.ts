@@ -20,7 +20,13 @@
 //   - payload.appAccountToken must equal the caller's uid (StoreKitPlugin sets it
 //     at purchase time), so a JWS replayed from another account is rejected.
 //   - bundleId + productId are allowlisted; only user_type='coach' rows are written.
-//   - A live Lemon Squeezy subscription blocks an Apple write (409) — one biller.
+//   - A live Lemon Squeezy subscription blocks an Apple write (409) — one biller. A web plan
+//     that's cancelled (still paid up) doesn't: the coach is moving to the App Store, and
+//     billing_provider then says Apple, so the old web plan's expiry can't take this one away.
+//   - The period end (expiresDate) is stored: the database treats the plan as lapsed 3 days
+//     after it unless a renewal moves it on (migration-payments-2026-10-22.sql).
+//   - The app sends the HIGHEST current entitlement, not the purchase it just made: a
+//     downgrade only takes effect at renewal, so the tier must not drop the moment it's bought.
 //   - Sandbox environment is accepted (App Review + TestFlight purchases are sandbox).
 //
 // Env: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (auto-injected). Optional:
@@ -31,6 +37,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 import { verifyAppleJws } from "../_shared/apple-jws.ts";
+import { lsLive, selectProfilesSoft, updateProfileSoft } from "../_shared/billing.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -79,26 +86,25 @@ Deno.serve(async (req) => {
     return json(400, { error: "bad_json" });
   }
 
-  const { data: profile, error: profErr } = await admin
-    .from("profiles")
-    .select("id, user_type, subscription_tier, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at")
-    .eq("id", uid)
-    .single();
+  const { data: rows, error: profErr } = await selectProfilesSoft(admin,
+    "id, user_type, subscription_tier, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at",
+    (q) => q.eq("id", uid).limit(1));
+  const profile = rows?.[0];
   if (profErr || !profile) return json(404, { error: "profile_not_found" });
 
   // ---- self-downgrade: device reports no active entitlement --------------------
   if (body.action === "clear") {
-    const lsLive = profile.ls_subscription_id &&
-      ["active", "on_trial", "trialing", "past_due"].includes(profile.subscription_status ?? "");
-    if (!profile.apple_original_transaction_id || lsLive) {
+    if (!profile.apple_original_transaction_id || lsLive(profile)) {
       return json(200, { ok: false, reason: "not_apple_billed" });
     }
-    const { error } = await admin.from("profiles").update({
+    const { error } = await updateProfileSoft(admin, uid, {
       subscription_tier: "free",
       subscription_status: "expired",
       apple_original_transaction_id: null,
       subscription_updated_at: new Date().toISOString(),
-    }).eq("id", uid);
+      billing_provider: null,
+      subscription_period_end: new Date().toISOString(),
+    });
     if (error) return json(500, { error: "update_failed" });
     return json(200, { ok: true, tier: "free" });
   }
@@ -142,16 +148,16 @@ Deno.serve(async (req) => {
 
   if (profile.user_type !== "coach") return json(403, { error: "coach_only" });
 
-  const lsLive = profile.ls_subscription_id &&
-    ["active", "on_trial", "trialing", "past_due"].includes(profile.subscription_status ?? "");
-  if (lsLive) return json(409, { error: "web_billing_active" });
+  if (lsLive(profile)) return json(409, { error: "web_billing_active" });
 
-  const { error: upErr } = await admin.from("profiles").update({
+  const { error: upErr } = await updateProfileSoft(admin, uid, {
     subscription_tier: tier,
     subscription_status: "active",
     apple_original_transaction_id: String(payload.originalTransactionId ?? ""),
     subscription_updated_at: new Date(signedMs).toISOString(),
-  }).eq("id", uid);
+    billing_provider: "apple",
+    subscription_period_end: new Date(expiresMs).toISOString(),
+  });
   if (upErr) return json(500, { error: "update_failed" });
 
   return json(200, { ok: true, tier, expiresAt: new Date(expiresMs).toISOString() });

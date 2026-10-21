@@ -47,6 +47,9 @@ struct PowaSnapshot: Codable {
     var todayIdx: Int?          // 0 = Monday (used when weekStart is absent)
     var weighTrend: [Double]?   // the latest weigh-ins, oldest first, display units
     var weighDelta: String?     // "−0.4": against the weigh-in a week before the latest
+    // 2026-10-21 (interactive session widget): up to six sets from the next one on. A set
+    // with a `key` ("exerciseId|setIndex") can be logged from the widget at its planned RPE.
+    var queue: [Next]?
 
     struct Openers: Codable {
         var squat: String?
@@ -59,6 +62,16 @@ struct PowaSnapshot: Codable {
         var load: String?
         var reps: String?
         var rpe: String?
+        var key: String?        // set id the app logs it by; nil = log it in the app
+    }
+
+    /// The set the session widget shows now: the first one in `queue` not yet logged from the
+    /// widget (a set without a key stops the line: it has to be logged in the app).
+    func upNext(after logged: [String]) -> Next? {
+        if let q = queue, !q.isEmpty {
+            return q.first(where: { n in n.key.map { !logged.contains($0) } ?? true })
+        }
+        return logged.isEmpty ? next : nil
     }
 
     static let suite = PowaStore.suite
@@ -77,9 +90,11 @@ struct PowaSnapshot: Codable {
         openers: Openers(squat: "190", bench: "125", deadlift: "230"),
         lastWeight: "83.1", weighedToday: false,
         totalDelta: "+12",
-        next: Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8"),
+        next: Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
         weekStart: nil, weekDays: [1, 0, 1, 0, 0, 0, 0], todayIdx: 3,
-        weighTrend: [83.9, 83.7, 83.8, 83.5, 83.6, 83.4, 83.3, 83.4, 83.2, 83.1], weighDelta: "−0.4")
+        weighTrend: [83.9, 83.7, 83.8, 83.5, 83.6, 83.4, 83.3, 83.4, 83.2, 83.1], weighDelta: "−0.4",
+        queue: [Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
+                Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|5")])
 
     /// The app writes `at` (ms) with every snapshot. Facts tied to a date (weighed today, a rest
     /// day, a finished session) only hold on the UTC day it was written: the app's own day
@@ -131,6 +146,7 @@ enum PowaStore {
     static let draftKey = "powa.weigh.draft"          // Double, display units, the weigh-in widget's dial
     static let loggedKey = "powa.weigh.loggedDate"    // "YYYY-MM-DD": logged from the widget today
     static let pendingKey = "powa.widget.pending"     // JSON [{date, value, unit}] the app still has to save
+    static let setsPendingKey = "powa.widget.pendingSets" // JSON [{key, date}] sets logged from the session widget
     /// The app's dates are UTC days (todayISO() in app.js), so the widgets count days the same way:
     /// a weigh-in logged from the widget lands on the same date the app would give it.
     static let utc: Calendar = {
@@ -152,6 +168,20 @@ enum PowaStore {
         let t = DateComponents(hour: 0, minute: 0, second: 10)
         return [Calendar.current, utc].compactMap { $0.nextDate(after: Date(), matching: t, matchingPolicy: .nextTime) }.min()
             ?? Date().addingTimeInterval(6 * 3600)
+    }
+}
+
+/// Sets logged from the session widget since the app last wrote. Tied to that snapshot's `at`,
+/// so the app's next snapshot (which already counts them) starts the list afresh.
+enum PowaSessionLog {
+    static let key = "powa.session.logged"
+    static func keys(for snap: PowaSnapshot) -> [String] {
+        guard let d = PowaStore.defaults, let obj = d.dictionary(forKey: key),
+              let at = obj["at"] as? Double, at == (snap.at ?? -1) else { return [] }
+        return obj["keys"] as? [String] ?? []
+    }
+    static func save(_ snap: PowaSnapshot, keys: [String]) {
+        PowaStore.defaults?.set(["at": snap.at ?? -1, "keys": keys] as [String: Any], forKey: key)
     }
 }
 

@@ -92,7 +92,11 @@ New in 1.2
 - A bigger PR moment, a lifter card that tilts with your phone, Story-size share cards
 - Meet day: hand in the next attempt on the clock, practise the referee's commands, and the app stops a heavy single in the last ten days
 - Your RPE, checked: which rep ranges you call easier than they are
-- Pick your app icon in plate colours, and a Home Screen widget with your total
+- Pick your app icon in plate colours, and five Home Screen widgets: your total, today's session (log a set right from it on iOS 17), this week, the weigh-in and meet day
+- Your gym's plates: no 25s? Plate math, warm-ups and load jumps use only the plates your gym has
+- Help & support inside the assistant, with a WhatsApp or email hand-off to a real person
+- Exports open the share sheet: save your data to Files or send it with AirDrop
+- Coach plans: manage your subscription without leaving the app
 ```
 
 ## URLs
@@ -198,10 +202,24 @@ Live Activity: after a set is logged, the rest timer shows on the Lock Screen an
    version submission (first-ever IAPs ride along with a binary review).
    App metadata also needs a Terms of Use (EULA) link — Apple's standard EULA
    (linked in App Store Connect's version page) is acceptable.
-7. **Renewal/cancellation sync**: v1 syncs entitlements at purchase, restore,
-   and app-launch (Transaction.currentEntitlements → apple-iap). App Store
-   Server Notifications V2 (a webhook for server-pushed renewals/refunds) is
-   the documented hardening step — add before scale.
+7. **Renewal/cancellation sync** (2026-10-21): the app sends this device's
+   entitlements (Transaction.currentEntitlements, highest plan first) to
+   `apple-iap` at purchase, restore, launch, every resume (at most every 10
+   minutes), after a failed sync (backoff) and after Apple's manage sheet closes
+   (`app.js` `syncAppleEntitlements`). Renewals that land while the app runs come
+   through Transaction.updates (`iapTransaction`, retained until the page
+   listens). **App Store Server Notifications V2 is required, not optional:**
+   the database treats a plan as Free 3 days after its stored period end, so
+   renewals of coaches who never reopen the app must arrive from Apple. Set
+   App Store Connect → App Information → App Store Server Notifications →
+   Production AND Sandbox URL
+   `https://cxnotrikxvzncupswvio.supabase.co/functions/v1/apple-notifications`,
+   Version 2, then Request a Test Notification (it should answer 200).
+8. **Manage subscription** opens Apple's own sheet inside the app
+   (`AppStore.showManageSubscriptions`, StoreKitPlugin `manageSubscriptions`;
+   older builds fall back to apps.apple.com/account/subscriptions). A coach
+   billed on the web sees their plan in the paywall but has no buy buttons:
+   the app says the plan is billed outside the App Store, with no link.
 - **5.1.1 (account deletion):** we have self-serve deletion (Settings → Delete my
   account, the `delete-account` function). Required by Apple. ✅ already built.
 ```

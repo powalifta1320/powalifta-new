@@ -9,25 +9,50 @@ touches card data and never needs a payment processor account.
 
 | Flow | What it is | LS product type | Webhook | Writes |
 |---|---|---|---|---|
-| **Coach subscriptions** | Coaches pay monthly for a higher athlete cap (Basic $25 / Pro $50 / Premium $100) | **Subscription** (3 variants) | `ls-webhook` | `profiles.subscription_tier` + `subscription_status` |
+| **Coach subscriptions** | Coaches pay monthly for a higher athlete cap (Basic $24.99 / Pro $49.99 / Premium $99.99) | **Subscription** ("POWALIFTA Coach Plan", 3 variants) | `ls-webhook` | `profiles.subscription_tier` + `subscription_status` + `billing_provider` + `subscription_period_end` |
 | **Marketplace program sales** | Athletes buy a coach's program one-off | **Single-payment** products (created per listing) | `ls-marketplace-webhook` | `program_sales` row + grants access, 80% `coach_payout_cents` |
 
 Tiers → athlete limits (source of truth `app.js` `TIER_LIMITS`, enforced server-side by
 `enforce_athlete_limit()` trigger): **free 3 / basic 10 / pro 25 / premium unlimited**.
 
-## Coach subscription checkout — how it's wired today
+## Coach subscription checkout — how it's wired today (2026-10-21)
 
-- `app.js` `LS_CHECKOUT_URLS` holds three **hosted checkout URLs** (one per variant). These
-  are already real store URLs (`powalifta.lemonsqueezy.com/checkout/buy/<variant-uuid>`).
+- **Two billers, one at a time.** iPhone app: Apple in-app subscriptions (StoreKit 2,
+  `apple-iap` + `apple-notifications`). Web: Lemon Squeezy hosted checkout (`ls-webhook`).
+  `profiles.billing_provider` (`apple` | `ls` | null) says who bills a coach now; each
+  function ignores events from the other biller, so nobody is charged twice or downgraded
+  by the wrong one.
+- `app.js` `LS_CHECKOUT_URLS` holds the three hosted checkout URLs (one per variant of the
+  product "POWALIFTA Coach Plan"). Checked 2026-10-21: all three load, $24.99 / $49.99 /
+  $99.99 a month, **still in test mode**.
+- `LS_CHECKOUT_LIVE` (app.js, `false` today): while the store is in test mode, the web
+  checkout buttons show only for testers (admins, or a browser that opened any page with
+  `?lstest=1`) and are labelled "(test)". Everyone else is told plans are on sale in the
+  iPhone app. The webhook only honours test-mode events while `LS_ALLOW_TEST=1`, and only
+  for buyers listed in `LS_TEST_EMAILS` when that is set.
 - `buildCheckoutUrl(tier, user)` appends `checkout[email]` (prefill) + `checkout[custom][user_id]`
   (so the webhook can match the sub back to the coach) + `checkout[name]`.
-- `openUpgradeModal()` renders the 3 tier cards → each CTA opens the checkout in a new tab.
-- **Native shell:** the whole upgrade modal + buy paths are gated OFF (Apple 3.1.1 — no
-  external web payment for digital goods). Coaches subscribe on the web.
-- **Instant reflect:** LS checkout is a new tab; when the coach tabs back to `coach.html`
-  the `visibilitychange` handler calls `refreshMyPlan()` → re-reads `profiles` → if the
-  webhook already upgraded them, the roster cap + plan card + dunning banner update with a
-  toast, no reload. (If they're faster than the webhook, next load catches it.)
+- `openUpgradeModal()` (web) decides by biller: a new coach gets checkout; a Lemon Squeezy
+  subscriber's Upgrade/Switch opens the billing portal (a second checkout would create a
+  second subscription); an App Store subscriber is told to change it on their iPhone.
+- `openNativePaywall()` (iPhone): StoreKit products; a coach billed on the web sees their
+  plan but can't buy a second one in the app. Manage subscription opens Apple's own sheet
+  (`AppStore.showManageSubscriptions`, StoreKitPlugin `manageSubscriptions`).
+- **Every device at once:** `startPlanWatch()` (app.js, called by coach.html) re-reads the
+  plan on a realtime UPDATE of the coach's own `profiles` row (the payments migration adds
+  `profiles` to `supabase_realtime`), whenever the app/tab comes back, when the network
+  returns, and every 5 minutes while visible. After a web checkout the plan picker waits
+  on the page and polls every 4 s until the plan lands, then says "You're on Pro".
+- **Apple entitlements:** `syncAppleEntitlements()` sends this device's current App Store
+  entitlements (highest first) to `apple-iap` at launch, on resume (at most every 10 min),
+  after a purchase whose first sync failed (backoff 20 s → 10 min) and after the manage
+  sheet closes. It never clears a plan on its own.
+- **Right duration:** every biller stores `subscription_period_end` (Apple `expiresDate`,
+  LS `renews_at` / `ends_at`). The plan in force is the stored tier until 3 days after
+  that date (`powa_effective_tier()` in SQL, `effectiveTier()` in app.js), so a missed
+  expiry event can't leave a plan on forever. Renewals push the date forward: **LS must
+  send `subscription_updated`**, and Apple must have the Server Notifications URL set,
+  or a paying coach drops to Free 3 days after their first period.
 
 ## To START CHARGING — the checklist
 
@@ -35,7 +60,7 @@ Tiers → athlete limits (source of truth `app.js` `TIER_LIMITS`, enforced serve
 1. **Store** exists at `powalifta.lemonsqueezy.com` (it does — the checkout UUIDs resolve).
 2. **Subscription product with 3 variants** named so `resolveTier()` matches — easiest is
    literally `Basic` / `Pro` / `Premium` (it also fuzzy-matches substrings + falls back to
-   price $25/$50/$100). Confirm each variant's checkout URL equals the UUID in
+   price $24.99/$49.99/$99.99). Confirm each variant's checkout URL equals the UUID in
    `app.js:LS_CHECKOUT_URLS`; if you recreate variants, **update those three URLs**.
 3. **Webhook** → Settings → Webhooks → add endpoint pointing at the deployed function:
    `https://cxnotrikxvzncupswvio.supabase.co/functions/v1/ls-webhook`
@@ -48,6 +73,11 @@ Tiers → athlete limits (source of truth `app.js` `TIER_LIMITS`, enforced serve
    with the **same** signing secret, events `order_created` + `order_refunded`.
 5. **Test mode first:** flip the store to Test, use LS test cards, confirm a `subscription_created`
    lands and the coach's `subscription_tier` flips. Then go Live.
+6. **Going live:** copy the product to live mode in Lemon Squeezy, paste the three live
+   checkout links into `app.js` `LS_CHECKOUT_URLS`, set `LS_CHECKOUT_LIVE = true`, point the
+   live-mode webhook at the same URL with the same secret, delete `LS_ALLOW_TEST` and
+   `LS_TEST_EMAILS` from the function secrets, and update the two "once it opens" lines in
+   `support-kb.js` (coach-plans, upgrade-coach-plan).
 
 ### E2E test checklist (run in LS Test mode before going live)
 Do this end-to-end at least once — the flow has moving parts across client, LS, webhook, and DB.
@@ -59,8 +89,9 @@ Do this end-to-end at least once — the flow has moving parts across client, LS
    as-is** (see caveat below).
 4. **Watch the webhook fire:** Supabase → Edge Functions → `ls-webhook` logs should show
    `success: true, tier: 'pro'`. The coach's `profiles.subscription_tier` should read `pro`.
-5. **Tab back to the coach dashboard** → the `visibilitychange` `refreshMyPlan()` should flip the
-   limit to 25 and toast "Plan updated". Generating more invites should now work.
+5. **Watch the coach dashboard** → the plan picker turns into "You're on Pro" within seconds
+   (realtime or the 4 s poll), the limit flips to 25, and a second signed-in device shows Pro
+   too without a reload. Generating more invites should now work.
 6. **Dunning:** in LS, cancel the test subscription → `subscription_cancelled`/`subscription_status`
    updates → the coach dashboard should show the amber "set to cancel / Resume plan" banner (#35).
 7. **Marketplace** (if selling): buy a listing with a test card → `ls-marketplace-webhook` records a
@@ -100,6 +131,8 @@ The subscription columns + tier-enforcement + privilege guard must exist:
 |---|---|
 | `LEMON_SQUEEZY_WEBHOOK_SECRET` | **required** — both webhooks reject everything without it |
 | `LEMON_SQUEEZY_API_KEY` | optional — `ls-portal` signed billing deep-links; without it, coaches manage billing via the LS email-magic-link portal (works, just an extra click) |
+| `LS_ALLOW_TEST` | `1` while checkouts are in test mode; delete at go-live |
+| `LS_TEST_EMAILS` | comma-separated buyer emails whose test-mode payments count; delete at go-live |
 
 `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are auto-injected — never set them.
 

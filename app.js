@@ -86,7 +86,30 @@ function _wipeLocalUserData() {
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
   try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
 }
+// Stop this device getting the signed-out account's pushes (their coach's messages
+// would otherwise keep arriving for whoever signs in next, and the next account
+// couldn't take over the device's token). Best effort, never more than 2.5 s.
+async function _forgetPushOnThisDevice() {
+  const work = (async () => {
+    if (_isNativeShell()) {
+      let t = window.PowaNative ? PowaNative._token : null;
+      try { t = t || sessionStorage.getItem('powa-push-token'); } catch (e) {}
+      if (t && window.DB) { try { await DB.deletePushSubscription(t); } catch (e) {} }
+      if (window.PowaNative) { PowaNative._subscribed = false; PowaNative._token = null; }
+      try { sessionStorage.removeItem('powa-push-token'); } catch (e) {}
+    } else if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+      if (sub) {
+        try { if (window.DB) await DB.deletePushSubscription(sub.endpoint); } catch (e) {}
+        try { await sub.unsubscribe(); } catch (e) {}
+      }
+    }
+  })().catch(() => {});
+  await Promise.race([work, new Promise(r => setTimeout(r, 2500))]);
+}
 async function logout() {
+  if (!window._demoMode) await _forgetPushOnThisDevice();
   _wipeLocalUserData();
   try { await DB.signOut(); } catch (e) { console.warn(e); }
   window._user = null;
@@ -103,6 +126,9 @@ window._demoMode = /[?&]demo=1/.test(location.search);
 
 function _buildDemoData() {
   const DA = 'demo-athlete', DC = 'demo-coach';
+  // ?demo=1&solo=1: the same lifter training on their own (no coach, a self-written program,
+  // no coach notes or messages), for the solo flows: Program builder, Find a coach, library.
+  const SOLO = /[?&]solo=1/.test(location.search);
   const iso = d => d.toISOString().slice(0, 10);
   const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
   // Deterministic jitter so the demo looks organic but identical every load
@@ -110,7 +136,7 @@ function _buildDemoData() {
 
   const user = {
     id: DA, name: 'Demo Lifter', email: 'demo@powalifta.com', bio: '',
-    coachId: DC, userType: 'athlete', isAdmin: false,
+    coachId: SOLO ? null : DC, userType: 'athlete', isAdmin: false,
     subscriptionTier: 'free', subscriptionStatus: 'inactive', avatarUrl: null, countryCode: null,
     instagram: 'demo.lifter',
     tiktok: 'demo.lifter',
@@ -205,7 +231,7 @@ function _buildDemoData() {
       ]
     });
   }
-  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: DC, name: 'Strength Block · Wave 2', weeks }];
+  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: SOLO ? DA : DC, name: 'Strength Block · Wave 2', weeks }];
 
   const sessionNotes = [
     // Dated TODAY so the live session leads with the "Coach feedback" card —
@@ -237,8 +263,10 @@ function _buildDemoData() {
     user: user,
     store: {
       coaches, athletes: [], invites: [], programs, programTemplates: [],
-      workoutLogs, bodyweight, sessionNotes, goals, restDays, checkins, messages, meets,
-      messageReactions: [{ messageId: 'demo-amsg-2a', userId: DC, reaction: 'fire' }],
+      workoutLogs, bodyweight, restDays, meets,
+      sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
+      goals, checkins: SOLO ? [] : checkins, messages: SOLO ? [] : messages,
+      messageReactions: SOLO ? [] : [{ messageId: 'demo-amsg-2a', userId: DC, reaction: 'fire' }],
       marketplacePrograms: [], mySales: [], myPurchases: []
     }
   };
@@ -254,6 +282,8 @@ function _buildCoachDemoData() {
     id: DC, name: 'Demo Coach', email: 'demo-coach@powalifta.com', bio: 'This is your seat.',
     coachId: null, userType: 'coach', isAdmin: false,
     subscriptionTier: 'pro', subscriptionStatus: 'active', avatarUrl: null, countryCode: null,
+    billingProvider: document.documentElement.classList.contains('native') ? 'apple' : 'ls',  // no TDZ-prone helper this early
+    subscriptionPeriodEnd: new Date(Date.now() + 19 * 864e5).toISOString(),
     referralCode: 'COACH7', referredByCode: null
   };
 
@@ -528,13 +558,21 @@ async function bootstrap(expectedType, onReady, opts) {
     tiktok: profile.tiktok || null,
     referralCode: profile.referral_code || null,
     referredByCode: profile.referred_by_code || null,
-    // Apple-billed coach sub (IAP)? Drives which "manage" surface shows on iOS.
-    appleBilled: !!profile.apple_original_transaction_id
+    // Who bills the coach's plan ('apple' | 'ls' | null) and when its paid period
+    // ends: getCurrentTier() treats the plan as Free 3 days after that.
+    billingProvider: billingProviderOf(profile),
+    subscriptionPeriodEnd: profile.subscription_period_end || null,
+    appleTxn: !!profile.apple_original_transaction_id,
+    appleBilled: billingProviderOf(profile) === 'apple'
   };
 
   // Remember the role so the app can open straight into the right dashboard next
   // launch (index.html head script) instead of flashing the welcome screen.
   try { localStorage.setItem('powa-last-role', profile.user_type); } catch (e) {}
+
+  // iPhone app: refresh this device's push registration without a prompt when
+  // notifications are already allowed (tokens rotate; the settings screen reads it).
+  try { if (window.PowaNative && PowaNative.restorePush) PowaNative.restorePush(); } catch (e) {}
 
   // If a referral was stashed before this user signed up / logged in, attribute
   // it now (own-row write, idempotent + write-once server-side). Fire-and-forget
@@ -707,7 +745,7 @@ const PowaPush = {
     return typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.length > 20;
   },
   permission() {
-    if (_isNativeShell()) return PowaNative._perm === 'granted' ? 'granted' : 'default';
+    if (_isNativeShell()) return PowaNative._perm === 'granted' || PowaNative._perm === 'denied' ? PowaNative._perm : 'default';
     return this.supported() ? Notification.permission : 'unsupported';
   },
   async isSubscribed() {
@@ -724,8 +762,10 @@ const PowaPush = {
     // of Web Push. The rest of the app (Settings toggle, send-push) is unchanged.
     if (_isNativeShell()) {
       if (window._demoMode) { toast('Notifications need a real account'); return false; }
+      try { localStorage.removeItem('powa-push-off'); } catch (e) {}
       const ok = await PowaNative.registerPush();
-      toast(ok ? 'Notifications on' : 'Couldn’t enable notifications: check iOS Settings › POWALIFTA');
+      try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
+      toast(ok ? 'Notifications on' : 'Couldn’t turn them on. Allow notifications in iPhone Settings → Notifications → POWALIFTA.');
       return ok;
     }
     if (!this.supported()) { toast('Notifications are not supported on this browser'); return false; }
@@ -780,6 +820,7 @@ const PowaPush = {
       // server stops targeting this device. Full mute is in iOS/Android Settings.
       try { if (window.DB && PowaNative._token) await DB.deletePushSubscription(PowaNative._token); } catch (e) {}
       PowaNative._subscribed = false;
+      try { localStorage.setItem('powa-push-off', '1'); sessionStorage.removeItem('powa-push-token'); } catch (e) {}   // the launch refresh respects this
       toast('Notifications off');
       return true;
     }
@@ -1144,19 +1185,29 @@ const TIER_LABELS = {
   pro: 'Pro',
   premium: 'Premium'
 };
+// Monthly USD, exactly as the Lemon Squeezy checkout and the App Store charge them
+// (checked against the live checkout pages 2026-10-21).
 const TIER_PRICES = {
-  basic: 25,
-  pro: 50,
-  premium: 100
+  basic: 24.99,
+  pro: 49.99,
+  premium: 99.99
 };
+// Lemon Squeezy checkouts are still in TEST mode (the 4242 card works, real cards
+// don't). Until the store goes live, web checkout opens only for testers: admins, or
+// a browser that once opened any page with ?lstest=1. Everyone else is pointed at the
+// iPhone app. Going live: copy the products to live mode in Lemon Squeezy, paste the
+// live checkout links below, set this to true, and delete LS_ALLOW_TEST and
+// LS_TEST_EMAILS from the edge function secrets.
+const LS_CHECKOUT_LIVE = false;
 const LS_CHECKOUT_URLS = {
   basic:   'https://powalifta.lemonsqueezy.com/checkout/buy/d9320c9a-e603-402c-b2c0-f88189ccde14',
   pro:     'https://powalifta.lemonsqueezy.com/checkout/buy/20e2ec1f-744c-46c9-8a86-62fa13bcb899',
   premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/a5dbff0b-9950-4831-ab91-99e10d20c3a0'
 };
+const TIER_RANK = { free: 0, basic: 1, pro: 2, premium: 3 };
 
 // Build checkout URL with prefilled email + the coach's user id as custom data
-// so the (future) webhook can match the subscription back to the right coach.
+// so the webhook can match the subscription back to the right coach.
 function buildCheckoutUrl(tier, user) {
   const base = LS_CHECKOUT_URLS[tier];
   if (!base) return '#';
@@ -1167,9 +1218,59 @@ function buildCheckoutUrl(tier, user) {
   return base + '?' + params.toString();
 }
 
+// Can this browser open the web checkout? Always once the store is live; before
+// that only testers (the server ignores test-mode payments from anyone else).
+function _lsCheckoutOpen(u) {
+  if (LS_CHECKOUT_LIVE) return true;
+  if (u && u.isAdmin) return true;
+  try {
+    if (/[?&]lstest=1(&|$)/.test(location.search)) localStorage.setItem('powa-ls-test', '1');
+    return localStorage.getItem('powa-ls-test') === '1';
+  } catch (e) { return false; }
+}
+
+// Who bills this coach now: 'apple', 'ls' or null (free, complimentary or lapsed).
+// Reads profiles.billing_provider once migration-payments-2026-10-22.sql has run,
+// and makes the migration's own guess from the stored ids before it. Pure.
+function billingProviderOf(p) {
+  if (!p) return null;
+  if (Object.prototype.hasOwnProperty.call(p, 'billing_provider')) {
+    return p.billing_provider === 'apple' || p.billing_provider === 'ls' ? p.billing_provider : null;
+  }
+  const st = String(p.subscription_status || '');
+  if (p.apple_original_transaction_id && st === 'active') return 'apple';
+  if (p.ls_subscription_id && ['active', 'on_trial', 'trialing', 'past_due', 'cancelled', 'paused'].indexOf(st) >= 0) return 'ls';
+  return null;
+}
+
+// The plan in force: the stored tier until 3 days after the paid period ends, the
+// same rule as powa_effective_tier() in the database, so the app never offers a slot
+// the server would refuse. A plan with no end date (complimentary) never lapses. Pure.
+function effectiveTier(tier, periodEnd, nowMs) {
+  const t = Object.prototype.hasOwnProperty.call(TIER_LIMITS, tier) ? tier : 'free';
+  if (!periodEnd || t === 'free') return t;
+  const end = Date.parse(periodEnd);
+  if (!isFinite(end)) return t;
+  return end < (nowMs == null ? Date.now() : nowMs) - 3 * 864e5 ? 'free' : t;
+}
+
 function getCurrentTier() {
   const u = getCurrentUser();
-  return u?.subscriptionTier || 'free';
+  if (!u) return 'free';
+  return effectiveTier(u.subscriptionTier || 'free', u.subscriptionPeriodEnd);
+}
+// Who is billing this coach right now, as the server's one-biller checks see it
+// (_shared/billing.ts lsLive / appleLive). It decides what can be bought, never the
+// athlete limit: a lapsed plan in force doesn't end a subscription the store is still
+// retrying. Apple's billing retry clears billing_provider, so an Apple subscription that
+// is past due still counts as Apple's. Pure.
+function billerNow(u) {
+  if (!u) return null;
+  const s = String(u.subscriptionStatus || '').toLowerCase();
+  if (u.billingProvider === 'ls' && ['active', 'on_trial', 'trialing', 'past_due'].indexOf(s) >= 0) return 'ls';
+  if (u.billingProvider === 'apple' && s === 'active') return 'apple';
+  if (!u.billingProvider && u.appleTxn && s === 'past_due') return 'apple';
+  return null;
 }
 function getCurrentTierLimit() {
   return TIER_LIMITS[getCurrentTier()] || 3;
@@ -1189,8 +1290,27 @@ function canAddAthlete(coachId) {
   return getOccupiedSlots(coachId) < getCurrentTierLimit();
 }
 
+// "$24.99" as a big whole number with small cents, the way price tags read.
+function _priceNode(n) {
+  const [whole, cents] = Number(n).toFixed(2).split('.');
+  return el('div', { class: 'upgrade-price' }, '$' + whole,
+    cents !== '00' ? el('span', { class: 'cents' }, '.' + cents) : null,
+    el('span', { class: 'unit' }, '/mo'));
+}
+// "12 Nov" for a plan's renewal or end date ('' when there isn't one).
+function _planDate(iso) {
+  const t = Date.parse(iso || '');
+  if (!isFinite(t)) return '';
+  try { return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); } catch (e) { return ''; }
+}
+const APPLE_MANAGE_STEPS = 'Settings → your name → Subscriptions';
+
 // =========================================================
-// UPGRADE MODAL — shown when coach hits cap or clicks Upgrade
+// UPGRADE MODAL — the web's plan picker (the iPhone app uses the StoreKit paywall).
+// Who bills the coach decides what it offers: a new coach gets Lemon Squeezy
+// checkout, a Lemon Squeezy subscriber switches in the billing portal (a second
+// checkout would charge twice), and an App Store subscriber is sent to their
+// iPhone. After a checkout it waits on the page until the plan lands.
 // =========================================================
 function ensureUpgradeModal() {
   if (document.getElementById('upgradeModal')) return;
@@ -1199,20 +1319,30 @@ function ensureUpgradeModal() {
     '<div class="modal-backdrop" id="upgradeModal">' +
       '<div class="modal modal-lg">' +
         '<button class="modal-close" aria-label="Close" onclick="closeModal(\'upgradeModal\')">&times;</button>' +
-        '<h3 id="upgradeTitle">Choose your plan</h3>' +
-        '<p class="dim text-sm mb-16" id="upgradeSubtitle">Scale your coaching as your roster grows. Cancel anytime from Lemon Squeezy.</p>' +
-        '<div class="upgrade-grid" id="upgradeTiers"></div>' +
-        '<p class="faded text-xs center mt-16">Payment handled securely by Lemon Squeezy. After purchase, your plan updates within minutes.</p>' +
+        '<div id="upgradeChoose">' +
+          '<h3 id="upgradeTitle">Choose your plan</h3>' +
+          '<p class="dim text-sm mb-16" id="upgradeSubtitle"></p>' +
+          '<div class="upgrade-grid" id="upgradeTiers"></div>' +
+          '<p class="faded text-xs center mt-16" id="upgradeFoot"></p>' +
+        '</div>' +
+        '<div class="upgrade-wait" id="upgradeWait" hidden></div>' +
       '</div>' +
     '</div>';
   document.body.appendChild(wrap.firstChild);
 }
 
+function _showUpgradeChoose() {
+  const c = document.getElementById('upgradeChoose');
+  const w = document.getElementById('upgradeWait');
+  if (c) c.hidden = false;
+  if (w) { w.hidden = true; w.innerHTML = ''; }
+}
+
 function openUpgradeModal(reason) {
   const u = getCurrentUser();
   if (!u) return;
-  // Native shell: tiers are now purchasable IN-APP via StoreKit (Apple 3.1.1
-  // compliant), so the paywall may show — but ONLY when StoreKit is actually
+  // Native shell: tiers are purchasable IN-APP via StoreKit (Apple 3.1.1
+  // compliant), so the paywall may show, but ONLY when StoreKit is actually
   // available (window._iapReady, set by native-bridge). Old iOS / missing
   // plugin → stay fully tier-blind: neutral cap message, nothing else. The web
   // Lemon Squeezy modal below never renders in the shell either way.
@@ -1222,51 +1352,154 @@ function openUpgradeModal(reason) {
     return;
   }
   ensureUpgradeModal();
+  _planWait = null;
+  _showUpgradeChoose();
+  const current = getCurrentTier();
+  const biller = billerNow(u);
+  const appleSub = biller === 'apple';
+  // A Lemon Squeezy plan that is live, retrying, cancelled-but-paid or paused changes in its
+  // portal (resume, switch, fix the card): a second checkout would be a second subscription.
+  const lsSub = biller === 'ls' || u.billingProvider === 'ls';
+  const canCheckout = _lsCheckoutOpen(u);
+  // The plan they subscribe to (a card being retried can drop the plan in force to Free).
+  const mine = (lsSub || appleSub) && u.subscriptionTier && u.subscriptionTier !== 'free' && TIER_LIMITS[u.subscriptionTier] ? u.subscriptionTier : current;
+
+  const title = document.getElementById('upgradeTitle');
+  const sub = document.getElementById('upgradeSubtitle');
+  const foot = document.getElementById('upgradeFoot');
   if (reason === 'cap') {
-    document.getElementById('upgradeTitle').textContent = 'You\'ve hit your plan limit';
+    title.textContent = 'You\'ve hit your plan limit';
     const aCount = getAthleteCount(u.id);
     const pCount = getPendingInviteCount(u.id);
     let breakdown = aCount + ' athlete' + (aCount === 1 ? '' : 's');
     if (pCount > 0) breakdown += ' + ' + pCount + ' pending invite' + (pCount === 1 ? '' : 's');
-    document.getElementById('upgradeSubtitle').innerHTML =
-      'Your <strong>' + TIER_LABELS[getCurrentTier()] + '</strong> plan supports up to ' +
-      getCurrentTierLimit() + ' athletes. You\'re at ' + breakdown + '. Upgrade to add more.';
+    sub.textContent = 'Your ' + (TIER_LABELS[current] || 'Free') + ' plan supports up to ' +
+      getCurrentTierLimit() + ' athletes. You\'re at ' + breakdown + '.';
   } else {
-    document.getElementById('upgradeTitle').textContent = 'Choose your plan';
-    document.getElementById('upgradeSubtitle').textContent = 'Scale your coaching as your roster grows. Cancel anytime from Lemon Squeezy.';
+    title.textContent = 'Choose your plan';
+    sub.textContent = 'Scale your coaching as your roster grows. Athletes always train free.';
   }
+  foot.textContent = appleSub
+    ? 'Your plan is billed through the App Store. Change or cancel it on your iPhone: ' + APPLE_MANAGE_STEPS + '.'
+    : lsSub
+      ? 'Switch plans in the secure billing portal. Your new limit applies here the moment it\'s confirmed.'
+      : canCheckout
+        ? 'Secure checkout by Lemon Squeezy' + (LS_CHECKOUT_LIVE ? '' : ' (test mode: use the 4242 test card)') + '. Your plan switches on here the moment it\'s paid.'
+        : 'Coach plans are on sale now in the POWALIFTA iPhone app: You → Plan & billing. Web checkout opens soon.';
+
   const tiers = [
-    { key: 'basic',   limit: 10,   price: 25,  blurb: 'Solo coach, growing roster.' },
-    { key: 'pro',     limit: 25,   price: 50,  blurb: 'Full-time independent coach.', featured: true },
-    { key: 'premium', limit: 9999, price: 100, blurb: 'Studios, teams, federations.' }
+    { key: 'basic',   blurb: 'Solo coach, growing roster.' },
+    { key: 'pro',     blurb: 'Full-time independent coach.', featured: true },
+    { key: 'premium', blurb: 'Studios, teams, federations.' }
   ];
   const grid = document.getElementById('upgradeTiers');
   grid.innerHTML = '';
-  const current = getCurrentTier();
   tiers.forEach(t => {
-    const isCurrent = t.key === current;
+    const limit = TIER_LIMITS[t.key];
+    const isCurrent = t.key === mine;
     const card = el('div', { class: 'upgrade-tier' + (t.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
-    if (t.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'POPULAR'));
+    if (t.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'Popular'));
     card.appendChild(el('h4', {}, TIER_LABELS[t.key]));
-    card.appendChild(el('div', { class: 'upgrade-price' }, '$' + t.price, el('span', { class: 'unit' }, '/mo')));
-    card.appendChild(el('div', { class: 'upgrade-limit' }, t.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + t.limit + ' athletes'));
+    card.appendChild(_priceNode(TIER_PRICES[t.key]));
+    card.appendChild(el('div', { class: 'upgrade-limit' }, limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + limit + ' athletes'));
     card.appendChild(el('p', { class: 'upgrade-blurb' }, t.blurb));
+    const verb = mine === 'free' ? 'Subscribe' : (TIER_RANK[t.key] > TIER_RANK[mine] ? 'Upgrade' : 'Switch');
+    // One red action: the featured plan for a new coach, upgrades for a paying one.
+    const ctaCls = 'btn btn-block ' + ((mine === 'free' ? t.featured : TIER_RANK[t.key] > TIER_RANK[mine]) ? 'btn-primary' : 'ui-btn-soft');
     if (isCurrent) {
-      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', style: 'opacity:0.6; cursor: default;' }, 'Current plan'));
-    } else {
-      const cta = el('a', {
-        class: 'btn btn-primary btn-block',
-        href: buildCheckoutUrl(t.key, u),
-        target: '_blank',
-        rel: 'noopener'
-      }, current === 'free' ? 'Subscribe' : (TIER_PRICES[t.key] > (TIER_PRICES[current] || 0) ? 'Upgrade' : 'Switch'));
-      card.appendChild(cta);
+      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', type: 'button' }, 'Current plan'));
+    } else if (appleSub) {
+      // nothing to press here: App Store plans change on the iPhone
+    } else if (lsSub) {
+      const b = el('button', { class: ctaCls, type: 'button' }, verb);
+      b.addEventListener('click', () => {
+        if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+        openBillingPortal();
+        _awaitPlanChange(t.key, 'portal');
+      });
+      card.appendChild(b);
+    } else if (canCheckout) {
+      const a = el('a', { class: ctaCls, href: buildCheckoutUrl(t.key, u), target: '_blank', rel: 'noopener' },
+        verb + (LS_CHECKOUT_LIVE ? '' : ' (test)'));
+      a.addEventListener('click', (e) => {
+        if (window._demoMode) { e.preventDefault(); toast('Preview only in demo mode.'); return; }
+        _awaitPlanChange(t.key, 'checkout');
+      });
+      card.appendChild(a);
     }
     grid.appendChild(card);
   });
   document.getElementById('upgradeModal').classList.add('open');
 }
 window.openUpgradeModal = openUpgradeModal;
+
+// After a checkout (or a switch in the billing portal) opens in another tab, the
+// modal waits here. The webhook usually lands within seconds; realtime brings it
+// sooner, and a poll every few seconds covers browsers where realtime is off.
+let _planWait = null;
+function _awaitPlanChange(tierKey, via) {
+  const box = document.getElementById('upgradeWait');
+  const choose = document.getElementById('upgradeChoose');
+  if (!box || !choose) return;
+  const token = {};
+  _planWait = { tier: tierKey, from: getCurrentTier(), fromKey: _planKey(getCurrentUser() || {}), token };
+  choose.hidden = true;
+  box.hidden = false;
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'upgrade-wait-ring', 'aria-hidden': 'true' }));
+  box.appendChild(el('h3', {}, via === 'portal' ? 'Finish in the billing portal' : 'Finish checkout in the new tab'));
+  box.appendChild(el('p', { class: 'dim text-sm' },
+    'Your ' + (TIER_LABELS[tierKey] || '') + ' plan switches on here the moment it\'s paid. You can leave this open.'));
+  const status = el('p', { class: 'faded text-xs upgrade-wait-status', role: 'status', 'aria-live': 'polite' }, 'Waiting for the payment…');
+  box.appendChild(status);
+  const row = el('div', { class: 'upgrade-wait-actions' });
+  const back = el('button', { class: 'btn btn-ghost', type: 'button' }, 'Back to plans');
+  back.addEventListener('click', () => { _planWait = null; _showUpgradeChoose(); });
+  const check = el('button', { class: 'btn', type: 'button' }, 'I\'ve paid');
+  check.addEventListener('click', async () => {
+    check.disabled = true;
+    status.textContent = 'Checking…';
+    await refreshMyPlan(true);
+    check.disabled = false;
+    if (_planWait && _planWait.token === token) status.textContent = 'Not through yet. Payments usually land within a minute.';
+  });
+  row.appendChild(back);
+  row.appendChild(check);
+  box.appendChild(row);
+  const started = Date.now();
+  const tick = async () => {
+    if (!_planWait || _planWait.token !== token) return;
+    const modal = document.getElementById('upgradeModal');
+    if (!modal || !modal.classList.contains('open') || Date.now() - started > 20 * 60 * 1000) { _planWait = null; return; }
+    if (document.visibilityState === 'visible') await refreshMyPlan(true);
+    if (_planWait && _planWait.token === token) setTimeout(tick, 4000);
+  };
+  setTimeout(tick, 4000);
+}
+
+// Called with every plan change: if the modal is waiting, show the result there.
+function _settlePlanWait(detail) {
+  const w = _planWait;
+  if (!w) return;
+  const u = getCurrentUser() || {};
+  if (_planKey(u) === w.fromKey) return;
+  const box = document.getElementById('upgradeWait');
+  const modal = document.getElementById('upgradeModal');
+  _planWait = null;
+  if (!box || !modal || !modal.classList.contains('open')) return;
+  const now = getCurrentTier();
+  const limit = TIER_LIMITS[now] || 3;
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'upgrade-wait-ring done', 'aria-hidden': 'true' }));
+  box.appendChild(el('h3', {}, now === 'free' ? 'You\'re on Free' : 'You\'re on ' + (TIER_LABELS[now] || now)));
+  box.appendChild(el('p', { class: 'dim text-sm' }, limit >= 9999 ? 'Unlimited athletes. Invite away.' : 'Up to ' + limit + ' athletes on your roster.'));
+  const row = el('div', { class: 'upgrade-wait-actions' });
+  const ok = el('button', { class: 'btn btn-primary', type: 'button' }, 'Done');
+  ok.addEventListener('click', () => closeModal('upgradeModal'));
+  row.appendChild(ok);
+  box.appendChild(row);
+  if (detail) detail.shown = true;
+}
 
 // =========================================================
 // NATIVE PAYWALL — StoreKit In-App Purchase (iOS shell only)
@@ -1311,13 +1544,21 @@ async function openNativePaywall(reason) {
   if (window._demoMode) { toast('Preview only in demo mode.'); return; }
   ensureIapPaywall();
   const grid = document.getElementById('iapPaywallTiers');
-  if (reason === 'cap') {
+  const current = getCurrentTier();
+  // A plan billed outside the App Store can't be changed here: buying one would
+  // charge twice. Say so plainly, with no link and no other way to buy (3.1.1).
+  const billedElsewhere = billerNow(u) === 'ls' || (u.billingProvider === 'ls' && current !== 'free');
+  if (billedElsewhere) {
+    document.getElementById('iapPaywallTitle').textContent = 'Your plan';
+    document.getElementById('iapPaywallSubtitle').textContent =
+      'Your ' + (TIER_LABELS[current] || '') + ' plan is billed outside the App Store, so it can\'t be changed in the app.';
+  } else if (reason === 'cap') {
     document.getElementById('iapPaywallTitle').textContent = 'You\'ve hit your plan limit';
     document.getElementById('iapPaywallSubtitle').textContent =
-      'Your roster is full on the ' + (TIER_LABELS[getCurrentTier()] || 'Free') + ' plan. Upgrade to add more athletes.';
+      'Your roster is full on the ' + (TIER_LABELS[current] || 'Free') + ' plan. Upgrade to add more athletes.';
   } else {
     document.getElementById('iapPaywallTitle').textContent = 'Choose your plan';
-    document.getElementById('iapPaywallSubtitle').textContent = 'Scale your coaching as your roster grows.';
+    document.getElementById('iapPaywallSubtitle').textContent = 'Scale your coaching as your roster grows. Athletes always train free.';
   }
   grid.innerHTML = '<p class="dim text-sm">Loading plans…</p>';
   document.getElementById('iapPaywallModal').classList.add('open');
@@ -1329,7 +1570,6 @@ async function openNativePaywall(reason) {
     return;
   }
   grid.innerHTML = '';
-  const current = getCurrentTier();
   // Stable order: basic → pro → premium regardless of App Store response order.
   const ordered = Object.keys(IAP_TIER_META)
     .map(id => products.find(p => p.id === id)).filter(Boolean);
@@ -1337,15 +1577,17 @@ async function openNativePaywall(reason) {
     const meta = IAP_TIER_META[p.id];
     const isCurrent = meta.key === current;
     const card = el('div', { class: 'upgrade-tier' + (meta.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
-    if (meta.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'POPULAR'));
+    if (meta.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'Popular'));
     card.appendChild(el('h4', {}, TIER_LABELS[meta.key] || p.displayName));
     card.appendChild(el('div', { class: 'upgrade-price' }, p.displayPrice, el('span', { class: 'unit' }, '/mo')));
     card.appendChild(el('div', { class: 'upgrade-limit' }, meta.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + meta.limit + ' athletes'));
     card.appendChild(el('p', { class: 'upgrade-blurb' }, meta.blurb));
     if (isCurrent) {
-      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', style: 'opacity:0.6; cursor: default;' }, 'Current plan'));
-    } else {
-      const cta = el('button', { class: 'btn btn-primary btn-block' }, current === 'free' ? 'Subscribe' : 'Switch');
+      card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', type: 'button' }, 'Current plan'));
+    } else if (!billedElsewhere) {
+      const label = current === 'free' ? 'Subscribe' : (TIER_RANK[meta.key] > TIER_RANK[current] ? 'Upgrade' : 'Switch');
+      const primary = current === 'free' ? meta.featured : TIER_RANK[meta.key] > TIER_RANK[current];
+      const cta = el('button', { class: 'btn btn-block ' + (primary ? 'btn-primary' : 'ui-btn-soft'), type: 'button', 'data-label': label }, label);
       cta.addEventListener('click', () => iapBuy(p.id, cta));
       card.appendChild(cta);
     }
@@ -1356,26 +1598,42 @@ async function openNativePaywall(reason) {
 async function iapBuy(productId, btn) {
   const u = getCurrentUser();
   if (!u) return;
+  const label = (btn && btn.getAttribute('data-label')) || 'Subscribe';
   if (btn) { btn.disabled = true; btn.textContent = 'Waiting for App Store…'; }
-  const done = (label) => { if (btn) { btn.disabled = false; btn.textContent = label || 'Subscribe'; } };
+  const done = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
+  const chosen = (IAP_TIER_META[productId] || {}).key;
   try {
     const res = await PowaNative.iapPurchase(productId, u.id);
     if (res.state === 'cancelled') { done(); return; }
-    if (res.state === 'pending') { done(); toast('Purchase pending approval.'); return; }
+    if (res.state === 'pending') { done(); toast('Purchase pending approval. Your plan switches on once it\'s approved.'); return; }
     if (res.state !== 'purchased' || !res.jws) { done(); toast('Purchase didn\'t complete: nothing was charged.'); return; }
     if (btn) btn.textContent = 'Activating…';
-    const sync = await DB.appleIapSync(res.jws);
+    // What the device is entitled to now is the truth: an upgrade applies at once, a
+    // downgrade only at renewal (StoreKit may hand back the new, lower plan's transaction).
+    let sync = await syncAppleEntitlements(true);
+    if (!sync || (!sync.ok && !/web_billing_active|account_mismatch/.test(String(sync.reason || '')))) sync = await DB.appleIapSync(res.jws);
     if (sync.ok) {
-      await refreshMyPlan();
+      await refreshMyPlan(true);
       closeModal('iapPaywallModal');
-      toast('You\'re on ' + (TIER_LABELS[sync.tier] || sync.tier) + '. Welcome aboard.');
-      try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
-      try { const box = document.getElementById('setPlanBox'); if (box && box.offsetParent) renderPlanManageCard(box); } catch (e) {}
+      let now = getCurrentTier();
+      if (now === 'free' && sync.tier && TIER_LIMITS[sync.tier]) now = sync.tier;   // the re-read failed: the server's answer
+      if (chosen && now !== chosen && TIER_RANK[chosen] < TIER_RANK[now]) {
+        toast((TIER_LABELS[chosen] || chosen) + ' starts at your next renewal. ' + (TIER_LABELS[now] || now) + ' stays on until then.');
+      } else {
+        toast('You\'re on ' + (TIER_LABELS[now] || now) + '. Welcome aboard.');
+      }
     } else if (sync.reason === 'web_billing_active') {
-      done(); toast('This account already has an active plan.');
+      done();
+      toast('Your plan is already billed outside the App Store. To avoid paying twice, cancel this subscription in ' + APPLE_MANAGE_STEPS + '.');
+    } else if (sync.reason === 'account_mismatch') {
+      done();
+      toast('This Apple ID\'s subscription belongs to a different POWALIFTA account. Log in with that account to use it.');
     } else {
-      // Purchase exists on Apple's side; the entitlement re-syncs on next launch.
-      done(); toast('Purchased: activating shortly.');
+      // Apple has the purchase: keep sending this device's entitlements until the
+      // server takes it (syncAppleEntitlements retries with backoff).
+      done();
+      toast('Purchased. Your plan switches on in a moment.');
+      syncAppleEntitlements(true);
     }
   } catch (e) {
     done(); toast('Purchase failed: nothing was charged.');
@@ -1386,16 +1644,15 @@ async function iapRestorePurchases(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
   const done = () => { if (btn) { btn.disabled = false; btn.textContent = 'Restore Purchases'; } };
   try {
-    const ents = await PowaNative.iapRestore();
+    const ents = _rankEntitlements(await PowaNative.iapRestore());
     if (!ents.length) { done(); toast('No active subscription found for this Apple ID.'); return; }
     let mismatch = false;
     for (const ent of ents) {
       const sync = await DB.appleIapSync(ent.jws);
       if (sync.ok) {
-        await refreshMyPlan();
+        await refreshMyPlan(true);
         closeModal('iapPaywallModal');
-        toast('Subscription restored: you\'re on ' + (TIER_LABELS[sync.tier] || sync.tier) + '.');
-        try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+        toast('Subscription restored: you\'re on ' + (TIER_LABELS[getCurrentTier()] || getCurrentTier()) + '.');
         done(); return;
       }
       if (sync.reason === 'account_mismatch') mismatch = true;
@@ -1404,9 +1661,54 @@ async function iapRestorePurchases(btn) {
     toast(mismatch ? 'That subscription belongs to a different POWALIFTA account.' : 'Couldn\'t restore. Try again later.');
   } catch (e) { done(); toast('Couldn\'t restore. Try again later.'); }
 }
+
+// The coach plans this device holds, highest first (unknown products dropped).
+function _rankEntitlements(ents) {
+  const rank = (e) => TIER_RANK[(IAP_TIER_META[e && e.productId] || {}).key] || 0;
+  return (ents || []).filter(e => e && e.jws && rank(e) > 0).sort((a, b) => rank(b) - rank(a));
+}
+
+// Apple-billed plans: this device's App Store entitlements are the truth. They go to
+// apple-iap at launch, on resume (at most every 10 minutes) and again with backoff
+// after a failed sync, so a renewal, an upgrade or a purchase whose first sync
+// failed always reaches the server. Highest plan first. It never clears a plan on
+// its own: an empty list can mean StoreKit is still loading, another Apple ID or
+// Family Sharing; plans end through Apple's notifications and the period end.
+let _appleSyncAt = 0, _appleSyncBusy = false, _appleRetry = 0, _appleRetryTimer = null;
+async function syncAppleEntitlements(force) {
+  const u = getCurrentUser();
+  if (!u || u.userType !== 'coach' || window._demoMode || !_isNativeShell() || !window._iapReady) return null;
+  if (_appleSyncBusy) return null;
+  if (!force && Date.now() - _appleSyncAt < 10 * 60 * 1000) return null;
+  _appleSyncBusy = true;
+  _appleSyncAt = Date.now();
+  let result = null, transient = false;
+  try {
+    const ents = _rankEntitlements(await PowaNative.iapEntitlements());
+    for (const ent of ents) {
+      const res = await DB.appleIapSync(ent.jws);
+      if (res.ok) { result = res; break; }
+      const why = String(res.reason || '');
+      // The account can't take an App Store plan: retrying won't change that.
+      if (/account_mismatch|web_billing_active|coach_only/.test(why)) { result = res; break; }
+      // This one transaction is done for (expired, refunded): try the next.
+      if (/expired|revoked|unknown_product|invalid_transaction/.test(why)) continue;
+      transient = true; // offline, a 5xx, the rate limit: try again shortly
+    }
+    if (result && result.ok) { _appleRetry = 0; await refreshMyPlan(true); }
+  } catch (e) { transient = true; }
+  finally { _appleSyncBusy = false; }
+  if (transient && !(result && result.ok) && _appleRetry < 4) {
+    const wait = [20, 60, 180, 600][_appleRetry++] * 1000;
+    clearTimeout(_appleRetryTimer);
+    _appleRetryTimer = setTimeout(() => syncAppleEntitlements(true), wait);
+  }
+  return result;
+}
 window.openNativePaywall = openNativePaywall;
 window.iapBuy = iapBuy;
 window.iapRestorePurchases = iapRestorePurchases;
+window.syncAppleEntitlements = syncAppleEntitlements;
 
 // =========================================================
 // SUBSCRIPTION MANAGEMENT (#34) — for EXISTING subscribers
@@ -1444,24 +1746,25 @@ window.subscriptionStatusInfo = subscriptionStatusInfo;
 
 // Tone → colour for the status badge (theme-aware where a token exists).
 function _subStatusColor(tone) {
-  if (tone === 'ok')   return 'var(--green)';
-  if (tone === 'bad')  return 'var(--red)';
+  if (tone === 'ok')   return 'var(--ok, var(--green))';
+  if (tone === 'bad')  return 'var(--brand-red)';   // --red is ink inside the app
   return '#f5a623'; // warn — amber, reads on both themes
 }
 
-// Open the Lemon Squeezy customer portal. Opens the tab synchronously (so the
-// popup blocker doesn't eat it after the await), then upgrades the URL to the
-// signed per-subscription deep link if the ls-portal function returns one.
+// Open where this coach's plan is managed. Web: the Lemon Squeezy customer portal
+// (the tab opens synchronously so the popup blocker doesn't eat it after the await,
+// then upgrades to the signed per-subscription link if ls-portal returns one).
+// iPhone app: Apple's own manage-subscriptions sheet for App Store plans (that's
+// IAP management, not external purchasing); web-billed plans get nothing here,
+// since naming the website would be steering (3.1.1).
 async function openBillingPortal() {
   if (window._demoMode) { toast('Preview only in demo mode.'); return; }
-  // Native shell: Apple-billed subs manage through Apple's own subscription
-  // sheet (that's IAP management, not external purchasing — allowed). Web-billed
-  // subs get nothing here — naming the website would be steering (3.1.1).
   if (_isNativeShell()) {
     const nu = getCurrentUser();
-    if (nu && nu.appleBilled) {
-      try { window.open('https://apps.apple.com/account/subscriptions', '_blank'); } catch (e) {}
-    }
+    if (!nu || nu.billingProvider !== 'apple') return;
+    const shown = window.PowaNative && PowaNative.iapManage ? await PowaNative.iapManage() : false;
+    if (!shown) { try { window.open('https://apps.apple.com/account/subscriptions', '_blank'); } catch (e) {} }
+    else { syncAppleEntitlements(true); refreshMyPlan(true); }   // they may have just switched or cancelled
     return;
   }
   const tab = window.open('', '_blank'); // reserve the tab inside the click gesture
@@ -1475,71 +1778,98 @@ async function openBillingPortal() {
 }
 window.openBillingPortal = openBillingPortal;
 
-// Settings-modal card: current plan + status + usage + manage buttons.
-// Coaches only (athletes never subscribe) — clears the box for everyone else.
-// Follows the same async-fill pattern as renderReferralCard / renderEmailPrefs.
-function renderPlanManageCard(container) {
-  const u = getCurrentUser();
+// Plan & billing card (You → Plan & billing, and the settings modal): the plan in
+// force, its status and dates, roster usage, and the one way to change it for
+// whoever bills this coach. Coaches only. `opts.close` closes the sheet the card
+// sits in before the plan picker opens. Re-rendered on every plan change.
+function renderPlanManageCard(container, opts) {
   if (!container) return;
-  // Athletes never subscribe — collapse the box entirely (no stray hairline/gap).
-  // Native shell: shows ONLY when StoreKit IAP is live (window._iapReady) —
-  // tiers are then purchasable in-app, which is what makes displaying them
-  // 3.1.1-compliant. No StoreKit → stay tier-blind and collapse.
+  const u = getCurrentUser();
+  opts = opts || container._planOpts || {};
+  container._planOpts = opts;
+  container.setAttribute('data-plan-card', '');
+  // Athletes never subscribe, and the shell stays tier-blind without StoreKit.
   if (!u || u.userType !== 'coach' || (_isNativeShell() && !window._iapReady)) { container.innerHTML = ''; container.style.display = 'none'; return; }
   container.style.display = '';
   const native = _isNativeShell();
-
   const tier = getCurrentTier();
+  const stored = Object.prototype.hasOwnProperty.call(TIER_LIMITS, u.subscriptionTier) ? u.subscriptionTier : 'free';
+  const biller = billerNow(u);
+  const provider = u.billingProvider || (biller === 'apple' ? 'apple' : null);
+  // A store still retrying the card hasn't ended the plan, even once the plan in force is Free.
+  const lapsed = stored !== 'free' && tier === 'free' && !biller;
+  const comped = tier !== 'free' && !provider && !u.subscriptionPeriodEnd;
+  const status = String(u.subscriptionStatus || '').toLowerCase();
   const limit = getCurrentTierLimit();
   const occupied = getOccupiedSlots(u.id);
-  const info = tier !== 'free' ? subscriptionStatusInfo(u.subscriptionStatus) : null;
-  const badge = info
-    ? '<span style="display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;' +
-      'font-size:11px;font-weight:700;letter-spacing:0.02em;vertical-align:middle;' +
-      'color:' + _subStatusColor(info.tone) + ';border:1px solid ' + _subStatusColor(info.tone) + ';' +
-      'background:transparent">' + escHtml(info.label) + '</span>'
+
+  let info = null;
+  if (biller) info = subscriptionStatusInfo(status) || { label: 'Active', tone: 'ok' };
+  else if (lapsed) info = { label: 'Ended', tone: 'warn' };
+  else if (comped) info = { label: 'Complimentary', tone: 'ok' };
+  else if (tier !== 'free') info = subscriptionStatusInfo(status) || { label: 'Active', tone: 'ok' };
+
+  const end = _planDate(u.subscriptionPeriodEnd);
+  let when = '';
+  if (end && lapsed) when = 'Ended ' + end + '. You\'re on Free now.';
+  else if (end && tier !== 'free' && status === 'cancelled') when = 'Ends ' + end + ', then Free.';
+  else if (end && tier !== 'free' && (status === 'active' || status === 'on_trial')) when = 'Renews ' + end + '.';
+  else if (!end && tier !== 'free' && status === 'cancelled') when = 'Stays on until the end of this period, then Free.';
+
+  // Card trouble: Lemon Squeezy's portal on the web; Apple's own payment settings for App Store plans.
+  const problem = info && info.tone === 'bad'
+    ? (provider === 'ls'
+        ? (native ? '' : 'We couldn\'t take your last payment. Update your card in the billing portal to keep your plan.')
+        : provider === 'apple' ? 'Apple couldn\'t renew your plan. Update your payment method on your iPhone: Settings → your name → Payment & Shipping.' : '')
     : '';
 
-  const usage = 'Using ' + occupied + ' of ' + (limit >= 9999 ? 'unlimited' : limit) +
-    ' athlete slot' + (limit === 1 ? '' : 's') + '.';
+  const toPicker = () => {
+    if (opts.close) { opts.close(); setTimeout(() => openUpgradeModal(), 230); }
+    else { try { closeSettingsModal(); } catch (e) {} openUpgradeModal(); }
+  };
+  const btn = (label, cls, fn) => { const b = el('button', { class: 'btn ' + cls, type: 'button' }, label); b.addEventListener('click', fn); return b; };
+  const buttons = [];
+  let note = '';
+  if (provider !== 'apple' && provider !== 'ls' && tier === 'free') {
+    buttons.push(btn('See plans', 'btn-primary', toPicker));
+  } else if (comped) {
+    note = 'Nothing to pay. This plan is on the house.';
+  } else if (provider === 'apple') {
+    if (native) {
+      buttons.push(btn('Change plan', 'ui-btn-soft', toPicker));
+      buttons.push(btn('Manage subscription', 'ui-btn-soft', () => openBillingPortal()));
+      note = 'Billed through your Apple ID. Cancel or switch anytime.';
+    } else {
+      note = 'Billed through the App Store. Change or cancel it on your iPhone: ' + APPLE_MANAGE_STEPS + '.';
+    }
+  } else if (provider === 'ls') {
+    if (!native) {
+      buttons.push(btn('Change plan', 'ui-btn-soft', toPicker));
+      buttons.push(btn('Manage billing', 'ui-btn-soft', () => openBillingPortal()));
+      note = 'Update your card, switch plans or cancel in the secure Lemon Squeezy portal.';
+    }
+  }
 
-  // Payment-problem statuses get a one-line nudge in danger tone. The card-update
-  // copy is Lemon Squeezy-specific — suppressed on native (Apple runs its own
-  // billing retry + grace period for IAP subs).
-  const problem = !native && info && info.tone === 'bad'
-    ? '<p class="text-xs" style="margin:8px 0 0;color:' + _subStatusColor('bad') + ';line-height:1.5">' +
-      'We couldn\'t take your last payment. Update your card in the billing portal to keep your plan.</p>'
-    : (info && info.tone === 'warn' && u.subscriptionStatus === 'cancelled'
-        ? '<p class="dim text-xs" style="margin:8px 0 0;line-height:1.5">' +
-          'Your plan stays active until the end of the current period, then reverts to Free.</p>'
-        : '');
-
-  const changeLabel = tier === 'free' ? 'See plans' : 'Change plan';
-  // Manage button: web → LS billing portal. Native → Apple's own subscription
-  // management, and ONLY for Apple-billed subs (a web-billed sub viewed on iOS
-  // gets no manage affordance at all — pointing at the website is steering).
-  const manageBtn = tier !== 'free' && (!native || u.appleBilled)
-    ? '<button class="btn btn-block btn-ghost" onclick="openBillingPortal()">' +
-      (native ? 'Manage subscription' : 'Manage billing') + '</button>'
-    : '';
-
-  container.innerHTML =
-    '<p class="dim text-sm mb-8">Your plan</p>' +
-    '<div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin-bottom:4px">' +
-      '<span style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800;font-size:22px;letter-spacing:0.01em">' +
-        escHtml((TIER_LABELS[tier] || 'Free').toUpperCase()) + '</span>' + badge +
-    '</div>' +
-    '<p class="dim text-xs" style="line-height:1.5">' + escHtml(usage) + '</p>' +
-    problem +
-    '<div class="flex gap-8 mt-12">' +
-      '<button class="btn btn-block btn-ghost" onclick="closeSettingsModal();openUpgradeModal()">' + changeLabel + '</button>' +
-      manageBtn +
-    '</div>' +
-    (tier !== 'free' && !native
-      ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Update your card, switch plans, or cancel. All in the secure Lemon Squeezy portal.</p>'
-      : (tier !== 'free' && native && u.appleBilled
-          ? '<p class="dim text-xs mt-8" style="opacity:.7;line-height:1.5">Billed through your Apple ID. Cancel or switch anytime in your App Store settings.</p>'
-          : ''));
+  container.innerHTML = '';
+  const head = el('div', { class: 'plan-card-head' });
+  head.appendChild(el('span', { class: 'plan-card-tier' }, TIER_LABELS[tier] || 'Free'));
+  if (info) head.appendChild(el('span', { class: 'plan-card-badge tone-' + info.tone }, info.label));
+  container.appendChild(head);
+  const lines = el('div', { class: 'plan-card-lines' });
+  // Over the limit after a plan ends: everyone already on the roster stays (the
+  // database only refuses new links), so say that instead of "5 of 3".
+  lines.appendChild(el('p', {}, limit < 9999 && occupied > limit
+    ? occupied + ' athletes on a plan for ' + limit + '. Everyone stays; adding more needs a bigger plan.'
+    : 'Using ' + occupied + ' of ' + (limit >= 9999 ? 'unlimited' : limit) + ' athlete slots.'));
+  if (when) lines.appendChild(el('p', {}, when));
+  container.appendChild(lines);
+  if (problem) container.appendChild(el('p', { class: 'plan-card-problem' }, problem));
+  if (buttons.length) {
+    const row = el('div', { class: 'plan-card-actions' });
+    buttons.forEach(b => row.appendChild(b));
+    container.appendChild(row);
+  }
+  if (note) container.appendChild(el('p', { class: 'plan-card-note' }, note));
 }
 window.renderPlanManageCard = renderPlanManageCard;
 
@@ -1565,7 +1895,11 @@ window.renderPlanManageCard = renderPlanManageCard;
 function dunningInfo() {
   const u = getCurrentUser();
   if (!u || u.userType !== 'coach') return null;
-  const tier = getCurrentTier();
+  // Lemon Squeezy plans only: the banner's buttons open its portal, which can't fix an App
+  // Store subscription (Apple runs its own retries). A card the store is still retrying
+  // keeps its banner even after the plan in force has dropped to Free.
+  if (u.billingProvider !== 'ls') return null;
+  const tier = Object.prototype.hasOwnProperty.call(TIER_LIMITS, u.subscriptionTier) ? u.subscriptionTier : 'free';
   if (tier === 'free') return null; // nothing to dun on the free plan
   const status = String(u.subscriptionStatus || '').toLowerCase();
   const label = TIER_LABELS[tier] || 'your';
@@ -1798,32 +2132,79 @@ function _clearSnapshot(uid) {
 // offline cache reflects anything logged this session.
 function _snapshotNow() { if (window._user) _saveSnapshot(window._user, Store.get()); }
 
-// Re-read the signed-in user's subscription fields from the DB and reconcile the
-// in-memory user. This is how a coach's athlete-limit reflects a payment WITHOUT a
-// full reload: LS checkout opens in a new tab, the webhook writes subscription_tier,
-// and when the coach tabs back here we pull the fresh tier so canAddAthlete() and the
-// plan card update immediately. Returns true if the tier/status actually changed.
-// No-ops in demo mode and for signed-out/unknown users; never throws into the caller.
-async function refreshMyPlan() {
-  try {
-    const u = window._user;
-    if (!u || !u.id || window._demoMode) return false;
-    if (!(typeof DB !== 'undefined' && DB.getProfile)) return false;
-    const p = await DB.getProfile(u.id);
-    if (!p) return false;
-    const nextTier = p.subscription_tier || 'free';
-    const nextStatus = p.subscription_status || 'inactive';
-    const changed = nextTier !== u.subscriptionTier || nextStatus !== u.subscriptionStatus;
-    u.subscriptionTier = nextTier;
-    u.subscriptionStatus = nextStatus;
-    u.appleBilled = !!p.apple_original_transaction_id;
-    if (changed) {
-      try { _saveSnapshot(u, Store.get()); } catch (e) {}
+// Re-read the signed-in coach's plan from the database and reconcile the in-memory
+// user. Fires 'powa:plan' (detail.tier) when anything about the plan changed, so
+// every open surface re-renders: that is how a plan bought on one device reaches
+// the others. One request at a time; unforced calls within 2 s reuse the last
+// answer. No-ops in demo mode and for signed-out users; never throws. Returns true
+// when the plan changed.
+let _planFetch = null, _planFetchedAt = 0, _planDirty = false;
+function _planKey(u) { return [u.subscriptionTier, u.subscriptionStatus, u.billingProvider, u.subscriptionPeriodEnd].join('|'); }
+async function refreshMyPlan(force) {
+  const u = window._user;
+  if (!u || !u.id || window._demoMode) return false;
+  if (!(typeof DB !== 'undefined' && DB.getProfile)) return false;
+  // A forced call while a read is in flight may follow a write that read predates (a realtime
+  // nudge): read once more when this one finishes.
+  if (_planFetch) { if (force) _planDirty = true; return _planFetch; }
+  if (!force && Date.now() - _planFetchedAt < 2000) return false;
+  _planFetch = (async () => {
+    try {
+      const p = await DB.getProfile(u.id);
+      if (!p) return false;
+      const before = _planKey(u);
+      u.subscriptionTier = p.subscription_tier || 'free';
+      u.subscriptionStatus = p.subscription_status || 'inactive';
+      u.billingProvider = billingProviderOf(p);
+      u.subscriptionPeriodEnd = p.subscription_period_end || null;
+      u.appleTxn = !!p.apple_original_transaction_id;
+      u.appleBilled = u.billingProvider === 'apple';
+      const changed = _planKey(u) !== before;
+      if (changed) {
+        try { _saveSnapshot(u, Store.get()); } catch (e) {}
+        const detail = { tier: getCurrentTier(), shown: false };
+        try { _settlePlanWait(detail); } catch (e) {}
+        try { document.querySelectorAll('[data-plan-card]').forEach(b => renderPlanManageCard(b)); } catch (e) {}
+        // An open plan picker shows the plan as it was: draw it again (unless it is showing the result).
+        try {
+          const pm = document.getElementById('upgradeModal');
+          if (!detail.shown && pm && pm.classList.contains('open') && !_planWait && !_isNativeShell()) openUpgradeModal();
+        } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('powa:plan', { detail })); } catch (e) {}
+      }
+      return changed;
+    } catch (e) { return false; }
+    finally {
+      _planFetchedAt = Date.now(); _planFetch = null;
+      if (_planDirty) { _planDirty = false; setTimeout(() => { refreshMyPlan(true); }, 0); }
     }
-    return changed;
-  } catch (e) { return false; }
+  })();
+  return _planFetch;
 }
 window.refreshMyPlan = refreshMyPlan;
+
+// Keep a coach's plan live on this device: realtime on their own profiles row (on
+// once migration-payments-2026-10-22.sql adds profiles to the publication), a
+// refresh whenever the app or tab comes back, one when the network returns, a slow
+// poll while visible (realtime can drop on a sleeping laptop), and, in the iPhone
+// app, this device's App Store entitlements. Call once per page after sign-in.
+let _planWatchOn = false;
+function startPlanWatch() {
+  const u = getCurrentUser();
+  if (_planWatchOn || !u || u.userType !== 'coach' || window._demoMode) return;
+  _planWatchOn = true;
+  try { if (typeof DB !== 'undefined' && DB.subscribeMyProfile) DB.subscribeMyProfile(u.id, () => refreshMyPlan(true)); } catch (e) {}
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    refreshMyPlan();
+    syncAppleEntitlements();
+  });
+  window.addEventListener('focus', () => refreshMyPlan());
+  window.addEventListener('online', () => refreshMyPlan(true));
+  setInterval(() => { if (document.visibilityState === 'visible') refreshMyPlan(); }, 5 * 60 * 1000);
+  syncAppleEntitlements(true);
+}
+window.startPlanWatch = startPlanWatch;
 window.addEventListener('pagehide', _snapshotNow);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _snapshotNow(); });
 
@@ -2743,14 +3124,16 @@ async function renderNotifPrefs(container) {
   try { prefs = await DB.getEmailPrefs(u.id); }
   catch (e) { prefs = { pushMessages: true, pushFormChecks: true, pushProgram: true }; }
 
-  const perm = supported ? PowaPush.permission() : 'unsupported';
+  let perm = supported ? PowaPush.permission() : 'unsupported';
   let on = false;
   if (supported && perm === 'granted') { try { on = await PowaPush.isSubscribed(); } catch (e) {} }
 
   const deviceHtml = () => {
     const wrap = (inner) => '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">' + inner + '</div>';
     if (!supported) return wrap('<span class="dim text-xs">This browser doesn’t support push. On iPhone, add POWALIFTA to your Home Screen to get alerts.</span>');
-    if (perm === 'denied') return wrap('<span class="dim text-xs">Alerts are blocked: turn notifications back on for POWALIFTA in your browser settings.</span>');
+    if (perm === 'denied') return wrap('<span class="dim text-xs">' + (_isNativeShell()
+      ? 'Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.'
+      : 'Alerts are blocked: turn notifications back on for POWALIFTA in your browser settings.') + '</span>');
     return wrap(
       '<span class="text-sm">' + (on ? '🔔 Alerts on for this device' : '🔕 Off on this device') + '</span>' +
       '<button class="btn btn-sm ' + (on ? 'btn-ghost' : 'btn-primary') + '" id="npDeviceBtn" type="button">' +
@@ -2770,7 +3153,8 @@ async function renderNotifPrefs(container) {
       dbtn.disabled = true;
       if (on) { await PowaPush.disable(); }
       else { const ok = await PowaPush.enable(); if (ok) PowaPush.test(); }
-      on = (supported && PowaPush.permission() === 'granted') ? await PowaPush.isSubscribed() : false;
+      perm = supported ? PowaPush.permission() : 'unsupported';
+      on = (supported && perm === 'granted') ? await PowaPush.isSubscribed() : false;
       paint();
     });
 
@@ -2817,23 +3201,56 @@ window.copyReferralLink = copyReferralLink;
 // =========================================================
 // Gathers everything in the Store that belongs to the current user and
 // downloads it client-side. No server round-trip, works in demo mode.
+function _anchorDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+}
+const _inAppShell = () => document.documentElement.classList.contains('native') || _isNativeShell();
+// The iPhone app's WKWebView ignores <a download> on blob URLs, so nothing would
+// be saved there. Inside the app a generated file goes to the iOS share sheet
+// instead (Save to Files, AirDrop, Mail). Resolves 'shared' once the sheet is
+// done, false when nothing was saved: the sheet was closed (say nothing), or the
+// app can't share files, so we try the old download and point to the website.
+async function _shareFileInApp(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return 'shared'; }
+    catch (e) {
+      // AbortError: the sheet was closed. InvalidStateError: one is already open.
+      if (e && (e.name === 'AbortError' || e.name === 'InvalidStateError')) return false;
+      // NotAllowedError: the tap went stale (a slow image render), so ask for a fresh one.
+      if (e && e.name === 'NotAllowedError') {
+        return new Promise(res => toastAction('Your file is ready', 'Save', () => _shareFileInApp(blob, filename).then(res)));
+      }
+      console.error('share', e);
+    }
+  }
+  try { _anchorDownload(blob, filename); } catch (e) { console.error('download', e); }
+  toast("Couldn't save the file in the app. Export it from powalifta.com instead.", 5000);
+  return false;
+}
+// Resolves 'downloaded' (browser) or 'shared' (app) once the file is out, so the
+// caller toasts then, or false when it isn't.
 function _downloadBlob(filename, mime, text) {
   try {
     const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
-    return true;
-  } catch (e) { console.error('download', e); return false; }
+    if (_inAppShell()) return _shareFileInApp(blob, filename);
+    _anchorDownload(blob, filename);
+    return Promise.resolve('downloaded');
+  } catch (e) { console.error('download', e); return Promise.resolve(false); }
 }
 function _csvEscape(v) {
   if (v == null) return '';
-  const s = String(v);
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  let s = String(v);
+  // A cell that starts like a formula (=, +, -, @) runs as one when the file is opened in Excel or
+  // Sheets, and names come from other people: make it text. Plain numbers ("-2.5") stay numbers.
+  if (/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 function buildExportPayload() {
   const u = getCurrentUser();
@@ -2899,15 +3316,15 @@ function exportMyData(format) {
     const csv = _logsToCsv();
     const lines = csv.split('\n').length - 1;
     if (lines < 1) return toast('No training logs to export yet');
-    if (_downloadBlob('powalifta-logs-' + safe + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv)) {
-      toast('Exported ' + lines + ' set' + (lines === 1 ? '' : 's') + ' as CSV');
-    }
+    _downloadBlob('powalifta-logs-' + safe + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv).then(done => {
+      if (done) toast('Exported ' + lines + ' set' + (lines === 1 ? '' : 's') + ' as CSV');
+    });
   } else {
     const payload = buildExportPayload();
     if (!payload) return;
-    if (_downloadBlob('powalifta-export-' + safe + '-' + stamp + '.json', 'application/json', JSON.stringify(payload, null, 2))) {
-      toast('Your data archive is downloading');
-    }
+    _downloadBlob('powalifta-export-' + safe + '-' + stamp + '.json', 'application/json', JSON.stringify(payload, null, 2)).then(done => {
+      if (done) toast(done === 'shared' ? 'Exported your data archive' : 'Your data archive is downloading');
+    });
   }
 }
 window.exportMyData = exportMyData;
@@ -2972,9 +3389,9 @@ function exportProgramCsv(athleteId, athleteName) {
   const stamp = new Date().toISOString().slice(0, 10);
   const base = (athleteName || u.name || 'powalifta').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'athlete';
   const csv = buildProgramCsv(program);
-  if (_downloadBlob('powalifta-program-' + base + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv)) {
-    toast('Exported ' + setCount + ' set' + (setCount === 1 ? '' : 's') + ' to spreadsheet');
-  }
+  _downloadBlob('powalifta-program-' + base + '-' + stamp + '.csv', 'text/csv;charset=utf-8', csv).then(done => {
+    if (done) toast('Exported ' + setCount + ' set' + (setCount === 1 ? '' : 's') + ' to spreadsheet');
+  });
 }
 window.buildProgramCsv = buildProgramCsv;
 window.exportProgramCsv = exportProgramCsv;
@@ -3098,7 +3515,7 @@ window.fmtMoneyCents = fmtMoneyCents;
 //   Conversion = paying coaches ÷ all coaches.
 function computePlatformAnalytics(profiles, sales, opts) {
   opts = opts || {};
-  const prices = opts.tierPrices || { basic: 25, pro: 50, premium: 100 };
+  const prices = opts.tierPrices || TIER_PRICES;
   const weeks = opts.weeks || 12;
   const now = opts.now ? new Date(opts.now) : new Date();
   const nowMs = now.getTime();
@@ -4185,7 +4602,7 @@ function smartNextLoad(prev, next, unit) {
   } else {
     raw = pw / rpeLoadPct(pr, felt) * rpeLoadPct(nr, nt);
   }
-  const step = unit === 'lbs' ? 5 * KG_PER_LB : 2.5;
+  const step = loadStepKg(unit);   // the gym's smallest jump (2.5 kg / 5 lb with every plate)
   const kg = Math.round(raw / step) * step;
   if (!(kg > 0)) return null;
   if (planned > 0 && Math.abs(kg - planned) < step / 2) return null;
@@ -4200,23 +4617,25 @@ function planWeight(set) { return set && set.plannedWeight != null ? set.planned
 // 270 kg) or 45 lb plates on a 45 lb bar (135 / 225 / 315 / 405 / 495 lb).
 // Pure: unit-tested in tests.html.
 // =========================================================
-function plateCountFor(kg, unit) {
+// `big` is the plate counted (25 kg / 45 lb unless the gym has no 25s: then 20 kg,
+// so "2 plates" is the 100 kg a lifter there actually loads).
+function plateCountFor(kg, unit, big) {
   const w = Number(kg) || 0;
-  const n = unit === 'lbs' ? Math.floor((w / KG_PER_LB - 45 + 0.5) / 90) : Math.floor((w - 20 + 0.01) / 50);
+  const n = unit === 'lbs' ? Math.floor((w / KG_PER_LB - 45 + 0.5) / (2 * (big || 45))) : Math.floor((w - 20 + 0.01) / (2 * (big || 25)));
   return Math.max(0, Math.min(8, n));
 }
-function plateMilestoneKg(n, unit) { return unit === 'lbs' ? (45 + 90 * n) * KG_PER_LB : 20 + 50 * n; }
-function newPlateMilestone(prevBestKg, newKg, unit) {
-  const now = plateCountFor(newKg, unit);
-  return now >= 1 && now > plateCountFor(prevBestKg || 0, unit) ? now : null;
+function plateMilestoneKg(n, unit, big) { return unit === 'lbs' ? (45 + 2 * (big || 45) * n) * KG_PER_LB : 20 + 2 * (big || 25) * n; }
+function newPlateMilestone(prevBestKg, newKg, unit, big) {
+  const now = plateCountFor(newKg, unit, big);
+  return now >= 1 && now > plateCountFor(prevBestKg || 0, unit, big) ? now : null;
 }
 // Every milestone a lifter holds on the big three, with the day it first happened.
-function plateClub(logs, athleteId, unit) {
+function plateClub(logs, athleteId, unit, big) {
   const out = { squat: [], bench: [], deadlift: [] }, best = { squat: 0, bench: 0, deadlift: 0 };
   (logs || []).filter(l => l && l.athleteId === athleteId && out[l.lift] && Number(l.weight) > 0)
     .slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .forEach(l => {
-      const before = plateCountFor(best[l.lift], unit), now = plateCountFor(l.weight, unit);
+      const before = plateCountFor(best[l.lift], unit, big), now = plateCountFor(l.weight, unit, big);
       for (let n = before + 1; n <= now; n++) out[l.lift].push({ n, date: l.date, kg: Number(l.weight) });
       if (Number(l.weight) > best[l.lift]) best[l.lift] = Number(l.weight);
     });
@@ -4295,7 +4714,7 @@ function readinessLoad(kg, level, unit) {
   const r = READINESS[level];
   const w = Number(kg) || 0;
   if (!r || r.factor === 1 || !(w > 0)) return null;
-  const step = unit === 'lbs' ? 5 * KG_PER_LB : 2.5;
+  const step = loadStepKg(unit);
   // Nearest loadable weight to 95%; if that rounds back up to the plan, one step down.
   let out = Math.round(w * r.factor / step) * step;
   if (out >= w) out = Math.floor(w * r.factor / step) * step;
@@ -4492,8 +4911,11 @@ function meetDots(meet, sex) {
 }
 
 // =========================================================
-// PLATE CALCULATOR
-// (assumes 20kg bar, common kg plates)
+// PLATE CALCULATOR + YOUR GYM'S PLATES (2026-10-21)
+// Not every gym has 25 kg plates (or 1.25s, or 15s). The lifter turns off the
+// plates their gym doesn't have; plate math, the bar pictures, the Train and
+// Lift mode plate chips, warm-ups and every load jump use only the rest.
+// Per device: localStorage 'powa-gym' = { kg: [...], lbs: [...], bar: 'standard'|'womens' }.
 // =========================================================
 const PLATE_SIZES = [25, 20, 15, 10, 5, 2.5, 1.25];
 const BAR_KG = 20;
@@ -4501,15 +4923,87 @@ const BAR_KG = 20;
 const PLATE_SIZES_LB = [45, 35, 25, 10, 5, 2.5];
 const BAR_LB = 45;
 
+function _gymPrefs() {
+  try { const g = JSON.parse(localStorage.getItem('powa-gym') || '{}'); return g && typeof g === 'object' ? g : {}; }
+  catch (e) { return {}; }
+}
+function _saveGymPrefs(g) { try { localStorage.setItem('powa-gym', JSON.stringify(g)); } catch (e) {} }
+// The plates this gym has, heaviest first, in the unit's own sizes. Never empty.
+function gymPlates(unit) {
+  const all = unit === 'lbs' ? PLATE_SIZES_LB : PLATE_SIZES;
+  const saved = _gymPrefs()[unit === 'lbs' ? 'lbs' : 'kg'];
+  if (!Array.isArray(saved)) return all.slice();
+  const have = all.filter(p => saved.indexOf(p) >= 0);
+  return have.length ? have : all.slice();
+}
+function setGymPlates(unit, sizes) {
+  const all = unit === 'lbs' ? PLATE_SIZES_LB : PLATE_SIZES;
+  const have = all.filter(p => (sizes || []).indexOf(p) >= 0);
+  const g = _gymPrefs();
+  g[unit === 'lbs' ? 'lbs' : 'kg'] = have.length && have.length < all.length ? have : undefined;
+  _saveGymPrefs(g);
+}
+function gymBar() { return _gymPrefs().bar === 'womens' ? 'womens' : 'standard'; }
+function setGymBar(b) { const g = _gymPrefs(); g.bar = b === 'womens' ? 'womens' : undefined; _saveGymPrefs(g); }
+// The empty bar in the display unit.
+function gymBarDisplay() {
+  const lbs = getUnit() === 'lbs';
+  return gymBar() === 'womens' ? (lbs ? 35 : 15) : (lbs ? BAR_LB : BAR_KG);
+}
+// The smallest jump the gym can load (two of its smallest plates), in kg.
+function loadStepKg(unit) {
+  const ps = gymPlates(unit);
+  const min = ps[ps.length - 1];
+  return unit === 'lbs' ? 2 * min * KG_PER_LB : 2 * min;
+}
+// The plate milestones count in: 25 kg (or 20 kg in a gym without 25s), 45 lb.
+function gymBigPlate(unit) {
+  const ps = gymPlates(unit);
+  if (unit === 'lbs') return ps.indexOf(45) >= 0 ? 45 : ps[0];
+  return ps.indexOf(25) >= 0 ? 25 : (ps.indexOf(20) >= 0 ? 20 : ps[0]);
+}
+// "All", "No 25s", or "5 of 7" for the settings row.
+function gymPlatesLabel() {
+  const unit = getUnit() === 'lbs' ? 'lbs' : 'kg';
+  const all = unit === 'lbs' ? PLATE_SIZES_LB : PLATE_SIZES;
+  const have = gymPlates(unit);
+  if (have.length === all.length) return 'All';
+  const missing = all.filter(p => have.indexOf(p) < 0);
+  return missing.length === 1 ? 'No ' + missing[0] + 's' : have.length + ' of ' + all.length;
+}
+
+// Fewest plates that make one side exactly, heavier plates first (30 = 20 + 10,
+// not 15 + 15). When the gym's plates can't make it, the heaviest load below.
+// Pure: unit-tested in tests.html.
+function platesForSide(perSide, sizes, unitStep) {
+  const q = unitStep || 0.25;
+  const coins = sizes.map(p => Math.round(p / q));
+  const target = Math.max(0, Math.floor(perSide / q + 1e-6));
+  const INF = 1e9, best = new Array(target + 1).fill(INF), pick = new Array(target + 1).fill(-1);
+  best[0] = 0;
+  for (let v = 1; v <= target; v++) {
+    for (let i = 0; i < coins.length; i++) {
+      const c = coins[i];
+      if (c > 0 && c <= v && best[v - c] + 1 < best[v]) { best[v] = best[v - c] + 1; pick[v] = i; }
+    }
+  }
+  let v = target;
+  while (v > 0 && best[v] >= INF) v--;
+  const plates = [];
+  for (let x = v; x > 0; x -= coins[pick[x]]) plates.push(sizes[pick[x]]);
+  plates.sort((a, b) => b - a);
+  return { plates, made: v * q };
+}
+
 // Plate breakdown — calculates in the user's selected unit (kg or lbs).
 // `targetWeight` is the kg-internal weight; the function converts to lbs internally
 // when the user is in lb mode, so the plate sizes match what the gym actually has.
 // barOverride (optional) is the empty-bar weight in the active DISPLAY unit.
-// Omit it for the standard competition bar (20 kg / 45 lb).
+// Omit it for the gym's bar (20 kg / 45 lb unless the lifter picked the 15 kg / 35 lb bar).
 function plateBreakdown(targetWeight, barOverride) {
   const isLbs = getUnit() === 'lbs';
-  const sizes = isLbs ? PLATE_SIZES_LB : PLATE_SIZES;
-  const bar   = (barOverride != null && barOverride > 0) ? barOverride : (isLbs ? BAR_LB : BAR_KG);
+  const sizes = gymPlates(isLbs ? 'lbs' : 'kg');
+  const bar   = (barOverride != null && barOverride > 0) ? barOverride : gymBarDisplay();
   const u     = isLbs ? 'lbs' : 'kg';
 
   // Convert target from internal kg to display unit
@@ -4518,18 +5012,77 @@ function plateBreakdown(targetWeight, barOverride) {
   if (!target || target < bar) {
     return { plates: [], perSide: 0, unit: u, error: 'Below bar weight (' + bar + ' ' + u + ')' };
   }
-  let perSide = (target - bar) / 2;
-  const plates = [];
-  sizes.forEach(p => {
-    while (perSide >= p - 0.001) {
-      plates.push(p);
-      perSide -= p;
-    }
-  });
-  if (perSide > 0.05) {
-    return { plates, perSide: (target - bar) / 2, unit: u, error: 'Cannot reach exactly. ' + (perSide * 2).toFixed(2) + ' ' + u + ' short.' };
+  const perSide = (target - bar) / 2;
+  const r = platesForSide(perSide, sizes, isLbs ? 0.5 : 0.25);
+  const short = perSide - r.made;
+  if (short > 0.05) {
+    return { plates: r.plates, perSide, unit: u, error: 'Cannot reach exactly. ' + (short * 2).toFixed(2) + ' ' + u + ' short.' };
   }
-  return { plates, perSide: (target - bar) / 2, unit: u, error: null };
+  return { plates: r.plates, perSide, unit: u, error: null };
+}
+
+// Your gym's plates: tap a plate to say the gym doesn't have it; pick the bar.
+// onChange runs after every change (the caller repaints its own numbers).
+// Dark ink on the light plates (white 5s, silver 1.25s, yellow 15s), white on the rest.
+function _plateInk(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return '#fff';
+  const n = parseInt(m[1], 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? '#151518' : '#fff';
+}
+function openGymPlatesSheet(onChange) {
+  const lbs = getUnit() === 'lbs';
+  const unit = lbs ? 'lbs' : 'kg';
+  let changed = false;
+  const changedNow = () => { changed = true; if (onChange) onChange(); };
+  uiSheet('Your gym\'s plates', (sheet) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Turn off any plate your gym doesn\'t have. Plate math, the bar pictures and load jumps use only the rest.'));
+    const grid = el('div', { class: 'gp-grid', role: 'group', 'aria-label': 'Plates your gym has' });
+    const seg = el('div', { class: 'ui-seg gp-barseg', role: 'radiogroup', 'aria-label': 'Bar' });
+    const preview = el('p', { class: 'pm-note gp-preview', role: 'status', 'aria-live': 'polite' });
+    const paint = () => {
+      const have = gymPlates(unit);
+      grid.querySelectorAll('button').forEach(b => {
+        const on = have.indexOf(Number(b.dataset.p)) >= 0;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      seg.querySelectorAll('button').forEach(b => { const on = b.dataset.bar === gymBar(); b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      const ex = lbs ? 315 * KG_PER_LB : 140;
+      const step = loadStepKg(unit);
+      preview.textContent = formatWeight(ex) + ' is ' + plateSummaryText(ex) + '. Loads move in ' +
+        (lbs ? Math.round(step / KG_PER_LB * 10) / 10 + ' lb' : step + ' kg') + ' jumps.';
+    };
+    (lbs ? PLATE_SIZES_LB : PLATE_SIZES).forEach(p => {
+      const b = el('button', { type: 'button', class: 'gp-plate', 'data-p': String(p), style: '--pc:' + plateColor(p, unit) + ';--pt:' + _plateInk(plateColor(p, unit)), 'aria-label': p + ' ' + (lbs ? 'lb' : 'kg') + ' plates' },
+        el('b', {}, String(p)));
+      b.addEventListener('click', () => {
+        const have = gymPlates(unit);
+        const i = have.indexOf(p);
+        if (i >= 0) {
+          if (have.length === 1) { toast('Keep at least one plate.'); return; }
+          have.splice(i, 1);
+        } else have.push(p);
+        setGymPlates(unit, have);
+        hapticTick();
+        paint();
+        changedNow();
+      });
+      grid.appendChild(b);
+    });
+    sheet.appendChild(grid);
+    [['standard', lbs ? '45 lb bar' : '20 kg bar'], ['womens', lbs ? '35 lb bar' : '15 kg bar']].forEach(([k, label]) => {
+      const b = el('button', { type: 'button', role: 'radio', 'data-bar': k }, label);
+      b.addEventListener('click', () => { setGymBar(k); if (typeof plateBar !== 'undefined') { try { plateBar = k; } catch (e) {} } hapticTick(); paint(); changedNow(); });
+      seg.appendChild(b);
+    });
+    sheet.appendChild(seg);
+    sheet.appendChild(preview);
+    paint();
+  }, { cls: 'plate-sheet gp-sheet', onClose: () => {
+    // Train's bar pictures and plate chips follow the gym's plates.
+    if (changed && typeof window.renderToday === 'function') { try { window.renderToday(); } catch (e) {} }
+  } });
 }
 
 // =========================================================
@@ -4586,7 +5139,8 @@ function getProgramForAthlete(athleteId) {
 // =========================================================
 function _roundToPlate(kg) {
   if (!kg || kg <= 0) return 0;
-  return Math.round(kg / 2.5) * 2.5;
+  const step = loadStepKg(getUnit() === 'lbs' ? 'lbs' : 'kg');
+  return Math.round(Math.round(kg / step) * step * 1000) / 1000;
 }
 // Weight that sits at reps@rpe given a known 1RM-equivalent (inverse calcE1RM).
 function weightForTarget(e1rm, reps, rpe) {
@@ -5247,6 +5801,28 @@ function moveItem(arr, from, dir) {
   return true;
 }
 
+// The program builders' folded exercise line (coach.html buildPbExercise, athlete.html
+// buildSbExercise): the lift tile letter and the prescription as chips ("2 × 5 · 170 kg · RPE 8").
+function _pbTile(ex) {
+  if (ex.lift === 'squat') return 'S';
+  if (ex.lift === 'bench') return 'B';
+  if (ex.lift === 'deadlift') return 'D';
+  return String(ex.exerciseName || LIFT_LABELS[ex.lift] || '?').trim().charAt(0).toUpperCase();
+}
+function _pbChips(ex) {
+  const wrap = el('span', { class: 'pb-chips' });
+  if (ex.lift === 'cardio') { wrap.appendChild(el('span', { class: 'pb-chip' }, ex.sets.length + (ex.sets.length === 1 ? ' bout' : ' bouts'))); return wrap; }
+  const blocks = groupSets(ex.sets);
+  if (!blocks.length) { wrap.appendChild(el('span', { class: 'pb-chip is-empty' }, 'No sets yet')); return wrap; }
+  blocks.forEach(b => {
+    const c = el('span', { class: 'pb-chip' });
+    c.innerHTML = '<b>' + b.count + ' × ' + escHtml(String(b.reps)) + '</b>' +
+      (b.weight ? '<i>' + kgToDisplay(b.weight) + ' ' + unitLabel() + '</i>' : '') +
+      (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">RPE ' + escHtml(String(b.rpe)) + '</em>' : '');
+    wrap.appendChild(c);
+  });
+  return wrap;
+}
 function reorderExercise(programId, weekIdx, dayIdx, exIdx, dir) {
   Store.update(s => {
     const p = s.programs.find(p => p.id === programId);
@@ -6324,11 +6900,28 @@ function renderSignalPanel() {
 }
 function toggleSignalCenter(ev) {
   if (ev) ev.stopPropagation();
-  const panel = document.getElementById('sigPanel');
+  // One panel, living on <body>. In the app the header is transformed (it folds as you scroll),
+  // and a transformed ancestor traps position:fixed: the panel opened 66px wide, one letter per
+  // line. The header can re-render, so keep the newest panel and drop any stale one.
+  const all = Array.from(document.querySelectorAll('#sigPanel'));
+  const panel = all[0];
   if (!panel) return;
+  all.slice(1).forEach(p => p.remove());
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
   const opening = panel.hidden;
   panel.hidden = !opening;
   if (opening) {
+    // Wide screens: a dropdown under the bell (on <body> now, so fixed to the bell's spot).
+    // Narrow screens: the CSS full-width sheet under the top bar.
+    const bell = (ev && ev.currentTarget && ev.currentTarget.closest) ? ev.currentTarget : document.querySelector('.sig-bell');
+    if (bell && !window.matchMedia('(max-width: 560px)').matches) {
+      const r = bell.getBoundingClientRect();
+      panel.style.position = 'fixed';
+      panel.style.top = Math.round(r.bottom + 10) + 'px';
+      panel.style.right = Math.max(10, Math.round(window.innerWidth - r.right)) + 'px';
+    } else {
+      panel.style.position = panel.style.top = panel.style.right = '';
+    }
     renderSignalPanel();
     const u = getCurrentUser();
     // After a beat of looking, clear the unread badge (items keep their dot until reopened).
@@ -6342,7 +6935,7 @@ if (!window.__sigOutsideBound) {
   document.addEventListener('click', (e) => {
     const panel = document.getElementById('sigPanel');
     if (!panel || panel.hidden) return;
-    if (e.target.closest && e.target.closest('.sig-wrap')) return;
+    if (e.target.closest && (e.target.closest('.sig-wrap') || e.target.closest('#sigPanel'))) return;
     panel.hidden = true;
   });
 }
@@ -7467,6 +8060,7 @@ const YOU_ROW_META = {
   'Ask AI':              { tint: 'iris',   icon: () => _YI('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>') },
   'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
   'Units':               { tint: 'sky',    icon: () => ICONS.weight },
+  'Plates':              { tint: 'teal',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.8"/>') },
   'Help & support':      { tint: 'green',  icon: () => ICONS.chat },
   'Share cards':         { tint: 'violet', icon: () => ICONS.share },
   'App icon':            { tint: 'gray',   icon: () => BRAND_MARK },
@@ -7635,6 +8229,8 @@ function uiSwitch(checked, onChange, ariaLabel) {
 // sheet, ignore clicks while it's still presenting.
 function _sheetSwallowEarlyClicks(veil) {
   const openedAt = Date.now();
+  const s = veil.querySelector('.ui-sheet');
+  if (s) s._presentAt = openedAt;   // the early-tap guard's clock starts at open
   veil.addEventListener('click', (e) => {
     if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); }
   }, true);
@@ -8090,7 +8686,11 @@ document.addEventListener('click', (e) => {
   const m = t.closest('.modal-backdrop.open .modal, .ui-sheet');
   if (!m || typeof m.getAnimations !== 'function') return;
   const presenting = m.getAnimations().some(a => a.playState === 'running' && /SheetUp/.test(a.animationName || ''));
-  if (presenting) { e.stopPropagation(); e.preventDefault(); }
+  if (!presenting) { m._presentAt = 0; return; }
+  // Never more than 600 ms of real time: if the page stops painting (the animation
+  // clock freezes, as when iOS stalls the web view), a sheet must not swallow taps for good.
+  if (!m._presentAt) m._presentAt = Date.now();
+  if (Date.now() - m._presentAt < 600) { e.stopPropagation(); e.preventDefault(); }
 }, true);
 
 Object.assign(window, { SCREEN_ACCENT, screenAccentFor, markScreenEnter, initScreenAccent, avatarHue, paintAvatars, uiRing, uiRingHero, uiFastTap });
@@ -8116,7 +8716,7 @@ const PLATE_LOOK = {
   kg:  { 25: ['#e5262f', 100, 15], 20: ['#2563eb', 100, 13], 15: ['#f5c518', 88, 11], 10: ['#1f9d55', 76, 10], 5: ['#ececef', 58, 8], 2.5: ['#2b2b30', 48, 7], 1.25: ['#b8bcc6', 40, 6] },
   lbs: { 45: ['#2563eb', 100, 14], 35: ['#f5c518', 92, 12], 25: ['#1f9d55', 80, 10], 10: ['#ececef', 60, 8], 5: ['#2b2b30', 50, 7], 2.5: ['#b8bcc6', 42, 6] }
 };
-function _barDisplay() { try { return typeof activeBarDisplay === 'function' ? activeBarDisplay() : undefined; } catch (e) { return undefined; } }
+function _barDisplay() { try { return typeof activeBarDisplay === 'function' ? activeBarDisplay() : gymBarDisplay(); } catch (e) { return undefined; } }
 // The plates on ONE side, heaviest first, in the active unit.
 function plateLoadout(kg) {
   const r = plateBreakdown(Number(kg) || 0, _barDisplay());
@@ -8952,7 +9552,7 @@ function openSecuritySheet() {
   }, { cls: 'settings-sheet' });
 }
 function openPlanSheet() {
-  uiSheet('Plan & billing', (sheet) => { const b = el('div', { class: 'set-sheet-box' }); sheet.appendChild(b); renderPlanManageCard(b); }, { cls: 'settings-sheet' });
+  uiSheet('Plan & billing', (sheet, close) => { const b = el('div', { class: 'set-sheet-box' }); sheet.appendChild(b); renderPlanManageCard(b, { close }); }, { cls: 'settings-sheet' });
 }
 function openReferralSheet() {
   uiSheet('Refer a lifter', (sheet) => { const b = el('div', { class: 'set-sheet-box' }); sheet.appendChild(b); renderReferralCard(b); }, { cls: 'settings-sheet' });
@@ -9022,13 +9622,14 @@ function youSettingsRows(role, rerender) {
   const u = getCurrentUser() || {};
   const inShell = document.documentElement.classList.contains('native');
   const showPlan = role === 'coach' && (!inShell || !!window._iapReady);
-  const tier = (window._user && window._user.subscriptionTier) || 'free';
+  const tier = getCurrentTier();
   return [
     { label: 'Profile', value: u.countryCode ? flagEmoji(u.countryCode) : '', onClick: () => openProfileSheet(rerender) },
     showPlan ? { label: 'Plan & billing', value: (typeof TIER_LABELS !== 'undefined' && TIER_LABELS[tier]) || '', onClick: () => openPlanSheet() } : null,
     { label: 'Notifications', onClick: () => openNotificationsSheet() },
     { label: 'Security', onClick: () => openSecuritySheet() },
     { label: 'Units', value: getUnit() === 'lbs' ? 'lb' : 'kg', onClick: () => toggleUnit() },
+    role === 'athlete' ? { label: 'Plates', value: gymPlatesLabel(), onClick: (row, v) => openGymPlatesSheet(() => { if (v) v.textContent = gymPlatesLabel(); }) } : null,
     inShell ? { label: 'App icon', value: appIconLabel(), onClick: (row, v) => openAppIconSheet((l) => { v.textContent = l; }) } : null,
     { label: 'Share cards', value: cardFormatLabel(), onClick: (row, v) => { const next = cardFormatLabel() === 'Story' ? 'post' : 'story'; try { localStorage.setItem('powa-card-format', next); } catch (e) {} v.textContent = CARD_FORMAT_LABEL[next]; hapticTick(); } },
     { label: 'Your data', onClick: () => openDataSheet() }

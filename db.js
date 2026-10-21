@@ -211,8 +211,16 @@ function mapDbCoachRequest(r) {
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
   };
 }
+// Program JSON is written by a coach or a seller: a week's number must be a number before
+// anything renders it (a string there reached innerHTML once).
+function _cleanWeekNumbers(weeks) {
+  return (Array.isArray(weeks) ? weeks : []).map((w, i) => {
+    const n = Number(w && w.number);
+    return Object.assign({}, w, { number: n > 0 && n < 1000 ? Math.round(n) : i + 1 });
+  });
+}
 function mapDbProgram(r) {
-  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: r.weeks || [] };
+  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks) };
 }
 function mapJsProgram(p) {
   return { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
@@ -283,6 +291,16 @@ function mapJsNote(n) {
 // Every column but program_payload (sql/migration-security-2026-10-20.sql revokes it from
 // the public role; buyers, the owner and admins read it through get_marketplace_payload).
 const MP_COLS = 'category, coach_id, created_at, description, id, ls_checkout_url, ls_product_id, ls_variant_id, price_cents, reference_1rms, sold_count, status, tier, title, updated_at, week_count';
+// A program's contents: through the RPC once the security migration has run; until then
+// (PGRST202, no such function) the column is still readable directly, so read it that way.
+async function _marketplacePayload(id) {
+  const { data, error } = await sb.rpc('get_marketplace_payload', { p_id: id });
+  if (!error) return data || null;
+  if (error.code !== 'PGRST202') throw error;
+  const { data: rows, error: e2 } = await sb.from('marketplace_programs').select('program_payload').eq('id', id).limit(1);
+  if (e2) throw e2;
+  return rows && rows[0] ? rows[0].program_payload : null;
+}
 function mapDbMarketplaceProgram(r) {
   return {
     id: r.id,
@@ -636,6 +654,20 @@ const DB = {
     }
   },
 
+  // Realtime nudge when my own profiles row changes (a plan bought on another
+  // device, a billing webhook landing). Needs profiles in the supabase_realtime
+  // publication (migration-payments-2026-10-22.sql); before that it never fires and
+  // the app relies on refreshing at focus. RLS still decides who hears which row.
+  subscribeMyProfile(uid, onChange) {
+    try {
+      const ch = sb.channel('profile-' + uid)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: 'id=eq.' + uid },
+          () => { try { onChange(); } catch (e) { console.warn('subscribeMyProfile cb', e); } })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribeMyProfile', e); return null; }
+  },
+
   // ---- Apple In-App Purchase (native shell only) --------------------------
   // Redeem a StoreKit 2 signed transaction: the `apple-iap` edge function
   // verifies Apple's signature chain server-side and writes subscription_tier.
@@ -811,6 +843,8 @@ const DB = {
   async claimInviteCode(code) {
     const { data, error } = await sb.rpc('claim_invite', { invite_code: code });
     if (error) throw error;
+    // The function returns NULL for a wrong, used or self code (a raise would undo its rate limit).
+    if (!data) throw new Error('Invalid or already-used code');
     return data;
   },
 
@@ -1812,6 +1846,14 @@ const DB = {
   async claimPurchase(marketplaceProgramId, buyer1RMs) {
     const uid = await this.getUserId();
     if (!uid) throw new Error('Not signed in');
+    // A coached athlete runs their coach's program (which they can't delete), so installing a
+    // bought one would leave two. It stays in their library for when they train on their own.
+    {
+      const { data: me } = await sb.from('profiles').select('coach_id').eq('id', uid).limit(1);
+      if (me && me[0] && me[0].coach_id && me[0].coach_id !== uid) {
+        throw new Error('Your coach sets your program. You can install this one when you train on your own.');
+      }
+    }
 
     // Verify the buyer actually purchased this program — and that the sale
     // hasn't been refunded/voided (payout_status='cancelled' is set by the
@@ -1832,9 +1874,7 @@ const DB = {
     if (progErr) throw progErr;
     if (!progRows || !progRows.length) throw new Error('Program not found or has been unpublished');
     const mp = mapDbMarketplaceProgram(progRows[0]);
-    const { data: payload, error: payErr } = await sb.rpc('get_marketplace_payload', { p_id: marketplaceProgramId });
-    if (payErr) throw payErr;
-    mp.programPayload = payload;
+    mp.programPayload = await _marketplacePayload(marketplaceProgramId);
     if (!mp.programPayload || !mp.programPayload.weeks || !mp.programPayload.weeks.length) {
       throw new Error('Purchased program is empty (contact support).');
     }
@@ -1846,7 +1886,7 @@ const DB = {
     const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16); });
-    const weeks = mp.programPayload.weeks.map(wk => ({
+    const weeks = _cleanWeekNumbers(mp.programPayload.weeks).map(wk => ({
       ...wk,
       id: wk.id || newId(),
       days: (wk.days || []).map(day => ({
@@ -2233,7 +2273,7 @@ const DB = {
     if (error) { console.warn('listAllMarketplaceProgramsAdmin', error); return []; }
     const rows = (data || []).map(mapDbMarketplaceProgram);
     // The review queue needs the payloads: the RPC hands them to an admin.
-    await Promise.all(rows.map(async r => { try { const { data: p } = await sb.rpc('get_marketplace_payload', { p_id: r.id }); r.programPayload = p || null; } catch (e) { r.programPayload = null; } }));
+    await Promise.all(rows.map(async r => { try { r.programPayload = await _marketplacePayload(r.id); } catch (e) { r.programPayload = null; } }));
     return rows;
   },
 

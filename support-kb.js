@@ -683,11 +683,34 @@ window.POWA_SUPPORT_KB = [
   "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
  },
  {
+  "id": "gym-plates",
+  "q": "My gym doesn't have 25 kg plates. Can plate math use 20s?",
+  "t": [
+   "15 kg bar",
+   "20 kg plates",
+   "25 kg plates",
+   "35 lb bar",
+   "bar weight",
+   "gym plates",
+   "no 25",
+   "only 20",
+   "plate math",
+   "plates my gym has",
+   "which plates"
+  ],
+  "a": "Yes. Go to You → Plates (or tap any weight to open Plate math, then Your gym's plates) and tap off every plate your gym doesn't have, such as the red 25s or the 1.25s. Plate math, the bar pictures, warm-ups and load jumps then use only the plates you have, and plate milestones count 20s when there are no 25s. You can pick a 20 kg or 15 kg bar (45 or 35 lb) there too; it's saved on this device."
+ },
+ {
   "id": "export-data",
   "q": "How do I export or download my data?",
   "t": [
    "backup",
+   "backup of my training",
    "copy of my data",
+   "copy of my training",
+   "download my training",
+   "my training log",
+   "save my training",
    "csv",
    "download my data",
    "export",
@@ -695,7 +718,7 @@ window.POWA_SUPPORT_KB = [
    "spreadsheet"
   ],
   "a": "Go to You → Your data and tap Export JSON for an archive of your account and training data, or Export CSV for your training log, one row per set, ready for Sheets or Excel (coaches get their athletes' logs). Each file is named with your name and today's date. On Train, Export day saves just the selected day's session as a spreadsheet (on a phone, tap ⋯ first), and coaches can tap ⋯ on the Program tab → Export spreadsheet to save an athlete's program.",
-  "app": "The iPhone app can't save export files yet, so use the website: open powalifta.com in Safari, sign in, go to You → Your data and tap Export JSON (an archive of your account and training data) or Export CSV (your training log, one row per set, ready for Sheets or Excel). Each file is named with your name and today's date. There you can also save one day's session from Train (⋯ → Export day), and coaches can save an athlete's program from the Program tab (⋯ → Export spreadsheet). If you'd rather we send your data, email powalifta1320@gmail.com."
+  "app": "Go to You → Your data and tap Export JSON (an archive of your account and training data) or Export CSV (your training log, one row per set, ready for Sheets or Excel; coaches get their athletes' logs). The iPhone share sheet opens: tap Save to Files to keep the file on your iPhone or in iCloud Drive, or send it with AirDrop or Mail. Each file is named with your name and today's date. The same sheet opens from Train → ⋯ → Export day (just that day's session) and, for coaches, from the Program tab → ⋯ → Export spreadsheet (an athlete's program)."
  },
  {
   "id": "delete-account",
@@ -794,7 +817,7 @@ window.POWA_SUPPORT_KB = [
    "price",
    "pricing"
   ],
-  "a": "Coaching is free for up to 3 athletes; Basic is $25 a month (up to 10), Pro $50 a month (up to 25) and Premium $100 a month (unlimited), in USD with any tax shown at checkout. Go to You → Plan & billing to see your plan and how many athlete slots you are using; See plans (Change plan once you pay) lists the plans, and Subscribe, Upgrade or Switch on one opens checkout. Once you pay, Manage billing opens the secure Lemon Squeezy portal to update your card, switch or cancel your plan and find invoices. Coaches bill their own athletes however they like; POWALIFTA takes no cut of that and only charges for the platform.",
+  "a": "Coaching is free for up to 3 athletes; Basic is $24.99 a month (up to 10), Pro $49.99 a month (up to 25) and Premium $99.99 a month (unlimited), in USD with any tax shown at checkout. Go to You → Plan & billing to see your plan, its renewal date and how many athlete slots you are using; See plans lists the plans. Plans are on sale in the POWALIFTA iPhone app now, and on the web through Lemon Squeezy checkout once it opens. A web subscriber's Manage billing opens the secure Lemon Squeezy portal to update the card, switch or cancel and find invoices. Coaches bill their own athletes however they like; POWALIFTA takes no cut of that and only charges for the platform.",
   "app": "Coaching is free for up to 3 athletes; bigger rosters need a coach plan, Basic (up to 10), Pro (up to 25) or Premium (unlimited), bought as an Apple in-app subscription billed monthly to your Apple ID. Go to You → Plan & billing to see your plan and how many athlete slots you are using; See plans (Change plan once you pay) shows each plan's monthly price in your local currency. Once you pay, Manage subscription opens your Apple ID subscriptions in the App Store, the same list as iPhone Settings → Apple ID → Subscriptions, where you can switch or cancel. Coaches bill their own athletes however they like; POWALIFTA takes no cut of that and only charges for the platform."
  },
  {
@@ -809,7 +832,7 @@ window.POWA_SUPPORT_KB = [
    "subscribe",
    "upgrade"
   ],
-  "a": "Tap Upgrade on the plan bar at the top of Roster (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Tap Subscribe or Upgrade on the plan you want; checkout opens in a new tab with Lemon Squeezy, and your plan updates within minutes of paying. The plan picker also opens on its own when you tap Invite athlete on Roster, or Invite an athlete under You, once your plan is full.",
+  "a": "Tap Upgrade on the plan bar at the top of Roster (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Subscribe in the iPhone app, or on the web once checkout opens: checkout opens in a new tab with Lemon Squeezy, and this page switches to your new plan the moment the payment goes through, on every device you're signed in on. The plan picker also opens on its own when you tap Invite athlete on Roster, or Invite an athlete under You, once your plan is full.",
   "app": "Tap Upgrade on the plan bar at the top of Roster (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Tap Subscribe on the plan you want, or Switch if you already pay; it is an Apple in-app subscription billed to your Apple ID and usually activates as soon as the purchase goes through. The plan picker also opens on its own when you tap Invite athlete on Roster, or Invite an athlete under You, once your plan is full."
  },
  {
@@ -823,8 +846,8 @@ window.POWA_SUPPORT_KB = [
    "move to pro",
    "switch plan"
   ],
-  "a": "Go to You → Plan & billing → Manage billing and switch your plan in the secure Lemon Squeezy portal; your new athlete limit shows within a few minutes. Don't use Upgrade or Switch under Change plan while you're already paying: that starts a second subscription and leaves your plan as it was. If you subscribed in the iPhone app, switch in iPhone Settings → Apple ID → Subscriptions instead.",
-  "app": "Go to You → Plan & billing → Manage subscription (or iPhone Settings → Apple ID → Subscriptions), pick POWALIFTA and choose the plan you want. Apple handles the change: upgrades usually apply straight away and downgrades start at your next renewal date. If there's no Manage subscription button, your plan was started somewhere else, so change it where you first subscribed rather than buying a new plan in the app."
+  "a": "Go to You → Plan & billing → Change plan and tap the plan you want: the switch happens in the secure Lemon Squeezy billing portal (never a second checkout, so you're never charged twice), and your new athlete limit shows here as soon as it's confirmed. If you subscribed in the iPhone app, switch on your iPhone in Settings → your name → Subscriptions instead.",
+  "app": "Go to You → Plan & billing → Manage subscription (or iPhone Settings → Apple ID → Subscriptions), pick POWALIFTA and choose the plan you want. Apple handles the change: upgrades usually apply straight away and downgrades start at your next renewal date. If your plan was started outside the App Store, the app shows it but can't change it, and it won't let you buy a second one."
  },
  {
   "id": "cancel-coach-plan",
@@ -853,8 +876,8 @@ window.POWA_SUPPORT_KB = [
    "shows free",
    "subscribed on the web"
   ],
-  "a": "There is nothing to restore on the web: your plan is tied to your POWALIFTA account, so log in with the same email you paid with and it shows under You → Plan & billing. If you subscribed in the iPhone app, Apple bills it and Manage billing here can't change it, so manage or cancel it in iPhone Settings → Apple ID → Subscriptions, and if the app shows Free, tap Restore Purchases there (You → Plan & billing → See plans). If a web payment still shows Free a few minutes later, reload the page; if it is still wrong, message us on WhatsApp at +968 71518133 or email powalifta1320@gmail.com.",
-  "app": "Go to You → Plan & billing → See plans, swipe the Plan & billing sheet down so Choose your plan is in front, then scroll to the bottom and tap Restore Purchases: it finds the subscription on your Apple ID and puts your plan back. If it says the subscription belongs to a different POWALIFTA account, tap Log out at the bottom of You and log in with the account you bought it on. A plan that isn't billed to your Apple ID still shows under Plan & billing but has no Manage subscription button, and there's no need to subscribe again in the app: Apple would charge you and your plan would not change. To change or cancel that plan, or if your plan still shows Free, message us on WhatsApp at +968 71518133 or email powalifta1320@gmail.com."
+  "a": "There is nothing to restore on the web: your plan is tied to your POWALIFTA account, so log in with the same email you paid with and it shows under You → Plan & billing. If you subscribed in the iPhone app, Apple bills it and Manage billing here can't change it, so manage or cancel it in iPhone Settings → Apple ID → Subscriptions, and if the app shows Free, tap Restore Purchases there (You → Plan & billing → See plans). A web payment shows up by itself within seconds; if it still shows Free after a few minutes, reload the page, and if it is still wrong, message us on WhatsApp at +968 71518133 or email powalifta1320@gmail.com.",
+  "app": "Go to You → Plan & billing → See plans (Change plan if you already pay), scroll to the bottom and tap Restore Purchases: it finds the subscription on your Apple ID and puts your plan back. If it says the subscription belongs to a different POWALIFTA account, tap Log out at the bottom of You and log in with the account you bought it on. A plan that isn't billed to your Apple ID still shows under Plan & billing, and the app won't sell you a second one. To change or cancel that plan, or if your plan still shows Free, message us on WhatsApp at +968 71518133 or email powalifta1320@gmail.com."
  },
  {
   "id": "payment-failed",
@@ -897,7 +920,7 @@ window.POWA_SUPPORT_KB = [
    "unknown charge",
    "why was i charged"
   ],
-  "a": "A POWALIFTA charge is either a coach plan, which renews monthly at $25 (Basic), $50 (Pro) or $100 (Premium) in USD plus any tax, or a one-off program bought on the Marketplace. On your statement it comes from Lemon Squeezy, our payment provider, unless you subscribed in the iPhone app, where Apple bills it. Coaches can see their plan and status under You → Plan & billing, and lifters find programs they bought under You → My library. If you don't recognise it, send the date and amount to WhatsApp +968 71518133 or powalifta1320@gmail.com.",
+  "a": "A POWALIFTA charge is either a coach plan, which renews monthly at $24.99 (Basic), $49.99 (Pro) or $99.99 (Premium) in USD plus any tax, or a one-off program bought on the Marketplace. On your statement it comes from Lemon Squeezy, our payment provider, unless you subscribed in the iPhone app, where Apple bills it. Coaches can see their plan and status under You → Plan & billing, and lifters find programs they bought under You → My library. If you don't recognise it, send the date and amount to WhatsApp +968 71518133 or powalifta1320@gmail.com.",
   "app": "Coach plans are monthly Apple in-app subscriptions that renew automatically, so the charge appears from Apple on your Apple ID. Check You → Plan & billing to see your plan, or iPhone Settings → Apple ID → Subscriptions. Don't recognise it? Send the date and amount to WhatsApp +968 71518133 or powalifta1320@gmail.com.",
   "esc": true
  },
@@ -955,7 +978,7 @@ window.POWA_SUPPORT_KB = [
    "sell a program"
   ],
   "a": "Coaches sell training programs on the marketplace: as a lifter, go to You → Browse programs, tap a program, then tap its Buy for $… button, and Lemon Squeezy handles checkout. Once payment clears, the program lands in You → My library, where Install makes it your active program (this replaces your current one) and you can install it again later. Coaches list a program from You → Templates: tap Publish on a template, set your own price ($1 to $999, you keep 80% of each sale) and tap Submit for review, and it goes live once it's approved.",
-  "app": "In the iPhone app your program comes from your coach, or if you train on your own you write it yourself on the Program tab. Programs you already own are under You → My library: tap Install to make one your active program (this replaces your current one), and you can install it again later."
+  "app": "In the iPhone app your program comes from your coach, or if you train on your own you write it yourself on the Program tab, or ask the assistant (the sparkle at the top) to draft one from your numbers."
  },
  {
   "id": "contact",

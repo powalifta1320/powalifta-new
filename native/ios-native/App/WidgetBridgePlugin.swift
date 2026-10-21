@@ -32,6 +32,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     static let draftKey = "powa.weigh.draft"
     static let loggedKey = "powa.weigh.loggedDate"
     static let pendingKey = "powa.widget.pending"
+    static let setsPendingKey = "powa.widget.pendingSets"
 
     // The powalifta:// URL a widget (or the Live Activity) opened the app with. Capacitor
     // posts it on open; the app collects it with takePending and routes it in JS.
@@ -76,12 +77,14 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Everything the widgets queued while the app was away, and the URL that opened it.
-    /// Both are cleared on read: { weighins: [{date, value, unit}], open: "powalifta://…" | null }.
+    /// All cleared on read: { weighins: [{date, value, unit}], sets: [{key, date}], open: "powalifta://…" | null }.
     @objc func takePending(_ call: CAPPluginCall) {
-        var out: [String: Any] = ["weighins": [], "open": NSNull()]
+        var out: [String: Any] = ["weighins": [], "sets": [], "open": NSNull()]
         if let d = UserDefaults(suiteName: Self.suite) {
             if let data = d.data(forKey: Self.pendingKey), let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] { out["weighins"] = arr }
             d.removeObject(forKey: Self.pendingKey)
+            if let data = d.data(forKey: Self.setsPendingKey), let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] { out["sets"] = arr }
+            d.removeObject(forKey: Self.setsPendingKey)
         }
         if let u = launchURL { out["open"] = u; launchURL = nil }
         call.resolve(out)

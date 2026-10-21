@@ -3,6 +3,7 @@
 // subscription_tier in profiles. Uses service_role to bypass RLS.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { appleLive, selectProfilesSoft, updateProfileSoft } from '../_shared/billing.ts'
 
 // Map LS variant name → POWALIFTA tier. Falls back to fuzzy substring match
 // so it doesn't matter how the coach named their variants in LS
@@ -17,10 +18,10 @@ function resolveTier(variantName: string, priceCents?: number, productName?: str
   const v = (variantName || '').toLowerCase().trim()
   // Exact match first
   if (VARIANT_TO_TIER[v]) return VARIANT_TO_TIER[v]
-  // Fuzzy substring (order matters — check 'premium' before 'pro' since 'premium' contains nothing that overlaps)
-  if (v.includes('premium')) return 'premium'
-  if (v.includes('pro')) return 'pro'  // catches "pro plan", "powalifta pro"
-  if (v.includes('basic') || v.includes('starter') || v.includes('lite')) return 'basic'
+  // Whole words only ("Pro plan", "POWALIFTA Pro"; never "Program" or "Proper").
+  if (/\bpremium\b/.test(v)) return 'premium'
+  if (/\bpro\b/.test(v)) return 'pro'
+  if (/\b(basic|starter|lite)\b/.test(v)) return 'basic'
   // Then the product name, whole words only ("POWALIFTA Pro yearly" → pro;
   // "Coach Program" must not read as pro). Live store today: product
   // "POWALIFTA Coach Plan", variants Basic / Pro / Premium.
@@ -28,8 +29,8 @@ function resolveTier(variantName: string, priceCents?: number, productName?: str
   if (/\bpremium\b/.test(p)) return 'premium'
   if (/\bpro\b/.test(p)) return 'pro'
   if (/\b(basic|starter|lite)\b/.test(p)) return 'basic'
-  // Last resort: map by price ($25/$50/$100 a month from app.js TIER_PRICES;
-  // a yearly variant is read as roughly ten months).
+  // Last resort: map by price ($24.99 / $49.99 / $99.99 a month; a yearly variant is read
+  // as roughly ten months).
   if (typeof priceCents === 'number' && priceCents > 0) {
     const yearly = /\b(year|yearly|annual|annually)\b/.test(v + ' ' + p)
     const usd = priceCents / 100 / (yearly ? 10 : 1)
@@ -129,9 +130,15 @@ Deno.serve(async (req) => {
     const event = payload?.meta?.event_name as string
     const data = payload?.data
     // Test-mode events (the 4242 card) are signed exactly like live ones. They count only
-    // while LS_ALLOW_TEST=1 (checkouts are still in test mode); drop that secret at go-live.
-    if (payload?.meta?.test_mode === true && Deno.env.get('LS_ALLOW_TEST') !== '1') {
-      return jsonResponse(200, { ignored: event, reason: 'test_mode' })
+    // while LS_ALLOW_TEST=1 (checkouts are still in test mode), and when LS_TEST_EMAILS is set
+    // only for those buyers: otherwise anyone could take a plan with the test card. Drop both
+    // secrets at go-live.
+    if (payload?.meta?.test_mode === true) {
+      const testers = (Deno.env.get('LS_TEST_EMAILS') || '').toLowerCase().split(',').map(t => t.trim()).filter(Boolean)
+      const buyer = String(data?.attributes?.user_email || '').toLowerCase().trim()
+      if (Deno.env.get('LS_ALLOW_TEST') !== '1' || (testers.length && !testers.includes(buyer))) {
+        return jsonResponse(200, { ignored: event, reason: 'test_mode' })
+      }
     }
     if (!event || !data) {
       console.warn('LS webhook: unexpected payload shape', { hasMeta: !!payload?.meta, hasData: !!data })
@@ -191,6 +198,17 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supaUrl, serviceKey)
+    const BASE_COLS = 'id, email, subscription_updated_at, subscription_status, ls_subscription_id, apple_original_transaction_id'
+
+    // When the paid period ends: renews_at while it renews, ends_at once cancelled or expired.
+    // The database treats a plan as lapsed 3 days after this (migration-payments-2026-10-22.sql),
+    // so a missed expiry event can't leave a plan on forever.
+    const renewsMs = Date.parse(String(attrs.renews_at || '')) || 0
+    const endsMs = Date.parse(String(attrs.ends_at || '')) || 0
+    let periodEnd: string | null = null
+    if (event === 'subscription_expired' || status === 'expired') periodEnd = new Date(endsMs || Date.now()).toISOString()
+    else if (status === 'cancelled') periodEnd = endsMs ? new Date(endsMs).toISOString() : null
+    else if (renewsMs) periodEnd = new Date(renewsMs).toISOString()
 
     // ---- Resolve the target profile, AUTHORITATIVELY ----
     // custom_data.user_id is client-controlled (it rides the checkout URL, app.js),
@@ -200,14 +218,18 @@ Deno.serve(async (req) => {
     // checkout email (user_email is part of the HMAC-signed body). Only an
     // email-verified match is accepted.
     let candidateId: string | null = customUserId ? String(customUserId) : null
-    let profileRow: { id: string; email: string; subscription_updated_at: string | null; subscription_status: string | null; ls_subscription_id: string | null; apple_original_transaction_id: string | null } | null = null
+    // deno-lint-ignore no-explicit-any
+    let profileRow: any = null
 
-    if (candidateId) {
-      const byId = await supabase
-        .from('profiles')
-        .select('id, email, subscription_updated_at, subscription_status, ls_subscription_id, apple_original_transaction_id')
-        .eq('id', candidateId)
-        .limit(1)
+    // The strongest link first: the coach this subscription is already on file for (a renewal,
+    // a cancel or a plan change in the billing portal), whatever email the event carries.
+    if (subscriptionId) {
+      const bySub = await selectProfilesSoft(supabase, BASE_COLS, (q) => q.eq('ls_subscription_id', subscriptionId).limit(1))
+      if (bySub.error) { console.error('profile lookup (subscription) failed:', bySub.error.message); return jsonResponse(500, { error: 'internal error' }) }
+      profileRow = bySub.data?.[0] || null
+    }
+    if (!profileRow && candidateId) {
+      const byId = await selectProfilesSoft(supabase, BASE_COLS, (q) => q.eq('id', candidateId).limit(1))
       if (byId.error) { console.error('profile lookup (id) failed:', byId.error.message); return jsonResponse(500, { error: 'internal error' }) }
       const row = byId.data?.[0]
       // Accept only if the row's email matches the signed checkout email.
@@ -218,11 +240,7 @@ Deno.serve(async (req) => {
       }
     }
     if (!profileRow && customerEmail) {
-      const byEmail = await supabase
-        .from('profiles')
-        .select('id, email, subscription_updated_at, subscription_status, ls_subscription_id, apple_original_transaction_id')
-        .eq('email', customerEmail)
-        .limit(1)
+      const byEmail = await selectProfilesSoft(supabase, BASE_COLS, (q) => q.eq('email', customerEmail).limit(1))
       if (byEmail.error) { console.error('profile lookup (email) failed:', byEmail.error.message); return jsonResponse(500, { error: 'internal error' }) }
       profileRow = (byEmail.data?.[0] as any) || null
     }
@@ -239,16 +257,21 @@ Deno.serve(async (req) => {
     // under this email must not move a coach who pays through Apple, and events
     // for an LS subscription that isn't the one on file are ignored (only a new
     // subscription_created may replace it).
-    if (profileRow.apple_original_transaction_id && profileRow.subscription_status === 'active' && !profileRow.ls_subscription_id) {
+    if (appleLive(profileRow)) {
       console.warn('LS webhook: coach is billed through Apple — ignored', { event })
       return jsonResponse(200, { ignored: event, reason: 'apple billing' })
     }
-    // ...and a NEW subscription under this email can't push aside one that is still live:
-    // anyone can type a coach's email at checkout (ECC security pass, 2026-10-20).
-    if (profileRow.ls_subscription_id && profileRow.ls_subscription_id !== subscriptionId &&
-        (event !== 'subscription_created' || profileRow.subscription_status === 'active')) {
-      console.warn('LS webhook: event for a different subscription — ignored', { event })
-      return jsonResponse(200, { ignored: event, reason: 'other subscription' })
+    // ...and a NEW subscription under this email can't push aside one that is still paid for:
+    // anyone can type a coach's email at checkout (ECC security pass, 2026-10-20). Once the old
+    // one has really ended (expired, unpaid), the new one's events take over.
+    if (profileRow.ls_subscription_id && profileRow.ls_subscription_id !== subscriptionId) {
+      const stored = String(profileRow.subscription_status || '')
+      const storedPaying = ['active', 'on_trial', 'trialing', 'past_due'].includes(stored)
+      const storedPaidUp = storedPaying || stored === 'cancelled' || stored === 'paused'
+      if (event === 'subscription_created' ? storedPaying : storedPaidUp) {
+        console.warn('LS webhook: event for a different subscription — ignored', { event })
+        return jsonResponse(200, { ignored: event, reason: 'other subscription' })
+      }
     }
 
     // ---- Replay / out-of-order guard ----
@@ -264,17 +287,16 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { ignored: event, reason: 'stale event' })
     }
 
-    const updateRes = await supabase
-      .from('profiles')
-      .update({
-        subscription_tier: tier,
-        subscription_status: status,
-        ls_subscription_id: subscriptionId,
-        ls_customer_id: customerId,
-        // Store LS's authoritative event time so the guard above is monotonic.
-        subscription_updated_at: lsUpdatedMs ? new Date(lsUpdatedMs).toISOString() : new Date().toISOString()
-      })
-      .eq('id', userId)
+    const updateRes = await updateProfileSoft(supabase, userId, {
+      subscription_tier: tier,
+      subscription_status: status || (event === 'subscription_expired' ? 'expired' : null),
+      ls_subscription_id: subscriptionId,
+      ls_customer_id: customerId,
+      // Store LS's authoritative event time so the guard above is monotonic.
+      subscription_updated_at: lsUpdatedMs ? new Date(lsUpdatedMs).toISOString() : new Date().toISOString(),
+      billing_provider: tier === 'free' ? null : 'ls',
+      subscription_period_end: periodEnd,
+    })
 
     if (updateRes.error) {
       console.error('profile update failed:', updateRes.error.message)

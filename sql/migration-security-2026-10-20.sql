@@ -1,18 +1,34 @@
 -- migration-security-2026-10-20.sql — POWALIFTA
--- From the 2026-10-20 ECC security pass. One transaction, idempotent; run AFTER
--- migration-rls-hardening-4.sql and migration-push-platform.sql.
+-- From the 2026-10-20 ECC security pass (corrected 2026-10-22: the payload revoke is now a
+-- table revoke + column grants, and athletes can't change a program's coach). One
+-- transaction, idempotent; run AFTER migration-rls-hardening-4.sql and
+-- migration-push-platform.sql, and AFTER the web push that stopped asking for select *.
 --   1. marketplace program payloads: only the owner, an admin or a buyer can read them
 --      (they were world-readable through the public "published" SELECT policy)
 --   2. profiles.email can't be rewritten by the user (the billing webhooks and the mail
 --      functions key on it)
---   3. claim_invite is rate-limited (6-character codes could be guessed)
+--   3. claim_invite is rate-limited (6-character codes could be guessed). A wrong code returns
+--      NULL instead of raising: a raise would roll back the rate-limit count with it, so wrong
+--      guesses were never counted (found 2026-10-22 by running this file against Postgres 17).
+--      The client turns NULL into "Invalid or already-used code".
 --   4. a self-coached program can't be written under another coach's id, and a coached
 --      athlete can't delete their coach's program
 --   5. push endpoints must look like a push service (the server POSTs to them)
 begin;
 
 -- 1 -----------------------------------------------------------------------------------
-revoke select (program_payload) on public.marketplace_programs from anon, authenticated;
+-- A column REVOKE does nothing while the role holds SELECT on the whole table (Supabase's
+-- default grant), so take the table grant away and give back every column but the payload.
+-- Built from the live column list, so a column this file doesn't know about stays readable.
+do $$
+declare cols text;
+begin
+  select string_agg(quote_ident(column_name), ', ' order by ordinal_position) into cols
+    from information_schema.columns
+   where table_schema = 'public' and table_name = 'marketplace_programs' and column_name <> 'program_payload';
+  execute 'revoke select on public.marketplace_programs from anon, authenticated';
+  execute format('grant select (%s) on public.marketplace_programs to anon, authenticated', cols);
+end $$;
 
 create or replace function public.get_marketplace_payload(p_id uuid)
 returns jsonb
@@ -102,14 +118,9 @@ begin
      and used = false
    for update;
 
-  if not found then
-    raise exception 'Invalid or already-used code';
-  end if;
-  if v_coach is null then
-    raise exception 'This code is not linked to a coach';
-  end if;
-  if v_coach = auth.uid() then
-    raise exception 'You can''t coach yourself';
+  -- From here on, never raise: the rate-limit count above must survive a wrong guess.
+  if not found or v_coach is null or v_coach = auth.uid() then
+    return null;
   end if;
 
   -- Authorize the guarded coach_id write for THIS transaction only.
@@ -151,16 +162,46 @@ create policy "programs_athlete_delete_own" on public.programs
   for delete to authenticated
   using (athlete_id = auth.uid() and (coach_id is null or coach_id = auth.uid()));
 
+-- An athlete's update can't move a program to another coach or take it off its coach
+-- (that was the way round the delete rule above): coach_id keeps its old value. Coaches,
+-- the service role and the SQL editor are unaffected; nothing raises.
+create or replace function public.guard_program_coach()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if current_user not in ('anon', 'authenticated') then return new; end if;
+  -- Any edit by the athlete themselves, including a self-written program (re-pointing that at
+  -- another coach would put the athlete's JSON in front of them).
+  if auth.uid() is not null and old.athlete_id = auth.uid()
+     and new.coach_id is distinct from old.coach_id then
+    new.coach_id := old.coach_id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists programs_guard_coach on public.programs;
+create trigger programs_guard_coach
+  before update on public.programs
+  for each row execute function public.guard_program_coach();
+
 -- 5 -----------------------------------------------------------------------------------
 alter table public.push_subscriptions drop constraint if exists push_endpoint_shape;
 alter table public.push_subscriptions add constraint push_endpoint_shape check (
      (coalesce(platform, 'web') = 'ios'     and endpoint ~ '^[0-9a-fA-F]{64,200}$')
-  or (coalesce(platform, 'web') = 'android' and endpoint ~ '^[A-Za-z0-9_:.-]{20,500}$')
+  or (coalesce(platform, 'web') = 'android' and endpoint ~ '^[A-Za-z0-9_:.-]{20,255}$')
   or (coalesce(platform, 'web') = 'web'     and endpoint ~ '^https://(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com|web\.push\.apple\.com)/')
 ) not valid;   -- existing rows stay; every new row must match
 
 commit;
 
--- Verify:
+-- Verify (both must say false, then true):
 --   select has_column_privilege('anon', 'public.marketplace_programs', 'program_payload', 'select');   -- false
+--   select has_column_privilege('authenticated', 'public.marketplace_programs', 'program_payload', 'select');   -- false
+--   select has_column_privilege('anon', 'public.marketplace_programs', 'title', 'select');   -- true
+--   select to_regprocedure('public.get_marketplace_payload(uuid)') is not null;   -- true
 --   select polname, polcmd from pg_policy where polrelid = 'public.programs'::regclass;
+--
+-- RUN THIS AFTER THE 2026-10-22 PUSH, not before: the old live code asked for every
+-- marketplace column (select *), which this file forbids.

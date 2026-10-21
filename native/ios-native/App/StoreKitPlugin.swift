@@ -7,6 +7,7 @@
 //      window.Capacitor.Plugins.PowaIAP.purchase({ productId, appAccountToken })
 //      window.Capacitor.Plugins.PowaIAP.restore()
 //      window.Capacitor.Plugins.PowaIAP.getEntitlements()
+//      window.Capacitor.Plugins.PowaIAP.manageSubscriptions()
 //
 //  Design notes:
 //  - StoreKit 2 only (iOS 15+). On anything older every method rejects with
@@ -20,10 +21,12 @@
 //    certificate chain + signature server-side and writes subscription_tier.
 //    The client NEVER writes tier itself (profiles privilege guard blocks it anyway).
 //  - Transactions are finished immediately after we hand the JWS to JS: the
-//    entitlement lives on Apple's side (currentEntitlements), so if the server
-//    sync fails the app just re-syncs on next launch — nothing is lost.
+//    entitlement lives on Apple's side (currentEntitlements), and the web app
+//    syncs the highest current entitlement on every launch and resume
+//    (app.js syncAppleEntitlements), so a failed server sync is retried: nothing is lost.
 //  - Renewals/upgrades arrive via Transaction.updates while the app runs; we
-//    notify the webview ("iapTransaction" event) so it can re-sync.
+//    notify the webview ("iapTransaction" event) so it can re-sync. Those that land
+//    during launch, before the page is listening, are retained until it is.
 //
 //  Registered via CAPBridgedPlugin (Capacitor 6) — no ObjC .m file needed.
 //  Injected into the Xcode project by native/scripts/inject-iap.rb (cap sync
@@ -43,6 +46,7 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getEntitlements", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "manageSubscriptions", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise)
     ]
@@ -66,7 +70,7 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                     guard case .verified(let txn) = update else { continue }
                     let jws = update.jwsRepresentation
                     await txn.finish()
-                    self?.notifyListeners("iapTransaction", data: ["jws": jws])
+                    self?.notifyListeners("iapTransaction", data: ["jws": jws], retainUntilConsumed: true)
                 }
             }
         }
@@ -169,6 +173,25 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func getEntitlements(_ call: CAPPluginCall) {
         guard #available(iOS 15.0, *) else { call.reject("unavailable"); return }
         Task { await self.collectEntitlements(call) }
+    }
+
+    // Apple's manage-subscriptions sheet, inside the app (iOS 15+): switch or cancel
+    // an App Store plan without leaving POWALIFTA. Resolves when the sheet closes; the
+    // web layer then re-syncs, and any change also arrives through Transaction.updates.
+    @objc func manageSubscriptions(_ call: CAPPluginCall) {
+        guard #available(iOS 15.0, *) else { call.reject("unavailable"); return }
+        Task { @MainActor in
+            guard let scene = self.bridge?.viewController?.view.window?.windowScene else {
+                call.reject("unavailable")
+                return
+            }
+            do {
+                try await AppStore.showManageSubscriptions(in: scene)
+                call.resolve()
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 
     @available(iOS 15.0, *)

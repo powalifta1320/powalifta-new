@@ -139,7 +139,9 @@ self.addEventListener('notificationclick', event => {
   let target = '/athlete.html';
   try {
     const u = new URL((event.notification.data && event.notification.data.url) || target, self.location.origin);
-    if (u.origin === self.location.origin) target = u.pathname + u.search;
+    // "/..//evil.com" is same-origin but its path is "//evil.com", which a window would open
+    // protocol-relative: never a path that starts with two slashes.
+    if (u.origin === self.location.origin && !u.pathname.startsWith('//')) target = u.pathname + u.search;
   } catch (_) { /* keep the default */ }
 
   event.waitUntil((async () => {

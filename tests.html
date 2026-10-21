@@ -1456,8 +1456,8 @@ const _paSales = [
 ];
 test('MRR counts billing-live paid subs (active/on_trial/status-absent), skips free + cancelled', () => {
   const a = computePlatformAnalytics(_paProfiles, _paSales, { now: _paNow });
-  eq(a.mrr, 50 + 25 + 50);          // pro + basic + pro(manual)
-  eq(a.arr, (50 + 25 + 50) * 12);
+  close(a.mrr, 49.99 + 24.99 + 49.99, 0.001);          // pro + basic + pro(manual)
+  close(a.arr, (49.99 + 24.99 + 49.99) * 12, 0.01);
   eq(a.payingCoaches, 3);
   eq(JSON.stringify(a.mrrByTier), JSON.stringify({ basic: 1, pro: 2, premium: 0 }));
 });
@@ -1496,7 +1496,102 @@ test('tolerates camelCase profiles + snake_case sales too', () => {
     [{ amount_cents: 4000, platform_fee_cents: 800, payout_status: 'paid', created_at: _ago(1) }],
     { now: _paNow }
   );
-  eq(a.mrr, 50); eq(a.gmvCents, 4000); eq(a.takeCents, 800); eq(a.salesCount, 1);
+  close(a.mrr, 49.99, 0.001); eq(a.gmvCents, 4000); eq(a.takeCents, 800); eq(a.salesCount, 1);
+});
+
+/* ===========================================================
+   9f. Coach plans — effectiveTier + billingProviderOf (2026-10-21)
+   The plan in force mirrors powa_effective_tier() in SQL: the stored
+   tier until 3 days after the paid period ends; no end = never lapses.
+   Who bills the coach comes from billing_provider once the column
+   exists, the migration's own guess from the stored ids before it.
+   =========================================================== */
+group('coach plans');
+const _cpNow = Date.parse('2026-10-21T12:00:00Z');
+test('effective tier: paid period running or in its 3-day grace keeps the plan', () => {
+  eq(effectiveTier('pro', '2026-11-10T00:00:00Z', _cpNow), 'pro');
+  eq(effectiveTier('pro', '2026-10-19T12:00:00Z', _cpNow), 'pro');   // 2 days past the end
+});
+test('effective tier: more than 3 days past the end is Free', () => {
+  eq(effectiveTier('premium', '2026-10-18T11:00:00Z', _cpNow), 'free');
+});
+test('effective tier: no end date (complimentary) never lapses; junk is Free', () => {
+  eq(effectiveTier('basic', null, _cpNow), 'basic');
+  eq(effectiveTier('basic', 'not a date', _cpNow), 'basic');
+  eq(effectiveTier('gold', null, _cpNow), 'free');
+  eq(effectiveTier(undefined, null, _cpNow), 'free');
+});
+test('billing provider: the column wins once it exists (null = nobody bills)', () => {
+  eq(billingProviderOf({ billing_provider: 'apple', ls_subscription_id: 'x', subscription_status: 'active' }), 'apple');
+  eq(billingProviderOf({ billing_provider: null, apple_original_transaction_id: 'y', subscription_status: 'active' }), null);
+  eq(billingProviderOf({ billing_provider: 'stripe' }), null);
+});
+test('billing provider: before the column, guess from ids + a live status', () => {
+  eq(billingProviderOf({ apple_original_transaction_id: '200', subscription_status: 'active' }), 'apple');
+  eq(billingProviderOf({ apple_original_transaction_id: '200', subscription_status: 'expired' }), null);
+  eq(billingProviderOf({ ls_subscription_id: '9', subscription_status: 'past_due' }), 'ls');
+  eq(billingProviderOf({ ls_subscription_id: '9', subscription_status: 'expired' }), null);
+  eq(billingProviderOf(null), null);
+});
+test('biller now: mirrors the server (a store retrying a card still bills)', () => {
+  eq(billerNow({ billingProvider: 'ls', subscriptionStatus: 'past_due' }), 'ls');
+  eq(billerNow({ billingProvider: 'ls', subscriptionStatus: 'cancelled' }), null);   // paid up, not renewing
+  eq(billerNow({ billingProvider: 'apple', subscriptionStatus: 'active' }), 'apple');
+  eq(billerNow({ billingProvider: null, appleTxn: true, subscriptionStatus: 'past_due' }), 'apple');   // Apple billing retry
+  eq(billerNow({ billingProvider: null, appleTxn: true, subscriptionStatus: 'expired' }), null);
+  eq(billerNow({ billingProvider: null, subscriptionStatus: 'active' }), null);    // complimentary
+  eq(billerNow(null), null);
+});
+test('plan prices match the checkouts ($24.99 / $49.99 / $99.99)', () => {
+  eq(TIER_PRICES.basic, 24.99); eq(TIER_PRICES.pro, 49.99); eq(TIER_PRICES.premium, 99.99);
+});
+
+/* ===========================================================
+   9g. Your gym's plates — platesForSide + gym-aware loads (2026-10-21)
+   Fewest plates for an exact side, heavier plates first; a gym without
+   25s loads 20s; without 1.25s the smallest jump is 5 kg.
+   =========================================================== */
+group('gym plates');
+const _gymWith = (g, fn) => { const was = localStorage.getItem('powa-gym'); localStorage.setItem('powa-gym', JSON.stringify(g)); try { fn(); } finally { if (was == null) localStorage.removeItem('powa-gym'); else localStorage.setItem('powa-gym', was); } };
+test('platesForSide: fewest plates, heaviest first', () => {
+  eq(JSON.stringify(platesForSide(60, [25, 20, 15, 10, 5, 2.5, 1.25], 0.25).plates), JSON.stringify([25, 25, 10]));
+  eq(JSON.stringify(platesForSide(30, [20, 15, 10, 5, 2.5, 1.25], 0.25).plates), JSON.stringify([20, 10]));
+  eq(JSON.stringify(platesForSide(30, [20, 15], 0.25).plates), JSON.stringify([15, 15]));   // greedy would fail here
+  eq(JSON.stringify(platesForSide(0, [20], 0.25).plates), '[]');
+});
+test('platesForSide: the heaviest load below when it cannot be exact', () => {
+  const r = platesForSide(31, [20, 10, 5], 0.25);
+  eq(r.made, 30); eq(JSON.stringify(r.plates), JSON.stringify([20, 10]));
+});
+test('every plate: 140 kg is 25 · 25 · 10 a side; no 25s: 20 · 20 · 20', () => {
+  eq(JSON.stringify(plateBreakdown(140).plates), JSON.stringify([25, 25, 10]));
+  _gymWith({ kg: [20, 15, 10, 5, 2.5, 1.25] }, () => {
+    eq(JSON.stringify(plateBreakdown(140).plates), JSON.stringify([20, 20, 20]));
+    eq(plateBreakdown(140).error, null);
+  });
+});
+test('no 1.25s: loads move in 5 kg jumps, and 102.5 kg says it is short', () => {
+  eq(loadStepKg('kg'), 2.5);
+  _gymWith({ kg: [25, 20, 15, 10, 5, 2.5] }, () => {
+    eq(loadStepKg('kg'), 5);
+    eq(readinessLoad(100, 'rough', 'kg'), 95);
+    eq(smartNextLoad({ weight: 160, reps: 5, rpe: 9, target: 8 }, { weight: 160, reps: 5, rpe: 8 }, 'kg').kg, 155);
+    eq(plateBreakdown(102.5).error != null, true);
+  });
+});
+test('plate milestones count 20s in a gym without 25s', () => {
+  eq(plateCountFor(100, 'kg', 20), 2); eq(plateCountFor(100, 'kg'), 1);
+  eq(plateMilestoneKg(2, 'kg', 20), 100);
+  _gymWith({ kg: [20, 15, 10, 5, 2.5, 1.25] }, () => { eq(gymBigPlate('kg'), 20); eq(gymPlatesLabel(), 'No 25s'); });
+  eq(gymBigPlate('kg'), 25); eq(gymPlatesLabel(), 'All');
+});
+test('setGymPlates keeps the unit\'s own sizes and never stores an empty set', () => {
+  _gymWith({}, () => {
+    setGymPlates('kg', [20, 10, 999]);
+    eq(JSON.stringify(gymPlates('kg')), JSON.stringify([20, 10]));
+    setGymPlates('kg', []);
+    eq(gymPlates('kg').length, 7);
+  });
 });
 
 group('password strength');

@@ -1033,9 +1033,9 @@ function exportTodayCsv() {
   const csv = buildProgramCsv(oneDay);
   const dayName = (cur.day.name || 'day').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'day';
   const fname = 'powalifta-' + dayName + '-' + (date || todayISO()) + '.csv';
-  if (_downloadBlob(fname, 'text/csv;charset=utf-8', csv)) {
-    toast('Exported ' + setCount + ' set' + (setCount === 1 ? '' : 's') + ' for ' + (cur.day.name || 'this day'));
-  }
+  _downloadBlob(fname, 'text/csv;charset=utf-8', csv).then(done => {
+    if (done) toast('Exported ' + setCount + ' set' + (setCount === 1 ? '' : 's') + ' for ' + (cur.day.name || 'this day'));
+  });
 }
 window.exportTodayCsv = exportTodayCsv;
 
@@ -1162,8 +1162,8 @@ function buildWarmupHtml(workingWeight, workLabel) {
   // Round to lifter-friendly increments based on the displayed unit.
   // kg gyms: 2.5kg increments. lb gyms: 5lb increments.
   const isLbs = getUnit() === 'lbs';
-  const barKg = isLbs ? (45 * KG_PER_LB) : 20; // 45 lb / 20 kg standard bar
-  const stepKg = isLbs ? (5 * KG_PER_LB) : 2.5;
+  const barKg = isLbs ? (gymBarDisplay() * KG_PER_LB) : gymBarDisplay(); // the gym's bar (You → Plates)
+  const stepKg = loadStepKg(isLbs ? 'lbs' : 'kg');                       // its smallest jump
   const round = v => Math.max(barKg, Math.round(v / stepKg) * stepKg);
   const sets = [
     { label: 'Bar',  kg: barKg,             reps: 8 },
@@ -2631,7 +2631,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     if (MAIN_LIFTS.includes(ex.lift) && newLogObj) {
       const prevBest = (Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift === ex.lift && l.id !== newLogObj.id)
         .reduce((m, l) => Math.max(m, Number(l.weight) || 0), 0);
-      plates = newPlateMilestone(prevBest, newLogObj.weight, getUnit());
+      plates = newPlateMilestone(prevBest, newLogObj.weight, getUnit(), gymBigPlate(getUnit()));
       // Your first bodyweight bench, a 1.5× squat… (relative, so fair to every size)
       bwm = newBwMilestone(prevBest, newLogObj.weight, latestBodyweight(user.id), ex.lift, getSexPref());
     }
@@ -2798,7 +2798,7 @@ function plateWord(n) { return n + '-plate'; }
 function showPlateMoment(lift, n, log, isPR) {
   const overlay = el('div', { class: 'pr-toast plate-moment' });
   const card = el('div', { class: 'pr-card' });
-  card.appendChild(el('div', { class: 'pm-bar', html: uiBarbell(plateMilestoneKg(n, getUnit())) }));
+  card.appendChild(el('div', { class: 'pm-bar', html: uiBarbell(plateMilestoneKg(n, getUnit(), gymBigPlate(getUnit()))) }));
   card.appendChild(el('div', { class: 'pr-tag' }, isPR ? 'Plate milestone · new PR' : 'Plate milestone'));
   card.appendChild(el('div', { class: 'pm-title' }, 'Your first ' + plateWord(n) + ' ' + LIFT_LABELS[lift].toLowerCase()));
   card.appendChild(el('div', { class: 'pr-sub' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '') + ' · ' + n + (n === 1 ? ' plate' : ' plates') + ' a side'));
@@ -2924,7 +2924,7 @@ function ensureMeetModal() {
       '</select></div>' +
       '<div id="meetPlanArea"></div>' +
       '<button class="btn btn-primary btn-block mt-16" onclick="shareMeetCard()">Make it a card</button>' +
-      '<button class="btn btn-ghost btn-block mt-8" onclick="generatePeakingFromMeet()">Generate a peaking block to this date →</button>' +
+      (user && user.coachId ? '' : '<button class="btn btn-ghost btn-block mt-8" onclick="generatePeakingFromMeet()">Generate a peaking block to this date →</button>') +
     '</div></div>';
   document.body.appendChild(wrap.firstChild);
 }
@@ -3895,6 +3895,8 @@ function generatePeakingFromMeet(dateStr) {
   const input = document.getElementById('meetDate');
   let val = dateStr || (input && input.value) || '';
   if (!val) { try { val = localStorage.getItem('powa-meet-date') || ''; } catch (e) {} }
+  // The coach writes a coached lifter's program, peaking block included.
+  if (user && user.coachId) { toast('Your coach builds your peaking block. Send them your meet date on the Coach tab.'); return; }
   const d = daysUntil(val);
   if (d == null) { toast('Set your meet date first'); return; }
   if (d < 7) { toast('Meet is too close to build a block'); return; }
@@ -4331,7 +4333,9 @@ function renderAthleteYou() {
         { label: 'Goals', onClick: () => openGoalsModal() },
         { label: 'Year in lifting', value: String(wrapYear()), onClick: () => openYearWrapped(wrapYear()) },
         { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
-        { label: 'My library', onClick: go('library') },
+        // Programs bought on the web marketplace: web only. In the iPhone app they'd point at a
+        // purchase made outside the App Store (Apple 3.1.1); an installed one is just the program.
+        inShell ? null : { label: 'My library', onClick: go('library') },
         inShell ? null : { label: 'Browse programs', onClick: go('marketplace') }
       ] },
       { title: 'Community', rows: [
@@ -4413,8 +4417,30 @@ function syncHomeWidget() {
           const wKg = smart ? smart.kg : Number(nx.set.weight) || 0;
           next = { lift: MAIN_LIFTS.includes(nx.ex.lift) ? nx.ex.lift : 'other', name: cut(exTitleOf(nx.ex), 32),
             load: !cardio && wKg > 0 ? String(kgToDisplay(wKg, 2)) : null,
-            reps: cardio ? null : cut(nx.set.reps, 6), rpe: cardio ? null : cut(nx.set.rpe, 4) };
+            reps: cardio ? null : cut(nx.set.reps, 6), rpe: cardio ? null : cut(nx.set.rpe, 4),
+            key: !cardio && feltRpeFor(nx.ex, nx.si) != null ? nx.ex.id + '|' + nx.si : null };
         }
+      } catch (e) {}
+      // Up to six sets from the next one on, for the session widget's Log set (iOS 17). A set
+      // carries the key the app logs it by only when it has a planned RPE (the widget logs at
+      // it, like the Lock Screen); one without stops the widget there: log it in the app.
+      let queue = null;
+      try {
+        const q = [];
+        for (const ex of (offered ? offered.day.exercises || [] : [])) {
+          (ex.sets || []).forEach((st, si) => {
+            if (st.completed || q.length >= 6) return;
+            const cardio = ex.lift === 'cardio';
+            const sm = !q.length && !cardio ? smartFor(ex, si) : null;
+            const wKg = sm ? sm.kg : Number(st.weight) || 0;
+            q.push({ lift: MAIN_LIFTS.includes(ex.lift) ? ex.lift : 'other', name: cut(exTitleOf(ex), 32),
+              load: !cardio && wKg > 0 ? String(kgToDisplay(wKg, 2)) : null,
+              reps: cardio ? null : cut(st.reps, 6), rpe: cardio ? null : cut(st.rpe, 4),
+              key: !cardio && feltRpeFor(ex, si) != null ? ex.id + '|' + si : null });
+          });
+          if (q.length >= 6) break;
+        }
+        if (q.length) queue = q;
       } catch (e) {}
       let totalDelta = null, weekStart = null, weekDays = null, weighTrend = null, weighDelta = null;
       try {
@@ -4445,7 +4471,7 @@ function syncHomeWidget() {
         weekDone: wk.done || 0, weekGoal: getWeekGoal() || defaultWeekGoal(), streak: wk.streak || 0,
         meetDays, openers,
         lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()),
-        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta });
+        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue });
     } catch (e) {}
   }, 600);
 }
@@ -4468,6 +4494,31 @@ async function drainWidgetPending() {
       if (await saveBodyweightEntry(w.date, kg)) saved++;
     }
     if (saved) { toast(saved === 1 ? 'Weigh-in from your widget saved' : saved + ' weigh-ins from your widget saved'); renderToday(); try { renderAthleteYou(); } catch (e) {} }
+    // Sets logged with the session widget's Log set (iOS 17), at their planned RPE, as the Lock
+    // Screen does. Only today's (a tap from yesterday doesn't land on today's session), and held
+    // on this device until the program has loaded (takePending has already cleared them).
+    let held = [];
+    try { held = JSON.parse(localStorage.getItem('powa-widget-sets') || '[]') || []; } catch (e) {}
+    const wsets = held.concat(r.sets || []).filter(x => x && x.key && x.date === todayISO());
+    if (wsets.length && !getCurrentDay()) {
+      try { localStorage.setItem('powa-widget-sets', JSON.stringify(wsets.slice(-20))); } catch (e) {}
+    } else {
+      try { localStorage.removeItem('powa-widget-sets'); } catch (e) {}
+      let logged = 0;
+      for (const it of wsets) {
+        const [exId, siStr] = String(it.key).split('|');
+        const si = Number(siStr);
+        const find = () => { const c = getCurrentDay(); return c && c.day.exercises.find(e => String(e.id) === exId); };
+        let ex = find();
+        if (!ex) { try { _startOfferedSession(); } catch (e) {} ex = find(); }
+        if (!ex || !ex.sets[si] || ex.sets[si].completed) continue;
+        const rpe = feltRpeFor(ex, si);
+        if (rpe == null) continue;
+        await toggleSet(ex.id, si, true, { rpe, noRest: true });
+        logged++;
+      }
+      if (logged) toast(logged === 1 ? 'Set logged from your widget' : logged + ' sets logged from your widget');
+    }
     const open = String(r.open || '');
     if (/^powalifta:\/\/lift/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => { try { _startOfferedSession(); openLiftMode(); } catch (e) {} }, 350); }
     else if (/^powalifta:\/\/weigh/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => openWeighInSheet(() => renderToday()), 350); }
@@ -4825,7 +4876,7 @@ function stopRestTimer(immediate) {
 
 // ===== PLATE CALC =====
 // Plate-calc bar selection. plateBarCustomKg is stored internally in kg.
-let plateBar = 'standard';   // 'standard' | 'womens' | 'custom'
+let plateBar = gymBar();     // 'standard' | 'womens' | 'custom' (the first two are remembered: You → Plates)
 let plateBarCustomKg = 25;
 function activeBarDisplay() {
   const isLbs = getUnit() === 'lbs';
@@ -4850,13 +4901,19 @@ function openPlateSheet(kg) {
     const note = el('p', { class: 'pm-note' });
     sheet.appendChild(vis); sheet.appendChild(chips);
     const seg = el('div', { class: 'ui-seg pm-barseg', role: 'radiogroup', 'aria-label': 'Bar' });
+    const syncSeg = () => seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.bar === plateBar));
     [['standard', lbs ? '45 lb bar' : '20 kg bar'], ['womens', lbs ? '35 lb bar' : '15 kg bar']].forEach(([k, label]) => {
-      const b = el('button', { type: 'button', role: 'radio', class: plateBar === k ? 'on' : '' }, label);
-      b.addEventListener('click', () => { plateBar = k; seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); paint(); });
+      const b = el('button', { type: 'button', role: 'radio', 'data-bar': k, class: plateBar === k ? 'on' : '' }, label);
+      b.addEventListener('click', () => { plateBar = k; setGymBar(k); syncSeg(); paint(); });
       seg.appendChild(b);
     });
     sheet.appendChild(seg);
     sheet.appendChild(note);
+    // The gym's plates: a gym without 25s (or 1.25s) loads differently.
+    const gymVal = el('span', {}, gymPlatesLabel());
+    const gymRow = uiRow({ title: 'Your gym\'s plates', endNode: gymVal, chevron: true,
+      onClick: () => openGymPlatesSheet(() => { gymVal.textContent = gymPlatesLabel(); syncSeg(); paint(); }) });
+    sheet.appendChild(uiList([gymRow]));
     let first = true, shown = null;
     function paint() {
       const kgv = displayToKg(w);
@@ -4903,7 +4960,7 @@ function openLoadFinder() {
       const rpeEff = Math.min(10, Math.max(5, rpe + drift));
       const pct = Math.max(0.4, 1 - ((reps - 1) + (10 - rpeEff)) * 0.0333);
       const disp = kgToDisplay(base * pct);
-      const stepD = getUnit() === 'lbs' ? 5 : 2.5;
+      const stepD = getUnit() === 'lbs' ? loadStepKg('lbs') / KG_PER_LB : loadStepKg('kg');
       const kg = displayToKg(Math.round(disp / stepD) * stepD);
       out.innerHTML = '<div class="lf-big lift-' + lift + '"><div class="tdh-presc"><b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small><i>×</i><b>' + reps + '</b></div>' +
         '<span class="tx-bar is-static">' + uiBarbell(kg) + '</span></div>' +
@@ -5530,7 +5587,8 @@ function renderProgPRs(area, logs) {
   }
 
   // Plates on the bar: the milestones every lifter counts (1 to 5 a side).
-  const club = plateClub(Store.get().workoutLogs, user.id, getUnit());
+  const big = gymBigPlate(getUnit());
+  const club = plateClub(Store.get().workoutLogs, user.id, getUnit(), big);
   if (club.squat.length || club.bench.length || club.deadlift.length) {
     area.appendChild(uiLabel('Plates on the bar'));
     area.appendChild(uiList(['squat', 'bench', 'deadlift'].map(lift => {
@@ -5538,7 +5596,7 @@ function renderProgPRs(area, logs) {
       const top = got.length ? got[got.length - 1] : null;
       const pips = el('span', { class: 'pc-pips', 'aria-hidden': 'true' });
       for (let i = 1; i <= Math.max(5, top ? top.n : 0); i++) pips.appendChild(el('i', { class: top && i <= top.n ? 'on' : '' }));
-      const nextKg = plateMilestoneKg((top ? top.n : 0) + 1, getUnit());
+      const nextKg = plateMilestoneKg((top ? top.n : 0) + 1, getUnit(), big);
       return uiRow({
         lead: el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }),
         title: top ? plateWord(top.n) + ' ' + LIFT_LABELS[lift].toLowerCase() : LIFT_LABELS[lift],
@@ -6012,7 +6070,7 @@ async function exportProgramAsImage(weekNumber) {
   html += '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #25252c;">';
   html +=   '<div>';
   html +=     '<div style="font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800; font-size: 28px; letter-spacing: 0.02em; line-height: 1;">POWA<span style="color:#ff2d3f">LIFTA</span></div>';
-  html +=     '<div style="font-size: 13px; color: #82828c; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;">' + (weekNumber != null ? ('Week ' + weekNumber) : 'Training program') + '</div>';
+  html +=     '<div style="font-size: 13px; color: #82828c; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;">' + (weekNumber != null ? ('Week ' + escHtml(String(weekNumber))) : 'Training program') + '</div>';
   html +=   '</div>';
   html +=   '<div style="text-align: right;">';
   html +=     '<div style="font-weight: 700; color: #f4f4f6; font-size: 1rem;">' + escHtml(user.name || 'Athlete') + '</div>';
@@ -6083,17 +6141,21 @@ async function exportProgramAsImage(weekNumber) {
 
     canvas.toBlob(blob => {
       if (!blob) { toast('Could not save image.'); return; }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
       const safeName = (prog.name || 'program').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
       const suffix = (weekNumber != null) ? ('-week-' + weekNumber) : '';
+      const filename = 'powalifta-' + safeName + suffix + '.png';
+      const savedMsg = (weekNumber != null ? 'Week ' + weekNumber : 'Program') + ' saved: open it from Photos at the gym.';
+      // <a download> saves nothing in the iPhone app: there the share sheet's Save Image does it.
+      if (_inAppShell()) { _shareFileInApp(blob, filename).then(done => { if (done) toast(savedMsg); }); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
       a.href = url;
-      a.download = 'powalifta-' + safeName + suffix + '.png';
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast((weekNumber != null ? 'Week ' + weekNumber : 'Program') + ' saved: open it from Photos at the gym.');
+      toast(savedMsg);
     }, 'image/png');
   } catch (e) {
     console.error('exportProgramAsImage failed:', e);
@@ -6306,7 +6368,7 @@ window.renderLibrary = renderLibrary;
 // Adds a small numeric badge to the Library tab so unclaimed purchases are visible
 function updateLibraryBadge() {
   const tab = document.getElementById('tab-library');
-  if (!tab) return;
+  if (!tab || document.documentElement.classList.contains('native')) return;
   const s = Store.get();
   const purchases = s.myPurchases || [];
   if (!purchases.length) return;
@@ -6333,6 +6395,7 @@ window.updateLibraryBadge = updateLibraryBadge;
 
 // Toast on dashboard load if there's an unclaimed purchase (once per session).
 function maybeShowPurchaseToast() {
+  if (document.documentElement.classList.contains('native')) return;   // web only (Apple 3.1.1)
   const s = Store.get();
   const purchases = s.myPurchases || [];
   if (!purchases.length) return;
@@ -6591,119 +6654,292 @@ window.__applyAIProgram = function (program) {
   return { ok: true };
 };
 
+// SOLO PROGRAM BUILDER (2026-10-21): the coach builder's look and structure (coach.html
+// loadProgram + buildPbExercise) for a lifter who writes their own program. Exercises fold
+// to one line (tile, name, the prescription as chips) and open to edit; rare and destructive
+// actions live behind ⋯; the one red action builds a block from the lifter's own maxes.
+function _sbOpenSet() { return window._sbOpen || (window._sbOpen = new Set()); }   // no TDZ at boot
 function renderSelfBuilder() {
   const area = document.getElementById('fullProgram');
   area.innerHTML = '';
   const prog = getOrCreateSelfProgram();
   prog.weeks.forEach(wk => wk.days.forEach(d => d.exercises.forEach(ex => ensureExerciseShape(ex))));
 
-  // Program name + global actions
-  const head = el('div', { class: 'card mb-24', style: 'padding: 18px 22px;' });
-  const headRow = el('div', { class: 'flex-between gap-16', style: 'flex-wrap: wrap;' });
+  // Name, ⋯, the block in one line, Build a block.
+  const head = el('div', { class: 'ui-hero pb-head' });
+  const headRow = el('div', { class: 'pb-head-row' });
   const nameInput = el('input', {
-    type: 'text', value: prog.name,
-    style: 'background:transparent; border: 1px solid transparent; padding: 6px 10px; font-family:var(--font-display);font-stretch:var(--display-stretch);font-weight:800; font-size: 22px; color: var(--text); text-transform: uppercase; letter-spacing: 0.01em; max-width: 500px;',
+    type: 'text', value: prog.name || 'My program', class: 'pb-name', 'aria-label': 'Program name',
     oninput: e => {
       Store.update(s => { const p = s.programs.find(p => p.athleteId === user.id); if (p) p.name = e.target.value; });
       persistProgram(prog.id);
     }
   });
-  nameInput.addEventListener('focus', () => { nameInput.style.borderColor = 'var(--line-2)'; nameInput.style.background = 'var(--bg-2)'; });
-  nameInput.addEventListener('blur', () => { nameInput.style.borderColor = 'transparent'; nameInput.style.background = 'transparent'; });
   headRow.appendChild(nameInput);
-
-  const headActions = el('div', { class: 'flex gap-8' });
-  const sheetBtn = el('button', { class: 'btn btn-sm btn-ghost', title: 'Download the whole program as a spreadsheet (CSV) for offline tracking' });
-  sheetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export';
-  sheetBtn.setAttribute('onclick', 'exportProgramCsv()');
-  headActions.appendChild(sheetBtn);
-  const addWkBtn = el('button', { class: 'btn btn-sm', onclick: () => sbAddWeek(prog.id) });
-  addWkBtn.innerHTML = '+ Add week';
-  headActions.appendChild(addWkBtn);
-  headRow.appendChild(headActions);
+  const progMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Program options', html: UI_DOTS });
+  progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
+    { label: 'Add week', icon: ICONS.plus, onClick: () => sbAddWeek(prog.id) },
+    { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv() }
+  ]));
+  headRow.appendChild(progMore);
   head.appendChild(headRow);
+  const allSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
+  const doneSets = allSets.filter(s => s.completed).length;
+  const sessions = prog.weeks.flatMap(w => w.days).filter(d => d.exercises.length).length;
+  head.appendChild(el('div', { class: 'pb-meta' },
+    prog.weeks.length + (prog.weeks.length === 1 ? ' week' : ' weeks') + ' · ' + sessions + (sessions === 1 ? ' session' : ' sessions') +
+    (allSets.length ? ' · ' + Math.round(doneSets / allSets.length * 100) + '% logged' : '')));
+  const buildBtn = el('button', { class: 'btn btn-primary ui-btn-wide pb-goal', type: 'button' }, 'Build a block for me');
+  buildBtn.addEventListener('click', () => openSoloBlockSheet());
+  head.appendChild(buildBtn);
   area.appendChild(head);
 
   if (!prog.weeks.length) {
-    area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'No weeks yet'), el('p', {}, 'Click "+ Add week" to start building.')));
+    const e = el('div', { class: 'empty' });
+    e.appendChild(el('h3', {}, 'No weeks yet'));
+    e.appendChild(el('p', {}, 'Build a block from your numbers, or add a week and write it yourself.'));
+    const add = el('button', { class: 'btn ui-btn-soft mt-16', type: 'button', onclick: () => sbAddWeek(prog.id) });
+    add.innerHTML = ICONS.plus + '<span>Add week</span>';
+    e.appendChild(add);
+    area.appendChild(e);
     return;
   }
 
-  // Builder layout: week tabs sidebar + active week content
   const builder = el('div', { class: 'builder' });
   const aside = el('div', { class: 'builder-aside' });
-  aside.appendChild(el('h4', {}, 'Weeks'));
   const weekNav = el('div', { class: 'week-nav' });
+  if (_selfBuilderActiveWeek >= prog.weeks.length) _selfBuilderActiveWeek = 0;
   prog.weeks.forEach((wk, wi) => {
-    const tab = el('button', {
-      class: 'week-tab' + (wi === _selfBuilderActiveWeek ? ' active' : ''),
-      onclick: () => { _selfBuilderActiveWeek = wi; renderSelfBuilder(); }
-    });
-    const setCt = wk.days.reduce((sum, d) => sum + d.exercises.reduce((s2, e) => s2 + e.sets.length, 0), 0);
-    tab.appendChild(el('span', {}, 'Week ' + wk.number));
-    tab.appendChild(el('span', { class: 'ct' }, setCt + ' sets'));
-    weekNav.appendChild(tab);
+    const totalSets = wk.days.flatMap(d => d.exercises).flatMap(e => e.sets).length;
+    weekNav.appendChild(el('button', { class: 'week-tab' + (wi === _selfBuilderActiveWeek ? ' active' : ''), type: 'button',
+      onclick: () => { _selfBuilderActiveWeek = wi; renderSelfBuilder(); } },
+      el('span', {}, 'Week ' + wk.number), el('span', { class: 'ct' }, String(totalSets))));
   });
+  const addWkChip = el('button', { class: 'week-tab week-add', type: 'button', 'aria-label': 'Add week', html: ICONS.plus });
+  addWkChip.addEventListener('click', () => sbAddWeek(prog.id));
+  weekNav.appendChild(addWkChip);
   aside.appendChild(weekNav);
   builder.appendChild(aside);
 
-  const main = el('div', {});
-  const wk = prog.weeks[_selfBuilderActiveWeek];
-  if (!wk) {
-    main.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'Pick a week')));
-    builder.appendChild(main);
-    area.appendChild(builder);
-    return;
-  }
-
-  // Week header
-  const wkHead = el('div', { class: 'card mb-16', style: 'padding: 14px 18px;' });
-  const wkHeadRow = el('div', { class: 'flex-between', style: 'flex-wrap: wrap; gap: 10px;' });
-  wkHeadRow.appendChild(el('h3', { style: 'margin: 0; font-size: 22px;' }, 'Week ' + wk.number));
-  const wkActions = el('div', { class: 'flex gap-8' });
-  const dupBtn = el('button', { class: 'btn btn-sm btn-ghost', onclick: () => sbDuplicateWeek(prog.id, _selfBuilderActiveWeek) }, 'Duplicate week');
-  const addDayBtn = el('button', { class: 'btn btn-sm', onclick: () => sbAddDay(prog.id, _selfBuilderActiveWeek) });
-  addDayBtn.innerHTML = '+ Add day';
-  const delWkBtn = el('button', { class: 'btn btn-sm btn-danger', onclick: () => { if (confirm('Remove Week ' + wk.number + '?')) sbDeleteWeek(prog.id, _selfBuilderActiveWeek); } }, 'Remove week');
-  wkActions.appendChild(dupBtn); wkActions.appendChild(addDayBtn); wkActions.appendChild(delWkBtn);
-  wkHeadRow.appendChild(wkActions);
-  wkHead.appendChild(wkHeadRow);
+  const main = el('div', { class: 'builder-main' });
+  const wi = _selfBuilderActiveWeek;
+  const wk = prog.weeks[wi];
+  const wkHead = el('div', { class: 'pb-week-head' });
+  wkHead.appendChild(el('div', { class: 'pb-week-title' }, 'Week ' + wk.number));
+  const wkMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Week options', html: UI_DOTS });
+  wkMore.addEventListener('click', () => uiActionSheet('Week ' + wk.number, [
+    { label: 'Duplicate week', icon: ICONS.copy, onClick: () => sbDuplicateWeek(prog.id, wi) },
+    { label: 'Add day', icon: ICONS.plus, onClick: () => sbAddDay(prog.id, wi) },
+    { label: 'Add rest day', icon: ICONS.plus, onClick: () => sbAddRestDay(prog.id, wi) },
+    prog.weeks.length > 1 ? { label: 'Remove week', icon: ICONS.trash, danger: true, onClick: () => { if (confirm('Remove Week ' + wk.number + '?')) sbDeleteWeek(prog.id, wi); } } : null
+  ]));
+  wkHead.appendChild(wkMore);
   main.appendChild(wkHead);
 
-  // Days
   wk.days.forEach((day, di) => {
-    const dayCard = el('div', { class: 'day-card' });
-    const dayHead = el('div', { class: 'day-head' });
-    const dayInput = el('input', {
-      class: 'day-name-input', value: day.name,
-      onchange: e => sbUpdateDayName(prog.id, _selfBuilderActiveWeek, di, e.target.value)
-    });
-    dayHead.appendChild(dayInput);
-    const delDay = el('button', { class: 'btn btn-sm btn-danger', onclick: () => sbDeleteDay(prog.id, _selfBuilderActiveWeek, di) });
-    delDay.innerHTML = '×';
-    dayHead.appendChild(delDay);
+    const dayCard = el('div', { class: 'pb-day' });
+    const dayHead = el('div', { class: 'pb-day-head' });
+    const idw = el('div', { class: 'pb-day-id' });
+    idw.appendChild(el('input', { class: 'pb-day-name', value: day.name, 'aria-label': 'Day name', onchange: e => { sbUpdateDayName(prog.id, wi, di, e.target.value); renderSelfBuilder(); } }));
+    const exN = day.exercises.length, setN = day.exercises.reduce((a, e) => a + e.sets.length, 0);
+    const meta = el('div', { class: 'pb-day-meta' });
+    MAIN_LIFTS.filter(l => day.exercises.some(e => e.lift === l)).forEach(l => meta.appendChild(el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' })));
+    const restish = /\b(rest|off|recovery)\b/i.test(day.name || '');
+    meta.appendChild(document.createTextNode(exN ? exN + (exN === 1 ? ' exercise · ' : ' exercises · ') + setN + (setN === 1 ? ' set' : ' sets') : (restish ? 'Recovery' : 'No exercises yet')));
+    idw.appendChild(meta);
+    dayHead.appendChild(idw);
+    const dayMore = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Day options', html: UI_DOTS });
+    dayMore.addEventListener('click', () => uiActionSheet(day.name || 'Day', [
+      di > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderDay(prog.id, wi, di, -1); sbPersist(prog.id); renderSelfBuilder(); } } : null,
+      di < wk.days.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: () => { reorderDay(prog.id, wi, di, 1); sbPersist(prog.id); renderSelfBuilder(); } } : null,
+      { label: 'Delete day', icon: ICONS.trash, danger: true, onClick: () => sbDeleteDay(prog.id, wi, di) }
+    ]));
+    dayHead.appendChild(dayMore);
     dayCard.appendChild(dayHead);
 
-    const dayBody = el('div', { class: 'day-body' });
-    if (!day.exercises.length) {
-      dayBody.appendChild(el('div', { class: 'day-empty' }, 'No exercises yet'));
-    } else {
-      day.exercises.forEach((ex, ei) => {
-        ensureExerciseShape(ex);
-        dayBody.appendChild(renderSelfExerciseRow(prog.id, _selfBuilderActiveWeek, di, ei, ex));
-      });
+    const dayBody = el('div', { class: 'pb-day-body' });
+    if (!exN && restish) {
+      const restBox = el('div', { class: 'day-empty pb-rest' });
+      restBox.appendChild(el('div', { class: 'pb-rest-title' }, 'Rest day'));
+      restBox.appendChild(el('div', { class: 'pb-rest-sub' }, 'Rename it to make it a training day.'));
+      dayBody.appendChild(restBox);
     }
-    const addExBtn = el('button', { class: 'btn btn-sm mt-8', onclick: () => sbOpenAddExercise(prog.id, _selfBuilderActiveWeek, di) });
-    addExBtn.innerHTML = '+ Add exercise';
+    day.exercises.forEach((ex, ei) => dayBody.appendChild(buildSbExercise(prog, wi, day, di, ex, ei)));
+    const addExBtn = el('button', { class: 'pb-add-ex2', type: 'button', onclick: () => sbOpenAddExercise(prog.id, wi, di) });
+    addExBtn.innerHTML = ICONS.plus + '<span>Add exercise</span>';
     dayBody.appendChild(addExBtn);
-
     dayCard.appendChild(dayBody);
     main.appendChild(dayCard);
   });
 
+  // A training day or a rest day at the end of the week (rest days count toward the streak).
+  const addRow = el('div', { class: 'pb-add-row' });
+  const addDayBtn = el('button', { class: 'ui-btn-soft', type: 'button', onclick: () => sbAddDay(prog.id, wi) });
+  addDayBtn.innerHTML = ICONS.plus + '<span>Add day</span>';
+  const addRestBtn = el('button', { class: 'ui-btn-soft', type: 'button', onclick: () => sbAddRestDay(prog.id, wi), title: 'Add a rest day (no exercises)' });
+  addRestBtn.innerHTML = ICONS.plus + '<span>Add rest day</span>';
+  addRow.appendChild(addDayBtn);
+  addRow.appendChild(addRestBtn);
+  main.appendChild(addRow);
+
   builder.appendChild(main);
   area.appendChild(builder);
 }
+
+// One exercise: folded to its tile, name and chips; tap to open the block editor.
+function buildSbExercise(prog, wi, day, di, ex, ei) {
+  const isMain = MAIN_LIFTS.includes(ex.lift);
+  const openSet = _sbOpenSet();
+  const open = openSet.has(ex.id);
+  const row = el('div', { class: 'pb-ex' + (open ? ' is-open' : '') + (isMain ? ' lift-' + ex.lift : ' lift-acc') });
+  let title = '', badge = '';
+  if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; const m = multiplierFor(ex.lift, ex.variant); badge = m !== 1 ? '×' + m : ''; }
+  else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
+  else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
+  else { title = ex.exerciseName; }
+  const head = el('div', { class: 'pb-ex-head' });
+  const toggle = el('button', { class: 'pb-ex-toggle', type: 'button', 'aria-expanded': open ? 'true' : 'false' });
+  toggle.appendChild(el('span', { class: 'tx-tile pb-tile', 'aria-hidden': 'true', html: ex.lift === 'cardio' ? ICONS.flame : escHtml(_pbTile(ex)) }));
+  const mid = el('span', { class: 'pb-ex-mid' });
+  const t = el('span', { class: 'pb-ex-title' }, title || 'Exercise');
+  if (badge) t.appendChild(el('span', { class: 'pb-badge' }, badge));
+  mid.appendChild(t);
+  mid.appendChild(_pbChips(ex));
+  toggle.appendChild(mid);
+  toggle.addEventListener('click', () => { if (openSet.has(ex.id)) openSet.delete(ex.id); else openSet.add(ex.id); renderSelfBuilder(); });
+  head.appendChild(toggle);
+  const exMore = el('button', { class: 'ui-icon-btn pb-more', type: 'button', 'aria-label': 'Exercise options', html: UI_DOTS });
+  exMore.addEventListener('click', () => uiActionSheet(title || 'Exercise', [
+    ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: () => { reorderExercise(prog.id, wi, di, ei, -1); sbPersist(prog.id); renderSelfBuilder(); } } : null,
+    ei < day.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: () => { reorderExercise(prog.id, wi, di, ei, 1); sbPersist(prog.id); renderSelfBuilder(); } } : null,
+    { label: 'Duplicate', icon: ICONS.copy, onClick: () => { copyExercise(prog.id, wi, di, ei); sbPersist(prog.id); renderSelfBuilder(); } },
+    { label: 'Remove', icon: ICONS.trash, danger: true, onClick: () => sbDeleteExercise(prog.id, wi, di, ei) }
+  ]));
+  head.appendChild(exMore);
+  row.appendChild(head);
+  if (!open) {
+    if (ex.note) row.appendChild(el('div', { class: 'pb-ex-note' }, ex.note));
+    return row;
+  }
+
+  const edit = el('div', { class: 'pb-ex-edit' });
+  const last = getLastSetForExercise(user.id, ex.lift, ex.variant, ex.exerciseName);
+  if (last) edit.appendChild(el('div', { class: 'pb-last' }, 'Last: ' + kgToDisplay(last.weight) + ' ' + unitLabel() + ' × ' + last.reps + ' @ RPE ' + last.rpe + ' · ' + fmtDateShort(last.date)));
+  const u = unitLabel();
+  if (ex.lift === 'cardio') {
+    ex.sets.forEach((set, si) => {
+      const r = el('div', { class: 'set-row' });
+      r.appendChild(el('div', { class: 'set-label' }, 'Bout ' + (si + 1)));
+      r.appendChild(el('input', { type: 'number', value: set.weight, placeholder: 'min', step: '0.5', 'aria-label': 'Minutes', oninput: e => sbUpdateSet(prog.id, wi, di, ei, si, 'weight', Number(e.target.value)) }));
+      r.appendChild(el('input', { type: 'number', value: set.reps, placeholder: 'km', 'aria-label': 'Distance', oninput: e => sbUpdateSet(prog.id, wi, di, ei, si, 'reps', Number(e.target.value)) }));
+      r.appendChild(el('input', { type: 'number', value: set.rpe == null ? '' : set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', 'aria-label': 'RPE', oninput: e => sbUpdateSet(prog.id, wi, di, ei, si, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
+      const x = el('button', { class: 'btn-icon', type: 'button', 'aria-label': 'Remove bout', html: ICONS.x, onclick: () => sbDeleteSet(prog.id, wi, di, ei, si) });
+      r.appendChild(x);
+      edit.appendChild(r);
+    });
+    const addBout = el('button', { class: 'ui-text-btn pb-add-block', type: 'button', onclick: () => sbAddSet(prog.id, wi, di, ei) }, '+ Add bout');
+    edit.appendChild(addBout);
+  } else {
+    const blocks = groupSets(ex.sets);
+    const colHead = el('div', { class: 'uniform-head', 'aria-hidden': 'true' });
+    ['Sets', '', 'Reps', u, 'RPE'].forEach(x => colHead.appendChild(el('span', {}, x)));
+    edit.appendChild(colHead);
+    blocks.forEach(blk => {
+      const tplRow = el('div', { class: 'uniform-row' });
+      const grpVolume = el('div', { class: 'uniform-grp' });
+      const grpLoad = el('div', { class: 'uniform-grp' });
+      tplRow.appendChild(grpVolume);
+      tplRow.appendChild(grpLoad);
+      const countWrap = el('div', { class: 'uniform-cell' });
+      countWrap.appendChild(el('input', { type: 'number', min: '1', max: '50', step: '1', inputmode: 'numeric', 'aria-label': 'Sets', value: blk.count, onchange: e => sbBlockCount(prog.id, wi, di, ei, blk.startIdx, blk.count, Number(e.target.value)) }));
+      countWrap.appendChild(el('span', { class: 'uniform-lbl' }, blk.count === 1 ? 'set' : 'sets'));
+      grpVolume.appendChild(countWrap);
+      grpVolume.appendChild(el('span', { class: 'uniform-mult' }, '×'));
+      const repsWrap = el('div', { class: 'uniform-cell' });
+      repsWrap.appendChild(el('input', { type: 'number', min: '1', step: '1', inputmode: 'numeric', 'aria-label': 'Reps', value: blk.reps, oninput: e => sbBlockField(prog.id, wi, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value)) }));
+      repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
+      grpVolume.appendChild(repsWrap);
+      grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
+      const wWrap = el('div', { class: 'uniform-cell' });
+      wWrap.appendChild(el('input', { type: 'number', step: '0.5', inputmode: 'decimal', 'aria-label': 'Load in ' + u, value: blk.weight ? kgToDisplay(blk.weight) : '', placeholder: u, oninput: e => sbBlockField(prog.id, wi, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value))) }));
+      wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
+      grpLoad.appendChild(wWrap);
+      grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
+      const rpeWrap = el('div', { class: 'uniform-cell' });
+      rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
+      rpeWrap.appendChild(el('input', { type: 'number', min: '1', max: '10', step: '0.5', inputmode: 'decimal', 'aria-label': 'RPE', value: blk.rpe == null ? '' : blk.rpe, placeholder: 'opt', title: 'Leave blank for back-down sets', oninput: e => sbBlockField(prog.id, wi, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
+      grpLoad.appendChild(rpeWrap);
+      if (blocks.length > 1) {
+        const xBtn = el('button', { class: 'btn-icon', type: 'button', 'aria-label': 'Remove these sets', title: 'Remove these sets', html: ICONS.x, onclick: () => sbDeleteBlock(prog.id, wi, di, ei, blk.startIdx, blk.count) });
+        tplRow.appendChild(xBtn);
+      }
+      edit.appendChild(tplRow);
+    });
+    edit.appendChild(el('button', { class: 'ui-text-btn pb-add-block', type: 'button', title: 'Add more sets, e.g. back-downs after a top set', onclick: () => sbAddBlock(prog.id, wi, di, ei) }, '+ Add sets'));
+  }
+  const noteWrap = el('div', { class: 'pb-note' });
+  const note = el('textarea', { class: 'coach-note-input', placeholder: 'Note to self (optional): cues, tempo, setup', 'aria-label': 'Exercise note',
+    oninput: e => { Store.update(s => { const p = s.programs.find(p => p.id === prog.id); if (p) p.weeks[wi].days[di].exercises[ei].note = e.target.value; }); sbPersist(prog.id); } });
+  note.value = ex.note || '';
+  noteWrap.appendChild(note);
+  edit.appendChild(noteWrap);
+  row.appendChild(edit);
+  return row;
+}
+
+function sbAddRestDay(progId, wi) {
+  Store.update(s => {
+    const p = s.programs.find(p => p.id === progId);
+    if (!p || !p.weeks[wi]) return;
+    p.weeks[wi].days.push(newDay('Rest day'));
+  });
+  sbPersist(progId);
+  renderSelfBuilder();
+}
+
+// BUILD A BLOCK (solo lifters): a full block from the lifter's own best e1RMs, the same
+// generator the coach's Build from goal and the assistant use (app.js generateProgram):
+// RPE waves up over the block, loads come from the e1RMs, the last week deloads.
+function openSoloBlockSheet() {
+  if (user.coachId) { toast('Your coach writes your program.'); return; }
+  let weeks = 4, days = 4, focus = '';
+  const e1rms = {};
+  MAIN_LIFTS.forEach(l => { const v = bestE1RM(user.id, l); if (v) e1rms[l] = v; });
+  uiSheet('Build a block', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'A training block from your own numbers: effort waves up week by week, loads come from your best estimated maxes, and the last week is a deload.'));
+    const seg = (label, opts, get, set) => {
+      const row = el('div', { class: 'lf-row sb-row' + (opts.length > 3 ? ' is-wide' : '') });
+      row.appendChild(el('span', { class: 'lf-lbl' }, label));
+      const g = el('div', { class: 'ui-seg', role: 'radiogroup', 'aria-label': label });
+      opts.forEach(([v, text]) => {
+        const b = el('button', { type: 'button', role: 'radio', class: get() === v ? 'on' : '', 'aria-checked': get() === v ? 'true' : 'false' }, text);
+        b.addEventListener('click', () => { set(v); g.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); }); hapticTick(); });
+        g.appendChild(b);
+      });
+      row.appendChild(g);
+      return row;
+    };
+    sheet.appendChild(seg('Weeks', [[4, '4'], [6, '6'], [8, '8']], () => weeks, v => { weeks = v; }));
+    sheet.appendChild(seg('Days a week', [[3, '3'], [4, '4'], [5, '5']], () => days, v => { days = v; }));
+    sheet.appendChild(seg('Focus', [['', 'Even'], ['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift']], () => focus, v => { focus = v; }));
+    const known = MAIN_LIFTS.filter(l => e1rms[l]);
+    sheet.appendChild(el('p', { class: 'pm-note' }, known.length
+      ? 'Loads from your best: ' + known.map(l => LIFT_LABELS[l] + ' ' + formatWeight(Math.round(e1rms[l]))).join(' · ') + '.'
+      : 'No estimated maxes yet, so loads stay blank: work up to each set\'s RPE.'));
+    const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Build it');
+    go.addEventListener('click', () => {
+      const cur = getProgram();
+      const hasContent = cur && (cur.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).length));
+      if (hasContent && !confirm('This replaces your current program. Your logged sets stay in your history. Build it?')) return;
+      const prog = generateProgram({ weeks, daysPerWeek: days, focus: focus || undefined, e1rms, athleteId: user.id, coachId: user.id,
+        name: weeks + '-week ' + (focus ? LIFT_LABELS[focus].toLowerCase() + ' ' : '') + 'block' });
+      close();
+      setTimeout(() => { _selfBuilderActiveWeek = 0; window.__applyAIProgram(prog); }, 220);
+    });
+    sheet.appendChild(go);
+  }, { cls: 'plate-sheet sb-build-sheet' });
+}
+window.openSoloBlockSheet = openSoloBlockSheet;
 
 // ---------- Self-builder helpers (sb*) ----------
 function sbProg() { return Store.get().programs.find(p => p.athleteId === user.id); }
@@ -6839,79 +7075,6 @@ function sbConfirmAddExercise() {
   renderSelfBuilder();
 }
 window.sbConfirmAddExercise = sbConfirmAddExercise;
-
-function renderSelfExerciseRow(progId, wi, di, ei, ex) {
-  const row = el('div', { class: 'exercise-row' });
-
-  // Header: title + remove
-  const head = el('div', { class: 'exercise-row-header' });
-  const titleBlock = el('div', { class: 'exercise-name' });
-  let title = '', badge = '';
-  if (MAIN_LIFTS.includes(ex.lift)) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; badge = '×' + multiplierFor(ex.lift, ex.variant); }
-  else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
-  else if (ex.lift === 'cardio') { title = ex.exerciseName || 'Cardio'; badge = 'Cardio'; }
-  else { title = ex.exerciseName; badge = 'Other'; }
-  titleBlock.appendChild(el('span', {}, title));
-  if (badge) titleBlock.appendChild(el('span', { class: 'lift-badge' }, badge));
-  head.appendChild(titleBlock);
-  const delBtn = el('button', { class: 'btn btn-sm btn-danger', onclick: () => sbDeleteExercise(progId, wi, di, ei) });
-  delBtn.innerHTML = '×';
-  head.appendChild(delBtn);
-  row.appendChild(head);
-
-  // Block-mode set editor (shared logic with coach builder)
-  const isCardio = ex.lift === 'cardio';
-  const u = unitLabel();
-  if (isCardio) {
-    ex.sets.forEach((set, si) => {
-      const r = el('div', { class: 'set-row' });
-      r.appendChild(el('div', { class: 'set-label' }, 'Bout ' + (si + 1)));
-      r.appendChild(el('input', { type: 'number', value: set.weight, placeholder: 'min', step: '0.5', oninput: e => sbUpdateSet(progId, wi, di, ei, si, 'weight', Number(e.target.value)) }));
-      r.appendChild(el('input', { type: 'number', value: set.reps, placeholder: 'km', oninput: e => sbUpdateSet(progId, wi, di, ei, si, 'reps', Number(e.target.value)) }));
-      r.appendChild(el('input', { type: 'number', value: set.rpe == null ? '' : set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => sbUpdateSet(progId, wi, di, ei, si, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
-      const x = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => sbDeleteSet(progId, wi, di, ei, si) }, '×');
-      r.appendChild(x);
-      row.appendChild(r);
-    });
-    const addBoutBtn = el('button', { class: 'btn btn-sm mt-8', onclick: () => sbAddSet(progId, wi, di, ei) });
-    addBoutBtn.innerHTML = '+ Add bout';
-    row.appendChild(addBoutBtn);
-  } else {
-    const blocks = groupSets(ex.sets);
-    blocks.forEach(blk => {
-      const tplRow = el('div', { class: 'uniform-row' });
-      const countWrap = el('div', { class: 'uniform-cell' });
-      countWrap.appendChild(el('input', { type: 'number', min: '1', max: '50', step: '1', value: blk.count, onchange: e => sbBlockCount(progId, wi, di, ei, blk.startIdx, blk.count, Number(e.target.value)) }));
-      countWrap.appendChild(el('span', { class: 'uniform-lbl' }, blk.count === 1 ? 'set' : 'sets'));
-      tplRow.appendChild(countWrap);
-      tplRow.appendChild(el('span', { class: 'uniform-mult' }, '×'));
-      const repsWrap = el('div', { class: 'uniform-cell' });
-      repsWrap.appendChild(el('input', { type: 'number', min: '1', step: '1', value: blk.reps, oninput: e => sbBlockField(progId, wi, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value)) }));
-      repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
-      tplRow.appendChild(repsWrap);
-      tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
-      const wWrap = el('div', { class: 'uniform-cell' });
-      wWrap.appendChild(el('input', { type: 'number', step: '0.5', value: blk.weight ? kgToDisplay(blk.weight) : '', placeholder: u, oninput: e => sbBlockField(progId, wi, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value))) }));
-      wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
-      tplRow.appendChild(wWrap);
-      tplRow.appendChild(el('span', { class: 'uniform-at' }, '@'));
-      const rpeWrap = el('div', { class: 'uniform-cell' });
-      rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
-      rpeWrap.appendChild(el('input', { type: 'number', min: '1', max: '10', step: '0.5', value: blk.rpe == null ? '' : blk.rpe, placeholder: '–', oninput: e => sbBlockField(progId, wi, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value)) }));
-      tplRow.appendChild(rpeWrap);
-      if (blocks.length > 1) {
-        const xBtn = el('button', { class: 'btn-icon btn-danger', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px; margin-left:auto;', onclick: () => sbDeleteBlock(progId, wi, di, ei, blk.startIdx, blk.count) }, '×');
-        tplRow.appendChild(xBtn);
-      }
-      row.appendChild(tplRow);
-    });
-    const addBlockBtn = el('button', { class: 'btn btn-sm btn-ghost mt-8', onclick: () => sbAddBlock(progId, wi, di, ei) });
-    addBlockBtn.innerHTML = '+ Add set block';
-    row.appendChild(addBlockBtn);
-  }
-
-  return row;
-}
 
 function sbUpdateSet(progId, wi, di, ei, si, field, val) {
   Store.update(s => { const p = s.programs.find(p => p.id === progId); if (p) p.weeks[wi].days[di].exercises[ei].sets[si][field] = val; });

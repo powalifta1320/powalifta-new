@@ -143,7 +143,8 @@ Deno.serve(async (req) => {
     // Parse against our origin and keep only a same-origin path: "/\\evil.com" or a control
     // character in the path would otherwise resolve off-site in the browser.
     const u = new URL(_rawUrl, 'https://www.powalifta.com')
-    if (u.origin === 'https://www.powalifta.com' && !/[\\\u0000-\u001f]/.test(_rawUrl)) url = u.pathname + u.search
+    // ...and never a path starting "//" ("/..//evil.com" normalises to it: protocol-relative).
+    if (u.origin === 'https://www.powalifta.com' && !/[\\\u0000-\u001f]/.test(_rawUrl) && !u.pathname.startsWith('//')) url = u.pathname + u.search
   } catch (_) { /* the default */ }
   let tag = clip(payload.tag, 60) || 'powa'
   let category = clip(payload.category, 30) // 'messages' | 'form_checks' | 'program' | 'buddy' | ''

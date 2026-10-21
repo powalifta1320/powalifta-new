@@ -258,14 +258,16 @@ struct SessionView: View {
     var body: some View {
         if let s = snap, !s.sessionStale {
             let rest = s.session == "Rest day"
+            let logged = PowaSessionLog.keys(for: s)
             let total = s.setsTotal ?? 0
-            let done = s.setsDone ?? 0
+            let done = min(total, (s.setsDone ?? 0) + logged.count)
             let finished = total > 0 && done >= total
+            let up = s.upNext(after: logged)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .center, spacing: 8) {
                     WidgetTitle(text: rest || s.session == nil ? "Today" : "Today · \(s.session ?? "")")
                     Spacer(minLength: 4)
-                    if !rest && !finished && total > 0 { LiftModePill() }
+                    if !rest && !finished && total > 0 { SessionAction(canLog: up?.key != nil) }
                 }
                 Spacer(minLength: 6)
                 if rest {
@@ -276,7 +278,7 @@ struct SessionView: View {
                         Image(systemName: "checkmark.circle.fill").font(.system(size: 22, weight: .bold)).foregroundColor(Hue.ok)
                         BigLine(text: "Session done")
                     }
-                } else if let n = s.next {
+                } else if let n = up {
                     NextSet(next: n, unit: s.unit ?? "kg")
                 } else if total > 0 {
                     BigLine(text: "\(total - done) sets to go")
@@ -344,7 +346,39 @@ private struct SubLine: View {
     }
 }
 
-/// The one red action on the session widget (the whole widget opens Lift mode).
+/// The session widget's one red action: Log set on iOS 17 when the set on show can be logged
+/// from here (it has a planned RPE), otherwise the Lift mode pill (the whole widget opens it).
+private struct SessionAction: View {
+    let canLog: Bool
+    var body: some View {
+        if #available(iOS 17.0, macOS 14.0, *), canLog {
+            LogSetButton()
+        } else {
+            LiftModePill()
+        }
+    }
+}
+
+@available(iOS 17.0, macOS 14.0, *)
+private struct LogSetButton: View {
+    @Environment(\.widgetRenderingMode) private var mode
+    var body: some View {
+        Button(intent: SessionLogSetIntent()) {
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))
+                Text("Log set").font(.system(size: 13, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Hue.action(mode)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Log this set at its planned RPE")
+    }
+}
+
+/// The Lift mode pill (display only: the whole widget opens Lift mode).
 private struct LiftModePill: View {
     @Environment(\.widgetRenderingMode) private var mode
     var body: some View {
@@ -370,7 +404,7 @@ struct PowaSessionWidget: Widget {
                 .widgetURL(URL(string: "powalifta://lift"))
         }
         .configurationDisplayName("Today's session")
-        .description("The next set, how far you are, and one tap into Lift mode.")
+        .description("The next set and how far you are. Log it right here, or tap for Lift mode.")
         .supportedFamilies([.systemMedium])
     }
 }

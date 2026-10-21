@@ -99,6 +99,9 @@
   // =====================================================================
   function S() { return (window.Store && window.Store.get && window.Store.get()) || {}; }
   function me() { return (window.getCurrentUser && window.getCurrentUser()) || window._user || null; }
+  // A lifter with a coach: the coach writes the program, so the assistant never drafts one to replace it.
+  function coached() { var u = me(); return ROLE !== 'coach' && !!(u && u.coachId); }
+  var COACHED_PROGRAM_TEXT = "Your coach writes your program, so I won't draft one to replace it. I can explain any set in it, or you can ask your coach for changes on the **Coach** tab.";
   function unit() { try { return localStorage.getItem('powa-units') === 'lb' ? 'lb' : 'kg'; } catch (e) { return 'kg'; } }
   function isoDaysAgo(n) {
     var d = new Date(); d.setDate(d.getDate() - n);
@@ -799,7 +802,10 @@
 
     function renderChips() {
       chips.innerHTML = '';
-      (MODE === 'support' ? supportMeta : meta).chips.forEach(function (c) {
+      var list = (MODE === 'support' ? supportMeta : meta).chips;
+      // A coached lifter's program comes from their coach: offer the e1RM explainer instead.
+      if (MODE !== 'support' && coached()) list = list.map(function (c) { return c === 'Build me a 4-week program' ? 'How is my e1RM worked out?' : c; });
+      list.forEach(function (c) {
         var chip = h('button', { class: 'ai-chip', type: 'button' }, esc(c));
         chip.addEventListener('click', function () { if (!busy) { input.value = c; submit(); } });
         chips.appendChild(chip);
@@ -885,6 +891,7 @@
       // live and mock modes — a real, schema-correct program object the user
       // can insert with one tap, instead of prose the LLM might malform.
       if (wantsProgram(q.toLowerCase())) {
+        if (coached()) { setTimeout(function () { answer(COACHED_PROGRAM_TEXT); }, 320); return; }
         var designed = designProgram(q);
         if (designed && designed.program) {
           setTimeout(function () { answer(designed.text, designed.program); }, 480);

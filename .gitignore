@@ -48,3 +48,6 @@ native/package-lock.json
 native/store/
 APP-STORE-*/
 native/scripts/widget-preview/snapshot.json
+
+# Supabase CLI cache (pooler URL, versions): local only
+supabase/.temp/

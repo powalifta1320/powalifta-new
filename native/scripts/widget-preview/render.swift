@@ -48,7 +48,7 @@ struct Sheet: View {
         let meetDay = variant { $0.meetDays = 0 }
         let rest = variant { $0.session = "Rest day"; $0.next = nil; $0.setsDone = 0; $0.setsTotal = 0 }
         let done = variant { $0.setsDone = 12; $0.next = nil }
-        let bench = variant { $0.session = "Bench day"; $0.next = PowaSnapshot.Next(lift: "bench", name: "Paused bench", load: "112.5", reps: "4", rpe: "7.5"); $0.setsDone = 1; $0.setsTotal = 9 }
+        let bench = variant { $0.session = "Bench day"; $0.next = PowaSnapshot.Next(lift: "bench", name: "Paused bench", load: "112.5", reps: "4", rpe: "7.5"); $0.queue = nil; $0.setsDone = 1; $0.setsTotal = 9 }
         let logged = variant { $0.weighedToday = true }
         let staleDone = variant { $0.setsDone = 12; $0.next = nil; $0.at = yesterday }
         let staleWeigh = variant { $0.weighedToday = true; $0.at = yesterday }

@@ -68,19 +68,25 @@
 
     // Register for native push. Resolves true once the OS hands back a token and
     // we've stored it. No-op (false) on web — the web path stays on PowaPush/VAPID.
-    registerPush: async function () {
+    // quiet = never show the permission prompt (the launch refresh below).
+    registerPush: async function (quiet) {
       if (!isNative) return false;
       var Push = plugins().PushNotifications;
       if (!Push) return false;
       try {
         var perm = await Push.checkPermissions();
-        if (perm.receive !== 'granted') perm = await Push.requestPermissions();
+        if (perm.receive !== 'granted' && !quiet) perm = await Push.requestPermissions();
         this._perm = perm.receive;
         if (perm.receive !== 'granted') return false;
         var self = this;
+        var handles = [];
+        var finish = function (ok, resolve) {
+          handles.forEach(function (h) { try { Promise.resolve(h).then(function (x) { if (x && x.remove) x.remove(); }); } catch (e) {} });
+          resolve(ok);
+        };
         return await new Promise(function (resolve) {
           var done = false;
-          Push.addListener('registration', async function (token) {
+          handles.push(Push.addListener('registration', async function (token) {
             if (done) return; done = true;
             try {
               var userId = window.DB ? await DB.getUserId() : null;
@@ -89,18 +95,43 @@
               }
               self._token = token.value;
               self._subscribed = true;
-              resolve(true);
-            } catch (e) { console.warn('native push save failed', e); resolve(false); }
-          });
-          Push.addListener('registrationError', function (e) {
+              finish(true, resolve);
+            } catch (e) { console.warn('native push save failed', e); finish(false, resolve); }
+          }));
+          handles.push(Push.addListener('registrationError', function (e) {
             if (done) return; done = true;
             console.warn('native push registration error', e);
-            resolve(false);
-          });
+            finish(false, resolve);
+          }));
           Push.register();
-          setTimeout(function () { if (!done) { done = true; resolve(false); } }, 8000);
+          setTimeout(function () { if (!done) { done = true; finish(false, resolve); } }, 8000);
         });
       } catch (e) { console.warn('registerPush failed', e); return false; }
+    },
+
+    // At launch, once signed in: if this iPhone already allows POWALIFTA's
+    // notifications and the lifter didn't switch them off in the app, register
+    // again without a prompt. Apple can change a device's push token, and this is
+    // also how You → Notifications knows alerts are on after a restart.
+    restorePush: async function () {
+      if (!isNative) return false;
+      var Push = plugins().PushNotifications;
+      if (!Push) return false;
+      try {
+        var perm = await Push.checkPermissions();
+        this._perm = perm.receive;
+        var off = false;
+        try { off = localStorage.getItem('powa-push-off') === '1'; } catch (e) {}
+        if (perm.receive !== 'granted' || off) return false;
+      } catch (e) { return false; }
+      // Once per app session: later pages reuse this session's token.
+      try {
+        var t = sessionStorage.getItem('powa-push-token');
+        if (t) { this._token = t; this._subscribed = true; return true; }
+      } catch (e) {}
+      var ok = await this.registerPush(true);
+      try { if (ok && this._token) sessionStorage.setItem('powa-push-token', this._token); } catch (e) {}
+      return ok;
     },
 
     // Schedule a daily local notification nudging the athlete to log bodyweight.
@@ -183,6 +214,14 @@
       var P = plugins().PowaIAP;
       if (!isNative || !P) return [];
       try { return (await P.getEntitlements()).entitlements || []; } catch (e) { return []; }
+    },
+    // Apple's manage-subscriptions sheet inside the app (iOS 15+). True once it has
+    // been shown and closed; false on builds without it (the caller opens the
+    // App Store's subscriptions page instead).
+    iapManage: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P || typeof P.manageSubscriptions !== 'function') return false;
+      try { await P.manageSubscriptions(); return true; } catch (e) { return false; }
     },
 
     // ---- Home Screen (AppIconPlugin "PowaIcon", WidgetBridgePlugin "PowaWidget") ----
@@ -282,7 +321,7 @@
         P.PushNotifications.addListener('pushNotificationActionPerformed', function (action) {
           var url = action && action.notification && action.notification.data && action.notification.data.url;
           // Only a path on our own origin: a push is server-filtered, but never trust it alone.
-          if (url) { try { var u = new URL(url, location.origin); if (u.origin === location.origin) location.assign(u.pathname + u.search); } catch (e) {} }
+          if (url) { try { var u = new URL(url, location.origin); if (u.origin === location.origin && u.pathname.indexOf('//') !== 0) location.assign(u.pathname + u.search); } catch (e) {} }
         });
       } catch (e) {}
     }
@@ -294,13 +333,18 @@
       PowaNative.iapSupported().then(function (ok) {
         window._iapReady = !!ok;
         try { if (window.renderPlanPill) renderPlanPill(); } catch (e) {}
+        // Send this device's App Store plans to the server (no-op until a coach is signed in).
+        try { if (ok && window.syncAppleEntitlements) syncAppleEntitlements(true); } catch (e) {}
       });
       try {
         P.PowaIAP.addListener('iapTransaction', function (ev) {
           var jws = ev && ev.jws;
-          if (!jws || !window.DB || !DB.appleIapSync) return;
+          if (window._demoMode || !jws || !window.DB || !DB.appleIapSync) return;
           DB.appleIapSync(jws).then(function (res) {
-            if (res && res.ok && window.refreshMyPlan) refreshMyPlan();
+            if (res && res.ok) { if (window.refreshMyPlan) refreshMyPlan(true); }
+            // Not taken yet (not signed in, offline): the entitlement stays on the
+            // device, and the launch/resume sync sends it again.
+            else if (window.syncAppleEntitlements) syncAppleEntitlements(true);
           }).catch(function () {});
         });
       } catch (e) {}

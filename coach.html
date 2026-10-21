@@ -383,30 +383,23 @@ bootstrap('coach', () => {
   subscribeRosterMessages();
   refreshFormChecks();
 
-  // Instant plan reflect: LS checkout opens in a new tab; when the coach tabs back,
-  // re-read their subscription and, if the webhook has upgraded them, refresh the
-  // athlete-limit surfaces (roster header count, dunning banner, plan card) without
-  // a full reload. Debounced against rapid focus flaps; demo-safe (refreshMyPlan no-ops).
-  let _planRefreshing = false;
-  async function reflectPlanIfChanged() {
-    if (_planRefreshing || document.visibilityState !== 'visible') return;
-    _planRefreshing = true;
-    try {
-      const changed = await refreshMyPlan();
-      if (changed) {
-        user = getCurrentUser();
-        renderRoster();
-        renderDunningBanner(document.getElementById('dunningMount'));
-        const planBox = document.getElementById('setPlanBox');
-        if (planBox && document.getElementById('settingsModal')?.classList.contains('open')) renderPlanManageCard(planBox);
-        // Apple 3.1.1: never surface a tier NAME inside the shell.
-        if (!document.documentElement.classList.contains('native')) {
-          toast('Plan updated: you\'re on ' + (TIER_LABELS[user.subscriptionTier] || user.subscriptionTier) + '.');
-        }
-      }
-    } finally { _planRefreshing = false; }
-  }
-  document.addEventListener('visibilitychange', reflectPlanIfChanged);
+  // A plan bought or changed anywhere (web checkout, the App Store, another device)
+  // shows up here at once: app.js watches this coach's profile row (realtime, focus,
+  // a slow poll, App Store entitlements) and fires 'powa:plan' when it changes.
+  startPlanWatch();
+  window.addEventListener('powa:plan', (e) => {
+    user = getCurrentUser();
+    renderRoster();
+    renderDunningBanner(document.getElementById('dunningMount'));
+    try { renderPlanPill(); } catch (_) {}
+    const youPane = document.querySelector('[data-pane="you"]');
+    if (youPane && !youPane.classList.contains('hidden')) renderCoachYou();
+    // The upgrade modal shows its own result; the shell's purchase flow toasts its own.
+    if (!(e.detail && e.detail.shown) && !document.documentElement.classList.contains('native')) {
+      const t = getCurrentTier();
+      toast(t === 'free' ? 'Your plan changed: you\'re on Free.' : 'Plan updated: you\'re on ' + (TIER_LABELS[t] || t) + '.');
+    }
+  });
 
   // Onboarding tour — runs once on first dashboard visit (real users only; demo stays clean).
   if (!isTourDone('coach') && !window._demoMode) {
@@ -470,7 +463,7 @@ function renderCoachYou() {
   if (!area) return;
   const roster = getRosterOverview(user.id);
   const activeWeek = roster.filter(r => r.ago != null && r.ago <= 7).length;
-  const tier = (window._user && window._user.subscriptionTier) || 'free';
+  const tier = getCurrentTier();
   const inShell = document.documentElement.classList.contains('native');
   const showPlan = !inShell || !!window._iapReady;
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
@@ -781,9 +774,9 @@ function exportRosterCsv() {
     ].map(_csvEscape).join(','));
   });
   const stamp = new Date().toISOString().slice(0, 10);
-  if (_downloadBlob('powalifta-roster-' + stamp + '.csv', 'text/csv;charset=utf-8', rows.join('\n'))) {
-    toast('Exported ' + overview.length + ' athlete' + (overview.length === 1 ? '' : 's') + ' as CSV');
-  }
+  _downloadBlob('powalifta-roster-' + stamp + '.csv', 'text/csv;charset=utf-8', rows.join('\n')).then(done => {
+    if (done) toast('Exported ' + overview.length + ' athlete' + (overview.length === 1 ? '' : 's') + ' as CSV');
+  });
 }
 window.exportRosterCsv = exportRosterCsv;
 
@@ -1557,26 +1550,7 @@ function _programAthleteStrip(activeId) {
 // Open state survives the re-render every edit triggers.
 // (_pbOpen lives next to `let user` at the top: the boot renders the builder
 // before this line would run.)
-function _pbTile(ex) {
-  if (ex.lift === 'squat') return 'S';
-  if (ex.lift === 'bench') return 'B';
-  if (ex.lift === 'deadlift') return 'D';
-  return String(ex.exerciseName || LIFT_LABELS[ex.lift] || '?').trim().charAt(0).toUpperCase();
-}
-function _pbChips(ex) {
-  const wrap = el('span', { class: 'pb-chips' });
-  if (ex.lift === 'cardio') { wrap.appendChild(el('span', { class: 'pb-chip' }, ex.sets.length + (ex.sets.length === 1 ? ' bout' : ' bouts'))); return wrap; }
-  const blocks = groupSets(ex.sets);
-  if (!blocks.length) { wrap.appendChild(el('span', { class: 'pb-chip is-empty' }, 'No sets yet')); return wrap; }
-  blocks.forEach(b => {
-    const c = el('span', { class: 'pb-chip' });
-    c.innerHTML = '<b>' + b.count + ' × ' + escHtml(String(b.reps)) + '</b>' +
-      (b.weight ? '<i>' + kgToDisplay(b.weight) + ' ' + unitLabel() + '</i>' : '') +
-      (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">RPE ' + escHtml(String(b.rpe)) + '</em>' : '');
-    wrap.appendChild(c);
-  });
-  return wrap;
-}
+// _pbTile / _pbChips live in app.js now (the solo builder in athlete.html shares them).
 function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
   const isMain = MAIN_LIFTS.includes(ex.lift);
   const open = _pbOpen.has(ex.id);
