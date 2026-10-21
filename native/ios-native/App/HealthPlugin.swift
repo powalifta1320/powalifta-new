@@ -48,6 +48,11 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         return ISO8601DateFormatter().date(from: s)
     }
     private static func iso(_ d: Date) -> String { ISO8601DateFormatter().string(from: d) }
+    // "not_determined" when the lifter hasn't answered iOS for a type yet (a reinstall resets it).
+    private static func code(_ err: Error) -> String {
+        if let hk = err as? HKError, hk.code == .errorAuthorizationNotDetermined { return "not_determined" }
+        return "read_failed"
+    }
     private static func day(_ d: Date) -> String {
         let f = DateFormatter()
         f.calendar = Calendar(identifier: .gregorian)
@@ -89,7 +94,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let pred = HKQuery.predicateForSamples(withStart: since, end: Date(), options: [])
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
         let q = HKSampleQuery(sampleType: bodyMass, predicate: pred, limit: 1000, sortDescriptors: [sort]) { _, samples, err in
-            if let err = err { call.reject("read_failed", nil, err); return }
+            if let err = err { call.reject(Self.code(err), nil, err); return }
             let mine = Bundle.main.bundleIdentifier ?? ""
             let out: [[String: Any]] = (samples as? [HKQuantitySample] ?? []).compactMap { s in
                 if s.sourceRevision.source.bundleIdentifier == mine { return nil }
@@ -168,7 +173,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let from = cal.date(byAdding: .hour, value: -6 - 24 * (nights - 1), to: today) else { call.reject("bad_args"); return }
         let pred = HKQuery.predicateForSamples(withStart: from, end: Date(), options: [])
         let q = HKSampleQuery(sampleType: sleepType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, err in
-            if let err = err { call.reject("read_failed", nil, err); return }
+            if let err = err { call.reject(Self.code(err), nil, err); return }
             let all = samples as? [HKCategorySample] ?? []
             var out: [[String: Any]] = []
             for i in 0..<nights {
@@ -214,7 +219,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let pred = HKQuery.predicateForSamples(withStart: from, end: Date(), options: [])
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
         let q = HKSampleQuery(sampleType: restingHR, predicate: pred, limit: 200, sortDescriptors: [sort]) { _, samples, err in
-            if let err = err { call.reject("read_failed", nil, err); return }
+            if let err = err { call.reject(Self.code(err), nil, err); return }
             let bpm = HKUnit.count().unitDivided(by: .minute())
             let out: [[String: Any]] = (samples as? [HKQuantitySample] ?? []).map {
                 ["bpm": ($0.quantity.doubleValue(for: bpm)).rounded(), "date": Self.iso($0.startDate), "day": Self.day($0.startDate)]

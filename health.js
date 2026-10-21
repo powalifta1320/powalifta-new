@@ -274,11 +274,18 @@
 
   // ---------------------------------------------------------------- once per open
   // On launch and when the app comes back: pull weigh-ins, refresh recovery, ask about clashes.
-  let _refreshing = false;
+  let _refreshing = false, _askedThisLaunch = false;
   async function refresh(onConflicts) {
     if (_refreshing || !isOn()) return;
     _refreshing = true;
     try {
+      // Once per launch, ask iOS again: it shows nothing when access is settled, and shows the
+      // sheet when it isn't (a reinstall, a restored phone), which a read would otherwise just fail on.
+      if (!_askedThisLaunch && (await available())) {
+        _askedThisLaunch = true;
+        try { await P().requestAccess(); } catch (e) {}
+        await new Promise(r => setTimeout(r, 400));
+      }
       const pulled = await pullWeights();
       await recovery(false);
       if (pulled.conflicts.length && typeof onConflicts === 'function') onConflicts(pulled.conflicts);
