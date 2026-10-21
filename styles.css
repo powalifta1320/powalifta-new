@@ -12163,7 +12163,7 @@ html.native .tn-group.today-strip, html:not(.native) .tn-group.today-strip { -we
 .ap-flags { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
 .ap-acts { display: flex; gap: 8px; align-items: center; }
 .ap-lifts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
-.ap-lift { position: relative; padding: 16px 16px 12px; border-radius: 16px; background: var(--bg-1); border: 1px solid var(--line); overflow: hidden; }
+.ap-lift { position: relative; display: flex; flex-direction: column; padding: 16px 16px 12px; border-radius: 16px; background: var(--bg-1); border: 1px solid var(--line); overflow: hidden; }
 .ap-lift-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ap-lift-name { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 14px; font-weight: 650; }
 .ap-d { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; color: var(--text-3); }
@@ -12172,8 +12172,8 @@ html.native .tn-group.today-strip, html:not(.native) .tn-group.today-strip { -we
 .ap-big { margin-top: 8px; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 750; letter-spacing: -0.02em; line-height: 1; color: var(--text); }
 .ap-big small { margin-left: 4px; font-size: 13px; font-weight: 650; letter-spacing: 0; color: var(--text-3); }
 .ap-1rm { margin-top: 6px; font-size: 13px; color: var(--text-2); }
-.ap-spark { height: 34px; margin: 10px -16px -12px; }
-.ap-spark .ui-spark { display: block; width: 100%; height: 34px; }
+.ap-spark { height: 34px; margin: auto -16px -12px; padding-top: 10px; box-sizing: content-box; }
+.ap-spark .ui-spark { display: block; width: 100%; height: 34px; margin-top: 0; }
 .ap-total .ap-spark { color: var(--text-2); }
 .ap-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .ap-col > .ui-label:first-child { margin-top: 0; }

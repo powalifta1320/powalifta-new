@@ -1325,10 +1325,11 @@ function renderAthletePage(athleteId) {
   const tc = el('div', { class: 'ap-lift ap-total' });
   tc.appendChild(el('div', { class: 'ap-lift-top' }, el('span', { class: 'ap-lift-name' }, 'Total'), st.trend.delta != null && Math.abs(st.trend.delta) >= 0.5 ? el('span', { class: 'ap-d ' + (st.trend.delta > 0 ? 'up' : 'down') }, (st.trend.delta > 0 ? '+' : '') + Math.round(kgToDisplay(st.trend.delta)) + ' ' + u) : el('span', {})));
   tc.appendChild(el('div', { class: 'ap-big', html: total ? Math.round(kgToDisplay(total)) + '<small>' + u + ' e1RM</small>' : '–' }));
+  // One line like the lift cards: their real total and its DOTS (bodyweight only when there's no real total).
   const realBits = [];
-  if (singles) realBits.push('Total ' + exactW(singles.kg) + ' ' + u);
+  if (singles) realBits.push('1RM ' + exactW(singles.kg) + ' ' + u);
   if (bw && (singles || total)) realBits.push(dotsScore(singles ? singles.kg : total, bw, a.sex || 'male').toFixed(1) + ' DOTS');
-  if (bw) realBits.push(exactW(bw) + ' ' + u + ' bodyweight');
+  if (bw && !singles) realBits.push(exactW(bw) + ' ' + u + ' bodyweight');
   tc.appendChild(el('div', { class: 'ap-1rm' }, realBits.join(' · ') || 'No singles yet'));
   if (st.trend.values.length >= 2) tc.appendChild(el('div', { class: 'ap-spark', html: uiSparkline(st.trend.values) }));
   cards.appendChild(tc);

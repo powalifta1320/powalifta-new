@@ -81,10 +81,31 @@
     });
   }
 
+  // ---- 4. The coaching desk's three screens (index.html #desk) ---------------
+  function setupDesk() {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-desk]'));
+    if (!tabs.length) return;
+    var imgs = Array.prototype.slice.call(document.querySelectorAll('#deskShot img'));
+    function show(i) {
+      tabs.forEach(function (t, k) { t.setAttribute('aria-selected', k === i ? 'true' : 'false'); t.tabIndex = k === i ? 0 : -1; });
+      imgs.forEach(function (im, k) { im.classList.toggle('on', k === i); });
+    }
+    tabs.forEach(function (t, k) {
+      t.addEventListener('click', function () { show(k); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault();
+        var n = (k + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+        show(n); tabs[n].focus();
+      });
+    });
+  }
+
   ready(function () {
     syncNav();
     setupReveal();
     setupCountdown();
+    setupDesk();
     // The nav is drawn by app.js after the session check: measure it once it lands.
     var n = nav();
     if (n && 'MutationObserver' in window) new MutationObserver(syncNav).observe(n, { childList: true });

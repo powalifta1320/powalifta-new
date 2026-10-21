@@ -572,3 +572,50 @@ html.native .s-home { display: none !important; }
 
 /* Links that are names keep their words together on narrow screens (2026-10-22). */
 .s-hero-aux a, .faq-contact a { white-space: nowrap; }
+
+/* ---------- The coaching desk: the app on a laptop (index.html #desk) ---------- */
+.s-desk-head { max-width: 42rem; margin: 0 auto clamp(30px, 4vw, 46px); text-align: center; }
+.s-desk-head h2 { margin-bottom: 18px; }
+.s-desk-head .s-body { margin-left: auto; margin-right: auto; }
+.s-desk-stage { position: relative; max-width: 1040px; margin: 0 auto; isolation: isolate; }
+.s-desk-stage .s-light { width: 105%; top: 56%; }
+.s-desk-tabs { display: flex; gap: 4px; width: max-content; max-width: 100%; margin: 0 auto 24px; padding: 4px; border-radius: 999px; background: var(--s-surface-2); border: 1px solid var(--line); }
+.s-desk-tabs button { height: 36px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--text-2); font: inherit; font-size: 0.92rem; font-weight: 600; letter-spacing: -0.005em; cursor: pointer; transition: background-color 0.2s var(--s-ease), color 0.2s var(--s-ease); }
+.s-desk-tabs button:hover { color: var(--text); }
+.s-desk-tabs button[aria-selected="true"] { background: var(--text); color: var(--bg); }
+.s-desk-tabs button:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.s-laptop { margin: 0; width: 100%; }
+.s-laptop-lid {
+  padding: 1.5% 1.5% 1.9%; border-radius: 18px 18px 8px 8px;
+  background: linear-gradient(160deg, #2b2b32 0%, #121215 48%, #1d1d22 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 70px 120px -70px rgba(0, 0, 0, 0.9);
+}
+.s-laptop-screen { position: relative; aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; background: #050506; }
+.s-laptop-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; opacity: 0; transition: opacity 0.45s var(--s-ease); }
+.s-laptop-screen img.on { opacity: 1; }
+.s-laptop-base {
+  position: relative; height: clamp(10px, 1.4vw, 16px); margin: 0 -6%;
+  border-radius: 2px 2px 16px 16px / 2px 2px 100% 100%;
+  background: linear-gradient(180deg, #44444d 0%, #26262c 45%, #121215 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 28px 44px -26px rgba(0, 0, 0, 0.85);
+}
+.s-laptop-base::before { content: ''; position: absolute; left: 50%; top: 0; width: 13%; height: 42%; transform: translateX(-50%); border-radius: 0 0 8px 8px; background: rgba(0, 0, 0, 0.4); }
+.s-desk-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(28px, 4vw, 56px); max-width: 1040px; margin: clamp(44px, 5.5vw, 64px) auto 0; }
+.s-desk-points li:nth-last-child(2) { border-bottom: 1px solid var(--line); }
+.s-desk .s-actions { margin-top: 36px; }
+@media (max-width: 760px) {
+  .s-desk-points { grid-template-columns: 1fr; }
+  .s-desk-points li:nth-last-child(2) { border-bottom: 0; }
+  .s-laptop-base { margin: 0 -3%; }
+  .s-laptop-lid { border-radius: 12px 12px 6px 6px; }
+  .s-laptop-screen { border-radius: 5px; }
+}
+@media (prefers-reduced-motion: reduce) { .s-laptop-screen img { transition: none; } }
+
+/* ---------- Switch from a spreadsheet: four steps (a real sequence, so numbered) ---------- */
+.s-steps { list-style: none; counter-reset: s-step; margin: 0 0 clamp(36px, 5vw, 56px); padding: 0; }
+.s-steps li { counter-increment: s-step; display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); column-gap: 14px; row-gap: 4px; padding: 18px 0; border-top: 1px solid var(--line); color: var(--text-2); font-size: 1.04rem; line-height: 1.6; }
+.s-steps li:last-child { border-bottom: 1px solid var(--line); }
+.s-steps li::before { content: counter(s-step); grid-row: span 2; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; background: var(--s-surface-2); border: 1px solid var(--line-2); color: var(--text); font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.s-steps b { color: var(--text); font-weight: 650; font-size: 1.08rem; }
+.s-steps span { text-wrap: pretty; }

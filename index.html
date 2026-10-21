@@ -444,6 +444,40 @@
   </div>
 </section>
 
+<!-- THE COACHING DESK: the same app on a laptop (roster table, athlete page, program grid) -->
+<section class="s-sec s-desk" id="desk" style="--hue: var(--s-green)">
+  <div class="s-wrap">
+    <div class="s-desk-head s-reveal">
+      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>On a laptop</p>
+      <h2>Your coaching desk.</h2>
+      <p class="s-body">Open POWALIFTA on a laptop and the roster becomes a table, every athlete gets a page, and the program builder types like a spreadsheet.</p>
+    </div>
+    <div class="s-desk-stage s-reveal">
+      <div class="s-light" aria-hidden="true"></div>
+      <div class="s-desk-tabs" role="tablist" aria-label="The coaching desk">
+        <button type="button" role="tab" aria-selected="true" aria-controls="deskShot" data-desk="0">Roster</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="deskShot" data-desk="1" tabindex="-1">Athlete</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="deskShot" data-desk="2" tabindex="-1">Program</button>
+      </div>
+      <figure class="s-laptop" id="deskShot" role="tabpanel">
+        <div class="s-laptop-lid"><div class="s-laptop-screen">
+          <img class="on" src="site-img/desk-roster.webp" width="1600" height="1000" alt="A coach's roster on a laptop: every athlete in a table with block week, sessions this week, e1RM trend, last session, check-in and what needs attention" loading="lazy" decoding="async">
+          <img src="site-img/desk-athlete.webp" width="1600" height="1000" alt="An athlete's page: squat, bench and deadlift e1RMs with real 1RMs from meets, DOTS, this week of the block and check-in answers" loading="lazy" decoding="async">
+          <img src="site-img/desk-grid.webp" width="1600" height="1000" alt="The program grid: a row per exercise and a column per week, written like a spreadsheet, with what was lifted in green under what was written" loading="lazy" decoding="async">
+        </div></div>
+        <div class="s-laptop-base" aria-hidden="true"></div>
+      </figure>
+    </div>
+    <ul class="s-points s-desk-points s-reveal">
+      <li><b>Roster table</b><span>Block week, sessions done, e1RM trend and check-ins for everyone. Sort by who needs you.</span></li>
+      <li><b>Athlete page</b><span>Lifts and real 1RMs, DOTS, a training calendar, check-ins, notes, meets and every block they've run.</span></li>
+      <li><b>Program grid</b><span>Type 3x5&nbsp;@8, 75% or 2&nbsp;RIR. Paste from Sheets, fill the weeks forward, see what was lifted under what you wrote.</span></li>
+      <li><b>Blocks</b><span>Set the maxes your percentages work from. Start the next block heavier and the last one is kept, with what it gained.</span></li>
+    </ul>
+    <div class="s-actions s-center s-reveal"><a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach demo</a><a class="s-link" href="switch.html">Moving over from a spreadsheet?</a></div>
+  </div>
+</section>
+
 <!-- COACH DIRECTORY: shown only with three coaches who have written a real bio -->
 <section class="s-sec" id="coaches" hidden>
   <div class="s-wrap">
@@ -533,6 +567,7 @@
       <a class="web-only" href="marketplace.html" data-needs-programs>Programs</a>
       <a href="leaderboard.html">Leaderboard</a>
       <a href="exercises.html">Exercise library</a>
+      <a href="switch.html">Switch from a spreadsheet</a>
       <a class="web-only" href="index.html#pricing">Pricing</a>
     </nav>
     <nav class="s-foot-col" aria-label="Learn">

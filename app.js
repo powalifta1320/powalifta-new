@@ -344,7 +344,37 @@ function _buildCoachDemoData() {
 
   // One 3-week program per athlete; completion mirrors their training recency
   const mkSet2 = (weight, reps, rpe, done) => ({ id: uid('set'), weight, reps, rpe, completed: !!done, actualRpe: done ? rpe : null, completedAt: done ? daysAgo(3) : null });
-  const programs = roster.map((r, ri) => ({
+  // Arjun's block reads like a coach wrote it: a top set by RPE (they pick the load), back-offs by
+  // weight, paused squats as % of the coach's maxes for the block, close-grip in RIR. Week 1's
+  // squat and bench days are logged; deadlift day is still to do.
+  const arjunMax = { squat: 210, bench: 140, deadlift: 255 };
+  const pctKg = (p, max) => Math.round(max * p / 100 / 2.5) * 2.5;
+  const rxSets = (n, reps, kg, rpe, extra) => Array.from({ length: n }, () => Object.assign({ id: uid('set'), weight: kg, reps, rpe, completed: false, actualRpe: null, completedAt: null }, extra || {}));
+  const did = (sets, actual) => sets.map((s, i) => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: daysAgo(3) }, (actual || [])[i] || {}));
+  const ex2 = (lift, variant, sets, extra) => Object.assign({ id: uid('ex'), lift, variant, exerciseName: '', note: '', sets }, extra || {});
+  const arjunWeeks = [0, 1, 2].map(wi => {
+    const w1 = wi === 0;
+    const top = (lift, reps, rpe, liftedKg) => { const s = rxSets(1, reps, 0, rpe); if (w1 && liftedKg) did(s, [{ weight: liftedKg, plannedWeight: 0 }]); return s; };
+    const back = (n, reps, kg, rpe, log, actual) => { const s = rxSets(n, reps, kg, rpe); if (w1 && log) did(s, actual); return s; };
+    const sq = [[3, 8], [3, 8.5], [2, 9]][wi], sqB = [[3, 5, 155, 7], [3, 5, 160, 7.5], [3, 4, 165, 8]][wi], psq = [[3, 4, 70], [3, 4, 72.5], [3, 3, 75]][wi];
+    const bp = [[4, 8], [4, 8.5], [3, 9]][wi], bpB = [[4, 5, 100, 7], [4, 5, 102.5, 7.5], [4, 4, 105, 8]][wi], cg = [[3, 8, 85, 8], [3, 8, 87.5, 8], [3, 6, 90, 9]][wi];
+    const dl = [[3, 8], [3, 8.5], [2, 9]][wi], dlB = [[3, 4, 190, 7], [3, 4, 195, 7.5], [3, 3, 200, 8]][wi], rdl = [[3, 6, 150, 7], [3, 6, 155, 7], [3, 5, 160, 7.5]][wi];
+    const paused = rxSets(psq[0], psq[1], pctKg(psq[2], arjunMax.squat), null, { pct: psq[2] });
+    if (w1) did(paused, [{ actualRpe: 7 }, { actualRpe: 7 }, { actualRpe: 7.5 }]);
+    return { id: uid('wk'), number: wi + 1, days: [
+      { id: uid('day'), name: 'Squat Day', exercises: [
+        ex2('squat', 'Competition', top('squat', sq[0], sq[1], 180).concat(back(sqB[0], sqB[1], sqB[2], sqB[3], true, [null, null, { actualRpe: 7.5 }])), { note: 'Drive hard out of the hole.' }),
+        ex2('squat', 'Paused', paused, { note: '2-count pause.' }) ] },
+      { id: uid('day'), name: 'Bench Day', exercises: [
+        ex2('bench', 'Competition', top('bench', bp[0], bp[1], 115).concat(back(bpB[0], bpB[1], bpB[2], bpB[3], true))),
+        ex2('bench', 'Close Grip', back(cg[0], cg[1], cg[2], cg[3], true).map(s => Object.assign(s, { rir: true }))) ] },
+      { id: uid('day'), name: 'Deadlift Day', exercises: [
+        ex2('deadlift', 'Competition', top('deadlift', dl[0], dl[1], null).concat(back(dlB[0], dlB[1], dlB[2], dlB[3], false)), { note: 'Slack out of the bar before you pull.' }),
+        ex2('deadlift', 'RDL', back(rdl[0], rdl[1], rdl[2], rdl[3], false)) ] },
+      { id: uid('day'), name: 'Rest', exercises: [] }
+    ] };
+  });
+  const programs = roster.map((r, ri) => ri === 0 ? { id: 'demo-cprog-0', athleteId: r.id, coachId: DC, name: 'Strength Block', maxes: arjunMax, weeks: arjunWeeks } : ({
     id: 'demo-cprog-' + ri, athleteId: r.id, coachId: DC, name: ['Strength Block', 'Hypertrophy Wave', 'Meet Prep', 'Foundation'][ri],
     weeks: [1, 2, 3].map(wn => ({
       id: uid('wk'), number: wn, days: [
@@ -476,7 +506,14 @@ function _buildCoachDemoData() {
     store: {
       checkinQuestions: ciQs, checkinAnswers: ciAs, programBlocks,
       coaches: [], athletes, invites, programs, programTemplates,
-      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages, meets: [],
+      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages,
+      // Arjun's last two meets, as they come in from OpenPowerlifting: his real 1RMs.
+      meets: [
+        { id: 'demo-cmeet-1', athleteId: 'demo-a1', name: 'Spring Classic', date: daysAgo(152), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.6, squat: 200, bench: 132.5, deadlift: 240,
+          notes: '1st place · Raw · Open · DOTS 415.8. Squat 185, 195, 200 · Bench 125, 130, 132.5 · Deadlift 225, 240, x250 kg. From OpenPowerlifting', createdAt: daysAgo(150) + 'T18:00:00Z' },
+        { id: 'demo-cmeet-2', athleteId: 'demo-a1', name: 'Winter Open', date: daysAgo(334), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.9, squat: 187.5, bench: 125, deadlift: 227.5,
+          notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' }
+      ],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
       marketplacePrograms, mySales, myPurchases: []
     }
