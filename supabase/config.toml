@@ -7,3 +7,34 @@
 #
 # After that, ./deploy.sh can deploy functions + push secrets from here.
 project_id = "cxnotrikxvzncupswvio"
+
+# Each function's gateway login check, so every deploy applies it (the CLI otherwise keeps
+# whatever the deployed copy had). Same lists as deploy.sh.
+[functions.ls-webhook]
+verify_jwt = false
+[functions.ls-marketplace-webhook]
+verify_jwt = false
+[functions.send-welcome]
+verify_jwt = false
+[functions.send-client-error]
+verify_jwt = false
+[functions.send-weekly-digest]
+verify_jwt = false
+[functions.unsubscribe]
+verify_jwt = false
+[functions.apple-notifications]
+verify_jwt = false
+[functions.send-program-assigned]
+verify_jwt = true
+[functions.send-push]
+verify_jwt = true
+[functions.ai-chat]
+verify_jwt = true
+[functions.send-invite]
+verify_jwt = true
+[functions.delete-account]
+verify_jwt = true
+[functions.ls-portal]
+verify_jwt = true
+[functions.apple-iap]
+verify_jwt = true
