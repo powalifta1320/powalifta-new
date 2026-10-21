@@ -5999,6 +5999,13 @@ function pctLoadKg(pct, maxKg, unit) {
   const step = typeof loadStepKg === 'function' ? loadStepKg(u) : (u === 'lbs' ? 5 * KG_PER_LB : 2.5);
   return Math.round(Math.round(raw / step) * step * 100) / 100;
 }
+// The max a program's % sets work from: the one the coach set for this block (program.maxes),
+// else the lifter's best estimated max.
+function programMaxKg(prog, athleteId, lift) {
+  const m = prog && prog.maxes && Number(prog.maxes[lift]);
+  if (m > 0) return m;
+  return typeof bestE1RM === 'function' ? bestE1RM(athleteId, lift) : 0;
+}
 // Work every % set in a block out for one lifter, from their best estimated max per lift.
 // Accessories have no max here: their % stays as written, the weight as it was.
 // Returns how many sets got a load and the lifts that had no max yet.

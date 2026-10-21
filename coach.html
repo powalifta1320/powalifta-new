@@ -2579,10 +2579,10 @@ function _gridCellText(ex) {
   }).join(', ');
 }
 // Text → sets, or null when a part doesn't read (each part needs "sets x reps").
-function _gridParse(text, athleteId, lift) {
+function _gridParse(text, athleteId, lift, prog) {
   const parts = String(text || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
   const out = [];
-  const maxKg = MAIN_LIFTS.includes(lift) ? bestE1RM(athleteId, lift) : 0;
+  const maxKg = MAIN_LIFTS.includes(lift) ? programMaxKg(prog, athleteId, lift) : 0;
   for (const part of parts) {
     const p = parsePrescription(part, getUnit());
     if (!(p.sets > 0) || !(p.reps > 0)) return null;
@@ -2599,7 +2599,8 @@ function _gridParse(text, athleteId, lift) {
 }
 function buildProgramGrid(prog, athleteId) {
   const wrap = el('div', { class: 'pg-grid-wrap' });
-  wrap.appendChild(el('p', { class: 'pg-grid-hint' }, 'Type sets like a sheet: 3x5 @8 · 3x5 @7-8 · 4x6 75% · 3x8 2RIR · 1x3 @8, 3x5 160' + (getUnit() === 'lbs' ? 'lb' : 'kg') + '. Paste cells from Sheets or Excel. Logged cells are locked.'));
+  const lbs = getUnit() === 'lbs';
+  const unitTag = lbs ? 'lb' : 'kg';
   const weeks = prog.weeks || [];
   // Rows: every day position, every exercise position any week has there.
   const rows = [];
@@ -2613,24 +2614,60 @@ function buildProgramGrid(prog, athleteId) {
       rows.push({ di, ei, proto, label: proto ? exTitle(proto) : 'Exercise' });
     }
   }
+  const cells = [];   // [rowIdx][wi] → input (exercise rows only)
+  const undo = [];    // groups of { inp, prev } (a fill is one group)
+  let lastCell = null;
+
+  // Toolbar: how to type, fill the weeks after a cell with progression, undo.
+  const bar = el('div', { class: 'pg-bar' });
+  bar.appendChild(el('p', { class: 'pg-grid-hint' }, 'Type sets like a sheet: 3x5 @8 · 3x5 @7-8 · 4x6 75% · 3x8 2RIR · 1x3 @8, 3x5 160' + unitTag + '. Paste cells from Sheets or Excel. ↑ ↓ move, Tab goes across. Logged cells are locked.'));
+  const tools = el('div', { class: 'pg-tools' });
+  const fillLbl = el('span', { class: 'pg-fill-lbl' }, 'Pick a cell, then fill the weeks after it:');
+  tools.appendChild(fillLbl);
+  const stepKg = lbs ? 5 * KG_PER_LB : 2.5;
+  [['same', 'Same'], ['kg1', '+' + (lbs ? '5 lb' : '2.5 kg') + ' a week'], ['kg2', '+' + (lbs ? '10 lb' : '5 kg') + ' a week'], ['rpe', '+0.5 RPE a week'], ['pct', '+2.5% a week']].forEach(([k, t]) => {
+    const b = el('button', { class: 'pg-fill-btn', type: 'button', 'data-fill': k }, t);
+    b.addEventListener('mousedown', (e) => e.preventDefault());   // keep the cell focused
+    b.addEventListener('click', () => fillRight(k));
+    tools.appendChild(b);
+  });
+  const undoBtn = el('button', { class: 'pg-fill-btn pg-undo', type: 'button', disabled: true, title: 'Undo (⌘Z)' }, 'Undo');
+  undoBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  undoBtn.addEventListener('click', () => doUndo());
+  tools.appendChild(undoBtn);
+  bar.appendChild(tools);
+  wrap.appendChild(bar);
+  const paintUndo = () => { undoBtn.disabled = !undo.length; };
+  const paintFillLbl = () => {
+    if (!lastCell) { fillLbl.textContent = 'Pick a cell, then fill the weeks after it:'; return; }
+    const r = rows[Number(lastCell.dataset.row)];
+    fillLbl.textContent = 'Fill ' + r.label + ' after week ' + (weeks[Number(lastCell.dataset.wi)].number) + ':';
+  };
+
   const table = el('table', { class: 'pg-grid' });
   const thead = el('thead');
   const hr = el('tr');
   hr.appendChild(el('th', { class: 'pg-corner', scope: 'col' }, 'Exercise'));
-  weeks.forEach(w => hr.appendChild(el('th', { scope: 'col' }, 'Week ' + w.number)));
+  weeks.forEach(w => {
+    // The dates the athlete actually trained that week, when there are any.
+    const dates = w.days.flatMap(d => d.exercises).flatMap(e => e.sets).filter(x => x.completed && x.completedAt).map(x => String(x.completedAt).slice(0, 10)).sort();
+    const th = el('th', { scope: 'col' }, 'Week ' + w.number);
+    if (dates.length) th.appendChild(el('small', {}, fmtDateShort(dates[0]) + (dates[dates.length - 1] !== dates[0] ? '–' + fmtDateShort(dates[dates.length - 1]) : '')));
+    hr.appendChild(th);
+  });
   thead.appendChild(hr);
   table.appendChild(thead);
   const tbody = el('tbody');
-  const cells = [];   // [rowIdx][wi] → input (exercise rows only)
-  const commit = (inp) => {
-    const { wi, di, ei } = inp.dataset;
-    const W = Number(wi), D = Number(di), E = Number(ei);
+  const exAt = (W, D, E) => { const p = Store.get().programs.find(x => x.id === prog.id); return p && p.weeks[W] && p.weeks[W].days[D] && p.weeks[W].days[D].exercises[E]; };
+  const commit = (inp, noHistory) => {
+    const W = Number(inp.dataset.wi), D = Number(inp.dataset.di), E = Number(inp.dataset.ei);
     const text = inp.value.trim();
     if (text === inp.dataset.orig) { inp.classList.remove('is-bad'); return; }
     const proto = rows.find(r => !r.day && r.di === D && r.ei === E).proto;
-    const parsed = text ? _gridParse(text, athleteId, proto ? proto.lift : '') : [];
+    const parsed = text ? _gridParse(text, athleteId, proto ? proto.lift : '', prog) : [];
     if (parsed == null) { inp.classList.add('is-bad'); inp.title = 'Each part needs sets x reps, like 3x5 @8'; return; }
     inp.classList.remove('is-bad'); inp.removeAttribute('title');
+    if (!noHistory) { undo.push([{ inp, prev: inp.dataset.orig }]); paintUndo(); }
     Store.update(s => {
       const p = s.programs.find(x => x.id === prog.id);
       const wk = p && p.weeks[W];
@@ -2652,17 +2689,55 @@ function buildProgramGrid(prog, athleteId) {
       });
     });
     persistProgram(prog.id);
-    inp.dataset.orig = text;
-    const fresh = Store.get().programs.find(x => x.id === prog.id);
-    const ex = fresh && fresh.weeks[W] && fresh.weeks[W].days[D] && fresh.weeks[W].days[D].exercises[E];
-    inp.value = _gridCellText(ex); inp.dataset.orig = inp.value;
+    inp.value = _gridCellText(exAt(W, D, E)); inp.dataset.orig = inp.value;
     paintFoot();
   };
+  // Week 1 written; weeks 2, 3, 4 filled with the same sets moved on a step each week.
+  function fillRight(kind) {
+    const src = lastCell;
+    if (!src) { toast('Pick the cell to fill from first'); return; }
+    const r = Number(src.dataset.row), W0 = Number(src.dataset.wi);
+    const proto = rows[r].proto;
+    const base = _gridParse(src.value.trim(), athleteId, proto ? proto.lift : '', prog);
+    if (!base || !base.length) { toast('That cell has no sets to fill from'); return; }
+    if (kind === 'pct' && !base.some(x => x.pct != null)) { toast('That cell has no % in it. Try +' + (lbs ? '5 lb' : '2.5 kg') + ' a week'); return; }
+    if (kind === 'rpe' && !base.some(x => x.rpe != null)) { toast('That cell has no RPE in it'); return; }
+    const maxKg = proto && MAIN_LIFTS.includes(proto.lift) ? programMaxKg(prog, athleteId, proto.lift) : 0;
+    const group = [];
+    for (let w = W0 + 1; w < weeks.length; w++) {
+      const tgt = cells[r] && cells[r][w];
+      if (!tgt || tgt.readOnly) continue;
+      const k = w - W0;
+      const sets = base.map(b => {
+        const n = Object.assign({}, b);
+        if ((kind === 'kg1' || kind === 'kg2') && n.pct == null && n.weight > 0) n.weight = Math.round((n.weight + k * stepKg * (kind === 'kg2' ? 2 : 1)) * 100) / 100;
+        if (kind === 'pct' && n.pct != null) { n.pct = Math.round((n.pct + 2.5 * k) * 10) / 10; n.weight = maxKg ? pctLoadKg(n.pct, maxKg) : 0; }
+        if (kind === 'rpe' && n.rpe != null) {
+          n.rpe = Math.min(10, n.rpe + 0.5 * k);
+          if (n.rpeHi != null) { n.rpeHi = Math.min(10, n.rpeHi + 0.5 * k); if (n.rpeHi <= n.rpe) delete n.rpeHi; }
+        }
+        return n;
+      });
+      group.push({ inp: tgt, prev: tgt.dataset.orig });
+      tgt.value = _gridCellText({ sets });
+      commit(tgt, true);
+    }
+    if (!group.length) { toast('No weeks after this one to fill'); return; }
+    undo.push(group); paintUndo();
+    toast('Filled ' + group.length + (group.length === 1 ? ' week' : ' weeks') + '. Undo puts them back');
+  }
+  function doUndo() {
+    const g = undo.pop();
+    if (!g) return;
+    g.forEach(({ inp, prev }) => { inp.value = prev; commit(inp, true); });
+    paintUndo();
+    toast('Undone');
+  }
   const move = (inp, dRow, dCol) => {
     const r = Number(inp.dataset.row), c = Number(inp.dataset.wi);
-    for (let rr = r + dRow; rr >= 0 && rr < cells.length; rr += (dRow || 1)) {
-      if (cells[rr] && cells[rr][c + dCol]) { const t = cells[rr][c + dCol]; if (!t.readOnly || dRow) { t.focus(); t.select(); return; } }
-      if (!dRow) break;
+    if (!dRow) { const t = cells[r] && cells[r][c + dCol]; if (t) { t.focus(); t.select(); } return; }
+    for (let rr = r + dRow; rr >= 0 && rr < cells.length; rr += dRow) {
+      if (cells[rr] && cells[rr][c]) { cells[rr][c].focus(); cells[rr][c].select(); return; }
     }
   };
   rows.forEach((r, ri) => {
@@ -2687,12 +2762,18 @@ function buildProgramGrid(prog, athleteId) {
         'aria-label': r.label + ', week ' + w.number, value: _gridCellText(ex), placeholder: ex ? '' : '–' });
       inp.dataset.orig = inp.value; inp.dataset.wi = wi; inp.dataset.di = r.di; inp.dataset.ei = r.ei; inp.dataset.row = ri;
       if (logged) { inp.readOnly = true; inp.title = 'Logged by the athlete. Edit in Weeks view.'; }
+      inp.addEventListener('focus', () => { lastCell = inp; paintFillLbl(); table.querySelectorAll('td.is-src').forEach(n => n.classList.remove('is-src')); td.classList.add('is-src'); });
       inp.addEventListener('blur', () => { if (!inp.readOnly) commit(inp); });
       inp.addEventListener('keydown', (e) => {
+        const atStart = inp.selectionStart === 0 && inp.selectionEnd === 0;
+        const atEnd = inp.selectionStart === inp.value.length && inp.selectionEnd === inp.value.length;
         if (e.key === 'Enter') { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, e.shiftKey ? -1 : 1, 0); }
         else if (e.key === 'Escape') { inp.value = inp.dataset.orig; inp.classList.remove('is-bad'); inp.blur(); }
-        else if (e.key === 'ArrowDown' && (e.metaKey || e.altKey)) { e.preventDefault(); move(inp, 1, 0); }
-        else if (e.key === 'ArrowUp' && (e.metaKey || e.altKey)) { e.preventDefault(); move(inp, -1, 0); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, 1, 0); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, -1, 0); }
+        else if (e.key === 'ArrowLeft' && (e.altKey || atStart || inp.readOnly)) { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, 0, -1); }
+        else if (e.key === 'ArrowRight' && (e.altKey || atEnd || inp.readOnly)) { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, 0, 1); }
+        else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z') && inp.value === inp.dataset.orig && undo.length) { e.preventDefault(); doUndo(); }
       });
       // A block pasted from a spreadsheet fills across (weeks) and down (exercises).
       inp.addEventListener('paste', (e) => {
@@ -2700,37 +2781,68 @@ function buildProgramGrid(prog, athleteId) {
         if (!/[\t\n]/.test(t.trim())) return;
         e.preventDefault();
         const lines = t.replace(/\r/g, '').split('\n').filter((l, i, a) => l.length || i < a.length - 1);
-        let r0 = ri, filled = 0;
+        let r0 = ri;
+        const group = [];
         lines.forEach(line => {
           while (r0 < cells.length && !cells[r0]) r0++;
           if (r0 >= cells.length) return;
-          line.split('\t').forEach((val, k) => { const tgt = cells[r0][wi + k]; if (tgt && !tgt.readOnly) { tgt.value = val.trim(); commit(tgt); filled++; } });
+          line.split('\t').forEach((val, k) => { const tgt = cells[r0][wi + k]; if (tgt && !tgt.readOnly) { group.push({ inp: tgt, prev: tgt.dataset.orig }); tgt.value = val.trim(); commit(tgt, true); } });
           r0++;
         });
-        toast(filled ? 'Pasted ' + filled + (filled === 1 ? ' cell' : ' cells') : 'Nothing pasted: those cells are logged');
+        if (group.length) { undo.push(group); paintUndo(); }
+        toast(group.length ? 'Pasted ' + group.length + (group.length === 1 ? ' cell' : ' cells') : 'Nothing pasted: those cells are logged');
       });
       td.appendChild(inp);
+      // What they actually did, under what was written: overshoots in red, misses crossed out.
+      const act = ex ? _gridActualHtml(ex) : '';
+      if (act) td.appendChild(el('div', { class: 'pg-actual', html: act }));
+      if (ex && ex.athleteNote) td.appendChild(el('div', { class: 'pg-anote', title: ex.athleteNote }, '“' + (ex.athleteNote.length > 60 ? ex.athleteNote.slice(0, 58) + '…' : ex.athleteNote) + '”'));
       tr.appendChild(td);
       cells[ri][wi] = inp;
     });
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  // Per week: sets, and how many are squat / bench / deadlift.
+  // Per week, per lift: sets and reps, tonnage, average RPE and the top set as written; the best
+  // e1RM from what was lifted.
   const tfoot = el('tfoot');
-  const fr = el('tr');
-  fr.appendChild(el('th', { scope: 'row' }, 'Sets'));
-  const footCells = weeks.map(() => { const td = el('td'); fr.appendChild(td); return td; });
+  const lifts = ['squat', 'bench', 'deadlift'];
+  const footCells = {};
+  lifts.concat(['all']).forEach(L => {
+    const fr = el('tr', { class: 'pg-sum' + (L === 'all' ? ' is-all' : '') });
+    const th = el('th', { scope: 'row' });
+    if (L !== 'all') th.appendChild(el('span', { class: 'lift-dot lift-' + L, 'aria-hidden': 'true' }));
+    th.appendChild(document.createTextNode(L === 'all' ? 'All sets' : LIFT_LABELS[L]));
+    fr.appendChild(th);
+    footCells[L] = weeks.map(() => { const td = el('td'); fr.appendChild(td); return td; });
+    tfoot.appendChild(fr);
+  });
+  const ton = (kg) => { const v = kgToDisplay(kg); return v >= 1000 ? (Math.round(v / 100) / 10) + (lbs ? 'k lb' : ' t') : Math.round(v) + ' ' + unitTag; };
   const paintFoot = () => {
     const p = Store.get().programs.find(x => x.id === prog.id);
     (p ? p.weeks : []).forEach((w, wi) => {
-      const ex = w.days.flatMap(d => d.exercises);
-      const n = (l) => ex.filter(e => e.lift === l).reduce((a, e) => a + e.sets.length, 0);
-      const all = ex.reduce((a, e) => a + e.sets.length, 0);
-      if (footCells[wi]) footCells[wi].innerHTML = '<b>' + all + '</b><small>S ' + n('squat') + ' · B ' + n('bench') + ' · D ' + n('deadlift') + '</small>';
+      const exs = w.days.flatMap(d => d.exercises);
+      lifts.forEach(L => {
+        const mine = exs.filter(e => e.lift === L);
+        const sets = mine.flatMap(e => e.sets);
+        const td = footCells[L][wi];
+        if (!td) return;
+        if (!sets.length) { td.innerHTML = '<span class="dim">–</span>'; return; }
+        const reps = sets.reduce((a, s) => a + (Number(s.plannedReps || s.reps) || 0), 0);
+        const tonnage = sets.reduce((a, s) => a + (Number(planWeight(s)) || 0) * (Number(s.plannedReps || s.reps) || 0), 0);
+        const rpes = sets.map(s => Number(s.rpe)).filter(v => v > 0);
+        const avg = rpes.length ? Math.round(rpes.reduce((a, v) => a + v, 0) / rpes.length * 10) / 10 : null;
+        const top = mine.filter(e => (e.variant || 'Competition') === 'Competition').flatMap(e => e.sets).reduce((m, s) => Math.max(m, Number(planWeight(s)) || 0), 0);
+        let best = 0;
+        mine.forEach(e => e.sets.forEach(s => { if (s.completed && s.weight > 0 && s.actualRpe) best = Math.max(best, calcCompE1RM(s.weight, s.reps, s.actualRpe, e.lift, e.variant)); }));
+        td.innerHTML = '<b>' + sets.length + '</b> sets · ' + reps + ' reps' +
+          '<small>' + [tonnage > 0 ? ton(tonnage) : null, avg != null ? '@' + _num(avg) : null, top > 0 ? 'top ' + kgToDisplay(top) + ' ' + unitTag : null].filter(Boolean).join(' · ') + '</small>' +
+          (best > 0 ? '<small class="pg-best">e1RM ' + Math.round(kgToDisplay(best)) + ' ' + unitTag + '</small>' : '');
+      });
+      const all = exs.reduce((a, e) => a + e.sets.length, 0);
+      if (footCells.all[wi]) footCells.all[wi].innerHTML = '<b>' + all + '</b> sets';
     });
   };
-  tfoot.appendChild(fr);
   table.appendChild(tfoot);
   paintFoot();
   const scroller = el('div', { class: 'pg-grid-scroll' });
@@ -2738,6 +2850,25 @@ function buildProgramGrid(prog, athleteId) {
   wrap.appendChild(scroller);
   if (!rows.some(r => !r.day)) wrap.appendChild(uiEmpty({ title: 'No exercises yet', text: 'Add them in Weeks view, or paste a whole program in.', primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(athleteId) } }));
   return wrap;
+}
+// What was lifted, in the grid's shorthand: "182.5×3 @8.5, 2×165×5 @8" (overshoots red, misses struck).
+function _gridActualHtml(ex) {
+  const runs = [];
+  let skipped = 0;
+  (ex.sets || []).forEach(s => {
+    if (s.completed) {
+      const key = s.weight + '|' + s.reps + '|' + s.actualRpe;
+      const over = setOvershoot(s) > 0;
+      const last = runs[runs.length - 1];
+      if (last && last.key === key && !last.miss && last.over === over) last.n++;
+      else runs.push({ key, n: 1, w: s.weight, r: s.reps, rpe: s.actualRpe, over });
+    } else if (s.missed) runs.push({ miss: true, w: s.weight, r: s.reps });
+    else if (s.skipped) skipped++;
+  });
+  if (!runs.length && !skipped) return '';
+  return runs.map(r => r.miss ? '<s title="Missed attempt">' + kgToDisplay(r.w) + '×' + r.r + '</s>'
+    : '<span' + (r.over ? ' class="is-over" title="Over what was written"' : '') + '>' + (r.n > 1 ? r.n + '×' : '') + kgToDisplay(r.w) + '×' + r.r + (r.rpe ? ' @' + _num(r.rpe) : '') + '</span>').join(', ') +
+    (skipped ? '<i>' + (runs.length ? ' · ' : '') + skipped + ' skipped</i>' : '');
 }
 
 function loadProgram() {

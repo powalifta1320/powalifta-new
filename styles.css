@@ -12205,3 +12205,31 @@ body.powa-app .dash-main .pg-grid tr.pg-day th { color: var(--text-3); }
 [data-theme="light"] :is(.ap-d.down, .ws-trend b.down, .ws-num.is-alert) { color: #c63a24; }
 [data-theme="light"] .ws-spark.up { color: #0a7a43; }
 .ap-acts .btn { height: 42px; min-height: 42px; padding: 0 20px; }
+
+/* Grid v2: the toolbar (fill the weeks after a cell, undo), what was lifted under what was
+   written, the dates trained in each week's header, a summary per lift. */
+.pg-bar { display: grid; gap: 10px; margin-bottom: 12px; }
+.pg-bar .pg-grid-hint { margin: 0 2px; }
+.pg-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pg-fill-lbl { margin-right: 4px; color: var(--text-2); font-size: 13px; font-weight: 600; }
+.pg-fill-btn { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.pg-fill-btn:hover { background: var(--fill-3, rgba(255, 255, 255, 0.1)); }
+.pg-fill-btn:disabled { opacity: 0.4; cursor: default; }
+.pg-undo { margin-left: auto; }
+.pg-grid thead th small { display: block; margin-top: 2px; font-size: 11px; font-weight: 600; color: var(--text-3); }
+.pg-grid td.is-src { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc, #ff3b4a) 45%, transparent); }
+.pg-grid .pg-actual { padding: 0 12px 8px; margin-top: -6px; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 650; line-height: 1.45; color: var(--ok, #34d982); white-space: normal; }
+.pg-grid .pg-actual .is-over { color: var(--soft-alert, #ff8f80); }
+.pg-grid .pg-actual s { color: var(--text-3); text-decoration-thickness: 1.5px; }
+.pg-grid .pg-actual i { font-style: normal; color: var(--text-3); font-weight: 600; }
+.pg-grid .pg-anote { padding: 0 12px 8px; margin-top: -4px; font-size: 12px; line-height: 1.4; color: var(--text-2); white-space: normal; max-width: 220px; }
+.pg-grid .pg-cell.is-logged { color: var(--text-3); }
+.pg-grid tfoot .pg-sum th, .pg-grid tfoot .pg-sum td { height: auto; padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pg-grid tfoot .pg-sum td { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+.pg-grid tfoot .pg-sum td b { display: inline; font-size: 14px; color: var(--text); }
+.pg-grid tfoot .pg-sum td small { display: block; margin-top: 2px; font-size: 12px; color: var(--text-3); }
+.pg-grid tfoot .pg-sum td small.pg-best { color: var(--ok, #34d982); font-weight: 650; }
+.pg-grid tfoot .pg-sum.is-all th, .pg-grid tfoot .pg-sum.is-all td { border-bottom: 0; }
+.pg-grid tfoot .pg-sum th .lift-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
+[data-theme="light"] .pg-grid .pg-actual, [data-theme="light"] .pg-grid tfoot .pg-sum td small.pg-best { color: #0a7a43; }
+[data-theme="light"] .pg-grid .pg-actual .is-over { color: #c63a24; }
