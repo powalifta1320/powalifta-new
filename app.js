@@ -10580,7 +10580,9 @@ function youSettingsRows(role, rerender) {
     role === 'athlete' ? { label: 'Plates', value: gymPlatesLabel(), onClick: (row, v) => openGymPlatesSheet(() => { if (v) v.textContent = gymPlatesLabel(); }) } : null,
     // Apple Health (1.3, health.js): the iPhone app, for lifters.
     role === 'athlete' && window.PowaHealthJS && PowaHealthJS.couldOffer() && typeof openHealthSheet === 'function'
-      ? { label: 'Apple Health', value: PowaHealthJS.isOn() ? 'On' : 'Off', onClick: (row, v) => openHealthSheet(() => { if (v) v.textContent = PowaHealthJS.isOn() ? 'On' : 'Off'; }) } : null,
+      ? { label: 'Apple Health', value: PowaHealthJS.isOn() ? 'On' : 'Off', tint: 'pink',
+          icon: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.9c0 5.6-7.5 10-7.5 10z"/></svg>',
+          onClick: (row, v) => openHealthSheet(() => { if (v) v.textContent = PowaHealthJS.isOn() ? 'On' : 'Off'; }) } : null,
     inShell ? { label: 'App icon', value: appIconLabel(), onClick: (row, v) => openAppIconSheet((l) => { v.textContent = l; }) } : null,
     { label: 'Share cards', value: cardFormatLabel(), onClick: (row, v) => { const next = cardFormatLabel() === 'Story' ? 'post' : 'story'; try { localStorage.setItem('powa-card-format', next); } catch (e) {} v.textContent = CARD_FORMAT_LABEL[next]; hapticTick(); } },
     { label: 'Your data', onClick: () => openDataSheet() }

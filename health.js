@@ -50,6 +50,8 @@
     try { r = await P().requestAccess(); } catch (e) { return { ok: false, reason: 'error' }; }
     put('on', true);
     put('since', null);
+    // HealthKit can drop its connection for a moment as the permission sheet closes.
+    await new Promise(r => setTimeout(r, 500));
     const pulled = await pullWeights();
     await recovery(true);
     return { ok: true, canWriteWeight: !!r.canWriteWeight, canWriteWorkouts: !!r.canWriteWorkouts, imported: pulled.imported, conflicts: pulled.conflicts };
@@ -194,11 +196,15 @@
     if (!isOn() || !(await available())) return null;
     const today = typeof todayISO === 'function' ? todayISO() : isoDay(Date.now());
     const c = get('recovery', null);
-    if (!force && c && c.day === today && Date.now() - c.at < 30 * 60000) return c;
+    const hasData = (x) => !!x && (x.sleepMin != null || x.rhr != null || (x.nights || []).some(n => n.minutes > 0) || (x.rhrDays || []).length > 0);
+    // An empty answer is never kept for long: it's read again next time.
+    if (!force && c && c.day === today && Date.now() - c.at < 30 * 60000 && hasData(c)) return c;
     const p = P();
+    // A read that fails (HealthKit busy, the connection dropping) is tried once more.
+    const once = (fn) => fn().catch(() => new Promise(r => setTimeout(r, 700)).then(fn));
     const [sl, hr] = await Promise.all([
-      p.readSleep({ nights: 14 }).catch(() => ({ nights: [] })),
-      p.readRestingHeartRate({ days: 21 }).catch(() => ({ samples: [] }))
+      once(() => p.readSleep({ nights: 14 })).catch(() => ({ nights: [] })),
+      once(() => p.readRestingHeartRate({ days: 21 })).catch(() => ({ samples: [] }))
     ]);
     const nights = (sl.nights || []).map(n => ({ night: n.night, minutes: Number(n.minutes) || 0 }));
     const hrs = hr.samples || [];
