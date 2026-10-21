@@ -100,12 +100,14 @@
     const plan = planWeights(res.samples, mine, decided, imported);
     for (const w of plan.toImport) {
       const b = { id: uid_('bw'), athleteId: uid, date: w.day, weight: w.kg };
-      imported[b.id] = true;   // never echo back to Health
+      imported[b.id] = w.kg;   // came from Health at this weight: not sent back unless it's edited
       put('imported', imported);
       Store.update(s => { s.bodyweight = (s.bodyweight || []).concat([b]); });
       try { await persistBw(b); } catch (e) {}
     }
     for (const u of plan.updates) {
+      imported[u.id] = u.kg;
+      put('imported', imported);
       let b = null;
       Store.update(s => { const x = (s.bodyweight || []).find(y => y.id === u.id); if (x) { x.weight = u.kg; b = Object.assign({}, x); } });
       if (b) { try { await persistBw(b); } catch (e) {} }
@@ -122,7 +124,7 @@
     put('decided', decided);
     if (pick !== 'health') return;
     const imported = get('imported', {});
-    imported[c.id] = true;
+    imported[c.id] = c.health;
     put('imported', imported);
     let b = null;
     Store.update(s => { const x = (s.bodyweight || []).find(y => y.id === c.id); if (x) { x.weight = c.health; b = Object.assign({}, x); } });
@@ -131,7 +133,11 @@
 
   // ---------------------------------------------------------------- weigh-ins out
   async function weightSaved(b) {
-    if (!b || !isOn() || !(Number(b.weight) > 0) || get('imported', {})[b.id]) return;
+    if (!b || !isOn() || !(Number(b.weight) > 0)) return;
+    // One that came from Health goes back only once the lifter changes it here (then it's theirs).
+    const imported = get('imported', {}), imp = imported[b.id];
+    if (imp === true || (imp != null && Math.abs(Number(imp) - Number(b.weight)) < 0.05)) return;
+    if (imp != null) { delete imported[b.id]; put('imported', imported); }
     if (!(await available())) return;
     try { await P().writeWeight({ kg: Number(b.weight), id: String(b.id), date: b.date }); } catch (e) {}
   }

@@ -839,6 +839,7 @@ test('apple health: weigh-ins in, workouts out, recovery', () => {
   eq(p.conflicts.map(x => x.day + ':' + x.ours + '/' + x.health).join(','), '2026-10-21:81/81.9');   // 82.02 vs 82.0 is the same
   eq(p.updates.map(x => x.id + ':' + x.kg).join(','), 'b3:83.3');                // a day that came from Health follows it
   eq(H._planWeights(samples, mine, { '2026-10-21': 'ours' }, { b3: true }).conflicts.length, 0);   // answered once, never again
+  eq(H._planWeights(samples, mine, {}, { b3: 82 }).updates.map(x => x.id).join(','), 'b3');      // marks now hold the kg
   // a finished day → one workout; anything still to do → none
   const day = { name: 'Squat Day', exercises: [
     { lift: 'squat', variant: 'Competition', sets: [{ weight: 140, reps: 5, completed: true }, { weight: 140, reps: 5, completed: true }] },
