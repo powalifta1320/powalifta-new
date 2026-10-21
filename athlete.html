@@ -3267,8 +3267,10 @@ function showPRToast(lift, e1rmComp, log, opts) {
   const before = opts.single ? (Number(opts.before) || 0) : (Store.get().workoutLogs || [])
     .filter(l => l.athleteId === user.id && l.lift === lift && (!log || l.id !== log.id))
     .reduce((m, l) => Math.max(m, Number(l.e1rmComp) || 0), 0);
-  const toD = (kg) => Math.round(kgToDisplay(kg));
+  // An estimate is a whole number; a lifted single is exact (187.5, not 188).
+  const toD = opts.single ? (kg) => kgToDisplay(kg, 1) : (kg) => Math.round(kgToDisplay(kg));
   const now = toD(e1rmComp), was = before > 0 ? toD(before) : null;
+  const fmtN = (v) => opts.single ? String(Math.round(v * 10) / 10) : String(Math.round(v));
   const overlay = el('div', { class: 'pr-toast pr-moment', role: 'dialog', 'aria-label': 'New PR: ' + now + ' ' + unitLabel() });
   overlay.appendChild(el('div', { class: 'prm-light', 'aria-hidden': 'true' }));
   if (!reduce) {
@@ -3289,8 +3291,8 @@ function showPRToast(lift, e1rmComp, log, opts) {
   stage.appendChild(plate);
   stage.appendChild(el('div', { class: 'prm-tag' }, opts.single ? 'New 1RM' : 'New PR'));
   const val = el('span', { class: 'prm-val' }, String(reduce || was == null ? now : was));
-  stage.appendChild(el('div', { class: 'prm-num' }, val, el('span', { class: 'prm-unit' }, unitLabel())));
-  const delta = was != null && now > was ? el('div', { class: 'prm-delta' + (reduce ? ' on' : '') }, '+' + (now - was) + ' ' + unitLabel()) : null;
+  stage.appendChild(el('div', { class: 'prm-num' + (fmtN(now).length > 4 ? ' is-long' : '') }, val, el('span', { class: 'prm-unit' }, unitLabel())));
+  const delta = was != null && now > was ? el('div', { class: 'prm-delta' + (reduce ? ' on' : '') }, '+' + fmtN(now - was) + ' ' + unitLabel()) : null;
   if (delta) stage.appendChild(delta);
   stage.appendChild(el('div', { class: 'prm-sub' }, LIFT_LABELS[lift] + (opts.single ? ' · heaviest single' : ' · estimated max')));
   if (log && log.weight > 0) stage.appendChild(el('div', { class: 'prm-set' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '')));
@@ -3319,7 +3321,8 @@ function showPRToast(lift, e1rmComp, log, opts) {
     const from = was != null ? was : Math.round(now * 0.9), t0 = performance.now() + 250, dur = 900;
     const tick = (t) => {
       const k = Math.min(1, Math.max(0, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 3);
-      val.textContent = String(Math.round(from + (now - from) * e));
+      // A single counts in plate steps and lands exactly on the lift.
+      val.textContent = k >= 1 ? fmtN(now) : opts.single ? fmtN(Math.round((from + (now - from) * e) * 2) / 2) : String(Math.round(from + (now - from) * e));
       if (k < 1) requestAnimationFrame(tick);
       else if (delta) delta.classList.add('on');
     };
