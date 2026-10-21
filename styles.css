@@ -12304,3 +12304,22 @@ html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2
 .upgrade-period-btn.on small { color: inherit; opacity: 0.75; }
 [data-theme="light"] .upgrade-period-btn small { color: #0a7a43; }
 [data-theme="light"] .upgrade-period-btn.on small { color: inherit; }
+
+/* Apple Health (1.3) */
+.tn-ready-btn.is-suggested { box-shadow: inset 0 0 0 1.5px var(--text-2); }
+.health-sheet .hs-foot { margin: 14px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--text-3); }
+.hs-src { margin: 8px 2px 0; font-size: 12px; color: var(--text-3); }
+.hr-bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 30px; }
+.hr-bars i { display: block; width: 6px; border-radius: 3px; background: var(--lift-bench, #a98bff); opacity: 0.85; }
+.hr-bars i.is-short { background: var(--soft-warn, #ffb35c); }
+.hs-spark { display: block; width: 84px; color: var(--soft-alert, #ff8f80); }
+.hs-spark .ui-spark { height: 28px; margin-top: 0; }
+.hc-sheet .hc-row { margin: 14px 0 0; }
+.hc-sheet .hc-day { margin: 0 2px 8px; font-size: 13px; font-weight: 650; color: var(--text-2); }
+.hc-sheet .hc-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hc-sheet .hc-opt { display: grid; gap: 2px; justify-items: start; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--bg-2); color: var(--text); text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); }
+.hc-sheet .hc-opt b { font-size: 18px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.hc-sheet .hc-opt small { font-size: 12.5px; color: var(--text-3); }
+.hc-sheet .hc-opt.on { box-shadow: inset 0 0 0 2px var(--text); }
+.hc-sheet .btn-block { margin-top: 20px; }
+.ci-health { margin: 6px 2px 0; font-size: 12.5px; color: var(--text-3); }

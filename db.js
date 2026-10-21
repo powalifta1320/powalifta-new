@@ -1601,6 +1601,35 @@ const DB = {
     const { error } = await sb.from('programs').delete().in('id', [id]);
     if (error) throw error;
   },
+  // ---------- APPLE HEALTH SHARING (migration-health-2026-10-22.sql) ----------
+  // The lifter's choice to share sleep + resting heart rate with their coach.
+  async setShareHealth(on) {
+    const uid = await this.getUserId();
+    if (!uid) return { ok: false };
+    const { error } = await sb.from('profiles').update({ share_health_with_coach: !!on }).in('id', [uid]);
+    if (error) return { ok: false, notReady: _isNotReady(error) || !!_missingCol(error, ['share_health_with_coach']), error };
+    return { ok: true };
+  },
+  // Nights and resting heart rate, one row a day ({ day, sleepMin, rhr }); only while sharing.
+  async saveHealthDaily(rows) {
+    const uid = await this.getUserId();
+    if (!uid || !rows || !rows.length) return { ok: true };
+    const out = rows.map(r => ({ athlete_id: uid, day: r.day,
+      sleep_min: r.sleepMin == null ? null : Math.max(0, Math.min(1440, Math.round(r.sleepMin))),
+      rhr_bpm: r.rhr == null ? null : Math.round(Number(r.rhr)) }));
+    const { error } = await sb.from('health_daily').upsert(out, { onConflict: 'athlete_id,day' });
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true };
+  },
+  // A coach: the shared rows of their roster (RLS hands over only what's shared), last 14 days.
+  async listHealthDaily(athleteIds) {
+    if (!athleteIds || !athleteIds.length) return [];
+    const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+    const { data, error } = await sb.from('health_daily').select('athlete_id, day, sleep_min, rhr_bpm').in('athlete_id', athleteIds).gte('day', since).order('day', { ascending: false });
+    if (error) { if (!_isNotReady(error)) console.warn('listHealthDaily', error); return []; }
+    return (data || []).map(r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm) }));
+  },
+
   // ---------- COACH BRANDING (migration-coach-brand-2026-10-22.sql) ----------
   // An athlete's coach's team name, logo and colour: answered only while that coach is on Pro or
   // Premium (the server decides), else null. Null too before the migration runs.
@@ -2535,7 +2564,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2549,8 +2578,10 @@ const DB = {
         this.listMySales(profile.id).catch(() => []),
         this.listCheckinQuestions().catch(() => []),
         this.listCheckinAnswers(_ciSince).catch(() => []),
-        this.listProgramBlocks(athleteIds).catch(() => [])
+        this.listProgramBlocks(athleteIds).catch(() => []),
+        this.listHealthDaily(athleteIds).catch(() => [])
       ]);
+      empty.healthDaily = healthDaily;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;
       empty.programBlocks = blocks;

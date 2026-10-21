@@ -325,6 +325,7 @@
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
+<script src="health.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script>
@@ -485,6 +486,9 @@ bootstrap('athlete', () => {
   renderNav('#nav');
   // A Pro coach's team name, logo and colour (null for everyone else).
   try { applyCoachBrand(user.coachId ? Store.get().coachBrand : null); } catch (e) {}
+  // Apple Health (on this iPhone, when on): weigh-ins in, last night + heart rate, clashes asked.
+  setTimeout(healthRefreshNow, 1500);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) healthRefreshNow(); });
 
   const setLbl = (id, icon, text) => { const e = document.getElementById(id); if (e) e.innerHTML = icon + '<span>' + text + '</span>'; };
   // Self-coached athletes get to BUILD their own program in this tab.
@@ -1304,6 +1308,13 @@ function openCustomCheckinSheet() {
           const inp = el('input', { type: 'text', inputmode: 'decimal', class: 'ci-input', placeholder: 'Number', 'aria-label': q.prompt, value: had && had.num != null ? String(had.num) : '' });
           inp.addEventListener('input', () => { const v = parseFloat(String(inp.value).replace(',', '.')); if (isFinite(v)) set({ num: v, text: null }); else delete vals[q.id]; });
           box.appendChild(inp);
+          // A question about sleep, not yet answered today: last night's hours from Apple Health.
+          const rec = !had && /sleep/i.test(q.prompt) && window.PowaHealthJS ? PowaHealthJS.cachedRecovery() : null;
+          if (rec && rec.sleepMin != null) {
+            inp.value = String(Math.round(rec.sleepMin / 6) / 10);
+            set({ num: Number(inp.value), text: null });
+            box.appendChild(el('div', { class: 'ci-health' }, 'From Apple Health · ' + PowaHealthJS.sleepText(rec.sleepMin)));
+          }
         } else {
           const ta = el('textarea', { class: 'ci-input ci-text', rows: '2', maxlength: '500', placeholder: 'Your answer', 'aria-label': q.prompt });
           ta.value = had && had.text ? had.text : '';
@@ -1804,12 +1815,18 @@ function _relDay(iso) {
 // Beat up → every set still to do starts 5% under the plan (smartFor applies
 // it); fresh and normal change nothing and the row goes away.
 function readinessRow(date) {
-  const r = el('div', { class: 'today-note tn-row tn-ready' });
+  // Apple Health (when on): last night's sleep and the resting heart rate fill the line, and
+  // the answer they point to is marked. The lifter still picks.
+  const rec = date === todayISO() && window.PowaHealthJS ? PowaHealthJS.cachedRecovery() : null;
+  const line = rec ? PowaHealthJS.recoveryLine(rec) : '';
+  const sug = rec ? PowaHealthJS.suggestReadiness(rec) : null;
+  const r = el('div', { class: 'today-note tn-row tn-ready' + (line ? ' has-health' : '') });
   r.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span>' +
-    '<span class="tn-body"><span class="tn-title">How do you feel today?</span><span class="tn-text tn-one">Sleep, soreness, the lot</span></span>';
+    '<span class="tn-body"><span class="tn-title">How do you feel today?</span><span class="tn-text tn-one">' + (line ? escHtml(line) : 'Sleep, soreness, the lot') + '</span></span>';
   const seg = el('div', { class: 'tn-ready-seg', role: 'group', 'aria-label': 'How do you feel today?' });
   Object.keys(READINESS).forEach(k => {
-    const b = el('button', { type: 'button', class: 'tn-ready-btn' + (k === 'rough' ? ' is-rough' : '') }, READINESS[k].label);
+    const b = el('button', { type: 'button', class: 'tn-ready-btn' + (k === 'rough' ? ' is-rough' : '') + (k === sug ? ' is-suggested' : '') }, READINESS[k].label);
+    if (k === sug) b.setAttribute('aria-description', 'Suggested from your sleep and heart rate in Apple Health');
     b.addEventListener('click', () => {
       setReadiness(date, k);
       Object.keys(_readyLoad).forEach(x => delete _readyLoad[x]);
@@ -1830,6 +1847,131 @@ function readinessDoneRow(date) {
   b.addEventListener('click', () => { try { localStorage.removeItem('powa-ready-' + date); } catch (e) {} Object.keys(_readyLoad).forEach(x => delete _readyLoad[x]); renderToday(); });
   r.appendChild(b);
   return r;
+}
+
+// ===== APPLE HEALTH (1.3, health.js) =====
+function healthRefreshNow() {
+  if (!(window.PowaHealthJS && PowaHealthJS.isOn())) return;
+  PowaHealthJS.refresh(openHealthConflicts).then(r => {
+    try { if (document.querySelector('#pane-today:not(.hidden)')) renderToday(); } catch (e) {}
+    if (r && r.imported) toast(r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' from Apple Health');
+  }).catch(() => {});
+}
+// You → Apple Health: the one switch, what it does, and sharing with the coach.
+function openHealthSheet(onChange) {
+  const coach = (Store.get().coaches || []).find(c => c.id === user.coachId);
+  const first = coach && coach.name ? coach.name.split(' ')[0] : 'your coach';
+  uiSheet('Apple Health', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your weigh-ins, sessions, sleep and heart rate, with the Health app on this iPhone.'));
+    const box = el('div');
+    sheet.appendChild(box);
+    const draw = () => {
+      box.innerHTML = '';
+      const on = PowaHealthJS.isOn();
+      const sw = uiSwitch(on, async (want) => {
+        if (want) {
+          sw.input.disabled = true;
+          const r = await PowaHealthJS.enable();
+          sw.input.disabled = false;
+          if (!r.ok) {
+            sw.input.checked = false;
+            toast(r.reason === 'demo' ? 'Apple Health stays out of the demo' : r.reason === 'unavailable' ? 'Apple Health isn\'t on this device' : 'Apple Health didn\'t answer. Try again');
+            return;
+          }
+          toast('Apple Health is on' + (r.imported ? ' · ' + r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' brought in' : ''));
+          if (r.conflicts && r.conflicts.length) setTimeout(() => openHealthConflicts(r.conflicts), 400);
+        } else {
+          await PowaHealthJS.disable();
+          toast('Apple Health is off');
+        }
+        draw();
+        try { renderToday(); } catch (e) {}
+        if (onChange) onChange();
+      }, 'Apple Health');
+      box.appendChild(uiList([uiRow({ title: 'Apple Health', sub: on ? 'On' : 'Off', endNode: sw })]));
+      box.appendChild(uiLabel('When it\'s on'));
+      box.appendChild(uiList([
+        uiRow({ title: 'Weigh-ins, both ways', sub: 'Your scale\'s weigh-ins come in; the ones you log here go to Health' }),
+        uiRow({ title: 'Sessions as workouts', sub: 'Each finished session, with its sets and total lifted' }),
+        uiRow({ title: 'Sleep and resting heart rate', sub: 'On "How do you feel today?" and Progress. They stay on your phone' })
+      ]));
+      if (on && user.coachId) {
+        const sh = uiSwitch(PowaHealthJS.getShare(), async (want) => {
+          sh.input.disabled = true;
+          const r = await PowaHealthJS.setShare(want);
+          sh.input.disabled = false;
+          if (r && r.notReady) { sh.input.checked = false; toast('Sharing switches on after a quick update on our side'); return; }
+          if (r && r.ok === false) { sh.input.checked = !want; toast('Couldn\'t change that. Try again'); return; }
+          toast(want ? first + ' sees your sleep and resting heart rate' : 'Stopped sharing. What ' + first + ' saw is gone');
+        }, 'Share sleep and resting heart rate with ' + first);
+        box.appendChild(uiList([uiRow({ title: 'Share with ' + first, sub: 'Your sleep and resting heart rate, nothing else. Off by default', endNode: sh })]));
+      }
+      box.appendChild(el('p', { class: 'hs-foot' }, 'What POWALIFTA may read is yours to change any time in the Health app: Sharing → Apps → POWALIFTA.'));
+    };
+    draw();
+  }, { cls: 'health-sheet' });
+}
+window.openHealthSheet = openHealthSheet;
+// The same day, two weights: which stays. Skipping keeps POWALIFTA's (and doesn't ask again).
+function openHealthConflicts(list) {
+  if (!list || !list.length || document.querySelector('.hc-sheet')) return;
+  const picks = {};
+  let answered = false;
+  uiSheet(list.length === 1 ? 'Two weights for one day' : 'Two weights on ' + list.length + ' days', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Apple Health has a different weigh-in. Pick the one to keep. Skip this and POWALIFTA\'s stays.'));
+    list.slice(0, 10).forEach(c => {
+      const row = el('div', { class: 'hc-row' });
+      row.appendChild(el('div', { class: 'hc-day' }, fmtDate(c.day)));
+      const seg = el('div', { class: 'hc-seg', role: 'radiogroup', 'aria-label': 'Weigh-in for ' + fmtDate(c.day) });
+      [['ours', 'POWALIFTA', c.ours], ['health', c.source || 'Apple Health', c.health]].forEach(([k, who, kg]) => {
+        const on = k === 'ours';
+        const b = el('button', { type: 'button', role: 'radio', class: 'hc-opt' + (on ? ' on' : ''), 'aria-checked': on ? 'true' : 'false' },
+          el('b', {}, formatWeight(kg, 1)), el('small', {}, who));
+        b.addEventListener('click', () => {
+          picks[c.day] = k;
+          seg.querySelectorAll('.hc-opt').forEach(x => { const sel = x === b; x.classList.toggle('on', sel); x.setAttribute('aria-checked', sel ? 'true' : 'false'); });
+          try { hapticTick(); } catch (e) {}
+        });
+        seg.appendChild(b);
+      });
+      row.appendChild(seg);
+      sheet.appendChild(row);
+    });
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Keep these');
+    save.addEventListener('click', async () => {
+      answered = true;
+      save.disabled = true;
+      for (const c of list) await PowaHealthJS.resolveConflict(c, picks[c.day] || 'ours');
+      close();
+      const n = list.filter(c => picks[c.day] === 'health').length;
+      toast(n ? n + (n === 1 ? ' weigh-in' : ' weigh-ins') + ' from Apple Health kept' : 'POWALIFTA\'s weigh-ins kept');
+      try { renderToday(); } catch (e) {}
+    });
+    sheet.appendChild(save);
+  }, { cls: 'hc-sheet', onClose: () => { if (!answered) list.forEach(c => PowaHealthJS.resolveConflict(c, 'ours')); } });
+}
+window.openHealthConflicts = openHealthConflicts;
+// Progress: last night and the resting heart rate, when Apple Health is on.
+function healthRecoverySection(area) {
+  const rec = window.PowaHealthJS ? PowaHealthJS.cachedRecovery() : null;
+  if (!rec || (rec.sleepMin == null && rec.rhr == null && !(rec.nights || []).some(n => n.minutes > 0))) return;
+  area.appendChild(uiLabel('Recovery'));
+  const rows = [];
+  const nights = (rec.nights || []).slice(0, 7);
+  const slept = nights.filter(n => n.minutes > 0);
+  if (slept.length) {
+    const avg = Math.round(slept.reduce((a, n) => a + n.minutes, 0) / slept.length);
+    const bars = el('span', { class: 'hr-bars', 'aria-hidden': 'true' });
+    nights.slice().reverse().forEach(n => bars.appendChild(el('i', { style: 'height:' + Math.max(8, Math.min(100, Math.round(n.minutes / 600 * 100))) + '%', class: n.minutes > 0 && n.minutes < 360 ? 'is-short' : '' })));
+    rows.push(uiRow({ title: rec.sleepMin != null ? PowaHealthJS.sleepText(rec.sleepMin) + ' last night' : 'Sleep', sub: '7-night average ' + PowaHealthJS.sleepText(avg), endNode: bars }));
+  }
+  if (rec.rhr != null) {
+    const d = rec.rhrBase != null ? Math.round(rec.rhr - rec.rhrBase) : null;
+    rows.push(uiRow({ title: Math.round(rec.rhr) + ' bpm resting', sub: d == null ? 'Your resting heart rate this morning' : d === 0 ? 'Right on your usual' : (d > 0 ? d + ' above' : -d + ' below') + ' your usual ' + rec.rhrBase,
+      endHtml: '<span class="hs-spark">' + uiSparkline((rec.rhrDays || []).slice(-14).map(x => x.bpm)) + '</span>' }));
+  }
+  if (rows.length) area.appendChild(uiList(rows));
+  area.appendChild(el('p', { class: 'hs-src' }, 'From Apple Health'));
 }
 
 // WEEKLY GOAL (app.js weeklyGoalStatus): sessions this week against a goal you
@@ -2868,6 +3010,8 @@ function renderToday() {
   const prog = getProgram();
   const cur0 = prog ? getCurrentDay() : null;
   renderTodayHeader(cur0, date);
+  // Apple Health (when on): a finished day is a workout in Health; an undone one comes back out.
+  try { if (cur0 && window.PowaHealthJS && PowaHealthJS.isOn()) PowaHealthJS.sessionChanged(cur0, date); } catch (e) {}
 
   // Meet countdown strip: if a meet date is set and still ahead, surface the
   // phase cue at the top of the session (localStorage only — demo-safe, no DB).
@@ -3128,6 +3272,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       sset.actualRpe = actualRpe;
       sset.completedAt = sessionDate;
       sset.lastLogId = newLogId;
+      try { if (window.PowaHealthJS) PowaHealthJS.setLogged(cur, sessionDate); } catch (e) {}   // Apple Health: the session's real times
       // Persist any weight entered just now (the lifter's own load)
       if (writes && set.weight > 0) _writeSetLoad(sset, set.weight);
       // Smart next set: lift the moved load, keep what the plan said beside it.
@@ -6134,6 +6279,7 @@ function renderProgOverview(area, logs) {
   const body = el('div', { class: 'sc-body' });
   sc.appendChild(chips); sc.appendChild(body);
   area.appendChild(sc);
+  healthRecoverySection(area);
   const lc = liftColors();
   let pick = 'total'; try { pick = localStorage.getItem('powa-prog-chart') || 'total'; } catch (e) {}
   let meetDay = null; try { meetDay = localStorage.getItem('powa-meet-date'); } catch (e) {}
