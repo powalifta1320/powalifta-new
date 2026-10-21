@@ -11879,3 +11879,102 @@ body.powa-app .builder-main .uniform-cell .uniform-calc:empty { display: none; }
 .uniform-calc { margin-left: 6px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
 .uniform-calc:empty { display: none; }
 .uniform-cell input.is-bad { box-shadow: inset 0 0 0 1.5px var(--soft-alert, #ff8f80); }
+
+/* ===== Train v9 (2026-10-22) =====
+   Set rows read as one aligned table: the load as a number (your own load is typed straight
+   into that number, never a grey form box: the generic input rule used to make it a full-width
+   box on iPhone), the effort as written (7–8, 2 RIR), a quieter tick. Under each lift, what the
+   day might add: another set, a PR attempt, a note. */
+body.powa-app .tx-set { grid-template-columns: 26px minmax(0, 1fr) auto 38px; column-gap: 12px; min-height: 56px; padding: 6px 6px 6px 4px; border-radius: 14px; }
+.tx-n svg { width: 15px; height: 15px; display: block; margin: 0 auto; color: var(--pr, #f2c25b); }
+.tx-set .tx-w-input {
+  width: 4.4ch; min-width: 2.4ch; max-width: 7ch; height: 32px; margin: 0 2px 0 0; padding: 0 2px; border: 0 !important; border-radius: 6px;
+  background: transparent !important; box-shadow: inset 0 -1.5px 0 var(--line-2); color: var(--text);
+  font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--fs-title, 20px); font-weight: 700; letter-spacing: -0.01em;
+  text-align: left; -webkit-appearance: none; appearance: none;
+}
+.tx-set .tx-w-input:focus { outline: none; box-shadow: inset 0 -2px 0 var(--lc); background: color-mix(in srgb, var(--lc) 8%, transparent) !important; }
+.tx-set .tx-w-input::placeholder { color: var(--text-3); font-weight: 600; }
+body.powa-app .tx-felt { min-width: 44px; height: 32px; padding: 0 10px; font-size: 14px; }
+body.powa-app .tx-felt.is-range { font-size: 13px; padding: 0 9px; }
+body.powa-app .tx-check { width: 36px; height: 36px; }
+body.powa-app .tx-check svg { width: 17px; height: 17px; }
+.tx-check.is-missed { background: color-mix(in srgb, var(--soft-alert, #ff8f80) 16%, transparent); box-shadow: none; color: var(--soft-alert, #ff8f80); }
+.tx-set-sub.is-alert { color: var(--soft-alert, #ff8f80); }
+.tx-set.is-missed .tx-set-load b { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+body.powa-app .tx-set.is-missed { opacity: 0.85; }
+.tx-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.tx-act { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px 0 11px; border: 0; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 140ms ease-out; }
+.tx-act svg { width: 15px; height: 15px; flex: none; }
+.tx-act:active { transform: scale(0.96); background: var(--fill-3, rgba(255, 255, 255, 0.1)); }
+.tx-card .tx-acts + .ex-note, .tx-card .ex-note { margin-top: 10px; }
+
+/* The set sheet: what you actually did, before logging. */
+.set-sheet .ss-adj { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 8px; }
+.set-sheet .ss-step { padding: 10px 10px 12px; border-radius: 16px; background: var(--bg-2); }
+.set-sheet .ss-step-lbl { display: block; margin: 0 2px 8px; font-size: 12px; font-weight: 650; color: var(--text-3); }
+.set-sheet .ss-step-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 4px; }
+.set-sheet .ss-step-btn { width: 40px; height: 40px; border: 0; border-radius: 12px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.set-sheet .ss-step-btn:active { transform: scale(0.94); }
+.set-sheet .ss-step-btn svg { width: 18px; height: 18px; }
+.set-sheet .ss-step-val { text-align: center; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 17px; font-weight: 750; white-space: nowrap; color: var(--text); }
+.set-sheet .ss-more { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.set-sheet .ss-more .ui-text-btn { padding: 12px 6px; }
+
+/* PR attempt */
+.pa-sheet .pa-steps { display: grid; grid-template-columns: 46px 46px minmax(0, 1fr) 46px 46px; gap: 6px; align-items: center; margin: 12px 0 2px; }
+.pa-sheet .pa-step { height: 46px; border: 0; border-radius: 12px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pa-sheet .pa-step:active { transform: scale(0.95); }
+.pa-sheet .pa-load { text-align: center; font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.pa-sheet .pa-load b { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; }
+.pa-sheet .pa-load small { margin-left: 3px; font-size: 14px; font-weight: 650; color: var(--text-3); }
+.pa-sheet .pa-load i { font-style: normal; margin: 0 6px; color: var(--text-3); }
+.pa-sheet .pa-vs { min-height: 18px; margin: 4px 0 0; text-align: center; font-size: 13px; font-weight: 650; color: var(--pr, #f2c25b); }
+.pa-sheet .pa-bar { display: block; margin: 6px auto 0; text-align: center; }
+.pa-sheet .pa-field { margin: 14px 0 0; }
+.pa-sheet .pa-field > span { display: block; margin: 0 2px 8px; font-size: 13px; font-weight: 650; color: var(--text-3); }
+.pa-sheet .pa-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pa-sheet .pa-seg-btn { height: 42px; border: 0; border-radius: 12px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.pa-sheet .pa-seg-btn.on { background: var(--text); color: var(--bg); }
+.pa-sheet .pa-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.msg-card.is-missed .mc-kind { color: var(--soft-alert, #ff8f80); }
+[data-theme="light"] body .pa-sheet .pa-vs, [data-theme="light"] body.powa-app .pa-sheet .pa-vs { color: #8a5d00; }
+
+/* Today's session (2026-10-22): the day's name opens a sheet, not the phone's picker wheel. */
+.th-day select { pointer-events: none; }
+.th-day:focus-visible { outline: none; }
+.th-day:focus-visible h2 { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px; }
+.sp-sheet .sp-back { display: block; margin: 0 0 12px; padding: 8px 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.sp-sheet .sp-next { padding: 16px; margin: 4px 0 6px; border-radius: 20px; background: var(--bg-2); }
+.sp-sheet .sp-next-lbl { font-size: 13px; font-weight: 650; color: var(--text-3); }
+.sp-sheet .sp-next-name { margin-top: 4px; font-size: 22px; font-weight: 750; letter-spacing: -0.02em; color: var(--text); }
+.sp-sheet .sp-next-meta { margin: 4px 0 14px; font-size: 14px; color: var(--text-2); }
+.sp-sheet .ui-label { margin-top: 22px; }
+.sp-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-3); }
+.sp-ic svg { width: 18px; height: 18px; }
+.sp-ic.is-done { background: color-mix(in srgb, var(--ok, #34d982) 16%, transparent); color: var(--ok, #34d982); }
+.sp-ic.is-part { color: var(--acc, #ff3b4a); }
+.sp-ic.is-todo { color: var(--text-2); }
+.sp-here { padding: 4px 10px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12px; font-weight: 700; }
+.sp-sheet .ui-row { position: relative; }
+.sp-date-in { position: absolute; right: 12px; top: 50%; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.sp-sheet .sp-all { margin-top: 18px; }
+.sp-sheet .sp-all summary { padding: 12px 2px; color: var(--text-2); font-size: 14px; font-weight: 650; cursor: pointer; list-style: none; }
+.sp-sheet .sp-all summary::-webkit-details-marker { display: none; }
+.sp-sheet .sp-all summary::after { content: ' ▾'; color: var(--text-3); }
+.sp-sheet .sp-all[open] summary::after { content: ' ▴'; }
+.sp-sheet .sp-all-wk { margin: 14px 2px 8px; font-size: 13px; font-weight: 650; color: var(--text-3); }
+
+/* Real 1RMs beside the estimates (2026-10-22). */
+.pg-totals { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.pg-total { min-width: 0; }
+.pg-total + .pg-total { padding-left: 16px; box-shadow: inset 1px 0 0 var(--line); }
+.pg-total .ui-num-xl { font-size: clamp(34px, 10vw, 46px); }
+.pg-total .ui-num-xl.is-empty { color: var(--text-3); }
+.pg-total .ui-hero-sub { margin-top: 6px; }
+.pg-lift-end { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.pg-e1 { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.pg-e1 small { font-size: 12px; color: var(--text-3); font-weight: 600; }
+.pg-1rm { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+.pg-1rm b { color: var(--text-2); font-weight: 700; }
+.aq-1rm { display: block; margin-top: 2px; font-size: 12px; color: var(--text-3); }

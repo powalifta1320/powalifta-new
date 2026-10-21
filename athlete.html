@@ -614,6 +614,17 @@ bootstrap('athlete', () => {
   //   2) Otherwise, if any sets are completed → jump to the most-common
   //      completedAt date.
   //   3) Otherwise leave the date alone.
+  // The day's name opens Today's session (openSessionPicker); the <select> under it keeps the
+  // state every other flow reads, and no longer opens the phone's wheel of every day.
+  const _thDay = document.querySelector('.today-head .th-day');
+  if (_thDay) {
+    _thDay.setAttribute('role', 'button'); _thDay.setAttribute('tabindex', '0'); _thDay.setAttribute('aria-label', 'Choose today\'s session');
+    const _openSp = (e) => { if (!getProgram()) return; e.preventDefault(); openSessionPicker(); };
+    _thDay.addEventListener('click', _openSp);
+    _thDay.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') _openSp(e); });
+    const _ds = document.getElementById('daySelect');
+    if (_ds) { _ds.tabIndex = -1; _ds.setAttribute('aria-hidden', 'true'); }
+  }
   document.getElementById('daySelect').addEventListener('change', () => {
     const cur = getCurrentDay();
     if (cur) {
@@ -891,6 +902,128 @@ function autoSelectDayForDate(date) {
 // plan, unlogged; logging one later clears the skip).
 function setOpen(s) { return !!s && !s.completed && !s.skipped; }
 
+// ===== TODAY'S SESSION (2026-10-22) =====
+// Training rarely follows the calendar: a missed Monday, deadlifts moved to Thursday, a week
+// shuffled. Tapping the day's name opens this instead of a wheel of every day in the block:
+// what's up next, this week's sessions (done, started, still to do), anything not done from
+// earlier weeks, a rest day, another date. A session still to do is pinned to the date when
+// picked, so Train opens on it; a finished one opens on the day it was done.
+function _dayStatus(day) {
+  const sets = (day.exercises || []).flatMap(e => e.sets || []);
+  const done = sets.filter(s => s.completed).length;
+  const open = sets.filter(setOpen).length;
+  const dates = sets.filter(s => s.completed && s.completedAt).map(s => String(s.completedAt).slice(0, 10)).sort();
+  return { total: sets.length, done, open, lastDate: dates[dates.length - 1] || null, rest: !sets.length };
+}
+const _SP_IC = {
+  done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12.5l4 4 8-9"/></svg>',
+  part: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',
+  todo: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  rest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
+  date: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>'
+};
+function openSessionPicker() {
+  const prog = getProgram();
+  if (!prog || !(prog.weeks || []).length) return;
+  const date = getSessionDate();
+  const isToday = date === todayISO();
+  const cur = getCurrentDay();
+  const curBound = !!(cur && _dayBound(cur, date));
+  const next = findNextIncompleteDay(date);
+  const sel = document.getElementById('daySelect');
+  const pick = (wk, day, close) => {
+    const st = _dayStatus(day);
+    close();
+    if (st.open === 0 && st.lastDate && st.lastDate !== date) {
+      // A finished session opens on the day it was done.
+      document.getElementById('sessionDate').value = st.lastDate;
+      if (sel) sel.value = _dayKey(wk, day);
+      refreshPinButtons(); renderToday();
+      return;
+    }
+    if (sel) sel.value = _dayKey(wk, day);
+    if (st.open > 0 && day.scheduledDate !== date) pinDayToDate();
+    else { refreshPinButtons(); renderToday(); }
+  };
+  const lifts = (day) => (day.exercises || []).length;
+  const rowFor = (wk, day, close) => {
+    const st = _dayStatus(day);
+    const here = !!(cur && cur.day.id === day.id && curBound);
+    let sub, kind;
+    if (st.rest) { sub = 'Rest'; kind = 'rest'; }
+    else if (st.open === 0 && st.done > 0) { sub = 'Done' + (st.lastDate ? ', ' + fmtDateShort(st.lastDate) : ''); kind = 'done'; }
+    else if (st.open === 0) { sub = 'Skipped'; kind = 'done'; }
+    else if (st.done > 0) { sub = st.done + ' of ' + st.total + ' sets done'; kind = 'part'; }
+    else { sub = lifts(day) + (lifts(day) === 1 ? ' lift · ' : ' lifts · ') + st.total + ' sets' + (day.scheduledDate && day.scheduledDate !== date ? ' · planned ' + fmtDateShort(day.scheduledDate) : ''); kind = 'todo'; }
+    return uiRow({
+      lead: el('span', { class: 'sp-ic is-' + kind, html: _SP_IC[kind] }),
+      title: day.name || 'Day',
+      sub,
+      endNode: here ? el('span', { class: 'sp-here' }, isToday ? 'Today' : 'This day') : null,
+      chevron: !here && !st.rest,
+      onClick: st.rest ? null : () => pick(wk, day, close)
+    });
+  };
+  uiSheet(isToday ? 'Today\'s session' : 'Session for ' + fmtDateShort(date), (sheet, close) => {
+    if (!isToday) {
+      const back = el('button', { class: 'sp-back', type: 'button' }, 'Back to today');
+      back.addEventListener('click', () => { close(); document.getElementById('dateToday').click(); });
+      sheet.appendChild(back);
+    }
+    // Up next, unless it's already the session on this date.
+    if (next && !(curBound && cur.day.id === next.day.id)) {
+      const n = el('div', { class: 'sp-next' });
+      n.appendChild(el('div', { class: 'sp-next-lbl' }, 'Up next'));
+      n.appendChild(el('div', { class: 'sp-next-name' }, next.day.name || 'Session'));
+      const st = _dayStatus(next.day);
+      n.appendChild(el('div', { class: 'sp-next-meta' }, 'Week ' + next.wk.number + ' · ' + lifts(next.day) + (lifts(next.day) === 1 ? ' lift · ' : ' lifts · ') + st.total + ' sets' + (st.done ? ' · ' + st.done + ' done' : '')));
+      const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, isToday ? 'Train it today' : 'Log it on ' + fmtDateShort(date));
+      go.addEventListener('click', () => pick(next.wk, next.day, close));
+      n.appendChild(go);
+      sheet.appendChild(n);
+    }
+    // The week it sits in.
+    const wk = (curBound && cur.week) || (next && next.wk) || (cur && cur.week) || prog.weeks[0];
+    sheet.appendChild(uiLabel('Week ' + wk.number));
+    sheet.appendChild(uiList((wk.days || []).map(d => rowFor(wk, d, close))));
+    // Not done from earlier weeks (a missed Monday): one tap to do it today.
+    const missed = [];
+    prog.weeks.forEach(w => { if (w.number >= wk.number) return; (w.days || []).forEach(d => { const st = _dayStatus(d); if (st.total && st.open > 0) missed.push({ w, d }); }); });
+    if (missed.length) {
+      sheet.appendChild(uiLabel('Not done yet', { count: missed.length > 1 ? missed.length : null }));
+      sheet.appendChild(uiList(missed.slice(-5).map(m => {
+        const r = rowFor(m.w, m.d, close);
+        const t = r.querySelector('.ui-row-title'); if (t) t.textContent = 'Week ' + m.w.number + ' · ' + (m.d.name || 'Day');
+        return r;
+      })));
+    }
+    // Rest, another date, the whole block.
+    const other = [];
+    const resting = isRestDay(user.id, date);
+    other.push(uiRow({ lead: el('span', { class: 'sp-ic is-rest', html: _SP_IC.rest }), title: resting ? 'Train ' + (isToday ? 'today' : 'this day') + ' after all' : 'Rest ' + (isToday ? 'today' : 'this day'),
+      sub: resting ? 'Takes the rest day off' : 'Your streak is safe', onClick: () => { close(); toggleRestDay(); } }));
+    const dIn = el('input', { type: 'date', class: 'sp-date-in', 'aria-label': 'Log a session on another date', max: todayISO() });
+    dIn.value = date;
+    dIn.addEventListener('change', () => { if (!dIn.value) return; close(); const sd = document.getElementById('sessionDate'); sd.value = dIn.value; sd.dispatchEvent(new Event('change')); });
+    const dRow = uiRow({ lead: el('span', { class: 'sp-ic is-date', html: _SP_IC.date }), title: 'Log another date', sub: 'Trained yesterday and forgot to log it', chevron: true,
+      onClick: () => { try { if (dIn.showPicker) dIn.showPicker(); else dIn.focus(); } catch (e) { dIn.focus(); } } });
+    dRow.appendChild(dIn);
+    other.push(dRow);
+    sheet.appendChild(uiLabel('Or'));
+    sheet.appendChild(uiList(other));
+    if (prog.weeks.length > 1) {
+      const all = el('details', { class: 'sp-all' });
+      all.appendChild(el('summary', {}, 'The whole block · ' + prog.weeks.length + ' weeks'));
+      prog.weeks.forEach(w => {
+        all.appendChild(el('div', { class: 'sp-all-wk' }, 'Week ' + w.number));
+        all.appendChild(uiList((w.days || []).map(d => rowFor(w, d, close))));
+      });
+      sheet.appendChild(all);
+    }
+  }, { cls: 'sp-sheet' });
+}
+window.openSessionPicker = openSessionPicker;
+
 function findNextIncompleteDay(forDate) {
   const prog = getProgram();
   if (!prog) return null;
@@ -938,9 +1071,10 @@ function pinDayToDate() {
   const oldPin = cur.day.scheduledDate;
   cur.day.scheduledDate = date;
   persistProgram(prog.id);
+  const when = date === todayISO() ? 'today' : fmtDateShort(date);
   const msg = (oldPin && oldPin !== date)
-    ? 'Re-pinned ' + cur.day.name + ' from ' + fmtDate(oldPin) + ' → ' + fmtDate(date)
-    : 'Pinned ' + cur.day.name + ' to ' + fmtDate(date);
+    ? cur.day.name + ' moved to ' + when
+    : cur.day.name + (date === todayISO() ? ' is today\'s session' : ' set for ' + when);
   toast(msg);
   populateDaySelect();
   refreshPinButtons();
@@ -1910,6 +2044,133 @@ function buildSessionRail(cur, nextKey) {
 // One exercise. Its colour tile + name + a ring for sets done, the coach's cue,
 // the tools, then a row per set: load (tap for plates), the RPE you'll log it at
 // (tap to change), and the tick. No spreadsheet.
+// ===== THE DAY AS IT HAPPENED (2026-10-22) =====
+// The plan says what to do; the day records what happened. An extra set (more work, a heavier
+// single), a set skipped, a PR attempt made or missed: all saved in the day itself, beside the plan.
+//   set.extra    added on the day (it can be removed again while it isn't logged)
+//   set.attempt  a PR attempt; a missed one is also missed + skipped (never logged, no e1RM)
+function _mutDayEx(exId, fn) {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog) return false;
+  let ok = false;
+  Store.update(s => {
+    const p = s.programs.find(x => x.id === prog.id);
+    const wk = p && p.weeks.find(w => w.id === cur.week.id);
+    const d = wk && wk.days.find(dd => dd.id === cur.day.id);
+    const e = d && d.exercises.find(x => x.id === exId);
+    if (e) { fn(e, d); ok = true; }
+  });
+  if (ok) persistProgram(prog.id);
+  return ok;
+}
+// Picks made on rows after the one removed shift down one index.
+function _shiftRowState(exId, fromIdx) {
+  [_feltRpe, _smartLoad].forEach(map => {
+    Object.keys(map).filter(k => k.indexOf(exId + '_') === 0).forEach(k => {
+      const i = Number(k.slice(exId.length + 1));
+      if (i === fromIdx) delete map[k];
+      else if (i > fromIdx) { map[exId + '_' + (i - 1)] = map[k]; delete map[k]; }
+    });
+  });
+}
+function addExtraSet(exId) {
+  let idx = -1;
+  _mutDayEx(exId, (e) => {
+    const last = e.sets[e.sets.length - 1] || { weight: 0, reps: 5, rpe: null };
+    const ns = Object.assign(newSet(planWeight(last), last.plannedReps || last.reps || 5, last.rpe, last.tempo), rxOf(last), { extra: true });
+    e.sets.push(ns);
+    idx = e.sets.length - 1;
+  });
+  renderToday();
+  if (idx >= 0) { try { hapticTick(); } catch (e) {} setTimeout(() => focusSetRow(exId, idx), 80); }
+}
+function skipSet(exId, si, on) {
+  _mutDayEx(exId, (e) => { const s = e.sets[si]; if (!s || s.completed) return; if (on) s.skipped = true; else { delete s.skipped; delete s.missed; } });
+  renderToday();
+  toast(on ? 'Set skipped' : 'Set back in');
+}
+function removeExtraSet(exId, si) {
+  let ok = false;
+  _mutDayEx(exId, (e) => { const s = e.sets[si]; if (s && s.extra && !s.completed) { e.sets.splice(si, 1); ok = true; } });
+  if (ok) _shiftRowState(exId, si);
+  renderToday();
+  if (ok) toast('Set removed');
+}
+// PR attempt: a weight past your best single, made or missed. Made logs it (RPE 9 to 10) and a new
+// best single gets the 1RM moment; missed is kept in the day as an attempt, never as a lift.
+function openPRAttemptSheet(exId) {
+  const cur = getCurrentDay();
+  const ex = cur && cur.day.exercises.find(e => e.id === exId);
+  if (!ex || !MAIN_LIFTS.includes(ex.lift)) return;
+  const single = bestSingle(user.id, ex.lift);
+  const e1 = bestE1RM(user.id, ex.lift);
+  const stepKg = typeof loadStepKg === 'function' ? loadStepKg(getUnit()) : 2.5;
+  const snap = (kg) => Math.round(Math.round(kg / stepKg) * stepKg * 100) / 100;
+  let kg = single ? snap(single.kg + stepKg) : (e1 > 0 ? snap(Math.ceil(e1 / stepKg) * stepKg) : snap(planWeight(ex.sets[0]) || 100));
+  let reps = 1, rpe = 10;
+  uiSheet('PR attempt', (sheet, close) => {
+    const facts = [];
+    if (single) facts.push('Best single ' + formatWeight(single.kg) + (single.source === 'meet' ? ', ' + single.meet : ', ' + fmtDateShort(single.date)));
+    if (e1 > 0) facts.push('e1RM ' + formatWeight(Math.round(e1)));
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, exTitleOf(ex) + (facts.length ? ' · ' + facts.join(' · ') : '. No single on record yet.')));
+    const show = el('div', { class: 'pa-load' });
+    const bar = el('span', { class: 'tx-bar is-static pa-bar' });
+    const plates = el('div', { class: 'tx-plates pa-plates' });
+    const vs = el('div', { class: 'pa-vs' });
+    const paint = () => {
+      show.innerHTML = '<b>' + kgToDisplay(kg) + '</b><small>' + unitLabel() + '</small>' + (reps > 1 ? '<i>×</i><b>' + reps + '</b>' : '');
+      bar.innerHTML = uiBarbell(kg);
+      plates.innerHTML = '<span class="tx-plates-lbl">Per side</span>' + plateChipsHtml(kg);
+      vs.textContent = single ? (kg > single.kg ? '+' + formatWeight(Math.round((kg - single.kg) * 100) / 100) + ' on your best' : kg === single.kg ? 'Equals your best' : 'Under your best') : '';
+    };
+    const stepRow = el('div', { class: 'pa-steps' });
+    const mkStep = (label, d) => { const b = el('button', { class: 'pa-step', type: 'button', 'aria-label': (d > 0 ? 'Add ' : 'Take off ') + formatWeight(Math.abs(d)) }, label); b.addEventListener('click', () => { kg = Math.max(stepKg, snap(kg + d)); paint(); try { hapticTick(); } catch (e) {} }); return b; };
+    stepRow.appendChild(mkStep('−' + kgToDisplay(stepKg * 2), -stepKg * 2));
+    stepRow.appendChild(mkStep('−' + kgToDisplay(stepKg), -stepKg));
+    stepRow.appendChild(show);
+    stepRow.appendChild(mkStep('+' + kgToDisplay(stepKg), stepKg));
+    stepRow.appendChild(mkStep('+' + kgToDisplay(stepKg * 2), stepKg * 2));
+    sheet.appendChild(stepRow);
+    sheet.appendChild(vs);
+    sheet.appendChild(bar);
+    sheet.appendChild(plates);
+    const seg = (label, opts, cur0, onPick) => {
+      const w = el('div', { class: 'pa-field' }, el('span', {}, label));
+      const row = el('div', { class: 'pa-seg', role: 'radiogroup', 'aria-label': label });
+      opts.forEach(([v, t]) => {
+        const b = el('button', { class: 'pa-seg-btn' + (v === cur0 ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': v === cur0 ? 'true' : 'false' }, t);
+        b.addEventListener('click', () => { row.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); }); onPick(v); paint(); });
+        row.appendChild(b);
+      });
+      w.appendChild(row);
+      return w;
+    };
+    sheet.appendChild(seg('Reps', [[1, 'Single'], [2, 'Double'], [3, 'Triple']], 1, (v) => { reps = v; }));
+    sheet.appendChild(seg('If you make it, how hard', [[9, 'RPE 9'], [9.5, 'RPE 9.5'], [10, 'RPE 10']], 10, (v) => { rpe = v; }));
+    const acts = el('div', { class: 'pa-acts' });
+    const made = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Made it');
+    const missed = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Missed');
+    made.addEventListener('click', () => {
+      let idx = -1;
+      _mutDayEx(ex.id, (e) => { const ns = Object.assign(newSet(kg, reps, null), { extra: true, attempt: true }); e.sets.push(ns); idx = e.sets.length - 1; });
+      close();
+      if (idx >= 0) setTimeout(() => toggleSet(ex.id, idx, true, { rpe, noRest: false }), 230);
+    });
+    missed.addEventListener('click', () => {
+      const date = getSessionDate();
+      _mutDayEx(ex.id, (e) => { e.sets.push(Object.assign(newSet(kg, reps, null), { extra: true, attempt: true, missed: true, skipped: true, completedAt: date })); });
+      close();
+      renderToday();
+      const body = 'Missed a PR attempt: ' + exTitleOf(ex) + ' ' + formatWeight(kg) + (reps > 1 ? ' × ' + reps : '');
+      if (user.coachId) toastAction('Missed attempt saved', 'Tell coach', () => _postToCoach(body, { type: 'set', lift: ex.lift, name: exTitleOf(ex), weightKg: kg, reps, missed: true }));
+      else toast('Missed attempt saved. Next time.');
+    });
+    acts.appendChild(made); acts.appendChild(missed);
+    sheet.appendChild(acts);
+    paint();
+  }, { cls: 'pa-sheet' });
+}
+
 function buildExerciseCard(ex, cur, prog, nextKey) {
   const exDone = ex.sets.length > 0 && ex.sets.every(s => !setOpen(s));   // logged or skipped
   const allLogged = ex.sets.length > 0 && ex.sets.every(s => s.completed);
@@ -1940,7 +2201,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   }
   card.appendChild(head);
 
-  if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>Coach</span>' + escHtml(ex.note) }));
+  // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
+  if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
 
   const firstSet = ex.sets[0];
   if (firstSet && !exDone) {
@@ -1956,8 +2218,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     const justDone = set.completed && window._txJustLogged === ex.id + '_' + si;
     const smart = isCardio ? null : smartFor(ex, si);
     const shownKg = smart ? smart.kg : Number(set.weight) || 0;
-    const row = el('div', { class: 'tx-set' + (set.completed ? ' is-done' : '') + (set.skipped && !set.completed ? ' is-skipped' : '') + (isNext ? ' is-next' : '') + (justDone ? ' just-done' : '') + (smart ? ' is-smart' : ''), id: 'set_' + ex.id + '_' + si });
-    row.appendChild(el('span', { class: 'tx-n' }, String(si + 1)));
+    const row = el('div', { class: 'tx-set' + (set.completed ? ' is-done' : '') + (set.skipped && !set.completed ? ' is-skipped' : '') + (set.missed ? ' is-missed' : '') + (set.attempt ? ' is-attempt' : '') + (set.extra ? ' is-extra' : '') + (isNext ? ' is-next' : '') + (justDone ? ' just-done' : '') + (smart ? ' is-smart' : ''), id: 'set_' + ex.id + '_' + si });
+    row.appendChild(el('span', { class: 'tx-n', html: set.attempt ? ICONS.trophy : String(si + 1) }));
 
     const main = el('div', { class: 'tx-set-main' });
     const loadEl = el('div', { class: 'tx-set-load' });
@@ -1971,6 +2233,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
         type: 'number', step: '0.5', min: '0', inputmode: 'decimal', class: 'tx-w-input', id: 'wt_' + ex.id + '_' + si, placeholder: sug > 0 ? String(kgToDisplay(sug)) : '–',
         'aria-label': 'Set ' + (si + 1) + ' weight (' + unitLabel() + ')', value: (shownKg > 0 ? kgToDisplay(shownKg) : '')
       });
+      // As wide as its number ("162.5" fits, "kg" sits right after it), growing as you type.
+      const fitW = () => { const t = String(wInp.value || wInp.placeholder || '').length; wInp.style.width = Math.max(2.4, t + 0.6) + 'ch'; };
+      fitW();
+      wInp.addEventListener('input', fitW);
       wInp.addEventListener('change', (e) => {
         delete _smartLoad[ex.id + '_' + si];   // a typed load beats the suggestion
         _readyLoad[ex.id + '_' + si] = null;   // …and today's readiness discount
@@ -1988,37 +2254,49 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       loadEl.appendChild(wInp);
       loadEl.insertAdjacentHTML('beforeend', '<small>' + unitLabel() + '</small><i>×</i><b>' + escHtml(String(set.reps)) + '</b>');
     } else {
-      loadEl.innerHTML = (shownKg > 0 ? '<b>' + kgToDisplay(shownKg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') +
+      loadEl.innerHTML = (shownKg > 0 ? '<b>' + kgToDisplay(shownKg) + '</b><small>' + unitLabel() + '</small>' : (set.pct != null ? '<b class="dim">' + escHtml(_num(set.pct) + '%') + '</b>' : '<b class="dim">–</b>')) +
         '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>';
-      if (shownKg > 0) {
-        loadEl.classList.add('is-tap');
-        loadEl.setAttribute('role', 'button');
-        loadEl.setAttribute('tabindex', '0');
-        loadEl.setAttribute('aria-label', 'Plates for ' + formatWeight(shownKg));
-        loadEl.addEventListener('click', () => openPlateCalc(shownKg));
-      }
+      // Tap the set: the plates, what you actually did (a rep short, a heavier set), skip it.
+      loadEl.classList.add('is-tap');
+      loadEl.setAttribute('role', 'button');
+      loadEl.setAttribute('tabindex', '0');
+      loadEl.setAttribute('aria-label', 'Set ' + (si + 1) + ': plates, change or skip');
+      loadEl.addEventListener('click', () => openSetSheet(ex, si));
     }
     main.appendChild(loadEl);
-    let sub = '';
+    let sub = '', subTone = '';
     if (set.completed && !isCardio && set.weight > 0 && set.actualRpe) {
       const e1 = isMain ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
-      sub = 'e1RM ' + formatWeight(Math.round(e1)) + (set.plannedWeight > 0 && Math.abs(set.plannedWeight - set.weight) > 0.01 ? ' · plan ' + formatWeight(set.plannedWeight) : '');
-    } else if (set.skipped) sub = 'Skipped';
+      const plan = [];
+      if (set.plannedWeight > 0 && Math.abs(set.plannedWeight - set.weight) > 0.01) plan.push(formatWeight(set.plannedWeight));
+      if (set.plannedReps > 0 && set.plannedReps !== set.reps) plan.push(set.plannedReps + ' reps');
+      sub = (set.attempt ? 'PR attempt · ' : '') + 'e1RM ' + formatWeight(Math.round(e1)) + (plan.length ? ' · plan ' + plan.join(', ') : '');
+    } else if (set.missed) { sub = 'Missed attempt'; subTone = ' is-alert'; }
+    else if (set.skipped) sub = 'Skipped';
     else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) : 'From today\'s sets';
+    else if (set.pct != null && shownKg > 0) sub = _num(set.pct) + '% of your max';
+    else if (set.extra) sub = 'Extra set';
     // The RPE chip beside the load already shows the target, so no "Target RPE" line.
-    if (sub) main.appendChild(el('div', { class: 'tx-set-sub' }, sub));
+    if (sub) main.appendChild(el('div', { class: 'tx-set-sub' + subTone }, sub));
     row.appendChild(main);
 
-    // The RPE this set goes in at: done = what you logged; to do = your pick or the target.
+    // The RPE this set goes in at: done = what you logged; to do = your pick, else the target as
+    // written (a range "7–8", "2 RIR").
     const felt = set.completed ? Number(set.actualRpe) : feltRpeFor(ex, si);
-    const chip = el('button', { class: 'tx-felt' + (felt == null ? ' is-empty' : '') + (set.completed ? ' is-locked' : ''), type: 'button', id: 'felt_' + ex.id + '_' + si,
-      style: '--rc:' + (felt == null ? 'var(--text-3)' : rpeColor(felt)), 'aria-label': (set.completed ? 'Logged at RPE ' : 'RPE ') + (felt == null ? 'not set' : felt) }, felt == null ? 'RPE' : String(felt));
+    const picked = !set.completed && _feltRpe[ex.id + '_' + si] != null;
+    const asWritten = !set.completed && !picked && set.rpe != null && (set.rpeHi != null || set.rir) ? setEffortText(set).replace(/^RPE /, '') : null;
+    const chip = el('button', { class: 'tx-felt' + (felt == null ? ' is-empty' : '') + (set.completed ? ' is-locked' : '') + (asWritten ? ' is-range' : ''), type: 'button', id: 'felt_' + ex.id + '_' + si,
+      style: '--rc:' + (felt == null ? 'var(--text-3)' : rpeColor(felt)), 'aria-label': (set.completed ? 'Logged at RPE ' : 'RPE ') + (felt == null ? 'not set' : (asWritten || felt)) }, felt == null ? 'RPE' : (asWritten || String(felt)));
     if (!set.completed) chip.addEventListener('click', () => openSetSheet(ex, si));
     else chip.addEventListener('click', () => openSetSheet(ex, si));
     row.appendChild(chip);
 
-    const tick = el('button', { class: 'tx-check' + (set.completed ? ' on' : ''), type: 'button', 'aria-pressed': set.completed ? 'true' : 'false', 'aria-label': set.completed ? 'Set ' + (si + 1) + ' done. Undo' : 'Log set ' + (si + 1), html: ICONS.check });
+    const tick = el('button', { class: 'tx-check' + (set.completed ? ' on' : '') + (set.missed ? ' is-missed' : ''), type: 'button', 'aria-pressed': set.completed ? 'true' : 'false', 'aria-label': set.completed ? 'Set ' + (si + 1) + ' done. Undo' : set.missed ? 'Missed attempt' : 'Log set ' + (si + 1), html: set.missed ? ICONS.x : ICONS.check });
     uiFastTap(tick, () => {
+      if (set.missed) {
+        uiActionSheet('Missed attempt · ' + formatWeight(set.weight), [{ label: 'Remove this attempt', icon: ICONS.trash, danger: true, onClick: () => _removeAttempt(ex.id, si) }]);
+        return;
+      }
       if (set.completed) {
         uiActionSheet('Set ' + (si + 1) + ' · ' + exTitleOf(ex), [
           { label: 'Undo this set', icon: ICONS.x, danger: true, onClick: () => toggleSet(ex.id, si, false) }
@@ -2054,13 +2332,32 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     }
   });
   exNote.value = existingNote;
-  if (existingNote) card.appendChild(exNote);
-  else if (isCurrent || doneCount > 0) {   // nothing to say about a lift you haven't started
-    const addNote = el('button', { class: 'ex-note-add', type: 'button' }, '+ Add a note');
-    addNote.addEventListener('click', () => { addNote.replaceWith(exNote); exNote.focus(); });
-    card.appendChild(addNote);
+  // What the day might add: another set, a PR attempt (the big three), a note.
+  const acts = el('div', { class: 'tx-acts' });
+  if (!isCardio) {
+    const add = el('button', { class: 'tx-act', type: 'button', html: ICONS.plus + '<span>Add set</span>' });
+    add.addEventListener('click', () => addExtraSet(ex.id));
+    acts.appendChild(add);
   }
+  if (isMain && multiplierFor(ex.lift, ex.variant) === 1) {
+    const pa = el('button', { class: 'tx-act', type: 'button', html: ICONS.trophy + '<span>PR attempt</span>' });
+    pa.addEventListener('click', () => openPRAttemptSheet(ex.id));
+    acts.appendChild(pa);
+  }
+  if (!existingNote) {
+    const addNote = el('button', { class: 'tx-act', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg><span>Note</span>' });
+    addNote.addEventListener('click', () => { acts.after(exNote); addNote.remove(); exNote.focus(); });
+    acts.appendChild(addNote);
+  }
+  if (existingNote) card.appendChild(exNote);
+  if (acts.children.length) card.appendChild(acts);
   return card;
+}
+function _removeAttempt(exId, si) {
+  let ok = false;
+  _mutDayEx(exId, (e) => { const s = e.sets[si]; if (s && s.attempt && !s.completed) { e.sets.splice(si, 1); ok = true; } });
+  if (ok) _shiftRowState(exId, si);
+  renderToday();
 }
 
 // EXERCISE DETAIL (UI v8). Tap an exercise's head on Train and it opens full height: today's
@@ -2220,14 +2517,58 @@ function openSetSheet(ex, si) {
   const isCardio = ex.lift === 'cardio';
   const sm = isCardio ? null : smartFor(ex, si);
   const wKg = sm ? sm.kg : Number(set.weight) || 0;
-  uiSheet('Set ' + (si + 1) + ' · ' + exTitleOf(ex), (sheet, close) => {
+  // What you'll log: the plan, adjustable (a rep short, 2.5 more) before logging. The row's own
+  // weight box (writing your own loads) is where a typed load lives, so start from it.
+  const rowW = document.getElementById('wt_' + ex.id + '_' + si);
+  let selKg = (rowW && Number(rowW.value) > 0) ? displayToKg(Number(rowW.value)) : wKg;
+  let selReps = Number(set.reps) || 0;
+  const stepKg = typeof loadStepKg === 'function' ? loadStepKg(getUnit()) : 2.5;
+  uiSheet((set.attempt ? 'PR attempt' : set.extra ? 'Extra set' : 'Set ' + (si + 1)) + ' · ' + exTitleOf(ex), (sheet, close) => {
     const load = el('div', { class: 'set-sheet-load' });
-    load.appendChild(el('div', { class: 'tdh-presc', html: isCardio
-      ? '<b>' + escHtml(String(set.weight)) + '</b><small>min</small>'
-      : (wKg > 0 ? '<b>' + kgToDisplay(wKg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>' }));
-    if (!isCardio && wKg > 0) load.appendChild(el('span', { class: 'tx-bar is-static', html: uiBarbell(wKg) }));
+    const presc = el('div', { class: 'tdh-presc' });
+    const barEl = el('span', { class: 'tx-bar is-static' });
+    const platesEl = el('div', { class: 'tx-plates' });
+    const paintLoad = () => {
+      presc.innerHTML = isCardio
+        ? '<b>' + escHtml(String(set.weight)) + '</b><small>min</small>'
+        : (selKg > 0 ? '<b>' + kgToDisplay(selKg) + '</b><small>' + unitLabel() + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(selReps)) + '</b>';
+      barEl.style.display = !isCardio && selKg > 0 ? '' : 'none';
+      platesEl.style.display = !isCardio && selKg > 0 ? '' : 'none';
+      if (!isCardio && selKg > 0) { barEl.innerHTML = uiBarbell(selKg); platesEl.innerHTML = '<span class="tx-plates-lbl">Per side</span>' + plateChipsHtml(selKg); }
+    };
+    load.appendChild(presc);
+    load.appendChild(barEl);
     sheet.appendChild(load);
-    if (!isCardio && wKg > 0) sheet.appendChild(el('div', { class: 'tx-plates', html: '<span class="tx-plates-lbl">Per side</span>' + plateChipsHtml(wKg) }));
+    sheet.appendChild(platesEl);
+    paintLoad();
+    if (set.missed) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Missed attempt. It stays in the day as an attempt, never as a lift.'));
+      const rm = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Remove this attempt');
+      rm.addEventListener('click', () => { close(); _removeAttempt(ex.id, si); });
+      sheet.appendChild(rm);
+      return;
+    }
+    // Before logging: steppers for what was actually lifted.
+    if (!set.completed && !isCardio) {
+      const adj = el('div', { class: 'ss-adj' });
+      const stepper = (label, get, apply, delta, min, fmt) => {
+        const w = el('div', { class: 'ss-step' });
+        w.appendChild(el('span', { class: 'ss-step-lbl' }, label));
+        const row = el('div', { class: 'ss-step-row' });
+        const val = el('b', { class: 'ss-step-val' }, fmt(get()));
+        const mk = (sign) => {
+          const b = el('button', { class: 'ss-step-btn', type: 'button', 'aria-label': (sign > 0 ? 'More ' : 'Less ') + label.toLowerCase(), html: sign > 0 ? ICONS.plus : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>' });
+          b.addEventListener('click', () => { apply(Math.max(min, Math.round((get() + sign * delta) * 100) / 100)); val.textContent = fmt(get()); paintLoad(); try { hapticTick(); } catch (e) {} });
+          return b;
+        };
+        row.appendChild(mk(-1)); row.appendChild(val); row.appendChild(mk(1));
+        w.appendChild(row);
+        return w;
+      };
+      adj.appendChild(stepper('Weight', () => selKg, (v) => { selKg = v; }, stepKg, 0, (v) => v > 0 ? kgToDisplay(v) + ' ' + unitLabel() : '–'));
+      adj.appendChild(stepper('Reps', () => selReps, (v) => { selReps = v; }, 1, 1, (v) => String(v)));
+      sheet.appendChild(adj);
+    }
     if (sm && sm.fromKg > 0) sheet.appendChild(el('p', { class: 'ui-sheet-sub tx-smart-note' }, 'Moved from ' + formatWeight(sm.fromKg) + '. ' + smartWhy(ex, si) + '.'));
     if (set.completed) {
       const e1 = MAIN_LIFTS.includes(ex.lift) ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
@@ -2236,6 +2577,7 @@ function openSetSheet(ex, si) {
         (!isCardio && set.weight > 0) ? uiRow({ title: 'Estimated max', end: formatWeight(Math.round(e1)) }) : null
       ]));
       const acts = el('div', { class: 'set-sheet-acts' });
+      if (set.plannedReps > 0 && set.plannedReps !== set.reps) acts.appendChild(el('p', { class: 'ui-sheet-sub' }, 'The plan was ' + set.plannedReps + ' reps.'));
       if (user.coachId) {
         const send = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Send to coach');
         send.addEventListener('click', () => { close(); const log = (Store.get().workoutLogs || []).find(l => l.id === set.lastLogId); sendLogToCoach(log || _logFromSet(ex, set)); });
@@ -2255,14 +2597,34 @@ function openSetSheet(ex, si) {
     log.addEventListener('click', () => {
       const r = scale.getValue();
       if (r == null) { scale.nudge(); return; }
-      if (getProgram() && getProgram().coachId === user.id) {
-        const w = document.getElementById('wt_' + ex.id + '_' + si);
-        if (w && !(Number(w.value) > 0) && MAIN_LIFTS.includes(ex.lift)) { close(); toast('Enter the weight first'); focusSetRow(ex.id, si, 'wt'); return; }
-      }
+      // The row's own weight box follows the sheet's weight, so the logged load is the one chosen.
+      const w = document.getElementById('wt_' + ex.id + '_' + si);
+      if (w && selKg > 0) w.value = String(kgToDisplay(selKg));
+      if (!(selKg > 0) && MAIN_LIFTS.includes(ex.lift) && liftWritesLoad(ex, set)) { toast('Add the weight first'); return; }
       close();
-      toggleSet(ex.id, si, true, { rpe: r });
+      const opts = { rpe: r };
+      if (!isCardio && selKg > 0 && Math.abs(selKg - wKg) > 0.01) opts.weightKg = selKg;
+      if (!isCardio && selReps > 0 && selReps !== Number(set.reps)) opts.reps = selReps;
+      toggleSet(ex.id, si, true, opts);
     });
     sheet.appendChild(log);
+    // The day as it went: skip this one, bring it back, or take an added set off again.
+    const more = el('div', { class: 'ss-more' });
+    if (set.skipped) {
+      const back = el('button', { class: 'ui-text-btn', type: 'button' }, 'Bring this set back');
+      back.addEventListener('click', () => { close(); skipSet(ex.id, si, false); });
+      more.appendChild(back);
+    } else {
+      const sk = el('button', { class: 'ui-text-btn', type: 'button' }, 'Skip this set');
+      sk.addEventListener('click', () => { close(); skipSet(ex.id, si, true); });
+      more.appendChild(sk);
+    }
+    if (set.extra) {
+      const rm = el('button', { class: 'ui-text-btn danger', type: 'button' }, 'Remove this set');
+      rm.addEventListener('click', () => { close(); removeExtraSet(ex.id, si); });
+      more.appendChild(rm);
+    }
+    sheet.appendChild(more);
   }, { cls: 'set-sheet' });
 }
 window.openSetSheet = openSetSheet;
@@ -2735,6 +3097,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     const sessionDate = getSessionDate();
     const newLogId = uid('log');
     let newLogObj = null;
+    const prevSingle = MAIN_LIFTS.includes(ex.lift) ? ((bestSingle(user.id, ex.lift) || { kg: 0 }).kg) : 0;
 
     Store.update(s => {
       const p = s.programs.find(p => p.athleteId === user.id);
@@ -2753,6 +3116,17 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       if (smart) {
         if (!('plannedWeight' in sset)) sset.plannedWeight = smart.fromKg;
         if (!writes) sset.weight = smart.kg;
+      }
+      // What was actually lifted, when it wasn't the plan (the set sheet: a rep short, 2.5 more):
+      // the log is the truth, the plan stays beside it (plannedWeight / plannedReps) for undo.
+      const wOv = Number(opts && opts.weightKg), rOv = Number(opts && opts.reps);
+      if (wOv > 0 && Math.abs(wOv - (Number(sset.weight) || 0)) > 0.01) {
+        if (!('plannedWeight' in sset)) sset.plannedWeight = Number(sset.weight) || 0;
+        sset.weight = wOv;
+      }
+      if (rOv > 0 && rOv !== Number(sset.reps)) {
+        if (!('plannedReps' in sset)) sset.plannedReps = Number(sset.reps) || 0;
+        sset.reps = rOv;
       }
       const noteEl = document.getElementById('note_' + exerciseId + '_' + setIndex);
       if (noteEl) sset.note = noteEl.value;
@@ -2786,7 +3160,16 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       bwm = newBwMilestone(prevBest, newLogObj.weight, latestBodyweight(user.id), ex.lift, getSexPref());
     }
     const isPR = MAIN_LIFTS.includes(ex.lift) && newLogObj && isPRForLog(user.id, newLogObj);
-    if (plates) {
+    // A heavier single than ever (competition lift): a PR attempt, or a near-max one (RPE 9+), so
+    // a light opener single at RPE 6 never claims to be a max.
+    const singlePR = MAIN_LIFTS.includes(ex.lift) && newLogObj && Number(newLogObj.reps) === 1 &&
+      String(newLogObj.variant || 'Competition') === 'Competition' && newLogObj.weight > prevSingle + 0.01 &&
+      (set.attempt || actualRpe >= 9) && (prevSingle > 0 || set.attempt);
+    // A PR attempt that lands is THE moment (over a plate milestone); a near-max single that beats
+    // the best gets it too unless it also put new plates on the bar.
+    if (singlePR && (set.attempt || !plates)) {
+      showPRToast(ex.lift, newLogObj.weight, newLogObj, { single: true, before: prevSingle });
+    } else if (plates) {
       showPlateMoment(ex.lift, plates, newLogObj, isPR);
     } else if (bwm) {
       showBwMoment(bwm, newLogObj, isPR);
@@ -2816,7 +3199,9 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     setTimeout(() => {
       const fresh = getCurrentDay();
       if (!fresh) return;
-      const allDone = fresh.day.exercises.flatMap(e => e.sets).every(s => s.completed) && fresh.day.exercises.flatMap(e => e.sets).length > 0;
+      // Done = nothing left to do (logged, skipped or a missed attempt) and something logged.
+      const _all = fresh.day.exercises.flatMap(e => e.sets);
+      const allDone = _all.length > 0 && _all.every(s => !setOpen(s)) && _all.some(s => s.completed);
       if (allDone) {
         const s = Store.get();
         const already = s.sessionNotes.find(n => n.athleteId === user.id && n.dayId === fresh.day.id && n.date === sessionDate);
@@ -2851,8 +3236,9 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
         );
         if (idx >= 0) { logIdToDelete = s.workoutLogs[idx].id; s.workoutLogs.splice(idx, 1); }
       }
-      // A smart-moved set goes back to the plan's load when it's undone.
+      // A smart-moved or adjusted set goes back to the plan when it's undone.
       if ('plannedWeight' in sset) { sset.weight = sset.plannedWeight; delete sset.plannedWeight; }
+      if ('plannedReps' in sset) { sset.reps = sset.plannedReps; delete sset.plannedReps; }
     });
     persistProgram(prog.id);
     if (logIdToDelete) persistDeleteLog(logIdToDelete);
@@ -2870,12 +3256,14 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
 }
 
 // ===== PR TOAST =====
-function showPRToast(lift, e1rmComp, log) {
+function showPRToast(lift, e1rmComp, log, opts) {
+  opts = opts || {};
   // UI v8: the PR moment, full screen. A gold plate rolls in and lands with a thud you feel,
   // the number counts up from your old best, the jump shows in green, and one tap makes the
   // tall Story card. Tap anywhere else (or Done) to get back to the session.
   const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const before = (Store.get().workoutLogs || [])
+  // A best single (opts.single) counts up from the old best single; an e1RM PR from the old e1RM.
+  const before = opts.single ? (Number(opts.before) || 0) : (Store.get().workoutLogs || [])
     .filter(l => l.athleteId === user.id && l.lift === lift && (!log || l.id !== log.id))
     .reduce((m, l) => Math.max(m, Number(l.e1rmComp) || 0), 0);
   const toD = (kg) => Math.round(kgToDisplay(kg));
@@ -2898,12 +3286,12 @@ function showPRToast(lift, e1rmComp, log) {
     '<circle cx="60" cy="60" r="19" fill="#dcdfe5"/><circle cx="60" cy="60" r="19" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/><circle cx="60" cy="60" r="8" fill="#0b0b0c"/>' +
     '<text x="60" y="33" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="800" fill="rgba(60,40,0,0.5)">PR</text></svg>' });
   stage.appendChild(plate);
-  stage.appendChild(el('div', { class: 'prm-tag' }, 'New PR'));
+  stage.appendChild(el('div', { class: 'prm-tag' }, opts.single ? 'New 1RM' : 'New PR'));
   const val = el('span', { class: 'prm-val' }, String(reduce || was == null ? now : was));
   stage.appendChild(el('div', { class: 'prm-num' }, val, el('span', { class: 'prm-unit' }, unitLabel())));
   const delta = was != null && now > was ? el('div', { class: 'prm-delta' + (reduce ? ' on' : '') }, '+' + (now - was) + ' ' + unitLabel()) : null;
   if (delta) stage.appendChild(delta);
-  stage.appendChild(el('div', { class: 'prm-sub' }, LIFT_LABELS[lift] + ' · estimated max'));
+  stage.appendChild(el('div', { class: 'prm-sub' }, LIFT_LABELS[lift] + (opts.single ? ' · heaviest single' : ' · estimated max')));
   if (log && log.weight > 0) stage.appendChild(el('div', { class: 'prm-set' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '')));
   const acts = el('div', { class: 'prm-acts' });
   const leave = () => { clearTimeout(timer); overlay.classList.add('is-leaving'); setTimeout(() => overlay.remove(), 220); };
@@ -5560,16 +5948,34 @@ function renderProgOverview(area, logs) {
   const bw = latestBodyweight(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, getSexPref()) : 0;
 
-  const hero = el('div', { class: 'ui-hero' });
-  hero.appendChild(el('div', { class: 'ui-hero-label' }, 'e1RM total'));   // estimated, not a meet total
-  hero.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(total)) + '<small>' + u + '</small>' }));
+  // Two totals, side by side: the estimate from training (e1RM) and what has actually been on the
+  // bar (the three best singles, from training or a meet).
+  const singles = bestSinglesTotal(user.id);
+  const hero = el('div', { class: 'ui-hero pg-hero' });
+  const totals = el('div', { class: 'pg-totals' });
+  const colE = el('div', { class: 'pg-total' });
+  colE.appendChild(el('div', { class: 'ui-hero-label' }, 'e1RM total'));
+  colE.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(total)) + '<small>' + u + '</small>' }));
   const sub = el('div', { class: 'ui-hero-sub' });
   if (prevPt && prevPt.total > 0) {
     const d = Math.round(kgToDisplay(total - prevPt.total));
     sub.appendChild(el('span', { class: d > 0 ? 'ui-up' : 'ui-flat' }, (d > 0 ? '+' : '') + d + ' ' + u + ' in 4 weeks'));
   }
   if (dots > 0) sub.appendChild(el('span', {}, dots.toFixed(1) + ' DOTS'));
-  if (sub.children.length) hero.appendChild(sub);
+  if (sub.children.length) colE.appendChild(sub);
+  totals.appendChild(colE);
+  const colR = el('div', { class: 'pg-total pg-real' });
+  colR.appendChild(el('div', { class: 'ui-hero-label' }, 'Total'));
+  if (singles) {
+    colR.appendChild(el('div', { class: 'ui-num-xl', html: Math.round(kgToDisplay(singles.kg)) + '<small>' + u + '</small>' }));
+    const meets = new Set(['squat', 'bench', 'deadlift'].map(l => singles.parts[l].source === 'meet' ? singles.parts[l].meet : null).filter(Boolean));
+    colR.appendChild(el('div', { class: 'ui-hero-sub' }, el('span', {}, meets.size === 1 && ['squat', 'bench', 'deadlift'].every(l => singles.parts[l].source === 'meet') ? 'Best singles · ' + Array.from(meets)[0] : 'Your best singles')));
+  } else {
+    colR.appendChild(el('div', { class: 'ui-num-xl is-empty' }, '–'));
+    colR.appendChild(el('div', { class: 'ui-hero-sub' }, el('span', {}, 'A single on all three')));
+  }
+  totals.appendChild(colR);
+  hero.appendChild(totals);
   area.appendChild(hero);   // the trend lives in the strength chart below, so no sparkline here
 
   // UI v8: one big strength chart (app.js uiStrengthChart). Chips pick the total or a lift,
@@ -5631,12 +6037,15 @@ function renderProgOverview(area, logs) {
     const pr = prs[lift];
     const before = prevPt ? prevPt[lift] : 0;
     const d = before ? Math.round(kgToDisplay(now - before)) : 0;
+    // e1RM (with its four-week move) over the best single actually lifted.
+    const one = bestSingle(user.id, lift);
     return uiRow({
       lead: dot,
       title: LIFT_LABELS[lift],
       sub: pr ? kgToDisplay(pr.weight) + ' × ' + pr.reps + ' @ RPE ' + pr.rpe : null,
-      endHtml: (d ? '<span class="' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') +
-        '<b>' + Math.round(kgToDisplay(now)) + '</b>' + u
+      endHtml: '<span class="pg-lift-end"><span class="pg-e1">' + (d ? '<span class="' + (d > 0 ? 'ui-up' : 'ui-flat') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') +
+        '<b>' + Math.round(kgToDisplay(now)) + '</b>' + u + '<small> e1RM</small></span>' +
+        '<span class="pg-1rm">' + (one ? '1RM <b>' + Math.round(kgToDisplay(one.kg)) + '</b> ' + u : 'No single yet') + '</span></span>'
     });
   })));
 

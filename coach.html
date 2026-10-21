@@ -1001,7 +1001,7 @@ function openAthleteSheet(athleteId) {
     const total = currentTotal(a.id);
     const sex = a.sex || 'male';
     sheet.appendChild(uiStats([
-      { value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '', label: 'Total' },
+      { value: total > 0 ? Math.round(kgToDisplay(total)) : '–', unit: total > 0 ? unitLabel() : '', label: 'e1RM total' },
       { value: (bw && total > 0) ? dotsScore(total, bw, sex).toFixed(1) : '–', label: 'DOTS' },
       { value: o.flag === 'today' ? 'Today' : o.ago == null ? '–' : o.ago + 'd', label: 'Last session', tone: o.flag === 'stale' || o.flag === 'never' ? 'bad' : null }
     ]));
@@ -1014,6 +1014,9 @@ function openAthleteSheet(athleteId) {
       c.appendChild(el('span', { class: 'aq-l' }, el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }), LIFT_LABELS[l]));
       c.appendChild(el('b', { html: best ? Math.round(kgToDisplay(best)) + '<small>' + unitLabel() + '</small>' : '–' }));
       c.appendChild(el('span', { class: 'aq-d' + (d > 0 ? ' up' : d < 0 ? ' down' : '') }, d == null ? 'No trend yet' : d > 0 ? '+' + d + ' in 3 wks' : d < 0 ? d + ' in 3 wks' : 'Flat, 3 wks'));
+      // The best single actually lifted (training or a meet), under the estimate.
+      const one = bestSingle(a.id, l);
+      c.appendChild(el('span', { class: 'aq-1rm' }, one ? '1RM ' + Math.round(kgToDisplay(one.kg)) + ' ' + unitLabel() : 'No single yet'));
       lifts.appendChild(c);
     });
     sheet.appendChild(lifts);

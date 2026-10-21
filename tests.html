@@ -798,6 +798,25 @@ test('prescriptions: RPE ranges, RIR and % of max', () => {
   eq(sq.pct, 75); eq(sq.rir, true); eq(sq.rpe, 8); eq(sq.rpeHi, 9); eq(be.rpe, 8); eq(be.rir, true); eq(be.pct, undefined);
   eq(groupSets([sq, Object.assign({}, sq), Object.assign({}, sq, { rpeHi: null })]).length, 2);   // a different range is its own block
 });
+test('best singles: logged 1-rep sets and meet results, competition lift only', () => {
+  const saved = Store.get();
+  Store.set(Object.assign(defaultStore(), {
+    workoutLogs: [
+      { athleteId: 'a', lift: 'squat', variant: 'Competition', weight: 180, reps: 1, date: '2026-09-01' },
+      { athleteId: 'a', lift: 'squat', variant: 'Paused', weight: 190, reps: 1, date: '2026-09-02' },     // a variant: not a squat max
+      { athleteId: 'a', lift: 'squat', variant: 'Competition', weight: 200, reps: 3, date: '2026-09-03' }, // a triple: e1RM, not a single
+      { athleteId: 'a', lift: 'bench', variant: '', weight: 120, reps: 1, date: '2026-09-04' },
+      { athleteId: 'b', lift: 'deadlift', variant: 'Competition', weight: 300, reps: 1, date: '2026-09-04' }
+    ],
+    meets: [{ athleteId: 'a', name: 'Spring Classic', date: '2026-05-01', squat: 185, bench: 115, deadlift: 215 }]
+  }));
+  try {
+    eq(bestSingle('a', 'squat').kg, 185); eq(bestSingle('a', 'squat').source, 'meet');
+    eq(bestSingle('a', 'bench').kg, 120); eq(bestSingle('a', 'bench').source, 'training');
+    eq(bestSingle('a', 'deadlift').kg, 215); eq(bestSingle('b', 'squat'), null);
+    eq(bestSinglesTotal('a').kg, 520); eq(bestSinglesTotal('b'), null);
+  } finally { Store.set(saved); }
+});
 test('custom check-ins: what is due, averages and the coach line', () => {
   const qs = [
     { id: 'q1', coachId: 'c', prompt: 'Sleep (hours)', kind: 'number', cadence: 'daily', athleteIds: null, position: 0 },

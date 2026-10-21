@@ -3761,11 +3761,11 @@ async function renderMessageThread(container, opts) {
       return c;
     }
     const lift = ['squat', 'bench', 'deadlift'].includes(meta.lift) ? meta.lift : 'acc';
-    const c = el('div', { class: 'msg-card lift-' + lift + (meta.pr ? ' is-pr' : '') });
+    const c = el('div', { class: 'msg-card lift-' + lift + (meta.pr ? ' is-pr' : '') + (meta.missed ? ' is-missed' : '') });
     const w = Number(meta.weightKg) || 0;
     const top = el('div', { class: 'mc-top' });
     const id = el('div', { class: 'mc-id' });
-    id.appendChild(el('div', { class: 'mc-kind' }, meta.pr ? 'New PR' : 'Set'));
+    id.appendChild(el('div', { class: 'mc-kind' }, meta.pr ? 'New PR' : meta.missed ? 'Missed attempt' : 'Set'));
     id.appendChild(el('div', { class: 'mc-title' }, lift !== 'acc' ? el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }) : null, meta.name || 'Set'));
     top.appendChild(id);
     if (w > 0 && typeof uiBarbell === 'function') top.appendChild(el('span', { class: 'mc-bar', 'aria-hidden': 'true', html: uiBarbell(w) }));
@@ -7673,6 +7673,32 @@ function setGoals(athleteId, patch) {
 function bestE1RM(athleteId, lift) {
   const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId && l.lift === lift);
   return logs.length ? Math.max(...logs.map(l => l.e1rmComp)) : 0;
+}
+
+// The heaviest single actually lifted, competition lift only: a logged 1-rep set or a meet
+// result. { kg, date, source: 'training' | 'meet', meet } or null. The e1RM estimates; this is
+// what's been on the bar. Pure over Store: unit-tested.
+function bestSingle(athleteId, lift) {
+  let best = null;
+  (Store.get().workoutLogs || []).forEach(l => {
+    if (l.athleteId !== athleteId || l.lift !== lift || Number(l.reps) !== 1) return;
+    const v = String(l.variant || 'Competition');
+    if (v !== 'Competition') return;
+    const kg = Number(l.weight) || 0;
+    if (kg > 0 && (!best || kg > best.kg || (kg === best.kg && String(l.date) < String(best.date)))) best = { kg, date: l.date, source: 'training' };
+  });
+  (Store.get().meets || []).forEach(m => {
+    if (m.athleteId !== athleteId) return;
+    const kg = Number(m[lift]) || 0;
+    if (kg > 0 && (!best || kg > best.kg)) best = { kg, date: m.date, source: 'meet', meet: m.name || 'Meet' };
+  });
+  return best;
+}
+// The three best singles added up, once all three exist.
+function bestSinglesTotal(athleteId) {
+  const parts = {};
+  for (const l of ['squat', 'bench', 'deadlift']) { const b = bestSingle(athleteId, l); if (!b) return null; parts[l] = b; }
+  return { kg: parts.squat.kg + parts.bench.kg + parts.deadlift.kg, parts };
 }
 
 function currentTotal(athleteId) {
