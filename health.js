@@ -48,6 +48,7 @@
     if (!(await available())) return { ok: false, reason: window._demoMode ? 'demo' : 'unavailable' };
     let r;
     try { r = await P().requestAccess(); } catch (e) { return { ok: false, reason: 'error' }; }
+    noteAccess(r);
     put('on', true);
     put('since', null);
     // HealthKit can drop its connection for a moment as the permission sheet closes.
@@ -60,6 +61,15 @@
     put('on', false);
     if (getShare()) await setShare(false);
   }
+
+  // What iOS let POWALIFTA do. It says whether saving is allowed; reading it never says (a refused
+  // read just looks empty), so "can't save" is the only sign the lifter said Don't Allow.
+  function noteAccess(r) {
+    if (!r || typeof r.canWriteWeight !== 'boolean') return;
+    put('access', { weight: !!r.canWriteWeight, workouts: !!r.canWriteWorkouts, at: Date.now() });
+  }
+  function access() { return get('access', null); }
+  function refused() { const a = access(); return !!(a && !a.weight && !a.workouts); }
 
   // ---------------------------------------------------------------- weigh-ins in
   // The last Health reading of each day, against POWALIFTA's weigh-ins. New days come in;
@@ -283,7 +293,7 @@
       // sheet when it isn't (a reinstall, a restored phone), which a read would otherwise just fail on.
       if (!_askedThisLaunch && (await available())) {
         _askedThisLaunch = true;
-        try { await P().requestAccess(); } catch (e) {}
+        try { noteAccess(await P().requestAccess()); } catch (e) {}
         await new Promise(r => setTimeout(r, 400));
       }
       const pulled = await pullWeights();
@@ -294,7 +304,7 @@
   }
 
   window.PowaHealthJS = {
-    available, couldOffer, isOn, enable, disable, refresh, pullWeights, resolveConflict, weightSaved,
+    available, couldOffer, isOn, enable, disable, refresh, pullWeights, resolveConflict, weightSaved, access, refused,
     setLogged, sessionChanged, recovery, cachedRecovery, suggestReadiness, recoveryLine, sleepText,
     getShare, setShare,
     // pure, for tests

@@ -1878,7 +1878,7 @@ function openHealthSheet(onChange) {
             toast(r.reason === 'demo' ? 'Apple Health stays out of the demo' : r.reason === 'unavailable' ? 'Apple Health isn\'t on this device' : 'Apple Health didn\'t answer. Try again');
             return;
           }
-          toast('Apple Health is on' + (r.imported ? ' · ' + r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' brought in' : ''));
+          toast(PowaHealthJS.refused() ? 'Apple Health is on, but iOS didn\'t allow it yet' : 'Apple Health is on' + (r.imported ? ' · ' + r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' brought in' : ''));
           if (r.conflicts && r.conflicts.length) setTimeout(() => openHealthConflicts(r.conflicts), 400);
         } else {
           await PowaHealthJS.disable();
@@ -1889,6 +1889,12 @@ function openHealthSheet(onChange) {
         if (onChange) onChange();
       }, 'Apple Health');
       box.appendChild(uiList([uiRow({ title: 'Apple Health', sub: on ? 'On' : 'Off', endNode: sw })]));
+      // Turned on here but refused in iOS (Don't Allow): say where to change it.
+      if (on && PowaHealthJS.refused()) {
+        box.appendChild(el('div', { class: 'hs-refused' },
+          el('b', {}, 'iOS isn\'t letting POWALIFTA in yet'),
+          el('span', {}, 'If you tapped Don\'t Allow, open the Health app, tap your picture, then Apps → POWALIFTA, and turn the categories on.')));
+      }
       box.appendChild(uiLabel('When it\'s on'));
       box.appendChild(uiList([
         uiRow({ title: 'Weigh-ins, both ways', sub: 'Your scale\'s weigh-ins come in; the ones you log here go to Health' }),

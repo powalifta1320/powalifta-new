@@ -12323,3 +12323,5 @@ html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2
 .hc-sheet .hc-opt.on { box-shadow: inset 0 0 0 2px var(--text); }
 .hc-sheet .btn-block { margin-top: 20px; }
 .ci-health { margin: 6px 2px 0; font-size: 12.5px; color: var(--text-3); }
+.health-sheet .hs-refused { display: grid; gap: 4px; margin: 10px 0 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--soft-warn, #ffb35c) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft-warn, #ffb35c) 35%, transparent); font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+.health-sheet .hs-refused b { color: var(--text); font-weight: 650; }
