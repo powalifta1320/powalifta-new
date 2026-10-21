@@ -5073,6 +5073,48 @@ function bestMeet(meets, athleteId) {
   });
   return best;
 }
+// ----- OpenPowerlifting (2026-10-22) -----
+// A meet from OpenPowerlifting (api/opl.js) as a POWALIFTA meet, in kg: best lifts, bodyweight,
+// class, federation; the placing, equipment, division, DOTS and every attempt go in the notes
+// ("x" = missed). A meet without a total (disqualified, no-show) comes back null: its lifts
+// don't make a total and a made-up one would be wrong.
+// A meet's date: "Jul 17" this year, "Mar 4, 2017" before (meet histories span years).
+function meetDateText(iso) {
+  if (!iso) return '';
+  return String(iso).slice(0, 4) === String(new Date().getFullYear()) ? fmtDateShort(iso) : fmtDate(iso);
+}
+function oplOrdinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function oplMeetToMeet(m, athleteId) {
+  if (!m || !/^\d{4}-\d{2}-\d{2}$/.test(String(m.date || '')) || !(Number(m.total) > 0)) return null;
+  const pos = (v) => (Number(v) > 0 ? Math.round(Number(v) * 100) / 100 : null);
+  const place = /^\d+$/.test(String(m.place || '')) ? oplOrdinal(Number(m.place)) + ' place' : (m.place === 'G' ? 'Guest lifter' : '');
+  const fmt = (v) => String(Math.round(Math.abs(Number(v)) * 100) / 100);
+  const att = [['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift']].map(([k, label]) => {
+    const a = ((m.attempts || {})[k] || []).slice(0, 4);
+    const tries = a.slice(0, 3).filter(v => v != null && Number(v) !== 0).map(v => (Number(v) < 0 ? 'x' : '') + fmt(v));
+    if (a[3] != null && Number(a[3]) !== 0) tries.push('4th ' + (Number(a[3]) < 0 ? 'x' : '') + fmt(a[3]));
+    return tries.length ? label + ' ' + tries.join(', ') : null;
+  }).filter(Boolean);
+  const notes = [place, m.equipment, m.division, Number(m.dots) > 0 ? 'DOTS ' + (Math.round(Number(m.dots) * 10) / 10) : null].filter(Boolean).join(' · ') +
+    (att.length ? (place || m.equipment ? '. ' : '') + att.join(' · ') + ' kg' : '') + '. From OpenPowerlifting';
+  return {
+    athleteId, name: String(m.name || 'Meet').slice(0, 80), date: m.date,
+    federation: String(m.federation || '').slice(0, 40),
+    weightClass: m.weightClassKg ? String(m.weightClassKg).slice(0, 12) + ' kg' : '',
+    bodyweight: pos(m.bodyweightKg),
+    squat: pos(m.squat), bench: pos(m.bench), deadlift: pos(m.deadlift),
+    notes: notes.slice(0, 500)
+  };
+}
+// Which OpenPowerlifting meets are new: a meet already logged on the same date is the same meet.
+function oplPlan(oplMeets, existing, athleteId) {
+  const have = new Set((existing || []).filter(x => x.athleteId === athleteId).map(x => x.date));
+  return (oplMeets || []).map(m => {
+    const meet = oplMeetToMeet(m, athleteId);
+    return { opl: m, meet, status: !meet ? 'nototal' : (have.has(m.date) ? 'have' : 'new') };
+  });
+}
+
 // DOTS for a finished meet from its REAL total + weigh-in bodyweight (kg).
 // Falls back to null when bodyweight is missing. sex is the client-side pref.
 function meetDots(meet, sex) {

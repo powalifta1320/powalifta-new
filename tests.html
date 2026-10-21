@@ -871,6 +871,25 @@ test('blocks: keep a trained block, the next one heavier, how a block went', () 
     eq(blockSummary(listed, 'a').pct, 83); eq(blockSummary(listed, 'a').sessions, 2); eq(blockSummary(listed, 'a').change.squat, 6);
   } finally { Store.set(saved); }
 });
+test('OpenPowerlifting: a meet as a POWALIFTA meet, what is new', () => {
+  const m = { date: '2025-04-03', name: 'Classic Open Nationals', federation: 'AMP', event: 'SBD', equipment: 'Raw', division: 'MR-O', bodyweightKg: 198.6, weightClassKg: '120+',
+    squat: 460, bench: 225, deadlift: 375, total: 1060, place: '2', dots: 501.24,
+    attempts: { squat: [422.5, 447.5, 460, null], bench: [210, 220, 225, 230], deadlift: [340, 360, -375.5, null] } };
+  const x = oplMeetToMeet(m, 'a');
+  eq(x.athleteId, 'a'); eq(x.date, '2025-04-03'); eq(x.squat, 460); eq(x.bench, 225); eq(x.deadlift, 375);
+  eq(x.bodyweight, 198.6); eq(x.weightClass, '120+ kg'); eq(x.federation, 'AMP');
+  eq(x.notes, '2nd place · Raw · MR-O · DOTS 501.2. Squat 422.5, 447.5, 460 · Bench 210, 220, 225, 4th 230 · Deadlift 340, 360, x375.5 kg. From OpenPowerlifting');
+  eq(oplMeetToMeet(Object.assign({}, m, { total: null, place: 'DQ' }), 'a'), null);   // no total: not brought in
+  eq(oplMeetToMeet(Object.assign({}, m, { date: 'soon' }), 'a'), null);
+  eq(oplMeetToMeet(Object.assign({}, m, { bench: -230 }), 'a').bench, null);         // a missed best is no lift
+  eq(oplMeetToMeet(Object.assign({}, m, { place: 'G' }), 'a').notes.slice(0, 12), 'Guest lifter');
+  eq([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(oplOrdinal).join(' '), '1st 2nd 3rd 4th 11th 12th 13th 21st 22nd 101st 111th');
+  const plan = oplPlan([m, Object.assign({}, m, { date: '2024-08-04' }), Object.assign({}, m, { date: '2023-01-01', total: null })],
+    [{ athleteId: 'a', date: '2024-08-04' }, { athleteId: 'b', date: '2025-04-03' }], 'a');
+  eq(plan.map(p => p.status).join(','), 'new,have,nototal');
+  eq(meetDateText(''), '');
+  eq(/2017/.test(meetDateText('2017-03-04')), true);
+});
 test('check-in alerts: pain, high soreness, short sleep, today or yesterday only', () => {
   const qs = [
     { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily' },

@@ -12253,3 +12253,18 @@ body.powa-app .dash-main .pg-grid tr.pg-day th { color: var(--text-3); }
 .mx-sheet .mx-row, .mx-sheet .mx-row * { text-transform: none; letter-spacing: normal; }
 .mx-sheet .mx-lift { font-size: 15px; }
 .mx-sheet .mx-input::placeholder { color: var(--text-4, var(--text-3)); font-weight: 600; }
+
+/* OpenPowerlifting import (2026-10-22) */
+.opl-sheet .opl-form { display: flex; gap: 8px; margin: 14px 0 12px; }
+.opl-sheet .opl-input { flex: 1; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-1); color: var(--text); font: inherit; font-size: 16px; }
+.opl-sheet .opl-form .btn { height: 48px; padding: 0 18px; flex: 0 0 auto; }
+.opl-sheet .opl-note { margin: 10px 2px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+.opl-sheet .opl-out .ui-list { margin-top: 4px; }
+.opl-sheet .opl-head { margin: 6px 2px 14px; }
+.opl-sheet .opl-name { font-size: 20px; font-weight: 750; color: var(--text); letter-spacing: -0.01em; }
+.opl-sheet .opl-sub { margin-top: 4px; color: var(--text-2); font-size: 14px; }
+.opl-sheet .opl-dim { color: var(--text-3); font-size: 13px; }
+.opl-sheet .opl-go { margin-top: 16px; }
+.opl-sheet .opl-back { display: block; margin: 12px auto 0; padding: 10px 12px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 14px; cursor: pointer; }
+.opl-sheet .opl-credit { margin: 14px 2px 2px; color: var(--text-3); font-size: 12.5px; line-height: 1.5; text-align: center; }
+.opl-sheet .opl-credit a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }

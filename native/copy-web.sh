@@ -13,6 +13,7 @@ mkdir -p "$DEST"
 
 rsync -a --delete \
   --exclude 'native' \
+  --exclude 'api' \
   --exclude 'native-ios' \
   --exclude 'node_modules' \
   --exclude '.git' \

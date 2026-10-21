@@ -4510,8 +4510,12 @@ function renderMeetHistory(area) {
     .slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const u = unitLabel();
   area.appendChild(uiLabel('Meets', { action: { label: 'Log a meet', onClick: () => openMeetResultModal() } }));
+  const opl = _oplLinked();
   if (!meets.length) {
-    area.appendChild(uiList([uiRow({ title: 'No meets yet', sub: 'Log a result to track your best total', chevron: true, onClick: () => openMeetResultModal() })]));
+    area.appendChild(uiList([
+      uiRow({ title: 'Bring in your meets', sub: 'From OpenPowerlifting, with every attempt', chevron: true, onClick: () => openOplSheet() }),
+      uiRow({ title: 'Log a meet', sub: 'Add a result by hand', chevron: true, onClick: () => openMeetResultModal() })
+    ]));
     return;
   }
   // One row per meet: name, date + lifts underneath, total on the right.
@@ -4522,7 +4526,7 @@ function renderMeetHistory(area) {
     const isBest = !!(best && best.meet.id === m.id);
     return uiRow({
       title: m.name,
-      sub: [fmtDateShort(m.date), m.federation, lifts].filter(Boolean).join(' · '),
+      sub: [meetDateText(m.date), m.federation, lifts].filter(Boolean).join(' · '),
       endHtml: (isBest ? '<span class="ui-tag">Best</span>' : '') + '<b>' + Math.round(kgToDisplay(meetTotal(m))) + '</b>' + u,
       chevron: true,
       onClick: () => uiActionSheet(m.name, [
@@ -4531,8 +4535,134 @@ function renderMeetHistory(area) {
       ])
     });
   })));
+  area.appendChild(uiList([uiRow({ title: 'OpenPowerlifting', sub: opl ? 'Linked to ' + opl.name + '. Check for new meets' : 'Bring in your meets, with every attempt', chevron: true, onClick: () => openOplSheet() })]));
 }
 window.renderMeetHistory = renderMeetHistory;
+
+// ===== OPENPOWERLIFTING (2026-10-22) =====
+// Find yourself on OpenPowerlifting (the public record of meets) and bring every meet in: best
+// lifts, bodyweight, class and, in the notes, placing, DOTS and each attempt. /api/opl does the
+// asking (the iPhone app asks www.powalifta.com). Who you are on it is remembered on this device,
+// so checking for new meets is one tap.
+function _oplApi(qs) {
+  const base = (typeof _isNativeShell === 'function' && _isNativeShell()) || location.protocol === 'capacitor:' ? 'https://www.powalifta.com' : '';
+  return fetch(base + '/api/opl?' + qs, { headers: { Accept: 'application/json' } }).then(async r => {
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j) { const e = new Error((j && j.error) || 'http ' + r.status); e.status = r.status; throw e; }
+    return j;
+  });
+}
+function _oplKey() { return 'powa-opl-' + (user && user.id || ''); }
+function _oplLinked() { try { const v = JSON.parse(localStorage.getItem(_oplKey()) || 'null'); return v && v.u ? v : null; } catch (e) { return null; } }
+function _oplRemember(u, name) { try { localStorage.setItem(_oplKey(), JSON.stringify({ u, name })); } catch (e) {} }
+function _oplForget() { try { localStorage.removeItem(_oplKey()); } catch (e) {} }
+function openOplSheet() {
+  const u = unitLabel();
+  const w = (kg) => (kg == null ? '–' : String(Math.round(kgToDisplay(kg) * 10) / 10));
+  uiSheet('OpenPowerlifting', (sheet, close) => {
+    const body = el('div', { class: 'opl' });
+    sheet.appendChild(body);
+    const credit = (href) => el('p', { class: 'opl-credit' }, 'Meet data from ', el('a', { href: href || 'https://www.openpowerlifting.org', target: '_blank', rel: 'noopener' }, 'OpenPowerlifting'), ', the open record of powerlifting meets.');
+    const showSearch = (prefill) => {
+      body.innerHTML = '';
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Every meet on the public record comes in with your best lifts, placing, DOTS and each attempt. Search your name as it\'s spelled on meet results.'));
+      const form = el('form', { class: 'opl-form', role: 'search' });
+      const inp = el('input', { type: 'search', class: 'opl-input', value: prefill || '', placeholder: 'Your name', 'aria-label': 'Your name on OpenPowerlifting', autocomplete: 'name', enterkeyhint: 'search' });
+      const go = el('button', { class: 'btn btn-primary', type: 'submit' }, 'Search');
+      form.appendChild(inp); form.appendChild(go);
+      body.appendChild(form);
+      const out = el('div', { class: 'opl-out', 'aria-live': 'polite' });
+      body.appendChild(out);
+      body.appendChild(credit());
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const q = inp.value.replace(/\s+/g, ' ').trim();
+        // A pasted profile link goes straight to that lifter.
+        const link = /openpowerlifting\.org\/u\/([a-z0-9]{1,64})/i.exec(q);
+        if (link) { showLifter(link[1].toLowerCase(), null); return; }
+        if (q.length < 2) { inp.focus(); return; }
+        try { inp.blur(); } catch (er) {}
+        go.disabled = true;
+        out.innerHTML = '';
+        out.appendChild(el('p', { class: 'opl-note' }, 'Searching OpenPowerlifting…'));
+        try {
+          const j = await _oplApi('q=' + encodeURIComponent(q));
+          out.innerHTML = '';
+          const ls = (j.lifters || []);
+          if (!ls.length) { out.appendChild(el('p', { class: 'opl-note' }, 'Nobody by that name. Try it as it\'s spelled on your meet results, or paste your profile link (openpowerlifting.org/u/…).')); return; }
+          out.appendChild(uiList(ls.map(l => uiRow({
+            title: l.name,
+            sub: [l.federation, l.country, l.weightClass ? l.weightClass + ' kg' : '', l.equipment, l.date ? l.date.slice(0, 4) : ''].filter(Boolean).join(' · '),
+            endHtml: l.total ? '<b>' + w(l.total) + '</b>' + u : '',
+            chevron: true,
+            onClick: () => showLifter(l.username, l.name)
+          }))));
+        } catch (er) {
+          out.innerHTML = '';
+          out.appendChild(el('p', { class: 'opl-note' }, er && er.status === 400 ? 'Use letters only, as your name appears on meet results.' : 'OpenPowerlifting didn\'t answer. Try again in a minute.'));
+        } finally { go.disabled = false; }
+      });
+      if (!prefill) setTimeout(() => { try { inp.focus(); } catch (e) {} }, 60);
+    };
+    const showLifter = async (username, name) => {
+      body.innerHTML = '';
+      const profile = 'https://www.openpowerlifting.org/u/' + username;
+      const head = el('div', { class: 'opl-head' });
+      const title = el('div', { class: 'opl-name' }, name || username);
+      const sub = el('div', { class: 'opl-sub' }, 'Reading your meets…');
+      head.appendChild(title); head.appendChild(sub);
+      body.appendChild(head);
+      const back = el('button', { class: 'opl-back', type: 'button' }, _oplLinked() && _oplLinked().u === username ? 'Not you? Search again' : 'Search again');
+      back.addEventListener('click', () => { if (_oplLinked() && _oplLinked().u === username) _oplForget(); showSearch(user.name || ''); });
+      let j;
+      try { j = await _oplApi('u=' + encodeURIComponent(username)); }
+      catch (er) {
+        sub.textContent = er && er.status === 404 ? 'That profile isn\'t on OpenPowerlifting.' : 'OpenPowerlifting didn\'t answer. Try again in a minute.';
+        body.appendChild(back);
+        return;
+      }
+      title.textContent = j.name || name || username;
+      const plan = oplPlan(j.meets, Store.get().meets, user.id);
+      const fresh = plan.filter(p => p.status === 'new');
+      const best = plan.reduce((m, p) => Math.max(m, Number(p.opl.total) || 0), 0);
+      const first = plan.length ? plan[plan.length - 1].opl.date.slice(0, 4) : '';
+      sub.textContent = [plan.length + (plan.length === 1 ? ' meet' : ' meets'), first ? 'since ' + first : '', best ? 'best total ' + w(best) + ' ' + u : ''].filter(Boolean).join(' · ');
+      if (plan.length) body.appendChild(uiList(plan.map(p => {
+        const m = p.opl;
+        const lifts = [m.squat, m.bench, m.deadlift].map(v => (Number(v) > 0 ? w(v) : '–')).join(' / ');
+        return uiRow({
+          title: m.name,
+          sub: [meetDateText(m.date), m.federation, lifts].filter(Boolean).join(' · '),
+          endHtml: p.status === 'have' ? '<span class="opl-dim">Already in</span>' : p.status === 'nototal' ? '<span class="opl-dim">No total</span>' : '<b>' + w(m.total) + '</b>' + u
+        });
+      })));
+      const act = el('button', { class: 'btn btn-primary btn-lg btn-block opl-go', type: 'button' }, fresh.length ? 'Bring in ' + fresh.length + (fresh.length === 1 ? ' meet' : ' meets') : (plan.length ? 'You have them all' : 'No meets yet'));
+      if (!fresh.length) act.disabled = true;
+      act.addEventListener('click', async () => {
+        act.disabled = true; act.textContent = 'Bringing them in…';
+        const list = fresh.map(p => p.meet);
+        let saved;
+        if (window._demoMode) saved = list.map((m, i) => Object.assign({ id: 'demo-opl-' + Date.now() + '-' + i }, m));
+        else {
+          try { saved = await DB.addMeets(list); }
+          catch (er) { console.error('addMeets', er); toast('Couldn\'t save them. Try again'); act.disabled = false; act.textContent = 'Bring in ' + fresh.length + (fresh.length === 1 ? ' meet' : ' meets'); return; }
+        }
+        Store.update(s => { s.meets = (s.meets || []).concat(saved); });
+        _oplRemember(username, j.name || name || username);
+        close();
+        toast(saved.length + (saved.length === 1 ? ' meet' : ' meets') + ' brought in from OpenPowerlifting');
+        try { renderProgress(); } catch (e) {}
+      });
+      body.appendChild(act);
+      if (!fresh.length && plan.length) _oplRemember(username, j.name || name || username);
+      body.appendChild(back);
+      body.appendChild(credit(profile));
+    };
+    const linked = _oplLinked();
+    if (linked) showLifter(linked.u, linked.name); else showSearch(user.name || '');
+  }, { cls: 'opl-sheet' });
+}
+window.openOplSheet = openOplSheet;
 
 // Build fresh each open so the unit labels (kg/lb) always match the live pref.
 function ensureMeetResultModal() {

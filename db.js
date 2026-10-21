@@ -1704,6 +1704,13 @@ const DB = {
     const { error } = await sb.from('meets').delete().in('id', [id]);
     if (error) throw error;
   },
+  // Several new meets in one insert (the OpenPowerlifting import).
+  async addMeets(list) {
+    if (!list || !list.length) return [];
+    const { data, error } = await sb.from('meets').insert(list.map(m => { const r = mapJsMeet(m); delete r.id; return r; })).select('*');
+    if (error) throw error;
+    return (data || []).map(mapDbMeet);
+  },
 
   // ---------- SESSION NOTES ----------
   async listNotesForAthlete(athleteId) {

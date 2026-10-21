@@ -639,6 +639,21 @@ window.POWA_SUPPORT_KB = [
   "a": "Open Progress → Overview, tap Meet day under Tools, then tap \"Start meet mode\" (it works any day, so you can run a mock meet too). Before each opener, open \"Warm-up caller\" and tap − as each attempt before yours goes, and it shows which warm-up to take now. Go through squat, bench and deadlift one attempt at a time: tap \"Good lift\" or \"No lift\" (or each judge's light), and after your first and second attempts a one-minute bar lets you pick Safe, Plan or Send to hand in the next one. After the last deadlift tap \"See the total\", then \"Save to my meets\", \"Make it a card\" or \"Start over\"."
  },
  {
+  "id": "openpowerlifting-import",
+  "q": "Can I bring in my meet results from OpenPowerlifting?",
+  "t": [
+   "import meets",
+   "import my meets",
+   "my meet history",
+   "old meets",
+   "openipf",
+   "openpowerlifting",
+   "past meets",
+   "previous meets"
+  ],
+  "a": "Yes. Open Progress → PRs and scroll to Meets, then tap OpenPowerlifting (or \"Bring in your meets\" if you have none yet). Search your name as it's spelled on meet results, or paste your profile link (openpowerlifting.org/u/…), and pick yourself. You see every meet on the record; tap \"Bring in N meets\" and each one is saved with your best lifts, bodyweight and class, and the placing, DOTS and every attempt in its notes. Meets you already logged on the same date are left alone, and a meet without a total (disqualified) isn't brought in. Next time, the same row checks for new meets in one tap. Your coach sees them on your profile."
+ },
+ {
   "id": "change-or-reset-password",
   "q": "I forgot my password, or want to change it. What do I do?",
   "t": [
