@@ -12102,3 +12102,106 @@ html.native .tn-group.today-strip, html:not(.native) .tn-group.today-strip { -we
 }
 .today-strip-wrap.has-more.at-end::after { opacity: 0; }
 @media (min-width: 701px) { html:not(.native) .today-strip-wrap::after { display: none; } }
+
+/* ===== Coach workstation (laptop, 2026-10-22): the roster table and the athlete page =====
+   Dense like a spreadsheet, calm like the app: tabular numbers, one status per row, no cards
+   inside cards. Phones keep the one-thing-at-a-time roster. */
+.ws-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 4px 0 18px; }
+.ws-stat { padding: 16px 18px; border-radius: 16px; background: var(--bg-1); border: 1px solid var(--line); }
+.ws-stat b { display: block; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; color: var(--text); }
+.ws-stat b small { font-size: 16px; color: var(--text-3); font-weight: 650; }
+.ws-stat span { display: block; margin-top: 4px; font-size: 13px; color: var(--text-3); }
+.ws-stat.is-alert b { color: var(--soft-alert, #ff8f80); }
+.ws-stat.is-ok b { color: var(--text); }
+.ws-table-wrap { border: 1px solid var(--line); border-radius: 16px; background: var(--bg-1); overflow: hidden; }
+.ws-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ws-table th { padding: 11px 14px; background: var(--bg-2); color: var(--text-3); font-size: 12px; font-weight: 650; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.ws-table th .ws-sort { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.ws-table th .ws-sort.on { color: var(--text); }
+.ws-table th .ws-sort.on::after { content: ' ↓'; }
+.ws-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--text-2); white-space: nowrap; vertical-align: middle; }
+.ws-table tbody tr:last-child td { border-bottom: 0; }
+.ws-row { cursor: pointer; transition: background-color 120ms ease-out; }
+.ws-row:hover { background: var(--fill-1, rgba(255, 255, 255, 0.03)); }
+.ws-row:focus-visible { outline: 2px solid var(--text-3); outline-offset: -2px; }
+.ws-ath { display: flex; align-items: center; gap: 10px; }
+.ws-ath .ui-av { width: 32px; height: 32px; font-size: 12px; flex: none; }
+.ws-name { color: var(--text); font-weight: 650; }
+.ws-unread { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--brand-red); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.ws-block { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.ws-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.ws-num.is-ok { color: var(--ok, #34d982); }
+.ws-num.is-alert { color: var(--soft-alert, #ff8f80); }
+.ws-trend { display: flex; align-items: center; gap: 8px; }
+.ws-spark { width: 64px; height: 22px; color: var(--text-3); flex: none; }
+.ws-spark.up { color: var(--ok, #34d982); }
+.ws-spark.down { color: var(--soft-alert, #ff8f80); }
+.ws-trend b { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 700; }
+.ws-trend b small { margin-left: 2px; font-size: 11px; color: var(--text-3); font-weight: 600; }
+.ws-trend b.up { color: var(--ok, #34d982); }
+.ws-trend b.down { color: var(--soft-alert, #ff8f80); }
+.ws-trend b.flat { color: var(--text-3); }
+.ws-flag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; color: var(--text-2); white-space: nowrap; }
+.ws-flag svg { width: 13px; height: 13px; flex: none; }
+.ws-flag small { margin-left: 2px; padding: 1px 6px; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-3); font-size: 11px; }
+.ws-flag.sev-3 { color: var(--soft-alert, #ff8f80); }
+.ws-flag.sev-2 { color: #f5a623; }
+.ws-flag.sev-1 { color: var(--text-2); }
+.ws-flag.is-pr { color: var(--pr, #f2c25b); }
+.ws-flag.is-ok { color: var(--text-3); font-weight: 600; }
+[data-theme="light"] .ws-flag.sev-2 { color: #a15c00; }
+[data-theme="light"] .ws-flag.sev-3 { color: #c63a24; }
+[data-theme="light"] .ws-flag.is-pr { color: #8a5d00; }
+
+.ap-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 14px -6px; padding: 6px 8px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.ap-back svg { width: 18px; height: 18px; }
+.ap-back:hover { color: var(--text); background: var(--fill-2, rgba(255, 255, 255, 0.05)); }
+.ap-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; margin-bottom: 22px; }
+.ap-av { width: 64px; height: 64px; font-size: 22px; }
+.ap-id h2 { margin: 0; font-family: var(--font-body); font-stretch: 100%; text-transform: none; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.ap-sub { margin-top: 4px; color: var(--text-2); font-size: 14px; }
+.ap-flags { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.ap-acts { display: flex; gap: 8px; align-items: center; }
+.ap-lifts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
+.ap-lift { position: relative; padding: 16px 16px 12px; border-radius: 16px; background: var(--bg-1); border: 1px solid var(--line); overflow: hidden; }
+.ap-lift-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ap-lift-name { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 14px; font-weight: 650; }
+.ap-d { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; color: var(--text-3); }
+.ap-d.up { color: var(--ok, #34d982); }
+.ap-d.down { color: var(--soft-alert, #ff8f80); }
+.ap-big { margin-top: 8px; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 750; letter-spacing: -0.02em; line-height: 1; color: var(--text); }
+.ap-big small { margin-left: 4px; font-size: 13px; font-weight: 650; letter-spacing: 0; color: var(--text-3); }
+.ap-1rm { margin-top: 6px; font-size: 13px; color: var(--text-2); }
+.ap-spark { height: 34px; margin: 10px -16px -12px; }
+.ap-spark .ui-spark { display: block; width: 100%; height: 34px; }
+.ap-total .ap-spark { color: var(--text-2); }
+.ap-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.ap-col > .ui-label:first-child { margin-top: 0; }
+.ap-empty { margin: 0 2px; color: var(--text-3); font-size: 14px; line-height: 1.5; }
+.ui-dot.ok { background: var(--ok, #34d982); }
+.ui-dot.warn { background: #f5a623; }
+.ap-cal { padding: 14px 16px 16px; border-radius: 16px; background: var(--bg-1); border: 1px solid var(--line); overflow-x: auto; }
+.ap-cal-months, .ap-cal-grid { display: grid; grid-template-columns: repeat(var(--w), 14px); gap: 3px; }
+.ap-cal-months { margin-bottom: 6px; font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.ap-cal-months span { overflow: visible; }
+.ap-cal-grid { grid-template-rows: repeat(7, 14px); grid-auto-flow: column; }
+.ap-cal-grid i { width: 14px; height: 14px; border-radius: 4px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+.ap-cal-grid i.l1 { background: color-mix(in srgb, var(--ok, #34d982) 35%, transparent); }
+.ap-cal-grid i.l2 { background: color-mix(in srgb, var(--ok, #34d982) 65%, transparent); }
+.ap-cal-grid i.l3 { background: var(--ok, #34d982); }
+.ap-cal-grid i.lf { background: transparent; box-shadow: inset 0 0 0 1px var(--fill-2, rgba(255, 255, 255, 0.05)); }
+@media (max-width: 1200px) { .ap-lifts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ws-table th, .ws-table th .ws-sort { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 650; }
+.ws-table td { height: 56px; }
+#invitesWrap { margin-top: var(--u-gap, 28px); }
+/* The workstation and grid headers: plain sentence case, one weight (body.powa-app .dash-main
+   table th spaced them out and the sort buttons came in white). */
+body.powa-app .dash-main .ws-table th, body.powa-app .dash-main .pg-grid th { letter-spacing: 0; text-transform: none; font-size: 12px; font-weight: 650; color: var(--text-3); }
+body.powa-app .dash-main .ws-table th .ws-sort { color: var(--text-3); font-weight: 650; letter-spacing: 0; }
+body.powa-app .dash-main .ws-table th .ws-sort.on { color: var(--text); }
+body.powa-app .dash-main .pg-grid tbody th { color: var(--text); font-size: 14px; }
+body.powa-app .dash-main .pg-grid tr.pg-day th { color: var(--text-3); }
+[data-theme="light"] :is(.ap-d.up, .ws-trend b.up, .ws-num.is-ok) { color: #0a7a43; }
+[data-theme="light"] :is(.ap-d.down, .ws-trend b.down, .ws-num.is-alert) { color: #c63a24; }
+[data-theme="light"] .ws-spark.up { color: #0a7a43; }
+.ap-acts .btn { height: 42px; min-height: 42px; padding: 0 20px; }

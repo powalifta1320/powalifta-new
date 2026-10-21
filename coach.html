@@ -57,7 +57,7 @@
     <!-- ROSTER -->
     <section data-pane="athletes">
       <div class="dash-header">
-        <div><h2>Roster</h2><p class="dim text-sm">Status at a glance. Tap an athlete to open their program.</p></div>
+        <div><h2>Roster</h2><p class="dim text-sm">Everyone at a glance. Open an athlete for the detail.</p></div>
         <div class="flex gap-8" style="align-items:center; flex-wrap:wrap;">
           <button class="btn btn-primary" onclick="openInviteModal()" id="btn-invite"></button>
         </div>
@@ -70,6 +70,9 @@
         <div id="invitesList" class="invites-list"></div>
       </div>
     </section>
+
+    <!-- ATHLETE PAGE (laptop): one athlete, everything at once. Opened from the roster table. -->
+    <section data-pane="athlete" class="hidden"><div id="athletePage"></div></section>
 
     <!-- PROGRAM BUILDER -->
     <section data-pane="program" class="hidden">
@@ -379,6 +382,8 @@ bootstrap('coach', () => {
     });
   });
   renderRoster();
+  // A reload on an athlete's page (#athlete=ID) comes back to it.
+  try { const m = /#athlete=([\w-]+)/.exec(location.hash || ''); if (m) setTimeout(() => openAthletePage(m[1]), 60); } catch (e) {}
   renderDunningBanner(document.getElementById('dunningMount')); // #35 failed-payment/plan-lapse banner
   refreshUnreadBadges();
   subscribeRosterMessages();
@@ -1126,6 +1131,284 @@ function buildRosterSample() {
   return box;
 }
 
+// ===== COACH WORKSTATION: the laptop roster (2026-10-22) =====
+// A phone gets the calm roster (one thing at a time); a laptop gets every athlete in one table,
+// worst first: block, week, sessions this week, e1RM trend, last session, check-in and one status.
+// A row opens the athlete's page. Status logic: app.js coachAthleteStatus.
+// (var + functions, not const/let: the coach demo renders the roster while this script still runs.)
+var _wideMq = null, _wideWatching = false;
+function _rosterWide() {
+  if (!_wideMq && window.matchMedia) _wideMq = window.matchMedia('(min-width: 1000px)');
+  if (_wideMq && !_wideWatching && _wideMq.addEventListener) {
+    _wideWatching = true;
+    _wideMq.addEventListener('change', () => {
+      try {
+        const ap = document.querySelector('[data-pane="athlete"]');
+        if (ap && !ap.classList.contains('hidden') && !_rosterWide()) { document.getElementById('tab-athletes').click(); return; }
+        if (!document.querySelector('[data-pane="athletes"]').classList.contains('hidden')) renderRoster();
+      } catch (e) {}
+    });
+  }
+  return !document.documentElement.classList.contains('native') && !!(_wideMq && _wideMq.matches);
+}
+var _wsSort = 'status';
+function _flagIc() { return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 21V4h11.5l-1.6 3.6L16.5 11H7v10z"/></svg>'; }
+function _wsSpark(values, delta) {
+  const v = (values || []).filter(n => isFinite(n));
+  if (v.length < 2) return '';
+  const W = 64, H = 22, min = Math.min(...v), max = Math.max(...v), span = (max - min) || 1;
+  const d = v.map((n, i) => (i ? 'L' : 'M') + (i / (v.length - 1) * (W - 2) + 1).toFixed(1) + ' ' + (H - 2 - (n - min) / span * (H - 4)).toFixed(1)).join(' ');
+  return '<svg class="ws-spark ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : '') + '" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function _wsStatusNode(st) {
+  const top = st.flags[0];
+  if (top) return el('span', { class: 'ws-flag sev-' + top.severity, title: st.flags.map(f => f.text).join(' · '), html: _flagIc() + '<span>' + escHtml(top.text) + '</span>' + (st.flags.length > 1 ? '<small>+' + (st.flags.length - 1) + '</small>' : '') });
+  if (st.prCount) return el('span', { class: 'ws-flag is-pr', html: ICONS.trophy + '<span>' + (st.prCount === 1 ? 'PR this week' : st.prCount + ' PRs this week') + '</span>' });
+  return el('span', { class: 'ws-flag is-ok' }, 'On track');
+}
+function renderRosterTable(area) {
+  const rows = getRosterOverview(user.id).map(o => ({ o, st: coachAthleteStatus(o.athlete.id, { coachId: user.id }) }));
+  const worst = (r) => (r.st.flags[0] ? r.st.flags[0].severity : 0);
+  const sorters = {
+    status: (a, b) => worst(b) - worst(a) || (b.st.ago == null ? 99 : b.st.ago) - (a.st.ago == null ? 99 : a.st.ago),
+    name: (a, b) => String(a.o.athlete.name).localeCompare(String(b.o.athlete.name)),
+    last: (a, b) => (a.st.ago == null ? 9999 : a.st.ago) - (b.st.ago == null ? 9999 : b.st.ago),
+    trend: (a, b) => (b.st.trend.delta || 0) - (a.st.trend.delta || 0)
+  };
+  rows.sort(sorters[_wsSort] || sorters.status);
+  const trained = rows.filter(r => r.st.ago != null && r.st.ago <= 6).length;
+  const needs = rows.filter(r => worst(r) >= 2).length;
+  const stats = el('div', { class: 'ws-stats' });
+  [[rows.length, rows.length === 1 ? 'Athlete' : 'Athletes', ''],
+   [trained + '<small>/' + rows.length + '</small>', 'Trained in the last 7 days', trained === rows.length ? 'ok' : ''],
+   [String(needs), needs === 1 ? 'Needs you' : 'Need you', needs ? 'alert' : 'ok']].forEach(([v, l, tone]) => {
+    stats.appendChild(el('div', { class: 'ws-stat' + (tone ? ' is-' + tone : '') }, el('b', { html: v }), el('span', {}, l)));
+  });
+  area.appendChild(stats);
+  const u = unitLabel();
+  const table = el('table', { class: 'ws-table' });
+  const head = el('tr');
+  [['name', 'Athlete'], [null, 'Block'], [null, 'Week'], [null, 'This week'], ['trend', 'e1RM total'], ['last', 'Last session'], [null, 'Check-in'], ['status', 'Status']].forEach(([k, t]) => {
+    const th = el('th', { scope: 'col' });
+    if (k) {
+      const b = el('button', { class: 'ws-sort' + (_wsSort === k ? ' on' : ''), type: 'button' }, t);
+      b.addEventListener('click', () => { _wsSort = k; renderRoster(); });
+      th.appendChild(b);
+    } else th.textContent = t;
+    head.appendChild(th);
+  });
+  table.appendChild(el('thead', {}, head));
+  const tb = el('tbody');
+  rows.forEach(({ o, st }) => {
+    const a = o.athlete;
+    const tr = el('tr', { class: 'ws-row', tabindex: '0', 'aria-label': 'Open ' + a.name });
+    const nameTd = el('td', { class: 'ws-ath' });
+    const av = el('span', { class: 'ui-av av-h' + avatarHue(a.name), 'data-name': a.name }, initials(a.name));
+    if (a.avatarUrl) av.innerHTML = '<img src="' + escHtml(a.avatarUrl) + '" alt="">';
+    nameTd.appendChild(av);
+    nameTd.appendChild(el('span', { class: 'ws-name' }, a.name));
+    const unread = _unreadByAthlete[a.id] || 0;
+    if (unread) nameTd.appendChild(el('span', { class: 'ws-unread', title: unread + ' new messages' }, String(unread)));
+    tr.appendChild(nameTd);
+    tr.appendChild(el('td', { class: 'ws-block' }, st.program ? st.program.name || 'Program' : '–'));
+    tr.appendChild(el('td', { class: 'ws-num' }, st.week ? (st.week.finished ? 'Done' : 'Wk ' + st.week.number + ' / ' + st.week.total) : '–'));
+    const ses = st.sessions;
+    tr.appendChild(el('td', { class: 'ws-num' + (ses.planned && ses.done >= ses.planned ? ' is-ok' : '') }, ses.planned ? ses.done + ' / ' + ses.planned : (ses.done ? String(ses.done) : '–')));
+    const dlt = st.trend.delta;
+    // (a div inside the cell: display:flex on the td itself breaks the row's lines)
+    tr.appendChild(el('td', {}, el('div', { class: 'ws-trend', html: _wsSpark(st.trend.values, dlt) + (dlt != null && Math.abs(dlt) >= 0.5 ? '<b class="' + (dlt > 0 ? 'up' : 'down') + '">' + (dlt > 0 ? '+' : '') + Math.round(kgToDisplay(dlt)) + '<small>' + u + '</small></b>' : (st.trend.values.length ? '<b class="flat">±0</b>' : '<span class="dim">–</span>')) })));
+    tr.appendChild(el('td', { class: 'ws-num' + (st.ago != null && st.ago >= 8 ? ' is-alert' : '') }, st.ago == null ? 'Never' : agoText(st.ago)));
+    tr.appendChild(el('td', { class: 'ws-num dim' }, agoText(st.checkinAgo)));
+    const stTd = el('td', { class: 'ws-status' });
+    stTd.appendChild(_wsStatusNode(st));
+    tr.appendChild(stTd);
+    const open = () => openAthletePage(a.id);
+    tr.addEventListener('click', open);
+    tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    tb.appendChild(tr);
+  });
+  table.appendChild(tb);
+  const wrap = el('div', { class: 'ws-table-wrap' });
+  wrap.appendChild(table);
+  area.appendChild(wrap);
+}
+
+// ===== THE ATHLETE PAGE (laptop) =====
+// Everything about one athlete at once: where they are in the block, each lift's e1RM and real
+// 1RM, this week's sessions, a training calendar, check-ins, notes and meets.
+var _apAthlete = null;
+function openAthletePage(athleteId) {
+  if (!_rosterWide()) { openAthleteSheet(athleteId); return; }
+  _apAthlete = athleteId;
+  document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
+  document.querySelector('[data-pane="athlete"]').classList.remove('hidden');
+  document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'athletes'));
+  try { if (location.hash !== '#athlete=' + athleteId) history.pushState({ athlete: athleteId }, '', '#athlete=' + athleteId); } catch (e) {}
+  renderAthletePage(athleteId);
+  window.scrollTo(0, 0);
+}
+window.openAthletePage = openAthletePage;
+window.addEventListener('popstate', () => {
+  const m = /#athlete=([\w-]+)/.exec(location.hash || '');
+  if (m && _rosterWide()) openAthletePage(m[1]);
+  else { const ap = document.querySelector('[data-pane="athlete"]'); if (ap && !ap.classList.contains('hidden')) document.getElementById('tab-athletes').click(); }
+});
+function _apDayStatus(day) {
+  const sets = (day.exercises || []).flatMap(e => e.sets || []);
+  const done = sets.filter(s => s.completed).length, open = sets.filter(s => !s.completed && !s.skipped).length;
+  const dates = sets.filter(s => s.completed && s.completedAt).map(s => String(s.completedAt).slice(0, 10)).sort();
+  return { total: sets.length, done, open, last: dates[dates.length - 1] || null };
+}
+function renderAthletePage(athleteId) {
+  const host = document.getElementById('athletePage');
+  const a = (Store.get().athletes || []).find(x => x.id === athleteId);
+  if (!host) return;
+  host.innerHTML = '';
+  if (!a) { document.getElementById('tab-athletes').click(); return; }
+  const st = coachAthleteStatus(athleteId, { coachId: user.id });
+  const u = unitLabel();
+  const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const back = el('button', { class: 'ap-back', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Roster</span>' });
+  back.addEventListener('click', () => { try { history.back(); } catch (e) { document.getElementById('tab-athletes').click(); } });
+  host.appendChild(back);
+  // Who, where in the block, the one red action.
+  const head = el('div', { class: 'ap-head' });
+  const av = el('span', { class: 'ui-av ap-av av-h' + avatarHue(a.name), 'data-name': a.name }, initials(a.name));
+  if (a.avatarUrl) av.innerHTML = '<img src="' + escHtml(a.avatarUrl) + '" alt="">';
+  head.appendChild(av);
+  const id = el('div', { class: 'ap-id' });
+  id.appendChild(el('h2', {}, a.name));
+  const subBits = [];
+  if (st.program) subBits.push((st.program.name || 'Program') + (st.week ? (st.week.finished ? ' · finished' : ' · week ' + st.week.number + ' of ' + st.week.total) : ''));
+  else subBits.push('No program yet');
+  if (st.sessions.planned) subBits.push(st.sessions.done + ' of ' + st.sessions.planned + ' sessions this week');
+  subBits.push(st.ago == null ? 'Never trained' : 'Last trained ' + agoText(st.ago).toLowerCase());
+  id.appendChild(el('div', { class: 'ap-sub' }, subBits.join(' · ')));
+  const chips = el('div', { class: 'ap-flags' });
+  if (st.flags.length) st.flags.slice(0, 4).forEach(f => chips.appendChild(el('span', { class: 'ws-flag sev-' + f.severity, html: _flagIc() + '<span>' + escHtml(f.text) + '</span>' })));
+  else chips.appendChild(_wsStatusNode(st));
+  id.appendChild(chips);
+  head.appendChild(id);
+  const acts = el('div', { class: 'ap-acts' });
+  const unread = _unreadByAthlete[a.id] || 0;
+  const msg = el('button', { class: 'btn btn-primary', type: 'button' }, unread ? 'Message (' + unread + ')' : 'Message');
+  msg.addEventListener('click', () => openAthleteMessages(a.id, a.name));
+  const prog = el('button', { class: 'btn ui-btn-soft', type: 'button' }, st.program ? 'Program' : 'Write a program');
+  prog.addEventListener('click', () => openAthleteProgram(a.id));
+  const more = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'More for ' + a.name, html: UI_DOTS });
+  more.addEventListener('click', () => uiActionSheet(a.name, [
+    { label: 'Progress charts', icon: ICONS.chart, onClick: () => openAthleteNotes(a.id) },
+    { label: 'Remove from roster', icon: ICONS.trash, danger: true, onClick: () => removeAthleteFromRoster(a.id, a.name) }
+  ]));
+  acts.appendChild(msg); acts.appendChild(prog); acts.appendChild(more);
+  head.appendChild(acts);
+  host.appendChild(head);
+  // The lifts: e1RM with its 4-week move and the real 1RM; then the totals.
+  const cards = el('div', { class: 'ap-lifts' });
+  const lc = typeof liftColors === 'function' ? liftColors() : {};
+  ['squat', 'bench', 'deadlift'].forEach(l => {
+    const pts = strengthSeries(logs, l, { weeks: 16 });
+    const now = bestE1RM(a.id, l);
+    const vals = pts.map(p => p.value);
+    const d = vals.length >= 2 ? vals[vals.length - 1] - vals[Math.max(0, vals.length - 5)] : null;
+    const one = bestSingle(a.id, l);
+    const c = el('div', { class: 'ap-lift lift-' + l });
+    c.appendChild(el('div', { class: 'ap-lift-top' }, el('span', { class: 'ap-lift-name' }, el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }), LIFT_LABELS[l]),
+      d != null && Math.abs(d) >= 0.5 ? el('span', { class: 'ap-d ' + (d > 0 ? 'up' : 'down') }, (d > 0 ? '+' : '') + Math.round(kgToDisplay(d)) + ' ' + u) : el('span', { class: 'ap-d' }, '')));
+    c.appendChild(el('div', { class: 'ap-big', html: now ? Math.round(kgToDisplay(now)) + '<small>' + u + ' e1RM</small>' : '–' }));
+    c.appendChild(el('div', { class: 'ap-1rm' }, one ? '1RM ' + exactW(one.kg) + ' ' + u + (one.source === 'meet' ? ' · meet' : '') : 'No single yet'));
+    if (vals.length >= 2) c.appendChild(el('div', { class: 'ap-spark', style: 'color:' + (lc[l] || 'currentColor'), html: uiSparkline(vals) }));
+    cards.appendChild(c);
+  });
+  const total = currentTotal(a.id), singles = bestSinglesTotal(a.id), bw = latestBodyweight(a.id);
+  const tc = el('div', { class: 'ap-lift ap-total' });
+  tc.appendChild(el('div', { class: 'ap-lift-top' }, el('span', { class: 'ap-lift-name' }, 'Total'), st.trend.delta != null && Math.abs(st.trend.delta) >= 0.5 ? el('span', { class: 'ap-d ' + (st.trend.delta > 0 ? 'up' : 'down') }, (st.trend.delta > 0 ? '+' : '') + Math.round(kgToDisplay(st.trend.delta)) + ' ' + u) : el('span', {})));
+  tc.appendChild(el('div', { class: 'ap-big', html: total ? Math.round(kgToDisplay(total)) + '<small>' + u + ' e1RM</small>' : '–' }));
+  const realBits = [];
+  if (singles) realBits.push('Total ' + exactW(singles.kg) + ' ' + u);
+  if (bw && (singles || total)) realBits.push(dotsScore(singles ? singles.kg : total, bw, a.sex || 'male').toFixed(1) + ' DOTS');
+  if (bw) realBits.push(exactW(bw) + ' ' + u + ' bodyweight');
+  tc.appendChild(el('div', { class: 'ap-1rm' }, realBits.join(' · ') || 'No singles yet'));
+  if (st.trend.values.length >= 2) tc.appendChild(el('div', { class: 'ap-spark', html: uiSparkline(st.trend.values) }));
+  cards.appendChild(tc);
+  host.appendChild(cards);
+  // Two columns: the week and the calendar | check-ins, notes, meets.
+  const cols = el('div', { class: 'ap-cols' });
+  const left = el('div', { class: 'ap-col' }), right = el('div', { class: 'ap-col' });
+  // This week of the block
+  if (st.program && st.week) {
+    const wk = st.program.weeks[st.week.idx];
+    left.appendChild(uiLabel(st.week.finished ? 'Last week of the block' : 'Week ' + st.week.number + ' of the block'));
+    left.appendChild(uiList((wk.days || []).map(d => {
+      const ds = _apDayStatus(d);
+      const lifts = (d.exercises || []).length;
+      const sub = !ds.total ? 'Rest' : ds.open === 0 && ds.done ? 'Done ' + (ds.last ? fmtDateShort(ds.last) : '') : ds.done ? ds.done + ' of ' + ds.total + ' sets' : lifts + (lifts === 1 ? ' lift · ' : ' lifts · ') + ds.total + ' sets';
+      return uiRow({ lead: el('span', { class: 'ui-dot' + (ds.total && ds.open === 0 && ds.done ? ' ok' : ds.done ? ' warn' : '') }), title: d.name || 'Day', sub,
+        chevron: !!ds.total, onClick: ds.total ? () => openAthleteProgram(a.id) : null });
+    })));
+  }
+  // Training calendar: the last 20 weeks, a square per day, darker = more sets.
+  left.appendChild(uiLabel('Training'));
+  left.appendChild(_apCalendar(logs, 20));
+  // Check-in answers
+  const qs = checkinQuestionsFor((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id), a.id);
+  if (qs.length) {
+    right.appendChild(uiLabel('Check-in'));
+    right.appendChild(uiList(qs.map(q => {
+      const s2 = checkinSummary(q, Store.get().checkinAnswers, a.id);
+      return uiRow({ title: q.prompt, sub: checkinSummaryText(q, s2) });
+    })));
+  } else {
+    const wci = (Store.get().checkins || []).filter(c => c.athleteId === a.id).sort((x, y) => String(y.weekStart).localeCompare(String(x.weekStart)))[0];
+    if (wci) {
+      right.appendChild(uiLabel('Weekly check-in'));
+      right.appendChild(uiList([uiRow({ title: 'Week of ' + fmtDateShort(wci.weekStart), sub: 'Sleep ' + wci.sleep + ' · soreness ' + wci.soreness + ' · stress ' + wci.stress + ' · feel ' + wci.feel + (wci.note ? ' · ' + wci.note : '') })]));
+    }
+  }
+  // Session notes
+  const notes = (Store.get().sessionNotes || []).filter(n => n.athleteId === a.id && n.note && n.note.trim()).sort((x, y) => String(y.date).localeCompare(String(x.date))).slice(0, 4);
+  if (notes.length) {
+    right.appendChild(uiLabel('Their notes', { action: { label: 'Reply', onClick: () => openAthleteNotes(a.id) } }));
+    right.appendChild(uiList(notes.map(n => uiRow({ lead: el('span', { class: 'ui-dot' + (n.coachComment ? '' : ' bad') }), title: fmtDateShort(n.date) + (n.coachComment ? ' · answered' : ' · waiting on you'), sub: n.note }))));
+  }
+  // Meets
+  const meets = (Store.get().meets || []).filter(m => m.athleteId === a.id).sort((x, y) => String(y.date).localeCompare(String(x.date))).slice(0, 5);
+  right.appendChild(uiLabel('Meets'));
+  if (meets.length) right.appendChild(uiList(meets.map(m => {
+    const tot = (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
+    return uiRow({ title: m.name || 'Meet', sub: [fmtDateShort(m.date), m.federation, m.weightClass ? m.weightClass + (/kg|lb/i.test(m.weightClass) ? '' : ' kg') : ''].filter(Boolean).join(' · '),
+      endHtml: tot ? '<b>' + exactW(tot) + '</b> ' + u : '' });
+  })));
+  else right.appendChild(el('p', { class: 'ap-empty' }, 'No meets yet. They add them under Progress, or link their OpenPowerlifting profile.'));
+  cols.appendChild(left); cols.appendChild(right);
+  host.appendChild(cols);
+}
+function _apCalendar(logs, weeks) {
+  const byDay = {};
+  logs.forEach(l => { byDay[l.date] = (byDay[l.date] || 0) + 1; });
+  const today = todayISO();
+  const start = _addDaysISO(_monISO(today), -7 * (weeks - 1));
+  const wrap = el('div', { class: 'ap-cal' });
+  const grid = el('div', { class: 'ap-cal-grid', style: '--w:' + weeks, role: 'img', 'aria-label': 'Training days, last ' + weeks + ' weeks' });
+  const months = el('div', { class: 'ap-cal-months', style: '--w:' + weeks });
+  let lastMonth = '';
+  for (let w = 0; w < weeks; w++) {
+    const mon = _addDaysISO(start, w * 7);
+    const mName = new Date(mon + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
+    months.appendChild(el('span', {}, mName !== lastMonth ? mName : ''));
+    lastMonth = mName;
+    for (let d = 0; d < 7; d++) {
+      const iso = _addDaysISO(mon, d);
+      const n = byDay[iso] || 0;
+      const lvl = iso > today ? 'f' : n === 0 ? 0 : n <= 5 ? 1 : n <= 12 ? 2 : 3;
+      grid.appendChild(el('i', { class: 'l' + lvl, title: iso > today ? '' : fmtDateShort(iso) + (n ? ' · ' + n + (n === 1 ? ' set' : ' sets') : ' · rest') }));
+    }
+  }
+  wrap.appendChild(months);
+  wrap.appendChild(grid);
+  return wrap;
+}
+
 function renderRoster() {
   renderPlanPill();
   const area = document.getElementById('rosterArea');
@@ -1138,7 +1421,10 @@ function renderRoster() {
   area.appendChild(reqHost);
   renderJoinRequests(reqHost);
 
-  if (!overview.length) {
+  if (overview.length && _rosterWide()) {
+    renderRosterTable(area);
+    appendRosterExtras(area);
+  } else if (!overview.length) {
     const fr = el('div', { class: 'fr-wrap' });
     fr.appendChild(buildCoachSetup());
     const side = el('div', { class: 'fr-side' });
@@ -1234,6 +1520,14 @@ function renderRoster() {
     const pager = buildPager(overview.length, ROSTER_PER_PAGE, _rosterPage, function (pg) { _rosterPage = pg; renderRoster(); });
     if (pager) area.appendChild(pager);
 
+    appendRosterExtras(area);
+  }
+  _paintRosterInvites();
+}
+
+// Under the roster (phone list or laptop table): notes waiting on a reply, form checks, the CSV.
+function appendRosterExtras(area) {
+  {
     // Athlete notes waiting on a reply; when every note is answered, the latest few. The count
     // and the rows always agree.
     const allNotes = (Store.get().sessionNotes || [])
@@ -1279,7 +1573,10 @@ function renderRoster() {
     document.querySelectorAll('.roster-csv').forEach(n => n.remove());
     if (invW && invW.parentNode) invW.parentNode.insertBefore(csv, invW.nextSibling); else area.appendChild(csv);
   }
+}
 
+function _paintRosterInvites() {
+  const overview = getRosterOverview(user.id);
   // Pending invites (static card below): code, who it's for, revoke.
   const inv = Store.get().invites.filter(i => i.coachId === user.id && !i.used);
   const ic = document.getElementById('invitesList');

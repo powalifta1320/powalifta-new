@@ -8854,6 +8854,108 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key === '
 document.addEventListener('pointerdown', () => { _lastInputWasKey = false; }, true);
 
 // Tiny inline sparkline (no axes) — values: number[]. Ink line + soft fill.
+// ===== COACH WORKSTATION (2026-10-22) =====
+// For each athlete: where they are in their block, this week's sessions, and the one thing a
+// coach should look at first. Pure over Store; unit-tested. The roster table and the athlete page
+// (coach.html) read it.
+function _setIsOpen(s) { return !!s && !s.completed && !s.skipped; }
+// The block's current week: the first with work still to do (or the last when all is done).
+function programWeekState(prog) {
+  const weeks = (prog && prog.weeks) || [];
+  if (!weeks.length) return null;
+  const work = (w) => (w.days || []).filter(d => (d.exercises || []).some(e => (e.sets || []).length));
+  let idx = weeks.findIndex(w => work(w).some(d => d.exercises.some(e => e.sets.some(_setIsOpen))));
+  const finished = idx < 0;
+  if (finished) idx = weeks.length - 1;
+  return { idx, number: weeks[idx].number || idx + 1, total: weeks.length, finished, sessionsPerWeek: work(weeks[idx]).length || work(weeks[0]).length };
+}
+// Every logged set of a program with its exercise, for review: [{ ex, set, date }].
+function programLoggedSets(prog) {
+  const out = [];
+  ((prog && prog.weeks) || []).forEach((w, wi) => (w.days || []).forEach((d, di) => (d.exercises || []).forEach(ex => (ex.sets || []).forEach(s => {
+    if (s.completed) out.push({ ex, set: s, date: String(s.completedAt || '').slice(0, 10), wi, di });
+  }))));
+  return out;
+}
+function _exShortTitle(ex) {
+  if (!ex) return '';
+  if (MAIN_LIFTS.includes(ex.lift)) return ((ex.variant && ex.variant !== 'Competition' ? ex.variant + ' ' : '') + LIFT_LABELS[ex.lift]).trim();
+  return ex.exerciseName || LIFT_LABELS[ex.lift] || 'Exercise';
+}
+// A logged set that went past what was written: RPE a full point over the top of the target.
+function setOvershoot(s) {
+  if (!s || !s.completed || s.attempt || s.actualRpe == null || s.rpe == null || s.rpe === '') return 0;
+  const top = s.rpeHi != null && Number(s.rpeHi) > Number(s.rpe) ? Number(s.rpeHi) : Number(s.rpe);
+  const over = Number(s.actualRpe) - top;
+  return over >= 1 ? over : 0;
+}
+// { flags: [{ type, text, severity }] worst first, prCount, week, sessions: { done, planned }, ago,
+//   trend: { values, delta }, checkinAgo }
+function coachAthleteStatus(athleteId, opts) {
+  opts = opts || {};
+  const s = Store.get();
+  const todayIso = opts.today || todayISO();
+  const prog = (s.programs || []).find(p => p.athleteId === athleteId) || null;
+  const logs = (s.workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const lastDate = logs.reduce((m, l) => (l.date > m ? l.date : m), '');
+  const ago = lastDate ? Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastDate + 'T12:00:00Z')) / 86400000) : null;
+  const week = programWeekState(prog);
+  const mon = _monISO(todayIso);
+  const done = new Set(logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date)).size;
+  const planned = week ? week.sessionsPerWeek : 0;
+  const flags = [];
+  const add = (type, text, severity) => flags.push({ type, text, severity });
+  // 1. Training at all
+  if (!prog) add('noprogram', 'No program yet', 2);
+  if (ago == null) { if (prog) add('never', 'Never logged a set', 3); }
+  else if (ago >= 8) add('inactive', ago + ' days since training', 3);
+  else if (prog && week && !week.finished && planned > 0) {
+    // Behind this week: by today, a lifter on N sessions a week should have about N × days/7 done.
+    const dow = (new Date(todayIso + 'T12:00:00Z').getUTCDay() + 6) % 7;   // Mon 0
+    const expected = Math.floor(planned * (dow + 1) / 7);
+    const missed = expected - done;
+    if (dow >= 2 && missed >= 1) add('missed', 'Missed ' + missed + (missed === 1 ? ' session' : ' sessions') + ' this week', missed >= 2 ? 3 : 2);
+  }
+  // 2. Pain and check-in answers (today or yesterday)
+  const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
+  if (myQs.length) checkinAlerts(myQs, s.checkinAnswers, athleteId, todayIso).forEach(a => add('checkin', a.text, a.severity));
+  // 3. Over what was written (last 7 days): "Bench RPE 9.5 (wrote 8)"
+  if (prog) {
+    const since = _addDaysISO(todayIso, -7);
+    const worst = programLoggedSets(prog).filter(x => x.date >= since && setOvershoot(x.set) > 0)
+      .sort((a, b) => setOvershoot(b.set) - setOvershoot(a.set) || b.date.localeCompare(a.date))[0];
+    if (worst) {
+      const t = worst.set.rpeHi != null && Number(worst.set.rpeHi) > Number(worst.set.rpe) ? worst.set.rpeHi : worst.set.rpe;
+      add('overshoot', _exShortTitle(worst.ex) + ' RPE ' + _num(worst.set.actualRpe) + ' (wrote ' + _num(t) + ')', 2);
+    }
+  }
+  // 4. The block
+  if (week && week.finished) add('blockdone', 'Block finished: write the next one', 2);
+  else if (week && week.idx === week.total - 1 && week.total > 1) add('blockend', 'Last week of the block', 1);
+  // 5. Flat e1RM for three weeks
+  if (ago != null && ago < 8) {
+    const m = getE1RMMomentum(athleteId);
+    if (m.stalling) add('stalling', 'e1RM flat for 3 weeks', 1);
+  }
+  flags.sort((a, b) => b.severity - a.severity);
+  const weekAgo = Date.parse(_addDaysISO(todayIso, -7) + 'T00:00:00Z');
+  const prCount = logs.filter(l => MAIN_LIFTS.includes(l.lift) && Date.parse(l.date + 'T12:00:00Z') >= weekAgo && isPRForLog(athleteId, l)).length;
+  const series = strengthSeries(logs, 'total', { weeks: 8, today: todayIso }).map(p => p.value);
+  const trendDelta = series.length >= 2 ? series[series.length - 1] - series[Math.max(0, series.length - 5)] : null;
+  const ciDates = (s.checkinAnswers || []).filter(a => a.athleteId === athleteId).map(a => a.period)
+    .concat((s.checkins || []).filter(c => c.athleteId === athleteId).map(c => String(c.createdAt || c.weekStart || '').slice(0, 10)));
+  const lastCi = ciDates.reduce((m, d) => (d > m ? d : m), '');
+  const checkinAgo = lastCi ? Math.max(0, Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastCi + 'T12:00:00Z')) / 86400000)) : null;
+  return { flags, prCount, week, sessions: { done, planned }, ago, lastDate, trend: { values: series, delta: trendDelta }, checkinAgo, program: prog };
+}
+function agoText(days) {
+  if (days == null) return '–';
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 14) return days + 'd ago';
+  return Math.round(days / 7) + 'w ago';
+}
+
 function uiSparkline(values) {
   const v = (values || []).filter(n => isFinite(n));
   if (v.length < 2) return '';

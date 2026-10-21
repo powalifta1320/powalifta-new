@@ -798,6 +798,35 @@ test('prescriptions: RPE ranges, RIR and % of max', () => {
   eq(sq.pct, 75); eq(sq.rir, true); eq(sq.rpe, 8); eq(sq.rpeHi, 9); eq(be.rpe, 8); eq(be.rir, true); eq(be.pct, undefined);
   eq(groupSets([sq, Object.assign({}, sq), Object.assign({}, sq, { rpeHi: null })]).length, 2);   // a different range is its own block
 });
+test('coach status: block week, sessions, overshoot, block finished', () => {
+  const saved = Store.get();
+  const mk = (w, r, rpe, done, actual, at) => ({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: actual == null ? null : actual, completedAt: at || null });
+  const t = '2026-10-22';   // a Thursday
+  const prog = { id: 'p', athleteId: 'a', coachId: 'c', name: 'Block', weeks: [
+    { id: 'w1', number: 1, days: [
+      { id: 'd1', name: 'Squat', exercises: [{ id: 'e1', lift: 'squat', variant: 'Competition', sets: [mk(180, 3, 8, true, 9.5, '2026-10-20'), mk(160, 5, 8, true, 8, '2026-10-20')] }] },
+      { id: 'd2', name: 'Bench', exercises: [{ id: 'e2', lift: 'bench', variant: 'Competition', sets: [mk(110, 3, 8, false)] }] },
+      { id: 'd3', name: 'Rest', exercises: [] } ] },
+    { id: 'w2', number: 2, days: [ { id: 'd4', name: 'Squat', exercises: [{ id: 'e4', lift: 'squat', variant: 'Competition', sets: [mk(182.5, 3, 8, false)] }] } ] }
+  ] };
+  Store.set(Object.assign(defaultStore(), { athletes: [{ id: 'a', name: 'Ana', coachId: 'c' }], programs: [prog],
+    workoutLogs: [{ id: 'l1', athleteId: 'a', lift: 'squat', variant: 'Competition', weight: 180, reps: 3, rpe: 9.5, e1rm: 195, e1rmComp: 195, date: '2026-10-20' }] }));
+  try {
+    const st = coachAthleteStatus('a', { today: t });
+    eq(st.week.number, 1); eq(st.week.total, 2); eq(st.week.finished, false); eq(st.week.sessionsPerWeek, 2);
+    eq(st.sessions.done, 1); eq(st.sessions.planned, 2); eq(st.ago, 2);
+    eq(st.flags.some(f => f.type === 'overshoot' && /RPE 9.5 \(wrote 8\)/.test(f.text)), true);
+    eq(setOvershoot({ completed: true, rpe: 7, rpeHi: 8, actualRpe: 8.5 }), 0);   // inside the range's top: fine
+    eq(setOvershoot({ completed: true, rpe: 7, rpeHi: 8, actualRpe: 9 }), 1);
+    prog.weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => { s.completed = true; s.completedAt = '2026-10-21'; s.actualRpe = s.rpe; }))));
+    const st2 = coachAthleteStatus('a', { today: t });
+    eq(st2.week.finished, true); eq(st2.flags.some(f => f.type === 'blockdone'), true);
+    Store.set(Object.assign(defaultStore(), { athletes: [{ id: 'b', name: 'Bo', coachId: 'c' }] }));
+    const st3 = coachAthleteStatus('b', { today: t });
+    eq(st3.flags[0].type, 'noprogram'); eq(st3.ago, null);
+    eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
+  } finally { Store.set(saved); }
+});
 test('check-in alerts: pain, high soreness, short sleep, today or yesterday only', () => {
   const qs = [
     { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily' },
