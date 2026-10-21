@@ -58,6 +58,32 @@ enum RestQueue {
 #if canImport(ActivityKit) && canImport(AppIntents)
 import ActivityKit
 import AppIntents
+import UserNotifications
+
+/// REST IS UP. When the app leaves the screen mid-rest, the page arms one local notification
+/// (id 8090, native-bridge.js scheduleRestEnd) for the end of the rest. Island taps change the
+/// rest while the app sleeps, so they move it (pause drops it, +30 / log set move it, skip
+/// drops it). With nothing armed (the app is on screen) they leave notifications alone.
+@available(iOS 17.0, *)
+enum RestAlert {
+    static let id = "8090"   // Capacitor's LocalNotifications uses the numeric id as the identifier
+
+    static func sync(_ state: RestTimerAttributes.ContentState?) async {
+        let center = UNUserNotificationCenter.current()
+        let armed = await center.pendingNotificationRequests().contains { $0.identifier == id }
+        guard armed else { return }
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+        guard let s = state, !s.paused else { return }
+        let secs = s.endDate.timeIntervalSinceNow
+        guard secs > 1 else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Rest's up"
+        content.body = s.canLog && !s.nextLabel.isEmpty ? "Next: " + s.nextLabel : "Time for your next set."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: secs, repeats: false)
+        try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+    }
+}
 
 @available(iOS 17.0, *)
 enum RestIntentCore {
@@ -71,6 +97,7 @@ enum RestIntentCore {
                       _ state: RestTimerAttributes.ContentState,
                       action: String) async {
         await activity.update(ActivityContent(state: state, staleDate: state.endDate.addingTimeInterval(300)))
+        await RestAlert.sync(state)
         notifyJS(action: action,
                  endMs: state.endDate.timeIntervalSince1970 * 1000,
                  paused: state.paused,
@@ -148,6 +175,7 @@ struct RestStopIntent: LiveActivityIntent {
         for a in Activity<RestTimerAttributes>.activities {
             await a.end(nil, dismissalPolicy: .immediate)
         }
+        await RestAlert.sync(nil)
         RestIntentCore.notifyJS(action: "stop", endMs: 0, paused: false, remainingMs: 0)
         return .result()
     }

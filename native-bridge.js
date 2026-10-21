@@ -176,6 +176,39 @@
       } catch (e) { console.warn('weight reminder schedule failed', e); return false; }
     },
 
+    // REST IS UP (2026-10-22). The Live Activity shows the countdown on the Lock Screen but
+    // can't make a sound when it ends, so a lifter with the phone in a pocket missed it. When
+    // the app leaves the screen mid-rest the page schedules one local notification for the
+    // end; coming back, stopping, pausing or finishing cancels it. Never asks for permission
+    // mid-set: it only schedules when notifications are already allowed (the weigh-in
+    // reminder asks once, at sign-in).
+    scheduleRestEnd: async function (endTimeMs, nextLabel) {
+      if (!isNative) return false;
+      var LN = plugins().LocalNotifications;
+      if (!LN) return false;
+      try {
+        try { await LN.cancel({ notifications: [{ id: 8090 }] }); } catch (e) {}
+        if (!(endTimeMs > Date.now() + 2000)) return false;
+        var perm = await LN.checkPermissions();
+        if (perm.display !== 'granted') return false;
+        await LN.schedule({ notifications: [{
+          id: 8090,
+          title: "Rest's up",
+          body: nextLabel ? 'Next: ' + String(nextLabel).slice(0, 60) : 'Time for your next set.',
+          schedule: { at: new Date(Math.round(endTimeMs)), allowWhileIdle: true },
+          sound: 'default',   // the plugin is silent on iOS unless a sound is named; an unknown name plays the system sound
+          extra: { url: 'athlete.html', kind: 'rest-end' }
+        }] });
+        return true;
+      } catch (e) { console.warn('rest-end schedule failed', e); return false; }
+    },
+    cancelRestEnd: async function () {
+      if (!isNative) return;
+      var LN = plugins().LocalNotifications;
+      if (!LN) return;
+      try { await LN.cancel({ notifications: [{ id: 8090 }] }); } catch (e) {}
+    },
+
     // Turn the daily reminder off (used if we later add a settings toggle).
     cancelWeightReminder: async function () {
       if (!isNative) return;

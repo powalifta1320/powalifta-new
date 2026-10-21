@@ -3443,12 +3443,12 @@ window.starsHtml = starsHtml;
 // sql/migration-marketplace-taxonomy.sql.
 // =========================================================
 const MARKET_CATEGORIES = [
-  { key: 'strength',    label: 'Max Strength' },
+  { key: 'strength',    label: 'Max strength' },
   { key: 'hypertrophy', label: 'Hypertrophy' },
-  { key: 'peaking',     label: 'Peaking / Meet Prep' },
+  { key: 'peaking',     label: 'Peaking and meet prep' },
   { key: 'beginner',    label: 'Beginner' },
-  { key: 'bench',       label: 'Bench Focus' },
-  { key: 'weakpoint',   label: 'Weak-Point Focus' },
+  { key: 'bench',       label: 'Bench focus' },
+  { key: 'weakpoint',   label: 'Weak-point focus' },
 ];
 // key → label (returns '' for null/unknown so callers can hide the badge).
 function marketCategoryLabel(key) {
@@ -6751,6 +6751,27 @@ function renderNav(target) {
   brand.innerHTML = BRAND_MARK + '<span class="brand-word">POWALIFTA</span>';
   navInner.appendChild(brand);
 
+  // The website (<body class="site">) gets its page links; on phones they open from a
+  // menu button (site.js). web-only: the iPhone app never links to pricing or programs.
+  const onSite = !!(document.body && document.body.classList.contains('site'));
+  if (onSite) {
+    const links = el('div', { class: 'nav-links web-only', id: 'navLinks' });
+    const here = (location.pathname.split('/').pop() || 'index.html');
+    [['index.html#train', 'Features'], ['marketplace.html', 'Programs'], ['guides.html', 'Guides'], ['index.html#pricing', 'Pricing']].forEach(([href, label]) => {
+      const a = el('a', { href }, label);
+      if (href === 'marketplace.html') a.setAttribute('data-needs-programs', '');
+      if (href === here || (here.indexOf('guide') === 0 && href === 'guides.html')) a.setAttribute('aria-current', 'page');
+      links.appendChild(a);
+    });
+    if (!user) {
+      const login = el('a', { href: 'javascript:void(0)', class: 'nav-links-login' }, 'Log in');
+      login.setAttribute('onclick', "if(window.openLoginModal){openLoginModal()}else{location.href='/index.html#login'}");
+      links.appendChild(login);
+    }
+    navInner.appendChild(links);
+    siteProgramsReady();
+  }
+
   const actions = el('div', { class: 'nav-actions ' + (user ? 'auth' : 'guest') });
 
   // Theme toggle — always shown, anywhere in the nav
@@ -6763,7 +6784,7 @@ function renderNav(target) {
 
   // Unit toggle (kg / lbs) — always visible, swaps and reloads
   const unitBtn = el('button', { class: 'unit-toggle', title: 'Toggle weight units (' + getUnit() + ')', 'aria-label': 'Toggle weight units' });
-  unitBtn.textContent = getUnit().toUpperCase();
+  unitBtn.textContent = getUnit();
   unitBtn.setAttribute('onclick', 'toggleUnit()');
   actions.appendChild(unitBtn);
 
@@ -6801,11 +6822,8 @@ function renderNav(target) {
       ? "var t=document.getElementById('tab-you');if(t){t.click();window.scrollTo(0,0);}else if(window.openSettingsModal){openSettingsModal()}"
       : 'if(window.openSettingsModal){openSettingsModal()}');
     if (!(onDash && inShell)) actions.appendChild(userPill);
-    if (user.userType === 'coach') {
-      actions.appendChild(el('a', { href: 'coach.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
-    } else {
-      actions.appendChild(el('a', { href: 'athlete.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
-    }
+    // A way back to the dashboard from the website; never on the dashboard itself.
+    if (!onDash) actions.appendChild(el('a', { href: user.userType === 'coach' ? 'coach.html' : 'athlete.html', class: 'btn btn-sm btn-ghost nav-dash-link' }, 'Dashboard'));
     if (user.isAdmin) {
       const adminA = el('a', { href: 'admin.html', class: 'btn btn-sm', style: 'border-color: var(--gold); color: var(--gold);' }, '★ Admin');
       actions.appendChild(adminA);
@@ -6824,12 +6842,39 @@ function renderNav(target) {
     cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('solo')}else{location.href='/index.html#signup'}");
     actions.appendChild(cta);
   }
+  if (onSite) {
+    const menu = el('button', { class: 'nav-menu web-only', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false', 'aria-controls': 'navLinks' });
+    menu.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>';
+    actions.appendChild(menu);
+  }
   navInner.appendChild(actions);
 
   const wrap = document.querySelector(target);
   if (wrap) { wrap.innerHTML = ''; wrap.appendChild(navInner); }
   if (typeof refreshSignalBadge === 'function') refreshSignalBadge();
 }
+
+// The website links to the programs shop only once it has something in it: three published
+// programs. html.has-programs reveals every [data-needs-programs] link (site.css). The count is
+// cached for ten minutes so a page view doesn't cost a query.
+async function siteProgramsReady(countKnown) {
+  const KEY = 'powa-mp-count';
+  const apply = (n) => document.documentElement.classList.toggle('has-programs', n >= 3);
+  if (typeof countKnown === 'number') {
+    apply(countKnown);
+    try { sessionStorage.setItem(KEY, JSON.stringify({ n: countKnown, at: Date.now() })); } catch (e) {}
+    return;
+  }
+  try {
+    const c = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+    if (c && Date.now() - c.at < 600000) { apply(c.n); return; }
+  } catch (e) {}
+  try {
+    const list = await DB.listPublishedPrograms();
+    siteProgramsReady((list || []).length);
+  } catch (e) {}
+}
+window.siteProgramsReady = siteProgramsReady;
 
 // =========================================================
 // SIGNAL CENTER — in-app notifications
@@ -6960,8 +7005,46 @@ function renderSignalPanel() {
   });
   panel.appendChild(list);
 }
+// On a phone (the app, or a narrow browser) notifications open as a bottom sheet with a
+// backdrop, like every other sheet in the app; a desktop keeps the dropdown under the bell.
+function openSignalSheet() {
+  const u = getCurrentUser();
+  if (!u) return;
+  const sigs = computeSignals();
+  const seen = _sigSeen(u.id);
+  uiSheet('Notifications', (sheet, close) => {
+    if (!sigs.length) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub sig-sheet-empty' }, "You're all caught up."));
+    } else {
+      sheet.appendChild(uiList(sigs.map(sg => {
+        const row = uiRow({
+          lead: el('span', { class: 'sig-ic', html: _SIG_ICON[sg.type] || _SIG_ICON.alert }),
+          title: sg.title,
+          sub: (sg.body || '').slice(0, 160),
+          end: _sigTimeAgo(sg.ts),
+          onClick: () => { _sigMarkSeen(u.id, [sg.id]); refreshSignalBadge(); close(); setTimeout(() => _sigGo(sg.tab), 220); }
+        });
+        if (!seen.has(sg.id)) row.classList.add('sig-unread');
+        return row;
+      })));
+    }
+    const done = el('button', { class: 'btn btn-lg ui-btn-soft btn-block sig-sheet-done', type: 'button' }, 'Done');
+    done.addEventListener('click', close);
+    sheet.appendChild(done);
+  }, { cls: 'sig-sheet' });
+  // After a beat of looking, clear the unread badge (rows keep their mark until reopened).
+  setTimeout(() => { _sigMarkSeen(u.id, sigs.map(sg => sg.id)); refreshSignalBadge(); }, 1500);
+}
+window.openSignalSheet = openSignalSheet;
+
 function toggleSignalCenter(ev) {
   if (ev) ev.stopPropagation();
+  if (document.documentElement.classList.contains('native') || window.matchMedia('(max-width: 560px)').matches) {
+    const p = document.getElementById('sigPanel');
+    if (p) p.hidden = true;
+    openSignalSheet();
+    return;
+  }
   // One panel, living on <body>. In the app the header is transformed (it folds as you scroll),
   // and a transformed ancestor traps position:fixed: the panel opened 66px wide, one letter per
   // line. The header can re-render, so keep the newest panel and drop any stale one.

@@ -24,88 +24,81 @@ coaches past 3 athletes. There's a public marketplace where coaches sell program
 - **Coached athletes** — execute a coach's program, log RPE, watch e1RM climb.
 - **Coaches** — build programs, manage a roster, sell on the marketplace. The monetizing audience.
 
-The landing page must speak to all three without diluting. Athletes are the volume;
-coaches are the revenue. The hero already triages with three CTAs (Train solo / Join
-your coach / Become a coach) — keep that triage sharp.
+The website must speak to all three without diluting. Solo lifters are the volume
+(downloads), coaches are the revenue. The hero has one red action (Start free) beside
+the App Store badge; the coach path is a link in the hero and its own section.
 
 ## Brand personality
 
 Three physical-object words: **iron, chalk, precision.**
 
 - **Iron** — heavy, uncompromising, matte-black gym at 6am. Not glossy SaaS.
-- **Chalk** — the texture of effort. White dust on a black bar. Grit, not polish-for-polish's-sake.
+- **Chalk** — the texture of effort. Grit, not polish-for-polish's-sake.
 - **Precision** — RPE math, variant multipliers, e1RM to the kilo. The brand is *smart*
-  about strength, not just loud about it. Data is the proof.
+  about strength, not loud about it. Data is the proof.
 
-Tone: confident, terse, athlete-to-athlete. ALL CAPS display headlines (Anton),
-sentence-case body. Never corporate, never hype-bro. "Stop training in a spreadsheet"
-is the energy — a real problem stated flatly.
+Tone: confident, terse, athlete-to-athlete. Sentence case everywhere (the owner judged
+wide capitals and glowing italic accents "cheap", 2026-10). Never corporate, never
+hype-bro. "Stop training in a spreadsheet" is the energy: a real problem stated flatly.
+Never claim what isn't true (no fake user counts, no "most coaches choose").
 
 ## Aesthetic lane (named reference)
 
-**Linear/Vercel structural rigor × a fight-poster's heat.** Dark near-black canvas,
-one committed red (`#ff2d3f`) used as a weapon not a garnish, Anton condensed display
-doing the shouting, data-viz (the e1RM chart, progress bars, plate calc) as the hero
-imagery. NOT editorial-magazine (no serif drop-caps), NOT pastel SaaS, NOT glassy
-crypto-gradient. Think: the strength-sport equivalent of a Linear release page that
-got into powerlifting.
+**The app itself.** Since the 2026-10-22 redesign the website is a showcase of the
+iPhone app in the app's own language: obsidian surfaces lit from above, hairlines,
+Archivo in sentence case, one machined red button, and each section lit in the hue of
+the app tab it shows (Train fire, Progress/Program cyan, Club gold, coaching green),
+with the real app screens in a phone frame as the imagery. The one contrast moment is
+the meet-day slab (black, condensed capitals, monospace, three white lights), which is
+the app's own meet-day system. NOT editorial-magazine, NOT pastel SaaS, NOT glassy
+crypto-gradient, NOT a fight poster.
 
-## Existing brand tokens (DO NOT reinvent — these ARE the identity)
+## Brand tokens (identity: don't reinvent)
 
-- Background `#0b0b0c`; surfaces step up from there.
-- Primary red `#ff2d3f` (deep variant `#b71629`). Accents: gold `#ffb547`, green `#4ed884`.
-- Type: **Archivo** only (variable width/weight) in three roles — wide 800 display
-  (`--font-display`), body, tabular numbers. Anton / Plus Jakarta Sans / Space Grotesk
-  were retired in the 2026-10 rebrand; identity-preservation applies to Archivo now.
-- Radii `--r-sm 6px`, `--r-lg 14px`. Caps eyebrows, sentence-case body.
+- Background `#060607` on the site (the app's v4 obsidian); surfaces `--bg-1..3`, hairlines
+  `rgba(255,255,255,.075/.13)`. Light theme exists and must keep working.
+- Action red: the machined gradient `#ff4a55 → #ee2b3b`, no glow. Brand red `#ff2d3f`
+  lives in the logo plate and the meet-day rule.
+- Lift colours: squat `#38c6ff`, bench `#a98bff`, deadlift `#ffbf3c`.
+- Type: **Archivo** only (variable width/weight). Display = 800 weight, normal to 108%
+  width, tight tracking; caps only in the POWALIFTA wordmark.
+- Shapes: capsule buttons and chips; cards 16–28px radius; phone frames drawn in CSS.
 
-The brief is explicit: **same soul, sharper execution.** Push palette/type/spacing/
-motion further within these tokens. Do not swap the red, do not swap Anton, do not
-go light-mode-first.
+## Anti-references
 
-## Anti-references (what "godly-professional" must NOT look like)
+- **"Templated AI page."** If someone could say "AI made this" without hesitation, it failed.
+- Centered hero + three icon-above-heading feature cards. Features are told with the
+  real screen + a short inset list of facts instead.
+- Tiny uppercase tracked kickers above every heading. The site's section marker is the
+  app tab icon + name in its hue, because it maps to a real place in the app.
+- Glows, red washes behind sections, gradient text, decorative particles. All removed.
 
-- **"Templated AI page."** The user's exact fear. The brand slop test is the bar:
-  if someone could say "AI made this" without hesitation, it failed.
-- Generic SaaS hero: centered headline + two pill buttons + three evenly-spaced
-  feature cards with rounded-corner icons above each heading. We already have some
-  of this scaffolding (`.feat-grid` icon-above-heading) — it's the #1 thing to make
-  feel intentional rather than default.
-- Repeated tiny uppercase tracked `.section-tag` kickers above every single `<h2>`.
-  Currently every section has one. Keep them only where they earn it; vary the rhythm.
-- Evenly-weighted everything. Award-worthy pages have a dominant idea per fold and
-  deliberate pacing — peaks and valleys, not a uniform grid scroll.
+## Design principles
 
-## Design principles for this pass
-
-1. **The data IS the imagery.** The e1RM chart, the +18% pill, the plate-calc SVG,
-   the progress bars — these are POWALIFTA's proof and its hero art. Elevate them;
-   never replace them with decorative blocks.
-2. **One red, wielded.** Restraint then strike. Red earns attention because most of
-   the page withholds it.
-3. **Type does the shouting.** Anton at genuine display scale with committed contrast
-   (≥1.25 modular ratio, fluid clamp). Flat scales read as uncommitted.
-4. **Motion with intent.** One orchestrated hero load beats scattered fade-ins.
-   Everything respects `prefers-reduced-motion`. Animation lives in the `fx-*` modules.
-5. **Signature elements are sacred:** +18% counter, hero chart card, marketplace
-   teaser, pricing band. Elevate, don't gut.
+1. **The app is the imagery.** Real screens (re-captured from `?demo=1` when the app
+   changes) beat mock-ups and decorative blocks.
+2. **One red, rationed.** One red button per viewport; colour otherwise has a job
+   (tab hue, lift colour, status).
+3. **Type in sentence case, scale with intent.** One display headline per page.
+4. **Motion with intent.** One orchestrated hero load (copy, phone, two live chips);
+   below-the-fold sections rise in once. Content is never hidden by default.
+5. **Only show what's real.** The coach directory and programs teaser stay hidden until
+   there are three real entries.
 
 ## Hard constraints (technical, non-negotiable)
 
 - Vanilla JS, hand-written CSS, **no build step, no frameworks.** Vercel serves raw.
-- Animation goes in existing `fx-*` modules (hero-fx, scroll-fx, ui-fx, insane-fx).
+- Website styling lives in `site.css` (`s-*` classes, `body.site`), behaviour in `site.js`.
 - `prefers-reduced-motion` honored everywhere.
-- Do not break critical fixes (rest day, pin re-render, demo mode `?demo=1`).
-- Keep `data-fx` attributes in sync if hero markup is touched.
+- Do not break critical fixes (rest day, pin re-render, demo mode `?demo=1`) or the
+  native welcome (`#nativeWelcome`), the auth modals and the calculator ids on index.html.
 
 ## Accessibility & inclusion
 
-- Contrast: red `#ff2d3f` on `#0b0b0c` passes for large/display text; verify any
-  red-on-dark used at body size. Light text on dark gets +0.05–0.1 line-height.
-- Every motion path needs a reduced-motion fallback (already the module convention).
-- Skip-link present; keep focus rings visible (red focus rings via ui-fx).
-- Charts/SVGs need text alternatives or adjacent legible labels — don't let the
-  data-as-imagery principle strand screen-reader users.
+- Body text ≥ 4.5:1; the site uses `--text-2` (#b9b9c1) on obsidian for body copy.
+- Every motion path has a reduced-motion fallback.
+- Skip-link present; focus rings visible (cyan outline on the site).
+- Screens in phone frames carry descriptive alt text.
 
 
 ## App register (athlete + coach dashboards, native iOS)

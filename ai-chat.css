@@ -22,22 +22,28 @@
   gap: 10px;
   height: 52px;
   padding: 0 18px 0 14px;
-  border: 1px solid rgba(255, 45, 63, 0.5);
+  /* A quiet glass capsule (2026-10-22): the red pill with a glow and a pulse ring
+     competed with each screen's one red action. */
+  border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--red, #ff2d3f), var(--red-deep, #b71629));
-  color: #fff;
+  background: rgba(24, 24, 28, 0.84);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  color: #f4f4f6;
   font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.86rem;
-  letter-spacing: 0.02em;
+  font-weight: 650;
+  font-size: 0.9rem;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  box-shadow: 0 12px 34px -10px rgba(255, 45, 63, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 40px -22px rgba(0, 0, 0, 0.9);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
 }
 .ai-launcher:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 44px -10px rgba(255, 45, 63, 0.7), 0 3px 10px rgba(0, 0, 0, 0.45);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
 }
+.ai-launcher svg { color: #ff5a4a; }
+[data-theme="light"] .ai-launcher { background: rgba(255, 255, 255, 0.9); border-color: rgba(15, 15, 25, 0.1); color: #16161a; box-shadow: 0 14px 30px -20px rgba(20, 20, 40, 0.45); }
 .ai-launcher:active { transform: translateY(0) scale(0.98); }
 .ai-launcher svg { width: 22px; height: 22px; flex: none; }
 .ai-launcher .ai-launcher-label { white-space: nowrap; }
@@ -66,8 +72,9 @@ html.native .ai-launcher svg { color: var(--red, #ff2d3f); }
 /* The attention pulse ring is also red — drop it in-app so the FAB sits quietly. */
 html.native .ai-launcher::after { display: none; }
 
-/* Pulse ring to draw the eye on first paint */
-.ai-launcher::after {
+/* Pulse ring (retired 2026-10-22: the launcher sits quietly everywhere now) */
+.ai-launcher::after { display: none; }
+.ai-launcher-pulse-retired::after {
   content: "";
   position: absolute;
   inset: -1px;

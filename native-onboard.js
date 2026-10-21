@@ -241,6 +241,24 @@
     var codeWrap = h('div', {}, [field('Coach code (optional)', code), h('p', { class: 'ob-fine', style: 'text-align:left;margin:-6px 4px 16px', text: 'No code yet? Skip it and connect from the Coach tab later.' })]);
     codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
     s2.appendChild(codeWrap);
+    // Units, asked once: lb for a US phone, kg anywhere else; changeable later under You.
+    st.unit = (function () {
+      try { var u = localStorage.getItem('powa-unit'); if (u === 'lbs' || u === 'kg') return u; } catch (e) {}
+      var loc = '';
+      try { loc = (Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || ''); } catch (e) { loc = navigator.language || ''; }
+      return /[-_]US\b/i.test(loc) ? 'lbs' : 'kg';
+    })();
+    var unitSeg = h('div', { class: 'ob-seg', role: 'radiogroup', 'aria-label': 'Weights in' });
+    [['kg', 'kg'], ['lbs', 'lb']].forEach(function (u) {
+      var b = h('button', { class: 'ob-seg-btn' + (st.unit === u[0] ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': st.unit === u[0] ? 'true' : 'false', text: u[1] });
+      b.addEventListener('click', function () {
+        st.unit = u[0];
+        Array.prototype.forEach.call(unitSeg.children, function (c) { var on = c === b; c.classList.toggle('on', on); c.setAttribute('aria-checked', on ? 'true' : 'false'); });
+        haptic('light');
+      });
+      unitSeg.appendChild(b);
+    });
+    s2.appendChild(h('div', { class: 'ob-field ob-unit' }, [h('span', { text: 'Weights in' }), unitSeg]));
     var err2 = h('div', { class: 'ob-err', role: 'alert' });
     s2.appendChild(err2);
     var next2 = h('button', { class: 'nw-btn nw-btn-primary', type: 'button', text: 'Continue' });
@@ -305,6 +323,7 @@
         haptic('success');
         if (!session) { showConfirm(api, em); busy(create, false); return; }
         try { localStorage.setItem('powa-last-role', st.role === 'coach' ? 'coach' : 'athlete'); } catch (e) {}
+        try { if (st.unit === 'lbs' || st.unit === 'kg') localStorage.setItem('powa-unit', st.unit); } catch (e) {}
         location.href = st.role === 'coach' ? 'coach.html'
           : (st.role === 'athlete' && !cd) ? 'athlete.html?tab=coach'
           : 'athlete.html';

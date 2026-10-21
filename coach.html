@@ -46,8 +46,6 @@
     <button class="sidebar-tab" data-tab="progress" id="tab-progress" data-parent="you"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace" data-parent="you"></button>
     <div class="sidebar-foot">
-      <div>POWALIFTA Coach</div>
-      <div class="faded">v0.3 · cloud-synced</div>
     </div>
   </aside>
 
@@ -913,23 +911,22 @@ function renderRoster() {
       primary: { label: 'Invite an athlete', onClick: () => openInviteModal() }
     }));
   } else {
-    // The week at a glance: a ring for how many trained, three numbers under it.
-    const trainedToday = overview.filter(o => o.flag === 'today').length;
+    // The week at a glance, each fact once: the ring says how many trained, the title who's
+    // left, the line under it who's training today. PRs are the trophies on the faces below.
+    const today = overview.filter(o => o.flag === 'today').map(o => o.athlete.name.split(' ')[0]);
     const thisWeek = overview.filter(o => o.ago != null && o.ago <= 7).length;
     const items = getRosterAttention(user.id);
-    const prsWeek = items.reduce((n, i) => n + (i.prCount || 0), 0);
     const n = overview.length;
+    const left = n - thisWeek;
+    const names = today.length <= 3
+      ? today.slice(0, -1).join(', ') + (today.length > 1 ? ' and ' : '') + today[today.length - 1]
+      : today.slice(0, 2).join(', ') + ' and ' + (today.length - 2) + ' more';
     area.appendChild(uiRingHero({
       frac: n ? thisWeek / n : 0,
       ringLabel: thisWeek + '<small>/' + n + '</small>',
       label: 'This week',
-      title: thisWeek === n ? 'Everyone trained' : thisWeek + ' of ' + n + ' trained',
-      sub: trainedToday ? trainedToday + (trainedToday === 1 ? ' athlete is' : ' athletes are') + ' training today' : 'No sessions logged yet today',
-      stats: [
-        { value: n, label: n === 1 ? 'Athlete' : 'Athletes' },
-        { value: trainedToday, label: 'Today', tone: trainedToday ? 'ok' : null },
-        { value: prsWeek, label: prsWeek === 1 ? 'PR' : 'PRs', tone: prsWeek ? 'acc' : null }
-      ]
+      title: left === 0 ? 'Everyone trained' : thisWeek === 0 ? 'Nobody has trained yet' : left + ' still to train',
+      sub: today.length ? names + (today.length === 1 ? ' is' : ' are') + ' training today' : 'No sessions logged yet today'
     }));
 
     // The faces: everyone on the roster, ringed by how their week is going.

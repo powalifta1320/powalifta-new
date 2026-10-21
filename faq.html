@@ -59,13 +59,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="site.css">
 <link rel="stylesheet" href="cookie-consent.css">
-<link rel="stylesheet" href="scroll-fx.css">
-<link rel="stylesheet" href="ui-fx.css">
-<link rel="stylesheet" href="insane-fx.css">
-<script defer src="scroll-fx.js"></script>
-<script defer src="ui-fx.js"></script>
-<script defer src="insane-fx.js"></script>
 <style>
 .faq-item {
   background: var(--bg-1);
@@ -119,21 +114,24 @@
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
+<script defer src="site.js"></script>
 </head>
-<body>
+<body class="site">
 
 <a class="skip-link" href="#main">Skip to content</a>
 <nav class="nav" id="nav"></nav>
 
-<main id="main" class="container" style="max-width: 800px; padding-top: 60px; padding-bottom: 80px;">
-  <a href="index.html" class="dim text-sm" style="text-decoration: none;">← Back to home</a>
-  <h1 data-fx="blur" style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 18px 0 28px;">FAQ</h1>
+<main id="main" class="s-wrap s-narrow s-faq">
+  <header class="s-page-head">
+    <h1>Questions, answered</h1>
+    <p>How the math works, what's free, and how coaching plans and the iPhone app fit together.</p>
+  </header>
 
   <div id="faq">
     <div class="faq-item">
       <div class="faq-q"><span>How is my e1RM calculated?</span><span class="toggler">+</span></div>
       <div class="faq-a">
-        <p>We use the RPE-percentage formula popular in the strength community (Tuchscherer / RTS style):</p>
+        <p>An RPE-percentage model in the Tuchscherer tradition: every rep below a single, and every RPE point below 10, takes a fixed 3.33% off the estimate.</p>
         <p style="margin-top:8px; font-family:var(--font-num); background: var(--bg-2); padding: 10px 14px; border-radius: 6px;">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
         <p style="margin-top:8px">A 1-rep set at RPE 10 returns exactly your weight (correct, that IS your 1-rep max). A 5×5 at RPE 8 returns about 1.25 × the weight. For non-competition variants we then multiply by the variant multiplier (e.g. paused squat × 1.07) to estimate what you'd hit in the comp version of the lift. The result is what gets plotted on your e1RM chart.</p>
       </div>
@@ -208,32 +206,47 @@
   </div>
 </main>
 
-<footer>
-  <div class="container">
-    <div class="flex gap-12" style="align-items:center"><span id="footMark"></span><span>POWALIFTA</span></div>
-    <a class="apps-soon-chip app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><span class="asc-dot"></span>Get the iPhone app</a>
-    <div class="flex gap-16" style="flex-wrap:wrap; align-items:center;">
-      <a href="guides.html" class="dim">Guides</a>
-      <a href="exercises.html" class="dim">Exercises</a>
-      <a href="about.html" class="dim">About</a>
-      <a href="faq.html" class="dim">FAQ</a>
-      <a href="privacy.html" class="dim">Privacy</a>
-      <a href="terms.html" class="dim">Terms</a>
-      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" class="dim" title="Follow @powa.lifta on Instagram" aria-label="Instagram">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-      </a>
-      <a href="mailto:powalifta1320@gmail.com" class="dim" title="Email us" aria-label="Email">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-      </a>
+<footer class="s-foot">
+  <div class="s-wrap s-foot-grid">
+    <div class="s-foot-brand">
+      <a class="brand" href="index.html" aria-label="POWALIFTA home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span>POWALIFTA</span></a>
+      <p>Built for the barbell.</p>
+      <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="132" height="44" alt="Download on the App Store" loading="lazy" decoding="async"></a>
     </div>
+    <nav class="s-foot-col" aria-label="Product">
+      <h5>Product</h5>
+      <a href="index.html#train">Features</a>
+      <a href="index.html#e1rm">Max calculator</a>
+      <a class="web-only" href="marketplace.html" data-needs-programs>Programs</a>
+      <a href="leaderboard.html">Leaderboard</a>
+      <a href="exercises.html">Exercise library</a>
+      <a class="web-only" href="index.html#pricing">Pricing</a>
+    </nav>
+    <nav class="s-foot-col" aria-label="Learn">
+      <h5>Learn</h5>
+      <a href="guides.html">Guides</a>
+      <a href="guide-rpe.html">RPE explained</a>
+      <a href="guide-e1rm.html">Estimated 1RM</a>
+      <a href="guide-dots.html">DOTS score</a>
+      <a href="guide-peaking.html">Peaking for a meet</a>
+    </nav>
+    <nav class="s-foot-col" aria-label="Company">
+      <h5>Company</h5>
+      <a href="about.html">About</a>
+      <a href="faq.html">FAQ</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
+      <a href="mailto:powalifta1320@gmail.com">Email us</a>
+    </nav>
   </div>
+  <div class="s-wrap"><div class="s-foot-base"><span>© 2026 POWALIFTA</span><button type="button" onclick="toggleTheme()">Switch light or dark</button></div></div>
 </footer>
 
 <script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
-document.getElementById('footMark').innerHTML = BRAND_MARK;
 bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
 document.querySelectorAll('.faq-item').forEach(item => {
   item.querySelector('.faq-q').addEventListener('click', () => item.classList.toggle('open'));

@@ -53,8 +53,6 @@
     </div>
     <div class="sidebar-foot">
       <button class="btn btn-sm btn-ghost" id="notifToggle" type="button" style="display:none;width:100%;margin-bottom:10px;">🔔 Enable alerts</button>
-      <div>POWALIFTA Athlete</div>
-      <div class="faded">v0.3 · cloud-synced</div>
     </div>
   </aside>
 
@@ -793,9 +791,7 @@ function populateDaySelect() {
   let target = null;
   outer: for (const wk of prog.weeks) {
     for (const day of (wk.days || [])) {
-      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
-      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
-      if (total > 0 && done < total) { target = _dayKey(wk, day); break outer; }
+      if ((day.exercises || []).flatMap(e => e.sets || []).some(setOpen)) { target = _dayKey(wk, day); break outer; }
     }
   }
   if (!target) {
@@ -814,9 +810,7 @@ function autoSelectFirstIncompleteDay() {
   let target = null;
   outer: for (const wk of prog.weeks) {
     for (const day of (wk.days || [])) {
-      const total = day.exercises?.flatMap(e => e.sets || []).length || 0;
-      const done  = day.exercises?.flatMap(e => e.sets || []).filter(s => s.completed).length || 0;
-      if (total > 0 && done < total) { target = _dayKey(wk, day); break outer; }
+      if ((day.exercises || []).flatMap(e => e.sets || []).some(setOpen)) { target = _dayKey(wk, day); break outer; }
     }
   }
   if (!target) {
@@ -892,6 +886,11 @@ function autoSelectDayForDate(date) {
 // conflicting pin (one day per date, one pin per day).
 // Next session worth doing: first day (in program order) with unfinished sets
 // that isn't already scheduled on some other date.
+// A set still to do: not logged and not skipped. "Finish session" skips what's left of a day,
+// so a lifter who stops early isn't offered the same session again (skipped sets stay in the
+// plan, unlogged; logging one later clears the skip).
+function setOpen(s) { return !!s && !s.completed && !s.skipped; }
+
 function findNextIncompleteDay(forDate) {
   const prog = getProgram();
   if (!prog) return null;
@@ -900,7 +899,7 @@ function findNextIncompleteDay(forDate) {
       const sets = (day.exercises || []).flatMap(e => e.sets || []);
       if (!sets.length) continue; // rest / empty days
       if (day.scheduledDate && day.scheduledDate !== forDate) continue; // planned for another date
-      if (sets.some(s => !s.completed)) return { wk, day };
+      if (sets.some(setOpen)) return { wk, day };
     }
   }
   return null;
@@ -1388,7 +1387,7 @@ function buildTodayHero(cur) {
   const total = allSets.length;
   let next = null;
   for (const ex of exs) {
-    const si = ex.sets.findIndex(s => !s.completed);
+    const si = ex.sets.findIndex(setOpen);
     if (si >= 0) { next = { ex, si, set: ex.sets[si] }; break; }
   }
   if (!next) return buildSessionDone(cur);
@@ -1476,9 +1475,11 @@ function buildSessionDone(cur) {
   const rows = cur.day.exercises.flatMap(e => e.sets.filter(s => s.completed).map(s => ({ s, e })));
   const lifting = rows.filter(x => x.e.lift !== 'cardio');
   const ton = lifting.reduce((a, x) => a + (Number(x.s.weight) || 0) * (Number(x.s.reps) || 0), 0);
+  const total = cur.day.exercises.reduce((n, e) => n + e.sets.length, 0);
+  const skipped = cur.day.exercises.reduce((n, e) => n + e.sets.filter(s => s.skipped && !s.completed).length, 0);
   const top = el('div', { class: 'tdh-row' });
   top.appendChild(el('span', { class: 'tdh-label' }, 'Session done'));
-  top.appendChild(el('span', { class: 'tdh-count' }, rows.length + (rows.length === 1 ? ' set' : ' sets')));
+  top.appendChild(el('span', { class: 'tdh-count' }, skipped ? rows.length + ' of ' + total + ' sets' : rows.length + (rows.length === 1 ? ' set' : ' sets')));
   hero.appendChild(top);
   hero.appendChild(el('div', { class: 'tdh-ex' }, cur.day.name));
   hero.appendChild(el('div', { class: 'tdh-presc', html: '<b>' + Math.round(kgToDisplay(ton)).toLocaleString() + '</b><small>' + unitLabel() + ' moved</small>' }));
@@ -1513,7 +1514,47 @@ function buildSessionDone(cur) {
   wk.addEventListener('click', () => shareWeekCard());
   acts.appendChild(wk);
   hero.appendChild(acts);
+  if (skipped) {
+    const resume = el('button', { class: 'ui-text-btn tx-resume', type: 'button' }, 'Resume the session');
+    resume.addEventListener('click', () => setSessionSkipped(false));
+    hero.appendChild(resume);
+  }
   return hero;
+}
+
+// FINISH SESSION. Stopping early (the gym closes, a tweak, a short day): what's left of the day
+// is marked skipped, never logged, so Train shows the summary and the program moves on.
+// "Resume the session" puts the skipped sets back.
+function setSessionSkipped(on) {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog) return;
+  Store.update(s => {
+    const p = s.programs.find(pp => pp.athleteId === user.id);
+    const wk = p && p.weeks.find(w => w.id === cur.week.id);
+    const d = wk && wk.days.find(dd => dd.id === cur.day.id);
+    if (!d) return;
+    (d.exercises || []).forEach(e => (e.sets || []).forEach(st => {
+      if (on && !st.completed) st.skipped = true;
+      if (!on) delete st.skipped;
+    }));
+  });
+  persistProgram(prog.id);
+  if (on) stopRestTimer();   // nothing left to rest for (also ends the Live Activity)
+  renderToday();
+  if (on) {
+    const date = getSessionDate();
+    const noted = (Store.get().sessionNotes || []).some(n => n.athleteId === user.id && n.dayId === cur.day.id && n.date === date);
+    if (!noted) { window._pendingNoteCtx = { weekId: cur.week.id, dayId: cur.day.id, date }; setTimeout(() => openModal('noteModal'), 260); }
+  }
+}
+function confirmFinishSession() {
+  const cur = getCurrentDay();
+  if (!cur) return;
+  const left = cur.day.exercises.reduce((n, e) => n + e.sets.filter(setOpen).length, 0);
+  if (!left) return;
+  uiActionSheet('Finish with ' + left + (left === 1 ? ' set' : ' sets') + ' left?', [
+    { label: 'Finish session', icon: ICONS.check, onClick: () => setSessionSkipped(true) }
+  ]);
 }
 
 // BODYWEIGHT, up front. A morning weigh-in is a daily habit, so it lives on the
@@ -1783,7 +1824,8 @@ function buildSessionRail(cur, nextKey) {
 // the tools, then a row per set: load (tap for plates), the RPE you'll log it at
 // (tap to change), and the tick. No spreadsheet.
 function buildExerciseCard(ex, cur, prog, nextKey) {
-  const exDone = ex.sets.length > 0 && ex.sets.every(s => s.completed);
+  const exDone = ex.sets.length > 0 && ex.sets.every(s => !setOpen(s));   // logged or skipped
+  const allLogged = ex.sets.length > 0 && ex.sets.every(s => s.completed);
   const doneCount = ex.sets.filter(s => s.completed).length;
   const isCardio = ex.lift === 'cardio';
   const isMain = MAIN_LIFTS.includes(ex.lift);
@@ -1799,10 +1841,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   if (isMain) { if (multiplierFor(ex.lift, ex.variant) !== 1) meta.push(LIFT_LABELS[ex.lift] + ' variation'); }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) meta.push(LIFT_LABELS[ex.lift]);
   else if (isCardio) meta.push('Cardio');
-  meta.push(ex.sets.length + (ex.sets.length === 1 ? ' set' : ' sets'));
-  tb.appendChild(el('div', { class: 'tx-meta' }, meta.join(' · ')));
+  // The ring already counts the sets (0/3), so the line under the name doesn't.
+  if (meta.length) tb.appendChild(el('div', { class: 'tx-meta' }, meta.join(' · ')));
   head.appendChild(tb);
-  head.appendChild(uiRing(ex.sets.length ? doneCount / ex.sets.length : 0, { size: 40, stroke: 4, cls: 'tx-ring', label: exDone ? ICONS.check : doneCount + '<small>/' + ex.sets.length + '</small>' }));
+  head.appendChild(uiRing(ex.sets.length ? doneCount / ex.sets.length : 0, { size: 40, stroke: 4, cls: 'tx-ring', label: allLogged ? ICONS.check : doneCount + '<small>/' + ex.sets.length + '</small>' }));
   if (!isCardio) {   // UI v8: the head opens the exercise detail (openExerciseDetail)
     tb.querySelector('h3').insertAdjacentHTML('beforeend', '<span class="tx-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>');
     const hit = el('button', { class: 'tx-head-hit', type: 'button', 'aria-label': exTitleOf(ex) + ': last time, your best and form cues' });
@@ -1827,7 +1869,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     const justDone = set.completed && window._txJustLogged === ex.id + '_' + si;
     const smart = isCardio ? null : smartFor(ex, si);
     const shownKg = smart ? smart.kg : Number(set.weight) || 0;
-    const row = el('div', { class: 'tx-set' + (set.completed ? ' is-done' : '') + (isNext ? ' is-next' : '') + (justDone ? ' just-done' : '') + (smart ? ' is-smart' : ''), id: 'set_' + ex.id + '_' + si });
+    const row = el('div', { class: 'tx-set' + (set.completed ? ' is-done' : '') + (set.skipped && !set.completed ? ' is-skipped' : '') + (isNext ? ' is-next' : '') + (justDone ? ' just-done' : '') + (smart ? ' is-smart' : ''), id: 'set_' + ex.id + '_' + si });
     row.appendChild(el('span', { class: 'tx-n' }, String(si + 1)));
 
     const main = el('div', { class: 'tx-set-main' });
@@ -1874,7 +1916,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     if (set.completed && !isCardio && set.weight > 0 && set.actualRpe) {
       const e1 = isMain ? calcCompE1RM(set.weight, set.reps, set.actualRpe, ex.lift, ex.variant) : calcE1RM(set.weight, set.reps, set.actualRpe);
       sub = 'e1RM ' + formatWeight(Math.round(e1)) + (set.plannedWeight > 0 && Math.abs(set.plannedWeight - set.weight) > 0.01 ? ' · plan ' + formatWeight(set.plannedWeight) : '');
-    } else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) : 'From today\'s sets';
+    } else if (set.skipped) sub = 'Skipped';
+    else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) : 'From today\'s sets';
     // The RPE chip beside the load already shows the target, so no "Target RPE" line.
     if (sub) main.appendChild(el('div', { class: 'tx-set-sub' }, sub));
     row.appendChild(main);
@@ -2457,7 +2500,7 @@ function renderToday() {
   // The next undone set, so its row can carry the "you are here" marker.
   let nextKey = null;
   for (const ex of cur.day.exercises) {
-    const si = ex.sets.findIndex(s => !s.completed);
+    const si = ex.sets.findIndex(setOpen);
     if (si >= 0) { nextKey = ex.id + '_' + si; break; }
   }
   // THE BOUNCER (app.js bouncerSingle): BEFORE the lift. When a single at or over your
@@ -2522,6 +2565,13 @@ function renderToday() {
   const rail = buildSessionRail(cur, nextKey);
   if (rail) area.appendChild(rail);
   cur.day.exercises.forEach(ex => area.appendChild(buildExerciseCard(ex, cur, prog, nextKey)));
+  // Stopping early: once a set is in and some are left, the end of the list offers to finish.
+  const _all = cur.day.exercises.flatMap(e => e.sets);
+  if (_all.some(st => st.completed) && _all.some(setOpen)) {
+    const fin = el('button', { class: 'ui-text-btn tx-finish', type: 'button' }, 'Finish session');
+    fin.addEventListener('click', confirmFinishSession);
+    area.appendChild(fin);
+  }
   if (window._exDetailRefresh) window._exDetailRefresh();   // an open exercise detail shows the same sets
   if (window._liftModeRefresh) window._liftModeRefresh();   // and so does lift mode
 }
@@ -2599,6 +2649,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       const e = d.exercises.find(e2 => e2.id === exerciseId);
       const sset = e.sets[setIndex];
       sset.completed = true;
+      delete sset.skipped;
       sset.actualRpe = actualRpe;
       sset.completedAt = sessionDate;
       sset.lastLogId = newLogId;
@@ -3346,7 +3397,7 @@ function _liftNext() {
   const cur = getCurrentDay();
   if (!cur) return null;
   for (const ex of cur.day.exercises) {
-    const si = ex.sets.findIndex(s => !s.completed);
+    const si = ex.sets.findIndex(setOpen);
     if (si >= 0) return { cur, ex, si, set: ex.sets[si] };
   }
   return { cur, done: true };
@@ -3445,7 +3496,7 @@ function openLiftMode() {
       const nx = ex.sets[si + 1];
       if (nx) return 'Then · ' + (Number(nx.weight) > 0 ? formatWeight(nx.weight) + ' × ' : '') + nx.reps + (nx.rpe ? ' @ ' + nx.rpe : '');
       const exs = n.cur.day.exercises, i = exs.indexOf(ex);
-      const ne = exs.slice(i + 1).find(e => e.sets.some(s2 => !s2.completed));
+      const ne = exs.slice(i + 1).find(e => e.sets.some(setOpen));
       return ne ? 'Then · ' + exTitleOf(ne) : 'Then · session done';
     })();
     const foot = el('div', { class: 'lm-foot' });
@@ -4432,7 +4483,7 @@ function syncHomeWidget() {
       try {
         let nx = null;
         for (const ex of (offered ? offered.day.exercises || [] : [])) {
-          const si = (ex.sets || []).findIndex(s => !s.completed);
+          const si = (ex.sets || []).findIndex(setOpen);
           if (si >= 0) { nx = { ex, si, set: ex.sets[si] }; break; }
         }
         if (nx) {
@@ -4454,7 +4505,7 @@ function syncHomeWidget() {
         const q = [];
         for (const ex of (offered ? offered.day.exercises || [] : [])) {
           (ex.sets || []).forEach((st, si) => {
-            if (st.completed || q.length >= 6) return;
+            if (!setOpen(st) || q.length >= 6) return;
             const cardio = ex.lift === 'cardio';
             const sm = !q.length && !cardio ? smartFor(ex, si) : null;
             const wKg = sm ? sm.kg : Number(st.weight) || 0;
@@ -4694,7 +4745,7 @@ function restLogQueue() {
   for (const ex of cur.day.exercises) {
     for (let si = 0; si < ex.sets.length; si++) {
       const set = ex.sets[si];
-      if (set.completed) continue;
+      if (!setOpen(set)) continue;
       const rpe = feltRpeFor(ex, si);
       const sm = ex.lift === 'cardio' ? null : smartFor(ex, si);
       const kg = sm ? sm.kg : Number(set.weight) || 0;
@@ -4897,7 +4948,19 @@ function stopRestTimer(immediate) {
   }
   document.body.classList.remove('rest-open');
   nativeRestStop();
+  restEndAlert(false);
 }
+
+// The rest-is-up notification for a locked phone: armed when the app leaves the screen
+// mid-rest, cancelled when it comes back or the rest stops (native-bridge scheduleRestEnd).
+function restEndAlert(arm) {
+  if (!(window.PowaNative && PowaNative.isNative && PowaNative.isNative()) || !PowaNative.scheduleRestEnd) return;
+  if (arm && restInterval != null && restPausedMs == null && restEndTime - Date.now() > 3000) {
+    const q = restLogQueue();
+    PowaNative.scheduleRestEnd(restEndTime, q.length ? q[0].label : '');
+  } else PowaNative.cancelRestEnd();
+}
+document.addEventListener('visibilitychange', () => restEndAlert(document.visibilityState === 'hidden'));
 
 // ===== PLATE CALC =====
 // Plate-calc bar selection. plateBarCustomKg is stored internally in kg.
@@ -6698,7 +6761,7 @@ function renderSelfBuilder() {
   // Building a block replaces this one: the screen's red action only on an empty or fully
   // logged program (the next block); mid-block it waits in ⋯.
   const _sbSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
-  const blockOpen = _sbSets.length > 0 && _sbSets.some(s => !s.completed);
+  const blockOpen = _sbSets.length > 0 && _sbSets.some(setOpen);
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
     blockOpen ? { label: 'Build a new block…', icon: ICONS.program, onClick: () => openSoloBlockSheet() } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => sbAddWeek(prog.id) },
@@ -7209,7 +7272,7 @@ function renderFullProgram() {
   const chips = el('div', { class: 'ui-chips fp-weeks' });
   weeks.forEach(w => {
     const sets = w.days.flatMap(d => (d.exercises || []).flatMap(x => x.sets || []));
-    const done = sets.length && sets.every(st => st.completed);
+    const done = sets.length && sets.every(st => !setOpen(st));
     const c = el('button', { class: 'ui-chip' + (w.number === _fpWeek ? ' on' : ''), type: 'button' }, 'Week ' + w.number + (done ? ' ✓' : ''));
     c.addEventListener('click', () => { _fpWeek = w.number; renderFullProgram(); });
     chips.appendChild(c);

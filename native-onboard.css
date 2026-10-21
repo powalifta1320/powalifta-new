@@ -378,3 +378,9 @@ html.native .nw2-slide { place-items: center; padding: 86px 26px 24px; }
 .ob-check-text { font-size: 14px; line-height: 1.45; color: #9a9aa5; }
 .ob-check-text a { color: #e6e6eb; text-decoration: underline; text-underline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ob-check-box, .ob-check-box::after { transition: none; } }
+
+/* Units, asked once at sign-up (2026-10-22): a two-way capsule like the app's segmented controls. */
+.ob-unit { margin-top: 4px; }
+.ob-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+.ob-seg-btn { min-width: 84px; height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: rgba(245, 245, 247, 0.72); font: 650 16px/1 var(--font-body, system-ui); cursor: pointer; transition: background-color 0.2s, color 0.2s; }
+.ob-seg-btn.on { background: #f5f5f7; color: #0b0b0c; }
