@@ -49,6 +49,10 @@ const PRODUCT_TIERS: Record<string, string> = {
   "com.powalifta.app.coach.basic": "basic",
   "com.powalifta.app.coach.pro": "pro",
   "com.powalifta.app.coach.premium": "premium",
+  // Yearly (2026-10-22): the same plans billed once a year, same subscription group.
+  "com.powalifta.app.coach.basic.yearly": "basic",
+  "com.powalifta.app.coach.pro.yearly": "pro",
+  "com.powalifta.app.coach.premium.yearly": "premium",
 };
 
 function json(status: number, body: unknown): Response {

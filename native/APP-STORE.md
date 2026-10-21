@@ -194,6 +194,12 @@ Live Activity: after a set is logged, the rest timer shows on the Lock Screen an
    - `com.powalifta.app.coach.premium` — $99.99/mo — "Premium — unlimited athletes"
    Each needs a localization (display name + description) and a review
    screenshot (screenshot the in-app paywall once it runs in the simulator).
+   **Yearly (2026-10-22, optional):** in the same group add three more, 1-year duration:
+   `com.powalifta.app.coach.basic.yearly` $249.99, `com.powalifta.app.coach.pro.yearly`
+   $499.99, `com.powalifta.app.coach.premium.yearly` $999.99, each on the SAME level as its
+   monthly plan. The app already asks for them and shows a Monthly | Yearly switch as soon as
+   they exist; deploy apple-iap + apple-notifications so the server knows the ids, and attach
+   them to the version submission like the monthly ones.
 4. **Xcode** → App target → Signing & Capabilities → **+ In-App Purchase**.
 5. **Backend** → run `sql/migration-apple-iap.sql` in the SQL Editor, then
    `./deploy.sh` (deploys the `apple-iap` verifier — no new secret; optional

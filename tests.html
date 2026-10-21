@@ -827,6 +827,25 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
 });
+test('yearly plans: months free, checkout links by billing', () => {
+  eq(yearlyMonthsFree(49.99, 499.99), 2); eq(yearlyMonthsFree(24.99, 249.99), 2); eq(yearlyMonthsFree(99.99, 1199.88), 0);
+  eq(yearlyMonthsFree(0, 100), 0); eq(yearlyMonthsFree(10, 0), 0);
+  eq(TIER_PRICES_YEARLY.pro, 499.99);
+  const saved = LS_CHECKOUT_URLS_YEARLY;
+  try {
+    LS_CHECKOUT_URLS_YEARLY = { basic: '', pro: '', premium: '' };
+    eq(yearlyWebOn(), false); eq(buildCheckoutUrl('pro', { id: 'u1' }, 'year'), '#');
+    LS_CHECKOUT_URLS_YEARLY = { basic: 'https://x.test/b', pro: 'https://x.test/p', premium: 'https://x.test/m' };
+    eq(yearlyWebOn(), true);
+    eq(buildCheckoutUrl('pro', { id: 'u1' }, 'year').indexOf('https://x.test/p?') === 0, true);
+    eq(buildCheckoutUrl('pro', { id: 'u1' }).indexOf(LS_CHECKOUT_URLS.pro) === 0, true);   // monthly unchanged
+  } finally { LS_CHECKOUT_URLS_YEARLY = saved; }
+  // App Store: each plan monthly and yearly, same tier
+  eq(IAP_TIER_META['com.powalifta.app.coach.pro.yearly'].key, 'pro'); eq(IAP_TIER_META['com.powalifta.app.coach.pro.yearly'].period, 'year');
+  eq(Object.keys(IAP_TIER_META).length, 6);
+  eq(_rankEntitlements([{ productId: 'com.powalifta.app.coach.basic', jws: 'j' }, { productId: 'com.powalifta.app.coach.premium.yearly', jws: 'j' }, { productId: 'x', jws: 'j' }]).map(e => e.productId).join(','),
+    'com.powalifta.app.coach.premium.yearly,com.powalifta.app.coach.basic');
+});
 test('coach branding: palette, tint, initials', () => {
   eq(brandTint('#2f6bff', 0.2), '#5989ff'); eq(brandTint('#000000', 0.5), '#808080'); eq(brandTint('red'), null);
   eq(brandInitials('Iron Temple Barbell'), 'IT'); eq(brandInitials('lab'), 'L'); eq(brandInitials(''), '?');

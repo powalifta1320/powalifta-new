@@ -1299,11 +1299,24 @@ const LS_CHECKOUT_URLS = {
   premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/a5dbff0b-9950-4831-ab91-99e10d20c3a0'
 };
 const TIER_RANK = { free: 0, basic: 1, pro: 2, premium: 3 };
+// Yearly plans (2026-10-22): each plan billed once a year at ten months' price. Paste the
+// Lemon Squeezy checkout links of the yearly variants here (name the variants "Basic Yearly",
+// "Pro Yearly", "Premium Yearly": the webhook reads the plan from the name). While any is
+// empty the web plan picker shows monthly only. The prices must match Lemon Squeezy.
+let LS_CHECKOUT_URLS_YEARLY = { basic: '', pro: '', premium: '' };
+const TIER_PRICES_YEARLY = { basic: 249.99, pro: 499.99, premium: 999.99 };
+function yearlyWebOn() { return ['basic', 'pro', 'premium'].every(k => !!LS_CHECKOUT_URLS_YEARLY[k]); }
+// Months free on a yearly plan, from the two prices (2 for ten-for-twelve). Pure.
+function yearlyMonthsFree(monthly, yearly) {
+  const m = Number(monthly), y = Number(yearly);
+  if (!(m > 0) || !(y > 0)) return 0;
+  return Math.max(0, Math.round(12 - y / m));
+}
 
 // Build checkout URL with prefilled email + the coach's user id as custom data
 // so the webhook can match the subscription back to the right coach.
-function buildCheckoutUrl(tier, user) {
-  const base = LS_CHECKOUT_URLS[tier];
+function buildCheckoutUrl(tier, user, period) {
+  const base = period === 'year' ? LS_CHECKOUT_URLS_YEARLY[tier] : LS_CHECKOUT_URLS[tier];
   if (!base) return '#';
   const params = new URLSearchParams();
   if (user?.email) params.set('checkout[email]', user.email);
@@ -1385,11 +1398,22 @@ function canAddAthlete(coachId) {
 }
 
 // "$24.99" as a big whole number with small cents, the way price tags read.
-function _priceNode(n) {
+function _priceNode(n, period) {
   const [whole, cents] = Number(n).toFixed(2).split('.');
   return el('div', { class: 'upgrade-price' }, '$' + whole,
     cents !== '00' ? el('span', { class: 'cents' }, '.' + cents) : null,
-    el('span', { class: 'unit' }, '/mo'));
+    el('span', { class: 'unit' }, period === 'year' ? '/yr' : '/mo'));
+}
+// Monthly | Yearly, above the plan cards. onPick(period) redraws them.
+function _periodSwitch(period, monthsFree, onPick) {
+  const seg = el('div', { class: 'upgrade-period', role: 'radiogroup', 'aria-label': 'Billing' });
+  [['month', 'Monthly'], ['year', 'Yearly']].forEach(([k, t]) => {
+    const b = el('button', { type: 'button', role: 'radio', class: 'upgrade-period-btn' + (period === k ? ' on' : ''), 'aria-checked': period === k ? 'true' : 'false' },
+      t, k === 'year' && monthsFree > 0 ? el('small', {}, monthsFree + ' months free') : null);
+    b.addEventListener('click', () => { if (period !== k) onPick(k); });
+    seg.appendChild(b);
+  });
+  return seg;
 }
 // "12 Nov" for a plan's renewal or end date ('' when there isn't one).
 function _planDate(iso) {
@@ -1483,10 +1507,17 @@ function openUpgradeModal(reason) {
 
   const tiers = [
     { key: 'basic',   blurb: 'Solo coach, growing roster.' },
-    { key: 'pro',     blurb: 'Full-time independent coach.', featured: true },
-    { key: 'premium', blurb: 'Studios, teams, federations.' }
+    { key: 'pro',     blurb: 'Full-time independent coach. Your brand on your athletes\' app.', featured: true },
+    { key: 'premium', blurb: 'Studios, teams, federations. Your brand on your athletes\' app.' }
   ];
   const grid = document.getElementById('upgradeTiers');
+  // Yearly shows only for a new checkout once the yearly variants are set up (a plan already
+  // billed here changes in the billing portal, an App Store one on the iPhone).
+  const yearly = !appleSub && !lsSub && canCheckout && yearlyWebOn();
+  const old = document.getElementById('upgradePeriod');
+  if (old) old.remove();
+  const drawTiers = () => {
+  const period = yearly ? _upgradePeriod : 'month';
   grid.innerHTML = '';
   tiers.forEach(t => {
     const limit = TIER_LIMITS[t.key];
@@ -1494,7 +1525,7 @@ function openUpgradeModal(reason) {
     const card = el('div', { class: 'upgrade-tier' + (t.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
     if (t.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'Popular'));
     card.appendChild(el('h4', {}, TIER_LABELS[t.key]));
-    card.appendChild(_priceNode(TIER_PRICES[t.key]));
+    card.appendChild(_priceNode(period === 'year' ? TIER_PRICES_YEARLY[t.key] : TIER_PRICES[t.key], period));
     card.appendChild(el('div', { class: 'upgrade-limit' }, limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + limit + ' athletes'));
     card.appendChild(el('p', { class: 'upgrade-blurb' }, t.blurb));
     const verb = mine === 'free' ? 'Subscribe' : (TIER_RANK[t.key] > TIER_RANK[mine] ? 'Upgrade' : 'Switch');
@@ -1513,7 +1544,7 @@ function openUpgradeModal(reason) {
       });
       card.appendChild(b);
     } else if (canCheckout) {
-      const a = el('a', { class: ctaCls, href: buildCheckoutUrl(t.key, u), target: '_blank', rel: 'noopener' },
+      const a = el('a', { class: ctaCls, href: buildCheckoutUrl(t.key, u, period), target: '_blank', rel: 'noopener' },
         verb + (LS_CHECKOUT_LIVE ? '' : ' (test)'));
       a.addEventListener('click', (e) => {
         if (window._demoMode) { e.preventDefault(); toast('Preview only in demo mode.'); return; }
@@ -1523,9 +1554,22 @@ function openUpgradeModal(reason) {
     }
     grid.appendChild(card);
   });
+  };
+  if (yearly) {
+    const free = yearlyMonthsFree(TIER_PRICES.pro, TIER_PRICES_YEARLY.pro);
+    const mount = () => {
+      const prev = document.getElementById('upgradePeriod');
+      const sw = _periodSwitch(_upgradePeriod, free, (k) => { _upgradePeriod = k; mount(); drawTiers(); });
+      sw.id = 'upgradePeriod';
+      if (prev) prev.replaceWith(sw); else grid.parentNode.insertBefore(sw, grid);
+    };
+    mount();
+  }
+  drawTiers();
   document.getElementById('upgradeModal').classList.add('open');
 }
 window.openUpgradeModal = openUpgradeModal;
+let _upgradePeriod = 'month';
 
 // After a checkout (or a switch in the billing portal) opens in another tab, the
 // modal waits here. The webhook usually lands within seconds; realtime brings it
@@ -1603,10 +1647,15 @@ function _settlePlanWait(detail) {
 // paywalls: a Restore Purchases action, Terms + Privacy links, and a renewal
 // disclosure. Never renders on the web (openUpgradeModal routes there first).
 // =========================================================
+// Monthly and yearly (2026-10-22, same "Coach Plans" group): a yearly product that isn't in
+// App Store Connect yet simply doesn't come back from StoreKit, and the paywall shows monthly.
 const IAP_TIER_META = {
-  'com.powalifta.app.coach.basic':   { key: 'basic',   limit: 10,   blurb: 'Solo coach, growing roster.' },
-  'com.powalifta.app.coach.pro':     { key: 'pro',     limit: 25,   blurb: 'Full-time independent coach.', featured: true },
-  'com.powalifta.app.coach.premium': { key: 'premium', limit: 9999, blurb: 'Studios, teams, federations.' }
+  'com.powalifta.app.coach.basic':   { key: 'basic',   limit: 10,   period: 'month', blurb: 'Solo coach, growing roster.' },
+  'com.powalifta.app.coach.pro':     { key: 'pro',     limit: 25,   period: 'month', blurb: 'Full-time independent coach. Your brand on your athletes\' app.', featured: true },
+  'com.powalifta.app.coach.premium': { key: 'premium', limit: 9999, period: 'month', blurb: 'Studios, teams, federations. Your brand on your athletes\' app.' },
+  'com.powalifta.app.coach.basic.yearly':   { key: 'basic',   limit: 10,   period: 'year', blurb: 'Solo coach, growing roster.' },
+  'com.powalifta.app.coach.pro.yearly':     { key: 'pro',     limit: 25,   period: 'year', blurb: 'Full-time independent coach. Your brand on your athletes\' app.', featured: true },
+  'com.powalifta.app.coach.premium.yearly': { key: 'premium', limit: 9999, period: 'year', blurb: 'Studios, teams, federations. Your brand on your athletes\' app.' }
 };
 
 function ensureIapPaywall() {
@@ -1622,7 +1671,7 @@ function ensureIapPaywall() {
         '<div class="center mt-16">' +
           '<button class="btn btn-sm btn-ghost" onclick="iapRestorePurchases(this)">Restore Purchases</button>' +
         '</div>' +
-        '<p class="faded text-xs center mt-12">Subscriptions are billed monthly through your Apple ID and renew ' +
+        '<p class="faded text-xs center mt-12" id="iapPaywallTerms">Subscriptions are billed monthly through your Apple ID and renew ' +
           'automatically until cancelled in your App Store settings at least 24 hours before the period ends.</p>' +
         '<p class="faded text-xs center mt-8">' +
           '<a href="terms.html" class="dim" onclick="return openDoc(this)">Terms of Use</a> &nbsp;·&nbsp; <a href="privacy.html" class="dim" onclick="return openDoc(this)">Privacy Policy</a>' +
@@ -1664,22 +1713,45 @@ async function openNativePaywall(reason) {
     return;
   }
   grid.innerHTML = '';
+  // Yearly plans show behind a Monthly | Yearly switch once they're in App Store Connect.
+  const yearlyOn = products.some(p => (IAP_TIER_META[p.id] || {}).period === 'year');
+  const terms = document.getElementById('iapPaywallTerms');
+  if (terms) terms.textContent = 'Subscriptions are billed ' + (yearlyOn ? 'monthly or yearly' : 'monthly') + ' through your Apple ID and renew automatically until cancelled in your App Store settings at least 24 hours before the period ends.';
+  // The plan this Apple ID is on now (monthly or yearly), so the right card says Current plan.
+  let currentId = null;
+  try { const ents = _rankEntitlements(await PowaNative.iapEntitlements()); currentId = ents[0] && ents[0].productId; } catch (e) {}
+  const priceOf = (id) => { const p = products.find(x => x.id === id); return p && Number(p.price) > 0 ? Number(p.price) : 0; };
+  const free = yearlyMonthsFree(priceOf('com.powalifta.app.coach.pro'), priceOf('com.powalifta.app.coach.pro.yearly'));
+  let period = yearlyOn && currentId && (IAP_TIER_META[currentId] || {}).period === 'year' ? 'year' : 'month';
+  const oldSw = document.getElementById('iapPeriod');
+  if (oldSw) oldSw.remove();
+  const mountSwitch = () => {
+    if (!yearlyOn) return;
+    const prev = document.getElementById('iapPeriod');
+    const sw = _periodSwitch(period, free, (k) => { period = k; mountSwitch(); drawPlans(); });
+    sw.id = 'iapPeriod';
+    if (prev) prev.replaceWith(sw); else grid.parentNode.insertBefore(sw, grid);
+  };
+  const drawPlans = () => {
+  grid.innerHTML = '';
   // Stable order: basic → pro → premium regardless of App Store response order.
-  const ordered = Object.keys(IAP_TIER_META)
+  const ordered = Object.keys(IAP_TIER_META).filter(id => IAP_TIER_META[id].period === period)
     .map(id => products.find(p => p.id === id)).filter(Boolean);
   ordered.forEach(p => {
     const meta = IAP_TIER_META[p.id];
-    const isCurrent = meta.key === current;
+    const isCurrent = meta.key === current && (currentId ? currentId === p.id : meta.period === 'month');
+    const samePlanOtherBilling = meta.key === current && !isCurrent && current !== 'free';
     const card = el('div', { class: 'upgrade-tier' + (meta.featured ? ' featured' : '') + (isCurrent ? ' current' : '') });
     if (meta.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'Popular'));
     card.appendChild(el('h4', {}, TIER_LABELS[meta.key] || p.displayName));
-    card.appendChild(el('div', { class: 'upgrade-price' }, p.displayPrice, el('span', { class: 'unit' }, '/mo')));
+    card.appendChild(el('div', { class: 'upgrade-price' }, p.displayPrice, el('span', { class: 'unit' }, meta.period === 'year' ? '/yr' : '/mo')));
     card.appendChild(el('div', { class: 'upgrade-limit' }, meta.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + meta.limit + ' athletes'));
     card.appendChild(el('p', { class: 'upgrade-blurb' }, meta.blurb));
     if (isCurrent) {
       card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', type: 'button' }, 'Current plan'));
     } else if (!billedElsewhere) {
-      const label = current === 'free' ? 'Subscribe' : (TIER_RANK[meta.key] > TIER_RANK[current] ? 'Upgrade' : 'Switch');
+      const label = samePlanOtherBilling ? (meta.period === 'year' ? 'Switch to yearly' : 'Switch to monthly')
+        : current === 'free' ? 'Subscribe' : (TIER_RANK[meta.key] > TIER_RANK[current] ? 'Upgrade' : 'Switch');
       const primary = current === 'free' ? meta.featured : TIER_RANK[meta.key] > TIER_RANK[current];
       const cta = el('button', { class: 'btn btn-block ' + (primary ? 'btn-primary' : 'ui-btn-soft'), type: 'button', 'data-label': label }, label);
       cta.addEventListener('click', () => iapBuy(p.id, cta));
@@ -1687,6 +1759,9 @@ async function openNativePaywall(reason) {
     }
     grid.appendChild(card);
   });
+  };
+  mountSwitch();
+  drawPlans();
 }
 
 async function iapBuy(productId, btn) {
@@ -1713,6 +1788,9 @@ async function iapBuy(productId, btn) {
       if (now === 'free' && sync.tier && TIER_LIMITS[sync.tier]) now = sync.tier;   // the re-read failed: the server's answer
       if (chosen && now !== chosen && TIER_RANK[chosen] < TIER_RANK[now]) {
         toast((TIER_LABELS[chosen] || chosen) + ' starts at your next renewal. ' + (TIER_LABELS[now] || now) + ' stays on until then.');
+      } else if (chosen && now === chosen && await _billingChangeLater(productId)) {
+        // Same plan, other billing: Apple switches it at the renewal.
+        toast((TIER_LABELS[chosen] || chosen) + ' ' + ((IAP_TIER_META[productId] || {}).period === 'year' ? 'yearly' : 'monthly') + ' billing starts at your next renewal.');
       } else {
         toast('You\'re on ' + (TIER_LABELS[now] || now) + '. Welcome aboard.');
       }
@@ -1732,6 +1810,15 @@ async function iapBuy(productId, btn) {
   } catch (e) {
     done(); toast('Purchase failed: nothing was charged.');
   }
+}
+
+// After buying the same plan with the other billing: true while the Apple ID still holds the
+// old product (the switch waits for the renewal).
+async function _billingChangeLater(productId) {
+  try {
+    const ents = _rankEntitlements(await PowaNative.iapEntitlements());
+    return !!(ents[0] && ents[0].productId && ents[0].productId !== productId);
+  } catch (e) { return false; }
 }
 
 async function iapRestorePurchases(btn) {

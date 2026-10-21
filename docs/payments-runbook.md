@@ -136,6 +136,29 @@ The subscription columns + tier-enforcement + privilege guard must exist:
 
 `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are auto-injected — never set them.
 
+## Yearly plans (built 2026-10-22, switch on when the products exist)
+
+Each coach plan can also be billed once a year at ten months' price ("2 months free"):
+Basic $249.99, Pro $499.99, Premium $999.99 a year. The code is in place on both sides and
+shows a Monthly | Yearly switch only once the yearly products are real, so nothing breaks
+before then.
+
+**Web (Lemon Squeezy).** In the product "POWALIFTA Coach Plan" add three variants billed
+yearly, named exactly **Basic Yearly**, **Pro Yearly**, **Premium Yearly** (the webhook reads the
+plan from the variant name; `resolveTier` also maps a yearly price as ten months). Paste their
+checkout links into `LS_CHECKOUT_URLS_YEARLY` in `app.js` (all three, or the switch stays hidden)
+and check `TIER_PRICES_YEARLY` matches. Do the same again with the live links at go-live.
+
+**iPhone (App Store Connect).** In the subscription group **Coach Plans**, add three
+auto-renewable subscriptions with a 1-year duration:
+`com.powalifta.app.coach.basic.yearly`, `com.powalifta.app.coach.pro.yearly`,
+`com.powalifta.app.coach.premium.yearly` (prices $249.99 / $499.99 / $999.99, a display name and
+description, the review screenshot of the paywall). Give each the **same level** as its monthly
+plan (Basic monthly and yearly on one level, and so on) so switching billing waits for the
+renewal and changing plan is an upgrade or downgrade as before. The ids are already in
+`StoreKitPlugin.swift`, `apple-iap`, `apple-notifications` and `IAP_TIER_META`; deploy the two
+functions (`./deploy.sh functions`) so the server knows the new ids, then archive a build.
+
 ## Security posture (audited 2026-07-12, Fable)
 
 - **HMAC-SHA-256 signature verified before any DB write**, constant-time (double-HMAC, no

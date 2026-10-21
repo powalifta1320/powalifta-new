@@ -51,12 +51,17 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise)
     ]
 
-    // The three coach auto-renewable subscriptions (App Store Connect product ids).
-    // Keep in sync with PRODUCT_TIERS in supabase/functions/apple-iap/index.ts.
+    // The coach auto-renewable subscriptions (App Store Connect product ids): each plan monthly
+    // and yearly, all in the "Coach Plans" group. Yearly ones that don't exist in App Store
+    // Connect yet are simply not returned. Keep in sync with PRODUCT_TIERS in
+    // supabase/functions/apple-iap + apple-notifications and IAP_TIER_META in app.js.
     static let productIds = [
         "com.powalifta.app.coach.basic",
         "com.powalifta.app.coach.pro",
-        "com.powalifta.app.coach.premium"
+        "com.powalifta.app.coach.premium",
+        "com.powalifta.app.coach.basic.yearly",
+        "com.powalifta.app.coach.pro.yearly",
+        "com.powalifta.app.coach.premium.yearly"
     ]
 
     private var updatesTask: Task<Void, Never>?
@@ -109,7 +114,9 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                         "id": p.id,
                         "displayName": p.displayName,
                         "displayPrice": p.displayPrice,   // localized, e.g. "$49.99"
-                        "description": p.description
+                        "description": p.description,
+                        "price": NSDecimalNumber(decimal: p.price).doubleValue,   // for "save 17%"
+                        "period": p.subscription?.subscriptionPeriod.unit == .year ? "year" : "month"
                     ]
                 }
                 call.resolve(["products": out])
