@@ -4527,7 +4527,7 @@ function renderMeetHistory(area) {
     return uiRow({
       title: m.name,
       sub: [meetDateText(m.date), m.federation, lifts].filter(Boolean).join(' · '),
-      endHtml: (isBest ? '<span class="ui-tag">Best</span>' : '') + '<b>' + Math.round(kgToDisplay(meetTotal(m))) + '</b>' + u,
+      endHtml: (isBest ? '<span class="ui-tag">Best</span>' : '') + '<b>' + exactW(meetTotal(m)) + '</b>' + u,   // a lifted total: exact, never rounded
       chevron: true,
       onClick: () => uiActionSheet(m.name, [
         { label: 'Edit result', icon: ICONS.edit, onClick: () => openMeetResultModal(m.id) },
