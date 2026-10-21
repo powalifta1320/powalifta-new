@@ -1423,7 +1423,7 @@ function formatSetsSummary(sets, isCardio) {
   let cur = { ...sets[0], count: 1 };
   for (let i = 1; i < sets.length; i++) {
     const s = sets[i];
-    if (s.weight === cur.weight && s.reps === cur.reps && s.rpe === cur.rpe) {
+    if (s.weight === cur.weight && s.reps === cur.reps && s.rpe === cur.rpe && s.rpeHi === cur.rpeHi && !!s.rir === !!cur.rir && s.pct === cur.pct) {
       cur.count++;
     } else {
       groups.push(cur);
@@ -1438,13 +1438,14 @@ function formatSetsSummary(sets, isCardio) {
   if (!hasCompression) return null;
 
   return groups.map(g => {
-    const rpePart = g.rpe == null ? '' : ' @ RPE ' + g.rpe;
+    // As the coach wrote it: "RPE 7–8", "2 RIR"; a % shows beside the load it came to.
+    const rpePart = g.rpe == null ? '' : (g.rir ? ' · ' + setEffortText(g) : ' @ ' + setEffortText(g));
     if (isCardio) {
       const repsPart = g.reps > 0 ? ' × ' + g.reps + 'km' : '';
       return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + rpePart;
     }
     // Unfilled weights (fresh marketplace programs) read as "4 × 5 reps" instead of "0kg × 5"
-    const wPart = g.weight > 0 ? kgToDisplay(g.weight) + unitLabel() + ' × ' + g.reps : g.reps + ' reps';
+    const wPart = g.weight > 0 ? kgToDisplay(g.weight) + unitLabel() + (g.pct != null ? ' (' + _num(g.pct) + '%)' : '') + ' × ' + g.reps : (g.pct != null ? _num(g.pct) + '% × ' + g.reps : g.reps + ' reps');
     return (g.count > 1 ? g.count + ' × ' : '') + wPart + rpePart;
   }).join('   ·   ');
 }
@@ -7805,6 +7806,18 @@ function renderFullProgram() {
     list.appendChild(row);
     if (open) {
       const detail = el('div', { class: 'fp-detail' });
+      // Not done yet: one tap makes it today's session (training rarely follows the calendar).
+      if (sets.some(setOpen)) {
+        const t = el('button', { class: 'btn btn-sm ui-btn-soft fp-today', type: 'button' }, 'Train this today');
+        t.addEventListener('click', () => {
+          const sel = document.getElementById('daySelect');
+          if (sel) sel.value = _dayKey(wk, day);
+          document.getElementById('sessionDate').value = todayISO();
+          const tt = document.getElementById('tab-today'); if (tt) tt.click();
+          pinDayToDate();
+        });
+        detail.appendChild(t);
+      }
       exs.forEach(ex => {
         ensureExerciseShape(ex);
         const name = MAIN_LIFTS.includes(ex.lift) ? (ex.variant + ' ' + LIFT_LABELS[ex.lift]) : (ex.exerciseName || LIFT_LABELS[ex.lift]);
