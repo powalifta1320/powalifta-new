@@ -1,0 +1,226 @@
+{
+  "appPolicies": {
+    "eula": "",
+    "policies": [
+      {
+        "locale": "en_US",
+        "policyText": "",
+        "policyURL": ""
+      }
+    ]
+  },
+  "identifier": "9B67929A",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_askToBuyEnabled": false,
+    "_billingGracePeriodEnabled": false,
+    "_billingIssuesEnabled": false,
+    "_disableDialogs": false,
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_renewalBillingIssuesEnabled": false,
+    "_storeKitErrors": [],
+    "_storefront": "USA",
+    "_timeRate": 0
+  },
+  "subscriptionGroups": [
+    {
+      "id": "E8D49A92",
+      "localizations": [],
+      "name": "Coach Plans",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "24.99",
+              "displayPrice": "24.99",
+              "internalID": "9E37EB84",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "24.99",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "AA8839B0",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "Coach up to 10 athletes",
+              "displayName": "Coach Basic",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.powalifta.app.coach.basic",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Basic",
+          "subscriptionGroupID": "E8D49A92",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "249.99",
+              "displayPrice": "249.99",
+              "internalID": "848A987B",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "249.99",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "A9F41FA6",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "Coach up to 10 athletes, billed yearly",
+              "displayName": "Coach Basic (yearly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.powalifta.app.coach.basic.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Basic Yearly",
+          "subscriptionGroupID": "E8D49A92",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "49.99",
+              "displayPrice": "49.99",
+              "internalID": "CDAAFE90",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "49.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "8202E45D",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "Coach up to 25 athletes, with your own branding",
+              "displayName": "Coach Pro",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.powalifta.app.coach.pro",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Pro",
+          "subscriptionGroupID": "E8D49A92",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "499.99",
+              "displayPrice": "499.99",
+              "internalID": "8EB4B3AF",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "499.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "C90DA4E0",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "Coach up to 25 athletes, with your own branding, billed yearly",
+              "displayName": "Coach Pro (yearly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.powalifta.app.coach.pro.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Pro Yearly",
+          "subscriptionGroupID": "E8D49A92",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "99.99",
+              "displayPrice": "99.99",
+              "internalID": "0E68DF49",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "99.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "316AD687",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "Coach unlimited athletes",
+              "displayName": "Coach Premium",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.powalifta.app.coach.premium",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Premium",
+          "subscriptionGroupID": "E8D49A92",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "999.99",
+              "displayPrice": "999.99",
+              "internalID": "E3B0C4F6",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "999.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "445235E1",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "Coach unlimited athletes, billed yearly",
+              "displayName": "Coach Premium (yearly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.powalifta.app.coach.premium.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Premium Yearly",
+          "subscriptionGroupID": "E8D49A92",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 5,
+    "minor": 0
+  }
+}

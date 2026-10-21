@@ -104,9 +104,19 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         else { call.resolve(["supported": false]) }
     }
 
+    // Resolves with the products plus what the paywall needs to tell an empty answer apart
+    // from a failed one: the ids asked for and returned, the store environment (Production,
+    // Sandbox or Xcode), the storefront country and whether this iPhone allows purchases.
+    // A failed request resolves too, with `error` set, so the web layer can say which it was.
     @objc func getProducts(_ call: CAPPluginCall) {
         guard #available(iOS 15.0, *) else { call.reject("unavailable"); return }
         Task {
+            var info: [String: Any] = [
+                "requested": Self.productIds,
+                "canMakePayments": AppStore.canMakePayments,
+                "storefront": await Storefront.current?.countryCode ?? "",
+                "environment": await Self.storeEnvironment()
+            ]
             do {
                 let products = try await Product.products(for: Self.productIds)
                 let out: [[String: Any]] = products.map { p in
@@ -119,11 +129,27 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                         "period": p.subscription?.subscriptionPeriod.unit == .year ? "year" : "month"
                     ]
                 }
-                call.resolve(["products": out])
+                info["products"] = out
+                info["returned"] = products.map { $0.id }
+                call.resolve(info)
             } catch {
-                call.reject("products_failed: \(error.localizedDescription)")
+                info["products"] = [[String: Any]]()
+                info["returned"] = [String]()
+                info["error"] = "products_failed: \(error.localizedDescription)"
+                call.resolve(info)
             }
         }
+    }
+
+    // "Production", "Sandbox" (TestFlight, a sandbox tester) or "Xcode" (a StoreKit
+    // configuration file). Unknown before iOS 16 or when the app transaction isn't there.
+    @available(iOS 15.0, *)
+    static func storeEnvironment() async -> String {
+        guard #available(iOS 16.0, *) else { return "unknown" }
+        if let result = try? await AppTransaction.shared, case .verified(let app) = result {
+            return app.environment.rawValue
+        }
+        return "unknown"
     }
 
     @objc func purchase(_ call: CAPPluginCall) {
@@ -169,11 +195,20 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // Re-sync with the App Store (required "Restore Purchases" affordance), then
     // return current entitlements exactly like getEntitlements.
+    // `synced` is false when the App Store sign-in was cancelled or failed, so the web layer
+    // doesn't report "no subscription" for an Apple ID it never reached.
     @objc func restore(_ call: CAPPluginCall) {
         guard #available(iOS 15.0, *) else { call.reject("unavailable"); return }
         Task {
-            try? await AppStore.sync()
-            await self.collectEntitlements(call)
+            var extra: [String: Any] = ["synced": true]
+            do {
+                try await AppStore.sync()
+            } catch StoreKitError.userCancelled {
+                extra = ["synced": false, "syncError": "userCancelled"]
+            } catch {
+                extra = ["synced": false, "syncError": error.localizedDescription]
+            }
+            await self.collectEntitlements(call, extra: extra)
         }
     }
 
@@ -202,13 +237,15 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @available(iOS 15.0, *)
-    private func collectEntitlements(_ call: CAPPluginCall) async {
+    private func collectEntitlements(_ call: CAPPluginCall, extra: [String: Any] = [:]) async {
         var out: [[String: Any]] = []
         for await entitlement in Transaction.currentEntitlements {
             guard case .verified(let txn) = entitlement else { continue }
             guard Self.productIds.contains(txn.productID) else { continue }
             out.append(["productId": txn.productID, "jws": entitlement.jwsRepresentation])
         }
-        call.resolve(["entitlements": out])
+        var result = extra
+        result["entitlements"] = out
+        call.resolve(result)
     }
 }

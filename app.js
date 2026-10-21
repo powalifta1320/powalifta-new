@@ -1706,10 +1706,16 @@ async function openNativePaywall(reason) {
   grid.innerHTML = '<p class="dim text-sm">Loading plans…</p>';
   document.getElementById('iapPaywallModal').classList.add('open');
 
-  const products = await PowaNative.iapProducts();
+  const info = PowaNative.iapProductsInfo ? await PowaNative.iapProductsInfo() : { products: await PowaNative.iapProducts() };
+  const products = info.products || [];
   if (!products.length) {
-    // Honest failure — never invent prices the App Store didn't return.
-    grid.innerHTML = '<p class="dim text-sm">Couldn\'t reach the App Store. Check your connection and try again.</p>';
+    // Honest failure: say which one it was, never invent prices the App Store didn't return.
+    const st = iapPaywallState(info, navigator.onLine);
+    grid.innerHTML = '';
+    grid.appendChild(el('p', { class: 'dim text-sm' }, st.text));
+    grid.appendChild(el('button', { class: 'btn btn-sm btn-ghost mt-8', onclick: () => openNativePaywall(reason) }, 'Try again'));
+    // The owner sees what the App Store was asked and what came back.
+    if (u.isAdmin) grid.appendChild(el('p', { class: 'faded text-xs mt-8 iap-diag' }, iapDiagnosticText(info)));
     return;
   }
   grid.innerHTML = '';
@@ -1821,12 +1827,47 @@ async function _billingChangeLater(productId) {
   } catch (e) { return false; }
 }
 
+// What the paywall says when the App Store returns no plans. Pure: `info` is
+// PowaNative.iapProductsInfo()'s answer, `online` is navigator.onLine.
+function iapPaywallState(info, online) {
+  info = info || {};
+  if ((info.products || []).length) return { kind: 'ok', text: '' };
+  if (info.canMakePayments === false) return { kind: 'blocked', text: 'Purchases are turned off on this iPhone in Screen Time settings.' };
+  if (online === false) return { kind: 'offline', text: 'You\'re offline. Connect to the internet and try again.' };
+  if (info.error) return { kind: 'error', text: 'The App Store didn\'t answer. Try again in a moment.' };
+  return { kind: 'empty', text: 'Coach plans aren\'t available from the App Store right now. Try again later.' };
+}
+
+// One line for the owner: the store environment, storefront, whether purchases are allowed,
+// how many plans were asked for and how many came back, and the error if there was one.
+function iapDiagnosticText(info) {
+  info = info || {};
+  const asked = (info.requested || []).length;
+  const got = (info.returned || (info.products || []).map(p => p.id)).length;
+  return ['Store: ' + (info.environment || 'unknown'), info.storefront || 'no storefront',
+    'payments ' + (info.canMakePayments === false ? 'blocked' : 'allowed'),
+    'asked ' + asked + ', got ' + got, info.error ? String(info.error).slice(0, 90) : '']
+    .filter(Boolean).join(' · ');
+}
+
+const IAP_RESTORE_TIMEOUT_MS = 150000;
 async function iapRestorePurchases(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
   const done = () => { if (btn) { btn.disabled = false; btn.textContent = 'Restore Purchases'; } };
   try {
-    const ents = _rankEntitlements(await PowaNative.iapRestore());
-    if (!ents.length) { done(); toast('No active subscription found for this Apple ID.'); return; }
+    // The App Store's sign-in can sit open or never answer: the button comes back either way.
+    const TIMEOUT = {};
+    const restore = PowaNative.iapRestoreInfo ? PowaNative.iapRestoreInfo()
+      : PowaNative.iapRestore().then(entitlements => ({ entitlements, synced: true }));
+    const r = await Promise.race([restore, new Promise(res => setTimeout(() => res(TIMEOUT), IAP_RESTORE_TIMEOUT_MS))]);
+    if (r === TIMEOUT) { done(); toast('The App Store is taking too long. Try again.'); return; }
+    if (r.synced === false && r.syncError === 'userCancelled') { done(); return; }
+    const ents = _rankEntitlements(r.entitlements);
+    if (!ents.length) {
+      done();
+      toast(r.synced === false ? 'Couldn\'t reach the App Store. Try again.' : 'No active subscription found for this Apple ID.');
+      return;
+    }
     let mismatch = false;
     for (const ent of ents) {
       const sync = await DB.appleIapSync(ent.jws);

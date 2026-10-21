@@ -68,3 +68,26 @@ if File.exist?(cfg_path)
 else
   warn "[inject-iap] WARNING: #{cfg_path} not found — run `npx cap copy ios` first, then re-run this."
 end
+
+# ---- 4. the StoreKit test file, used when the app is run from Xcode ----------------------
+# native/ios-native/Products.storekit (all six coach plans, monthly and yearly) is copied to
+# native/ios/App/Products.storekit and set in the App scheme's Run action, so Product > Run
+# in Xcode sells test plans with no App Store Connect, sandbox account or real money.
+# Archives and TestFlight builds ignore it: they always talk to the real App Store.
+# Test purchases are signed by Xcode, not Apple, so apple-iap refuses them by design.
+FileUtils.cp(File.join(SRC, "Products.storekit"), File.join(IOS, "Products.storekit"))
+scheme = File.join(PROJ_PATH, "xcshareddata", "xcschemes", "App.xcscheme")
+if File.exist?(scheme)
+  xml = File.read(scheme)
+  ref = "      <StoreKitConfigurationFileReference\n         identifier = \"../Products.storekit\">\n      </StoreKitConfigurationFileReference>\n"
+  if xml.include?("StoreKitConfigurationFileReference")
+    puts "[inject-iap] App scheme already uses a StoreKit test file."
+  elsif xml.sub!(%r{(\n\s*</LaunchAction>)}) { "\n" + ref.chomp + $1 }
+    File.write(scheme, xml)
+    puts "[inject-iap] App scheme now runs with Products.storekit."
+  else
+    warn "[inject-iap] WARNING: no </LaunchAction> in #{scheme}; set Products.storekit in Xcode (Edit Scheme > Run > Options)."
+  end
+else
+  warn "[inject-iap] WARNING: #{scheme} not found; set Products.storekit in Xcode (Edit Scheme > Run > Options)."
+end

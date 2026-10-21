@@ -827,6 +827,18 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
 });
+test('App Store paywall: says which failure it hit', () => {
+  const plan = { id: 'com.powalifta.app.coach.pro' };
+  eq(iapPaywallState({ products: [plan] }, true).kind, 'ok');
+  eq(iapPaywallState({ products: [], canMakePayments: false }, true).kind, 'blocked');
+  eq(iapPaywallState({ products: [], error: 'products_failed: x' }, false).kind, 'offline');
+  eq(iapPaywallState({ products: [], error: 'products_failed: x' }, true).kind, 'error');
+  eq(iapPaywallState({ products: [], requested: ['a', 'b'], returned: [] }, true).kind, 'empty');
+  eq(iapPaywallState(null, true).kind, 'empty');
+  eq(iapDiagnosticText({ environment: 'Production', storefront: 'GBR', canMakePayments: true,
+    requested: ['a', 'b', 'c'], returned: [], products: [] }), 'Store: Production · GBR · payments allowed · asked 3, got 0');
+  eq(iapDiagnosticText({ products: [plan], error: 'boom' }), 'Store: unknown · no storefront · payments allowed · asked 0, got 1 · boom');
+});
 test('yearly plans: months free, checkout links by billing', () => {
   eq(yearlyMonthsFree(49.99, 499.99), 2); eq(yearlyMonthsFree(24.99, 249.99), 2); eq(yearlyMonthsFree(99.99, 1199.88), 0);
   eq(yearlyMonthsFree(0, 100), 0); eq(yearlyMonthsFree(10, 0), 0);

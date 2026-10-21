@@ -238,10 +238,33 @@
       try { return await P.purchase({ productId: productId, appAccountToken: uid }); }
       catch (e) { return { state: 'error', message: String(e && e.message || e) }; }
     },
+    // The whole answer: products plus requested / returned ids, environment, storefront,
+    // canMakePayments and, when the request failed, error. The paywall uses it to say
+    // which failure it was; old shells without the fields just leave them undefined.
+    iapProductsInfo: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return { products: [], error: 'unavailable' };
+      try {
+        var r = await P.getProducts();
+        r = r || {};
+        r.products = r.products || [];
+        return r;
+      } catch (e) { return { products: [], error: String(e && e.message || e) }; }
+    },
     iapRestore: async function () {
       var P = plugins().PowaIAP;
       if (!isNative || !P) return [];
       try { return (await P.restore()).entitlements || []; } catch (e) { return []; }
+    },
+    // Restore with the sign-in outcome: { entitlements, synced, syncError }.
+    iapRestoreInfo: async function () {
+      var P = plugins().PowaIAP;
+      if (!isNative || !P) return { entitlements: [], synced: false, syncError: 'unavailable' };
+      try {
+        var r = (await P.restore()) || {};
+        r.entitlements = r.entitlements || [];
+        return r;
+      } catch (e) { return { entitlements: [], synced: false, syncError: String(e && e.message || e) }; }
     },
     iapEntitlements: async function () {
       var P = plugins().PowaIAP;
