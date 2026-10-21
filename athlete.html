@@ -1966,10 +1966,17 @@ function healthRecoverySection(area) {
   const nights = (rec.nights || []).slice(0, 7);
   const slept = nights.filter(n => n.minutes > 0);
   if (slept.length) {
+    // An average and the week's bars only once there are a few nights to show (one night isn't a trend).
     const avg = Math.round(slept.reduce((a, n) => a + n.minutes, 0) / slept.length);
-    const bars = el('span', { class: 'hr-bars', 'aria-hidden': 'true' });
-    nights.slice().reverse().forEach(n => bars.appendChild(el('i', { style: 'height:' + Math.max(8, Math.min(100, Math.round(n.minutes / 600 * 100))) + '%', class: n.minutes > 0 && n.minutes < 360 ? 'is-short' : '' })));
-    rows.push(uiRow({ title: rec.sleepMin != null ? PowaHealthJS.sleepText(rec.sleepMin) + ' last night' : 'Sleep', sub: '7-night average ' + PowaHealthJS.sleepText(avg), endNode: bars }));
+    let bars = null;
+    if (slept.length >= 3) {
+      bars = el('span', { class: 'hr-bars', 'aria-hidden': 'true' });
+      nights.slice().reverse().forEach(n => bars.appendChild(el('i', n.minutes > 0
+        ? { style: 'height:' + Math.max(12, Math.min(100, Math.round(n.minutes / 600 * 100))) + '%', class: n.minutes < 360 ? 'is-short' : '' }
+        : { class: 'is-none' })));
+    }
+    rows.push(uiRow({ title: rec.sleepMin != null ? PowaHealthJS.sleepText(rec.sleepMin) + ' last night' : 'Sleep',
+      sub: slept.length >= 3 ? 'Average ' + PowaHealthJS.sleepText(avg) + ' over ' + slept.length + ' nights' : 'From your last night in Apple Health', endNode: bars }));
   }
   if (rec.rhr != null) {
     const d = rec.rhrBase != null ? Math.round(rec.rhr - rec.rhrBase) : null;
