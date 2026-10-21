@@ -2359,7 +2359,7 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
       const head = el('div', { class: 'uniform-head' });
       const aidHead = document.getElementById('progAthlete').value;
       const exMain = MAIN_LIFTS.includes(ex.lift);
-      const exMax = exMain ? bestE1RM(aidHead, ex.lift) : 0;
+      const exMax = exMain ? programMaxKg(Store.get().programs.find(p => p.athleteId === aidHead), aidHead, ex.lift) : 0;   // the coach's max for the block, else their best e1RM
       // Logged sets keep what they were; the switches read and change the ones still to do.
       const live = ex.sets.filter(s => !s.completed);
       const allPct = live.length > 0 && live.every(s => s.pct != null);
@@ -2370,10 +2370,13 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
       if (exMain && live.length) {
         const lb = el('button', { class: 'uniform-toggle', type: 'button', title: allPct ? 'Write loads as a weight' : 'Write loads as % of their max' }, allPct ? '%' : u);
         lb.addEventListener('click', () => setExerciseRx(activeWeekIdx, di, ei, s => {
-          if (allPct) { delete s.pct; return; }
+          if (allPct) { delete s.pct; delete s.pctHi; return; }   // the loads (and a range's top) stay as weights
           const pct = s.pct != null ? s.pct : (exMax && s.weight ? Math.round(s.weight / exMax * 100) : 75);
           s.pct = pct;
           if (exMax) s.weight = pctLoadKg(pct, exMax);
+          // A weight range becomes a % range.
+          if (s.pctHi == null && exMax && Number(s.weightHi) > 0) { const hp = Math.round(s.weightHi / exMax * 100); if (hp > pct) s.pctHi = hp; }
+          if (s.pctHi != null && exMax) { const hk = pctLoadKg(s.pctHi, exMax); if (hk > s.weight) s.weightHi = hk; else { delete s.weightHi; delete s.pctHi; } }
         }));
         head.appendChild(lb);
       } else head.appendChild(el('span', { 'aria-hidden': 'true' }, u));
@@ -2425,25 +2428,30 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         const aidNow = document.getElementById('progAthlete').value;
         const isPct = blk.pct != null;
         const mainLift = MAIN_LIFTS.includes(ex.lift);
-        const maxKg = mainLift ? bestE1RM(aidNow, ex.lift) : 0;
+        const maxKg = mainLift ? programMaxKg(Store.get().programs.find(p => p.athleteId === aidNow), aidNow, ex.lift) : 0;
         const wWrap = el('div', { class: 'uniform-cell' + (isPct ? ' is-pct' : '') });
+        // A load or a range ("140-145", "70-75" as %); a range is typed with a keyboard's dash.
         const wIn = el('input', {
           type: 'text', inputmode: 'decimal', autocomplete: 'off',
-          value: isPct ? String(_num(blk.pct)) : (blk.weight ? kgToDisplay(blk.weight) : ''),
-          placeholder: isPct ? '%' : u, 'aria-label': isPct ? '% of max' : 'Load in ' + u
+          value: loadInputText(blk, isPct),
+          placeholder: isPct ? '%' : u, 'aria-label': isPct ? '% of max, or a range like 70-75' : 'Load in ' + u + ', or a range like 140-145'
         });
         const calc = el('span', { class: 'uniform-calc' });
-        const paintCalc = (kg) => { calc.textContent = isPct ? (kg > 0 ? '= ' + formatWeight(kg) : (mainLift ? 'no max yet' : '')) : ''; };
-        paintCalc(blk.weight);
+        const paintCalc = (kg, kgHi) => { calc.textContent = isPct ? (kg > 0 ? '= ' + weightRangeText(kg, kgHi) : (mainLift ? 'no max yet' : '')) : ''; };
+        paintCalc(blk.weight, blk.weightHi);
         wIn.addEventListener('input', () => {
-          const v = parseFloat(String(wIn.value).replace(',', '.'));
+          const r = parseLoadInput(wIn.value);
+          const bad = !r || (isPct && ((r.lo != null && r.lo > 120) || (r.hi != null && r.hi > 120)));
+          wIn.classList.toggle('is-bad', bad);
+          if (bad) return;
           if (isPct) {
-            const pct = isFinite(v) && v > 0 && v <= 120 ? v : null;
+            const pct = r.lo, pctHi = r.hi;
             const kg = pct && maxKg ? pctLoadKg(pct, maxKg) : 0;
-            setBlockRx(activeWeekIdx, di, ei, blk.startIdx, blk.count, pct ? { pct, weight: kg || blk.weight || 0 } : { pct: null });
-            paintCalc(kg);
+            const kgHi = pctHi && maxKg ? pctLoadKg(pctHi, maxKg) : 0;
+            setBlockRx(activeWeekIdx, di, ei, blk.startIdx, blk.count, pct ? { pct, pctHi, weight: kg || blk.weight || 0, weightHi: kgHi > kg ? kgHi : null } : { pct: null, pctHi: null, weightHi: null });
+            paintCalc(kg, kgHi);
           } else {
-            setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', wIn.value.trim() === '' || !isFinite(v) ? 0 : displayToKg(v));
+            setBlockRx(activeWeekIdx, di, ei, blk.startIdx, blk.count, { weight: r.lo != null ? displayToKg(r.lo) : 0, weightHi: r.hi != null ? displayToKg(r.hi) : null });
           }
         });
         wWrap.appendChild(wIn);
@@ -2551,10 +2559,10 @@ function openSheetImport(athleteId) {
           const runs = [];
           ex.sets.forEach(x => {
             const r = runs[runs.length - 1];
-            if (r && r.reps === x.reps && r.weight === x.weight && r.rpe === x.rpe && r.rpeHi === x.rpeHi && !!r.rir === !!x.rir && r.pct === x.pct) r.n++;
-            else runs.push({ n: 1, reps: x.reps, weight: x.weight, rpe: x.rpe, rpeHi: x.rpeHi, rir: x.rir, pct: x.pct });
+            if (r && r.reps === x.reps && r.weight === x.weight && r.weightHi === x.weightHi && r.rpe === x.rpe && r.rpeHi === x.rpeHi && !!r.rir === !!x.rir && r.pct === x.pct && r.pctHi === x.pctHi) r.n++;
+            else runs.push({ n: 1, reps: x.reps, weight: x.weight, weightHi: x.weightHi, rpe: x.rpe, rpeHi: x.rpeHi, rir: x.rir, pct: x.pct, pctHi: x.pctHi });
           });
-          const sub = runs.map(r => r.n + ' × ' + r.reps + (r.pct ? ' · ' + r.pct + '%' : r.weight > 0 ? ' · ' + formatWeight(r.weight) : '') + (r.rpe != null ? ' · ' + setEffortText(r) : '')).join(', ') + (ex.note ? ' · ' + ex.note : '');
+          const sub = runs.map(r => r.n + ' × ' + r.reps + (r.pct ? ' · ' + r.pct + (r.pctHi > r.pct ? '–' + r.pctHi : '') + '%' : r.weight > 0 ? ' · ' + weightRangeText(r.weight, r.weightHi) : '') + (r.rpe != null ? ' · ' + setEffortText(r) : '')).join(', ') + (ex.note ? ' · ' + ex.note : '');
           return uiRow({ lead: el('span', { class: 'lift-dot lift-' + (MAIN_LIFTS.includes(ex.lift) ? ex.lift : 'acc'), 'aria-hidden': 'true' }), title, sub });
         })));
       }
@@ -2695,8 +2703,8 @@ function _gridCellText(ex) {
   const plan = ex.sets.map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps }));
   return groupSets(plan).map(b => {
     let t = b.count + 'x' + b.reps;
-    if (b.pct != null) t += ' ' + _num(b.pct) + '%';
-    else if (b.weight > 0) t += ' ' + kgToDisplay(b.weight) + unitTag;
+    if (b.pct != null) t += ' ' + _num(b.pct) + (Number(b.pctHi) > Number(b.pct) ? '-' + _num(b.pctHi) : '') + '%';
+    else if (b.weight > 0) t += ' ' + kgToDisplay(b.weight) + (Number(b.weightHi) > Number(b.weight) ? '-' + kgToDisplay(b.weightHi) : '') + unitTag;
     if (b.rpe != null) t += b.rir ? ' ' + effortInputText(b, true) + 'RIR' : ' @' + effortInputText(b, false);
     return t;
   }).join(', ');
@@ -2715,6 +2723,11 @@ function _gridParse(text, athleteId, lift, prog) {
       if (p.rpeHi != null) s.rpeHi = p.rpeHi;
       if (p.rir) s.rir = true;
       if (p.pct) s.pct = p.pct;
+      if (p.pct && p.pctHi > p.pct) {
+        s.pctHi = p.pctHi;
+        const hk = maxKg ? pctLoadKg(p.pctHi, maxKg) : 0;
+        if (hk > kg) s.weightHi = hk;
+      } else if (!p.pct && p.kgHi > p.kg) s.weightHi = Math.round(p.kgHi * 100) / 100;
       out.push(s);
     }
   }
@@ -2834,8 +2847,15 @@ function buildProgramGrid(prog, athleteId, opts) {
       const k = w - W0;
       const sets = base.map(b => {
         const n = Object.assign({}, b);
-        if ((kind === 'kg1' || kind === 'kg2') && n.pct == null && n.weight > 0) n.weight = Math.round((n.weight + k * stepKg * (kind === 'kg2' ? 2 : 1)) * 100) / 100;
-        if (kind === 'pct' && n.pct != null) { n.pct = Math.round((n.pct + 2.5 * k) * 10) / 10; n.weight = maxKg ? pctLoadKg(n.pct, maxKg) : 0; }
+        if ((kind === 'kg1' || kind === 'kg2') && n.pct == null && n.weight > 0) {
+          const add = k * stepKg * (kind === 'kg2' ? 2 : 1);
+          n.weight = Math.round((n.weight + add) * 100) / 100;
+          if (n.weightHi > 0) n.weightHi = Math.round((n.weightHi + add) * 100) / 100;   // a range moves as one
+        }
+        if (kind === 'pct' && n.pct != null) {
+          n.pct = Math.round((n.pct + 2.5 * k) * 10) / 10; n.weight = maxKg ? pctLoadKg(n.pct, maxKg) : 0;
+          if (n.pctHi != null) { n.pctHi = Math.round((n.pctHi + 2.5 * k) * 10) / 10; n.weightHi = maxKg ? pctLoadKg(n.pctHi, maxKg) : 0; }
+        }
         if (kind === 'rpe' && n.rpe != null) {
           n.rpe = Math.min(10, n.rpe + 0.5 * k);
           if (n.rpeHi != null) { n.rpeHi = Math.min(10, n.rpeHi + 0.5 * k); if (n.rpeHi <= n.rpe) delete n.rpeHi; }
@@ -2957,7 +2977,7 @@ function buildProgramGrid(prog, athleteId, opts) {
         const tonnage = sets.reduce((a, s) => a + (Number(planWeight(s)) || 0) * (Number(s.plannedReps || s.reps) || 0), 0);
         const rpes = sets.map(s => Number(s.rpe)).filter(v => v > 0);
         const avg = rpes.length ? Math.round(rpes.reduce((a, v) => a + v, 0) / rpes.length * 10) / 10 : null;
-        const top = mine.filter(e => (e.variant || 'Competition') === 'Competition').flatMap(e => e.sets).reduce((m, s) => Math.max(m, Number(planWeight(s)) || 0), 0);
+        const top = mine.filter(e => (e.variant || 'Competition') === 'Competition').flatMap(e => e.sets).reduce((m, s) => Math.max(m, Number(planWeight(s)) || 0, Number(s.weightHi) || 0), 0);
         let best = 0;
         mine.forEach(e => e.sets.forEach(s => { if (s.completed && s.weight > 0 && s.actualRpe) best = Math.max(best, calcCompE1RM(s.weight, s.reps, s.actualRpe, e.lift, e.variant)); }));
         td.innerHTML = '<b>' + sets.length + '</b> sets · ' + reps + ' reps' +
@@ -3346,7 +3366,7 @@ function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
     for (let i = startIdx; i < startIdx + count && i < sets.length; i++) {
       Object.keys(patchObj).forEach(k => {
         const v = patchObj[k];
-        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir')) delete sets[i][k];
+        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir' || k === 'pctHi' || k === 'weightHi')) delete sets[i][k];
         else sets[i][k] = v;
       });
     }

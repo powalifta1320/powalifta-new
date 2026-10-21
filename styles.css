@@ -12268,3 +12268,6 @@ body.powa-app .dash-main .pg-grid tr.pg-day th { color: var(--text-3); }
 .opl-sheet .opl-back { display: block; margin: 12px auto 0; padding: 10px 12px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 14px; cursor: pointer; }
 .opl-sheet .opl-credit { margin: 14px 2px 2px; color: var(--text-3); font-size: 12.5px; line-height: 1.5; text-align: center; }
 .opl-sheet .opl-credit a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Train: a weight range under the load (2026-10-22) */
+.tx-hero .tx-range { margin-top: 8px; font-size: 13.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }

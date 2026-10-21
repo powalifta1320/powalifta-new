@@ -334,6 +334,37 @@ window.POWA_SUPPORT_KB = [
   "app": "Open Roster, tap the athlete and tap Program (once a program exists you can also switch athletes from the avatars above it). Tap Create program (or Paste from a spreadsheet if you already have it in a sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace from a spreadsheet and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap ⋯ → Notify to tell the athlete it is ready."
  },
  {
+  "id": "coach-prescriptions",
+  "q": "How do I write RPE ranges, RIR, percentages or a weight range?",
+  "t": [
+   "70-75%",
+   "percent of max",
+   "percentage",
+   "reps in reserve",
+   "rir",
+   "rpe range",
+   "weight range",
+   "140-145"
+  ],
+  "a": "Type them the way you'd write them. In the load box: a weight (140), or a range (140-145); tap the kg header to switch the exercise to % of their max (75, or 70-75). In the effort box: an RPE (8) or a range (7-8); tap the RPE header to write reps in reserve instead (2, or 1-2). On a laptop the Grid view takes a whole cell at once: 3x5 @8, 3x5 140-145kg @7, 4x6 70-75%, 3x8 2RIR, 1x3 @8, 3x5 160kg. The athlete starts at the bottom of a range and Train shows how far to go (\"Up to 145 kg\"); if a set feels easy, the next one moves up, never past the top. Percentages work from the maxes you set for the block (⋯ → Maxes for % work), else their best estimated max.",
+  "app": "Type them the way you'd write them. In the load box: a weight (140); tap the kg header to switch the exercise to % of their max (75). In the effort box: an RPE (8) or a range (7-8); tap the RPE header to write reps in reserve instead (2, or 1-2). Weight and % ranges (140-145, 70-75) are easiest on a laptop at powalifta.com, where the Grid view takes a whole cell at once (3x5 140-145kg @7), or in a pasted spreadsheet. The athlete starts at the bottom of a range and Train shows how far to go; if a set feels easy, the next one moves up, never past the top. Percentages work from the maxes you set for the block (⋯ → Maxes for % work), else their best estimated max."
+ },
+ {
+  "id": "coach-next-block",
+  "q": "How do I start the next block, and where are the old ones?",
+  "t": [
+   "block history",
+   "new block",
+   "next block",
+   "old block",
+   "past blocks",
+   "previous program",
+   "start the next block"
+  ],
+  "a": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: on a laptop, open the athlete from Roster and scroll to Blocks to see each one with its dates, how much was logged and what it did for their e1RM, and open it as a grid.",
+  "app": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged; open powalifta.com on a laptop and open the athlete from Roster to see every past block with what it did for their e1RM."
+ },
+ {
   "id": "coach-templates",
   "q": "As a coach, how do I save and reuse a program as a template?",
   "t": [

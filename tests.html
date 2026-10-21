@@ -827,6 +827,60 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
 });
+test('weight ranges: 140-145 kg, 70-75%, carried, progressed, capped', () => {
+  const p = (s, u) => parsePrescription(s, u || 'kg');
+  eq(p('3x5 140-145kg').kg, 140); eq(p('3x5 140-145kg').kgHi, 145); eq(p('3x5 145–140 kg').kg, 140);
+  eq(p('3x5 140kg-145kg').kgHi, 145); eq(p('3x5 140kg').kgHi, null);
+  eq(Math.round(p('3x5 300 to 320 lb').kg / KG_PER_LB), 300); eq(Math.round(p('3x5 300 to 320 lb').kgHi / KG_PER_LB), 320);
+  eq(p('Squat 3x5 140-145').kg, 140); eq(p('Squat 3x5 140-145').kgHi, 145);                 // bare, in the coach's unit
+  eq(Math.round(p('Squat 3x5 300-320', 'lbs').kg / KG_PER_LB), 300);
+  eq(p('4x6 70-75%').pct, 70); eq(p('4x6 70-75%').pctHi, 75); eq(p('4x6 70%-75%').pctHi, 75); eq(p('4x6 70-75%').kg, null);
+  const both = p('3x5 @7-8 140-145kg');
+  eq(both.rpe, 7); eq(both.rpeHi, 8); eq(both.kg, 140); eq(both.kgHi, 145);
+  eq(p('3x5 @7-8').kg, null); eq(p('3x5 @7-8').kgHi, null);                                 // an RPE range is not a load
+  eq(p('1x3 @8').kgHi, null); eq(p('3x5 75% @7').pctHi, null);
+  eq(JSON.stringify(parseLoadInput('140')), JSON.stringify({ lo: 140, hi: null }));
+  eq(JSON.stringify(parseLoadInput('145-140')), JSON.stringify({ lo: 140, hi: 145 }));
+  eq(JSON.stringify(parseLoadInput('140 to 142.5')), JSON.stringify({ lo: 140, hi: 142.5 }));
+  eq(JSON.stringify(parseLoadInput('140-140')), JSON.stringify({ lo: 140, hi: null }));
+  eq(JSON.stringify(parseLoadInput('')), JSON.stringify({ lo: null, hi: null }));
+  eq(parseLoadInput('abc'), null); eq(parseLoadInput('140-'), null);
+  const saved = localStorage.getItem('powa-unit');
+  try {
+    setUnit('kg');
+    eq(loadInputText({ weight: 140, weightHi: 145 }), '140-145'); eq(loadInputText({ weight: 140 }), '140');
+    eq(loadInputText({ pct: 70, pctHi: 75, weight: 140 }, true), '70-75'); eq(loadInputText({ weight: 0 }), '');
+    eq(weightRangeText(140, 145), '140–145 kg'); eq(weightRangeText(140, 0), '140 kg'); eq(weightRangeText(0, 145), '');
+    eq(setLoadText({ pct: 70, pctHi: 75, weight: 140, weightHi: 150 }), '70–75% · 140–150 kg');
+    eq(JSON.stringify(rxOf({ weight: 140, weightHi: 145, pct: null })), JSON.stringify({ weightHi: 145 }));
+    eq(groupSets([{ weight: 140, reps: 5, weightHi: 145 }, { weight: 140, reps: 5, weightHi: 145 }, { weight: 140, reps: 5 }]).length, 2);
+    eq(groupSets([{ weight: 140, reps: 5, weightHi: 145 }])[0].weightHi, 145);
+    // % ranges work out both ends from the max
+    const wk = [{ days: [{ exercises: [{ lift: 'squat', sets: [{ weight: 0, reps: 5, pct: 70, pctHi: 75 }, { weight: 0, reps: 5, pct: 70 }] }] }] }];
+    applyPctLoads(wk, 'nobody', 'kg', { squat: 200 });
+    eq(wk[0].days[0].exercises[0].sets[0].weight, 140); eq(wk[0].days[0].exercises[0].sets[0].weightHi, 150);
+    eq(wk[0].days[0].exercises[0].sets[1].weightHi, undefined);
+    // the next block moves both ends
+    const nb = nextBlockWeeks({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'bench', sets: [{ weight: 100, weightHi: 105, reps: 5, rpe: 7 }, { weight: 0, reps: 5, pct: 70, pctHi: 75 }] }] }] }] }, 2.5);
+    const ns = nb[0].days[0].exercises[0].sets;
+    eq(ns[0].weight, 102.5); eq(ns[0].weightHi, 107.5); eq(ns[1].pct, 72.5); eq(ns[1].pctHi, 77.5);
+    // smart next set climbs within the range, never past its top
+    const easy = smartNextLoad({ weight: 140, planned: 140, reps: 5, rpe: 6, target: 8 }, { weight: 140, reps: 5, rpe: 8, weightHi: 145 }, 'kg');
+    eq(easy.kg, 145); eq(easy.dir, 'up');
+    const noRange = smartNextLoad({ weight: 140, planned: 140, reps: 5, rpe: 6, target: 8 }, { weight: 140, reps: 5, rpe: 8 }, 'kg');
+    eq(noRange.kg > 145, true);
+    // a sheet with ranges in the load and % columns
+    const tsv = ['Week\tDay\tExercise\tSets\tReps\tLoad\t%\tRPE', '1\tDay 1\tSquat\t3\t5\t140-145\t\t7', '1\tDay 1\tBench\t3\t5\t\t70-75\t'].join('\n');
+    const r = parseProgramSheet(tsv, { unit: 'kg' });
+    const sq = r.weeks[0].days[0].exercises[0].sets[0], be = r.weeks[0].days[0].exercises[1].sets[0];
+    eq(sq.weight, 140); eq(sq.weightHi, 145); eq(be.pct, 70); eq(be.pctHi, 75); eq(be.weightHi, undefined);
+    const written = parseProgramSheet('Day 1\nSquat 3x5 140-145kg @7\nBench 4x6 70-75%', { unit: 'kg' });
+    eq(written.weeks[0].days[0].exercises[0].sets[0].weightHi, 145); eq(written.weeks[0].days[0].exercises[1].sets[0].pctHi, 75);
+    // the spreadsheet export writes ranges as typed, so they read back in
+    const csv = buildProgramCsv({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', variant: 'Competition', sets: [{ weight: 140, weightHi: 145, reps: 5, rpe: 7, rpeHi: 8 }] }] }] }] });
+    eq(csv.split('\n')[1].indexOf('Week 1,A,Squat,Competition,1,140-145,5,7-8,') === 0, true);
+  } finally { try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch (e) {} }
+});
 test('blocks: keep a trained block, the next one heavier, how a block went', () => {
   const saved = Store.get();
   const mk = (w, r, rpe, done, at, extra) => Object.assign({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: done ? rpe : null, completedAt: at || null }, extra || {});

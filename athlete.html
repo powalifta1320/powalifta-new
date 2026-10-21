@@ -1427,7 +1427,7 @@ function formatSetsSummary(sets, isCardio) {
   let cur = { ...sets[0], count: 1 };
   for (let i = 1; i < sets.length; i++) {
     const s = sets[i];
-    if (s.weight === cur.weight && s.reps === cur.reps && s.rpe === cur.rpe && s.rpeHi === cur.rpeHi && !!s.rir === !!cur.rir && s.pct === cur.pct) {
+    if (s.weight === cur.weight && s.reps === cur.reps && s.rpe === cur.rpe && s.rpeHi === cur.rpeHi && !!s.rir === !!cur.rir && s.pct === cur.pct && s.weightHi === cur.weightHi && s.pctHi === cur.pctHi) {
       cur.count++;
     } else {
       groups.push(cur);
@@ -1449,7 +1449,8 @@ function formatSetsSummary(sets, isCardio) {
       return (g.count > 1 ? g.count + ' × ' : '') + g.weight + 'min' + repsPart + rpePart;
     }
     // Unfilled weights (fresh marketplace programs) read as "4 × 5 reps" instead of "0kg × 5"
-    const wPart = g.weight > 0 ? kgToDisplay(g.weight) + unitLabel() + (g.pct != null ? ' (' + _num(g.pct) + '%)' : '') + ' × ' + g.reps : (g.pct != null ? _num(g.pct) + '% × ' + g.reps : g.reps + ' reps');
+    const pctTxt = g.pct != null ? _num(g.pct) + (Number(g.pctHi) > Number(g.pct) ? '–' + _num(g.pctHi) : '') + '%' : '';
+    const wPart = g.weight > 0 ? kgToDisplay(g.weight) + (Number(g.weightHi) > Number(g.weight) ? '–' + kgToDisplay(g.weightHi) : '') + unitLabel() + (pctTxt ? ' (' + pctTxt + ')' : '') + ' × ' + g.reps : (pctTxt ? pctTxt + ' × ' + g.reps : g.reps + ' reps');
     return (g.count > 1 ? g.count + ' × ' : '') + wPart + rpePart;
   }).join('   ·   ');
 }
@@ -1564,7 +1565,7 @@ function planSmartNext(ex, si, felt) {
   if (!done || !next || next.completed || ex.lift === 'cardio' || !getSmartLoadOn()) return null;
   const s = smartNextLoad(
     { weight: done.weight, planned: done.plannedWeight || done.weight, reps: done.reps, rpe: felt, target: done.rpe },
-    { weight: next.plannedWeight || next.weight, reps: next.reps, rpe: next.rpe }, getUnit());
+    { weight: next.plannedWeight || next.weight, reps: next.reps, rpe: next.rpe, weightHi: next.weightHi }, getUnit());
   _smartLoad[k] = s || { none: true };   // "no change" is an answer too (readiness won't override it)
   return s;
 }
@@ -1657,6 +1658,10 @@ function buildTodayHero(cur) {
     load.appendChild(bar);
   }
   hero.appendChild(load);
+  // A range ("140–145 kg"): the bar shows where to start, this line how far to go.
+  if (!isCardio && Number(s.weightHi) > Number(planWeight(s)) && Number(planWeight(s)) > 0) {
+    hero.appendChild(el('div', { class: 'tx-range' }, wKg >= Number(s.weightHi) ? 'Top of the range' : 'Up to ' + formatWeight(s.weightHi)));
+  }
   if (smart) {
     const sm = el('div', { class: 'tx-smart is-' + smart.dir });
     sm.appendChild(el('span', { class: 'tx-smart-ic', 'aria-hidden': 'true', html: smart.dir === 'down'
@@ -2279,6 +2284,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     } else if (set.missed) { sub = 'Missed attempt'; subTone = ' is-alert'; }
     else if (set.skipped) sub = 'Skipped';
     else if (smart) sub = smart.fromKg > 0 ? 'Moved from ' + formatWeight(smart.fromKg) : 'From today\'s sets';
+    else if (Number(set.weightHi) > Number(planWeight(set)) && Number(planWeight(set)) > 0) sub = 'Up to ' + formatWeight(set.weightHi);
     else if (set.pct != null && shownKg > 0) sub = _num(set.pct) + '% of your max';
     else if (set.extra) sub = 'Extra set';
     // The RPE chip beside the load already shows the target, so no "Target RPE" line.

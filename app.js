@@ -203,7 +203,8 @@ function _buildDemoData() {
     completed: !!done, actualRpe: done ? rpe + 0.5 : null, completedAt: done ? dt : null
   });
   const mkDay = (name, exs, done, dt, pin) => {
-    const day = { id: uid('day'), name, exercises: exs.map(e2 => ({ id: uid('ex'), lift: e2[0], variant: e2[1], exerciseName: e2[2] || '', note: e2[4] || '', sets: e2[3].map(s2 => mkSet(s2[0], s2[1], s2[2], done, dt)) })) };
+    // A fourth number on a set is the top of a weight range.
+    const day = { id: uid('day'), name, exercises: exs.map(e2 => ({ id: uid('ex'), lift: e2[0], variant: e2[1], exerciseName: e2[2] || '', note: e2[4] || '', sets: e2[3].map(s2 => Object.assign(mkSet(s2[0], s2[1], s2[2], done, dt), s2[3] ? { weightHi: s2[3] } : {})) })) };
     if (pin) day.scheduledDate = pin;
     return day;
   };
@@ -218,7 +219,7 @@ function _buildDemoData() {
         mkDay('Squat Day', [
           // A top set, then back-offs (RTS: 3 @ 8.5 ≈ 88% of the 207 e1RM, 5 @ 8 ≈ 81%).
           ['squat', 'Competition', '', [[177.5 + bump, 3, 8.5], [162.5 + bump, 5, 8], [162.5 + bump, 5, 8]], 'Stay tight at the bottom. Drive up hard.'],
-          ['squat', 'Paused', '', [[132.5 + bump, 4, 8], [132.5 + bump, 4, 8]], '2-count pause.'],
+          ['squat', 'Paused', '', [[132.5 + bump, 4, 8, 137.5 + bump], [132.5 + bump, 4, 8, 137.5 + bump]], '2-count pause. Go to the top of the range if the first one moves.'],
           ['legs', '', 'Leg Press', [[120, 10, 8], [120, 10, 8]]]
         ], wkDone, dt, pinToday ? iso(new Date()) : null),
         mkDay('Bench Day', [
@@ -3457,10 +3458,11 @@ function buildProgramCsv(program) {
           return;
         }
         ex.sets.forEach((st, si) => {
-          const w = st.weight != null && st.weight !== '' ? kgToDisplay(st.weight) : '';
+          // Ranges as written ("140-145", "7-8"), so the sheet reads back in the same.
+          const w = st.weight != null && st.weight !== '' ? kgToDisplay(st.weight) + (Number(st.weightHi) > Number(st.weight) ? '-' + kgToDisplay(st.weightHi) : '') : '';
           rows.push([
             wkLabel, dayName, label, variant, si + 1,
-            w, st.reps != null ? st.reps : '', st.rpe != null ? st.rpe : '',
+            w, st.reps != null ? st.reps : '', st.rpe != null ? (st.rpeHi != null && Number(st.rpeHi) > Number(st.rpe) ? _num(st.rpe) + '-' + _num(st.rpeHi) : st.rpe) : '',
             '', '', '', si === 0 ? note : ''
           ].map(_csvEscape).join(','));
         });
@@ -4687,6 +4689,7 @@ function smartNextLoad(prev, next, unit) {
   const okR = v => isFinite(v) && v >= 5 && v <= 10;
   const pw = Number(prev.weight), pr = Number(prev.reps), felt = Number(prev.rpe), tgt = Number(prev.target);
   const nr = Number(next.reps), nt = Number(next.rpe), planned = Number(next.weight) || 0;
+  const topKg = planned > 0 && Number(next.weightHi) > planned ? Number(next.weightHi) : 0;   // a range's top
   if (!(pw > 0) || !(pr > 0) || !(nr > 0) || !okR(felt) || !okR(nt)) return null;
   let raw;
   if (planned > 0) {
@@ -4695,6 +4698,7 @@ function smartNextLoad(prev, next, unit) {
     const feltEff = Math.abs(felt - tgt) <= 0.5 ? tgt : felt;
     const ratio = (pw / rpeLoadPct(pr, feltEff)) / (prevPlan / rpeLoadPct(pr, tgt));
     raw = Math.min(planned * 1.1, Math.max(planned * 0.9, planned * ratio));
+    if (topKg) raw = Math.min(raw, topKg);
   } else {
     raw = pw / rpeLoadPct(pr, felt) * rpeLoadPct(nr, nt);
   }
@@ -6032,6 +6036,9 @@ function ensureExerciseShape(ex) {
 //          (2 RIR = RPE 8), so everything built on RPE keeps working
 //   pct    % of the lifter's estimated max (competition lift). weight holds the load it came to
 //          for that lifter, or 0 while there's no max to work from
+//   weightHi  the top of a weight range ("140-145 kg", kg); weight is the bottom. The lifter
+//          starts at the bottom; smart next set moves up within it, never past the top
+//   pctHi  the top of a % range ("70-75%"); weightHi holds the load it comes to
 // All optional: a set without them reads exactly as before.
 function _num(v) { return Math.round(Number(v) * 100) / 100; }
 // What a coach types in the builder's effort box: "8", "7.5", "7-8" as RPE, or "2", "1-2" as RIR.
@@ -6058,12 +6065,39 @@ function effortInputText(s, rirMode) {
   if (rirMode) return hi != null ? _num(10 - hi) + '-' + _num(10 - lo) : String(_num(10 - lo));
   return hi != null ? _num(lo) + '-' + _num(hi) : String(_num(lo));
 }
+// What a coach types in the builder's load box: "140", or a range "140-145" ("70-75" in % mode).
+// Returns { lo, hi } in the box's own units (hi null unless it's a range), { lo: null, hi: null }
+// for an empty box, or null when it doesn't read.
+function parseLoadInput(text) {
+  const t = String(text == null ? '' : text).trim().replace(/,/g, '.');
+  if (!t) return { lo: null, hi: null };
+  const m = t.match(/^(\d+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*(\d+(?:\.\d+)?))?$/i);
+  if (!m) return null;
+  const a = +m[1], b = m[2] != null ? +m[2] : null;
+  if (!(a > 0) || (b != null && !(b > 0))) return null;
+  const lo = b != null ? Math.min(a, b) : a, hi = b != null ? Math.max(a, b) : null;
+  return { lo, hi: hi != null && hi > lo ? hi : null };
+}
+// The load box's text for a set: "140-145" / "140" in the lifter's unit, or "70-75" / "75" as %.
+function loadInputText(s, pctMode) {
+  if (!s) return '';
+  if (pctMode) return s.pct == null || s.pct === '' ? '' : _num(s.pct) + (Number(s.pctHi) > Number(s.pct) ? '-' + _num(s.pctHi) : '');
+  if (!(Number(s.weight) > 0)) return '';
+  return kgToDisplay(s.weight) + (Number(s.weightHi) > Number(s.weight) ? '-' + kgToDisplay(s.weightHi) : '');
+}
+// A planned load as it reads: "140–145 kg", "140 kg", or '' with no load.
+function weightRangeText(loKg, hiKg) {
+  if (!(Number(loKg) > 0)) return '';
+  return kgToDisplay(loKg) + (Number(hiKg) > Number(loKg) ? '–' + kgToDisplay(hiKg) : '') + ' ' + unitLabel();
+}
 // The prescription fields a copy of a set must carry (only the ones it has).
 function rxOf(s) {
   const o = {};
   if (s && s.rpeHi != null && s.rpeHi !== '') o.rpeHi = Number(s.rpeHi);
   if (s && s.rir) o.rir = true;
   if (s && s.pct != null && s.pct !== '') o.pct = Number(s.pct);
+  if (s && Number(s.weightHi) > 0) o.weightHi = Number(s.weightHi);
+  if (s && s.pctHi != null && s.pctHi !== '' && Number(s.pctHi) > 0) o.pctHi = Number(s.pctHi);
   return o;
 }
 function setEffortText(s) {
@@ -6078,8 +6112,8 @@ function setEffortText(s) {
 // The load as the coach wrote it: "75%" (with what it comes to, when known) or the weight.
 function setLoadText(s, opts) {
   if (!s) return '';
-  const w = Number(s.weight) > 0 ? formatWeight(s.weight) : '';
-  if (s.pct != null && s.pct !== '') return _num(s.pct) + '%' + (w && !(opts && opts.pctOnly) ? ' · ' + w : '');
+  const w = Number(s.weight) > 0 ? weightRangeText(s.weight, s.weightHi) : '';
+  if (s.pct != null && s.pct !== '') return _num(s.pct) + (Number(s.pctHi) > Number(s.pct) ? '–' + _num(s.pctHi) : '') + '%' + (w && !(opts && opts.pctOnly) ? ' · ' + w : '');
   return w;
 }
 // pct of a max, rounded to what the lifter can load: 2.5 kg, or 5 lb for lb users.
@@ -6111,7 +6145,11 @@ function applyPctLoads(weeks, athleteId, unit, maxes) {
       if (s.pct == null || s.pct === '' || s.completed) return;
       if (!(ex.lift in maxOf)) maxOf[ex.lift] = (maxes && Number(maxes[ex.lift]) > 0) ? Number(maxes[ex.lift]) : (typeof bestE1RM === 'function' ? bestE1RM(athleteId, ex.lift) : 0);
       const kg = pctLoadKg(s.pct, maxOf[ex.lift], unit);
-      if (kg > 0) { s.weight = kg; out.filled++; }
+      if (kg > 0) {
+        s.weight = kg; out.filled++;
+        const hk = Number(s.pctHi) > Number(s.pct) ? pctLoadKg(s.pctHi, maxOf[ex.lift], unit) : 0;
+        if (hk > kg) s.weightHi = hk; else delete s.weightHi;
+      }
       else if (!out.noMax.includes(ex.lift)) out.noMax.push(ex.lift);
     });
   })));
@@ -6123,12 +6161,14 @@ function groupSets(sets) {
   const groups = [];
   let cur = null;
   sets.forEach((s, idx) => {
-    const sig = [s.weight, s.reps, (s.rpe == null ? '_' : s.rpe), s.tempo || '', s.rpeHi == null ? '_' : s.rpeHi, s.rir ? 'r' : '', s.pct == null ? '_' : s.pct].join('|');
+    const sig = [s.weight, s.reps, (s.rpe == null ? '_' : s.rpe), s.tempo || '', s.rpeHi == null ? '_' : s.rpeHi, s.rir ? 'r' : '', s.pct == null ? '_' : s.pct,
+      Number(s.weightHi) > 0 ? s.weightHi : '_', s.pctHi == null ? '_' : s.pctHi].join('|');
     if (cur && cur.sig === sig) {
       cur.count++;
     } else {
       cur = { startIdx: idx, count: 1, weight: s.weight, reps: s.reps, rpe: s.rpe, tempo: s.tempo || '',
-        rpeHi: s.rpeHi == null ? null : s.rpeHi, rir: !!s.rir, pct: s.pct == null ? null : s.pct, sig };
+        rpeHi: s.rpeHi == null ? null : s.rpeHi, rir: !!s.rir, pct: s.pct == null ? null : s.pct,
+        weightHi: Number(s.weightHi) > 0 ? Number(s.weightHi) : null, pctHi: s.pctHi == null ? null : s.pctHi, sig };
       groups.push(cur);
     }
   });
@@ -6162,8 +6202,8 @@ function _pbChips(ex) {
   blocks.forEach(b => {
     const c = el('span', { class: 'pb-chip' });
     // "3 × 5 · 75% · 150 kg · RPE 7–8", "3 × 8 · 2 RIR": % and ranges as the coach wrote them.
-    const load = b.pct != null ? escHtml(_num(b.pct) + '%') + (b.weight ? ' · ' + kgToDisplay(b.weight) + ' ' + unitLabel() : '')
-      : (b.weight ? kgToDisplay(b.weight) + ' ' + unitLabel() : '');
+    const load = b.pct != null ? escHtml(_num(b.pct) + (Number(b.pctHi) > Number(b.pct) ? '–' + _num(b.pctHi) : '') + '%') + (b.weight ? ' · ' + weightRangeText(b.weight, b.weightHi) : '')
+      : (b.weight ? weightRangeText(b.weight, b.weightHi) : '');
     c.innerHTML = '<b>' + b.count + ' × ' + escHtml(String(b.reps)) + '</b>' +
       (load ? '<i>' + load + '</i>' : '') +
       (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">' + escHtml(setEffortText(b)) + '</em>' : '');
@@ -9100,8 +9140,13 @@ function nextBlockWeeks(prog, stepKg) {
     sets: (e.sets || []).filter(s => !s.extra).map(s => {
       const main = ['squat', 'bench', 'deadlift'].includes(e.lift);
       const n = Object.assign(newSet(planWeight(s), s.plannedReps || s.reps, s.rpe, s.tempo), rxOf(s));
-      if (main && n.pct != null) n.pct = Math.round((Number(n.pct) + 2.5) * 10) / 10;
-      else if (main && n.weight > 0 && stepKg > 0) n.weight = Math.round((n.weight + stepKg) * 100) / 100;
+      if (main && n.pct != null) {
+        n.pct = Math.round((Number(n.pct) + 2.5) * 10) / 10;
+        if (n.pctHi != null) n.pctHi = Math.round((Number(n.pctHi) + 2.5) * 10) / 10;
+      } else if (main && n.weight > 0 && stepKg > 0) {
+        n.weight = Math.round((n.weight + stepKg) * 100) / 100;
+        if (n.weightHi > 0) n.weightHi = Math.round((n.weightHi + stepKg) * 100) / 100;
+      }
       return n;
     })
   })) })) }));
@@ -10777,10 +10822,11 @@ function matchExercise(name) {
   return { lift: 'other', variant: '', exerciseName: n };
 }
 // "3x5 @8", "5 x 3 @ RPE 7.5", "1x2 82.5kg", "4x8 70%", "3 sets of 10", "3x5 @7-8", "3x8 2 RIR",
-// "3x5 RIR 1-2". RIR comes back as the RPE it equals (rpe / rpeHi) with rir: true.
+// "3x5 RIR 1-2", "3x5 140-145kg", "4x6 70-75%". RIR comes back as the RPE it equals (rpe / rpeHi)
+// with rir: true; a load range as kg / kgHi, a % range as pct / pctHi.
 function parsePrescription(str, unit) {
   const s = String(str || '');
-  let m, sets = null, reps = null, rpe = null, rpeHi = null, rir = false, kg = null, pct = null;
+  let m, sets = null, reps = null, rpe = null, rpeHi = null, rir = false, kg = null, kgHi = null, pct = null, pctHi = null;
   const okRpe = (v) => v >= 5 && v <= 10;
   if ((m = s.match(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i))) { sets = +m[1]; reps = +m[2]; }
   // RIR first ("2 RIR", "RIR 1-2", "@2RIR"): its digits must not read as an RPE.
@@ -10797,18 +10843,32 @@ function parsePrescription(str, unit) {
     if (okRpe(a) && okRpe(b) && b !== a) { rpe = Math.min(a, b); rpeHi = Math.max(a, b); }
   }
   if (!rir && rpe == null && (m = s.match(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)(\d{1,2}(?:\.5)?)(?!\d|\.\d|\s*(?:kg|lb|%|rir)|\s*(?:-|–)\s*\d)/i))) { const v = +m[1]; if (okRpe(v)) rpe = v; }
-  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(kgs?|lbs?)\b/i))) kg = /lb/i.test(m[2]) ? +m[1] * KG_PER_LB : +m[1];
-  if ((m = s.match(/(\d{2,3}(?:\.\d+)?)\s*%/))) pct = +m[1];
+  // A load range first ("140-145kg", "140kg-145kg", "300 to 320 lb"), so its top isn't read as the load.
+  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(?:kgs?|lbs?)?\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(kgs?|lbs?)\b/i))) {
+    const f = /lb/i.test(m[3]) ? KG_PER_LB : 1, a = +m[1], b = +m[2];
+    if (a >= 20 && b >= 20 && a !== b) { kg = Math.min(a, b) * f; kgHi = Math.max(a, b) * f; }
+  }
+  if (kg == null && (m = s.match(/(\d+(?:\.\d+)?)\s*(kgs?|lbs?)\b/i))) kg = /lb/i.test(m[2]) ? +m[1] * KG_PER_LB : +m[1];
+  if ((m = s.match(/(\d{2,3}(?:\.\d+)?)\s*%?\s*(?:-|–|to)\s*(\d{2,3}(?:\.\d+)?)\s*%/))) {
+    const a = +m[1], b = +m[2];
+    if (a !== b) { pct = Math.min(a, b); pctHi = Math.max(a, b); }
+  }
+  if (pct == null && (m = s.match(/(\d{2,3}(?:\.\d+)?)\s*%/))) pct = +m[1];
   if (kg == null && sets != null) {
     // A bare load after the scheme ("Squat 3x5 180") is in the coach's unit.
     const rest = s.replace(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i, ' ')
       .replace(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)\d{1,2}(?:\.5)?(?:\s*(?:-|–|to)\s*\d{1,2}(?:\.5)?)?/i, ' ')
       .replace(/\brir\s*@?\s*\d(?:\.5)?(?:\s*(?:-|–|to)\s*\d(?:\.5)?)?|\d(?:\.5)?(?:\s*(?:-|–|to)\s*\d(?:\.5)?)?\s*rir\b/i, ' ')
-      .replace(/\d{2,3}(?:\.\d+)?\s*%/, ' ');
-    const b = rest.match(/(?:^|\s)(\d{2,3}(?:\.\d+)?)(?=\s|$)/);
-    if (b && +b[1] >= 20) kg = unit === 'lbs' ? +b[1] * KG_PER_LB : +b[1];
+      .replace(/\d{2,3}(?:\.\d+)?\s*%?(?:\s*(?:-|–|to)\s*\d{2,3}(?:\.\d+)?)?\s*%/, ' ');
+    const f = unit === 'lbs' ? KG_PER_LB : 1;
+    const br = rest.match(/(?:^|\s)(\d{2,3}(?:\.\d+)?)\s*(?:-|–|to)\s*(\d{2,3}(?:\.\d+)?)(?=\s|$)/i);
+    if (br && +br[1] >= 20 && +br[2] >= 20 && +br[1] !== +br[2]) { kg = Math.min(+br[1], +br[2]) * f; kgHi = Math.max(+br[1], +br[2]) * f; }
+    else {
+      const b = rest.match(/(?:^|\s)(\d{2,3}(?:\.\d+)?)(?=\s|$)/);
+      if (b && +b[1] >= 20) kg = +b[1] * f;
+    }
   }
-  return { sets, reps, rpe, rpeHi, rir, kg, pct };
+  return { sets, reps, rpe, rpeHi, rir, kg, kgHi, pct, pctHi };
 }
 function parseProgramSheet(text, opts) {
   opts = opts || {};
@@ -10849,6 +10909,8 @@ function parseProgramSheet(text, opts) {
       if (p.rpeHi != null) st.rpeHi = p.rpeHi;
       if (p.rir) st.rir = true;
       if (p.pct) st.pct = p.pct;
+      if (p.pct && p.pctHi > p.pct) st.pctHi = p.pctHi;
+      else if (!p.pct && p.kg && p.kgHi > p.kg) st.weightHi = Math.round(p.kgHi * 100) / 100;
       target.sets.push(st);
     }
     if (note) target.note = (target.note ? target.note + ' · ' : '') + note;
@@ -10883,15 +10945,21 @@ function parseProgramSheet(text, opts) {
         sets: parseInt(get('sets'), 10) || scheme.sets || 1,
         reps: parseInt(get('reps'), 10) || scheme.reps || 0,
         rpe: scheme.rpe, rpeHi: scheme.rpeHi, rir: scheme.rir,
-        kg: scheme.kg,
-        pct: (get('pct') ? parseFloat(get('pct')) : null) || scheme.pct
+        kg: scheme.kg, kgHi: scheme.kgHi,
+        pct: (get('pct') ? parseFloat(get('pct')) : null) || scheme.pct, pctHi: scheme.pctHi
       };
+      // A % column with a range ("70-75").
+      const pr = get('pct').match(/^(\d+(?:\.\d+)?)\s*%?\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)/i);
+      if (pr && +pr[1] !== +pr[2]) { p.pct = Math.min(+pr[1], +pr[2]); p.pctHi = Math.max(+pr[1], +pr[2]); }
       if (header.rir) {
         // An RIR column: "2" or "1-2".
         const r = parsePrescription('rir ' + get('rpe'), unit);
         p.rpe = r.rir ? r.rpe : null; p.rpeHi = r.rir ? r.rpeHi : null; p.rir = !!r.rir;
       }
       if (p.kg == null && get('load') && /^\d+(\.\d+)?$/.test(get('load'))) p.kg = unit === 'lbs' ? +get('load') * KG_PER_LB : +get('load');
+      // A load column with a bare range ("140-145"), in the coach's unit.
+      const lr = p.kg == null && get('load').match(/^(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)$/i);
+      if (lr && +lr[1] !== +lr[2]) { const f = unit === 'lbs' ? KG_PER_LB : 1; p.kg = Math.min(+lr[1], +lr[2]) * f; p.kgHi = Math.max(+lr[1], +lr[2]) * f; }
       if (!p.reps) { warnings.push(line.trim()); return; }
       addSets(name, p, get('note'));
     });
