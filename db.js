@@ -414,6 +414,25 @@ function mapDbFormCheck(r) {
   };
 }
 
+function mapDbCheckinQuestion(r) {
+  return { id: r.id, coachId: r.coach_id, prompt: r.prompt || '', kind: r.kind, choices: r.choices || null,
+    cadence: r.cadence || 'weekly', athleteIds: r.athlete_ids || null, position: r.position || 0, active: r.active !== false,
+    createdAt: r.created_at };
+}
+function mapJsCheckinQuestion(q) {
+  return { coach_id: q.coachId, prompt: String(q.prompt || '').trim().slice(0, 140), kind: q.kind,
+    choices: q.kind === 'choice' ? (q.choices || []).map(c => String(c).trim().slice(0, 40)).filter(Boolean).slice(0, 6) : null,
+    cadence: q.cadence === 'daily' ? 'daily' : 'weekly', athlete_ids: q.athleteIds && q.athleteIds.length ? q.athleteIds : null,
+    position: Number(q.position) || 0, active: q.active !== false };
+}
+function mapDbCheckinAnswer(r) {
+  return { id: r.id, questionId: r.question_id, athleteId: r.athlete_id, coachId: r.coach_id, period: r.period,
+    num: r.value_num == null ? null : Number(r.value_num), text: r.value_text, updatedAt: r.updated_at };
+}
+function mapJsCheckinAnswer(a) {
+  return { question_id: a.questionId, athlete_id: a.athleteId, coach_id: a.coachId, period: a.period,
+    value_num: a.num == null || a.num === '' ? null : Number(a.num), value_text: a.text == null || a.text === '' ? null : String(a.text).slice(0, 500) };
+}
 function mapDbCheckin(r) {
   return {
     id: r.id, athleteId: r.athlete_id, weekStart: r.week_start,
@@ -1726,6 +1745,44 @@ const DB = {
     if (error) throw error;
   },
 
+  // ---------- CHECK-IN QUESTIONS (migration-checkin-questions-2026-10-22.sql) ----------
+  // RLS decides what comes back: a coach gets their own questions, an athlete their current
+  // coach's active questions meant for them. Before the migration runs everything here returns
+  // empty / { ok: false, notReady: true }, so the app simply shows no questions.
+  async listCheckinQuestions() {
+    const { data, error } = await sb.from('checkin_questions').select('*').order('position', { ascending: true }).order('created_at', { ascending: true });
+    if (error) { if (!_isNotReady(error)) console.warn('listCheckinQuestions', error); return []; }
+    return (data || []).map(mapDbCheckinQuestion);
+  },
+  async saveCheckinQuestion(q) {
+    const row = mapJsCheckinQuestion(q);
+    const { data, error } = q.id && !String(q.id).startsWith('tmp-')
+      ? await sb.from('checkin_questions').update(row).eq('id', q.id).select().single()
+      : await sb.from('checkin_questions').insert(row).select().single();
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true, question: mapDbCheckinQuestion(data) };
+  },
+  async deleteCheckinQuestion(id) {
+    const { error } = await sb.from('checkin_questions').delete().eq('id', id);
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true };
+  },
+  // Answers since a date (YYYY-MM-DD): a coach gets their roster's, an athlete their own.
+  async listCheckinAnswers(sinceIso) {
+    let q = sb.from('checkin_answers').select('*').order('period', { ascending: false }).limit(2000);
+    if (sinceIso) q = q.gte('period', sinceIso);
+    const { data, error } = await q;
+    if (error) { if (!_isNotReady(error)) console.warn('listCheckinAnswers', error); return []; }
+    return (data || []).map(mapDbCheckinAnswer);
+  },
+  async saveCheckinAnswers(answers) {
+    if (!answers || !answers.length) return { ok: true };
+    const rows = answers.map(mapJsCheckinAnswer);
+    const { error } = await sb.from('checkin_answers').upsert(rows, { onConflict: 'question_id,athlete_id,period' });
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true };
+  },
+
   // ---------- GOALS ----------
   async getGoals(athleteId) {
     const { data, error } = await sb.from('goals').select('*').in('athlete_id', [athleteId]);
@@ -2388,9 +2445,11 @@ const DB = {
     const empty = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
       workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
-      checkins: [], meets: [],
+      checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [],
       marketplacePrograms: [], mySales: [], myPurchases: []
     };
+    // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
+    const _ciSince = (() => { const d = new Date(); d.setDate(d.getDate() - 70); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
 
     // Always pull coach directory (public)
     empty.coaches = await this.listCoaches();
@@ -2402,7 +2461,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2413,8 +2472,12 @@ const DB = {
         this.listCheckinsForAthletes(athleteIds),
         this.listMeetsForAthletes(athleteIds),
         this.listMyPublishedPrograms(profile.id).catch(() => []),
-        this.listMySales(profile.id).catch(() => [])
+        this.listMySales(profile.id).catch(() => []),
+        this.listCheckinQuestions().catch(() => []),
+        this.listCheckinAnswers(_ciSince).catch(() => [])
       ]);
+      empty.checkinQuestions = ciQs;
+      empty.checkinAnswers = ciAs;
       empty.invites = invs;
       empty.programs = programs;
       empty.programTemplates = tpls;
@@ -2428,7 +2491,7 @@ const DB = {
       empty.mySales = sales;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -2437,8 +2500,12 @@ const DB = {
         this.listRestForAthlete(profile.id),
         this.listCheckins(profile.id),
         this.listMeetsForAthlete(profile.id),
-        this.listMyPurchases(profile.id).catch(() => [])
+        this.listMyPurchases(profile.id).catch(() => []),
+        profile.coach_id ? this.listCheckinQuestions().catch(() => []) : Promise.resolve([]),
+        profile.coach_id ? this.listCheckinAnswers(_ciSince).catch(() => []) : Promise.resolve([])
       ]);
+      empty.checkinQuestions = ciQs;
+      empty.checkinAnswers = ciAs;
       empty.myPurchases = purchases;
       empty.programs = progs;
       empty.workoutLogs = logs;

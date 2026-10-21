@@ -18,7 +18,9 @@ const defaultStore = () => ({
   goals: [],
   restDays: [],
   messages: [],
-  meets: []
+  meets: [],
+  checkinQuestions: [],
+  checkinAnswers: []
 });
 
 const Store = {
@@ -259,9 +261,22 @@ function _buildDemoData() {
     { id: 'demo-meet-2', athleteId: DA, name: 'Spring Classic', date: daysAgo(96), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.9, squat: 185, bench: 115, deadlift: 215, notes: '9/9 day. New total PR.', createdAt: daysAgo(96) + 'T18:00:00Z' }
   ];
 
+  // The coach's own check-in questions, answered every day but today (so Train asks).
+  const ciQs = SOLO ? [] : CHECKIN_STARTERS.map((q, i) => Object.assign({ id: 'demo-ciq-' + i, coachId: DC, athleteIds: null, position: i, active: true, createdAt: daysAgo(30) + 'T12:00:00Z' }, q, { choices: q.choices || null }));
+  const ciAs = [];
+  if (!SOLO) {
+    for (let d = 1; d <= 9; d++) {
+      ciAs.push({ id: 'demo-cia-s' + d, questionId: 'demo-ciq-0', athleteId: DA, coachId: DC, period: daysAgo(d), num: [7.5, 8, 6.5, 7, 8, 7.5, 6, 7, 8][d - 1], text: null });
+      ciAs.push({ id: 'demo-cia-r' + d, questionId: 'demo-ciq-1', athleteId: DA, coachId: DC, period: daysAgo(d), num: [4, 3, 6, 5, 3, 4, 6, 5, 3][d - 1], text: null });
+      ciAs.push({ id: 'demo-cia-p' + d, questionId: 'demo-ciq-2', athleteId: DA, coachId: DC, period: daysAgo(d), num: d === 3 ? 1 : 0, text: null });
+    }
+    ciAs.push({ id: 'demo-cia-n1', questionId: 'demo-ciq-3', athleteId: DA, coachId: DC, period: _monISO(daysAgo(7)), num: null, text: 'Mostly' });
+  }
+
   return {
     user: user,
     store: {
+      checkinQuestions: ciQs, checkinAnswers: ciAs,
       coaches, athletes: [], invites: [], programs, programTemplates: [],
       workoutLogs, bodyweight, restDays, meets,
       sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
@@ -290,7 +305,7 @@ function _buildCoachDemoData() {
   // so the empty screens can be seen and judged without signing up.
   if (/[?&]fresh=1/.test(location.search)) {
     Object.assign(user, { name: 'Alex Morgan', bio: '', subscriptionTier: 'free', subscriptionStatus: 'inactive', subscriptionPeriodEnd: null, billingProvider: null });
-    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [] } };
+    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [] } };
   }
 
   // Roster engineered to show every flag state
@@ -426,9 +441,24 @@ function _buildCoachDemoData() {
   // the "Recent sales" list shows the latest activity at the top.
   mySales.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
+  // Check-in questions with ten days of answers: Arjun sleeps and recovers well, Sarah is
+  // middling, Tom has gone quiet and his last answers were rough (pain on two days).
+  const ciQs = CHECKIN_STARTERS.map((q, i) => Object.assign({ id: 'demo-ciq-' + i, coachId: DC, athleteIds: null, position: i, active: true, createdAt: daysAgo(30) + 'T12:00:00Z' }, q, { choices: q.choices || null }));
+  const ciAs = [];
+  const ans = (qi, a, d, num, text) => ciAs.push({ id: 'demo-cia-' + ciAs.length, questionId: 'demo-ciq-' + qi, athleteId: a, coachId: DC,
+    period: qi === 3 ? _monISO(daysAgo(d)) : daysAgo(d), num: num == null ? null : num, text: text || null });
+  for (let d = 0; d < 10; d++) {
+    ans(0, 'demo-a1', d, [8, 7.5, 8, 7, 8.5, 8, 7, 8, 7.5, 8][d]); ans(1, 'demo-a1', d, [3, 4, 3, 5, 4, 3, 4, 3, 4, 3][d]); ans(2, 'demo-a1', d, 0);
+    if (d >= 1) { ans(0, 'demo-a2', d, [7, 6.5, 7, 6, 7.5, 6, 7, 6.5, 7][d - 1]); ans(1, 'demo-a2', d, [5, 6, 5, 6, 4, 6, 5, 6, 5][d - 1]); ans(2, 'demo-a2', d, 0); }
+    if (d >= 9) { ans(0, 'demo-a3', d, 5); ans(1, 'demo-a3', d, 8); ans(2, 'demo-a3', d, 1); }
+  }
+  [11, 12, 13].forEach((d, i) => { ans(0, 'demo-a3', d, [5.5, 6, 5][i]); ans(1, 'demo-a3', d, [7, 8, 7][i]); ans(2, 'demo-a3', d, i === 1 ? 1 : 0); });
+  ans(3, 'demo-a1', 0, null, 'On point'); ans(3, 'demo-a1', 7, null, 'On point'); ans(3, 'demo-a2', 0, null, 'Mostly'); ans(3, 'demo-a3', 14, null, 'Off');
+
   return {
     user: user,
     store: {
+      checkinQuestions: ciQs, checkinAnswers: ciAs,
       coaches: [], athletes, invites, programs, programTemplates,
       workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages, meets: [],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
@@ -4697,6 +4727,81 @@ function bwMilestoneLadder(bestKgByLift, bodyweightKg, sex) {
 // whole week short does. A week in progress never breaks it (it only adds once
 // it's hit). Dates are YYYY-MM-DD session days. Pure: unit-tested.
 // =========================================================
+// ===== CUSTOM CHECK-INS (2026-10-22) =====
+// A coach's own questions (Store.checkinQuestions), answered daily or weekly (Store.checkinAnswers:
+// { questionId, athleteId, coachId, period, num, text }). The period is the day for a daily
+// question and the Monday for a weekly one. Pure: unit-tested in tests.html.
+const CHECKIN_KINDS = { scale: '1 to 10', yesno: 'Yes or no', choice: 'Pick one', number: 'A number', text: 'Written answer' };
+// The starter set a coach can add in one tap.
+const CHECKIN_STARTERS = [
+  { prompt: 'How many hours did you sleep?', kind: 'number', cadence: 'daily' },
+  { prompt: 'How sore are you?', kind: 'scale', cadence: 'daily' },
+  { prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily' },
+  { prompt: 'How was your nutrition this week?', kind: 'choice', choices: ['On point', 'Mostly', 'Off'], cadence: 'weekly' }
+];
+function checkinPeriod(cadence, todayIso) {
+  const t = todayIso || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+  return cadence === 'daily' ? t : _monISO(t);
+}
+function checkinQuestionsFor(questions, athleteId) {
+  return (questions || []).filter(q => q.active !== false && (!q.athleteIds || !q.athleteIds.length || q.athleteIds.includes(athleteId)))
+    .slice().sort((a, b) => (a.position || 0) - (b.position || 0) || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+}
+// What this athlete still owes: today's daily questions, this week's weekly ones.
+function dueCheckinQuestions(questions, answers, athleteId, todayIso) {
+  return checkinQuestionsFor(questions, athleteId).filter(q => {
+    const p = checkinPeriod(q.cadence, todayIso);
+    return !(answers || []).some(a => a.questionId === q.id && a.athleteId === athleteId && a.period === p);
+  });
+}
+function checkinAnswerText(q, a) {
+  if (!a) return '';
+  if (q.kind === 'yesno') return a.num >= 1 ? 'Yes' : 'No';
+  if (q.kind === 'scale') return a.num != null ? _num(a.num) + '/10' : '';
+  if (q.kind === 'number') return a.num != null ? String(_num(a.num)) : '';
+  return a.text || '';
+}
+// One question for one athlete: the latest answer, the average over the last 7 and 28 days
+// (1 to 10 and numbers) or how many "yes" in the last 28 days.
+function checkinSummary(q, answers, athleteId, todayIso) {
+  const t = todayIso || todayISO();
+  const mine = (answers || []).filter(a => a.questionId === q.id && a.athleteId === athleteId)
+    .sort((a, b) => String(b.period).localeCompare(String(a.period)));
+  const since = (n) => _addDaysISO(t, -n);
+  const avg = (arr) => { const v = arr.map(a => a.num).filter(x => x != null && isFinite(x)); return v.length ? Math.round(v.reduce((s, x) => s + Number(x), 0) / v.length * 10) / 10 : null; };
+  const out = { count: mine.length, last: mine[0] || null };
+  if (q.kind === 'scale' || q.kind === 'number') {
+    out.avg7 = avg(mine.filter(a => a.period > since(7)));
+    out.avg28 = avg(mine.filter(a => a.period > since(28)));
+  }
+  if (q.kind === 'yesno') {
+    const r = mine.filter(a => a.period > since(28) && a.num != null);
+    out.yes = r.filter(a => a.num >= 1).length; out.answered = r.length;
+  }
+  return out;
+}
+// The line a coach reads under a question: "Today 7/10 · 7-day average 6.2", "Yes on 2 of 9 days".
+// "8/10 today · 7-day average 6.2", "5 on Oct 12 · 4-week average 5.4", "Yes on Oct 12 · yes on
+// 2 of the last 4 days", "Off, week of Oct 5".
+function checkinSummaryText(q, s, todayIso) {
+  if (!s || !s.last) return 'No answers yet';
+  const t = todayIso || todayISO();
+  const date = typeof fmtDateShort === 'function' ? fmtDateShort(s.last.period) : s.last.period;
+  const now = s.last.period === checkinPeriod(q.cadence, t);
+  let ans = checkinAnswerText(q, s.last);
+  if (q.kind === 'text' && ans.length > 60) ans = '"' + ans.slice(0, 57) + '…"';
+  else if (q.kind === 'text') ans = '"' + ans + '"';
+  const first = q.cadence === 'weekly' ? ans + (now ? ' this week' : ', week of ' + date) : ans + (now ? ' today' : ' on ' + date);
+  const parts = [first];
+  const unit = q.kind === 'scale' ? '/10' : '';
+  if (q.kind === 'scale' || q.kind === 'number') {
+    if (q.cadence === 'daily' && s.avg7 != null && s.count > 1) parts.push('7-day average ' + _num(s.avg7) + unit);
+    else if (s.avg28 != null && s.count > 1) parts.push('4-week average ' + _num(s.avg28) + unit);
+  }
+  if (q.kind === 'yesno' && s.answered > 1) parts.push('yes on ' + s.yes + ' of the last ' + s.answered + (q.cadence === 'daily' ? ' days' : ' weeks'));
+  return parts.join(' · ');
+}
+
 function _monISO(iso) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }
 function _addDaysISO(iso, n) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function weeklyGoalStatus(dates, goal, today) {
@@ -5797,16 +5902,103 @@ function ensureExerciseShape(ex) {
 //   Back-downs: 4 sets × 5 @ 90kg (no RPE — fatigue-driven)
 // We render this as 2 blocks, not 5 separate rows.
 // =========================================================
+// ===== PRESCRIPTIONS (2026-10-22): RPE ranges, RIR, % of max =====
+// A planned set may carry, next to weight / reps / rpe:
+//   rpeHi  the top of an RPE range ("RPE 7-8"); rpe is the bottom
+//   rir    true when the coach wrote reps in reserve. rpe / rpeHi hold the RPE it equals
+//          (2 RIR = RPE 8), so everything built on RPE keeps working
+//   pct    % of the lifter's estimated max (competition lift). weight holds the load it came to
+//          for that lifter, or 0 while there's no max to work from
+// All optional: a set without them reads exactly as before.
+function _num(v) { return Math.round(Number(v) * 100) / 100; }
+// What a coach types in the builder's effort box: "8", "7.5", "7-8" as RPE, or "2", "1-2" as RIR.
+// Returns { rpe, rpeHi } (RPE equivalents), { rpe: null, rpeHi: null } for an empty box, or null
+// when it doesn't read.
+function parseEffortInput(text, rirMode) {
+  const t = String(text == null ? '' : text).trim().replace(',', '.');
+  if (!t) return { rpe: null, rpeHi: null };
+  const m = t.match(/^(\d{1,2}(?:\.5)?)(?:\s*(?:-|–|to)\s*(\d{1,2}(?:\.5)?))?$/i);
+  if (!m) return null;
+  const a = +m[1], b = m[2] != null ? +m[2] : null;
+  const lo = b != null ? Math.min(a, b) : a, hi = b != null ? Math.max(a, b) : a;
+  if (rirMode) {
+    if (hi > 5) return null;
+    return { rpe: 10 - hi, rpeHi: hi > lo ? 10 - lo : null };
+  }
+  if (lo < 5 || hi > 10) return null;
+  return { rpe: lo, rpeHi: hi > lo ? hi : null };
+}
+// The box's text for a set: "7-8" as RPE, "1-2" as RIR (ASCII hyphen, it's typed back in).
+function effortInputText(s, rirMode) {
+  if (!s || s.rpe == null || s.rpe === '') return '';
+  const lo = Number(s.rpe), hi = (s.rpeHi != null && Number(s.rpeHi) > lo) ? Number(s.rpeHi) : null;
+  if (rirMode) return hi != null ? _num(10 - hi) + '-' + _num(10 - lo) : String(_num(10 - lo));
+  return hi != null ? _num(lo) + '-' + _num(hi) : String(_num(lo));
+}
+// The prescription fields a copy of a set must carry (only the ones it has).
+function rxOf(s) {
+  const o = {};
+  if (s && s.rpeHi != null && s.rpeHi !== '') o.rpeHi = Number(s.rpeHi);
+  if (s && s.rir) o.rir = true;
+  if (s && s.pct != null && s.pct !== '') o.pct = Number(s.pct);
+  return o;
+}
+function setEffortText(s) {
+  if (!s || s.rpe == null || s.rpe === '') return '';
+  const lo = Number(s.rpe), hi = (s.rpeHi != null && Number(s.rpeHi) > lo) ? Number(s.rpeHi) : null;
+  if (s.rir) {
+    const a = 10 - (hi != null ? hi : lo), b = 10 - lo;
+    return (hi != null ? _num(a) + '–' + _num(b) : _num(b)) + ' RIR';
+  }
+  return 'RPE ' + _num(lo) + (hi != null ? '–' + _num(hi) : '');
+}
+// The load as the coach wrote it: "75%" (with what it comes to, when known) or the weight.
+function setLoadText(s, opts) {
+  if (!s) return '';
+  const w = Number(s.weight) > 0 ? formatWeight(s.weight) : '';
+  if (s.pct != null && s.pct !== '') return _num(s.pct) + '%' + (w && !(opts && opts.pctOnly) ? ' · ' + w : '');
+  return w;
+}
+// pct of a max, rounded to what the lifter can load: 2.5 kg, or 5 lb for lb users.
+function pctLoadKg(pct, maxKg, unit) {
+  const p = Number(pct), m = Number(maxKg);
+  if (!(p > 0) || !(m > 0)) return 0;
+  const raw = m * p / 100;
+  const u = unit || (typeof getUnit === 'function' ? getUnit() : 'kg');
+  // The lifter's own jump (twice their smallest plate), the same rounding as every suggested load.
+  const step = typeof loadStepKg === 'function' ? loadStepKg(u) : (u === 'lbs' ? 5 * KG_PER_LB : 2.5);
+  return Math.round(Math.round(raw / step) * step * 100) / 100;
+}
+// Work every % set in a block out for one lifter, from their best estimated max per lift.
+// Accessories have no max here: their % stays as written, the weight as it was.
+// Returns how many sets got a load and the lifts that had no max yet.
+function applyPctLoads(weeks, athleteId, unit) {
+  const out = { filled: 0, noMax: [] };
+  const maxOf = {};
+  (weeks || []).forEach(wk => (wk.days || []).forEach(d => (d.exercises || []).forEach(ex => {
+    if (!['squat', 'bench', 'deadlift'].includes(ex.lift)) return;
+    (ex.sets || []).forEach(s => {
+      if (s.pct == null || s.pct === '' || s.completed) return;
+      if (!(ex.lift in maxOf)) maxOf[ex.lift] = typeof bestE1RM === 'function' ? bestE1RM(athleteId, ex.lift) : 0;
+      const kg = pctLoadKg(s.pct, maxOf[ex.lift], unit);
+      if (kg > 0) { s.weight = kg; out.filled++; }
+      else if (!out.noMax.includes(ex.lift)) out.noMax.push(ex.lift);
+    });
+  })));
+  return out;
+}
+
 function groupSets(sets) {
   if (!sets || !sets.length) return [];
   const groups = [];
   let cur = null;
   sets.forEach((s, idx) => {
-    const sig = [s.weight, s.reps, (s.rpe == null ? '_' : s.rpe), s.tempo || ''].join('|');
+    const sig = [s.weight, s.reps, (s.rpe == null ? '_' : s.rpe), s.tempo || '', s.rpeHi == null ? '_' : s.rpeHi, s.rir ? 'r' : '', s.pct == null ? '_' : s.pct].join('|');
     if (cur && cur.sig === sig) {
       cur.count++;
     } else {
-      cur = { startIdx: idx, count: 1, weight: s.weight, reps: s.reps, rpe: s.rpe, tempo: s.tempo || '', sig };
+      cur = { startIdx: idx, count: 1, weight: s.weight, reps: s.reps, rpe: s.rpe, tempo: s.tempo || '',
+        rpeHi: s.rpeHi == null ? null : s.rpeHi, rir: !!s.rir, pct: s.pct == null ? null : s.pct, sig };
       groups.push(cur);
     }
   });
@@ -5839,9 +6031,12 @@ function _pbChips(ex) {
   if (!blocks.length) { wrap.appendChild(el('span', { class: 'pb-chip is-empty' }, 'No sets yet')); return wrap; }
   blocks.forEach(b => {
     const c = el('span', { class: 'pb-chip' });
+    // "3 × 5 · 75% · 150 kg · RPE 7–8", "3 × 8 · 2 RIR": % and ranges as the coach wrote them.
+    const load = b.pct != null ? escHtml(_num(b.pct) + '%') + (b.weight ? ' · ' + kgToDisplay(b.weight) + ' ' + unitLabel() : '')
+      : (b.weight ? kgToDisplay(b.weight) + ' ' + unitLabel() : '');
     c.innerHTML = '<b>' + b.count + ' × ' + escHtml(String(b.reps)) + '</b>' +
-      (b.weight ? '<i>' + kgToDisplay(b.weight) + ' ' + unitLabel() + '</i>' : '') +
-      (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">RPE ' + escHtml(String(b.rpe)) + '</em>' : '');
+      (load ? '<i>' + load + '</i>' : '') +
+      (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">' + escHtml(setEffortText(b)) + '</em>' : '');
     wrap.appendChild(c);
   });
   return wrap;
@@ -5871,7 +6066,7 @@ function duplicateDay(programId, weekIdx, dayIdx) {
     const clone = { id: uid('day'), name: (d.name || 'Day') + ' (copy)', exercises: (d.exercises || []).map(ex => ({
       id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '',
       sets: (ex.sets || []).map(set => ({ id: uid('set'), weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '',
-        completed: false, actualRpe: null, completedAt: null, note: '' }))
+        completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set) }))
     })) };
     p.weeks[weekIdx].days.splice(dayIdx + 1, 0, clone);
   });
@@ -5901,8 +6096,8 @@ function copyExercise(programId, weekIdx, dayIdx, exIdx) {
       lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
       sets: ex.sets.map(set => ({
         id: uid('set'),
-        weight: planWeight(set), reps: set.reps, rpe: set.rpe,
-        completed: false, actualRpe: null, completedAt: null, note: ''
+        weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '',
+        completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set)
       }))
     };
     p.weeks[weekIdx].days[dayIdx].exercises.splice(exIdx + 1, 0, cloned);
@@ -5924,8 +6119,8 @@ function duplicateWeek(programId, weekIdx) {
           lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
           sets: ex.sets.map(set => ({
             id: uid('set'),
-            weight: planWeight(set), reps: set.reps, rpe: set.rpe,
-            completed: false, actualRpe: null, completedAt: null, note: ''
+            weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '',
+            completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set)
           }))
         }))
       }))
@@ -5952,7 +6147,7 @@ function saveProgramAsTemplate(programId, name) {
             name: d.name,
             exercises: d.exercises.map(ex => ({
               lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-              sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe }))
+              sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '', ...rxOf(set) }))
             }))
           }))
         }))
@@ -10256,22 +10451,39 @@ function matchExercise(name) {
   if (/press|dip|tricep|push|raise|fly|flye|pec/.test(s)) return { lift: 'push', variant: '', exerciseName: n };
   return { lift: 'other', variant: '', exerciseName: n };
 }
-// "3x5 @8", "5 x 3 @ RPE 7.5", "1x2 82.5kg", "4x8 70%", "3 sets of 10".
+// "3x5 @8", "5 x 3 @ RPE 7.5", "1x2 82.5kg", "4x8 70%", "3 sets of 10", "3x5 @7-8", "3x8 2 RIR",
+// "3x5 RIR 1-2". RIR comes back as the RPE it equals (rpe / rpeHi) with rir: true.
 function parsePrescription(str, unit) {
   const s = String(str || '');
-  let m, sets = null, reps = null, rpe = null, kg = null, pct = null;
+  let m, sets = null, reps = null, rpe = null, rpeHi = null, rir = false, kg = null, pct = null;
+  const okRpe = (v) => v >= 5 && v <= 10;
   if ((m = s.match(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i))) { sets = +m[1]; reps = +m[2]; }
-  if ((m = s.match(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)(\d{1,2}(?:\.5)?)(?!\d|\.\d|\s*(?:kg|lb|%))/i))) { const v = +m[1]; if (v >= 5 && v <= 10) rpe = v; }
-  if ((m = s.match(/\brir\s*(\d)/i)) && rpe == null) rpe = 10 - +m[1];
+  // RIR first ("2 RIR", "RIR 1-2", "@2RIR"): its digits must not read as an RPE.
+  if ((m = s.match(/\brir\s*@?\s*(\d(?:\.5)?)(?:\s*(?:-|–|to)\s*(\d(?:\.5)?))?/i)) || (m = s.match(/@?\s*(\d(?:\.5)?)(?:\s*(?:-|–|to)\s*(\d(?:\.5)?))?\s*rir\b/i))) {
+    const a = +m[1], b = m[2] != null ? +m[2] : null;
+    if (a <= 5 && (b == null || b <= 5)) {
+      rir = true;
+      const lo = b != null ? Math.min(a, b) : a, hi = b != null ? Math.max(a, b) : a;
+      rpe = 10 - hi; rpeHi = hi > lo ? 10 - lo : null;
+    }
+  }
+  if (!rir && (m = s.match(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)(\d{1,2}(?:\.5)?)\s*(?:-|–|to)\s*(\d{1,2}(?:\.5)?)(?!\d|\.\d|\s*(?:kg|lb|%))/i))) {
+    const a = +m[1], b = +m[2];
+    if (okRpe(a) && okRpe(b) && b !== a) { rpe = Math.min(a, b); rpeHi = Math.max(a, b); }
+  }
+  if (!rir && rpe == null && (m = s.match(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)(\d{1,2}(?:\.5)?)(?!\d|\.\d|\s*(?:kg|lb|%|rir)|\s*(?:-|–)\s*\d)/i))) { const v = +m[1]; if (okRpe(v)) rpe = v; }
   if ((m = s.match(/(\d+(?:\.\d+)?)\s*(kgs?|lbs?)\b/i))) kg = /lb/i.test(m[2]) ? +m[1] * KG_PER_LB : +m[1];
   if ((m = s.match(/(\d{2,3}(?:\.\d+)?)\s*%/))) pct = +m[1];
   if (kg == null && sets != null) {
     // A bare load after the scheme ("Squat 3x5 180") is in the coach's unit.
-    const rest = s.replace(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i, ' ').replace(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)\d{1,2}(?:\.5)?/i, ' ').replace(/\d{2,3}(?:\.\d+)?\s*%/, ' ');
+    const rest = s.replace(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i, ' ')
+      .replace(/(?:@\s*rpe\s*|\brpe\s*@?\s*|@\s*)\d{1,2}(?:\.5)?(?:\s*(?:-|–|to)\s*\d{1,2}(?:\.5)?)?/i, ' ')
+      .replace(/\brir\s*@?\s*\d(?:\.5)?(?:\s*(?:-|–|to)\s*\d(?:\.5)?)?|\d(?:\.5)?(?:\s*(?:-|–|to)\s*\d(?:\.5)?)?\s*rir\b/i, ' ')
+      .replace(/\d{2,3}(?:\.\d+)?\s*%/, ' ');
     const b = rest.match(/(?:^|\s)(\d{2,3}(?:\.\d+)?)(?=\s|$)/);
     if (b && +b[1] >= 20) kg = unit === 'lbs' ? +b[1] * KG_PER_LB : +b[1];
   }
-  return { sets, reps, rpe, kg, pct };
+  return { sets, reps, rpe, rpeHi, rir, kg, pct };
 }
 function parseProgramSheet(text, opts) {
   opts = opts || {};
@@ -10307,11 +10519,14 @@ function parseProgramSheet(text, opts) {
       lastEx = target;
     }
     const n = Math.max(1, Math.min(20, p.sets || 1));
-    for (let i = 0; i < n; i++) target.sets.push(newSet(p.kg ? Math.round(p.kg * 100) / 100 : 0, p.reps || 0, p.rpe));
-    const bits = [];
-    if (p.pct) bits.push(p.pct + '%');
-    if (note) bits.push(note);
-    if (bits.length) target.note = (target.note ? target.note + ' · ' : '') + bits.join(' · ');
+    for (let i = 0; i < n; i++) {
+      const st = newSet(p.kg ? Math.round(p.kg * 100) / 100 : 0, p.reps || 0, p.rpe);
+      if (p.rpeHi != null) st.rpeHi = p.rpeHi;
+      if (p.rir) st.rir = true;
+      if (p.pct) st.pct = p.pct;
+      target.sets.push(st);
+    }
+    if (note) target.note = (target.note ? target.note + ' · ' : '') + note;
   };
 
   const delim = lines.some(l => l.includes('\t')) ? '\t' : (lines.some(l => l.includes(',')) ? ',' : null);
@@ -10342,11 +10557,15 @@ function parseProgramSheet(text, opts) {
       const p = {
         sets: parseInt(get('sets'), 10) || scheme.sets || 1,
         reps: parseInt(get('reps'), 10) || scheme.reps || 0,
-        rpe: scheme.rpe,
+        rpe: scheme.rpe, rpeHi: scheme.rpeHi, rir: scheme.rir,
         kg: scheme.kg,
         pct: (get('pct') ? parseFloat(get('pct')) : null) || scheme.pct
       };
-      if (header.rir) { const r = parseFloat(get('rpe')); p.rpe = !isNaN(r) && r >= 0 && r <= 5 ? 10 - r : null; }
+      if (header.rir) {
+        // An RIR column: "2" or "1-2".
+        const r = parsePrescription('rir ' + get('rpe'), unit);
+        p.rpe = r.rir ? r.rpe : null; p.rpeHi = r.rir ? r.rpeHi : null; p.rir = !!r.rir;
+      }
       if (p.kg == null && get('load') && /^\d+(\.\d+)?$/.test(get('load'))) p.kg = unit === 'lbs' ? +get('load') * KG_PER_LB : +get('load');
       if (!p.reps) { warnings.push(line.trim()); return; }
       addSets(name, p, get('note'));

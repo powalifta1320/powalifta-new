@@ -775,11 +775,57 @@ test('program from a spreadsheet: written blocks, percentages and junk lines', (
   eq(d.exercises.map(e => e.lift + (e.variant ? ':' + e.variant : '')).join(' '), 'squat:Competition bench:Close Grip pull');
   eq(d.exercises[0].sets.length, 4); eq(d.exercises[0].sets[3].weight, 160); eq(d.exercises[0].sets[3].rpe, 7);
   eq(r.weeks[1].days[0].name, 'Monday');
-  eq(r.weeks[1].days[0].exercises[1].lift, 'legs'); eq(r.weeks[1].days[0].exercises[1].note, '70%');
+  eq(r.weeks[1].days[0].exercises[1].lift, 'legs'); eq(r.weeks[1].days[0].exercises[1].sets[0].pct, 70); eq(r.weeks[1].days[0].exercises[1].note, '');
   eq(r.warnings.join('|'), 'random text here');
   eq(parsePrescription('@ 180kg', 'kg').rpe, null);
   eq(Math.round(parsePrescription('3x5 225lb', 'kg').kg * 10) / 10, 102.1);
   eq(matchExercise('RDL').variant, 'RDL'); eq(matchExercise('Front squat').lift, 'legs');
+});
+test('prescriptions: RPE ranges, RIR and % of max', () => {
+  const p = (s) => parsePrescription(s, 'kg');
+  eq(p('3x5 @7-8').rpe, 7); eq(p('3x5 @7-8').rpeHi, 8); eq(p('3x5 RPE 7–8').rpeHi, 8); eq(p('3x5 @ 7 to 8').rpeHi, 8);
+  eq(p('3x8 2 RIR').rir, true); eq(p('3x8 2 RIR').rpe, 8); eq(p('3x8 2 RIR').rpeHi, null);
+  eq(p('3x5 RIR 1-2').rpe, 8); eq(p('3x5 RIR 1-2').rpeHi, 9); eq(p('5x5 @2RIR').rpe, 8);
+  eq(p('1x3 @8 - top single').rpe, 8); eq(p('1x3 @8 - top single').rpeHi, null);   // a dash before words is not a range
+  eq(p('3x5 75% @7').pct, 75); eq(p('3x5 75% @7').rpe, 7); eq(p('@ 180kg').rpe, null);
+  eq(setEffortText({ rpe: 7, rpeHi: 8 }), 'RPE 7–8'); eq(setEffortText({ rpe: 8, rpeHi: 9, rir: true }), '1–2 RIR');
+  eq(setEffortText({ rpe: 8, rir: true }), '2 RIR'); eq(setEffortText({ rpe: 7.5 }), 'RPE 7.5'); eq(setEffortText({ rpe: null }), '');
+  eq(pctLoadKg(75, 200, 'kg'), 150); eq(pctLoadKg(72, 200, 'kg'), 145); eq(pctLoadKg(75, 0, 'kg'), 0);
+  eq(Math.round(pctLoadKg(75, 200, 'lbs') / KG_PER_LB), 330);                      // whole 5 lb steps for lb users
+  const tsv = ['Week\tDay\tExercise\tSets\tReps\t%\tRIR', '1\tDay 1\tSquat\t3\t5\t75\t1-2', '1\tDay 1\tBench\t3\t8\t\t2'].join('\n');
+  const r = parseProgramSheet(tsv, { unit: 'kg' });
+  const sq = r.weeks[0].days[0].exercises[0].sets[0], be = r.weeks[0].days[0].exercises[1].sets[0];
+  eq(sq.pct, 75); eq(sq.rir, true); eq(sq.rpe, 8); eq(sq.rpeHi, 9); eq(be.rpe, 8); eq(be.rir, true); eq(be.pct, undefined);
+  eq(groupSets([sq, Object.assign({}, sq), Object.assign({}, sq, { rpeHi: null })]).length, 2);   // a different range is its own block
+});
+test('custom check-ins: what is due, averages and the coach line', () => {
+  const qs = [
+    { id: 'q1', coachId: 'c', prompt: 'Sleep (hours)', kind: 'number', cadence: 'daily', athleteIds: null, position: 0 },
+    { id: 'q2', coachId: 'c', prompt: 'Any pain?', kind: 'yesno', cadence: 'daily', athleteIds: null, position: 1 },
+    { id: 'q3', coachId: 'c', prompt: 'Nutrition', kind: 'choice', choices: ['On point', 'Off'], cadence: 'weekly', athleteIds: ['b'], position: 2 },
+    { id: 'q4', coachId: 'c', prompt: 'Paused', kind: 'scale', cadence: 'daily', athleteIds: null, active: false, position: 3 }
+  ];
+  const t = '2026-10-21';   // a Wednesday; its Monday is 2026-10-19
+  eq(checkinPeriod('daily', t), '2026-10-21'); eq(checkinPeriod('weekly', t), '2026-10-19');
+  eq(checkinQuestionsFor(qs, 'a').map(q => q.id).join(), 'q1,q2');           // not q3 (just for b), not paused q4
+  eq(checkinQuestionsFor(qs, 'b').map(q => q.id).join(), 'q1,q2,q3');
+  const ans = [
+    { questionId: 'q1', athleteId: 'a', period: '2026-10-21', num: 7 }, { questionId: 'q1', athleteId: 'a', period: '2026-10-20', num: 6 },
+    { questionId: 'q1', athleteId: 'a', period: '2026-10-10', num: 5 },
+    { questionId: 'q2', athleteId: 'a', period: '2026-10-20', num: 1 }, { questionId: 'q2', athleteId: 'a', period: '2026-10-19', num: 0 },
+    { questionId: 'q3', athleteId: 'b', period: '2026-10-12', text: 'Off' }
+  ];
+  eq(dueCheckinQuestions(qs, ans, 'a', t).map(q => q.id).join(), 'q2');         // sleep answered today, pain not yet
+  eq(dueCheckinQuestions(qs, ans, 'b', t).map(q => q.id).join(), 'q1,q2,q3');   // last week's choice doesn't count
+  const s1 = checkinSummary(qs[0], ans, 'a', t);
+  eq(s1.count, 3); eq(s1.avg7, 6.5); eq(s1.avg28, 6);
+  eq(checkinSummaryText(qs[0], s1, t), '7 today · 7-day average 6.5');
+  const s2 = checkinSummary(qs[1], ans, 'a', t);
+  eq(s2.yes, 1); eq(s2.answered, 2);
+  eq(checkinAnswerText(qs[1], s2.last), 'Yes');
+  eq(/yes on 1 of the last 2 days$/.test(checkinSummaryText(qs[1], s2, t)), true);
+  eq(checkinSummaryText(qs[2], checkinSummary(qs[2], ans, 'b', t), t).indexOf('Off, week of'), 0);
+  eq(checkinSummaryText(qs[0], checkinSummary(qs[0], [], 'a', t), t), 'No answers yet');
 });
 test('weekly club challenge: rotates by week, ranks with ties, ignores last week', () => {
   const wk = '2026-10-12';

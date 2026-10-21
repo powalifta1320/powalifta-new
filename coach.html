@@ -487,6 +487,7 @@ function renderCoachYou() {
       { title: 'Coaching', rows: [
         !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
         { label: 'Athlete progress', onClick: go('progress') },
+        { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
         { label: 'Invite an athlete', onClick: () => openInviteModal() }
@@ -525,7 +526,9 @@ window.__applyGeneratedProgram = function (generated, athleteId) {
   Store.update(s => {
     s.programs = s.programs.filter(p => p.athleteId !== aid).concat([prog]);
   });
-  if (!window._demoMode) persistProgram(prog);
+  // By id: persistProgram looks the program up by id, and handing it the object saved nothing,
+  // so a block built from a goal vanished on the next reload unless something else was edited.
+  if (!window._demoMode) persistProgram(prog.id);
   activeWeekIdx = 0;
   loadProgram();
   return true;
@@ -835,6 +838,146 @@ function buildRosterFaces(overview, items) {
 }
 // The quick look: who they are, where their lifts sit, how the last two weeks
 // went, and the three things a coach does next.
+// ===== CHECK-IN QUESTIONS (coach) =====
+// The coach's own questions, asked every day or every week, to everyone or to chosen athletes.
+function _myCheckinQs() { return (Store.get().checkinQuestions || []).filter(q => q.coachId === user.id); }
+function _ciWho(q) {
+  if (!q.athleteIds || !q.athleteIds.length) return 'Everyone';
+  const names = q.athleteIds.map(id => (Store.get().athletes.find(x => x.id === id) || {}).name).filter(Boolean).map(n => n.split(' ')[0]);
+  return names.length <= 2 ? names.join(' and ') : names.length + ' athletes';
+}
+async function _saveCheckinQ(q) {
+  if (window._demoMode) {
+    Store.update(s => { s.checkinQuestions = (s.checkinQuestions || []).filter(x => x.id !== q.id).concat([q]); });
+    return true;
+  }
+  const r = await DB.saveCheckinQuestion(q);
+  if (!r.ok) { toast(r.notReady ? 'Check-in questions need a quick database update first' : 'Could not save that question. Try again'); return false; }
+  Store.update(s => { s.checkinQuestions = (s.checkinQuestions || []).filter(x => x.id !== q.id && x.id !== r.question.id).concat([r.question]); });
+  return true;
+}
+function openCheckinQuestionsSheet() {
+  uiSheet('Check-in questions', (sheet, close) => {
+    const draw = () => {
+      sheet.querySelectorAll('.ciq-body').forEach(n => n.remove());
+      const body = el('div', { class: 'ciq-body' });
+      const qs = _myCheckinQs().slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+      if (!qs.length) {
+        body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your own questions, answered in seconds on Train: sleep, soreness, pain, anything. Daily or weekly, for everyone or for chosen athletes. Answers show on each athlete\'s sheet with averages.'));
+        const starter = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Start with four good ones');
+        starter.addEventListener('click', async () => {
+          starter.disabled = true;
+          for (let i = 0; i < CHECKIN_STARTERS.length; i++) {
+            const st = CHECKIN_STARTERS[i];
+            const ok = await _saveCheckinQ({ id: 'tmp-' + uid('q'), coachId: user.id, prompt: st.prompt, kind: st.kind, choices: st.choices || null, cadence: st.cadence, athleteIds: null, position: i, active: true, createdAt: new Date().toISOString() });
+            if (!ok) break;
+          }
+          draw();
+          try { renderCoachYou(); } catch (e) {}
+        });
+        body.appendChild(starter);
+        sheet.querySelector('.ciq-foot') ? sheet.insertBefore(body, sheet.querySelector('.ciq-foot')) : sheet.appendChild(body);
+        return;
+      }
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your athletes answer these on Train. Tap one to change it.'));
+      body.appendChild(uiList(qs.map(q => uiRow({
+        title: q.prompt,
+        sub: [CHECKIN_KINDS[q.kind] + (q.kind === 'choice' && q.choices ? ': ' + q.choices.join(', ') : ''), q.cadence === 'daily' ? 'Every day' : 'Every week', _ciWho(q), q.active === false ? 'Paused' : ''].filter(Boolean).join(' · '),
+        chevron: true,
+        onClick: () => openCheckinQuestionEditor(q, draw)
+      }))));
+      sheet.querySelector('.ciq-foot') ? sheet.insertBefore(body, sheet.querySelector('.ciq-foot')) : sheet.appendChild(body);
+    };
+    draw();
+    const foot = el('div', { class: 'ciq-foot' });
+    const add = el('button', { class: 'btn btn-lg btn-block ui-btn-soft', type: 'button' }, 'Add a question');
+    add.addEventListener('click', () => openCheckinQuestionEditor(null, draw));
+    foot.appendChild(add);
+    sheet.appendChild(foot);
+  }, { cls: 'ciq-sheet' });
+}
+function openCheckinQuestionEditor(q, onDone) {
+  const isNew = !q;
+  const d = q ? Object.assign({}, q, { choices: q.choices ? q.choices.slice() : null, athleteIds: q.athleteIds ? q.athleteIds.slice() : null })
+    : { id: 'tmp-' + uid('q'), coachId: user.id, prompt: '', kind: 'scale', choices: null, cadence: 'daily', athleteIds: null, position: _myCheckinQs().length, active: true, createdAt: new Date().toISOString() };
+  uiSheet(isNew ? 'New question' : 'Edit question', (sheet, close) => {
+    const prompt = el('input', { type: 'text', class: 'ciq-input', maxlength: '140', placeholder: 'e.g. How did you sleep?', 'aria-label': 'Question', value: d.prompt });
+    sheet.appendChild(el('label', { class: 'ciq-field' }, el('span', {}, 'Question'), prompt));
+    const seg = (label, opts, cur, onPick) => {
+      const wrap = el('div', { class: 'ciq-field' }, el('span', {}, label));
+      const row = el('div', { class: 'ciq-seg' + (opts.length === 5 ? ' ciq-5' : ''), role: 'radiogroup', 'aria-label': label });
+      opts.forEach(([k, t]) => {
+        const b = el('button', { class: 'ciq-seg-btn' + (k === cur ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': k === cur ? 'true' : 'false' }, t);
+        b.addEventListener('click', () => { row.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); }); onPick(k); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      return wrap;
+    };
+    const choicesField = el('label', { class: 'ciq-field' }, el('span', {}, 'Choices, separated by commas'));
+    const choices = el('input', { type: 'text', class: 'ciq-input', maxlength: '200', placeholder: 'On point, Mostly, Off', 'aria-label': 'Choices', value: (d.choices || []).join(', ') });
+    choicesField.appendChild(choices);
+    const showChoices = () => { choicesField.style.display = d.kind === 'choice' ? '' : 'none'; };
+    sheet.appendChild(seg('Answer', [['scale', '1–10'], ['yesno', 'Yes/no'], ['choice', 'Choice'], ['number', 'Number'], ['text', 'Words']], d.kind, (k) => { d.kind = k; showChoices(); }));
+    sheet.appendChild(choicesField);
+    showChoices();
+    sheet.appendChild(seg('How often', [['daily', 'Every day'], ['weekly', 'Every week']], d.cadence, (k) => { d.cadence = k; }));
+    // Who answers: everyone (also athletes who join later) or the ones ticked.
+    const roster = Store.get().athletes.filter(x => x.coachId === user.id);
+    const who = el('div', { class: 'ciq-field' }, el('span', {}, 'Who answers'));
+    const picks = el('div', { class: 'ciq-who' });
+    const sel = new Set(d.athleteIds || []);
+    const allBtn = el('button', { class: 'ciq-chip' + (!sel.size ? ' on' : ''), type: 'button' }, 'Everyone');
+    const redrawWho = () => { allBtn.classList.toggle('on', !sel.size); picks.querySelectorAll('[data-id]').forEach(b => b.classList.toggle('on', sel.has(b.dataset.id))); };
+    allBtn.addEventListener('click', () => { sel.clear(); redrawWho(); });
+    picks.appendChild(allBtn);
+    roster.forEach(a => {
+      const b = el('button', { class: 'ciq-chip', type: 'button', 'data-id': a.id }, (a.name || 'Athlete').split(' ')[0]);
+      b.addEventListener('click', () => { sel.has(a.id) ? sel.delete(a.id) : sel.add(a.id); redrawWho(); });
+      picks.appendChild(b);
+    });
+    redrawWho();
+    who.appendChild(picks);
+    if (roster.length) sheet.appendChild(who);
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block ciq-save', type: 'button' }, isNew ? 'Add question' : 'Save');
+    save.addEventListener('click', async () => {
+      d.prompt = prompt.value.trim();
+      if (!d.prompt) { toast('Write the question'); prompt.focus(); return; }
+      const filtered = typeof checkUserText === 'function' ? checkUserText([d.prompt]) : [d.prompt];
+      if (!filtered) return;
+      d.prompt = filtered[0];
+      if (d.kind === 'choice') {
+        d.choices = choices.value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);
+        if (d.choices.length < 2) { toast('Give at least two choices'); choices.focus(); return; }
+      } else d.choices = null;
+      d.athleteIds = sel.size ? Array.from(sel) : null;
+      save.disabled = true;
+      const ok = await _saveCheckinQ(d);
+      save.disabled = false;
+      if (!ok) return;
+      close();
+      toast(isNew ? 'Question added' : 'Saved');
+      try { onDone && onDone(); renderCoachYou(); } catch (e) {}
+    });
+    sheet.appendChild(save);
+    if (!isNew) {
+      const row = el('div', { class: 'ciq-more' });
+      const pause = el('button', { class: 'ui-text-btn', type: 'button' }, d.active === false ? 'Ask it again' : 'Pause it');
+      pause.addEventListener('click', async () => { d.active = d.active === false; if (await _saveCheckinQ(d)) { close(); try { onDone && onDone(); renderCoachYou(); } catch (e) {} } });
+      const del = el('button', { class: 'ui-text-btn danger', type: 'button' }, 'Delete');
+      del.addEventListener('click', () => uiActionSheet('Delete this question and its answers?', [{ label: 'Delete', danger: true, onClick: async () => {
+        if (!window._demoMode) { const r = await DB.deleteCheckinQuestion(d.id); if (!r.ok) { toast('Could not delete. Try again'); return; } }
+        Store.update(s => { s.checkinQuestions = (s.checkinQuestions || []).filter(x => x.id !== d.id); s.checkinAnswers = (s.checkinAnswers || []).filter(x => x.questionId !== d.id); });
+        close(); toast('Question deleted');
+        try { onDone && onDone(); renderCoachYou(); } catch (e) {}
+      } }]));
+      row.appendChild(pause); row.appendChild(del);
+      sheet.appendChild(row);
+    }
+    if (isNew) setTimeout(() => { try { prompt.focus(); } catch (e) {} }, 350);
+  }, { cls: 'ciq-sheet ciq-edit' });
+}
+
 function openAthleteSheet(athleteId) {
   const o = getRosterOverview(user.id).find(x => x.athlete.id === athleteId);
   if (!o) return;
@@ -878,6 +1021,16 @@ function openAthleteSheet(athleteId) {
     two.appendChild(el('span', { class: 'aq-days-lbl' }, 'Last 14 days'));
     two.appendChild(dayStrip(a.id, 14, 'is-big'));
     sheet.appendChild(two);
+    // Their answers to your check-in questions: the latest, and the average or the yes count.
+    const ciQs = checkinQuestionsFor((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id), a.id);
+    if (ciQs.length) {
+      sheet.appendChild(uiLabel('Check-in'));
+      sheet.appendChild(uiList(ciQs.map(q => {
+        const s = checkinSummary(q, Store.get().checkinAnswers, a.id);
+        const low = s.last && ((q.kind === 'scale' && /sore|pain|stress|tired|fatigue/i.test(q.prompt) ? s.last.num >= 8 : q.kind === 'scale' && s.last.num <= 3) || (q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last.num >= 1));
+        return uiRow({ title: q.prompt, sub: checkinSummaryText(q, s), subTone: low ? 'alert' : null });
+      })));
+    }
     if (o.lastLog) {
       const day = (Store.get().workoutLogs || []).filter(l => l.athleteId === a.id && l.date === o.lastLog.date);
       const ton = day.reduce((x, l) => x + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0);
@@ -1849,9 +2002,36 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
       const blocks = groupSets(ex.sets);
       // Column labels once per exercise (the app hides the inline ones), so every
       // block row reads as a clean grid: Sets × Reps · Load · RPE.
-      const head = el('div', { class: 'uniform-head', 'aria-hidden': 'true' });
-      ['Sets', '', 'Reps', u, 'RPE'].forEach(t => head.appendChild(el('span', {}, t)));
+      // The load and effort headers are switches for the whole exercise: kg ↔ % of the lifter's
+      // estimated max (main lifts), RPE ↔ reps in reserve.
+      const head = el('div', { class: 'uniform-head' });
+      const aidHead = document.getElementById('progAthlete').value;
+      const exMain = MAIN_LIFTS.includes(ex.lift);
+      const exMax = exMain ? bestE1RM(aidHead, ex.lift) : 0;
+      // Logged sets keep what they were; the switches read and change the ones still to do.
+      const live = ex.sets.filter(s => !s.completed);
+      const allPct = live.length > 0 && live.every(s => s.pct != null);
+      const anyRir = live.some(s => s.rir);
+      head.appendChild(el('span', { 'aria-hidden': 'true' }, 'Sets'));
+      head.appendChild(el('span', { 'aria-hidden': 'true' }, ''));
+      head.appendChild(el('span', { 'aria-hidden': 'true' }, 'Reps'));
+      if (exMain && live.length) {
+        const lb = el('button', { class: 'uniform-toggle', type: 'button', title: allPct ? 'Write loads as a weight' : 'Write loads as % of their max' }, allPct ? '%' : u);
+        lb.addEventListener('click', () => setExerciseRx(activeWeekIdx, di, ei, s => {
+          if (allPct) { delete s.pct; return; }
+          const pct = s.pct != null ? s.pct : (exMax && s.weight ? Math.round(s.weight / exMax * 100) : 75);
+          s.pct = pct;
+          if (exMax) s.weight = pctLoadKg(pct, exMax);
+        }));
+        head.appendChild(lb);
+      } else head.appendChild(el('span', { 'aria-hidden': 'true' }, u));
+      if (live.length) {
+        const eb = el('button', { class: 'uniform-toggle', type: 'button', title: anyRir ? 'Write effort as RPE' : 'Write effort as reps in reserve' }, anyRir ? 'RIR' : 'RPE');
+        eb.addEventListener('click', () => setExerciseRx(activeWeekIdx, di, ei, s => { if (anyRir) delete s.rir; else s.rir = true; }));
+        head.appendChild(eb);
+      } else head.appendChild(el('span', { 'aria-hidden': 'true' }, 'RPE'));
       row.appendChild(head);
+      if (allPct && exMain && !exMax) row.appendChild(el('div', { class: 'uniform-note' }, 'No max yet: these loads fill in once they log a ' + LIFT_LABELS[ex.lift].toLowerCase() + ' set (⋯ → Update % loads).'));
       blocks.forEach((blk, bi) => {
         const tplRow = el('div', { class: 'uniform-row' });
 
@@ -1888,28 +2068,55 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         grpVolume.appendChild(repsWrap);
         grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
 
-        // Weight input
-        const wWrap = el('div', { class: 'uniform-cell' });
-        wWrap.appendChild(el('input', {
-          type: 'number', step: '0.5',
-          value: blk.weight ? kgToDisplay(blk.weight) : '',
-          placeholder: u,
-          oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', e.target.value === '' ? 0 : displayToKg(Number(e.target.value)))
-        }));
-        wWrap.appendChild(el('span', { class: 'uniform-lbl' }, u));
+        // Load: a weight, or (tap the unit) a % of the lifter's estimated max, worked out to a
+        // load from their best e1RM and kept as the coach wrote it ("75%").
+        const aidNow = document.getElementById('progAthlete').value;
+        const isPct = blk.pct != null;
+        const mainLift = MAIN_LIFTS.includes(ex.lift);
+        const maxKg = mainLift ? bestE1RM(aidNow, ex.lift) : 0;
+        const wWrap = el('div', { class: 'uniform-cell' + (isPct ? ' is-pct' : '') });
+        const wIn = el('input', {
+          type: 'text', inputmode: 'decimal', autocomplete: 'off',
+          value: isPct ? String(_num(blk.pct)) : (blk.weight ? kgToDisplay(blk.weight) : ''),
+          placeholder: isPct ? '%' : u, 'aria-label': isPct ? '% of max' : 'Load in ' + u
+        });
+        const calc = el('span', { class: 'uniform-calc' });
+        const paintCalc = (kg) => { calc.textContent = isPct ? (kg > 0 ? '= ' + formatWeight(kg) : (mainLift ? 'no max yet' : '')) : ''; };
+        paintCalc(blk.weight);
+        wIn.addEventListener('input', () => {
+          const v = parseFloat(String(wIn.value).replace(',', '.'));
+          if (isPct) {
+            const pct = isFinite(v) && v > 0 && v <= 120 ? v : null;
+            const kg = pct && maxKg ? pctLoadKg(pct, maxKg) : 0;
+            setBlockRx(activeWeekIdx, di, ei, blk.startIdx, blk.count, pct ? { pct, weight: kg || blk.weight || 0 } : { pct: null });
+            paintCalc(kg);
+          } else {
+            setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'weight', wIn.value.trim() === '' || !isFinite(v) ? 0 : displayToKg(v));
+          }
+        });
+        wWrap.appendChild(wIn);
+        wWrap.appendChild(el('span', { class: 'uniform-lbl' }, isPct ? '%' : u));
+        wWrap.appendChild(calc);
         grpLoad.appendChild(wWrap);
         grpLoad.appendChild(el('span', { class: 'uniform-at' }, '@'));
 
-        // RPE input — OPTIONAL. Empty input = no prescribed RPE (back-down style).
+        // Effort, OPTIONAL (empty = no prescribed RPE, back-down style): "8", a range "7-8",
+        // or (tap the label) reps in reserve, "2" or "1-2", kept as RPE underneath.
+        const rir = !!blk.rir;
         const rpeWrap = el('div', { class: 'uniform-cell' });
-        rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, 'RPE'));
-        rpeWrap.appendChild(el('input', {
-          type: 'number', min: '1', max: '10', step: '0.5',
-          value: blk.rpe == null ? '' : blk.rpe,
-          placeholder: 'opt',
-          title: 'Leave blank for back-down sets',
-          oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'rpe', e.target.value === '' ? null : Number(e.target.value))
-        }));
+        rpeWrap.appendChild(el('span', { class: 'uniform-lbl', style: 'margin:0 4px 0 0;' }, rir ? 'RIR' : 'RPE'));
+        const effIn = el('input', {
+          type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
+          value: effortInputText(blk, rir),
+          placeholder: 'opt', 'aria-label': rir ? 'Reps in reserve' : 'RPE',
+          title: rir ? 'Reps in reserve: 2, or a range like 1-2' : 'RPE: 8, or a range like 7-8. Blank for back-down sets'
+        });
+        effIn.addEventListener('input', () => {
+          const r = parseEffortInput(effIn.value, rir);
+          effIn.classList.toggle('is-bad', !r);
+          if (r) setBlockRx(activeWeekIdx, di, ei, blk.startIdx, blk.count, { rpe: r.rpe, rpeHi: r.rpeHi });
+        });
+        rpeWrap.appendChild(effIn);
         grpLoad.appendChild(rpeWrap);
 
         // Per-block delete (only show if there's more than one block — never let exercise have zero)
@@ -1992,10 +2199,10 @@ function openSheetImport(athleteId) {
           const runs = [];
           ex.sets.forEach(x => {
             const r = runs[runs.length - 1];
-            if (r && r.reps === x.reps && r.weight === x.weight && r.rpe === x.rpe) r.n++;
-            else runs.push({ n: 1, reps: x.reps, weight: x.weight, rpe: x.rpe });
+            if (r && r.reps === x.reps && r.weight === x.weight && r.rpe === x.rpe && r.rpeHi === x.rpeHi && !!r.rir === !!x.rir && r.pct === x.pct) r.n++;
+            else runs.push({ n: 1, reps: x.reps, weight: x.weight, rpe: x.rpe, rpeHi: x.rpeHi, rir: x.rir, pct: x.pct });
           });
-          const sub = runs.map(r => r.n + ' × ' + r.reps + (r.weight > 0 ? ' · ' + formatWeight(r.weight) : '') + (r.rpe != null ? ' @ ' + r.rpe : '')).join(', ') + (ex.note ? ' · ' + ex.note : '');
+          const sub = runs.map(r => r.n + ' × ' + r.reps + (r.pct ? ' · ' + r.pct + '%' : r.weight > 0 ? ' · ' + formatWeight(r.weight) : '') + (r.rpe != null ? ' · ' + setEffortText(r) : '')).join(', ') + (ex.note ? ' · ' + ex.note : '');
           return uiRow({ lead: el('span', { class: 'lift-dot lift-' + (MAIN_LIFTS.includes(ex.lift) ? ex.lift : 'acc'), 'aria-hidden': 'true' }), title, sub });
         })));
       }
@@ -2011,7 +2218,9 @@ function openSheetImport(athleteId) {
     if (use) use.addEventListener('click', () => {
       const go = async () => {
         const existing = getProgramForAthlete(athleteId);
+        const pctRes = applyPctLoads(parsed.weeks, athleteId);
         const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name.value.trim() || 'Imported program', weeks: parsed.weeks };
+        if (pctRes.noMax.length) setTimeout(() => toast('No max yet for ' + pctRes.noMax.map(l => LIFT_LABELS[l]).join(' and ') + ': those % sets have no load until they log one'), 1600);
         Store.update(st => { st.programs = st.programs.filter(p => p.athleteId !== athleteId); st.programs.push(prog); });
         if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
         close();
@@ -2027,7 +2236,7 @@ function openSheetImport(athleteId) {
       const t = { id: uid('tpl'), coachId: user.id, name: name.value.trim() || 'Imported program', createdAt: Date.now(),
         payload: { weeks: parsed.weeks.map(wk => ({ number: wk.number, days: wk.days.map(d => ({ name: d.name,
           exercises: d.exercises.map(ex => ({ lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-            sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, rpe: x.rpe })) })) })) })) } };
+            sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, rpe: x.rpe, ...rxOf(x) })) })) })) })) } };
       Store.update(st => { st.programTemplates = st.programTemplates || []; st.programTemplates.push(t); });
       try { await persistAddTemplate(t); } catch (e) { console.error(e); }
       close();
@@ -2114,6 +2323,12 @@ function loadProgram() {
     blockOpen ? { label: 'Rebuild from goal…', icon: ICONS.program, onClick: () => openGoalModal(athleteId) } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
     { label: 'Save as template', icon: ICONS.copy, onClick: () => openSaveTemplate(prog) },
+    _pbSets.some(s => s.pct != null && !s.completed) ? { label: 'Update % loads from their maxes', icon: ICONS.chart, onClick: () => {
+      let res = null;
+      Store.update(s => { const p = s.programs.find(x => x.id === prog.id); if (p) res = applyPctLoads(p.weeks, athleteId); });
+      persistProgram(prog.id); loadProgram();
+      toast(res && res.filled ? 'Updated ' + res.filled + (res.filled === 1 ? ' set' : ' sets') + ' from current maxes' : 'No max to work from yet');
+    } } : null,
     { label: 'Replace from a spreadsheet', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
     { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
@@ -2310,7 +2525,7 @@ function addSet(wi, di, ei) {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
-    if (p) { const last = p.weeks[wi].days[di].exercises[ei].sets.at(-1); p.weeks[wi].days[di].exercises[ei].sets.push(newSet(last?.weight || 0, last?.reps || 5, last?.rpe || 7)); }
+    if (p) { const last = p.weeks[wi].days[di].exercises[ei].sets.at(-1); p.weeks[wi].days[di].exercises[ei].sets.push(Object.assign(newSet(last?.weight || 0, last?.reps || 5, last?.rpe || 7), last ? rxOf(last) : {})); }
   });
   persistProgram(progIdForAthlete(aid));
   loadProgram();
@@ -2345,6 +2560,38 @@ function setBlockField(wi, di, ei, startIdx, count, field, val) {
   // No reload — user is mid-typing
 }
 
+// Several prescription fields at once on a block: { pct, weight, rpe, rpeHi, rir }. null clears an
+// optional one (pct, rpeHi, rir) and blanks rpe. Re-renders only when asked (not mid-typing).
+function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    const sets = p.weeks[wi].days[di].exercises[ei].sets;
+    for (let i = startIdx; i < startIdx + count && i < sets.length; i++) {
+      Object.keys(patchObj).forEach(k => {
+        const v = patchObj[k];
+        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir')) delete sets[i][k];
+        else sets[i][k] = v;
+      });
+    }
+  });
+  persistProgram(progIdForAthlete(aid));
+  if (rerender) loadProgram();
+}
+
+// One change to every set still to do in an exercise (the kg/% and RPE/RIR header switches).
+function setExerciseRx(wi, di, ei, fn) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    (p.weeks[wi].days[di].exercises[ei].sets || []).forEach(st => { if (!st.completed) fn(st); });
+  });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
+
 function setBlockCount(wi, di, ei, startIdx, oldCount, newCount) {
   const aid = document.getElementById('progAthlete').value;
   const target = Math.max(1, Math.min(50, Number(newCount) || 1));
@@ -2356,7 +2603,7 @@ function setBlockCount(wi, di, ei, startIdx, oldCount, newCount) {
       const tpl = sets[startIdx];
       const additions = target - oldCount;
       const fillers = [];
-      for (let i = 0; i < additions; i++) fillers.push(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo));
+      for (let i = 0; i < additions; i++) fillers.push(Object.assign(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo), rxOf(tpl)));
       sets.splice(startIdx + oldCount, 0, ...fillers);
     } else if (target < oldCount) {
       sets.splice(startIdx + target, oldCount - target);
@@ -2386,8 +2633,10 @@ function addBlock(wi, di, ei) {
     if (!p) return;
     const sets = p.weeks[wi].days[di].exercises[ei].sets;
     const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null, tempo: '' };
-    // New block = back-down style: 1 set, copies last weight/reps, NO prescribed RPE
-    sets.push(newSet(last.weight, last.reps, null, last.tempo));
+    // New block = back-down style: 1 set, copies last weight/reps (and its %), NO prescribed RPE
+    const nb = newSet(last.weight, last.reps, null, last.tempo);
+    if (last.pct != null) nb.pct = last.pct;
+    sets.push(nb);
   });
   persistProgram(progIdForAthlete(aid));
   loadProgram();
@@ -2835,7 +3084,7 @@ async function confirmSaveTemplate() {
         name: d.name,
         exercises: d.exercises.map(ex => ({
           lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-          sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe }))
+          sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '', ...rxOf(set) }))
         }))
       }))
     }))}
@@ -2905,20 +3154,20 @@ function toggleApplyTplAll() {
 function buildProgramFromTemplate(tpl, athleteId) {
   const existing = Store.get().programs.find(p => p.athleteId === athleteId);
   const programId = existing ? existing.id : uid('prog');
-  return {
-    id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name,
-    weeks: tpl.payload.weeks.map(wk => ({
-      id: uid('wk'), number: wk.number,
-      days: wk.days.map(d => ({
-        id: uid('day'), name: d.name,
-        exercises: d.exercises.map(ex => ({
-          id: uid('ex'),
-          lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-          sets: ex.sets.map(set => ({ id: uid('set'), weight: set.weight, reps: set.reps, rpe: set.rpe, completed: false, actualRpe: null, completedAt: null, note: '' }))
-        }))
+  const weeks = tpl.payload.weeks.map(wk => ({
+    id: uid('wk'), number: wk.number,
+    days: wk.days.map(d => ({
+      id: uid('day'), name: d.name,
+      exercises: d.exercises.map(ex => ({
+        id: uid('ex'),
+        lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
+        sets: ex.sets.map(set => ({ id: uid('set'), weight: set.weight, reps: set.reps, rpe: set.rpe, tempo: set.tempo || '', completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set) }))
       }))
     }))
-  };
+  }));
+  // A template written in % gets this athlete's loads from their own maxes.
+  applyPctLoads(weeks, athleteId);
+  return { id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name, weeks };
 }
 async function confirmApplyTemplate() {
   const ids = _applyTplCheckedIds();

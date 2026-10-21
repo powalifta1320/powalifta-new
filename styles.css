@@ -10568,7 +10568,9 @@ body.powa-app :is(.meet-date, .bw-date-row) > span { text-transform: none; lette
 .aq-d { display: block; margin-top: 3px; font-size: var(--fs-label, 11px); color: var(--text-3); }
 .aq-d.up { color: var(--ok); } .aq-d.down { color: var(--soft-alert, #ff8f80); }
 .aq-days { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 12px; padding: 12px 14px; border-radius: var(--r-inner); background: var(--bg-2, #161619); }
-.aq-days-lbl { font-size: var(--fs-meta, 13px); font-weight: 600; color: var(--text-2); }
+.aq-days-lbl { flex: none; white-space: nowrap; font-size: var(--fs-meta, 13px); font-weight: 600; color: var(--text-2); }   /* it wrapped to three lines next to the 14 days */
+.aq-days .roster-days.is-big { display: flex; flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+.aq-days .roster-days.is-big i { flex: 0 1 16px; width: auto; min-width: 8px; }
 .aq-acts { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; margin-top: 16px; }
 .aq-acts .btn { width: 100%; justify-content: center; padding-left: 8px; padding-right: 8px; }
 @media (max-width: 380px) { .roster-days.is-big i { width: 12px; } }
@@ -11828,3 +11830,52 @@ body.powa-app .tx-set.is-skipped .tx-set-sub { color: var(--text-3); }
 .join-code-form .join-code-btn { height: 48px; padding: 0 24px; white-space: nowrap; }
 @media (max-width: 560px) { .join-code-form { max-width: none; } }
 #invitesWrap.after-first-run { margin-top: var(--u-gap, 28px); }
+
+/* Program builder on a desktop: the week tabs wrap inside the 220px side column instead of
+   scrolling sideways with "Week 3" cut in half (2026-10-22). */
+@media (min-width: 901px) {
+  html:not(.native) body.powa-app .builder-aside .week-nav { flex-wrap: wrap; overflow: visible; }
+}
+
+/* Custom check-ins (2026-10-22): the athlete's answer sheet and the coach's question editor. */
+.ci-sheet .ci-group { margin: 18px 2px 8px; font-size: var(--fs-meta, 13px); font-weight: 650; color: var(--text-3); }
+.ci-sheet .ci-group:first-of-type { margin-top: 8px; }
+.ci-sheet .ci-q { padding: 14px; border-radius: 18px; background: var(--bg-2); margin-bottom: 10px; }
+.ci-sheet .ci-prompt { margin-bottom: 12px; font-size: var(--fs-body, 15px); font-weight: 650; line-height: 1.35; color: var(--text); }
+.ci-sheet .ci-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ci-sheet .ci-scale { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.ci-sheet .ci-opt { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font: inherit; font-size: var(--fs-body, 15px); font-weight: 650; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 140ms ease-out, color 140ms ease-out; }
+.ci-sheet .ci-scale .ci-opt { padding: 0; min-width: 0; font-variant-numeric: tabular-nums; }
+.ci-sheet .ci-yesno .ci-opt, .ci-sheet .ci-choice .ci-opt { flex: 1 1 auto; }
+.ci-sheet .ci-opt.on { background: var(--text); color: var(--bg); }
+.ci-sheet .ci-ends { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--text-3); }
+.ci-sheet .ci-input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-1); color: var(--text); font: inherit; font-size: 16px; }
+.ci-sheet textarea.ci-input { height: auto; min-height: 76px; padding: 12px 14px; resize: vertical; line-height: 1.45; }
+.ci-sheet .ci-save { margin-top: 14px; }
+.ci-alone { margin-bottom: 14px; }
+
+.ciq-sheet .ciq-body .ui-list { margin-bottom: 12px; }
+.ciq-sheet .ciq-foot { margin-top: 4px; }
+.ciq-sheet .ciq-field { display: block; margin: 0 0 16px; }
+.ciq-sheet .ciq-field > span { display: block; margin: 0 2px 8px; font-family: var(--font-body); font-size: var(--fs-meta, 13px); font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+.ciq-sheet .ciq-seg.ciq-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.ciq-sheet .ciq-seg.ciq-5 .ciq-seg-btn { padding: 0 4px; font-size: 13px; }
+.ciq-sheet .ciq-input { width: 100%; height: 50px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-2); color: var(--text); font: inherit; font-size: 16px; font-weight: 500; }
+.ciq-sheet .ciq-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.ciq-sheet .ciq-seg-btn, .ciq-sheet .ciq-chip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.ciq-sheet .ciq-seg-btn.on, .ciq-sheet .ciq-chip.on { background: var(--text); color: var(--bg); }
+.ciq-sheet .ciq-who { display: flex; flex-wrap: wrap; gap: 6px; }
+.ciq-sheet .ciq-save { margin-top: 6px; }
+.ciq-sheet .ciq-more { display: flex; justify-content: space-between; margin-top: 10px; }
+.ciq-sheet .ciq-more .ui-text-btn { padding: 12px 6px; }
+
+/* Builder: the load and effort labels are switches (kg ↔ % of max, RPE ↔ RIR), 2026-10-22. */
+.uniform-head .uniform-toggle { justify-self: center; min-height: 28px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 650; letter-spacing: 0; text-transform: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.uniform-head .uniform-toggle::after { content: ' ⇄'; opacity: 0.55; font-size: 10px; }
+@media (hover: hover) { .uniform-head .uniform-toggle:hover { color: var(--text); background: var(--fill-4, rgba(255, 255, 255, 0.14)); } }
+.uniform-note { margin: -2px 2px 8px; font-size: 12px; line-height: 1.4; color: var(--text-3); }
+body.powa-app .builder-main .uniform-cell .uniform-calc { display: block; margin: 3px 0 0; text-align: center; font-size: 11px; }
+body.powa-app .builder-main .uniform-cell .uniform-calc:empty { display: none; }
+.uniform-calc { margin-left: 6px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.uniform-calc:empty { display: none; }
+.uniform-cell input.is-bad { box-shadow: inset 0 0 0 1.5px var(--soft-alert, #ff8f80); }

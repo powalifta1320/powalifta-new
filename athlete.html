@@ -1105,6 +1105,93 @@ function mondayOf(date) {
   return _monISO(s);
 }
 
+// ===== THE COACH'S OWN CHECK-IN (custom questions, app.js "CUSTOM CHECK-INS") =====
+function customCheckinRow() {
+  if (!user.coachId) return null;
+  const due = dueCheckinQuestions(Store.get().checkinQuestions, Store.get().checkinAnswers, user.id);
+  if (!due.length) return null;
+  const coach = (Store.get().coaches || []).find(c => c.id === user.coachId);
+  const first = coach && coach.name ? coach.name.split(' ')[0] : 'Your coach';
+  const c = el('div', { class: 'today-note tn-row tn-checkin ci-row' });
+  c.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5l1.5 1.5 3-3M4 12.5l1.5 1.5 3-3M4 18.5l1.5 1.5 3-3M11.5 7h8.5M11.5 13h8.5M11.5 19h8.5"/></svg></span>' +
+    '<span class="tn-body"><span class="tn-title">Check-in</span><span class="tn-text tn-one">' + escHtml(first) + ' asks ' + due.length + (due.length === 1 ? ' question' : ' questions') + '</span></span>';
+  const b = el('button', { class: 'btn btn-sm tn-act', type: 'button' }, 'Answer');
+  b.addEventListener('click', () => openCustomCheckinSheet());
+  c.appendChild(b);
+  return c;
+}
+function openCustomCheckinSheet() {
+  const qs = checkinQuestionsFor(Store.get().checkinQuestions, user.id);
+  if (!qs.length) return;
+  const answers = Store.get().checkinAnswers || [];
+  const coach = (Store.get().coaches || []).find(c => c.id === user.coachId);
+  const first = coach && coach.name ? coach.name.split(' ')[0] : 'Your coach';
+  const vals = {};
+  uiSheet('Check-in', (sheet, close) => {
+    const due = dueCheckinQuestions(Store.get().checkinQuestions, answers, user.id);
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, due.length ? first + ' sees your answers. Skip any you like.' : 'All answered. Change any of them.'));
+    ['daily', 'weekly'].forEach(cad => {
+      const group = qs.filter(q => (q.cadence === 'daily') === (cad === 'daily'));
+      if (!group.length) return;
+      sheet.appendChild(el('div', { class: 'ci-group' }, cad === 'daily' ? 'Today' : 'This week'));
+      group.forEach(q => {
+        const period = checkinPeriod(q.cadence);
+        const had = answers.find(a => a.questionId === q.id && a.athleteId === user.id && a.period === period);
+        const box = el('div', { class: 'ci-q' });
+        box.appendChild(el('div', { class: 'ci-prompt' }, q.prompt));
+        const set = (v) => { vals[q.id] = Object.assign({ q, period }, v); };
+        const pick = (row, btn) => { row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === btn)); };
+        if (q.kind === 'scale' || q.kind === 'yesno' || q.kind === 'choice') {
+          const opts = q.kind === 'scale' ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ label: String(n), num: n }))
+            : q.kind === 'yesno' ? [{ label: 'Yes', num: 1 }, { label: 'No', num: 0 }]
+            : (q.choices || []).map(t => ({ label: t, text: t }));
+          const row = el('div', { class: 'ci-opts ci-' + q.kind, role: 'radiogroup', 'aria-label': q.prompt });
+          opts.forEach(o => {
+            const on = had && (o.text != null ? had.text === o.text : had.num === o.num);
+            const btn = el('button', { class: 'ci-opt' + (on ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false' }, o.label);
+            btn.addEventListener('click', () => {
+              pick(row, btn);
+              row.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === btn ? 'true' : 'false'));
+              set(o.text != null ? { text: o.text, num: null } : { num: o.num, text: null });
+              try { hapticTick(); } catch (e) {}
+            });
+            row.appendChild(btn);
+          });
+          if (q.kind === 'scale') { const ends = el('div', { class: 'ci-ends' }, el('span', {}, 'Low'), el('span', {}, 'High')); box.appendChild(row); box.appendChild(ends); }
+          else box.appendChild(row);
+        } else if (q.kind === 'number') {
+          const inp = el('input', { type: 'text', inputmode: 'decimal', class: 'ci-input', placeholder: 'Number', 'aria-label': q.prompt, value: had && had.num != null ? String(had.num) : '' });
+          inp.addEventListener('input', () => { const v = parseFloat(String(inp.value).replace(',', '.')); if (isFinite(v)) set({ num: v, text: null }); else delete vals[q.id]; });
+          box.appendChild(inp);
+        } else {
+          const ta = el('textarea', { class: 'ci-input ci-text', rows: '2', maxlength: '500', placeholder: 'Your answer', 'aria-label': q.prompt });
+          ta.value = had && had.text ? had.text : '';
+          ta.addEventListener('input', () => { const v = ta.value.trim(); if (v) set({ text: v, num: null }); else delete vals[q.id]; });
+          box.appendChild(ta);
+        }
+        sheet.appendChild(box);
+      });
+    });
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block ci-save', type: 'button' }, 'Send to ' + first);
+    save.addEventListener('click', async () => {
+      const rows = Object.values(vals).map(v => ({ questionId: v.q.id, athleteId: user.id, coachId: user.coachId, period: v.period, num: v.num == null ? null : v.num, text: v.text || null }));
+      if (!rows.length) { toast('Pick an answer first'); return; }
+      save.disabled = true;
+      if (!window._demoMode) {
+        const r = await DB.saveCheckinAnswers(rows);
+        if (!r.ok) { save.disabled = false; toast(r.notReady ? 'Check-ins are not switched on yet' : 'Could not send. Try again'); return; }
+      }
+      Store.update(s => {
+        s.checkinAnswers = (s.checkinAnswers || []).filter(a => !rows.some(r => r.questionId === a.questionId && r.athleteId === a.athleteId && r.period === a.period)).concat(rows);
+      });
+      close();
+      toast('Sent to ' + first);
+      try { renderToday(); } catch (e) {}
+    });
+    sheet.appendChild(save);
+  }, { cls: 'ci-sheet' });
+}
+
 function openCheckinModal(weekStart) {
   // Pre-fill if a check-in for this week already exists
   const existing = (Store.get().checkins || []).find(c => c.athleteId === user.id && c.weekStart === weekStart);
@@ -2419,8 +2506,12 @@ function renderToday() {
     area.appendChild(w);
   }
 
+  // The coach's own check-in questions are asked every day, training or not. On a session day they
+  // ride in the Today strip; anywhere else Train returns early, so they go here.
+  const _ciAlone = () => { if (date !== todayISO()) return; const r = customCheckinRow(); if (r) area.appendChild(el('div', { class: 'tn-group today-strip ci-alone', role: 'list', 'aria-label': 'Today' }, el('div', { class: 'ts-tile', role: 'listitem' }, r))); };
   if (isRestDay(user.id, date)) {
     renderTodayHeader(null, date, 'Rest day');
+    _ciAlone();
     const r = getRestDay(user.id, date);
     const card = el('div', { class: 'rest-day-card' });
     card.appendChild(el('h3', {}, 'Recovery counts'));
@@ -2433,6 +2524,7 @@ function renderToday() {
   if (!prog) {
     if (user.coachId) {
       renderTodayHeader(null, date, 'Train');
+      _ciAlone();
       area.appendChild(uiEmpty({
         icon: ICONS.program,
         title: 'Your coach is on it',
@@ -2453,6 +2545,7 @@ function renderToday() {
   // instead of pretending Day X belongs here.
   if (!_dayBound(cur, date)) {
     renderTodayHeader(cur, date, date === todayISO() ? 'Ready to train?' : 'Nothing logged');
+    _ciAlone();
     const e = el('div', { class: 'empty today-start' });
     const next = findNextIncompleteDay(date);
     if (next) {
@@ -2541,6 +2634,7 @@ function renderToday() {
     if (!ready && !started) dayRows.unshift(readinessRow(sessionDate));
     else if (ready === 'rough') dayRows.push(readinessDoneRow(sessionDate));
   }
+  if (sessionDate === todayISO()) { const ci = customCheckinRow(); if (ci) dayRows.push(ci); }
   if (sessionDate === todayISO()) dayRows.push(weighInRow());
   dayRows.push(weekGoalRow());
   if (!submitted && user.coachId) {
