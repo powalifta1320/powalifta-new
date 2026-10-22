@@ -12,8 +12,9 @@
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <!-- The laptop desk (desk.js): at least 1000px wide and not the iPhone app. Set before the first
-     frame, with the desk's remembered density / collapsed rail / hidden side pane. -->
-<script>(function(){try{var d=document.documentElement;if(!d.classList.contains('native')&&window.matchMedia&&matchMedia('(min-width: 1000px)').matches){d.classList.add('desk');var g=function(k){try{return localStorage.getItem(k)}catch(e){return null}};if(g('powa-desk-density')==='compact')d.setAttribute('data-density','compact');if(g('powa-desk-rail')==='min')d.classList.add('rail-min');var c=g('powa-desk-ctx');if(c==='off'||(!c&&!matchMedia('(min-width: 1280px)').matches))d.classList.add('ctx-off');}}catch(e){}})();</script>
+     frame, with the desk's remembered density / folded sidebar (icons at 1280 and below unless
+     opened) / hidden side pane; the desk is dark until the coach picks light. -->
+<script>(function(){try{var d=document.documentElement;if(!d.classList.contains('native')&&window.matchMedia&&matchMedia('(min-width: 1000px)').matches){d.classList.add('desk');var g=function(k){try{return localStorage.getItem(k)}catch(e){return null}};if(g('powa-desk-density')==='compact')d.setAttribute('data-density','compact');var rl=g('powa-desk-rail');if(rl==='min'||(rl!=='open'&&!matchMedia('(min-width: 1281px)').matches))d.classList.add('rail-min');var dt=g('powa-desk-theme')==='light'?'light':'dark';d.setAttribute('data-theme',dt);var tm=document.querySelector('meta[name="theme-color"]');if(tm)tm.setAttribute('content',dt==='light'?'#ffffff':'#0b0b0c');var c=g('powa-desk-ctx');if(c==='off'||(!c&&!matchMedia('(min-width: 1280px)').matches))d.classList.add('ctx-off');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/favicon.svg">
