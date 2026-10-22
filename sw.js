@@ -20,7 +20,8 @@ const PRECACHE = [
   '/index.html',
   '/athlete.html',
   '/coach.html',
-  '/desk.js',       // the coach's laptop desk (coach.html, html.desk only)
+  '/desk.js',
+  '/desk-season.js',  // the desk's season: Teams, the roster calendar, Plan a meet       // the coach's laptop desk (coach.html, html.desk only)
   '/desk.css',
   '/meetday.js',    // the attempt planner + meet-day board (works offline at the venue)
   '/meetday.css',

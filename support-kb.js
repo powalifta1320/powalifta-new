@@ -1328,5 +1328,40 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "When your coach runs the meet-day board for your meet, meet mode shows your next attempt at the top: the weight, which lift and attempt, your flight and how many attempts are still to go before yours. Before an opener it tells you which warm-up to take now and when the next one is. It updates as your coach marks the board. You can only see your own attempts.",
   "app": "When your coach runs the meet-day board for your meet, open Meet day and Start meet mode: your next attempt is at the top with how many attempts out you are, and before an opener which warm-up to take now. It updates as your coach marks the board."
+ },
+ {
+  "id": "coach-team-programs",
+  "q": "How do I run one program for a whole team?",
+  "t": [
+   "team",
+   "teams",
+   "team program",
+   "group program",
+   "push to team",
+   "loads",
+   "same program",
+   "whole team",
+   "group"
+  ],
+  "a": "On the laptop desk open Programs › Teams. A team is one program with every lifter on their own loads: the Loads for the week show each lifter's kg from their own max (a % set) or from the RPE chart (an RPE-only set, marked ≈), rounded to their plates. Change the team's week with Progress week, then Push to team: a preview shows first who gets what, how many sets they logged (kept as lifted), who you adjusted by hand (Keep or Overwrite, per lifter) and who is skipped and why. Nothing is written until you push. Click a lifter's load to adjust it for them alone: it stays theirs at every push until you choose Overwrite or Reset to the team. Add lifters, Remove from the team (their program stays theirs) and Make a team (from any lifter's block) are on the same page.",
+  "app": "Team programs are on the laptop desk at powalifta.com (Programs › Teams). Your lifters see their own loads in the app, never the word team; an exercise you changed for one lifter says \"Your coach adjusted this for you\"."
+ },
+ {
+  "id": "coach-season-calendar",
+  "q": "Can I see every lifter's season on one calendar?",
+  "t": [
+   "calendar",
+   "season",
+   "roster calendar",
+   "blocks",
+   "move a block",
+   "drag",
+   "meet calendar",
+   "plan a meet",
+   "W-n",
+   "weeks out"
+  ],
+  "a": "On the laptop desk open Roster and choose Calendar. Each lifter is a row (the same filters and search as the board), 16 weeks from this week with ‹ › to move four weeks at a time. Each block is a bar with its name and its W-n to the meet it leads to, planned meets are outlined diamonds and done meets filled with the total, and the line is today. Under a row, plain warnings: a block that ends before its meet, a planned meet no block leads to, weeks with nothing written between two blocks. Drag a bar to move the block's start by whole weeks (or select it and use ← →); Undo is in the message that follows. Plan a meet is in the header and on each row: name, date, weigh-in (2-hour or 24-hour and the time), federation, division and weight class. A planned meet is a date, never a result: totals and DOTS don't change.",
+  "app": "The season calendar is on the laptop desk at powalifta.com (Roster › Calendar)."
  }
 ];

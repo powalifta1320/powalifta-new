@@ -108,36 +108,43 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     // from a failed one: the ids asked for and returned, the store environment (Production,
     // Sandbox or Xcode), the storefront country and whether this iPhone allows purchases.
     // A failed request resolves too, with `error` set, so the web layer can say which it was.
+    // Products are asked for FIRST: the environment (AppTransaction.shared, which can put up an
+    // Apple ID sheet on development and TestFlight builds) and the storefront are only worked out
+    // when the answer is empty or the request throws, which is the only time the paywall shows
+    // them (app.js iapDiagnosticText). A good answer carries them empty.
     @objc func getProducts(_ call: CAPPluginCall) {
         guard #available(iOS 15.0, *) else { call.reject("unavailable"); return }
         Task {
             var info: [String: Any] = [
                 "requested": Self.productIds,
                 "canMakePayments": AppStore.canMakePayments,
-                "storefront": await Storefront.current?.countryCode ?? "",
-                "environment": await Self.storeEnvironment()
+                "storefront": "",
+                "environment": ""
             ]
+            var failure: String? = nil
+            var products: [Product] = []
             do {
-                let products = try await Product.products(for: Self.productIds)
-                let out: [[String: Any]] = products.map { p in
-                    [
-                        "id": p.id,
-                        "displayName": p.displayName,
-                        "displayPrice": p.displayPrice,   // localized, e.g. "$49.99"
-                        "description": p.description,
-                        "price": NSDecimalNumber(decimal: p.price).doubleValue,   // for "save 17%"
-                        "period": p.subscription?.subscriptionPeriod.unit == .year ? "year" : "month"
-                    ]
-                }
-                info["products"] = out
-                info["returned"] = products.map { $0.id }
-                call.resolve(info)
+                products = try await Product.products(for: Self.productIds)
             } catch {
-                info["products"] = [[String: Any]]()
-                info["returned"] = [String]()
-                info["error"] = "products_failed: \(error.localizedDescription)"
-                call.resolve(info)
+                failure = "products_failed: \(error.localizedDescription)"
             }
+            info["products"] = products.map { p -> [String: Any] in
+                [
+                    "id": p.id,
+                    "displayName": p.displayName,
+                    "displayPrice": p.displayPrice,   // localized, e.g. "$49.99"
+                    "description": p.description,
+                    "price": NSDecimalNumber(decimal: p.price).doubleValue,   // for "save 17%"
+                    "period": p.subscription?.subscriptionPeriod.unit == .year ? "year" : "month"
+                ]
+            }
+            info["returned"] = products.map { $0.id }
+            if products.isEmpty {
+                info["storefront"] = await Storefront.current?.countryCode ?? ""
+                info["environment"] = await Self.storeEnvironment()
+            }
+            if let failure = failure { info["error"] = failure }
+            call.resolve(info)
         }
     }
 

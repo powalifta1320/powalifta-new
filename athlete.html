@@ -252,25 +252,29 @@
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('checkinModal')">&times;</button>
     <h3>Weekly check-in</h3>
-    <p class="dim text-sm mb-16">How was the week? 1 = bad, 10 = great. Your coach uses this to adjust programming.</p>
+    <p class="dim text-sm mb-16">How was the week, 1 to 10? Higher is always the better week. Your coach uses this to adjust programming.</p>
     <div class="form-row">
       <div class="form-group">
-        <label>Sleep quality</label>
-        <input type="number" id="ciSleep" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
+        <label for="ciSleep">Sleep quality</label>
+        <input type="number" id="ciSleep" min="1" max="10" step="1" inputmode="numeric" placeholder="–" aria-describedby="ciSleepEnds">
+        <small class="ci-field-ends" id="ciSleepEnds">1 poor · 10 great</small>
       </div>
       <div class="form-group">
-        <label>Soreness level</label>
-        <input type="number" id="ciSoreness" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
+        <label for="ciSoreness">Soreness level</label>
+        <input type="number" id="ciSoreness" min="1" max="10" step="1" inputmode="numeric" placeholder="–" aria-describedby="ciSorenessEnds">
+        <small class="ci-field-ends" id="ciSorenessEnds">1 very sore · 10 fresh</small>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>Life stress</label>
-        <input type="number" id="ciStress" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
+        <label for="ciStress">Life stress</label>
+        <input type="number" id="ciStress" min="1" max="10" step="1" inputmode="numeric" placeholder="–" aria-describedby="ciStressEnds">
+        <small class="ci-field-ends" id="ciStressEnds">1 very stressed · 10 calm</small>
       </div>
       <div class="form-group">
-        <label>Training feel</label>
-        <input type="number" id="ciFeel" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
+        <label for="ciFeel">Training feel</label>
+        <input type="number" id="ciFeel" min="1" max="10" step="1" inputmode="numeric" placeholder="–" aria-describedby="ciFeelEnds">
+        <small class="ci-field-ends" id="ciFeelEnds">1 awful · 10 great</small>
       </div>
     </div>
     <div class="form-group">
@@ -693,6 +697,7 @@ bootstrap('athlete', () => {
     document.getElementById('sessionMoreBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
   });
   document.getElementById('bwDate').value = todayISO();
+  clampWeighInDate(document.getElementById('bwDate'));
   document.getElementById('plateTarget').addEventListener('input', e => renderPlateCalc(Number(e.target.value)));
   const plateCur = () => Number(document.getElementById('plateTarget').value);
   document.querySelectorAll('#plateBarPick .pbar').forEach(btn => {
@@ -1995,6 +2000,11 @@ function myFoodRows() {
   return f && f.days ? f.days : [];
 }
 function CUT_LOCAL() { return 'powa-cut-' + ((user && user.id) || ''); }   // a function: no TDZ on the first render
+// The class a lifter is making weight for (goals.targetClass), or null.
+function targetClassOf(athleteId) {
+  const g = (Store.get().goals || []).find(x => x.athleteId === athleteId);
+  return g && Number(g.targetClass) > 0 ? Number(g.targetClass) : null;
+}
 // Targets saved on this device while the server can't hold them yet: put back into the Store.
 function applyLocalCut() {
   if (!user || window._demoMode) return;
@@ -2261,8 +2271,12 @@ function healthRecoverySection(area) {
         ? { style: 'height:' + Math.max(12, Math.min(100, Math.round(n.minutes / 600 * 100))) + '%', class: n.minutes < 360 ? 'is-short' : '' }
         : { class: 'is-none' })));
     }
-    rows.push(uiRow({ title: rec.sleepMin != null ? PowaHealthJS.sleepText(rec.sleepMin) + ' last night' : 'Sleep',
-      sub: slept.length >= 3 ? 'Average ' + PowaHealthJS.sleepText(avg) + ' over ' + slept.length + ' nights' : 'From your last night in Apple Health', endNode: bars }));
+    // Last night when it has sleep; else the latest night that does, with its date (never "last night").
+    const latest = latestSleptNight(nights);
+    rows.push(uiRow({ title: latest.lastNight ? PowaHealthJS.sleepText(latest.minutes) + ' last night'
+        : PowaHealthJS.sleepText(latest.minutes) + ' · night of ' + fmtDateShort(_addDaysISO(latest.night, -1)),
+      sub: slept.length >= 3 ? 'Average ' + PowaHealthJS.sleepText(avg) + ' over ' + slept.length + ' nights'
+        : latest.lastNight ? 'From your last night in Apple Health' : 'Nothing in Apple Health for last night', endNode: bars }));
   }
   if (rec.rhr != null) {
     const d = rec.rhrBase != null ? Math.round(rec.rhr - rec.rhrBase) : null;
@@ -2392,8 +2406,25 @@ function weighInRow() {
   }
   return row;
 }
+// A weigh-in date picker that can't keep a future day: iOS's date wheel ignores max, so a
+// future pick snaps back to today (saveBodyweightEntry refuses one anyway).
+function clampWeighInDate(input) {
+  if (!input) return input;
+  input.max = todayISO();
+  if (!input._clamped) {
+    input._clamped = true;
+    input.addEventListener('change', () => {
+      input.max = todayISO();
+      if (weighInDateCheck(input.value, todayISO()) === 'future') { input.value = todayISO(); toast('A weigh-in can\'t be in the future. Set to today'); }
+    });
+  }
+  return input;
+}
+const WEIGH_IN_FUTURE_MSG = 'That day hasn\'t happened yet. Pick today or earlier';
 async function saveBodyweightEntry(date, kg) {
   if (!date || !(kg > 0)) { toast('Enter a weight'); return false; }
+  const dc = weighInDateCheck(date, todayISO());
+  if (dc !== 'ok') { toast(dc === 'future' ? WEIGH_IN_FUTURE_MSG : 'Pick a date'); return false; }
   const existing = Store.get().bodyweight.find(b => b.athleteId === user.id && b.date === date);
   const b = existing ? { ...existing, weight: kg } : { id: uid('bw'), athleteId: user.id, date, weight: kg };
   Store.update(s => {
@@ -2423,7 +2454,7 @@ function openWeighInSheet(onSaved) {
     paintClass(start);
     const dateRow = el('label', { class: 'bw-date-row' });
     dateRow.appendChild(el('span', {}, 'Date'));
-    const di = el('input', { type: 'date', value: todayISO(), max: todayISO(), 'aria-label': 'Weigh-in date' });
+    const di = clampWeighInDate(el('input', { type: 'date', value: todayISO(), max: todayISO(), 'aria-label': 'Weigh-in date' }));
     dateRow.appendChild(di);
     sheet.appendChild(dateRow);
     const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save weigh-in');
@@ -2663,6 +2694,9 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
 
   // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
   if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
+  // TEAM PROGRAMS: on a team program, an exercise the coach changed just for them says so, once and
+  // quietly. Lifters never see "team": these are their own loads.
+  if (!selfCoached && ex.srcId != null && ex.ovr) card.appendChild(el('div', { class: 'tx-adj' }, 'Your coach adjusted this for you'));
   // SET FIELDS hook (app.js setFieldsSplit): what every set shares, once; a set's own under its load.
   const sfSplit = setFieldsSplit(ex.sets);
   const sfCommon = setFieldsEl(sfSplit.common, 'tx-sf');
@@ -4007,12 +4041,15 @@ function getMeetPlan(key) {
   const k = key || (sel && sel.value) || getMeetStrategy();
   const strat = MEET_STRATEGIES[k] || MEET_STRATEGIES.standard;
   const plan = { lifts: {}, total: 0, label: strat.label };
+  const logs = Store.get().workoutLogs || [], today = todayISO();
   ['squat', 'bench', 'deadlift'].forEach(lift => {
     const e1 = bestE1RM(user.id, lift);
     if (!e1) return;
-    const attempts = strat.pcts.map(p => roundToPlate(e1 * p));
-    plan.lifts[lift] = { e1, attempts };
-    plan.total += attempts[2];
+    // One reference with meet mode's bouncer (app.js meetAttempts): the lower of the e1RM and this
+    // month's heavy sets, so the app never calls its own opener too heavy. e1 = what it's built on.
+    const m = meetAttempts(e1, recentHeavyRef(logs, user.id, lift, today), strat.pcts, getUnit());
+    plan.lifts[lift] = { e1: m.base, e1rm: e1, basis: m.basis, attempts: m.attempts };
+    plan.total += m.attempts[2];
   });
   return plan;
 }
@@ -4027,7 +4064,7 @@ function renderMeetPlan() {
   }
   const tblWrap = el('div', { class: 'tbl-card' });
   const tbl = el('table');
-  tbl.innerHTML = '<thead><tr><th>Lift</th><th>e1RM</th><th>Opener</th><th>Second</th><th>Third</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th>Lift</th><th>Built on</th><th>Opener</th><th>Second</th><th>Third</th></tr></thead>';
   const tbody = el('tbody');
   Object.keys(plan.lifts).forEach(lift => {
     const p = plan.lifts[lift];
@@ -4185,7 +4222,7 @@ function openMeetSheet() {
         const c = el('div', { class: 'meet-lift lift-' + lift });
         const top = el('div', { class: 'ml-top' });
         top.appendChild(el('span', { class: 'ml-name' }, el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }), LIFT_LABELS[lift]));
-        top.appendChild(el('span', { class: 'ml-e1' }, 'e1RM ' + Math.round(kgToDisplay(p.e1))));
+        top.appendChild(el('span', { class: 'ml-e1' }, (p.basis === 'recent' ? 'Heavy sets ' : 'e1RM ') + Math.round(kgToDisplay(p.e1))));
         c.appendChild(top);
         const att = el('div', { class: 'ml-att' });
         ['Opener', 'Second', 'Third'].forEach((nm, i) => {
@@ -4830,8 +4867,8 @@ function openMeetMode() {
     // month is a max, not an opener. Once per lift per meet; needs a heavy set to compare.
     if (i === 0 && !A.result && !st.lifts[L].bounced) {
       st.lifts[L].bounced = true; _meetSave(st);
-      const since = _isoAddDays(todayISO(), -28);
-      const ref = Math.max(0, ...(Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift === L && l.date >= since && Number(l.reps) <= 3).map(l => Number(l.e1rmComp) || 0));
+      // The planner builds on this same reference (app.js recentHeavyRef + meetAttempts).
+      const ref = recentHeavyRef(Store.get().workoutLogs || [], user.id, L, todayISO());
       const b = bouncerOpener({ openerKg: A.kg, refKg: ref }, unit);
       // MEET DAY hook: the coach's planned opener is named as theirs, the heavy sets as this month's.
       const coachKg = st.coach && A.kg === st.lifts[L].plan[0];
@@ -4862,8 +4899,11 @@ function openMeetMode() {
       adj.appendChild(minus); adj.appendChild(el('span', {}, 'Change the attempt')); adj.appendChild(plus);
       body.appendChild(adj);
     }
-    body.appendChild(el('div', { class: 'mm-bar', 'aria-hidden': 'true', html: uiBarbell(A.kg) }));
-    body.appendChild(el('div', { class: 'tx-plates mm-plates', html: '<span class="tx-plates-lbl">Loaders, a side</span>' + plateChipsHtml(A.kg) }));
+    // Competition collars (2.5 kg each) are on every attempt: the loaders' plates leave room for them.
+    const collars = { collarKg: MEET_COLLAR_KG };
+    body.appendChild(el('div', { class: 'mm-bar', 'aria-hidden': 'true', html: uiBarbell(A.kg, collars) }));
+    body.appendChild(el('div', { class: 'tx-plates mm-plates', html: '<span class="tx-plates-lbl">Loaders, a side</span>' + plateChipsHtml(A.kg, collars) }));
+    body.appendChild(el('div', { class: 'mm-collars' }, 'With 2.5 kg collars'));
 
     const settle = () => {
       A.result = meetLightsResult(A.lights);
@@ -5390,7 +5430,7 @@ function openLifterCardView() {
   const bw = latestBodyweight(user.id);
   const total = currentTotal(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, sex) : 0;
-  const cls = bw ? weightClassFor(bw, sex) : null;
+  const cls = bw ? liftersClass(bw, sex, targetClassOf(user.id)) : null;
   const prs = getLifetimePRs(user.id) || {};
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
   const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -5481,7 +5521,8 @@ async function shareStrengthCard() {
   const total = currentTotal(user.id);
   if (!bw || !total) return toast('Log a weigh-in and your big three first');
   const dots = dotsScore(total, bw, sex);
-  const wc = weightClassFor(bw, sex);
+  // The same class the lifter card it's shared from shows (the cut's class when one is set).
+  const wc = liftersClass(bw, sex, targetClassOf(user.id));
   const disp = kg => Math.round(kgToDisplay(kg)).toLocaleString() + ' ' + unitLabel();
   const lines = [{ l: 'Est. total', r: disp(total) }];
   [['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift']].forEach(([lift, lbl]) => {
@@ -5551,7 +5592,8 @@ function renderAthleteYou() {
   const singles = bestSinglesTotal(user.id);
   const total = singles ? singles.kg : currentTotal(user.id);
   const dots = (bw && total > 0) ? dotsScore(total, bw, sex) : 0;
-  const cls = bw ? weightClassFor(bw, sex) : null;
+  // The class being made when a cut is set (as the cut card and the bodyweight hero say), else the weigh-in's.
+  const cls = bw ? liftersClass(bw, sex, targetClassOf(user.id)) : null;
   // Weeks in a row hitting your weekly goal (a rest day never breaks it, unlike a day streak).
   const streak = weekGoalStatusNow().streak;
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
@@ -6436,7 +6478,8 @@ function buildStrengthScoreCard(athleteId) {
   const rows = [];
   const wci = weightClassInfo(bw, sex);
   if (wci) {
-    rows.push(uiRow({ title: 'Weight class', sub: weightClassLine(bw, sex), endHtml: '<b>' + escHtml(String(wci.cls)) + '</b>' }));
+    const tc = targetClassOf(athleteId);
+    rows.push(uiRow({ title: tc && tc + ' kg' !== wci.cls ? 'Weight class today' : 'Weight class', sub: weightClassLine(bw, sex), endHtml: '<b>' + escHtml(String(wci.cls)) + '</b>' }));
   }
   ['squat', 'bench', 'deadlift'].forEach(lift => {
     const sl = strengthLevel(bestE1RM(athleteId, lift), bw, lift, sex);
@@ -8558,6 +8601,8 @@ async function logBodyweight() {
   const date = document.getElementById('bwDate').value;
   const wInput = Number(document.getElementById('bwWeight').value);
   if (!date || !wInput) return toast('Enter date and weight');
+  const dc = weighInDateCheck(date, todayISO());
+  if (dc !== 'ok') return toast(dc === 'future' ? WEIGH_IN_FUTURE_MSG : 'Pick a date');
   // Input is in display unit — convert back to kg for storage
   const w = displayToKg(wInput);
   const existing = Store.get().bodyweight.find(b => b.athleteId === user.id && b.date === date);
@@ -8577,6 +8622,7 @@ function renderBodyweight() {
   const area = document.getElementById('bwArea');
   const logRow = document.getElementById('bwLog');
   if (logRow && area.contains(logRow)) area.parentNode.insertBefore(logRow, area);  // keep it alive across re-renders
+  clampWeighInDate(document.getElementById('bwDate'));
   area.innerHTML = '';
   const s = Store.get();
   const bw = [...s.bodyweight].filter(b => b.athleteId === user.id).sort((a, b) => a.date.localeCompare(b.date));
@@ -8596,7 +8642,8 @@ function renderBodyweight() {
       const sl = stats.slopePerWeek;
       sub.appendChild(el('span', { class: 'ui-flat' }, Math.abs(sl) < 0.05 ? 'Steady' : (sl < 0 ? '↓ ' : '↑ ') + kgToDisplay(Math.abs(sl), 1) + ' ' + u + ' a week'));
     }
-    const cls = weightClassFor(last.weight, getSexPref());
+    // The class being made when a cut is set (the cut card's class), else the weigh-in's.
+    const cls = liftersClass(last.weight, getSexPref(), g && g.targetClass);
     if (cls) sub.appendChild(el('span', {}, cls + ' class'));
     if (sub.children.length) hero.appendChild(sub);
   } else {

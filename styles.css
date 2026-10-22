@@ -10778,6 +10778,7 @@ html.meet-mode-open, html.meet-mode-open body { overflow: hidden; }
 .mm-bar { height: 96px; margin-top: 14px; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55)); }
 .mm-bar svg { height: 100%; width: auto; }
 .mm-plates { justify-content: center; }
+.mm-collars { margin-top: 6px; text-align: center; font-size: 13px; color: var(--text-3); }
 .mm-lights { display: flex; justify-content: center; gap: 22px; margin: 24px 0 6px; }
 .mm-light { width: 70px; height: 70px; border-radius: 50%; border: 0; background: var(--fill-2); box-shadow: inset 0 0 0 2px var(--hair); transition: background-color var(--t-state) var(--ease-out-quint), box-shadow var(--t-state) var(--ease-out-quint), transform var(--t-press) var(--ease-out-quint); }
 .mm-light:active { transform: scale(0.94); }
@@ -12630,3 +12631,8 @@ html:not(.desk) .bw-log input { padding: 0 10px; }
   padding: 6px 10px; border-radius: 8px; background: var(--bg-2); color: var(--text-2); font-size: 12px; line-height: 1.3;
   box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
 .live-paused button { background: none; border: 0; padding: 2px 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.ci-field-ends { display: block; margin-top: 6px; font-size: 12px; line-height: 1.3; color: var(--text-3); }
+
+/* TEAM PROGRAMS: "Your coach adjusted this for you" on an exercise the coach changed for this lifter. */
+.tx-adj { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: var(--fs-meta, 13px); line-height: 1.4; color: var(--text-3); }
+.tx-adj::before { content: ''; width: 6px; height: 6px; flex: none; border-radius: 999px; background: currentColor; opacity: 0.7; }

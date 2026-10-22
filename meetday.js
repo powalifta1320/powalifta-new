@@ -840,25 +840,26 @@ var MeetDay = (function () {
   function localBoardsKey() { return 'powa-md-local-' + ((me() && me().id) || 'x'); }
   var _lastStamp = 0;
   function stamp() { var t = Math.max(Date.now(), _lastStamp + 1); _lastStamp = t; return new Date(t).toISOString(); }
-  // The demo meet day: six lifters, two flights, today. The phone demo's four plus the desk's Leo
-  // (or a guest on the phone) and the lifter demo's own Demo Lifter, so a second tab on
+  // The demo meet day: today's meet for the lifters whose planned meet IS today, and only them, so the
+  // demo tells one story (their blocks end this week and count down to it; everyone else's programs
+  // and the Meets list follow their own meets). Tom (the phone demo's), Priya and Callum (the desk's:
+  // a guest row on the phone) and the lifter demo's own Demo Lifter, so a second tab on
   // athlete.html?demo=1 sees its next attempt move as the board is marked.
   var DEMO_LIFTERS = [
-    { id: 'md-l1', athleteId: 'demo-a2', name: 'Sarah Kim', sex: 'female', flight: 'A', lot: 1, bodyweight: 62.6, base: [125, 72.5, 155] },
-    { id: 'md-l2', athleteId: 'demo-a4', name: 'Nina Petrova', sex: 'female', flight: 'A', lot: 2, bodyweight: 56.1, base: [92.5, 52.5, 112.5] },
-    { id: 'md-l3', athleteId: 'demo-athlete', name: 'Demo Lifter', sex: 'male', flight: 'A', lot: 3, bodyweight: 81.9, base: [180, 122.5, 215] },
-    { id: 'md-l4', athleteId: 'demo-a1', name: 'Arjun Mehta', sex: 'male', flight: 'B', lot: 4, bodyweight: 73.4, base: [207.5, 137.5, 247.5] },
-    { id: 'md-l5', athleteId: 'demo-a3', name: 'Tom Boyle', sex: 'male', flight: 'B', lot: 5, bodyweight: 103.8, base: [215, 145, 262.5] },
-    { id: 'md-l6', athleteId: 'demo-d1', name: 'Leo Grant', sex: 'male', flight: 'B', lot: 6, bodyweight: 91.5, base: [195, 130, 240] }
+    { id: 'md-l1', athleteId: 'demo-d2', name: 'Priya Shah', sex: 'female', flight: 'A', lot: 1, bodyweight: 62.4, base: [115, 67.5, 147.5] },
+    { id: 'md-l2', athleteId: 'demo-athlete', name: 'Demo Lifter', sex: 'male', flight: 'A', lot: 2, bodyweight: 81.9, base: [180, 122.5, 215] },
+    { id: 'md-l3', athleteId: 'demo-a3', name: 'Tom Boyle', sex: 'male', flight: 'B', lot: 3, bodyweight: 103.8, base: [215, 145, 262.5] },
+    { id: 'md-l4', athleteId: 'demo-d7', name: 'Callum Ward', sex: 'male', flight: 'B', lot: 4, bodyweight: 92.4, base: [195, 135, 240] }
   ];
+  var DEMO_V = 2;   // a day seeded by an older demo (other lifters) is seeded again
   function demoSeed() {
     var srv = lsGet(DEMO_SRV);
-    if (srv && srv.day && srv.day.date === today()) return srv;
+    if (srv && srv.day && srv.day.date === today() && srv.v === DEMO_V) return srv;
     var t = today(), start = Date.now() + 25 * 60000;
     start = Math.ceil(start / 300000) * 300000;   // on a five-minute mark, like a real schedule
     var day = { id: DEMO_ID, name: 'Autumn Open', date: t, federation: 'USAPL', division: 'Raw Open', status: 'setup', sec: 60,
       breakSec: BREAK_SEC,
-      // The venue's flights are bigger than the coach's team: ten in A and twelve in B, three of each ours.
+      // The venue's flights are bigger than the coach's team: ten in A and twelve in B, two of each ours.
       flights: { A: { start: new Date(start).toISOString(), size: 10 }, B: { start: new Date(start + 45 * 60000).toISOString(), size: 12 } } };
     var lifters = DEMO_LIFTERS.map(function (d) {
       var a = athlete(d.athleteId);
@@ -877,7 +878,7 @@ var MeetDay = (function () {
         });
       });
     });
-    srv = { day: day, lifters: lifters, srv: cells };
+    srv = { v: DEMO_V, day: day, lifters: lifters, srv: cells };
     lsSet(DEMO_SRV, srv);
     lsSet(boardKey(DEMO_ID), null);
     return srv;
@@ -890,9 +891,12 @@ var MeetDay = (function () {
     root.Store.update(function (x) {
       x.meets = x.meets || [];
       srv.lifters.forEach(function (l) {
-        if (ids.indexOf(l.athleteId) < 0 || x.meets.some(function (m) { return m.id === l.meetId; })) return;
+        if (ids.indexOf(l.athleteId) < 0) return;
         var plan = { v: 1, strategy: 'standard', sex: l.sex };
         LIFTS.forEach(function (lift) { plan[lift] = [1, 2, 3].map(function (n) { var c = srv.srv[attemptKey(l.id, lift, n)]; return c ? c.kg : null; }); });
+        // The demo seeds already plan today's meet for these lifters (same id): it gets the attempts.
+        var had = x.meets.find(function (m) { return m.id === l.meetId; });
+        if (had) { if (!had.attemptPlan) had.attemptPlan = plan; return; }
         x.meets.push({ id: l.meetId, athleteId: l.athleteId, name: srv.day.name, date: srv.day.date, status: 'planned', planned: true, federation: srv.day.federation,
           division: srv.day.division, weightClass: l.weightClass, weighIn: '2h', weighInAt: null, bodyweight: null, squat: null, bench: null, deadlift: null, notes: '', attemptPlan: plan });
       });
