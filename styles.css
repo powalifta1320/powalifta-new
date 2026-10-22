@@ -12326,3 +12326,116 @@ html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2
 .health-sheet .hs-refused { display: grid; gap: 4px; margin: 10px 0 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--soft-warn, #ffb35c) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft-warn, #ffb35c) 35%, transparent); font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
 .health-sheet .hs-refused b { color: var(--text); font-weight: 650; }
 .hr-bars i.is-none { height: 3px; opacity: 0.25; background: var(--text-3); }
+
+/* ===== PAIN FLAGS (brief 4.1): "Something hurt", tell your coach in three taps =====
+   The body map is a three-column figure (left side · midline · right side) with a hairline spine;
+   the 1–10 scale is ink, no traffic-light colours. */
+.pain-sheet .pain-map { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px; margin: 14px 0 4px; }
+.pain-sheet .pain-map::before { content: ''; position: absolute; left: 50%; top: 22px; bottom: 22px; width: 1px; background: var(--line); }
+.pain-sheet .pain-gap { min-height: 44px; }
+.pain-sheet .pain-chip { position: relative; z-index: 1; min-height: 44px; padding: 0 8px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 140ms ease-out; }
+.pain-sheet .pain-chip.is-mid { background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); }
+.pain-sheet .pain-chip:active { transform: scale(0.96); background: var(--fill-3); }
+.pain-sheet .pain-part-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0; }
+.pain-sheet .pain-part-row b { font-size: 22px; font-weight: 700; color: var(--text); }
+.pain-sheet .pain-part-row .ui-text-btn { padding: 8px 2px; font-size: 14px; }
+.pain-sheet .pain-ctx { margin: 0 0 12px; font-size: 13px; color: var(--text-3); }
+.pain-sheet .ui-seg.pain-phase { margin: 4px 0 16px; }
+.pain-sheet .ui-seg.pain-phase button { min-height: 36px; font-size: 14px; }
+.pain-sheet .pain-q { margin: 0 2px 10px; font-size: 15px; font-weight: 650; color: var(--text); }
+.pain-sheet .pain-sev { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.pain-sheet .pain-sev button { min-height: 52px; border: 0; border-radius: 16px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font-family: var(--font-num); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 140ms ease-out; }
+.pain-sheet .pain-sev button:active { transform: scale(0.95); background: var(--fill-3); }
+.pain-sheet .pain-sev-ends { display: flex; justify-content: space-between; margin: 8px 2px 4px; font-size: 12.5px; color: var(--text-3); }
+.tx-act.tx-act-hurt svg { width: 15px; height: 15px; }
+/* Phone: Something hurt and Note are icons at the row's end (labels for screen readers), so
+   Add set · PR attempt · the two icons stay on one line down to 360px. The hit area is 44px. */
+@media (max-width: 767px) {
+  .tx-acts .tx-act-ico { position: relative; width: 34px; padding: 0; justify-content: center; }
+  .tx-acts .tx-act-ico > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tx-acts .tx-act-ico::before { content: ''; position: absolute; inset: -5px; }
+  .tx-acts .tx-act-ico svg { width: 16px; height: 16px; }
+  .tx-acts .tx-act:not(.tx-act-ico) + .tx-act-ico, .tx-acts .tx-act-ico:first-child { margin-left: auto; }
+}
+body.powa-app .tx-hurt { display: inline-flex; align-items: center; gap: 7px; margin: 14px auto 0; color: var(--text-2); }
+body.powa-app .tx-hurt svg { width: 16px; height: 16px; flex: none; }
+.ui-sheet .tx-hurt + .tx-resume, .tx-hero .tx-hurt + .tx-resume { margin-top: 4px; }
+.tx-hero.is-done .tx-hurt { display: flex; margin-left: auto; margin-right: auto; }
+.pain-resolve-sheet .pain-note { width: 100%; min-height: 84px; margin: 12px 0 14px; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font: inherit; font-size: 15px; resize: vertical; }
+
+/* ===== VOICE NOTES (brief 3.8 / 4.4): hold the mic, listen back, send =====
+   The bubble holds a play button, 32 bars and the time; the speed chip is the only extra.
+   Bars and text take the bubble's own ink (currentColor), so mine and theirs both read. */
+.vn-player { display: flex; align-items: center; gap: 10px; min-width: 212px; max-width: 280px; padding: 2px 0; }
+.vn-play { flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out; }
+.msg-row.theirs .vn-play, .vn-preview .vn-play { background: var(--acc, var(--brand-red)); color: var(--acc-ink, #fff); }
+.vn-play:active { transform: scale(0.92); }
+.vn-play svg { width: 16px; height: 16px; }
+.vn-play .vn-i-pause, .vn-player.is-playing .vn-play .vn-i-play { display: none; }
+.vn-player.is-playing .vn-play .vn-i-pause { display: block; }
+.vn-player.is-loading .vn-play { opacity: 0.6; }
+/* The bars always fit the width the wave gets: no gap, each bar draws inside a 1px transparent edge,
+   so 32 bars need 32px at the least. Where container queries exist, a narrow wave shows every
+   other bar (16) so each stays a readable 2-3px; a wide one lets bars grow to 5px. */
+.vn-wave { flex: 1 1 150px; min-width: 0; height: 28px; display: flex; align-items: center; gap: 0; cursor: pointer; container-type: inline-size; }
+.vn-bar { flex: 1 1 0; min-width: 0; max-width: 6px; border-right: 1px solid transparent; background-clip: padding-box; border-radius: 2px; background-color: currentColor; opacity: 0.32; transition: opacity 120ms linear; }
+@container (max-width: 125px) { .vn-bar:nth-child(odd) { display: none; } .vn-bar { max-width: 5px; border-right-width: 1.5px; } }
+@container (min-width: 200px) { .vn-bar { border-right-width: 2px; max-width: 7px; } }
+.vn-bar.is-played { opacity: 1; }
+.vn-time { flex: none; min-width: 34px; font-family: var(--font-num); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; opacity: 0.8; }
+.vn-player.is-error .vn-time { min-width: 0; font-family: var(--font-body); font-weight: 500; }
+.vn-speed { flex: none; min-width: 40px; height: 30px; padding: 0 8px; border: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.vn-player.is-compact { min-width: 0; max-width: none; }
+.msg-bubble.is-voice { min-width: 240px; }
+.msg-bubble.is-pending { opacity: 0.72; }
+.msg-bubble.is-pending .msg-meta { font-style: normal; }
+
+/* The composer: the mic shows while the box is empty, the send arrow once there's text. */
+.vn-mic { flex: none; align-self: flex-end; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--fill-3, rgba(255,255,255,0.1)); color: var(--text); cursor: pointer; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: transform 160ms ease-out, background-color 160ms ease-out, color 160ms ease-out; }
+.vn-mic svg { width: 20px; height: 20px; }
+.vn-mic.is-held, .msg-composer.is-recording .vn-mic { transform: scale(1.12); background: var(--brand-red); color: #fff; }
+.msg-composer.is-cancel .vn-mic { background: var(--fill-3, rgba(255,255,255,0.1)); color: var(--text-2); transform: scale(1); }
+.msg-composer.has-mic:not(.has-text) .msg-send { display: none; }
+.msg-composer.has-text .vn-mic { display: none; }
+.msg-composer.is-recording > :not(.vn-rec):not(.vn-mic),
+.msg-composer.is-preview > :not(.vn-preview) { display: none !important; }
+.vn-rec { order: -1; flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; }
+.vn-rec[hidden] { display: none; }
+.vn-rec-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--brand-red); animation: vn-blink 1.1s ease-in-out infinite; }
+.msg-composer.is-cancel .vn-rec-dot { animation: none; background: var(--text-3); }
+.vn-rec-time { flex: none; font-family: var(--font-num); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 700; color: var(--text); }
+.vn-rec-meter { flex: none; display: flex; align-items: center; gap: 2px; height: 20px; }
+.vn-rec-meter i { width: 3px; height: 12%; border-radius: 2px; background: var(--text-2); transition: height 90ms linear; }
+.vn-rec-hint { flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.msg-composer.is-cancel .vn-rec-hint { color: var(--text); }
+@keyframes vn-blink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .vn-rec-dot { animation: none; } }
+.vn-preview { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--text); }
+.vn-preview .vn-player { flex: 1; min-width: 0; max-width: 420px; }
+.vn-del { flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: transparent; color: var(--text-2); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.vn-del svg { width: 20px; height: 20px; }
+.vn-send { flex: none; margin-left: auto; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50% !important; display: grid; place-items: center; }
+.vn-send svg { width: 20px; height: 20px; }
+@media (max-width: 400px) { .vn-rec-hint { font-size: 12px; } .vn-player { min-width: 0; } .msg-bubble.is-voice { min-width: 0; width: 78%; } }
+/* Train: the coach's newest voice note, one row, until it's been heard. */
+.today-note.tn-voice { align-items: center; }
+.tn-voice .vn-player { color: var(--text); margin-top: 4px; }
+.tn-voice .vn-play { background: var(--acc, var(--brand-red)); color: var(--acc-ink, #fff); }
+
+/* ===== READINESS REST + CUT TRACKER (brief 4.2 / 4.3) =====
+   The rest suggestion is one quiet line on the timer; the cut is coloured for the goal (amber when
+   creeping the wrong way, red when off pace), never decoration. */
+.rest-timer.has-why { flex-wrap: wrap; row-gap: 6px; }
+.rest-timer > .rt-why { flex: 1 0 100%; order: 9; margin: 0; padding: 0 4px 2px; font-size: 12px; line-height: 1.3; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tn-text.cut-line.cut-amber { color: var(--gold, #ffbf3c); }
+.tn-text.cut-line.cut-off { color: var(--brand-red); }
+[data-theme="light"] .tn-text.cut-line.cut-amber { color: #9a6a00; }
+.cut-sheet .cut-q { margin: 14px 2px 8px; font-size: 15px; font-weight: 650; color: var(--text); }
+.cut-sheet .cut-classes { display: flex; flex-wrap: wrap; gap: 8px; }
+.cut-sheet .cut-chip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-2, rgba(255,255,255,0.06)); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 140ms ease-out, transform 140ms ease-out; }
+.cut-sheet .cut-chip:active { transform: scale(0.96); }
+.cut-sheet .cut-chip.on { background: var(--text); color: var(--bg, #0b0b0c); }
+.cut-sheet .cut-date { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 15px; color: var(--text); }
+.cut-sheet .cut-date input { min-height: 36px; border: 0; background: transparent; color: var(--text); font: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.cut-sheet .cut-step { margin: 0 0 10px; }
+.cut-sheet .cut-foot { margin: 4px 2px 16px; font-size: 12.5px; line-height: 1.45; color: var(--text-3); }

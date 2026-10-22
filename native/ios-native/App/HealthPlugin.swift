@@ -3,7 +3,8 @@ import Capacitor
 import HealthKit
 
 // Apple Health for POWALIFTA (1.3, branch feat/apple-health). JS name "PowaHealth".
-// Reads: bodyweight (smart scales and other apps), sleep, resting heart rate.
+// Reads: bodyweight (smart scales and other apps), sleep, resting heart rate, heart rate
+// variability (SDNN, for the rest suggestion), and calories + protein eaten (the cut tracker).
 // Writes: bodyweight (the lifter's weigh-ins) and finished sessions as strength workouts.
 // Everything the app writes carries a sync identifier ("powa-bw-<id>", "powa-session-<id>")
 // with a version, so saving again replaces the old copy instead of adding a second one, and
@@ -23,13 +24,18 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "saveWorkout", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deleteWorkout", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSleep", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readRestingHeartRate", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "readRestingHeartRate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readHRV", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readNutrition", returnType: CAPPluginReturnPromise)
     ]
 
     private let store = HKHealthStore()
     private var bodyMass: HKQuantityType { HKQuantityType.quantityType(forIdentifier: .bodyMass)! }
     private var restingHR: HKQuantityType { HKQuantityType.quantityType(forIdentifier: .restingHeartRate)! }
     private var sleepType: HKCategoryType { HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)! }
+    private var hrvType: HKQuantityType { HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN)! }
+    private var energyType: HKQuantityType { HKQuantityType.quantityType(forIdentifier: .dietaryEnergyConsumed)! }
+    private var proteinType: HKQuantityType { HKQuantityType.quantityType(forIdentifier: .dietaryProtein)! }
 
     // ---- dates: "YYYY-MM-DD" (a weigh-in: 08:00 local that day) or ISO 8601 -------------------
     private static func parseDate(_ s: String?) -> Date? {
@@ -76,7 +82,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func requestAccess(_ call: CAPPluginCall) {
         guard HKHealthStore.isHealthDataAvailable() else { call.resolve(["shown": false]); return }
         let share: Set<HKSampleType> = [bodyMass, HKObjectType.workoutType()]
-        let read: Set<HKObjectType> = [bodyMass, restingHR, sleepType, HKObjectType.workoutType()]
+        // One sheet for everything (brief M7: one HealthKit change, one prompt). Adding types here
+        // makes iOS ask again for just the new ones on the next launch (health.js asks once a launch).
+        let read: Set<HKObjectType> = [bodyMass, restingHR, sleepType, HKObjectType.workoutType(), hrvType, energyType, proteinType]
         store.requestAuthorization(toShare: share, read: read) { [weak self] ok, err in
             guard let self = self else { return }
             call.resolve([
@@ -227,5 +235,63 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["samples": out])
         }
         store.execute(q)
+    }
+
+    // Heart rate variability (SDNN, ms), newest first. Only a Watch (or another wearable writing to
+    // Health) records it, and sparsely: an iPhone alone has none, and the app then shows nothing.
+    @objc func readHRV(_ call: CAPPluginCall) {
+        let days = max(1, min(60, call.getInt("days") ?? 35))
+        let from = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let pred = HKQuery.predicateForSamples(withStart: from, end: Date(), options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        let q = HKSampleQuery(sampleType: hrvType, predicate: pred, limit: 500, sortDescriptors: [sort]) { _, samples, err in
+            if let err = err { call.reject(Self.code(err), nil, err); return }
+            let ms = HKUnit.secondUnit(with: .milli)
+            let out: [[String: Any]] = (samples as? [HKQuantitySample] ?? []).map {
+                ["ms": ($0.quantity.doubleValue(for: ms) * 10).rounded() / 10, "date": Self.iso($0.startDate), "day": Self.day($0.startDate)]
+            }
+            call.resolve(["samples": out])
+        }
+        store.execute(q)
+    }
+
+    // Calories and protein eaten per day (Health's own daily sums, so two apps logging the same
+    // meal aren't double-counted beyond what Health itself shows). A day with nothing logged is
+    // left out, never sent as 0: the app reads it as "not logged".
+    @objc func readNutrition(_ call: CAPPluginCall) {
+        let days = max(1, min(60, call.getInt("days") ?? 14))
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        guard let from = cal.date(byAdding: .day, value: -(days - 1), to: today) else { call.reject("bad_args"); return }
+        let group = DispatchGroup()
+        var kcal: [String: Double] = [:], protein: [String: Double] = [:]
+        var failed: Error? = nil
+        let lock = NSLock()
+        func sums(_ type: HKQuantityType, _ unit: HKUnit, _ put: @escaping (String, Double) -> Void) {
+            group.enter()
+            let q = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: HKQuery.predicateForSamples(withStart: from, end: Date(), options: []),
+                                                options: .cumulativeSum, anchorDate: today, intervalComponents: DateComponents(day: 1))
+            q.initialResultsHandler = { _, results, err in
+                if let err = err { lock.lock(); failed = err; lock.unlock() }
+                results?.enumerateStatistics(from: from, to: Date()) { st, _ in
+                    if let sum = st.sumQuantity() { lock.lock(); put(Self.day(st.startDate), sum.doubleValue(for: unit)); lock.unlock() }
+                }
+                group.leave()
+            }
+            store.execute(q)
+        }
+        sums(energyType, .kilocalorie()) { d, v in kcal[d] = v }
+        sums(proteinType, .gram()) { d, v in protein[d] = v }
+        group.notify(queue: .global()) {
+            if let err = failed, kcal.isEmpty && protein.isEmpty { call.reject(Self.code(err), nil, err); return }
+            let keys = Set(kcal.keys).union(protein.keys).sorted(by: >)
+            let out: [[String: Any]] = keys.map { d in
+                var row: [String: Any] = ["day": d]
+                if let k = kcal[d] { row["kcal"] = k.rounded() }
+                if let p = protein[d] { row["proteinG"] = (p * 10).rounded() / 10 }
+                return row
+            }
+            call.resolve(["days": out])
+        }
     }
 }

@@ -21,7 +21,8 @@ const defaultStore = () => ({
   meets: [],
   checkinQuestions: [],
   checkinAnswers: [],
-  programBlocks: []
+  programBlocks: [],
+  painReports: []
 });
 
 const Store = {
@@ -86,6 +87,8 @@ function requireAuth(expectedType) {
 // rejected by RLS, burning the attempt counters), and the Home Screen widget.
 function _wipeLocalUserData() {
   try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
+  // Queued (unsent) voice notes are audio on this phone: they leave with the account.
+  try { if (window._user && window._user.id && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(window._user.id).catch(() => {}); } catch (e) {}
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
   try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
 }
@@ -115,6 +118,7 @@ async function logout() {
   if (!window._demoMode) await _forgetPushOnThisDevice();
   _wipeLocalUserData();
   try { await DB.signOut(); } catch (e) { console.warn(e); }
+  try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
   _toWelcome();
@@ -194,7 +198,16 @@ function _buildDemoData() {
     bodyweight.push({ id: 'demo-bw-' + d, athleteId: DA, date: daysAgo(d), weight: Math.round((84.2 - (110 - d) * 0.012 + j(d, 0.6) - 0.3) * 10) / 10 });
   }
 
-  const goals = [{ id: DA, athleteId: DA, squat: 200, bench: 130, deadlift: 240, total: 570, bodyweight: 83, bwDirection: 'maintain' }];
+  // Making 83 for a meet in 9 weeks (the cut card), with daily food targets.
+  const goals = [{ id: DA, athleteId: DA, squat: 200, bench: 130, deadlift: 240, total: 570, bodyweight: 83, bwDirection: 'maintain',
+    targetClass: 83, cutBy: daysAgo(-63), kcalTarget: 2700, proteinTarget: 180 }];
+  // As if from an Apple Watch: 35 days of resting HR + HRV, the last two mornings well off the usual
+  // (so Train shows the rest suggestion), and food logged in another app with a day missed.
+  const healthDaily = SOLO ? [] : Array.from({ length: 35 }, (_, i) => ({ athleteId: DA, day: daysAgo(i),
+    sleepMin: i < 7 ? [372, 398, 452, 441, 430, 466, 425][i] : null,
+    rhr: i < 2 ? [58, 57][i] : 49 + ((i * 7) % 4), hrv: i < 2 ? [38, 41][i] : 62 + ((i * 5) % 9) }));
+  const nutritionDaily = Array.from({ length: 7 }, (_, i) => i === 3 ? null : ({ athleteId: DA, day: daysAgo(i),
+    kcal: [2640, 2810, 2550, 0, 2720, 2590, 2680][i], proteinG: [176, 188, 169, 0, 182, 171, 179][i] })).filter(Boolean);
   const restDays = [2, 9, 16, 23].map(d => ({ id: 'demo-rest-' + d, athleteId: DA, date: daysAgo(d), note: '' }));
 
   // --- Current program: 4 weeks, today's session pinned and ready to tick ---
@@ -254,7 +267,9 @@ function _buildDemoData() {
     { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Top triple on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
     { id: 'demo-amsg-2a', coachId: DC, athleteId: DA, senderId: DA, body: 'Competition Squat: 160 kg × 3 @ RPE 8 (e1RM 179 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 160, reps: 3, rpe: 8, e1rmKg: 179.0 }, createdAt: at(2, 18, 3), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Will do. Felt a little soft out of the bottom last week, not sure if it was the brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
-    { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null }
+    { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null },
+    // A voice note (voice.js): the demo plays a soft murmur shaped by these bars, nothing is fetched.
+    { id: 'demo-amsg-4', coachId: DC, athleteId: DA, senderId: DC, body: 'Voice note · 0:19', meta: { type: 'voice', demo: true, dur: 18.6, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[0] }, createdAt: at(1, 7, 47), readAt: null }
   ];
 
   // --- Competition history: two past meets so Progress shows a best total + a
@@ -283,14 +298,20 @@ function _buildDemoData() {
       coaches, athletes: [], invites: [], programs, programTemplates: [],
       workoutLogs, bodyweight, restDays, meets,
       sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
-      goals, checkins: SOLO ? [] : checkins, messages: SOLO ? [] : messages,
+      goals, checkins: SOLO ? [] : checkins, messages: SOLO ? [] : messages, healthDaily, nutritionDaily,
       messageReactions: SOLO ? [] : [{ messageId: 'demo-amsg-2a', userId: DC, reaction: 'fire' }],
-      marketplacePrograms: [], mySales: [], myPurchases: [],
+      marketplacePrograms: [], mySales: [], myPurchases: [], painReports: [],
       // ?demo=1&brand=1: the app as a branded Pro coach's athletes see it.
       coachBrand: !SOLO && /[?&]brand=1/.test(location.search) ? demoCoachBrand() : null
     }
   };
 }
+
+// Waveforms for the demo's voice notes (32 bars, 0-100). A var, so the demo boot can't hit a TDZ.
+var DEMO_VOICE_PEAKS = [
+  [18, 42, 66, 58, 81, 47, 30, 62, 88, 74, 52, 36, 70, 95, 68, 41, 24, 55, 79, 63, 46, 72, 90, 57, 33, 48, 76, 61, 39, 54, 28, 12],
+  [22, 35, 58, 77, 64, 40, 71, 86, 69, 45, 31, 52, 83, 100, 72, 50, 37, 60, 74, 58, 29, 44, 67, 81, 66, 49, 35, 62, 70, 43, 26, 14]
+];
 
 // Coach-side demo: a living roster — flags, compliance, notes inbox, check-ins.
 function _buildCoachDemoData() {
@@ -310,7 +331,7 @@ function _buildCoachDemoData() {
   // so the empty screens can be seen and judged without signing up.
   if (/[?&]fresh=1/.test(location.search)) {
     Object.assign(user, { name: 'Alex Morgan', bio: '', subscriptionTier: 'free', subscriptionStatus: 'inactive', subscriptionPeriodEnd: null, billingProvider: null });
-    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [] } };
+    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [], painReports: [] } };
   }
 
   // Roster engineered to show every flag state
@@ -403,11 +424,16 @@ function _buildCoachDemoData() {
   // outranks heavier Tom) — that contrast is the whole point of the board.
   // Nina never started, so she's left out and the board skips her.
   const bodyweight = [];
-  [{ a: 'demo-a1', kg: 74.8 }, { a: 'demo-a2', kg: 62.9 }, { a: 'demo-a3', kg: 105.3 }].forEach(b => {
+  [{ a: 'demo-a1', kg: 74.8 }, { a: 'demo-a3', kg: 105.3 }].forEach(b => {
     [14, 7, 1].forEach((d, i) => {
       bodyweight.push({ id: 'demo-cbw-' + b.a + '-' + d, athleteId: b.a, date: daysAgo(d), weight: Math.round((b.kg + (2 - i) * 0.5) * 10) / 10, unit: 'kg' });
     });
   });
+  // Sarah is cutting to the 63 kg class for a meet in 3 weeks and has stalled: "Off pace".
+  [[20, 64.4], [17, 64.0], [14, 64.3], [11, 64.1], [8, 64.2], [5, 63.9], [3, 64.2], [1, 64.1]].forEach(([d, kg]) => {
+    bodyweight.push({ id: 'demo-cbw-demo-a2-' + d, athleteId: 'demo-a2', date: daysAgo(d), weight: kg, unit: 'kg' });
+  });
+  const goals = [{ id: 'demo-a2', athleteId: 'demo-a2', bodyweight: 63, bwDirection: 'cut', targetClass: 63, cutBy: daysAgo(-21), kcalTarget: 1900, proteinTarget: 130 }];
   // Seeded conversations so the Messages inbox is alive: an active back-and-forth
   // (Arjun, ends on an unread question), a wrapped-up exchange (Sarah), a re-engaged
   // absentee (Tom, unread), and Nina with nothing yet (shows the empty state).
@@ -418,8 +444,10 @@ function _buildCoachDemoData() {
     { id: 'demo-msg-2', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Hit 172.5 for the single, honestly felt like an opener.', createdAt: at(4, 18, 40), readAt: at(4, 19, 0) },
     { id: 'demo-msg-3', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'That\'s exactly what I wanted to see. We\'ll go to 175 next week and hold the back-offs.', createdAt: at(4, 19, 2), readAt: at(4, 20, 0) },
     { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one: sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
+    { id: 'demo-msg-4v', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Voice note · 0:24', meta: { type: 'voice', demo: true, dur: 23.8, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[1] }, createdAt: at(1, 7, 32), readAt: null },
     { id: 'demo-msg-5', coachId: DC, athleteId: 'demo-a2', senderId: 'demo-a2', body: 'Paused bench is finally clicking, the reps moved way faster this week.', createdAt: at(3, 12, 10), readAt: at(2, 8, 0) },
     { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Good. Same weights once more, then we add load. The pause is buying you a stronger press off the chest.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
+    { id: 'demo-msg-6v', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Voice note · 0:12', meta: { type: 'voice', demo: true, dur: 12.2, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[0].slice().reverse() }, createdAt: at(2, 8, 21), readAt: at(2, 9, 0) },
     { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'Haven\'t seen a log in over a week. Everything alright?', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
     { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Yeah man, work\'s been brutal. Back in Monday, promise.', createdAt: at(1, 22, 15), readAt: null }
   ];
@@ -509,12 +537,15 @@ function _buildCoachDemoData() {
     store: {
       checkinQuestions: ciQs, checkinAnswers: ciAs, programBlocks,
       coaches: [], athletes, invites, programs, programTemplates,
-      workoutLogs, bodyweight, sessionNotes, goals: [], restDays: [], checkins, messages,
-      // Shared from Apple Health: Arjun sleeps well; Tom, having a rough week, doesn't.
-      healthDaily: [0, 1, 2, 3, 4, 5, 6].flatMap(i => [
-        { athleteId: 'demo-a1', day: daysAgo(i), sleepMin: [452, 431, 470, 418, 445, 462, 438][i], rhr: [52, 53, 52, 54, 53, 52, 53][i] },
-        { athleteId: 'demo-a3', day: daysAgo(i), sleepMin: [318, 342, 365, 401, 330, 420, 410][i], rhr: [64, 62, 60, 58, 61, 57, 57][i] }
+      workoutLogs, bodyweight, sessionNotes, goals, restDays: [], checkins, messages,
+      // Shared from Apple Health: Arjun sleeps well and sits on his usual; Tom, having a rough
+      // week, is well off his own 28 days (resting HR up, HRV down): the readiness dot goes low.
+      healthDaily: Array.from({ length: 35 }, (_, i) => i).flatMap(i => [
+        { athleteId: 'demo-a1', day: daysAgo(i), sleepMin: i < 7 ? [452, 431, 470, 418, 445, 462, 438][i] : null, rhr: i < 7 ? [52, 53, 52, 54, 53, 52, 53][i] : 52 + (i % 3), hrv: 70 + ((i * 7) % 11) },
+        { athleteId: 'demo-a3', day: daysAgo(i), sleepMin: i < 7 ? [318, 342, 365, 401, 330, 420, 410][i] : null, rhr: i < 7 ? [64, 66, 60, 58, 61, 57, 57][i] : 56 + (i % 3), hrv: i < 2 ? [39, 42][i] : 55 + ((i * 3) % 8) }
       ]),
+      // Sarah shares her food (its own switch): over her target, a day not logged.
+      nutritionDaily: [0, 1, 2, 4, 5, 6].map(i => ({ athleteId: 'demo-a2', day: daysAgo(i), kcal: [2150, 2080, 1990, 0, 2240, 2010, 2120][i], proteinG: [118, 124, 131, 0, 112, 127, 121][i] })),
       // Arjun's last two meets, as they come in from OpenPowerlifting: his real 1RMs.
       meets: [
         { id: 'demo-cmeet-1', athleteId: 'demo-a1', name: 'Spring Classic', date: daysAgo(152), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.6, squat: 200, bench: 132.5, deadlift: 240,
@@ -523,6 +554,16 @@ function _buildCoachDemoData() {
           notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' }
       ],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
+      // Pain flags: Sarah's low back twice this week (open, so the roster flags it); Arjun's hip
+      // last week, resolved with a note.
+      painReports: [
+        { id: 'demo-pain-1', athleteId: 'demo-a2', coachId: DC, day: daysAgo(1), bodyPart: 'low_back', side: null, severity: 6, phase: 'top', lift: 'deadlift',
+          setRef: null, note: '', createdAt: daysAgo(1) + 'T18:20:00Z', resolvedAt: null, resolvedBy: null, coachNote: '' },
+        { id: 'demo-pain-2', athleteId: 'demo-a2', coachId: DC, day: daysAgo(3), bodyPart: 'low_back', side: null, severity: 4, phase: 'after', lift: 'deadlift',
+          setRef: null, note: '', createdAt: daysAgo(3) + 'T19:05:00Z', resolvedAt: null, resolvedBy: null, coachNote: '' },
+        { id: 'demo-pain-3', athleteId: 'demo-a1', coachId: DC, day: daysAgo(8), bodyPart: 'hip', side: 'left', severity: 4, phase: 'top', lift: 'squat',
+          setRef: null, note: '', createdAt: daysAgo(8) + 'T17:40:00Z', resolvedAt: daysAgo(7) + 'T09:00:00Z', resolvedBy: DC, coachNote: 'Wider stance and a longer warm-up. Tell me if it comes back' }
+      ],
       marketplacePrograms, mySales, myPurchases: []
     }
   };
@@ -659,6 +700,7 @@ async function bootstrap(expectedType, onReady, opts) {
     brandName: profile.brand_name || null, brandLogoUrl: profile.brand_logo_url || null, brandColor: profile.brand_color || null,
     // Apple Health (1.3): the lifter shares sleep + resting HR with their coach.
     shareHealth: !!profile.share_health_with_coach,
+    shareNutrition: !!profile.share_nutrition_with_coach,
     // Who bills the coach's plan ('apple' | 'ls' | null) and when its paid period
     // ends: getCurrentTier() treats the plan as Free 3 days after that.
     billingProvider: billingProviderOf(profile),
@@ -666,6 +708,9 @@ async function bootstrap(expectedType, onReady, opts) {
     appleTxn: !!profile.apple_original_transaction_id,
     appleBilled: billingProviderOf(profile) === 'apple'
   };
+
+  // kg / lb follows the lifter across devices (profiles.unit, migration-program-integrity-2026-10-22.sql).
+  try { window._user.unit = unitFromDb(profile.unit); syncUnitWithProfile(profile.unit, 'unit' in profile); } catch (e) {}
 
   // Remember the role so the app can open straight into the right dashboard next
   // launch (index.html head script) instead of flashing the welcome screen.
@@ -1235,10 +1280,33 @@ function setUnit(u) {
 }
 function toggleUnit() {
   setUnit(getUnit() === 'kg' ? 'lbs' : 'kg');
-  // Hard reload — easiest way to guarantee every view re-renders with the new unit.
-  location.reload();
+  // The choice follows the lifter to other devices and to their coach (profiles.unit), then a
+  // hard reload: the easiest way to guarantee every view re-renders with the new unit.
+  const save = (!window._demoMode && window.DB && DB.setMyUnit) ? DB.setMyUnit(getUnit()).catch(() => null) : null;
+  if (!save) { location.reload(); return; }
+  Promise.race([save, new Promise(r => setTimeout(r, 1200))]).then(() => location.reload());
 }
 window.toggleUnit = toggleUnit;
+// profiles.unit ('kg' | 'lb') ↔ the app's 'kg' | 'lbs'.
+function unitFromDb(u) { return u === 'lb' ? 'lbs' : u === 'kg' ? 'kg' : null; }
+// At sign-in: a device that never chose takes the profile's unit; a device that did choose is the
+// lifter's latest word and goes up to the profile. 'adopted' | 'pushed' | 'same'.
+function syncUnitWithProfile(profileUnit, hasColumn) {
+  let stored = null;
+  try { stored = localStorage.getItem(UNIT_KEY); } catch (e) {}
+  const pu = unitFromDb(profileUnit);
+  if (!stored && pu) { setUnit(pu); return 'adopted'; }
+  if (hasColumn && pu !== getUnit()) {
+    if (!window._demoMode && window.DB && DB.setMyUnit) DB.setMyUnit(getUnit()).catch(() => null);
+    return 'pushed';
+  }
+  return 'same';
+}
+// A coached lifter's unit, for loads written for them (hook for the coach desk). null = not set.
+function athleteUnit(athleteId) {
+  const a = (Store.get().athletes || []).find(x => x.id === athleteId);
+  return (a && a.unit) || null;
+}
 
 // Display: kg internal value → number in the user's chosen unit.
 // `decimals` defaults to 1 for lbs (220.5) and 0 for kg (100), or pass to override.
@@ -2229,10 +2297,220 @@ function persistProgram(programId) { if (window._demoMode) return;
     try { await DB.upsertProgram(prog); }
     catch (e) {
       console.error('persistProgram', e);
-      _enqueueOutbox('program', prog, 'program:' + prog.id);
+      // The copy carries the version it was edited from, so the replay can merge instead of overwrite.
+      _enqueueOutbox('program', Object.assign({}, prog, { _base: (DB.programBase && DB.programBase(prog.id)) || prog._base || null }), 'program:' + prog.id);
       toast('No connection: saved on this device, will sync');
     }
   }, 350);
+}
+
+// =========================================================
+// SAFE PROGRAM SAVING (brief M0a · migration-program-integrity-2026-10-22.sql)
+// programs.rev makes every whole-program save a compare-and-swap (db.js upsertProgram): a save
+// that lost the race refetches, merges the two edits here and tries again. Logging a set patches
+// that one set (log_program_set), so a lifter's offline replay never undoes a coach's edit.
+// =========================================================
+// What logging a set may change (mirrors the RPC's whitelist).
+const SET_LOG_FIELDS = ['completed', 'skipped', 'missed', 'actualRpe', 'completedAt', 'lastLogId', 'note', 'weight', 'reps', 'plannedWeight', 'plannedReps'];
+const _NOBASE = { nobase: true };
+function _isPlainObj(v) { return v != null && typeof v === 'object' && !Array.isArray(v); }
+// Deep equality that ignores key order and treats a missing field as null.
+function _deq(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!_deq(a[i], b[i])) return false;
+    return true;
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    const ks = new Set(Object.keys(a).concat(Object.keys(b)));
+    for (const k of ks) if (!_deq(a[k], b[k])) return false;
+    return true;
+  }
+  return false;
+}
+function _isSetLike(o) { return _isPlainObj(o) && 'reps' in o && ('completed' in o || 'rpe' in o); }
+function _mergeV(b, m, t) {
+  if (_deq(m, t)) return m;
+  if (b !== _NOBASE) { if (_deq(b, m)) return t; if (_deq(b, t)) return m; }
+  if (Array.isArray(m) && Array.isArray(t)) return _mergeA(Array.isArray(b) ? b : _NOBASE, m, t);
+  if (_isPlainObj(m) && _isPlainObj(t)) return _mergeO(_isPlainObj(b) ? b : _NOBASE, m, t);
+  return m;   // both changed one value: this device's edit wins (never silently: it's what the user just did)
+}
+function _mergeO(b, m, t) {
+  const out = {};
+  const keys = Object.keys(m).concat(Object.keys(t).filter(k => !(k in m)));
+  keys.forEach(k => {
+    const inB = b !== _NOBASE && k in b;
+    if (!(k in m)) { if (!(inB && _deq(b[k], t[k]))) out[k] = t[k]; return; }   // kept unless I removed it
+    if (!(k in t)) { if (!(inB && _deq(b[k], m[k]))) out[k] = m[k]; return; }   // kept unless they removed it
+    out[k] = _mergeV(b === _NOBASE ? _NOBASE : (inB ? b[k] : undefined), m[k], t[k]);
+  });
+  // A set's log belongs to whoever logged it: the coach's edit of a set the lifter has just done
+  // (or the other way round) keeps what was actually lifted.
+  if (_isSetLike(m) || _isSetLike(t)) {
+    const bDone = b !== _NOBASE && !!b.completed, mDone = !!m.completed, tDone = !!t.completed;
+    const src = (tDone && !mDone && !bDone) ? t : (mDone && !tDone && !bDone) ? m : null;
+    if (src) SET_LOG_FIELDS.forEach(f => { if (src[f] != null) out[f] = src[f]; else delete out[f]; });
+  }
+  return out;
+}
+function _idList(a) { return a.map(x => String(x.id)); }
+function _sameOrder(x, y) {
+  const xs = new Set(_idList(x)), ys = new Set(_idList(y));
+  return _idList(x).filter(i => ys.has(i)).join('\u0001') === _idList(y).filter(i => xs.has(i)).join('\u0001');
+}
+function _mergeA(b, m, t) {
+  const withIds = (a) => a.every(x => _isPlainObj(x) && x.id != null && x.id !== '');
+  if ((m.length || t.length) && withIds(m) && withIds(t) && (b === _NOBASE || withIds(b))) {
+    const bMap = b === _NOBASE ? null : new Map(b.map(x => [String(x.id), x]));
+    const mMap = new Map(m.map(x => [String(x.id), x])), tMap = new Map(t.map(x => [String(x.id), x]));
+    const keep = (id) => {
+      const inM = mMap.has(id), inT = tMap.has(id);
+      if (inM && inT) return true;
+      if (!bMap || !bMap.has(id)) return true;                          // added by one side
+      return !_deq(bMap.get(id), inM ? mMap.get(id) : tMap.get(id));     // removed by the other: gone unless edited since
+    };
+    const value = (id) => {
+      if (mMap.has(id) && tMap.has(id)) return _mergeV(bMap && bMap.has(id) ? bMap.get(id) : _NOBASE, mMap.get(id), tMap.get(id));
+      return mMap.has(id) ? mMap.get(id) : tMap.get(id);
+    };
+    // Their order, unless only I reordered.
+    const useMine = b !== _NOBASE && _sameOrder(b, t) && !_sameOrder(b, m);
+    const skel = useMine ? m : t, other = useMine ? t : m;
+    const ids = _idList(skel).filter(keep);
+    const placed = new Set(ids);
+    let prev = null;
+    _idList(other).forEach(id => {
+      if (!placed.has(id)) {
+        if (keep(id)) { const at = prev == null ? 0 : ids.indexOf(prev) + 1; ids.splice(at, 0, id); placed.add(id); prev = id; }
+      } else prev = id;
+    });
+    return ids.map(value);
+  }
+  // No ids: by position. A side that didn't change the count takes the other's count.
+  const len = b === _NOBASE ? Math.max(m.length, t.length)
+    : m.length === b.length ? t.length : t.length === b.length ? m.length : Math.max(m.length, t.length);
+  const out = [];
+  for (let i = 0; i < len; i++) {
+    if (i < m.length && i < t.length) out.push(_mergeV(b !== _NOBASE && i < b.length ? b[i] : _NOBASE, m[i], t[i]));
+    else out.push(i < m.length ? m[i] : t[i]);
+  }
+  return out;
+}
+// base / mine / theirs: { name, weeks, maxes }. base null = unknown (keeps everything either side has).
+function mergeProgramVersions(base, mine, theirs) {
+  const pick = (p) => ({ name: (p && p.name) || '', weeks: (p && p.weeks) || [], maxes: (p && p.maxes) || null });
+  const out = _mergeV(base ? pick(base) : _NOBASE, pick(mine), pick(theirs));
+  return JSON.parse(JSON.stringify(out));
+}
+// Logging a set: the patch is that set's logged fields (null = remove), applied the same way here
+// as the RPC applies it on the server.
+// Undo (opts.undo) sends only the completion fields, plus the load / reps when they went back to
+// the plan (opts.restoredWeight / opts.restoredReps): a stale local load must never overwrite a
+// load the coach changed meanwhile.
+const SET_NUM_FIELDS = ['weight', 'reps', 'actualRpe', 'plannedWeight', 'plannedReps'];
+const SET_BOOL_FIELDS = ['completed', 'skipped', 'missed'];
+const SET_STR_FIELDS = ['completedAt', 'lastLogId', 'note'];
+const SET_UNDO_FIELDS = ['completed', 'skipped', 'missed', 'actualRpe', 'completedAt', 'lastLogId', 'note'];
+function setLogPatch(set, opts) {
+  const p = {};
+  let fields = SET_LOG_FIELDS;
+  if (opts && opts.undo) {
+    fields = SET_UNDO_FIELDS.slice();
+    if (opts.restoredWeight) fields.push('weight', 'plannedWeight');
+    if (opts.restoredReps) fields.push('reps', 'plannedReps');
+  }
+  fields.forEach(f => {
+    let v = set ? set[f] : null;
+    if (v === undefined || v === '') v = null;
+    // The shapes log_program_set accepts: numbers, booleans, strings (an old "5" becomes 5).
+    if (v != null && SET_NUM_FIELDS.includes(f)) { v = Number(v); if (!isFinite(v)) return; }   // not a number ("AMRAP"): leave the server's alone
+    else if (v != null && SET_BOOL_FIELDS.includes(f)) v = !!v;
+    else if (v != null && SET_STR_FIELDS.includes(f)) v = String(v);
+    p[f] = v;
+  });
+  return p;
+}
+function applySetPatch(set, patch) {
+  Object.keys(patch || {}).forEach(k => { if (patch[k] == null) delete set[k]; else set[k] = patch[k]; });
+  return set;
+}
+// [week id, day id, exercise id, set id or index] for log_program_set, or null when an id is missing.
+function programSetPath(week, day, ex, setIndex) {
+  const s = ex && ex.sets ? ex.sets[setIndex] : null;
+  if (!week || !day || !ex || !s || week.id == null || day.id == null || ex.id == null) return null;
+  return [String(week.id), String(day.id), String(ex.id), s.id != null && s.id !== '' ? String(s.id) : String(setIndex)];
+}
+function _findProgramSet(prog, path) {
+  const w = (prog.weeks || []).find(x => String(x.id) === path[0]);
+  const d = w && (w.days || []).find(x => String(x.id) === path[1]);
+  const e = d && (d.exercises || []).find(x => String(x.id) === path[2]);
+  if (!e) return null;
+  return (e.sets || []).find(s => s.id != null && String(s.id) === path[3]) || (/^\d+$/.test(path[3]) ? (e.sets || [])[Number(path[3])] : null) || null;
+}
+// A whole-program save landed (db.js upsertProgram calls this): the new rev, and when it merged,
+// the merged version into the Store, keeping anything edited here while the save was in flight.
+let _mergeToastAt = 0;
+function programWriteLanded(prog, sentJson, written, rev, merged) {
+  const live = (Store.get().programs || []).find(p => p.id === prog.id);
+  const targets = live && live !== prog ? [prog, live] : [prog];
+  targets.forEach(t => {
+    if (typeof rev === 'number') t.rev = rev;
+    if (!merged) return;
+    const now = JSON.stringify({ name: t.name || '', weeks: t.weeks || [], maxes: t.maxes || null });
+    const next = now === sentJson ? JSON.parse(JSON.stringify(written)) : mergeProgramVersions(JSON.parse(sentJson), t, written);
+    t.name = next.name; t.weeks = next.weeks; t.maxes = next.maxes;
+  });
+  if (merged) {
+    try { window.dispatchEvent(new CustomEvent('powa:program-merged', { detail: { id: prog.id } })); } catch (e) {}
+    if (Date.now() - _mergeToastAt > 60000) { _mergeToastAt = Date.now(); try { toast('Updated with the latest changes'); } catch (e) {} }
+  }
+}
+// Pull the server's copy into the Store (another device wrote in between).
+async function pullProgram(programId) {
+  if (window._demoMode || !(window.DB && DB.getProgramRow)) return false;
+  const base = DB.programBase ? DB.programBase(programId) : null;   // before the fetch replaces it
+  const theirs = await DB.getProgramRow(programId).catch(() => null);
+  const p = (Store.get().programs || []).find(x => x.id === programId);
+  if (!theirs || !p) return false;
+  const before = JSON.stringify({ name: p.name || '', weeks: p.weeks || [], maxes: p.maxes || null });
+  const next = mergeProgramVersions(base, p, theirs);
+  p.name = next.name; p.weeks = next.weeks; p.maxes = next.maxes; p.rev = theirs.rev;
+  if (DB.rememberProgramBase) DB.rememberProgramBase(theirs);
+  // My unsaved edits go up, unless a queued whole-program save is waiting: its replay merges and
+  // carries them (one write instead of two).
+  const queued = _readOutbox().some(e => e.key === 'program:' + programId);
+  if (!queued && !_deq(next, { name: theirs.name || '', weeks: theirs.weeks || [], maxes: theirs.maxes || null })) persistProgram(programId);
+  if (JSON.stringify(next) !== before) { try { window.dispatchEvent(new CustomEvent('powa:program-merged', { detail: { id: programId } })); } catch (e) {} }
+  return true;
+}
+// One logged (or un-logged) set → the server, as a patch of that set.
+let _noSetRpc = false;   // log_program_set isn't there yet: whole-program saves instead
+function persistProgramSet(programId, path, patch) {
+  if (window._demoMode || !programId) return;
+  if (_noSetRpc || !path || !(window.DB && DB.logProgramSet)) { persistProgram(programId); return; }
+  _sendProgramSet(programId, path, patch, false).catch(e => console.error('persistProgramSet', e));
+}
+async function _sendProgramSet(programId, path, patch, fromOutbox) {
+  try {
+    const rev = await DB.logProgramSet(programId, path, patch);
+    if (rev == null) { persistProgram(programId); return; }   // the set isn't on the server (yet): the whole save merges it in
+    const p = (Store.get().programs || []).find(x => x.id === programId);
+    if (!p) return;
+    if (typeof p.rev === 'number' && rev === p.rev + 1) {
+      p.rev = rev;
+      if (DB.patchProgramBase) DB.patchProgramBase(programId, path, patch);
+    } else if (typeof p.rev === 'number') {
+      pullProgram(programId);   // someone else wrote in between: bring their edit in
+    }
+  } catch (e) {
+    if (e && e.notReady) { _noSetRpc = true; persistProgram(programId); return; }
+    if (e && e.badPatch) { console.warn('log_program_set refused the patch', e.message); persistProgram(programId); return; }   // the whole save carries it
+    if (fromOutbox) throw e;
+    _enqueueOutbox('programSet', { programId, path, patch }, 'pset:' + programId + ':' + path.join(':'));
+  }
 }
 
 // =========================================================
@@ -2456,6 +2734,8 @@ const _OUTBOX_DISPATCH = {
   bw:         (p) => DB.upsertBw(p),
   goals:      (p) => DB.upsertGoals(p),
   program:    (p) => DB.upsertProgram(p),
+  programSet: (p) => _sendProgramSet(p.programId, p.path, p.patch, true),
+  pain:       (p) => sendPainReport(p),
   rest:       (p) => DB.upsertRest(p),
   deleteRest: (p) => DB.deleteRest(p.athleteId, p.date),
 };
@@ -2493,9 +2773,12 @@ async function flushOutbox() {
       } else { attempts[e.key] = n; failed.push(e); }
     }
   }
-  const stillQueued = new Set(failed.map(e => e.key));
+  // Anything queued while this flush ran (a replay that failed and re-queued) is kept, newest wins.
+  const added = _readOutbox().filter(x => !q.some(o => o.key === x.key && o.ts === x.ts));
+  const keep = failed.filter(f => !added.some(a => a.key === f.key)).concat(added);
+  const stillQueued = new Set(keep.map(e => e.key));
   for (const k of Object.keys(attempts)) { if (!stillQueued.has(k)) delete attempts[k]; }
-  _writeOutbox(failed);
+  _writeOutbox(keep);
   _writeOutboxAttempts(attempts);
   _flushingOutbox = false;
   if (synced > 0 && !failed.length) toast('Changes synced');
@@ -3907,12 +4190,18 @@ async function renderMessageThread(container, opts) {
   const ta = el('textarea', { class: 'msg-input', rows: '1', placeholder: 'Message', 'aria-label': 'Message ' + (otherName || ''), maxlength: '2000' });
   const sendBtn = el('button', { class: 'btn btn-primary msg-send is-empty', type: 'button', 'aria-label': 'Send',
     html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>' });
-  const syncSend = () => sendBtn.classList.toggle('is-empty', !ta.value.trim());
+  const syncSend = () => { const has = !!ta.value.trim(); sendBtn.classList.toggle('is-empty', !has); composer.classList.toggle('has-text', has); };
   ta.addEventListener('input', syncSend);
   composer.appendChild(ta);
   composer.appendChild(sendBtn);
   wrap.appendChild(composer);
   container.appendChild(wrap);
+  // Voice notes (voice.js): hold the mic to record; it shows while the box is empty, the send
+  // arrow once there's text. The laptop pane can drive the same control (container._voice).
+  const voice = (window.PowaVoice && !(opts && opts.noVoice)) ? PowaVoice.attachComposer(composer, { onSend: (rec) => sendVoice(rec) }) : null;
+  container._voice = voice;
+  let pendingVoice = [];   // recorded offline, waiting to go
+  const cleanups = [];
 
   // Reactions: messageId → [{ userId, reaction }]. Demo keeps them in memory.
   const reacts = {};
@@ -3929,6 +4218,10 @@ async function renderMessageThread(container, opts) {
     (messages || []).forEach(m => items.push({
       kind: 'msg', id: m.id, ts: m.createdAt || '', mine: m.senderId === viewerId, body: m.body, meta: m.meta || null, readAt: m.readAt || null
     }));
+    (pendingVoice || []).forEach(p => { if (!(messages || []).some(m => m.id === p.id)) items.push({
+      kind: 'msg', id: p.id, ts: p.createdAt || '', mine: true, body: '', pending: true, readAt: null,
+      meta: { type: 'voice', dur: p.dur, peaks: p.peaks, mime: p.mime }
+    }); });
     (notes || []).forEach(n => {
       if (n.note && n.note.trim()) items.push({
         kind: 'note', label: 'Session note', ts: (n.date || '') + 'T00:00:01Z', body: n.note, meta: ''
@@ -3989,7 +4282,7 @@ async function renderMessageThread(container, opts) {
     // The most recent message I sent is the only one that carries a Sent/Seen
     // receipt (iMessage-style — the status rides the last of mine).
     let lastMineIdx = -1;
-    items.forEach((it, i) => { if (it.kind === 'msg' && it.mine) lastMineIdx = i; });
+    items.forEach((it, i) => { if (it.kind === 'msg' && it.mine && !it.pending) lastMineIdx = i; });
     let lastDay = '';
     items.forEach((it, i) => {
       const day = (it.ts || '').slice(0, 10);
@@ -4010,10 +4303,12 @@ async function renderMessageThread(container, opts) {
       const sum = reactionSummary(reacts[it.id], viewerId);
       const row = el('div', { class: 'msg-row ' + (it.mine ? 'mine' : 'theirs') + (sum.total ? ' has-react' : '') });
       const isCard = it.meta && (it.meta.type === 'set' || it.meta.type === 'session');
-      const bubble = el('div', { class: 'msg-bubble' + (isCard ? ' is-card' : '') });
+      const isVoice = !!(it.meta && it.meta.type === 'voice' && window.PowaVoice && PowaVoice.cleanMeta(it.meta));
+      const bubble = el('div', { class: 'msg-bubble' + (isCard ? ' is-card' : '') + (isVoice ? ' is-voice' : '') + (it.pending ? ' is-pending' : '') });
       if (isCard) bubble.appendChild(setCard(it.meta));
+      else if (isVoice) bubble.appendChild(PowaVoice.player(it.meta, { messageId: it.id }));
       else bubble.appendChild(el('div', { class: 'msg-body' }, it.body));
-      bubble.appendChild(el('div', { class: 'msg-meta' }, _msgTime(it.ts)));
+      bubble.appendChild(el('div', { class: 'msg-meta' }, it.pending ? 'Will send when online' : _msgTime(it.ts)));
       if (sum.total) {
         const tb = el('button', { class: 'msg-react', type: 'button', 'aria-label': 'Reactions' });
         Object.keys(sum.counts).forEach(k => tb.appendChild(el('span', {}, REACT_EMOJI[k])));
@@ -4039,6 +4334,10 @@ async function renderMessageThread(container, opts) {
   function openPicker(it, bubble) {
     const sum = reactionSummary(reacts[it.id], viewerId);
     const extra = [];
+    if (it.pending) {   // not sent yet: nothing to react to, but it can be taken back
+      openReactionPicker(bubble, [], null, () => {}, [{ label: 'Delete', onClick: () => { PowaVoice.discard(it.id); } }]);
+      return;
+    }
     if (!(it.meta && it.meta.type) && navigator.clipboard) extra.push({ label: 'Copy', onClick: () => { navigator.clipboard.writeText(it.body || '').then(() => toast('Copied'), () => {}); } });
     openReactionPicker(bubble, MSG_REACT_KEYS, sum.mine, (key) => react(it, key), extra);
   }
@@ -4087,9 +4386,12 @@ async function renderMessageThread(container, opts) {
     });
   } else {
     try {
-      const [msgs, nts, rx] = await Promise.all([DB.listMessages(coachId, athleteId), loadNotes(),
-        (typeof DB.listMessageReactions === 'function' ? DB.listMessageReactions(coachId, athleteId).catch(() => []) : [])]);
-      messages = msgs; notes = nts;
+      const [msgs, nts, rx, pv] = await Promise.all([DB.listMessages(coachId, athleteId), loadNotes(),
+        (typeof DB.listMessageReactions === 'function' ? DB.listMessageReactions(coachId, athleteId).catch(() => []) : []),
+        (voice ? PowaVoice.pending(coachId, athleteId).catch(() => []) : [])]);
+      messages = msgs; notes = nts; pendingVoice = pv || [];
+      pendingVoice.forEach(p => PowaVoice.rememberLocal(p.id, p.blob));
+      if (pendingVoice.length && navigator.onLine) PowaVoice.flush();
       (rx || []).forEach(putReaction);
       paint(buildTimeline(messages, notes));
       // Mark the ones addressed to me as read (fire and forget).
@@ -4131,13 +4433,25 @@ async function renderMessageThread(container, opts) {
           paint(lastItems, true);
         })
       : null;
-    if (insertCleanup || readCleanup || reactCleanup) {
-      container._msgCleanup = () => {
-        try { if (insertCleanup) insertCleanup(); } catch (e) {}
-        try { if (readCleanup) readCleanup(); } catch (e) {}
-        try { if (reactCleanup) reactCleanup(); } catch (e) {}
-      };
+    [insertCleanup, readCleanup, reactCleanup].forEach(fn => { if (fn) cleanups.push(fn); });
+  }
+  // Queued voice notes: show them as they queue, swap them for the real message once sent.
+  if (voice) cleanups.push(PowaVoice.onChange((ev) => {
+    if (ev.queued && ev.queued.coachId === coachId && ev.queued.athleteId === athleteId) pendingVoice = pendingVoice.filter(p => p.id !== ev.queued.id).concat([ev.queued]);
+    if (ev.dropped) pendingVoice = pendingVoice.filter(p => p.id !== ev.dropped.id);
+    if (ev.sent) {
+      pendingVoice = pendingVoice.filter(p => p.id !== ev.id);
+      if (ev.sent.coachId === coachId && ev.sent.athleteId === athleteId && !messages.some(x => x.id === ev.sent.id)) messages.push(ev.sent);
     }
+    if (container.isConnected) paint(buildTimeline(messages, notes));
+  }));
+  if (cleanups.length) container._msgCleanup = () => { cleanups.forEach(fn => { try { fn(); } catch (e) {} }); };
+
+  async function sendVoice(rec) {
+    const r = await PowaVoice.send({ coachId, athleteId, senderId: viewerId, rec });
+    if (r && r.msg && !messages.some(x => x.id === r.msg.id)) messages.push(r.msg);
+    if (r && r.queued) toast('Saved on this phone. It sends when you\'re back online');
+    paint(buildTimeline(messages, notes));
   }
 
   async function doSend() {
@@ -4304,6 +4618,7 @@ async function confirmDeleteMyAccount() {
     toast('Account deleted. Signing you out…');
     _wipeLocalUserData();
     try { await DB.signOut(); } catch (_) {}
+    try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (_) {}
     _toWelcome();
     return;
   }
@@ -6704,6 +7019,9 @@ function getRosterAttention(coachId) {
         severity = Math.max(severity, 1);
       }
     }
+    // 4) Pain the lifter told you about (open, last 14 days)
+    const pain = painFlagFor(aId, Store.get().painReports || []);
+    if (pain) { reasons.unshift({ type: 'pain', text: pain.text, count: pain.count, severity: pain.severity }); severity = Math.max(severity, pain.severity); }
     // Wins — main-lift PRs in the last 7 days
     const prCount = Store.get().workoutLogs.filter(l =>
       l.athleteId === aId && MAIN_LIFTS.includes(l.lift) && Date.parse(l.date) >= weekAgo && isPRForLog(aId, l)
@@ -8998,6 +9316,17 @@ function openRestSettings(onDone) {
     simpleRow.appendChild(simpleMain);
     simpleRow.appendChild(uiSwitch(isSimpleEffort(), on => setSimpleEffort(on), 'Use the simple reps-left effort scale'));
     sheet.appendChild(uiList([smartRow, simpleRow]));
+    // Rest suggestion (readinessFrom): only for lifters with heart data (an Apple Watch via Health).
+    // No data, no row: no "connect a Watch" nag (brief 4.2).
+    if (typeof window.myReadiness === 'function' && window.myReadiness()) {
+      const nRow = el('div', { class: 'ui-row rest-auto' });
+      const nMain = el('span', { class: 'ui-row-main' });
+      nMain.appendChild(el('span', { class: 'ui-row-title' }, 'Rest suggestion'));
+      nMain.appendChild(el('span', { class: 'ui-row-sub' }, 'On a morning well off your usual heart rate, 30 to 60 s more between top sets. Never your loads'));
+      nRow.appendChild(nMain);
+      nRow.appendChild(uiSwitch(getRestNudgeOn(), on => setRestNudgeOn(on), 'Longer rests on a low morning'));
+      sheet.appendChild(uiList([nRow]));
+    }
     const done = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Done');
     done.addEventListener('click', close);
     sheet.appendChild(done);
@@ -9199,6 +9528,22 @@ function coachAthleteStatus(athleteId, opts) {
   // 2. Pain and check-in answers (today or yesterday)
   const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
   if (myQs.length) checkinAlerts(myQs, s.checkinAnswers, athleteId, todayIso).forEach(a => add('checkin', a.text, a.severity));
+  // Pain the lifter told you about: "Pain · Low back · Deadlift · 6/10 · 2nd this week". The check-in's
+  // "Pain yesterday" says the same thing less well, so it goes (one flag per fact).
+  const pain = painFlagFor(athleteId, s.painReports || [], todayIso);
+  if (pain) {
+    for (let i = flags.length - 1; i >= 0; i--) if (flags[i].type === 'checkin' && /^Pain\b/.test(flags[i].text)) flags.splice(i, 1);
+    add('pain', pain.text, pain.severity);
+  }
+  // Readiness (shared Apple Health, Watch lifters only): a dot for the desk, a quiet flag here.
+  const hRows = (s.healthDaily || []).filter(r => r.athleteId === athleteId);
+  const readiness = hRows.length ? readinessFrom(hRows, todayIso) : null;
+  if (readiness && readiness.state === 'low') add('readiness', readiness.flag, 1);
+  // The cut: off pace for the class by the date.
+  const cut = athleteCut(athleteId, todayIso);
+  if (cut && cut.offPace) add('offpace', cut.flag, cut.weeksLeft != null && cut.weeksLeft <= 2 ? 3 : 2);
+  const nRows = (s.nutritionDaily || []).filter(r => r.athleteId === athleteId);
+  const nutrition = nRows.length ? nutritionWeek(nRows, todayIso) : null;
   // 3. Over what was written (last 7 days): "Bench RPE 9.5 (wrote 8)"
   if (prog) {
     const since = _addDaysISO(todayIso, -7);
@@ -9226,7 +9571,159 @@ function coachAthleteStatus(athleteId, opts) {
     .concat((s.checkins || []).filter(c => c.athleteId === athleteId).map(c => String(c.createdAt || c.weekStart || '').slice(0, 10)));
   const lastCi = ciDates.reduce((m, d) => (d > m ? d : m), '');
   const checkinAgo = lastCi ? Math.max(0, Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastCi + 'T12:00:00Z')) / 86400000)) : null;
-  return { flags, prCount, week, sessions: { done, planned }, ago, lastDate, trend: { values: series, delta: trendDelta }, checkinAgo, program: prog };
+  return { flags, prCount, week, sessions: { done, planned }, ago, lastDate, trend: { values: series, delta: trendDelta }, checkinAgo, program: prog,
+    pain: pain ? { text: pain.text, severity: pain.severity, count: pain.count, open: pain.open, report: pain.report } : null,
+    // Desk hooks (M7): readiness dot ('low' | 'ok', null = no Watch data shared), the cut card, food.
+    readiness: readiness ? { state: readiness.state, text: readiness.flag || '', rhrDelta: readiness.rhrDelta, signals: readiness.signals, lowDays: readiness.lowDays } : null,
+    cut: cut ? { line: cut.line, tone: cut.tone, offPace: cut.offPace, made: cut.made, over: cut.over, weeksLeft: cut.weeksLeft, needPerWk: cut.needPerWk, classKg: cut.classKg, flag: cut.flag } : null,
+    nutrition: nutrition ? { kcalAvg: nutrition.kcalAvg, proteinAvg: nutrition.proteinAvg, logged: nutrition.logged } : null };
+}
+
+// ===== PAIN FLAGS (brief 4.1 · migration-pain-reports-2026-10-22.sql) =====
+// "Something hurt": where, which side, how bad (0–10), when (warm-up / top set / after), with the
+// lift and set it happened on. Communication with the coach, never an injury report or advice.
+// The body map, top to bottom; paired parts take a side.
+const PAIN_PARTS = [
+  { key: 'neck', label: 'Neck' }, { key: 'shoulder', label: 'Shoulder', paired: true },
+  { key: 'chest', label: 'Chest', paired: true }, { key: 'upper_back', label: 'Upper back' },
+  { key: 'elbow', label: 'Elbow', paired: true }, { key: 'wrist', label: 'Wrist', paired: true },
+  { key: 'low_back', label: 'Low back' }, { key: 'hip', label: 'Hip', paired: true },
+  { key: 'knee', label: 'Knee', paired: true }, { key: 'ankle', label: 'Ankle', paired: true },
+  { key: 'other', label: 'Other' }
+];
+const PAIN_PHASES = { warmup: 'Warm-up', top: 'Working sets', after: 'After' };
+function painPart(key) { return PAIN_PARTS.find(p => p.key === key) || { key: 'other', label: 'Other' }; }
+// "L hip", "Low back", "Knee, both sides"
+function painPartLabel(part, side) {
+  const p = painPart(part);
+  if (!p.paired || !side) return p.label;
+  if (side === 'both') return p.label + ', both sides';
+  return (side === 'left' ? 'L ' : 'R ') + p.label.toLowerCase();
+}
+function painLiftLabel(lift) {
+  if (!lift) return '';
+  if (typeof LIFT_LABELS !== 'undefined' && LIFT_LABELS[lift] && lift !== 'other' && lift !== 'cardio') return LIFT_LABELS[lift];
+  return String(lift).slice(0, 24);
+}
+// "L hip · Squat · 4/10"
+function painReportText(r) {
+  if (!r) return '';
+  return [painPartLabel(r.bodyPart, r.side), painLiftLabel(r.lift), (Number(r.severity) || 0) + '/10'].filter(Boolean).join(' · ');
+}
+function _ordinal(n) { const v = n % 100; return n + ((v >= 11 && v <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th')); }
+// How many times this part hurt in the 7 days up to this report (this one included).
+function painRepeatCount(reports, r) {
+  if (!r) return 0;
+  const from = _addDaysISO(String(r.day).slice(0, 10), -6);
+  return (reports || []).filter(x => x.athleteId === r.athleteId && x.bodyPart === r.bodyPart && String(x.day) >= from && String(x.day) <= String(r.day)).length;
+}
+// The coach's flag: the worst open report of the last 14 days. Severity 3 (red) at 7/10 and up or
+// when the same part hurt twice in a week, else 2. null when nothing is open.
+function painFlagFor(athleteId, reports, todayIso) {
+  const today = todayIso || todayISO();
+  const since = _addDaysISO(today, -13);
+  const mine = (reports || []).filter(r => r.athleteId === athleteId && !r.resolvedAt && String(r.day) >= since && String(r.day) <= today);
+  if (!mine.length) return null;
+  const worst = mine.slice().sort((a, b) => (Number(b.severity) || 0) - (Number(a.severity) || 0) || String(b.day).localeCompare(String(a.day)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0];
+  const count = painRepeatCount(reports, worst);
+  const text = 'Pain · ' + painReportText(worst) + (count >= 2 ? ' · ' + _ordinal(count) + ' this week' : '');
+  return { text, severity: (Number(worst.severity) >= 7 || count >= 2) ? 3 : 2, count, open: mine.length, report: worst };
+}
+// The push to the coach never names the body part (health data on a lock screen).
+function painPushText(name) {
+  const first = String(name || '').trim().split(/\s+/)[0] || 'Your athlete';
+  return { title: first + ' sent you a training update', body: 'Open POWALIFTA to see it.' };
+}
+// Send a report (the capture sheet, or the outbox replaying it) and tell the coach without naming
+// the body part. Throws when it didn't land.
+async function sendPainReport(rep) {
+  const saved = await DB.addPainReport(rep);
+  if (saved && saved.duplicate) { delete saved.duplicate; return saved; }   // it landed before: the coach was told then
+  const me = window._user;
+  if (me && me.coachId && DB.sendPush) {
+    DB.sendPush(Object.assign({ toUserId: me.coachId, url: '/coach.html', tag: 'powa-pain-' + me.id, category: 'messages' }, painPushText(me.name))).catch(() => {});
+  }
+  return saved;
+}
+// Undo a report just sent (a mis-tap): gone from the Store, the outbox and the server.
+async function undoPainReport(id) {
+  Store.update(s => { s.painReports = (s.painReports || []).filter(r => r.id !== id); });
+  if (window._demoMode) return;
+  const q = _readOutbox();
+  if (q.some(e => e.key === 'pain:' + id)) { _writeOutbox(q.filter(e => e.key !== 'pain:' + id)); return; }
+  try { await DB.deletePainReport(id); } catch (e) { console.error('undo pain', e); }
+}
+// The coach's side (athlete sheet now, the desk later): the last 14 days of reports, open first.
+// Returns [label, list] or [] when there's nothing. Tapping one resolves it (or opens it again).
+function buildPainSection(athleteId, onChange) {
+  const today = todayISO(), since = _addDaysISO(today, -13);
+  const all = Store.get().painReports || [];
+  const list = all.filter(r => r.athleteId === athleteId && String(r.day) >= since)
+    .sort((a, b) => (a.resolvedAt ? 1 : 0) - (b.resolvedAt ? 1 : 0) || String(b.day).localeCompare(String(a.day)) || (Number(b.severity) || 0) - (Number(a.severity) || 0));
+  if (!list.length) return [];
+  const open = list.filter(r => !r.resolvedAt).length;
+  const rows = list.slice(0, 6).map(r => {
+    const n = painRepeatCount(all, r);
+    const bits = [PAIN_PHASES[r.phase] || '', _relDayShort(r.day)];
+    if (!r.resolvedAt && n >= 2) bits.push(_ordinal(n) + ' this week');
+    if (r.resolvedAt) bits.unshift('Resolved' + (r.coachNote ? ': ' + r.coachNote : ''));
+    return uiRow({ title: painReportText(r), sub: bits.filter(Boolean).join(' · '), subTone: !r.resolvedAt && (Number(r.severity) >= 7 || n >= 2) ? 'alert' : null,
+      end: r.resolvedAt ? undefined : 'Resolve', onClick: () => openPainResolveSheet(r, onChange) });
+  });
+  const label = uiLabel('Pain', open ? { count: open } : undefined);
+  const ul = uiList(rows);
+  ul.classList.add('pain-list');
+  return [label, ul];
+}
+function _relDayShort(iso) {
+  const d = Math.round((Date.parse(todayISO() + 'T12:00:00Z') - Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z')) / 86400000);
+  return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : d + ' days ago';
+}
+// Resolve with a note for the record ("Swap to SSB box squat this week"), or open it again.
+function openPainResolveSheet(rep, onChange) {
+  uiSheet(painReportText(rep), (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, (PAIN_PHASES[rep.phase] ? PAIN_PHASES[rep.phase] + ' · ' : '') + _relDayShort(rep.day) +
+      '. Resolve it once you\'ve talked it through; the note stays with it.'));
+    const ta = el('textarea', { class: 'pain-note', rows: '3', maxlength: '1000', placeholder: 'Note (optional): what you changed', 'aria-label': 'Note' });
+    ta.value = rep.coachNote || '';
+    sheet.appendChild(ta);
+    const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, rep.resolvedAt ? 'Save note' : 'Resolve');
+    go.addEventListener('click', async () => {
+      const note = ta.value.trim().slice(0, 1000);
+      const apply = (r) => Store.update(s => { const i = (s.painReports || []).findIndex(x => x.id === rep.id); if (i >= 0) s.painReports[i] = Object.assign({}, s.painReports[i], r); });
+      apply({ resolvedAt: rep.resolvedAt || new Date().toISOString(), coachNote: note });
+      close();
+      if (!window._demoMode) {
+        try { const r = await DB.resolvePainReport(rep.id, true, note); if (r) apply(r); }
+        catch (e) { console.error('resolve pain', e); apply({ resolvedAt: rep.resolvedAt || null, coachNote: rep.coachNote || '' }); toast('Could not save. Check your connection'); if (onChange) onChange(); return; }
+      }
+      toast(rep.resolvedAt ? 'Note saved' : 'Resolved');
+      if (onChange) onChange();
+    });
+    sheet.appendChild(go);
+    if (rep.resolvedAt) {
+      const re = el('button', { class: 'ui-text-btn', type: 'button', style: 'display:block;margin:8px auto 0' }, 'Open it again');
+      re.addEventListener('click', async () => {
+        Store.update(s => { const r = (s.painReports || []).find(x => x.id === rep.id); if (r) { r.resolvedAt = null; } });
+        close();
+        if (!window._demoMode) { try { await DB.resolvePainReport(rep.id, false, ta.value.trim()); } catch (e) { console.error('reopen pain', e); } }
+        if (onChange) onChange();
+      });
+      sheet.appendChild(re);
+    }
+  }, { cls: 'pain-resolve-sheet' });
+}
+// A new report from the capture sheet's three answers plus where it happened.
+function buildPainReport(o) {
+  o = o || {};
+  const part = painPart(o.bodyPart);
+  return {
+    id: o.id || uid('pain'), athleteId: o.athleteId, coachId: o.coachId || null, day: o.day || todayISO(),
+    bodyPart: part.key, side: part.paired && ['left', 'right', 'both'].includes(o.side) ? o.side : null,
+    severity: Math.max(0, Math.min(10, Math.round(Number(o.severity) || 0))),
+    phase: PAIN_PHASES[o.phase] ? o.phase : null, lift: o.lift || null, setRef: o.setRef || null,
+    note: '', createdAt: new Date().toISOString(), resolvedAt: null, resolvedBy: null, coachNote: ''
+  };
 }
 function agoText(days) {
   if (days == null) return '–';
@@ -9404,16 +9901,199 @@ function athleteRecovery(athleteId, today) {
     sleepMin: last && last.sleepMin > 0 ? last.sleepMin : null,
     rhr: last && last.rhr > 0 ? Number(last.rhr) : null,
     sleepAvg: sl.length ? Math.round(sl.reduce((a, r) => a + r.sleepMin, 0) / sl.length) : null,
-    rhrAvg: hr.length ? Math.round(hr.reduce((a, r) => a + Number(r.rhr), 0) / hr.length) : null
+    rhrAvg: hr.length ? Math.round(hr.reduce((a, r) => a + Number(r.rhr), 0) / hr.length) : null,
+    readiness: readinessFrom(rows, t)
   };
 }
 function sleepHm(min) { if (!(Number(min) > 0)) return ''; const h = Math.floor(min / 60), m = Math.round(min % 60); return h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : ''); }
+
+// ===== READINESS + REST SUGGESTION (brief 4.2 · M7) =====
+// Against the lifter's OWN 28 days, never a population norm. Low when, on 2 of the last 3 days,
+// HRV sat below the usual by more than one SD or resting HR was 7+ above the usual. Needs a Watch
+// (or another wearable writing to Apple Health): an iPhone alone has no heart data, and then this
+// returns null and nothing shows. Words are "rest suggestion" and "your usual", never medical.
+//   rows  [{ day, rhr, hrv }] (health_daily, or health.js on the phone)
+// → null (not enough data) | { state: 'low' | 'ok', lowDays, rhr, rhrBase, rhrDelta, hrv, hrvBase,
+//     signals: ['rhr'?, 'hrv'?], line (lifter), flag (coach) }
+function readinessFrom(rows, todayIso) {
+  const today = todayIso || todayISO();
+  const days = {};
+  (rows || []).forEach(r => {
+    if (!r || !r.day) return;
+    const d = String(r.day).slice(0, 10), x = days[d] || (days[d] = {});
+    if (Number(r.rhr) > 0) x.rhr = Number(r.rhr);
+    if (Number(r.hrv) > 0) x.hrv = Number(r.hrv);
+  });
+  const recentFrom = _addDaysISO(today, -2), baseFrom = _addDaysISO(today, -30), baseTo = _addDaysISO(today, -3);
+  const base = Object.keys(days).filter(d => d >= baseFrom && d <= baseTo).map(d => days[d]);
+  const rB = base.filter(x => x.rhr).map(x => x.rhr), hB = base.filter(x => x.hrv).map(x => x.hrv);
+  const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+  const rhrBase = rB.length >= 7 ? mean(rB) : null;
+  let hrvBase = null, hrvSd = null;
+  if (hB.length >= 7) { hrvBase = mean(hB); hrvSd = Math.sqrt(mean(hB.map(v => (v - hrvBase) * (v - hrvBase)))); }
+  if (rhrBase == null && hrvBase == null) return null;
+  const recent = Object.keys(days).filter(d => d >= recentFrom && d <= today).sort().reverse();
+  const latest = recent.find(d => days[d].rhr || days[d].hrv);
+  if (!latest) return null;   // nothing since the day before yesterday: say nothing rather than guess
+  let lowDays = 0;
+  const signals = new Set();
+  recent.forEach(d => {
+    const x = days[d];
+    const r = rhrBase != null && x.rhr && x.rhr >= rhrBase + 7;
+    const h = hrvBase != null && x.hrv && hrvSd > 0 && x.hrv < hrvBase - hrvSd;
+    if (r) signals.add('rhr');
+    if (h) signals.add('hrv');
+    if (r || h) lowDays++;
+  });
+  const L = days[latest];
+  const rhrDelta = L.rhr && rhrBase != null ? Math.round(L.rhr - rhrBase) : null;
+  const low = lowDays >= 2;
+  const sig = low ? [...signals] : [];
+  const line = !low ? '' : sig.indexOf('rhr') >= 0 && rhrDelta > 0 ? 'Resting HR ' + rhrDelta + ' above your usual'
+    : 'HRV below your usual';
+  const flag = !low ? '' : 'Readiness low · ' + (sig.indexOf('rhr') >= 0 && rhrDelta > 0 ? 'resting HR +' + rhrDelta : 'HRV below usual') + ' · ' + lowDays + ' days';
+  return { state: low ? 'low' : 'ok', lowDays, rhr: L.rhr || null, rhrBase: rhrBase != null ? Math.round(rhrBase) : null, rhrDelta,
+    hrv: L.hrv || null, hrvBase: hrvBase != null ? Math.round(hrvBase) : null, signals: sig, line, flag };
+}
+// The rest timer's default between top sets on a low day: 30 s longer, 60 s when both signals
+// agree or resting HR is 10+ above the usual. Main lifts, heavy or hard sets only. Never touches
+// the load; the lifter can switch it off (You → Rest timer) and every −15 still works.
+// → { add: seconds, reason } or null
+function restSuggestion(readiness, set) {
+  if (!readiness || readiness.state !== 'low' || !set) return null;
+  if (!['squat', 'bench', 'deadlift'].includes(set.lift)) return null;
+  const reps = Number(set.reps) || 0, rpe = Number(set.rpe) || 0;
+  if (!(reps > 0 && reps <= 5) && !(rpe >= 8)) return null;
+  const strong = readiness.signals.length >= 2 || (readiness.rhrDelta != null && readiness.rhrDelta >= 10);
+  const add = strong ? 60 : 30;
+  return { add, reason: 'Rest suggestion: +' + add + ' s · ' + (readiness.line || 'recovery below your usual') };
+}
+function getRestNudgeOn() { try { return localStorage.getItem('powa-rest-nudge') !== '0'; } catch (e) { return true; } }
+function setRestNudgeOn(on) { try { localStorage.setItem('powa-rest-nudge', on ? '1' : '0'); } catch (e) {} }
+
+// ===== CUT TRACKER (brief 4.3 · M7) =====
+// The bodyweight curve against the class line is the feature; calories are supporting.
+//   series   [{ date, weight }] ascending, kg     classKg  the class limit (83)
+//   cutBy    'YYYY-MM-DD' (the meet) or null
+// → null | { cur, classKg, over, weeksLeft, needPerWk, slopePerWk, tone, offPace, made, line, flag }
+//   tone: 'good' | 'amber' | 'off' (coloured for the goal: +0.4 a week during a cut is amber)
+//   needPerWk: kg a week still to lose (positive), null when there's no date or nothing to lose
+function cutPlan(series, classKg, cutBy, todayIso) {
+  const limit = Number(classKg);
+  if (!(limit > 0) || !series || !series.length) return null;
+  const today = todayIso || todayISO();
+  const st = bwCutBulkStats(series, limit, 'cut');
+  const cur = st.smoothedCurrent;
+  const raw = Number(series[series.length - 1].weight);
+  const over = Math.round((cur - limit) * 10) / 10;            // smoothed: one salty dinner isn't "over"
+  const days = cutBy ? Math.round((Date.parse(cutBy + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000) : null;
+  const weeksLeft = days == null ? null : Math.round(days / 7 * 10) / 10;
+  const slope = st.slopePerWeek;
+  const made = over <= 0;
+  let needPerWk = null, tone = 'good', offPace = false;
+  if (!made && weeksLeft != null && weeksLeft > 0) needPerWk = Math.round(over / weeksLeft * 100) / 100;
+  if (made) {
+    if (slope != null && slope > 0.25 && limit - cur < 1) tone = 'amber';    // creeping back up to the line
+  } else if (weeksLeft != null && weeksLeft <= 0) {
+    tone = 'off'; offPace = true;                                          // the date passed, still over
+  } else if (needPerWk != null) {
+    const losing = slope != null ? -slope : 0;                            // kg a week actually coming off
+    // A few hundred grams over with weeks to go is water, not a missed cut: no flag for that.
+    if (over > 0.3 && losing < needPerWk * 0.6) { offPace = true; tone = 'off'; }
+    else if (slope != null && slope > 0.1) tone = 'amber';                // going up during a cut
+  } else if (slope != null && slope > 0.1) tone = 'amber';
+  const u = (typeof unitLabel === 'function') ? unitLabel() : 'kg';
+  const disp = (kg, d) => (typeof kgToDisplay === 'function' ? Number(kgToDisplay(kg, d == null ? 1 : d)) : Math.round(kg * 10) / 10);
+  const bits = [disp(raw).toFixed(1) + ' ' + u, 'class ' + limit];
+  if (weeksLeft != null && weeksLeft > 0) bits.push(Math.max(1, Math.round(weeksLeft)) + ' wk to go');
+  if (made) bits.push('on weight');
+  else if (needPerWk != null) bits.push('need −' + Math.max(0.1, disp(needPerWk, 1)).toFixed(1) + '/wk');
+  else bits.push(disp(over).toFixed(1) + ' over');
+  const flag = offPace ? 'Off pace: ' + disp(over).toFixed(1) + ' ' + u + ' over' + (weeksLeft != null && weeksLeft > 0 ? ', ' + Math.max(1, Math.round(weeksLeft)) + ' wk out' : weeksLeft != null ? ', meet day passed' : '') : '';
+  return { cur: Math.round(cur * 10) / 10, raw, classKg: limit, over, weeksLeft, needPerWk, slopePerWk: slope, tone, offPace, made, line: bits.join(' · '), flag,
+    // the same safeguard the bodyweight pace uses (bwPace): faster than 1.2% a week is aggressive
+    aggressive: needPerWk != null && cur > 0 && needPerWk / cur * 100 > 1.2 };
+}
+// Seven days of food from Apple Health (nutrition_daily): averages over the days that were logged.
+// A day without a row is "not logged", never 0.
+//   rows [{ day, kcal, proteinG }] → { days: [{ day, kcal, proteinG, logged }] oldest first, kcalAvg, proteinAvg, logged }
+function nutritionWeek(rows, todayIso) {
+  const today = todayIso || todayISO();
+  const by = {};
+  (rows || []).forEach(r => { if (r && r.day) by[String(r.day).slice(0, 10)] = r; });
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = _addDaysISO(today, -i), r = by[d];
+    const kcal = r && Number(r.kcal) > 0 ? Math.round(Number(r.kcal)) : null;
+    const proteinG = r && Number(r.proteinG) > 0 ? Math.round(Number(r.proteinG)) : null;
+    days.push({ day: d, kcal, proteinG, logged: kcal != null || proteinG != null });
+  }
+  const k = days.filter(x => x.kcal != null), p = days.filter(x => x.proteinG != null);
+  return { days, logged: days.filter(x => x.logged).length,
+    kcalAvg: k.length ? Math.round(k.reduce((s, x) => s + x.kcal, 0) / k.length) : null,
+    proteinAvg: p.length ? Math.round(p.reduce((s, x) => s + x.proteinG, 0) / p.length) : null };
+}
+// The cut for one lifter from the Store (goals + weigh-ins): the lifter's card and the coach's flag.
+function athleteCut(athleteId, todayIso) {
+  const s = Store.get();
+  const g = (s.goals || []).find(x => x.athleteId === athleteId);
+  if (!g || !(Number(g.targetClass) > 0)) return null;
+  const series = (s.bodyweight || []).filter(b => b.athleteId === athleteId && Number(b.weight) > 0)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: b.date, weight: Number(b.weight) }));
+  return cutPlan(series, g.targetClass, g.cutBy || null, todayIso);
+}
+window.readinessFrom = readinessFrom; window.restSuggestion = restSuggestion; window.cutPlan = cutPlan; window.nutritionWeek = nutritionWeek;
 function recoveryRows(rec) {
   const rows = [];
   if (!rec) return rows;
   if (rec.sleepMin != null || rec.sleepAvg != null) rows.push(uiRow({ title: rec.sleepMin != null ? 'Slept ' + sleepHm(rec.sleepMin) : 'Sleep', sub: rec.sleepAvg != null ? '7-night average ' + sleepHm(rec.sleepAvg) : '', subTone: rec.sleepMin != null && rec.sleepMin < 360 ? 'alert' : null }));
   if (rec.rhr != null || rec.rhrAvg != null) rows.push(uiRow({ title: rec.rhr != null ? 'Resting HR ' + Math.round(rec.rhr) : 'Resting heart rate', sub: rec.rhrAvg != null ? 'Week average ' + rec.rhrAvg : '', subTone: rec.rhr != null && rec.rhrAvg != null && rec.rhr >= rec.rhrAvg + 7 ? 'alert' : null }));
+  // Against their own 28 days (Watch data): low shows why; it moves rest defaults, never loads.
+  const rd = rec.readiness;
+  if (rd) rows.push(uiRow({ lead: el('span', { class: 'ui-dot rd-dot' + (rd.state === 'low' ? ' warn' : ' ok') }),
+    title: rd.state === 'low' ? 'Readiness low' : 'Readiness on their usual',
+    sub: rd.state === 'low' ? rd.flag.replace(/^Readiness low · /, '') + ' · their rest timer suggests longer rests' : 'Resting HR and HRV against their own 28 days',
+    subTone: rd.state === 'low' ? 'alert' : null }));
   return rows;
+}
+
+// The cut (goals.target_class + cut_by against the weigh-ins) and food from Apple Health, as one
+// list: the class line first, then the 7-day food averages against the targets. Shared by the
+// coach's athlete sheet and the lifter's Bodyweight screen. Returns [] when there is no cut and no
+// food to show. opts = { nutritionRows, onEdit, mine }
+function buildCutSection(athleteId, opts) {
+  opts = opts || {};
+  const g = (Store.get().goals || []).find(x => x.athleteId === athleteId) || {};
+  const cut = athleteCut(athleteId);
+  const food = opts.nutritionRows && opts.nutritionRows.length ? nutritionWeek(opts.nutritionRows) : null;
+  const hasTargets = Number(g.kcalTarget) > 0 || Number(g.proteinTarget) > 0;
+  if (!cut && !food && !hasTargets) return [];
+  const rows = [];
+  if (cut) {
+    const paceTxt = cut.made ? (cut.tone === 'amber' ? 'On weight, creeping up' : 'On weight')
+      : cut.weeksLeft != null && cut.weeksLeft <= 0 ? 'Meet day passed, still over'
+      : cut.offPace ? (cut.slopePerWk != null && cut.slopePerWk > 0.05 ? 'Off pace: going up during the cut' : 'Off pace')
+      : cut.needPerWk != null ? 'On pace' : 'Set the meet date to see the pace';
+    const sub = paceTxt + (cut.aggressive && !cut.made ? ' · more than 1% a week: talk it through with your coach' : '');
+    // The lifter's screen already leads with today's weight: the row starts at the class.
+    const t = opts.mine ? cut.line.split(' · ').slice(1).join(' · ') : cut.line;
+    rows.push(uiRow({ lead: el('span', { class: 'ui-dot cut-dot ' + ({ good: 'ok', amber: 'warn', off: 'bad' }[cut.tone] || 'ok') }), title: opts.mine ? t.charAt(0).toUpperCase() + t.slice(1) : t, sub,
+      subTone: cut.tone === 'off' ? 'alert' : null, chevron: !!opts.onEdit, onClick: opts.onEdit || null }));
+  }
+  const foodRow = (label, avg, target, unit) => {
+    if (!(target > 0) && avg == null) return;
+    const logged = food ? food.logged : 0;
+    const title = avg != null ? label + ' · ' + avg.toLocaleString() + (unit ? ' ' + unit : '') + ' a day' : label + ' · not logged';
+    const sub = [target > 0 ? 'Target ' + Number(target).toLocaleString() + (unit ? ' ' + unit : '') : '',
+      avg != null ? logged + ' of 7 days logged' : 'Nothing in Apple Health this week'].filter(Boolean).join(' · ');
+    rows.push(uiRow({ title, sub, chevron: !!opts.onEdit, onClick: opts.onEdit || null }));
+  };
+  foodRow('Calories', food ? food.kcalAvg : null, Number(g.kcalTarget) || 0, 'kcal');
+  foodRow('Protein', food ? food.proteinAvg : null, Number(g.proteinTarget) || 0, 'g');
+  if (!rows.length) return [];
+  const list = uiList(rows);
+  list.classList.add('cut-list');
+  return [uiLabel(opts.mine ? 'Make weight' : 'Cut'), list];
 }
 
 function uiSparkline(values) {

@@ -21,6 +21,7 @@ const PRECACHE = [
   '/athlete.html',
   '/coach.html',
   '/app.js',
+  '/voice.js',
   '/db.js',
   '/styles.css',
   '/manifest.json',
