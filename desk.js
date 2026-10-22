@@ -326,13 +326,17 @@ function deskWatch() {
   if (_dk.mq && _dk.mq.addEventListener && !_dk.watching) {
     _dk.watching = true;
     _dk.mq.addEventListener('change', dkOnResize);
-    // 1280 and below: the sidebar folds to icons, unless the coach opened it.
-    if (window.matchMedia) { _dk.mqRail = matchMedia('(max-width: 1280px)'); if (_dk.mqRail.addEventListener) _dk.mqRail.addEventListener('change', dkAutoRail); }
+    // Below 1200px the sidebar folds to icons, unless the coach opened it.
+    if (window.matchMedia) { _dk.mqRail = matchMedia('(max-width: 1199px)'); if (_dk.mqRail.addEventListener) _dk.mqRail.addEventListener('change', dkAutoRail); }
   }
   if (isDesk()) deskBoot();
 }
+// The sidebar's open / folded choice. v2 keeps it under a new key: the W1a one ('powa-desk-rail')
+// was set when 1280 folded by default, and kept a 1440 screen on icons.
+var DK_RAIL_KEY = 'powa-desk-rail2';
 function dkAutoRail() {
-  var pref = _dkLS('powa-desk-rail');
+  if (_dkLS('powa-desk-rail') != null) _dkLS('powa-desk-rail', null);
+  var pref = _dkLS(DK_RAIL_KEY);
   var small = !!(_dk.mqRail && _dk.mqRail.matches);
   document.documentElement.classList.toggle('rail-min', pref === 'min' || (pref !== 'open' && small));
 }
@@ -666,11 +670,15 @@ function dkPaintRail() {
   } else Object.keys(ur).forEach(function (k) { unread += ur[k] || 0; });
   var meets = dkPlannedMeets();
   var counts = { today: q ? q.queue.length : 0, roster: rows.length, messages: unread, meets: meets.length };
+  var tipFor = { today: function (n) { return n + ' need you'; }, messages: function (n) { return n + ' unread'; }, roster: function (n) { return n + (n === 1 ? ' athlete' : ' athletes'); }, meets: function (n) { return n + (n === 1 ? ' meet' : ' meets'); } };
   rail.querySelectorAll('[data-count]').forEach(function (c) {
     var n = counts[c.dataset.count];
     c.textContent = n ? String(n) : '';
     // Today's queue and unread messages need the coach; the others are just counts.
     c.classList.toggle('is-hot', (c.dataset.count === 'today' || c.dataset.count === 'messages') && n > 0);
+    // Folded to icons the count is a dot: the tooltip says the number.
+    var item = c.closest('.dk-item'), lab = item && item.querySelector('.dk-item-label');
+    if (item && lab) item.dataset.tip = lab.textContent + (n && tipFor[c.dataset.count] ? ' · ' + tipFor[c.dataset.count](n) : '');
   });
   // Meets shows only when there's a meet on the calendar.
   var mb = rail.querySelector('[data-go="meets"]');
@@ -700,7 +708,7 @@ function dkPaintRail() {
 }
 function dkToggleRail() {
   var on = document.documentElement.classList.toggle('rail-min');
-  _dkLS('powa-desk-rail', on ? 'min' : 'open');
+  _dkLS(DK_RAIL_KEY, on ? 'min' : 'open');
 }
 function dkToggleCtx() {
   var root = document.documentElement;
@@ -734,6 +742,7 @@ function dkPopMenu(anchor, items, opts) {
     if (it === '-') { m.appendChild(el('div', { class: 'dk-menu-sep', role: 'separator' })); return; }
     if (it.node) { m.appendChild(it.node); return; }
     var b = el('button', { type: 'button', class: 'dk-menu-item' + (it.danger ? ' is-danger' : ''), role: it.check != null ? 'menuitemcheckbox' : 'menuitem' });
+    if (it.id) b.id = it.id;
     if (it.check != null) { b.setAttribute('aria-checked', String(!!it.check)); b.insertAdjacentHTML('beforeend', '<span class="dk-check">' + (it.check ? ICONS.check : '') + '</span>'); }
     b.appendChild(el('span', { class: 'dk-menu-label' }, it.label));
     if (it.hint) b.appendChild(el('span', { class: 'dk-menu-hint' }, it.hint));
@@ -1055,10 +1064,26 @@ function dkRowMain(r, lane, handledVia) {
   var sentence = dkSentence(r, lane);
   top.appendChild(dkRowTag(r, lane, handledVia, sentence));
   main.appendChild(top);
-  var line = el('div', { class: 'dk-qline' + (r.reasons.length && lane !== 'w' && /^(alert)$/.test(r.reasons[0].tone) ? ' is-alert' : '') });
-  line.appendChild(dkRich(sentence));
-  main.appendChild(line);
+  main.appendChild(dkQLine(r, lane, sentence));
   return main;
+}
+// The row's one line: a dot in the status colour, the status itself in ink, the rest in the
+// secondary ink; one line with an ellipsis, the whole sentence in the tooltip.
+function dkQLine(r, lane, sentence) {
+  var tone = lane === 'w' ? 'win' : r.reasons.length ? (r.reasons[0].tone || 'info') : r.live ? 'live' : '';
+  var line = el('div', { class: 'dk-qline' + (tone ? ' t-' + tone : '') });
+  if (tone) line.appendChild(el('i', { class: 'dk-qline-dot', 'aria-hidden': 'true' }));
+  var t = el('span', { class: 'dk-qline-t' });
+  var lead = lane === 'w' ? (r.wins[0] && r.wins[0].text) : r.reasons.length ? r.reasons[0].text : '';
+  if (lead && sentence.indexOf(lead) === 0) {
+    var leadEl = dkRich(lead);
+    leadEl.classList.add('dk-qline-lead');
+    t.appendChild(leadEl);
+    if (sentence.length > lead.length) t.appendChild(dkRich(sentence.slice(lead.length)));
+  } else t.appendChild(dkRich(sentence));
+  line.appendChild(t);
+  dkTip(line, sentence);
+  return line;
 }
 // The row's right-hand tag: a draft waiting on Publish, handled, live, the meet, or last trained.
 function dkRowTag(r, lane, handledVia, sentence) {
@@ -2393,11 +2418,9 @@ function dkWsHead(r, opts) {
   if (mode === 'today' && opts.lane === 'q') {
     bar.appendChild(dkBtn('Done', { icon: DK_IC.check, kbd: 'E', title: 'Done for this week. They come back if something new comes up.', onClick: function () { dkMark('done'); } }));
     bar.appendChild(dkBtn('Snooze', { icon: DK_IC.snooze, kbd: 'S', cls: 'is-quiet', title: 'Snooze till tomorrow', onClick: function () { dkMark('snooze'); } }));
-    bar.appendChild(el('span', { class: 'dk-bar-sep', 'aria-hidden': 'true' }));
   } else if (mode === 'today' && opts.lane === 'w') {
     bar.appendChild(dkBtn('Seen', { icon: DK_IC.check, kbd: 'E', onClick: function () { dkMark('done'); } }));
     bar.appendChild(dkBtn('Send kudos', { icon: DK_IC.spark, cls: 'is-quiet', onClick: function () { _dk.wpick = {}; _dk.wpick[a.id] = true; dkKudos(); } }));
-    bar.appendChild(el('span', { class: 'dk-bar-sep', 'aria-hidden': 'true' }));
   }
   var un = _dkUnread()[a.id] || 0;
   var msg = dkBtn('Message', { icon: DK_IC.messages, kbd: 'R', count: un || null, cls: 'is-quiet', onClick: function () { if (_dk.card === 'thread' && dkCardAid() === a.id) dkCloseCard(); else { ensureCardTarget(); dkOpenCard('thread'); } } });
@@ -2444,9 +2467,10 @@ function dkPublishBtn(aid) {
   if (n) return dkBtn('Publish week ' + wkn, { primary: true, icon: DK_IC.send, count: n, title: 'Write the ' + n + (n === 1 ? ' change' : ' changes') + ' into week ' + wkn + ' and tell them', onClick: function () { dkWsApply(aid); } });
   var ch = dkPbChanges(prog).length;
   if (ch) return dkBtn('Notify', { primary: true, icon: DK_IC.send, count: ch, title: 'Builder edits are already live. Send a heads-up about the ' + ch + (ch === 1 ? ' edit' : ' edits') + ' since the last one.', onClick: function () { dkPublish(aid); dkPaintPub(aid); } });
-  var b = dkBtn(wkn ? 'Week ' + wkn + ' is up to date' : 'Up to date', { icon: DK_IC.check, cls: 'is-quiet is-done' });
-  b.disabled = true;
-  return b;
+  // Nothing waiting: the state as a few quiet words, not a disabled button.
+  var st = el('span', { class: 'dk-state', role: 'status' }, wkn ? 'Week ' + wkn + ' up to date' : 'Up to date');
+  dkTip(st, 'Nothing waiting: what they see is what you wrote.');
+  return st;
 }
 function dkPaintPub(aid) {
   document.querySelectorAll('.dk-pub[data-aid="' + CSS.escape(aid) + '"]').forEach(function (s) { s.innerHTML = ''; s.appendChild(dkPublishBtn(aid)); });
@@ -3392,10 +3416,13 @@ function dkPublish(aid, opts) {
   var list = document.getElementById('dkPbList');
   if (list) dkPaintPbRows(list);
 }
-// The one-row block header: name · size · logged · maxes · Weeks|Grid · ⋯ · Notify.
+// The block's header: one title, one quiet meta line (size · logged · maxes · fields, the last two
+// open their sheets); on the right the Grid | Weeks control, the save state (or Notify, the one
+// red) and one overflow menu for everything else.
 function deskBuilderHead(prog, athleteId, actions, view) {
   var a = (Store.get().athletes || []).find(function (x) { return x.id === athleteId; }) || { name: 'athlete' };
   var head = el('div', { class: 'dk-pbhead' });
+  var id = el('div', { class: 'dk-pbid' });
   var name = el('input', { type: 'text', class: 'dk-pbname', 'aria-label': 'Program name', spellcheck: 'false' });
   name.value = prog.name || '';
   name.addEventListener('input', function () {
@@ -3403,23 +3430,28 @@ function deskBuilderHead(prog, athleteId, actions, view) {
     persistProgram(prog.id);
   });
   name.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); name.blur(); } });
-  head.appendChild(name);
+  id.appendChild(name);
   var sets = prog.weeks.flatMap(function (w) { return w.days; }).flatMap(function (d) { return d.exercises; }).flatMap(function (e) { return e.sets; });
   var done = sets.filter(function (s) { return s.completed; }).length;
-  head.appendChild(el('span', { class: 'dk-pbmeta' }, prog.weeks.length + ' wk' + (sets.length ? ' · ' + Math.round(done / sets.length * 100) + '% logged' : '')));
+  var meta = el('div', { class: 'dk-pbmeta' });
+  meta.appendChild(el('span', {}, prog.weeks.length + (prog.weeks.length === 1 ? ' week' : ' weeks')));
+  if (sets.length) meta.appendChild(el('span', {}, Math.round(done / sets.length * 100) + '% logged'));
   var bits = MAIN_LIFTS.map(function (L) { var v = programMaxKg(prog, athleteId, L); var own = prog.maxes && Number(prog.maxes[L]) > 0; return v > 0 ? LIFT_LABELS[L].charAt(0) + Math.round(kgToDisplay(v)) + (own ? '' : '*') : null; }).filter(Boolean);
-  var mx = el('button', { type: 'button', class: 'dk-pbmax', title: bits.some(function (b) { return /\*$/.test(b); }) ? 'The maxes % sets work from. * = their best e1RM (no max set for this block)' : 'The maxes % sets work from' },
-    el('span', {}, 'Maxes'), el('b', {}, bits.length ? bits.join(' ') : 'not set'));
+  var mx = el('button', { type: 'button', class: 'dk-pbmeta-btn dk-pbmax' }, 'Maxes ', el('b', {}, bits.length ? bits.join(' ') : 'not set'));
+  dkTip(mx, bits.some(function (b) { return /\*$/.test(b); }) ? 'The maxes % sets work from. * = their best e1RM (no max set for this block)' : 'The maxes % sets work from');
   mx.addEventListener('click', function () { openMaxesSheet(prog.id, athleteId); });
-  head.appendChild(mx);
+  meta.appendChild(mx);
   // Set fields: which ones this block shows (tempo, pause, bands and chains, the coach's columns).
   var sfDef = programSetFields(prog);
   var sfNames = sfDef.on.map(function (k) { return k === 'acc' ? 'Bands' : (SET_FIELD_KINDS.find(function (x) { return x[0] === k; }) || [k, k])[1]; }).concat(sfDef.cols);
-  var sfb = el('button', { type: 'button', class: 'dk-pbmax dk-pbsf', title: 'Set fields: tempo, pauses, bands and chains, your own columns' },
-    el('span', {}, 'Fields'), el('b', { class: sfNames.length ? '' : 'dk-dim' }, sfNames.length ? sfNames.join(' · ') : 'none'));
-  sfb.addEventListener('click', function () { openSetFieldsSheet(prog.id, function () { loadProgram(); }); });
-  head.appendChild(sfb);
-  head.appendChild(el('span', { class: 'dk-sp' }));
+  if (sfNames.length) {
+    var sfb = el('button', { type: 'button', class: 'dk-pbmeta-btn dk-pbsf' }, 'Fields ', el('b', {}, sfNames.join(', ')));
+    dkTip(sfb, 'Set fields: tempo, pauses, bands and chains, your own columns');
+    sfb.addEventListener('click', function () { openSetFieldsSheet(prog.id, function () { loadProgram(); }); });
+    meta.appendChild(sfb);
+  }
+  id.appendChild(meta);
+  head.appendChild(id);
   var seg = el('div', { class: 'dk-seg', role: 'radiogroup', 'aria-label': 'Builder view' });
   [['grid', 'Grid'], ['weeks', 'Weeks']].forEach(function (x) {
     var on = view === x[0];
@@ -3428,22 +3460,22 @@ function deskBuilderHead(prog, athleteId, actions, view) {
     seg.appendChild(b);
   });
   head.appendChild(seg);
-  // TEAM PROGRAMS (M4) TEMPORARY proof-of-data button: opens app.js openTeamSheet. The desk v2
-  // Team view replaces it; remove this line with it.
-  if (typeof openTeamSheet === 'function') { var tb = dkBtn('Team', { cls: 'is-quiet', onClick: function () { openTeamSheet(); } }); tb.id = 'dkTeamBtn'; tb.title = 'Team programs (preview)'; head.appendChild(tb); }
+  var pub = el('span', { class: 'dk-pbpub', 'data-aid': athleteId, 'data-first': _dkFirst(a.name) });
+  head.appendChild(pub);
   var more = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Program options', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: DK_IC.more });
+  dkTip(more, 'More');
   more.addEventListener('click', function (e) {
     e.stopPropagation();
-    var items = (actions || []).filter(Boolean).filter(function (x) { return !/^Notify /.test(x.label); }).map(function (x) { return { label: x.label, run: x.onClick }; });
+    var items = (actions || []).filter(Boolean).filter(function (x) { return !/^Notify /.test(x.label); }).map(function (x) { return { label: x.label, run: x.onClick, danger: x.danger }; });
     // The phone's hero carries "Build from goal" for an empty block; here it waits in ⋯.
     if (!sets.length && typeof openGoalModal === 'function') items.unshift({ label: 'Build from goal…', run: function () { openGoalModal(athleteId); } });
+    // TEAM PROGRAMS (M4) preview: app.js openTeamSheet, until the desk's Team view replaces it.
+    if (typeof openTeamSheet === 'function') items.push('-', { label: 'Team programs', id: 'dkTeamBtn', run: function () { openTeamSheet(); } });
     // The Grid / Weeks toggle steps in here when the inspector leaves no room for it.
     items.push('-', { label: view === 'grid' ? 'Weeks view' : 'Grid view', run: function () { deskSetPbView(view === 'grid' ? 'weeks' : 'grid'); loadProgram(); } });
     dkPopMenu(more, items, { alignRight: true });
   });
   head.appendChild(more);
-  var pub = el('span', { class: 'dk-pbpub', 'data-aid': athleteId, 'data-first': _dkFirst(a.name) });
-  head.appendChild(pub);
   _dk.pbHead = { prog: prog.id, aid: athleteId };
   setTimeout(dkPaintPbHead, 0);
   return head;
@@ -3458,17 +3490,20 @@ function dkPaintPbHead() {
   // Edits save as they're typed and the athlete sees them straight away, so this isn't a gate:
   // it's the heads-up (push + email), with the count of edits since the last one.
   var first = slot.dataset.first;
-  var b = n ? dkBtn('Notify', { primary: true, onClick: function () { dkPublish(aid); } }) : dkBtn('Up to date', { cls: 'is-quiet', icon: ICONS.check });
-  if (n) {
-    var lab = b.querySelector('span');
-    lab.textContent = '';
-    lab.appendChild(document.createTextNode('Notify'));
-    lab.appendChild(el('span', { class: 'dk-pub-to' }, ' ' + first));
-    lab.appendChild(document.createTextNode(' · ' + n + (n === 1 ? ' edit' : ' edits')));
-    b.setAttribute('aria-label', 'Notify ' + first + ' about ' + n + (n === 1 ? ' edit' : ' edits'));
+  if (!n) {
+    var st = el('span', { class: 'dk-state', role: 'status' }, 'Up to date');
+    dkTip(st, 'Saved as you type. ' + first + ' already sees every edit; no edits since the last heads-up.');
+    slot.appendChild(st);
+    return;
   }
-  if (!n) { b.disabled = true; b.title = 'Saved as you type. ' + first + ' already sees every edit; no edits since the last heads-up.'; }
-  else b.title = 'Saved as you type: ' + first + ' already sees ' + (n === 1 ? 'it' : 'them') + '. Notify sends a heads-up about the ' + n + (n === 1 ? ' edit' : ' edits') + ' since the last one.';
+  var b = dkBtn('Notify', { primary: true, onClick: function () { dkPublish(aid); } });
+  var lab = b.querySelector('span');
+  lab.textContent = '';
+  lab.appendChild(document.createTextNode('Notify'));
+  lab.appendChild(el('span', { class: 'dk-pub-to' }, ' ' + first));
+  lab.appendChild(document.createTextNode(' · ' + n + (n === 1 ? ' edit' : ' edits')));
+  b.setAttribute('aria-label', 'Notify ' + first + ' about ' + n + (n === 1 ? ' edit' : ' edits'));
+  dkTip(b, 'Saved as you type: ' + first + ' already sees ' + (n === 1 ? 'it' : 'them') + '. Notify sends a heads-up about the ' + n + (n === 1 ? ' edit' : ' edits') + ' since the last one.');
   slot.appendChild(b);
 }
 // Cells edited since the last heads-up carry a thin ink outline until it goes out.
@@ -3482,31 +3517,12 @@ function dkPbMarkEdited() {
 }
 // buildProgramGrid's desk hooks: a cell changed (count, outline) / a cell picked (the inspector).
 function deskGridEdited() { deskGridFit(); dkPbMarkEdited(); dkPaintPbHead(); var l = document.getElementById('dkPbList'); if (l) dkPaintPbRows(l); if (_dk.pbInfo) dkPaintInspector(); }
-// A prescription is an <input>, so it can't wrap: each week column gets a min-width from its
-// longest prescription instead, and the grid scrolls sideways inside its own box. Nothing is cut
-// mid-load, with or without the inspector beside it. Re-run as cells are typed into.
-// The width an input needs to show its whole value (its own font, padding and border).
-function _dkInputW(inp) {
-  var cs = getComputedStyle(inp);
-  var ctx = (_dk.fitCtx || (_dk.fitCtx = document.createElement('canvas').getContext('2d')));
-  ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-  var pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0) + 6;
-  return Math.min(420, Math.ceil(ctx.measureText(inp.value || inp.placeholder || '').width + pad));
-}
+// The desk's grid has fixed week columns (each cell's writing wraps, see buildProgramGrid), so
+// nothing is sized to its longest prescription any more: this only clears an older inline width.
 function deskGridFit(table) {
   table = table || document.querySelector('#programArea .pg-grid');
   if (!table) return;
-  // Built before it's on the page: measure once it is (the font and padding come from CSS).
-  if (!table.isConnected) { requestAnimationFrame(function () { if (table.isConnected) deskGridFit(table); }); return; }
-  var wid = {};
-  table.querySelectorAll('input.pg-cell').forEach(function (i) {
-    var w = i.dataset.wi;
-    wid[w] = Math.max(wid[w] || 0, _dkInputW(i));
-  });
-  table.querySelectorAll('td[data-cell]').forEach(function (td) {
-    var px = wid[td.dataset.cell.split('.')[0]] || 0;
-    td.style.minWidth = px ? px + 'px' : '';
-  });
+  table.querySelectorAll('td[data-cell]').forEach(function (td) { if (td.style.minWidth) td.style.minWidth = ''; });
 }
 function deskGridFocus(info) { _dk.pbInfo = info; dkSyncCtx(); dkPaintInspector(); }
 // The empty program: paste the block from the sheet (the one action), or two quiet starts.
@@ -3639,7 +3655,7 @@ function dkInspectorFields(prog, info, ex) {
     var cur = dkProgOf(info.athleteId);
     var e2 = cur && cur.weeks[info.wi] && cur.weeks[info.wi].days[info.di] && cur.weeks[info.wi].days[info.di].exercises[info.ei];
     var inp = document.querySelector('#programArea td[data-cell="' + info.wi + '.' + info.di + '.' + info.ei + '"] input.pg-cell');
-    if (inp && e2) { inp.value = _gridCellText(e2); inp.dataset.orig = inp.value; }
+    if (inp && e2) { inp.value = _gridCellText(e2); inp.dataset.orig = inp.value; if (inp._paint) inp._paint(e2); }
     // deskGridEdited without repainting this pane, so Tab goes on to the next box.
     deskGridFit(); dkPbMarkEdited(); dkPaintPbHead();
     var l = document.getElementById('dkPbList'); if (l) dkPaintPbRows(l);
@@ -3685,12 +3701,18 @@ function dkPaintTemplate() {
   _dk.pbTpl = tpl.id;
   var weeks = (tpl.payload && tpl.payload.weeks) || [];
   var head = el('div', { class: 'dk-pbhead' });
-  head.appendChild(el('h2', { class: 'dk-pbtitle' }, tpl.name || 'Template'));
+  var tid = el('div', { class: 'dk-pbid' });
+  tid.appendChild(el('h2', { class: 'dk-pbtitle' }, tpl.name || 'Template'));
   var sets = weeks.flatMap(function (w) { return w.days || []; }).flatMap(function (d) { return d.exercises || []; }).flatMap(function (e) { return e.sets || []; }).length;
-  head.appendChild(el('span', { class: 'dk-pbmeta' }, weeks.length + ' wk · ' + sets + ' sets' + (tpl.createdAt ? ' · saved ' + fmtDateShort(isoLocal(new Date(tpl.createdAt))) : '')));
-  head.appendChild(el('span', { class: 'dk-sp' }));
+  var tmeta = el('div', { class: 'dk-pbmeta' });
+  tmeta.appendChild(el('span', {}, weeks.length + (weeks.length === 1 ? ' week' : ' weeks')));
+  tmeta.appendChild(el('span', {}, sets + ' sets'));
+  if (tpl.createdAt) tmeta.appendChild(el('span', {}, 'saved ' + fmtDateShort(isoLocal(new Date(tpl.createdAt)))));
+  tid.appendChild(tmeta);
+  head.appendChild(tid);
   if (!document.documentElement.classList.contains('native') && typeof openPublishModal === 'function') head.appendChild(dkBtn('Sell it', { cls: 'is-quiet', onClick: function () { openPublishModal(tpl); } }));
-  var del = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Delete template', title: 'Delete template', html: ICONS.trash });
+  var del = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Delete template', html: ICONS.trash });
+  dkTip(del, 'Delete template');
   del.addEventListener('click', async function () {
     if (!confirm('Delete template "' + (tpl.name || 'Template') + '"?')) return;
     Store.update(function (s) { s.programTemplates = s.programTemplates.filter(function (x) { return x.id !== tpl.id; }); });
@@ -4231,11 +4253,11 @@ function dkFrSample() {
   box.appendChild(hd);
   // The rows exactly as Today draws them: the week's ring, the name, one sentence, one tag.
   var rows = [
-    ['Priya Shah', 2, 4, 'Pain today · L knee, squat 4/10', 'Meet 9d', 'meet', true],
-    ['Marcus Doyle', 3, 4, 'Bench @9.5 against @8 written · cut 1.1 kg over 83', '2d', '', false],
-    ['Kofi Mensah', 1, 3, 'Message 31h · “Can we move Thursday to Friday?”', '1d', '', false],
-    ['Jonah Reed', 0, 4, 'Quiet 9d · missed 2 sessions', '9d', '', false],
-    ['Leo Grant', 3, 3, 'Squat PR · 4-week streak', 'Today', '', false]
+    ['Priya Shah', 2, 4, 'Pain today · L knee, squat 4/10', 'Meet 9d', 'meet', 'alert'],
+    ['Marcus Doyle', 3, 4, 'Bench @9.5 against @8 written · cut 1.1 kg over 83', '2d', '', 'alert'],
+    ['Kofi Mensah', 1, 3, 'Message 31h · “Can we move Thursday to Friday?”', '1d', '', 'info'],
+    ['Jonah Reed', 0, 4, 'Quiet 9d · missed 2 sessions', '9d', '', 'warn'],
+    ['Leo Grant', 3, 3, 'Squat PR · 4-week streak', 'Today', '', 'win']
   ];
   var lane = el('div', { class: 'dk-lane dk-fr-lane' });
   rows.forEach(function (x) {
@@ -4244,9 +4266,8 @@ function dkFrSample() {
     row.appendChild(dkRingAv(r));
     var main = el('div', { class: 'dk-qmain' });
     main.appendChild(el('div', { class: 'dk-qtop' }, el('span', { class: 'dk-qname' }, x[0]), el('span', { class: 'dk-qago' + (x[5] ? ' is-' + x[5] : '') }, x[4])));
-    var line = el('div', { class: 'dk-qline' + (x[6] ? ' is-alert' : '') });
-    line.appendChild(dkRich(x[3]));
-    main.appendChild(line);
+    var lead = x[3].split(' · ')[0];
+    main.appendChild(dkQLine(x[6] === 'win' ? { reasons: [], wins: [{ text: lead }] } : { reasons: [{ text: lead, tone: x[6] }], wins: [] }, x[6] === 'win' ? 'w' : 'q', x[3]));
     row.appendChild(main);
     lane.appendChild(row);
   });

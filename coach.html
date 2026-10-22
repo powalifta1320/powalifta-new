@@ -14,7 +14,7 @@
 <!-- The laptop desk (desk.js): at least 1000px wide and not the iPhone app. Set before the first
      frame, with the desk's remembered density / folded sidebar (icons at 1280 and below unless
      opened) / hidden side pane; the desk is dark until the coach picks light. -->
-<script>(function(){try{var d=document.documentElement;if(!d.classList.contains('native')&&window.matchMedia&&matchMedia('(min-width: 1000px)').matches){d.classList.add('desk');var g=function(k){try{return localStorage.getItem(k)}catch(e){return null}};if(g('powa-desk-density')==='compact')d.setAttribute('data-density','compact');var rl=g('powa-desk-rail');if(rl==='min'||(rl!=='open'&&!matchMedia('(min-width: 1281px)').matches))d.classList.add('rail-min');var dt=g('powa-desk-theme')==='light'?'light':'dark';d.setAttribute('data-theme',dt);var tm=document.querySelector('meta[name="theme-color"]');if(tm)tm.setAttribute('content',dt==='light'?'#ffffff':'#0b0b0c');var c=g('powa-desk-ctx');if(c==='off'||(!c&&!matchMedia('(min-width: 1280px)').matches))d.classList.add('ctx-off');}}catch(e){}})();</script>
+<script>(function(){try{var d=document.documentElement;if(!d.classList.contains('native')&&window.matchMedia&&matchMedia('(min-width: 1000px)').matches){d.classList.add('desk');var g=function(k){try{return localStorage.getItem(k)}catch(e){return null}};if(g('powa-desk-density')==='compact')d.setAttribute('data-density','compact');var rl=g('powa-desk-rail2');if(rl==='min'||(rl!=='open'&&!matchMedia('(min-width: 1200px)').matches))d.classList.add('rail-min');var dt=g('powa-desk-theme')==='light'?'light':'dark';d.setAttribute('data-theme',dt);var tm=document.querySelector('meta[name="theme-color"]');if(tm)tm.setAttribute('content',dt==='light'?'#ffffff':'#0b0b0c');var c=g('powa-desk-ctx');if(c==='off'||(!c&&!matchMedia('(min-width: 1280px)').matches))d.classList.add('ctx-off');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -2963,6 +2963,10 @@ function buildProgramGrid(prog, athleteId, opts) {
   const ro = !!(opts && opts.readOnly);   // a past block: look, don't touch
   // The laptop desk (desk.js): the fill lives in the inspector, edits feed Notify's count.
   const desk = !!(opts && opts.desk) && !ro;
+  // Any grid drawn on the laptop desk (the builder, a template, a past block) reads as the desk's
+  // training sheet: the writing drawn and wrapped in each cell, empty days left out, week totals
+  // named. Phones keep the plain grid.
+  const deskLook = document.documentElement.classList.contains('desk');
   const wrap = el('div', { class: 'pg-grid-wrap' + (ro ? ' is-ro' : '') });
   const lbs = getUnit() === 'lbs';
   const unitTag = lbs ? 'lb' : 'kg';
@@ -2973,6 +2977,7 @@ function buildProgramGrid(prog, athleteId, opts) {
   for (let di = 0; di < maxDays; di++) {
     const dayName = (weeks.find(w => w.days[di]) || { days: [] }).days[di]?.name || ('Day ' + (di + 1));
     const maxEx = Math.max(0, ...weeks.map(w => ((w.days[di] || {}).exercises || []).length));
+    if (deskLook && !maxEx) continue;   // a rest day has no row to write in
     rows.push({ day: true, di, name: dayName, maxEx });
     for (let ei = 0; ei < maxEx; ei++) {
       const proto = weeks.map(w => ((w.days[di] || {}).exercises || [])[ei]).find(Boolean);
@@ -3061,6 +3066,7 @@ function buildProgramGrid(prog, athleteId, opts) {
     });
     persistProgram(prog.id);
     inp.value = _gridCellText(exAt(W, D, E)); inp.dataset.orig = inp.value;
+    if (inp._paint) inp._paint(exAt(W, D, E));
     paintFoot();
     if (desk) _deskCall('deskGridEdited');
   };
@@ -3135,6 +3141,7 @@ function buildProgramGrid(prog, athleteId, opts) {
       const ex = ((w.days[r.di] || {}).exercises || [])[r.ei];
       const td = el('td');
       const logged = !!(ex && ex.sets.some(s => s.completed));
+      if (deskLook && logged) td.classList.add('is-logged-cell');
       const nameDiff = ex && r.proto && exTitle(ex) !== r.label;
       if (nameDiff) td.appendChild(el('span', { class: 'pg-alt' }, exTitle(ex)));
       const inp = el('input', { type: 'text', class: 'pg-cell' + (logged ? ' is-logged' : ''), spellcheck: 'false', autocomplete: 'off',
@@ -3182,7 +3189,14 @@ function buildProgramGrid(prog, athleteId, opts) {
         toast(group.length ? 'Pasted ' + group.length + (group.length === 1 ? ' cell' : ' cells') : 'Nothing pasted: those cells are logged');
       });
       // A past block isn't typed into: its cells wrap instead of clipping like an input's.
-      td.appendChild(ro ? el('div', { class: 'pg-cell pg-cell-ro' + (logged ? ' is-logged' : '') }, _gridCellText(ex) || '–') : inp);
+      if (deskLook) {
+        // The desk draws the writing (sets in ink, set fields small and muted) and wraps it; the
+        // input lies over the whole cell, clear until it's being typed in.
+        const disp = el('div', { class: 'pg-disp', 'aria-hidden': 'true', html: _gridCellHtml(ex) });
+        if (!ro) { td.appendChild(inp); inp._paint = (x) => { disp.innerHTML = _gridCellHtml(x); }; }
+        td.appendChild(disp);
+        if (ro) td.setAttribute('aria-label', r.label + ', week ' + w.number + ': ' + (_gridCellText(ex) || 'nothing written'));
+      } else td.appendChild(ro ? el('div', { class: 'pg-cell pg-cell-ro' + (logged ? ' is-logged' : '') }, _gridCellText(ex) || '–') : inp);
       // What they actually did, under what was written: overshoots in red, misses crossed out.
       const act = ex ? _gridActualHtml(ex) : '';
       if (act) td.appendChild(el('div', { class: 'pg-actual', html: act }));
@@ -3196,6 +3210,7 @@ function buildProgramGrid(prog, athleteId, opts) {
   // Per week, per lift: sets and reps, tonnage, average RPE and the top set as written; the best
   // e1RM from what was lifted.
   const tfoot = el('tfoot');
+  if (deskLook) tfoot.appendChild(el('tr', { class: 'pg-sum-head' }, el('th', { scope: 'rowgroup', colspan: String(weeks.length + 1) }, 'Week totals')));
   const lifts = ['squat', 'bench', 'deadlift'];
   const footCells = {};
   lifts.concat(['all']).forEach(L => {
@@ -3238,12 +3253,38 @@ function buildProgramGrid(prog, athleteId, opts) {
   const scroller = el('div', { class: 'pg-grid-scroll' });
   scroller.appendChild(table);
   wrap.appendChild(scroller);
+  if (deskLook) {
+    // Weeks off to the right: a fade at the edge; scrolled: a hairline beside the names.
+    const edge = () => {
+      wrap.classList.toggle('is-more-x', scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2);
+      wrap.classList.toggle('is-scrolled-x', scroller.scrollLeft > 1);
+    };
+    scroller.addEventListener('scroll', edge, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(edge).observe(scroller);
+    requestAnimationFrame(edge);
+  }
   // remember(inp): an edit made outside the cell (the desk inspector's set fields) goes on the same
   // undo stack, so ⌘Z takes it back and an older undo doesn't restore text from before it.
   if (desk) wrap._api = { fill: fillRight, undo: doUndo, remember: (inp) => { undo.push([{ inp, prev: inp.dataset.orig }]); paintUndo(); } };
   if (opts && opts.desk) _deskCall('deskGridFit', table);   // laptop: every week column as wide as its longest prescription
   if (!rows.some(r => !r.day)) wrap.appendChild(uiEmpty({ title: 'No exercises yet', text: 'Add them in Weeks view, or paste a whole program in.', primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(athleteId) } }));
   return wrap;
+}
+// The desk's drawing of a cell: the sets as written, in ink ("1×3 @8, 3×5 155kg @7"), each block's set
+// fields after it, small and muted ("tempo 3s down · Belt: no"). Escaped: names and columns are
+// typed text.
+function _gridCellHtml(ex) {
+  if (!ex || !(ex.sets || []).length) return '<span class="pg-none">–</span>';
+  const unitTag = getUnit() === 'lbs' ? 'lb' : 'kg';
+  const plan = ex.sets.map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps }));
+  return groupSets(plan).map(b => {
+    let t = b.count + '×' + b.reps;
+    if (b.pct != null) t += ' ' + _num(b.pct) + (Number(b.pctHi) > Number(b.pct) ? '–' + _num(b.pctHi) : '') + '%';
+    else if (b.weight > 0) t += ' ' + kgToDisplay(b.weight) + (Number(b.weightHi) > Number(b.weight) ? '–' + kgToDisplay(b.weightHi) : '') + unitTag;
+    if (b.rpe != null) t += b.rir ? ' ' + effortInputText(b, true) + 'RIR' : ' @' + effortInputText(b, false);
+    const f = setFieldsCellText(b, unitTag);
+    return '<span class="pg-rx">' + escHtml(t) + '</span>' + (f ? ' <span class="pg-fx">' + escHtml(f) + '</span>' : '');
+  }).join('<span class="pg-sep">, </span>');
 }
 // What was lifted, in the grid's shorthand: "182.5×3 @8.5, 2×165×5 @8" (overshoots red, misses struck).
 function _gridActualHtml(ex) {

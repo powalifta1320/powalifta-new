@@ -1059,6 +1059,9 @@ function showInstallBanner() {
   // and prompting to "Add to Home Screen" would fail App Store review (3.2.2 /
   // web-wrapper signals) besides being nonsense to the user.
   if (_isNativeShell()) return;
+  // Never over the coach's laptop desk, and never in a demo (a visitor trying the product, on
+  // any device): the card would sit over the very screen they came to see.
+  if (document.documentElement.classList.contains('desk') || /[?&]demo=1\b/.test(location.search) || window._demoMode) return;
   if (document.getElementById('pwaInstallBanner')) return;
   if (_isStandalone()) return;
   if (_pwaDismissedRecently()) return;
