@@ -1,3 +1,6 @@
+// site-desk-capture.mjs: RETIRED with website v2 (2026-10-22). It fed the W3 "Monday in 40 seconds"
+// section, which is gone; the homepage's stills now come from test/site-v2-capture.mjs.
+//
 // site-desk-capture.mjs: the homepage's coach-desk stills, captured from the live desk.
 //
 // Re-run this whenever the desk (coach.html?demo=1) changes. From the repo root:

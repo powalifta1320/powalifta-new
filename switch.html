@@ -41,7 +41,7 @@
 <body class="site">
 
 <a class="skip-link" href="#main">Skip to content</a>
-<nav class="nav" id="nav"></nav>
+<nav class="nav" id="nav"><!-- Without JavaScript: a static nav. app.js renderNav() replaces it. --><div class="nav-inner"><a class="brand" href="index.html"><svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span class="brand-word">POWALIFTA</span></a><div class="nav-links web-only"><a href="index.html#train">Features</a><a href="guides.html">Guides</a><a href="index.html#pricing">Pricing</a></div><div class="nav-actions guest"><a class="btn btn-sm btn-ghost" href="index.html#login">Log in</a><a class="btn btn-sm btn-primary" href="index.html#signup-coach">Start free</a></div></div></nav>
 
 <main id="main">
   <div class="s-wrap s-switch-page">
@@ -56,17 +56,23 @@
         <li><b>Set the maxes for % work.<em>A minute a block</em></b><span>Percentages work from the max you set for the block, or from each lifter's best estimated max from training.</span></li>
         <li><b>Bring in their history.<em>They do it</em></b><span>Athletes link their OpenPowerlifting profile and every meet comes in with its attempts. Training logs come in from a spreadsheet or CSV too.</span></li>
       </ol>
+      <figure class="s-window s-switch-shot">
+        <div class="s-window-crop is-cut" data-cap="table-m" style="--mx:0.1694;--my:0.0856;--mw:0.2637;--mh:0.4293">
+          <img src="site-img/desk-table-m.webp" width="760" height="772" alt="A pasted program in the desk's grid: week 2's bench written as 1x3 152.5 kg at RPE 8, and lifted underneath at RPE 9.5, in red" loading="lazy" decoding="async">
+        </div>
+        <figcaption>Pasted, it lands in the grid: what you wrote on top, what they lifted underneath. Next week is typed in place beside it.</figcaption>
+      </figure>
       <div class="s-prose">
         <h2>Coming from another coaching app?</h2>
         <p>If it exports your programs to a spreadsheet, paste that in. Same notation, same weeks.</p>
         <h2>What your athletes get</h2>
         <p>An app on their phone instead of a shared sheet: today's session ready to go, one tap per set with how it felt, a rest timer, PRs the moment they happen, and meet day planned from what they've actually lifted. Free for lifters, forever.</p>
         <h2>What you get on a laptop</h2>
-        <p>A Today queue that walks you through who needs you, a page for every athlete, and a program grid you type into like a spreadsheet, with what they lifted under what you wrote. When the next block starts, the last one is kept, along with what it gained. <a href="index.html#desk">See Monday on the desk</a>.</p>
+        <p>A Today queue that walks you through who needs you, a page for every athlete, and a program grid you type into like a spreadsheet, with what they lifted under what you wrote. When the next block starts, the last one is kept, along with what it gained. <a href="index.html#desk">See the grid on the desk</a>.</p>
         <h2>What stays yours</h2>
         <p>Your programming and your notation. Any program exports back to a spreadsheet in one click, so nothing is locked in.</p>
       </div>
-      <div class="s-actions"><a class="btn btn-primary btn-lg" href="index.html#signup-coach">Start coaching free</a><a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a></div>
+      <div class="s-actions"><a class="btn btn-primary btn-lg" href="index.html#signup-coach">Start free</a><a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a></div>
     </div>
 
     <!-- The paste box: the same reader the program builder uses (parseProgramSheet in app.js). -->
@@ -97,35 +103,45 @@ Romanian deadlift 3x8 2 RIR</textarea>
   <div class="s-wrap s-foot-grid">
     <div class="s-foot-brand">
       <a class="brand" href="index.html" aria-label="POWALIFTA home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span>POWALIFTA</span></a>
-      <p>Built for the barbell.</p>
+      <p>The coaching desk and training log for powerlifting. Built for the barbell.</p>
       <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="132" height="44" alt="Download on the App Store" loading="lazy" decoding="async"></a>
+      <div class="s-foot-social">
+        <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" aria-label="POWALIFTA on Instagram"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" stroke="none"/></svg></a>
+        <a href="mailto:powalifta1320@gmail.com" aria-label="Email POWALIFTA"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></svg></a>
+      </div>
     </div>
     <nav class="s-foot-col" aria-label="Product">
-      <h5>Product</h5>
-      <a href="index.html#train">Features</a>
-      <a href="index.html#e1rm">Max calculator</a>
+      <h2>Product</h2>
+      <a href="index.html#desk">Coach desk</a>
+      <a href="index.html#lifters">Lifter app</a>
+      <a href="coach.html?demo=1">Live demo</a>
+      <a class="web-only" href="index.html#pricing">Pricing</a>
       <a class="web-only" href="marketplace.html" data-needs-programs>Programs</a>
       <a href="leaderboard.html">Leaderboard</a>
-      <a href="exercises.html">Exercise library</a>
-      <a href="switch.html">Switch from a spreadsheet</a>
-      <a class="web-only" href="index.html#pricing">Pricing</a>
     </nav>
-    <nav class="s-foot-col" aria-label="Learn">
-      <h5>Learn</h5>
-      <a href="guides.html">Guides</a>
+    <nav class="s-foot-col" aria-label="Guides">
+      <h2>Guides</h2>
+      <a href="guides.html">All guides</a>
       <a href="guide-rpe.html">RPE explained</a>
       <a href="guide-e1rm.html">Estimated 1RM</a>
       <a href="guide-dots.html">DOTS score</a>
       <a href="guide-peaking.html">Peaking for a meet</a>
+      <a href="exercises.html">Exercise library</a>
+      <a href="index.html#e1rm">Max calculator</a>
     </nav>
     <nav class="s-foot-col" aria-label="Company">
-      <h5>Company</h5>
+      <h2>Company</h2>
       <a href="about.html">About</a>
       <a href="faq.html">FAQ</a>
+      <a href="mailto:powalifta1320@gmail.com">Email us</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
+    </nav>
+    <nav class="s-foot-col" aria-label="Your data and legal">
+      <h2>Data and legal</h2>
+      <a href="data.html">Your data is yours</a>
+      <a href="switch.html">Switch from a spreadsheet</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
-      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
-      <a href="mailto:powalifta1320@gmail.com">Email us</a>
     </nav>
   </div>
   <div class="s-wrap"><div class="s-foot-base"><span>© 2026 POWALIFTA</span><button type="button" onclick="toggleTheme()">Switch light or dark</button></div></div>

@@ -3,19 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POWALIFTA | Built for the barbell.</title>
-<meta name="description" content="The powerlifting app for coaches and lifters: a review queue for your roster, RPE-based programs, e1RM from every set. Free for lifters.">
-<meta property="og:title" content="POWALIFTA | Built for the barbell.">
-<meta property="og:description" content="Powerlifting app for coaches and lifters: a review queue for your roster, RPE-based programs, e1RM from every set. Free for lifters.">
+<title>Powerlifting coaching app for RPE programs | POWALIFTA</title>
+<meta name="description" content="The powerlifting coaching desk and lifter app: see what each athlete lifted against what you wrote, then write next week beside it. Free for lifters.">
+<meta property="og:title" content="Read the week. Write the next one. | POWALIFTA">
+<meta property="og:description" content="The powerlifting coaching desk and lifter app: see what each athlete lifted against what you wrote, then write next week beside it. Free for lifters.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/">
 <meta property="og:url" content="https://www.powalifta.com/">
 <meta property="og:image" content="https://www.powalifta.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The POWALIFTA coach desk: the Today list of athletes worst first, and one athlete's week lifted against written">
+<meta property="og:site_name" content="POWALIFTA">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="POWALIFTA | Built for the barbell.">
-<meta name="twitter:description" content="Powerlifting app for coaches and lifters: a review queue for your roster, RPE-based programs, e1RM from every set. Free for lifters.">
+<meta name="twitter:title" content="Read the week. Write the next one. | POWALIFTA">
+<meta name="twitter:description" content="The powerlifting coaching desk and lifter app: see what each athlete lifted against what you wrote, then write next week beside it. Free for lifters.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
@@ -46,19 +48,41 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "POWALIFTA",
-  "url": "https://www.powalifta.com/",
-  "applicationCategory": "HealthApplication",
-  "operatingSystem": "Web, iOS",
-  "installUrl": "https://apps.apple.com/app/powalifta/id6788506689",
-  "description": "Powerlifting app for coaches and lifters: a review queue for your roster, RPE-based programs, e1RM from every set. Free for lifters.",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD",
-    "description": "Free for athletes, forever. Coach plans from $24.99/month."
-  }
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.powalifta.com/#org",
+      "name": "POWALIFTA",
+      "url": "https://www.powalifta.com/",
+      "logo": "https://www.powalifta.com/icon-512.png",
+      "email": "powalifta1320@gmail.com",
+      "sameAs": ["https://instagram.com/powa.lifta", "https://apps.apple.com/app/powalifta/id6788506689"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.powalifta.com/#site",
+      "name": "POWALIFTA",
+      "url": "https://www.powalifta.com/",
+      "publisher": { "@id": "https://www.powalifta.com/#org" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "POWALIFTA",
+      "url": "https://www.powalifta.com/",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "Web, iOS",
+      "installUrl": "https://apps.apple.com/app/powalifta/id6788506689",
+      "screenshot": "https://www.powalifta.com/og.png",
+      "description": "The powerlifting coaching desk and lifter app: see what each athlete lifted against what you wrote, then write next week beside it. Free for lifters.",
+      "publisher": { "@id": "https://www.powalifta.com/#org" },
+      "offers": [
+        { "@type": "Offer", "name": "Lifters and coaches up to 3 athletes", "price": "0", "priceCurrency": "USD" },
+        { "@type": "Offer", "name": "Basic, 4 to 10 athletes", "price": "24.99", "priceCurrency": "USD" },
+        { "@type": "Offer", "name": "Pro, 11 to 25 athletes", "price": "49.99", "priceCurrency": "USD" },
+        { "@type": "Offer", "name": "Premium, 26 athletes or more", "price": "99.99", "priceCurrency": "USD" }
+      ]
+    }
+  ]
 }
 </script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
@@ -142,261 +166,162 @@
 </div>
 
 <div class="s-home">
-<nav class="nav" id="nav"></nav>
+<nav class="nav" id="nav"><!-- Without JavaScript: a static nav. app.js renderNav() replaces it. --><div class="nav-inner"><a class="brand" href="index.html"><svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span class="brand-word">POWALIFTA</span></a><div class="nav-links web-only"><a href="index.html#train">Features</a><a href="guides.html">Guides</a><a href="index.html#pricing">Pricing</a></div><div class="nav-actions guest"><a class="btn btn-sm btn-ghost" href="index.html#login">Log in</a><a class="btn btn-sm btn-primary" href="index.html#signup-coach">Start free</a></div></div></nav>
 
 <main id="main">
 
-<!-- HERO: who it's for, chosen by a Coach | Lifter switch. A laptop (1000px and up) opens on
-     the coach's desk; a phone opens on the lifter's app. The inline script picks the side before
-     first paint; with no JS both sides show, one under the other, and the switch stays hidden. -->
+<!-- HERO: the real desk in a slim laptop, the real lifter app on a phone in front of it. site.js
+     plays the loop: the phone's Log set is pressed, the set flies to the athlete's row on the desk
+     and lands with one soft pulse. The stills and every box the loop aims at (data-cap) come from
+     test/site-v2-capture.mjs. Reduced motion (or no JS) shows the landed frame, still. -->
 <header class="s-hero" id="top">
-  <script>(function(){try{var h=document.getElementById('top'),m=null;try{m=sessionStorage.getItem('powa-site-mode');}catch(e){}if(m!=='coach'&&m!=='lifter')m=window.matchMedia('(min-width: 1000px)').matches?'coach':'lifter';h.setAttribute('data-mode',m);}catch(e){}})();</script>
   <div class="s-wrap">
-    <h1 class="s-sr">POWALIFTA: the powerlifting app for coaches and their lifters</h1>
-    <div class="s-switch" role="tablist" aria-label="Show POWALIFTA for">
-      <button type="button" role="tab" id="heroTabCoach" aria-controls="heroCoach" aria-selected="true" data-mode-btn="coach">Coach</button>
-      <button type="button" role="tab" id="heroTabLifter" aria-controls="heroLifter" aria-selected="false" data-mode-btn="lifter" tabindex="-1">Lifter</button>
-    </div>
-
-    <div class="s-hero-panel s-hero-coach" id="heroCoach" role="tabpanel" aria-labelledby="heroTabCoach">
-      <div class="s-hero-copy">
-        <h2 class="s-hero-title">Your Monday, done by ten.</h2>
-        <p class="s-body">The powerlifting coach's desk: RPE-native programming, e1RM on every set, and a queue that walks you through who needs you.</p>
-        <div class="s-actions">
-          <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('coach')">Start free</button>
-          <a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a>
-        </div>
+    <h1 class="s-hero-title"><span class="s-line"><span>Read the week.</span></span> <span class="s-line"><span>Write the next one.</span></span></h1>
+    <div class="s-hero-row">
+      <p class="s-lede">The coaching desk for powerlifting coaches. Your lifters log every set on their phone; you see what they lifted against what you wrote, and write next week beside it.</p>
+      <div class="s-actions">
+        <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('coach')">Start free</button>
+        <a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a>
       </div>
-      <figure class="s-laptop s-hero-laptop">
+    </div>
+  </div>
+  <div class="s-wrap">
+    <div class="s-stage" id="heroStage">
+      <div class="s-light" aria-hidden="true"></div>
+      <figure class="s-laptop" data-cap="hero-m" style="--mx:0.1527;--my:0.0089;--mw:0.2215;--mh:0.6311">
         <div class="s-laptop-lid"><div class="s-laptop-screen">
-          <div class="s-crop" data-crop="hero" style="--cx:0.1528;--cy:0.0133;--cz:0.8417"><picture><source media="(max-width: 600px)" srcset="site-img/desk-today-m.webp" width="640" height="888"><img src="site-img/desk-today.webp" srcset="site-img/desk-today-1440.webp 1440w, site-img/desk-today.webp 2160w" sizes="(min-width: 1240px) 1340px, 108vw" width="2160" height="1350" alt="The coach desk on a laptop: Today lists fifteen athletes worst first, Priya Shah on top with pain today and a meet in nine days, her review open beside the queue" fetchpriority="high" decoding="async"></picture></div>
+          <div class="s-cam">
+            <picture><source media="(max-width: 699px)" srcset="site-img/desk-hero-m.webp" width="638" height="1136"><img src="site-img/desk-hero.webp" srcset="site-img/desk-hero-1440.webp 1440w, site-img/desk-hero.webp 2160w" sizes="(min-width: 1240px) 1100px, 88vw" width="2160" height="1350" alt="The POWALIFTA coach desk on a laptop: Today lists fifteen athletes worst first, Priya Shah on top with pain today and a meet in nine days, and her week open beside the list, lifted against written" fetchpriority="high" decoding="async"></picture>
+            <span class="s-land" data-cap="land" style="--x:0.1583;--y:0.4935;--w:0.2104;--h:0.0727" aria-hidden="true"><i class="s-land-ring"></i><b class="s-tag"><i class="s-dot"></i>182.5 × 3 @8.5<em>just now</em></b></span>
+          </div>
         </div></div>
         <div class="s-laptop-base" aria-hidden="true"></div>
       </figure>
-      <ul class="s-proof">
-        <li>Free up to 3 athletes, no card</li>
-        <li>Paste programs from Sheets or Excel</li>
-        <li>Lifters log on iPhone or the web</li>
-      </ul>
-    </div>
-
-    <div class="s-hero-panel s-hero-lifter" id="heroLifter" role="tabpanel" aria-labelledby="heroTabLifter">
-      <div class="s-lifter-grid">
-        <div class="s-hero-copy">
-          <h2 class="s-hero-title">Every set, one tap.</h2>
-          <p class="s-body">Your program says what's next. Log it with RPE and watch your max climb. Free for lifters, forever.</p>
-          <div class="s-actions">
-            <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('solo')">Start free</button>
-            <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="156" height="52" alt="Download on the App Store" decoding="async"></a>
-          </div>
-          <ul class="s-proof">
-            <li>Works offline</li>
-            <li>Pain flags your coach sees</li>
-            <li>Meet-day attempts</li>
-            <li>Free forever</li>
-          </ul>
+      <figure class="s-phone s-hero-phone">
+        <div class="s-phone-screen">
+          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
+          <img src="site-img/app-train.webp" width="786" height="1704" alt="POWALIFTA on iPhone: today's competition squat, 182.5 kg for 3 at RPE 8.5, and the Log set button" decoding="async">
+          <span class="s-press" data-cap="log" style="--x:0.0891;--y:0.4488;--w:0.8219;--h:0.061" aria-hidden="true"></span>
         </div>
-        <div class="s-phone-wrap">
-          <figure class="s-phone">
-            <div class="s-phone-screen">
-              <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-              <img src="site-img/app-train.webp" width="780" height="1691" alt="POWALIFTA on iPhone: today's squat session, 165 kg for 5 at RPE 7.5, with the Log set button" decoding="async">
-            </div>
-          </figure>
-          <div class="s-chip s-chip-rest" aria-hidden="true">
-            <span class="s-ring"><svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15"/><circle class="f" cx="18" cy="18" r="15"/></svg></span>
-            <span>Rest<b data-countdown="150">2:30</b></span>
-          </div>
-          <div class="s-chip s-chip-pr" aria-hidden="true">
-            <span class="s-pr-badge">PR</span>
-            <span><b>+5 kg</b><i class="s-lift-dot"></i>New squat best</span>
-          </div>
-        </div>
-      </div>
+      </figure>
+      <span class="s-flyer" aria-hidden="true"><i class="s-dot"></i>182.5 × 3 @8.5</span>
     </div>
   </div>
 </header>
 
+<!-- WHAT IT WORKS WITH: only things that are built. -->
+<section class="s-trust" aria-labelledby="trustTitle">
+  <div class="s-wrap">
+    <h2 class="s-sr" id="trustTitle">What POWALIFTA works with</h2>
+    <ul class="s-trust-row s-reveal">
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></svg><b>Apple Health</b><span>Sleep and resting heart rate, when the lifter shares them</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></svg><b>OpenPowerlifting</b><span>Meet history comes in, attempt by attempt</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 5H7l6 7-6 7h10"/></svg><b>DOTS and IPF GL</b><span>Scored on every total</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="3"/><path d="M11 18.5h2"/></svg><b>The iPhone app</b><span>On the App Store, logs offline</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 9h17M3.5 14.5h17M9 4v16"/></svg><b><a href="switch.html">Paste from Sheets</a></b><span>A block from Sheets or Excel becomes a program</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg><b><a href="data.html">Your data is yours</a></b><span>Every set exports as CSV, on every plan</span></li>
+    </ul>
+  </div>
+</section>
+
 <div id="train">
 
-<!-- MONDAY IN 40 SECONDS: the coach's weekly review on the real desk, key by key. Five beats,
-     each a still of the desk (site-img/desk-*.webp) with a readable crop (data-crop, written by
-     test/site-desk-capture.mjs). By default the beats are a list of stills. On a laptop with
-     motion allowed, site.js pins one laptop beside the steps and plays the beats as you scroll. -->
-<section class="s-sec s-mon" id="desk">
+<!-- PLANNED VS LIFTED: the athlete's program grid, three numbered notes pinned to it. The pins'
+     boxes (data-cap pin1-3) and the phone crop come from test/site-v2-capture.mjs. -->
+<section class="s-sec s-table" id="desk" aria-labelledby="deskTitle">
   <div class="s-wrap">
-    <div class="s-mon-head s-reveal">
-      <h2>Monday in 40 seconds.</h2>
-      <p class="s-body">Fifteen athletes are waiting on you. Here is the whole review on the real desk, key by key.</p>
+    <div class="s-head s-reveal">
+      <h2 id="deskTitle">Written over lifted. Next week beside it.</h2>
+      <p class="s-lede">One grid per athlete: what you wrote on top, what they lifted underneath, and next week typed in place, the way you'd write it in a sheet.</p>
     </div>
-    <div class="s-mon-grid">
-      <ol class="s-beats">
-        <li class="s-beat" data-beat="1">
-          <div class="s-beat-copy">
-            <p class="s-beat-key"><span class="s-beat-n">Open</span>Today</p>
-            <h3>Worst first.</h3>
-            <p>Today lines up who needs you: pain on a check-in, a meet in nine days, a set that felt harder than you wrote.</p>
-          </div>
-          <figure class="s-beat-shot"><div class="s-crop" data-crop="1" style="--cx:0.1528;--cy:0.0022;--cz:0.6056;--hx:0.1542;--hy:0.1147;--hw:0.2188;--hh:0.086"><picture><source media="(max-width: 600px)" srcset="site-img/desk-today-m.webp" width="640" height="888"><img src="site-img/desk-today.webp" srcset="site-img/desk-today-1440.webp 1440w, site-img/desk-today.webp 2160w" sizes="(min-width: 1000px) 1250px, 150vw" width="2160" height="1350" alt="Today: the queue sorted worst first, each athlete with the reason they need you" loading="lazy" decoding="async"></picture></div></figure>
-        </li>
-        <li class="s-beat" data-beat="2" data-key="J">
-          <div class="s-beat-copy">
-            <p class="s-beat-key"><kbd class="s-key">J</kbd>Next athlete</p>
-            <h3>Straight to the problem.</h3>
-            <p>J walks down the queue. Marcus logged his bench at RPE 9.5 where you wrote 8.</p>
-          </div>
-          <figure class="s-beat-shot"><div class="s-crop" data-crop="2" style="--cx:0.1528;--cy:0;--cz:0.5764;--hx:0.3979;--hy:0.1985;--hw:0.3292;--hh:0.06"><picture><source media="(max-width: 600px)" srcset="site-img/desk-next-m.webp" width="1000" height="488"><img src="site-img/desk-next.webp" srcset="site-img/desk-next-1440.webp 1440w, site-img/desk-next.webp 2160w" sizes="(min-width: 1000px) 1250px, 150vw" width="2160" height="1350" alt="Marcus Doyle selected in the queue: what needs you, bench logged at RPE 9.5 where the program said 8" loading="lazy" decoding="async"></picture></div></figure>
-        </li>
-        <li class="s-beat" data-beat="3" data-key="O">
-          <div class="s-beat-copy">
-            <p class="s-beat-key"><kbd class="s-key">O</kbd>Open program</p>
-            <h3>Next week, in place.</h3>
-            <p>What you wrote on top, what he lifted underneath. Week 3 is right there: hold the load, keep the RPE.</p>
-          </div>
-          <figure class="s-beat-shot"><div class="s-crop" data-crop="3" style="--cx:0.3417;--cy:0;--cz:0.6583;--hx:0.759;--hy:0.0795;--hw:0.2326;--hh:0.0476"><picture><source media="(max-width: 600px)" srcset="site-img/desk-week-m.webp" width="1028" height="312"><img src="site-img/desk-week.webp" srcset="site-img/desk-week-1440.webp 1440w, site-img/desk-week.webp 2160w" sizes="(min-width: 1000px) 1250px, 150vw" width="2160" height="1350" alt="Marcus's program grid: week 2 bench written at RPE 8 and lifted at 9.5 in red underneath, and week 3 just written at 152.5 kg, RPE 8" loading="lazy" decoding="async"></picture></div></figure>
-        </li>
-        <li class="s-beat" data-beat="4" data-key="E">
-          <div class="s-beat-copy">
-            <p class="s-beat-key"><kbd class="s-key">E</kbd>Done</p>
-            <h3>Done. Next.</h3>
-            <p>E marks him done for the week and opens the next person, with their thread beside them. U undoes it.</p>
-          </div>
-          <figure class="s-beat-shot"><div class="s-crop" data-crop="4" style="--cx:0.1528;--cy:0.0178;--cz:0.6056;--hx:0.1611;--hy:0.0678;--hw:0.2049;--hh:0.0347"><picture><source media="(max-width: 600px)" srcset="site-img/desk-done-m.webp" width="640" height="888"><img src="site-img/desk-done.webp" srcset="site-img/desk-done-1440.webp 1440w, site-img/desk-done.webp 2160w" sizes="(min-width: 1000px) 1250px, 150vw" width="2160" height="1350" alt="Marcus done for this week, reviewed 1 of 15, and Arjun Mehta's review open with a note waiting" loading="lazy" decoding="async"></picture></div></figure>
-        </li>
-        <li class="s-beat" data-beat="5">
-          <div class="s-beat-copy">
-            <p class="s-beat-key"><span class="s-beat-n">Then</span>Wins</p>
-            <h3>All caught up.</h3>
-            <p>Everyone reviewed. The week's PRs and streaks wait at the end, ready for a kudos.</p>
-          </div>
-          <figure class="s-beat-shot"><div class="s-crop" data-crop="5" style="--cx:0.1528;--cy:0;--cz:0.6129;--hx:0.6191;--hy:0.0756;--hw:0.1369;--hh:0.241"><picture><source media="(max-width: 600px)" srcset="site-img/desk-caught-m.webp" width="498" height="478"><img src="site-img/desk-caught.webp" srcset="site-img/desk-caught-1440.webp 1440w, site-img/desk-caught.webp 2160w" sizes="(min-width: 1000px) 1250px, 150vw" width="2160" height="1350" alt="All caught up: fifteen athletes reviewed, and the wins lane with three lift PRs and streaks" loading="lazy" decoding="async"></picture></div></figure>
-        </li>
-      </ol>
-    </div>
-    <div class="s-mon-end s-reveal">
-      <p><b>Take the wheel.</b> The desk runs in your browser with a full demo roster. Nothing saves.</p>
-      <a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a>
+    <figure class="s-window s-table-shot s-reveal" data-cap="table" style="--cx:0.1528;--cy:0;--cw:0.8472;--ch:0.5148">
+      <div class="s-window-crop is-cut" data-cap="table-m" style="--mx:0.1694;--my:0.0856;--mw:0.2637;--mh:0.4293">
+        <picture><source media="(max-width: 699px)" srcset="site-img/desk-table-m.webp" width="760" height="772"><img src="site-img/desk-table.webp" srcset="site-img/desk-table-1x.webp 1220w, site-img/desk-table.webp 2440w" sizes="(min-width: 1240px) 1180px, 92vw" width="2440" height="926" alt="Marcus Doyle's strength block in the program grid: week 2's bench written as 1x3 152.5 kg at RPE 8 and lifted at RPE 9.5, shown in red; week 3 just typed in place; beside it, suggestions to fill the weeks after" loading="lazy" decoding="async"></picture>
+        <span class="s-pin" data-cap="pin1" data-pin="1" data-side="left" style="--x:0.2819;--y:0.3652;--w:0.0563;--h:0.0156" aria-hidden="true"><i>1</i></span>
+        <span class="s-pin" data-cap="pin2" data-pin="2" data-bare style="--x:0.5028;--y:0.3208;--w:0.2299;--h:0.0724" aria-hidden="true"><i>2</i></span>
+        <span class="s-pin" data-cap="pin3" data-pin="3" style="--x:0.7618;--y:0.1935;--w:0.2271;--h:0.0213" aria-hidden="true"><i>3</i></span>
+      </div>
+    </figure>
+    <ol class="s-notes s-reveal">
+      <li data-pin="1"><i aria-hidden="true">1</i><div><b>Lifted under written.</b><span>Week 2's top set was written at @8 and went @9.5. The desk prints it in red, in the cell.</span></div></li>
+      <li data-pin="2"><i aria-hidden="true">2</i><div><b>Next week, typed in place.</b><span>Click week 3 and write 1x3 152.5kg @8, 2x5 137.5kg @7, the way you would in a sheet.</span></div></li>
+      <li data-pin="3"><i aria-hidden="true">3</i><div><b>The rest of the block in one click.</b><span>+2.5 kg a week, RPE +0.5 a week, or the same each week. Then Notify tells the athlete.</span></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- THE WHOLE ROSTER: the desk's roster table, one row per athlete. -->
+<section class="s-sec s-roster-sec" id="roster" aria-labelledby="rosterTitle">
+  <div class="s-wrap">
+    <div class="s-roster-grid">
+      <div class="s-head s-reveal">
+        <h2 id="rosterTitle">Twenty lifters on one screen.</h2>
+        <p class="s-lede">The roster reads like the front tab of your sheet, with the thinking done: one row each, the reason they need you written out, sessions this week, RPE drift, the e1RM trend and the next meet.</p>
+        <ul class="s-ticks">
+          <li>Sorted worst first, or by any column</li>
+          <li>Saved views: Pain, Meet ≤ 8 wk, Quiet 7d+</li>
+          <li>Lifters training right now, marked live</li>
+        </ul>
+      </div>
+      <figure class="s-window s-roster-shot s-reveal" data-cap="roster" style="--cx:0.1528;--cy:0;--cw:0.62;--ch:0.62">
+        <div class="s-window-crop" data-cap="roster-m" style="--mx:0.1625;--my:0.0572;--mw:0.3472;--mh:0.4444">
+          <img src="site-img/desk-roster.webp" srcset="site-img/desk-roster-1440.webp 1440w, site-img/desk-roster.webp 2160w" sizes="(min-width: 1240px) 1100px, 150vw" width="2160" height="1350" alt="The roster: twenty athletes in rows, Priya Shah on top with pain today and a meet in nine days, then columns for sessions this week, last session, RPE drift, e1RM total, next meet and bodyweight against class" loading="lazy" decoding="async">
+        </div>
+      </figure>
     </div>
   </div>
 </section>
 
-<!-- WHAT A SHEET CAN'T DO: four live tiles. Real components and the app's own math
-     (calcE1RM, parsePrescription); each plays once when it arrives, then it's yours. -->
-<section class="s-sec s-sheet" id="sheet">
+<!-- A SHEET, SIDE BY SIDE: the jobs a coach does every week, and the live notation reader
+     (parsePrescription from app.js, the one the desk uses). -->
+<section class="s-sec s-compare" id="compare" aria-labelledby="cmpTitle">
   <div class="s-wrap">
     <div class="s-head s-reveal">
-      <h2>What a sheet can't do.</h2>
-      <p class="s-body">Four things a spreadsheet makes you do by hand. Try them.</p>
+      <h2 id="cmpTitle">A spreadsheet is good for writing. It can't see the bar.</h2>
+      <p class="s-lede">Keep the way you write programs. POWALIFTA reads sets × reps, kg or %, and RPE the way you already type them, and adds what a sheet never sees.</p>
     </div>
-    <div class="s-bento">
-      <article class="s-tile s-tile-e1 s-reveal" style="--hue: var(--s-cyan)">
-        <div class="s-tile-copy">
-          <h3>e1RM from every set.</h3>
-          <p>Every working set estimates today's max. Tap how it felt.</p>
-        </div>
-        <div class="t-e1">
-          <div class="t-set">
-            <span class="t-lift"><i class="t-dot squat"></i>Squat</span>
-            <span class="t-load"><b>160</b> kg × <b>5</b></span>
-            <div class="t-rpe" role="radiogroup" aria-label="RPE of the set">
-              <button type="button" role="radio" aria-checked="false" data-rpe="7">7</button>
-              <button type="button" role="radio" aria-checked="false" data-rpe="7.5">7.5</button>
-              <button type="button" role="radio" aria-checked="true" data-rpe="8" class="on">8</button>
-              <button type="button" role="radio" aria-checked="false" data-rpe="8.5">8.5</button>
-              <button type="button" role="radio" aria-checked="false" data-rpe="9">9</button>
-            </div>
-          </div>
-          <div class="t-e1-out">
-            <div class="t-e1-num"><span>Estimated max</span><b><output id="tileE1" aria-live="polite">200</output><small>kg</small></b></div>
-            <svg class="t-spark" viewBox="0 0 240 80" aria-hidden="true">
-              <path class="t-spark-line" d="M4.0 64.6 L50.4 57.5 L96.8 59.9 L143.2 50.4 L189.6 45.7 L236.0 36.3"/>
-              <circle class="t-spark-dot" cx="236" cy="36.3" r="4.5"/>
-            </svg>
-          </div>
-        </div>
-      </article>
-
-      <article class="s-tile s-tile-drift s-reveal" style="--hue: var(--s-gold)">
-        <div class="s-tile-copy">
-          <h3>RPE drift, sorted.</h3>
-          <p>When sets feel harder than you wrote, the roster says so.</p>
-        </div>
-        <div class="t-drift">
-          <div class="t-drift-head"><span>Athlete</span><button type="button" class="t-sort" aria-pressed="true">RPE drift</button></div>
-          <ol class="t-drift-list">
-            <li data-drift="0.5"><span class="t-av av-h1">ID</span>Ines Duarte<b class="up">+0.5</b></li>
-            <li data-drift="0.3"><span class="t-av av-h4">MD</span>Marcus Doyle<b class="up">+0.3</b></li>
-            <li data-drift="0.1"><span class="t-av av-h6">AM</span>Arjun Mehta<b>+0.1</b></li>
-            <li data-drift="0"><span class="t-av av-h3">KM</span>Kofi Mensah<b>±0.0</b></li>
-            <li data-drift="0"><span class="t-av av-h2">PS</span>Priya Shah<b>±0.0</b></li>
-          </ol>
-        </div>
-      </article>
-
-      <article class="s-tile s-tile-pain s-reveal" style="--hue: var(--s-fire)">
-        <div class="s-tile-copy">
-          <h3>Pain reaches you.</h3>
-          <p>A yes on the check-in lands on your Today queue, not in a group chat.</p>
-        </div>
-        <div class="t-pain">
-          <div class="t-check">
-            <span class="t-check-k">Check-in</span>
-            <b>Any pain today?</b>
-            <div class="t-yn" role="radiogroup" aria-label="Any pain today?">
-              <button type="button" role="radio" aria-checked="false" data-pain="no">No</button>
-              <button type="button" role="radio" aria-checked="true" data-pain="yes" class="on">Yes</button>
-            </div>
-          </div>
-          <div class="t-row" aria-live="polite">
-            <span class="t-av av-h2">PS</span>
-            <span class="t-row-name">Priya Shah<span class="t-chips"><i class="t-chip t-chip-pain">Pain today</i><i class="t-chip t-chip-meet">Meet in 9d</i></span></span>
-          </div>
-        </div>
-      </article>
-
-      <article class="s-tile s-tile-rx s-reveal" style="--hue: var(--s-green)">
-        <div class="s-tile-copy">
-          <h3>Reads how you write.</h3>
-          <p>Type it like your sheet. The desk turns it into sets, reps, load and effort.</p>
-        </div>
-        <div class="t-rx">
-          <label class="t-rx-field" for="tileRx"><span>Prescription</span><input id="tileRx" type="text" value="3x5 @8" autocomplete="off" spellcheck="false" maxlength="40"></label>
-          <div class="t-rx-out" id="tileRxOut" aria-live="polite"><i>3 sets</i><i>5 reps</i><i>RPE 8</i></div>
-          <div class="t-rx-try"><span>Try</span><button type="button" data-rx="4x6 75%">4x6 75%</button><button type="button" data-rx="3x8 2 RIR">3x8 2 RIR</button><button type="button" data-rx="5x3 @7-8">5x3 @7-8</button><button type="button" data-rx="3x5 140-145kg">3x5 140-145kg</button></div>
-        </div>
-      </article>
+    <div class="s-cmp s-reveal" role="table" aria-label="A spreadsheet compared with POWALIFTA">
+      <div class="s-cmp-row s-cmp-head" role="row"><span role="columnheader">The job</span><span role="columnheader">In a spreadsheet</span><span role="columnheader"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg>In POWALIFTA</span></div>
+      <div class="s-cmp-row" role="row"><b role="cell">Getting sets back</b><span role="cell">Lifters type into your sheet, when they remember</span><span role="cell">They tap Log set between sets. It shows on your desk as they go.</span></div>
+      <div class="s-cmp-row" role="row"><b role="cell">RPE drift</b><span role="cell">You scan the columns and hope you catch it</span><span role="cell">Every set checked against what you wrote. The roster says who runs hot.</span></div>
+      <div class="s-cmp-row" role="row"><b role="cell">e1RM and PRs</b><span role="cell">Formulas you maintain, per lift, per tab</span><span role="cell">From every set, paused and tempo variations included.</span></div>
+      <div class="s-cmp-row" role="row"><b role="cell">Writing next week</b><span role="cell">Copy the tab, then edit every cell</span><span role="cell">Type in the grid, or fill the rest of the block in one click.</span></div>
+      <div class="s-cmp-row" role="row"><b role="cell">Pain and form checks</b><span role="cell">A message in another app, easy to miss</span><span role="cell">Pain on a check-in lands on your Today list. Videos sit on the set.</span></div>
+      <div class="s-cmp-row" role="row"><b role="cell">Meet day</b><span role="cell">A separate tab, if there is one</span><span role="cell">Attempts from what they've lifted, plates per side, judges' lights.</span></div>
     </div>
+    <div class="s-rx s-reveal">
+      <label class="s-rx-field" for="tileRx"><span>Type a line from your sheet</span><input id="tileRx" type="text" value="3x5 @8" autocomplete="off" spellcheck="false" maxlength="40"></label>
+      <div class="s-rx-read"><span class="s-rx-k">The desk reads</span><div class="s-rx-out" id="tileRxOut" aria-live="polite"><i>3 sets</i><i>5 reps</i><i>RPE 8</i></div></div>
+      <div class="s-rx-try"><span>Try</span><button type="button" data-rx="4x6 75%">4x6 75%</button><button type="button" data-rx="3x8 2 RIR">3x8 2 RIR</button><button type="button" data-rx="5x3 @7-8">5x3 @7-8</button><button type="button" data-rx="3x5 140-145kg">3x5 140-145kg</button></div>
+    </div>
+    <p class="s-more s-reveal"><a class="s-link" href="switch.html">Moving from a spreadsheet? Here's the afternoon it takes</a></p>
   </div>
 </section>
 
-<!-- FOR LIFTERS: the app their athletes get. Real screens in slim phones. -->
-<section class="s-sec s-lifters" id="lifters">
-  <div class="s-wrap">
-    <div class="s-head s-reveal">
-      <h2>Your lifters get the app. Free, forever.</h2>
-      <p class="s-body">On iPhone or the web: today's session ready to go, one tap a set, and a max that moves while they train.</p>
+<!-- FOR LIFTERS: the app their athletes get. Real screens in slim phones over lift-colour light. -->
+<section class="s-sec s-lifters" id="lifters" aria-labelledby="liftersTitle">
+  <div class="s-wrap s-lifters-grid">
+    <div class="s-lifters-copy s-reveal">
+      <h2 id="liftersTitle">Their phone does the logging.</h2>
+      <p class="s-lede">Lifters open today's session, tap how hard the set felt and log it. The plates are worked out, the rest timer starts itself, and each set reaches your desk as they log it.</p>
+      <div class="s-actions">
+        <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="156" height="52" alt="Download on the App Store" loading="lazy" decoding="async"></a>
+        <span class="s-free">Free for lifters, forever.<br>iPhone and the web.</span>
+      </div>
     </div>
     <div class="s-phones">
-      <figure class="s-phone-item s-reveal">
-        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-train.webp" width="780" height="1691" alt="Today's squat session: 165 kg for 5 at RPE 7.5 and the Log set button" loading="lazy" decoding="async"></div></div>
-        <figcaption><b>Train</b>Today's session, one tap a set.</figcaption>
+      <figure class="s-phone-item s-reveal" style="--c: var(--s-squat)">
+        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-train.webp" width="786" height="1704" alt="Train: today's competition squat at 182.5 kg for 3, an RPE scale set to 8.5, and the Log set button" loading="lazy" decoding="async"></div></div>
+        <figcaption>Log a set in one tap</figcaption>
       </figure>
-      <figure class="s-phone-item s-reveal">
-        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-lift.webp" width="640" height="1387" alt="Lift mode between sets: the rest timer on the whole screen, the next set underneath" loading="lazy" decoding="async"></div></div>
-        <figcaption><b>Lift mode</b>The rest timer starts itself.</figcaption>
+      <figure class="s-phone-item s-reveal" style="--c: var(--s-bench)">
+        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-lift.webp" width="640" height="1387" alt="Lift mode between sets: the rest timer at 2:42 fills the screen, the next set underneath" loading="lazy" decoding="async"></div></div>
+        <figcaption>The rest timer, whole screen</figcaption>
       </figure>
-      <figure class="s-phone-item s-reveal">
-        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-progress.webp" width="640" height="1387" alt="Progress: a 593 kg e1RM total, up 22 kg in four weeks, with the strength chart climbing" loading="lazy" decoding="async"></div></div>
-        <figcaption><b>Progress</b>A max from every set, no test day.</figcaption>
+      <figure class="s-phone-item s-reveal" style="--c: var(--s-dead)">
+        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-meet.webp" width="640" height="1387" alt="Meet day: the squat opener at 162.5 kg, the plates per side for the loaders and the three judges' lights" loading="lazy" decoding="async"></div></div>
+        <figcaption>Meet day, attempt by attempt</figcaption>
       </figure>
-      <figure class="s-phone-item s-reveal">
-        <div class="s-phone"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span><img src="site-img/app-meet.webp" width="640" height="1387" alt="Meet day: the squat opener at 162.5 kg, the plates for the loaders and the three judges' lights" loading="lazy" decoding="async"></div></div>
-        <figcaption><b>Meet day</b>Attempts from what they've lifted.</figcaption>
-      </figure>
-    </div>
-    <div class="s-actions s-center s-reveal">
-      <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('solo')">Start free</button>
-      <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="156" height="52" alt="Download on the App Store" loading="lazy" decoding="async"></a>
     </div>
   </div>
 </section>
@@ -404,11 +329,11 @@
 </div><!-- /#train -->
 
 <!-- MAX CALCULATOR (ids are wired to the inline script below) -->
-<section id="e1rm" class="s-sec s-calc">
+<section id="e1rm" class="s-sec s-calc" aria-labelledby="calcTitle">
   <div class="s-wrap">
     <div class="s-head s-center s-reveal">
-      <h2>What's your real max?</h2>
-      <p class="s-body">Type a set you've done. It's the math the app runs on every set you log.</p>
+      <h2 id="calcTitle">What's your real max?</h2>
+      <p class="s-lede">Type a set you've done. It's the math the app runs on every set you log.</p>
     </div>
     <div class="calc-card s-reveal">
       <div class="calc-tabs" role="tablist">
@@ -514,12 +439,42 @@
   </div>
 </section>
 
+<!-- PRICING (hidden inside the app): one scale by roster size, a slider picks the step. -->
+<section class="s-sec s-pricing" id="pricing" aria-labelledby="priceTitle">
+  <div class="s-wrap s-price-grid">
+    <div class="s-head s-reveal">
+      <h2 id="priceTitle">Free for lifters. Free for your first three athletes.</h2>
+      <p class="s-lede">Every lifter feature is free. Coaches get every feature on every plan and pay by how many athletes they coach.</p>
+    </div>
+    <div class="s-price-cta s-reveal">
+      <div class="s-actions">
+        <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('coach')">Start free</button>
+      </div>
+      <p class="s-fine">No card to start. Upgrade the day you need the room.</p>
+    </div>
+    <div class="s-scale-card s-reveal">
+      <div class="s-roster">
+        <label for="rosterSize">Athletes you coach</label>
+        <output id="rosterOut" for="rosterSize"><b>12 athletes</b><span>Pro · $49.99/mo</span></output>
+        <input type="range" id="rosterSize" min="1" max="60" value="12" step="1">
+      </div>
+      <ol class="s-plans" aria-label="Coach plans by roster size">
+        <li class="s-plan" data-upto="3"><h3>Free</h3><p class="s-price">$0</p><p class="s-plan-cap">1 to 3 athletes</p></li>
+        <li class="s-plan" data-upto="10"><h3>Basic</h3><p class="s-price">$24.99<small>/mo</small></p><p class="s-plan-cap">4 to 10 athletes</p></li>
+        <li class="s-plan is-on" data-upto="25"><h3>Pro</h3><p class="s-price">$49.99<small>/mo</small></p><p class="s-plan-cap">11 to 25 athletes</p></li>
+        <li class="s-plan" data-upto="9999"><h3>Premium</h3><p class="s-price">$99.99<small>/mo</small></p><p class="s-plan-cap">26 or more athletes</p></li>
+      </ol>
+      <p class="s-plan-note">Pro adds priority support. Premium adds onboarding for teams and gyms.</p>
+    </div>
+  </div>
+</section>
+
 <!-- COACH DIRECTORY: shown only with three coaches who have written a real bio -->
 <section class="s-sec" id="coaches" hidden>
   <div class="s-wrap">
     <div class="s-head s-reveal">
       <h2>Find a coach.</h2>
-      <p class="s-body">Real powerlifting coaches who program in RPE. Open a profile to see how they work.</p>
+      <p class="s-lede">Real powerlifting coaches who program in RPE. Open a profile to see how they work.</p>
     </div>
     <div id="coachGrid" class="s-cards"></div>
   </div>
@@ -530,104 +485,89 @@
   <div class="s-wrap">
     <div class="s-head s-reveal">
       <h2>Programs from real coaches.</h2>
-      <p class="s-body">Buy once and it lands in your account, ready to train.</p>
+      <p class="s-lede">Buy once and it lands in your account, ready to train.</p>
     </div>
     <div id="marketplaceTeaser" class="s-cards"></div>
     <p class="s-more"><a class="s-link" href="marketplace.html">Browse all programs</a></p>
   </div>
 </section>
 
-<!-- PRICING (hidden inside the app): a roster slider picks the plan; all four stay visible. -->
-<section class="s-sec" id="pricing">
-  <div class="s-wrap">
-    <div class="s-head s-center s-reveal">
-      <h2>Free for lifters. Coaches pay by roster.</h2>
-      <p class="s-body">Every lifter feature is free. Pick a coach plan by how many athletes you coach.</p>
+<!-- FAQ: the five questions coaches ask first; the rest live on faq.html. -->
+<section class="s-sec s-faq" id="faq" aria-labelledby="faqTitle">
+  <div class="s-wrap s-faq-grid">
+    <div class="s-faq-head s-reveal">
+      <h2 id="faqTitle">Questions coaches ask first.</h2>
+      <p class="s-more"><a class="s-link" href="faq.html">All questions</a></p>
     </div>
-    <div class="s-roster s-reveal">
-      <label for="rosterSize">Athletes you coach</label>
-      <input type="range" id="rosterSize" min="1" max="60" value="12" step="1">
-      <output id="rosterOut" for="rosterSize"><b>12 athletes</b><span>Pro · $49.99/mo</span></output>
+    <div class="s-qa s-reveal">
+      <details open><summary>Can I bring my programs over from Google Sheets?</summary><p>Yes. Paste a block from Sheets or Excel and it becomes a program. 3x5 @8, 75%, 2 RIR and ranges like @7-8 are read the way you write them, and you can check every line before you save. <a href="switch.html">How the switch goes</a>.</p></details>
+      <details><summary>Do my lifters pay anything?</summary><p>No. Every lifter feature is free, forever, on iPhone and the web. You pay for a coach plan once your roster passes three athletes.</p></details>
+      <details><summary>Is there an app for my lifters?</summary><p>Yes, POWALIFTA is on the App Store. It logs offline and syncs when the signal is back. Lifters can also train from any browser.</p></details>
+      <details><summary>How is e1RM worked out?</summary><p>From each set's weight, reps and RPE: the reps left in the tank are counted back in, then the load is read against an RPE chart. <a href="guide-e1rm.html">The e1RM guide</a> shows the table, so you can check any number.</p></details>
+      <details><summary>Can I get my data out?</summary><p>Any time, on any plan, free included: one zip of CSV files with every set, program and message. <a href="data.html">What we keep and how to take it</a>.</p></details>
     </div>
-    <div class="s-plans s-reveal">
-      <div class="s-plan" data-upto="3">
-        <h3>Free</h3>
-        <p class="s-price">$0</p>
-        <p class="s-plan-cap">Up to 3 athletes</p>
-        <p class="s-plan-note">Every feature. No card, no trial.</p>
-      </div>
-      <div class="s-plan" data-upto="10">
-        <h3>Basic</h3>
-        <p class="s-price">$24.99<small>/mo</small></p>
-        <p class="s-plan-cap">4 to 10 athletes</p>
-        <p class="s-plan-note">For coaches with a growing roster.</p>
-      </div>
-      <div class="s-plan is-on" data-upto="25">
-        <h3>Pro</h3>
-        <p class="s-price">$49.99<small>/mo</small></p>
-        <p class="s-plan-cap">11 to 25 athletes</p>
-        <p class="s-plan-note">For full-time coaches. Priority support.</p>
-      </div>
-      <div class="s-plan" data-upto="9999">
-        <h3>Premium</h3>
-        <p class="s-price">$99.99<small>/mo</small></p>
-        <p class="s-plan-cap">26 athletes or more</p>
-        <p class="s-plan-note">For teams and gyms. Dedicated onboarding.</p>
-      </div>
-    </div>
-    <div class="s-actions s-center s-reveal"><button type="button" class="btn btn-ghost btn-lg" onclick="openSignupModal('coach')">Start coaching free</button></div>
-    <p class="s-fine">No card to start. Upgrade inside the app the day you need the room.</p>
   </div>
 </section>
 
 <!-- CLOSING CALL -->
-<section class="s-sec s-cta" id="start">
+<section class="s-sec s-cta" id="start" aria-labelledby="ctaTitle">
   <div class="s-wrap s-reveal">
-    <h2>Bring your roster over this week.</h2>
-    <p class="s-body">Paste your program from Sheets or Excel, send each athlete a link, and next Monday starts on the desk.</p>
-    <div class="s-actions s-center">
-      <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('coach')">Start free</button>
-      <a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a>
+    <h2 id="ctaTitle">Bring your roster over this week.</h2>
+    <div class="s-cta-row">
+      <p class="s-lede">Start with three athletes for free. Paste your next block from your sheet, send each athlete a link, and next Monday starts on the desk.</p>
+      <div class="s-actions">
+        <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('coach')">Start free</button>
+        <a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a>
+      </div>
     </div>
-    <p class="s-cta-aux"><a class="s-link" href="switch.html">Moving from a spreadsheet? Here's how</a></p>
+    <div class="s-rule" aria-hidden="true"><i></i><i></i><i></i></div>
   </div>
 </section>
 
 </main>
-
 <footer class="s-foot">
   <div class="s-wrap s-foot-grid">
     <div class="s-foot-brand">
       <a class="brand" href="index.html" aria-label="POWALIFTA home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span>POWALIFTA</span></a>
-      <p>Built for the barbell.</p>
+      <p>The coaching desk and training log for powerlifting. Built for the barbell.</p>
       <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="132" height="44" alt="Download on the App Store" loading="lazy" decoding="async"></a>
+      <div class="s-foot-social">
+        <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener" aria-label="POWALIFTA on Instagram"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" stroke="none"/></svg></a>
+        <a href="mailto:powalifta1320@gmail.com" aria-label="Email POWALIFTA"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></svg></a>
+      </div>
     </div>
     <nav class="s-foot-col" aria-label="Product">
-      <h5>Product</h5>
-      <a href="index.html#train">Features</a>
-      <a href="index.html#e1rm">Max calculator</a>
+      <h2>Product</h2>
+      <a href="index.html#desk">Coach desk</a>
+      <a href="index.html#lifters">Lifter app</a>
+      <a href="coach.html?demo=1">Live demo</a>
+      <a class="web-only" href="index.html#pricing">Pricing</a>
       <a class="web-only" href="marketplace.html" data-needs-programs>Programs</a>
       <a href="leaderboard.html">Leaderboard</a>
-      <a href="exercises.html">Exercise library</a>
-      <a href="switch.html">Switch from a spreadsheet</a>
-      <a class="web-only" href="index.html#pricing">Pricing</a>
     </nav>
-    <nav class="s-foot-col" aria-label="Learn">
-      <h5>Learn</h5>
-      <a href="guides.html">Guides</a>
+    <nav class="s-foot-col" aria-label="Guides">
+      <h2>Guides</h2>
+      <a href="guides.html">All guides</a>
       <a href="guide-rpe.html">RPE explained</a>
       <a href="guide-e1rm.html">Estimated 1RM</a>
       <a href="guide-dots.html">DOTS score</a>
       <a href="guide-peaking.html">Peaking for a meet</a>
+      <a href="exercises.html">Exercise library</a>
+      <a href="index.html#e1rm">Max calculator</a>
     </nav>
     <nav class="s-foot-col" aria-label="Company">
-      <h5>Company</h5>
+      <h2>Company</h2>
       <a href="about.html">About</a>
       <a href="faq.html">FAQ</a>
+      <a href="mailto:powalifta1320@gmail.com">Email us</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
+    </nav>
+    <nav class="s-foot-col" aria-label="Your data and legal">
+      <h2>Data and legal</h2>
+      <a href="data.html">Your data is yours</a>
+      <a href="switch.html">Switch from a spreadsheet</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
-      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
-      <a href="mailto:powalifta1320@gmail.com">Email us</a>
     </nav>
   </div>
   <div class="s-wrap"><div class="s-foot-base"><span>© 2026 POWALIFTA</span><button type="button" onclick="toggleTheme()">Switch light or dark</button></div></div>
