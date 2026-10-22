@@ -55,7 +55,7 @@ npx cap open ios         # opens the project in Xcode
 # put a 1024x1024 icon at native/assets/icon.png and a splash at native/assets/splash.png
 npx @capacitor/assets generate --ios
 ```
-Source art: repo root has `icon-512.png` / `og.png` — upscale a 1024 icon from
+Source art: repo root has `icon-512.png` — upscale a 1024 icon from
 the brand mark; splash = red mark centered on `#0b0b0c`.
 
 ## 🏝️ FLAGSHIP — Dynamic Island / Live Activity rest timer

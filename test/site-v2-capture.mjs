@@ -1,26 +1,25 @@
 // site-v2-capture.mjs: the homepage's product stills (website v2), captured from the live demos.
 //
 // Re-run it whenever the desk (coach.html?demo=1) or the lifter app (athlete.html?demo=1) changes.
-// Last fitted to desk v2 (vault: Specs/Desk + website v2): the sidebar, Today in plain sentences,
-// the athlete's week table and the Roster's Week sheet. From the repo root, with any local server
-// of this repo running:
+// Last fitted to the desk "our own" (desk-own, 2026-10-22: vault Specs/Desk + website v2 → Positioning):
+// Today in plain sentences, the lifter page's session cards with next week beside them, and the
+// Roster's live board. From the repo root, with any local server of this repo running:
 //   node test/site-v2-capture.mjs [base]        base defaults to http://127.0.0.1:4193
 //   node test/site-v2-capture.mjs --own [base]  only the #only and switch.html stills (no desk)
-// Needs playwright-core (npm i -g playwright-core; the headless shell path is below), cwebp, sips.
+// Needs playwright-core (npm i -g playwright-core, or PLAYWRIGHT_CORE=<path to its index.mjs>; the
+// headless shell path is below), cwebp, sips.
 //
 // Writes, into site-img/:
 //   desk-hero.webp, desk-hero-1440.webp     Today, worst first (the hero laptop), 2160 and 1440 wide
 //   desk-hero-m.webp                        the hero on phones: the Today list from its header to just
 //                                           past the landing row, 2x
-//   desk-review.webp, desk-review-1x.webp   #desk: one athlete's week on Today (Marcus), cut to his
-//                                           pane (2x and 1x): Written | Logged | RPE gap | Week 3,
-//                                           one week-3 cell typed over (a draft, so Publish shows) and
-//                                           the suggestion chip from the RPE he logged
-//   desk-review-m.webp                      the same table on phones: the pane narrowed so the desk
-//                                           folds it the way it does in a narrow pane, 2x
-//   desk-sheet.webp, desk-sheet-1x.webp     #roster: the Roster's Week sheet, cut to its window
-//   desk-sheet-m.webp                       the same sheet on phones: names and the first two days
-//   desk-table-m.webp                       #desk on phones: the program grid's names and week 2
+//   desk-table.webp, desk-table-1x.webp     #desk: Marcus Doyle's lifter page, cut to its sessions (2x
+//                                           and 1x): week 2 as session cards, each set marked against
+//                                           the RPE written, week 3 beside each set and the suggestion
+//                                           from what he lifted (Drop to …, Hold)
+//   desk-table-m.webp                       the same on phones: his Bench Day card, from a 1024-wide
+//                                           desk (the cards fold "Next" under each set), 2x
+//   desk-roster.webp, desk-roster-1440.webp #roster: the Roster's live board (the section shows a window)
 //   app-train.webp                          the lifter's Train screen, 393x852 @2x, as the iPhone app
 //   own-meet.webp                           #only: the meet-day board (meetday.js), flight A's openers marked
 //   own-next.webp                           #only: the lifter's phone on meet day, "your next attempt"
@@ -29,21 +28,21 @@
 //   own-ready.webp                          #only: How do you feel today? with last night's heart data
 //   own-cut.webp                            #only: Make weight and the trend down to the class line
 //   own-import.webp                         switch.html: a written log pasted into Import training history
-// and og.jpg (1200x630, the Today queue and review; JPEG keeps it far under 300 KB).
+// and og.jpg (1200x630, Today and the lifter it opens on; JPEG keeps it far under 300 KB).
 //
 // Then it rewrites, in index.html (and switch.html), the style on every element with data-cap="NAME" to the box of
 // the thing it points at, as fractions of its still (--x --y --w --h), so the site's overlays (the
-// hero's landing row and Log set press, the three numbered notes on the table) and the phone crops
-// follow the product when it moves:
-//   land      the athlete row a logged set lands on (hero)
+// hero's landing row and Log set press, the three numbered notes on the lifter page) and the phone
+// crops follow the product when it moves:
+//   land      the lifter row a logged set lands on (hero)
 //   log       the Log set button on the phone (hero)
 //   hero-m    the hero's window on phones: the Today list down past that row (--mx --my --mw --mh)
-//   pin1-3    the week table's three notes: the RPE gap, the suggestion chip, the typed cell
-//             (--x.. on the desktop frame, --px --py --pw --ph on the narrowed phone frame)
-//   review, sheet       the window each section shows of its still (--cx --cy --cw --ch)
-//   review-m, sheet-m   the same on phones (--mx --my --mw --mh)
-//   table-m             the grid's phone window (#desk)
-// Each lookup is by visible text, not class names, so it survives a re-skin; when one fails, the
+//   pin1-3    #desk's three notes: the set lifted over what was written (red), week 3's field beside
+//             it, the suggestion (--x.. on the 1440 frame; --px --py --pw --ph on the 1024x640 frame
+//             the phone still comes from)
+//   table     the window #desk shows (--cx --cy --cw --ch); table-m its phone window (--mx.., 1024x640)
+//   roster, roster-m   the window #roster shows of its still, on laptops and on phones
+// Each lookup is by visible text where it can be, so it survives a re-skin; when one fails, the
 // script says so and leaves that element's old values in place. After a re-skin, re-read the copy
 // beside each still (index.html #desk, #roster) against what the new capture actually shows.
 import { execFileSync } from 'node:child_process';
@@ -158,7 +157,6 @@ await desk.addInitScript(() => {
     localStorage.setItem('powa-consent', 'essential');
     localStorage.setItem('powa-theme', 'dark');
     localStorage.setItem('powa-tour-coach-done', '1');
-    localStorage.setItem('powa-pb-view', 'grid');
   } catch (e) {}
 });
 const page = await desk.newPage();
@@ -189,7 +187,6 @@ await page.mouse.click(5, 450);
 // phone demo (athlete.html?demo=1) is Arjun Mehta's, and he is on the desk's Today list.
 {
   frac('land', await find(page, /^\s*Arjun Mehta\s*$/, { minW: 280 }));
-  const list = await find(page, /^\s*Today\s*$/, { minW: 260 });
   // Phones: the Today list at reading size, from its own header ("Today · 0 of 14 handled", so
   // the worst-first top row is in it) down to one row past the landing row. It ends on a row
   // boundary (the row pitch is read off the landing row's next row), so no sliver of another row shows.
@@ -215,162 +212,113 @@ await page.mouse.click(5, 450);
     heroM = { w: clip.width * 2, h: clip.height * 2 };
     try { unlinkSync(mPng); } catch (e) {}
   }
-  // og.png: the queue and the review, 1200x630.
-  if (list) {
-    const x = Math.max(0, list.x), w = Math.min(W - x, 1000), h = Math.round(w * 630 / 1200);
+  // og.jpg: Today and the lifter it opens on, 1200x630, as a JPEG (a PNG of this is ~700 KB).
+  if (head) {
+    const x = Math.max(0, head.x - 24), w = Math.min(W - x, 1000), h = Math.round(w * 630 / 1200);
     const ogPng = join(TMP, 'og.png');
     await page.screenshot({ path: ogPng, clip: { x, y: 0, width: w, height: h } });
-    execFileSync('sips', ['-s', 'format', 'png', '-z', '630', '1200', ogPng, '--out', join(SITE, 'og.png')], { stdio: 'ignore' });
-    console.log('og.png', Math.round(statSync(join(SITE, 'og.png')).size / 1024) + ' KB');
+    execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '84', '-z', '630', '1200', ogPng, '--out', join(SITE, 'og.jpg')], { stdio: 'ignore' });
+    console.log('og.jpg', Math.round(statSync(join(SITE, 'og.jpg')).size / 1024) + ' KB');
+    try { unlinkSync(ogPng); } catch (e) {}
   }
   try { unlinkSync(png); } catch (e) {}
 }
 
-// 2. Programs → Marcus: written over lifted, next week typed in place.
-// This still is cut to its own window and written at the capture's 2x (desk-table.webp, plus a
-// 1x desk-table-1x.webp), with a separate phone window (desk-table-m.webp): the names and
-// week 2, cut where week 2's text ends, so a phone shows it at reading size. For the shot only, the athlete list beside the grid is folded away (it sits outside
-// the window anyway) and the two visible weeks share the grid's width, so the typed week 3
-// fits whole instead of being cut mid-number; each day's label is moved to where the grid is
-// scrolled to, so the day rows aren't blank bands.
+// 2. The lifter page (#desk): Marcus Doyle from Today. His week 2 as session cards, each set's
+// marker against the RPE written, week 3 beside each set, and a suggestion from what he lifted. The
+// three pins: the set he lifted over what was written (the red "+1.5" and the lifted set beside it),
+// week 3's field on that row, and the row's suggestion. Found from the one red RPE gap on the page
+// (its colour, not a class), then the input and the button on the same row.
+const pinBoxes = (p) => p.evaluate(() => {
+  const own = (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('').trim();
+  const red = (e) => { const m = getComputedStyle(e).color.match(/\d+/g).map(Number); return m[0] > 190 && m[1] < 140; };
+  const gap = [...document.querySelectorAll('body *')].find((e) => /^\+\d+(\.\d+)?$/.test(own(e)) && red(e) && e.getBoundingClientRect().width > 0);
+  if (!gap) return null;
+  let row = gap.parentElement;
+  while (row && !(row.querySelector('input') && row.querySelector('button'))) row = row.parentElement;
+  if (!row) return null;
+  const card = row.closest('article, section') || row.parentElement;
+  const bx = (e) => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, b: r.bottom, r: r.right }; };
+  const chip = [...row.querySelectorAll('button')].find((x) => /\S/.test(x.innerText || '') && x.getAttribute('aria-disabled') !== 'true');
+  // The lifted set and its gap: the union of what's drawn in that cell (the cell itself can span the row).
+  const kids = [...gap.parentElement.children].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0);
+  const u = { x: Math.min(...kids.map((r) => r.left)), y: Math.min(...kids.map((r) => r.top)), r: Math.max(...kids.map((r) => r.right)), b: Math.max(...kids.map((r) => r.bottom)) };
+  const got = { x: u.x, y: u.y, w: u.r - u.x, h: u.b - u.y, r: u.r, b: u.b };
+  return { got, input: bx(row.querySelector('input')), chip: chip ? bx(chip) : null, chipText: chip ? chip.innerText.replace(/\s+/g, ' ').trim() : '', card: bx(card) };
+});
 {
-  const ok = (await clickText(/^\s*Programs\s*$/)) && (await clickText(/^\s*Marcus Doyle\s*$/));
-  if (!ok) { await page.keyboard.press('j'); await page.keyboard.press('o'); await settle(page, 1800); }
-  await page.addStyleTag({ content: '.dk-pb-list{display:none!important} section:has(> .dk-pb-list){grid-template-columns:minmax(0,1fr)!important}' });
-  await settle(page, 400);
-  const benchCell = () => page.evaluate(() => {
-    const rows = [...document.querySelectorAll('tr')].filter((tr) => /bench/i.test(tr.innerText || '') && tr.querySelectorAll('input, [contenteditable="true"]').length >= 3);
-    const ins = rows[0] ? [...rows[0].querySelectorAll('input, [contenteditable="true"]')] : [];
-    if (!ins[2]) return null;
-    const r = ins[2].getBoundingClientRect();
-    return { x: r.left, y: r.top, w: r.width, h: r.height };
-  });
-  // Scroll the grid so week 2 (lifted under written) starts at the sticky name column.
-  const scrollToWeek2 = () => page.evaluate(() => {
-    const head = [...document.querySelectorAll('th, [role="columnheader"]')].find((h) => /^\s*Week 2\b/.test(h.innerText || ''));
-    const sc = head && head.closest('.pg-grid-scroll, [class*="scroll"]');
-    const first = head && head.parentElement && head.parentElement.firstElementChild;
-    if (sc && first) sc.scrollLeft += head.getBoundingClientRect().left - first.getBoundingClientRect().right;
-  });
-  // Type next week's bench into week 3, in the coach's own notation.
-  await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('tr')].filter((tr) => /bench/i.test(tr.innerText || '') && tr.querySelectorAll('input, [contenteditable="true"]').length >= 3);
-    const ins = rows[0] ? [...rows[0].querySelectorAll('input, [contenteditable="true"]')] : [];
-    if (ins[2]) ins[2].scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  });
-  const cell = await benchCell();
-  if (cell) {
-    await page.mouse.click(cell.x + 20, cell.y + cell.h / 2);
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
-    await page.keyboard.type('1x3 152.5kg @8, 2x5 137.5kg @7', { delay: 10 });
-    await page.keyboard.press('Tab'); // commit
-    await settle(page, 400);
-    await scrollToWeek2();
-    await settle(page, 300);
-    // Click the edited cell again: its inspector opens beside the grid.
-    const again = await benchCell();
-    if (again) { await page.mouse.click(again.x + 30, again.y + again.h / 2); await settle(page, 900); }
-    // Now the grid's width is final: weeks 2 and 3 share it, week 4 starts just past the edge.
-    const wk = await page.evaluate(() => {
-      const sc = document.querySelector('.pg-grid-scroll'), corner = document.querySelector('.pg-grid .pg-corner');
-      return sc && corner ? Math.floor((sc.clientWidth - corner.getBoundingClientRect().width) / 2) : 0;
-    });
-    if (wk > 150) await page.addStyleTag({ content: `.pg-grid td{min-width:${wk}px!important;width:${wk}px}` });
-    await settle(page, 300);
-    await scrollToWeek2();
-    await page.evaluate(() => {
-      const sc = document.querySelector('.pg-grid-scroll');
-      if (sc) document.querySelectorAll('.pg-grid tr.pg-day > *').forEach((th) => { th.style.paddingLeft = (sc.scrollLeft + 14) + 'px'; });
-    });
-    await settle(page, 300);
-  } else misses.push('table edit');
-  frac('pin1', (await find(page, /@9\.5/, { red: true })) || (await find(page, /\d×\d+ @9\.5/)));
-  // pin 2 is the edited cell itself (the desk draws its own outline round it, so the site draws
-  // only the number there), clipped to the grid.
-  const edited = await page.evaluate(() => {
-    const a = document.activeElement;
-    if (!a || !/INPUT|TEXTAREA/.test(a.tagName) && a.contentEditable !== 'true') return null;
-    const box = (a.closest('td') || a).getBoundingClientRect(), sc = a.closest('.pg-grid-scroll');
-    const c = sc ? sc.getBoundingClientRect() : { left: 0, right: innerWidth };
-    const x0 = Math.max(box.left, c.left), x1 = Math.min(box.right, c.right);
-    return { x: x0, y: box.top, w: Math.max(0, x1 - x0), h: box.height };
-  });
-  frac('pin2', edited && edited.w > 40 ? edited : await find(page, /152\.5\s*kg @8, 2x5/));
-  frac('pin3', await find(page, /Fill the weeks after/, { minW: 200 }));
-  // The windows. Desktop: the grid pane (with its title bar) and the inspector, down to where the
-  // weekly totals start. Phones: the names, week 2 and week 3, from the column heads down.
-  const g = await page.evaluate(() => {
-    const sc = document.querySelector('.pg-grid-scroll'), t = sc && sc.querySelector('table');
-    if (!sc || !t) return null;
-    const s = sc.getBoundingClientRect(), th = t.querySelector('thead') || t.rows[0];
-    const sum = t.querySelector('tr.pg-sum, tfoot tr');
-    const heads = [...t.rows[0].cells];
-    const w3 = heads.find((h) => /^\s*Week 3\b/.test(h.innerText || ''));
-    // Phones: where week 2's own text ends (written and lifted), so the phone window can stop
-    // there and keep the text at reading size; and the last lift row's bottom (no half "Rest" row).
-    const w2 = heads.findIndex((h) => /^\s*Week 2\b/.test(h.innerText || ''));
-    let w2text = 0, liftBottom = 0;
-    for (const tr of t.rows) {
-      if (tr.querySelector('input, [contenteditable="true"]')) liftBottom = Math.max(liftBottom, tr.getBoundingClientRect().bottom);
-      const c = w2 >= 0 && tr.cells.length === heads.length ? tr.cells[w2] : null;
-      if (!c) continue;
-      // Text nodes only (the cell's inputs and blocks span the whole column).
-      const tw = document.createTreeWalker(c, NodeFilter.SHOW_TEXT);
-      for (let n = tw.nextNode(); n; n = tw.nextNode()) {
-        if (!n.nodeValue.trim()) continue;
-        const rg = document.createRange(); rg.selectNodeContents(n);
-        for (const r of rg.getClientRects()) if (r.width > 0) w2text = Math.max(w2text, r.right);
-      }
-      for (const inp of c.querySelectorAll('input, textarea')) {
-        if (!inp.value) continue;
-        // An input's text has no box of its own: measure a copy in the same type.
-        const cs = getComputedStyle(inp), m = document.createElement('span');
-        for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStretch', 'letterSpacing', 'wordSpacing', 'fontFeatureSettings', 'fontVariantNumeric']) m.style[k] = cs[k];
-        m.style.cssText += ';position:absolute;visibility:hidden;white-space:pre';
-        m.textContent = inp.value; document.body.appendChild(m);
-        w2text = Math.max(w2text, inp.getBoundingClientRect().left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth) + m.getBoundingClientRect().width);
-        m.remove();
-      }
-    }
-    return { left: s.left, top: th.getBoundingClientRect().top, right: s.right, bottom: sum ? sum.getBoundingClientRect().top : null, w3right: w3 ? Math.min(s.right, w3.getBoundingClientRect().right) : s.right, w2text, liftBottom };
-  });
-  const p1 = caps.pin1, p2 = caps.pin2;
-  if (g && p1 && p2) {
-    const px = (c, k) => c['--' + k] * (k === 'x' || k === 'w' ? W : H);
-    const bottom = g.bottom || Math.max(px(p1, 'y') + px(p1, 'h'), px(p2, 'y') + px(p2, 'h')) + 160;
-    // Both windows end on the last lift row, so no half day-label row ("Rest") shows at the edge.
-    win('table', g.left - 24, 0, W, (g.liftBottom || bottom) + 1, 'c');
-    // Phones: the names and week 2 only (written over lifted, pin 1), at reading size; week 3
-    // and the inspector stay on the desktop still, and pin 2/3's notes read on their own.
-    const mRight = g.w2text > g.left + 200 ? g.w2text + 20 : g.w3right + 1;
-    win('table-m', g.left, g.top, mRight, (g.liftBottom || bottom) + 1, 'm');
-  } else misses.push('table window');
+  if (!(await clickText(/^\s*Marcus Doyle\s*$/))) misses.push('lifter page (Marcus Doyle)');
+  await settle(page, 800);
   await page.addStyleTag({ content: HIDE });
   await neutralCoach(page);
-  await page.evaluate(() => { const a = document.activeElement; if (a && a.blur && !/INPUT|TEXTAREA/.test(a.tagName)) a.blur(); });
+  await page.evaluate(() => { const a = document.activeElement; if (a && a.blur) a.blur(); });
   await settle(page, 300);
-  for (const [name, pre, out] of [['table', 'c', 'desk-table'], ['table-m', 'm', 'desk-table-m']]) {
-    const m = caps[name];
-    if (!m) continue;
-    const clip = { x: Math.round(m['--' + pre + 'x'] * W), y: Math.round(m['--' + pre + 'y'] * H), width: Math.round(m['--' + pre + 'w'] * W), height: Math.round(m['--' + pre + 'h'] * H) };
-    const png = join(TMP, out + '.png');
+  const pb = await pinBoxes(page);
+  if (pb) { frac('pin1', pb.got); frac('pin2', pb.input); frac('pin3', pb.chip); console.log('  suggestion on the red row:', pb.chipText); }
+  else misses.push('pin1-3 (no red RPE gap on the lifter page)');
+  // The window: from the "Week N, as they lifted it" heading down to the last session card.
+  const headB = await find(page, /^\s*Week \d+, as they lifted it\s*$/);
+  const last = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('article[aria-label]')].filter((e) => /Day$/.test(e.getAttribute('aria-label')) && e.getBoundingClientRect().height > 0);
+    if (!cards.length) return null;
+    const r = cards[cards.length - 1].getBoundingClientRect(), r0 = cards[0].getBoundingClientRect();
+    return { bottom: r.bottom, left: r0.left, right: r0.right };
+  });
+  if (headB && last) win('table', last.left - 20, headB.y - 22, last.right + 20, last.bottom + 18, 'c');
+  else misses.push('table window');
+  await cut(page, 'table', 'desk-table', 'c', true);
+  if (stills['desk-table']) { tableShots['desk-table'] = stills['desk-table']; tableShots['desk-table-1x'] = stills['desk-table-1x']; }
+}
+// The phone still: the same lifter page on a 1024x640 desk (16:10 like the laptop frame), where each
+// card folds "Next" under its set. Only the red row's card, cut from its edge to just past the
+// suggestion; for the shot the week-3 field is narrowed so the suggestion sits beside it.
+{
+  const FW = 1024, FH = 640;
+  await page.setViewportSize({ width: FW, height: FH });
+  await settle(page, 1200);
+  await page.evaluate(() => {
+    const own = (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('').trim();
+    const red = (e) => { const m = getComputedStyle(e).color.match(/\d+/g).map(Number); return m[0] > 190 && m[1] < 140; };
+    const gap = [...document.querySelectorAll('body *')].find((e) => /^\+\d+(\.\d+)?$/.test(own(e)) && red(e) && e.getBoundingClientRect().width > 0);
+    const card = gap && (gap.closest('article') || gap.parentElement);
+    if (card) card.scrollIntoView({ block: 'center' });
+  });
+  await page.addStyleTag({ content: 'input[aria-label$=", week 3"],input[aria-label*=", week "]{flex:0 0 210px!important;width:210px!important;max-width:210px!important}' });
+  await settle(page, 500);
+  const pb = await pinBoxes(page);
+  if (pb && pb.chip) {
+    const f = (v) => +v.toFixed(4);
+    const x0 = Math.max(0, pb.card.x), y0 = Math.max(0, pb.card.y), x1 = Math.min(FW, Math.max(pb.chip.r, pb.got.r) + 18), y1 = Math.min(FH, pb.card.b);
+    caps['table-m'] = { '--mx': f(x0 / FW), '--my': f(y0 / FH), '--mw': f((x1 - x0) / FW), '--mh': f((y1 - y0) / FH) };
+    frac('pin1', pb.got, FW, FH, 'p'); frac('pin2', pb.input, FW, FH, 'p'); frac('pin3', pb.chip, FW, FH, 'p');
+    const png = join(TMP, 'desk-table-m.png'), clip = { x: Math.round(x0), y: Math.round(y0), width: Math.round(x1 - x0), height: Math.round(y1 - y0) };
     await page.screenshot({ path: png, clip });
-    tableShots[out] = { w: clip.width * 2, h: clip.height * 2 };
-    console.log(out + '.webp', webp(png, join(IMG, out + '.webp')), clip.width * 2 + 'x' + clip.height * 2);
-    if (name === 'table') { console.log(out + '-1x.webp', webp(png, join(IMG, out + '-1x.webp'), clip.width)); tableShots[out + '-1x'] = { w: clip.width, h: clip.height }; }
+    tableShots['desk-table-m'] = { w: clip.width * 2, h: clip.height * 2 };
+    console.log('desk-table-m.webp', webp(png, join(IMG, 'desk-table-m.webp')), clip.width * 2 + 'x' + clip.height * 2);
     try { unlinkSync(png); } catch (e) {}
-  }
+  } else misses.push('table-m (phone frame)');
+  await page.setViewportSize({ width: W, height: H });
+  await settle(page, 1200);
 }
 
-// 3. The whole roster.
+// 3. The Roster's live board (#roster): one row per lifter, live.
 {
   await page.keyboard.press('Escape');
   await settle(page, 300);
   if (!(await clickText(/^\s*Roster\s*$/))) misses.push('roster nav');
-  const head = await find(page, /^\s*Athlete\s*$/);
-  if (head) {
-    win('roster', head.x - 50, 0, head.x - 50 + 0.62 * W, 0.62 * H, 'c');
-    win('roster-m', head.x - 36, head.y - 16, head.x - 36 + 500, head.y + 384, 'm');
+  await settle(page, 600);
+  const title = await find(page, /^\s*Roster\s*$/, { within: 'main' });
+  const lifter = await find(page, /^\s*Lifter\s*$/), pain = await find(page, /^\s*Pain\s*$/, { within: 'main' });
+  if (title && lifter) {
+    // Laptops: the title line (who's training now) and the board from Lifter across to Pain.
+    const x1 = pain ? pain.x + pain.w + 130 : lifter.x + 1000;
+    win('roster', title.x - 24, title.y - 22, x1, title.y - 22 + (x1 - title.x + 24) * 0.63, 'c');
+    // Phones: the title line, then names, this week's marks and readiness.
+    const ready = await find(page, /^\s*Readiness\s*$/, { within: 'main' });
+    const top = title.y - 18; // the title line too: who is training now
+    const mx1 = ready ? ready.x + ready.w + 40 : lifter.x + 460;
+    const mx0 = Math.min(title.x, lifter.x) - 22;
+    win('roster-m', mx0, top, mx1, top + (mx1 - mx0) * 0.8, 'm');
   } else misses.push('roster window');
   const png = await shoot('roster');
   try { unlinkSync(png); } catch (e) {}

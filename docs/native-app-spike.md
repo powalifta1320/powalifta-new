@@ -43,7 +43,7 @@ Capacitor loads the current site verbatim, so most of the work is done:
 - **`sw.js`** — network-first Service Worker; offline-capable, cache mirror.
 - **Web Push (VAPID)** — `PowaPush` in `app.js` + `push_subscriptions` + `send-push`.
 - **Responsive UI** — verified 0 horizontal overflow at 375px on every page (#7).
-- **Icons / splash source** — `og.png` + the icon PNGs generate all native sizes.
+- **Icons / splash source** — `icon-512.png` + the icon PNGs generate all native sizes.
 
 ## Build plan (phased)
 
@@ -84,7 +84,7 @@ and the send gate (self or live coach↔athlete link) carry over unchanged.
 - **Haptics, StatusBar, SplashScreen** — brand the chrome (`#0b0b0c` / red).
 
 ### Phase D — store submission
-- Generate icon/splash sets from `og.png` + PNGs (`@capacitor/assets`).
+- Generate icon/splash sets from `icon-512.png` + PNGs (`@capacitor/assets`).
 - Privacy nutrition labels — the data map is already written in `privacy.html`
   (name/email, training data, no card data, sub-processors) — copy it across.
 - App Store Connect + Play Console listings, screenshots, review.

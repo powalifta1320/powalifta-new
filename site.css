@@ -385,9 +385,22 @@ body.site .s-trust { padding: 0 0 clamp(8px, 2vw, 24px); }
 .s-pin i { position: absolute; right: -19px; top: -19px; transition: transform 0.25s var(--s-ease); }
 /* A pin whose top-right corner would sit on the text above it takes its number on the left. */
 .s-pin[data-side="left"] i { right: auto; left: -36px; top: calc(50% - 13px); }
+.s-pin[data-side="top"] i { right: auto; left: calc(50% - 13px); }
 .s-pin.is-hot::before { box-shadow: 0 0 0 2px #fff, 0 0 0 999px rgba(5, 5, 6, 0); }
 .s-pin.is-hot i { transform: scale(1.14); }
 .s-pin.is-out { display: none; }
+/* Laptops: the three boxes sit side by side on one row, a few px apart in the still, so their
+   rings hug the facing edges and never merge into one outline. */
+@media (min-width: 700px) {
+  .s-pin[data-pin="1"]::before { right: -2px; }
+  .s-pin[data-pin="2"]::before { left: 0; right: -2px; }
+  .s-pin[data-pin="3"]::before { left: -2px; }
+}
+@media (min-width: 1240px) {
+  .s-pin[data-pin="1"]::before { right: -4px; }
+  .s-pin[data-pin="2"]::before { left: -1px; right: -3px; }
+  .s-pin[data-pin="3"]::before { left: -3px; }
+}
 .s-notes { list-style: none; margin: clamp(32px, 4vw, 48px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 40px; }
 .s-notes li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 14px; align-items: start; }
 .s-notes li > i { margin-top: -1px; transition: transform 0.25s var(--s-ease); }
@@ -409,7 +422,7 @@ body.site .s-trust { padding: 0 0 clamp(8px, 2vw, 24px); }
 .s-roster-grid .s-head { margin: 0; }
 /* The still runs off the right edge of the page: the table keeps going, like a sheet does. */
 .s-roster-shot { margin-right: calc(-1 * (var(--s-gutter) + max(0px, (100vw - var(--s-max) - 2 * var(--s-gutter)) / 2))); }
-.s-roster-shot .s-window-crop { border-radius: 18px 0 0 18px; -webkit-mask-image: linear-gradient(90deg, #000 76%, transparent), linear-gradient(180deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 76%, transparent), linear-gradient(180deg, #000 78%, transparent); -webkit-mask-composite: source-in; mask-composite: intersect; }
+.s-roster-shot .s-window-crop { border-radius: 18px 0 0 18px; -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent), linear-gradient(180deg, #000 80%, transparent); mask-image: linear-gradient(90deg, #000 90%, transparent), linear-gradient(180deg, #000 80%, transparent); -webkit-mask-composite: source-in; mask-composite: intersect; }
 .s-ticks { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; }
 .s-ticks li { display: flex; gap: 12px; align-items: baseline; color: var(--text-2); font-size: 0.98rem; line-height: 1.45; }
 .s-ticks li::before {
@@ -646,6 +659,14 @@ body.site .s-cta h2 { margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); font-weigh
   .s-trust-row li:nth-child(even) { box-shadow: inset 1px 0 0 var(--line) !important; }
   .s-trust-row li:nth-child(n + 3) { border-top: 1px solid var(--line); }
   .s-pin i { width: 22px; height: 22px; right: -14px; top: -14px; font-size: 0.72rem; }
+  /* The phone still comes from its own 1024x640 frame (desk-table-m.webp): its pins carry their own
+     boxes there (--px --py --pw --ph); numbers sit where they cover no text. */
+  .s-pin[style*="--px"] { left: calc((var(--px) - var(--cx)) / var(--cw) * 100%); top: calc((var(--py) - var(--cy)) / var(--ch) * 100%); width: calc(var(--pw) / var(--cw) * 100%); height: calc(var(--ph) / var(--ch) * 100%); }
+  .s-pin[data-side="left"] i { left: calc(50% - 11px); right: auto; top: -17px; }
+  .s-pin[data-side="top"] i { left: -14px; right: auto; top: auto; bottom: -14px; } /* bottom-left: clear of pin 3 beside it and of the set below */
+  .s-pin::before { inset: -3px -4px; border-radius: 6px; }
+  .s-pin[data-pin="2"]::before { right: -2px; } /* pin 3 sits 6px to its right on this still */
+  .s-pin[data-pin="3"]::before { left: -2px; }
   /* Phones: one phone at a time, swiped. */
   .s-phones { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 calc(-1 * var(--s-gutter)); padding: 8px var(--s-gutter) 12px; scrollbar-width: none; }
   .s-phones::-webkit-scrollbar { display: none; }
@@ -669,6 +690,10 @@ html[data-theme="light"] body.site { --bg: #ffffff; --bg-1: #f6f6f8; --bg-2: #ee
 [data-theme="light"] body.site .s-o { --s-o-light: 9%; }
 [data-theme="light"] body.site .s-o-shot img { box-shadow: 0 0 0 1px rgba(20, 20, 40, 0.14), 0 30px 60px -40px rgba(20, 20, 40, 0.45); }
 [data-theme="light"] body.site .s-window-crop { box-shadow: 0 0 0 1px rgba(20, 20, 40, 0.12), 0 40px 80px -50px rgba(20, 20, 40, 0.45); }
+/* The Roster still fades out into the page in dark; on white that fade reads as a grey smear, so in
+   light it stays a dark panel cut by the screen edge and its last rows dim into the panel instead. */
+[data-theme="light"] body.site .s-roster-shot .s-window-crop { -webkit-mask-image: none; mask-image: none; }
+[data-theme="light"] body.site .s-roster-shot .s-window-crop::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(180deg, transparent 76%, #050506 98%); }
 [data-theme="light"] body.site .s-scale-card, [data-theme="light"] body.site .s-o { box-shadow: var(--s-lit), 0 30px 60px -48px rgba(20, 20, 40, 0.3); }
 [data-theme="light"] body.site .s-notes li > i { background: #16161a; color: #fff; box-shadow: none; }
 [data-theme="light"] body.site .s-phone { box-shadow: 0 0 0 1px #4a4a52, 0 0 0 2.5px #19191d, 0 44px 80px -44px rgba(20, 20, 40, 0.5), 0 18px 34px -24px rgba(20, 20, 40, 0.35); }
