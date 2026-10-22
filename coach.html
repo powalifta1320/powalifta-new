@@ -2773,7 +2773,7 @@ function openSheetImport(athleteId) {
   const ath = athleteId ? ((Store.get().athletes || []).find(a => a.id === athleteId) || {}) : null;
   const first = ath ? (ath.name || 'athlete').split(' ')[0] : '';
   uiSheet(ath ? 'Paste a program' : 'Paste your program', (sheet, close) => {
-    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Copy the cells from Google Sheets or Excel and paste them here. Written programs work too: "Week 1", "Day 1", "Squat 3x5 @8".'));
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, _desk() ? 'Paste the block the way you write it ("Week 1", "Day 1", "Squat 3x5 @8"), or a table of weeks, days and sets.' : 'Copy the cells from Google Sheets or Excel and paste them here. Written programs work too: "Week 1", "Day 1", "Squat 3x5 @8".'));
     const ta = el('textarea', { class: 'imp-text', rows: '8', spellcheck: 'false', 'aria-label': 'Program to import',
       placeholder: 'Week\tDay\tExercise\tSets\tReps\tLoad\tRPE\n1\tDay 1\tSquat\t3\t5\t160\t7\n\nor\n\nWeek 1\nDay 1\nSquat 3x5 @7\nBench 4x6 @ 82.5kg' });
     sheet.appendChild(ta);
@@ -3415,12 +3415,14 @@ function loadProgram() {
     { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
   ];
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', progActions()));
-  // The desk: one 48px row (name · size · maxes · Grid|Weeks · ⋯ · Publish), the grid by default.
+  // The desk (desk.js): the block builder. The header (name, maxes, Sessions | Progression, ⋯), then
+  // the weeks as a strip, one bar of tools and the week's sessions as cards, or each lift across the
+  // block. 'sets' is the set-by-set editor below, kept one click away.
   if (desk) {
     const dview = deskPbView();
     area.appendChild(deskBuilderHead(prog, athleteId, progActions(), dview));
-    if (dview === 'grid') {
-      area.appendChild(buildProgramGrid(prog, athleteId, { desk: true }));
+    if (dview !== 'sets') {
+      area.appendChild(deskBuilderBody(prog, athleteId, dview));
       _deskCall('deskBuilderDone');
       return;
     }

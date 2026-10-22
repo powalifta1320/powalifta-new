@@ -190,36 +190,79 @@ focus ring on the web. Touch targets are at least 44px.
 
 ## Desk (laptop coach, `desk.css`)
 
-The coach's desk (`html.desk`: at least 1000px wide, never the iPhone app) is denser than the phone
-and has its own small scale. Phones and the app never see it. v2 (2026-10-22): B's clean dark look on
-C's structure (vault `Specs/Desk + website v2`).
+The coach's desk (`html.desk`: at least 1000px wide, never the iPhone app) is a live coaching
+platform: every set lands from the lifter's phone, with readiness from Apple Health, e1RM and RPE
+read for the coach, pain, video, the season and the meet-day board. It is designed from those
+strengths and never toward a spreadsheet: no "sheet" views or names, no cell-by-cell text tables as
+a home, no two lines of grey text per cell. Phones and the app never see any of it. The system is
+defined once at the top of desk.css; every desk rule (and meetday.css's `html.desk` block) reads it.
 
-- Themes: dark by default (`#0a0a0c` ink, raised surfaces `--dk-raise` `#131317` separated by light
-  and an inset 1px `--line`, not borders everywhere); light is C's palette (white paper, `#0b0b0d` ink,
-  `#e9e9ec` hairlines, the selected list row inverts to ink). One token block per theme at the top of
-  desk.css; everything else reads the tokens.
-- Layout: a text sidebar 232px (icons, 64px, at 1280 and below unless the coach opens it); two panes
-  on Today and the roster list (`--list-w` 316 to 360) with the athlete's week in the centre; the side
-  card (`--ctx-w`, thread or private notes) floats 12px in from the edge on demand and pushes the
-  centre (overlays it below 1200px). Gutters `--gut` 20 to 32px; 8pt spacing.
-- Radius: 18-20px surfaces (the needs card, the lift strip, the week table, meet cards, the side card),
-  14px list rows, 10px cells and inputs, capsules (999px) for buttons, chips and the segmented control.
-- Type: names 15.5px in lists, 30px on the athlete's head; section titles 16 to 20px; tabular numbers.
-- Status tokens, used only on status (dark / light): `--dk-alert` `#ff6f7d` / `#c4162a`; `--dk-warn`
-  `#ff9f45` / `#b4410c`; `--dk-gold` (PRs, meets) `#ffbf3c` / `#8a5a00`; `--dk-ok` `#3fd99a` / `#0f7d47`
-  (the compliance ring, on-target RPE, live); `--dk-cool` (under target) `#6cb8ff` / `#036f9c`.
-- RPE tints (week sheet cells and the gap pill): on target green, half a point over amber, a point
-  or more over red (solid pill), under blue, missed hatched.
-- Buttons: the red primary (one per screen: Publish week N · n / Notify · n / Write the next block /
-  Invite on an empty roster), the quiet fill (`.is-quiet`, most actions; pressed = ink), the line
-  button, the ink button (Save). Keys never sit on a button: they live in the tooltip (`dkTip`).
-- An edit not yet published carries an ink outline (next-week inputs, grid cells) until it goes out.
-  Suggestions are dashed chips; taken, they turn solid green.
-- Tables inside a pane fold by the pane's width (container queries): the week table folds "written"
-  then "logged" under the exercise name; the workspace's quiet buttons drop their words.
-- Motion: 150-260ms, `cubic-bezier(0.23, 1, 0.32, 1)`; the card slides in 16px from the right; a
-  clicked row's week crossfades in (keys swap instantly); rows reorder with FLIP; a set that lands
-  pulses its row once. All of it off under reduced motion.
+- Type, one family (Archivo), six steps, no half pixels: `--fs-1` 12 (meta, column names, counts,
+  keys) · `--fs-2` 13 (buttons, secondary lines) · `--fs-3` 14 (body, names in lists, inputs) ·
+  `--fs-4` 16 (section and card titles) · `--fs-5` 20 (page titles) · `--fs-6` 24 (the lifter's name,
+  big numbers). The meet-day board's load on the bar is the one display size (40). Weights 400 / 500
+  / 600 / 700. Tabular numbers on all data. Avatar initials sit at 12.
+- Radius: `--r-1` 6 (controls: buttons, inputs, chips, menu items, badges) · `--r-2` 10 (surfaces:
+  cards, menus, rows) · `--r-3` 14 (overlays: dialogs, the side card) · `--r-round` for avatars, dots,
+  marks and set bars only. No pills on controls. A control nested in a 2px-padded control takes
+  `--r-1 - 2px` so the corners stay concentric (segmented buttons).
+- Space: 8pt, `--s-1`..`--s-7` = 4 8 12 16 24 32 48. Controls are 32 high (`--ctl-h`); icons 14 /
+  16 / 18.
+- Buttons, three tiers and an overflow: primary = the one fire action on a screen (Publish week N,
+  Notify, Write the next block, Open the board, Invite on an empty roster) · secondary = a quiet fill
+  (`.dk-btn`) · tertiary = text and icon, a fill on hover (`.is-quiet`) · everything else in the `⋯`
+  menu. No outlined buttons, no dividers between buttons. A saved state is a dot and a few words
+  (`.dk-state`), never a disabled button. Keys never sit on a button: they live in the tooltip.
+- One badge style: a status is a 6px dot in its colour and the word in ink (`.dk-dot`, `.dk-chip`,
+  the row's line on Today). Counts are plain tabular numbers (`.dk-btn-n`, `.dk-unread`), never a
+  white disc; folded to icons, the rail's count is a 6px dot clear of the glyph.
+- Colour budget: ink and surfaces; lift hues (squat `--dk-sq`, bench `--dk-bp`, deadlift `--dk-dl`)
+  only on lift data (the lift dot, sparks); status colours (`--dk-ok` on target / live, `--dk-warn`
+  over, `--dk-alert` a point or more over, missed, pain, `--dk-cool` under) only on a dot, a mark, a
+  set bar or the gap word; `--dk-gold` for PRs and meets; fire red on the one action.
+- Surfaces separate by a step in fill (`--dk-raise`, `--dk-fill`) and by space; hairlines only
+  between rows of one list, inset to the text.
+- Themes: dark by default (`#0a0a0c` ink); light is white paper and `#0b0b0d` ink with the same
+  layout. One token block per theme.
+- Layout: a text sidebar 232px (icons, 64px, below 1200 unless the coach opens it; the old
+  `powa-desk-rail` key is ignored, `powa-desk-rail2` holds the choice); Today and the roster's list
+  are two panes; the side card (thread or private notes) floats in on demand.
+- Today: who needs you and why, worst first, one line each (the status word after its dot); the
+  selected lifter's week opens beside it.
+- Roster, the live board (`List | Board`, Board by default, V): one row per lifter with the ring of
+  this week's sessions and the live dot, block and week; this week's sessions as outcome marks (on
+  target, over, 1+ over, under, missed, to come; the detail on hover); readiness; RPE drift as a bar
+  either side of zero; the e1RM spark; bodyweight against the class (the class a tick, the lifter a
+  dot); the next meet as W-n (days inside two weeks); pain. Sortable (saved per view), filtered by the
+  sidebar's views and the search, bulk select (X, or the box on hover), J/K, Enter opens the lifter.
+  Columns step away as the pane narrows (bodyweight, readiness, e1RM): never a sideways scroll.
+- The lifter's week: session cards (one per training day, its state and date). Each exercise is one
+  line: what was written, its sets as bars on an RPE 5.5-10 scale against the written RPE (a line;
+  a range is a band), the top set in ink with the gap word only when off, then next week's block
+  written in place with one suggestion from how it was lifted (Up to / Drop to / Load, taken in one
+  click or Tab; Hold is a word; Swap, with a warn dot, when that lift hurt: a variant or 10% lighter).
+  Videos and pain sit on the exercise they came from, their note on the session.
+- Programs, the block builder (`Sessions | Progression`, V): a header with the name, a quiet meta
+  line (weeks, % logged, the maxes as a line with lift dots, the set fields) and one `⋯`; the block
+  as a strip of week tabs (date, the meet's W-n in gold, a volume bar with the logged part in ink,
+  the week's average RPE, "Now" on the week they're in; ← → or 1-9; + adds a week; the meet after
+  the block sits at the end); one quiet bar of tools (Progress the block, Copy week, Templates, Team,
+  Undo) ending in the save state or Notify, the one red. Sessions: the selected week's days as cards
+  (two columns above 1180px of pane); each exercise one line: the lift dot and name, what's written
+  in POWALIFTA notation (count×reps quiet, the load in ink, a % with its worked-out load beside it,
+  an RPE-only block with "≈" the load its max points to, the effort, set fields small), edited in
+  place over the drawing (the same parser as every builder; ↵ / ↑ ↓ save and move, Esc reverts,
+  ⌘D same as the week before, ⌘⇧R progress it, ⌘Z undo); on a logged week the sets they lifted as
+  bars on the same line, the top set and the gap word. Notes sit small under the line; "Add an
+  exercise" takes "Pause squat 3x4 @7". Progression: each lift's planned top set across the block as
+  a line in its lift colour, the lifted top sets as dots (ink on target, warn / alert over, cool
+  under); a week's column opens that week with the lift in focus. Templates and past blocks read as
+  the same weeks and cards with nothing to type into. The phone's set-by-set editor stays in `⋯`.
+- An edit not yet published carries an ink mark (a small dot on a builder line, an outline on next
+  week's field) until it goes out; a taken suggestion turns green.
+- Motion, quiet and about state: 120-260ms, `cubic-bezier(0.23, 1, 0.32, 1)`; a set that just landed
+  grows its bar once and pulses its board row; a live session's mark breathes; rows reorder with
+  FLIP; the side card slides in 16px. All of it off under reduced motion.
 
 ## Do's and Don'ts
 
