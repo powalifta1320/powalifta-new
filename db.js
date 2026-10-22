@@ -45,6 +45,8 @@ function mapDbProfileToCoach(r) {
 function mapDbProfileToAthlete(r) {
   return {
     id: r.id, name: r.name, email: r.email, coachId: r.coach_id,
+    // The lifter's kg / lb (profiles.unit, migration-program-integrity-2026-10-22.sql), null until set.
+    unit: r.unit === 'lb' ? 'lbs' : r.unit === 'kg' ? 'kg' : null,
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
     instagram: r.instagram || null,
@@ -233,14 +235,29 @@ function _cleanWeekNumbers(weeks) {
   });
 }
 function mapDbProgram(r) {
-  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
+  const p = { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
+  if (r.rev != null) p.rev = Number(r.rev);   // migration-program-integrity-2026-10-22.sql
+  _rememberProgBase(p);
+  return p;
 }
 // programs.maxes arrives with migration-blocks-2026-10-22.sql; until then it's left out.
 let _noProgramMaxes = false;
+// programs.rev arrives with migration-program-integrity-2026-10-22.sql; until then saves are plain.
+let _noProgramRev = false;
 function mapJsProgram(p) {
   const row = { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
   if (!_noProgramMaxes && p.maxes !== undefined) row.maxes = p.maxes && Object.keys(p.maxes).length ? p.maxes : null;
+  if (!_noProgramRev && typeof p.rev === 'number' && isFinite(p.rev)) row.rev = p.rev;
   return row;
+}
+// SAFE SAVING: the last copy of each program this device read from or wrote to the server, the
+// common ancestor a three-way merge needs (app.js mergeProgramVersions). A JSON string, so nothing
+// edits it by accident.
+const _progBase = {};
+function _progSnap(p) { return JSON.stringify({ name: (p && p.name) || '', weeks: (p && p.weeks) || [], maxes: (p && p.maxes) || null }); }
+function _rememberProgBase(p) { if (p && p.id) _progBase[p.id] = _progSnap(p); }
+function _isRevConflict(error) {
+  return !!error && (error.code === 'PT409' || /powa_rev_conflict/.test(String(error.message || '') + ' ' + String(error.details || '')));
 }
 // weeks is null until the block is opened (getProgramBlockWeeks): the list carries stats only.
 function mapDbBlock(r) {
@@ -255,14 +272,30 @@ function mapJsTemplate(t) {
   return { id: t.id, coach_id: t.coachId, name: t.name, payload: t.payload };
 }
 function mapDbLog(r) {
-  return { id: r.id, athleteId: r.athlete_id, lift: r.lift, variant: r.variant || '', exerciseName: r.exercise_name || '',
+  const l = { id: r.id, athleteId: r.athlete_id, lift: r.lift, variant: r.variant || '', exerciseName: r.exercise_name || '',
     weight: Number(r.weight), reps: Number(r.reps), rpe: Number(r.rpe), e1rm: Number(r.e1rm), e1rmComp: Number(r.e1rm_comp),
     note: r.note || '', date: r.date };
+  if (Array.isArray(r.gear) && r.gear.length) l.gear = r.gear;   // raw / equipped tags (unused by the app yet)
+  return l;
 }
 function mapJsLog(l) {
-  return { id: l.id, athlete_id: l.athleteId, lift: l.lift, variant: l.variant || null, exercise_name: l.exerciseName || null,
+  const row = { id: l.id, athlete_id: l.athleteId, lift: l.lift, variant: l.variant || null, exercise_name: l.exerciseName || null,
     weight: l.weight, reps: l.reps, rpe: l.rpe, e1rm: l.e1rm, e1rm_comp: l.e1rmComp,
     note: l.note || null, date: l.date };
+  // workout_logs.gear (migration-program-integrity-2026-10-22.sql): only sent when a set carries tags.
+  if (Array.isArray(l.gear) && l.gear.length) row.gear = l.gear.slice(0, 6);
+  return row;
+}
+// PAIN FLAGS: what hurt, where, how much; the coach's resolution beside it.
+function mapDbPainReport(r) {
+  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id || null, day: r.day, bodyPart: r.body_part, side: r.side || null,
+    severity: Number(r.severity), phase: r.phase || null, lift: r.lift || null, setRef: (r.set_ref && typeof r.set_ref === 'object') ? r.set_ref : null,
+    note: r.note || '', createdAt: r.created_at, resolvedAt: r.resolved_at || null, resolvedBy: r.resolved_by || null, coachNote: r.coach_note || '' };
+}
+function mapJsPainReport(p) {
+  const sev = Math.max(0, Math.min(10, Math.round(Number(p.severity) || 0)));
+  return { id: p.id, athlete_id: p.athleteId, day: p.day || null, body_part: p.bodyPart, side: p.side || null, severity: sev,
+    phase: p.phase || null, lift: p.lift ? String(p.lift).slice(0, 40) : null, set_ref: p.setRef || null, note: p.note ? String(p.note).slice(0, 500) : null };
 }
 function mapDbBw(r) { return { id: r.id, athleteId: r.athlete_id, date: r.date, weight: Number(r.weight) }; }
 function mapJsBw(b) { return { id: b.id, athlete_id: b.athleteId, date: b.date, weight: b.weight }; }
@@ -460,11 +493,20 @@ function mapJsCheckin(c) {
 function mapDbGoals(r) {
   return { id: r.athlete_id, athleteId: r.athlete_id,
     squat: r.squat || null, bench: r.bench || null, deadlift: r.deadlift || null, total: r.total || null,
-    bodyweight: r.bodyweight || null, bwDirection: r.bw_direction || 'maintain' };
+    bodyweight: r.bodyweight || null, bwDirection: r.bw_direction || 'maintain',
+    // The cut (migration-readiness-cut-2026-10-22.sql); absent before it runs.
+    kcalTarget: r.kcal_target != null ? Number(r.kcal_target) : null, proteinTarget: r.protein_g_target != null ? Number(r.protein_g_target) : null,
+    cutBy: r.cut_by || null, targetClass: r.target_class != null ? Number(r.target_class) : null };
 }
+const GOAL_CUT_COLS = ['kcal_target', 'protein_g_target', 'cut_by', 'target_class'];
 function mapJsGoals(g) {
-  return { athlete_id: g.athleteId, squat: g.squat, bench: g.bench, deadlift: g.deadlift, total: g.total,
+  const row = { athlete_id: g.athleteId, squat: g.squat, bench: g.bench, deadlift: g.deadlift, total: g.total,
     bodyweight: g.bodyweight, bw_direction: g.bwDirection || 'maintain', updated_at: new Date().toISOString() };
+  if (g.kcalTarget !== undefined) row.kcal_target = g.kcalTarget || null;
+  if (g.proteinTarget !== undefined) row.protein_g_target = g.proteinTarget || null;
+  if (g.cutBy !== undefined) row.cut_by = g.cutBy || null;
+  if (g.targetClass !== undefined) row.target_class = g.targetClass || null;
+  return row;
 }
 function mapDbRest(r) { return { id: r.id, athleteId: r.athlete_id, date: r.date, note: r.note || '' }; }
 function mapJsRest(r) { return { id: r.id, athlete_id: r.athleteId, date: r.date, note: r.note || null }; }
@@ -642,6 +684,12 @@ const DB = {
   // sign the user out on failure; we surface the reason + the email fallback).
   async deleteAccount() {
     try {
+      // Note where this person's voice notes are while the rows still exist (read only), but
+      // delete nothing until the account is really gone: a failed deletion keeps every recording.
+      // The redeployed function sweeps them itself (purged.voice); the older one doesn't, so then
+      // we remove them here (the storage policy only checks the token's uid against the path).
+      let voicePaths = [];
+      try { const s = await sb.auth.getSession(); const uid = s && s.data && s.data.session && s.data.session.user && s.data.session.user.id; if (uid) voicePaths = await this._myVoicePaths(uid); } catch (e) {}
       const { data, error } = await sb.functions.invoke('delete-account', { body: {} });
       if (error) {
         // Same FunctionsHttpError unwrap as sendInvite — the function's JSON
@@ -659,7 +707,10 @@ const DB = {
         console.error('deleteAccount failed', status, reason, error);
         return { ok: false, status, reason, error };
       }
-      if (data && data.deleted) return { ok: true, purged: data.purged };
+      if (data && data.deleted) {
+        if (voicePaths.length && !(data.purged && data.purged.voice != null)) await this._removeVoicePaths(voicePaths);
+        return { ok: true, purged: data.purged };
+      }
       console.error('deleteAccount unexpected response', data);
       return { ok: false, reason: (data && data.error) || 'Unexpected response', error: data };
     } catch (e) {
@@ -1581,21 +1632,85 @@ const DB = {
     if (error) { console.warn('listProgramsForCoach', error); return []; }
     return (data || []).map(mapDbProgram);
   },
+  // Compare-and-swap: the save carries the rev it was edited from. When the row has moved on
+  // (another device, the coach, the lifter's set log), the server says powa_rev_conflict; we fetch
+  // the new copy, merge both edits (app.js mergeProgramVersions) and save again. Never a silent
+  // overwrite. Before the migration (no rev column) it's the old plain save.
   async upsertProgram(prog) {
-    // Postgres upsert runs INSERT-with-CHECK + UPDATE — athletes can't pass the
-    // INSERT policy (coach-only). So: UPDATE first; if no row hit, INSERT.
-    let row = mapJsProgram(prog);
-    let updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
-    if (updateRes.error && 'maxes' in row && _missingCol(updateRes.error, ['maxes'])) {
-      _noProgramMaxes = true;   // the column isn't there yet: save without it
-      row = mapJsProgram(prog);
-      updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
+    if (!prog || !prog.id) return;
+    const sentJson = _progSnap(prog);
+    let base = prog._base || this.programBase(prog.id);
+    let mine = { id: prog.id, athleteId: prog.athleteId, coachId: prog.coachId, name: prog.name, weeks: prog.weeks, maxes: prog.maxes, rev: prog.rev };
+    let merged = false, rev, tries = 0;
+    for (;;) {
+      if (++tries > 8) throw new Error('Could not save the program: it kept changing. Try again');
+      const row = mapJsProgram(mine);
+      // Postgres upsert runs INSERT-with-CHECK + UPDATE: athletes can't pass the INSERT policy
+      // (coach-only). So: UPDATE first; if no row hit, INSERT.
+      const res = await sb.from('programs').update(row).in('id', [prog.id]).select(_noProgramRev ? 'id' : 'id, rev');
+      if (res.error && 'maxes' in row && _missingCol(res.error, ['maxes'])) { _noProgramMaxes = true; continue; }   // save without it
+      if (res.error && !_noProgramRev && _missingCol(res.error, ['rev'])) { _noProgramRev = true; continue; }
+      if (res.error && _isRevConflict(res.error) && tries <= 5) {
+        const theirs = await this.getProgramRow(prog.id);
+        if (!theirs) throw res.error;
+        const m = typeof mergeProgramVersions === 'function' ? mergeProgramVersions(base, mine, theirs) : mine;
+        mine = Object.assign({}, mine, { name: m.name, weeks: m.weeks, maxes: m.maxes, rev: theirs.rev });
+        base = { name: theirs.name, weeks: theirs.weeks, maxes: theirs.maxes };
+        merged = true;
+        continue;
+      }
+      if (res.error) throw res.error;
+      if (res.data && res.data.length) { if (res.data[0].rev != null) rev = Number(res.data[0].rev); break; }
+      // No existing row: try INSERT (only the coach can succeed here per RLS)
+      const insertRes = await sb.from('programs').insert(row);
+      if (insertRes.error && 'maxes' in row && _missingCol(insertRes.error, ['maxes'])) { _noProgramMaxes = true; continue; }
+      if (insertRes.error && !_noProgramRev && _missingCol(insertRes.error, ['rev'])) { _noProgramRev = true; continue; }
+      if (insertRes.error) throw insertRes.error;
+      if (!_noProgramRev) rev = typeof row.rev === 'number' ? row.rev : 0;
+      break;
     }
-    if (updateRes.error) throw updateRes.error;
-    if (updateRes.data && updateRes.data.length) return;
-    // No existing row — try INSERT (only the coach can succeed here per RLS)
-    const insertRes = await sb.from('programs').insert(row);
-    if (insertRes.error) throw insertRes.error;
+    _rememberProgBase(mine);
+    if (typeof programWriteLanded === 'function') programWriteLanded(prog, sentJson, { name: mine.name || '', weeks: mine.weeks || [], maxes: mine.maxes || null }, rev, merged);
+    else if (typeof rev === 'number') prog.rev = rev;
+    return { rev, merged };
+  },
+  async getProgramRow(id) {
+    const { data, error } = await sb.from('programs').select('*').in('id', [id]).limit(1);
+    if (error) throw error;
+    return data && data[0] ? mapDbProgram(data[0]) : null;
+  },
+  // The version this device last read or wrote (null when unknown, e.g. a cold offline open).
+  programBase(id) { try { return _progBase[id] ? JSON.parse(_progBase[id]) : null; } catch (e) { return null; } },
+  rememberProgramBase(p) { _rememberProgBase(p); },
+  // A set patch landed with the next rev: the remembered copy gets the same patch.
+  patchProgramBase(id, path, patch) {
+    const b = this.programBase(id);
+    if (!b || typeof _findProgramSet !== 'function') return;
+    const s = _findProgramSet(b, path);
+    if (!s) { delete _progBase[id]; return; }
+    applySetPatch(s, patch);
+    _progBase[id] = JSON.stringify(b);
+  },
+  // One set logged / un-logged (log_program_set): the new rev, or null when the set isn't there.
+  // Throws { notReady } before the migration runs; any other throw = offline (the outbox retries).
+  async logProgramSet(programId, path, patch) {
+    const { data, error } = await sb.rpc('log_program_set', { p_program_id: programId, p_path: (path || []).map(String), p_patch: patch });
+    if (error) {
+      if (_isNotReady(error)) { const e = new Error('log_program_set is not there yet'); e.notReady = true; throw e; }
+      // 22023: the server refused the patch's shape (a field or a type). Retrying can't help.
+      if (error.code === '22023') { const e = new Error(error.message || 'bad set patch'); e.badPatch = true; throw e; }
+      throw error;
+    }
+    const v = Array.isArray(data) ? data[0] : data;
+    return v == null ? null : Number(v);
+  },
+  // The lifter's kg / lb on their profile ('kg' | 'lbs'). Quiet before the migration.
+  async setMyUnit(unit) {
+    const uid = await this.getUserId();
+    if (!uid) return { ok: false };
+    const { error } = await sb.from('profiles').update({ unit: unit === 'lbs' || unit === 'lb' ? 'lb' : 'kg' }).in('id', [uid]);
+    if (error) return { ok: false, notReady: _isNotReady(error) || !!_missingCol(error, ['unit']), error };
+    return { ok: true };
   },
   async deleteProgram(id) {
     const { error } = await sb.from('programs').delete().in('id', [id]);
@@ -1614,20 +1729,109 @@ const DB = {
   async saveHealthDaily(rows) {
     const uid = await this.getUserId();
     if (!uid || !rows || !rows.length) return { ok: true };
-    const out = rows.map(r => ({ athlete_id: uid, day: r.day,
-      sleep_min: r.sleepMin == null ? null : Math.max(0, Math.min(1440, Math.round(r.sleepMin))),
-      rhr_bpm: r.rhr == null ? null : Math.round(Number(r.rhr)) }));
-    const { error } = await sb.from('health_daily').upsert(out, { onConflict: 'athlete_id,day' });
+    const out = rows.map(r => {
+      const o = { athlete_id: uid, day: r.day,
+        sleep_min: r.sleepMin == null ? null : Math.max(0, Math.min(1440, Math.round(r.sleepMin))),
+        rhr_bpm: r.rhr == null ? null : Math.round(Number(r.rhr)) };
+      if (r.hrv != null && Number(r.hrv) > 0) o.hrv_ms = Math.round(Math.min(500, Number(r.hrv)) * 10) / 10;
+      return o;
+    });
+    let { error } = await sb.from('health_daily').upsert(out, { onConflict: 'athlete_id,day' });
+    // Before migration-readiness-cut-2026-10-22.sql: no HRV column, share sleep + HR as before.
+    if (error && _missingCol(error, ['hrv_ms'])) {
+      out.forEach(o => delete o.hrv_ms);
+      ({ error } = await sb.from('health_daily').upsert(out.filter(o => o.sleep_min != null || o.rhr_bpm != null), { onConflict: 'athlete_id,day' }));
+    }
     if (error) return { ok: false, notReady: _isNotReady(error), error };
     return { ok: true };
   },
-  // A coach: the shared rows of their roster (RLS hands over only what's shared), last 14 days.
-  async listHealthDaily(athleteIds) {
+  // Food sharing, its own switch (migration-readiness-cut-2026-10-22.sql).
+  async setShareNutrition(on) {
+    const uid = await this.getUserId();
+    if (!uid) return { ok: false };
+    const { error } = await sb.from('profiles').update({ share_nutrition_with_coach: !!on }).in('id', [uid]);
+    if (error) return { ok: false, notReady: _isNotReady(error) || !!_missingCol(error, ['share_nutrition_with_coach']), error };
+    return { ok: true };
+  },
+  // Days with food logged ({ day, kcal, proteinG }); a day without data is never sent.
+  async saveNutritionDaily(rows) {
+    const uid = await this.getUserId();
+    const out = (rows || []).filter(r => r && r.day && (Number(r.kcal) > 0 || Number(r.proteinG) > 0)).map(r => ({ athlete_id: uid, day: r.day,
+      kcal: Number(r.kcal) > 0 ? Math.min(20000, Math.round(Number(r.kcal))) : null,
+      protein_g: Number(r.proteinG) > 0 ? Math.min(1000, Math.round(Number(r.proteinG) * 10) / 10) : null }));
+    if (!uid || !out.length) return { ok: true };
+    const { error } = await sb.from('nutrition_daily').upsert(out, { onConflict: 'athlete_id,day' });
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: true };
+  },
+  async listNutritionDaily(athleteIds) {
     if (!athleteIds || !athleteIds.length) return [];
     const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
-    const { data, error } = await sb.from('health_daily').select('athlete_id, day, sleep_min, rhr_bpm').in('athlete_id', athleteIds).gte('day', since).order('day', { ascending: false });
+    const { data, error } = await sb.from('nutrition_daily').select('athlete_id, day, kcal, protein_g').in('athlete_id', athleteIds).gte('day', since).order('day', { ascending: false });
+    if (error) { if (!_isNotReady(error)) console.warn('listNutritionDaily', error); return []; }
+    return (data || []).map(r => ({ athleteId: r.athlete_id, day: r.day, kcal: r.kcal, proteinG: r.protein_g == null ? null : Number(r.protein_g) }));
+  },
+  // A coach: the shared rows of their roster (RLS hands over only what's shared), last 14 days.
+  // 35 days: readiness compares the last days with the lifter's own 28 before them.
+  async listHealthDaily(athleteIds) {
+    if (!athleteIds || !athleteIds.length) return [];
+    const since = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);
+    const q = (cols) => sb.from('health_daily').select(cols).in('athlete_id', athleteIds).gte('day', since).order('day', { ascending: false }).limit(5000);
+    let { data, error } = await q('athlete_id, day, sleep_min, rhr_bpm, hrv_ms');
+    if (error && _missingCol(error, ['hrv_ms'])) ({ data, error } = await q('athlete_id, day, sleep_min, rhr_bpm'));
     if (error) { if (!_isNotReady(error)) console.warn('listHealthDaily', error); return []; }
-    return (data || []).map(r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm) }));
+    return (data || []).map(r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm), hrv: r.hrv_ms == null ? null : Number(r.hrv_ms) }));
+  },
+
+  // ---------- PAIN FLAGS (migration-pain-reports-2026-10-22.sql) ----------
+  // "Something hurt": the lifter's reports, read by them and their current coach. Reads fail soft
+  // to [] before the migration; writes throw { notReady } so the app can say so.
+  async listPainReports(athleteIds, sinceIso) {
+    if (!athleteIds || !athleteIds.length) return [];
+    const since = sinceIso || new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+    const { data, error } = await sb.from('pain_reports').select('*').in('athlete_id', athleteIds).gte('day', since).order('created_at', { ascending: false }).limit(500);
+    if (error) { if (!_isNotReady(error)) console.warn('listPainReports', error); return []; }
+    return (data || []).map(mapDbPainReport);
+  },
+  // Idempotent by id (an outbox replay of a report that did land is fine).
+  async addPainReport(r) {
+    const { data, error } = await sb.from('pain_reports').insert(mapJsPainReport(r)).select('*');
+    if (error) {
+      // Already there (an outbox replay of a report that did land): say so, so no second push goes.
+      if (/duplicate|unique|23505/i.test(String(error.message || '') + ' ' + error.code)) return Object.assign({}, r, { duplicate: true });
+      if (_isNotReady(error)) { const e = new Error('Pain flags switch on with the next update'); e.notReady = true; throw e; }
+      throw error;
+    }
+    return data && data[0] ? mapDbPainReport(data[0]) : r;
+  },
+  async deletePainReport(id) {
+    const { error } = await sb.from('pain_reports').delete().in('id', [id]);
+    if (error) throw error;
+  },
+  // The coach: resolved (with a note) or open again. The server stamps who resolved it.
+  async resolvePainReport(id, resolved, coachNote) {
+    const row = { resolved_at: resolved ? new Date().toISOString() : null, coach_note: coachNote ? String(coachNote).slice(0, 1000) : null };
+    const { data, error } = await sb.from('pain_reports').update(row).in('id', [id]).select('*');
+    if (error) throw error;
+    return data && data[0] ? mapDbPainReport(data[0]) : null;
+  },
+  // Live: a new, resolved or deleted report (RLS decides what arrives). onChange(report, eventType);
+  // on 'DELETE' the report is just { id }. Returns an unsubscribe, or null.
+  subscribePainReports(onChange) {
+    if (typeof onChange !== 'function') return null;
+    try {
+      const ch = sb.channel('pain:' + Math.random().toString(36).slice(2, 8))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pain_reports' },
+          payload => {
+            try {
+              // A DELETE (the lifter's Undo on a mis-tap) carries only the old row's id.
+              if (payload.eventType === 'DELETE') { if (payload.old && payload.old.id) onChange({ id: payload.old.id }, 'DELETE'); return; }
+              if (payload.new && payload.new.id) onChange(mapDbPainReport(payload.new), payload.eventType);
+            } catch (e) { console.warn('subscribePainReports cb', e); }
+          })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribePainReports', e); return null; }
   },
 
   // ---------- COACH BRANDING (migration-coach-brand-2026-10-22.sql) ----------
@@ -1899,8 +2103,16 @@ const DB = {
     return (data || []).map(mapDbGoals);
   },
   async upsertGoals(g) {
-    const { error } = await sb.from('goals').upsert(mapJsGoals(g), { onConflict: 'athlete_id' });
+    const row = mapJsGoals(g);
+    let { error } = await sb.from('goals').upsert(row, { onConflict: 'athlete_id' });
+    // Before migration-readiness-cut-2026-10-22.sql there are no cut columns: save the rest.
+    if (error && (_missingCol(error, GOAL_CUT_COLS) || _isNotReady(error))) {
+      GOAL_CUT_COLS.forEach(c => delete row[c]);
+      ({ error } = await sb.from('goals').upsert(row, { onConflict: 'athlete_id' }));
+      if (!error) return { cutSaved: false };
+    }
     if (error) throw error;
+    return { cutSaved: true };
   },
 
   // ---------- REST DAYS ----------
@@ -2212,6 +2424,101 @@ const DB = {
     const m = data && data[0] ? mapDbMessage(data[0]) : null;
     if (m && !m.meta && meta) m.meta = meta;
     return m;
+  },
+
+  // ---- Voice notes (migration-voice-notes-2026-10-22.sql) ----------------
+  // The file goes to the private `voice-notes` bucket at <coach>/<athlete>/<sender>/<id>.<ext>,
+  // then the message row points at it. `id` is made on the phone, so a queued note sent twice
+  // (an outbox replay) lands once. If the row can't be written the upload is removed again, so
+  // a failed send never leaves an orphaned recording behind.
+  // Throws an Error with .offline (keep it queued), .notReady (migration not run) or neither.
+  voiceNotePath({ coachId, athleteId, senderId, id, mime }) {
+    const b = String(mime || '').split(';')[0].trim().toLowerCase();
+    const ext = b === 'audio/webm' ? 'webm' : b === 'audio/ogg' ? 'ogg' : b === 'audio/aac' ? 'aac' : 'm4a';
+    return coachId + '/' + athleteId + '/' + senderId + '/' + id + '.' + ext;
+  },
+  _voiceErr(error, fallback) {
+    const msg = String((error && (error.message || error.error || error.details)) || fallback || 'voice note failed');
+    const e = new Error(msg);
+    const status = String((error && (error.statusCode || error.status)) || '');
+    e.offline = (typeof navigator !== 'undefined' && navigator.onLine === false) || /failed to fetch|networkerror|network request|load failed|timed? ?out|aborted/i.test(msg);
+    e.notReady = !e.offline && (/bucket not found/i.test(msg) || (status === '404' && /bucket/i.test(msg)) || _isNotReady(error));
+    e.status = status; e.code = String((error && error.code) || '');
+    // A definite no (policy, link gone, file too big / wrong type): retrying can never work.
+    // Anything else (5xx, 429, an expired token, unknown) is worth another go later.
+    e.refused = !e.offline && (e.notReady || e.code === '42501' || e.code === '23503' || status === '403' || status === '413' || status === '415'
+      || /row-level security|violates|payload too large|too large|mime type|not supported/i.test(msg));
+    return e;
+  },
+  async sendVoiceNote({ id, coachId, athleteId, senderId, blob, mime, dur, peaks }) {
+    if (!id || !coachId || !athleteId || !senderId || !blob) throw new Error('bad voice note');
+    const type = String(mime || blob.type || 'audio/mp4').split(';')[0].trim().toLowerCase();
+    const path = this.voiceNotePath({ coachId, athleteId, senderId, id, mime: type });
+    let up;
+    try { up = await sb.storage.from('voice-notes').upload(path, blob, { contentType: type, upsert: false, cacheControl: '31536000' }); }
+    catch (e) { throw this._voiceErr(e); }
+    // Already there: a replay of a note whose upload landed last time. Carry on to the row.
+    if (up && up.error && !/already exists|duplicate|409/i.test(String(up.error.message || '') + ' ' + String(up.error.statusCode || ''))) throw this._voiceErr(up.error);
+    const d = Math.round(Math.max(0.1, Math.min(120, Number(dur) || 0)) * 10) / 10;
+    const meta = { type: 'voice', path, dur: d, peaks: (peaks || []).slice(0, 32).map(v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)))), mime: type };
+    const s = Math.round(d);
+    const row = { id, coach_id: coachId, athlete_id: athleteId, sender_id: senderId, body: 'Voice note · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'), meta };
+    let res;
+    try { res = await sb.from('messages').insert(row).select('*'); }
+    catch (e) { res = { error: e }; }
+    if (res.error && /duplicate|unique|23505/i.test(String(res.error.message || '') + ' ' + res.error.code)) {
+      const again = await sb.from('messages').select('*').eq('id', id).maybeSingle();
+      if (again && again.data) return mapDbMessage(again.data);
+    }
+    if (res.error) {
+      // The row didn't land: take the file back out (best effort; the queue re-uploads on retry).
+      try { await sb.storage.from('voice-notes').remove([path]); } catch (e) {}
+      throw this._voiceErr(res.error);
+    }
+    const m = res.data && res.data[0] ? mapDbMessage(res.data[0]) : null;
+    if (m && !m.meta) m.meta = meta;
+    return m;
+  },
+  // The newest voice note `senderId` sent in this thread (Train's "voice note" row), or null.
+  async latestVoiceFrom(senderId, coachId, athleteId) {
+    if (!senderId || !coachId || !athleteId) return null;
+    const { data, error } = await sb.from('messages').select('*')
+      .eq('coach_id', coachId).eq('athlete_id', athleteId).eq('sender_id', senderId).eq('meta->>type', 'voice')
+      .order('created_at', { ascending: false }).limit(1);
+    if (error || !data || !data[0]) return null;   // before the migration there's no meta: nothing to show
+    return mapDbMessage(data[0]);
+  },
+  // A short-lived link to play a note (either person on the thread). Cached until near expiry.
+  _voiceUrls: {},
+  async voiceNoteUrl(path) {
+    if (!path) return null;
+    const c = this._voiceUrls[path];
+    if (c && c.until > Date.now()) return c.url;
+    const { data, error } = await sb.storage.from('voice-notes').createSignedUrl(path, 3600);
+    if (error || !data) throw this._voiceErr(error, 'no link');
+    const url = data.signedUrl || data.signedURL;
+    this._voiceUrls[path] = { url, until: Date.now() + 50 * 60000 };
+    return url;
+  },
+  // Account deletion: remove every recording this person made (the storage policy lets only the
+  // sender delete; the delete-account function sweeps the other side of their threads).
+  async purgeMyVoiceNotes(uid) {
+    return this._removeVoicePaths(await this._myVoicePaths(uid));
+  },
+  async _myVoicePaths(uid) {
+    if (!uid) return [];
+    try {
+      const { data, error } = await sb.from('messages').select('meta').eq('sender_id', uid).eq('meta->>type', 'voice').limit(5000);
+      if (error) return [];
+      return (data || []).map(r => r.meta && r.meta.path).filter(p => typeof p === 'string' && p.indexOf(uid + '/') > 0);
+    } catch (e) { return []; }
+  },
+  async _removeVoicePaths(paths) {
+    paths = paths || [];
+    for (let i = 0; i < paths.length; i += 100) {
+      try { await sb.storage.from('voice-notes').remove(paths.slice(i, i + 100)); } catch (e) {}
+    }
+    return paths.length;
   },
 
   // ---- Reactions (migration-reactions.sql). One per person per message / post;
@@ -2548,7 +2855,7 @@ const DB = {
     const empty = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
       workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
-      checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [], programBlocks: [],
+      checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [], programBlocks: [], painReports: [],
       marketplacePrograms: [], mySales: [], myPurchases: []
     };
     // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
@@ -2564,7 +2871,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2579,9 +2886,13 @@ const DB = {
         this.listCheckinQuestions().catch(() => []),
         this.listCheckinAnswers(_ciSince).catch(() => []),
         this.listProgramBlocks(athleteIds).catch(() => []),
-        this.listHealthDaily(athleteIds).catch(() => [])
+        this.listHealthDaily(athleteIds).catch(() => []),
+        this.listPainReports(athleteIds).catch(() => []),
+        this.listNutritionDaily(athleteIds).catch(() => [])
       ]);
       empty.healthDaily = healthDaily;
+      empty.nutritionDaily = nutritionDaily;
+      empty.painReports = painReports;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;
       empty.programBlocks = blocks;
@@ -2598,7 +2909,7 @@ const DB = {
       empty.mySales = sales;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -2611,9 +2922,11 @@ const DB = {
         profile.coach_id ? this.listCheckinQuestions().catch(() => []) : Promise.resolve([]),
         profile.coach_id ? this.listCheckinAnswers(_ciSince).catch(() => []) : Promise.resolve([]),
         this.listProgramBlocks([profile.id]).catch(() => []),
-        profile.coach_id ? this.getMyCoachBrand().catch(() => null) : Promise.resolve(null)
+        profile.coach_id ? this.getMyCoachBrand().catch(() => null) : Promise.resolve(null),
+        this.listPainReports([profile.id]).catch(() => [])
       ]);
       empty.coachBrand = brand;
+      empty.painReports = painReports;
       empty.programBlocks = blocks;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;

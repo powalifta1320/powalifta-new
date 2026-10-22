@@ -91,6 +91,7 @@
 <script src="app.js"></script>
 <script src="clubs.js"></script>
 <script src="health.js"></script>
+<script src="voice.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -2074,6 +2075,335 @@ test('respects the window (old data excluded)', () => {
   const logs = [_etLog('2026-01-01', 100), _etLog('2026-06-25', 205), _etLog('2026-07-01', 210)];
   const t = e1rmTrend(logs, 'A', 'squat', _etNow, 56); // 8wk window excludes January
   assert(t > 0 && t < 20, 'January outlier must not dominate, got ' + t);
+});
+
+/* ===========================================================
+   Safe program saving (brief M0a): three-way merge, set patches, unit
+   =========================================================== */
+group('safe program saving (M0a)');
+function _mp() {
+  const st = (id, w, done) => ({ id, weight: w, reps: 3, rpe: 8, completed: !!done, actualRpe: done ? 8 : null, completedAt: done ? '2026-10-22' : null, note: '' });
+  return { name: 'Block', maxes: null, weeks: [{ id: 'w1', number: 1, days: [
+    { id: 'd1', name: 'Squat day', exercises: [
+      { id: 'e1', lift: 'squat', sets: [st('s1', 180), st('s2', 170)] },
+      { id: 'e2', lift: 'bench', sets: [st('s3', 110)] } ] },
+    { id: 'd2', name: 'Pull day', exercises: [ { id: 'e3', lift: 'deadlift', sets: [st('s4', 220)] } ] } ] }] };
+}
+const _cl = (o) => JSON.parse(JSON.stringify(o));
+const _set = (p, d, e, i) => p.weeks[0].days[d].exercises[e].sets[i];
+test('merge: a coach edit and a lifter log on different sets both survive', () => {
+  const base = _mp(), coach = _cl(base), lifter = _cl(base);
+  _set(coach, 0, 0, 1).weight = 172.5;                                    // coach moves set 2
+  Object.assign(_set(lifter, 0, 0, 0), { completed: true, actualRpe: 8.5, completedAt: '2026-10-22', lastLogId: 'L1' });
+  const m = mergeProgramVersions(base, coach, lifter);
+  eq(_set(m, 0, 0, 0).completed, true); eq(_set(m, 0, 0, 0).actualRpe, 8.5); eq(_set(m, 0, 0, 1).weight, 172.5);
+  const m2 = mergeProgramVersions(base, lifter, coach);                     // either order
+  eq(_set(m2, 0, 0, 0).lastLogId, 'L1'); eq(_set(m2, 0, 0, 1).weight, 172.5);
+});
+test('merge: the set the lifter did keeps what was lifted, even if the coach changed it', () => {
+  const base = _mp(), coach = _cl(base), lifter = _cl(base);
+  _set(coach, 0, 0, 0).weight = 185; _set(coach, 0, 0, 0).rpe = 9;
+  Object.assign(_set(lifter, 0, 0, 0), { completed: true, actualRpe: 8, weight: 182.5, plannedWeight: 180 });
+  const m = mergeProgramVersions(base, coach, lifter);
+  const s = _set(m, 0, 0, 0);
+  eq(s.completed, true); eq(s.weight, 182.5); eq(s.plannedWeight, 180); eq(s.rpe, 9);   // log from the lifter, target from the coach
+});
+test('merge: added, removed and reordered exercises and days', () => {
+  const base = _mp(), coach = _cl(base), lifter = _cl(base);
+  coach.weeks[0].days[0].exercises.push({ id: 'e9', lift: 'pull', sets: [{ id: 's9', weight: 0, reps: 10, rpe: 8, completed: false }] });   // added
+  coach.weeks[0].days[1].exercises = [];                                    // removed deadlift (lifter never touched it)
+  _set(lifter, 0, 1, 0).completed = true;                                   // lifter logged bench
+  let m = mergeProgramVersions(base, coach, lifter);
+  eq(m.weeks[0].days[0].exercises.map(e => e.id).join(','), 'e1,e2,e9');
+  eq(m.weeks[0].days[1].exercises.length, 0);
+  eq(_set(m, 0, 1, 0).completed, true);
+  // The coach removes an exercise the lifter has just logged on: it stays (the log isn't lost).
+  const c2 = _cl(base), l2 = _cl(base);
+  c2.weeks[0].days[0].exercises.splice(1, 1);
+  _set(l2, 0, 1, 0).completed = true;
+  m = mergeProgramVersions(base, c2, l2);
+  eq(m.weeks[0].days[0].exercises.map(e => e.id).join(','), 'e1,e2');
+  // Only I reordered the days: my order wins; their edit inside still lands.
+  const me = _cl(base), them = _cl(base);
+  me.weeks[0].days.reverse();
+  them.weeks[0].days[0].name = 'Heavy squat';
+  m = mergeProgramVersions(base, me, them);
+  eq(m.weeks[0].days.map(d => d.id).join(','), 'd2,d1'); eq(m.weeks[0].days[1].name, 'Heavy squat');
+});
+test('merge: no base (an old offline copy) never drops the other side-s logs or items', () => {
+  const server = _mp(), offline = _cl(server);
+  Object.assign(_set(server, 0, 0, 0), { completed: true, actualRpe: 9 });
+  server.weeks[0].days[0].exercises.push({ id: 'e8', lift: 'pull', sets: [] });
+  _set(offline, 0, 0, 1).weight = 175;
+  const m = mergeProgramVersions(null, offline, server);
+  eq(_set(m, 0, 0, 0).completed, true); eq(_set(m, 0, 0, 1).weight, 175); eq(m.weeks[0].days[0].exercises.length, 3);
+});
+test('merge: key order and null vs missing are not changes', () => {
+  eq(_deq({ a: 1, b: { c: [1, 2] } }, { b: { c: [1, 2] }, a: 1 }), true);
+  eq(_deq({ a: 1, x: null }, { a: 1 }), true);
+  eq(_deq([1, 2], [2, 1]), false);
+  const base = _mp(), mine = _cl(base), theirs = _cl(base);
+  delete _set(theirs, 0, 0, 0).actualRpe;                                   // the server dropped a null field
+  const m = mergeProgramVersions(base, mine, theirs);
+  eq(JSON.stringify(m.weeks[0].days[0].exercises[0].sets[1]), JSON.stringify(_set(base, 0, 0, 1)));
+});
+test('set patches: path, patch, apply', () => {
+  const p = _mp();
+  const wk = p.weeks[0], d = wk.days[0], e = d.exercises[0];
+  eq(programSetPath(wk, d, e, 1).join('/'), 'w1/d1/e1/s2');
+  delete e.sets[0].id;
+  eq(programSetPath(wk, d, e, 0).join('/'), 'w1/d1/e1/0');                  // an old set without id: its index
+  eq(programSetPath(wk, d, null, 0), null);
+  const s = Object.assign({}, e.sets[1], { completed: true, actualRpe: 9, completedAt: '2026-10-22', lastLogId: 'L9', note: '' });
+  const patch = setLogPatch(s);
+  eq(patch.completed, true); eq(patch.note, null); eq(patch.skipped, null); eq('rpe' in patch, false);
+  applySetPatch(s, patch);
+  eq('note' in s, false); eq(s.lastLogId, 'L9'); eq(s.rpe, 8);
+  eq(_findProgramSet(p, ['w1', 'd1', 'e1', 's2']).weight, 170);
+  eq(_findProgramSet(p, ['w1', 'd1', 'e1', '0']).weight, 180);
+  eq(_findProgramSet(p, ['w1', 'd1', 'nope', 's2']), null);
+});
+test('set patches: undo sends only the completion, unless the load went back to plan', () => {
+  const s = { id: 's1', weight: 180, reps: 3, rpe: 8, completed: false, actualRpe: null, completedAt: null, lastLogId: null };
+  const u = setLogPatch(s, { undo: true });
+  eq('weight' in u, false); eq('reps' in u, false); eq('plannedWeight' in u, false); eq(u.completed, false); eq(u.lastLogId, null);
+  const u2 = setLogPatch(s, { undo: true, restoredWeight: true });
+  eq(u2.weight, 180); eq(u2.plannedWeight, null); eq('reps' in u2, false);
+  const srv = { id: 's1', weight: 190, reps: 3, completed: true, lastLogId: 'L1' };   // the coach moved it to 190
+  applySetPatch(srv, u);
+  eq(srv.weight, 190); eq(srv.completed, false); eq('lastLogId' in srv, false);
+});
+test('set patches: the shapes log_program_set accepts', () => {
+  const p = setLogPatch({ weight: '182.5', reps: 'AMRAP', actualRpe: '8', completed: 1, note: 12, completedAt: '2026-10-22' });
+  eq(p.weight, 182.5); eq('reps' in p, false); eq(p.actualRpe, 8); eq(p.completed, true); eq(p.note, '12');
+});
+test('unit: a new device takes the profile-s unit; a chosen one goes up', () => {
+  const had = localStorage.getItem(UNIT_KEY);
+  try {
+    localStorage.removeItem(UNIT_KEY);
+    eq(syncUnitWithProfile('lb', true), 'adopted'); eq(getUnit(), 'lbs');
+    eq(syncUnitWithProfile('lb', true), 'same');
+    setUnit('kg');
+    eq(syncUnitWithProfile('lb', true), 'pushed');
+    eq(syncUnitWithProfile(undefined, false), 'same');                       // before the migration: nothing to push to
+    eq(unitFromDb('lb'), 'lbs'); eq(unitFromDb('kg'), 'kg'); eq(unitFromDb(null), null);
+  } finally { if (had == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, had); }
+});
+
+/* ===========================================================
+   Pain flags (brief 4.1 / M2)
+   =========================================================== */
+group('pain flags (M2)');
+const _pr = (o) => Object.assign({ id: 'p' + Math.random(), athleteId: 'a', day: '2026-10-21', bodyPart: 'low_back', side: null, severity: 4, phase: 'top', lift: 'deadlift', resolvedAt: null, createdAt: '2026-10-21T18:00:00Z' }, o);
+test('labels: L hip, Low back, both sides', () => {
+  eq(painPartLabel('hip', 'left'), 'L hip'); eq(painPartLabel('knee', 'right'), 'R knee');
+  eq(painPartLabel('low_back', 'left'), 'Low back');                         // unpaired parts ignore a side
+  eq(painPartLabel('shoulder', 'both'), 'Shoulder, both sides'); eq(painPartLabel('spleen'), 'Other');
+  eq(painReportText(_pr({ bodyPart: 'hip', side: 'left', lift: 'squat', severity: 4 })), 'L hip · Squat · 4/10');
+  eq(painReportText(_pr({ lift: 'Romanian deadlift' })), 'Low back · Romanian deadlift · 4/10');
+});
+test('the coach flag: worst open report, repeats in a week, colour by severity', () => {
+  const t = '2026-10-22';
+  eq(painFlagFor('a', [], t), null);
+  let f = painFlagFor('a', [_pr({ severity: 4 })], t);
+  eq(f.text, 'Pain · Low back · Deadlift · 4/10'); eq(f.severity, 2); eq(f.count, 1);
+  f = painFlagFor('a', [_pr({ day: '2026-10-19', severity: 4 }), _pr({ day: '2026-10-21', severity: 6 })], t);
+  eq(f.text, 'Pain · Low back · Deadlift · 6/10 · 2nd this week'); eq(f.severity, 3); eq(f.open, 2);
+  eq(painFlagFor('a', [_pr({ severity: 8 })], t).severity, 3);               // 7+ is red on its own
+  eq(painFlagFor('a', [_pr({ resolvedAt: '2026-10-21T20:00:00Z' })], t), null);   // resolved: no flag
+  eq(painFlagFor('a', [_pr({ day: '2026-10-01' })], t), null);              // older than two weeks
+  eq(painFlagFor('b', [_pr({})], t), null);                                  // someone else's
+  eq(painRepeatCount([_pr({ day: '2026-10-10' }), _pr({ day: '2026-10-21' })], _pr({ day: '2026-10-21' })), 1);   // 11 days apart: not a repeat
+});
+test('push text never names the body part', () => {
+  const p = painPushText('Elena Ruiz');
+  eq(p.title, 'Elena sent you a training update');
+  PAIN_PARTS.forEach(part => { assert(!new RegExp(part.label, 'i').test(p.title + ' ' + p.body), 'push mentions ' + part.label); });
+  eq(painPushText('').title, 'Your athlete sent you a training update');
+  assert(!/pain|hurt|check-in/i.test(p.title + ' ' + p.body), 'push hints at pain');
+});
+test('a report from the sheet: clamped, side only where it applies', () => {
+  const r = buildPainReport({ athleteId: 'a', bodyPart: 'hip', side: 'left', severity: 14, phase: 'top', lift: 'squat', day: '2026-10-22' });
+  eq(r.bodyPart, 'hip'); eq(r.side, 'left'); eq(r.severity, 10); eq(r.phase, 'top'); eq(r.resolvedAt, null); assert(!!r.id, 'has an id');
+  const r2 = buildPainReport({ athleteId: 'a', bodyPart: 'low_back', side: 'left', severity: -2, phase: 'mid' });
+  eq(r2.side, null); eq(r2.severity, 0); eq(r2.phase, null);
+  eq(buildPainReport({ bodyPart: '<script>' }).bodyPart, 'other');
+});
+test('coach status: one pain flag, the check-in "Pain yesterday" goes', () => {
+  const saved = Store.get();
+  const t = '2026-10-22';
+  Store.set(Object.assign(defaultStore(), { athletes: [{ id: 'a', name: 'Ana', coachId: 'c' }],
+    checkinQuestions: [{ id: 'p', coachId: 'c', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true }],
+    checkinAnswers: [{ questionId: 'p', athleteId: 'a', period: '2026-10-21', num: 1 }],
+    painReports: [_pr({ severity: 6 })] }));
+  try {
+    const st = coachAthleteStatus('a', { today: t, coachId: 'c' });
+    eq(st.flags.filter(f => /^Pain/.test(f.text)).length, 1);
+    eq(st.flags.some(f => f.type === 'pain' && f.text === 'Pain · Low back · Deadlift · 6/10'), true);
+    eq(st.pain.open, 1);
+    Store.update(s => { s.painReports = []; });
+    const st2 = coachAthleteStatus('a', { today: t, coachId: 'c' });
+    eq(st2.flags.some(f => f.type === 'checkin' && /^Pain/.test(f.text)), true);   // no report: the check-in flag stays
+    eq(st2.pain, null);
+  } finally { Store.set(saved); }
+});
+
+group('voice notes (M5)');
+test('times and the plain body older builds show', () => {
+  eq(PowaVoice.fmtDur(0), '0:00'); eq(PowaVoice.fmtDur(9.6), '0:10'); eq(PowaVoice.fmtDur(83), '1:23'); eq(PowaVoice.fmtDur(-4), '0:00');
+  eq(PowaVoice.voiceBody(23.4), 'Voice note · 0:23');
+});
+test('waveform: 32 bars, loudest at 100, silence still draws', () => {
+  const p = PowaVoice.peaksFrom([0, 0.1, 0.2, 0.4, 0.2, 0.1].concat(Array(90).fill(0.05)));
+  eq(p.length, 32); eq(Math.max.apply(null, p), 100); assert(p.every(v => v >= 6 && v <= 100), 'bars in 6..100');
+  eq(PowaVoice.peaksFrom([]).length, 32); eq(PowaVoice.peaksFrom(null)[0], 6);
+  eq(PowaVoice.peaksFrom([0, 0, 0]).every(v => v === 6), true);
+  eq(PowaVoice.peaksFrom([1, 2], 4).length, 4);          // fewer samples than bars
+});
+test('a voice meta off the wire is cleaned, not trusted', () => {
+  eq(PowaVoice.cleanMeta(null), null); eq(PowaVoice.cleanMeta({ type: 'set' }), null); eq(PowaVoice.cleanMeta({ type: 'voice', dur: 0 }), null);
+  const m = PowaVoice.cleanMeta({ type: 'voice', dur: 12.3, path: 'c/a/s/x.m4a', peaks: [150, -3, '40'].concat(Array(29).fill(10)), mime: 'audio/mp4;codecs=mp4a.40.2' });
+  eq(m.dur, 12.3); eq(m.path, 'c/a/s/x.m4a'); eq(m.mime, 'audio/mp4'); eq(m.peaks.length, 32); eq(m.peaks[0], 100); eq(m.peaks[1], 0); eq(m.peaks[2], 40);
+  eq(PowaVoice.cleanMeta({ type: 'voice', dur: 5, path: '../x' }).path, null);
+  eq(PowaVoice.cleanMeta({ type: 'voice', dur: 999 }).dur, 125);
+  eq(PowaVoice.cleanMeta({ type: 'voice', dur: 3, peaks: [1, 2, 3] }).peaks.length, 32);   // resampled to 32
+});
+test('speed: 1× → 1.5× → 2× → 1×', () => {
+  eq(PowaVoice.nextRate(1), 1.5); eq(PowaVoice.nextRate(1.5), 2); eq(PowaVoice.nextRate(2), 1); eq(PowaVoice.nextRate(7), 1);
+  eq(PowaVoice.rateLabel(1.5), '1.5×'); eq(PowaVoice.rateLabel(2), '2×');
+});
+test('recording format: mp4 first, webm only where mp4 is missing', () => {
+  eq(PowaVoice.pickMime(t => /mp4|webm/.test(t)), 'audio/mp4');
+  eq(PowaVoice.pickMime(t => /webm/.test(t)), 'audio/webm;codecs=opus');
+  eq(PowaVoice.pickMime(t => /ogg/.test(t)), 'audio/ogg;codecs=opus');
+  eq(PowaVoice.pickMime(() => false), '');
+  eq(PowaVoice.extFor('audio/webm;codecs=opus'), 'webm'); eq(PowaVoice.extFor('audio/mp4'), 'm4a'); eq(PowaVoice.extFor(''), 'm4a');
+});
+test('heard notes are remembered (Train shows the newest until played)', () => {
+  const id = 'test-vn-' + Date.now();
+  eq(PowaVoice.heard(id), false); PowaVoice.markHeard(id); eq(PowaVoice.heard(id), true); eq(PowaVoice.heard(''), false);
+});
+test('voice outbox: only a definite refusal drops a queued note', () => {
+  const now = Date.parse('2026-10-22T12:00:00Z');
+  const item = { id: 'x', createdAt: '2026-10-22T11:00:00Z', tries: 0 };
+  eq(PowaVoice.afterSendError(item, { offline: true }, now), 'offline');
+  eq(PowaVoice.afterSendError(item, { refused: true }, now), 'drop');            // policy / link gone / too big
+  eq(PowaVoice.afterSendError(item, { notReady: true }, now), 'drop');
+  eq(PowaVoice.afterSendError(item, { status: '503' }, now), 'retry');           // a 5xx hiccup
+  eq(PowaVoice.afterSendError(item, { status: '429' }, now), 'retry');
+  eq(PowaVoice.afterSendError(item, { status: '401' }, now), 'retry');           // token refreshing on reconnect
+  eq(PowaVoice.afterSendError(item, new Error('?'), now), 'retry');
+  eq(PowaVoice.afterSendError(Object.assign({}, item, { tries: 7 }), { status: '503' }, now), 'drop');   // 8th failure
+  eq(PowaVoice.afterSendError(Object.assign({}, item, { createdAt: '2026-10-10T00:00:00Z' }), { status: '503' }, now), 'drop');   // over a week old
+});
+
+group('readiness rest + cut tracker (M7)');
+const _rdRows = (today, recent, base) => {
+  // base: 28 days before the last 3; recent: the last [today, yesterday, day before]
+  const rows = [];
+  for (let i = 3; i <= 30; i++) rows.push(Object.assign({ day: _addDaysISO(today, -i) }, base(i)));
+  recent.forEach((r, i) => { if (r) rows.push(Object.assign({ day: _addDaysISO(today, -i) }, r)); });
+  return rows;
+};
+test('readiness: own 28-day baseline, low only on 2 of the last 3 days', () => {
+  const t = '2026-10-22';
+  const base = (i) => ({ rhr: 50 + (i % 3) - 1, hrv: 60 + ((i % 5) - 2) * 3 });     // usual ~50, HRV ~60 ± 4
+  eq(readinessFrom([], t), null);
+  eq(readinessFrom(_rdRows(t, [{ rhr: 58 }], (i) => i < 6 ? base(i) : {}), t), null);      // under 7 baseline days: nothing
+  let r = readinessFrom(_rdRows(t, [{ rhr: 51, hrv: 61 }, { rhr: 50, hrv: 59 }], base), t);
+  eq(r.state, 'ok'); eq(r.line, ''); eq(r.rhrBase, 50);
+  r = readinessFrom(_rdRows(t, [{ rhr: 58, hrv: 61 }, { rhr: 50, hrv: 60 }], base), t);
+  eq(r.state, 'ok');                                                                     // one bad morning isn't a trend
+  r = readinessFrom(_rdRows(t, [{ rhr: 58, hrv: 61 }, { rhr: 57, hrv: 60 }], base), t);
+  eq(r.state, 'low'); eq(r.rhrDelta, 8); eq(r.line, 'Resting HR 8 above your usual'); eq(r.flag, 'Readiness low · resting HR +8 · 2 days');
+  r = readinessFrom(_rdRows(t, [{ hrv: 40 }, null, { hrv: 41 }], base), t);
+  eq(r.state, 'low'); eq(r.line, 'HRV below your usual'); eq(r.signals.join(), 'hrv');
+  eq(readinessFrom(_rdRows(t, [null, null, null], base), t), null);                       // no recent data: say nothing
+  assert(!/medical|injur|danger|warning/i.test(r.line + r.flag), 'no medical words');
+});
+test('readiness: HRV spread floored at 7% of the baseline', () => {
+  const t = '2026-10-22';
+  // A perfectly flat 60 ms baseline (SD 0) still catches a real drop...
+  let r = readinessFrom(_rdRows(t, [{ hrv: 38 }, { hrv: 39 }], () => ({ hrv: 60 })), t);
+  eq(r.state, 'low'); eq(r.signals.join(), 'hrv');
+  // ...and a very steady one (SD ~1 ms) doesn't call a 2 ms wobble "below your usual".
+  r = readinessFrom(_rdRows(t, [{ hrv: 58 }, { hrv: 58 }], (i) => ({ hrv: 60 + (i % 2 ? 1 : -1) })), t);
+  eq(r.state, 'ok'); eq(r.signals.length, 0);
+});
+test('rest suggestion: +30 / +60 s on top sets of a low day, never otherwise', () => {
+  const low = { state: 'low', signals: ['rhr'], rhrDelta: 8, line: 'Resting HR 8 above your usual' };
+  eq(restSuggestion(null, { lift: 'squat', reps: 3 }), null);
+  eq(restSuggestion({ state: 'ok', signals: [] }, { lift: 'squat', reps: 3 }), null);
+  eq(restSuggestion(low, { lift: 'squat', reps: 3, rpe: 8 }).add, 30);
+  eq(restSuggestion(low, { lift: 'squat', reps: 3 }).reason, 'Rest suggestion: +30 s · Resting HR 8 above your usual');
+  eq(restSuggestion(Object.assign({}, low, { signals: ['rhr', 'hrv'] }), { lift: 'bench', reps: 2 }).add, 60);
+  eq(restSuggestion(Object.assign({}, low, { rhrDelta: 11 }), { lift: 'deadlift', reps: 5 }).add, 60);
+  eq(restSuggestion(low, { lift: 'pull', reps: 3, rpe: 9 }), null);                       // accessories: no
+  eq(restSuggestion(low, { lift: 'squat', reps: 10, rpe: 7 }), null);                     // a light volume set: no
+  eq(restSuggestion(low, { lift: 'squat', reps: 8, rpe: 8.5 }).add, 30);                  // hard enough
+});
+test('cut plan: the class line, the pace, coloured for the goal', () => {
+  const t = '2026-10-22';
+  const ser = (pts) => pts.map(([d, w]) => ({ date: _addDaysISO(t, -d), weight: w }));
+  eq(cutPlan(ser([[1, 84]]), null, null, t), null);
+  // 84.1 → class 83 in 9 weeks, losing 0.3 a week: on pace
+  let c = cutPlan(ser([[21, 85.0], [14, 84.7], [7, 84.4], [0, 84.1]]), 83, _addDaysISO(t, 63), t);
+  eq(c.made, false); eq(c.offPace, false); eq(c.tone, 'good'); assert(c.needPerWk > 0.1 && c.needPerWk < 0.2, 'need ' + c.needPerWk);
+  assert(/^84\.1 kg · class 83 · 9 wk to go · need −0\.1/.test(c.line), c.line);
+  // stalled 1.1 over, 3 weeks out: off pace
+  c = cutPlan(ser([[20, 64.4], [14, 64.3], [8, 64.2], [3, 64.2], [1, 64.1]]), 63, _addDaysISO(t, 21), t);
+  eq(c.offPace, true); assert(/^Off pace: 1\.\d kg over, 3 wk out$/.test(c.flag), c.flag);
+  // gaining during a cut: amber or red, never green
+  c = cutPlan(ser([[14, 83.6], [7, 84.0], [0, 84.4]]), 83, _addDaysISO(t, 70), t);
+  assert(c.tone !== 'good', 'gaining during a cut is ' + c.tone);
+  // on weight
+  c = cutPlan(ser([[7, 82.8], [0, 82.6]]), 83, _addDaysISO(t, 30), t);
+  eq(c.made, true); eq(c.offPace, false); assert(/on weight/.test(c.line), c.line);
+  // the date passed, still over
+  c = cutPlan(ser([[7, 84], [0, 84]]), 83, _addDaysISO(t, -1), t);
+  eq(c.offPace, true); eq(c.tone, 'off'); eq(c.missed, true); assert(/meet day passed$/.test(c.flag), c.flag);
+  // ...but not for ever: 4+ days after the meet it's "missed", no longer a coach flag
+  c = cutPlan(ser([[7, 84], [0, 84]]), 83, _addDaysISO(t, -5), t);
+  eq(c.offPace, false); eq(c.flag, ''); eq(c.missed, true);
+  // no date: over, no pace judgement
+  c = cutPlan(ser([[7, 84], [0, 84]]), 83, null, t);
+  eq(c.offPace, false); eq(c.needPerWk, null); assert(/over$/.test(c.line), c.line);
+  // aggressive: more than 1.2% a week needed
+  eq(cutPlan(ser([[7, 90], [0, 90]]), 83, _addDaysISO(t, 21), t).aggressive, true);
+});
+test('food: 7-day averages over logged days, a missing day is "not logged" (never 0)', () => {
+  const t = '2026-10-22';
+  const w = nutritionWeek([{ day: t, kcal: 2400, proteinG: 170 }, { day: _addDaysISO(t, -1), kcal: 2600 }, { day: _addDaysISO(t, -9), kcal: 9000 }], t);
+  eq(w.days.length, 7); eq(w.logged, 2); eq(w.kcalAvg, 2500); eq(w.proteinAvg, 170);
+  eq(w.days[6].day, t); eq(w.days[0].logged, false); eq(w.days[0].kcal, null);
+  const e = nutritionWeek([], t); eq(e.kcalAvg, null); eq(e.logged, 0);
+  eq(nutritionWeek([{ day: t, kcal: 0, proteinG: 0 }], t).logged, 0);                  // zeros are "not logged"
+});
+test('coach status: readiness dot, off-pace flag, food averages (desk hooks)', () => {
+  const saved = Store.get();
+  const t = '2026-10-22';
+  const base = (i) => ({ rhr: 50 + (i % 3) - 1, hrv: 60 });
+  const hd = _rdRows(t, [{ rhr: 59 }, { rhr: 58 }], base).map(r => Object.assign({ athleteId: 'a' }, r));
+  Store.set(Object.assign(defaultStore(), { athletes: [{ id: 'a', name: 'Ana', coachId: 'c' }, { id: 'b', name: 'Bo', coachId: 'c' }],
+    healthDaily: hd,
+    goals: [{ athleteId: 'a', targetClass: 63, cutBy: _addDaysISO(t, 21) }],
+    bodyweight: [[20, 64.4], [14, 64.3], [8, 64.2], [1, 64.1]].map(([d, w], i) => ({ id: 'w' + i, athleteId: 'a', date: _addDaysISO(t, -d), weight: w })),
+    nutritionDaily: [{ athleteId: 'a', day: t, kcal: 2000, proteinG: 120 }] }));
+  try {
+    const st = coachAthleteStatus('a', { today: t, coachId: 'c' });
+    eq(st.readiness.state, 'low'); assert(st.flags.some(f => f.type === 'readiness' && /^Readiness low · resting HR \+\d+ · 2 days$/.test(f.text)), 'readiness flag');
+    eq(st.cut.offPace, true); assert(st.flags.some(f => f.type === 'offpace' && /^Off pace: /.test(f.text)), 'off-pace flag');
+    eq(st.nutrition.kcalAvg, 2000); eq(st.nutrition.logged, 1);
+    const st2 = coachAthleteStatus('b', { today: t, coachId: 'c' });
+    eq(st2.readiness, null); eq(st2.cut, null); eq(st2.nutrition, null);                   // no data, no UI
+    assert(!st2.flags.some(f => f.type === 'readiness' || f.type === 'offpace'), 'no flags without data');
+  } finally { Store.set(saved); }
+});
+test('Apple Health HRV: one number a day, merged with resting HR', () => {
+  const d = PowaHealthJS._hrvDaily([{ day: '2026-10-21', ms: 60 }, { day: '2026-10-21', ms: 70 }, { day: '2026-10-20', ms: 55 }, { day: '2026-10-19', ms: 0 }]);
+  eq(d.length, 2); eq(d[0].day, '2026-10-20'); eq(d[1].ms, 65);
+  const rows = PowaHealthJS._heartRows({ rhrDays: [{ day: '2026-10-21', bpm: 52 }], hrvDays: d });
+  eq(rows.length, 2); eq(rows[1].rhr, 52); eq(rows[1].hrv, 65);
 });
 
 /* ===========================================================

@@ -321,6 +321,7 @@
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
+<script src="voice.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script>
@@ -387,6 +388,7 @@ bootstrap('coach', () => {
   renderDunningBanner(document.getElementById('dunningMount')); // #35 failed-payment/plan-lapse banner
   refreshUnreadBadges();
   subscribeRosterMessages();
+  subscribePainReports();
   refreshFormChecks();
 
   // A plan bought or changed anywhere (web checkout, the App Store, another device)
@@ -643,9 +645,12 @@ function attentionReasonText(r) {
   if (r.type === 'inactive') return r.days == null ? 'Never logged a set' : r.days + 'd since training';
   if (r.type === 'stalling') return 'e1RM stalling' + (r.lifts && r.lifts.length ? ' · ' + r.lifts.map(l => ATT_LIFT_LBL[l] || l).join('/') : '');
   if (r.type === 'adherence') return r.pct + '% of program done';
+  if (r.type === 'pain') return r.text;
   return '';
 }
-function attentionReasonClass(type) {
+// Pain is red only at severity 3 (7/10+, or the same part twice in a week): a 1/10 niggle is amber.
+function attentionReasonClass(type, r) {
+  if (type === 'pain') return r && Number(r.severity) >= 3 ? 'danger' : 'warn';
   return type === 'inactive' ? 'danger' : type === 'stalling' ? 'warn' : 'muted';
 }
 function buildAttentionPanel() {
@@ -676,7 +681,7 @@ function buildAttentionPanel() {
     const mid = el('div', { class: 'att-mid' });
     mid.appendChild(el('div', { class: 'att-name' }, it.athlete.name));
     const chips = el('div', { class: 'att-chips' });
-    it.reasons.forEach(r => chips.appendChild(el('span', { class: 'att-chip ' + attentionReasonClass(r.type) }, attentionReasonText(r))));
+    it.reasons.forEach(r => chips.appendChild(el('span', { class: 'att-chip ' + attentionReasonClass(r.type, r) }, attentionReasonText(r))));
     if (it.prCount > 0) chips.appendChild(el('span', { class: 'att-chip win' }, it.prCount + ' PR' + (it.prCount === 1 ? '' : 's') + ' this week'));
     mid.appendChild(chips);
     row.appendChild(mid);
@@ -1149,15 +1154,26 @@ function openAthleteSheet(athleteId) {
     // Shared from Apple Health (only when they share): last night and the resting heart rate.
     const rcv = recoveryRows(athleteRecovery(a.id));
     if (rcv.length) { sheet.appendChild(uiLabel('Recovery')); sheet.appendChild(uiList(rcv)); }
+    // The cut (class line, pace) and food when they share it (app.js buildCutSection).
+    buildCutSection(a.id, { nutritionRows: (Store.get().nutritionDaily || []).filter(r => r.athleteId === a.id) }).forEach(n => sheet.appendChild(n));
+    // Pain they told you about (app.js buildPainSection): tap one to resolve it with a note.
+    const painNodes = buildPainSection(a.id, () => setTimeout(() => { try { renderRoster(); } catch (e) {} openAthleteSheet(a.id); }, 260));
+    painNodes.forEach(n => sheet.appendChild(n));
+    // Days the Pain section above already covers: a yes to "Any pain?" on one of them says it twice.
+    const painDays = painNodes.length ? (Store.get().painReports || []).filter(r => r.athleteId === a.id).map(r => String(r.day).slice(0, 10)).filter(d => d >= _addDaysISO(todayISO(), -13)) : [];
+    const saidAbove = (q, s) => painDays.length && q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last && s.last.num >= 1 &&
+      painDays.some(d => q.cadence === 'weekly' ? d >= s.last.period && d <= _addDaysISO(s.last.period, 6) : d === s.last.period);
     // Their answers to your check-in questions: the latest, and the average or the yes count.
     const ciQs = checkinQuestionsFor((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id), a.id);
-    if (ciQs.length) {
+    const ciRows = ciQs.map(q => {
+      const s = checkinSummary(q, Store.get().checkinAnswers, a.id);
+      if (saidAbove(q, s)) return null;
+      const low = s.last && ((q.kind === 'scale' && /sore|pain|stress|tired|fatigue/i.test(q.prompt) ? s.last.num >= 8 : q.kind === 'scale' && s.last.num <= 3) || (q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last.num >= 1));
+      return uiRow({ title: q.prompt, sub: checkinSummaryText(q, s), subTone: low ? 'alert' : null });
+    }).filter(Boolean);
+    if (ciRows.length) {
       sheet.appendChild(uiLabel('Check-in'));
-      sheet.appendChild(uiList(ciQs.map(q => {
-        const s = checkinSummary(q, Store.get().checkinAnswers, a.id);
-        const low = s.last && ((q.kind === 'scale' && /sore|pain|stress|tired|fatigue/i.test(q.prompt) ? s.last.num >= 8 : q.kind === 'scale' && s.last.num <= 3) || (q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last.num >= 1));
-        return uiRow({ title: q.prompt, sub: checkinSummaryText(q, s), subTone: low ? 'alert' : null });
-      })));
+      sheet.appendChild(uiList(ciRows));
     }
     if (o.lastLog) {
       const day = (Store.get().workoutLogs || []).filter(l => l.athleteId === a.id && l.date === o.lastLog.date);
@@ -1634,14 +1650,19 @@ function renderRoster() {
     const wins = items.filter(i => i.prCount > 0);
     if (flagged.length || wins.length) {
       area.appendChild(flagged.length ? uiLabel('Needs attention', { count: flagged.length }) : uiLabel('This week'));
-      const rows = flagged.slice(0, 6).map(it => uiRow({
+      const rows = flagged.slice(0, 6).map(it => {
+        // One flag per fact: a pain report says what the check-in's "Pain yesterday" says, only
+        // better, so that check-in line goes and the pain flag leads.
+        const pain = it.reasons.filter(r => r.type === 'pain');
+        const ci = pain.length ? it.ciAlerts.filter(x => !/^Pain\b/.test(x.text)) : it.ciAlerts;
+        return uiRow({
         av: it.athlete.name,
         title: it.athlete.name,
-        sub: it.ciAlerts.map(x => x.text).concat(it.reasons.map(attentionReasonText)).join(' · '),
-        subTone: (it.severity >= 3 || it.ciAlerts.some(x => x.severity >= 2)) ? 'alert' : null,
+        sub: pain.map(attentionReasonText).concat(ci.map(x => x.text), it.reasons.filter(r => r.type !== 'pain').map(attentionReasonText)).join(' · '),
+        subTone: (it.severity >= 3 || ci.some(x => x.severity >= 2)) ? 'alert' : null,
         chevron: true,
         onClick: () => openAthleteSheet(it.athlete.id)
-      }));
+      }); });
       // This week's PRs get their own row only when nobody needs attention (the hero counts
       // them and the faces wear a trophy): a "Needs attention 2" list with three rows read wrong.
       if (wins.length && !flagged.length) {
@@ -1904,6 +1925,36 @@ let _unreadRefreshTimer = null;
 function scheduleUnreadRefresh() {
   clearTimeout(_unreadRefreshTimer);
   _unreadRefreshTimer = setTimeout(refreshUnreadBadges, 450);
+}
+// A program save merged with the lifter's logging (or another tab): the builder repaints when it
+// shows that program and nobody is typing in it.
+window.addEventListener('powa:program-merged', (e) => {
+  const sel = document.getElementById('progAthlete'), area = document.getElementById('programArea');
+  if (!sel || !area || !e.detail || progIdForAthlete(sel.value) !== e.detail.id || !area.offsetParent) return;
+  const a = document.activeElement;
+  if (a && area.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;
+  try { loadProgram(); } catch (err) {}
+});
+// Pain flags arrive live (migration-pain-reports-2026-10-22.sql puts pain_reports in Realtime):
+// the roster repaints with the new flag. Hook for the desk: the Store's painReports + 'powa:pain'.
+var _painSubCleanup = null;
+function subscribePainReports() {
+  if (window._demoMode || !user || _painSubCleanup || typeof DB.subscribePainReports !== 'function') return;
+  _painSubCleanup = DB.subscribePainReports((r, ev) => {
+    if (!r || !r.id) return;
+    if (ev === 'DELETE') Store.update(s => { s.painReports = (s.painReports || []).filter(x => x.id !== r.id); });
+    else Store.update(s => { const list = s.painReports || (s.painReports = []); const i = list.findIndex(x => x.id === r.id); if (i >= 0) list[i] = r; else list.unshift(r); });
+    try { window.dispatchEvent(new CustomEvent('powa:pain', { detail: Object.assign({ eventType: ev || 'INSERT' }, r) })); } catch (e) {}
+    _repaintRosterSoon();
+  });
+}
+var _rosterRepaintT = null;
+function _repaintRosterSoon() {
+  clearTimeout(_rosterRepaintT);
+  _rosterRepaintT = setTimeout(() => {
+    const pane = document.querySelector('[data-pane="athletes"]');
+    if (pane && !pane.classList.contains('hidden') && !document.querySelector('.ui-sheet-veil')) { try { renderRoster(); } catch (e) {} }
+  }, 300);
 }
 function subscribeRosterMessages() {
   if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
