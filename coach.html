@@ -1541,9 +1541,10 @@ function renderAthletePage(athleteId) {
   const meets = allMeets.slice(0, 5);
   right.appendChild(uiLabel('Meets', allMeets.length > 5 ? { count: allMeets.length } : null));
   if (meets.length) right.appendChild(uiList(meets.map(m => {
-    const tot = (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
+    const planned = isPlannedMeet(m);   // brief M3: a planned meet never shows (or counts as) a total
+    const tot = planned ? 0 : (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
     return uiRow({ title: m.name || 'Meet', sub: [fmtDate(m.date), m.federation, m.weightClass ? m.weightClass + (/kg|lb/i.test(m.weightClass) ? '' : ' kg') : ''].filter(Boolean).join(' · '),
-      endHtml: tot ? '<b>' + exactW(tot) + '</b> ' + u : '' });
+      endHtml: planned ? '<span class="ui-tag">Planned</span>' : (tot ? '<b>' + exactW(tot) + '</b> ' + u : '') });
   })));
   else right.appendChild(el('p', { class: 'ap-empty' }, 'No meets yet. They add them under Progress, or link their OpenPowerlifting profile.'));
   cols.appendChild(left); cols.appendChild(right);

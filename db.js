@@ -237,6 +237,9 @@ function _cleanWeekNumbers(weeks) {
 function mapDbProgram(r) {
   const p = { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
   if (r.rev != null) p.rev = Number(r.rev);   // migration-program-integrity-2026-10-22.sql
+  // migration-meet-calendar-2026-10-22.sql: the block's first Monday and its meet (W-n labels).
+  if (r.starts_on) p.startsOn = String(r.starts_on).slice(0, 10);
+  if (r.meet_date) p.meetDate = String(r.meet_date).slice(0, 10);
   _rememberProgBase(p);
   return p;
 }
@@ -244,10 +247,17 @@ function mapDbProgram(r) {
 let _noProgramMaxes = false;
 // programs.rev arrives with migration-program-integrity-2026-10-22.sql; until then saves are plain.
 let _noProgramRev = false;
+// programs.starts_on / meet_date arrive with migration-meet-calendar-2026-10-22.sql.
+let _noProgramDates = false;
+const _isoOrNull = (v) => { const d = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null; };
 function mapJsProgram(p) {
   const row = { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
   if (!_noProgramMaxes && p.maxes !== undefined) row.maxes = p.maxes && Object.keys(p.maxes).length ? p.maxes : null;
   if (!_noProgramRev && typeof p.rev === 'number' && isFinite(p.rev)) row.rev = p.rev;
+  if (!_noProgramDates) {
+    if (p.startsOn !== undefined) row.starts_on = _isoOrNull(p.startsOn);
+    if (p.meetDate !== undefined) row.meet_date = _isoOrNull(p.meetDate);
+  }
   return row;
 }
 // SAFE SAVING: the last copy of each program this device read from or wrote to the server, the
@@ -255,7 +265,25 @@ function mapJsProgram(p) {
 // edits it by accident.
 const _progBase = {};
 function _progSnap(p) { return JSON.stringify({ name: (p && p.name) || '', weeks: (p && p.weeks) || [], maxes: (p && p.maxes) || null }); }
-function _rememberProgBase(p) { if (p && p.id) _progBase[p.id] = _progSnap(p); }
+// A block's dates (starts_on, meet_date) as this device last read or wrote them: the base the
+// conflict merge needs so a calendar drag on another device isn't written back over.
+const _progDatesBase = {};
+function _rememberProgBase(p) {
+  if (!p || !p.id) return;
+  _progBase[p.id] = _progSnap(p);
+  _progDatesBase[p.id] = { startsOn: _isoOrNull(p.startsOn), meetDate: _isoOrNull(p.meetDate) };
+}
+// Three-way, per date: mine when this device changed it since base, else theirs. A device that
+// doesn't know its base keeps the server's (dates are moved through setProgramDates).
+function _mergeProgDates(base, mine, theirs) {
+  const out = {};
+  ['startsOn', 'meetDate'].forEach(k => {
+    if (mine[k] === undefined) return;
+    const t = _isoOrNull(theirs && theirs[k]), m = _isoOrNull(mine[k]);
+    out[k] = base && k in base && _isoOrNull(base[k]) !== m ? m : t;
+  });
+  return out;
+}
 function _isRevConflict(error) {
   return !!error && (error.code === 'PT409' || /powa_rev_conflict/.test(String(error.message || '') + ' ' + String(error.details || '')));
 }
@@ -316,9 +344,15 @@ function mapDbMeet(r) {
     federation: r.federation || '', weightClass: r.weight_class || '',
     bodyweight: n(r.bodyweight_kg),
     squat: n(r.squat_kg), bench: n(r.bench_kg), deadlift: n(r.deadlift_kg),
-    notes: r.notes || '', createdAt: r.created_at
+    notes: r.notes || '', createdAt: r.created_at,
+    // migration-meet-calendar-2026-10-22.sql (before it: no status; app.js isPlannedMeet reads a
+    // future meet with no lifts as planned).
+    status: r.status || null, planned: r.status === 'planned',
+    division: r.division || '', weighIn: r.weigh_in || null, weighInAt: r.weigh_in_at || null
   };
 }
+let _noMeetPlanCols = false;
+const _dbUuid = () => (typeof uid === 'function' ? uid() : crypto.randomUUID());
 function mapJsMeet(m) {
   const n = (v) => (v == null || v === '' ? null : Number(v));
   const out = {
@@ -329,6 +363,14 @@ function mapJsMeet(m) {
     squat_kg: n(m.squat), bench_kg: n(m.bench), deadlift_kg: n(m.deadlift),
     notes: m.notes || ''
   };
+  const planned = m.status === 'planned' || m.planned === true;
+  if (planned) { out.squat_kg = null; out.bench_kg = null; out.deadlift_kg = null; }   // a plan is never a result
+  if (!_noMeetPlanCols) {
+    out.status = planned ? 'planned' : 'done';
+    out.division = String(m.division || '').slice(0, 80);
+    out.weigh_in = m.weighIn === '2h' || m.weighIn === '24h' ? m.weighIn : null;
+    out.weigh_in_at = m.weighInAt || null;
+  }
   if (m.id) out.id = m.id;   // present → upsert on PK; absent → DB generates
   return out;
 }
@@ -1645,7 +1687,8 @@ const DB = {
     if (!prog || !prog.id) return;
     const sentJson = _progSnap(prog);
     let base = prog._base || this.programBase(prog.id);
-    let mine = { id: prog.id, athleteId: prog.athleteId, coachId: prog.coachId, name: prog.name, weeks: prog.weeks, maxes: prog.maxes, rev: prog.rev };
+    let mine = { id: prog.id, athleteId: prog.athleteId, coachId: prog.coachId, name: prog.name, weeks: prog.weeks, maxes: prog.maxes, rev: prog.rev,
+      startsOn: prog.startsOn, meetDate: prog.meetDate };
     let merged = false, rev, tries = 0;
     for (;;) {
       if (++tries > 8) throw new Error('Could not save the program: it kept changing. Try again');
@@ -1655,12 +1698,13 @@ const DB = {
       const res = await sb.from('programs').update(row).in('id', [prog.id]).select(_noProgramRev ? 'id' : 'id, rev');
       if (res.error && 'maxes' in row && _missingCol(res.error, ['maxes'])) { _noProgramMaxes = true; continue; }   // save without it
       if (res.error && !_noProgramRev && _missingCol(res.error, ['rev'])) { _noProgramRev = true; continue; }
+      if (res.error && !_noProgramDates && _missingCol(res.error, ['starts_on', 'meet_date'])) { _noProgramDates = true; continue; }
       if (res.error && _isRevConflict(res.error) && tries <= 5) {
         const theirs = await this.getProgramRow(prog.id);
         if (!theirs) throw res.error;
         const m = typeof mergeProgramVersions === 'function' ? mergeProgramVersions(base, mine, theirs) : mine;
-        mine = Object.assign({}, mine, { name: m.name, weeks: m.weeks, maxes: m.maxes, rev: theirs.rev });
-        base = { name: theirs.name, weeks: theirs.weeks, maxes: theirs.maxes };
+        mine = Object.assign({}, mine, { name: m.name, weeks: m.weeks, maxes: m.maxes, rev: theirs.rev }, _mergeProgDates(base, mine, theirs));
+        base = { name: theirs.name, weeks: theirs.weeks, maxes: theirs.maxes, startsOn: _isoOrNull(theirs.startsOn), meetDate: _isoOrNull(theirs.meetDate) };
         merged = true;
         continue;
       }
@@ -1670,12 +1714,17 @@ const DB = {
       const insertRes = await sb.from('programs').insert(row);
       if (insertRes.error && 'maxes' in row && _missingCol(insertRes.error, ['maxes'])) { _noProgramMaxes = true; continue; }
       if (insertRes.error && !_noProgramRev && _missingCol(insertRes.error, ['rev'])) { _noProgramRev = true; continue; }
+      if (insertRes.error && !_noProgramDates && _missingCol(insertRes.error, ['starts_on', 'meet_date'])) { _noProgramDates = true; continue; }
       if (insertRes.error) throw insertRes.error;
       if (!_noProgramRev) rev = typeof row.rev === 'number' ? row.rev : 0;
       break;
     }
     _rememberProgBase(mine);
-    if (typeof programWriteLanded === 'function') programWriteLanded(prog, sentJson, { name: mine.name || '', weeks: mine.weeks || [], maxes: mine.maxes || null }, rev, merged);
+    // The dates a merge settled on (another device's calendar drag) come back with it, so the
+    // next save from this copy doesn't carry the old ones again.
+    const dates = {};
+    if (merged) { if (mine.startsOn !== undefined) dates.startsOn = _isoOrNull(mine.startsOn); if (mine.meetDate !== undefined) dates.meetDate = _isoOrNull(mine.meetDate); }
+    if (typeof programWriteLanded === 'function') programWriteLanded(prog, sentJson, { name: mine.name || '', weeks: mine.weeks || [], maxes: mine.maxes || null }, rev, merged, dates);
     else if (typeof rev === 'number') prog.rev = rev;
     return { rev, merged };
   },
@@ -1685,8 +1734,10 @@ const DB = {
     return data && data[0] ? mapDbProgram(data[0]) : null;
   },
   // The version this device last read or wrote (null when unknown, e.g. a cold offline open).
-  programBase(id) { try { return _progBase[id] ? JSON.parse(_progBase[id]) : null; } catch (e) { return null; } },
+  programBase(id) { try { return _progBase[id] ? Object.assign(JSON.parse(_progBase[id]), _progDatesBase[id] || {}) : null; } catch (e) { return null; } },
   rememberProgramBase(p) { _rememberProgBase(p); },
+  // True once a save found no programs.starts_on / meet_date (the calendar migration hasn't run).
+  programDatesMissing() { return _noProgramDates; },
   // A set patch landed with the next rev: the remembered copy gets the same patch.
   patchProgramBase(id, path, patch) {
     const b = this.programBase(id);
@@ -1694,7 +1745,7 @@ const DB = {
     const s = _findProgramSet(b, path);
     if (!s) { delete _progBase[id]; return; }
     applySetPatch(s, patch);
-    _progBase[id] = JSON.stringify(b);
+    _progBase[id] = _progSnap(b);
   },
   // One set logged / un-logged (log_program_set): the new rev, or null when the set isn't there.
   // Throws { notReady } before the migration runs; any other throw = offline (the outbox retries).
@@ -2023,7 +2074,11 @@ const DB = {
   // Insert (no id) or update (id present) — upsert on the PK. Returns the saved
   // row so the caller picks up the DB-generated id on first save.
   async saveMeet(m) {
-    const { data, error } = await sb.from('meets').upsert(mapJsMeet(m)).select('*');
+    let { data, error } = await sb.from('meets').upsert(mapJsMeet(m)).select('*');
+    if (error && !_noMeetPlanCols && _missingCol(error, ['status', 'division', 'weigh_in', 'weigh_in_at'])) {
+      _noMeetPlanCols = true;
+      ({ data, error } = await sb.from('meets').upsert(mapJsMeet(m)).select('*'));
+    }
     if (error) throw error;
     return (data && data.length) ? mapDbMeet(data[0]) : null;
   },
@@ -2031,10 +2086,275 @@ const DB = {
     const { error } = await sb.from('meets').delete().in('id', [id]);
     if (error) throw error;
   },
+  // A coach plans (or moves) a meet for an athlete on their roster: always 'planned', never a
+  // result (the server's guard refuses lifts and the weigh-in bodyweight from a coach).
+  // → { ok, meet } | { ok: false, notReady } before migration-meet-calendar-2026-10-22.sql.
+  async savePlannedMeet(m) {
+    const row = mapJsMeet(Object.assign({}, m, { status: 'planned', bodyweight: null }));
+    delete row.bodyweight_kg;
+    if (_noMeetPlanCols) return { ok: false, notReady: true };
+    const q = m.id ? sb.from('meets').update(row).in('id', [m.id]).select('*') : sb.from('meets').insert(row).select('*');
+    const { data, error } = await q;
+    if (error) {
+      const nr = _isNotReady(error) || !!_missingCol(error, ['status', 'division', 'weigh_in', 'weigh_in_at']) || /row-level security/i.test(String(error.message || ''));
+      if (nr && _missingCol(error, ['status', 'division', 'weigh_in', 'weigh_in_at'])) _noMeetPlanCols = true;
+      return { ok: false, notReady: nr, error };
+    }
+    if (!data || !data.length) return { ok: false, error: new Error('Meet not found') };
+    return { ok: true, meet: mapDbMeet(data[0]) };
+  },
+  async deletePlannedMeet(id) {
+    const { data, error } = await sb.from('meets').delete().in('id', [id]).select('id');
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    return { ok: !!(data && data.length) };
+  },
+  // The calendar drag: a block's first Monday and/or its meet date, as one narrow compare-and-swap
+  // update (a conflict only means the rev moved: dates never clash with sets, so retry on the new
+  // rev). dates: { startsOn?, meetDate? } (null clears). → { ok, rev } | { ok: false, notReady }.
+  async setProgramDates(prog, dates) {
+    if (!prog || !prog.id || _noProgramDates) return { ok: false, notReady: _noProgramDates };
+    const patch = {};
+    if (dates && dates.startsOn !== undefined) patch.starts_on = _isoOrNull(dates.startsOn);
+    if (dates && dates.meetDate !== undefined) patch.meet_date = _isoOrNull(dates.meetDate);
+    if (!Object.keys(patch).length) return { ok: true, rev: prog.rev };
+    let rev = prog.rev;
+    for (let i = 0; i < 4; i++) {
+      const row = Object.assign({}, patch);
+      if (!_noProgramRev && typeof rev === 'number') row.rev = rev;
+      const { data, error } = await sb.from('programs').update(row).in('id', [prog.id]).select(_noProgramRev ? 'id' : 'id, rev');
+      if (error && _missingCol(error, ['starts_on', 'meet_date'])) { _noProgramDates = true; return { ok: false, notReady: true }; }
+      if (error && _isRevConflict(error)) { const t = await this.getProgramRow(prog.id); if (!t) return { ok: false, error }; rev = t.rev; continue; }
+      if (error) return { ok: false, error };
+      if (!data || !data.length) return { ok: false, error: new Error('Program not found') };
+      // The program (and this device's base for its dates) now carries the new dates and rev.
+      const nrev = data[0].rev != null ? Number(data[0].rev) : undefined;
+      if ('starts_on' in patch) prog.startsOn = patch.starts_on;
+      if ('meet_date' in patch) prog.meetDate = patch.meet_date;
+      // Only when nothing else landed in between (a retry means the weeks may have moved: the
+      // next save must still meet that change as a conflict and merge it).
+      if (typeof nrev === 'number' && i === 0 && prog.rev === rev) prog.rev = nrev;
+      const db = _progDatesBase[prog.id] || (_progDatesBase[prog.id] = { startsOn: null, meetDate: null });
+      if ('starts_on' in patch) db.startsOn = patch.starts_on;
+      if ('meet_date' in patch) db.meetDate = patch.meet_date;
+      return { ok: true, rev: nrev };
+    }
+    return { ok: false, error: new Error('The program kept changing') };
+  },
+
+  // ---------- TEAM PROGRAMS (migration-team-programs-2026-10-22.sql) ----------
+  // Until the migration runs, a coach's teams live on this device (localStorage, per coach) with
+  // local: true, and a push is one compare-and-swap program save per lifter (upsertProgram merges
+  // and keeps logged sets on a conflict). The next load after the migration moves them up.
+  _tmKey(coachId) { return 'powa-teams-' + coachId; },
+  _tmLocal(coachId, list) {
+    try {
+      if (list === undefined) return JSON.parse(localStorage.getItem(this._tmKey(coachId)) || '[]') || [];
+      if (!list.length) localStorage.removeItem(this._tmKey(coachId)); else localStorage.setItem(this._tmKey(coachId), JSON.stringify(list));
+    } catch (e) {}
+    return list || [];
+  },
+  _mapTeam(r, members) {
+    return { id: r.id, coachId: r.coach_id, name: r.name || 'Team', programName: r.program_name || '', weeks: Array.isArray(r.weeks) ? r.weeks : [],
+      startsOn: r.starts_on || null, meetDate: r.meet_date || null, rev: Number(r.rev) || 0, createdAt: r.created_at, updatedAt: r.updated_at,
+      members: (members || []).filter(m => m.group_id === r.id).map(m => ({ athleteId: m.athlete_id, programId: m.program_id || null,
+        pushedRev: m.pushed_rev == null ? null : Number(m.pushed_rev), pushedAt: m.pushed_at || null, addedAt: m.added_at })) };
+  },
+  async listTeams(coachId) {
+    const g = await sb.from('program_groups').select('*').eq('coach_id', coachId).order('created_at', { ascending: true });
+    if (g.error) {
+      if (_isNotReady(g.error)) this._teamsReady = false; else console.warn('listTeams', g.error);
+      return this._tmLocal(coachId).map(t => Object.assign(t, { local: true }));
+    }
+    this._teamsReady = true;
+    const ids = (g.data || []).map(r => r.id);
+    const m = ids.length ? await sb.from('program_group_members').select('*').in('group_id', ids) : { data: [] };
+    const out = (g.data || []).map(r => this._mapTeam(r, m.data || []));
+    // Teams kept on this device before the migration: up they go (members who left are skipped).
+    const loc = this._tmLocal(coachId);
+    if (loc.length) {
+      const left = [];
+      for (const t of loc) {
+        const up = await sb.from('program_groups').insert({ id: t.id, coach_id: coachId, name: t.name, program_name: t.programName || '', weeks: t.weeks || [],
+          starts_on: t.startsOn || null, meet_date: t.meetDate || null }).select('*').single();
+        if (up.error) { left.push(t); continue; }
+        // One by one (as addTeamMembers): a lifter who left meanwhile, or is on another team, is
+        // refused alone; everyone else still comes up with the team.
+        const got = [];
+        for (const x of (t.members || [])) {
+          const one = await sb.from('program_group_members').insert({ group_id: t.id, athlete_id: x.athleteId, coach_id: coachId, program_id: x.programId || null }).select('*');
+          if (one.error) console.warn('listTeams: member not moved up', x.athleteId, one.error.message);
+          else got.push(...(one.data || []));
+        }
+        out.push(this._mapTeam(up.data, got));
+      }
+      this._tmLocal(coachId, left);
+      left.forEach(t => out.push(Object.assign(t, { local: true })));
+    }
+    return out;
+  },
+  // New team (no rev yet) or a master edit (compare-and-swap on rev). → { ok, team } |
+  // { ok: false, conflict: true, latest } when someone saved the master meanwhile.
+  async saveTeam(team) {
+    if (!team || !team.coachId) return { ok: false, error: new Error('No coach') };
+    const row = { name: String(team.name || 'Team').slice(0, 80), program_name: String(team.programName || '').slice(0, 120), weeks: team.weeks || [],
+      starts_on: _isoOrNull(team.startsOn), meet_date: _isoOrNull(team.meetDate) };
+    if (this._teamsReady === false || team.local) {
+      const list = this._tmLocal(team.coachId);
+      const i = list.findIndex(t => t.id === team.id);
+      const saved = Object.assign({}, team, { id: team.id || _dbUuid(), rev: (Number(team.rev) || 0) + (i >= 0 ? 1 : 0), local: true, members: team.members || [] });
+      if (i >= 0) list[i] = saved; else list.push(saved);
+      this._tmLocal(team.coachId, list);
+      return { ok: true, team: saved, local: true };
+    }
+    const isNew = typeof team.rev !== 'number';
+    const q = isNew
+      ? sb.from('program_groups').insert(Object.assign({ id: team.id || _dbUuid(), coach_id: team.coachId }, row)).select('*').single()
+      : sb.from('program_groups').update(Object.assign({ rev: team.rev }, row)).eq('id', team.id).select('*').single();
+    const { data, error } = await q;
+    if (error && _isNotReady(error)) { this._teamsReady = false; return this.saveTeam(team); }
+    if (error && _isRevConflict(error)) {
+      const latest = await sb.from('program_groups').select('*').eq('id', team.id).single();
+      return { ok: false, conflict: true, latest: latest.data ? this._mapTeam(latest.data, []) : null, error };
+    }
+    if (error) return { ok: false, error };
+    return { ok: true, team: Object.assign(this._mapTeam(data, []), { members: team.members || [] }) };
+  },
+  async deleteTeam(team) {
+    if (this._teamsReady === false || team.local) { this._tmLocal(team.coachId, this._tmLocal(team.coachId).filter(t => t.id !== team.id)); return { ok: true, local: true }; }
+    const { error } = await sb.from('program_groups').delete().eq('id', team.id);
+    return error ? { ok: false, error } : { ok: true };
+  },
+  // Add lifters (their programs stay theirs until the first push). → { ok, added: [ids], refused: [{ athleteId, reason }] }
+  async addTeamMembers(team, athleteIds) {
+    const ids = Array.from(new Set(athleteIds || [])).filter(Boolean);
+    if (this._teamsReady === false || team.local) {
+      const list = this._tmLocal(team.coachId);
+      const t = list.find(x => x.id === team.id) || Object.assign({}, team, { members: [] });
+      const taken = new Set(list.filter(x => x.id !== team.id).flatMap(x => (x.members || []).map(m => m.athleteId)));
+      const added = [], refused = [];
+      ids.forEach(a => { if (taken.has(a)) refused.push({ athleteId: a, reason: 'other-team' }); else if (!(t.members || []).some(m => m.athleteId === a)) { (t.members = t.members || []).push({ athleteId: a, programId: null }); added.push(a); } });
+      if (!list.some(x => x.id === team.id)) list.push(t);
+      this._tmLocal(team.coachId, list);
+      return { ok: true, added, refused, local: true };
+    }
+    const added = [], refused = [];
+    for (const a of ids) {
+      const { error } = await sb.from('program_group_members').insert({ group_id: team.id, athlete_id: a, coach_id: team.coachId });
+      if (!error) added.push(a);
+      else refused.push({ athleteId: a, reason: /duplicate|unique/i.test(String(error.message)) ? 'other-team' : (/row-level/i.test(String(error.message)) ? 'not-on-roster' : 'error') });
+    }
+    return { ok: true, added, refused };
+  },
+  async removeTeamMember(team, athleteId) {
+    if (this._teamsReady === false || team.local) {
+      const list = this._tmLocal(team.coachId).map(t => t.id === team.id ? Object.assign(t, { members: (t.members || []).filter(m => m.athleteId !== athleteId) }) : t);
+      this._tmLocal(team.coachId, list);
+      return { ok: true, local: true };
+    }
+    const { error } = await sb.from('program_group_members').delete().eq('group_id', team.id).eq('athlete_id', athleteId);
+    return error ? { ok: false, error } : { ok: true };
+  },
+  // The push (app.js pushTeamProgram builds the rows with teamPushPlan). rebuild(athleteId, fresh)
+  // makes a lifter's row again from their fresh program when theirs moved meanwhile (a 'stale'
+  // row): up to 3 rounds. → { results: [{ athlete_id, status, program_id, rev, weeks, retried,
+  // loggedDuring }], local }. Throws { conflict: true } when the master moved (save, then push).
+  // archive(prog) → { kept }: keeps a program with logged sets as a past block (app.js
+  // archiveProgramIfTrained). Only the pre-migration path uses it; the RPC keeps the block itself,
+  // in the push's own transaction, and says so with result.archived (the block's id).
+  async pushTeamPrograms(team, rows, rebuild, archive) {
+    const logged = (weeks) => { let n = 0; (weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(s => { if (s.completed || s.skipped || s.missed) n++; })))); return n; };
+    const toRpc = (r) => ({ athlete_id: r.athleteId, program_id: r.programId || r.newId || (r.newId = _dbUuid()), rev: r.rev, weeks: r.weeks, name: r.name,
+      create: r.action === 'create', replace: r.action === 'replace', starts_on: _isoOrNull(r.startsOn), meet_date: _isoOrNull(r.meetDate) });
+    if (this._teamsReady === false || team.local) return this._pushTeamLocal(team, rows, archive);
+    const results = [];
+    let pending = rows.slice();
+    const meta = {};
+    for (let round = 0; round < 4 && pending.length; round++) {
+      const { data, error } = await sb.rpc('push_group_programs', { p_group_id: team.id, p_master_rev: team.rev, p_rows: pending.map(toRpc) });
+      if (error) {
+        if (_isRevConflict(error)) { const e = new Error('The team program changed: save it, then publish'); e.conflict = true; throw e; }
+        if (_isNotReady(error)) { this._teamsReady = false; return this._pushTeamLocal(team, pending, archive); }
+        throw error;
+      }
+      const byId = new Map(pending.map(r => [r.athleteId, r]));
+      const next = [];
+      for (const x of (Array.isArray(data) ? data : [])) {
+        const row = byId.get(x.athlete_id);
+        if (x.status === 'stale' && row && typeof rebuild === 'function' && round < 3) {
+          const fresh = await this.getProgramRow(x.program_id).catch(() => null);
+          if (fresh) {
+            const again = rebuild(x.athlete_id, fresh);
+            meta[x.athlete_id] = { retried: true, loggedDuring: (meta[x.athlete_id] && meta[x.athlete_id].loggedDuring) || logged(fresh.weeks) > logged(row.weeks) };
+            if (again && again.action === 'same') { results.push(Object.assign({ athlete_id: x.athlete_id, status: 'same', program_id: fresh.id, rev: fresh.rev }, meta[x.athlete_id])); continue; }
+            if (again) { next.push(again); continue; }
+          }
+        }
+        const out = Object.assign({}, x, meta[x.athlete_id] || {});
+        if ((x.status === 'updated' || x.status === 'created') && row) {
+          out.weeks = row.weeks;
+          if (x.kept) { const f = await this.getProgramRow(x.program_id).catch(() => null); if (f) out.weeks = f.weeks; }
+        }
+        results.push(out);
+      }
+      pending = next;
+    }
+    return { results, local: false };
+  },
+  // Before the migration: each lifter's program is saved with the usual compare-and-swap save,
+  // after a live-link check (only lifters still on the roster come back from profiles).
+  // A replaced program (not on the team yet) is read fresh, its logged sets kept as a past block
+  // (archive), then overwritten with one compare-and-swap write, no merge: a set logged after that
+  // read makes it 'stale' (nothing written; the block kept is only a copy). No archive, or it
+  // fails: 'needs_archive', nothing written.
+  async _pushTeamLocal(team, rows, archive) {
+    const ids = rows.map(r => r.athleteId);
+    const { data } = await sb.from('profiles').select('id, coach_id').in('id', ids);
+    const linked = new Set((data || []).filter(p => p.coach_id === team.coachId).map(p => p.id));
+    const anyLogged = (weeks) => (weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s && (s.completed || s.skipped || s.missed)))));
+    const results = [];
+    for (const r of rows) {
+      if (!linked.has(r.athleteId)) { results.push({ athlete_id: r.athleteId, status: 'departed' }); continue; }
+      if (r.action === 'replace' && r.programId) {
+        const fresh = await this.getProgramRow(r.programId).catch(() => null);
+        if (!fresh) { results.push({ athlete_id: r.athleteId, status: 'not_found', program_id: r.programId }); continue; }
+        if (anyLogged(fresh.weeks)) {
+          const a = typeof archive === 'function' ? await archive(fresh).catch(() => null) : null;
+          if (!a || !a.kept) { results.push({ athlete_id: r.athleteId, status: 'needs_archive', program_id: r.programId }); continue; }
+        }
+        const row = { name: r.name, weeks: r.weeks, updated_at: new Date().toISOString() };
+        if (!_noProgramRev && typeof fresh.rev === 'number') row.rev = fresh.rev;
+        if (!_noProgramDates) { row.starts_on = _isoOrNull(r.startsOn); row.meet_date = _isoOrNull(r.meetDate); }
+        let w = await sb.from('programs').update(row).in('id', [r.programId]).select(_noProgramRev ? 'id' : 'id, rev');
+        if (w.error && 'starts_on' in row && _missingCol(w.error, ['starts_on', 'meet_date'])) {
+          _noProgramDates = true; delete row.starts_on; delete row.meet_date;
+          w = await sb.from('programs').update(row).in('id', [r.programId]).select(_noProgramRev ? 'id' : 'id, rev');
+        }
+        if (w.error && _isRevConflict(w.error)) { results.push({ athlete_id: r.athleteId, status: 'stale', program_id: r.programId }); continue; }
+        if (w.error || !w.data || !w.data.length) { results.push({ athlete_id: r.athleteId, status: 'denied', program_id: r.programId, error: w.error ? String(w.error.message || w.error) : 'not written' }); continue; }
+        const nrev = w.data[0].rev != null ? Number(w.data[0].rev) : undefined;
+        _rememberProgBase({ id: r.programId, name: r.name, weeks: r.weeks, maxes: fresh.maxes, startsOn: row.starts_on, meetDate: row.meet_date });
+        results.push({ athlete_id: r.athleteId, status: 'updated', program_id: r.programId, rev: nrev, weeks: r.weeks });
+        continue;
+      }
+      const prog = { id: r.programId || _dbUuid(), athleteId: r.athleteId, coachId: team.coachId, name: r.name, weeks: r.weeks, rev: r.rev == null ? undefined : r.rev,
+        startsOn: r.startsOn || undefined, meetDate: r.meetDate || undefined };
+      try {
+        const res = await this.upsertProgram(prog);
+        results.push({ athlete_id: r.athleteId, status: r.programId ? 'updated' : 'created', program_id: prog.id, rev: res && res.rev, weeks: prog.weeks, retried: !!(res && res.merged), loggedDuring: !!(res && res.merged) });
+      } catch (e) { results.push({ athlete_id: r.athleteId, status: 'denied', error: String(e && e.message || e) }); }
+    }
+    return { results, local: true };
+  },
+
   // Several new meets in one insert (the OpenPowerlifting import).
   async addMeets(list) {
     if (!list || !list.length) return [];
-    const { data, error } = await sb.from('meets').insert(list.map(m => { const r = mapJsMeet(m); delete r.id; return r; })).select('*');
+    const rows = () => list.map(m => { const r = mapJsMeet(m); delete r.id; return r; });
+    let { data, error } = await sb.from('meets').insert(rows()).select('*');
+    if (error && !_noMeetPlanCols && _missingCol(error, ['status', 'division', 'weigh_in', 'weigh_in_at'])) {
+      _noMeetPlanCols = true;
+      ({ data, error } = await sb.from('meets').insert(rows()).select('*'));
+    }
     if (error) throw error;
     return (data || []).map(mapDbMeet);
   },
@@ -2937,7 +3257,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2955,8 +3275,10 @@ const DB = {
         this.listHealthDaily(athleteIds).catch(() => []),
           this.listPainReports(athleteIds).catch(() => []),
           this.listNutritionDaily(athleteIds).catch(() => []),
-          this.listCoachNotes(profile.id).catch(() => [])
+          this.listCoachNotes(profile.id).catch(() => []),
+          this.listTeams(profile.id).catch(() => [])
         ]);
+        empty.teams = teams;
         empty.healthDaily = healthDaily;
         empty.nutritionDaily = nutritionDaily;
         empty.painReports = painReports;
