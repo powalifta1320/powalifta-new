@@ -2169,6 +2169,7 @@ function dkBuildMeetsPane() {
 function dkRenderMeets() {
   var host = document.getElementById('deskMeets');
   if (!host) return;
+  if (typeof window.renderMeetsScreen === 'function') { window.renderMeetsScreen(host); return; }   // MEET DAY: planner + board (meetday.js)
   if (!_dk.rows) dkRowsFresh();
   host.innerHTML = '';
   var meets = dkPlannedMeets();
