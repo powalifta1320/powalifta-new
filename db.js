@@ -364,7 +364,9 @@ function mapDbMeet(r) {
     // migration-meet-calendar-2026-10-22.sql (before it: no status; app.js isPlannedMeet reads a
     // future meet with no lifts as planned).
     status: r.status || null, planned: r.status === 'planned',
-    division: r.division || '', weighIn: r.weigh_in || null, weighInAt: r.weigh_in_at || null
+    division: r.division || '', weighIn: r.weigh_in || null, weighInAt: r.weigh_in_at || null,
+    // MEET DAY hook: the coach's attempt plan (migration-meet-day-2026-10-22.sql); never sent by saveMeet.
+    attemptPlan: (r.attempt_plan && typeof r.attempt_plan === 'object') ? r.attempt_plan : null
   };
 }
 let _noMeetPlanCols = false;
@@ -3497,5 +3499,194 @@ Object.assign(DB, {
       .upsert({ form_check_id: formCheckId, coach_id: coachId, align_t: alignT == null ? null : alignT }, { onConflict: 'form_check_id' });
     if (error && !_isNotReady(error)) console.warn('saveFormCheckAlign', error);
     return { ok: !error };
+  }
+});
+
+// ---------- MEET DAY hook (meetday.js · sql/migration-meet-day-2026-10-22.sql) ----------
+// Attempt plans ride on the planned meet (meets.attempt_plan). The board is three tables; marks go up
+// through meet_day_sync (the per-cell rule lives there and in meetday.js localWins) and the results
+// through finish_meet_day. Every call answers { ok, notReady } instead of throwing, so the board can stay
+// local-first: before the migration runs it lives on the device (meetday.js) and Finish waits.
+let _noAttemptPlan = false;
+function mapDbMeetDay(r) {
+  return { id: r.id, coachId: r.coach_id, name: r.name || 'Meet', date: r.meet_date, federation: r.federation || '', division: r.division || '',
+    status: r.status || 'setup', flights: (r.flights && typeof r.flights === 'object') ? r.flights : {}, sec: Number(r.sec_per_attempt) || 60,
+    breakSec: r.break_sec == null ? 600 : Number(r.break_sec), finishedAt: r.finished_at || null, createdAt: r.created_at, updatedAt: r.updated_at };
+}
+function mapDbMdLifter(r) {
+  const n = (v) => (v == null ? null : Number(v));
+  return { id: r.id, dayId: r.meet_day_id, athleteId: r.athlete_id || null, meetId: r.meet_id || null, name: r.name || '', sex: r.sex || null,
+    flight: r.flight || 'A', lot: n(r.lot), bodyweight: n(r.bodyweight_kg), weightClass: r.weight_class || '',
+    rack: (r.rack && typeof r.rack === 'object') ? r.rack : {}, live: (r.live && typeof r.live === 'object') ? r.live : null, resultMeetId: r.result_meet_id || null };
+}
+function mapDbMdAttempt(r) {
+  return { id: r.id, lifterId: r.lifter_id || r.lifterId, lift: r.lift, n: Number(r.n), kg: r.kg == null ? null : Number(r.kg), status: r.status || 'planned',
+    changes: Number(r.changes) || 0, at: Number(r.client_at != null ? r.client_at : r.at) || 0, srvAt: r.updated_at || r.srvAt || null, by: r.updated_by || r.by || null };
+}
+function mapJsMdLifter(l, dayId) {
+  const kg = Number(l.bodyweight);
+  const out = { meet_day_id: dayId || l.dayId, athlete_id: l.athleteId || null, meet_id: l.meetId || null, name: String(l.name || 'Lifter').trim().slice(0, 80),
+    sex: l.sex === 'male' || l.sex === 'female' ? l.sex : null, flight: /^[A-Z]$/.test(String(l.flight || '')) ? l.flight : 'A',
+    lot: Number(l.lot) >= 1 && Number(l.lot) <= 999 ? Math.round(Number(l.lot)) : null,
+    bodyweight_kg: kg >= 20 && kg <= 300 ? Math.round(kg * 100) / 100 : null, weight_class: String(l.weightClass || '').slice(0, 12),
+    rack: l.rack && typeof l.rack === 'object' ? l.rack : {} };
+  if (l.id && !String(l.id).startsWith('local-')) out.id = l.id;
+  return out;
+}
+Object.assign(DB, {
+  _mdMap: { day: mapDbMeetDay, lifter: mapDbMdLifter, attempt: mapDbMdAttempt },
+  // The coach's plan for one planned meet. → { ok, meet } | { ok: false, notReady }.
+  async saveAttemptPlan(meetId, plan) {
+    if (_noAttemptPlan) return { ok: false, notReady: true };
+    const { data, error } = await sb.from('meets').update({ attempt_plan: plan || null }).in('id', [meetId]).select('*');
+    if (error) {
+      const nr = _isNotReady(error) || !!_missingCol(error, ['attempt_plan']);
+      if (nr) _noAttemptPlan = true;
+      return { ok: false, notReady: nr, error };
+    }
+    if (!data || !data.length) return { ok: false, error: new Error('Meet not found') };
+    return { ok: true, meet: mapDbMeet(data[0]) };
+  },
+  async listMeetDays() {
+    const { data, error } = await sb.from('meet_days').select('*').order('meet_date', { ascending: false }).limit(60);
+    if (error) return { ok: false, notReady: _isNotReady(error), days: [] };
+    return { ok: true, days: (data || []).map(mapDbMeetDay) };
+  },
+  async getMeetDay(id) {
+    const [d, l, a] = await Promise.all([
+      sb.from('meet_days').select('*').in('id', [id]).limit(1),
+      sb.from('meet_day_lifters').select('*').eq('meet_day_id', id),
+      sb.from('meet_attempts').select('*').eq('meet_day_id', id)
+    ]);
+    const err = d.error || l.error || a.error;
+    if (err) return { ok: false, notReady: _isNotReady(err), error: err };
+    if (!d.data || !d.data.length) return { ok: false, error: new Error('Meet day not found') };
+    return { ok: true, day: mapDbMeetDay(d.data[0]), lifters: (l.data || []).map(mapDbMdLifter), attempts: (a.data || []).map(mapDbMdAttempt) };
+  },
+  // A new board, made on the device (meetday.js startMeetDay): the day and its lifters carry the ids
+  // the device made, so a retry after a lost answer is a no-op (on conflict do nothing) and marks made
+  // meanwhile are already keyed to these rows. The planned attempts go up through meet_day_sync like
+  // any mark (the board's outbox), never here. → { ok } | { ok: false, notReady?, error }
+  async createMeetDay(day, lifters) {
+    const row = { id: day.id, name: String(day.name || 'Meet').slice(0, 80), meet_date: day.date,
+      federation: String(day.federation || '').slice(0, 40), division: String(day.division || '').slice(0, 80), flights: day.flights || {},
+      sec_per_attempt: Math.max(30, Math.min(300, Number(day.sec) || 60)) };
+    if (day.breakSec != null) row.break_sec = Math.max(0, Math.min(3600, Math.round(Number(day.breakSec) || 0)));
+    try {
+      const d = await sb.from('meet_days').upsert(row, { onConflict: 'id', ignoreDuplicates: true });
+      if (d.error) return { ok: false, notReady: _isNotReady(d.error), error: d.error };
+      const rows = (lifters || []).map(l => mapJsMdLifter(l, day.id));
+      if (rows.length) {
+        const ins = await sb.from('meet_day_lifters').upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+        if (ins.error) return { ok: false, notReady: _isNotReady(ins.error), error: ins.error };
+      }
+      return { ok: true };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  async updateMeetDay(id, patch) {
+    const row = {};
+    if (patch.name !== undefined) row.name = String(patch.name || 'Meet').slice(0, 80);
+    if (patch.date !== undefined) row.meet_date = patch.date;
+    if (patch.federation !== undefined) row.federation = String(patch.federation || '').slice(0, 40);
+    if (patch.division !== undefined) row.division = String(patch.division || '').slice(0, 80);
+    if (patch.flights !== undefined) row.flights = patch.flights || {};
+    if (patch.sec !== undefined) row.sec_per_attempt = Math.max(30, Math.min(300, Number(patch.sec) || 60));
+    if (patch.breakSec !== undefined && patch.breakSec != null) row.break_sec = Math.max(0, Math.min(3600, Math.round(Number(patch.breakSec) || 0)));
+    try {
+      const { data, error } = await sb.from('meet_days').update(row).in('id', [id]).select('*');
+      if (error) return { ok: false, notReady: _isNotReady(error), error };
+      return { ok: !!(data && data.length), day: data && data[0] ? mapDbMeetDay(data[0]) : null };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  // A lifter added at the table (a guest from another team), with the id the device made.
+  async insertMeetDayLifter(l, dayId) {
+    try {
+      const { error } = await sb.from('meet_day_lifters').upsert(mapJsMdLifter(l, dayId), { onConflict: 'id', ignoreDuplicates: true });
+      if (error) return { ok: false, notReady: _isNotReady(error), error };
+      return { ok: true };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  // Only the fields this laptop changed (meetday.js lifterPatch: name, sex, flight, lot, bodyweight,
+  // weightClass, rack keys). Rack keys merge on the server, so two laptops never undo each other.
+  async patchMeetDayLifter(id, dayId, patch) {
+    const p = {};
+    const map = { name: 'name', sex: 'sex', flight: 'flight', lot: 'lot', bodyweight: 'bodyweight_kg', weightClass: 'weight_class' };
+    Object.keys(map).forEach(k => { if (patch && patch[k] !== undefined) p[map[k]] = patch[k] == null ? null : patch[k]; });
+    if (p.bodyweight_kg != null) { const kg = Number(p.bodyweight_kg); p.bodyweight_kg = kg >= 20 && kg <= 300 ? Math.round(kg * 100) / 100 : null; }
+    if (p.lot != null) { const n = Math.round(Number(p.lot)); p.lot = n >= 1 && n <= 999 ? n : null; }
+    if (p.weight_class != null) p.weight_class = String(p.weight_class).slice(0, 12);
+    if (patch && patch.rack && typeof patch.rack === 'object') {
+      p.rack = {}; Object.keys(patch.rack).slice(0, 12).forEach(k => { p.rack[String(k).slice(0, 16)] = String(patch.rack[k] == null ? '' : patch.rack[k]).slice(0, 8); });
+    }
+    try {
+      const { data, error } = await sb.rpc('meet_day_lifter_patch', { p_id: id, p_patch: p });
+      if (error) return { ok: false, notReady: _isNotReady(error), error };
+      return { ok: !!data, lifter: data ? mapDbMdLifter(data) : null };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  async deleteMeetDayLifter(id) {
+    try {
+      const { error } = await sb.from('meet_day_lifters').delete().in('id', [id]);
+      return { ok: !error, error };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  // The outbox. cells: [{ lifterId, lift, n, kg, status, changes, at, base }]; live: [{ id, live }].
+  // → { ok, cells: [rows as the server kept them] } | { ok: false, offline?, notReady?, error }.
+  async syncMeetDay(dayId, cells, live) {
+    try {
+      const { data, error } = await sb.rpc('meet_day_sync', { p_day: dayId, p_cells: cells || [], p_live: live || null });
+      if (error) return { ok: false, notReady: _isNotReady(error), finished: /finished/i.test(String(error.message || '')), error };
+      return { ok: true, cells: ((data && data.cells) || []).map(mapDbMdAttempt), at: data && data.at };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  async finishMeetDay(dayId) {
+    try {
+      const { data, error } = await sb.rpc('finish_meet_day', { p_day: dayId });
+      if (error) return { ok: false, notReady: _isNotReady(error), error };
+      return Object.assign({ ok: true }, data || {});
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  // Live marks from another device at the table (RLS decides). onAttempt(row), onLifter(row, gone),
+  // onDay(day): a flight start or setting moved, or the meet was finished there. → unsubscribe | null.
+  subscribeMeetDay(dayId, onAttempt, onLifter, onDay) {
+    try {
+      const ch = sb.channel('meetday:' + dayId + ':' + Math.random().toString(36).slice(2, 8))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'meet_attempts', filter: 'meet_day_id=eq.' + dayId },
+          p => { try { if (p.new && p.new.id && onAttempt) onAttempt(mapDbMdAttempt(p.new)); } catch (e) { console.warn('meetday attempt', e); } })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'meet_day_lifters', filter: 'meet_day_id=eq.' + dayId },
+          p => { try {
+            if (p.eventType === 'DELETE' && p.old && p.old.id && onLifter) onLifter(mapDbMdLifter(p.old), true);
+            else if (p.new && p.new.id && onLifter) onLifter(mapDbMdLifter(p.new));
+          } catch (e) { console.warn('meetday lifter', e); } })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'meet_days', filter: 'id=eq.' + dayId },
+          p => { try { if (p.new && p.new.id && onDay) onDay(mapDbMeetDay(p.new)); } catch (e) { console.warn('meetday day', e); } })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { console.warn('subscribeMeetDay', e); return null; }
+  },
+  // The lifter's side: their board rows for days not finished (with the day), and their own attempts.
+  // Only this lifter's own rows (a coach's account would otherwise read its lifters' rows through the
+  // coach policy), only days not finished (filtered in the query, before any limit), newest day first.
+  async myMeetDay() {
+    const uid = await this.getUserId().catch(() => null);
+    if (!uid) return { ok: true, lifter: null };
+    const { data, error } = await sb.from('meet_day_lifters').select('*, meet_days!inner(*)').eq('athlete_id', uid)
+      .neq('meet_days.status', 'done').limit(20);
+    if (error) return { ok: false, notReady: _isNotReady(error) };
+    const rows = (data || []).filter(r => r.meet_days && r.meet_days.status !== 'done')
+      .sort((a, b) => String(b.meet_days.meet_date).localeCompare(String(a.meet_days.meet_date)));
+    if (!rows.length) return { ok: true, lifter: null };
+    const r = rows[0];
+    const at = await sb.from('meet_attempts').select('*').eq('lifter_id', r.id);
+    return { ok: true, lifter: mapDbMdLifter(r), day: mapDbMeetDay(r.meet_days), attempts: (at.data || []).map(mapDbMdAttempt) };
+  },
+  subscribeMyMeetDay(lifterId, onChange) {
+    try {
+      const ch = sb.channel('mymeetday:' + lifterId + ':' + Math.random().toString(36).slice(2, 8))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'meet_day_lifters', filter: 'id=eq.' + lifterId }, p => { if (p.new && onChange) onChange('lifter', mapDbMdLifter(p.new)); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'meet_attempts', filter: 'lifter_id=eq.' + lifterId }, p => { if (p.new && onChange) onChange('attempt', mapDbMdAttempt(p.new)); })
+        .subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { return null; }
   }
 });

@@ -1280,5 +1280,53 @@ window.POWA_SUPPORT_KB = [
    "sync chip"
   ],
   "a": "If the gym has no signal, every set you log is still saved on your phone straight away. Train says so next to the date (\"Saved on this phone · 3 sets syncing\") and sends them as soon as you're back online, then shows \"Synced\" with the time. You don't need to do anything or log them again. If a set can't be sent after several tries the app tells you to log it again."
+ },
+ {
+  "id": "coach-attempt-planner",
+  "q": "As a coach, how do I plan my lifters' attempts for a meet?",
+  "t": [
+   "attempt planner",
+   "plan attempts",
+   "openers",
+   "second attempt",
+   "third attempt",
+   "meet attempts",
+   "plan a meet",
+   "meets"
+  ],
+  "a": "Open Meets on the laptop desk and choose Plan attempts next to the meet, or Plan attempts on the lifter's next meet (their page on the laptop, their card on the phone) (or Plan a lifter's meet to start one). Each lifter at that meet is listed on the left. For each lift you get an opener, second and third from their max right now (their best estimated max from the last six weeks, with their best recent single shown beside it), as Conservative, Standard or Aggressive. If an opener comes out past 95% of their heavy sets this month it is held down to about 91%. Change any number with − and + or by typing it. The Safe, Plan and Send chips under the second and third are the same choices meet mode gives on the day. Underneath you see the total of the thirds, the opening total, the score the meet's federation uses (IPF GL or DOTS, always named) and their class. Save plan. The lifter then sees your numbers in their meet-day sheet and meet mode instead of their own.",
+  "app": "Plan attempts is on the laptop desk (Meets) at powalifta.com. Your lifters see the plan in the iPhone app: Meet day and meet mode use your numbers."
+ },
+ {
+  "id": "coach-meet-day-board",
+  "q": "How does the meet-day board work?",
+  "t": [
+   "meet day board",
+   "meet day",
+   "flights",
+   "lifting order",
+   "attempts out",
+   "declare attempt",
+   "attempt cards",
+   "print cards",
+   "finish meet",
+   "offline at the meet",
+   "warm-up times"
+  ],
+  "a": "On the day, open Meets and choose Start meet day for the meet (or Open the board). The board lists your lifters by flight in lifting order: squat, then bench, then deadlift; flight by flight; in each round the lightest bar goes first and the lower lot number breaks a tie. Each cell is an attempt: dim when planned, ink once declared, marked when the declared weight changed, green for a good lift and outlined red for a no lift. The panel on the right shows who is on the platform (with the plates per side) with Good lift and No lift, the next declaration with Safe / Plan / Send and the red Declare button, who is up next and how many attempts out they are, and each lifter's warm-ups with the clock time to take them, counted from the flight's start time. Keys: G good lift, N no lift, + and − change the weight by 2.5, Enter declares, P prints attempt cards. Lifters holds flights, lot numbers, the weigh-in against the class and rack heights. If the venue wifi drops, keep marking: everything is kept on the laptop and goes up when you're back online, cell by cell, and no call is lost (a good lift or a no lift always beats a weight change made elsewhere). On the Lifters tab, set how many lifters are in each flight at the venue (all teams), the seconds an attempt and the break between lifts, or add a lifter from another team with their openers: attempts out and every warm-up time count them. You can start the meet day with the wifi off too; it goes up when you're back online. If two laptops call the same attempt differently, the one that loses says so. Finish meet writes each lifter's result into their meets; their best total and DOTS count it only then. Lifters from other teams are never saved.",
+  "app": "The meet-day board is on the laptop desk at powalifta.com. In the iPhone app your lifters see \"Your next attempt\" with how many attempts out they are in meet mode."
+ },
+ {
+  "id": "lifter-next-attempt",
+  "q": "What is \"Your next attempt\" in meet mode?",
+  "t": [
+   "your next attempt",
+   "attempts out",
+   "when do I warm up",
+   "coach board",
+   "next attempt"
+  ],
+  "a": "When your coach runs the meet-day board for your meet, meet mode shows your next attempt at the top: the weight, which lift and attempt, your flight and how many attempts are still to go before yours. Before an opener it tells you which warm-up to take now and when the next one is. It updates as your coach marks the board. You can only see your own attempts.",
+  "app": "When your coach runs the meet-day board for your meet, open Meet day and Start meet mode: your next attempt is at the top with how many attempts out you are, and before an opener which warm-up to take now. It updates as your coach marks the board."
  }
 ];

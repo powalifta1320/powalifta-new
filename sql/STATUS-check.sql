@@ -110,6 +110,13 @@ with checks(n, migration, applied) as (values
   (42, 'migration-team-programs-2026-10-22.sql  (team programs; needs row 36 first, and row 31 so a replaced block with logged sets is kept)',
         to_regclass('public.program_group_members') is not null
         and to_regprocedure('public.push_group_programs(uuid, bigint, jsonb)') is not null
-        and to_regprocedure('public.program_set_logged_on(jsonb)') is not null)
+        and to_regprocedure('public.program_set_logged_on(jsonb)') is not null),
+  (43, 'migration-meet-day-2026-10-22.sql  (attempt plans + the meet-day board; needs row 41 first)',
+        exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'meets' and column_name = 'attempt_plan')
+        and to_regclass('public.meet_attempts') is not null
+        and to_regprocedure('public.meet_day_sync(uuid, jsonb, jsonb)') is not null
+        and to_regprocedure('public.finish_meet_day(uuid)') is not null
+        and to_regprocedure('public.meet_day_lifter_patch(uuid, jsonb)') is not null)
 )
 select n, migration, applied from checks order by n;

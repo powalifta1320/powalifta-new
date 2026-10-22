@@ -334,6 +334,7 @@
 <script src="desk.js"></script>
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
+<script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
 <script>
 // The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
 // dashboard still boots. Function declarations, so the first render can call them.
@@ -1171,6 +1172,14 @@ function openAthleteSheet(athleteId) {
     two.appendChild(el('span', { class: 'aq-days-lbl' }, 'Last 14 days'));
     two.appendChild(dayStrip(a.id, 14, 'is-big'));
     sheet.appendChild(two);
+    // MEET DAY hook (meetday.js): their next planned meet, with Plan attempts (and Meet day on the day).
+    const nextMeet = (Store.get().meets || []).filter(m => m.athleteId === a.id && isPlannedMeet(m) && String(m.date || '').slice(0, 10) >= todayISO()).sort((x, y) => String(x.date).localeCompare(String(y.date)))[0];
+    const mdHook = nextMeet && window.MeetDay && MeetDay.plannerLink ? MeetDay.plannerLink(nextMeet, { before: close }) : null;
+    if (mdHook) {
+      const mr = uiRow({ title: nextMeet.name || 'Meet', sub: [fmtDate(nextMeet.date), nextMeet.federation].filter(Boolean).join(' · ') });
+      (mr.querySelector('.ui-row-main') || mr).appendChild(mdHook);
+      sheet.appendChild(uiLabel('Next meet')); sheet.appendChild(uiList([mr]));
+    }
     // Shared from Apple Health (only when they share): last night and the resting heart rate.
     const rcv = recoveryRows(athleteRecovery(a.id));
     if (rcv.length) { sheet.appendChild(uiLabel('Recovery')); sheet.appendChild(uiList(rcv)); }
@@ -1543,8 +1552,11 @@ function renderAthletePage(athleteId) {
   if (meets.length) right.appendChild(uiList(meets.map(m => {
     const planned = isPlannedMeet(m);   // brief M3: a planned meet never shows (or counts as) a total
     const tot = planned ? 0 : (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
-    return uiRow({ title: m.name || 'Meet', sub: [fmtDate(m.date), m.federation, m.weightClass ? m.weightClass + (/kg|lb/i.test(m.weightClass) ? '' : ' kg') : ''].filter(Boolean).join(' · '),
+    const row = uiRow({ title: m.name || 'Meet', sub: [fmtDate(m.date), m.federation, m.weightClass ? m.weightClass + (/kg|lb/i.test(m.weightClass) ? '' : ' kg') : ''].filter(Boolean).join(' · '),
       endHtml: planned ? '<span class="ui-tag">Planned</span>' : (tot ? '<b>' + exactW(tot) + '</b> ' + u : '') });
+    const mdHook = planned && window.MeetDay && MeetDay.plannerLink ? MeetDay.plannerLink(m) : null;   // MEET DAY hook: Plan attempts / Meet day
+    if (mdHook) { const mainEl = row.querySelector('.ui-row-main'); (mainEl || row).appendChild(mdHook); }
+    return row;
   })));
   else right.appendChild(el('p', { class: 'ap-empty' }, 'No meets yet. They add them under Progress, or link their OpenPowerlifting profile.'));
   cols.appendChild(left); cols.appendChild(right);
