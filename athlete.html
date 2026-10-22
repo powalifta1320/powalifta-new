@@ -1699,6 +1699,8 @@ function buildTodayHero(cur) {
   if (!isCardio && Number(s.weightHi) > Number(planWeight(s)) && Number(planWeight(s)) > 0) {
     hero.appendChild(el('div', { class: 'tx-range' }, wKg >= Number(s.weightHi) ? 'Top of the range' : 'Up to ' + formatWeight(s.weightHi)));
   }
+  const sfNow = isCardio ? null : setFieldsEl(setFieldBits(s), 'tx-sf');   // SET FIELDS hook: this set's tempo, pause, bands, columns
+  if (sfNow) hero.appendChild(sfNow);
   if (smart) {
     const sm = el('div', { class: 'tx-smart is-' + smart.dir });
     sm.appendChild(el('span', { class: 'tx-smart-ic', 'aria-hidden': 'true', html: smart.dir === 'down'
@@ -2394,6 +2396,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
 
   // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
   if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
+  // SET FIELDS hook (app.js setFieldsSplit): what every set shares, once; a set's own under its load.
+  const sfSplit = setFieldsSplit(ex.sets);
+  const sfCommon = setFieldsEl(sfSplit.common, 'tx-sf');
+  if (sfCommon) card.appendChild(sfCommon);
 
   const firstSet = ex.sets[0];
   if (firstSet && !exDone) {
@@ -2470,6 +2476,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     else if (set.extra) sub = 'Extra set';
     // The RPE chip beside the load already shows the target, so no "Target RPE" line.
     if (sub) main.appendChild(el('div', { class: 'tx-set-sub' + subTone }, sub));
+    const sfOwn = setFieldsEl(sfSplit.per[si], 'tx-set-sub tx-set-sf');   // SET FIELDS hook
+    if (sfOwn) main.appendChild(sfOwn);
     row.appendChild(main);
 
     // The RPE this set goes in at: done = what you logged; to do = your pick, else the target as
@@ -2612,6 +2620,9 @@ function openExerciseDetail(exId) {
       todaySec.innerHTML = '';
       const n = ex.sets.length, d = ex.sets.filter(x => x.completed).length;
       todaySec.appendChild(uiLabel('Today', { count: n ? d + ' of ' + n : null }));
+      const sfx = setFieldsSplit(ex.sets);   // SET FIELDS hook: shared once, a set's own on its row
+      const sfxCommon = setFieldsEl(sfx.common, 'xd-sf');
+      if (sfxCommon) todaySec.appendChild(sfxCommon);
       const list = el('div', { class: 'xd-sets' });
       ex.sets.forEach((set, si) => {
         const sm = set.completed ? null : smartFor(ex, si);
@@ -2620,7 +2631,7 @@ function openExerciseDetail(exId) {
         const row = el('button', { type: 'button', class: 'xd-set' + (set.completed ? ' is-done' : ''),
           'aria-label': 'Set ' + (si + 1) + ': ' + setLine(kg, set.reps, felt) + (set.completed ? ', done' : '') });
         row.innerHTML = '<span class="xd-n">' + (set.completed ? ICONS.check : String(si + 1)) + '</span>' +
-          '<span class="xd-load">' + (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + u + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b></span>' +
+          '<span class="xd-load">' + (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + u + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>' + setFieldsHtml(sfx.per[si]) + '</span>' +
           '<span class="xd-rpe" style="--rc:' + (felt == null ? 'var(--text-3)' : rpeColor(felt)) + '">' + (felt == null ? 'RPE' : 'RPE ' + felt) + '</span>';
         row.addEventListener('click', () => {
           if (liftWritesLoad(ex, set) && !set.completed && isMain && !(kg > 0)) { close(); setTimeout(() => focusSetRow(ex.id, si, 'wt'), 240); return; }
@@ -4163,6 +4174,8 @@ function openLiftMode() {
     num.addEventListener('click', () => { if (!isCardio && !(kg > 0) && writes) promptSetWeight(ex, si); else if (kg > 0) openPlateCalc(kg); });
     stage.appendChild(num);
     if (!isCardio && kg > 0) { stage.appendChild(el('div', { class: 'lm-bar', 'aria-hidden': 'true', html: uiBarbell(kg, { from: _lmBarKg }) })); _lmBarKg = kg; }
+    const sfLm = isCardio ? null : setFieldsEl(setFieldBits(set), 'lm-sf');   // SET FIELDS hook
+    if (sfLm) stage.appendChild(sfLm);
     const meta = [];   // (the target RPE is the tick on the scale below, not said twice)
     if (sm) meta.push(sm.fromKg > 0 ? (sm.delta > 0 ? '+' : '−') + kgToDisplay(Math.abs(sm.delta)) + ' ' + unitLabel() + ' from the plan' : 'From today\'s sets');
     if (ex.note) meta.push(ex.note);
@@ -8043,7 +8056,7 @@ function sbBlockCount(progId, wi, di, ei, startIdx, oldCount, newCount) {
     if (target > oldCount) {
       const tpl = sets[startIdx];
       const fillers = [];
-      for (let i = 0; i < target - oldCount; i++) fillers.push(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo));
+      for (let i = 0; i < target - oldCount; i++) fillers.push(Object.assign(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo), rxOf(tpl)));   // SET FIELDS hook: copies carry rxOf
       sets.splice(startIdx + oldCount, 0, ...fillers);
     } else if (target < oldCount) {
       sets.splice(startIdx + target, oldCount - target);

@@ -232,14 +232,31 @@ function _cleanWeekNumbers(weeks) {
     return Object.assign({}, w, { number: n > 0 && n < 1000 ? Math.round(n) : i + 1 });
   });
 }
+// programs.set_fields (migration-set-fields-2026-10-22.sql): which set fields a program's builder
+// shows ({ on: ['tempo', …], cols: ['Bar', …] }). Until the column exists it's kept on this device
+// (the values themselves live on the sets, in weeks, so nothing the lifter sees depends on it).
+function _sfDefLocal(id, def) {
+  const k = 'powa-setfields-' + id;
+  try {
+    if (def === undefined) { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }
+    if (def) localStorage.setItem(k, JSON.stringify(def)); else localStorage.removeItem(k);
+  } catch (e) {}
+  return null;
+}
+function _cleanSfDef(d) { return typeof cleanSetFieldsDef === 'function' ? cleanSetFieldsDef(d) : null; }
 function mapDbProgram(r) {
-  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
+  const p = { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
+  const sf = r.set_fields !== undefined ? _cleanSfDef(r.set_fields) : _cleanSfDef(_sfDefLocal(r.id));
+  if (sf) p.setFields = sf;
+  return p;
 }
 // programs.maxes arrives with migration-blocks-2026-10-22.sql; until then it's left out.
 let _noProgramMaxes = false;
+let _noSetFields = false;
 function mapJsProgram(p) {
   const row = { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
   if (!_noProgramMaxes && p.maxes !== undefined) row.maxes = p.maxes && Object.keys(p.maxes).length ? p.maxes : null;
+  if (!_noSetFields && p.setFields !== undefined) row.set_fields = _cleanSfDef(p.setFields);
   return row;
 }
 // weeks is null until the block is opened (getProgramBlockWeeks): the list carries stats only.
@@ -1591,11 +1608,15 @@ const DB = {
     // INSERT policy (coach-only). So: UPDATE first; if no row hit, INSERT.
     let row = mapJsProgram(prog);
     let updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
-    if (updateRes.error && 'maxes' in row && _missingCol(updateRes.error, ['maxes'])) {
-      _noProgramMaxes = true;   // the column isn't there yet: save without it
+    // A column that isn't there yet (maxes, set_fields): save without it.
+    for (let i = 0; i < 2 && updateRes.error; i++) {
+      const miss = _missingCol(updateRes.error, ['maxes', 'set_fields'].filter(c => c in row));
+      if (!miss) break;
+      if (miss === 'maxes') _noProgramMaxes = true; else _noSetFields = true;
       row = mapJsProgram(prog);
       updateRes = await sb.from('programs').update(row).in('id', [prog.id]).select();
     }
+    if (_noSetFields && prog.setFields !== undefined) _sfDefLocal(prog.id, _cleanSfDef(prog.setFields));
     if (updateRes.error) throw updateRes.error;
     if (updateRes.data && updateRes.data.length) return;
     // No existing row — try INSERT (only the coach can succeed here per RLS)

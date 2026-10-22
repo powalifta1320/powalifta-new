@@ -12339,3 +12339,60 @@ html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2
 @keyframes thSyncPulse { 50% { opacity: 0.35; } }
 [data-theme="light"] .th-sync { background: rgba(15, 15, 25, 0.06); }
 @media (prefers-reduced-motion: reduce) { .th-sync.is-pending::before { animation: none; } }
+
+/* ===== SET FIELDS (2026-10-22): tempo, pauses, bands and chains, the coach's own columns =====
+   One quiet line: the label in the tertiary ink, the value in the primary, a dot between.
+   No pills: the set's load and RPE stay the loudest thing on the row. */
+.sf-line { display: block; font-size: var(--fs-meta, 13px); line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.sf-bit { display: inline; }
+/* The dot trails each field and the bits are joined by a space (setFieldsHtml), so a long line
+   wraps between fields; a label stays with its value, and a long value wraps inside itself. */
+.sf-bit:not(:last-child)::after { content: '·'; margin: 0 3px 0 7px; color: var(--text-3); }
+.sf-bit i { font-style: normal; color: var(--text-3); white-space: nowrap; }
+.sf-bit b { margin-left: 4px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* Train: what every set of the exercise shares, once under the head; a set's own under its load. */
+.tx-card .tx-sf { margin: 10px 2px 0; }
+.tx-set-sub.tx-set-sf { white-space: normal; overflow: visible; }
+.tx-set-sub.tx-set-sf .sf-line { display: inline; font-size: inherit; }
+.tx-hero .tx-sf { margin-top: 8px; font-size: 13.5px; }
+.lm-sf { max-width: 340px; margin-top: 6px; text-align: center; }
+.lm-sf .sf-line { font-size: 15px; }
+.xd-sf { margin: -2px 2px 10px; }
+.xd-set .xd-load .sf-line { display: block; margin-top: 2px; white-space: normal; font-family: var(--font-body); font-size: 12.5px; }
+.xd-set .xd-load .sf-line b { font: inherit; font-weight: 650; font-stretch: 100%; }
+.xd-set .xd-load .sf-line i { margin: 0; font-style: normal; font-size: inherit; }
+/* The builder: the folded chip's quiet tail, and a row of small boxes under a block. */
+.pb-chip .pb-chip-fx { text-decoration: none; color: var(--text-3); max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
+.sf-edit .sf-fields { display: flex; flex-wrap: wrap; gap: 6px; }
+.sf-edit.pb-sf { margin: 0 0 8px; }
+.sf-edit.is-collapsible .sf-fields { display: none; margin-top: 6px; }
+.sf-edit.is-collapsible.is-open .sf-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.sf-sum { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 0 8px 0 10px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease-out; }
+.sf-sum:hover, .sf-sum:focus-visible { background: var(--fill-1); }
+.sf-sum:focus-visible { outline: 2px solid var(--acc, currentColor); outline-offset: 1px; }
+.sf-sum.is-empty { color: var(--text-3); font-weight: 500; }
+.sf-sum-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-sum-chev { flex: none; width: 14px; height: 14px; color: var(--text-3); transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1); }
+.sf-sum[aria-expanded="true"] .sf-sum-chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .sf-sum-chev { transition: none; } }
+.sf-edit.is-open .sf-field { justify-content: space-between; }
+.sf-edit.is-open .sf-field input.sf-in { flex: 1; }
+.sf-field { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; margin: 0; padding: 0 4px 0 10px; border-radius: 10px; background: var(--fill-1); color: var(--text-3); font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: text; }
+.sf-field:focus-within { box-shadow: inset 0 0 0 1px var(--line-2); }
+.sf-k { white-space: nowrap; }
+body .sf-edit input.sf-in, body.powa-app .sf-edit input.sf-in {
+  width: 11ch; min-width: 0; height: 30px; min-height: 0; margin: 0; padding: 0 6px; border: 0; border-radius: 7px; background: transparent; box-shadow: none;
+  color: var(--text); font-family: var(--font-body); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+body .sf-edit input.sf-in::placeholder { color: var(--text-3); font-weight: 500; }
+body .sf-edit input.sf-in:focus { outline: none; background: var(--fill-2); }
+body .sf-edit input.sf-in.is-bad { box-shadow: inset 0 0 0 1px var(--soft-alert, #ff8f80); }
+@media (min-width: 900px) { body .sf-edit input.sf-in, body.powa-app .sf-edit input.sf-in { font-size: 13.5px; } }
+/* The sheet: three switches, the coach's columns, add one. */
+.sf-sheet .ui-label { margin-top: 18px; }
+.sf-add { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+body .sf-add input.sf-add-in, body.powa-app .sf-add input.sf-add-in { flex: 1; min-width: 0; height: 42px; font-size: 16px; }
+.sf-note { margin: 8px 2px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+.sf-sheet .btn-block { margin-top: 20px; }
+.sf-col-rm { width: 36px; height: 36px; display: grid; place-items: center; }
+.sf-col-rm svg { width: 15px; height: 15px; }
