@@ -81,6 +81,8 @@ with checks(n, migration, applied) as (values
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'my_coach_brand')),
   (33, 'migration-health-2026-10-22.sql  (1.3, Apple Health)',
-        to_regclass('public.health_daily') is not null)
+        to_regclass('public.health_daily') is not null),
+  (34, 'migration-history-import-2026-10-22.sql  (Switch kit: history import)',
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workout_logs' and policyname = 'workout_logs_coach_import'))
 )
 select n, migration, applied from checks order by n;
