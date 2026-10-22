@@ -313,9 +313,14 @@ window.POWA_SUPPORT_KB = [
    "review my lift",
    "send a video",
    "upload video",
-   "video too big"
+   "video too big",
+   "draw on video",
+   "frame by frame",
+   "compare clips",
+   "coach drawings"
   ],
-  "a": "Athletes: open the Coach tab, switch to Form checks, choose a video (up to 100 MB), pick the lift, say what you want eyes on and tap \"Send for review\"; your coach's written reply appears under the clip. Coaches: Roster lists Form checks waiting for a review; tap one, watch the video and tap Send reply (Update reply to change it). Videos are private to the two of you."
+  "a": "Athletes: open the Coach tab, switch to Form checks, choose a video (up to 100 MB), pick the lift, say what you want eyes on and tap \"Send for review\"; tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: Roster lists Form checks waiting for a review; tap one to open the review: step frame by frame (the , and . keys on a laptop), pause on the frame that matters, draw a line, arrow, circle, angle (it shows the degrees) or freehand, tick what you judged (depth, lockout, pause, bar path, set-up), add a caption and a reply, then Send. Compare puts two of the lifter's clips side by side: tap Align here on the same moment in each, like the bottom of the squat, and they play together. Videos and drawings are private to the two of you.",
+  "app": "Athletes: open the Coach tab, switch to Form checks, tap Film a set or Choose a clip, pick the lift, say what you want eyes on and tap \"Send for review\"; the app converts iPhone video so your coach can play it on any computer. Tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: Roster lists Form checks waiting for a review; tap one to step frame by frame, draw on the frame that matters (line, arrow, circle, angle with the degrees, freehand), tick what you judged, add a caption and a reply, then Send. Compare puts two clips side by side, aligned on the same moment. Videos and drawings are private to the two of you."
  },
  {
   "id": "coach-build-program",
@@ -391,8 +396,78 @@ window.POWA_SUPPORT_KB = [
    "smart scale",
    "withings"
   ],
-  "a": "In the iPhone app, yes: You → Apple Health, then turn it on and allow access. Weigh-ins from your scale (or any app that writes to Health) come into POWALIFTA, and the ones you log here go to Health; if the same day has two different weights, the app asks which to keep (POWALIFTA's stays if you skip it). Every finished session is saved to Health as a strength training workout, with its sets and total lifted. Last night's sleep and your resting heart rate show on Train's \"How do you feel today?\" (with a suggestion) and on Progress. They stay on your phone unless you switch on Share with your coach in the same sheet. Turn it off any time there, or change access in the Health app: tap your picture, then Apps → POWALIFTA.",
-  "app": "Yes: You → Apple Health, then turn it on and allow access. Weigh-ins from your scale (or any app that writes to Health) come into POWALIFTA, and the ones you log here go to Health; if the same day has two different weights, the app asks which to keep (POWALIFTA's stays if you skip it). Every finished session is saved to Health as a strength training workout, with its sets and total lifted. Last night's sleep and your resting heart rate show on Train's \"How do you feel today?\" (with a suggestion) and on Progress. They stay on your phone unless you switch on Share with your coach in the same sheet. Turn it off any time there, or change access in the Health app: tap your picture, then Apps → POWALIFTA."
+  "a": "In the iPhone app, yes: You → Apple Health, then turn it on and allow access. Weigh-ins from your scale (or any app that writes to Health) come into POWALIFTA, and the ones you log here go to Health; if the same day has two different weights, the app asks which to keep (POWALIFTA's stays if you skip it). Every finished session is saved to Health as a strength training workout, with its sets and total lifted. Last night's sleep and your resting heart rate show on Train's \"How do you feel today?\" (with a suggestion) and on Progress. With an Apple Watch, heart rate variability feeds the rest suggestion, and calories and protein you log in other apps show on Make weight. All of it stays on your phone unless you switch on Share with your coach (sleep and heart) or Share food (calories and protein), each in the same sheet. Turn it off any time there, or change access in the Health app: tap your picture, then Apps → POWALIFTA.",
+  "app": "Yes: You → Apple Health, then turn it on and allow access. Weigh-ins from your scale (or any app that writes to Health) come into POWALIFTA, and the ones you log here go to Health; if the same day has two different weights, the app asks which to keep (POWALIFTA's stays if you skip it). Every finished session is saved to Health as a strength training workout, with its sets and total lifted. Last night's sleep and your resting heart rate show on Train's \"How do you feel today?\" (with a suggestion) and on Progress. With an Apple Watch, heart rate variability feeds the rest suggestion, and calories and protein you log in other apps show on Make weight. All of it stays on your phone unless you switch on Share with your coach (sleep and heart) or Share food (calories and protein), each in the same sheet. Turn it off any time there, or change access in the Health app: tap your picture, then Apps → POWALIFTA."
+ },
+ {
+  "id": "pain-flags",
+  "q": "Something hurt during training. How do I tell my coach?",
+  "t": [
+   "pain",
+   "something hurt",
+   "hurt",
+   "injury",
+   "injured",
+   "niggle",
+   "tweak",
+   "tell my coach it hurts",
+   "resolve pain",
+   "pain flag"
+  ],
+  "a": "On Train, tap Something hurt under the exercise you're on (on a phone it's the plaster icon beside the note pencil) (it's also in Finish session, and after you pick Beat up). Tap where it hurts on the body map, then how bad it is from 1 to 10: tapping the number sends it to your coach, with the lift and set filled in. Change Warm-up / Working sets / After first if it wasn't the set you were on. Tapped the wrong spot? Undo is on the message that appears. Your coach gets a notification that only says you logged a check-in (it never names the body part), and only you and your current coach can see your reports; deleting your account deletes them. Coaches: it shows on the roster as a Pain flag and in the athlete's sheet, where you tap it to resolve it with a note. This is a way to talk to your coach, not medical advice: for anything sharp, swelling or not getting better, see a doctor or physio."
+ },
+ {
+  "id": "voice-notes",
+  "q": "How do I send a voice note to my coach (or my athlete)?",
+  "t": [
+   "voice note",
+   "voice message",
+   "record a message",
+   "audio message",
+   "microphone",
+   "mic",
+   "hold to record",
+   "playback speed",
+   "voice memo"
+  ],
+  "a": "Open the conversation (Coach tab for lifters, Messages for coaches). While the message box is empty there's a mic button: hold it and talk, let go to finish, then listen back and tap the red arrow to send, or the bin to throw it away. Slide left while holding to cancel. A note can be up to 2 minutes. Tap play on any voice note; the 1× chip switches between 1×, 1.5× and 2× (the app remembers your choice). Recorded with no signal? It's saved on your phone and says Will send when online, then goes by itself once you're connected (long-press it to delete it instead). Your coach's newest voice note also plays from Train until you've heard it. Only you and the other person in the conversation can play a note; deleting your account deletes your recordings. If nothing records, allow the microphone: on iPhone, Settings → POWALIFTA → Microphone; in a browser, the site's microphone permission."
+ },
+ {
+  "id": "rest-suggestion",
+  "q": "Why did my rest timer give me longer rests today?",
+  "t": [
+   "rest suggestion",
+   "longer rest",
+   "rest timer longer",
+   "hrv",
+   "heart rate variability",
+   "readiness",
+   "resting hr above",
+   "resting heart rate above my usual",
+   "apple watch rest"
+  ],
+  "a": "That's the rest suggestion. With an Apple Watch (or another wearable that writes to Apple Health) and Apple Health on in You → Apple Health, POWALIFTA compares your resting heart rate and heart rate variability with your own last 28 days. When two of the last three mornings were well off your usual (resting HR 7 or more above it, or HRV clearly below it), the timer gives 30 to 60 seconds more between top sets on squat, bench and deadlift, and the timer says why. It never changes your weights, a rest your coach wrote still wins, −15 on the timer always works, and you can switch it off in Rest and sets. It's a training suggestion, not a medical reading. Without a Watch the iPhone has no heart data, so nothing changes and nothing shows. If you share health with your coach, they see a readiness dot for the same thing.",
+  "app": "That's the rest suggestion. With an Apple Watch (or another wearable that writes to Apple Health) and Apple Health on in You → Apple Health, POWALIFTA compares your resting heart rate and heart rate variability with your own last 28 days. When two of the last three mornings were well off your usual (resting HR 7 or more above it, or HRV clearly below it), the timer gives 30 to 60 seconds more between top sets on squat, bench and deadlift, and the timer says why. It never changes your weights, a rest your coach wrote still wins, −15 on the timer always works, and you can switch it off in Rest and sets. It's a training suggestion, not a medical reading. Without a Watch the iPhone has no heart data, so nothing changes and nothing shows. If you share health with your coach, they see a readiness dot for the same thing."
+ },
+ {
+  "id": "make-weight",
+  "q": "How do I track making weight for a class (a cut)?",
+  "t": [
+   "make weight",
+   "making weight",
+   "cut",
+   "cutting",
+   "weight class",
+   "class line",
+   "off pace",
+   "calories",
+   "protein",
+   "kcal",
+   "nutrition",
+   "food"
+  ],
+  "a": "Open Bodyweight (tap your weigh-in on Train or You) and tap Make weight for a class. Pick the class, the date you need to make it by (your meet) and, if you like, daily calorie and protein targets. The chart then shows your weigh-ins against the class line, and the card says where you are, for example \"83.1 kg · class 83 · 9 wk to go · need −0.2/wk\". It goes amber when you're drifting the wrong way and red when you're off pace; it uses your 7-day average, so one salty dinner doesn't count. Your morning weigh-in on Train shows the same line. Calories and protein come from Apple Health on iPhone (whatever app you log food in) as 7-day averages; a day with nothing logged says not logged, never 0. Your coach sees the cut and an Off pace flag; they only see your calories and protein if you switch on Share food in You → Apple Health (separate from sleep and heart rate, and turning it off deletes what they saw). Cutting more than about 1% of your bodyweight a week costs strength: talk it through with your coach.",
+  "app": "Open Bodyweight (tap your weigh-in on Train or You) and tap Make weight for a class. Pick the class, the date you need to make it by (your meet) and, if you like, daily calorie and protein targets. The chart then shows your weigh-ins against the class line, and the card says where you are, for example \"83.1 kg · class 83 · 9 wk to go · need −0.2/wk\". It goes amber when you're drifting the wrong way and red when you're off pace; it uses your 7-day average, so one salty dinner doesn't count. Your morning weigh-in on Train shows the same line. Calories and protein come from Apple Health (whatever app you log food in; turn it on in You → Apple Health) as 7-day averages; a day with nothing logged says not logged, never 0. Your coach sees the cut and an Off pace flag; they only see your calories and protein if you switch on Share food in You → Apple Health (separate from sleep and heart rate, and turning it off deletes what they saw). Cutting more than about 1% of your bodyweight a week costs strength: talk it through with your coach."
  },
  {
   "id": "coach-templates",

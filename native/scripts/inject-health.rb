@@ -10,7 +10,8 @@
 #   2. register "HealthPlugin" in capacitor.config.json's packageClassList (`cap sync` drops it)
 #   3. the HealthKit entitlement, merged into the App target's entitlements file
 #   4. the HealthKit capability on the App target (so automatic signing adds it to the App ID)
-#   5. Info.plist: the two permission texts iOS shows (reading and saving)
+#   5. Info.plist: the two permission texts iOS shows (reading and saving). Reading names every
+#      type HealthPlugin.swift asks for: bodyweight, sleep, resting HR, HRV, calories, protein
 #
 # Run by inject-all.sh, after inject-home-screen.rb (which makes sure the entitlements file
 # exists). Idempotent: safe to run any number of times.
@@ -99,7 +100,7 @@ app_plist = File.join(APP_DIR, "Info.plist")
 if File.exist?(app_plist)
   plist = Xcodeproj::Plist.read_from_path(app_plist)
   plist["NSHealthShareUsageDescription"] =
-    "POWALIFTA reads your bodyweight to fill in your weigh-ins, and last night's sleep and your resting heart rate to show how ready you are to train. It stays on your phone unless you choose to share sleep and heart rate with your coach."
+    "POWALIFTA reads your bodyweight to fill in your weigh-ins; last night's sleep, your resting heart rate and heart rate variability to suggest longer rests on harder days; and the calories and protein you log to show your daily averages while you make weight. It stays on your phone unless you choose to share it with your coach."
   plist["NSHealthUpdateUsageDescription"] =
     "POWALIFTA saves your weigh-ins and your finished training sessions to Apple Health."
   Xcodeproj::Plist.write_to_path(plist, app_plist)
