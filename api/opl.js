@@ -10,6 +10,31 @@
 const OPL = 'https://www.openpowerlifting.org';
 const UA = 'POWALIFTA/1.0 (+https://www.powalifta.com)';
 const MAX_BYTES = 2000000;
+// Each request that gets past the edge cache reaches openpowerlifting.org under our name, so it is
+// limited here (2026-10-22 security pass): a search makes at most 3 round trips (6 fetches), and
+// one client IP gets 40 uncached requests an hour, all clients 600, per running instance. In
+// memory, so best-effort across instances, but enough that a loop from one host can't turn this
+// into a 16x amplifier that gets POWALIFTA's user agent blocked for every lifter.
+const SEARCH_ROUNDS = 3;
+const PER_IP_HOUR = 40;
+const ALL_HOUR = 600;
+const hits = new Map();
+let hitsHour = 0;
+function allow(ip, now) {
+  const hour = Math.floor((now || Date.now()) / 3600000);
+  if (hour !== hitsHour) { hits.clear(); hitsHour = hour; }
+  const all = (hits.get('*') || 0) + 1;
+  const mine = (hits.get(ip) || 0) + 1;
+  if (all > ALL_HOUR || mine > PER_IP_HOUR) return false;
+  hits.set('*', all); hits.set(ip, mine);
+  if (hits.size > 20000) hits.clear();   // never grows without bound
+  return true;
+}
+function clientIp(req) {
+  const h = (req && req.headers) || {};
+  const one = (v) => String(Array.isArray(v) ? v[0] : (v || '')).split(',')[0].trim();
+  return (one(h['x-real-ip']) || one(h['x-forwarded-for']) || 'unknown').slice(0, 64);
+}
 
 async function get(path, timeoutMs) {
   const ctl = new AbortController();
@@ -35,7 +60,7 @@ async function search(q) {
   const out = [], seen = new Set();
   const until = Date.now() + 7000;
   let start = 0;
-  for (let i = 0; i < 8 && out.length < 6 && Date.now() < until; i++) {
+  for (let i = 0; i < SEARCH_ROUNDS && out.length < 6 && Date.now() < until; i++) {
     const r = await get('/api/search/rankings?q=' + encodeURIComponent(q) + '&start=' + start);
     if (!r.ok) throw new Error('search ' + r.status);
     const j = await r.json();
@@ -105,6 +130,7 @@ function send(res, status, body, cache) {
 
 module.exports = handler;
 module.exports._parseCsv = parseCsv;   // for test/opl-api.test.cjs
+module.exports._allow = allow;
 async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -115,6 +141,10 @@ async function handler(req, res) {
   const url = new URL(req.url || '/', 'http://localhost');
   const q = (url.searchParams.get('q') || '').replace(/\s+/g, ' ').trim();
   const u = (url.searchParams.get('u') || '').trim().toLowerCase();
+  if ((u || q) && !allow(clientIp(req))) {
+    res.setHeader('Retry-After', '3600');
+    return send(res, 429, { error: 'busy' });
+  }
   try {
     if (u) {
       if (!/^[a-z0-9]{1,64}$/.test(u)) return send(res, 400, { error: 'username' });

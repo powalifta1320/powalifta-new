@@ -2635,6 +2635,214 @@ test('Apple Health HRV: one number a day, merged with resting HR', () => {
    doesn't come up in time, the cases are SKIPPED (not failed).
    =========================================================== */
 /* ===========================================================
+   Set fields (app.js, 2026-10-22): tempo, pauses, bands and chains, the coach's columns
+   =========================================================== */
+group('set fields');
+function _sfUnit(u, fn) { const saved = localStorage.getItem('powa-unit'); try { setUnit(u); fn(); } finally { try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch (e) {} } }
+test('set fields: the brief\'s cell reads in full, and the chain is not the load', () => {
+  const p = parsePrescription('4x3 160 @8 tempo 3-1-0 paused 2s + chains 20kg', 'kg');
+  eq(p.sets, 4); eq(p.reps, 3); eq(p.kg, 160); eq(p.rpe, 8);
+  eq(p.fields.tempo, '3-1-0'); eq(p.fields.pause, 2); eq(p.fields.acc, 'chains'); eq(p.fields.accKg, 20);
+  const q = parsePrescription('3x5 @8 w/ chains 20kg', 'kg');
+  eq(q.kg, null); eq(q.fields.accKg, 20);                               // no load written: the chain isn't one
+  eq(parsePrescription('3x5 140 @8', 'kg').fields.tempo, undefined);   // nothing extra: nothing added
+  eq(JSON.stringify(parsePrescription('3x5 140 @8', 'kg').fields), '{}');
+});
+test('set fields: tempo as coaches write it', () => {
+  const t = (s) => parseSetFields(s).fields.tempo;
+  eq(t('3x5 140 @8 tempo 3-1-0'), '3-1-0'); eq(t('@8 3-1-0'), '3-1-0'); eq(t('tempo 3/1/x/0'), '3-1-X-0');
+  eq(t('tempo 3s down'), '3s down'); eq(t('3x5 3 sec eccentric'), '3s eccentric'); eq(t('tempo: slow down'), 'slow down');
+  eq(t('3x5 @7-8'), undefined); eq(t('3x5 140-145kg'), undefined); eq(t('3x5 RIR 1-2'), undefined);   // ranges stay ranges
+  const r = parsePrescription('3x5 @7-8 3-1-0', 'kg'); eq(r.rpe, 7); eq(r.rpeHi, 8); eq(r.fields.tempo, '3-1-0');
+});
+test('set fields: pauses, how long and where', () => {
+  const p = (s) => parseSetFields(s).fields;
+  eq(p('paused 2s').pause, 2); eq(p('2ct pause').pause, 2); eq(p('2-count pause').pause, 2); eq(p('pause 1s at chest').pauseAt, 'chest');
+  eq(p('3x3 @7 paused 2s at the knee').pauseAt, 'knee'); eq(p('2s chest pause').pauseAt, 'chest'); eq(p('paused at the bottom').pauseAt, 'bottom');
+  eq(p('paused at the bottom').pause, undefined); eq(p('pause in the hole 3s').pauseAt, 'bottom');
+  eq(JSON.stringify(p('Paused squat 3x3 @7')), '{}');                  // the variant's name, not a field
+  eq(p('pause 3x3').pause, undefined);                                  // "3x3" is sets x reps
+  const r = parsePrescription('Paused bench 5x3 @7 2ct pause', 'kg'); eq(r.sets, 5); eq(r.reps, 3); eq(r.fields.pause, 2);
+});
+test('set fields: bands and chains', () => {
+  const p = (s, u) => parseSetFields(s, { unit: u }).fields;
+  eq(p('+ light bands').acc, 'bands'); eq(p('+ light bands').accTxt, 'light'); eq(p('w/ mini bands').accTxt, 'mini'); eq(p('red band').accTxt, 'red');
+  eq(p('bands: light').accTxt, 'light'); eq(p('with doubled red bands').accTxt, 'doubled red'); eq(p('+ bands').accTxt, undefined);
+  eq(p('w/ chains 20kg').accKg, 20); eq(p('20kg chains').accKg, 20); eq(p('+ chains').acc, 'chains'); eq(p('+ chains').accKg, undefined);
+  eq(Math.round(p('chains 40lb').accKg * 10) / 10, 18.1); eq(Math.round(p('chains 40', 'lbs').accKg * 10) / 10, 18.1); eq(p('chains 20 (doubled)').accTxt, 'doubled');
+});
+test('set fields: the coach\'s own columns', () => {
+  const p = (s, cols) => parsePrescription(s, 'kg', { cols }).fields.cx;
+  eq(JSON.stringify(p('3x5 140 @8 · Bar: SSB')), JSON.stringify({ Bar: 'SSB' }));
+  eq(JSON.stringify(p('3x5 140 @8 Bar: SSB Belt: no')), JSON.stringify({ Bar: 'SSB', Belt: 'no' }));
+  eq(JSON.stringify(p('3x5 @8 · Cue: knees out, chest up')), JSON.stringify({ Cue: 'knees out, chest up' }));
+  eq(JSON.stringify(p('3x5 @8 Bar type: SSB', ['Bar type'])), JSON.stringify({ 'Bar type': 'SSB' }));   // a column it has, words and all
+  eq(JSON.stringify(p('3x5 @8 · bar: ssb', ['Bar'])), JSON.stringify({ Bar: 'ssb' }));                   // its own spelling
+  eq(p('3x5 @8 rpe: 8'), undefined);                                    // reserved words aren't columns
+  const r = parsePrescription('3x5 140 @8 tempo 3-1-0 · Bar: SSB', 'kg'); eq(r.kg, 140); eq(r.rpe, 8); eq(r.fields.tempo, '3-1-0');
+});
+test('set fields: rxOf carries them on every copy, never sharing a column object', () => {
+  const s = { weight: 140, reps: 5, rpe: 8, tempo: '3-1-0', pause: 2, pauseAt: 'chest', acc: 'chains', accKg: 20, cx: { Bar: 'SSB' } };
+  const c = rxOf(s);
+  eq(c.tempo, '3-1-0'); eq(c.pause, 2); eq(c.pauseAt, 'chest'); eq(c.acc, 'chains'); eq(c.accKg, 20); eq(c.cx.Bar, 'SSB');
+  c.cx.Bar = 'comp'; eq(s.cx.Bar, 'SSB');
+  eq(JSON.stringify(rxOf({ weight: 140, reps: 5, tempo: '' })), '{}');   // an empty tempo isn't carried
+  eq(rxOf({ acc: 'kettlebells' }).acc, undefined);                     // only bands or chains
+  // the next block, a duplicated week and a template keep them
+  const nb = nextBlockWeeks({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', sets: [Object.assign({}, s)] }] }] }] }, 2.5);
+  const ns = nb[0].days[0].exercises[0].sets[0];
+  eq(ns.weight, 142.5); eq(ns.tempo, '3-1-0'); eq(ns.pause, 2); eq(ns.cx.Bar, 'SSB'); assert(ns.cx !== s.cx, 'a fresh column object');
+  // groupSets splits on them and the group carries them
+  const g = groupSets([Object.assign({}, s), Object.assign({}, s), { weight: 140, reps: 5, rpe: 8 }]);
+  eq(g.length, 2); eq(g[0].count, 2); eq(g[0].tempo, '3-1-0'); eq(g[0].cx.Bar, 'SSB'); eq(g[1].tempo, '');
+});
+test('set fields: grid cells round-trip through the parse', () => {
+  _sfUnit('kg', () => {
+    const cases = [
+      '4x3 160kg @8 tempo 3-1-0 paused 2s + chains 20kg',
+      '3x5 140kg @7 paused 1s at chest + light bands · Bar: SSB',
+      '1x3 180kg @8 · Belt: yes, 3x5 160kg @7 tempo 3s down · Belt: no',
+      '3x8 2RIR + chains (doubled) · Cue: knees out, chest up',
+      '4x6 75% tempo 3-1-X-0 · Bar: SSB · Grip: wide'
+    ];
+    cases.forEach(txt => {
+      const sets = gridParseCell(txt, null, 'squat', { weeks: [] });
+      assert(sets && sets.length, 'parses: ' + txt);
+      const back = gridCellText({ sets });
+      eq(back, txt, 'round trip');
+      eq(gridCellText({ sets: gridParseCell(back, null, 'squat', { weeks: [] }) }), back, 'stable');
+    });
+    const typed = gridParseCell('4x3 160 @8 tempo 3-1-0 paused 2s + chains 20kg', null, 'squat', { weeks: [] });
+    eq(typed.length, 4); eq(typed[0].weight, 160); eq(typed[3].accKg, 20); eq(typed[0].tempo, '3-1-0');
+    eq(gridCellText({ sets: typed }), '4x3 160kg @8 tempo 3-1-0 paused 2s + chains 20kg');
+    eq(gridParseCell('3x5 @8, junk', null, 'squat', null).length, 3);                 // trailing words don't start a group
+    eq(gridParseCell('junk', null, 'squat', null), null);
+    eq(gridParseCell('1x3 @8,3x5 @7', null, 'squat', null).length, 4);
+  });
+  _sfUnit('lbs', () => {
+    const sets = gridParseCell('3x5 315lb @8 + chains 40lb', null, 'squat', null);
+    eq(gridCellText({ sets }), '3x5 315lb @8 + chains 40lb');
+  });
+});
+test('set fields: what the lifter reads, once', () => {
+  _sfUnit('kg', () => {
+    eq(setFieldsText({ tempo: '3-1-0', pause: 2, pauseAt: 'chest', acc: 'chains', accKg: 20, cx: { Bar: 'SSB' } }), 'Tempo 3-1-0 · Pause 2s at the chest · Chains 20 kg · Bar SSB');
+    eq(setFieldsText({ acc: 'bands', accTxt: 'light' }), 'Bands light'); eq(setFieldsText({ pauseAt: 'mid-shin' }), 'Pause at the mid-shin');
+    eq(setFieldsText({ weight: 100 }), '');
+    const html = setFieldsHtml(setFieldBits({ cx: { '<b>': '<img src=x onerror=alert(1)>' } }));
+    assert(html.indexOf('<img') < 0 && html.indexOf('&lt;img') >= 0, 'escaped');
+    const sp = setFieldsSplit([{ tempo: '3-1-0', cx: { Belt: 'yes' } }, { tempo: '3-1-0', cx: { Belt: 'no' } }, { tempo: '3-1-0' }]);
+    eq(sp.common.map(b => b.label).join(','), 'Tempo'); eq(sp.per[0].map(b => b.value).join(','), 'yes'); eq(sp.per[2].length, 0);
+  });
+});
+test('set fields: a program\'s columns and switches', () => {
+  const prog = { weeks: [{ days: [{ exercises: [{ sets: [{ tempo: '3-1-0', cx: { Bar: 'SSB' } }, { acc: 'bands' }] }] }] }] };
+  eq(JSON.stringify(programSetFields(prog)), JSON.stringify({ on: ['tempo', 'acc'], cols: ['Bar'] }));   // from what the sets use
+  prog.setFields = { on: ['pause'], cols: ['Belt', 'bar'] };
+  eq(JSON.stringify(programSetFields(prog)), JSON.stringify({ on: ['pause'], cols: ['Belt', 'bar'] }));  // the coach's choice, a set's column kept
+  eq(cleanSetFieldsDef({ on: ['tempo', 'evil'], cols: ['RPE', 'Bar', 'bar', ''] }).cols.join(','), 'Bar');
+  eq(cleanSetFieldsDef([1, 2]), null);
+});
+test('set fields: pasted sheets, as columns and as written', () => {
+  const tsv = ['Week\tDay\tExercise\tSets\tReps\tLoad\tRPE\tTempo\tPause\tBands/Chains\tBar\tNotes',
+    '1\tDay 1\tSquat\t4\t3\t160\t8\t3-1-0\t2s bottom\tchains 20kg\tSSB\tStay tight',
+    '1\tDay 1\tBench\t3\t5\t100\t7\t\t1s chest\tlight\t\t'].join('\n');
+  const r = parseProgramSheet(tsv, { unit: 'kg' });
+  const sq = r.weeks[0].days[0].exercises[0].sets[0], be = r.weeks[0].days[0].exercises[1].sets[0];
+  eq(sq.weight, 160); eq(sq.tempo, '3-1-0'); eq(sq.pause, 2); eq(sq.pauseAt, 'bottom'); eq(sq.acc, 'chains'); eq(sq.accKg, 20); eq(sq.cx.Bar, 'SSB');
+  eq(be.acc, 'bands'); eq(be.accTxt, 'light'); eq(be.pauseAt, 'chest'); eq(be.cx, undefined);
+  eq(r.weeks[0].days[0].exercises[0].note, 'Stay tight');
+  eq(JSON.stringify(r.setFields), JSON.stringify({ on: ['tempo', 'pause', 'acc'], cols: ['Bar'] }));
+  const w = parseProgramSheet('Day 1\nSquat 3x5 @8 3-1-0\nBench 4x3 @8 2ct pause\nDeadlift 3x2 200kg w/ chains 20kg', { unit: 'kg' });
+  const ex = w.weeks[0].days[0].exercises;
+  eq(ex[0].sets[0].tempo, '3-1-0'); eq(ex[1].sets[0].pause, 2); eq(ex[2].sets[0].weight, 200); eq(ex[2].sets[0].accKg, 20);
+  eq(w.warnings.length, 0);
+});
+test('set fields: the spreadsheet export writes them and reads back in', () => {
+  _sfUnit('kg', () => {
+    const csv = buildProgramCsv({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', variant: 'Competition', note: 'Brace', sets: [
+      { weight: 160, reps: 3, rpe: 8, tempo: '3-1-0', pause: 2, pauseAt: 'bottom', acc: 'chains', accKg: 20, cx: { Bar: 'SSB' } }, { weight: 150, reps: 5, rpe: 7 }] }] }] }] });
+    const lines = csv.split('\n');
+    assert(/,tempo,pause,bands\/chains,Bar$/.test(lines[0]), lines[0]);
+    assert(/,3-1-0,2s at bottom,chains 20kg,SSB$/.test(lines[1]), lines[1]);
+    eq(lines[1].indexOf('Week 1,A,Squat,Competition,1,160,3,8,') === 0, true);
+    const back = parseProgramSheet(csv, { unit: 'kg' });
+    const s0 = back.weeks[0].days[0].exercises[0].sets[0];
+    eq(s0.tempo, '3-1-0'); eq(s0.pause, 2); eq(s0.pauseAt, 'bottom'); eq(s0.accKg, 20); eq(s0.cx.Bar, 'SSB');
+    eq(back.weeks[0].days[0].exercises[0].sets[1].tempo, '');
+  });
+});
+test('set fields: RPE ranges, waves and pause ranges are not tempos', () => {
+  const a = parsePrescription('3x3 @7-8-9', 'kg'); eq(a.rpe, 7); eq(a.rpeHi, 8); eq(a.fields.tempo, undefined);
+  const b = parsePrescription('3x5 140 @6-7-8', 'kg'); eq(b.kg, 140); eq(b.rpe, 6); eq(b.fields.tempo, undefined);
+  const c = parsePrescription('3x5 RPE 7-8-9', 'kg'); eq(c.rpe, 7); eq(c.fields.tempo, undefined);
+  const d = parsePrescription('3x5 140 @8 pause 2-3', 'kg'); eq(d.rpe, 8); eq(d.kg, 140); eq(d.fields.pause, 3);
+  eq(parsePrescription('1x5 5-3-1', 'kg').fields.tempo, undefined);       // a wave
+  eq(parsePrescription('3x5 140 @8 3-1-0', 'kg').fields.tempo, '3-1-0');  // still a tempo
+  eq(parseSetFields('tempo 31X0').fields.tempo, '3-1-X-0');
+  eq(parseSetFields('pause chest 1s').fields.pause, 1); eq(parseSetFields('pause chest 1s').fields.pauseAt, 'chest');
+  const sk = window.SwitchKit.parseSetText('100kg x 5-5-5'); assert(sk && sk.kg === 100 && sk.reps === 5, 'journal rep strings still import');
+  const sk2 = window.SwitchKit.parseSetText('100kg x 5 5-3-1'); assert(sk2 && sk2.kg === 100 && !sk2.fields.tempo, 'a journal wave is not a tempo');
+});
+test('set fields: chains written as a pair are not the load', () => {
+  const a = parsePrescription('3x5 120 + chains 2x10kg', 'kg'); eq(a.kg, 120); eq(a.fields.acc, 'chains'); eq(a.fields.accKg, 20);
+  const b = parsePrescription('5x3 160 @8 chains 2 x 10kg', 'kg'); eq(b.kg, 160); eq(b.rpe, 8); eq(b.fields.accKg, 20);
+});
+test('set fields: a column value with its own colon keeps its column', () => {
+  _sfUnit('kg', () => {
+    [{ Stance: 'wide: toes out' }, { Cue: 'knees: out' }, { Bar: 'SSB', Cue: 'up: fast, down: slow' }].forEach(cx => {
+      const sets = gridParseCell(gridCellText({ sets: [Object.assign(newSet(140, 5, 8), { cx })] }), null, 'squat', { weeks: [] });
+      eq(JSON.stringify(sets[0].cx), JSON.stringify(cx));
+    });
+    eq(JSON.stringify(parsePrescription('3x5 140 @8 Bar: SSB Belt: no', 'kg').fields.cx), JSON.stringify({ Bar: 'SSB', Belt: 'no' }));
+  });
+});
+test('set fields: everything a builder box accepts survives the grid text', () => {
+  const inputs = { tempo: ['3-1-0', '31X0', 'slow', 'controlled', '3 down 1 up', '3s down', 'slow, controlled', 'X-X-X'],
+    pause: ['2', '2s chest', '2s deficit', '2s 1 inch off', '1s just above knee', 'chest', 'deficit', '2-3s', 'chest 1s', 'at the knee'],
+    acc: ['light bands', 'chains 20kg', 'chains', 'red', '20', 'reverse light bands', 'doubled red bands 9kg'],
+    'cx:Bar': ['SSB', 'wide: toes out', 'a · b'] };
+  ['kg', 'lbs'].forEach(u => _sfUnit(u, () => {
+    Object.keys(inputs).forEach(kind => inputs[kind].forEach(txt => {
+      const patch = setFieldInputParse(kind, txt);
+      assert(patch, kind + ' reads: ' + txt);
+      const st = applySetFieldPatch(newSet(140, 5, 8), patch);
+      const want = JSON.stringify(setFieldsOf(st));
+      const back = gridParseCell(gridCellText({ sets: [st] }), null, 'squat', { weeks: [] });
+      assert(back && back.length === 1, 'cell parses: ' + gridCellText({ sets: [st] }));
+      // a separator in a column's value is written as "/" (it would end the value)
+      eq(JSON.stringify(setFieldsOf(back[0])), want.replace(' · ', ' / '), u + ' ' + kind + ' "' + txt + '" → ' + gridCellText({ sets: [st] }));
+      if (kind !== 'cx:Bar') eq(setFieldInputText(back[0], kind === 'acc' ? 'acc' : kind), setFieldInputText(st, kind), 'the box shows the same');
+    }));
+  }));
+  eq(setFieldInputParse('pause', '2s deficit').pauseAt, 'deficit');
+  eq(setFieldInputParse('pause', '1s just above knee').pauseAt, 'just above knee');
+  _sfUnit('lbs', () => {
+    const st = applySetFieldPatch(newSet(140, 5, 8), { acc: 'bands', accKg: 9 });
+    eq(gridParseCell(gridCellText({ sets: [st] }), null, 'squat', null)[0].accKg, 9);   // no drift in lb
+  });
+});
+test('set fields: pasted sheets skip metric columns; the export reads back', () => {
+  const r = parseProgramSheet('Exercise\tSets\tReps\tLoad\tVolume\tTonnage\t1RM\tVideo\tBar\tPause\nSquat\t3\t5\t140\t2100\t2100\t180\thttp://x\tSSB\tchest 1s', { unit: 'kg' });
+  const st = r.weeks[0].days[0].exercises[0].sets[0];
+  eq(JSON.stringify(st.cx), JSON.stringify({ Bar: 'SSB' })); eq(st.pause, 1); eq(st.pauseAt, 'chest');
+  _sfUnit('kg', () => {
+    const prog = { weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', sets: [
+      { weight: 160, reps: 3, rpe: 8, tempo: 'slow', pause: 2, pauseAt: 'deficit', cx: { Bar: 'SSB' } },
+      { weight: 160, reps: 3, rpe: 8, rpeHi: 9, tempo: 'slow', pause: 2, pauseAt: 'deficit', cx: { Bar: 'SSB' } },
+      { weight: 150, reps: 5, rpe: 7 }] }] }] }] };
+    const back = parseProgramSheet(buildProgramCsv(prog), { unit: 'kg' });
+    const sets = back.weeks[0].days[0].exercises[0].sets;
+    eq(sets.length, 3, 'one row is one set');
+    eq(sets[0].rpe, 8); eq(sets[1].rpeHi, 9); eq(sets[2].rpe, 7); eq(sets[0].weight, 160);
+    eq(sets[0].tempo, 'slow'); eq(sets[0].pauseAt, 'deficit'); eq(sets[0].cx.Bar, 'SSB'); eq(sets[2].cx, undefined);
+  });
+});
+test('set fields: the lifter\'s line can wrap between fields', () => {
+  const html = setFieldsHtml(setFieldBits({ tempo: '3-1-X-0', cx: { Bar: 'SSB', Cue: 'knees out' } }));
+  assert(/<\/span> <span class="sf-bit">/.test(html), 'bits joined by a space');
+});
+/* ===========================================================
    Switch kit (switch-kit.js): history import, export, zip
    =========================================================== */
 group('switch kit');
@@ -2674,6 +2882,26 @@ test('switch kit: exercises from app exports', () => {
   eq(m('Romanian Deadlift').variant, 'RDL'); eq(m('Lat Pulldown').lift, 'pull'); eq(m('Lat Pulldown').exerciseName, 'Lat Pulldown');
 });
 const SK_TODAY = '2026-10-22';
+test('switch kit: set fields from history sheets and journals, and in the export', () => {
+  const p = SK.parseSetText('140x3 @8 w/ chains 20kg');
+  eq(p.kg, 140); eq(p.reps, 3); eq(p.rpe, 8); eq(p.fields.accKg, 20);                // the chain is not the load
+  eq(SK.parseSetText('100x5 @7 3-1-0').fields.tempo, '3-1-0');
+  const csv = 'Date,Exercise,Weight (kg),Reps,RPE,Tempo,Pause,Chains\n2026-10-01,Squat,160,3,8,3-1-0,2s bottom,20kg\n2026-10-01,Bench,100,5,7,,,';
+  const r = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].weight, 160);
+  assert(/Tempo 3-1-0/.test(r.logs[0].note) && /Pause 2s at the bottom/.test(r.logs[0].note) && /Chains 20/.test(r.logs[0].note), r.logs[0].note);
+  eq(r.logs[1].note, '');
+  const j = SK.planHistoryImport('2026-10-02\nSquat 150x3 @8 paused 2s, 150x3 @8.5 paused 2s', { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(j.logs.length, 2); eq(j.logs[0].weight, 150); assert(/Pause 2s/.test(j.logs[0].note), j.logs[0].note);
+  // the export's program file carries them, and the program importer reads that file back
+  const files = SK.buildExportFiles({ role: 'athlete', programs: [{ name: 'Block', weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', variant: 'Competition', sets: [
+    { weight: 160, reps: 3, rpe: 8, tempo: '3-1-0', pause: 2, pauseAt: 'bottom', acc: 'bands', accTxt: 'light', cx: { Bar: 'SSB', Belt: 'no' } }] }] }] }] }] });
+  const prog = files.find(f => /^program\.csv$/.test(f.name));
+  assert(prog && /pause_s,pause_at,bands_chains,custom/.test(prog.text), 'columns');
+  const back = parseProgramSheet(prog.text, { unit: 'kg' });
+  const s0 = back.weeks[0].days[0].exercises[0].sets[0];
+  eq(s0.tempo, '3-1-0'); eq(s0.pause, 2); eq(s0.pauseAt, 'bottom'); eq(s0.accTxt, 'light'); eq(s0.cx.Bar, 'SSB'); eq(s0.cx.Belt, 'no');
+});
 test('switch kit: a Strong export (semicolons, lb, warm-ups, no RPE)', () => {
   const csv = ['Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE',
     '2025-01-06 07:30:00;Lower;1h;Squat (Barbell);W;135;5;0;0;;;',
@@ -3035,6 +3263,345 @@ test('video review: the caption goes where the drawings are not', () => {
   eq(VG.captionOnTop([{ k: 'line', p: [0.2, 0.75, 0.8, 0.72] }]), true, 'depth marks low → caption on top');
   eq(VG.captionOnTop([{ k: 'arrow', p: [0.4, 0.2, 0.5, 0.3] }]), false, 'bar path high → caption at the bottom');
   eq(VG.captionOnTop([]), false, 'nothing drawn → the bottom');
+});
+
+/* ===========================================================
+   Team programs (brief M4): one master, many lifters, overrides kept
+   =========================================================== */
+group('team programs (M4)');
+// A master block: n weeks, a squat day (comp squat by %, an accessory) and a bench day (RPE top set).
+function _tmMaster(nWeeks, pct) {
+  return Array.from({ length: nWeeks || 6 }, (_, wi) => ({ id: 'mw' + (wi + 1), number: wi + 1, days: [
+    { id: 'mw' + (wi + 1) + 'd1', name: 'Squat day', exercises: [
+      { id: 'mw' + (wi + 1) + 'sq', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'Brace', sets: [
+        { id: 'mw' + (wi + 1) + 'sq1', weight: 0, reps: 3, rpe: 8, pct: (pct || 75) + wi * 2.5, completed: false },
+        { id: 'mw' + (wi + 1) + 'sq2', weight: 0, reps: 3, rpe: 8, pct: (pct || 75) + wi * 2.5, completed: false } ] },
+      { id: 'mw' + (wi + 1) + 'row', lift: 'pull', variant: '', exerciseName: 'Barbell row', note: '', sets: [
+        { id: 'mw' + (wi + 1) + 'row1', weight: 60, reps: 10, rpe: 8, completed: false } ] } ] },
+    { id: 'mw' + (wi + 1) + 'd2', name: 'Bench day', exercises: [
+      { id: 'mw' + (wi + 1) + 'bp', lift: 'bench', variant: 'Competition', exerciseName: '', note: '', sets: [
+        { id: 'mw' + (wi + 1) + 'bp1', weight: 0, reps: 1, rpe: 8, completed: false } ] } ] } ] }));
+}
+const _tc = (o) => JSON.parse(JSON.stringify(o));
+const _tEx = (weeks, wi, di, ei) => weeks[wi].days[di].exercises[ei];
+test('team loads: % of each lifter-s max, rounded to their unit and plates', () => {
+  eq(teamLoadKg(80, 200, 'kg'), 160);
+  eq(teamLoadKg(77, 200, 'kg'), 155, '154 → the nearest 2.5 kg');
+  const lb = teamLoadKg(80, 200, 'lbs');                      // 160 kg = 352.7 lb → 355 lb
+  close(lb / KG_PER_LB, 355, 0.05, 'a lb lifter gets a 5 lb jump');
+  eq(teamLoadKg(80, 0, 'kg'), 0, 'no max: no load');
+  eq(teamLoadKg(80, 200, 'kg', 5), 160); eq(teamLoadKg(81, 200, 'kg', 5), 160, 'a gym with no 1.25s jumps by 5');
+  eq(teamMaxKg({ squat: { kg: 180, source: 'program' } }, 'squat'), 180); eq(teamMaxKg({ squat: 175 }, 'squat'), 175); eq(teamMaxKg(null, 'squat'), 0);
+});
+test('team: the first push links every week, day, exercise and set to the master', () => {
+  const master = _tmMaster(2);
+  const r = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 }, unit: 'kg' });
+  eq(r.weeks.length, 2);
+  const sq = _tEx(r.weeks, 0, 0, 0);
+  eq(sq.srcId, 'mw1sq'); eq(r.weeks[0].srcId, 'mw1'); eq(r.weeks[0].days[0].srcId, 'mw1d1'); eq(sq.sets[0].srcId, 'mw1sq1');
+  assert(sq.id !== 'mw1sq' && sq.sets[0].id !== 'mw1sq1', 'the lifter-s copy has its own ids');
+  eq(sq.sets[0].weight, 150, '75% of 200'); eq(sq.sets[0].pct, 75); eq(sq.note, 'Brace');
+  eq(_tEx(r.weeks, 0, 0, 1).sets[0].weight, 60, 'an accessory keeps the master-s load');
+  eq(r.noMax.length, 0);
+  const n = teamMemberWeeks(master, null, { maxes: { bench: 100 }, unit: 'kg' });
+  eq(n.noMax.join(','), 'squat', 'no squat max: reported');
+  eq(_tEx(n.weeks, 0, 0, 0).sets[0].weight, 0, 'and the % is left blank, never a made-up load');
+});
+test('team: a master edit never touches a set the lifter logged', () => {
+  const master = _tmMaster(2);
+  let mine = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  Object.assign(_tEx(mine, 0, 0, 0).sets[0], { completed: true, actualRpe: 8.5, weight: 152.5, plannedWeight: 150, completedAt: '2026-10-20', lastLogId: 'L1' });
+  const before = _tc(_tEx(mine, 0, 0, 0).sets[0]);
+  const m2 = _tc(master);
+  _tEx(m2, 0, 0, 0).sets.forEach(s => { s.pct = 80; s.reps = 2; });
+  const r = teamMemberWeeks(m2, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(JSON.stringify(_tEx(r.weeks, 0, 0, 0).sets[0]), JSON.stringify(before), 'the logged set is exactly as lifted');
+  eq(_tEx(r.weeks, 0, 0, 0).sets[1].weight, 160); eq(_tEx(r.weeks, 0, 0, 0).sets[1].reps, 2, 'the set still to do follows the master');
+  eq(_tEx(r.weeks, 0, 0, 0).sets[1].id, _tEx(mine, 0, 0, 0).sets[1].id, 'and keeps its id (log paths stay valid)');
+  // The master drops the set the lifter logged: it stays.
+  const m3 = _tc(master); _tEx(m3, 0, 0, 0).sets.splice(0, 1);
+  const r3 = teamMemberWeeks(m3, mine, { maxes: { squat: 200 } });
+  eq(_tEx(r3.weeks, 0, 0, 0).sets.filter(s => s.completed).length, 1);
+});
+test('team: an override survives every push and is reported only where it differs from the team', () => {
+  const master = _tmMaster(2);
+  let mine = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  mine = teamOverrideExercise(mine, _tEx(mine, 1, 0, 0).id);
+  let r = teamMemberWeeks(master, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(r.keptOwn.length, 0, 'marked as theirs but still the same as the team: nothing to report');
+  _tEx(mine, 1, 0, 0).sets.forEach(s => { s.pct = null; s.weight = 140; });   // the coach wrote Dan his own W2 squat
+  const own = _tc(_tEx(mine, 1, 0, 0));
+  r = teamMemberWeeks(master, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(JSON.stringify(_tEx(r.weeks, 1, 0, 0)), JSON.stringify(own)); eq(r.keptOwn.length, 1, 'his own: reported');
+  const m2 = _tc(master); _tEx(m2, 1, 0, 0).sets.forEach(s => { s.pct = 82.5; });
+  r = teamMemberWeeks(m2, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(JSON.stringify(_tEx(r.weeks, 1, 0, 0)), JSON.stringify(own), 'still his own');
+  eq(r.keptOwn.length, 1); eq(r.keptOwn[0].srcId, 'mw2sq');
+  // Reset to team: the master's again.
+  const back = teamResetExercise(r.weeks, _tEx(r.weeks, 1, 0, 0).id, m2, { maxes: { squat: 200 } });
+  eq(_tEx(back, 1, 0, 0).ovr, undefined); eq(_tEx(back, 1, 0, 0).sets[0].weight, 165, '82.5% of 200');
+});
+test('team: what the coach added for one lifter stays where it was; what the master removed goes', () => {
+  const master = _tmMaster(1);
+  let mine = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  mine[0].days[0].exercises.splice(1, 0, { id: 'own-ex', lift: 'pull', exerciseName: 'Hip airplane', sets: [{ id: 'own-s', weight: 0, reps: 5, rpe: 6, completed: false }] });
+  mine[0].days[0].scheduledDate = '2026-10-21';
+  const m2 = _tc(master); m2[0].days[0].exercises.splice(1, 1);         // the master drops the row
+  const r = teamMemberWeeks(m2, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(r.weeks[0].days[0].exercises.map(e => e.exerciseName || e.lift).join(','), 'squat,Hip airplane');
+  eq(r.weeks[0].days[0].scheduledDate, '2026-10-21', 'the lifter-s pinned date stays');
+});
+test('team: a program made into a team program is already in step with it', () => {
+  const prog = { id: 'p', name: 'Strength Block', weeks: _tc(_tmMaster(2)) };
+  prog.weeks[0].days[0].exercises[0].sets[0].completed = true;
+  const t = teamMasterFromProgram(prog);
+  assert(t.weeks[0].id !== prog.weeks[0].id, 'the master has its own ids');
+  eq(t.weeks[0].days[0].exercises[0].sets[0].completed, false, 'and no logs');
+  eq(t.linked[0].days[0].exercises[0].srcId, t.weeks[0].days[0].exercises[0].id);
+  eq(t.linked[0].days[0].exercises[0].sets[0].completed, true, 'the source keeps its logs');
+  eq(isTeamLinked({ weeks: t.linked }), true); eq(isTeamLinked(prog), false);
+  eq(isTeamLinked({ weeks: teamDetachProgram(t.linked) }), false, 'detach drops the links');
+});
+// The brief's acceptance: editing W5 squat on a 25-member team updates 24 lifters, Dan keeps his own.
+function _tmTeam25() {
+  const master = _tmMaster(6);
+  const members = Array.from({ length: 25 }, (_, i) => {
+    const id = 'ath' + i, name = i === 7 ? 'Dan Okoro' : 'Lifter ' + i;
+    const maxes = { squat: { kg: 150 + i * 5, source: 'program' }, bench: { kg: 100 + i * 2.5, source: 'e1rm' } };
+    const weeks = teamMemberWeeks(master, null, { maxes, unit: 'kg' }).weeks;
+    return { athleteId: id, name, unit: 'kg', maxes, program: { id: 'prog' + i, athleteId: id, rev: 3, name: 'Meet team', weeks } };
+  });
+  const dan = members[7].program;
+  dan.weeks = teamOverrideExercise(dan.weeks, _tEx(dan.weeks, 4, 0, 0).id);
+  _tEx(dan.weeks, 4, 0, 0).sets.forEach(s => { s.pct = null; s.weight = 170; s.reps = 5; });
+  return { master, members };
+}
+test('team acceptance: editing W5 squat updates 24 lifters and leaves Dan-s override intact', () => {
+  const { master, members } = _tmTeam25();
+  const danW5 = _tc(_tEx(members[7].program.weeks, 4, 0, 0));
+  const m2 = _tc(master); _tEx(m2, 4, 0, 0).sets.forEach(s => { s.pct = 87.5; });
+  const plan = teamPushPlan({ id: 't', name: 'Meet team', weeks: m2, rev: 1 }, members);
+  eq(plan.rows.filter(r => r.action === 'update').length, 24, '24 lifters updated');
+  const dan = plan.rows.find(r => r.athleteId === 'ath7');
+  eq(dan.action, 'same', 'Dan-s program is not written at all');
+  eq(plan.keepOwn.map(k => k.name).join(','), 'Dan Okoro');
+  const l3 = plan.rows.find(r => r.athleteId === 'ath3');
+  eq(_tEx(l3.weeks, 4, 0, 0).sets[0].weight, 145, '87.5% of 165, to 2.5 kg');
+  eq(l3.rev, 3, 'each row carries the rev it was built from (compare-and-swap)');
+  eq(JSON.stringify(_tEx(members[7].program.weeks, 4, 0, 0)), JSON.stringify(danW5));
+  eq(teamPushSummary(plan, { weekNumber: 5 }), 'Publish Week 5 to 25 lifters · 1 keeps their own edits (Dan)');
+});
+test('team: the push dialog counts lifters with no max, and new members get a program', () => {
+  const master = _tmMaster(2);
+  const members = [
+    { athleteId: 'a', name: 'Ana Silva', maxes: { squat: 180, bench: 100 }, program: null },
+    { athleteId: 'b', name: 'Nina Petrova', maxes: { bench: 60 }, program: null }
+  ];
+  const plan = teamPushPlan({ id: 't', name: 'Team', programName: 'Peak', weeks: master, rev: 0 }, members);
+  eq(plan.rows.map(r => r.action).join(','), 'create,create');
+  eq(plan.rows[0].name, 'Peak');
+  eq(plan.noMax.length, 1); eq(plan.noMax[0].name, 'Nina Petrova'); eq(plan.noMax[0].lifts.join(','), 'squat');
+  eq(teamPushSummary(plan), 'Publish to 2 lifters · 1 has no squat max');
+  const rep = teamNoMaxReport(master, members);
+  eq(rep.length, 1); eq(rep[0].text, 'Nina: no squat max, % left blank');
+});
+test('team: the loads matrix cells', () => {
+  const { master, members } = _tmTeam25();
+  const mx = teamLoadsMatrix(master, 'mw5', 'mw5d1', members.slice(5, 9));
+  const cell = (i) => mx.rows[i].cells[0];
+  eq(cell(0).kg, teamLoadKg(85, 175, 'kg')); eq(cell(0).source, 'program'); eq(cell(0).ovr, false);
+  eq(cell(2).ovr, true, 'Dan-s cell is his own'); eq(cell(2).kg, 170, 'and shows his load');
+  eq(cell(2).note, 'Edited for Dan');
+  const none = teamLoadsMatrix(master, 'mw1', 'mw1d1', [{ athleteId: 'n', name: 'Nina', maxes: {}, program: null }]);
+  eq(none.rows[0].cells[0].kg, 0); eq(none.rows[0].cells[0].noMax, true);
+});
+test('team: the push report says who logged during it and who left', () => {
+  const plan = { rows: [{ athleteId: 'a', name: 'Sarah Kim', action: 'update' }, { athleteId: 'b', name: 'Dan Okoro', action: 'update' }, { athleteId: 'c', name: 'Tom Boyle', action: 'update' }] };
+  const res = [{ athlete_id: 'a', status: 'updated', retried: true, loggedDuring: true }, { athlete_id: 'b', status: 'departed' }, { athlete_id: 'c', status: 'updated' }];
+  const lines = teamPushReport(plan, res);
+  eq(lines.find(l => l.athleteId === 'a').text, 'Sarah logged during publish; their sets kept');
+  eq(lines.find(l => l.athleteId === 'b').text, 'Dan is no longer on your roster: not changed');
+  eq(lines.find(l => l.athleteId === 'c').text, 'Tom updated');
+});
+test('team: one quiet notification per lifter, about their own program only', () => {
+  const p = teamDigestPush({ athleteId: 'a', name: 'Sarah Kim', changedWeeks: [5, 6], programName: 'Meet team' }, { coachName: 'Mia Coach' });
+  eq(p.toUserId, 'a'); eq(p.category, 'program'); eq(p.tag, 'powa-prog-a', 'one notification per lifter, replaced not stacked');
+  eq(p.title, 'Mia updated your program'); eq(p.body, 'Weeks 5 and 6 changed. Open Train to see your loads.');
+  assert(!/team/i.test(p.title + p.body), 'lifters never see "team program"');
+  eq(teamDigestPush({ athleteId: 'b', changedWeeks: [3] }, {}).body, 'Week 3 changed. Open Train to see your loads.');
+});
+
+test('team: pushing twice with no master change writes nothing; an unlinked program is replaced', () => {
+  const master = _tmMaster(3);
+  const first = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  const plan = teamPushPlan({ id: 't', weeks: master, rev: 2 }, [
+    { athleteId: 'a', name: 'Ana', maxes: { squat: 200, bench: 140 }, program: { id: 'pa', rev: 5, weeks: first } },
+    { athleteId: 'b', name: 'Bo', maxes: { squat: 200, bench: 140 }, program: { id: 'pb', rev: 1, weeks: _tc(master).map(w => Object.assign(w, { srcId: undefined })) } }]);
+  eq(plan.rows[0].action, 'same'); eq(plan.rows[0].changedWeeks.length, 0);
+  eq(teamPushSummary({ rows: [plan.rows[0]], keepOwn: [], noMax: [] }), 'Up to date · 1 lifter');
+  eq(plan.rows[1].action, 'replace', 'their own (unlinked) block: archived, then replaced');
+  eq(isTeamLinked({ weeks: plan.rows[1].weeks }), true);
+  eq(plan.masterRev, 2);
+});
+test('team demo: six lifters, two own edits, one with no maxes, one master edit to publish', () => {
+  const daysAgo = (n) => _addDaysISO('2026-10-22', -n);
+  const ids = ['demo-d1', 'demo-d5', 'demo-d9', 'demo-d10', 'demo-d11', 'demo-d12'];
+  const names = { 'demo-d1': 'Leo Grant', 'demo-d5': 'Jonah Reed', 'demo-d9': 'Kofi Mensah', 'demo-d10': 'Hannah Berg', 'demo-d11': 'Dev Patel', 'demo-d12': 'Sofia Alvarez' };
+  const st = Object.assign(defaultStore(), { athletes: ids.map(id => ({ id, name: names[id], coachId: 'dc' })), programs: [],
+    workoutLogs: ids.filter(id => id !== 'demo-d10').flatMap(id => MAIN_LIFTS.map((L, i) => ({ athleteId: id, lift: L, e1rmComp: [180, 120, 220][i] }))) });
+  seedTeamDemo(st, { coachId: 'dc', daysAgo });
+  eq(st.teams.length, 1); eq(st.teams[0].members.length, 6);
+  const saved = Store.get();
+  try {
+    Store.set(st);
+    const t = st.teams[0], plan = teamPushPlan(t, teamMembersFor(t));
+    eq(plan.rows.filter(r => r.action === 'update').length, 5); eq(plan.rows.filter(r => r.action === 'create').length, 1);
+    eq(plan.keepOwn.map(k => k.name).join(','), 'Kofi Mensah,Dev Patel');
+    eq(plan.noMax.map(k => k.name).join(','), 'Hannah Berg');
+    eq(teamPushSummary(plan), 'Publish to 6 lifters · 2 keep their own edits (Kofi, Dev) · 1 has no squat, bench or deadlift max');
+    const leo = plan.rows.find(r => r.athleteId === 'demo-d1');
+    eq(leo.changedWeeks.join(','), '4', 'only week 4 changed');
+    eq(leo.weeks[0].days[0].exercises[0].sets.every(x => x.completed), true, 'week 1 stays logged');
+  } finally { Store.set(saved); }
+});
+/* ===========================================================
+   Planned meets + the roster calendar (brief M3)
+   =========================================================== */
+group('planned meets + calendar (M3)');
+test('a planned meet never changes best totals, singles or DOTS', () => {
+  const done = { id: 'm1', athleteId: 'a', date: '2026-03-01', status: 'done', squat: 200, bench: 120, deadlift: 240, bodyweight: 82 };
+  const planned = { id: 'm2', athleteId: 'a', date: '2026-12-05', status: 'planned', squat: 230, bench: 140, deadlift: 260, bodyweight: 82 };
+  eq(bestMeet([done, planned], 'a').meet.id, 'm1');
+  eq(meetDots(planned, 'male'), null); assert(meetDots(done, 'male') > 0);
+  const saved = Store.get();
+  try {
+    Store.set(Object.assign(defaultStore(), { meets: [done, planned], workoutLogs: [] }));
+    eq(bestSingle('a', 'squat').kg, 200); eq(bestSinglesTotal('a').kg, 560);
+  } finally { Store.set(saved); }
+  eq(isPlannedMeet(planned), true); eq(isPlannedMeet(done), false);
+  eq(isPlannedMeet({ planned: true }), true, 'the desk demo-s flag');
+  eq(isPlannedMeet({ date: '2099-01-01', squat: null, bench: null, deadlift: null }, '2026-10-22'), true, 'before the migration: a future meet with no lifts');
+  eq(isPlannedMeet({ date: '2026-01-01', squat: null }, '2026-10-22'), false);
+});
+test('W-n labels count down to the meet week', () => {
+  eq(meetWeekLabel('2026-10-26', '2026-10-31'), 'Meet week');
+  eq(meetWeekLabel('2026-10-19', '2026-10-31'), 'W-1');
+  eq(meetWeekLabel('2026-10-05', '2026-10-31'), 'W-3');
+  eq(meetWeekLabel('2026-11-02', '2026-10-31'), 'W+1');
+  eq(meetWeekLabel('2026-10-05', null), '');
+});
+test('dragging a meet date shifts the W-n labels', () => {
+  const prog = { startsOn: '2026-10-05', weeks: _tmMaster(4) };
+  const a = programWeekLabels(prog, '2026-10-31');
+  eq(a.map(w => w.label).join(','), 'W-3,W-2,W-1,Meet week');
+  eq(a[0].start, '2026-10-05'); eq(a[3].start, '2026-10-26');
+  const b = programWeekLabels(prog, moveMeetDate('2026-10-31', 7));
+  eq(b.map(w => w.label).join(','), 'W-4,W-3,W-2,W-1', 'a week later: every label moves one');
+  eq(programWeekLabels(Object.assign({}, prog, { meetDate: '2026-10-24' })).map(w => w.label).join(','), 'W-2,W-1,Meet week,W+1', 'the program-s own meet date');
+  eq(programWeekLabels({ weeks: _tmMaster(2) }).map(w => w.label).join(','), ',', 'no start, no meet: no labels');
+});
+test('a block-s first Monday: saved, else from pinned days or logs, else back from the meet', () => {
+  eq(programStartsOn({ startsOn: '2026-10-07', weeks: [] }), '2026-10-05', 'always a Monday');
+  const w = _tmMaster(3); w[1].days[0].scheduledDate = '2026-10-15';
+  eq(programStartsOn({ weeks: w }), '2026-10-05', 'week 2 pinned on Thu 15th → week 1 began Mon 5th');
+  const w2 = _tmMaster(3); w2[2].days[1].exercises[0].sets[0].completedAt = '2026-10-21T18:00:00Z';
+  eq(programStartsOn({ weeks: w2 }), '2026-10-05');
+  eq(programStartsOn({ meetDate: '2026-10-31', weeks: _tmMaster(4) }), '2026-10-05', 'the last week is meet week');
+  eq(programStartsOn({ weeks: _tmMaster(2) }), null);
+  eq(programEndsOn({ startsOn: '2026-10-05', weeks: _tmMaster(4) }), '2026-11-01');
+});
+test('calendar: a week axis, block phases and one row per lifter', () => {
+  const ax = calendarAxis('2026-10-22', 12, 26);
+  eq(ax.length, 39); eq(ax[12], '2026-10-19'); eq(ax[0], '2026-07-27');
+  eq(blockPhase('Volume Block'), 'volume'); eq(blockPhase('Hypertrophy wave'), 'volume'); eq(blockPhase('Strength Block'), 'strength');
+  eq(blockPhase('Peak'), 'peak'); eq(blockPhase('Meet Prep'), 'peak'); eq(blockPhase('Deload'), 'deload'); eq(blockPhase('Foundation'), 'strength');
+  const rows = calendarRows({
+    athletes: [{ id: 'a', name: 'Ana' }, { id: 'b', name: 'Bo' }],
+    programs: [{ id: 'p', athleteId: 'a', name: 'Peak', startsOn: '2026-10-05', weeks: _tmMaster(6) }],
+    meets: [{ id: 'm', athleteId: 'a', name: 'Regional Open', date: '2026-10-31', status: 'planned' },
+            { id: 'old', athleteId: 'a', name: 'Spring', date: '2026-04-01', status: 'done', squat: 1, bench: 1, deadlift: 1 }],
+    blocks: [{ id: 'blk', athleteId: 'a', name: 'Volume Block', startedOn: '2026-08-31', endedOn: '2026-10-02' }],
+    today: '2026-10-22', back: 12, ahead: 26
+  });
+  eq(rows.length, 2);
+  const a = rows[0];
+  eq(a.bars.length, 2, 'the current block and a past block');
+  const cur = a.bars.find(b => b.programId === 'p');
+  eq(cur.from, 10); eq(cur.weeks, 6); eq(cur.current, 2, 'week 3 of the block is this week'); eq(cur.phase, 'peak');
+  eq(a.meets.length, 1, 'meets off the axis are left out'); eq(a.meets[0].week, 13); eq(a.meets[0].planned, true);
+  eq(rows[1].bars.length, 0);
+});
+test('calendar: clashes', () => {
+  const rows = calendarRows({
+    athletes: [{ id: 'a', name: 'Ingrid Berg' }, { id: 'b', name: 'Bo Li' }, { id: 'c', name: 'Cy Ray' }],
+    programs: [{ id: 'p', athleteId: 'a', name: 'Peak', startsOn: '2026-10-05', weeks: _tmMaster(6) }],
+    meets: [{ id: 'm1', athleteId: 'a', name: 'Regional Open', date: '2026-10-31', status: 'planned' },
+            { id: 'm2', athleteId: 'b', name: 'City Classic', date: '2026-10-31', status: 'planned' },
+            { id: 'm3', athleteId: 'c', name: 'Regional Open', date: '2026-10-31', status: 'planned' }],
+    today: '2026-10-22'
+  });
+  const cl = calendarClashes(rows);
+  const ends = cl.find(c => c.type === 'block-after-meet');
+  eq(ends.athleteId, 'a'); eq(ends.text, 'Block ends 2 wk after meet');
+  const two = cl.find(c => c.type === 'meets-same-day');
+  eq(two.text, '3 lifters at 2 different meets 31 Oct'); eq(two.athleteIds.length, 3);
+  eq(cl.filter(c => c.type === 'meets-same-day').length, 1);
+});
+test('scoring follows the meet-s federation and division, always labelled', () => {
+  eq(federationFormula('IPF'), 'gl'); eq(federationFormula('British Powerlifting'), 'gl'); eq(federationFormula('Powerlifting America'), 'gl');
+  eq(federationFormula('USAPL'), 'dots'); eq(federationFormula('USPA'), 'dots'); eq(federationFormula(''), 'dots');
+  const gl = meetScore(600, 83, 'male', { federation: 'IPF' });
+  eq(gl.formula, 'gl'); eq(gl.label, 'IPF GL'); close(gl.points, ipfGlPoints(600, 83, 'male'), 0.001);
+  const eqp = meetScore(600, 83, 'male', { federation: 'IPF', division: 'Equipped Open' });
+  eq(eqp.label, 'IPF GL · equipped'); assert(eqp.points < gl.points, 'equipped coefficients score a total lower');
+  const d = meetScore(600, 83, 'male', { federation: 'USPA' });
+  eq(d.label, 'DOTS'); close(d.points, dotsScore(600, 83, 'male'), 0.001);
+  close(ageCoefficient(52), 1.165, 0.0001); eq(ageCoefficient(30), 1); close(ageCoefficient(16), 1.13, 0.0001); eq(ageCoefficient(null), 1);
+  const m = meetScore(600, 83, 'male', { federation: 'USPA', division: 'Masters 50-54', age: 52 });
+  eq(m.label, 'DOTS · age-graded'); close(m.points, Math.round(dotsScore(600, 83, 'male') * 1.165 * 100) / 100, 0.01);
+  eq(meetScore(600, 83, 'male', { federation: 'USPA', division: 'Masters 50-54' }).label, 'DOTS', 'no age: no age grading (never guessed)');
+  eq(meetScore(0, 83, 'male', {}).points, 0);
+});
+test('scoring: non-IPF federations (SPF is Southern Powerlifting, not IPF) score DOTS; Sweden-s SSF is IPF', () => {
+  ['APF', 'USPA', 'SPF', 'WRPF', 'RPS', 'WPC'].forEach(f => eq(federationFormula(f), 'dots', f));
+  eq(meetScore(600, 83, 'male', { federation: 'SPF' }).formula, 'dots');
+  eq(federationFormula('SSF'), 'gl'); eq(federationFormula('Svenska Styrkelyftförbundet'), 'gl');
+});
+test('team: the loads read in each lifter-s own unit, not the coach-s', () => {
+  const lbMax = 405 * KG_PER_LB;
+  eq(teamLoadText(teamLoadKg(80, lbMax, 'lbs'), 'lbs'), '325 lb');
+  eq(teamLoadText(teamLoadKg(77, lbMax, 'lbs'), 'lbs'), '310 lb');
+  eq(teamLoadText(teamLoadKg(80, 180, 'kg'), 'kg'), '145 kg');
+  eq(teamLoadText(0, 'kg'), '');
+  const mx = teamLoadsMatrix(_tmMaster(1), 'mw1', 'mw1d1', [{ athleteId: 'l', name: 'Lou', unit: 'lbs', maxes: { squat: lbMax }, program: null }]);
+  eq(mx.rows[0].unit, 'lbs'); eq(teamLoadText(mx.rows[0].cells[0].kg, mx.rows[0].unit).slice(-2), 'lb');
+});
+test('team: a push carries the block-s dates (team-s for a new or replaced block; a linked one keeps its own)', () => {
+  const master = _tmMaster(2);
+  const linkedWeeks = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  const team = { id: 't', weeks: master, rev: 1, startsOn: '2026-11-02', meetDate: '2027-01-30' };
+  const mb = (id, program) => ({ athleteId: id, name: id, maxes: { squat: 200, bench: 140 }, program });
+  const plan = teamPushPlan(team, [mb('new', null),
+    mb('own', { id: 'po', rev: 1, weeks: _tc(master).map(w => Object.assign(w, { srcId: undefined })) }),
+    mb('linkedDated', { id: 'pl', rev: 1, weeks: linkedWeeks, startsOn: '2026-10-26', meetDate: '2027-01-30' }),
+    mb('linkedBare', { id: 'pb', rev: 1, weeks: _tc(linkedWeeks) })]);
+  const row = (id) => plan.rows.find(r => r.athleteId === id);
+  eq(row('new').startsOn, '2026-11-02'); eq(row('new').meetDate, '2027-01-30');
+  eq(row('own').action, 'replace'); eq(row('own').startsOn, '2026-11-02');
+  eq(row('linkedDated').action, 'same', 'same weeks, has its dates: nothing to write'); eq(row('linkedDated').startsOn, '2026-10-26', 'keeps its own');
+  eq(row('linkedBare').action, 'update', 'same weeks but no dates: the team-s dates land');
+  eq(teamPushPlan(team, [mb('linkedBare', { id: 'pb', rev: 1, weeks: _tc(linkedWeeks) })], { datesReady: false }).rows[0].action, 'same', 'no date columns yet: not an endless update');
+});
+test('team: the push report names a lifter whose logged block could not be kept', () => {
+  const lines = teamPushReport({ rows: [{ athleteId: 'a', name: 'Sarah Kim', action: 'replace' }] }, [{ athlete_id: 'a', status: 'needs_archive' }]);
+  eq(lines[0].text, 'Sarah has logged training in their current program: not changed until past blocks can be kept');
+});
+test('OpenPowerlifting: a planned meet on that day is not "already in"; the result replaces the plan', () => {
+  const m = { date: '2026-06-01', name: 'Summer Open', total: 600, squat: 220, bench: 140, deadlift: 240, bodyweight: 82, federation: 'USAPL', weightClass: '83' };
+  const plan = oplPlan([m], [{ id: 'pl1', athleteId: 'a', date: '2026-06-01', status: 'planned', division: 'Open' }, { id: 'd1', athleteId: 'a', date: '2025-01-01', status: 'done', squat: 200 }], 'a');
+  eq(plan[0].status, 'new'); eq(plan[0].plannedId, 'pl1');
+  const have = oplPlan([Object.assign({}, m, { date: '2025-01-01' })], [{ id: 'd1', athleteId: 'a', date: '2025-01-01', status: 'done', squat: 200 }], 'a');
+  eq(have[0].status, 'have'); eq(have[0].plannedId, undefined);
 });
 
 function runImporterTests(win) {

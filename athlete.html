@@ -1701,6 +1701,8 @@ function buildTodayHero(cur) {
   if (!isCardio && Number(s.weightHi) > Number(planWeight(s)) && Number(planWeight(s)) > 0) {
     hero.appendChild(el('div', { class: 'tx-range' }, wKg >= Number(s.weightHi) ? 'Top of the range' : 'Up to ' + formatWeight(s.weightHi)));
   }
+  const sfNow = isCardio ? null : setFieldsEl(setFieldBits(s), 'tx-sf');   // SET FIELDS hook: this set's tempo, pause, bands, columns
+  if (sfNow) hero.appendChild(sfNow);
   if (smart) {
     const sm = el('div', { class: 'tx-smart is-' + smart.dir });
     sm.appendChild(el('span', { class: 'tx-smart-ic', 'aria-hidden': 'true', html: smart.dir === 'down'
@@ -2660,6 +2662,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
 
   // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
   if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
+  // SET FIELDS hook (app.js setFieldsSplit): what every set shares, once; a set's own under its load.
+  const sfSplit = setFieldsSplit(ex.sets);
+  const sfCommon = setFieldsEl(sfSplit.common, 'tx-sf');
+  if (sfCommon) card.appendChild(sfCommon);
 
   const firstSet = ex.sets[0];
   if (firstSet && !exDone) {
@@ -2736,6 +2742,8 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     else if (set.extra) sub = 'Extra set';
     // The RPE chip beside the load already shows the target, so no "Target RPE" line.
     if (sub) main.appendChild(el('div', { class: 'tx-set-sub' + subTone }, sub));
+    const sfOwn = setFieldsEl(sfSplit.per[si], 'tx-set-sub tx-set-sf');   // SET FIELDS hook
+    if (sfOwn) main.appendChild(sfOwn);
     row.appendChild(main);
 
     // The RPE this set goes in at: done = what you logged; to do = your pick, else the target as
@@ -2885,6 +2893,9 @@ function openExerciseDetail(exId) {
       todaySec.innerHTML = '';
       const n = ex.sets.length, d = ex.sets.filter(x => x.completed).length;
       todaySec.appendChild(uiLabel('Today', { count: n ? d + ' of ' + n : null }));
+      const sfx = setFieldsSplit(ex.sets);   // SET FIELDS hook: shared once, a set's own on its row
+      const sfxCommon = setFieldsEl(sfx.common, 'xd-sf');
+      if (sfxCommon) todaySec.appendChild(sfxCommon);
       const list = el('div', { class: 'xd-sets' });
       ex.sets.forEach((set, si) => {
         const sm = set.completed ? null : smartFor(ex, si);
@@ -2893,7 +2904,7 @@ function openExerciseDetail(exId) {
         const row = el('button', { type: 'button', class: 'xd-set' + (set.completed ? ' is-done' : ''),
           'aria-label': 'Set ' + (si + 1) + ': ' + setLine(kg, set.reps, felt) + (set.completed ? ', done' : '') });
         row.innerHTML = '<span class="xd-n">' + (set.completed ? ICONS.check : String(si + 1)) + '</span>' +
-          '<span class="xd-load">' + (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + u + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b></span>' +
+          '<span class="xd-load">' + (kg > 0 ? '<b>' + kgToDisplay(kg) + '</b><small>' + u + '</small>' : '<b class="dim">–</b>') + '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>' + setFieldsHtml(sfx.per[si]) + '</span>' +
           '<span class="xd-rpe" style="--rc:' + (felt == null ? 'var(--text-3)' : rpeColor(felt)) + '">' + (felt == null ? 'RPE' : 'RPE ' + felt) + '</span>';
         row.addEventListener('click', () => {
           if (liftWritesLoad(ex, set) && !set.completed && isMain && !(kg > 0)) { close(); setTimeout(() => focusSetRow(ex.id, si, 'wt'), 240); return; }
@@ -4464,6 +4475,8 @@ function openLiftMode() {
     num.addEventListener('click', () => { if (!isCardio && !(kg > 0) && writes) promptSetWeight(ex, si); else if (kg > 0) openPlateCalc(kg); });
     stage.appendChild(num);
     if (!isCardio && kg > 0) { stage.appendChild(el('div', { class: 'lm-bar', 'aria-hidden': 'true', html: uiBarbell(kg, { from: _lmBarKg }) })); _lmBarKg = kg; }
+    const sfLm = isCardio ? null : setFieldsEl(setFieldBits(set), 'lm-sf');   // SET FIELDS hook
+    if (sfLm) stage.appendChild(sfLm);
     const meta = [];   // (the target RPE is the tick on the scale below, not said twice)
     if (sm) meta.push(sm.fromKg > 0 ? (sm.delta > 0 ? '+' : '−') + kgToDisplay(Math.abs(sm.delta)) + ' ' + unitLabel() + ' from the plan' : 'From today\'s sets');
     if (ex.note) meta.push(ex.note);
@@ -4710,7 +4723,7 @@ function openMeetMode() {
     wrap.appendChild(el('div', { class: 'mmm-top' }, title, clock));
     const fill = el('i', {});
     wrap.appendChild(el('div', { class: 'mmm-bar', role: 'timer', 'aria-label': 'Time to hand in the next attempt' }, fill));
-    const best = Math.max(bestE1RM(user.id, L), ...(Store.get().meets || []).filter(m => m.athleteId === user.id).map(m => Number(m[L]) || 0));
+    const best = Math.max(bestE1RM(user.id, L), ...(Store.get().meets || []).filter(m => m.athleteId === user.id && !isPlannedMeet(m)).map(m => Number(m[L]) || 0));
     const slabs = el('div', { class: 'mmm-slabs' });
     meetAttemptOptions({ kg: A.kg, result: A.result, plannedNext: st.lifts[L].plan[i + 1], best, unit }).forEach(o => {
       const s = el('button', { type: 'button', class: 'mmm-slab is-' + o.key });
@@ -4918,10 +4931,14 @@ function openMeetMode() {
       save.disabled = true;
       const meet = { athleteId: user.id, name: 'Meet', date: st.date, federation: '', weightClass: '', bodyweight: bw ? Math.round(bw * 10) / 10 : null,
         squat: s.best.squat, bench: s.best.bench, deadlift: s.best.deadlift, notes: s.made + ' of 9 made · logged in meet mode' };
+      // The meet planned for today becomes its result (same row, now done), keeping what was planned.
+      const plan = (Store.get().meets || []).find(x => x.athleteId === user.id && x.date === st.date && x.id && isPlannedMeet(x));
+      if (plan) Object.assign(meet, { id: plan.id, name: plan.name || 'Meet', federation: plan.federation || '', weightClass: plan.weightClass || '',
+        division: plan.division || '', weighIn: plan.weighIn || null, weighInAt: plan.weighInAt || null, status: 'done' });
       let saved = meet;
-      if (window._demoMode) saved = Object.assign({}, meet, { id: 'demo-meet-' + Date.now() });
+      if (window._demoMode) saved = Object.assign({}, meet, { id: meet.id || 'demo-meet-' + Date.now() });
       else { try { saved = (await DB.saveMeet(meet)) || meet; } catch (e) { console.error('saveMeet', e); toast('Could not save. Try again'); save.disabled = false; return; } }
-      Store.update(x => { if (!x.meets) x.meets = []; x.meets.push(saved); });
+      Store.update(x => { if (!x.meets) x.meets = []; const i = x.meets.findIndex(m => m.id === saved.id); if (i >= 0) x.meets[i] = saved; else x.meets.push(saved); });
       st.saved = true; _meetSave(st);
       toast('Saved to your meets');
       close();
@@ -5013,12 +5030,13 @@ function renderMeetHistory(area) {
   // Edit / delete live behind the row, not on it.
   const best = bestMeet(meets, user.id);
   area.appendChild(uiList(meets.map(m => {
-    const lifts = ['squat', 'bench', 'deadlift'].map(k => m[k] == null ? '–' : kgToDisplay(m[k])).join(' / ');
+    const planned = isPlannedMeet(m);   // a planned meet (brief M3): a date, never a total
+    const lifts = planned ? '' : ['squat', 'bench', 'deadlift'].map(k => m[k] == null ? '–' : kgToDisplay(m[k])).join(' / ');
     const isBest = !!(best && best.meet.id === m.id);
     return uiRow({
       title: m.name,
-      sub: [meetDateText(m.date), m.federation, lifts].filter(Boolean).join(' · '),
-      endHtml: (isBest ? '<span class="ui-tag">Best</span>' : '') + '<b>' + exactW(meetTotal(m)) + '</b>' + u,   // a lifted total: exact, never rounded
+      sub: [meetDateText(m.date), m.federation, m.division, lifts].filter(Boolean).join(' · '),
+      endHtml: planned ? '<span class="ui-tag">Planned</span>' : (isBest ? '<span class="ui-tag">Best</span>' : '') + '<b>' + exactW(meetTotal(m)) + '</b>' + u,   // a lifted total: exact, never rounded
       chevron: true,
       onClick: () => uiActionSheet(m.name, [
         { label: 'Edit result', icon: ICONS.edit, onClick: () => openMeetResultModal(m.id) },
@@ -5131,14 +5149,17 @@ function openOplSheet() {
       if (!fresh.length) act.disabled = true;
       act.addEventListener('click', async () => {
         act.disabled = true; act.textContent = 'Bringing them in…';
-        const list = fresh.map(p => p.meet);
+        // A plan for that day carries its division and weigh-in into the result, then goes.
+        const list = fresh.map(p => p.planned ? Object.assign({}, p.meet, { division: p.planned.division || '', weighIn: p.planned.weighIn || null, weighInAt: p.planned.weighInAt || null }) : p.meet);
+        const plannedIds = fresh.filter(p => p.plannedId).map(p => p.plannedId);
         let saved;
         if (window._demoMode) saved = list.map((m, i) => Object.assign({ id: 'demo-opl-' + Date.now() + '-' + i }, m));
         else {
           try { saved = await DB.addMeets(list); }
           catch (er) { console.error('addMeets', er); toast('Couldn\'t save them. Try again'); act.disabled = false; act.textContent = 'Bring in ' + fresh.length + (fresh.length === 1 ? ' meet' : ' meets'); return; }
         }
-        Store.update(s => { s.meets = (s.meets || []).concat(saved); });
+        if (plannedIds.length && !window._demoMode && DB.deletePlannedMeet) for (const id of plannedIds) await DB.deletePlannedMeet(id).catch(() => null);
+        Store.update(s => { s.meets = (s.meets || []).filter(x => plannedIds.indexOf(x.id) < 0).concat(saved); });
         _oplRemember(username, j.name || name || username);
         close();
         toast(saved.length + (saved.length === 1 ? ' meet' : ' meets') + ' brought in from OpenPowerlifting');
@@ -5238,7 +5259,12 @@ async function saveMeetResult() {
     deadlift: toKg(f('mrDead').value),
     notes: (f('mrNotes').value || '').trim()
   };
-  if (editId) meet.id = editId;
+  if (editId) {
+    meet.id = editId;
+    // A planned meet becoming its result keeps what was planned about it (brief M3).
+    const prev = (Store.get().meets || []).find(x => x.id === editId);
+    if (prev) Object.assign(meet, { division: prev.division || '', weighIn: prev.weighIn || null, weighInAt: prev.weighInAt || null });
+  }
   if (meet.squat == null && meet.bench == null && meet.deadlift == null) {
     toast('Add at least one lift'); f('mrSquat').focus(); return;
   }
@@ -8348,7 +8374,8 @@ function sbAddSet(progId, wi, di, ei) {
     if (!p) return;
     const arr = p.weeks[wi].days[di].exercises[ei].sets;
     const last = arr.at(-1);
-    arr.push(newSet(last?.weight || 0, last?.reps || 5, last?.rpe ?? 7));
+    // [set-fields] the copy carries the last set's prescription and fields (rxOf, app.js).
+    arr.push(Object.assign(newSet(last?.weight || 0, last?.reps || 5, last?.rpe ?? 7), last ? rxOf(last) : {}));
   });
   sbPersist(progId);
   renderSelfBuilder();
@@ -8376,7 +8403,7 @@ function sbBlockCount(progId, wi, di, ei, startIdx, oldCount, newCount) {
     if (target > oldCount) {
       const tpl = sets[startIdx];
       const fillers = [];
-      for (let i = 0; i < target - oldCount; i++) fillers.push(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo));
+      for (let i = 0; i < target - oldCount; i++) fillers.push(Object.assign(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo), rxOf(tpl)));   // SET FIELDS hook: copies carry rxOf
       sets.splice(startIdx + oldCount, 0, ...fillers);
     } else if (target < oldCount) {
       sets.splice(startIdx + target, oldCount - target);
@@ -8391,7 +8418,9 @@ function sbAddBlock(progId, wi, di, ei) {
     if (!p) return;
     const sets = p.weeks[wi].days[di].exercises[ei].sets;
     const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null };
-    sets.push(newSet(last.weight, last.reps, null, last.tempo));
+    // [set-fields] a new back-down block: no RPE of its own, but the same bar, tempo, pause and
+    // bands / chains as the block before it (setFieldsOf, app.js).
+    sets.push(Object.assign(newSet(last.weight, last.reps, null, last.tempo), setFieldsOf(last)));
   });
   sbPersist(progId);
   renderSelfBuilder();

@@ -170,6 +170,12 @@ public class VideoExportPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
         }
         s.outputURL = out
         s.outputFileType = .mp4
+        // The clip goes to the coach: none of the phone's metadata goes with it. `metadata = []`
+        // writes no file-level items (the GPS ISO6709 location, device, creation date the camera
+        // stamped), and the sharing filter drops identifying items from what's left, passthrough
+        // included. data.html promises "no location". (2026-10-22 security pass.)
+        s.metadata = []
+        s.metadataItemFilter = AVMetadataItemFilter.forSharing()
         s.shouldOptimizeForNetworkUse = true   // moov atom first: the coach's player starts before the download ends
         session = s
         notifyListeners("exportProgress", data: ["progress": 0])

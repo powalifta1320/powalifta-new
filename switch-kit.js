@@ -136,7 +136,18 @@ var SwitchKit = (function () {
   // "140x5 @8", "140kg x 5 x 3", "3x5 140", "5 x 140kg", "140 for 5", "315lb x 3 1 RIR",
   // "140kg 5 reps". → { kg (in the written unit), unit ('kg'|'lb'|null), reps, sets, rpe } or null.
   // Bare "3x5" has no load (a prescription, not a set).
+  var SET_TEXT_MAX = 120, JOURNAL_LINE_MAX = 400;
   function parseSetText(raw) {
+    // A set is a few words. A longer cell is never one, and is refused before any regex sees it:
+    // the unanchored patterns below backtrack polynomially, so a crafted run of digits thousands
+    // long froze the coach's tab for minutes (2026-10-22 security pass). 120 keeps every real
+    // "Squat 3x5 @8 tempo 3-1-0 w/ chains 20kg" and costs well under a millisecond at worst.
+    if (raw != null && String(raw).length > SET_TEXT_MAX) return null;
+    // Tempo, pauses, bands / chains and "Key: value" come out first, so "w/ chains 20kg" is never
+    // the load (app.js parseSetFields). They ride along as `fields`, into the set's note.
+    var fields = {};
+    // A bare "5-5-5" or "5-3-1" in a journal is reps, not a tempo: a bare one needs a 0 or an X ("3-1-0").
+    if (typeof parseSetFields === 'function') { var sf = parseSetFields(raw, { bareTempo: 'strict' }); raw = sf.rest; fields = sf.fields; }
     var s = String(raw == null ? '' : raw).toLowerCase().replace(/[×*]/g, 'x').replace(/(\d),(\d)/g, '$1.$2').trim();
     if (!s) return null;
     var out = { kg: null, unit: null, reps: null, sets: 1, rpe: null }, m;
@@ -160,6 +171,7 @@ var SwitchKit = (function () {
     } else if ((m = s.match(new RegExp(N + U + '\\s*(?:,|/)?\\s*(\\d+)\\s*reps?\\b')))) { out.kg = +m[1]; out.reps = +m[3]; }
     else return null;
     if (!(out.sets >= 1)) out.sets = 1;
+    out.fields = fields;
     return out;
   }
 
@@ -209,6 +221,10 @@ var SwitchKit = (function () {
     map.secs = find(/^(seconds|duration|duration seconds|time)$/);
     map.e1rm = find(/^(e1rm|e1rm kg|e1rm lb|estimated 1rm)$/);
     map.text = find(/^(result|results|performance|work|top set|sets x reps|actual|done|logged set|set details?)$/);
+    map.tempo = find(/^tempo$/);
+    map.pause = find(/^(pause|paused|pause s|pause secs?|pause seconds)$/);
+    map.pauseAt = find(/^(pause at|pause where|pause position)$/);
+    map.acc = find(/^(bands?|chains?|bands chains|bands\/chains|bands and chains|accommodating( resistance)?)$/);
     map.isLog = map.ex >= 0 && (map.date >= 0) && ((map.weight >= 0 && map.reps >= 0) || map.text >= 0);
     return map;
   }
@@ -249,6 +265,11 @@ var SwitchKit = (function () {
   // The import key: the set's file tuple plus how many identical sets came before it in
   // the file (three 140x5 on one day are three sets). Same file → same keys.
   function importKey(tuple, n) { return 'i1-' + hash64(tuple) + '-' + n; }
+  // A logged set has no tempo or pause of its own: they go in its note ("Tempo 3-1-0 · Chains 20 kg").
+  function noteWithFields(note, fx) {
+    var t = fx && typeof setFieldsText === 'function' ? setFieldsText(fx) : '';
+    return [String(note || '').trim(), t].filter(Boolean).join(' · ').slice(0, 500);
+  }
 
   // ---------------------------------------------------------------- the plan
   // planHistoryImport(text, opts) → what an import would do, without doing it.
@@ -311,12 +332,18 @@ var SwitchKit = (function () {
         if (carried) res.carried++;
         var type = get('type').toLowerCase(), order = get('order').toLowerCase();
         if (/warm/.test(type) || order === 'w') return skip(r, 'Warm-up set');
-        var kg = NaN, reps = NaN, sets = 1, rpe = NaN, u = map.unit;
+        var kg = NaN, reps = NaN, sets = 1, rpe = NaN, u = map.unit, fx = {};
         if (map.weight >= 0) kg = num(get('weight'));
         if (map.reps >= 0) reps = num(get('reps'));
         if (map.text >= 0 && (!(kg > 0) || !(reps > 0))) {
           var p = parseSetText(get('text'));
-          if (p) { if (p.kg != null) kg = p.kg; if (p.reps != null) reps = p.reps; sets = p.sets || 1; if (p.rpe != null) rpe = p.rpe; if (p.unit) u = p.unit; }
+          if (p) { if (p.kg != null) kg = p.kg; if (p.reps != null) reps = p.reps; sets = p.sets || 1; if (p.rpe != null) rpe = p.rpe; if (p.unit) u = p.unit; fx = p.fields || {}; }
+        }
+        if (typeof parseSetFields === 'function') {
+          if (get('tempo')) fx.tempo = parseSetFields('tempo ' + get('tempo')).fields.tempo || get('tempo').slice(0, 24);
+          if (get('pause') && !/^(no|none|-|0)$/i.test(get('pause'))) { var pf = parseSetFields('pause ' + get('pause')).fields; if (pf.pause) fx.pause = pf.pause; if (pf.pauseAt) fx.pauseAt = pf.pauseAt; }
+          if (get('pauseAt')) fx.pauseAt = get('pauseAt').toLowerCase().slice(0, 24);
+          if (get('acc') && !/^(no|none|-)$/i.test(get('acc'))) { var af = parseSetFields(get('acc')).fields; if (!af.acc) af = parseSetFields((/chain/.test(hkey(rows[hi].cells[map.acc])) ? 'chains ' : '+ ') + get('acc') + (/chain/.test(hkey(rows[hi].cells[map.acc])) ? '' : ' bands')).fields; ['acc', 'accTxt', 'accKg'].forEach(function (k) { if (af[k] != null) fx[k] = af[k]; }); }
         }
         if (map.weight >= 0 && !u) { var wm = get('weight').toLowerCase().match(/\d\s*(kgs?|lbs?)\b/); if (wm) u = /lb/.test(wm[1]) ? 'lb' : 'kg'; }
         if (map.unitCol >= 0 && get('unitCol')) u = /lb/i.test(get('unitCol')) ? 'lb' : /kg/i.test(get('unitCol')) ? 'kg' : u;
@@ -324,7 +351,7 @@ var SwitchKit = (function () {
         if (map.rpe >= 0 && get('rpe') !== '') rpe = num(get('rpe'));
         else if (map.rir >= 0 && get('rir') !== '' && isFinite(num(get('rir')))) rpe = 10 - num(get('rir'));
         if (!(reps > 0) && ((map.dist >= 0 && num(get('dist')) > 0) || (map.secs >= 0 && num(get('secs')) > 0))) return skip(r, 'Cardio or a timed set');
-        cand.push({ r: r, date: date, rawDate: rawDate, name: name, variant: variant, kg: kg, unit: u, reps: reps, sets: sets, rpe: rpe, note: get('note') });
+        cand.push({ r: r, date: date, rawDate: rawDate, name: name, variant: variant, kg: kg, unit: u, reps: reps, sets: sets, rpe: rpe, note: get('note'), fx: fx });
       });
     } else {
       // 2. A training journal: a date (on its own line or leading a line), then
@@ -336,7 +363,10 @@ var SwitchKit = (function () {
       res.dateOrder = jord === 'ambiguous' ? (opts.dateOrder || 'dmy') : (jord || opts.dateOrder || 'dmy');
       var SET_RE = /(\d+(?:[.,]\d+)?)\s*(?:kgs?|lbs?)?\s*(?:x|×|\*|for)\s*\d/i;
       rows.forEach(function (r) {
-        var t = r.cells.join(delim === '\t' ? ' ' : (delim || ' ')).replace(/^[\s•\-*–]+/, '').trim();
+        var t = r.cells.join(delim === '\t' ? ' ' : (delim || ' '));
+        // A journal line is a date and a few sets: a huge one is skipped before the regexes run.
+        if (t.length > JOURNAL_LINE_MAX) { journal.push({ r: r, kind: 'none' }); return; }
+        t = t.replace(/^[\s•\-*–]+/, '').trim();
         var lead = t.match(/^((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+)?([0-9]{4}[-\/.][0-9]{1,2}[-\/.][0-9]{1,2}|[0-9]{1,2}[-\/.][0-9]{1,2}[-\/.][0-9]{2,4}|[0-9]{1,2}(?:st|nd|rd|th)?\s+[a-z]{3,9}\.?,?\s+[0-9]{2,4}|[a-z]{3,9}\.?\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})\b[\s:,\-–]*/i);
         var d = lead ? parseDate(lead[2], res.dateOrder) : null;
         if (d) { cur = d; curRaw = lead[2]; t = t.slice(lead[0].length).trim(); if (!t) return; }
@@ -351,7 +381,7 @@ var SwitchKit = (function () {
         work.split(/\s*[,;|]\s*|\s{2,}/).filter(Boolean).forEach(function (piece) {
           var p = parseSetText(piece);
           if (!p) return;
-          journal.push({ r: r, kind: 'set', c: { r: r, date: cur, rawDate: curRaw, name: name, variant: '', kg: p.kg, unit: p.unit, reps: p.reps, sets: p.sets, rpe: p.rpe == null ? NaN : p.rpe, note: '' } });
+          journal.push({ r: r, kind: 'set', c: { r: r, date: cur, rawDate: curRaw, name: name, variant: '', kg: p.kg, unit: p.unit, reps: p.reps, sets: p.sets, rpe: p.rpe == null ? NaN : p.rpe, note: '', fx: p.fields } });
         });
       });
       var sets = journal.filter(function (j) { return j.kind === 'set'; });
@@ -405,7 +435,7 @@ var SwitchKit = (function () {
         var e1 = typeof calcE1RM === 'function' ? calcE1RM(w, c.reps, rpe) : 0;
         built.push({ athleteId: opts.athleteId || null, lift: ex.lift, variant: main ? (ex.variant || 'Competition') : '', exerciseName: main ? '' : ex.exerciseName,
           weight: w, reps: c.reps, rpe: rpe, e1rm: e1, e1rmComp: main && typeof calcCompE1RM === 'function' ? calcCompE1RM(w, c.reps, rpe, ex.lift, ex.variant || 'Competition') : e1,
-          note: c.note || '', date: c.date, source: 'import', _assumed: assumed, _line: c.r.line, _ft: ft });
+          note: noteWithFields(c.note, c.fx), date: c.date, source: 'import', _assumed: assumed, _line: c.r.line, _ft: ft });
       }
     });
 
@@ -524,22 +554,31 @@ var SwitchKit = (function () {
     (weeks || []).forEach(function (w) {
       (w.days || []).forEach(function (d) {
         var exs = d.exercises || [];
-        if (!exs.length) { out.push(prefix.concat([w.number, d.name || '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])); return; }
+        if (!exs.length) { out.push(prefix.concat([w.number, d.name || '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])); return; }
         exs.forEach(function (e) {
           var nm = LABEL[e.lift] ? LABEL[e.lift] : (e.exerciseName || (typeof LIFT_LABELS !== 'undefined' && LIFT_LABELS[e.lift]) || e.lift || '');
           var sets = e.sets || [];
-          if (!sets.length) { out.push(prefix.concat([w.number, d.name || '', nm, e.variant || '', '', '', '', '', '', '', '', '', '', '', '', '', '', e.note || ''])); return; }
+          if (!sets.length) { out.push(prefix.concat([w.number, d.name || '', nm, e.variant || '', '', '', '', '', '', '', '', '', '', '', '', '', '', e.note || '', '', '', '', ''])); return; }
           sets.forEach(function (s, i) {
             out.push(prefix.concat([w.number, d.name || '', nm, e.variant || '', i + 1, r2(s.weight), r2(s.weightHi), s.pct != null ? s.pct : '', s.pctHi != null ? s.pctHi : '',
               s.reps != null ? s.reps : '', s.rpe != null ? s.rpe : '', s.rpeHi != null ? s.rpeHi : '', s.rir ? 'yes' : '', s.tempo || '',
-              s.completed ? 'yes' : '', s.actualRpe != null ? s.actualRpe : '', s.completedAt ? String(s.completedAt).slice(0, 10) : '', i === 0 ? (e.note || '') : (s.note || '')]));
+              s.completed ? 'yes' : '', s.actualRpe != null ? s.actualRpe : '', s.completedAt ? String(s.completedAt).slice(0, 10) : '', i === 0 ? (e.note || '') : (s.note || '')].concat(fieldCells(s))));
           });
         });
       });
     });
     return out;
   }
-  var SET_COLS = ['week', 'day', 'exercise', 'variant', 'set', 'weight_kg', 'weight_hi_kg', 'percent', 'percent_hi', 'reps', 'rpe', 'rpe_hi', 'rir', 'tempo', 'done', 'done_rpe', 'done_on', 'note'];
+  // Set fields (app.js setFieldsOf): the pause, the bands or chains, and the coach's own columns
+  // as "Bar: SSB · Belt: no" (the program importer reads that column back).
+  function fieldCells(s) {
+    var f = typeof setFieldsOf === 'function' ? setFieldsOf(s) : {};
+    var acc = f.acc === 'chains' ? ['chains', f.accKg ? r2(f.accKg) + 'kg' : '', f.accTxt ? '(' + f.accTxt + ')' : ''].filter(Boolean).join(' ')
+      : f.acc === 'bands' ? [f.accTxt || '', 'bands', f.accKg ? r2(f.accKg) + 'kg' : ''].filter(Boolean).join(' ') : '';
+    var cx = f.cx ? Object.keys(f.cx).map(function (k) { return k + ': ' + f.cx[k]; }).join(' · ') : '';
+    return [f.pause != null ? f.pause : '', f.pauseAt || '', acc, cx];
+  }
+  var SET_COLS = ['week', 'day', 'exercise', 'variant', 'set', 'weight_kg', 'weight_hi_kg', 'percent', 'percent_hi', 'reps', 'rpe', 'rpe_hi', 'rir', 'tempo', 'done', 'done_rpe', 'done_on', 'note', 'pause_s', 'pause_at', 'bands_chains', 'custom'];
   // Any list of records → CSV: the union of their keys, nested values as JSON.
   // `drop` leaves out keys covered elsewhere (a program's weeks have their own file).
   function recordsCsv(list, nameOf, drop) {

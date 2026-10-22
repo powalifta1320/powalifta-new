@@ -100,6 +100,21 @@ with checks(n, migration, applied) as (values
                      where table_schema = 'public' and table_name = 'goals' and column_name = 'target_class')),
   (40, 'migration-form-check-annotations-2026-10-22.sql  (video review: drawings on form checks)',
         to_regclass('public.form_check_annotations') is not null
-        and to_regprocedure('public.fca_coach_may(uuid)') is not null)
+        and to_regprocedure('public.fca_coach_may(uuid)') is not null),
+  (41, 'migration-meet-calendar-2026-10-22.sql  (planned meets, programs.starts_on/meet_date)',
+        exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'meets' and column_name = 'status')
+        and exists (select 1 from information_schema.columns
+                     where table_schema = 'public' and table_name = 'programs' and column_name = 'starts_on')
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets' and policyname = 'meets_coach_plan_insert')),
+  (42, 'migration-team-programs-2026-10-22.sql  (team programs; needs row 36 first, and row 31 so a replaced block with logged sets is kept)',
+        to_regclass('public.program_group_members') is not null
+        and to_regprocedure('public.push_group_programs(uuid, bigint, jsonb)') is not null
+        and to_regprocedure('public.program_set_logged_on(jsonb)') is not null),
+  (43, 'migration-security-2026-10-22.sql  (security pass: former coaches out of programs / clips / pain reports, grid XSS backstop, check-in targets, invite_preview limit; after rows 29-42)',
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'programs' and policyname = 'programs_coach_live')
+        and not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'programs' and policyname = 'programs_coach_all')
+        and to_regprocedure('public.my_checkin_questions()') is not null
+        and exists (select 1 from pg_trigger where tgname = 'trg_programs_release_on_coach_change'))
 )
 select n, migration, applied from checks order by n;

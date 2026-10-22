@@ -216,8 +216,10 @@ function _buildDemoData() {
     completed: !!done, actualRpe: done ? rpe + 0.5 : null, completedAt: done ? dt : null
   });
   const mkDay = (name, exs, done, dt, pin) => {
-    // A fourth number on a set is the top of a weight range.
-    const day = { id: uid('day'), name, exercises: exs.map(e2 => ({ id: uid('ex'), lift: e2[0], variant: e2[1], exerciseName: e2[2] || '', note: e2[4] || '', sets: e2[3].map(s2 => Object.assign(mkSet(s2[0], s2[1], s2[2], done, dt), s2[3] ? { weightHi: s2[3] } : {})) })) };
+    // A fourth number on a set is the top of a weight range. A sixth entry on an exercise is its
+    // set fields (tempo, pause, bands / chains, the coach's columns): one for every set, or a list.
+    const sfFor = (e2, i) => setFieldsOf(Array.isArray(e2[5]) ? e2[5][i] : e2[5]);
+    const day = { id: uid('day'), name, exercises: exs.map(e2 => ({ id: uid('ex'), lift: e2[0], variant: e2[1], exerciseName: e2[2] || '', note: e2[4] || '', sets: e2[3].map((s2, i) => Object.assign(mkSet(s2[0], s2[1], s2[2], done, dt), s2[3] ? { weightHi: s2[3] } : {}, sfFor(e2, i))) })) };
     if (pin) day.scheduledDate = pin;
     return day;
   };
@@ -231,17 +233,17 @@ function _buildDemoData() {
       id: uid('wk'), number: wn, days: [
         mkDay('Squat Day', [
           // A top set, then back-offs (RTS: 3 @ 8.5 ≈ 88% of the 207 e1RM, 5 @ 8 ≈ 81%).
-          ['squat', 'Competition', '', [[177.5 + bump, 3, 8.5], [162.5 + bump, 5, 8], [162.5 + bump, 5, 8]], 'Stay tight at the bottom. Drive up hard.'],
-          ['squat', 'Paused', '', [[132.5 + bump, 4, 8, 137.5 + bump], [132.5 + bump, 4, 8, 137.5 + bump]], '2-count pause. Go to the top of the range if the first one moves.'],
+          ['squat', 'Competition', '', [[177.5 + bump, 3, 8.5], [162.5 + bump, 5, 8], [162.5 + bump, 5, 8]], 'Stay tight at the bottom. Drive up hard.', [{ cx: { Belt: 'yes' } }, { tempo: '3-1-0', cx: { Belt: 'no' } }, { tempo: '3-1-0', cx: { Belt: 'no' } }]],
+          ['squat', 'Paused', '', [[132.5 + bump, 4, 8, 137.5 + bump], [132.5 + bump, 4, 8, 137.5 + bump]], 'Go to the top of the range if the first one moves.', { pause: 2, pauseAt: 'bottom', cx: { Bar: 'SSB' } }],
           ['legs', '', 'Leg Press', [[120, 10, 8], [120, 10, 8]]]
         ], wkDone, dt, pinToday ? iso(new Date()) : null),
         mkDay('Bench Day', [
-          ['bench', 'Competition', '', [[112.5 + bump, 3, 8.5], [102.5 + bump, 5, 8], [102.5 + bump, 5, 8]], 'Leg drive. Touch and go.'],
-          ['bench', 'Close Grip', '', [[92.5 + bump, 4, 8], [92.5 + bump, 4, 8]]],
+          ['bench', 'Competition', '', [[112.5 + bump, 3, 8.5], [102.5 + bump, 5, 8], [102.5 + bump, 5, 8]], 'Leg drive. Touch and go.', [{}, { acc: 'bands', accTxt: 'light' }, { acc: 'bands', accTxt: 'light' }]],
+          ['bench', 'Close Grip', '', [[92.5 + bump, 4, 8], [92.5 + bump, 4, 8]], '', { pause: 1, pauseAt: 'chest' }],
           ['push', '', 'DB Incline Press', [[32.5, 10, 8], [32.5, 10, 8]]]
         ], wkDone, dt),
         mkDay('Deadlift Day', [
-          ['deadlift', 'Competition', '', [[222.5 + bump, 2, 8.5], [205 + bump, 4, 8], [205 + bump, 4, 8]], 'Slack out of the bar before you pull.'],
+          ['deadlift', 'Competition', '', [[222.5 + bump, 2, 8.5], [205 + bump, 4, 8], [205 + bump, 4, 8]], 'Slack out of the bar before you pull.', [{}, { acc: 'chains', accKg: 20 }, { acc: 'chains', accKg: 20 }]],
           ['deadlift', 'Deficit', '', [[167.5 + bump, 3, 8], [167.5 + bump, 3, 8]]],
           ['pull', '', 'Barbell Row', [[80, 10, 8], [80, 10, 8]]]
         ], wkDone, dt),
@@ -249,7 +251,7 @@ function _buildDemoData() {
       ]
     });
   }
-  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: SOLO ? DA : DC, name: 'Strength Block · Wave 2', weeks }];
+  const programs = [{ id: 'demo-prog', athleteId: DA, coachId: SOLO ? DA : DC, name: 'Strength Block · Wave 2', weeks, setFields: { on: ['tempo', 'pause', 'acc'], cols: ['Bar', 'Belt'] } }];
 
   const sessionNotes = [
     // Dated TODAY so the live session leads with the "Coach feedback" card —
@@ -388,17 +390,19 @@ function _buildCoachDemoData() {
     return { id: uid('wk'), number: wi + 1, days: [
       { id: uid('day'), name: 'Squat Day', exercises: [
         ex2('squat', 'Competition', top('squat', sq[0], sq[1], 180).concat(back(sqB[0], sqB[1], sqB[2], sqB[3], true, [null, null, { actualRpe: 7.5 }])), { note: 'Drive hard out of the hole.' }),
-        ex2('squat', 'Paused', paused, { note: '2-count pause.' }) ] },
+        ex2('squat', 'Paused', paused.map(s => Object.assign(s, { pause: 2, pauseAt: 'bottom' }))) ] },
       { id: uid('day'), name: 'Bench Day', exercises: [
-        ex2('bench', 'Competition', top('bench', bp[0], bp[1], 115).concat(back(bpB[0], bpB[1], bpB[2], bpB[3], true))),
-        ex2('bench', 'Close Grip', back(cg[0], cg[1], cg[2], cg[3], true).map(s => Object.assign(s, { rir: true }))) ] },
+        ex2('bench', 'Competition', top('bench', bp[0], bp[1], 115).concat(back(bpB[0], bpB[1], bpB[2], bpB[3], true).map(s => Object.assign(s, { acc: 'bands', accTxt: 'light' })))),
+        ex2('bench', 'Close Grip', back(cg[0], cg[1], cg[2], cg[3], true).map(s => Object.assign(s, { rir: true, pause: 1, pauseAt: 'chest' }))) ] },
       { id: uid('day'), name: 'Deadlift Day', exercises: [
         ex2('deadlift', 'Competition', top('deadlift', dl[0], dl[1], null).concat(back(dlB[0], dlB[1], dlB[2], dlB[3], false)), { note: 'Slack out of the bar before you pull.' }),
-        ex2('deadlift', 'RDL', back(rdl[0], rdl[1], rdl[2], rdl[3], false)) ] },
+        ex2('deadlift', 'RDL', back(rdl[0], rdl[1], rdl[2], rdl[3], false).map(s => Object.assign(s, { tempo: '3s down', cx: { Belt: 'no' } }))) ] },
       { id: uid('day'), name: 'Rest', exercises: [] }
     ] };
   });
-  const programs = roster.map((r, ri) => ri === 0 ? { id: 'demo-cprog-0', athleteId: r.id, coachId: DC, name: 'Strength Block', maxes: arjunMax, weeks: arjunWeeks } : ({
+  // Arjun's block has dates (brief M3): it began this week and counts down to his planned meet.
+  const programs = roster.map((r, ri) => ri === 0 ? { id: 'demo-cprog-0', athleteId: r.id, coachId: DC, name: 'Strength Block', maxes: arjunMax, weeks: arjunWeeks,
+    startsOn: _monISO(daysAgo(3)), meetDate: daysAgo(-53), setFields: { on: ['tempo', 'pause', 'acc'], cols: ['Belt'] } } : ({
     id: 'demo-cprog-' + ri, athleteId: r.id, coachId: DC, name: ['Strength Block', 'Hypertrophy Wave', 'Meet Prep', 'Foundation'][ri],
     weeks: [1, 2, 3].map(wn => ({
       id: uid('wk'), number: wn, days: [
@@ -557,7 +561,12 @@ function _buildCoachDemoData() {
         { id: 'demo-cmeet-1', athleteId: 'demo-a1', name: 'Spring Classic', date: daysAgo(152), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.6, squat: 200, bench: 132.5, deadlift: 240,
           notes: '1st place · Raw · Open · DOTS 415.8. Squat 185, 195, 200 · Bench 125, 130, 132.5 · Deadlift 225, 240, x250 kg. From OpenPowerlifting', createdAt: daysAgo(150) + 'T18:00:00Z' },
         { id: 'demo-cmeet-2', athleteId: 'demo-a1', name: 'Winter Open', date: daysAgo(334), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.9, squat: 187.5, bench: 125, deadlift: 227.5,
-          notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' }
+          notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' },
+        // Two PLANNED meets (brief M3): dates, never results; they never touch a best total or DOTS.
+        { id: 'demo-cmeet-p1', athleteId: 'demo-a1', name: 'Fall Nationals', date: daysAgo(-53), status: 'planned', federation: 'Powerlifting America', division: 'Open', weightClass: '74 kg',
+          weighIn: '2h', weighInAt: daysAgo(-53) + 'T07:00:00', bodyweight: null, squat: null, bench: null, deadlift: null, notes: '', createdAt: daysAgo(20) + 'T12:00:00Z' },
+        { id: 'demo-cmeet-p2', athleteId: 'demo-a2', name: 'City Classic', date: daysAgo(-33), status: 'planned', federation: 'USPA', division: 'Open', weightClass: '63 kg',
+          weighIn: '24h', weighInAt: daysAgo(-34) + 'T17:00:00', bodyweight: null, squat: null, bench: null, deadlift: null, notes: '', createdAt: daysAgo(12) + 'T12:00:00Z' }
       ],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
       // Pain flags: Sarah's low back twice this week (open, so the roster flags it); Arjun's hip
@@ -583,6 +592,8 @@ function _buildCoachDemoData() {
   // Phones and the iPhone app keep the four above.
   if (document.documentElement.classList.contains('desk') && typeof deskSeedDemo === 'function') {
     try { deskSeedDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('deskSeedDemo', e); }
+    // A team of six on the desk (brief M4): needs the desk's lifters, so phones keep their four.
+    try { seedTeamDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedTeamDemo', e); }
   }
   return demo;
 }
@@ -788,9 +799,16 @@ window.bootstrap = bootstrap;
 // data-theme attribute on <html>. Default: dark.
 // =========================================================
 const THEME_KEY = 'powa-theme';
+// The coach's laptop desk keeps its own choice: dark by default, and a light desk never turns the
+// public site or athlete.html light in the same browser (nor the other way round).
+const DESK_THEME_KEY = 'powa-desk-theme';
+function _themeKey() {
+  try { if (document.documentElement.classList.contains('desk')) return DESK_THEME_KEY; } catch {}
+  return THEME_KEY;
+}
 function getTheme() {
   try {
-    const stored = localStorage.getItem(THEME_KEY);
+    const stored = localStorage.getItem(_themeKey());
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {}
   // The public website is dark by default too (owner, 2026-10-22); light is one toggle away.
@@ -802,6 +820,10 @@ function getTheme() {
   // set data-theme=dark) — the user can still switch explicitly via the Settings toggle.
   try {
     if (document.documentElement.classList.contains('native')) return 'dark';
+  } catch {}
+  // The coach's laptop desk is dark by default; light is one toggle away (and remembered).
+  try {
+    if (document.documentElement.classList.contains('desk')) return 'dark';
   } catch {}
   // Web: honor system preference for first-time visitors (a11y). Dark otherwise —
   // the brand is dark-first; only auto-adopt an explicit "light" OS pref.
@@ -815,7 +837,7 @@ function getTheme() {
 function applyTheme(theme) {
   const t = (theme === 'light') ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem(THEME_KEY, t); } catch {}
+  try { localStorage.setItem(_themeKey(), t); } catch {}
   // Update theme-color meta so mobile chrome/safari status bar matches.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#0b0b0c');
@@ -2475,12 +2497,13 @@ function _findProgramSet(prog, path) {
 // A whole-program save landed (db.js upsertProgram calls this): the new rev, and when it merged,
 // the merged version into the Store, keeping anything edited here while the save was in flight.
 let _mergeToastAt = 0;
-function programWriteLanded(prog, sentJson, written, rev, merged) {
+function programWriteLanded(prog, sentJson, written, rev, merged, dates) {
   const live = (Store.get().programs || []).find(p => p.id === prog.id);
   const targets = live && live !== prog ? [prog, live] : [prog];
   targets.forEach(t => {
     if (typeof rev === 'number') t.rev = rev;
     if (!merged) return;
+    if (dates) Object.keys(dates).forEach(k => { t[k] = dates[k]; });   // starts_on / meet_date as merged
     const now = JSON.stringify({ name: t.name || '', weeks: t.weeks || [], maxes: t.maxes || null });
     const next = now === sentJson ? JSON.parse(JSON.stringify(written)) : mergeProgramVersions(JSON.parse(sentJson), t, written);
     t.name = next.name; t.weeks = next.weeks; t.maxes = next.maxes;
@@ -3891,8 +3914,22 @@ function _progExLabel(ex) {
 }
 function buildProgramCsv(program) {
   const u = unitLabel();
+  // Set fields after the notes, then one column per coach column, so the sheet reads back in.
+  const sfDef = program && Array.isArray(program.weeks) ? programSetFields(program) : { on: [], cols: [] };
+  const sfAny = sfDef.on.length > 0 || sfDef.cols.length > 0;
+  const unitTag = u === 'lbs' ? 'lb' : 'kg';
+  const sfCells = (st) => {
+    if (!sfAny) return [];
+    const f = setFieldsOf(st || {});
+    const w = (kg) => _sfAccDisp(kg, unitTag) + unitTag;
+    const pause = [f.pause ? _num(f.pause) + 's' : '', f.pauseAt ? 'at ' + f.pauseAt : ''].filter(Boolean).join(' ');
+    const acc = f.acc === 'chains' ? ['chains', f.accKg ? w(f.accKg) : '', f.accTxt ? '(' + f.accTxt + ')' : ''].filter(Boolean).join(' ')
+      : f.acc === 'bands' ? [f.accTxt || '', 'bands', f.accKg ? w(f.accKg) : ''].filter(Boolean).join(' ') : '';
+    return [f.tempo || '', pause, acc].concat(sfDef.cols.map(c => { const k = f.cx && Object.keys(f.cx).find(x => x.toLowerCase() === c.toLowerCase()); return k ? f.cx[k] : ''; }));
+  };
   const header = ['week', 'day', 'exercise', 'variant', 'set',
-    'weight (' + u + ')', 'reps', 'target_rpe', 'done', 'actual_weight', 'actual_rpe', 'notes'];
+    'weight (' + u + ')', 'reps', 'target_rpe', 'done', 'actual_weight', 'actual_rpe', 'notes'].concat(sfAny ? ['tempo', 'pause', 'bands/chains'].concat(sfDef.cols) : []);
+  const blank = sfCells({});
   const rows = [header.map(_csvEscape).join(',')];
   if (!program || !Array.isArray(program.weeks)) return rows.join('\n');
   program.weeks.forEach(wk => {
@@ -3901,7 +3938,7 @@ function buildProgramCsv(program) {
       const dayName = day.name || 'Day';
       const isRest = /\b(rest|off|recovery)\b/i.test(dayName) && !(day.exercises || []).length;
       if (isRest || !(day.exercises || []).length) {
-        rows.push([wkLabel, dayName, isRest ? 'Rest day' : 'No exercises', '', '', '', '', '', '', '', '', '']
+        rows.push([wkLabel, dayName, isRest ? 'Rest day' : 'No exercises', '', '', '', '', '', '', '', '', ''].concat(blank)
           .map(_csvEscape).join(','));
         return;
       }
@@ -3910,7 +3947,7 @@ function buildProgramCsv(program) {
         const variant = MAIN_LIFTS.includes(ex.lift) ? (ex.variant || '') : (ex.variant || '');
         const note = ex.note || '';
         if (!(ex.sets || []).length) {
-          rows.push([wkLabel, dayName, label, variant, '', '', '', '', '', '', '', note].map(_csvEscape).join(','));
+          rows.push([wkLabel, dayName, label, variant, '', '', '', '', '', '', '', note].concat(blank).map(_csvEscape).join(','));
           return;
         }
         ex.sets.forEach((st, si) => {
@@ -3920,7 +3957,7 @@ function buildProgramCsv(program) {
             wkLabel, dayName, label, variant, si + 1,
             w, st.reps != null ? st.reps : '', st.rpe != null ? (st.rpeHi != null && Number(st.rpeHi) > Number(st.rpe) ? _num(st.rpe) + '-' + _num(st.rpeHi) : st.rpe) : '',
             '', '', '', si === 0 ? note : ''
-          ].map(_csvEscape).join(','));
+          ].concat(sfCells(st)).map(_csvEscape).join(','));
         });
       });
     });
@@ -5618,6 +5655,7 @@ function bestMeet(meets, athleteId) {
   let best = null;
   meets.forEach(m => {
     if (athleteId && m.athleteId !== athleteId) return;
+    if (isPlannedMeet(m)) return;   // a planned meet is a date, never a result (brief M3)
     if (!meetIsFullTotal(m)) return;
     const t = meetTotal(m);
     if (!best || t > best.total) best = { total: t, meet: m };
@@ -5658,18 +5696,24 @@ function oplMeetToMeet(m, athleteId) {
   };
 }
 // Which OpenPowerlifting meets are new: a meet already logged on the same date is the same meet.
+// A planned meet on that date isn't "have": the real result comes in, and plannedId says which
+// plan it replaces (brief M3: a plan never stands in for a result).
 function oplPlan(oplMeets, existing, athleteId) {
-  const have = new Set((existing || []).filter(x => x.athleteId === athleteId).map(x => x.date));
+  const mine = (existing || []).filter(x => x.athleteId === athleteId);
+  const have = new Set(mine.filter(x => !isPlannedMeet(x)).map(x => x.date));
+  const plans = new Map(mine.filter(x => isPlannedMeet(x) && x.id).map(x => [x.date, x]));
   return (oplMeets || []).map(m => {
     const meet = oplMeetToMeet(m, athleteId);
-    return { opl: m, meet, status: !meet ? 'nototal' : (have.has(m.date) ? 'have' : 'new') };
+    const status = !meet ? 'nototal' : (have.has(m.date) ? 'have' : 'new');
+    const plan = status === 'new' ? plans.get(m.date) : null;
+    return plan ? { opl: m, meet, status, plannedId: plan.id, planned: plan } : { opl: m, meet, status };
   });
 }
 
 // DOTS for a finished meet from its REAL total + weigh-in bodyweight (kg).
 // Falls back to null when bodyweight is missing. sex is the client-side pref.
 function meetDots(meet, sex) {
-  if (!meet || !meet.bodyweight) return null;
+  if (!meet || !meet.bodyweight || isPlannedMeet(meet)) return null;
   const t = meetTotal(meet);
   if (!t) return null;
   return dotsScore(t, meet.bodyweight, sex);
@@ -6600,7 +6644,8 @@ function weightRangeText(loKg, hiKg) {
   if (!(Number(loKg) > 0)) return '';
   return kgToDisplay(loKg) + (Number(hiKg) > Number(loKg) ? '–' + kgToDisplay(hiKg) : '') + ' ' + unitLabel();
 }
-// The prescription fields a copy of a set must carry (only the ones it has).
+// The prescription fields a copy of a set must carry (only the ones it has), and its set fields
+// (tempo, pause, bands / chains, the coach's own columns: setFieldsOf).
 function rxOf(s) {
   const o = {};
   if (s && s.rpeHi != null && s.rpeHi !== '') o.rpeHi = Number(s.rpeHi);
@@ -6608,7 +6653,7 @@ function rxOf(s) {
   if (s && s.pct != null && s.pct !== '') o.pct = Number(s.pct);
   if (s && Number(s.weightHi) > 0) o.weightHi = Number(s.weightHi);
   if (s && s.pctHi != null && s.pctHi !== '' && Number(s.pctHi) > 0) o.pctHi = Number(s.pctHi);
-  return o;
+  return Object.assign(o, setFieldsOf(s));
 }
 function setEffortText(s) {
   if (!s || s.rpe == null || s.rpe === '') return '';
@@ -6625,6 +6670,540 @@ function setLoadText(s, opts) {
   const w = Number(s.weight) > 0 ? weightRangeText(s.weight, s.weightHi) : '';
   if (s.pct != null && s.pct !== '') return _num(s.pct) + (Number(s.pctHi) > Number(s.pct) ? '–' + _num(s.pctHi) : '') + '%' + (w && !(opts && opts.pctOnly) ? ' · ' + w : '');
   return w;
+}
+// ===== SET FIELDS (2026-10-22): tempo, pauses, bands and chains, the coach's own columns =====
+// Coaches stay on spreadsheets when their method doesn't fit fixed columns. A planned set may
+// also carry (all optional, a set without them reads exactly as before):
+//   tempo    "3-1-0" or "3s down", as the coach wrote it
+//   pause    seconds paused (a "2-count" is 2); pauseAt where: "bottom", "chest", "knee"
+//   acc      accommodating resistance, 'bands' or 'chains'; accTxt the band ("light", "red",
+//            "reverse light"); accKg the chain weight (or a band's tension) in kg
+//   cx       the coach's own columns, by name: { Bar: 'SSB', Belt: 'no' }. Keyed by name, not
+//            by an id, so a set says itself wherever it's copied (a past block, a template, a
+//            bought program) without the program's definitions beside it.
+// rxOf(set) carries them on every copy. The program keeps which ones its builder shows:
+// prog.setFields = { on: ['tempo', 'pause', 'acc'], cols: ['Bar', 'Belt'] } (programs.set_fields,
+// sql/migration-set-fields-2026-10-22.sql; db.js keeps it on the device until that runs).
+// `var` and function declarations only: coach.html's demo reads these during its first render.
+var SET_FIELD_KEYS = ['tempo', 'pause', 'pauseAt', 'acc', 'accTxt', 'accKg', 'cx'];
+var SET_FIELD_KINDS = [['tempo', 'Tempo'], ['pause', 'Pause'], ['acc', 'Bands & chains']];
+var SET_FIELD_MAX_COLS = 8;
+function _sfClean(v, n) {
+  return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 40).trim();
+}
+// The set-field subset of a set, cleaned (a fresh cx object, never shared).
+function setFieldsOf(s) {
+  const o = {};
+  if (!s) return o;
+  const t = _sfClean(s.tempo, 24); if (t) o.tempo = t;
+  const p = Number(s.pause); if (p > 0 && p <= 60) o.pause = Math.round(p * 10) / 10;
+  const pa = _sfClean(s.pauseAt, 24); if (pa) o.pauseAt = pa;
+  if (s.acc === 'bands' || s.acc === 'chains') {
+    o.acc = s.acc;
+    const at = _sfClean(s.accTxt, 24); if (at) o.accTxt = at;
+    const ak = Number(s.accKg); if (ak > 0 && ak <= 500) o.accKg = Math.round(ak * 100) / 100;
+  }
+  if (s.cx && typeof s.cx === 'object' && !Array.isArray(s.cx)) {
+    const cx = {}; let n = 0;
+    Object.keys(s.cx).forEach(k => {
+      const kk = _sfClean(k, 20), v = _sfClean(s.cx[k], 40);
+      if (kk && v && n < 12 && !(kk in cx)) { cx[kk] = v; n++; }
+    });
+    if (n) o.cx = cx;
+  }
+  return o;
+}
+// One string per distinct set of fields (groupSets splits blocks on it).
+function setFieldsSig(s) {
+  const f = setFieldsOf(s);
+  if (f.cx) f.cx = Object.keys(f.cx).sort().map(k => k + '=' + f.cx[k]).join(';');
+  return SET_FIELD_KEYS.map(k => (f[k] == null ? '' : String(f[k]))).join('|');
+}
+function hasSetFields(s) { return Object.keys(setFieldsOf(s)).length > 0; }
+// Replace a set's fields with another's (the grid's text is the whole truth for a cell).
+function assignSetFields(target, src) {
+  SET_FIELD_KEYS.forEach(k => { delete target[k]; });
+  target.tempo = '';   // the shape every set has (ensureExerciseShape)
+  return Object.assign(target, setFieldsOf(src));
+}
+function _sfLoc(t) {
+  return String(t || '').toLowerCase().replace(/\bthe\s+/g, '').replace(/\s+/g, ' ').trim()
+    .replace(/^hole$/, 'bottom').replace(/^knees$/, 'knee').replace(/^shins$/, 'shin').replace(/^mid shins?$/, 'mid-shin');
+}
+// What the lifter reads: [{ k, label, value }], in a fixed order.
+function setFieldBits(s) {
+  const f = setFieldsOf(s), out = [];
+  if (f.tempo) out.push({ k: 'tempo', label: 'Tempo', value: f.tempo });
+  if (f.pause || f.pauseAt) {
+    const at = f.pauseAt ? ((/^(bottom|chest|knee|floor|top|shin|mid-shin|lockout|sticking point)$/.test(f.pauseAt) ? 'at the ' : 'at ') + f.pauseAt) : '';
+    out.push({ k: 'pause', label: 'Pause', value: [f.pause ? _num(f.pause) + 's' : '', at].filter(Boolean).join(' ') });
+  }
+  if (f.acc) {
+    const w = f.accKg ? formatWeight(f.accKg) : '';
+    if (f.acc === 'chains') out.push({ k: 'acc', label: 'Chains', value: [w, f.accTxt || ''].filter(Boolean).join(' · ') });
+    else out.push({ k: 'acc', label: 'Bands', value: [f.accTxt || '', w].filter(Boolean).join(' · ') });
+  }
+  if (f.cx) Object.keys(f.cx).forEach(k => out.push({ k: 'cx:' + k, label: k, value: f.cx[k] }));
+  return out;
+}
+function setFieldsText(s, sep) {
+  return setFieldBits(s).map(b => b.label + (b.value ? ' ' + b.value : '')).join(sep || ' · ');
+}
+// Compact, escaped: the label quiet, the value in ink. bits: from setFieldBits (or a subset).
+// Joined by a space so the line wraps between fields (styles.css puts the dot after each one).
+function setFieldsHtml(bits, opts) {
+  if (!bits || !bits.length) return '';
+  return '<span class="sf-line' + (opts && opts.cls ? ' ' + opts.cls : '') + '">' + bits.map(b =>
+    '<span class="sf-bit"><i>' + escHtml(b.label) + '</i>' + (b.value ? '<b>' + escHtml(b.value) + '</b>' : '') + '</span>').join(' ') + '</span>';
+}
+// A block holding that line (escaped), or null when there's nothing to say.
+function setFieldsEl(bits, cls) {
+  if (!bits || !bits.length) return null;
+  return el('div', { class: cls || '', html: setFieldsHtml(bits), 'aria-label': bits.map(b => b.label + (b.value ? ' ' + b.value : '')).join(', ') });
+}
+// What every set of an exercise shares, said once; and what each set adds on top.
+// Returns { common: bits, per: [bits per set] }.
+function setFieldsSplit(sets) {
+  const list = (sets || []).filter(s => !s.attempt && !s.extra);
+  const bitsOf = (s) => setFieldBits(s).map(b => Object.assign(b, { id: b.k + '=' + b.value }));
+  const all = list.map(bitsOf);
+  const common = all.length ? all[0].filter(b => all.every(bs => bs.some(x => x.id === b.id))) : [];
+  const ids = common.map(b => b.id);
+  return { common, per: (sets || []).map(s => bitsOf(s).filter(b => ids.indexOf(b.id) < 0)) };
+}
+// The grid cell's words for a set's fields: "tempo 3-1-0 paused 2s at chest + chains 20kg · Bar: SSB".
+// parseSetFields reads every one of them back: a tempo or a place it wouldn't read as written goes
+// after a colon ("tempo: slow", "paused 2s at: deficit"), and a column's value can't start a new key.
+function setFieldsCellText(s, unitTag) {
+  const f = setFieldsOf(s), out = [];
+  const u = unitTag || (typeof getUnit === 'function' && getUnit() === 'lbs' ? 'lb' : 'kg');
+  const w = (kg) => _sfAccDisp(kg, u) + u;
+  if (f.tempo) {
+    const t = 'tempo ' + f.tempo;
+    out.push(_sfReads(t).tempo === f.tempo ? t : 'tempo: ' + f.tempo.replace(/[·|;,:]/g, ' '));
+  }
+  if (f.pause || f.pauseAt) {
+    const head = 'paused' + (f.pause ? ' ' + _num(f.pause) + 's' : '');
+    const t = head + (f.pauseAt ? ' at ' + f.pauseAt : '');
+    const r = _sfReads(t);
+    out.push(!f.pauseAt || (r.pauseAt === f.pauseAt && r.pause === f.pause) ? t : head + ' at: ' + f.pauseAt.replace(/[·|;,:+]/g, ' '));
+  }
+  if (f.acc === 'chains') out.push('+ chains' + (f.accKg ? ' ' + w(f.accKg) : '') + (f.accTxt ? ' (' + f.accTxt.replace(/[()]/g, ' ') + ')' : ''));
+  else if (f.acc === 'bands') out.push('+ ' + (f.accTxt && /^[a-z]+( [a-z]+)?$/i.test(f.accTxt) ? f.accTxt + ' ' : '') + 'bands' + (f.accKg ? ' ' + w(f.accKg) : '') + (f.accTxt && !/^[a-z]+( [a-z]+)?$/i.test(f.accTxt) ? ' (' + f.accTxt.replace(/[()]/g, ' ') + ')' : ''));
+  let t = out.join(' ');
+  if (f.cx) t += (t ? ' ' : '') + Object.keys(f.cx).map(k => '· ' + k + ': ' + String(f.cx[k]).replace(/[·|;]/g, '/')).join(' ');
+  return t;
+}
+function _sfReads(t) { return parseSetFields(t, { anywhere: true }).fields; }
+// A band's tension or a chain's weight in the display unit: the shortest number that reads back
+// to the same kg (9 kg is "19.84" lb, not "19.8", which would come back as 8.98).
+function _sfAccDisp(kg, u) {
+  if (!/lb/.test(u || '')) return _num(Math.round(Number(kg) * 100) / 100);
+  const want = Math.round(Number(kg) * 100) / 100, lb = Number(kg) / KG_PER_LB;
+  for (const d of [0, 1, 2, 3]) {
+    const v = Number(lb.toFixed(d));
+    if (Math.round(v * KG_PER_LB * 100) / 100 === want) return String(v);
+  }
+  return String(Number(lb.toFixed(2)));
+}
+var _SF_UNIT = '(?:s|secs?|seconds?|ct|cts|counts?|")';
+var _SF_LOC = '(bottom|hole|chest|knees?|(?:below|above)\\s+(?:the\\s+)?knees?|mid[- ]?shins?|shins?|floor|(?:\\d+\\s*(?:cm|in|inch(?:es)?|")\\s+)?off\\s+(?:the\\s+)?(?:chest|floor)|lockout|top|parallel|halfway|sticking\\s+point)';
+var _SF_TENSION = '(?:light|mini|monster(?:\\s+mini)?|micro|average|avg|medium|strong|heavy|red|orange|green|blue|purple|black|grey|gray|pink|yellow|doubled|short|long|thin|thick)';
+var _SF_RESERVED = /^(rpe|rir|tempo|pause|paused|bands?|chains?|load|weight|sets?|reps?|notes?|week|wk|day|at|x|kgs?|lbs?|top|back|https?|e1rm|done|plan)$/i;
+function _sfEsc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// The coach's own columns: "Bar: SSB · Belt: no". A key is a column the program already has, a
+// single word, or (straight after a ·, |, ; or the start) up to three words. Returns
+// { at, pairs: [[key, value]] } with `at` where the first key starts, or null.
+function _sfCustom(str, from, cols) {
+  const known = (cols || []).slice().sort((a, b) => b.length - a.length).map(_sfEsc);
+  const reKnown = known.length ? new RegExp('(^|[\\s·|;,])(' + known.join('|') + ')\\s*:', 'gi') : null;
+  const reMulti = /(^|[·|;]\s*)([A-Za-z][\w'’-]*(?:\s+[A-Za-z][\w'’-]*){0,2})\s*:/g;
+  const reOne = /(^|\s)([A-Za-z][\w'’-]*)\s*:/g;
+  const keys = [];
+  const scan = (re, kind) => {
+    if (!re) return;
+    re.lastIndex = from; let m;
+    while ((m = re.exec(str))) {
+      const start = m.index + m[1].length;
+      let key = m[2].trim();
+      if (kind !== 'known') {
+        // Leading words that are part of the prescription ("@8 rpe Bar:") aren't the key.
+        const words = key.split(/\s+/);
+        while (words.length > 1 && _SF_RESERVED.test(words[0])) words.shift();
+        key = words.join(' ');
+      }
+      if (_SF_RESERVED.test(key)) { if (re.lastIndex === m.index) re.lastIndex++; continue; }
+      const kStart = str.indexOf(key, start);
+      const sep = /[·|;]\s*$/.test(str.slice(from, kStart));
+      keys.push({ start: kStart, end: m.index + m[0].length, key, kind, sep });
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+  };
+  scan(reKnown, 'known'); scan(reMulti, 'multi'); scan(reOne, 'one');
+  if (!keys.length) return null;
+  const rank = { known: 0, multi: 1, one: 2 };
+  keys.sort((a, b) => a.start - b.start || rank[a.kind] - rank[b.kind]);
+  // Written with separators ("· Stance: wide: toes out", as the grid writes a cell), a later key
+  // needs one before it (or to be a column the program has), so a value's own colon stays in it.
+  const sepMode = keys.some(k => k.sep);
+  const pick = [];
+  keys.forEach(k => {
+    const last = pick[pick.length - 1];
+    if (last && sepMode && !k.sep && k.kind !== 'known') return;
+    if (!last || k.start >= last.end) pick.push(k);
+  });
+  const pairs = [];
+  pick.forEach((k, i) => {
+    const end = i + 1 < pick.length ? pick[i + 1].start : str.length;
+    const val = _sfClean(str.slice(k.end, end).replace(/^[\s·|;,]+|[\s·|;,]+$/g, ''), 40);
+    const knownName = (cols || []).find(c => c.toLowerCase() === k.key.toLowerCase());
+    const name = knownName || _sfClean(k.key.charAt(0).toUpperCase() + k.key.slice(1), 20);
+    if (val && name) pairs.push([name, val]);
+  });
+  return { at: pick[0].start, pairs };
+}
+// Reads tempo, pause, bands / chains and the coach's columns out of a prescription.
+// opts: { unit ('kg'|'lbs', for a chain weight written without one), cols (the program's own
+// column names), anywhere (custom columns may come before any sets x reps), bareTempo (false: only
+// "tempo 3-1-0" is a tempo; 'strict': a bare one needs a 0 or an X, as "3-1-0", "2-1-X") }.
+// Returns { fields (as setFieldsOf), rest (the text with them taken out, for the load / RPE parse) }.
+function parseSetFields(str, opts) {
+  opts = opts || {};
+  let s = String(str == null ? '' : str);
+  const f = {};
+  const cut = (m) => { s = s.slice(0, m.index) + ' '.repeat(m[0].length) + s.slice(m.index + m[0].length); };
+  const kgOf = (n, u) => { const v = Number(n); if (!(v > 0)) return null; const lb = u ? /lb/i.test(u) : opts.unit === 'lbs'; return Math.round((lb ? v * KG_PER_LB : v) * 100) / 100; };
+  // 1. The coach's columns: everything from the first "Key:" (after the sets x reps) on.
+  const scheme = s.match(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i);
+  const from = opts.anywhere ? 0 : (scheme ? scheme.index + scheme[0].length : s.length);
+  const cu = _sfCustom(s, from, opts.cols);
+  if (cu) {
+    if (cu.pairs.length) { f.cx = {}; cu.pairs.forEach(p => { if (!(p[0] in f.cx)) f.cx[p[0]] = p[1]; }); }
+    s = s.slice(0, cu.at) + ' '.repeat(s.length - cu.at);
+  }
+  let m;
+  // Free text after "tempo:" or "at:" runs to the next field ("paused", "+ chains", a "·").
+  const freeEnd = (from) => {
+    const tail = s.slice(from), stop = tail.search(/[·|;,]|\s(?:tempo\b|paused?\b|pause\b|\+|w\/)/i);
+    return from + (stop < 0 ? tail.length : stop);
+  };
+  const cutTo = (start, end) => { s = s.slice(0, start) + ' '.repeat(end - start) + s.slice(end); };
+  // 2. Tempo: "tempo 3-1-0", "tempo 31X0", "tempo 3s down", "tempo: slow", a bare "3-1-0" /
+  //    "3-1-X-0", "3s down". A bare triple must look like a tempo (a 0 or an X, or digits up to 5
+  //    that aren't a countdown or a repeat), and never straight after "@" / "RPE" / "RIR" / "x",
+  //    so "@7-8-9", "RPE 7-8-9", "5-3-1" waves and "x 5-5-5" reps aren't read as one.
+  const bareTempoOk = (t, at) => {
+    if (opts.bareTempo === false) return false;
+    if (/(?:@|\brpe|\brir|[x×*])\s*$/i.test(s.slice(0, at))) return false;
+    const d = t.toUpperCase().split(/[-–]/);
+    if (d.indexOf('0') >= 0 || d.indexOf('X') >= 0) return true;
+    if (opts.bareTempo === 'strict') return false;   // a training journal: "5-3-1", "3-2-1" are reps
+    const n = d.map(Number);
+    if (n.some(v => v > 5)) return false;
+    if (n.every(v => v === n[0])) return false;
+    return !n.every((v, i) => i === 0 || v < n[i - 1]);
+  };
+  if ((m = s.match(/\btempo\s*[:=]?\s*((?:\d{1,2}|x)(?:\s*[-–\/.]\s*(?:\d{1,2}|x)){2,3})(?![\d.-])/i))) { f.tempo = m[1].replace(/\s+/g, '').split(/[-–\/.]/).join('-').toUpperCase(); cut(m); }
+  else if ((m = s.match(/\btempo\s*[:=]?\s*([\dx]{3,4})(?![\w.-])/i))) { f.tempo = m[1].toUpperCase().split('').join('-'); cut(m); }
+  else if ((m = s.match(/\btempo\s*[:=]?\s*(\d{1,2}(?:\.\d)?\s*(?:s|secs?|seconds?)\s*(?:down|up|eccentric|concentric|lowering|lower|negative))\b/i))) { f.tempo = _sfClean(m[1].replace(/\s*(secs?|seconds?)\b/i, 's').replace(/(\d)\s+s\b/, '$1s'), 24).toLowerCase(); cut(m); }
+  else if ((m = s.match(/\btempo\s*[:=]\s*/i))) {
+    const st = m.index + m[0].length, end = Math.min(freeEnd(st), st + 24);
+    const t = _sfClean(s.slice(st, end), 24);
+    if (t) { f.tempo = t; cutTo(m.index, end); }
+  }
+  else {
+    const re = /(^|[\s,(])((?:\d|x)(?:[-–](?:\d|x)){2,3})(?=$|[\s,;)·|])/ig;
+    while ((m = re.exec(s))) {
+      const at = m.index + m[1].length;
+      if (bareTempoOk(m[2], at)) { f.tempo = m[2].split(/[-–]/).join('-').toUpperCase(); cutTo(at, at + m[2].length); break; }
+    }
+    if (!f.tempo && (m = s.match(/(^|\s)(\d{1,2}(?:\.\d)?)\s*(?:s|secs?|seconds?)\s+(down|eccentric|lowering|negative)\b/i))) { f.tempo = m[2] + 's ' + m[3].toLowerCase(); m.index += m[1].length; m[0] = m[0].slice(m[1].length); cut(m); }
+  }
+  // 3. Pause: "paused 2s", "pause 1s at chest", "2ct pause", "2-count pause", "2s chest pause",
+  //    "paused at the knee", "knee pause", "pause chest 1s", "pause 2-3s" (the longer one),
+  //    "paused 2s at: deficit" (a place of the coach's own). "Paused squat" alone is the variant.
+  const P = '(?:paused?|pause)';
+  const N = '(\\d{1,2}(?:\\.\\d)?)(?:\\s*(?:-|–|to)\\s*(\\d{1,2}(?:\\.\\d)?))?';
+  const LOC_AFTER = '(?:\\s*(?:at|on|in|@)?\\s*(?:the\\s+)?' + _SF_LOC + '\\b)?';
+  const setPause = (n, n2, loc) => { const v = Math.max(Number(n) || 0, Number(n2) || 0); if (v > 0 && v <= 60) f.pause = Math.round(v * 10) / 10; if (loc) f.pauseAt = _sfLoc(loc); };
+  if ((m = s.match(new RegExp('\\b' + P + '\\s*(?:for\\s*)?(?:' + N + '\\s*' + _SF_UNIT + '?\\s*)?at\\s*:\\s*', 'i')))) {
+    const st = m.index + m[0].length, end = Math.min(freeEnd(st), st + 24);
+    setPause(m[1], m[2], null);
+    const at = _sfClean(s.slice(st, end), 24); if (at) f.pauseAt = _sfLoc(at);
+    cutTo(m.index, end);
+  }
+  else if ((m = s.match(new RegExp(N + '\\s*-?\\s*' + _SF_UNIT + '\\s*(?:' + _SF_LOC + '\\s+)?' + P + '\\b' + LOC_AFTER, 'i')))) { setPause(m[1], m[2], m[3] || m[4]); cut(m); }
+  else if ((m = s.match(new RegExp('(?:\\b' + _SF_LOC + '\\s+)?\\b' + P + '\\s*(?:for\\s*)?' + N + '\\s*-?\\s*' + _SF_UNIT + '?(?!\\s*[x×*]\\s*\\d)(?![\\d.])' + LOC_AFTER, 'i')))) { setPause(m[2], m[3], m[1] || m[4]); cut(m); }
+  else if ((m = s.match(new RegExp('\\b' + P + '\\s+(?:(?:at|on|in|@)\\s*)?(?:the\\s+)?' + _SF_LOC + '\\s*(?:for\\s*)?' + N + '\\s*' + _SF_UNIT + '(?![\\w.])', 'i')))) { setPause(m[2], m[3], m[1]); cut(m); }
+  else if ((m = s.match(new RegExp('\\b' + P + '\\s+(?:(?:at|on|in|@)\\s*)?(?:the\\s+)?' + _SF_LOC + '\\b', 'i')))) { setPause(null, null, m[1]); cut(m); }
+  else if ((m = s.match(new RegExp('\\b' + _SF_LOC + '\\s+' + P + '\\b', 'i')))) { setPause(null, null, m[1]); cut(m); }
+  // 4. Chains: "+ chains 20kg", "w/ chains 20kg", "20kg chains", "chains (doubled)", "chains 2x10kg"
+  //    (a pair, 20 kg in all).
+  const LEAD = '(?:(?:\\+|w\\/|with|plus)\\s*)?';
+  if ((m = s.match(new RegExp(LEAD + '\\bchains?\\s*[:@]?\\s*(\\d{1,2})\\s*[x×*]\\s*(\\d+(?:\\.\\d+)?)\\s*(kgs?|lbs?)?(?![\\d.])(?:\\s*\\(([^)]{1,24})\\))?', 'i')))) {
+    f.acc = 'chains';
+    const kg = kgOf(Number(m[1]) * Number(m[2]), m[3]);
+    if (kg) f.accKg = kg;
+    if (m[4]) f.accTxt = _sfClean(m[4], 24).toLowerCase();
+    cut(m);
+  }
+  else if ((m = s.match(new RegExp(LEAD + '(?:(\\d+(?:\\.\\d+)?)\\s*(kgs?|lbs?)\\s*(?:of\\s+)?chains?\\b|\\bchains?\\b(?:\\s*[:@]?\\s*(\\d+(?:\\.\\d+)?)\\s*(kgs?|lbs?)?(?![\\d.]|\\s*[x×*]\\s*\\d))?)(?:\\s*\\(([^)]{1,24})\\))?', 'i')))) {
+    f.acc = 'chains';
+    const kg = m[1] ? kgOf(m[1], m[2]) : (m[3] ? kgOf(m[3], m[4]) : null);
+    if (kg) f.accKg = kg;
+    if (m[5]) f.accTxt = _sfClean(m[5], 24).toLowerCase();
+    cut(m);
+  }
+  // 5. Bands: "+ light bands", "w/ mini bands", "red band", "bands: light", "bands (doubled red)".
+  if ((m = s.match(new RegExp('(?:(?:\\+|w\\/|with|plus)\\s*((?:[a-z]+\\s+){0,2}?)|\\b(' + _SF_TENSION + ')\\s+)?(reverse\\s+)?\\bbands?\\b(?:\\s*:\\s*(' + _SF_TENSION + ')\\b)?(?:\\s*(\\d+(?:\\.\\d+)?)\\s*(kgs?|lbs?))?(?:\\s*\\(([^)]{1,24})\\))?', 'i')))) {
+    if (!f.acc) {
+      f.acc = 'bands';
+      const txt = [m[3] ? 'reverse' : '', (m[1] || m[2] || m[4] || '').trim(), m[7] || ''].filter(Boolean).join(' ');
+      if (txt) f.accTxt = _sfClean(txt, 24).toLowerCase();
+      const kg = m[5] ? kgOf(m[5], m[6]) : null;
+      if (kg) f.accKg = kg;
+    }
+    cut(m);
+  }
+  return { fields: setFieldsOf(f), rest: s.replace(/\s+[·|]\s*$/, ' ') };
+}
+// The fields a program's builder shows: what the coach turned on (else what its sets use),
+// and its own columns (the ones defined, plus any a set already has).
+function cleanSetFieldsDef(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+  const on = (Array.isArray(d.on) ? d.on : []).filter(k => SET_FIELD_KINDS.some(x => x[0] === k));
+  const cols = [];
+  (Array.isArray(d.cols) ? d.cols : []).forEach(c => { const n = _sfClean(c, 20); if (n && !_SF_RESERVED.test(n) && !cols.some(x => x.toLowerCase() === n.toLowerCase()) && cols.length < SET_FIELD_MAX_COLS) cols.push(n); });
+  return { on: on.filter((k, i) => on.indexOf(k) === i), cols };
+}
+function programSetFields(prog) {
+  const used = { on: [], cols: [] };
+  ((prog && prog.weeks) || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(st => {
+    const f = setFieldsOf(st);
+    if (f.tempo && used.on.indexOf('tempo') < 0) used.on.push('tempo');
+    if ((f.pause || f.pauseAt) && used.on.indexOf('pause') < 0) used.on.push('pause');
+    if (f.acc && used.on.indexOf('acc') < 0) used.on.push('acc');
+    if (f.cx) Object.keys(f.cx).forEach(k => { if (!used.cols.some(c => c.toLowerCase() === k.toLowerCase())) used.cols.push(k); });
+  }))));
+  const def = cleanSetFieldsDef(prog && prog.setFields);
+  if (!def) return { on: SET_FIELD_KINDS.map(x => x[0]).filter(k => used.on.indexOf(k) >= 0), cols: used.cols };
+  const cols = def.cols.slice();
+  used.cols.forEach(c => { if (!cols.some(x => x.toLowerCase() === c.toLowerCase())) cols.push(c); });
+  return { on: SET_FIELD_KINDS.map(x => x[0]).filter(k => def.on.indexOf(k) >= 0), cols };
+}
+// A short line for folded rows and chips: "3-1-0 · 2s pause · chains 20 kg · Bar SSB".
+function setFieldsShort(s) {
+  const f = setFieldsOf(s), out = [];
+  if (f.tempo) out.push(/^[\dX](-[\dX]){2,3}$/.test(f.tempo) ? f.tempo : 'tempo ' + f.tempo);
+  if (f.pause || f.pauseAt) out.push((f.pause ? _num(f.pause) + 's ' : '') + (f.pauseAt ? f.pauseAt + ' ' : '') + 'pause');
+  if (f.acc === 'chains') out.push('chains' + (f.accKg ? ' ' + formatWeight(f.accKg) : ''));
+  else if (f.acc === 'bands') out.push((f.accTxt ? f.accTxt + ' ' : '') + 'bands');
+  if (f.cx) Object.keys(f.cx).forEach(k => out.push(k + ' ' + f.cx[k]));
+  return out.join(' · ');
+}
+// Change some of a set's fields: { tempo: '3-1-0' }, { pause: 2, pauseAt: null }, { acc: null },
+// { 'cx:Bar': 'SSB' } (null or '' takes one off). The column object is copied, never shared.
+function applySetFieldPatch(st, patch) {
+  Object.keys(patch || {}).forEach(k => {
+    const v = patch[k];
+    if (k.indexOf('cx:') === 0) {
+      const n = k.slice(3), cx = Object.assign({}, st.cx || {});
+      Object.keys(cx).forEach(x => { if (x.toLowerCase() === n.toLowerCase()) delete cx[x]; });
+      if (v != null && _sfClean(v, 40)) cx[n] = _sfClean(v, 40);
+      if (Object.keys(cx).length) st.cx = cx; else delete st.cx;
+      return;
+    }
+    if (k === 'tempo') { st.tempo = _sfClean(v, 24); return; }
+    if (v == null || v === '') delete st[k]; else st[k] = v;
+  });
+  const clean = setFieldsOf(st);
+  SET_FIELD_KEYS.forEach(k => { delete st[k]; });
+  st.tempo = '';
+  return Object.assign(st, clean);
+}
+// The text a builder box shows for one field kind (and reads back with setFieldInputParse).
+function setFieldInputText(s, kind) {
+  const f = setFieldsOf(s);
+  if (kind === 'tempo') return f.tempo || '';
+  if (kind === 'pause') return [f.pause ? _num(f.pause) + 's' : '', f.pauseAt || ''].filter(Boolean).join(' ');
+  if (kind === 'acc') {
+    if (!f.acc) return '';
+    const u = getUnit() === 'lbs' ? 'lb' : 'kg', w = f.accKg ? _sfAccDisp(f.accKg, u) + u : '';
+    return f.acc === 'chains' ? ['chains', w, f.accTxt ? '(' + f.accTxt + ')' : ''].filter(Boolean).join(' ') : [f.accTxt || '', 'bands', w].filter(Boolean).join(' ');
+  }
+  if (kind.indexOf('cx:') === 0) { const n = kind.slice(3).toLowerCase(); const k = f.cx && Object.keys(f.cx).find(x => x.toLowerCase() === n); return k ? f.cx[k] : ''; }
+  return '';
+}
+// A builder box's text → the patch for applySetFieldPatch, or null when it doesn't read.
+function setFieldInputParse(kind, text) {
+  const t = _sfClean(text, 40);
+  if (kind.indexOf('cx:') === 0) return { [kind]: t || null };
+  if (kind === 'tempo') {
+    // A separator would end the tempo in the grid's text ("tempo: slow, controlled"), so it's a space.
+    const tt = _sfClean(t.replace(/[·|;,:]/g, ' '), 24);
+    if (!tt) return { tempo: '' };
+    const r = parseSetFields('tempo ' + tt).fields;
+    return { tempo: r.tempo || tt };
+  }
+  if (kind === 'pause') {
+    const tt = _sfClean(t.replace(/[·|;,:+]/g, ' '), 40);
+    if (!tt) return { pause: null, pauseAt: null };
+    const r = parseSetFields(/paus/i.test(tt) ? tt : 'pause ' + tt).fields;
+    // A place the list doesn't know ("2s deficit", "2s 1 inch off"): the words as written.
+    const m = tt.match(/^(?:paused?\s+|pause\s+)?(?:for\s+)?(\d{1,2}(?:\.\d)?)(?:\s*(?:-|–|to)\s*(\d{1,2}(?:\.\d)?))?\s*(?:s|secs?|seconds?|ct|cts|counts?)?\b\s*(?:pause\b\s*)?(?:(?:at|on|in|@)\s+)?(?:the\s+)?(.*)$/i);
+    if (m) {
+      const v = Math.max(Number(m[1]) || 0, Number(m[2]) || 0);
+      const words = _sfClean(m[3], 24);
+      return { pause: r.pause || (v > 0 && v <= 60 ? v : null), pauseAt: r.pauseAt || (words ? _sfLoc(words) : null) };
+    }
+    if (r.pause || r.pauseAt) return { pause: r.pause || null, pauseAt: r.pauseAt || null };
+    return /^[a-z][a-z \-]{0,23}$/i.test(tt) ? { pause: null, pauseAt: _sfLoc(tt) } : null;
+  }
+  if (kind === 'acc') {
+    if (!t) return { acc: null, accTxt: null, accKg: null };
+    const unit = getUnit();
+    let r = parseSetFields(t, { unit }).fields;
+    if (!r.acc && /^[a-z]+( [a-z]+)?$/i.test(t)) r = parseSetFields('+ ' + t + ' bands', { unit }).fields;
+    if (!r.acc && /^\d/.test(t)) r = parseSetFields('chains ' + t, { unit }).fields;
+    if (!r.acc) return null;
+    return { acc: r.acc, accTxt: r.accTxt || null, accKg: r.accKg || null };
+  }
+  return null;
+}
+var _sfOpen = new Set();   // the builder blocks whose field boxes are open (survives a re-render)
+// Boxes for the fields a program shows, filled from `sets` ("Mixed" when they differ).
+// onApply(patch) gets each change. opts: { cls, collapsible + key (phones: one quiet line that
+// opens into the boxes, so a block doesn't grow four inputs taller) }.
+function setFieldsEditor(def, sets, onApply, opts) {
+  opts = opts || {};
+  const kinds = (def.on || []).slice().concat((def.cols || []).map(c => 'cx:' + c));
+  const box = el('div', { class: 'sf-edit' + (opts.cls ? ' ' + opts.cls : '') });
+  if (!kinds.length) return box;
+  if (opts.collapsible) {
+    const open = _sfOpen.has(opts.key);
+    const first = (sets || [])[0] || {};
+    const same = (sets || []).every(x => setFieldsSig(x) === setFieldsSig(first));
+    const sum = same ? setFieldsShort(first) : 'Mixed';
+    const tg = el('button', { class: 'sf-sum' + (sum ? '' : ' is-empty'), type: 'button', 'aria-expanded': open ? 'true' : 'false' });
+    tg.appendChild(el('span', { class: 'sf-sum-t' }, sum || 'Add ' + kinds.map(k => k.indexOf('cx:') === 0 ? k.slice(3) : k === 'acc' ? 'bands' : k).join(', ').toLowerCase()));
+    tg.insertAdjacentHTML('beforeend', '<svg class="sf-sum-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
+    tg.addEventListener('click', () => {
+      const on = !_sfOpen.has(opts.key);
+      if (on) _sfOpen.add(opts.key); else _sfOpen.delete(opts.key);
+      tg.setAttribute('aria-expanded', on ? 'true' : 'false');
+      box.classList.toggle('is-open', on);
+      if (on) { const f = box.querySelector('.sf-in'); if (f) f.focus(); }
+    });
+    box.classList.add('is-collapsible');
+    if (open) box.classList.add('is-open');
+    box.appendChild(tg);
+  }
+  const fields = el('div', { class: 'sf-fields' });
+  box.appendChild(fields);
+  kinds.forEach(kind => {
+    const label = kind.indexOf('cx:') === 0 ? kind.slice(3) : (SET_FIELD_KINDS.find(x => x[0] === kind) || [kind, kind])[1];
+    const vals = (sets || []).map(s => setFieldInputText(s, kind));
+    const same = vals.every(v => v === vals[0]);
+    const wrap = el('label', { class: 'sf-field' });
+    wrap.appendChild(el('span', { class: 'sf-k' }, label));
+    const inp = el('input', { type: 'text', class: 'sf-in', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off',
+      value: same ? (vals[0] || '') : '', placeholder: same ? '–' : 'Mixed',
+      'aria-label': label + (kind === 'pause' ? ': seconds and where, like 2s chest' : kind === 'acc' ? ': like light bands or chains 20 kg' : '') });
+    inp.dataset.kind = kind;
+    inp.dataset.orig = inp.value;
+    inp.addEventListener('change', () => {
+      if (inp.value === inp.dataset.orig) return;
+      const patch = setFieldInputParse(kind, inp.value);
+      inp.classList.toggle('is-bad', !patch);
+      if (!patch) { inp.title = kind === 'pause' ? 'Seconds and where, like 2s chest' : 'Like light bands, or chains 20 kg'; return; }
+      inp.removeAttribute('title');
+      inp.dataset.orig = inp.value;
+      onApply(patch, kind);
+    });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } else if (e.key === 'Escape') { inp.value = inp.dataset.orig; inp.classList.remove('is-bad'); inp.blur(); } });
+    wrap.appendChild(inp);
+    fields.appendChild(wrap);
+  });
+  return box;
+}
+// Which set fields a program's builder shows: the three kinds as switches, and the coach's own
+// columns (add one, take one off). Saves on the program (prog.setFields); onDone after it closes.
+function openSetFieldsSheet(progId, onDone) {
+  const find = () => (Store.get().programs || []).find(p => p.id === progId);
+  if (!find()) return;
+  let changed = false;
+  const save = (def) => {
+    Store.update(s => { const p = s.programs.find(x => x.id === progId); if (p) p.setFields = cleanSetFieldsDef(def); });
+    if (typeof persistProgram === 'function') persistProgram(progId);
+    changed = true;
+  };
+  uiSheet('Set fields', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Show the fields you program with. Your lifter sees them on each set.'));
+    const kinds = el('div');
+    const colsBox = el('div');
+    sheet.appendChild(kinds);
+    sheet.appendChild(uiLabel('Your columns'));
+    sheet.appendChild(colsBox);
+    const paint = () => {
+      const def = programSetFields(find());
+      kinds.innerHTML = '';
+      const subs = { tempo: 'Like 3-1-0 or 3s down', pause: 'How long and where: 2s at the chest', acc: 'Light bands, chains 20 kg' };
+      kinds.appendChild(uiList(SET_FIELD_KINDS.map(([k, label]) => {
+        const row = el('div', { class: 'ui-row' });
+        const main = el('span', { class: 'ui-row-main' });
+        main.appendChild(el('span', { class: 'ui-row-title' }, label));
+        main.appendChild(el('span', { class: 'ui-row-sub' }, subs[k]));
+        row.appendChild(main);
+        row.appendChild(uiSwitch(def.on.indexOf(k) >= 0, on => {
+          const d = programSetFields(find());
+          d.on = on ? d.on.concat([k]) : d.on.filter(x => x !== k);
+          save(d);
+        }, 'Show ' + label));
+        return row;
+      })));
+      colsBox.innerHTML = '';
+      const rows = def.cols.map(c => {
+        const rm = el('button', { class: 'ui-icon-btn sf-col-rm', type: 'button', 'aria-label': 'Remove the ' + c + ' column', html: ICONS.x });
+        rm.addEventListener('click', () => {
+          const p = find();
+          const n = ((p && p.weeks) || []).flatMap(w => w.days || []).flatMap(d => d.exercises || []).flatMap(e => e.sets || []).filter(st => !st.completed && setFieldInputText(st, 'cx:' + c)).length;
+          const go = () => {
+            Store.update(s => { const q = s.programs.find(x => x.id === progId); if (!q) return;
+              (q.weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(st => { if (!st.completed) applySetFieldPatch(st, { ['cx:' + c]: null }); })))); });
+            const d = programSetFields(find());
+            d.cols = d.cols.filter(x => x.toLowerCase() !== c.toLowerCase());
+            save(d); paint();
+          };
+          if (n) uiActionSheet('Remove ' + c + '? It comes off ' + n + (n === 1 ? ' set' : ' sets') + ' still to do', [{ label: 'Remove ' + c, danger: true, onClick: go }]);
+          else go();
+        });
+        return uiRow({ title: c, endNode: rm });
+      });
+      if (rows.length) colsBox.appendChild(uiList(rows));
+      if (def.cols.length >= SET_FIELD_MAX_COLS) { colsBox.appendChild(el('p', { class: 'sf-note' }, SET_FIELD_MAX_COLS + ' columns is the most a program keeps.')); return; }
+      const form = el('form', { class: 'sf-add' });
+      const inp = el('input', { type: 'text', class: 'sf-add-in', maxlength: '20', autocomplete: 'off', placeholder: 'Add a column, like Bar or Belt', 'aria-label': 'New column name' });
+      const add = el('button', { class: 'pg-fill-btn', type: 'submit' }, 'Add');
+      form.appendChild(inp); form.appendChild(add);
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = _sfClean(inp.value.replace(/:+$/, ''), 20);
+        if (!name) { inp.focus(); return; }
+        if (_SF_RESERVED.test(name)) { toast('"' + name + '" is already part of the set. Pick another name'); return; }
+        const d = programSetFields(find());
+        if (d.cols.some(x => x.toLowerCase() === name.toLowerCase())) { toast(name + ' is already a column'); return; }
+        d.cols = d.cols.concat([name.charAt(0).toUpperCase() + name.slice(1)]);
+        save(d); paint();
+        const again = colsBox.querySelector('.sf-add-in'); if (again) again.focus();
+      });
+      colsBox.appendChild(form);
+      colsBox.appendChild(el('p', { class: 'sf-note' }, 'A short value per set, like Bar: SSB or Belt: no. In the grid, type it after the set: 3x5 @8 · Bar: SSB'));
+    };
+    paint();
+    const done = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Done');
+    done.addEventListener('click', close);
+    sheet.appendChild(done);
+  }, { cls: 'sf-sheet', onClose: () => { if (changed && onDone) onDone(); } });
 }
 // pct of a max, rounded to what the lifter can load: 2.5 kg, or 5 lb for lb users.
 function pctLoadKg(pct, maxKg, unit) {
@@ -6672,13 +7251,14 @@ function groupSets(sets) {
   let cur = null;
   sets.forEach((s, idx) => {
     const sig = [s.weight, s.reps, (s.rpe == null ? '_' : s.rpe), s.tempo || '', s.rpeHi == null ? '_' : s.rpeHi, s.rir ? 'r' : '', s.pct == null ? '_' : s.pct,
-      Number(s.weightHi) > 0 ? s.weightHi : '_', s.pctHi == null ? '_' : s.pctHi].join('|');
+      Number(s.weightHi) > 0 ? s.weightHi : '_', s.pctHi == null ? '_' : s.pctHi, setFieldsSig(s)].join('|');
     if (cur && cur.sig === sig) {
       cur.count++;
     } else {
       cur = { startIdx: idx, count: 1, weight: s.weight, reps: s.reps, rpe: s.rpe, tempo: s.tempo || '',
         rpeHi: s.rpeHi == null ? null : s.rpeHi, rir: !!s.rir, pct: s.pct == null ? null : s.pct,
         weightHi: Number(s.weightHi) > 0 ? Number(s.weightHi) : null, pctHi: s.pctHi == null ? null : s.pctHi, sig };
+      Object.assign(cur, setFieldsOf(s));   // tempo, pause, bands / chains, the coach's columns
       groups.push(cur);
     }
   });
@@ -6717,6 +7297,8 @@ function _pbChips(ex) {
     c.innerHTML = '<b>' + b.count + ' × ' + escHtml(String(b.reps)) + '</b>' +
       (load ? '<i>' + load + '</i>' : '') +
       (b.rpe != null ? '<em style="--rc:' + rpeColor(b.rpe) + '">' + escHtml(setEffortText(b)) + '</em>' : '');
+    const fx = setFieldsShort(b);   // "3-1-0 · 2s pause · Bar SSB"
+    if (fx) { c.insertAdjacentHTML('beforeend', '<u class="pb-chip-fx">' + escHtml(fx) + '</u>'); c.title = setFieldsText(b); }
     wrap.appendChild(c);
   });
   return wrap;
@@ -6830,7 +7412,8 @@ function saveProgramAsTemplate(programId, name) {
               sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '', ...rxOf(set) }))
             }))
           }))
-        }))
+        })),
+        setFields: p.setFields || null
       }
     });
   });
@@ -6850,14 +7433,15 @@ function applyTemplate(templateId, athleteId, coachId) {
             id: uid('ex'),
             lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
             sets: ex.sets.map(set => ({
-              id: uid('set'), weight: set.weight, reps: set.reps, rpe: set.rpe,
-              completed: false, actualRpe: null, completedAt: null, note: ''
+              id: uid('set'), weight: set.weight, reps: set.reps, rpe: set.rpe, tempo: '',
+              completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set)
             }))
           }))
         }))
       }))
     };
     // Replace existing program for this athlete
+    if (tpl.payload.setFields) newProg.setFields = cleanSetFieldsDef(tpl.payload.setFields);
     s.programs = s.programs.filter(p => p.athleteId !== athleteId);
     s.programs.push(newProg);
   });
@@ -8373,7 +8957,7 @@ function bestSingle(athleteId, lift) {
     if (kg > 0 && (!best || kg > best.kg || (kg === best.kg && String(l.date) < String(best.date)))) best = { kg, date: l.date, source: 'training' };
   });
   (Store.get().meets || []).forEach(m => {
-    if (m.athleteId !== athleteId) return;
+    if (m.athleteId !== athleteId || isPlannedMeet(m)) return;
     const kg = Number(m[lift]) || 0;
     if (kg > 0 && (!best || kg > best.kg)) best = { kg, date: m.date, source: 'meet', meet: m.name || 'Meet' };
   });
@@ -9949,7 +10533,7 @@ function deskWins(athleteId, opts) {
   let streak = 0;
   for (let wk = _monISO(t); weeks.has(wk); wk = _addDaysISO(wk, -7)) streak++;
   if (streak >= 4 && streak % 4 === 0) out.push({ type: 'streak', text: streak + '-week streak' });
-  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && m.date && String(m.date).slice(0, 10) <= t);
+  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && !isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) <= t);
   const tot = (m) => (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
   const recent = meets.filter(m => _deskDays(m.date, t) <= 10).sort((a, b) => tot(b) - tot(a))[0];
   if (recent && tot(recent) > 0 && meets.filter(m => m !== recent && String(m.date) < String(recent.date)).every(m => tot(m) < tot(recent))) {
@@ -10229,8 +10813,11 @@ function blockFromProgram(prog) {
     name: prog.name || 'Block', weeks: JSON.parse(JSON.stringify(prog.weeks || [])), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
     startedOn: dates[0] || null, endedOn: dates[dates.length - 1] || null, createdAt: new Date().toISOString() };
 }
-async function archiveProgramIfTrained(prog) {
-  if (!programHasTraining(prog)) return { kept: false };
+// opts.anyLogged: a skipped or missed set counts too (a team push replacing the program keeps
+// every set the lifter logged, not only the lifted ones).
+async function archiveProgramIfTrained(prog, opts) {
+  const any = !!(opts && opts.anyLogged) && !!(prog && (prog.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s && (s.completed || s.skipped || s.missed))))));
+  if (!any && !programHasTraining(prog)) return { kept: false };
   const b = blockFromProgram(prog);
   Store.update(s => { s.programBlocks = (s.programBlocks || []).concat([b]); });
   if (window._demoMode || !(window.DB && DB.addProgramBlock)) return { kept: true };
@@ -10304,9 +10891,17 @@ function brandInitials(name) {
   const w = String(name || '').trim().split(/\s+/).filter(Boolean);
   return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase();
 }
+// A logo is only ever loaded from our own storage (the coach's upload; guard_coach_brand enforces
+// the same on the server) or a local preview: another host would learn every athlete's IP and when
+// they open the app (the iPhone bundle has no CSP to stop it).
+function brandLogoOk(url) {
+  const u = String(url || '');
+  return /^https:\/\/cxnotrikxvzncupswvio\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]{36}\/brand[A-Za-z0-9._-]{0,60}(\?t=[0-9]{1,16})?$/.test(u) ||
+    /^data:image\/(svg\+xml|png|jpeg|webp)[;,]/.test(u) || /^blob:/.test(u);
+}
 // The team's mark: their logo, else their initials on their colour.
 function brandMark(brand, cls) {
-  if (brand && brand.logoUrl) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
+  if (brand && brand.logoUrl && brandLogoOk(brand.logoUrl)) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
   return el('span', { class: 'brand-mark brand-mono ' + (cls || ''), style: brand && brand.color ? '--brand-c:' + brand.color : '', 'aria-hidden': 'true' }, brandInitials(brand && brand.name));
 }
 function demoCoachBrand() {
@@ -12333,9 +12928,12 @@ function matchExercise(name) {
 }
 // "3x5 @8", "5 x 3 @ RPE 7.5", "1x2 82.5kg", "4x8 70%", "3 sets of 10", "3x5 @7-8", "3x8 2 RIR",
 // "3x5 RIR 1-2", "3x5 140-145kg", "4x6 70-75%". RIR comes back as the RPE it equals (rpe / rpeHi)
-// with rir: true; a load range as kg / kgHi, a % range as pct / pctHi.
-function parsePrescription(str, unit) {
-  const s = String(str || '');
+// with rir: true; a load range as kg / kgHi, a % range as pct / pctHi. Set fields ride along as
+// `fields` ("4x3 160 @8 tempo 3-1-0 paused 2s + chains 20kg · Bar: SSB": parseSetFields), read
+// first so a chain's "20kg" is never the load. opts: { cols } (the program's own columns).
+function parsePrescription(str, unit, opts) {
+  const sf = parseSetFields(str, { unit, cols: opts && opts.cols, anywhere: opts && opts.anywhere });
+  const s = sf.rest;
   let m, sets = null, reps = null, rpe = null, rpeHi = null, rir = false, kg = null, kgHi = null, pct = null, pctHi = null;
   const okRpe = (v) => v >= 5 && v <= 10;
   if ((m = s.match(/(\d+)\s*(?:x|×|\*|sets?\s*(?:of|x)?)\s*(\d+)/i))) { sets = +m[1]; reps = +m[2]; }
@@ -12378,7 +12976,53 @@ function parsePrescription(str, unit) {
       if (b && +b[1] >= 20) kg = +b[1] * f;
     }
   }
-  return { sets, reps, rpe, rpeHi, rir, kg, kgHi, pct, pctHi };
+  return { sets, reps, rpe, rpeHi, rir, kg, kgHi, pct, pctHi, fields: sf.fields };
+}
+// ===== GRID CELLS (coach.html buildProgramGrid, desk.js): a cell as a coach writes it =====
+// "1x3 180kg @8 · Belt: yes, 3x5 160kg @7 tempo 3-1-0", "4x6 75%", "3x8 2RIR", "4x3 140kg @8 paused 2s
+// at chest + chains 20kg". A new group starts at a comma followed by sets x reps, so a column's
+// value may hold a comma ("Cue: knees out, chest up").
+function gridCellText(ex) {
+  if (!ex || !(ex.sets || []).length) return '';
+  const unitTag = getUnit() === 'lbs' ? 'lb' : 'kg';
+  const plan = ex.sets.map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps }));
+  return groupSets(plan).map(b => {
+    let t = b.count + 'x' + b.reps;
+    if (b.pct != null) t += ' ' + _num(b.pct) + (Number(b.pctHi) > Number(b.pct) ? '-' + _num(b.pctHi) : '') + '%';
+    else if (b.weight > 0) t += ' ' + kgToDisplay(b.weight) + (Number(b.weightHi) > Number(b.weight) ? '-' + kgToDisplay(b.weightHi) : '') + unitTag;
+    if (b.rpe != null) t += b.rir ? ' ' + effortInputText(b, true) + 'RIR' : ' @' + effortInputText(b, false);
+    const f = setFieldsCellText(b, unitTag);
+    return f ? t + ' ' + f : t;
+  }).join(', ');
+}
+function gridSplitParts(text) {
+  return String(text || '').split(/\s*[,;]\s*(?=\d+\s*(?:x|×|\*|sets?\b))/i).map(s => s.trim()).filter(Boolean);
+}
+// Text → sets, or null when a part doesn't read (each part needs "sets x reps").
+function gridParseCell(text, athleteId, lift, prog) {
+  const parts = gridSplitParts(text);
+  const out = [];
+  const maxKg = MAIN_LIFTS.includes(lift) ? programMaxKg(prog, athleteId, lift) : 0;
+  const cols = prog ? programSetFields(prog).cols : [];
+  for (const part of parts) {
+    const p = parsePrescription(part, getUnit(), { cols });
+    if (!(p.sets > 0) || !(p.reps > 0)) return null;
+    for (let i = 0; i < Math.min(20, p.sets); i++) {
+      const kg = p.pct ? (maxKg ? pctLoadKg(p.pct, maxKg) : 0) : (p.kg ? Math.round(p.kg * 100) / 100 : 0);
+      const s = newSet(kg, p.reps, p.rpe);
+      if (p.rpeHi != null) s.rpeHi = p.rpeHi;
+      if (p.rir) s.rir = true;
+      if (p.pct) s.pct = p.pct;
+      if (p.pct && p.pctHi > p.pct) {
+        s.pctHi = p.pctHi;
+        const hk = maxKg ? pctLoadKg(p.pctHi, maxKg) : 0;
+        if (hk > kg) s.weightHi = hk;
+      } else if (!p.pct && p.kgHi > p.kg) s.weightHi = Math.round(p.kgHi * 100) / 100;
+      Object.assign(s, setFieldsOf(p.fields));
+      out.push(s);
+    }
+  }
+  return out;
 }
 function parseProgramSheet(text, opts) {
   opts = opts || {};
@@ -12421,6 +13065,7 @@ function parseProgramSheet(text, opts) {
       if (p.pct) st.pct = p.pct;
       if (p.pct && p.pctHi > p.pct) st.pctHi = p.pctHi;
       else if (!p.pct && p.kg && p.kgHi > p.kg) st.weightHi = Math.round(p.kgHi * 100) / 100;
+      if (p.fields) Object.assign(st, setFieldsOf(p.fields));   // a fresh copy per set
       target.sets.push(st);
     }
     if (note) target.note = (target.note ? target.note + ' · ' : '') + note;
@@ -12433,11 +13078,27 @@ function parseProgramSheet(text, opts) {
       const cells = _sheetCells(lines[i], delim).map(c => c.toLowerCase());
       const col = (re) => cells.findIndex(c => re.test(c));
       const ex = col(/exercise|movement|^lift$|^lifts?\b/);
-      if (ex >= 0 && (col(/^reps?$|sets?\s*x\s*reps?|scheme|prescription/) >= 0 || col(/^sets?$/) >= 0)) {
-        header = { week: col(/^w(ee)?k/), day: col(/^day|session/), ex, sets: col(/^sets?$/), reps: col(/^reps?$/),
+      // A "set" / "set #" column numbers each row's set (our own export), it isn't a count.
+      const SETS_RE = /^(sets|#\s*(of\s*)?sets|no\.?\s*of\s*sets|number of sets)$/;
+      if (ex >= 0 && (col(/^reps?$|sets?\s*x\s*reps?|scheme|prescription/) >= 0 || col(SETS_RE) >= 0)) {
+        header = { week: col(/^w(ee)?k/), day: col(/^day|session/), ex, sets: col(SETS_RE), reps: col(/^reps?$/),
           scheme: col(/sets?\s*x\s*reps?|scheme|prescription/), load: col(/load|weight|^kg|^lbs?$|intensity/),
-          rpe: col(/^rpe|^@|^rir/), pct: col(/%|percent/), note: col(/note|cue|comment/) };
+          rpe: col(/^rpe|^@|^rir|^target.?rpe|^target.?rir/), pct: col(/%|percent/), note: col(/note|cue|comment/),
+          tempo: col(/^tempo/), pauseAt: col(/^paus\w*.?(at|where|position)/), acc: col(/band|chain|accommodat/), cxText: col(/^(custom|own columns|columns)$/) };
+        header.pause = cells.findIndex((c, ci) => ci !== header.pauseAt && /^paus/.test(c));
         header.rir = header.rpe >= 0 && /rir/.test(cells[header.rpe]);
+        // Any other column the coach keeps ("Bar", "Belt", "Rest") is one of their own columns.
+        const used = Object.keys(header).map(k => header[k]).filter(v => typeof v === 'number' && v >= 0);
+        const raw = _sheetCells(lines[i], delim);
+        header.custom = [];
+        cells.forEach((c, ci) => {
+          const name = _sfClean(raw[ci], 20);
+          if (used.indexOf(ci) >= 0 || !name || name.length > 20 || _SF_RESERVED.test(name) || header.custom.length >= SET_FIELD_MAX_COLS) return;
+          if (/^(#|no\.?|sets?\s*(#|no\.?|number)?|done|completed?|actual.*|date|done.?on|done.?rpe|e1rm.*|variant|variation|.*_hi(_kg)?|weight.*|target.?rpe|athlete|program|block|template|started|ended|source|id|paus.*|tempo.*|band.*|chain.*|accommodat.*)$/i.test(c)) return;
+          // Numbers about the set rather than how to do it, and links: never a column of the coach's.
+          if (/^(volume.*|vol\.?|tonnage.*|total.*|.*\b1\s?rm\b.*|.*e1rm.*|max|maxes|.*\bmax\b.*|.*%.*|percent.*|video.*|link.*|url|.*https?.*|rest\s*day|load.*|intensity.*|reps?\b.*|rpe.*|rir.*)$/i.test(c)) return;
+          header.custom.push({ ci, name });
+        });
         hi = i;
       }
     }
@@ -12471,6 +13132,26 @@ function parseProgramSheet(text, opts) {
       const lr = p.kg == null && get('load').match(/^(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)$/i);
       if (lr && +lr[1] !== +lr[2]) { const f = unit === 'lbs' ? KG_PER_LB : 1; p.kg = Math.min(+lr[1], +lr[2]) * f; p.kgHi = Math.max(+lr[1], +lr[2]) * f; }
       if (!p.reps) { warnings.push(line.trim()); return; }
+      // Set fields: in the scheme text ("@8 3-1-0"), or a column of their own.
+      const f = Object.assign({}, scheme.fields || {});
+      const tv = get('tempo');
+      if (tv && !/^(no|none|-)$/i.test(tv)) { const r = setFieldInputParse('tempo', tv); if (r && r.tempo) f.tempo = r.tempo; }
+      const pv = get('pause');
+      // "2s bottom", "chest 1s", "2s at deficit": read as the builder's pause box reads them.
+      if (pv && !/^(no|none|-|0)$/i.test(pv)) { const r = setFieldInputParse('pause', pv); if (r && r.pause) f.pause = r.pause; if (r && r.pauseAt) f.pauseAt = r.pauseAt; }
+      const av = get('acc');
+      if (av && !/^(no|none|-)$/i.test(av)) {
+        const hd = String(_sheetCells(lines[hi], delim)[header.acc] || '').toLowerCase();
+        let r = parseSetFields(av, { unit }).fields;
+        if (!r.acc) r = parseSetFields(/chain/.test(hd) && !/band/.test(hd) ? 'chains ' + av : '+ ' + av + ' bands', { unit }).fields;
+        ['acc', 'accTxt', 'accKg'].forEach(k => { if (r[k] != null) f[k] = r[k]; });
+      }
+      const pat = get('pauseAt');
+      if (pat && !/^(no|none|-)$/i.test(pat)) f.pauseAt = _sfLoc(_sfClean(pat, 24));
+      const cxt = get('cxText');
+      if (cxt) { const r = _sfCustom(cxt, 0, []); if (r) r.pairs.forEach(pr => { f.cx = f.cx || {}; f.cx[pr[0]] = pr[1]; }); }
+      header.custom.forEach(cc => { const v = _sfClean(c[cc.ci], 40); if (v) { f.cx = f.cx || {}; f.cx[cc.name] = v; } });
+      p.fields = f;
       addSets(name, p, get('note'));
     });
   } else {
@@ -12495,9 +13176,14 @@ function parseProgramSheet(text, opts) {
   const days = weeks.reduce((a, w) => a + w.days.length, 0);
   const exercises = weeks.reduce((a, w) => a + w.days.reduce((b, d) => b + d.exercises.length, 0), 0);
   const sets = weeks.reduce((a, w) => a + w.days.reduce((b, d) => b + d.exercises.reduce((c, e) => c + e.sets.length, 0), 0), 0);
-  return { name: opts.name || 'Imported program', weeks: weeks.sort((a, b) => a.number - b.number), warnings, stats: { weeks: weeks.length, days, exercises, sets } };
+  const out = { name: opts.name || 'Imported program', weeks: weeks.sort((a, b) => a.number - b.number), warnings, stats: { weeks: weeks.length, days, exercises, sets } };
+  // The fields the sheet used, so the builder shows them (columns in the sheet's own order).
+  const sfDef = programSetFields(out);
+  if (header && header.custom && header.custom.length) sfDef.cols = header.custom.map(x => x.name).filter(n => sfDef.cols.some(c => c.toLowerCase() === n.toLowerCase())).concat(sfDef.cols.filter(c => !header.custom.some(x => x.name.toLowerCase() === c.toLowerCase())));
+  if (sfDef.on.length || sfDef.cols.length) out.setFields = sfDef;
+  return out;
 }
-Object.assign(window, { parseProgramSheet, parsePrescription, matchExercise });
+Object.assign(window, { parseProgramSheet, parsePrescription, matchExercise, parseSetFields, setFieldsOf, setFieldBits, setFieldsText, setFieldsHtml, setFieldsSplit, setFieldsCellText, programSetFields, cleanSetFieldsDef, gridCellText, gridParseCell, setFieldsShort, setFieldsEl, applySetFieldPatch, setFieldInputText, setFieldInputParse, setFieldsEditor, openSetFieldsSheet, assignSetFields });
 
 // =========================================================
 // YOUR YEAR IN LIFTING (2026-10-17): POWALIFTA Wrapped. Everything here comes
@@ -12563,3 +13249,731 @@ function tonnageComparison(kg) {
   return n + ' ' + (n === 1 ? t.one : t.many);
 }
 Object.assign(window, { yearInLifting, tonnageComparison });
+
+// =========================================================
+// TEAM PROGRAMS (brief M4 · sql/migration-team-programs-2026-10-22.sql)
+// One master program per team (program_groups.weeks). Each lifter keeps their OWN program row,
+// linked to the master by srcId on every week, day, exercise and set. A push rebuilds each
+// lifter's copy from the master and their own maxes, and never touches:
+//   - a set they logged (completed / skipped / missed): kept exactly as lifted;
+//   - an exercise (or set) the coach edited for them (ovr: true): theirs until "Reset to team";
+//   - anything the coach added only for them (no srcId), or their pinned dates.
+// The server (push_group_programs) re-checks each lifter is still on the roster, compares and
+// swaps on programs.rev, and puts back any logged set a client dropped.
+// The desk v2 API is the functions below: data in, data out; only pushTeamProgram,
+// notifyTeamPush and openTeamSheet touch the Store, the network or the DOM.
+//   Loads tab: teamLoadsMatrix(...) → print every cell with teamLoadText(cell.kg, row.unit): the
+//   LIFTER's unit (an lb lifter reads "325 lb"), never the coach's kgToDisplay/unitLabel.
+//   Push: pushTeamProgram(team) → report lines (teamPushReport) incl. 'needs_archive' (a replaced
+//   block with logged sets that couldn't be kept as a past block: not changed); a result's
+//   `archived` is the past block the server kept. Rows carry the block's startsOn / meetDate.
+//   DB: listTeams, saveTeam, deleteTeam, addTeamMembers, removeTeamMember, pushTeamPrograms,
+//   setProgramDates, savePlannedMeet, deletePlannedMeet, programDatesMissing.
+// All module constants here are var (app.js may call into this block before its end runs).
+// =========================================================
+var TEAM_LOG_FIELDS = ['completed', 'skipped', 'missed', 'actualRpe', 'completedAt', 'lastLogId', 'note', 'plannedWeight', 'plannedReps', 'extra', 'attempt'];
+function isLoggedSet(s) { return !!(s && (s.completed || s.skipped || s.missed)); }
+function _tmKey(x, i) { return x && x.id != null && x.id !== '' ? String(x.id) : '#' + i; }
+function _tmClone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
+// A team max: { squat: 180 } or { squat: { kg: 180, source: 'program' } } → kg (0 when none).
+function teamMaxKg(maxes, lift) {
+  const v = maxes && maxes[lift];
+  if (v && typeof v === 'object') return Number(v.kg) > 0 ? Number(v.kg) : 0;
+  return Number(v) > 0 ? Number(v) : 0;
+}
+function teamMaxSource(maxes, lift) {
+  const v = maxes && maxes[lift];
+  return v && typeof v === 'object' ? (v.source || null) : (Number(v) > 0 ? 'program' : null);
+}
+// pct of a max as a load the LIFTER can put on the bar: their unit's jump (2.5 kg, or 5 lb),
+// or stepKg when known. The coach's own gym plates never decide another lifter's load.
+function teamLoadKg(pct, maxKg, unit, stepKg) {
+  const p = Number(pct), m = Number(maxKg);
+  if (!(p > 0) || !(m > 0)) return 0;
+  const step = Number(stepKg) > 0 ? Number(stepKg) : (unit === 'lbs' || unit === 'lb' ? 5 * KG_PER_LB : 2.5);
+  return Math.round(Math.round(m * p / 100 / step) * step * 100) / 100;
+}
+// A master set's prescription (no logs, no links): every other field rides along, so custom set
+// fields (tempo, pauses, bands...) reach every lifter.
+function _tmRx(ms) {
+  const o = {};
+  Object.keys(ms || {}).forEach(k => { if (k !== 'id' && k !== 'srcId' && k !== 'ovr' && TEAM_LOG_FIELDS.indexOf(k) < 0) o[k] = _tmClone(ms[k]); });
+  return o;
+}
+function _tmSet(ms, i, xs, lift, opts, ctx) {
+  const n = _tmRx(ms);
+  n.id = xs && xs.id != null ? xs.id : uid('set');
+  n.srcId = _tmKey(ms, i);
+  n.completed = false;
+  if (n.pct != null && n.pct !== '' && MAIN_LIFTS.indexOf(lift) >= 0) {
+    const max = teamMaxKg(opts.maxes, lift);
+    const kg = teamLoadKg(n.pct, max, opts.unit, opts.stepKg);
+    if (kg > 0) {
+      n.weight = kg;
+      const hk = Number(n.pctHi) > Number(n.pct) ? teamLoadKg(n.pctHi, max, opts.unit, opts.stepKg) : 0;
+      if (hk > kg) n.weightHi = hk; else delete n.weightHi;
+    } else { n.weight = 0; delete n.weightHi; ctx.noMax[lift] = true; }
+  }
+  return n;
+}
+// Master list × the lifter's list, in the master's order. The lifter's extras (no srcId: added for
+// them) stay after the sibling they followed; a linked item the master dropped goes, unless
+// precious(x) (logged, or their own edit).
+function _tmMergeList(mList, xList, merge, precious) {
+  const xs = Array.isArray(xList) ? xList : [];
+  const bySrc = new Map();
+  xs.forEach(x => { if (x && x.srcId != null && !bySrc.has(String(x.srcId))) bySrc.set(String(x.srcId), x); });
+  const used = new Set();
+  const res = (mList || []).map((m, i) => {
+    const x = bySrc.get(_tmKey(m, i)) || null;
+    if (x) used.add(x);
+    return { item: merge(m, i, x), from: x };
+  });
+  let at = -1;
+  xs.forEach(x => {
+    if (used.has(x)) { at = res.findIndex(r => r.from === x); return; }
+    if (x && x.srcId != null && !precious(x)) return;
+    res.splice(at + 1, 0, { item: x, from: x }); at++;
+  });
+  return res.map(r => r.item);
+}
+function _tmExPrecious(x) { return !!(x && (x.ovr || (x.sets || []).some(s => isLoggedSet(s) || s.ovr))); }
+function _tmDayPrecious(x) { return !!(x && (x.exercises || []).some(e => e.srcId == null || _tmExPrecious(e))); }
+function _tmWeekPrecious(x) { return !!(x && (x.days || []).some(d => d.srcId == null || _tmDayPrecious(d))); }
+function _tmEx(mex, i, xex, opts, ctx) {
+  if (xex && xex.ovr) {
+    // Theirs. Reported only when the master would have changed it.
+    const shadow = _tmEx(mex, i, Object.assign({}, xex, { ovr: false }), opts, { noMax: {}, keptOwn: [] });
+    const a = Object.assign({}, shadow), b = Object.assign({}, xex);
+    delete a.ovr; delete b.ovr;
+    if (!_deq(a, b)) ctx.keptOwn.push({ exId: xex.id, srcId: _tmKey(mex, i), lift: xex.lift || null, title: xex.exerciseName || (LIFT_LABELS[xex.lift] || xex.lift || '') });
+    return xex;
+  }
+  const out = Object.assign({}, xex || {});
+  Object.keys(mex || {}).forEach(k => { if (k !== 'id' && k !== 'sets' && k !== 'srcId' && k !== 'ovr') out[k] = _tmClone(mex[k]); });
+  out.id = xex && xex.id != null ? xex.id : uid('ex');
+  out.srcId = _tmKey(mex, i);
+  delete out.ovr;
+  out.sets = _tmMergeList(mex.sets, xex ? xex.sets : null,
+    (ms, si, xs) => (xs && (isLoggedSet(xs) || xs.ovr)) ? xs : _tmSet(ms, si, xs, mex.lift, opts, ctx),
+    (xs) => isLoggedSet(xs) || !!xs.ovr);
+  return out;
+}
+// One lifter's copy of the master. memberWeeks null = their first copy.
+// opts { maxes, unit, stepKg }. → { weeks, keptOwn: [{ exId, srcId, lift, title }], noMax: [lift] }
+function teamMemberWeeks(masterWeeks, memberWeeks, opts) {
+  opts = opts || {};
+  const ctx = { noMax: {}, keptOwn: [] };
+  const weeks = _tmMergeList(masterWeeks, memberWeeks, (mw, wi, xw) => {
+    const w = Object.assign({}, xw || {});
+    Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId') w[k] = _tmClone(mw[k]); });
+    w.id = xw && xw.id != null ? xw.id : uid('wk');
+    w.srcId = _tmKey(mw, wi);
+    w.days = _tmMergeList(mw.days, xw ? xw.days : null, (md, di, xd) => {
+      const d = Object.assign({}, xd || {});
+      Object.keys(md || {}).forEach(k => { if (k !== 'id' && k !== 'exercises' && k !== 'srcId' && k !== 'scheduledDate') d[k] = _tmClone(md[k]); });
+      d.id = xd && xd.id != null ? xd.id : uid('day');
+      d.srcId = _tmKey(md, di);
+      d.exercises = _tmMergeList(md.exercises, xd ? xd.exercises : null, (me, ei, xe) => _tmEx(me, ei, xe, opts, ctx), _tmExPrecious);
+      return d;
+    }, _tmDayPrecious);
+    return w;
+  }, _tmWeekPrecious);
+  return { weeks, keptOwn: ctx.keptOwn, noMax: MAIN_LIFTS.filter(L => ctx.noMax[L]) };
+}
+function isTeamLinked(prog) {
+  return !!(prog && (prog.weeks || []).some(w => w.srcId != null || (w.days || []).some(d => d.srcId != null || (d.exercises || []).some(e => e.srcId != null))));
+}
+function _tmWalkEx(weeks, fn) { (weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => fn(e, d, w)))); }
+// "Edited for Dan": this exercise is theirs from now on.
+function teamOverrideExercise(weeks, exId) {
+  const out = _tmClone(weeks || []);
+  _tmWalkEx(out, e => { if (String(e.id) === String(exId)) e.ovr = true; });
+  return out;
+}
+// "Reset to team": the master's again (sets they logged stay).
+function teamResetExercise(weeks, exId, masterWeeks, opts) {
+  const out = _tmClone(weeks || []);
+  _tmWalkEx(out, (e, d, w) => {
+    if (String(e.id) !== String(exId) || e.srcId == null) return;
+    const mw = (masterWeeks || []).find((x, i) => _tmKey(x, i) === String(w.srcId));
+    const md = mw && (mw.days || []).find((x, i) => _tmKey(x, i) === String(d.srcId));
+    const mi = md ? (md.exercises || []).findIndex((x, i) => _tmKey(x, i) === String(e.srcId)) : -1;
+    if (mi < 0) { delete e.ovr; return; }
+    const fresh = _tmEx(md.exercises[mi], mi, Object.assign({}, e, { ovr: false }), opts || {}, { noMax: {}, keptOwn: [] });
+    Object.keys(e).forEach(k => delete e[k]);
+    Object.assign(e, fresh);
+  });
+  return out;
+}
+// Detach from team: the lifter's program, unlinked (nothing else changes).
+function teamDetachProgram(weeks) {
+  const out = _tmClone(weeks || []);
+  const strip = (o) => { delete o.srcId; delete o.ovr; };
+  out.forEach(w => { strip(w); (w.days || []).forEach(d => { strip(d); (d.exercises || []).forEach(e => { strip(e); (e.sets || []).forEach(strip); }); }); });
+  return out;
+}
+// "Make Arjun's Strength Block a team program": the master (fresh ids, no logs, % sets left for
+// each lifter's max) and Arjun's own weeks linked to it.
+function teamMasterFromProgram(prog) {
+  const linked = _tmClone((prog && prog.weeks) || []);
+  const weeks = linked.map(w => {
+    const mw = { id: uid('wk'), number: w.number, days: [] };
+    Object.keys(w).forEach(k => { if (!['id', 'days', 'srcId', 'number'].includes(k)) mw[k] = _tmClone(w[k]); });
+    w.srcId = mw.id;
+    mw.days = (w.days || []).map(d => {
+      const md = { id: uid('day'), name: d.name, exercises: [] };
+      d.srcId = md.id;
+      md.exercises = (d.exercises || []).map(e => {
+        const me = { id: uid('ex') };
+        Object.keys(e).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr'].includes(k)) me[k] = _tmClone(e[k]); });
+        e.srcId = me.id; delete e.ovr;
+        me.sets = (e.sets || []).filter(s => !s.extra).map(s => {
+          const ms = Object.assign(_tmRx(s), { id: uid('set'), weight: planWeight(s) || 0, reps: s.plannedReps || s.reps, completed: false });
+          if (ms.pct != null && ms.pct !== '' && MAIN_LIFTS.indexOf(e.lift) >= 0) { ms.weight = 0; delete ms.weightHi; }
+          s.srcId = ms.id;
+          return ms;
+        });
+        return me;
+      });
+      return md;
+    });
+    return mw;
+  });
+  return { weeks, linked };
+}
+// The maxes a lifter's % sets work from, with where each came from (printed next to the number):
+// the coach's max for the block, else the best estimated max, else a meet single.
+function teamMemberMaxes(athleteId, prog) {
+  const out = {};
+  MAIN_LIFTS.forEach(L => {
+    const pm = prog && prog.maxes && Number(prog.maxes[L]);
+    if (pm > 0) { out[L] = { kg: pm, source: 'program' }; return; }
+    const e = typeof bestE1RM === 'function' ? bestE1RM(athleteId, L) : 0;
+    if (e > 0) { out[L] = { kg: Math.round(e * 10) / 10, source: 'e1rm' }; return; }
+    const one = typeof bestSingle === 'function' ? bestSingle(athleteId, L) : null;
+    out[L] = one && one.source === 'meet' ? { kg: one.kg, source: 'meet' } : { kg: 0, source: null };
+  });
+  return out;
+}
+// A team's members as the pure functions take them, from the Store:
+// [{ athleteId, name, unit, maxes, program }]. Departed athletes are left out.
+function teamMembersFor(team) {
+  const s = Store.get();
+  return ((team && team.members) || []).map(m => {
+    const a = (s.athletes || []).find(x => x.id === m.athleteId);
+    if (!a || (team.coachId && a.coachId && a.coachId !== team.coachId)) return null;
+    const progs = (s.programs || []).filter(p => p.athleteId === m.athleteId);
+    const program = progs.find(p => m.programId && p.id === m.programId) || progs[0] || null;
+    return { athleteId: a.id, name: a.name || 'Athlete', unit: a.unit || 'kg', maxes: teamMemberMaxes(a.id, program), program };
+  }).filter(Boolean);
+}
+function _tmWeekNums(newWeeks, oldWeeks) {
+  const old = new Map((oldWeeks || []).map(w => [String(w.id), w]));
+  return newWeeks.filter(w => !_deq(w, old.get(String(w.id)))).map((w, i) => Number(w.number) || i + 1);
+}
+// What a push will do, per lifter. rows[].action: 'create' (no program yet), 'replace' (an
+// unlinked program: archive it first), 'update', 'same' (nothing to write).
+// rows[].startsOn / meetDate: the block's dates on the roster calendar. A new or replaced block
+// takes the team's; a linked one keeps the lifter's own and only fills in what it lacks (a linked
+// copy missing a team date is an 'update', unless opts.datesReady === false: the database can't
+// keep dates yet).
+function teamPushPlan(team, members, opts) {
+  opts = opts || {};
+  const master = (team && team.weeks) || [];
+  const tStart = team ? _isoDay(team.startsOn) : null, tMeet = team ? _isoDay(team.meetDate) : null;
+  const rows = [], keepOwn = [], noMax = [];
+  (members || []).forEach(mb => {
+    const prog = mb.program || null;
+    const linked = !!prog && isTeamLinked(prog);
+    const r = teamMemberWeeks(master, linked ? prog.weeks : null, { maxes: mb.maxes, unit: mb.unit, stepKg: mb.stepKg });
+    const own = linked ? { startsOn: _isoDay(prog.startsOn), meetDate: _isoDay(prog.meetDate) } : { startsOn: null, meetDate: null };
+    const datesMissing = linked && opts.datesReady !== false && ((tStart && !own.startsOn) || (tMeet && !own.meetDate));
+    const action = !prog ? 'create' : !linked ? 'replace' : (_deq(r.weeks, prog.weeks) && !datesMissing ? 'same' : 'update');
+    rows.push({ athleteId: mb.athleteId, lifter: mb.name || '', name: (team && (team.programName || team.name)) || (prog && prog.name) || 'Program',
+      programId: prog ? prog.id : null, rev: prog && typeof prog.rev === 'number' ? prog.rev : null,
+      startsOn: own.startsOn || tStart, meetDate: own.meetDate || tMeet,
+      action, weeks: r.weeks, keptOwn: r.keptOwn, noMax: r.noMax,
+      changedWeeks: action === 'same' ? [] : _tmWeekNums(r.weeks, linked ? prog.weeks : []) });
+    if (r.keptOwn.length) keepOwn.push({ athleteId: mb.athleteId, name: mb.name || '', cells: r.keptOwn });
+    if (r.noMax.length) noMax.push({ athleteId: mb.athleteId, name: mb.name || '', lifts: r.noMax });
+  });
+  return { teamId: team && team.id, masterRev: team && typeof team.rev === 'number' ? team.rev : 0, rows, keepOwn, noMax };
+}
+function _tmFirst(name) { return String(name || '').trim().split(/\s+/)[0] || 'Athlete'; }
+function _tmNames(list) {
+  const n = list.map(x => _tmFirst(x.name));
+  return n.length <= 3 ? n.join(', ') : n.slice(0, 3).join(', ') + ' +' + (n.length - 3);
+}
+function _tmLiftList(lifts) {
+  const l = lifts.map(L => (LIFT_LABELS[L] || L).toLowerCase());
+  return l.length <= 1 ? (l[0] || '') : l.slice(0, -1).join(', ') + ' or ' + l[l.length - 1];
+}
+// "Publish Week 5 to 25 lifters · 3 keep their own edits (Dan, Jess, Elena) · 1 has no squat max"
+function teamPushSummary(plan, opts) {
+  opts = opts || {};
+  const n = (plan.rows || []).length;
+  const upToDate = n > 0 && plan.rows.every(r => r.action === 'same');
+  const parts = [upToDate ? 'Up to date · ' + n + (n === 1 ? ' lifter' : ' lifters')
+    : (opts.weekNumber ? 'Publish Week ' + opts.weekNumber + ' to ' : 'Publish to ') + n + (n === 1 ? ' lifter' : ' lifters')];
+  const k = (plan.keepOwn || []).length;
+  if (k) parts.push(k + (k === 1 ? ' keeps' : ' keep') + ' their own edits (' + _tmNames(plan.keepOwn) + ')');
+  const nm = plan.noMax || [];
+  if (nm.length) {
+    const lifts = MAIN_LIFTS.filter(L => nm.some(x => x.lifts.indexOf(L) >= 0));
+    parts.push(nm.length + (nm.length === 1 ? ' has' : ' have') + ' no ' + _tmLiftList(lifts) + ' max');
+  }
+  return parts.join(' · ');
+}
+// The Members tab's "Nina: no squat max, % left blank".
+function teamNoMaxReport(masterWeeks, members) {
+  const used = {};
+  _tmWalkEx(masterWeeks, e => { if (MAIN_LIFTS.indexOf(e.lift) >= 0 && (e.sets || []).some(s => s.pct != null && s.pct !== '')) used[e.lift] = true; });
+  const lifts = MAIN_LIFTS.filter(L => used[L]);
+  return (members || []).map(mb => {
+    const miss = lifts.filter(L => !(teamMaxKg(mb.maxes, L) > 0));
+    return miss.length ? { athleteId: mb.athleteId, name: mb.name || '', lifts: miss, text: _tmFirst(mb.name) + ': no ' + _tmLiftList(miss) + ' max, % left blank' } : null;
+  }).filter(Boolean);
+}
+// The Loads tab: lifters × the day's main lifts, each cell the kg from that lifter's max.
+// → { cols: [{ exId, lift, label, pct }], rows: [{ athleteId, name, cells: [{ kg, kgHi, pct, max, source, ovr, noMax, note }] }] }
+function teamLoadsMatrix(masterWeeks, weekId, dayId, members) {
+  const wi = (masterWeeks || []).findIndex((w, i) => _tmKey(w, i) === String(weekId));
+  const wk = wi >= 0 ? masterWeeks[wi] : null;
+  const di = wk ? (wk.days || []).findIndex((d, i) => _tmKey(d, i) === String(dayId)) : -1;
+  const day = di >= 0 ? wk.days[di] : null;
+  const cols = [];
+  ((day && day.exercises) || []).forEach((e, ei) => {
+    if (MAIN_LIFTS.indexOf(e.lift) < 0) return;
+    const top = (e.sets || []).reduce((b, s) => (s.pct != null && s.pct !== '' && (!b || Number(s.pct) > Number(b.pct))) ? s : b, null);
+    cols.push({ exId: _tmKey(e, ei), lift: e.lift, label: (LIFT_LABELS[e.lift] || e.lift) + (e.variant && e.variant !== 'Competition' ? ' · ' + e.variant : ''),
+      pct: top ? Number(top.pct) : null, pctHi: top && Number(top.pctHi) > Number(top.pct) ? Number(top.pctHi) : null, weight: top ? 0 : Math.max(0, ...(e.sets || []).map(s => Number(s.weight) || 0)) });
+  });
+  const rows = (members || []).map(mb => {
+    let own = null;
+    const prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
+    const ownEx = (exId) => {
+      let hit = null;
+      if (prog) _tmWalkEx(prog.weeks, (e, d, w) => { if (!hit && String(w.srcId) === String(weekId) && String(d.srcId) === String(dayId) && String(e.srcId) === exId) hit = e; });
+      return hit;
+    };
+    const cells = cols.map(c => {
+      own = ownEx(c.exId);
+      const max = teamMaxKg(mb.maxes, c.lift), source = teamMaxSource(mb.maxes, c.lift);
+      if (own && own.ovr) {
+        const kg = Math.max(0, ...(own.sets || []).map(s => Number(s.weight) || 0));
+        return { kg, kgHi: null, pct: null, max, source, ovr: true, noMax: false, note: 'Edited for ' + _tmFirst(mb.name) };
+      }
+      if (c.pct == null) return { kg: c.weight, kgHi: null, pct: null, max, source, ovr: false, noMax: false, note: '' };
+      const kg = teamLoadKg(c.pct, max, mb.unit, mb.stepKg);
+      const kgHi = c.pctHi ? teamLoadKg(c.pctHi, max, mb.unit, mb.stepKg) : null;
+      return { kg, kgHi: kgHi > kg ? kgHi : null, pct: c.pct, max, source, ovr: false, noMax: !(kg > 0), note: kg > 0 ? '' : 'No ' + (LIFT_LABELS[c.lift] || c.lift).toLowerCase() + ' max' };
+    });
+    return { athleteId: mb.athleteId, name: mb.name || '', unit: mb.unit || 'kg', cells };
+  });
+  return { cols, rows };
+}
+// A load in the LIFTER's unit (rows[].unit of teamLoadsMatrix), never the coach's: an lb lifter's
+// 325 lb reads "325 lb" on the coach's kg screen. "142.5 kg" / "325 lb".
+function teamLoadText(kg, unit) {
+  const k = Number(kg);
+  if (!(k > 0)) return '';
+  if (unit === 'lbs' || unit === 'lb') return (Math.round(k / KG_PER_LB * 10) / 10) + ' lb';
+  return (Math.round(k * 100) / 100) + ' kg';
+}
+// After a push: one line per lifter. results are push_group_programs rows ({ athlete_id, status,
+// retried, loggedDuring, archived }); statuses: created | updated | same | departed | not_member |
+// stale | needs_archive | not_found | denied.
+function teamPushReport(plan, results) {
+  const byId = new Map(((plan && plan.rows) || []).map(r => [r.athleteId, r]));
+  return (results || []).map(r => {
+    const row = byId.get(r.athlete_id) || {};
+    const who = _tmFirst(row.lifter || row.name);
+    let text;
+    if (r.status === 'updated' || r.status === 'created') text = r.loggedDuring ? who + ' logged during publish; their sets kept' : (r.status === 'created' ? who + ': program created' : who + ' updated');
+    else if (r.status === 'same') text = who + ': nothing to change';
+    else if (r.status === 'departed' || r.status === 'not_member') text = who + ' is no longer on your roster: not changed';
+    else if (r.status === 'stale') text = who + ' changed while publishing: not changed, try again';
+    else if (r.status === 'needs_archive') text = who + ' has logged training in their current program: not changed until past blocks can be kept';
+    else text = who + ': not changed';
+    return { athleteId: r.athlete_id, status: r.status, text };
+  });
+}
+// One quiet push per lifter, about their own program (never "team"). The tag replaces an earlier
+// one on their phone, so three pushes in an hour read as one.
+function teamDigestPush(row, opts) {
+  opts = opts || {};
+  const first = opts.coachName ? _tmFirst(opts.coachName) : '';
+  const wk = (row.changedWeeks || []).filter(n => n > 0);
+  const what = !wk.length ? 'Your program changed.'
+    : wk.length === 1 ? 'Week ' + wk[0] + ' changed.'
+    : 'Weeks ' + wk.slice(0, -1).join(', ') + ' and ' + wk[wk.length - 1] + ' changed.';
+  return { toUserId: row.athleteId, title: (first || 'Your coach') + ' updated your program', body: what + ' Open Train to see your loads.',
+    url: '/athlete.html', tag: 'powa-prog-' + row.athleteId, category: 'program' };
+}
+function notifyTeamPush(plan, results, coachName) {
+  if (window._demoMode || !(window.DB && DB.sendPush)) return 0;
+  const byId = new Map(((plan && plan.rows) || []).map(r => [r.athleteId, r]));
+  let n = 0;
+  (results || []).forEach(r => {
+    if (r.status !== 'updated' && r.status !== 'created') return;
+    const row = byId.get(r.athlete_id);
+    if (!row) return;
+    n++;
+    DB.sendPush(teamDigestPush(row, { coachName })).catch(() => {});
+  });
+  return n;
+}
+// The whole push, for the desk: plan → archive replaced blocks → server (or the demo) → Store →
+// one notification per lifter. Resolves { plan, results, report, local }.
+async function pushTeamProgram(team, opts) {
+  opts = opts || {};
+  const members = teamMembersFor(team);
+  const planOpts = { datesReady: !(window.DB && DB.programDatesMissing && DB.programDatesMissing()) };
+  const plan = teamPushPlan(team, members, planOpts);
+  const rows = plan.rows.filter(r => r.action !== 'same');
+  let results, local = false;
+  if (window._demoMode || !(window.DB && DB.pushTeamPrograms)) {
+    // The demo: a replaced block's logged sets go to past blocks (the Store only), as on the server.
+    results = [];
+    for (const r of rows) {
+      const p = r.action === 'replace' ? (members.find(m => m.athleteId === r.athleteId) || {}).program : null;
+      if (p) { const a = await archiveProgramIfTrained(p, { anyLogged: true }); if (!a.kept && (p.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(isLoggedSet))))) { results.push({ athlete_id: r.athleteId, status: 'needs_archive', program_id: r.programId }); continue; } }
+      results.push({ athlete_id: r.athleteId, status: r.action === 'create' ? 'created' : 'updated', program_id: r.programId || uid('prog'), rev: (r.rev || 0) + 1 });
+    }
+  } else {
+    // A replaced program with logged training is kept as a past block by the server, in the same
+    // transaction as the push (or, before the team migration, archived here first, and skipped if
+    // that fails): never archived ahead of a push that could still race a set log.
+    const res = await DB.pushTeamPrograms(team, rows, (athleteId, fresh) => {
+      const mb = members.find(m => m.athleteId === athleteId);
+      return teamPushPlan(team, [Object.assign({}, mb, { program: fresh })], planOpts).rows[0];
+    }, (prog) => archiveProgramIfTrained(prog, { anyLogged: true }));
+    results = res.results; local = !!res.local;
+  }
+  plan.rows.filter(r => r.action === 'same').forEach(r => results.push({ athlete_id: r.athleteId, status: 'same' }));
+  // The Store follows what landed.
+  Store.update(s => {
+    results.forEach(x => {
+      if (x.status !== 'updated' && x.status !== 'created') return;
+      const row = (x.row) || plan.rows.find(r => r.athleteId === x.athlete_id);
+      if (!row) return;
+      let p = (s.programs || []).find(q => q.id === (x.program_id || row.programId));
+      // The server kept the replaced program as a past block (x.archived is its id).
+      if (p && x.archived && !(s.programBlocks || []).some(b => b.id === x.archived)) s.programBlocks = (s.programBlocks || []).concat([Object.assign(blockFromProgram(p), { id: x.archived })]);
+      if (!p) { p = { id: x.program_id || uid('prog'), athleteId: row.athleteId, coachId: team.coachId, name: row.name, maxes: null, weeks: [] }; s.programs.push(p); }
+      p.weeks = _tmClone(x.weeks || row.weeks); p.name = row.name;
+      if (row.startsOn) p.startsOn = row.startsOn;
+      if (row.meetDate) p.meetDate = row.meetDate;
+      if (typeof x.rev === 'number') p.rev = x.rev;
+      if (window.DB && DB.rememberProgramBase && !window._demoMode) DB.rememberProgramBase(p);
+    });
+    const t = (s.teams || []).find(q => q.id === team.id);
+    if (t) (t.members || []).forEach(m => {
+      const x = results.find(r => r.athlete_id === m.athleteId);
+      if (x && x.program_id) m.programId = x.program_id;
+      if (x && (x.status === 'updated' || x.status === 'created' || x.status === 'same')) { m.pushedRev = team.rev; m.pushedAt = new Date().toISOString(); }
+    });
+    if (t) t.members = (t.members || []).filter(m => !results.some(r => r.athlete_id === m.athleteId && (r.status === 'departed' || r.status === 'not_member')));
+  });
+  if (opts.notify !== false) notifyTeamPush(plan, results, opts.coachName);
+  return { plan, results, report: teamPushReport(plan, results), local };
+}
+
+// =========================================================
+// PLANNED MEETS + THE ROSTER CALENDAR (brief M3 · sql/migration-meet-calendar-2026-10-22.sql)
+// A planned meet (meets.status 'planned') is a date with a federation, division, class and
+// weigh-in: never a result. It never changes best totals, singles or DOTS. A program carries
+// starts_on and meet_date, so every week has a date and a W-n label counted to the meet.
+// =========================================================
+// Before the migration a planned meet is a future meet with no lifts (that's how it's saved).
+function isPlannedMeet(m, todayIso) {
+  if (!m) return false;
+  if (m.status === 'planned' || m.planned === true) return true;
+  if (m.status) return false;
+  const none = ['squat', 'bench', 'deadlift'].every(k => m[k] == null || m[k] === '' || !(Number(m[k]) > 0));
+  return none && !!m.date && String(m.date).slice(0, 10) > (todayIso || (typeof todayISO === 'function' ? todayISO() : ''));
+}
+function _isoDay(v) { const s = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; }
+function _wkBetween(fromMon, toMon) { return Math.round((Date.parse(toMon + 'T12:00:00Z') - Date.parse(fromMon + 'T12:00:00Z')) / (7 * 86400000)); }
+// "W-3" (three weeks out), "Meet week", "W+1" (the week after).
+function meetWeekLabel(weekStartIso, meetIso) {
+  const w = _isoDay(weekStartIso), m = _isoDay(meetIso);
+  if (!w || !m) return '';
+  const n = _wkBetween(_monISO(w), _monISO(m));
+  return n === 0 ? 'Meet week' : n > 0 ? 'W-' + n : 'W+' + (-n);
+}
+// Dragging a meet on the calendar: its new date (the labels follow from it).
+function moveMeetDate(iso, days) { const d = _isoDay(iso); return d ? _addDaysISO(d, Number(days) || 0) : iso; }
+// The Monday a block's week 1 began: saved (starts_on), else from a pinned day, else from when its
+// sets were logged (the most common answer), else counted back so the last week is meet week.
+function programStartsOn(prog) {
+  if (!prog) return null;
+  const saved = _isoDay(prog.startsOn);
+  if (saved) return _monISO(saved);
+  const pinned = [], logged = {};
+  (prog.weeks || []).forEach((w, wi) => (w.days || []).forEach(d => {
+    const sd = _isoDay(d.scheduledDate);
+    if (sd) pinned.push(_addDaysISO(_monISO(sd), -7 * wi));
+    (d.exercises || []).forEach(e => (e.sets || []).forEach(s => {
+      const c = s.completed || s.completedAt ? _isoDay(s.completedAt) : null;
+      if (c) { const k = _addDaysISO(_monISO(c), -7 * wi); logged[k] = (logged[k] || 0) + 1; }
+    }));
+  }));
+  if (pinned.length) return pinned.sort()[0];
+  const ks = Object.keys(logged).sort();
+  if (ks.length) return ks.reduce((b, k) => logged[k] > logged[b] ? k : b, ks[0]);
+  const meet = _isoDay(prog.meetDate);
+  if (meet && (prog.weeks || []).length) return _addDaysISO(_monISO(meet), -7 * (prog.weeks.length - 1));
+  return null;
+}
+function programEndsOn(prog) {
+  const s = programStartsOn(prog);
+  return s && prog.weeks && prog.weeks.length ? _addDaysISO(s, 7 * prog.weeks.length - 1) : null;
+}
+// Every week of a block with its first day and W-n label. meetDate (optional) overrides the
+// program's own, so a meet being dragged relabels the builder before anything saves.
+function programWeekLabels(prog, meetDate) {
+  const meet = _isoDay(meetDate) || _isoDay(prog && prog.meetDate);
+  const start = programStartsOn(meet ? Object.assign({}, prog, { meetDate: meet }) : prog);
+  return ((prog && prog.weeks) || []).map((w, i) => {
+    const st = start ? _addDaysISO(start, 7 * i) : null;
+    const n = st && meet ? _wkBetween(st, _monISO(meet)) : null;
+    return { index: i, number: Number(w.number) || i + 1, start: st, n, label: st && meet ? meetWeekLabel(st, meet) : '' };
+  });
+}
+// Block tone on the calendar: four greys, by what the block is for.
+function blockPhase(name) {
+  const s = String(name || '');
+  if (/deload/i.test(s)) return 'deload';
+  if (/peak|taper|meet|comp/i.test(s)) return 'peak';
+  if (/volume|hypertroph|accum|base|wave/i.test(s)) return 'volume';
+  return 'strength';
+}
+// The calendar's weeks: Mondays from `back` weeks before this one to `ahead` after.
+function calendarAxis(todayIso, back, ahead) {
+  const mon = _monISO(_isoDay(todayIso) || todayISO());
+  const b = back == null ? 12 : back, a = ahead == null ? 26 : ahead;
+  return Array.from({ length: b + a + 1 }, (_, i) => _addDaysISO(mon, 7 * (i - b)));
+}
+// One row per lifter: { athleteId, name, bars: [{ kind, programId|blockId, name, from, weeks, current,
+// phase, start, end }], meets: [{ id, name, date, week, planned, total, federation }] } on the axis
+// (week indexes). Bars, not cells: the view draws one element per bar.
+function calendarRows(o) {
+  o = o || {};
+  const axis = calendarAxis(o.today, o.back, o.ahead);
+  const idx = (iso) => _wkBetween(axis[0], _monISO(iso));
+  const last = axis.length - 1;
+  const tw = idx(_isoDay(o.today) || todayISO());
+  return (o.athletes || []).map(a => {
+    const bars = [];
+    (o.programs || []).filter(p => p.athleteId === a.id).forEach(p => {
+      const st = programStartsOn(p), n = (p.weeks || []).length;
+      if (!st || !n) return;
+      const from = idx(st);
+      if (from + n - 1 < 0 || from > last) return;
+      const cur = tw - from;
+      bars.push({ kind: 'program', programId: p.id, name: p.name || 'Program', from, weeks: n, current: cur >= 0 && cur < n ? cur : null,
+        phase: blockPhase(p.name), start: st, end: programEndsOn(p), meetDate: _isoDay(p.meetDate) });
+    });
+    (o.blocks || []).filter(b => b.athleteId === a.id && _isoDay(b.startedOn)).forEach(b => {
+      const from = idx(_isoDay(b.startedOn)), to = idx(_isoDay(b.endedOn) || _isoDay(b.startedOn));
+      if (to < 0 || from > last) return;
+      bars.push({ kind: 'block', blockId: b.id, name: b.name || 'Block', from, weeks: Math.max(1, to - from + 1), current: null, phase: blockPhase(b.name), start: _isoDay(b.startedOn), end: _isoDay(b.endedOn) });
+    });
+    bars.sort((x, y) => x.from - y.from);
+    const meets = (o.meets || []).filter(m => m.athleteId === a.id && _isoDay(m.date)).map(m => {
+      const w = idx(_isoDay(m.date));
+      const planned = isPlannedMeet(m, o.today);
+      return { id: m.id, name: m.name || 'Meet', date: _isoDay(m.date), week: w, planned, total: planned ? null : meetTotal(m), federation: m.federation || '' };
+    }).filter(m => m.week >= 0 && m.week <= last).sort((x, y) => x.week - y.week);
+    return { athleteId: a.id, name: a.name || '', bars, meets };
+  });
+}
+var _CAL_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function _calDay(iso) { return Number(iso.slice(8, 10)) + ' ' + _CAL_MON[Number(iso.slice(5, 7)) - 1]; }
+// What the coach should look at: a block running past (or stopping short of) a planned meet, two
+// planned meets too close, and lifters at different meets on the same day.
+function calendarClashes(rows) {
+  const out = [];
+  (rows || []).forEach(r => {
+    const planned = r.meets.filter(m => m.planned);
+    r.bars.filter(b => b.kind === 'program').forEach(b => {
+      const end = b.from + b.weeks - 1;
+      planned.forEach(m => {
+        if (m.week >= b.from && end > m.week) out.push({ type: 'block-after-meet', athleteId: r.athleteId, meetId: m.id, programId: b.programId, weeks: end - m.week, text: 'Block ends ' + (end - m.week) + ' wk after meet' });
+        else if (end < m.week && m.week - end <= 8) out.push({ type: 'block-before-meet', athleteId: r.athleteId, meetId: m.id, programId: b.programId, weeks: m.week - end, text: 'Block ends ' + (m.week - end) + ' wk before meet' });
+      });
+    });
+    for (let i = 1; i < planned.length; i++) {
+      const gap = planned[i].week - planned[i - 1].week;
+      if (gap < 3) out.push({ type: 'meets-close', athleteId: r.athleteId, meetIds: [planned[i - 1].id, planned[i].id], weeks: gap, text: gap === 0 ? 'Two meets the same week' : 'Two meets ' + gap + ' wk apart' });
+    }
+  });
+  const byDay = {};
+  (rows || []).forEach(r => r.meets.filter(m => m.planned).forEach(m => { (byDay[m.date] = byDay[m.date] || []).push({ athleteId: r.athleteId, name: String(m.name).trim().toLowerCase() }); }));
+  Object.keys(byDay).sort().forEach(d => {
+    const list = byDay[d], names = new Set(list.map(x => x.name));
+    if (names.size < 2) return;
+    const lifters = new Set(list.map(x => x.athleteId)).size;
+    out.push({ type: 'meets-same-day', date: d, athleteIds: Array.from(new Set(list.map(x => x.athleteId))),
+      text: lifters + ' lifters at ' + (names.size === lifters ? '' : names.size + ' ') + 'different meets ' + _calDay(d) });
+  });
+  return out;
+}
+
+// ----- Scoring per federation (brief §8: one number, the formula always named) -----
+// IPF and its member federations score in IPF GL points; everyone else knows DOTS. (SPF is the
+// Southern Powerlifting Federation, not IPF: Sweden's IPF affiliate is SSF.)
+var IPF_FEDS = /\bIPF\b|\bEPF\b|\bNAPF\b|\bAsPF\b|\bOceania\b|British Powerlifting|^\s*BP\s*$|Powerlifting America|\bCPU\b|Canadian Powerlifting Union|Powerlifting Australia|Powerlifting New Zealand|\bFFForce\b|\bBVDK\b|\bFIPL\b|\bAEP\b|\bSSF\b|Svenska Styrkelyft|Swedish Powerlifting|\bKNKF\b|\bNSF\b|\bJPA\b/i;
+function federationFormula(federation) { return IPF_FEDS.test(String(federation || '')) ? 'gl' : 'dots'; }
+// IPF GL with the equipped (single-ply) coefficients, 3-lift.
+function ipfGlPointsEquipped(totalKg, bwKg, sex) {
+  if (!totalKg || !bwKg || bwKg <= 0) return 0;
+  const c = sex === 'female' ? { A: 758.63878, B: 949.31382, C: 0.02435 } : { A: 1236.25115, B: 1449.21864, C: 0.01644 };
+  const denom = c.A - c.B * Math.exp(-c.C * bwKg);
+  if (denom <= 0) return 0;
+  const pts = (100 / denom) * totalKg;
+  return isFinite(pts) && pts > 0 ? Math.round(pts * 100) / 100 : 0;
+}
+// Age coefficients: Foster (teens and juniors, 14–23) and McCulloch (masters, 40–80). 1 otherwise.
+var AGE_COEF_TEEN = { 14: 1.23, 15: 1.18, 16: 1.13, 17: 1.08, 18: 1.06, 19: 1.04, 20: 1.03, 21: 1.02, 22: 1.01, 23: 1 };
+var AGE_COEF_MASTERS = [1, 1.01, 1.02, 1.031, 1.043, 1.055, 1.068, 1.082, 1.097, 1.113, 1.13, 1.147, 1.165, 1.184, 1.204, 1.225, 1.246, 1.268, 1.291, 1.315,
+  1.34, 1.366, 1.393, 1.421, 1.45, 1.48, 1.511, 1.543, 1.576, 1.61, 1.645, 1.681, 1.718, 1.756, 1.795, 1.835, 1.876, 1.918, 1.961, 2.005, 2.05];
+function ageCoefficient(age) {
+  const a = Math.floor(Number(age));
+  if (!(a > 0)) return 1;
+  if (AGE_COEF_TEEN[a] != null) return AGE_COEF_TEEN[a];
+  if (a >= 40) return AGE_COEF_MASTERS[Math.min(a, 80) - 40];
+  return 1;
+}
+// The score for a meet: follows its federation and division. Age grading only for an age
+// division (masters, juniors, teens) when the lifter's age is known: never guessed.
+// → { formula: 'gl' | 'dots', label, points, base, coef }
+function meetScore(totalKg, bwKg, sex, opts) {
+  opts = opts || {};
+  const formula = federationFormula(opts.federation);
+  const div = String(opts.division || '') + ' ' + String(opts.equipment || '');
+  const equipped = /equipped|single[- ]?ply|multi[- ]?ply|\bEQ\b/i.test(div);
+  const base = formula === 'gl' ? (equipped ? ipfGlPointsEquipped(totalKg, bwKg, sex) : ipfGlPoints(totalKg, bwKg, sex)) : dotsScore(totalKg, bwKg, sex);
+  const ageDiv = /master|junior|teen|sub-?junior|youth|\bM[1-4]\b|\b[4-8]\d\s*[-–]\s*\d+|\b(1[4-9]|2[0-3])\s*[-–]\s*\d+/i.test(String(opts.division || ''));
+  const coef = ageDiv && Number(opts.age) > 0 ? ageCoefficient(opts.age) : 1;
+  const label = (formula === 'gl' ? 'IPF GL' + (equipped ? ' · equipped' : '') : 'DOTS') + (coef !== 1 ? ' · age-graded' : '');
+  return { formula, label, points: base > 0 ? Math.round(base * coef * 100) / 100 : 0, base, coef };
+}
+if (typeof window !== 'undefined') Object.assign(window, {
+  isLoggedSet, teamMaxKg, teamMaxSource, teamLoadKg, teamMemberWeeks, isTeamLinked, teamOverrideExercise, teamResetExercise, teamDetachProgram,
+  teamMasterFromProgram, teamMemberMaxes, teamMembersFor, teamPushPlan, teamPushSummary, teamNoMaxReport, teamLoadsMatrix, teamLoadText, teamPushReport,
+  teamDigestPush, notifyTeamPush, pushTeamProgram,
+  isPlannedMeet, meetWeekLabel, moveMeetDate, programStartsOn, programEndsOn, programWeekLabels, blockPhase, calendarAxis, calendarRows,
+  calendarClashes, federationFormula, ipfGlPointsEquipped, ageCoefficient, meetScore
+});
+
+// =========================================================
+// TEAM DEMO (coach.html?demo=1 on a laptop): "Meet team", six lifters on one master.
+// Leo, Jonah, Kofi, Dev and Sofia train from linked copies (week 1 logged by those training);
+// Kofi has his own W2 squat (a cranky knee) and Dev his own W3 bench; Hannah has no program and no
+// maxes yet (the first push creates hers; % sets stay blank: the noMax report). Since the last push
+// the master's W4 deadlift went up 2.5%: Publish updates the five linked lifters.
+// =========================================================
+function seedTeamDemo(store, h) {
+  const ids = ['demo-d1', 'demo-d5', 'demo-d9', 'demo-d10', 'demo-d11', 'demo-d12'];
+  if (!ids.every(id => (store.athletes || []).some(a => a.id === id))) return;
+  const DC = h.coachId, daysAgo = h.daysAgo;
+  const start = _monISO(daysAgo(7));
+  const at = (wi, di) => _addDaysISO(start, wi * 7 + di * 2);
+  const set = (id, reps, pct, rpe) => ({ id, weight: 0, reps, rpe, pct, completed: false });
+  const dayOf = (wn, di, lift, name, pct, reps) => ({ id: 'demo-tm-w' + wn + 'd' + di, name, exercises: [
+    { id: 'demo-tm-w' + wn + 'e' + di, lift, variant: 'Competition', exerciseName: '', note: '', sets: [1, 2, 3].map(k => set('demo-tm-w' + wn + 'e' + di + 's' + k, reps, pct, 8)) },
+    di === 0 ? { id: 'demo-tm-w' + wn + 'acc', lift: 'pull', variant: '', exerciseName: 'Barbell row', note: '', sets: [1, 2, 3].map(k => ({ id: 'demo-tm-w' + wn + 'acc' + k, weight: 60, reps: 10, rpe: 8, completed: false })) } : null
+  ].filter(Boolean) });
+  const master = [1, 2, 3, 4].map(wn => ({ id: 'demo-tm-w' + wn, number: wn, days: [
+    dayOf(wn, 0, 'squat', 'Squat Day', 72.5 + wn * 2.5, 5 - Math.min(2, wn - 1)),
+    dayOf(wn, 1, 'bench', 'Bench Day', 72.5 + wn * 2.5, 5 - Math.min(2, wn - 1)),
+    dayOf(wn, 2, 'deadlift', 'Deadlift Day', 70 + wn * 2.5, 4 - Math.min(2, wn - 1)),
+    { id: 'demo-tm-w' + wn + 'rest', name: 'Rest', exercises: [] }
+  ] }));
+  // Each lifter's best estimated max from their own logs (the Store isn't loaded yet).
+  const maxesOf = (aid) => {
+    const out = {};
+    MAIN_LIFTS.forEach(L => {
+      const best = (store.workoutLogs || []).filter(l => l.athleteId === aid && l.lift === L).reduce((m, l) => Math.max(m, Number(l.e1rmComp) || 0), 0);
+      out[L] = best > 0 ? { kg: Math.round(best * 10) / 10, source: 'e1rm' } : { kg: 0, source: null };
+    });
+    return out;
+  };
+  const pushed = JSON.parse(JSON.stringify(master));      // what the lifters got at the last push
+  const team = { id: 'demo-team-1', coachId: DC, name: 'Meet team', programName: 'Meet team · Strength', weeks: master, rev: 4,
+    startsOn: start, meetDate: null, members: [], createdAt: daysAgo(10) + 'T09:00:00Z' };
+  ids.forEach(aid => {
+    if (aid === 'demo-d10') { team.members.push({ athleteId: aid, programId: null, pushedRev: null, pushedAt: null }); return; }
+    const old = (store.programs || []).find(p => p.athleteId === aid);
+    let weeks = teamMemberWeeks(pushed, null, { maxes: maxesOf(aid), unit: 'kg' }).weeks;
+    const trains = aid !== 'demo-d5';
+    weeks.forEach((w, wi) => w.days.forEach((d, di) => {
+      const done = trains && (wi === 0 || (aid === 'demo-d11' && wi === 1 && di === 0));
+      if (!done || !d.exercises.length) return;
+      d.exercises.forEach(e => e.sets.forEach(s => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: at(wi, di), plannedWeight: s.weight })));
+    }));
+    if (aid === 'demo-d9') {   // Kofi: his own W2 squat
+      weeks = teamOverrideExercise(weeks, weeks[1].days[0].exercises[0].id);
+      weeks[1].days[0].exercises[0].sets.forEach(s => { delete s.pct; s.weight = 150; s.reps = 3; s.rpe = 7; });
+      weeks[1].days[0].exercises[0].note = 'Knee: box squats to depth this week.';
+    }
+    if (aid === 'demo-d11') {  // Dev: his own W3 bench
+      weeks = teamOverrideExercise(weeks, weeks[2].days[1].exercises[0].id);
+      const benchMax = teamMaxKg(maxesOf(aid), 'bench');
+      weeks[2].days[1].exercises[0].sets.forEach(s => { s.pct = 75; s.reps = 6; s.weight = teamLoadKg(75, benchMax, 'kg'); });
+    }
+    const prog = old || { id: 'demo-tm-prog-' + aid, athleteId: aid, coachId: DC, maxes: null };
+    Object.assign(prog, { name: team.programName, weeks, rev: 0, startsOn: start, meetDate: null });
+    if (!old) store.programs.push(prog);
+    team.members.push({ athleteId: aid, programId: prog.id, pushedRev: 3, pushedAt: daysAgo(6) + 'T09:00:00Z' });
+  });
+  // The edit since: W4 deadlift +2.5%.
+  master[3].days[2].exercises[0].sets.forEach(s => { s.pct += 2.5; });
+  store.teams = [team];
+}
+
+// TEAM PROGRAMS (M4): minimal proof-of-data sheet for the builder's "Team" button. Temporary:
+// the desk v2 Team view (Program / Loads / Members tabs, the push dialog) replaces it.
+function openTeamSheet() {
+  const teams = Store.get().teams || [];
+  uiSheet('Team programs', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Preview: one plan, many lifters. Each lifter gets their own loads; their own edits and logged sets are kept.'));
+    if (!teams.length) { sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'No teams yet.')); return; }
+    const pick = el('select', { 'aria-label': 'Team', class: 'team-pick' });
+    teams.forEach(t => pick.appendChild(el('option', { value: t.id }, t.name + ' · ' + (t.members || []).length + ' lifters')));
+    const body = el('div', { class: 'team-body' });
+    const paint = (report) => {
+      body.innerHTML = '';
+      const t = teams.find(x => x.id === pick.value) || teams[0];
+      const members = teamMembersFor(t);
+      const plan = teamPushPlan(t, members);
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, teamPushSummary(plan)));
+      const wk = (t.weeks || [])[0], day = wk && (wk.days || []).find(d => (d.exercises || []).some(e => MAIN_LIFTS.indexOf(e.lift) >= 0));
+      if (wk && day) {
+        const mx = teamLoadsMatrix(t.weeks, wk.id, day.id, members);
+        body.appendChild(uiLabel('Loads · Week ' + (wk.number || 1) + ' ' + (day.name || '')));
+        body.appendChild(uiList(mx.rows.map(r => uiRow({ title: r.name,
+          sub: r.cells.map((c, i) => mx.cols[i].label + ' ' + (c.kg > 0 ? teamLoadText(c.kg, r.unit) : '–') + (c.ovr ? ' (' + c.note + ')' : '') + (c.source ? ' · from ' + c.source : '')).join('  ·  ') }))));
+      }
+      teamNoMaxReport(t.weeks, members).forEach(n => body.appendChild(el('p', { class: 'ui-sheet-sub' }, n.text)));
+      (report || []).forEach(l => body.appendChild(el('p', { class: 'ui-sheet-sub' }, l.text)));
+      const go = el('button', { class: 'btn btn-primary btn-block', type: 'button' }, 'Publish to team');
+      go.addEventListener('click', async () => {
+        go.disabled = true;
+        try {
+          const res = await pushTeamProgram(t, { coachName: (window._user && window._user.name) || '' });
+          toast(res.results.filter(x => x.status === 'updated' || x.status === 'created').length + ' lifters updated' + (window._demoMode ? ' (demo: nothing saves)' : ''));
+          paint(res.report);
+        } catch (e) { toast((e && e.message) || 'Could not publish'); go.disabled = false; }
+      });
+      body.appendChild(go);
+    };
+    pick.addEventListener('change', () => paint());
+    sheet.appendChild(pick); sheet.appendChild(body);
+    paint();
+  });
+}
+window.openTeamSheet = openTeamSheet;
