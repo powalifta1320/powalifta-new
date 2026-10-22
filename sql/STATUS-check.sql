@@ -111,7 +111,12 @@ with checks(n, migration, applied) as (values
         to_regclass('public.program_group_members') is not null
         and to_regprocedure('public.push_group_programs(uuid, bigint, jsonb)') is not null
         and to_regprocedure('public.program_set_logged_on(jsonb)') is not null),
-  (43, 'migration-meet-day-2026-10-22.sql  (attempt plans + the meet-day board; needs row 41 first)',
+  (43, 'migration-security-2026-10-22.sql  (security pass: former coaches out of programs / clips / pain reports, grid XSS backstop, check-in targets, invite_preview limit; after rows 29-42)',
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'programs' and policyname = 'programs_coach_live')
+        and not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'programs' and policyname = 'programs_coach_all')
+        and to_regprocedure('public.my_checkin_questions()') is not null
+        and exists (select 1 from pg_trigger where tgname = 'trg_programs_release_on_coach_change')),
+  (44, 'migration-meet-day-2026-10-22.sql  (attempt plans + the meet-day board; needs row 41 first)',
         exists (select 1 from information_schema.columns
                  where table_schema = 'public' and table_name = 'meets' and column_name = 'attempt_plan')
         and to_regclass('public.meet_attempts') is not null

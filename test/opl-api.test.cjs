@@ -18,5 +18,11 @@ const call = (url, method) => new Promise((resolve) => {
   }
   assert.strictEqual((await call('/api/opl?q=ray', 'POST')).status, 405);
   assert.strictEqual((await call('/api/opl?q=ray', 'OPTIONS')).status, 204);
+  // One IP: 40 uncached requests an hour, then 429 (the limiter, without reaching upstream).
+  const T0 = 1700000000000;
+  for (let i = 0; i < 40; i++) assert.strictEqual(handler._allow('203.0.113.1', T0), true);
+  assert.strictEqual(handler._allow('203.0.113.1', T0), false);
+  assert.strictEqual(handler._allow('203.0.113.2', T0), true);
+  assert.strictEqual(handler._allow('203.0.113.1', T0 + 3600000), true);   // next hour
   console.log('opl-api: all passed');
 })();

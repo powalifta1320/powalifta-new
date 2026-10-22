@@ -801,9 +801,16 @@ window.bootstrap = bootstrap;
 // data-theme attribute on <html>. Default: dark.
 // =========================================================
 const THEME_KEY = 'powa-theme';
+// The coach's laptop desk keeps its own choice: dark by default, and a light desk never turns the
+// public site or athlete.html light in the same browser (nor the other way round).
+const DESK_THEME_KEY = 'powa-desk-theme';
+function _themeKey() {
+  try { if (document.documentElement.classList.contains('desk')) return DESK_THEME_KEY; } catch {}
+  return THEME_KEY;
+}
 function getTheme() {
   try {
-    const stored = localStorage.getItem(THEME_KEY);
+    const stored = localStorage.getItem(_themeKey());
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {}
   // Native shell is dark-first, ALWAYS: a light-mode POWALIFTA on a light-appearance
@@ -811,6 +818,10 @@ function getTheme() {
   // set data-theme=dark) — the user can still switch explicitly via the Settings toggle.
   try {
     if (document.documentElement.classList.contains('native')) return 'dark';
+  } catch {}
+  // The coach's laptop desk is dark by default; light is one toggle away (and remembered).
+  try {
+    if (document.documentElement.classList.contains('desk')) return 'dark';
   } catch {}
   // Web: honor system preference for first-time visitors (a11y). Dark otherwise —
   // the brand is dark-first; only auto-adopt an explicit "light" OS pref.
@@ -824,7 +835,7 @@ function getTheme() {
 function applyTheme(theme) {
   const t = (theme === 'light') ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem(THEME_KEY, t); } catch {}
+  try { localStorage.setItem(_themeKey(), t); } catch {}
   // Update theme-color meta so mobile chrome/safari status bar matches.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#0b0b0c');
@@ -10878,9 +10889,17 @@ function brandInitials(name) {
   const w = String(name || '').trim().split(/\s+/).filter(Boolean);
   return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase();
 }
+// A logo is only ever loaded from our own storage (the coach's upload; guard_coach_brand enforces
+// the same on the server) or a local preview: another host would learn every athlete's IP and when
+// they open the app (the iPhone bundle has no CSP to stop it).
+function brandLogoOk(url) {
+  const u = String(url || '');
+  return /^https:\/\/cxnotrikxvzncupswvio\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]{36}\/brand[A-Za-z0-9._-]{0,60}(\?t=[0-9]{1,16})?$/.test(u) ||
+    /^data:image\/(svg\+xml|png|jpeg|webp)[;,]/.test(u) || /^blob:/.test(u);
+}
 // The team's mark: their logo, else their initials on their colour.
 function brandMark(brand, cls) {
-  if (brand && brand.logoUrl) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
+  if (brand && brand.logoUrl && brandLogoOk(brand.logoUrl)) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
   return el('span', { class: 'brand-mark brand-mono ' + (cls || ''), style: brand && brand.color ? '--brand-c:' + brand.color : '', 'aria-hidden': 'true' }, brandInitials(brand && brand.name));
 }
 function demoCoachBrand() {

@@ -131,7 +131,7 @@ struct WeighView: View {
                 column(medium: true).frame(width: 150, alignment: .leading)
                 VStack(alignment: .leading, spacing: 6) {
                     if trend.count > 1 {
-                        Sparkline(values: trend).padding(.top, 14)
+                        Sparkline(values: trend).padding(.top, 14).privacySensitive()
                         Text("Last \(trend.count) weigh-ins")
                             .font(.system(size: 11, weight: .medium)).foregroundColor(Hue.ink3)
                     } else {
@@ -156,7 +156,7 @@ struct WeighView: View {
             if canLog {
                 if #available(iOS 17.0, macOS 14.0, *) { WeighButtons() }
             } else if !medium && trend.count > 1 {
-                Sparkline(values: trend).frame(height: 34)
+                Sparkline(values: trend).frame(height: 34).privacySensitive()
             } else if !entry.loggedToday {
                 Text("Tap to log it in the app")
                     .font(.system(size: 11, weight: .medium)).foregroundColor(Hue.ink3)
@@ -165,7 +165,8 @@ struct WeighView: View {
     }
 
     @ViewBuilder private var number: some View {
-        let n = HeroNumber(value: entry.draft.map { String(format: "%.1f", $0) } ?? "–", unit: unit, size: 36)
+        // Bodyweight: redacted on the Lock Screen / in StandBy until the phone is unlocked.
+        let n = HeroNumber(value: entry.draft.map { String(format: "%.1f", $0) } ?? "–", unit: unit, size: 36).privacySensitive()
         if #available(iOS 17.0, macOS 14.0, *) { n.invalidatableContent() } else { n }
     }
 
@@ -188,6 +189,7 @@ struct WeighView: View {
             .foregroundColor(Hue.bw)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
+            .privacySensitive()
         } else {
             Text("This morning's number")
                 .font(.system(size: 12, weight: .medium)).foregroundColor(Hue.ink3)
