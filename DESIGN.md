@@ -188,6 +188,20 @@ Built in `app.js`; reuse them before writing new markup.
 Every interactive element has press feedback (`:active` scale ≈0.94–0.97 or a fill step) and a visible
 focus ring on the web. Touch targets are at least 44px.
 
+## Desk (laptop coach, `desk.css`)
+
+The coach's desk (`html.desk`: at least 1000px wide, never the iPhone app) is denser than the phone
+and has its own small scale. Phones and the app never see it.
+
+- Radius: 10px rows, cards and panes; 8px controls (rail items, icon buttons, menu items); 12px menus;
+  16px dialogs; 6px keycaps and tiny marks; capsules (999px) for buttons, chips and badges.
+- Rows: `--row-h` 44px, 36px compact (the density toggle). Table type 13px tabular, section titles 16px.
+- Status tokens, used only on flags (dark / light, light measured at 4.5:1 or better on their 13% tint):
+  `--dk-alert` soft-alert / `#a8192b` (pain, a set 1.5+ RPE over); `--dk-warn` soft-warn / `#8a4500`
+  (quiet, drift, block done); `--dk-gold` `#ffc23d` / `#7a4f00` (PRs, meets); `--dk-ok` `#34d982` / `#0f7d47`.
+- No stage light, no tinted washes: plain `--bg` surfaces. Red only on the one primary action and pain.
+- Avatars are muted tints in both themes (light: about 12% of the hue, initials in its dark ink).
+
 ## Do's and Don'ts
 
 | Do | Don't |

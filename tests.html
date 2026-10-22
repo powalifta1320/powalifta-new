@@ -828,6 +828,64 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
 });
+test('coach desk: reasons in severity order, queue, views, wins', () => {
+  const saved = Store.get();
+  const t = '2026-10-22';   // a Thursday
+  const mk = (w, r, rpe, done, actual, at) => ({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: actual == null ? null : actual, completedAt: at || null });
+  const prog = { id: 'p', athleteId: 'a', coachId: 'c', name: 'Peak', weeks: [
+    { id: 'w1', number: 1, days: [
+      { id: 'd1', name: 'Squat', exercises: [{ id: 'e1', lift: 'squat', variant: 'Competition', sets: [mk(180, 3, 8, true, 9.5, '2026-10-20'), mk(160, 5, 7, true, 7.5, '2026-10-20')] }] },
+      { id: 'd2', name: 'Bench', exercises: [{ id: 'e2', lift: 'bench', variant: 'Competition', sets: [mk(110, 3, 8, false)] }] } ] },
+    { id: 'w2', number: 2, days: [{ id: 'd3', name: 'Squat', exercises: [{ id: 'e3', lift: 'squat', variant: 'Competition', sets: [mk(182.5, 3, 8, false)] }] }] }
+  ] };
+  const log = (id, a, lift, kg, date) => ({ id, athleteId: a, lift, variant: 'Competition', weight: kg, reps: 3, rpe: 8, e1rm: kg * 1.1, e1rmComp: kg * 1.1, date });
+  Store.set(Object.assign(defaultStore(), {
+    athletes: [{ id: 'a', name: 'Ana', coachId: 'c', createdAt: Date.parse('2026-10-15T12:00:00Z') }, { id: 'b', name: 'Bo', coachId: 'c', createdAt: Date.parse('2025-01-01T12:00:00Z') }],
+    programs: [prog],
+    workoutLogs: [log('l1', 'a', 'squat', 180, '2026-10-20'), log('l0', 'b', 'squat', 150, '2026-09-21'), log('l2', 'b', 'squat', 140, '2026-10-12')],
+    checkinQuestions: [{ id: 'q', coachId: 'c', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true }],
+    checkinAnswers: [{ id: 'ans', questionId: 'q', athleteId: 'a', coachId: 'c', period: '2026-10-21', num: 1 }],
+    meets: [{ id: 'm', athleteId: 'a', name: 'State', date: '2026-11-01', weightClass: '74 kg' }],
+    bodyweight: [{ id: 'bw', athleteId: 'a', date: '2026-10-21', weight: 75.9 }]
+  }));
+  try {
+    const now = Date.parse('2026-10-22T12:00:00Z');
+    const ra = deskReasons('a', { coachId: 'c', today: t, now });
+    eq(ra.map(r => r.type).join(','), 'pain,meet,weight,overshoot');
+    eq(ra[0].text, 'Pain yesterday'); eq(ra[1].text, 'Meet in 10d'); eq(ra[2].text, 'BW +1.9 over class'); eq(ra[3].text, 'Squat @9.5 vs @8');
+    eq(deskRpeDrift(prog, t).avg, 1);   // (+1.5 and +0.5) / 2
+    const rb = deskReasons('b', { coachId: 'c', today: t, now });
+    eq(rb.map(r => r.type).join(','), 'quiet,noprogram'); eq(rb[0].text, 'Quiet'); eq(rb[0].tone, 'warn');
+    eq(deskBodyweightVsClass('a', { weightClass: '120+' }), null);
+    const rows = deskRows('c', { today: t, now });
+    let q = deskQueue(rows, { today: t });
+    eq(q.queue.map(r => r.athlete.id).join(), 'a,b'); eq(q.total, 2);
+    // Reviewed: out of the queue; a NEW kind of reason brings them back this week.
+    const rev = { a: { at: now, sig: deskReasonSig(rows[0].reasons) } };
+    q = deskQueue(rows, { today: t, reviewed: rev });
+    eq(q.queue.map(r => r.athlete.id).join(), 'b'); eq(q.done.length, 1); eq(q.total, 2);
+    q = deskQueue(rows, { today: t, reviewed: { a: { at: now, sig: 'meet,overshoot,weight' } } });
+    eq(q.queue[0].athlete.id, 'a');
+    q = deskQueue(rows, { today: t, snoozed: { b: '2026-10-23' } });
+    eq(q.queue.map(r => r.athlete.id).join(), 'a'); eq(q.snoozed.length, 1);
+    eq(deskQueue(rows, { today: '2026-10-23', snoozed: { b: '2026-10-23' } }).queue.length, 2);   // tomorrow it's back
+    // Views
+    eq(deskViewCount(rows, 'meet', now), 1); eq(deskViewCount(rows, 'pain', now), 1);
+    eq(deskViewCount(rows, 'quiet', now), 1); eq(deskViewCount(rows, 'new', now), 1); eq(deskViewCount(rows, 'needs', now), 2);
+    // Wins: a PR this week; a streak only on a 4-week milestone
+    const s2 = Store.get();
+    s2.workoutLogs.push(log('l3', 'b', 'squat', 160, '2026-10-21'));
+    eq(deskWins('b', { today: t }).map(w => w.text).join(), 'Squat PR');
+    s2.workoutLogs = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d, i) => log('s' + i, 'c1', 'bench', 100, d));
+    eq(deskWins('c1', { today: t }).map(w => w.type).join(), 'streak');
+    s2.workoutLogs.push(log('s9', 'c1', 'bench', 100, '2026-09-24'));
+    eq(deskWins('c1', { today: t }).some(w => w.type === 'streak'), false);   // 5 weeks: no milestone
+    // The e1RM total starts once all three lifts have a number: no jump from a squat-only week.
+    s2.workoutLogs = [log('t1', 'n', 'squat', 100, '2026-10-01'), log('t2', 'n', 'bench', 60, '2026-10-08'), log('t3', 'n', 'deadlift', 120, '2026-10-08'), log('t4', 'n', 'squat', 105, '2026-10-15')];
+    const tt = deskTotalTrend('n', t);
+    eq(tt.values.length, 2); eq(Math.round(tt.values[0]), 308); eq(Math.round(tt.delta * 10) / 10, 5.5);
+  } finally { Store.set(saved); }
+});
 test('App Store paywall: says which failure it hit', () => {
   const plan = { id: 'com.powalifta.app.coach.pro' };
   eq(iapPaywallState({ products: [plan] }, true).kind, 'ok');

@@ -504,7 +504,7 @@ function _buildCoachDemoData() {
   [11, 12, 13].forEach((d, i) => { ans(0, 'demo-a3', d, [5.5, 6, 5][i]); ans(1, 'demo-a3', d, [7, 8, 7][i]); ans(2, 'demo-a3', d, i === 1 ? 1 : 0); });
   ans(3, 'demo-a1', 0, null, 'On point'); ans(3, 'demo-a1', 7, null, 'On point'); ans(3, 'demo-a2', 0, null, 'Mostly'); ans(3, 'demo-a3', 14, null, 'Off');
 
-  return {
+  const demo = {
     user: user,
     store: {
       checkinQuestions: ciQs, checkinAnswers: ciAs, programBlocks,
@@ -526,6 +526,12 @@ function _buildCoachDemoData() {
       marketplacePrograms, mySales, myPurchases: []
     }
   };
+  // The laptop desk (desk.js) seats ~16 more lifters so Today and the roster show real scale.
+  // Phones and the iPhone app keep the four above.
+  if (document.documentElement.classList.contains('desk') && typeof deskSeedDemo === 'function') {
+    try { deskSeedDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('deskSeedDemo', e); }
+  }
+  return demo;
 }
 
 function _injectDemoBanner(type) {
@@ -3884,6 +3890,17 @@ async function renderMessageThread(container, opts) {
   const { coachId, athleteId, viewerId, otherName } = opts || {};
   const weaveNotes = !opts || opts.weaveNotes !== false;
   const demo = !!window._demoMode;
+  // markRead: false (the desk's side pane) waits until the viewer touches the thread before it
+  // marks anything read, so stepping through a queue never sends "Seen". opts.onRead runs then.
+  let markRead = !opts || opts.markRead !== false;
+  const markNow = () => {
+    if (demo) {
+      (Store.get().messages || []).forEach(m => {
+        if (m.coachId === coachId && m.athleteId === athleteId && m.senderId !== viewerId && !m.readAt) m.readAt = new Date().toISOString();
+      });
+    } else DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+    if (opts && typeof opts.onRead === 'function') { try { opts.onRead(); } catch (e) {} }
+  };
   if (!container) return;
   // Tear down a realtime channel left over from a previous render of this host
   // (re-render, modal reopen, athlete switching threads) before rebuilding.
@@ -3913,6 +3930,18 @@ async function renderMessageThread(container, opts) {
   composer.appendChild(sendBtn);
   wrap.appendChild(composer);
   container.appendChild(wrap);
+  if (!markRead) {
+    // Deferred read: the first focus in the composer or click in the thread counts as opening it.
+    const touch = () => {
+      if (markRead) return;
+      markRead = true;
+      wrap.removeEventListener('pointerdown', touch, true);
+      ta.removeEventListener('focus', touch);
+      markNow();
+    };
+    wrap.addEventListener('pointerdown', touch, true);
+    ta.addEventListener('focus', touch);
+  }
 
   // Reactions: messageId → [{ userId, reaction }]. Demo keeps them in memory.
   const reacts = {};
@@ -3983,7 +4012,7 @@ async function renderMessageThread(container, opts) {
     list.innerHTML = '';
     if (!items.length) {
       list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
-        'No messages yet. Say hi to ' + (otherName || 'them') + '.'));
+        (opts && opts.emptyText) || ('No messages yet. Say hi to ' + (otherName || 'them') + '.')));
       return;
     }
     // The most recent message I sent is the only one that carries a Sent/Seen
@@ -4080,11 +4109,7 @@ async function renderMessageThread(container, opts) {
     notes = await loadNotes();
     paint(buildTimeline(messages, notes));
     // Clear unread on open (in-memory only — nothing persists in demo).
-    (Store.get().messages || []).forEach(m => {
-      if (m.coachId === coachId && m.athleteId === athleteId && m.senderId !== viewerId && !m.readAt) {
-        m.readAt = new Date().toISOString();
-      }
-    });
+    if (markRead) markNow();
   } else {
     try {
       const [msgs, nts, rx] = await Promise.all([DB.listMessages(coachId, athleteId), loadNotes(),
@@ -4093,7 +4118,7 @@ async function renderMessageThread(container, opts) {
       (rx || []).forEach(putReaction);
       paint(buildTimeline(messages, notes));
       // Mark the ones addressed to me as read (fire and forget).
-      DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+      if (markRead) markNow();
     } catch (e) {
       console.warn('renderMessageThread load', e);
       list.innerHTML = '';
@@ -4109,7 +4134,7 @@ async function renderMessageThread(container, opts) {
           if (messages.some(x => x.id === m.id)) return;
           messages.push(m);
           paint(buildTimeline(messages, notes));
-          if (m.senderId !== viewerId) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+          if (m.senderId !== viewerId && markRead) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
         })
       : null;
     // Live read-receipts — when the other party opens the thread, their read of
@@ -4168,7 +4193,10 @@ async function renderMessageThread(container, opts) {
           }).catch(() => {});
         }
       }
-      if (msg) { messages.push(msg); paint(buildTimeline(messages, notes)); }
+      if (msg) {
+        messages.push(msg); paint(buildTimeline(messages, notes));
+        if (opts && typeof opts.onSent === 'function') { try { opts.onSent(msg); } catch (e) {} }
+      }
       ta.value = '';
       autosize();
     } catch (e) {
@@ -7147,6 +7175,7 @@ window.closeCommandPalette = closeCommandPalette;
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
     if (!document.querySelector('.sidebar-tab')) return; // no-op on public pages
+    if (document.documentElement.classList.contains('desk') && typeof openDeskPalette === 'function') return; // the coach desk has its own (desk.js)
     e.preventDefault();
     if (_cmdEl && _cmdEl.classList.contains('open')) closeCommandPalette();
     else openCommandPalette();
@@ -9235,6 +9264,265 @@ function agoText(days) {
   if (days < 14) return days + 'd ago';
   return Math.round(days / 7) + 'w ago';
 }
+
+// ===== THE COACH DESK (laptop, W1a 2026-10-22) =====
+// What the laptop desk knows about each athlete: why they need the coach (Today's queue, in the
+// brief's severity order), what went well (the Wins lane), and the roster's columns (RPE drift,
+// next meet, bodyweight against class, readiness). Pure over Store; desk.js draws it.
+// Unit-tested in tests.html. Reason groups: 1 pain · 2 meet / weight · 3 RPE · 4 notes and
+// messages · 5 form checks · 6 check-in answers · 7 quiet / missed · 8 the block · 9 e1RM flat.
+function _deskDays(fromIso, toIso) { return Math.round((Date.parse(toIso + 'T12:00:00Z') - Date.parse(String(fromIso).slice(0, 10) + 'T12:00:00Z')) / 86400000); }
+// Average RPE over (or under) what was written, across the last 7 days of logged program sets.
+function deskRpeDrift(prog, todayIso) {
+  if (!prog) return null;
+  const since = _addDaysISO(todayIso || todayISO(), -7);
+  const diffs = programLoggedSets(prog).filter(x => x.date >= since && !x.set.attempt && x.set.actualRpe != null && x.set.rpe != null && x.set.rpe !== '' && !x.set.rir)
+    .map(x => {
+      const top = x.set.rpeHi != null && Number(x.set.rpeHi) > Number(x.set.rpe) ? Number(x.set.rpeHi) : Number(x.set.rpe);
+      return Number(x.set.actualRpe) - top;
+    }).filter(n => isFinite(n));
+  if (!diffs.length) return null;
+  return { avg: Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length * 10) / 10, n: diffs.length };
+}
+// The worst set over target in the last 7 days: { title, logged, wrote, over, date } or null.
+function deskWorstOvershoot(prog, todayIso) {
+  if (!prog) return null;
+  const since = _addDaysISO(todayIso || todayISO(), -7);
+  const w = programLoggedSets(prog).filter(x => x.date >= since && setOvershoot(x.set) > 0)
+    .sort((a, b) => setOvershoot(b.set) - setOvershoot(a.set) || b.date.localeCompare(a.date))[0];
+  if (!w) return null;
+  const wrote = w.set.rpeHi != null && Number(w.set.rpeHi) > Number(w.set.rpe) ? Number(w.set.rpeHi) : Number(w.set.rpe);
+  return { title: _exShortTitle(w.ex), logged: _num(w.set.actualRpe), wrote: _num(wrote), over: setOvershoot(w.set), date: w.date, set: w.set };
+}
+// The next meet on the calendar (today or later): { meet, days } or null.
+function deskNextMeet(athleteId, todayIso) {
+  const t = todayIso || todayISO();
+  const m = (Store.get().meets || []).filter(x => x.athleteId === athleteId && x.date && String(x.date).slice(0, 10) >= t)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+  return m ? { meet: m, days: _deskDays(t, m.date) } : null;
+}
+// The latest weigh-in against the class limit of the next meet: { bw, cls, over } (kg) or null.
+// "120+" style classes have no ceiling, so they never read as over.
+function deskBodyweightVsClass(athleteId, meet) {
+  if (!meet || !meet.weightClass || /\+/.test(meet.weightClass)) return null;
+  const cls = parseFloat(String(meet.weightClass).replace(',', '.'));
+  if (!(cls > 0)) return null;
+  const last = (Store.get().bodyweight || []).filter(b => b.athleteId === athleteId && Number(b.weight) > 0)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  if (!last) return null;
+  const bw = Number(last.weight);
+  return { bw, cls, over: Math.round((bw - cls) * 10) / 10 };
+}
+// Resting heart rate today against the lifter's own recent norm (shared from Apple Health).
+// { delta, tone: 'ok' | 'warn', text } or null without at least four days.
+function deskReadiness(athleteId) {
+  const days = (Store.get().healthDaily || []).filter(h => h.athleteId === athleteId && Number(h.rhr) > 0)
+    .sort((a, b) => String(b.day).localeCompare(String(a.day)));
+  if (days.length < 4) return null;
+  const base = days.slice(1, 31).reduce((s, h) => s + Number(h.rhr), 0) / Math.min(30, days.length - 1);
+  const delta = Math.round(Number(days[0].rhr) - base);
+  return { delta, tone: delta >= 5 ? 'warn' : 'ok', text: delta >= 5 ? 'Resting HR +' + delta + ' over their norm' : 'Resting HR at their norm' };
+}
+// A set logged in the last 30 minutes (a full timestamp, not just a date): they're training now.
+function deskTrainingNow(prog, nowMs) {
+  const now = nowMs || Date.now();
+  let n = 0, latest = 0;
+  ((prog && prog.weeks) || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(s => {
+    if (!s.completed || !s.completedAt || String(s.completedAt).indexOf('T') < 0) return;
+    const t = Date.parse(s.completedAt);
+    if (isFinite(t) && now - t >= 0 && now - t <= 30 * 60000) { n++; latest = Math.max(latest, t); }
+  }))));
+  return n ? { sets: n, at: latest } : null;
+}
+// The thread's last message per athlete from Store (the demo and anything already loaded):
+// { athleteId: { lastAt, lastSenderId, lastBody } }. Real accounts pass DB.listThreadsForCoach rows.
+function deskThreadDigest(coachId, rows) {
+  const out = {};
+  if (rows) { rows.forEach(r => { out[r.athleteId] = r; }); return out; }
+  (Store.get().messages || []).filter(m => !coachId || m.coachId === coachId).forEach(m => {
+    const t = out[m.athleteId];
+    if (!t || String(m.createdAt) > String(t.lastAt)) out[m.athleteId] = { athleteId: m.athleteId, lastAt: m.createdAt, lastSenderId: m.senderId, lastBody: m.body };
+  });
+  return out;
+}
+// Why this athlete needs the coach, worst first. opts: { coachId, today, now, status, threads,
+// formChecks }. Each: { type, group, text, tone: alert | warn | info | meet, detail }.
+function deskReasons(athleteId, opts) {
+  opts = opts || {};
+  const s = Store.get();
+  const t = opts.today || todayISO();
+  const now = opts.now || Date.now();
+  const st = opts.status || coachAthleteStatus(athleteId, { coachId: opts.coachId, today: t });
+  const prog = st.program;
+  const out = [];
+  const add = (type, group, text, tone, detail, extra) => out.push(Object.assign({ type, group, text, tone, detail: detail || '' }, extra || {}));
+  // 1 · pain, and 6 · the other check-in answers worth a look
+  const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
+  (myQs.length ? checkinAlerts(myQs, s.checkinAnswers, athleteId, t) : []).forEach(a => {
+    if (/^Pain/.test(a.text)) add('pain', 1, a.text, 'alert', 'Said yes to pain on their check-in ' + a.text.replace(/^Pain /, ''));
+    else add('checkin', 6, a.text.replace(/(\d) h$/, '$1h'), a.severity >= 2 ? 'warn' : 'info', 'From their check-in');
+  });
+  // 2 · a meet inside two weeks, or over the class with one coming
+  const nm = deskNextMeet(athleteId, t);
+  if (nm && nm.days <= 14) add('meet', 2, nm.days === 0 ? 'Meet today' : 'Meet in ' + nm.days + 'd', 'meet', nm.meet.name + (nm.meet.weightClass ? ' · ' + nm.meet.weightClass : ''));
+  if (nm && nm.days <= 56) {
+    const bw = deskBodyweightVsClass(athleteId, nm.meet);
+    if (bw && bw.over > 0) add('weight', 2, 'BW +' + _num(bw.over) + ' over class', 'warn', _num(bw.bw) + ' kg for the ' + nm.meet.weightClass + ' class, ' + nm.days + ' days out');
+  }
+  // 3 · RPE: a top set a full point over, or the week drifting half a point over
+  const os = deskWorstOvershoot(prog, t);
+  if (os) add('overshoot', 3, os.title + ' @' + os.logged + ' vs @' + os.wrote, os.over >= 1.5 ? 'alert' : 'warn', 'Logged RPE ' + os.logged + ' where you wrote ' + os.wrote);
+  else {
+    const dr = deskRpeDrift(prog, t);
+    if (dr && dr.avg >= 0.5 && dr.n >= 3) add('drift', 3, 'RPE +' + dr.avg + ' this week', 'warn', 'Across ' + dr.n + ' logged sets');
+  }
+  // 4 · their words waiting on a reply: session notes, and a message older than 12 hours
+  const waiting = (s.sessionNotes || []).filter(n => n.athleteId === athleteId && n.note && String(n.note).trim() && !n.coachComment)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if (waiting.length) {
+    const d = Math.max(0, _deskDays(waiting[0].date, t));
+    // The note itself shows once, under "Their latest note"; here, how long it has waited.
+    add('note', 4, (waiting.length > 1 ? waiting.length + ' notes' : 'Note') + ' waiting' + (d ? ' ' + d + 'd' : ''), 'info', 'Waiting on your answer since ' + fmtDateShort(waiting[0].date));
+  }
+  const th = (opts.threads || {})[athleteId];
+  if (th && th.lastSenderId === athleteId && th.lastAt && now - Date.parse(th.lastAt) >= 12 * 3600000) {
+    const h = Math.floor((now - Date.parse(th.lastAt)) / 3600000);
+    add('message', 4, 'Message ' + (h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'), 'info', 'Their last message has no reply yet', { body: String(th.lastBody || '').slice(0, 160) });
+  }
+  // 5 · form checks waiting on a review
+  const fc = (opts.formChecks || []).filter(f => f.athleteId === athleteId && !f.coachReply);
+  if (fc.length) add('formcheck', 5, fc.length > 1 ? fc.length + ' form checks' : 'Form check' + (fc[0].lift && fc[0].lift !== 'other' ? ' · ' + fc[0].lift : ''), 'info', fc[0].note || 'Video waiting on your review', { formCheckId: fc[0].id });
+  // 7 · quiet (by the day they logged, never server receipt) or behind this week
+  if (st.ago == null) { if (prog) add('never', 7, 'No sets yet', 'warn', 'Has a program but has not logged a set'); }
+  else if (st.ago >= 5) add('quiet', 7, 'Quiet', 'warn', 'Last trained ' + agoText(st.ago).toLowerCase());   // the days sit in the row's meta, once
+  st.flags.filter(f => f.type === 'missed').forEach(f => add('missed', 7, f.text.replace(' this week', ''), 'warn', f.text));
+  // 8 · the block: none yet, finished, or ending with nothing after it
+  st.flags.forEach(f => {
+    if (f.type === 'noprogram') add('noprogram', 8, 'No program', 'info', 'Nothing assigned yet');
+    else if (f.type === 'blockdone') add('blockdone', 8, 'Block done', 'warn', 'Every set is logged: write the next block');
+    else if (f.type === 'blockend') add('blockend', 8, 'Block ends this week', 'info', 'Nothing written after ' + ((prog && prog.name) || 'it') + ' yet');
+    else if (f.type === 'stalling') add('stalling', 9, 'e1RM flat 3 wk', 'info', 'No main lift up in three weeks');
+  });
+  return out.sort((a, b) => a.group - b.group);
+}
+// The good news: PRs this week, a streak reaching a 4-week milestone, a meet total PR.
+function deskWins(athleteId, opts) {
+  opts = opts || {};
+  const t = opts.today || todayISO();
+  const s = Store.get();
+  const logs = (s.workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const out = [];
+  const since = _addDaysISO(t, -6);
+  const prLifts = [];
+  logs.filter(l => MAIN_LIFTS.includes(l.lift) && l.date >= since && l.date <= t && isPRForLog(athleteId, l))
+    .forEach(l => { if (!prLifts.includes(l.lift)) prLifts.push(l.lift); });
+  if (prLifts.length) {
+    const names = MAIN_LIFTS.filter(L => prLifts.includes(L)).map(L => LIFT_LABELS[L]);
+    out.push({ type: 'pr', text: names.length === 3 ? '3 lift PRs' : names.join(' + ') + ' PR', lifts: prLifts });
+  }
+  // Consecutive weeks with training, counting back from this week.
+  const weeks = new Set(logs.map(l => _monISO(l.date)));
+  let streak = 0;
+  for (let wk = _monISO(t); weeks.has(wk); wk = _addDaysISO(wk, -7)) streak++;
+  if (streak >= 4 && streak % 4 === 0) out.push({ type: 'streak', text: streak + '-week streak' });
+  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && m.date && String(m.date).slice(0, 10) <= t);
+  const tot = (m) => (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
+  const recent = meets.filter(m => _deskDays(m.date, t) <= 10).sort((a, b) => tot(b) - tot(a))[0];
+  if (recent && tot(recent) > 0 && meets.filter(m => m !== recent && String(m.date) < String(recent.date)).every(m => tot(m) < tot(recent))) {
+    out.push({ type: 'meetpr', text: 'Meet PR · ' + _num(tot(recent)) + ' total' });
+  }
+  return out;
+}
+// The e1RM total over the last 8 weeks, counted only from the week all three lifts have a number
+// (a new lifter's first squat-only week would otherwise read as a +200 jump). { values, delta }.
+function deskTotalTrend(athleteId, todayIso) {
+  const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const per = {};
+  MAIN_LIFTS.forEach(L => {
+    per[L] = strengthSeries(logs, L, { weeks: 8, today: todayIso });
+  });
+  const weeks = Array.from(new Set(MAIN_LIFTS.flatMap(L => per[L].map(p => p.week)))).sort();
+  const best = {}, values = [];
+  const first = weeks[0] || null;
+  MAIN_LIFTS.forEach(L => {
+    best[L] = logs.filter(l => l.lift === L && first && l.date < first && Number(l.e1rmComp) > 0).reduce((m, l) => Math.max(m, Number(l.e1rmComp)), 0);
+  });
+  weeks.forEach(wk => {
+    MAIN_LIFTS.forEach(L => { const p = per[L].find(x => x.week === wk); if (p && p.value > best[L]) best[L] = p.value; });
+    if (MAIN_LIFTS.every(L => best[L] > 0)) values.push(best.squat + best.bench + best.deadlift);
+  });
+  const delta = values.length >= 2 ? values[values.length - 1] - values[Math.max(0, values.length - 5)] : null;
+  return { values, delta };
+}
+// One row per athlete for Today and the roster: status, reasons, wins and the columns.
+function deskRows(coachId, opts) {
+  opts = opts || {};
+  const t = opts.today || todayISO();
+  const now = opts.now || Date.now();
+  const threads = opts.threads || deskThreadDigest(coachId);
+  return (Store.get().athletes || []).filter(a => a.coachId === coachId).map(a => {
+    const status = coachAthleteStatus(a.id, { coachId, today: t });
+    const meet = deskNextMeet(a.id, t);
+    return {
+      athlete: a, status, meet,
+      reasons: deskReasons(a.id, { coachId, today: t, now, status, threads, formChecks: opts.formChecks }),
+      wins: deskWins(a.id, { today: t }),
+      drift: deskRpeDrift(status.program, t),
+      total: deskTotalTrend(a.id, t),
+      bw: meet && meet.days <= 56 ? deskBodyweightVsClass(a.id, meet.meet) : null,
+      readiness: deskReadiness(a.id),
+      live: deskTrainingNow(status.program, now)
+    };
+  });
+}
+// What a review covered: the reason types, so a NEW reason brings the athlete back this week.
+function deskReasonSig(reasons) { return (reasons || []).map(r => r.type).sort().join(','); }
+function _deskStillReviewed(entry, reasons) {
+  if (!entry) return false;
+  const had = String(entry.sig || '').split(',');
+  return (reasons || []).every(r => had.includes(r.type));
+}
+// Today's queue. opts: { today, reviewed: { id: { at, sig } }, snoozed: { id: 'YYYY-MM-DD' } }.
+// → { queue: rows worst first, done: rows reviewed this week, wins: rows with good news, total }
+function deskQueue(rows, opts) {
+  opts = opts || {};
+  const t = opts.today || todayISO();
+  const reviewed = opts.reviewed || {}, snoozed = opts.snoozed || {};
+  const flagged = rows.filter(r => r.reasons.length);
+  const isDone = (r) => _deskStillReviewed(reviewed[r.athlete.id], r.reasons);
+  const isSnoozed = (r) => !!snoozed[r.athlete.id] && snoozed[r.athlete.id] > t;
+  const worst = (r) => r.reasons[0].group;
+  const toneRank = { alert: 0, warn: 1, meet: 2, info: 3 };
+  const queue = flagged.filter(r => !isDone(r) && !isSnoozed(r)).sort((a, b) =>
+    worst(a) - worst(b) || (toneRank[a.reasons[0].tone] || 3) - (toneRank[b.reasons[0].tone] || 3) ||
+    b.reasons.length - a.reasons.length || String(a.athlete.name).localeCompare(String(b.athlete.name)));
+  const done = flagged.filter(isDone);
+  const winsSeen = opts.winsSeen || {};
+  const wins = rows.filter(r => r.wins.length && !winsSeen[r.athlete.id]).sort((a, b) => b.wins.length - a.wins.length || String(a.athlete.name).localeCompare(String(b.athlete.name)));
+  return { queue, done, wins, snoozed: flagged.filter(r => !isDone(r) && isSnoozed(r)), total: queue.length + done.length };
+}
+// The saved views in the rail. Counts are live: deskViewCount(rows, key).
+const DESK_VIEWS = [
+  { key: 'needs', label: 'Needs me' },
+  { key: 'meet', label: 'Meet ≤ 8 wk' },
+  { key: 'pain', label: 'Pain' },
+  { key: 'quiet', label: 'Quiet 7d+' },
+  { key: 'new', label: 'New this month' },
+  { key: 'wins', label: 'Wins' }
+];
+function deskViewMatch(key, row, nowMs) {
+  const now = nowMs || Date.now();
+  switch (key) {
+    case 'needs': return row.reasons.some(r => r.group <= 8);
+    case 'meet': return !!row.meet && row.meet.days <= 56;
+    case 'pain': return row.reasons.some(r => r.type === 'pain');
+    case 'quiet': return row.status.ago == null ? !!row.status.program : row.status.ago >= 7;
+    case 'new': return !!row.athlete.createdAt && now - Number(row.athlete.createdAt) <= 30 * 86400000;
+    case 'wins': return row.wins.length > 0;
+    default: return true;
+  }
+}
+function deskViewCount(rows, key, nowMs) { return rows.filter(r => deskViewMatch(key, r, nowMs)).length; }
 
 // ===== BLOCKS (2026-10-22) =====
 // A program with logged training is kept as a past block before anything replaces it (the next

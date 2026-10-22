@@ -1071,5 +1071,41 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Tap **WhatsApp** or **Email** under this chat: they go straight to the founder and carry your question with them. Or message +968 7151 8133 on WhatsApp, or email powalifta1320@gmail.com. Say which screen you were on and what happened (a screenshot helps); for billing, add your account email and the date and amount of the charge.",
   "esc": true
+ },
+ {
+  "id": "coach-desk-today",
+  "q": "What is Today on the coach laptop view, and how do the keyboard shortcuts work?",
+  "t": [
+   "today queue",
+   "coach desk",
+   "laptop view",
+   "keyboard shortcuts",
+   "all caught up",
+   "who needs me",
+   "snooze",
+   "shortcut",
+   "command palette",
+   "cmd k"
+  ],
+  "a": "On a laptop (a window at least 1000px wide) the coach dashboard opens on Today: every athlete who needs you this week, worst first (pain on a check-in, a meet close, a set well over the RPE you wrote, a note or message waiting, going quiet, a block ending). Press J and K to move, E when you've dealt with someone (they drop off until something new comes up), S to snooze them till tomorrow, U to undo, R to reply and Enter to open their page. Work down to \"All caught up\", then send kudos to the Wins lane. Press ⌘K (Ctrl K on Windows) for the command palette and ? for every shortcut. Your phone and the iPhone app keep the usual layout.",
+  "app": "Today and the keyboard shortcuts are part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app the coach screens keep their usual layout."
+ },
+ {
+  "id": "coach-desk-roster",
+  "q": "How do I filter, search or message several athletes at once on the laptop roster?",
+  "t": [
+   "saved views",
+   "filter roster",
+   "search roster",
+   "message everyone",
+   "broadcast",
+   "bulk",
+   "select athletes",
+   "compact rows",
+   "density",
+   "columns"
+  ],
+  "a": "On a laptop, the views under the menu on the left (Meet within 8 weeks, Pain, Quiet 7 days or more, New this month, Wins) filter the roster and show live counts; \"need you\" at the top filters to everyone flagged. Press / to search by name. Tick the boxes (or press X on a row) and a bar appears to message everyone you picked (each gets it in their own thread), assign a template or export them as a CSV. The row icons switch between comfortable and compact rows, and the list icon chooses columns. Click a row to preview it on the right; press Enter or double-click to open their page.",
+  "app": "Saved views, search and bulk messages are part of the coach dashboard on a laptop or desktop browser at powalifta.com."
  }
 ];

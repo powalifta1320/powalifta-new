@@ -11,6 +11,9 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<!-- The laptop desk (desk.js): at least 1000px wide and not the iPhone app. Set before the first
+     frame, with the desk's remembered density / collapsed rail / hidden side pane. -->
+<script>(function(){try{var d=document.documentElement;if(!d.classList.contains('native')&&window.matchMedia&&matchMedia('(min-width: 1000px)').matches){d.classList.add('desk');var g=function(k){try{return localStorage.getItem(k)}catch(e){return null}};if(g('powa-desk-density')==='compact')d.setAttribute('data-density','compact');if(g('powa-desk-rail')==='min')d.classList.add('rail-min');var c=g('powa-desk-ctx');if(c==='off'||(!c&&!matchMedia('(min-width: 1280px)').matches))d.classList.add('ctx-off');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -24,6 +27,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="dash-fx.css">
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
+<link rel="stylesheet" href="desk.css"><!-- the laptop coach desk: html.desk only -->
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -53,6 +57,9 @@
 
     <!-- DUNNING / BILLING BANNER (#35) — page-wide, above every tab -->
     <div id="dunningMount"></div>
+
+    <!-- TODAY (laptop desk only, desk.js): who needs you, worst first. -->
+    <section data-pane="today" class="hidden"><div id="deskToday" class="dk-today"></div></section>
 
     <!-- ROSTER -->
     <section data-pane="athletes">
@@ -323,7 +330,12 @@
 <script src="app.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
+<script src="desk.js"></script>
 <script>
+// The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
+// dashboard still boots. Function declarations, so the first render can call them.
+function _desk() { return typeof isDesk === 'function' && isDesk(); }
+function _deskCall(name, arg) { try { if (typeof window[name] === 'function') return window[name](arg); } catch (e) { console.warn(name, e); } }
 let user; let activeWeekIdx = 0;
 // Builder exercises whose editor is open (survives the re-render every edit does).
 const _pbOpen = new Set();
@@ -385,6 +397,8 @@ bootstrap('coach', () => {
   // A reload on an athlete's page (#athlete=ID) comes back to it.
   try { const m = /#athlete=([\w-]+)/.exec(location.hash || ''); if (m) setTimeout(() => openAthletePage(m[1]), 60); } catch (e) {}
   renderDunningBanner(document.getElementById('dunningMount')); // #35 failed-payment/plan-lapse banner
+  // The laptop desk: rail, Today (the default landing), ⌘K. No-op on phones and in the app.
+  _deskCall('deskWatch');
   refreshUnreadBadges();
   subscribeRosterMessages();
   refreshFormChecks();
@@ -408,7 +422,7 @@ bootstrap('coach', () => {
   });
 
   // Onboarding tour — runs once on first dashboard visit (real users only; demo stays clean).
-  if (!isTourDone('coach') && !window._demoMode) {
+  if (!isTourDone('coach') && !window._demoMode && !_desk()) {   // the tour points at the phone's tabs
     setTimeout(maybeStartCoachTour, 700);
   }
 });
@@ -766,8 +780,9 @@ async function declineJoinRequest(req, rowEl) {
 // Download the whole roster as a CSV — one row per athlete with recency,
 // adherence, best comp-equivalent e1RMs + total. Reuses the shared CSV +
 // download helpers. Local file only (no network), so it's demo-safe.
-function exportRosterCsv() {
-  const overview = getRosterOverview(user.id);
+function exportRosterCsv(ids) {
+  // ids: just these athletes (the desk's bulk bar). A click handler passes an event: everyone.
+  const overview = getRosterOverview(user.id).filter(o => !Array.isArray(ids) || ids.includes(o.athlete.id));
   if (!overview.length) { toast('No athletes to export yet'); return; }
   const u = unitLabel();
   const disp = v => v ? Math.round(kgToDisplay(v)) : '';
@@ -1365,12 +1380,14 @@ function openAthletePage(athleteId) {
   document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'athletes'));
   try { if (location.hash !== '#athlete=' + athleteId) history.pushState({ athlete: athleteId }, '', '#athlete=' + athleteId); } catch (e) {}
   renderAthletePage(athleteId);
+  _deskCall('deskOnAthletePage');
   window.scrollTo(0, 0);
 }
 window.openAthletePage = openAthletePage;
 window.addEventListener('popstate', () => {
   const m = /#athlete=([\w-]+)/.exec(location.hash || '');
   if (m && _rosterWide()) openAthletePage(m[1]);
+  else if (_desk()) deskRoute();
   else { const ap = document.querySelector('[data-pane="athlete"]'); if (ap && !ap.classList.contains('hidden')) document.getElementById('tab-athletes').click(); }
 });
 function _apDayStatus(day) {
@@ -1388,7 +1405,7 @@ function renderAthletePage(athleteId) {
   const st = coachAthleteStatus(athleteId, { coachId: user.id });
   const u = unitLabel();
   const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
-  const back = el('button', { class: 'ap-back', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Roster</span>' });
+  const back = el('button', { class: 'ap-back', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>' + (_desk() ? deskBackLabel() : 'Roster') + '</span>' });
   back.addEventListener('click', () => { try { history.back(); } catch (e) { document.getElementById('tab-athletes').click(); } });
   host.appendChild(back);
   // Who, where in the block, the one red action.
@@ -1589,6 +1606,8 @@ function renderRoster() {
   area.appendChild(reqHost);
   renderJoinRequests(reqHost);
 
+  // The laptop desk draws its own roster: one-line head, the table, a preview pane (desk.js).
+  if (_desk()) { deskRenderRoster(area); _paintRosterInvites(); return; }
   if (overview.length && _rosterWide()) {
     renderRosterTable(area);
     appendRosterExtras(area);
@@ -1888,6 +1907,8 @@ async function refreshUnreadBadges() {
     const map = {};
     unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
     _unreadByAthlete = map;
+    // The desk repaints its own rows in place (the search box and focus survive a new message).
+    if (_desk()) { _deskCall('deskRefresh'); return; }
     if (document.querySelector('[data-tab="athletes"]').classList.contains('active') ||
         document.getElementById('rosterArea').children.length) {
       renderRoster();
@@ -2112,6 +2133,7 @@ async function refreshFormChecks() {
   if (window._demoMode) { _coachFormChecks = []; return; }
   try {
     _coachFormChecks = await DB.listFormChecksForCoach(user.id);
+    if (_desk()) { _deskCall('deskRefresh'); return; }
     if (document.getElementById('rosterArea').children.length) renderRoster();
   } catch (e) { console.warn('refreshFormChecks', e); }
 }
