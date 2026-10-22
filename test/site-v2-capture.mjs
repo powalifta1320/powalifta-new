@@ -1,8 +1,9 @@
 // site-v2-capture.mjs: the homepage's product stills (website v2), captured from the live demos.
 //
 // Re-run it whenever the desk (coach.html?demo=1) or the lifter app (athlete.html?demo=1) changes.
-// The desk is being re-skinned (vault: Specs/Desk + website v2), so this is meant to be run again
-// once that lands. From the repo root, with any local server of this repo running:
+// Last fitted to desk v2 (vault: Specs/Desk + website v2): the sidebar, Today in plain sentences,
+// the athlete's week table and the Roster's Week sheet. From the repo root, with any local server
+// of this repo running:
 //   node test/site-v2-capture.mjs [base]        base defaults to http://127.0.0.1:4193
 // Needs playwright-core (npm i -g playwright-core; the headless shell path is below), cwebp, sips.
 //
@@ -10,13 +11,17 @@
 //   desk-hero.webp, desk-hero-1440.webp     Today, worst first (the hero laptop), 2160 and 1440 wide
 //   desk-hero-m.webp                        the hero on phones: the Today list from its header to just
 //                                           past the landing row, 2x
-//   desk-table.webp, desk-table-1x.webp     an athlete's program grid, cut to its window (2x and 1x):
-//                                           written over lifted, next week typed in place, the "fill
-//                                           the weeks after" suggestions
-//   desk-table-m.webp                       the same grid on phones: names and week 2, 2x
-//   desk-roster.webp, desk-roster-1440.webp the whole roster on one screen
+//   desk-review.webp, desk-review-1x.webp   #desk: one athlete's week on Today (Marcus), cut to his
+//                                           pane (2x and 1x): Written | Logged | RPE gap | Week 3,
+//                                           one week-3 cell typed over (a draft, so Publish shows) and
+//                                           the suggestion chip from the RPE he logged
+//   desk-review-m.webp                      the same table on phones: the pane narrowed so the desk
+//                                           folds it the way it does in a narrow pane, 2x
+//   desk-sheet.webp, desk-sheet-1x.webp     #roster: the Roster's Week sheet, cut to its window
+//   desk-sheet-m.webp                       the same sheet on phones: names and the first two days
+//   desk-table-m.webp                       switch.html: the program grid a pasted program lands in
 //   app-train.webp                          the lifter's Train screen, 393x852 @2x, as the iPhone app
-// and og.png (1200x630, the Today queue and review).
+// and og.jpg (1200x630, the Today queue and review; JPEG keeps it far under 300 KB).
 //
 // Then it rewrites, in index.html (and switch.html), the style on every element with data-cap="NAME" to the box of
 // the thing it points at, as fractions of its still (--x --y --w --h), so the site's overlays (the
@@ -25,13 +30,14 @@
 //   land      the athlete row a logged set lands on (hero)
 //   log       the Log set button on the phone (hero)
 //   hero-m    the hero's window on phones: the Today list down past that row (--mx --my --mw --mh)
-//   pin1-3    the table's three notes: a set lifted over its RPE, next week typed in place,
-//             the suggestions for the weeks after
-//   table, roster       the window each section shows of its still (--cx --cy --cw --ch)
-//   table-m, roster-m   the same on phones (--mx --my --mw --mh)
+//   pin1-3    the week table's three notes: the RPE gap, the suggestion chip, the typed cell
+//             (--x.. on the desktop frame, --px --py --pw --ph on the narrowed phone frame)
+//   review, sheet       the window each section shows of its still (--cx --cy --cw --ch)
+//   review-m, sheet-m   the same on phones (--mx --my --mw --mh)
+//   table-m             switch.html's grid window
 // Each lookup is by visible text, not class names, so it survives a re-skin; when one fails, the
 // script says so and leaves that element's old values in place. After a re-skin, re-read the copy
-// beside each still (index.html #table, #roster) against what the new capture actually shows.
+// beside each still (index.html #desk, #roster) against what the new capture actually shows.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, statSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
@@ -104,10 +110,25 @@ async function find(page, re, opts = {}) {
     return { x: r.left, y: r.top, w: r.width, h: r.height };
   }, { src: re.source, flags: re.flags, within: opts.within || null, upSel: opts.up || null, minW: opts.minW || 0, color: !!opts.red });
 }
-function frac(name, b, fw = W, fh = H) {
-  if (!b) { misses.push(name); console.log('  MISS', name); return; }
+// pre '' writes --x --y --w --h; 'p' the phone frame's --px --py --pw --ph, merged onto the same name.
+function frac(name, b, fw = W, fh = H, pre = '') {
+  if (!b) { misses.push(name + (pre ? ' (' + pre + ')' : '')); console.log('  MISS', name, pre); return; }
   const f = (v) => +v.toFixed(4);
-  caps[name] = { '--x': f(b.x / fw), '--y': f(b.y / fh), '--w': f(b.w / fw), '--h': f(b.h / fh) };
+  caps[name] = Object.assign(caps[name] || {}, { ['--' + pre + 'x']: f(b.x / fw), ['--' + pre + 'y']: f(b.y / fh), ['--' + pre + 'w']: f(b.w / fw), ['--' + pre + 'h']: f(b.h / fh) });
+}
+// Writes the frame's window (x0, y0)-(x1, y1) on its own at the capture's 2x (and, with `one`, a 1x
+// copy), and returns the still sizes for the <img> width/height.
+const stills = {};
+async function cut(p, name, file, pre, one) {
+  const m = caps[name];
+  if (!m) return;
+  const clip = { x: Math.round(m['--' + pre + 'x'] * W), y: Math.round(m['--' + pre + 'y'] * H), width: Math.round(m['--' + pre + 'w'] * W), height: Math.round(m['--' + pre + 'h'] * H) };
+  const png = join(TMP, file + '.png');
+  await p.screenshot({ path: png, clip });
+  stills[file] = { w: clip.width * 2, h: clip.height * 2 };
+  console.log(file + '.webp', webp(png, join(IMG, file + '.webp')), clip.width * 2 + 'x' + clip.height * 2);
+  if (one) { stills[file + '-1x'] = { w: clip.width, h: clip.height }; console.log(file + '-1x.webp', webp(png, join(IMG, file + '-1x.webp'), clip.width)); }
+  try { unlinkSync(png); } catch (e) {}
 }
 // A free window from (x0, y0) to (x1, y1), CSS px of the frame. pre 'c' writes the desktop crop
 // (--cx --cy --cw --ch), 'm' the phone one (--mx --my --mw --mh).
@@ -152,16 +173,22 @@ await page.goto(BASE + '/coach.html?demo=1');
 await settle(page, 3500);
 await page.mouse.click(5, 450);
 
-// 1. Today: the hero. The landing row is an athlete who trains today (Arjun in the demo).
+// 1. Today: the hero. The landing row is the lifter whose phone is in front of the laptop: the
+// phone demo (athlete.html?demo=1) is Arjun Mehta's, and he is on the desk's Today list.
 {
   frac('land', await find(page, /^\s*Arjun Mehta\s*$/, { minW: 280 }));
   const list = await find(page, /^\s*Today\s*$/, { minW: 260 });
-  // Phones: the Today list at reading size, from its own header ("Today · 0 of 15 handled", so
+  // Phones: the Today list at reading size, from its own header ("Today · 0 of 14 handled", so
   // the worst-first top row is in it) down to one row past the landing row. It ends on a row
-  // boundary (the row pitch is read off the row above), so no sliver of another row shows.
-  const ln = caps.land, above = await find(page, /^\s*Marcus Doyle\s*$/, { minW: 280 });
+  // boundary (the row pitch is read off the landing row's next row), so no sliver of another row shows.
+  const ln = caps.land;
   const head = await find(page, /^\s*Today\s*$/, { within: '.dash-main, main' });
-  const pitch = ln && above ? ln['--y'] * H - above.y : 66;
+  const pitch = !ln ? 66 : await page.evaluate(({ y, h }) => {
+    // The landing row and the first list row that starts below it.
+    const rows = [...document.querySelectorAll('button, a, li, [role="option"], [role="button"], [tabindex]')].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 260 && r.width < 420 && r.height > 40 && r.height < 120);
+    const below = rows.filter((r) => r.top >= y + h - 2).sort((a, b) => a.top - b.top)[0];
+    return below ? below.top - y : 70;
+  }, { y: ln['--y'] * H, h: ln['--h'] * H });
   if (ln) {
     const top = head && head.y < ln['--y'] * H ? head.y - 10 : ln['--y'] * H - 6 * pitch;
     win('hero-m', ln['--x'] * W - 8, top, (ln['--x'] + ln['--w']) * W + 8, (ln['--y'] + ln['--h']) * H + pitch, 'm');
