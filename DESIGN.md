@@ -191,24 +191,35 @@ focus ring on the web. Touch targets are at least 44px.
 ## Desk (laptop coach, `desk.css`)
 
 The coach's desk (`html.desk`: at least 1000px wide, never the iPhone app) is denser than the phone
-and has its own small scale. Phones and the app never see it.
+and has its own small scale. Phones and the app never see it. v2 (2026-10-22): B's clean dark look on
+C's structure (vault `Specs/Desk + website v2`).
 
-- Radius: 10px rows, cards and panes; 8px controls (rail items, icon buttons, menu items); 12px menus;
-  16px dialogs; 6px keycaps and tiny marks; capsules (999px) for buttons, chips and badges.
-- Rows: `--row-h` 44px, 36px compact (the density toggle). Table type 13px tabular, section titles 16px.
-- Status tokens, used only on flags (dark / light, light measured at 4.5:1 or better on their 13% tint):
-  `--dk-alert` soft-alert / `#a8192b` (pain, a set 1.5+ RPE over); `--dk-warn` soft-warn / `#8a4500`
-  (quiet, drift, block done); `--dk-gold` `#ffc23d` / `#7a4f00` (PRs, meets); `--dk-ok` `#34d982` / `#0f7d47`.
-- No stage light, no tinted washes: plain `--bg` surfaces. Red only on the one primary action and pain.
-- Avatars are muted tints in both themes (light: about 12% of the hue, initials in its dark ink).
-- Three button weights (W1b): the red primary (one per screen: Message / Reply / Notify / Assign),
-  the ink button (`.dk-btn.is-ink`, text-on-ink) for a strong second action such as Apply next week
-  or Save, and the bordered / quiet buttons for the rest. A disabled ink button goes to a hairline.
-- An edit not yet published or applied carries a 1px ink outline (grid cells, next-week inputs) until
-  it goes out; nothing else outlines in ink.
-- Tables inside a pane fold columns by the pane's width (container queries), never by the window:
-  the workspace folds "written" under the exercise name below 640px; Programs drops the block size,
-  then the maxes, then the Grid/Weeks toggle into ⋯ as the inspector narrows it.
+- Themes: dark by default (`#0a0a0c` ink, raised surfaces `--dk-raise` `#131317` separated by light
+  and an inset 1px `--line`, not borders everywhere); light is C's palette (white paper, `#0b0b0d` ink,
+  `#e9e9ec` hairlines, the selected list row inverts to ink). One token block per theme at the top of
+  desk.css; everything else reads the tokens.
+- Layout: a text sidebar 232px (icons, 64px, at 1280 and below unless the coach opens it); two panes
+  on Today and the roster list (`--list-w` 316 to 360) with the athlete's week in the centre; the side
+  card (`--ctx-w`, thread or private notes) floats 12px in from the edge on demand and pushes the
+  centre (overlays it below 1200px). Gutters `--gut` 20 to 32px; 8pt spacing.
+- Radius: 18-20px surfaces (the needs card, the lift strip, the week table, meet cards, the side card),
+  14px list rows, 10px cells and inputs, capsules (999px) for buttons, chips and the segmented control.
+- Type: names 15.5px in lists, 30px on the athlete's head; section titles 16 to 20px; tabular numbers.
+- Status tokens, used only on status (dark / light): `--dk-alert` `#ff6f7d` / `#c4162a`; `--dk-warn`
+  `#ff9f45` / `#b4410c`; `--dk-gold` (PRs, meets) `#ffbf3c` / `#8a5a00`; `--dk-ok` `#3fd99a` / `#0f7d47`
+  (the compliance ring, on-target RPE, live); `--dk-cool` (under target) `#6cb8ff` / `#036f9c`.
+- RPE tints (week sheet cells and the gap pill): on target green, half a point over amber, a point
+  or more over red (solid pill), under blue, missed hatched.
+- Buttons: the red primary (one per screen: Publish week N · n / Notify · n / Write the next block /
+  Invite on an empty roster), the quiet fill (`.is-quiet`, most actions; pressed = ink), the line
+  button, the ink button (Save). Keys never sit on a button: they live in the tooltip (`dkTip`).
+- An edit not yet published carries an ink outline (next-week inputs, grid cells) until it goes out.
+  Suggestions are dashed chips; taken, they turn solid green.
+- Tables inside a pane fold by the pane's width (container queries): the week table folds "written"
+  then "logged" under the exercise name; the workspace's quiet buttons drop their words.
+- Motion: 150-260ms, `cubic-bezier(0.23, 1, 0.32, 1)`; the card slides in 16px from the right; a
+  clicked row's week crossfades in (keys swap instantly); rows reorder with FLIP; a set that lands
+  pulses its row once. All of it off under reduced motion.
 
 ## Do's and Don'ts
 

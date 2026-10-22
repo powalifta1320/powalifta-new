@@ -53,10 +53,26 @@ export function lsLive(profile: any): boolean {
   return !!profile?.ls_subscription_id && live;
 }
 
-// Is Apple billing this coach right now?
+// Is Apple billing this coach right now? With subscription_period_end on the row, an Apple plan
+// whose period ended more than the database's 3-day grace ago is not live, even if no EXPIRED
+// notification arrived: a lapsed (or wrongly linked) Apple record must not block web billing.
 // deno-lint-ignore no-explicit-any
-export function appleLive(profile: any): boolean {
+export function appleLive(profile: any, now = Date.now()): boolean {
   const live = (profile?.subscription_status ?? "") === "active";
-  if (profile && "billing_provider" in profile) return profile.billing_provider === "apple" && live;
+  if (profile && "billing_provider" in profile) {
+    if (profile.billing_provider !== "apple" || !live) return false;
+    const end = Date.parse(String(profile.subscription_period_end ?? ""));
+    return !end || end + 3 * 86400000 > now;
+  }
   return !!profile?.apple_original_transaction_id && !profile?.ls_subscription_id && live;
+}
+
+// The accounts a Sandbox (free: TestFlight, App Review, Xcode) Apple transaction may give a plan
+// to: APPLE_SANDBOX_UIDS, comma-separated user ids. Unset = every account, as before (so App
+// Review's test purchase always unlocks the plan); set it to limit Sandbox grants to the App Review
+// demo coach and the owner's test accounts. A Sandbox plan lapses on its own: its period ends fast.
+export function sandboxAllowed(uid: string, list = Deno.env.get("APPLE_SANDBOX_UIDS") ?? ""): boolean {
+  const ids = list.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!ids.length) return true;
+  return ids.includes(String(uid).toLowerCase());
 }

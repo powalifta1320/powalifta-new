@@ -1,40 +1,40 @@
 /* =====================================================================
-   desk.js: the coach's laptop desk (W1a, 2026-10-22)
+   desk.js: the coach's laptop desk (v2, 2026-10-22)
    ---------------------------------------------------------------------
    html.desk only (at least 1000px wide and not the iPhone app; set by
    the head script in coach.html). Phones and the app never run any of it.
 
-   The desk is a queue, not a dashboard: a rail (work nav + saved views
-   with live counts), Today (who needs the coach, worst first, worked
-   with J/K/E until "All caught up", then the Wins lane), the practical
-   roster (one-line head, search, density, bulk bar, a preview in the
-   context pane), the ⌘K palette and the ? shortcut sheet.
+   v2 (spec: vault Specs/Desk + website v2): B's clean dark look, C's
+   practical structure. A text sidebar (Today, Roster, Programs, Meets,
+   Messages, saved views with counts, Club, Settings, the plan and the
+   theme), icons at 1280 and below. Today and the roster are two panes:
+   the athletes as plain sentences with a ring of this week's sessions
+   (needs-you first, worst first), and the selected athlete's week as one
+   table, Written | Logged | RPE gap | Next week, with suggestion chips
+   and the one red Publish. The thread and private notes open in a side
+   card on demand. The roster switches to the week sheet (athletes ×
+   days, planned over lifted, tinted by RPE; a row opens inline).
+   Every action is a button; keys are accelerators shown in tooltips.
 
-   W1b adds the athlete workspace (Today's centre and #athlete=ID: last
-   week against next week with RPE suggestions, lifts, check-ins, notes,
-   meets; private notes + thread in the context pane), Programs (grid
-   first, a list pane of athletes and templates, an inspector, Notify
-   with a count of edits since the last heads-up), Messages as a desk screen, Settings in two columns and
-   the first run.
-
-   The logic (reasons, queue, views) is pure and lives in app.js
-   (deskReasons / deskQueue / deskViewMatch, unit-tested). This file
-   draws it. Loaded after app.js and before coach.html's own script:
-   everything here is a function declaration or a var, and anything of
-   coach.html's (user, renderRoster, openAthletePage…) is only touched
-   at call time, never while this file loads.
+   The logic (reasons, queue, views, next week from RPE) is pure and
+   lives in app.js (deskReasons / deskQueue / deskViewMatch /
+   deskWeekReview / deskApplyNextWeek, unit-tested). This file draws it.
+   Loaded after app.js and before coach.html's own script: everything
+   here is a function declaration or a var, and anything of coach.html's
+   (user, renderRoster, openAthletePage…) is only touched at call time.
    ===================================================================== */
 
 var _dk = {
   booted: false,
-  screen: 'today',          // today | roster | programs | messages | club | settings
+  screen: 'today',          // today | roster | programs | meets | messages | club | settings
   view: null,               // the roster's saved view (DESK_VIEWS key) or null
   search: '',
-  sel: null,                // Today: the selected athlete
-  rsel: null,               // Roster: the previewed athlete
-  picked: {},               // Roster: rows ticked for the bulk bar
+  sel: null,                // Today: the selected athlete { id, lane }
+  rsel: null,               // Roster: the selected athlete (list) / the open row (sheet)
+  rmode: null,              // Roster: 'list' | 'sheet' (remembered)
+  picked: {},               // Roster sheet: rows ticked for the bulk bar
   wpick: {},                // Today: wins ticked for kudos
-  ctxMode: 'preview',       // Roster's context pane: preview | thread
+  card: null,               // the side card: null | 'thread' | 'notes'
   rows: null,               // last deskRows() result
   queue: null,              // last deskQueue() result
   order: [],                // Today's J/K order: [{ id, lane: 'q' | 'w' }]
@@ -44,15 +44,15 @@ var _dk = {
   last: null,               // the last E / S, for U (undo)
   wasCaughtUp: null,
   mq: null,
-  // W1b
+  seen: null,               // the newest logged set per athlete, for the "set landed" pulse
   ws: null,                 // the athlete page's ‹ › list: { ids, label }
-  wsPend: {},               // next-week edits waiting on Apply, per athlete
+  wsPend: {},               // next-week edits waiting on Publish, per athlete
   pbMode: 'athletes',       // Programs' list pane: athletes | templates
   pbTpl: null, pbSearch: '', pbSnap: null, pbInfo: null, pbHead: null,
   msgSel: null, msgFilter: 'all', msgSearch: '', msgOrder: [],
   setSec: null, coachStyle: null
 };
-var DK_SORT_KEY = 'powa-desk-sort', DK_COLS_KEY = 'powa-desk-cols';
+var DK_SORT_KEY = 'powa-desk-sort';
 
 function isDesk() {
   if (document.documentElement.classList.contains('native')) return false;
@@ -70,23 +70,43 @@ function _dkMac() { return /Mac|iPhone|iPad/.test(navigator.platform || navigato
 function _dkFirst(name) { return String(name || '').trim().split(/\s+/)[0] || 'them'; }
 function _dkFormChecks() { try { return _coachFormChecks || []; } catch (e) { return []; } }
 function _dkUnread() { try { return _unreadByAthlete || {}; } catch (e) { return {}; } }
+// The first match that's on screen (Today's centre stays in the DOM while another screen shows).
+function _dkVis(sel) { return Array.prototype.find.call(document.querySelectorAll(sel), function (n) { return n.offsetParent || n.getClientRects().length; }) || null; }
+function _dkReduced() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
 
 // ---------- icons (house style: 24px stroke, currentColor) ----------
+function _dkSvg(d, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 1.9) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
 var DK_IC = {
-  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-  spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
-  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
-  rail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>',
-  cols: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6"/></svg>',
-  roomy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
-  dense: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16M4 9.7h16M4 14.3h16M4 19h16"/></svg>',
-  chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
-  chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
-  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></svg>',
-  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
-  snooze: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3L2 6M19 3l3 3"/></svg>',
+  gear: _dkSvg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'),
+  spark: _dkSvg('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'),
+  search: _dkSvg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+  rail: _dkSvg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
+  chevL: _dkSvg('<path d="M15 6l-6 6 6 6"/>', 2.2),
+  chevR: _dkSvg('<path d="M9 6l6 6-6 6"/>', 2.2),
+  chevD: _dkSvg('<path d="M6 9l6 6 6-6"/>', 2.2),
+  download: _dkSvg('<path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/>'),
+  open: _dkSvg('<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'),
+  snooze: _dkSvg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3L2 6M19 3l3 3"/>'),
   more: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
-  key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/></svg>'
+  key: _dkSvg('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/>'),
+  today: _dkSvg('<path d="M4 12h3l2.5-6 5 12 2.5-6h3"/>'),
+  roster: _dkSvg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 20a6.5 6.5 0 0 0-2.6-5.2"/>'),
+  programs: _dkSvg('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M9.5 9.5V20"/>'),
+  meets: _dkSvg('<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7"/>'),
+  messages: _dkSvg('<path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.1A8 8 0 1 1 20 12z"/>'),
+  club: _dkSvg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
+  sun: _dkSvg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  moon: _dkSvg('<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/>'),
+  note: _dkSvg('<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8.5 12.5h7M8.5 16h5"/>'),
+  check: _dkSvg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.2),
+  x: _dkSvg('<path d="M6 6l12 12M18 6L6 18"/>', 2.1),
+  list: _dkSvg('<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".6"/><circle cx="4.5" cy="12" r=".6"/><circle cx="4.5" cy="18" r=".6"/>'),
+  sheet: _dkSvg('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M3 14.8h18M8.5 4v16"/>'),
+  plus: _dkSvg('<path d="M12 5v14M5 12h14"/>', 2.1),
+  send: _dkSvg('<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>'),
+  ai: _dkSvg('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>'),
+  pain: _dkSvg('<path d="M12 3.5l9 16H3z"/><path d="M12 10v4.2M12 17h.01"/>'),
+  trophy: _dkSvg('<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M12 13v4M8.5 20h7"/>')
 };
 
 // ---------- small builders ----------
@@ -96,16 +116,42 @@ function dkAv(a, cls) {
   if (a && a.avatarUrl) av.innerHTML = '<img src="' + escHtml(a.avatarUrl) + '" alt="">';
   return av;
 }
+// The avatar inside a ring of this week's sessions (B): done over planned, green as it closes.
+// A lifter training right now gets the live dot.
+function dkRingAv(r, size) {
+  var a = r.athlete, st = r.status || {}, s = st.sessions || { done: 0, planned: 0 };
+  var n = Math.max(s.planned || 0, s.done || 0);
+  var frac = n ? Math.min(1, (s.done || 0) / n) : 0;
+  var w = el('span', { class: 'dk-ring-av' + (size ? ' is-' + size : '') + (frac >= 1 ? ' is-full' : '') });
+  var R = 21, C = 2 * Math.PI * R;
+  w.innerHTML = '<svg viewBox="0 0 48 48" aria-hidden="true"><circle class="dk-ring-bg" cx="24" cy="24" r="' + R + '"/>' +
+    (n ? '<circle class="dk-ring-fg" cx="24" cy="24" r="' + R + '" stroke-dasharray="' + C.toFixed(2) + '" stroke-dashoffset="' + (C * (1 - frac)).toFixed(2) + '"/>' : '') + '</svg>';
+  w.appendChild(dkAv(a));
+  if (r.live) w.appendChild(el('span', { class: 'dk-live' }));
+  w.title = n ? (s.done || 0) + ' of ' + n + ' sessions this week' : 'No sessions planned this week';
+  return w;
+}
 function dkChip(text, tone) { return el('span', { class: 'dk-chip t-' + (tone || 'info') }, text); }
 function dkKbd(k) { return el('kbd', { class: 'dk-kbd' }, k); }
+// A button. opts.kbd is an accelerator: it lives in the tooltip (and aria-keyshortcuts), never on
+// the button itself. opts.tone: 'primary' (the one red) | 'ink' | 'quiet' | 'line' (default).
 function dkBtn(label, opts) {
   opts = opts || {};
   var b = el('button', { type: 'button', class: 'dk-btn' + (opts.primary ? ' is-primary' : '') + (opts.cls ? ' ' + opts.cls : '') });
   if (opts.icon) b.insertAdjacentHTML('beforeend', opts.icon);
-  b.appendChild(el('span', {}, label));
-  if (opts.kbd) b.appendChild(dkKbd(opts.kbd));
-  if (opts.title) b.title = opts.title;
+  b.appendChild(el('span', { class: 'dk-btn-l' }, label));
+  if (opts.count != null) b.appendChild(el('span', { class: 'dk-btn-n', 'aria-hidden': 'true' }, String(opts.count)));
+  // The words can fold away in a narrow pane: the name stays for assistive tech.
+  b.setAttribute('aria-label', label + (opts.count != null ? ', ' + opts.count : ''));
+  dkTip(b, opts.title || (opts.kbd ? label : ''), opts.kbd);
+  if (opts.kbd) b.setAttribute('aria-keyshortcuts', String(opts.kbd).replace(/^⌘/, 'Meta+'));
   if (opts.onClick) b.addEventListener('click', opts.onClick);
+  return b;
+}
+function dkIconBtn(icon, label, onClick, kbd) {
+  var b = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': label, html: icon });
+  dkTip(b, label, kbd);
+  if (onClick) b.addEventListener('click', onClick);
   return b;
 }
 function dkSpark(values, cls) {
@@ -124,6 +170,79 @@ function deskBlockLabel(prog, week) {
   return name + (week ? ' · ' + (week.finished ? 'done' : 'wk ' + week.number + '/' + week.total) : '');
 }
 function dkBlockText(st) { return deskBlockLabel(st.program, st.week); }
+
+// ---------- one plain sentence per athlete (no chip clusters) ----------
+// Text with its numbers in ink weight: "Pain · Low back · Deadlift · 6/10 · meet in 9d".
+function dkRich(text) {
+  var span = el('span', { class: 'dk-rich' });
+  String(text || '').split(/((?:[+−-]?\d[\d.,]*(?:\/\d+)?(?:\s?(?:kg|lb|d|h|wk))?)|(?:@\d+(?:\.\d)?))/).forEach(function (p, i) {
+    if (!p) return;
+    span.appendChild(i % 2 ? el('b', {}, p) : document.createTextNode(p));
+  });
+  return span;
+}
+function _dkLowerLead(t) { return /^(Meet|Note|Notes|Message|Quiet|Missed|Block|No|Form|Slept|Soreness|Last|Said|Nothing|Waiting|Answer)\b/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; }
+function dkSentence(r, lane) {
+  if (lane === 'w') return r.wins.map(function (w, i) { return i ? _dkLowerLead(w.text) : w.text; }).join(' · ');
+  if (r.reasons.length) {
+    var parts = r.reasons.slice(0, 2).map(function (x, i) { return i ? _dkLowerLead(x.text) : x.text; });
+    if (r.reasons.length > 2) parts.push('+' + (r.reasons.length - 2));
+    return parts.join(' · ');
+  }
+  if (r.live) return 'Training now · ' + r.live.sets + (r.live.sets === 1 ? ' set in' : ' sets in');
+  if (r.wins.length) return r.wins[0].text;
+  var st = r.status, s = st.sessions;
+  if (!st.program) return 'No program yet';
+  return 'On plan · ' + dkBlockText(st) + (s.planned ? ' · ' + s.done + ' of ' + s.planned + ' this week' : '');
+}
+
+// ---------- tooltips: the keys live here (instant once one is showing) ----------
+function dkTip(node, text, kbd) {
+  if (!node || (!text && !kbd)) return node;
+  node.dataset.tip = text || '';
+  if (kbd) node.dataset.kbd = kbd;
+  node.removeAttribute('title');
+  return node;
+}
+function dkTipInit() {
+  if (_dk.tipOn) return;
+  _dk.tipOn = true;
+  var tip = el('div', { class: 'dk-tip', role: 'tooltip', 'aria-hidden': 'true' });
+  document.body.appendChild(tip);
+  var timer = null, shownAt = 0, cur = null;
+  var hide = function () { clearTimeout(timer); if (cur) { cur = null; tip.classList.remove('on'); shownAt = Date.now(); } };
+  var show = function (t) {
+    if (!t.isConnected || !isDesk()) return;
+    // A sidebar item says its name only when the sidebar is folded to icons.
+    if (t.classList.contains('dk-tip-min') && !document.documentElement.classList.contains('rail-min')) return;
+    tip.innerHTML = '';
+    if (t.dataset.tip) tip.appendChild(el('span', {}, t.dataset.tip));
+    if (t.dataset.kbd) t.dataset.kbd.split('  ').forEach(function (k) { tip.appendChild(dkKbd(k)); });
+    var r = t.getBoundingClientRect();
+    tip.style.left = '0px'; tip.style.top = '0px';
+    tip.classList.add('on');
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var below = r.bottom + 8 + th < window.innerHeight;
+    tip.style.left = Math.max(8, Math.min(window.innerWidth - tw - 8, r.left + r.width / 2 - tw / 2)) + 'px';
+    tip.style.top = (below ? r.bottom + 8 : r.top - th - 8) + 'px';
+    cur = t;
+  };
+  document.addEventListener('pointerover', function (e) {
+    var t = e.target.closest && e.target.closest('[data-tip],[data-kbd]');
+    if (!t || t === cur) return;
+    if (!t.dataset.tip && !t.dataset.kbd) return;
+    clearTimeout(timer);
+    var warm = cur || Date.now() - shownAt < 450;
+    if (cur) { cur = null; }
+    if (warm) { tip.classList.add('is-instant'); show(t); }
+    else { tip.classList.remove('is-instant'); timer = setTimeout(function () { show(t); }, 480); }
+  });
+  document.addEventListener('pointerout', function (e) {
+    var t = e.target.closest && e.target.closest('[data-tip],[data-kbd]');
+    if (t && (!e.relatedTarget || !t.contains(e.relatedTarget))) hide();
+  });
+  ['pointerdown', 'keydown', 'scroll', 'wheel'].forEach(function (ev) { document.addEventListener(ev, hide, true); });
+}
 
 // ---------- state: reviews and snoozes (per coach, per training week) ----------
 function _dkStateKey() { var u = _dkUser(); return 'powa-desk-review-' + (u ? u.id : 'x'); }
@@ -149,14 +268,29 @@ function dkSaveState() {
 }
 
 // ---------- the model ----------
+// The desk's reasons are app.js deskReasons, plus what coachAthleteStatus already knows and the
+// queue should see: an open pain report (it replaces the check-in's "Pain…", one fact once),
+// a cut off pace for the class, and low readiness from shared Apple Health.
+function dkAugment(r) {
+  var st = r.status, out = r.reasons.slice();
+  if (st.pain && st.pain.open) {
+    out = out.filter(function (x) { return x.type !== 'pain'; });
+    out.push({ type: 'pain', group: 1, text: st.pain.text, tone: st.pain.severity >= 3 ? 'alert' : 'warn', detail: st.pain.count >= 2 ? 'Reported ' + st.pain.count + ' times in two weeks' : 'Reported from training', painReport: st.pain.report });
+  }
+  if (st.cut && st.cut.offPace && !out.some(function (x) { return x.type === 'weight'; })) out.push({ type: 'offpace', group: 2, text: st.cut.flag || 'Cut off pace', tone: 'warn', detail: st.cut.line || '' });
+  if (st.readiness && st.readiness.state === 'low' && st.readiness.text) out.push({ type: 'readiness', group: 6, text: st.readiness.text, tone: 'info', detail: 'From their shared Apple Health' });
+  out.sort(function (a, b) { return a.group - b.group; });
+  r.reasons = out;
+  return r;
+}
 function dkRowsFresh() {
   var u = _dkUser();
-  _dk.rows = u ? deskRows(u.id, { threads: _dk.threads || undefined, formChecks: _dkFormChecks() }) : [];
+  _dk.rows = u ? deskRows(u.id, { threads: _dk.threads || undefined, formChecks: _dkFormChecks() }).map(dkAugment) : [];
   var st = dkState();
   _dk.queue = deskQueue(_dk.rows, { reviewed: st.reviewed, snoozed: st.snoozed, winsSeen: st.winsSeen, handled: st.handled });
   return _dk.rows;
 }
-// The coach acted on them (applied next week, sent a reply): Today's bar counts them as handled
+// The coach acted on them (published next week, sent a reply): Today's bar counts them as handled
 // now. They stay in the list until E, so nothing jumps under the coach mid-review. The reasons
 // are signed as they stood when the coach acted, so a NEW reason un-handles them.
 function dkNoteHandled(athleteId, via) {
@@ -167,6 +301,19 @@ function dkNoteHandled(athleteId, via) {
   dkSaveState();
 }
 function dkRow(id) { return (_dk.rows || []).find(function (r) { return r.athlete.id === id; }) || null; }
+// The newest logged set per athlete: a new one since the last paint is a set that just landed.
+function dkLanded() {
+  var now = {}, out = {};
+  (Store.get().programs || []).forEach(function (p) {
+    (p.weeks || []).forEach(function (w) { (w.days || []).forEach(function (d) { (d.exercises || []).forEach(function (e) { (e.sets || []).forEach(function (s) {
+      if (s.completed && s.completedAt && String(s.completedAt) > (now[p.athleteId] || '')) now[p.athleteId] = String(s.completedAt);
+    }); }); }); });
+  });
+  if (_dk.seen) Object.keys(now).forEach(function (k) { if (_dk.seen[k] && now[k] > _dk.seen[k]) out[k] = 1; });
+  _dk.seen = now;
+  return out;
+}
+
 
 // =====================================================================
 // BOOT, ROUTING, SHELL
@@ -176,16 +323,29 @@ function dkRow(id) { return (_dk.rows || []).find(function (r) { return r.athlet
 function deskWatch() {
   if (document.documentElement.classList.contains('native')) return;
   isDesk();
-  if (_dk.mq && _dk.mq.addEventListener && !_dk.watching) { _dk.watching = true; _dk.mq.addEventListener('change', dkOnResize); }
+  if (_dk.mq && _dk.mq.addEventListener && !_dk.watching) {
+    _dk.watching = true;
+    _dk.mq.addEventListener('change', dkOnResize);
+    // 1280 and below: the sidebar folds to icons, unless the coach opened it.
+    if (window.matchMedia) { _dk.mqRail = matchMedia('(max-width: 1280px)'); if (_dk.mqRail.addEventListener) _dk.mqRail.addEventListener('change', dkAutoRail); }
+  }
   if (isDesk()) deskBoot();
+}
+function dkAutoRail() {
+  var pref = _dkLS('powa-desk-rail');
+  var small = !!(_dk.mqRail && _dk.mqRail.matches);
+  document.documentElement.classList.toggle('rail-min', pref === 'min' || (pref !== 'open' && small));
 }
 function deskBoot() {
   if (!isDesk()) return;
   document.documentElement.classList.add('desk');
+  dkAutoRail();
   if (!_dk.booted) {
     _dk.booted = true;
     dkBuildRail();
     dkBuildCtx();
+    dkBuildMeetsPane();
+    dkTipInit();
     document.addEventListener('keydown', dkOnKey);
     // A legacy tab (the program builder, messages, club, You) opened from anywhere keeps the
     // rail in step and says where it is in the address bar.
@@ -198,15 +358,18 @@ function deskBoot() {
   }
   deskRoute(true);
 }
-// The address bar → the screen. #today · #roster · #roster?view=pain · #programs · #messages ·
-// #club · #settings. (#athlete=ID is coach.html's athlete page.)
+// The address bar → the screen. #today · #roster · #roster?view=pain · #roster?mode=sheet ·
+// #programs · #meets · #messages · #club · #settings. (#athlete=ID is coach.html's athlete page.)
 function deskRoute(first) {
   var h = (location.hash || '').replace(/^#/, '');
   if (/^athlete=/.test(h)) return;   // coach.html opens the athlete page itself
-  var m = /^(today|roster|programs|messages|club|settings)(?:\?view=(\w+))?$/.exec(h);
+  var m = /^(today|roster|programs|meets|messages|club|settings)(?:\?(.*))?$/.exec(h);
   var screen = m ? m[1] : 'today';
-  var view = m && m[2] && DESK_VIEWS.some(function (v) { return v.key === m[2]; }) ? m[2] : null;
-  if (first && screen !== 'today' && screen !== 'roster') {
+  var q = {};
+  if (m && m[2]) m[2].split('&').forEach(function (kv) { var p = kv.split('='); q[p[0]] = p[1] || ''; });
+  var view = q.view && DESK_VIEWS.some(function (v) { return v.key === q.view; }) ? q.view : null;
+  if (q.mode === 'sheet' || q.mode === 'list') { if (q.mode === 'sheet' && _dk.rmode !== 'sheet') _dk.rsel = null; _dk.rmode = q.mode; }
+  if (first && screen !== 'today' && screen !== 'roster' && screen !== 'meets') {
     // A legacy screen at boot: the demo boots while coach.html's script is still running, and the
     // builder reads lets declared further down it. A microtask runs once that script is done,
     // before the first paint.
@@ -221,18 +384,20 @@ function deskGo(screen, opts) {
   opts = opts || {};
   if (!isDesk()) return;
   closeDkMenus();
-  // The roster opens at full width: the preview pane waits for a row to be picked.
-  if (screen === 'roster' && _dk.screen !== 'roster') _dk.rsel = null;
+  if (screen === 'meets' && !dkPlannedMeets().length) screen = 'roster';
+  if (screen !== _dk.screen) _dk.card = null;   // the side card belongs to the screen it opened on
+  // The week sheet opens with every row closed.
+  if (screen === 'roster' && _dk.screen !== 'roster' && dkRMode() === 'sheet') _dk.rsel = null;
   _dk.screen = screen;
   _dk.ws = null;
-  if (screen === 'roster') { _dk.view = opts.view || null; _dk.ctxMode = 'preview'; }
+  if (screen === 'roster') _dk.view = opts.view || null;
   dkSetHash(screen, opts);
-  if (screen === 'today') {
+  if (screen === 'today' || screen === 'meets') {
     document.querySelectorAll('.sidebar-tab').forEach(function (b) { b.classList.remove('active'); });
-    document.querySelectorAll('[data-pane]').forEach(function (p) { p.classList.toggle('hidden', p.dataset.pane !== 'today'); });
+    document.querySelectorAll('[data-pane]').forEach(function (p) { p.classList.toggle('hidden', p.dataset.pane !== screen); });
     document.body.dataset.accent = 'fire';
-    document.body.dataset.screen = 'today';
-    renderDeskToday();
+    document.body.dataset.screen = screen;
+    if (screen === 'today') renderDeskToday(); else dkRenderMeets();
     try { syncPaneBack(); } catch (e) {}
   } else {
     var tab = document.getElementById('tab-' + DK_TAB_FOR[screen]);
@@ -247,7 +412,7 @@ function deskGo(screen, opts) {
   // Keys work straight away: focus leaves the rail button for the screen's list.
   if (!opts.noPush && document.activeElement && document.activeElement.closest && document.activeElement.closest('.dk-rail')) {
     var to = screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel, #deskToday .dk-list')
-      : screen === 'roster' ? document.querySelector('#rosterArea .dk-tr.is-sel')
+      : screen === 'roster' ? document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-sh-row.is-sel, #rosterArea .dk-list')
       : screen === 'messages' ? document.querySelector('#messagesArea .dk-msg-row.is-sel') : null;
     if (to) to.focus({ preventScroll: true }); else document.activeElement.blur();
   }
@@ -265,6 +430,7 @@ function dkOnTab(tab) {
   if (!screen) return;
   if (screen !== 'programs') _dk.pbInfo = null;
   if (!_dk.fromGo) {
+    if (screen !== _dk.screen) _dk.card = null;
     _dk.screen = screen;
     if (screen === 'roster') _dk.view = null;
     dkSetHash(screen, {});
@@ -273,24 +439,23 @@ function dkOnTab(tab) {
   dkPaintRail();
 }
 // coach.html calls this when the athlete page opens: the rail keeps the screen it came from.
-// The athlete page is the workspace: its side pane holds the private notes and the thread.
-function deskOnAthletePage() { if (!isDesk()) return; closeDkMenus(); dkSyncCtx(); dkPaintPageCtx(); dkPaintRail(); }
-function deskBackLabel() { return ({ today: 'Today', roster: 'Roster', messages: 'Messages', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
+function deskOnAthletePage() { if (!isDesk()) return; closeDkMenus(); dkSyncCtx(); dkPaintCard(); dkPaintRail(); }
+function deskBackLabel() { return ({ today: 'Today', roster: 'Roster', meets: 'Meets', messages: 'Messages', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
 function dkOnResize() {
   var on = isDesk();
   document.documentElement.classList.toggle('desk', on);
   if (on) { deskBoot(); return; }
   closeDkMenus();
   document.querySelectorAll('.dk-veil').forEach(function (v) { if (v._close) v._close(); else v.remove(); });
-  document.documentElement.classList.remove('ctx-show');
+  document.documentElement.classList.remove('ctx-show', 'ctx-card');
   dkCtxClear();
-  // Back to the phone layout: Today and the athlete page have no place there, so land on the
-  // roster; a roster already showing redraws as the phone's.
-  var t = document.querySelector('[data-pane="today"]'), ap = document.querySelector('[data-pane="athlete"]');
+  // Back to the phone layout: Today, Meets and the athlete page have no place there, so land on
+  // the roster; a roster already showing redraws as the phone's.
+  var t = document.querySelector('[data-pane="today"]'), ap = document.querySelector('[data-pane="athlete"]'), mp = document.querySelector('[data-pane="meets"]');
   var tab = document.getElementById('tab-athletes');
   var act = document.querySelector('.sidebar-tab.active');
   _dk.pbInfo = null;
-  if ((t && !t.classList.contains('hidden')) || (ap && !ap.classList.contains('hidden'))) { if (tab) tab.click(); }
+  if ((t && !t.classList.contains('hidden')) || (ap && !ap.classList.contains('hidden')) || (mp && !mp.classList.contains('hidden'))) { if (tab) tab.click(); }
   // Programs, Messages and Settings were drawn as desk screens: draw them again as the phone's.
   else if (act && /^(program|messages|you)$/.test(act.dataset.tab)) act.click();
   else {
@@ -298,23 +463,31 @@ function dkOnResize() {
     if (ra && !ra.classList.contains('hidden') && typeof renderRoster === 'function') { try { renderRoster(); } catch (e) {} }
   }
 }
-// Today and the roster have a context pane; ] hides it (remembered).
+// The side pane. On Today, the roster and an athlete's page it's the card (thread or private
+// notes), opened on demand and closed with ×/Esc. Messages keeps the athlete beside the thread,
+// Programs the inspector; ] hides those (remembered).
+function _dkOnPage() { return !!document.querySelector('[data-pane="athlete"]:not(.hidden)'); }
+function dkCardAid() {
+  if (_dkOnPage()) return window._apAthlete || null;
+  if (_dk.screen === 'today') return _dk.sel ? _dk.sel.id : null;
+  if (_dk.screen === 'roster') return _dk.rsel || null;
+  return null;
+}
 function dkSyncCtx(off) {
   var root = document.documentElement;
-  var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
-  var scr = _dk.screen, has = false;
+  var onPage = _dkOnPage();
+  var scr = _dk.screen, has = false, card = false;
   if (off) has = false;
-  else if (onPage) has = !!window._apAthlete;
-  else if (scr === 'today') has = !!_dk.sel;
-  else if (scr === 'roster') has = !!(_dk.rows && _dk.rows.length && _dk.rsel);
+  else if (onPage || scr === 'today' || scr === 'roster') { card = true; has = !!_dk.card && !!dkCardAid(); }
   else if (scr === 'messages') has = !!(_dk.msgSel && document.querySelector('#messagesArea .dk-msg-list') && !document.querySelector('[data-pane="messages"].hidden'));
   else if (scr === 'programs') has = !!_dk.pbInfo && _dk.pbMode !== 'templates' && deskPbView() === 'grid' && !!document.querySelector('#programArea .pg-grid-wrap') && !document.querySelector('[data-pane="program"].hidden');
   var was = root.classList.contains('ctx-show');
-  root.classList.toggle('ctx-show', has && !root.classList.contains('ctx-off'));
+  root.classList.toggle('ctx-show', has && (card || !root.classList.contains('ctx-off')));
+  root.classList.toggle('ctx-card', card && has);
   // The grid's cell font and padding change with the inspector: re-measure the columns.
   if (scr === 'programs' && was !== root.classList.contains('ctx-show')) deskGridFit();
   var ctx = document.getElementById('deskCtx');
-  if (ctx) ctx.hidden = !has;
+  if (ctx) ctx.hidden = !root.classList.contains('ctx-show');
   // A hidden pane holds no live thread: its realtime channel closes with it.
   if (!root.classList.contains('ctx-show')) dkCtxClear();
 }
@@ -327,7 +500,8 @@ function dkCtxClear() {
   host.dataset.aid = '';
   host.innerHTML = '';
 }
-// A realtime event (a message, a form check): repaint in place, then re-read who wrote last.
+// A realtime event (a message, a form check, a logged set): repaint in place, then re-read who
+// wrote last.
 function deskRefresh() {
   if (!isDesk() || !_dk.booted) return;
   dkRepaint();
@@ -335,16 +509,17 @@ function deskRefresh() {
 }
 function dkRepaint() {
   if (!isDesk() || !_dk.booted) return;
-  var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
+  var onPage = _dkOnPage();
   if (_dk.screen === 'today' && !onPage && !document.querySelector('[data-pane="today"].hidden')) {
     var listHadFocus = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('#deskToday .dk-list'));
-    renderDeskToday();
+    renderDeskToday({ keepCentre: true });
     if (listHadFocus) { var sel = document.querySelector('#deskToday .dk-qrow.is-sel, #deskToday .dk-list'); if (sel) sel.focus({ preventScroll: true }); }
     return;
   }
   dkRowsFresh();
   // The roster's head (and its search box) stays; only the rows and the counts repaint.
-  if (_dk.screen === 'roster' && !onPage && document.querySelector('#rosterArea .dk-tablewrap')) { dkPaintTable(); dkPaintRmeta(); }
+  if (_dk.screen === 'roster' && !onPage && document.querySelector('#rosterArea .dk-rbody')) { dkPaintRosterBody({ keepCentre: true }); dkPaintRmeta(); }
+  if (_dk.screen === 'meets' && !onPage) dkRenderMeets();
   // Messages: the list repaints (who wrote last, unread); the open thread updates itself.
   if (_dk.screen === 'messages' && !onPage && document.querySelector('#messagesArea .dk-msg-list')) dkPaintMsgList();
   dkPaintRail();
@@ -366,7 +541,21 @@ function dkNoteSent(athleteId, body) {
   _dk.threads[athleteId] = { athleteId: athleteId, lastAt: new Date().toISOString(), lastSenderId: u && u.id, lastBody: body || '' };
 }
 
-// ---------- the rail ----------
+// ---------- the sidebar ----------
+function dkRailItem(key, label, icon, onClick, opts) {
+  opts = opts || {};
+  var b = el('button', { class: 'dk-item' + (opts.cls ? ' ' + opts.cls : ''), type: 'button' });
+  if (opts.go) b.dataset.go = key;
+  b.innerHTML = icon;
+  b.appendChild(el('span', { class: 'dk-item-label' }, label));
+  if (opts.count) b.appendChild(el('span', { class: 'dk-count', 'data-count': key }));
+  // Folded to icons the label leaves: the tooltip says it (and its key, if any).
+  b.dataset.tip = label;
+  if (opts.kbd) b.dataset.kbd = opts.kbd;
+  b.classList.add('dk-tip-min');
+  b.addEventListener('click', onClick);
+  return b;
+}
 function dkBuildRail() {
   if (document.getElementById('deskRail')) return;
   var rail = el('aside', { class: 'dk-rail', id: 'deskRail', 'aria-label': 'Coach desk' });
@@ -376,25 +565,35 @@ function dkBuildRail() {
   brand.innerHTML = BRAND_MARK + '<span class="brand-word">POWALIFTA</span>';
   brand.addEventListener('click', function (e) { e.preventDefault(); deskGo('today'); });
   top.appendChild(brand);
-  var fold = el('button', { class: 'dk-icon-btn dk-fold', type: 'button', title: 'Collapse sidebar  [', 'aria-label': 'Collapse sidebar', html: DK_IC.rail });
-  fold.addEventListener('click', dkToggleRail);
+  var fold = dkIconBtn(DK_IC.rail, 'Fold the sidebar', dkToggleRail, '[');
+  fold.classList.add('dk-fold');
   top.appendChild(fold);
   rail.appendChild(top);
+  // ⌘K as a visible button: find an athlete, a screen or an action.
+  var find = el('button', { type: 'button', class: 'dk-find', 'aria-label': 'Find an athlete or an action', html: DK_IC.search });
+  find.appendChild(el('span', { class: 'dk-item-label' }, 'Find'));
+  find.appendChild(dkKbd(_dkMac() ? '⌘K' : 'Ctrl K'));
+  find.dataset.tip = 'Find an athlete or an action';
+  find.dataset.kbd = _dkMac() ? '⌘K' : 'Ctrl K';
+  find.classList.add('dk-tip-min');
+  find.addEventListener('click', function () { openDeskPalette(); });
+  rail.appendChild(find);
 
   var nav = el('nav', { class: 'dk-nav', 'aria-label': 'Work' });
-  [['today', 'Today', ICONS.today], ['roster', 'Roster', ICONS.athletes], ['programs', 'Programs', ICONS.program], ['messages', 'Messages', ICONS.chat]].forEach(function (x) {
-    var b = el('button', { class: 'dk-item', type: 'button', 'data-go': x[0], title: x[1] });
-    b.innerHTML = x[2];
-    b.appendChild(el('span', { class: 'dk-item-label' }, x[1]));
-    b.appendChild(el('span', { class: 'dk-count', 'data-count': x[0] }));
-    b.addEventListener('click', function () { deskGo(x[0]); });
-    nav.appendChild(b);
-  });
+  nav.appendChild(dkRailItem('today', 'Today', DK_IC.today, function () { deskGo('today'); }, { go: true, count: true }));
+  nav.appendChild(dkRailItem('roster', 'Roster', DK_IC.roster, function () { deskGo('roster'); }, { go: true, count: true }));
+  nav.appendChild(dkRailItem('programs', 'Programs', DK_IC.programs, function () { deskGo('programs'); }, { go: true }));
+  // Room for Programs' sub-entries (Teams, from the team-programs track): it draws into this slot
+  // through window.deskProgramsSubnav(slot) when it lands. Nothing shows until then.
+  var sub = el('div', { class: 'dk-nav-sub', 'data-slot': 'programs' });
+  nav.appendChild(sub);
+  nav.appendChild(dkRailItem('meets', 'Meets', DK_IC.meets, function () { deskGo('meets'); }, { go: true, count: true }));
+  nav.appendChild(dkRailItem('messages', 'Messages', DK_IC.messages, function () { deskGo('messages'); }, { go: true, count: true }));
   rail.appendChild(nav);
 
   var views = el('div', { class: 'dk-views', role: 'group', 'aria-label': 'Saved views' });
   views.appendChild(el('div', { class: 'dk-sub' }, 'Views'));
-  // "Needs me" lives in Today's count and the roster's "7 need you" chip: not a third time here.
+  // "Needs you" is Today's count: not a second time here.
   DESK_VIEWS.filter(function (v) { return v.key !== 'needs'; }).forEach(function (v) {
     var b = el('button', { class: 'dk-item dk-view', type: 'button', 'data-view': v.key });
     b.appendChild(el('span', { class: 'dk-item-label' }, v.label));
@@ -405,15 +604,11 @@ function dkBuildRail() {
   rail.appendChild(views);
 
   var foot = el('div', { class: 'dk-rail-foot' });
-  [['club', 'Club', ICONS.club, function () { deskGo('club'); }],
-   ['settings', 'Settings', DK_IC.gear, function () { deskGo('settings'); }],
-   ['ai', 'Ask AI', DK_IC.spark, function () { if (typeof openAIAssistant === 'function') openAIAssistant(); }]].forEach(function (x) {
-    var b = el('button', { class: 'dk-item dk-item-quiet', type: 'button', 'data-go': x[0], title: x[1] });
-    b.innerHTML = x[2];
-    b.appendChild(el('span', { class: 'dk-item-label' }, x[1]));
-    b.addEventListener('click', x[3]);
-    foot.appendChild(b);
-  });
+  foot.appendChild(dkRailItem('club', 'Club', DK_IC.club, function () { deskGo('club'); }, { go: true }));
+  foot.appendChild(dkRailItem('settings', 'Settings', DK_IC.gear, function () { deskGo('settings'); }, { go: true }));
+  foot.appendChild(dkRailItem('ai', 'Ask AI', DK_IC.ai, function () { if (typeof openAIAssistant === 'function') openAIAssistant(); }, { cls: 'dk-item-quiet' }));
+  var theme = dkRailItem('theme', 'Light mode', DK_IC.sun, function () { toggleTheme(); }, { cls: 'dk-item-quiet dk-theme' });
+  foot.appendChild(theme);
   if (window._demoMode) {
     // The demo's banner, docked: one quiet row instead of a pill over the table.
     var demo = el('div', { class: 'dk-demo' });
@@ -421,24 +616,39 @@ function dkBuildRail() {
     demo.appendChild(el('a', { class: 'dk-demo-link', href: 'index.html' }, 'Start yours'));
     foot.appendChild(demo);
   }
-  var me = el('button', { class: 'dk-me', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: (u && u.name) || 'You' });
+  var me = el('button', { class: 'dk-me', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
   me.appendChild(dkAv(u || { name: 'You' }, 'dk-me-av'));
   var who = el('span', { class: 'dk-me-who' });
   who.appendChild(el('span', { class: 'dk-me-name' }, (u && u.name) || 'You'));
   who.appendChild(el('span', { class: 'dk-plan', 'data-plan': '' }));
   me.appendChild(who);
   me.insertAdjacentHTML('beforeend', '<span class="dk-me-more">' + DK_IC.more + '</span>');
+  me.dataset.tip = (u && u.name) || 'You';
+  me.classList.add('dk-tip-min');
   me.addEventListener('click', function (e) { e.stopPropagation(); dkMeMenu(me); });
   foot.appendChild(me);
   rail.appendChild(foot);
   document.body.appendChild(rail);
+  dkPaintSubnav(true);
 }
+// Programs' sub-entries (Teams): drawn by window.deskProgramsSubnav(slot) whenever it exists. The
+// rail asks again on every paint while the slot is empty (the hook may load after the rail), and
+// window.deskRepaintSubnav() redraws it on demand (its data arrived, or changed).
+function dkPaintSubnav(force) {
+  var slot = document.querySelector('#deskRail .dk-nav-sub[data-slot="programs"]');
+  if (!slot || typeof window.deskProgramsSubnav !== 'function') return;
+  if (!force && slot.childNodes.length) return;
+  slot.innerHTML = '';
+  try { window.deskProgramsSubnav(slot); } catch (e) { console.warn('deskProgramsSubnav', e); }
+}
+window.deskRepaintSubnav = function () { dkPaintSubnav(true); };
 function dkPaintRail() {
   var rail = document.getElementById('deskRail');
   if (!rail) return;
   if (!_dk.rows) dkRowsFresh();
   var rows = _dk.rows || [], q = _dk.queue;
-  var athletePage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
+  var athletePage = _dkOnPage();
+  dkPaintSubnav(false);
   rail.querySelectorAll('[data-go]').forEach(function (b) {
     var on = b.dataset.go === _dk.screen && !(_dk.screen === 'roster' && _dk.view && !athletePage);
     b.classList.toggle('on', on);
@@ -454,13 +664,17 @@ function dkPaintRail() {
     var u0 = _dkUser();
     (Store.get().messages || []).forEach(function (m) { if (u0 && m.senderId !== u0.id && !m.readAt) unread++; });
   } else Object.keys(ur).forEach(function (k) { unread += ur[k] || 0; });
-  var counts = { today: q ? q.queue.length : 0, roster: rows.length, messages: unread };
+  var meets = dkPlannedMeets();
+  var counts = { today: q ? q.queue.length : 0, roster: rows.length, messages: unread, meets: meets.length };
   rail.querySelectorAll('[data-count]').forEach(function (c) {
     var n = counts[c.dataset.count];
     c.textContent = n ? String(n) : '';
-    // Today's queue and unread messages need the coach; the roster's total is just a count.
+    // Today's queue and unread messages need the coach; the others are just counts.
     c.classList.toggle('is-hot', (c.dataset.count === 'today' || c.dataset.count === 'messages') && n > 0);
   });
+  // Meets shows only when there's a meet on the calendar.
+  var mb = rail.querySelector('[data-go="meets"]');
+  if (mb) mb.hidden = !meets.length;
   var now = Date.now();
   var views = rail.querySelector('.dk-views');
   if (views) views.hidden = !rows.length;   // nobody yet: no empty views to count
@@ -470,6 +684,13 @@ function dkPaintRail() {
     c.closest('.dk-view').classList.toggle('is-zero', !n);
     c.classList.toggle('t-alert', c.dataset.vcount === 'pain' && n > 0);
   });
+  var light = document.documentElement.getAttribute('data-theme') === 'light';
+  var th = rail.querySelector('.dk-theme');
+  if (th) {
+    th.innerHTML = light ? DK_IC.moon : DK_IC.sun;
+    th.appendChild(el('span', { class: 'dk-item-label' }, light ? 'Dark mode' : 'Light mode'));
+    th.dataset.tip = light ? 'Dark mode' : 'Light mode';
+  }
   var plan = rail.querySelector('[data-plan]');
   if (plan) {
     var t = getCurrentTier(), lim = getCurrentTierLimit(), u = _dkUser();
@@ -479,17 +700,19 @@ function dkPaintRail() {
 }
 function dkToggleRail() {
   var on = document.documentElement.classList.toggle('rail-min');
-  _dkLS('powa-desk-rail', on ? 'min' : null);
+  _dkLS('powa-desk-rail', on ? 'min' : 'open');
 }
 function dkToggleCtx() {
   var root = document.documentElement;
+  // The card (Today, the roster, an athlete): ] opens or closes it.
+  if (_dkOnPage() || _dk.screen === 'today' || _dk.screen === 'roster') {
+    if (_dk.card) dkCloseCard(); else dkOpenCard('thread', { noFocus: true });
+    return;
+  }
   var off = root.classList.toggle('ctx-off');
   _dkLS('powa-desk-ctx', off ? 'off' : 'on');
   dkSyncCtx();
   if (off) return;
-  if (document.querySelector('[data-pane="athlete"]:not(.hidden)')) { dkPaintPageCtx(true); return; }
-  if (_dk.screen === 'today') dkPaintTodayCtx();
-  if (_dk.screen === 'roster') dkPaintRosterCtx();
   if (_dk.screen === 'messages') dkPaintMsgCtx();
   if (_dk.screen === 'programs') dkPaintInspector();
 }
@@ -510,7 +733,7 @@ function dkPopMenu(anchor, items, opts) {
   items.forEach(function (it) {
     if (it === '-') { m.appendChild(el('div', { class: 'dk-menu-sep', role: 'separator' })); return; }
     if (it.node) { m.appendChild(it.node); return; }
-    var b = el('button', { type: 'button', class: 'dk-menu-item', role: it.check != null ? 'menuitemcheckbox' : 'menuitem' });
+    var b = el('button', { type: 'button', class: 'dk-menu-item' + (it.danger ? ' is-danger' : ''), role: it.check != null ? 'menuitemcheckbox' : 'menuitem' });
     if (it.check != null) { b.setAttribute('aria-checked', String(!!it.check)); b.insertAdjacentHTML('beforeend', '<span class="dk-check">' + (it.check ? ICONS.check : '') + '</span>'); }
     b.appendChild(el('span', { class: 'dk-menu-label' }, it.label));
     if (it.hint) b.appendChild(el('span', { class: 'dk-menu-hint' }, it.hint));
@@ -520,9 +743,11 @@ function dkPopMenu(anchor, items, opts) {
   document.body.appendChild(m);
   var r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
   var left = opts.alignRight ? r.right - mw : r.left;
-  var top = opts.above ? r.top - mh - 6 : r.bottom + 6;
+  var up = opts.above || r.bottom + 6 + mh > window.innerHeight - 8;
+  var top = up ? r.top - mh - 6 : r.bottom + 6;
   m.style.left = Math.max(8, Math.min(window.innerWidth - mw - 8, left)) + 'px';
   m.style.top = Math.max(8, Math.min(window.innerHeight - mh - 8, top)) + 'px';
+  m.style.transformOrigin = (opts.alignRight ? 'right ' : 'left ') + (up ? 'bottom' : 'top');
   anchor.setAttribute('aria-expanded', 'true');
   var closed = false;
   function close() {
@@ -543,10 +768,8 @@ function dkPopMenu(anchor, items, opts) {
   return m;
 }
 function dkMeMenu(anchor) {
-  var light = document.documentElement.getAttribute('data-theme') === 'light';
   var compact = document.documentElement.getAttribute('data-density') === 'compact';
   dkPopMenu(anchor, [
-    { label: light ? 'Dark theme' : 'Light theme', run: function () { toggleTheme(); } },
     { label: 'Show weights in ' + (getUnit() === 'kg' ? 'lb' : 'kg'), run: function () { toggleUnit(); } },
     { label: compact ? 'Comfortable rows' : 'Compact rows', run: dkToggleDensity },
     '-',
@@ -557,7 +780,7 @@ function dkMeMenu(anchor) {
   ], { above: true });
 }
 
-// ---------- the context pane (Today: the thread · Roster: a preview) ----------
+// ---------- the side card: the thread or private notes, on demand ----------
 function dkBuildCtx() {
   if (document.getElementById('deskCtx')) return;
   var ctx = el('aside', { class: 'dk-ctx', id: 'deskCtx', 'aria-label': 'Details', hidden: '' });
@@ -565,7 +788,7 @@ function dkBuildCtx() {
 }
 function dkCtxHost() { return document.getElementById('deskCtx'); }
 function dkCtxReady() { return document.documentElement.classList.contains('ctx-show'); }
-// opts.peek: the thread only previews (Today's pane follows J/K): nothing is marked read, and no
+// opts.peek: the thread only previews (the card followed J/K): nothing is marked read, and no
 // "Seen" goes to the athlete, until the coach clicks in it or focuses the composer.
 function dkThreadInto(host, a, opts) {
   opts = opts || {};
@@ -579,7 +802,7 @@ function dkThreadInto(host, a, opts) {
   };
   renderMessageThread(box, { coachId: u.id, athleteId: a.id, viewerId: u.id, otherName: _dkFirst(a.name),
     markRead: !opts.peek, onRead: onRead, emptyText: opts.emptyText,
-    onSent: function (m) { dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body); setTimeout(dkRepaint, 0); } });
+    onSent: function (m) { dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body); setTimeout(function () { dkRepaint(); dkWsAsksRefresh(a.id); }, 0); } });
   if (opts.focus) dkFocusComposer();
   return box;
 }
@@ -591,19 +814,107 @@ function dkFocusComposer() {
     if (++tries < 20) setTimeout(f, 40);
   })();
 }
+// Open the card on a tab ('thread' | 'notes'). opts.compose: start a new private note.
+function dkOpenCard(tab, opts) {
+  opts = opts || {};
+  if (!dkCardAid()) return;
+  var was = _dk.card;
+  _dk.card = tab || 'thread';
+  dkSyncCtx();
+  dkPaintCard({ force: true, intent: !opts.noFocus });
+  dkPaintCardButtons();
+  var host = dkCtxHost();
+  if (host && !was && !_dkReduced()) { host.classList.remove('is-in'); void host.offsetWidth; host.classList.add('is-in'); }
+  if (_dk.card === 'thread' && !opts.noFocus) dkFocusComposer();
+  if (_dk.card === 'notes' && opts.compose) { var box = host && host.querySelector('.dk-pn'); if (box && box._compose) box._compose(); }
+}
+function dkCloseCard() {
+  _dk.card = null;
+  dkSyncCtx();
+  dkPaintCardButtons();
+  var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : _dk.screen === 'roster' ? document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-sh-row.is-sel') : null;
+  if (back && !_dkOnPage()) back.focus({ preventScroll: true });
+}
+// The workspace's Message / Notes buttons say which tab is open.
+function dkPaintCardButtons() {
+  document.querySelectorAll('[data-card]').forEach(function (b) { b.setAttribute('aria-pressed', String(_dk.card === b.dataset.card)); });
+}
+function dkPaintCard(opts) {
+  opts = opts || {};
+  var host = dkCtxHost();
+  if (!host) return;
+  var aid = dkCardAid();
+  if (!_dk.card || !aid || !dkCtxReady()) { if (host.dataset.aid) dkCtxClear(); return; }
+  var key = 'card:' + aid + ':' + _dk.card;
+  // The same card already open (a background refresh): keep it, and whatever is being typed.
+  if (!opts.force && host.dataset.aid === key) return;
+  dkCtxClear();
+  var r = dkRow(aid) || (dkRowsFresh(), dkRow(aid));
+  if (!r) return;
+  var a = r.athlete;
+  host.dataset.aid = key;
+  var head = el('div', { class: 'dk-card-head' });
+  head.appendChild(dkAv(a, 'is-sm'));
+  head.appendChild(el('div', { class: 'dk-card-who' }, el('b', {}, a.name), el('span', {}, _dk.card === 'thread' ? (function () { var th = _dkThreadLast(aid); return th ? 'Last message ' + _dkAgoTime(th.lastAt) : 'No messages yet'; })() : 'Only you see these')));
+  head.appendChild(dkIconBtn(DK_IC.x, 'Close', dkCloseCard, 'Esc'));
+  host.appendChild(head);
+  var tabs = el('div', { class: 'dk-seg dk-card-tabs', role: 'tablist', 'aria-label': 'Card' });
+  [['thread', 'Messages'], ['notes', 'Private notes']].forEach(function (x) {
+    var on = _dk.card === x[0];
+    var b = el('button', { type: 'button', class: 'dk-seg-btn' + (on ? ' on' : ''), role: 'tab', 'aria-selected': String(on) }, x[1]);
+    dkTip(b, '', x[0] === 'thread' ? 'R' : 'N');
+    b.addEventListener('click', function () { if (!on) dkOpenCard(x[0]); });
+    tabs.appendChild(b);
+  });
+  host.appendChild(tabs);
+  if (_dk.card === 'notes') {
+    var nb = dkNotesBox(aid);
+    nb.classList.add('is-card');
+    host.appendChild(nb);
+    return;
+  }
+  // Opened on purpose: the thread is read. Following J/K: a peek until the coach touches it.
+  var mount = function () {
+    if (host.dataset.aid !== key || !dkCtxReady()) return;
+    host._msgCleanupBox = dkThreadInto(host, a, { peek: !opts.intent, emptyText: dkReplyPrompt(r) });
+  };
+  if (opts.intent || opts.now) mount(); else _dk.ctxT = setTimeout(mount, 200);
+}
+
 
 // =====================================================================
-// TODAY: who needs me
+// TODAY: who needs me (left), their week (right)
 // =====================================================================
-function renderDeskToday() {
+// FLIP: rows that moved since the last paint glide to their new place (a reorder reads as one).
+function _dkFlipBefore(scope) {
+  var m = {};
+  (scope ? scope.querySelectorAll('.dk-qrow[data-id]') : []).forEach(function (n) { m[n.dataset.id + (n.dataset.lane || '')] = n.getBoundingClientRect().top; });
+  return m;
+}
+function _dkFlipAfter(scope, before) {
+  if (!scope || _dkReduced()) return;
+  scope.querySelectorAll('.dk-qrow[data-id]').forEach(function (n) {
+    var k = n.dataset.id + (n.dataset.lane || ''), was = before[k];
+    if (was == null) return;
+    var dy = was - n.getBoundingClientRect().top;
+    if (Math.abs(dy) < 2) return;
+    n.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  });
+}
+function renderDeskToday(opts) {
+  opts = opts || {};
   var host = document.getElementById('deskToday');
   if (!host) return;
   dkRowsFresh();
-  var rows = _dk.rows, q = _dk.queue, st = dkState();
-  host.innerHTML = '';
+  var landed = dkLanded();
+  var rows = _dk.rows, q = _dk.queue;
+  var oldList = host.querySelector('.dk-list');
+  var before = _dkFlipBefore(oldList);
+  var listScroll = oldList ? oldList.scrollTop : 0;
   host.classList.toggle('is-setup', !rows.length);
   if (!rows.length) {
     // Nobody yet: Today is the first run (how do you coach, three steps, a sample roster).
+    host.innerHTML = '';
     var c = el('div', { class: 'dk-setup' });
     try { c.appendChild(dkFirstRun()); } catch (e) { console.warn('dkFirstRun', e); }
     host.appendChild(c);
@@ -615,6 +926,7 @@ function renderDeskToday() {
   _dk.order = q.queue.map(function (r) { return { id: r.athlete.id, lane: 'q' }; })
     .concat(q.wins.map(function (r) { return { id: r.athlete.id, lane: 'w' }; }));
   var ids = _dk.order.map(function (o) { return o.id + o.lane; });
+  var prevSel = _dk.sel ? _dk.sel.id + _dk.sel.lane : null;
   if (!_dk.sel || ids.indexOf(_dk.sel.id + _dk.sel.lane) < 0) _dk.sel = q.queue.length ? { id: q.queue[0].athlete.id, lane: 'q' } : null;
 
   var list = el('div', { class: 'dk-list', role: 'listbox', 'aria-label': 'Who needs you', tabindex: '-1' });
@@ -624,42 +936,74 @@ function renderDeskToday() {
   h.appendChild(el('span', { class: 'dk-date' }, new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })));
   head.appendChild(h);
   if (q.total) head.appendChild(dkProgressBar(q));
+  // The last Done / Snooze, undoable from a button too (U).
+  if (_dk.last && dkRow(_dk.last.id)) {
+    var lr = dkRow(_dk.last.id);
+    var ub = dkBtn('Undo: ' + _dkFirst(lr.athlete.name) + (_dk.last.lane === 'w' ? ' seen' : _dk.last.kind === 'snooze' ? ' snoozed' : ' done'), { cls: 'dk-btn-sm is-quiet dk-undo', kbd: 'U', onClick: dkUndo });
+    head.appendChild(ub);
+  }
   list.appendChild(head);
 
   if (q.queue.length) {
-    var ql = el('div', { class: 'dk-lane' });
-    q.queue.forEach(function (r) { ql.appendChild(dkQueueRow(r, 'q')); });
+    var ql = el('div', { class: 'dk-lane', role: 'group', 'aria-label': 'Needs you' });
+    ql.appendChild(el('div', { class: 'dk-lane-head' }, el('span', { class: 'dk-lane-title' }, 'Needs you'), el('span', { class: 'dk-lane-count' }, String(q.queue.length))));
+    q.queue.forEach(function (r, i) { ql.appendChild(dkQueueRow(r, 'q', { landed: landed[r.athlete.id], i: i })); });
     list.appendChild(ql);
-  } else if (q.snoozed.length) {
-    list.appendChild(el('div', { class: 'dk-list-foot' }, q.snoozed.length + ' snoozed till tomorrow'));
   }
+  if (q.snoozed.length) list.appendChild(el('div', { class: 'dk-list-foot' }, q.snoozed.length + ' snoozed till tomorrow'));
   if (q.wins.length) {
-    var wl = el('div', { class: 'dk-lane dk-wins', role: 'group', 'aria-label': 'Wins' });
+    var wl = el('div', { class: 'dk-lane dk-wins' + (Object.keys(_dk.wpick).some(function (k) { return _dk.wpick[k]; }) ? ' has-picks' : ''), role: 'group', 'aria-label': 'Wins' });
     var wh = el('div', { class: 'dk-lane-head' });
     wh.appendChild(el('span', { class: 'dk-lane-title' }, 'Wins'));
     wh.appendChild(el('span', { class: 'dk-lane-count' }, String(q.wins.length)));
     var picked = Object.keys(_dk.wpick).filter(function (k) { return _dk.wpick[k]; }).length;
-    var kb = dkBtn(picked ? 'Kudos to ' + picked : 'Send kudos', { cls: 'dk-btn-sm', onClick: dkKudos, title: 'Send kudos  ' + (_dkMac() ? '⌘⇧K' : 'Ctrl Shift K') });
-    wh.appendChild(kb);
+    wh.appendChild(dkBtn(picked ? 'Kudos to ' + picked : 'Send kudos', { cls: 'dk-btn-sm is-quiet', onClick: dkKudos, kbd: _dkMac() ? '⌘⇧K' : 'Ctrl Shift K' }));
     wl.appendChild(wh);
-    q.wins.forEach(function (r) { wl.appendChild(dkQueueRow(r, 'w')); });
+    q.wins.forEach(function (r) { wl.appendChild(dkQueueRow(r, 'w', { landed: landed[r.athlete.id] })); });
     list.appendChild(wl);
   }
-  if (q.snoozed.length && q.queue.length) {
-    list.appendChild(el('div', { class: 'dk-list-foot' }, q.snoozed.length + ' snoozed till tomorrow'));
-  }
+  // Everyone else, as one line: "12 more on plan · Dev training now".
+  var inQ = {};
+  q.queue.forEach(function (r) { inQ[r.athlete.id] = 1; });
+  q.wins.forEach(function (r) { inQ[r.athlete.id] = 1; });
+  var rest = rows.filter(function (r) { return !inQ[r.athlete.id]; });
+  if (rest.length) list.appendChild(dkMoreRow(rest, 'on plan'));
 
-  var centre = el('div', { class: 'dk-centre', id: 'deskTodayCentre' });
-  host.appendChild(list);
-  host.appendChild(centre);
-  dkPaintTodayCentre();
+  if (opts.keepCentre && oldList && _dk.sel && prevSel === _dk.sel.id + _dk.sel.lane && document.getElementById('deskTodayCentre')) {
+    oldList.replaceWith(list);
+    list.scrollTop = listScroll;
+  } else {
+    host.innerHTML = '';
+    var centre = el('div', { class: 'dk-centre', id: 'deskTodayCentre' });
+    host.appendChild(list);
+    host.appendChild(centre);
+    list.scrollTop = listScroll;
+    dkPaintTodayCentre();
+  }
+  _dkFlipAfter(list, before);
   dkSyncCtx(!_dk.sel);
-  dkPaintTodayCtx();
+  dkPaintCard();
   dkPaintRail();
   var selEl = list.querySelector('.dk-qrow.is-sel');
-  if (selEl) selEl.scrollIntoView({ block: 'nearest' });
+  if (selEl && !opts.keepCentre) selEl.scrollIntoView({ block: 'nearest' });
 }
-// Today's bar counts real work, one athlete each: done (E), acted on (applied next week or
+// "12 more on plan" with their faces; who's training right now is named. Opens the roster.
+function dkMoreRow(rest, what) {
+  var live = rest.filter(function (r) { return r.live; });
+  var b = el('button', { type: 'button', class: 'dk-more' });
+  var stack = el('span', { class: 'dk-stack', 'aria-hidden': 'true' });
+  rest.slice(0, 5).forEach(function (r) { stack.appendChild(dkAv(r.athlete, 'is-sm')); });
+  b.appendChild(stack);
+  var t = el('span', { class: 'dk-more-t' });
+  t.appendChild(el('b', {}, rest.length + ' more ' + what));
+  if (live.length) t.appendChild(el('span', { class: 'is-live' }, live.map(function (r) { return _dkFirst(r.athlete.name); }).slice(0, 2).join(' and ') + (live.length > 2 ? ' and ' + (live.length - 2) + ' more' : '') + ' training now'));
+  else t.appendChild(el('span', {}, 'See them in the roster'));
+  b.appendChild(t);
+  b.insertAdjacentHTML('beforeend', DK_IC.chevR);
+  b.addEventListener('click', function () { deskGo('roster'); });
+  return b;
+}
+// Today's bar counts real work, one athlete each: done (E), acted on (published next week or
 // replied), snoozed. Nothing is counted for opening a row. Up to 24 it's one segment per athlete,
 // so 0 of N reads as N empty slots, not a stray divider; past that, one continuous line.
 function dkProgressBar(q) {
@@ -684,38 +1028,60 @@ function dkProgressBar(q) {
   bar.appendChild(txt);
   return bar;
 }
-function dkQueueRow(r, lane) {
+// One athlete in the list: the ring, the name, how fresh, and one plain sentence.
+function dkQueueRow(r, lane, opts) {
+  opts = opts || {};
   var a = r.athlete;
   var on = _dk.sel && _dk.sel.id === a.id && _dk.sel.lane === lane;
-  var row = el('div', { class: 'dk-qrow' + (on ? ' is-sel' : '') + (lane === 'w' && _dk.wpick[a.id] ? ' is-picked' : ''), role: 'option', 'aria-selected': String(!!on), 'data-id': a.id, 'data-lane': lane, tabindex: on ? '0' : '-1' });
+  var row = el('div', { class: 'dk-qrow' + (on ? ' is-sel' : '') + (lane === 'w' && _dk.wpick[a.id] ? ' is-picked' : '') + (opts.landed ? ' is-landed' : ''), role: 'option', 'aria-selected': String(!!on), 'data-id': a.id, 'data-lane': lane, tabindex: on ? '0' : '-1' });
   if (lane === 'w') {
     var cb = el('input', { type: 'checkbox', class: 'dk-cb', 'aria-label': 'Select ' + a.name + ' for kudos', tabindex: '-1' });
     cb.checked = !!_dk.wpick[a.id];
-    cb.addEventListener('click', function (e) { e.stopPropagation(); _dk.wpick[a.id] = cb.checked; renderDeskToday(); });
+    cb.addEventListener('click', function (e) { e.stopPropagation(); _dk.wpick[a.id] = cb.checked; renderDeskToday({ keepCentre: true }); });
     row.appendChild(cb);
   }
-  var avw = el('span', { class: 'dk-avw' });
-  avw.appendChild(dkAv(a));
-  if (r.live) avw.appendChild(el('span', { class: 'dk-live', title: 'Training now' }));
-  row.appendChild(avw);
-  var main = el('div', { class: 'dk-qmain' });
-  var top = el('div', { class: 'dk-qtop' });
-  top.appendChild(el('span', { class: 'dk-qname' }, a.name));
-  var hd = lane === 'q' && _dk.queue && _dk.queue.handled.indexOf(r) >= 0 ? (dkState().handled[a.id] || {}).via : null;
-  if (hd) {
-    row.classList.add('is-handled');
-    top.appendChild(el('span', { class: 'dk-qago is-handled', html: ICONS.check }, el('span', {}, hd === 'apply' ? 'Week set' : 'Replied')));
-  } else top.appendChild(el('span', { class: 'dk-qago' + (r.live ? ' is-live' : '') }, r.live ? 'Training now' : dkAgoShort(r.status.ago)));
-  main.appendChild(top);
-  var chips = el('div', { class: 'dk-chips' });
-  var src = lane === 'w' ? r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }) : r.reasons;
-  src.slice(0, 3).forEach(function (x) { chips.appendChild(dkChip(x.text, x.tone)); });
-  if (src.length > 3) chips.appendChild(el('span', { class: 'dk-chip-more' }, '+' + (src.length - 3)));
-  main.appendChild(chips);
-  row.appendChild(main);
+  row.appendChild(dkRingAv(r));
+  row.appendChild(dkRowMain(r, lane, lane === 'q' && _dk.queue && _dk.queue.handled.indexOf(r) >= 0 ? (dkState().handled[a.id] || {}).via : null));
   row.addEventListener('click', function () { dkSelect(a.id, lane); });
   row.addEventListener('dblclick', function () { openAthletePage(a.id); });
   return row;
+}
+function dkRowMain(r, lane, handledVia) {
+  var main = el('div', { class: 'dk-qmain' });
+  var top = el('div', { class: 'dk-qtop' });
+  top.appendChild(el('span', { class: 'dk-qname' }, r.athlete.name));
+  var un = _dkUnread()[r.athlete.id];
+  if (un) top.appendChild(el('span', { class: 'dk-unread', 'aria-label': un + ' unread' }, String(un)));
+  var sentence = dkSentence(r, lane);
+  top.appendChild(dkRowTag(r, lane, handledVia, sentence));
+  main.appendChild(top);
+  var line = el('div', { class: 'dk-qline' + (r.reasons.length && lane !== 'w' && /^(alert)$/.test(r.reasons[0].tone) ? ' is-alert' : '') });
+  line.appendChild(dkRich(sentence));
+  main.appendChild(line);
+  return main;
+}
+// The row's right-hand tag: a draft waiting on Publish, handled, live, the meet, or last trained.
+function dkRowTag(r, lane, handledVia, sentence) {
+  var pn = lane !== 'w' ? dkPendCount(r.athlete.id) : 0;
+  if (pn) return el('span', { class: 'dk-qago is-draft', title: pn + (pn === 1 ? ' change' : ' changes') + ' to next week, not published yet' }, 'Draft · ' + pn);
+  if (handledVia) return el('span', { class: 'dk-qago is-handled', html: DK_IC.check }, el('span', {}, handledVia === 'apply' ? 'Week sent' : 'Replied'));
+  if (r.live) return el('span', { class: 'dk-qago is-live' }, 'Now');
+  // The meet once: when the sentence already names it, the tag says when they last trained.
+  if (r.meet && r.meet.days <= 56 && !/\bmeet\b/i.test(sentence)) return el('span', { class: 'dk-qago is-meet' }, r.meet.days <= 14 ? 'Meet ' + r.meet.days + 'd' : 'Meet ' + Math.ceil(r.meet.days / 7) + 'w');
+  return el('span', { class: 'dk-qago' }, dkAgoShort(r.status.ago));
+}
+// A draft changed: the list rows' tags follow without a repaint.
+function dkPaintRowTags(aid) {
+  var r = dkRow(aid);
+  if (!r) return;
+  document.querySelectorAll('.dk-qrow[data-id="' + CSS.escape(aid) + '"]').forEach(function (row) {
+    var lane = row.dataset.lane || 'r';
+    if (lane === 'w') return;
+    var old = row.querySelector('.dk-qago');
+    if (!old) return;
+    var hv = row.closest('#deskToday') && lane === 'q' && _dk.queue && _dk.queue.handled.indexOf(r) >= 0 ? (dkState().handled[aid] || {}).via : null;
+    old.replaceWith(dkRowTag(r, lane, hv, dkSentence(r, lane)));
+  });
 }
 function dkSelect(id, lane, fromKey) {
   _dk.sel = { id: id, lane: lane };
@@ -726,9 +1092,9 @@ function dkSelect(id, lane, fromKey) {
     r.tabIndex = on ? 0 : -1;
     if (on) { r.scrollIntoView({ block: 'nearest' }); if (fromKey) r.focus({ preventScroll: true }); }
   });
-  dkPaintTodayCentre();
+  dkPaintTodayCentre({ swap: !fromKey });
   dkSyncCtx(false);
-  dkPaintTodayCtx();
+  dkPaintCard();
 }
 function dkMove(step) {
   if (!_dk.order.length) return;
@@ -738,10 +1104,13 @@ function dkMove(step) {
   dkSelect(_dk.order[n].id, _dk.order[n].lane, true);
 }
 // E: done for this week. S: snooze till tomorrow. The athlete drops out and the next opens.
-function dkMark(kind) {
+function dkMark(kind, opts) {
   if (!_dk.sel) return;
   var r = dkRow(_dk.sel.id);
   if (!r) return;
+  // Done with a draft of next week still waiting: it would never reach them. Ask first.
+  var pn = kind !== 'snooze' && _dk.sel.lane === 'q' && !(opts && opts.force) ? dkPendCount(r.athlete.id) : 0;
+  if (pn) { dkDraftAsk(r, pn); return; }
   var st = dkState();
   var lane = _dk.sel.lane;
   var i = _dk.order.findIndex(function (o) { return o.id === _dk.sel.id && o.lane === lane; });
@@ -757,6 +1126,25 @@ function dkMark(kind) {
   if (!next && _dk.sel === null && _dk.queue.queue.length && lane === 'q') dkSelect(_dk.queue.queue[0].athlete.id, 'q');
   toast(lane === 'w' ? 'Seen' : kind === 'snooze' ? _dkFirst(r.athlete.name) + ' snoozed till tomorrow · U to undo' : _dkFirst(r.athlete.name) + ' done for this week · U to undo');
 }
+function dkDraftAsk(r, n) {
+  var aid = r.athlete.id;
+  var prog = dkProgOf(aid), rev = prog ? deskWeekReview(prog) : null;
+  var wk = rev && rev.nextIdx >= 0 ? (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) : '';
+  var anchor = _dkVis('.dk-ws[data-aid="' + CSS.escape(aid) + '"] .dk-ws-bar .dk-btn') || _dkVis('.dk-pub[data-aid="' + CSS.escape(aid) + '"] .dk-btn');
+  var items = [
+    { label: 'Publish week ' + wk + ' and mark done', run: function () {
+      dkWsApply(aid);
+      if (dkPendCount(aid)) return;
+      dkMark('done', { force: true });
+      toast('Week ' + wk + ' published' + (window._demoMode ? ' in the demo' : '') + '. ' + _dkFirst(r.athlete.name) + ' done for this week · U to undo');
+    } },
+    { label: 'Discard the draft and mark done', danger: true, run: function () { dkPendDrop(aid); dkMark('done', { force: true }); } },
+    '-',
+    { label: 'Keep editing', run: function () { var i = _dkVis('.dk-ws[data-aid="' + CSS.escape(aid) + '"] input.dk-wk-in.is-pend'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } } }
+  ];
+  if (anchor) { items.unshift({ node: el('div', { class: 'dk-menu-title', role: 'presentation' }, 'Week ' + wk + ' has ' + n + (n === 1 ? ' unpublished change' : ' unpublished changes')) }); dkPopMenu(anchor, items); }
+  else toastAction('Week ' + wk + ' has ' + n + (n === 1 ? ' unpublished change' : ' unpublished changes'), 'Publish', function () { dkWsApply(aid); });
+}
 function dkUndo() {
   var p = _dk.last;
   if (!p) return;
@@ -770,152 +1158,34 @@ function dkUndo() {
   renderDeskToday();
   toast('Undone');
 }
-// The centre: the selected athlete's workspace, opened at what needs the coach (↵ opens their page).
-function dkPaintTodayCentre() {
+// The centre: the selected athlete's week, opened at what needs the coach.
+function dkPaintTodayCentre(opts) {
+  opts = opts || {};
   var c = document.getElementById('deskTodayCentre');
   if (!c) return;
   c.innerHTML = '';
+  c.scrollTop = 0;
   var q = _dk.queue;
   if (!_dk.sel) { c.appendChild(dkCaughtUp()); return; }
   var r = dkRow(_dk.sel.id);
   if (!r) return;
   var lane = _dk.sel.lane;
   var lanePos = (lane === 'q' ? q.queue : q.wins).findIndex(function (x) { return x.athlete.id === r.athlete.id; });
-  var acts = el('div', { class: 'dk-actions' });
-  acts.appendChild(dkBtn('Reply', { primary: true, kbd: 'R', onClick: dkReply }));
-  if (lane === 'q') {
-    acts.appendChild(dkBtn('Done', { kbd: 'E', icon: ICONS.check, onClick: function () { dkMark('done'); }, title: 'Done for this week. They come back if something new comes up.' }));
-    acts.appendChild(dkBtn('Snooze', { kbd: 'S', icon: DK_IC.snooze, onClick: function () { dkMark('snooze'); }, title: 'Till tomorrow' }));
-  } else {
-    acts.appendChild(dkBtn('Seen', { kbd: 'E', icon: ICONS.check, onClick: function () { dkMark('done'); } }));
-  }
-  // The centre is the athlete's workspace, opened on what needs the coach.
-  c.appendChild(dkWorkspace(r, { mode: 'today', lane: lane, actions: acts,
-    pos: lane === 'q' ? (lanePos + 1) + ' of ' + q.queue.length + ' to review' : 'Win ' + (lanePos + 1) + ' of ' + q.wins.length }));
+  c.appendChild(dkWorkspace(r, { mode: 'today', lane: lane,
+    pos: lane === 'q' ? (lanePos + 1) + ' of ' + q.queue.length : 'Win ' + (lanePos + 1) + ' of ' + q.wins.length }));
+  if (opts.swap) dkSwapIn(c.firstChild);
 }
-function dkReviewHead(r, pos, links) {
-  var a = r.athlete, st = r.status;
-  var head = el('div', { class: 'dk-rv-head' });
-  var avw = el('span', { class: 'dk-avw' });
-  avw.appendChild(dkAv(a, 'is-lg'));
-  if (r.live) avw.appendChild(el('span', { class: 'dk-live', title: 'Training now' }));
-  head.appendChild(avw);
-  var id = el('div', { class: 'dk-rv-id' });
-  var h2 = el('h2', { class: 'dk-h2' });
-  if (links) {
-    // The name opens their page (↵), the block opens their program (O).
-    var nb = el('button', { type: 'button', class: 'dk-link', title: 'Open their page  ↵' }, a.name);
-    nb.insertAdjacentHTML('beforeend', DK_IC.open);
-    nb.addEventListener('click', function () { openAthletePage(a.id); });
-    h2.appendChild(nb);
-  } else h2.textContent = a.name;
-  id.appendChild(h2);
-  var sub = el('div', { class: 'dk-rv-sub' });
-  if (links) {
-    var pb = el('button', { type: 'button', class: 'dk-link dk-link-sub', title: 'Open their program  O' }, dkBlockText(st));
-    pb.addEventListener('click', function () { openAthleteProgram(a.id); });
-    sub.appendChild(pb);
-  } else sub.appendChild(document.createTextNode(dkBlockText(st)));
-  // Every fact once: a meet or a weight the reasons already say isn't said here too.
-  if (st.program || st.ago != null) dkSubFacts(sub, dkWsSubBits(r, true).slice(1), true);
-  id.appendChild(sub);
-  head.appendChild(id);
-  if (pos) {
-    var nav = el('div', { class: 'dk-rv-pos' });
-    var pv = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Previous  K', title: 'Previous  K', html: DK_IC.chevL });
-    pv.addEventListener('click', function () { dkMove(-1); });
-    var nx = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Next  J', title: 'Next  J', html: DK_IC.chevR });
-    nx.addEventListener('click', function () { dkMove(1); });
-    nav.setAttribute('aria-label', pos);
-    nav.setAttribute('role', 'group');
-    nav.appendChild(pv); nav.appendChild(nx);
-    head.appendChild(nav);
-  }
-  return head;
+// A clicked selection crossfades in; J/K swaps instantly (keys are used all day).
+function dkSwapIn(node) {
+  if (!node || _dkReduced() || !node.animate) return;
+  node.animate([{ opacity: 0.4, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
 }
-function dkSection(title, body) {
+function dkSection(title, body, end) {
   var s = el('div', { class: 'dk-sec' });
-  s.appendChild(el('h3', { class: 'dk-sec-title' }, title));
+  if (end) { var h = el('div', { class: 'dk-sec-head' }); h.appendChild(el('h3', { class: 'dk-sec-title' }, title)); h.appendChild(el('span', { class: 'dk-sp' })); h.appendChild(end); s.appendChild(h); }
+  else s.appendChild(el('h3', { class: 'dk-sec-title' }, title));
   s.appendChild(body);
   return s;
-}
-function dkReasonList(r) {
-  var list = el('div', { class: 'dk-reasons' });
-  r.reasons.forEach(function (x) {
-    var row = el('div', { class: 'dk-reason' });
-    row.appendChild(dkChip(x.text, x.tone));
-    row.appendChild(el('span', { class: 'dk-reason-detail', title: x.detail || '' }, el('span', {}, x.detail || '')));
-    var go = null;
-    if (x.type === 'formcheck' && x.formCheckId && typeof openFormCheckReview === 'function') go = dkBtn('Review', { cls: 'dk-btn-sm is-quiet', onClick: function () { openFormCheckReview(x.formCheckId); } });
-    else if (x.type === 'note') go = dkBtn('Answer', { cls: 'dk-btn-sm is-quiet', onClick: function () { openAthleteNotes(r.athlete.id); } });
-    else if (/^(noprogram|blockdone|blockend|overshoot|drift)$/.test(x.type)) go = dkBtn('Program', { cls: 'dk-btn-sm is-quiet', onClick: function () { openAthleteProgram(r.athlete.id); } });
-    if (go) row.appendChild(go);
-    list.appendChild(row);
-  });
-  return list;
-}
-function dkWinList(r) {
-  var list = el('div', { class: 'dk-reasons' });
-  r.wins.forEach(function (w) {
-    var row = el('div', { class: 'dk-reason' });
-    row.appendChild(dkChip(w.text, 'win'));
-    var detail = '';
-    if (w.type === 'pr') {
-      var pr = getLifetimePRs(r.athlete.id);
-      detail = (w.lifts || []).filter(function (L) { return pr[L]; }).map(function (L) { return LIFT_LABELS[L] + ' ' + dkWt(pr[L].weight) + ' × ' + pr[L].reps + ' @' + _num(pr[L].rpe); }).join(' · ');
-    }
-    row.appendChild(el('span', { class: 'dk-reason-detail' }, el('span', {}, detail)));
-    list.appendChild(row);
-  });
-  return list;
-}
-function dkLifts(r) {
-  var logs = (Store.get().workoutLogs || []).filter(function (l) { return l.athleteId === r.athlete.id; });
-  var box = el('div', { class: 'dk-lifts' });
-  MAIN_LIFTS.forEach(function (L) {
-    var pts = strengthSeries(logs, L, { weeks: 8 });
-    var row = el('div', { class: 'dk-lift lift-' + L });
-    row.appendChild(el('span', { class: 'dk-lift-name' }, el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }), LIFT_LABELS[L]));
-    if (!pts.length) { row.appendChild(el('span', { class: 'dk-lift-val is-empty' }, 'No sets yet')); box.appendChild(row); return; }
-    var vals = pts.map(function (p) { return p.value; });
-    var now = vals[vals.length - 1], before = vals[Math.max(0, vals.length - 5)];
-    var d = Math.round(kgToDisplay(now - before));
-    row.appendChild(el('span', { class: 'dk-lift-val' }, el('b', {}, dkWt(now)), el('small', {}, unitLabel())));
-    row.appendChild(el('span', { class: 'dk-delta' + (d > 0 ? ' is-up' : d < 0 ? ' is-down' : '') }, d ? (d > 0 ? '+' : '−') + Math.abs(d) : '±0'));
-    row.insertAdjacentHTML('beforeend', dkSpark(vals));
-    box.appendChild(row);
-  });
-  box.appendChild(el('div', { class: 'dk-foot-note' }, 'e1RM, change over 4 weeks'));
-  return box;
-}
-function dkWeek(r) {
-  var t = todayISO();
-  var logs = (Store.get().workoutLogs || []).filter(function (l) { return l.athleteId === r.athlete.id; });
-  var on = {};
-  logs.forEach(function (l) { on[l.date] = (on[l.date] || 0) + 1; });
-  var strip = el('div', { class: 'dk-week' });
-  for (var i = 6; i >= 0; i--) {
-    var d = _addDaysISO(t, -i);
-    var day = new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'narrow' });
-    var cell = el('div', { class: 'dk-day' + (on[d] ? ' is-on' : '') + (i === 0 ? ' is-today' : ''), title: fmtDateShort(d) + (on[d] ? ': trained' : '') });
-    cell.appendChild(el('span', { class: 'dk-day-l' }, day));
-    cell.appendChild(el('i', { 'aria-hidden': 'true' }));
-    strip.appendChild(cell);
-  }
-  var n = Object.keys(on).filter(function (d) { return d > _addDaysISO(t, -7); }).length;
-  var box = el('div', {});
-  box.appendChild(strip);
-  box.appendChild(el('div', { class: 'dk-foot-note' }, n === 0 ? 'No sessions in 7 days' : n === 1 ? '1 session' : n + ' sessions'));
-  return box;
-}
-function dkLatestNote(r) {
-  var n = (Store.get().sessionNotes || []).filter(function (x) { return x.athleteId === r.athlete.id && x.note && String(x.note).trim(); })
-    .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); })[0];
-  if (!n) return null;
-  var box = el('div', { class: 'dk-note' });
-  box.appendChild(el('p', {}, n.note));
-  box.appendChild(el('span', { class: 'dk-note-meta' }, fmtDateShort(n.date) + (n.coachComment ? ' · answered' : ' · waiting on you')));
-  return box;
 }
 function dkCaughtUp() {
   var q = _dk.queue, st = dkState();
@@ -930,10 +1200,10 @@ function dkCaughtUp() {
   box.appendChild(el('p', { class: 'dk-done-sub' }, q.total
     ? (q.progress - q.snoozed.length) + (q.progress - q.snoozed.length === 1 ? ' athlete' : ' athletes') + ' handled' + (mins ? ' in ' + mins + ' min' : '') + (q.snoozed.length ? ' · ' + q.snoozed.length + ' snoozed' : '')
     : 'Nobody needs you right now.'));
-  if (q.wins.length) {
-    // The lane head already counts them: the button just goes there.
-    box.appendChild(dkBtn('Celebrate wins', { icon: DK_IC.spark, onClick: function () { dkSelect(q.wins[0].athlete.id, 'w', true); } }));
-  }
+  var acts = el('div', { class: 'dk-actions' });
+  if (q.wins.length) acts.appendChild(dkBtn('Celebrate wins', { icon: DK_IC.spark, onClick: function () { dkSelect(q.wins[0].athlete.id, 'w', true); } }));
+  acts.appendChild(dkBtn('Open the week sheet', { icon: DK_IC.sheet, onClick: function () { _dk.rmode = 'sheet'; _dkLS('powa-desk-rmode', 'sheet'); deskGo('roster'); } }));
+  box.appendChild(acts);
   box.appendChild(dkSection('Who trained, last 7 days', dkWhoTrained()));
   _dk.wasCaughtUp = true;
   return box;
@@ -956,31 +1226,6 @@ function dkWhoTrained() {
   });
   return g;
 }
-// Today's pane: the selected athlete's thread, as a peek (see dkThreadInto). J/K held down
-// mounts one thread when the keys settle, not one per row.
-function dkPaintTodayCtx(now) {
-  var host = dkCtxHost();
-  if (!host || _dk.screen !== 'today') return;
-  // The same thread already open (a background refresh): keep it, and whatever is being typed.
-  if (_dk.sel && dkCtxReady() && host.dataset.aid === 'today:' + _dk.sel.id && host.querySelector('.msg-thread')) return;
-  dkCtxClear();
-  if (!_dk.sel || !dkCtxReady()) return;
-  var r = dkRow(_dk.sel.id);
-  if (!r) return;
-  // Their private notes first (pinned), then the thread.
-  host.appendChild(dkNotesBox(r.athlete.id));
-  var head = el('div', { class: 'dk-ctx-head is-sub' });
-  var th = _dkThreadLast(r.athlete.id);
-  // The name is already in the list and the centre: the pane says what it is and how fresh.
-  head.appendChild(el('div', { class: 'dk-ctx-title' }, el('b', {}, 'Thread'), el('span', {}, th ? 'Last message ' + _dkAgoTime(th.lastAt) : 'No messages yet')));
-  host.appendChild(head);
-  host.dataset.aid = 'today:' + r.athlete.id;
-  var mount = function () {
-    if (!_dk.sel || _dk.sel.id !== r.athlete.id || host.dataset.aid !== 'today:' + r.athlete.id || !dkCtxReady()) return;
-    host._msgCleanupBox = dkThreadInto(host, r.athlete, { peek: true, emptyText: dkReplyPrompt(r) });
-  };
-  if (now) mount(); else _dk.ctxT = setTimeout(mount, 220);
-}
 function _dkThreadLast(id) {
   if (_dk.threads) return _dk.threads[id] || null;
   var t = deskThreadDigest(null);
@@ -996,16 +1241,14 @@ function dkReplyPrompt(r) {
   var t = r.reasons[0] ? r.reasons[0].type : (r.wins.length ? 'win' : '');
   return ({ pain: 'Ask how the pain is.', overshoot: 'Ask how the heavy set felt.', drift: 'Ask how the week is feeling.',
     quiet: 'Check in: nothing logged lately.', never: 'Help them log their first session.', meet: 'Talk through meet week.',
-    weight: 'Check in on the cut.', note: 'Answer their note.', checkin: 'Ask about their check-in.',
+    weight: 'Check in on the cut.', offpace: 'Check in on the cut.', note: 'Answer their note.', checkin: 'Ask about their check-in.',
     blockdone: 'Tell them what comes next.', blockend: 'Tell them what comes next.', noprogram: 'Tell them their program is coming.',
-    win: 'Say well done.' })[t] || 'Start the thread.';
+    readiness: 'Ask how they slept.', win: 'Say well done.' })[t] || 'Start the thread.';
 }
-function dkReply() {
-  var root = document.documentElement;
-  if (root.classList.contains('ctx-off')) { root.classList.remove('ctx-off'); _dkLS('powa-desk-ctx', 'on'); dkSyncCtx(); }
-  if (_dk.screen === 'today') { if (!document.querySelector('#deskCtx .msg-input')) dkPaintTodayCtx(true); dkFocusComposer(); }
-  else if (_dk.screen === 'roster' && _dk.rsel) { _dk.ctxMode = 'thread'; dkPaintRosterCtx(true); }
-}
+// R: the thread in the side card takes the cursor.
+function dkReply() { dkOpenCard('thread'); }
+function dkWsMessage() { dkOpenCard('thread'); }
+function dkNoteCompose() { dkOpenCard('notes', { compose: true }); }
 
 // ---------- kudos + broadcast: one composer, sent per athlete ----------
 function dkKudos() {
@@ -1016,6 +1259,7 @@ function dkKudos() {
   var one = ids.length === 1 ? dkRow(ids[0]) : null;
   dkCompose(ids, { title: one ? 'Kudos to ' + _dkFirst(one.athlete.name) : 'Kudos to ' + ids.length + ' athletes', text: 'Big week. That work is paying off.', kudos: true });
 }
+
 function dkCompose(ids, opts) {
   opts = opts || {};
   var who = ids.map(dkRow).filter(Boolean);
@@ -1080,47 +1324,47 @@ async function dkSendMessage(athleteId, body) {
 }
 
 // =====================================================================
-// ROSTER: the practical table
+// ROSTER: List (two panes, like Today, for everyone) | Week sheet (A)
 // =====================================================================
-// Status sits next to the name: with the preview pane open, the flags are what must stay in view.
-var DK_COLS = [
-  { key: 'status', label: 'Status', sort: function (r) { return r.reasons.length ? -(10 - r.reasons[0].group) * 10 - r.reasons.length : (r.wins.length ? 50 : 100); } },
-  { key: 'week', label: 'This week' },
-  { key: 'last', label: 'Last session', sort: function (r) { return r.status.ago == null ? 9999 : r.status.ago; } },
-  { key: 'drift', label: 'RPE drift', sort: function (r) { return r.drift ? r.drift.avg : -99; }, desc: true },
-  { key: 'e1rm', label: 'e1RM total', sort: function (r) { return r.total.delta == null ? -9999 : r.total.delta; }, desc: true },
-  { key: 'meet', label: 'Next meet', sort: function (r) { return r.meet ? r.meet.days : 9999; } },
-  { key: 'bw', label: 'BW / class', auto: function (rows) { return rows.some(function (r) { return r.bw; }); }, sort: function (r) { return r.bw ? r.bw.over : -99; }, desc: true },
-  { key: 'ready', label: 'Readiness', auto: function (rows) { return rows.some(function (r) { return r.readiness; }); } },
-  { key: 'block', label: 'Block' }
-];
-var DK_DEFAULT_SORT = { needs: 'status', meet: 'meet', pain: 'status', quiet: 'last', new: 'name', wins: 'status' };
-function dkColsOn(rows) {
-  var saved = null;
-  try { saved = JSON.parse(_dkLS(DK_COLS_KEY) || 'null'); } catch (e) {}
-  return DK_COLS.filter(function (c) {
-    if (saved && saved[c.key] === false) return false;
-    if (c.auto && !(saved && saved[c.key] === true) && !c.auto(rows)) return false;
-    return true;
-  });
+var DK_SORTS = {
+  name: { label: 'Athlete' },
+  drift: { label: 'Drift', fn: function (r) { return r.drift ? r.drift.avg : -99; }, desc: true },
+  e1rm: { label: 'e1RM total', fn: function (r) { return r.total.delta == null ? -9999 : r.total.delta; }, desc: true },
+  last: { label: 'Last', fn: function (r) { return r.live ? -1 : r.status.ago == null ? 9999 : r.status.ago; } }
+};
+function dkRMode() {
+  if (!_dk.rmode) _dk.rmode = _dkLS('powa-desk-rmode') === 'sheet' ? 'sheet' : 'list';
+  return _dk.rmode;
+}
+function dkSetRMode(m) {
+  if (dkRMode() === m) return;
+  _dk.rmode = m;
+  _dkLS('powa-desk-rmode', m === 'sheet' ? 'sheet' : null);
+  _dk.card = null;
+  if (m === 'sheet') _dk.rsel = null;
+  if (typeof renderRoster === 'function') renderRoster(); else deskRenderRoster(document.getElementById('rosterArea'));
 }
 function dkSorts() {
   if (!_dk.sort) { try { _dk.sort = JSON.parse(_dkLS(DK_SORT_KEY) || 'null') || {}; } catch (e) { _dk.sort = {}; } }
   return _dk.sort;
 }
+// The sheet's sort: grouped (Needs you, then on plan) unless a header was clicked.
 function dkSortOf() {
-  dkSorts();
-  var k = _dk.view || 'all';
-  var s = _dk.sort[k];
-  if (s) return s;
-  return { key: DK_DEFAULT_SORT[_dk.view] || 'status', dir: (DK_COLS.find(function (c) { return c.key === (DK_DEFAULT_SORT[_dk.view] || 'status'); }) || {}).desc ? -1 : 1 };
+  var s = dkSorts()[_dk.view || 'all'];
+  return s && (DK_SORTS[s.key] || s.key === 'status') ? s : { key: 'status', dir: 1 };
 }
 function dkSetSort(key) {
-  var cur = dkSortOf(), col = DK_COLS.find(function (c) { return c.key === key; }) || {};
-  var dir = cur.key === key ? -cur.dir : (col.desc ? -1 : 1);
-  _dk.sort[_dk.view || 'all'] = { key: key, dir: dir };
+  var cur = dkSortOf(), col = DK_SORTS[key] || {};
+  var next = cur.key === key ? (cur.dir === (col.desc ? -1 : 1) ? { key: key, dir: -cur.dir } : { key: 'status', dir: 1 }) : { key: key, dir: col.desc ? -1 : 1 };
+  dkSorts()[_dk.view || 'all'] = next;
   _dkLS(DK_SORT_KEY, JSON.stringify(_dk.sort));
-  deskRenderRoster(document.getElementById('rosterArea'));
+  dkPaintRosterBody();
+}
+// Worst first, the same order Today uses.
+function _dkWorst(a, b) {
+  var toneRank = { alert: 0, warn: 1, meet: 2, info: 3 };
+  return a.reasons[0].group - b.reasons[0].group || (toneRank[a.reasons[0].tone] || 3) - (toneRank[b.reasons[0].tone] || 3) ||
+    b.reasons.length - a.reasons.length || String(a.athlete.name).localeCompare(String(b.athlete.name));
 }
 function dkVisibleRows() {
   var rows = (_dk.rows || []).slice(), now = Date.now();
@@ -1130,253 +1374,198 @@ function dkVisibleRows() {
     var a = r.athlete;
     return (String(a.name || '') + ' ' + String(a.email || '') + ' ' + (r.status.program ? r.status.program.name || '' : '')).toLowerCase().indexOf(q) >= 0;
   });
-  var s = dkSortOf();
-  var col = DK_COLS.find(function (c) { return c.key === s.key; });
-  var keyFn = s.key === 'name' || !col || !col.sort ? null : col.sort;
-  rows.sort(function (a, b) {
-    var d = keyFn ? (keyFn(a) - keyFn(b)) * s.dir : String(a.athlete.name).localeCompare(String(b.athlete.name)) * (s.key === 'name' ? s.dir : 1);
-    return d || String(a.athlete.name).localeCompare(String(b.athlete.name));
-  });
   return rows;
+}
+// { groups: [{ key, label, rows }] }: Needs you (worst first) and On plan (by name), or one sorted list.
+function dkRosterGroups(rows, flat) {
+  var s = dkSortOf();
+  if (flat && s.key !== 'status') {
+    var col = DK_SORTS[s.key];
+    rows = rows.slice().sort(function (a, b) {
+      var d = col && col.fn ? (col.fn(a) - col.fn(b)) * s.dir : String(a.athlete.name).localeCompare(String(b.athlete.name)) * s.dir;
+      return d || String(a.athlete.name).localeCompare(String(b.athlete.name));
+    });
+    return [{ key: 'all', label: null, rows: rows }];
+  }
+  var now = Date.now();
+  var needs = rows.filter(function (r) { return r.reasons.length && deskViewMatch('needs', r, now); }).sort(_dkWorst);
+  var ok = rows.filter(function (r) { return needs.indexOf(r) < 0; }).sort(function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); });
+  return [{ key: 'needs', label: 'Needs you', rows: needs }, { key: 'ok', label: 'On plan', rows: ok }].filter(function (g) { return g.rows.length; });
 }
 // coach.html's renderRoster hands the desk its area; join requests are already pinned in it.
 function deskRenderRoster(area) {
   if (!area) return;
   dkRowsFresh();
-  area.querySelectorAll('.dk-rhead, .dk-tablewrap, .dk-empty, .dk-bulk, .dk-noresults').forEach(function (n) { n.remove(); });
+  area.querySelectorAll('.dk-rhead, .dk-rhome, .dk-rbody, .dk-empty, .dk-bulk').forEach(function (n) { n.remove(); });
   var rows = _dk.rows;
-  var u = _dkUser();
+  var mode = dkRMode();
+  area.classList.remove('is-list', 'is-sheet', 'has-bulk');
   if (!rows.length) { area.appendChild(dkRosterEmpty()); dkPaintRail(); dkSyncCtx(true); return; }
+  area.classList.add(mode === 'sheet' ? 'is-sheet' : 'is-list');
+  var req = area.firstElementChild && !area.firstElementChild.className ? area.firstElementChild : null;   // coach.html's join requests
 
-  // One line: Roster · 20 of 25 · 14 trained this week · [7 need you] · search · density · columns · Invite
   var head = el('div', { class: 'dk-rhead' });
-  head.appendChild(el('h1', { class: 'dk-h1' }, 'Roster'));
-  area.insertBefore(head, area.firstChild);   // above the join requests coach.html pins in the area
-  head.appendChild(el('span', { class: 'dk-rmeta' }));
-  dkPaintRmeta(head);
-  var needs = deskViewCount(rows, 'needs');
-  if (needs) {
-    var nb = el('button', { type: 'button', class: 'dk-vchip' + (_dk.view === 'needs' ? ' on' : ''), 'aria-pressed': String(_dk.view === 'needs') }, needs + ' need you');
-    nb.addEventListener('click', function () { deskGo('roster', { view: _dk.view === 'needs' ? null : 'needs' }); });
-    head.appendChild(nb);
+  var tr = el('div', { class: 'dk-title-row' });
+  tr.appendChild(el('h1', { class: 'dk-h1' }, 'Roster'));
+  tr.appendChild(el('span', { class: 'dk-rmeta' }));
+  head.appendChild(tr);
+  var tools = el('div', { class: 'dk-rtools' });
+  var seg = el('div', { class: 'dk-seg', role: 'radiogroup', 'aria-label': 'Roster view' });
+  [['list', 'List', DK_IC.list], ['sheet', 'Week sheet', DK_IC.sheet]].forEach(function (x) {
+    var on = mode === x[0];
+    var b = el('button', { type: 'button', class: 'dk-seg-btn' + (on ? ' on' : ''), role: 'radio', 'aria-checked': String(on), 'data-rmode': x[0], html: x[2] });
+    b.appendChild(el('span', {}, x[1]));
+    b.addEventListener('click', function () { dkSetRMode(x[0]); });
+    seg.appendChild(b);
+  });
+  tools.appendChild(seg);
+  if (mode === 'sheet') {
+    // Density sits next to the view it changes: compact fits about twice the athletes.
+    var dens = dkBtn('Compact', { icon: DK_IC.list, cls: 'is-quiet dk-dens', title: 'Compact rows: the written line moves into the tooltip' });
+    dens.setAttribute('aria-pressed', String(document.documentElement.getAttribute('data-density') === 'compact'));
+    dens.addEventListener('click', function () { dkToggleDensity(); var ra = document.getElementById('rosterArea'), rh = ra && ra.querySelector(':scope > .dk-rhead'); if (rh) ra.style.setProperty('--sh-top', rh.offsetHeight + 'px'); });
+    tools.appendChild(dens);
   }
-  if (_dk.view && _dk.view !== 'needs') {
-    var v = DESK_VIEWS.find(function (x) { return x.key === _dk.view; });
-    var vb = el('button', { type: 'button', class: 'dk-vchip on', 'aria-label': 'Clear the ' + v.label + ' view' }, v.label, el('span', { class: 'dk-x', 'aria-hidden': 'true', html: ICONS.x }));
-    vb.addEventListener('click', function () { deskGo('roster', { view: null }); });
-    head.appendChild(vb);
-  }
-  head.appendChild(el('span', { class: 'dk-sp' }));
   var sw = el('label', { class: 'dk-search' });
   sw.insertAdjacentHTML('beforeend', DK_IC.search);
-  var si = el('input', { type: 'search', placeholder: 'Search', 'aria-label': 'Search athletes', autocomplete: 'off', spellcheck: 'false' });
+  var si = el('input', { type: 'search', placeholder: 'Find an athlete', 'aria-label': 'Search athletes', autocomplete: 'off', spellcheck: 'false' });
   si.value = _dk.search;
-  si.addEventListener('input', function () { _dk.search = si.value; dkPaintTable(); });
+  si.addEventListener('input', function () { _dk.search = si.value; dkPaintRosterBody(); });
   si.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { e.preventDefault(); if (si.value) { si.value = ''; _dk.search = ''; dkPaintTable(); } else si.blur(); }
-    if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); si.blur(); if (_dk.rorder.length) dkRSelect(_dk.rorder[0]); }
+    if (e.key === 'Escape') { e.preventDefault(); if (si.value) { si.value = ''; _dk.search = ''; dkPaintRosterBody(); } else si.blur(); }
+    if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); si.blur(); if (_dk.rorder.length) dkRSelect(_dk.rorder[0], { key: true }); }
   });
   sw.appendChild(si);
   sw.appendChild(dkKbd('/'));
-  head.appendChild(sw);
-  // One toggle, in words: compact rows on or off.
-  var compact = document.documentElement.getAttribute('data-density') === 'compact';
-  var dens = el('button', { type: 'button', class: 'dk-icon-btn dk-dens', 'aria-pressed': String(compact), title: 'Compact rows', 'aria-label': 'Compact rows', html: DK_IC.dense });
-  dens.addEventListener('click', dkToggleDensity);
-  head.appendChild(dens);
-  var colsBtn = el('button', { type: 'button', class: 'dk-btn dk-btn-sm dk-cols', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, 'Columns');
-  colsBtn.addEventListener('click', function (e) { e.stopPropagation(); dkColsMenu(colsBtn); });
-  head.appendChild(colsBtn);
-  var inv = dkBtn('Invite', { primary: true, icon: ICONS.plus, onClick: function () { openInviteModal(); } });
+  tools.appendChild(sw);
+  var inv = dkBtn('Invite', { icon: DK_IC.plus, onClick: function () { openInviteModal(); } });
   inv.id = 'deskInvite';
-  head.appendChild(inv);
+  tools.appendChild(inv);
+  head.appendChild(tools);
+  var chips = el('div', { class: 'dk-rchips' });
+  if (_dk.view) {
+    var v = DESK_VIEWS.find(function (x) { return x.key === _dk.view; });
+    var vb = el('button', { type: 'button', class: 'dk-vchip on', 'aria-label': 'Clear the ' + v.label + ' view' }, v.label, el('span', { class: 'dk-x', 'aria-hidden': 'true', html: DK_IC.x }));
+    vb.addEventListener('click', function () { deskGo('roster', { view: null }); });
+    chips.appendChild(vb);
+  }
+  var u = _dkUser();
+  var pend = u ? (Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; }).length : 0;
+  if (pend) {
+    var ib = el('button', { type: 'button', class: 'dk-vchip' }, pend + (pend === 1 ? ' invite waiting' : ' invites waiting'));
+    ib.addEventListener('click', function () { _dk.setSec = 'athletes'; _dkLS('powa-desk-set', 'athletes'); deskGo('settings'); });
+    chips.appendChild(ib);
+  }
+  if (mode === 'sheet') chips.appendChild(dkSheetLegend());
+  if (chips.childNodes.length) head.appendChild(chips);
 
-  var wrap = el('div', { class: 'dk-tablewrap' });
-  area.appendChild(wrap);
-  dkPaintTable();
+  var body = el('div', { class: 'dk-rbody' });
+  if (mode === 'list') {
+    var home = el('div', { class: 'dk-rhome' });
+    var list = el('div', { class: 'dk-list', role: 'listbox', 'aria-label': 'Athletes', tabindex: '-1' });
+    list.appendChild(head);
+    if (req) list.appendChild(req);
+    list.appendChild(body);
+    home.appendChild(list);
+    home.appendChild(el('div', { class: 'dk-centre', id: 'deskRosterCentre' }));
+    area.appendChild(home);
+  } else {
+    if (req) area.insertBefore(head, req); else area.appendChild(head);
+    area.appendChild(body);
+  }
+  dkPaintRmeta();
+  dkPaintRosterBody();
   dkPaintRail();
-  dkSyncCtx();
-  dkPaintRosterCtx();
 }
-function dkPaintRmeta(head) {
-  var m = (head || document).querySelector('#rosterArea .dk-rmeta, .dk-rhead .dk-rmeta');
+function dkPaintRmeta() {
+  var m = document.querySelector('#rosterArea .dk-rmeta');
   if (!m) return;
   var rows = _dk.rows || [], lim = getCurrentTierLimit();
   var trained = rows.filter(function (r) { return r.status.sessions.done > 0; }).length;
   m.textContent = (lim >= 9999 ? rows.length + ' athletes' : rows.length + ' of ' + lim) + ' · ' + trained + ' trained this week';
 }
-function dkPaintTable() {
-  var area = document.getElementById('rosterArea');
-  var wrap = area && area.querySelector('.dk-tablewrap');
-  if (!wrap) return;
-  wrap.innerHTML = '';
+function dkPaintRosterBody(opts) {
+  opts = opts || {};
+  var body = document.querySelector('#rosterArea .dk-rbody');
+  if (!body) return;
   var rows = dkVisibleRows();
-  var was = _dk.rsel;
-  _dk.rorder = rows.map(function (r) { return r.athlete.id; });
-  if (_dk.rsel && _dk.rorder.indexOf(_dk.rsel) < 0) _dk.rsel = null;
-  if (was && _dk.rsel !== was) { _dk.ctxMode = 'preview'; setTimeout(function () { dkSyncCtx(); dkPaintRosterCtx(); }, 0); }
-  var cols = dkColsOn(_dk.rows);
-  var s = dkSortOf();
+  if (dkRMode() === 'sheet') { dkPaintSheet(body, rows); return; }
+  var before = _dkFlipBefore(body);
+  body.innerHTML = '';
+  var groups = dkRosterGroups(rows, false);
+  _dk.rorder = [];
+  groups.forEach(function (g) { g.rows.forEach(function (r) { _dk.rorder.push(r.athlete.id); }); });
+  var prev = _dk.rsel;
+  if (!_dk.rsel || _dk.rorder.indexOf(_dk.rsel) < 0) _dk.rsel = _dk.rorder[0] || null;
+  var landed = dkLanded();
   if (!rows.length) {
     var v = _dk.view ? DESK_VIEWS.find(function (x) { return x.key === _dk.view; }) : null;
-    wrap.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, _dk.search ? 'Nobody matches “' + _dk.search + '”' : 'Nobody in ' + (v ? v.label : 'this view')), el('span', {}, _dk.view ? 'That is good news.' : 'Try another name.')));
-    dkPaintBulk();
-    return;
+    body.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, _dk.search ? 'Nobody matches “' + _dk.search + '”' : 'Nobody in ' + (v ? v.label : 'this view')), el('span', {}, _dk.view && !_dk.search ? 'That is good news.' : 'Try another name.')));
   }
-  var t = el('table', { class: 'dk-table' });
-  var hr = el('tr');
-  var thc = el('th', { class: 'c-pick', scope: 'col' });
-  var all = el('input', { type: 'checkbox', class: 'dk-cb', 'aria-label': 'Select all ' + rows.length });
-  var pickedN = rows.filter(function (r) { return _dk.picked[r.athlete.id]; }).length;
-  all.checked = pickedN && pickedN === rows.length;
-  all.indeterminate = pickedN > 0 && pickedN < rows.length;
-  all.addEventListener('change', function () { rows.forEach(function (r) { _dk.picked[r.athlete.id] = all.checked; }); dkPaintTable(); });
-  thc.appendChild(all);
-  hr.appendChild(thc);
-  [{ key: 'name', label: 'Athlete', cls: 'c-ath' }].concat(cols).forEach(function (c) {
-    var th = el('th', { scope: 'col', class: c.cls || 'c-' + c.key });
-    if (c.key === 'name' || c.sort) {
-      var on = s.key === c.key;
-      var b = el('button', { type: 'button', class: 'dk-sort' + (on ? ' on' : '') }, c.label);
-      if (on) { th.setAttribute('aria-sort', s.dir > 0 ? 'ascending' : 'descending'); b.appendChild(el('span', { class: 'dk-sort-ar', 'aria-hidden': 'true' }, s.dir > 0 ? '↑' : '↓')); }
-      b.addEventListener('click', function () { dkSetSort(c.key); });
-      th.appendChild(b);
-    } else th.textContent = c.label;
-    hr.appendChild(th);
-  });
-  hr.appendChild(el('th', { class: 'c-fill', 'aria-hidden': 'true' }));   // takes the spare width
-  t.appendChild(el('thead', {}, hr));
-  var tb = el('tbody');
-  var unread = _dkUnread();
-  var u = unitLabel();
-  rows.forEach(function (r) {
-    var a = r.athlete, st = r.status;
-    var tr = el('tr', { class: 'dk-tr' + (_dk.rsel === a.id ? ' is-sel' : '') + (_dk.picked[a.id] ? ' is-picked' : ''), 'data-id': a.id, tabindex: _dk.rsel === a.id ? '0' : '-1', 'aria-selected': String(_dk.rsel === a.id) });
-    var pc = el('td', { class: 'c-pick' });
-    var cb = el('input', { type: 'checkbox', class: 'dk-cb', 'aria-label': 'Select ' + a.name, tabindex: '-1' });
-    cb.checked = !!_dk.picked[a.id];
-    cb.addEventListener('click', function (e) { e.stopPropagation(); _dk.picked[a.id] = cb.checked; tr.classList.toggle('is-picked', cb.checked); dkPaintBulk(); dkSyncAllBox(); });
-    pc.appendChild(cb);
-    tr.appendChild(pc);
-    var nm = el('td', { class: 'c-ath' });
-    var nmw = el('div', { class: 'dk-ath' });
-    var avw = el('span', { class: 'dk-avw' });
-    avw.appendChild(dkAv(a, 'is-sm'));
-    if (r.live) avw.appendChild(el('span', { class: 'dk-live', title: 'Training now' }));
-    nmw.appendChild(avw);
-    nmw.appendChild(el('span', { class: 'dk-ath-name' }, a.name));
-    if (unread[a.id]) nmw.appendChild(el('span', { class: 'dk-unread', title: unread[a.id] + ' new messages' }, String(unread[a.id])));
-    var hov = el('span', { class: 'dk-rowacts' });
-    var mb = el('button', { type: 'button', class: 'dk-icon-btn', title: 'Message  M', 'aria-label': 'Message ' + a.name, html: ICONS.chat, tabindex: '-1' });
-    mb.addEventListener('click', function (e) { e.stopPropagation(); dkRSelect(a.id); dkReply(); });
-    var pb = el('button', { type: 'button', class: 'dk-icon-btn', title: 'Open program  P', 'aria-label': 'Open ' + a.name + '’s program', html: ICONS.program, tabindex: '-1' });
-    pb.addEventListener('click', function (e) { e.stopPropagation(); openAthleteProgram(a.id); });
-    hov.appendChild(mb); hov.appendChild(pb);
-    nmw.appendChild(hov);
-    nm.appendChild(nmw);
-    tr.appendChild(nm);
-    cols.forEach(function (c) {
-      var td = el('td', { class: 'c-' + c.key });
-      if (c.key === 'block') {
-        td.textContent = dkBlockText(st).replace(/\s+block(?= ·|$)/i, '');
-        td.title = dkBlockText(st);
-        if (!st.program) td.classList.add('dk-dim');
-      } else if (c.key === 'week') {
-        var dots = el('span', { class: 'dk-dots', title: st.sessions.done + ' of ' + (st.sessions.planned || '–') + ' sessions' });
-        var n = Math.max(st.sessions.planned || 0, st.sessions.done);
-        if (!n) td.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else { for (var i = 0; i < Math.min(n, 7); i++) dots.appendChild(el('i', { class: i < st.sessions.done ? 'on' : '' })); td.appendChild(dots); }
-      } else if (c.key === 'drift') {
-        if (!r.drift) td.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else td.appendChild(el('span', { class: 'dk-num' + (r.drift.avg > 1 ? ' t-alert' : r.drift.avg >= 0.5 ? ' t-warn' : Math.abs(r.drift.avg) < 0.3 ? ' is-calm' : '') }, (r.drift.avg > 0 ? '+' : r.drift.avg < 0 ? '−' : '±') + Math.abs(r.drift.avg).toFixed(1)));
-      } else if (c.key === 'e1rm') {
-        var tr2 = r.total, dl = tr2.delta;
-        var box = el('div', { class: 'dk-trend', title: tr2.values.length ? 'Total e1RM ' + dkWt(tr2.values[tr2.values.length - 1]) + ' ' + u + (dl != null ? ', ' + (dl >= 0 ? '+' : '−') + Math.abs(Math.round(kgToDisplay(dl))) + ' over 4 weeks' : '') : '' });
-        box.insertAdjacentHTML('beforeend', dkSpark(tr2.values, dl > 0.5 ? 'is-up' : ''));
-        if (!tr2.values.length) box.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else box.appendChild(el('span', { class: 'dk-num' + (dl > 0.5 ? ' is-up' : '') }, dl == null || Math.abs(dl) < 0.5 ? '±0' : (dl > 0 ? '+' : '−') + Math.abs(Math.round(kgToDisplay(dl)))));
-        td.appendChild(box);
-      } else if (c.key === 'meet') {
-        if (!r.meet) td.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else {
-          var wk = Math.ceil(r.meet.days / 7);
-          td.appendChild(el('span', { class: 'dk-meet' + (r.meet.days <= 14 ? ' is-soon' : ''), title: r.meet.meet.name + ' · ' + fmtDateShort(r.meet.meet.date) }, el('b', {}, r.meet.days <= 14 ? r.meet.days + 'd' : 'W-' + wk), el('span', {}, r.meet.meet.name)));
-        }
-      } else if (c.key === 'bw') {
-        if (!r.bw) td.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else td.appendChild(el('span', { class: 'dk-num' + (r.bw.over > 0 ? ' t-warn' : '') }, dkWt(r.bw.bw) + ' / ' + dkWt(r.bw.cls) + (r.bw.over > 0 ? ' · +' + _num(kgToDisplay(r.bw.over, 1)) : '')));
-      } else if (c.key === 'ready') {
-        if (!r.readiness) td.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else td.appendChild(el('span', { class: 'dk-ready t-' + r.readiness.tone, title: r.readiness.text, 'aria-label': r.readiness.text }));
-      } else if (c.key === 'last') {
-        if (st.ago == null && !r.live) td.appendChild(el('span', { class: 'dk-dim' }, '–'));
-        else td.appendChild(el('span', { class: 'dk-num' + (st.ago >= 7 ? ' t-warn' : '') + (r.live ? ' is-live' : '') }, r.live ? 'Now' : dkAgoShort(st.ago)));
-      } else if (c.key === 'status') {
-        var chips = el('div', { class: 'dk-chips' });
-        var all2 = r.reasons.map(function (x) { return { text: x.text, tone: x.tone }; }).concat(r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }));
-        if (!all2.length) chips.appendChild(el('span', { class: 'dk-ok' }, 'On track'));
-        all2.slice(0, 2).forEach(function (x) { chips.appendChild(dkChip(x.text, x.tone)); });
-        if (all2.length > 2) chips.appendChild(el('span', { class: 'dk-chip-more', title: all2.slice(2).map(function (x) { return x.text; }).join(' · ') }, '+' + (all2.length - 2)));
-        td.appendChild(chips);
-      }
-      tr.appendChild(td);
+  groups.forEach(function (g) {
+    var lane = el('div', { class: 'dk-lane', role: 'group', 'aria-label': g.label });
+    lane.appendChild(el('div', { class: 'dk-lane-head' }, el('span', { class: 'dk-lane-title' }, g.label), el('span', { class: 'dk-lane-count' }, String(g.rows.length))));
+    g.rows.forEach(function (r) {
+      var a = r.athlete, on = _dk.rsel === a.id;
+      var row = el('div', { class: 'dk-qrow' + (on ? ' is-sel' : '') + (landed[a.id] ? ' is-landed' : ''), role: 'option', 'aria-selected': String(on), 'data-id': a.id, tabindex: on ? '0' : '-1' });
+      row.appendChild(dkRingAv(r));
+      row.appendChild(dkRowMain(r, g.key === 'needs' ? 'q' : 'r'));
+      row.addEventListener('click', function () { dkRSelect(a.id); });
+      row.addEventListener('dblclick', function () { openAthletePage(a.id); });
+      lane.appendChild(row);
     });
-    tr.appendChild(el('td', { class: 'c-fill', 'aria-hidden': 'true' }));
-    tr.addEventListener('click', function () { dkRSelect(a.id); });
-    tr.addEventListener('dblclick', function () { openAthletePage(a.id); });
-    tb.appendChild(tr);
+    body.appendChild(lane);
   });
-  t.appendChild(tb);
-  wrap.appendChild(t);
-  dkPaintBulk();
-  dkWatchScrollX();
+  _dkFlipAfter(body, before);
+  var c = document.getElementById('deskRosterCentre');
+  var typing = c && c.contains(document.activeElement) && _dkTyping(document.activeElement);
+  if (c && !(opts.keepCentre && prev === _dk.rsel && (typing || c.firstChild))) dkPaintRosterCentre();
+  dkSyncCtx();
+  dkPaintCard();
 }
-// More columns off to the right: a soft fade at the pane's edge says the table scrolls.
-function dkWatchScrollX() {
-  var sc = document.querySelector('[data-pane="athletes"]'), area = document.getElementById('rosterArea');
-  if (!sc || !area) return;
-  var upd = function () { area.classList.toggle('is-more-x', isDesk() && sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 2); };
-  if (!_dk.scrollX) {
-    _dk.scrollX = true;
-    sc.addEventListener('scroll', upd, { passive: true });
-    window.addEventListener('resize', upd);
-  }
-  upd();
-  requestAnimationFrame(upd);
-}
-function dkSyncAllBox() {
-  var all = document.querySelector('#rosterArea .dk-table thead .dk-cb');
-  if (!all) return;
-  var n = _dk.rorder.filter(function (id) { return _dk.picked[id]; }).length;
-  all.checked = n > 0 && n === _dk.rorder.length;
-  all.indeterminate = n > 0 && n < _dk.rorder.length;
+function dkPaintRosterCentre(swap) {
+  var c = document.getElementById('deskRosterCentre');
+  if (!c) return;
+  c.innerHTML = '';
+  c.scrollTop = 0;
+  var r = _dk.rsel ? dkRow(_dk.rsel) : null;
+  if (!r) { c.appendChild(el('div', { class: 'dk-ctx-empty' }, 'Pick an athlete to see their week.')); return; }
+  var i = _dk.rorder.indexOf(r.athlete.id);
+  c.appendChild(dkWorkspace(r, { mode: 'roster', pos: _dk.rorder.length > 1 ? (i + 1) + ' of ' + _dk.rorder.length : null }));
+  if (swap) dkSwapIn(c.firstChild);
 }
 function dkRSelect(id, opts) {
+  opts = opts || {};
+  if (dkRMode() === 'sheet') {
+    // The sheet: the row opens inline (a second click closes it).
+    _dk.rsel = _dk.rsel === id && !opts.key ? null : id;
+    dkPaintRosterBody();
+    var tr0 = _dk.rsel && document.querySelector('#rosterArea .dk-sh-row[data-id="' + CSS.escape(_dk.rsel) + '"]');
+    if (tr0) {
+      var sc = tr0.closest('[data-pane="athletes"]'), rr = tr0.getBoundingClientRect(), head = document.querySelector('#rosterArea .dk-sheet thead'), hb = head ? head.getBoundingClientRect().bottom : 0;
+      if (sc && rr.top < hb) sc.scrollTop -= hb - rr.top;
+      else if (sc && rr.top > window.innerHeight * 0.55) sc.scrollTop += rr.top - Math.max(hb, window.innerHeight * 0.2);
+      if (opts.key) tr0.focus({ preventScroll: true });
+    }
+    return;
+  }
+  var changed = _dk.rsel !== id;
   _dk.rsel = id;
-  if (!opts || !opts.keepMode) _dk.ctxMode = 'preview';
-  document.querySelectorAll('#rosterArea .dk-tr').forEach(function (tr) {
+  document.querySelectorAll('#rosterArea .dk-qrow').forEach(function (tr) {
     var on = tr.dataset.id === id;
     tr.classList.toggle('is-sel', on);
     tr.setAttribute('aria-selected', String(on));
     tr.tabIndex = on ? 0 : -1;
-    if (on) {
-      // Keep the row clear of the sticky head and the bulk bar.
-      var sc = tr.closest('[data-pane="athletes"]'), r = tr.getBoundingClientRect();
-      var head = document.querySelector('#rosterArea .dk-table thead'), hb = head ? head.getBoundingClientRect().bottom : 0;
-      if (sc) { if (r.top < hb) sc.scrollTop -= hb - r.top; else if (r.bottom > window.innerHeight - 72) sc.scrollTop += r.bottom - window.innerHeight + 72; }
-      if (opts && opts.key && !_dkTyping(document.activeElement)) tr.focus({ preventScroll: true });
-    }
+    if (on) { tr.scrollIntoView({ block: 'nearest' }); if (opts.key && !_dkTyping(document.activeElement)) tr.focus({ preventScroll: true }); }
   });
+  if (changed) dkPaintRosterCentre(!opts.key);
   dkSyncCtx();
-  dkPaintRosterCtx();
-  dkWatchScrollX();
+  dkPaintCard();
 }
-// Esc with nothing else to clear: the row lets go and the table takes the full width again.
 function dkRClose() {
-  _dk.rsel = null; _dk.ctxMode = 'preview';
-  document.querySelectorAll('#rosterArea .dk-tr.is-sel').forEach(function (tr) { tr.classList.remove('is-sel'); tr.setAttribute('aria-selected', 'false'); tr.tabIndex = -1; });
+  _dk.rsel = null;
+  if (dkRMode() === 'sheet') dkPaintRosterBody();
   dkSyncCtx();
-  dkWatchScrollX();
 }
 function dkRMove(step) {
   if (!_dk.rorder.length) return;
@@ -1385,13 +1574,232 @@ function dkRMove(step) {
   dkRSelect(_dk.rorder[n], { key: true });
 }
 function dkRPick() {
-  if (!_dk.rsel) return;
+  if (!_dk.rsel || dkRMode() !== 'sheet') return;
   _dk.picked[_dk.rsel] = !_dk.picked[_dk.rsel];
-  var tr = document.querySelector('#rosterArea .dk-tr[data-id="' + CSS.escape(_dk.rsel) + '"]');
+  var tr = document.querySelector('#rosterArea .dk-sh-row[data-id="' + CSS.escape(_dk.rsel) + '"]');
   if (tr) { tr.classList.toggle('is-picked', !!_dk.picked[_dk.rsel]); var cb = tr.querySelector('.dk-cb'); if (cb) cb.checked = !!_dk.picked[_dk.rsel]; }
   dkPaintBulk(); dkSyncAllBox();
 }
+function dkSyncAllBox() {
+  var all = document.querySelector('#rosterArea .dk-sheet thead .dk-cb');
+  if (!all) return;
+  var n = _dk.rorder.filter(function (id) { return _dk.picked[id]; }).length;
+  all.checked = n > 0 && n === _dk.rorder.length;
+  all.indeterminate = n > 0 && n < _dk.rorder.length;
+}
 function dkPicked() { return Object.keys(_dk.picked).filter(function (k) { return _dk.picked[k] && dkRow(k); }); }
+
+// ---------- the week sheet: athletes × this week's days, planned over lifted ----------
+function dkSheetLegend() {
+  var lg = el('div', { class: 'dk-legend', 'aria-label': 'Cell colours' });
+  [['on', 'On target'], ['half', 'Half over'], ['over', '1+ over'], ['under', 'Under'], ['miss', 'Missed']].forEach(function (x) {
+    lg.appendChild(el('span', { class: 'dk-lg' }, el('i', { class: 'dk-sw t-' + x[0], 'aria-hidden': 'true' }), x[1]));
+  });
+  return lg;
+}
+// One athlete's current week, day by day: what was written for the day's first main lift, what
+// they lifted on it, the RPE against target, and whether it's done, live, missed or still to come.
+function dkWeekCells(r) {
+  var prog = r.status.program, wk = r.status.week;
+  if (!prog || !wk) return [];
+  var W = prog.weeks[wk.idx];
+  if (!W) return [];
+  var days = (W.days || []).filter(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).length; }); });
+  var now = Date.now();
+  var cells = days.map(function (d) {
+    var exs = (d.exercises || []).filter(function (e) { return (e.sets || []).length; });
+    var ex = exs.find(function (e) { return MAIN_LIFTS.indexOf(e.lift) >= 0; }) || exs[0];
+    var all = exs.reduce(function (a, e) { return a.concat(e.sets); }, []);
+    var done = all.filter(function (s) { return s.completed; });
+    var g = groupSets(_deskPlanSets(ex))[0];
+    var top = ex.sets.filter(function (s) { return s.completed; }).sort(function (a, b) { return (Number(b.weight) || 0) - (Number(a.weight) || 0); })[0] || null;
+    var tgt = top && top.rpe != null && top.rpe !== '' ? (top.rpeHi != null && Number(top.rpeHi) > Number(top.rpe) ? Number(top.rpeHi) : Number(top.rpe)) : null;
+    var felt = top && top.actualRpe != null && top.actualRpe !== '' ? Number(top.actualRpe) : null;
+    var gap = felt != null && tgt != null ? Math.round((felt - tgt) * 10) / 10 : null;
+    var live = done.some(function (s) { var t = Date.parse(s.completedAt); return String(s.completedAt).indexOf('T') > 0 && isFinite(t) && now - t <= 30 * 60000; });
+    var state = done.length === all.length ? 'done' : live ? 'live' : done.length ? 'part' : all.some(function (s) { return s.skipped; }) ? 'miss' : 'todo';
+    return { day: d, ex: ex, more: exs.length - 1, plan: g, top: top, gap: gap, state: state, done: done.length, of: all.length };
+  });
+  // A day still empty while a later one is logged was skipped.
+  var lastDone = -1;
+  cells.forEach(function (c, i) { if (c.done) lastDone = i; });
+  cells.forEach(function (c, i) { if (c.state === 'todo' && i < lastDone) c.state = 'miss'; });
+  return cells;
+}
+function dkGapTone(gap) { return gap == null ? '' : gap >= 1 ? 'over' : gap >= 0.5 ? 'half' : gap <= -0.5 ? 'under' : 'on'; }
+function dkGapText(gap) { return gap == null ? '' : Math.abs(gap) < 0.25 ? 'on' : (gap > 0 ? '+' : '−') + _num(Math.abs(gap)); }
+function dkSheetCell(c) {
+  var td = el('td', { class: 'dk-sh-day' });
+  if (!c) { td.appendChild(el('span', { class: 'dk-dim' }, '')); return td; }
+  var tone = c.state === 'miss' ? 'miss' : c.state === 'todo' ? 'todo' : c.state === 'live' ? 'live' : dkGapTone(c.gap) || 'done';
+  var box = el('div', { class: 'dk-cell t-' + tone });
+  var L = MAIN_LIFTS.indexOf(c.ex.lift) >= 0 ? c.ex.lift : 'acc';
+  var top = el('div', { class: 'dk-cell-top' });
+  top.appendChild(el('span', { class: 'dk-cell-lift lift-' + L }, _exShortTitle(c.ex) + (c.more > 0 ? ' +' + c.more : '')));
+  top.appendChild(el('span', { class: 'dk-cell-plan' }, dkGroupLabel(c.plan)));
+  box.appendChild(top);
+  var bot = el('div', { class: 'dk-cell-bot' });
+  if (c.state === 'miss') bot.appendChild(el('span', { class: 'dk-cell-st' }, 'Missed'));
+  else if (c.state === 'todo') bot.appendChild(el('span', { class: 'dk-cell-st' }, 'Not yet'));
+  else {
+    if (c.state === 'live') bot.appendChild(el('span', { class: 'dk-cell-live' }, 'Lifting now · ' + c.done + '/' + c.of));
+    else if (c.top) bot.appendChild(el('b', {}, (Number(c.top.weight) > 0 ? _num(kgToDisplay(c.top.weight)) + '\u202f×\u202f' : '') + Number(c.top.reps) + (c.top.actualRpe != null && c.top.actualRpe !== '' ? ' @' + _num(c.top.actualRpe) : '')));   // narrow spaces: the RPE fits beside its gap pill
+    else bot.appendChild(el('span', { class: 'dk-cell-st' }, c.done + ' of ' + c.of + ' sets'));
+    // On target, the green tint says it: a pill only for a gap worth reading.
+    if (c.state !== 'live' && c.gap != null && dkGapTone(c.gap) !== 'on') bot.appendChild(el('span', { class: 'dk-gap t-' + dkGapTone(c.gap) }, dkGapText(c.gap)));
+  }
+  box.appendChild(bot);
+  box.setAttribute('aria-label', (c.day.name || 'Day') + ': ' + box.textContent);
+  if (c.plan) box.title = 'Written: ' + dkGroupLabel(c.plan);   // compact density hides the written line
+  td.appendChild(box);
+  return td;
+}
+// Next week, in one word: written, a draft waiting on Publish, not written yet.
+function dkNextStatus(r) {
+  var prog = dkProgOf(r.athlete.id);
+  if (!prog || !(prog.weeks || []).length) return { text: 'No program', tone: 'none' };
+  var rev = deskWeekReview(prog);
+  var n = dkPendCount(r.athlete.id);
+  if (n) return { text: 'Draft · ' + n, tone: 'draft' };
+  if (rev.lastIdx >= 0 && rev.nextIdx < 0) return { text: 'Not written', tone: 'none' };
+  return { text: 'Written', tone: 'ok' };
+}
+function dkPaintSheet(body, rows) {
+  var pane = document.querySelector('[data-pane="athletes"]');
+  var sx = pane ? pane.scrollLeft : 0;
+  body.innerHTML = '';
+  var groups = dkRosterGroups(rows, true);
+  _dk.rorder = [];
+  groups.forEach(function (g) { g.rows.forEach(function (r) { _dk.rorder.push(r.athlete.id); }); });
+  if (_dk.rsel && _dk.rorder.indexOf(_dk.rsel) < 0) _dk.rsel = null;
+  if (!rows.length) {
+    var v = _dk.view ? DESK_VIEWS.find(function (x) { return x.key === _dk.view; }) : null;
+    body.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, _dk.search ? 'Nobody matches “' + _dk.search + '”' : 'Nobody in ' + (v ? v.label : 'this view')), el('span', {}, _dk.view && !_dk.search ? 'That is good news.' : 'Try another name.')));
+    dkPaintBulk();
+    return;
+  }
+  var cells = {}, K = 0;
+  rows.forEach(function (r) { cells[r.athlete.id] = dkWeekCells(r); K = Math.max(K, cells[r.athlete.id].length); });
+  K = Math.min(Math.max(K, 1), 6);
+  var s = dkSortOf();
+  var t = el('table', { class: 'dk-sheet' });
+  var hr = el('tr');
+  var thc = el('th', { class: 'c-pick', scope: 'col' });
+  var all = el('input', { type: 'checkbox', class: 'dk-cb', 'aria-label': 'Select all ' + rows.length });
+  var pickedN = rows.filter(function (r) { return _dk.picked[r.athlete.id]; }).length;
+  all.checked = pickedN && pickedN === rows.length;
+  all.indeterminate = pickedN > 0 && pickedN < rows.length;
+  all.addEventListener('change', function () { rows.forEach(function (r) { _dk.picked[r.athlete.id] = all.checked; }); dkPaintRosterBody(); });
+  thc.appendChild(all);
+  hr.appendChild(thc);
+  var sortTh = function (key, cls) {
+    var th = el('th', { scope: 'col', class: cls });
+    var on = s.key === key;
+    var b = el('button', { type: 'button', class: 'dk-sort' + (on ? ' on' : '') }, DK_SORTS[key].label);
+    if (on) { th.setAttribute('aria-sort', s.dir > 0 ? 'ascending' : 'descending'); b.appendChild(el('span', { class: 'dk-sort-ar', 'aria-hidden': 'true' }, s.dir > 0 ? '↑' : '↓')); }
+    b.addEventListener('click', function () { dkSetSort(key); });
+    th.appendChild(b);
+    return th;
+  };
+  hr.appendChild(sortTh('name', 'c-ath'));
+  for (var d = 0; d < K; d++) hr.appendChild(el('th', { scope: 'col', class: 'c-day' }, 'Day ' + (d + 1)));
+  hr.appendChild(sortTh('drift', 'c-drift'));
+  hr.appendChild(sortTh('e1rm', 'c-e1rm'));
+  hr.appendChild(el('th', { scope: 'col', class: 'c-needs' }, 'Needs you'));
+  hr.appendChild(el('th', { scope: 'col', class: 'c-next' }, 'Next week'));
+  t.appendChild(el('thead', {}, hr));
+  var cols = K + 6;
+  var landed = dkLanded();
+  var unread = _dkUnread();
+  groups.forEach(function (g) {
+    var tb = el('tbody', { class: 'dk-sh-group' });
+    if (g.label) tb.appendChild(el('tr', { class: 'dk-sh-gh' }, el('th', { colspan: String(cols), scope: 'rowgroup' }, el('span', { class: 'dk-sh-gl' }, el('b', {}, g.label), el('span', {}, String(g.rows.length))))));
+    g.rows.forEach(function (r) {
+      var a = r.athlete, st = r.status, open = _dk.rsel === a.id;
+      var tr = el('tr', { class: 'dk-sh-row' + (open ? ' is-sel' : '') + (_dk.picked[a.id] ? ' is-picked' : '') + (landed[a.id] ? ' is-landed' : ''), 'data-id': a.id, tabindex: open ? '0' : '-1', 'aria-expanded': String(open) });
+      var pc = el('td', { class: 'c-pick' });
+      var cb = el('input', { type: 'checkbox', class: 'dk-cb', 'aria-label': 'Select ' + a.name, tabindex: '-1' });
+      cb.checked = !!_dk.picked[a.id];
+      cb.addEventListener('click', function (e) { e.stopPropagation(); _dk.picked[a.id] = cb.checked; tr.classList.toggle('is-picked', cb.checked); dkPaintBulk(); dkSyncAllBox(); });
+      pc.appendChild(cb);
+      tr.appendChild(pc);
+      var nm = el('td', { class: 'c-ath' });
+      var who = el('div', { class: 'dk-ath' });
+      who.appendChild(dkRingAv(r, 'sm'));
+      var idw = el('div', { class: 'dk-ath-id' });
+      var n1 = el('span', { class: 'dk-ath-name' }, a.name);
+      if (unread[a.id]) n1.appendChild(el('span', { class: 'dk-unread' }, String(unread[a.id])));
+      idw.appendChild(n1);
+      // The meet once: when Needs you already names it, the subtitle keeps the block and week.
+      var meetSub = r.meet && r.meet.days <= 56 && !r.reasons.slice(0, 2).some(function (x) { return /\bmeet\b/i.test(x.text); });
+      idw.appendChild(el('span', { class: 'dk-ath-sub' + (meetSub ? ' is-meet' : '') }, meetSub ? (r.meet.days === 0 ? 'Meet today' : 'Meet in ' + r.meet.days + ' days') : dkBlockText(st)));
+      who.appendChild(idw);
+      nm.appendChild(who);
+      tr.appendChild(nm);
+      var cs = cells[a.id];
+      for (var i = 0; i < K; i++) tr.appendChild(dkSheetCell(cs[i]));
+      var dr = el('td', { class: 'c-drift' });
+      if (!r.drift) dr.appendChild(el('span', { class: 'dk-dim' }, '–'));
+      else dr.appendChild(el('span', { class: 'dk-num' + (r.drift.avg > 1 ? ' t-alert' : r.drift.avg >= 0.5 ? ' t-warn' : Math.abs(r.drift.avg) < 0.3 ? ' is-calm' : '') }, (r.drift.avg > 0 ? '+' : r.drift.avg < 0 ? '−' : '±') + Math.abs(r.drift.avg).toFixed(1)));
+      tr.appendChild(dr);
+      var e1 = el('td', { class: 'c-e1rm' });
+      var tr2 = r.total, dl = tr2.delta;
+      var tw = el('div', { class: 'dk-trend' });
+      tw.insertAdjacentHTML('beforeend', dkSpark(tr2.values, dl > 0.5 ? 'is-up' : ''));
+      if (!tr2.values.length) tw.appendChild(el('span', { class: 'dk-dim' }, '–'));
+      else tw.appendChild(el('span', { class: 'dk-num' + (dl > 0.5 ? ' is-up' : '') }, dl == null || Math.abs(dl) < 0.5 ? '±0' : (dl > 0 ? '+' : '−') + Math.abs(Math.round(kgToDisplay(dl)))));
+      e1.appendChild(tw);
+      tr.appendChild(e1);
+      var nd = el('td', { class: 'c-needs' });
+      if (r.reasons.length) {
+        var x = r.reasons[0];
+        nd.appendChild(el('div', { class: 'dk-needs-t t-' + x.tone }, x.text));
+        nd.appendChild(el('div', { class: 'dk-needs-d' }, r.reasons.length > 1 ? _dkLowerLead(r.reasons[1].text) + (r.reasons.length > 2 ? ' · +' + (r.reasons.length - 2) : '') : (x.detail || '')));
+      } else if (r.wins.length) {
+        nd.appendChild(el('div', { class: 'dk-needs-t t-win' }, r.wins[0].text));
+        nd.appendChild(el('div', { class: 'dk-needs-d' }, r.wins.slice(1).map(function (w) { return w.text; }).join(' · ')));
+      } else nd.appendChild(el('span', { class: 'dk-dim' }, 'Nothing to review'));
+      tr.appendChild(nd);
+      var nx = dkNextStatus(r);
+      tr.appendChild(el('td', { class: 'c-next' }, el('span', { class: 'dk-nx t-' + nx.tone }, nx.text)));
+      tr.addEventListener('click', function (e) { if (e.target.closest('.dk-cb')) return; dkRSelect(a.id); });
+      tr.addEventListener('dblclick', function () { openAthletePage(a.id); });
+      tb.appendChild(tr);
+      if (open) {
+        var otr = el('tr', { class: 'dk-sh-open' });
+        var otd = el('td', { colspan: String(cols) });
+        var panel = el('div', { class: 'dk-sh-panel' });
+        panel.appendChild(dkWorkspace(r, { mode: 'sheet' }));
+        otd.appendChild(panel);
+        otr.appendChild(otd);
+        tb.appendChild(otr);
+      }
+    });
+    t.appendChild(tb);
+  });
+  body.appendChild(t);
+  if (pane) pane.scrollLeft = sx;
+  // The day header sticks under the roster's head, whatever its height.
+  var ra = document.getElementById('rosterArea'), rh = ra && ra.querySelector(':scope > .dk-rhead');
+  if (rh) ra.style.setProperty('--sh-top', rh.offsetHeight + 'px');
+  dkPaintBulk();
+  dkWatchScrollX();
+  dkSyncCtx();
+  dkPaintCard();
+}
+// More columns off to the right: a soft fade at the pane's edge says the sheet scrolls.
+function dkWatchScrollX() {
+  var sc = document.querySelector('[data-pane="athletes"]'), area = document.getElementById('rosterArea');
+  if (!sc || !area) return;
+  var upd = function () { area.classList.toggle('is-more-x', isDesk() && area.classList.contains('is-sheet') && sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 2); };
+  if (!_dk.scrollX) {
+    _dk.scrollX = true;
+    sc.addEventListener('scroll', upd, { passive: true });
+    window.addEventListener('resize', upd);
+  }
+  upd();
+  requestAnimationFrame(upd);
+}
 // The bulk bar: Message, Assign a template, Export CSV. Shown only while rows are ticked.
 function dkPaintBulk() {
   var area = document.getElementById('rosterArea');
@@ -1400,17 +1808,16 @@ function dkPaintBulk() {
   if (old) old.remove();
   var ids = dkPicked();
   area.classList.toggle('has-bulk', !!ids.length);
-  if (!ids.length) return;
+  if (!ids.length || dkRMode() !== 'sheet') return;
   var bar = el('div', { class: 'dk-bulk', role: 'toolbar', 'aria-label': ids.length + ' selected' });
   bar.appendChild(el('span', { class: 'dk-bulk-n' }, ids.length + ' selected'));
-  bar.appendChild(dkBtn('Message', { icon: ICONS.chat, onClick: function () { dkCompose(ids, { title: ids.length === 1 ? 'Message ' + _dkFirst(dkRow(ids[0]).athlete.name) : 'Message ' + ids.length + ' athletes', onSent: function () { _dk.picked = {}; dkPaintTable(); } }); } }));
-  bar.appendChild(dkBtn('Assign template', { icon: ICONS.copy, onClick: function (e) { dkAssignTemplate(ids, e.currentTarget); } }));
-  bar.appendChild(dkBtn('Export CSV', { icon: DK_IC.download, onClick: function () { exportRosterCsv(ids); } }));
-  var clr = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Clear selection', title: 'Clear selection  Esc', html: ICONS.x });
-  clr.addEventListener('click', function () { _dk.picked = {}; dkPaintTable(); });
-  bar.appendChild(clr);
+  bar.appendChild(dkBtn('Message', { icon: DK_IC.messages, cls: 'is-quiet', onClick: function () { dkCompose(ids, { title: ids.length === 1 ? 'Message ' + _dkFirst(dkRow(ids[0]).athlete.name) : 'Message ' + ids.length + ' athletes', onSent: function () { _dk.picked = {}; dkPaintRosterBody(); } }); } }));
+  bar.appendChild(dkBtn('Assign template', { icon: ICONS.copy, cls: 'is-quiet', onClick: function (e) { dkAssignTemplate(ids, e.currentTarget); } }));
+  bar.appendChild(dkBtn('Export CSV', { icon: DK_IC.download, cls: 'is-quiet', onClick: function () { exportRosterCsv(ids); } }));
+  bar.appendChild(dkIconBtn(DK_IC.x, 'Clear selection', function () { _dk.picked = {}; dkPaintRosterBody(); }, 'Esc'));
   area.appendChild(bar);
 }
+
 function dkAssignTemplate(ids, anchor) {
   var u = _dkUser();
   var tpls = (Store.get().programTemplates || []).filter(function (t) { return t.coachId === u.id; });
@@ -1423,21 +1830,6 @@ function dkAssignTemplate(ids, anchor) {
   };
   if (tpls.length === 1) { open(tpls[0]); return; }
   dkPopMenu(anchor, tpls.map(function (t) { return { label: t.name || 'Template', run: function () { open(t); } }; }), { above: true });
-}
-function dkColsMenu(anchor) {
-  var on = dkColsOn(_dk.rows).map(function (c) { return c.key; });
-  dkPopMenu(anchor, DK_COLS.map(function (c) {
-    return { label: c.label, check: on.indexOf(c.key) >= 0, keep: true, run: function (b) {
-      var saved = {};
-      try { saved = JSON.parse(_dkLS(DK_COLS_KEY) || '{}') || {}; } catch (e) {}
-      var now = b.getAttribute('aria-checked') !== 'true';
-      saved[c.key] = now;
-      _dkLS(DK_COLS_KEY, JSON.stringify(saved));
-      b.setAttribute('aria-checked', String(now));
-      b.querySelector('.dk-check').innerHTML = now ? ICONS.check : '';
-      dkPaintTable();
-    } };
-  }), { alignRight: true });
 }
 // No athletes yet: two actions side by side and a ghost table of the payoff.
 function dkRosterEmpty() {
@@ -1486,66 +1878,6 @@ function dkRosterEmpty() {
   box.appendChild(ghost);
   return box;
 }
-// The roster's context pane: a preview of the selected row, or its thread (M / Reply).
-function dkPaintRosterCtx(focus) {
-  var host = dkCtxHost();
-  if (!host || _dk.screen !== 'roster') return;
-  if (_dk.ctxMode === 'thread' && focus === undefined && dkCtxReady() && host.dataset.aid === 'thread:' + _dk.rsel && host.querySelector('.msg-thread')) return;
-  host.dataset.aid = '';
-  if (host._msgCleanupBox && host._msgCleanupBox._msgCleanup) { try { host._msgCleanupBox._msgCleanup(); } catch (e) {} host._msgCleanupBox = null; }
-  host.innerHTML = '';
-  if (!dkCtxReady()) return;
-  var r = _dk.rsel ? dkRow(_dk.rsel) : null;
-  if (!r) { host.appendChild(el('div', { class: 'dk-ctx-empty' }, 'Pick an athlete to preview them here.')); return; }
-  var a = r.athlete;
-  if (_dk.ctxMode === 'thread') {
-    var th = el('div', { class: 'dk-ctx-head' });
-    var back = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Back to the preview', title: 'Back to the preview  Esc', html: DK_IC.chevL });
-    back.addEventListener('click', function () { _dk.ctxMode = 'preview'; dkPaintRosterCtx(); });
-    th.appendChild(back);
-    th.appendChild(dkAv(a, 'is-sm'));
-    th.appendChild(el('div', { class: 'dk-ctx-title' }, el('b', {}, a.name), el('span', {}, 'Messages')));
-    host.appendChild(th);
-    host._msgCleanupBox = dkThreadInto(host, a, { focus: focus !== false });
-    host.dataset.aid = 'thread:' + a.id;
-    return;
-  }
-  var pv = el('div', { class: 'dk-pv' });
-  var head = el('div', { class: 'dk-pv-head' });
-  var avw = el('span', { class: 'dk-avw' });
-  avw.appendChild(dkAv(a, 'is-lg'));
-  if (r.live) avw.appendChild(el('span', { class: 'dk-live', title: 'Training now' }));
-  head.appendChild(avw);
-  var id = el('div', { class: 'dk-rv-id' });
-  id.appendChild(el('h2', { class: 'dk-h2' }, a.name));
-  id.appendChild(el('div', { class: 'dk-rv-sub' }, dkBlockText(r.status) + ' · ' + (r.live ? 'training now' : r.status.ago == null ? 'not started' : 'trained ' + agoText(r.status.ago).toLowerCase())));
-  head.appendChild(id);
-  pv.appendChild(head);
-  var acts = el('div', { class: 'dk-actions' });
-  acts.appendChild(dkBtn('Reply', { kbd: 'M', icon: ICONS.chat, onClick: dkReply }));
-  acts.appendChild(dkBtn('Open', { kbd: '↵', onClick: function () { openAthletePage(a.id); } }));
-  acts.appendChild(dkBtn('Program', { kbd: 'P', cls: 'is-quiet', onClick: function () { openAthleteProgram(a.id); } }));
-  if (window.SwitchKit) acts.appendChild(dkBtn('Import history', { cls: 'is-quiet', onClick: function () { SwitchKit.openHistoryImport(a.id); } }));   // SWITCH KIT hook
-  pv.appendChild(acts);
-  var flags = r.reasons.map(function (x) { return { text: x.text, tone: x.tone }; }).concat(r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }));
-  if (flags.length) {
-    var ch = el('div', { class: 'dk-chips is-wrap' });
-    flags.forEach(function (x) { ch.appendChild(dkChip(x.text, x.tone)); });
-    pv.appendChild(ch);
-  }
-  pv.appendChild(dkSection('Lifts', dkLifts(r)));
-  pv.appendChild(dkSection('Last 7 days', dkWeek(r)));
-  if (r.meet) {
-    var mt = el('div', { class: 'dk-meetline' });
-    mt.appendChild(el('b', {}, r.meet.meet.name));
-    mt.appendChild(el('span', {}, fmtDateShort(r.meet.meet.date) + ' · ' + r.meet.days + ' days' + (r.meet.meet.weightClass ? ' · ' + r.meet.meet.weightClass : '') + (r.bw ? ' · BW ' + dkWt(r.bw.bw) + ' ' + unitLabel() : '')));
-    pv.appendChild(dkSection('Next meet', mt));
-  }
-  var note = dkLatestNote(r);
-  if (note) pv.appendChild(dkSection('Their latest note', note));
-  host.appendChild(pv);
-}
-
 // =====================================================================
 // ⌘K PALETTE and the ? SHEET (no open/close animation: used all day)
 // =====================================================================
@@ -1564,7 +1896,8 @@ function dkCommands() {
       run: function () { openAthletePage(r.athlete.id); } });
   });
   var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
-  [['today', 'Today'], ['roster', 'Roster'], ['programs', 'Programs'], ['messages', 'Messages'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
+  [['today', 'Today'], ['roster', 'Roster'], ['programs', 'Programs'], ['meets', 'Meets'], ['messages', 'Messages'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
+    if (x[0] === 'meets' && !dkPlannedMeets().length) return;
     if (x[0] === _dk.screen && !onPage) return;   // already here
     cmds.push({ group: 'Go to', label: x[1], run: function () { deskGo(x[0]); } });
   });
@@ -1586,7 +1919,8 @@ function dkCommands() {
   cmds.push({ group: 'Actions', label: light ? 'Dark theme' : 'Light theme', keys: 'appearance mode', run: function () { toggleTheme(); } });
   cmds.push({ group: 'Actions', label: 'Show weights in ' + (getUnit() === 'kg' ? 'lb' : 'kg'), keys: 'units pounds kilos', run: function () { toggleUnit(); } });
   cmds.push({ group: 'Actions', label: document.documentElement.classList.contains('rail-min') ? 'Expand the sidebar' : 'Collapse the sidebar', hint: '[', run: dkToggleRail });
-  cmds.push({ group: 'Actions', label: document.documentElement.classList.contains('ctx-off') ? 'Show the side pane' : 'Hide the side pane', hint: ']', run: dkToggleCtx });
+  cmds.push({ group: 'Actions', label: dkRMode() === 'sheet' ? 'Roster as a list' : 'Roster as the week sheet', hint: 'V', keys: 'view switch grid days', run: function () { if (_dk.screen !== 'roster') deskGo('roster'); dkSetRMode(dkRMode() === 'sheet' ? 'list' : 'sheet'); } });
+  cmds.push({ group: 'Actions', label: 'Open or close the side card', hint: ']', keys: 'thread notes pane', run: dkToggleCtx });
   cmds.push({ group: 'Actions', label: 'Keyboard shortcuts', hint: '?', run: openDeskKeys });
   cmds.push({ group: 'Actions', label: 'Ask AI', keys: 'assistant help', run: function () { if (typeof openAIAssistant === 'function') openAIAssistant(); } });
   return cmds;
@@ -1706,7 +2040,7 @@ function openDeskKeys() {
   document.addEventListener('keydown', onKey, true);
 }
 
-// ---------- the keys ----------
+// ---------- the keys (accelerators: every one of them is also a button) ----------
 function _dkTyping(t) {
   if (!t || t === document.body) return false;
   var tag = t.tagName;
@@ -1735,15 +2069,15 @@ function dkOnKey(e) {
   if (k === 'Escape' && e.target.closest && e.target.closest('#deskCtx') && _dkTyping(e.target)) {
     e.preventDefault();
     e.target.blur();
-    if (_dk.screen === 'roster' && _dk.ctxMode === 'thread') { _dk.ctxMode = 'preview'; dkPaintRosterCtx(); }
-    var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : document.querySelector('#rosterArea .dk-tr.is-sel');
-    if (back) back.focus({ preventScroll: true });
+    var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-sh-row.is-sel');
+    if (back && !_dkOnPage()) back.focus({ preventScroll: true });
     return;
   }
   if (_dkTyping(e.target)) return;
   if (_dkBlocked()) return;
   if (document.querySelector('.dk-menu')) return;
-  var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
+  var onPage = _dkOnPage();
+  if (k === 'Escape' && _dk.card && (onPage || _dk.screen === 'today' || _dk.screen === 'roster')) { e.preventDefault(); dkCloseCard(); return; }
   if (k === '?') { e.preventDefault(); openDeskKeys(); return; }
   if (k === '[') { e.preventDefault(); dkToggleRail(); return; }
   if (k === ']') { e.preventDefault(); dkToggleCtx(); return; }
@@ -1758,11 +2092,11 @@ function dkOnKey(e) {
   }
   var low = k.length === 1 ? k.toLowerCase() : k;
   if (onPage) {
-    // The athlete's workspace: J/K through the list the coach came from.
+    // The athlete's page: J/K through the list the coach came from.
     if (low === 'j' || k === 'ArrowRight') { e.preventDefault(); dkWsStep(1); }
     else if (low === 'k' || k === 'ArrowLeft') { e.preventDefault(); dkWsStep(-1); }
-    else if (low === 'r' || low === 'm') { e.preventDefault(); dkWsMessage(); }
-    else if (low === 'n') { e.preventDefault(); dkNoteCompose(window._apAthlete); }
+    else if (low === 'r' || low === 'm') { e.preventDefault(); dkOpenCard('thread'); }
+    else if (low === 'n') { e.preventDefault(); dkNoteCompose(); }
     else if (low === 'p') { e.preventDefault(); openAthleteProgram(window._apAthlete); }
     else if (low === 'a' && e.shiftKey) { e.preventDefault(); dkWsAcceptAll(); }
     else if (k === 'Escape') { e.preventDefault(); dkWsBack(); }
@@ -1774,44 +2108,157 @@ function dkOnKey(e) {
     else if (low === 'e' && _dk.sel) { e.preventDefault(); dkMark('done'); }
     else if (low === 's' && _dk.sel && _dk.sel.lane === 'q') { e.preventDefault(); dkMark('snooze'); }
     else if (low === 'u') { e.preventDefault(); dkUndo(); }
-    else if (low === 'r' && _dk.sel) { e.preventDefault(); dkReply(); }
-    else if (low === 'o' && _dk.sel) { e.preventDefault(); openAthleteProgram(_dk.sel.id); }
+    else if ((low === 'r' || low === 'm') && _dk.sel) { e.preventDefault(); dkOpenCard('thread'); }
+    else if ((low === 'o' || low === 'p') && _dk.sel) { e.preventDefault(); openAthleteProgram(_dk.sel.id); }
     else if (k === 'Enter' && _dk.sel && !/^(BUTTON|A)$/.test(e.target.tagName)) { e.preventDefault(); openAthletePage(_dk.sel.id); }
-    else if (low === 'x' && _dk.sel && _dk.sel.lane === 'w') { e.preventDefault(); _dk.wpick[_dk.sel.id] = !_dk.wpick[_dk.sel.id]; renderDeskToday(); }
-    else if (low === 'n' && _dk.sel) { e.preventDefault(); dkNoteCompose(_dk.sel.id); }
+    else if (low === 'x' && _dk.sel && _dk.sel.lane === 'w') { e.preventDefault(); _dk.wpick[_dk.sel.id] = !_dk.wpick[_dk.sel.id]; renderDeskToday({ keepCentre: true }); }
+    else if (low === 'n' && _dk.sel) { e.preventDefault(); dkNoteCompose(); }
     else if (low === 'a' && e.shiftKey && _dk.sel) { e.preventDefault(); dkWsAcceptAll(); }
   } else if (_dk.screen === 'messages') {
     if (low === 'j' || k === 'ArrowDown') { e.preventDefault(); dkMsgMove(1); }
     else if (low === 'k' || k === 'ArrowUp') { e.preventDefault(); dkMsgMove(-1); }
     else if (low === 'e' && _dk.msgSel) { e.preventDefault(); dkMsgDone(); }
     else if (low === 'r' && _dk.msgSel) { e.preventDefault(); var ta = document.querySelector('#dkMsgCentre .msg-input'); if (ta) ta.focus(); }
-    else if (low === 'n' && _dk.msgSel) { e.preventDefault(); dkNoteCompose(_dk.msgSel); }
+    else if (low === 'n' && _dk.msgSel) { e.preventDefault(); var pn = document.querySelector('#deskCtx .dk-pn'); if (pn && pn._compose) pn._compose(); }
     else if (k === 'Enter' && _dk.msgSel && !/^(BUTTON|A)$/.test(e.target.tagName)) { e.preventDefault(); openAthletePage(_dk.msgSel); }
   } else if (_dk.screen === 'roster') {
     if (low === 'j' || k === 'ArrowDown') { e.preventDefault(); dkRMove(1); }
     else if (low === 'k' || k === 'ArrowUp') { e.preventDefault(); dkRMove(-1); }
     else if (low === 'x') { e.preventDefault(); dkRPick(); }
-    else if (low === 'm' && _dk.rsel) { e.preventDefault(); dkReply(); }
+    else if ((low === 'm' || low === 'r') && _dk.rsel) { e.preventDefault(); dkOpenCard('thread'); }
+    else if (low === 'n' && _dk.rsel) { e.preventDefault(); dkNoteCompose(); }
     else if (low === 'p' && _dk.rsel) { e.preventDefault(); openAthleteProgram(_dk.rsel); }
+    else if (low === 'a' && e.shiftKey && _dk.rsel) { e.preventDefault(); dkWsAcceptAll(); }
+    else if (low === 'v') { e.preventDefault(); dkSetRMode(dkRMode() === 'sheet' ? 'list' : 'sheet'); }
     else if (k === 'Enter' && _dk.rsel && !/^(BUTTON|A)$/.test(e.target.tagName)) { e.preventDefault(); openAthletePage(_dk.rsel); }
     else if (k === 'Escape') {
-      if (_dk.ctxMode === 'thread') { e.preventDefault(); _dk.ctxMode = 'preview'; dkPaintRosterCtx(); }
-      else if (dkPicked().length) { e.preventDefault(); _dk.picked = {}; dkPaintTable(); }
+      if (dkPicked().length) { e.preventDefault(); _dk.picked = {}; dkPaintRosterBody(); }
       else if (_dk.view || _dk.search) { e.preventDefault(); _dk.search = ''; deskGo('roster', { view: null }); }
-      else if (_dk.rsel) { e.preventDefault(); dkRClose(); }
+      else if (_dk.rsel && dkRMode() === 'sheet') { e.preventDefault(); dkRClose(); }
     }
   }
 }
 
 // =====================================================================
-// THE ATHLETE WORKSPACE (W1b): the weekly loop for one athlete. Last
-// week against what was written and next week editable in place, with
-// suggestions from the RPE they logged (app.js deskWeekReview); the
-// lifts; check-ins as four weeks; recovery; the meet and bodyweight;
-// their notes; past blocks. The context pane holds the coach's private
-// notes and the thread. Today's centre draws it for the selected
-// athlete; the athlete's page (#athlete=ID) draws it full width with
-// ‹ › through the list the coach came from.
+// MEETS: every meet on the calendar, who's lifting in it, and how far
+// out each lifter is (block, class, bodyweight). Shown only when there
+// is one. Reads the existing meets (planned or dated ahead).
+// =====================================================================
+function dkPlannedMeets() {
+  var u = _dkUser();
+  if (!u) return [];
+  var mine = {};
+  (Store.get().athletes || []).forEach(function (a) { if (a.coachId === u.id) mine[a.id] = a; });
+  var t = todayISO(), groups = {};
+  (Store.get().meets || []).forEach(function (m) {
+    if (!mine[m.athleteId] || !m.date || String(m.date).slice(0, 10) < t) return;
+    var k = String(m.name || 'Meet').trim().toLowerCase() + '|' + String(m.date).slice(0, 10);
+    (groups[k] = groups[k] || { name: m.name || 'Meet', date: String(m.date).slice(0, 10), federation: m.federation || '', entries: [] }).entries.push({ meet: m, athlete: mine[m.athleteId] });
+  });
+  return Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+}
+function dkBuildMeetsPane() {
+  if (document.querySelector('[data-pane="meets"]')) return;
+  var main = document.querySelector('.dash-main');
+  if (!main) return;
+  var sec = el('section', { 'data-pane': 'meets', class: 'hidden' });
+  sec.appendChild(el('div', { id: 'deskMeets', class: 'dk-meets' }));
+  var today = main.querySelector('[data-pane="today"]');
+  if (today && today.nextSibling) main.insertBefore(sec, today.nextSibling); else main.appendChild(sec);
+}
+function dkRenderMeets() {
+  var host = document.getElementById('deskMeets');
+  if (!host) return;
+  if (!_dk.rows) dkRowsFresh();
+  host.innerHTML = '';
+  var meets = dkPlannedMeets();
+  var head = el('div', { class: 'dk-page-head' });
+  head.appendChild(el('h1', { class: 'dk-h1' }, 'Meets'));
+  var lifters = meets.reduce(function (n, m) { return n + m.entries.length; }, 0);
+  head.appendChild(el('span', { class: 'dk-rmeta' }, meets.length + (meets.length === 1 ? ' meet' : ' meets') + ' · ' + lifters + (lifters === 1 ? ' lifter' : ' lifters')));
+  host.appendChild(head);
+  if (!meets.length) { host.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, 'No meets on the calendar'), el('span', {}, 'They add one under Progress, or you plan one from their page.'))); return; }
+  var list = el('div', { class: 'dk-mtl' });
+  meets.forEach(function (g) {
+    var days = Math.round((Date.parse(g.date + 'T12:00:00Z') - Date.parse(todayISO() + 'T12:00:00Z')) / 86400000);
+    var card = el('div', { class: 'dk-mtc' + (days <= 14 ? ' is-soon' : ''), role: 'group', 'aria-label': g.name });
+    var dt = new Date(g.date + 'T12:00:00');
+    var cal = el('div', { class: 'dk-mtc-cal', 'aria-hidden': 'true' }, el('span', {}, dt.toLocaleDateString(undefined, { month: 'short' })), el('b', {}, String(dt.getDate())));
+    var hd = el('div', { class: 'dk-mtc-head' });
+    hd.appendChild(cal);
+    var ti = el('div', { class: 'dk-mtc-id' });
+    ti.appendChild(el('h2', { class: 'dk-mtc-name' }, g.name));
+    ti.appendChild(el('span', {}, [fmtDate(g.date), g.federation].filter(Boolean).join(' · ')));
+    hd.appendChild(ti);
+    hd.appendChild(el('span', { class: 'dk-mtc-days' }, days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days <= 21 ? days + ' days' : Math.round(days / 7) + ' weeks'));
+    card.appendChild(hd);
+    var rows = el('div', { class: 'dk-mtc-rows' });
+    g.entries.forEach(function (x) {
+      var r = dkRow(x.athlete.id);
+      var row = el('button', { type: 'button', class: 'dk-mtc-row' });
+      row.appendChild(r ? dkRingAv(r, 'sm') : dkAv(x.athlete, 'is-sm'));
+      var main = el('span', { class: 'dk-mtc-main' });
+      main.appendChild(el('b', {}, x.athlete.name));
+      main.appendChild(el('span', {}, r ? dkBlockText(r.status) : ''));
+      row.appendChild(main);
+      var bw = deskBodyweightVsClass(x.athlete.id, x.meet);
+      var cls = el('span', { class: 'dk-mtc-cls' + (bw && bw.over > 0 ? ' is-over' : '') });
+      if (x.meet.weightClass) cls.appendChild(el('span', {}, dkClassText(x.meet.weightClass)));
+      if (bw) cls.appendChild(el('b', {}, 'BW ' + _num(kgToDisplay(bw.bw, 1)) + (bw.over > 0 ? ' · ' + _num(kgToDisplay(bw.over, 1)) + ' over' : '')));
+      row.appendChild(cls);
+      row.insertAdjacentHTML('beforeend', DK_IC.chevR);
+      row.addEventListener('click', function () { openAthletePage(x.athlete.id); });
+      rows.appendChild(row);
+    });
+    card.appendChild(rows);
+    list.appendChild(card);
+  });
+  host.appendChild(list);
+}
+
+// ---------- Settings › Invite athletes: the links still out, copy or revoke ----------
+function dkSetAthletes(p, redraw) {
+  var u = _dkUser() || {};
+  var inv = (Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; });
+  p.appendChild(el('p', { class: 'dk-set-lead' }, 'One link per athlete. They get the app and land on your roster with every set they log. An unused link holds a seat.'));
+  p.appendChild(dkSetGroup([
+    dkSetRow('Invite links', inv.length ? inv.length + ' waiting to be used' : 'None out', dkBtn('Invite', { cls: 'dk-btn-sm', icon: DK_IC.plus, onClick: function () { openInviteModal(); } })),
+    dkSetRow('Bring a program in', 'Paste a block from Google Sheets or Excel', dkBtn('Paste', { cls: 'dk-btn-sm is-quiet', onClick: function () { openSheetImport(null); } })),
+    dkSetRow('Export your roster', 'Every athlete, their block and last session, as a spreadsheet', dkBtn('Export CSV', { cls: 'dk-btn-sm is-quiet', onClick: function () { exportRosterCsv(); } }))
+  ]));
+  if (!inv.length) return;
+  p.appendChild(el('h3', { class: 'dk-sec-title' }, 'Waiting to be used'));
+  p.appendChild(dkSetGroup(inv.map(function (i) {
+    var url = typeof _inviteUrl === 'function' ? _inviteUrl(i.code) : 'powalifta.com/j/' + i.code;
+    var acts = el('span', { class: 'dk-set-acts' });
+    acts.appendChild(dkBtn('Copy link', { cls: 'dk-btn-sm is-quiet', onClick: function () {
+      var txt = (typeof _inviteMessage === 'function' ? _inviteMessage() + ' ' : '') + url;
+      var done = function () { toast('Invite link copied'); };
+      if (typeof _copyText === 'function') _copyText(txt).then(done).catch(function () { toast(url); });
+      else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done).catch(function () { toast(url); });
+    } }));
+    var rv = dkBtn('Revoke', { cls: 'dk-btn-sm is-quiet' });
+    rv.addEventListener('click', async function () {
+      if (!rv.dataset.armed) { rv.dataset.armed = '1'; rv.querySelector('.dk-btn-l').textContent = 'Revoke?'; setTimeout(function () { if (rv.isConnected) { delete rv.dataset.armed; rv.querySelector('.dk-btn-l').textContent = 'Revoke'; } }, 2600); return; }
+      Store.update(function (s) { s.invites = s.invites.filter(function (x) { return x.code !== i.code; }); });
+      if (typeof persistDeleteInvite === 'function') { try { await persistDeleteInvite(i.code); } catch (e) {} }
+      if (redraw) redraw();
+    });
+    acts.appendChild(rv);
+    return dkSetRow(i.code, i.email || 'Any athlete · ' + String(url).replace(/^https?:\/\//, ''), acts);
+  })));
+}
+
+
+// =====================================================================
+// THE ATHLETE'S WEEK (the workspace): one head, what needs the coach in
+// plain sentences, the lifts as one strip, then the big table: Written |
+// Logged | RPE gap | Next week, next week editable in place with
+// suggestion chips from the RPE they logged (app.js deskWeekReview), and
+// the one red Publish. Below: check-ins, recovery, meets, pain, their
+// notes, past blocks. Today's and the roster's centre draw it for the
+// selected athlete, the week sheet draws its table inline, and the
+// athlete's page (#athlete=ID) draws it full width with ‹ ›.
 // =====================================================================
 function _dkCoachMeId() { var u = _dkUser(); return u ? u.id : null; }
 function dkLatestBw(id) {
@@ -1823,25 +2270,25 @@ function dkJoinedText(a) {
   var d = a && a.createdAt ? Math.max(0, Math.floor((Date.now() - Number(a.createdAt)) / 86400000)) : null;
   return d == null ? 'New on your roster' : d === 0 ? 'Joined today' : d === 1 ? 'Joined yesterday' : 'Joined ' + d + ' days ago';
 }
-// Line 2 of the head: block · meet · class · bodyweight. In Today a fact the reasons already say
-// (the meet, the weight) isn't said again.
 // The subline's facts, each kept whole ("57 kg class" never splits): it wraps between facts only.
 function dkSubFacts(host, bits, lead) {
-  bits.forEach(function (b, i) { host.appendChild(el('span', { class: 'dk-fact' }, (i || lead ? ' · ' : '') + b)); });
+  bits.forEach(function (b, i) { var f = el('span', { class: 'dk-fact' }, (i || lead ? ' · ' : '')); f.appendChild(dkRich(b)); host.appendChild(f); });
   return host;
 }
-// [block, meet, class, bodyweight]: the block first, so Today can draw it as a link.
-function dkWsSubBits(r, inToday) {
-  var a = r.athlete, said = function (t) { return inToday && r.reasons.some(function (x) { return x.type === t; }); };
+// [block, meet, class, bodyweight, cut, readiness]. What a reason already says isn't said twice.
+function dkWsSubBits(r) {
+  var a = r.athlete, said = function (t) { return r.reasons.some(function (x) { return x.type === t; }); };
   if (!r.status.program && r.status.ago == null) return [dkJoinedText(a)];
-  var bits = [dkBlockText(r.status)];
-  if (r.meet && !said('meet')) bits.push(r.meet.meet.name + (r.meet.days === 0 ? ' today' : ' in ' + r.meet.days + 'd'));
+  var st = r.status, bits = [st.program ? deskBlockLabel(st.program, null) + (st.week ? ' · ' + (st.week.finished ? 'done' : 'week ' + st.week.number + ' of ' + st.week.total) : '') : 'No program'];
+  if (r.meet && !said('meet')) bits.push(r.meet.meet.name + (r.meet.days === 0 ? ' today' : ' in ' + r.meet.days + ' days'));
   if (r.meet && r.meet.meet.weightClass && r.meet.days <= 120 && !said('weight')) bits.push(dkClassText(r.meet.meet.weightClass));
   var bw = dkLatestBw(a.id);
-  if (bw && !said('weight')) bits.push('BW ' + _num(kgToDisplay(bw.weight, 1)) + (r.bw && r.bw.over > 0 && r.meet && r.meet.days <= 120 ? ' (+' + _num(kgToDisplay(r.bw.over, 1)) + ')' : ''));
+  if (bw && !said('weight')) bits.push('BW ' + _num(kgToDisplay(bw.weight, 1)));
+  if (st.cut && st.cut.line && !said('offpace') && !said('weight')) bits.push(st.cut.line);
+  if (r.live) bits.push('training now');
   return bits;
 }
-// The list ‹ › walks: Today's queue, the roster as filtered and sorted, or everyone by name.
+// The list ‹ › walks: Today's queue, the roster as drawn, Messages, or everyone by name.
 function dkWsList(id) {
   var rows = _dk.rows || dkRowsFresh();
   var out = null;
@@ -1864,6 +2311,7 @@ function deskRenderWorkspace(host, athleteId) {
   if (!_dk.ws || _dk.ws.ids.indexOf(athleteId) < 0) _dk.ws = dkWsList(athleteId);
   var i = _dk.ws.ids.indexOf(athleteId), n = _dk.ws.ids.length;
   var back = el('button', { class: 'dk-back', type: 'button', html: DK_IC.chevL + '<span>' + escHtml(deskBackLabel()) + '</span>' });
+  dkTip(back, '', 'Esc');
   back.addEventListener('click', dkWsBack);
   host.appendChild(back);
   host.appendChild(dkWorkspace(r, { mode: 'page', pos: n > 1 ? (i + 1) + ' of ' + n + ' ' + _dk.ws.label : null }));
@@ -1885,87 +2333,183 @@ function dkWsStep(step) {
   window._apAthlete = nx;
   try { history.replaceState({ athlete: nx }, '', '#athlete=' + nx); } catch (e) {}
   if (typeof renderAthletePage === 'function') renderAthletePage(nx);
-  dkPaintPageCtx();
+  dkPaintCard();
   var main = document.querySelector('[data-pane="athlete"]');
   if (main) main.scrollTop = 0;
   window.scrollTo(0, 0);
 }
 function dkWorkspace(r, opts) {
   opts = opts || {};
-  var today = opts.mode === 'today';
-  var ws = el('div', { class: 'dk-ws' + (today ? ' is-today' : ''), 'data-aid': r.athlete.id });
-  ws.appendChild(today ? dkReviewHead(r, opts.pos, true) : dkWsHead(r, opts));
-  if (opts.actions) ws.appendChild(opts.actions);
-  if (today) {
-    if (opts.lane === 'w') ws.appendChild(dkSection('Wins', dkWinList(r)));
-    if (r.reasons.length) ws.appendChild(dkSection(opts.lane === 'q' ? 'What needs you' : 'Also flagged', dkReasonList(r)));
-  } else {
-    var flags = r.reasons.map(function (x) { return { text: x.text, tone: x.tone, detail: x.detail }; }).concat(r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }));
-    if (flags.length) {
-      var strip = el('div', { class: 'dk-chips is-wrap dk-ws-flags' });
-      flags.forEach(function (x) { var c = dkChip(x.text, x.tone); if (x.detail) c.title = x.detail; strip.appendChild(c); });
-      ws.appendChild(strip);
-    }
-  }
+  var mode = opts.mode;
+  var ws = el('div', { class: 'dk-ws is-' + mode, 'data-aid': r.athlete.id });
+  ws.appendChild(dkWsHead(r, opts));
+  if (mode === 'sheet') { ws.appendChild(dkWsWeek(r)); return ws; }
+  var needs = dkWsNeeds(r, opts.lane);
+  if (needs) ws.appendChild(needs);
+  // The table first (what they lifted against what was written, and next week); the lifts under it.
   ws.appendChild(dkWsWeek(r));
-  ws.appendChild(dkSection('Lifts', dkWsLifts(r)));
-  // Two columns: how they are (check-in, recovery) | what's coming and what they said.
-  var ci = dkWsCheckins(r), rc = dkWsRecovery(r), nt = dkWsNotes(r);
-  var L = [ci && dkSection('Check-in', ci), rc && dkSection('Recovery', rc)].filter(Boolean);
+  ws.appendChild(dkWsLifts(r));
+  // Two columns: how they are (check-in, recovery, pain) | what's coming and what they said.
+  var ci = dkWsCheckins(r), rc = dkWsRecovery(r), pn = dkWsPain(r), nt = dkWsNotes(r);
+  var L = [pn, ci && dkSection('Check-in', ci), rc && dkSection('Recovery', rc)].filter(Boolean);
   var R = [dkSection('Meets', dkWsMeets(r)), nt && dkSection('Their notes', nt)].filter(Boolean);
   if (!L.length) L.push(R.shift());
   var cols = el('div', { class: 'dk-ws-cols' });
-  [L, R].forEach(function (part) { var col = el('div', { class: 'dk-ws-col' }); part.forEach(function (x) { col.appendChild(x); }); cols.appendChild(col); });
+  [L, R].forEach(function (part) { if (!part.length) return; var col = el('div', { class: 'dk-ws-col' }); part.forEach(function (x) { col.appendChild(x); }); cols.appendChild(col); });
   ws.appendChild(cols);
-  if (!today) { var bl = dkWsBlocks(r); if (bl) ws.appendChild(bl); }
+  if (mode === 'page') { var bl = dkWsBlocks(r); if (bl) ws.appendChild(bl); }
   return ws;
 }
+// The head: ring, name, the facts; ‹ › through the list; then one row of buttons ending in the
+// one red action.
 function dkWsHead(r, opts) {
-  var a = r.athlete;
-  var head = el('div', { class: 'dk-rv-head dk-ws-head' });
-  var avw = el('span', { class: 'dk-avw' });
-  avw.appendChild(dkAv(a, 'is-lg'));
-  if (r.live) avw.appendChild(el('span', { class: 'dk-live', title: 'Training now' }));
-  head.appendChild(avw);
-  var id = el('div', { class: 'dk-rv-id' });
-  id.appendChild(el('h1', { class: 'dk-h2' }, a.name));
-  id.appendChild(dkSubFacts(el('div', { class: 'dk-rv-sub' }), dkWsSubBits(r, false)));
+  var a = r.athlete, mode = opts.mode;
+  var wrap = el('div', { class: 'dk-ws-top' });
+  var head = el('div', { class: 'dk-ws-head' });
+  head.appendChild(dkRingAv(r, mode === 'sheet' ? null : 'lg'));
+  var id = el('div', { class: 'dk-ws-id' });
+  var h = el(mode === 'page' ? 'h1' : 'h2', { class: 'dk-ws-name' });
+  if (mode === 'today' || mode === 'roster') {
+    var nb = el('button', { type: 'button', class: 'dk-link' }, a.name);
+    nb.insertAdjacentHTML('beforeend', DK_IC.open);
+    dkTip(nb, 'Open their page', '↵');
+    nb.addEventListener('click', function () { openAthletePage(a.id); });
+    h.appendChild(nb);
+  } else h.textContent = a.name;
+  id.appendChild(h);
+  id.appendChild(dkSubFacts(el('div', { class: 'dk-ws-sub' }), dkWsSubBits(r)));
   head.appendChild(id);
   if (opts.pos) {
     var nav = el('div', { class: 'dk-ws-pos', role: 'group', 'aria-label': opts.pos });
+    var step = mode === 'page' ? dkWsStep : mode === 'roster' ? dkRMove : dkMove;
+    nav.appendChild(dkIconBtn(DK_IC.chevL, 'Previous', function () { step(-1); }, 'K'));
     nav.appendChild(el('span', { class: 'dk-ws-pos-text' }, opts.pos));
-    var pv = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Previous athlete  K', title: 'Previous  K', html: DK_IC.chevL });
-    pv.addEventListener('click', function () { dkWsStep(-1); });
-    var nx = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Next athlete  J', title: 'Next  J', html: DK_IC.chevR });
-    nx.addEventListener('click', function () { dkWsStep(1); });
-    nav.appendChild(pv); nav.appendChild(nx);
+    nav.appendChild(dkIconBtn(DK_IC.chevR, 'Next', function () { step(1); }, 'J'));
     head.appendChild(nav);
   }
-  var acts = el('div', { class: 'dk-ws-acts' });
+  wrap.appendChild(head);
+
+  var bar = el('div', { class: 'dk-ws-bar' });
+  if (mode === 'today' && opts.lane === 'q') {
+    bar.appendChild(dkBtn('Done', { icon: DK_IC.check, kbd: 'E', title: 'Done for this week. They come back if something new comes up.', onClick: function () { dkMark('done'); } }));
+    bar.appendChild(dkBtn('Snooze', { icon: DK_IC.snooze, kbd: 'S', cls: 'is-quiet', title: 'Snooze till tomorrow', onClick: function () { dkMark('snooze'); } }));
+    bar.appendChild(el('span', { class: 'dk-bar-sep', 'aria-hidden': 'true' }));
+  } else if (mode === 'today' && opts.lane === 'w') {
+    bar.appendChild(dkBtn('Seen', { icon: DK_IC.check, kbd: 'E', onClick: function () { dkMark('done'); } }));
+    bar.appendChild(dkBtn('Send kudos', { icon: DK_IC.spark, cls: 'is-quiet', onClick: function () { _dk.wpick = {}; _dk.wpick[a.id] = true; dkKudos(); } }));
+    bar.appendChild(el('span', { class: 'dk-bar-sep', 'aria-hidden': 'true' }));
+  }
   var un = _dkUnread()[a.id] || 0;
-  acts.appendChild(dkBtn(un ? 'Message · ' + un : 'Message', { primary: true, kbd: 'R', onClick: dkWsMessage }));
-  acts.appendChild(dkBtn(r.status.program ? 'Program' : 'Write a program', { kbd: 'P', onClick: function () { openAthleteProgram(a.id); } }));
+  var msg = dkBtn('Message', { icon: DK_IC.messages, kbd: 'R', count: un || null, cls: 'is-quiet', onClick: function () { if (_dk.card === 'thread' && dkCardAid() === a.id) dkCloseCard(); else { ensureCardTarget(); dkOpenCard('thread'); } } });
+  msg.dataset.card = 'thread';
+  bar.appendChild(msg);
+  var nts = dkBtn('Notes', { icon: DK_IC.note, kbd: 'N', cls: 'is-quiet', title: 'Private notes: only you see them', count: dkNotesFor(a.id).length || null, onClick: function () { if (_dk.card === 'notes' && dkCardAid() === a.id) dkCloseCard(); else { ensureCardTarget(); dkOpenCard('notes'); } } });
+  nts.dataset.card = 'notes';
+  bar.appendChild(nts);
+  // In the sheet the row is the selection; the card follows it.
+  function ensureCardTarget() { if (mode === 'sheet') _dk.rsel = a.id; }
+  if (mode === 'sheet' || mode === 'roster') bar.appendChild(dkBtn('Open page', { icon: DK_IC.open, cls: 'is-quiet', kbd: '↵', onClick: function () { openAthletePage(a.id); } }));
   var more = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'More for ' + a.name, 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: DK_IC.more });
+  dkTip(more, 'More');
   more.addEventListener('click', function (e) {
     e.stopPropagation();
-    dkPopMenu(more, [
-      { label: 'Add a private note', hint: 'N', run: function () { dkNoteCompose(a.id); } },
+    var items = [
+      { label: dkProgOf(a.id) ? 'Open their program' : 'Write a program', hint: 'P', run: function () { openAthleteProgram(a.id); } },
       { label: 'Progress charts', run: function () { openAthleteNotes(a.id); } },
-      { label: 'Export their program', run: function () { if (typeof exportProgramCsv === 'function') exportProgramCsv(a.id, a.name); } },
-      '-',
-      { label: 'Remove from roster', run: function () { removeAthleteFromRoster(a.id, a.name); } }
-    ], { alignRight: true });
+      { label: 'Export their program', run: function () { if (typeof exportProgramCsv === 'function') exportProgramCsv(a.id, a.name); } }
+    ];
+    if (window.SwitchKit) items.push({ label: 'Import their history', run: function () { SwitchKit.openHistoryImport(a.id); } });   // SWITCH KIT hook
+    items.push('-', { label: 'Remove from roster', danger: true, run: function () { removeAthleteFromRoster(a.id, a.name); } });
+    dkPopMenu(more, items, { alignRight: true });
   });
-  acts.appendChild(more);
-  head.appendChild(acts);
-  return head;
+  bar.appendChild(more);
+  bar.appendChild(el('span', { class: 'dk-sp' }));
+  bar.appendChild(el('span', { class: 'dk-pub', 'data-aid': a.id }, dkPublishBtn(a.id)));
+  wrap.appendChild(bar);
+  setTimeout(dkPaintCardButtons, 0);
+  return wrap;
 }
-// R / Message: the thread in the side pane takes the cursor (the pane opens if it was hidden).
-function dkWsMessage() {
-  var root = document.documentElement;
-  if (root.classList.contains('ctx-off')) { root.classList.remove('ctx-off'); _dkLS('powa-desk-ctx', 'on'); dkSyncCtx(); dkPaintPageCtx(true); }
-  if (!document.querySelector('#deskCtx .msg-input')) dkPaintPageCtx(true);
-  dkFocusComposer();
+// The one red action: Publish next week (the edits waiting in the table, with their count), or
+// Notify (edits made in the builder since the last heads-up), or what to write next.
+function dkPublishBtn(aid) {
+  var prog = dkProgOf(aid);
+  if (!prog || !(prog.weeks || []).length) return dkBtn('Write a program', { primary: true, onClick: function () { openAthleteProgram(aid); } });
+  var rev = deskWeekReview(prog);
+  if (rev.lastIdx >= 0 && rev.nextIdx < 0) {
+    return dkBtn('Write the next block', { primary: true, onClick: function () { if (typeof openNextBlockSheet === 'function') openNextBlockSheet(prog.id, aid); else openAthleteProgram(aid); } });
+  }
+  var N = prog.weeks[rev.nextIdx];
+  var wkn = N ? (N.number || rev.nextIdx + 1) : null;
+  var n = dkPendCount(aid);
+  if (n) return dkBtn('Publish week ' + wkn, { primary: true, icon: DK_IC.send, count: n, title: 'Write the ' + n + (n === 1 ? ' change' : ' changes') + ' into week ' + wkn + ' and tell them', onClick: function () { dkWsApply(aid); } });
+  var ch = dkPbChanges(prog).length;
+  if (ch) return dkBtn('Notify', { primary: true, icon: DK_IC.send, count: ch, title: 'Builder edits are already live. Send a heads-up about the ' + ch + (ch === 1 ? ' edit' : ' edits') + ' since the last one.', onClick: function () { dkPublish(aid); dkPaintPub(aid); } });
+  var b = dkBtn(wkn ? 'Week ' + wkn + ' is up to date' : 'Up to date', { icon: DK_IC.check, cls: 'is-quiet is-done' });
+  b.disabled = true;
+  return b;
+}
+function dkPaintPub(aid) {
+  document.querySelectorAll('.dk-pub[data-aid="' + CSS.escape(aid) + '"]').forEach(function (s) { s.innerHTML = ''; s.appendChild(dkPublishBtn(aid)); });
+  // The sheet's "Next week" cell says the draft count too.
+  var tr = document.querySelector('#rosterArea .dk-sh-row[data-id="' + CSS.escape(aid) + '"] .c-next');
+  var r = dkRow(aid);
+  if (tr && r) { var nx = dkNextStatus(r); tr.innerHTML = ''; tr.appendChild(el('span', { class: 'dk-nx t-' + nx.tone }, nx.text)); }
+}
+// What needs the coach, in sentences, each with the one thing to do about it.
+function dkWsNeeds(r, lane) {
+  var items = lane === 'w' ? r.wins.map(function (w) { return { type: 'win', text: w.text, tone: 'win', detail: dkWinDetail(r, w) }; }) : r.reasons;
+  if (!items.length) return null;
+  var box = el('div', { class: 'dk-asks' });
+  var replied = false;   // one Reply per box: every thread-type reason opens the same thread
+  var CAP = 2;
+  items.forEach(function (x, i) {
+    var row = el('div', { class: 'dk-ask t-' + (x.tone || 'info') + (i >= CAP ? ' is-more' : '') });
+    row.appendChild(el('i', { class: 'dk-ask-dot', 'aria-hidden': 'true' }));
+    var t = el('div', { class: 'dk-ask-t' });
+    t.appendChild(el('b', {}, x.text));
+    var detail = x.type === 'message' && x.body ? '“' + x.body + '”' : x.detail;
+    if (detail) t.appendChild(el('span', {}, detail));
+    row.appendChild(t);
+    var go = null;
+    if (x.type === 'formcheck' && x.formCheckId && typeof openFormCheckReview === 'function') go = dkBtn('Review video', { cls: 'dk-btn-sm', onClick: function () { openFormCheckReview(x.formCheckId); } });
+    else if (x.type === 'note') go = dkBtn('Answer', { cls: 'dk-btn-sm', onClick: function () { var ta = _dkVis('.dk-ws[data-aid="' + CSS.escape(r.athlete.id) + '"] .dk-tn-item.is-waiting .dk-btn'); if (ta) { ta.scrollIntoView({ block: 'center' }); ta.click(); } else openAthleteNotes(r.athlete.id); } });
+    else if (/^(message|checkin|quiet|never|readiness)$/.test(x.type)) { if (!replied) go = dkBtn('Reply', { cls: 'dk-btn-sm', kbd: 'R', onClick: function () { dkOpenCard('thread'); } }); replied = true; }
+    else if (x.type === 'pain' && x.painReport && typeof openPainResolveSheet === 'function') go = dkBtn('Resolve', { cls: 'dk-btn-sm', onClick: function () { openPainResolveSheet(x.painReport, dkWsRepaint); } });
+    else if (x.type === 'pain') go = dkBtn('Ask', { cls: 'dk-btn-sm', onClick: function () { dkOpenCard('thread'); } });
+    else if (/^(noprogram|blockdone|blockend|stalling)$/.test(x.type)) go = dkBtn('Program', { cls: 'dk-btn-sm', onClick: function () { openAthleteProgram(r.athlete.id); } });
+    else if (/^(overshoot|drift)$/.test(x.type)) go = dkBtn('See the week', { cls: 'dk-btn-sm', onClick: function () { var w = _dkVis('.dk-ws[data-aid="' + CSS.escape(r.athlete.id) + '"] .dk-wk'); if (w) w.scrollIntoView({ block: 'start', behavior: _dkReduced() ? 'auto' : 'smooth' }); } });
+    if (go) row.appendChild(go);
+    box.appendChild(row);
+  });
+  // Two rows, then "+n more": the week table stays near the top.
+  if (items.length > CAP) {
+    var more = el('button', { type: 'button', class: 'dk-ask-more', 'aria-expanded': 'false' }, '+' + (items.length - CAP) + ' more');
+    more.addEventListener('click', function () {
+      var open = box.classList.toggle('is-open');
+      more.setAttribute('aria-expanded', String(open));
+      more.textContent = open ? 'Show less' : '+' + (items.length - CAP) + ' more';
+    });
+    box.appendChild(more);
+  }
+  return box;
+}
+// The centre keeps its place (and any draft) on a background repaint; only "what needs you" is
+// re-read, so a reason the coach just dealt with (a reply sent) leaves the box at once.
+function dkWsAsksRefresh(aid) {
+  var ws = document.querySelector('.dk-ws[data-aid="' + CSS.escape(aid) + '"]');
+  if (!ws || ws.classList.contains('is-sheet')) return;
+  var r = dkRow(aid) || (dkRowsFresh(), dkRow(aid));
+  if (!r) return;
+  var lane = _dk.screen === 'today' && _dk.sel && _dk.sel.id === aid ? _dk.sel.lane : 'q';
+  var old = ws.querySelector(':scope > .dk-asks');
+  var nb = dkWsNeeds(r, lane);
+  if (old) { if (nb) old.replaceWith(nb); else old.remove(); }
+  else if (nb) { var top = ws.querySelector(':scope > .dk-ws-top'); if (top) top.after(nb); }
+}
+function dkWinDetail(r, w) {
+  if (w.type !== 'pr') return '';
+  var pr = getLifetimePRs(r.athlete.id);
+  return (w.lifts || []).filter(function (L) { return pr[L]; }).map(function (L) { return LIFT_LABELS[L] + ' ' + dkWt(pr[L].weight) + ' × ' + pr[L].reps + ' @' + _num(pr[L].rpe); }).join(' · ');
 }
 
 // ---------- last week → next week ----------
@@ -1979,6 +2523,18 @@ function dkGroupLabel(g) {
   var fx = typeof setFieldsShort === 'function' ? setFieldsShort(g) : '';   // tempo, pause, bands / chains, own columns
   return fx ? t + ' · ' + fx : t;
 }
+// The same, set like C: count×reps quiet, the load in ink, the effort after it.
+function dkGroupRich(g) {
+  var span = el('span', { class: 'dk-pres' });
+  if (!g) return span;
+  span.appendChild(el('span', { class: 'dk-pres-sr' }, g.count + '×' + g.reps));
+  if (g.pct != null) span.appendChild(el('b', {}, _num(g.pct) + (Number(g.pctHi) > Number(g.pct) ? '–' + _num(g.pctHi) : '') + '%'));
+  else if (Number(g.weight) > 0) span.appendChild(el('b', {}, _num(kgToDisplay(g.weight)) + (Number(g.weightHi) > Number(g.weight) ? '–' + _num(kgToDisplay(g.weightHi)) : '')));
+  if (g.rpe != null && g.rpe !== '') span.appendChild(el('span', { class: 'dk-pres-rp' }, g.rir ? effortInputText(g, true) + ' RIR' : '@' + effortInputText(g, false)));
+  var fx = typeof setFieldsShort === 'function' ? setFieldsShort(g) : '';
+  if (fx) span.appendChild(el('span', { class: 'dk-pres-fx' }, fx));
+  return span;
+}
 function dkGroupInput(g) {
   if (!g) return '';
   var t = g.count + 'x' + g.reps;
@@ -1990,31 +2546,76 @@ function dkGroupInput(g) {
   var fx = typeof setFieldsCellText === 'function' ? setFieldsCellText(g) : '';
   return fx ? t + ' ' + fx : t;
 }
-function dkLoggedLabel(l) {
-  if (!l) return '';
-  if (l.skipped) return 'Skipped';
-  return (l.weight > 0 ? _num(kgToDisplay(l.weight)) + '×' : '') + l.reps + (l.rpe != null ? ' @' + _num(l.rpe) : '');
+function dkLoggedRich(l) {
+  var span = el('span', { class: 'dk-pres is-logged' });
+  if (!l) return span;
+  if (l.skipped) { span.appendChild(el('span', { class: 'dk-pres-miss' }, 'Skipped')); return span; }
+  if (l.weight > 0) span.appendChild(el('b', {}, _num(kgToDisplay(l.weight))));
+  span.appendChild(el('span', { class: 'dk-pres-sr' }, (l.weight > 0 ? '×' : '') + l.reps));
+  if (l.rpe != null) span.appendChild(el('span', { class: 'dk-pres-rp' }, '@' + _num(l.rpe)));
+  if (l.n < l.of) span.appendChild(el('small', {}, l.n + '/' + l.of + ' sets'));
+  return span;
 }
-// The edits waiting on Apply, per athlete, for one program and one next week.
+// The edits waiting on Publish, per athlete, for one program and one next week.
 function dkWsPend(aid, prog, nextIdx) {
+  dkLoadPend();
   var sig = prog.id + ':' + nextIdx;
   var p = _dk.wsPend[aid];
   if (!p || p.sig !== sig) p = _dk.wsPend[aid] = { sig: sig, rows: {} };
   return p;
 }
+// Drafts survive a reload (real accounts only; the demo writes nothing). Keyed by program and
+// week, so a draft for a week that has since moved on is simply dropped.
+function _dkPendKey() { var u = _dkUser(); return 'powa-desk-pend-' + (u ? u.id : 'x'); }
+function dkLoadPend() {
+  if (_dk.pendLoaded) return;
+  _dk.pendLoaded = true;
+  if (window._demoMode) return;
+  var o = null;
+  try { o = JSON.parse(_dkLS(_dkPendKey()) || 'null'); } catch (e) { o = null; }
+  if (o && typeof o === 'object') Object.keys(o).forEach(function (k) { var x = o[k]; if (!_dk.wsPend[k] && x && x.sig && x.rows) _dk.wsPend[k] = x; });
+}
+function dkSavePend() {
+  if (window._demoMode) return;
+  var o = {}, any = false;
+  Object.keys(_dk.wsPend).forEach(function (k) { var x = _dk.wsPend[k]; if (x && x.rows && Object.keys(x.rows).length) { o[k] = x; any = true; } });
+  _dkLS(_dkPendKey(), any ? JSON.stringify(o) : null);
+}
+// How many next-week edits wait on Publish for this athlete (0 when the draft is for another week).
+function dkPendCount(aid) {
+  dkLoadPend();
+  var p = _dk.wsPend[aid];
+  if (!p || !p.rows) return 0;
+  var prog = dkProgOf(aid);
+  if (!prog || !(prog.weeks || []).length) return 0;
+  var rev = deskWeekReview(prog);
+  return rev.nextIdx >= 0 && p.sig === prog.id + ':' + rev.nextIdx ? Object.keys(p.rows).length : 0;
+}
+function dkPendDrop(aid) { delete _dk.wsPend[aid]; dkSavePend(); }
 function dkProgOf(aid) { return (Store.get().programs || []).find(function (p) { return p.athleteId === aid; }) || null; }
+function dkDayState(prog, wi, di) {
+  var d = prog.weeks[wi] && prog.weeks[wi].days[di];
+  var sets = d ? (d.exercises || []).reduce(function (a, e) { return a.concat(e.sets || []); }, []) : [];
+  var done = sets.filter(function (s) { return s.completed; }).length;
+  if (!sets.length) return null;
+  if (done === sets.length) return { text: 'Done', tone: 'done' };
+  if (sets.some(function (s) { return s.skipped; }) && !done) return { text: 'Missed', tone: 'miss' };
+  return done ? { text: done + ' of ' + sets.length + ' sets', tone: 'part' } : { text: 'Not yet', tone: 'todo' };
+}
 function dkWsWeek(r) {
   var a = r.athlete, prog = dkProgOf(a.id);
-  var sec = el('div', { class: 'dk-sec dk-wk', id: 'dkWsWeek' });
-  var head = el('div', { class: 'dk-sec-head' });
-  var title = el('h3', { class: 'dk-sec-title' });
-  head.appendChild(title);
+  var sec = el('div', { class: 'dk-sec dk-wk', 'data-aid': a.id });
+  var head = el('div', { class: 'dk-wk-head' });
+  var ht = el('div', { class: 'dk-wk-ht' });
+  var title = el('h3', { class: 'dk-wk-title' });
+  ht.appendChild(title);
+  head.appendChild(ht);
   sec.appendChild(head);
   if (!prog || !(prog.weeks || []).length) {
     title.textContent = 'Next week';
     var em = el('div', { class: 'dk-wk-empty' });
     em.appendChild(el('p', {}, r.status.ago == null ? 'Nothing assigned yet. Their first week shows up here, and what they lift lands next to it.' : 'No program at the moment. Write the next block and this fills in as they log.'));
-    em.appendChild(dkBtn('Assign a program', { cls: 'is-ink', onClick: function () { openAthleteProgram(a.id); } }));
+    em.appendChild(dkBtn('Open the builder', { onClick: function () { openAthleteProgram(a.id); } }));
     sec.appendChild(em);
     return sec;
   }
@@ -2023,124 +2624,157 @@ function dkWsWeek(r) {
     title.textContent = 'Week ' + (prog.weeks[0].number || 1);
     var em2 = el('div', { class: 'dk-wk-empty' });
     em2.appendChild(el('p', {}, 'Waiting for their first set. Each set they log lands here against what you wrote.'));
-    em2.appendChild(dkBtn('Open in Grid', { cls: 'is-quiet', onClick: function () { openAthleteProgram(a.id); } }));
+    em2.appendChild(dkBtn('Open in Grid', { icon: DK_IC.sheet, cls: 'is-quiet', kbd: 'P', onClick: function () { openAthleteProgram(a.id); } }));
     sec.appendChild(em2);
     return sec;
   }
   var W = prog.weeks[rev.lastIdx], N = rev.nextIdx >= 0 ? prog.weeks[rev.nextIdx] : null;
-  title.textContent = 'Week ' + (W.number || rev.lastIdx + 1) + (N ? ' → week ' + (N.number || rev.nextIdx + 1) : '');
-  head.appendChild(el('span', { class: 'dk-sec-sub' }, N ? 'Lifted against written · next week from how it felt' : 'Lifted against written'));
+  var wn = W.number || rev.lastIdx + 1, nn = N ? (N.number || rev.nextIdx + 1) : null;
+  title.textContent = 'Week ' + wn + ', planned against logged';
+  ht.appendChild(el('p', { class: 'dk-wk-sub' }, N ? 'Week ' + nn + ' sits on the right. Type like a sheet: 3x5 140 @8. Suggestions come from the RPE they logged.' : 'Week ' + wn + ' is the last of ' + (prog.name || 'the block') + '.'));
   head.appendChild(el('span', { class: 'dk-sp' }));
-  var grid = dkBtn('Open in Grid', { cls: 'is-quiet dk-btn-sm', onClick: function () { openAthleteProgram(a.id); } });
-  head.appendChild(grid);
   var pend = N ? dkWsPend(a.id, prog, rev.nextIdx) : { rows: {} };
   // Drop anything that no longer fits (the athlete logged into that block, or the coach changed it elsewhere).
-  Object.keys(pend.rows).forEach(function (k) { var row = rev.rows.find(function (x) { return x.key === k; }); if (!row || !row.next || row.next.locked) delete pend.rows[k]; });
-  var apply = null;
-  if (N) {
-    apply = dkBtn('Apply next week', { cls: 'is-ink dk-btn-sm dk-wk-apply', onClick: function () { dkWsApply(a.id); } });
-    head.appendChild(apply);
+  Object.keys(pend.rows).forEach(function (k) { var row = rev.rows.find(function (x) { return x.key === k; }); if (!row || !row.next || row.next.locked) delete pend.rows[k]; else pend.rows[k].row = row; });
+  var takeAll = null;
+  var nSug = rev.rows.filter(function (x) { return x.suggest && x.suggest.dir !== 'hold' && x.next && !x.next.locked; }).length;
+  if (N && nSug) {
+    takeAll = dkBtn('Take suggestions', { icon: DK_IC.spark, cls: 'dk-btn-sm', kbd: '⇧A', onClick: function () { sec._acceptAll(); } });
+    head.appendChild(takeAll);
   }
-  var t = el('table', { class: 'dk-wktab' });
+  head.appendChild(dkBtn('Open in Grid', { icon: DK_IC.sheet, cls: 'dk-btn-sm is-quiet', kbd: 'P', onClick: function () { openAthleteProgram(a.id); } }));
+
+  var t = el('table', { class: 'dk-wktab' + (N ? ' has-next' : '') });
   var hr = el('tr');
-  // No week after this one: no next-week column (the end of the block is said under the table).
-  ['Exercise', 'Written', 'Logged'].concat(N ? ['Week ' + (N.number || rev.nextIdx + 1), ''] : []).forEach(function (h, i) {
-    hr.appendChild(el('th', { scope: 'col', class: ['c-ex', 'c-tg', 'c-lg', 'c-nx', 'c-ok'][i] }, h));
-  });
+  hr.appendChild(el('th', { scope: 'col', class: 'c-ex' }, 'Exercise'));
+  hr.appendChild(el('th', { scope: 'col', class: 'c-tg' }, 'Written'));
+  hr.appendChild(el('th', { scope: 'col', class: 'c-lg' }, 'Logged'));
+  hr.appendChild(el('th', { scope: 'col', class: 'c-gap' }, 'RPE gap'));
+  var nxh = null;
+  if (N) { nxh = el('th', { scope: 'col', class: 'c-nx' }, 'Week ' + nn); hr.appendChild(nxh); }
   t.appendChild(el('thead', {}, hr));
   var tb = el('tbody');
   var lastDi = -1;
   var inputs = [];
-  var paintApply = function () {
-    if (!apply) return;
+  var paintCount = function () {
     var n = Object.keys(pend.rows).length;
-    apply.querySelector('span').textContent = n ? 'Apply next week · ' + n : 'Apply next week';
-    apply.disabled = !n;
+    if (nxh) { nxh.innerHTML = ''; nxh.appendChild(document.createTextNode('Week ' + nn)); if (n) nxh.appendChild(el('span', { class: 'dk-wk-draft' }, 'draft · ' + n)); }
+    if (takeAll) {
+      var left = inputs.filter(function (i) { return i._canTake && i._canTake(); }).length;
+      takeAll.querySelector('.dk-btn-l').textContent = left ? 'Take ' + left + (left === 1 ? ' suggestion' : ' suggestions') : 'Suggestions taken';
+      takeAll.disabled = !left;
+    }
+    dkSavePend();
+    dkPaintPub(a.id);
+    dkPaintRowTags(a.id);
   };
   rev.rows.forEach(function (row) {
     if (row.di !== lastDi) {
       lastDi = row.di;
-      tb.appendChild(el('tr', { class: 'dk-wk-day' }, el('th', { colspan: N ? '5' : '3', scope: 'rowgroup' }, row.day)));
+      var ds = dkDayState(prog, rev.lastIdx, row.di);
+      var dh = el('th', { colspan: N ? '5' : '4', scope: 'rowgroup' });
+      dh.appendChild(el('span', { class: 'dk-wk-dayn' }, row.day));
+      if (ds) dh.appendChild(el('span', { class: 'dk-wk-dst t-' + ds.tone }, ds.text));
+      tb.appendChild(el('tr', { class: 'dk-wk-day' }, dh));
     }
     var tr = el('tr', { class: 'dk-wk-row' + (row.gi ? ' is-cont' : '') });
     var ex = el('td', { class: 'c-ex' });
-    if (!row.gi) ex.appendChild(el('span', { class: 'dk-wk-ex lift-' + (MAIN_LIFTS.indexOf(row.lift) >= 0 ? row.lift : 'acc') }, el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }), el('span', { class: 'dk-wk-exn' }, row.title)));
+    var lift = MAIN_LIFTS.indexOf(row.lift) >= 0 ? row.lift : 'acc';
+    if (!row.gi) ex.appendChild(el('span', { class: 'dk-wk-ex lift-' + lift }, el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }), el('span', { class: 'dk-wk-exn' }, row.title)));
+    else ex.setAttribute('aria-label', row.title);
     // A narrow pane folds "written" under the name (CSS shows one or the other).
-    ex.appendChild(el('span', { class: 'dk-wk-tg2' }, dkGroupLabel(row.target)));
-    if (row.gi) ex.setAttribute('aria-label', row.title + ', ' + dkGroupLabel(row.target));
+    var tg2 = el('span', { class: 'dk-wk-tg2' });
+    tg2.appendChild(dkGroupRich(row.target));
+    ex.appendChild(tg2);
+    // Very narrow: what they logged folds under it too.
+    var lg2 = el('span', { class: 'dk-wk-lg2' }, el('span', {}, 'Logged'));
+    if (row.logged) lg2.appendChild(dkLoggedRich(row.logged)); else lg2.appendChild(el('span', {}, 'not yet'));
+    if (row.delta != null) lg2.appendChild(el('span', { class: 'dk-gap dk-gap-inline t-' + (dkGapTone(row.delta) || 'on') }, dkGapText(row.delta)));
+    ex.appendChild(lg2);
     tr.appendChild(ex);
-    tr.appendChild(el('td', { class: 'c-tg' }, dkGroupLabel(row.target)));
-    var lg = el('td', { class: 'c-lg' + (row.logged ? '' : ' dk-dim') }, row.logged ? dkLoggedLabel(row.logged) : '–');
-    if (row.logged && !row.logged.skipped && row.logged.n < row.logged.of) lg.appendChild(el('small', {}, ' ' + row.logged.n + '/' + row.logged.of));
-    // The RPE against what was written, on the same line: red a point over, amber half a point.
+    var tg = el('td', { class: 'c-tg' });
+    tg.appendChild(dkGroupRich(row.target));
+    tr.appendChild(tg);
+    var lg = el('td', { class: 'c-lg' });
+    if (row.logged) lg.appendChild(dkLoggedRich(row.logged));
+    else lg.appendChild(el('span', { class: 'dk-dim' }, 'Not yet'));
     var d = row.delta;
-    if (d != null && d !== 0) lg.appendChild(el('span', { class: 'dk-wk-d' + (d >= 1 ? ' t-alert' : d >= 0.5 ? ' t-warn' : ''), title: 'RPE ' + (d > 0 ? 'over' : 'under') + ' what you wrote' }, (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1)));
+    var gapPill = function () { return el('span', { class: 'dk-gap t-' + (dkGapTone(d) || 'on') }, d == null ? '' : dkGapText(d)); };
+    // Folded: the gap rides on the logged line.
+    if (d != null) { var g2 = gapPill(); g2.classList.add('dk-gap-inline'); lg.appendChild(g2); }
     tr.appendChild(lg);
-    var nx = el('td', { class: 'c-nx' });
-    var okc = el('td', { class: 'c-ok' });
+    var gp = el('td', { class: 'c-gap' });
+    if (d != null) { var gpn = gapPill(); gpn.title = 'RPE ' + (d > 0 ? 'over' : d < 0 ? 'under' : 'on') + ' what you wrote'; gp.appendChild(gpn); }
+    tr.appendChild(gp);
     if (!N) { tb.appendChild(tr); return; }
-    if (!row.next) nx.appendChild(el('span', { class: 'dk-dim' }, 'Not in week ' + (N.number || rev.nextIdx + 1)));
-    else if (row.next.locked) nx.appendChild(el('span', { class: 'dk-wk-locked', title: 'Logged already' }, dkGroupLabel(row.next.group)));
+    var nx = el('td', { class: 'c-nx' });
+    if (!row.next) nx.appendChild(el('span', { class: 'dk-dim' }, 'Not in week ' + nn));
+    else if (row.next.locked) { nx.appendChild(el('span', { class: 'dk-wk-locked' }, dkGroupLabel(row.next.group))); nx.appendChild(el('span', { class: 'dk-wk-note' }, 'Logged already')); }
     else {
       var cur = dkGroupInput(row.next.group);
       var p = pend.rows[row.key];
-      var inp = el('input', { type: 'text', class: 'dk-wk-in' + (p ? ' is-pend' : ''), spellcheck: 'false', autocomplete: 'off', 'aria-label': row.title + ' next week' });
+      var cell = el('div', { class: 'dk-wk-cell' });
+      var inp = el('input', { type: 'text', class: 'dk-wk-in' + (p ? ' is-pend' : ''), spellcheck: 'false', autocomplete: 'off', 'aria-label': row.title + ', week ' + nn });
       inp.value = p ? p.text : cur;
-      var sg = el('div', { class: 'dk-wk-sg' });
-      var paintSg = function () {
-        sg.innerHTML = '';
+      cell.appendChild(inp);
+      var chip = el('button', { type: 'button', class: 'dk-sgc' });
+      var can = !!(row.suggest && row.suggest.dir !== 'hold');
+      var paintChip = function () {
         var s = row.suggest, pp = pend.rows[row.key];
-        if (!s) return;
-        if (s.dir === 'hold') { sg.appendChild(el('span', { class: 'is-hold', title: 'Logged on target: keep the load' }, 'Hold')); return; }
-        var kgTxt = _num(kgToDisplay(s.kg));
-        if (pp && pp.kind === 'accept') { sg.appendChild(el('span', { class: 'is-took' }, 'Suggested load in')); return; }
-        sg.appendChild(el('span', {}, 'Suggest ' + kgTxt + (s.dir === 'set' ? '' : ' (' + (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta))) + ')')));
-        sg.appendChild(dkKbd('Tab'));
+        chip.innerHTML = '';
+        chip.className = 'dk-sgc';
+        chip.disabled = false;
+        if (!s) { chip.hidden = true; return; }
+        chip.hidden = false;
+        // On target: the RPE gap column already says so; no chip to repeat it.
+        if (s.dir === 'hold') { chip.hidden = true; return; }
+        var kg = _num(kgToDisplay(s.kg)), dl = s.dir === 'set' ? '' : (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta)));
+        if (pp && pp.kind === 'accept') {
+          chip.classList.add('is-took');
+          chip.insertAdjacentHTML('beforeend', DK_IC.check);
+          chip.appendChild(el('span', {}, 'Took ' + kg));
+          dkTip(chip, 'Undo: back to what was written');
+        } else {
+          chip.insertAdjacentHTML('beforeend', DK_IC.spark);
+          chip.appendChild(el('span', {}, (s.dir === 'down' ? 'Drop to ' : s.dir === 'up' ? 'Up to ' : 'Set ') + kg));
+          if (dl) chip.appendChild(el('small', {}, dl));
+          dkTip(chip, 'From the RPE they logged', 'Tab');
+        }
       };
-      paintSg();
-      var okb = el('button', { type: 'button', class: 'dk-icon-btn dk-wk-okb', tabindex: '-1', html: ICONS.check });
-      var paintOk = function () {
-        var pp = pend.rows[row.key];
-        var can = !!(row.suggest && row.suggest.dir !== 'hold');
-        okb.setAttribute('aria-pressed', String(!!pp));
-        okb.disabled = !pp && !can;
-        okb.title = pp ? 'Undo this change' : can ? 'Take the suggested load  Tab' : 'Nothing to suggest';
-        okb.setAttribute('aria-label', okb.title);
-        inp.classList.toggle('is-pend', !!pp);
-        paintSg();
-        paintApply();
-      };
+      var paintRow = function () { inp.classList.toggle('is-pend', !!pend.rows[row.key]); paintChip(); paintCount(); };
       var accept = function () {
-        if (!row.suggest || row.suggest.dir === 'hold') return false;
+        if (!can) return false;
         var nsets = (dkProgOf(a.id).weeks[rev.nextIdx].days[row.next.di].exercises[row.next.ei].sets || []).slice(row.next.startIdx, row.next.startIdx + row.next.count);
         var sets = deskSuggestedSets(nsets, row.suggest.kg);
         var g = Object.assign({}, row.next.group, { weight: row.suggest.kg, weightHi: Number(row.next.group.weightHi) > row.suggest.kg ? row.next.group.weightHi : null });
         pend.rows[row.key] = { kind: 'accept', text: dkGroupInput(g), sets: sets, row: row };
         inp.value = pend.rows[row.key].text;
-        paintOk();
+        paintRow();
+        if (!_dkReduced() && inp.animate) inp.animate([{ backgroundColor: 'color-mix(in srgb, var(--dk-ok) 22%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 700, easing: 'ease-out' });
         return true;
       };
-      var revert = function () { delete pend.rows[row.key]; inp.value = cur; inp.classList.remove('is-bad'); paintOk(); };
+      var revert = function () { delete pend.rows[row.key]; inp.value = cur; inp.classList.remove('is-bad'); paintRow(); };
       var commit = function () {
         var v = inp.value.trim();
         var pp = pend.rows[row.key];
         if (pp && v === pp.text) return true;
         if (v === cur || !v) { revert(); return true; }
         var sets = typeof _gridParse === 'function' ? _gridParse(v, a.id, row.lift, dkProgOf(a.id)) : null;
-        if (!sets || !sets.length) { inp.classList.add('is-bad'); inp.title = 'Type it like 3x5 150 @8'; return false; }
-        inp.classList.remove('is-bad'); inp.removeAttribute('title');
+        if (!sets || !sets.length) { inp.classList.add('is-bad'); dkTip(inp, 'Type it like 3x5 150 @8'); return false; }
+        inp.classList.remove('is-bad'); delete inp.dataset.tip;
         pend.rows[row.key] = { kind: 'edit', text: v, sets: sets, row: row };
-        paintOk();
+        paintRow();
         return true;
       };
-      okb.addEventListener('click', function () { if (pend.rows[row.key]) revert(); else accept(); });
+      chip.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      chip.addEventListener('click', function () { if (pend.rows[row.key]) revert(); else accept(); });
       inp.addEventListener('blur', commit);
       inp.addEventListener('keydown', function (e) {
         var i = inputs.indexOf(inp);
         var go = function (j) { var t2 = inputs[j]; if (t2) { t2.focus(); t2.select(); } };
         if (e.key === 'Tab' && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
           // Untouched with a suggestion: Tab takes it, then moves on.
-          if (inp.value.trim() === cur && !pend.rows[row.key] && row.suggest && row.suggest.dir !== 'hold') { e.preventDefault(); accept(); go(i + 1); }
+          if (inp.value.trim() === cur && !pend.rows[row.key] && can) { e.preventDefault(); accept(); go(i + 1); }
         } else if (e.key === 'Enter') { e.preventDefault(); if (commit()) go(i + (e.shiftKey ? -1 : 1)); }
         else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); revert(); inp.blur(); }
         else if (e.key === 'ArrowDown') { e.preventDefault(); if (commit()) go(i + 1); }
@@ -2149,136 +2783,123 @@ function dkWsWeek(r) {
       inp.addEventListener('focus', function () { tr.classList.add('is-focus'); });
       inp.addEventListener('blur', function () { tr.classList.remove('is-focus'); });
       inp._accept = accept;
+      inp._canTake = function () { return can && !pend.rows[row.key]; };
       inputs.push(inp);
-      nx.appendChild(inp);
-      nx.appendChild(sg);
-      okc.appendChild(okb);
-      paintOk();
+      cell.appendChild(chip);
+      nx.appendChild(cell);
+      paintChip();
     }
     tr.appendChild(nx);
-    tr.appendChild(okc);
     tb.appendChild(tr);
   });
   t.appendChild(tb);
   var wrap = el('div', { class: 'dk-wk-wrap' });
   wrap.appendChild(t);
   sec.appendChild(wrap);
-  // Next week's column is as wide as its longest prescription: a load is never cut off mid-number.
-  var fit = function () {
-    if (!t.isConnected) return;
-    var px = 0;
-    inputs.forEach(function (i) { px = Math.max(px, _dkInputW(i)); });
-    t.querySelectorAll('td.c-nx').forEach(function (td) { td.style.minWidth = px ? (px + 20) + 'px' : ''; });
-  };
-  requestAnimationFrame(fit);
-  inputs.forEach(function (i) { i.addEventListener('input', fit); i.addEventListener('blur', fit); i.addEventListener('keyup', fit); });
   sec._acceptAll = function () {
     var n = 0;
-    inputs.forEach(function (inp) { if (inp._accept && !inp.classList.contains('is-pend') && inp._accept()) n++; });
-    fit();
-    toast(n ? 'Took ' + n + (n === 1 ? ' suggestion' : ' suggestions') + '. Apply next week when it reads right' : 'No suggestions left to take');
+    inputs.forEach(function (inp) { if (inp._canTake && inp._canTake() && inp._accept()) n++; });
+    toast(n ? 'Took ' + n + (n === 1 ? ' suggestion' : ' suggestions') + '. Publish when it reads right' : 'No suggestions left to take');
   };
   if (!N) {
     var end = el('div', { class: 'dk-wk-end' });
-    end.appendChild(el('span', {}, 'Week ' + (W.number || rev.lastIdx + 1) + ' is the last of ' + (prog.name || 'the block') + '.'));
-    if (typeof openNextBlockSheet === 'function') end.appendChild(dkBtn('Start the next block', { cls: 'is-ink dk-btn-sm', onClick: function () { openNextBlockSheet(prog.id, a.id); } }));
+    end.appendChild(el('span', {}, 'Nothing is written after week ' + wn + '. Write the next block and its first week lands here.'));
     sec.appendChild(end);
   }
-  paintApply();
+  setTimeout(paintCount, 0);
   return sec;
 }
 // ⇧A: take every suggestion in the table.
 function dkWsAcceptAll() {
-  var sec = document.querySelector('#dkWsWeek');
+  var sec = _dkVis('.dk-ws .dk-wk');
   if (sec && sec._acceptAll) sec._acceptAll();
 }
-// Apply next week: write the edited blocks into the program, save, and send the heads-up (the athlete hears).
+// Publish next week: write the edited blocks into the program, save, and send the heads-up.
 function dkWsApply(aid) {
+  dkLoadPend();
   var prog = dkProgOf(aid);
   var p = _dk.wsPend[aid];
   if (!prog || !p) return;
+  // A cell still being typed in counts: commit it first.
+  if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('dk-wk-in')) document.activeElement.blur();
   var rev = deskWeekReview(prog);
   if (rev.nextIdx < 0 || p.sig !== prog.id + ':' + rev.nextIdx) return;
   var edits = Object.keys(p.rows).map(function (k) { var x = p.rows[k]; return { di: x.row.next.di, ei: x.row.next.ei, startIdx: x.row.next.startIdx, count: x.row.next.count, sets: x.sets }; });
   if (!edits.length) return;
   var n = 0;
   Store.update(function (s) { var pr = (s.programs || []).find(function (x) { return x.id === prog.id; }); if (pr) n = deskApplyNextWeek(pr.weeks, rev.nextIdx, edits); });
-  delete _dk.wsPend[aid];
+  dkPendDrop(aid);
   if (!n) { toast('Nothing changed: those sets were logged meanwhile'); dkWsRepaint(); return; }
   persistProgram(prog.id);
   var r = dkRow(aid);
   dkNoteHandled(aid, 'apply');
   dkPublish(aid, { quietDemo: true });
-  toast(window._demoMode ? 'Week ' + (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) + ' updated in the demo. Nothing leaves this page.' : 'Week ' + (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) + ' updated. ' + (r ? _dkFirst(r.athlete.name) : 'They') + ' gets a heads-up.');
+  var wk = prog.weeks[rev.nextIdx].number || rev.nextIdx + 1;
+  toast(window._demoMode ? 'Week ' + wk + ' published in the demo. Nothing leaves this page.' : 'Week ' + wk + ' published. ' + (r ? _dkFirst(r.athlete.name) : 'They') + ' gets a heads-up.');
   dkWsRepaint();
 }
-// Redraw whichever workspace is showing (Today's centre or the page), keeping the scroll.
+// Redraw whichever workspace is showing, keeping the scroll.
 function dkWsRepaint() {
-  var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
-  if (onPage && window._apAthlete) { dkRowsFresh(); var sc = window.scrollY; renderAthletePage(window._apAthlete); window.scrollTo(0, sc); return; }
-  if (_dk.screen === 'today') { var c = document.getElementById('deskTodayCentre'), top = c ? c.scrollTop : 0; dkRowsFresh(); dkPaintTodayCentre(); dkPaintTodayList(); if (c) c.scrollTop = top; }
-}
-// After an action that doesn't move the selection (Apply next week): refresh the bar and the rows
-// in place, so the list keeps its scroll and the centre isn't rebuilt.
-function dkPaintTodayList() {
-  var q = _dk.queue, bar = document.querySelector('#deskToday .dk-progress');
-  if (bar && q && q.total) bar.replaceWith(dkProgressBar(q));
-  if (!q) return;
-  q.queue.forEach(function (r) {
-    var old = document.querySelector('#deskToday .dk-qrow[data-lane="q"][data-id="' + CSS.escape(r.athlete.id) + '"]');
-    if (old) old.replaceWith(dkQueueRow(r, 'q'));
-  });
+  if (_dkOnPage() && window._apAthlete) { dkRowsFresh(); var sc = window.scrollY; renderAthletePage(window._apAthlete); window.scrollTo(0, sc); return; }
+  if (_dk.screen === 'today') { var c = document.getElementById('deskTodayCentre'), top = c ? c.scrollTop : 0; renderDeskToday({ keepCentre: true }); dkPaintTodayCentre(); c = document.getElementById('deskTodayCentre'); if (c) c.scrollTop = top; return; }
+  if (_dk.screen === 'roster') {
+    var rc = document.getElementById('deskRosterCentre'), rt = rc ? rc.scrollTop : 0;
+    dkRowsFresh(); dkPaintRosterBody(); if (dkRMode() === 'list') { dkPaintRosterCentre(); rc = document.getElementById('deskRosterCentre'); if (rc) rc.scrollTop = rt; }
+  }
 }
 
-// ---------- lifts ----------
+// ---------- lifts: one strip, the three and the total ----------
 function dkWsLifts(r) {
   var a = r.athlete, prog = r.status.program, u = unitLabel();
   var logs = (Store.get().workoutLogs || []).filter(function (l) { return l.athleteId === a.id; });
   var t = todayISO();
   var meets = (Store.get().meets || []).filter(function (m) { return m.athleteId === a.id && !m.planned && m.date && String(m.date).slice(0, 10) <= t; });
-  var box = el('div', { class: 'dk-wl' });
+  var box = el('div', { class: 'dk-ls' });
+  var cell = function (cls, name, big, unit, delta, line, vals) {
+    var c = el('div', { class: 'dk-ls-cell ' + cls });
+    var top = el('div', { class: 'dk-ls-top' });
+    top.appendChild(el('span', { class: 'dk-ls-name' }, el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }), name));
+    c.appendChild(top);
+    if (big == null) { c.appendChild(el('div', { class: 'dk-ls-big is-empty' }, line || 'Waiting for a set')); return c; }
+    c.appendChild(el('div', { class: 'dk-ls-big' }, el('b', {}, big), el('small', {}, unit)));
+    var dl = el('div', { class: 'dk-ls-d' + (delta > 0 ? ' is-up' : '') }, delta ? (delta > 0 ? '+' : '−') + Math.abs(delta) + ' ' + u + ' in 4 weeks' : 'Level in 4 weeks');
+    c.appendChild(dl);
+    if (line) c.appendChild(el('div', { class: 'dk-ls-line' }, line));
+    if (vals && vals.length >= 2) c.appendChild(el('div', { class: 'dk-ls-spark', html: uiSparkline(vals) }));
+    return c;
+  };
   MAIN_LIFTS.forEach(function (L) {
     var now = bestE1RM(a.id, L) || 0;
     var vals = strengthSeries(logs, L, { weeks: 16 }).map(function (p) { return p.value; });
-    var d = vals.length >= 2 ? vals[vals.length - 1] - vals[Math.max(0, vals.length - 5)] : null;
-    var card = el('div', { class: 'dk-wl-card lift-' + L });
-    var top = el('div', { class: 'dk-wl-top' });
-    top.appendChild(el('span', { class: 'dk-wl-name' }, el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }), LIFT_LABELS[L]));
-    var dd = d == null ? null : Math.round(kgToDisplay(d));
-    if (dd) top.appendChild(el('span', { class: 'dk-delta' + (dd > 0 ? ' is-up' : ' is-down'), title: 'e1RM, last 4 weeks' }, (dd > 0 ? '+' : '−') + Math.abs(dd)));
-    card.appendChild(top);
-    if (!now) { card.appendChild(el('div', { class: 'dk-wl-big is-empty' }, 'Waiting for first set')); box.appendChild(card); return; }
-    card.appendChild(el('div', { class: 'dk-wl-big' }, el('b', {}, String(Math.round(kgToDisplay(now)))), el('small', {}, u + ' e1RM')));
-    var best = meets.reduce(function (m, x) { return Math.max(m, Number(x[L]) || 0); }, 0);
+    var d = vals.length >= 2 ? Math.round(kgToDisplay(vals[vals.length - 1] - vals[Math.max(0, vals.length - 5)])) : 0;
+    if (!now) { box.appendChild(cell('lift-' + L, LIFT_LABELS[L], null, '', 0, 'Waiting for a set')); return; }
     var bits = [];
-    if (best > 0) { var gap = Math.round(kgToDisplay(now - best)); bits.push('Meet best ' + exactW(best) + ' · ' + (gap >= 0 ? '+' : '−') + Math.abs(gap)); }
+    var best = meets.reduce(function (m, x) { return Math.max(m, Number(x[L]) || 0); }, 0);
+    if (best > 0) { var gap = Math.round(kgToDisplay(now - best)); bits.push('Meet best ' + exactW(best) + ' (' + (gap >= 0 ? '+' : '−') + Math.abs(gap) + ')'); }
     else { var one = bestSingle(a.id, L); if (one) bits.push('1RM ' + exactW(one.kg)); }
     var pm = prog && prog.maxes && Number(prog.maxes[L]) > 0 ? Number(prog.maxes[L]) : 0;
-    card.appendChild(el('div', { class: 'dk-wl-line' }, bits.join(' · ') || 'No single yet'));
-    // Where the block's % comes from, when the coach set it.
-    if (pm) card.appendChild(el('div', { class: 'dk-wl-line is-sub' }, '% from program max ' + exactW(pm)));
-    if (vals.length >= 2) card.appendChild(el('div', { class: 'dk-wl-spark', html: uiSparkline(vals) }));
-    box.appendChild(card);
+    if (pm) bits.push('% from ' + exactW(pm));
+    box.appendChild(cell('lift-' + L, LIFT_LABELS[L], String(Math.round(kgToDisplay(now))), u + ' e1RM', d, bits.join(' · '), vals));
   });
   var total = currentTotal(a.id);
-  var tc = el('div', { class: 'dk-wl-card is-total' });
-  var tt = el('div', { class: 'dk-wl-top' });
-  tt.appendChild(el('span', { class: 'dk-wl-name' }, 'Total'));
-  var td = r.total && r.total.delta != null ? Math.round(kgToDisplay(r.total.delta)) : 0;
-  if (td) tt.appendChild(el('span', { class: 'dk-delta' + (td > 0 ? ' is-up' : ' is-down'), title: 'e1RM total, last 4 weeks' }, (td > 0 ? '+' : '−') + Math.abs(td)));
-  tc.appendChild(tt);
-  if (!total) tc.appendChild(el('div', { class: 'dk-wl-big is-empty' }, 'All three lifts first'));
+  if (!total) box.appendChild(cell('is-total', 'Total', null, '', 0, 'All three lifts first'));
   else {
-    tc.appendChild(el('div', { class: 'dk-wl-big' }, el('b', {}, String(Math.round(kgToDisplay(total)))), el('small', {}, u + ' e1RM')));
-    var bw = latestBodyweight(a.id);
-    var singles = bestSinglesTotal(a.id);
-    var tb = [];
-    if (singles) tb.push('1RM ' + exactW(singles.kg));
+    var bw = latestBodyweight(a.id), singles = bestSinglesTotal(a.id), tb = [];
     if (bw) tb.push(dotsScore(singles ? singles.kg : total, bw, a.sex || 'male').toFixed(1) + ' DOTS');
-    tc.appendChild(el('div', { class: 'dk-wl-line' }, tb.join(' · ') || ' '));
-    if (r.total && r.total.values.length >= 2) tc.appendChild(el('div', { class: 'dk-wl-spark', html: uiSparkline(r.total.values) }));
+    if (singles) tb.push('1RM ' + exactW(singles.kg));
+    var td = r.total && r.total.delta != null ? Math.round(kgToDisplay(r.total.delta)) : 0;
+    box.appendChild(cell('is-total', 'Total', String(Math.round(kgToDisplay(total))), u, td, tb.join(' · '), r.total && r.total.values));
   }
-  box.appendChild(tc);
+  return box;
+}
+// Pain they reported (open first, last two weeks): resolve with a note, right here.
+function dkWsPain(r) {
+  if (typeof buildPainSection !== 'function') return null;
+  var parts = buildPainSection(r.athlete.id, dkWsRepaint);
+  if (!parts || !parts.length) return null;
+  var box = el('div', { class: 'dk-sec dk-pain' });
+  box.appendChild(el('h3', { class: 'dk-sec-title' }, 'Pain'));
+  box.appendChild(parts[1]);
   return box;
 }
 
@@ -2517,7 +3138,7 @@ function dkWsBlocks(r) {
   return sec;
 }
 
-// ---------- the context pane: private notes, then the thread ----------
+// ---------- private notes (the card, and Messages' side pane): only the coach who wrote them sees them ----------
 function dkNotesFor(aid) {
   var me = _dkCoachMeId();
   return (Store.get().coachNotes || []).filter(function (n) { return n.athleteId === aid && n.coachId === me; })
@@ -2618,32 +3239,6 @@ function dkNotesBox(aid) {
   paint();
   return box;
 }
-// N: a new private note for whoever is in front of the coach.
-function dkNoteCompose(aid) {
-  var root = document.documentElement;
-  if (root.classList.contains('ctx-off')) { root.classList.remove('ctx-off'); _dkLS('powa-desk-ctx', 'on'); dkSyncCtx(); }
-  var box = document.querySelector('#deskCtx .dk-pn[data-aid="' + CSS.escape(aid) + '"]');
-  if (!box) { if (_dk.screen === 'today' && !document.querySelector('[data-pane="athlete"]:not(.hidden)')) dkPaintTodayCtx(true); else dkPaintPageCtx(true); box = document.querySelector('#deskCtx .dk-pn'); }
-  if (box && box._compose) box._compose();
-}
-// The athlete page's side pane: private notes, then the thread (a peek until the coach touches it).
-function dkPaintPageCtx(now) {
-  var host = dkCtxHost();
-  var aid = window._apAthlete;
-  if (!host || !aid || !document.querySelector('[data-pane="athlete"]:not(.hidden)')) return;
-  dkSyncCtx();
-  if (!dkCtxReady()) return;
-  if (!now && host.dataset.aid === 'page:' + aid && host.querySelector('.msg-thread')) return;
-  dkCtxClear();
-  var r = dkRow(aid) || (dkRowsFresh(), dkRow(aid));
-  if (!r) return;
-  host.dataset.aid = 'page:' + aid;
-  host.appendChild(dkNotesBox(aid));
-  var th = _dkThreadLast(aid);
-  host.appendChild(el('div', { class: 'dk-ctx-head is-sub' }, el('div', { class: 'dk-ctx-title' }, el('b', {}, 'Thread'), el('span', {}, th ? 'Last message ' + _dkAgoTime(th.lastAt) : 'No messages yet'))));
-  host._msgCleanupBox = dkThreadInto(host, r.athlete, { peek: true, emptyText: dkReplyPrompt(r) });
-}
-
 // =====================================================================
 // PROGRAMS (W1b): the builder, grid-first on the desk. A list pane to
 // pick an athlete or a template (templates moved here from You), a
@@ -3512,16 +4107,6 @@ function dkSetMarket(p) {
   acts.appendChild(dkBtn('List a template', { cls: 'is-quiet', onClick: function () { _dk.pbMode = 'templates'; deskGo('programs'); } }));
   p.appendChild(acts);
 }
-function dkSetAthletes(p) {
-  var u = _dkUser() || {};
-  var pend = (Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; }).length;
-  p.appendChild(el('p', { class: 'dk-set-lead' }, 'One link per athlete. They get the app and land on your roster with every set they log.'));
-  p.appendChild(dkSetGroup([
-    dkSetRow('Invite links', pend ? pend + (pend === 1 ? ' waiting to be used' : ' waiting to be used') : 'None out', dkBtn('Invite', { cls: 'dk-btn-sm is-ink', icon: ICONS.plus, onClick: function () { openInviteModal(); } })),
-    dkSetRow('Bring a program in', 'Paste a block from Google Sheets or Excel', dkBtn('Paste', { cls: 'dk-btn-sm is-quiet', onClick: function () { openSheetImport(null); } })),
-    dkSetRow('Export your roster', 'Every athlete, their block and last session, as a spreadsheet', dkBtn('Export CSV', { cls: 'dk-btn-sm is-quiet', onClick: function () { exportRosterCsv(); } }))
-  ]));
-}
 function dkSetPrefs(p, redraw) {
   var light = document.documentElement.getAttribute('data-theme') === 'light';
   var compact = document.documentElement.getAttribute('data-density') === 'compact';
@@ -3547,10 +4132,10 @@ function dkSetPrefs(p, redraw) {
 function dkKeyGroups() {
   var mod = _dkMac() ? '⌘' : 'Ctrl ';
   return [
-    ['Everywhere', [[mod + 'K', 'Command palette'], ['?', 'Shortcuts'], ['[', 'Collapse the sidebar'], [']', 'Hide the side pane'], ['/', 'Search']]],
-    ['Today', [['J  K', 'Next and previous athlete'], ['E', 'Done for this week'], ['S', 'Snooze till tomorrow'], ['U', 'Undo'], ['R', 'Reply'], ['N', 'Private note'], ['O', 'Open their program'], ['↵', 'Open their page'], ['X', 'Pick a win'], [mod + '⇧K', 'Send kudos']]],
-    ['An athlete', [['J  K', 'Next and previous'], ['Tab', 'Take a suggested load'], ['⇧A', 'Take every suggestion'], ['R', 'Message'], ['N', 'Private note'], ['P', 'Program'], ['Esc', 'Back to the list']]],
-    ['Roster', [['J  K', 'Move down and up'], ['X', 'Select the row'], ['M', 'Message'], ['P', 'Open their program'], ['↵', 'Open their page'], ['Esc', 'Clear the search or selection']]],
+    ['Everywhere', [[mod + 'K', 'Command palette'], ['?', 'Shortcuts'], ['[', 'Fold the sidebar'], [']', 'Open or close the side card'], ['/', 'Search'], ['Esc', 'Close the card']]],
+    ['Today', [['J  K', 'Next and previous athlete'], ['E', 'Done for this week'], ['S', 'Snooze till tomorrow'], ['U', 'Undo'], ['R', 'Message'], ['N', 'Private note'], ['P', 'Open their program'], ['↵', 'Open their page'], ['X', 'Pick a win'], [mod + '⇧K', 'Send kudos']]],
+    ['Their week', [['J  K', 'Next and previous'], ['Tab', 'Take a suggested load'], ['⇧A', 'Take every suggestion'], ['↵', 'Save the cell, go down'], ['R', 'Message'], ['N', 'Private note'], ['P', 'Program'], ['Esc', 'Back to the list']]],
+    ['Roster', [['V', 'List or week sheet'], ['J  K', 'Move down and up'], ['X', 'Select the row (sheet)'], ['R', 'Message'], ['P', 'Open their program'], ['↵', 'Open their page'], ['Esc', 'Clear the search or selection']]],
     ['Grid', [['↑ ↓  Tab', 'Move'], ['↵', 'Save and go down'], [mod + '⇧R', 'Fill the weeks after'], [mod + 'D', 'Copy the cell above'], [mod + 'Z', 'Undo']]],
     ['Messages', [['J  K', 'Next and previous thread'], ['E', 'Done, nothing to answer'], ['R', 'Reply'], ['↵', 'Open their page'], ['/', 'Search messages']]]
   ];
@@ -3644,34 +4229,28 @@ function dkFrSample() {
   hd.appendChild(el('b', {}, 'Your roster, once they join'));
   hd.appendChild(el('span', { class: 'dk-chip' }, 'Sample'));
   box.appendChild(hd);
+  // The rows exactly as Today draws them: the week's ring, the name, one sentence, one tag.
   var rows = [
-    ['Maya Chen', 'Peak · wk 3/3', 'Meet 9d', [['Meet in 9d', 'meet']]],
-    ['Leo Grant', 'Strength · wk 2/4', '–', [['Squat PR', 'win']]],
-    ['Priya Shah', 'Volume · wk 1/4', '–', [['Pain · L knee · squat 4/10', 'alert']]],
-    ['Marcus Doyle', 'Peak · wk 2/3', 'Meet 13d', [['1.1 kg over 83 · 2 wk', 'warn']]],
-    ['Jonah Reed', 'Strength · wk 2/4', '–', [['Quiet 9d', 'warn']]],
-    ['Ines Duarte', 'Strength · wk 1/3', '–', [['Bench @9.5 vs @8', 'warn']]],
-    ['Sam Ortiz', 'Hypertrophy · wk 4/6', '–', []],
-    ['Kofi Mensah', 'Volume · wk 2/4', '–', [['Message 31h', 'info']]]
+    ['Priya Shah', 2, 4, 'Pain today · L knee, squat 4/10', 'Meet 9d', 'meet', true],
+    ['Marcus Doyle', 3, 4, 'Bench @9.5 against @8 written · cut 1.1 kg over 83', '2d', '', false],
+    ['Kofi Mensah', 1, 3, 'Message 31h · “Can we move Thursday to Friday?”', '1d', '', false],
+    ['Jonah Reed', 0, 4, 'Quiet 9d · missed 2 sessions', '9d', '', false],
+    ['Leo Grant', 3, 3, 'Squat PR · 4-week streak', 'Today', '', false]
   ];
-  var t = el('table', { class: 'dk-table dk-fr-table' });
-  var hr = el('tr');
-  ['Athlete', 'Block', 'Next meet', 'Status'].forEach(function (x) { hr.appendChild(el('th', {}, x)); });
-  t.appendChild(el('thead', {}, hr));
-  var tb = el('tbody');
+  var lane = el('div', { class: 'dk-lane dk-fr-lane' });
   rows.forEach(function (x) {
-    var tr = el('tr', { class: 'dk-tr' });
-    tr.appendChild(el('td', {}, el('div', { class: 'dk-ath' }, dkAv({ name: x[0] }, 'is-sm'), el('span', { class: 'dk-ath-name' }, x[0]))));
-    tr.appendChild(el('td', {}, x[1]));
-    tr.appendChild(el('td', {}, x[2] === '–' ? el('span', { class: 'dk-dim' }, '–') : el('span', { class: 'dk-meet' + (/^Meet/.test(x[2]) ? ' is-soon' : '') }, el('b', {}, x[2].replace(/^Meet /, '')))));
-    var ch = el('div', { class: 'dk-chips' });
-    if (!x[3].length) ch.appendChild(el('span', { class: 'dk-ok' }, 'On track'));
-    x[3].forEach(function (c) { ch.appendChild(dkChip(c[0], c[1])); });
-    tr.appendChild(el('td', {}, ch));
-    tb.appendChild(tr);
+    var r = { athlete: { id: 'sample-' + x[0], name: x[0] }, status: { sessions: { done: x[1], planned: x[2] } }, live: null };
+    var row = el('div', { class: 'dk-qrow is-sample' });
+    row.appendChild(dkRingAv(r));
+    var main = el('div', { class: 'dk-qmain' });
+    main.appendChild(el('div', { class: 'dk-qtop' }, el('span', { class: 'dk-qname' }, x[0]), el('span', { class: 'dk-qago' + (x[5] ? ' is-' + x[5] : '') }, x[4])));
+    var line = el('div', { class: 'dk-qline' + (x[6] ? ' is-alert' : '') });
+    line.appendChild(dkRich(x[3]));
+    main.appendChild(line);
+    row.appendChild(main);
+    lane.appendChild(row);
   });
-  t.appendChild(tb);
-  box.appendChild(t);
+  box.appendChild(lane);
   return box;
 }
 
