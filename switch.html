@@ -44,28 +44,52 @@
 <nav class="nav" id="nav"></nav>
 
 <main id="main">
-  <div class="s-wrap s-narrow">
-    <header class="s-page-head">
-      <h1>Move your coaching over in an afternoon.</h1>
-      <p>Programs in Google Sheets or Excel, results in a group chat, maxes in your head. Here's how coaches bring all of it into POWALIFTA without retyping a set.</p>
-    </header>
-    <ol class="s-steps">
-      <li><b>Paste your program.</b><span>Copy the cells from your sheet and paste them in. POWALIFTA reads the way coaches write: 3x5&nbsp;@8, @7&#8209;8, 2&nbsp;RIR, 75%, 1x3&nbsp;@8 then 3x5&nbsp;160kg. Save it as a template and give it to any athlete.</span></li>
-      <li><b>Send invite links.</b><span>One link per athlete. They tap it, get the app and land on your roster.</span></li>
-      <li><b>Set the maxes for % work.</b><span>Percentages work from the max you set for the block, or from each lifter's best estimated max from training.</span></li>
-      <li><b>Bring in their history.</b><span>Athletes link their OpenPowerlifting profile and every meet comes in with its attempts. Training logs come in from a spreadsheet or CSV too.</span></li>
-    </ol>
-    <div class="s-prose">
-      <h2>Coming from another coaching app?</h2>
-      <p>If it exports your programs to a spreadsheet, paste that in. Same notation, same weeks.</p>
-      <h2>What your athletes get</h2>
-      <p>An app on their phone instead of a shared sheet: today's session ready to go, one tap per set with how it felt, a rest timer, PRs the moment they happen, and meet day planned from what they've actually lifted. Free for lifters, forever.</p>
-      <h2>What you get on a laptop</h2>
-      <p>A roster table that shows who needs you first, a page for every athlete, and a program grid you type into like a spreadsheet, with what they lifted under what you wrote. When the next block starts, the last one is kept, along with what it gained. <a href="index.html#desk">See the coaching desk</a>.</p>
-      <h2>What stays yours</h2>
-      <p>Your programming and your notation. Any program exports back to a spreadsheet in one click, so nothing is locked in.</p>
+  <div class="s-wrap s-switch-page">
+    <div class="s-switch-main">
+      <header class="s-page-head">
+        <h1>Move your coaching over in an afternoon.</h1>
+        <p>Programs in Google Sheets or Excel, results in a group chat, maxes in your head. Here's how coaches bring all of it into POWALIFTA without retyping a set.</p>
+      </header>
+      <ol class="s-steps">
+        <li><b>Paste your program.<em>About 2 min</em></b><span>Copy the cells from your sheet and paste them in. POWALIFTA reads the way coaches write: 3x5&nbsp;@8, @7&#8209;8, 2&nbsp;RIR, 75%, 1x3&nbsp;@8 then 3x5&nbsp;160kg. Save it as a template and give it to any athlete.</span></li>
+        <li><b>Send invite links.<em>A minute each</em></b><span>One link per athlete. They tap it, get the app and land on your roster.</span></li>
+        <li><b>Set the maxes for % work.<em>A minute a block</em></b><span>Percentages work from the max you set for the block, or from each lifter's best estimated max from training.</span></li>
+        <li><b>Bring in their history.<em>They do it</em></b><span>Athletes link their OpenPowerlifting profile and every meet comes in with its attempts. Training logs come in from a spreadsheet or CSV too.</span></li>
+      </ol>
+      <div class="s-prose">
+        <h2>Coming from another coaching app?</h2>
+        <p>If it exports your programs to a spreadsheet, paste that in. Same notation, same weeks.</p>
+        <h2>What your athletes get</h2>
+        <p>An app on their phone instead of a shared sheet: today's session ready to go, one tap per set with how it felt, a rest timer, PRs the moment they happen, and meet day planned from what they've actually lifted. Free for lifters, forever.</p>
+        <h2>What you get on a laptop</h2>
+        <p>A Today queue that walks you through who needs you, a page for every athlete, and a program grid you type into like a spreadsheet, with what they lifted under what you wrote. When the next block starts, the last one is kept, along with what it gained. <a href="index.html#desk">See Monday on the desk</a>.</p>
+        <h2>What stays yours</h2>
+        <p>Your programming and your notation. Any program exports back to a spreadsheet in one click, so nothing is locked in.</p>
+      </div>
+      <div class="s-actions"><a class="btn btn-primary btn-lg" href="index.html#signup-coach">Start coaching free</a><a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a></div>
     </div>
-    <div class="s-actions"><a class="btn btn-primary btn-lg" href="index.html#signup-coach">Start coaching free</a><a class="s-link" href="coach.html?demo=1">Try the coach demo</a></div>
+
+    <!-- The paste box: the same reader the program builder uses (parseProgramSheet in app.js). -->
+    <aside class="s-paste" aria-labelledby="pasteTitle">
+      <div class="s-paste-card">
+        <h2 id="pasteTitle">Try it with your sheet.</h2>
+        <p class="s-paste-sub">Paste a few rows from your program, or edit these. Nothing is saved.</p>
+        <label class="s-paste-field" for="pasteBox"><span>Your cells</span>
+          <textarea id="pasteBox" rows="7" spellcheck="false">Week 1
+Day 1: Squat
+Competition squat 1x3 @8
+Competition squat 3x5 75%
+Paused bench 4x6 @7-8
+Romanian deadlift 3x8 2 RIR</textarea>
+        </label>
+        <p class="s-paste-stats" id="pasteStats" aria-live="polite">1 week · 1 day · 3 exercises · 11 sets</p>
+        <div class="s-paste-out" id="pasteOut">
+          <div class="s-paste-row"><b>Competition squat</b><span><i>1x3 @8</i><i>3x5 75%</i></span></div>
+          <div class="s-paste-row"><b>Paused bench</b><span><i>4x6 @7-8</i></span></div>
+          <div class="s-paste-row"><b>RDL</b><span><i>3x8 @8 (2 RIR)</i></span></div>
+        </div>
+      </div>
+    </aside>
   </div>
 </main>
 
@@ -112,6 +136,37 @@
 <script src="app.js"></script>
 <script>
 bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+// The paste box: read the cells with the program builder's own reader and show what it found.
+(function () {
+  const box = document.getElementById('pasteBox'), out = document.getElementById('pasteOut'), stats = document.getElementById('pasteStats');
+  if (!box || !out || typeof parseProgramSheet !== 'function') return;
+  const n = (v) => String(Math.round(v * 100) / 100);
+  const name = (ex) => ex.exerciseName || (ex.variant === 'RDL' ? 'Romanian deadlift' : null) || ((ex.variant && ex.variant !== 'Competition' ? ex.variant + ' ' : (ex.variant === 'Competition' ? 'Competition ' : '')) + (LIFT_LABELS[ex.lift] || ex.lift).toLowerCase()).replace(/^./, (c) => c.toUpperCase());
+  const label = (s) => {
+    let t = (s.reps || '?') + (s.pct ? ' ' + n(s.pct) + (s.pctHi ? '-' + n(s.pctHi) : '') + '%' : s.weight ? ' ' + n(s.weight) + (s.weightHi ? '-' + n(s.weightHi) : '') + 'kg' : '');
+    if (s.rpe != null) t += ' @' + n(s.rpe) + (s.rpeHi != null ? '-' + n(s.rpeHi) : '') + (s.rir ? ' (' + (10 - (s.rpeHi != null ? s.rpeHi : s.rpe)) + (s.rpeHi != null ? '-' + (10 - s.rpe) : '') + ' RIR)' : '');
+    return t;
+  };
+  const plural = (k, w) => k + ' ' + w + (k === 1 ? '' : 's');
+  function render() {
+    let p;
+    try { p = parseProgramSheet(box.value, { unit: 'kg' }); } catch (e) { return; }
+    out.innerHTML = '';
+    const st = p.stats || {};
+    stats.textContent = st.sets ? [plural(st.weeks, 'week'), plural(st.days, 'day'), plural(st.exercises, 'exercise'), plural(st.sets, 'set')].join(' · ') : 'Paste rows like: Squat 3x5 @8';
+    (p.weeks || []).slice(0, 2).forEach((w) => w.days.slice(0, 3).forEach((d) => d.exercises.slice(0, 6).forEach((ex) => {
+      const groups = [];
+      ex.sets.forEach((s) => { const l = label(s), g = groups[groups.length - 1]; if (g && g.l === l) g.k++; else groups.push({ l, k: 1 }); });
+      const row = document.createElement('div'); row.className = 's-paste-row';
+      const b = document.createElement('b'); b.textContent = name(ex);
+      const span = document.createElement('span');
+      groups.forEach((g) => { const i = document.createElement('i'); i.textContent = g.k + 'x' + g.l; span.appendChild(i); });
+      row.appendChild(b); row.appendChild(span); out.appendChild(row);
+    })));
+  }
+  box.addEventListener('input', render);
+  render();
+})();
 </script>
 </body>
 </html>
