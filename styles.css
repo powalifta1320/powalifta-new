@@ -12512,3 +12512,113 @@ body .sf-add input.sf-add-in, body.powa-app .sf-add input.sf-add-in { flex: 1; m
 .sf-sheet .btn-block { margin-top: 20px; }
 .sf-col-rm { width: 36px; height: 36px; display: grid; place-items: center; }
 .sf-col-rm svg { width: 15px; height: 15px; }
+
+/* ===== Phone polish W6 (2026-10-22): the iPhone screens after a full read at 393×852 =====
+   Scoped away from the laptop desk (html.desk has its own layer). Fixes, not a re-theme:
+   one edge for sheet text, flat lists instead of a tile per row, status colour only on the
+   flag, lift colour only as a dot, and the dead space the tools grid and the chat carried. */
+
+/* Sheets: the subtitle starts on the title's edge (it sat 4px in on every form sheet). */
+html:not(.desk) .ui-sheet-form .ui-sheet-sub { margin-left: 0; margin-right: 0; }
+
+/* Builder: exercises are rows of their day, not cards inside it; an inset hairline between
+   them, the open one keeps its lift tint. The chip line can never run under the ⋯ button. */
+html:not(.desk) .pb-day-body { gap: 0; padding: 0 0 6px; }
+html:not(.desk) .pb-ex { position: relative; border-radius: 0; background: none; }
+html:not(.desk) .pb-ex + .pb-ex::before { content: ''; position: absolute; top: 0; left: 64px; right: 0; height: 1px; background: var(--hair); }
+html:not(.desk) .pb-ex.is-open { border-radius: var(--r-inner); margin: 2px 8px; }
+html:not(.desk) .pb-ex.is-open::before, html:not(.desk) .pb-ex.is-open + .pb-ex::before { display: none; }
+html:not(.desk) .pb-ex-toggle { padding: 12px 4px 12px 16px; }
+html:not(.desk) .pb-ex-mid { flex: 1; }
+html:not(.desk) .pb-chips { min-width: 0; max-width: 100%; }
+/* A long prescription wraps inside its chip (never an ellipsis on the coach's own words);
+   the cap keeps it clear of the ⋯ button. */
+html:not(.desk) .pb-chip { max-width: 100%; min-width: 0; height: auto; min-height: 26px; padding-block: 4px; flex-wrap: wrap; row-gap: 1px; white-space: normal; line-height: 1.3; border-radius: 13px; }
+html:not(.desk) .pb-chip > * { white-space: nowrap; }
+html:not(.desk) .pb-chip .pb-chip-fx { min-width: 0; max-width: 100%; white-space: normal; overflow: visible; text-overflow: clip; }
+html:not(.desk) .pb-more { margin-right: 6px; }
+html:not(.desk) .pb-day-head { padding-right: 6px; }   /* the day's ⋯ on the exercises' ⋯ edge */
+html:not(.desk) .pb-ex-note { margin-left: 66px; }
+html:not(.desk) .pb-day-body > .pb-add-ex2 { margin: 6px 8px 2px; }
+html:not(.desk) .pb-day-body > .pb-rest { margin: 0 8px 2px; }   /* the dashed rest box keeps its inset */
+
+/* Progress tools: a compact tile (icon, name, the live line) with no empty band and no
+   corner wash on each of the six; the icon keeps the screen's colour. */
+html:not(.desk) .tool-tile { min-height: 0; padding: 14px 14px 15px; gap: 2px; background: var(--bg-1); }
+html:not(.desk) .tt-ic { width: 32px; height: 32px; margin-bottom: 10px; border-radius: 10px; background: color-mix(in srgb, var(--tt) 15%, transparent); }
+html:not(.desk) .tt-ic svg { width: 18px; height: 18px; }
+html:not(.desk) .tt-t { margin-top: 0; }
+html:not(.desk) .tt-s { color: var(--text-2); }
+/* Each tool's icon in its destination's hue, the You list's language (glyph + 15% tint). */
+html:not(.desk) .tool-tile.t-gold   { --tt: #f2c25b; }   /* Meet day: the PR gold */
+html:not(.desk) .tool-tile.t-fire   { --tt: #34d982; }   /* Plate math */
+html:not(.desk) .tool-tile.t-cyan   { --tt: #ffa53d; }   /* Load finder */
+html:not(.desk) .tool-tile.t-teal   { --tt: #4fc3ea; }   /* Weigh-in: Bodyweight's teal on You */
+html:not(.desk) .tool-tile.t-violet { --tt: #9b97ff; }   /* Share my week: Share cards' iris */
+html:not(.desk) .tool-tile.t-gray   { --tt: #a3a3ad; }
+html[data-theme="light"]:not(.desk) .tt-ic { color: color-mix(in srgb, var(--tt) 60%, #000); }
+
+/* You: the row icons keep their hue as a tinted glyph, not eight solid colour squares. */
+html:not(.desk) body.powa-app .yr-ic { --yc: var(--text-2); background: color-mix(in srgb, var(--yc) 15%, transparent); color: var(--yc); box-shadow: none; }
+html:not(.desk) body.powa-app .yr-ic.t-red    { --yc: #ff6259; }
+html:not(.desk) body.powa-app .yr-ic.t-orange { --yc: #ffa53d; }
+html:not(.desk) body.powa-app .yr-ic.t-gold   { --yc: #f2c25b; }
+html:not(.desk) body.powa-app .yr-ic.t-green  { --yc: #34d982; }
+html:not(.desk) body.powa-app .yr-ic.t-teal   { --yc: #4fc3ea; }
+html:not(.desk) body.powa-app .yr-ic.t-sky    { --yc: #4da3ff; }
+html:not(.desk) body.powa-app .yr-ic.t-iris   { --yc: #9b97ff; }
+html:not(.desk) body.powa-app .yr-ic.t-pink   { --yc: #ff6b8a; }
+html:not(.desk) body.powa-app .yr-ic.t-gray   { --yc: #a3a3ad; }
+html[data-theme="light"]:not(.desk) body.powa-app .yr-ic { color: color-mix(in srgb, var(--yc) 60%, #000); }
+
+/* Needs attention: the reason reads in grey with one status dot (the whole sentence in
+   salmon on every row was loud and hard to scan). */
+html:not(.desk) body.powa-app .ui-row-sub.alert { position: relative; padding-left: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .ui-row-sub.alert::before { content: ''; position: absolute; left: 0; top: calc(0.7em - 3px); width: 6px; height: 6px; border-radius: 50%; background: var(--soft-alert, #ff8f80); }   /* hangs: a wrapped reason keeps one text edge */
+html[data-theme="light"]:not(.desk) body.powa-app .ui-row-sub.alert::before { background: #c63a24; }
+
+/* A status dot in a list of plain rows goes to the row's end, so every title shares one edge. */
+html:not(.desk) .ui-row > .ui-dot:is(.rd-dot, .cut-dot):first-child { order: 9; margin-left: auto; }
+html:not(.desk) .ui-row:has(> .ui-dot.cut-dot:first-child) > .ui-row-end { order: 10; }
+
+/* Lift cards (athlete quick look, meet day): the dot carries the lift; the surface stays
+   neutral with a whisper of the hue instead of a tinted wash. */
+html:not(.desk) .aq-lift { background: color-mix(in srgb, var(--lc) 4%, var(--bg-2, #161619)); box-shadow: inset 0 0 0 1px var(--edge, rgba(255, 255, 255, 0.07)); }
+html:not(.desk) .meet-lift { background: color-mix(in srgb, var(--lc) 4%, var(--bg-2, #161619)); box-shadow: inset 0 0 0 1px var(--edge, rgba(255, 255, 255, 0.07)); }
+/* Meet day with no date yet: a line of help above the date row, not an empty gold box. */
+html:not(.desk) .meet-count:has(.mcd-empty) { padding: 0 2px 4px; background: none; }
+
+/* Exercise detail: the sets are one list with inset hairlines, RPE in ink (colour lives on
+   the RPE scale where it's picked, not as a ramp down every row). */
+html:not(.desk) .xd-sets, html:not(.desk) .xd-sec .lw-list { gap: 0; border-radius: 16px; background: var(--fill-1); overflow: hidden; }
+html:not(.desk) .xd-set, html:not(.desk) .xd-sec .lw-row { position: relative; border-radius: 0; background: none; }
+html:not(.desk) .xd-set + .xd-set::before, html:not(.desk) .xd-sec .lw-row + .lw-row::before { content: ''; position: absolute; top: 0; left: 54px; right: 0; height: 1px; background: var(--hair); }
+html:not(.desk) .xd-set:active { transform: none; background: var(--fill-2); }
+html:not(.desk) .xd-rpe, html:not(.desk) .xd-sec .lw-rpe { color: var(--text-2); }
+
+/* The coach chat: the newest message sits just above the composer (150px of black under it). */
+html.native body.powa-app #coachArea .coach-thread .msg-list,
+html.native body.powa-app .msg-inbox-detail .msg-list { padding-bottom: 40px; }
+
+/* Weekly check-in: four scores as a 2×2 of number boxes, one red action (the × closes). */
+html:not(.desk) #checkinModal .form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 4px; }
+html:not(.desk) #checkinModal .form-row .form-group { margin-bottom: 12px; min-width: 0; }
+html:not(.desk) body #checkinModal .form-row input[type="number"] { height: 56px; text-align: center; font-family: var(--font-num); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+html:not(.desk) body #checkinModal .form-row input[type="number"]::placeholder { font-family: var(--font-body); font-size: 15px; font-weight: 500; color: var(--text-3); }
+html.native #checkinModal .modal > .flex > .btn:not(.btn-primary) { display: none; }
+
+/* Alive: who is training today breathes once every few seconds on the roster.
+   A thin ring scales out of the dot and fades; the static today outline stays put. */
+@keyframes w6Live { 0% { transform: scale(1.25); opacity: 0.85; } 70%, 100% { transform: scale(2.3); opacity: 0; } }
+html:not(.desk) .roster-days i.on.today { position: relative; }
+html:not(.desk) .roster-days i.on.today::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1px solid var(--ok, #34d982); opacity: 0; pointer-events: none; animation: w6Live 2.4s var(--ease-out-quint, ease-out) infinite; }
+html:not(.desk) .roster-days.is-big i.on.today::after { animation-name: w6LiveBig; }
+@keyframes w6LiveBig { 0% { transform: scale(1); opacity: 0.6; } 70%, 100% { transform: scale(1.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .roster-days i.on.today::after { animation: none; } }
+/* Club foot: the invite code reads as a code, not spaced-out capitals. */
+html:not(.desk) .club-code { letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+/* Bodyweight: the date gets the room it needs (it was cut to "22/10/202" beside its icon). */
+html:not(.desk) .bw-log { grid-template-columns: minmax(9.5ch, 1.6fr) minmax(0, 1fr) auto; }
+/* In the app the field opens the picker on tap; the calendar glyph only ate the date's room. */
+html.native .bw-log input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+html:not(.desk) .bw-log input { padding: 0 10px; }

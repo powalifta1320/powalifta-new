@@ -225,3 +225,9 @@ and has its own small scale. Phones and the app never see it.
 | Show tools where the lifter is: the current exercise only | The same three chips on every exercise card |
 | Flat lists with inset separators inside a card | A tile per row, a card inside a card |
 | Colour where something is being chosen (the RPE pick, a real delta) | A rainbow of RPE colours on every row |
+| A status as one hanging dot beside grey text, wrapped lines on the text's edge (Needs attention, W6) | The whole reason sentence in salmon on every row |
+| Row icons as a tinted glyph, the hue at 15% behind it (`.yr-ic`, tool tiles) | Solid colour squares down a settings list |
+| Builder exercises as rows of their day with inset hairlines | An exercise tile inside the day card with chips inside the tile |
+| A long prescription chip wraps inside itself | An ellipsis cutting off the coach's own words |
+| Each tool icon in its destination's hue (meet gold, weigh-in teal) | Six identical icons, or a colour wash on each tile |
+| Sheet title, subtitle and fields on one left edge | A subtitle nudged 4px in from its title |
