@@ -234,12 +234,26 @@ function _cleanWeekNumbers(weeks) {
     return Object.assign({}, w, { number: n > 0 && n < 1000 ? Math.round(n) : i + 1 });
   });
 }
+// programs.set_fields (migration-set-fields-2026-10-22.sql): which set fields a program's builder
+// shows ({ on: ['tempo', …], cols: ['Bar', …] }). Until the column exists it's kept on this device
+// (the values themselves live on the sets, in weeks, so nothing the lifter sees depends on it).
+function _sfDefLocal(id, def) {
+  const k = 'powa-setfields-' + id;
+  try {
+    if (def === undefined) { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }
+    if (def) localStorage.setItem(k, JSON.stringify(def)); else localStorage.removeItem(k);
+  } catch (e) {}
+  return null;
+}
+function _cleanSfDef(d) { return typeof cleanSetFieldsDef === 'function' ? cleanSetFieldsDef(d) : null; }
 function mapDbProgram(r) {
   const p = { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
   if (r.rev != null) p.rev = Number(r.rev);   // migration-program-integrity-2026-10-22.sql
   // migration-meet-calendar-2026-10-22.sql: the block's first Monday and its meet (W-n labels).
   if (r.starts_on) p.startsOn = String(r.starts_on).slice(0, 10);
   if (r.meet_date) p.meetDate = String(r.meet_date).slice(0, 10);
+  const sf = r.set_fields !== undefined ? _cleanSfDef(r.set_fields) : _cleanSfDef(_sfDefLocal(r.id));
+  if (sf) p.setFields = sf;
   _rememberProgBase(p);
   return p;
 }
@@ -250,9 +264,11 @@ let _noProgramRev = false;
 // programs.starts_on / meet_date arrive with migration-meet-calendar-2026-10-22.sql.
 let _noProgramDates = false;
 const _isoOrNull = (v) => { const d = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null; };
+let _noSetFields = false;
 function mapJsProgram(p) {
   const row = { id: p.id, athlete_id: p.athleteId, coach_id: p.coachId, name: p.name, weeks: p.weeks || [], updated_at: new Date().toISOString() };
   if (!_noProgramMaxes && p.maxes !== undefined) row.maxes = p.maxes && Object.keys(p.maxes).length ? p.maxes : null;
+  if (!_noSetFields && p.setFields !== undefined) row.set_fields = _cleanSfDef(p.setFields);
   if (!_noProgramRev && typeof p.rev === 'number' && isFinite(p.rev)) row.rev = p.rev;
   if (!_noProgramDates) {
     if (p.startsOn !== undefined) row.starts_on = _isoOrNull(p.startsOn);
@@ -1687,7 +1703,7 @@ const DB = {
     if (!prog || !prog.id) return;
     const sentJson = _progSnap(prog);
     let base = prog._base || this.programBase(prog.id);
-    let mine = { id: prog.id, athleteId: prog.athleteId, coachId: prog.coachId, name: prog.name, weeks: prog.weeks, maxes: prog.maxes, rev: prog.rev,
+    let mine = { id: prog.id, athleteId: prog.athleteId, coachId: prog.coachId, name: prog.name, weeks: prog.weeks, maxes: prog.maxes, rev: prog.rev, setFields: prog.setFields,
       startsOn: prog.startsOn, meetDate: prog.meetDate };
     let merged = false, rev, tries = 0;
     for (;;) {
@@ -1697,6 +1713,7 @@ const DB = {
       // (coach-only). So: UPDATE first; if no row hit, INSERT.
       const res = await sb.from('programs').update(row).in('id', [prog.id]).select(_noProgramRev ? 'id' : 'id, rev');
       if (res.error && 'maxes' in row && _missingCol(res.error, ['maxes'])) { _noProgramMaxes = true; continue; }   // save without it
+      if (res.error && 'set_fields' in row && _missingCol(res.error, ['set_fields'])) { _noSetFields = true; continue; }   // set fields stay on this device
       if (res.error && !_noProgramRev && _missingCol(res.error, ['rev'])) { _noProgramRev = true; continue; }
       if (res.error && !_noProgramDates && _missingCol(res.error, ['starts_on', 'meet_date'])) { _noProgramDates = true; continue; }
       if (res.error && _isRevConflict(res.error) && tries <= 5) {
@@ -1713,12 +1730,14 @@ const DB = {
       // No existing row: try INSERT (only the coach can succeed here per RLS)
       const insertRes = await sb.from('programs').insert(row);
       if (insertRes.error && 'maxes' in row && _missingCol(insertRes.error, ['maxes'])) { _noProgramMaxes = true; continue; }
+      if (insertRes.error && 'set_fields' in row && _missingCol(insertRes.error, ['set_fields'])) { _noSetFields = true; continue; }
       if (insertRes.error && !_noProgramRev && _missingCol(insertRes.error, ['rev'])) { _noProgramRev = true; continue; }
       if (insertRes.error && !_noProgramDates && _missingCol(insertRes.error, ['starts_on', 'meet_date'])) { _noProgramDates = true; continue; }
       if (insertRes.error) throw insertRes.error;
       if (!_noProgramRev) rev = typeof row.rev === 'number' ? row.rev : 0;
       break;
     }
+    if (_noSetFields && prog.setFields !== undefined) _sfDefLocal(prog.id, _cleanSfDef(prog.setFields));
     _rememberProgBase(mine);
     // The dates a merge settled on (another device's calendar drag) come back with it, so the
     // next save from this copy doesn't carry the old ones again.

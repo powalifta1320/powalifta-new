@@ -50,6 +50,39 @@ struct PowaSnapshot: Codable {
     // 2026-10-21 (interactive session widget): up to six sets from the next one on. A set
     // with a `key` ("exerciseId|setIndex") can be logged from the widget at its planned RPE.
     var queue: [Next]?
+    // 2026-10-22 (Apple Health widgets, PowaHealthWidgets.swift). All optional: a build from
+    // before writes none of them, and Readiness / Weight class show their calm first-run states.
+    var healthOn: Bool?         // Apple Health switched on in the app (You → Apple Health)
+    var health: Health?         // last night against the usual; nil = nothing from last night
+    var cut: Cut?               // the weigh-ins against the class line; nil = no class picked
+
+    /// One Health number against the lifter's own usual ("7 h 20" against "7 h 05").
+    struct Metric: Codable {
+        var value: String?
+        var usual: String?
+        var off: Bool?          // worse than the usual by enough to matter
+    }
+    struct Health: Codable {
+        var day: String?        // "YYYY-MM-DD", the morning it belongs to
+        var word: String?       // Fresh | Normal | Rough
+        var level: Double?      // 0…1 for the Lock Screen gauge (rough 0.34, normal 0.67, fresh 1)
+        var sleep: Metric?
+        var rhr: Metric?
+        var hrv: Metric?
+        var line: String?       // "Slept 7 h 20 · HR 54"
+    }
+    struct Cut: Codable {
+        var cls: String?        // "83 kg class"
+        var classLine: Double?  // the class limit in display units, for the chart
+        var unit: String?
+        var cur: String?        // the 7-day average, display units ("83.3"); nil = no weigh-ins yet
+        var status: String?     // "0.3 kg to go" | "On weight" | "0.4 kg over"
+        var tone: String?       // made | good | amber | off
+        var pace: String?       // "−0.4 a week" | "Steady"
+        var need: String?       // "−0.1": a week, still needed by the date
+        var by: String?         // "Nov 14", the meet (or the cut-by date)
+        var trend: [Double?]?   // the last 7 days, oldest first: that day's weigh-in or null
+    }
 
     struct Openers: Codable {
         var squat: String?
@@ -94,7 +127,15 @@ struct PowaSnapshot: Codable {
         weekStart: nil, weekDays: [1, 0, 1, 0, 0, 0, 0], todayIdx: 3,
         weighTrend: [83.9, 83.7, 83.8, 83.5, 83.6, 83.4, 83.3, 83.4, 83.2, 83.1], weighDelta: "−0.4",
         queue: [Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
-                Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|5")])
+                Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|5")],
+        healthOn: true,
+        health: Health(day: nil, word: "Fresh", level: 1,
+                       sleep: Metric(value: "7 h 40", usual: "7 h 05", off: false),
+                       rhr: Metric(value: "52", usual: "54", off: false),
+                       hrv: Metric(value: "68", usual: "61", off: false),
+                       line: "Slept 7 h 40 · HR 52"),
+        cut: Cut(cls: "83 kg class", classLine: 83, unit: "kg", cur: "83.3", status: "0.3 kg to go", tone: "good",
+                 pace: "−0.4 a week", need: "−0.1", by: "Nov 14", trend: [83.6, 83.4, 83.3, 83.4, 83.2, nil, 83.1]))
 
     /// The app writes `at` (ms) with every snapshot. Facts tied to a date (weighed today, a rest
     /// day, a finished session) only hold on the day it was written: the lifter's own calendar
@@ -121,6 +162,25 @@ struct PowaSnapshot: Codable {
         guard !writtenToday else { return false }
         let total = setsTotal ?? 0
         return session == "Rest day" || (total > 0 && (setsDone ?? 0) >= total)
+    }
+
+    /// Last night's numbers, only on the morning they belong to (no `day` = the gallery sample).
+    var healthNow: Health? {
+        guard let h = health else { return nil }
+        if let d = h.day, d != PowaStore.todayISO() { return nil }
+        return h
+    }
+
+    /// The weight-class trend moved on to today: days since the app wrote drop off the front
+    /// and come in empty at the end, so a week-old line never passes for this week's.
+    var cutTrendNow: [Double?]? {
+        guard let t = cut?.trend, t.count == 7, let at else { return cut?.trend }
+        let cal = PowaStore.day
+        let gone = cal.dateComponents([.day], from: cal.startOfDay(for: Date(timeIntervalSince1970: at / 1000)),
+                                      to: cal.startOfDay(for: Date())).day ?? 0
+        if gone <= 0 { return t }
+        if gone >= 7 { return Array(repeating: nil, count: 7) }
+        return Array(t.dropFirst(gone)) + Array(repeating: nil, count: gone)
     }
 
     /// This week, read against today's date: once a new week starts, last week's dots and

@@ -1046,3 +1046,19 @@ html.desk body.powa-app .dk-table.dk-fr-table tr > :first-child { padding-left: 
   .dk-btn { transition: none; }
   .dk-bl-row svg, .dk-fr-opt, .dk-seg-btn, input.dk-wk-in { transition: none; }
 }
+
+/* Set fields on the desk: the header's Fields pill (like Maxes), and boxes in the inspector. */
+.dk-pbsf b { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-pbsf b.dk-dim { color: var(--text-3); font-weight: 500; }
+@container dkpb (max-width: 900px) { #programArea .dk-pbsf { display: none; } }
+.dk-insp-sf { padding: 14px 16px 16px; border-top: 1px solid var(--line); }
+.dk-insp-sf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dk-insp-sf-head .dk-sec-title { margin-bottom: 10px; }
+.dk-insp-sf-btn { padding: 4px 2px; border: 0; background: none; cursor: pointer; color: var(--text-2); font: 600 12.5px/1 var(--font-body); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+.dk-insp-sf-btn:hover { color: var(--text); }
+.dk-insp-sf-btn:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
+.dk-insp-sf-empty { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-3); }
+.dk-sf.sf-edit .sf-fields { display: grid; gap: 6px; }
+.dk-sf .sf-field { display: grid; grid-template-columns: 104px minmax(0, 1fr); min-height: 34px; padding: 0 4px 0 10px; }
+.dk-sf .sf-k { overflow: hidden; text-overflow: ellipsis; }
+html.desk body.powa-app .dk-sf input.sf-in { width: 100%; height: 28px; font-size: 13px; }

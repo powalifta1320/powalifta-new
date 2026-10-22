@@ -2602,6 +2602,8 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
       } else head.appendChild(el('span', { 'aria-hidden': 'true' }, 'RPE'));
       row.appendChild(head);
       if (allPct && exMain && !exMax) row.appendChild(el('div', { class: 'uniform-note' }, 'No max yet: these loads fill in once they log a ' + LIFT_LABELS[ex.lift].toLowerCase() + ' set (⋯ → Update % loads).'));
+      // Set fields the program shows (⋯ → Set fields): a row of small boxes under each block.
+      const sfDef = programSetFields(Store.get().programs.find(p => p.id === prog.id) || prog);
       blocks.forEach((blk, bi) => {
         const tplRow = el('div', { class: 'uniform-row' });
 
@@ -2707,6 +2709,10 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         }
 
         row.appendChild(tplRow);
+        if (sfDef.on.length || sfDef.cols.length) {
+          row.appendChild(setFieldsEditor(sfDef, ex.sets.slice(blk.startIdx, blk.startIdx + blk.count),
+            patch => setBlockFields(activeWeekIdx, di, ei, blk.startIdx, blk.count, patch), { cls: 'pb-sf', collapsible: true, key: ex.id + ':' + blk.startIdx }));
+        }
       });
 
       const addBlockBtn = el('button', { class: 'ui-text-btn pb-add-block', type: 'button', onclick: () => addBlock(activeWeekIdx, di, ei), title: 'Add a block, e.g. back-down sets after a top set' });
@@ -2809,10 +2815,10 @@ function openSheetImport(athleteId) {
           const runs = [];
           ex.sets.forEach(x => {
             const r = runs[runs.length - 1];
-            if (r && r.reps === x.reps && r.weight === x.weight && r.weightHi === x.weightHi && r.rpe === x.rpe && r.rpeHi === x.rpeHi && !!r.rir === !!x.rir && r.pct === x.pct && r.pctHi === x.pctHi) r.n++;
-            else runs.push({ n: 1, reps: x.reps, weight: x.weight, weightHi: x.weightHi, rpe: x.rpe, rpeHi: x.rpeHi, rir: x.rir, pct: x.pct, pctHi: x.pctHi });
+            if (r && r.reps === x.reps && r.weight === x.weight && r.weightHi === x.weightHi && r.rpe === x.rpe && r.rpeHi === x.rpeHi && !!r.rir === !!x.rir && r.pct === x.pct && r.pctHi === x.pctHi && r.sf === setFieldsSig(x)) r.n++;
+            else runs.push(Object.assign({ n: 1, reps: x.reps, weight: x.weight, weightHi: x.weightHi, rpe: x.rpe, rpeHi: x.rpeHi, rir: x.rir, pct: x.pct, pctHi: x.pctHi, sf: setFieldsSig(x) }, setFieldsOf(x)));
           });
-          const sub = runs.map(r => r.n + ' × ' + r.reps + (r.pct ? ' · ' + r.pct + (r.pctHi > r.pct ? '–' + r.pctHi : '') + '%' : r.weight > 0 ? ' · ' + weightRangeText(r.weight, r.weightHi) : '') + (r.rpe != null ? ' · ' + setEffortText(r) : '')).join(', ') + (ex.note ? ' · ' + ex.note : '');
+          const sub = runs.map(r => r.n + ' × ' + r.reps + (r.pct ? ' · ' + r.pct + (r.pctHi > r.pct ? '–' + r.pctHi : '') + '%' : r.weight > 0 ? ' · ' + weightRangeText(r.weight, r.weightHi) : '') + (r.rpe != null ? ' · ' + setEffortText(r) : '') + (setFieldsShort(r) ? ' · ' + setFieldsShort(r) : '')).join(', ') + (ex.note ? ' · ' + ex.note : '');
           return uiRow({ lead: el('span', { class: 'lift-dot lift-' + (MAIN_LIFTS.includes(ex.lift) ? ex.lift : 'acc'), 'aria-hidden': 'true' }), title, sub });
         })));
       }
@@ -2831,6 +2837,7 @@ function openSheetImport(athleteId) {
         await archiveProgramIfTrained(existing);   // its logged training stays as a past block
         const pctRes = applyPctLoads(parsed.weeks, athleteId, undefined, existing && existing.maxes);
         const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name.value.trim() || 'Imported program', weeks: parsed.weeks, maxes: existing ? existing.maxes || null : null };
+        if (parsed.setFields) prog.setFields = parsed.setFields;   // the sheet's tempo / pause / band columns and its own columns
         if (pctRes.noMax.length) setTimeout(() => toast('No max yet for ' + pctRes.noMax.map(l => LIFT_LABELS[l]).join(' and ') + ': those % sets have no load until they log one'), 1600);
         Store.update(st => { st.programs = st.programs.filter(p => p.athleteId !== athleteId); st.programs.push(prog); });
         if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
@@ -2847,7 +2854,7 @@ function openSheetImport(athleteId) {
       const t = { id: uid('tpl'), coachId: user.id, name: name.value.trim() || 'Imported program', createdAt: Date.now(),
         payload: { weeks: parsed.weeks.map(wk => ({ number: wk.number, days: wk.days.map(d => ({ name: d.name,
           exercises: d.exercises.map(ex => ({ lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-            sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, rpe: x.rpe, ...rxOf(x) })) })) })) })) } };
+            sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, rpe: x.rpe, ...rxOf(x) })) })) })) })), setFields: parsed.setFields || null } };
       Store.update(st => { st.programTemplates = st.programTemplates || []; st.programTemplates.push(t); });
       try { await persistAddTemplate(t); } catch (e) { console.error(e); }
       close();
@@ -2947,42 +2954,10 @@ function exTitle(ex) {
   if (MAIN_LIFTS.includes(ex.lift)) return ((ex.variant && ex.variant !== 'Competition' ? ex.variant + ' ' : 'Competition ') + LIFT_LABELS[ex.lift]).trim();
   return ex.exerciseName || LIFT_LABELS[ex.lift] || 'Exercise';
 }
-function _gridCellText(ex) {
-  if (!ex || !(ex.sets || []).length) return '';
-  const unitTag = getUnit() === 'lbs' ? 'lb' : 'kg';
-  const plan = ex.sets.map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps }));
-  return groupSets(plan).map(b => {
-    let t = b.count + 'x' + b.reps;
-    if (b.pct != null) t += ' ' + _num(b.pct) + (Number(b.pctHi) > Number(b.pct) ? '-' + _num(b.pctHi) : '') + '%';
-    else if (b.weight > 0) t += ' ' + kgToDisplay(b.weight) + (Number(b.weightHi) > Number(b.weight) ? '-' + kgToDisplay(b.weightHi) : '') + unitTag;
-    if (b.rpe != null) t += b.rir ? ' ' + effortInputText(b, true) + 'RIR' : ' @' + effortInputText(b, false);
-    return t;
-  }).join(', ');
-}
+// The cell text and its parse live in app.js (gridCellText / gridParseCell), unit-tested there.
+function _gridCellText(ex) { return gridCellText(ex); }
 // Text → sets, or null when a part doesn't read (each part needs "sets x reps").
-function _gridParse(text, athleteId, lift, prog) {
-  const parts = String(text || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
-  const out = [];
-  const maxKg = MAIN_LIFTS.includes(lift) ? programMaxKg(prog, athleteId, lift) : 0;
-  for (const part of parts) {
-    const p = parsePrescription(part, getUnit());
-    if (!(p.sets > 0) || !(p.reps > 0)) return null;
-    for (let i = 0; i < Math.min(20, p.sets); i++) {
-      const kg = p.pct ? (maxKg ? pctLoadKg(p.pct, maxKg) : 0) : (p.kg ? Math.round(p.kg * 100) / 100 : 0);
-      const s = newSet(kg, p.reps, p.rpe);
-      if (p.rpeHi != null) s.rpeHi = p.rpeHi;
-      if (p.rir) s.rir = true;
-      if (p.pct) s.pct = p.pct;
-      if (p.pct && p.pctHi > p.pct) {
-        s.pctHi = p.pctHi;
-        const hk = maxKg ? pctLoadKg(p.pctHi, maxKg) : 0;
-        if (hk > kg) s.weightHi = hk;
-      } else if (!p.pct && p.kgHi > p.kg) s.weightHi = Math.round(p.kgHi * 100) / 100;
-      out.push(s);
-    }
-  }
-  return out;
-}
+function _gridParse(text, athleteId, lift, prog) { return gridParseCell(text, athleteId, lift, prog); }
 function buildProgramGrid(prog, athleteId, opts) {
   const ro = !!(opts && opts.readOnly);   // a past block: look, don't touch
   // The laptop desk (desk.js): the fill lives in the inspector, edits feed Notify's count.
@@ -3009,8 +2984,13 @@ function buildProgramGrid(prog, athleteId, opts) {
 
   // Toolbar: how to type, fill the weeks after a cell with progression, undo.
   const bar = el('div', { class: 'pg-bar' });
-  bar.appendChild(el('p', { class: 'pg-grid-hint' }, 'Type sets like a sheet: 3x5 @8 · 3x5 @7-8 · 4x6 75% · 3x8 2RIR · 1x3 @8, 3x5 160' + unitTag + '. Paste cells from Sheets or Excel. ↑ ↓ move, Tab goes across. Logged cells are locked.'));
+  bar.appendChild(el('p', { class: 'pg-grid-hint' }, 'Type sets like a sheet: 3x5 @8 · 4x6 75% · 3x8 2RIR · 1x3 @8, 3x5 160' + unitTag + ' · 4x3 @8 tempo 3-1-0 paused 2s + chains 20' + unitTag + ' · 3x5 @8 · Bar: SSB. Paste cells from Sheets or Excel. ↑ ↓ move, Tab goes across. Logged cells are locked.'));
   const tools = el('div', { class: 'pg-tools' });
+  if (!ro && prog.id && (Store.get().programs || []).some(p => p.id === prog.id)) {
+    const sfb = el('button', { class: 'pg-fill-btn pg-sf-btn', type: 'button' }, 'Set fields');
+    sfb.addEventListener('click', () => openSetFieldsSheet(prog.id, loadProgram));
+    tools.appendChild(sfb);
+  }
   const fillLbl = el('span', { class: 'pg-fill-lbl' }, 'Pick a cell, then fill the weeks after it:');
   tools.appendChild(fillLbl);
   const stepKg = lbs ? 5 * KG_PER_LB : 2.5;
@@ -3070,10 +3050,11 @@ function buildProgramGrid(prog, athleteId, opts) {
         ex = newExercise(proto.lift, proto.variant, proto.exerciseName);
         day.exercises.push(ex);
       }
-      // Unchanged sets keep their ids and anything else they carry (a coach note, tempo).
+      // Unchanged sets keep their ids and anything else they carry (a coach note). The cell's text
+      // is the whole truth for its set fields (tempo, pause, bands / chains, the coach's columns).
       ex.sets = parsed.map((ns, i) => {
         const old = ex.sets[i];
-        if (old && !old.completed && Math.abs(planWeight(old) - ns.weight) < 0.06 && old.reps === ns.reps && old.rpe === ns.rpe && (old.rpeHi == null) === (ns.rpeHi == null) && !!old.rir === !!ns.rir && old.pct == ns.pct) return old;
+        if (old && !old.completed && Math.abs(planWeight(old) - ns.weight) < 0.06 && old.reps === ns.reps && old.rpe === ns.rpe && (old.rpeHi == null) === (ns.rpeHi == null) && !!old.rir === !!ns.rir && old.pct == ns.pct) return assignSetFields(old, ns);
         return ns;
       });
     });
@@ -3256,7 +3237,9 @@ function buildProgramGrid(prog, athleteId, opts) {
   const scroller = el('div', { class: 'pg-grid-scroll' });
   scroller.appendChild(table);
   wrap.appendChild(scroller);
-  if (desk) wrap._api = { fill: fillRight, undo: doUndo };
+  // remember(inp): an edit made outside the cell (the desk inspector's set fields) goes on the same
+  // undo stack, so ⌘Z takes it back and an older undo doesn't restore text from before it.
+  if (desk) wrap._api = { fill: fillRight, undo: doUndo, remember: (inp) => { undo.push([{ inp, prev: inp.dataset.orig }]); paintUndo(); } };
   if (opts && opts.desk) _deskCall('deskGridFit', table);   // laptop: every week column as wide as its longest prescription
   if (!rows.some(r => !r.day)) wrap.appendChild(uiEmpty({ title: 'No exercises yet', text: 'Add them in Weeks view, or paste a whole program in.', primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(athleteId) } }));
   return wrap;
@@ -3361,6 +3344,7 @@ function loadProgram() {
     { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
     { label: 'Save as template', icon: ICONS.copy, onClick: () => openSaveTemplate(prog) },
     { label: 'Maxes for % work', icon: ICONS.chart, onClick: () => openMaxesSheet(prog.id, athleteId) },
+    { label: 'Set fields', icon: ICONS.program, onClick: () => openSetFieldsSheet(prog.id, loadProgram) },
     _pbSets.length ? { label: 'Start the next block', icon: ICONS.program, onClick: () => openNextBlockSheet(prog.id, athleteId) } : null,
     _pbSets.some(s => s.pct != null && !s.completed) ? { label: 'Update % loads from their maxes', icon: ICONS.chart, onClick: () => {
       let res = null;
@@ -3658,6 +3642,19 @@ function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
   if (rerender) loadProgram();
 }
 
+// Set fields on a block (tempo, pause, bands / chains, the coach's columns): applySetFieldPatch.
+// Re-renders, since a changed field can split or join blocks.
+function setBlockFields(wi, di, ei, startIdx, count, patch) {
+  const aid = document.getElementById('progAthlete').value;
+  Store.update(s => {
+    const p = s.programs.find(p => p.athleteId === aid);
+    if (!p) return;
+    const sets = p.weeks[wi].days[di].exercises[ei].sets;
+    for (let i = startIdx; i < startIdx + count && i < sets.length; i++) applySetFieldPatch(sets[i], patch);
+  });
+  persistProgram(progIdForAthlete(aid));
+  loadProgram();
+}
 // One change to every set still to do in an exercise (the kg/% and RPE/RIR header switches).
 function setExerciseRx(wi, di, ei, fn) {
   const aid = document.getElementById('progAthlete').value;
@@ -3712,7 +3709,9 @@ function addBlock(wi, di, ei) {
     const sets = p.weeks[wi].days[di].exercises[ei].sets;
     const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null, tempo: '' };
     // New block = back-down style: 1 set, copies last weight/reps (and its %), NO prescribed RPE
-    const nb = newSet(last.weight, last.reps, null, last.tempo);
+    // ...and the same set fields (tempo, pause, bands / chains, the coach's columns): a back-down
+    // keeps the bar and the method, only the RPE is left for the coach to set.
+    const nb = Object.assign(newSet(last.weight, last.reps, null, last.tempo), setFieldsOf(last));
     if (last.pct != null) nb.pct = last.pct;
     sets.push(nb);
   });
@@ -4167,7 +4166,7 @@ async function confirmSaveTemplate() {
           sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '', ...rxOf(set) }))
         }))
       }))
-    }))}
+    })), setFields: _saveTplTarget.setFields || null }
   };
   Store.update(s => { s.programTemplates = s.programTemplates || []; s.programTemplates.push(tpl); });
   await persistAddTemplate(tpl);
@@ -4247,7 +4246,8 @@ function buildProgramFromTemplate(tpl, athleteId) {
   }));
   // A template written in % gets this athlete's loads from their own maxes (the coach's, if set).
   applyPctLoads(weeks, athleteId, undefined, existing && existing.maxes);
-  return { id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name, weeks, maxes: existing ? existing.maxes || null : null };
+  return { id: programId, athleteId: athleteId, coachId: user.id, name: tpl.name, weeks, maxes: existing ? existing.maxes || null : null,
+    setFields: cleanSetFieldsDef(tpl.payload && tpl.payload.setFields) };
 }
 async function confirmApplyTemplate() {
   const ids = _applyTplCheckedIds();
