@@ -138,6 +138,8 @@ function dkRingAv(r, size) {
 }
 function dkChip(text, tone) { return el('span', { class: 'dk-chip t-' + (tone || 'info') }, text); }
 function dkKbd(k) { return el('kbd', { class: 'dk-kbd' }, k); }
+// An absent value draws nothing: the slot stays empty, a screen reader still hears why.
+function dkNil(why) { return el('span', { class: 'dk-nil' }, why || 'None'); }
 // A button. opts.kbd is an accelerator: it lives in the tooltip (and aria-keyshortcuts), never on
 // the button itself. opts.tone: 'primary' (the one red) | 'ink' | 'quiet' | 'line' (default).
 function dkBtn(label, opts) {
@@ -190,8 +192,11 @@ function _dkLowerLead(t) { return /^(Meet|Note|Notes|Message|Quiet|Missed|Block|
 function dkSentence(r, lane) {
   if (lane === 'w') return r.wins.map(function (w, i) { return i ? _dkLowerLead(w.text) : w.text; }).join(' · ');
   if (r.reasons.length) {
-    var parts = r.reasons.slice(0, 2).map(function (x, i) { return i ? _dkLowerLead(x.text) : x.text; });
-    if (r.reasons.length > 2) parts.push('+' + (r.reasons.length - 2));
+    // One line, never an ellipsis: the worst reason written short, a second only if it fits, then +n.
+    var a0 = dkShortReason(r.reasons[0]), parts = [a0], used = 1;
+    var a1 = r.reasons[1] ? _dkLowerLead(dkShortReason(r.reasons[1])) : '';
+    if (a1 && a0.length + a1.length <= 26) { parts.push(a1); used = 2; }
+    if (r.reasons.length > used) parts.push('+' + (r.reasons.length - used));
     return parts.join(' · ');
   }
   if (r.live) return 'Training now · ' + r.live.sets + (r.live.sets === 1 ? ' set in' : ' sets in');
@@ -201,6 +206,19 @@ function dkSentence(r, lane) {
   return 'On plan · ' + dkBlockText(st) + (s.planned ? ' · ' + s.done + ' of ' + s.planned + ' this week' : '');
 }
 
+// A reason in a few words: "Pain · Low back · Deadlift · 6/10 · 2nd this week" → "Low back 6/10, 2nd this week".
+function dkShortReason(x) {
+  var t = String((x && x.text) || ''), p = t.split(' · ');
+  if (x.type === 'pain' && p.length >= 3) {
+    var sev = p.find(function (y) { return /\d+\/10/.test(y); }), wk = p.find(function (y) { return /this week|times?/.test(y); });
+    return p[1] + (sev ? ' ' + sev : '') + (wk ? ', ' + wk : '');
+  }
+  if (x.type === 'readiness' && p.length >= 2) return 'Readiness low, ' + p[1].replace(/^resting HR/i, 'RHR');
+  if (x.type === 'weight') return t.replace(/ over class$/, ' over').replace(/ under class$/, ' under');
+  return p.length > 2 ? p.slice(0, 2).join(' · ') : t;
+}
+// The whole of it, for the tooltip.
+function dkFullReasons(r) { return r.reasons.map(function (x, i) { return i ? _dkLowerLead(x.text) : x.text; }).join(' · '); }
 // ---------- tooltips: the keys live here (instant once one is showing) ----------
 function dkTip(node, text, kbd) {
   if (!node || (!text && !kbd)) return node;
@@ -286,7 +304,22 @@ function dkAugment(r) {
   if (st.readiness && st.readiness.state === 'low' && st.readiness.text) out.push({ type: 'readiness', group: 6, text: st.readiness.text, tone: 'info', detail: 'From their shared Apple Health' });
   out.sort(function (a, b) { return a.group - b.group; });
   r.reasons = out;
+  r.drift = dkWeekDrift(st);   // the board reads drift from the same week its marks show
   return r;
+}
+// RPE drift across the program week the board's marks show (null until a set in it is logged).
+function dkWeekDrift(st) {
+  var prog = st && st.program, wk = st && st.week, W = prog && wk && prog.weeks && prog.weeks[wk.idx];
+  if (!W) return null;
+  var d = [];
+  (W.days || []).forEach(function (day) { (day.exercises || []).forEach(function (e) { (e.sets || []).forEach(function (x) {
+    if (!x.completed || x.attempt || x.rir || x.actualRpe == null || x.actualRpe === '' || x.rpe == null || x.rpe === '') return;
+    var top = x.rpeHi != null && Number(x.rpeHi) > Number(x.rpe) ? Number(x.rpeHi) : Number(x.rpe);
+    var v = Number(x.actualRpe) - top;
+    if (isFinite(v)) d.push(v);
+  }); }); });
+  if (!d.length) return null;
+  return { avg: Math.round(d.reduce(function (a, b) { return a + b; }, 0) / d.length * 10) / 10, n: d.length };
 }
 function dkRowsFresh() {
   var u = _dkUser();
@@ -351,6 +384,8 @@ function deskBoot() {
   dkAutoRail();
   if (!_dk.booted) {
     _dk.booted = true;
+    // The demo's meet day joins the roster's meets from the first paint, so every count agrees.
+    if (window._demoMode && window.MeetDay && MeetDay.deskDemo) { try { MeetDay.deskDemo(); } catch (e) {} }
     dkBuildRail();
     dkBuildCtx();
     dkBuildMeetsPane();
@@ -1095,7 +1130,7 @@ function dkQLine(r, lane, sentence) {
   var line = el('div', { class: 'dk-qline' + (tone ? ' t-' + tone : '') });
   if (tone) line.appendChild(el('i', { class: 'dk-qline-dot', 'aria-hidden': 'true' }));
   var t = el('span', { class: 'dk-qline-t' });
-  var lead = lane === 'w' ? (r.wins[0] && r.wins[0].text) : r.reasons.length ? r.reasons[0].text : '';
+  var lead = lane === 'w' ? (r.wins[0] && r.wins[0].text) : r.reasons.length ? dkShortReason(r.reasons[0]) : '';
   if (lead && sentence.indexOf(lead) === 0) {
     var leadEl = dkRich(lead);
     leadEl.classList.add('dk-qline-lead');
@@ -1103,7 +1138,7 @@ function dkQLine(r, lane, sentence) {
     if (sentence.length > lead.length) t.appendChild(dkRich(sentence.slice(lead.length)));
   } else t.appendChild(dkRich(sentence));
   line.appendChild(t);
-  dkTip(line, sentence);
+  dkTip(line, lane !== 'w' && r.reasons.length ? dkFullReasons(r) : sentence);
   return line;
 }
 // The row's right-hand tag: a draft waiting on Publish, handled, live, the meet, or last trained.
@@ -1113,7 +1148,8 @@ function dkRowTag(r, lane, handledVia, sentence) {
   if (handledVia) return el('span', { class: 'dk-qago is-handled', html: DK_IC.check }, el('span', {}, handledVia === 'apply' ? 'Week sent' : 'Replied'));
   if (r.live) return el('span', { class: 'dk-qago is-live' }, 'Now');
   // The meet once: when the sentence already names it, the tag says when they last trained.
-  if (r.meet && r.meet.days <= 56 && !/\bmeet\b/i.test(sentence)) return el('span', { class: 'dk-qago is-meet' }, r.meet.days <= 14 ? 'Meet ' + r.meet.days + 'd' : 'Meet ' + Math.ceil(r.meet.days / 7) + 'w');
+  if (r.meet && r.meet.days <= 56 && !/\bmeet\b/i.test(sentence)) return el('span', { class: 'dk-qago is-meet' }, r.meet.days <= 0 ? 'Meet today' : r.meet.days <= 14 ? 'Meet ' + r.meet.days + 'd' : 'Meet ' + Math.ceil(r.meet.days / 7) + 'w');
+  if (r.status.ago == null) return el('span', { class: 'dk-qago dk-nil' }, 'Not trained yet');
   return el('span', { class: 'dk-qago' }, dkAgoShort(r.status.ago));
 }
 // A draft changed: the list rows' tags follow without a repaint.
@@ -1496,13 +1532,6 @@ function deskRenderRoster(area) {
     vb.addEventListener('click', function () { deskGo('roster', { view: null }); });
     chips.appendChild(vb);
   }
-  var u = _dkUser();
-  var pend = u ? (Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; }).length : 0;
-  if (pend) {
-    var ib = el('button', { type: 'button', class: 'dk-vchip' }, pend + (pend === 1 ? ' invite waiting' : ' invites waiting'));
-    ib.addEventListener('click', function () { _dk.setSec = 'athletes'; _dkLS('powa-desk-set', 'athletes'); deskGo('settings'); });
-    chips.appendChild(ib);
-  }
   if (mode === 'board') chips.appendChild(dkBoardLegend());
   if (chips.childNodes.length) head.appendChild(chips);
 
@@ -1530,9 +1559,17 @@ function dkPaintRmeta() {
   var rows = _dk.rows || [], lim = getCurrentTierLimit();
   var trained = rows.filter(function (r) { return r.status.sessions.done > 0; }).length;
   var live = rows.filter(function (r) { return r.live; }).length;
+  var u = _dkUser();
+  var pend = u ? (Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; }).length : 0;
   m.innerHTML = '';
-  m.appendChild(document.createTextNode((lim >= 9999 ? rows.length + ' lifters' : rows.length + ' of ' + lim) + ' · ' + trained + ' trained this week'));
+  m.appendChild(el('span', { class: 'dk-rmeta-t' }, (lim >= 9999 ? rows.length + ' lifters' : rows.length + ' of ' + lim) + ' · ' + trained + ' trained this week'));
   if (live) m.appendChild(el('span', { class: 'dk-rmeta-live' }, live + ' training now'));
+  if (pend) {
+    // Invites waiting: a dot and ink words in the meta line, opening Settings › Athletes.
+    var ib = el('button', { type: 'button', class: 'dk-rmeta-inv' }, pend + (pend === 1 ? ' invite waiting' : ' invites waiting'));
+    ib.addEventListener('click', function () { _dk.setSec = 'athletes'; _dkLS('powa-desk-set', 'athletes'); deskGo('settings'); });
+    m.appendChild(ib);
+  }
 }
 function dkPaintRosterBody(opts) {
   opts = opts || {};
@@ -1716,22 +1753,31 @@ function dkBoardMarks(r, cells) {
 // RPE drift as a small diverging bar from zero, the number beside it (coloured only when off).
 function dkBoardDrift(r) {
   var c = el('div', { class: 'dk-bd-drift' });
-  if (!r.drift) { c.appendChild(el('span', { class: 'dk-dim' }, '–')); return c; }
+  if (!r.drift) { c.appendChild(dkNil('Nothing logged this week')); return c; }
   var v = r.drift.avg, tone = v >= 1 ? 'alert' : v >= 0.5 ? 'warn' : v <= -0.5 ? 'cool' : '';
+  // On target draws one faint tick and no number: drift is a signal only when it's off.
+  if (Math.abs(v) < 0.25) {
+    c.appendChild(el('span', { class: 'dk-dv is-on', 'aria-hidden': 'true' }));
+    c.appendChild(dkNil('On target'));
+    dkTip(c, 'RPE on what you wrote, across ' + r.drift.n + (r.drift.n === 1 ? ' set' : ' sets') + ' this week');
+    return c;
+  }
   var w = Math.min(1, Math.abs(v) / 1.5) * 50;
   var bar = el('span', { class: 'dk-dv' + (tone ? ' t-' + tone : ''), 'aria-hidden': 'true' });
   bar.appendChild(el('i', { style: (v >= 0 ? 'left:50%;' : 'right:50%;') + 'width:' + w.toFixed(1) + '%' }));
   c.appendChild(bar);
-  c.appendChild(el('span', { class: 'dk-num' + (tone ? ' t-' + tone : ' is-calm') }, (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(1)));
-  dkTip(c, 'RPE ' + (v > 0 ? 'over' : v < 0 ? 'under' : 'on') + ' what you wrote, across ' + r.drift.n + ' sets this week');
+  c.appendChild(el('span', { class: 'dk-num' }, (v > 0 ? '+' : '−') + Math.abs(v).toFixed(1)));
+  dkTip(c, 'RPE ' + (v > 0 ? 'over' : 'under') + ' what you wrote, across ' + r.drift.n + (r.drift.n === 1 ? ' set' : ' sets') + ' this week');
   return c;
 }
 function dkBoardTrend(r) {
   var c = el('div', { class: 'dk-trend' });
   var t = r.total, dl = t.delta;
-  if (!t.values.length) { c.appendChild(el('span', { class: 'dk-dim' }, '–')); return c; }
+  if (!t.values.length) { c.appendChild(dkNil('No e1RM yet')); return c; }
   c.insertAdjacentHTML('beforeend', dkSpark(t.values, dl > 0.5 ? 'is-up' : ''));
-  c.appendChild(el('span', { class: 'dk-num' + (dl > 0.5 ? '' : ' is-calm') }, dl == null || Math.abs(dl) < 0.5 ? '±0' : (dl > 0 ? '+' : '−') + Math.abs(Math.round(kgToDisplay(dl)))));
+  var nb = el('span', { class: 'dk-num' + (dl > 0.5 ? '' : ' is-calm') }, dl == null || Math.abs(dl) < 0.5 ? '±0' : (dl > 0 ? '+' : '−') + Math.abs(Math.round(kgToDisplay(dl))));
+  nb.appendChild(el('span', { class: 'dk-unit' }, ' ' + unitLabel()));
+  c.appendChild(nb);
   dkTip(c, 'e1RM total ' + exactW(t.values[t.values.length - 1]) + ' ' + unitLabel() + (dl != null ? ', ' + (dl >= 0 ? '+' : '−') + Math.abs(Math.round(kgToDisplay(dl))) + ' in 4 weeks' : ''));
   return c;
 }
@@ -1739,7 +1785,7 @@ function dkBoardTrend(r) {
 function dkBoardReady(r) {
   var c = el('div', { class: 'dk-bd-st' });
   var rd = r.status.readiness;
-  if (!rd) { c.appendChild(el('span', { class: 'dk-dim' }, '–')); dkTip(c, 'No Apple Health shared'); return c; }
+  if (!rd) { c.appendChild(dkNil('No Apple Health shared')); return c; }
   var low = rd.state === 'low';
   c.appendChild(el('i', { class: 'dk-dot t-' + (low ? 'warn' : 'ok'), 'aria-hidden': 'true' }));
   c.appendChild(el('span', { class: low ? '' : 'dk-bd-calm' }, low ? 'Low' : 'Ready'));
@@ -1752,8 +1798,11 @@ function dkBoardBw(r) {
   var bw = r.bw;
   if (!bw) {
     var last = dkLatestBw(r.athlete.id);
-    c.appendChild(el('span', { class: last ? 'dk-num is-calm' : 'dk-dim' }, last ? _num(kgToDisplay(last.weight, 1)) : '–'));
-    if (last) dkTip(c, 'Bodyweight ' + _num(kgToDisplay(last.weight, 1)) + ' ' + unitLabel() + ' · no class set');
+    if (!last) { c.appendChild(dkNil('No bodyweight logged')); return c; }
+    // No class to weigh against: the track stays empty so the number sits where every other row's does.
+    c.appendChild(el('span', { class: 'dk-bwt is-none', 'aria-hidden': 'true' }));
+    c.appendChild(el('span', { class: 'dk-num is-calm' }, _num(kgToDisplay(last.weight, 1))));
+    dkTip(c, 'Bodyweight ' + _num(kgToDisplay(last.weight, 1)) + ' ' + unitLabel() + ' · no meet class yet');
     return c;
   }
   var over = bw.over, pos = Math.max(0, Math.min(100, 72 + over / 3 * 28));
@@ -1761,13 +1810,13 @@ function dkBoardBw(r) {
   track.appendChild(el('i', { class: 'dk-bwt-cls' }));
   track.appendChild(el('b', { style: 'left:' + pos.toFixed(1) + '%' }));
   c.appendChild(track);
-  c.appendChild(el('span', { class: 'dk-num' + (over > 0 ? ' t-warn' : ' is-calm') }, (over > 0 ? '+' : over < 0 ? '−' : '±') + _num(kgToDisplay(Math.abs(over), 1))));
+  c.appendChild(el('span', { class: 'dk-num' + (over > 0 ? '' : ' is-calm') }, (over > 0 ? '+' : over < 0 ? '−' : '±') + _num(kgToDisplay(Math.abs(over), 1))));
   dkTip(c, _num(kgToDisplay(bw.bw, 1)) + ' ' + unitLabel() + ' for the ' + dkClassText(r.meet && r.meet.meet.weightClass) + (over > 0 ? ', ' + _num(kgToDisplay(over, 1)) + ' over' : ', ' + _num(kgToDisplay(-over, 1)) + ' under'));
   return c;
 }
 function dkBoardMeet(r) {
   var c = el('div', { class: 'dk-bd-meet' });
-  if (!r.meet) { c.appendChild(el('span', { class: 'dk-dim' }, '–')); return c; }
+  if (!r.meet) { c.appendChild(dkNil('No meet planned')); return c; }
   var d = r.meet.days, txt = d === 0 ? 'Today' : d <= 13 ? d + 'd' : 'W-' + Math.ceil(d / 7);
   c.appendChild(el('span', { class: 'dk-num' + (d <= 56 ? ' is-meet' : ' is-calm') }, txt));
   dkTip(c, (r.meet.meet.name || 'Meet') + ' · ' + fmtDate(r.meet.meet.date) + (d ? ' · in ' + d + ' days' : ' · today'));
@@ -1776,12 +1825,39 @@ function dkBoardMeet(r) {
 function dkBoardPain(r) {
   var c = el('div', { class: 'dk-bd-st' });
   var p = r.status.pain;
-  if (!p || !p.open || !p.report) { c.appendChild(el('span', { class: 'dk-dim' }, '–')); return c; }
+  if (!p || !p.open || !p.report) { c.appendChild(dkNil('No pain')); return c; }
   var rep = p.report;
   c.appendChild(el('i', { class: 'dk-dot t-' + (p.severity >= 3 ? 'alert' : 'warn'), 'aria-hidden': 'true' }));
   c.appendChild(el('span', { class: 'dk-bd-pain' }, painPartLabel(rep.bodyPart, rep.side) + ' ' + (Number(rep.severity) || 0) + '/10'));
   dkTip(c, p.text + ' · ' + fmtDateShort(rep.day));
   return c;
+}
+function dkBoardBare(r) {
+  if (r.live || r.status.readiness || r.drift || r.meet || (r.total && r.total.values.length)) return false;
+  if (r.status.pain && r.status.pain.open) return false;
+  if (dkWeekCells(r).some(function (c) { return c.done > 0; })) return false;
+  return !dkLatestBw(r.athlete.id);
+}
+// "3 lifters with nothing logged yet: Nina, Jonah, Hannah · Write a block"
+function dkBoardBareLine(rows) {
+  var line = el('div', { class: 'dk-bd-bare', role: 'row' });
+  var cell = el('div', { role: 'gridcell' });
+  cell.appendChild(el('span', { class: 'dk-bd-bare-lead' }, rows.length === 1 ? '1 lifter with nothing logged yet' : rows.length + ' lifters with nothing logged yet'));
+  var names = el('span', { class: 'dk-bd-bare-names' });
+  rows.forEach(function (r, i) {
+    if (i) names.appendChild(document.createTextNode(', '));
+    var b = el('button', { type: 'button', class: 'dk-link' }, r.athlete.name);
+    b.addEventListener('click', function () { openAthletePage(r.athlete.id); });
+    names.appendChild(b);
+  });
+  cell.appendChild(names);
+  var noProg = rows.find(function (r) { return !r.status.program; });
+  if (noProg) {
+    var wb = dkBtn(rows.length > 1 ? 'Write ' + _dkFirst(noProg.athlete.name) + '\u2019s first block' : 'Write their first block', { cls: 'is-quiet dk-btn-sm', onClick: function () { openAthleteProgram(noProg.athlete.id); } });
+    cell.appendChild(wb);
+  }
+  line.appendChild(cell);
+  return line;
 }
 // Sortable columns: [key, label, cell, sort value, descending first]
 var DK_BOARD_COLS = [
@@ -1791,6 +1867,11 @@ function dkPaintBoard(body, rows) {
   var before = _dkFlipBefore(body);
   body.innerHTML = '';
   var groups = dkRosterGroups(rows, true);
+  // Lifters with nothing to show yet (no week, no lifts, no Health, no meet) are one quiet line
+  // under the board, not rows of empty slots.
+  var bare = [];
+  if (!_dk.search) groups.forEach(function (g) { g.rows = g.rows.filter(function (r) { if (dkBoardBare(r)) { bare.push(r); return false; } return true; }); });
+  groups = groups.filter(function (g) { return g.rows.length; });
   _dk.rorder = [];
   groups.forEach(function (g) { g.rows.forEach(function (r) { _dk.rorder.push(r.athlete.id); }); });
   if (_dk.rsel && _dk.rorder.indexOf(_dk.rsel) < 0) _dk.rsel = null;
@@ -1861,6 +1942,7 @@ function dkPaintBoard(body, rows) {
     });
     board.appendChild(grp);
   });
+  if (bare.length) board.appendChild(dkBoardBareLine(bare));
   body.appendChild(board);
   _dkFlipAfter(body, before);
   // The column names stick under the roster's head, whatever its height.
@@ -2430,7 +2512,7 @@ function dkWorkspace(r, opts) {
   ws.appendChild(dkWsLifts(r));
   // Two columns: how they are (check-in, recovery, pain) | what's coming and what they said.
   var ci = dkWsCheckins(r), rc = dkWsRecovery(r), pn = dkWsPain(r, wk._used), nt = dkWsNotes(r, wk._noteDates);
-  var L = [pn, ci && dkSection('Check-in', ci), rc && dkSection('Recovery', rc)].filter(Boolean);
+  var L = [pn, rc && dkSection('Apple Health', rc, el('span', { class: 'dk-sec-meta' }, 'Last 30 days')), ci && dkSection('Check-in', ci, el('span', { class: 'dk-sec-meta' }, 'Last 4 weeks'))].filter(Boolean);
   var R = [dkSection('Meets', dkWsMeets(r)), nt && dkSection('Their notes', nt)].filter(Boolean);
   if (!L.length) L.push(R.shift());
   var cols = el('div', { class: 'dk-ws-cols' });
@@ -2456,7 +2538,16 @@ function dkWsHead(r, opts) {
     h.appendChild(nb);
   } else h.textContent = a.name;
   id.appendChild(h);
-  id.appendChild(dkSubFacts(el('div', { class: 'dk-ws-sub' }), dkWsSubBits(r)));
+  var subEl = dkSubFacts(el('div', { class: 'dk-ws-sub' }), dkWsSubBits(r));
+  // Readiness from Apple Health: a dot and one word in the facts line, as on the board.
+  var rdy = r.status.readiness;
+  if (rdy && !r.reasons.some(function (x) { return x.type === 'readiness'; })) {
+    var rf = el('span', { class: 'dk-fact' }, ' · ');
+    var rfs = rf.appendChild(el('span', { class: 'dk-fact-st' }, el('i', { class: 'dk-dot t-' + (rdy.state === 'low' ? 'warn' : 'ok'), 'aria-hidden': 'true' }), rdy.state === 'low' ? 'Readiness low' : 'Ready'));
+    dkTip(rfs, rdy.state === 'low' ? (rdy.text || 'Readiness low') : 'Resting HR and HRV at their usual · Apple Health');
+    subEl.appendChild(rf);
+  }
+  id.appendChild(subEl);
   head.appendChild(id);
   if (opts.pos) {
     var nav = el('div', { class: 'dk-ws-pos', role: 'group', 'aria-label': opts.pos });
@@ -2600,7 +2691,11 @@ function dkGroupRich(g) {
   var span = el('span', { class: 'dk-pres' });
   if (!g) return span;
   span.appendChild(el('span', { class: 'dk-pres-sr' }, g.count + '×' + g.reps));
-  if (g.pct != null) span.appendChild(el('b', {}, _num(g.pct) + (Number(g.pctHi) > Number(g.pct) ? '–' + _num(g.pctHi) : '') + '%'));
+  if (g.pct != null) {
+    span.appendChild(el('b', {}, _num(g.pct) + (Number(g.pctHi) > Number(g.pct) ? '–' + _num(g.pctHi) : '') + '%'));
+    // The load the % works out to from their max, as the builder shows it.
+    if (Number(g.weight) > 0) span.appendChild(el('span', { class: 'dk-pres-kg' }, _num(kgToDisplay(g.weight)) + (Number(g.weightHi) > Number(g.weight) ? '–' + _num(kgToDisplay(g.weightHi)) : '')));
+  }
   else if (Number(g.weight) > 0) span.appendChild(el('b', {}, _num(kgToDisplay(g.weight)) + (Number(g.weightHi) > Number(g.weight) ? '–' + _num(kgToDisplay(g.weightHi)) : '')));
   if (g.rpe != null && g.rpe !== '') span.appendChild(el('span', { class: 'dk-pres-rp' }, g.rir ? effortInputText(g, true) + ' RIR' : '@' + effortInputText(g, false)));
   var fx = typeof setFieldsShort === 'function' ? setFieldsShort(g) : '';
@@ -2609,7 +2704,7 @@ function dkGroupRich(g) {
 }
 function dkGroupInput(g) {
   if (!g) return '';
-  var t = g.count + 'x' + g.reps;
+  var t = g.count + '×' + g.reps;   // the notation every screen writes; typing x still parses
   if (g.pct != null) t += ' ' + _num(g.pct) + (Number(g.pctHi) > Number(g.pct) ? '-' + _num(g.pctHi) : '') + '%';
   // A bare load reads in the coach's unit; under 20 the parser wants the unit said.
   else if (Number(g.weight) > 0) t += ' ' + _num(kgToDisplay(g.weight)) + (Number(g.weightHi) > Number(g.weight) ? '-' + _num(kgToDisplay(g.weightHi)) : '') + (kgToDisplay(g.weight) < 20 ? (getUnit() === 'lbs' ? 'lb' : 'kg') : '');
@@ -2744,7 +2839,7 @@ function dkSessAttach(r, row, date, used, isLast) {
   (Store.get().painReports || []).filter(function (p) { return p.athleteId === a.id && on(p.day) && p.lift === row.lift && !used['p' + p.id]; }).forEach(function (p) {
     used['p' + p.id] = 1;
     var at = el('span', { class: 'dk-att' + (p.resolvedAt ? '' : ' is-open') });
-    at.appendChild(el('i', { class: 'dk-dot t-' + (p.resolvedAt ? 'none' : Number(p.severity) >= 7 ? 'alert' : 'warn'), 'aria-hidden': 'true' }));
+    at.appendChild(el('i', { class: 'dk-dot t-' + (p.resolvedAt ? 'none' : Number(p.severity) >= 5 ? 'alert' : 'warn'), 'aria-hidden': 'true' }));
     at.appendChild(el('span', {}, 'Pain · ' + painPartLabel(p.bodyPart, p.side) + ' ' + (Number(p.severity) || 0) + '/10'));
     at.appendChild(el('span', { class: 'dk-att-sub' }, _relDayShort(p.day)));
     if (!p.resolvedAt && typeof openPainResolveSheet === 'function') at.appendChild(dkBtn('Resolve', { cls: 'dk-btn-xs is-quiet', onClick: function () { openPainResolveSheet(p, dkWsRepaint); } }));
@@ -2794,7 +2889,7 @@ function dkWsWeek(r) {
   var wn = W.number || rev.lastIdx + 1, nn = N ? (N.number || rev.nextIdx + 1) : null;
   if (!N) sec.classList.add('no-next');
   title.textContent = 'Week ' + wn + ', as they lifted it';
-  ht.appendChild(el('p', { class: 'dk-wk-sub' }, N ? 'Every set against what you wrote. Week ' + nn + ' is written in place beside it, with what to do from how it went.' : 'Week ' + wn + ' is the last of ' + (prog.name || 'the block') + '.'));
+  ht.appendChild(el('p', { class: 'dk-wk-sub' }, N ? 'Every set against what you wrote, with week ' + nn + ' beside it to adjust.' : 'Week ' + wn + ' is the last of ' + (prog.name || 'the block') + '.'));
   var pend = N ? dkWsPend(a.id, prog, rev.nextIdx) : { rows: {} };
   // Drop anything that no longer fits (the athlete logged into that block, or the coach changed it elsewhere).
   Object.keys(pend.rows).forEach(function (k) { var row = rev.rows.find(function (x) { return x.key === k; }); if (!row || !row.next || row.next.locked) delete pend.rows[k]; else pend.rows[k].row = row; });
@@ -2868,13 +2963,22 @@ function dkWsWeek(r) {
       line.appendChild(id);
       var ex = D.exercises[row.ei];
       var sets = ex ? (ex.sets || []).slice(row.target.startIdx, row.target.startIdx + row.target.count) : [];
+      // A day not trained yet shows what was written and nothing else: the card head already says so.
+      var untouched = !row.logged && !sets.some(function (s) { return s.completed || s.skipped; }) && (!ds || ds.tone === 'todo');
       var viz = el('div', { class: 'dk-sx-viz' });
-      viz.appendChild(dkSetBars(sets, row.target));
+      if (!untouched) viz.appendChild(dkSetBars(sets, row.target));
       line.appendChild(viz);
       var got = el('div', { class: 'dk-sx-got' });
       if (row.logged) {
-        got.appendChild(dkLoggedRich(row.logged));
         var pw = Number(row.target.weight) || 0;
+        // Lifted as written (load, reps, every set, RPE on target): a check, the sets in the tooltip.
+        var asWritten = !row.logged.skipped && pw > 0 && Math.abs((row.logged.weight || 0) - pw) < 0.5 && String(row.logged.reps) === String(row.target.reps) &&
+          row.logged.n >= row.logged.of && (row.delta == null || _dkGapCls(row.delta) === 'on');
+        if (asWritten) {
+          var aw0 = el('span', { class: 'dk-sx-ok', html: DK_IC.check }, el('span', {}, 'As written'));
+          dkTip(aw0, 'Lifted ' + _num(kgToDisplay(row.logged.weight)) + '×' + row.logged.reps + (row.logged.rpe != null ? ' @' + _num(row.logged.rpe) : ''));
+          got.appendChild(aw0);
+        } else got.appendChild(dkLoggedRich(row.logged));
         if (!row.logged.skipped && pw > 0 && row.logged.weight > 0 && Math.abs(row.logged.weight - pw) >= 0.5) {
           var dl = row.logged.weight - pw;
           got.appendChild(el('span', { class: 'dk-sx-ld' }, (dl > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(dl)))));
@@ -2885,7 +2989,7 @@ function dkWsWeek(r) {
           dkTip(gp, 'RPE ' + (row.delta > 0 ? 'over' : 'under') + ' what you wrote');
           got.appendChild(gp);
         }
-      } else got.appendChild(el('span', { class: 'dk-dim' }, ds && ds.tone === 'miss' ? 'Missed' : 'Not yet'));
+      } else if (!untouched) got.appendChild(el('span', { class: 'dk-dim' }, ds && ds.tone === 'miss' ? 'Missed' : 'Not yet'));
       line.appendChild(got);
       if (N) line.appendChild(dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line));
       var att = row.gi ? [] : dkSessAttach(r, row, date, used, !!(lastOf[row.lift] && lastOf[row.lift].key === row.key));
@@ -2977,7 +3081,9 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
       dkTip(chip, 'Undo: back to what was written');
       return;
     }
-    if (!s) { chip.hidden = true; return; }
+    // No suggestion: the slot stays, empty, so every input on the card ends on one line.
+    if (!s) { chip.className = 'dk-sgc is-empty'; chip.tabIndex = -1; chip.setAttribute('aria-hidden', 'true'); return; }
+    chip.removeAttribute('aria-hidden');
     var kg = _num(kgToDisplay(s.kg)), dl = s.dir === 'set' ? '' : (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta)));
     if (s.dir === 'hold') {
       // On target: hold what's written. A word, not a button: there's nothing to take.
@@ -3026,7 +3132,7 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
     var pp = pend.rows[row.key];
     if (pp && v === pp.text) return true;
     if (v === cur || !v) { revert(); return true; }
-    var sets = typeof _gridParse === 'function' ? _gridParse(v, a.id, row.lift, dkProgOf(a.id)) : null;
+    var sets = typeof _gridParse === 'function' ? _gridParse(v.replace(/×/g, 'x'), a.id, row.lift, dkProgOf(a.id)) : null;
     if (!sets || !sets.length) { inp.classList.add('is-bad'); dkTip(inp, 'Type it like 3x5 150 @8'); return false; }
     inp.classList.remove('is-bad'); delete inp.dataset.tip;
     pend.rows[row.key] = { kind: 'edit', text: v, sets: sets, row: row, variant: pp && pp.variant };
@@ -3203,37 +3309,55 @@ function dkQShort(q) {
   p = p.replace(/\?$/, '');
   return p.length > 26 ? p.slice(0, 25) + '…' : p;
 }
+// How they are, as strips, never a table: one line per signal, its last weeks as marks (hollow
+// when not reported) and the latest value in ink. A signal nobody answered isn't drawn.
 function dkWsCheckins(r) {
   var me = _dkCoachMeId();
   var s = Store.get();
   var qs = (s.checkinQuestions || []).filter(function (q) { return q.coachId === me; });
   var g = deskCheckinGrid(qs, s.checkinAnswers || [], r.athlete.id);
-  var any = g.rows.some(function (row) { return row.cells.some(Boolean); });
-  if (!g.rows.length || !any) {
+  var rows = g.rows.filter(function (row) { return row.cells.some(Boolean); });
+  if (!rows.length) {
     // The older weekly form, when that's what they use.
     var wci = (s.checkins || []).filter(function (c) { return c.athleteId === r.athlete.id; }).sort(function (x, y) { return String(y.weekStart).localeCompare(String(x.weekStart)); })[0];
     if (!wci) return g.rows.length ? el('p', { class: 'dk-quiet-p' }, 'No answers in the last four weeks.') : null;
     return el('p', { class: 'dk-quiet-p' }, 'Week of ' + fmtDateShort(wci.weekStart) + ': sleep ' + wci.sleep + ' · soreness ' + wci.soreness + ' · stress ' + wci.stress + ' · feel ' + wci.feel + (wci.note ? ' · ' + wci.note : ''));
   }
-  var t = el('table', { class: 'dk-ci' });
-  var hr = el('tr');
-  hr.appendChild(el('th', { scope: 'col' }, ''));
-  g.weeks.forEach(function (m, i) { hr.appendChild(el('th', { scope: 'col', class: i === g.weeks.length - 1 ? 'is-now' : '' }, i === g.weeks.length - 1 ? 'This wk' : fmtDateShort(m))); });
-  t.appendChild(el('thead', {}, hr));
-  var tb = el('tbody');
-  g.rows.forEach(function (row) {
-    var tr = el('tr');
-    tr.appendChild(el('th', { scope: 'row', title: row.q.prompt }, dkQShort(row.q)));
-    row.cells.forEach(function (c) {
-      var td = el('td', { class: c && c.tone ? 't-' + c.tone : '' }, c ? c.text : '–');
-      if (!c) td.classList.add('dk-dim');
-      if (c && c.tone === 'warn' && row.base != null) td.title = 'Their 4-week norm is ' + _num(row.base);
-      tr.appendChild(td);
+  var box = el('div', { class: 'dk-rd' });
+  var first = g.weeks.length;
+  rows.forEach(function (row) { row.cells.forEach(function (c, i) { if (c && i < first) first = i; }); });
+  rows.forEach(function (row) {
+    var line = el('div', { class: 'dk-rd-row' });
+    line.appendChild(el('span', { class: 'dk-rd-k', title: row.q.prompt }, dkQShort(row.q).replace(/ \(h\)$/, '')));
+    var marks = el('span', { class: 'dk-rd-marks', role: 'img' });
+    var said = [];
+    var nums = row.cells.map(function (c) { return c && c.num != null && row.q.kind !== 'yesno' ? Number(c.num) : null; });
+    var hi = Math.max.apply(null, nums.filter(function (n) { return n != null; }).concat([0])) || 1;
+    row.cells.forEach(function (c, i) {
+      var wk = i === g.weeks.length - 1 ? 'this week' : 'week of ' + fmtDateShort(g.weeks[i]);
+      var m;
+      if (!c) m = el('i', { class: 'dk-rd-m is-none' });
+      else if (nums[i] != null) { m = el('i', { class: 'dk-rd-m is-bar' + (c.tone ? ' t-' + c.tone : '') }); m.style.setProperty('--h', Math.max(0.2, nums[i] / hi).toFixed(2)); }
+      else m = el('i', { class: 'dk-rd-m' + (c.tone ? ' t-' + c.tone : '') });
+      if (i < first) m.classList.add('is-before');
+      said.push(wk + ': ' + (c ? c.text : 'not reported'));
+      m.title = wk.charAt(0).toUpperCase() + wk.slice(1) + ': ' + (c ? c.text : 'not reported');
+      marks.appendChild(m);
     });
-    tb.appendChild(tr);
+    marks.setAttribute('aria-label', said.join('; '));
+    line.appendChild(marks);
+    var last = null;
+    for (var i = row.cells.length - 1; i >= 0; i--) if (row.cells[i]) { last = row.cells[i]; break; }
+    var v = el('span', { class: 'dk-rd-v' });
+    if (last && last.tone) v.appendChild(el('i', { class: 'dk-dot t-' + last.tone, 'aria-hidden': 'true' }));
+    v.appendChild(document.createTextNode(last ? String(last.text).replace(/^Yes (\d+)×$/, 'Yes · $1×') : ''));
+    if (last && last.tone === 'warn' && row.base != null) v.title = 'Their 4-week norm is ' + _num(row.base);
+    if (last && row.cells[row.cells.length - 1] !== last) v.appendChild(el('span', { class: 'dk-rd-when' }, ' last wk'));
+    line.appendChild(v);
+    box.appendChild(line);
   });
-  t.appendChild(tb);
-  return t;
+  if (first > 0 && first < g.weeks.length) box.appendChild(el('p', { class: 'dk-rd-note' }, 'No check-ins before ' + fmtDateShort(g.weeks[first]) + '.'));
+  return box;
 }
 // A 30-day line with the lifter's own normal band behind it; only a value outside the band (in
 // the direction that matters) is coloured.
@@ -3249,7 +3373,7 @@ function dkWsRecovery(r) {
   var rows = (Store.get().healthDaily || []).filter(function (h) { return h.athleteId === r.athlete.id; })
     .sort(function (a, b) { return String(a.day).localeCompare(String(b.day)); }).slice(-30);
   if (rows.length < 3) return null;
-  var box = el('div', { class: 'dk-rec' });
+  var box = el('div', { class: 'dk-rd' });
   var metric = function (label, key, fmt, badLow) {
     var vals = rows.map(function (h) { return Number(h[key]); }).filter(function (n) { return n > 0; });
     if (vals.length < 3) return;
@@ -3257,16 +3381,20 @@ function dkWsRecovery(r) {
     var sd = Math.sqrt(hist.reduce(function (s, x) { return s + (x - mean) * (x - mean); }, 0) / hist.length) || mean * 0.03;
     var lo = mean - sd, hi = mean + sd, last = vals[vals.length - 1];
     var off = badLow ? last < lo : last > hi;
-    var row = el('div', { class: 'dk-rec-row' + (off ? ' is-off' : '') });
-    var txt = el('div', { class: 'dk-rec-txt' });
-    txt.appendChild(el('b', {}, label + ' ' + fmt(last)));
-    txt.appendChild(el('span', {}, 'Normal ' + fmt(lo) + '–' + fmt(hi)));
-    row.appendChild(txt);
-    row.insertAdjacentHTML('beforeend', dkBandChart(vals, lo, hi));
+    var row = el('div', { class: 'dk-rd-row' + (off ? ' is-off' : '') });
+    row.appendChild(el('span', { class: 'dk-rd-k' }, label));
+    var ch = el('span', { class: 'dk-rd-marks is-band', title: 'Their normal ' + fmt(lo) + '–' + fmt(hi) + ' · last 30 days' });
+    ch.insertAdjacentHTML('beforeend', dkBandChart(vals, lo, hi));
+    row.appendChild(ch);
+    var v = el('span', { class: 'dk-rd-v', title: 'Their normal ' + fmt(lo) + '–' + fmt(hi) });
+    if (off) v.appendChild(el('i', { class: 'dk-dot t-warn', 'aria-hidden': 'true' }));
+    v.appendChild(document.createTextNode(fmt(last)));
+    row.appendChild(v);
     box.appendChild(row);
   };
   metric('Sleep', 'sleepMin', function (m) { return sleepHm(m); }, true);
   metric('Resting HR', 'rhr', function (n) { return String(Math.round(n)); }, false);
+  metric('HRV', 'hrv', function (n) { return Math.round(n) + ' ms'; }, true);
   return box.childNodes.length ? box : null;
 }
 
@@ -3285,8 +3413,14 @@ function dkWsMeets(r) {
     var bw = deskBodyweightVsClass(a.id, m);
     if (bw) {
       var weeks = Math.max(1, r.meet.days / 7);
-      up.appendChild(el('div', { class: 'dk-mt-bw' + (bw.over > 0 ? ' is-over' : '') }, 'BW ' + _num(kgToDisplay(bw.bw, 1)) + ' ' + u +
-        (bw.over > 0 ? ' · ' + _num(kgToDisplay(bw.over, 1)) + ' over · ' + _num(kgToDisplay(bw.over / weeks, 1)) + ' ' + u + ' a week to make it' : ' · ' + _num(kgToDisplay(-bw.over, 1)) + ' under')));
+      // The class gap: a dot carries the tone; the words stay ink, only the gap is weighted.
+      var bwl = el('div', { class: 'dk-mt-bw' });
+      if (bw.over > 0) bwl.appendChild(el('i', { class: 'dk-dot t-warn', 'aria-hidden': 'true' }));
+      var bwt = el('span', {}, 'BW ' + _num(kgToDisplay(bw.bw, 1)) + ' ' + u + ' · ');
+      bwt.appendChild(el('b', {}, _num(kgToDisplay(Math.abs(bw.over), 1)) + (bw.over > 0 ? ' over' : ' under')));
+      if (bw.over > 0) bwt.appendChild(document.createTextNode(' · ' + _num(kgToDisplay(bw.over / weeks, 1)) + ' ' + u + ' a week to make it'));
+      bwl.appendChild(bwt);
+      up.appendChild(bwl);
       var series = (Store.get().bodyweight || []).filter(function (b) { return b.athleteId === a.id && Number(b.weight) > 0; })
         .sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); }).slice(-10).map(function (b) { return Number(b.weight); });
       if (series.length >= 2) up.insertAdjacentHTML('beforeend', dkClassLine(series, bw.cls));
@@ -3312,7 +3446,10 @@ function dkWsMeets(r) {
     });
     box.appendChild(list);
   }
-  if (!box.childNodes.length) box.appendChild(el('p', { class: 'dk-quiet-p' }, 'No meets yet. They add one under Progress, or link their OpenPowerlifting profile.'));
+  if (!box.childNodes.length) {
+    box.appendChild(el('p', { class: 'dk-quiet-p' }, 'No meet on ' + _dkFirst(a.name) + '\u2019s calendar. Plan one and the block, attempts and class line up to it.'));
+    if (window.MeetDay && MeetDay.planFor) box.appendChild(dkBtn('Plan a meet', { cls: 'is-quiet dk-btn-sm dk-btn-flush', icon: DK_IC.plus, onClick: function () { MeetDay.planFor(a.id); } }));
+  }
   return box;
 }
 // Bodyweight against the class limit: the line under the dashed class.
@@ -3583,7 +3720,11 @@ function deskBuilderFrame() {
   return false;
 }
 // loadProgram is done drawing: the side pane, the edit marks, the count.
-function deskBuilderDone() { dkSyncCtx(); dkPbMarkEdited(); dkPaintPbHead(); if (dkCtxReady()) dkPaintInspector(); }
+function deskBuilderDone() {
+  // The set-by-set editor writes effort the way every desk screen does: @8, not "RPE 8".
+  document.querySelectorAll('#programArea .pb-chip em').forEach(function (e) { var t = e.textContent; if (/^RPE\s/.test(t)) e.textContent = t.replace(/^RPE\s*/, '@'); });
+  dkSyncCtx(); dkPbMarkEdited(); dkPaintPbHead(); if (dkCtxReady()) dkPaintInspector();
+}
 function deskSyncCtx() { dkSyncCtx(); }
 function dkPbAthleteId() { var sel = document.getElementById('progAthlete'); return sel ? sel.value : ''; }
 function dkPbEx(prog, wi, di, ei) { var w = prog && prog.weeks[wi], d = w && w.days[di]; return (d && d.exercises[ei]) || null; }
@@ -3891,6 +4032,20 @@ function dkPbStarts(prog) {
   }
   return weeks.map(function (w, i) { return start ? _addDaysISO(start, 7 * i) : null; });
 }
+// The season against a meet, one line for the Meets screen: does the block take them there?
+function deskMeetSeason(aid, dateIso) {
+  var prog = dkProgOf(aid);
+  if (!prog || !(prog.weeks || []).length) return 'No block written yet';
+  var starts = dkPbStarts(prog), last = starts[starts.length - 1];
+  if (!last || !dateIso) return '';
+  var out = Math.round((Date.parse(_monISO(String(dateIso).slice(0, 10))) - Date.parse(last)) / 6048e5);
+  var n = prog.weeks.length, name = String(prog.name || 'Block').replace(/\s+block$/i, '');
+  if (out < 0) return name + ' runs past the meet';
+  if (out === 0) return name + ' ends on meet week';
+  if (out === 1) return name + ' ends the week before';
+  return name + ' ends W-' + out + ' · ' + (out - 1) + (out - 1 === 1 ? ' week' : ' weeks') + ' not written';
+}
+window.deskMeetSeason = deskMeetSeason;
 // { now: the week they're in (-1 outside the block), sel: the week to open on }.
 function dkPbNow(prog, starts) {
   var n = (prog.weeks || []).length;
@@ -3998,7 +4153,11 @@ function dkBxTimeline(box, prog, starts, wi, now, meet) {
   var o = box._o;
   var strip = el('div', { class: 'dk-tl', role: 'tablist', 'aria-label': 'Weeks of ' + (prog.name || 'the block') });
   var stats = prog.weeks.map(dkPbWeekStats);
-  var maxN = Math.max.apply(null, stats.map(function (s) { return s.n; }).concat([1]));
+  // Volume per week (tonnage, or sets when nothing is loaded), drawn from 40% at the block's lightest
+  // week to full at its biggest, so the bars show how the block moves; the logged part in ink inside.
+  var volOf = function (s) { return s.ton > 0 ? s.ton : s.n; };
+  var vols = stats.map(volOf), vMax = Math.max.apply(null, vols.concat([1])), vMin = Math.min.apply(null, vols.filter(function (v) { return v > 0; }).concat([vMax]));
+  var volPct = function (v) { return v <= 0 ? 0 : vMax === vMin ? 100 : 40 + (v - vMin) / (vMax - vMin) * 60; };
   var meetMon = meet ? _monISO(meet.date) : null;
   var unit = unitLabel();
   prog.weeks.forEach(function (w, i) {
@@ -4016,8 +4175,9 @@ function dkBxTimeline(box, prog, starts, wi, now, meet) {
     b.appendChild(sub);
     var rd = el('span', { class: 'dk-tl-read', 'aria-hidden': 'true' });
     var bar = el('span', { class: 'dk-tl-vol' });
-    var v = el('i', { class: 'dk-tl-v' }); v.style.width = (st.n ? Math.max(6, st.n / maxN * 100) : 0).toFixed(1) + '%'; bar.appendChild(v);
-    if (st.done) { var dn = el('i', { class: 'dk-tl-d' }); dn.style.width = (st.done / maxN * 100).toFixed(1) + '%'; bar.appendChild(dn); }
+    var vp = volPct(vols[i]);
+    var v = el('i', { class: 'dk-tl-v' }); v.style.width = vp.toFixed(1) + '%'; bar.appendChild(v);
+    if (st.done) { var dn = el('i', { class: 'dk-tl-d' }); dn.style.width = (vp * Math.min(1, st.done / (st.n || 1))).toFixed(1) + '%'; bar.appendChild(dn); }
     rd.appendChild(bar);
     var intTxt = st.rpe != null ? '@' + _num(Math.round(st.rpe * 10) / 10) : st.pct != null ? Math.round(st.pct) + '%' : '';
     rd.appendChild(el('span', { class: 'dk-tl-int' }, intTxt));
@@ -4040,6 +4200,19 @@ function dkBxTimeline(box, prog, starts, wi, now, meet) {
   var lastEnd = starts[starts.length - 1] ? _addDaysISO(starts[starts.length - 1], 7) : null;
   if (meet && lastEnd && meet.date >= lastEnd) {
     var mOut = Math.round((Date.parse(meetMon) - Date.parse(starts[starts.length - 1])) / 6048e5);
+    // The weeks between the block's end and the meet, said plainly: nothing is written there yet.
+    var gap = mOut - 1, lastN = prog.weeks[prog.weeks.length - 1].number || prog.weeks.length;
+    if (gap >= 1) {
+      var un = el('div', { class: 'dk-tl-gap' });
+      un.appendChild(el('b', {}, gap === 1 ? 'Week ' + (lastN + 1) : 'Weeks ' + (lastN + 1) + '–' + (lastN + gap)));
+      un.appendChild(el('span', {}, gap + (gap === 1 ? ' week' : ' weeks') + ' not written'));
+      if (!o.ro && typeof openNextBlockSheet === 'function') {
+        var wb = el('button', { type: 'button', class: 'dk-link dk-tl-gap-go' }, gap === 1 ? 'Write it' : 'Write them');
+        wb.addEventListener('click', function () { openNextBlockSheet(prog.id, o.aid); });
+        un.appendChild(wb);
+      }
+      strip.appendChild(un);
+    }
     var end = el('div', { class: 'dk-tl-end' });
     end.insertAdjacentHTML('beforeend', DK_IC.club);
     end.appendChild(el('b', {}, meet.name));
@@ -4300,7 +4473,8 @@ function dkBxDay(box, prog, wi, di, logged) {
   var card = el('article', { class: 'dk-bxd' + (rest ? ' is-rest' : '') + (live ? ' is-live' : ''), 'data-di': String(di), 'aria-label': D.name || 'Day ' + (di + 1) });
   var head = el('header', { class: 'dk-bxd-head' });
   var tone = live ? 'live' : ds ? ds.tone : 'todo';
-  if (ds && tone !== 'todo') head.appendChild(el('i', { class: 'dk-dot t-' + ({ done: 'ok', live: 'live', miss: 'alert', part: 'warn' }[tone] || 'none'), 'aria-hidden': 'true' }));
+  // The state dot's slot is always there (hollow for a day still to come), so every title starts on one line.
+  head.appendChild(el('i', { class: 'dk-dot t-' + (ds && tone !== 'todo' ? ({ done: 'ok', live: 'live', miss: 'alert', part: 'warn' }[tone] || 'none') : rest ? 'blank' : 'none'), 'aria-hidden': 'true' }));
   if (o.ro) head.appendChild(el('h3', { class: 'dk-bxd-title' }, D.name || 'Day ' + (di + 1)));
   else {
     var nm = el('input', { type: 'text', class: 'dk-bxd-name', 'aria-label': 'Session name', spellcheck: 'false', maxlength: '60' });
@@ -5286,7 +5460,7 @@ function dkPaintMsgCtx() {
   if (r.meet) {
     var mt = el('div', { class: 'dk-meetline' });
     mt.appendChild(el('b', {}, r.meet.meet.name));
-    mt.appendChild(el('span', {}, fmtDateShort(r.meet.meet.date) + ' · ' + r.meet.days + ' days' + (r.meet.meet.weightClass ? ' · ' + r.meet.meet.weightClass : '') + (r.bw ? ' · BW ' + _num(kgToDisplay(r.bw.bw, 1)) + ' ' + unitLabel() : '')));
+    mt.appendChild(el('span', {}, fmtDateShort(r.meet.meet.date) + ' · ' + (r.meet.days <= 0 ? 'today' : r.meet.days === 1 ? 'tomorrow' : r.meet.days + ' days') + (r.meet.meet.weightClass ? ' · ' + r.meet.meet.weightClass : '') + (r.bw ? ' · BW ' + _num(kgToDisplay(r.bw.bw, 1)) + ' ' + unitLabel() : '')));
     pv.appendChild(dkSection('Next meet', mt));
   }
   var fc = _dkFormChecks().filter(function (f) { return f.athleteId === a.id; }).sort(function (x, y) { return String(y.createdAt).localeCompare(String(x.createdAt)); })[0];
@@ -5522,19 +5696,30 @@ function _dkStyleKey() { var u = _dkUser(); return 'powa-coach-style-' + (u ? u.
 function dkCoachStyle() { return _dk.coachStyle || (window._demoMode ? null : _dkLS(_dkStyleKey())); }
 function dkFirstRun() {
   var u = _dkUser() || {};
-  var steps = typeof coachSetupSteps === 'function' ? coachSetupSteps() : [];
+  var raw = typeof coachSetupSteps === 'function' ? coachSetupSteps() : [];
+  // Lead with what only a live platform does: lifters first (their sets land here as they lift),
+  // then the block written here for them. Pasting an old block is the quiet second way in.
+  var aths = (_dk.rows || []).map(function (r) { return r.athlete; });
+  var steps = raw.length === 3 ? [
+    Object.assign({}, raw[1], { title: 'Invite your lifters', label: 'Invite', sub: raw[1].done ? raw[1].sub : 'One link each. Every set they log lands on your desk, live, with their Apple Health readiness.' }),
+    Object.assign({}, raw[0], { title: 'Write their first block', label: aths.length ? 'Write a block' : null,
+      sub: raw[0].done ? raw[0].sub : 'Sets, reps and RPE the way you write them; each lifter gets loads from their own maxes.',
+      write: aths.length ? function () { openAthleteProgram(aths[0].id); } : null, paste: raw[0].done ? null : raw[0].onClick }),
+    Object.assign({}, raw[2], { label: 'Add a photo' })
+  ] : raw;
   var done = steps.filter(function (x) { return x.done; }).length;
   var wrap = el('div', { class: 'dk-fr' });
   var left = el('div', { class: 'dk-fr-main' });
   left.appendChild(el('h1', { class: 'dk-h1' }, 'Welcome' + (u.name ? ', ' + _dkFirst(u.name) : '')));
   left.appendChild(el('p', { class: 'dk-fr-lead' }, done === steps.length && steps.length ? 'You’re set. Your athletes land here the moment they sign up with your link.' : 'Three steps and Today starts telling you who needs you.'));
-  var style = dkCoachStyle();
+  var style = dkCoachStyle() || 'solo';   // nothing chosen yet reads as Individuals, and says so
   var q = el('div', { class: 'dk-fr-q' });
   q.appendChild(el('h2', { class: 'dk-sec-title' }, 'How do you coach?'));
   var seg = el('div', { class: 'dk-fr-opts', role: 'radiogroup', 'aria-label': 'How do you coach?' });
   [['solo', 'Individuals', 'A program per lifter'], ['team', 'A team on one plan', 'One block, many lifters']].forEach(function (o) {
     var on = style === o[0];
     var b = el('button', { type: 'button', class: 'dk-fr-opt' + (on ? ' on' : ''), role: 'radio', 'aria-checked': String(on) });
+    b.appendChild(el('i', { class: 'dk-fr-check', 'aria-hidden': 'true', html: on ? ICONS.check : '' }));
     b.appendChild(el('b', {}, o[1]));
     b.appendChild(el('span', {}, o[2]));
     b.addEventListener('click', function () {
@@ -5555,12 +5740,14 @@ function dkFirstRun() {
     var num = el('span', { class: 'dk-fr-num', 'aria-hidden': 'true', html: x.done ? ICONS.check : String(i + 1) });
     li.appendChild(num);
     var main = el('div', { class: 'dk-fr-step-main' });
-    var title = i === 0 && style === 'team' && !x.done ? 'Bring the team’s program in' : x.title;
+    var title = x.write !== undefined && style === 'team' && !x.done ? 'Write the team’s first block' : x.title;
     main.appendChild(el('b', {}, title));
-    main.appendChild(el('span', {}, i === 0 && !x.done ? 'Paste the block you already wrote, or open a .csv. It reads 3x5 @8 as you write it.' : x.sub));
+    main.appendChild(el('span', {}, x.sub));
+    // The second way in, said quietly under the step: a block already written elsewhere.
+    if (x.paste) { var pl = el('button', { type: 'button', class: 'dk-link dk-fr-alt' }, 'Or paste a block you already wrote'); pl.addEventListener('click', x.paste); main.appendChild(pl); }
     li.appendChild(main);
-    var label = x.done ? 'Open' : i === 0 ? 'Paste or open a .csv' : i === 1 ? 'Invite' : 'Add a photo';
-    li.appendChild(dkBtn(label, { primary: i === next, cls: i === next ? '' : 'is-quiet', onClick: x.onClick }));
+    var label = x.done ? 'Open' : x.label || (x.write !== undefined ? null : 'Open');
+    if (label) li.appendChild(dkBtn(label, { primary: i === next, cls: i === next ? '' : 'is-quiet', onClick: x.write || x.onClick }));
     if (x.done) li.setAttribute('aria-label', x.title + ', done');
     list.appendChild(li);
   });
@@ -5627,7 +5814,7 @@ function deskSeedDemo(store, h) {
   // under its best, or a wave that ends on a PR.
   var SHAPE = { flat: [5, 2.5, 5, 7.5, 2.5, 5], pr: [0, 2.5, 5, 7.5, 2.5, 12.5], up: [0, 2.5, 5, 5, 7.5, 7.5] };
   var people = [
-    { n: 'Leo Grant', b: [182.5, 125, 225], last: 1, shape: 'pr', prog: ['Strength Block', 4, 1, 2] },
+    { n: 'Leo Grant', b: [182.5, 125, 225], last: 1, shape: 'pr', prog: ['Strength Block', 4, 1, 2], bw: 91.2 },
     { n: 'Priya Shah', b: [115, 67.5, 147.5], last: 1, shape: 'flat', prog: ['Peak', 3, 2, 1], pain: 0, meet: ['Regional Open', 9, '63 kg', 62.4] },
     { n: 'Marcus Doyle', b: [210, 150, 250], last: 2, shape: 'flat', prog: ['Strength Block', 4, 1, 2], over: [1, 1.5] },
     { n: 'Elena Rossi', b: [105, 60, 135], last: 1, shape: 'up', prog: ['Peak', 3, 1, 2], meet: ['State Championships', 12, '57 kg', 58.4] },
@@ -5670,7 +5857,9 @@ function deskSeedDemo(store, h) {
       dates.forEach(function (x) {
         var lift = MAIN_LIFTS[x[1]], base = p.b[x[1]];
         // Sets of five at about 82% of the base: an e1RM near the base, not 25% over it.
-        var top = base * 0.82 + (shape[Math.max(0, shape.length - (p.streak || weeks) + x[2])] || 0) * (x[1] === 1 ? 0.6 : 1);
+        // Each lifter moves at their own rate (and bench slower), so no two trends read the same.
+        var rate = [1, 0.7, 1.3, 0.5, 1.6, 0.9, 1.2][pi % 7] * [1, 0.6, 1.15][x[1]];
+        var top = base * 0.82 + (shape[Math.max(0, shape.length - (p.streak || weeks) + x[2])] || 0) * rate;
         [[5, 7.5], [5, 8], [3, 8.5]].forEach(function (rr, si) {
           var wgt = Math.round((top - si * 2.5) / 2.5) * 2.5;
           S.workoutLogs.push({ id: 'demo-dlog-' + (++seq), athleteId: id, lift: lift, variant: 'Competition', exerciseName: '', weight: wgt, reps: rr[0], rpe: rr[1],
@@ -5723,5 +5912,34 @@ function deskSeedDemo(store, h) {
       [10, 4, 1].forEach(function (dd, i) { S.bodyweight.push({ id: 'demo-dbw-' + id + '-' + dd, athleteId: id, date: daysAgo(dd), weight: Math.round((p.meet[3] + (2 - i) * 0.3) * 10) / 10, unit: 'kg' }); });
     }
     if (p.rhr) p.rhr.forEach(function (v, i) { (S.healthDaily || (S.healthDaily = [])).push({ athleteId: id, day: daysAgo(i), sleepMin: 420 - i * 5, rhr: v }); });
+    // Most lifters share Apple Health (a month of resting HR, HRV and sleep); two are run down.
+    if (p.last != null && !p.rhr && pi % 5 !== 3) dkSeedHealth(S, id, daysAgo, pi, p.sleep ? 'low' : pi === 2 ? 'low' : 'ok');
+    // Weigh-ins for lifters with no meet yet.
+    if (p.last != null && !p.meet && pi % 4 !== 1) [9, 3].forEach(function (dd, i) { S.bodyweight.push({ id: 'demo-dbw-' + id + '-' + dd, athleteId: id, date: daysAgo(dd), weight: Math.round(((p.bw || p.b[2] / 2.7 + 22) + i * 0.3) * 10) / 10, unit: 'kg' }); });
   });
+  dkSeedHealth(S, 'demo-a2', daysAgo, 3, 'ok');
+  // Sarah's three lifts move differently: bench stalls, the deadlift jumps.
+  S.workoutLogs.forEach(function (l) {
+    if (l.athleteId !== 'demo-a2' || !l.date || l.date < daysAgo(12)) return;
+    var dw = l.lift === 'bench' ? -2.5 : l.lift === 'deadlift' && l.date >= daysAgo(7) ? 5 : 0;
+    if (!dw) return;
+    l.weight += dw;
+    l.e1rm = calcE1RM(l.weight, l.reps, l.rpe);
+    l.e1rmComp = calcCompE1RM(l.weight, l.reps, l.rpe, l.lift, l.variant || 'Competition');
+  });
+}
+function dkNoise(n) { var x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; }
+// A month of Apple Health for one demo lifter: resting HR, HRV and sleep around their own norm.
+// 'low' lifts the last three days' resting HR and drops HRV, the way a run-down week reads.
+function dkSeedHealth(S, id, daysAgo, k, state) {
+  var hd = S.healthDaily || (S.healthDaily = []);
+  if (hd.some(function (h) { return h.athleteId === id; })) return;
+  var rhr0 = 50 + (k * 7) % 12, hrv0 = 58 + (k * 11) % 30;
+  var w1 = 0, w2 = 0, w3 = 0;
+  for (var i = 29; i >= 0; i--) {
+    // A seeded drift (each day leans on the one before), the way real nights and mornings move.
+    w1 = w1 * 0.7 + dkNoise(k * 97 + i) * 0.45; w2 = w2 * 0.7 + dkNoise(k * 31 + i * 7) * 0.45; w3 = w3 * 0.6 + dkNoise(k * 13 + i * 3) * 0.5;
+    var n1 = w1, n2 = w2, n3 = w3, low = state === 'low' && i <= 2;
+    hd.push({ athleteId: id, day: daysAgo(i), rhr: Math.round(rhr0 + n1 * 2.2 + (low ? 9 : 0)), hrv: Math.round(hrv0 + n2 * 6 - n1 * 2 - (low ? 18 : 0)), sleepMin: Math.round(435 + n3 * 38 + (i % 7 === 5 ? 35 : 0) - (low ? 70 : 0)) });
+  }
 }

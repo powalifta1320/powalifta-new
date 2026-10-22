@@ -1237,11 +1237,13 @@ var MeetDay = (function () {
     BS.sh.setTitle(day.name, [dayText(day.date), day.federation, day.division].filter(Boolean).join(' · '));
     BS.finB.disabled = done; BS.finB.textContent = done ? 'Finished' : 'Finish meet';
     BS.tabs.innerHTML = '';
+    // The desk draws Board | Lifters as its one segmented control; the phone keeps its tabs.
+    var tabHost = onDesk() ? BS.tabs.appendChild(E('div', { class: 'md-seg', role: 'presentation' })) : BS.tabs;
     [['board', 'Board'], ['lifters', 'Lifters · ' + B.lifters.length]].forEach(function (t) {
       var on = B.view === t[0];
       var b = E('button', { type: 'button', role: 'tab', class: 'md-tab' + (on ? ' on' : ''), 'aria-selected': on ? 'true' : 'false' }, t[1]);
       b.addEventListener('click', function () { B.view = t[0]; paintBoard(); });
-      BS.tabs.appendChild(b);
+      tabHost.appendChild(b);
     });
     if (!done) {
       var where = cur ? LIFT_NAME[cur.lift] + ' · flight ' + cur.flight + ' · round ' + cur.n : 'All attempts called';
@@ -1268,7 +1270,8 @@ var MeetDay = (function () {
       });
       left.appendChild(fl);
     }
-    left.appendChild(boardTable(shown, cur));
+    if (onDesk()) { left.appendChild(boardLifters(shown, cur)); var ro = roundOrder(shown, cur); if (ro) left.appendChild(ro); }
+    else left.appendChild(boardTable(shown, cur));
     paintSide();
     paintSync();
   }
@@ -1313,6 +1316,81 @@ var MeetDay = (function () {
       E('span', { class: 'is-good' }, 'Good'), E('span', { class: 'is-no' }, 'No lift'),
       E('span', { class: 'md-keys' }, 'G good · N no lift · + − · Enter declares · P prints')));
     return wrap;
+  }
+  // ---------- the laptop desk: the same board, lifter first ----------
+  // One row per lifter (name and class), then three attempts per lift, each a round outcome mark
+  // with its number beside it: planned hollow, declared ink, good the ok dot, no lift an alert
+  // ring. No cell borders, no column rules. Every attempt keeps its data-key, focus and click.
+  function onDesk() { return hasDom && document.documentElement.classList.contains('desk'); }
+  var ST_WORD = { planned: 'planned', declared: 'declared', changed: 'declared, changed', good: 'good lift', no: 'no lift', empty: 'empty' };
+  function attemptEl(l, lift, n, cur, tgtKey, best) {
+    var k = attemptKey(l.id, lift, n), c = B.cells[k];
+    var st = c ? (c.status === 'declared' && c.changes ? 'changed' : c.status) : 'empty';
+    if (c && c.status === 'good') best[lift] = Math.max(best[lift] || 0, num(c.kg));
+    var isCur = cur && cur.key === k, isSel = B.sel === k, isTgt = !B.sel && tgtKey === k;
+    var label = l.name + ', ' + LIFT_NAME[lift] + ' ' + ord(n) + ': ' + (c && c.kg ? kgText(c.kg) + ' kg, ' : '') + ST_WORD[st] + (isCur ? ', on the platform' : '');
+    var a = E('div', { class: 'md-cell md-att is-' + st + (isCur ? ' is-cur' : '') + (isSel ? ' is-sel' : '') + (isTgt ? ' is-tgt' : ''), 'data-key': k, tabindex: '0', role: 'button', 'aria-label': label, title: LIFT_NAME[lift] + ' ' + ord(n) + ' · ' + ST_WORD[st] + (c && c.changes ? ' · changed ' + (c.changes === 1 ? 'once' : c.changes + ' times') : '') });
+    a.appendChild(E('i', { class: 'md-att-m', 'aria-hidden': 'true' }));
+    a.appendChild(E('span', { class: 'md-cell-kg' }, c && c.kg ? kgText(c.kg) : ''));
+    a.addEventListener('click', function () { B.sel = B.sel === k ? null : k; B.draft = null; paintBoard(); });
+    a.addEventListener('keydown', function (e) { if (e.key === ' ') { e.preventDefault(); a.click(); } });
+    return a;
+  }
+  function boardLifters(flight, cur) {
+    var wrap = E('div', { class: 'md-lb', role: 'grid', 'aria-label': 'Flight ' + flight + ' attempts' });
+    var head = E('div', { class: 'md-lb-row is-head', role: 'row' }, E('span', { role: 'columnheader', class: 'md-lb-who' }, 'Lifter'));
+    LIFTS.forEach(function (l) { head.appendChild(E('span', { role: 'columnheader', class: 'md-lb-lift md-' + l }, E('i', { class: 'md-lb-ld', 'aria-hidden': 'true' }), LIFT_NAME[l])); });
+    head.appendChild(E('span', { role: 'columnheader', class: 'md-lb-tot' }, 'Total'));
+    wrap.appendChild(head);
+    var tgt = target(), tgtKey = tgt ? attemptKey(tgt.lifterId, tgt.lift, tgt.n) : null;
+    rowsFor(flight).forEach(function (l) {
+      var up = cur && cur.lifterId === l.id;
+      var row = E('div', { class: 'md-lb-row' + (up ? ' is-up' : ''), role: 'row' });
+      var id = E('span', { class: 'md-lb-id' }, E('b', {}, l.name), E('small', {}, ['Lot ' + (l.lot || '–'), l.weightClass, l.bodyweight ? kgText(l.bodyweight) + ' kg' : ''].filter(Boolean).join(' · ')));
+      row.appendChild(E('div', { class: 'md-lb-who', role: 'rowheader' }, id, up ? E('span', { class: 'md-lb-up' }, 'Up') : null));
+      var best = {};
+      LIFTS.forEach(function (lift) {
+        var g = E('div', { class: 'md-lb-lift md-' + lift, role: 'gridcell' });
+        [1, 2, 3].forEach(function (n) { g.appendChild(attemptEl(l, lift, n, cur, tgtKey, best)); });
+        row.appendChild(g);
+      });
+      var any = LIFTS.some(function (x) { return best[x]; });
+      row.appendChild(E('div', { class: 'md-lb-tot', role: 'gridcell' }, any ? kgText(r1((best.squat || 0) + (best.bench || 0) + (best.deadlift || 0))) : ''));
+      wrap.appendChild(row);
+    });
+    var lg = E('div', { class: 'md-lb-legend', 'aria-hidden': 'true' });
+    [['planned', 'Planned'], ['declared', 'Declared'], ['changed', 'Changed'], ['good', 'Good lift'], ['no', 'No lift']].forEach(function (x) { lg.appendChild(E('span', { class: 'md-att is-' + x[0] }, E('i', { class: 'md-att-m' }), x[1])); });
+    lg.appendChild(E('span', { class: 'md-keys' }, 'G good · N no lift · + − · Enter declares · P prints'));
+    wrap.appendChild(lg);
+    return wrap;
+  }
+  // The order of the round on the platform (or the flight's first round), with each lifter's time.
+  function roundOrder(flight, cur) {
+    var order = boardOrder(), now = Date.now(), t = etas(order, clockOpts(B.day, now));
+    var lift = cur && cur.flight === flight ? cur.lift : null, n = cur && cur.flight === flight ? cur.n : null;
+    if (!lift) { var f0 = order.find(function (e) { return e.flight === flight && !isResult(e.status); }); if (!f0) return null; lift = f0.lift; n = f0.n; }
+    var byId = {}; B.lifters.forEach(function (l) { byId[l.id] = l; });
+    var box = E('div', { role: 'region', class: 'md-ro', 'aria-label': 'Lifting order' });
+    box.appendChild(E('div', { class: 'md-ro-h' }, E('b', {}, 'Lifting order'), E('span', {}, LIFT_NAME[lift] + ' · ' + ord(n) + ' attempts · flight ' + flight)));
+    var ol = E('ol', { class: 'md-ro-list' });
+    order.forEach(function (e, i) {
+      if (e.flight !== flight || e.lift !== lift || e.n !== n) return;
+      var c = B.cells[e.key], st = c ? (c.status === 'declared' && c.changes ? 'changed' : c.status) : 'empty', isCur = cur && cur.key === e.key;
+      ol.appendChild(E('li', { class: (isCur ? 'is-cur' : '') + (isResult(e.status) ? ' is-done' : '') },
+        E('span', { class: 'md-att is-' + st }, E('i', { class: 'md-att-m', 'aria-hidden': 'true' })),
+        E('b', {}, (byId[e.lifterId] || {}).name || ''),
+        E('span', { class: 'md-ro-kg' }, e.kg ? kgText(e.kg) + ' kg' : ''),
+        E('span', { class: 'md-ro-at' }, isCur ? 'On the platform' : isResult(e.status) ? ST_WORD[st] : t[i] ? clock(t[i]) : '')));
+    });
+    if (!ol.children.length) return null;
+    box.appendChild(ol);
+    var others = flightList().filter(function (f) { return f !== flight; });
+    others.forEach(function (f) {
+      var st = flightStarts(B.day)[f];
+      var nf = B.lifters.filter(function (l) { return (l.flight || 'A') === f; }).length;
+      box.appendChild(E('p', { class: 'md-ro-next' }, 'Flight ' + f + ' · ' + nf + (nf === 1 ? ' lifter' : ' lifters') + (st ? ' · starts ' + clock(st) : '')));
+    });
+    return box;
   }
   // Competition loading: a 20 kg bar and 2.5 kg collars; plates per side, change plates down to 0.25.
   function platesPerSide(kg) {
@@ -1787,11 +1865,16 @@ var MeetDay = (function () {
         var d = new Date(g.date + 'T12:00:00');
         li.appendChild(E('div', { class: 'md-meet-date', 'aria-hidden': 'true' }, E('b', {}, String(d.getDate())), E('small', {}, d.toLocaleDateString(undefined, { month: 'short' }))));
         var weigh = g.weighIn ? (g.weighIn === '2h' ? '2 h weigh-in' : '24 h weigh-in') + (g.weighInAt ? ' ' + clock(Date.parse(g.weighInAt)) : '') : '';
+        var metaTxt = [g.federation, g.division, weigh].filter(Boolean).join(' · ') || dayText(g.date);
+        var whoTxt = g.rows.map(function (r) { return r.name; }).join(', ');
         li.appendChild(E('div', { class: 'md-meet-main' }, E('b', { class: 'md-meet-name' }, g.name),
-          E('span', { class: 'md-meet-meta' }, [g.federation, g.division, weigh].filter(Boolean).join(' · ') || dayText(g.date)),
-          E('span', { class: 'md-meet-who' }, g.rows.map(function (r) { return r.name; }).join(', '))));
+          // The desk: who is lifting first, then the federation, on one line.
+          onDesk() ? E('span', { class: 'md-meet-who' }, E('span', {}, whoTxt), E('span', { class: 'md-meet-meta' }, ' · ' + metaTxt)) : E('span', { class: 'md-meet-meta' }, metaTxt),
+          onDesk() ? null : E('span', { class: 'md-meet-who' }, whoTxt),
+          // The desk: the season against this meet (does the block take them there?), one lifter at a time.
+          onDesk() && g.rows.length === 1 && typeof root.deskMeetSeason === 'function' && g.daysOut > 0 ? E('span', { class: 'md-meet-season' }, root.deskMeetSeason(g.rows[0].athleteId, g.date)) : null));
         li.appendChild(E('div', { class: 'md-meet-side' }, E('span', { class: 'md-meet-count' }, g.daysOut === 0 ? 'Today' : g.daysOut === 1 ? 'Tomorrow' : g.daysOut + ' days'),
-          E('span', { class: 'md-meet-plans' + (g.planned === g.rows.length ? ' is-all' : '') }, 'Attempts ' + g.planned + '/' + g.rows.length)));
+          E('span', { class: 'md-meet-plans' + (g.planned === g.rows.length ? ' is-all' : '') }, onDesk() ? (!g.planned ? 'No attempts yet' : g.planned === g.rows.length ? 'Attempts planned' : g.planned + ' of ' + g.rows.length + ' planned') : 'Attempts ' + g.planned + '/' + g.rows.length)));
         var acts = E('div', { class: 'md-meet-acts' });
         acts.appendChild(btn(g.planned ? 'Attempts' : 'Plan attempts', 'md-btn-quiet', function () { openAttemptPlanner(g.rows[0].meetId); }));
         if (g.daysOut <= 1 && !boards.some(function (b) { return b.date === g.date && String(b.name).trim().toLowerCase() === g.name.toLowerCase(); }))
@@ -2009,7 +2092,11 @@ var MeetDay = (function () {
   }
 
 
-  return { pure: pure, lifterPlan: lifterPlan, lifterNextEl: lifterNextEl, openMeetsScreen: openMeetsScreen, plannerLink: plannerLink, buildPrint: buildPrint,
+  // planFor(athleteId): the attempt planner for one lifter (the desk's "Plan a meet" on a lifter with none).
+  function planFor(athleteId) { if (hasDom && athleteId) openAttemptPlanner(athleteId); }
+  // The desk demo: today's meet day and its planned meets in the roster from the start.
+  function deskDemo() { if (isDemo() && me() && me().userType !== 'athlete') demoStoreMeets(demoSeed()); }
+  return { pure: pure, lifterPlan: lifterPlan, lifterNextEl: lifterNextEl, openMeetsScreen: openMeetsScreen, plannerLink: plannerLink, planFor: planFor, deskDemo: deskDemo, buildPrint: buildPrint,
     platesPerSide: platesPerSide, DEMO_ID: DEMO_ID, _board: function () { return B; } };
 })();
 (typeof window !== 'undefined' ? window : globalThis).MeetDay = MeetDay;

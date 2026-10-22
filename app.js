@@ -10476,7 +10476,7 @@ function deskReasons(athleteId, opts) {
   if (nm && nm.days <= 14) add('meet', 2, nm.days === 0 ? 'Meet today' : 'Meet in ' + nm.days + 'd', 'meet', nm.meet.name + (nm.meet.weightClass ? ' · ' + nm.meet.weightClass : ''));
   if (nm && nm.days <= 56) {
     const bw = deskBodyweightVsClass(athleteId, nm.meet);
-    if (bw && bw.over > 0) add('weight', 2, 'BW +' + _num(bw.over) + ' over class', 'warn', _num(bw.bw) + ' kg for the ' + nm.meet.weightClass + ' class, ' + nm.days + ' days out');
+    if (bw && bw.over > 0) add('weight', 2, 'BW +' + _num(bw.over) + ' over class', 'warn', _num(bw.bw) + ' kg for the ' + nm.meet.weightClass + ' class, ' + (nm.days <= 0 && document.documentElement.classList.contains('desk') ? 'meet today' : nm.days + ' days out'));
   }
   // 3 · RPE: a top set a full point over, or the week drifting half a point over
   const os = deskWorstOvershoot(prog, t);
@@ -13951,13 +13951,16 @@ function openTeamSheet() {
       const t = teams.find(x => x.id === pick.value) || teams[0];
       const members = teamMembersFor(t);
       const plan = teamPushPlan(t, members);
-      body.appendChild(el('p', { class: 'ui-sheet-sub' }, teamPushSummary(plan)));
+      // The laptop desk says who has no max once (the line under the loads names them).
+      const onDeskT = document.documentElement.classList.contains('desk');
+      const sumT = teamPushSummary(plan);
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, onDeskT ? sumT.replace(/ · \d+ ha(?:s|ve) no [^·]*max\b/, '') : sumT));
       const wk = (t.weeks || [])[0], day = wk && (wk.days || []).find(d => (d.exercises || []).some(e => MAIN_LIFTS.indexOf(e.lift) >= 0));
       if (wk && day) {
         const mx = teamLoadsMatrix(t.weeks, wk.id, day.id, members);
         body.appendChild(uiLabel('Loads · Week ' + (wk.number || 1) + ' ' + (day.name || '')));
         body.appendChild(uiList(mx.rows.map(r => uiRow({ title: r.name,
-          sub: r.cells.map((c, i) => mx.cols[i].label + ' ' + (c.kg > 0 ? teamLoadText(c.kg, r.unit) : '–') + (c.ovr ? ' (' + c.note + ')' : '') + (c.source ? ' · from ' + c.source : '')).join('  ·  ') }))));
+          sub: r.cells.map((c, i) => mx.cols[i].label + ' ' + (c.kg > 0 ? teamLoadText(c.kg, r.unit) : '–') + (c.ovr ? ' (' + c.note + ')' : '') + (c.source ? ' · from ' + (onDeskT && c.source === 'e1rm' ? 'e1RM' : c.source) : '')).join('  ·  ') }))));
       }
       teamNoMaxReport(t.weeks, members).forEach(n => body.appendChild(el('p', { class: 'ui-sheet-sub' }, n.text)));
       (report || []).forEach(l => body.appendChild(el('p', { class: 'ui-sheet-sub' }, l.text)));

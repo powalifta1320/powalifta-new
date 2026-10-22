@@ -219,11 +219,20 @@ defined once at the top of desk.css; every desk rule (and meetday.css's `html.de
 - Colour budget: ink and surfaces; lift hues (squat `--dk-sq`, bench `--dk-bp`, deadlift `--dk-dl`)
   only on lift data (the lift dot, sparks); status colours (`--dk-ok` on target / live, `--dk-warn`
   over, `--dk-alert` a point or more over, missed, pain, `--dk-cool` under) only on a dot, a mark, a
-  set bar or the gap word; `--dk-gold` for PRs and meets; fire red on the one action.
+  set bar or the gap word; `--dk-gold` for PRs and meets; fire red on the one action. On the desk
+  the fire gradient is one step deeper than the phone's (`#dc2637` → `#c41a2c`) so its white label
+  clears 4.5:1 top to bottom. Light-theme avatar hues are tokens (`--av-1-bg` / `--av-1-ink` ..
+  `--av-8-*`), the dialog veil is `--dk-veil`, a tick box draws its tick from `--dk-cb-tick`.
+- Nothing is drawn for an absent value: no dashes, no "–" cells. The slot stays empty and a
+  visually hidden word (`.dk-nil`) tells a screen reader why. Status colour never sits on a number
+  or a sentence (bodyweight over the class, drift, the Pain count): the dot carries it, the words
+  stay ink.
 - Surfaces separate by a step in fill (`--dk-raise`, `--dk-fill`) and by space; hairlines only
   between rows of one list, inset to the text.
 - Themes: dark by default (`#0a0a0c` ink); light is white paper and `#0b0b0d` ink with the same
   layout. One token block per theme.
+- Single-column screens (Club, Meets, Settings) share one page frame: `padding-inline: var(--gut)`
+  and `max-width: var(--page-w)` (1040), so the left edge never jumps between screens.
 - Layout: a text sidebar 232px (icons, 64px, below 1200 unless the coach opens it; the old
   `powa-desk-rail` key is ignored, `powa-desk-rail2` holds the choice); Today and the roster's list
   are two panes; the side card (thread or private notes) floats in on demand.
@@ -236,12 +245,25 @@ defined once at the top of desk.css; every desk rule (and meetday.css's `html.de
   dot); the next meet as W-n (days inside two weeks); pain. Sortable (saved per view), filtered by the
   sidebar's views and the search, bulk select (X, or the box on hover), J/K, Enter opens the lifter.
   Columns step away as the pane narrows (bodyweight, readiness, e1RM): never a sideways scroll.
+  RPE drift is read from the same program week the marks show; on target it is one faint tick and
+  no number. e1RM carries its unit. Lifters with nothing to show yet (no week logged, no Health, no
+  meet, no weigh-in) are one quiet line under the board with their names and "Write X's first block",
+  never rows of empty slots.
 - The lifter's week: session cards (one per training day, its state and date). Each exercise is one
   line: what was written, its sets as bars on an RPE 5.5-10 scale against the written RPE (a line;
   a range is a band), the top set in ink with the gap word only when off, then next week's block
   written in place with one suggestion from how it was lifted (Up to / Drop to / Load, taken in one
   click or Tab; Hold is a word; Swap, with a warn dot, when that lift hurt: a variant or 10% lighter).
-  Videos and pain sit on the exercise they came from, their note on the session.
+  Videos and pain sit on the exercise they came from, their note on the session. A day not trained
+  yet shows only what was written (the card head says "Not yet"); a line lifted exactly as written
+  says so with a check, the sets in the tooltip. Written, bars and lifted sit left-packed. The
+  suggestion slot has one width on every row (empty when there's nothing to suggest), so next
+  week's fields end on one line; they write × like every other screen.
+- How they are: readiness strips, never a table. Apple Health (sleep, resting HR, HRV) as 30-day
+  lines over the lifter's own normal band, the latest in ink with a warn dot when outside it; the
+  check-in as one line per question with its four weeks as marks (bar height for numbers, a dot for
+  yes/no, hollow when not reported) and the latest answer in ink. "No check-ins before Oct 12" is
+  said once. The header's facts end with a Ready / Readiness low dot.
 - Programs, the block builder (`Sessions | Progression`, V): a header with the name, a quiet meta
   line (weeks, % logged, the maxes as a line with lift dots, the set fields) and one `⋯`; the block
   as a strip of week tabs (date, the meet's W-n in gold, a volume bar with the logged part in ink,
@@ -256,10 +278,22 @@ defined once at the top of desk.css; every desk rule (and meetday.css's `html.de
   bars on the same line, the top set and the gap word. Notes sit small under the line; "Add an
   exercise" takes "Pause squat 3x4 @7". Progression: each lift's planned top set across the block as
   a line in its lift colour, the lifted top sets as dots (ink on target, warn / alert over, cool
-  under); a week's column opens that week with the lift in focus. Templates and past blocks read as
+  under); a week's column opens that week with the lift in focus. Weeks between the block's end and
+  its meet show as one hatched "Weeks 4–8 · 5 weeks not written" slot with Write them. Templates and past blocks read as
   the same weeks and cards with nothing to type into. The phone's set-by-set editor stays in `⋯`.
 - An edit not yet published carries an ink mark (a small dot on a builder line, an outline on next
-  week's field) until it goes out; a taken suggestion turns green.
+  week's field) until it goes out; a taken suggestion becomes a green check and ink words.
+- Meets and the meet-day board: each meet row says, from the season, whether the block takes the
+  lifter there ("Strength ends W-6 · 5 weeks not written") and "No attempts yet" in words. The
+  board is lifter first: one row per lifter (name, lot, class, bodyweight), then three attempts per
+  lift as the roster's outcome marks with the number beside each (planned hollow, declared ink,
+  changed ink with a warn tick, good the ok dot, no lift an alert ring, struck through); no cell
+  borders or column rules. Good lift / No lift are two equal quiet buttons, a status dot before an
+  ink word; Board | Lifters and the flights are the one segmented control; the round's lifting order
+  (who, the load, the time) fills the space under the board.
+- First run leads with what only a live platform does: Invite your lifters (the fire action), then
+  Write their first block, with "Or paste a block you already wrote" as a quiet link. The coaching
+  style cards show which one counts (a filled card and a check).
 - Motion, quiet and about state: 120-260ms, `cubic-bezier(0.23, 1, 0.32, 1)`; a set that just landed
   grows its bar once and pulses its board row; a live session's mark breathes; rows reorder with
   FLIP; the side card slides in 16px. All of it off under reduced motion.

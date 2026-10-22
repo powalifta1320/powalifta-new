@@ -484,8 +484,104 @@ html.desk .md-screen .md-meet-plans.is-all { color: var(--text-3); }
 html.desk .md-screen .md-meet-plans.is-all::before { background: var(--md-ok); }
 html.desk .md-root :is(.md-pl-bounce, .md-next-warm, .md-up-kg em) { color: var(--text-2); }
 /* the Meets screen: the desk's page frame */
-html.desk .md-screen { max-width: 980px; margin: 0; padding: var(--s-5) var(--gut) 72px; gap: var(--s-5); }
+html.desk .md-screen { max-width: var(--page-w, 1040px); margin: 0; padding: var(--s-5) var(--gut) 72px; gap: var(--s-5); box-sizing: border-box; }
+html.desk .md-screen .md-meet-season { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--text-3); }
 html.desk .md-screen .md-today { padding: var(--s-4) var(--s-5); }
 html.desk .md-screen .md-meet { padding: var(--s-3) var(--s-4); gap: var(--s-4); border-top-color: var(--line); }
 html.desk .md-screen .md-meet-acts .md-btn:not(.md-btn-primary) { background: transparent; color: var(--text-2); }
 html.desk .md-screen .md-meet-acts .md-btn:not(.md-btn-primary):hover { background: var(--dk-hover); color: var(--text); }
+
+/* ---------- the meet-day board on the desk: lifter first, never a grid of cells ----------
+   One row per lifter, then three outcome marks per lift with the number beside each (the
+   roster's mark language): planned hollow, declared ink, good the ok dot, no lift an alert ring.
+   Rows part by a hairline; no cell borders, no column rules. */
+html.desk .md-root .md-sync { height: 28px; padding: 0 var(--s-2); border-radius: var(--r-1); background: none; font-size: var(--fs-1); }
+html.desk .md-root .md-sync.is-off { color: var(--text); }
+/* Board | Lifters and the flights: the desk's one segmented control. */
+html.desk .md-root .md-tabs { gap: var(--s-3); padding: var(--s-4) var(--gut) 0; }
+html.desk .md-root :is(.md-seg, .md-flights) { display: inline-flex; align-self: flex-start; gap: 2px; padding: 2px; border-radius: var(--r-1); background: var(--dk-fill); }
+html.desk .md-root :is(.md-tab, .md-flight) { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--s-3); border-radius: calc(var(--r-1) - 2px); background: none; color: var(--text-3); font-weight: var(--fw-2); font-size: var(--fs-2); }
+html.desk .md-root :is(.md-tab, .md-flight):hover { background: none; color: var(--text); }
+html.desk .md-root :is(.md-tab, .md-flight).on { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+html.desk[data-theme="light"] .md-root :is(.md-tab, .md-flight).on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
+html.desk .md-root .md-flight small, html.desk .md-root .md-flight.on small { color: var(--text-3); font-weight: var(--fw-1); }
+html.desk .md-root .md-where { font-size: var(--fs-2); font-weight: var(--fw-2); color: var(--text-2); }
+html.desk .md-root .md-board { grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s-6); padding: var(--s-4) var(--gut) var(--s-6); }
+html.desk .md-root .md-board-left { gap: var(--s-4); }
+/* Good lift / No lift: two equal quiet buttons, a status dot before an ink word. */
+html.desk .md-root :is(.md-btn-good, .md-btn-no) { height: 40px; background: var(--dk-fill); color: var(--text); box-shadow: none; font-size: var(--fs-3); font-weight: var(--fw-3); gap: var(--s-2); }
+html.desk .md-root :is(.md-btn-good, .md-btn-no):hover:not(:disabled) { background: var(--dk-fill-2); }
+html.desk .md-root :is(.md-btn-good, .md-btn-no)::before { content: ''; width: 8px; height: 8px; flex: none; border-radius: var(--r-round); background: var(--md-ok); }
+html.desk .md-root .md-btn-no::before { background: none; box-shadow: inset 0 0 0 2px var(--md-no); }
+/* The board */
+html.desk .md-lb { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+html.desk .md-lb-row { --lb-cols: minmax(168px, 1.3fr) repeat(3, minmax(176px, 1fr)) 72px; display: grid; grid-template-columns: var(--lb-cols); align-items: center; gap: var(--s-4); min-height: 64px; padding: 0 var(--s-3); border-radius: var(--r-2); }
+html.desk .md-lb-row + .md-lb-row:not(.is-up) { box-shadow: inset 0 1px 0 var(--line); }
+html.desk .md-lb-row.is-head { min-height: 32px; font-size: var(--fs-1); color: var(--text-3); box-shadow: inset 0 -1px 0 var(--line); border-radius: 0; }
+html.desk .md-lb-row.is-head + .md-lb-row { box-shadow: none; }
+html.desk .md-lb-row.is-up { background: var(--dk-raise-2); box-shadow: none; }
+html.desk .md-lb-row.is-up + .md-lb-row { box-shadow: none; }
+html.desk .md-lb-who { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+html.desk .md-lb-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html.desk .md-lb-id b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .md-lb-id small { font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; }
+html.desk .md-lb-up { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: var(--fs-1); font-weight: var(--fw-3); color: var(--text-2); }
+html.desk .md-lb-up::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--md-ok); animation: mdPulse 1.6s ease-in-out infinite; }
+html.desk .md-lb-lift { display: flex; align-items: center; gap: var(--s-1); min-width: 0; }
+html.desk .md-lb-row.is-head .md-lb-lift { gap: 6px; padding-left: var(--s-2); }
+html.desk .md-lb-ld { width: 6px; height: 6px; border-radius: var(--r-round); background: var(--lc); }
+html.desk .md-lb .md-squat { --lc: var(--dk-sq); } html.desk .md-lb .md-bench { --lc: var(--dk-bp); } html.desk .md-lb .md-deadlift { --lc: var(--dk-dl); }
+html.desk .md-lb-tot { text-align: right; font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+/* One attempt: the mark, then the number. */
+html.desk .md-lb .md-att { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; height: 32px; padding: 0 var(--s-2); border-radius: var(--r-1); cursor: pointer; transition: background-color var(--t-fast) ease; }
+html.desk .md-lb .md-att:hover { background: var(--dk-hover); }
+html.desk .md-lb .md-att .md-cell-kg { min-width: 0; padding: 0; border-radius: 0; background: none; box-shadow: none; font-family: var(--font-body); font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text-3); text-decoration: none; }
+html.desk .md-lb .md-att:is(.is-declared, .is-changed, .is-good, .is-no) .md-cell-kg { color: var(--text); }
+html.desk .md-lb .md-att.is-no .md-cell-kg { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+html.desk .md-lb .md-att.is-cur { background: var(--dk-fill-2); }
+html.desk .md-lb .md-att.is-cur .md-cell-kg { font-weight: var(--fw-4); }
+html.desk .md-lb .md-att.is-tgt { box-shadow: inset 0 0 0 1px var(--line-2); }
+html.desk .md-lb .md-att.is-sel { box-shadow: inset 0 0 0 2px var(--dk-focus); }
+html.desk .md-board.is-done .md-lb .md-att { cursor: default; }
+html.desk :is(.md-lb, .md-ro) .md-att-m { display: block; width: 10px; height: 10px; flex: none; box-sizing: border-box; border-radius: var(--r-round); }
+html.desk :is(.md-lb, .md-ro) .is-empty .md-att-m { box-shadow: inset 0 0 0 1.5px var(--line); }
+html.desk :is(.md-lb, .md-ro) .is-planned .md-att-m { box-shadow: inset 0 0 0 1.5px var(--text-4); }
+html.desk :is(.md-lb, .md-ro) .is-declared .md-att-m { background: var(--text); }
+html.desk :is(.md-lb, .md-ro) .is-changed .md-att-m { background: var(--text); box-shadow: 3px -3px 0 -1.5px var(--md-warn); }
+html.desk :is(.md-lb, .md-ro) .is-good .md-att-m { background: var(--md-ok); }
+html.desk :is(.md-lb, .md-ro) .is-no .md-att-m { box-shadow: inset 0 0 0 2px var(--md-no); }
+html.desk .md-lb .md-att .md-att-m { transition: background-color 0.24s var(--dk-ease), box-shadow 0.24s var(--dk-ease), transform 0.24s var(--dk-ease); }
+html.desk .md-lb .md-att.is-cur .md-att-m { transform: scale(1.2); }
+html.desk .md-lb-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-4); padding: var(--s-3) var(--s-3) 0; font-size: var(--fs-1); color: var(--text-3); }
+html.desk .md-lb-legend .md-att { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 0; cursor: default; }
+html.desk .md-lb-legend .md-att:hover { background: none; }
+html.desk .md-lb-legend .md-keys { margin-left: auto; }
+/* The round, in lifting order: fills the board's lower half with who lifts when. */
+html.desk .md-ro { padding: var(--s-4); border-radius: var(--r-2); background: var(--dk-raise); }
+html.desk .md-ro-h { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-2); }
+html.desk .md-ro-h b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+html.desk .md-ro-h span { font-size: var(--fs-1); color: var(--text-3); }
+html.desk .md-ro-list { margin: 0; padding: 0; list-style: none; counter-reset: ro; }
+html.desk .md-ro-list li { counter-increment: ro; display: grid; grid-template-columns: 24px 12px minmax(0, 1fr) auto 120px; align-items: center; gap: var(--s-2); min-height: 36px; font-size: var(--fs-2); color: var(--text-2); font-variant-numeric: tabular-nums; }
+html.desk .md-ro-list li::before { content: counter(ro); font-size: var(--fs-1); color: var(--text-3); }
+html.desk .md-ro-list li + li { box-shadow: inset 0 1px 0 var(--line); }
+html.desk .md-ro-list li > .md-att { display: inline-flex; }
+html.desk .md-ro-list b { font-weight: var(--fw-2); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .md-ro-list li.is-cur b { font-weight: var(--fw-3); }
+html.desk .md-ro-list li.is-done { color: var(--text-3); }
+html.desk .md-ro-list li.is-done b { color: var(--text-2); }
+html.desk .md-ro-kg { color: var(--text); font-weight: var(--fw-2); }
+html.desk .md-ro-at { text-align: right; color: var(--text-3); font-size: var(--fs-1); }
+html.desk .md-ro-list li.is-cur .md-ro-at { color: var(--text-2); font-weight: var(--fw-3); }
+html.desk .md-ro-next { margin: var(--s-3) 0 0; font-size: var(--fs-1); color: var(--text-3); }
+@media (max-width: 1360px) { html.desk .md-lb-row { --lb-cols: minmax(140px, 1.1fr) repeat(3, minmax(156px, 1fr)) 56px; gap: var(--s-2); } html.desk .md-lb .md-att { padding: 0 6px; gap: 4px; } }
+@media (prefers-reduced-motion: reduce) { html.desk .md-lb .md-att .md-att-m { transition: none; } html.desk .md-lb-up::before { animation: none; } }
+html.desk .md-lb-legend .md-att { flex: none; }
+html.desk .md-lb-row.is-head .md-lb-tot { font-size: var(--fs-1); font-weight: var(--fw-1); color: var(--text-3); }
+/* A chosen attempt option reads as selected (the segmented look), never as a hidden label. */
+html.desk .md-root .md-alt.on { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+html.desk[data-theme="light"] .md-root .md-alt.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.08); }
+html.desk .md-root .md-alt.on b { color: var(--text); }
+html.desk .md-root .md-side .md-card { background: var(--dk-raise); }
+/* The desk: Meets and the board sit on the desk's own raised surface, so light reads as cards and not white on white. */
+html.desk .md-screen, html.desk .md-root { --md-surface: var(--dk-raise); }
