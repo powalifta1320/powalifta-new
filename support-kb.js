@@ -1107,5 +1107,83 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "On a laptop, the views under the menu on the left (Meet within 8 weeks, Pain, Quiet 7 days or more, New this month, Wins) filter the roster and show live counts; \"need you\" at the top filters to everyone flagged. Press / to search by name. Tick the boxes (or press X on a row) and a bar appears to message everyone you picked (each gets it in their own thread), assign a template or export them as a CSV. The row icons switch between comfortable and compact rows, and the list icon chooses columns. Click a row to preview it on the right; press Enter or double-click to open their page.",
   "app": "Saved views, search and bulk messages are part of the coach dashboard on a laptop or desktop browser at powalifta.com."
+ },
+ {
+  "id": "coach-desk-workspace",
+  "q": "How do I review last week and write next week for an athlete on the laptop?",
+  "t": [
+   "last week",
+   "next week",
+   "suggested load",
+   "suggestion",
+   "apply next week",
+   "target vs actual",
+   "review the week",
+   "athlete workspace",
+   "rpe suggestion"
+  ],
+  "a": "On a laptop, pick an athlete in Today or open their page (Enter, or double-click a roster row). The top of their workspace is a table: every block of sets from the last week they logged, what you wrote, what they lifted and how far the RPE was off (amber half a point, red a full point over), and next week beside it. Next week is typed straight in, like the grid (3x5 160 @8). Where they logged a set with an RPE, next week shows a suggested load from how it felt, the same rule Train uses set to set (never more than 10% either way, nothing for % sets): press Tab in that row to take it, Shift A to take every suggestion, then \"Apply next week\". Applying saves the week and lets the athlete know. J and K move to the next and previous athlete in the list you came from, Esc goes back to it.",
+  "app": "The athlete workspace with next-week suggestions is part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app, open the athlete and their program as usual."
+ },
+ {
+  "id": "coach-private-notes",
+  "q": "Can I keep private notes about an athlete that they can't see?",
+  "t": [
+   "private notes",
+   "coach notes",
+   "notes about athlete",
+   "injury history",
+   "only i can see",
+   "hidden notes",
+   "note about client"
+  ],
+  "a": "Yes. On a laptop, the right-hand pane of an athlete (in Today, their page and Messages) starts with Private notes: press N or the + to add one, Cmd Enter to save. Only you see them: never the athlete, never another coach, and if the athlete leaves your roster the notes are hidden until they come back. Deleting either account deletes the notes. If your account is still waiting on a database update, notes are kept on that computer for now and say \"on this device\".",
+  "app": "Private notes are on the coach dashboard on a laptop or desktop browser at powalifta.com for now."
+ },
+ {
+  "id": "coach-desk-programs",
+  "q": "How does the program builder work on a laptop, and what does Publish do?",
+  "t": [
+   "program builder",
+   "grid",
+   "publish",
+   "changes",
+   "templates",
+   "fill weeks",
+   "progression",
+   "inspector",
+   "weeks view"
+  ],
+  "a": "On a laptop, Programs opens on the Grid: weeks across, days and exercises down, typed like a sheet (3x5 @8, 4x6 75%, 1x3 180). Pick the athlete or a template in the list on the left (templates now live here, under the Templates tab). Click a cell and the pane on the right shows what was written, what they lifted, the RPE against what you wrote and what a % comes to, plus buttons to fill the weeks after it (+2.5 kg a week, RPE +0.5 a week, +2.5% a week or the same). Cmd Shift R picks a fill from the cell, Cmd D copies the cell above, Cmd Z undoes. Everything saves as you type; cells changed since you last published get a thin outline and the red button counts them: \"Publish to Arjun · 7 changes\" sends them a push and an email that their program changed. Weeks (one click away) shows a whole week's days side by side.",
+  "app": "The grid builder is part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app the program builder keeps its week-by-week layout."
+ },
+ {
+  "id": "coach-desk-messages",
+  "q": "How do Messages work on the laptop?",
+  "t": [
+   "messages laptop",
+   "needs reply",
+   "unread",
+   "mark done",
+   "inbox",
+   "threads",
+   "message everyone"
+  ],
+  "a": "On a laptop, Messages shows every thread on the left (All, Needs reply, Unread, and a search), the conversation in the middle and the athlete beside it: their block and week, last three sessions with top sets and RPE, flags, next meet and bodyweight, the latest form check and your private notes. J and K move between threads, R jumps to the reply box, E marks a thread done when there is nothing to answer (it comes back if they write again), and Enter opens their page. \"Message everyone\" sends one message to each athlete in their own thread.",
+  "app": "On a laptop or desktop browser at powalifta.com, Messages has filters and the athlete's details beside the thread. In the iPhone app, open Messages from the tab bar."
+ },
+ {
+  "id": "train-sync-chip",
+  "q": "What does \"Saved on this phone · sets syncing\" mean on Train?",
+  "t": [
+   "saved on this phone",
+   "syncing",
+   "synced",
+   "offline",
+   "no signal",
+   "sets not saving",
+   "sync chip"
+  ],
+  "a": "If the gym has no signal, every set you log is still saved on your phone straight away. Train says so next to the date (\"Saved on this phone · 3 sets syncing\") and sends them as soon as you're back online, then shows \"Synced\" with the time. You don't need to do anything or log them again. If a set can't be sent after several tries the app tells you to log it again."
  }
 ];

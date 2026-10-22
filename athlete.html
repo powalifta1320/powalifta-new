@@ -1513,11 +1513,33 @@ function renderTodayHeader(cur, date, titleOverride) {
   const when = isToday ? dayStr : 'Logging for ' + dayStr;
   eb.textContent = (cur && cur.week) ? when + ' · Week ' + cur.week.number : when;
   eb.classList.toggle('is-past', !isToday);
+  paintTrainSync();
   tt.textContent = titleOverride || (cur && cur.day && cur.day.name) || 'Train';
   // No program → no day to pick and no session options: hide the ▾ and the ⋯.
   const headEl = tt.closest('.today-head');
   if (headEl) headEl.classList.toggle('no-prog', !getProgram());
 }
+
+// The sync chip next to the date (app.js syncChipState): "Saved on this phone · 3 sets syncing"
+// while sets wait for a connection, then "Synced 14:02". Nothing when every set saved straight
+// away. The demo shows it with &sync=pending or &sync=done (nothing is saved either way).
+function paintTrainSync() {
+  const eb = document.getElementById('todayEyebrow');
+  if (!eb || typeof syncChipState !== 'function') return;
+  let st = null;
+  if (window._demoMode) {
+    const m = /[?&]sync=(pending|done)/.exec(location.search);
+    if (m) st = m[1] === 'pending' ? { sets: 2, changes: 0, lastDrain: 0 } : { sets: 0, changes: 0, lastDrain: Date.now() - 4 * 60000 };
+  } else if (typeof powaSyncState === 'function') st = powaSyncState();
+  const where = document.documentElement.classList.contains('native') || (window.matchMedia && matchMedia('(max-width: 700px)').matches) ? 'phone' : 'device';
+  const s = st ? syncChipState(st, Date.now(), where) : null;
+  let chip = document.getElementById('trainSync');
+  if (!s) { if (chip) chip.remove(); return; }
+  if (!chip || chip.parentNode !== eb) { if (chip) chip.remove(); chip = el('span', { class: 'th-sync', id: 'trainSync', role: 'status' }); eb.appendChild(chip); }
+  chip.className = 'th-sync is-' + s.tone;
+  chip.textContent = s.text;
+}
+window.addEventListener('powa:sync', paintTrainSync);
 
 // Scroll a set row into view and focus its weight input (self-coached load).
 function focusSetRow(exId, si, which) {
