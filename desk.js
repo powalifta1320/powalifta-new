@@ -1976,7 +1976,8 @@ function dkGroupLabel(g) {
   if (g.pct != null) t += ' ' + _num(g.pct) + (Number(g.pctHi) > Number(g.pct) ? '–' + _num(g.pctHi) : '') + '%';
   else if (Number(g.weight) > 0) t += ' ' + _num(kgToDisplay(g.weight)) + (Number(g.weightHi) > Number(g.weight) ? '–' + _num(kgToDisplay(g.weightHi)) : '');
   if (g.rpe != null && g.rpe !== '') t += g.rir ? ' ' + effortInputText(g, true) + ' RIR' : ' @' + effortInputText(g, false);
-  return t;
+  var fx = typeof setFieldsShort === 'function' ? setFieldsShort(g) : '';   // tempo, pause, bands / chains, own columns
+  return fx ? t + ' · ' + fx : t;
 }
 function dkGroupInput(g) {
   if (!g) return '';
@@ -1985,7 +1986,9 @@ function dkGroupInput(g) {
   // A bare load reads in the coach's unit; under 20 the parser wants the unit said.
   else if (Number(g.weight) > 0) t += ' ' + _num(kgToDisplay(g.weight)) + (Number(g.weightHi) > Number(g.weight) ? '-' + _num(kgToDisplay(g.weightHi)) : '') + (kgToDisplay(g.weight) < 20 ? (getUnit() === 'lbs' ? 'lb' : 'kg') : '');
   if (g.rpe != null && g.rpe !== '') t += g.rir ? ' ' + effortInputText(g, true) + 'RIR' : ' @' + effortInputText(g, false);
-  return t;
+  // Its set fields too, so an edit typed here (read back by _gridParse) keeps them.
+  var fx = typeof setFieldsCellText === 'function' ? setFieldsCellText(g) : '';
+  return fx ? t + ' ' + fx : t;
 }
 function dkLoggedLabel(l) {
   if (!l) return '';
@@ -2814,6 +2817,13 @@ function deskBuilderHead(prog, athleteId, actions, view) {
     el('span', {}, 'Maxes'), el('b', {}, bits.length ? bits.join(' ') : 'not set'));
   mx.addEventListener('click', function () { openMaxesSheet(prog.id, athleteId); });
   head.appendChild(mx);
+  // Set fields: which ones this block shows (tempo, pause, bands and chains, the coach's columns).
+  var sfDef = programSetFields(prog);
+  var sfNames = sfDef.on.map(function (k) { return k === 'acc' ? 'Bands' : (SET_FIELD_KINDS.find(function (x) { return x[0] === k; }) || [k, k])[1]; }).concat(sfDef.cols);
+  var sfb = el('button', { type: 'button', class: 'dk-pbmax dk-pbsf', title: 'Set fields: tempo, pauses, bands and chains, your own columns' },
+    el('span', {}, 'Fields'), el('b', { class: sfNames.length ? '' : 'dk-dim' }, sfNames.length ? sfNames.join(' · ') : 'none'));
+  sfb.addEventListener('click', function () { openSetFieldsSheet(prog.id, function () { loadProgram(); }); });
+  head.appendChild(sfb);
   head.appendChild(el('span', { class: 'dk-sp' }));
   var seg = el('div', { class: 'dk-seg', role: 'radiogroup', 'aria-label': 'Builder view' });
   [['grid', 'Grid'], ['weeks', 'Weeks']].forEach(function (x) {
@@ -2977,6 +2987,8 @@ function dkPaintInspector() {
     line('% of', mx ? _num(pctSet.pct) + '% of ' + Math.round(kgToDisplay(mx)) + ' = ' + _num(kgToDisplay(pctLoadKg(pctSet.pct, mx))) + ' ' + unitLabel() + (own ? ' (program max)' : ' (best e1RM)') : 'No max yet: set one under Maxes');
   }
   box.appendChild(body);
+  // Set fields for the sets still to do in this cell, as boxes (the cell's text says them too).
+  if (ex) box.appendChild(dkInspectorFields(prog, info, ex));
   // Progression fill: this cell, moved on a step each week after it.
   var fill = el('div', { class: 'dk-insp-fill' });
   fill.appendChild(el('h3', { class: 'dk-sec-title' }, 'Fill the weeks after'));
@@ -2996,6 +3008,45 @@ function dkPaintInspector() {
   fill.appendChild(keys);
   box.appendChild(fill);
   host.appendChild(box);
+}
+function dkInspectorFields(prog, info, ex) {
+  var sec = el('div', { class: 'dk-insp-sf' });
+  var def = programSetFields(prog);
+  var todo = ex.sets.filter(function (s) { return !s.completed && !s.extra; });
+  var head = el('div', { class: 'dk-insp-sf-head' });
+  head.appendChild(el('h3', { class: 'dk-sec-title' }, 'Set fields'));
+  var edit = el('button', { type: 'button', class: 'dk-insp-sf-btn' }, def.on.length || def.cols.length ? 'Choose' : 'Add');
+  edit.addEventListener('click', function () { openSetFieldsSheet(prog.id, function () { loadProgram(); }); });
+  head.appendChild(edit);
+  sec.appendChild(head);
+  if (!def.on.length && !def.cols.length) {
+    sec.appendChild(el('p', { class: 'dk-insp-sf-empty' }, 'Tempo, pauses, bands and chains, or your own columns like Bar: SSB.'));
+    return sec;
+  }
+  if (!todo.length) {
+    var fx = setFieldsText(ex.sets[0] || {});
+    sec.appendChild(el('p', { class: 'dk-insp-sf-empty' }, fx || 'Logged. Nothing to change here.'));
+    return sec;
+  }
+  sec.appendChild(setFieldsEditor(def, todo, function (patch) {
+    var cell = document.querySelector('#programArea td[data-cell="' + info.wi + '.' + info.di + '.' + info.ei + '"] input.pg-cell');
+    var api = dkGridApi();
+    if (cell && api && api.remember) api.remember(cell);   // on the grid's undo stack
+    Store.update(function (s) {
+      var p = s.programs.find(function (x) { return x.id === prog.id; });
+      var e = p && p.weeks[info.wi] && p.weeks[info.wi].days[info.di] && p.weeks[info.wi].days[info.di].exercises[info.ei];
+      if (e) e.sets.forEach(function (st) { if (!st.completed && !st.extra) applySetFieldPatch(st, patch); });
+    });
+    persistProgram(prog.id);
+    var cur = dkProgOf(info.athleteId);
+    var e2 = cur && cur.weeks[info.wi] && cur.weeks[info.wi].days[info.di] && cur.weeks[info.wi].days[info.di].exercises[info.ei];
+    var inp = document.querySelector('#programArea td[data-cell="' + info.wi + '.' + info.di + '.' + info.ei + '"] input.pg-cell');
+    if (inp && e2) { inp.value = _gridCellText(e2); inp.dataset.orig = inp.value; }
+    // deskGridEdited without repainting this pane, so Tab goes on to the next box.
+    deskGridFit(); dkPbMarkEdited(); dkPaintPbHead();
+    var l = document.getElementById('dkPbList'); if (l) dkPaintPbRows(l);
+  }, { cls: 'dk-sf' }));
+  return sec;
 }
 function dkGridApi() { var w = document.querySelector('#programArea .pg-grid-wrap'); return w && w._api ? w._api : null; }
 // ⌘⇧R in a cell: pick the progression from a menu at the cell.

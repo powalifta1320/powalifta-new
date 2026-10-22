@@ -2227,6 +2227,214 @@ test('respects the window (old data excluded)', () => {
    doesn't come up in time, the cases are SKIPPED (not failed).
    =========================================================== */
 /* ===========================================================
+   Set fields (app.js, 2026-10-22): tempo, pauses, bands and chains, the coach's columns
+   =========================================================== */
+group('set fields');
+function _sfUnit(u, fn) { const saved = localStorage.getItem('powa-unit'); try { setUnit(u); fn(); } finally { try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch (e) {} } }
+test('set fields: the brief\'s cell reads in full, and the chain is not the load', () => {
+  const p = parsePrescription('4x3 160 @8 tempo 3-1-0 paused 2s + chains 20kg', 'kg');
+  eq(p.sets, 4); eq(p.reps, 3); eq(p.kg, 160); eq(p.rpe, 8);
+  eq(p.fields.tempo, '3-1-0'); eq(p.fields.pause, 2); eq(p.fields.acc, 'chains'); eq(p.fields.accKg, 20);
+  const q = parsePrescription('3x5 @8 w/ chains 20kg', 'kg');
+  eq(q.kg, null); eq(q.fields.accKg, 20);                               // no load written: the chain isn't one
+  eq(parsePrescription('3x5 140 @8', 'kg').fields.tempo, undefined);   // nothing extra: nothing added
+  eq(JSON.stringify(parsePrescription('3x5 140 @8', 'kg').fields), '{}');
+});
+test('set fields: tempo as coaches write it', () => {
+  const t = (s) => parseSetFields(s).fields.tempo;
+  eq(t('3x5 140 @8 tempo 3-1-0'), '3-1-0'); eq(t('@8 3-1-0'), '3-1-0'); eq(t('tempo 3/1/x/0'), '3-1-X-0');
+  eq(t('tempo 3s down'), '3s down'); eq(t('3x5 3 sec eccentric'), '3s eccentric'); eq(t('tempo: slow down'), 'slow down');
+  eq(t('3x5 @7-8'), undefined); eq(t('3x5 140-145kg'), undefined); eq(t('3x5 RIR 1-2'), undefined);   // ranges stay ranges
+  const r = parsePrescription('3x5 @7-8 3-1-0', 'kg'); eq(r.rpe, 7); eq(r.rpeHi, 8); eq(r.fields.tempo, '3-1-0');
+});
+test('set fields: pauses, how long and where', () => {
+  const p = (s) => parseSetFields(s).fields;
+  eq(p('paused 2s').pause, 2); eq(p('2ct pause').pause, 2); eq(p('2-count pause').pause, 2); eq(p('pause 1s at chest').pauseAt, 'chest');
+  eq(p('3x3 @7 paused 2s at the knee').pauseAt, 'knee'); eq(p('2s chest pause').pauseAt, 'chest'); eq(p('paused at the bottom').pauseAt, 'bottom');
+  eq(p('paused at the bottom').pause, undefined); eq(p('pause in the hole 3s').pauseAt, 'bottom');
+  eq(JSON.stringify(p('Paused squat 3x3 @7')), '{}');                  // the variant's name, not a field
+  eq(p('pause 3x3').pause, undefined);                                  // "3x3" is sets x reps
+  const r = parsePrescription('Paused bench 5x3 @7 2ct pause', 'kg'); eq(r.sets, 5); eq(r.reps, 3); eq(r.fields.pause, 2);
+});
+test('set fields: bands and chains', () => {
+  const p = (s, u) => parseSetFields(s, { unit: u }).fields;
+  eq(p('+ light bands').acc, 'bands'); eq(p('+ light bands').accTxt, 'light'); eq(p('w/ mini bands').accTxt, 'mini'); eq(p('red band').accTxt, 'red');
+  eq(p('bands: light').accTxt, 'light'); eq(p('with doubled red bands').accTxt, 'doubled red'); eq(p('+ bands').accTxt, undefined);
+  eq(p('w/ chains 20kg').accKg, 20); eq(p('20kg chains').accKg, 20); eq(p('+ chains').acc, 'chains'); eq(p('+ chains').accKg, undefined);
+  eq(Math.round(p('chains 40lb').accKg * 10) / 10, 18.1); eq(Math.round(p('chains 40', 'lbs').accKg * 10) / 10, 18.1); eq(p('chains 20 (doubled)').accTxt, 'doubled');
+});
+test('set fields: the coach\'s own columns', () => {
+  const p = (s, cols) => parsePrescription(s, 'kg', { cols }).fields.cx;
+  eq(JSON.stringify(p('3x5 140 @8 · Bar: SSB')), JSON.stringify({ Bar: 'SSB' }));
+  eq(JSON.stringify(p('3x5 140 @8 Bar: SSB Belt: no')), JSON.stringify({ Bar: 'SSB', Belt: 'no' }));
+  eq(JSON.stringify(p('3x5 @8 · Cue: knees out, chest up')), JSON.stringify({ Cue: 'knees out, chest up' }));
+  eq(JSON.stringify(p('3x5 @8 Bar type: SSB', ['Bar type'])), JSON.stringify({ 'Bar type': 'SSB' }));   // a column it has, words and all
+  eq(JSON.stringify(p('3x5 @8 · bar: ssb', ['Bar'])), JSON.stringify({ Bar: 'ssb' }));                   // its own spelling
+  eq(p('3x5 @8 rpe: 8'), undefined);                                    // reserved words aren't columns
+  const r = parsePrescription('3x5 140 @8 tempo 3-1-0 · Bar: SSB', 'kg'); eq(r.kg, 140); eq(r.rpe, 8); eq(r.fields.tempo, '3-1-0');
+});
+test('set fields: rxOf carries them on every copy, never sharing a column object', () => {
+  const s = { weight: 140, reps: 5, rpe: 8, tempo: '3-1-0', pause: 2, pauseAt: 'chest', acc: 'chains', accKg: 20, cx: { Bar: 'SSB' } };
+  const c = rxOf(s);
+  eq(c.tempo, '3-1-0'); eq(c.pause, 2); eq(c.pauseAt, 'chest'); eq(c.acc, 'chains'); eq(c.accKg, 20); eq(c.cx.Bar, 'SSB');
+  c.cx.Bar = 'comp'; eq(s.cx.Bar, 'SSB');
+  eq(JSON.stringify(rxOf({ weight: 140, reps: 5, tempo: '' })), '{}');   // an empty tempo isn't carried
+  eq(rxOf({ acc: 'kettlebells' }).acc, undefined);                     // only bands or chains
+  // the next block, a duplicated week and a template keep them
+  const nb = nextBlockWeeks({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', sets: [Object.assign({}, s)] }] }] }] }, 2.5);
+  const ns = nb[0].days[0].exercises[0].sets[0];
+  eq(ns.weight, 142.5); eq(ns.tempo, '3-1-0'); eq(ns.pause, 2); eq(ns.cx.Bar, 'SSB'); assert(ns.cx !== s.cx, 'a fresh column object');
+  // groupSets splits on them and the group carries them
+  const g = groupSets([Object.assign({}, s), Object.assign({}, s), { weight: 140, reps: 5, rpe: 8 }]);
+  eq(g.length, 2); eq(g[0].count, 2); eq(g[0].tempo, '3-1-0'); eq(g[0].cx.Bar, 'SSB'); eq(g[1].tempo, '');
+});
+test('set fields: grid cells round-trip through the parse', () => {
+  _sfUnit('kg', () => {
+    const cases = [
+      '4x3 160kg @8 tempo 3-1-0 paused 2s + chains 20kg',
+      '3x5 140kg @7 paused 1s at chest + light bands · Bar: SSB',
+      '1x3 180kg @8 · Belt: yes, 3x5 160kg @7 tempo 3s down · Belt: no',
+      '3x8 2RIR + chains (doubled) · Cue: knees out, chest up',
+      '4x6 75% tempo 3-1-X-0 · Bar: SSB · Grip: wide'
+    ];
+    cases.forEach(txt => {
+      const sets = gridParseCell(txt, null, 'squat', { weeks: [] });
+      assert(sets && sets.length, 'parses: ' + txt);
+      const back = gridCellText({ sets });
+      eq(back, txt, 'round trip');
+      eq(gridCellText({ sets: gridParseCell(back, null, 'squat', { weeks: [] }) }), back, 'stable');
+    });
+    const typed = gridParseCell('4x3 160 @8 tempo 3-1-0 paused 2s + chains 20kg', null, 'squat', { weeks: [] });
+    eq(typed.length, 4); eq(typed[0].weight, 160); eq(typed[3].accKg, 20); eq(typed[0].tempo, '3-1-0');
+    eq(gridCellText({ sets: typed }), '4x3 160kg @8 tempo 3-1-0 paused 2s + chains 20kg');
+    eq(gridParseCell('3x5 @8, junk', null, 'squat', null).length, 3);                 // trailing words don't start a group
+    eq(gridParseCell('junk', null, 'squat', null), null);
+    eq(gridParseCell('1x3 @8,3x5 @7', null, 'squat', null).length, 4);
+  });
+  _sfUnit('lbs', () => {
+    const sets = gridParseCell('3x5 315lb @8 + chains 40lb', null, 'squat', null);
+    eq(gridCellText({ sets }), '3x5 315lb @8 + chains 40lb');
+  });
+});
+test('set fields: what the lifter reads, once', () => {
+  _sfUnit('kg', () => {
+    eq(setFieldsText({ tempo: '3-1-0', pause: 2, pauseAt: 'chest', acc: 'chains', accKg: 20, cx: { Bar: 'SSB' } }), 'Tempo 3-1-0 · Pause 2s at the chest · Chains 20 kg · Bar SSB');
+    eq(setFieldsText({ acc: 'bands', accTxt: 'light' }), 'Bands light'); eq(setFieldsText({ pauseAt: 'mid-shin' }), 'Pause at the mid-shin');
+    eq(setFieldsText({ weight: 100 }), '');
+    const html = setFieldsHtml(setFieldBits({ cx: { '<b>': '<img src=x onerror=alert(1)>' } }));
+    assert(html.indexOf('<img') < 0 && html.indexOf('&lt;img') >= 0, 'escaped');
+    const sp = setFieldsSplit([{ tempo: '3-1-0', cx: { Belt: 'yes' } }, { tempo: '3-1-0', cx: { Belt: 'no' } }, { tempo: '3-1-0' }]);
+    eq(sp.common.map(b => b.label).join(','), 'Tempo'); eq(sp.per[0].map(b => b.value).join(','), 'yes'); eq(sp.per[2].length, 0);
+  });
+});
+test('set fields: a program\'s columns and switches', () => {
+  const prog = { weeks: [{ days: [{ exercises: [{ sets: [{ tempo: '3-1-0', cx: { Bar: 'SSB' } }, { acc: 'bands' }] }] }] }] };
+  eq(JSON.stringify(programSetFields(prog)), JSON.stringify({ on: ['tempo', 'acc'], cols: ['Bar'] }));   // from what the sets use
+  prog.setFields = { on: ['pause'], cols: ['Belt', 'bar'] };
+  eq(JSON.stringify(programSetFields(prog)), JSON.stringify({ on: ['pause'], cols: ['Belt', 'bar'] }));  // the coach's choice, a set's column kept
+  eq(cleanSetFieldsDef({ on: ['tempo', 'evil'], cols: ['RPE', 'Bar', 'bar', ''] }).cols.join(','), 'Bar');
+  eq(cleanSetFieldsDef([1, 2]), null);
+});
+test('set fields: pasted sheets, as columns and as written', () => {
+  const tsv = ['Week\tDay\tExercise\tSets\tReps\tLoad\tRPE\tTempo\tPause\tBands/Chains\tBar\tNotes',
+    '1\tDay 1\tSquat\t4\t3\t160\t8\t3-1-0\t2s bottom\tchains 20kg\tSSB\tStay tight',
+    '1\tDay 1\tBench\t3\t5\t100\t7\t\t1s chest\tlight\t\t'].join('\n');
+  const r = parseProgramSheet(tsv, { unit: 'kg' });
+  const sq = r.weeks[0].days[0].exercises[0].sets[0], be = r.weeks[0].days[0].exercises[1].sets[0];
+  eq(sq.weight, 160); eq(sq.tempo, '3-1-0'); eq(sq.pause, 2); eq(sq.pauseAt, 'bottom'); eq(sq.acc, 'chains'); eq(sq.accKg, 20); eq(sq.cx.Bar, 'SSB');
+  eq(be.acc, 'bands'); eq(be.accTxt, 'light'); eq(be.pauseAt, 'chest'); eq(be.cx, undefined);
+  eq(r.weeks[0].days[0].exercises[0].note, 'Stay tight');
+  eq(JSON.stringify(r.setFields), JSON.stringify({ on: ['tempo', 'pause', 'acc'], cols: ['Bar'] }));
+  const w = parseProgramSheet('Day 1\nSquat 3x5 @8 3-1-0\nBench 4x3 @8 2ct pause\nDeadlift 3x2 200kg w/ chains 20kg', { unit: 'kg' });
+  const ex = w.weeks[0].days[0].exercises;
+  eq(ex[0].sets[0].tempo, '3-1-0'); eq(ex[1].sets[0].pause, 2); eq(ex[2].sets[0].weight, 200); eq(ex[2].sets[0].accKg, 20);
+  eq(w.warnings.length, 0);
+});
+test('set fields: the spreadsheet export writes them and reads back in', () => {
+  _sfUnit('kg', () => {
+    const csv = buildProgramCsv({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', variant: 'Competition', note: 'Brace', sets: [
+      { weight: 160, reps: 3, rpe: 8, tempo: '3-1-0', pause: 2, pauseAt: 'bottom', acc: 'chains', accKg: 20, cx: { Bar: 'SSB' } }, { weight: 150, reps: 5, rpe: 7 }] }] }] }] });
+    const lines = csv.split('\n');
+    assert(/,tempo,pause,bands\/chains,Bar$/.test(lines[0]), lines[0]);
+    assert(/,3-1-0,2s at bottom,chains 20kg,SSB$/.test(lines[1]), lines[1]);
+    eq(lines[1].indexOf('Week 1,A,Squat,Competition,1,160,3,8,') === 0, true);
+    const back = parseProgramSheet(csv, { unit: 'kg' });
+    const s0 = back.weeks[0].days[0].exercises[0].sets[0];
+    eq(s0.tempo, '3-1-0'); eq(s0.pause, 2); eq(s0.pauseAt, 'bottom'); eq(s0.accKg, 20); eq(s0.cx.Bar, 'SSB');
+    eq(back.weeks[0].days[0].exercises[0].sets[1].tempo, '');
+  });
+});
+test('set fields: RPE ranges, waves and pause ranges are not tempos', () => {
+  const a = parsePrescription('3x3 @7-8-9', 'kg'); eq(a.rpe, 7); eq(a.rpeHi, 8); eq(a.fields.tempo, undefined);
+  const b = parsePrescription('3x5 140 @6-7-8', 'kg'); eq(b.kg, 140); eq(b.rpe, 6); eq(b.fields.tempo, undefined);
+  const c = parsePrescription('3x5 RPE 7-8-9', 'kg'); eq(c.rpe, 7); eq(c.fields.tempo, undefined);
+  const d = parsePrescription('3x5 140 @8 pause 2-3', 'kg'); eq(d.rpe, 8); eq(d.kg, 140); eq(d.fields.pause, 3);
+  eq(parsePrescription('1x5 5-3-1', 'kg').fields.tempo, undefined);       // a wave
+  eq(parsePrescription('3x5 140 @8 3-1-0', 'kg').fields.tempo, '3-1-0');  // still a tempo
+  eq(parseSetFields('tempo 31X0').fields.tempo, '3-1-X-0');
+  eq(parseSetFields('pause chest 1s').fields.pause, 1); eq(parseSetFields('pause chest 1s').fields.pauseAt, 'chest');
+  const sk = window.SwitchKit.parseSetText('100kg x 5-5-5'); assert(sk && sk.kg === 100 && sk.reps === 5, 'journal rep strings still import');
+  const sk2 = window.SwitchKit.parseSetText('100kg x 5 5-3-1'); assert(sk2 && sk2.kg === 100 && !sk2.fields.tempo, 'a journal wave is not a tempo');
+});
+test('set fields: chains written as a pair are not the load', () => {
+  const a = parsePrescription('3x5 120 + chains 2x10kg', 'kg'); eq(a.kg, 120); eq(a.fields.acc, 'chains'); eq(a.fields.accKg, 20);
+  const b = parsePrescription('5x3 160 @8 chains 2 x 10kg', 'kg'); eq(b.kg, 160); eq(b.rpe, 8); eq(b.fields.accKg, 20);
+});
+test('set fields: a column value with its own colon keeps its column', () => {
+  _sfUnit('kg', () => {
+    [{ Stance: 'wide: toes out' }, { Cue: 'knees: out' }, { Bar: 'SSB', Cue: 'up: fast, down: slow' }].forEach(cx => {
+      const sets = gridParseCell(gridCellText({ sets: [Object.assign(newSet(140, 5, 8), { cx })] }), null, 'squat', { weeks: [] });
+      eq(JSON.stringify(sets[0].cx), JSON.stringify(cx));
+    });
+    eq(JSON.stringify(parsePrescription('3x5 140 @8 Bar: SSB Belt: no', 'kg').fields.cx), JSON.stringify({ Bar: 'SSB', Belt: 'no' }));
+  });
+});
+test('set fields: everything a builder box accepts survives the grid text', () => {
+  const inputs = { tempo: ['3-1-0', '31X0', 'slow', 'controlled', '3 down 1 up', '3s down', 'slow, controlled', 'X-X-X'],
+    pause: ['2', '2s chest', '2s deficit', '2s 1 inch off', '1s just above knee', 'chest', 'deficit', '2-3s', 'chest 1s', 'at the knee'],
+    acc: ['light bands', 'chains 20kg', 'chains', 'red', '20', 'reverse light bands', 'doubled red bands 9kg'],
+    'cx:Bar': ['SSB', 'wide: toes out', 'a · b'] };
+  ['kg', 'lbs'].forEach(u => _sfUnit(u, () => {
+    Object.keys(inputs).forEach(kind => inputs[kind].forEach(txt => {
+      const patch = setFieldInputParse(kind, txt);
+      assert(patch, kind + ' reads: ' + txt);
+      const st = applySetFieldPatch(newSet(140, 5, 8), patch);
+      const want = JSON.stringify(setFieldsOf(st));
+      const back = gridParseCell(gridCellText({ sets: [st] }), null, 'squat', { weeks: [] });
+      assert(back && back.length === 1, 'cell parses: ' + gridCellText({ sets: [st] }));
+      // a separator in a column's value is written as "/" (it would end the value)
+      eq(JSON.stringify(setFieldsOf(back[0])), want.replace(' · ', ' / '), u + ' ' + kind + ' "' + txt + '" → ' + gridCellText({ sets: [st] }));
+      if (kind !== 'cx:Bar') eq(setFieldInputText(back[0], kind === 'acc' ? 'acc' : kind), setFieldInputText(st, kind), 'the box shows the same');
+    }));
+  }));
+  eq(setFieldInputParse('pause', '2s deficit').pauseAt, 'deficit');
+  eq(setFieldInputParse('pause', '1s just above knee').pauseAt, 'just above knee');
+  _sfUnit('lbs', () => {
+    const st = applySetFieldPatch(newSet(140, 5, 8), { acc: 'bands', accKg: 9 });
+    eq(gridParseCell(gridCellText({ sets: [st] }), null, 'squat', null)[0].accKg, 9);   // no drift in lb
+  });
+});
+test('set fields: pasted sheets skip metric columns; the export reads back', () => {
+  const r = parseProgramSheet('Exercise\tSets\tReps\tLoad\tVolume\tTonnage\t1RM\tVideo\tBar\tPause\nSquat\t3\t5\t140\t2100\t2100\t180\thttp://x\tSSB\tchest 1s', { unit: 'kg' });
+  const st = r.weeks[0].days[0].exercises[0].sets[0];
+  eq(JSON.stringify(st.cx), JSON.stringify({ Bar: 'SSB' })); eq(st.pause, 1); eq(st.pauseAt, 'chest');
+  _sfUnit('kg', () => {
+    const prog = { weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', sets: [
+      { weight: 160, reps: 3, rpe: 8, tempo: 'slow', pause: 2, pauseAt: 'deficit', cx: { Bar: 'SSB' } },
+      { weight: 160, reps: 3, rpe: 8, rpeHi: 9, tempo: 'slow', pause: 2, pauseAt: 'deficit', cx: { Bar: 'SSB' } },
+      { weight: 150, reps: 5, rpe: 7 }] }] }] }] };
+    const back = parseProgramSheet(buildProgramCsv(prog), { unit: 'kg' });
+    const sets = back.weeks[0].days[0].exercises[0].sets;
+    eq(sets.length, 3, 'one row is one set');
+    eq(sets[0].rpe, 8); eq(sets[1].rpeHi, 9); eq(sets[2].rpe, 7); eq(sets[0].weight, 160);
+    eq(sets[0].tempo, 'slow'); eq(sets[0].pauseAt, 'deficit'); eq(sets[0].cx.Bar, 'SSB'); eq(sets[2].cx, undefined);
+  });
+});
+test('set fields: the lifter\'s line can wrap between fields', () => {
+  const html = setFieldsHtml(setFieldBits({ tempo: '3-1-X-0', cx: { Bar: 'SSB', Cue: 'knees out' } }));
+  assert(/<\/span> <span class="sf-bit">/.test(html), 'bits joined by a space');
+});
+/* ===========================================================
    Switch kit (switch-kit.js): history import, export, zip
    =========================================================== */
 group('switch kit');
@@ -2266,6 +2474,26 @@ test('switch kit: exercises from app exports', () => {
   eq(m('Romanian Deadlift').variant, 'RDL'); eq(m('Lat Pulldown').lift, 'pull'); eq(m('Lat Pulldown').exerciseName, 'Lat Pulldown');
 });
 const SK_TODAY = '2026-10-22';
+test('switch kit: set fields from history sheets and journals, and in the export', () => {
+  const p = SK.parseSetText('140x3 @8 w/ chains 20kg');
+  eq(p.kg, 140); eq(p.reps, 3); eq(p.rpe, 8); eq(p.fields.accKg, 20);                // the chain is not the load
+  eq(SK.parseSetText('100x5 @7 3-1-0').fields.tempo, '3-1-0');
+  const csv = 'Date,Exercise,Weight (kg),Reps,RPE,Tempo,Pause,Chains\n2026-10-01,Squat,160,3,8,3-1-0,2s bottom,20kg\n2026-10-01,Bench,100,5,7,,,';
+  const r = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].weight, 160);
+  assert(/Tempo 3-1-0/.test(r.logs[0].note) && /Pause 2s at the bottom/.test(r.logs[0].note) && /Chains 20/.test(r.logs[0].note), r.logs[0].note);
+  eq(r.logs[1].note, '');
+  const j = SK.planHistoryImport('2026-10-02\nSquat 150x3 @8 paused 2s, 150x3 @8.5 paused 2s', { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(j.logs.length, 2); eq(j.logs[0].weight, 150); assert(/Pause 2s/.test(j.logs[0].note), j.logs[0].note);
+  // the export's program file carries them, and the program importer reads that file back
+  const files = SK.buildExportFiles({ role: 'athlete', programs: [{ name: 'Block', weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', variant: 'Competition', sets: [
+    { weight: 160, reps: 3, rpe: 8, tempo: '3-1-0', pause: 2, pauseAt: 'bottom', acc: 'bands', accTxt: 'light', cx: { Bar: 'SSB', Belt: 'no' } }] }] }] }] }] });
+  const prog = files.find(f => /^program\.csv$/.test(f.name));
+  assert(prog && /pause_s,pause_at,bands_chains,custom/.test(prog.text), 'columns');
+  const back = parseProgramSheet(prog.text, { unit: 'kg' });
+  const s0 = back.weeks[0].days[0].exercises[0].sets[0];
+  eq(s0.tempo, '3-1-0'); eq(s0.pause, 2); eq(s0.pauseAt, 'bottom'); eq(s0.accTxt, 'light'); eq(s0.cx.Bar, 'SSB'); eq(s0.cx.Belt, 'no');
+});
 test('switch kit: a Strong export (semicolons, lb, warm-ups, no RPE)', () => {
   const csv = ['Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE',
     '2025-01-06 07:30:00;Lower;1h;Squat (Barbell);W;135;5;0;0;;;',
