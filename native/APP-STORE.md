@@ -111,8 +111,8 @@ Source of truth is `privacy.html`. Declare:
 |---|---|---|---|---|
 | Name | Yes | Yes | No | App functionality (your profile, coach roster) |
 | Email address | Yes | Yes | No | App functionality (account, auth, transactional email) |
-| Health & Fitness (workouts, bodyweight) | Yes | Yes | No | App functionality (your training log) |
-| Health (sleep, resting heart rate; 1.3, only if the lifter shares with their coach) | Yes | Yes | No | App functionality: shown to their own coach. Read from Apple Health; off by default |
+| Fitness (the sets and sessions a lifter logs, the weigh-ins they type) | Yes | Yes | No | App functionality (your training log) |
+| Health (1.3, read from Apple Health; see "Apple Health" below for exactly which data and when) | Yes | Yes | No | App functionality: the lifter's own log and their own current coach. Never advertising, never sold |
 | User content (notes, form-check videos, messages, club posts + reactions) | Yes | Yes | No | App functionality |
 | Photos or videos (profile photo, form-check videos) | Yes | Yes | No | App functionality |
 | Other user contact info (Instagram and TikTok handles, optional) | Yes | Yes | No | App functionality (shown on your profile, club lifter card, coach page) |
@@ -124,10 +124,31 @@ Source of truth is `privacy.html`. Declare:
 | User ID (account id) | Yes | Yes | No | App functionality — the account the data belongs to |
 
 ### Apple Health (1.3, branch feat/apple-health)
+Checked against the code on 22 Oct 2026: `native/ios-native/App/HealthPlugin.swift`, `health.js`, `db.js` (APPLE HEALTH SHARING), `sql/migration-health-2026-10-22.sql`, `sql/migration-readiness-cut-2026-10-22.sql` (both live), `native/scripts/inject-health.rb`. If any of those change, re-check this list, `privacy.html` → Apple Health and `data.html` → What we keep.
+
+**Asked for (one permission sheet).** Read: body mass, sleep analysis, resting heart rate, heart rate variability (SDNN), dietary energy consumed, dietary protein, workouts. Write: body mass, workouts. No clinical records, no background delivery. Workouts are in the read set but no code reads them (see "Before submitting" below).
+
+**What leaves the phone (= "collected" for App Privacy).** All of it: Health category, linked to the user (the account id), not used for tracking, purpose App functionality.
+
+| From Apple Health | Stored where | When it goes up | Who can read it (RLS) | Deleted when |
+|---|---|---|---|---|
+| Bodyweight (a scale or another app) | `bodyweight`, as an ordinary weigh-in | Whenever Health is on and a day has no POWALIFTA weigh-in (or the lifter picks Health's number) | The lifter; their current coach (`bw_coach_read`). The latest one also feeds club boards / the leaderboard if the lifter is on them, the weekly email (via Resend) and the AI assistant's snapshot (via Google Gemini) if the lifter asks it something | The lifter deletes the weigh-in, or deletes the account. Turning Health off keeps it |
+| Sleep minutes, resting HR (bpm), HRV (ms) per day | `health_daily` (`sleep_min`, `rhr_bpm`, `hrv_ms`) | Only while `profiles.share_health_with_coach` is on (off by default; the insert/update policies refuse otherwise). The first upload is the last 14 nights and 35 days | The lifter; their current coach only while sharing is on (`health_daily_coach_read`) | At once when sharing goes off (trigger `trg_health_share_off`), which also happens when Health is turned off in the app and whenever `coach_id` changes (leave, removed, new coach: `trg_health_share_reset`). Account deletion cascades |
+| Calories and protein eaten per day (two totals, no foods) | `nutrition_daily` (`kcal`, `protein_g`) | Only while `profiles.share_nutrition_with_coach` is on (a separate switch, off by default). The first upload is the last 14 days; a day with nothing logged sends no row | The lifter; their current coach only while food sharing is on | Same rules as `health_daily` (`trg_nutrition_share_off`, `trg_nutrition_share_reset`, cascade) |
+| Last night's sleep, as a number | `checkin_answers` | Only if the coach asked a check-in question with "sleep" in it and the lifter taps Send (pre-filled, labelled "From Apple Health", editable) | The lifter and their current coach, like any check-in answer | With the account (cascade) |
+
+**What stays on the phone (not collected).** The 14 nights of sleep, 35 days of resting HR and HRV, 14 days of calories and protein, the readiness / rest suggestion worked out from them (WebView localStorage, per account), and the Readiness / Lock Screen widget snapshot. Nothing is put in iCloud.
+
+**Written to Health (not collected).** Weigh-ins logged in POWALIFTA (sync id `powa-bw-<id>`), and finished sessions as traditional strength training workouts with the session name, set count, total kg and the lifts (sync id `powa-session-<id>`; undo deletes it).
+
 - **Xcode:** App target → Signing & Capabilities → **+ HealthKit** (inject-health.rb already adds the entitlement, the capability flag and both permission texts; with automatic signing, Xcode registers HealthKit on the App ID). Leave "Clinical Health Records" and "Background Delivery" off.
-- **App Store Connect → App Privacy:** Health (sleep, resting heart rate) as in the table above; Health & Fitness already declared. The app uses Apple Health data only for the lifter's own features and, if they turn it on, to show their coach; never for ads, never sold, never in iCloud (privacy.html → Apple Health).
-- **Review notes:** "Apple Health is optional (You → Apple Health). It reads bodyweight, sleep and resting heart rate, and writes weigh-ins and strength workouts. To try it on the review account: turn it on, allow access, log a weigh-in (it appears in Health → Body Measurements → Weight), finish a session (Health → Workouts). The demo does not use Apple Health."
-- **Guidelines:** 5.1.3 (Health data only for health/fitness features, user consent for sharing) and 27.x HealthKit: the app shows clearly what it does with Health (the Apple Health sheet), has a privacy policy covering it, and doesn't store Health data in iCloud.
+- **App Store Connect → App Privacy:** under Health & Fitness tick **Health** (and Fitness, as in the table above). For Health: *Is it linked to the user's identity?* **Yes**. *Used for tracking?* **No**. *Purposes:* **App Functionality** only. Nothing goes to advertising, analytics or data brokers; it is never sold and never in iCloud (privacy.html → Apple Health). The data written to Health and the data that stays on the phone are not declared.
+- **Review notes:** the Apple Health paragraph is in the App Review notes block below.
+- **Guidelines:** 5.1.3 (Health data only for the lifter's health and fitness features; shared with their coach only with the lifter's switch; not used for advertising or data mining; not in iCloud) and 5.1.1 (permission texts that say what is read and why; ask only for what's used). The app shows clearly what it does with Health (the Apple Health sheet) and the privacy policy covers it.
+- **Before submitting 1.3:**
+  1. DONE 2026-10-22: `HealthPlugin.swift` → `requestAccess`: take `HKObjectType.workoutType()` out of the **read** set (keep it in the share set). Nothing reads workouts, and asking for data the app doesn't use invites a 5.1.1 rejection. Then drop the sentence about Workouts in privacy.html → Apple Health.
+  2. DONE 2026-10-22 (applies after the next cap sync + inject-all.sh): `inject-health.rb` → `NSHealthShareUsageDescription` ended "It stays on your phone unless you choose to share it with your coach", but weigh-ins brought in from Health are saved to the account and the coach sees them. Suggested: "POWALIFTA reads your bodyweight to fill in your weigh-ins, which are saved to your account like any weigh-in; last night's sleep, your resting heart rate and heart rate variability to suggest longer rests on harder days; and the calories and protein you log to show your daily averages while you make weight. Sleep, heart and food data stay on your phone unless you choose to share them with your coach."
+  3. Decide whether the AI assistant may see the latest weigh-in when it came from Apple Health (`ai-chat.js` snapshot `bw`, sent to Google Gemini). It's disclosed in privacy.html; dropping `bw` from the athlete snapshot removes the question.
 
 **Tracking:** NO. The app does not track users across apps/sites. (Plausible is privacy-first + cookieless; declare "Data Not Used to Track You".)
 
@@ -161,6 +182,8 @@ Age: POWALIFTA is for people 16 and older; sign-up asks people to confirm this.
 Account deletion: You → Your data → Delete my account. It erases the account and its data straight away.
 
 Live Activity: after a set is logged, the rest timer shows on the Lock Screen and in the Dynamic Island; on iOS 17+ it has a Log set button.
+
+Apple Health (optional, off until the lifter turns it on under You → Apple Health): it reads bodyweight, sleep, resting heart rate, heart rate variability, and dietary energy and protein; it saves the lifter's weigh-ins and finished sessions (as strength training workouts). Weigh-ins brought in from Health become ordinary weigh-ins in the lifter's account. Sleep, resting heart rate and HRV leave the phone only if the lifter switches on sharing with their coach, and calories and protein only under a separate food-sharing switch; both are off by default, only the lifter and their current coach can read the shared data, and turning a switch off (or leaving the coach) deletes it on our server at once. Health data is linked to the account, never used for advertising or tracking, never sold, and never stored in iCloud. To try it on the review account: turn it on and allow access, log a weigh-in (Health → Body Measurements → Weight), finish a session (Health → Workouts). The demos do not use Apple Health.
 ```
 
 ## Age rating (App Store Connect → App Information → Age Rating)

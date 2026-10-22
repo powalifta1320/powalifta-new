@@ -247,6 +247,12 @@ function _sfDefLocal(id, def) {
 }
 function _cleanSfDef(d) { return typeof cleanSetFieldsDef === 'function' ? cleanSetFieldsDef(d) : null; }
 function mapDbProgram(r) {
+  const p = _mapDbProgramRow(r);
+  _rememberProgBase(p);
+  return p;
+}
+// The row as a program, without making it this device's base (a live row is merged first: app.js liveFlush).
+function _mapDbProgramRow(r) {
   const p = { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id, name: r.name, weeks: _cleanWeekNumbers(r.weeks), maxes: r.maxes || null };
   if (r.rev != null) p.rev = Number(r.rev);   // migration-program-integrity-2026-10-22.sql
   // migration-meet-calendar-2026-10-22.sql: the block's first Monday and its meet (W-n labels).
@@ -254,7 +260,6 @@ function mapDbProgram(r) {
   if (r.meet_date) p.meetDate = String(r.meet_date).slice(0, 10);
   const sf = r.set_fields !== undefined ? _cleanSfDef(r.set_fields) : _cleanSfDef(_sfDefLocal(r.id));
   if (sf) p.setFields = sf;
-  _rememberProgBase(p);
   return p;
 }
 // programs.maxes arrives with migration-blocks-2026-10-22.sql; until then it's left out.
@@ -284,8 +289,14 @@ function _progSnap(p) { return JSON.stringify({ name: (p && p.name) || '', weeks
 // A block's dates (starts_on, meet_date) as this device last read or wrote them: the base the
 // conflict merge needs so a calendar drag on another device isn't written back over.
 const _progDatesBase = {};
-function _rememberProgBase(p) {
+// The rev each remembered copy is at: a copy older than the one remembered never replaces it (a slow
+// save reply landing after a live row already brought a newer one in).
+const _progBaseRev = {};
+function _rememberProgBase(p, rev) {
   if (!p || !p.id) return;
+  const r = typeof rev === 'number' ? rev : (typeof p.rev === 'number' ? p.rev : null);
+  if (r != null && typeof _progBaseRev[p.id] === 'number' && r < _progBaseRev[p.id]) return;
+  if (r != null) _progBaseRev[p.id] = r; else delete _progBaseRev[p.id];
   _progBase[p.id] = _progSnap(p);
   _progDatesBase[p.id] = { startsOn: _isoOrNull(p.startsOn), meetDate: _isoOrNull(p.meetDate) };
 }
@@ -1697,10 +1708,12 @@ const DB = {
     let base = prog._base || this.programBase(prog.id);
     let mine = { id: prog.id, athleteId: prog.athleteId, coachId: prog.coachId, name: prog.name, weeks: prog.weeks, maxes: prog.maxes, rev: prog.rev, setFields: prog.setFields,
       startsOn: prog.startsOn, meetDate: prog.meetDate };
-    let merged = false, rev, tries = 0;
+    let merged = false, rev, tries = 0, lastSent = sentJson;
     for (;;) {
       if (++tries > 8) throw new Error('Could not save the program: it kept changing. Try again');
       const row = mapJsProgram(mine);
+      // What this attempt sends, as text now: mine.weeks may be the Store's own (still being edited).
+      lastSent = _progSnap(mine);
       // Postgres upsert runs INSERT-with-CHECK + UPDATE: athletes can't pass the INSERT policy
       // (coach-only). So: UPDATE first; if no row hit, INSERT.
       const res = await sb.from('programs').update(row).in('id', [prog.id]).select(_noProgramRev ? 'id' : 'id, rev');
@@ -1730,12 +1743,14 @@ const DB = {
       break;
     }
     if (_noSetFields && prog.setFields !== undefined) _sfDefLocal(prog.id, _cleanSfDef(prog.setFields));
-    _rememberProgBase(mine);
+    // The base is what reached the server, not the live object (edits typed meanwhile aren't on it).
+    const written = JSON.parse(lastSent);
+    _rememberProgBase(Object.assign({ id: prog.id, startsOn: mine.startsOn, meetDate: mine.meetDate }, written), typeof rev === 'number' ? rev : undefined);
     // The dates a merge settled on (another device's calendar drag) come back with it, so the
     // next save from this copy doesn't carry the old ones again.
     const dates = {};
     if (merged) { if (mine.startsOn !== undefined) dates.startsOn = _isoOrNull(mine.startsOn); if (mine.meetDate !== undefined) dates.meetDate = _isoOrNull(mine.meetDate); }
-    if (typeof programWriteLanded === 'function') programWriteLanded(prog, sentJson, { name: mine.name || '', weeks: mine.weeks || [], maxes: mine.maxes || null }, rev, merged, dates);
+    if (typeof programWriteLanded === 'function') programWriteLanded(prog, sentJson, written, rev, merged, dates);
     else if (typeof rev === 'number') prog.rev = rev;
     return { rev, merged };
   },
@@ -1750,13 +1765,15 @@ const DB = {
   // True once a save found no programs.starts_on / meet_date (the calendar migration hasn't run).
   programDatesMissing() { return _noProgramDates; },
   // A set patch landed with the next rev: the remembered copy gets the same patch.
-  patchProgramBase(id, path, patch) {
+  patchProgramBase(id, path, patch, rev) {
     const b = this.programBase(id);
     if (!b || typeof _findProgramSet !== 'function') return;
+    if (typeof rev === 'number' && typeof _progBaseRev[id] === 'number' && rev <= _progBaseRev[id]) return;   // already in it
     const s = _findProgramSet(b, path);
-    if (!s) { delete _progBase[id]; return; }
+    if (!s) { delete _progBase[id]; delete _progBaseRev[id]; return; }
     applySetPatch(s, patch);
     _progBase[id] = _progSnap(b);
+    if (typeof rev === 'number') _progBaseRev[id] = rev;
   },
   // One set logged / un-logged (log_program_set): the new rev, or null when the set isn't there.
   // Throws { notReady } before the migration runs; any other throw = offline (the outbox retries).
@@ -3689,5 +3706,226 @@ Object.assign(DB, {
         .subscribe();
       return () => { try { sb.removeChannel(ch); } catch (e) {} };
     } catch (e) { return null; }
+  }
+});
+
+// ---------- LIVE DESK (sql/migration-live-desk-2026-10-22.sql) ----------
+// Per signed-in user: a 'prog' channel (programs: the coach's, or the lifter's own, so a set logged
+// lands on the desk and a coach's edit reaches the phone) and, for a coach, a 'roster' channel (the
+// roster's logged sets, form checks, weekly check-ins, check-in answers, session notes). Two channels
+// so programs stay live even if one of the other tables is ever left out of supabase_realtime
+// (Realtime refuses a whole join when one binding's table isn't published).
+// Every listener is filtered server-side (coach_id, athlete_id or the roster's ids, 100 per listener)
+// and Realtime still checks each row against the subscriber's SELECT policies, so a coach only ever
+// receives rows of their current lifters. No DELETE listeners: a DELETE can't be filtered or
+// RLS-checked, so it would reach every subscriber of the table.
+// Rows go to onRow(kind, row, eventType) mapped like the rest of db.js; a program row too big for
+// Realtime (or an update that left `weeks` out) arrives as { id, athleteId, coachId, rev, partial: true }
+// and app.js fetches it. onStatus(status, info): status is the programs channel's ('live' | 'retry' |
+// 'down' | 'paused' | 'off'); info.joined names a channel that just (re)joined, and app.js then
+// reads what it may have missed (rows written before the join, or during a gap).
+// The channels go on sign-out, 30 s after the tab is hidden (back when it shows) and on pagehide;
+// a dropped channel comes back with backoff (1 s, 2 s, 4 s ... 30 s), then every 60 s.
+const _LIVE_IN_MAX = 100;            // Realtime's in-filter takes at most 100 values
+const _LIVE_HIDE_MS = 30000;
+const _LIVE_MAX_TRIES = 8;
+const _LIVE_SLOW_MS = 60000;         // after the backoff runs out
+const _live = { spec: null, handlers: null, chans: {}, everUp: {}, hideT: null, paused: false, wired: false, status: 'off' };
+function _liveNames(spec) { return spec && spec.role === 'coach' ? ['prog', 'roster'] : ['prog']; }
+function _liveSetStatus(st, info) {
+  _live.status = st;
+  try { if (_live.handlers && _live.handlers.onStatus) _live.handlers.onStatus(st, info || {}); } catch (e) { console.warn('live status cb', e); }
+}
+function _liveDropOne(name) {
+  const c = _live.chans[name];
+  if (!c) return;
+  clearTimeout(c.retryT); c.retryT = null;
+  const ch = c.ch;
+  c.ch = null;
+  if (ch) { try { sb.removeChannel(ch); } catch (e) {} }
+}
+function _liveDrop() { Object.keys(_live.chans).forEach(_liveDropOne); }
+function _liveEmit(kind, row, ev) {
+  try { if (_live.handlers && _live.handlers.onRow) _live.handlers.onRow(kind, row, ev); } catch (e) { console.warn('live row cb', kind, e); }
+}
+function _liveProgramRow(raw) {
+  if (!raw || !raw.id) return null;
+  if (!Array.isArray(raw.weeks)) return { id: raw.id, athleteId: raw.athlete_id, coachId: raw.coach_id, rev: raw.rev != null ? Number(raw.rev) : undefined, partial: true };
+  return _mapDbProgramRow(raw);
+}
+function _liveOpen() {
+  if (!_live.spec || !_live.spec.uid || _live.paused) return;
+  _liveNames(_live.spec).forEach(_liveOpenOne);
+}
+function _liveOpenOne(name) {
+  const spec = _live.spec;
+  if (!spec || !spec.uid || _live.paused) return;
+  const c = _live.chans[name] || (_live.chans[name] = { ch: null, tries: 0, retryT: null, st: 'off' });
+  _liveDropOne(name);
+  const tag = 'live:' + spec.role + ':' + name + ':' + spec.uid + ':' + Math.random().toString(36).slice(2, 8);
+  let ch;
+  try {
+    ch = sb.channel(tag);
+    const on = (table, events, filter, kind, map) => events.forEach(event => {
+      ch.on('postgres_changes', { event, schema: 'public', table, filter }, payload => {
+        if (c.ch !== ch || !payload || !payload.new) return;
+        const row = map(payload.new);
+        if (row) _liveEmit(kind, row, payload.eventType || event);
+      });
+    });
+    const UI = ['INSERT', 'UPDATE'];
+    if (name === 'prog') {
+      on('programs', UI, (spec.role === 'coach' ? 'coach_id=eq.' : 'athlete_id=eq.') + spec.uid, 'program', _liveProgramRow);
+    } else {
+      on('form_checks', UI, 'coach_id=eq.' + spec.uid, 'formcheck', mapDbFormCheck);
+      on('checkin_answers', UI, 'coach_id=eq.' + spec.uid, 'answer', mapDbCheckinAnswer);
+      const ids = (spec.athleteIds || []).filter(id => /^[0-9a-f-]{36}$/i.test(String(id)));
+      for (let i = 0; i < ids.length; i += _LIVE_IN_MAX) {
+        const f = 'athlete_id=in.(' + ids.slice(i, i + _LIVE_IN_MAX).join(',') + ')';
+        on('workout_logs', ['INSERT'], f, 'log', mapDbLog);
+        on('checkins', UI, f, 'checkin', mapDbCheckin);
+        on('session_notes', UI, f, 'note', mapDbNote);
+      }
+    }
+    c.ch = ch;
+    ch.subscribe((status) => {
+      if (c.ch !== ch) return;   // an old channel closing
+      if (status === 'SUBSCRIBED') {
+        const resumed = !!_live.everUp[name];
+        _live.everUp[name] = true; c.tries = 0; c.st = 'live';
+        if (name === 'prog') _live.status = 'live';
+        _liveSetStatus(_live.status, { joined: name, resumed });
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        _liveRetry(name);
+      }
+    });
+  } catch (e) {
+    console.warn('liveSubscribe', name, e);
+    if (ch && c.ch !== ch) { try { sb.removeChannel(ch); } catch (e2) {} }
+    _liveRetry(name);
+  }
+}
+function _liveRetry(name) {
+  _liveDropOne(name);
+  const c = _live.chans[name];
+  if (!c || !_live.spec || _live.paused) return;
+  let wait, st;
+  if (c.tries >= _LIVE_MAX_TRIES) { wait = _LIVE_SLOW_MS; st = 'down'; }   // still trying, slowly (and at once on online / show)
+  else { wait = Math.min(30000, 1000 * Math.pow(2, c.tries)) + Math.floor(Math.random() * 400); c.tries++; st = 'retry'; }
+  c.st = st;
+  c.retryT = setTimeout(() => _liveOpenOne(name), wait);
+  if (name === 'prog') _liveSetStatus(st, { wait });
+}
+// Back from hidden / offline: a fresh channel now for any that isn't up (app.js reads what was missed).
+function _liveWake() {
+  clearTimeout(_live.hideT); _live.hideT = null;
+  if (!_live.spec) return;
+  const wasPaused = _live.paused;
+  _live.paused = false;
+  _liveNames(_live.spec).forEach(name => {
+    const c = _live.chans[name];
+    if (wasPaused || !c || !c.ch || c.st === 'down') { if (c) c.tries = 0; _liveOpenOne(name); }
+  });
+}
+function _livePause() {
+  clearTimeout(_live.hideT); _live.hideT = null;
+  if (!_live.spec || _live.paused) return;
+  _live.paused = true;
+  _liveDrop();
+  Object.keys(_live.chans).forEach(n => { _live.chans[n].st = 'paused'; });
+  _liveSetStatus('paused');
+}
+function _liveWire() {
+  if (_live.wired) return;
+  _live.wired = true;
+  document.addEventListener('visibilitychange', () => {
+    if (!_live.spec) return;
+    if (document.visibilityState === 'hidden') { clearTimeout(_live.hideT); _live.hideT = setTimeout(_livePause, _LIVE_HIDE_MS); }
+    else _liveWake();
+  });
+  window.addEventListener('pagehide', () => { if (_live.spec) _livePause(); });
+  window.addEventListener('pageshow', (e) => { if (_live.spec && e && e.persisted) _liveWake(); });
+  window.addEventListener('online', () => { if (_live.spec && document.visibilityState !== 'hidden') _liveWake(); });
+  try { sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') DB.liveUnsubscribe(); }); } catch (e) {}
+}
+Object.assign(DB, {
+  // spec: { role: 'coach' | 'athlete', uid, athleteIds }. handlers: { onRow(kind, row, ev), onStatus(st, info) }.
+  // Calling it again replaces the channels (a new roster): never two sets at once. → unsubscribe fn.
+  liveSubscribe(spec, handlers) {
+    if (!spec || !spec.uid) return () => {};
+    _liveWire();
+    const same = _live.spec && _live.spec.uid === spec.uid && _live.spec.role === spec.role;
+    _liveDrop();
+    _live.spec = { role: spec.role === 'coach' ? 'coach' : 'athlete', uid: spec.uid, athleteIds: (spec.athleteIds || []).slice().sort() };
+    _live.handlers = handlers || {};
+    if (!same) _live.everUp = {};
+    _live.chans = {};
+    if (document.visibilityState === 'hidden') { _live.paused = true; return () => DB.liveUnsubscribe(); }
+    _live.paused = false;
+    _liveOpen();
+    return () => DB.liveUnsubscribe();
+  },
+  liveUnsubscribe() {
+    clearTimeout(_live.hideT); _live.hideT = null;
+    _liveDrop();
+    _live.spec = null; _live.handlers = null; _live.everUp = {}; _live.paused = false; _live.chans = {};
+    _live.status = 'off';
+  },
+  // The programs channel's status ('off' | 'live' | 'retry' | 'down' | 'paused'), each channel's, and
+  // the roster the channels were built for.
+  liveState() {
+    const channels = {};
+    Object.keys(_live.chans).forEach(n => { channels[n] = _live.chans[n].st; });
+    return { status: _live.status, role: _live.spec && _live.spec.role, athleteIds: _live.spec ? _live.spec.athleteIds.slice() : [],
+      open: Object.keys(_live.chans).some(n => !!_live.chans[n].ch), channels };
+  },
+  // Program rows as the server has them now, NOT made this device's base (app.js merges them first):
+  // by { coachId } / { athleteId } (all of them), or { ids } (100 per read; throws when a read fails,
+  // so app.js can ask again).
+  async liveProgramRows(by) {
+    if (by && by.ids) {
+      const out = [];
+      for (let i = 0; i < by.ids.length; i += 100) {
+        const { data, error } = await sb.from('programs').select('*').in('id', by.ids.slice(i, i + 100));
+        if (error) { const e = new Error('liveProgramRows: ' + (error.message || 'failed')); e.ids = by.ids.slice(i); e.rows = out; throw e; }
+        (data || []).forEach(r => out.push(_mapDbProgramRow(r)));
+      }
+      return out;
+    }
+    let q = sb.from('programs').select('*');
+    if (by && by.coachId) q = q.in('coach_id', [by.coachId]);
+    else if (by && by.athleteId) q = q.in('athlete_id', [by.athleteId]);
+    else return [];
+    const { data, error } = await q;
+    if (error) throw new Error('liveProgramRows: ' + (error.message || 'failed'));
+    return (data || []).map(_mapDbProgramRow);
+  },
+  // Just { id, athleteId, rev } of the same programs (the catch-up reads only what moved), or null
+  // before programs.rev exists.
+  async liveProgramRevs(by) {
+    let q = sb.from('programs').select('id, athlete_id, rev');
+    if (by && by.coachId) q = q.in('coach_id', [by.coachId]);
+    else if (by && by.athleteId) q = q.in('athlete_id', [by.athleteId]);
+    else return [];
+    const { data, error } = await q;
+    if (error) { if (_missingCol(error, ['rev'])) return null; throw new Error('liveProgramRevs: ' + (error.message || 'failed')); }
+    return (data || []).map(r => ({ id: r.id, athleteId: r.athlete_id, rev: r.rev == null ? null : Number(r.rev) }));
+  },
+  // The roster's sets logged since a day (the catch-up after a gap): newest first, read in pages of
+  // 1000 (PostgREST's cap) until a short page, at most 20 000 rows. Throws when a read fails.
+  async liveLogsSince(athleteIds, sinceIso) {
+    if (!athleteIds || !athleteIds.length) return [];
+    const out = [], PAGE = 1000;
+    for (let i = 0; i < athleteIds.length; i += 200) {
+      const chunk = athleteIds.slice(i, i + 200);
+      for (let from = 0; from < 20000; from += PAGE) {
+        const { data, error } = await sb.from('workout_logs').select('*').in('athlete_id', chunk).gte('date', sinceIso)
+          .order('date', { ascending: false }).order('id', { ascending: true }).range(from, from + PAGE - 1);
+        if (error) throw new Error('liveLogsSince: ' + (error.message || 'failed'));
+        (data || []).forEach(r => out.push(mapDbLog(r)));
+        if (!data || data.length < PAGE) break;
+      }
+    }
+    return out;
   }
 });

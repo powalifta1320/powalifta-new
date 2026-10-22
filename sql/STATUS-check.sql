@@ -122,6 +122,10 @@ with checks(n, migration, applied) as (values
         and to_regclass('public.meet_attempts') is not null
         and to_regprocedure('public.meet_day_sync(uuid, jsonb, jsonb)') is not null
         and to_regprocedure('public.finish_meet_day(uuid)') is not null
-        and to_regprocedure('public.meet_day_lifter_patch(uuid, jsonb)') is not null)
+        and to_regprocedure('public.meet_day_lifter_patch(uuid, jsonb)') is not null),
+  (45, 'migration-live-desk-2026-10-22.sql  (programs, workout_logs, form_checks, checkins, checkin_answers, session_notes in Realtime; needs row 43 first)',
+        (select count(*) from pg_publication_tables
+          where pubname = 'supabase_realtime' and schemaname = 'public'
+            and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6)
 )
 select n, migration, applied from checks order by n;

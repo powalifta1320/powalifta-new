@@ -3558,6 +3558,19 @@ window.addEventListener('powa:program-merged', () => {
   const typing = document.activeElement && pane && pane.contains(document.activeElement) && /INPUT|TEXTAREA/.test(document.activeElement.tagName);
   if (pane && !pane.classList.contains('hidden') && !typing) { try { renderToday(); populateDaySelect(); } catch (e) {} }
 });
+// LIVE (app.js liveFlush): the session on screen changed on another device (the coach's, or this
+// lifter's own iPad: programs has no last-editor). Train has repainted (above); one quiet line says
+// why, until the next repaint.
+window.addEventListener('powa:live', (e) => {
+  const d = (e && e.detail) || {};
+  const cur = getCurrentDay();
+  if (!cur || !(d.days || []).includes(String(cur.week.id) + '|' + String(cur.day.id))) return;
+  const area = document.getElementById('todayArea');
+  if (!area) return;
+  const old = area.querySelector('.live-note');
+  if (old) old.remove();
+  area.insertBefore(el('p', { class: 'live-note', role: 'status' }, 'This session was just updated.'), area.firstChild);
+});
 async function toggleSet(exerciseId, setIndex, checked, opts) {
   const cur = getCurrentDay();
   if (!cur) return;
