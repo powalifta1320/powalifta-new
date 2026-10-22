@@ -2121,6 +2121,7 @@ function healthRefreshNow() {
   if (!PowaHealthJS.isOn()) { if (PowaHealthJS.offPending && PowaHealthJS.offPending().length) PowaHealthJS.retryPendingOff().catch(() => {}); return; }
   PowaHealthJS.refresh(openHealthConflicts).then(r => {
     try { if (document.querySelector('#pane-today:not(.hidden)')) renderToday(); } catch (e) {}
+    try { syncHomeWidget(); } catch (e) {}   // last night's numbers for Readiness and the Lock Screen
     if (r && r.imported) toast(r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' from Apple Health');
   }).catch(() => {});
 }
@@ -2153,6 +2154,7 @@ function openHealthSheet(onChange) {
         }
         draw();
         try { renderToday(); } catch (e) {}
+        try { syncHomeWidget(); } catch (e) {}   // Readiness flips between its data and Connect states
         if (onChange) onChange();
       }, 'Apple Health');
       box.appendChild(uiList([uiRow({ title: 'Apple Health', sub: on ? 'On' : 'Off', endNode: sw })]));
@@ -5656,13 +5658,31 @@ function syncHomeWidget() {
           weighDelta = (d >= 0.05 ? '+' : d <= -0.05 ? '−' : '±') + Math.abs(d).toFixed(1);
         }
       } catch (e) {}
+      // Apple Health (1.3): last night against the usual, for Readiness and the Lock Screen gauge
+      // (healthOn without health = switched on, nothing from last night yet); the weigh-ins
+      // against the class line, for Weight class (app.js widgetReadiness / widgetCut).
+      let healthOn = null, health = null, cutW = null;
+      try {
+        const H = window.PowaHealthJS;
+        healthOn = !!(H && H.isOn());
+        if (healthOn) {
+          const rec = H.cachedRecovery();
+          health = widgetReadiness(rec, { readiness: H.cachedReadiness(), suggested: rec ? H.suggestReadiness(rec) : null, picked: getReadiness(todayISO()), today: todayISO() });
+        }
+      } catch (e) {}
+      try {
+        applyLocalCut();
+        const g = (Store.get().goals || []).find(x => x.athleteId === user.id);
+        let md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
+        cutW = widgetCut(bwl.map(b => ({ date: b.date, weight: Number(b.weight) })), g, md, todayISO());
+      } catch (e) {}
       PowaNative.updateWidget({ total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
         deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now(),
         setsDone: allSets.filter(s => s.completed).length, setsTotal: allSets.length,
         weekDone: wk.done || 0, weekGoal: getWeekGoal() || defaultWeekGoal(), streak: wk.streak || 0,
         meetDays, openers,
         lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()),
-        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue });
+        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue, healthOn, health, cut: cutW });
     } catch (e) {}
   }, 600);
 }
@@ -5717,7 +5737,18 @@ async function drainWidgetPending() {
     if (/^powalifta:\/\/lift/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => { try { _startOfferedSession(); openLiftMode(); } catch (e) {} }, 350); }
     else if (/^powalifta:\/\/weigh/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => openWeighInSheet(() => renderToday()), 350); }
     else if (/^powalifta:\/\/meet/.test(open)) { setTimeout(() => { try { (meetLiveToday() ? openMeetMode : openMeetSheet)(); } catch (e) {} }, 350); }
-    else if (/^powalifta:\/\/(train|rest)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
+    else if (/^powalifta:\/\/health/.test(open)) {
+      // The Apple Health sheet; an app build without Health lands on You instead of nowhere.
+      let can = false;
+      try { can = !!(window.PowaHealthJS && PowaHealthJS.couldOffer()); } catch (e) {}
+      if (can) setTimeout(() => { try { openHealthSheet(() => { try { renderAthleteYou(); } catch (e) {} }); } catch (e) {} }, 350);
+      else { const t = document.getElementById('tab-you'); if (t) t.click(); }
+    }
+    else if (/^powalifta:\/\/(bodyweight|cut)/.test(open)) {
+      const t = document.getElementById('tab-bodyweight'); if (t) t.click();
+      if (/^powalifta:\/\/cut/.test(open)) setTimeout(() => { try { openCutSheet(); } catch (e) {} }, 350);
+    }
+    else if (/^powalifta:\/\/(train|rest|readiness)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
   } catch (e) { console.warn('widget pending', e); }
   finally { _drainingWidget = false; }
 }

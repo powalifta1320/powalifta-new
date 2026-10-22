@@ -169,7 +169,7 @@ group('unit conversion');
     test('empty string passes through unchanged', () => eq(displayToKg(''), ''));
   } finally {
     // Restore so the harness never clobbers the real app's unit preference.
-    try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch {}
+    try { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); } catch {}
   }
 })();
 
@@ -376,7 +376,7 @@ group('program export');
       assert(l.some(r => r.indexOf('Week 1,Squat Day,Squat,Competition,1,330.7,') === 0), 'no converted row');
     });
   } finally {
-    try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch {}
+    try { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); } catch {}
   }
 })();
 
@@ -1075,7 +1075,7 @@ test('weight ranges: 140-145 kg, 70-75%, carried, progressed, capped', () => {
   eq(JSON.stringify(parseLoadInput('140-140')), JSON.stringify({ lo: 140, hi: null }));
   eq(JSON.stringify(parseLoadInput('')), JSON.stringify({ lo: null, hi: null }));
   eq(parseLoadInput('abc'), null); eq(parseLoadInput('140-'), null);
-  const saved = localStorage.getItem('powa-unit');
+  const saved = localStorage.getItem(UNIT_KEY);
   try {
     setUnit('kg');
     eq(loadInputText({ weight: 140, weightHi: 145 }), '140-145'); eq(loadInputText({ weight: 140 }), '140');
@@ -1109,7 +1109,7 @@ test('weight ranges: 140-145 kg, 70-75%, carried, progressed, capped', () => {
     // the spreadsheet export writes ranges as typed, so they read back in
     const csv = buildProgramCsv({ weeks: [{ number: 1, days: [{ name: 'A', exercises: [{ lift: 'squat', variant: 'Competition', sets: [{ weight: 140, weightHi: 145, reps: 5, rpe: 7, rpeHi: 8 }] }] }] }] });
     eq(csv.split('\n')[1].indexOf('Week 1,A,Squat,Competition,1,140-145,5,7-8,') === 0, true);
-  } finally { try { if (saved == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', saved); } catch (e) {} }
+  } finally { try { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); } catch (e) {} }
 });
 test('blocks: keep a trained block, the next one heavier, how a block went', () => {
   const saved = Store.get();
@@ -2542,6 +2542,83 @@ test('coach status: readiness dot, off-pace flag, food averages (desk hooks)', (
     eq(st2.readiness, null); eq(st2.cut, null); eq(st2.nutrition, null);                   // no data, no UI
     assert(!st2.flags.some(f => f.type === 'readiness' || f.type === 'offpace'), 'no flags without data');
   } finally { Store.set(saved); }
+});
+group('Apple Health widgets (Readiness, Weight class, Lock Screen)');
+test('readiness widget: last night against the usual, one word, compact strings', () => {
+  const t = '2026-10-22';
+  eq(widgetReadiness(null, { today: t }), null);
+  eq(widgetReadiness({ sleepMin: null, rhr: null, nights: [], hrvDays: [] }, { today: t }), null);   // nothing from last night
+  const nights = [440, 420, 430, 410, 425, 0, 435].map((m, i) => ({ night: _addDaysISO(t, -i), minutes: m }));
+  const rec = { sleepMin: 440, nights, rhr: 52, rhrBase: 54, hrvDays: [{ day: _addDaysISO(t, -3), ms: 50 }, { day: t, ms: 68.4 }] };
+  let w = widgetReadiness(rec, { suggested: 'fresh', readiness: { state: 'ok', rhrBase: 54, hrvBase: 61, signals: [] }, today: t });
+  eq(w.day, t); eq(w.word, 'Fresh'); eq(w.level, 1);
+  eq(w.sleep.value, '7 h 20'); eq(w.sleep.usual, '7 h 04'); eq(w.sleep.off, false);    // the usual skips last night and the empty one
+  eq(w.rhr.value, '52'); eq(w.rhr.usual, '54'); eq(w.rhr.off, false);
+  eq(w.hrv.value, '68'); eq(w.hrv.usual, '61'); eq(w.hrv.off, false);
+  eq(w.line, 'Slept 7 h 20 · HR 52');
+  // a low morning against their own 28 days wins over a good night's suggestion
+  w = widgetReadiness(Object.assign({}, rec, { rhr: 62 }), { suggested: 'fresh', readiness: { state: 'low', rhrBase: 54, hrvBase: 61, signals: ['rhr', 'hrv'] }, today: t });
+  eq(w.word, 'Rough'); eq(w.level, 0.34); eq(w.rhr.off, true); eq(w.hrv.off, true);
+  // ...and the lifter's own answer on Train wins over both (it's what the loads follow)
+  eq(widgetReadiness(rec, { suggested: 'rough', picked: 'normal', today: t }).word, 'Normal');
+  eq(widgetReadiness(rec, { suggested: 'bogus', picked: 'bogus', today: t }).word, 'Normal');
+  // a short night is off even without a usual; whole hours drop the minutes; 59.6 min rounds up cleanly
+  w = widgetReadiness({ sleepMin: 300, nights: [{ minutes: 300 }] }, { suggested: 'rough', today: t });
+  eq(w.sleep.value, '5 h'); eq(w.sleep.usual, null); eq(w.sleep.off, true); eq(w.rhr, null); eq(w.hrv, null); eq(w.line, 'Slept 5 h');
+  eq(widgetReadiness({ sleepMin: 419.6, nights: [] }, { today: t }).sleep.value, '7 h');
+  // 45 minutes under the usual is off; HRV from two days ago is not "last night"
+  w = widgetReadiness({ sleepMin: 380, nights: [{ minutes: 380 }, { minutes: 440 }, { minutes: 440 }, { minutes: 440 }], hrvDays: [{ day: _addDaysISO(t, -2), ms: 60 }] }, { today: t });
+  eq(w.sleep.off, true); eq(w.hrv, null);
+  // sleep is last night's only when the newest night is this morning's (labelled by its morning)
+  eq(widgetReadiness({ sleepMin: 420, nights: [{ night: _addDaysISO(t, -1), minutes: 420 }], rhr: 55 }, { today: t }).sleep, null);
+  eq(widgetReadiness({ sleepMin: 420, nights: [{ night: _addDaysISO(t, -1), minutes: 420 }] }, { today: t }), null);
+  eq(widgetReadiness({ sleepMin: 420, nights: [{ night: t, minutes: 420 }] }, { today: t }).sleep.value, '7 h');
+  // heart only (no sleep tracked): the resting HR carries the line; HRV-only falls back to HRV
+  eq(widgetReadiness({ rhr: 58, rhrBase: 50 }, { today: t }).rhr.off, true);
+  eq(widgetReadiness({ rhr: 58, rhrBase: 50 }, { today: t }).line, 'HR 58');
+  eq(widgetReadiness({ hrvDays: [{ day: t, ms: 70 }] }, { today: t }).line, 'HRV 70');
+  // compact enough for the App Group (the whole snapshot is capped at 8 KB)
+  assert(JSON.stringify(widgetReadiness(rec, { suggested: 'fresh', today: t })).length < 400, 'compact');
+});
+test('weight class widget: the 7-day average against the class, the pace, the last 7 days', () => {
+  const t = '2026-10-22';
+  const ser = (pts) => pts.map(([d, w]) => ({ date: _addDaysISO(t, -d), weight: w }));
+  eq(widgetCut(ser([[0, 84]]), null, null, t), null);                                  // no class: the widget asks for one
+  eq(widgetCut(ser([[0, 84]]), { targetClass: 0 }, null, t), null);
+  // class picked, nothing weighed yet: the class and the date, no number
+  let w = widgetCut([], { targetClass: 83, cutBy: _addDaysISO(t, 23) }, null, t);
+  eq(w.cls, '83 kg class'); eq(w.classLine, 83); eq(w.cur, null); eq(w.trend, null); assert(w.by, 'the meet date');
+  // on pace: 84.1 → 83 in 9 weeks (cutPlan's own example)
+  w = widgetCut(ser([[21, 85.0], [14, 84.7], [7, 84.4], [6, 84.3], [2, 84.2], [0, 84.1]]), { targetClass: 83, cutBy: _addDaysISO(t, 63) }, null, t);
+  eq(w.tone, 'good'); eq(w.unit, 'kg');
+  eq(w.cur, '84.3');                                                                    // the 7-day average (84.4 84.3 84.2 84.1), not today's 84.1
+  eq(w.status, '1.3 kg to go'); assert(/^−0\.\d a week$/.test(w.pace), w.pace); assert(/^−0\.\d$/.test(w.need), w.need);
+  eq(w.trend.length, 7); eq(w.trend[0], 84.3); eq(w.trend[6], 84.1); eq(w.trend[1], null); eq(w.trend[4], 84.2);
+  // on weight
+  w = widgetCut(ser([[7, 82.8], [3, 82.7], [0, 82.6]]), { targetClass: 83, cutBy: _addDaysISO(t, 30) }, null, t);
+  eq(w.tone, 'made'); eq(w.status, 'On weight');
+  // on weight but creeping back up to the line: still on weight, in amber (cutPlan's warning kept)
+  w = widgetCut(ser([[6, 81.6], [5, 81.9], [4, 82.1], [3, 82.3], [2, 82.5], [1, 82.6], [0, 82.8]]), { targetClass: 83, cutBy: _addDaysISO(t, 30) }, null, t);
+  eq(w.status, 'On weight'); eq(w.tone, 'amber');
+  // no date: "over", never "to go"; the meet date from Meet day fills in when the cut has none
+  w = widgetCut(ser([[7, 84], [0, 84]]), { targetClass: 83 }, null, t);
+  eq(w.status, '1.0 kg over'); eq(w.need, null); eq(w.by, null);
+  w = widgetCut(ser([[7, 84], [0, 84]]), { targetClass: 83 }, _addDaysISO(t, 10), t);
+  assert(w.by && w.status === '1.0 kg to go', JSON.stringify(w));
+  eq(widgetCut(ser([[0, 84]]), { targetClass: 83 }, _addDaysISO(t, -10), t).by, null);  // a past meet isn't a deadline
+  // off pace, stalled 3 weeks out
+  w = widgetCut(ser([[20, 64.4], [14, 64.3], [8, 64.2], [3, 64.2], [1, 64.1]]), { targetClass: 63, cutBy: _addDaysISO(t, 21) }, null, t);
+  eq(w.tone, 'off'); eq(w.cls, '63 kg class'); eq(w.trend[6], null); eq(w.trend[5], 64.1);
+  // a weigh-in dated after today (a clock change) never leaks into the line
+  eq(widgetCut(ser([[0, 84], [-1, 70]]), { targetClass: 83 }, null, t).trend[6], 84);
+  // lbs: the class keeps its kg name, the numbers and the line are in lbs
+  const saved = localStorage.getItem(UNIT_KEY);
+  try {
+    setUnit('lbs');
+    w = widgetCut(ser([[7, 84.4], [3, 84.2], [0, 84.1]]), { targetClass: 83, cutBy: _addDaysISO(t, 23) }, null, t);
+    eq(w.cls, '83 kg class'); eq(w.unit, 'lbs'); close(w.classLine, 183, 0.1); assert(/ lbs to go$/.test(w.status), w.status);
+    close(w.trend[6], 185.4, 0.1);
+  } finally { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); }
 });
 test('Apple Health HRV: one number a day, merged with resting HR', () => {
   const d = PowaHealthJS._hrvDaily([{ day: '2026-10-21', ms: 60 }, { day: '2026-10-21', ms: 70 }, { day: '2026-10-20', ms: 55 }, { day: '2026-10-19', ms: 0 }]);

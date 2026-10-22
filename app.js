@@ -10514,6 +10514,103 @@ function athleteCut(athleteId, todayIso) {
     .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: b.date, weight: Number(b.weight) }));
   return cutPlan(series, g.targetClass, g.cutBy || null, todayIso);
 }
+
+// ===== HOME SCREEN WIDGETS: READINESS + WEIGHT CLASS (Apple Health, 1.3) =====
+// Display-ready strings for the Readiness, Weight class and Lock Screen recovery widgets
+// (syncHomeWidget in athlete.html writes them into the snapshot; PowaHealthWidgets.swift draws
+// them). Pure, so the widget never does maths and these are unit-tested.
+const WIDGET_READY = { fresh: { word: 'Fresh', level: 1 }, normal: { word: 'Normal', level: 0.67 }, rough: { word: 'Rough', level: 0.34 } };
+function _widgetHm(min) {
+  const t = Math.round(Number(min));
+  if (!(t > 0)) return null;
+  const h = Math.floor(t / 60), m = t % 60;
+  return h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : '');
+}
+// Last night against the lifter's usual.
+//   rec   PowaHealthJS.cachedRecovery(): { sleepMin, nights [{ night, minutes }] newest first,
+//         rhr, rhrBase, hrvDays [{ day, ms }] oldest first }
+//   opts  { readiness (readinessFrom), suggested (PowaHealthJS.suggestReadiness), picked (the
+//         lifter's own answer on Train today, which wins), today }
+// → null (nothing from last night) | { day, word, level, sleep, rhr, hrv, line }
+//   sleep / rhr / hrv: { value, usual, off } or null; off = worse than the usual by enough to matter
+function widgetReadiness(rec, opts) {
+  opts = opts || {};
+  if (!rec) return null;
+  const today = opts.today || todayISO();
+  const rd = opts.readiness || null;
+  const yest = _addDaysISO(today, -1);
+  let sleep = null, rhr = null, hrv = null;
+  // nights[0] is labelled by its morning (HealthPlugin.readSleep): only this morning's night is
+  // "last night"; an older one (a cached read from another day) never passes for it.
+  const n0 = (rec.nights || [])[0];
+  const sl = n0 && n0.night && String(n0.night) < today ? 0 : Number(rec.sleepMin);
+  if (sl > 0) {
+    // the usual: the nights before last night (a week of them, three at least)
+    const prior = (rec.nights || []).slice(1, 8).map(n => Number(n && n.minutes)).filter(m => m > 0);
+    const usual = prior.length >= 3 ? prior.reduce((a, m) => a + m, 0) / prior.length : null;
+    sleep = { value: _widgetHm(sl), usual: usual != null ? _widgetHm(usual) : null, off: sl < 360 || (usual != null && sl < usual - 45) };
+  }
+  const hr = Number(rec.rhr);
+  if (hr > 0) {
+    const base = rd && rd.rhrBase != null ? Number(rd.rhrBase) : Number(rec.rhrBase) > 0 ? Number(rec.rhrBase) : null;
+    rhr = { value: String(Math.round(hr)), usual: base != null ? String(Math.round(base)) : null, off: base != null && hr >= base + 7 };
+  }
+  const hv = (rec.hrvDays || []).filter(x => x && Number(x.ms) > 0 && String(x.day) >= yest).slice(-1)[0];
+  if (hv) {
+    const base = rd && rd.hrvBase != null ? Number(rd.hrvBase) : null;
+    hrv = { value: String(Math.round(Number(hv.ms))), usual: base != null ? String(Math.round(base)) : null,
+      off: !!(rd && rd.state === 'low' && (rd.signals || []).indexOf('hrv') >= 0) };
+  }
+  if (!sleep && !rhr && !hrv) return null;
+  // The lifter's own answer wins (it's what Train's loads follow); then a low morning against
+  // their own 28 days; then what last night suggests.
+  const key = WIDGET_READY[opts.picked] ? opts.picked
+    : rd && rd.state === 'low' ? 'rough'
+    : WIDGET_READY[opts.suggested] ? opts.suggested : 'normal';
+  const bits = [];
+  if (sleep) bits.push('Slept ' + sleep.value);
+  if (rhr) bits.push('HR ' + rhr.value);
+  else if (hrv) bits.push('HRV ' + hrv.value);
+  return { day: today, word: WIDGET_READY[key].word, level: WIDGET_READY[key].level, sleep, rhr, hrv, line: bits.join(' · ') };
+}
+// The weigh-ins (POWALIFTA's and Apple Health's, one Store) against the class line, by the meet.
+//   series  [{ date, weight }] ascending, kg     goal  { targetClass, cutBy }     meetIso  the meet
+// → null (no class set) | { cls, classLine, unit, cur, status, tone, pace, need, by, trend }
+//   status  '1.3 kg to go' | 'On weight' | '1.0 kg over' (no date, or it passed)
+//   pace    '−0.4 a week' | 'Steady'      need  '−0.1' (a week, by the date)
+//   cur     the 7-day average (what "to go" is measured from), display units
+//   tone    'made' | 'good' | 'amber' | 'off' (cutPlan's, coloured for the goal)
+//   trend   the last 7 days, oldest first: that day's weigh-in or null
+function widgetCut(series, goal, meetIso, todayIso) {
+  const limit = Number(goal && goal.targetClass);
+  if (!(limit > 0)) return null;
+  const today = todayIso || todayISO();
+  const u = unitLabel();
+  const d1 = (kg) => Number(kgToDisplay(kg, 1));
+  const out = { cls: String(limit).replace(/\.0$/, '') + ' kg class', classLine: d1(limit), unit: u,
+    cur: null, status: null, tone: null, pace: null, need: null, by: null, trend: null };
+  const date = (goal && goal.cutBy) || (meetIso && /^\d{4}-\d{2}-\d{2}$/.test(meetIso) && meetIso >= today ? meetIso : null);
+  if (date && date >= today) out.by = fmtDateShort(date);
+  const ser = (series || []).filter(b => b && Number(b.weight) > 0 && b.date <= today);
+  const c = ser.length ? cutPlan(ser, limit, date || null, today) : null;
+  if (!c) return out;
+  const amt = (kg) => Math.max(0.1, Math.abs(d1(kg))).toFixed(1) + ' ' + u;
+  out.cur = d1(c.cur).toFixed(1);
+  // On weight but creeping back up to the line stays amber (the app's own warning), no check mark.
+  out.tone = c.made ? (c.tone === 'amber' ? 'amber' : 'made') : c.tone;
+  out.status = c.made ? 'On weight' : c.missed || !date ? amt(c.over) + ' over' : amt(c.over) + ' to go';
+  if (c.slopePerWk != null && ser.length >= 3) {
+    const s = d1(c.slopePerWk);
+    out.pace = Math.abs(s) < 0.05 ? 'Steady' : (s > 0 ? '+' : '−') + Math.abs(s).toFixed(1) + ' a week';
+  }
+  if (c.needPerWk != null) out.need = '−' + Math.max(0.1, d1(c.needPerWk)).toFixed(1);   // a week, still needed by the date
+  const by = {};
+  ser.forEach(b => { by[b.date] = Number(b.weight); });
+  const trend = [6, 5, 4, 3, 2, 1, 0].map(i => { const w = by[_addDaysISO(today, -i)]; return w > 0 ? d1(w) : null; });
+  if (trend.some(v => v != null)) out.trend = trend;
+  return out;
+}
+window.widgetReadiness = widgetReadiness; window.widgetCut = widgetCut;
 window.readinessFrom = readinessFrom; window.restSuggestion = restSuggestion; window.cutPlan = cutPlan; window.nutritionWeek = nutritionWeek;
 function recoveryRows(rec) {
   const rows = [];
