@@ -1538,7 +1538,7 @@ function renderAthletePage(athleteId) {
     const wci = (Store.get().checkins || []).filter(c => c.athleteId === a.id).sort((x, y) => String(y.weekStart).localeCompare(String(x.weekStart)))[0];
     if (wci) {
       right.appendChild(uiLabel('Weekly check-in'));
-      right.appendChild(uiList([uiRow({ title: 'Week of ' + fmtDateShort(wci.weekStart), sub: 'Sleep ' + wci.sleep + ' · soreness ' + wci.soreness + ' · stress ' + wci.stress + ' · feel ' + wci.feel + (wci.note ? ' · ' + wci.note : '') })]));
+      right.appendChild(uiList([uiRow({ title: 'Week of ' + fmtDateShort(wci.weekStart), sub: 'Sleep ' + wci.sleep + '/10 · fresh ' + wci.soreness + '/10 · calm ' + wci.stress + '/10 · feel ' + wci.feel + '/10' + (wci.note ? ' · ' + wci.note : '') })]));
     }
   }
   // Session notes
@@ -4686,8 +4686,8 @@ function renderProgressForAthlete() {
     area.appendChild(uiList(checkins.slice(0, 8).map(c => {
       const row = uiRow({
         title: 'Week of ' + fmtDateShort(c.weekStart),
-        sub: [['Sleep', c.sleep], ['Soreness', c.soreness], ['Stress', c.stress], ['Feel', c.feel]]
-          .map(([k, v]) => k + ' ' + (v != null ? v : '–')).join(' · ')
+        sub: [['Sleep', c.sleep], ['Fresh', c.soreness], ['Calm', c.stress], ['Feel', c.feel]]
+          .map(([k, v]) => k + ' ' + (v != null ? v + '/10' : '–')).join(' · ')
       });
       if (c.note) {
         const t = el('span', { class: 'note-text' });

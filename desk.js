@@ -3347,7 +3347,7 @@ function dkWsCheckins(r) {
     // The older weekly form, when that's what they use.
     var wci = (s.checkins || []).filter(function (c) { return c.athleteId === r.athlete.id; }).sort(function (x, y) { return String(y.weekStart).localeCompare(String(x.weekStart)); })[0];
     if (!wci) return g.rows.length ? el('p', { class: 'dk-quiet-p' }, 'No answers in the last four weeks.') : null;
-    return el('p', { class: 'dk-quiet-p' }, 'Week of ' + fmtDateShort(wci.weekStart) + ': sleep ' + wci.sleep + ' · soreness ' + wci.soreness + ' · stress ' + wci.stress + ' · feel ' + wci.feel + (wci.note ? ' · ' + wci.note : ''));
+    return el('p', { class: 'dk-quiet-p' }, 'Week of ' + fmtDateShort(wci.weekStart) + ': sleep ' + wci.sleep + '/10 · fresh ' + wci.soreness + '/10 · calm ' + wci.stress + '/10 · feel ' + wci.feel + '/10' + (wci.note ? ' · ' + wci.note : ''));
   }
   var box = el('div', { class: 'dk-rd' });
   var first = g.weeks.length;
