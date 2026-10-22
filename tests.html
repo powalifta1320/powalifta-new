@@ -2339,6 +2339,184 @@ test('unit: a new device takes the profile-s unit; a chosen one goes up', () => 
 /* ===========================================================
    Pain flags (brief 4.1 / M2)
    =========================================================== */
+group('live desk (Realtime → Store)');
+// A coach's Store with lifter A's program (from _mp) at rev 4, and theirs = the server's next copy.
+function _lvSeed() {
+  resetState();
+  const p = Object.assign(_mp(), { id: 'P1', athleteId: 'A', coachId: 'C', rev: 4 });
+  seed({ athletes: [{ id: 'A', name: 'Ath A', coachId: 'C' }, { id: 'B', name: 'Ath B', coachId: 'C' }], programs: [p], workoutLogs: [] });
+  return p;
+}
+const _lvTheirs = (p, rev) => Object.assign(_cl(p), { rev });
+test('live: a set the lifter logs lands in the coach-s Store, same objects, one "set" event', () => {
+  const p = _lvSeed(), base = _cl(p);
+  const setObj = _set(p, 0, 0, 0), dayObj = p.weeks[0].days[0];
+  const t = _lvTheirs(p, 5);
+  Object.assign(_set(t, 0, 0, 0), { completed: true, actualRpe: 8.5, completedAt: '2026-10-22', lastLogId: 'L1' });
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }, { kind: 'log', row: { id: 'L1', athleteId: 'A', lift: 'squat', weight: 180, reps: 3, rpe: 8.5, date: '2026-10-22' } }],
+    { role: 'coach', me: 'C', baseOf: () => base });
+  eq(_set(p, 0, 0, 0).completed, true); eq(_set(p, 0, 0, 0).actualRpe, 8.5); eq(p.rev, 5);
+  assert(_set(p, 0, 0, 0) === setObj && p.weeks[0].days[0] === dayObj, 'a screen holding the set object keeps the live one');
+  eq(Store.get().workoutLogs.length, 1);
+  eq(r.detail.kind, 'set'); eq(r.detail.athleteId, 'A'); eq(r.detail.programId, 'P1'); eq(r.detail.landed.join(), 'A');
+  eq(r.detail.items.length, 2); eq(r.merged.join(), 'P1'); eq(r.persist.length, 0); eq(r.detail.days.length, 0);
+});
+test('live: the coach-s unsaved edit survives a lifter-s log (merge, then "save mine")', () => {
+  const p = _lvSeed(), base = _cl(p);
+  _set(p, 0, 1, 0).weight = 112.5;                                          // typed here, not saved yet
+  const t = _lvTheirs(p, 5);
+  _set(t, 0, 1, 0).weight = 110;                                            // the server never had the edit
+  Object.assign(_set(t, 0, 0, 1), { completed: true, actualRpe: 8, completedAt: '2026-10-22', lastLogId: 'L2' });
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'coach', me: 'C', baseOf: () => base });
+  eq(_set(p, 0, 1, 0).weight, 112.5); eq(_set(p, 0, 0, 1).completed, true);
+  eq(r.persist.join(), 'P1');
+});
+test('live: an older or equal rev is ignored; my own echo changes nothing and fires nothing', () => {
+  const p = _lvSeed();
+  const old = _lvTheirs(p, 3); _set(old, 0, 0, 0).weight = 1;
+  let r = liveApplyBatch(Store.get(), [{ kind: 'program', row: old }], { role: 'coach', me: 'C', baseOf: () => null });
+  eq(_set(p, 0, 0, 0).weight, 180); eq(r.detail, null);
+  r = liveApplyBatch(Store.get(), [{ kind: 'program', row: _lvTheirs(p, 5) }], { role: 'coach', me: 'C', baseOf: () => _cl(p) });
+  eq(r.detail, null); eq(p.rev, 5); eq(r.merged.length, 0); eq(r.persist.length, 0);
+});
+test('live: an undone set takes its log off the desk; a re-logged one swaps it', () => {
+  const p = _lvSeed();
+  Object.assign(_set(p, 0, 0, 0), { completed: true, actualRpe: 8, completedAt: '2026-10-22', lastLogId: 'L1' });
+  Object.assign(_set(p, 0, 0, 1), { completed: true, actualRpe: 8, completedAt: '2026-10-22', lastLogId: 'L2' });
+  Store.get().workoutLogs = [{ id: 'L1', athleteId: 'A' }, { id: 'L2', athleteId: 'A' }, { id: 'L0', athleteId: 'A' }];
+  const base = _cl(p), t = _lvTheirs(p, 5);
+  Object.assign(_set(t, 0, 0, 0), { completed: false, actualRpe: null, completedAt: null, lastLogId: null });
+  Object.assign(_set(t, 0, 0, 1), { lastLogId: 'L3', actualRpe: 9 });
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'coach', me: 'C', baseOf: () => base });
+  eq(Store.get().workoutLogs.map(l => l.id).join(), 'L0');
+  eq(_set(p, 0, 0, 0).completed, false); eq(r.detail.kind, 'set'); eq(r.detail.items[0].sets, 1);
+});
+test('live: a coach-s change to a day reaches the lifter as that day-s key', () => {
+  resetState();
+  const p = Object.assign(_mp(), { id: 'P1', athleteId: 'A', coachId: 'C', rev: 2 });
+  seed({ programs: [p], workoutLogs: [] });
+  const base = _cl(p), t = _lvTheirs(p, 3);
+  _set(t, 1, 0, 0).weight = 225; _set(t, 1, 0, 0).rpe = 8.5;
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'athlete', me: 'A', baseOf: () => base });
+  eq(_set(p, 1, 0, 0).weight, 225); eq(r.detail.kind, 'program'); eq(r.detail.days.join(), 'w1|d2');
+  eq(liveProgramDiff(base.weeks, p.weeks).landed.length, 0);
+});
+test('live: a screen-s shape fill-ins (note: "", tempo: "") are not edits to save or announce', () => {
+  const p = _lvSeed();
+  const base = _cl(p);
+  p.weeks[0].days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => { s.tempo = ''; s.note = ''; })));   // ensureExerciseShape
+  const t = _lvTheirs(p, 5);
+  t.weeks[0].days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => { delete s.tempo; delete s.note; })));
+  _set(t, 0, 1, 0).weight = 112.5;                                                        // the coach's real edit
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'athlete', me: 'A', baseOf: () => base });
+  eq(r.persist.length, 0); eq(_set(p, 0, 1, 0).weight, 112.5, 'the edit lands'); eq(r.detail && r.detail.days.join(), 'w1|d1');
+});
+test('live: rows outside the roster (or not the lifter-s own) are dropped whatever the server sent', () => {
+  _lvSeed();
+  const foreign = Object.assign(_mp(), { id: 'PX', athleteId: 'Z', coachId: 'C', rev: 1 });
+  let r = liveApplyBatch(Store.get(), [{ kind: 'program', row: foreign }, { kind: 'log', row: { id: 'LZ', athleteId: 'Z' } },
+    { kind: 'checkin', row: { id: 'CZ', athleteId: 'Z' } }], { role: 'coach', me: 'C' });
+  eq(r.detail, null); eq(Store.get().programs.length, 1); eq(Store.get().workoutLogs.length, 0);
+  r = liveApplyBatch(Store.get(), [{ kind: 'program', row: Object.assign(_mp(), { id: 'PB', athleteId: 'B', coachId: 'C' }) }], { role: 'athlete', me: 'A' });
+  eq(r.detail, null);
+  r = liveApplyBatch(Store.get(), [{ kind: 'program', row: Object.assign(_mp(), { id: 'PB', athleteId: 'B', coachId: 'C', rev: 0 }) }], { role: 'coach', me: 'C' });
+  eq(r.detail.kind, 'program'); eq(Store.get().programs.length, 2);       // a new block for B: added
+  r = liveApplyBatch(Store.get(), [{ kind: 'program', row: Object.assign(_mp(), { id: 'PB2', athleteId: 'B', coachId: 'C', rev: 0 }) }], { role: 'coach', me: 'C' });
+  eq(Store.get().programs.map(x => x.id).join(), 'P1,PB2');                // one program per lifter: the new row replaces the deleted one
+});
+test('live: a row too big for Realtime is fetched (unless we already have that rev)', () => {
+  _lvSeed();
+  let r = liveApplyBatch(Store.get(), [{ kind: 'program', row: { id: 'P1', athleteId: 'A', rev: 6, partial: true } }, { kind: 'program', row: { id: 'P1', athleteId: 'A', rev: 7, partial: true } }], { role: 'coach', me: 'C' });
+  eq(r.fetch.join(), 'P1'); eq(r.detail, null);
+  r = liveApplyBatch(Store.get(), [{ kind: 'program', row: { id: 'P1', athleteId: 'A', rev: 4, partial: true } }], { role: 'coach', me: 'C' });
+  eq(r.fetch.length, 0);
+});
+test('live: logs, check-ins, answers, notes, form checks: insert or replace by id', () => {
+  _lvSeed();
+  const fc = [];
+  const r = liveApplyBatch(Store.get(), [
+    { kind: 'log', row: { id: 'L1', athleteId: 'A', weight: 100 } }, { kind: 'log', row: { id: 'L1', athleteId: 'A', weight: 100 } },
+    { kind: 'checkin', row: { id: 'K1', athleteId: 'B', sleep: 7 } }, { kind: 'checkin', row: { id: 'K1', athleteId: 'B', sleep: 8 } },
+    { kind: 'answer', row: { id: 'Q1', athleteId: 'A', num: 4 } }, { kind: 'note', row: { id: 'N1', athleteId: 'A', note: 'Moved well' } },
+    { kind: 'formcheck', row: { id: 'F1', athleteId: 'B', lift: 'squat' } }], { role: 'coach', me: 'C', formChecks: fc });
+  const s = Store.get();
+  eq(s.workoutLogs.length, 1); eq(s.checkins.length, 1); eq(s.checkins[0].sleep, 8); eq(s.checkinAnswers.length, 1); eq(s.sessionNotes.length, 1); eq(fc.length, 1);
+  eq(r.detail.items.length, 6); eq(r.detail.landed.length, 0);
+  eq(liveUpsertRow(s.checkins, { id: 'K1', athleteId: 'B', sleep: 8 }), false);
+});
+test('live: a burst becomes one flush per window', () => {
+  const pending = [];
+  const timers = { set: (f) => { pending.push(f); return pending.length; }, clear: () => {} };
+  const flushed = [];
+  const q = liveCoalescer(400, items => flushed.push(items.length), timers);
+  q.push(1); q.push(2); q.push(3);
+  eq(pending.length, 1); eq(flushed.length, 0); eq(q.size(), 3);
+  pending.shift()(); eq(flushed.join(), '3');
+  q.push(4); eq(pending.length, 1); q.flushNow(); eq(flushed.join(), '3,1');
+  q.push(5); q.clear(); eq(q.size(), 0);
+});
+test('live demo: the lifter logs the next open set (a top set by RPE gets a load), in a copy', () => {
+  resetState();
+  const sets = [{ id: 'x1', weight: 0, reps: 3, rpe: 8, completed: false }, { id: 'x2', weight: 190, reps: 4, rpe: 7, completed: false }];
+  const p = { id: 'demo-cprog-0', athleteId: 'demo-a1', coachId: 'demo-coach', name: 'B', maxes: { deadlift: 255 },
+    weeks: [{ id: 'w', number: 1, days: [{ id: 'd0', exercises: [{ id: 'e0', lift: 'squat', sets: [{ id: 'y', weight: 100, reps: 3, rpe: 8, completed: true }] }] },
+      { id: 'd1', exercises: [{ id: 'e1', lift: 'deadlift', variant: 'Competition', sets }] }] }] };
+  seed({ athletes: [{ id: 'demo-a1' }], programs: [p], workoutLogs: [] });
+  const st = liveDemoStep(Store.get(), Date.now());
+  const s = st.theirs.weeks[0].days[1].exercises[0].sets[0];
+  eq(s.completed, true); eq(s.weight, 220); eq(s.plannedWeight, 0); eq(st.theirs.rev, 1);
+  eq(st.log.athleteId, 'demo-a1'); eq(st.log.weight, 220); eq(s.lastLogId, st.log.id);
+  eq(sets[0].completed, false);                                                   // the Store is untouched until it flows through liveFlush
+  sets.forEach(x => { x.completed = true; });
+  eq(liveDemoStep(Store.get(), Date.now()), null);                                  // session done: the lifter stops
+});
+test('live: no base (cold offline open), a stale copy and a newer row: the row wins, nothing is written back', () => {
+  const p = _lvSeed();
+  Object.assign(_set(p, 0, 0, 0), { completed: true, actualRpe: 8, completedAt: '2026-10-21', lastLogId: 'L-s1' });   // yesterday's snapshot
+  Store.get().workoutLogs = [{ id: 'L-s1', athleteId: 'A' }];
+  const t = _lvTheirs(p, 9);
+  Object.assign(_set(t, 0, 0, 0), { completed: false, actualRpe: null, completedAt: null, lastLogId: null });   // the lifter undid s1 elsewhere
+  _set(t, 0, 1, 0).weight = 112.5;                                                 // the coach's phone changed s4
+  Object.assign(_set(t, 0, 0, 1), { completed: true, actualRpe: 8, completedAt: '2026-10-22', lastLogId: 'L-s2' });   // and the lifter logs s2 now
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'coach', me: 'C', baseOf: () => null });
+  eq(_set(p, 0, 0, 0).completed, false); eq(_set(p, 0, 1, 0).weight, 112.5); eq(_set(p, 0, 0, 1).completed, true); eq(p.rev, 9);
+  eq(r.persist.length, 0); eq(r.detail.kind, 'set'); eq(Store.get().workoutLogs.length, 0);
+});
+test('live: no base and a set patch of mine on its way: the row, with my patch on top, still nothing written', () => {
+  const p = _lvSeed();
+  Object.assign(_set(p, 0, 0, 1), { completed: true, actualRpe: 9, lastLogId: 'L-mine' });
+  const t = _lvTheirs(p, 7);
+  Object.assign(_set(t, 0, 0, 1), { completed: false, actualRpe: null, lastLogId: null });
+  _set(t, 0, 1, 0).weight = 115;
+  const path = programSetPath(p.weeks[0], p.weeks[0].days[0], p.weeks[0].days[0].exercises[0], 1);
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'coach', me: 'C', baseOf: () => null,
+    pending: () => ({ whole: false, patches: [{ path, patch: { completed: true, actualRpe: 9, lastLogId: 'L-mine' } }] }) });
+  eq(_set(p, 0, 0, 1).completed, true); eq(_set(p, 0, 1, 0).weight, 115); eq(r.persist.length, 0);
+});
+test('live: no base and a whole save of mine waiting: the program is left to that save (no rev move)', () => {
+  const p = _lvSeed();
+  _set(p, 0, 1, 0).weight = 117.5;
+  const t = _lvTheirs(p, 8); _set(t, 0, 1, 0).weight = 110; _set(t, 0, 0, 0).weight = 185;
+  const r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'coach', me: 'C', baseOf: () => null, pending: () => ({ whole: true, patches: [] }) });
+  eq(p.rev, 4); eq(_set(p, 0, 1, 0).weight, 117.5); eq(_set(p, 0, 0, 0).weight, 180);
+  eq(r.deferred.join(), 'P1'); eq(r.persist.length, 0); eq(r.detail, null);
+});
+test('live: a slow save reply never moves the rev backwards', () => {
+  const p = _lvSeed();
+  p.rev = 6;                                                                       // a live row already brought rev 6
+  const sent = JSON.stringify({ name: p.name || '', weeks: p.weeks || [], maxes: p.maxes || null });
+  programWriteLanded(p, sent, JSON.parse(sent), 5, false, {});
+  eq(p.rev, 6);
+  programWriteLanded(p, sent, JSON.parse(sent), 7, false, {});
+  eq(p.rev, 7);
+});
+test('live: the coach desk skips the per-day plan diff (the lifter still gets it)', () => {
+  const p = _lvSeed(), base = _cl(p), t = _lvTheirs(p, 5);
+  _set(t, 0, 0, 0).weight = 182.5;
+  let r = liveApplyBatch(Store.get(), [{ kind: 'program', row: t }], { role: 'coach', me: 'C', baseOf: () => base });
+  eq(r.detail.days.length, 0); eq(r.detail.kind, 'program');
+  eq(liveProgramDiff(base.weeks, t.weeks).days.length, 1);
+});
 group('pain flags (M2)');
 const _pr = (o) => Object.assign({ id: 'p' + Math.random(), athleteId: 'a', day: '2026-10-21', bodyPart: 'low_back', side: null, severity: 4, phase: 'top', lift: 'deadlift', resolvedAt: null, createdAt: '2026-10-21T18:00:00Z' }, o);
 test('labels: L hip, Low back, both sides', () => {

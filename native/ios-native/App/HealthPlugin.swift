@@ -84,7 +84,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         let share: Set<HKSampleType> = [bodyMass, HKObjectType.workoutType()]
         // One sheet for everything (brief M7: one HealthKit change, one prompt). Adding types here
         // makes iOS ask again for just the new ones on the next launch (health.js asks once a launch).
-        let read: Set<HKObjectType> = [bodyMass, restingHR, sleepType, HKObjectType.workoutType(), hrvType, energyType, proteinType]
+        let read: Set<HKObjectType> = [bodyMass, restingHR, sleepType, hrvType, energyType, proteinType]   // workouts are only written (and our own deleted), never read
         store.requestAuthorization(toShare: share, read: read) { [weak self] ok, err in
             guard let self = self else { return }
             call.resolve([

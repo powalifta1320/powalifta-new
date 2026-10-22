@@ -118,6 +118,7 @@ async function _forgetPushOnThisDevice() {
 }
 async function logout() {
   if (!window._demoMode) await _forgetPushOnThisDevice();
+  liveStop();
   _wipeLocalUserData();
   try { await DB.signOut(); } catch (e) { console.warn(e); }
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
@@ -673,6 +674,7 @@ async function bootstrap(expectedType, onReady, opts) {
     Store._data = demo.store;
     _injectDemoBanner(expectedType);
     onReady && onReady();
+    if (expectedType === 'coach') liveDemoStart();   // the desk's demo lifter trains live (in memory)
     return;
   }
 
@@ -785,6 +787,7 @@ async function bootstrap(expectedType, onReady, opts) {
       Store._data = snap.store;
       _refreshConnBanner();
       onReady && onReady();
+      liveStart();   // reconnects (and catches up) when the network comes back
       return;
     }
     toast('Could not load your data. Try refreshing.');
@@ -792,6 +795,7 @@ async function bootstrap(expectedType, onReady, opts) {
   }
 
   onReady && onReady();
+  liveStart();   // sets land on the coach's desk as they're logged; a coach's edit reaches the lifter
 }
 window.bootstrap = bootstrap;
 
@@ -2334,17 +2338,22 @@ function persistProgram(programId) { if (window._demoMode) return;
   if (!programId) return;
   clearTimeout(_persistTimers['prog_' + programId]);
   _persistTimers['prog_' + programId] = setTimeout(async () => {
+    delete _persistTimers['prog_' + programId];   // no longer waiting (the live merge reads this)
     const prog = Store.get().programs.find(p => p.id === programId);
     if (!prog) return;
+    _progSaving[programId] = (_progSaving[programId] || 0) + 1;   // the live merge reads this too
     try { await DB.upsertProgram(prog); }
     catch (e) {
       console.error('persistProgram', e);
       // The copy carries the version it was edited from, so the replay can merge instead of overwrite.
       _enqueueOutbox('program', Object.assign({}, prog, { _base: (DB.programBase && DB.programBase(prog.id)) || prog._base || null }), 'program:' + prog.id);
       toast('No connection: saved on this device, will sync');
+    } finally {
+      if (!--_progSaving[programId]) delete _progSaving[programId];
     }
   }, 350);
 }
+const _progSaving = {};
 
 // =========================================================
 // SAFE PROGRAM SAVING (brief M0a · migration-program-integrity-2026-10-22.sql)
@@ -2499,7 +2508,7 @@ function programWriteLanded(prog, sentJson, written, rev, merged, dates) {
   const live = (Store.get().programs || []).find(p => p.id === prog.id);
   const targets = live && live !== prog ? [prog, live] : [prog];
   targets.forEach(t => {
-    if (typeof rev === 'number') t.rev = rev;
+    if (typeof rev === 'number' && !(typeof t.rev === 'number' && rev <= t.rev)) t.rev = rev;   // a live row may already be newer
     if (!merged) return;
     if (dates) Object.keys(dates).forEach(k => { t[k] = dates[k]; });   // starts_on / meet_date as merged
     const now = JSON.stringify({ name: t.name || '', weeks: t.weeks || [], maxes: t.maxes || null });
@@ -2519,13 +2528,18 @@ async function pullProgram(programId) {
   const p = (Store.get().programs || []).find(x => x.id === programId);
   if (!theirs || !p) return false;
   const before = JSON.stringify({ name: p.name || '', weeks: p.weeks || [], maxes: p.maxes || null });
-  const next = mergeProgramVersions(base, p, theirs);
+  const pend = livePending(programId);
+  // No base (a cold offline open) and no whole-program save of mine waiting: this copy has nothing
+  // the server lacks but set patches still on their way, so the server's copy (plus those) is right.
+  // Merging base-less would keep every stale field of this copy and write it back.
+  const baseless = !base && !pend.whole;
+  const next = baseless ? liveWithPatches(theirs, pend.patches) : mergeProgramVersions(base, p, theirs);
   p.name = next.name; p.weeks = next.weeks; p.maxes = next.maxes; p.rev = theirs.rev;
   if (DB.rememberProgramBase) DB.rememberProgramBase(theirs);
   // My unsaved edits go up, unless a queued whole-program save is waiting: its replay merges and
   // carries them (one write instead of two).
   const queued = _readOutbox().some(e => e.key === 'program:' + programId);
-  if (!queued && !_deq(next, { name: theirs.name || '', weeks: theirs.weeks || [], maxes: theirs.maxes || null })) persistProgram(programId);
+  if (!baseless && !queued && !_deq(next, { name: theirs.name || '', weeks: theirs.weeks || [], maxes: theirs.maxes || null })) persistProgram(programId);
   if (JSON.stringify(next) !== before) { try { window.dispatchEvent(new CustomEvent('powa:program-merged', { detail: { id: programId } })); } catch (e) {} }
   return true;
 }
@@ -2536,7 +2550,12 @@ function persistProgramSet(programId, path, patch) {
   if (_noSetRpc || !path || !(window.DB && DB.logProgramSet)) { persistProgram(programId); return; }
   _sendProgramSet(programId, path, patch, false).catch(e => console.error('persistProgramSet', e));
 }
+// Set patches on their way to the server, per program ([{ path, patch }]): the live merge (liveFlush)
+// doesn't save a program while one is in flight (the patch lands it; a whole save would only race it).
+const _psetInflight = {};
 async function _sendProgramSet(programId, path, patch, fromOutbox) {
+  const mark = { path, patch };
+  (_psetInflight[programId] || (_psetInflight[programId] = [])).push(mark);
   try {
     const rev = await DB.logProgramSet(programId, path, patch);
     if (rev == null) { persistProgram(programId); return; }   // the set isn't on the server (yet): the whole save merges it in
@@ -2544,17 +2563,427 @@ async function _sendProgramSet(programId, path, patch, fromOutbox) {
     if (!p) return;
     if (typeof p.rev === 'number' && rev === p.rev + 1) {
       p.rev = rev;
-      if (DB.patchProgramBase) DB.patchProgramBase(programId, path, patch);
-    } else if (typeof p.rev === 'number') {
+      if (DB.patchProgramBase) DB.patchProgramBase(programId, path, patch, rev);
+    } else if (typeof p.rev === 'number' && rev > p.rev) {
       pullProgram(programId);   // someone else wrote in between: bring their edit in
-    }
+    }   // rev <= p.rev: the live row (liveFlush) already brought this write in
   } catch (e) {
     if (e && e.notReady) { _noSetRpc = true; persistProgram(programId); return; }
     if (e && e.badPatch) { console.warn('log_program_set refused the patch', e.message); persistProgram(programId); return; }   // the whole save carries it
     if (fromOutbox) throw e;
     _enqueueOutbox('programSet', { programId, path, patch }, 'pset:' + programId + ':' + path.join(':'));
+  } finally {
+    const l = _psetInflight[programId];
+    if (l) { const i = l.indexOf(mark); if (i >= 0) l.splice(i, 1); if (!l.length) delete _psetInflight[programId]; }
   }
 }
+
+// =========================================================
+// LIVE DESK (sql/migration-live-desk-2026-10-22.sql · db.js DB.liveSubscribe)
+// A set the lifter logs lands on the coach's desk as it happens; a coach's edit of today's session
+// reaches the lifter's phone. Rows arrive from Realtime (or the catch-up after a gap, or the demo's
+// lifter), queue for ~400 ms, then patch the Store in one go: a program row is MERGED with this
+// device's copy (mergeProgramVersions, base = the last copy this device read or wrote), so nothing
+// typed here and not yet saved is lost; an older row than the one we have is ignored (programs.rev).
+// One repaint per burst: 'powa:program-merged' per changed program (Train and the builder repaint
+// themselves) and ONE 'powa:live' { kind, athleteId, programId, items, landed, days } for the desk.
+// =========================================================
+const _LV_COALESCE_MS = 400;
+function _lvClone(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
+function _lvPick(p) { return { name: (p && p.name) || '', weeks: (p && p.weeks) || [], maxes: (p && p.maxes) || null }; }
+// Every set of a program by 'week|day|exercise|set' (the set's id, else its position).
+function _lvSetMap(weeks) {
+  const m = new Map();
+  (weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach((s, i) => {
+    m.set([w.id, d.id, e.id, s && s.id != null && s.id !== '' ? s.id : i].map(String).join('|'), s || {});
+  }))));
+  return m;
+}
+// A value without its empty fields ('' / null), keys sorted: the shape fill-ins a screen adds
+// (ensureExerciseShape's note: '', tempo: '') are not edits.
+function _lvLean(v) {
+  if (Array.isArray(v)) return v.map(_lvLean);
+  if (!_isPlainObj(v)) return v;
+  const o = {};
+  Object.keys(v).sort().forEach(k => { if (v[k] !== '' && v[k] != null) o[k] = _lvLean(v[k]); });
+  return o;
+}
+// A day as written (what the coach prescribes), without what was logged on it. A set logged on
+// either side (done: its key) loses its load and reps too: those are what was lifted.
+const _LV_LOG_ONLY = ['completed', 'skipped', 'missed', 'actualRpe', 'completedAt', 'lastLogId', 'note', 'plannedWeight', 'plannedReps'];
+function _lvDayPlan(w, d, done) {
+  const c = _lvClone(d) || {};
+  (c.exercises || []).forEach(e => (e.sets || []).forEach((s, i) => {
+    const k = [w.id, d.id, e.id, s && s.id != null && s.id !== '' ? s.id : i].map(String).join('|');
+    (done.has(k) ? SET_LOG_FIELDS : _LV_LOG_ONLY).forEach(f => { delete s[f]; });
+  }));
+  return JSON.stringify(_lvLean(c));
+}
+// What changed between two copies of a program's weeks: sets that landed (newly logged, or logged
+// again), logs that went (a set un-done or re-logged: its old lastLogId), and the days whose plan
+// changed ('weekId|dayId'), the lifter's "today's session was updated".
+function liveProgramDiff(beforeWeeks, afterWeeks, withDays) {
+  const b = _lvSetMap(beforeWeeks), a = _lvSetMap(afterWeeks);
+  const landed = [], undoneLogIds = [], days = [], done = new Set();
+  b.forEach((s, k) => { if (s.completed) done.add(k); });
+  a.forEach((s, k) => {
+    const o = b.get(k);
+    if (s.completed) done.add(k);
+    if (s.completed && (!o || !o.completed || (s.lastLogId && s.lastLogId !== o.lastLogId))) landed.push({ key: k, set: s });
+    if (o && o.completed && o.lastLogId && s.lastLogId !== o.lastLogId) undoneLogIds.push(String(o.lastLogId));
+  });
+  if (withDays === false) return { landed, undoneLogIds, days };   // the desk doesn't use them (and they cost a clone per day)
+  const bDays = new Map();
+  (beforeWeeks || []).forEach(w => (w.days || []).forEach(d => bDays.set(String(w.id) + '|' + String(d.id), { w, d })));
+  (afterWeeks || []).forEach(w => (w.days || []).forEach(d => {
+    const k = String(w.id) + '|' + String(d.id), o = bDays.get(k);
+    if (!o || _lvDayPlan(o.w, o.d, done) !== _lvDayPlan(w, d, done)) days.push(k);
+  }));
+  return { landed, undoneLogIds, days };
+}
+// Make dst look like src while keeping dst's objects (matched by id, else position), so a screen
+// holding a week / day / set object keeps editing the live one after a merge.
+function _lvSyncInto(dst, src) {
+  if (Array.isArray(src)) {
+    if (!Array.isArray(dst)) return _lvClone(src);
+    const byId = new Map();
+    dst.forEach(x => { if (_isPlainObj(x) && x.id != null && x.id !== '') byId.set(String(x.id), x); });
+    const out = src.map((s, i) => {
+      const d = _isPlainObj(s) && s.id != null && s.id !== '' ? byId.get(String(s.id)) : dst[i];
+      return (_isPlainObj(s) && _isPlainObj(d)) || (Array.isArray(s) && Array.isArray(d)) ? _lvSyncInto(d, s) : _lvClone(s);
+    });
+    dst.length = 0;
+    out.forEach(x => dst.push(x));
+    return dst;
+  }
+  if (_isPlainObj(src)) {
+    if (!_isPlainObj(dst)) return _lvClone(src);
+    Object.keys(dst).forEach(k => { if (!(k in src)) delete dst[k]; });
+    Object.keys(src).forEach(k => { dst[k] = _lvSyncInto(dst[k], src[k]); });
+    return dst;
+  }
+  return src;
+}
+// This device's program edits not on the server yet: whole-program saves (waiting, in flight, or in
+// the outbox, with the base that copy was edited from) and set patches (in flight or queued).
+function livePending(id, outbox) {
+  const ob = outbox || (typeof _readOutbox === 'function' ? _readOutbox() : []);
+  const queued = ob.find(e => e && e.key === 'program:' + id);
+  const patches = [];
+  ob.forEach(e => { if (e && e.kind === 'programSet' && e.payload && e.payload.programId === id && e.payload.path) patches.push({ path: e.payload.path, patch: e.payload.patch }); });
+  (_psetInflight[id] || []).forEach(m => patches.push(m));
+  return { whole: !!(_persistTimers['prog_' + id] || _progSaving[id] || queued), patches, base: (queued && queued.payload && queued.payload._base) || null };
+}
+// The server's copy with my set patches still on their way laid on top (they land by themselves).
+function liveWithPatches(theirs, patches) {
+  const out = _lvClone(_lvPick(theirs));
+  (patches || []).forEach(m => { const s = _findProgramSet(out, (m.path || []).map(String)); if (s) applySetPatch(s, m.patch); });
+  return out;
+}
+// One program row from the server into the Store. base = this device's last server copy. Without
+// one (a cold offline open) a merge can't tell my edits from my stale copy, so: nothing of mine
+// waiting → the server's copy (plus my set patches in flight); a whole save waiting → left alone
+// (that save's compare-and-swap deals with it, as before live). opts: { pending: livePending(id),
+// days: false skips the per-day plan diff }. → { status: 'added' | 'merged' | 'same' | 'stale' |
+// 'deferred', prog, landed, undoneLogIds, days, unsynced, baseless } where unsynced = this copy holds
+// edits the server hasn't got (never set base-less: such a copy is never written back).
+function liveApplyProgram(store, theirs, base, opts) {
+  opts = opts || {};
+  const pend = opts.pending || { whole: false, patches: [] };
+  const withDays = opts.days !== false;
+  const list = store.programs || (store.programs = []);
+  const p = list.find(x => x.id === theirs.id);
+  const none = { landed: [], undoneLogIds: [], days: [], unsynced: false, baseless: !base };
+  if (!p) {
+    const np = _lvClone(theirs);
+    delete np.partial;
+    // One program per lifter (programs.athlete_id is unique): a new one replaces whatever this
+    // device still holds for them (the old row was deleted; deletes aren't streamed).
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].athleteId === np.athleteId) list.splice(i, 1);
+    list.push(np);
+    const d = liveProgramDiff([], np.weeks, withDays);
+    return Object.assign({}, none, { status: 'added', prog: np, days: d.days });
+  }
+  if (typeof theirs.rev === 'number' && typeof p.rev === 'number' && theirs.rev <= p.rev) return Object.assign({}, none, { status: 'stale', prog: p });
+  if (!base && pend.whole) return Object.assign({}, none, { status: 'deferred', prog: p });
+  const before = _lvClone(_lvPick(p));
+  const next = base ? mergeProgramVersions(base, p, theirs) : liveWithPatches(theirs, pend.patches);
+  const diff = liveProgramDiff(before.weeks, next.weeks, withDays);
+  let changed = !_deq(before, next);
+  if (changed) {
+    p.name = next.name;
+    p.maxes = next.maxes;
+    p.weeks = _lvSyncInto(Array.isArray(p.weeks) ? p.weeks : [], next.weeks);
+  }
+  if (typeof theirs.rev === 'number') p.rev = theirs.rev;
+  // The coach's settings for the block (set fields, its dates): the server's copy.
+  ['setFields', 'startsOn', 'meetDate'].forEach(k => {
+    if (theirs[k] !== undefined && !_deq(p[k], theirs[k])) { p[k] = _lvClone(theirs[k]); changed = true; }
+  });
+  return { status: changed ? 'merged' : 'same', prog: p, landed: diff.landed, undoneLogIds: diff.undoneLogIds, days: diff.days, baseless: !base,
+    unsynced: !!base && !_deq(_lvLean(next), _lvLean(_lvPick(theirs))) };
+}
+// Any other live row (a logged set, a check-in, an answer, a session note, a form check): insert or
+// replace by id. → true when the list changed.
+function liveUpsertRow(list, row, front) {
+  if (!Array.isArray(list) || !row || row.id == null) return false;
+  const i = list.findIndex(x => x && x.id === row.id);
+  if (i < 0) { if (front) list.unshift(row); else list.push(row); return true; }
+  if (_deq(list[i], row)) return false;
+  list[i] = Object.assign({}, list[i], row);
+  return true;
+}
+const _LV_LISTS = { log: 'workoutLogs', checkin: 'checkins', answer: 'checkinAnswers', note: 'sessionNotes' };
+// A burst of live items [{ kind, row }] → the Store. ctx: { role: 'coach' | 'athlete', me, baseOf(id),
+// pending(id) (livePending; none when left out), remember(row), formChecks (the coach's list, or null) }. Rows outside the roster (or not the
+// lifter's own) are dropped whatever the server sent. → { detail (for 'powa:live') | null,
+// merged: [programId], fetch: [programId], persist: [programId] }.
+function liveApplyBatch(store, items, ctx) {
+  ctx = ctx || {};
+  const roster = ctx.role === 'coach' ? new Set((store.athletes || []).map(a => a.id)) : null;
+  const allowed = r => !!(r && r.athleteId && (roster ? roster.has(r.athleteId) : r.athleteId === ctx.me));
+  const out = { merged: [], fetch: [], persist: [], deferred: [] }, events = [], landed = [], days = [];
+  const add = (arr, v) => { if (v != null && !arr.includes(v)) arr.push(v); };
+  (items || []).forEach(it => {
+    const r = it && it.row;
+    if (!it || !allowed(r)) return;
+    if (it.kind === 'program') {
+      if (r.partial) {
+        const have = (store.programs || []).find(x => x.id === r.id);
+        if (!(have && typeof r.rev === 'number' && typeof have.rev === 'number' && r.rev <= have.rev)) add(out.fetch, r.id);
+        return;
+      }
+      const res = liveApplyProgram(store, r, (ctx.baseOf && ctx.baseOf(r.id)) || null,
+        { pending: ctx.pending ? ctx.pending(r.id) : null, days: ctx.role !== 'coach' });
+      if (res.status === 'deferred') add(out.deferred, r.id);
+      if (res.status === 'stale' || res.status === 'deferred') return;
+      if (ctx.remember) ctx.remember(r);
+      if (res.unsynced) add(out.persist, r.id);
+      if (res.undoneLogIds.length) store.workoutLogs = (store.workoutLogs || []).filter(l => !res.undoneLogIds.includes(String(l.id)));
+      if (res.status === 'same' && !res.undoneLogIds.length) return;
+      add(out.merged, r.id);
+      const kind = res.landed.length ? 'set' : 'program';
+      events.push({ kind, athleteId: r.athleteId, programId: r.id, sets: res.landed.length, days: res.days });
+      if (kind === 'set') add(landed, r.athleteId);
+      res.days.forEach(d => add(days, d));
+    } else if (it.kind === 'formcheck') {
+      // Newest first, like listFormChecksForCoach.
+      if (ctx.formChecks && liveUpsertRow(ctx.formChecks, r, true)) events.push({ kind: 'formcheck', athleteId: r.athleteId, programId: null });
+    } else if (_LV_LISTS[it.kind]) {
+      const key = _LV_LISTS[it.kind];
+      if (it.kind === 'log' && (store.workoutLogs || []).some(l => l.id === r.id)) return;   // this device wrote it
+      if (liveUpsertRow(store[key] || (store[key] = []), r)) events.push({ kind: it.kind, athleteId: r.athleteId, programId: null });
+    }
+  });
+  if (!events.length) return Object.assign(out, { detail: null });
+  const top = events.find(e => e.kind === 'set') || events.find(e => e.kind === 'program') || events[events.length - 1];
+  return Object.assign(out, { detail: { kind: top.kind, athleteId: top.athleteId, programId: top.programId, items: events, landed, days } });
+}
+// Rows in, one flush per ~400 ms. timers is injectable for the tests.
+function liveCoalescer(ms, onFlush, timers) {
+  const T = timers || { set: (f, t) => setTimeout(f, t), clear: h => clearTimeout(h) };
+  let q = [], h = null;
+  const flush = () => { h = null; const items = q; q = []; if (items.length) onFlush(items); };
+  return {
+    push(item) { q.push(item); if (h == null) h = T.set(flush, ms); },
+    flushNow() { if (h != null) T.clear(h); flush(); },
+    size() { return q.length; },
+    clear() { if (h != null) T.clear(h); h = null; q = []; }
+  };
+}
+
+// ---- the runtime: one per page ----
+const _lv = { role: null, me: null, q: null, status: 'off', resyncing: false, resyncT: null, again: false, refetch: new Set(), deferTries: 0 };
+function _lvCoachFormChecks() { try { return typeof _coachFormChecks !== 'undefined' && Array.isArray(_coachFormChecks) ? _coachFormChecks : null; } catch (e) { return null; } }
+function _lvRosterIds() { return (Store.get().athletes || []).map(a => a.id).filter(Boolean).sort(); }
+// Program rows to read in full (too big for Realtime): read now; a failed read is asked again on the
+// next flush or catch-up.
+function _lvFetch(ids) {
+  if (window._demoMode || !ids.length || !(window.DB && DB.liveProgramRows)) return;
+  ids.forEach(id => _lv.refetch.delete(id));
+  DB.liveProgramRows({ ids }).then(rows => rows.forEach(r => liveIngest('program', r))).catch(e => {
+    console.warn('live fetch', e);
+    (e && e.rows || []).forEach(r => liveIngest('program', r));
+    ((e && e.ids) || ids).forEach(id => _lv.refetch.add(id));
+  });
+}
+function liveFlush(items) {
+  const pendOf = {}, ob = typeof _readOutbox === 'function' ? _readOutbox() : [];
+  const pending = id => pendOf[id] || (pendOf[id] = livePending(id, ob));
+  const res = liveApplyBatch(Store.get(), items, {
+    role: _lv.role, me: _lv.me,
+    // The last copy this device read or wrote, else the one a queued save was edited from.
+    baseOf: id => (window.DB && DB.programBase ? DB.programBase(id) : null) || pending(id).base,
+    pending,
+    remember: row => { if (window.DB && DB.rememberProgramBase) DB.rememberProgramBase(row); },
+    formChecks: _lv.role === 'coach' ? _lvCoachFormChecks() : null
+  });
+  // This copy holds edits the server hasn't got: save them, unless a save or a set patch for the
+  // program is already on its way (it carries them) or waiting in the outbox.
+  if (!window._demoMode && res.persist.length) {
+    res.persist.forEach(id => {
+      const pd = livePending(id);
+      if (pd.whole || pd.patches.length) return;
+      persistProgram(id);
+    });
+  }
+  // Left alone (no base, my save on its way): once that save lands this device has a base again, so
+  // the catch-up reads the row again (a few times at most).
+  if (res.deferred.length && _lv.deferTries < 5) { _lv.deferTries++; _lvResyncSoon(3000); }
+  else if (!res.deferred.length) _lv.deferTries = 0;
+  // Too big for a Realtime message (or `weeks` left out of the update): read it, then merge as usual.
+  const fetch = res.fetch.concat([..._lv.refetch].filter(id => !res.fetch.includes(id)));
+  _lvFetch(fetch);
+  res.merged.forEach(id => { try { window.dispatchEvent(new CustomEvent('powa:program-merged', { detail: { id, live: true } })); } catch (e) {} });
+  if (res.detail) { try { window.dispatchEvent(new CustomEvent('powa:live', { detail: res.detail })); } catch (e) {} }
+  if (_lv.role === 'coach' && !window._demoMode) _lvRosterCheck();
+  return res;
+}
+function liveIngest(kind, row) {
+  if (!row) return;
+  if (!_lv.q) _lv.q = liveCoalescer(_LV_COALESCE_MS, liveFlush);
+  _lv.q.push({ kind, row });
+}
+// A lifter joined or left since the channel was built: build it again (the logs filter is by roster).
+function _lvRosterCheck() {
+  if (!window.DB || !DB.liveState || _lv.role !== 'coach') return;
+  const st = DB.liveState();
+  if (st.status === 'off') return;
+  if (st.athleteIds.join(',') !== _lvRosterIds().join(',')) liveStart();
+}
+// After every join (the first one too: rows written between the page's load and the join) and every
+// gap (a reconnect, the tab back from hidden): what the server has now goes through the same merge,
+// so a set logged meanwhile still pulses on the desk. Coalesced; a failed read tries again in 30 s.
+function _lvResyncSoon(ms) {
+  clearTimeout(_lv.resyncT);
+  _lv.resyncT = setTimeout(_lvResync, ms == null ? 300 : ms);
+}
+async function _lvResync() {
+  _lv.resyncT = null;
+  if (!_lv.me || window._demoMode || !window.DB || !DB.liveProgramRows) return;
+  if (_lv.resyncing) { _lv.again = true; return; }
+  _lv.resyncing = true; _lv.again = false;
+  let failed = false;
+  try {
+    // Which programs moved (id + rev), then only those in full.
+    const by = _lv.role === 'coach' ? { coachId: _lv.me } : { athleteId: _lv.me };
+    const heads = DB.liveProgramRevs ? await DB.liveProgramRevs(by) : null;
+    const mine = Store.get().programs || [];
+    const moved = heads ? heads.filter(h => { const p = mine.find(x => x.id === h.id); return !p || typeof h.rev !== 'number' || typeof p.rev !== 'number' || h.rev > p.rev; }).map(h => h.id) : null;
+    if (moved) _lv.refetch.forEach(id => { if (!moved.includes(id)) moved.push(id); });
+    const rows = moved == null ? await DB.liveProgramRows(by) : moved.length ? await DB.liveProgramRows({ ids: moved }) : [];
+    (moved || []).forEach(id => _lv.refetch.delete(id));
+    rows.forEach(r => liveIngest('program', r));
+    if (_lv.role === 'coach') {
+      const since = isoLocal(new Date(Date.now() - 2 * 864e5));
+      (await DB.liveLogsSince(_lvRosterIds(), since)).forEach(l => liveIngest('log', l));
+      if (typeof refreshFormChecks === 'function') { try { refreshFormChecks(); } catch (e) {} }
+    }
+  } catch (e) { console.warn('live resync', e); failed = true; }
+  finally { _lv.resyncing = false; }
+  if (!_lv.me) return;
+  if (_lv.again) _lvResyncSoon(0);
+  else if (failed && _lv.status !== 'off' && _lv.status !== 'paused') _lvResyncSoon(30000);
+}
+// The coach's desk says so, quietly, when the programs channel has been down for a while (the backoff
+// ran out; it still tries every minute). Refresh tries now.
+function _lvPausedMarker(show) {
+  let m = document.getElementById('livePaused');
+  if (!show || !(typeof isDesk === 'function' && isDesk())) { if (m) m.remove(); return; }
+  if (m) return;
+  m = document.createElement('div');
+  m.id = 'livePaused'; m.className = 'live-paused'; m.setAttribute('role', 'status');
+  const t = document.createElement('span'); t.textContent = 'Live paused';
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Refresh';
+  b.addEventListener('click', () => { if (m) m.remove(); liveStart(); });
+  m.append(t, document.createTextNode(' · '), b);
+  (document.body || document.documentElement).appendChild(m);
+}
+// Start (or rebuild) this page's live channels. Real accounts only; the demo never touches the network.
+function liveStart() {
+  const u = window._user;
+  if (window._demoMode || !u || !u.id || !window.DB || !DB.liveSubscribe) return false;
+  _lv.role = u.userType === 'coach' ? 'coach' : 'athlete';
+  _lv.me = u.id;
+  DB.liveSubscribe({ role: _lv.role, uid: u.id, athleteIds: _lv.role === 'coach' ? _lvRosterIds() : [] }, {
+    onRow: (kind, row) => liveIngest(kind, row),
+    onStatus: (st, info) => {
+      _lv.status = st;
+      if (_lv.role === 'coach') _lvPausedMarker(st === 'down');
+      if (info && info.joined) _lvResyncSoon();
+    }
+  });
+  return true;
+}
+function liveStop() {
+  try { if (window.DB && DB.liveUnsubscribe) DB.liveUnsubscribe(); } catch (e) {}
+  if (_lv.q) _lv.q.clear();
+  clearTimeout(_lv.resyncT); _lv.resyncT = null;
+  _lv.refetch.clear();
+  _lvPausedMarker(false);
+  _lv.role = null; _lv.me = null; _lv.status = 'off';
+}
+window.liveStart = liveStart;
+window.liveStop = liveStop;
+window.liveIngest = liveIngest;
+
+// ---- ?demo=1 on the coach's desk: one lifter training right now ----
+// Arjun works through his next open session: a set lands every 30-45 s (the first after a few) while
+// the tab is visible, through the same merge and repaint as a real one. In memory only.
+const _lvDemo = { t: null, n: 0, on: false };
+function _lvDemoProgram(store) { return (store.programs || []).find(p => p.id === 'demo-cprog-0') || null; }
+// The next set to log: the first open set of the first day that has one.
+function _lvDemoNext(prog) {
+  for (const w of (prog && prog.weeks) || []) for (const d of w.days || []) {
+    const exs = d.exercises || [];
+    for (const e of exs) for (let i = 0; i < (e.sets || []).length; i++) if (!e.sets[i].completed && !e.sets[i].skipped) return { w, d, e, si: i };
+  }
+  return null;
+}
+// The lifter's copy with the next set logged (+ its log row), or null when the session is done.
+function liveDemoStep(store, nowMs) {
+  const prog = _lvDemoProgram(store);
+  const nx = prog && _lvDemoNext(prog);
+  if (!nx) return null;
+  const theirs = _lvClone(prog);
+  theirs.rev = (typeof prog.rev === 'number' ? prog.rev : 0) + 1;
+  const w = theirs.weeks.find(x => x.id === nx.w.id), d = w.days.find(x => x.id === nx.d.id), e = d.exercises.find(x => x.id === nx.e.id);
+  const s = e.sets[nx.si];
+  const rpe = Number(s.rpe) || 8, reps = Number(s.reps) || 3;
+  let kg = Number(s.weight) || 0;
+  if (!(kg > 0)) {   // a top set by RPE: the lifter picks the load from their max
+    const max = Number((prog.maxes || {})[e.lift]) || 200;
+    kg = Math.round(max * (1 - ((reps - 1) + (10 - rpe)) * 0.0333) / 2.5) * 2.5;
+    s.plannedWeight = 0;
+  }
+  const n = ++_lvDemo.n;
+  const date = isoLocal(new Date(nowMs || Date.now()));
+  const felt = Math.min(10, rpe + ((n % 3) === 2 ? 0.5 : 0));
+  Object.assign(s, { weight: kg, completed: true, actualRpe: felt, completedAt: date, lastLogId: 'demo-live-log-' + n });
+  const e1rm = calcE1RM(kg, reps, felt);
+  const log = { id: 'demo-live-log-' + n, athleteId: prog.athleteId, lift: e.lift, variant: e.variant || '', exerciseName: e.exerciseName || '',
+    weight: kg, reps, rpe: felt, e1rm, e1rmComp: MAIN_LIFTS.includes(e.lift) ? calcCompE1RM(kg, reps, felt, e.lift, e.variant) : e1rm, date, note: '' };
+  return { theirs, log };
+}
+function _lvDemoTick() {
+  _lvDemo.t = null;
+  if (!_lvDemo.on) return;
+  const desk = typeof isDesk === 'function' && isDesk();
+  if (document.visibilityState === 'hidden' || !desk) { _lvDemo.t = setTimeout(_lvDemoTick, 5000); return; }   // paused while nobody watches
+  const st = liveDemoStep(Store.get(), Date.now());
+  if (!st) { _lvDemo.on = false; return; }   // the session is done
+  liveIngest('program', st.theirs);
+  liveIngest('log', st.log);
+  _lvDemo.t = setTimeout(_lvDemoTick, 30000 + Math.floor(Math.random() * 15000));
+}
+function liveDemoStart() {
+  if (!window._demoMode || _lvDemo.on || /[?&]fresh=1/.test(location.search)) return;
+  if (!_lvDemoProgram(Store.get())) return;
+  _lv.role = 'coach'; _lv.me = (window._user && window._user.id) || 'demo-coach';
+  _lvDemo.on = true;
+  _lvDemo.t = setTimeout(_lvDemoTick, 6000 + Math.floor(Math.random() * 3000));
+}
+window.liveDemoStart = liveDemoStart;
 
 // =========================================================
 // OFFLINE-SAFE LOGGING
