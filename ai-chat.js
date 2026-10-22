@@ -142,6 +142,26 @@
     return snap;
   }
 
+  // What goes to Gemini for an athlete: training data only, never anything from Apple Health.
+  // The bodyweight is the latest weigh-in the lifter typed (app.js aiBodyweight), not one Health
+  // brought in; sleep, heart rate, HRV, food and readiness are never read here at all. Each lift's
+  // last set is cut to its numbers.
+  function promptSnapshot(athleteId) {
+    var snap = snapshotFor(athleteId);
+    var out = { mains: {}, totalLogs: snap.totalLogs, lastDate: snap.lastDate, last7: snap.last7, total: snap.total, program: snap.program };
+    Object.keys(snap.mains).forEach(function (lift) {
+      var m = snap.mains[lift], ls = m.lastSet;
+      out.mains[lift] = { best: m.best, count: m.count,
+        lastSet: ls ? { lift: ls.lift, exercise: ls.exerciseName || '', weight: ls.weight, reps: ls.reps, rpe: ls.rpe, date: ls.date } : null };
+    });
+    var bws = (S().bodyweight || []).filter(function (b) { return b.athleteId === athleteId; });
+    var H = window.PowaHealthJS;
+    out.bw = typeof aiBodyweight === 'function'
+      ? aiBodyweight(bws, function (b) { return !!(H && H.fromHealth && H.fromHealth(b)); })
+      : null;
+    return out;
+  }
+
   function rosterSummary() {
     var st = S();
     var coach = me();
@@ -499,9 +519,8 @@
           return { name: r.name, total: r.snap.total, last7: r.snap.last7, mains: r.snap.mains, stale: r.stale, program: r.snap.program };
         }));
     } else {
-      var snap = u ? snapshotFor(u.id) : {};
       ctx = "You are the POWALIFTA training assistant for athlete " + (u ? u.name : '') + ".\n" +
-        "Their snapshot (JSON): " + JSON.stringify(snap);
+        "Their snapshot (JSON): " + JSON.stringify(u ? promptSnapshot(u.id) : {});
     }
     return ctx + "\n\nPOWALIFTA is an RPE-native powerlifting app. e1RM = weight/(1-((reps-1)+(10-RPE))*0.0333). " +
       "Units: " + unit() + ". Be concise, concrete and barbell-literate. Use the snapshot data for any numbers. Never invent them. " +

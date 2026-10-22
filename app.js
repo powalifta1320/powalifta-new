@@ -53,6 +53,29 @@ function uid(prefix = 'id') {
   // The prefix arg is ignored — kept for callsite compatibility.
   return _randomUUID();
 }
+// A weigh-in brought in from Apple Health gets an id that says so on every device: a UUID with the
+// version digit 8 (RFC 9562's custom version; Postgres takes any UUID), where uid() is always 4.
+// The AI assistant's snapshot leaves these out (aiBodyweight): Health data never goes to Gemini.
+function healthBwUid() { const u = _randomUUID(); return u.slice(0, 14) + '8' + u.slice(15); }
+function isHealthBwId(id) { return /^[0-9a-f]{8}-[0-9a-f]{4}-8/i.test(String(id || '')); }
+// The bodyweight the AI assistant may see: the latest weigh-in the lifter typed, never one from
+// Apple Health (marked by id, or by isHealth: health.js's per-device record). null when none.
+function aiBodyweight(list, isHealth) {
+  const typed = (list || []).filter(b => b && Number(b.weight) > 0 && !isHealthBwId(b.id) && !(isHealth && isHealth(b)))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return typed.length ? Number(typed[0].weight) : null;
+}
+// Progress → Recovery's sleep row: last night when it has sleep, else the latest night that does
+// (never "last night" for an older one). nights: newest first [{ night, minutes }], night = the
+// morning's date. → null | { night, minutes, lastNight }. Pure: tested.
+function latestSleptNight(nights) {
+  const list = nights || [];
+  for (let i = 0; i < list.length; i++) {
+    const n = list[i];
+    if (n && Number(n.minutes) > 0) return { night: n.night, minutes: Number(n.minutes), lastNight: i === 0 };
+  }
+  return null;
+}
 
 // Auth lives in Supabase. Current user is hydrated on bootstrap.
 function getCurrentUser() {
@@ -263,7 +286,7 @@ function _buildDemoData() {
     { id: 'demo-note-1', athleteId: DA, weekId: null, dayId: null, date: daysAgo(2), note: 'Pulls felt heavy off the floor today but lockout was easy.', coachComment: 'Bar speed on video looked fine. That\'s just deficit fatigue. We deload in two weeks. Keep the openers honest.', coachCommentAt: daysAgo(1) + 'T10:00:00Z', coachId: DC },
     { id: 'demo-note-2', athleteId: DA, weekId: null, dayId: null, date: daysAgo(7), note: 'Bench PR! Moved fast.', coachComment: 'Saw it. Adding 2.5kg to your top sets.', coachCommentAt: daysAgo(6) + 'T10:00:00Z', coachId: DC }
   ];
-  const checkins = [{ id: 'demo-ci-1', athleteId: DA, weekStart: daysAgo(9), sleep: 7, soreness: 6, stress: 4, feel: 8, note: 'Good week.', createdAt: daysAgo(9) + 'T08:00:00Z' }];
+  const checkins = [{ id: 'demo-ci-1', athleteId: DA, weekStart: daysAgo(9), sleep: 7, soreness: 7, stress: 7, feel: 8, note: 'Good week.', createdAt: daysAgo(9) + 'T08:00:00Z' }];
 
   // A live thread with the coach. The Coach tab weaves these together with the
   // session notes above into one conversation history (see renderMessageThread).
@@ -423,8 +446,8 @@ function _buildCoachDemoData() {
     { id: 'demo-cn-3', athleteId: 'demo-a2', weekId: null, dayId: null, date: daysAgo(2), note: 'Bench paused reps felt way stronger.', coachComment: 'That\'s the pause work paying off. Same weights next week, then we move.', coachCommentAt: daysAgo(1) + 'T09:00:00Z', coachId: DC }
   ];
   const checkins = [
-    { id: 'demo-cci-1', athleteId: 'demo-a1', weekStart: daysAgo(3), sleep: 8, soreness: 4, stress: 3, feel: 9, note: 'Feeling strong.', createdAt: daysAgo(3) + 'T08:00:00Z' },
-    { id: 'demo-cci-2', athleteId: 'demo-a3', weekStart: daysAgo(10), sleep: 4, soreness: 8, stress: 9, feel: 3, note: 'Rough week.', createdAt: daysAgo(10) + 'T08:00:00Z' }
+    { id: 'demo-cci-1', athleteId: 'demo-a1', weekStart: daysAgo(3), sleep: 8, soreness: 7, stress: 8, feel: 9, note: 'Feeling strong.', createdAt: daysAgo(3) + 'T08:00:00Z' },
+    { id: 'demo-cci-2', athleteId: 'demo-a3', weekStart: daysAgo(10), sleep: 4, soreness: 3, stress: 2, feel: 3, note: 'Rough week.', createdAt: daysAgo(10) + 'T08:00:00Z' }
   ];
   // Per-athlete bodyweight so the pound-for-pound board has data. Weights are
   // picked so relative-strength rank differs from raw total (Arjun, lightest,
@@ -5957,6 +5980,14 @@ function weightClassFor(bwKg, sex) {
   for (const c of arr) if (bwKg <= c) return c + ' kg';
   return arr[arr.length - 1] + ' kg+';
 }
+// The lifter's class as the app names it (bodyweight hero, You, the lifter card): the class they're
+// making weight for when a cut is set (goals.targetClass, the cut card's "Class 83"), else the class
+// of the weigh-in. One answer, so the screens never say 93 and 83 at once. Pure: tested.
+function liftersClass(bwKg, sex, targetClass) {
+  const t = Number(targetClass);
+  if (t > 0) return t + ' kg';
+  return weightClassFor(bwKg, sex);
+}
 
 // "Make weight" math: where the lifter sits inside their IPF class and what it
 // takes to move. All kg (classes are inherently kg; the view converts the gaps
@@ -8160,6 +8191,13 @@ function isoLocal(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function todayISO() { return isoLocal(new Date()); }
+// A weigh-in date the app will keep: 'ok', 'future' (iOS's date wheel ignores the input's max,
+// so tomorrow can be picked) or 'invalid'. Both are 'YYYY-MM-DD' in the lifter's day. Pure: tested.
+function weighInDateCheck(dateIso, todayIso) {
+  const d = String(dateIso || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return 'invalid';
+  return d > String(todayIso || todayISO()) ? 'future' : 'ok';
+}
 // A plain 'YYYY-MM-DD' reads as that day where the lifter is (UTC midnight is the evening
 // before across the Americas, which showed every date a day early).
 function _dateArg(iso) { return /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? new Date(iso + 'T12:00:00') : new Date(iso); }
@@ -8824,7 +8862,7 @@ function computeSignals() {
     });
     (s.checkins || []).forEach(c => {
       if (!roster.has(c.athleteId)) return;
-      out.push({ id: 'cci-' + c.id, type: 'checkin', title: nameOf(c.athleteId) + ' submitted a check-in', body: 'Feeling ' + c.feel + '/10 · sleep ' + c.sleep + 'h · stress ' + c.stress + '/10', ts: c.createdAt || c.weekStart, tab: 'athletes' });
+      out.push({ id: 'cci-' + c.id, type: 'checkin', title: nameOf(c.athleteId) + ' submitted a check-in', body: 'Feeling ' + c.feel + '/10 · sleep ' + c.sleep + '/10 · calm ' + c.stress + '/10', ts: c.createdAt || c.weekStart, tab: 'athletes' });
     });
     (s.athletes || []).filter(a => a.coachId === u.id).forEach(a => {
       const logs = (s.workoutLogs || []).filter(l => l.athleteId === a.id);
@@ -9038,6 +9076,44 @@ window.addEventListener('themechange', () => {
   }, 0);
 });
 
+// Where the goal line's label goes: the first of four spots (right above, right below, left above,
+// left below the line) that no series line runs through, else the one crossed least. The label used
+// to sit top right always, on the lines whenever the weigh-ins ran along the class line.
+//   lines [[{ x, y }]] px, lineY px, box { left, right, top, bottom } the plot, w / h the label
+// → { x, y (baseline), anchor: 'end' | 'start', clear }. Pure: tested.
+function goalLabelSpot(lines, lineY, box, w, h) {
+  const pad = 4, gap = 5;
+  let spots = [
+    { x: box.right - pad, y: lineY - gap, anchor: 'end' },
+    { x: box.right - pad, y: lineY + gap + h, anchor: 'end' },
+    { x: box.left + pad, y: lineY - gap, anchor: 'start' },
+    { x: box.left + pad, y: lineY + gap + h, anchor: 'start' }
+  ];
+  const inside = spots.filter(s => s.y - h >= box.top - 8 && s.y <= box.bottom + 8);
+  if (inside.length) spots = inside;
+  const hits = (s) => {
+    const x0 = (s.anchor === 'end' ? s.x - w : s.x) - 2, x1 = x0 + w + 4, y0 = s.y - h - 2, y1 = s.y + 3;
+    let n = 0;
+    (lines || []).forEach(pts => {
+      for (let i = 0; i < (pts || []).length; i++) {
+        const a = pts[i - 1] || pts[i], b = pts[i];
+        const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2));
+        for (let k = 0; k <= steps; k++) {
+          const x = a.x + (b.x - a.x) * k / steps, y = a.y + (b.y - a.y) * k / steps;
+          if (x >= x0 && x <= x1 && y >= y0 && y <= y1) { n++; break; }
+        }
+      }
+    });
+    return n;
+  };
+  let best = null;
+  for (const s of spots) {
+    const n = hits(s);
+    if (n === 0) return Object.assign({}, s, { clear: true });
+    if (!best || n < best.n) best = Object.assign({}, s, { n });
+  }
+  return { x: best.x, y: best.y, anchor: best.anchor, clear: false };
+}
 function drawLineChart(container, config) {
   const { series = [], unit = '', height = 320, area = false, goal = null } = config;
   container.innerHTML = '';
@@ -9144,12 +9220,15 @@ function drawLineChart(container, config) {
       line.setAttribute('stroke-dasharray', '6 4');
       svg.appendChild(line);
       const lbl = document.createElementNS(SVG_NS, 'text');
-      lbl.setAttribute('x', w - PAD.right - 4); lbl.setAttribute('y', yv - 6);
-      lbl.setAttribute('text-anchor', 'end');
+      const lblText = goal.label || ('Goal · ' + goal.value + unit);
+      const pts = series.map(s => (s.data || []).filter(d => d.y != null).map(d => ({ x: xScale(allDates.indexOf(d.x)), y: yScale(d.y) })));
+      const spot = goalLabelSpot(pts, yv, { left: PAD.left, right: w - PAD.right, top: PAD.top, bottom: h - PAD.bottom }, lblText.length * 6.6 + 2, 11);
+      lbl.setAttribute('x', spot.x); lbl.setAttribute('y', spot.y);
+      lbl.setAttribute('text-anchor', spot.anchor);
       lbl.setAttribute('fill', C_GOAL); lbl.setAttribute('font-size', '11');
       lbl.setAttribute('font-weight', '700');
       lbl.setAttribute('font-family', "'Archivo', sans-serif");
-      lbl.textContent = goal.label || ('Goal · ' + goal.value + unit);
+      lbl.textContent = lblText;
       svg.appendChild(lbl);
     }
   }
@@ -11655,6 +11734,22 @@ function recoveryRows(rec) {
   return rows;
 }
 
+// The cut row's two lines from cutPlan(): the title is the class line, the sub the pace. "On weight"
+// is the pace's to say, so the title drops it (it read "Class 83 · on weight" over "On weight").
+// mine: the lifter's own screen, which already leads with today's weight. Pure: tested.
+function cutRowText(cut, mine) {
+  const paceTxt = cut.made ? (cut.tone === 'amber' ? 'On weight, creeping up' : 'On weight')
+    : cut.weeksLeft != null && cut.weeksLeft <= 0 ? 'Meet day passed, still over'
+    : cut.offPace ? (cut.slopePerWk != null && cut.slopePerWk > 0.05 ? 'Off pace: going up during the cut' : 'Off pace')
+    : cut.needPerWk != null ? 'On pace' : 'Set the meet date to see the pace';
+  const sub = paceTxt + (cut.aggressive && !cut.made ? ' · more than 1% a week: talk it through with your coach' : '');
+  let bits = String(cut.line || '').split(' · ');
+  if (mine) bits = bits.slice(1);
+  bits = bits.filter(b => b !== 'on weight');
+  const t = bits.join(' · ');
+  return { title: mine ? t.charAt(0).toUpperCase() + t.slice(1) : t, sub };
+}
+
 // The cut (goals.target_class + cut_by against the weigh-ins) and food from Apple Health, as one
 // list: the class line first, then the 7-day food averages against the targets. Shared by the
 // coach's athlete sheet and the lifter's Bodyweight screen. Returns [] when there is no cut and no
@@ -11668,14 +11763,8 @@ function buildCutSection(athleteId, opts) {
   if (!cut && !food && !hasTargets) return [];
   const rows = [];
   if (cut) {
-    const paceTxt = cut.made ? (cut.tone === 'amber' ? 'On weight, creeping up' : 'On weight')
-      : cut.weeksLeft != null && cut.weeksLeft <= 0 ? 'Meet day passed, still over'
-      : cut.offPace ? (cut.slopePerWk != null && cut.slopePerWk > 0.05 ? 'Off pace: going up during the cut' : 'Off pace')
-      : cut.needPerWk != null ? 'On pace' : 'Set the meet date to see the pace';
-    const sub = paceTxt + (cut.aggressive && !cut.made ? ' · more than 1% a week: talk it through with your coach' : '');
-    // The lifter's screen already leads with today's weight: the row starts at the class.
-    const t = opts.mine ? cut.line.split(' · ').slice(1).join(' · ') : cut.line;
-    rows.push(uiRow({ lead: el('span', { class: 'ui-dot cut-dot ' + ({ good: 'ok', amber: 'warn', off: 'bad' }[cut.tone] || 'ok') }), title: opts.mine ? t.charAt(0).toUpperCase() + t.slice(1) : t, sub,
+    const txt = cutRowText(cut, !!opts.mine);
+    rows.push(uiRow({ lead: el('span', { class: 'ui-dot cut-dot ' + ({ good: 'ok', amber: 'warn', off: 'bad' }[cut.tone] || 'ok') }), title: txt.title, sub: txt.sub,
       subTone: cut.tone === 'off' ? 'alert' : null, chevron: !!opts.onEdit, onClick: opts.onEdit || null }));
   }
   const foodRow = (label, avg, target, unit) => {
@@ -11971,9 +12060,13 @@ const PLATE_LOOK = {
   lbs: { 45: ['#2563eb', 100, 14], 35: ['#f5c518', 92, 12], 25: ['#1f9d55', 80, 10], 10: ['#ececef', 60, 8], 5: ['#2b2b30', 50, 7], 2.5: ['#b8bcc6', 42, 6] }
 };
 function _barDisplay() { try { return typeof activeBarDisplay === 'function' ? activeBarDisplay() : gymBarDisplay(); } catch (e) { return undefined; } }
-// The plates on ONE side, heaviest first, in the active unit.
-function plateLoadout(kg) {
-  const r = plateBreakdown(Number(kg) || 0, _barDisplay());
+// Competition collars (IPF, USAPL and most federations): 2.5 kg each, on every attempt. Meet mode's
+// loaders count them; the everyday plate math doesn't (a gym's spring clips weigh next to nothing).
+const MEET_COLLAR_KG = 2.5;
+// The plates on ONE side, heaviest first, in the active unit. opts.collarKg: each collar's weight.
+function plateLoadout(kg, opts) {
+  const collar = opts && Number(opts.collarKg) > 0 ? Number(opts.collarKg) : 0;
+  const r = plateBreakdown(Math.max(0, (Number(kg) || 0) - 2 * collar), _barDisplay());
   return { plates: r.plates || [], unit: r.unit === 'lbs' ? 'lbs' : 'kg', error: r.error || null };
 }
 function plateColor(p, unit) { const l = PLATE_LOOK[unit === 'lbs' ? 'lbs' : 'kg'][p]; return l ? l[0] : '#9aa0aa'; }
@@ -11983,8 +12076,8 @@ function plateSummaryText(kg) {
   return r.plates.map(p => String(p)).join(' · ') + ' ' + (r.unit === 'lbs' ? 'lb' : 'kg') + ' per side';
 }
 // Plate chips, grouped: "2×25  15  2.5".
-function plateChipsHtml(kg) {
-  const r = plateLoadout(kg);
+function plateChipsHtml(kg, opts) {
+  const r = plateLoadout(kg, opts);
   if (!r.plates.length) return '<span class="pl-chip is-bar">Just the bar</span>';
   const groups = [];
   r.plates.forEach(p => { const g = groups[groups.length - 1]; if (g && g.p === p) g.n++; else groups.push({ p, n: 1 }); });
@@ -11992,7 +12085,7 @@ function plateChipsHtml(kg) {
 }
 function uiBarbell(kg, opts) {
   opts = opts || {};
-  const r = plateLoadout(kg);
+  const r = plateLoadout(kg, opts);
   const look = PLATE_LOOK[r.unit];
   const mid = 50, gap = 1.6;
   // Each plate's spot on the sleeve, inside out.
@@ -12004,7 +12097,7 @@ function uiBarbell(kg, opts) {
   // weight again doesn't move at all.
   let was = null, keep = 0;
   if (opts.from != null) {
-    const fr = Number(opts.from) === Number(kg) ? null : plateLoadout(opts.from);
+    const fr = Number(opts.from) === Number(kg) ? null : plateLoadout(opts.from, opts);
     was = fr && fr.unit === r.unit ? lay(fr.plates) : [];
     if (fr) while (keep < now.length && keep < was.length && now[keep].p === was[keep].p) keep++;
     else keep = now.length;
@@ -13259,6 +13352,35 @@ function bouncerOpener(o, unit) {
   const opener = Number(o.openerKg) || 0, ref = Number(o.refKg) || 0;
   if (!(opener > 0) || !(ref > 0) || opener / ref <= 0.95) return null;
   return { pct: Math.round(opener / ref * 100), suggestKg: roundMeet(ref * 0.91, unit || 'kg') };
+}
+// The bouncer's reference: the best competition-equivalent e1RM from a heavy set (three reps or
+// fewer) in the last four weeks; 0 when there's none. Meet mode's check and the planner both read
+// this one. logs: workoutLogs. Pure: tested.
+function recentHeavyRef(logs, athleteId, lift, todayIso) {
+  const since = _addDaysISO(todayIso || todayISO(), -28);
+  let ref = 0;
+  (logs || []).forEach(l => {
+    if (l && l.athleteId === athleteId && l.lift === lift && String(l.date || '') >= since && Number(l.reps) <= 3) {
+      const e = Number(l.e1rmComp) || 0;
+      if (e > ref) ref = e;
+    }
+  });
+  return ref;
+}
+// The planner's three attempts on ONE reference, the one the bouncer judges by: the lower of the
+// e1RM and this month's heavy sets (a stale e1RM made a Standard opener the bouncer then called
+// too heavy). An opener rounding can still push past 95% (a light bar) steps down a plate.
+//   → { base, basis: 'recent' | 'e1rm', attempts: [opener, second, third] } (kg). Pure: tested.
+function meetAttempts(e1, refKg, pcts, unit) {
+  const e = Number(e1) || 0, ref = Number(refKg) || 0, u = unit || 'kg';
+  const recent = ref > 0 && (!(e > 0) || ref < e);
+  const base = recent ? ref : e;
+  const attempts = (pcts || [0.91, 0.96, 1.005]).map(p => roundMeet(base * p, u));
+  for (let g = 0; g < 8 && ref > 0 && attempts[0] > 0 && bouncerOpener({ openerKg: attempts[0], refKg: ref }, u); g++) {
+    attempts[0] = roundMeet(attempts[0] - meetStep(u), u);
+  }
+  for (let i = 1; i < attempts.length; i++) if (attempts[i] < attempts[i - 1]) attempts[i] = attempts[i - 1];
+  return { base, basis: recent ? 'recent' : 'e1rm', attempts };
 }
 
 // Press and hold for `ms` to go against the app's advice. The fill grows under the

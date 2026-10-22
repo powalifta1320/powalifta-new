@@ -4038,6 +4038,122 @@ test('offline: a call the other laptop won is reported, never silently dropped',
   eq(ok2.lost.length, 0, 'kept as sent: nothing to report');
 });
 
+/* ===========================================================
+   Release check fixes (2026-10-22): weigh-in dates, sleep row, class, cut row,
+   chart label, meet opener reference, collars, AI bodyweight
+   =========================================================== */
+group('release fixes');
+test('weigh-in date: tomorrow is refused, today and the past are fine', () => {
+  const t = '2026-10-22';
+  eq(weighInDateCheck('2026-10-23', t), 'future');
+  eq(weighInDateCheck('2027-01-01', t), 'future');
+  eq(weighInDateCheck(t, t), 'ok');
+  eq(weighInDateCheck('2026-10-21', t), 'ok');
+  eq(weighInDateCheck('2020-02-29', t), 'ok');
+  eq(weighInDateCheck('', t), 'invalid');
+  eq(weighInDateCheck('22/10/2026', t), 'invalid');
+  eq(weighInDateCheck(null, t), 'invalid');
+});
+test('sleep row: last night when it has sleep, else the latest night that does, else none', () => {
+  const n = (night, minutes) => ({ night, minutes });
+  const a = latestSleptNight([n('2026-10-22', 430), n('2026-10-21', 400)]);
+  eq(a.minutes, 430); eq(a.night, '2026-10-22'); eq(a.lastNight, true);
+  const b = latestSleptNight([n('2026-10-22', 0), n('2026-10-21', 0), n('2026-10-20', 455), n('2026-10-19', 470)]);
+  eq(b.minutes, 455); eq(b.night, '2026-10-20'); eq(b.lastNight, false);
+  eq(latestSleptNight([n('2026-10-22', 0)]), null);
+  eq(latestSleptNight([]), null);
+  eq(latestSleptNight(null), null);
+});
+test('class: the class being made when a cut is set, else the class of the weigh-in', () => {
+  eq(liftersClass(84.1, 'male', 83), '83 kg');
+  eq(liftersClass(84.1, 'male', null), '93 kg');
+  eq(liftersClass(84.1, 'male', 0), '93 kg');
+  eq(liftersClass(62.5, 'female', 63), '63 kg');
+  eq(liftersClass(null, 'male', 83), '83 kg');
+  eq(liftersClass(null, 'male', null), null);
+  eq(liftersClass(130, 'male', null), '120 kg+');
+});
+test('cut row: "on weight" is said once', () => {
+  const t = '2026-10-22';
+  const ser = (pts) => pts.map(([d, w]) => ({ date: _addDaysISO(t, -d), weight: w }));
+  const c = cutPlan(ser([[7, 82.8], [0, 82.6]]), 83, _addDaysISO(t, 30), t);
+  [true, false].forEach(mine => {
+    const r = cutRowText(c, mine);
+    const both = (r.title + ' | ' + r.sub).toLowerCase();
+    eq(both.split('on weight').length - 1, 1, (mine ? 'mine: ' : 'coach: ') + both);
+  });
+  eq(cutRowText(c, true).title, 'Class 83 · 4 wk to go');
+  // over and on pace: the title keeps its need, the sub says the pace
+  const o = cutPlan(ser([[21, 85.0], [14, 84.7], [7, 84.4], [0, 84.1]]), 83, _addDaysISO(t, 63), t);
+  const r2 = cutRowText(o, true);
+  assert(/^Class 83 · 9 wk to go · need −0\.1/.test(r2.title), r2.title); eq(r2.sub, 'On pace');
+});
+test('chart goal label: placed where no line runs through it', () => {
+  const box = { left: 52, right: 296, top: 20, bottom: 162 };
+  // a flat line just above the goal on the right half, the left half clear above
+  const pts = [[{ x: 52, y: 150 }, { x: 150, y: 150 }, { x: 200, y: 92 }, { x: 296, y: 92 }]];
+  const s = goalLabelSpot(pts, 100, box, 50, 12);
+  assert(s.clear, 'found a clear spot');
+  const hits = (x0, x1, y0, y1) => pts[0].some((p, i) => i && (() => { for (let k = 0; k <= 20; k++) { const q = pts[0][i - 1], x = q.x + (p.x - q.x) * k / 20, y = q.y + (p.y - q.y) * k / 20; if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return true; } return false; })());
+  const x0 = s.anchor === 'end' ? s.x - 50 : s.x, y0 = s.y - 12;
+  eq(hits(x0, x0 + 50, y0, s.y + 2), false, 'label box ' + JSON.stringify(s));
+  // nothing near the line: the usual spot, top right
+  const far = goalLabelSpot([[{ x: 52, y: 30 }, { x: 296, y: 30 }]], 140, box, 50, 12);
+  eq(far.anchor, 'end'); assert(far.y < 140, 'above the line'); eq(far.clear, true);
+});
+test('meet opener: the planner uses the same reference as the bouncer, so it never bounces its own opener', () => {
+  const t = '2026-10-22';
+  const logs = [
+    { athleteId: 'a', lift: 'squat', reps: 2, e1rmComp: 195, date: '2026-10-10' },
+    { athleteId: 'a', lift: 'squat', reps: 5, e1rmComp: 230, date: '2026-10-12' },   // a five: not a heavy set
+    { athleteId: 'a', lift: 'squat', reps: 1, e1rmComp: 240, date: '2026-08-01' },   // too old
+    { athleteId: 'b', lift: 'squat', reps: 1, e1rmComp: 300, date: '2026-10-20' }    // someone else
+  ];
+  eq(recentHeavyRef(logs, 'a', 'squat', t), 195);
+  eq(recentHeavyRef(logs, 'a', 'bench', t), 0);
+  // the finding: e1RM 206, Standard opener 187.5 is 96% of this month's 195
+  const std = [0.91, 0.96, 1.005];
+  const p = meetAttempts(206, 195, std, 'kg');
+  eq(p.basis, 'recent'); eq(p.base, 195);
+  eq(bouncerOpener({ openerKg: p.attempts[0], refKg: 195 }, 'kg'), null, 'opener ' + p.attempts[0]);
+  eq(p.attempts[0], 177.5);
+  // no heavy sets this month: the e1RM, as before
+  const q = meetAttempts(206, 0, std, 'kg'); eq(q.basis, 'e1rm'); eq(q.attempts.join(','), '187.5,197.5,207.5');
+  // heavy sets above the e1RM: the e1RM (the lower one)
+  eq(meetAttempts(200, 210, std, 'kg').base, 200);
+  // every strategy, every size: never bounced, never decreasing
+  [[0.89, 0.945, 0.985], std, [0.93, 0.975, 1.025]].forEach(pc => {
+    for (let ref = 30; ref <= 320; ref += 3.7) for (const e1 of [ref * 0.9, ref, ref * 1.08]) {
+      const r = meetAttempts(e1, ref, pc, 'kg');
+      eq(bouncerOpener({ openerKg: r.attempts[0], refKg: ref }, 'kg'), null, 'e1 ' + e1 + ' ref ' + ref + ' opener ' + r.attempts[0]);
+      assert(r.attempts[0] <= r.attempts[1] && r.attempts[1] <= r.attempts[2], 'order ' + r.attempts);
+      const rl = meetAttempts(e1, ref, pc, 'lbs');
+      eq(bouncerOpener({ openerKg: rl.attempts[0], refKg: ref }, 'lbs'), null, 'lbs: e1 ' + e1 + ' ref ' + ref);
+    }
+  });
+});
+test('meet loaders: 2.5 kg collars come off the plates a side; everyday plate math unchanged', () => {
+  const prev = localStorage.getItem('powa-unit'); localStorage.setItem('powa-unit', 'kg');
+  try {
+    eq(plateLoadout(200).plates.join(','), '25,25,25,15');
+    eq(plateLoadout(200, { collarKg: 2.5 }).plates.join(','), '25,25,25,10,2.5');
+    eq(plateLoadout(177.5, { collarKg: 2.5 }).plates.join(','), '25,25,25,1.25');
+    eq(plateLoadout(25, { collarKg: 2.5 }).plates.length, 0);
+    eq(MEET_COLLAR_KG, 2.5);
+  } finally { if (prev == null) localStorage.removeItem('powa-unit'); else localStorage.setItem('powa-unit', prev); }
+});
+test('AI bodyweight: a weigh-in from Apple Health never goes; the latest typed one does', () => {
+  const hid = healthBwUid();
+  assert(isHealthBwId(hid), 'marked: ' + hid);
+  assert(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(hid), 'a valid uuid: ' + hid);
+  eq(isHealthBwId(uid('bw')), false);
+  const list = [{ id: 'a', date: '2026-10-20', weight: 84 }, { id: hid, date: '2026-10-22', weight: 83.2 }, { id: 'c', date: '2026-10-21', weight: 83.6 }];
+  eq(aiBodyweight(list, () => false), 83.6);
+  eq(aiBodyweight(list, (b) => b.id === 'c'), 84);
+  eq(aiBodyweight([{ id: hid, date: '2026-10-22', weight: 83 }], () => false), null);
+  eq(aiBodyweight([], () => false), null);
+});
+
 function runImporterTests(win) {
   group('importer (athlete.html)');
   const build = win._impBuild, parse = win._parseDelimited;

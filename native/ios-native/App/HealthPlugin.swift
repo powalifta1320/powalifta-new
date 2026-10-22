@@ -54,6 +54,12 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         return ISO8601DateFormatter().date(from: s)
     }
     private static func iso(_ d: Date) -> String { ISO8601DateFormatter().string(from: d) }
+    // How far past now a workout's end may sit (clock drift between the phone and the set times).
+    private static let workoutEndSlack: TimeInterval = 5 * 60
+    // True when `date` falls on today or an earlier day, in the lifter's calendar.
+    static func isOnOrBeforeToday(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        calendar.startOfDay(for: date) <= calendar.startOfDay(for: now)
+    }
     // "not_determined" when the lifter hasn't answered iOS for a type yet (a reinstall resets it).
     private static func code(_ err: Error) -> String {
         if let hk = err as? HKError, hk.code == .errorAuthorizationNotDetermined { return "not_determined" }
@@ -123,11 +129,17 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let kg = call.getDouble("kg"), kg > 0, kg < 700,
               let id = call.getString("id"), !id.isEmpty,
               let date = Self.parseDate(call.getString("date")) else { call.reject("bad_args"); return }
+        // Never a weigh-in from the future (iOS's date wheel ignores the web input's max). The day is
+        // what counts: "YYYY-MM-DD" is stamped 08:00 local, so today's passes even before 08:00, and
+        // is then stamped now rather than later today.
+        let now = Date()
+        guard Self.isOnOrBeforeToday(date, now: now) else { call.reject("future_date"); return }
+        let stamp = min(date, now)
         let meta: [String: Any] = [
             HKMetadataKeySyncIdentifier: "powa-bw-" + id,
             HKMetadataKeySyncVersion: NSNumber(value: Int(Date().timeIntervalSince1970 * 1000))
         ]
-        let sample = HKQuantitySample(type: bodyMass, quantity: HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: kg), start: date, end: date, metadata: meta)
+        let sample = HKQuantitySample(type: bodyMass, quantity: HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: kg), start: stamp, end: stamp, metadata: meta)
         store.save(sample) { ok, err in
             if ok { call.resolve(["ok": true]) } else { call.reject("write_failed", nil, err) }
         }
@@ -147,6 +159,9 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let id = call.getString("id"), !id.isEmpty,
               let start = Self.parseDate(call.getString("start")),
               let end = Self.parseDate(call.getString("end")), end > start else { call.reject("bad_args"); return }
+        // A session ends when its last set is logged (health.js adds two minutes): never later than
+        // a few minutes from now.
+        guard end <= Date().addingTimeInterval(Self.workoutEndSlack) else { call.reject("future_date"); return }
         var meta: [String: Any] = [
             HKMetadataKeySyncIdentifier: "powa-session-" + id,
             HKMetadataKeySyncVersion: NSNumber(value: Int(Date().timeIntervalSince1970 * 1000)),

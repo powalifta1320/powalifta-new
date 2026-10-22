@@ -112,7 +112,8 @@
     const decided = get('decided', {}), imported = get('imported', {});
     const plan = planWeights(res.samples, mine, decided, imported);
     for (const w of plan.toImport) {
-      const b = { id: uid_('bw'), athleteId: uid, date: w.day, weight: w.kg };
+      // An id that says "from Apple Health" on every device (app.js healthBwUid): the AI never sees it.
+      const b = { id: typeof healthBwUid === 'function' ? healthBwUid() : uid_('bw'), athleteId: uid, date: w.day, weight: w.kg };
       imported[b.id] = w.kg;   // came from Health at this weight: not sent back unless it's edited
       put('imported', imported);
       Store.update(s => { s.bodyweight = (s.bodyweight || []).concat([b]); });
@@ -147,12 +148,24 @@
   // ---------------------------------------------------------------- weigh-ins out
   async function weightSaved(b) {
     if (!b || !isOn() || !(Number(b.weight) > 0)) return;
+    // Never a weigh-in from the future into Health (HealthPlugin.writeWeight refuses one too).
+    if (typeof weighInDateCheck === 'function' && weighInDateCheck(b.date, typeof todayISO === 'function' ? todayISO() : isoDay(Date.now())) !== 'ok') return;
     // One that came from Health goes back only once the lifter changes it here (then it's theirs).
     const imported = get('imported', {}), imp = imported[b.id];
     if (imp === true || (imp != null && Math.abs(Number(imp) - Number(b.weight)) < 0.05)) return;
     if (imp != null) { delete imported[b.id]; put('imported', imported); }
     if (!(await available())) return;
     try { await P().writeWeight({ kg: Number(b.weight), id: String(b.id), date: b.date }); } catch (e) {}
+  }
+
+  // Did this weigh-in come from Apple Health (and still hold Health's number)? The id marks every
+  // import since 1.3's release fix; this device's record also covers older imports and a clash the
+  // lifter settled in Health's favour. The AI assistant's snapshot leaves these out.
+  function fromHealth(b) {
+    if (!b) return false;
+    if (typeof isHealthBwId === 'function' && isHealthBwId(b.id)) return true;
+    const imp = get('imported', {})[b.id];
+    return imp === true || (imp != null && Math.abs(Number(imp) - Number(b.weight)) < 0.05);
   }
 
   // ---------------------------------------------------------------- sessions out
@@ -403,7 +416,7 @@
   }
 
   window.PowaHealthJS = {
-    available, couldOffer, isOn, enable, disable, refresh, pullWeights, resolveConflict, weightSaved, access, refused,
+    available, couldOffer, isOn, enable, disable, refresh, pullWeights, resolveConflict, weightSaved, fromHealth, access, refused,
     setLogged, sessionChanged, recovery, cachedRecovery, suggestReadiness, recoveryLine, sleepText,
     getShare, setShare, cachedReadiness, nutrition, cachedNutrition, getShareFood, setShareFood, retryPendingOff, offPending,
     // pure, for tests
