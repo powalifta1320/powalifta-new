@@ -15,13 +15,14 @@
 //     checked by _shared/apple-jws.ts (x5c chain to Apple Root CA - G3 + Apple's
 //     marker OIDs + ES256 signature).
 //   - bundleId + productId are allowlisted (same table as apple-iap).
-//   - The profile is found by apple_original_transaction_id, which only apple-iap
-//     (after checking appAccountToken == the caller) writes, and which users can't
-//     edit (migration-billing-guard.sql). A plan-GRANTING event that matches nobody
-//     (the app's own apple-iap call failed, or hasn't happened yet) may also match
-//     the Apple-signed appAccountToken, which the app sets to the buyer's user id at
-//     purchase; it links the coach then, unless another Apple subscription or a live
-//     web plan is on file. A plan-removing event never uses the token.
+//   - The profile is found ONLY by apple_original_transaction_id, which only apple-iap
+//     (after checking appAccountToken == the signed-in caller) writes, and which users can't
+//     edit (migration-billing-guard.sql). A notification that matches nobody is ignored: the
+//     app's next signed-in sync (apple-iap, at launch) links the purchase. (2026-10-22: the
+//     old fallback linked by appAccountToken alone, which the BUYER chooses, so a modified
+//     client could attach its subscription to another coach and lock them out of web billing.)
+//   - A Sandbox notification only grants a plan to an account in APPLE_SANDBOX_UIDS (same
+//     list as apple-iap); a plan-removing one always applies.
 //   - The period end (expiresDate) is stored with every decision, so the database's
 //     lapse check (3 days after it) follows renewals and expiries even if a later
 //     notification is lost.
@@ -41,7 +42,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verifyAppleJws } from "../_shared/apple-jws.ts";
 import { clientIp, rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
-import { lsLive, selectProfilesSoft, updateProfileSoft } from "../_shared/billing.ts";
+import { lsLive, sandboxAllowed, selectProfilesSoft, updateProfileSoft } from "../_shared/billing.ts";
 
 const BUNDLE_ID = "com.powalifta.app";
 // Keep in sync with apple-iap + StoreKitPlugin.productIds + App Store Connect.
@@ -134,25 +135,13 @@ Deno.serve(async (req) => {
   const cols = "id, user_type, subscription_tier, subscription_status, ls_subscription_id, apple_original_transaction_id, subscription_updated_at";
   const byTxn = await selectProfilesSoft(admin, cols, (q) => q.eq("apple_original_transaction_id", otid).limit(1));
   if (byTxn.error) return json(500, { error: "lookup_failed" });
-  let profile = byTxn.data?.[0] ?? null;
-  let linkTxn = false;
+  const profile = byTxn.data?.[0] ?? null;
   const grants = decision.tier !== "free";
-  const token = String(txn.appAccountToken ?? "").toLowerCase();
-  if (!profile && grants && /^[0-9a-f-]{36}$/.test(token)) {
-    const byToken = await selectProfilesSoft(admin, cols, (q) => q.eq("id", token).limit(1));
-    if (byToken.error) return json(500, { error: "lookup_failed" });
-    const cand = byToken.data?.[0] ?? null;
-    // The token is chosen by whoever bought, so it only ever links an account that has no plan
-    // to lose (a refund of a "gift" would otherwise wipe a comp or a paid-up plan); a real
-    // buyer on a plan is linked by the app's own signed-in sync instead (apple-iap).
-    if (cand && (!cand.apple_original_transaction_id || cand.apple_original_transaction_id === otid)
-        && (cand.subscription_tier ?? "free") === "free") {
-      profile = cand;
-      linkTxn = true;
-    }
-  }
   if (!profile) return json(200, { ignored: "no_matching_coach" });
   if (profile.user_type !== "coach") return json(200, { ignored: "not_a_coach" });
+  if (grants && String(data.environment ?? txn.environment ?? "Production") !== "Production" && !sandboxAllowed(profile.id)) {
+    return json(200, { ignored: "sandbox" });
+  }
 
   if (lsLive(profile)) return json(200, { ignored: "web_billing_active" });
 
@@ -175,7 +164,6 @@ Deno.serve(async (req) => {
     billing_provider: grants ? "apple" : null,
   };
   if (expiresMs) patch.subscription_period_end = new Date(expiresMs).toISOString();
-  if (linkTxn) patch.apple_original_transaction_id = otid;
   const { data: done, error } = await updateProfileSoft(admin, profile.id, patch,
     (q) => q.or("subscription_updated_at.is.null,subscription_updated_at.lt." + signedIso).select("id"));
   if (error) return json(500, { error: "update_failed" });

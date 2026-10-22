@@ -3428,6 +3428,9 @@ function deskBuilderHead(prog, athleteId, actions, view) {
     seg.appendChild(b);
   });
   head.appendChild(seg);
+  // TEAM PROGRAMS (M4) TEMPORARY proof-of-data button: opens app.js openTeamSheet. The desk v2
+  // Team view replaces it; remove this line with it.
+  if (typeof openTeamSheet === 'function') { var tb = dkBtn('Team', { cls: 'is-quiet', onClick: function () { openTeamSheet(); } }); tb.id = 'dkTeamBtn'; tb.title = 'Team programs (preview)'; head.appendChild(tb); }
   var more = el('button', { type: 'button', class: 'dk-icon-btn', 'aria-label': 'Program options', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: DK_IC.more });
   more.addEventListener('click', function (e) {
     e.stopPropagation();

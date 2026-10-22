@@ -129,6 +129,7 @@ private struct MetricRow: View {
                 }
                 .lineLimit(1)
                 .fixedSize()
+                .privacySensitive()   // Health values: redacted on the Lock Screen / StandBy until unlocked
                 if showUsual {
                     Spacer(minLength: 6)
                     Text(metric.usual.map { "usual \($0)" } ?? "")
@@ -137,6 +138,7 @@ private struct MetricRow: View {
                         .foregroundColor(Hue.ink3)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
+                        .privacySensitive()
                 }
             }
         }
@@ -418,11 +420,11 @@ struct CutView: View {
         VStack(alignment: .leading, spacing: 0) {
             WidgetTitle(text: c.cls ?? "Weight class")
             Spacer(minLength: 2)
-            HeroNumber(value: cur, unit: c.unit ?? "kg", size: 32)
-            status(c).padding(.top, 1)
+            HeroNumber(value: cur, unit: c.unit ?? "kg", size: 32).privacySensitive()
+            status(c).padding(.top, 1).privacySensitive()
             Spacer(minLength: 6)
             if let t = snap?.cutTrendNow, let line = c.classLine {
-                ClassChart(trend: t, classLine: line).frame(height: 38)
+                ClassChart(trend: t, classLine: line).frame(height: 38).privacySensitive()
             }
         }
         .accessibilityElement(children: .combine)
@@ -433,11 +435,11 @@ struct CutView: View {
             VStack(alignment: .leading, spacing: 0) {
                 WidgetTitle(text: c.cls ?? "Weight class")
                 Spacer(minLength: 4)
-                HeroNumber(value: cur, unit: c.unit ?? "kg", size: 36)
+                HeroNumber(value: cur, unit: c.unit ?? "kg", size: 36).privacySensitive()
                 Text("7-day average")
                     .font(.system(size: 11, weight: .medium)).foregroundColor(Hue.ink3)
                 Spacer(minLength: 8)
-                status(c)
+                status(c).privacySensitive()
                 if let by = c.by {
                     HStack(spacing: 4) {
                         Image(systemName: "flag.checkered").font(.system(size: 10, weight: .bold))
@@ -450,7 +452,7 @@ struct CutView: View {
             Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 14)
             VStack(alignment: .leading, spacing: 6) {
                 if let t = snap?.cutTrendNow, let line = c.classLine {
-                    ClassChart(trend: t, classLine: line, showLabel: true)
+                    ClassChart(trend: t, classLine: line, showLabel: true).privacySensitive()
                 } else {
                     Spacer(minLength: 0)
                 }
@@ -458,6 +460,7 @@ struct CutView: View {
                     Text(p)
                         .font(.system(size: 11, weight: .medium)).monospacedDigit()
                         .foregroundColor(Hue.ink3).lineLimit(1).minimumScaleFactor(0.8)
+                        .privacySensitive()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -566,7 +569,9 @@ struct RecoveryLine: View {
             }
             .widgetAccentable()
             if let h {
+                // "Slept 5h 40m · HR 62": Health data, hidden while the phone is locked.
                 Text(h.line ?? "").font(.system(size: 13, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
+                    .privacySensitive()
                 if let t = sessionLine(snap) {
                     Text(t.text).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
                 }

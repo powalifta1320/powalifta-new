@@ -3265,6 +3265,345 @@ test('video review: the caption goes where the drawings are not', () => {
   eq(VG.captionOnTop([]), false, 'nothing drawn → the bottom');
 });
 
+/* ===========================================================
+   Team programs (brief M4): one master, many lifters, overrides kept
+   =========================================================== */
+group('team programs (M4)');
+// A master block: n weeks, a squat day (comp squat by %, an accessory) and a bench day (RPE top set).
+function _tmMaster(nWeeks, pct) {
+  return Array.from({ length: nWeeks || 6 }, (_, wi) => ({ id: 'mw' + (wi + 1), number: wi + 1, days: [
+    { id: 'mw' + (wi + 1) + 'd1', name: 'Squat day', exercises: [
+      { id: 'mw' + (wi + 1) + 'sq', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'Brace', sets: [
+        { id: 'mw' + (wi + 1) + 'sq1', weight: 0, reps: 3, rpe: 8, pct: (pct || 75) + wi * 2.5, completed: false },
+        { id: 'mw' + (wi + 1) + 'sq2', weight: 0, reps: 3, rpe: 8, pct: (pct || 75) + wi * 2.5, completed: false } ] },
+      { id: 'mw' + (wi + 1) + 'row', lift: 'pull', variant: '', exerciseName: 'Barbell row', note: '', sets: [
+        { id: 'mw' + (wi + 1) + 'row1', weight: 60, reps: 10, rpe: 8, completed: false } ] } ] },
+    { id: 'mw' + (wi + 1) + 'd2', name: 'Bench day', exercises: [
+      { id: 'mw' + (wi + 1) + 'bp', lift: 'bench', variant: 'Competition', exerciseName: '', note: '', sets: [
+        { id: 'mw' + (wi + 1) + 'bp1', weight: 0, reps: 1, rpe: 8, completed: false } ] } ] } ] }));
+}
+const _tc = (o) => JSON.parse(JSON.stringify(o));
+const _tEx = (weeks, wi, di, ei) => weeks[wi].days[di].exercises[ei];
+test('team loads: % of each lifter-s max, rounded to their unit and plates', () => {
+  eq(teamLoadKg(80, 200, 'kg'), 160);
+  eq(teamLoadKg(77, 200, 'kg'), 155, '154 → the nearest 2.5 kg');
+  const lb = teamLoadKg(80, 200, 'lbs');                      // 160 kg = 352.7 lb → 355 lb
+  close(lb / KG_PER_LB, 355, 0.05, 'a lb lifter gets a 5 lb jump');
+  eq(teamLoadKg(80, 0, 'kg'), 0, 'no max: no load');
+  eq(teamLoadKg(80, 200, 'kg', 5), 160); eq(teamLoadKg(81, 200, 'kg', 5), 160, 'a gym with no 1.25s jumps by 5');
+  eq(teamMaxKg({ squat: { kg: 180, source: 'program' } }, 'squat'), 180); eq(teamMaxKg({ squat: 175 }, 'squat'), 175); eq(teamMaxKg(null, 'squat'), 0);
+});
+test('team: the first push links every week, day, exercise and set to the master', () => {
+  const master = _tmMaster(2);
+  const r = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 }, unit: 'kg' });
+  eq(r.weeks.length, 2);
+  const sq = _tEx(r.weeks, 0, 0, 0);
+  eq(sq.srcId, 'mw1sq'); eq(r.weeks[0].srcId, 'mw1'); eq(r.weeks[0].days[0].srcId, 'mw1d1'); eq(sq.sets[0].srcId, 'mw1sq1');
+  assert(sq.id !== 'mw1sq' && sq.sets[0].id !== 'mw1sq1', 'the lifter-s copy has its own ids');
+  eq(sq.sets[0].weight, 150, '75% of 200'); eq(sq.sets[0].pct, 75); eq(sq.note, 'Brace');
+  eq(_tEx(r.weeks, 0, 0, 1).sets[0].weight, 60, 'an accessory keeps the master-s load');
+  eq(r.noMax.length, 0);
+  const n = teamMemberWeeks(master, null, { maxes: { bench: 100 }, unit: 'kg' });
+  eq(n.noMax.join(','), 'squat', 'no squat max: reported');
+  eq(_tEx(n.weeks, 0, 0, 0).sets[0].weight, 0, 'and the % is left blank, never a made-up load');
+});
+test('team: a master edit never touches a set the lifter logged', () => {
+  const master = _tmMaster(2);
+  let mine = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  Object.assign(_tEx(mine, 0, 0, 0).sets[0], { completed: true, actualRpe: 8.5, weight: 152.5, plannedWeight: 150, completedAt: '2026-10-20', lastLogId: 'L1' });
+  const before = _tc(_tEx(mine, 0, 0, 0).sets[0]);
+  const m2 = _tc(master);
+  _tEx(m2, 0, 0, 0).sets.forEach(s => { s.pct = 80; s.reps = 2; });
+  const r = teamMemberWeeks(m2, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(JSON.stringify(_tEx(r.weeks, 0, 0, 0).sets[0]), JSON.stringify(before), 'the logged set is exactly as lifted');
+  eq(_tEx(r.weeks, 0, 0, 0).sets[1].weight, 160); eq(_tEx(r.weeks, 0, 0, 0).sets[1].reps, 2, 'the set still to do follows the master');
+  eq(_tEx(r.weeks, 0, 0, 0).sets[1].id, _tEx(mine, 0, 0, 0).sets[1].id, 'and keeps its id (log paths stay valid)');
+  // The master drops the set the lifter logged: it stays.
+  const m3 = _tc(master); _tEx(m3, 0, 0, 0).sets.splice(0, 1);
+  const r3 = teamMemberWeeks(m3, mine, { maxes: { squat: 200 } });
+  eq(_tEx(r3.weeks, 0, 0, 0).sets.filter(s => s.completed).length, 1);
+});
+test('team: an override survives every push and is reported only where it differs from the team', () => {
+  const master = _tmMaster(2);
+  let mine = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  mine = teamOverrideExercise(mine, _tEx(mine, 1, 0, 0).id);
+  let r = teamMemberWeeks(master, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(r.keptOwn.length, 0, 'marked as theirs but still the same as the team: nothing to report');
+  _tEx(mine, 1, 0, 0).sets.forEach(s => { s.pct = null; s.weight = 140; });   // the coach wrote Dan his own W2 squat
+  const own = _tc(_tEx(mine, 1, 0, 0));
+  r = teamMemberWeeks(master, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(JSON.stringify(_tEx(r.weeks, 1, 0, 0)), JSON.stringify(own)); eq(r.keptOwn.length, 1, 'his own: reported');
+  const m2 = _tc(master); _tEx(m2, 1, 0, 0).sets.forEach(s => { s.pct = 82.5; });
+  r = teamMemberWeeks(m2, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(JSON.stringify(_tEx(r.weeks, 1, 0, 0)), JSON.stringify(own), 'still his own');
+  eq(r.keptOwn.length, 1); eq(r.keptOwn[0].srcId, 'mw2sq');
+  // Reset to team: the master's again.
+  const back = teamResetExercise(r.weeks, _tEx(r.weeks, 1, 0, 0).id, m2, { maxes: { squat: 200 } });
+  eq(_tEx(back, 1, 0, 0).ovr, undefined); eq(_tEx(back, 1, 0, 0).sets[0].weight, 165, '82.5% of 200');
+});
+test('team: what the coach added for one lifter stays where it was; what the master removed goes', () => {
+  const master = _tmMaster(1);
+  let mine = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  mine[0].days[0].exercises.splice(1, 0, { id: 'own-ex', lift: 'pull', exerciseName: 'Hip airplane', sets: [{ id: 'own-s', weight: 0, reps: 5, rpe: 6, completed: false }] });
+  mine[0].days[0].scheduledDate = '2026-10-21';
+  const m2 = _tc(master); m2[0].days[0].exercises.splice(1, 1);         // the master drops the row
+  const r = teamMemberWeeks(m2, mine, { maxes: { squat: 200, bench: 140 } });
+  eq(r.weeks[0].days[0].exercises.map(e => e.exerciseName || e.lift).join(','), 'squat,Hip airplane');
+  eq(r.weeks[0].days[0].scheduledDate, '2026-10-21', 'the lifter-s pinned date stays');
+});
+test('team: a program made into a team program is already in step with it', () => {
+  const prog = { id: 'p', name: 'Strength Block', weeks: _tc(_tmMaster(2)) };
+  prog.weeks[0].days[0].exercises[0].sets[0].completed = true;
+  const t = teamMasterFromProgram(prog);
+  assert(t.weeks[0].id !== prog.weeks[0].id, 'the master has its own ids');
+  eq(t.weeks[0].days[0].exercises[0].sets[0].completed, false, 'and no logs');
+  eq(t.linked[0].days[0].exercises[0].srcId, t.weeks[0].days[0].exercises[0].id);
+  eq(t.linked[0].days[0].exercises[0].sets[0].completed, true, 'the source keeps its logs');
+  eq(isTeamLinked({ weeks: t.linked }), true); eq(isTeamLinked(prog), false);
+  eq(isTeamLinked({ weeks: teamDetachProgram(t.linked) }), false, 'detach drops the links');
+});
+// The brief's acceptance: editing W5 squat on a 25-member team updates 24 lifters, Dan keeps his own.
+function _tmTeam25() {
+  const master = _tmMaster(6);
+  const members = Array.from({ length: 25 }, (_, i) => {
+    const id = 'ath' + i, name = i === 7 ? 'Dan Okoro' : 'Lifter ' + i;
+    const maxes = { squat: { kg: 150 + i * 5, source: 'program' }, bench: { kg: 100 + i * 2.5, source: 'e1rm' } };
+    const weeks = teamMemberWeeks(master, null, { maxes, unit: 'kg' }).weeks;
+    return { athleteId: id, name, unit: 'kg', maxes, program: { id: 'prog' + i, athleteId: id, rev: 3, name: 'Meet team', weeks } };
+  });
+  const dan = members[7].program;
+  dan.weeks = teamOverrideExercise(dan.weeks, _tEx(dan.weeks, 4, 0, 0).id);
+  _tEx(dan.weeks, 4, 0, 0).sets.forEach(s => { s.pct = null; s.weight = 170; s.reps = 5; });
+  return { master, members };
+}
+test('team acceptance: editing W5 squat updates 24 lifters and leaves Dan-s override intact', () => {
+  const { master, members } = _tmTeam25();
+  const danW5 = _tc(_tEx(members[7].program.weeks, 4, 0, 0));
+  const m2 = _tc(master); _tEx(m2, 4, 0, 0).sets.forEach(s => { s.pct = 87.5; });
+  const plan = teamPushPlan({ id: 't', name: 'Meet team', weeks: m2, rev: 1 }, members);
+  eq(plan.rows.filter(r => r.action === 'update').length, 24, '24 lifters updated');
+  const dan = plan.rows.find(r => r.athleteId === 'ath7');
+  eq(dan.action, 'same', 'Dan-s program is not written at all');
+  eq(plan.keepOwn.map(k => k.name).join(','), 'Dan Okoro');
+  const l3 = plan.rows.find(r => r.athleteId === 'ath3');
+  eq(_tEx(l3.weeks, 4, 0, 0).sets[0].weight, 145, '87.5% of 165, to 2.5 kg');
+  eq(l3.rev, 3, 'each row carries the rev it was built from (compare-and-swap)');
+  eq(JSON.stringify(_tEx(members[7].program.weeks, 4, 0, 0)), JSON.stringify(danW5));
+  eq(teamPushSummary(plan, { weekNumber: 5 }), 'Publish Week 5 to 25 lifters · 1 keeps their own edits (Dan)');
+});
+test('team: the push dialog counts lifters with no max, and new members get a program', () => {
+  const master = _tmMaster(2);
+  const members = [
+    { athleteId: 'a', name: 'Ana Silva', maxes: { squat: 180, bench: 100 }, program: null },
+    { athleteId: 'b', name: 'Nina Petrova', maxes: { bench: 60 }, program: null }
+  ];
+  const plan = teamPushPlan({ id: 't', name: 'Team', programName: 'Peak', weeks: master, rev: 0 }, members);
+  eq(plan.rows.map(r => r.action).join(','), 'create,create');
+  eq(plan.rows[0].name, 'Peak');
+  eq(plan.noMax.length, 1); eq(plan.noMax[0].name, 'Nina Petrova'); eq(plan.noMax[0].lifts.join(','), 'squat');
+  eq(teamPushSummary(plan), 'Publish to 2 lifters · 1 has no squat max');
+  const rep = teamNoMaxReport(master, members);
+  eq(rep.length, 1); eq(rep[0].text, 'Nina: no squat max, % left blank');
+});
+test('team: the loads matrix cells', () => {
+  const { master, members } = _tmTeam25();
+  const mx = teamLoadsMatrix(master, 'mw5', 'mw5d1', members.slice(5, 9));
+  const cell = (i) => mx.rows[i].cells[0];
+  eq(cell(0).kg, teamLoadKg(85, 175, 'kg')); eq(cell(0).source, 'program'); eq(cell(0).ovr, false);
+  eq(cell(2).ovr, true, 'Dan-s cell is his own'); eq(cell(2).kg, 170, 'and shows his load');
+  eq(cell(2).note, 'Edited for Dan');
+  const none = teamLoadsMatrix(master, 'mw1', 'mw1d1', [{ athleteId: 'n', name: 'Nina', maxes: {}, program: null }]);
+  eq(none.rows[0].cells[0].kg, 0); eq(none.rows[0].cells[0].noMax, true);
+});
+test('team: the push report says who logged during it and who left', () => {
+  const plan = { rows: [{ athleteId: 'a', name: 'Sarah Kim', action: 'update' }, { athleteId: 'b', name: 'Dan Okoro', action: 'update' }, { athleteId: 'c', name: 'Tom Boyle', action: 'update' }] };
+  const res = [{ athlete_id: 'a', status: 'updated', retried: true, loggedDuring: true }, { athlete_id: 'b', status: 'departed' }, { athlete_id: 'c', status: 'updated' }];
+  const lines = teamPushReport(plan, res);
+  eq(lines.find(l => l.athleteId === 'a').text, 'Sarah logged during publish; their sets kept');
+  eq(lines.find(l => l.athleteId === 'b').text, 'Dan is no longer on your roster: not changed');
+  eq(lines.find(l => l.athleteId === 'c').text, 'Tom updated');
+});
+test('team: one quiet notification per lifter, about their own program only', () => {
+  const p = teamDigestPush({ athleteId: 'a', name: 'Sarah Kim', changedWeeks: [5, 6], programName: 'Meet team' }, { coachName: 'Mia Coach' });
+  eq(p.toUserId, 'a'); eq(p.category, 'program'); eq(p.tag, 'powa-prog-a', 'one notification per lifter, replaced not stacked');
+  eq(p.title, 'Mia updated your program'); eq(p.body, 'Weeks 5 and 6 changed. Open Train to see your loads.');
+  assert(!/team/i.test(p.title + p.body), 'lifters never see "team program"');
+  eq(teamDigestPush({ athleteId: 'b', changedWeeks: [3] }, {}).body, 'Week 3 changed. Open Train to see your loads.');
+});
+
+test('team: pushing twice with no master change writes nothing; an unlinked program is replaced', () => {
+  const master = _tmMaster(3);
+  const first = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  const plan = teamPushPlan({ id: 't', weeks: master, rev: 2 }, [
+    { athleteId: 'a', name: 'Ana', maxes: { squat: 200, bench: 140 }, program: { id: 'pa', rev: 5, weeks: first } },
+    { athleteId: 'b', name: 'Bo', maxes: { squat: 200, bench: 140 }, program: { id: 'pb', rev: 1, weeks: _tc(master).map(w => Object.assign(w, { srcId: undefined })) } }]);
+  eq(plan.rows[0].action, 'same'); eq(plan.rows[0].changedWeeks.length, 0);
+  eq(teamPushSummary({ rows: [plan.rows[0]], keepOwn: [], noMax: [] }), 'Up to date · 1 lifter');
+  eq(plan.rows[1].action, 'replace', 'their own (unlinked) block: archived, then replaced');
+  eq(isTeamLinked({ weeks: plan.rows[1].weeks }), true);
+  eq(plan.masterRev, 2);
+});
+test('team demo: six lifters, two own edits, one with no maxes, one master edit to publish', () => {
+  const daysAgo = (n) => _addDaysISO('2026-10-22', -n);
+  const ids = ['demo-d1', 'demo-d5', 'demo-d9', 'demo-d10', 'demo-d11', 'demo-d12'];
+  const names = { 'demo-d1': 'Leo Grant', 'demo-d5': 'Jonah Reed', 'demo-d9': 'Kofi Mensah', 'demo-d10': 'Hannah Berg', 'demo-d11': 'Dev Patel', 'demo-d12': 'Sofia Alvarez' };
+  const st = Object.assign(defaultStore(), { athletes: ids.map(id => ({ id, name: names[id], coachId: 'dc' })), programs: [],
+    workoutLogs: ids.filter(id => id !== 'demo-d10').flatMap(id => MAIN_LIFTS.map((L, i) => ({ athleteId: id, lift: L, e1rmComp: [180, 120, 220][i] }))) });
+  seedTeamDemo(st, { coachId: 'dc', daysAgo });
+  eq(st.teams.length, 1); eq(st.teams[0].members.length, 6);
+  const saved = Store.get();
+  try {
+    Store.set(st);
+    const t = st.teams[0], plan = teamPushPlan(t, teamMembersFor(t));
+    eq(plan.rows.filter(r => r.action === 'update').length, 5); eq(plan.rows.filter(r => r.action === 'create').length, 1);
+    eq(plan.keepOwn.map(k => k.name).join(','), 'Kofi Mensah,Dev Patel');
+    eq(plan.noMax.map(k => k.name).join(','), 'Hannah Berg');
+    eq(teamPushSummary(plan), 'Publish to 6 lifters · 2 keep their own edits (Kofi, Dev) · 1 has no squat, bench or deadlift max');
+    const leo = plan.rows.find(r => r.athleteId === 'demo-d1');
+    eq(leo.changedWeeks.join(','), '4', 'only week 4 changed');
+    eq(leo.weeks[0].days[0].exercises[0].sets.every(x => x.completed), true, 'week 1 stays logged');
+  } finally { Store.set(saved); }
+});
+/* ===========================================================
+   Planned meets + the roster calendar (brief M3)
+   =========================================================== */
+group('planned meets + calendar (M3)');
+test('a planned meet never changes best totals, singles or DOTS', () => {
+  const done = { id: 'm1', athleteId: 'a', date: '2026-03-01', status: 'done', squat: 200, bench: 120, deadlift: 240, bodyweight: 82 };
+  const planned = { id: 'm2', athleteId: 'a', date: '2026-12-05', status: 'planned', squat: 230, bench: 140, deadlift: 260, bodyweight: 82 };
+  eq(bestMeet([done, planned], 'a').meet.id, 'm1');
+  eq(meetDots(planned, 'male'), null); assert(meetDots(done, 'male') > 0);
+  const saved = Store.get();
+  try {
+    Store.set(Object.assign(defaultStore(), { meets: [done, planned], workoutLogs: [] }));
+    eq(bestSingle('a', 'squat').kg, 200); eq(bestSinglesTotal('a').kg, 560);
+  } finally { Store.set(saved); }
+  eq(isPlannedMeet(planned), true); eq(isPlannedMeet(done), false);
+  eq(isPlannedMeet({ planned: true }), true, 'the desk demo-s flag');
+  eq(isPlannedMeet({ date: '2099-01-01', squat: null, bench: null, deadlift: null }, '2026-10-22'), true, 'before the migration: a future meet with no lifts');
+  eq(isPlannedMeet({ date: '2026-01-01', squat: null }, '2026-10-22'), false);
+});
+test('W-n labels count down to the meet week', () => {
+  eq(meetWeekLabel('2026-10-26', '2026-10-31'), 'Meet week');
+  eq(meetWeekLabel('2026-10-19', '2026-10-31'), 'W-1');
+  eq(meetWeekLabel('2026-10-05', '2026-10-31'), 'W-3');
+  eq(meetWeekLabel('2026-11-02', '2026-10-31'), 'W+1');
+  eq(meetWeekLabel('2026-10-05', null), '');
+});
+test('dragging a meet date shifts the W-n labels', () => {
+  const prog = { startsOn: '2026-10-05', weeks: _tmMaster(4) };
+  const a = programWeekLabels(prog, '2026-10-31');
+  eq(a.map(w => w.label).join(','), 'W-3,W-2,W-1,Meet week');
+  eq(a[0].start, '2026-10-05'); eq(a[3].start, '2026-10-26');
+  const b = programWeekLabels(prog, moveMeetDate('2026-10-31', 7));
+  eq(b.map(w => w.label).join(','), 'W-4,W-3,W-2,W-1', 'a week later: every label moves one');
+  eq(programWeekLabels(Object.assign({}, prog, { meetDate: '2026-10-24' })).map(w => w.label).join(','), 'W-2,W-1,Meet week,W+1', 'the program-s own meet date');
+  eq(programWeekLabels({ weeks: _tmMaster(2) }).map(w => w.label).join(','), ',', 'no start, no meet: no labels');
+});
+test('a block-s first Monday: saved, else from pinned days or logs, else back from the meet', () => {
+  eq(programStartsOn({ startsOn: '2026-10-07', weeks: [] }), '2026-10-05', 'always a Monday');
+  const w = _tmMaster(3); w[1].days[0].scheduledDate = '2026-10-15';
+  eq(programStartsOn({ weeks: w }), '2026-10-05', 'week 2 pinned on Thu 15th → week 1 began Mon 5th');
+  const w2 = _tmMaster(3); w2[2].days[1].exercises[0].sets[0].completedAt = '2026-10-21T18:00:00Z';
+  eq(programStartsOn({ weeks: w2 }), '2026-10-05');
+  eq(programStartsOn({ meetDate: '2026-10-31', weeks: _tmMaster(4) }), '2026-10-05', 'the last week is meet week');
+  eq(programStartsOn({ weeks: _tmMaster(2) }), null);
+  eq(programEndsOn({ startsOn: '2026-10-05', weeks: _tmMaster(4) }), '2026-11-01');
+});
+test('calendar: a week axis, block phases and one row per lifter', () => {
+  const ax = calendarAxis('2026-10-22', 12, 26);
+  eq(ax.length, 39); eq(ax[12], '2026-10-19'); eq(ax[0], '2026-07-27');
+  eq(blockPhase('Volume Block'), 'volume'); eq(blockPhase('Hypertrophy wave'), 'volume'); eq(blockPhase('Strength Block'), 'strength');
+  eq(blockPhase('Peak'), 'peak'); eq(blockPhase('Meet Prep'), 'peak'); eq(blockPhase('Deload'), 'deload'); eq(blockPhase('Foundation'), 'strength');
+  const rows = calendarRows({
+    athletes: [{ id: 'a', name: 'Ana' }, { id: 'b', name: 'Bo' }],
+    programs: [{ id: 'p', athleteId: 'a', name: 'Peak', startsOn: '2026-10-05', weeks: _tmMaster(6) }],
+    meets: [{ id: 'm', athleteId: 'a', name: 'Regional Open', date: '2026-10-31', status: 'planned' },
+            { id: 'old', athleteId: 'a', name: 'Spring', date: '2026-04-01', status: 'done', squat: 1, bench: 1, deadlift: 1 }],
+    blocks: [{ id: 'blk', athleteId: 'a', name: 'Volume Block', startedOn: '2026-08-31', endedOn: '2026-10-02' }],
+    today: '2026-10-22', back: 12, ahead: 26
+  });
+  eq(rows.length, 2);
+  const a = rows[0];
+  eq(a.bars.length, 2, 'the current block and a past block');
+  const cur = a.bars.find(b => b.programId === 'p');
+  eq(cur.from, 10); eq(cur.weeks, 6); eq(cur.current, 2, 'week 3 of the block is this week'); eq(cur.phase, 'peak');
+  eq(a.meets.length, 1, 'meets off the axis are left out'); eq(a.meets[0].week, 13); eq(a.meets[0].planned, true);
+  eq(rows[1].bars.length, 0);
+});
+test('calendar: clashes', () => {
+  const rows = calendarRows({
+    athletes: [{ id: 'a', name: 'Ingrid Berg' }, { id: 'b', name: 'Bo Li' }, { id: 'c', name: 'Cy Ray' }],
+    programs: [{ id: 'p', athleteId: 'a', name: 'Peak', startsOn: '2026-10-05', weeks: _tmMaster(6) }],
+    meets: [{ id: 'm1', athleteId: 'a', name: 'Regional Open', date: '2026-10-31', status: 'planned' },
+            { id: 'm2', athleteId: 'b', name: 'City Classic', date: '2026-10-31', status: 'planned' },
+            { id: 'm3', athleteId: 'c', name: 'Regional Open', date: '2026-10-31', status: 'planned' }],
+    today: '2026-10-22'
+  });
+  const cl = calendarClashes(rows);
+  const ends = cl.find(c => c.type === 'block-after-meet');
+  eq(ends.athleteId, 'a'); eq(ends.text, 'Block ends 2 wk after meet');
+  const two = cl.find(c => c.type === 'meets-same-day');
+  eq(two.text, '3 lifters at 2 different meets 31 Oct'); eq(two.athleteIds.length, 3);
+  eq(cl.filter(c => c.type === 'meets-same-day').length, 1);
+});
+test('scoring follows the meet-s federation and division, always labelled', () => {
+  eq(federationFormula('IPF'), 'gl'); eq(federationFormula('British Powerlifting'), 'gl'); eq(federationFormula('Powerlifting America'), 'gl');
+  eq(federationFormula('USAPL'), 'dots'); eq(federationFormula('USPA'), 'dots'); eq(federationFormula(''), 'dots');
+  const gl = meetScore(600, 83, 'male', { federation: 'IPF' });
+  eq(gl.formula, 'gl'); eq(gl.label, 'IPF GL'); close(gl.points, ipfGlPoints(600, 83, 'male'), 0.001);
+  const eqp = meetScore(600, 83, 'male', { federation: 'IPF', division: 'Equipped Open' });
+  eq(eqp.label, 'IPF GL · equipped'); assert(eqp.points < gl.points, 'equipped coefficients score a total lower');
+  const d = meetScore(600, 83, 'male', { federation: 'USPA' });
+  eq(d.label, 'DOTS'); close(d.points, dotsScore(600, 83, 'male'), 0.001);
+  close(ageCoefficient(52), 1.165, 0.0001); eq(ageCoefficient(30), 1); close(ageCoefficient(16), 1.13, 0.0001); eq(ageCoefficient(null), 1);
+  const m = meetScore(600, 83, 'male', { federation: 'USPA', division: 'Masters 50-54', age: 52 });
+  eq(m.label, 'DOTS · age-graded'); close(m.points, Math.round(dotsScore(600, 83, 'male') * 1.165 * 100) / 100, 0.01);
+  eq(meetScore(600, 83, 'male', { federation: 'USPA', division: 'Masters 50-54' }).label, 'DOTS', 'no age: no age grading (never guessed)');
+  eq(meetScore(0, 83, 'male', {}).points, 0);
+});
+test('scoring: non-IPF federations (SPF is Southern Powerlifting, not IPF) score DOTS; Sweden-s SSF is IPF', () => {
+  ['APF', 'USPA', 'SPF', 'WRPF', 'RPS', 'WPC'].forEach(f => eq(federationFormula(f), 'dots', f));
+  eq(meetScore(600, 83, 'male', { federation: 'SPF' }).formula, 'dots');
+  eq(federationFormula('SSF'), 'gl'); eq(federationFormula('Svenska Styrkelyftförbundet'), 'gl');
+});
+test('team: the loads read in each lifter-s own unit, not the coach-s', () => {
+  const lbMax = 405 * KG_PER_LB;
+  eq(teamLoadText(teamLoadKg(80, lbMax, 'lbs'), 'lbs'), '325 lb');
+  eq(teamLoadText(teamLoadKg(77, lbMax, 'lbs'), 'lbs'), '310 lb');
+  eq(teamLoadText(teamLoadKg(80, 180, 'kg'), 'kg'), '145 kg');
+  eq(teamLoadText(0, 'kg'), '');
+  const mx = teamLoadsMatrix(_tmMaster(1), 'mw1', 'mw1d1', [{ athleteId: 'l', name: 'Lou', unit: 'lbs', maxes: { squat: lbMax }, program: null }]);
+  eq(mx.rows[0].unit, 'lbs'); eq(teamLoadText(mx.rows[0].cells[0].kg, mx.rows[0].unit).slice(-2), 'lb');
+});
+test('team: a push carries the block-s dates (team-s for a new or replaced block; a linked one keeps its own)', () => {
+  const master = _tmMaster(2);
+  const linkedWeeks = teamMemberWeeks(master, null, { maxes: { squat: 200, bench: 140 } }).weeks;
+  const team = { id: 't', weeks: master, rev: 1, startsOn: '2026-11-02', meetDate: '2027-01-30' };
+  const mb = (id, program) => ({ athleteId: id, name: id, maxes: { squat: 200, bench: 140 }, program });
+  const plan = teamPushPlan(team, [mb('new', null),
+    mb('own', { id: 'po', rev: 1, weeks: _tc(master).map(w => Object.assign(w, { srcId: undefined })) }),
+    mb('linkedDated', { id: 'pl', rev: 1, weeks: linkedWeeks, startsOn: '2026-10-26', meetDate: '2027-01-30' }),
+    mb('linkedBare', { id: 'pb', rev: 1, weeks: _tc(linkedWeeks) })]);
+  const row = (id) => plan.rows.find(r => r.athleteId === id);
+  eq(row('new').startsOn, '2026-11-02'); eq(row('new').meetDate, '2027-01-30');
+  eq(row('own').action, 'replace'); eq(row('own').startsOn, '2026-11-02');
+  eq(row('linkedDated').action, 'same', 'same weeks, has its dates: nothing to write'); eq(row('linkedDated').startsOn, '2026-10-26', 'keeps its own');
+  eq(row('linkedBare').action, 'update', 'same weeks but no dates: the team-s dates land');
+  eq(teamPushPlan(team, [mb('linkedBare', { id: 'pb', rev: 1, weeks: _tc(linkedWeeks) })], { datesReady: false }).rows[0].action, 'same', 'no date columns yet: not an endless update');
+});
+test('team: the push report names a lifter whose logged block could not be kept', () => {
+  const lines = teamPushReport({ rows: [{ athleteId: 'a', name: 'Sarah Kim', action: 'replace' }] }, [{ athlete_id: 'a', status: 'needs_archive' }]);
+  eq(lines[0].text, 'Sarah has logged training in their current program: not changed until past blocks can be kept');
+});
+test('OpenPowerlifting: a planned meet on that day is not "already in"; the result replaces the plan', () => {
+  const m = { date: '2026-06-01', name: 'Summer Open', total: 600, squat: 220, bench: 140, deadlift: 240, bodyweight: 82, federation: 'USAPL', weightClass: '83' };
+  const plan = oplPlan([m], [{ id: 'pl1', athleteId: 'a', date: '2026-06-01', status: 'planned', division: 'Open' }, { id: 'd1', athleteId: 'a', date: '2025-01-01', status: 'done', squat: 200 }], 'a');
+  eq(plan[0].status, 'new'); eq(plan[0].plannedId, 'pl1');
+  const have = oplPlan([Object.assign({}, m, { date: '2025-01-01' })], [{ id: 'd1', athleteId: 'a', date: '2025-01-01', status: 'done', squat: 200 }], 'a');
+  eq(have[0].status, 'have'); eq(have[0].plannedId, undefined);
+});
+
 function runImporterTests(win) {
   group('importer (athlete.html)');
   const build = win._impBuild, parse = win._parseDelimited;

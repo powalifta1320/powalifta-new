@@ -400,7 +400,9 @@ function _buildCoachDemoData() {
       { id: uid('day'), name: 'Rest', exercises: [] }
     ] };
   });
-  const programs = roster.map((r, ri) => ri === 0 ? { id: 'demo-cprog-0', athleteId: r.id, coachId: DC, name: 'Strength Block', maxes: arjunMax, weeks: arjunWeeks, setFields: { on: ['tempo', 'pause', 'acc'], cols: ['Belt'] } } : ({
+  // Arjun's block has dates (brief M3): it began this week and counts down to his planned meet.
+  const programs = roster.map((r, ri) => ri === 0 ? { id: 'demo-cprog-0', athleteId: r.id, coachId: DC, name: 'Strength Block', maxes: arjunMax, weeks: arjunWeeks,
+    startsOn: _monISO(daysAgo(3)), meetDate: daysAgo(-53), setFields: { on: ['tempo', 'pause', 'acc'], cols: ['Belt'] } } : ({
     id: 'demo-cprog-' + ri, athleteId: r.id, coachId: DC, name: ['Strength Block', 'Hypertrophy Wave', 'Meet Prep', 'Foundation'][ri],
     weeks: [1, 2, 3].map(wn => ({
       id: uid('wk'), number: wn, days: [
@@ -559,7 +561,12 @@ function _buildCoachDemoData() {
         { id: 'demo-cmeet-1', athleteId: 'demo-a1', name: 'Spring Classic', date: daysAgo(152), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.6, squat: 200, bench: 132.5, deadlift: 240,
           notes: '1st place · Raw · Open · DOTS 415.8. Squat 185, 195, 200 · Bench 125, 130, 132.5 · Deadlift 225, 240, x250 kg. From OpenPowerlifting', createdAt: daysAgo(150) + 'T18:00:00Z' },
         { id: 'demo-cmeet-2', athleteId: 'demo-a1', name: 'Winter Open', date: daysAgo(334), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.9, squat: 187.5, bench: 125, deadlift: 227.5,
-          notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' }
+          notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' },
+        // Two PLANNED meets (brief M3): dates, never results; they never touch a best total or DOTS.
+        { id: 'demo-cmeet-p1', athleteId: 'demo-a1', name: 'Fall Nationals', date: daysAgo(-53), status: 'planned', federation: 'Powerlifting America', division: 'Open', weightClass: '74 kg',
+          weighIn: '2h', weighInAt: daysAgo(-53) + 'T07:00:00', bodyweight: null, squat: null, bench: null, deadlift: null, notes: '', createdAt: daysAgo(20) + 'T12:00:00Z' },
+        { id: 'demo-cmeet-p2', athleteId: 'demo-a2', name: 'City Classic', date: daysAgo(-33), status: 'planned', federation: 'USPA', division: 'Open', weightClass: '63 kg',
+          weighIn: '24h', weighInAt: daysAgo(-34) + 'T17:00:00', bodyweight: null, squat: null, bench: null, deadlift: null, notes: '', createdAt: daysAgo(12) + 'T12:00:00Z' }
       ],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
       // Pain flags: Sarah's low back twice this week (open, so the roster flags it); Arjun's hip
@@ -585,6 +592,8 @@ function _buildCoachDemoData() {
   // Phones and the iPhone app keep the four above.
   if (document.documentElement.classList.contains('desk') && typeof deskSeedDemo === 'function') {
     try { deskSeedDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('deskSeedDemo', e); }
+    // A team of six on the desk (brief M4): needs the desk's lifters, so phones keep their four.
+    try { seedTeamDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedTeamDemo', e); }
   }
   return demo;
 }
@@ -2484,12 +2493,13 @@ function _findProgramSet(prog, path) {
 // A whole-program save landed (db.js upsertProgram calls this): the new rev, and when it merged,
 // the merged version into the Store, keeping anything edited here while the save was in flight.
 let _mergeToastAt = 0;
-function programWriteLanded(prog, sentJson, written, rev, merged) {
+function programWriteLanded(prog, sentJson, written, rev, merged, dates) {
   const live = (Store.get().programs || []).find(p => p.id === prog.id);
   const targets = live && live !== prog ? [prog, live] : [prog];
   targets.forEach(t => {
     if (typeof rev === 'number') t.rev = rev;
     if (!merged) return;
+    if (dates) Object.keys(dates).forEach(k => { t[k] = dates[k]; });   // starts_on / meet_date as merged
     const now = JSON.stringify({ name: t.name || '', weeks: t.weeks || [], maxes: t.maxes || null });
     const next = now === sentJson ? JSON.parse(JSON.stringify(written)) : mergeProgramVersions(JSON.parse(sentJson), t, written);
     t.name = next.name; t.weeks = next.weeks; t.maxes = next.maxes;
@@ -5641,6 +5651,7 @@ function bestMeet(meets, athleteId) {
   let best = null;
   meets.forEach(m => {
     if (athleteId && m.athleteId !== athleteId) return;
+    if (isPlannedMeet(m)) return;   // a planned meet is a date, never a result (brief M3)
     if (!meetIsFullTotal(m)) return;
     const t = meetTotal(m);
     if (!best || t > best.total) best = { total: t, meet: m };
@@ -5681,18 +5692,24 @@ function oplMeetToMeet(m, athleteId) {
   };
 }
 // Which OpenPowerlifting meets are new: a meet already logged on the same date is the same meet.
+// A planned meet on that date isn't "have": the real result comes in, and plannedId says which
+// plan it replaces (brief M3: a plan never stands in for a result).
 function oplPlan(oplMeets, existing, athleteId) {
-  const have = new Set((existing || []).filter(x => x.athleteId === athleteId).map(x => x.date));
+  const mine = (existing || []).filter(x => x.athleteId === athleteId);
+  const have = new Set(mine.filter(x => !isPlannedMeet(x)).map(x => x.date));
+  const plans = new Map(mine.filter(x => isPlannedMeet(x) && x.id).map(x => [x.date, x]));
   return (oplMeets || []).map(m => {
     const meet = oplMeetToMeet(m, athleteId);
-    return { opl: m, meet, status: !meet ? 'nototal' : (have.has(m.date) ? 'have' : 'new') };
+    const status = !meet ? 'nototal' : (have.has(m.date) ? 'have' : 'new');
+    const plan = status === 'new' ? plans.get(m.date) : null;
+    return plan ? { opl: m, meet, status, plannedId: plan.id, planned: plan } : { opl: m, meet, status };
   });
 }
 
 // DOTS for a finished meet from its REAL total + weigh-in bodyweight (kg).
 // Falls back to null when bodyweight is missing. sex is the client-side pref.
 function meetDots(meet, sex) {
-  if (!meet || !meet.bodyweight) return null;
+  if (!meet || !meet.bodyweight || isPlannedMeet(meet)) return null;
   const t = meetTotal(meet);
   if (!t) return null;
   return dotsScore(t, meet.bodyweight, sex);
@@ -8936,7 +8953,7 @@ function bestSingle(athleteId, lift) {
     if (kg > 0 && (!best || kg > best.kg || (kg === best.kg && String(l.date) < String(best.date)))) best = { kg, date: l.date, source: 'training' };
   });
   (Store.get().meets || []).forEach(m => {
-    if (m.athleteId !== athleteId) return;
+    if (m.athleteId !== athleteId || isPlannedMeet(m)) return;
     const kg = Number(m[lift]) || 0;
     if (kg > 0 && (!best || kg > best.kg)) best = { kg, date: m.date, source: 'meet', meet: m.name || 'Meet' };
   });
@@ -10512,7 +10529,7 @@ function deskWins(athleteId, opts) {
   let streak = 0;
   for (let wk = _monISO(t); weeks.has(wk); wk = _addDaysISO(wk, -7)) streak++;
   if (streak >= 4 && streak % 4 === 0) out.push({ type: 'streak', text: streak + '-week streak' });
-  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && m.date && String(m.date).slice(0, 10) <= t);
+  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && !isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) <= t);
   const tot = (m) => (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
   const recent = meets.filter(m => _deskDays(m.date, t) <= 10).sort((a, b) => tot(b) - tot(a))[0];
   if (recent && tot(recent) > 0 && meets.filter(m => m !== recent && String(m.date) < String(recent.date)).every(m => tot(m) < tot(recent))) {
@@ -10792,8 +10809,11 @@ function blockFromProgram(prog) {
     name: prog.name || 'Block', weeks: JSON.parse(JSON.stringify(prog.weeks || [])), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
     startedOn: dates[0] || null, endedOn: dates[dates.length - 1] || null, createdAt: new Date().toISOString() };
 }
-async function archiveProgramIfTrained(prog) {
-  if (!programHasTraining(prog)) return { kept: false };
+// opts.anyLogged: a skipped or missed set counts too (a team push replacing the program keeps
+// every set the lifter logged, not only the lifted ones).
+async function archiveProgramIfTrained(prog, opts) {
+  const any = !!(opts && opts.anyLogged) && !!(prog && (prog.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s && (s.completed || s.skipped || s.missed))))));
+  if (!any && !programHasTraining(prog)) return { kept: false };
   const b = blockFromProgram(prog);
   Store.update(s => { s.programBlocks = (s.programBlocks || []).concat([b]); });
   if (window._demoMode || !(window.DB && DB.addProgramBlock)) return { kept: true };
@@ -10867,9 +10887,17 @@ function brandInitials(name) {
   const w = String(name || '').trim().split(/\s+/).filter(Boolean);
   return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase();
 }
+// A logo is only ever loaded from our own storage (the coach's upload; guard_coach_brand enforces
+// the same on the server) or a local preview: another host would learn every athlete's IP and when
+// they open the app (the iPhone bundle has no CSP to stop it).
+function brandLogoOk(url) {
+  const u = String(url || '');
+  return /^https:\/\/cxnotrikxvzncupswvio\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]{36}\/brand[A-Za-z0-9._-]{0,60}(\?t=[0-9]{1,16})?$/.test(u) ||
+    /^data:image\/(svg\+xml|png|jpeg|webp)[;,]/.test(u) || /^blob:/.test(u);
+}
 // The team's mark: their logo, else their initials on their colour.
 function brandMark(brand, cls) {
-  if (brand && brand.logoUrl) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
+  if (brand && brand.logoUrl && brandLogoOk(brand.logoUrl)) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
   return el('span', { class: 'brand-mark brand-mono ' + (cls || ''), style: brand && brand.color ? '--brand-c:' + brand.color : '', 'aria-hidden': 'true' }, brandInitials(brand && brand.name));
 }
 function demoCoachBrand() {
@@ -13217,3 +13245,731 @@ function tonnageComparison(kg) {
   return n + ' ' + (n === 1 ? t.one : t.many);
 }
 Object.assign(window, { yearInLifting, tonnageComparison });
+
+// =========================================================
+// TEAM PROGRAMS (brief M4 · sql/migration-team-programs-2026-10-22.sql)
+// One master program per team (program_groups.weeks). Each lifter keeps their OWN program row,
+// linked to the master by srcId on every week, day, exercise and set. A push rebuilds each
+// lifter's copy from the master and their own maxes, and never touches:
+//   - a set they logged (completed / skipped / missed): kept exactly as lifted;
+//   - an exercise (or set) the coach edited for them (ovr: true): theirs until "Reset to team";
+//   - anything the coach added only for them (no srcId), or their pinned dates.
+// The server (push_group_programs) re-checks each lifter is still on the roster, compares and
+// swaps on programs.rev, and puts back any logged set a client dropped.
+// The desk v2 API is the functions below: data in, data out; only pushTeamProgram,
+// notifyTeamPush and openTeamSheet touch the Store, the network or the DOM.
+//   Loads tab: teamLoadsMatrix(...) → print every cell with teamLoadText(cell.kg, row.unit): the
+//   LIFTER's unit (an lb lifter reads "325 lb"), never the coach's kgToDisplay/unitLabel.
+//   Push: pushTeamProgram(team) → report lines (teamPushReport) incl. 'needs_archive' (a replaced
+//   block with logged sets that couldn't be kept as a past block: not changed); a result's
+//   `archived` is the past block the server kept. Rows carry the block's startsOn / meetDate.
+//   DB: listTeams, saveTeam, deleteTeam, addTeamMembers, removeTeamMember, pushTeamPrograms,
+//   setProgramDates, savePlannedMeet, deletePlannedMeet, programDatesMissing.
+// All module constants here are var (app.js may call into this block before its end runs).
+// =========================================================
+var TEAM_LOG_FIELDS = ['completed', 'skipped', 'missed', 'actualRpe', 'completedAt', 'lastLogId', 'note', 'plannedWeight', 'plannedReps', 'extra', 'attempt'];
+function isLoggedSet(s) { return !!(s && (s.completed || s.skipped || s.missed)); }
+function _tmKey(x, i) { return x && x.id != null && x.id !== '' ? String(x.id) : '#' + i; }
+function _tmClone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
+// A team max: { squat: 180 } or { squat: { kg: 180, source: 'program' } } → kg (0 when none).
+function teamMaxKg(maxes, lift) {
+  const v = maxes && maxes[lift];
+  if (v && typeof v === 'object') return Number(v.kg) > 0 ? Number(v.kg) : 0;
+  return Number(v) > 0 ? Number(v) : 0;
+}
+function teamMaxSource(maxes, lift) {
+  const v = maxes && maxes[lift];
+  return v && typeof v === 'object' ? (v.source || null) : (Number(v) > 0 ? 'program' : null);
+}
+// pct of a max as a load the LIFTER can put on the bar: their unit's jump (2.5 kg, or 5 lb),
+// or stepKg when known. The coach's own gym plates never decide another lifter's load.
+function teamLoadKg(pct, maxKg, unit, stepKg) {
+  const p = Number(pct), m = Number(maxKg);
+  if (!(p > 0) || !(m > 0)) return 0;
+  const step = Number(stepKg) > 0 ? Number(stepKg) : (unit === 'lbs' || unit === 'lb' ? 5 * KG_PER_LB : 2.5);
+  return Math.round(Math.round(m * p / 100 / step) * step * 100) / 100;
+}
+// A master set's prescription (no logs, no links): every other field rides along, so custom set
+// fields (tempo, pauses, bands...) reach every lifter.
+function _tmRx(ms) {
+  const o = {};
+  Object.keys(ms || {}).forEach(k => { if (k !== 'id' && k !== 'srcId' && k !== 'ovr' && TEAM_LOG_FIELDS.indexOf(k) < 0) o[k] = _tmClone(ms[k]); });
+  return o;
+}
+function _tmSet(ms, i, xs, lift, opts, ctx) {
+  const n = _tmRx(ms);
+  n.id = xs && xs.id != null ? xs.id : uid('set');
+  n.srcId = _tmKey(ms, i);
+  n.completed = false;
+  if (n.pct != null && n.pct !== '' && MAIN_LIFTS.indexOf(lift) >= 0) {
+    const max = teamMaxKg(opts.maxes, lift);
+    const kg = teamLoadKg(n.pct, max, opts.unit, opts.stepKg);
+    if (kg > 0) {
+      n.weight = kg;
+      const hk = Number(n.pctHi) > Number(n.pct) ? teamLoadKg(n.pctHi, max, opts.unit, opts.stepKg) : 0;
+      if (hk > kg) n.weightHi = hk; else delete n.weightHi;
+    } else { n.weight = 0; delete n.weightHi; ctx.noMax[lift] = true; }
+  }
+  return n;
+}
+// Master list × the lifter's list, in the master's order. The lifter's extras (no srcId: added for
+// them) stay after the sibling they followed; a linked item the master dropped goes, unless
+// precious(x) (logged, or their own edit).
+function _tmMergeList(mList, xList, merge, precious) {
+  const xs = Array.isArray(xList) ? xList : [];
+  const bySrc = new Map();
+  xs.forEach(x => { if (x && x.srcId != null && !bySrc.has(String(x.srcId))) bySrc.set(String(x.srcId), x); });
+  const used = new Set();
+  const res = (mList || []).map((m, i) => {
+    const x = bySrc.get(_tmKey(m, i)) || null;
+    if (x) used.add(x);
+    return { item: merge(m, i, x), from: x };
+  });
+  let at = -1;
+  xs.forEach(x => {
+    if (used.has(x)) { at = res.findIndex(r => r.from === x); return; }
+    if (x && x.srcId != null && !precious(x)) return;
+    res.splice(at + 1, 0, { item: x, from: x }); at++;
+  });
+  return res.map(r => r.item);
+}
+function _tmExPrecious(x) { return !!(x && (x.ovr || (x.sets || []).some(s => isLoggedSet(s) || s.ovr))); }
+function _tmDayPrecious(x) { return !!(x && (x.exercises || []).some(e => e.srcId == null || _tmExPrecious(e))); }
+function _tmWeekPrecious(x) { return !!(x && (x.days || []).some(d => d.srcId == null || _tmDayPrecious(d))); }
+function _tmEx(mex, i, xex, opts, ctx) {
+  if (xex && xex.ovr) {
+    // Theirs. Reported only when the master would have changed it.
+    const shadow = _tmEx(mex, i, Object.assign({}, xex, { ovr: false }), opts, { noMax: {}, keptOwn: [] });
+    const a = Object.assign({}, shadow), b = Object.assign({}, xex);
+    delete a.ovr; delete b.ovr;
+    if (!_deq(a, b)) ctx.keptOwn.push({ exId: xex.id, srcId: _tmKey(mex, i), lift: xex.lift || null, title: xex.exerciseName || (LIFT_LABELS[xex.lift] || xex.lift || '') });
+    return xex;
+  }
+  const out = Object.assign({}, xex || {});
+  Object.keys(mex || {}).forEach(k => { if (k !== 'id' && k !== 'sets' && k !== 'srcId' && k !== 'ovr') out[k] = _tmClone(mex[k]); });
+  out.id = xex && xex.id != null ? xex.id : uid('ex');
+  out.srcId = _tmKey(mex, i);
+  delete out.ovr;
+  out.sets = _tmMergeList(mex.sets, xex ? xex.sets : null,
+    (ms, si, xs) => (xs && (isLoggedSet(xs) || xs.ovr)) ? xs : _tmSet(ms, si, xs, mex.lift, opts, ctx),
+    (xs) => isLoggedSet(xs) || !!xs.ovr);
+  return out;
+}
+// One lifter's copy of the master. memberWeeks null = their first copy.
+// opts { maxes, unit, stepKg }. → { weeks, keptOwn: [{ exId, srcId, lift, title }], noMax: [lift] }
+function teamMemberWeeks(masterWeeks, memberWeeks, opts) {
+  opts = opts || {};
+  const ctx = { noMax: {}, keptOwn: [] };
+  const weeks = _tmMergeList(masterWeeks, memberWeeks, (mw, wi, xw) => {
+    const w = Object.assign({}, xw || {});
+    Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId') w[k] = _tmClone(mw[k]); });
+    w.id = xw && xw.id != null ? xw.id : uid('wk');
+    w.srcId = _tmKey(mw, wi);
+    w.days = _tmMergeList(mw.days, xw ? xw.days : null, (md, di, xd) => {
+      const d = Object.assign({}, xd || {});
+      Object.keys(md || {}).forEach(k => { if (k !== 'id' && k !== 'exercises' && k !== 'srcId' && k !== 'scheduledDate') d[k] = _tmClone(md[k]); });
+      d.id = xd && xd.id != null ? xd.id : uid('day');
+      d.srcId = _tmKey(md, di);
+      d.exercises = _tmMergeList(md.exercises, xd ? xd.exercises : null, (me, ei, xe) => _tmEx(me, ei, xe, opts, ctx), _tmExPrecious);
+      return d;
+    }, _tmDayPrecious);
+    return w;
+  }, _tmWeekPrecious);
+  return { weeks, keptOwn: ctx.keptOwn, noMax: MAIN_LIFTS.filter(L => ctx.noMax[L]) };
+}
+function isTeamLinked(prog) {
+  return !!(prog && (prog.weeks || []).some(w => w.srcId != null || (w.days || []).some(d => d.srcId != null || (d.exercises || []).some(e => e.srcId != null))));
+}
+function _tmWalkEx(weeks, fn) { (weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => fn(e, d, w)))); }
+// "Edited for Dan": this exercise is theirs from now on.
+function teamOverrideExercise(weeks, exId) {
+  const out = _tmClone(weeks || []);
+  _tmWalkEx(out, e => { if (String(e.id) === String(exId)) e.ovr = true; });
+  return out;
+}
+// "Reset to team": the master's again (sets they logged stay).
+function teamResetExercise(weeks, exId, masterWeeks, opts) {
+  const out = _tmClone(weeks || []);
+  _tmWalkEx(out, (e, d, w) => {
+    if (String(e.id) !== String(exId) || e.srcId == null) return;
+    const mw = (masterWeeks || []).find((x, i) => _tmKey(x, i) === String(w.srcId));
+    const md = mw && (mw.days || []).find((x, i) => _tmKey(x, i) === String(d.srcId));
+    const mi = md ? (md.exercises || []).findIndex((x, i) => _tmKey(x, i) === String(e.srcId)) : -1;
+    if (mi < 0) { delete e.ovr; return; }
+    const fresh = _tmEx(md.exercises[mi], mi, Object.assign({}, e, { ovr: false }), opts || {}, { noMax: {}, keptOwn: [] });
+    Object.keys(e).forEach(k => delete e[k]);
+    Object.assign(e, fresh);
+  });
+  return out;
+}
+// Detach from team: the lifter's program, unlinked (nothing else changes).
+function teamDetachProgram(weeks) {
+  const out = _tmClone(weeks || []);
+  const strip = (o) => { delete o.srcId; delete o.ovr; };
+  out.forEach(w => { strip(w); (w.days || []).forEach(d => { strip(d); (d.exercises || []).forEach(e => { strip(e); (e.sets || []).forEach(strip); }); }); });
+  return out;
+}
+// "Make Arjun's Strength Block a team program": the master (fresh ids, no logs, % sets left for
+// each lifter's max) and Arjun's own weeks linked to it.
+function teamMasterFromProgram(prog) {
+  const linked = _tmClone((prog && prog.weeks) || []);
+  const weeks = linked.map(w => {
+    const mw = { id: uid('wk'), number: w.number, days: [] };
+    Object.keys(w).forEach(k => { if (!['id', 'days', 'srcId', 'number'].includes(k)) mw[k] = _tmClone(w[k]); });
+    w.srcId = mw.id;
+    mw.days = (w.days || []).map(d => {
+      const md = { id: uid('day'), name: d.name, exercises: [] };
+      d.srcId = md.id;
+      md.exercises = (d.exercises || []).map(e => {
+        const me = { id: uid('ex') };
+        Object.keys(e).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr'].includes(k)) me[k] = _tmClone(e[k]); });
+        e.srcId = me.id; delete e.ovr;
+        me.sets = (e.sets || []).filter(s => !s.extra).map(s => {
+          const ms = Object.assign(_tmRx(s), { id: uid('set'), weight: planWeight(s) || 0, reps: s.plannedReps || s.reps, completed: false });
+          if (ms.pct != null && ms.pct !== '' && MAIN_LIFTS.indexOf(e.lift) >= 0) { ms.weight = 0; delete ms.weightHi; }
+          s.srcId = ms.id;
+          return ms;
+        });
+        return me;
+      });
+      return md;
+    });
+    return mw;
+  });
+  return { weeks, linked };
+}
+// The maxes a lifter's % sets work from, with where each came from (printed next to the number):
+// the coach's max for the block, else the best estimated max, else a meet single.
+function teamMemberMaxes(athleteId, prog) {
+  const out = {};
+  MAIN_LIFTS.forEach(L => {
+    const pm = prog && prog.maxes && Number(prog.maxes[L]);
+    if (pm > 0) { out[L] = { kg: pm, source: 'program' }; return; }
+    const e = typeof bestE1RM === 'function' ? bestE1RM(athleteId, L) : 0;
+    if (e > 0) { out[L] = { kg: Math.round(e * 10) / 10, source: 'e1rm' }; return; }
+    const one = typeof bestSingle === 'function' ? bestSingle(athleteId, L) : null;
+    out[L] = one && one.source === 'meet' ? { kg: one.kg, source: 'meet' } : { kg: 0, source: null };
+  });
+  return out;
+}
+// A team's members as the pure functions take them, from the Store:
+// [{ athleteId, name, unit, maxes, program }]. Departed athletes are left out.
+function teamMembersFor(team) {
+  const s = Store.get();
+  return ((team && team.members) || []).map(m => {
+    const a = (s.athletes || []).find(x => x.id === m.athleteId);
+    if (!a || (team.coachId && a.coachId && a.coachId !== team.coachId)) return null;
+    const progs = (s.programs || []).filter(p => p.athleteId === m.athleteId);
+    const program = progs.find(p => m.programId && p.id === m.programId) || progs[0] || null;
+    return { athleteId: a.id, name: a.name || 'Athlete', unit: a.unit || 'kg', maxes: teamMemberMaxes(a.id, program), program };
+  }).filter(Boolean);
+}
+function _tmWeekNums(newWeeks, oldWeeks) {
+  const old = new Map((oldWeeks || []).map(w => [String(w.id), w]));
+  return newWeeks.filter(w => !_deq(w, old.get(String(w.id)))).map((w, i) => Number(w.number) || i + 1);
+}
+// What a push will do, per lifter. rows[].action: 'create' (no program yet), 'replace' (an
+// unlinked program: archive it first), 'update', 'same' (nothing to write).
+// rows[].startsOn / meetDate: the block's dates on the roster calendar. A new or replaced block
+// takes the team's; a linked one keeps the lifter's own and only fills in what it lacks (a linked
+// copy missing a team date is an 'update', unless opts.datesReady === false: the database can't
+// keep dates yet).
+function teamPushPlan(team, members, opts) {
+  opts = opts || {};
+  const master = (team && team.weeks) || [];
+  const tStart = team ? _isoDay(team.startsOn) : null, tMeet = team ? _isoDay(team.meetDate) : null;
+  const rows = [], keepOwn = [], noMax = [];
+  (members || []).forEach(mb => {
+    const prog = mb.program || null;
+    const linked = !!prog && isTeamLinked(prog);
+    const r = teamMemberWeeks(master, linked ? prog.weeks : null, { maxes: mb.maxes, unit: mb.unit, stepKg: mb.stepKg });
+    const own = linked ? { startsOn: _isoDay(prog.startsOn), meetDate: _isoDay(prog.meetDate) } : { startsOn: null, meetDate: null };
+    const datesMissing = linked && opts.datesReady !== false && ((tStart && !own.startsOn) || (tMeet && !own.meetDate));
+    const action = !prog ? 'create' : !linked ? 'replace' : (_deq(r.weeks, prog.weeks) && !datesMissing ? 'same' : 'update');
+    rows.push({ athleteId: mb.athleteId, lifter: mb.name || '', name: (team && (team.programName || team.name)) || (prog && prog.name) || 'Program',
+      programId: prog ? prog.id : null, rev: prog && typeof prog.rev === 'number' ? prog.rev : null,
+      startsOn: own.startsOn || tStart, meetDate: own.meetDate || tMeet,
+      action, weeks: r.weeks, keptOwn: r.keptOwn, noMax: r.noMax,
+      changedWeeks: action === 'same' ? [] : _tmWeekNums(r.weeks, linked ? prog.weeks : []) });
+    if (r.keptOwn.length) keepOwn.push({ athleteId: mb.athleteId, name: mb.name || '', cells: r.keptOwn });
+    if (r.noMax.length) noMax.push({ athleteId: mb.athleteId, name: mb.name || '', lifts: r.noMax });
+  });
+  return { teamId: team && team.id, masterRev: team && typeof team.rev === 'number' ? team.rev : 0, rows, keepOwn, noMax };
+}
+function _tmFirst(name) { return String(name || '').trim().split(/\s+/)[0] || 'Athlete'; }
+function _tmNames(list) {
+  const n = list.map(x => _tmFirst(x.name));
+  return n.length <= 3 ? n.join(', ') : n.slice(0, 3).join(', ') + ' +' + (n.length - 3);
+}
+function _tmLiftList(lifts) {
+  const l = lifts.map(L => (LIFT_LABELS[L] || L).toLowerCase());
+  return l.length <= 1 ? (l[0] || '') : l.slice(0, -1).join(', ') + ' or ' + l[l.length - 1];
+}
+// "Publish Week 5 to 25 lifters · 3 keep their own edits (Dan, Jess, Elena) · 1 has no squat max"
+function teamPushSummary(plan, opts) {
+  opts = opts || {};
+  const n = (plan.rows || []).length;
+  const upToDate = n > 0 && plan.rows.every(r => r.action === 'same');
+  const parts = [upToDate ? 'Up to date · ' + n + (n === 1 ? ' lifter' : ' lifters')
+    : (opts.weekNumber ? 'Publish Week ' + opts.weekNumber + ' to ' : 'Publish to ') + n + (n === 1 ? ' lifter' : ' lifters')];
+  const k = (plan.keepOwn || []).length;
+  if (k) parts.push(k + (k === 1 ? ' keeps' : ' keep') + ' their own edits (' + _tmNames(plan.keepOwn) + ')');
+  const nm = plan.noMax || [];
+  if (nm.length) {
+    const lifts = MAIN_LIFTS.filter(L => nm.some(x => x.lifts.indexOf(L) >= 0));
+    parts.push(nm.length + (nm.length === 1 ? ' has' : ' have') + ' no ' + _tmLiftList(lifts) + ' max');
+  }
+  return parts.join(' · ');
+}
+// The Members tab's "Nina: no squat max, % left blank".
+function teamNoMaxReport(masterWeeks, members) {
+  const used = {};
+  _tmWalkEx(masterWeeks, e => { if (MAIN_LIFTS.indexOf(e.lift) >= 0 && (e.sets || []).some(s => s.pct != null && s.pct !== '')) used[e.lift] = true; });
+  const lifts = MAIN_LIFTS.filter(L => used[L]);
+  return (members || []).map(mb => {
+    const miss = lifts.filter(L => !(teamMaxKg(mb.maxes, L) > 0));
+    return miss.length ? { athleteId: mb.athleteId, name: mb.name || '', lifts: miss, text: _tmFirst(mb.name) + ': no ' + _tmLiftList(miss) + ' max, % left blank' } : null;
+  }).filter(Boolean);
+}
+// The Loads tab: lifters × the day's main lifts, each cell the kg from that lifter's max.
+// → { cols: [{ exId, lift, label, pct }], rows: [{ athleteId, name, cells: [{ kg, kgHi, pct, max, source, ovr, noMax, note }] }] }
+function teamLoadsMatrix(masterWeeks, weekId, dayId, members) {
+  const wi = (masterWeeks || []).findIndex((w, i) => _tmKey(w, i) === String(weekId));
+  const wk = wi >= 0 ? masterWeeks[wi] : null;
+  const di = wk ? (wk.days || []).findIndex((d, i) => _tmKey(d, i) === String(dayId)) : -1;
+  const day = di >= 0 ? wk.days[di] : null;
+  const cols = [];
+  ((day && day.exercises) || []).forEach((e, ei) => {
+    if (MAIN_LIFTS.indexOf(e.lift) < 0) return;
+    const top = (e.sets || []).reduce((b, s) => (s.pct != null && s.pct !== '' && (!b || Number(s.pct) > Number(b.pct))) ? s : b, null);
+    cols.push({ exId: _tmKey(e, ei), lift: e.lift, label: (LIFT_LABELS[e.lift] || e.lift) + (e.variant && e.variant !== 'Competition' ? ' · ' + e.variant : ''),
+      pct: top ? Number(top.pct) : null, pctHi: top && Number(top.pctHi) > Number(top.pct) ? Number(top.pctHi) : null, weight: top ? 0 : Math.max(0, ...(e.sets || []).map(s => Number(s.weight) || 0)) });
+  });
+  const rows = (members || []).map(mb => {
+    let own = null;
+    const prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
+    const ownEx = (exId) => {
+      let hit = null;
+      if (prog) _tmWalkEx(prog.weeks, (e, d, w) => { if (!hit && String(w.srcId) === String(weekId) && String(d.srcId) === String(dayId) && String(e.srcId) === exId) hit = e; });
+      return hit;
+    };
+    const cells = cols.map(c => {
+      own = ownEx(c.exId);
+      const max = teamMaxKg(mb.maxes, c.lift), source = teamMaxSource(mb.maxes, c.lift);
+      if (own && own.ovr) {
+        const kg = Math.max(0, ...(own.sets || []).map(s => Number(s.weight) || 0));
+        return { kg, kgHi: null, pct: null, max, source, ovr: true, noMax: false, note: 'Edited for ' + _tmFirst(mb.name) };
+      }
+      if (c.pct == null) return { kg: c.weight, kgHi: null, pct: null, max, source, ovr: false, noMax: false, note: '' };
+      const kg = teamLoadKg(c.pct, max, mb.unit, mb.stepKg);
+      const kgHi = c.pctHi ? teamLoadKg(c.pctHi, max, mb.unit, mb.stepKg) : null;
+      return { kg, kgHi: kgHi > kg ? kgHi : null, pct: c.pct, max, source, ovr: false, noMax: !(kg > 0), note: kg > 0 ? '' : 'No ' + (LIFT_LABELS[c.lift] || c.lift).toLowerCase() + ' max' };
+    });
+    return { athleteId: mb.athleteId, name: mb.name || '', unit: mb.unit || 'kg', cells };
+  });
+  return { cols, rows };
+}
+// A load in the LIFTER's unit (rows[].unit of teamLoadsMatrix), never the coach's: an lb lifter's
+// 325 lb reads "325 lb" on the coach's kg screen. "142.5 kg" / "325 lb".
+function teamLoadText(kg, unit) {
+  const k = Number(kg);
+  if (!(k > 0)) return '';
+  if (unit === 'lbs' || unit === 'lb') return (Math.round(k / KG_PER_LB * 10) / 10) + ' lb';
+  return (Math.round(k * 100) / 100) + ' kg';
+}
+// After a push: one line per lifter. results are push_group_programs rows ({ athlete_id, status,
+// retried, loggedDuring, archived }); statuses: created | updated | same | departed | not_member |
+// stale | needs_archive | not_found | denied.
+function teamPushReport(plan, results) {
+  const byId = new Map(((plan && plan.rows) || []).map(r => [r.athleteId, r]));
+  return (results || []).map(r => {
+    const row = byId.get(r.athlete_id) || {};
+    const who = _tmFirst(row.lifter || row.name);
+    let text;
+    if (r.status === 'updated' || r.status === 'created') text = r.loggedDuring ? who + ' logged during publish; their sets kept' : (r.status === 'created' ? who + ': program created' : who + ' updated');
+    else if (r.status === 'same') text = who + ': nothing to change';
+    else if (r.status === 'departed' || r.status === 'not_member') text = who + ' is no longer on your roster: not changed';
+    else if (r.status === 'stale') text = who + ' changed while publishing: not changed, try again';
+    else if (r.status === 'needs_archive') text = who + ' has logged training in their current program: not changed until past blocks can be kept';
+    else text = who + ': not changed';
+    return { athleteId: r.athlete_id, status: r.status, text };
+  });
+}
+// One quiet push per lifter, about their own program (never "team"). The tag replaces an earlier
+// one on their phone, so three pushes in an hour read as one.
+function teamDigestPush(row, opts) {
+  opts = opts || {};
+  const first = opts.coachName ? _tmFirst(opts.coachName) : '';
+  const wk = (row.changedWeeks || []).filter(n => n > 0);
+  const what = !wk.length ? 'Your program changed.'
+    : wk.length === 1 ? 'Week ' + wk[0] + ' changed.'
+    : 'Weeks ' + wk.slice(0, -1).join(', ') + ' and ' + wk[wk.length - 1] + ' changed.';
+  return { toUserId: row.athleteId, title: (first || 'Your coach') + ' updated your program', body: what + ' Open Train to see your loads.',
+    url: '/athlete.html', tag: 'powa-prog-' + row.athleteId, category: 'program' };
+}
+function notifyTeamPush(plan, results, coachName) {
+  if (window._demoMode || !(window.DB && DB.sendPush)) return 0;
+  const byId = new Map(((plan && plan.rows) || []).map(r => [r.athleteId, r]));
+  let n = 0;
+  (results || []).forEach(r => {
+    if (r.status !== 'updated' && r.status !== 'created') return;
+    const row = byId.get(r.athlete_id);
+    if (!row) return;
+    n++;
+    DB.sendPush(teamDigestPush(row, { coachName })).catch(() => {});
+  });
+  return n;
+}
+// The whole push, for the desk: plan → archive replaced blocks → server (or the demo) → Store →
+// one notification per lifter. Resolves { plan, results, report, local }.
+async function pushTeamProgram(team, opts) {
+  opts = opts || {};
+  const members = teamMembersFor(team);
+  const planOpts = { datesReady: !(window.DB && DB.programDatesMissing && DB.programDatesMissing()) };
+  const plan = teamPushPlan(team, members, planOpts);
+  const rows = plan.rows.filter(r => r.action !== 'same');
+  let results, local = false;
+  if (window._demoMode || !(window.DB && DB.pushTeamPrograms)) {
+    // The demo: a replaced block's logged sets go to past blocks (the Store only), as on the server.
+    results = [];
+    for (const r of rows) {
+      const p = r.action === 'replace' ? (members.find(m => m.athleteId === r.athleteId) || {}).program : null;
+      if (p) { const a = await archiveProgramIfTrained(p, { anyLogged: true }); if (!a.kept && (p.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(isLoggedSet))))) { results.push({ athlete_id: r.athleteId, status: 'needs_archive', program_id: r.programId }); continue; } }
+      results.push({ athlete_id: r.athleteId, status: r.action === 'create' ? 'created' : 'updated', program_id: r.programId || uid('prog'), rev: (r.rev || 0) + 1 });
+    }
+  } else {
+    // A replaced program with logged training is kept as a past block by the server, in the same
+    // transaction as the push (or, before the team migration, archived here first, and skipped if
+    // that fails): never archived ahead of a push that could still race a set log.
+    const res = await DB.pushTeamPrograms(team, rows, (athleteId, fresh) => {
+      const mb = members.find(m => m.athleteId === athleteId);
+      return teamPushPlan(team, [Object.assign({}, mb, { program: fresh })], planOpts).rows[0];
+    }, (prog) => archiveProgramIfTrained(prog, { anyLogged: true }));
+    results = res.results; local = !!res.local;
+  }
+  plan.rows.filter(r => r.action === 'same').forEach(r => results.push({ athlete_id: r.athleteId, status: 'same' }));
+  // The Store follows what landed.
+  Store.update(s => {
+    results.forEach(x => {
+      if (x.status !== 'updated' && x.status !== 'created') return;
+      const row = (x.row) || plan.rows.find(r => r.athleteId === x.athlete_id);
+      if (!row) return;
+      let p = (s.programs || []).find(q => q.id === (x.program_id || row.programId));
+      // The server kept the replaced program as a past block (x.archived is its id).
+      if (p && x.archived && !(s.programBlocks || []).some(b => b.id === x.archived)) s.programBlocks = (s.programBlocks || []).concat([Object.assign(blockFromProgram(p), { id: x.archived })]);
+      if (!p) { p = { id: x.program_id || uid('prog'), athleteId: row.athleteId, coachId: team.coachId, name: row.name, maxes: null, weeks: [] }; s.programs.push(p); }
+      p.weeks = _tmClone(x.weeks || row.weeks); p.name = row.name;
+      if (row.startsOn) p.startsOn = row.startsOn;
+      if (row.meetDate) p.meetDate = row.meetDate;
+      if (typeof x.rev === 'number') p.rev = x.rev;
+      if (window.DB && DB.rememberProgramBase && !window._demoMode) DB.rememberProgramBase(p);
+    });
+    const t = (s.teams || []).find(q => q.id === team.id);
+    if (t) (t.members || []).forEach(m => {
+      const x = results.find(r => r.athlete_id === m.athleteId);
+      if (x && x.program_id) m.programId = x.program_id;
+      if (x && (x.status === 'updated' || x.status === 'created' || x.status === 'same')) { m.pushedRev = team.rev; m.pushedAt = new Date().toISOString(); }
+    });
+    if (t) t.members = (t.members || []).filter(m => !results.some(r => r.athlete_id === m.athleteId && (r.status === 'departed' || r.status === 'not_member')));
+  });
+  if (opts.notify !== false) notifyTeamPush(plan, results, opts.coachName);
+  return { plan, results, report: teamPushReport(plan, results), local };
+}
+
+// =========================================================
+// PLANNED MEETS + THE ROSTER CALENDAR (brief M3 · sql/migration-meet-calendar-2026-10-22.sql)
+// A planned meet (meets.status 'planned') is a date with a federation, division, class and
+// weigh-in: never a result. It never changes best totals, singles or DOTS. A program carries
+// starts_on and meet_date, so every week has a date and a W-n label counted to the meet.
+// =========================================================
+// Before the migration a planned meet is a future meet with no lifts (that's how it's saved).
+function isPlannedMeet(m, todayIso) {
+  if (!m) return false;
+  if (m.status === 'planned' || m.planned === true) return true;
+  if (m.status) return false;
+  const none = ['squat', 'bench', 'deadlift'].every(k => m[k] == null || m[k] === '' || !(Number(m[k]) > 0));
+  return none && !!m.date && String(m.date).slice(0, 10) > (todayIso || (typeof todayISO === 'function' ? todayISO() : ''));
+}
+function _isoDay(v) { const s = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; }
+function _wkBetween(fromMon, toMon) { return Math.round((Date.parse(toMon + 'T12:00:00Z') - Date.parse(fromMon + 'T12:00:00Z')) / (7 * 86400000)); }
+// "W-3" (three weeks out), "Meet week", "W+1" (the week after).
+function meetWeekLabel(weekStartIso, meetIso) {
+  const w = _isoDay(weekStartIso), m = _isoDay(meetIso);
+  if (!w || !m) return '';
+  const n = _wkBetween(_monISO(w), _monISO(m));
+  return n === 0 ? 'Meet week' : n > 0 ? 'W-' + n : 'W+' + (-n);
+}
+// Dragging a meet on the calendar: its new date (the labels follow from it).
+function moveMeetDate(iso, days) { const d = _isoDay(iso); return d ? _addDaysISO(d, Number(days) || 0) : iso; }
+// The Monday a block's week 1 began: saved (starts_on), else from a pinned day, else from when its
+// sets were logged (the most common answer), else counted back so the last week is meet week.
+function programStartsOn(prog) {
+  if (!prog) return null;
+  const saved = _isoDay(prog.startsOn);
+  if (saved) return _monISO(saved);
+  const pinned = [], logged = {};
+  (prog.weeks || []).forEach((w, wi) => (w.days || []).forEach(d => {
+    const sd = _isoDay(d.scheduledDate);
+    if (sd) pinned.push(_addDaysISO(_monISO(sd), -7 * wi));
+    (d.exercises || []).forEach(e => (e.sets || []).forEach(s => {
+      const c = s.completed || s.completedAt ? _isoDay(s.completedAt) : null;
+      if (c) { const k = _addDaysISO(_monISO(c), -7 * wi); logged[k] = (logged[k] || 0) + 1; }
+    }));
+  }));
+  if (pinned.length) return pinned.sort()[0];
+  const ks = Object.keys(logged).sort();
+  if (ks.length) return ks.reduce((b, k) => logged[k] > logged[b] ? k : b, ks[0]);
+  const meet = _isoDay(prog.meetDate);
+  if (meet && (prog.weeks || []).length) return _addDaysISO(_monISO(meet), -7 * (prog.weeks.length - 1));
+  return null;
+}
+function programEndsOn(prog) {
+  const s = programStartsOn(prog);
+  return s && prog.weeks && prog.weeks.length ? _addDaysISO(s, 7 * prog.weeks.length - 1) : null;
+}
+// Every week of a block with its first day and W-n label. meetDate (optional) overrides the
+// program's own, so a meet being dragged relabels the builder before anything saves.
+function programWeekLabels(prog, meetDate) {
+  const meet = _isoDay(meetDate) || _isoDay(prog && prog.meetDate);
+  const start = programStartsOn(meet ? Object.assign({}, prog, { meetDate: meet }) : prog);
+  return ((prog && prog.weeks) || []).map((w, i) => {
+    const st = start ? _addDaysISO(start, 7 * i) : null;
+    const n = st && meet ? _wkBetween(st, _monISO(meet)) : null;
+    return { index: i, number: Number(w.number) || i + 1, start: st, n, label: st && meet ? meetWeekLabel(st, meet) : '' };
+  });
+}
+// Block tone on the calendar: four greys, by what the block is for.
+function blockPhase(name) {
+  const s = String(name || '');
+  if (/deload/i.test(s)) return 'deload';
+  if (/peak|taper|meet|comp/i.test(s)) return 'peak';
+  if (/volume|hypertroph|accum|base|wave/i.test(s)) return 'volume';
+  return 'strength';
+}
+// The calendar's weeks: Mondays from `back` weeks before this one to `ahead` after.
+function calendarAxis(todayIso, back, ahead) {
+  const mon = _monISO(_isoDay(todayIso) || todayISO());
+  const b = back == null ? 12 : back, a = ahead == null ? 26 : ahead;
+  return Array.from({ length: b + a + 1 }, (_, i) => _addDaysISO(mon, 7 * (i - b)));
+}
+// One row per lifter: { athleteId, name, bars: [{ kind, programId|blockId, name, from, weeks, current,
+// phase, start, end }], meets: [{ id, name, date, week, planned, total, federation }] } on the axis
+// (week indexes). Bars, not cells: the view draws one element per bar.
+function calendarRows(o) {
+  o = o || {};
+  const axis = calendarAxis(o.today, o.back, o.ahead);
+  const idx = (iso) => _wkBetween(axis[0], _monISO(iso));
+  const last = axis.length - 1;
+  const tw = idx(_isoDay(o.today) || todayISO());
+  return (o.athletes || []).map(a => {
+    const bars = [];
+    (o.programs || []).filter(p => p.athleteId === a.id).forEach(p => {
+      const st = programStartsOn(p), n = (p.weeks || []).length;
+      if (!st || !n) return;
+      const from = idx(st);
+      if (from + n - 1 < 0 || from > last) return;
+      const cur = tw - from;
+      bars.push({ kind: 'program', programId: p.id, name: p.name || 'Program', from, weeks: n, current: cur >= 0 && cur < n ? cur : null,
+        phase: blockPhase(p.name), start: st, end: programEndsOn(p), meetDate: _isoDay(p.meetDate) });
+    });
+    (o.blocks || []).filter(b => b.athleteId === a.id && _isoDay(b.startedOn)).forEach(b => {
+      const from = idx(_isoDay(b.startedOn)), to = idx(_isoDay(b.endedOn) || _isoDay(b.startedOn));
+      if (to < 0 || from > last) return;
+      bars.push({ kind: 'block', blockId: b.id, name: b.name || 'Block', from, weeks: Math.max(1, to - from + 1), current: null, phase: blockPhase(b.name), start: _isoDay(b.startedOn), end: _isoDay(b.endedOn) });
+    });
+    bars.sort((x, y) => x.from - y.from);
+    const meets = (o.meets || []).filter(m => m.athleteId === a.id && _isoDay(m.date)).map(m => {
+      const w = idx(_isoDay(m.date));
+      const planned = isPlannedMeet(m, o.today);
+      return { id: m.id, name: m.name || 'Meet', date: _isoDay(m.date), week: w, planned, total: planned ? null : meetTotal(m), federation: m.federation || '' };
+    }).filter(m => m.week >= 0 && m.week <= last).sort((x, y) => x.week - y.week);
+    return { athleteId: a.id, name: a.name || '', bars, meets };
+  });
+}
+var _CAL_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function _calDay(iso) { return Number(iso.slice(8, 10)) + ' ' + _CAL_MON[Number(iso.slice(5, 7)) - 1]; }
+// What the coach should look at: a block running past (or stopping short of) a planned meet, two
+// planned meets too close, and lifters at different meets on the same day.
+function calendarClashes(rows) {
+  const out = [];
+  (rows || []).forEach(r => {
+    const planned = r.meets.filter(m => m.planned);
+    r.bars.filter(b => b.kind === 'program').forEach(b => {
+      const end = b.from + b.weeks - 1;
+      planned.forEach(m => {
+        if (m.week >= b.from && end > m.week) out.push({ type: 'block-after-meet', athleteId: r.athleteId, meetId: m.id, programId: b.programId, weeks: end - m.week, text: 'Block ends ' + (end - m.week) + ' wk after meet' });
+        else if (end < m.week && m.week - end <= 8) out.push({ type: 'block-before-meet', athleteId: r.athleteId, meetId: m.id, programId: b.programId, weeks: m.week - end, text: 'Block ends ' + (m.week - end) + ' wk before meet' });
+      });
+    });
+    for (let i = 1; i < planned.length; i++) {
+      const gap = planned[i].week - planned[i - 1].week;
+      if (gap < 3) out.push({ type: 'meets-close', athleteId: r.athleteId, meetIds: [planned[i - 1].id, planned[i].id], weeks: gap, text: gap === 0 ? 'Two meets the same week' : 'Two meets ' + gap + ' wk apart' });
+    }
+  });
+  const byDay = {};
+  (rows || []).forEach(r => r.meets.filter(m => m.planned).forEach(m => { (byDay[m.date] = byDay[m.date] || []).push({ athleteId: r.athleteId, name: String(m.name).trim().toLowerCase() }); }));
+  Object.keys(byDay).sort().forEach(d => {
+    const list = byDay[d], names = new Set(list.map(x => x.name));
+    if (names.size < 2) return;
+    const lifters = new Set(list.map(x => x.athleteId)).size;
+    out.push({ type: 'meets-same-day', date: d, athleteIds: Array.from(new Set(list.map(x => x.athleteId))),
+      text: lifters + ' lifters at ' + (names.size === lifters ? '' : names.size + ' ') + 'different meets ' + _calDay(d) });
+  });
+  return out;
+}
+
+// ----- Scoring per federation (brief §8: one number, the formula always named) -----
+// IPF and its member federations score in IPF GL points; everyone else knows DOTS. (SPF is the
+// Southern Powerlifting Federation, not IPF: Sweden's IPF affiliate is SSF.)
+var IPF_FEDS = /\bIPF\b|\bEPF\b|\bNAPF\b|\bAsPF\b|\bOceania\b|British Powerlifting|^\s*BP\s*$|Powerlifting America|\bCPU\b|Canadian Powerlifting Union|Powerlifting Australia|Powerlifting New Zealand|\bFFForce\b|\bBVDK\b|\bFIPL\b|\bAEP\b|\bSSF\b|Svenska Styrkelyft|Swedish Powerlifting|\bKNKF\b|\bNSF\b|\bJPA\b/i;
+function federationFormula(federation) { return IPF_FEDS.test(String(federation || '')) ? 'gl' : 'dots'; }
+// IPF GL with the equipped (single-ply) coefficients, 3-lift.
+function ipfGlPointsEquipped(totalKg, bwKg, sex) {
+  if (!totalKg || !bwKg || bwKg <= 0) return 0;
+  const c = sex === 'female' ? { A: 758.63878, B: 949.31382, C: 0.02435 } : { A: 1236.25115, B: 1449.21864, C: 0.01644 };
+  const denom = c.A - c.B * Math.exp(-c.C * bwKg);
+  if (denom <= 0) return 0;
+  const pts = (100 / denom) * totalKg;
+  return isFinite(pts) && pts > 0 ? Math.round(pts * 100) / 100 : 0;
+}
+// Age coefficients: Foster (teens and juniors, 14–23) and McCulloch (masters, 40–80). 1 otherwise.
+var AGE_COEF_TEEN = { 14: 1.23, 15: 1.18, 16: 1.13, 17: 1.08, 18: 1.06, 19: 1.04, 20: 1.03, 21: 1.02, 22: 1.01, 23: 1 };
+var AGE_COEF_MASTERS = [1, 1.01, 1.02, 1.031, 1.043, 1.055, 1.068, 1.082, 1.097, 1.113, 1.13, 1.147, 1.165, 1.184, 1.204, 1.225, 1.246, 1.268, 1.291, 1.315,
+  1.34, 1.366, 1.393, 1.421, 1.45, 1.48, 1.511, 1.543, 1.576, 1.61, 1.645, 1.681, 1.718, 1.756, 1.795, 1.835, 1.876, 1.918, 1.961, 2.005, 2.05];
+function ageCoefficient(age) {
+  const a = Math.floor(Number(age));
+  if (!(a > 0)) return 1;
+  if (AGE_COEF_TEEN[a] != null) return AGE_COEF_TEEN[a];
+  if (a >= 40) return AGE_COEF_MASTERS[Math.min(a, 80) - 40];
+  return 1;
+}
+// The score for a meet: follows its federation and division. Age grading only for an age
+// division (masters, juniors, teens) when the lifter's age is known: never guessed.
+// → { formula: 'gl' | 'dots', label, points, base, coef }
+function meetScore(totalKg, bwKg, sex, opts) {
+  opts = opts || {};
+  const formula = federationFormula(opts.federation);
+  const div = String(opts.division || '') + ' ' + String(opts.equipment || '');
+  const equipped = /equipped|single[- ]?ply|multi[- ]?ply|\bEQ\b/i.test(div);
+  const base = formula === 'gl' ? (equipped ? ipfGlPointsEquipped(totalKg, bwKg, sex) : ipfGlPoints(totalKg, bwKg, sex)) : dotsScore(totalKg, bwKg, sex);
+  const ageDiv = /master|junior|teen|sub-?junior|youth|\bM[1-4]\b|\b[4-8]\d\s*[-–]\s*\d+|\b(1[4-9]|2[0-3])\s*[-–]\s*\d+/i.test(String(opts.division || ''));
+  const coef = ageDiv && Number(opts.age) > 0 ? ageCoefficient(opts.age) : 1;
+  const label = (formula === 'gl' ? 'IPF GL' + (equipped ? ' · equipped' : '') : 'DOTS') + (coef !== 1 ? ' · age-graded' : '');
+  return { formula, label, points: base > 0 ? Math.round(base * coef * 100) / 100 : 0, base, coef };
+}
+if (typeof window !== 'undefined') Object.assign(window, {
+  isLoggedSet, teamMaxKg, teamMaxSource, teamLoadKg, teamMemberWeeks, isTeamLinked, teamOverrideExercise, teamResetExercise, teamDetachProgram,
+  teamMasterFromProgram, teamMemberMaxes, teamMembersFor, teamPushPlan, teamPushSummary, teamNoMaxReport, teamLoadsMatrix, teamLoadText, teamPushReport,
+  teamDigestPush, notifyTeamPush, pushTeamProgram,
+  isPlannedMeet, meetWeekLabel, moveMeetDate, programStartsOn, programEndsOn, programWeekLabels, blockPhase, calendarAxis, calendarRows,
+  calendarClashes, federationFormula, ipfGlPointsEquipped, ageCoefficient, meetScore
+});
+
+// =========================================================
+// TEAM DEMO (coach.html?demo=1 on a laptop): "Meet team", six lifters on one master.
+// Leo, Jonah, Kofi, Dev and Sofia train from linked copies (week 1 logged by those training);
+// Kofi has his own W2 squat (a cranky knee) and Dev his own W3 bench; Hannah has no program and no
+// maxes yet (the first push creates hers; % sets stay blank: the noMax report). Since the last push
+// the master's W4 deadlift went up 2.5%: Publish updates the five linked lifters.
+// =========================================================
+function seedTeamDemo(store, h) {
+  const ids = ['demo-d1', 'demo-d5', 'demo-d9', 'demo-d10', 'demo-d11', 'demo-d12'];
+  if (!ids.every(id => (store.athletes || []).some(a => a.id === id))) return;
+  const DC = h.coachId, daysAgo = h.daysAgo;
+  const start = _monISO(daysAgo(7));
+  const at = (wi, di) => _addDaysISO(start, wi * 7 + di * 2);
+  const set = (id, reps, pct, rpe) => ({ id, weight: 0, reps, rpe, pct, completed: false });
+  const dayOf = (wn, di, lift, name, pct, reps) => ({ id: 'demo-tm-w' + wn + 'd' + di, name, exercises: [
+    { id: 'demo-tm-w' + wn + 'e' + di, lift, variant: 'Competition', exerciseName: '', note: '', sets: [1, 2, 3].map(k => set('demo-tm-w' + wn + 'e' + di + 's' + k, reps, pct, 8)) },
+    di === 0 ? { id: 'demo-tm-w' + wn + 'acc', lift: 'pull', variant: '', exerciseName: 'Barbell row', note: '', sets: [1, 2, 3].map(k => ({ id: 'demo-tm-w' + wn + 'acc' + k, weight: 60, reps: 10, rpe: 8, completed: false })) } : null
+  ].filter(Boolean) });
+  const master = [1, 2, 3, 4].map(wn => ({ id: 'demo-tm-w' + wn, number: wn, days: [
+    dayOf(wn, 0, 'squat', 'Squat Day', 72.5 + wn * 2.5, 5 - Math.min(2, wn - 1)),
+    dayOf(wn, 1, 'bench', 'Bench Day', 72.5 + wn * 2.5, 5 - Math.min(2, wn - 1)),
+    dayOf(wn, 2, 'deadlift', 'Deadlift Day', 70 + wn * 2.5, 4 - Math.min(2, wn - 1)),
+    { id: 'demo-tm-w' + wn + 'rest', name: 'Rest', exercises: [] }
+  ] }));
+  // Each lifter's best estimated max from their own logs (the Store isn't loaded yet).
+  const maxesOf = (aid) => {
+    const out = {};
+    MAIN_LIFTS.forEach(L => {
+      const best = (store.workoutLogs || []).filter(l => l.athleteId === aid && l.lift === L).reduce((m, l) => Math.max(m, Number(l.e1rmComp) || 0), 0);
+      out[L] = best > 0 ? { kg: Math.round(best * 10) / 10, source: 'e1rm' } : { kg: 0, source: null };
+    });
+    return out;
+  };
+  const pushed = JSON.parse(JSON.stringify(master));      // what the lifters got at the last push
+  const team = { id: 'demo-team-1', coachId: DC, name: 'Meet team', programName: 'Meet team · Strength', weeks: master, rev: 4,
+    startsOn: start, meetDate: null, members: [], createdAt: daysAgo(10) + 'T09:00:00Z' };
+  ids.forEach(aid => {
+    if (aid === 'demo-d10') { team.members.push({ athleteId: aid, programId: null, pushedRev: null, pushedAt: null }); return; }
+    const old = (store.programs || []).find(p => p.athleteId === aid);
+    let weeks = teamMemberWeeks(pushed, null, { maxes: maxesOf(aid), unit: 'kg' }).weeks;
+    const trains = aid !== 'demo-d5';
+    weeks.forEach((w, wi) => w.days.forEach((d, di) => {
+      const done = trains && (wi === 0 || (aid === 'demo-d11' && wi === 1 && di === 0));
+      if (!done || !d.exercises.length) return;
+      d.exercises.forEach(e => e.sets.forEach(s => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: at(wi, di), plannedWeight: s.weight })));
+    }));
+    if (aid === 'demo-d9') {   // Kofi: his own W2 squat
+      weeks = teamOverrideExercise(weeks, weeks[1].days[0].exercises[0].id);
+      weeks[1].days[0].exercises[0].sets.forEach(s => { delete s.pct; s.weight = 150; s.reps = 3; s.rpe = 7; });
+      weeks[1].days[0].exercises[0].note = 'Knee: box squats to depth this week.';
+    }
+    if (aid === 'demo-d11') {  // Dev: his own W3 bench
+      weeks = teamOverrideExercise(weeks, weeks[2].days[1].exercises[0].id);
+      const benchMax = teamMaxKg(maxesOf(aid), 'bench');
+      weeks[2].days[1].exercises[0].sets.forEach(s => { s.pct = 75; s.reps = 6; s.weight = teamLoadKg(75, benchMax, 'kg'); });
+    }
+    const prog = old || { id: 'demo-tm-prog-' + aid, athleteId: aid, coachId: DC, maxes: null };
+    Object.assign(prog, { name: team.programName, weeks, rev: 0, startsOn: start, meetDate: null });
+    if (!old) store.programs.push(prog);
+    team.members.push({ athleteId: aid, programId: prog.id, pushedRev: 3, pushedAt: daysAgo(6) + 'T09:00:00Z' });
+  });
+  // The edit since: W4 deadlift +2.5%.
+  master[3].days[2].exercises[0].sets.forEach(s => { s.pct += 2.5; });
+  store.teams = [team];
+}
+
+// TEAM PROGRAMS (M4): minimal proof-of-data sheet for the builder's "Team" button. Temporary:
+// the desk v2 Team view (Program / Loads / Members tabs, the push dialog) replaces it.
+function openTeamSheet() {
+  const teams = Store.get().teams || [];
+  uiSheet('Team programs', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Preview: one plan, many lifters. Each lifter gets their own loads; their own edits and logged sets are kept.'));
+    if (!teams.length) { sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'No teams yet.')); return; }
+    const pick = el('select', { 'aria-label': 'Team', class: 'team-pick' });
+    teams.forEach(t => pick.appendChild(el('option', { value: t.id }, t.name + ' · ' + (t.members || []).length + ' lifters')));
+    const body = el('div', { class: 'team-body' });
+    const paint = (report) => {
+      body.innerHTML = '';
+      const t = teams.find(x => x.id === pick.value) || teams[0];
+      const members = teamMembersFor(t);
+      const plan = teamPushPlan(t, members);
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, teamPushSummary(plan)));
+      const wk = (t.weeks || [])[0], day = wk && (wk.days || []).find(d => (d.exercises || []).some(e => MAIN_LIFTS.indexOf(e.lift) >= 0));
+      if (wk && day) {
+        const mx = teamLoadsMatrix(t.weeks, wk.id, day.id, members);
+        body.appendChild(uiLabel('Loads · Week ' + (wk.number || 1) + ' ' + (day.name || '')));
+        body.appendChild(uiList(mx.rows.map(r => uiRow({ title: r.name,
+          sub: r.cells.map((c, i) => mx.cols[i].label + ' ' + (c.kg > 0 ? teamLoadText(c.kg, r.unit) : '–') + (c.ovr ? ' (' + c.note + ')' : '') + (c.source ? ' · from ' + c.source : '')).join('  ·  ') }))));
+      }
+      teamNoMaxReport(t.weeks, members).forEach(n => body.appendChild(el('p', { class: 'ui-sheet-sub' }, n.text)));
+      (report || []).forEach(l => body.appendChild(el('p', { class: 'ui-sheet-sub' }, l.text)));
+      const go = el('button', { class: 'btn btn-primary btn-block', type: 'button' }, 'Publish to team');
+      go.addEventListener('click', async () => {
+        go.disabled = true;
+        try {
+          const res = await pushTeamProgram(t, { coachName: (window._user && window._user.name) || '' });
+          toast(res.results.filter(x => x.status === 'updated' || x.status === 'created').length + ' lifters updated' + (window._demoMode ? ' (demo: nothing saves)' : ''));
+          paint(res.report);
+        } catch (e) { toast((e && e.message) || 'Could not publish'); go.disabled = false; }
+      });
+      body.appendChild(go);
+    };
+    pick.addEventListener('change', () => paint());
+    sheet.appendChild(pick); sheet.appendChild(body);
+    paint();
+  });
+}
+window.openTeamSheet = openTeamSheet;
