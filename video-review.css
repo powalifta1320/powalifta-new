@@ -1,0 +1,281 @@
+/* video-review.css — the form-check review tool, compare, and the lifter's replay
+   (video-review.js links this file itself). Phone and laptop; dark and light themes come from
+   the app's tokens. The picture always sits on black. One red action: Send. */
+
+html.vr-open, html.vr-open body { overflow: hidden; }
+
+.vr {
+  position: fixed; inset: 0; z-index: 160;
+  display: flex; flex-direction: column;
+  background: var(--bg); color: var(--text);
+  font-family: var(--font-body, system-ui, sans-serif);
+  transition: opacity 200ms ease-out, transform 240ms var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.vr.is-entering { opacity: 0; transform: translateY(10px); }
+.vr.is-leaving { opacity: 0; transform: translateY(6px); transition-duration: 160ms; }
+.vr *, .vr *::before, .vr *::after { box-sizing: border-box; }
+.vr button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.vr button:focus-visible, .vr select:focus-visible, .vr input:focus-visible, .vr textarea:focus-visible,
+.vr-replay button:focus-visible { outline: 2px solid var(--acc, #ff3b4a); outline-offset: 2px; }
+
+/* ---------- header */
+.vr-head {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  min-height: 60px; padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.vr-titles { flex: 1; min-width: 0; }
+.vr-title { font-size: 16px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vr-sub { margin-top: 2px; font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.vr-ib {
+  flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 12px; background: transparent; color: var(--text-2); cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 120ms ease-out;
+}
+.vr-ib:active:not(:disabled) { transform: scale(0.94); }
+.vr-ib:disabled { opacity: 0.35; cursor: default; }
+@media (hover: hover) and (pointer: fine) { .vr-ib:hover:not(:disabled) { background: var(--bg-2); color: var(--text); } }
+
+.vr-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 36px; padding: 0 14px; border-radius: 100px;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text);
+  font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 120ms ease-out;
+}
+.vr-btn svg { width: 18px; height: 18px; }
+.vr-btn:active:not(:disabled) { transform: scale(0.97); }
+.vr-btn:disabled { opacity: 0.4; cursor: default; }
+.vr-btn.on { border-color: var(--acc, #ff3b4a); background: color-mix(in srgb, var(--acc, #ff3b4a) 14%, var(--bg-2)); }
+@media (hover: hover) and (pointer: fine) { .vr-btn:hover:not(:disabled) { background: var(--bg-3); } }
+
+.vr .vr-send { flex: none; min-height: 38px; padding: 0 20px; border-radius: 100px; font-size: 15px; font-weight: 700; }
+.vr .vr-send:active:not(:disabled) { transform: scale(0.97); }
+.vr .vr-send:disabled { opacity: 0.6; }
+
+/* ---------- layout: laptop = picture | panel, phone = one column */
+.vr-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
+.vr-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 18px; }
+.vr-side {
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 24px;
+  padding: 18px 20px 28px; border-left: 1px solid var(--line);
+}
+.vr-stage-wrap { flex: 1; min-height: 0; display: flex; }
+
+/* ---------- the picture */
+.vr-stage {
+  position: relative; flex: 1; min-height: 0; min-width: 0;
+  background: #000; border-radius: 14px; overflow: hidden;
+  isolation: isolate;
+}
+.vr-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.vr-ink { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: manipulation; cursor: pointer; }
+.vr-ink.is-drawing { cursor: crosshair; touch-action: none; }
+.vr-ink.is-readonly { pointer-events: none; }
+.vr-caption {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  padding: 7px 12px; border-radius: 10px; background: rgba(8, 8, 10, 0.82); color: #fff;
+  font-size: 14px; font-weight: 600; line-height: 1.35; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 160ms ease-out;
+  width: max-content;
+}
+.vr-caption.is-on { opacity: 1; }
+.vr-status {
+  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center;
+  color: rgba(255, 255, 255, 0.62); font-size: 14px; text-align: center; padding: 16px;
+}
+.vr-status[hidden] { display: none; }
+.vr-retry { min-height: 36px; padding: 0 16px; border-radius: 100px; border: 0; background: rgba(255, 255, 255, 0.14); color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; }
+
+/* ---------- transport */
+.vr-transport { flex: none; display: flex; align-items: center; gap: 4px; }
+.vr-play {
+  flex: none; display: inline-grid; place-items: center; width: 44px; height: 44px; margin-right: 4px;
+  border: 0; border-radius: 50%; background: var(--text); color: var(--bg); cursor: pointer;
+  transition: transform 120ms ease-out;
+}
+.vr-play svg { width: 20px; height: 20px; }
+.vr-play:active { transform: scale(0.94); }
+.vr-time { display: flex; flex-direction: column; justify-content: center; min-width: 74px; margin-left: 6px; line-height: 1.2; }
+.vr-clock { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--font-num, inherit); }
+.vr-frame { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.vr-speed {
+  margin-left: auto; display: flex; gap: 2px; padding: 3px;
+  background: var(--bg-1); border: 1px solid var(--line); border-radius: 100px;
+}
+.vr-speed button {
+  min-width: 38px; height: 30px; padding: 0 8px; border: 0; border-radius: 100px;
+  background: none; color: var(--text-3); font-size: 13px; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.vr-speed button.on { background: var(--bg-3); color: var(--text); }
+
+/* ---------- timeline */
+.vr-tl { position: relative; flex: none; height: 28px; --vr-pos: 0%; }
+.vr-range {
+  -webkit-appearance: none; appearance: none; position: absolute; inset: 0; width: 100%; height: 28px; margin: 0;
+  background: transparent; cursor: pointer;
+}
+.vr-range::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 4px;
+  background: linear-gradient(to right, var(--text-2) var(--vr-pos), var(--line-2) var(--vr-pos));
+}
+.vr-range::-moz-range-track { height: 4px; border-radius: 4px; background: var(--line-2); }
+.vr-range::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--text-2); }
+.vr-range::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%;
+  background: #fff; border: 1px solid rgba(0, 0, 0, 0.12); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.vr-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
+.vr-ticks { position: absolute; left: 8px; right: 8px; top: 0; height: 100%; pointer-events: none; z-index: 1; }
+.vr-tick {
+  position: absolute; top: 3px; width: 22px; height: 12px; transform: translateX(-50%);
+  border: 0; padding: 0; background: none; cursor: pointer; pointer-events: auto;
+}
+.vr-tick::after {
+  content: ''; position: absolute; left: 50%; top: 2px; width: 4px; height: 8px; transform: translateX(-50%);
+  border-radius: 2px; background: var(--acc, #ff3b4a);
+}
+.vr-flag { position: absolute; bottom: -2px; transform: translateX(-3px); color: var(--text); pointer-events: none; }
+.vr-flag svg { width: 14px; height: 14px; }
+
+/* ---------- tools */
+.vr-tools { flex: none; display: flex; align-items: center; gap: 6px; }
+.vr-toolset { display: flex; gap: 2px; padding: 3px; background: var(--bg-1); border: 1px solid var(--line); border-radius: 100px; }
+.vr-tool {
+  display: inline-grid; place-items: center; width: 42px; height: 36px; padding: 0;
+  border: 0; border-radius: 100px; background: none; color: var(--text-2); cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.vr-tool.on { background: var(--bg-3); color: var(--acc, #ff3b4a); }
+@media (hover: hover) and (pointer: fine) { .vr-tool:hover:not(.on) { color: var(--text); } }
+.vr-hint { flex: 1; min-width: 0; font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 6px; }
+.vr-del { color: var(--brand-red, #ff2d3f); }
+.vr-del[hidden] { display: none; }
+
+/* ---------- panel */
+.vr-ask-who { font-size: 13px; font-weight: 600; color: var(--text-3); }
+.vr-ask-q { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-2); }
+.vr-ask-q::before { content: '“'; } .vr-ask-q::after { content: '”'; }
+.vr .vr-sec-h { text-transform: none; letter-spacing: normal; }
+.vr-sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--text); }
+.vr-sec[hidden] { display: none; }
+.vr-budget { font-size: 12px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.vr-budget.is-full { color: var(--warn, #ffb547); }
+.vr-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.vr-tag {
+  min-height: 34px; padding: 0 14px; border-radius: 100px;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text-2);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease-out;
+}
+.vr-tag:active { transform: scale(0.97); }
+.vr-tag.on { border-color: var(--acc, #ff3b4a); background: color-mix(in srgb, var(--acc, #ff3b4a) 16%, var(--bg-2)); color: var(--text); }
+.vr-tag.is-static { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; font-size: 13px; cursor: default; }
+.vr-dlist { display: flex; flex-direction: column; margin-bottom: 10px; }
+.vr-drow { display: flex; align-items: center; min-height: 44px; border-bottom: 1px solid var(--line); }
+.vr-drow:last-child { border-bottom: 0; }
+.vr-drow-go {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 2px;
+  border: 0; background: none; color: var(--text); font-size: 15px; text-align: left; cursor: pointer;
+}
+.vr-drow-ic { display: inline-grid; color: var(--acc, #ff3b4a); }
+.vr-drow-ic svg { width: 18px; height: 18px; }
+.vr-drow-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.vr-drow-at { color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.vr-drow-x { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--text-3); cursor: pointer; }
+.vr-drow-x svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .vr-drow-x:hover { color: var(--text); background: var(--bg-2); } .vr-drow-go:hover .vr-drow-t { text-decoration: underline; text-underline-offset: 3px; } }
+.vr-empty { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-3); }
+.vr-keys { display: block; margin-top: 8px; font-size: 13px; white-space: pre; }
+.vr-keys kbd {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 6px;
+  border: 1px solid var(--line-2); background: var(--bg-1); color: var(--text-2);
+  font: 600 12px/1 var(--font-body, system-ui, sans-serif);
+}
+.vr:focus { outline: none; }
+.vr-input {
+  display: block; width: 100%; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--bg-1); color: var(--text);
+  font: inherit; font-size: 15px; line-height: 1.45;
+}
+.vr-input::placeholder { color: var(--text-3); }
+.vr-reply { min-height: 104px; resize: vertical; }
+.vr-cmp-help { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+
+/* ---------- compare */
+.vr-cmp { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vr-cmp-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.vr-cmp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.vr-cmp-name { display: flex; align-items: center; min-height: 34px; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vr-cmp-date { margin-left: 6px; font-weight: 500; color: var(--text-3); }
+.vr-cmp-pick {
+  min-width: 0; max-width: 60%; height: 34px; padding: 0 28px 0 12px; border-radius: 100px;
+  border: 1px solid var(--line); background: var(--bg-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c8c96' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color: var(--text); font: inherit; font-size: 14px; font-weight: 600;
+  -webkit-appearance: none; appearance: none; text-overflow: ellipsis;
+}
+.vr-mark {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+  border-radius: 100px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text-2);
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.vr-mark svg { width: 15px; height: 15px; }
+.vr-mark.on { color: var(--text); border-color: var(--acc, #ff3b4a); }
+.vr-mark:active { transform: scale(0.97); }
+.vr.is-compare .vr-cmp-btn { border-color: var(--acc, #ff3b4a); }
+
+/* ---------- phone */
+@media (max-width: 899px) {
+  .vr { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .vr-head { position: sticky; top: 0; z-index: 2; background: var(--bg); padding-left: 8px; padding-right: 12px; }
+  .vr-cmp-btn span { display: none; }
+  .vr-cmp-btn { width: 40px; padding: 0; }
+  .vr-body { display: block; flex: none; }
+  .vr-main { padding: 12px 16px 14px; }
+  .vr-stage-wrap { flex: none; height: min(56vh, 520px); }
+  .vr-side { border-left: 0; border-top: 1px solid var(--line); padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 28px); overflow: visible; }
+  .vr-cmp { gap: 8px; }
+  .vr-cmp-col .vr-stage { flex: none; height: min(46vh, 420px); }
+  .vr-cmp-head { flex-direction: column; align-items: stretch; gap: 6px; }
+  .vr-cmp-pick { max-width: none; }
+  .vr-mark { justify-content: center; }
+  .vr-hint { display: none; }
+  .vr-tools { justify-content: space-between; }
+}
+@media (max-width: 380px) {
+  .vr-tool { width: 38px; }
+  .vr-speed button { min-width: 34px; padding: 0 6px; }
+}
+
+/* ---------- the lifter's replay, inside their form-check card */
+.vr-replay { margin: 4px 0 2px; }
+.vr-stage.is-replay { flex: none; width: 100%; height: min(64vh, 560px); border-radius: 14px; }
+.vr-rp-ctl { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.vr-rp-ctl .vr-play { width: 40px; height: 40px; margin: 0; }
+.vr-rp-ctl .vr-tl { flex: 1; min-width: 0; }
+.vr-rp-clock { flex: none; min-width: 58px; text-align: right; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.vr-rp-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.vr-rp-meta:empty { display: none; }
+.vr-rp-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.vr-rp-count { font-size: 14px; color: var(--text-2); }
+.vr-rp-next[hidden] { display: none; }
+.vr-replay .vr-btn, .vr-pick .vr-btn {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 100px;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.vr-replay .vr-tag { min-height: 28px; padding: 0 11px; border-radius: 100px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text-2); font-size: 13px; font-weight: 600; }
+.vr-replay .vr-play { display: inline-grid; place-items: center; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); cursor: pointer; }
+.vr-replay .vr-play svg { width: 18px; height: 18px; }
+
+/* the iPhone app's picker (in place of the web file input) */
+.vr-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.vr-pick .vr-btn:disabled { opacity: 0.5; }
+.vr-pick-label { flex-basis: 100%; min-height: 18px; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.vr-pick-label:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vr, .vr.is-entering, .vr.is-leaving { transform: none; }
+  .vr-caption { transition: none; }
+}

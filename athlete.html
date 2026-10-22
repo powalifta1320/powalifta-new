@@ -329,6 +329,7 @@
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: export everything -->
+<script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -8363,7 +8364,8 @@ function renderDemoFormChecks(host, coach) {
   item.appendChild(el('p', { class: 'fc-item-note' }, '“Depth check on my top single. Felt high?”'));
   const videoWrap = el('div', { class: 'fc-video-wrap' });
   videoWrap.appendChild(el('button', { class: 'btn btn-sm btn-ghost',
-    onclick: () => toast('Video playback goes live with a real account. This is the demo.') }, '▶ Watch clip'));
+    // VIDEO REVIEW hook: the demo plays a sample clip with the coach's drawings replayed on it.
+    onclick: () => { if (window.VideoReview) VideoReview.mountReplay(videoWrap, VideoReview.demoAthleteCheck()); else toast('Video playback goes live with a real account. This is the demo.'); } }, '▶ Watch clip'));
   item.appendChild(videoWrap);
   const reply = el('div', { class: 'fc-reply' });
   reply.appendChild(el('div', { class: 'fc-reply-lbl' }, 'Coach reply'));
@@ -8391,12 +8393,15 @@ async function renderAthleteFormChecks(host, coach) {
   form.appendChild(noteInput);
   form.appendChild(uploadBtn);
   host.appendChild(form);
+  // VIDEO REVIEW hook: in the iPhone app the clip comes from the native picker, exported to H.264 MP4
+  // (iPhone HEVC plays black in Chrome on Windows). On the web this is null and the file input stays.
+  const nativePick = window.VideoReview ? VideoReview.attachNativePicker(fileInput) : null;
 
   const listHost = el('div', { class: 'fc-list', style: 'margin-top:16px;' });
   host.appendChild(listHost);
 
   uploadBtn.addEventListener('click', async () => {
-    const file = fileInput.files && fileInput.files[0];
+    const file = (nativePick && nativePick.file()) || (fileInput.files && fileInput.files[0]);
     if (!file) return toast('Pick a video first');
     if (file.size > 104857600) return toast('Video is over 100 MB. Trim it or lower the quality');
     uploadBtn.disabled = true;
@@ -8409,6 +8414,7 @@ async function renderAthleteFormChecks(host, coach) {
       });
       toast('Sent to ' + coach.name.split(' ')[0] + ' for review');
       fileInput.value = ''; noteInput.value = ''; liftSel.value = '';
+      if (nativePick) nativePick.done();
       loadList();
     } catch (e) {
       console.error('uploadFormCheck', e);
@@ -8448,6 +8454,8 @@ function buildFormCheckCard(fc, otherFirst, isAthlete) {
   const videoWrap = el('div', { class: 'fc-video-wrap' });
   const watchBtn = el('button', { class: 'btn btn-sm btn-ghost' }, '▶ Watch clip');
   watchBtn.addEventListener('click', async () => {
+    // VIDEO REVIEW hook: play it with the coach's drawings at the moments they were drawn (refreshes the signed URL itself).
+    if (window.VideoReview) { VideoReview.mountReplay(videoWrap, fc); return; }
     watchBtn.disabled = true; watchBtn.textContent = 'Loading…';
     const url = await DB.formCheckSignedUrl(fc.storagePath);
     if (!url) { watchBtn.disabled = false; watchBtn.textContent = '▶ Watch clip'; return toast('Could not load video'); }

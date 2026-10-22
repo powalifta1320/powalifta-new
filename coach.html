@@ -332,6 +332,7 @@
 <script src="clubs.js"></script>
 <script src="desk.js"></script>
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
+<script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script>
 // The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
 // dashboard still boots. Function declarations, so the first render can call them.
@@ -2131,9 +2132,10 @@ window.renderMessages = renderMessages;
 // _coachFormChecks is declared up near the bootstrap call (TDZ fix).
 
 async function refreshFormChecks() {
-  if (window._demoMode) { _coachFormChecks = []; return; }
+  // VIDEO REVIEW hook: ?demo=1 gets two sample squat clips from Arjun (video-review.js), never the network.
+  if (window._demoMode) { _coachFormChecks = (window.VideoReview && VideoReview.demoFormChecks) ? VideoReview.demoFormChecks() : []; if (!_coachFormChecks.length) return; }
   try {
-    _coachFormChecks = await DB.listFormChecksForCoach(user.id);
+    if (!window._demoMode) _coachFormChecks = await DB.listFormChecksForCoach(user.id);
     if (_desk()) { _deskCall('deskRefresh'); return; }
     if (document.getElementById('rosterArea').children.length) renderRoster();
   } catch (e) { console.warn('refreshFormChecks', e); }
@@ -2142,6 +2144,12 @@ async function refreshFormChecks() {
 function openFormCheckReview(id) {
   const fc = _coachFormChecks.find(x => x.id === id);
   if (!fc) return;
+  // VIDEO REVIEW hook: the review tool (video-review.js) replaces this modal: frame steps, drawings, tags, compare.
+  if (window.openVideoReview && window.openVideoReview(id, { formChecks: _coachFormChecks, onSaved: (updated) => {
+    const i = _coachFormChecks.findIndex(x => x.id === id);
+    if (i >= 0 && updated) _coachFormChecks[i] = Object.assign({}, _coachFormChecks[i], { coachReply: updated.coachReply, coachReplyAt: updated.coachReplyAt });
+    if (_desk()) _deskCall('deskRefresh'); else renderRoster();
+  } })) return;
   const ath = Store.get().athletes.find(a => a.id === fc.athleteId);
   const LIFT_LBL = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift', other: 'Other' };
   document.getElementById('formCheckTitle').textContent =

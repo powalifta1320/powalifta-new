@@ -2726,3 +2726,54 @@ Object.assign(DB, {
     return [];
   }
 });
+
+// ---------- VIDEO REVIEW hook (video-review.js · sql/migration-form-check-annotations-2026-10-22.sql) ----------
+// The coach's drawings on a form check: one row per clip (drawings normalised 0–1 with a frame
+// time each, judging tags, a short caption, the compare align mark). Until the migration runs,
+// a coach's review is kept on their own device (localStorage) and the lifter sees the written
+// reply only; { local: true } tells the review tool to say so.
+function mapDbFcAnnotation(r) {
+  return { id: r.id, formCheckId: r.form_check_id, coachId: r.coach_id, drawings: Array.isArray(r.drawings) ? r.drawings : [],
+    tags: r.tags || [], note: r.note || '', alignT: r.align_t == null ? null : Number(r.align_t), updatedAt: r.updated_at };
+}
+function _fcaLocal(fcId, doc) {
+  const k = 'powa-fca-' + fcId;
+  try {
+    if (doc === undefined) { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : null; }
+    localStorage.setItem(k, JSON.stringify(doc)); return doc;
+  } catch (e) { return null; }
+}
+Object.assign(DB, {
+  // → { ok, notReady, doc|null }
+  async getFormCheckAnnotations(formCheckId) {
+    if (!formCheckId) return { ok: false, doc: null };
+    const { data, error } = await sb.from('form_check_annotations').select('*').eq('form_check_id', formCheckId).limit(1);
+    if (error) {
+      const notReady = _isNotReady(error);
+      if (!notReady) console.warn('getFormCheckAnnotations', error);
+      return { ok: false, notReady, doc: notReady ? _fcaLocal(formCheckId) : null };
+    }
+    if (data && data[0]) return { ok: true, doc: mapDbFcAnnotation(data[0]) };
+    return { ok: true, doc: _fcaLocal(formCheckId) };   // a review made on this device before the table existed
+  },
+  // doc: { formCheckId, coachId, drawings, tags, note, alignT } → { ok, local?, notReady?, doc?, error? }
+  async saveFormCheckAnnotations(doc) {
+    const row = { form_check_id: doc.formCheckId, coach_id: doc.coachId, drawings: doc.drawings || [], tags: doc.tags || [],
+      note: (doc.note || '').trim() || null, align_t: doc.alignT == null ? null : doc.alignT };
+    const { data, error } = await sb.from('form_check_annotations').upsert(row, { onConflict: 'form_check_id' }).select('*');
+    if (error) {
+      if (_isNotReady(error)) { _fcaLocal(doc.formCheckId, doc); return { ok: false, local: true, notReady: true }; }
+      console.warn('saveFormCheckAnnotations', error);
+      return { ok: false, error };
+    }
+    try { localStorage.removeItem('powa-fca-' + doc.formCheckId); } catch (e) {}
+    return { ok: true, doc: data && data[0] ? mapDbFcAnnotation(data[0]) : null };
+  },
+  // Just the compare align mark on another clip (keeps its drawings as they are).
+  async saveFormCheckAlign(formCheckId, coachId, alignT) {
+    const { error } = await sb.from('form_check_annotations')
+      .upsert({ form_check_id: formCheckId, coach_id: coachId, align_t: alignT == null ? null : alignT }, { onConflict: 'form_check_id' });
+    if (error && !_isNotReady(error)) console.warn('saveFormCheckAlign', error);
+    return { ok: !error };
+  }
+});

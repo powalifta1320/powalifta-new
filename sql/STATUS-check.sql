@@ -83,6 +83,9 @@ with checks(n, migration, applied) as (values
   (33, 'migration-health-2026-10-22.sql  (1.3, Apple Health)',
         to_regclass('public.health_daily') is not null),
   (34, 'migration-history-import-2026-10-22.sql  (Switch kit: history import)',
-        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workout_logs' and policyname = 'workout_logs_coach_import'))
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workout_logs' and policyname = 'workout_logs_coach_import')),
+  (35, 'migration-form-check-annotations-2026-10-22.sql  (video review: drawings on form checks)',
+        to_regclass('public.form_check_annotations') is not null
+        and to_regprocedure('public.fca_coach_may(uuid)') is not null)
 )
 select n, migration, applied from checks order by n;
