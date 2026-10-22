@@ -325,10 +325,12 @@
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
+<script src="voice.js"></script>
 <script src="health.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: export everything -->
+<script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -1782,6 +1784,11 @@ function buildSessionDone(cur) {
   wk.addEventListener('click', () => shareWeekCard());
   acts.appendChild(wk);
   hero.appendChild(acts);
+  if (user.coachId) {
+    const hurt = el('button', { class: 'ui-text-btn tx-hurt', type: 'button', html: painIconSvg() + '<span>Something hurt?</span>' });
+    hurt.addEventListener('click', () => openPainSheet({ phase: 'after', where: cur.day.name }));
+    hero.appendChild(hurt);
+  }
   if (skipped) {
     const resume = el('button', { class: 'ui-text-btn tx-resume', type: 'button' }, 'Resume the session');
     resume.addEventListener('click', () => setSessionSkipped(false));
@@ -1821,8 +1828,104 @@ function confirmFinishSession() {
   const left = cur.day.exercises.reduce((n, e) => n + e.sets.filter(setOpen).length, 0);
   if (!left) return;
   uiActionSheet('Finish with ' + left + (left === 1 ? ' set' : ' sets') + ' left?', [
-    { label: 'Finish session', icon: ICONS.check, onClick: () => setSessionSkipped(true) }
-  ]);
+    { label: 'Finish session', icon: ICONS.check, onClick: () => setSessionSkipped(true) },
+    user.coachId ? { label: 'Something hurt? Tell your coach', icon: painIconSvg(), onClick: () => setTimeout(() => openPainSheet({ phase: 'after', where: cur.day.name }), 240) } : null
+  ].filter(Boolean));
+}
+
+// SOMETHING HURT (brief 4.1, app.js PAIN_PARTS / buildPainReport): tell the coach in three taps
+// and no typing. Tap 1 opens this, tap 2 is where (side included), tap 3 is how bad, which sends.
+// When it happened is pre-filled from where it was opened (the lift, the set, warm-up / working /
+// after) and can be changed before the number. "Tell your coach", never "report an injury".
+// Function declarations, not consts: Train's first render (the demo boot) runs before this line.
+// A plaster: the band and its filled pad (the old dotted pad read as a chain link at 16px).
+function painIconSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-45 12 12)"><rect x="1.5" y="7.5" width="21" height="9" rx="4.5"/><rect x="9" y="7.5" width="6" height="9" fill="currentColor" fill-opacity=".35" stroke="none"/><path d="M9 7.5v9M15 7.5v9"/></g></svg>'; }
+function painMapRows() { return [
+  [null, 'neck', null], ['shoulder:left', 'upper_back', 'shoulder:right'], ['chest:left', null, 'chest:right'],
+  ['elbow:left', 'low_back', 'elbow:right'], ['wrist:left', null, 'wrist:right'], ['hip:left', null, 'hip:right'],
+  ['knee:left', null, 'knee:right'], ['ankle:left', 'other', 'ankle:right']
+]; }
+// ctx: { lift, liftLabel, setRef, phase, where } (where: "Squat · set 3", shown under the part)
+function openPainSheet(ctx) {
+  ctx = ctx || {};
+  if (!user.coachId) return;
+  let phase = PAIN_PHASES[ctx.phase] ? ctx.phase : 'top';
+  uiSheet('Tell your coach', (sheet, close) => {
+    const body = el('div', { class: 'pain-body' });
+    sheet.appendChild(body);
+    const stepWhere = () => {
+      body.innerHTML = '';
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Something hurt? Tap where.'));
+      const map = el('div', { class: 'pain-map', role: 'group', 'aria-label': 'Where it hurts' });
+      painMapRows().forEach(row => row.forEach(cell => {
+        if (!cell) { map.appendChild(el('span', { class: 'pain-gap', 'aria-hidden': 'true' })); return; }
+        const [part, side] = cell.split(':');
+        const b = el('button', { class: 'pain-chip' + (side ? '' : ' is-mid'), type: 'button' }, painPartLabel(part, side));
+        b.addEventListener('click', () => { try { hapticTick(); } catch (e) {} stepHowBad(part, side || null); });
+        map.appendChild(b);
+      }));
+      body.appendChild(map);
+    };
+    const stepHowBad = (part, side) => {
+      body.innerHTML = '';
+      const head = el('div', { class: 'pain-part-row' });
+      head.appendChild(el('b', {}, painPartLabel(part, side)));
+      const change = el('button', { class: 'ui-text-btn', type: 'button' }, 'Change');
+      change.addEventListener('click', stepWhere);
+      head.appendChild(change);
+      body.appendChild(head);
+      if (ctx.where) body.appendChild(el('div', { class: 'pain-ctx' }, ctx.where));
+      const seg = el('div', { class: 'ui-seg pain-phase', role: 'radiogroup', 'aria-label': 'When' });
+      Object.keys(PAIN_PHASES).forEach(k => {
+        const b = el('button', { type: 'button', role: 'radio', class: k === phase ? 'on' : '', 'aria-checked': k === phase ? 'true' : 'false' }, PAIN_PHASES[k]);
+        b.addEventListener('click', () => { phase = k; seg.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); }); });
+        seg.appendChild(b);
+      });
+      body.appendChild(seg);
+      body.appendChild(el('div', { class: 'pain-q' }, 'How bad, 1 to 10?'));
+      const grid = el('div', { class: 'pain-sev', role: 'group', 'aria-label': 'How bad, 1 to 10. Tapping a number sends it to your coach' });
+      for (let n = 1; n <= 10; n++) {
+        const b = el('button', { type: 'button', 'aria-label': n + ' out of 10: send to your coach' }, String(n));
+        b.addEventListener('click', () => { close(); submitPainReport(buildPainReport({ athleteId: user.id, coachId: user.coachId, day: String(getSessionDate() || todayISO()).slice(0, 10),
+          bodyPart: part, side, severity: n, phase, lift: ctx.lift || null, setRef: ctx.setRef || null })); });
+        grid.appendChild(b);
+      }
+      body.appendChild(grid);
+      body.appendChild(el('div', { class: 'pain-sev-ends', html: '<span>Niggle</span><span>Can\'t train on it</span>' }));
+    };
+    stepWhere();
+  }, { cls: 'pain-sheet' });
+}
+async function submitPainReport(rep) {
+  Store.update(s => { (s.painReports || (s.painReports = [])).unshift(rep); });
+  try { hapticTick(); } catch (e) {}
+  if (!window._demoMode) {
+    try { await sendPainReport(rep); }
+    catch (e) {
+      if (e && e.notReady) {
+        Store.update(s => { s.painReports = (s.painReports || []).filter(r => r.id !== rep.id); });
+        toast('This switches on with the next update. Message your coach for now');
+        return;
+      }
+      console.error('pain report', e);
+      _enqueueOutbox('pain', rep, 'pain:' + rep.id);
+      toast('No connection: saved on this device, your coach gets it when you\'re back online');
+      return;
+    }
+  }
+  toastAction('Sent to your coach', 'Undo', () => { undoPainReport(rep.id); toast('Removed'); });
+}
+// From an exercise card: that lift, the set just done (or the next one).
+function openPainFromExercise(ex, cur) {
+  const done = ex.sets.map((s, i) => s.completed ? i : -1).filter(i => i >= 0);
+  const si = done.length ? done[done.length - 1] : Math.max(0, ex.sets.findIndex(setOpen));
+  const prog = getProgram();
+  const title = MAIN_LIFTS.includes(ex.lift) ? (ex.lift) : (ex.exerciseName || ex.lift || null);
+  openPainSheet({
+    lift: title, phase: done.length ? 'top' : 'warmup',
+    where: exTitleOf(ex) + (ex.sets.length ? ' · set ' + (si + 1) : ''),
+    setRef: { programId: prog ? prog.id : null, weekId: cur.week.id, dayId: cur.day.id, exerciseId: ex.id, set: si }
+  });
 }
 
 // BODYWEIGHT, up front. A morning weigh-in is a daily habit, so it lives on the
@@ -1837,11 +1940,146 @@ function _relDay(iso) {
 // READINESS (app.js READINESS / readinessLoad): one tap before the first set.
 // Beat up → every set still to do starts 5% under the plan (smartFor applies
 // it); fresh and normal change nothing and the row goes away.
+// ---- The coach's latest voice note on Train (voice.js) ------------------------------------------
+// Shown for 48 hours after it arrives, until the lifter plays it (here or in the thread). Demo reads
+// the Store; a real account asks once every few minutes (a var: the first render must not hit a TDZ).
+var _coachVoice = null;   // { at, msg }
+function latestCoachVoice() {
+  if (!user || !user.coachId || !window.PowaVoice) return null;
+  if (window._demoMode) {
+    return (Store.get().messages || []).filter(m => m.athleteId === user.id && m.senderId === user.coachId && m.meta && m.meta.type === 'voice')
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+  }
+  if (!_coachVoice || Date.now() - _coachVoice.at > 5 * 60000) {
+    const before = _coachVoice && _coachVoice.msg ? _coachVoice.msg.id : null;
+    _coachVoice = { at: Date.now(), msg: _coachVoice ? _coachVoice.msg : null };
+    if (DB.latestVoiceFrom) DB.latestVoiceFrom(user.coachId, user.coachId, user.id).then(m => {
+      _coachVoice = { at: Date.now(), msg: m || null };
+      if ((m ? m.id : null) !== before && typeof renderToday === 'function') { try { renderToday(); } catch (e) {} }
+    }).catch(() => {});
+  }
+  return _coachVoice.msg;
+}
+function coachVoiceRow() {
+  const m = latestCoachVoice();
+  if (!m || !PowaVoice.cleanMeta(m.meta)) return null;
+  if (Date.now() - Date.parse(m.createdAt || 0) > 48 * 3600000) return null;
+  if (PowaVoice.heard(m.id)) return null;
+  const coach = (Store.get().coaches || []).find(c => c.id === user.coachId);
+  const coachName = coach ? coach.name : 'Your coach';
+  const row = el('div', { class: 'today-note tn-row tn-voice' });
+  const av = el('span', { class: 'ui-av tn-av', 'data-name': coachName }, initials(coachName));
+  if (coach && coach.avatarUrl) { av.textContent = ''; av.appendChild(el('img', { src: coach.avatarUrl, alt: '' })); }
+  row.appendChild(av);
+  const body = el('div', { class: 'tn-body' });
+  body.appendChild(el('span', { class: 'tn-title' }, coachName + ' · voice note'));
+  body.appendChild(PowaVoice.player(m.meta, { messageId: m.id, compact: true }));
+  row.appendChild(body);
+  return row;
+}
+// ---- Readiness + the cut (brief 4.2 / 4.3, app.js readinessFrom / cutPlan) ----------------------
+// Heart data only from a Watch (via Apple Health); the demo plays a lifter who has one. No data, no
+// UI. Food comes from Apple Health too; the targets live on goals (or this device until the
+// migration runs).
+function myReadiness() {
+  if (window._demoMode) { const rows = (Store.get().healthDaily || []).filter(r => r.athleteId === user.id); return rows.length ? readinessFrom(rows) : null; }
+  return window.PowaHealthJS ? PowaHealthJS.cachedReadiness() : null;
+}
+window.myReadiness = myReadiness;
+function myFoodRows() {
+  if (window._demoMode) return (Store.get().nutritionDaily || []).filter(r => r.athleteId === user.id);
+  const f = window.PowaHealthJS ? PowaHealthJS.cachedNutrition() : null;
+  return f && f.days ? f.days : [];
+}
+function CUT_LOCAL() { return 'powa-cut-' + ((user && user.id) || ''); }   // a function: no TDZ on the first render
+// Targets saved on this device while the server can't hold them yet: put back into the Store.
+function applyLocalCut() {
+  if (!user || window._demoMode) return;
+  let c = null; try { c = JSON.parse(localStorage.getItem(CUT_LOCAL()) || 'null'); } catch (e) {}
+  if (!c) return;
+  Store.update(s => {
+    let g = (s.goals || []).find(x => x.athleteId === user.id);
+    if (!g) { g = { id: user.id, athleteId: user.id, bwDirection: 'maintain' }; (s.goals = s.goals || []).push(g); }
+    ['targetClass', 'cutBy', 'kcalTarget', 'proteinTarget'].forEach(k => { if (g[k] == null && c[k] != null) g[k] = c[k]; });
+  });
+}
+// Make weight: the class, the date (the meet), and daily food targets. All optional.
+function openCutSheet(onSaved) {
+  applyLocalCut();
+  const g = (Store.get().goals || []).find(x => x.athleteId === user.id) || {};
+  const sex = getSexPref();
+  const classes = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
+  let cls = Number(g.targetClass) || null;
+  uiSheet('Make weight', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your weigh-ins against the class line, and the pace it takes to get there by the meet.'));
+    sheet.appendChild(el('div', { class: 'cut-q' }, 'Class'));
+    const chips = el('div', { class: 'cut-classes', role: 'radiogroup', 'aria-label': 'Weight class' });
+    const paintChips = () => chips.querySelectorAll('button').forEach(b => { const on = Number(b.dataset.c) === cls || (!cls && b.dataset.c === ''); b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    [''].concat(classes.map(String)).forEach(c => {
+      const b = el('button', { type: 'button', role: 'radio', 'data-c': c, class: 'cut-chip' }, c ? c + ' kg' : 'None');
+      b.addEventListener('click', () => { cls = c ? Number(c) : null; try { hapticTick(); } catch (e) {} paintChips(); });
+      chips.appendChild(b);
+    });
+    sheet.appendChild(chips);
+    paintChips();
+    // Rows, not a <label>: the global label style is caps. Date and both targets sit in the same
+    // title-left / control-right column, so the values and buttons line up.
+    const di = el('input', { type: 'date', 'aria-label': 'Make weight by', min: todayISO() });
+    let meetDate = ''; try { meetDate = localStorage.getItem('powa-meet-date') || ''; } catch (e) {}
+    di.value = g.cutBy || (meetDate >= todayISO() ? meetDate : '');
+    const dateList = uiList([uiRow({ title: 'Make weight by', endNode: di })]);
+    dateList.classList.add('cut-date');
+    sheet.appendChild(dateList);
+    sheet.appendChild(el('div', { class: 'cut-q' }, 'Daily food targets'));
+    const kcal = uiStepper({ value: Number(g.kcalTarget) || 0, step: 50, min: 0, max: 10000, input: true, label: 'calorie target', cls: 'cut-step' });
+    const prot = uiStepper({ value: Number(g.proteinTarget) || 0, step: 5, min: 0, max: 600, input: true, label: 'protein target', cls: 'cut-step' });
+    const targets = uiList([
+      uiRow({ title: 'Calories', sub: 'kcal a day · 0 for none', endNode: kcal }),
+      uiRow({ title: 'Protein', sub: 'grams a day · 0 for none', endNode: prot })
+    ]);
+    targets.classList.add('cut-targets');
+    sheet.appendChild(targets);
+    sheet.appendChild(el('p', { class: 'cut-foot' }, 'Calories and protein come from Apple Health on iPhone (whatever app you log food in). A day with nothing logged shows as not logged.'));
+    const save = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Save');
+    save.addEventListener('click', async () => {
+      const k = Math.round(kcal.getValue()), pr = Math.round(prot.getValue());
+      const patch = { targetClass: cls || null, cutBy: di.value || null, kcalTarget: k >= 800 ? k : null, proteinTarget: pr >= 20 ? pr : null };
+      if (k > 0 && k < 800) { toast('A calorie target under 800 isn\'t one we\'ll track'); return; }
+      if (pr > 0 && pr < 20) { toast('A protein target under 20 g isn\'t one we\'ll track. Set 0 for none'); return; }
+      save.disabled = true;
+      let full = null;
+      Store.update(s => {
+        let x = (s.goals || []).find(y => y.athleteId === user.id);
+        if (!x) { x = { id: user.id, athleteId: user.id, bwDirection: 'maintain' }; (s.goals = s.goals || []).push(x); }
+        Object.assign(x, patch);
+        if (cls && x.bwDirection === 'maintain' && athleteCut(user.id) && !athleteCut(user.id).made) x.bwDirection = 'cut';
+        full = Object.assign({}, x);
+      });
+      if (!window._demoMode) {
+        try {
+          const r = await DB.upsertGoals(full);
+          try { if (r && r.cutSaved === false) localStorage.setItem(CUT_LOCAL(), JSON.stringify(patch)); else localStorage.removeItem(CUT_LOCAL()); } catch (e) {}
+        } catch (e) { await persistGoals(full); }
+      }
+      close();
+      toast(cls ? 'Making ' + cls + ' kg' + (patch.cutBy ? ' by ' + fmtDateShort(patch.cutBy) : '') : 'Saved');
+      try { renderBodyweight(); } catch (e) {}
+      try { renderToday(); } catch (e) {}
+      if (onSaved) onSaved();
+    });
+    sheet.appendChild(save);
+  }, { cls: 'cut-sheet' });
+}
+window.openCutSheet = openCutSheet;
 function readinessRow(date) {
   // Apple Health (when on): last night's sleep and the resting heart rate fill the line, and
   // the answer they point to is marked. The lifter still picks.
   const rec = date === todayISO() && window.PowaHealthJS ? PowaHealthJS.cachedRecovery() : null;
-  const line = rec ? PowaHealthJS.recoveryLine(rec) : '';
+  // A low morning against their own usual (Watch data) leads the line: "Resting HR 6 above your usual".
+  const rd = date === todayISO() ? myReadiness() : null;
+  const line = rd && rd.state === 'low'
+    ? rd.line + (rec && rec.sleepMin != null ? ' · slept ' + PowaHealthJS.sleepText(rec.sleepMin) : '')
+    : rec ? PowaHealthJS.recoveryLine(rec) : '';
   const sug = rec ? PowaHealthJS.suggestReadiness(rec) : null;
   const r = el('div', { class: 'today-note tn-row tn-ready' + (line ? ' has-health' : '') });
   r.innerHTML = '<span class="tn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg></span>' +
@@ -1855,7 +2093,11 @@ function readinessRow(date) {
       Object.keys(_readyLoad).forEach(x => delete _readyLoad[x]);
       try { hapticTick(); } catch (e) {}
       renderToday();
-      if (k === 'rough') toast('Today starts 5% lighter. The next set still follows how you feel');
+      if (k === 'rough') {
+        // Beat up is soreness or energy; pain is its own thing, one tap away.
+        if (user.coachId) toastAction('Today starts 5% lighter', 'Something hurt?', () => openPainSheet({ phase: 'warmup', where: 'Before training' }));
+        else toast('Today starts 5% lighter. The next set still follows how you feel');
+      }
     });
     seg.appendChild(b);
   });
@@ -1874,9 +2116,13 @@ function readinessDoneRow(date) {
 
 // ===== APPLE HEALTH (1.3, health.js) =====
 function healthRefreshNow() {
-  if (!(window.PowaHealthJS && PowaHealthJS.isOn())) return;
+  if (!window.PowaHealthJS) return;
+  // A sharing switch-off the server never confirmed (Health turned off while offline): retry it
+  // even with Health off, so the coach stops seeing it as soon as the phone is back online.
+  if (!PowaHealthJS.isOn()) { if (PowaHealthJS.offPending && PowaHealthJS.offPending().length) PowaHealthJS.retryPendingOff().catch(() => {}); return; }
   PowaHealthJS.refresh(openHealthConflicts).then(r => {
     try { if (document.querySelector('#pane-today:not(.hidden)')) renderToday(); } catch (e) {}
+    try { syncHomeWidget(); } catch (e) {}   // last night's numbers for Readiness and the Lock Screen
     if (r && r.imported) toast(r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' from Apple Health');
   }).catch(() => {});
 }
@@ -1904,11 +2150,12 @@ function openHealthSheet(onChange) {
           toast(PowaHealthJS.refused() ? 'Apple Health is on, but iOS didn\'t allow it yet' : 'Apple Health is on' + (r.imported ? ' · ' + r.imported + (r.imported === 1 ? ' weigh-in' : ' weigh-ins') + ' brought in' : ''));
           if (r.conflicts && r.conflicts.length) setTimeout(() => openHealthConflicts(r.conflicts), 400);
         } else {
-          await PowaHealthJS.disable();
-          toast('Apple Health is off');
+          const off = await PowaHealthJS.disable();
+          toast(off && off.ok === false ? 'Apple Health is off. Sharing stops as soon as you\'re back online' : 'Apple Health is off');
         }
         draw();
         try { renderToday(); } catch (e) {}
+        try { syncHomeWidget(); } catch (e) {}   // Readiness flips between its data and Connect states
         if (onChange) onChange();
       }, 'Apple Health');
       box.appendChild(uiList([uiRow({ title: 'Apple Health', sub: on ? 'On' : 'Off', endNode: sw })]));
@@ -1922,7 +2169,9 @@ function openHealthSheet(onChange) {
       box.appendChild(uiList([
         uiRow({ title: 'Weigh-ins, both ways', sub: 'Your scale\'s weigh-ins come in; the ones you log here go to Health' }),
         uiRow({ title: 'Sessions as workouts', sub: 'Each finished session, with its sets and total lifted' }),
-        uiRow({ title: 'Sleep and resting heart rate', sub: 'On "How do you feel today?" and Progress. They stay on your phone' })
+        uiRow({ title: 'Sleep and resting heart rate', sub: 'On "How do you feel today?" and Progress. They stay on your phone' }),
+        uiRow({ title: 'Rest suggestion', sub: 'With an Apple Watch: on a morning well off your usual heart rate, longer rests between top sets. Never your loads' }),
+        uiRow({ title: 'Calories and protein', sub: 'From the app you log food in, as 7-day averages on Make weight' })
       ]));
       if (on && user.coachId) {
         const sh = uiSwitch(PowaHealthJS.getShare(), async (want) => {
@@ -1933,7 +2182,18 @@ function openHealthSheet(onChange) {
           if (r && r.ok === false) { sh.input.checked = !want; toast('Couldn\'t change that. Try again'); return; }
           toast(want ? first + ' sees your sleep and resting heart rate' : 'Stopped sharing. What ' + first + ' saw is gone');
         }, 'Share sleep and resting heart rate with ' + first);
-        box.appendChild(uiList([uiRow({ title: 'Share with ' + first, sub: 'Your sleep and resting heart rate, nothing else. Off by default', endNode: sh })]));
+        const fs = uiSwitch(PowaHealthJS.getShareFood(), async (want) => {
+          fs.input.disabled = true;
+          const r = await PowaHealthJS.setShareFood(want);
+          fs.input.disabled = false;
+          if (r && r.notReady) { fs.input.checked = false; toast('Sharing food switches on after a quick update on our side'); return; }
+          if (r && r.ok === false) { fs.input.checked = !want; toast('Couldn\'t change that. Try again'); return; }
+          toast(want ? first + ' sees your daily calories and protein' : 'Stopped sharing food. What ' + first + ' saw is gone');
+        }, 'Share calories and protein with ' + first);
+        box.appendChild(uiList([
+          uiRow({ title: 'Share with ' + first, sub: 'Sleep, resting heart rate and HRV. Off by default', endNode: sh }),
+          uiRow({ title: 'Share food with ' + first, sub: 'Daily calories and protein, nothing about what you ate. Off by default', endNode: fs })
+        ]));
       }
       box.appendChild(el('p', { class: 'hs-foot' }, 'What POWALIFTA may read is yours to change any time: in the Health app, tap your picture, then Apps → POWALIFTA.'));
     };
@@ -2077,7 +2337,13 @@ function weighInRow() {
     const parts = [];
     if (habit.streak >= 2) parts.push(habit.streak + ' days in a row');
     parts.push(habit.delta != null ? (Math.abs(habit.delta) < 0.05 ? 'week level with last' : 'week ' + signed(habit.delta)) : dTxt);
-    body.appendChild(el('span', { class: 'tn-text tn-one' }, parts.join(' · ')));
+    // Making weight: the class line instead ("Class 83 · 9 wk to go · need −0.2/wk"), coloured for the goal.
+    applyLocalCut();
+    const cut = athleteCut(user.id);
+    if (cut) {
+      const t = cut.line.split(' · ').slice(1).join(' · ');
+      body.appendChild(el('span', { class: 'tn-text tn-one cut-line cut-' + cut.tone }, t.charAt(0).toUpperCase() + t.slice(1)));
+    } else body.appendChild(el('span', { class: 'tn-text tn-one' }, parts.join(' · ')));
     row.appendChild(body);
     // The smoothed 7-day trend, not the raw daily noise.
     const tr = bwCutBulkStats(list.map(b => ({ date: b.date, weight: b.weight })), null, 'maintain').trend;
@@ -2536,8 +2802,15 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     pa.addEventListener('click', () => openPRAttemptSheet(ex.id));
     acts.appendChild(pa);
   }
+  // Something hurt: on the exercise you're on (or one you've started), coached lifters only.
+  if (user.coachId && (isCurrent || (doneCount > 0 && !exDone))) {
+    // On a phone it's an icon beside Note's (styles.css .tx-act-ico), so the row stays one line.
+    const hurt = el('button', { class: 'tx-act tx-act-ico tx-act-hurt', type: 'button', 'aria-label': 'Something hurt', title: 'Something hurt', html: painIconSvg() + '<span>Something hurt</span>' });
+    hurt.addEventListener('click', () => openPainFromExercise(ex, cur));
+    acts.appendChild(hurt);
+  }
   if (!existingNote) {
-    const addNote = el('button', { class: 'tx-act', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg><span>Note</span>' });
+    const addNote = el('button', { class: 'tx-act tx-act-ico', type: 'button', 'aria-label': 'Add a note', title: 'Add a note', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg><span>Note</span>' });
     addNote.addEventListener('click', () => { acts.after(exNote); addNote.remove(); exNote.focus(); });
     acts.appendChild(addNote);
   }
@@ -3183,6 +3456,8 @@ function renderToday() {
     n.addEventListener('click', () => { const o = n.classList.toggle('open'); n.setAttribute('aria-expanded', o ? 'true' : 'false'); });
     dayRows.push(n);
   }
+  // The coach's latest voice note, playable right here (brief 4.4) until it's been heard.
+  if (sessionDate === todayISO()) { const vr = coachVoiceRow(); if (vr) dayRows.push(vr); }
   // Readiness: before today's first set, one tap. A beat-up day keeps a small row.
   if (sessionDate === todayISO()) {
     const started = cur.day.exercises.some(e => e.sets.some(st => st.completed && String(st.completedAt || '').slice(0, 10) === sessionDate));
@@ -3251,6 +3526,26 @@ function bouncerForSet(ex, set, si) {
   };
 }
 
+// The set just logged (or undone) goes up as a patch of that one set (app.js persistProgramSet,
+// log_program_set), never the whole program, so it can't undo an edit the coach made meanwhile.
+function _persistLoggedSet(progId, weekId, dayId, exId, si, patchOpts) {
+  const p = getProgram();
+  const wk = p && p.weeks.find(w => w.id === weekId);
+  const d = wk && wk.days.find(x => x.id === dayId);
+  const e = d && d.exercises.find(x => x.id === exId);
+  const path = programSetPath(wk, d, e, si);
+  if (!path) { persistProgram(progId); return; }
+  const patch = setLogPatch(e.sets[si], patchOpts);
+  applySetPatch(e.sets[si], patch);   // the same shape the server keeps
+  persistProgramSet(progId, path, patch);
+}
+// A save merged with someone else's edit (the coach changed today's plan): Train repaints, unless
+// the lifter is typing in it.
+window.addEventListener('powa:program-merged', () => {
+  const pane = document.getElementById('pane-today');
+  const typing = document.activeElement && pane && pane.contains(document.activeElement) && /INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  if (pane && !pane.classList.contains('hidden') && !typing) { try { renderToday(); populateDaySelect(); } catch (e) {} }
+});
 async function toggleSet(exerciseId, setIndex, checked, opts) {
   const cur = getCurrentDay();
   if (!cur) return;
@@ -3341,7 +3636,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       s.restDays = s.restDays.filter(r => !(r.athleteId === user.id && r.date === sessionDate));
     });
 
-    persistProgram(prog.id);
+    _persistLoggedSet(prog.id, cur.week.id, day.id, exerciseId, setIndex);
     persistAddLog(newLogObj);
     // Keep the club's weekly board live (one write per burst of sets).
     try { if (window.PowaClubs && PowaClubs.syncSoon) PowaClubs.syncSoon(); } catch (e) {}
@@ -3389,9 +3684,14 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     // length, a coach's per-exercise rest (restSec) wins, Short/Standard/Long scales
     // it, and the lifter can switch the auto-start off in You → Rest timer.
     if (getRestAuto() && !(opts && opts.noRest)) {
+      // A low morning against the lifter's own usual (Watch data): a longer default between top
+      // sets, with the reason on the timer. Never the load; a coach's written rest and the
+      // lifter's own switch (Rest and sets) both win.
+      const rs = !(Number(ex.restSec) > 0) && getRestNudgeOn() ? restSuggestion(myReadiness(), { lift: ex.lift, reps: set.reps, rpe: actualRpe }) : null;
       startRestTimer(
-        smartRestSeconds({ lift: ex.lift, reps: set.reps, rpe: actualRpe, restSec: ex.restSec, pref: getRestPref() }),
-        ex.exerciseName || (ex.lift ? ex.lift.charAt(0).toUpperCase() + ex.lift.slice(1) : 'Rest')
+        smartRestSeconds({ lift: ex.lift, reps: set.reps, rpe: actualRpe, restSec: ex.restSec, pref: getRestPref() }) + (rs ? rs.add : 0),
+        ex.exerciseName || (ex.lift ? ex.lift.charAt(0).toUpperCase() + ex.lift.slice(1) : 'Rest'),
+        rs ? rs.reason : ''
       );
     }
 
@@ -3413,6 +3713,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
 
   } else {
     let logIdToDelete = null;
+    const undoOpts = { undo: true, restoredWeight: false, restoredReps: false };
     Store.update(s => {
       const p = s.programs.find(p => p.athleteId === user.id);
       const wk = p.weeks.find(w => w.id === cur.week.id);
@@ -3436,10 +3737,10 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
         if (idx >= 0) { logIdToDelete = s.workoutLogs[idx].id; s.workoutLogs.splice(idx, 1); }
       }
       // A smart-moved or adjusted set goes back to the plan when it's undone.
-      if ('plannedWeight' in sset) { sset.weight = sset.plannedWeight; delete sset.plannedWeight; }
-      if ('plannedReps' in sset) { sset.reps = sset.plannedReps; delete sset.plannedReps; }
+      if ('plannedWeight' in sset) { sset.weight = sset.plannedWeight; delete sset.plannedWeight; undoOpts.restoredWeight = true; }
+      if ('plannedReps' in sset) { sset.reps = sset.plannedReps; delete sset.plannedReps; undoOpts.restoredReps = true; }
     });
-    persistProgram(prog.id);
+    _persistLoggedSet(prog.id, cur.week.id, day.id, exerciseId, setIndex, undoOpts);
     if (logIdToDelete) persistDeleteLog(logIdToDelete);
     // Un-ticking the set that started the rest clock should clear it too.
     stopRestTimer();
@@ -5358,13 +5659,31 @@ function syncHomeWidget() {
           weighDelta = (d >= 0.05 ? '+' : d <= -0.05 ? '−' : '±') + Math.abs(d).toFixed(1);
         }
       } catch (e) {}
+      // Apple Health (1.3): last night against the usual, for Readiness and the Lock Screen gauge
+      // (healthOn without health = switched on, nothing from last night yet); the weigh-ins
+      // against the class line, for Weight class (app.js widgetReadiness / widgetCut).
+      let healthOn = null, health = null, cutW = null;
+      try {
+        const H = window.PowaHealthJS;
+        healthOn = !!(H && H.isOn());
+        if (healthOn) {
+          const rec = H.cachedRecovery();
+          health = widgetReadiness(rec, { readiness: H.cachedReadiness(), suggested: rec ? H.suggestReadiness(rec) : null, picked: getReadiness(todayISO()), today: todayISO() });
+        }
+      } catch (e) {}
+      try {
+        applyLocalCut();
+        const g = (Store.get().goals || []).find(x => x.athleteId === user.id);
+        let md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
+        cutW = widgetCut(bwl.map(b => ({ date: b.date, weight: Number(b.weight) })), g, md, todayISO());
+      } catch (e) {}
       PowaNative.updateWidget({ total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
         deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now(),
         setsDone: allSets.filter(s => s.completed).length, setsTotal: allSets.length,
         weekDone: wk.done || 0, weekGoal: getWeekGoal() || defaultWeekGoal(), streak: wk.streak || 0,
         meetDays, openers,
         lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()),
-        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue });
+        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue, healthOn, health, cut: cutW });
     } catch (e) {}
   }, 600);
 }
@@ -5419,7 +5738,18 @@ async function drainWidgetPending() {
     if (/^powalifta:\/\/lift/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => { try { _startOfferedSession(); openLiftMode(); } catch (e) {} }, 350); }
     else if (/^powalifta:\/\/weigh/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); setTimeout(() => openWeighInSheet(() => renderToday()), 350); }
     else if (/^powalifta:\/\/meet/.test(open)) { setTimeout(() => { try { (meetLiveToday() ? openMeetMode : openMeetSheet)(); } catch (e) {} }, 350); }
-    else if (/^powalifta:\/\/(train|rest)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
+    else if (/^powalifta:\/\/health/.test(open)) {
+      // The Apple Health sheet; an app build without Health lands on You instead of nowhere.
+      let can = false;
+      try { can = !!(window.PowaHealthJS && PowaHealthJS.couldOffer()); } catch (e) {}
+      if (can) setTimeout(() => { try { openHealthSheet(() => { try { renderAthleteYou(); } catch (e) {} }); } catch (e) {} }, 350);
+      else { const t = document.getElementById('tab-you'); if (t) t.click(); }
+    }
+    else if (/^powalifta:\/\/(bodyweight|cut)/.test(open)) {
+      const t = document.getElementById('tab-bodyweight'); if (t) t.click();
+      if (/^powalifta:\/\/cut/.test(open)) setTimeout(() => { try { openCutSheet(); } catch (e) {} }, 350);
+    }
+    else if (/^powalifta:\/\/(train|rest|readiness)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
   } catch (e) { console.warn('widget pending', e); }
   finally { _drainingWidget = false; }
 }
@@ -5708,7 +6038,7 @@ function _nativeRestApply(d) {
   });
 })();
 
-function startRestTimer(seconds, label) {
+function startRestTimer(seconds, label, why) {
   stopRestTimer(true);
   restTotalMs = seconds * 1000;
   restEndTime = Date.now() + restTotalMs;
@@ -5737,6 +6067,7 @@ function startRestTimer(seconds, label) {
     el('div', { class: 'rt-label', id: 'rtLabel' }, 'Rest · ' + restLabel),
     el('div', { class: 'rt-num', id: 'rtNum', 'aria-live': 'off' }, restFmt(seconds))
   ));
+  wrap.classList.toggle('has-why', !!why);
   const chip = (txt, aria, fn) => { const b = el('button', { class: 'rt-chip', type: 'button', 'aria-label': aria }, txt); b.addEventListener('click', fn); return b; };
   const skip = el('button', { class: 'rt-skip', type: 'button', 'aria-label': 'Skip rest' }, 'Skip');
   skip.addEventListener('click', () => stopRestTimer());
@@ -5745,6 +6076,8 @@ function startRestTimer(seconds, label) {
     chip('+30', 'Rest 30 seconds more', () => restAdjust(30)),
     skip
   ));
+  // The rest suggestion's reason, on its own line under the dock (readinessFrom / restSuggestion).
+  if (why) wrap.appendChild(el('div', { class: 'rt-why' }, why));
 
   restPaint();
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -8214,6 +8547,11 @@ function renderBodyweight() {
   }
   if (logRow) hero.appendChild(logRow);
   area.appendChild(hero);
+  // Make weight (brief 4.3): the class line, the pace to the meet, food against the targets.
+  applyLocalCut();
+  const cutNodes = buildCutSection(user.id, { mine: true, nutritionRows: myFoodRows(), onEdit: () => openCutSheet() });
+  if (cutNodes.length) cutNodes.forEach(n => area.appendChild(n));
+  else if (bw.length) area.appendChild(uiList([uiRow({ title: 'Make weight for a class', sub: 'Your weigh-ins against the class line, by the meet', chevron: true, onClick: () => openCutSheet() })]));
   if (!bw.length) return;
 
   const stats = bwCutBulkStats(bw.map(b => ({ date: b.date, weight: b.weight })), (g && g.bodyweight) || null, dir);
@@ -8224,7 +8562,8 @@ function renderBodyweight() {
   const legend = el('div', { class: 'prog-legend' });
   legend.appendChild(el('span', {}, el('i', { style: 'background:' + liftColors().line }), 'Daily'));
   if (stats.trend.length >= 4) legend.appendChild(el('span', {}, el('i', { style: 'background:#8b93a7' }), '7-day average'));
-  if (g && g.bodyweight) legend.appendChild(el('span', {}, el('i', { style: 'background:var(--gold)' }), 'Goal'));
+  const clsLine = g && Number(g.targetClass) > 0 ? Number(g.targetClass) : null;
+  if (clsLine || (g && g.bodyweight)) legend.appendChild(el('span', {}, el('i', { style: 'background:var(--gold)' }), clsLine ? 'Class ' + clsLine : 'Goal'));
   card.appendChild(legend);
   const wrap = el('div', { class: 'chart-wrap' });
   card.appendChild(wrap);
@@ -8233,7 +8572,8 @@ function renderBodyweight() {
   if (stats.trend.length >= 4) series.push({ name: '7-day average', color: '#8b93a7', noArea: true, data: stats.trend.map(x => ({ x: x.date, y: kgToDisplay(x.weight, 1) })) });
   drawLineChart(wrap, {
     series, unit: u, height: 200, area: true,
-    goal: g && g.bodyweight ? { value: kgToDisplay(g.bodyweight, 1), label: 'Goal' } : null
+    // The class line when making weight (the curve against it is the point), else the goal.
+    goal: clsLine ? { value: kgToDisplay(clsLine, 1), label: 'Class ' + clsLine } : g && g.bodyweight ? { value: kgToDisplay(g.bodyweight, 1), label: 'Goal' } : null
   });
 
   // GOAL — one row; tap to change it.
@@ -8385,7 +8725,8 @@ function renderDemoFormChecks(host, coach) {
   item.appendChild(el('p', { class: 'fc-item-note' }, '“Depth check on my top single. Felt high?”'));
   const videoWrap = el('div', { class: 'fc-video-wrap' });
   videoWrap.appendChild(el('button', { class: 'btn btn-sm btn-ghost',
-    onclick: () => toast('Video playback goes live with a real account. This is the demo.') }, '▶ Watch clip'));
+    // VIDEO REVIEW hook: the demo plays a sample clip with the coach's drawings replayed on it.
+    onclick: () => { if (window.VideoReview) VideoReview.mountReplay(videoWrap, VideoReview.demoAthleteCheck()); else toast('Video playback goes live with a real account. This is the demo.'); } }, '▶ Watch clip'));
   item.appendChild(videoWrap);
   const reply = el('div', { class: 'fc-reply' });
   reply.appendChild(el('div', { class: 'fc-reply-lbl' }, 'Coach reply'));
@@ -8413,12 +8754,15 @@ async function renderAthleteFormChecks(host, coach) {
   form.appendChild(noteInput);
   form.appendChild(uploadBtn);
   host.appendChild(form);
+  // VIDEO REVIEW hook: in the iPhone app the clip comes from the native picker, exported to H.264 MP4
+  // (iPhone HEVC plays black in Chrome on Windows). On the web this is null and the file input stays.
+  const nativePick = window.VideoReview ? VideoReview.attachNativePicker(fileInput) : null;
 
   const listHost = el('div', { class: 'fc-list', style: 'margin-top:16px;' });
   host.appendChild(listHost);
 
   uploadBtn.addEventListener('click', async () => {
-    const file = fileInput.files && fileInput.files[0];
+    const file = (nativePick && nativePick.file()) || (fileInput.files && fileInput.files[0]);
     if (!file) return toast('Pick a video first');
     if (file.size > 104857600) return toast('Video is over 100 MB. Trim it or lower the quality');
     uploadBtn.disabled = true;
@@ -8431,6 +8775,7 @@ async function renderAthleteFormChecks(host, coach) {
       });
       toast('Sent to ' + coach.name.split(' ')[0] + ' for review');
       fileInput.value = ''; noteInput.value = ''; liftSel.value = '';
+      if (nativePick) nativePick.done();
       loadList();
     } catch (e) {
       console.error('uploadFormCheck', e);
@@ -8470,6 +8815,8 @@ function buildFormCheckCard(fc, otherFirst, isAthlete) {
   const videoWrap = el('div', { class: 'fc-video-wrap' });
   const watchBtn = el('button', { class: 'btn btn-sm btn-ghost' }, '▶ Watch clip');
   watchBtn.addEventListener('click', async () => {
+    // VIDEO REVIEW hook: play it with the coach's drawings at the moments they were drawn (refreshes the signed URL itself).
+    if (window.VideoReview) { VideoReview.mountReplay(videoWrap, fc); return; }
     watchBtn.disabled = true; watchBtn.textContent = 'Loading…';
     const url = await DB.formCheckSignedUrl(fc.storagePath);
     if (!url) { watchBtn.disabled = false; watchBtn.textContent = '▶ Watch clip'; return toast('Could not load video'); }
