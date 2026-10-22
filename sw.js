@@ -20,6 +20,8 @@ const PRECACHE = [
   '/index.html',
   '/athlete.html',
   '/coach.html',
+  '/desk.js',       // the coach's laptop desk (coach.html, html.desk only)
+  '/desk.css',
   '/app.js',
   '/db.js',
   '/styles.css',

@@ -162,7 +162,8 @@ vm.createContext(sandbox);
 // (rankClubMembers, weekChallenge, clubWeekScore, …) are defined here too.
 const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   fs.readFileSync(path.join(ROOT, 'clubs.js'), 'utf8') + '\n;\n' +
-  (fs.existsSync(path.join(ROOT, 'health.js')) ? fs.readFileSync(path.join(ROOT, 'health.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'health.js')) ? fs.readFileSync(path.join(ROOT, 'health.js'), 'utf8') : '') + '\n;\n' +
+  (fs.existsSync(path.join(ROOT, 'switch-kit.js')) ? fs.readFileSync(path.join(ROOT, 'switch-kit.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 let testSrc = scripts[scripts.length - 1];

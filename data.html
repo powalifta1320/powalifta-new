@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- iPhone app: tag the document as native before first paint (same snippet as athlete.html). -->
+<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
+<title>Your data is yours | POWALIFTA</title>
+<meta name="description" content="What POWALIFTA stores, who sees it, how to export every set, program and message in one click, how to bring your history in, and how to delete it all. No lock-in.">
+<meta property="og:title" content="Your data is yours | POWALIFTA">
+<meta property="og:description" content="What POWALIFTA stores, who sees it, how to export every set, program and message in one click, how to bring your history in, and how to delete it all. No lock-in.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://www.powalifta.com/data.html">
+<meta property="og:url" content="https://www.powalifta.com/data.html">
+<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your data is yours | POWALIFTA">
+<meta name="twitter:description" content="Export every set, program and message in one click. Bring your history in. Delete it all whenever you like.">
+<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="theme-color" content="#0b0b0c">
+<script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POWALIFTA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="cookie-consent.css">
+<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script defer src="error-log.js"></script>
+<script defer src="cookie-consent.js"></script>
+<script defer src="site.js"></script>
+<style>
+/* data.html only (site.css is shared with the homepage track; this page keeps its few rules here). */
+.dt-who { margin: 0.9em 0 0; border-top: 1px solid var(--line); }
+.dt-who > div { display: grid; grid-template-columns: minmax(7.5rem, 11rem) minmax(0, 1fr); gap: 4px 20px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.dt-who dt { color: var(--text); font-weight: 650; }
+.dt-who dd { margin: 0; text-wrap: pretty; }
+body.site .s-prose ul.dt-files { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 0; list-style: none; }
+body.site .s-prose .dt-files li + li { margin-top: 0; }
+.dt-files code { white-space: nowrap; }
+.dt-promise { margin-top: 2.4em; padding: 20px 22px; border-radius: 20px; background: var(--s-surface-2); color: var(--text-2); }
+.dt-promise b { color: var(--text); font-weight: 650; }
+@media (max-width: 560px) { .dt-who > div { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body class="site">
+
+<a class="skip-link" href="#main">Skip to content</a>
+<nav class="nav" id="nav"></nav>
+
+<main id="main">
+  <div class="s-wrap s-narrow">
+    <header class="s-page-head">
+      <h1>Your data is yours.</h1>
+      <p>Every set, program and message you put into POWALIFTA leaves with you in one click, as spreadsheets any app can open. Here's what we keep, who sees it, and how to take it or delete it.</p>
+    </header>
+    <div class="s-prose">
+      <h2>What we keep</h2>
+      <ul>
+        <li><strong>Training.</strong> Every set you log (date, lift, weight, reps, RPE, notes), your weigh-ins, goals and meets.</li>
+        <li><strong>Programs.</strong> The block you're on, every block before it, and a coach's templates.</li>
+        <li><strong>Coaching.</strong> Check-ins, session notes, messages and form-check videos.</li>
+        <li><strong>Apple Health.</strong> Sleep and resting heart rate, only if you choose to share them with your coach. Turn sharing off and they're deleted. The privacy policy has an Apple Health section with the detail.</li>
+        <li><strong>Your account.</strong> Name and email, plus the photo, country, bio and Instagram or TikTok handles if you add them.</li>
+      </ul>
+      <p>No ad trackers, no location, and never a card number: Apple or Lemon Squeezy handle payments. The full detail is in the <a class="s-link" href="privacy.html">privacy policy</a>.</p>
+
+      <h2>Who sees it</h2>
+      <dl class="dt-who">
+        <div><dt>You</dt><dd>All of it, always.</dd></div>
+        <div><dt>Your coach</dt><dd>Your training, program, check-ins and notes, while you're on their roster. Leave, and they stop seeing those. The messages you've sent each other stay in both your inboxes, like any conversation.</dd></div>
+        <div><dt>Your club</dt><dd>The numbers on the club boards. Never your program, your log, your messages or your email.</dd></div>
+        <div><dt>Everyone</dt><dd>Only what you choose to publish: a place on the leaderboard, or a coach's public profile.</dd></div>
+        <div><dt>Us</dt><dd>Only what it takes to run POWALIFTA. We don't sell data and there are no ads.</dd></div>
+      </dl>
+
+      <h2>Take everything with you</h2>
+    </div>
+    <ol class="s-steps">
+      <li><b>Open Your data.</b><span>On your phone: You &rarr; Your data. On a laptop: Settings &rarr; Your data. Coaches on the desk can also press <kbd>&#8984;K</kbd> and type &ldquo;export&rdquo;.</span></li>
+      <li><b>Download everything.</b><span>One zip of CSV files. Coaches get every athlete's, with the athlete's name on each row.</span></li>
+      <li><b>Open it anywhere.</b><span>Excel, Numbers or Google Sheets. Weights are in kilograms. <code>everything.json</code> holds the same data in one file, for moving to another app.</span></li>
+    </ol>
+    <div class="s-prose">
+      <p>What's in the zip:</p>
+      <ul class="dt-files">
+        <li><code>training-log.csv</code></li><li><code>program.csv</code></li><li><code>past-blocks.csv</code></li>
+        <li><code>check-ins.csv</code></li><li><code>session-notes.csv</code></li><li><code>messages.csv</code></li><li><code>bodyweight.csv</code></li>
+        <li><code>meets.csv</code></li><li><code>goals.csv</code></li><li><code>health.csv</code></li><li><code>everything.json</code></li>
+      </ul>
+      <p>A coach's zip has every athlete's program in <code>programs.csv</code>, plus <code>athletes.csv</code>, <code>templates.csv</code> and their private notes. A file only appears when there's something in it.</p>
+      <p>Export works on every plan, free included, and keeps working if a paid plan ends. Form-check videos stay in the app; the zip lists each one with its reply.</p>
+
+      <h2>Bring your history in</h2>
+      <p>Years of training don't have to stay behind in a spreadsheet. Coaches choose <strong>Import history</strong>: on a laptop from an athlete's preview or <kbd>&#8984;K</kbd>, on the phone under You &rarr; Your data. Paste the rows or pick a CSV, then choose whose history it is.</p>
+      <ul>
+        <li>One row per set works best: the date, the exercise, the weight and reps, and RPE if you have it.</li>
+        <li>Exports from Strong, Hevy and FitNotes work as they are. So does a written log (&ldquo;2 Mar 2026 &middot; Squat 180x5 @8&rdquo;) and a past block written like a program.</li>
+        <li>You see what will come in before anything is saved: the sets it read, the rows it skipped and why, the dates it covers, and the PRs it makes.</li>
+        <li>Import the same file twice and nothing is added twice. Picked the wrong unit? Press Undo, or open the same file again and remove what it brought in, then import it the right way.</li>
+      </ul>
+      <p>The sets count like any other: estimated maxes, PRs and progress charts fill in from the first day in the file.</p>
+
+      <h2>Delete it</h2>
+      <p>You &rarr; Your data &rarr; <strong>Delete my account</strong>, then type DELETE to confirm. Your account and everything in it are erased at once, not queued for later. The one exception is purchase records that tax law makes us keep, with your name and email removed.</p>
+      <p>Your sets are stored under your own account. If your coach deletes theirs, yours stays.</p>
+
+      <div class="dt-promise"><b>No lock-in.</b> No contract, nothing to ask us for, no format only we can read. If POWALIFTA stops being right for you, take your data and go.</div>
+    </div>
+    <div class="s-actions"><a class="btn btn-primary btn-lg" href="index.html#signup-coach">Start coaching free</a><a class="s-link" href="switch.html">Switch from a spreadsheet</a></div>
+  </div>
+</main>
+
+<footer class="s-foot">
+  <div class="s-wrap s-foot-grid">
+    <div class="s-foot-brand">
+      <a class="brand" href="index.html" aria-label="POWALIFTA home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span>POWALIFTA</span></a>
+      <p>Built for the barbell.</p>
+      <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="132" height="44" alt="Download on the App Store" loading="lazy" decoding="async"></a>
+    </div>
+    <nav class="s-foot-col" aria-label="Product">
+      <h5>Product</h5>
+      <a href="index.html#train">Features</a>
+      <a href="index.html#e1rm">Max calculator</a>
+      <a class="web-only" href="marketplace.html" data-needs-programs>Programs</a>
+      <a href="leaderboard.html">Leaderboard</a>
+      <a href="exercises.html">Exercise library</a>
+      <a href="switch.html">Switch from a spreadsheet</a>
+      <a class="web-only" href="index.html#pricing">Pricing</a>
+    </nav>
+    <nav class="s-foot-col" aria-label="Learn">
+      <h5>Learn</h5>
+      <a href="guides.html">Guides</a>
+      <a href="guide-rpe.html">RPE explained</a>
+      <a href="guide-e1rm.html">Estimated 1RM</a>
+      <a href="guide-dots.html">DOTS score</a>
+      <a href="guide-peaking.html">Peaking for a meet</a>
+    </nav>
+    <nav class="s-foot-col" aria-label="Company">
+      <h5>Company</h5>
+      <a href="about.html">About</a>
+      <a href="faq.html">FAQ</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
+      <a href="mailto:powalifta1320@gmail.com">Email us</a>
+    </nav>
+  </div>
+  <div class="s-wrap"><div class="s-foot-base"><span>© 2026 POWALIFTA</span><button type="button" onclick="toggleTheme()">Switch light or dark</button></div></div>
+</footer>
+
+<script src="supabase.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
+</script>
+</body>
+</html>

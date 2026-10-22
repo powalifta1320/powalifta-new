@@ -91,6 +91,7 @@
 <script src="app.js"></script>
 <script src="clubs.js"></script>
 <script src="health.js"></script>
+<script src="switch-kit.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -827,6 +828,149 @@ test('coach status: block week, sessions, overshoot, block finished', () => {
     eq(st3.flags[0].type, 'noprogram'); eq(st3.ago, null);
     eq(agoText(0), 'Today'); eq(agoText(1), 'Yesterday'); eq(agoText(9), '9d ago'); eq(agoText(30), '4w ago'); eq(agoText(null), '–');
   } finally { Store.set(saved); }
+});
+test('coach desk: reasons in severity order, queue, views, wins', () => {
+  const saved = Store.get();
+  const t = '2026-10-22';   // a Thursday
+  const mk = (w, r, rpe, done, actual, at) => ({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: actual == null ? null : actual, completedAt: at || null });
+  const prog = { id: 'p', athleteId: 'a', coachId: 'c', name: 'Peak', weeks: [
+    { id: 'w1', number: 1, days: [
+      { id: 'd1', name: 'Squat', exercises: [{ id: 'e1', lift: 'squat', variant: 'Competition', sets: [mk(180, 3, 8, true, 9.5, '2026-10-20'), mk(160, 5, 7, true, 7.5, '2026-10-20')] }] },
+      { id: 'd2', name: 'Bench', exercises: [{ id: 'e2', lift: 'bench', variant: 'Competition', sets: [mk(110, 3, 8, false)] }] } ] },
+    { id: 'w2', number: 2, days: [{ id: 'd3', name: 'Squat', exercises: [{ id: 'e3', lift: 'squat', variant: 'Competition', sets: [mk(182.5, 3, 8, false)] }] }] }
+  ] };
+  const log = (id, a, lift, kg, date) => ({ id, athleteId: a, lift, variant: 'Competition', weight: kg, reps: 3, rpe: 8, e1rm: kg * 1.1, e1rmComp: kg * 1.1, date });
+  Store.set(Object.assign(defaultStore(), {
+    athletes: [{ id: 'a', name: 'Ana', coachId: 'c', createdAt: Date.parse('2026-10-15T12:00:00Z') }, { id: 'b', name: 'Bo', coachId: 'c', createdAt: Date.parse('2025-01-01T12:00:00Z') }],
+    programs: [prog],
+    workoutLogs: [log('l1', 'a', 'squat', 180, '2026-10-20'), log('l0', 'b', 'squat', 150, '2026-09-21'), log('l2', 'b', 'squat', 140, '2026-10-12')],
+    checkinQuestions: [{ id: 'q', coachId: 'c', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true }],
+    checkinAnswers: [{ id: 'ans', questionId: 'q', athleteId: 'a', coachId: 'c', period: '2026-10-21', num: 1 }],
+    meets: [{ id: 'm', athleteId: 'a', name: 'State', date: '2026-11-01', weightClass: '74 kg' }],
+    bodyweight: [{ id: 'bw', athleteId: 'a', date: '2026-10-21', weight: 75.9 }]
+  }));
+  try {
+    const now = Date.parse('2026-10-22T12:00:00Z');
+    const ra = deskReasons('a', { coachId: 'c', today: t, now });
+    eq(ra.map(r => r.type).join(','), 'pain,meet,weight,overshoot');
+    eq(ra[0].text, 'Pain yesterday'); eq(ra[1].text, 'Meet in 10d'); eq(ra[2].text, 'BW +1.9 over class'); eq(ra[3].text, 'Squat @9.5 vs @8');
+    eq(deskRpeDrift(prog, t).avg, 1);   // (+1.5 and +0.5) / 2
+    const rb = deskReasons('b', { coachId: 'c', today: t, now });
+    eq(rb.map(r => r.type).join(','), 'quiet,noprogram'); eq(rb[0].text, 'Quiet'); eq(rb[0].tone, 'warn');
+    eq(deskBodyweightVsClass('a', { weightClass: '120+' }), null);
+    const rows = deskRows('c', { today: t, now });
+    let q = deskQueue(rows, { today: t });
+    eq(q.queue.map(r => r.athlete.id).join(), 'a,b'); eq(q.total, 2);
+    // Reviewed: out of the queue; a NEW kind of reason brings them back this week.
+    const rev = { a: { at: now, sig: deskReasonSig(rows[0].reasons) } };
+    q = deskQueue(rows, { today: t, reviewed: rev });
+    eq(q.queue.map(r => r.athlete.id).join(), 'b'); eq(q.done.length, 1); eq(q.total, 2);
+    q = deskQueue(rows, { today: t, reviewed: { a: { at: now, sig: 'meet,overshoot,weight' } } });
+    eq(q.queue[0].athlete.id, 'a');
+    q = deskQueue(rows, { today: t, snoozed: { b: '2026-10-23' } });
+    eq(q.queue.map(r => r.athlete.id).join(), 'a'); eq(q.snoozed.length, 1);
+    eq(deskQueue(rows, { today: '2026-10-23', snoozed: { b: '2026-10-23' } }).queue.length, 2);   // tomorrow it's back
+    // Today's bar counts real work: nothing yet = 0; a reply / applied week = handled (still listed);
+    // E = done; S = snoozed (still counted in the total); a NEW reason after a reply un-handles them.
+    q = deskQueue(rows, { today: t });
+    eq(q.progress, 0); eq(q.total, 2); eq(q.handled.length, 0);
+    const hb = { b: { at: now, sig: deskReasonSig(rows[1].reasons), via: 'reply' } };
+    q = deskQueue(rows, { today: t, handled: hb });
+    eq(q.progress, 1); eq(q.handled.map(r => r.athlete.id).join(), 'b'); eq(q.queue.length, 2);   // stays listed till E
+    q = deskQueue(rows, { today: t, handled: hb, reviewed: rev });
+    eq(q.progress, 2); eq(q.done.length, 1); eq(q.handled.length, 1);
+    q = deskQueue(rows, { today: t, handled: hb, reviewed: { b: { at: now, sig: deskReasonSig(rows[1].reasons) } } });
+    eq(q.progress, 1); eq(q.handled.length, 0);   // done, not double-counted
+    q = deskQueue(rows, { today: t, snoozed: { b: '2026-10-23' } });
+    eq(q.progress, 1); eq(q.total, 2);
+    q = deskQueue(rows, { today: t, handled: { a: { at: now, sig: 'meet,weight', via: 'apply' } } });
+    eq(q.progress, 0);   // pain and overshoot came after the reply: not handled
+    // The reply cleared their only reason: they leave the list but still count (N doesn't shrink).
+    const rowsB = rows.map(r => r.athlete.id === 'b' ? Object.assign({}, r, { reasons: [] }) : r);
+    q = deskQueue(rowsB, { today: t, handled: hb });
+    eq(q.total, 2); eq(q.progress, 1); eq(q.queue.length, 1); eq(q.cleared.length, 1);
+    // Views
+    eq(deskViewCount(rows, 'meet', now), 1); eq(deskViewCount(rows, 'pain', now), 1);
+    eq(deskViewCount(rows, 'quiet', now), 1); eq(deskViewCount(rows, 'new', now), 1); eq(deskViewCount(rows, 'needs', now), 2);
+    // Wins: a PR this week; a streak only on a 4-week milestone
+    const s2 = Store.get();
+    s2.workoutLogs.push(log('l3', 'b', 'squat', 160, '2026-10-21'));
+    eq(deskWins('b', { today: t }).map(w => w.text).join(), 'Squat PR');
+    s2.workoutLogs = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d, i) => log('s' + i, 'c1', 'bench', 100, d));
+    eq(deskWins('c1', { today: t }).map(w => w.type).join(), 'streak');
+    s2.workoutLogs.push(log('s9', 'c1', 'bench', 100, '2026-09-24'));
+    eq(deskWins('c1', { today: t }).some(w => w.type === 'streak'), false);   // 5 weeks: no milestone
+    // The e1RM total starts once all three lifts have a number: no jump from a squat-only week.
+    s2.workoutLogs = [log('t1', 'n', 'squat', 100, '2026-10-01'), log('t2', 'n', 'bench', 60, '2026-10-08'), log('t3', 'n', 'deadlift', 120, '2026-10-08'), log('t4', 'n', 'squat', 105, '2026-10-15')];
+    const tt = deskTotalTrend('n', t);
+    eq(tt.values.length, 2); eq(Math.round(tt.values[0]), 308); eq(Math.round(tt.delta * 10) / 10, 5.5);
+  } finally { Store.set(saved); }
+});
+test('athlete workspace: last week vs next week, RPE suggestions, apply', () => {
+  const mk = (w, r, rpe, done, actual, extra) => Object.assign({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: actual == null ? null : actual, completedAt: done ? '2026-10-20' : null }, extra || {});
+  const prog = { id: 'p', weeks: [
+    { number: 1, days: [
+      { name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [mk(180, 3, 8, true, 9), mk(155, 5, 7, true, 7), mk(155, 5, 7, true, 7.5)] },
+        { lift: 'squat', variant: 'Paused', sets: [mk(147.5, 4, null, true, 7, { pct: 70 })] }] },
+      { name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [mk(0, 3, 8, true, 7, { weight: 110, plannedWeight: 0 })] }] },
+      { name: 'Pull', exercises: [{ lift: 'deadlift', variant: 'Competition', sets: [mk(200, 3, 8, false)] }] } ] },
+    { number: 2, days: [
+      { name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [mk(182.5, 3, 8, false), mk(160, 5, 7.5, false), mk(160, 5, 7.5, false)] },
+        { lift: 'squat', variant: 'Paused', sets: [mk(150, 4, null, false, null, { pct: 72.5 })] }] },
+      { name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [mk(0, 3, 8.5, false)] }] },
+      { name: 'Pull', exercises: [{ lift: 'deadlift', variant: 'Competition', sets: [mk(205, 3, 8, false)] }] } ] }
+  ] };
+  const r = deskWeekReview(prog, { unit: 'kg' });
+  eq(r.lastIdx, 0); eq(r.nextIdx, 1); eq(r.rows.length, 5);
+  const top = r.rows[0];
+  eq(top.title, 'Squat'); eq(top.logged.weight, 180); eq(top.delta, 1);
+  eq(top.suggest.dir, 'down'); eq(top.suggest.kg < 182.5, true); eq(top.suggest.kg >= 182.5 * 0.9, true);   // a point over: lighter, never more than 10%
+  eq(r.rows[1].logged.n, 2); eq(r.rows[1].delta, 0.5);   // the heavier RPE of the two back-offs counts
+  eq(r.rows[2].suggest, null);    // a % block follows the max: no guess
+  eq(r.rows[3].suggest.dir, 'set'); eq(r.rows[3].suggest.kg > 0, true);   // RPE-only next week: a load to start from
+  eq(r.rows[4].logged, null); eq(r.rows[4].suggest, null);   // nothing logged: nothing to go on
+  // On target: hold.
+  prog.weeks[0].days[0].exercises[0].sets[0].actualRpe = 8;
+  eq(deskWeekReview(prog, { unit: 'kg' }).rows[0].suggest.dir, 'hold');
+  // Apply: replaces the block, never a logged one; a changed count shifts nothing else.
+  const nextEx = prog.weeks[1].days[0].exercises[0];
+  const n = deskApplyNextWeek(prog.weeks, 1, [
+    { di: 0, ei: 0, startIdx: 0, count: 1, sets: deskSuggestedSets(nextEx.sets.slice(0, 1), 177.5) },
+    { di: 0, ei: 0, startIdx: 1, count: 2, sets: [newSet(157.5, 5, 7.5), newSet(157.5, 5, 7.5), newSet(157.5, 5, 7.5)] }
+  ]);
+  eq(n, 2); eq(nextEx.sets.length, 4); eq(nextEx.sets[0].weight, 177.5); eq(nextEx.sets[3].weight, 157.5);
+  nextEx.sets[0].completed = true;
+  eq(deskApplyNextWeek(prog.weeks, 1, [{ di: 0, ei: 0, startIdx: 0, count: 1, sets: [newSet(170, 3, 8)] }]), 0);
+  eq(deskWeekReview({ weeks: [{ days: [{ exercises: [{ lift: 'squat', sets: [mk(100, 5, 7, false)] }] }] }] }).lastIdx, -1);
+  eq(deskSuggestedSets([{ weight: 100, weightHi: 102.5, plannedWeight: 95 }], 105)[0].weightHi, undefined);
+});
+test('athlete workspace: check-ins as four weeks against their baseline', () => {
+  const t = '2026-10-22';
+  const qs = [{ id: 's', prompt: 'How many hours did you sleep?', kind: 'number', cadence: 'daily', active: true },
+    { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true },
+    { id: 'n', prompt: 'How was your nutrition this week?', kind: 'choice', cadence: 'weekly', active: true },
+    { id: 'o', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true }];
+  const a = (q, d, num, text) => ({ questionId: q, athleteId: 'a', period: d, num: num == null ? null : num, text: text || null });
+  const ans = [a('s', '2026-10-01', 8), a('s', '2026-10-08', 8), a('s', '2026-10-15', 8), a('s', '2026-10-20', 6), a('s', '2026-10-21', 6),
+    a('p', '2026-10-21', 1), a('p', '2026-10-20', 0), a('n', '2026-10-19', null, 'Off'),
+    a('o', '2026-10-01', 3), a('o', '2026-10-08', 3), a('o', '2026-10-15', 3), a('o', '2026-10-21', 6), a('s', '2026-10-21', null), { questionId: 's', athleteId: 'b', period: '2026-10-21', num: 2 }];
+  const g = deskCheckinGrid(qs, ans, 'a', t);
+  eq(g.weeks.join(), '2026-09-28,2026-10-05,2026-10-12,2026-10-19');
+  const sleep = g.rows[0];
+  eq(sleep.cells.map(c => c && c.text).join(), '8,8,8,6'); eq(sleep.cells[3].tone, 'warn'); eq(sleep.cells[0].tone, undefined);
+  eq(g.rows[1].cells[3].text, 'Yes 1×'); eq(g.rows[1].cells[3].tone, 'alert'); eq(g.rows[1].cells[0], null);
+  eq(g.rows[2].cells[3].text, 'Off');
+  eq(g.rows[3].cells[3].tone, 'warn');   // soreness up is the bad direction
+});
+test('sync chip: waiting sets, then synced, then gone', () => {
+  const fmt = () => '14:02';
+  const now = Date.parse('2026-10-22T15:00:00Z');
+  eq(syncChipState({ sets: 3, changes: 0, lastDrain: 0 }, now, 'phone', fmt).text, 'Saved on this phone · 3 sets syncing');
+  eq(syncChipState({ sets: 1, changes: 2, lastDrain: 0 }, now, 'device', fmt).text, 'Saved on this device · 1 set syncing');
+  eq(syncChipState({ sets: 0, changes: 1, lastDrain: 0 }, now, 'phone', fmt).tone, 'pending');
+  eq(syncChipState({ sets: 0, changes: 0, lastDrain: now - 3600000 }, now, 'phone', fmt).text, 'Synced 14:02');
+  eq(syncChipState({ sets: 0, changes: 0, lastDrain: now - 13 * 3600000 }, now, 'phone', fmt), null);
+  eq(syncChipState({ sets: 0, changes: 0, lastDrain: 0 }, now, 'phone', fmt), null);
 });
 test('App Store paywall: says which failure it hit', () => {
   const plan = { id: 'com.powalifta.app.coach.pro' };
@@ -2082,6 +2226,234 @@ test('respects the window (old data excluded)', () => {
    in a hidden ?demo=1 iframe and reach into its window. If it
    doesn't come up in time, the cases are SKIPPED (not failed).
    =========================================================== */
+/* ===========================================================
+   Switch kit (switch-kit.js): history import, export, zip
+   =========================================================== */
+group('switch kit');
+const SK = window.SwitchKit;
+test('switch kit: delimiters, quoted rows and numbers', () => {
+  eq(SK.detectDelim('a\tb\n1\t2'), '\t'); eq(SK.detectDelim('a;b;c\n1;2;3'), ';'); eq(SK.detectDelim('a,b\n1,2'), ','); eq(SK.detectDelim('Squat 3x5'), null);
+  const rows = SK.splitRows('Date,Exercise,Notes\n2026-01-02,Squat,"felt ""easy""\nsecond line"\n2026-01-03,Bench,', ',');
+  eq(rows.length, 3); eq(rows[1].cells[2], 'felt "easy"\nsecond line'); eq(rows[2].line, 4); eq(rows[2].cells[1], 'Bench');
+  eq(SK.num('82,5'), 82.5); eq(SK.num('1,250'), 1250); eq(SK.num('140kg'), 140); assert(isNaN(SK.num('')));
+});
+test('switch kit: dates as coaches and apps write them', () => {
+  const p = SK.parseDate;
+  eq(p('2026-03-02'), '2026-03-02'); eq(p('2023-01-15 08:30:00'), '2023-01-15'); eq(p('15 Jan 2023, 08:30'), '2023-01-15');
+  eq(p('Jan 15, 2023'), '2023-01-15'); eq(p('Mon 3 Mar 2025'), '2025-03-03'); eq(p('3-Mar-25'), '2025-03-03');
+  eq(p('25/12/2024'), '2024-12-25'); eq(p('12/25/2024'), '2024-12-25'); eq(p('03/04/2025'), '2025-04-03'); eq(p('03/04/2025', 'mdy'), '2025-03-04');
+  eq(p('2023.01.15'), '2023-01-15'); eq(p('44927'), '2023-01-01'); eq(p('2025-02-30'), null); eq(p('Week 1'), null); eq(p(''), null);
+  eq(SK.dateOrderOf(['25/12/2024', '01/02/2025']), 'dmy'); eq(SK.dateOrderOf(['12/25/2024']), 'mdy'); eq(SK.dateOrderOf(['01/02/2025']), 'ambiguous'); eq(SK.dateOrderOf(['2025-01-02']), null);
+});
+test('switch kit: one set written as text', () => {
+  const p = SK.parseSetText;
+  let r = p('140x5 @8'); eq(r.kg, 140); eq(r.reps, 5); eq(r.rpe, 8); eq(r.sets, 1);
+  r = p('140kg x 5 x 3'); eq(r.kg, 140); eq(r.reps, 5); eq(r.sets, 3); eq(r.unit, 'kg');
+  r = p('3x5 140'); eq(r.sets, 3); eq(r.reps, 5); eq(r.kg, 140);
+  r = p('5 x 140kg'); eq(r.reps, 5); eq(r.kg, 140);
+  r = p('140 for 5'); eq(r.kg, 140); eq(r.reps, 5);
+  r = p('315lb x 3 1 RIR'); eq(r.kg, 315); eq(r.unit, 'lb'); eq(r.rpe, 9);
+  r = p('100kg 8 reps'); eq(r.kg, 100); eq(r.reps, 8);
+  r = p('3x5'); eq(r.kg, null); eq(r.reps, 5);
+  r = p('82,5 x 6 @ RPE 7.5'); eq(r.kg, 82.5); eq(r.rpe, 7.5);
+  eq(p('felt good'), null);
+});
+test('switch kit: exercises from app exports', () => {
+  const m = SK.matchLift;
+  eq(m('Squat (Barbell)').lift, 'squat'); eq(m('Squat (Barbell)').variant, 'Competition');
+  eq(m('Bench Press (Dumbbell)').lift, 'push'); eq(m('Squat (Smith Machine)').lift, 'legs'); eq(m('Trap Bar Deadlift').lift, 'pull');
+  eq(m('Paused bench').variant, 'Paused'); eq(m('Squat', 'pin').variant, 'Pin'); eq(m('Deadlift', 'Sumo').variant, 'Competition');
+  eq(m('Romanian Deadlift').variant, 'RDL'); eq(m('Lat Pulldown').lift, 'pull'); eq(m('Lat Pulldown').exerciseName, 'Lat Pulldown');
+});
+const SK_TODAY = '2026-10-22';
+test('switch kit: a Strong export (semicolons, lb, warm-ups, no RPE)', () => {
+  const csv = ['Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE',
+    '2025-01-06 07:30:00;Lower;1h;Squat (Barbell);W;135;5;0;0;;;',
+    '2025-01-06 07:30:00;Lower;1h;Squat (Barbell);1;315;5;0;0;;;8',
+    '2025-01-06 07:30:00;Lower;1h;Squat (Barbell);2;315;5;0;0;;;',
+    '2025-01-06 07:30:00;Lower;1h;Treadmill;1;0;0;2;600;;;',
+    '2025-01-08 07:30:00;Upper;1h;Bench Press (Barbell);1;225;3;0;0;"grindy, slow";;9'].join('\n');
+  const r = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'lb', today: SK_TODAY });
+  eq(r.kind, 'logs'); eq(r.format, 'Strong'); eq(r.logs.length, 3); eq(r.skipped.length, 2);
+  eq(r.skippedBy['Warm-up set'], 1); eq(r.skippedBy['Cardio or a timed set'], 1);
+  close(r.logs[0].weight, 142.88, 0.01); eq(r.logs[0].rpe, 8); eq(r.logs[1].rpe, 8); eq(r.noRpeCount, 1);
+  eq(r.logs[2].lift, 'bench'); eq(r.logs[2].note, 'grindy, slow'); eq(r.range.from, '2025-01-06'); eq(r.range.to, '2025-01-08'); eq(r.sessions, 2);
+  eq(r.logs.every(l => l.source === 'import' && /^i1-[0-9a-f]{16}-\d+$/.test(l.importKey)), true);
+  eq(SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'lb', noRpe: 10, today: SK_TODAY }).logs[1].rpe, 10);
+});
+test('switch kit: Hevy and FitNotes exports read their own units', () => {
+  const hevy = ['"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"',
+    '"Day 1","15 Jan 2025, 08:30","15 Jan 2025, 09:40","","Deadlift (Barbell)","","",0,"warmup",100,5,"","",""',
+    '"Day 1","15 Jan 2025, 08:30","15 Jan 2025, 09:40","","Deadlift (Barbell)","","",1,"normal",220,3,"","",8.5',
+    '"Day 1","15 Jan 2025, 08:30","15 Jan 2025, 09:40","","Lat Pulldown (Cable)","","",0,"normal",70,10,"","",""'].join('\n');
+  let r = SK.planHistoryImport(hevy, { athleteId: 'a1', unit: 'lb', today: SK_TODAY });
+  eq(r.format, 'Hevy'); eq(r.unitFromFile, 'kg'); eq(r.logs.length, 2); eq(r.logs[0].weight, 220); eq(r.logs[0].rpe, 8.5); eq(r.logs[0].date, '2025-01-15');
+  eq(r.logs[1].lift, 'pull'); eq(r.logs[1].exerciseName, 'Lat Pulldown (Cable)');
+  const fit = ['Date,Exercise,Category,Weight (lbs),Reps,Distance,Distance Unit,Time', '2024-11-02,Flat Barbell Bench Press,Chest,225.0,5,,,', '2024-11-02,Barbell Squat,Legs,315.0,5,,,'].join('\n');
+  r = SK.planHistoryImport(fit, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.format, 'FitNotes'); eq(r.unitFromFile, 'lb'); close(r.logs[0].weight, 102.06, 0.01); eq(r.logs[0].lift, 'bench'); eq(r.logs[1].lift, 'squat');
+});
+test('switch kit: a coach sheet with a Sets column, RIR and a set-text column', () => {
+  const tsv = ['Date\tLift\tSets\tReps\tWeight\tRIR', '02/03/2026\tSquat\t3\t5\t180\t2', '02/03/2026\tPaused bench\t4\t4\t110\t', '13/03/2026\tDeadlift\t1\t1\t250\t0'].join('\n');
+  let r = SK.planHistoryImport(tsv, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 8); eq(r.logs[0].date, '2026-03-02'); eq(r.logs[0].rpe, 8); eq(r.logs[3].variant, 'Paused'); eq(r.logs[7].rpe, 10); eq(r.dateAmbiguous, false);
+  eq(new Set(r.logs.slice(0, 3).map(l => l.importKey)).size, 3);   // three identical sets, three keys
+  const txt = ['Date,Exercise,Result', '2026-02-01,Squat,180x5x3 @8', '2026-02-01,Bench,110kg x 6 @7.5', '2026-02-01,Rows,3x10'].join('\n');
+  r = SK.planHistoryImport(txt, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 4); eq(r.logs[3].weight, 110); eq(r.logs[3].rpe, 7.5); eq(r.skippedBy['No weight'], 1);
+});
+test('switch kit: a training journal', () => {
+  const j = ['Monday 2 March 2026', 'Squat 180x5 @8, 185x3 @9', 'Bench: 110 x 5 x 3', '', '2026-03-04 Deadlift 230x3 @8.5', 'felt great today', 'Squat 200x1 @9'].join('\n');
+  const r = SK.planHistoryImport(j, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.format, 'Training journal'); eq(r.logs.length, 7);
+  eq(r.logs[0].date, '2026-03-02'); eq(r.logs[1].rpe, 9); eq(r.logs[5].date, '2026-03-04'); eq(r.logs[6].date, '2026-03-04'); eq(r.logs[6].weight, 200);
+  eq(r.skippedBy['Not a set'], 1);
+});
+test('switch kit: skips say why; other athletes, future dates, bad reps', () => {
+  const csv = ['athlete,date,exercise,variant,weight_kg,reps,rpe', 'Maya Chen,2026-01-05,Squat,Competition,150,5,8', 'Leo Grant,2026-01-05,Squat,Competition,200,5,8',
+    'Maya Chen,2099-01-01,Squat,,150,5,8', 'Maya Chen,2026-01-05,Bench,,100,,8', 'Maya Chen,2026-01-05,Bench,,100,5,12', 'Maya Chen,,Bench,,100,5,8', 'Maya Chen,2026-01-05,Bodyweight,,82,,'].join('\n');
+  const r = SK.planHistoryImport(csv, { athleteId: 'a1', athleteName: 'maya chen', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 2);                                               // the dateless row takes the date above it
+  eq(r.skippedBy['Another athlete'], 1); eq(r.skippedBy['Date in the future'], 1); eq(r.skippedBy['No reps'], 1); eq(r.skippedBy['RPE not between 1 and 10'], 1);
+  eq(r.carried, 1); eq(r.skippedBy['A weigh-in, not a set'], 1);
+});
+test('switch kit: importing the same file twice adds nothing', () => {
+  const csv = ['date,exercise,weight,reps,rpe', '2026-01-05,Squat,150,5,8', '2026-01-05,Squat,150,5,8', '2026-01-07,Bench,100,5,8'].join('\n');
+  const first = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(first.logs.length, 3); eq(first.dupes, 0);
+  const existing = first.logs.map(l => Object.assign({}, l, { athleteId: 'a1' }));
+  const again = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', existing, today: SK_TODAY });
+  eq(again.logs.length, 0); eq(again.dupes, 3); eq(again.kind, 'logs');
+  // A longer export later: only the new rows come in.
+  const more = SK.planHistoryImport(csv + '\n2026-01-09,Deadlift,200,3,8', { athleteId: 'a1', unit: 'kg', existing, today: SK_TODAY });
+  eq(more.logs.length, 1); eq(more.logs[0].lift, 'deadlift'); eq(more.dupes, 3);
+  // Sets logged in the app (no key) count too: the same set isn't added twice.
+  const app = [{ athleteId: 'a1', date: '2026-01-05', lift: 'squat', variant: 'Competition', exerciseName: '', weight: 150, reps: 5, rpe: 8, e1rmComp: calcE1RM(150, 5, 8) }];
+  eq(SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', existing: app, today: SK_TODAY }).logs.length, 2);
+  // Another athlete's logs don't count.
+  eq(SK.planHistoryImport(csv, { athleteId: 'a2', unit: 'kg', existing, today: SK_TODAY }).logs.length, 3);
+});
+test('switch kit: the PRs an import makes', () => {
+  const existing = [{ athleteId: 'a1', date: '2026-02-01', lift: 'squat', weight: 150, reps: 5, rpe: 8, e1rmComp: calcE1RM(150, 5, 8) }];
+  const csv = ['date,exercise,weight,reps,rpe', '2025-06-01,Squat,140,5,8', '2025-07-01,Squat,145,5,8', '2026-03-01,Squat,160,5,8', '2026-03-01,Bench,100,5,8'].join('\n');
+  const r = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', existing, today: SK_TODAY });
+  eq(r.prs.squat.prs, 2);           // 145 beats 140, 160 beats the 150 already there
+  eq(r.prs.squat.newBest, true); eq(r.prs.squat.best.weight, 160); close(r.prs.squat.wasKg, calcE1RM(150, 5, 8), 0.01);
+  eq(r.prs.bench.prs, 0); eq(r.prs.bench.newBest, true); eq(r.prs.deadlift, undefined); eq(r.prs.total, 2);
+});
+test('switch kit: a past block laid out like a program', () => {
+  const block = ['Week 1', 'Day 1', 'Squat 3x5 @7 160kg', 'Bench 4x6 @7 100kg', 'Day 2', 'Deadlift 3x3 @8 200kg', 'Week 2', 'Day 1', 'Squat 3x5 @8 165kg'].join('\n');
+  const r = SK.planHistoryImport(block, { athleteId: 'a1', unit: 'kg', today: SK_TODAY, blockName: 'Spring block' });
+  eq(r.kind, 'block'); eq(r.block.stats.weeks, 2); eq(r.block.stats.sets, 13); eq(r.block.name, 'Spring block');
+  eq(r.block.endedOn, '2026-10-21'); eq(r.block.startedOn, '2026-10-08');
+  eq(r.block.weeks.every(w => w.days.every(d => d.exercises.every(e => e.sets.every(s => s.completed && s.completedAt)))), true);
+  eq(r.block.weeks[1].days[0].exercises[0].sets[0].completedAt, '2026-10-15');
+  const again = SK.planHistoryImport(block.replace(/\n/g, '\n  '), { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(again.block.importKey, r.block.importKey);                    // same block, same key
+  const dated = SK.planHistoryImport(block, { athleteId: 'a1', unit: 'kg', today: SK_TODAY, blockStart: '2025-01-06', blockEnd: '2025-01-19' });
+  eq(dated.block.startedOn, '2025-01-06'); eq(dated.block.weeks[0].days[1].exercises[0].sets[0].completedAt, '2025-01-10');   // two days spread over the week
+  eq(SK.planHistoryImport('hello there', { today: SK_TODAY }).kind, 'empty');
+});
+test('switch kit: crc32 and a store-only zip that reads back', () => {
+  eq(SK.crc32(SK.utf8('hello')), 0x3610a686); eq(SK.crc32(SK.utf8('')), 0);
+  const files = [{ name: 'a.csv', text: 'x,y\n1,2\n' }, { name: 'é.txt', text: 'héllo' }];
+  const z = SK.zip(files, new Date(2026, 9, 22, 10, 30, 0));
+  const dec = (b) => decodeURIComponent(escape(Array.from(b).map(c => String.fromCharCode(c)).join('')));
+  const dv = new DataView(z.buffer);
+  eq(dv.getUint32(0, true), 0x04034b50);
+  const eocd = z.length - 22;
+  eq(dv.getUint32(eocd, true), 0x06054b50); eq(dv.getUint16(eocd + 10, true), 2);
+  let at = dv.getUint32(eocd + 16, true);
+  const names = [];
+  for (let i = 0; i < 2; i++) {
+    eq(dv.getUint32(at, true), 0x02014b50);
+    const crc = dv.getUint32(at + 16, true), size = dv.getUint32(at + 20, true), nl = dv.getUint16(at + 28, true), off = dv.getUint32(at + 42, true);
+    names.push(dec(z.slice(at + 46, at + 46 + nl)));
+    const lnl = dv.getUint16(off + 26, true);
+    const data = z.slice(off + 30 + lnl, off + 30 + lnl + size);
+    eq(SK.crc32(data), crc); eq(dec(data), files[i].text);
+    at += 46 + nl;
+  }
+  eq(names.join('|'), 'a.csv|é.txt');
+});
+test('switch kit: export files, and the log reads back in', () => {
+  const athletes = [{ id: 'a1', name: 'Maya Chen' }, { id: 'a2', name: 'Leo Grant' }];
+  const logs = [{ athleteId: 'a1', date: '2026-01-05', lift: 'squat', variant: 'Paused', exerciseName: '', weight: 150, reps: 5, rpe: 8, e1rm: 187, e1rmComp: 200, note: '=HYPERLINK("x")' },
+    { athleteId: 'a2', date: '2026-01-06', lift: 'pull', variant: '', exerciseName: 'Barbell Row', weight: 80, reps: 10, rpe: 8, e1rm: 100, e1rmComp: 100, note: '' }];
+  const weeks = [{ number: 1, days: [{ name: 'Day 1', exercises: [{ lift: 'squat', variant: 'Competition', exerciseName: '', note: 'belt', sets: [{ weight: 160, reps: 5, rpe: 7, completed: true, actualRpe: 7.5, completedAt: '2026-01-05T10:00:00Z' }, { weight: 160, reps: 5, rpe: 7 }] }] }] }];
+  const files = SK.buildExportFiles({ role: 'coach', account: { id: 'c1', name: 'Coach' }, athletes, logs,
+    programs: [{ athleteId: 'a1', name: 'Strength', weeks }], blocks: [{ athleteId: 'a1', name: 'Volume', startedOn: '2025-12-01', endedOn: '2025-12-28', weeks }],
+    templates: [{ name: 'Base', payload: { weeks } }], messages: [{ athleteId: 'a2', body: 'Nice, "solid"', createdAt: '2026-01-06' }], checkins: [], notIncluded: ['coach notes'] });
+  const by = {}; files.forEach(f => { by[f.name] = f.text; });
+  ['athletes.csv', 'training-log.csv', 'programs.csv', 'past-blocks.csv', 'templates.csv', 'messages.csv', 'everything.json', 'README.txt'].forEach(n => assert(by[n], 'missing ' + n));
+  eq(by['check-ins.csv'], undefined);                                   // nothing to say: no empty file
+  assert(by['training-log.csv'].indexOf('Maya Chen,2026-01-05,Squat,Paused,150,5,8,200,"\'=HYPERLINK(""x"")",app') > 0, 'log row + formula guard');
+  assert(by['programs.csv'].indexOf('Maya Chen,Strength,1,Day 1,Squat,Competition,1,160,,,,5,7,,,,yes,7.5,2026-01-05,belt') > 0, 'program row');
+  assert(by['past-blocks.csv'].indexOf('Maya Chen,Volume,2025-12-01,2025-12-28,1,Day 1') > 0, 'block row');
+  assert(by['messages.csv'].indexOf('Leo Grant') > 0, 'messages carry the athlete');
+  assert(/coach notes/.test(by['README.txt']), 'README says what is missing');
+  eq(JSON.parse(by['everything.json']).logs.length, 2);
+  // The coach's training log, imported for Maya: her row only, and it maps back.
+  const back = SK.planHistoryImport(by['training-log.csv'], { athleteId: 'a1', athleteName: 'Maya Chen', unit: 'lb', today: SK_TODAY });
+  eq(back.format, 'POWALIFTA'); eq(back.logs.length, 1); eq(back.logs[0].weight, 150); eq(back.logs[0].variant, 'Paused'); eq(back.skippedBy['Another athlete'], 1);
+  // An athlete's own export: no athlete column, the same shape.
+  const mine = SK.buildExportFiles({ role: 'athlete', account: { id: 'a1', name: 'Maya' }, logs: [logs[0]] });
+  assert(/^date,exercise,variant,weight_kg/.test(mine.find(f => f.name === 'training-log.csv').text), 'athlete log header');
+  assert(mine.some(f => f.name === 'program.csv') && !mine.some(f => f.name === 'athletes.csv'), 'athlete file set');
+});
+test('switch kit: decimal commas with a unit, and European thousands', () => {
+  eq(SK.num('142,5 kg'), 142.5); eq(SK.num('142,5kg'), 142.5); eq(SK.num('1.250,5'), 1250.5); eq(SK.num('315 lbs'), 315); eq(SK.num('82.5'), 82.5);
+  const r = SK.planHistoryImport('Date;Exercise;Weight;Reps\n2026-03-02;Squat;142,5 kg;5', { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 1); eq(r.logs[0].weight, 142.5);
+  const j = SK.planHistoryImport('2 Mar 2026\nSquat 142,5x5 @8, 145x3 @9,5\nBench 102,5 kg x 5 x 3', { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(j.logs.length, 5); eq(j.logs[0].weight, 142.5); eq(j.logs[0].reps, 5); eq(j.logs[1].rpe, 9.5); eq(j.logs[2].weight, 102.5); eq(j.skipped.length, 0);
+});
+test('switch kit: dates and exercises carried down from the row above', () => {
+  const csv = 'Date,Exercise,Weight,Reps,RPE\n2026-03-02,Squat,140,5,8\n,,145,3,9\n,Bench,100,5,8\n\n2026-03-04,Deadlift,200,3,8\n,,,,\n,,210,2,9';
+  const r = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 5); eq(r.carried, 3); eq(r.skipped.length, 0);
+  eq(r.logs[1].lift, 'squat'); eq(r.logs[1].date, '2026-03-02'); eq(r.logs[2].lift, 'bench'); eq(r.logs[2].date, '2026-03-02');
+  eq(r.logs[4].lift, 'deadlift'); eq(r.logs[4].date, '2026-03-04'); eq(r.logs[4].weight, 210);
+  // A sheet that starts with a blank still says why.
+  eq(SK.planHistoryImport('Date,Exercise,Weight,Reps\n,Squat,140,5', { athleteId: 'a1', unit: 'kg', today: SK_TODAY }).skippedBy['No date'], 1);
+});
+test('switch kit: the same file read another way is still the same file', () => {
+  const csv = 'date,exercise,weight,reps,rpe\n2026-01-05,Squat,150,5,8\n2026-01-05,Squat,150,5,\n03/04/2026,Bench,100,5,';
+  const first = SK.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', noRpe: 8, today: SK_TODAY });
+  eq(first.logs.length, 3);
+  const existing = first.logs.map(l => Object.assign({}, l));
+  // Another assumed RPE, another unit, another date order: nothing new, and every key matches.
+  [{ noRpe: 7 }, { unit: 'lb' }, { dateOrder: 'mdy' }].forEach(o => {
+    const again = SK.planHistoryImport(csv, Object.assign({ athleteId: 'a1', unit: 'kg', noRpe: 8, existing, today: SK_TODAY }, o));
+    eq(again.logs.length, 0, JSON.stringify(o)); eq(again.dupes, 3);
+    eq(again.allKeys.filter(k => existing.some(l => l.importKey === k)).length, 3);
+  });
+  // A set logged in the app at RPE 9 matches an RPE-less row of the same load and reps.
+  const app = [{ athleteId: 'a1', date: '2026-01-05', lift: 'squat', variant: 'Competition', exerciseName: '', weight: 150, reps: 5, rpe: 9 }];
+  const r = SK.planHistoryImport('date,exercise,weight,reps,rpe\n2026-01-05,Squat,150,5,\n2026-01-05,Squat,150,5,', { athleteId: 'a1', unit: 'kg', existing: app, today: SK_TODAY });
+  eq(r.logs.length, 1); eq(r.dupes, 1);
+});
+test('switch kit: a coach export holds only what the coach wrote', () => {
+  const files = SK.buildExportFiles({ role: 'coach', account: { id: 'c1', name: 'Coach', bio: 'Strength coach' }, athletes: [{ id: 'a1', name: 'Maya' }], logs: [] });
+  const readme = files.find(f => f.name === 'README.txt').text;
+  assert(/Not in this export/.test(readme), 'README names what is left out');
+  eq(JSON.parse(files.find(f => f.name === 'everything.json').text).account.bio, 'Strength coach');
+});
+test('switch kit: a realistic 300-row history', () => {
+  const lines = ['Date,Exercise,Weight,Reps,RPE,Notes'];
+  const lifts = ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'];
+  let d = new Date(Date.UTC(2025, 0, 6));
+  for (let i = 0; i < 75; i++) {
+    const iso = d.toISOString().slice(0, 10);
+    lifts.forEach((L, k) => lines.push([iso, L, 100 + k * 20 + Math.floor(i / 3) * 2.5, 5, i % 5 === 0 ? '' : 8, ''].join(',')));
+    d.setUTCDate(d.getUTCDate() + (i % 2 ? 3 : 4));
+  }
+  eq(lines.length, 301);
+  const r = SK.planHistoryImport(lines.join('\n'), { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
+  eq(r.logs.length, 300); eq(r.sessions, 75); eq(r.skipped.length, 0); eq(r.noRpeCount, 60);
+  assert(r.prs.squat.prs > 10 && r.prs.bench.prs > 10 && r.prs.deadlift.prs > 10, 'PRs counted');
+});
+
 function runImporterTests(win) {
   group('importer (athlete.html)');
   const build = win._impBuild, parse = win._parseDelimited;

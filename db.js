@@ -248,6 +248,11 @@ function mapDbBlock(r) {
     stats: r.stats || null, startedOn: r.started_on, endedOn: r.ended_on, createdAt: r.created_at };
 }
 const _BLOCK_COLS = 'id, athlete_id, coach_id, name, maxes, stats, started_on, ended_on, created_at';
+// Coach-private notes (migration-coach-notes-2026-10-22.sql): only the coach who wrote one reads it.
+function mapDbCoachNote(r) {
+  return { id: r.id, coachId: r.coach_id, athleteId: r.athlete_id, body: r.body || '', createdAt: r.created_at, updatedAt: r.updated_at || r.created_at };
+}
+const _COACH_NOTE_COLS = 'id, coach_id, athlete_id, body, created_at, updated_at';
 function mapDbTemplate(r) {
   return { id: r.id, coachId: r.coach_id, name: r.name, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(), payload: r.payload };
 }
@@ -1683,6 +1688,67 @@ const DB = {
     return { ok: true };
   },
 
+  // ---------- COACH-PRIVATE NOTES (migration-coach-notes-2026-10-22.sql) ----------
+  // Until the migration runs, a coach's notes live on this device (localStorage, per coach) and
+  // every answer carries local: true, so the desk can say so. Once the table exists, the next
+  // load moves any device notes up and clears them here.
+  _cnKey(coachId) { return 'powa-coach-notes-' + coachId; },
+  _cnLocal(coachId, list) {
+    try {
+      if (list === undefined) return JSON.parse(localStorage.getItem(this._cnKey(coachId)) || '[]') || [];
+      if (!list.length) localStorage.removeItem(this._cnKey(coachId)); else localStorage.setItem(this._cnKey(coachId), JSON.stringify(list));
+    } catch (e) {}
+    return list || [];
+  },
+  _cnNew(n) { return { id: n.id || ('local-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), coachId: n.coachId, athleteId: n.athleteId, body: String(n.body || '').slice(0, 4000), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), local: true }; },
+  async listCoachNotes(coachId) {
+    const { data, error } = await sb.from('coach_notes').select(_COACH_NOTE_COLS).eq('coach_id', coachId).order('created_at', { ascending: false }).limit(2000);
+    if (error) {
+      if (_isNotReady(error)) this._cnReady = false; else console.warn('listCoachNotes', error);
+      return this._cnLocal(coachId).map(n => Object.assign(n, { local: true }));
+    }
+    this._cnReady = true;
+    const out = (data || []).map(mapDbCoachNote);
+    const loc = this._cnLocal(coachId);
+    if (loc.length) {
+      const rows = loc.map(n => ({ coach_id: coachId, athlete_id: n.athleteId, body: n.body }));
+      const up = await sb.from('coach_notes').insert(rows).select(_COACH_NOTE_COLS);
+      if (!up.error) { this._cnLocal(coachId, []); (up.data || []).forEach(r => out.unshift(mapDbCoachNote(r))); }
+      else loc.forEach(n => out.unshift(Object.assign(n, { local: true })));
+    }
+    return out;
+  },
+  async addCoachNote(n) {
+    if (this._cnReady !== false) {
+      const { data, error } = await sb.from('coach_notes').insert({ coach_id: n.coachId, athlete_id: n.athleteId, body: String(n.body || '').slice(0, 4000) }).select(_COACH_NOTE_COLS).single();
+      if (!error) return { ok: true, note: mapDbCoachNote(data) };
+      if (!_isNotReady(error)) return { ok: false, error };
+      this._cnReady = false;
+    }
+    const note = this._cnNew(n);
+    this._cnLocal(n.coachId, [note].concat(this._cnLocal(n.coachId)));
+    return { ok: true, note, local: true };
+  },
+  async updateCoachNote(note, body) {
+    const text = String(body || '').slice(0, 4000);
+    if (!note.local && this._cnReady !== false) {
+      const { data, error } = await sb.from('coach_notes').update({ body: text }).eq('id', note.id).select(_COACH_NOTE_COLS).single();
+      if (!error) return { ok: true, note: mapDbCoachNote(data) };
+      return { ok: false, error };
+    }
+    const list = this._cnLocal(note.coachId).map(x => x.id === note.id ? Object.assign(x, { body: text, updatedAt: new Date().toISOString() }) : x);
+    this._cnLocal(note.coachId, list);
+    return { ok: true, note: Object.assign({}, note, { body: text, local: true }), local: true };
+  },
+  async deleteCoachNote(note) {
+    if (!note.local && this._cnReady !== false) {
+      const { error } = await sb.from('coach_notes').delete().eq('id', note.id);
+      return error ? { ok: false, error } : { ok: true };
+    }
+    this._cnLocal(note.coachId, this._cnLocal(note.coachId).filter(x => x.id !== note.id));
+    return { ok: true, local: true };
+  },
+
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
@@ -2564,7 +2630,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, coachNotes] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2579,9 +2645,11 @@ const DB = {
         this.listCheckinQuestions().catch(() => []),
         this.listCheckinAnswers(_ciSince).catch(() => []),
         this.listProgramBlocks(athleteIds).catch(() => []),
-        this.listHealthDaily(athleteIds).catch(() => [])
+        this.listHealthDaily(athleteIds).catch(() => []),
+        this.listCoachNotes(profile.id).catch(() => [])
       ]);
       empty.healthDaily = healthDaily;
+      empty.coachNotes = coachNotes;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;
       empty.programBlocks = blocks;
@@ -2638,3 +2706,91 @@ const DB = {
 
 window.DB = DB;
 window.sb = sb;
+
+// ---------- SWITCH KIT hook (switch-kit.js · sql/migration-history-import-2026-10-22.sql) ----------
+// History import and the full export. Before the migration runs, an import answers
+// { notReady: true } and nothing is written; the export works either way.
+Object.assign(DB, {
+  // Every row of `table` the signed-in user may read, 1,000 at a time (one API read is
+  // capped). col + ids filter (e.g. athlete_id in the roster); RLS decides the rest.
+  // → { rows } | { missing: true } (the table isn't there yet) | { error }
+  async skListAll(table, col, ids, order) {
+    const PAGE = 1000, rows = [];
+    let orders = [order, 'id'].filter(Boolean);
+    for (let from = 0; from < 500000; from += PAGE) {
+      let q = sb.from(table).select('*');
+      if (col) q = q.in(col, ids || []);
+      orders.forEach(o => { q = q.order(o, { ascending: true }); });
+      const { data, error } = await q.range(from, from + PAGE - 1);
+      if (error) {
+        if (from === 0 && orders.includes('id') && _missingCol(error, ['id'])) { orders = orders.filter(o => o !== 'id'); from -= PAGE; continue; }
+        if (/42P01|PGRST205|does not exist|could not find the table/i.test(String(error.code) + ' ' + String(error.message))) return { missing: true };
+        console.warn('skListAll', table, error);
+        return { error };
+      }
+      rows.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
+    return { rows };
+  },
+  // Imported sets, 250 per request. A set whose import key the athlete already has is
+  // skipped by the server (ON CONFLICT DO NOTHING), so a file imported twice adds nothing.
+  // → { ok, notReady, insertedIds }
+  async skImportLogs(logs, onProgress) {
+    const insertedIds = [];
+    for (let i = 0; i < logs.length; i += 250) {
+      const rows = logs.slice(i, i + 250).map(l => Object.assign(mapJsLog(l), { source: 'import', import_key: l.importKey, imported_by: l.importedBy || null }));
+      const { data, error } = await sb.from('workout_logs').upsert(rows, { onConflict: 'athlete_id,import_key', ignoreDuplicates: true }).select('id');
+      if (error) {
+        const notReady = _isNotReady(error) || !!_missingCol(error, ['source', 'import_key', 'imported_by']) || /42P10|no unique or exclusion constraint/i.test(String(error.code) + ' ' + String(error.message));
+        if (!notReady) console.warn('skImportLogs', error);
+        return { ok: false, notReady, error, insertedIds };
+      }
+      (data || []).forEach(r => insertedIds.push(r.id));
+      if (onProgress) onProgress(Math.min(logs.length, i + 250));
+    }
+    return { ok: true, insertedIds };
+  },
+  // Takes an import back out (Undo, or "Remove the sets this file imported"). Only rows
+  // marked as imported; the coach's delete policy also limits it to rows they imported.
+  async skRemoveImported(athleteId, ids) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const { error } = await sb.from('workout_logs').delete().in('athlete_id', [athleteId]).eq('source', 'import').in('id', ids.slice(i, i + 200));
+      if (error) { console.warn('skRemoveImported', error); return { ok: false, error }; }
+    }
+    return { ok: true };
+  },
+  // A past block from a sheet, keyed so the same sheet can't be kept twice. Without the
+  // migration's import_key column it falls back to a plain past block.
+  async skAddImportedBlock(b) {
+    const row = { athlete_id: b.athleteId, coach_id: b.coachId || null, name: String(b.name || 'Block').slice(0, 120), weeks: b.weeks || [], maxes: b.maxes || null,
+      stats: b.stats || null, started_on: b.startedOn || null, ended_on: b.endedOn || null, import_key: b.importKey || null };
+    const { data, error } = await sb.from('program_blocks').insert(row).select(_BLOCK_COLS).single();
+    if (error) {
+      if (String(error.code) === '23505') return { ok: false, duplicate: true };
+      if (_missingCol(error, ['import_key'])) {
+        // No key column yet: refuse a block this athlete already has under the same name
+        // with the same sets and sessions (the same sheet kept twice).
+        const have = await this.skBlockKeys(b.athleteId);
+        const st = b.stats || {};
+        if (have.some(x => x.name === row.name && x.stats && x.stats.sets === st.sets && x.stats.sessions === st.sessions)) return { ok: false, duplicate: true };
+        return this.addProgramBlock(b);
+      }
+      return { ok: false, notReady: _isNotReady(error), error };
+    }
+    return { ok: true, block: Object.assign(mapDbBlock(data), { weeks: b.weeks || [] }) };
+  },
+  // The athlete's past blocks without their weeks, with import_key once the migration
+  // has run (the desk's block list doesn't read it). → [{ id, name, stats, started_on, import_key }]
+  async skBlockKeys(athleteId) {
+    let cols = 'id, name, stats, started_on, import_key';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await sb.from('program_blocks').select(cols).eq('athlete_id', athleteId).limit(1000);
+      if (!error) return data || [];
+      if (attempt === 0 && _missingCol(error, ['import_key'])) { cols = 'id, name, stats, started_on'; continue; }
+      if (!_isNotReady(error)) console.warn('skBlockKeys', error);
+      return [];
+    }
+    return [];
+  }
+});
