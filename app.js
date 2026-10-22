@@ -310,7 +310,7 @@ function _buildCoachDemoData() {
   // so the empty screens can be seen and judged without signing up.
   if (/[?&]fresh=1/.test(location.search)) {
     Object.assign(user, { name: 'Alex Morgan', bio: '', subscriptionTier: 'free', subscriptionStatus: 'inactive', subscriptionPeriodEnd: null, billingProvider: null });
-    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [] } };
+    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [], coachNotes: [] } };
   }
 
   // Roster engineered to show every flag state
@@ -424,9 +424,15 @@ function _buildCoachDemoData() {
     { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Yeah man, work\'s been brutal. Back in Monday, promise.', createdAt: at(1, 22, 15), readAt: null }
   ];
   const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
+  // A template is the block as written: a fresh copy, nothing logged in it.
+  const tplWeeks = JSON.parse(JSON.stringify(programs[0].weeks));
+  tplWeeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => e.sets.forEach(st => {
+    if (st.plannedWeight != null) st.weight = st.plannedWeight;
+    delete st.plannedWeight; st.completed = false; st.actualRpe = null; st.completedAt = null;
+  }))));
   const programTemplates = [{
     id: 'demo-tpl-1', coachId: DC, name: '8-Week Strength Block', createdAt: Date.now(),
-    payload: { weeks: programs[0].weeks }
+    payload: { weeks: tplWeeks }
   }];
 
   // Marketplace — two live listings + one in review, so the earnings
@@ -523,6 +529,12 @@ function _buildCoachDemoData() {
           notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' }
       ],
       messageReactions: [{ messageId: 'demo-msg-1b', userId: DC, reaction: 'fire' }, { messageId: 'demo-msg-6', userId: 'demo-a2', reaction: 'strong' }],
+      // The coach's private notes (the laptop desk's athlete workspace; the athlete never sees them).
+      coachNotes: [
+        { id: 'demo-cnote-1', coachId: DC, athleteId: 'demo-a1', body: 'Left shoulder flares on wide-grip bench. Keep him on comp grip or closer until the meet.', createdAt: daysAgo(40) + 'T10:00:00Z', updatedAt: daysAgo(40) + 'T10:00:00Z' },
+        { id: 'demo-cnote-2', coachId: DC, athleteId: 'demo-a1', body: 'Night shifts Tue and Thu: heavy days go Mon, Wed, Sat.', createdAt: daysAgo(12) + 'T10:00:00Z', updatedAt: daysAgo(12) + 'T10:00:00Z' },
+        { id: 'demo-cnote-3', coachId: DC, athleteId: 'demo-a3', body: 'New job since September. If he goes quiet, shorten the sessions before cutting days.', createdAt: daysAgo(20) + 'T10:00:00Z', updatedAt: daysAgo(20) + 'T10:00:00Z' }
+      ],
       marketplacePrograms, mySales, myPurchases: []
     }
   };
@@ -2306,6 +2318,7 @@ async function flushPendingLogs() {
   _writePendingLogs(failed);
   _writeLogAttempts(attempts);
   _flushingLogs = false;
+  if (synced > 0 && !failed.length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
   if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced: please re-log");
   if (typeof _refreshConnBanner === 'function') _refreshConnBanner();
@@ -2504,6 +2517,7 @@ async function flushOutbox() {
   _writeOutbox(failed);
   _writeOutboxAttempts(attempts);
   _flushingOutbox = false;
+  if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
   if (dropped > 0) toast("Some changes couldn't be synced. Please re-check");
   _refreshConnBanner();
@@ -2516,6 +2530,13 @@ async function flushOutbox() {
 // hides once everything is reconciled. Reduced-motion safe.
 // =========================================================
 function _pendingCount() { return _readOutbox().length + _readPendingLogs().length; }
+// The sync chip on Train (syncChipState): what is waiting, and when the queue last drained.
+function _markSyncDrained() { try { localStorage.setItem('powa-last-drain', String(Date.now())); } catch (e) {} }
+function powaSyncState() {
+  let lastDrain = 0;
+  try { lastDrain = Number(localStorage.getItem('powa-last-drain')) || 0; } catch (e) {}
+  return { sets: _readPendingLogs().length, changes: _readOutbox().length, lastDrain };
+}
 function _connBannerEl() {
   let b = document.getElementById('powa-conn-banner');
   if (b || !document.body) return b;
@@ -2560,6 +2581,8 @@ function _refreshConnBanner() {
   const txt = b.querySelector('.pcb-text');
   if (txt) txt.textContent = msg;
   b.classList.toggle('show', show);
+  // Train's sync chip repaints from the same moment (queued, drained, offline, online).
+  try { window.dispatchEvent(new Event('powa:sync')); } catch (e) {}
 }
 function _scheduleConnBanner() { try { requestAnimationFrame(_refreshConnBanner); } catch (e) { _refreshConnBanner(); } }
 
@@ -9482,8 +9505,11 @@ function _deskStillReviewed(entry, reasons) {
   const had = String(entry.sig || '').split(',');
   return (reasons || []).every(r => had.includes(r.type));
 }
-// Today's queue. opts: { today, reviewed: { id: { at, sig } }, snoozed: { id: 'YYYY-MM-DD' } }.
-// → { queue: rows worst first, done: rows reviewed this week, wins: rows with good news, total }
+// Today's queue. opts: { today, reviewed: { id: { at, sig } }, snoozed: { id: 'YYYY-MM-DD' },
+//   handled: { id: { at, sig, via } } }  (handled = the coach acted on them: applied next week or replied)
+// → { queue: rows worst first, done: rows reviewed this week, wins: rows with good news,
+//     snoozed, handled: queue rows already acted on (they stay listed until E),
+//     total: everyone flagged, progress: done + snoozed + handled (what Today's bar counts) }
 function deskQueue(rows, opts) {
   opts = opts || {};
   const t = opts.today || todayISO();
@@ -9499,7 +9525,14 @@ function deskQueue(rows, opts) {
   const done = flagged.filter(isDone);
   const winsSeen = opts.winsSeen || {};
   const wins = rows.filter(r => r.wins.length && !winsSeen[r.athlete.id]).sort((a, b) => b.wins.length - a.wins.length || String(a.athlete.name).localeCompare(String(b.athlete.name)));
-  return { queue, done, wins, snoozed: flagged.filter(r => !isDone(r) && isSnoozed(r)), total: queue.length + done.length };
+  const handledMap = opts.handled || {};
+  const handled = queue.filter(r => _deskStillReviewed(handledMap[r.athlete.id], r.reasons));
+  const snoozedRows = flagged.filter(r => !isDone(r) && isSnoozed(r));
+  // Acted on this week and nothing left flagged (the reply cleared their only reason): still
+  // counted, so the bar never moves backwards and N doesn't shrink under the coach.
+  const cleared = rows.filter(r => !r.reasons.length && (handledMap[r.athlete.id] || reviewed[r.athlete.id]));
+  return { queue, done, wins, snoozed: snoozedRows, handled, cleared, total: flagged.length + cleared.length,
+    progress: done.length + snoozedRows.length + handled.length + cleared.length };
 }
 // The saved views in the rail. Counts are live: deskViewCount(rows, key).
 const DESK_VIEWS = [
@@ -9523,6 +9556,152 @@ function deskViewMatch(key, row, nowMs) {
   }
 }
 function deskViewCount(rows, key, nowMs) { return rows.filter(r => deskViewMatch(key, r, nowMs)).length; }
+
+// ===== THE ATHLETE WORKSPACE (laptop, W1b 2026-10-22) =====
+// "Review last week" and "write next week" as one table. The week reviewed is the latest one
+// with a logged set; next week is the one after it. One row per block of identical sets (a top
+// set, its back-offs) of every exercise: what was written, the heaviest set logged in it, the
+// RPE against the target, and the matching block of next week with a load suggested from how
+// the logged set felt (smartNextLoad, the same rule Train uses set to set). Pure; unit-tested.
+// → { lastIdx, nextIdx, rows: [{ key, di, ei, gi, day, title, lift, target, logged, delta,
+//      next: { di, ei, startIdx, count, group, locked } | null, suggest: { kg, delta, dir } | null }] }
+function _deskPlanSets(ex) { return ((ex && ex.sets) || []).map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps })); }
+function deskWeekReview(prog, opts) {
+  opts = opts || {};
+  const weeks = (prog && prog.weeks) || [];
+  const unit = opts.unit || (typeof getUnit === 'function' ? getUnit() : 'kg');
+  let last = -1;
+  weeks.forEach((w, wi) => { if ((w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s.completed)))) last = wi; });
+  if (last < 0) return { lastIdx: -1, nextIdx: weeks.length ? 0 : -1, rows: [] };
+  const next = last + 1 < weeks.length ? last + 1 : -1;
+  const W = weeks[last], N = next >= 0 ? weeks[next] : null;
+  const rows = [];
+  (W.days || []).forEach((day, di) => (day.exercises || []).forEach((ex, ei) => {
+    const groups = groupSets(_deskPlanSets(ex));
+    const same = (e) => !!e && e.lift === ex.lift && (e.variant || '') === (ex.variant || '') && String(e.exerciseName || '') === String(ex.exerciseName || '');
+    const nd = N && (N.days || [])[di];
+    let nei = -1;
+    if (nd) nei = same((nd.exercises || [])[ei]) ? ei : (nd.exercises || []).findIndex(same);
+    const nex = nei >= 0 ? nd.exercises[nei] : null;
+    const ngroups = nex ? groupSets(_deskPlanSets(nex)) : [];
+    groups.forEach((g, gi) => {
+      const sets = (ex.sets || []).slice(g.startIdx, g.startIdx + g.count);
+      const done = sets.filter(s => s.completed);
+      const top = done.slice().sort((a, b) => (Number(b.weight) || 0) - (Number(a.weight) || 0) || (Number(b.actualRpe) || 0) - (Number(a.actualRpe) || 0))[0] || null;
+      const tgt = g.rpe == null || g.rpe === '' ? null : (g.rpeHi != null && Number(g.rpeHi) > Number(g.rpe) ? Number(g.rpeHi) : Number(g.rpe));
+      const felt = top && top.actualRpe != null && top.actualRpe !== '' ? Number(top.actualRpe) : null;
+      const ng = ngroups[gi] || null;
+      const nsets = ng ? nex.sets.slice(ng.startIdx, ng.startIdx + ng.count) : [];
+      const locked = nsets.some(s => s.completed);
+      let suggest = null;
+      // A % set's load follows the max, and RPE-less back-offs give nothing to go on: no guess.
+      if (top && ng && !locked && ng.pct == null && felt != null && tgt != null && ng.rpe != null && ng.rpe !== '') {
+        const s = smartNextLoad({ weight: top.weight, planned: g.weight, reps: top.reps, rpe: felt, target: tgt },
+          { weight: ng.weight, reps: ng.reps, rpe: ng.rpe, weightHi: ng.weightHi }, unit);
+        if (s) suggest = { kg: s.kg, delta: s.delta, dir: s.dir };
+        else if (Number(ng.weight) > 0) suggest = { kg: Number(ng.weight), delta: 0, dir: 'hold' };
+      }
+      rows.push({
+        key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(ex), lift: ex.lift,
+        target: g,
+        logged: top ? { weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length }
+          : (sets.some(s => s.skipped) ? { skipped: true, n: 0, of: sets.length } : null),
+        delta: top && felt != null && tgt != null ? Math.round((felt - tgt) * 10) / 10 : null,
+        next: ng ? { di, ei: nei, startIdx: ng.startIdx, count: ng.count, group: ng, locked } : null,
+        suggest
+      });
+    });
+  }));
+  return { lastIdx: last, nextIdx: next, rows };
+}
+// The suggested load written into next week's block: same sets, the new weight (a range keeps its
+// top only while it's still above the new load).
+function deskSuggestedSets(sets, kg) {
+  return (sets || []).map(s => {
+    const n = Object.assign({}, s, { weight: Math.round(Number(kg) * 1000) / 1000 });
+    delete n.plannedWeight;
+    if (!(Number(n.weightHi) > n.weight)) delete n.weightHi;
+    return n;
+  });
+}
+// Apply next week: replace each edited block of sets in week nextIdx. A block with a logged set
+// in it is never touched. edits: [{ di, ei, startIdx, count, sets }]. Mutates weeks; returns how
+// many blocks changed.
+function deskApplyNextWeek(weeks, nextIdx, edits) {
+  const wk = (weeks || [])[nextIdx];
+  if (!wk) return 0;
+  let n = 0;
+  // Later blocks first, so an edit that changes a block's size never shifts the next one's index.
+  (edits || []).slice().sort((a, b) => a.di - b.di || a.ei - b.ei || b.startIdx - a.startIdx).forEach(e => {
+    const ex = ((wk.days || [])[e.di] || { exercises: [] }).exercises[e.ei];
+    if (!ex || !Array.isArray(e.sets) || !e.sets.length) return;
+    const cur = (ex.sets || []).slice(e.startIdx, e.startIdx + e.count);
+    if (cur.length !== e.count || cur.some(s => s.completed)) return;
+    ex.sets.splice(e.startIdx, e.count, ...e.sets);
+    n++;
+  });
+  return n;
+}
+// Check-in answers as a table: each question a row, the last four training weeks as columns
+// (oldest first). A week's cell is the average of a daily number, the weekly answer, or how many
+// days said yes. A cell is marked against the lifter's own four-week baseline, and only when it's
+// outside it in the direction that matters (soreness up, sleep down); pain said yes is an alert.
+function deskCheckinGrid(questions, answers, athleteId, todayIso, nWeeks) {
+  const t = todayIso || todayISO();
+  const n = nWeeks || 4;
+  const weeks = [];
+  for (let i = n - 1; i >= 0; i--) weeks.push(_addDaysISO(_monISO(t), -7 * i));
+  const rows = checkinQuestionsFor(questions, athleteId).map(q => {
+    const mine = (answers || []).filter(a => a.questionId === q.id && a.athleteId === athleteId);
+    const p = String(q.prompt || '');
+    const cells = weeks.map(m => {
+      const inWk = mine.filter(a => _monISO(String(a.period).slice(0, 10)) === m).sort((a, b) => String(b.period).localeCompare(String(a.period)));
+      if (!inWk.length) return null;
+      if (q.kind === 'yesno') {
+        const yes = inWk.filter(a => Number(a.num) >= 1).length;
+        return { num: yes, text: yes ? (q.cadence === 'daily' && inWk.length > 1 ? 'Yes ' + yes + '×' : 'Yes') : 'No' };
+      }
+      if (q.kind === 'scale' || q.kind === 'number') {
+        const v = inWk.filter(a => a.num != null && a.num !== '').map(a => Number(a.num)).filter(x => isFinite(x));
+        if (!v.length) return null;
+        const avg = Math.round(v.reduce((s, x) => s + x, 0) / v.length * 10) / 10;
+        return { num: avg, text: String(_num(avg)) };
+      }
+      return { text: String(inWk[0].text || '') };
+    });
+    const nums = q.kind === 'scale' || q.kind === 'number' ? cells.filter(c => c && c.num != null).map(c => c.num) : [];
+    const base = nums.length >= 2 ? Math.round(nums.reduce((s, x) => s + x, 0) / nums.length * 10) / 10 : null;
+    const badHigh = /sore|pain|stress|tired|fatigue/i.test(p);
+    const badLow = !badHigh && /mood|energy|sleep|ready|readiness|feel/i.test(p);
+    const band = q.kind === 'scale' ? 1 : Math.max(0.5, (base || 0) * 0.1);
+    cells.forEach(c => {
+      if (!c) return;
+      if (q.kind === 'yesno') { if (c.num > 0 && /pain|niggle|injur|hurt/i.test(p)) c.tone = 'alert'; return; }
+      if (base == null || c.num == null) return;
+      if ((badHigh && c.num >= base + band) || (badLow && c.num <= base - band)) c.tone = 'warn';
+    });
+    return { q, cells, base };
+  });
+  return { weeks, rows };
+}
+
+// ===== THE SYNC CHIP (lifter's Train, W1b 2026-10-22) =====
+// Sets that couldn't reach the server wait on the device (OFFLINE-SAFE LOGGING below) and go
+// when the connection comes back. Train says so next to the date: "Saved on this phone · 3 sets
+// syncing", then "Synced 14:02" once the queue has drained (for half a day; a set that saved
+// straight away needs no chip). Pure: st = { sets, changes, lastDrain }, fmt(ms) → "14:02".
+function syncChipState(st, nowMs, where, fmt) {
+  if (!st) return null;
+  const place = where || 'phone';
+  if (st.sets > 0 || st.changes > 0) {
+    return { tone: 'pending', text: 'Saved on this ' + place + ' · ' + (st.sets > 0 ? st.sets + (st.sets === 1 ? ' set' : ' sets') + ' syncing' : 'syncing') };
+  }
+  const now = nowMs || Date.now();
+  if (st.lastDrain > 0 && now - st.lastDrain >= 0 && now - st.lastDrain < 12 * 3600000) {
+    return { tone: 'done', text: 'Synced ' + (fmt ? fmt(st.lastDrain) : new Date(st.lastDrain).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })) };
+  }
+  return null;
+}
 
 // ===== BLOCKS (2026-10-22) =====
 // A program with logged training is kept as a past block before anything replaces it (the next

@@ -201,6 +201,14 @@ and has its own small scale. Phones and the app never see it.
   (quiet, drift, block done); `--dk-gold` `#ffc23d` / `#7a4f00` (PRs, meets); `--dk-ok` `#34d982` / `#0f7d47`.
 - No stage light, no tinted washes: plain `--bg` surfaces. Red only on the one primary action and pain.
 - Avatars are muted tints in both themes (light: about 12% of the hue, initials in its dark ink).
+- Three button weights (W1b): the red primary (one per screen: Message / Reply / Publish / Assign),
+  the ink button (`.dk-btn.is-ink`, text-on-ink) for a strong second action such as Apply next week
+  or Save, and the bordered / quiet buttons for the rest. A disabled ink button goes to a hairline.
+- An edit not yet published or applied carries a 1px ink outline (grid cells, next-week inputs) until
+  it goes out; nothing else outlines in ink.
+- Tables inside a pane fold columns by the pane's width (container queries), never by the window:
+  the workspace folds "written" under the exercise name below 640px; Programs drops the block size,
+  then the maxes, then the Grid/Weeks toggle into ⋯ as the inspector narrows it.
 
 ## Do's and Don'ts
 

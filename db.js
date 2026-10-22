@@ -248,6 +248,11 @@ function mapDbBlock(r) {
     stats: r.stats || null, startedOn: r.started_on, endedOn: r.ended_on, createdAt: r.created_at };
 }
 const _BLOCK_COLS = 'id, athlete_id, coach_id, name, maxes, stats, started_on, ended_on, created_at';
+// Coach-private notes (migration-coach-notes-2026-10-22.sql): only the coach who wrote one reads it.
+function mapDbCoachNote(r) {
+  return { id: r.id, coachId: r.coach_id, athleteId: r.athlete_id, body: r.body || '', createdAt: r.created_at, updatedAt: r.updated_at || r.created_at };
+}
+const _COACH_NOTE_COLS = 'id, coach_id, athlete_id, body, created_at, updated_at';
 function mapDbTemplate(r) {
   return { id: r.id, coachId: r.coach_id, name: r.name, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(), payload: r.payload };
 }
@@ -1683,6 +1688,67 @@ const DB = {
     return { ok: true };
   },
 
+  // ---------- COACH-PRIVATE NOTES (migration-coach-notes-2026-10-22.sql) ----------
+  // Until the migration runs, a coach's notes live on this device (localStorage, per coach) and
+  // every answer carries local: true, so the desk can say so. Once the table exists, the next
+  // load moves any device notes up and clears them here.
+  _cnKey(coachId) { return 'powa-coach-notes-' + coachId; },
+  _cnLocal(coachId, list) {
+    try {
+      if (list === undefined) return JSON.parse(localStorage.getItem(this._cnKey(coachId)) || '[]') || [];
+      if (!list.length) localStorage.removeItem(this._cnKey(coachId)); else localStorage.setItem(this._cnKey(coachId), JSON.stringify(list));
+    } catch (e) {}
+    return list || [];
+  },
+  _cnNew(n) { return { id: n.id || ('local-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), coachId: n.coachId, athleteId: n.athleteId, body: String(n.body || '').slice(0, 4000), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), local: true }; },
+  async listCoachNotes(coachId) {
+    const { data, error } = await sb.from('coach_notes').select(_COACH_NOTE_COLS).eq('coach_id', coachId).order('created_at', { ascending: false }).limit(2000);
+    if (error) {
+      if (_isNotReady(error)) this._cnReady = false; else console.warn('listCoachNotes', error);
+      return this._cnLocal(coachId).map(n => Object.assign(n, { local: true }));
+    }
+    this._cnReady = true;
+    const out = (data || []).map(mapDbCoachNote);
+    const loc = this._cnLocal(coachId);
+    if (loc.length) {
+      const rows = loc.map(n => ({ coach_id: coachId, athlete_id: n.athleteId, body: n.body }));
+      const up = await sb.from('coach_notes').insert(rows).select(_COACH_NOTE_COLS);
+      if (!up.error) { this._cnLocal(coachId, []); (up.data || []).forEach(r => out.unshift(mapDbCoachNote(r))); }
+      else loc.forEach(n => out.unshift(Object.assign(n, { local: true })));
+    }
+    return out;
+  },
+  async addCoachNote(n) {
+    if (this._cnReady !== false) {
+      const { data, error } = await sb.from('coach_notes').insert({ coach_id: n.coachId, athlete_id: n.athleteId, body: String(n.body || '').slice(0, 4000) }).select(_COACH_NOTE_COLS).single();
+      if (!error) return { ok: true, note: mapDbCoachNote(data) };
+      if (!_isNotReady(error)) return { ok: false, error };
+      this._cnReady = false;
+    }
+    const note = this._cnNew(n);
+    this._cnLocal(n.coachId, [note].concat(this._cnLocal(n.coachId)));
+    return { ok: true, note, local: true };
+  },
+  async updateCoachNote(note, body) {
+    const text = String(body || '').slice(0, 4000);
+    if (!note.local && this._cnReady !== false) {
+      const { data, error } = await sb.from('coach_notes').update({ body: text }).eq('id', note.id).select(_COACH_NOTE_COLS).single();
+      if (!error) return { ok: true, note: mapDbCoachNote(data) };
+      return { ok: false, error };
+    }
+    const list = this._cnLocal(note.coachId).map(x => x.id === note.id ? Object.assign(x, { body: text, updatedAt: new Date().toISOString() }) : x);
+    this._cnLocal(note.coachId, list);
+    return { ok: true, note: Object.assign({}, note, { body: text, local: true }), local: true };
+  },
+  async deleteCoachNote(note) {
+    if (!note.local && this._cnReady !== false) {
+      const { error } = await sb.from('coach_notes').delete().eq('id', note.id);
+      return error ? { ok: false, error } : { ok: true };
+    }
+    this._cnLocal(note.coachId, this._cnLocal(note.coachId).filter(x => x.id !== note.id));
+    return { ok: true, local: true };
+  },
+
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
@@ -2564,7 +2630,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily] = await Promise.all([
+      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, coachNotes] = await Promise.all([
         this.listInvites(profile.id),
         this.listProgramsForCoach(profile.id),
         this.listTemplates(profile.id),
@@ -2579,9 +2645,11 @@ const DB = {
         this.listCheckinQuestions().catch(() => []),
         this.listCheckinAnswers(_ciSince).catch(() => []),
         this.listProgramBlocks(athleteIds).catch(() => []),
-        this.listHealthDaily(athleteIds).catch(() => [])
+        this.listHealthDaily(athleteIds).catch(() => []),
+        this.listCoachNotes(profile.id).catch(() => [])
       ]);
       empty.healthDaily = healthDaily;
+      empty.coachNotes = coachNotes;
       empty.checkinQuestions = ciQs;
       empty.checkinAnswers = ciAs;
       empty.programBlocks = blocks;

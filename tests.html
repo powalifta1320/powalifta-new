@@ -869,6 +869,25 @@ test('coach desk: reasons in severity order, queue, views, wins', () => {
     q = deskQueue(rows, { today: t, snoozed: { b: '2026-10-23' } });
     eq(q.queue.map(r => r.athlete.id).join(), 'a'); eq(q.snoozed.length, 1);
     eq(deskQueue(rows, { today: '2026-10-23', snoozed: { b: '2026-10-23' } }).queue.length, 2);   // tomorrow it's back
+    // Today's bar counts real work: nothing yet = 0; a reply / applied week = handled (still listed);
+    // E = done; S = snoozed (still counted in the total); a NEW reason after a reply un-handles them.
+    q = deskQueue(rows, { today: t });
+    eq(q.progress, 0); eq(q.total, 2); eq(q.handled.length, 0);
+    const hb = { b: { at: now, sig: deskReasonSig(rows[1].reasons), via: 'reply' } };
+    q = deskQueue(rows, { today: t, handled: hb });
+    eq(q.progress, 1); eq(q.handled.map(r => r.athlete.id).join(), 'b'); eq(q.queue.length, 2);   // stays listed till E
+    q = deskQueue(rows, { today: t, handled: hb, reviewed: rev });
+    eq(q.progress, 2); eq(q.done.length, 1); eq(q.handled.length, 1);
+    q = deskQueue(rows, { today: t, handled: hb, reviewed: { b: { at: now, sig: deskReasonSig(rows[1].reasons) } } });
+    eq(q.progress, 1); eq(q.handled.length, 0);   // done, not double-counted
+    q = deskQueue(rows, { today: t, snoozed: { b: '2026-10-23' } });
+    eq(q.progress, 1); eq(q.total, 2);
+    q = deskQueue(rows, { today: t, handled: { a: { at: now, sig: 'meet,weight', via: 'apply' } } });
+    eq(q.progress, 0);   // pain and overshoot came after the reply: not handled
+    // The reply cleared their only reason: they leave the list but still count (N doesn't shrink).
+    const rowsB = rows.map(r => r.athlete.id === 'b' ? Object.assign({}, r, { reasons: [] }) : r);
+    q = deskQueue(rowsB, { today: t, handled: hb });
+    eq(q.total, 2); eq(q.progress, 1); eq(q.queue.length, 1); eq(q.cleared.length, 1);
     // Views
     eq(deskViewCount(rows, 'meet', now), 1); eq(deskViewCount(rows, 'pain', now), 1);
     eq(deskViewCount(rows, 'quiet', now), 1); eq(deskViewCount(rows, 'new', now), 1); eq(deskViewCount(rows, 'needs', now), 2);
@@ -885,6 +904,72 @@ test('coach desk: reasons in severity order, queue, views, wins', () => {
     const tt = deskTotalTrend('n', t);
     eq(tt.values.length, 2); eq(Math.round(tt.values[0]), 308); eq(Math.round(tt.delta * 10) / 10, 5.5);
   } finally { Store.set(saved); }
+});
+test('athlete workspace: last week vs next week, RPE suggestions, apply', () => {
+  const mk = (w, r, rpe, done, actual, extra) => Object.assign({ id: 'x' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: actual == null ? null : actual, completedAt: done ? '2026-10-20' : null }, extra || {});
+  const prog = { id: 'p', weeks: [
+    { number: 1, days: [
+      { name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [mk(180, 3, 8, true, 9), mk(155, 5, 7, true, 7), mk(155, 5, 7, true, 7.5)] },
+        { lift: 'squat', variant: 'Paused', sets: [mk(147.5, 4, null, true, 7, { pct: 70 })] }] },
+      { name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [mk(0, 3, 8, true, 7, { weight: 110, plannedWeight: 0 })] }] },
+      { name: 'Pull', exercises: [{ lift: 'deadlift', variant: 'Competition', sets: [mk(200, 3, 8, false)] }] } ] },
+    { number: 2, days: [
+      { name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [mk(182.5, 3, 8, false), mk(160, 5, 7.5, false), mk(160, 5, 7.5, false)] },
+        { lift: 'squat', variant: 'Paused', sets: [mk(150, 4, null, false, null, { pct: 72.5 })] }] },
+      { name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [mk(0, 3, 8.5, false)] }] },
+      { name: 'Pull', exercises: [{ lift: 'deadlift', variant: 'Competition', sets: [mk(205, 3, 8, false)] }] } ] }
+  ] };
+  const r = deskWeekReview(prog, { unit: 'kg' });
+  eq(r.lastIdx, 0); eq(r.nextIdx, 1); eq(r.rows.length, 5);
+  const top = r.rows[0];
+  eq(top.title, 'Squat'); eq(top.logged.weight, 180); eq(top.delta, 1);
+  eq(top.suggest.dir, 'down'); eq(top.suggest.kg < 182.5, true); eq(top.suggest.kg >= 182.5 * 0.9, true);   // a point over: lighter, never more than 10%
+  eq(r.rows[1].logged.n, 2); eq(r.rows[1].delta, 0.5);   // the heavier RPE of the two back-offs counts
+  eq(r.rows[2].suggest, null);    // a % block follows the max: no guess
+  eq(r.rows[3].suggest.dir, 'set'); eq(r.rows[3].suggest.kg > 0, true);   // RPE-only next week: a load to start from
+  eq(r.rows[4].logged, null); eq(r.rows[4].suggest, null);   // nothing logged: nothing to go on
+  // On target: hold.
+  prog.weeks[0].days[0].exercises[0].sets[0].actualRpe = 8;
+  eq(deskWeekReview(prog, { unit: 'kg' }).rows[0].suggest.dir, 'hold');
+  // Apply: replaces the block, never a logged one; a changed count shifts nothing else.
+  const nextEx = prog.weeks[1].days[0].exercises[0];
+  const n = deskApplyNextWeek(prog.weeks, 1, [
+    { di: 0, ei: 0, startIdx: 0, count: 1, sets: deskSuggestedSets(nextEx.sets.slice(0, 1), 177.5) },
+    { di: 0, ei: 0, startIdx: 1, count: 2, sets: [newSet(157.5, 5, 7.5), newSet(157.5, 5, 7.5), newSet(157.5, 5, 7.5)] }
+  ]);
+  eq(n, 2); eq(nextEx.sets.length, 4); eq(nextEx.sets[0].weight, 177.5); eq(nextEx.sets[3].weight, 157.5);
+  nextEx.sets[0].completed = true;
+  eq(deskApplyNextWeek(prog.weeks, 1, [{ di: 0, ei: 0, startIdx: 0, count: 1, sets: [newSet(170, 3, 8)] }]), 0);
+  eq(deskWeekReview({ weeks: [{ days: [{ exercises: [{ lift: 'squat', sets: [mk(100, 5, 7, false)] }] }] }] }).lastIdx, -1);
+  eq(deskSuggestedSets([{ weight: 100, weightHi: 102.5, plannedWeight: 95 }], 105)[0].weightHi, undefined);
+});
+test('athlete workspace: check-ins as four weeks against their baseline', () => {
+  const t = '2026-10-22';
+  const qs = [{ id: 's', prompt: 'How many hours did you sleep?', kind: 'number', cadence: 'daily', active: true },
+    { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true },
+    { id: 'n', prompt: 'How was your nutrition this week?', kind: 'choice', cadence: 'weekly', active: true },
+    { id: 'o', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true }];
+  const a = (q, d, num, text) => ({ questionId: q, athleteId: 'a', period: d, num: num == null ? null : num, text: text || null });
+  const ans = [a('s', '2026-10-01', 8), a('s', '2026-10-08', 8), a('s', '2026-10-15', 8), a('s', '2026-10-20', 6), a('s', '2026-10-21', 6),
+    a('p', '2026-10-21', 1), a('p', '2026-10-20', 0), a('n', '2026-10-19', null, 'Off'),
+    a('o', '2026-10-01', 3), a('o', '2026-10-08', 3), a('o', '2026-10-15', 3), a('o', '2026-10-21', 6), a('s', '2026-10-21', null), { questionId: 's', athleteId: 'b', period: '2026-10-21', num: 2 }];
+  const g = deskCheckinGrid(qs, ans, 'a', t);
+  eq(g.weeks.join(), '2026-09-28,2026-10-05,2026-10-12,2026-10-19');
+  const sleep = g.rows[0];
+  eq(sleep.cells.map(c => c && c.text).join(), '8,8,8,6'); eq(sleep.cells[3].tone, 'warn'); eq(sleep.cells[0].tone, undefined);
+  eq(g.rows[1].cells[3].text, 'Yes 1×'); eq(g.rows[1].cells[3].tone, 'alert'); eq(g.rows[1].cells[0], null);
+  eq(g.rows[2].cells[3].text, 'Off');
+  eq(g.rows[3].cells[3].tone, 'warn');   // soreness up is the bad direction
+});
+test('sync chip: waiting sets, then synced, then gone', () => {
+  const fmt = () => '14:02';
+  const now = Date.parse('2026-10-22T15:00:00Z');
+  eq(syncChipState({ sets: 3, changes: 0, lastDrain: 0 }, now, 'phone', fmt).text, 'Saved on this phone · 3 sets syncing');
+  eq(syncChipState({ sets: 1, changes: 2, lastDrain: 0 }, now, 'device', fmt).text, 'Saved on this device · 1 set syncing');
+  eq(syncChipState({ sets: 0, changes: 1, lastDrain: 0 }, now, 'phone', fmt).tone, 'pending');
+  eq(syncChipState({ sets: 0, changes: 0, lastDrain: now - 3600000 }, now, 'phone', fmt).text, 'Synced 14:02');
+  eq(syncChipState({ sets: 0, changes: 0, lastDrain: now - 13 * 3600000 }, now, 'phone', fmt), null);
+  eq(syncChipState({ sets: 0, changes: 0, lastDrain: 0 }, now, 'phone', fmt), null);
 });
 test('App Store paywall: says which failure it hit', () => {
   const plan = { id: 'com.powalifta.app.coach.pro' };
