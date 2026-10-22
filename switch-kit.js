@@ -136,7 +136,13 @@ var SwitchKit = (function () {
   // "140x5 @8", "140kg x 5 x 3", "3x5 140", "5 x 140kg", "140 for 5", "315lb x 3 1 RIR",
   // "140kg 5 reps". → { kg (in the written unit), unit ('kg'|'lb'|null), reps, sets, rpe } or null.
   // Bare "3x5" has no load (a prescription, not a set).
+  var SET_TEXT_MAX = 120, JOURNAL_LINE_MAX = 400;
   function parseSetText(raw) {
+    // A set is a few words. A longer cell is never one, and is refused before any regex sees it:
+    // the unanchored patterns below backtrack polynomially, so a crafted run of digits thousands
+    // long froze the coach's tab for minutes (2026-10-22 security pass). 120 keeps every real
+    // "Squat 3x5 @8 tempo 3-1-0 w/ chains 20kg" and costs well under a millisecond at worst.
+    if (raw != null && String(raw).length > SET_TEXT_MAX) return null;
     // Tempo, pauses, bands / chains and "Key: value" come out first, so "w/ chains 20kg" is never
     // the load (app.js parseSetFields). They ride along as `fields`, into the set's note.
     var fields = {};
@@ -357,7 +363,10 @@ var SwitchKit = (function () {
       res.dateOrder = jord === 'ambiguous' ? (opts.dateOrder || 'dmy') : (jord || opts.dateOrder || 'dmy');
       var SET_RE = /(\d+(?:[.,]\d+)?)\s*(?:kgs?|lbs?)?\s*(?:x|×|\*|for)\s*\d/i;
       rows.forEach(function (r) {
-        var t = r.cells.join(delim === '\t' ? ' ' : (delim || ' ')).replace(/^[\s•\-*–]+/, '').trim();
+        var t = r.cells.join(delim === '\t' ? ' ' : (delim || ' '));
+        // A journal line is a date and a few sets: a huge one is skipped before the regexes run.
+        if (t.length > JOURNAL_LINE_MAX) { journal.push({ r: r, kind: 'none' }); return; }
+        t = t.replace(/^[\s•\-*–]+/, '').trim();
         var lead = t.match(/^((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+)?([0-9]{4}[-\/.][0-9]{1,2}[-\/.][0-9]{1,2}|[0-9]{1,2}[-\/.][0-9]{1,2}[-\/.][0-9]{2,4}|[0-9]{1,2}(?:st|nd|rd|th)?\s+[a-z]{3,9}\.?,?\s+[0-9]{2,4}|[a-z]{3,9}\.?\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})\b[\s:,\-–]*/i);
         var d = lead ? parseDate(lead[2], res.dateOrder) : null;
         if (d) { cur = d; curRaw = lead[2]; t = t.slice(lead[0].length).trim(); if (!t) return; }

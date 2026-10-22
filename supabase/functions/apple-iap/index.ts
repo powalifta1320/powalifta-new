@@ -5,9 +5,9 @@
 // browser/webview never touches tier (profiles privilege guard blocks it anyway).
 //
 //   POST { signedTransaction: "<jws>" }   -> verify + upgrade -> { ok, tier, expiresAt }
-//   POST { action: "clear" }              -> self-downgrade when the device holds no
-//                                            active entitlement and the profile says
-//                                            Apple-billed -> { ok, tier: "free" }
+//   (There is no client "clear": an Apple plan ends through apple-notifications — REFUND,
+//   EXPIRED... — and the stored period end. The unused { action: "clear" } branch was removed in
+//   the 2026-10-22 security pass so nobody assumes a client downgrade exists.)
 //
 // Security model:
 //   - Verify JWT ON: the caller is identified ONLY from their session JWT.
@@ -27,17 +27,22 @@
 //     after it unless a renewal moves it on (migration-payments-2026-10-22.sql).
 //   - The app sends the HIGHEST current entitlement, not the purchase it just made: a
 //     downgrade only takes effect at renewal, so the tier must not drop the moment it's bought.
-//   - Sandbox environment is accepted (App Review + TestFlight purchases are sandbox).
+//   - A Sandbox transaction (TestFlight, App Review, Xcode) is free to make, so it only grants a
+//     plan to the accounts listed in APPLE_SANDBOX_UIDS (2026-10-22 security pass: before, any
+//     TestFlight tester got a real paid plan on the production database for nothing).
 //
 // Env: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (auto-injected). Optional:
 //   APPLE_ROOT_CA_B64 — base64 DER of Apple Root CA - G3 to pin the root offline.
+//   APPLE_SANDBOX_UIDS — comma-separated POWALIFTA user ids a Sandbox purchase may upgrade:
+//     the App Review demo coach and the owner's own test accounts. SET IT BEFORE DEPLOYING,
+//     or App Review's sandbox purchase won't unlock the plan.
 //
 // Deploy: WITH_JWT group in deploy.sh. Rate-limited via the #26 shared helper.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 import { verifyAppleJws } from "../_shared/apple-jws.ts";
-import { lsLive, selectProfilesSoft, updateProfileSoft } from "../_shared/billing.ts";
+import { lsLive, sandboxAllowed, selectProfilesSoft, updateProfileSoft } from "../_shared/billing.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -83,7 +88,7 @@ Deno.serve(async (req) => {
   const rl = await rateLimit(admin, { bucket: "apple-iap", identity: uid, limit: 60, windowSecs: 3600 });
   if (!rl.ok) return rateLimitResponse(rl, CORS);
 
-  let body: { signedTransaction?: string; action?: string };
+  let body: { signedTransaction?: string };
   try {
     body = await req.json();
   } catch {
@@ -95,23 +100,6 @@ Deno.serve(async (req) => {
     (q) => q.eq("id", uid).limit(1));
   const profile = rows?.[0];
   if (profErr || !profile) return json(404, { error: "profile_not_found" });
-
-  // ---- self-downgrade: device reports no active entitlement --------------------
-  if (body.action === "clear") {
-    if (!profile.apple_original_transaction_id || lsLive(profile)) {
-      return json(200, { ok: false, reason: "not_apple_billed" });
-    }
-    const { error } = await updateProfileSoft(admin, uid, {
-      subscription_tier: "free",
-      subscription_status: "expired",
-      apple_original_transaction_id: null,
-      subscription_updated_at: new Date().toISOString(),
-      billing_provider: null,
-      subscription_period_end: new Date().toISOString(),
-    });
-    if (error) return json(500, { error: "update_failed" });
-    return json(200, { ok: true, tier: "free" });
-  }
 
   // ---- purchase / restore / renewal sync ---------------------------------------
   const jws = body.signedTransaction;
@@ -129,6 +117,13 @@ Deno.serve(async (req) => {
   const productId = String(payload.productId ?? "");
   const tier = PRODUCT_TIERS[productId];
   if (payload.bundleId !== BUNDLE_ID || !tier) return json(400, { error: "unknown_product" });
+
+  // Sandbox purchases cost nothing: only the allowlisted test / App Review accounts get a plan.
+  const env = String(payload.environment ?? "Production");
+  if (env !== "Production" && !sandboxAllowed(uid)) {
+    console.warn("apple-iap: sandbox transaction for a non-allowlisted account ignored", { env });
+    return json(200, { ok: false, reason: "sandbox_not_allowed" });
+  }
 
   const token = String(payload.appAccountToken ?? "").toLowerCase();
   if (!token || token !== uid.toLowerCase()) {

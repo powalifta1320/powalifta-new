@@ -10876,9 +10876,17 @@ function brandInitials(name) {
   const w = String(name || '').trim().split(/\s+/).filter(Boolean);
   return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase();
 }
+// A logo is only ever loaded from our own storage (the coach's upload; guard_coach_brand enforces
+// the same on the server) or a local preview: another host would learn every athlete's IP and when
+// they open the app (the iPhone bundle has no CSP to stop it).
+function brandLogoOk(url) {
+  const u = String(url || '');
+  return /^https:\/\/cxnotrikxvzncupswvio\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]{36}\/brand[A-Za-z0-9._-]{0,60}(\?t=[0-9]{1,16})?$/.test(u) ||
+    /^data:image\/(svg\+xml|png|jpeg|webp)[;,]/.test(u) || /^blob:/.test(u);
+}
 // The team's mark: their logo, else their initials on their colour.
 function brandMark(brand, cls) {
-  if (brand && brand.logoUrl) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
+  if (brand && brand.logoUrl && brandLogoOk(brand.logoUrl)) return el('img', { class: 'brand-mark ' + (cls || ''), src: brand.logoUrl, alt: '' });
   return el('span', { class: 'brand-mark brand-mono ' + (cls || ''), style: brand && brand.color ? '--brand-c:' + brand.color : '', 'aria-hidden': 'true' }, brandInitials(brand && brand.name));
 }
 function demoCoachBrand() {

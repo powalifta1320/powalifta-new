@@ -847,16 +847,6 @@ const DB = {
       return { ok: false, reason: String((e && e.message) || e) };
     }
   },
-  // Device reports no active Apple entitlement → self-downgrade (server checks
-  // the profile really is Apple-billed before touching anything).
-  async appleIapClear() {
-    try {
-      const { data, error } = await sb.functions.invoke('apple-iap', { body: { action: 'clear' } });
-      if (error) return { ok: false };
-      return data && data.ok ? { ok: true, tier: data.tier } : { ok: false };
-    } catch (_) { return { ok: false }; }
-  },
-
   async signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -2458,13 +2448,24 @@ const DB = {
   },
 
   // ---------- CHECK-IN QUESTIONS (migration-checkin-questions-2026-10-22.sql) ----------
-  // RLS decides what comes back: a coach gets their own questions, an athlete their current
-  // coach's active questions meant for them. Before the migration runs everything here returns
-  // empty / { ok: false, notReady: true }, so the app simply shows no questions.
+  // A coach reads their own questions from the table (RLS). An athlete gets their current coach's
+  // active questions meant for them from my_checkin_questions(), which leaves out who else a
+  // targeted question went to (migration-security-2026-10-22.sql; before it runs the table
+  // policy still serves the athlete, and the RPC 404s). Before the feature's migration everything
+  // here returns empty / { ok: false, notReady: true }, so the app simply shows no questions.
   async listCheckinQuestions() {
-    const { data, error } = await sb.from('checkin_questions').select('*').order('position', { ascending: true }).order('created_at', { ascending: true });
-    if (error) { if (!_isNotReady(error)) console.warn('listCheckinQuestions', error); return []; }
-    return (data || []).map(mapDbCheckinQuestion);
+    const [own, mine] = await Promise.all([
+      sb.from('checkin_questions').select('*').order('position', { ascending: true }).order('created_at', { ascending: true }),
+      sb.rpc('my_checkin_questions')
+    ]);
+    if (own.error && !_isNotReady(own.error)) console.warn('listCheckinQuestions', own.error);
+    if (mine.error && !_isNotReady(mine.error)) console.warn('my_checkin_questions', mine.error);
+    const out = [], seen = new Set();
+    [].concat(own.error ? [] : (own.data || []), mine.error ? [] : (mine.data || [])).forEach(r => {
+      if (!r || seen.has(r.id)) return;
+      seen.add(r.id); out.push(mapDbCheckinQuestion(r));
+    });
+    return out.sort((a, b) => (a.position - b.position) || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
   },
   async saveCheckinQuestion(q) {
     const row = mapJsCheckinQuestion(q);

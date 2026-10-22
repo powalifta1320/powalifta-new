@@ -3259,8 +3259,12 @@ function _gridActualHtml(ex) {
     else if (s.skipped) skipped++;
   });
   if (!runs.length && !skipped) return '';
-  return runs.map(r => r.miss ? '<s title="Missed attempt">' + kgToDisplay(r.w) + '×' + r.r + '</s>'
-    : '<span' + (r.over ? ' class="is-over" title="Over what was written"' : '') + '>' + (r.n > 1 ? r.n + '×' : '') + kgToDisplay(r.w) + '×' + r.r + (r.rpe ? ' @' + _num(r.rpe) : '') + '</span>').join(', ') +
+  // Every value is the athlete's own write (programs_athlete_update): numbers only, and escaped
+  // anyway, since this string goes in as HTML.
+  const n = (v) => { const x = Number(v); return isFinite(x) ? x : ''; };
+  const w = (v) => { const d = kgToDisplay(n(v)); return d == null ? '' : escHtml(String(d)); };
+  return runs.map(r => r.miss ? '<s title="Missed attempt">' + w(r.w) + '×' + escHtml(String(n(r.r))) + '</s>'
+    : '<span' + (r.over ? ' class="is-over" title="Over what was written"' : '') + '>' + (r.n > 1 ? r.n + '×' : '') + w(r.w) + '×' + escHtml(String(n(r.r))) + (n(r.rpe) ? ' @' + escHtml(String(_num(r.rpe))) : '') + '</span>').join(', ') +
     (skipped ? '<i>' + (runs.length ? ' · ' : '') + skipped + ' skipped</i>' : '');
 }
 
