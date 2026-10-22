@@ -12327,6 +12327,19 @@ html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2
 .health-sheet .hs-refused b { color: var(--text); font-weight: 650; }
 .hr-bars i.is-none { height: 3px; opacity: 0.25; background: var(--text-3); }
 
+/* ===== The sync chip on Train (W1b, 2026-10-22) =====
+   Next to the date while sets wait on the device for a connection, then "Synced 14:02". */
+.th-sync {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07); color: var(--text-2); vertical-align: 1px; white-space: nowrap;
+  font: 600 11px/1.45 var(--font-body); letter-spacing: 0; text-transform: none;
+}
+.th-sync::before { content: ''; width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--ok, #34d982); }
+.th-sync.is-pending::before { background: var(--warn, #ffb35c); animation: thSyncPulse 1.6s ease-in-out infinite; }
+@keyframes thSyncPulse { 50% { opacity: 0.35; } }
+[data-theme="light"] .th-sync { background: rgba(15, 15, 25, 0.06); }
+@media (prefers-reduced-motion: reduce) { .th-sync.is-pending::before { animation: none; } }
+
 /* ===== PAIN FLAGS (brief 4.1): "Something hurt", tell your coach in three taps =====
    The body map is a three-column figure (left side · midline · right side) with a hairline spine;
    the 1–10 scale is ink, no traffic-light colours. */

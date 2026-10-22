@@ -82,15 +82,19 @@ with checks(n, migration, applied) as (values
                  where s.nspname = 'public' and p.proname = 'my_coach_brand')),
   (33, 'migration-health-2026-10-22.sql  (1.3, Apple Health)',
         to_regclass('public.health_daily') is not null),
-  (34, 'migration-program-integrity-2026-10-22.sql  (programs.rev + log_program_set)',
+  (34, 'migration-history-import-2026-10-22.sql  (Switch kit: history import)',
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'workout_logs' and policyname = 'workout_logs_coach_import')),
+  (35, 'migration-coach-notes-2026-10-22.sql',
+        to_regclass('public.coach_notes') is not null),
+  (36, 'migration-program-integrity-2026-10-22.sql  (programs.rev + log_program_set)',
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'log_program_set')),
-  (35, 'migration-pain-reports-2026-10-22.sql',
+  (37, 'migration-pain-reports-2026-10-22.sql',
         to_regclass('public.pain_reports') is not null),
-  (36, 'migration-voice-notes-2026-10-22.sql  (voice-notes bucket + messages_voice_meta)',
+  (38, 'migration-voice-notes-2026-10-22.sql  (voice-notes bucket + messages_voice_meta)',
         exists (select 1 from storage.buckets where id = 'voice-notes')
         and exists (select 1 from pg_constraint where conname = 'messages_voice_meta')),
-  (37, 'migration-readiness-cut-2026-10-22.sql  (HRV, nutrition_daily, goal cut targets)',
+  (39, 'migration-readiness-cut-2026-10-22.sql  (HRV, nutrition_daily, goal cut targets)',
         to_regclass('public.nutrition_daily') is not null
         and exists (select 1 from information_schema.columns
                      where table_schema = 'public' and table_name = 'goals' and column_name = 'target_class'))
