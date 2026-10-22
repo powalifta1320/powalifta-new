@@ -164,6 +164,7 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   fs.readFileSync(path.join(ROOT, 'clubs.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'health.js')) ? fs.readFileSync(path.join(ROOT, 'health.js'), 'utf8') : '') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'switch-kit.js')) ? fs.readFileSync(path.join(ROOT, 'switch-kit.js'), 'utf8') : '') + '\n;\n' +
+  (fs.existsSync(path.join(ROOT, 'voice.js')) ? fs.readFileSync(path.join(ROOT, 'voice.js'), 'utf8') : '') + '\n;\n' +
   // VIDEO REVIEW hook: the review tool's pure geometry (tests.html "video review")
   (fs.existsSync(path.join(ROOT, 'video-review.js')) ? fs.readFileSync(path.join(ROOT, 'video-review.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');

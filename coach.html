@@ -328,6 +328,7 @@
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
+<script src="voice.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script src="desk.js"></script>
@@ -403,6 +404,7 @@ bootstrap('coach', () => {
   _deskCall('deskWatch');
   refreshUnreadBadges();
   subscribeRosterMessages();
+  subscribePainReports();
   refreshFormChecks();
 
   // A plan bought or changed anywhere (web checkout, the App Store, another device)
@@ -483,6 +485,9 @@ window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
 function renderCoachYou() {
   const area = document.getElementById('youArea');
   if (!area) return;
+  // The laptop desk: Settings in two columns (desk.js). The phone keeps the You list.
+  area.classList.remove('dk-set');
+  if (_desk() && typeof deskRenderSettings === 'function') { deskRenderSettings(area); return; }
   const roster = getRosterOverview(user.id);
   const activeWeek = roster.filter(r => r.ago != null && r.ago <= 7).length;
   const tier = getCurrentTier();
@@ -659,9 +664,12 @@ function attentionReasonText(r) {
   if (r.type === 'inactive') return r.days == null ? 'Never logged a set' : r.days + 'd since training';
   if (r.type === 'stalling') return 'e1RM stalling' + (r.lifts && r.lifts.length ? ' · ' + r.lifts.map(l => ATT_LIFT_LBL[l] || l).join('/') : '');
   if (r.type === 'adherence') return r.pct + '% of program done';
+  if (r.type === 'pain') return r.text;
   return '';
 }
-function attentionReasonClass(type) {
+// Pain is red only at severity 3 (7/10+, or the same part twice in a week): a 1/10 niggle is amber.
+function attentionReasonClass(type, r) {
+  if (type === 'pain') return r && Number(r.severity) >= 3 ? 'danger' : 'warn';
   return type === 'inactive' ? 'danger' : type === 'stalling' ? 'warn' : 'muted';
 }
 function buildAttentionPanel() {
@@ -692,7 +700,7 @@ function buildAttentionPanel() {
     const mid = el('div', { class: 'att-mid' });
     mid.appendChild(el('div', { class: 'att-name' }, it.athlete.name));
     const chips = el('div', { class: 'att-chips' });
-    it.reasons.forEach(r => chips.appendChild(el('span', { class: 'att-chip ' + attentionReasonClass(r.type) }, attentionReasonText(r))));
+    it.reasons.forEach(r => chips.appendChild(el('span', { class: 'att-chip ' + attentionReasonClass(r.type, r) }, attentionReasonText(r))));
     if (it.prCount > 0) chips.appendChild(el('span', { class: 'att-chip win' }, it.prCount + ' PR' + (it.prCount === 1 ? '' : 's') + ' this week'));
     mid.appendChild(chips);
     row.appendChild(mid);
@@ -1166,15 +1174,26 @@ function openAthleteSheet(athleteId) {
     // Shared from Apple Health (only when they share): last night and the resting heart rate.
     const rcv = recoveryRows(athleteRecovery(a.id));
     if (rcv.length) { sheet.appendChild(uiLabel('Recovery')); sheet.appendChild(uiList(rcv)); }
+    // The cut (class line, pace) and food when they share it (app.js buildCutSection).
+    buildCutSection(a.id, { nutritionRows: (Store.get().nutritionDaily || []).filter(r => r.athleteId === a.id) }).forEach(n => sheet.appendChild(n));
+    // Pain they told you about (app.js buildPainSection): tap one to resolve it with a note.
+    const painNodes = buildPainSection(a.id, () => setTimeout(() => { try { renderRoster(); } catch (e) {} openAthleteSheet(a.id); }, 260));
+    painNodes.forEach(n => sheet.appendChild(n));
+    // Days the Pain section above already covers: a yes to "Any pain?" on one of them says it twice.
+    const painDays = painNodes.length ? (Store.get().painReports || []).filter(r => r.athleteId === a.id).map(r => String(r.day).slice(0, 10)).filter(d => d >= _addDaysISO(todayISO(), -13)) : [];
+    const saidAbove = (q, s) => painDays.length && q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last && s.last.num >= 1 &&
+      painDays.some(d => q.cadence === 'weekly' ? d >= s.last.period && d <= _addDaysISO(s.last.period, 6) : d === s.last.period);
     // Their answers to your check-in questions: the latest, and the average or the yes count.
     const ciQs = checkinQuestionsFor((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id), a.id);
-    if (ciQs.length) {
+    const ciRows = ciQs.map(q => {
+      const s = checkinSummary(q, Store.get().checkinAnswers, a.id);
+      if (saidAbove(q, s)) return null;
+      const low = s.last && ((q.kind === 'scale' && /sore|pain|stress|tired|fatigue/i.test(q.prompt) ? s.last.num >= 8 : q.kind === 'scale' && s.last.num <= 3) || (q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last.num >= 1));
+      return uiRow({ title: q.prompt, sub: checkinSummaryText(q, s), subTone: low ? 'alert' : null });
+    }).filter(Boolean);
+    if (ciRows.length) {
       sheet.appendChild(uiLabel('Check-in'));
-      sheet.appendChild(uiList(ciQs.map(q => {
-        const s = checkinSummary(q, Store.get().checkinAnswers, a.id);
-        const low = s.last && ((q.kind === 'scale' && /sore|pain|stress|tired|fatigue/i.test(q.prompt) ? s.last.num >= 8 : q.kind === 'scale' && s.last.num <= 3) || (q.kind === 'yesno' && /pain|niggle|injur|hurt/i.test(q.prompt) && s.last.num >= 1));
-        return uiRow({ title: q.prompt, sub: checkinSummaryText(q, s), subTone: low ? 'alert' : null });
-      })));
+      sheet.appendChild(uiList(ciRows));
     }
     if (o.lastLog) {
       const day = (Store.get().workoutLogs || []).filter(l => l.athleteId === a.id && l.date === o.lastLog.date);
@@ -1404,6 +1423,9 @@ function renderAthletePage(athleteId) {
   if (!host) return;
   host.innerHTML = '';
   if (!a) { document.getElementById('tab-athletes').click(); return; }
+  // The laptop desk draws the athlete workspace instead (desk.js): last week → next week, the
+  // lifts, check-ins, notes and meets, with private notes and the thread in the side pane.
+  if (_desk() && typeof deskRenderWorkspace === 'function') { deskRenderWorkspace(host, athleteId); return; }
   const st = coachAthleteStatus(athleteId, { coachId: user.id });
   const u = unitLabel();
   const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
@@ -1655,14 +1677,19 @@ function renderRoster() {
     const wins = items.filter(i => i.prCount > 0);
     if (flagged.length || wins.length) {
       area.appendChild(flagged.length ? uiLabel('Needs attention', { count: flagged.length }) : uiLabel('This week'));
-      const rows = flagged.slice(0, 6).map(it => uiRow({
+      const rows = flagged.slice(0, 6).map(it => {
+        // One flag per fact: a pain report says what the check-in's "Pain yesterday" says, only
+        // better, so that check-in line goes and the pain flag leads.
+        const pain = it.reasons.filter(r => r.type === 'pain');
+        const ci = pain.length ? it.ciAlerts.filter(x => !/^Pain\b/.test(x.text)) : it.ciAlerts;
+        return uiRow({
         av: it.athlete.name,
         title: it.athlete.name,
-        sub: it.ciAlerts.map(x => x.text).concat(it.reasons.map(attentionReasonText)).join(' · '),
-        subTone: (it.severity >= 3 || it.ciAlerts.some(x => x.severity >= 2)) ? 'alert' : null,
+        sub: pain.map(attentionReasonText).concat(ci.map(x => x.text), it.reasons.filter(r => r.type !== 'pain').map(attentionReasonText)).join(' · '),
+        subTone: (it.severity >= 3 || ci.some(x => x.severity >= 2)) ? 'alert' : null,
         chevron: true,
         onClick: () => openAthleteSheet(it.athlete.id)
-      }));
+      }); });
       // This week's PRs get their own row only when nobody needs attention (the hero counts
       // them and the faces wear a trophy): a "Needs attention 2" list with three rows read wrong.
       if (wins.length && !flagged.length) {
@@ -1802,9 +1829,10 @@ function openAthleteProgram(athleteId) {
   setTimeout(() => { document.getElementById('progAthlete').value = athleteId; loadProgram(); }, 50);
 }
 
-async function notifyAthleteAssigned() {
+async function notifyAthleteAssigned(aidArg) {
   if (window._demoMode) { toast('Preview only in demo mode'); return; }
-  const aid = document.getElementById('progAthlete').value;
+  // The desk's Publish and Apply next week pass whose program it is.
+  const aid = (typeof aidArg === 'string' && aidArg) || document.getElementById('progAthlete').value;
   if (!aid) { toast('Pick an athlete first'); return; }
   const s = Store.get();
   const athlete = (s.athletes || []).find(a => a.id === aid);
@@ -1928,6 +1956,36 @@ function scheduleUnreadRefresh() {
   clearTimeout(_unreadRefreshTimer);
   _unreadRefreshTimer = setTimeout(refreshUnreadBadges, 450);
 }
+// A program save merged with the lifter's logging (or another tab): the builder repaints when it
+// shows that program and nobody is typing in it.
+window.addEventListener('powa:program-merged', (e) => {
+  const sel = document.getElementById('progAthlete'), area = document.getElementById('programArea');
+  if (!sel || !area || !e.detail || progIdForAthlete(sel.value) !== e.detail.id || !area.offsetParent) return;
+  const a = document.activeElement;
+  if (a && area.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;
+  try { loadProgram(); } catch (err) {}
+});
+// Pain flags arrive live (migration-pain-reports-2026-10-22.sql puts pain_reports in Realtime):
+// the roster repaints with the new flag. Hook for the desk: the Store's painReports + 'powa:pain'.
+var _painSubCleanup = null;
+function subscribePainReports() {
+  if (window._demoMode || !user || _painSubCleanup || typeof DB.subscribePainReports !== 'function') return;
+  _painSubCleanup = DB.subscribePainReports((r, ev) => {
+    if (!r || !r.id) return;
+    if (ev === 'DELETE') Store.update(s => { s.painReports = (s.painReports || []).filter(x => x.id !== r.id); });
+    else Store.update(s => { const list = s.painReports || (s.painReports = []); const i = list.findIndex(x => x.id === r.id); if (i >= 0) list[i] = r; else list.unshift(r); });
+    try { window.dispatchEvent(new CustomEvent('powa:pain', { detail: Object.assign({ eventType: ev || 'INSERT' }, r) })); } catch (e) {}
+    _repaintRosterSoon();
+  });
+}
+var _rosterRepaintT = null;
+function _repaintRosterSoon() {
+  clearTimeout(_rosterRepaintT);
+  _rosterRepaintT = setTimeout(() => {
+    const pane = document.querySelector('[data-pane="athletes"]');
+    if (pane && !pane.classList.contains('hidden') && !document.querySelector('.ui-sheet-veil')) { try { renderRoster(); } catch (e) {} }
+  }, 300);
+}
 function subscribeRosterMessages() {
   if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
   _rosterMsgCleanup = DB.subscribeMessages({ column: 'coach_id', value: user.id }, (m) => {
@@ -2002,6 +2060,9 @@ function _sampleThread() {
 async function renderMessages() {
   const area = document.getElementById('messagesArea');
   if (!area) return;
+  area.classList.remove('dk-msgs');
+  // The laptop desk: threads, the thread and the athlete's context side by side (desk.js).
+  if (_desk() && _deskCall('deskRenderMessages', area)) return;
   area.innerHTML = '';
 
   const roster = getRosterOverview(user.id).map(o => o.athlete);
@@ -2672,6 +2733,22 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
 // PASTE A PROGRAM (app.js parseProgramSheet): straight out of Google Sheets,
 // Excel or Notes. A live preview shows what was understood (and which lines
 // weren't) before it replaces the athlete's program or becomes a template.
+// A .csv as the tab-separated text the importer reads (quoted cells keep their commas).
+function _csvToTabs(text) {
+  return String(text || '').replace(/\r/g, '').split('\n').map(line => {
+    const out = [];
+    let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out.join('\t');
+  }).join('\n');
+}
 function openSheetImport(athleteId) {
   const ath = athleteId ? ((Store.get().athletes || []).find(a => a.id === athleteId) || {}) : null;
   const first = ath ? (ath.name || 'athlete').split(' ')[0] : '';
@@ -2680,6 +2757,25 @@ function openSheetImport(athleteId) {
     const ta = el('textarea', { class: 'imp-text', rows: '8', spellcheck: 'false', 'aria-label': 'Program to import',
       placeholder: 'Week\tDay\tExercise\tSets\tReps\tLoad\tRPE\n1\tDay 1\tSquat\t3\t5\t160\t7\n\nor\n\nWeek 1\nDay 1\nSquat 3x5 @7\nBench 4x6 @ 82.5kg' });
     sheet.appendChild(ta);
+    // The laptop desk: a .csv saved from Sheets or Excel opens straight in (phones paste).
+    if (_desk()) {
+      const pick = el('input', { type: 'file', accept: '.csv,.tsv,.txt,text/csv,text/plain', hidden: '', 'aria-label': 'Open a .csv file' });
+      const openBtn = el('button', { class: 'imp-file', type: 'button' }, 'Or open a .csv file');
+      openBtn.addEventListener('click', () => pick.click());
+      pick.addEventListener('change', () => {
+        const f = pick.files && pick.files[0];
+        if (!f) return;
+        if (f.size > 2000000) { toast('That file is over 2 MB. Paste the block instead'); return; }
+        f.text().then(t => {
+          const firstLine = String(t).split('\n')[0] || '';
+          ta.value = /\t/.test(firstLine) ? t : _csvToTabs(t);
+          if (name.value === 'Imported program') name.value = f.name.replace(/\.[^.]+$/, '').slice(0, 80) || 'Imported program';
+          paint();
+        }).catch(() => toast('That file didn\'t open'));
+      });
+      sheet.appendChild(openBtn);
+      sheet.appendChild(pick);
+    }
     const name = el('input', { type: 'text', class: 'imp-name', value: 'Imported program', 'aria-label': 'Program name' });
     const preview = el('div', { class: 'imp-preview' });
     sheet.appendChild(preview);
@@ -2888,6 +2984,8 @@ function _gridParse(text, athleteId, lift, prog) {
 }
 function buildProgramGrid(prog, athleteId, opts) {
   const ro = !!(opts && opts.readOnly);   // a past block: look, don't touch
+  // The laptop desk (desk.js): the fill lives in the inspector, edits feed Notify's count.
+  const desk = !!(opts && opts.desk) && !ro;
   const wrap = el('div', { class: 'pg-grid-wrap' + (ro ? ' is-ro' : '') });
   const lbs = getUnit() === 'lbs';
   const unitTag = lbs ? 'lb' : 'kg';
@@ -2981,6 +3079,7 @@ function buildProgramGrid(prog, athleteId, opts) {
     persistProgram(prog.id);
     inp.value = _gridCellText(exAt(W, D, E)); inp.dataset.orig = inp.value;
     paintFoot();
+    if (desk) _deskCall('deskGridEdited');
   };
   // Week 1 written; weeks 2, 3, 4 filled with the same sets moved on a step each week.
   function fillRight(kind) {
@@ -3059,7 +3158,11 @@ function buildProgramGrid(prog, athleteId, opts) {
         'aria-label': r.label + ', week ' + w.number, value: _gridCellText(ex), placeholder: ex ? '' : '–' });
       inp.dataset.orig = inp.value; inp.dataset.wi = wi; inp.dataset.di = r.di; inp.dataset.ei = r.ei; inp.dataset.row = ri;
       if (logged || ro) { inp.readOnly = true; inp.title = ro ? 'A past block' : 'Logged by the athlete. Edit in Weeks view.'; }
-      inp.addEventListener('focus', () => { lastCell = inp; paintFillLbl(); table.querySelectorAll('td.is-src').forEach(n => n.classList.remove('is-src')); td.classList.add('is-src'); });
+      td.dataset.cell = wi + '.' + r.di + '.' + r.ei;
+      inp.addEventListener('focus', () => {
+        lastCell = inp; paintFillLbl(); table.querySelectorAll('td.is-src').forEach(n => n.classList.remove('is-src')); td.classList.add('is-src');
+        if (desk) _deskCall('deskGridFocus', { athleteId, wi, di: r.di, ei: r.ei, label: r.label });
+      });
       inp.addEventListener('blur', () => { if (!inp.readOnly) commit(inp); });
       inp.addEventListener('keydown', (e) => {
         const atStart = inp.selectionStart === 0 && inp.selectionEnd === 0;
@@ -3071,6 +3174,12 @@ function buildProgramGrid(prog, athleteId, opts) {
         else if (e.key === 'ArrowLeft' && (e.altKey || atStart || inp.readOnly)) { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, 0, -1); }
         else if (e.key === 'ArrowRight' && (e.altKey || atEnd || inp.readOnly)) { e.preventDefault(); if (!inp.readOnly) commit(inp); move(inp, 0, 1); }
         else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z') && inp.value === inp.dataset.orig && undo.length) { e.preventDefault(); doUndo(); }
+        // The desk's sheet keys: ⌘⇧R picks a progression for the weeks after, ⌘D copies the cell above.
+        else if (desk && (e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (!inp.readOnly) commit(inp); _deskCall('deskGridFillMenu', inp); }
+        else if (desk && (e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D') && !inp.readOnly) {
+          e.preventDefault();
+          for (let rr = ri - 1; rr >= 0; rr--) { const up = cells[rr] && cells[rr][wi]; if (up) { undo.push([{ inp, prev: inp.dataset.orig }]); paintUndo(); inp.value = up.value; commit(inp, true); inp.select(); break; } }
+        }
       });
       // A block pasted from a spreadsheet fills across (weeks) and down (exercises).
       inp.addEventListener('paste', (e) => {
@@ -3146,6 +3255,8 @@ function buildProgramGrid(prog, athleteId, opts) {
   const scroller = el('div', { class: 'pg-grid-scroll' });
   scroller.appendChild(table);
   wrap.appendChild(scroller);
+  if (desk) wrap._api = { fill: fillRight, undo: doUndo };
+  if (opts && opts.desk) _deskCall('deskGridFit', table);   // laptop: every week column as wide as its longest prescription
   if (!rows.some(r => !r.day)) wrap.appendChild(uiEmpty({ title: 'No exercises yet', text: 'Add them in Weeks view, or paste a whole program in.', primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(athleteId) } }));
   return wrap;
 }
@@ -3174,6 +3285,10 @@ function loadProgram() {
   const athleteId = sel.value;
   const area = document.getElementById('programArea');
   area.innerHTML = '';
+  // The laptop desk: a list pane of athletes and templates beside the builder (desk.js). A
+  // template open there owns the centre.
+  const desk = _desk() && typeof deskBuilderFrame === 'function';
+  if (desk && deskBuilderFrame()) return;
 
   // Nobody to pick or notify yet: no empty dropdown, no Notify.
   const notifyBtn = document.getElementById('notifyAthleteBtn');
@@ -3200,6 +3315,7 @@ function loadProgram() {
   }
 
   let prog = getProgramForAthlete(athleteId);
+  if (!prog && desk) { deskBuilderEmpty(area, athleteId); _deskCall('deskSyncCtx'); return; }
   if (!prog) {
     const e = el('div', { class: 'empty' });
     const ic = el('div', { class: 'empty-icon' }); ic.innerHTML = ICONS.program;
@@ -3222,7 +3338,7 @@ function loadProgram() {
   prog.weeks.forEach(wk => wk.days.forEach(d => d.exercises.forEach(ex => ensureExerciseShape(ex))));
 
   const athName = (Store.get().athletes.find(a => a.id === athleteId) || {}).name;
-  area.appendChild(_programAthleteStrip(athleteId));
+  if (!desk) area.appendChild(_programAthleteStrip(athleteId));
   const head = el('div', { class: 'ui-hero pb-head' });
   const headRow = el('div', { class: 'pb-head-row' });
   const nameInput = el('input', {
@@ -3238,7 +3354,7 @@ function loadProgram() {
   // logged program; otherwise it waits in ⋯.
   const _pbSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
   const blockOpen = _pbSets.length > 0 && _pbSets.some(s => !s.completed);
-  progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
+  const progActions = () => [
     { label: 'Notify ' + ((athName || 'athlete').split(' ')[0]), icon: ICONS.chat, onClick: () => notifyAthleteAssigned() },
     blockOpen ? { label: 'Rebuild from goal…', icon: ICONS.program, onClick: () => openGoalModal(athleteId) } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
@@ -3254,7 +3370,18 @@ function loadProgram() {
     { label: 'Replace from a spreadsheet', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
     { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
-  ]));
+  ];
+  progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', progActions()));
+  // The desk: one 48px row (name · size · maxes · Grid|Weeks · ⋯ · Publish), the grid by default.
+  if (desk) {
+    const dview = deskPbView();
+    area.appendChild(deskBuilderHead(prog, athleteId, progActions(), dview));
+    if (dview === 'grid') {
+      area.appendChild(buildProgramGrid(prog, athleteId, { desk: true }));
+      _deskCall('deskBuilderDone');
+      return;
+    }
+  }
   headRow.appendChild(progMore);
   head.appendChild(headRow);
   // How big the block is and how much of it is done, in one line.
@@ -3282,10 +3409,11 @@ function loadProgram() {
     nb.addEventListener('click', () => openNextBlockSheet(prog.id, athleteId));
     head.appendChild(nb);
   }
-  area.appendChild(head);
+  if (!desk) area.appendChild(head);
 
   // On a desktop: Weeks (one week, day cards) or Grid (every week side by side, typed like a sheet).
-  const canGrid = !document.documentElement.classList.contains('native') && window.matchMedia && matchMedia('(min-width: 900px)').matches;
+  // (The desk has its own toggle in the one-row header.)
+  const canGrid = !desk && !document.documentElement.classList.contains('native') && window.matchMedia && matchMedia('(min-width: 900px)').matches;
   if (canGrid) {
     const seg = el('div', { class: 'pb-view', role: 'radiogroup', 'aria-label': 'Builder view' });
     [['weeks', 'Weeks'], ['grid', 'Grid']].forEach(([k, t]) => {
@@ -3384,6 +3512,7 @@ function loadProgram() {
 
   builder.appendChild(main);
   area.appendChild(builder);
+  if (desk) _deskCall('deskBuilderDone');
 }
 
 // Helpers that mutate the program
@@ -3706,6 +3835,8 @@ function confirmAddExercise() {
 
 // ===== TEMPLATES =====
 function renderTemplates() {
+  // The laptop desk keeps templates in Programs (the list pane's Templates tab).
+  if (_desk() && _deskCall('deskShowTemplates')) return;
   const area = document.getElementById('templatesArea');
   area.innerHTML = '';
   const tpls = (Store.get().programTemplates || []).filter(t => t.coachId === user.id);

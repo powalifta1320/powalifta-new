@@ -10,7 +10,8 @@
 // What gets erased:
 //   1. Best-effort Storage sweep of the caller's own objects — every file under
 //      `<uid>/` in the private `form-checks` bucket and the public `avatars`
-//      bucket (deleting the auth user does NOT remove Storage objects).
+//      bucket (deleting the auth user does NOT remove Storage objects), plus every
+//      voice note in their coach <-> athlete threads (`voice-notes`, both sides).
 //   2. auth.admin.deleteUser(uid) — one call that CASCADES across every table
 //      whose FK to profiles(id)/auth.users(id) is ON DELETE CASCADE (profile,
 //      logs, programs, bodyweight, goals, meets, messages, program_reviews,
@@ -62,6 +63,29 @@ async function purgeBucket(admin: any, bucket: string, uid: string): Promise<num
   }
 }
 
+// Voice notes (migration-voice-notes-2026-10-22.sql) live at <coach>/<athlete>/<sender>/<id>
+// in `voice-notes`. Every recording in a thread this person was part of goes: theirs and the
+// other side's (those message rows cascade away with the account, so the files would be
+// orphans). Collected from the message rows BEFORE deleteUser removes them. Never fatal.
+async function purgeVoiceNotes(admin: any, uid: string): Promise<number> {
+  try {
+    const { data, error } = await admin.from('messages').select('meta')
+      .or(`coach_id.eq.${uid},athlete_id.eq.${uid}`).eq('meta->>type', 'voice').limit(10000);
+    if (error || !data) return 0;
+    const paths = data.map((r: any) => r && r.meta && r.meta.path)
+      .filter((p: unknown) => typeof p === 'string' && (p as string).includes(uid));
+    let n = 0;
+    for (let i = 0; i < paths.length; i += 100) {
+      const { error: rmErr } = await admin.storage.from('voice-notes').remove(paths.slice(i, i + 100));
+      if (rmErr) console.error('purge voice-notes remove failed:', rmErr); else n += Math.min(100, paths.length - i);
+    }
+    return n;
+  } catch (e) {
+    console.error('purge voice-notes crashed:', e);
+    return 0;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -91,6 +115,7 @@ Deno.serve(async (req) => {
   // 1) Best-effort Storage sweep (never fatal).
   const purgedForms = await purgeBucket(admin, 'form-checks', uid);
   const purgedAvatars = await purgeBucket(admin, 'avatars', uid);
+  const purgedVoice = await purgeVoiceNotes(admin, uid);
 
   // 2) The erasure itself. Cascades across all ON DELETE CASCADE FKs; program_sales
   //    rows are retained with a nulled identity (see migration-account-deletion.sql).
@@ -103,5 +128,5 @@ Deno.serve(async (req) => {
     return json({ error: 'deletion failed', detail: String((delErr as any)?.message || delErr) }, 500);
   }
 
-  return json({ deleted: true, purged: { forms: purgedForms, avatars: purgedAvatars } });
+  return json({ deleted: true, purged: { forms: purgedForms, avatars: purgedAvatars, voice: purgedVoice } });
 });

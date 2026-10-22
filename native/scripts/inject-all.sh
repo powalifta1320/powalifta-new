@@ -9,4 +9,5 @@ ruby inject-live-activity.rb   # RestTimer plugin + PowaWidget target (Live Acti
 ruby inject-iap.rb             # StoreKit coach subscriptions
 ruby inject-home-screen.rb     # plate-colour app icons + the Total widget
 ruby inject-health.rb          # Apple Health (1.3): plugin, entitlement, permission texts
+ruby inject-voice.rb           # voice notes: the microphone permission text (after inject-live-activity)
 ruby inject-video-export.rb    # form-check clips exported to H.264 MP4 (video review, M6)

@@ -14,6 +14,12 @@
      recovery        last night's sleep and resting heart rate: on Train's "How do you feel
                      today?", on Progress, in check-in questions about sleep, and with the coach
                      only when the lifter shares them (health_daily, migration-health-2026-10-22.sql)
+     readiness       resting HR + HRV against the lifter's own 28 days (app.js readinessFrom): a
+                     longer rest suggestion between top sets on a low day. Watch data only; an
+                     iPhone alone has none and nothing shows (brief 4.2)
+     food            calories + protein logged in other apps, as 7-day averages on the cut card;
+                     with the coach only under its own switch (nutrition_daily,
+                     migration-readiness-cut-2026-10-22.sql). A day with nothing is "not logged"
 
    The lifter's choices live per account on this device (Health permissions are per device too). */
 (function () {
@@ -55,11 +61,18 @@
     await new Promise(r => setTimeout(r, 500));
     const pulled = await pullWeights();
     await recovery(true);
+    await nutrition(true);
     return { ok: true, canWriteWeight: !!r.canWriteWeight, canWriteWorkouts: !!r.canWriteWorkouts, imported: pulled.imported, conflicts: pulled.conflicts };
   }
+  // Health off also stops both kinds of sharing. If the server can't be told right now (offline,
+  // a hiccup) the switch-off is remembered and retried on the next open / reconnect until the
+  // profile really says off: the coach must never keep reading what the screen says is private.
   async function disable() {
     put('on', false);
-    if (getShare()) await setShare(false);
+    const out = { ok: true, pending: [] };
+    if (getShare()) { const r = await setShare(false); if (!(r && r.ok)) { markOffPending('health'); out.ok = false; out.pending.push('health'); } }
+    if (getShareFood()) { const r = await setShareFood(false); if (!(r && r.ok)) { markOffPending('food'); out.ok = false; out.pending.push('food'); } }
+    return out;
   }
 
   // What iOS let POWALIFTA do. It says whether saving is allowed; reading it never says (a refused
@@ -218,9 +231,12 @@
     const p = P();
     // A read that fails (HealthKit busy, the connection dropping) is tried once more.
     const once = (fn) => fn().catch(() => new Promise(r => setTimeout(r, 700)).then(fn));
-    const [sl, hr] = await Promise.all([
+    // 35 days of heart data: readiness compares the last days with the lifter's own 28 before them.
+    // An app build from before HRV existed rejects readHRV: no HRV, everything else as before.
+    const [sl, hr, hv] = await Promise.all([
       once(() => p.readSleep({ nights: 14 })).catch(() => ({ nights: [] })),
-      once(() => p.readRestingHeartRate({ days: 21 })).catch(() => ({ samples: [] }))
+      once(() => p.readRestingHeartRate({ days: 35 })).catch(() => ({ samples: [] })),
+      (typeof p.readHRV === 'function' ? once(() => p.readHRV({ days: 35 })) : Promise.resolve({ samples: [] })).catch(() => ({ samples: [] }))
     ]);
     const nights = (sl.nights || []).map(n => ({ night: n.night, minutes: Number(n.minutes) || 0 }));
     const hrs = hr.samples || [];
@@ -231,12 +247,63 @@
       nights,
       rhr: latest && latest.day >= daysAgo(1) ? Number(latest.bpm) : null,
       rhrBase: rhrBaseline(hrs),
-      rhrDays: (() => { const d = {}; hrs.forEach(s => { if (!(s.day in d)) d[s.day] = Number(s.bpm); }); return Object.keys(d).sort().map(k => ({ day: k, bpm: d[k] })); })()
+      rhrDays: (() => { const d = {}; hrs.forEach(s => { if (!(s.day in d)) d[s.day] = Number(s.bpm); }); return Object.keys(d).sort().map(k => ({ day: k, bpm: d[k] })); })(),
+      hrvDays: hrvDaily(hv.samples)
     };
+    rec.readiness = typeof readinessFrom === 'function' ? readinessFrom(heartRows(rec), today) : null;
     put('recovery', rec);
     if (getShare()) { try { await shareRecovery(rec); } catch (e) {} }
     return rec;
   }
+  // HRV comes as a few samples a day (a Watch takes them while you sleep): one number a day, the
+  // day's average, oldest first.
+  function hrvDaily(samples) {
+    const by = {};
+    (samples || []).forEach(s => { if (s && s.day && Number(s.ms) > 0) (by[s.day] = by[s.day] || []).push(Number(s.ms)); });
+    return Object.keys(by).sort().map(d => ({ day: d, ms: Math.round(by[d].reduce((a, v) => a + v, 0) / by[d].length * 10) / 10 }));
+  }
+  // The heart days readiness reads: [{ day, rhr, hrv }].
+  function heartRows(rec) {
+    const by = {};
+    (rec.rhrDays || []).forEach(x => { (by[x.day] = by[x.day] || { day: x.day }).rhr = x.bpm; });
+    (rec.hrvDays || []).forEach(x => { (by[x.day] = by[x.day] || { day: x.day }).hrv = x.ms; });
+    return Object.keys(by).sort().map(k => by[k]);
+  }
+  function cachedReadiness() { const r = cachedRecovery(); return r && r.readiness ? r.readiness : null; }
+
+  // ---------------------------------------------------------------- food (the cut card)
+  async function nutrition(force) {
+    if (!isOn() || !(await available())) return null;
+    const p = P();
+    if (typeof p.readNutrition !== 'function') return null;   // an app build from before this
+    const today = typeof todayISO === 'function' ? todayISO() : isoDay(Date.now());
+    const c = get('food', null);
+    if (!force && c && c.day === today && Date.now() - c.at < 30 * 60000) return c;
+    let res;
+    try { res = await p.readNutrition({ days: 14 }); } catch (e) { return c && c.day === today ? c : null; }
+    const days = (res.days || []).filter(d => d && d.day && (Number(d.kcal) > 0 || Number(d.proteinG) > 0))
+      .map(d => ({ day: d.day, kcal: Number(d.kcal) > 0 ? Math.round(Number(d.kcal)) : null, proteinG: Number(d.proteinG) > 0 ? Number(d.proteinG) : null }));
+    const food = { day: today, at: Date.now(), days };
+    put('food', food);
+    if (getShareFood() && days.length && !window._demoMode && window.DB && DB.saveNutritionDaily) { try { await DB.saveNutritionDaily(days.slice(0, 14)); } catch (e) {} }
+    return food;
+  }
+  function cachedNutrition() {
+    if (!isOn()) return null;
+    const f = get('food', null);
+    return f && f.day === (typeof todayISO === 'function' ? todayISO() : isoDay(Date.now())) ? f : null;
+  }
+  function getShareFood() {
+    const u = (typeof getCurrentUser === 'function' && getCurrentUser()) || {};
+    if (!window._demoMode && typeof u.shareNutrition === 'boolean') return u.shareNutrition;
+    return get('share-food', false) === true;
+  }
+  async function setShareFood(on) {
+    const r = await writeShare('food', on);
+    if (r && r.ok && on && !window._demoMode) { const f = get('food', null); if (f && f.days && f.days.length) { try { await DB.saveNutritionDaily(f.days); } catch (e) {} } }
+    return r;
+  }
+
   // A suggestion for "How do you feel today?" from last night and the heart rate.
   function suggestReadiness(rec) {
     if (!rec || (rec.sleepMin == null && rec.rhr == null)) return null;
@@ -269,29 +336,54 @@
     return get('share', false) === true;
   }
   async function setShare(on) {
-    put('share', !!on);
-    const u = (typeof getCurrentUser === 'function' && getCurrentUser()) || null;
-    if (u) u.shareHealth = !!on;
-    if (window._demoMode || !(window.DB && DB.setShareHealth)) return { ok: true };
-    const r = await DB.setShareHealth(!!on);
-    if (r && r.ok && on) { const rec = get('recovery', null); if (rec) { try { await shareRecovery(rec); } catch (e) {} } }
-    return r || { ok: false };
+    const r = await writeShare('health', on);
+    if (r && r.ok && on && !window._demoMode) { const rec = get('recovery', null); if (rec) { try { await shareRecovery(rec); } catch (e) {} } }
+    return r;
   }
+  // One write for both switches. The phone only believes the new value once the server has it:
+  // a failed "off" leaves the switch on (true: the coach can still read it) instead of failing open.
+  const SHARE = { health: { key: 'share', uKey: 'shareHealth', fn: 'setShareHealth' }, food: { key: 'share-food', uKey: 'shareNutrition', fn: 'setShareNutrition' } };
+  async function writeShare(kind, on) {
+    const s = SHARE[kind]; on = !!on;
+    const u = (typeof getCurrentUser === 'function' && getCurrentUser()) || null;
+    const commit = () => { put(s.key, on); if (u) u[s.uKey] = on; if (!on) clearOffPending(kind); };
+    if (window._demoMode || !(window.DB && DB[s.fn])) { commit(); return { ok: true }; }
+    let r;
+    try { r = await DB[s.fn](on); } catch (e) { r = { ok: false, error: e }; }
+    r = r || { ok: false };
+    // Before the column exists nothing can be shared, so "off" is already true; "on" isn't.
+    if (r.ok || (r.notReady && !on)) { commit(); return Object.assign({}, r, { ok: true }); }
+    return r;
+  }
+  const offPending = () => { const v = get('share-off-pending', []); return Array.isArray(v) ? v : []; };
+  function markOffPending(kind) { const v = offPending(); if (v.indexOf(kind) < 0) put('share-off-pending', v.concat([kind])); }
+  function clearOffPending(kind) { const v = offPending(); if (v.indexOf(kind) >= 0) put('share-off-pending', v.filter(k => k !== kind)); }
+  // Retry a switch-off the server hasn't confirmed yet. Returns the kinds still pending.
+  let _retrying = false;
+  async function retryPendingOff() {
+    if (_retrying || window._demoMode || !uidNow()) return offPending();
+    _retrying = true;
+    try { for (const kind of offPending()) await writeShare(kind, false); }
+    finally { _retrying = false; }
+    return offPending();
+  }
+  window.addEventListener('online', () => { retryPendingOff().catch(() => {}); });
   async function shareRecovery(rec) {
     if (window._demoMode || !(window.DB && DB.saveHealthDaily)) return;
+    // Enough days for the coach's readiness dot to have the lifter's own baseline (35).
     const rows = [];
-    (rec.nights || []).slice(0, 7).forEach(n => rows.push({ day: n.night, sleepMin: n.minutes > 0 ? n.minutes : null }));
-    (rec.rhrDays || []).slice(-7).forEach(d => {
-      const row = rows.find(r => r.day === d.day);
-      if (row) row.rhr = d.bpm; else rows.push({ day: d.day, sleepMin: null, rhr: d.bpm });
-    });
-    if (rows.length) await DB.saveHealthDaily(rows.filter(r => r.sleepMin != null || r.rhr != null));
+    const row = (day) => { let r = rows.find(x => x.day === day); if (!r) { r = { day, sleepMin: null }; rows.push(r); } return r; };
+    (rec.nights || []).slice(0, 14).forEach(n => { row(n.night).sleepMin = n.minutes > 0 ? n.minutes : null; });
+    (rec.rhrDays || []).slice(-35).forEach(d => { row(d.day).rhr = d.bpm; });
+    (rec.hrvDays || []).slice(-35).forEach(d => { row(d.day).hrv = d.ms; });
+    if (rows.length) await DB.saveHealthDaily(rows.filter(r => r.sleepMin != null || r.rhr != null || r.hrv != null));
   }
 
   // ---------------------------------------------------------------- once per open
   // On launch and when the app comes back: pull weigh-ins, refresh recovery, ask about clashes.
   let _refreshing = false, _askedThisLaunch = false;
   async function refresh(onConflicts) {
+    if (offPending().length) { try { await retryPendingOff(); } catch (e) {} }
     if (_refreshing || !isOn()) return;
     _refreshing = true;
     try {
@@ -304,6 +396,7 @@
       }
       const pulled = await pullWeights();
       await recovery(false);
+      await nutrition(false);
       if (pulled.conflicts.length && typeof onConflicts === 'function') onConflicts(pulled.conflicts);
       return pulled;
     } finally { _refreshing = false; }
@@ -312,8 +405,8 @@
   window.PowaHealthJS = {
     available, couldOffer, isOn, enable, disable, refresh, pullWeights, resolveConflict, weightSaved, access, refused,
     setLogged, sessionChanged, recovery, cachedRecovery, suggestReadiness, recoveryLine, sleepText,
-    getShare, setShare,
+    getShare, setShare, cachedReadiness, nutrition, cachedNutrition, getShareFood, setShareFood, retryPendingOff, offPending,
     // pure, for tests
-    _planWeights: planWeights, _sessionWorkout: sessionWorkout, _rhrBaseline: rhrBaseline
+    _planWeights: planWeights, _sessionWorkout: sessionWorkout, _rhrBaseline: rhrBaseline, _hrvDaily: hrvDaily, _heartRows: heartRows
   };
 })();
