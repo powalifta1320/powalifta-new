@@ -94,6 +94,7 @@
 <script src="switch-kit.js"></script>
 <script src="voice.js"></script>
 <script src="video-review.js"></script>
+<script src="meetday.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -3602,6 +3603,261 @@ test('OpenPowerlifting: a planned meet on that day is not "already in"; the resu
   eq(plan[0].status, 'new'); eq(plan[0].plannedId, 'pl1');
   const have = oplPlan([Object.assign({}, m, { date: '2025-01-01' })], [{ id: 'd1', athleteId: 'a', date: '2025-01-01', status: 'done', squat: 200 }], 'a');
   eq(have[0].status, 'have'); eq(have[0].plannedId, undefined);
+});
+
+/* ===========================================================
+   Meet day (meetday.js, brief M8): the attempt planner, lifting
+   order, attempts out, warm-up timing, marks, the per-cell
+   reconcile (offline board) and the finished results
+   =========================================================== */
+group('meet day (M8)');
+const MP = (window.MeetDay && window.MeetDay.pure) || {};
+const _mdLog = (date, lift, weight, reps, rpe) => ({ athleteId: 'a', lift, variant: 'Competition', weight, reps, rpe, date,
+  e1rmComp: calcCompE1RM(weight, reps, rpe, lift, 'Competition') });
+test('planner: the projected max comes from the last six weeks, with the best single and the heavy-set reference', () => {
+  const logs = [_mdLog('2026-01-10', 'squat', 200, 3, 9), _mdLog('2026-10-01', 'squat', 180, 3, 8), _mdLog('2026-10-15', 'squat', 182.5, 1, 8),
+    _mdLog('2026-10-15', 'bench', 100, 5, 8)];
+  const p = MP.projectedMax(logs, [], 'squat', '2026-10-22');
+  eq(p.source, 'heavy', 'a February max is stale next to October sets; heavy sets (1-3 reps) predict a meet max best');
+  close(p.max, calcCompE1RM(180, 3, 8, 'squat', 'Competition'), 0.01);
+  eq(p.single.kg, 182.5); eq(p.single.date, '2026-10-15');
+  close(p.refKg, p.max, 0.01, 'the heavy-set reference (3 reps or fewer, 28 days) is the same set here');
+  const fives = [_mdLog('2026-10-10', 'squat', 170, 5, 8), _mdLog('2026-10-12', 'squat', 160, 3, 7)];
+  const f = MP.projectedMax(fives, [], 'squat', '2026-10-22');
+  eq(f.source, 'heavy'); close(f.max, calcCompE1RM(160, 3, 7, 'squat', 'Competition'), 0.01, 'a triple beats a higher e1RM from a set of five');
+  const onlyFives = MP.projectedMax([_mdLog('2026-10-10', 'squat', 170, 5, 8)], [], 'squat', '2026-10-22');
+  eq(onlyFives.source, 'recent', 'no heavy sets: the best recent e1RM'); eq(onlyFives.refKg, 0);
+  const old = MP.projectedMax(logs, [], 'deadlift', '2026-10-22');
+  eq(old.max, 0); eq(old.source, null);
+  const stale = MP.projectedMax([_mdLog('2026-01-10', 'squat', 200, 3, 9)], [{ athleteId: 'a', date: '2026-03-01', status: 'done', squat: 230 }], 'squat', '2026-10-22');
+  eq(stale.source, 'meet', 'no recent sets: the best of all-time e1RM and a real meet single'); eq(stale.max, 230);
+  const planned = MP.projectedMax([], [{ athleteId: 'a', date: '2026-11-01', status: 'planned', squat: null }], 'squat', '2026-10-22');
+  eq(planned.max, 0, 'a planned meet is never a max');
+});
+test('planner: opener, second and third from the max by strategy, on 2.5 kg, always climbing', () => {
+  const s = MP.planLift({ max: 200, refKg: 198, strategy: 'standard' });
+  eq(s.kg.join(), '182.5,192.5,200'); eq(s.pct[0], 91); eq(s.bounced, null);
+  eq(MP.planLift({ max: 200, refKg: 198, strategy: 'conservative' }).kg.join(), '177.5,190,197.5');
+  eq(MP.planLift({ max: 200, refKg: 198, strategy: 'aggressive' }).kg.join(), '185,195,205');
+  const tiny = MP.planLift({ max: 40, refKg: 40, strategy: 'standard' });
+  assert(tiny.kg[1] - tiny.kg[0] >= 2.5 && tiny.kg[2] - tiny.kg[1] >= 2.5, 'one step at least between attempts');
+  eq(MP.planLift({ max: 0, strategy: 'standard' }), null);
+});
+test('planner: the bouncer rebuilds an opener past 95% of this month-s heavy sets', () => {
+  const b = MP.planLift({ max: 220, refKg: 195, strategy: 'standard' });   // 200 opener = 103% of 195
+  assert(b.bounced && b.bounced.pct > 95, 'the bouncer fires');
+  eq(b.kg[0], 177.5, '91% of the recent reference'); eq(b.basis, 'recent');
+  eq(b.kg.join(), '177.5,187.5,195');
+});
+test('planner: second and third choices reuse the minute-s SAFE / PLAN / SEND', () => {
+  const alt = MP.planAlternatives(182.5, 192.5, 200);
+  eq(alt.map(o => o.key).join(), 'safe,plan,send'); eq(alt[0].kg, 185); eq(alt[1].kg, 192.5);
+  assert(alt[2].kg > alt[1].kg);
+});
+test('planner: total, the federation-s score and the class', () => {
+  const plan = { squat: [182.5, 192.5, 200], bench: [120, 127.5, 132.5], deadlift: [220, 232.5, 242.5] };
+  const t = MP.planTotals(plan, { bw: 73.4, sex: 'male', federation: 'USAPL', division: 'Open' });
+  eq(t.total, 575); eq(t.opening, 522.5); eq(t.score.label, 'DOTS'); close(t.score.points, dotsScore(575, 73.4, 'male'), 0.01);
+  eq(t.cls, '74 kg');
+  const gl = MP.planTotals(plan, { bw: 73.4, sex: 'male', federation: 'Powerlifting America', division: 'Open', weightClass: '74 kg' });
+  eq(gl.score.label, 'IPF GL'); eq(gl.cls, '74 kg');
+  eq(MP.planTotals({ squat: [100, 105, 110] }, {}).total, 110, 'a lift missing from the plan adds nothing');
+  eq(MP.planTotals(plan, { sex: 'male' }).score.points, 0, 'no bodyweight: no score, never a guess');
+});
+test('planner: an IPF class says how the total is scored; a USPA class says nothing', () => {
+  eq(MP.sexFromClass('63 kg'), 'female'); eq(MP.sexFromClass('84 kg+'), 'female'); eq(MP.sexFromClass(63), 'female');
+  eq(MP.sexFromClass('74 kg'), 'male'); eq(MP.sexFromClass('120 kg+'), 'male');
+  eq(MP.sexFromClass('52 kg'), null, 'a USPA men-s class too'); eq(MP.sexFromClass('67.5'), null); eq(MP.sexFromClass(''), null); eq(MP.sexFromClass('<b>'), null);
+});
+test('planner: a saved plan is cleaned (numbers on 0.5 kg, three per lift, nothing else)', () => {
+  const n = MP.normalizePlan({ squat: [182.4, '192.5', 200, 999], bench: 'x', deadlift: [220, -5, 230], strategy: 'wild', sex: 'f', note: '<b>hi</b>', evil: 1 });
+  eq(n.squat.join(), '182.5,192.5,200'); eq(n.bench, undefined); eq(n.deadlift[1], null);
+  eq(n.strategy, 'standard'); eq(n.sex, null); eq(n.evil, undefined); eq(n.v, 1);
+  assert(JSON.stringify(n).length < 600);
+});
+const _mdLifters = () => [
+  { id: 'L1', name: 'Ana', flight: 'A', lot: 3 }, { id: 'L2', name: 'Bea', flight: 'A', lot: 1 }, { id: 'L3', name: 'Cal', flight: 'A', lot: 2 },
+  { id: 'L4', name: 'Dov', flight: 'B', lot: 5 }, { id: 'L5', name: 'Eli', flight: 'B', lot: 4 }, { id: 'L6', name: 'Fay', flight: 'B', lot: 6 }];
+const _mdCells = () => {
+  const c = {}, base = { L1: 100, L2: 120, L3: 100, L4: 200, L5: 180, L6: 190 }, liftAdd = { squat: 0, bench: -40, deadlift: 30 };
+  Object.keys(base).forEach(id => MP.LIFTS.forEach(lift => [1, 2, 3].forEach(n => {
+    c[MP.attemptKey(id, lift, n)] = { lifterId: id, lift, n, kg: base[id] + liftAdd[lift] + (n - 1) * 5, status: 'planned', changes: 0, at: 0 };
+  })));
+  return c;
+};
+test('board: lifting order is lift, then flight, then round, lightest bar first, lot breaks a tie', () => {
+  const o = MP.liftingOrder(_mdLifters(), _mdCells());
+  eq(o.length, 54);
+  eq(o.slice(0, 3).map(e => e.lifterId).join(), 'L3,L1,L2', 'flight A round 1: 100 (lot 2), 100 (lot 3), 120');
+  eq(o.slice(3, 6).map(e => e.n).join(), '2,2,2');
+  eq(o[9].flight, 'B'); eq(o[9].lifterId, 'L5'); eq(o[18].lift, 'bench'); eq(o[18].flight, 'A');
+  const cells = _mdCells(); cells[MP.attemptKey('L3', 'squat', 2)].kg = 130;
+  const o2 = MP.liftingOrder(_mdLifters(), cells);
+  eq(o2.slice(3, 6).map(e => e.lifterId).join(), 'L1,L2,L3', 'a heavier declaration moves later in the round');
+});
+test('board: attempts out counts every attempt still to go before yours, other flights included', () => {
+  const cells = _mdCells();
+  let o = MP.liftingOrder(_mdLifters(), cells);
+  eq(MP.position(o), 0);
+  eq(MP.outFor(o, 'L2').out, 2); eq(MP.outFor(o, 'L5').out, 9, 'flight B waits for flight A-s nine squats');
+  ['L3', 'L1'].forEach(id => { cells[MP.attemptKey(id, 'squat', 1)].status = 'good'; });
+  o = MP.liftingOrder(_mdLifters(), cells);
+  eq(MP.position(o), 2); eq(MP.outFor(o, 'L2').out, 0, 'on the platform'); eq(MP.outFor(o, 'L1').out, 2, 'Bea, then Cal (the same 105, a lower lot)');
+  eq(MP.outFor(o, 'L1').entry.n, 2); eq(MP.outFor(o, 'nobody'), null);
+});
+test('board: times from the flight-s start and the lifter-s place, warm-ups counted back from their attempt', () => {
+  const o = MP.liftingOrder(_mdLifters(), _mdCells());
+  const now = Date.parse('2026-10-24T08:30:00Z'), A = Date.parse('2026-10-24T09:00:00Z'), B = Date.parse('2026-10-24T09:20:00Z');
+  const t = MP.etas(o, { now, starts: { A, B }, sec: 60, breakSec: 600 });
+  eq(t[0], A, 'nothing before the flight starts'); eq(t[2], A + 120000);
+  eq(t[9], B, 'flight B starts on its own clock, not before it'); eq(t[10], B + 60000);
+  eq(t[18], B + 9 * 60000 + 600000, 'a break between the lifts');
+  const w = MP.warmups(182.5, A + 30 * 60000, 60, A + 7 * 60000);
+  eq(w[0].kg, 20); eq(w[0].at, A + 30 * 60000 - 24 * 60000);
+  eq(w.filter(x => x.state === 'now').length, 1); eq(w.find(x => x.state === 'now').out, 24);
+  eq(MP.warmups(182.5, null, 60, A)[0].at, null, 'no time without a start');
+});
+test('board: declare, change, good and no lift; the next attempt respects the floor', () => {
+  let cells = _mdCells();
+  const k1 = MP.attemptKey('L2', 'squat', 1), k2 = MP.attemptKey('L2', 'squat', 2);
+  let r = MP.applyAction(cells, { type: 'declare', lifterId: 'L2', lift: 'squat', n: 1 }, 1000);
+  eq(r.ok, true); eq(r.cells[k1].status, 'declared'); eq(r.cells[k1].changes, 0); eq(r.cells[k1].at, 1000); eq(cells[k1].status, 'planned', 'pure');
+  r = MP.applyAction(r.cells, { type: 'declare', lifterId: 'L2', lift: 'squat', n: 1, kg: 122.5 }, 2000);
+  eq(r.cells[k1].kg, 122.5); eq(r.cells[k1].changes, 1, 'a declared bar that moves is a change');
+  r = MP.applyAction(r.cells, { type: 'good', lifterId: 'L2', lift: 'squat', n: 1 }, 3000);
+  eq(r.cells[k1].status, 'good'); eq(r.keys.join(), k1, 'the planned second at 125 already clears the floor');
+  eq(MP.floorFor(r.cells, 'L2', 'squat', 2), 125);
+  const low = MP.applyAction(r.cells, { type: 'declare', lifterId: 'L2', lift: 'squat', n: 2, kg: 122.5 }, 4000);
+  eq(low.ok, false); eq(low.reason, 'floor');
+  cells = r.cells; cells[k2] = Object.assign({}, cells[k2], { kg: 120 });
+  r = MP.applyAction(cells, { type: 'good', lifterId: 'L2', lift: 'squat', n: 1 }, 5000);
+  eq(r.cells[k2].kg, 125, 'a planned next attempt under the floor is lifted to it'); assert(r.keys.indexOf(k2) >= 0);
+  r = MP.applyAction(r.cells, { type: 'no', lifterId: 'L2', lift: 'squat', n: 1 }, 6000);
+  eq(r.cells[k1].status, 'no'); eq(MP.floorFor(r.cells, 'L2', 'squat', 2), 122.5, 'after a miss: the same bar');
+  r = MP.applyAction(r.cells, { type: 'undo', lifterId: 'L2', lift: 'squat', n: 1 }, 7000);
+  eq(r.cells[k1].status, 'declared');
+  eq(MP.applyAction(r.cells, { type: 'good', lifterId: 'ZZ', lift: 'squat', n: 1 }, 1).ok, false);
+});
+test('offline: per cell, a result beats a declaration, otherwise the later mark wins; the server-s untouched cell takes the edit', () => {
+  const srv = { kg: 140, status: 'declared', changes: 0, at: 5000, srvAt: '2026-10-24T09:10:00.000Z' };
+  eq(MP.localWins(srv, { kg: 142.5, status: 'declared', at: 4000, base: '2026-10-24T09:10:00.000Z' }), true, 'nobody else wrote since we saw it');
+  eq(MP.localWins(srv, { kg: 140, status: 'good', at: 1000, base: '2026-10-24T09:00:00.000Z' }), true, 'a good lift made offline is never lost to a declaration');
+  eq(MP.localWins({ kg: 140, status: 'no', at: 1000, srvAt: '2026-10-24T09:12:00.000Z' }, { kg: 145, status: 'declared', at: 9000, base: null }), false, 'nor is a no lift lost to a later declaration');
+  eq(MP.localWins({ kg: 140, status: 'good', at: 1000, srvAt: 'x' }, { kg: 140, status: 'no', at: 2000 }), true, 'two results: the later call');
+  eq(MP.localWins({ kg: 140, status: 'good', at: 3000, srvAt: 'x' }, { kg: 140, status: 'no', at: 2000 }), false);
+  eq(MP.localWins(null, { kg: 1, status: 'planned' }), true);
+  const w = MP.reconcileCell({ kg: 140, status: 'declared', changes: 2, at: 9000, srvAt: 'x' }, { kg: 140, status: 'good', changes: 0, at: 1000 });
+  eq(w.status, 'good'); eq(w.changes, 2, 'the change count is never lost either');
+});
+test('offline: thirty minutes of marks replay into a server that moved, with no lost marks', () => {
+  let n = 0; const stamp = () => new Date(Date.parse('2026-10-24T09:10:00Z') + (++n) * 1000).toISOString();
+  let srv = {};
+  const cells = _mdCells();
+  let s = MP.serverApply(srv, Object.keys(cells).map(k => Object.assign({ key: k }, cells[k])), stamp);
+  srv = s.srv; eq(s.rows.length, 54);
+  const seen = JSON.parse(JSON.stringify(srv));   // what the laptop saw before the wifi went
+  let local = {}; Object.keys(seen).forEach(k => { local[k] = seen[k]; });
+  let outbox = {};
+  // Offline: a whole flight-A squat round marked on the laptop.
+  ['L3', 'L1', 'L2'].forEach((id, i) => {
+    const r = MP.applyAction(local, { type: i === 2 ? 'no' : 'good', lifterId: id, lift: 'squat', n: 1 }, 100000 + i);
+    local = r.cells; outbox = MP.queue(outbox, r.keys, local);
+  });
+  // Meanwhile the assistant's phone (online) declared L3's second and changed L2's opener.
+  s = MP.serverApply(srv, [Object.assign({ key: MP.attemptKey('L3', 'squat', 2) }, srv[MP.attemptKey('L3', 'squat', 2)], { status: 'declared', kg: 107.5, at: 100500, base: srv[MP.attemptKey('L3', 'squat', 2)].srvAt }),
+    Object.assign({ key: MP.attemptKey('L2', 'squat', 1) }, srv[MP.attemptKey('L2', 'squat', 1)], { status: 'declared', kg: 122.5, changes: 1, at: 100900, base: srv[MP.attemptKey('L2', 'squat', 1)].srvAt })], stamp);
+  srv = s.srv;
+  // Back online: the outbox goes up.
+  const sent = MP.outgoing(outbox, local);
+  eq(sent.length, 3);
+  s = MP.serverApply(srv, sent, stamp); srv = s.srv;
+  const af = MP.afterFlush(local, outbox, sent, s.rows); local = af.cells; outbox = af.outbox;
+  eq(Object.keys(outbox).length, 0, 'everything acknowledged');
+  eq(srv[MP.attemptKey('L3', 'squat', 1)].status, 'good'); eq(srv[MP.attemptKey('L1', 'squat', 1)].status, 'good');
+  eq(srv[MP.attemptKey('L2', 'squat', 1)].status, 'no', 'the miss made offline beats the later declaration'); eq(srv[MP.attemptKey('L2', 'squat', 1)].changes, 1);
+  eq(srv[MP.attemptKey('L3', 'squat', 2)].kg, 107.5, 'the assistant-s declaration is kept: we never touched it');
+  eq(local[MP.attemptKey('L2', 'squat', 1)].status, 'no'); assert(local[MP.attemptKey('L2', 'squat', 1)].srvAt, 'stamped by the server');
+  // A realtime echo of a cell with an edit still waiting never overwrites that edit.
+  const k = MP.attemptKey('L4', 'squat', 1);
+  const r = MP.applyAction(local, { type: 'declare', lifterId: 'L4', lift: 'squat', n: 1, kg: 202.5 }, 200000);
+  const ob = MP.queue({}, r.keys, r.cells);
+  const merged = MP.mergeIncoming(r.cells, ob, [Object.assign({}, srv[k], { key: k, kg: 197.5 })]);
+  eq(merged[k].kg, 202.5);
+  eq(MP.mergeIncoming(r.cells, {}, [Object.assign({}, srv[k], { key: k, kg: 197.5 })])[k].kg, 197.5);
+});
+test('finish: best good lifts, total, made of taken and the attempts in the notes', () => {
+  const cells = _mdCells(); const set = (id, lift, n, status, kg) => { const c = cells[MP.attemptKey(id, lift, n)]; c.status = status; if (kg) c.kg = kg; };
+  ['squat', 'bench', 'deadlift'].forEach(l => [1, 2, 3].forEach(n => set('L1', l, n, n === 3 ? 'no' : 'good')));
+  [1, 2, 3].forEach(n => set('L2', 'bench', n, 'no'));
+  set('L2', 'squat', 1, 'good');
+  const res = MP.finishResults({ name: 'Autumn Open', date: '2026-10-24', federation: 'USAPL', division: 'Open' },
+    [Object.assign(_mdLifters()[0], { athleteId: 'a1', meetId: 'm1', bodyweight: 73.2, weightClass: '74 kg' }), Object.assign(_mdLifters()[1], { athleteId: 'a2' }), _mdLifters()[2]], cells);
+  eq(res.length, 2, 'a lifter who took nothing gets no result');
+  const a = res[0];
+  eq(a.squat, 105); eq(a.bench, 65); eq(a.deadlift, 135); eq(a.total, 305); eq(a.made, 6); eq(a.taken, 9);
+  eq(a.meetId, 'm1'); eq(a.bodyweight, 73.2); eq(a.name, 'Autumn Open');
+  eq(a.notes, '6 of 9 made · Squat 100, 105, x110 · Bench 60, 65, x70 · Deadlift 130, 135, x140 kg · Meet day board');
+  eq(res[1].bench, null, 'bombed'); eq(res[1].bombed.join(), 'bench'); eq(res[1].total, 120);
+});
+test('meets list: planned meets grouped by meet, with how many plans are done', () => {
+  const meets = [
+    { id: 'p1', athleteId: 'a', name: 'Fall Nationals', date: '2026-12-05', status: 'planned', federation: 'USAPL', attemptPlan: { v: 1, squat: [1, 2, 3] } },
+    { id: 'p2', athleteId: 'b', name: ' fall nationals', date: '2026-12-05', status: 'planned', federation: 'USAPL' },
+    { id: 'p3', athleteId: 'c', name: 'City Classic', date: '2026-11-20', status: 'planned' },
+    { id: 'd1', athleteId: 'a', name: 'Spring', date: '2026-03-01', status: 'done', squat: 200 },
+    { id: 'x', athleteId: 'gone', name: 'Other', date: '2026-11-21', status: 'planned' }];
+  const g = MP.groupMeets(meets, [{ id: 'a', name: 'Ana' }, { id: 'b', name: 'Bea' }, { id: 'c', name: 'Cal' }], '2026-10-22');
+  eq(g.length, 2); eq(g[0].name, 'City Classic'); eq(g[0].daysOut, 29);
+  eq(g[1].rows.length, 2); eq(g[1].planned, 1); eq(g[1].rows[0].name, 'Ana');
+});
+test('board: the venue-s other lifters in the flight count in attempts out and every clock time', () => {
+  const ls = _mdLifters().filter(l => l.flight === 'A'), cells = {};
+  Object.keys(_mdCells()).forEach(k => { const c = _mdCells()[k]; if (ls.some(l => l.id === c.lifterId)) cells[k] = c; });
+  const fl = { A: { start: Date.parse('2026-10-24T09:00:00Z'), size: 12 } };   // 3 ours + 9 others
+  const o = MP.liftingOrder(ls, cells, fl);
+  const r1 = o.filter(e => e.lift === 'squat' && e.n === 1);
+  eq(r1.map(e => e.pre).join(), '2,2,2', 'nine others spread through the round'); eq(r1[2].post, 3);
+  eq(r1.reduce((s, e) => s + e.pre, 0) + r1[2].post, 9);
+  eq(MP.outFor(o, 'L3').out, 2, 'first of ours: two others open lighter'); eq(MP.outFor(o, 'L1').out, 5); eq(MP.outFor(o, 'L2').out, 8);
+  eq(MP.outFor(MP.liftingOrder(ls, cells), 'L2').out, 2, 'without the flight size only ours count');
+  const now = Date.parse('2026-10-24T08:30:00Z'), A = Date.parse('2026-10-24T09:00:00Z');
+  const t = MP.etas(o, { now, starts: { A: A }, sec: 60, breakSec: 600 });
+  eq(t[0], A + 2 * 60000, 'two others before our first lifter'); eq(t[1], A + 5 * 60000); eq(t[3], A + 12 * 60000 + 2 * 60000, 'round two starts after all twelve');
+  // Once the round is under way, the others before the attempt on the platform are done.
+  cells[MP.attemptKey('L3', 'squat', 1)] = Object.assign({}, cells[MP.attemptKey('L3', 'squat', 1)], { status: 'good' });
+  const o2 = MP.liftingOrder(ls, cells, fl);
+  eq(MP.outFor(o2, 'L1').out, 0, 'on the platform'); eq(MP.outFor(o2, 'L2').out, 3, 'Ana, then two others');
+  const t2 = MP.etas(o2, { now: A + 3 * 60000, starts: { A: A }, sec: 90 });
+  eq(t2[2], A + 3 * 60000 + 3 * 90000, 'the coach-s seconds an attempt');
+});
+test('lifter rows: dirty per field; a patch carries only those; a pull keeps them over the server-s row', () => {
+  let d = MP.markDirty(null, { bodyweight: 82.4 });
+  d = MP.markDirty(d, { rack: { squat: '9' } });
+  eq(Object.keys(d).sort().join(), '_v,bodyweight,rack'); eq(d._v, 2); eq(Object.keys(d.rack).join(), 'squat');
+  const local = { id: 'L1', name: 'Ana', flight: 'A', lot: 1, bodyweight: 82.4, weightClass: '83 kg', rack: { squat: '9', bench: '3' } };
+  const p = MP.lifterPatch(local, d);
+  eq(JSON.stringify(p), '{"bodyweight":82.4,"rack":{"squat":"9"}}', 'only the dirty field and rack key');
+  const server = { id: 'L1', name: 'Ana', flight: 'B', lot: 7, bodyweight: null, weightClass: '83 kg', rack: { squat: '7', bench: '4', safety: '2' } };
+  const m = MP.mergeLifter(server, local, d);
+  eq(m.bodyweight, 82.4); eq(m.flight, 'B', 'the other laptop-s flight stays'); eq(m.lot, 7);
+  eq(m.rack.squat, '9'); eq(m.rack.bench, '4'); eq(m.rack.safety, '2');
+  eq(MP.mergeLifter(server, local, null), server, 'nothing dirty: the server row');
+  eq(MP.markDirty({}, { evil: 1, name: 'x' }).evil, undefined);
+});
+test('guests: openers set their place; the second and third are a guess that always climbs', () => {
+  const c = MP.guestCells('G1', { squat: 200, bench: 'x', deadlift: 19 });
+  eq(Object.keys(c).length, 3, 'only lifts with a real opener');
+  eq([1, 2, 3].map(n => c[MP.attemptKey('G1', 'squat', n)].kg).join(), '200,210,220');
+  eq(c[MP.attemptKey('G1', 'squat', 1)].status, 'planned');
+  const u = MP.uuid(); assert(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(u), 'a v4 uuid: ' + u);
+});
+test('offline: a call the other laptop won is reported, never silently dropped', () => {
+  const cells = { k: { lifterId: 'L2', lift: 'squat', n: 1, kg: 100, status: 'good', at: 10, srvAt: 'a' } };
+  const sent = [{ key: 'k', lifterId: 'L2', lift: 'squat', n: 1, kg: 100, status: 'good', at: 10 }];
+  const af = MP.afterFlush(cells, { k: { base: 'a' } }, sent, [{ key: 'k', lifterId: 'L2', lift: 'squat', n: 1, kg: 100, status: 'no', at: 20, srvAt: 'b' }]);
+  eq(af.cells.k.status, 'no'); eq(af.lost.length, 1); eq(af.lost[0].mine, 'good'); eq(af.lost[0].kept, 'no');
+  const ok2 = MP.afterFlush(cells, { k: { base: 'a' } }, sent, [Object.assign({}, sent[0], { srvAt: 'b' })]);
+  eq(ok2.lost.length, 0, 'kept as sent: nothing to report');
 });
 
 function runImporterTests(win) {

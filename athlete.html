@@ -256,21 +256,21 @@
     <div class="form-row">
       <div class="form-group">
         <label>Sleep quality</label>
-        <input type="number" id="ciSleep" min="1" max="10" step="1" placeholder="7">
+        <input type="number" id="ciSleep" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
       </div>
       <div class="form-group">
         <label>Soreness level</label>
-        <input type="number" id="ciSoreness" min="1" max="10" step="1" placeholder="4">
+        <input type="number" id="ciSoreness" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label>Life stress</label>
-        <input type="number" id="ciStress" min="1" max="10" step="1" placeholder="5">
+        <input type="number" id="ciStress" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
       </div>
       <div class="form-group">
         <label>Training feel</label>
-        <input type="number" id="ciFeel" min="1" max="10" step="1" placeholder="8">
+        <input type="number" id="ciFeel" min="1" max="10" step="1" inputmode="numeric" placeholder="–">
       </div>
     </div>
     <div class="form-group">
@@ -331,6 +331,7 @@
 <script src="clubs.js"></script>
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
+<script src="meetday.js"></script><!-- MEET DAY hook: the coach's attempt plan in meet mode + "your next attempt" -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -3986,6 +3987,9 @@ function getMeetStrategy() {
   return MEET_STRATEGIES[v] ? v : 'standard';
 }
 function getMeetPlan(key) {
+  // MEET DAY hook (meetday.js): the coach's attempt plan for the next meet wins over the strategy.
+  const coachPlan = window.MeetDay && MeetDay.lifterPlan ? MeetDay.lifterPlan(user.id) : null;
+  if (coachPlan) return coachPlan;
   const sel = document.getElementById('meetStrategy');
   const k = key || (sel && sel.value) || getMeetStrategy();
   const strat = MEET_STRATEGIES[k] || MEET_STRATEGIES.standard;
@@ -4155,6 +4159,10 @@ function openMeetSheet() {
       const key = getMeetStrategy();
       seg.querySelectorAll('button').forEach(b => { const on = b.dataset.k === key; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
       segSub.textContent = MEET_STRAT_SUB[key];
+      // MEET DAY hook: a coach's plan replaces the three strategies (getMeetPlan returns it).
+      const coachPlan = window.MeetDay && MeetDay.lifterPlan ? MeetDay.lifterPlan(user.id) : null;
+      seg.hidden = !!coachPlan;
+      if (coachPlan) segSub.textContent = 'Your coach planned these for ' + (coachPlan.meet.name || 'your meet') + '. Meet mode lifts from them';
       body.innerHTML = '';
       const plan = getMeetPlan(key);
       const lifts = Object.keys(plan.lifts);
@@ -4700,7 +4708,7 @@ function _meetNew() {
     const a = plan.lifts[l] ? plan.lifts[l].attempts : [60, 65, 70];
     lifts[l] = { plan: a.slice(), attempts: a.map(kg => ({ kg, lights: [null, null, null], result: null })) };
   });
-  return { v: 1, date: todayISO(), lifts, cur: { lift: 'squat', i: 0 }, ahead: 12, done: false };
+  return { v: 1, date: todayISO(), lifts, cur: { lift: 'squat', i: 0 }, ahead: 12, done: false, coach: !!plan.coach };
 }
 function meetLiveToday() { const st = _meetLoad(); return !!(st && st.date === todayISO() && !st.saved); }
 function openMeetMode() {
@@ -4782,6 +4790,9 @@ function openMeetMode() {
     head.appendChild(el('div', { class: 'mm-title' }, 'Meet day'));
     head.appendChild(el('div', { class: 'mm-total' }, el('b', {}, stand.total ? formatWeight(stand.total) : '–'), el('span', {}, stand.taken ? stand.made + ' of ' + stand.taken + ' made' : 'Total')));
     root.appendChild(head);
+    // MEET DAY hook (meetday.js): "your next attempt" from the coach's board, when one is running today.
+    const mdNext = window.MeetDay && MeetDay.lifterNextEl ? MeetDay.lifterNextEl() : null;
+    if (mdNext) root.appendChild(mdNext);
 
     const tabs = el('div', { class: 'mm-tabs', role: 'tablist', 'aria-label': 'Lifts' });
     MEET_ORDER.forEach(l => {
@@ -4809,9 +4820,13 @@ function openMeetMode() {
       const since = _isoAddDays(todayISO(), -28);
       const ref = Math.max(0, ...(Store.get().workoutLogs || []).filter(l => l.athleteId === user.id && l.lift === L && l.date >= since && Number(l.reps) <= 3).map(l => Number(l.e1rmComp) || 0));
       const b = bouncerOpener({ openerKg: A.kg, refKg: ref }, unit);
+      // MEET DAY hook: the coach's planned opener is named as theirs, the heavy sets as this month's.
+      const coachKg = st.coach && A.kg === st.lifts[L].plan[0];
       if (b) setTimeout(() => openBouncer({
-        kind: 'opener', head: 'Opener too heavy', line: b.pct + '% of your best this month',
-        body: 'Openers are for three white lights, not a PR. ' + formatWeight(b.suggestKg) + ' opens the meet; the PR comes on the third.',
+        kind: 'opener', head: coachKg ? 'Check the opener' : 'Opener too heavy',
+        line: coachKg ? 'Your coach planned ' + formatWeight(A.kg) + '; this month\'s heavy sets say ' + formatWeight(b.suggestKg) : b.pct + '% of your best this month',
+        body: coachKg ? 'It is ' + b.pct + '% of your best heavy set this month. Openers are for three white lights. Ask your coach, or open at ' + formatWeight(b.suggestKg) + '.'
+          : 'Openers are for three white lights, not a PR. ' + formatWeight(b.suggestKg) + ' opens the meet; the PR comes on the third.',
         keep: 'Open at ' + formatWeight(b.suggestKg), hold: 'Hold to keep ' + formatWeight(A.kg),
         onKeep: () => {
           // The plan was built on a stale max: rebuild it on the recent one.

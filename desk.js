@@ -2169,6 +2169,7 @@ function dkBuildMeetsPane() {
 function dkRenderMeets() {
   var host = document.getElementById('deskMeets');
   if (!host) return;
+  if (typeof window.renderMeetsScreen === 'function') { window.renderMeetsScreen(host); return; }   // MEET DAY: planner + board (meetday.js)
   if (!_dk.rows) dkRowsFresh();
   host.innerHTML = '';
   var meets = dkPlannedMeets();
@@ -3004,6 +3005,8 @@ function dkWsMeets(r) {
         .sort(function (x, y) { return String(x.date).localeCompare(String(y.date)); }).slice(-10).map(function (b) { return Number(b.weight); });
       if (series.length >= 2) up.insertAdjacentHTML('beforeend', dkClassLine(series, bw.cls));
     }
+    var mdHook = window.MeetDay && MeetDay.plannerLink ? MeetDay.plannerLink(m) : null;   // MEET DAY hook: Plan attempts / Meet day
+    if (mdHook) up.appendChild(mdHook);
     box.appendChild(up);
   }
   var past = (Store.get().meets || []).filter(function (m) { return m.athleteId === a.id && !m.planned && m.date && String(m.date).slice(0, 10) <= t; })

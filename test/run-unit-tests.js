@@ -166,7 +166,9 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'switch-kit.js')) ? fs.readFileSync(path.join(ROOT, 'switch-kit.js'), 'utf8') : '') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'voice.js')) ? fs.readFileSync(path.join(ROOT, 'voice.js'), 'utf8') : '') + '\n;\n' +
   // VIDEO REVIEW hook: the review tool's pure geometry (tests.html "video review")
-  (fs.existsSync(path.join(ROOT, 'video-review.js')) ? fs.readFileSync(path.join(ROOT, 'video-review.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'video-review.js')) ? fs.readFileSync(path.join(ROOT, 'video-review.js'), 'utf8') : '') + '\n;\n' +
+  // MEET DAY hook: the planner, lifting order and offline reconcile (tests.html "meet day (M8)")
+  (fs.existsSync(path.join(ROOT, 'meetday.js')) ? fs.readFileSync(path.join(ROOT, 'meetday.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 let testSrc = scripts[scripts.length - 1];
