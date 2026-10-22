@@ -100,7 +100,7 @@ app_plist = File.join(APP_DIR, "Info.plist")
 if File.exist?(app_plist)
   plist = Xcodeproj::Plist.read_from_path(app_plist)
   plist["NSHealthShareUsageDescription"] =
-    "POWALIFTA reads your bodyweight to fill in your weigh-ins; last night's sleep, your resting heart rate and heart rate variability to suggest longer rests on harder days; and the calories and protein you log to show your daily averages while you make weight. It stays on your phone unless you choose to share it with your coach."
+    "POWALIFTA reads your bodyweight to fill in your weigh-ins, which are saved to your account like any weigh-in; last night's sleep, your resting heart rate and heart rate variability to suggest longer rests on harder days; and the calories and protein you log to show your daily averages while you make weight. Sleep, heart and food data stay on your phone unless you choose to share them with your coach."
   plist["NSHealthUpdateUsageDescription"] =
     "POWALIFTA saves your weigh-ins and your finished training sessions to Apple Health."
   Xcodeproj::Plist.write_to_path(plist, app_plist)

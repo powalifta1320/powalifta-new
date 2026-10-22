@@ -553,6 +553,14 @@ function deskRefresh() {
   dkRepaint();
   dkFetchThreads(1200);
 }
+// LIVE (app.js liveFlush, one event per burst): a set landed, a program or a check-in changed.
+// Repaint in place (no thread re-read: a logged set doesn't change messages); each athlete whose set
+// just landed gets the set-landed pulse (dkLanded reads _dk.seen).
+window.addEventListener('powa:live', function (e) {
+  var d = (e && e.detail) || {};
+  if (_dk.seen) (d.landed || []).forEach(function (id) { _dk.seen[id] = '0'; });
+  dkRepaint();
+});
 function dkRepaint() {
   if (!isDesk() || !_dk.booted) return;
   var onPage = _dkOnPage();
