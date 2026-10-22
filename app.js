@@ -793,6 +793,10 @@ function getTheme() {
     const stored = localStorage.getItem(THEME_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {}
+  // The public website is dark by default too (owner, 2026-10-22); light is one toggle away.
+  try {
+    if (document.querySelector('link[rel="stylesheet"][href^="site.css"]')) return 'dark';
+  } catch {}
   // Native shell is dark-first, ALWAYS: a light-mode POWALIFTA on a light-appearance
   // phone reads as off-brand/generic. Ignore the OS pref there (the head snippet already
   // set data-theme=dark) — the user can still switch explicitly via the Settings toggle.
