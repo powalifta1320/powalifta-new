@@ -291,6 +291,20 @@ defined once at the top of desk.css; every desk rule (and meetday.css's `html.de
   borders or column rules. Good lift / No lift are two equal quiet buttons, a status dot before an
   ink word; Board | Lifters and the flights are the one segmented control; the round's lifting order
   (who, the load, the time) fills the space under the board.
+- Teams (Programs › Teams, desk-season.js): the team's name and one quiet line of facts, the weeks as one
+  strip, then the loads: lifters down, the week's main sets across, each load an ink number over a 3px
+  bar in its lift colour (against the team's heaviest), a small ink mark where you adjusted one lifter;
+  click a load to adjust it. Push to team (the one red) opens a preview first: who gets what, logged sets
+  kept, Keep | Overwrite per adjusted lifter, who is skipped and why. The team's week below as read-only
+  session cards with Progress week N.
+- The roster calendar (Board | List | Calendar): the same rows, 16 week columns, blocks as bars in four
+  greys by phase (name and W-n in gold inside, or beside a bar under three weeks), meets as gold diamonds
+  (planned outlined, done filled with the total), today a thin ink line, one warning line per row in plain
+  words with a warn dot. Drag a bar (or ← →) moves its start; it settles on the week. Plan a meet is the
+  calendar's one red, and a quiet flag on each row.
+- A block's last week: the session cards take 55% and a side card takes the rest: what the block did
+  (each lift's e1RM before → in it, the delta in ink), then Write the next block (the red) and The same
+  block, heavier.
 - First run leads with what only a live platform does: Invite your lifters (the fire action), then
   Write their first block, with "Or paste a block you already wrote" as a quiet link. The coaching
   style cards show which one counts (a filled card and a check).

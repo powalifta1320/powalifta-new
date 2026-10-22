@@ -2663,6 +2663,9 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
 
   // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
   if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
+  // TEAM PROGRAMS: on a team program, an exercise the coach changed just for them says so, once and
+  // quietly. Lifters never see "team": these are their own loads.
+  if (!selfCoached && ex.srcId != null && ex.ovr) card.appendChild(el('div', { class: 'tx-adj' }, 'Your coach adjusted this for you'));
   // SET FIELDS hook (app.js setFieldsSplit): what every set shares, once; a set's own under its load.
   const sfSplit = setFieldsSplit(ex.sets);
   const sfCommon = setFieldsEl(sfSplit.common, 'tx-sf');

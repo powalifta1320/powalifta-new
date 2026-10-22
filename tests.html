@@ -3788,6 +3788,169 @@ test('OpenPowerlifting: a planned meet on that day is not "already in"; the resu
    order, attempts out, warm-up timing, marks, the per-cell
    reconcile (offline board) and the finished results
    =========================================================== */
+group('desk season: team page, calendar, block end');
+test('team week loads: every main set of the week, each lifter-s own kg', () => {
+  const master = _tmMaster(2);
+  master[0].days[1].exercises[0].sets[0] = { id: 'mw1bp1', weight: 0, reps: 3, rpe: 8, completed: false };   // RPE only
+  const members = [
+    { athleteId: 'a', name: 'Leo Grant', unit: 'kg', maxes: { squat: { kg: 200, source: 'e1rm' }, bench: { kg: 140, source: 'program' } }, program: null },
+    { athleteId: 'b', name: 'Nina Petrova', unit: 'kg', maxes: {}, program: null }
+  ];
+  const mx = teamWeekLoads(master, 'mw1', members);
+  eq(mx.week.number, 1); eq(mx.cols.length, 2, 'squat and bench, not the row');
+  eq(mx.cols[0].kind, 'pct'); eq(mx.cols[0].rx, '2×3 75% @8'); eq(mx.cols[0].day, 'Squat day');
+  eq(mx.rows[0].cells[0].kg, 150, '75% of 200'); eq(mx.rows[0].cells[0].source, 'e1rm');
+  eq(mx.cols[1].kind, 'rpe');
+  eq(rpeLoadPct(3, 8), 86.7, '3 @8 is about 87% of the max');
+  eq(mx.rows[0].cells[1].kg, teamLoadKg(86.7, 140, 'kg')); eq(mx.rows[0].cells[1].approx, true);
+  eq(mx.rows[1].cells[0].noMax, true); eq(mx.rows[1].cells[0].note, 'No squat max');
+  // Kofi's own load stays his and says so.
+  const linked = teamMemberWeeks(master, null, { maxes: { squat: 180 }, unit: 'kg' }).weeks;
+  const kw = teamOverrideExercise(linked, linked[0].days[0].exercises[0].id);
+  kw[0].days[0].exercises[0].sets.forEach(s => { delete s.pct; s.weight = 140; });
+  const k = teamWeekLoads(master, 'mw1', [{ athleteId: 'k', name: 'Kofi Mensah', unit: 'kg', maxes: { squat: 180 }, program: { id: 'pk', weeks: kw } }]);
+  eq(k.rows[0].cells[0].ovr, true); eq(k.rows[0].cells[0].kg, 140); eq(k.rows[0].cells[0].note, 'Adjusted for Kofi');
+  eq(teamWeekLoads(master, 'nope', members).cols.length, 0);
+});
+test('team push preview: who gets what, logged sets kept, adjusted lifters keep or overwrite', () => {
+  const master = _tmMaster(2);
+  const mk = (aid, max) => teamMemberWeeks(master, null, { maxes: { squat: max, bench: 140 }, unit: 'kg' }).weeks;
+  const leo = mk('a', 200); leo[0].days[0].exercises[0].sets.forEach(s => Object.assign(s, { completed: true, actualRpe: 8 }));
+  let kofi = mk('k', 180); kofi = teamOverrideExercise(kofi, kofi[1].days[0].exercises[0].id); kofi[1].days[0].exercises[0].sets.forEach(s => { delete s.pct; s.weight = 150; });
+  master[1].days[0].exercises[0].sets.forEach(s => { s.pct += 2.5; });   // the edit since
+  const team = { id: 't', name: 'Meet team', programName: 'Meet team · Strength', weeks: master, rev: 2 };
+  const members = [
+    { athleteId: 'a', name: 'Leo Grant', unit: 'kg', maxes: { squat: 200, bench: 140 }, program: { id: 'pa', name: 'Meet team · Strength', weeks: leo, rev: 1 } },
+    { athleteId: 'k', name: 'Kofi Mensah', unit: 'kg', maxes: { squat: 180, bench: 140 }, program: { id: 'pk', name: 'Meet team · Strength', weeks: kofi, rev: 1 } },
+    { athleteId: 'h', name: 'Hannah Berg', unit: 'kg', maxes: {}, program: null }
+  ];
+  const pv = teamPushPreview(team, members, { departed: [{ athleteId: 'x', name: 'Jo Doe' }] });
+  const row = (id) => pv.rows.find(r => r.athleteId === id);
+  eq(row('a').what, 'Week 2 changes'); eq(row('a').kept, 2, 'Leo-s two logged squats are kept');
+  eq(row('k').adjusted.length, 1); eq(row('k').adjusted[0].week, 2); eq(row('k').choice, 'keep');
+  eq(row('k').action, 'same', 'kept: Kofi-s week 2 is his, nothing else changed for him');
+  eq(row('h').what, 'Gets the block, loads from their maxes'); eq(row('h').noMax.join(','), 'squat', 'the bench is by RPE: no % to leave blank');
+  eq(pv.pushing, 2); eq(pv.text, 'Push to 2 lifters');
+  eq(pv.skipped.map(s => s.name + ': ' + s.why).join(' | '), 'Jo Doe: No longer on your roster: never written', 'Kofi has a choice to make: not skipped');
+  const ow = teamPushPreview(team, members, { overwrite: { k: true } });
+  eq(ow.rows.find(r => r.athleteId === 'k').choice, 'overwrite'); eq(ow.rows.find(r => r.athleteId === 'k').action, 'update');
+  const kr = ow.plan.rows.find(r => r.athleteId === 'k');
+  eq(kr.weeks[1].days[0].exercises[0].ovr, undefined, 'overwritten: the team-s again');
+  eq(kr.weeks[1].days[0].exercises[0].sets[0].weight, teamLoadKg(80, 180, 'kg'), 'with his own load from the new %');
+  eq(ow.plan.keepOwn.length, 0);
+  // Logged sets survive an overwrite.
+  const lk = _tc(kofi); lk[1].days[0].exercises[0].sets[0].completed = true;
+  const ow2 = teamPushPlan(team, [Object.assign({}, members[1], { program: { id: 'pk', weeks: lk, rev: 1 } })], { overwrite: { k: true } });
+  eq(ow2.rows[0].weeks[1].days[0].exercises[0].sets[0].weight, 150, 'the set he lifted stays as lifted');
+  eq(teamStripOverrides(kofi, ['nope'])[1].days[0].exercises[0].ovr, true, 'only the named exercises');
+});
+test('a lifter adjusted on the desk-s other paths stays theirs: one copy at the next push, keep or overwrite', () => {
+  const master = _tmMaster(3);
+  const mx = { squat: 180, bench: 120 };
+  const fresh = () => teamMemberWeeks(master, null, { maxes: mx, unit: 'kg' }).weeks;
+  const mb = (weeks) => ({ athleteId: 's', name: 'Sofia Alvarez', unit: 'kg', maxes: mx, program: { id: 'ps', name: 'Meet team · Strength', weeks, rev: 1 } });
+  const team = { id: 't', name: 'Meet team', programName: 'Meet team · Strength', weeks: master, rev: 1 };
+  const sq = (w, wi) => _tEx(w, wi, 0, 0);
+  // Publish week 2 on the lifter page, written "3x4 150 @8": sets the team never wrote.
+  const a = fresh();
+  eq(deskApplyNextWeek(a, 1, [{ di: 0, ei: 0, startIdx: 0, count: 2, sets: [newSet(150, 4, 8), newSet(150, 4, 8), newSet(150, 4, 8)] }]), 1);
+  eq(sq(a, 1).ovr, true, 'publishing a team week for one lifter marks it theirs');
+  let pv = teamPushPreview(team, [mb(a)]);
+  eq(pv.rows[0].adjusted.length, 1); eq(pv.rows[0].adjusted[0].week, 2); eq(pv.rows[0].choice, 'keep');
+  eq(sq(pv.plan.rows[0].weeks, 1).sets.map(s => s.weight).join(','), '150,150,150', 'kept: one copy, hers');
+  pv = teamPushPreview(team, [mb(a)], { overwrite: { s: true } });
+  eq(sq(pv.plan.rows[0].weeks, 1).sets.map(s => s.weight).join(','), [1, 2].map(() => teamLoadKg(77.5, 180, 'kg')).join(','), 'overwritten: the team-s two sets, not five');
+  // Progress the block: week 3-s squat rewritten with fresh sets, nothing marked (the merge still knows).
+  const b = fresh(); sq(b, 2).sets = [newSet(160, 3, 8), newSet(160, 3, 8)];
+  pv = teamPushPreview(team, [mb(b)]);
+  const wb = pv.plan.rows[0].weeks;
+  eq(pv.rows[0].adjusted.length, 1); eq(sq(wb, 2).sets.length, 2, 'not four'); eq(sq(wb, 2).ovr, true);
+  eq(wb[2].days.length, 2); eq(wb[2].days[0].exercises.length, 2);
+  // Copy week 2 into week 3: the copies stay linked; nothing is doubled.
+  const c = fresh(); c[2].days = deskCopyWeekDays(c[1].days, c[2].days);
+  pv = teamPushPreview(team, [mb(c)]);
+  const wc = pv.plan.rows[0].weeks;
+  eq(wc[2].days.length, 2, 'two sessions, not four'); eq(wc[2].days[0].exercises.length, 2); eq(sq(wc, 2).sets.length, 2);
+  eq(pv.rows[0].adjusted.map(x => x.title).join(','), 'Squat', 'the squat changed (77.5%, not 80%): keep or overwrite; the copied row reads the same');
+  eq(teamPushPreview(team, [mb(c)], { overwrite: { s: true } }).plan.rows[0].weeks[2].days[0].exercises[0].sets[0].pct, 80);
+  // A lifter's extra set (logged, added on the phone) never makes the exercise theirs.
+  const d = fresh(); sq(d, 0).sets.push(Object.assign(newSet(140, 3, 8), { extra: true, completed: true }));
+  eq(teamPushPreview(team, [mb(d)]).rows[0].adjusted.length, 0);
+});
+test('a team from a block written in kg: each lifter-s load from their own max', () => {
+  const prog = { id: 'pm', athleteId: 'm', name: 'Strength Block', weeks: [{ id: 'w1', number: 1, days: [{ id: 'd1', name: 'Day 1', exercises: [
+    { id: 'e1', lift: 'squat', variant: 'Competition', sets: [{ id: 's1', weight: 215, reps: 3, rpe: 8, completed: false }] },
+    { id: 'e2', lift: 'pull', exerciseName: 'Row', sets: [{ id: 's2', weight: 60, reps: 10, completed: false }] }] }] }] };
+  const made = teamMasterFromProgram(prog, { squat: { kg: 250, source: 'program' } });
+  eq(made.weeks[0].days[0].exercises[0].sets[0].pct, 86); eq(made.weeks[0].days[0].exercises[0].sets[0].weight, 0);
+  eq(made.weeks[0].days[0].exercises[1].sets[0].weight, 60, 'an accessory stays in kg');
+  const priya = teamMemberWeeks(made.weeks, null, { maxes: { squat: 128 }, unit: 'kg' }).weeks;
+  eq(_tEx(priya, 0, 0, 0).sets[0].weight, teamLoadKg(86, 128, 'kg'), 'Priya: 86% of her own 128');
+  const marcus = teamMemberWeeks(made.weeks, made.linked, { maxes: { squat: 250 }, unit: 'kg' }).weeks;
+  eq(_tEx(marcus, 0, 0, 0).sets[0].weight, 215, 'Marcus keeps his 215');
+  // Without a max the kg stays, and the loads say where it's above a lifter's max.
+  const kg = teamMasterFromProgram(prog, {});
+  eq(kg.weeks[0].days[0].exercises[0].sets[0].weight, 215);
+  const lx = teamWeekLoads(kg.weeks, kg.weeks[0].id, [{ athleteId: 'p', name: 'Priya Shah', unit: 'kg', maxes: { squat: 128 }, program: null }]);
+  eq(lx.cols[0].kind, 'kg'); eq(lx.rows[0].cells[0].over, true);
+  const pv = teamPushPreview({ id: 't', weeks: kg.weeks, rev: 1 }, [{ athleteId: 'p', name: 'Priya Shah', unit: 'kg', maxes: { squat: 128 }, program: null }]);
+  eq(pv.rows[0].over.join(','), 'squat');
+});
+test('a block-s start, end and week: one rule (the week the lifter is on is never in the past)', () => {
+  const w = _tmMaster(4);
+  w[0].days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => { s.completed = true; s.completedAt = '2026-10-06T18:00:00Z'; })));
+  eq(programStartsOn({ weeks: w }), '2026-10-05', 'from the logs alone');
+  eq(programStartsOn({ weeks: w }, '2026-10-22'), '2026-10-12', 'week 2 still open on the 22nd: week 2 is this week');
+  eq(programStartsOn({ weeks: w }, '2026-10-08'), '2026-10-05', 'never earlier than the logs say');
+  eq(programStartsOn({ startsOn: '2026-10-05', weeks: w }, '2026-10-22'), '2026-10-05', 'a saved start is the start');
+});
+test('calendar: a 16-week window from any Monday, bar W-n, warnings, drag to a date', () => {
+  const rows = calendarRows({
+    athletes: [{ id: 'a', name: 'Ana' }],
+    programs: [{ id: 'p', athleteId: 'a', name: 'Strength Block', startsOn: '2026-10-19', weeks: _tmMaster(4) }],
+    meets: [{ id: 'm', athleteId: 'a', name: 'City Classic', date: '2026-11-24', status: 'planned' }],
+    today: '2026-10-22', from: '2026-10-21', weeks: 16
+  });
+  const r = rows[0], bar = r.bars[0];
+  eq(bar.from, 0, 'the window starts this Monday'); eq(bar.current, 0); eq(r.meets[0].week, 5);
+  const bm = calendarBarMeet(bar, r.meets, 0);
+  eq(bm.label, 'W-5'); eq(bm.name, 'City Classic');
+  const w = calendarWarnings(r, 0);
+  eq(w.length, 1); eq(w[0].type, 'ends-before'); eq(w[0].text, 'Strength Block ends 2 weeks before City Classic');
+  // Moved two weeks later, it reaches the meet week: no warning, and the countdown starts nearer.
+  const moved = moveBlockStart('2026-10-19', calendarDragWeeks(2 * 41 + 9, 41));
+  eq(moved, '2026-11-02');
+  const r2 = calendarRows({ athletes: [{ id: 'a', name: 'Ana' }], programs: [{ id: 'p', athleteId: 'a', name: 'Strength Block', startsOn: moved, weeks: _tmMaster(4) }],
+    meets: [{ id: 'm', athleteId: 'a', name: 'City Classic', date: '2026-11-24', status: 'planned' }], today: '2026-10-22', from: '2026-10-19', weeks: 16 })[0];
+  eq(calendarWarnings(r2, 0).length, 0); eq(calendarBarMeet(r2.bars[0], r2.meets, 0).label, 'W-3');
+  eq(calendarDragWeeks(15, 41), 0); eq(calendarDragWeeks(-50, 41), -1); eq(moveBlockStart('2026-10-22', -1), '2026-10-12', 'always a Monday');
+  // A meet with no block, a block running past its meet, gap weeks.
+  const r3 = calendarRows({ athletes: [{ id: 'b', name: 'Bo' }],
+    programs: [{ id: 'p1', athleteId: 'b', name: 'Volume', startsOn: '2026-10-19', weeks: _tmMaster(3) }, { id: 'p2', athleteId: 'b', name: 'Peak', startsOn: '2026-11-23', weeks: _tmMaster(4) }],
+    meets: [{ id: 'm1', athleteId: 'b', name: 'Regional Open', date: '2026-12-10', status: 'planned' }, { id: 'm2', athleteId: 'b', name: 'Nationals', date: '2027-04-20', status: 'planned' }],
+    today: '2026-10-22', from: '2026-10-19', weeks: 40 })[0];
+  const t = calendarWarnings(r3, 0).map(x => x.text);
+  eq(t.join(' | '), 'Peak runs 1 week past Regional Open | No block leads to Nationals | 2 weeks with nothing written before Peak');
+  // A done meet is never a warning and never counts as a target.
+  const r4 = calendarRows({ athletes: [{ id: 'c', name: 'Cy' }], programs: [], meets: [{ id: 'd', athleteId: 'c', name: 'Spring', date: '2026-10-20', status: 'done', squat: 100, bench: 60, deadlift: 120 }], today: '2026-10-22', from: '2026-10-19', weeks: 16 })[0];
+  eq(r4.meets[0].planned, false); eq(r4.meets[0].total, 280); eq(calendarWarnings(r4, 0).length, 0);
+});
+test('block achieved: each lift-s e1RM against the 8 weeks before the block', () => {
+  const prog = { startsOn: '2026-10-05', weeks: _tmMaster(3) };
+  const logs = [
+    { athleteId: 'a', lift: 'squat', e1rmComp: 180, date: '2026-09-20' }, { athleteId: 'a', lift: 'squat', e1rmComp: 187.5, date: '2026-10-20' },
+    { athleteId: 'a', lift: 'bench', e1rmComp: 120, date: '2026-09-28' }, { athleteId: 'a', lift: 'bench', e1rmComp: 118, date: '2026-10-14' },
+    { athleteId: 'a', lift: 'deadlift', e1rmComp: 220, date: '2026-07-01' }, { athleteId: 'a', lift: 'deadlift', e1rmComp: 230, date: '2026-10-12' },
+    { athleteId: 'b', lift: 'squat', e1rmComp: 300, date: '2026-10-12' }
+  ];
+  const r = blockAchieved(prog, logs, 'a', '2026-10-22');
+  eq(r.start, '2026-10-05');
+  eq(r.lifts[0].delta, 7.5); eq(r.lifts[1].delta, -2);
+  eq(r.lifts[2].before, 0, 'a lift from months ago is not the before'); eq(r.lifts[2].delta, null);
+  eq(r.total, null, 'no total without all three');
+  eq(blockAchieved({ weeks: [] }, logs, 'a'), null);
+});
+
 group('meet day (M8)');
 const MP = (window.MeetDay && window.MeetDay.pure) || {};
 const _mdLog = (date, lift, weight, reps, rpe) => ({ athleteId: 'a', lift, variant: 'Competition', weight, reps, rpe, date,
