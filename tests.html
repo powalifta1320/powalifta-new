@@ -93,6 +93,7 @@
 <script src="health.js"></script>
 <script src="switch-kit.js"></script>
 <script src="voice.js"></script>
+<script src="video-review.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -2859,6 +2860,181 @@ test('switch kit: a realistic 300-row history', () => {
   const r = SK.planHistoryImport(lines.join('\n'), { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
   eq(r.logs.length, 300); eq(r.sessions, 75); eq(r.skipped.length, 0); eq(r.noRpeCount, 60);
   assert(r.prs.squat.prs > 10 && r.prs.bench.prs > 10 && r.prs.deadlift.prs > 10, 'PRs counted');
+});
+
+/* ===========================================================
+   Video review (video-review.js): frame geometry, angles,
+   hit-testing, the 8 KB cap, compare alignment
+   =========================================================== */
+group('video review');
+const VG = window.VideoReview.geo;
+test('video review: the picture inside a letterboxed stage', () => {
+  let b = VG.contentBox(800, 450, 1080, 1920);              // portrait clip on a laptop stage
+  close(b.h, 450, 1e-9); close(b.w, 253.125, 1e-9); close(b.x, 273.4375, 1e-9); eq(b.y, 0);
+  b = VG.contentBox(390, 700, 1920, 1080);                  // landscape clip on a phone stage
+  close(b.w, 390, 1e-9); close(b.h, 219.375, 1e-9); close(b.y, 240.3125, 1e-9);
+  b = VG.contentBox(400, 300, 0, 0); eq(b.w, 400); eq(b.h, 300);   // before metadata: the whole box
+  eq(VG.contentBox(0, 300, 10, 10).w, 0);
+});
+test('video review: screen points ↔ frame coordinates (0–1, 3 decimals, clamped)', () => {
+  const box = { x: 100, y: 0, w: 200, h: 400 };
+  const n = VG.toNorm(150, 100, box); eq(n[0], 0.25); eq(n[1], 0.25);
+  const p = VG.toPx(n[0], n[1], box); eq(p[0], 150); eq(p[1], 100);
+  const c = VG.toNorm(20, 900, box); eq(c[0], 0); eq(c[1], 1);              // in the letterbox bar → the frame edge
+  eq(VG.toNorm(100 + 200 / 3, 0, box)[0], 0.333);
+  // the same drawing lands on the same spot at another size
+  const small = { x: 0, y: 0, w: 180, h: 320 }, big = { x: 40, y: 0, w: 540, h: 960 };
+  const q = VG.toNorm(90, 160, small), r = VG.toPx(q[0], q[1], big); eq(r[0], 310); eq(r[1], 480);
+});
+test('video review: angles in the video-s pixels, not its 0–1 box', () => {
+  eq(VG.angleDeg([0, 0.5, 0.5, 0.5, 0.5, 0], 100, 100), 90);
+  eq(VG.angleDeg([0, 0.5, 0.5, 0.5, 1, 0.5], 100, 100), 180);
+  eq(VG.angleDeg([0.2, 0.2, 0.5, 0.5, 0.2, 0.2], 100, 100), 0);
+  // 45° in a square frame is ~29.4° once the frame is a 9:16 portrait clip
+  eq(VG.angleDeg([1, 0, 0, 0, 1, 1], 100, 100), 45);
+  close(VG.angleDeg([1, 0, 0, 0, 1, 1], 1080, 1920), 60.6, 0.05);
+  close(VG.angleDeg([1, 0, 0, 0, 1, 1], 1920, 1080), 29.4, 0.05);
+  eq(VG.angleDeg([0.3, 0.3, 0.3, 0.3, 0.6, 0.6], 100, 100), null, 'a leg with no length');
+  eq(VG.angleDeg([0.3, 0.3, 0.3], 100, 100), null);
+  // the demo knee angle at the bottom of the squat
+  close(VG.angleDeg([0.386, 0.777, 0.652, 0.71, 0.477, 0.828], 432, 768), 26, 0.5);
+});
+test('video review: hit-testing lines, rings, angle legs and freehand', () => {
+  const box = { x: 0, y: 0, w: 400, h: 400 };
+  const ds = [
+    { k: 'line', t: 1, p: [0.1, 0.1, 0.9, 0.1] },
+    { k: 'circle', t: 1, p: [0.5, 0.5, 0.6, 0.5] },
+    { k: 'angle', t: 1, p: [0.1, 0.9, 0.3, 0.6, 0.5, 0.9] },
+    { k: 'free', t: 1, p: [0.7, 0.7, 0.8, 0.8, 0.9, 0.7] }
+  ];
+  eq(VG.hitTest(ds, 200, 45, box, 8), 0, 'near the line');
+  eq(VG.hitTest(ds, 200, 60, box, 8), -1, 'too far from the line');
+  eq(VG.hitTest(ds, 240, 200, box, 8), 1, 'on the ring');
+  eq(VG.hitTest(ds, 200, 200, box, 8), -1, 'the middle of a big circle is not the circle');
+  eq(VG.hitTest(ds, 160, 300, box, 8), 2, 'the second leg of the angle');
+  eq(VG.hitTest(ds, 300, 300, box, 8), 3, 'freehand');
+  eq(VG.distToSeg(5, 5, 0, 0, 10, 0), 5); eq(VG.distToSeg(-3, 4, 0, 0, 10, 0), 5);
+  const over = [{ k: 'line', t: 1, p: [0, 0.5, 1, 0.5] }, { k: 'line', t: 1, p: [0, 0.5, 1, 0.5] }];
+  eq(VG.hitTest(over, 100, 200, box, 8), 1, 'the topmost wins');
+  eq(VG.hitTest(over, 100, 200, box, 8, [0]), 0, 'only the drawings on this frame');
+  eq(VG.hitTest([{ k: 'circle', t: 0, p: [0.5, 0.5, 0.505, 0.5] }], 201, 200, box, 8), 0, 'a tiny circle is hit anywhere inside');
+});
+test('video review: freehand is simplified and capped', () => {
+  const straight = []; for (let i = 0; i <= 100; i++) straight.push([i, 2 * i]);
+  eq(VG.rdp(straight, 1).length, 2, 'a straight stroke keeps its two ends');
+  const zig = [[0, 0], [10, 10], [20, 0], [30, 10], [40, 0]];
+  eq(VG.rdp(zig, 1).length, 5, 'corners stay');
+  const box = { x: 0, y: 0, w: 500, h: 500 };
+  const wiggle = []; for (let i = 0; i < 2000; i++) wiggle.push([i * 0.25, 250 + 120 * Math.sin(i / 7) + (i % 3)]);
+  const flat = VG.simplifyFree(wiggle, box, 1.5);
+  assert(flat.length >= 4 && flat.length <= 240 && flat.length % 2 === 0, 'got ' + flat.length + ' numbers');
+  assert(flat.every(v => v >= 0 && v <= 1 && Math.round(v * 1000) === v * 1000 || Math.abs(Math.round(v * 1000) - v * 1000) < 1e-9), 'normalised, 3 decimals');
+  const dot = VG.simplifyFree([[10, 10], [10, 10], [10.0001, 10]], box);
+  eq(dot.length, 2, 'repeated points collapse');
+});
+test('video review: what shows on a paused frame and while playing', () => {
+  const ds = [{ k: 'line', t: 1.0, p: [0, 0, 1, 1] }, { k: 'circle', t: 2.0, p: [0.5, 0.5, 0.6, 0.5] }];
+  eq(VG.visibleAt(ds, 1.0, false, 30).length, 1);
+  eq(VG.visibleAt(ds, 1.0 + 0.5 / 30, false, 30).length, 1, 'within half a frame');
+  eq(VG.visibleAt(ds, 1.0 + 1 / 30, false, 30).length, 0, 'the next frame is clear');
+  eq(VG.visibleAt(ds, 1.5, true, 30, 1.2)[0].a, 1, 'held while playing');
+  const fading = VG.visibleAt(ds, 2.1, true, 30, 1.2); eq(fading.length, 2);
+  assert(fading[0].a < 1 && fading[0].a > 0, 'the older one fades out'); eq(fading[1].a, 1);
+  eq(VG.visibleAt(ds, 3.3, true, 30, 1.2).length, 0);
+  eq(VG.visibleAt(ds, 0.5, true, 30, 1.2).length, 0, 'not before its frame');
+});
+test('video review: one frame back and forward lands mid-frame inside the clip', () => {
+  eq(VG.frameIndex(1.0, 30), 30); eq(VG.frameIndex(0.0333, 30), 0); eq(VG.frameIndex(1 / 30, 30), 1);
+  close(VG.frameStep(1.0, 1, 30, 4), 31.5 / 30, 1e-6);
+  close(VG.frameStep(1.0, -1, 30, 4), 29.5 / 30, 1e-6);
+  close(VG.frameStep(0, -1, 30, 4), 0.5 / 30, 1e-6, 'never before the first frame');
+  close(VG.frameStep(3.99, 1, 30, 4), 119.5 / 30, 1e-6, 'never past the last frame');
+  close(VG.frameStep(2, 1, 60, 4), 121.5 / 60, 1e-6, '60 fps steps are half as long');
+  let t = 1.0; for (let i = 0; i < 10; i++) t = VG.frameStep(t, 1, 30, 4);
+  eq(VG.frameIndex(t, 30), 40, 'ten steps are ten frames');
+  for (let i = 0; i < 10; i++) t = VG.frameStep(t, -1, 30, 4);
+  eq(VG.frameIndex(t, 30), 30, 'and back again');
+});
+test('video review: frame rate from the frames the browser presented', () => {
+  eq(VG.estimateFps(Array(12).fill(1 / 30)), 30);
+  eq(VG.estimateFps(Array(12).fill(1001 / 30000)), 29.97);
+  eq(VG.estimateFps(Array(12).fill(1 / 60).concat([1 / 30, 0.5])), 60, 'a dropped frame or a seek doesn-t move it');
+  eq(VG.estimateFps(Array(12).fill(1 / 240)), 240);
+  eq(VG.estimateFps([1 / 30, 1 / 30]), null, 'too few samples');
+});
+test('video review: bytes the way Postgres stores them (the 8 KB cap)', () => {
+  eq(VG.jsonbTextBytes([]), 2);
+  eq(VG.jsonbTextBytes([{ k: 'line', t: 1, p: [0.1, 0.2] }]), 40, 'a space after every , and :');
+  eq(VG.jsonbTextBytes(['a,b:c']), 9, 'not inside strings');
+  eq(VG.jsonbTextBytes(['say \"hi\", ok']), 18, 'escaped quotes stay inside the string');
+  eq(VG.utf8Len('é'), 2); eq(VG.utf8Len('°'), 2); eq(VG.utf8Len('💪'), 4); eq(VG.utf8Len('“'), 3);
+  const doc = { drawings: [{ k: 'line', t: 1, p: [0.1, 0.2] }], note: 'Knees out' };
+  eq(VG.docBytes(doc), 40 + 9);
+  assert(VG.fitsCap(doc));
+  const free = (t) => ({ k: 'free', t, p: Array.from({ length: 240 }, (_, i) => (i * 37 % 1000) / 1000) });
+  const many = []; for (let i = 0; i < 6; i++) many.push(free(i));
+  assert(!VG.fitsCap({ drawings: many }), 'six long freehand strokes are too much');
+  assert(VG.fitsCap({ drawings: many.slice(0, 4) }));
+  assert(!VG.fitsCap({ drawings: many.slice(0, 4), note: 'x'.repeat(2000) }), 'the caption counts');
+});
+test('video review: drawings from the server are checked before they are drawn', () => {
+  const S = VG.sanitizeDrawing;
+  eq(JSON.stringify(S({ k: 'line', t: 1.23456, p: [0.1, -0.2, 1.4, 0.33333] })), JSON.stringify({ k: 'line', t: 1.235, p: [0.1, 0, 1, 0.333] }));
+  eq(S({ k: 'polygon', t: 1, p: [0, 0, 1, 1] }), null, 'unknown kind');
+  eq(S({ k: 'line', t: 1, p: [0, 0, 1] }), null, 'wrong length');
+  eq(S({ k: 'angle', t: 1, p: [0, 0, 1, 1] }), null, 'an angle has three points');
+  eq(S({ k: 'line', t: -1, p: [0, 0, 1, 1] }), null, 'negative time');
+  eq(S({ k: 'line', t: 1, p: [0, NaN, 1, 1] }), null);
+  eq(S({ k: 'line', t: 1, p: [0, '0.5', 1, 1] }), null, 'numbers only');
+  eq(S({ k: 'free', t: 1, p: [0, 0, 1] }), null, 'freehand in pairs');
+  eq(S({ k: 'free', t: 1, p: new Array(242).fill(0.5) }), null, 'freehand capped');
+  const d = VG.sanitizeDoc({ drawings: [{ k: 'line', t: 1, p: [0, 0, 1, 1] }, { k: 'x' }, null], tags: ['depth', 'depth', 'speed', 'bar_path'], note: '  Knees\n out  ', alignT: '2.25' });
+  eq(d.drawings.length, 1); eq(d.tags.join(','), 'depth,bar_path'); eq(d.note, 'Knees out'); eq(d.alignT, 2.25);
+  eq(VG.sanitizeDoc({ note: 'x'.repeat(400) }).note.length, 280);
+  eq(VG.sanitizeDoc({ alignT: -3 }).alignT, null); eq(VG.sanitizeDoc(null).drawings.length, 0);
+  eq(VG.docKey({ drawings: [], tags: ['depth'] }), VG.docKey({ tags: ['depth', 'nope'], note: ' ' }), 'the same review compares equal');
+});
+test('video review: compare runs two clips locked on their marks', () => {
+  eq(VG.compareOffset(1.783, 2.25), 0.467); eq(VG.compareOffset(null, 2.25), 0);
+  let s = VG.compareLeadIn(1.783, 2.25, 1.2); eq(s.a, 0.583); eq(s.b, 1.05);
+  close(s.b - s.a, VG.compareOffset(1.783, 2.25), 1e-9, 'both reach their marks together');
+  s = VG.compareLeadIn(0.4, 2.25, 1.2); eq(s.a, 0); eq(s.b, 1.85, 'a mark near the start shortens the lead-in for both');
+  eq(VG.compareLeadIn(null, 1).a, 0);
+  eq(VG.pairTime(1.0, 0.467, 4.4), 1.467); eq(VG.pairTime(4.2, 0.467, 4.4), 4.4); eq(VG.pairTime(0.1, -0.5, 4), 0);
+});
+test('video review: the clip to compare against', () => {
+  const day = 864e5, now = Date.parse('2026-10-22T09:00:00Z');
+  const at = (d) => new Date(now - d * day).toISOString();
+  const fc = { id: 'f0', athleteId: 'a', lift: 'squat', createdAt: at(0) };
+  const list = [fc,
+    { id: 'f1', athleteId: 'a', lift: 'squat', createdAt: at(7) },
+    { id: 'f2', athleteId: 'a', lift: 'squat', createdAt: at(40) },
+    { id: 'f3', athleteId: 'a', lift: 'squat', createdAt: at(90) },
+    { id: 'f4', athleteId: 'a', lift: 'bench', createdAt: at(42) },
+    { id: 'f5', athleteId: 'b', lift: 'squat', createdAt: at(42) }];
+  eq(VG.defaultCompareFor(fc, list).id, 'f2', 'the same lift about six weeks before');
+  eq(VG.defaultCompareFor(fc, list.filter(x => x.lift !== 'squat' || x.id === 'f0')).id, 'f4', 'else their newest other clip');
+  eq(VG.defaultCompareFor(fc, [fc, list[5]]), null, 'never another lifter-s clip');
+  eq(VG.defaultCompareFor({ id: 'n', athleteId: 'a', lift: 'squat', createdAt: at(100) }, list).id, 'f0', 'nothing earlier: the newest other clip');
+});
+test('video review: signed URLs are renewed before they run out', () => {
+  const t0 = 1e12;
+  eq(VG.urlNeedsRefresh(t0, 3600, t0 + 60e3), false);
+  eq(VG.urlNeedsRefresh(t0, 3600, t0 + (3600 - 90) * 1e3), true, '90 s before expiry');
+  eq(VG.urlNeedsRefresh(t0, 60, t0 + 44e3), false); eq(VG.urlNeedsRefresh(t0, 60, t0 + 45e3), true, 'short links keep a quarter in hand');
+  eq(VG.urlNeedsRefresh(0, 3600, t0), true); eq(VG.urlNeedsRefresh(null, 3600, t0), true);
+});
+test('video review: replay stops, clock and labels', () => {
+  const st = VG.stopTimes([{ t: 2.85 }, { t: 1.783 }, { t: 1.79 }, { t: 2.85 }], 30);
+  eq(st.join(','), '1.783,2.85', 'drawings on one frame are one stop');
+  eq(VG.fmtClock(1.783), '0:01.78'); eq(VG.fmtClock(75.5), '1:15.50'); eq(VG.fmtClock(-1), '0:00.00');
+  eq(VG.drawingLabel({ k: 'angle', p: [0, 0.5, 0.5, 0.5, 0.5, 0] }, 100, 100), 'Angle 90°');
+  eq(VG.drawingLabel({ k: 'free', p: [] }), 'Freehand');
+});
+test('video review: the caption goes where the drawings are not', () => {
+  eq(VG.captionOnTop([{ k: 'line', p: [0.2, 0.75, 0.8, 0.72] }]), true, 'depth marks low → caption on top');
+  eq(VG.captionOnTop([{ k: 'arrow', p: [0.4, 0.2, 0.5, 0.3] }]), false, 'bar path high → caption at the bottom');
+  eq(VG.captionOnTop([]), false, 'nothing drawn → the bottom');
 });
 
 function runImporterTests(win) {

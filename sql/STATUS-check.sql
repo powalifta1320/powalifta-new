@@ -97,6 +97,9 @@ with checks(n, migration, applied) as (values
   (39, 'migration-readiness-cut-2026-10-22.sql  (HRV, nutrition_daily, goal cut targets)',
         to_regclass('public.nutrition_daily') is not null
         and exists (select 1 from information_schema.columns
-                     where table_schema = 'public' and table_name = 'goals' and column_name = 'target_class'))
+                     where table_schema = 'public' and table_name = 'goals' and column_name = 'target_class')),
+  (40, 'migration-form-check-annotations-2026-10-22.sql  (video review: drawings on form checks)',
+        to_regclass('public.form_check_annotations') is not null
+        and to_regprocedure('public.fca_coach_may(uuid)') is not null)
 )
 select n, migration, applied from checks order by n;

@@ -313,9 +313,14 @@ window.POWA_SUPPORT_KB = [
    "review my lift",
    "send a video",
    "upload video",
-   "video too big"
+   "video too big",
+   "draw on video",
+   "frame by frame",
+   "compare clips",
+   "coach drawings"
   ],
-  "a": "Athletes: open the Coach tab, switch to Form checks, choose a video (up to 100 MB), pick the lift, say what you want eyes on and tap \"Send for review\"; your coach's written reply appears under the clip. Coaches: Roster lists Form checks waiting for a review; tap one, watch the video and tap Send reply (Update reply to change it). Videos are private to the two of you."
+  "a": "Athletes: open the Coach tab, switch to Form checks, choose a video (up to 100 MB), pick the lift, say what you want eyes on and tap \"Send for review\"; tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: Roster lists Form checks waiting for a review; tap one to open the review: step frame by frame (the , and . keys on a laptop), pause on the frame that matters, draw a line, arrow, circle, angle (it shows the degrees) or freehand, tick what you judged (depth, lockout, pause, bar path, set-up), add a caption and a reply, then Send. Compare puts two of the lifter's clips side by side: tap Align here on the same moment in each, like the bottom of the squat, and they play together. Videos and drawings are private to the two of you.",
+  "app": "Athletes: open the Coach tab, switch to Form checks, tap Film a set or Choose a clip, pick the lift, say what you want eyes on and tap \"Send for review\"; the app converts iPhone video so your coach can play it on any computer. Tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: Roster lists Form checks waiting for a review; tap one to step frame by frame, draw on the frame that matters (line, arrow, circle, angle with the degrees, freehand), tick what you judged, add a caption and a reply, then Send. Compare puts two clips side by side, aligned on the same moment. Videos and drawings are private to the two of you."
  },
  {
   "id": "coach-build-program",
