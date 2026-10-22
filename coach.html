@@ -333,6 +333,7 @@
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
 <script src="desk.js"></script>
+<script src="desk-season.js"></script><!-- the desk's season: Teams, the roster calendar, Plan a meet, the last week of a block -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
@@ -2927,6 +2928,25 @@ function openMaxesSheet(progId, athleteId) {
     sheet.appendChild(save);
   }, { cls: 'mx-sheet' });
 }
+// The quick path (the sheet below, and the desk's last week of a block): this block is kept as a
+// past block, then the same weeks start again a step heavier. → the new block's name.
+function _nextBlockName(prog) { const m = /^(.*?)(\d+)\s*$/.exec(prog.name || ''); return m ? m[1] + (Number(m[2]) + 1) : (prog.name || 'Block') + ' 2'; }
+async function startSameBlockHeavier(progId, athleteId) {
+  const prog = Store.get().programs.find(p => p.id === progId);
+  if (!prog) throw new Error('No program');
+  const nextName = _nextBlockName(prog);
+  const stepKg = getUnit() === 'lbs' ? 5 * KG_PER_LB : 2.5;
+  await archiveProgramIfTrained(prog);
+  const weeks = nextBlockWeeks(prog, stepKg);
+  applyPctLoads(weeks, athleteId, undefined, prog.maxes);
+  // The next block starts next Monday (this week is the old block's last, or its meet week). A meet
+  // it peaked into (today or past) isn't the new block's: a later one stays.
+  const next = typeof _monISO === 'function' ? _addDaysISO(_monISO(todayISO()), 7) : null;
+  const meetGone = !!(prog.meetDate && String(prog.meetDate).slice(0, 10) <= todayISO());
+  Store.update(s => { const p = s.programs.find(x => x.id === progId); if (p) { p.name = nextName; p.weeks = weeks; if (next) p.startsOn = next; if (meetGone) p.meetDate = null; } });
+  persistProgram(progId);
+  return nextName;
+}
 // The next block: the same one heavier, a template, a pasted sheet or one built from a goal.
 // Whichever it is, this block's logged training is kept as a past block first.
 function openNextBlockSheet(progId, athleteId) {
@@ -2934,17 +2954,13 @@ function openNextBlockSheet(progId, athleteId) {
   if (!prog) return;
   const lbs = getUnit() === 'lbs';
   const stepKg = lbs ? 5 * KG_PER_LB : 2.5;
-  const nextName = (() => { const m = /^(.*?)(\d+)\s*$/.exec(prog.name || ''); return m ? m[1] + (Number(m[2]) + 1) : (prog.name || 'Block') + ' 2'; })();
+  const nextName = _nextBlockName(prog);
   uiSheet('Start the next block', (sheet, close) => {
     sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, (programHasTraining(prog) ? '"' + (prog.name || 'This block') + '" is kept as a past block, with everything they logged. ' : '') + 'Start the next one from:'));
     const go = (fn) => () => { close(); setTimeout(fn, 230); };
     sheet.appendChild(uiList([
       uiRow({ title: 'The same block, heavier', sub: 'Every week again: main lifts +' + (lbs ? '5 lb' : '2.5 kg') + ' (or +2.5% on % sets). Named "' + nextName + '".', chevron: true, onClick: go(async () => {
-        await archiveProgramIfTrained(prog);
-        const weeks = nextBlockWeeks(prog, stepKg);
-        applyPctLoads(weeks, athleteId, undefined, prog.maxes);
-        Store.update(s => { const p = s.programs.find(x => x.id === progId); if (p) { p.name = nextName; p.weeks = weeks; } });
-        persistProgram(progId);
+        await startSameBlockHeavier(progId, athleteId);
         activeWeekIdx = 0;
         toast('"' + nextName + '" is ready');
         loadProgram();
@@ -3638,9 +3654,15 @@ function deleteExercise(wi, di, ei) {
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
+// A team program's exercise changed for this lifter on the phone is theirs from now on: the next
+// team push asks keep or overwrite, and never lays the team's sets beside the coach's.
+function claimTeamExercise(aid, wi, di, ei) {
+  Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); const e = p && p.weeks[wi] && p.weeks[wi].days[di] && p.weeks[wi].days[di].exercises[ei]; if (e && e.srcId != null) e.ovr = true; });
+}
 function updateSet(wi, di, ei, si, field, val) {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days[di].exercises[ei].sets[si][field] = val; });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
 }
 function addSet(wi, di, ei) {
@@ -3649,12 +3671,14 @@ function addSet(wi, di, ei) {
     const p = s.programs.find(p => p.athleteId === aid);
     if (p) { const last = p.weeks[wi].days[di].exercises[ei].sets.at(-1); p.weeks[wi].days[di].exercises[ei].sets.push(Object.assign(newSet(last?.weight || 0, last?.reps || 5, last?.rpe || 7), last ? rxOf(last) : {})); }
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
 function deleteSet(wi, di, ei, si) {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => { const p = s.programs.find(p => p.athleteId === aid); if (p) p.weeks[wi].days[di].exercises[ei].sets.splice(si, 1); });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
@@ -3678,6 +3702,7 @@ function setBlockField(wi, di, ei, startIdx, count, field, val) {
       sets[i][field] = val;
     }
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   // No reload — user is mid-typing
 }
@@ -3698,6 +3723,7 @@ function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
       });
     }
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   if (rerender) loadProgram();
 }
@@ -3712,6 +3738,7 @@ function setBlockFields(wi, di, ei, startIdx, count, patch) {
     const sets = p.weeks[wi].days[di].exercises[ei].sets;
     for (let i = startIdx; i < startIdx + count && i < sets.length; i++) applySetFieldPatch(sets[i], patch);
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
@@ -3723,6 +3750,7 @@ function setExerciseRx(wi, di, ei, fn) {
     if (!p) return;
     (p.weeks[wi].days[di].exercises[ei].sets || []).forEach(st => { if (!st.completed) fn(st); });
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
@@ -3744,6 +3772,7 @@ function setBlockCount(wi, di, ei, startIdx, oldCount, newCount) {
       sets.splice(startIdx + target, oldCount - target);
     }
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
@@ -3757,6 +3786,7 @@ function deleteBlock(wi, di, ei, startIdx, count) {
     sets.splice(startIdx, count);
     if (sets.length === 0) sets.push(newSet(0, 5, null));
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
@@ -3775,6 +3805,7 @@ function addBlock(wi, di, ei) {
     if (last.pct != null) nb.pct = last.pct;
     sets.push(nb);
   });
+  claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
   loadProgram();
 }
