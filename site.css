@@ -431,40 +431,95 @@ body.site .s-trust { padding: 0 0 clamp(8px, 2vw, 24px); }
 .s-phone-item .s-phone { width: 100%; max-width: 240px; }
 .s-phone-item figcaption { text-align: center; font-size: 0.92rem; font-weight: 600; color: var(--text-2); }
 
-/* ---------- Compared with a sheet ---------- */
-.s-cmp { border-top: 1px solid var(--text-3); }
-.s-cmp-row { display: grid; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px 32px; padding: 18px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
-.s-cmp-row b { font-weight: 650; font-size: 1rem; color: var(--text); }
-.s-cmp-row span { text-wrap: pretty; }
-.s-cmp-row > span:nth-child(2) { color: var(--text-3); font-size: 0.97rem; line-height: 1.5; }
-.s-cmp-row > span:nth-child(3) { position: relative; padding-left: 26px; color: var(--text); font-size: 0.97rem; line-height: 1.5; }
-.s-cmp-row:not(.s-cmp-head) > span:nth-child(3)::before {
-  content: ''; position: absolute; left: 0; top: 0.32em; width: 15px; height: 15px; background: var(--s-ok);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+/* ---------- Only POWALIFTA: what reaches the coach besides the set ----------
+   Five tiles of different shapes, each one real still and one sentence. Each tile is lit from
+   its top corner in its own colour (meet gold, form-check iris, pain red, readiness cyan, the
+   cut green); the stills bleed off the tile's edges where the screen would continue. */
+.s-only-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(14px, 1.5vw, 20px); }
+.s-o {
+  --pad: clamp(22px, 2.3vw, 32px);
+  position: relative; isolation: isolate; overflow: hidden; min-width: 0;
+  display: flex; flex-direction: column;
+  padding: var(--pad); border-radius: 26px;
+  background: var(--bg-1); border: 1px solid var(--line); box-shadow: var(--s-lit);
 }
-.s-cmp-head { padding: 14px 0; align-items: center; }
-.s-cmp-head span { font-size: 0.86rem; font-weight: 600; color: var(--text-3) !important; }
-.s-cmp-head span:nth-child(3) { display: inline-flex; align-items: center; gap: 8px; padding-left: 0 !important; color: var(--text) !important; }
-.s-cmp-head svg { width: 18px; height: 18px; }
+.s-o::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(70% 60% at 100% 0%, color-mix(in srgb, var(--c) var(--s-o-light, 11%), transparent), transparent 72%);
+}
+body.site .s-o h3 { margin: 0 0 10px; font-size: clamp(1.22rem, 1.55vw, 1.42rem); letter-spacing: -0.02em; line-height: 1.15; }
+.s-o-copy p { margin: 0; max-width: 36ch; color: var(--text-2); font-size: 1rem; line-height: 1.55; }
+.s-o-shot { margin: 0; padding-top: clamp(22px, 2.4vw, 30px); margin-top: auto; }
+.s-o-shot img { display: block; width: 100%; height: auto; border-radius: 16px; background: #050506; box-shadow: 0 0 0 1px var(--line-2), 0 34px 60px -34px rgba(0, 0, 0, 0.85); }
 
-/* The notation reader: the desk's own parser, live. */
-.s-rx { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 18px 32px; align-items: end; margin-top: clamp(32px, 4vw, 48px); padding: clamp(20px, 2.4vw, 28px); border-radius: 22px; background: var(--bg-1); border: 1px solid var(--line); box-shadow: var(--s-lit); }
-body.site .s-rx-field { display: grid; gap: 8px; margin: 0; text-transform: none; letter-spacing: 0; }
-.s-rx-field span, .s-rx-k { font-size: 0.84rem; font-weight: 600; color: var(--text-3); }
-.s-rx-field input { height: 54px; padding: 0 18px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); font: 700 1.25rem/1 var(--font-num); font-variant-numeric: tabular-nums; width: 100%; }
-.s-rx-field input:focus { outline: none; border-color: var(--s-ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--s-ok) 22%, transparent); }
-.s-rx-read { display: grid; gap: 8px; min-width: 0; }
-.s-rx-out { display: flex; flex-wrap: wrap; gap: 8px; min-height: 54px; align-items: center; }
-.s-rx-out i { font-style: normal; padding: 9px 13px; border-radius: 12px; background: color-mix(in srgb, var(--s-ok) 13%, transparent); color: var(--text); font: 650 0.94rem/1.1 var(--font-num); }
-.s-rx-out i.is-new { animation: s-chip-in 0.28s var(--s-ease) both; }
-.s-rx-out i.t-rx-none { background: var(--s-surface); color: var(--text-3); }
-@keyframes s-chip-in { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: none; } }
-.s-rx-try { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--text-3); }
-.s-rx-try span { margin-right: 4px; }
-.s-rx-try button { border: 1px solid var(--line-2); background: transparent; color: var(--text-2); border-radius: 999px; padding: 8px 13px; font: 600 0.85rem/1 var(--font-num); cursor: pointer; transition: color 0.15s, background-color 0.15s, transform 0.12s ease-out; }
-.s-rx-try button:hover { color: var(--text); background: var(--s-surface-2); }
-.s-rx-try button:active { transform: scale(0.97); }
+/* Meet day: the board runs off the tile's right and bottom edges; the lifter's phone card sits
+   under the sentence. */
+.s-o-meet { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); column-gap: clamp(24px, 3vw, 44px); padding-right: 0; padding-bottom: 0; }
+.s-o-meet .s-o-copy { display: flex; flex-direction: column; padding-bottom: var(--pad); }
+.s-o-next { max-width: 330px; }
+.s-o-next img { border-radius: 18px; }
+.s-o-board { align-self: end; padding-top: 0; }
+.s-o-board img { border-radius: 16px 0 0 0; }
+/* The form check bleeds off the right and bottom; the pain sheet rises from the tile's floor. */
+.s-o-review { grid-column: span 7; padding-right: 0; padding-bottom: 0; }
+.s-o-review .s-o-copy { padding-right: var(--pad); }
+.s-o-review .s-o-shot { max-height: 470px; overflow: hidden; }
+.s-o-review .s-o-shot img { border-radius: 16px 0 0 0; }
+.s-o-pain { grid-column: span 5; padding-bottom: 0; }
+.s-o-pain .s-o-shot { display: flex; justify-content: center; }
+/* The sheet and the readiness card are cut to their own edges: their own border is the frame. */
+.s-o-pain .s-o-shot img { max-width: 430px; border-radius: 24px 24px 0 0; box-shadow: 0 -20px 50px -30px rgba(0, 0, 0, 0.7); }
+.s-o-ready { grid-column: span 5; }
+.s-o-ready .s-o-shot { display: flex; justify-content: center; margin: auto 0; }
+.s-o-ready .s-o-shot img { max-width: 400px; border-radius: 22px; box-shadow: 0 30px 60px -36px rgba(0, 0, 0, 0.8); }
+/* Making weight: the sentence beside the screen, which runs off the bottom. */
+.s-o-cut { grid-column: span 7; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); column-gap: clamp(20px, 2.4vw, 32px); padding-bottom: 0; }
+.s-o-cut .s-o-shot { padding-top: 0; align-self: end; }
+.s-o-cut .s-o-shot img { max-width: 380px; margin-left: auto; border-radius: 18px 18px 0 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .s-only-grid .s-reveal:nth-child(3), .s-only-grid .s-reveal:nth-child(5) { --s-delay: 0.08s; }
+}
+@media (max-width: 1099px) {
+  .s-only-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .s-o-meet, .s-o-review, .s-o-ready { grid-column: 1 / -1; }
+  .s-o-pain, .s-o-cut { grid-column: span 1; }
+  /* Two columns: the pain sheet beside the cut, then readiness as one wide row (its card is wide). */
+  .s-o-cut { order: 1; grid-template-columns: minmax(0, 1fr); }
+  .s-o-cut .s-o-shot { padding-top: 22px; }
+  .s-o-cut .s-o-shot img { margin: 0 auto; }
+  .s-o-ready { order: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-items: center; }
+  .s-o-ready .s-o-shot { padding-top: 0; margin: 0; }
+  /* Meet day: the sentence beside the lifter's card, the board full width under them. */
+  .s-o-meet { grid-template-columns: minmax(0, 1fr); }
+  .s-o-meet .s-o-copy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); grid-template-rows: auto 1fr; column-gap: 28px; align-items: start; padding-right: var(--pad); padding-bottom: 0; }
+  .s-o-meet .s-o-copy .s-o-next { grid-column: 2; grid-row: 1 / span 2; padding-top: 0; margin: 0; }
+  .s-o-board { padding-top: 24px; padding-left: 0; }
+  /* The form check: the sentence beside the screen. */
+  .s-o-review { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); column-gap: 28px; }
+  .s-o-review .s-o-copy { padding-right: 0; }
+  .s-o-review .s-o-shot { padding-top: 0; max-height: none; align-self: end; }
+}
+@media (max-width: 699px) {
+  .s-only-grid { grid-template-columns: minmax(0, 1fr); }
+  .s-o-pain, .s-o-cut { grid-column: 1 / -1; }
+  .s-o-ready { grid-template-columns: minmax(0, 1fr); }
+  .s-o-ready .s-o-shot { padding-top: 22px; }
+  /* One column: the sentence, then the screen. The board keeps its first columns at a size you
+     can read and runs off the right edge. */
+  .s-o-meet { grid-template-columns: minmax(0, 1fr); }
+  .s-o-meet .s-o-copy { display: flex; padding-right: var(--pad); padding-bottom: 0; }
+  .s-o-meet .s-o-copy .s-o-next { padding-top: 22px; }
+  .s-o-next { max-width: none; }
+  .s-o-review { grid-template-columns: minmax(0, 1fr); }
+  .s-o-review .s-o-copy { padding-right: var(--pad); }
+  .s-o-review .s-o-shot { padding-top: 22px; }
+  .s-o-board { padding-top: 16px; }
+  .s-o-board img { width: 210%; max-width: none; }
+  .s-o-cut { grid-template-columns: minmax(0, 1fr); }
+  .s-o-cut .s-o-shot { padding-top: 22px; }
+  .s-o-cut .s-o-shot img { max-width: 400px; margin: 0 auto; }
+}
 
 /* ---------- Pricing: one scale by roster size ---------- */
 .s-price-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); grid-template-areas: 'head card' 'cta card'; column-gap: clamp(36px, 6vw, 88px); align-items: center; }
@@ -567,9 +622,6 @@ body.site .s-cta h2 { margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); font-weigh
   .s-faq-head { position: static; }
   .s-faq-head h2 { max-width: 18ch; }
   .s-notes { grid-template-columns: minmax(0, 1fr); max-width: 36rem; }
-  .s-cmp-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .s-cmp-row b { grid-column: 1 / -1; }
-  .s-cmp-head span:first-child { display: none; }
 }
 @media (max-width: 699px) {
   /* Phones: the stills are cropped to what the section is about, so the words stay readable. */
@@ -599,10 +651,6 @@ body.site .s-cta h2 { margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); font-weigh
   .s-phones::-webkit-scrollbar { display: none; }
   .s-phone-item { flex: 0 0 62%; scroll-snap-align: center; gap: 14px; }
   .s-phone-item:nth-child(2) { margin-top: 0; }
-  .s-cmp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  .s-cmp-head { display: none; }
-  .s-cmp-row > span:nth-child(2)::before { content: 'Sheet: '; font-weight: 600; }
-  .s-rx { grid-template-columns: minmax(0, 1fr); }
   .s-plans { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .s-plan:nth-child(3) { box-shadow: inset 0 1px 0 var(--line-2); }
   .s-plan:nth-child(4) { box-shadow: inset 1px 0 0 var(--line-2), inset 0 1px 0 var(--line-2); }
@@ -618,10 +666,11 @@ body.site .s-cta h2 { margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); font-weigh
 html[data-theme="light"] body.site { --bg: #ffffff; --bg-1: #f6f6f8; --bg-2: #eeeef2; background: #ffffff; --nav-bg: rgba(255, 255, 255, 0.86); }
 [data-theme="light"] body.site .s-light { opacity: 0.75; }
 [data-theme="light"] body.site .s-window::before { opacity: 0.8; }
+[data-theme="light"] body.site .s-o { --s-o-light: 9%; }
+[data-theme="light"] body.site .s-o-shot img { box-shadow: 0 0 0 1px rgba(20, 20, 40, 0.14), 0 30px 60px -40px rgba(20, 20, 40, 0.45); }
 [data-theme="light"] body.site .s-window-crop { box-shadow: 0 0 0 1px rgba(20, 20, 40, 0.12), 0 40px 80px -50px rgba(20, 20, 40, 0.45); }
-[data-theme="light"] body.site .s-scale-card, [data-theme="light"] body.site .s-rx { box-shadow: var(--s-lit), 0 30px 60px -48px rgba(20, 20, 40, 0.3); }
+[data-theme="light"] body.site .s-scale-card, [data-theme="light"] body.site .s-o { box-shadow: var(--s-lit), 0 30px 60px -48px rgba(20, 20, 40, 0.3); }
 [data-theme="light"] body.site .s-notes li > i { background: #16161a; color: #fff; box-shadow: none; }
-[data-theme="light"] body.site .s-cmp { border-top-color: var(--text); }
 [data-theme="light"] body.site .s-phone { box-shadow: 0 0 0 1px #4a4a52, 0 0 0 2.5px #19191d, 0 44px 80px -44px rgba(20, 20, 40, 0.5), 0 18px 34px -24px rgba(20, 20, 40, 0.35); }
 [data-theme="light"] body.site .s-laptop-lid { box-shadow: 0 0 0 1px #3a3a42, 0 60px 100px -60px rgba(20, 20, 40, 0.55); }
 [data-theme="light"] body.site .s-laptop-base { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 22px 34px -22px rgba(20, 20, 40, 0.5); }
@@ -800,6 +849,12 @@ html.native .s-home { display: none !important; }
 .s-steps li::before { content: counter(s-step); grid-row: span 2; width: 1.75rem; height: 1.75rem; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--text); color: var(--bg); font: 750 0.82rem/1 var(--font-num); }
 .s-steps b { color: var(--text); font-weight: 650; font-size: 1.08rem; }
 .s-steps span { text-wrap: pretty; }
+/* Kinds, not steps (switch.html): no numbers, the lift colours in meet order mark each row. */
+.s-kinds li { grid-template-columns: 14px minmax(0, 1fr); }
+.s-kinds li::before { content: ''; width: 4px; height: 1.1rem; margin-top: 0.3rem; border-radius: 2px; background: var(--s-squat); }
+.s-kinds li:nth-child(2)::before { background: var(--s-bench); }
+.s-kinds li:nth-child(3)::before { background: var(--s-dead); }
+.s-kinds li:nth-child(4)::before { background: var(--s-ok); }
 
 /* ---------- switch.html: the guide on the left, a live paste box on the right ---------- */
 .s-switch-page { overflow-x: clip; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: clamp(40px, 6vw, 96px); align-items: start; padding-bottom: clamp(56px, 8vw, 104px); }
@@ -841,12 +896,15 @@ body.site .s-paste-field { display: grid; gap: 8px; text-transform: none; letter
 /* Read by screen readers and search engines, not drawn (the hero's own titles sit in panels). */
 .s-sr { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-/* switch.html: the grid a pasted program lands in. */
-.s-switch-shot { --field: var(--s-ok); margin: clamp(8px, 2vw, 16px) 0 clamp(40px, 5vw, 56px); }
-/* It shows the phone window of the grid (names and week 2) at every width, so the numbers stay
-   readable in the guide's column. */
-.s-switch-shot { max-width: 520px; }
-.s-switch-shot .s-window-crop { --cx: var(--mx); --cy: var(--my); --cw: var(--mw); --ch: var(--mh); }
+/* switch.html: the history import, read before it saves (own-import.webp, a coach's phone). */
+.s-switch-shot { margin: clamp(8px, 2vw, 16px) 0 clamp(40px, 5vw, 56px); display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 20px 28px; align-items: end; }
+.s-switch-shot img { display: block; width: 100%; height: auto; border-radius: 24px; background: #050506; box-shadow: 0 0 0 1px var(--line-2), 0 40px 80px -50px rgba(0, 0, 0, 0.9); }
+.s-switch-shot figcaption { color: var(--text-3); font-size: 0.95rem; line-height: 1.55; max-width: 22rem; }
+@media (max-width: 599px) {
+  .s-switch-shot { grid-template-columns: minmax(0, 1fr); }
+  .s-switch-shot img { max-width: 360px; }
+}
+[data-theme="light"] body.site .s-switch-shot img { box-shadow: 0 0 0 1px rgba(20, 20, 40, 0.14), 0 30px 60px -40px rgba(20, 20, 40, 0.45); }
 .s-switch-shot figcaption { margin-top: 14px; font-size: 0.92rem; color: var(--text-3); }
 
 /* ---------- data.html: the document with its contents beside it ---------- */

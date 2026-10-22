@@ -777,6 +777,9 @@ var VideoReview = (function () {
     stageWrap.appendChild(p.el);
     main.appendChild(stageWrap);
     wireDrawing(p);
+    // The list's angles are measured in the clip's own pixels (angleDeg): the list is first painted
+    // before the clip's size is known, so paint it again once it is (else it shows the 0-1 angle).
+    p.video.addEventListener('loadedmetadata', function () { if (S && S.player === p) paintDrawingList(); });
 
     var tl = Timeline(p, { onScrub: function () { p.sel = -1; refreshTools(); } });
     S.tl = tl;

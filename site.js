@@ -5,9 +5,8 @@
    3. The hero loop: the lifter taps Log set on the phone, the set flies to their row on the
       coach's desk and lands with one soft pulse. Plays only while the hero is on screen.
    4. The table's numbered pins: they arrive one by one, and a note lights its pin.
-   5. The notation reader (parsePrescription from app.js, the one the desk uses).
-   6. The pricing roster slider.
-   7. A document's contents (data.html) mark the section you're reading.
+   5. The pricing roster slider.
+   6. A document's contents (data.html) mark the section you're reading.
    Everything fails soft: with no JS, or reduced motion, the page is simply all there (the hero
    shows the set already landed). */
 (function () {
@@ -171,63 +170,7 @@
     io.observe(fig);
   }
 
-  // ---- 5. The notation reader -----------------------------------------------
-  function setupRx() {
-    var input = $('tileRx'), out = $('tileRxOut');
-    if (!input || !out) return;
-    var prev = [];
-    var n = function (v) { return String(Math.round(v * 100) / 100); };
-    function chips(s) {
-      if (typeof window.parsePrescription !== 'function') return null;
-      var p = window.parsePrescription(s, 'kg'), c = [];
-      if (p.sets != null && p.reps != null) { c.push(p.sets + (p.sets === 1 ? ' set' : ' sets')); c.push(p.reps + (p.reps === 1 ? ' rep' : ' reps')); }
-      if (p.kg != null) c.push(n(p.kg) + (p.kgHi != null ? '-' + n(p.kgHi) : '') + ' kg');
-      if (p.pct != null) c.push(n(p.pct) + (p.pctHi != null ? '-' + n(p.pctHi) : '') + '% of max');
-      if (p.rpe != null) {
-        var r = 'RPE ' + n(p.rpe) + (p.rpeHi != null ? '-' + n(p.rpeHi) : '');
-        if (p.rir) { var lo = 10 - (p.rpeHi != null ? p.rpeHi : p.rpe), hi = 10 - p.rpe; c.push((lo === hi ? lo : lo + '-' + hi) + ' in reserve'); }
-        c.push(r);
-      }
-      return c;
-    }
-    function render() {
-      var c = chips(input.value);
-      if (c === null) return; // app.js not loaded: keep the markup's example
-      out.innerHTML = '';
-      if (!c.length) { out.appendChild(mk('i', 't-rx-none', 'Write sets x reps, then @RPE, RIR, % or kg')); prev = []; return; }
-      c.forEach(function (t) {
-        var i = mk('i', null, t);
-        if (prev.indexOf(t) < 0 && !reduce) i.className = 'is-new';
-        out.appendChild(i);
-      });
-      prev = c;
-    }
-    input.addEventListener('input', render);
-    var touched = false;
-    input.addEventListener('focus', function () { touched = true; });
-    all('.s-rx-try button').forEach(function (b) {
-      b.addEventListener('click', function () { touched = true; input.value = b.getAttribute('data-rx'); render(); });
-    });
-    // app.js loads after this file; read once it has.
-    function first() { prev = chips(input.value) || []; render(); }
-    if (typeof window.parsePrescription === 'function') first(); else window.addEventListener('load', first);
-    if (reduce || !('IntersectionObserver' in window)) return;
-    // Arriving: a coach types a line from their sheet, once.
-    var io = new IntersectionObserver(function (es) {
-      if (!es[0].isIntersecting) return;
-      io.disconnect();
-      var text = '4x6 75% @7', i = 0;
-      setTimeout(function step() {
-        if (touched || typeof window.parsePrescription !== 'function') return;
-        input.value = text.slice(0, ++i);
-        render();
-        if (i < text.length) setTimeout(step, 70);
-      }, 500);
-    }, { rootMargin: '0px 0px -25% 0px', threshold: 0.6 });
-    io.observe(input);
-  }
-
-  // ---- 6. Pricing roster slider --------------------------------------------
+  // ---- 5. Pricing roster slider --------------------------------------------
   function setupRoster() {
     var r = $('rosterSize'), out = $('rosterOut');
     if (!r || !out) return;
@@ -249,7 +192,7 @@
     upd();
   }
 
-  // ---- 7. A document's contents (data.html): the section you're reading is marked. ----
+  // ---- 6. A document's contents (data.html): the section you're reading is marked. ----
   function setupToc() {
     var links = all('.s-toc a[href^="#"]');
     if (!links.length || !('IntersectionObserver' in window)) return;
@@ -270,7 +213,6 @@
     setupReveal();
     setupHeroLoop();
     setupPins();
-    setupRx();
     setupRoster();
     setupToc();
     // The nav is drawn by app.js after the session check: measure it once it lands.

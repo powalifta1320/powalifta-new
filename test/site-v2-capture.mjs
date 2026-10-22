@@ -5,6 +5,7 @@
 // the athlete's week table and the Roster's Week sheet. From the repo root, with any local server
 // of this repo running:
 //   node test/site-v2-capture.mjs [base]        base defaults to http://127.0.0.1:4193
+//   node test/site-v2-capture.mjs --own [base]  only the #only and switch.html stills (no desk)
 // Needs playwright-core (npm i -g playwright-core; the headless shell path is below), cwebp, sips.
 //
 // Writes, into site-img/:
@@ -19,8 +20,15 @@
 //                                           folds it the way it does in a narrow pane, 2x
 //   desk-sheet.webp, desk-sheet-1x.webp     #roster: the Roster's Week sheet, cut to its window
 //   desk-sheet-m.webp                       the same sheet on phones: names and the first two days
-//   desk-table-m.webp                       switch.html: the program grid a pasted program lands in
+//   desk-table-m.webp                       #desk on phones: the program grid's names and week 2
 //   app-train.webp                          the lifter's Train screen, 393x852 @2x, as the iPhone app
+//   own-meet.webp                           #only: the meet-day board (meetday.js), flight A's openers marked
+//   own-next.webp                           #only: the lifter's phone on meet day, "your next attempt"
+//   own-review.webp                         #only: a form check under review, at the frame the coach marked
+//   own-pain.webp                           #only: Tell your coach, the knee, how bad
+//   own-ready.webp                          #only: How do you feel today? with last night's heart data
+//   own-cut.webp                            #only: Make weight and the trend down to the class line
+//   own-import.webp                         switch.html: a written log pasted into Import training history
 // and og.jpg (1200x630, the Today queue and review; JPEG keeps it far under 300 KB).
 //
 // Then it rewrites, in index.html (and switch.html), the style on every element with data-cap="NAME" to the box of
@@ -34,7 +42,7 @@
 //             (--x.. on the desktop frame, --px --py --pw --ph on the narrowed phone frame)
 //   review, sheet       the window each section shows of its still (--cx --cy --cw --ch)
 //   review-m, sheet-m   the same on phones (--mx --my --mw --mh)
-//   table-m             switch.html's grid window
+//   table-m             the grid's phone window (#desk)
 // Each lookup is by visible text, not class names, so it survives a re-skin; when one fails, the
 // script says so and leaves that element's old values in place. After a re-skin, re-read the copy
 // beside each still (index.html #desk, #roster) against what the new capture actually shows.
@@ -49,7 +57,9 @@ try { ({ chromium } = await import(process.env.PLAYWRIGHT_CORE || 'playwright-co
 catch (e) { console.log('site-v2-capture: playwright-core not installed. npm i -g playwright-core && npx playwright install chromium'); process.exit(1); }
 
 const EXE = process.env.HOME + '/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell';
-const BASE = (process.argv[2] || 'http://127.0.0.1:4193').replace(/\/$/, '');
+// --own: only the #only stills (the meet-day board, a form check, the lifter's phone), not the desk's.
+const OWN_ONLY = process.argv.includes('--own');
+const BASE = (process.argv.slice(2).find((a) => !a.startsWith('--')) || 'http://127.0.0.1:4193').replace(/\/$/, '');
 const SITE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const IMG = join(SITE, 'site-img');
 const TMP = join(tmpdir(), 'powa-site-v2-capture');
@@ -138,6 +148,9 @@ function win(name, x0, y0, x1, y1, pre) {
   caps[name] = { ['--' + pre + 'x']: f(x0 / W), ['--' + pre + 'y']: f(y0 / H), ['--' + pre + 'w']: f((x1 - x0) / W), ['--' + pre + 'h']: f((y1 - y0) / H) };
 }
 
+const errors = [];
+const tableShots = {};
+if (!OWN_ONLY) {
 // ---- The desk -----------------------------------------------------------------------------
 const desk = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: 'reduce', colorScheme: 'dark' });
 await desk.addInitScript(() => {
@@ -149,7 +162,6 @@ await desk.addInitScript(() => {
   } catch (e) {}
 });
 const page = await desk.newPage();
-const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 async function shoot(name) {
   await page.addStyleTag({ content: HIDE });
@@ -221,7 +233,6 @@ await page.mouse.click(5, 450);
 // the window anyway) and the two visible weeks share the grid's width, so the typed week 3
 // fits whole instead of being cut mid-number; each day's label is moved to where the grid is
 // scrolled to, so the day rows aren't blank bands.
-const tableShots = {};
 {
   const ok = (await clickText(/^\s*Programs\s*$/)) && (await clickText(/^\s*Marcus Doyle\s*$/));
   if (!ok) { await page.keyboard.press('j'); await page.keyboard.press('o'); await settle(page, 1800); }
@@ -241,7 +252,7 @@ const tableShots = {};
     const first = head && head.parentElement && head.parentElement.firstElementChild;
     if (sc && first) sc.scrollLeft += head.getBoundingClientRect().left - first.getBoundingClientRect().right;
   });
-  // Type next week's bench into week 3, the way a coach writes it in a sheet.
+  // Type next week's bench into week 3, in the coach's own notation.
   await page.evaluate(() => {
     const rows = [...document.querySelectorAll('tr')].filter((tr) => /bench/i.test(tr.innerText || '') && tr.querySelectorAll('input, [contenteditable="true"]').length >= 3);
     const ins = rows[0] ? [...rows[0].querySelectorAll('input, [contenteditable="true"]')] : [];
@@ -391,6 +402,220 @@ await desk.close();
   try { unlinkSync(png); } catch (e) {}
   await ctx.close();
 }
+} // !OWN_ONLY
+
+// ---- What only POWALIFTA does (index.html #only) ----------------------------------------------
+// The section under the roster: real stills of what a coach gets beyond the set that lands live
+// (the hero already shows that). None of them is the coach desk itself, so a desk re-skin doesn't
+// date them: the meet-day board (meetday.js) beside the lifter's "your next attempt", a form check
+// under review (video-review.js), the lifter's morning readiness from Apple Health, making weight
+// against the class line, and a pain report on its way to the coach. The phone stills are slices of
+// the screen, cut to the one card (or sheet) the site's sentence is about. Every lookup is by
+// visible text; a miss is reported and the old file is kept.
+const ownShots = {};
+async function ownStill(p, name, clip, resize) {
+  if (!clip || clip.width < 40 || clip.height < 40) { misses.push(name); console.log('  MISS', name); return; }
+  clip = { x: Math.max(0, Math.round(clip.x)), y: Math.max(0, Math.round(clip.y)), width: Math.round(clip.width), height: Math.round(clip.height) };
+  const png = join(TMP, name + '.png');
+  await p.screenshot({ path: png, clip });
+  const w = resize || clip.width * 2;
+  console.log(name + '.webp', webp(png, join(IMG, name + '.webp'), resize), w + 'x' + Math.round(clip.height * w / clip.width));
+  ownShots[name] = { w, h: Math.round(clip.height * w / clip.width) };
+  try { unlinkSync(png); } catch (e) {}
+}
+// The demo's placeholder names read as watermarks in a still: the account is "Head Coach", the
+// lifter demo's own lifter "Jordan Reyes" (text only, in the page).
+async function neutralNames(p) {
+  await neutralCoach(p);
+  await p.addStyleTag({ content: '.ai-launcher{display:none!important}' }); // the assistant's button floats over every screen
+  await p.evaluate(() => {
+    for (const e of document.querySelectorAll('body *')) for (const n of e.childNodes) {
+      if (n.nodeType === 3 && /\bDemo Lifter\b/.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/\bDemo Lifter\b/g, 'Jordan Reyes');
+    }
+  });
+}
+let mdState = null;
+{
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, serviceWorkers: 'block', reducedMotion: 'reduce', colorScheme: 'dark' });
+  await ctx.addInitScript(() => {
+    try { localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', 'dark'); localStorage.setItem('powa-tour-coach-done', '1'); } catch (e) {}
+  });
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => errors.push('own: ' + e.message));
+  // 1. The meet-day board, flight A's first round marked: each opener declared (Enter) and passed (G),
+  // then the first second attempt. A laptop-narrow window (1100) keeps the board dense; the still
+  // runs from the meet's name down past the board and the lifter-up card.
+  await p.setViewportSize({ width: 1100, height: 720 });
+  await p.goto(BASE + '/coach.html?demo=1');
+  await settle(p, 3500);
+  await p.mouse.click(5, 450);
+  if (await p.evaluate(() => { if (typeof openMeetDayBoard !== 'function') return false; openMeetDayBoard('demo-md-1'); return true; })) {
+    await settle(p, 1500);
+    for (const k of ['Enter', 'g', 'Enter', 'g', 'Enter', 'g', 'Enter', 'g']) { await p.keyboard.press(k); await settle(p, 450); }
+    await p.addStyleTag({ content: HIDE });
+    await neutralNames(p);
+    // The demo's save state reads "Saved · demo"; a real board says "All marks saved".
+    await p.evaluate(() => { for (const e of document.querySelectorAll('body *')) for (const n of e.childNodes) if (n.nodeType === 3 && n.nodeValue.trim() === 'Saved · demo') n.nodeValue = 'All marks saved'; });
+    await settle(p, 300);
+    // The bottom of the board (the box round the "Lot" column head, at least a few rows tall) and of
+    // the lifter-up card.
+    const bottom = await p.evaluate(() => {
+      const own = (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('').trim();
+      const climb = (t, minW, minH) => {
+        let e = [...document.querySelectorAll('body *')].find((x) => own(x).startsWith(t) && x.getBoundingClientRect().width > 0);
+        while (e && (e.getBoundingClientRect().width < minW || e.getBoundingClientRect().height < minH)) e = e.parentElement;
+        return e ? e.getBoundingClientRect().bottom : 0;
+      };
+      return Math.max(climb('Lot', 600, 200), climb('First up', 300, 200));
+    });
+    if (bottom > 200) await ownStill(p, 'own-meet', { x: 0, y: 0, width: 1100, height: Math.min(720, bottom + 10) }, 2000);
+    else misses.push('own-meet');
+    mdState = await p.evaluate(() => localStorage.getItem('powa-md-demo-srv'));
+  } else misses.push('own-meet (no meetday.js)');
+  await p.setViewportSize({ width: W, height: H });
+  // 2. A form check under review: the clip at the frame the coach marked (bar path, arrow, the angle).
+  // A smaller window keeps the player's black side bars narrow.
+  const VW = 900, VH = 860;
+  await p.setViewportSize({ width: VW, height: VH });
+  await p.goto(BASE + '/coach.html?demo=1');
+  await settle(p, 3500);
+  await p.mouse.click(5, 450);
+  if (await p.evaluate(() => typeof openVideoReview === 'function' && openVideoReview('demo-fc-0'))) {
+    await settle(p, 2500);
+    const t = await p.evaluate(() => new Promise((res) => {
+      const v = document.querySelector('video');
+      if (!v) return res(null);
+      v.addEventListener('seeked', () => res(v.currentTime), { once: true });
+      v.currentTime = 2.85;
+      setTimeout(() => res(v.currentTime), 3000);
+    }));
+    await settle(p, 800);
+    await p.addStyleTag({ content: HIDE });
+    await neutralNames(p);
+    // Under the header, down to the scrubber: the clip with the marks, the controls, and the coach's
+    // panel (what they judged, the drawings, the reply). The tool row stays out.
+    const cut = await p.evaluate(() => {
+      const v = document.querySelector('video'), sc = document.querySelector('input[type="range"]');
+      if (!v) return null;
+      const r = v.getBoundingClientRect(), s = sc && sc.getBoundingClientRect().height ? sc.getBoundingClientRect() : null;
+      return { top: r.top - 16, bottom: (s ? s.bottom : r.bottom + 60) + 8 };
+    });
+    if (t != null && cut) await ownStill(p, 'own-review', { x: 0, y: Math.max(0, cut.top), width: VW, height: Math.min(VH, cut.bottom) - Math.max(0, cut.top) }, 1600);
+    else misses.push('own-review');
+  } else misses.push('own-review (no video-review.js)');
+  await ctx.close();
+}
+// The lifter's phone, as the iPhone app (the same set-up as app-train above).
+async function phoneCtx(height, init) {
+  const ctx = await browser.newContext({ viewport: { width: 393, height }, deviceScaleFactor: 2, serviceWorkers: 'block', isMobile: true, hasTouch: true, reducedMotion: 'reduce', colorScheme: 'dark' });
+  await ctx.addInitScript((md) => {
+    try {
+      localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', 'dark');
+      if (md) localStorage.setItem('powa-md-demo-srv', md);
+    } catch (e) {}
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {}, registerPlugin: () => new Proxy({}, { get: () => async () => ({}) }) };
+  }, init || null);
+  const p = await ctx.newPage();
+  const cdp = await ctx.newCDPSession(p);
+  try { await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34, left: 0, right: 0 } }); } catch (e) {}
+  p.on('pageerror', (e) => errors.push('own phone: ' + e.message));
+  return { ctx, p };
+}
+// The box of the closest ancestor of the element with this own text that is at least minW wide.
+const boxOf = (p, re, minW) => find(p, re, { minW: minW || 300 });
+{
+  // 3. Readiness: Train before the first set, "How do you feel today?" with last night's heart data.
+  const { ctx, p } = await phoneCtx(852);
+  await p.goto(BASE + '/athlete.html?demo=1');
+  await settle(p, 3500);
+  await p.addStyleTag({ content: HIDE });
+  await neutralNames(p);
+  await settle(p, 300);
+  const row = await boxOf(p, /^\s*How do you feel today\?\s*$/, 280);
+  if (row) await ownStill(p, 'own-ready', { x: row.x, y: row.y, width: row.w, height: row.h }); // the card itself, to its edges
+  else misses.push('own-ready');
+  // 4. A pain report: Tell your coach → the knee → how bad.
+  if (await p.evaluate(() => { if (typeof openPainSheet !== 'function') return false; openPainSheet({ phase: 'warmup', where: 'Before training' }); return true; })) {
+    await settle(p, 900);
+    const knee = await find(p, /^\s*L knee\s*$/, { up: 'button' });
+    if (knee) { await p.mouse.click(knee.x + knee.w / 2, knee.y + knee.h / 2); await settle(p, 900); }
+    await neutralNames(p);
+    const sheet = await boxOf(p, /^\s*Tell your coach\s*$/, 360), foot = await find(p, /^\s*Niggle\s*$/);
+    if (sheet && foot) await ownStill(p, 'own-pain', { x: 0, y: sheet.y, width: 393, height: foot.y + foot.h + 22 - sheet.y });
+    else misses.push('own-pain');
+  } else misses.push('own-pain');
+  await ctx.close();
+}
+{
+  // 5. Making weight: the Bodyweight screen scrolled so Make weight sits under the header, down to
+  // the end of the trend (the class line), above the tab bar.
+  const { ctx, p } = await phoneCtx(852);
+  await p.goto(BASE + '/athlete.html?demo=1');
+  await settle(p, 3500);
+  await p.evaluate(() => { const t = document.querySelector('.sidebar-tab[data-tab="bodyweight"]'); if (t) t.click(); });
+  await settle(p, 1500);
+  await p.addStyleTag({ content: HIDE });
+  const end = await p.evaluate(async () => {
+    const own = (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('').trim();
+    const at = (t) => [...document.querySelectorAll('body *')].find((e) => own(e) === t && e.getBoundingClientRect().width > 0);
+    const mw = at('Make weight');
+    if (mw) { window.scrollBy(0, mw.getBoundingClientRect().top - 150); await new Promise((r) => setTimeout(r, 600)); }
+    let c = at('Trend'); while (c && !c.nextElementSibling) c = c.parentElement;
+    const card = c && c.nextElementSibling;
+    return mw && card ? { top: mw.getBoundingClientRect().top, bottom: card.getBoundingClientRect().bottom } : null;
+  });
+  await settle(p, 400);
+  if (end) await ownStill(p, 'own-cut', { x: 0, y: end.top - 22, width: 393, height: Math.min(852, end.bottom + 18) - (end.top - 22) });
+  else misses.push('own-cut');
+  await ctx.close();
+}
+{
+  // 7. switch.html: a coach bringing a lifter's history in, on the phone. A month of a written
+  // training journal pasted into Import training history, read before anything is saved.
+  const { ctx, p } = await phoneCtx(1000);
+  await p.goto(BASE + '/coach.html?demo=1');
+  await settle(p, 4000);
+  if (await p.evaluate(() => { if (typeof openHistoryImport !== 'function') return false; openHistoryImport('demo-a1'); return true; })) {
+    await settle(p, 1200);
+    const journal = ['3 Feb 2026', 'Squat 170x5 @7, 175x5 @8, 175x5 @8.5', 'Bench 115x5 @8, 115x5 @8', '10 Feb 2026', 'Deadlift 210x3 @8, 220x2 @8.5', 'Squat 180x3 @8',
+      '17 Feb 2026', 'Squat 185x3 @8.5, 180x4 @8', 'Bench 120x3 @8.5', '24 Feb 2026', 'Deadlift 225x2 @9', 'Bench 122.5x2 @9', '3 Mar 2026', 'Squat 190x2 @9'].join('\n');
+    // The sheet's paste box: the visible textarea the import sheet itself holds.
+    const filled = await p.evaluate((text) => {
+      // The import sheet is the newest sheet: its textarea is the last one on the page.
+      const t = [...document.querySelectorAll('.ui-sheet textarea, [role="dialog"] textarea, textarea.imp-text')].filter((x) => x.getBoundingClientRect().height > 0).pop();
+      if (!t) return false;
+      t.value = text; t.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }, journal);
+    await settle(p, 1500);
+    await p.addStyleTag({ content: HIDE });
+    await neutralNames(p);
+    await p.evaluate(() => { for (const t of document.querySelectorAll('textarea')) t.scrollTop = 0; });
+    const sheet = await boxOf(p, /^\s*Import training history\s*$/, 360), go = await find(p, /^\s*Import \d+ sets?\b/, { up: 'button' });
+    if (filled && sheet && go) await ownStill(p, 'own-import', { x: 0, y: sheet.y, width: 393, height: go.y + go.h + 20 - sheet.y });
+    else misses.push('own-import');
+  } else misses.push('own-import (no switch-kit.js)');
+  await ctx.close();
+}
+{
+  // 6. The lifter's phone on meet day: meet mode with "your next attempt" from the board above
+  // (its state is handed over, so the phone and the board tell the same flight).
+  const { ctx, p } = await phoneCtx(852, mdState);
+  await p.goto(BASE + '/athlete.html?demo=1' + (mdState ? '' : '&meetday=1'));
+  await settle(p, 3500);
+  if (await p.evaluate(() => { if (typeof openMeetMode !== 'function') return false; openMeetMode(); return true; })) {
+    await settle(p, 2500);
+    // The bouncer may stop a heavy opener first (its own slab): take its advice, as a lifter would.
+    const ok = await find(p, /^\s*Open at [\d.]+ ?kg\s*$/i, { up: 'button' });
+    if (ok) { await p.mouse.click(ok.x + ok.w / 2, ok.y + ok.h / 2); await settle(p, 1500); }
+    await p.addStyleTag({ content: HIDE });
+    const slab = await p.evaluate(() => { const s = document.querySelector('.md-next-slab:not([hidden])'); if (!s) return null; const r = s.getBoundingClientRect(); return { y: r.top, h: r.height }; });
+    const head = await find(p, /^\s*Meet day\s*$/);
+    if (slab && head) await ownStill(p, 'own-next', { x: 0, y: head.y - 26, width: 393, height: slab.y + slab.h + 18 - (head.y - 26) });
+    else misses.push('own-next (no board running on the phone)');
+  } else misses.push('own-next');
+  await ctx.close();
+}
 await browser.close();
 
 // ---- Write the boxes into the pages ----------------------------------------------------------
@@ -414,6 +639,8 @@ for (const page of ['index.html', 'switch.html']) {
   if (ts['desk-table-m']) html = html.replace(/(srcset="site-img\/desk-table-m\.webp" width=")\d+(" height=")\d+/, '$1' + ts['desk-table-m'].w + '$2' + ts['desk-table-m'].h);
   if (ts['desk-table-m']) html = html.replace(/(src="site-img\/desk-table-m\.webp" width=")\d+(" height=")\d+/, '$1' + ts['desk-table-m'].w + '$2' + ts['desk-table-m'].h); // switch.html
   if (ts['desk-table'] && ts['desk-table-1x']) html = html.replace(/(src="site-img\/desk-table\.webp" srcset="site-img\/desk-table-1x\.webp )\d+(w, site-img\/desk-table\.webp )\d+(w"[^>]*? width=")\d+(" height=")\d+/, '$1' + ts['desk-table-1x'].w + '$2' + ts['desk-table'].w + '$3' + ts['desk-table'].w + '$4' + ts['desk-table'].h);
+  // The #only stills are cut to their story, so their sizes change with the product too.
+  for (const [name, d] of Object.entries(ownShots)) html = html.replace(new RegExp('(src="site-img/' + name + '\\.webp" width=")\\d+(" height=")\\d+', 'g'), '$1' + d.w + '$2' + d.h);
   writeFileSync(file, html);
   console.log(page + ': ' + n + ' boxes written.');
 }

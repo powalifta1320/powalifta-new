@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- iPhone app: tag the document as native before first paint (same snippet as athlete.html). -->
 <script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
-<title>Switch from a spreadsheet | POWALIFTA</title>
-<meta name="description" content="Move your coaching from Google Sheets or Excel to POWALIFTA in an afternoon: paste your programs, send invite links and bring in meet history. Nothing is retyped.">
-<meta property="og:title" content="Move your coaching over in an afternoon | POWALIFTA">
-<meta property="og:description" content="Move your coaching from Google Sheets or Excel to POWALIFTA in an afternoon: paste your programs, send invite links and bring in meet history. Nothing is retyped.">
+<title>Bring your training history in | POWALIFTA</title>
+<meta name="description" content="Bring past training logs, blocks and meets into POWALIFTA from a CSV or pasted rows, see what it read before it saves, and take everything back out any time.">
+<meta property="og:title" content="Bring your history in | POWALIFTA">
+<meta property="og:description" content="Bring past training logs, blocks and meets into POWALIFTA from a CSV or pasted rows, see what it read before it saves, and take everything back out any time.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/switch.html">
 <meta property="og:url" content="https://www.powalifta.com/switch.html">
@@ -16,8 +16,8 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Move your coaching over in an afternoon | POWALIFTA">
-<meta name="twitter:description" content="Paste your programs from Google Sheets or Excel, send invite links, bring in meet history.">
+<meta name="twitter:title" content="Bring your history in | POWALIFTA">
+<meta name="twitter:description" content="Past training logs, blocks and meets come in, read before they save. Everything goes back out, any time.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:'dark';document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
@@ -47,40 +47,36 @@
   <div class="s-wrap s-switch-page">
     <div class="s-switch-main">
       <header class="s-page-head">
-        <h1>Move your coaching over in an afternoon.</h1>
-        <p>Programs in Google Sheets or Excel, results in a group chat, maxes in your head. Here's how coaches bring all of it into POWALIFTA without retyping a set.</p>
+        <h1>Bring your history in.</h1>
+        <p>Years of logs, blocks and meets come with you, so estimated maxes, PRs and progress charts start from day one. All of it goes back out whenever you like.</p>
       </header>
-      <ol class="s-steps">
-        <li><b>Paste your program.<em>About 2 min</em></b><span>Copy the cells from your sheet and paste them in. POWALIFTA reads the way coaches write: 3x5&nbsp;@8, @7&#8209;8, 2&nbsp;RIR, 75%, 1x3&nbsp;@8 then 3x5&nbsp;160kg. Save it as a template and give it to any athlete.</span></li>
-        <li><b>Send invite links.<em>A minute each</em></b><span>One link per athlete. They tap it, get the app and land on your roster.</span></li>
-        <li><b>Set the maxes for % work.<em>A minute a block</em></b><span>Percentages work from the max you set for the block, or from each lifter's best estimated max from training.</span></li>
-        <li><b>Bring in their history.<em>They do it</em></b><span>Athletes link their OpenPowerlifting profile and every meet comes in with its attempts. Training logs come in from a spreadsheet or CSV too.</span></li>
-      </ol>
-      <figure class="s-window s-switch-shot">
-        <div class="s-window-crop is-cut" data-cap="table-m" style="--mx:0.1694;--my:0.0856;--mw:0.2637;--mh:0.4293">
-          <img src="site-img/desk-table-m.webp" width="760" height="772" alt="A pasted program in the desk's grid: week 2's bench written as 1x3 152.5 kg at RPE 8, and lifted underneath at RPE 9.5, in red" loading="lazy" decoding="async">
-        </div>
-        <figcaption>Pasted, it lands in the grid: what you wrote on top, what they lifted underneath. Next week is typed in place beside it.</figcaption>
+      <ul class="s-steps s-kinds">
+        <li><b>Training logs.</b><span>Pick a CSV or paste the rows: one row per set with the date, the exercise, weight and reps, and RPE if you have it. A written log works too, like 2&nbsp;Mar&nbsp;2026, Squat 180x5&nbsp;@8.</span></li>
+        <li><b>Past blocks.</b><span>Paste a block the way you write programs (3x5&nbsp;@8, @7&#8209;8, 2&nbsp;RIR, 75%) and it's kept with the lifter's past blocks, every set marked done.</span></li>
+        <li><b>Meets.</b><span>Lifters link their OpenPowerlifting profile and every meet comes in, attempt by attempt.</span></li>
+        <li><b>Checked before it saves.</b><span>You see the sets it read, the rows it skipped and why, the dates it covers and the PRs it makes. Import the same file twice and nothing is added twice.</span></li>
+      </ul>
+      <figure class="s-switch-shot">
+        <img src="site-img/own-import.webp" width="786" height="1692" alt="Import training history for Arjun Mehta, on a coach's phone: a month of a written training log pasted in and read as 14 sets over 5 sessions, February 3 to March 3, 2026, with the best set for squat, bench and deadlift, and the button to import the 14 sets" loading="lazy" decoding="async">
+        <figcaption>A month of a written log, read before anything is saved: the sets, the sessions and the best set for each lift.</figcaption>
       </figure>
       <div class="s-prose">
-        <h2>Coming from another coaching app?</h2>
-        <p>If it exports your programs to a spreadsheet, paste that in. Same notation, same weeks.</p>
-        <h2>What your athletes get</h2>
-        <p>An app on their phone instead of a shared sheet: today's session ready to go, one tap per set with how it felt, a rest timer, PRs the moment they happen, and meet day planned from what they've actually lifted. Free for lifters, forever.</p>
-        <h2>What you get on a laptop</h2>
-        <p>A Today queue that walks you through who needs you, a page for every athlete, and a program grid you type into like a spreadsheet, with what they lifted under what you wrote. When the next block starts, the last one is kept, along with what it gained. <a href="index.html#desk">See the grid on the desk</a>.</p>
-        <h2>What stays yours</h2>
-        <p>Your programming and your notation. Any program exports back to a spreadsheet in one click, so nothing is locked in.</p>
+        <h2>Where to find it</h2>
+        <p>Coaches import for any lifter on their roster: on a laptop, press <kbd>&#8984;K</kbd> and type &ldquo;import&rdquo;; on the phone, You &rarr; Your data &rarr; Import an athlete's history.</p>
+        <h2>What it counts for</h2>
+        <p>Imported sets count like any other. Estimated maxes, PRs and progress charts fill in from the first day in the file, and percentage work can run from their best estimated max.</p>
+        <h2>Everything goes back out</h2>
+        <p>One zip of CSV files with every set, program and message, on every plan, free included. No contract and no format only we can read. <a href="data.html">What we keep and how to take it</a>.</p>
       </div>
       <div class="s-actions"><a class="btn btn-primary btn-lg" href="index.html#signup-coach">Start free</a><a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach desk</a></div>
     </div>
 
-    <!-- The paste box: the same reader the program builder uses (parseProgramSheet in app.js). -->
+    <!-- The block reader: the same reader the program builder and the history import use (parseProgramSheet in app.js). -->
     <aside class="s-paste" aria-labelledby="pasteTitle">
       <div class="s-paste-card">
-        <h2 id="pasteTitle">Try it with your sheet.</h2>
-        <p class="s-paste-sub">Paste a few rows from your program, or edit these. Nothing is saved.</p>
-        <label class="s-paste-field" for="pasteBox"><span>Your cells</span>
+        <h2 id="pasteTitle">Try it with a past block.</h2>
+        <p class="s-paste-sub">Write a few lines the way you write programs, or edit these. Nothing is saved.</p>
+        <label class="s-paste-field" for="pasteBox"><span>Your block</span>
           <textarea id="pasteBox" rows="7" spellcheck="false">Week 1
 Day 1: Squat
 Competition squat 1x3 @8
@@ -139,7 +135,7 @@ Romanian deadlift 3x8 2 RIR</textarea>
     <nav class="s-foot-col" aria-label="Your data and legal">
       <h2>Data and legal</h2>
       <a href="data.html">Your data is yours</a>
-      <a href="switch.html">Switch from a spreadsheet</a>
+      <a href="switch.html">Bring your history in</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
     </nav>
@@ -152,7 +148,7 @@ Romanian deadlift 3x8 2 RIR</textarea>
 <script src="app.js"></script>
 <script>
 bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
-// The paste box: read the cells with the program builder's own reader and show what it found.
+// The block reader: read the lines with the program builder's own reader and show what it found.
 (function () {
   const box = document.getElementById('pasteBox'), out = document.getElementById('pasteOut'), stats = document.getElementById('pasteStats');
   if (!box || !out || typeof parseProgramSheet !== 'function') return;

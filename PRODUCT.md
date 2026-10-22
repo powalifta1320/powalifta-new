@@ -39,7 +39,9 @@ Three physical-object words: **iron, chalk, precision.**
 
 Tone: confident, terse, athlete-to-athlete. Sentence case everywhere (the owner judged
 wide capitals and glowing italic accents "cheap", 2026-10). Never corporate, never
-hype-bro. "Stop training in a spreadsheet" is the energy: a real problem stated flatly.
+hype-bro. "Every set lands on your desk as they lift it" is the energy: a real thing stated flatly.
+POWALIFTA is its own live coaching platform: never compared with a spreadsheet or another app
+(owner, 2026-10-22; vault Specs/Desk + website v2 → Positioning).
 Never claim what isn't true (no fake user counts, no "most coaches choose").
 
 ## Aesthetic lane (named reference)
