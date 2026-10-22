@@ -1525,6 +1525,7 @@ function dkPaintRosterCtx(focus) {
   acts.appendChild(dkBtn('Reply', { kbd: 'M', icon: ICONS.chat, onClick: dkReply }));
   acts.appendChild(dkBtn('Open', { kbd: '↵', onClick: function () { openAthletePage(a.id); } }));
   acts.appendChild(dkBtn('Program', { kbd: 'P', cls: 'is-quiet', onClick: function () { openAthleteProgram(a.id); } }));
+  if (window.SwitchKit) acts.appendChild(dkBtn('Import history', { cls: 'is-quiet', onClick: function () { SwitchKit.openHistoryImport(a.id); } }));   // SWITCH KIT hook
   pv.appendChild(acts);
   var flags = r.reasons.map(function (x) { return { text: x.text, tone: x.tone }; }).concat(r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }));
   if (flags.length) {
@@ -1578,6 +1579,7 @@ function dkCommands() {
   });
   if (_dk.queue && _dk.queue.wins.length) cmds.push({ group: 'Actions', label: 'Send kudos to this week’s wins', hint: _dkMac() ? '⌘⇧K' : 'Ctrl Shift K', keys: 'praise congrats pr', run: function () { deskGo('today'); dkKudos(); } });
   cmds.push({ group: 'Actions', label: 'Export roster as CSV', keys: 'download spreadsheet', run: function () { exportRosterCsv(); } });
+  if (window.SwitchKit) cmds = cmds.concat(SwitchKit.deskCommands());   // SWITCH KIT hook: Import history… / Export everything
   var compact = document.documentElement.getAttribute('data-density') === 'compact';
   var light = document.documentElement.getAttribute('data-theme') === 'light';
   cmds.push({ group: 'Actions', label: compact ? 'Comfortable rows' : 'Compact rows', keys: 'density', run: dkToggleDensity });

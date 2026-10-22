@@ -780,6 +780,9 @@ window.POWA_SUPPORT_KB = [
   "id": "export-data",
   "q": "How do I export or download my data?",
   "t": [
+   "download everything",
+   "export everything",
+   "zip",
    "backup",
    "backup of my training",
    "copy of my data",
@@ -793,8 +796,25 @@ window.POWA_SUPPORT_KB = [
    "json",
    "spreadsheet"
   ],
-  "a": "Go to You → Your data and tap Export JSON for an archive of your account and training data, or Export CSV for your training log, one row per set, ready for Sheets or Excel (coaches get their athletes' logs). Each file is named with your name and today's date. On Train, Export day saves just the selected day's session as a spreadsheet (on a phone, tap ⋯ first), and coaches can tap ⋯ on the Program tab → Export spreadsheet to save an athlete's program.",
-  "app": "Go to You → Your data and tap Export JSON (an archive of your account and training data) or Export CSV (your training log, one row per set, ready for Sheets or Excel; coaches get their athletes' logs). The iPhone share sheet opens: tap Save to Files to keep the file on your iPhone or in iCloud Drive, or send it with AirDrop or Mail. Each file is named with your name and today's date. The same sheet opens from Train → ⋯ → Export day (just that day's session) and, for coaches, from the Program tab → ⋯ → Export spreadsheet (an athlete's program)."
+  "a": "Go to You → Your data (on a laptop: Settings → Your data; coaches on the desk can also press ⌘K → Export everything) and tap Download everything. You get one zip of CSV files that open in Sheets, Excel or Numbers: your training log, your program and every past block, weigh-ins, goals, meets, check-ins, notes and messages, plus everything.json with the same data in one file. Coaches get all of it for every athlete on the roster, with the athlete's name on each row, plus their templates. Weights are in kilograms. \"Just the training log\" saves only the log as one CSV, which imports back in as it is. On Train, Export day saves just the selected day's session (on a phone, tap ⋯ first), and coaches can tap ⋯ on the Program tab → Export spreadsheet for one athlete's program. More on what we keep and who sees it: powalifta.com/data.html.",
+  "app": "Go to You → Your data and tap Download everything. You get one zip of CSV files: your training log, your program and every past block, weigh-ins, goals, meets, check-ins, notes and messages, plus everything.json with the same data in one file (coaches get all of it for every athlete, plus their templates). The iPhone share sheet opens: tap Save to Files to keep it on your iPhone or in iCloud Drive, or send it with AirDrop or Mail. \"Just the training log\" saves only the log as one CSV. The same sheet opens from Train → ⋯ → Export day (just that day's session) and, for coaches, from the Program tab → ⋯ → Export spreadsheet (an athlete's program)."
+ },
+ {
+  "id": "coach-import-history",
+  "q": "How do I bring an athlete's old training history in?",
+  "t": [
+   "athlete history",
+   "bring history in",
+   "import athlete history",
+   "import from strong",
+   "import from hevy",
+   "import from fitnotes",
+   "import old logs",
+   "past block",
+   "switch from spreadsheet",
+   "import history"
+  ],
+  "a": "Coaches: on a laptop, click an athlete on the Roster and choose Import history in their preview, or press ⌘K and type \"import\"; on the phone, You → Your data → Import an athlete's history, then pick the athlete. Paste rows from a spreadsheet or choose a CSV. One row per set works best: date, exercise, weight, reps, and RPE if you have it. Exports from Strong, Hevy and FitNotes work as they are, so does a written log (\"2 Mar 2026\" then \"Squat 180x5 @8\"), and a block written like a program is kept as a past block. Before anything is saved you see the sets it read, the rows it skipped and why, the dates and the PRs it makes; set kg or lb and the RPE to assume for sets without one. Importing the same file twice adds nothing, and Undo (or importing the same file again → Remove) takes an import back out. Lifters on their own use Progress → Tools → Import history."
  },
  {
   "id": "delete-account",

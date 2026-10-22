@@ -11023,6 +11023,7 @@ function openDataSheet() {
     c.addEventListener('click', () => exportMyData('csv'));
     row.appendChild(j); row.appendChild(c);
     sheet.appendChild(row);
+    if (window.SwitchKit) SwitchKit.dataSheet(sheet, close, row);   // SWITCH KIT hook: Download everything (+ import for coaches)
     const danger = el('div', { class: 'set-danger' });
     danger.appendChild(el('p', {}, 'Deleting your account erases your training data for good.'));
     const del = el('button', { class: 'btn btn-danger btn-lg btn-block', type: 'button' }, 'Delete my account');
