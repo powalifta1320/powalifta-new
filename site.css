@@ -323,7 +323,8 @@ body.site .s-hero-title { margin: 0; font-size: clamp(2.7rem, 6.6vw, 5.6rem); fo
 /* Where the set lands: a ring on the athlete's row, and the set itself docked at the row's end. */
 .s-land { position: absolute; z-index: 1; left: calc(var(--x) * 100%); top: calc(var(--y) * 100%); width: calc(var(--w) * 100%); height: calc(var(--h) * 100%); pointer-events: none; }
 .s-land-ring { position: absolute; inset: 0; border-radius: 0.8cqw; box-shadow: 0 0 0 0.14cqw color-mix(in srgb, var(--s-squat) 75%, transparent), inset 0 0 0 999px color-mix(in srgb, var(--s-squat) 8%, transparent); }
-.s-tag { position: absolute; right: 0.6cqw; top: 0.7cqw; display: inline-flex; align-items: center; gap: 0.5em; padding: 0.42em 0.7em; border-radius: 999px; background: #f4f4f6; color: #0b0b0d; font: 700 max(8px, 0.84cqw)/1 var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 0.6cqw 1.6cqw -0.6cqw rgba(0, 0, 0, 0.8); }
+/* On the row's top edge, so the row's own "Now" stays in view. */
+.s-tag { position: absolute; right: 0.6cqw; top: 0; translate: 0 -62%; display: inline-flex; align-items: center; gap: 0.5em; padding: 0.42em 0.7em; border-radius: 999px; background: #f4f4f6; color: #0b0b0d; font: 700 max(8px, 0.84cqw)/1 var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 0.6cqw 1.6cqw -0.6cqw rgba(0, 0, 0, 0.8); }
 .s-tag em { display: none; font-style: normal; font-weight: 600; color: #5d5d67; }
 .s-tag .s-dot { width: 0.62em; height: 0.62em; }
 /* The press on the phone's Log set button. */
@@ -422,7 +423,9 @@ body.site .s-trust { padding: 0 0 clamp(8px, 2vw, 24px); }
 .s-roster-grid .s-head { margin: 0; }
 /* The still runs off the right edge of the page: the table keeps going, like a sheet does. */
 .s-roster-shot { margin-right: calc(-1 * (var(--s-gutter) + max(0px, (100vw - var(--s-max) - 2 * var(--s-gutter)) / 2))); }
-.s-roster-shot .s-window-crop { border-radius: 18px 0 0 18px; -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent), linear-gradient(180deg, #000 80%, transparent); mask-image: linear-gradient(90deg, #000 90%, transparent), linear-gradient(180deg, #000 80%, transparent); -webkit-mask-composite: source-in; mask-composite: intersect; }
+/* The window is cut just before the board's Pain column and runs off the page's right edge; only
+   its foot fades, so the Meet column at that edge stays crisp. */
+.s-roster-shot .s-window-crop { border-radius: 18px 0 0 18px; -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent); mask-image: linear-gradient(180deg, #000 80%, transparent); }
 .s-ticks { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; }
 .s-ticks li { display: flex; gap: 12px; align-items: baseline; color: var(--text-2); font-size: 0.98rem; line-height: 1.45; }
 .s-ticks li::before {
@@ -485,10 +488,15 @@ body.site .s-o h3 { margin: 0 0 10px; font-size: clamp(1.22rem, 1.55vw, 1.42rem)
 .s-o-ready { grid-column: span 5; }
 .s-o-ready .s-o-shot { display: flex; justify-content: center; margin: auto 0; }
 .s-o-ready .s-o-shot img { max-width: 400px; border-radius: 22px; box-shadow: 0 30px 60px -36px rgba(0, 0, 0, 0.8); }
-/* Making weight: the sentence beside the screen, which runs off the bottom. */
-.s-o-cut { grid-column: span 7; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); column-gap: clamp(20px, 2.4vw, 32px); padding-bottom: 0; }
-.s-o-cut .s-o-shot { padding-top: 0; align-self: end; }
-.s-o-cut .s-o-shot img { max-width: 380px; margin-left: auto; border-radius: 18px 18px 0 0; }
+/* Readiness tells two moments: the morning prompt, then the set card after one tap on Beat up. */
+.s-o-ready .s-o-steps { flex-direction: column; align-items: center; gap: 12px; }
+.s-o-ready .s-o-steps img { width: 100%; height: auto; }
+.s-o-ready .s-o-steps img + img { border-radius: 22px 22px 0 0; -webkit-mask-image: linear-gradient(180deg, #000 82%, transparent); mask-image: linear-gradient(180deg, #000 82%, transparent); }
+/* Making weight: the sentence, then the screen rising from the tile's floor (as the pain sheet
+   does), at a size that fills the tile beside readiness instead of a small screen in a corner. */
+.s-o-cut { grid-column: span 7; padding-bottom: 0; }
+.s-o-cut .s-o-shot { display: flex; justify-content: center; }
+.s-o-cut .s-o-shot img { max-width: 380px; border-radius: 18px 18px 0 0; }
 
 @media (prefers-reduced-motion: no-preference) {
   .s-only-grid .s-reveal:nth-child(3), .s-only-grid .s-reveal:nth-child(5) { --s-delay: 0.08s; }
@@ -498,7 +506,7 @@ body.site .s-o h3 { margin: 0 0 10px; font-size: clamp(1.22rem, 1.55vw, 1.42rem)
   .s-o-meet, .s-o-review, .s-o-ready { grid-column: 1 / -1; }
   .s-o-pain, .s-o-cut { grid-column: span 1; }
   /* Two columns: the pain sheet beside the cut, then readiness as one wide row (its card is wide). */
-  .s-o-cut { order: 1; grid-template-columns: minmax(0, 1fr); }
+  .s-o-cut { order: 1; }
   .s-o-cut .s-o-shot { padding-top: 22px; }
   .s-o-cut .s-o-shot img { margin: 0 auto; }
   .s-o-ready { order: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-items: center; }
@@ -529,7 +537,6 @@ body.site .s-o h3 { margin: 0 0 10px; font-size: clamp(1.22rem, 1.55vw, 1.42rem)
   .s-o-review .s-o-shot { padding-top: 22px; }
   .s-o-board { padding-top: 16px; }
   .s-o-board img { width: 210%; max-width: none; }
-  .s-o-cut { grid-template-columns: minmax(0, 1fr); }
   .s-o-cut .s-o-shot { padding-top: 22px; }
   .s-o-cut .s-o-shot img { max-width: 400px; margin: 0 auto; }
 }
@@ -646,13 +653,17 @@ body.site .s-cta h2 { margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); font-weigh
   /* The phone still (desk-hero-m.webp) is that window, captured on its own; the landing box is
      re-measured against it. */
   .s-land { left: calc((var(--x) - var(--mx)) / var(--mw) * 100%); top: calc((var(--y) - var(--my)) / var(--mh) * 100%); width: calc(var(--w) / var(--mw) * 100%); height: calc(var(--h) / var(--mh) * 100%); }
-  .s-tag { font-size: 11px; top: -10px; right: 10px; } /* on the row's top edge: the row's own timestamp stays readable */
+  .s-tag { font-size: 11px; right: 10px; } /* on the row's top edge: the row's own timestamp stays readable */
   .s-tag em { display: inline; }
   .s-land-ring { border-radius: 10px; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--s-squat) 75%, transparent), inset 0 0 0 999px color-mix(in srgb, var(--s-squat) 8%, transparent); }
   .s-window-crop[style*="--mx"] { --cx: var(--mx); --cy: var(--my); --cw: var(--mw); --ch: var(--mh); }
-  /* The phone hangs below the panel's last row, so it covers no chips and no landing tag. */
-  .s-stage { padding: 0 0 55%; }
-  .s-hero-phone { width: 27%; right: -10px; top: auto; bottom: 0; }
+  /* The roster's phone window ends on the live lifter's row: nothing fades over it. */
+  body.site .s-roster-shot .s-window-crop { -webkit-mask-image: none; mask-image: none; }
+  html body.site .s-roster-shot .s-window-crop.is-cut::after { content: none; }
+  /* No phone here: at a third of the screen its words are too small to read, and the panel already
+     shows the set landing on the live lifter's row (site.js lands it without the flight). */
+  .s-stage { padding: 0; }
+  .s-hero-phone, .s-flyer { display: none; }
   .s-trust-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .s-trust-row li, .s-trust-row li:nth-child(4) { padding: 20px 14px 20px 16px; box-shadow: none !important; }
   .s-trust-row li:nth-child(odd) { padding-left: 0; }
@@ -668,7 +679,9 @@ body.site .s-cta h2 { margin: 0; font-size: clamp(2.6rem, 6vw, 5rem); font-weigh
   .s-pin[data-pin="2"]::before { right: -2px; } /* pin 3 sits 6px to its right on this still */
   .s-pin[data-pin="3"]::before { left: -2px; }
   /* Phones: one phone at a time, swiped. */
-  .s-phones { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 calc(-1 * var(--s-gutter)); padding: 8px var(--s-gutter) 12px; scrollbar-width: none; }
+  /* The extra foot (taken back by the negative margin) leaves room for each phone's shadow, which
+     the scroller would otherwise cut off in a hard line under the captions. */
+  .s-phones { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 calc(-1 * var(--s-gutter)) -48px; padding: 8px var(--s-gutter) 60px; scrollbar-width: none; }
   .s-phones::-webkit-scrollbar { display: none; }
   .s-phone-item { flex: 0 0 62%; scroll-snap-align: center; gap: 14px; }
   .s-phone-item:nth-child(2) { margin-top: 0; }

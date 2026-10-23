@@ -19,8 +19,12 @@
 //                                           from what he lifted (Drop to …, Hold)
 //   desk-table-m.webp                       the same on phones: his Bench Day card, from a 1024-wide
 //                                           desk (the cards fold "Next" under each set), 2x
-//   desk-roster.webp, desk-roster-1440.webp #roster: the Roster's live board (the section shows a window)
-//   app-train.webp                          the lifter's Train screen, 393x852 @2x, as the iPhone app
+//   desk-roster.webp, desk-roster-m.webp    #roster: the Roster's live board on a 1296x810 desk, cut to
+//                                           its window (Lifter through Meet) and to its phone window, 2x
+//   app-log.webp                            the hero's phone: Lift mode on the first set, Log set, 393x852 @2x
+//   app-train.webp                          #lifters: the Train screen scrolled to the session's end, so
+//                                           the floating tab bar sits over empty space
+//   own-ready-after.webp                    #only: the set card after one tap on Beat up (today's load lighter)
 //   own-meet.webp                           #only: the meet-day board (meetday.js), flight A's openers marked
 //   own-next.webp                           #only: the lifter's phone on meet day, "your next attempt"
 //   own-review.webp                         #only: a form check under review, at the frame the coach marked
@@ -28,20 +32,20 @@
 //   own-ready.webp                          #only: How do you feel today? with last night's heart data
 //   own-cut.webp                            #only: Make weight and the trend down to the class line
 //   own-import.webp                         switch.html: a written log pasted into Import training history
-// and og.jpg (1200x630, Today and the lifter it opens on; JPEG keeps it far under 300 KB).
+// and og.jpg: the 1200x630 share card (the wordmark and headline beside a crop of Today), under 200 KB.
 //
 // Then it rewrites, in index.html (and switch.html), the style on every element with data-cap="NAME" to the box of
 // the thing it points at, as fractions of its still (--x --y --w --h), so the site's overlays (the
 // hero's landing row and Log set press, the three numbered notes on the lifter page) and the phone
 // crops follow the product when it moves:
-//   land      the lifter row a logged set lands on (hero)
-//   log       the Log set button on the phone (hero)
+//   land      the lifter row a logged set lands on (hero): the Today row that reads "Now"
+//   log       the Log set button on the phone (hero, app-log.webp)
 //   hero-m    the hero's window on phones: the Today list down past that row (--mx --my --mw --mh)
 //   pin1-3    #desk's three notes: the set lifted over what was written (red), week 3's field beside
 //             it, the suggestion (--x.. on the 1440 frame; --px --py --pw --ph on the 1024x640 frame
 //             the phone still comes from)
 //   table     the window #desk shows (--cx --cy --cw --ch); table-m its phone window (--mx.., 1024x640)
-//   roster, roster-m   the window #roster shows of its still, on laptops and on phones
+//   roster, roster-m   #roster's two windows (--cx.. and --mx.., fractions of its 1296x810 frame)
 // Each lookup is by visible text where it can be, so it survives a re-skin; when one fails, the
 // script says so and leaves that element's old values in place. After a re-skin, re-read the copy
 // beside each still (index.html #desk, #roster) against what the new capture actually shows.
@@ -141,10 +145,47 @@ async function cut(p, name, file, pre, one) {
 }
 // A free window from (x0, y0) to (x1, y1), CSS px of the frame. pre 'c' writes the desktop crop
 // (--cx --cy --cw --ch), 'm' the phone one (--mx --my --mw --mh).
-function win(name, x0, y0, x1, y1, pre) {
+function win(name, x0, y0, x1, y1, pre) { winF(name, x0, y0, x1, y1, pre, W, H); }
+// The same on a frame of its own size (fw x fh, 16:10). Merges onto the name's other prefix.
+function winF(name, x0, y0, x1, y1, pre, fw, fh) {
   const f = (v) => +v.toFixed(4);
-  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W, x1); y1 = Math.min(H, y1);
-  caps[name] = { ['--' + pre + 'x']: f(x0 / W), ['--' + pre + 'y']: f(y0 / H), ['--' + pre + 'w']: f((x1 - x0) / W), ['--' + pre + 'h']: f((y1 - y0) / H) };
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(fw, x1); y1 = Math.min(fh, y1);
+  caps[name] = Object.assign(caps[name] || {}, { ['--' + pre + 'x']: f(x0 / fw), ['--' + pre + 'y']: f(y0 / fh), ['--' + pre + 'w']: f((x1 - x0) / fw), ['--' + pre + 'h']: f((y1 - y0) / fh) });
+}
+
+// og.jpg: a 1200x630 share card composed in the page from a desk crop (PNG): the brand mark and
+// POWALIFTA, the site's headline, and the desk in a window bleeding off the right and bottom edges.
+// Archivo comes from Google Fonts like the site's; JPEG quality steps down until it is under 200 KB.
+async function composeOg(cropPng) {
+  const img = 'data:image/png;base64,' + readFileSync(cropPng).toString('base64');
+  const mark = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="#f4f4f6"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="#f4f4f6"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="#f4f4f6"/></svg>';
+  const html = '<!doctype html><html><head><meta charset="utf-8">' +
+    '<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">' +
+    '<style>*{box-sizing:border-box;margin:0}html,body{width:1200px;height:630px;overflow:hidden;background:#060607;color:#f4f4f6;font-family:Archivo,system-ui,sans-serif}' +
+    '.light{position:absolute;inset:0;background:radial-gradient(46% 60% at 78% 64%,rgba(56,198,255,.10),transparent 70%),radial-gradient(30% 40% at 92% 30%,rgba(169,139,255,.08),transparent 70%)}' +
+    '.copy{position:absolute;left:68px;top:64px;bottom:64px;width:540px;display:flex;flex-direction:column}' +
+    '.brand{display:flex;align-items:center;gap:13px;font-weight:800;font-stretch:125%;letter-spacing:.06em;font-size:23px}' +
+    'h1{margin-top:auto;font-weight:800;font-stretch:104%;letter-spacing:-.04em;line-height:.98;font-size:56px;white-space:nowrap}' +
+    'p{margin-top:22px;font-size:23px;line-height:1.35;color:#a6a6b0}' +
+    '.win{position:absolute;left:628px;top:66px;width:742px;border-radius:18px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.13),0 40px 90px -40px #000}' +
+    '.win img{display:block;width:100%}</style></head><body><div class="light"></div>' +
+    '<div class="copy"><div class="brand">' + mark + 'POWALIFTA</div><h1>Read the week.<br>Write the next one.</h1><p>The live coaching desk for powerlifting.</p></div>' +
+    '<div class="win"><img src="' + img + '" alt=""></div></body></html>';
+  const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const p = await ctx.newPage();
+  await p.setContent(html, { waitUntil: 'load' });
+  await p.evaluate(() => document.fonts.ready);
+  await settle(p, 400);
+  const png = join(TMP, 'og.png');
+  await p.screenshot({ path: png });
+  await ctx.close();
+  const out = join(SITE, 'og.jpg');
+  for (let q = 86; q >= 60; q -= 4) {
+    execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', String(q), png, '--out', out], { stdio: 'ignore' });
+    if (statSync(out).size <= 200 * 1024) break;
+  }
+  console.log('og.jpg', Math.round(statSync(out).size / 1024) + ' KB, 1200x630');
+  try { unlinkSync(png); } catch (e) {}
 }
 
 const errors = [];
@@ -183,10 +224,16 @@ await page.goto(BASE + '/coach.html?demo=1');
 await settle(page, 3500);
 await page.mouse.click(5, 450);
 
-// 1. Today: the hero. The landing row is the lifter whose phone is in front of the laptop: the
-// phone demo (athlete.html?demo=1) is Arjun Mehta's, and he is on the desk's Today list.
+// 1. Today: the hero. The landing row is the lifter training right now, whose phone is in front
+// of the laptop: the desk demo's live session (app.js liveDemoStart) is Arjun Mehta's, the phone
+// demo (athlete.html?demo=1) is his too, and his row on Today turns to "Now" once his first set
+// lands (6-9 s after the desk opens). The row is found by that tag, not by his name.
 {
-  frac('land', await find(page, /^\s*Arjun Mehta\s*$/, { minW: 280 }));
+  const liveRow = async () => find(page, /^\s*Now\s*$/, { within: '[role="group"][aria-label="Needs you"]', up: '[role="option"]' });
+  for (let i = 0; i < 40 && !(await liveRow()); i++) await settle(page, 500);
+  const lr = await liveRow();
+  if (!lr) console.log('  no row reads "Now": the hero lands on no live lifter');
+  frac('land', lr);
   // Phones: the Today list at reading size, from its own header ("Today · 0 of 14 handled", so
   // the worst-first top row is in it) down to one row past the landing row. It ends on a row
   // boundary (the row pitch is read off the landing row's next row), so no sliver of another row shows.
@@ -212,14 +259,13 @@ await page.mouse.click(5, 450);
     heroM = { w: clip.width * 2, h: clip.height * 2 };
     try { unlinkSync(mPng); } catch (e) {}
   }
-  // og.jpg: Today and the lifter it opens on, 1200x630, as a JPEG (a PNG of this is ~700 KB).
+  // og.jpg, the share card: the wordmark and the headline on the left, a clean crop of the desk on
+  // the right (Today from its header down, the live row in it, the first lifter's page beside it).
   if (head) {
-    const x = Math.max(0, head.x - 24), w = Math.min(W - x, 1000), h = Math.round(w * 630 / 1200);
-    const ogPng = join(TMP, 'og.png');
-    await page.screenshot({ path: ogPng, clip: { x, y: 0, width: w, height: h } });
-    execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '84', '-z', '630', '1200', ogPng, '--out', join(SITE, 'og.jpg')], { stdio: 'ignore' });
-    console.log('og.jpg', Math.round(statSync(join(SITE, 'og.jpg')).size / 1024) + ' KB');
-    try { unlinkSync(ogPng); } catch (e) {}
+    const cropPng = join(TMP, 'og-desk.png');
+    await page.screenshot({ path: cropPng, clip: { x: Math.max(0, head.x - 24), y: 0, width: 820, height: 640 } });
+    await composeOg(cropPng);
+    try { unlinkSync(cropPng); } catch (e) {}
   }
   try { unlinkSync(png); } catch (e) {}
 }
@@ -307,21 +353,41 @@ const pinBoxes = (p) => p.evaluate(() => {
   await settle(page, 300);
   if (!(await clickText(/^\s*Roster\s*$/))) misses.push('roster nav');
   await settle(page, 600);
+  // The board is shot on its own 1296x810 desk (16:10 like the others), where its columns sit at
+  // their narrowest with every one still shown, and cut to Lifter through Meet: on a laptop that
+  // window is drawn near 1:1, so the board's 12-13px text reads at its own size.
+  const RW = 1296, RH = 810;
+  await page.setViewportSize({ width: RW, height: RH });
+  await settle(page, 1200);
+  await page.addStyleTag({ content: HIDE });
+  await neutralCoach(page);
+  await settle(page, 300);
   const title = await find(page, /^\s*Roster\s*$/, { within: 'main' });
-  const lifter = await find(page, /^\s*Lifter\s*$/), pain = await find(page, /^\s*Pain\s*$/, { within: 'main' });
-  if (title && lifter) {
-    // Laptops: the title line (who's training now) and the board from Lifter across to Pain.
-    const x1 = pain ? pain.x + pain.w + 130 : lifter.x + 1000;
-    win('roster', title.x - 24, title.y - 22, x1, title.y - 22 + (x1 - title.x + 24) * 0.63, 'c');
-    // Phones: the title line, then names, this week's marks and readiness.
-    const ready = await find(page, /^\s*Readiness\s*$/, { within: 'main' });
-    const top = title.y - 18; // the title line too: who is training now
-    const mx1 = ready ? ready.x + ready.w + 40 : lifter.x + 460;
-    const mx0 = Math.min(title.x, lifter.x) - 22;
-    win('roster-m', mx0, top, mx1, top + (mx1 - mx0) * 0.8, 'm');
+  const lifter = await find(page, /^\s*Lifter\s*$/), meet = await find(page, /^\s*Meet\s*$/, { within: 'main' });
+  if (title && lifter && meet) {
+    // Laptops: the title line (who's training now) and the board from Lifter across to Meet. The
+    // Meet column's values ("Today", "W-5", "12d") run a little past its head.
+    const pain = await find(page, /^\s*Pain\s*$/, { within: 'main' });
+    const x0 = title.x - 24, x1 = Math.min(meet.x + meet.w + 64, pain ? pain.x - 18 : 1e9), y0 = title.y - 22;
+    winF('roster', x0, y0, x1, y0 + (x1 - x0) * 0.62, 'c', RW, RH);
+    // Phones: from the column heads down, names, this week's marks and readiness (the title line
+    // runs wider than this window, so it stays out rather than end mid-word). It ends before the
+    // next column's head and on the bottom of the live lifter's row (the one that reads "Training
+    // now"), so no cut-off column or row shows at its edges.
+    const ready = await find(page, /^\s*Readiness\s*$/, { within: 'main' }), drift = await find(page, /^\s*RPE drift\s*$/, { within: 'main' });
+    const live = await find(page, /^\s*Training now/, { within: 'main', up: '[role="row"]' });
+    const mx1 = Math.min(ready ? ready.x + ready.w + 28 : lifter.x + 460, drift ? drift.x - 14 : 1e9);
+    const mx0 = Math.min(title.x, lifter.x) - 22, top = lifter.y - 18;
+    winF('roster-m', mx0, top, mx1, live ? live.y + live.h + 1 : top + (mx1 - mx0) * 0.8, 'm', RW, RH);
+    for (const [name, file, pre] of [['roster', 'desk-roster', 'c'], ['roster-m', 'desk-roster-m', 'm']]) {
+      const m = caps[name], png = join(TMP, file + '.png');
+      const clip = { x: Math.round(m['--' + pre + 'x'] * RW), y: Math.round(m['--' + pre + 'y'] * RH), width: Math.round(m['--' + pre + 'w'] * RW), height: Math.round(m['--' + pre + 'h'] * RH) };
+      await page.screenshot({ path: png, clip });
+      tableShots[file] = { w: clip.width * 2, h: clip.height * 2 };
+      console.log(file + '.webp', webp(png, join(IMG, file + '.webp')), clip.width * 2 + 'x' + clip.height * 2);
+      try { unlinkSync(png); } catch (e) {}
+    }
   } else misses.push('roster window');
-  const png = await shoot('roster');
-  try { unlinkSync(png); } catch (e) {}
 }
 await desk.close();
 
@@ -340,14 +406,54 @@ await desk.close();
   p.on('pageerror', (e) => errors.push('athlete: ' + e.message));
   await p.goto(BASE + '/athlete.html?demo=1');
   await settle(p, 3500);
-  await p.addStyleTag({ content: HIDE });
+  await p.addStyleTag({ content: HIDE + '.ai-launcher{display:none!important}' });
   await settle(p, 300);
-  const log = await find(p, /^\s*Log set\s*$/, { up: 'button' });
-  frac('log', log, PW, PH);
-  const png = join(TMP, 'app-train.png');
+  // app-train.webp (#lifters): Train scrolled to the session's last two lifts, the second lift's
+  // card starting just under the compact title bar (no cut-off row peeks under it), so the floating
+  // tab bar sits over the page's own empty foot, not over a set row. The coach's note on that lift
+  // and its sets are in view.
+  const tr = await p.evaluate(async () => {
+    const own = (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('').trim();
+    const cardOf = (e) => { while (e && e.getBoundingClientRect().width < 340) e = e.parentElement; return e; };
+    const adds = [...document.querySelectorAll('body *')].filter((e) => own(e) === 'Add set' && e.getBoundingClientRect().width > 0);
+    const last = cardOf(adds[adds.length - 1]), prev = cardOf(adds[adds.length - 2]);
+    if (!last || !prev) return null;
+    // The title bar once scrolled: the fixed or sticky box that holds the day's name.
+    const t = [...document.querySelectorAll('body *')].find((e) => own(e) === 'Squat Day' && e.getBoundingClientRect().width > 0);
+    window.scrollBy(0, prev.getBoundingClientRect().top - 140);
+    await new Promise((r) => setTimeout(r, 500));
+    let h = t; while (h && !/fixed|sticky/.test(getComputedStyle(h).position)) h = h.parentElement;
+    const headB = Math.max(h ? h.getBoundingClientRect().bottom : 0, 84);
+    window.scrollBy(0, prev.getBoundingClientRect().top - (headB + 18));
+    await new Promise((r) => setTimeout(r, 700));
+    const tab = [...document.querySelectorAll('body *')].find((e) => own(e) === 'Progress' && e.getBoundingClientRect().width > 0);
+    let bar = tab; while (bar && bar.getBoundingClientRect().width < 300) bar = bar.parentElement;
+    return { lastBottom: last.getBoundingClientRect().bottom, barTop: bar ? bar.getBoundingClientRect().top : null };
+  });
+  if (!tr || tr.barTop == null || tr.lastBottom > tr.barTop - 8) console.log('  app-train: the tab bar sits over the session', JSON.stringify(tr));
+  let png = join(TMP, 'app-train.png');
   await p.screenshot({ path: png });
   console.log('app-train.webp', webp(png, join(IMG, 'app-train.webp')));
   try { unlinkSync(png); } catch (e) {}
+  // app-log.webp (the hero's phone): Lift mode on the first set, one set full screen, the RPE
+  // scale and Log set; no tab bar. The hero's press lands on its Log set.
+  await p.evaluate(() => scrollTo(0, 0));
+  await settle(p, 500);
+  const lm = await p.evaluate(() => {
+    const b = document.querySelector('[aria-label^="Lift mode"]');
+    if (!b) return null;
+    const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  if (lm) {
+    await p.mouse.click(lm.x, lm.y);
+    await settle(p, 1500);
+    const log = await find(p, /^\s*Log set\s*$/i, { up: 'button' });
+    frac('log', log, PW, PH);
+    png = join(TMP, 'app-log.png');
+    await p.screenshot({ path: png });
+    console.log('app-log.webp', webp(png, join(IMG, 'app-log.webp')));
+    try { unlinkSync(png); } catch (e) {}
+  } else misses.push('app-log (no Lift mode button)');
   await ctx.close();
 }
 } // !OWN_ONLY
@@ -361,6 +467,10 @@ await desk.close();
 // the screen, cut to the one card (or sheet) the site's sentence is about. Every lookup is by
 // visible text; a miss is reported and the old file is kept.
 const ownShots = {};
+// The meet-day stills show clock times (the board's 'First up', the phone's 'About …'): they are
+// shot at a fixed 9:40 in the morning of today, so a capture run late at night doesn't put a meet
+// at midnight.
+const MORNING = (() => { const d = new Date(); d.setHours(9, 40, 0, 0); return d; })();
 async function ownStill(p, name, clip, resize) {
   if (!clip || clip.width < 40 || clip.height < 40) { misses.push(name); console.log('  MISS', name); return; }
   clip = { x: Math.max(0, Math.round(clip.x)), y: Math.max(0, Math.round(clip.y)), width: Math.round(clip.width), height: Math.round(clip.height) };
@@ -378,7 +488,7 @@ async function neutralNames(p) {
   await p.addStyleTag({ content: '.ai-launcher{display:none!important}' }); // the assistant's button floats over every screen
   await p.evaluate(() => {
     for (const e of document.querySelectorAll('body *')) for (const n of e.childNodes) {
-      if (n.nodeType === 3 && /\bDemo Lifter\b/.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/\bDemo Lifter\b/g, 'Jordan Reyes');
+      if (n.nodeType === 3 && /\bDemo( Lifter|'s)\b/.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/\bDemo Lifter\b/g, 'Jordan Reyes').replace(/\bDemo's\b/g, "Jordan's");
     }
   });
 }
@@ -388,6 +498,7 @@ let mdState = null;
   await ctx.addInitScript(() => {
     try { localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', 'dark'); localStorage.setItem('powa-tour-coach-done', '1'); } catch (e) {}
   });
+  await ctx.clock.setFixedTime(MORNING);
   const p = await ctx.newPage();
   p.on('pageerror', (e) => errors.push('own: ' + e.message));
   // 1. The meet-day board, flight A's first round marked: each opener declared (Enter) and passed (G),
@@ -414,7 +525,9 @@ let mdState = null;
         while (e && (e.getBoundingClientRect().width < minW || e.getBoundingClientRect().height < minH)) e = e.parentElement;
         return e ? e.getBoundingClientRect().bottom : 0;
       };
-      return Math.max(climb('Lot', 600, 200), climb('First up', 300, 200));
+      // The coach's declare card under the lifter-up card: whole, or not at all (no cut-off row).
+      const dec = climb('Declare ', 300, 160); // "Declare Priya's 3rd", not the legend's "Declared"
+      return Math.max(climb('Lot', 600, 200), climb('First up', 300, 200), dec && dec <= 710 ? dec : 0);
     });
     if (bottom > 200) await ownStill(p, 'own-meet', { x: 0, y: 0, width: 1100, height: Math.min(720, bottom + 10) }, 2000);
     else misses.push('own-meet');
@@ -454,7 +567,7 @@ let mdState = null;
   await ctx.close();
 }
 // The lifter's phone, as the iPhone app (the same set-up as app-train above).
-async function phoneCtx(height, init) {
+async function phoneCtx(height, init, morning) {
   const ctx = await browser.newContext({ viewport: { width: 393, height }, deviceScaleFactor: 2, serviceWorkers: 'block', isMobile: true, hasTouch: true, reducedMotion: 'reduce', colorScheme: 'dark' });
   await ctx.addInitScript((md) => {
     try {
@@ -463,6 +576,7 @@ async function phoneCtx(height, init) {
     } catch (e) {}
     window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {}, registerPlugin: () => new Proxy({}, { get: () => async () => ({}) }) };
   }, init || null);
+  if (morning) await ctx.clock.setFixedTime(MORNING); // only the meet-day phone: a fixed clock stalls the pain sheet's steps
   const p = await ctx.newPage();
   const cdp = await ctx.newCDPSession(p);
   try { await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34, left: 0, right: 0 } }); } catch (e) {}
@@ -482,6 +596,17 @@ const boxOf = (p, re, minW) => find(p, re, { minW: minW || 300 });
   const row = await boxOf(p, /^\s*How do you feel today\?\s*$/, 280);
   if (row) await ownStill(p, 'own-ready', { x: row.x, y: row.y, width: row.w, height: row.h }); // the card itself, to its edges
   else misses.push('own-ready');
+  // 3b. The same morning after one tap on Beat up: the set card with today's lighter load and the
+  // note that says so ("-10 kg from the plan … Keep 182.5 kg"), cut just under that note.
+  const beat = await find(p, /^\s*Beat up\s*$/, { up: 'button' });
+  if (beat) {
+    await p.mouse.click(beat.x + beat.w / 2, beat.y + beat.h / 2);
+    await settle(p, 1200);
+    await neutralNames(p);
+    const card = await boxOf(p, /^\s*Competition Squat\s*$/, 340), note = await boxOf(p, /from the plan\s*$/, 280);
+    if (card && note && note.y > card.y) await ownStill(p, 'own-ready-after', { x: card.x, y: card.y, width: card.w, height: note.y + note.h + 10 - card.y });
+    else misses.push('own-ready-after');
+  } else misses.push('own-ready-after (no Beat up)');
   // 4. A pain report: Tell your coach → the knee → how bad.
   if (await p.evaluate(() => { if (typeof openPainSheet !== 'function') return false; openPainSheet({ phase: 'warmup', where: 'Before training' }); return true; })) {
     await settle(p, 900);
@@ -548,7 +673,7 @@ const boxOf = (p, re, minW) => find(p, re, { minW: minW || 300 });
 {
   // 6. The lifter's phone on meet day: meet mode with "your next attempt" from the board above
   // (its state is handed over, so the phone and the board tell the same flight).
-  const { ctx, p } = await phoneCtx(852, mdState);
+  const { ctx, p } = await phoneCtx(852, mdState, true);
   await p.goto(BASE + '/athlete.html?demo=1' + (mdState ? '' : '&meetday=1'));
   await settle(p, 3500);
   if (await p.evaluate(() => { if (typeof openMeetMode !== 'function') return false; openMeetMode(); return true; })) {
@@ -586,6 +711,8 @@ for (const page of ['index.html', 'switch.html']) {
   const ts = tableShots;
   if (ts['desk-table-m']) html = html.replace(/(srcset="site-img\/desk-table-m\.webp" width=")\d+(" height=")\d+/, '$1' + ts['desk-table-m'].w + '$2' + ts['desk-table-m'].h);
   if (ts['desk-table-m']) html = html.replace(/(src="site-img\/desk-table-m\.webp" width=")\d+(" height=")\d+/, '$1' + ts['desk-table-m'].w + '$2' + ts['desk-table-m'].h); // switch.html
+  if (ts['desk-roster-m']) html = html.replace(/(srcset="site-img\/desk-roster-m\.webp" width=")\d+(" height=")\d+/, '$1' + ts['desk-roster-m'].w + '$2' + ts['desk-roster-m'].h);
+  if (ts['desk-roster']) html = html.replace(/(src="site-img\/desk-roster\.webp" width=")\d+(" height=")\d+/, '$1' + ts['desk-roster'].w + '$2' + ts['desk-roster'].h);
   if (ts['desk-table'] && ts['desk-table-1x']) html = html.replace(/(src="site-img\/desk-table\.webp" srcset="site-img\/desk-table-1x\.webp )\d+(w, site-img\/desk-table\.webp )\d+(w"[^>]*? width=")\d+(" height=")\d+/, '$1' + ts['desk-table-1x'].w + '$2' + ts['desk-table'].w + '$3' + ts['desk-table'].w + '$4' + ts['desk-table'].h);
   // The #only stills are cut to their story, so their sizes change with the product too.
   for (const [name, d] of Object.entries(ownShots)) html = html.replace(new RegExp('(src="site-img/' + name + '\\.webp" width=")\\d+(" height=")\\d+', 'g'), '$1' + d.w + '$2' + d.h);

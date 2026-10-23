@@ -3,7 +3,8 @@
    2. Scroll reveal that never hides content by default: only elements that start
       below the fold get .s-wait, and they rise in when they reach the screen.
    3. The hero loop: the lifter taps Log set on the phone, the set flies to their row on the
-      coach's desk and lands with one soft pulse. Plays only while the hero is on screen.
+      coach's desk and lands with one soft pulse (on phones, where the phone isn't drawn, it just
+      lands). Plays only while the hero is on screen.
    4. The table's numbered pins: they arrive one by one, and a note lights its pin.
    5. The pricing roster slider.
    6. A document's contents (data.html) mark the section you're reading.
@@ -93,6 +94,9 @@
       timer = 0;
       if (!visible || document.hidden) { running = false; return; }
       running = true;
+      // Phones show no phone (site.css): the set simply lands on the row, without the flight.
+      var phone = press.getClientRects().length > 0;
+      if (!phone) { land0(); timer = setTimeout(beat, 6600); return; }
       var s = stage.getBoundingClientRect(), a = center(press), t = tag.getBoundingClientRect();
       var fw = fly.offsetWidth, fh = fly.offsetHeight;
       var x0 = a.x - s.left - fw / 2, y0 = a.r.top - s.top - fh * 0.2;
@@ -108,19 +112,21 @@
         { transform: 'translate(' + x1 + 'px,' + y1 + 'px) scale(' + k + ')', opacity: 1, offset: 0.94 },
         { transform: 'translate(' + x1 + 'px,' + y1 + 'px) scale(' + k + ')', opacity: 0 }
       ], { duration: 1300, delay: 260, easing: EASE_IO, fill: 'none' });
-      setTimeout(function () {
-        ring.animate([
-          { opacity: 0, transform: 'scale(0.985)' },
-          { opacity: 1, transform: 'scale(1.012)', offset: 0.35 },
-          { opacity: 1, transform: 'none', offset: 0.6 },
-          { opacity: 1, transform: 'none', offset: 0.88 },
-          { opacity: 0, transform: 'none' }
-        ], { duration: 3600, easing: EASE });
-        tag.animate([
-          { opacity: 0 }, { opacity: 1, offset: 0.04 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }
-        ], { duration: 3700, easing: 'linear' });
-      }, 1460);
+      setTimeout(land0, 1460);
       timer = setTimeout(beat, 6600);
+    }
+    // The landing: one soft pulse on the row, and the set docked at its end for a few seconds.
+    function land0() {
+      ring.animate([
+        { opacity: 0, transform: 'scale(0.985)' },
+        { opacity: 1, transform: 'scale(1.012)', offset: 0.35 },
+        { opacity: 1, transform: 'none', offset: 0.6 },
+        { opacity: 1, transform: 'none', offset: 0.88 },
+        { opacity: 0, transform: 'none' }
+      ], { duration: 3600, easing: EASE });
+      tag.animate([
+        { opacity: 0 }, { opacity: 1, offset: 0.04 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }
+      ], { duration: 3700, easing: 'linear' });
     }
     function wake() { if (started && visible && !document.hidden && !running && !timer) timer = setTimeout(beat, 500); }
     new IntersectionObserver(function (es) {

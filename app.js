@@ -3017,7 +3017,11 @@ function liveDemoStep(store, nowMs) {
   const n = ++_lvDemo.n;
   const date = isoLocal(new Date(nowMs || Date.now()));
   const felt = Math.min(10, rpe + ((n % 3) === 2 ? 0.5 : 0));
-  Object.assign(s, { weight: kg, completed: true, actualRpe: felt, completedAt: date, lastLogId: 'demo-live-log-' + n });
+  // A full timestamp, as a real logged set carries (the desk reads "Training now" from it,
+  // deskTrainingNow), in local time so its first ten characters stay today's date.
+  const at = new Date(nowMs || Date.now()), off = -at.getTimezoneOffset(), p2 = (v) => String(Math.floor(Math.abs(v))).padStart(2, '0');
+  const stamp = date + 'T' + p2(at.getHours()) + ':' + p2(at.getMinutes()) + ':' + p2(at.getSeconds()) + (off < 0 ? '-' : '+') + p2(off / 60) + ':' + p2(off % 60);
+  Object.assign(s, { weight: kg, completed: true, actualRpe: felt, completedAt: stamp, lastLogId: 'demo-live-log-' + n });
   const e1rm = calcE1RM(kg, reps, felt);
   const log = { id: 'demo-live-log-' + n, athleteId: prog.athleteId, lift: e.lift, variant: e.variant || '', exerciseName: e.exerciseName || '',
     weight: kg, reps, rpe: felt, e1rm, e1rmComp: MAIN_LIFTS.includes(e.lift) ? calcCompE1RM(kg, reps, felt, e.lift, e.variant) : e1rm, date, note: '' };
