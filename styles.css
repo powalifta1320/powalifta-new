@@ -10908,11 +10908,21 @@ html.club-tv-open .ai-launcher, html.meet-mode-open .ai-launcher { display: none
 .tw-t small { font-size: var(--fs-meta, 13px); color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) { .wrap-card { animation: none; } .wrap-bars i.now::after { animation-duration: 0.01s; } }
 /* Your month in lifting (Monthly Wrapped, 2026-10-24). The summary card is the image that posts,
-   shown whole at the size of the screen; the stories stay dark in the light theme, buttons too. */
-.wrap-card.wrap-sum { min-height: 0; padding: 56px 0 18px; }   /* clear of the close button */
-.wrap-poster { flex: 1 1 auto; min-height: 0; max-width: 100%; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #070708; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.09); }
-.wrap-poster-img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity var(--t-enter) var(--ease-out-quint); }
-.wrap-poster.is-ready .wrap-poster-img { opacity: 1; }
+   shown whole at the size of the screen, in the style picked under it (Plates · Fire · Card, a quick
+   crossfade between them); the stories stay dark in the light theme, buttons too. */
+.wrap-card.wrap-sum { min-height: 0; padding: 56px 0 14px; }   /* clear of the close button */
+.wrap-poster { position: relative; flex: 1 1 auto; min-height: 0; max-width: 100%; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #0b0b0c; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.09); }
+.wrap-poster-img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 220ms var(--ease-out-quint); }
+.wrap-poster-img.is-in { opacity: 1; }
+.wrap-styles { position: relative; z-index: 1; display: flex; justify-content: center; gap: 8px; margin: 0 0 14px; }   /* over the card's shadow */
+.wrap-mode .wrap-acts { position: relative; z-index: 1; }
+.wrap-style { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px 0 12px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.09); color: rgba(244, 244, 246, 0.78); font: 600 14px/1 var(--font-body, 'Archivo', sans-serif); transition: background-color var(--t-press) ease, color var(--t-press) ease; }
+.wrap-style.on { background: #f4f4f6; color: #0b0b0c; }
+.ws-sw { flex: none; width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.ws-plates { background: linear-gradient(90deg, #e3232f 0 25%, #2a4fd6 25% 50%, #f0b322 50% 75%, #1fae58 75%); }
+.ws-fire { background: linear-gradient(160deg, #ff2d42, #ff7a2f 60%, #ffb347); }
+.ws-card { background: conic-gradient(from 210deg, #ff4a55, #ffbf3c, #34d982, #38c6ff, #a98bff, #ff4a55); }
+@media (prefers-reduced-motion: reduce) { .wrap-poster-img { transition: none; } }
 .wrap-acts .btn svg { width: 19px; height: 19px; }
 body.powa-app .wrap-mode .ui-btn-soft, [data-theme="light"] body.powa-app .wrap-mode .ui-btn-soft { background: rgba(255, 255, 255, 0.12); color: #f4f4f6; }
 /* You › Your wraps: a tile per month (the one still on Train in PR gold), a star for each year. */

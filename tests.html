@@ -1378,11 +1378,16 @@ test('month wrap stories: one number each, only the ones the month earned, then 
     eq(by('vs').kicker, 'Compared with September'); eq(by('vs').big, '+73%'); eq(by('vs').line, '2 more sessions too');
     eq(by('bw').big, '−0.8'); eq(by('bw').line, 'From 84.4 to 83.6 kg across October');
     const post = by('summary').poster;
-    eq(by('summary').last, true); eq(post.month, 'October'); eq(post.year, 2026); eq(post.sub, '2026 in lifting'); eq(post.name, 'Ana'); eq(post.instagram, 'ana.lifts');
-    eq(post.top.big, '210'); eq(post.top.unit, 'kg × 2'); eq(post.top.label, 'Deadlift · top set at RPE 8.5');
+    eq(by('summary').last, true); eq(post.month, 'October'); eq(post.monthShort, 'OCT'); eq(post.year, 2026); eq(post.when, 'my month under the bar');
+    eq(post.name, 'Ana'); eq(post.initials, 'A'); eq(post.instagram, 'ana.lifts'); eq(post.weightClass, null); eq(post.avatarUrl, null);
+    eq(post.top.big, '210'); eq(post.top.unit, 'kg × 2'); eq(post.top.label, 'Deadlift at RPE 8.5');
     eq(post.stats.map(s => s.l).join(), 'sessions,kg moved,PRs');
+    eq(post.stats4.map(s => s.l).join(), 'sessions,kg moved,PRs,weeks in a row'); eq(post.stats4[2].pr, true);
+    eq(post.ghost, '2');                                         // Fire's ghost number: the PRs
+    eq(post.weeklyCaption, 'Tonnes a week');
+    eq(post.weekly.map(x => x.label + ' ' + x.v).join(', '), 'W1 1.2, W2 2.1, W3 0.4, W4 0.5');
     eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09'))[0].kicker, 'Your October so far');
-    eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09')).pop().poster.sub, '2026, up to the 9th');
+    eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09')).pop().poster.when, 'up to the 9th');
     eq([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 31].map(_wrapOrdinal).join(), '1st,2nd,3rd,4th,11th,12th,13th,21st,22nd,23rd,31st');
     eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09')).find(s => s.key === 'vs').kicker, 'Compared with this point in September');
     // August: one session, the first squat ever (no PR), no month before, no run: four stories.
@@ -1396,6 +1401,30 @@ test('month wrap stories: one number each, only the ones the month earned, then 
     eq(monthWrapSlides(monthInLifting(logs, [], 'me', 2026, 5)).length, 0);   // no session, no wrap
     eq(wrapLiftName('squat', 'Paused'), 'Paused Squat'); eq(wrapLiftName('bench', 'Competition'), 'Bench');
   } finally { try { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); } catch {} }
+});
+test('month wrap: tonnes a week for the Plates card, and the share style the lifter last picked', () => {
+  const logs = _wrapLogs();
+  // October: W1 holds the 1st (its week starts Monday 28 Sep), only October's days count.
+  const oct = monthInLifting(logs, [], 'me', 2026, 9);
+  eq(JSON.stringify(oct.weekly.map(x => [x.week, x.start, x.tonnageKg])), JSON.stringify([[1, '2026-09-28', 750 + 465], [2, '2026-10-05', 600 + 315 + 1200], [3, '2026-10-12', 420], [4, '2026-10-19', 480]]));
+  eq(oct.weekly.reduce((a, x) => a + x.tonnageKg, 0), oct.tonnageKg);   // the weeks add up to the month
+  // A month with one week of training has one bar (August's only session is in its sixth week).
+  eq(JSON.stringify(monthInLifting(logs, [], 'me', 2026, 7).weekly), JSON.stringify([{ week: 6, start: '2026-08-31', tonnageKg: 700 }]));
+  // A week without a session between two that had one shows as 0; no session, no weeks; a year has none.
+  const L = (id, date, w) => ({ id, athleteId: 'me', date, lift: 'squat', weight: w, reps: 5, rpe: 8, e1rmComp: w * 1.2 });
+  const nov = monthInLifting([L('n1', '2026-11-02', 100), L('n2', '2026-11-16', 110)], [], 'me', 2026, 10);
+  eq(nov.weekly.map(x => 'W' + x.week + ':' + x.tonnageKg).join(), 'W2:500,W3:0,W4:550');
+  eq(monthInLifting(logs, [], 'me', 2026, 5).weekly.length, 0);
+  eq(yearInLifting(logs, [], 'me', 2026).weekly, null);
+  // Plates unless the lifter picked another; a bad value is ignored.
+  const saved = localStorage.getItem('powa-wrap-style');
+  try {
+    localStorage.removeItem('powa-wrap-style'); eq(wrapStylePref(), 'plates');
+    setWrapStylePref('fire'); eq(wrapStylePref(), 'fire');
+    setWrapStylePref('neon'); eq(wrapStylePref(), 'fire');
+    localStorage.setItem('powa-wrap-style', 'neon'); eq(wrapStylePref(), 'plates');
+    eq(WRAP_STYLES.join(), 'plates,fire,card');
+  } finally { try { if (saved == null) localStorage.removeItem('powa-wrap-style'); else localStorage.setItem('powa-wrap-style', saved); } catch {} }
 });
 test('instagram: handles, @, links and junk', () => {
   eq(normalizeInstagram('@Nina.Deadlifts'), 'nina.deadlifts');

@@ -4398,30 +4398,37 @@ function openMonthWrapped(year, month) {
   const w = monthInLifting(st.workoutLogs, st.bodyweight, user.id, year, month, todayISO());
   const name = WRAP_MONTHS[month];
   if (!w.sessions) { toast('No sessions logged in ' + name + ' ' + year); return; }
-  playWrap(monthWrapSlides(w, { name: user.name, instagram: user.instagram }),
+  // The lifter card's class line: the class being made (a cut's target) or the month's last weigh-in's, IPF style.
+  const cls = liftersClass((w.bw && w.bw.endKg) || latestBodyweight(user.id), getSexPref(), targetClassOf(user.id));
+  const weightClass = cls ? (/\+$/.test(cls) ? cls.replace(/\s*kg\+$/, '+ kg') : '\u2212' + cls) : null;
+  playWrap(monthWrapSlides(w, { name: user.name, instagram: user.instagram, avatarUrl: user.avatarUrl, weightClass }),
     { label: 'Your ' + name + ' in lifting', period: name + ' ' + year, file: 'powalifta-' + wrapKey(year, month) + '.png', text: 'My ' + name + ' in lifting · powalifta.com' });
 }
 window.openMonthWrapped = openMonthWrapped;
-// The story player both wraps share. ctx: { label, period ('October 2026'), file, text }.
+// The story player both wraps share. ctx: { label, period ('October 2026'), file, text }. A month's
+// summary card comes in three styles (Plates · Fire · Card) the lifter flips between under it; the
+// pick is remembered on the device and every other story of the month shares in the same style.
 function playWrap(slides, ctx) {
-  let i = 0, timer = null, paused = false, poster = null;
-  // The summary card is one 1080 × 1920 canvas, drawn once, after the first story is up.
-  const posterSlide = slides.find(s => s.poster);
-  const getPoster = () => {
-    if (!poster && posterSlide) {
-      poster = drawWrapPoster(posterSlide.poster)
+  let i = 0, timer = null, paused = false, style = wrapStylePref();
+  const posterSlide = slides.find(s => s.poster), posters = {};
+  if (posterSlide) ctx = Object.assign({}, ctx, { poster: posterSlide.poster });
+  // Each style's card is one 1080 × 1920 canvas, drawn once when first needed.
+  const getPoster = (st) => {
+    if (!posterSlide) return Promise.resolve(null);
+    if (!posters[st]) {
+      posters[st] = drawWrapPoster(posterSlide.poster, st)
         .then(c => new Promise(res => c.toBlob(b => res({ c, url: b ? URL.createObjectURL(b) : null }), 'image/png')))
         .catch(() => null);
     }
-    return poster || Promise.resolve(null);
+    return posters[st];
   };
   const root = el('div', { class: 'wrap-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': ctx.label });
   document.documentElement.classList.add('meet-mode-open');
   document.body.appendChild(root);
-  const warm = posterSlide ? setTimeout(getPoster, 900) : null;
+  const warm = posterSlide ? setTimeout(() => getPoster(style), 900) : null;
   const close = () => {
     clearTimeout(timer); clearTimeout(warm); root.remove(); document.documentElement.classList.remove('meet-mode-open');
-    if (poster) poster.then(p => { if (p && p.url) URL.revokeObjectURL(p.url); });
+    Object.keys(posters).forEach(k => posters[k].then(p => { if (p && p.url) URL.revokeObjectURL(p.url); }));
   };
   const go = (d) => { const n = i + d; if (n < 0) return; if (n >= slides.length) { close(); return; } i = n; paint(); };
   const schedule = () => { clearTimeout(timer); if (!paused && !slides[i].last) timer = setTimeout(() => go(1), 6500); };
@@ -4430,6 +4437,19 @@ function playWrap(slides, ctx) {
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     return b;
   };
+  // The card as it will post, cross-faded in over the one before when the style changes.
+  const showPoster = (fig, st) => getPoster(st).then(p => {
+    if (!p || !p.url || !fig.isConnected || st !== style) return;
+    const img = el('img', { class: 'wrap-poster-img', alt: '' });
+    const fadeIn = () => {
+      if (!fig.isConnected || st !== style) { img.remove(); return; }
+      requestAnimationFrame(() => { img.classList.add('is-in'); fig.classList.add('is-ready'); });
+      setTimeout(() => fig.querySelectorAll('.wrap-poster-img').forEach(o => { if (o !== img) o.remove(); }), 260);
+    };
+    img.src = p.url;
+    fig.appendChild(img);
+    if (img.decode) img.decode().then(fadeIn, fadeIn); else img.onload = fadeIn;
+  });
   const paint = () => {
     const sl = slides[i];
     root.innerHTML = '';
@@ -4441,13 +4461,29 @@ function playWrap(slides, ctx) {
     x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
     root.appendChild(x);
     const card = el('div', { class: 'wrap-card' + (sl.poster ? ' wrap-sum' : '') });
+    root.appendChild(card);
     if (sl.poster) {
-      // The card exactly as it will post: the image itself, readable at this size.
       const fig = el('div', { class: 'wrap-poster', role: 'img', 'aria-label': sl.alt || ctx.label });
-      const img = el('img', { class: 'wrap-poster-img', alt: '' });
-      fig.appendChild(img);
       card.appendChild(fig);
-      getPoster().then(p => { if (p && p.url && img.isConnected) { img.src = p.url; fig.classList.add('is-ready'); } });
+      showPoster(fig, style);
+      // Plates · Fire · Card: flip between them, the pick stays for next time.
+      const picker = el('div', { class: 'wrap-styles', role: 'radiogroup', 'aria-label': 'Card style' });
+      WRAP_STYLES.forEach(st => {
+        const b = el('button', { type: 'button', class: 'wrap-style' + (st === style ? ' on' : ''), role: 'radio', 'aria-checked': st === style ? 'true' : 'false' });
+        b.appendChild(el('span', { class: 'ws-sw ws-' + st, 'aria-hidden': 'true' }));
+        b.appendChild(el('span', {}, WRAP_STYLE_LABEL[st]));
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (st === style) return;
+          style = st; setWrapStylePref(st); hapticTick();
+          picker.querySelectorAll('.wrap-style').forEach(o => { const on = o === b; o.classList.toggle('on', on); o.setAttribute('aria-checked', on ? 'true' : 'false'); });
+          showPoster(fig, st);
+        });
+        picker.appendChild(b);
+      });
+      root.appendChild(picker);
+      // The other two get drawn in the background, so a flip is instant.
+      getPoster(style).then(() => WRAP_STYLES.filter(st => st !== style).reduce((q, st) => q.then(() => getPoster(st)), Promise.resolve()));
     } else {
       card.appendChild(el('div', { class: 'wrap-kicker' }, sl.kicker));
       if (sl.bar) card.appendChild(el('div', { class: 'wrap-bar', 'aria-hidden': 'true', html: uiBarbell(sl.exactBar ? sl.bar : Math.round(sl.bar / 2.5) * 2.5) }));
@@ -4455,9 +4491,8 @@ function playWrap(slides, ctx) {
       card.appendChild(el('div', { class: 'wrap-unit' }, sl.unit));
       if (sl.line) card.appendChild(el('div', { class: 'wrap-line' }, sl.line));
     }
-    root.appendChild(card);
     const acts = el('div', { class: 'wrap-acts' });
-    if (sl.poster) acts.appendChild(button('Share to Instagram', true, () => getPoster().then(p => p ? shareCardFromCanvas(p.c, ctx.file, ctx.text) : toast('Could not create image')), IG_GLYPH));
+    if (sl.poster) acts.appendChild(button('Share to Instagram', true, () => getPoster(style).then(p => p ? shareCardFromCanvas(p.c, ctx.file, ctx.text) : toast('Could not create image')), IG_GLYPH));
     else acts.appendChild(button('Share this', !!sl.last, () => shareWrapSlide(sl, ctx)));
     if (sl.last) acts.appendChild(button('Done', false, close));
     root.appendChild(acts);
@@ -4475,6 +4510,8 @@ function playWrap(slides, ctx) {
 // One story as a 1080 × 1920 image for Instagram Stories: the brand on top, the story in the
 // middle (the loaded bar too, on a top-set story), the period and powalifta.com clear of the reply bar.
 async function shareWrapSlide(sl, ctx) {
+  // A month's story: in the style picked on its summary card (Plates unless the lifter chose another).
+  if (ctx.poster) { await shareCardFromCanvas(await drawWrapStory(sl, ctx.poster, wrapStylePref()), ctx.file, ctx.text); return; }
   const W = 1080, H = 1920, c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');

@@ -13892,6 +13892,18 @@ function liftingWrap(logs, bw, athleteId, period) {
   let runWeeks = 0, runFrom = null;
   if (weeks.length) for (let w = weeks[weeks.length - 1]; trained.has(w); w -= WEEK) { runWeeks++; runFrom = w; }
   const bws = (bw || []).filter(b => b && b.athleteId === athleteId && inP(b.date) && b.weight > 0).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  // Tonnes a week (a month's Plates card): every ISO week from the first with a session in the month
+  // to the last, counting the month's own days only; a week between with no session is 0. week:
+  // its number in the month (W1 holds the 1st). The weeks add up to the month's tonnage.
+  let weekly = null;
+  if (month != null) {
+    weekly = [];
+    if (weeks.length) {
+      const w1 = _wrapWeek(key + '-01'), tons = {};
+      lifting.forEach(l => { const k = _wrapWeek(day(l)); tons[k] = (tons[k] || 0) + (Number(l.weight) || 0) * (Number(l.reps) || 0); });
+      for (let k = weeks[0]; k <= weeks[weeks.length - 1]; k += WEEK) weekly.push({ week: 1 + Math.round((k - w1) / WEEK), start: new Date(k).toISOString().slice(0, 10), tonnageKg: Math.round(tons[k] || 0) });
+    }
+  }
   // The month before, only when it had a session: whole, or over the same days while this one runs.
   let partial = false, asOfDay = null, prev = null;
   if (month != null) {
@@ -13910,7 +13922,7 @@ function liftingWrap(logs, bw, athleteId, period) {
     longestStreakWeeks: streak, weeksTrained: weeks.length, runWeeks,
     runSince: runFrom == null ? null : new Date(runFrom).toISOString().slice(0, 10),
     bw: bws.length >= 2 ? { startKg: bws[0].weight, endKg: bws[bws.length - 1].weight } : null,
-    prev, partial, asOfDay
+    weekly, prev, partial, asOfDay
   };
 }
 function yearInLifting(logs, bw, athleteId, year) { return liftingWrap(logs, bw, athleteId, { year }); }
@@ -14039,31 +14051,42 @@ function monthWrapSlides(w, opts) {
       ? { key: 'bw', tint: '#2fe0c2', kicker: 'Bodyweight', big: (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1), unit: u, line: 'From ' + a.toFixed(1) + ' to ' + b.toFixed(1) + ' ' + u + ' across ' + mName }
       : { key: 'bw', tint: '#2fe0c2', kicker: 'Bodyweight', big: b.toFixed(1), unit: u, line: 'Same as the start of ' + mName });
   }
-  // The card to post: the month, its best four numbers (the top set, then three of sessions,
-  // tonnage, PRs, weeks in a row and sets, in that order), the lifter's name and where it's from.
-  const stats = [{ v: String(w.sessions), l: n(w.sessions, 'session') }];
-  if (w.tonnageKg > 0) stats.push({ v: ton.big, l: ton.unit + ' moved' });
-  if (w.prs > 0) stats.push({ v: String(w.prs), l: n(w.prs, 'PR'), c: '#f2c25b' });
-  if (w.runWeeks >= 2) stats.push({ v: String(w.runWeeks), l: 'weeks in a row' });
-  stats.push({ v: w.sets.toLocaleString(), l: n(w.sets, 'set') });
-  stats.splice(3);
-  const poster = { month: mName, year: w.year, partial: !!w.partial, sub: w.partial ? w.year + ', up to the ' + _wrapOrdinal(w.asOfDay) : w.year + ' in lifting',
-    name: String(opts.name || '').trim(), instagram: opts.instagram || null, stats,
-    top: t ? { kg: t.weightKg, big: exactW(t.weightKg), unit: u + ' × ' + t.reps, label: wrapLiftName(t.lift, t.variant) + ' · top set' + (t.rpe ? ' at RPE ' + t.rpe : ''), tint: WRAP_LIFT_TINT[t.lift] } : null };
+  // The card to post (drawWrapPoster draws it in the lifter's style): the month, the top set, its
+  // best numbers in this order (sessions, tonnage, PRs, weeks in a row, sets: three for Plates and
+  // Fire, four for the lifter card), tonnes a week, and the lifter. opts: { name, instagram,
+  // avatarUrl, weightClass }.
+  const stats = [{ v: String(w.sessions), l: n(w.sessions, 'session'), s: n(w.sessions, 'session') }];
+  if (w.tonnageKg > 0) stats.push({ v: ton.big, l: ton.unit + ' moved', s: ton.unit });
+  if (w.prs > 0) stats.push({ v: String(w.prs), l: n(w.prs, 'PR'), s: n(w.prs, 'PR'), pr: true });
+  if (w.runWeeks >= 2) stats.push({ v: String(w.runWeeks), l: 'weeks in a row', s: 'weeks in a row' });
+  stats.push({ v: w.sets.toLocaleString(), l: n(w.sets, 'set'), s: n(w.sets, 'set') });
+  const name = String(opts.name || '').trim();
+  const poster = {
+    month: mName, monthShort: mName.slice(0, 3).toUpperCase(), year: w.year, partial: !!w.partial,
+    when: w.partial ? 'up to the ' + _wrapOrdinal(w.asOfDay) : 'my month under the bar',
+    name, initials: name ? initials(name) : '?', hue: avatarHue(name), instagram: opts.instagram || null,
+    avatarUrl: opts.avatarUrl || null, weightClass: opts.weightClass || null,
+    top: t ? { kg: t.weightKg, big: exactW(t.weightKg), unit: u + ' × ' + t.reps, label: wrapLiftName(t.lift, t.variant) + (t.rpe ? ' at RPE ' + t.rpe : '') } : null,
+    stats: stats.slice(0, 3), stats4: stats.slice(0, 4),
+    ghost: String(w.prs > 0 ? w.prs : w.sessions),
+    weekly: (w.weekly || []).map(x => ({ label: 'W' + x.week, kg: x.tonnageKg, v: (Math.round(kgToDisplay(x.tonnageKg) / 100) / 10).toFixed(1) })),
+    weeklyCaption: getUnit() === 'lbs' ? 'Thousand lb a week' : 'Tonnes a week'
+  };
   out.push({ key: 'summary', tint: '#ff6a3d', poster, last: true,
-    alt: mName + ' ' + (w.partial ? poster.sub : w.year) + ': ' + (t ? 'top set ' + poster.top.big + ' ' + poster.top.unit + ' ' + wrapLiftName(t.lift, t.variant).toLowerCase() + ', ' : '') + stats.map(s => s.v + ' ' + s.l).join(', ') });
+    alt: mName + ' ' + w.year + (w.partial ? ', ' + poster.when : '') + ': ' + (t ? 'top set ' + poster.top.big + ' ' + poster.top.unit + ', ' + poster.top.label + '; ' : '') + stats.slice(0, 4).map(s => s.v + ' ' + s.l).join(', ') });
   return out;
 }
 Object.assign(window, { liftingWrap, yearInLifting, monthInLifting, monthWrapDue, yearWrapSoFar, trainWrapPick, wrapArchive, wrapDropISO, wrapKey, tonnageComparison, wrapTonnageText, wrapLiftName, monthWrapSlides, WRAP_MONTHS });
 
 // One sleeve of a loaded bar on a canvas: uiBarbell's drawing (same plates, colours and
-// proportions), centred on (cx, cy) and h px tall. Returns the width it took.
-function drawBarbell2d(x, kg, cx, cy, h) {
+// proportions), h px tall, centred on (cx, cy) (or starting at cx with align 'left').
+// Returns the width it took.
+function drawBarbell2d(x, kg, cx, cy, h, align) {
   const r = plateLoadout(kg), look = PLATE_LOOK[r.unit], mid = 50, gap = 1.6;
   let px = 31;
   const plates = r.plates.filter(p => look[p]).map(p => { const o = { p, x: px }; px += look[p][2] + gap; return o; });
   const collarX = px + 0.4, end = collarX + 7 + 16, W = end + 1;
-  const s = h / 100, ox = cx - W * s / 2, oy = cy - mid * s;
+  const s = h / 100, ox = align === 'left' ? cx : cx - W * s / 2, oy = cy - mid * s;
   const box = (rx, ry, rw, rh, rad, fill) => {
     x.beginPath();
     if (x.roundRect) x.roundRect(ox + rx * s, oy + ry * s, rw * s, rh * s, rad * s); else x.rect(ox + rx * s, oy + ry * s, rw * s, rh * s);
@@ -14083,83 +14106,402 @@ function drawBarbell2d(x, kg, cx, cy, h) {
   x.restore();
   return W * s;
 }
-// The month's summary card as a 1080 × 1920 Instagram Story (monthWrapSlides' poster): the month,
-// the top set on a loaded bar, three numbers, the lifter's name and powalifta.com. Obsidian, lit
-// warm from above, the top set's lift colour behind the bar; nothing inside Instagram's own name
-// strip (top 250 px) or reply bar (bottom 250 px). Resolves to the canvas.
-async function drawWrapPoster(p) {
-  const W = 1080, H = 1920, c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const x = c.getContext('2d');
-  try { await Promise.all(['800 200px Archivo', '700 60px Archivo', '600 40px Archivo'].map(f => document.fonts.load(f))); } catch (e) {}
-  const FONT = 'px Archivo, "Arial Black", sans-serif';
-  // Shrinks a line until it fits maxW; returns the size used.
-  const fit = (text, weight, size, maxW, min) => {
-    for (;;) { x.font = weight + ' ' + size + FONT; if (x.measureText(text).width <= maxW || size <= (min || 24)) return size; size -= 2; }
-  };
-  const glow = (gx, gy, r, rgb, a) => {
-    const g = x.createRadialGradient(gx, gy, 0, gx, gy, r);
-    g.addColorStop(0, 'rgba(' + rgb + ', ' + a + ')'); g.addColorStop(0.55, 'rgba(' + rgb + ', ' + (a * 0.28).toFixed(3) + ')'); g.addColorStop(1, 'rgba(' + rgb + ', 0)');
-    x.fillStyle = g; x.fillRect(0, 0, W, H);
-  };
-  const rgbOf = (hex) => { const n = parseInt(String(hex).replace('#', ''), 16); return ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255); };
-  x.fillStyle = '#070708'; x.fillRect(0, 0, W, H);
-  glow(W / 2, -60, 1150, '255, 84, 61', 0.26);
-  x.textAlign = 'center'; x.textBaseline = 'alphabetic';
-  drawCardLogo(x, W / 2, 268, 46);
-  // The month, as big as it fits, and the year under it.
-  const ms = fit(p.month, 800, 220, W - 150, 120);
-  x.font = '800 ' + ms + FONT; x.fillStyle = '#f4f4f6';
-  x.fillText(p.month, W / 2, 575);
-  x.font = '600 50' + FONT; x.fillStyle = 'rgba(244, 244, 246, 0.62)';
-  x.fillText(p.sub || p.year + ' in lifting', W / 2, 655);
-  let y = 975;   // without a top set the numbers are the hero, centred
-  if (p.top) {
-    // The top set: the bar as it was loaded, the weight × reps, the lift.
-    glow(W / 2, 880, 520, rgbOf(p.top.tint), 0.15);
-    drawBarbell2d(x, p.top.kg, W / 2, 850, 230);
-    let bs = 176, us = 66, bw = 0, uw = 0;
-    for (;;) {
-      x.font = '800 ' + bs + FONT; bw = x.measureText(p.top.big).width;
-      x.font = '800 ' + us + FONT; uw = x.measureText(p.top.unit).width + 22;
-      if (bw + uw <= W - 160 || bs <= 110) break;
-      bs -= 6; us = Math.round(bs * 0.375);
-    }
-    const gx = (W - bw - uw) / 2;
-    x.textAlign = 'left';
-    x.font = '800 ' + bs + FONT; x.fillStyle = '#f4f4f6'; x.fillText(p.top.big, gx, 1135);
-    x.font = '800 ' + us + FONT; x.fillStyle = p.top.tint; x.fillText(p.top.unit, gx + bw + 22, 1135);
-    x.textAlign = 'center';
-    fit(p.top.label, 600, 46, W - 180, 30); x.fillStyle = 'rgba(244, 244, 246, 0.72)';
-    x.fillText(p.top.label, W / 2, 1207);
-    y = 1275;
+
+// =========================================================
+// WRAP SHARE STYLES (2026-10-25). The card a lifter posts from Monthly Wrapped comes in three
+// styles they flip between before sharing, each a 1080 × 1920 Instagram Story: Plates (black,
+// fire light on top, the month huge, tonnes a week as IPF-coloured plates along the floor), Fire
+// (the brand red to orange with grain, a ghost number, a near-black card) and Card (a collectible
+// lifter card with a foil edge). Every other story shares in the same style, so a month's shares
+// look like one set. Instagram covers about the top 250 px and the bottom 330 px with its own
+// bars: nothing that needs reading sits there (Plates' plates reach in as decoration only).
+// Wide Archivo in a canvas: WebKit ignores the canvas fontStretch, so the page's own Archivo
+// file is added again under three names with a fixed width (ArchivoW125 / W112 / W110), which
+// every engine honours. If that fails the cards fall back to Archivo at its normal width.
+// =========================================================
+const WRAP_STYLES = ['plates', 'fire', 'card'];
+const WRAP_STYLE_LABEL = { plates: 'Plates', fire: 'Fire', card: 'Card' };
+function wrapStylePref() { let v = null; try { v = localStorage.getItem('powa-wrap-style'); } catch (e) {} return WRAP_STYLES.includes(v) ? v : 'plates'; }
+function setWrapStylePref(v) { if (!WRAP_STYLES.includes(v)) return; try { localStorage.setItem('powa-wrap-style', v); } catch (e) {} }
+let _wrapFontsP = null;
+function wrapFontsReady() {
+  if (_wrapFontsP) return _wrapFontsP;
+  _wrapFontsP = (async () => {
+    try { await Promise.all(['900 200px Archivo', '800 60px Archivo', '700 40px Archivo', '600 40px Archivo'].map(f => document.fonts.load(f))); } catch (e) {}
+    try {
+      const src = document.querySelector('link[href*="fonts.googleapis.com/css2"][href*="Archivo"]');
+      if (!src || typeof FontFace === 'undefined') return false;
+      // The same stylesheet again with CORS, so its @font-face rules (and the font file) can be read.
+      const link = document.createElement('link');
+      link.rel = 'stylesheet'; link.crossOrigin = 'anonymous'; link.media = 'print'; link.href = src.href;
+      await new Promise((res, rej) => { link.onload = res; link.onerror = rej; setTimeout(rej, 6000); document.head.appendChild(link); });
+      let url = null;
+      [...link.sheet.cssRules].forEach(r => {
+        if (r.type === 5 && /unicode-range:\s*U\+0(000)?-0*FF\b/i.test(r.cssText)) { const m = /url\("?([^")]+)"?\)/.exec(r.cssText); if (m) url = m[1]; }
+      });
+      link.remove();
+      if (!url) return false;
+      await Promise.all([['ArchivoW125', '125%'], ['ArchivoW112', '112%'], ['ArchivoW110', '110%']].map(async ([fam, st]) => {
+        const f = new FontFace(fam, 'url(' + url + ')', { stretch: st, weight: '100 900' });
+        await f.load(); document.fonts.add(f);
+      }));
+      return true;
+    } catch (e) { return false; }
+  })();
+  return _wrapFontsP;
+}
+// Canvas type: f(weight, px, width) → a font string with fallbacks; width 125 / 112 / 110 / 100.
+function _wf(weight, px, width) {
+  const fam = width === 125 ? 'ArchivoW125, ' : width === 112 ? 'ArchivoW112, ' : width === 110 ? 'ArchivoW110, ' : '';
+  return weight + ' ' + px + 'px ' + fam + 'Archivo, "Arial Black", sans-serif';
+}
+// Text with CSS-style letter spacing (ls px after each glyph), kerning kept. Returns its width.
+function _wtw(x, text, ls) { const t = Array.from(String(text)); return x.measureText(t.join('')).width + (ls || 0) * Math.max(0, t.length - 1); }
+function _wt(x, text, px, py, ls, align) {
+  const t = Array.from(String(text)), w = _wtw(x, text, ls);
+  const sx = align === 'right' ? px - w : align === 'center' ? px - w / 2 : px;
+  x.textAlign = 'left';
+  if (!ls) { x.fillText(t.join(''), sx, py); return w; }
+  // Each glyph starts where the text up to and including it ends, less its own advance: kerned.
+  for (let i = 0; i < t.length; i++) x.fillText(t[i], sx + x.measureText(t.slice(0, i + 1).join('')).width - x.measureText(t[i]).width + i * ls, py);
+  return w;
+}
+// The largest size up to max at which text fits maxW (font built by fontOf(size), tracking em × size).
+function _wfit(x, text, fontOf, max, maxW, em, min) {
+  let s = max;
+  for (;;) { x.font = fontOf(s); if (_wtw(x, text, (em || 0) * s) <= maxW || s <= (min || 24)) return s; s -= 2; }
+}
+// Words broken onto lines no wider than maxW (at the current font).
+function _wlines(x, text, maxW) {
+  const out = []; let cur = '';
+  String(text || '').split(/\s+/).filter(Boolean).forEach(w => { const t = cur ? cur + ' ' + w : w; if (cur && x.measureText(t).width > maxW) { out.push(cur); cur = w; } else cur = t; });
+  if (cur) out.push(cur);
+  return out;
+}
+function _wrr(x, rx, ry, rw, rh, r) {
+  x.beginPath();
+  if (x.roundRect) { x.roundRect(rx, ry, rw, rh, r); return; }
+  r = Math.min(r, rw / 2, rh / 2);
+  x.moveTo(rx + r, ry); x.arcTo(rx + rw, ry, rx + rw, ry + rh, r); x.arcTo(rx + rw, ry + rh, rx, ry + rh, r);
+  x.arcTo(rx, ry + rh, rx, ry, r); x.arcTo(rx, ry, rx + rw, ry, r); x.closePath();
+}
+// CSS radial-gradient(rx ry at cx cy, color, transparent stop): an elliptical light.
+function _wglow(x, cx, cy, rx, ry, color, stop) {
+  x.save(); x.translate(cx, cy); x.scale(rx / ry, 1);
+  const g = x.createRadialGradient(0, 0, 0, 0, 0, ry);
+  g.addColorStop(0, color); g.addColorStop(stop || 0.7, color.replace(/[\d.]+\)$/, '0)'));
+  x.fillStyle = g; x.fillRect(-cx * ry / rx - 10, -cy - 10, 1100 * ry / rx + 20, 1940); x.restore();
+}
+// CSS linear-gradient(angle) across a w × h box at (bx, by).
+function _wlin(x, deg, bx, by, w, h, stops) {
+  const a = deg * Math.PI / 180, dx = Math.sin(a), dy = -Math.cos(a), len = Math.abs(w * dx) + Math.abs(h * dy);
+  const cx = bx + w / 2, cy = by + h / 2;
+  const g = x.createLinearGradient(cx - dx * len / 2, cy - dy * len / 2, cx + dx * len / 2, cy + dy * len / 2);
+  stops.forEach(([p, c]) => g.addColorStop(p, c));
+  return g;
+}
+// The POWALIFTA lock-up of the share styles: the sleeve mark and the wide wordmark, at (lx, top).
+function _wlogo(x, lx, top, ink, plate, bar) {
+  x.save();
+  x.fillStyle = bar; _wrr(x, lx, top + 19, 64, 6, 3); x.fill();
+  x.fillStyle = plate; _wrr(x, lx + 18, top + 2, 12, 40, 3); x.fill();
+  x.fillStyle = ink === '#140508' ? '#140508' : '#f4f4f6'; _wrr(x, lx + 33, top + 9, 7, 26, 2); x.fill();
+  x.font = _wf(800, 40, 125); x.fillStyle = ink;
+  _wt(x, 'POWALIFTA', lx + 80, top + 22 + 14, 1.6);
+  x.restore();
+}
+// A big number with its unit after it on one baseline ("197.5 kg × 5"), shrunk together to fit
+// maxW. With wrap, a unit that would shrink the number below 82% goes under it instead: returns
+// how far below (0 when inline), so the caller can move what follows.
+function _wbig(x, big, unit, lx, base, size, unitSize, maxW, gap, ink, unitInk, wrap) {
+  const widths = (s, us) => { x.font = _wf(900, s, 110); const bw = _wtw(x, big, -0.045 * s) - 0.045 * s; x.font = _wf(800, us, 125); return [bw, unit ? x.measureText(unit).width : 0]; };
+  let s = size, us = unitSize, [bw, uw] = widths(s, us), below = 0;
+  while (bw + gap + uw > maxW && s > size * (wrap ? 0.82 : 0.4)) { s -= 4; us = Math.round(s * unitSize / size); [bw, uw] = widths(s, us); }
+  if (unit && bw + gap + uw > maxW) {
+    s = size; us = unitSize; [bw, uw] = widths(s, us);
+    while (bw > maxW && s > 90) { s -= 4; [bw, uw] = widths(s, us); }
+    while (uw > maxW && us > 30) { us -= 2; [bw, uw] = widths(s, us); }
+    below = Math.round(us * 1.25);
   }
-  // Three numbers across, a hairline above them.
-  x.strokeStyle = 'rgba(255, 255, 255, 0.12)'; x.lineWidth = 2;
-  x.beginPath(); x.moveTo(150, y); x.lineTo(W - 150, y); x.stroke();
-  // One size across the row: the largest every number (and every label) fits its column at.
-  const cols = p.stats.slice(0, 3), cw = (W - 120) / cols.length;
-  const vs = Math.min(...cols.map(s => fit(s.v, 800, p.top ? 120 : 170, cw - 36, 60)));
-  const ls = Math.min(...cols.map(s => fit(s.l, 600, p.top ? 42 : 46, cw - 24, 26)));
-  cols.forEach((s, i) => {
-    const cx = 60 + cw * (i + 0.5);
-    x.font = '800 ' + vs + FONT; x.fillStyle = s.c || '#f4f4f6';
-    x.fillText(s.v, cx, y + (p.top ? 152 : 200));
-    x.font = '600 ' + ls + FONT; x.fillStyle = 'rgba(244, 244, 246, 0.62)';
-    x.fillText(s.l, cx, y + (p.top ? 212 : 264));
+  x.font = _wf(900, s, 110); x.fillStyle = ink; _wt(x, big, lx, base, -0.045 * s);
+  if (unit) { x.font = _wf(800, us, 125); x.fillStyle = unitInk; _wt(x, unit, below ? lx : lx + bw + gap, base + below, 0); }
+  return below;
+}
+// Film grain: a tile of seeded noise laid over the card in overlay.
+function _wgrain(x, alpha) {
+  const t = document.createElement('canvas'); t.width = t.height = 240;
+  const tx = t.getContext('2d'), img = tx.createImageData(240, 240);
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let i = 0; i < img.data.length; i += 4) { const v = Math.round(rnd() * 255); img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  tx.putImageData(img, 0, 0);
+  x.save(); x.globalAlpha = alpha; x.globalCompositeOperation = 'overlay';
+  x.fillStyle = x.createPattern(t, 'repeat'); x.fillRect(0, 0, 1080, 1920); x.restore();
+}
+// The avatar hues of the app's dark theme (styles.css .av-h0..7): [background, ink].
+const WRAP_AV = [['#3a1a20', '#ffa3ad'], ['#38231a', '#ffbe94'], ['#342a14', '#f2cd78'], ['#172e20', '#94dfab'], ['#132e2d', '#86ddd2'], ['#16273b', '#93c6ff'], ['#231d3a', '#bcaeff'], ['#331a37', '#f0a8e8']];
+// The lifter's photo for the card, when it can be drawn without tainting the canvas (CORS); else null.
+function _wavatar(url) {
+  if (!url) return Promise.resolve(null);
+  return new Promise(res => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    const t = setTimeout(() => res(null), 4000);
+    im.onload = () => { clearTimeout(t); res(im); }; im.onerror = () => { clearTimeout(t); res(null); };
+    im.src = url;
   });
-  // Whose month it was, and where it came from.
-  const ny = Math.max(y + 320, 1595);
-  if (p.name) {
-    fit(p.name, 700, 52, W - 200, 30); x.fillStyle = '#f4f4f6';
-    x.fillText(p.name, W / 2, ny);
+}
+
+// ---- A · Plates: the iron itself as the poster ----
+const WRAP_PLATE_COLS = [['#ff5c64', '#e3232f', '#9a1420'], ['#5f86ff', '#2a4fd6', '#132874'], ['#ffd96b', '#f0b322', '#8a5d07'], ['#5ee08f', '#1fae58', '#0b5a2b'], ['#ffffff', '#d7d9de', '#8d9097']];
+function _wplatesBg(x) {
+  x.fillStyle = '#0b0b0c'; x.fillRect(0, 0, 1080, 1920);
+  _wglow(x, 540, 0, 864, 576, 'rgba(255, 59, 74, 0.30)');
+  _wglow(x, 540, 1920, 972, 576, 'rgba(255, 191, 60, 0.10)');
+  _wlogo(x, 84, 260, '#ffffff', '#ff3b4a', '#c9ccd2');
+}
+function _wplates(x, p) {
+  const L = 84, MW = 912;
+  _wplatesBg(x);
+  const ms = _wfit(x, p.month, (s) => _wf(900, s, 125), 176, MW, -0.035, 110);
+  x.font = _wf(900, ms, 125); x.fillStyle = '#ffffff'; _wt(x, p.month, L, 502, -0.035 * ms);
+  x.font = _wf(600, 44); x.fillStyle = 'rgba(255, 255, 255, 0.62)'; _wt(x, p.year + ' · ' + p.when, L, 584);
+  let row = 700;
+  if (p.top) {
+    x.font = _wf(700, 40); x.fillStyle = '#ffbf3c'; _wt(x, 'Top set', L, 688);
+    _wbig(x, p.top.big, p.top.unit, L, 868, 210, 72, MW, 18, '#ffffff', '#ffbf3c');
+    x.font = _wf(600, 40); x.fillStyle = 'rgba(255, 255, 255, 0.66)'; _wt(x, p.top.label, L, 946);
+    row = 994;
   }
-  const foot = (p.instagram ? '@' + p.instagram + '  ·  ' : '') + 'powalifta.com';
-  fit(foot, 600, 40, W - 200, 26); x.fillStyle = 'rgba(244, 244, 246, 0.55)';
-  x.fillText(foot, W / 2, ny + (p.name ? 58 : 0));
+  x.fillStyle = 'rgba(255, 255, 255, 0.14)'; x.fillRect(L, row, MW, 3);
+  // Three numbers, each column as wide as its number or label, 56 px apart.
+  let cx = L;
+  const rowW = (z) => p.stats.reduce((a, s) => { x.font = _wf(900, z, 110); const nw = _wtw(x, s.v, -0.03 * z) - 0.03 * z; x.font = _wf(600, 36); return a + Math.max(nw, x.measureText(s.l).width); }, 0) + 56 * (p.stats.length - 1);
+  let ns = 104; while (rowW(ns) > MW && ns > 64) ns -= 4;
+  p.stats.forEach(s => {
+    x.font = _wf(900, ns, 110); x.fillStyle = s.pr ? '#ff4a55' : '#ffffff'; const nw = _wt(x, s.v, cx, row + 125, -0.03 * ns) - 0.03 * ns;
+    x.font = _wf(600, 36); x.fillStyle = 'rgba(255, 255, 255, 0.6)'; const lw = _wt(x, s.l, cx, row + 185);
+    cx += Math.max(nw, lw) + 56;
+  });
+  if (p.name) { x.font = _wf(700, _wfit(x, p.name, (s) => _wf(700, s), 42, MW - 330, 0, 30)); x.fillStyle = '#ffffff'; _wt(x, _wclip(x, p.name, MW - 330), L, row + 270); }
+  x.font = _wf(600, 42); x.fillStyle = 'rgba(255, 255, 255, 0.55)'; _wt(x, 'powalifta.com', L + MW, row + 270, 0, 'right');
+  _wweeks(x, p);
+}
+// Tonnes a week: one IPF-coloured plate per week of the month (red, blue, yellow, green, white),
+// standing on the floor with its height the week's tonnage; the numbers sit in a row above the
+// plates so they read clear of Instagram's reply bar, which the plates may run under.
+function _wweeks(x, p) {
+  const wk = p.weekly || [];
+  if (!wk.length) return;
+  const L = 84, MW = 912, gap = 22, cols = Math.max(5, wk.length), cw = (MW - gap * (cols - 1)) / cols;
+  const floor = 1800, maxH = 320, top = Math.max(...wk.map(w => w.kg), 1);
+  x.font = _wf(600, 32); x.fillStyle = 'rgba(255, 255, 255, 0.5)'; _wt(x, p.weeklyCaption, L, 1350);
+  wk.forEach((w, i) => {
+    const bx = L + i * (cw + gap), mid = bx + cw / 2, h = Math.round(maxH * w.kg / top);
+    x.font = _wf(800, 40); x.fillStyle = '#ffffff'; _wt(x, w.v, mid, 1415, 0, 'center');
+    x.font = _wf(600, 28); x.fillStyle = 'rgba(255, 255, 255, 0.5)'; _wt(x, w.label, mid, 1450, 0, 'center');
+    x.save();
+    if (h < 8) { x.fillStyle = 'rgba(255, 255, 255, 0.08)'; _wrr(x, bx, floor - 10, cw, 10, 5); x.fill(); x.restore(); return; }
+    const col = WRAP_PLATE_COLS[i % WRAP_PLATE_COLS.length];
+    _wrr(x, bx, floor - h, cw, h, Math.min(26, h / 2)); x.clip();
+    x.fillStyle = _wlin(x, 90, bx, floor - h, cw, h, [[0, col[0]], [0.45, col[1]], [1, col[2]]]); x.fillRect(bx, floor - h, cw, h);
+    x.fillStyle = 'rgba(255, 255, 255, 0.22)'; x.fillRect(bx, floor - h, 6, h);
+    x.fillStyle = 'rgba(0, 0, 0, 0.22)'; x.fillRect(bx + cw - 8, floor - h, 8, h);
+    x.restore();
+  });
+}
+// A name cut to fit maxW with an ellipsis (rarely needed).
+function _wclip(x, text, maxW) {
+  let t = String(text || '');
+  if (x.measureText(t).width <= maxW) return t;
+  while (t.length > 1 && x.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t.trim() + '…';
+}
+
+// ---- B · Fire: the brand red, loud in the feed ----
+function _wfireBg(x, ghost) {
+  x.fillStyle = _wlin(x, 160, 0, 0, 1080, 1920, [[0, '#ff2d42'], [0.38, '#ff4b3a'], [0.72, '#ff7a2f'], [1, '#ffb347']]);
+  x.fillRect(0, 0, 1080, 1920);
+  _wgrain(x, 0.22);
+  if (ghost) {
+    // A giant translucent number running off the right edge (CSS right: -60px); a long one is
+    // shrunk so it starts inside the card instead of running off both sides.
+    const gs = _wfit(x, ghost, (s) => _wf(900, s, 125), 900, 1020, -0.06, 300);
+    x.font = _wf(900, gs, 125); x.fillStyle = 'rgba(255, 255, 255, 0.13)';
+    _wt(x, ghost, 1140 + 0.06 * gs, 560 + Math.round(gs * 0.733), -0.06 * gs, 'right');   // its top stays at 560
+  }
+  _wlogo(x, 84, 270, '#140508', '#ffffff', '#140508');
+}
+// The near-black card, its bottom on 1470: returns its top. h: its height.
+function _wfireCard(x, h) {
+  const top = 1470 - h;
+  x.save();
+  x.shadowColor = 'rgba(20, 5, 8, 0.6)'; x.shadowBlur = 80; x.shadowOffsetY = 40;
+  x.fillStyle = '#140508'; _wrr(x, 114, top + 30, 852, h - 60, 48); x.fill();
+  x.restore();
+  x.fillStyle = '#140508'; _wrr(x, 84, top, 912, h, 48); x.fill();
+  return top;
+}
+function _wfireWho(x, name) {
+  if (name) { x.font = _wf(800, _wfit(x, name, (s) => _wf(800, s), 42, 580, 0, 30)); x.fillStyle = '#140508'; _wt(x, _wclip(x, name, 580), 84, 1551); }
+  x.save(); x.globalAlpha = 0.7; x.font = _wf(600, 42); _wt(x, 'powalifta.com', 996, 1551, 0, 'right'); x.restore();
+}
+function _wfire(x, p) {
+  _wfireBg(x, p.ghost);
+  x.font = _wf(700, 52); x.fillStyle = '#140508'; _wt(x, p.partial ? 'My month so far' : 'My month in lifting', 84, 450);
+  const ms = _wfit(x, p.month, (s) => _wf(900, s, 125), 176, 912, -0.035, 110);
+  x.font = _wf(900, ms, 125); x.fillStyle = '#ffffff'; _wt(x, p.month, 84, 597, -0.035 * ms);
+  // Without a top set the card is just the numbers.
+  const top = _wfireCard(x, p.top ? 573 : 241), L = 140, row = p.top ? top + 353 : top + 13;
+  if (p.top) {
+    x.font = _wf(700, 38); x.fillStyle = '#ffb347'; _wt(x, 'Top set', L, top + 85);
+    _wbig(x, p.top.big, p.top.unit, L, top + 238, 176, 62, 800, 16, '#ffffff', '#ffb347');
+    x.font = _wf(600, 36); x.fillStyle = 'rgba(255, 255, 255, 0.6)'; _wt(x, p.top.label, L, top + 305);
+    x.fillStyle = 'rgba(255, 255, 255, 0.12)'; x.fillRect(L, row, 800, 3);
+  }
+  const cw = 800 / p.stats.length;
+  const ns = Math.min(...p.stats.map(s => _wfit(x, s.v, (z) => _wf(900, z, 110), 88, cw - 24, -0.03, 56)));
+  p.stats.forEach((s, i) => {
+    x.font = _wf(900, ns, 110); x.fillStyle = '#ffffff'; _wt(x, s.v, L + i * cw, row + 112, -0.03 * ns);
+    x.font = _wf(600, 32); x.fillStyle = 'rgba(255, 255, 255, 0.58)'; _wt(x, _wclip(x, s.s, cw - 12), L + i * cw, row + 163);
+  });
+  _wfireWho(x, p.name);
+}
+
+// ---- C · Lifter card: a collectible with a foil edge ----
+function _wcardFrame(x) {
+  x.fillStyle = '#0b0b0c'; x.fillRect(0, 0, 1080, 1920);
+  x.save(); x.translate(540, 576); x.scale(864 / 960, 1);
+  const bg = x.createRadialGradient(0, 0, 0, 0, 0, 960);
+  bg.addColorStop(0, '#241016'); bg.addColorStop(0.7, '#0b0b0c'); bg.addColorStop(1, '#0b0b0c');
+  x.fillStyle = bg; x.fillRect(-700, -700, 1400, 1500); x.restore();
+  // The foil: a conic rainbow edge, glowing red underneath.
+  x.save(); x.shadowColor = 'rgba(255, 74, 85, 0.45)'; x.shadowBlur = 120; x.shadowOffsetY = 60;
+  x.fillStyle = '#ff4a55'; _wrr(x, 110, 300, 860, 1165, 60); x.fill(); x.restore();
+  const foil = ['#ff4a55', '#ffbf3c', '#34d982', '#38c6ff', '#a98bff', '#ff4a55'];
+  let g;
+  if (x.createConicGradient) { g = x.createConicGradient((210 - 90) * Math.PI / 180, 540, 882.5); foil.forEach((c, i) => g.addColorStop(i / (foil.length - 1), c)); }
+  else g = _wlin(x, 135, 70, 260, 940, 1245, foil.map((c, i) => [i / (foil.length - 1), c]));
+  x.fillStyle = g; _wrr(x, 70, 260, 940, 1245, 60); x.fill();
+  x.fillStyle = _wlin(x, 180, 76, 266, 928, 1233, [[0, '#17171b'], [1, '#0e0e10']]); _wrr(x, 76, 266, 928, 1233, 54); x.fill();
+  // A soft diagonal shine across the face.
+  x.save(); _wrr(x, 76, 266, 928, 1233, 54); x.clip();
+  x.fillStyle = _wlin(x, 115, -295, -227, 1670, 2219, [[0, 'rgba(255,255,255,0)'], [0.38, 'rgba(255,255,255,0)'], [0.46, 'rgba(255,255,255,0.10)'], [0.52, 'rgba(255,255,255,0.02)'], [0.6, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']]);
+  x.fillRect(76, 266, 928, 1233); x.restore();
+}
+function _wcardHead(x, p) {
+  _wlogo(x, 136, 330, '#ffffff', '#ff3b4a', '#c9ccd2');
+  x.font = _wf(800, 40, 125); x.fillStyle = '#ffbf3c'; _wt(x, p.monthShort + ' ' + p.year, 944, 366, 0.8, 'right');
+}
+// Avatar, name (first word over the rest) and class · @handle; returns the row's bottom.
+function _wcardMe(x, p, img) {
+  const top = 438, tx = 360, maxW = 944 - tx;
+  const words = String(p.name || 'Lifter').split(/\s+/).filter(Boolean);
+  const lines = words.length > 1 ? [words[0], words.slice(1).join(' ')] : [words[0] || 'Lifter'];
+  const ns = Math.min(...lines.map(l => _wfit(x, l, (s) => _wf(900, s, 112), 86, maxW, -0.03, 48)));
+  const sub = [p.weightClass, p.instagram ? '@' + p.instagram : null].filter(Boolean).join(' · ');
+  const lh = Math.round(ns * 0.95), textH = lines.length * lh + (sub ? 55 : 0), rowH = Math.max(190, textH);
+  const ay = top + (rowH - 190) / 2, ty = top + (rowH - textH) / 2;
+  // The photo in a circle, else initials on the lifter's avatar hue.
+  x.save(); x.beginPath(); x.arc(231, ay + 95, 95, 0, Math.PI * 2); x.closePath();
+  if (img) { x.clip(); const s = Math.max(190 / img.width, 190 / img.height); x.drawImage(img, 231 - img.width * s / 2, ay + 95 - img.height * s / 2, img.width * s, img.height * s); }
+  else {
+    const hue = WRAP_AV[p.hue % 8] || WRAP_AV[5];
+    x.fillStyle = hue[0]; x.fill();
+    x.lineWidth = 8; x.strokeStyle = hue[1] + '40'; x.clip(); x.stroke();
+    x.font = _wf(800, 76); x.fillStyle = hue[1]; x.textBaseline = 'middle'; _wt(x, p.initials || '?', 231, ay + 99, 0, 'center'); x.textBaseline = 'alphabetic';
+  }
+  x.restore();
+  x.font = _wf(900, ns, 112); x.fillStyle = '#ffffff';
+  lines.forEach((l, i) => _wt(x, l, tx, ty + Math.round(ns * 0.8) + i * lh, -0.03 * ns));
+  if (sub) { x.font = _wf(600, 38); x.fillStyle = 'rgba(255, 255, 255, 0.6)'; _wt(x, _wclip(x, sub, maxW), tx, ty + lines.length * lh + 47); }
+  return top + rowH;
+}
+async function _wcard(x, p) {
+  const img = await _wavatar(p.avatarUrl);
+  _wcardFrame(x);
+  _wcardHead(x, p);
+  const meBottom = _wcardMe(x, p, img), line = meBottom + 70;
+  x.fillStyle = 'rgba(255, 255, 255, 0.1)'; x.fillRect(136, line, 808, 3);
+  if (p.top) {
+    x.font = _wf(700, 38); x.fillStyle = '#ffbf3c'; _wt(x, 'Top set of the month', 136, line + 86);
+    _wbig(x, p.top.big, p.top.unit, 136, line + 238, 176, 64, 808, 16, '#ffffff', '#ffbf3c');
+  }
+  // Four tiles, 2 × 2, standing on the card's bottom edge.
+  p.stats4.forEach((s, i) => {
+    const tx = i % 2 ? 551 : 136, ty = i < 2 ? 1055 : 1260;
+    x.fillStyle = 'rgba(255, 255, 255, 0.05)'; _wrr(x, tx, ty, 393, 183, 32); x.fill();
+    x.strokeStyle = 'rgba(255, 255, 255, 0.06)'; x.lineWidth = 2; _wrr(x, tx + 1, ty + 1, 391, 181, 31); x.stroke();
+    const ns = _wfit(x, s.v, (z) => _wf(900, z, 110), 80, 325, -0.03, 48);
+    x.font = _wf(900, ns, 110); x.fillStyle = s.pr ? '#ff4a55' : '#ffffff'; _wt(x, s.v, tx + 34, ty + 96, -0.03 * ns);
+    x.font = _wf(600, 32); x.fillStyle = 'rgba(255, 255, 255, 0.58)'; _wt(x, _wclip(x, s.l, 325), tx + 34, ty + 146);
+  });
+  x.font = _wf(600, 38); x.fillStyle = 'rgba(255, 255, 255, 0.55)'; _wt(x, 'powalifta.com', 540, 1572, 0, 'center');
+}
+// The month's summary card in a style ('plates' | 'fire' | 'card'), 1080 × 1920. Resolves to the canvas.
+async function drawWrapPoster(p, style) {
+  await wrapFontsReady();
+  const c = document.createElement('canvas'); c.width = 1080; c.height = 1920;
+  const x = c.getContext('2d'); x.textBaseline = 'alphabetic';
+  if (style === 'fire') _wfire(x, p); else if (style === 'card') await _wcard(x, p); else _wplates(x, p);
   return c;
 }
-Object.assign(window, { drawCardLogo, drawBarbell2d, drawWrapPoster });
+// One story of the month as a 1080 × 1920 image in a style: the style's own background and type,
+// the story's line, number and unit (and the loaded bar on the top set), the lifter and the site.
+async function drawWrapStory(sl, p, style) {
+  await wrapFontsReady();
+  const c = document.createElement('canvas'); c.width = 1080; c.height = 1920;
+  const x = c.getContext('2d'); x.textBaseline = 'alphabetic';
+  const big = String(sl.big || ''), unit = String(sl.unit || ''), kg = sl.bar ? (sl.exactBar ? sl.bar : Math.round(sl.bar / 2.5) * 2.5) : 0;
+  if (style === 'fire') {
+    _wfireBg(x, big);
+    x.font = _wf(700, 52); x.fillStyle = '#140508'; _wt(x, p.partial ? 'My month so far' : 'My month in lifting', 84, 450);
+    const ms = _wfit(x, p.month, (s) => _wf(900, s, 125), 176, 912, -0.035, 110);
+    x.font = _wf(900, ms, 125); x.fillStyle = '#ffffff'; _wt(x, p.month, 84, 597, -0.035 * ms);
+    // The card: the story's line in orange, the bar, the number and its unit, the line under them.
+    x.font = _wf(600, 36); const lines = _wlines(x, sl.line, 800).slice(0, 2);
+    const probe = document.createElement('canvas').getContext('2d');
+    const below = _wbig(probe, big, unit, 0, 0, 176, 62, 800, 16, '#000', '#000', true);
+    const h = 85 + (kg ? 150 : 0) + 153 + below + (lines.length ? 67 + (lines.length - 1) * 50 : 0) + 63;
+    const top = _wfireCard(x, h); let y = top + 85;
+    x.font = _wf(700, 38); x.fillStyle = '#ffb347'; _wt(x, sl.kicker, 140, y);
+    if (kg) { drawBarbell2d(x, kg, 140, y + 85, 120, 'left'); y += 150; }
+    _wbig(x, big, unit, 140, y + 153, 176, 62, 800, 16, '#ffffff', '#ffb347', true);
+    x.font = _wf(600, 36); x.fillStyle = 'rgba(255, 255, 255, 0.6)'; lines.forEach((l, i) => _wt(x, l, 140, y + 153 + below + 67 + i * 50));
+    _wfireWho(x, p.name);
+  } else if (style === 'card') {
+    const img = await _wavatar(p.avatarUrl);
+    _wcardFrame(x); _wcardHead(x, p);
+    const line = _wcardMe(x, p, img) + 70;
+    x.fillStyle = 'rgba(255, 255, 255, 0.1)'; x.fillRect(136, line, 808, 3);
+    x.font = _wf(600, 38); const lines = _wlines(x, sl.line, 808).slice(0, 3);
+    const probe = document.createElement('canvas').getContext('2d');
+    const below = _wbig(probe, big, unit, 0, 0, 176, 64, 808, 16, '#000', '#000', true);
+    const blockH = 238 + below + (lines.length ? 72 + (lines.length - 1) * 54 + 14 : 20) + (kg ? 170 : 0);
+    let y = line + Math.max(30, (1443 - line - blockH) * 0.4);
+    x.font = _wf(700, 38); x.fillStyle = '#ffbf3c'; _wt(x, sl.kicker, 136, y + 86);
+    if (kg) { drawBarbell2d(x, kg, 136, y + 190, 150, 'left'); y += 170; }
+    _wbig(x, big, unit, 136, y + 238, 176, 64, 808, 16, '#ffffff', '#ffbf3c', true);
+    x.font = _wf(600, 38); x.fillStyle = 'rgba(255, 255, 255, 0.6)'; lines.forEach((l, i) => _wt(x, l, 136, y + 238 + below + 72 + i * 54));
+    x.font = _wf(600, 38); x.fillStyle = 'rgba(255, 255, 255, 0.55)'; _wt(x, 'powalifta.com', 540, 1572, 0, 'center');
+  } else {
+    _wplatesBg(x);
+    const L = 84, MW = 912;
+    x.font = _wf(600, 44); x.fillStyle = 'rgba(255, 255, 255, 0.62)'; _wt(x, p.month + ' ' + p.year, L, 400);
+    x.font = _wf(600, 44); const lines = _wlines(x, sl.line, MW).slice(0, 3);
+    const probe = document.createElement('canvas').getContext('2d');
+    const below = _wbig(probe, big, unit, 0, 0, 260, 80, MW, 18, '#000', '#000', true);
+    const blockH = 290 + below + (lines.length ? 80 + (lines.length - 1) * 60 + 14 : 20) + (kg ? 230 : 0);
+    let y = 470 + Math.max(0, (1400 - 470 - blockH) / 2);
+    x.font = _wf(700, 48); x.fillStyle = '#ffbf3c'; _wt(x, sl.kicker, L, y + 44);
+    if (kg) { drawBarbell2d(x, kg, L, y + 175, 200, 'left'); y += 230; }
+    _wbig(x, big, unit, L, y + 290, 260, 80, MW, 18, '#ffffff', '#ffbf3c', true);
+    x.font = _wf(600, 44); x.fillStyle = 'rgba(255, 255, 255, 0.66)'; lines.forEach((l, i) => _wt(x, l, L, y + 290 + below + 80 + i * 60));
+    if (p.name) { x.font = _wf(700, _wfit(x, p.name, (s) => _wf(700, s), 42, MW - 330, 0, 30)); x.fillStyle = '#ffffff'; _wt(x, _wclip(x, p.name, MW - 330), L, 1500); }
+    x.font = _wf(600, 42); x.fillStyle = 'rgba(255, 255, 255, 0.55)'; _wt(x, 'powalifta.com', L + MW, 1500, 0, 'right');
+  }
+  return c;
+}
+Object.assign(window, { drawCardLogo, drawBarbell2d, drawWrapPoster, drawWrapStory, wrapFontsReady, wrapStylePref, setWrapStylePref, WRAP_STYLES, WRAP_STYLE_LABEL });
 
 // =========================================================
 // TEAM PROGRAMS (brief M4 · sql/migration-team-programs-2026-10-22.sql)
