@@ -3413,6 +3413,29 @@ function pickCardFormat() {
   });
 }
 
+// The POWALIFTA lock-up on a share card: the plate mark (the ONE red element) and the all-ink
+// wordmark, centred on cx with its top at y. size: the wordmark in px (64 on the share cards).
+function drawCardLogo(x, cx, y, size) {
+  size = size || 64;
+  const k = size / 64;
+  x.save();
+  x.font = '800 ' + size + 'px Archivo, \"Arial Black\", sans-serif';
+  const word = 'POWALIFTA';
+  const wordW = x.measureText(word).width;
+  const markW = 88 * k, gap = 22 * k;
+  const lx = cx - (markW + gap + wordW) / 2, ly = y;
+  const rr = (rx, ry, rw, rh, r) => { x.beginPath(); if (x.roundRect) x.roundRect(rx, ry, rw, rh, r); else x.rect(rx, ry, rw, rh); x.fill(); };
+  const s = markW / 32;                                   // the 32-unit BRAND_MARK grid
+  x.fillStyle = '#f4f4f6'; rr(lx + 1.5 * s, ly + 14.6 * s, 29 * s, 2.8 * s, 1.4 * s);
+  x.fillStyle = '#ff2d3f'; rr(lx + 8 * s, ly + 3 * s, 7.5 * s, 26 * s, 2.2 * s);
+  x.fillStyle = '#f4f4f6'; rr(lx + 17 * s, ly + 7.5 * s, 4 * s, 17 * s, 1.6 * s);
+  rr(lx + 22.5 * s, ly + 12 * s, 2.6 * s, 8 * s, 1.1 * s);
+  x.textAlign = 'left';
+  x.textBaseline = 'alphabetic';
+  x.fillText(word, lx + markW + gap, ly + 16 * s + 22 * k);
+  x.restore();
+}
+
 async function generateShareCard(opts) {
   // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer, format: 'story' | 'post' (asked when left out) }
   const format = opts.format || await pickCardFormat();
@@ -3450,19 +3473,7 @@ async function generateShareCard(opts) {
 
   // Logo — the plate mark (the ONE red element) + an all-ink wordmark, centred.
   x.textBaseline = 'alphabetic';
-  x.font = '800 64px Archivo, \"Arial Black\", sans-serif';
-  const word = 'POWALIFTA';
-  const wordW = x.measureText(word).width;
-  const markW = 88, gap = 22;
-  const lx = (W - markW - gap - wordW) / 2, ly = Y.logo;
-  const rr = (rx, ry, rw, rh, r) => { x.beginPath(); if (x.roundRect) x.roundRect(rx, ry, rw, rh, r); else x.rect(rx, ry, rw, rh); x.fill(); };
-  const s = markW / 32;                                   // the 32-unit BRAND_MARK grid
-  x.fillStyle = '#f4f4f6'; rr(lx + 1.5 * s, ly + 14.6 * s, 29 * s, 2.8 * s, 1.4 * s);
-  x.fillStyle = '#ff2d3f'; rr(lx + 8 * s, ly + 3 * s, 7.5 * s, 26 * s, 2.2 * s);
-  x.fillStyle = '#f4f4f6'; rr(lx + 17 * s, ly + 7.5 * s, 4 * s, 17 * s, 1.6 * s);
-  rr(lx + 22.5 * s, ly + 12 * s, 2.6 * s, 8 * s, 1.1 * s);
-  x.textAlign = 'left';
-  x.fillText(word, lx + markW + gap, ly + 16 * s + 22);
+  drawCardLogo(x, W / 2, Y.logo);
 
   // Tag pill — quiet ink, not red
   x.textAlign = 'center';
@@ -10226,7 +10237,7 @@ const YOU_ROW_META = {
   'Bodyweight':          { tint: 'teal',   icon: () => ICONS.scale },
   'Goals':               { tint: 'gold',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>') },
   'Rest timer':          { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
-  'Year in lifting':     { tint: 'gold',   icon: () => _YI('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/>') },
+  'Your wraps':          { tint: 'gold',   icon: () => _YI('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/>') },
   'Rest and sets':       { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
   'My library':          { tint: 'iris',   icon: () => _YI('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M8 7h7"/>') },
   'Browse programs':     { tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
@@ -13790,54 +13801,172 @@ function parseProgramSheet(text, opts) {
 Object.assign(window, { parseProgramSheet, parsePrescription, matchExercise, parseSetFields, setFieldsOf, setFieldBits, setFieldsText, setFieldsHtml, setFieldsSplit, setFieldsCellText, programSetFields, cleanSetFieldsDef, gridCellText, gridParseCell, setFieldsShort, setFieldsEl, applySetFieldPatch, setFieldInputText, setFieldInputParse, setFieldsEditor, openSetFieldsSheet, assignSetFields });
 
 // =========================================================
-// YOUR YEAR IN LIFTING (2026-10-17): POWALIFTA Wrapped. Everything here comes
-// from the lifter's own logs and weigh-ins. Pure: unit-tested in tests.html.
-//   logs: workout logs (any athlete), bw: bodyweight rows, year: 2026
+// WRAPPED: your year in lifting (2026-10-17) and your month in lifting (2026-10-24).
+// Everything comes from the lifter's own logs and weigh-ins, worked out on the device (nothing
+// is stored). Pure: unit-tested in tests.html.
+//   logs: workout logs (any athlete), bw: bodyweight rows,
+//   period: { year: 2026 } for a year, { year: 2026, month: 9 } for October (months 0-11);
+//           asOf 'YYYY-MM-DD' (optional): a month still running that day is `partial` and the
+//           month before is compared over the same days (only the demo preview opens one early).
 // =========================================================
 const WRAP_DAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
 const WRAP_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-function yearInLifting(logs, bw, athleteId, year) {
-  const y = String(year);
-  const all = (logs || []).filter(l => l && l.athleteId === athleteId && String(l.date || '').slice(0, 4) <= y).slice()
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id || '').localeCompare(String(b.id || '')));
-  const mine = all.filter(l => String(l.date).slice(0, 4) === y);
-  const lifting = mine.filter(l => l.lift !== 'cardio');
-  const days = Array.from(new Set(mine.map(l => l.date))).sort();
-  const tonnageKg = Math.round(lifting.reduce((a, l) => a + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0));
-  // PRs: a main-lift set whose competition-equivalent e1RM beats everything before it.
-  const best = {}, startOfYear = {}, prs = { count: 0 };
-  all.forEach(l => {
-    if (!['squat', 'bench', 'deadlift'].includes(l.lift) || !(l.e1rmComp > 0)) return;
-    const inYear = String(l.date).slice(0, 4) === y;
-    if (!inYear) { best[l.lift] = Math.max(best[l.lift] || 0, l.e1rmComp); return; }
-    if (startOfYear[l.lift] == null) startOfYear[l.lift] = best[l.lift] || null;
-    if (!(best[l.lift] > 0) || l.e1rmComp > best[l.lift] + 0.05) { if (best[l.lift] > 0) prs.count++; best[l.lift] = l.e1rmComp; }
+const WRAP_MAIN = ['squat', 'bench', 'deadlift'];
+// The lifts' own colours (squat cyan, bench iris, deadlift gold): the story and the card light up
+// in the colour of the lift the top set was.
+const WRAP_LIFT_TINT = { squat: '#38c6ff', bench: '#a98bff', deadlift: '#ffbf3c' };
+// '2026' for a year, '2026-10' for October (month 9).
+function wrapKey(year, month) { return month == null ? String(year) : year + '-' + String(Number(month) + 1).padStart(2, '0'); }
+// A month's last day, the day its wrap drops: wrapDropISO(2026, 9) = '2026-10-31'.
+function wrapDropISO(year, month) { return wrapKey(year, month) + '-' + String(new Date(Date.UTC(Number(year), Number(month) + 1, 0)).getUTCDate()).padStart(2, '0'); }
+function _wrapTonnage(logs) { return Math.round(logs.reduce((a, l) => a + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0)); }
+// The Monday of a date's ISO week, as a UTC timestamp: weeks in a row are exactly 7 days apart.
+function _wrapWeek(d) { const dt = new Date(String(d).slice(0, 10) + 'T12:00:00Z'); dt.setUTCDate(dt.getUTCDate() - (dt.getUTCDay() + 6) % 7); return dt.getTime(); }
+// Each main lift's best competition-equivalent e1RM per day, in date order. A PR is counted per
+// lift per day: working up through three heavier singles in one session is one PR, not three.
+function _wrapDayBests(sortedLogs) {
+  const out = [], at = {};
+  sortedLogs.forEach(l => {
+    if (!WRAP_MAIN.includes(l.lift) || !(l.e1rmComp > 0)) return;
+    const d = String(l.date).slice(0, 10), k = d + '|' + l.lift;
+    if (at[k] == null) { at[k] = out.length; out.push({ date: d, lift: l.lift, e1: l.e1rmComp }); }
+    else if (l.e1rmComp > out[at[k]].e1) out[at[k]].e1 = l.e1rmComp;
   });
-  const yearBest = {};
-  lifting.forEach(l => { if (['squat', 'bench', 'deadlift'].includes(l.lift) && l.e1rmComp > (yearBest[l.lift] || 0)) yearBest[l.lift] = l.e1rmComp; });
+  return out;
+}
+const _wrapByDate = (a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id || '').localeCompare(String(b.id || ''));
+function liftingWrap(logs, bw, athleteId, period) {
+  period = period || {};
+  const year = Number(period.year);
+  const month = period.month == null || period.month === '' ? null : Number(period.month);
+  const key = wrapKey(year, month), n = key.length;
+  const inP = (d) => String(d || '').slice(0, n) === key;
+  const day = (l) => String(l.date).slice(0, 10);
+  const all = (logs || []).filter(l => l && l.athleteId === athleteId && String(l.date || '').slice(0, n) <= key).slice().sort(_wrapByDate);
+  const mine = all.filter(l => inP(l.date));
+  const lifting = mine.filter(l => l.lift !== 'cardio');
+  const days = Array.from(new Set(mine.map(day))).sort();
+  // PRs: a day whose best set on a main lift beats everything before it, competition equivalent.
+  // The first time a lift is ever logged sets the bar; it isn't a PR.
+  const best = {}, before = {}, prs = [];
+  _wrapDayBests(all).forEach(x => {
+    const b = best[x.lift] || 0;
+    if (inP(x.date)) {
+      if (!(x.lift in before)) before[x.lift] = b || null;
+      if (b > 0 && x.e1 > b + 0.05) prs.push({ lift: x.lift, date: x.date, fromKg: b, toKg: x.e1 });
+    }
+    if (x.e1 > b) best[x.lift] = x.e1;
+  });
+  // The period's best e1RM per lift, and its top set: the heaviest set by e1RM (a 5 at RPE 7.5
+  // can out-rank a heavier triple at 9), the earliest of two that tie.
+  const periodBest = {};
+  let topSet = null;
+  lifting.forEach(l => {
+    if (!WRAP_MAIN.includes(l.lift) || !(l.e1rmComp > 0)) return;
+    if (l.e1rmComp > (periodBest[l.lift] || 0)) periodBest[l.lift] = l.e1rmComp;
+    if (Number(l.weight) > 0 && Number(l.reps) > 0 && (!topSet || l.e1rmComp > topSet.e1rmKg + 0.05)) {
+      topSet = { lift: l.lift, variant: l.variant || 'Competition', weightKg: Number(l.weight), reps: Number(l.reps),
+        rpe: Number(l.rpe) > 0 ? Number(l.rpe) : null, e1rmKg: l.e1rmComp, date: day(l) };
+    }
+  });
+  // The biggest e1RM jump: from the best before the period (or the period's first) to its best.
   let jump = null;
-  Object.keys(yearBest).forEach(k => {
-    const from = startOfYear[k] || lifting.filter(l => l.lift === k).map(l => l.e1rmComp).find(v => v > 0) || 0;
-    const d = yearBest[k] - from;
-    if (from > 0 && d > 0 && (!jump || d > jump.gainKg)) jump = { lift: k, fromKg: from, toKg: yearBest[k], gainKg: d };
+  Object.keys(periodBest).forEach(k => {
+    const from = before[k] || lifting.filter(l => l.lift === k).map(l => l.e1rmComp).find(v => v > 0) || 0;
+    const d = periodBest[k] - from;
+    if (from > 0 && d > 0 && (!jump || d > jump.gainKg)) jump = { lift: k, fromKg: from, toKg: periodBest[k], gainKg: d };
   });
   const byDow = [0, 0, 0, 0, 0, 0, 0], byMonth = new Array(12).fill(0);
   days.forEach(d => { const dt = new Date(d + 'T12:00:00Z'); byDow[dt.getUTCDay()]++; byMonth[dt.getUTCMonth()]++; });
   const topDow = days.length ? byDow.indexOf(Math.max(...byDow)) : null;
   const topMonth = days.length ? byMonth.indexOf(Math.max(...byMonth)) : null;
-  // Longest run of consecutive ISO weeks with at least one session.
-  const weekKey = (d) => { const dt = new Date(d + 'T12:00:00Z'); const dow = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - dow); return dt.getTime(); };
-  const weeks = Array.from(new Set(days.map(weekKey))).sort((a, b) => a - b);
+  // Every day tied for the most sessions, Monday first: a Mon/Wed/Fri lifter has three.
+  const topDays = days.length ? [1, 2, 3, 4, 5, 6, 0].filter(i => byDow[i] === byDow[topDow]).map(i => WRAP_DAYS[i]) : [];
+  // Longest run of consecutive ISO weeks with a session inside the period; and the run that
+  // reaches into it, counted back through the weeks before ("16 weeks in a row" by October's end).
+  const WEEK = 7 * 86400000;
+  const weeks = Array.from(new Set(days.map(_wrapWeek))).sort((a, b) => a - b);
   let streak = weeks.length ? 1 : 0, run = 1;
-  for (let i = 1; i < weeks.length; i++) { run = weeks[i] - weeks[i - 1] === 7 * 86400000 ? run + 1 : 1; streak = Math.max(streak, run); }
-  const bws = (bw || []).filter(b => b && b.athleteId === athleteId && String(b.date).slice(0, 4) === y && b.weight > 0).sort((a, b) => a.date.localeCompare(b.date));
+  for (let i = 1; i < weeks.length; i++) { run = weeks[i] - weeks[i - 1] === WEEK ? run + 1 : 1; streak = Math.max(streak, run); }
+  const trained = new Set(all.map(l => _wrapWeek(day(l))));
+  let runWeeks = 0, runFrom = null;
+  if (weeks.length) for (let w = weeks[weeks.length - 1]; trained.has(w); w -= WEEK) { runWeeks++; runFrom = w; }
+  const bws = (bw || []).filter(b => b && b.athleteId === athleteId && inP(b.date) && b.weight > 0).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  // The month before, only when it had a session: whole, or over the same days while this one runs.
+  let partial = false, asOfDay = null, prev = null;
+  if (month != null) {
+    const asOf = String(period.asOf || '').slice(0, 10);
+    if (asOf.slice(0, 7) === key && asOf < wrapDropISO(year, month)) { partial = true; asOfDay = Number(asOf.slice(8, 10)); }
+    const py = month === 0 ? year - 1 : year, pm = month === 0 ? 11 : month - 1, pk = wrapKey(py, pm);
+    const pl = all.filter(l => String(l.date).slice(0, 7) === pk && (!partial || Number(String(l.date).slice(8, 10)) <= asOfDay));
+    const ps = new Set(pl.map(day)).size;
+    if (ps) prev = { year: py, month: pm, sessions: ps, tonnageKg: _wrapTonnage(pl.filter(l => l.lift !== 'cardio')), sameDays: partial ? asOfDay : null };
+  }
   return {
-    year: Number(year), sessions: days.length, sets: mine.length, tonnageKg,
-    prs: prs.count, jump, best: yearBest,
-    topDay: topDow == null ? null : WRAP_DAYS[topDow], topMonth: topMonth == null ? null : WRAP_MONTHS[topMonth],
-    longestStreakWeeks: streak,
-    bw: bws.length >= 2 ? { startKg: bws[0].weight, endKg: bws[bws.length - 1].weight } : null
+    year, month, sessions: days.length, sets: mine.length, tonnageKg: _wrapTonnage(lifting),
+    prs: prs.length, prList: prs, jump, best: periodBest, topSet,
+    topDay: topDow == null ? null : WRAP_DAYS[topDow], topDays,
+    topMonth: month == null && topMonth != null ? WRAP_MONTHS[topMonth] : null,
+    longestStreakWeeks: streak, weeksTrained: weeks.length, runWeeks,
+    runSince: runFrom == null ? null : new Date(runFrom).toISOString().slice(0, 10),
+    bw: bws.length >= 2 ? { startKg: bws[0].weight, endKg: bws[bws.length - 1].weight } : null,
+    prev, partial, asOfDay
   };
+}
+function yearInLifting(logs, bw, athleteId, year) { return liftingWrap(logs, bw, athleteId, { year }); }
+function monthInLifting(logs, bw, athleteId, year, month, asOf) { return liftingWrap(logs, bw, athleteId, { year, month, asOf }); }
+
+// The month whose wrap leads Train on a day: from the month's last day for 7 days, by the
+// lifter's own calendar (October's: 31 Oct to 6 Nov). null outside every window.
+function monthWrapDue(todayIso) {
+  const t = String(todayIso || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7)) - 1, d = Number(t.slice(8, 10));
+  if (t === wrapDropISO(y, m)) return { year: y, month: m };
+  if (d <= 6) return m === 0 ? { year: y - 1, month: 11 } : { year: y, month: m - 1 };
+  return null;
+}
+// The year's wrap reads "so far" until 24 December.
+function yearWrapSoFar(year, todayIso) { const t = String(todayIso || ''); return t.slice(0, 4) === String(year) && t.slice(5, 10) < '12-24'; }
+// The one wrap card on Train on a day. A month's for the week from its last day; the year's from
+// 1 December to 15 January. A month's drop week leads (November's runs into the first days of
+// December) except December's, which drops with the finished year on 31 December: the year leads
+// then and December waits in You › Your wraps. hasWrap(year, month): that month had a session.
+// demoMonth: the demo's preview month, shown whatever the date.
+// { kind: 'month', year, month } | { kind: 'year', year } | null.
+function trainWrapPick(todayIso, hasWrap, demoMonth) {
+  const t = String(todayIso || '').slice(0, 10);
+  const y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7)) - 1, d = Number(t.slice(8, 10));
+  const season = m === 11 || (m === 0 && d <= 15);
+  const due = demoMonth || monthWrapDue(t);
+  if (due && (demoMonth || !(due.month === 11 && season)) && hasWrap(due.year, due.month)) return { kind: 'month', year: due.year, month: due.month };
+  return season ? { kind: 'year', year: m === 0 ? y - 1 : y } : null;
+}
+// Every wrap the lifter has, newest first: each year with a session (this one so far) and under it
+// each month with a session whose wrap has dropped, with its sessions and PRs (the same count as
+// liftingWrap's). isNew: the month on Train now (opts.due names it instead: the demo's preview).
+function wrapArchive(logs, athleteId, todayIso, opts) {
+  const today = String(todayIso || '').slice(0, 10);
+  const due = (opts && opts.due) || monthWrapDue(today);
+  const dueKey = due && due.month != null ? wrapKey(due.year, due.month) : null;
+  const mine = (logs || []).filter(l => l && l.athleteId === athleteId && /^\d{4}-\d{2}-\d{2}/.test(String(l.date || '')) && String(l.date).slice(0, 10) <= today).sort(_wrapByDate);
+  const days = {}, prs = {}, best = {};
+  mine.forEach(l => { const d = String(l.date).slice(0, 10); (days[d.slice(0, 7)] = days[d.slice(0, 7)] || new Set()).add(d); });
+  _wrapDayBests(mine).forEach(x => {
+    const b = best[x.lift] || 0;
+    if (b > 0 && x.e1 > b + 0.05) prs[x.date.slice(0, 7)] = (prs[x.date.slice(0, 7)] || 0) + 1;
+    if (x.e1 > b) best[x.lift] = x.e1;
+  });
+  const out = [];
+  Array.from(new Set(Object.keys(days).map(k => k.slice(0, 4)))).sort().reverse().forEach(y => {
+    const ms = Object.keys(days).filter(k => k.slice(0, 4) === y).sort().reverse();
+    out.push({ kind: 'year', year: Number(y), sessions: ms.reduce((a, k) => a + days[k].size, 0), prs: ms.reduce((a, k) => a + (prs[k] || 0), 0), soFar: yearWrapSoFar(y, today) });
+    ms.forEach(k => {
+      const yy = Number(k.slice(0, 4)), mm = Number(k.slice(5, 7)) - 1, isNew = k === dueKey;
+      if (isNew || wrapDropISO(yy, mm) <= today) out.push({ kind: 'month', year: yy, month: mm, sessions: days[k].size, prs: prs[k] || 0, isNew });
+    });
+  });
+  return out;
 }
 // "That's 52 elephants": the friendliest big comparison for a tonnage.
 function tonnageComparison(kg) {
@@ -13852,7 +13981,185 @@ function tonnageComparison(kg) {
   const n = Math.round(kg / t.kg);
   return n + ' ' + (n === 1 ? t.one : t.many);
 }
-Object.assign(window, { yearInLifting, tonnageComparison });
+// A tonnage as the wraps show it: "41.2" tonnes from 10 t up (lb users: "90.9k" lb), else whole kg.
+function wrapTonnageText(kg) {
+  const lbs = getUnit() === 'lbs';
+  if (kg >= 10000) return { big: (Math.round(kgToDisplay(kg) / 100) / 10).toLocaleString() + (lbs ? 'k' : ''), unit: lbs ? 'lb' : 'tonnes' };
+  return { big: Math.round(kgToDisplay(kg)).toLocaleString(), unit: unitLabel() };
+}
+// "Deadlift" for the competition lift, "Paused Squat" for a variant (the app's exercise names).
+function wrapLiftName(lift, variant) { return !variant || variant === 'Competition' ? LIFT_LABELS[lift] : variant + ' ' + LIFT_LABELS[lift]; }
+function _wrapOrdinal(n) { const t = n % 100, s = t >= 11 && t <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'; return n + s; }
+function _wrapList(items) { return items.length <= 1 ? items.join('') : items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]; }
+// The month's stories as data (athlete.html plays them): one big number and one line each, only
+// the ones the month earned (no PR story without a PR, no comparison when it was a lighter month
+// than the one before), then the summary card made to post. opts: { name, instagram }.
+function monthWrapSlides(w, opts) {
+  opts = opts || {};
+  if (!w || !w.sessions || w.month == null) return [];
+  const u = unitLabel(), mName = WRAP_MONTHS[w.month], kg = (v) => Math.round(kgToDisplay(v));
+  const n = (v, one, many) => v === 1 ? one : (many || one + 's');
+  const ton = wrapTonnageText(w.tonnageKg);
+  const out = [];
+  out.push({ key: 'open', tint: '#ff4a55', kicker: 'Your ' + mName + (w.partial ? ' so far' : ' in lifting'), big: String(w.sessions), unit: n(w.sessions, 'session'),
+    line: w.sets.toLocaleString() + ' ' + n(w.sets, 'set') + ' logged' });
+  if (w.tonnageKg > 0) out.push({ key: 'tonnage', tint: '#38c6ff', kicker: 'You moved', big: ton.big, unit: ton.unit, line: 'That\'s about ' + tonnageComparison(w.tonnageKg) });
+  const t = w.topSet;
+  if (t) {
+    out.push({ key: 'top', tint: WRAP_LIFT_TINT[t.lift], kicker: 'Top set of ' + mName, bar: t.weightKg, exactBar: true, big: exactW(t.weightKg), unit: u + ' × ' + t.reps,
+      line: wrapLiftName(t.lift, t.variant) + (t.rpe ? ' at RPE ' + t.rpe : '') + ' · e1RM ' + kg(t.e1rmKg) + ' ' + u });
+  }
+  if (w.prs > 0) {
+    const j = w.jump;
+    const from = j ? kgToDisplay(j.fromKg) : 0, to = j ? kgToDisplay(j.toKg) : 0;
+    const fmt = (v) => Math.round(from) === Math.round(to) ? v.toFixed(1) : String(Math.round(v));
+    out.push({ key: 'prs', tint: '#f2c25b', kicker: 'Personal records', big: String(w.prs), unit: n(w.prs, 'PR'),
+      line: j ? LIFT_LABELS[j.lift] + ' e1RM went from ' + fmt(from) + ' to ' + fmt(to) + ' ' + u : '' });
+  }
+  if (w.runWeeks >= 2) {
+    const td = w.topDays || [];
+    out.push({ key: 'weeks', tint: '#34d982', kicker: 'Week in, week out', big: String(w.runWeeks), unit: 'weeks in a row',
+      line: td.length === 1 ? td[0] + ' were your day' : td.length <= 3 ? _wrapList(td) + ', like clockwork' : w.runSince ? 'Every week since ' + fmtDateShort(w.runSince) : '' });
+  }
+  const p = w.prev;
+  if (p) {
+    const pName = WRAP_MONTHS[p.month], dS = w.sessions - p.sessions;
+    const pct = p.tonnageKg >= 1000 ? Math.round((w.tonnageKg - p.tonnageKg) / p.tonnageKg * 100) : 0;
+    const kicker = p.sameDays ? 'Compared with this point in ' + pName : 'Compared with ' + pName;
+    if (pct >= 1) {
+      out.push({ key: 'vs', tint: '#a98bff', kicker, big: '+' + pct + '%', unit: 'more weight moved',
+        line: dS > 0 ? dS + ' more ' + n(dS, 'session') + ' too' : dS === 0 ? 'In the same ' + w.sessions + ' ' + n(w.sessions, 'session') : 'In ' + (-dS) + ' fewer ' + n(-dS, 'session') });
+    } else if (dS > 0) {
+      out.push({ key: 'vs', tint: '#a98bff', kicker, big: '+' + dS, unit: n(dS, 'more session', 'more sessions'), line: w.sessions + ' this month, ' + p.sessions + ' in ' + pName });
+    }
+  }
+  if (w.bw) {
+    const a = kgToDisplay(w.bw.startKg), b = kgToDisplay(w.bw.endKg), d = Math.round((b - a) * 10) / 10;
+    out.push(Math.abs(d) >= 0.1
+      ? { key: 'bw', tint: '#2fe0c2', kicker: 'Bodyweight', big: (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1), unit: u, line: 'From ' + a.toFixed(1) + ' to ' + b.toFixed(1) + ' ' + u + ' across ' + mName }
+      : { key: 'bw', tint: '#2fe0c2', kicker: 'Bodyweight', big: b.toFixed(1), unit: u, line: 'Same as the start of ' + mName });
+  }
+  // The card to post: the month, its best four numbers (the top set, then three of sessions,
+  // tonnage, PRs, weeks in a row and sets, in that order), the lifter's name and where it's from.
+  const stats = [{ v: String(w.sessions), l: n(w.sessions, 'session') }];
+  if (w.tonnageKg > 0) stats.push({ v: ton.big, l: ton.unit + ' moved' });
+  if (w.prs > 0) stats.push({ v: String(w.prs), l: n(w.prs, 'PR'), c: '#f2c25b' });
+  if (w.runWeeks >= 2) stats.push({ v: String(w.runWeeks), l: 'weeks in a row' });
+  stats.push({ v: w.sets.toLocaleString(), l: n(w.sets, 'set') });
+  stats.splice(3);
+  const poster = { month: mName, year: w.year, partial: !!w.partial, sub: w.partial ? w.year + ', up to the ' + _wrapOrdinal(w.asOfDay) : w.year + ' in lifting',
+    name: String(opts.name || '').trim(), instagram: opts.instagram || null, stats,
+    top: t ? { kg: t.weightKg, big: exactW(t.weightKg), unit: u + ' × ' + t.reps, label: wrapLiftName(t.lift, t.variant) + ' · top set' + (t.rpe ? ' at RPE ' + t.rpe : ''), tint: WRAP_LIFT_TINT[t.lift] } : null };
+  out.push({ key: 'summary', tint: '#ff6a3d', poster, last: true,
+    alt: mName + ' ' + (w.partial ? poster.sub : w.year) + ': ' + (t ? 'top set ' + poster.top.big + ' ' + poster.top.unit + ' ' + wrapLiftName(t.lift, t.variant).toLowerCase() + ', ' : '') + stats.map(s => s.v + ' ' + s.l).join(', ') });
+  return out;
+}
+Object.assign(window, { liftingWrap, yearInLifting, monthInLifting, monthWrapDue, yearWrapSoFar, trainWrapPick, wrapArchive, wrapDropISO, wrapKey, tonnageComparison, wrapTonnageText, wrapLiftName, monthWrapSlides, WRAP_MONTHS });
+
+// One sleeve of a loaded bar on a canvas: uiBarbell's drawing (same plates, colours and
+// proportions), centred on (cx, cy) and h px tall. Returns the width it took.
+function drawBarbell2d(x, kg, cx, cy, h) {
+  const r = plateLoadout(kg), look = PLATE_LOOK[r.unit], mid = 50, gap = 1.6;
+  let px = 31;
+  const plates = r.plates.filter(p => look[p]).map(p => { const o = { p, x: px }; px += look[p][2] + gap; return o; });
+  const collarX = px + 0.4, end = collarX + 7 + 16, W = end + 1;
+  const s = h / 100, ox = cx - W * s / 2, oy = cy - mid * s;
+  const box = (rx, ry, rw, rh, rad, fill) => {
+    x.beginPath();
+    if (x.roundRect) x.roundRect(ox + rx * s, oy + ry * s, rw * s, rh * s, rad * s); else x.rect(ox + rx * s, oy + ry * s, rw * s, rh * s);
+    x.fillStyle = fill; x.fill();
+  };
+  x.save();
+  box(0, mid - 3.4, 26, 6.8, 1.6, '#5d616a');
+  box(23, mid - 13, 7, 26, 1.8, '#8e949e');
+  box(30, mid - 5.6, end - 30, 11.2, 2.4, '#a3a9b3');
+  plates.forEach(o => {
+    const l = look[o.p], ph = l[1] * 0.92, pw = l[2], py = mid - ph / 2;
+    box(o.x, py, pw, ph, 2.2, l[0]);
+    x.strokeStyle = 'rgba(255, 255, 255, ' + (l[0] === '#2b2b30' ? 0.34 : 0.16) + ')'; x.lineWidth = 0.9 * s; x.stroke();
+    x.globalAlpha = 0.16; box(o.x + pw * 0.6, py + 3, pw * 0.22, ph - 6, 1, '#ffffff'); x.globalAlpha = 1;
+  });
+  if (plates.length) box(collarX, mid - 10, 7, 20, 1.8, '#d4d7dd');
+  x.restore();
+  return W * s;
+}
+// The month's summary card as a 1080 × 1920 Instagram Story (monthWrapSlides' poster): the month,
+// the top set on a loaded bar, three numbers, the lifter's name and powalifta.com. Obsidian, lit
+// warm from above, the top set's lift colour behind the bar; nothing inside Instagram's own name
+// strip (top 250 px) or reply bar (bottom 250 px). Resolves to the canvas.
+async function drawWrapPoster(p) {
+  const W = 1080, H = 1920, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  try { await Promise.all(['800 200px Archivo', '700 60px Archivo', '600 40px Archivo'].map(f => document.fonts.load(f))); } catch (e) {}
+  const FONT = 'px Archivo, "Arial Black", sans-serif';
+  // Shrinks a line until it fits maxW; returns the size used.
+  const fit = (text, weight, size, maxW, min) => {
+    for (;;) { x.font = weight + ' ' + size + FONT; if (x.measureText(text).width <= maxW || size <= (min || 24)) return size; size -= 2; }
+  };
+  const glow = (gx, gy, r, rgb, a) => {
+    const g = x.createRadialGradient(gx, gy, 0, gx, gy, r);
+    g.addColorStop(0, 'rgba(' + rgb + ', ' + a + ')'); g.addColorStop(0.55, 'rgba(' + rgb + ', ' + (a * 0.28).toFixed(3) + ')'); g.addColorStop(1, 'rgba(' + rgb + ', 0)');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+  };
+  const rgbOf = (hex) => { const n = parseInt(String(hex).replace('#', ''), 16); return ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255); };
+  x.fillStyle = '#070708'; x.fillRect(0, 0, W, H);
+  glow(W / 2, -60, 1150, '255, 84, 61', 0.26);
+  x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  drawCardLogo(x, W / 2, 268, 46);
+  // The month, as big as it fits, and the year under it.
+  const ms = fit(p.month, 800, 220, W - 150, 120);
+  x.font = '800 ' + ms + FONT; x.fillStyle = '#f4f4f6';
+  x.fillText(p.month, W / 2, 575);
+  x.font = '600 50' + FONT; x.fillStyle = 'rgba(244, 244, 246, 0.62)';
+  x.fillText(p.sub || p.year + ' in lifting', W / 2, 655);
+  let y = 975;   // without a top set the numbers are the hero, centred
+  if (p.top) {
+    // The top set: the bar as it was loaded, the weight × reps, the lift.
+    glow(W / 2, 880, 520, rgbOf(p.top.tint), 0.15);
+    drawBarbell2d(x, p.top.kg, W / 2, 850, 230);
+    let bs = 176, us = 66, bw = 0, uw = 0;
+    for (;;) {
+      x.font = '800 ' + bs + FONT; bw = x.measureText(p.top.big).width;
+      x.font = '800 ' + us + FONT; uw = x.measureText(p.top.unit).width + 22;
+      if (bw + uw <= W - 160 || bs <= 110) break;
+      bs -= 6; us = Math.round(bs * 0.375);
+    }
+    const gx = (W - bw - uw) / 2;
+    x.textAlign = 'left';
+    x.font = '800 ' + bs + FONT; x.fillStyle = '#f4f4f6'; x.fillText(p.top.big, gx, 1135);
+    x.font = '800 ' + us + FONT; x.fillStyle = p.top.tint; x.fillText(p.top.unit, gx + bw + 22, 1135);
+    x.textAlign = 'center';
+    fit(p.top.label, 600, 46, W - 180, 30); x.fillStyle = 'rgba(244, 244, 246, 0.72)';
+    x.fillText(p.top.label, W / 2, 1207);
+    y = 1275;
+  }
+  // Three numbers across, a hairline above them.
+  x.strokeStyle = 'rgba(255, 255, 255, 0.12)'; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(150, y); x.lineTo(W - 150, y); x.stroke();
+  // One size across the row: the largest every number (and every label) fits its column at.
+  const cols = p.stats.slice(0, 3), cw = (W - 120) / cols.length;
+  const vs = Math.min(...cols.map(s => fit(s.v, 800, p.top ? 120 : 170, cw - 36, 60)));
+  const ls = Math.min(...cols.map(s => fit(s.l, 600, p.top ? 42 : 46, cw - 24, 26)));
+  cols.forEach((s, i) => {
+    const cx = 60 + cw * (i + 0.5);
+    x.font = '800 ' + vs + FONT; x.fillStyle = s.c || '#f4f4f6';
+    x.fillText(s.v, cx, y + (p.top ? 152 : 200));
+    x.font = '600 ' + ls + FONT; x.fillStyle = 'rgba(244, 244, 246, 0.62)';
+    x.fillText(s.l, cx, y + (p.top ? 212 : 264));
+  });
+  // Whose month it was, and where it came from.
+  const ny = Math.max(y + 320, 1595);
+  if (p.name) {
+    fit(p.name, 700, 52, W - 200, 30); x.fillStyle = '#f4f4f6';
+    x.fillText(p.name, W / 2, ny);
+  }
+  const foot = (p.instagram ? '@' + p.instagram + '  ·  ' : '') + 'powalifta.com';
+  fit(foot, 600, 40, W - 200, 26); x.fillStyle = 'rgba(244, 244, 246, 0.55)';
+  x.fillText(foot, W / 2, ny + (p.name ? 58 : 0));
+  return c;
+}
+Object.assign(window, { drawCardLogo, drawBarbell2d, drawWrapPoster });
 
 // =========================================================
 // TEAM PROGRAMS (brief M4 · sql/migration-team-programs-2026-10-22.sql)

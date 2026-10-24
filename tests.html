@@ -1284,6 +1284,119 @@ test('year in lifting: sessions, tonnage, PRs, biggest jump, habits, streaks', (
   eq(tonnageComparison(30000), '5 African elephants');
   eq(tonnageComparison(25), '1 Olympic bar');
 });
+// Monthly Wrapped (2026-10-24): one month of logs, worked like the year.
+const _wrapLogs = () => {
+  const L = (id, date, lift, weight, reps, e1, rpe) => ({ id, athleteId: 'me', date, lift, weight, reps, rpe: rpe == null ? 8 : rpe, e1rmComp: e1, variant: 'Competition' });
+  return [
+    L('a', '2026-08-31', 'squat', 140, 5, 170),            // Mon, August: the first squat ever sets the bar
+    L('b', '2026-09-07', 'squat', 150, 5, 180),            // September: four sessions, 2450 kg
+    L('c', '2026-09-14', 'bench', 100, 5, 120),
+    L('c2', '2026-09-21', 'squat', 145, 5, 175),
+    L('c3', '2026-09-30', 'bench', 95, 5, 115),
+    L('d', '2026-10-02', 'squat', 150, 5, 181),            // Fri: beats 180...
+    L('e', '2026-10-02', 'squat', 155, 3, 183),            //   ...and so does the next set: one PR day, at 183
+    L('f', '2026-10-05', 'deadlift', 200, 3, 225),         // Mon: the first deadlift ever, not a PR
+    L('g', '2026-10-09', 'bench', 105, 3, 118),            // Fri: under 120, no PR
+    Object.assign(L('h', '2026-10-09', 'legs', 120, 10, 190), { variant: '' }),   // an accessory is never the top set
+    L('i', '2026-10-16', 'deadlift', 210, 2, 232, 8.5),    // Fri: a PR, and October's top set
+    L('j', '2026-10-21', 'squat', 160, 3, 183),            // Wed: ties 183, no PR
+    { id: 'k', athleteId: 'me', date: '2026-10-23', lift: 'cardio', weight: 0, reps: 0, rpe: 0, e1rmComp: 0 },   // Fri: cardio is a session
+    L('l', '2026-11-02', 'squat', 170, 3, 200),            // November's
+    { id: 'm', athleteId: 'you', date: '2026-10-10', lift: 'squat', weight: 300, reps: 1, rpe: 10, e1rmComp: 300 }
+  ];
+};
+const _wrapBw = [{ athleteId: 'me', date: '2026-10-01', weight: 84.4 }, { athleteId: 'me', date: '2026-10-30', weight: 83.6 }, { athleteId: 'me', date: '2026-09-15', weight: 85 }];
+test('month in lifting: sessions, tonnage, PRs per day, top set, weeks, bodyweight, the month before', () => {
+  const logs = _wrapLogs();
+  const w = monthInLifting(logs, _wrapBw, 'me', 2026, 9);
+  eq(w.month, 9); eq(w.sessions, 6); eq(w.sets, 8);
+  eq(w.tonnageKg, 150*5 + 155*3 + 200*3 + 105*3 + 120*10 + 210*2 + 160*3);
+  eq(w.prs, 2); eq(w.prList.map(p => p.lift + ' ' + p.date + ' ' + p.fromKg + '>' + p.toKg).join(', '), 'squat 2026-10-02 180>183, deadlift 2026-10-16 225>232');
+  eq(w.jump.lift, 'deadlift'); eq(w.jump.fromKg, 225); eq(w.jump.toKg, 232);
+  eq(w.topSet.lift, 'deadlift'); eq(w.topSet.weightKg, 210); eq(w.topSet.reps, 2); eq(w.topSet.rpe, 8.5); eq(w.topSet.e1rmKg, 232); eq(w.topSet.date, '2026-10-16');
+  eq(w.topDay, 'Fridays'); eq(w.topDays.join(), 'Fridays'); eq(w.topMonth, null);
+  eq(w.weeksTrained, 4); eq(w.longestStreakWeeks, 4);
+  eq(w.runWeeks, 8); eq(w.runSince, '2026-08-31');          // the run reaching into October started with August's last Monday
+  eq(w.bw.startKg, 84.4); eq(w.bw.endKg, 83.6);
+  eq(w.partial, false);
+  eq(JSON.stringify(w.prev), JSON.stringify({ year: 2026, month: 8, sessions: 4, tonnageKg: 750 + 500 + 725 + 475, sameDays: null }));
+  // While the month runs (only the demo opens one early), September is compared over the same days.
+  const early = monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09');
+  eq(early.partial, true); eq(early.prev.sameDays, 9); eq(early.prev.sessions, 1); eq(early.prev.tonnageKg, 750);
+  eq(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-31').partial, false);   // the drop day: the whole month before
+  eq(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-11-03').partial, false);
+  // No month before with a session, no comparison; no session, no wrap.
+  eq(monthInLifting(logs, _wrapBw, 'me', 2026, 7).prev, null);
+  const june = monthInLifting(logs, _wrapBw, 'me', 2026, 5);
+  eq(june.sessions, 0); eq(june.topSet, null); eq(june.runWeeks, 0);
+  // January looks back to December; the year counts a PR day once too.
+  const jan = monthInLifting([logs[0], Object.assign({}, logs[0], { id: 'x', date: '2026-12-30', e1rmComp: 171 }), Object.assign({}, logs[0], { id: 'y', date: '2027-01-04', e1rmComp: 172 })], [], 'me', 2027, 0);
+  eq(jan.prev.year, 2026); eq(jan.prev.month, 11); eq(jan.prev.sessions, 1); eq(jan.prs, 1); eq(jan.runWeeks, 2);
+  eq(yearInLifting(logs, _wrapBw, 'me', 2026).prs, 4);     // Sep 7, Oct 2 (one, not two), Oct 16, Nov 2
+});
+test('month wrap: drops on the last day for 7 days; one card on Train; every wrap in the archive', () => {
+  const due = (t) => { const d = monthWrapDue(t); return d ? d.year + '-' + (d.month + 1) : null; };
+  eq(due('2026-10-30'), null); eq(due('2026-10-31'), '2026-10'); eq(due('2026-11-01'), '2026-10'); eq(due('2026-11-06'), '2026-10'); eq(due('2026-11-07'), null);
+  eq(due('2026-12-31'), '2026-12'); eq(due('2027-01-03'), '2026-12');
+  eq(due('2027-02-28'), '2027-2'); eq(due('2028-02-28'), null); eq(due('2028-02-29'), '2028-2'); eq(due('2028-03-06'), '2028-2'); eq(due('nope'), null);
+  eq(wrapDropISO(2026, 9), '2026-10-31'); eq(wrapDropISO(2027, 1), '2027-02-28'); eq(wrapDropISO(2028, 1), '2028-02-29'); eq(wrapDropISO(2026, 11), '2026-12-31');
+  eq(yearWrapSoFar(2026, '2026-10-24'), true); eq(yearWrapSoFar(2026, '2026-12-24'), false); eq(yearWrapSoFar(2025, '2026-01-10'), false);
+  // Train: a month's drop week leads, the year's season otherwise, the year over December's month.
+  const all = () => true, none = () => false;
+  const pick = (t, has, demo) => { const p = trainWrapPick(t, has || all, demo); return p ? p.kind + ' ' + p.year + (p.kind === 'month' ? '-' + (p.month + 1) : '') : null; };
+  eq(pick('2026-10-24'), null); eq(pick('2026-10-31'), 'month 2026-10'); eq(pick('2026-11-06'), 'month 2026-10'); eq(pick('2026-11-07'), null);
+  eq(pick('2026-11-30'), 'month 2026-11'); eq(pick('2026-12-03'), 'month 2026-11'); eq(pick('2026-12-07'), 'year 2026');
+  eq(pick('2026-12-31'), 'year 2026'); eq(pick('2027-01-05'), 'year 2026'); eq(pick('2027-01-16'), null); eq(pick('2027-01-31'), 'month 2027-1');
+  eq(pick('2026-12-03', none), 'year 2026'); eq(pick('2026-10-31', none), null);
+  eq(pick('2026-10-24', all, { year: 2026, month: 9 }), 'month 2026-10'); eq(pick('2026-12-31', all, { year: 2026, month: 11 }), 'month 2026-12');
+  // You › Your wraps, on 3 November: the year, then October (still on Train), September, August.
+  const logs = _wrapLogs();
+  const a = wrapArchive(logs, 'me', '2026-11-03');
+  eq(a.map(x => x.kind === 'year' ? x.year + (x.soFar ? ' so far' : '') : (x.month + 1) + (x.isNew ? ' new' : '')).join(', '), '2026 so far, 10 new, 9, 8');
+  eq(a[0].sessions, 12); eq(a[0].prs, 4);                    // the same PR count as the year's stories
+  eq(a[1].sessions, 6); eq(a[1].prs, monthInLifting(logs, [], 'me', 2026, 9).prs);
+  eq(a[2].sessions, 4); eq(a[2].prs, 1); eq(a[3].prs, 0);
+  eq(wrapArchive(logs, 'me', '2026-10-24').map(x => x.kind === 'year' ? 'y' : x.month + 1).join(), 'y,9,8');   // October hasn't dropped yet
+  eq(wrapArchive(logs, 'me', '2026-10-24', { due: { year: 2026, month: 9 } }).filter(x => x.isNew).length, 1);   // the demo's preview
+  eq(wrapArchive([], 'me', '2026-11-03').length, 0);
+});
+test('month wrap stories: one number each, only the ones the month earned, then the card to post', () => {
+  const saved = localStorage.getItem(UNIT_KEY);
+  try {
+    setUnit('kg');
+    const logs = _wrapLogs();
+    const keys = (w) => monthWrapSlides(w, { name: 'Ana' }).map(s => s.key).join();
+    const w = monthInLifting(logs, _wrapBw, 'me', 2026, 9);
+    const sl = monthWrapSlides(w, { name: 'Ana', instagram: 'ana.lifts' });
+    eq(sl.map(s => s.key).join(), 'open,tonnage,top,prs,weeks,vs,bw,summary');
+    const by = (k) => sl.find(s => s.key === k);
+    eq(by('open').kicker, 'Your October in lifting'); eq(by('open').big, '6'); eq(by('open').unit, 'sessions'); eq(by('open').line, '8 sets logged');
+    eq(by('top').kicker, 'Top set of October'); eq(by('top').big, '210'); eq(by('top').unit, 'kg × 2'); eq(by('top').bar, 210);
+    eq(by('top').line, 'Deadlift at RPE 8.5 · e1RM 232 kg');
+    eq(by('prs').big, '2'); eq(by('prs').unit, 'PRs'); eq(by('prs').line, 'Deadlift e1RM went from 225 to 232 kg');
+    eq(by('weeks').big, '8'); eq(by('weeks').line, 'Fridays were your day');
+    eq(by('vs').kicker, 'Compared with September'); eq(by('vs').big, '+73%'); eq(by('vs').line, '2 more sessions too');
+    eq(by('bw').big, '−0.8'); eq(by('bw').line, 'From 84.4 to 83.6 kg across October');
+    const post = by('summary').poster;
+    eq(by('summary').last, true); eq(post.month, 'October'); eq(post.year, 2026); eq(post.sub, '2026 in lifting'); eq(post.name, 'Ana'); eq(post.instagram, 'ana.lifts');
+    eq(post.top.big, '210'); eq(post.top.unit, 'kg × 2'); eq(post.top.label, 'Deadlift · top set at RPE 8.5');
+    eq(post.stats.map(s => s.l).join(), 'sessions,kg moved,PRs');
+    eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09'))[0].kicker, 'Your October so far');
+    eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09')).pop().poster.sub, '2026, up to the 9th');
+    eq([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 31].map(_wrapOrdinal).join(), '1st,2nd,3rd,4th,11th,12th,13th,21st,22nd,23rd,31st');
+    eq(monthWrapSlides(monthInLifting(logs, _wrapBw, 'me', 2026, 9, '2026-10-09')).find(s => s.key === 'vs').kicker, 'Compared with this point in September');
+    // August: one session, the first squat ever (no PR), no month before, no run: four stories.
+    eq(keys(monthInLifting(logs, [], 'me', 2026, 7)), 'open,tonnage,top,summary');
+    eq(monthWrapSlides(monthInLifting(logs, [], 'me', 2026, 7)).pop().poster.stats.map(s => s.l).join(), 'session,kg moved,set');
+    // November: lighter than October, so no comparison (and no run: the week before was empty).
+    eq(keys(monthInLifting(logs, [], 'me', 2026, 10)), 'open,tonnage,top,prs,summary');
+    // Only cardio: no tonnage, no top set.
+    const cardio = monthInLifting([{ id: 'z', athleteId: 'me', date: '2026-12-05', lift: 'cardio', weight: 0, reps: 0, e1rmComp: 0 }], [], 'me', 2026, 11);
+    eq(keys(cardio), 'open,summary'); eq(monthWrapSlides(cardio).pop().poster.top, null);
+    eq(monthWrapSlides(monthInLifting(logs, [], 'me', 2026, 5)).length, 0);   // no session, no wrap
+    eq(wrapLiftName('squat', 'Paused'), 'Paused Squat'); eq(wrapLiftName('bench', 'Competition'), 'Bench');
+  } finally { try { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); } catch {} }
+});
 test('instagram: handles, @, links and junk', () => {
   eq(normalizeInstagram('@Nina.Deadlifts'), 'nina.deadlifts');
   eq(normalizeInstagram('https://www.instagram.com/kofi_totals/?hl=en'), 'kofi_totals');

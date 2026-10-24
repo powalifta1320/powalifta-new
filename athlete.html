@@ -720,6 +720,7 @@ bootstrap('athlete', () => {
   autoSelectFirstIncompleteDay();
   refreshPinButtons();
   renderToday();
+  maybeOpenDemoWrap();   // ?demo=1&wrap=2026-10: review a month's wrap (demo only)
 
   // Global claim banner — visible above every tab if there's an unclaimed purchase
   renderGlobalClaimBanner();
@@ -3371,15 +3372,10 @@ function renderToday() {
   // Meet countdown strip: if a meet date is set and still ahead, surface the
   // phase cue at the top of the session (localStorage only — demo-safe, no DB).
   renderMeetStrip(area);
-  // December into mid-January: the year in lifting leads Train.
-  if (wrapSeason()) {
-    const yr = wrapYear();
-    const w = el('button', { class: 'today-wrap', type: 'button' });
-    w.appendChild(el('span', { class: 'tw-ic', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></svg>' }));
-    w.appendChild(el('span', { class: 'tw-t' }, el('b', {}, 'Your ' + yr + ' in lifting'), el('small', {}, 'Sessions, PRs, your strongest lift')));
-    w.addEventListener('click', () => openYearWrapped(yr));
-    area.appendChild(w);
-  }
+  // A wrap that's out leads Train: a month's for the week from its last day, the year's from
+  // December into mid-January (trainWrapCard says which, one at a time).
+  const _wc = trainWrapCard();
+  if (_wc) area.appendChild(buildTrainWrapCard(_wc));
 
   // The coach's own check-in questions are asked every day, training or not. On a session day they
   // ride in the Today strip; anywhere else Train returns early, so they go here.
@@ -4327,27 +4323,63 @@ function openFirstMeetSheet() {
 window.openFirstMeetSheet = openFirstMeetSheet;
 window.openMeetModal = openMeetModal;
 window.renderMeetPlan = renderMeetPlan;
-// ===== YOUR YEAR IN LIFTING (Wrapped) =====
-// Full-screen stories from the lifter's own year (app.js yearInLifting): tap
-// right for the next one, left to go back, hold to pause. Each one can be
-// shared as a 9:16 story image. Shown on Train from 1 December to 15 January.
-function wrapYear() { const d = new Date(); return d.getMonth() === 0 && d.getDate() <= 15 ? d.getFullYear() - 1 : d.getFullYear(); }
-function wrapSeason() { const d = new Date(); return d.getMonth() === 11 || (d.getMonth() === 0 && d.getDate() <= 15); }
+// ===== WRAPPED: YOUR YEAR AND YOUR MONTH IN LIFTING =====
+// Full-screen stories from the lifter's own logs (app.js liftingWrap): tap right for the next one,
+// left to go back, hold to pause. Every story can be shared as a 9:16 story image; a month ends on
+// its summary card, made to post (Share to Instagram: the share sheet, a download on the web).
+// On Train, one wrap card at a time (app.js trainWrapPick): a month's from its last day for 7 days
+// (October's: 31 Oct to 6 Nov), the year's from 1 December to 15 January; December's month waits
+// in You › Your wraps behind the finished year. Every month and year is in Your wraps.
+// Nothing is stored: it's all worked out from the logs on the device.
+// ?demo=1&wrap=2026-10 reviews a month as if its wrap had just dropped (the Train card, New in Your
+// wraps, the stories open on load); &wrap=2026 opens a year's. Ignored outside the demo.
+function wrapDemoPick() {
+  if (!window._demoMode) return null;
+  const m = /[?&]wrap=(\d{4})(?:-(\d{1,2}))?(?=&|#|$)/.exec(location.search);
+  if (!m) return null;
+  const month = m[2] ? Number(m[2]) - 1 : null;
+  return month != null && (month < 0 || month > 11) ? null : { year: Number(m[1]), month };
+}
+function wrapDemoMonth() { const d = wrapDemoPick(); return d && d.month != null ? d : null; }
+function wrapDueMonth() { return wrapDemoMonth() || monthWrapDue(todayISO()); }
+function _wrapStarSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></svg>'; }
+// The one wrap card Train shows today: { kind: 'month', year, month, w } | { kind: 'year', year } | null.
+// Train re-renders on every logged set, so a month's numbers are kept until the logs change.
+var _wrapCardMemo = null;   // var, not let: the demo boot renders Train before this line runs
+function trainWrapCard() {
+  const st = Store.get(), logs = st.workoutLogs || [], today = todayISO();
+  const monthOf = (y, m) => {
+    const key = [today, y, m, logs.length, logs.length ? logs[logs.length - 1].id : ''].join('|');
+    if (!_wrapCardMemo || _wrapCardMemo.key !== key) _wrapCardMemo = { key, w: monthInLifting(logs, st.bodyweight, user.id, y, m, today) };
+    return _wrapCardMemo.w;
+  };
+  const pick = trainWrapPick(today, (y, m) => monthOf(y, m).sessions > 0, wrapDemoMonth());
+  return pick && pick.kind === 'month' ? Object.assign(pick, { w: monthOf(pick.year, pick.month) }) : pick;
+}
+function buildTrainWrapCard(wc) {
+  const month = wc.kind === 'month', w = wc.w;
+  const n = (v, one) => v + ' ' + one + (v === 1 ? '' : 's');
+  const card = el('button', { class: 'today-wrap' + (month ? ' is-month' : ''), type: 'button' });
+  card.appendChild(el('span', { class: 'tw-ic', 'aria-hidden': 'true', html: _wrapStarSvg() }));
+  card.appendChild(el('span', { class: 'tw-t' },
+    el('b', {}, 'Your ' + (month ? WRAP_MONTHS[wc.month] : wc.year) + ' in lifting'),
+    el('small', {}, month ? [n(w.sessions, 'session'), w.prs ? n(w.prs, 'PR') : null, 'ready to share'].filter(Boolean).join(' · ') : 'Sessions, PRs, your strongest lift')));
+  card.addEventListener('click', () => month ? openMonthWrapped(wc.year, wc.month) : openYearWrapped(wc.year));
+  return card;
+}
 function openYearWrapped(year) {
   const st = Store.get();
   const y = yearInLifting(st.workoutLogs, st.bodyweight, user.id, year);
   if (!y.sessions) { toast('Log a few sessions and your year shows up here'); return; }
   const u = unitLabel();
-  const thisYear = year === new Date().getFullYear() && !(new Date().getMonth() === 11 && new Date().getDate() >= 24);
-  const so = thisYear ? ' so far' : '';
-  const tonText = (kg) => kg >= 10000 ? (Math.round(kgToDisplay(kg) / 100) / 10).toLocaleString() + (getUnit() === 'lbs' ? 'k' : '') : Math.round(kgToDisplay(kg)).toLocaleString();
-  const tonUnit = (kg) => kg >= 10000 ? (getUnit() === 'lbs' ? 'lb' : 'tonnes') : u;
+  const so = yearWrapSoFar(year, todayISO()) ? ' so far' : '';
+  const ton = wrapTonnageText(y.tonnageKg);
   const lifts = ['squat', 'bench', 'deadlift'].filter(l => y.best[l]);
   const top = lifts.slice().sort((a, b) => y.best[b] - y.best[a])[0];
   const total = currentTotal(user.id), bwNow = latestBodyweight(user.id);
   const slides = [
     { tint: '#ff4a55', kicker: 'Your ' + year + ' in lifting' + so, big: String(y.sessions), unit: y.sessions === 1 ? 'session' : 'sessions', line: y.sets.toLocaleString() + ' sets logged' },
-    { tint: '#38c6ff', kicker: 'You moved', big: tonText(y.tonnageKg), unit: tonUnit(y.tonnageKg), line: 'That\'s about ' + tonnageComparison(y.tonnageKg) },
+    { tint: '#38c6ff', kicker: 'You moved', big: ton.big, unit: ton.unit, line: 'That\'s about ' + tonnageComparison(y.tonnageKg) },
     { tint: '#f2c25b', kicker: 'Personal records', big: String(y.prs), unit: y.prs === 1 ? 'PR' : 'PRs',
       line: y.jump ? LIFT_LABELS[y.jump.lift] + ' went from ' + Math.round(kgToDisplay(y.jump.fromKg)) + ' to ' + Math.round(kgToDisplay(y.jump.toKg)) + ' ' + u : 'Every PR starts with showing up' },
     top ? { tint: '#ffbf3c', kicker: 'Strongest lift', big: String(Math.round(kgToDisplay(y.best[top]))), unit: u + ' ' + LIFT_LABELS[top].toLowerCase(),
@@ -4357,14 +4389,47 @@ function openYearWrapped(year) {
     { tint: '#a98bff', kicker: year + ', lifted.', big: total > 0 ? String(Math.round(kgToDisplay(total))) : String(y.sessions), unit: total > 0 ? u + ' total' : 'sessions',
       line: (total > 0 && bwNow ? 'DOTS ' + dotsScore(total, bwNow, getSexPref()).toFixed(1) + ' · ' : '') + 'See you on the platform', last: true }
   ].filter(Boolean);
-
-  let i = 0, timer = null, paused = false;
-  const root = el('div', { class: 'wrap-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Your year in lifting' });
+  playWrap(slides, { label: 'Your year in lifting', period: String(year), file: 'powalifta-' + year + '.png', text: 'My ' + year + ' in lifting · powalifta.com' });
+}
+window.openYearWrapped = openYearWrapped;
+// A month's stories (app.js monthWrapSlides), ending on the summary card to post.
+function openMonthWrapped(year, month) {
+  const st = Store.get();
+  const w = monthInLifting(st.workoutLogs, st.bodyweight, user.id, year, month, todayISO());
+  const name = WRAP_MONTHS[month];
+  if (!w.sessions) { toast('No sessions logged in ' + name + ' ' + year); return; }
+  playWrap(monthWrapSlides(w, { name: user.name, instagram: user.instagram }),
+    { label: 'Your ' + name + ' in lifting', period: name + ' ' + year, file: 'powalifta-' + wrapKey(year, month) + '.png', text: 'My ' + name + ' in lifting · powalifta.com' });
+}
+window.openMonthWrapped = openMonthWrapped;
+// The story player both wraps share. ctx: { label, period ('October 2026'), file, text }.
+function playWrap(slides, ctx) {
+  let i = 0, timer = null, paused = false, poster = null;
+  // The summary card is one 1080 × 1920 canvas, drawn once, after the first story is up.
+  const posterSlide = slides.find(s => s.poster);
+  const getPoster = () => {
+    if (!poster && posterSlide) {
+      poster = drawWrapPoster(posterSlide.poster)
+        .then(c => new Promise(res => c.toBlob(b => res({ c, url: b ? URL.createObjectURL(b) : null }), 'image/png')))
+        .catch(() => null);
+    }
+    return poster || Promise.resolve(null);
+  };
+  const root = el('div', { class: 'wrap-mode', role: 'dialog', 'aria-modal': 'true', 'aria-label': ctx.label });
   document.documentElement.classList.add('meet-mode-open');
   document.body.appendChild(root);
-  const close = () => { clearTimeout(timer); root.remove(); document.documentElement.classList.remove('meet-mode-open'); };
+  const warm = posterSlide ? setTimeout(getPoster, 900) : null;
+  const close = () => {
+    clearTimeout(timer); clearTimeout(warm); root.remove(); document.documentElement.classList.remove('meet-mode-open');
+    if (poster) poster.then(p => { if (p && p.url) URL.revokeObjectURL(p.url); });
+  };
   const go = (d) => { const n = i + d; if (n < 0) return; if (n >= slides.length) { close(); return; } i = n; paint(); };
   const schedule = () => { clearTimeout(timer); if (!paused && !slides[i].last) timer = setTimeout(() => go(1), 6500); };
+  const button = (label, primary, onClick, icon) => {
+    const b = el('button', { class: 'btn btn-lg ' + (primary ? 'btn-primary' : 'ui-btn-soft'), type: 'button', html: (icon || '') + '<span>' + escHtml(label) + '</span>' });
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    return b;
+  };
   const paint = () => {
     const sl = slides[i];
     root.innerHTML = '';
@@ -4375,18 +4440,26 @@ function openYearWrapped(year) {
     const x = el('button', { class: 'wrap-x', type: 'button', 'aria-label': 'Close', html: ICONS.x });
     x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
     root.appendChild(x);
-    const card = el('div', { class: 'wrap-card' });
-    card.appendChild(el('div', { class: 'wrap-kicker' }, sl.kicker));
-    if (sl.bar) card.appendChild(el('div', { class: 'wrap-bar', 'aria-hidden': 'true', html: uiBarbell(Math.round(sl.bar / 2.5) * 2.5) }));
-    card.appendChild(el('div', { class: 'wrap-big' }, sl.big));
-    card.appendChild(el('div', { class: 'wrap-unit' }, sl.unit));
-    if (sl.line) card.appendChild(el('div', { class: 'wrap-line' }, sl.line));
+    const card = el('div', { class: 'wrap-card' + (sl.poster ? ' wrap-sum' : '') });
+    if (sl.poster) {
+      // The card exactly as it will post: the image itself, readable at this size.
+      const fig = el('div', { class: 'wrap-poster', role: 'img', 'aria-label': sl.alt || ctx.label });
+      const img = el('img', { class: 'wrap-poster-img', alt: '' });
+      fig.appendChild(img);
+      card.appendChild(fig);
+      getPoster().then(p => { if (p && p.url && img.isConnected) { img.src = p.url; fig.classList.add('is-ready'); } });
+    } else {
+      card.appendChild(el('div', { class: 'wrap-kicker' }, sl.kicker));
+      if (sl.bar) card.appendChild(el('div', { class: 'wrap-bar', 'aria-hidden': 'true', html: uiBarbell(sl.exactBar ? sl.bar : Math.round(sl.bar / 2.5) * 2.5) }));
+      card.appendChild(el('div', { class: 'wrap-big' }, sl.big));
+      card.appendChild(el('div', { class: 'wrap-unit' }, sl.unit));
+      if (sl.line) card.appendChild(el('div', { class: 'wrap-line' }, sl.line));
+    }
     root.appendChild(card);
     const acts = el('div', { class: 'wrap-acts' });
-    const share = el('button', { class: 'btn btn-lg ' + (sl.last ? 'btn-primary' : 'ui-btn-soft'), type: 'button' }, 'Share this');
-    share.addEventListener('click', (e) => { e.stopPropagation(); shareWrapSlide(sl, year); });
-    acts.appendChild(share);
-    if (sl.last) { const d = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Done'); d.addEventListener('click', (e) => { e.stopPropagation(); close(); }); acts.appendChild(d); }
+    if (sl.poster) acts.appendChild(button('Share to Instagram', true, () => getPoster().then(p => p ? shareCardFromCanvas(p.c, ctx.file, ctx.text) : toast('Could not create image')), IG_GLYPH));
+    else acts.appendChild(button('Share this', !!sl.last, () => shareWrapSlide(sl, ctx)));
+    if (sl.last) acts.appendChild(button('Done', false, close));
     root.appendChild(acts);
     schedule();
   };
@@ -4399,35 +4472,75 @@ function openYearWrapped(year) {
   });
   paint();
 }
-window.openYearWrapped = openYearWrapped;
-// One story as a 1080 × 1920 image for Instagram Stories.
-async function shareWrapSlide(sl, year) {
+// One story as a 1080 × 1920 image for Instagram Stories: the brand on top, the story in the
+// middle (the loaded bar too, on a top-set story), the period and powalifta.com clear of the reply bar.
+async function shareWrapSlide(sl, ctx) {
   const W = 1080, H = 1920, c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
   try { await document.fonts.load('800 200px Archivo'); await document.fonts.load('600 48px Archivo'); } catch (e) {}
   x.fillStyle = '#050506'; x.fillRect(0, 0, W, H);
-  const g = x.createRadialGradient(W / 2, H * 0.38, 40, W / 2, H * 0.38, 900);
+  const g = x.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, 900);
   g.addColorStop(0, sl.tint + '55'); g.addColorStop(1, sl.tint + '00');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
+  drawCardLogo(x, W / 2, 252, 46);
   x.textAlign = 'center';
+  const top = sl.bar ? H * 0.27 : H * 0.3, off = sl.bar ? 250 : 0;
   x.fillStyle = 'rgba(244, 244, 246, 0.7)'; x.font = '600 52px Archivo';
-  x.fillText(sl.kicker, W / 2, H * 0.3);
+  x.fillText(sl.kicker, W / 2, top);
+  if (sl.bar) drawBarbell2d(x, sl.exactBar ? sl.bar : Math.round(sl.bar / 2.5) * 2.5, W / 2, top + 175, 200);
   let fs = 300; x.font = '800 ' + fs + 'px Archivo';
   while (x.measureText(sl.big).width > W - 120 && fs > 120) { fs -= 10; x.font = '800 ' + fs + 'px Archivo'; }
-  x.fillStyle = '#f4f4f6'; x.fillText(sl.big, W / 2, H * 0.3 + 60 + fs * 0.85);
+  const base = top + off + fs * 0.85;
+  x.fillStyle = '#f4f4f6'; x.fillText(sl.big, W / 2, base + 60);
   x.fillStyle = sl.tint; x.font = '700 64px Archivo';
-  x.fillText(sl.unit, W / 2, H * 0.3 + 160 + fs * 0.85);
+  x.fillText(sl.unit, W / 2, base + 160);
   if (sl.line) {
     x.fillStyle = 'rgba(244, 244, 246, 0.75)'; x.font = '600 44px Archivo';
     const words = String(sl.line).split(' '), lines = []; let cur = '';
     words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > W - 160) { lines.push(cur); cur = w; } else cur = t; });
     if (cur) lines.push(cur);
-    lines.slice(0, 3).forEach((ln, k) => x.fillText(ln, W / 2, H * 0.3 + 300 + fs * 0.85 + k * 62));
+    lines.slice(0, 3).forEach((ln, k) => x.fillText(ln, W / 2, base + 300 + k * 62));
   }
   x.fillStyle = 'rgba(244, 244, 246, 0.5)'; x.font = '700 40px Archivo';
-  x.fillText('POWALIFTA · ' + year, W / 2, H - 140);
-  await shareCardFromCanvas(c, 'powalifta-' + year + '.png', 'My ' + year + ' in lifting · powalifta.com');
+  x.fillText(ctx.period + ' · powalifta.com', W / 2, H - 300);
+  await shareCardFromCanvas(c, ctx.file, ctx.text);
+}
+// You › Your wraps: every year and every month with a session (once its wrap has dropped), newest
+// first, each opening its stories over the list.
+function openWrapsArchive() {
+  const st = Store.get();
+  const list = wrapArchive(st.workoutLogs, user.id, todayISO(), { due: wrapDueMonth() });
+  const n = (v, one) => v + ' ' + one + (v === 1 ? '' : 's');
+  const rowOf = (it) => {
+    const sub = [it.kind === 'year' && it.soFar ? 'So far' : null, n(it.sessions, 'session'), it.prs ? n(it.prs, 'PR') : null].filter(Boolean).join(' · ');
+    if (it.kind === 'year') {
+      return uiRow({ lead: el('span', { class: 'wa-tile is-year', 'aria-hidden': 'true', html: _wrapStarSvg() }), title: 'Your ' + it.year + ' in lifting', sub, chevron: true, onClick: () => openYearWrapped(it.year) });
+    }
+    return uiRow({ lead: el('span', { class: 'wa-tile' + (it.isNew ? ' is-new' : ''), 'aria-hidden': 'true' }, WRAP_MONTHS[it.month].slice(0, 3)), title: WRAP_MONTHS[it.month], sub,
+      endNode: it.isNew ? el('span', { class: 'wa-new' }, 'New') : null, chevron: !it.isNew, onClick: () => openMonthWrapped(it.year, it.month) });
+  };
+  uiSheet('Your wraps', (sheet) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, list.length ? 'A new one drops on the last day of every month' : 'Your first one drops on the last day of the month you log a session in'));
+    let rows = [], yr = null;
+    const flush = () => { if (rows.length) { sheet.appendChild(uiLabel(String(yr))); sheet.appendChild(uiList(rows)); } rows = []; };
+    list.forEach(it => { if (it.kind === 'year') { flush(); yr = it.year; } rows.push(rowOf(it)); });
+    flush();
+  }, { cls: 'wraps-sheet' });
+}
+window.openWrapsArchive = openWrapsArchive;
+// The You row's value: New while a month's wrap is out, else the latest one.
+function wrapsRowValue() {
+  const list = wrapArchive(Store.get().workoutLogs, user.id, todayISO(), { due: wrapDueMonth() });
+  const m = list.find(it => it.kind === 'month');
+  if (m && m.isNew) return 'New';
+  return m ? WRAP_MONTHS[m.month] : list.length ? String(list[0].year) : '';
+}
+// The demo's &wrap= review: the stories open on load, over Train.
+function maybeOpenDemoWrap() {
+  const d = wrapDemoPick();
+  if (!d) return;
+  setTimeout(() => { if (d.month != null) openMonthWrapped(d.year, d.month); else openYearWrapped(d.year); }, 450);
 }
 
 // ===== LIFT MODE (2026-10-20): the session as a player for the gym floor =====
@@ -5620,7 +5733,7 @@ function renderAthleteYou() {
       { title: 'Training', rows: [
         selfCoached ? null : { label: 'Full program', onClick: go('program') },
         { label: 'Goals', onClick: () => openGoalsModal() },
-        { label: 'Year in lifting', value: String(wrapYear()), onClick: () => openYearWrapped(wrapYear()) },
+        { label: 'Your wraps', value: wrapsRowValue(), onClick: () => openWrapsArchive() },
         { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
         // Programs bought on the web marketplace: web only. In the iPhone app they'd point at a
         // purchase made outside the App Store (Apple 3.1.1); an installed one is just the program.

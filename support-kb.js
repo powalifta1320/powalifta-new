@@ -595,6 +595,26 @@ window.POWA_SUPPORT_KB = [
   "app": "After a PR the celebration screen has \"Share to Story\". Progress → Overview has a Tools section with \"Share my week\" and a \"Meet day\" tile whose sheet has \"Make it a card\", and You → \"Lifter card\" has a Share button once you have a weigh-in and your lifts logged. Cards open the iPhone share sheet. The first card you share asks Story (tall, for stories) or Post (for the feed) and remembers it; You → Settings → \"Share cards\" switches between the two."
  },
  {
+  "id": "monthly-wrap",
+  "q": "Where is my monthly wrap, and how do I share it?",
+  "t": [
+   "monthly wrap",
+   "month wrap",
+   "wrapped",
+   "my wrap",
+   "your wraps",
+   "month in lifting",
+   "year in lifting",
+   "monthly recap",
+   "month recap",
+   "last month",
+   "share my month",
+   "share to instagram"
+  ],
+  "a": "On the last day of every month your wrap for it drops: a few full-screen stories worked out from the sets you logged, with your sessions, the weight you moved, your top set, PRs and biggest jump, your weeks in a row, how it went against the month before and your bodyweight if you weighed in. It sits at the top of **Train** for a week (October's from 31 October to 6 November), then stays in **You** → **Your wraps** with every month and every year, newest first. Tap right for the next story, left to go back, hold to pause. The last card is the one to post: tap **Share to Instagram** and pick Instagram in the share sheet (on a computer it saves the image). **Share this** on any story shares just that one. A month with no sessions has no wrap. On 31 December the year in lifting leads Train and December's wrap waits in Your wraps.",
+  "app": "On the last day of every month your wrap for it drops: a few full-screen stories worked out from the sets you logged, with your sessions, the weight you moved, your top set, PRs and biggest jump, your weeks in a row, how it went against the month before and your bodyweight if you weighed in. It sits at the top of **Train** for a week (October's from 31 October to 6 November), then stays in **You** → **Your wraps** with every month and every year, newest first. Tap right for the next story, left to go back, hold to pause. The last card is the one to post: tap **Share to Instagram** and pick Instagram in the share sheet, then Stories. **Share this** on any story shares just that one. A month with no sessions has no wrap. On 31 December the year in lifting leads Train and December's wrap waits in Your wraps."
+ },
+ {
   "id": "import-history",
   "q": "How do I import my old training history from a spreadsheet?",
   "t": [
