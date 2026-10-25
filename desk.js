@@ -981,6 +981,9 @@ function renderDeskToday(opts) {
   opts = opts || {};
   var host = document.getElementById('deskToday');
   if (!host) return;
+  // Home (coach-home.js) draws Today as the roster summary; ?oldtoday=1 keeps the old list + workspace.
+  if (window.CoachHome && !/\boldtoday=1\b/.test(location.search)) { CoachHome.renderDesk(host); dkSyncCtx(true); dkPaintRail(); return; }
+  host.classList.remove('ch-host', 'loaded');
   dkRowsFresh();
   var landed = dkLanded();
   var rows = _dk.rows, q = _dk.queue;
