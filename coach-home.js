@@ -132,7 +132,7 @@
     var lift = (reason.text || '').toLowerCase();
     var l = /squat/.test(lift) ? 'squat' : /bench/.test(lift) ? 'bench' : /deadlift|pull/.test(lift) ? 'deadlift' : null;
     var text = reason.type === 'message' && reason.body ? '“' + reason.body + '”' : (reason.text || '');
-    if (reason.type === 'pain') text = r.status && r.status.pain && r.status.pain.text ? r.status.pain.text.replace(/^Pain · /, '').replace(/ · \d+\/10/, '') : (reason.detail || reason.text || '');
+    if (reason.type === 'pain') text = r.status && r.status.pain && r.status.pain.text ? r.status.pain.text.replace(/^Pain · /, '').replace(/ · \d+\/10/, '') : 'Pain on today’s check-in';
     if ((reason.type === 'weight' || reason.type === 'offpace') && r.bw) text = num(r.bw.bw) + ' ' + unit() + ' for the ' + r.bw.cls + ' class';
     if (reason.type === 'meet' && reason.detail) text = reason.detail;
     if (reason.type === 'quiet' && reason.detail) text = reason.detail;
@@ -153,6 +153,8 @@
       var rev = deskWeekReview(prog);
       return rev.nextIdx >= 0 && rev.rows.some(function (x) { return x.suggest && x.suggest.delta; });
     });
+    var writeIds = {};
+    toWrite.forEach(function (r) { var prog = r.status && r.status.program; var rev = prog && typeof deskWeekReview === 'function' ? deskWeekReview(prog) : null; var wk = rev && rev.nextIdx >= 0 && prog.weeks[rev.nextIdx] ? (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) : ''; writeIds[r.athlete.id] = wk; });
     var prs = all.filter(function (r) { return (r.wins || []).some(function (w) { return w.type === 'pr'; }); });
     var peaking = withMeet.filter(function (r) { return r.meet.days <= 56; });
     var onPlan = all.filter(function (r) { return !(r.reasons || []).length; });
@@ -191,7 +193,7 @@
     }).sort(function (a, b) { return a.days - b.days; });
     var live = all.map(function (r) { var ls = r.live ? liveSet(r.status && r.status.program, now) : null; return ls ? { r: r, set: ls } : null; }).filter(Boolean).sort(function (a, b) { return b.set.at - a.set.at; });
     return {
-      rows: all, need: need, meets: meets, live: live, seats: seats,
+      rows: all, need: need, meets: meets, live: live, seats: seats, toWrite: toWrite, writeIds: writeIds,
       stats: {
         lifters: { n: all.length, sub: onPlan.length + ' on plan' + (peaking.length ? ' · ' + peaking.length + ' peaking' : ''), short: seats ? seats.used + ' of ' + seats.limit + ' seats' : onPlan.length + ' on plan' },
         sessions: { n: done, of: planned, sub: missed.length ? plural(missed.length, 'missed', 'missed') + ' · ' + missed.map(function (r) { return first(r.athlete.name); }).slice(0, 2).join(', ') : (planned ? 'On track' : 'Nothing planned'), pct: planned ? Math.round(done / planned * 100) : 0 },
@@ -228,142 +230,146 @@
     f.run();
   }
 
-  /* ---------- the laptop page ---------- */
-  function statHtml(key, icon, label, n, small, sub, tone, extra) {
-    return '<button type="button" class="ch-stat t-' + tone + '" data-stat="' + key + '">' +
-      '<span class="lbl">' + ic(icon, 1.9) + esc(label) + '<span class="go">' + ic('chev') + '</span></span>' +
-      '<span class="row"><span class="n num">' + esc(n) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' + (extra || '') + '</span>' +
-      '<span class="sub">' + sub + '</span></button>';
+  /* ---------- one card per lifter: how they are doing, in one look ---------- */
+  function lastTopSet(prog) {
+    if (!prog || typeof programLoggedSets !== 'function') return null;
+    var sets = programLoggedSets(prog).filter(function (x) { return x.set && x.set.completed && !x.set.extra; });
+    if (!sets.length) return null;
+    var last = sets.map(function (x) { return x.date; }).sort().pop();
+    var day = sets.filter(function (x) { return x.date === last; });
+    var mains = day.filter(function (x) { return x.ex && LIFT[x.ex.lift]; });
+    var pick = (mains.length ? mains : day).sort(function (a, b) { return (Number(b.set.weight) || 0) - (Number(a.set.weight) || 0); })[0];
+    if (!pick) return null;
+    var title = typeof _exShortTitle === 'function' ? _exShortTitle(pick.ex) : (LIFT[pick.ex.lift] || 'Lift');
+    var rpe = pick.set.actualRpe != null && pick.set.actualRpe !== '' ? ' @' + num(pick.set.actualRpe) : '';
+    var wd = (function () { try { return new Date(last + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' }); } catch (e) { return last; } })();
+    return { text: title + ' ' + kg(pick.set.weight) + ' × ' + (pick.set.reps || pick.set.plannedReps || '') + rpe, when: wd, lift: pick.ex.lift };
   }
-  function facesHtml(list, more) { if (!list.length) return ''; return '<span class="stack" aria-hidden="true">' + list.map(function (r) { return avHtml(r.athlete, 'sm'); }).join('') + (more > 0 ? '<span class="ui-av sm more-av">+' + more + '</span>' : '') + '</span>'; }
-  function cardHtml(item, i, red) {
-    var r = item.r, a = r.athlete, f = item.fix, m = item.met, w = item.why;
-    var dot = w.lift ? '<i class="dot ' + LIFT_CLS[w.lift] + '"></i>' : (m.tone === 'msg' ? '<i class="dot l-msg"></i>' : '');
-    var fix = item.handled
-      ? '<span class="ch-btn did">' + ic('check', 2.4) + '<span>' + esc(f.done || 'Done') + '</span></span>'
-      : '<button type="button" class="ch-btn ' + (red ? 'red' : 'q2') + '" data-fix="' + esc(a.id) + '">' + ic(f.ic || 'open', f.ic === 'msg' ? 1.8 : 2) + '<span>' + esc(f.label) + '</span></button>';
-    return '<div class="ch-card ch-q t-' + m.tone + (item.handled ? ' did' : '') + ' rise" data-id="' + esc(a.id) + '" style="--i:' + (5 + i) + '">' +
+  function daysFor(aid) {
+    try { if (typeof trainingDays === 'function') return trainingDays(aid, 7).map(function (d) { return !!d.on; }); } catch (e) {}
+    return null;
+  }
+  function cardData(r, ctx) {
+    var a = r.athlete, st = r.status || {}, flagged = !!(r.reasons && r.reasons.length);
+    var d = r.total && r.total.delta != null ? Math.round(r.total.delta) : null;
+    var trend = d == null ? { n: '—', u: 'no trend yet', tone: 'mute' } : Math.abs(d) < 1 ? { n: 'Flat', u: 'last 4 weeks', tone: 'mute' } : { n: (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + unit(), u: 'last 4 weeks', tone: d > 0 ? 'ok' : 'warn' };
+    var dr = r.drift, felt = !dr || !dr.n ? { t: 'No RPE this week', tone: 'mute' } : dr.avg >= 0.5 ? { t: 'Felt heavier · +' + dr.avg, tone: 'warn' } : dr.avg <= -0.5 ? { t: 'Felt easy · ' + dr.avg, tone: 'cool' } : { t: 'On target', tone: 'ok' };
+    var dots = daysFor(a.id);
+    var meet = r.meet ? { t: (r.meet.days <= 0 ? 'Meet today' : r.meet.days === 1 ? 'Meet tomorrow' : 'Meet in ' + r.meet.days + ' d'), tone: r.bw && r.bw.over > 0 ? 'warn' : 'meet', sub: r.bw && r.bw.over > 0 ? 'BW +' + num(r.bw.over) : (r.meet.meet.weightClass ? String(r.meet.meet.weightClass).replace(/\s*kg$/i, '') + ' kg' : '') } : null;
+    var why = flagged ? whyFor(r) : null, met = flagged ? metricFor(r) : null;
+    var win = (r.wins || [])[0];
+    var last = lastTopSet(st.program);
+    var live = r.live ? liveSet(st.program) : null;
+    var action;
+    if (flagged) action = fixFor(r);
+    else if (ctx.writeIds[a.id]) action = { k: 'open', ic: 'pen', label: 'Write week ' + ctx.writeIds[a.id], run: function () { if (typeof openAthleteProgram === 'function') openAthleteProgram(a.id); else openLifter(a.id); } };
+    else if (win) action = { k: 'msg', ic: 'msg', label: 'Say well done', text: 'Big week. That work is paying off.' };
+    else action = { k: 'open', ic: 'open', label: 'Open', run: function () { openLifter(a.id); } };
+    return { r: r, a: a, flagged: flagged, trend: trend, felt: felt, dots: dots, meet: meet, why: why, met: met, win: win, last: last, live: live, action: action };
+  }
+  function lifterCardHtml(c, i) {
+    var a = c.a, tone = c.met ? c.met.tone : (c.meet && c.meet.tone === 'warn' ? 'bw' : 'quiet');
+    var status;
+    if (c.live) status = '<span class="ch-st live"><i class="livedot"></i><b>Under the bar</b> · ' + esc(c.live.title + ' ' + kg(c.live.weight) + ' × ' + (c.live.reps || '')) + (c.live.rpe != null && c.live.rpe !== '' ? ' @' + esc(num(c.live.rpe)) : '') + '</span>';
+    else if (c.flagged) status = '<span class="ch-st t-' + tone + '">' + (c.why.lift ? '<i class="dot ' + LIFT_CLS[c.why.lift] + '"></i>' : '') + '<b>' + esc(c.why.text) + '</b></span>';
+    else if (c.win) status = '<span class="ch-st win">' + ic('trophy', 2) + '<b>' + esc(c.win.text) + '</b>' + (c.last ? ' · ' + esc(c.last.text) : '') + '</span>';
+    else if (c.last) status = '<span class="ch-st">' + (c.last.lift && LIFT_CLS[c.last.lift] ? '<i class="dot ' + LIFT_CLS[c.last.lift] + '"></i>' : '') + esc(c.last.text) + ' <span class="when">· ' + esc(c.last.when) + '</span></span>';
+    else status = '<span class="ch-st mute">Nothing logged yet</span>';
+    var dots = c.dots ? '<span class="ch-dots" aria-label="This week">' + c.dots.map(function (on, k) { return '<i class="' + (on ? 'on' : '') + (k === c.dots.length - 1 ? ' today' : '') + '"></i>'; }).join('') + '</span>' : '';
+    var meet = c.meet ? '<span class="ch-chip t-' + c.meet.tone + '">' + ic('trophy', 2) + esc(c.meet.t) + (c.meet.sub ? '<small>' + esc(c.meet.sub) + '</small>' : '') + '</span>' : '';
+    var act = c.action.k === 'open' && c.action.label === 'Open' ? '' : '<button type="button" class="ch-act" data-act="' + esc(a.id) + '">' + esc(c.action.label) + ic('chev', 2.2) + '</button>';
+    return '<div class="ch-card ch-lc' + (c.flagged ? ' is-flag' : '') + (c.live ? ' is-live' : '') + ' rise" data-id="' + esc(a.id) + '" style="--i:' + Math.min(12, 2 + i) + '">' +
       '<button type="button" class="cover" data-open="' + esc(a.id) + '" aria-label="Open ' + esc(a.name) + '"></button>' +
-      avHtml(a) +
-      '<span class="who"><span class="name">' + esc(a.name) + '</span><span class="why">' + dot + '<span class="wt">' + esc(w.text) + '</span></span></span>' +
-      (m.n ? '<span class="met"><b class="num">' + esc(m.n) + '</b><span>' + esc(m.u) + '</span></span>' : '') +
-      '<span class="fix">' + fix + '</span></div>';
+      '<div class="ch-lc-top">' + avHtml(a) + '<span class="ch-lc-name">' + esc(a.name) + '</span>' + meet + '</div>' +
+      '<div class="ch-lc-mid"><span class="ch-trend t-' + c.trend.tone + '"><b class="num">' + esc(c.trend.n) + '</b><span>' + esc(c.trend.u) + '</span></span>' +
+        '<span class="ch-week">' + dots + '<span class="ch-felt t-' + c.felt.tone + '">' + esc(c.felt.t) + '</span></span></div>' +
+      '<div class="ch-lc-bot">' + status + act + '</div></div>';
   }
-  function meetHtml(x) {
-    var faces = x.entries.slice(0, 3).map(function (e) { return avHtml(e.r.athlete, 'sm'); }).join('') + (x.entries.length > 3 ? '<span class="ui-av sm more-av">+' + (x.entries.length - 3) + '</span>' : '');
-    return '<button type="button" class="ch-mt" data-meet="' + esc(x.r.athlete.id) + '"><span class="d' + (x.days <= 21 ? ' soon' : '') + '"><b class="num">' + esc(daysText(x.days)) + '</b><span>' + esc(dateShort(x.meet.date)) + '</span></span>' +
-      '<span class="nm"><b>' + esc(x.meet.name || 'Meet') + '</b><span class="st"><i class="sd ' + x.tone + '" aria-hidden="true"></i><span>' + esc(x.step) + '</span></span></span>' +
-      '<span class="stack" aria-hidden="true">' + faces + '</span><span class="chev" aria-hidden="true">' + ic('chev', 2.2) + '</span></button>';
+  // The week's work: what the data asks the coach to do, how much is done, and the next one.
+  function workFor(M) {
+    var jobs = [];
+    M.need.forEach(function (x) {
+      var t = (x.r.reasons[0] || {}).type;
+      var kind = /^(note|message)$/.test(t) ? 'reply' : /^(meet|weight|offpace)$/.test(t) ? 'meet' : /^(blockend|blockdone|noprogram)$/.test(t) ? 'write' : 'check';
+      jobs.push({ kind: kind, r: x.r, fix: x.fix, done: x.handled });
+    });
+    var seen = {};
+    jobs.forEach(function (j) { seen[j.r.athlete.id] = 1; });
+    M.toWrite.forEach(function (r) { if (!seen[r.athlete.id]) jobs.push({ kind: 'write', r: r, fix: { k: 'open', ic: 'pen', label: 'Write ' + first(r.athlete.name) + '’s week' + (M.writeIds[r.athlete.id] ? ' ' + M.writeIds[r.athlete.id] : ''), run: function () { if (typeof openAthleteProgram === 'function') openAthleteProgram(r.athlete.id); else openLifter(r.athlete.id); } }, done: false }); });
+    var counts = { write: 0, reply: 0, check: 0, meet: 0 };
+    jobs.forEach(function (j) { counts[j.kind]++; });
+    var open = jobs.filter(function (j) { return !j.done; });
+    return { jobs: jobs, counts: counts, done: jobs.length - open.length, next: open[0] || null };
   }
-  function liveHtml(x, i) {
-    var a = x.r.athlete, s = x.set, pct = s.total ? s.done / s.total : 0, C = 138.2;
-    return '<div class="ch-card ch-lv rise" style="--i:' + (10 + i) + ';--lc:var(--ch-' + (s.lift || 'squat') + ')" data-id="' + esc(a.id) + '">' +
-      '<button type="button" class="cover" data-open="' + esc(a.id) + '" aria-label="Open ' + esc(a.name) + '"></button>' + avHtml(a) +
-      '<div class="who"><div class="nm"><b>' + esc(a.name) + '</b><i class="dot ' + (LIFT_CLS[s.lift] || '') + '"></i>' + esc(s.title) + '</div>' +
-      '<div class="set num"><span class="w">' + esc(kg(s.weight)) + '</span><span class="u">' + esc(unit()) + '</span><span class="x">×</span><span class="w">' + esc(s.reps || '') + '</span>' + (s.rpe != null && s.rpe !== '' ? '<span class="at">@' + esc(num(s.rpe)) + '</span>' : '') + '</div>' +
-      '<div class="st"><span class="ld"><i class="livedot"></i>Under the bar</span> · set ' + s.done + ' of ' + s.total + '</div></div>' +
-      '<span class="ring" aria-hidden="true"><svg viewBox="0 0 52 52"><circle class="trk" cx="26" cy="26" r="22" fill="none" stroke-width="4"/><circle class="val" cx="26" cy="26" r="22" fill="none" stroke-width="4" stroke-dasharray="' + C + '" stroke-dashoffset="' + (C * (1 - pct)).toFixed(1) + '"/></svg><b class="num">' + s.done + '<small>/' + s.total + '</small></b></span></div>';
+  function workHtml(W, open) {
+    var total = W.jobs.length, pct = total ? Math.round(W.done / total * 100) : 0;
+    var parts = [['write', 'to write', 'Weeks'], ['reply', 'to answer', 'Replies'], ['check', 'to check', 'Lifters'], ['meet', 'meet prep', '']].filter(function (p) { return W.counts[p[0]]; })
+      .map(function (p) { return '<span class="ch-job k-' + p[0] + '"><b class="num">' + W.counts[p[0]] + '</b> ' + esc(p[1]) + '</span>'; }).join('');
+    var next = W.next ? '<button type="button" class="ch-btn red ch-next" data-next>' + ic(W.next.fix.ic || 'open', 2) + '<span>Next: ' + esc(W.next.fix.label) + (W.next.fix.label.indexOf(first(W.next.r.athlete.name)) < 0 ? ' · ' + esc(first(W.next.r.athlete.name)) : '') + '</span>' + ic('chev', 2.2) + '</button>'
+      : '<span class="ch-btn did">' + ic('check', 2.4) + '<span>All caught up</span></span>';
+    return '<div class="ch-card ch-work rise" style="--i:1">' +
+      '<div class="ch-work-l"><div class="ch-work-n"><b class="num">' + (total ? total - W.done : 0) + '</b><span>' + (total ? (total - W.done === 1 ? 'job left this week' : 'jobs left this week') + (W.done ? ' · ' + W.done + ' done' : '') : 'nothing waiting this week') + '</span></div>' +
+        '<div class="ch-work-bar" aria-hidden="true"><i style="--p:' + pct + '%"></i></div>' +
+        '<div class="ch-jobs">' + parts + '</div></div>' +
+      '<div class="ch-work-r">' + next + '</div></div>';
   }
+  function groupsHtml(M) {
+    var ctx = { writeIds: M.writeIds };
+    var cards = M.rows.map(function (r) { return cardData(r, ctx); });
+    var byId = {}; cards.forEach(function (c) { byId[c.a.id] = c; });
+    var needIds = M.need.map(function (x) { return x.r.athlete.id; });
+    var need = needIds.map(function (id) { return byId[id]; }).filter(Boolean);
+    var rest = cards.filter(function (c) { return needIds.indexOf(c.a.id) < 0; });
+    var peak = rest.filter(function (c) { return c.r.meet && c.r.meet.days <= 56; }).sort(function (a, b) { return a.r.meet.days - b.r.meet.days; });
+    var plan = rest.filter(function (c) { return !(c.r.meet && c.r.meet.days <= 56); }).sort(function (a, b) { return (b.r.live ? 1 : 0) - (a.r.live ? 1 : 0) || String(a.a.name).localeCompare(String(b.a.name)); });
+    var i = 0;
+    function sec(title, list, end) { if (!list.length) return ''; return '<div class="ch-sec rise" style="--i:' + Math.min(12, 2 + i) + '">' + title + '<span class="ch-count">' + list.length + '</span>' + (end ? '<span class="ch-end">' + end + '</span>' : '') + '</div><div class="ch-grid">' + list.map(function (c) { return lifterCardHtml(c, i++); }).join('') + '</div>'; }
+    return { html: sec('Needs you', need, 'Worst first') + sec('Peaking', peak, 'Meet soonest first') + sec('On plan', plan, ''), cards: byId };
+  }
+
+  /* ---------- the laptop page ---------- */
   function renderDesk(host) {
     var M = model();
-    var need = M.need, open = need.filter(function (x) { return !x.handled; });
     host.classList.add('ch-host');
     host.classList.remove('is-setup');
     if (!M.rows.length) { host.classList.add('is-setup'); host.innerHTML = ''; var c = document.createElement('div'); c.className = 'dk-setup'; try { c.appendChild(dkFirstRun()); } catch (e) {} host.appendChild(c); return; }
+    var W = workFor(M), G = groupsHtml(M);
     var today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-    var S = M.stats;
-    var SHOW = 5, visible = open.slice(0, SHOW), rest = open.slice(SHOW);
-    var redId = open.length ? open[0].r.athlete.id : null;
-    var html = '<div class="ch-home">' +
-      '<header class="ch-top rise" style="--i:0"><div><h1 class="ch-h1">Today</h1><p class="ch-sub">' + esc(today) + ' · <b>' + (open.length ? plural(open.length, 'needs you', 'need you') : 'all caught up') + '</b></p></div>' +
-      '</header>' +
-      '<div class="ch-stats" aria-label="Your team this week">' +
-        statHtml('lifters', 'users', 'Lifters', String(S.lifters.n), '', esc(S.lifters.sub), 'team', facesHtml(M.rows.slice(0, 4), M.rows.length - 4)) +
-        statHtml('sessions', 'check', 'Sessions this week', String(S.sessions.n), S.sessions.of ? '/' + S.sessions.of : '', esc(S.sessions.sub), 'week', '<span class="meter" style="--p:' + S.sessions.pct + '%" aria-hidden="true"><i></i></span>') +
-        statHtml('write', 'pen', 'Weeks to write', String(S.write.n), '', esc(S.write.sub), 'write', facesHtml(S.write.who, 0)) +
-        statHtml('prs', 'trophy', 'PRs this week', String(S.prs.n), '', esc(S.prs.sub), 'pr', facesHtml(S.prs.who, 0)) +
-      '</div>' +
-      '<div class="ch-split">' +
-        '<div class="ch-col"><h2 class="ch-sec rise" style="--i:4">Needs you' + (open.length ? '<span class="ch-count">' + open.length + '</span><span class="ch-end">Worst first</span>' : '') + '</h2>' +
-          (visible.length ? '<div class="ch-grp">' + visible.map(function (x, i) { return cardHtml(x, i, x.r.athlete.id === redId); }).join('') + '</div>' : '') +
-          (rest.length ? '<button type="button" class="ch-card ch-more" data-open="' + esc(rest[0].r.athlete.id) + '">' + facesHtml(rest.slice(0, 3).map(function (x) { return x.r; }), 0) + '<span class="t"><b>' + plural(rest.length, 'more needs you', 'more need you') + '</b> · ' + esc(rest.map(function (x) { return first(x.r.athlete.name); }).slice(0, 4).join(', ')) + '</span><span class="go">' + ic('chev', 2.2) + '</span></button>' : '') +
-          (!open.length ? '<div class="ch-card ch-more ok"><span class="okc">' + ic('check', 2.6) + '</span><span class="t"><b>All caught up</b><span class="s">' + (S.write.n ? 'Next: ' + esc(S.write.sub.replace('’s is next', '’s week to write')) : 'Nobody needs you right now') + '</span></span></div>' : '') +
-        '</div>' +
-        '<div class="ch-col"><h2 class="ch-sec rise" style="--i:6">Meets coming up' + (M.meets.length ? '<span class="ch-count">' + M.meets.length + '</span>' : '') + '</h2>' +
-          (M.meets.length ? '<div class="ch-card ch-meets rise" style="--i:7">' + M.meets.slice(0, 4).map(meetHtml).join('') + '<button type="button" class="ch-mt all" data-meets><span class="t">All ' + (M.meets.length === 1 ? 'meets' : M.meets.length + ' meets') + '</span><span class="chev" aria-hidden="true">' + ic('chev', 2.2) + '</span></button></div>' : '<div class="ch-card ch-more idle"><span class="okc">' + ic('trophy', 2) + '</span><span class="t"><b>No meets on the calendar</b><span class="s">Plan one from a lifter’s page.</span></span></div>') +
-          '<h2 class="ch-sec next rise" style="--i:8">Training now' + (M.live.length ? '<i class="livedot"></i><span class="ch-count">' + M.live.length + '</span>' : '') + '</h2>' +
-          (M.live.length ? '<div class="ch-lst">' + M.live.slice(0, 3).map(liveHtml).join('') + '</div>' : '<div class="ch-card ch-more idle"><span class="okc">' + ic('clock', 2) + '</span><span class="t"><b>Nobody under the bar</b></span></div>') +
-        '</div>' +
-      '</div></div>';
-    host.innerHTML = html;
+    host.innerHTML = '<div class="ch-home">' +
+      '<header class="ch-top rise" style="--i:0"><div><h1 class="ch-h1">Today</h1><p class="ch-sub">' + esc(today) + ' · ' + M.rows.length + ' lifters' + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + '</p></div></header>' +
+      workHtml(W, M.need) + G.html + '</div>';
+    M.work = W; M.cards = G.cards;
     wire(host, M);
     host.querySelectorAll('.rise').forEach(function (n) { n.addEventListener('animationend', function () { n.classList.remove('rise'); }, { once: true }); });
     requestAnimationFrame(function () { host.classList.add('loaded'); });
   }
+  function runAction(c, btn) {
+    var f = c.action;
+    if (f.k === 'msg') { message(c.r, f.text, refresh); return; }
+    if (f.k === 'apply') { if (btn) btn.setAttribute('aria-busy', 'true'); try { f.run(); } catch (e) { console.warn('CoachHome', e); if (typeof toast === 'function') toast('Couldn’t update that week. Open the lifter to do it by hand.'); } setTimeout(refresh, 50); return; }
+    f.run();
+  }
   function wire(host, M) {
-    if (host._chWired) { host._chModel = M; return; }
-    host._chWired = true; host._chModel = M;
+    host._chModel = M;
+    if (host._chWired) return;
+    host._chWired = true;
     host.addEventListener('click', function (e) {
       var Mx = host._chModel, t = e.target, b;
-      if ((b = t.closest('[data-fix]'))) { e.preventDefault(); var item = Mx.need.filter(function (x) { return x.r.athlete.id === b.getAttribute('data-fix'); })[0]; if (item) runFix(item, b); return; }
+      if ((b = t.closest('[data-act]'))) { e.preventDefault(); var c = Mx.cards[b.getAttribute('data-act')]; if (c) runAction(c, b); return; }
+      if ((b = t.closest('[data-next]'))) { e.preventDefault(); var j = Mx.work && Mx.work.next; if (!j) return; var cc = Mx.cards[j.r.athlete.id]; if (cc && cc.flagged) runAction(cc, b); else if (j.fix.run) j.fix.run(); return; }
       if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open')); return; }
-      if ((b = t.closest('[data-meet]'))) { e.preventDefault(); if (isDeskNow() && typeof deskGo === 'function') deskGo('meets'); else openLifter(b.getAttribute('data-meet')); return; }
-      if ((b = t.closest('[data-meets]'))) { e.preventDefault(); if (isDeskNow() && typeof deskGo === 'function') deskGo('meets'); return; }
-      if ((b = t.closest('[data-find]'))) { e.preventDefault(); if (typeof openDeskPalette === 'function') openDeskPalette(); return; }
-      if ((b = t.closest('[data-stat]'))) {
-        e.preventDefault();
-        var k = b.getAttribute('data-stat');
-        if (k === 'lifters' || k === 'sessions') { if (isDeskNow() && typeof deskGo === 'function') deskGo('roster'); }
-        else if (k === 'write') { var w = Mx.stats.write.who[0]; if (w && typeof openAthleteProgram === 'function') openAthleteProgram(w.athlete.id); else if (isDeskNow()) deskGo('programs'); }
-        else if (k === 'prs') { var p = Mx.stats.prs.who[0]; if (p) openLifter(p.athlete.id); }
-      }
     });
   }
 
-  /* ---------- the phone: the top of the Roster tab ---------- */
-  function phoneStat(icon, label, n, small, sub, tone, onClick) {
-    var b = node('button', { type: 'button', class: 'ch-stat t-' + tone }, '<span class="lbl">' + ic(icon, 1.9) + esc(label) + '</span><span class="row"><span class="n num">' + esc(n) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span></span><span class="sub">' + esc(sub) + '</span>');
-    if (onClick) b.addEventListener('click', onClick);
-    return b;
-  }
-  function endNum(n, u, tone) { return node('span', { class: 'ch-met t-' + tone }, '<b class="num">' + esc(n) + '</b>' + (u ? '<span>' + esc(u) + '</span>' : '')); }
+  /* ---------- the phone: the top of the Roster tab, the same cards one wide ---------- */
   function renderPhone(area) {
-    if (typeof uiRow !== 'function' || typeof uiList !== 'function' || typeof uiLabel !== 'function') return false;
     var M = model();
     if (!M.rows.length) return false;
-    var S = M.stats, open = M.need.filter(function (x) { return !x.handled; });
-    var wrap = node('div', { class: 'ch-phone' });
-    wrap.appendChild(node('div', { class: 'ch-ptop' }, '<p class="ch-sub">' + esc(new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })) + ' · <b>' + (open.length ? plural(open.length, 'needs you', 'need you') : 'all caught up') + '</b></p>'));
-    var stats = node('div', { class: 'ch-stats' });
-    stats.appendChild(phoneStat('users', 'Lifters', String(S.lifters.n), '', S.lifters.short, 'team', null));
-    stats.appendChild(phoneStat('check', 'Sessions this week', String(S.sessions.n), S.sessions.of ? '/' + S.sessions.of : '', S.sessions.sub, 'week', null));
-    stats.appendChild(phoneStat('pen', 'Weeks to write', String(S.write.n), '', S.write.sub, 'write', function () { var w = S.write.who[0]; if (w && typeof openAthleteProgram === 'function') openAthleteProgram(w.athlete.id); }));
-    stats.appendChild(phoneStat('trophy', 'PRs this week', String(S.prs.n), '', S.prs.sub, 'pr', function () { var p = S.prs.who[0]; if (p) openLifter(p.athlete.id); }));
-    wrap.appendChild(stats);
-    if (open.length) {
-      wrap.appendChild(uiLabel('Needs you', { count: open.length }));
-      wrap.appendChild(uiList(open.slice(0, 6).map(function (x) {
-        var a = x.r.athlete;
-        return uiRow({ av: a.name, title: a.name, sub: x.why.text, endNode: x.met.n ? endNum(x.met.n, x.met.u, x.met.tone) : null, chevron: true, onClick: function () { openLifter(a.id); } });
-      })));
-      if (open.length > 6) wrap.appendChild(uiList([uiRow({ title: plural(open.length - 6, 'more needs you', 'more need you'), sub: open.slice(6).map(function (x) { return first(x.r.athlete.name); }).join(', '), chevron: true, onClick: function () { openLifter(open[6].r.athlete.id); } })]));
-    } else {
-      wrap.appendChild(uiLabel('Needs you'));
-      wrap.appendChild(uiList([uiRow({ title: 'All caught up', sub: S.write.n ? 'Next: ' + S.write.sub.replace('’s is next', '’s week to write') : 'Nobody needs you right now' })]));
-    }
-    if (M.meets.length) {
-      wrap.appendChild(uiLabel('Meets coming up', { count: M.meets.length }));
-      wrap.appendChild(uiList(M.meets.slice(0, 4).map(function (x) {
-        return uiRow({ av: x.r.athlete.name, title: (x.meet.name || 'Meet'), sub: x.step, subTone: x.tone === 'warn' ? 'alert' : null, endNode: endNum(daysText(x.days), '', 'meet'), chevron: true, onClick: function () { openLifter(x.r.athlete.id); } });
-      })));
-    }
-    if (M.live.length) {
-      wrap.appendChild(uiLabel('Training now', { count: M.live.length }));
-      wrap.appendChild(uiList(M.live.slice(0, 3).map(function (x) {
-        var s = x.set;
-        return uiRow({ av: x.r.athlete.name, title: x.r.athlete.name, sub: s.title + ' · set ' + s.done + ' of ' + s.total, endNode: endNum(kg(s.weight) + ' × ' + (s.reps || ''), s.rpe != null && s.rpe !== '' ? '@' + num(s.rpe) : '', 'live'), chevron: true, onClick: function () { openLifter(x.r.athlete.id); } });
-      })));
-    }
+    var W = workFor(M), G = groupsHtml(M);
+    var wrap = node('div', { class: 'ch-phone ch-host' });
+    wrap.innerHTML = '<p class="ch-sub">' + esc(new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })) + ' · ' + M.rows.length + ' lifters' + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + '</p>' + workHtml(W, M.need) + G.html;
+    M.work = W; M.cards = G.cards;
+    wire(wrap, M);
     area.appendChild(wrap);
     var sec = area.closest('section');
     if (sec) sec.classList.toggle('ch-seats-ok', !(M.seats && M.seats.near));
