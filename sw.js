@@ -28,6 +28,7 @@ const PRECACHE = [
   '/app.js',
   '/voice.js',
   '/db.js',
+  '/social-auth.js',   // Continue with Apple / Google (index.html's modals + the native sheets)
   '/styles.css',
   '/manifest.json',
   '/favicon.svg',

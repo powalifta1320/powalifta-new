@@ -30,3 +30,6 @@ ds-bundle/
 
 # Local-only motion reel (never deploy)
 showreel/
+
+# Local screenshots from the browser proofs
+scratchpad-shots/

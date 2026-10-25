@@ -22,6 +22,10 @@
 -- Exemptions:
 --   * service role (auth.uid() IS NULL) — the Lemon Squeezy webhook sets tiers
 --   * is_admin() — the admin dashboard may still edit anything
+--   * finish_social_signup (migration-social-sign-in-2026-10-25.sql): a first-time Apple /
+--     Google account's one-time role choice, marked by the transaction-local setting
+--     powa.social_role = 'allow' that only that function sets (added 2026-10-25; the social
+--     migration carries this same body, so either file may run last)
 --
 -- Run once in Supabase SQL Editor, AFTER migration-profiles-rls.sql.
 -- Safe to re-run (CREATE OR REPLACE + DROP TRIGGER IF EXISTS). No data changes.
@@ -36,6 +40,12 @@ AS $$
 BEGIN
   -- Server-side / service role (no JWT in context) may change anything.
   IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+  -- finish_social_signup (migration-social-sign-in-2026-10-25.sql) sets a first-time Apple /
+  -- Google account's role once. It marks its own transaction with this setting, which no
+  -- client can set (set_config is not an exposed RPC) and which ends with the transaction.
+  IF current_setting('powa.social_role', true) = 'allow' THEN
     RETURN NEW;
   END IF;
   -- Admins may change anything (admin dashboard).

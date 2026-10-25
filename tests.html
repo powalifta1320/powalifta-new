@@ -95,6 +95,7 @@
 <script src="voice.js"></script>
 <script src="video-review.js"></script>
 <script src="meetday.js"></script>
+<script src="social-auth.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -4359,6 +4360,109 @@ function runImporterTests(win) {
   test('accessory lift keeps its name', () => {
     const r = build('date,lift,weight,reps,rpe\n2026-01-05,Lat Pulldown,60,10,8', 'kg');
     eq(r.logs.length, 1); eq(r.logs[0].exerciseName, 'Lat Pulldown'); eq(r.logs[0].lift, 'lat pulldown');
+  });
+}
+
+/* ===========================================================
+   Social sign-in (Continue with Apple / Google) — social-auth.js
+   =========================================================== */
+group('social sign-in (Apple, Google)');
+{
+  const S = window.SocialAuth;
+  test('SocialAuth is loaded with its pure helpers', () => { assert(S && typeof S.sha256Hex === 'function' && typeof S.roleRoute === 'function'); });
+  test('sha256Hex matches the standard vectors', () => {
+    eq(S.sha256Hex(''), 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    eq(S.sha256Hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    eq(S.sha256Hex('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq'), '248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1');
+    eq(S.sha256Hex('The quick brown fox jumps over the lazy dog'), 'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592');
+  });
+  test('sha256Hex: block boundaries (55, 63, 64, 65 bytes)', () => {
+    eq(S.sha256Hex('a'.repeat(55)), '9f4390f8d30c2dd92ec9f095b65e2b9ae9b0a925a5258e241c9f1e910f734318');
+    eq(S.sha256Hex('a'.repeat(63)), '7d3e74a05d7db15bce4ad9ec0658ea98e3f06eeecf16b4c6fff2da457ddc2f34');
+    eq(S.sha256Hex('a'.repeat(64)), 'ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb');
+    eq(S.sha256Hex('a'.repeat(65)), '635361c48bb9eab14198e76ea8ab7f1a41685d6ad62aa9146d301d4f17eb0ae0');
+  });
+  test('sha256Hex hashes the UTF-8 bytes, not UTF-16 units', () => eq(S.sha256Hex('é'), '4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c'));
+  test('the Apple nonce: 32 random bytes as hex, its SHA-256 for Apple, fresh every time', () => {
+    const a = S.makeNonce(), b = S.makeNonce();
+    eq(a.raw.length, 64); assert(/^[0-9a-f]{64}$/.test(a.raw), 'hex'); eq(a.hashed, S.sha256Hex(a.raw)); eq(a.hashed.length, 64);
+    assert(a.raw !== b.raw, 'two nonces differ');
+  });
+  test('normalizeRole accepts the three tiles only', () => {
+    eq(S.normalizeRole('Coach'), 'coach'); eq(S.normalizeRole(' solo '), 'solo'); eq(S.normalizeRole('athlete'), 'athlete');
+    eq(S.normalizeRole('admin'), null); eq(S.normalizeRole(''), null); eq(S.normalizeRole(undefined), null);
+    eq(S.userTypeOf('solo'), 'athlete'); eq(S.userTypeOf('athlete'), 'athlete'); eq(S.userTypeOf('coach'), 'coach');
+  });
+  test('roleRoute: coach → coach.html, admin → admin.html, lifter → athlete.html', () => {
+    eq(S.roleRoute('coach'), 'coach.html'); eq(S.roleRoute('admin'), 'admin.html'); eq(S.roleRoute('athlete'), 'athlete.html'); eq(S.roleRoute(undefined), 'athlete.html');
+  });
+  test('roleRoute: a coached lifter without a claimed code opens on the Coach tab', () => {
+    eq(S.roleRoute('athlete', { role: 'athlete' }), 'athlete.html?tab=coach');
+    eq(S.roleRoute('athlete', { role: 'athlete', linked: true }), 'athlete.html');
+    eq(S.roleRoute('athlete', { role: 'solo' }), 'athlete.html');
+  });
+  test('isFirstTime: nothing on record → first time', () => {
+    assert(S.isFirstTime({ id: 'u', email: 'a@b.co', user_metadata: { name: 'A' }, app_metadata: { provider: 'google' } }));
+    assert(S.isFirstTime({}));
+  });
+  test('isFirstTime: the email sign-up metadata or the server marker means returning', () => {
+    eq(S.isFirstTime({ user_metadata: { user_type: 'athlete' } }), false);
+    eq(S.isFirstTime({ user_metadata: { user_type: 'coach' } }), false);
+    eq(S.isFirstTime({ app_metadata: { powa_role_chosen: true } }), false);
+    eq(S.isFirstTime({ app_metadata: { user_type: 'coach' } }), false);
+    eq(S.knownUserType({ app_metadata: { user_type: 'coach' }, user_metadata: { user_type: 'athlete' } }), 'coach', 'the server marker wins');
+    eq(S.knownUserType({ user_metadata: { user_type: 'wizard' } }), null);
+  });
+  test('profileFromIdentity: Google gives a name and a picture', () => {
+    const p = S.profileFromIdentity({ email: 'Jane@Gmail.com', user_metadata: { name: 'Jane Doe', full_name: 'Jane Doe', picture: 'https://lh3.googleusercontent.com/a' }, app_metadata: { provider: 'google' } });
+    eq(p.name, 'Jane Doe'); eq(p.email, 'jane@gmail.com'); eq(p.avatarUrl, 'https://lh3.googleusercontent.com/a'); eq(p.provider, 'google'); eq(p.relayEmail, false);
+  });
+  test('profileFromIdentity: Apple without a name leaves it blank (never the email handle) and flags the relay', () => {
+    const p = S.profileFromIdentity({ email: 'k4xq7m2tz@privaterelay.appleid.com', user_metadata: {}, app_metadata: { provider: 'apple' } });
+    eq(p.name, ''); eq(p.relayEmail, true); eq(p.avatarUrl, null); eq(p.provider, 'apple');
+  });
+  test('profileFromIdentity: the native credential name wins and gets tidied', () => {
+    const p = S.profileFromIdentity({ email: 'x@y.z', user_metadata: { name: 'Metadata Name' } }, { provider: 'apple', name: '  Jane   Doe ' });
+    eq(p.name, 'Jane Doe'); eq(p.provider, 'apple');
+    eq(S.profileFromIdentity({ user_metadata: { given_name: 'Sam', family_name: 'Lee' } }).name, 'Sam Lee');
+    eq(S.profileFromIdentity({ user_metadata: { avatar_url: 'http://insecure/a.png' } }).avatarUrl, null, 'http avatars dropped');
+  });
+  test('parseReturnHash: tokens, an error, a recovery link, nothing', () => {
+    const t = S.parseReturnHash('#access_token=a&refresh_token=b&token_type=bearer&expires_in=3600');
+    eq(t.tokens, true); eq(t.error, null); eq(t.recovery, false);
+    const e = S.parseReturnHash('#error=access_denied&error_code=user_cancelled&error_description=The+user+denied+access');
+    eq(e.tokens, false); eq(e.error, 'The user denied access');
+    eq(S.parseReturnHash('#type=recovery&access_token=a').recovery, true, 'reset links stay with routeRecoveryLink');
+    const n = S.parseReturnHash(''); eq(n.tokens, false); eq(n.error, null); eq(n.recovery, false);
+    eq(S.parseReturnHash('#login').tokens, false);
+  });
+  test('pending state: round-trips, expires after 15 minutes, rejects junk', () => {
+    const now = 1700000000000;
+    const raw = S.encodePending({ provider: 'google', from: 'signup', role: 'coach', name: 'Jane', consent: { age_16_plus: true } }, now);
+    const back = S.decodePending(raw, now + 60000);
+    eq(back.provider, 'google'); eq(back.role, 'coach'); eq(back.consent.age_16_plus, true);
+    eq(S.decodePending(raw, now + S.PENDING_TTL_MS + 1), null, 'expired');
+    eq(S.decodePending('not json'), null); eq(S.decodePending(JSON.stringify({ v: 2, at: now }), now), null); eq(S.decodePending(null), null);
+  });
+  test('redirectTarget: the page that started it, without query or hash; the app shell → the website', () => {
+    eq(S.redirectTarget({ protocol: 'https:', origin: 'https://www.powalifta.com', pathname: '/index.html', search: '?code=ABC123', hash: '#signup' }), 'https://www.powalifta.com/index.html');
+    eq(S.redirectTarget({ protocol: 'http:', origin: 'http://localhost:4191', pathname: '/' }), 'http://localhost:4191/');
+    eq(S.redirectTarget({ protocol: 'capacitor:', origin: 'capacitor://localhost', pathname: '/' }), 'https://www.powalifta.com/');
+  });
+  test('a closed sheet is quiet; other errors speak', () => {
+    eq(S.friendlyError(new Error('The operation couldn’t be completed. (com.apple.AuthenticationServices.AuthorizationError error 1001.)')), '');
+    eq(S.friendlyError(new Error('The user canceled the sign-in flow.')), '');
+    eq(S.isCancel({ message: 'access_denied' }), true);
+    eq(S.friendlyError(new Error('Invalid login credentials')), 'Invalid login credentials');
+    assert(/connection/i.test(S.friendlyError(new Error('Failed to fetch'))), 'offline wording');
+    assert(/Apple sign-in/.test(S.friendlyError(new Error('Passed nonce and nonce in id_token should either both exist or not.'))), 'nonce wording');
+  });
+  test('consentNow records 16+ and when', () => {
+    const c = S.consentNow(1700000000000);
+    eq(c.age_16_plus, true); eq(c.terms_accepted_at, '2023-11-14T22:13:20.000Z');
+  });
+  test('cleanName trims, collapses spaces and caps the length', () => {
+    eq(S.cleanName('  Jane   Doe '), 'Jane Doe'); eq(S.cleanName(null), ''); eq(S.cleanName('x'.repeat(100)).length, 80);
   });
 }
 

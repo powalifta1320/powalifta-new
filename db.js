@@ -1010,6 +1010,73 @@ const DB = {
     return data;
   },
 
+  // ---------- SOCIAL SIGN-IN (Continue with Apple / Google — social-auth.js) ----------
+  // Website: Supabase's redirect flow. The tab leaves for the provider and comes back to
+  // redirectTo (it must be on the dashboard's Redirect URLs list, see docs/social-sign-in-
+  // runbook.md) with the session in the URL hash, which this client reads as it loads.
+  // routeRecoveryLink above moves only password-reset links, so the two never collide.
+  async signInWithProvider(provider, redirectTo) {
+    const options = { redirectTo };
+    if (provider === 'google') options.queryParams = { prompt: 'select_account' };   // several Google accounts: pick one
+    const { data, error } = await sb.auth.signInWithOAuth({ provider, options });
+    if (error) throw error;
+    return data;
+  },
+  // iPhone app: the native Apple / Google sheet hands back an identity token and Supabase
+  // checks it and opens a session. Apple: `nonce` is the RAW nonce (its SHA-256 went to
+  // Apple). Google: `accessToken` lets Supabase check the token's at_hash claim.
+  async signInWithIdToken(provider, token, nonce, accessToken) {
+    const creds = { provider, token };
+    if (nonce) creds.nonce = nonce;
+    if (accessToken) creds.access_token = accessToken;
+    const { data, error } = await sb.auth.signInWithIdToken(creds);
+    if (error) throw error;
+    if (!data || !data.session) throw new Error('Sign-in did not return a session.');
+    return data;
+  },
+  async getProfileOrNull(userId) {
+    const { data, error } = await sb.from('profiles').select('*').in('id', [userId]);
+    if (error) throw error;
+    return (data && data[0]) || null;
+  },
+  // A first-time Apple / Google account picks athlete or coach after signing in (the email
+  // form asks before). finish_social_signup (migration-social-sign-in-2026-10-25.sql) writes
+  // the role once, server-side, and marks the account so it can't be chosen twice. Until
+  // that migration runs the sign-up trigger has already made an athlete row: an athlete
+  // just gets their name saved, a coach is told to use email for now.
+  async finishSocialSignup(userType, name) {
+    const role = userType === 'coach' ? 'coach' : 'athlete';
+    const { data, error } = await sb.rpc('finish_social_signup', { p_user_type: role, p_name: name || null });
+    if (!error) return data || { ok: true, user_type: role };
+    if (!_isNotReady(error)) throw error;
+    return this._finishSocialSignupFallback(role, name);
+  },
+  async _finishSocialSignupFallback(role, name) {
+    const { data: u } = await sb.auth.getUser();
+    const user = u && u.user;
+    if (!user) throw new Error('Sign in first');
+    const row = await this.getProfileOrNull(user.id);
+    if (!row) {
+      // profiles_insert_self + the INSERT guard (migration-rls-hardening-3.sql) allow this own-row insert.
+      const { error } = await sb.from('profiles').insert({ id: user.id, name: name || String(user.email || '').split('@')[0] || 'Lifter', email: user.email, user_type: role, coach_id: null });
+      if (error) throw error;
+    } else if (row.user_type === role || row.user_type === 'admin') {
+      if (name && name !== row.name) await this.updateProfile(user.id, { name });
+    } else {
+      const e = new Error(role === 'coach'
+        ? 'Coach accounts through Apple or Google switch on with the next update. For now, sign up as a coach with your email.'
+        : 'This account is already set up as a ' + row.user_type + '.');
+      e.notReady = true;
+      throw e;
+    }
+    return { ok: true, user_type: role, fallback: true };
+  },
+  // Writes into the account's own metadata (what the email sign-up sends as options.data).
+  async setUserMetadata(patch) {
+    const { error } = await sb.auth.updateUser({ data: patch || {} });
+    if (error) throw error;
+  },
+
   // ---------- PROFILES ----------
   async getProfile(userId) {
     const { data, error } = await sb.from('profiles').select('*').in('id', [userId]);

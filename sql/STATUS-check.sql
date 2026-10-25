@@ -126,6 +126,9 @@ with checks(n, migration, applied) as (values
   (45, 'migration-live-desk-2026-10-22.sql  (programs, workout_logs, form_checks, checkins, checkin_answers, session_notes in Realtime; needs row 43 first)',
         (select count(*) from pg_publication_tables
           where pubname = 'supabase_realtime' and schemaname = 'public'
-            and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6)
+            and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6),
+  (46, 'migration-social-sign-in-2026-10-25.sql  (Continue with Apple / Google: finish_social_signup + the guard''s exemption)',
+        to_regprocedure('public.finish_social_signup(text, text)') is not null
+        and position('powa.social_role' in pg_get_functiondef('public.guard_profile_privileged_cols()'::regprocedure)) > 0)
 )
 select n, migration, applied from checks order by n;

@@ -806,6 +806,24 @@ window.POWA_SUPPORT_KB = [
   "esc": true
  },
  {
+  "id": "sign-in-apple-google",
+  "q": "How do I sign in with Apple or Google?",
+  "t": [
+   "apple id",
+   "continue with apple",
+   "continue with google",
+   "google account",
+   "log in with apple",
+   "log in with google",
+   "no password",
+   "sign in with apple",
+   "sign in with google",
+   "social login"
+  ],
+  "a": "On the Log in or Sign up screen tap Continue with Apple or Continue with Google: you go to Apple or Google, approve, and come straight back signed in. The first time we ask how you'll use POWALIFTA (lifter on your own, lifter with a coach, or coach) and confirm your name; after that it is one tap. If you already have an account with the same email address and that email is confirmed, the Apple or Google button opens that same account, nothing is duplicated. If you chose Hide my email with Apple, Apple gives us a private relay address, which counts as a different email from your usual one. You can still set a password later under You → Security to log in with email too.",
+  "app": "On the welcome screen tap Get started or I already have an account, then Continue with Apple or Continue with Google: Apple's or Google's own sheet asks you to approve and you are signed in. The first time we ask how you'll use POWALIFTA (I train on my own, I have a coach, I coach lifters) and your name; after that it is one tap. If you already have an account with the same email address and that email is confirmed, the button opens that same account, nothing is duplicated. If you chose Hide my email with Apple, Apple gives us a private relay address, which counts as a different email from your usual one. You can still set a password later under You → Security to log in with email too."
+ },
+ {
   "id": "change-email",
   "q": "How do I change the email on my account?",
   "t": [

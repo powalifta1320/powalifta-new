@@ -1,0 +1,12 @@
+{
+  "_what": "Continue with Apple / Continue with Google: the iPhone build's PUBLIC client ids (not secrets; the Google secret goes only into Supabase). Read by native/scripts/inject-social-sign-in.rb, never by the website. Keep PLACEHOLDER until you have the real ids; with placeholders the Google button is left out of the build and Apple still works.",
+  "_how": "docs/social-sign-in-runbook.md, part 2 (Google Cloud → Credentials): the iOS client (bundle id com.powalifta.app) and the Web client (the one Supabase uses). Then: cd native && npm install && npm run sync && bash scripts/inject-all.sh.",
+  "apple": {
+    "enabled": true,
+    "_note": "Nothing to fill in: on iOS the app's bundle id (com.powalifta.app) is the client id and the injector adds the entitlement. Supabase → Authentication → Providers → Apple must list com.powalifta.app among the Client IDs."
+  },
+  "google": {
+    "iosClientId": "PLACEHOLDER_IOS_CLIENT_ID.apps.googleusercontent.com",
+    "webClientId": "PLACEHOLDER_WEB_CLIENT_ID.apps.googleusercontent.com"
+  }
+}
