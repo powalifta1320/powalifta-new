@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="dash-fx.css">
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
 <link rel="stylesheet" href="desk.css"><!-- the laptop coach desk: html.desk only -->
+<link rel="stylesheet" href="coach-ui.css"><!-- the coach side's new screens (coach-home.js): Home on the desk and the phone -->
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -334,6 +335,7 @@
 <script src="clubs.js"></script>
 <script src="desk.js"></script>
 <script src="desk-season.js"></script><!-- the desk's season: Teams, the roster calendar, Plan a meet, the last week of a block -->
+<script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
@@ -1662,6 +1664,9 @@ function renderRoster() {
     fr.appendChild(side);
     area.appendChild(fr);
   } else {
+    // Home (coach-home.js): the team in four numbers, who needs you with the fix, meets, who is
+    // training now. The old hero, faces and Needs-attention block draw only when it is missing.
+    if (!(window.CoachHome && CoachHome.renderPhone(area))) {
     // The week at a glance, each fact once: the ring says how many trained, the title who's
     // left, the line under it who's training today. PRs are the trophies on the faces below.
     const today = overview.filter(o => o.flag === 'today').map(o => o.athlete.name.split(' ')[0]);
@@ -1712,6 +1717,8 @@ function renderRoster() {
         rows.push(uiRow({ lead: el('span', { class: 'ui-av roster-win', html: ICONS.trophy }), title: names, sub: 'Hit a PR this week' }));
       }
       area.appendChild(uiList(rows));
+    }
+
     }
 
     // The roster: one row per athlete. Tap opens the program; ⋯ holds the rest.
