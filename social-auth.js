@@ -190,6 +190,7 @@
     return {
       tokens: !!(p.get('access_token') || p.get('refresh_token')),
       error: err ? String(err).trim() : null,
+      code: p.get('error_code') || p.get('error') || null,   // e.g. access_denied when the person backed out
       recovery: p.get('type') === 'recovery'
     };
   }
@@ -289,7 +290,7 @@
     if (!pending && !parsed.tokens && !parsed.error) return false;
     if (parsed.error) {
       clearPending(); cleanHash();
-      say(isCancel({ message: parsed.error }) ? 'Sign-in was cancelled.' : parsed.error);
+      say((isCancel({ message: parsed.error }) || isCancel({ message: parsed.code })) ? 'Sign-in was cancelled.' : parsed.error);
       return false;
     }
     var session = null;
@@ -482,7 +483,6 @@
       fine.appendChild(document.createTextNode('Not you? ')); fine.appendChild(out); modal.appendChild(fine);
       document.body.appendChild(back);
       void back.offsetWidth; back.classList.add('open');
-      setTimeout(function () { try { (st.role ? name : seg.firstChild).focus({ preventScroll: true }); } catch (e) {} }, 60);
       function done(v) { back.classList.remove('open'); setTimeout(function () { back.remove(); }, 250); resolve(v); }
       btn.addEventListener('click', function () {
         var nm = cleanName(name.value);

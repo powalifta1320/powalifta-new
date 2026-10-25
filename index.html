@@ -760,8 +760,8 @@ _openHashModal();
 // Back from Apple / Google (social-auth.js)? Finish that sign-in first. handleReturn() resolves
 // true when it has taken the visit over (the account is on its way to its dashboard) and false
 // when there is nothing to finish, which is every ordinary visit: then the page boots as before.
-SocialAuth.mount();
-SocialAuth.handleReturn().then((handled) => {
+if (window.SocialAuth) SocialAuth.mount();
+(window.SocialAuth ? SocialAuth.handleReturn() : Promise.resolve(false)).then((handled) => {
   if (handled) return;
 bootstrap(null, () => {
   // Native shell routing: an app never shows its marketing site / welcome to someone

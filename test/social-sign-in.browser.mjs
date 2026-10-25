@@ -70,6 +70,10 @@ async function open({ w, h, scale, theme, native }) {
       window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: new Proxy(real, { get: (t, k) => (k in t ? t[k] : noop) }) };
       window.POWA_SOCIAL = { google: { iosClientId: 'test-ios.apps.googleusercontent.com', webClientId: 'test-web.apps.googleusercontent.com' } };
     }
+    // Toasts live 2.4 s and the first can appear before DOMContentLoaded: record every one from the start.
+    window.__toasts = [];
+    new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1 && n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); })))
+      .observe(document, { childList: true, subtree: true });
     document.addEventListener('DOMContentLoaded', () => {
       const st = document.createElement('style');
       st.textContent = '*,*::before,*::after{transition:none!important;animation-duration:0s!important;animation-delay:0s!important}';
@@ -214,16 +218,19 @@ for (const [w, h, scale, sz] of SIZES) {
   await page.addInitScript(() => { try { sessionStorage.setItem('powa-social-pending', JSON.stringify({ v: 1, at: Date.now(), provider: 'google', from: 'login' })); } catch (e) {} });
   await page.goto(BASE + 'index.html#error=access_denied&error_code=user_cancelled&error_description=The+user+denied+access', { waitUntil: 'load' });
   await wait(1500);
-  const e1 = await page.evaluate(() => ({ toast: (document.querySelector('.toast') || {}).textContent || '', hash: location.hash, pending: sessionStorage.getItem('powa-social-pending'), nav: !!document.querySelector('#nav .brand, #nav a, #nav button') }));
-  ok(/cancelled/i.test(e1.toast), 'web return (denied): a quiet toast "' + e1.toast + '"');
+  // (The nav itself is not a usable signal here: with Supabase refused at the network layer the
+  // untouched site leaves #nav empty too, so "booted as usual" is: the page is alive and usable.)
+  const e1 = await page.evaluate(() => { openLoginModal(); return { toast: (window.__toasts || []).join(' | '), hash: location.hash, pending: sessionStorage.getItem('powa-social-pending'), modal: document.getElementById('loginModal').classList.contains('open'), buttons: document.querySelectorAll('#loginModal .sa-btn').length }; });
+  ok(e1.toast === 'Sign-in was cancelled.', 'web return (denied): a quiet toast "' + e1.toast + '"');
   ok(e1.hash === '' && e1.pending === null, 'web return (denied): the hash is cleaned and the pending state cleared');
-  ok(e1.nav, 'web return (denied): the page booted as usual (nav rendered)');
+  ok(e1.modal && e1.buttons === 2 && page.errors.length === 0, 'web return (denied): the page is alive, the Log in modal opens with its buttons, no page errors');
 
-  await page.goto(BASE + 'index.html#access_token=fake&refresh_token=fake&token_type=bearer&expires_in=3600', { waitUntil: 'load' });
+  // A query string, so this is a real load and not a same-document hash change of the page above.
+  await page.goto(BASE + 'index.html?case=tokens#access_token=fake&refresh_token=fake&token_type=bearer&expires_in=3600', { waitUntil: 'load' });
   await wait(3500);
-  const e2 = await page.evaluate(() => ({ toast: (document.querySelector('.toast') || {}).textContent || '', hash: location.hash, nav: !!document.querySelector('#nav .brand, #nav a, #nav button') }));
+  const e2 = await page.evaluate(() => { openLoginModal(); return { toast: (window.__toasts || []).join(' | '), hash: location.hash, pending: sessionStorage.getItem('powa-social-pending'), modal: document.getElementById('loginModal').classList.contains('open') }; });
   ok(/didn.t finish/i.test(e2.toast), 'web return (tokens, Supabase unreachable): says the sign-in didn\'t finish: "' + e2.toast + '"');
-  ok(e2.hash === '' && e2.nav, 'web return (unreachable): hash cleaned, page booted');
+  ok(e2.hash === '' && e2.pending === null && e2.modal && page.errors.length === 0, 'web return (unreachable): hash cleaned, pending cleared, page alive, no page errors' + ((e2.hash === '' && e2.pending === null && e2.modal && page.errors.length === 0) ? '' : ' — ' + JSON.stringify({ hash: e2.hash, pending: e2.pending, modal: e2.modal, errors: page.errors })));
   await ctx.close();
 }
 
