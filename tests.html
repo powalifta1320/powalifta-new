@@ -4644,6 +4644,8 @@ test('groups: the worst group wins and every lifter lands once', () => {
   eq(g[3].rows.map(r => r.athlete.id).join(','), 'a,z', 'on plan by name');
   eq(g.reduce((n, x) => n + x.rows.length, 0), rows.length, 'nobody twice, nobody lost');
   eq(CL.clGroups([]).length, 0, 'empty groups are dropped');
+  eq(CL.clGroupKey(clRow({ reasons: [{ type: 'meet' }, { type: 'blockend' }], meet: { days: 0, meet: {} } })), 'meet', 'a meet this fortnight beats the block to write');
+  eq(CL.clGroupKey(clRow({ reasons: [{ type: 'blockend' }], meet: { days: 40, meet: {} } })), 'block', 'a far meet waits behind the block');
 });
 test('the line: the coach\'s words, short enough for a row', () => {
   const pain = clRow({ reasons: [{ type: 'pain' }], status: { pain: { report: { bodyPart: 'low_back', severity: 6, lift: 'deadlift' }, count: 2 } } });
@@ -4682,7 +4684,8 @@ test('the answer: one big thing per state', () => {
   const plan = CL.clAnswer(clRow({ total: { values: [600, 622], delta: 22 }, status: { week: { idx: 2, total: 6 }, sessions: { done: 3, planned: 3 } } }));
   eq(plan.big, '+22 kg'); eq(plan.tone, 'ok');
   const q = CL.clAnswer(clRow({ reasons: [{ type: 'message', text: 'Message 2d', body: 'Back feels fine now' }] }));
-  eq(q.quote, true); eq(q.big, '“Back feels fine now”');
+  eq(q.quote, true); eq(q.big, '“Back feels fine now”'); eq(q.words, 'no reply yet · waiting 2 days');
+  eq(CL.clAnswer(clRow({ reasons: [{ type: 'checkin', text: 'Slept 5h' }] })).big, '5h');
   eq(CL.clAnswer(clRow({ reasons: [{ type: 'blockend' }], status: { program: { name: 'Wave' } } })).big, 'Last week');
 });
 test('the block picture: sessions and strength per week, the meet in its week', () => {

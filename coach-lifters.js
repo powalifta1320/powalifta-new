@@ -39,13 +39,22 @@
   /* ---------- pure: the four groups, the line, the number, the answer, the block ---------- */
   var NEED = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|readiness|quiet|never|missed|stalling)$/;
   var BLOCK = /^(blockend|blockdone|noprogram)$/;
-  var GROUPS = [{ key: 'need', title: 'Needs you' }, { key: 'block', title: 'Next block due' }, { key: 'meet', title: 'Meet soon' }, { key: 'plan', title: 'On plan' }];
+  // 'Check on' is the coach's verb for the first group; the header's 'N need you' counts every
+  // flagged lifter (the app's queue), which the three flagged groups split between them.
+  var GROUPS = [{ key: 'need', title: 'Check on' }, { key: 'block', title: 'Next block due' }, { key: 'meet', title: 'Meet soon' }, { key: 'plan', title: 'On plan' }];
   function clGroupKey(r) {
     var types = (r.reasons || []).map(function (x) { return x.type; });
     if (types.some(function (t) { return NEED.test(t); })) return 'need';
+    if (types.indexOf('meet') >= 0) return 'meet';   // a meet inside two weeks beats a block to write
     if (types.some(function (t) { return BLOCK.test(t); })) return 'block';
     if (r.meet && r.meet.days <= 56) return 'meet';
     return 'plan';
+  }
+  // 'Message 1d' / 'Note waiting 3d' → '1 day' / '3 days'; null when the text carries no wait.
+  function waitText(text) {
+    var m = /(\d+)(h|d)$/.exec(text || '');
+    if (!m) return null;
+    return m[1] + (m[2] === 'h' ? (m[1] === '1' ? ' hour' : ' hours') : (m[1] === '1' ? ' day' : ' days'));
   }
   // rows → [{ key, title, rows }], empty groups dropped. opts.order: { athleteId: rank } (the queue,
   // worst first); unranked rows follow by name. Meet soon runs nearest meet first.
@@ -125,10 +134,10 @@
         return { big: r.meet && r.meet.days <= 0 ? 'Today' : (r.meet ? r.meet.days + (r.meet.days === 1 ? ' day' : ' days') : 'Meet'), words: (m.name || 'Meet') + (m.weightClass ? ' · ' + m.weightClass + ' class' : '') + (hasPlan ? ' · attempts set' : ' · attempts not set'), tone: 'meet' }; }
       case 'overshoot': { var o = /^(.*) @([\d.]+) vs @([\d.]+)$/.exec(reason.text || ''); return o ? { big: '@' + o[2], words: o[1] + ', you wrote ' + o[3], tone: 'warn' } : { big: 'Over', words: reason.text, tone: 'warn' }; }
       case 'drift': return { big: '+' + (r.drift ? r.drift.avg : '0.5'), words: 'over what you wrote, across ' + (r.drift ? r.drift.n : 'their') + ' sets this week', tone: 'warn' };
-      case 'message': return { big: reason.body ? '“' + clip(reason.body, 120) + '”' : 'Wrote you', words: 'no reply yet' + (reason.text ? ' · ' + reason.text.replace(/^Message /, '') + ' waiting' : ''), tone: 'msg', quote: !!reason.body };
+      case 'message': { var wt = waitText(reason.text); return { big: reason.body ? '“' + clip(reason.body, 120) + '”' : 'Wrote you', words: 'no reply yet' + (wt ? ' · waiting ' + wt : ''), tone: 'msg', quote: !!reason.body }; }
       case 'note': { var w = clWords(r); return { big: w && w.kind === 'note' ? '“' + clip(w.text, 120) + '”' : 'A note', words: 'on their session · waiting on you', tone: 'msg', quote: !!(w && w.kind === 'note') }; }
       case 'formcheck': return { big: 'Video', words: 'form check waiting on your review', tone: 'msg' };
-      case 'checkin': { var c = /(\d+(?:\/10)?)/.exec(reason.text || ''); return { big: c ? c[1] : 'Check-in', words: reason.text || 'worth a look', tone: 'warn' }; }
+      case 'checkin': { var c = /(\d+(?:\/10|h)?)/.exec(reason.text || ''); return { big: c ? c[1] : 'Check-in', words: (reason.text || 'worth a look') + ' · from their check-in', tone: 'warn' }; }
       case 'readiness': return { big: 'Low', words: st.readiness && st.readiness.text ? st.readiness.text : 'readiness is down', tone: 'warn' };
       case 'quiet': return { big: st.ago != null ? st.ago + ' days' : 'Quiet', words: 'since their last session' + (st.lastDate ? ' · ' + dateShort(st.lastDate) : ''), tone: 'warn' };
       case 'never': return { big: '0 sets', words: prog ? 'nothing logged on ' + prog.name : 'nothing logged yet', tone: 'warn' };
@@ -140,7 +149,7 @@
     }
     var n = clNumber(r);
     if (n.tone === 'none') return { big: wk && wk.total ? 'Week ' + (wk.idx + 1) : 'New', words: wk && wk.total ? 'of ' + wk.total + (se.planned ? ' · ' + (se.done || 0) + ' of ' + se.planned + ' sessions this week' : '') : 'no trend yet', tone: 'ok' };
-    return { big: n.text + ' ' + unit(), words: 'in four weeks' + (wk && wk.total ? ' · week ' + (wk.idx + 1) + ' of ' + wk.total : '') + (se.planned ? ', ' + (se.done || 0) + ' of ' + se.planned + ' sessions this week' : ''), tone: n.tone === 'down' ? 'warn' : 'ok' };
+    return { big: n.text + ' ' + unit(), words: 'in four weeks' + (wk && wk.total ? ' · week ' + (wk.idx + 1) + ' of ' + wk.total : '') + (se.planned ? ', ' + (se.done || 0) + ' of ' + se.planned + ' sessions this week' : ''), tone: n.tone === 'down' ? 'warn' : n.tone === 'flat' ? 'quiet' : 'ok' };
   }
   // The block as a picture: per week { number, planned, done, missed, coming, total, state, meet }.
   // total = the best squat + bench + deadlift e1RM as of that week's last logged set (null until all
