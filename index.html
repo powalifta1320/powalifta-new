@@ -597,6 +597,10 @@
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('loginModal')">&times;</button>
     <h3>Log in</h3>
+    <!-- Continue with Apple / Google (social-auth.js fills the row; a first-time account is asked
+         the sign-up's questions when it comes back). The email form below is unchanged. -->
+    <div class="sa-row" data-social-buttons="login"></div>
+    <div class="sa-or"><span>or with email</span></div>
     <div class="auth-seg" data-for="loginType" role="radiogroup" aria-label="Account type">
       <button type="button" data-v="athlete" class="on">Athlete</button>
       <button type="button" data-v="coach">Coach</button>
@@ -651,6 +655,10 @@
       <option value="athlete">Athlete with a coach</option>
       <option value="coach">Coach</option>
     </select>
+    <!-- Continue with Apple / Google: the tile above, a typed name, the invite code and the 16+
+         tick travel with the sign-in; whatever is still missing is asked once it comes back. -->
+    <div class="sa-row" data-social-buttons="signup"></div>
+    <div class="sa-or"><span>or with email</span></div>
     <div class="form-group">
       <label>Full name</label>
       <input type="text" id="signupName" placeholder="Jane Doe" autocomplete="name">
@@ -689,6 +697,7 @@
 <script src="db.js"></script>
 <script src="native-bridge.js"></script>
 <script src="app.js"></script>
+<script src="social-auth.js"></script>
 <script>
 { const nm = document.getElementById('nwMark'); if (nm) nm.innerHTML = BRAND_MARK; }
 // Auth switches drive their hidden <select> (the existing logic reads the select).
@@ -748,6 +757,12 @@ _openHashModal();
   } catch (e) {}
 })();
 
+// Back from Apple / Google (social-auth.js)? Finish that sign-in first. handleReturn() resolves
+// true when it has taken the visit over (the account is on its way to its dashboard) and false
+// when there is nothing to finish, which is every ordinary visit: then the page boots as before.
+if (window.SocialAuth) SocialAuth.mount();
+(window.SocialAuth ? SocialAuth.handleReturn() : Promise.resolve(false)).then((handled) => {
+  if (handled) return;
 bootstrap(null, () => {
   // Native shell routing: an app never shows its marketing site / welcome to someone
   // already signed in — send them straight to their dashboard. If the stored session was
@@ -768,6 +783,7 @@ bootstrap(null, () => {
   // site there, so the network calls would be wasted.
   if (!nativeShell) { renderCoaches(); renderMarketplaceTeaser(); }
   attachPwdToggles();
+});
 });
 
 

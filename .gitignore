@@ -51,3 +51,7 @@ native/scripts/widget-preview/snapshot.json
 
 # Supabase CLI cache (pooler URL, versions): local only
 supabase/.temp/
+
+# Browser-proof screenshots (test/social-sign-in.browser.mjs) and a local playwright-core link
+scratchpad-shots/
+node_modules/

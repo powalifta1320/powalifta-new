@@ -201,15 +201,33 @@
     { key: 'athlete', tint: 't-green', icon: I.coached, title: 'I have a coach', sub: 'Join with their code. Your program shows up ready to lift.' },
     { key: 'coach', tint: 't-violet', icon: I.coach, title: 'I coach lifters', sub: 'Build programs, run your roster, free for your first 3.' }
   ];
-  function openSignup(opts) {
-    opts = opts || {};
-    var st = { role: opts.role && /^(solo|athlete|coach)$/.test(opts.role) ? opts.role : null, code: (opts.code || '').toUpperCase().slice(0, 6) };
-    var api = makeSheet('Create your account', 3);
-
-    // Step 1 — who are you
-    var s1 = api.add(h('div', { class: 'ob-step' }));
-    s1.appendChild(h('h2', { text: 'How will you use POWALIFTA?' }));
-    s1.appendChild(h('p', { class: 'ob-lead', text: 'Pick one. You can change it later.' }));
+  // ---------- Continue with Apple / Google (social-auth.js) ----------
+  function orDivider() { return h('div', { class: 'sa-or' }, [h('span', { text: 'or with email' })]); }
+  // The two provider buttons for a sheet step. stateFn() returns what the step already knows
+  // (role, name, coach code, the 16+ consent) or false to stop (it has said why); errRef()
+  // returns the step's error line. A first-time account is asked the rest in askRoleStep,
+  // inside the same sheet; a returning one goes straight to its dashboard.
+  function socialRow(api, stateFn, errRef) {
+    if (!window.SocialAuth) return null;
+    var row = SocialAuth.buttonRow({ onPick: function (provider) {
+      var st = stateFn();
+      if (st === false) return;
+      var errEl = errRef();
+      if (errEl) errEl.textContent = '';
+      haptic('light');
+      SocialAuth.setBusy(row, true, provider);
+      SocialAuth.native(provider, st, { askRole: function (prefill) { return askRoleStep(api, prefill); } })
+        .then(function (dest) { if (dest) haptic('success'); else SocialAuth.setBusy(row, false); })
+        .catch(function (e) {
+          var m = SocialAuth.friendlyError(e);   // a closed sheet says nothing
+          if (m) { haptic('error'); var el = errRef(); if (el) el.textContent = m; }
+          SocialAuth.setBusy(row, false);
+        });
+    } });
+    return row;
+  }
+  // The three role cards (sign-up step 1 and the social role step share them).
+  function roleCards(st, onPick) {
     var choices = h('div', { class: 'ob-choices', role: 'radiogroup', 'aria-label': 'How you will use POWALIFTA' });
     ROLES.forEach(function (r) {
       var card = h('button', { class: 'ob-card ' + r.tint + (st.role === r.key ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': st.role === r.key ? 'true' : 'false' }, [
@@ -221,10 +239,87 @@
         st.role = r.key;
         Array.prototype.forEach.call(choices.children, function (c) { var on = c === card; c.classList.toggle('on', on); c.setAttribute('aria-checked', on ? 'true' : 'false'); });
         haptic('light');
-        codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
-        setTimeout(function () { api.go(1); }, reduce ? 0 : 230);
+        if (onPick) onPick(r.key);
       });
       choices.appendChild(card);
+    });
+    return choices;
+  }
+  // Signed in with Apple / Google for the first time: the sign-up's own questions as one more
+  // step of the current sheet. Resolves with { role, name, code, consent }, or null after
+  // "Not you? Sign out". The back arrow is hidden here: a signed-in account without a role
+  // must not be left behind the login form.
+  function askRoleStep(api, prefill) {
+    prefill = prefill || {};
+    return new Promise(function (resolve) {
+      var st = { role: prefill.role || null };
+      var s = api.add(h('div', { class: 'ob-step' }));
+      s.appendChild(h('h2', { text: 'How will you use POWALIFTA?' }));
+      var who = prefill.provider === 'apple' ? 'Apple' : prefill.provider === 'google' ? 'Google' : '';
+      s.appendChild(h('p', { class: 'ob-lead', text: (who ? 'Signed in with ' + who + (prefill.email ? ' as ' + prefill.email : '') + '. ' : '') + 'Pick one. You can change it later.' }));
+      var codeWrap;
+      s.appendChild(roleCards(st, function () { codeWrap.style.display = st.role === 'athlete' ? '' : 'none'; err.textContent = ''; }));
+      var name = h('input', { class: 'ob-input', type: 'text', autocomplete: 'name', autocapitalize: 'words', enterkeyhint: 'done', placeholder: 'Full name', 'aria-label': 'Full name' });
+      name.value = prefill.name || '';
+      s.appendChild(field('Name', name));
+      var code = h('input', { class: 'ob-input ob-code', type: 'text', maxlength: '6', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', placeholder: 'CODE', 'aria-label': 'Coach code' });
+      code.value = String(prefill.code || '').toUpperCase().slice(0, 6);
+      code.addEventListener('input', function () { code.value = code.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+      codeWrap = h('div', {}, [field('Coach code (optional)', code)]);
+      codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
+      s.appendChild(codeWrap);
+      var ageBox = null;
+      if (!prefill.consent) {
+        ageBox = h('input', { class: 'ob-check-input', type: 'checkbox' });
+        s.appendChild(h('label', { class: 'ob-check' }, [ageBox, h('span', { class: 'ob-check-box', 'aria-hidden': 'true' }),
+          h('span', { class: 'ob-check-text', html: 'I\'m 16 or older and I agree to the <a href="terms.html" onclick="window.open(\'https://www.powalifta.com/terms.html\',\'_blank\');return false">Terms</a> and <a href="privacy.html" onclick="window.open(\'https://www.powalifta.com/privacy.html\',\'_blank\');return false">Privacy Policy</a>.' })]));
+        ageBox.addEventListener('change', function () { if (ageBox.checked) { err.textContent = ''; haptic('light'); } });
+      }
+      var err = h('div', { class: 'ob-err', role: 'alert' });
+      s.appendChild(err);
+      var go = h('button', { class: 'nw-btn nw-btn-primary', type: 'button', text: 'Continue' });
+      s.appendChild(go);
+      var out = h('button', { class: 'ob-link', type: 'button', text: 'Not you? Sign out' });
+      s.appendChild(out);
+      var back = api.el.querySelector('.ob-back');
+      if (back) back.style.visibility = 'hidden';
+      function finish(v) { if (back) back.style.visibility = ''; resolve(v); }
+      function submit() {
+        var nm = name.value.trim();
+        if (!st.role) { err.textContent = 'Pick how you\'ll use POWALIFTA.'; haptic('error'); return; }
+        if (nm.length < 2) { err.textContent = 'Add your name to keep going.'; haptic('error'); name.focus(); return; }
+        if (typeof filterUserText === 'function' && !filterUserText(nm).ok) { err.textContent = 'Please choose a different name.'; haptic('error'); name.focus(); return; }
+        if (ageBox && !ageBox.checked) { err.textContent = 'Please confirm you\'re 16 or older.'; haptic('error'); return; }
+        haptic('light');
+        busy(go, true, 'One moment…');
+        finish({ role: st.role, name: nm, code: st.role === 'athlete' ? code.value.trim().toUpperCase() : '', consent: prefill.consent || { age_16_plus: true, terms_accepted_at: new Date().toISOString() } });
+      }
+      go.addEventListener('click', submit);
+      onEnter(name, submit);
+      out.addEventListener('click', function () {
+        busy(out, true, 'Signing out…');
+        Promise.resolve(window.DB && DB.signOut ? DB.signOut() : null).catch(function () {}).then(function () {
+          api.go(0);
+          finish(null);
+          setTimeout(function () { s.remove(); }, 500);
+        });
+      });
+      api.go(api.track.children.length - 1);
+    });
+  }
+
+  function openSignup(opts) {
+    opts = opts || {};
+    var st = { role: opts.role && /^(solo|athlete|coach)$/.test(opts.role) ? opts.role : null, code: (opts.code || '').toUpperCase().slice(0, 6) };
+    var api = makeSheet('Create your account', 3);
+
+    // Step 1 — who are you
+    var s1 = api.add(h('div', { class: 'ob-step' }));
+    s1.appendChild(h('h2', { text: 'How will you use POWALIFTA?' }));
+    s1.appendChild(h('p', { class: 'ob-lead', text: 'Pick one. You can change it later.' }));
+    var choices = roleCards(st, function () {
+      codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
+      setTimeout(function () { api.go(1); }, reduce ? 0 : 230);
     });
     s1.appendChild(choices);
     s1.appendChild(h('p', { class: 'ob-fine', html: 'Already have an account? <a href="#" data-login>Log in</a>' }));
@@ -288,6 +383,13 @@
     var s3 = api.add(h('div', { class: 'ob-step' }));
     s3.appendChild(h('h2', { text: 'Create your account' }));
     s3.appendChild(h('p', { class: 'ob-lead', text: 'Your training syncs to every device you sign in on.' }));
+    // Continue with Apple / Google: the role and the name are known from steps 1–2; the 16+ tick
+    // below covers this path too, so it is checked first (err3 / ageBox are created below).
+    var social3 = socialRow(api, function () {
+      if (!ageBox.checked) { err3.textContent = 'Please confirm you\'re 16 or older.'; haptic('error'); return false; }
+      return { from: 'signup', role: st.role, name: name.value.trim(), code: st.role === 'athlete' ? code.value.trim().toUpperCase() : '', consent: { age_16_plus: true, terms_accepted_at: new Date().toISOString() }, unit: st.unit };
+    }, function () { return err3; });
+    if (social3) { s3.appendChild(social3); s3.appendChild(orDivider()); }
     var email = h('input', { class: 'ob-input', type: 'email', inputmode: 'email', autocomplete: 'email', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'next', placeholder: 'you@email.com', 'data-autofocus': '1', 'aria-label': 'Email' });
     var pwd = h('input', { class: 'ob-input has-eye', type: 'password', autocomplete: 'new-password', enterkeyhint: 'go', placeholder: 'At least 6 characters', 'aria-label': 'Password' });
     s3.appendChild(field('Email', email));
@@ -369,6 +471,9 @@
     var s1 = api.add(h('div', { class: 'ob-step' }));
     s1.appendChild(h('h2', { text: 'Welcome back' }));
     s1.appendChild(h('p', { class: 'ob-lead', text: 'Log in to pick up where you left off.' }));
+    // Continue with Apple / Google. A first-time account gets the role step in this sheet.
+    var socialL = socialRow(api, function () { return { from: 'login' }; }, function () { return err; });
+    if (socialL) { s1.appendChild(socialL); s1.appendChild(orDivider()); }
     var email = h('input', { class: 'ob-input', type: 'email', inputmode: 'email', autocomplete: 'email', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'next', placeholder: 'you@email.com', 'data-autofocus': '1', 'aria-label': 'Email' });
     email.value = opts.email || '';
     var pwd = h('input', { class: 'ob-input has-eye', type: 'password', autocomplete: 'current-password', enterkeyhint: 'go', placeholder: 'Password', 'aria-label': 'Password' });

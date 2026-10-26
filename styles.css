@@ -12660,3 +12660,34 @@ html:not(.desk) .bw-log input { padding: 0 10px; }
 /* TEAM PROGRAMS: "Your coach adjusted this for you" on an exercise the coach changed for this lifter. */
 .tx-adj { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: var(--fs-meta, 13px); line-height: 1.4; color: var(--text-3); }
 .tx-adj::before { content: ''; width: 6px; height: 6px; flex: none; border-radius: 999px; background: currentColor; opacity: 0.7; }
+
+/* ============================================ SOCIAL SIGN-IN (social-auth.js, 2026-10-25)
+   Continue with Apple / Continue with Google on the Log in and Sign up modals. Secondary by
+   design: the one red action on each modal stays the email button. Apple's rules: their
+   mark beside the words, on white (our dark theme) or black (light theme). Google's: the
+   four-colour G on a neutral surface. Same size and weight for both (App Review 4.8). The
+   native sheets restyle the same classes in native-onboard.css. */
+.sa-row { display: grid; gap: 10px; margin: 0 0 16px; }
+button.sa-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 50px; padding: 0 18px; border-radius: 999px; border: 1px solid transparent;
+  font-family: var(--font-body); font-size: 15px; font-weight: 600; letter-spacing: -0.005em; line-height: 1;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, filter 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.sa-btn svg { width: 20px; height: 20px; flex: none; }
+.sa-btn span { white-space: nowrap; }
+.sa-btn:active { transform: scale(0.985); }
+.sa-btn[disabled] { opacity: 0.6; pointer-events: none; }
+.sa-apple { background: #fff; color: #000; }
+[data-theme="light"] .sa-apple { background: #000; color: #fff; }
+.sa-google { background: var(--bg-2); color: var(--text); border-color: var(--line-2); }
+@media (hover: hover) {
+  .sa-apple:hover { filter: brightness(0.94); }
+  [data-theme="light"] .sa-apple:hover { filter: brightness(1.25); }
+  .sa-google:hover { background: var(--bg-3); border-color: var(--text-3); }
+}
+.sa-or { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; color: var(--text-3); font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.sa-or::before, .sa-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+/* The "Finish setting up" modal reuses the sign-up modal's tiles (.auth-seg-3) and fields. */
+#socialFinishModal .form-group input { width: 100%; }

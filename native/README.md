@@ -124,6 +124,16 @@ no-ops). The injector fixes this by appending `"RestTimerPlugin"` to `packageCla
 **after** `cap sync`. ⚠️ **`cap sync` regenerates that file and drops it** — so if you
 ever re-sync, **re-run `bash native/scripts/inject-all.sh`** (all three injectors) before building.
 
+### Continue with Apple / Google (2026-10-25)
+
+`inject-social-sign-in.rb` (run by inject-all.sh) adds the Sign in with Apple entitlement +
+capability and, from `native/social-sign-in.json` (placeholders in git; the owner fills in the
+Google client ids), the Google URL scheme, `GIDClientID` and `plugins.GoogleAuth` in the
+copied capacitor.config.json, plus `public/social-sign-in.js` for the web code. The plugins
+(`@capacitor-community/apple-sign-in`, `@codetrix-studio/capacitor-google-auth`) come in with
+`npm install` + `cap sync`. The JS side is `social-auth.js` (`SocialAuth.native`), the sheets'
+buttons are in `native-onboard.js`. Every dashboard step: `docs/social-sign-in-runbook.md`.
+
 ### Verify / troubleshoot on device (Safari Web Inspector)
 
 Mac Safari → Develop → [your iPhone] → the app's WebView → Console:
