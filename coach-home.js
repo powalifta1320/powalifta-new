@@ -376,5 +376,5 @@
     return true;
   }
 
-  window.CoachHome = { model: model, renderDesk: renderDesk, renderPhone: renderPhone, refresh: refresh };
+  window.CoachHome = { model: model, renderDesk: renderDesk, renderPhone: renderPhone, refresh: refresh, fixFor: fixFor, message: message };
 })();

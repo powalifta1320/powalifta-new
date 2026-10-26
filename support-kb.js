@@ -1403,5 +1403,24 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "On the laptop desk open Roster and choose Calendar. Each lifter is a row (the same filters and search as the board), 16 weeks from this week with ‹ › to move four weeks at a time. Each block is a bar with its name and its W-n to the meet it leads to, planned meets are outlined diamonds and done meets filled with the total, and the line is today. Under a row, plain warnings: a block that ends before its meet, a planned meet no block leads to, weeks with nothing written between two blocks. Drag a bar to move the block's start by whole weeks (or select it and use ← →); Undo is in the message that follows. Plan a meet is in the header and on each row: name, date, weigh-in (2-hour or 24-hour and the time), federation, division and weight class. A planned meet is a date, never a result: totals and DOTS don't change.",
   "app": "The season calendar is on the laptop desk at powalifta.com (Roster › Calendar)."
+ },
+ {
+  "id": "coach-lifters",
+  "q": "Where do I see all my lifters? (the Lifters screen)",
+  "t": [
+   "lifters screen",
+   "lifters tab",
+   "roster",
+   "see all my athletes",
+   "who needs me",
+   "needs you",
+   "next block due",
+   "meet soon",
+   "on plan",
+   "open a lifter",
+   "block picture"
+  ],
+  "a": "**Lifters** is everyone on your roster, worst first, in four groups: **Needs you** (pain, weight for the class, over what you wrote, wrote you, a check-in, quiet or missed sessions), **Next block due** (the last week of a block, a finished block, no block yet), **Meet soon** (a meet within 8 weeks) and **On plan**. Each row is the lifter, one line in plain words about the one thing that matters today, and their change in total e1RM over the last four weeks.\n\nOpen a lifter and you get one answer big (6/10 for pain, the bodyweight against the class, days to the meet, the RPE they hit against what you wrote), the block as a picture (each week's sessions done or missed, with the strength line and the meet flagged in its week), one red fix with a quiet alternative, their last top set and their latest words. **Everything** opens the full page: lifts, check-ins, notes, meets.\n\nOn the laptop the list sits beside the open lifter: `/` finds a lifter, `J` and `K` move, `Enter` opens everything, `Esc` clears the search. **Calendar** is the season view; the old board is at `?oldroster=1`.",
+  "app": "**Lifters** is the first tab: a ring with how many you've looked at this week, who's first, then everyone in four groups (Needs you, Next block due, Meet soon, On plan). Each row is one line in plain words plus their four-week change in total e1RM. Tap a lifter: the one answer big, the block as a picture, one red fix, their last top set and their words. **Everything** opens the full sheet."
  }
 ];

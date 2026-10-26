@@ -51,6 +51,7 @@
     <button class="sidebar-tab" data-tab="templates" id="tab-templates" data-parent="program"></button>
     <button class="sidebar-tab" data-tab="progress" id="tab-progress" data-parent="you"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace" data-parent="you"></button>
+    <button class="sidebar-tab" data-tab="lifter" id="tab-lifter" data-parent="athletes"></button>
     <div class="sidebar-foot">
     </div>
   </aside>
@@ -66,7 +67,7 @@
     <!-- ROSTER -->
     <section data-pane="athletes">
       <div class="dash-header">
-        <div><h2>Roster</h2><p class="dim text-sm">Everyone at a glance. Open an athlete for the detail.</p></div>
+        <div><h2>Lifters</h2><p class="dim text-sm">Everyone, worst first. Open a lifter for the one thing to do.</p></div>
         <div class="flex gap-8" style="align-items:center; flex-wrap:wrap;">
           <button class="btn btn-primary" onclick="openInviteModal()" id="btn-invite"></button>
         </div>
@@ -82,6 +83,9 @@
 
     <!-- ATHLETE PAGE (laptop): one athlete, everything at once. Opened from the roster table. -->
     <section data-pane="athlete" class="hidden"><div id="athletePage"></div></section>
+
+    <!-- A LIFTER (phone, coach-lifters.js): pushed in from the Lifters tab; one answer, the block, one red. -->
+    <section data-pane="lifter" class="hidden"><div id="lifterPage"></div></section>
 
     <!-- PROGRAM BUILDER -->
     <section data-pane="program" class="hidden">
@@ -336,6 +340,7 @@
 <script src="desk.js"></script>
 <script src="desk-season.js"></script><!-- the desk's season: Teams, the roster calendar, Plan a meet, the last week of a block -->
 <script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
+<script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
@@ -366,7 +371,8 @@ bootstrap('coach', () => {
   renderNav('#nav');
 
   const setLbl = (id, icon, text) => { const e = document.getElementById(id); if (e) e.innerHTML = icon + '<span>' + text + '</span>'; };
-  setLbl('tab-athletes', ICONS.athletes, 'Roster');
+  setLbl('tab-athletes', ICONS.athletes, 'Lifters');
+  setLbl('tab-lifter', ICONS.athletes, 'Lifter');
   setLbl('tab-program', ICONS.program, 'Program builder');
   setLbl('tab-templates', ICONS.copy, 'Templates');
   setLbl('tab-messages', ICONS.chat, 'Messages');
@@ -392,6 +398,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'athletes') renderRoster();
       if (btn.dataset.tab === 'program') populateAthleteSelect('progAthlete', loadProgram);
       if (btn.dataset.tab === 'templates') renderTemplates();
+      if (btn.dataset.tab === 'lifter' && window.CoachLifters) CoachLifters.renderPane();
       if (btn.dataset.tab === 'messages') renderMessages();
       if (btn.dataset.tab === 'marketplace') renderCoachMarketplace();
       if (btn.dataset.tab === 'progress') populateAthleteSelect('progressAthlete', renderProgressForAthlete);
@@ -404,6 +411,8 @@ bootstrap('coach', () => {
   renderRoster();
   // A reload on an athlete's page (#athlete=ID) comes back to it.
   try { const m = /#athlete=([\w-]+)/.exec(location.hash || ''); if (m) setTimeout(() => openAthletePage(m[1]), 60); } catch (e) {}
+  // A reload on a lifter's page (#lifter=ID, the phone) comes back to it.
+  try { const ml = /#lifter=([\w-]+)/.exec(location.hash || ''); if (ml && !_rosterWide() && window.CoachLifters) setTimeout(() => CoachLifters.open(ml[1]), 80); } catch (e) {}
   renderDunningBanner(document.getElementById('dunningMount')); // #35 failed-payment/plan-lapse banner
   // The laptop desk: rail, Today (the default landing), ⌘K. No-op on phones and in the app.
   _deskCall('deskWatch');
@@ -1422,7 +1431,13 @@ window.addEventListener('popstate', () => {
   const m = /#athlete=([\w-]+)/.exec(location.hash || '');
   if (m && _rosterWide()) openAthletePage(m[1]);
   else if (_desk()) deskRoute();
-  else { const ap = document.querySelector('[data-pane="athlete"]'); if (ap && !ap.classList.contains('hidden')) document.getElementById('tab-athletes').click(); }
+  else {
+    const ap = document.querySelector('[data-pane="athlete"]'); if (ap && !ap.classList.contains('hidden')) document.getElementById('tab-athletes').click();
+    // The phone's lifter page: back leaves it; forward to #lifter=ID opens it again.
+    const lp = document.querySelector('[data-pane="lifter"]'), ml = /#lifter=([\w-]+)/.exec(location.hash || '');
+    if (lp && !lp.classList.contains('hidden') && !ml) document.getElementById('tab-athletes').click();
+    else if (ml && lp && lp.classList.contains('hidden') && window.CoachLifters) CoachLifters.open(ml[1]);
+  }
 });
 function _apDayStatus(day) {
   const sets = (day.exercises || []).flatMap(e => e.sets || []);
@@ -1442,7 +1457,7 @@ function renderAthletePage(athleteId) {
   const st = coachAthleteStatus(athleteId, { coachId: user.id });
   const u = unitLabel();
   const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
-  const back = el('button', { class: 'ap-back', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>' + (_desk() ? deskBackLabel() : 'Roster') + '</span>' });
+  const back = el('button', { class: 'ap-back', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>' + (_desk() ? deskBackLabel() : 'Lifters') + '</span>' });
   back.addEventListener('click', () => { try { history.back(); } catch (e) { document.getElementById('tab-athletes').click(); } });
   host.appendChild(back);
   // Who, where in the block, the one red action.
@@ -1666,7 +1681,9 @@ function renderRoster() {
   } else {
     // Home (coach-home.js): the team in four numbers, who needs you with the fix, meets, who is
     // training now. The old hero, faces and Needs-attention block draw only when it is missing.
-    if (!(window.CoachHome && CoachHome.renderPhone(area))) {
+    // Lifters (coach-lifters.js) is the whole tab: the ring hero, then everyone in four groups.
+    const liftersOn = !!(window.CoachLifters && CoachLifters.renderPhone(area));
+    if (!(liftersOn || (window.CoachHome && CoachHome.renderPhone(area)))) {
     // The week at a glance, each fact once: the ring says how many trained, the title who's
     // left, the line under it who's training today. PRs are the trophies on the faces below.
     const today = overview.filter(o => o.flag === 'today').map(o => o.athlete.name.split(' ')[0]);
@@ -1721,6 +1738,7 @@ function renderRoster() {
 
     }
 
+    if (!liftersOn) {
     // The roster: one row per athlete. Tap opens the program; ⋯ holds the rest.
     area.appendChild(uiLabel('Athletes', overview.length > ROSTER_PER_PAGE ? { count: overview.length } : null));
     const pages = Math.max(1, Math.ceil(overview.length / ROSTER_PER_PAGE));
@@ -1757,8 +1775,8 @@ function renderRoster() {
     })));
     const pager = buildPager(overview.length, ROSTER_PER_PAGE, _rosterPage, function (pg) { _rosterPage = pg; renderRoster(); });
     if (pager) area.appendChild(pager);
-
     appendRosterExtras(area);
+    }
   }
   _paintRosterInvites();
 }
