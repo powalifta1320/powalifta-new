@@ -6,7 +6,7 @@
     "_note": "Nothing to fill in: on iOS the app's bundle id (com.powalifta.app) is the client id and the injector adds the entitlement. Supabase → Authentication → Providers → Apple must list com.powalifta.app among the Client IDs."
   },
   "google": {
-    "iosClientId": "PLACEHOLDER_IOS_CLIENT_ID.apps.googleusercontent.com",
-    "webClientId": "PLACEHOLDER_WEB_CLIENT_ID.apps.googleusercontent.com"
+    "iosClientId": "241837302198-84jl0vr7cl5r9jjdl0cvu6ngh7fmdk9d.apps.googleusercontent.com",
+    "webClientId": "241837302198-0ageqvictkhro75vf0j6ck3a6td46cec.apps.googleusercontent.com"
   }
 }
