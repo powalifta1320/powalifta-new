@@ -131,7 +131,8 @@
       case 'weight': return r.bw ? { big: num(kgShow(r.bw.bw)) + ' ' + unit(), words: num(kgShow(r.bw.over)) + ' over the ' + r.bw.cls + ' class' + (r.meet ? ' · meet ' + daysText(r.meet.days) : ''), tone: 'bw' } : { big: 'Over', words: reason.text, tone: 'bw' };
       case 'offpace': return { big: 'Cut', words: st.cut && st.cut.flag ? st.cut.flag : 'off pace for the class', tone: 'bw' };
       case 'meet': { var m = r.meet ? r.meet.meet : {}; var hasPlan = !!(m.attempts || m.openers || m.plan);
-        return { big: r.meet && r.meet.days <= 0 ? 'Today' : (r.meet ? r.meet.days + (r.meet.days === 1 ? ' day' : ' days') : 'Meet'), words: (m.name || 'Meet') + (m.weightClass ? ' · ' + m.weightClass + ' class' : '') + (hasPlan ? ' · attempts set' : ' · attempts not set'), tone: 'meet' }; }
+        var bwNote = r.bw && r.bw.over != null ? (r.bw.over > 0 ? ' · ' + num(kgShow(r.bw.over)) + ' ' + unit() + ' over' : r.bw.over < 0 ? ' · ' + num(kgShow(-r.bw.over)) + ' ' + unit() + ' under' : ' · on the class') : '';
+        return { big: r.meet && r.meet.days <= 0 ? 'Today' : (r.meet ? r.meet.days + (r.meet.days === 1 ? ' day' : ' days') : 'Meet'), words: (m.name || 'Meet') + (m.weightClass ? ' · ' + m.weightClass + ' class' : '') + bwNote + (hasPlan ? ' · attempts set' : ' · attempts not set'), tone: 'meet' }; }
       case 'overshoot': { var o = /^(.*) @([\d.]+) vs @([\d.]+)$/.exec(reason.text || ''); return o ? { big: '@' + o[2], words: o[1] + ', you wrote ' + o[3], tone: 'warn' } : { big: 'Over', words: reason.text, tone: 'warn' }; }
       case 'drift': return { big: '+' + (r.drift ? r.drift.avg : '0.5'), words: 'over what you wrote, across ' + (r.drift ? r.drift.n : 'their') + ' sets this week', tone: 'warn' };
       case 'message': { var wt = waitText(reason.text); return { big: reason.body ? '“' + clip(reason.body, 120) + '”' : 'Wrote you', words: 'no reply yet' + (wt ? ' · waiting ' + wt : ''), tone: 'msg', quote: !!reason.body }; }
