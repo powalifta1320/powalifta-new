@@ -400,8 +400,7 @@
     if (h.total == null) big.classList.add('is-empty');
     top.appendChild(big);
     var since = h.firstDate ? 'Since ' + monthYear(h.firstDate) : '';
-    var line = [since, h.meets ? plural(h.meets, 'meet') : null, h.prs ? plural(h.prs, 'PR') : null].filter(Boolean).join(' · ');
-    if (!h.complete && h.total != null) line = (line ? line + ' · ' : '') + 'squat, bench and deadlift once all three are logged';
+    var line = [since, h.meets ? plural(h.meets, 'meet') : null].filter(Boolean).join(' · ');
     if (line) top.appendChild(mk('div', 'cv-since', line));
     hero.appendChild(top);
     var stats = mk('div', 'rh-stats cv-stats');
@@ -463,10 +462,19 @@
       if (e.kind === 'block' && ++blocks > 3) { row.hidden = true; row.classList.add('is-more'); hidden.push(row); }
       box.appendChild(row);
     });
-    if (hidden.length) box.appendChild(moreButton('Show all ' + list.length, 'Show fewer', function (open) {
+    if (hidden.length) box.appendChild(moreButton('Show ' + hidden.length + ' more ' + (hidden.length === 1 ? 'block' : 'blocks'), 'Show fewer', function (open) {
       hidden.forEach(function (r) { r.hidden = !open; if (open) reveal(r); });
+      railEnds(box);
     }));
+    railEnds(box);
     return box;
+  }
+  // The rail runs from the first chip shown to the last.
+  function railEnds(box) {
+    var rows = Array.prototype.filter.call(box.children, function (n) { return n.classList && n.classList.contains('cv-ev'); });
+    var shown = rows.filter(function (n) { return !n.hidden; });
+    rows.forEach(function (n) { n.classList.remove('is-first', 'is-last'); });
+    if (shown.length) { shown[0].classList.add('is-first'); shown[shown.length - 1].classList.add('is-last'); }
   }
 
   function reveal(n) {
@@ -498,15 +506,14 @@
     recs.forEach(function (r) {
       var row = mk('div', 'cv-rec lift-' + r.lift);
       row.setAttribute('role', 'listitem');
-      var t = mk('span', 'cv-t');
-      var dot = mk('i', 'lift-dot lift-' + r.lift);
-      dot.setAttribute('aria-hidden', 'true');
-      t.appendChild(dot);
-      t.appendChild(document.createTextNode(LIFT_NAME[r.lift]));
-      row.appendChild(t);
+      var dc = mk('span', 'cv-dotc');
+      dc.setAttribute('aria-hidden', 'true');
+      dc.appendChild(mk('i', 'lift-dot lift-' + r.lift));
+      row.appendChild(dc);
+      row.appendChild(mk('span', 'cv-t', LIFT_NAME[r.lift]));
       if (r.best != null) { var v = mk('span', 'cv-v'); v.innerHTML = '<b>' + esc(group3(r.best)) + '</b><small>' + esc(r.unit) + '</small>'; row.appendChild(v); }
-      var sub = r.count === 1 ? 'PR on ' + dayText(r.latest) : plural(r.count, 'PR') + (r.gain && r.gain !== '±0' ? ' · e1RM ' + r.gain + ' ' + r.unit + ' this year' : '');
-      if (r.count > 1 && r.best != null && !(r.gain && r.gain !== '±0')) sub = plural(r.count, 'PR');
+      // '14 PRs · +34 kg this year' (the value is the year's best e1RM), or the one day it happened.
+      var sub = r.count === 1 ? 'PR on ' + dayText(r.latest) : plural(r.count, 'PR') + (r.gain && r.gain !== '±0' ? ' · ' + r.gain + ' ' + r.unit + ' this year' : '');
       row.appendChild(mk('span', 'cv-d', sub));
       box.appendChild(row);
     });
@@ -514,21 +521,24 @@
     if (prs.length > recs.length) {
       var all = mk('div', 'cv-prs');
       all.hidden = true;
+      // One line each, on the year's grid: the lift's dot, its name and what it was, the date.
       prs.forEach(function (e) {
         var line = mk('div', 'cv-pr');
+        var dc = mk('span', 'cv-dotc');
+        dc.setAttribute('aria-hidden', 'true');
+        dc.appendChild(mk('i', 'lift-dot lift-' + e.lift));
+        line.appendChild(dc);
+        // Each record holds together on a line ('162.5 × 5' never splits): no-break spaces inside it.
+        var parts = [];
+        if (e.e1) parts.push('e1RM\u00a0' + group3(e.e1.value) + '\u00a0(' + e.e1.gain + ')');
+        (e.reps || []).forEach(function (r) { parts.push(group3(r.value) + '\u00a0×\u00a0' + r.n); });
+        var t = mk('span', 'cv-pt');
+        t.appendChild(mk('b', null, LIFT_NAME[e.lift]));
+        t.appendChild(document.createTextNode(' ' + parts.join(' · ')));
+        line.appendChild(t);
         var d = mk('time', 'cv-pd', dayText(e.date));
         d.setAttribute('datetime', e.date);
         line.appendChild(d);
-        var l = mk('span', 'cv-pl');
-        var dot = mk('i', 'lift-dot lift-' + e.lift);
-        dot.setAttribute('aria-hidden', 'true');
-        l.appendChild(dot);
-        l.appendChild(document.createTextNode(LIFT_NAME[e.lift]));
-        line.appendChild(l);
-        var parts = [];
-        if (e.e1) parts.push('e1RM ' + group3(e.e1.value) + ' (' + e.e1.gain + ')');
-        (e.reps || []).forEach(function (r) { parts.push(group3(r.value) + ' × ' + r.n); });
-        line.appendChild(mk('span', 'cv-pv', parts.join(' · ')));
         all.appendChild(line);
       });
       box.appendChild(all);
@@ -615,9 +625,7 @@
     a = a || athleteOf(athleteId) || { id: athleteId, name: '' };
     if (typeof uiSheet !== 'function') return;
     uiSheet('Career', function (sheet) {
-      var C = careerEvents(athleteId, Store.get());
-      var sub = [a.name, C.hero.firstDate ? 'since ' + monthYear(C.hero.firstDate) : null].filter(Boolean).join(' · ');
-      if (sub) sheet.appendChild(mk('p', 'ui-sheet-sub', sub));
+      if (a.name) sheet.appendChild(mk('p', 'ui-sheet-sub', a.name));   // the hero says since when
       var box = mk('div', 'cv-sheet-body');
       sheet.appendChild(box);
       render(box, athleteId, { coach: true, name: a.name });

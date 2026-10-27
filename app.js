@@ -10459,6 +10459,7 @@ const _YI = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const YOU_ROW_META = {
   'Full program':        { tint: 'sky',    icon: () => ICONS.program },
   'Bodyweight':          { tint: 'teal',   icon: () => ICONS.scale },
+  'Career':              { tint: 'iris',   icon: () => _YI('<path d="M4 19h4.5v-4.5H13V10h4.5V5.5H20"/>') },
   'Goals':               { tint: 'gold',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>') },
   'Rest timer':          { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
   'Your wraps':          { tint: 'gold',   icon: () => _YI('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/>') },
@@ -12145,7 +12146,7 @@ const SCREEN_ACCENT = {
   progress: 'cyan', bodyweight: 'cyan', program: 'cyan', templates: 'cyan',
   club: 'gold',
   coach: 'green', messages: 'green',
-  you: 'violet', library: 'violet', marketplace: 'violet'
+  you: 'violet', library: 'violet', marketplace: 'violet', career: 'violet'
 };
 function screenAccentFor(key) {
   // The athlete's own Program sits in the Coach slot when self-coached.

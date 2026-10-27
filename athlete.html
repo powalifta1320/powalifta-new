@@ -50,6 +50,7 @@
       <button class="sidebar-tab" data-tab="bodyweight" id="tab-bodyweight" role="tab" aria-selected="false" aria-controls="pane-bodyweight" tabindex="-1"></button>
       <button class="sidebar-tab" data-tab="library" id="tab-library" role="tab" aria-selected="false" aria-controls="pane-library" tabindex="-1"></button>
       <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace" role="tab" aria-selected="false" aria-controls="pane-marketplace" tabindex="-1"></button>
+      <button class="sidebar-tab" data-tab="career" id="tab-career" role="tab" aria-selected="false" aria-controls="pane-career" tabindex="-1"></button>
     </div>
     <div class="sidebar-foot">
       <button class="btn btn-sm btn-ghost" id="notifToggle" type="button" style="display:none;width:100%;margin-bottom:10px;">🔔 Enable alerts</button>
@@ -140,6 +141,12 @@
     <section data-pane="you" id="pane-you" role="tabpanel" aria-labelledby="tab-you" tabindex="0" class="hidden">
       <div class="dash-header"><div><h2>You</h2></div></div>
       <div id="youArea"></div>
+    </section>
+
+    <!-- CAREER — the lifter's lifelong record: PRs, meets, class moves, blocks, milestones (career.js, You › Career) -->
+    <section data-pane="career" id="pane-career" role="tabpanel" aria-labelledby="tab-career" tabindex="0" class="hidden">
+      <div class="dash-header"><div><h2>Career</h2></div></div>
+      <div id="careerArea"></div>
     </section>
 
     <!-- MY LIBRARY — every program the athlete has purchased -->
@@ -337,6 +344,7 @@
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
 <script src="meetday.js"></script><!-- MEET DAY hook: the coach's attempt plan in meet mode + "your next attempt" -->
 <script src="clients.js"></script><!-- INTAKE: the questionnaire's helpers (window.Clients.intakeLines / intakeMaxes); nothing about billing is shown here -->
+<script src="career.js"></script><!-- CAREER: the lifelong record (careerEvents) and its screen, You › Career -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -520,13 +528,14 @@ bootstrap('athlete', () => {
   setLbl('tab-coach', ICONS.chat, _selfCoached ? 'Find a coach' : 'Coach');
   setLbl('tab-library', ICONS.trophy, 'My library');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
+  setLbl('tab-career', window.Career ? Career.icon() : ICONS.trophy, 'Career');
   document.getElementById('bwBtn').textContent = 'Log';
   document.getElementById('goalsBtn').innerHTML = ICONS.trophy + '<span>Goals</span>';
 
   // Five destinations, one job each: Train · Progress · Club · Coach (or Program
   // when self-coached) · You. Everything else is a sub-screen of one of those —
   // data-parent hides it from the sidebar + bottom bar and gives it a back link.
-  const _parentOf = { bodyweight: 'progress', library: 'you', marketplace: 'you' };
+  const _parentOf = { bodyweight: 'progress', library: 'you', marketplace: 'you', career: 'you' };
   if (_selfCoached) _parentOf.coach = 'you'; else _parentOf.program = 'today';
   Object.keys(_parentOf).forEach(k => { const t = document.getElementById('tab-' + k); if (t) t.dataset.parent = _parentOf[k]; });
 
@@ -589,6 +598,7 @@ bootstrap('athlete', () => {
       if (btn.dataset.tab === 'marketplace') renderMarketplace();
       if (btn.dataset.tab === 'club' && window.renderClubTab) renderClubTab(document.getElementById('clubArea'));
       if (btn.dataset.tab === 'you') renderAthleteYou();
+      if (btn.dataset.tab === 'career') renderCareer();
       syncPaneBack();
       window.scrollTo(0, 0);
     });
@@ -5770,6 +5780,7 @@ function renderAthleteYou() {
     groups: [
       { title: 'Training', rows: [
         selfCoached ? null : { label: 'Full program', onClick: go('program') },
+        { label: 'Career', value: careerRowValue(), onClick: go('career') },
         { label: 'Goals', onClick: () => openGoalsModal() },
         { label: 'Your wraps', value: wrapsRowValue(), onClick: () => openWrapsArchive() },
         { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
@@ -5808,6 +5819,20 @@ function renderAthleteYou() {
   }
 }
 window.renderAthleteYou = renderAthleteYou;
+
+// ===== CAREER (You › Career): the lifelong record, career.js draws it =====
+function renderCareer() {
+  const area = document.getElementById('careerArea');
+  if (!area || !window.Career) return;
+  Career.render(area, user.id, { name: user.name, onBringMeets: () => openOplSheet() });
+}
+window.renderCareer = renderCareer;
+// The You row's value: the year it started ("Since 2024"), nothing before the first session.
+function careerRowValue() {
+  if (!window.Career) return '';
+  const h = Career.careerEvents(user.id, Store.get()).hero;
+  return h.firstDate ? 'Since ' + h.firstDate.slice(0, 4) : '';
+}
 
 // ===== HOME SCREEN WIDGET (native) =====
 // What the Total widget shows, as strings: the app does the unit maths so the widget
