@@ -1791,32 +1791,50 @@ function buildSessionDone(cur) {
     hero.appendChild(strip);
     hero.appendChild(el('div', { class: 'tx-done-note' }, 'Best estimated max today, competition equivalent'));
   }
+  // One red action (coached: Send to coach; training alone: the club share, else the week), the
+  // other shares in one quiet row, the rest as text (audit #15: five stacked buttons before).
   const acts = el('div', { class: 'tx-done-acts' });
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
-  if (club) {
-    const b = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Share with ' + club);
-    b.addEventListener('click', () => PowaClubs.shareLog(null));
-    acts.appendChild(b);
-  }
+  const shareClub = () => PowaClubs.shareLog(null);
+  const quiet = [];
   if (user.coachId) {
-    const b = el('button', { class: 'btn btn-lg ' + (club ? 'ui-btn-soft' : 'btn-primary'), type: 'button' }, 'Send to coach');
+    const b = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Send to coach');
     b.addEventListener('click', () => sendSessionToCoach(cur));
     acts.appendChild(b);
+    if (club) quiet.push(['Share to club', 'Share with ' + club, shareClub]);
+    quiet.push(['Share my week', 'Share my week', () => shareWeekCard()]);
+  } else if (club) {
+    const b = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Share with ' + club);
+    b.addEventListener('click', shareClub);
+    acts.appendChild(b);
+    quiet.push(['Share my week', 'Share my week', () => shareWeekCard()]);
+  } else {
+    const b = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Share my week');
+    b.addEventListener('click', () => shareWeekCard());
+    acts.appendChild(b);
   }
-  const wk = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Share my week');
-  wk.addEventListener('click', () => shareWeekCard());
-  acts.appendChild(wk);
+  if (quiet.length) {
+    const row = el('div', { class: 'tx-done-row' });
+    quiet.forEach(([label, aria, fn]) => {
+      const b = el('button', { class: 'btn ui-btn-soft tx-done-quiet', type: 'button', 'aria-label': aria }, label);
+      b.addEventListener('click', fn);
+      row.appendChild(b);
+    });
+    acts.appendChild(row);
+  }
   hero.appendChild(acts);
+  const more = el('div', { class: 'tx-done-more' });
   if (user.coachId) {
     const hurt = el('button', { class: 'ui-text-btn tx-hurt', type: 'button', html: painIconSvg() + '<span>Something hurt?</span>' });
     hurt.addEventListener('click', () => openPainSheet({ phase: 'after', where: cur.day.name }));
-    hero.appendChild(hurt);
+    more.appendChild(hurt);
   }
   if (skipped) {
     const resume = el('button', { class: 'ui-text-btn tx-resume', type: 'button' }, 'Resume the session');
     resume.addEventListener('click', () => setSessionSkipped(false));
-    hero.appendChild(resume);
+    more.appendChild(resume);
   }
+  if (more.children.length) hero.appendChild(more);
   return hero;
 }
 
