@@ -80,6 +80,8 @@ end $$;
 drop trigger if exists trg_intake_guard on public.intake;
 create trigger trg_intake_guard before insert or update on public.intake
   for each row execute function public.intake_guard();
+-- A trigger function only: nobody calls it through the API (triggers fire without EXECUTE).
+revoke all on function public.intake_guard() from public, anon, authenticated;
 
 revoke all on public.intake from anon, authenticated;
 grant select, insert, update on public.intake to authenticated;
