@@ -6067,7 +6067,9 @@ test('apply: from the top set as lifted, rounded to the gym\'s jump, against wha
   let s = progressionApply(PG_RULES.rules[0], sq, 'kg');
   eq(s.kg, 182.5); eq(s.delta, 2.5); eq(s.dir, 'up'); eq(s.rule.id, 'easy'); eq(s.rule.text, 'When the top set feels RPE 7.5 or easier, add 2.5 kg');
   s = progressionApply(PG_RULES.rules[0], sqB, 'kg');
-  eq(s.kg, 157.5, '155 lifted + 2.5'); eq(s.delta, -2.5); eq(s.dir, 'down', 'below the 160 written');
+  eq(s.kg, 160, '155 lifted + 2.5 is 157.5, under the 160 you wrote: an add never takes it lower'); eq(s.dir, 'hold'); eq(s.rule.id, 'easy');
+  s = progressionApply(PG_RULES.rules[0], Object.assign({}, sqB, { next: Object.assign({}, sqB.next, { group: Object.assign({}, sqB.next.group, { weight: 155 }) }) }), 'kg');
+  eq(s.kg, 157.5, 'written as it was lifted: + 2.5'); eq(s.dir, 'up');
   s = progressionApply(PG_RULES.rules[1], bp, 'kg');
   eq(s.kg, 142.5, '150 less 5% = 142.5'); eq(s.dir, 'down'); eq(s.delta, -10);
   s = progressionApply(PG_RULES.rules[2], dl, 'kg');
@@ -6082,6 +6084,18 @@ test('apply: from the top set as lifted, rounded to the gym\'s jump, against wha
   // In pounds: the jump is 5 lb.
   s = progressionApply(PGR('all', 'rpeAtOrUnder', 8, 'addLoad', 5 * KG_PER_LB), sq, 'lbs');
   close(s.kg / KG_PER_LB, Math.round((180 + 5 * KG_PER_LB) / KG_PER_LB / 5) * 5, 0.001, 'a 5 lb multiple');
+});
+test('apply: a rule moves next week its own way only', () => {
+  const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: null });
+  const bp = pgRow(rev, 'Bench'), dl = pgRow(rev, 'Deadlift');
+  const lighter = (row, kg) => Object.assign({}, row, { next: Object.assign({}, row.next, { group: Object.assign({}, row.next.group, { weight: kg }) }) });
+  eq(progressionApply(PG_RULES.rules[1], lighter(bp, 140), 'kg').kg, 140, 'take 5% off never lifts a lighter week you wrote');
+  eq(progressionApply(PG_RULES.rules[1], lighter(bp, 140), 'kg').dir, 'hold');
+  eq(progressionApply(PG_RULES.rules[2], lighter(dl, 215), 'kg').kg, 215, 'keep the load never lifts it either');
+  const more = Object.assign({}, pgRow(rev, 'Squat', 1), { count: 2 });
+  const five = Object.assign({}, more, { next: Object.assign({}, more.next, { count: 5 }) });
+  eq(progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'addSet', null), five, 'kg').sets, undefined, 'you wrote 5 sets: add a set keeps 5');
+  eq(progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'dropSet', null), five, 'kg').sets, 1, 'drop a set: one under last week\'s 2');
 });
 test('apply: add a set, drop a set (1 to 10); the load follows the fallback', () => {
   const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: null });
@@ -6103,7 +6117,7 @@ test('engine: next week follows the rules, the rest follows the fallback', () =>
   const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: PG_RULES });
   const by = (t, gi) => pgRow(rev, t, gi).suggest;
   eq(by('Squat').kg, 182.5); eq(by('Squat').rule.id, 'easy');
-  eq(by('Squat', 1).kg, 157.5); eq(by('Squat', 1).rule.id, 'easy');
+  eq(by('Squat', 1).kg, 160); eq(by('Squat', 1).dir, 'hold'); eq(by('Squat', 1).rule.id, 'easy');
   eq(by('Bench').kg, 142.5); eq(by('Bench').rule.id, 'hard');
   eq(by('Bench', 1).dir, 'hold', '130 + 2.5 is what you wrote'); eq(by('Bench', 1).kg, 132.5); eq(by('Bench', 1).rule.id, 'easy');
   eq(pgRow(rev, 'Paused Bench').suggest, null, 'a % block follows the max');
@@ -6225,6 +6239,23 @@ test('publishing ticks the week to write off, for a lifter with nothing flagged 
     eq(CoachLifters.toWriteOf([r], { 'tw-a': 1 }).length, 0, 'Done without writing anything adds no write job');
   } finally { Store.set(saved); }
 });
+test('where a rule shows: the fix says "(your rule)", the week to write too', () => {
+  const saved = Store.get();
+  try {
+    Store.set(Object.assign(defaultStore(), { coachSettings: { progression: PG_RULES } }));
+    const prog = pgProg();
+    const r = { athlete: { id: 'yr-a', name: 'Marcus Doyle' }, reasons: [{ type: 'overshoot', group: 3, tone: 'alert', text: 'Bench @9.5 vs @8' }], wins: [], status: { program: prog } };
+    const fx = CoachHome.fixFor(r, r.reasons[0]);
+    eq(fx.k, 'apply'); eq(fx.label, 'Bench 142.5 × 3 @8 next week (your rule)');
+    eq(fx.short, '142.5 × 3 @8 next week (your rule)'); eq(fx.rule.id, 'hard');
+    const tw = CoachLifters.toWriteOf([r], {});
+    eq(tw[0].rule, true);
+    const job = CoachLifters.clJobs([r], { today: '2026-10-27', done: {}, toWrite: tw }).find(j => j.kind === 'write');
+    eq(CoachLifters.jobText(job).detail, 'Week 2 has suggestions (your rule)');
+    Store.update(st => { st.coachSettings = {}; });
+    eq(CoachHome.fixFor(r, r.reasons[0]).label.indexOf('(your rule)'), -1, 'no rules: POWALIFTA\'s suggestion, no mark');
+  } finally { Store.set(saved); }
+});
 test('the roster preview: what the rules would change this week, changes first', () => {
   const saved = Store.get();
   try {
@@ -6233,10 +6264,11 @@ test('the roster preview: what the rules would change this week, changes first',
     eq(p.lifters, 1);
     assert(p.items.length >= 4, 'squat, back-offs, bench, deadlift');
     eq(p.items[0].name, 'Arjun Mehta');
-    eq(p.items.filter(x => x.dir === 'hold').length, 1, 'one stays');
+    eq(p.items.filter(x => x.dir === 'hold').length, 2, 'two stay');
     eq(p.items[p.items.length - 1].dir, 'hold', 'stays come last');
     eq(progressionPreviewText(p.items[0], 'kg'), 'Arjun\'s squat 180 → 182.5');
-    eq(progressionPreviewText(p.items.find(x => x.dir === 'hold'), 'kg'), 'Arjun\'s bench back-offs stay 132.5');
+    eq(progressionPreviewText(p.items.find(x => x.dir === 'hold'), 'kg'), 'Arjun\'s squat back-offs stay 160');
+    eq(progressionPreviewText(p.items.find(x => x.title === 'Bench' && x.gi === 0), 'kg'), 'Arjun\'s bench 152.5 → 142.5');
     eq(progressionPreview({ rules: [] }, { unit: 'kg' }).items.length, 0, 'no rules, nothing');
   } finally { Store.set(saved); }
 });

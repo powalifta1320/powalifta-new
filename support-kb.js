@@ -1559,5 +1559,22 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Use **Message everyone**: on the laptop it's at the top of **Messages**; on the phone it's the first row of the Messages tab. Choose everyone or one of your teams, write it once, and each lifter gets it in their own thread with you, as if you wrote to them alone, so their replies stay private.",
   "app": "Tap **Message everyone** at the top of the Messages tab. Choose everyone or one of your teams, write it once, and each lifter gets it in their own thread with you, so their replies stay private."
+ },
+ {
+  "id": "coach-progression-rules",
+  "q": "Can I set my own rules for how next week's loads move?",
+  "t": [
+   "progression rules",
+   "my own rules",
+   "add 2.5 kg when",
+   "autoregulation rules",
+   "rules for next week",
+   "rpe rule",
+   "auto progression",
+   "progression rule",
+   "when the top set feels"
+  ],
+  "a": "Yes. On the laptop open **Settings** → **Progression rules**; on the phone, **You** → **Progression rules**. Each rule is one sentence you set with three choices: **When the top set feels RPE 8 or easier on squat, add 2.5 kg**. The condition can be an RPE or easier, an RPE or harder, easier or harder than you wrote by a set amount, or missed reps; the change can add a load (in your unit), take a % off, keep the load, or add or drop a set. You can have up to 10, and the first rule that fits a block wins: drag them into order on the laptop, or use ⋯ on the phone.\n\nA rule works from last week's top set as lifted and moves next week only its own way (an add never takes a load under what you wrote). It only touches squat, bench and deadlift blocks that repeat last week's reps: a deload, a rep change, a % block or a block they've started keeps what you wrote. **When no rule fits** picks POWALIFTA's suggestion (by how the top set felt against what you wrote) or **Keep what's written**.\n\nUnder your rules you see what they would change on your roster this week. Nothing goes to a lifter until you publish their week: in a lifter's week each suggestion from a rule says **· your rule**, with the rule in its tooltip, and Today's fixes say **(your rule)**. Once you publish a week it holds; it doesn't suggest again from the new load.",
+  "app": "Yes. Go to **You** → **Progression rules**. Each rule is one sentence you set with three choices: **When the top set feels RPE 8 or easier on squat, add 2.5 kg**. Tap a choice to change it; the condition can be an RPE or easier, an RPE or harder, easier or harder than you wrote, or missed reps, and the change can add a load, take a % off, keep the load, or add or drop a set. Up to 10 rules; the first that fits wins, and ⋯ moves or deletes one.\n\nA rule works from last week's top set as lifted and only touches squat, bench and deadlift blocks that repeat last week's reps. **When no rule fits** picks POWALIFTA's suggestion or **Keep what's written**. Under your rules you see what they'd change on your roster this week; nothing reaches a lifter until you apply or publish their week, and a fix from a rule says **(your rule)**."
  }
 ];

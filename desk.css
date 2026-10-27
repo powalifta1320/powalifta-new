@@ -2070,3 +2070,7 @@ html.desk body.powa-app .ds-check { font-size: var(--fs-2); color: var(--text-2)
 html.desk body.powa-app .ds-pick-row { display: flex; font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text); }
 html.desk body.powa-app .ds-pick-row.is-off { color: var(--text-3); }
 html.desk body.powa-app .ds-pick-note { font-weight: var(--fw-1); }
+/* Next week's suggestion from the coach's own rule ("Up to 182.5 · your rule", progression.js): the week's slots
+   widen together, so its fields still end on one line. */
+.dk-wk.has-rules .dk-sgc { width: 184px; }
+.dk-sgc.is-rule small { color: var(--text-2); }

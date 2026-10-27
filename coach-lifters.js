@@ -166,7 +166,7 @@
       if (!w || !w.r) return;
       var id = w.r.athlete.id;
       if (items.some(function (it) { return it.r && it.r.athlete.id === id && it.kind === 'write'; })) return;
-      items.push({ key: id + ':write', kind: 'write', type: 'write', tier: 4, order: ORDER.indexOf('write'), r: w.r, week: w.week, name: w.r.athlete.name, done: covers(done[id], 'write') });
+      items.push({ key: id + ':write', kind: 'write', type: 'write', tier: 4, order: ORDER.indexOf('write'), r: w.r, week: w.week, rule: !!w.rule, name: w.r.athlete.name, done: covers(done[id], 'write') });
     });
     return items.sort(jobCmp);
   }
@@ -363,7 +363,7 @@
       case 'blockend': return { icon: 'pen', tone: 'write', title: 'Last week of the block', detail: prog ? clip(prog.name, 40) + ' · nothing after it' : '' };
       case 'blockdone': return { icon: 'pen', tone: 'write', title: 'Block finished', detail: 'Every set logged' };
       case 'stalling': return { icon: 'trend', tone: 'quiet', title: 'Flat for 3 weeks', detail: 'No main lift up' };
-      case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write', detail: it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready' };
+      case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write' + (it.rule ? ' (your rule)' : ''), detail: (it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready') + (it.rule ? ' (your rule)' : '') };
     }
     return { icon: 'eye', tone: 'quiet', title: x.text || 'Worth a look', detail: x.detail || '' };
   }
@@ -758,7 +758,7 @@
   // One word for a fix in a narrow column: what the button does.
   function shortLabel(f) {
     var l = String((f && f.label) || '');
-    if (f && f.k === 'apply') return 'Apply';
+    if (f && f.k === 'apply') return f.rule ? 'Apply rule' : 'Apply';   // the coach's own progression rule wrote it
     if (/^Reply/.test(l)) return 'Reply';
     if (/^Check in/.test(l)) return 'Check in';
     if (/nudge/i.test(l)) return 'Nudge';

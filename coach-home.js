@@ -71,7 +71,10 @@
     if (!st) return null;
     var reps = st.plannedReps || st.reps, rpe = st.rpe != null && st.rpe !== '' ? '@' + num(st.rpe) : '';
     var setsTxt = x.suggest.sets != null && x.suggest.sets !== x.next.count ? ', ' + x.suggest.sets + (x.suggest.sets === 1 ? ' set' : ' sets') : '';
-    return { rows: mine, kg: x.suggest.kg, label: (LIFT[x.lift] || x.title) + ' ' + kg(x.suggest.kg) + (reps ? ' × ' + reps : '') + (rpe ? ' ' + rpe : '') + setsTxt + ' next week', weekNo: wk.number || rev.nextIdx + 1 };
+    // The coach's own progression rule wrote it (progression.js): the fix says so.
+    var rule = x.suggest.rule || null, mark = rule ? ' (your rule)' : '';
+    var load = kg(x.suggest.kg) + (reps ? ' × ' + reps : '') + (rpe ? ' ' + rpe : '') + setsTxt;
+    return { rows: mine, kg: x.suggest.kg, label: (LIFT[x.lift] || x.title) + ' ' + load + ' next week' + mark, short: load + ' next week' + mark, rule: rule, weekNo: wk.number || rev.nextIdx + 1 };
   }
   // The phone's one-tap fix: the same edit the desk's Take writes (deskSuggestionEdit: the suggested load and
   // count, no stale range top or planned load, signed with the week it answers), published the desk's way.
@@ -93,7 +96,7 @@
     switch (t) {
       case 'overshoot': case 'drift': {
         var s = suggestionFor(r, reason);
-        if (s) return { k: 'apply', ic: 'down', label: s.label, run: function () { applySuggestion(aid, s); }, done: 'Week ' + s.weekNo + ' updated' };
+        if (s) return { k: 'apply', ic: 'down', label: s.label, short: s.short, rule: s.rule, run: function () { applySuggestion(aid, s); }, done: 'Week ' + s.weekNo + ' updated' };
         return { k: 'open', ic: 'open', label: 'Check next week', run: open };
       }
       case 'pain': return { k: 'msg', ic: 'msg', label: 'Message ' + f, text: 'How is it feeling today? Keep the lift easy and stop if it hurts.' };

@@ -1365,3 +1365,154 @@ html.desk .cs-page .cs-r .cs-st:is(.st-overdue, .st-due, .st-soon)::before { con
 html.desk .cs-page .cs-r .cs-st.st-overdue::before { background: var(--cl-pain); }
 html.desk .cs-page .cs-r .cs-st:is(.st-ok, .st-none, .st-paused, .st-ended) { color: var(--text-3); }
 html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /* Mark paid in one column, Remind after it */
+
+/* ==================== Progression rules (progression.js, 2026-10-28) ====================
+   One screen: the coach's rules as sentences with their choices inline, Add a rule (the one red), When no rule
+   fits, and the roster's next weeks as the rules would write them. The phone: an inset grouped list, 17px
+   sentences with native pickers under each choice (Shortcuts-style tokens, 44pt targets), sizes 28 / 20 / 17 / 15.
+   The desk: the Settings panel's material (raised surface, hairlines, 32px controls, the desk's radii),
+   menus for the choices, drag to reorder, sizes 13 / 15 (+ the panel's own 16 / 20). */
+.prg-root { --pr-ease: cubic-bezier(0.23, 1, 0.32, 1); }
+.prg-root .prg-body { display: flex; flex-direction: column; }
+.prg-said { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.prg-list { position: relative; margin: 0; padding: 0; }
+.prg-rule { position: relative; display: grid; align-items: center; }
+.prg-sent { margin: 0; min-width: 0; color: var(--text-2); text-wrap: pretty; }
+.prg-tok { position: relative; display: inline-flex; align-items: center; gap: 6px; vertical-align: baseline; border: 0; color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+  transition: background-color 150ms ease-out, transform 140ms var(--pr-ease); }
+.prg-tok:active { transform: scale(0.97); }
+.prg-num { font-variant-numeric: tabular-nums; color: var(--text-3); text-align: center; }
+.prg-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.prg-add svg { width: 16px; height: 16px; flex: none; }
+.prg-add[disabled] { opacity: 0.45; cursor: not-allowed; }
+.prg-full, .prg-saved, .prg-note, .prg-more-n { color: var(--text-3); }
+.prg-h { margin: 0; color: var(--text); font-weight: 600; }
+.prg-pvl { display: flex; flex-direction: column; }
+.prg-pvr { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.prg-pvt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prg-pvd { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-2); }
+.prg-pvd.t-up { color: var(--cl-up, #34d982); }
+.prg-pvd.t-down { color: var(--cl-down, #ffb35c); }
+.prg-pvd.t-hold, .prg-pvd.t-set { color: var(--text-3); font-weight: 500; }
+.prg-empty { display: flex; align-items: flex-start; gap: 14px; }
+.prg-eic { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--cl-write, #2ec5ff); background: color-mix(in srgb, var(--cl-write, #2ec5ff) 15%, transparent); }
+.prg-eic svg { width: 20px; height: 20px; }
+.prg-et b { display: block; color: var(--text); }
+.prg-et p { margin: 4px 0 0; color: var(--text-3); max-width: 56ch; text-wrap: pretty; }
+/* first paint and a rule just added: in from 0.45, never from nothing */
+.prg-rule.rise, .prg-rule.is-new { animation: chRise 320ms var(--pr-ease) calc(var(--i, 0) * 40ms) backwards; }
+.prg-rule.is-new { --i: 0; }
+
+/* ---- the desk ---- */
+.prg-root.is-desk { font-size: 15px; }
+.prg-root.is-desk .prg-list { border-radius: var(--r-2, 10px); background: var(--dk-raise, var(--bg-1)); }
+.prg-root.is-desk .prg-rule { grid-template-columns: 28px 18px minmax(0, 1fr) 32px; column-gap: 6px; min-height: 56px; padding: 10px 12px 10px 4px; transition: transform 180ms var(--pr-ease), background-color 150ms ease-out; }
+.prg-root.is-desk .prg-rule + .prg-rule::before { content: ''; position: absolute; top: 0; left: 52px; right: 12px; height: 1px; background: var(--line); }
+.prg-root.is-desk .prg-sent { line-height: 34px; font-size: 15px; }
+.prg-comma { margin-left: 1px; }
+.prg-nw { white-space: nowrap; }
+.prg-root.is-phone .prg-comma { margin-left: 0; }
+.prg-root.is-desk .prg-tok { height: 28px; padding: 0 9px; border-radius: var(--r-1, 6px); background: var(--dk-fill, var(--ch-fill-2)); font-size: 15px; line-height: 28px; white-space: nowrap; }
+.prg-root.is-desk .prg-tok::after { content: ''; width: 7px; height: 7px; margin: -3px 1px 0 1px; border-right: 1.6px solid var(--text-3); border-bottom: 1.6px solid var(--text-3); transform: rotate(45deg); flex: none; }
+.prg-root.is-desk .prg-tok[aria-expanded="true"] { background: var(--dk-fill-2, var(--ch-fill-3)); }
+.prg-root.is-desk .prg-num { font-size: 13px; }
+.prg-root.is-desk :is(.prg-grip, .prg-del) { display: inline-grid; place-items: center; width: 28px; height: 32px; padding: 0; border: 0; border-radius: var(--r-1, 6px); background: none; color: var(--text-4, var(--text-3)); cursor: pointer; transition: color 150ms ease-out, background-color 150ms ease-out; }
+.prg-root.is-desk .prg-grip { cursor: grab; touch-action: none; }
+.prg-root.is-desk .prg-grip svg { width: 15px; height: 15px; }
+.prg-root.is-desk .prg-del { width: 32px; }
+.prg-root.is-desk .prg-del svg { width: 16px; height: 16px; }
+.prg-root.is-desk .prg-list.is-sorting .prg-rule:not(.is-drag) { transition: transform 180ms var(--pr-ease); }
+.prg-root.is-desk .prg-rule.is-drag { z-index: 2; transition: none; background: var(--bg-2); border-radius: var(--r-2, 10px); box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.55), inset 0 0 0 1px var(--line-2); }
+.prg-root.is-desk .prg-rule.is-drag .prg-grip { cursor: grabbing; color: var(--text); }
+.prg-root.is-desk .prg-list.is-sorting .prg-rule::before { opacity: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .prg-root.is-desk .prg-tok:hover { background: var(--dk-fill-2, var(--ch-fill-3)); }
+  .prg-root.is-desk .prg-rule:hover :is(.prg-grip, .prg-del) { color: var(--text-2); }
+  .prg-root.is-desk :is(.prg-grip, .prg-del):hover { background: var(--dk-hover, var(--ch-fill-2)); color: var(--text); }
+  .prg-root.is-desk .prg-pvr:hover { background: var(--dk-hover, var(--ch-fill-2)); }
+}
+.prg-root.is-desk :is(.prg-tok, .prg-grip, .prg-del, .prg-pvr):focus-visible { outline: 2px solid var(--dk-focus, var(--text)); outline-offset: 2px; }
+.prg-root.is-desk .prg-acts { margin: 16px 0 0; }
+.prg-root.is-desk :is(.prg-full, .prg-saved) { font-size: 13px; }
+.prg-root.is-desk .prg-empty { padding: 16px; border-radius: var(--r-2, 10px); background: var(--dk-raise, var(--bg-1)); }
+.prg-root.is-desk .prg-et b { font-size: 15px; font-weight: 600; }
+.prg-root.is-desk .prg-et p { font-size: 13px; line-height: 1.45; }
+.prg-root.is-desk .prg-h { font-size: 15px; margin-bottom: 10px; }
+.prg-root.is-desk .prg-fb { margin-top: 32px; }
+.prg-root.is-desk .prg-fb .prg-note { margin: 8px 0 0; font-size: 13px; line-height: 1.45; max-width: 62ch; }
+.prg-root.is-desk .prg-pv { margin-top: 32px; }
+.prg-root.is-desk .prg-pv > .prg-note { margin: 8px 0 0; font-size: 13px; line-height: 1.45; }
+.prg-root.is-desk .prg-pv > .prg-note:first-of-type:not(:last-child) { margin: 0 0 8px; }
+.prg-root.is-desk .prg-pvl { border-radius: var(--r-2, 10px); background: var(--dk-raise, var(--bg-1)); padding: 4px; }
+.prg-root.is-desk .prg-pvr { min-height: 40px; padding: 0 12px; border-radius: var(--r-1, 6px); font-size: 15px; transition: background-color 150ms ease-out; }
+.prg-root.is-desk .prg-pvd { font-size: 13px; }
+.prg-root.is-desk .prg-more-n { margin: 8px 0 0 12px; font-size: 13px; }
+/* the menus: a row of choices per kind */
+.dk-menu.prg-menu { min-width: 0; max-width: 480px; padding: 6px; }
+.prg-mg { display: grid; grid-template-columns: 148px minmax(0, 1fr); align-items: center; gap: 8px; padding: 4px 6px; text-transform: none; letter-spacing: normal; }
+.prg-mg-t { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+.prg-mg-c { display: flex; flex-wrap: wrap; gap: 4px; }
+.prg-chip { min-width: 36px; height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-1, 6px); background: var(--dk-fill, var(--ch-fill-2)); color: var(--text); font: 600 13px/1 var(--font-body, inherit); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color 120ms ease-out, transform 120ms var(--pr-ease, ease-out); }
+.prg-chip:active { transform: scale(0.96); }
+.prg-chip.on { background: var(--text); color: var(--bg); }
+@media (hover: hover) and (pointer: fine) { .prg-chip:not(.on):hover { background: var(--dk-fill-2, var(--ch-fill-3)); } }
+.prg-chip:focus-visible { outline: 2px solid var(--dk-focus, var(--text)); outline-offset: 1px; }
+.prg-mg-in { cursor: text; }
+.prg-mg-in .prg-in { width: 72px; height: 28px; margin: 0; padding: 0 8px; box-sizing: border-box; border: 0; border-radius: var(--r-1, 6px); background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); font: 500 13px/1 var(--font-num, inherit); }
+.prg-mg-in .prg-in:focus { outline: none; box-shadow: 0 0 0 2px var(--dk-focus, var(--text)); }
+.prg-mg-in .prg-in[aria-invalid="true"] { box-shadow: inset 0 0 0 1.5px var(--dk-alert, #ff5a5f); }
+.prg-mg-in { grid-template-columns: 148px auto 1fr; }
+.prg-mg-u { font-size: 13px; color: var(--text-3); text-transform: none; }
+
+/* ---- the phone ---- */
+.prg-root.is-phone { padding: 0 0 28px; }
+.prg-root.is-phone .prg-ph { padding-bottom: 8px; }
+.prg-root.is-phone .cl-sub { font-size: 15px; }
+.prg-root.is-phone .prg-h2, .prg-root.is-phone .prg-h { margin: 24px 4px 10px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+.prg-root.is-phone .prg-list { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--cl-r, 20px); box-shadow: var(--ch-lit); overflow: hidden; }
+.prg-root.is-phone .prg-rule { grid-template-columns: 22px minmax(0, 1fr) 44px; column-gap: 8px; padding: 8px 4px 8px 14px; }
+.prg-root.is-phone .prg-rule + .prg-rule::before { content: ''; position: absolute; top: 0; left: 44px; right: 0; height: 1px; background: var(--line); }
+.prg-root.is-phone .prg-num { align-self: start; padding-top: 12px; font-size: 15px; }
+.prg-root.is-phone .prg-sent { font-size: 17px; line-height: 44px; }
+/* a choice is a pill that wraps inside itself when it's long (never cut off), 36pt tall, 44pt to tap */
+.prg-root.is-phone .prg-tok { display: inline-block; min-height: 36px; padding: 6px 12px; box-sizing: border-box; border-radius: 12px; background: var(--ch-fill-3); font-size: 17px; line-height: 24px; vertical-align: middle; max-width: 100%; text-align: left; white-space: normal; }
+/* the native picker sits on the token: the token reads, the picker opens (iOS's own wheel) */
+.prg-root.is-phone .prg-sel { position: absolute; inset: -4px 0; width: 100%; height: calc(100% + 8px); margin: 0; padding: 0; border: 0; opacity: 0; font-size: 16px; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.prg-root.is-phone .prg-tok:focus-within { box-shadow: 0 0 0 2px var(--text); }
+.prg-root.is-phone .prg-more { align-self: start; display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 12px; background: none; color: var(--text-3); cursor: pointer; }
+.prg-root.is-phone .prg-more svg { width: 20px; height: 20px; }
+.prg-root.is-phone .prg-more:active { background: var(--ch-fill-2); }
+.prg-root.is-phone .prg-acts { margin: 16px 0 0; flex-direction: column; align-items: stretch; gap: 10px; }
+.prg-root.is-phone .prg-add { height: 50px; font-size: 17px !important; }
+.prg-root.is-phone .prg-start { height: 44px; font-size: 15px !important; }
+.prg-root.is-phone :is(.prg-full, .prg-saved) { font-size: 15px; text-align: center; }
+.prg-root.is-phone .prg-empty { padding: 16px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--cl-r, 20px); box-shadow: var(--ch-lit); margin-top: 16px; }
+.prg-root.is-phone .prg-et b { font-size: 17px; font-weight: 600; }
+.prg-root.is-phone .prg-et p { font-size: 15px; line-height: 1.45; }
+/* When no rule fits, on the phone: iOS's pick-one list, a check on the chosen row */
+.prg-root.is-phone .prg-pick { margin: 0; }
+.prg-root.is-phone .prg-opt { width: 100%; min-height: 60px; text-align: left; }
+.prg-root.is-phone .prg-opt .ui-row-title { font-size: 17px; }
+.prg-root.is-phone .prg-opt .ui-row-sub { font-size: 15px; line-height: 1.35; white-space: normal; }
+.prg-root.is-phone .prg-ck { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc, var(--text)); }
+.prg-root.is-phone .prg-ck svg { width: 20px; height: 20px; }
+.prg-root.is-phone .prg-fb .prg-note, .prg-root.is-phone .prg-pv .prg-note { margin: 10px 4px 0; font-size: 15px; line-height: 1.45; }
+.prg-root.is-phone .prg-pv > .prg-note:first-of-type:not(:last-child) { margin: 0 4px 10px; }
+.prg-root.is-phone .prg-pvl { margin: 0; }
+.prg-root.is-phone .prg-pvr { min-height: 50px; padding: 12px 12px 12px 16px; font-size: 17px; line-height: 1.3; }
+.prg-root.is-phone .prg-pvt { white-space: normal; }
+.prg-root.is-phone .prg-pvd { font-size: 15px; }
+.prg-root.is-phone .prg-pvgo { flex: none; display: inline-grid; color: var(--text-3); }
+.prg-root.is-phone .prg-pvgo svg { width: 16px; height: 16px; }
+.prg-root.is-phone .prg-more-n { margin: 10px 4px 0; font-size: 15px; }
+/* the sheet for another amount */
+.prg-sheet .prg-sheet-row { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; }
+.prg-sheet .prg-sheet-in { flex: 1; min-width: 0; height: 52px; font-size: 22px !important; font-variant-numeric: tabular-nums; }
+.prg-sheet .prg-sheet-row span { font-size: 17px; color: var(--text-3); }
+.prg-sheet .prg-sheet-err { min-height: 20px; margin: 0 0 8px; font-size: 15px; color: var(--ch-pain, #ff8f80); }
+html[data-theme="light"] .prg-root.is-desk .prg-rule.is-drag { background: #fff; box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.3), inset 0 0 0 1px var(--line-2); }
+@media (prefers-reduced-motion: reduce) {
+  .prg-rule.rise, .prg-rule.is-new { animation: none; }
+  .prg-root .prg-rule, .prg-root .prg-tok, .prg-chip { transition: none; }
+  .prg-tok:active, .prg-chip:active { transform: none; }
+}

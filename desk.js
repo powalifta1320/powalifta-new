@@ -432,7 +432,7 @@ function deskRoute(first) {
 }
 var DK_TAB_FOR = { roster: 'athletes', programs: 'program', messages: 'messages', club: 'club', settings: 'you' };
 // clients is a desk screen of its own (clients-ui.js draws the same pane on the phone, under You).
-var DK_SCREEN_FOR = { athletes: 'roster', program: 'programs', templates: 'programs', messages: 'messages', club: 'club', you: 'settings', progress: 'settings', marketplace: 'settings', clients: 'clients' };
+var DK_SCREEN_FOR = { athletes: 'roster', program: 'programs', templates: 'programs', messages: 'messages', club: 'club', you: 'settings', progress: 'settings', marketplace: 'settings', clients: 'clients', rules: 'settings' };
 function deskGo(screen, opts) {
   opts = opts || {};
   if (!isDesk()) return;
@@ -2983,6 +2983,8 @@ function dkWsWeek(r) {
   var W = prog.weeks[rev.lastIdx], N = rev.nextIdx >= 0 ? prog.weeks[rev.nextIdx] : null;
   var wn = W.number || rev.lastIdx + 1, nn = N ? (N.number || rev.nextIdx + 1) : null;
   if (!N) sec.classList.add('no-next');
+  // A suggestion from the coach's own rules reads "Up to 182.5 · your rule": every slot of the week widens with it.
+  if (rev.rows.some(function (x) { return deskSuggestActionable(x) && x.suggest.rule; })) sec.classList.add('has-rules');
   title.textContent = 'Week ' + wn + ', as they lifted it';
   ht.appendChild(el('p', { class: 'dk-wk-sub' }, N ? 'Every set against what you wrote, with week ' + nn + ' beside it to adjust.' : 'Week ' + wn + ' is the last of ' + (prog.name || 'the block') + '.'));
   var pend = N ? dkWsPend(a.id, prog, rev.nextIdx) : { rows: {} };
@@ -3193,7 +3195,9 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
       chip.setAttribute('aria-disabled', 'true');
       chip.insertAdjacentHTML('beforeend', DK_IC.check);
       chip.appendChild(el('span', {}, 'Hold'));
-      dkTip(chip, s.acted ? 'You set week ' + nn + ' from this. It holds until they log more' : (why() ? why() + ': ' : '') + 'on target, so it holds');
+      dkTip(chip, s.acted ? 'You set week ' + nn + ' from this. It holds until they log more'
+        : s.rule ? (why() ? why() + '. ' : '') + 'Your rule: ' + s.rule.text + ', which is what you wrote'
+        : (why() ? why() + ': ' : '') + 'on target, so it holds');
       return;
     }
     if (pp && pp.kind === 'accept') {
@@ -3201,6 +3205,13 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
       chip.insertAdjacentHTML('beforeend', DK_IC.check);
       chip.appendChild(el('span', {}, 'Took ' + (s.dir === 'hold' ? dkSugText(s, row) : kg)));
       dkTip(chip, 'Undo: back to what was written');
+    } else if (s.rule) {
+      // The coach's own rule decided it: say so, and the rule itself in the tooltip.
+      chip.classList.add('is-rule');
+      chip.insertAdjacentHTML('beforeend', DK_IC.spark);
+      chip.appendChild(el('span', {}, dkSugText(s, row)));
+      chip.appendChild(el('small', {}, '· your rule'));
+      dkTip(chip, (why() ? why() + '. ' : '') + 'Your rule: ' + s.rule.text + '. One click writes it in', 'Tab');
     } else {
       chip.insertAdjacentHTML('beforeend', DK_IC.spark);
       chip.appendChild(el('span', {}, dkSugText(s, row)));
@@ -5606,12 +5617,13 @@ var DK_SET_IC = {
   market: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9l1.5-5h13L20 9"/><path d="M4 9h16v11H4z"/><path d="M9 13h6"/></svg>',
   athletes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 8v6M14 11h6"/></svg>',
   prefs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  rules: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19h5v-5h5V9h5V4h3"/></svg>',
   keys: DK_IC.key,
   help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3"/><path d="M12 17h.01"/></svg>'
 };
 function dkSettingsSections() {
   var native = document.documentElement.classList.contains('native');
-  return [['profile', 'Profile'], ['plan', 'Plan & seats'], ['checkins', 'Check-ins'], ['brand', 'Branding'], native ? null : ['market', 'Marketplace'],
+  return [['profile', 'Profile'], ['plan', 'Plan & seats'], ['checkins', 'Check-ins'], window.ProgressionUI ? ['rules', 'Progression rules'] : null, ['brand', 'Branding'], native ? null : ['market', 'Marketplace'],
     ['athletes', 'Invite lifters'], ['prefs', 'Preferences'], ['keys', 'Keyboard'], ['help', 'Help & account']].filter(Boolean);
 }
 // coach.html's renderCoachYou hands the desk its area.
@@ -5636,7 +5648,7 @@ function deskRenderSettings(area) {
   var title = secs.find(function (s) { return s[0] === _dk.setSec; })[1];
   panel.appendChild(el('h2', { class: 'dk-set-title' }, title));
   var redraw = function () { deskRenderSettings(area); try { dkPaintRail(); } catch (e) {} };
-  ({ profile: dkSetProfile, plan: dkSetPlan, checkins: dkSetCheckins, brand: dkSetBrand, market: dkSetMarket, athletes: dkSetAthletes, prefs: dkSetPrefs, keys: dkSetKeys, help: dkSetHelp })[_dk.setSec](panel, redraw);
+  ({ profile: dkSetProfile, plan: dkSetPlan, checkins: dkSetCheckins, rules: dkSetRules, brand: dkSetBrand, market: dkSetMarket, athletes: dkSetAthletes, prefs: dkSetPrefs, keys: dkSetKeys, help: dkSetHelp })[_dk.setSec](panel, redraw);
   area.appendChild(panel);
 }
 // One settings row: label + value on the left, the action on the right.
@@ -5706,6 +5718,8 @@ function dkSetCheckins(p, redraw) {
   acts.appendChild(dkBtn('All questions', { cls: 'is-quiet', onClick: function () { openCheckinQuestionsSheet(); } }));
   p.appendChild(acts);
 }
+// Progression rules (progression.js): how next week moves, in the coach's words.
+function dkSetRules(p) { if (window.ProgressionUI) ProgressionUI.renderDesk(p); }
 function dkSetBrand(p) {
   var u = _dkUser() || {};
   var pro = (TIER_RANK[getCurrentTier()] || 0) >= TIER_RANK.pro;

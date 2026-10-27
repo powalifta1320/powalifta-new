@@ -786,6 +786,12 @@ function _buildCoachDemoData() {
         { id: 'demo-cnote-2', coachId: DC, athleteId: 'demo-a1', body: 'Night shifts Tue and Thu: heavy days go Mon, Wed, Sat.', createdAt: daysAgo(12) + 'T10:00:00Z', updatedAt: daysAgo(12) + 'T10:00:00Z' },
         { id: 'demo-cnote-3', coachId: DC, athleteId: 'demo-a3', body: 'New job since September. If he goes quiet, shorten the sessions before cutting days.', createdAt: daysAgo(20) + 'T10:00:00Z', updatedAt: daysAgo(20) + 'T10:00:00Z' }
       ],
+      // The coach's own settings (CoachSettings): two progression rules, the way a coach writes them. Next week's
+      // suggestions follow them (Sarah's easy squat and bench here; on the laptop, Marcus's bench at @9.5 too).
+      coachSettings: { progression: { v: 1, fallback: 'suggest', rules: [
+        { id: 'demo-rule-easy', lift: 'all', when: { kind: 'rpeAtOrUnder', value: 7.5 }, then: { kind: 'addLoad', value: 2.5 } },
+        { id: 'demo-rule-hard', lift: 'all', when: { kind: 'rpeAtOrOver', value: 9.5 }, then: { kind: 'cutPct', value: 5 } }
+      ] } },
       marketplacePrograms, mySales, myPurchases: []
     }
   };
@@ -11582,23 +11588,27 @@ function progressionThenText(then, unit) {
   }
   return '';
 }
+// The part after "When": "the top set feels RPE 8 or easier", "the top set feels at least 1 RPE harder than
+// written", "they miss a rep". The rules screen shows it as one tappable choice.
+function progressionWhenText(when) {
+  const v = Number(when && when.value);
+  const by = (x) => (x === 0.5 ? 'half an' : _num(x));
+  switch (when && when.kind) {
+    case 'rpeAtOrUnder': return 'the top set feels RPE ' + _num(v) + ' or easier';
+    case 'rpeAtOrOver': return 'the top set feels RPE ' + _num(v) + ' or harder';
+    case 'easier': return 'the top set feels at least ' + by(v) + ' RPE easier than written';
+    case 'harder': return 'the top set feels at least ' + by(v) + ' RPE harder than written';
+    case 'missedReps': return 'they miss ' + (v > 1 ? _num(v) + ' reps or more' : 'a rep');
+  }
+  return '';
+}
 // A rule as one plain sentence: "When the top set feels RPE 8 or easier on squat, add 2.5 kg".
 function progressionRuleText(rule, unit) {
   if (!rule || !rule.when || !rule.then) return '';
-  const v = Number(rule.when.value);
+  const when = progressionWhenText(rule.when), then = progressionThenText(rule.then, unit);
+  if (!when || !then) return '';
   const on = rule.lift && rule.lift !== 'all' ? ' on ' + String(LIFT_LABELS[rule.lift] || rule.lift).toLowerCase() : '';
-  const by = (x) => (x === 0.5 ? 'half an' : _num(x));
-  let when;
-  switch (rule.when.kind) {
-    case 'rpeAtOrUnder': when = 'When the top set feels RPE ' + _num(v) + ' or easier'; break;
-    case 'rpeAtOrOver': when = 'When the top set feels RPE ' + _num(v) + ' or harder'; break;
-    case 'easier': when = 'When the top set feels at least ' + by(v) + ' RPE easier than written'; break;
-    case 'harder': when = 'When the top set feels at least ' + by(v) + ' RPE harder than written'; break;
-    case 'missedReps': when = 'When they miss ' + (v > 1 ? _num(v) + ' reps or more' : 'a rep'); break;
-    default: return '';
-  }
-  const then = progressionThenText(rule.then, unit);
-  return then ? when + on + ', ' + then : '';
+  return 'When ' + when + on + ', ' + then;
 }
 // The first rule that fits a row of deskWeekReview (its lift and the evidence the rule asks for), or null.
 // Main lifts only; a skipped block isn't evidence.
@@ -11637,29 +11647,35 @@ function _deskSuggestOf(kg, cur, step) {
 }
 // What a rule makes of next week's block: → { kg, delta, dir, sets?, rule: { id, text } } or null.
 // row: a deskWeekReview row (row.suggest is the fallback's answer: addSet / dropSet keep its load).
+// The load is worked out from last week's top set as lifted, and a rule moves next week the way it says, never the
+// other way: "add" never takes a load under what's written (you wrote 160 after 155 lifted: 160 stays), "take off"
+// and "keep" never put one over it. Set counts the same way.
 function progressionApply(rule, row, unit) {
   if (!rule || !rule.then || !row || !row.next || !row.next.group || !row.logged || row.logged.skipped) return null;
   const step = typeof loadStepKg === 'function' ? loadStepKg(unit) : 2.5;
   const cur = Number(row.next.group.weight) || 0;
   const base = Number(row.logged.weight) || 0;
   const v = Number(rule.then.value);
-  let raw = 0, sets;
+  const round = (x) => (x > 0 ? Math.round(x / step) * step : 0);
+  let kg = 0, sets;
   switch (rule.then.kind) {
-    case 'addLoad': raw = base + v; break;
-    case 'cutPct': raw = base * (1 - v / 100); break;
-    case 'hold': raw = base; break;
+    case 'addLoad': kg = round(base + v); if (cur > 0) kg = Math.max(cur, kg); break;
+    case 'cutPct': kg = round(base * (1 - v / 100)); if (cur > 0) kg = Math.min(cur, kg); break;
+    case 'hold': kg = round(base); if (cur > 0) kg = Math.min(cur, kg); break;
     case 'addSet': case 'dropSet': {
-      raw = row.suggest && Number(row.suggest.kg) > 0 ? Number(row.suggest.kg) : cur;
+      kg = row.suggest && Number(row.suggest.kg) > 0 ? Number(row.suggest.kg) : cur;
       const was = Number(row.count) > 0 ? Number(row.count) : (Number(row.next.count) || 1);
-      const n = Math.max(1, Math.min(10, was + (rule.then.kind === 'addSet' ? 1 : -1)));
-      if (n !== Number(row.next.count)) sets = n;
+      const now = Number(row.next.count) || was;
+      let n = Math.max(1, Math.min(10, was + (rule.then.kind === 'addSet' ? 1 : -1)));
+      n = rule.then.kind === 'addSet' ? Math.max(now, n) : Math.min(now, n);
+      if (n !== now) sets = n;
       break;
     }
     default: return null;
   }
   const loads = rule.then.kind !== 'addSet' && rule.then.kind !== 'dropSet';
-  if (loads && !(raw > 0)) return null;
-  const out = _deskSuggestOf(raw > 0 ? Math.round(raw / step) * step : 0, cur, step);
+  if (loads && !(kg > 0)) return null;
+  const out = _deskSuggestOf(kg, cur, step);
   if (sets != null) out.sets = sets;
   out.rule = { id: rule.id, text: progressionRuleText(rule, unit) };
   return out;
