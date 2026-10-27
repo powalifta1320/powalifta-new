@@ -12691,3 +12691,54 @@ button.sa-btn {
 .sa-or::before, .sa-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 /* The "Finish setting up" modal reuses the sign-up modal's tiles (.auth-seg-3) and fields. */
 #socialFinishModal .form-group input { width: 100%; }
+
+/* ===== Intake (intake.js, 2026-10-27): the lifter's questionnaire for their coach =====
+   A tall sheet in five steps: the coach's team at the top (their mark when they have branding),
+   one question group per step, Back / Next at the bottom. Chips for choices, 16 px inputs (iOS zoom),
+   colour only on the one red button; the progress wears the coach's colour when they have one. */
+.ui-sheet.ui-sheet-form.ik-wrap { display: flex; flex-direction: column; height: calc(100dvh - 20px); max-height: none; padding: 0; overflow: hidden; }
+.ik-wrap .ui-sheet-grip { flex: none; }
+.ik-head { flex: none; padding: 6px 20px 12px; }
+.ik-who { display: flex; align-items: center; gap: 8px; min-height: 24px; margin-bottom: 10px; }
+.ik-who .ik-mark, .ik-who .brand-mark.ik-mark { width: 24px; height: 24px; border-radius: 7px; object-fit: cover; font-size: 10px; }
+.ik-team { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.ik-h { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 125%); font-weight: 800; font-size: 22px; line-height: 1.12; letter-spacing: -0.01em; color: var(--text); text-wrap: balance; }
+.ik-sub { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-3); }
+.ik-bar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 14px; }
+.ik-bar i { height: 4px; border-radius: 2px; background: var(--fill-3); transition: background-color 200ms ease-out; }
+.ik-bar i.on { background: var(--ik-acc, var(--text)); }
+.ik-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 20px 20px; }
+.ik-st { margin: 8px 0 4px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.012em; color: var(--text); }
+.ik-hint { margin: 0 0 14px; font-size: 15px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+.ik-tz { margin: 10px 0 0; font-size: 13px; }
+.ik-l { display: flex; align-items: baseline; gap: 6px; margin: 20px 0 8px; font-size: 15px; font-weight: 600; color: var(--text); }
+.ik-ls { font-size: 13px; font-weight: 500; color: var(--text-3); }
+.ik-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ik-chips button { height: 40px; padding: 0 14px; border: 0; border-radius: 20px; background: var(--fill-2); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit); cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out, transform 120ms ease-out; }
+.ik-chips button:active { transform: scale(0.97); }
+.ik-chips button.on { background: var(--text); color: var(--bg, #0b0b0c); }
+.ik-chips.is-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.ik-chips.is-days button { height: 44px; padding: 0; border-radius: 12px; }
+.ui-sheet .ik-in { display: block; width: 100%; height: 48px; margin: 0; padding: 0 14px; border: 0; border-radius: 12px; background: var(--fill-2); box-shadow: none; color: var(--text); font: 500 16px/1.3 var(--font-body, inherit); font-variant-numeric: tabular-nums; outline: none; transition: background-color 150ms ease-out, box-shadow 150ms ease-out; }
+.ui-sheet .ik-in:focus { background: var(--fill-3); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent); }
+.ui-sheet .ik-in::placeholder { color: var(--text-3); opacity: 0.8; }
+.ui-sheet textarea.ik-ta { height: auto; min-height: 88px; padding: 12px 14px; line-height: 1.45; resize: none; margin-top: 8px; }
+.ik-lift { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.ik-lift:first-of-type { border-top: 0; }
+.ik-ln { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; color: var(--text); }
+.ik-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-3); }
+.ik-dot.l-squat { background: #38c6ff; } .ik-dot.l-bench { background: #a98bff; } .ik-dot.l-deadlift { background: #ffbf3c; }
+.ik-pair { display: inline-flex; align-items: center; gap: 6px; }
+.ui-sheet .ik-pair .ik-in { width: 84px; text-align: right; padding: 0 12px; }
+.ui-sheet .ik-pair .ik-in + .ik-u + .ik-x + .ik-in { width: 56px; text-align: center; }
+.ik-u { font-size: 15px; color: var(--text-3); white-space: nowrap; }
+.ik-u.is-pre { order: -1; }
+.ik-x { margin: 0 2px; font-size: 15px; color: var(--text-3); }
+.ik-one { display: flex; align-items: center; gap: 10px; }
+.ik-one .ik-in { flex: 1; min-width: 0; }
+.ik-two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; }
+.ik-foot { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; padding: 12px 20px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg-1); }
+.ik-foot .btn { width: 100%; min-height: 50px; margin: 0; }
+.ik-foot .btn[aria-busy="true"] { opacity: 0.7; cursor: progress; }
+html.desk body.powa-app .ui-sheet.ui-sheet-form.ik-wrap { width: min(560px, calc(100vw - 48px)); height: min(760px, calc(100vh - 48px)); padding: 0; }
+@media (prefers-reduced-motion: reduce) { .ik-chips button, .ik-bar i, .ui-sheet .ik-in { transition: none; } }

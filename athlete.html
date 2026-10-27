@@ -337,6 +337,7 @@
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
 <script src="meetday.js"></script><!-- MEET DAY hook: the coach's attempt plan in meet mode + "your next attempt" -->
 <script src="clients.js"></script><!-- INTAKE: the questionnaire's helpers (window.Clients.intakeLines / intakeMaxes); nothing about billing is shown here -->
+<script src="intake.js"></script><!-- INTAKE: the lifter's questionnaire for their coach (IntakeUI: the Train row, the sheet, You › Your intake) -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -735,6 +736,8 @@ bootstrap('athlete', () => {
   if (!isTourDone('athlete') && !window._demoMode) {
     setTimeout(maybeStartAthleteTour, 700);
   }
+  // A brand-new coached lifter: the intake once, so the coach can write the first block (intake.js).
+  else if (window.IntakeUI) IntakeUI.maybeAutoOpen();
 });
 
 // =========================================================
@@ -3380,7 +3383,7 @@ function renderToday() {
 
   // The coach's own check-in questions are asked every day, training or not. On a session day they
   // ride in the Today strip; anywhere else Train returns early, so they go here.
-  const _ciAlone = () => { if (date !== todayISO()) return; const r = customCheckinRow(); if (r) area.appendChild(el('div', { class: 'tn-group today-strip ci-alone', role: 'list', 'aria-label': 'Today' }, el('div', { class: 'ts-tile', role: 'listitem' }, r))); };
+  const _ciAlone = () => { if (date !== todayISO()) return; [customCheckinRow(), window.IntakeUI && IntakeUI.row()].filter(Boolean).forEach(r => area.appendChild(el('div', { class: 'tn-group today-strip ci-alone', role: 'list', 'aria-label': 'Today' }, el('div', { class: 'ts-tile', role: 'listitem' }, r)))); };
   if (isRestDay(user.id, date)) {
     renderTodayHeader(null, date, 'Rest day');
     _ciAlone();
@@ -3508,7 +3511,7 @@ function renderToday() {
     if (!ready && !started) dayRows.unshift(readinessRow(sessionDate));
     else if (ready === 'rough') dayRows.push(readinessDoneRow(sessionDate));
   }
-  if (sessionDate === todayISO()) { const ci = customCheckinRow(); if (ci) dayRows.push(ci); }
+  if (sessionDate === todayISO()) { const ci = customCheckinRow(); if (ci) dayRows.push(ci); const ik = window.IntakeUI && IntakeUI.row(); if (ik) dayRows.push(ik); }
   if (sessionDate === todayISO()) dayRows.push(weighInRow());
   dayRows.push(weekGoalRow());
   if (!submitted && user.coachId) {
@@ -5771,6 +5774,7 @@ function renderAthleteYou() {
       { title: 'Training', rows: [
         selfCoached ? null : { label: 'Full program', onClick: go('program') },
         { label: 'Goals', onClick: () => openGoalsModal() },
+        window.IntakeUI ? IntakeUI.youRow() : null,
         { label: 'Your wraps', value: wrapsRowValue(), onClick: () => openWrapsArchive() },
         { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
         // Programs bought on the web marketplace: web only. In the iPhone app they'd point at a

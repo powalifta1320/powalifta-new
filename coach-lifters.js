@@ -332,7 +332,11 @@
       case 'quiet': return { icon: 'clock', tone: 'quiet', title: st.ago != null ? plural(st.ago, 'day') + ' since a session' : 'Quiet', detail: st.lastDate ? 'Last trained ' + dateShort(st.lastDate) : '' };
       case 'never': return { icon: 'clock', tone: 'quiet', title: 'No sets logged yet', detail: prog ? clip(prog.name, 40) : '' };
       case 'missed': return { icon: 'clock', tone: 'quiet', title: String(x.text || 'Missed a session').replace(/ this week$/, ''), detail: 'This week' };
-      case 'noprogram': return { icon: 'pen', tone: 'write', title: 'No block yet', detail: 'Write their first block' };
+      case 'noprogram': {
+        // Their intake (intake.js) is what the first block is written from: say when it came in.
+        var ik = (Store.get().intakes || []).find(function (i) { return i.athleteId === r.athlete.id && i.submittedAt; });
+        return { icon: 'pen', tone: 'write', title: 'No block yet', detail: ik ? 'Intake in ' + whenText(String(ik.submittedAt).slice(0, 10)) + ' · write their first block' : 'Write their first block' };
+      }
       case 'blockend': return { icon: 'pen', tone: 'write', title: 'Last week of the block', detail: prog ? clip(prog.name, 40) + ' · nothing after it' : '' };
       case 'blockdone': return { icon: 'pen', tone: 'write', title: 'Block finished', detail: 'Every set logged' };
       case 'stalling': return { icon: 'trend', tone: 'quiet', title: 'Flat for 3 weeks', detail: 'No main lift up' };

@@ -98,6 +98,7 @@
 <script src="social-auth.js"></script>
 <script src="coach-lifters.js"></script>
 <script src="program-photo.js"></script>
+<script src="intake.js"></script>
 <script src="clients.js"></script>
 <script>
 /* ===========================================================
@@ -4665,6 +4666,33 @@ test('weeks: % stays %, RIR, pauses, rest weeks, renumbering, lb loads', () => {
   eq(Math.round(lb.weeks[0].days[0].exercises[0].sets[0].weight), 143);
   const gap = PI.draftToWeeks(PI.draftFromRead({ weeks: 3, days: [{ name: 'D', exercises: [{ name: 'Squat', cells: ['3x5 @7', '', '3x3 @8'] }] }] }));
   eq(gap.weeks.length, 2); eq(gap.weeks.map(w => w.number).join(','), '1,2');
+});
+
+group('intake (intake.js)');
+test('intake answers: tidied before they go', () => {
+  const IU = window.IntakeUI; assert(IU, 'IntakeUI is loaded');
+  const a = Object.assign(IU._blank(), {
+    best: { squat: { kg: 140, reps: '3' }, bench: { kg: null, reps: 1 }, deadlift: { kg: 180, reps: 0 } },
+    days: ['Mon', 'Mon', 'Funday', 'Thu'], equipment: ['Belt', 'Belt', ''], injuries: { parts: ['Knee', 'Knee'], note: '  sore  ' },
+    goals: '  Total 450  ', meet: { name: '', date: '' }, weightClass: '83', federation: 'IPF'
+  });
+  const t = IU._tidy(a);
+  eq(t.best.squat.reps, 3); eq(t.best.bench, undefined); eq(t.best.deadlift.reps, 1);
+  eq(t.days.join(','), 'Mon,Thu'); eq(t.equipment.join(','), 'Belt'); eq(t.injuries.parts.join(','), 'Knee'); eq(t.injuries.note, 'sore');
+  eq(t.goals, 'Total 450'); eq(t.meet, null); eq(t.v, 1);
+  const lines = Clients.intakeLines(t, {});
+  assert(lines.some(l => l.k === 'Best lifts' && /S 140×3/.test(l.v)), 'the coach reads the best lifts');
+});
+test('a new lifter with an intake and no logs: % loads come from the intake', () => {
+  const before = Store.get().intakes;
+  Store.update(s => { s.intakes = [{ athleteId: 'ik-new', answers: { v: 1, best: { squat: { kg: 150, reps: 1 } } }, submittedAt: '2026-10-25T10:00:00Z' }]; });
+  try {
+    eq(Math.round(programMaxKg(null, 'ik-new', 'squat')), 150);
+    eq(programMaxKg(null, 'ik-new', 'bench'), 0);
+    const wk = [{ days: [{ exercises: [{ lift: 'squat', sets: [{ pct: 80, weight: 0, reps: 3 }] }] }] }];
+    applyPctLoads(wk, 'ik-new', 'kg');
+    eq(wk[0].days[0].exercises[0].sets[0].weight, 120);
+  } finally { Store.update(s => { s.intakes = before || []; }); }
 });
 
 group('lifters (coach-lifters.js)');

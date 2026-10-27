@@ -7843,7 +7843,16 @@ function pctLoadKg(pct, maxKg, unit) {
 function programMaxKg(prog, athleteId, lift) {
   const m = prog && prog.maxes && Number(prog.maxes[lift]);
   if (m > 0) return m;
-  return typeof bestE1RM === 'function' ? bestE1RM(athleteId, lift) : 0;
+  const best = typeof bestE1RM === 'function' ? bestE1RM(athleteId, lift) : 0;
+  if (best > 0) return best;
+  // A brand-new lifter with nothing logged: the best sets from their intake (intake.js) give the max.
+  return intakeMaxKg(athleteId, lift);
+}
+function intakeMaxKg(athleteId, lift) {
+  if (!athleteId || !window.Clients || !Clients.intakeMaxes) return 0;
+  const ik = (Store.get().intakes || []).find(i => i.athleteId === athleteId && i.answers);
+  const m = ik ? Clients.intakeMaxes(ik.answers) : null;
+  return m && Number(m[lift]) > 0 ? Number(m[lift]) : 0;
 }
 // Work every % set in a block out for one lifter, from their best estimated max per lift.
 // Accessories have no max here: their % stays as written, the weight as it was.
@@ -7855,7 +7864,7 @@ function applyPctLoads(weeks, athleteId, unit, maxes) {
     if (!['squat', 'bench', 'deadlift'].includes(ex.lift)) return;
     (ex.sets || []).forEach(s => {
       if (s.pct == null || s.pct === '' || s.completed) return;
-      if (!(ex.lift in maxOf)) maxOf[ex.lift] = (maxes && Number(maxes[ex.lift]) > 0) ? Number(maxes[ex.lift]) : (typeof bestE1RM === 'function' ? bestE1RM(athleteId, ex.lift) : 0);
+      if (!(ex.lift in maxOf)) maxOf[ex.lift] = (maxes && Number(maxes[ex.lift]) > 0) ? Number(maxes[ex.lift]) : ((typeof bestE1RM === 'function' ? bestE1RM(athleteId, ex.lift) : 0) || intakeMaxKg(athleteId, ex.lift));
       const kg = pctLoadKg(s.pct, maxOf[ex.lift], unit);
       if (kg > 0) {
         s.weight = kg; out.filled++;
@@ -11177,7 +11186,7 @@ function deskReasons(athleteId, opts) {
   st.flags.filter(f => f.type === 'missed').forEach(f => add('missed', 7, f.text.replace(' this week', ''), 'warn', f.text));
   // 8 · the block: none yet, finished, or ending with nothing after it
   st.flags.forEach(f => {
-    if (f.type === 'noprogram') add('noprogram', 8, 'No program', 'info', 'Nothing assigned yet');
+    if (f.type === 'noprogram') add('noprogram', 8, 'No program', 'info', (s.intakes || []).some(i => i.athleteId === athleteId && i.submittedAt) ? 'Intake in: write their first block' : 'Nothing assigned yet');
     else if (f.type === 'blockdone') add('blockdone', 8, 'Block done', 'warn', 'Every set is logged: write the next block');
     else if (f.type === 'blockend') add('blockend', 8, 'Block ends this week', 'info', 'Nothing written after ' + ((prog && prog.name) || 'it') + ' yet');
     else if (f.type === 'stalling') add('stalling', 9, 'e1RM flat 3 wk', 'info', 'No main lift up in three weeks');

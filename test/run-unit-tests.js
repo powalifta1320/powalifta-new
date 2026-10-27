@@ -175,6 +175,8 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'coach-lifters.js')) ? fs.readFileSync(path.join(ROOT, 'coach-lifters.js'), 'utf8') : '') + '\n;\n' +
   // PROGRAM FROM A PHOTO: the read -> draft -> weeks path and its checks (tests.html "program from a photo")
   (fs.existsSync(path.join(ROOT, 'program-photo.js')) ? fs.readFileSync(path.join(ROOT, 'program-photo.js'), 'utf8') : '') + '\n;\n' +
+  // INTAKE: the lifter's questionnaire (tests.html "intake")
+  (fs.existsSync(path.join(ROOT, 'intake.js')) ? fs.readFileSync(path.join(ROOT, 'intake.js'), 'utf8') : '') + '\n;\n' +
   // CLIENTS + INTAKE: the schedule, a client's status, the summary, money words, the intake lines (tests.html "clients (clients.js)")
   (fs.existsSync(path.join(ROOT, 'clients.js')) ? fs.readFileSync(path.join(ROOT, 'clients.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
