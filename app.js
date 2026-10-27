@@ -864,10 +864,19 @@ function _injectDemoBanner(type) {
   const text = type === 'coach'
     ? '<strong>Live demo</strong>: fake roster, real product. Open the builder, reply to notes, check the flags. Nothing saves.'
     : '<strong>Live demo</strong>: fake lifter, real product. Tick sets, hit PRs, make share cards. Nothing saves.';
+  // On a phone browser the sentence folds to "Live demo · Nothing saves" and the bar can be put away
+  // for the visit (×), so it never sits on the screens a coach is trying.
+  try { if (sessionStorage.getItem('powa-demo-bar') === 'hidden') return; } catch (e) {}
   bar.innerHTML =
     '<span class="demo-banner-dot"></span>' +
     '<span class="demo-banner-text">' + text + '</span>' +
-    '<a class="btn btn-primary btn-sm" href="index.html">Start yours free</a>';
+    '<span class="demo-banner-short"><strong>Live demo</strong> · Nothing saves</span>' +
+    '<a class="btn btn-primary btn-sm" href="index.html">Start yours free</a>' +
+    '<button type="button" class="demo-banner-x" aria-label="Hide the demo bar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+  bar.querySelector('.demo-banner-x').addEventListener('click', () => {
+    bar.remove();
+    try { sessionStorage.setItem('powa-demo-bar', 'hidden'); } catch (e) {}
+  });
   document.body.appendChild(bar);
 }
 
