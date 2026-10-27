@@ -2187,3 +2187,18 @@ html.desk body.powa-app .ui-sheet textarea.imp-text { font-size: var(--fs-2); li
 html.desk .dash-main > [data-pane]:not(.hidden) { animation: dkPaneIn 140ms ease-out backwards; }
 @keyframes dkPaneIn { from { opacity: 0.6; } }
 @media (prefers-reduced-motion: reduce) { html.desk .dash-main > [data-pane]:not(.hidden) { animation: none; } }
+/* Loading: before the roster arrives the desk shows its own shape (the rail, Today's title, a card, four
+   tiles) in quiet fills that breathe, instead of a black page; it goes the moment the rail is built. */
+.dk-skel { display: none; }
+html.desk body.powa-app:not(:has(#deskRail)) .dk-skel { display: flex; position: fixed; inset: 0; z-index: 2; background: var(--bg); }
+.dk-skel-rail { flex: none; width: var(--rail-w); box-sizing: border-box; background: var(--dk-rail); border-right: 1px solid var(--line); }
+.dk-skel-main { flex: 1 1 auto; min-width: 0; max-width: 1260px; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--page-top) var(--gut); box-sizing: border-box; }
+.dk-skel i { display: block; flex: none; border-radius: var(--r-1); background: var(--dk-fill); animation: dkSkel 1.6s ease-in-out infinite; }
+.dk-skel .t { width: 132px; height: 30px; }
+.dk-skel .s { width: min(420px, 60%); height: 15px; margin-bottom: var(--s-4); }
+.dk-skel .h { width: 96px; height: 20px; margin-top: var(--s-4); }
+.dk-skel .c { height: 216px; border-radius: var(--r-3); }
+.dk-skel .r { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dk-skel .r i { height: 220px; border-radius: var(--r-3); }
+@keyframes dkSkel { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .dk-skel i { animation: none; } }
