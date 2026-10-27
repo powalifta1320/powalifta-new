@@ -333,7 +333,7 @@ function _buildDemoData() {
   const at = (n, hh, mm) => daysAgo(n) + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00Z';
   const messages = [
     { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Top triple on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
-    { id: 'demo-amsg-2a', coachId: DC, athleteId: DA, senderId: DA, body: 'Competition Squat: 160 kg × 3 @ RPE 8 (e1RM 179 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 160, reps: 3, rpe: 8, e1rmKg: 179.0 }, createdAt: at(2, 18, 3), readAt: at(2, 19, 0) },
+    { id: 'demo-amsg-2a', coachId: DC, athleteId: DA, senderId: DA, body: 'Competition Squat: 160 kg × 3 @ RPE 8 (e1RM 185 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 160, reps: 3, rpe: 8, e1rmKg: 184.6 }, createdAt: at(2, 18, 3), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Got it on video. Still felt soft out of the hole like last week, not sure if it\'s my brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null },
     // A voice note (voice.js): the demo plays a soft murmur shaped by these bars, nothing is fetched.
