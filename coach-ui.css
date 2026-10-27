@@ -412,21 +412,23 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-name { font-size: 16px; line-height: 1.25; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-line { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 15px; line-height: 1.3; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-ldot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--tc, var(--text-3)); }
-.cl-end { display: flex; align-items: center; gap: 14px; flex: none; }
-.cl-n { display: inline-flex; align-items: baseline; gap: 3px; min-width: 46px; justify-content: flex-end; color: var(--text-3); }
-.cl-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 16px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cl-n small { font-size: 13px; font-weight: 600; color: var(--text-3); }
+/* The row's end mirrors its two lines: strength on the name's line, the week's pips on the reason's,
+   both right-aligned, so every row's columns line up whatever the number's width. */
+.cl-end { display: grid; grid-template-rows: 20px 19.5px; row-gap: 3px; justify-items: end; align-items: center; align-self: start; flex: none; min-width: 52px; }
+.cl-n { position: relative; top: 1.5px; display: inline-flex; align-items: baseline; gap: 2px; justify-content: flex-end; color: var(--text-3); white-space: nowrap; }   /* top: on the name's baseline (15 px beside 16 px) */
+.cl-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 15px; line-height: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cl-n small { font-size: 12px; line-height: 20px; font-weight: 500; color: var(--text-3); }
 .cl-n.t-up b { color: var(--cl-up); } .cl-n.t-down b { color: var(--cl-down); } .cl-n.t-flat b { color: var(--text-2); }
 .cl-chev { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: -4px; color: var(--text-3); }
 .cl-chev svg { width: 18px; height: 18px; }
 .cl-none { margin: 24px 8px; font-size: 15px; color: var(--text-3); }
 
-/* the week ring: one segment per planned session */
-.cl-ring { flex: none; display: block; }
-.cl-seg { fill: none; stroke: var(--ch-fill-4); }
-.cl-seg.on { stroke: var(--cl-up); opacity: 0.35; transition: opacity 360ms var(--cl-ease) var(--d, 0ms); }
-.cl-ring.is-in .cl-seg.on { opacity: 1; }
-.cl-ring-none { flex: none; display: block; width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ch-fill-3); }
+/* the week: one bar the same width on every row, a segment per planned session, trained ones filled */
+.cl-pips { display: flex; align-items: center; gap: 2px; width: 34px; height: 5px; }
+.cl-pips i { display: block; flex: 1 1 0; min-width: 0; height: 5px; border-radius: 3px; background: var(--ch-fill-4); }
+.cl-pips i.on { background: var(--text-2); }
+.cl-pips.is-behind i:not(.on) { background: color-mix(in srgb, var(--cl-down) 62%, transparent); }
+.cl-pips.is-none { width: 34px; }
 
 /* ==================== a lifter's summary ==================== */
 .cl-page { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 26px 32px 56px; scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
@@ -557,10 +559,9 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-phone .cl-groups { padding: 0; overflow: visible; }
 .cl-phone .cl-grp + .cl-grp { margin-top: 18px; }
 .cl-phone .cl-gh { padding: 0 4px; }
-.cl-phone .cl-row { grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 12px; min-height: 66px; padding: 10px 12px 10px 14px; }
+.cl-phone .cl-row { grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; min-height: 66px; padding: 10px 12px 10px 14px; }
+.cl-phone .cl-end { min-width: 44px; }
 .cl-phone .cl-row .ui-av { width: 42px; height: 42px; }
-.cl-phone .cl-end { gap: 10px; }
-.cl-phone .cl-n { min-width: 40px; }
 
 /* a lifter, pushed in */
 #lifterPage { padding-bottom: 24px; }
@@ -602,13 +603,10 @@ html.native .cl-phone.is-wide .cl-row .cl-chev { display: none; }
 .cl-cr .cl-jt b, .cl-cr .cl-jt > span { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-cr .cl-jt b { font-size: 15px; }
 .cl-cr .cl-jt > span { font-size: 13px; color: var(--text-3); }
-.cl-ringt { font: 700 11px var(--font-num, system-ui); font-stretch: var(--num-stretch, 112%); fill: var(--text-2); }
-.cl-ring.is-zero .cl-ringt { fill: var(--text-3); }
-.cl-ring.is-full .cl-ringt { fill: var(--cl-up); }
 .cl-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 13px; color: var(--text-3); }
 .cl-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .cl-legend b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-weight: 700; color: var(--cl-up); }
-.cl-legend .cl-ring .cl-ringt { font-size: 9px; }
+.cl-legend .cl-pips { width: 26px; }
 .cl-empty { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; background: var(--cl-surface); border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); --tc: var(--cl-write); }
 .cl-empty b { display: block; font-size: 16px; color: var(--text); }
 .cl-empty p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-3); max-width: 52ch; }
@@ -624,12 +622,7 @@ html.native .cl-phone.is-wide .cl-row .cl-chev { display: none; }
 /* ---- the name list is calm (owner, 27 Oct: "the green design in the name list"): neutral by default,
    colour only when something is wrong. Ring = white sessions, amber when behind; number = white, amber when
    down; the line's dot = coral for pain, amber for anything to watch, none for routine (messages, blocks). ---- */
-.cl-list .cl-seg.on, .cl-legend .cl-seg.on { stroke: var(--text-2); }
-.cl-list .cl-ring.is-behind .cl-seg.on { stroke: var(--cl-down); }
-.cl-list .cl-ringt, .cl-list .cl-ring.is-full .cl-ringt, .cl-legend .cl-ringt { fill: var(--text-2); }
-.cl-list .cl-ring.is-behind .cl-ringt { fill: var(--cl-down); }
-.cl-list .cl-ring.is-zero .cl-ringt { fill: var(--text-3); }
-.cl-list .cl-n.t-up b, .cl-list .cl-n.t-flat b { color: var(--text); }
+.cl-list .cl-n.t-up b, .cl-list .cl-n.t-flat b { color: var(--text-2); }
 .cl-list .cl-n.t-down b { color: var(--cl-down); }
 .cl-legend b { color: var(--text); }
 .cl-line.sev-alert { --tc: var(--cl-pain); }
@@ -642,7 +635,6 @@ html[data-theme="light"] .cl-today::before { opacity: 0.6; }
 /* ==================== reduced motion ==================== */
 @media (prefers-reduced-motion: reduce) {
   .cl-root .rise, .cl-live, .cl-pg.is-swap { animation: none; }
-  .cl-seg.on { transition: none; opacity: 1; }
   .cl-pbar i { transition: none; }
 }
 

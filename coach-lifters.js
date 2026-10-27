@@ -590,7 +590,6 @@
     if (!root) return;
     var els = root.querySelectorAll('[data-viz]');
     els.forEach(drawViz);
-    requestAnimationFrame(function () { root.querySelectorAll('.cl-ring:not(.is-in)').forEach(function (r) { r.classList.add('is-in'); }); });
     if (typeof ResizeObserver !== 'function') return;
     if (root._clRo) root._clRo.disconnect();
     root._clRo = new ResizeObserver(function (entries) {
@@ -598,17 +597,15 @@
     });
     els.forEach(function (el) { root._clRo.observe(el); });
   }
-  function ringSvg(R, size) {
-    if (!R) return '<span class="cl-ring-none" title="No block running"></span>';
-    size = size || 26;
-    var sw = size >= 40 ? 4.5 : 3.4, rr = (size - sw) / 2, c = 2 * Math.PI * rr, gap = R.n > 1 ? Math.min(4.2, c / R.n * 0.2) : 0, seg = c / R.n - gap;
-    var behind = R.n >= 2 && R.trained <= R.n - 2;
-    var o = '<svg class="cl-ring' + (behind ? ' is-behind' : '') + (R.k >= R.n ? ' is-full' : R.k === 0 ? ' is-zero' : '') + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(R.text) + '"><title>' + esc(R.text) + '</title><g transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')">';
-    for (var i = 0; i < R.n; i++) {
-      o += '<circle class="cl-seg' + (i < R.k ? ' on' : '') + '" style="--d:' + (i * 70) + 'ms" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + f1(rr) + '" stroke-width="' + sw + '" stroke-dasharray="' + f1(seg) + ' ' + f1(c - seg) + '" stroke-dashoffset="' + f1(-(i * (seg + gap))) + '"/>';
-    }
-    return o + '</g><text class="cl-ringt" x="50%" y="50%" dy="0.36em" text-anchor="middle">' + Math.min(R.trained, 9) + '</text></svg>';
+  // The week as pips: one per planned session, the ones trained in the last 7 days filled. It reads as a
+  // count without a number, sits quiet when they're on plan, and its gaps turn amber two or more behind.
+  function pipsHtml(R) {
+    if (!R) return '<span class="cl-pips is-none" role="img" aria-label="No block running" title="No block running"></span>';
+    var behind = R.n >= 2 && R.trained <= R.n - 2, o = '';
+    for (var i = 0; i < R.n; i++) o += '<i' + (i < R.k ? ' class="on"' : '') + '></i>';
+    return '<span class="cl-pips' + (behind ? ' is-behind' : '') + '" role="img" aria-label="' + esc(R.text) + '" title="' + esc(R.text) + '">' + o + '</span>';
   }
+
 
   /* =====================================================================================
      ACTIONS: Home's fixes, so a fix does the same thing everywhere.
@@ -790,7 +787,7 @@
     return '<button type="button" class="cl-row' + (o.sel === a.id ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (o.sel === a.id ? 'true' : 'false') + '" tabindex="' + (o.sel === a.id ? '0' : '-1') + '">' +
       avHtml(a) +
       '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + esc(line) + '</span></span></span>' +
-      '<span class="cl-end">' + ringSvg(R, 26) + '<span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span></span>' +
+      '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span>' + pipsHtml(R) + '</span>' +
       (o.phone ? '<span class="cl-chev">' + ic('chev') + '</span>' : '') + '</button>';
   }
   function groupsHtml(M, o) {
@@ -801,7 +798,7 @@
   }
   // What a row's ring and number mean, once at the top of the list.
   function legendHtml() {
-    return '<div class="cl-legend"><span>' + ringSvg({ n: 3, k: 2, trained: 2, text: 'Sessions in the last 7 days, out of the plan' }, 18) + 'Sessions, last 7 days</span><span><b>+kg</b> Strength, 4 weeks</span></div>';
+    return '<div class="cl-legend"><span>' + pipsHtml({ n: 3, k: 2, trained: 2, text: 'Sessions in the last 7 days, out of the plan' }) + 'Sessions, last 7 days</span><span><b>+kg</b> Strength, 4 weeks</span></div>';
   }
   function subText(M) {
     var n = M.rows.length, open = M.need.length;
