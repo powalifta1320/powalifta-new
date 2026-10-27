@@ -1559,5 +1559,41 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Use **Message everyone**: on the laptop it's at the top of **Messages**; on the phone it's the first row of the Messages tab. Choose everyone or one of your teams, write it once, and each lifter gets it in their own thread with you, as if you wrote to them alone, so their replies stay private.",
   "app": "Tap **Message everyone** at the top of the Messages tab. Choose everyone or one of your teams, write it once, and each lifter gets it in their own thread with you, so their replies stay private."
+ },
+ {
+  "id": "aim-for-a-total",
+  "q": "How does Aim for a total work in the attempt planner?",
+  "t": [
+   "aim for a total",
+   "target total",
+   "aim for",
+   "chance of a total",
+   "fill attempts",
+   "best chance",
+   "total goal",
+   "chance of 600",
+   "out of reach",
+   "chance now"
+  ],
+  "a": "In the attempt planner, under Safe, Balanced and Bold, **Aim for a total** takes the total you want (in your unit). It starts on the lifter's goal total, or else where this block is heading by the meet, never past the Balanced plan's total. Next to it you see the best chance any attempts can give that total, and **Fill** puts those attempts in: openers as Safe has them (about 90%, held under this month's heavy sets), seconds and thirds on 2.5 kg between 93% and 106% of their max, each at least 2.5 over the one before. The plans by risk then show none picked, the note says \"Aiming for 600 kg\", and the row reads the chance of your attempts as you change any of them (\"Chance of 600: 38%\"). A total no plan can reach says **Out of reach** with a total that is likely instead (tap it to aim for that). **Save plan** keeps the total with the attempts. On meet day the board's declaration and the lifter's meet mode say \"Chance of 600 now\" from the results so far and the attempts left, \"600 made\" once it's in. Each attempt's odds come from this block's top sets; it is an estimate from training, not a promise."
+ },
+{
+  "id": "coach-challenges",
+  "q": "How do challenges work (most sessions, most PRs, biggest gain)?",
+  "t": [
+   "challenge",
+   "challenges",
+   "new challenge",
+   "most sessions",
+   "most prs",
+   "biggest gain",
+   "as written",
+   "leaderboard for my lifters",
+   "team challenge",
+   "coach's challenge",
+   "end challenge",
+   "prize"
+  ],
+  "a": "Challenges are for a coach's own lifters, with a board of their own at the top of **Club** (clubs are separate). As a coach, tap **New challenge**: pick what counts (**Most sessions**: days trained while it runs; **Most PRs**: sets that beat their best e1RM; **Biggest gain**: their best total against their best in the 8 weeks before it started; **As written**: sessions done of the ones you wrote), who (all your lifters, or one team), when (this month, or next month near its end; 4 weeks; or your own dates, up to 92 days), the name and a prize if you like, then **Start challenge**. Your lifters get a notification and see it at the top of Club: their place (\"You're 3rd of 12 · 9 sessions\") and the days left; a tap opens the board with them marked. The board shows places, names and values only, never anyone's sessions or program; lifters on the same value share a place. It updates as they log sets. **End challenge** (on the board, with a confirm) stops it early; past challenges stay under **Past challenges** with their winner."
  }
 ];

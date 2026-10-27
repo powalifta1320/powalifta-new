@@ -37,7 +37,7 @@ html[data-theme="light"] .chl-card { box-shadow: none; }
 /* Hairlines between rows, inset to where the names start; none around "you". */
 .chl-row + .chl-row::before { content: ''; position: absolute; top: 0; left: 72px; right: 8px; height: 1px; background: var(--line); }
 .chl-row.is-me::before, .chl-row.is-me + .chl-row::before { display: none; }
-.chl-row.is-me { background: color-mix(in srgb, var(--chl-gold) 13%, transparent); }
+.chl-row.is-me { background: color-mix(in srgb, var(--chl-gold) 11%, transparent); }
 .chl-rank { font-size: 15px; font-weight: 700; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
 .chl-row.is-first .chl-rank { color: var(--chl-gold); }
 .chl-av.ui-av { width: 32px; height: 32px; font-size: 13px; font-weight: 700; }
@@ -110,7 +110,9 @@ html[data-theme="light"] .chl-card { box-shadow: none; }
 .chl-metric span { font-size: 13px; line-height: 1.35; color: var(--text-3); text-wrap: pretty; }
 .chl-metric:active { transform: scale(0.97); }
 @media (hover: hover) and (pointer: fine) { .chl-metric:hover:not(.on) { background: var(--chl-fill-3); } }
-.chl-metric.on { background: color-mix(in srgb, var(--text) 9%, var(--bg-1)); box-shadow: inset 0 0 0 1.5px var(--text-2); }
+/* Picked: raised like the app's segmented control, with an ink edge so a tile in a grid reads as the one. */
+.chl-metric.on { background: var(--bg-3); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--text-2), 0 1px 2px rgba(0, 0, 0, 0.3); }
+html[data-theme="light"] .chl-metric.on { background: #fff; box-shadow: inset 0 0 0 1.5px var(--text-2), 0 1px 2px rgba(11, 11, 13, 0.1); }
 .chl-metric.on span { color: var(--text-2); }
 .chl-who { flex-wrap: wrap; overflow: visible; }
 .chl-who .ui-chip { min-height: 40px; }

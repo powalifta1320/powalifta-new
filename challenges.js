@@ -710,12 +710,25 @@ var Challenges = (function () {
   }
 
   // ---------- render ----------
-  var _host = null;
+  var _host = null, _fetchedAt = 0;
   function render(host) {
     _host = host || _host || (hasDom ? document.getElementById('challengeArea') : null);
     if (!_host || !root.el) return;
     if (isCoachView()) { syncCoach(); renderCoach(_host); }
-    else { syncMine(); renderLifter(_host); }
+    else { syncMine(); renderLifter(_host); refetch(); }
+  }
+  // The lifter's boards move as their teammates train: Club opening reads them again (at most every
+  // 30 s), then draws once more. Quiet when it fails: the board they had stays.
+  function refetch() {
+    var u = me();
+    if (isDemo() || !u || !u.coachId || !root.DB || !root.DB._chHydrate || Date.now() - _fetchedAt < 30000) return;
+    _fetchedAt = Date.now();
+    root.DB._chHydrate({ id: u.id, userType: 'athlete', coachId: u.coachId }).then(function (r) {
+      if (!r || !root.Store) return;
+      root.Store.update(function (x) { x.challenges = r.challenges; x.challengeEntries = r.entries; });
+      syncMine();
+      if (_host && document.body.contains(_host)) renderLifter(_host);
+    }).catch(function () {});
   }
   function refresh() { if (_host && hasDom && document.body.contains(_host)) render(_host); }
   // The coach's boards come up to date a moment after the app opens (it holds every lifter's logs).
