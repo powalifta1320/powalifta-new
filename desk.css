@@ -1866,7 +1866,7 @@ html.desk .ds-teams { max-width: 1240px; }
 .ds-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; margin-bottom: var(--s-5); }
 .ds-head-id { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .ds-head-id .dk-title-row { justify-content: flex-start; align-items: center; }
-.ds-facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2); margin: 0; font-size: var(--fs-2); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.ds-facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2); margin: 2px 0 0; font-size: var(--fs-3); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .ds-sep { color: var(--text-4); }
 .ds-head-tools { display: flex; align-items: center; gap: var(--s-2); flex: none; }
 .ds-push-slot { display: inline-flex; }
@@ -1888,7 +1888,7 @@ html.desk .ds-teams { max-width: 1240px; }
 .ds-wk:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 .ds-sec { margin-bottom: var(--s-6); }
 .ds-sec-head { display: flex; align-items: baseline; gap: var(--s-3); flex-wrap: wrap; margin-bottom: var(--s-3); }
-html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-4); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); text-transform: none; }
+html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); text-transform: none; }
 .ds-sec-sub { font-size: var(--fs-2); color: var(--text-3); }
 .ds-sec-tool { margin-left: auto; }
 .ds-note { margin: var(--s-3) 0 0; font-size: var(--fs-2); color: var(--text-3); }

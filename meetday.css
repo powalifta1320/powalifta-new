@@ -521,6 +521,9 @@ html.desk .md-root .md-odds.is-reach::before { content: ''; flex: none; align-se
 /* the Meets screen: the desk's page frame */
 html.desk .md-screen { max-width: var(--page-w, 1040px); margin: 0; padding: var(--page-top, 28px) var(--gut) 72px; gap: var(--s-5); box-sizing: border-box; }
 html.desk .md-screen .md-meet-season { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--text-3); }
+/* The page's sub line and section titles read as on Today: 15 under the title, 20 for a section. */
+html.desk body .md-screen .md-screen-head .md-screen-sub { margin-top: 6px; font-size: var(--fs-3); color: var(--text-3); }
+html.desk body .md-screen .md-sec-h { font-size: var(--fs-5); font-weight: var(--fw-4); letter-spacing: -0.012em; }
 html.desk .md-screen .md-today { padding: var(--s-4) var(--s-5); }
 html.desk .md-screen .md-meet { padding: var(--s-3) var(--s-4); gap: var(--s-4); border-top-color: var(--line); }
 html.desk .md-screen .md-meet-acts .md-btn:not(.md-btn-primary) { background: transparent; color: var(--text-2); }
