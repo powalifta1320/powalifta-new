@@ -1515,5 +1515,49 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Every block gets a fingerprint: week by week, the squat, bench and deadlift sets written (the faint part of each bar) and done (the solid part), with a line for how the top sets felt against the RPE you wrote. Beside it: sessions done of the ones that came round, and each lift's e1RM change (its best in the block against the best in the 8 weeks before it).\n\nOn a laptop, open a lifter and scroll to **Blocks**, then **Compare** (or **Blocks** at the top of their summary in Lifters). Tick any two: you get both fingerprints on one week grid and one plain sentence per difference (adherence, felt against written, sets a week and e1RM per lift, the total, pain reports), with both numbers beside it. It says what changed between the blocks, never why: that call is yours.",
   "app": "Every block gets a fingerprint: week by week, the squat, bench and deadlift sets written (the faint part of each bar) and done (the solid part), with a line for how the top sets felt against the RPE you wrote, plus sessions done and each lift's e1RM change.\n\nOpen a lifter from the Lifters tab and tap **Blocks**, then tap any two blocks: you get both fingerprints on one week grid and one plain sentence per difference (adherence, felt against written, sets a week and e1RM per lift, the total, pain reports). It says what changed between the blocks, never why: that call is yours."
+ },
+ {
+  "id": "coach-weekly-note",
+  "q": "How do I send each lifter a note about their week?",
+  "t": [
+   "weekly note",
+   "week's note",
+   "weekly feedback",
+   "note to every lifter",
+   "write the week's note",
+   "weekly check-in message",
+   "feedback every week"
+  ],
+  "a": "On the laptop, **Today** shows **Weekly notes** with the number of lifters due one (anyone who trained in the last 7 days and hasn't had a note in 6). It opens one lifter at a time: a draft on the left, written from their last 7 days (sessions done against planned, top sets written against how they felt, a PR, a real change in their e1RM total, pain, bodyweight against their class before a meet, and next week's change if you applied one), and their week on the right. Every number comes from their log. Edit it as much as you like, then **Send to** them (⌘↵) or **Skip**, and the next lifter comes up.\n\nOn the phone, open a lifter and tap **Write the week's note**. A note goes into your thread with them like any message.",
+  "app": "Open a lifter and tap **Write the week's note**. The draft is written from their last 7 days (sessions done against planned, top sets written against how they felt, PRs, their e1RM total, pain, bodyweight before a meet) and every number comes from their log. Edit it, then **Send**: it lands in your thread with them like any message."
+ },
+ {
+  "id": "coach-saved-replies",
+  "q": "Can I save replies I send often?",
+  "t": [
+   "saved replies",
+   "canned replies",
+   "quick replies",
+   "templates for messages",
+   "message templates",
+   "save this as a reply"
+  ],
+  "a": "Yes. In any message box (a lifter's thread, or **Message everyone**), the bookmark button opens your **Saved replies**: tap one to drop it into the box, change it if you need to, and send. To keep what you just wrote, choose **Save this as a reply**; the × beside a reply removes it. You start with four, and they stay on this device.",
+  "app": "Yes. In a thread, the bookmark button opens your **Saved replies**: tap one to drop it into the box, change it if you need to, and send. **Save this as a reply** keeps what you just wrote; hold a reply to remove it. They stay on this device."
+ },
+ {
+  "id": "coach-message-everyone",
+  "q": "How do I message all my lifters, or one team, at once?",
+  "t": [
+   "message everyone",
+   "message all",
+   "broadcast",
+   "announcement",
+   "message a team",
+   "group message",
+   "send to all lifters"
+  ],
+  "a": "Use **Message everyone**: on the laptop it's at the top of **Messages**; on the phone it's the first row of the Messages tab. Choose everyone or one of your teams, write it once, and each lifter gets it in their own thread with you, as if you wrote to them alone, so their replies stay private.",
+  "app": "Tap **Message everyone** at the top of the Messages tab. Choose everyone or one of your teams, write it once, and each lifter gets it in their own thread with you, so their replies stay private."
  }
 ];
