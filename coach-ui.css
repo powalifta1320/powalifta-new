@@ -1064,3 +1064,28 @@ body.powa-app .wn-rsheet .wn-rsv { display: flex; align-items: center; justify-c
 .wn-rsheet .wn-rsv svg { flex: none; width: 16px; height: 16px; }
 .wn-rsheet .wn-rsv span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Message everyone (the phone's Messages tab): one quiet row above the threads, then the sheet */
+body.powa-app .msg-bc { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 64px; margin: 0 0 12px; padding: 10px 16px 10px 12px; box-sizing: border-box;
+  border: 0; border-radius: var(--u-r, 20px); background: var(--bg-1); box-shadow: inset 0 0 0 1px var(--edge, var(--line)); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html:not([data-theme="light"]) body.powa-app .msg-bc { background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.006)), var(--bg-1); }
+body.powa-app .msg-bc:active { transform: scale(0.985); }
+.msg-bc-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--acc); background: color-mix(in srgb, var(--acc) 15%, transparent); }
+.msg-bc-ic svg { width: 20px; height: 20px; }
+.msg-bc-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.msg-bc-t b { font-size: 16px; font-weight: 600; color: var(--text); }
+.msg-bc-t span { font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg-bc > svg { width: 18px; height: 18px; color: var(--text-3); }
+@media (max-width: 720px) { body.powa-app section[data-pane="messages"]:has(.msg-inbox.is-detail-open) .msg-bc { display: none; } }
+.wn-bsheet .wn-bseg { margin: 0 0 14px; }
+body.powa-app .wn-bsheet .wn-bseg button { min-height: 40px; font-size: 15px; }
+.wn-bwho { display: flex; align-items: center; gap: 10px; min-height: 32px; margin: 0 4px 12px; }
+.wn-bstack { display: inline-flex; flex: none; }
+body.powa-app .wn-bstack .ui-av { width: 32px; height: 32px; font: 700 13px/1 var(--font-body); font-stretch: 100%; letter-spacing: -0.02em; box-shadow: 0 0 0 2px #111114; }
+html[data-theme="light"] body.powa-app .wn-bstack .ui-av { box-shadow: 0 0 0 2px #fff; }
+.wn-bstack .ui-av + .ui-av { margin-left: -2px; }
+.wn-bnames { min-width: 0; font-size: 15px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.powa-app .wn-bsheet textarea.wn-bta { min-height: 132px; margin-bottom: 4px; }
+.wn-btools { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+body.powa-app .wn-btools .wn-bsaved { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 2px; font-size: 15px; }
+.wn-bsaved svg { width: 16px; height: 16px; }

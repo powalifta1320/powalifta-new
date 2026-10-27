@@ -2129,6 +2129,8 @@ async function renderMessages() {
     return;
   }
 
+  // Message everyone (or a team), one thread per lifter: weekly-note.js, the desk's send path.
+  if (window.WeeklyNote && WeeklyNote.broadcastRowEl) area.appendChild(WeeklyNote.broadcastRowEl(() => WeeklyNote.openBroadcast({ onSent: () => renderMessages() })));
   const shell = el('div', { class: 'msg-inbox' });
   const listCol = el('div', { class: 'msg-inbox-list' });
   const detailCol = el('div', { class: 'msg-inbox-detail' });
