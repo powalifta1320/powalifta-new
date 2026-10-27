@@ -3,20 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POWALIFTA | Built for the barbell.</title>
-<meta name="description" content="Powerlifting platform. Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for athletes and coaches.">
+<title>POWALIFTA | The powerlifting app for lifters and coaches</title>
+<meta name="description" content="Log every set with RPE, watch your e1RM move and run meet day from your phone. Free for lifters. Coaches get a live desk, free up to 3 athletes.">
+<meta property="og:site_name" content="POWALIFTA">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="POWALIFTA | Built for the barbell.">
-<meta property="og:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
+<meta property="og:description" content="The powerlifting app for lifters and the coaches who program them. RPE logging, automatic e1RM, plates on the bar and meet day. Free for lifters.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/">
 <meta property="og:url" content="https://www.powalifta.com/">
 <meta property="og:image" content="https://www.powalifta.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="POWALIFTA: Built for the barbell.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="POWALIFTA | Built for the barbell.">
-<meta name="twitter:description" content="Programs, RPE-based logging, automatic e1RM tracking, goals, bodyweight. Built for powerlifters and the coaches who train them.">
+<meta name="twitter:description" content="The powerlifting app for lifters and the coaches who program them. RPE logging, automatic e1RM, plates on the bar and meet day. Free for lifters.">
 <meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="twitter:image:alt" content="POWALIFTA: Built for the barbell.">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <!-- Native shell launch — runs before anything paints. Adds html.native so the native
@@ -47,24 +51,66 @@
 <link rel="stylesheet" href="styles.css?v=2">
 <link rel="stylesheet" href="cookie-consent.css">
 <link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="landing.css">
 <link rel="stylesheet" href="native-onboard.css">
 <script defer src="site.js"></script>
+<script defer src="landing.js"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "POWALIFTA",
-  "url": "https://www.powalifta.com/",
-  "applicationCategory": "HealthApplication",
-  "operatingSystem": "Web, iOS",
-  "installUrl": "https://apps.apple.com/app/powalifta/id6788506689",
-  "description": "Powerlifting platform for athletes and coaches. RPE-based logging, automatic e1RM tracking, week-by-week programming, goals and bodyweight tracking.",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD",
-    "description": "Free for athletes, forever. Coach plans from $24.99/month."
-  }
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.powalifta.com/#org",
+      "name": "POWALIFTA",
+      "url": "https://www.powalifta.com/",
+      "logo": "https://www.powalifta.com/icon-512.png",
+      "slogan": "Built for the barbell.",
+      "email": "powalifta1320@gmail.com",
+      "sameAs": ["https://instagram.com/powa.lifta", "https://apps.apple.com/app/powalifta/id6788506689"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.powalifta.com/#site",
+      "url": "https://www.powalifta.com/",
+      "name": "POWALIFTA",
+      "publisher": { "@id": "https://www.powalifta.com/#org" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://www.powalifta.com/#app",
+      "name": "POWALIFTA",
+      "url": "https://www.powalifta.com/",
+      "applicationCategory": "HealthApplication",
+      "applicationSubCategory": "Powerlifting training log and coaching platform",
+      "operatingSystem": "Web, iOS",
+      "installUrl": "https://apps.apple.com/app/powalifta/id6788506689",
+      "image": "https://www.powalifta.com/og.png",
+      "screenshot": [
+        "https://www.powalifta.com/site-img/app-lift.webp",
+        "https://www.powalifta.com/site-img/app-progress.webp",
+        "https://www.powalifta.com/site-img/desk-roster.webp"
+      ],
+      "description": "Powerlifting platform for athletes and coaches. RPE-based logging, automatic e1RM tracking, week-by-week programming, meet day, clubs, goals and bodyweight tracking.",
+      "featureList": [
+        "Log sets with RPE in one tap",
+        "Automatic e1RM for squat, bench and deadlift, variations included",
+        "Plates on the bar for every load",
+        "Self-written training blocks with loads from recent sets",
+        "Club leaderboards and feed",
+        "Meet day: attempts with odds, opener check, commands",
+        "Coach desk: who needs you first, programs from a photo, weekly notes, attempt planning"
+      ],
+      "publisher": { "@id": "https://www.powalifta.com/#org" },
+      "offers": [
+        { "@type": "Offer", "name": "Lifters", "price": "0", "priceCurrency": "USD", "description": "Free for athletes, forever." },
+        { "@type": "Offer", "name": "Coach Free", "price": "0", "priceCurrency": "USD", "description": "Coaching up to 3 athletes." },
+        { "@type": "Offer", "name": "Coach Basic", "price": "24.99", "priceCurrency": "USD", "description": "4 to 10 athletes, per month." },
+        { "@type": "Offer", "name": "Coach Pro", "price": "49.99", "priceCurrency": "USD", "description": "11 to 25 athletes, per month." },
+        { "@type": "Offer", "name": "Coach Premium", "price": "99.99", "priceCurrency": "USD", "description": "26 athletes or more, per month." }
+      ]
+    }
+  ]
 }
 </script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
@@ -150,101 +196,226 @@
 <div class="s-home">
 <nav class="nav" id="nav"></nav>
 
-<main id="main">
+<main id="main" class="s-land">
 
-<!-- HERO: the one headline, the one red action, the app itself. -->
-<header class="s-hero">
-  <div class="s-wrap s-hero-grid">
+<!-- THE LIFTER APP: the hero and six chapters around one phone (landing.js, landing.css).
+     Without JS (or before landing.js proves IntersectionObserver works) every chapter carries
+     its own phone, stacked. On a laptop landing.js adds .is-story: the hero's phone pins and
+     its screen changes as each chapter crosses the middle of the screen. The hero's phone is
+     the app's Train screen in HTML: one CSS timeline loads the bar, settles the RPE on 8,
+     logs the set, advances to set 2 and starts the rest timer (final state = the default
+     styles, so reduced motion and no-animation renderers see it finished). -->
+<div class="s-lift" id="lifters" data-scr="0">
+
+  <header class="s-hero" data-scr="0" data-hue="fire">
     <div class="s-hero-copy">
-      <h1 class="s-hero-title">Built for the barbell.</h1>
-      <p class="s-body">The powerlifting app for lifters and the coaches who program them. Free for lifters, forever.</p>
+      <h1 class="s-hero-title"><span class="s-hl"><span>Built for</span></span> <span class="s-hl"><span>the barbell.</span></span></h1>
+      <p class="s-hero-sub">The powerlifting app for lifters and the coaches who program them. Free for lifters, forever.</p>
       <div class="s-actions">
         <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('solo')">Start free</button>
         <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="156" height="52" alt="Download on the App Store" decoding="async"></a>
       </div>
       <p class="s-hero-aux">Try the live demo, no sign-up: <a href="athlete.html?demo=1&amp;solo=1">on your own</a>, <a href="athlete.html?demo=1">with a coach</a> or <a href="coach.html?demo=1">as a coach</a>.</p>
     </div>
-    <div class="s-visual s-hero-visual">
-      <div class="s-light" aria-hidden="true"></div>
-      <div class="s-phone-wrap">
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-train.webp" width="780" height="1691" alt="POWALIFTA on iPhone: today's squat session, 182.5 kg for 3 at RPE 8.5 with the bar loaded, and the Log set button" fetchpriority="high" decoding="async">
+  </header>
+
+  <div class="s-stage" aria-hidden="true">
+    <div class="s-stage-pin">
+      <div class="s-stage-light"><i class="is-fire is-on"></i><i class="is-cyan"></i><i class="is-gold"></i><i class="is-mono"></i></div>
+      <div class="s-device">
+        <figure class="s-phone s-phone-live">
+          <div class="s-phone-screen">
+            <span class="s-status"></span>
+
+            <!-- Screen 0: Train, live -->
+            <div class="s-scr s-scr-train is-on" data-scr="0">
+              <div class="tr-head">
+                <div class="tr-title">Squat Day<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div>
+                <div class="tr-sub"><span class="tr-date"></span>Week 3</div>
+                <span class="tr-ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></span>
+                <span class="tr-ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+              </div>
+
+              <div class="tr-card">
+                <div class="tr-row">
+                  <i class="tr-dot"></i><span class="tr-lift">Competition Squat</span>
+                  <span class="tr-setof"><span class="tr-s1">Set 1 of 3</span><span class="tr-s2">Set 2 of 3</span></span>
+                  <span class="tr-exp"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></span>
+                </div>
+                <div class="tr-load">
+                  <div class="tr-num tr-n1"><b>182.5</b><small>kg</small><em>×</em><b>3</b></div>
+                  <div class="tr-num tr-n2"><b>167.5</b><small>kg</small><em>×</em><b>5</b></div>
+                  <svg class="tr-bar" viewBox="0 0 123 100">
+                    <rect x="0" y="46.6" width="26" height="6.8" rx="1.6" fill="#5d616a"/>
+                    <rect x="23" y="37" width="7" height="26" rx="1.8" fill="#8e949e"/>
+                    <rect x="30" y="44.4" width="91.4" height="11.2" rx="2.4" fill="#a3a9b3"/>
+                    <!-- kept: the two 25s -->
+                    <g class="pl pl-k1"><rect x="31" y="4" width="15" height="92" rx="2.2" fill="#e5262f" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="40" y="7" width="3.3" height="86" rx="1" fill="#fff" opacity=".16"/></g>
+                    <g class="pl pl-k2"><rect x="47.6" y="4" width="15" height="92" rx="2.2" fill="#e5262f" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="56.6" y="7" width="3.3" height="86" rx="1" fill="#fff" opacity=".16"/></g>
+                    <!-- set 1 only: 25, 5, 1.25 (slide on, then off for set 2) -->
+                    <g class="pl-off pl-off1"><g class="pl pl-o1"><rect x="64.2" y="4" width="15" height="92" rx="2.2" fill="#e5262f" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="73.2" y="7" width="3.3" height="86" rx="1" fill="#fff" opacity=".16"/></g></g>
+                    <g class="pl-off pl-off2"><g class="pl pl-o2"><rect x="80.8" y="23.3" width="8" height="53.4" rx="2.2" fill="#ececef" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="85.6" y="26.3" width="1.8" height="47.4" rx="1" fill="#fff" opacity=".16"/></g></g>
+                    <g class="pl-off pl-off3"><g class="pl pl-o3"><rect x="90.4" y="31.6" width="6" height="36.8" rx="2.2" fill="#b8bcc6" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="94" y="34.6" width="1.3" height="30.8" rx="1" fill="#fff" opacity=".16"/></g></g>
+                    <!-- set 2: 20, 2.5, 1.25 -->
+                    <g class="pl pl-n1"><rect x="64.2" y="4" width="13" height="92" rx="2.2" fill="#2563eb" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="72" y="7" width="2.9" height="86" rx="1" fill="#fff" opacity=".16"/></g>
+                    <g class="pl pl-n2"><rect x="78.8" y="27.9" width="7" height="44.2" rx="2.2" fill="#2b2b30" stroke="rgba(255,255,255,.34)" stroke-width=".9"/><rect x="83" y="30.9" width="1.5" height="38.2" rx="1" fill="#fff" opacity=".16"/></g>
+                    <g class="pl pl-n3"><rect x="87.4" y="31.6" width="6" height="36.8" rx="2.2" fill="#b8bcc6" stroke="rgba(255,255,255,.16)" stroke-width=".9"/><rect x="91" y="34.6" width="1.3" height="30.8" rx="1" fill="#fff" opacity=".16"/></g>
+                    <rect class="tr-collar" x="95.4" y="40" width="7" height="20" rx="1.8" fill="#d4d7dd"/>
+                  </svg>
+                </div>
+                <div class="tr-belt">Belt <b>on</b></div>
+                <div class="tr-rpe">
+                  <div class="tr-track">
+                    <span class="tr-fill"></span>
+                    <span class="tr-stop is-whole" style="--i:0">6</span><span class="tr-stop" style="--i:1"></span><span class="tr-stop is-whole" style="--i:2">7</span><span class="tr-stop" style="--i:3"></span><span class="tr-stop is-whole is-k8" style="--i:4">8</span><span class="tr-stop" style="--i:5"></span><span class="tr-stop is-whole" style="--i:6">9</span><span class="tr-stop" style="--i:7"></span><span class="tr-stop is-whole" style="--i:8">10</span>
+                    <span class="tr-knob">8</span>
+                  </div>
+                  <div class="tr-hint"><span class="tr-h0">Tap or slide to how hard it felt</span><span class="tr-h1"><b>RPE 8</b> · Two reps left in the tank</span></div>
+                </div>
+                <div class="tr-log"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Log set</div>
+              </div>
+
+              <div class="tr-weigh">
+                <span class="tr-weigh-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8.5 10.5a3.5 3.5 0 0 1 7 0"/><path d="M12 10.5l1.6-1.6"/></svg></span>
+                <span class="tr-weigh-t"><b>Weighed in · 83.1 kg</b><small>Class 83 · 9 wk to go</small></span>
+                <svg class="tr-weigh-spark" viewBox="0 0 60 26"><polyline points="1,9 9,15 16,8 24,18 31,12 38,20 45,15 52,22 59,19"/></svg>
+              </div>
+              <div class="tr-label">The session</div>
+              <div class="tr-list">
+                <div class="tr-ex"><span class="tr-ex-ic">S</span><span class="tr-ex-n">Competition Squat</span><span class="tr-ring"><svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15"/><circle class="f" cx="18" cy="18" r="15"/></svg><b><span class="tr-c0">0</span><span class="tr-c1">1</span></b><small>/3</small></span></div>
+                <div class="tr-ex"><span class="tr-ex-ic">S</span><span class="tr-ex-n">Paused Squat</span><span class="tr-ring"><svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15"/></svg><b>0</b><small>/3</small></span></div>
+                <div class="tr-ex"><span class="tr-ex-ic is-acc">L</span><span class="tr-ex-n">Leg Press</span><span class="tr-ring"><svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15"/></svg><b>0</b><small>/2</small></span></div>
+              </div>
+
+              <div class="tr-dock">
+                <span class="tr-dock-ring"><svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15"/><circle class="f" cx="18" cy="18" r="15"/></svg><i></i></span>
+                <span class="tr-dock-t"><small>Rest · Squat</small><b class="tr-clock">3:00</b></span>
+                <span class="tr-dock-b">−15</span><span class="tr-dock-b">+30</span><span class="tr-dock-s">Skip</span>
+              </div>
+
+              <div class="tr-tabs">
+                <span class="is-on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Train</span>
+                <span><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Progress</span>
+                <span><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9.2 12.2l1.9 1.9 3.8-4"/></svg>Club</span>
+                <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Program</span>
+                <span><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>You</span>
+              </div>
+            </div>
+
+            <!-- Screens 1-5: the app's own screens (armed by landing.js when the story starts) -->
+            <img class="s-scr" data-scr="1" data-src="site-img/app-lift.webp" width="640" height="1387" alt="" decoding="async">
+            <img class="s-scr" data-scr="2" data-src="site-img/app-progress.webp" width="640" height="1387" alt="" decoding="async">
+            <img class="s-scr" data-scr="3" data-src="site-img/app-program-solo.webp" width="640" height="1387" alt="" decoding="async">
+            <img class="s-scr" data-scr="4" data-src="site-img/app-club.webp" width="640" height="1387" alt="" decoding="async">
+            <img class="s-scr" data-scr="5" data-src="site-img/app-meet.webp" width="640" height="1387" alt="" decoding="async">
+          </div>
+        </figure>
+
+        <div class="s-chip s-chip-e1rm">
+          <div class="s-chip-in">
+            <span class="s-chip-k"><i></i>Squat e1RM</span>
+            <span class="s-chip-v"><b class="s-e1rm">211</b><small>kg</small><em>+4</em></span>
+          </div>
         </div>
-      </figure>
-      <div class="s-chip s-chip-rest" aria-hidden="true">
-        <span class="s-ring"><svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15"/><circle class="f" cx="18" cy="18" r="15"/></svg></span>
-        <span>Rest<b data-countdown="150">2:30</b></span>
-      </div>
-      <div class="s-chip s-chip-pr" aria-hidden="true">
-        <span class="s-pr-badge">PR</span>
-        <span><b>+5 kg</b><i class="s-lift-dot"></i>New squat best</span>
-      </div>
       </div>
     </div>
   </div>
-</header>
 
-<!-- TRAIN -->
-<section class="s-sec s-feat s-feat--flip" id="train" style="--hue: var(--s-fire)">
-  <div class="s-wrap s-feat-grid">
-    <div class="s-feat-copy s-reveal">
-      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Train</p>
+  <article class="s-ch" id="train" data-scr="0" data-hue="fire">
+    <div class="s-ch-copy">
+      <p class="s-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Train</p>
       <h2>Every set, one tap.</h2>
-      <p class="s-body">Your session already knows the lift, the load and the RPE. You lift, tap how it felt, and move on.</p>
+      <p class="s-body">Your session already knows the lift, the load and the RPE. Lift, slide to how it felt, and that set becomes your e1RM.</p>
       <ul class="s-points">
-        <li><b>Lift mode</b><span>One set at a time on the whole screen, with your rest between.</span></li>
         <li><b>Rest timer</b><span>Starts itself the moment you log a set.</span></li>
-        <li><b>Plates</b><span>The exact plates for your bar, even in a gym with no 25s.</span></li>
+        <li><b>Next set</b><span>Too heavy or too light today? The next load moves with you.</span></li>
+        <li><b>Readiness</b><span>Sleep and soreness, asked before the first set.</span></li>
       </ul>
     </div>
-    <div class="s-visual s-reveal">
-      <div class="s-light" aria-hidden="true"></div>
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-lift.webp" width="640" height="1387" alt="Lift mode: the set on the whole screen, 182.5 kg for 3, the bar loaded, the RPE scale and Log set" loading="lazy" decoding="async">
-        </div>
-      </figure>
-    </div>
-  </div>
-</section>
+  </article>
 
-<!-- PROGRESS -->
-<section class="s-sec s-feat" id="progress" style="--hue: var(--s-cyan)">
-  <div class="s-wrap s-feat-grid">
-    <div class="s-feat-copy s-reveal">
-      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Progress</p>
+  <article class="s-ch" id="lift-mode" data-scr="1" data-hue="fire">
+    <div class="s-ch-copy">
+      <p class="s-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Lift mode</p>
+      <h2>One set, the whole screen.</h2>
+      <p class="s-body">Big enough to read from the bench, with your plates on the bar and what comes next.</p>
+      <ul class="s-points">
+        <li><b>Plates</b><span>The exact plates for your bar, even in a gym with no 25s.</span></li>
+        <li><b>Swipe to log</b><span>Chalk on your hands? Swipe up anywhere.</span></li>
+        <li><b>Then</b><span>The next load is on screen before you rest.</span></li>
+      </ul>
+    </div>
+    <figure class="s-phone s-ch-shot"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"></span><img src="site-img/app-lift.webp" width="640" height="1387" alt="Lift mode: the set on the whole screen, 182.5 kg for 3, the bar loaded, the RPE scale and Log set" loading="lazy" decoding="async"></div></figure>
+  </article>
+
+  <article class="s-ch" id="progress" data-scr="2" data-hue="cyan">
+    <div class="s-ch-copy">
+      <p class="s-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Progress</p>
       <h2>Your real max, from every set.</h2>
       <p class="s-body">Every working set tells you what you could lift today. No max-out days needed.</p>
       <ul class="s-points">
-        <li><b>e1RM</b><span>Your estimated max for each lift, charted set by set, bests marked.</span></li>
+        <li><b>e1RM</b><span>Your estimated max for each lift, charted set by set.</span></li>
         <li><b>Variations</b><span>A paused squat at RPE 8 still moves your squat.</span></li>
-        <li><b>Total</b><span>Your total and DOTS move as you train, block against block.</span></li>
+        <li><b>Total</b><span>Your total and DOTS move as you train.</span></li>
       </ul>
       <p class="s-more"><a class="s-link" href="#e1rm">Try it on your own set</a></p>
     </div>
-    <div class="s-visual s-reveal">
-      <div class="s-light" aria-hidden="true"></div>
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-progress.webp" width="640" height="1387" alt="Progress: a 593 kg e1RM total, up 22 kg in four weeks, with the strength chart climbing" loading="lazy" decoding="async">
-        </div>
-      </figure>
+    <figure class="s-phone s-ch-shot"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"></span><img src="site-img/app-progress.webp" width="640" height="1387" alt="Progress: a 593 kg e1RM total, up 22 kg in four weeks, with the strength chart climbing" loading="lazy" decoding="async"></div></figure>
+  </article>
+
+  <article class="s-ch" id="programs" data-scr="3" data-hue="cyan">
+    <div class="s-ch-copy">
+      <p class="s-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>Program</p>
+      <h2>No coach? Write your own block.</h2>
+      <p class="s-body">Weeks, days and lifts in a few minutes, with every load ready on day one.</p>
+      <ul class="s-points">
+        <li><b>Loads</b><span>Suggested from your recent sets.</span></li>
+        <li><b>Next block</b><span>Start the next one when this one ends.</span></li>
+        <li><b>Rest days</b><span>Mark them, move sessions, keep your streak.</span></li>
+      </ul>
+      <p class="s-more web-only" data-needs-programs><a class="s-link" href="marketplace.html">Or start from a coach's program</a></p>
     </div>
-  </div>
-</section>
+    <figure class="s-phone s-ch-shot"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"></span><img src="site-img/app-program-solo.webp" width="640" height="1387" alt="A self-written strength block: four weeks, a squat day with sets, loads and RPE for each lift" loading="lazy" decoding="async"></div></figure>
+  </article>
+
+  <article class="s-ch" id="club" data-scr="4" data-hue="gold">
+    <div class="s-ch-copy">
+      <p class="s-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6z"/><path d="M9.2 12.2l1.9 1.9 3.8-4"/></svg>Club</p>
+      <h2>Lift with your crew.</h2>
+      <p class="s-body">Your gym or your team on one board, even on the days you train apart.</p>
+      <ul class="s-points">
+        <li><b>This week</b><span>Points for sessions, hard sets and PRs. Anyone can win it.</span></li>
+        <li><b>Most improved</b><span>You against your own best, not the strongest.</span></li>
+        <li><b>Feed</b><span>Share a set, a PR or a whole session.</span></li>
+      </ul>
+    </div>
+    <figure class="s-phone s-ch-shot"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"></span><img src="site-img/app-club.webp" width="640" height="1387" alt="A club: Iron Temple Barbell, nine of ten members trained this week, and a member's new deadlift PR in the feed" loading="lazy" decoding="async"></div></figure>
+  </article>
+
+  <article class="s-ch s-ch-meet" id="meet" data-scr="5" data-hue="mono">
+    <div class="s-ch-copy">
+      <p class="s-tab s-tab-meet"><span class="s-lights" aria-hidden="true"><i></i><i></i><i></i></span>Meet day</p>
+      <h2>Meet day, handled.</h2>
+      <p class="s-body">Attempts, the opener check and the commands, in the order you need them.</p>
+      <ul class="s-points">
+        <li><b>Attempts</b><span>Three a lift from what you've actually lifted, each with its odds.</span></li>
+        <li><b>Opener check</b><span>Too heavy for the day? You hear it before you walk out.</span></li>
+        <li><b>Commands</b><span>Squat, press, rack, down. Drilled until they're automatic.</span></li>
+      </ul>
+    </div>
+    <figure class="s-phone s-ch-shot"><div class="s-phone-screen"><span class="s-status" aria-hidden="true"></span><img src="site-img/app-meet.webp" width="640" height="1387" alt="Meet day: the app warns the opener is too heavy at 105% of this month's best, and offers to open at 162.5 kg instead" loading="lazy" decoding="async"></div></figure>
+  </article>
+
+</div>
 
 <!-- MAX CALCULATOR (ids are wired to the inline script below) -->
 <section id="e1rm" class="s-sec s-calc">
   <div class="s-wrap">
-    <div class="s-head s-center s-reveal">
+    <div class="s-head s-center">
       <h2>What's your real max?</h2>
-      <p class="s-body">Type a set you've done. It's the math the app runs on every set you log.</p>
+      <p class="s-body">Type a set you've done. It's the same math the app runs on every set you log.</p>
     </div>
-    <div class="calc-card s-reveal">
+    <div class="calc-card">
       <div class="calc-tabs" role="tablist">
         <button type="button" id="tabMax" class="active" role="tab">Max</button>
         <button type="button" id="tabTarget" role="tab">Load</button>
@@ -348,146 +519,103 @@
   </div>
 </section>
 
-<!-- PROGRAMS (solo lifters) -->
-<section class="s-sec s-feat s-feat--flip" id="programs" style="--hue: var(--s-cyan)">
-  <div class="s-wrap s-feat-grid">
-    <div class="s-feat-copy s-reveal">
-      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>Program</p>
-      <h2>No coach? Write your own.</h2>
-      <p class="s-body">Plan your own training like a coach would, without a spreadsheet.</p>
-      <ul class="s-points">
-        <li><b>Your block</b><span>Weeks, days, lifts and variations in a few minutes. The next one when it ends.</span></li>
-        <li><b>Loads</b><span>Suggested from your recent sets, so day one is right.</span></li>
-        <li><b>Rest days</b><span>Mark them, move sessions, and keep your streak.</span></li>
-      </ul>
-      <p class="s-more web-only" data-needs-programs><a class="s-link" href="marketplace.html">Or start from a coach's program</a></p>
-    </div>
-    <div class="s-visual s-reveal">
-      <div class="s-light" aria-hidden="true"></div>
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-program-solo.webp" width="640" height="1387" alt="A self-written strength block: four weeks, a squat day with sets, loads and RPE for each lift" loading="lazy" decoding="async">
-        </div>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- CLUB -->
-<section class="s-sec s-feat" id="club" style="--hue: var(--s-gold)">
-  <div class="s-wrap s-feat-grid">
-    <div class="s-feat-copy s-reveal">
-      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Club</p>
-      <h2>Lift with your crew.</h2>
-      <p class="s-body">Train with your gym or your team, even when you're not in the same room.</p>
-      <ul class="s-points">
-        <li><b>This week</b><span>Points for sessions, hard sets and PRs. Anyone can win it.</span></li>
-        <li><b>Most improved</b><span>You against your own best, not against the strongest.</span></li>
-        <li><b>Feed</b><span>Share a set, a PR or a whole session, and react to each other's.</span></li>
-      </ul>
-    </div>
-    <div class="s-visual s-reveal">
-      <div class="s-light" aria-hidden="true"></div>
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-club.webp" width="640" height="1387" alt="A club feed: Iron Temple Barbell, nine of ten members trained this week, and a member's new deadlift PR" loading="lazy" decoding="async">
-        </div>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- MEET DAY: the app's meet-day slab -->
-<section class="s-sec s-feat s-feat--flip s-meet" id="meet">
-  <div class="s-wrap s-feat-grid">
-    <div class="s-feat-copy s-reveal">
-      <p class="s-meet-kick"><span class="s-lights" aria-hidden="true"><i></i><i></i><i></i></span>Meet day</p>
-      <h2>Meet day, handled.</h2>
-      <p class="s-body">Everything you need on the platform, in the order you need it.</p>
-      <ul class="s-points">
-        <li><b>Attempts</b><span>Three a lift from what you've actually lifted, each picked against a one&#8209;minute clock.</span></li>
-        <li><b>Opener check</b><span>Too heavy for the day? You hear it before you walk out.</span></li>
-        <li><b>Commands</b><span>Squat, press, rack, down. Drilled until they're automatic.</span></li>
-      </ul>
-    </div>
-    <div class="s-visual s-reveal">
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-meet.webp" width="640" height="1387" alt="Meet day: the app warns the opener is too heavy at 105% of this month's best, and offers to open at 162.5 kg instead" loading="lazy" decoding="async">
-        </div>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- COACHING -->
-<section class="s-sec s-feat" id="coaching" style="--hue: var(--s-green)">
-  <div class="s-wrap s-feat-grid">
-    <div class="s-feat-copy s-reveal">
-      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>For coaches</p>
-      <h2 class="s-h-coach">Coach lifters,<br>not spreadsheets.</h2>
-      <p class="s-body">Your whole roster in one look, so the time goes into coaching instead of chasing.</p>
-      <ul class="s-points">
-        <li><b>Lifters</b><span>Who needs you first, who's slipping, who just hit a PR.</span></li>
-        <li><b>Programs</b><span>Bring yours in from a photo, a screenshot or a paste. No retyping, then reuse it as a template.</span></li>
-        <li><b>Messages</b><span>Notes and set cards in one thread, plus form&#8209;check videos.</span></li>
-        <li><b>Invites</b><span>One link per lifter. They tap it, get the app and land on your roster.</span></li>
-      </ul>
-      <div class="s-actions"><button type="button" class="btn btn-ghost btn-lg" onclick="openSignupModal('coach')">Start coaching free</button><a class="s-link" href="coach.html?demo=1">Try the coach demo</a></div>
-    </div>
-    <div class="s-visual s-reveal">
-      <div class="s-light" aria-hidden="true"></div>
-      <figure class="s-phone">
-        <div class="s-phone-screen">
-          <span class="s-status" aria-hidden="true"><span>9:41</span><span class="s-status-ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#fff"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 .6 10.2 10.2 0 0 0 .9 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4zm0 3.3c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4zm0 3.3c-.6 0-1.1.2-1.5.6L8 11.1l1.5-1.7c-.4-.4-.9-.6-1.5-.6z" fill="#fff"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><path d="M24.5 4v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#fff" fill-opacity=".45"/></svg></span></span>
-          <img src="site-img/app-roster.webp" width="640" height="1387" alt="A coach's Lifters tab: Do first (a meet today, a lifter's low back) and who to check on, each lifter with their week and their 4-week change" loading="lazy" decoding="async">
-        </div>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- THE COACHING DESK: the same app on a laptop (roster table, athlete page, program grid) -->
-<section class="s-sec s-desk" id="desk" style="--hue: var(--s-green)">
+<!-- FOR COACHES: the desk on a laptop. Three of its screens cycle (landing.js) under a
+     segmented control; each carries one live touch (a job ticked off, a reply landing, a
+     load worked out). Without JS the first screen shows and the tabs still switch nothing
+     harmful: they're buttons that do nothing until landing.js wires them. -->
+<section class="s-sec s-coach" id="coaching">
   <div class="s-wrap">
-    <div class="s-desk-head s-reveal">
-      <p class="s-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>On a laptop</p>
-      <h2>Your coaching desk.</h2>
-      <p class="s-body">Open POWALIFTA on a laptop: Today tells you who needs you first, every lifter has one page with their whole picture, and the builder reads a program the way you write it.</p>
+    <div class="s-coach-head">
+      <p class="s-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>For coaches</p>
+      <h2>Know who needs you, before they ask.</h2>
+      <p class="s-body">Every set your lifters log reaches your desk as they lift it. Today puts the ones who need you first, each with the one thing to do.</p>
     </div>
-    <div class="s-desk-stage s-reveal">
-      <div class="s-light" aria-hidden="true"></div>
-      <div class="s-desk-tabs" role="tablist" aria-label="The coaching desk">
-        <button type="button" role="tab" aria-selected="true" aria-controls="deskShot" data-desk="0">Today</button>
-        <button type="button" role="tab" aria-selected="false" aria-controls="deskShot" data-desk="1" tabindex="-1">Lifter</button>
-        <button type="button" role="tab" aria-selected="false" aria-controls="deskShot" data-desk="2" tabindex="-1">Program</button>
+  </div>
+
+  <div class="s-desk" id="desk">
+    <div class="s-desk-bar">
+      <div class="s-seg" role="tablist" aria-label="The coaching desk">
+        <button type="button" role="tab" id="deskTab0" aria-selected="true" aria-controls="deskShot" data-desk="0">Today</button>
+        <button type="button" role="tab" id="deskTab1" aria-selected="false" aria-controls="deskShot" data-desk="1" tabindex="-1">A lifter</button>
+        <button type="button" role="tab" id="deskTab2" aria-selected="false" aria-controls="deskShot" data-desk="2" tabindex="-1">The builder</button>
+        <span class="s-seg-on" aria-hidden="true" data-scan-skip><span>Today</span><span>A lifter</span><span>The builder</span></span>
       </div>
-      <figure class="s-laptop" id="deskShot" role="tabpanel">
+      <button type="button" class="s-desk-play" aria-label="Pause the tour" hidden><svg class="s-desk-prog" viewBox="0 0 36 36" aria-hidden="true"><circle class="t" cx="18" cy="18" r="16"/><circle class="f" cx="18" cy="18" r="16"/></svg><svg class="s-desk-ico" viewBox="0 0 24 24" aria-hidden="true"><rect class="i-pause" x="7" y="6" width="3.4" height="12" rx="1.2"/><rect class="i-pause" x="13.6" y="6" width="3.4" height="12" rx="1.2"/><path class="i-play" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></button>
+    </div>
+
+    <div class="s-desk-stage">
+      <figure class="s-laptop" id="deskShot" role="tabpanel" aria-labelledby="deskTab0">
         <div class="s-laptop-lid"><div class="s-laptop-screen">
-          <img class="on" src="site-img/desk-roster.webp" width="1600" height="1000" alt="Today on a laptop: do first (a meet today with three lifters, two pain reports), this week's training, effort, strength and meets, and every other job by kind" loading="lazy" decoding="async">
-          <img src="site-img/desk-athlete.webp" width="1600" height="1000" alt="A lifter's page: their voice note waiting with Reply, the e1RM total over 12 weeks toward their meet, each lift, training, effort, bodyweight and their client details" loading="lazy" decoding="async">
-          <img src="site-img/desk-grid.webp" width="1600" height="1000" alt="The builder: a block's weeks toward the meet, each day's lifts written as 1×3 @8.5 and 3×5 160 @7.5, with the load worked out from the lifter's max" loading="lazy" decoding="async">
+          <img class="is-on" src="site-img/desk-roster.webp" width="2160" height="1350" alt="Today on a laptop: do first (a meet today with three lifters, a pain report on a check-in, a sore low back), this week's training, effort, strength and meets, then every other job by kind" loading="lazy" decoding="async">
+          <img src="site-img/desk-athlete.webp" width="2160" height="1350" alt="A lifter's page: his voice note waiting with Reply, his e1RM total over 12 weeks toward his meet, each lift, training, effort, bodyweight and the meet" loading="lazy" decoding="async">
+          <img src="site-img/desk-grid.webp" width="2160" height="1350" alt="The builder: a block's weeks toward the meet and each day's lifts written as 1×3 @8.5 and 3×5 160 @7.5, with the load worked out from the lifter's max" loading="lazy" decoding="async">
         </div></div>
         <div class="s-laptop-base" aria-hidden="true"></div>
       </figure>
+
+      <div class="s-live" aria-hidden="true">
+        <div class="s-live-c s-live-0">
+          <span class="s-live-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <span class="s-live-t"><b>Priya's pain, answered</b><span><span class="s-live-n">23</span> to do this week</span></span>
+        </div>
+        <div class="s-live-c s-live-1">
+          <span class="s-live-av">AM</span>
+          <span class="s-live-t"><b>Arjun Mehta</b><span class="s-live-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span>
+          <span class="s-live-time">0:24</span>
+        </div>
+        <div class="s-live-c s-live-2">
+          <span class="s-live-t"><span class="s-live-k">Squat · from his 210 kg max</span><b><span class="s-live-type">1×3 @8.5</span><span class="s-live-eq">≈ 185 kg</span></b></span>
+        </div>
+      </div>
     </div>
-    <ul class="s-points s-desk-points s-reveal">
-      <li><b>Today</b><span>Pain, meets, sets over their RPE and words waiting on you, most urgent first, each with the one thing to do.</span></li>
-      <li><b>A lifter's page</b><span>Their total toward the next meet, every lift, their week as they lifted it, their words, their blocks compared and their whole career.</span></li>
-      <li><b>The builder</b><span>Write 3x5&nbsp;@8, 75% or 2&nbsp;RIR, bring a program in from a photo, fill the weeks forward, and see what was lifted under what you wrote.</span></li>
-      <li><b>Blocks</b><span>Set the maxes your percentages work from. Start the next block heavier and the last one is kept, with what it gained.</span></li>
+
+    <ul class="s-desk-caps">
+      <li class="is-on"><b>Today</b><span>Pain, meets, sets over their RPE and messages waiting, most urgent first.</span></li>
+      <li><b>A lifter</b><span>Their total toward the next meet, every lift, their week and their words.</span></li>
+      <li><b>The builder</b><span>Write 3x5 @8, 75% or 2 RIR. The loads come from their maxes.</span></li>
     </ul>
-    <div class="s-actions s-center s-reveal"><a class="btn btn-ghost btn-lg" href="coach.html?demo=1">Open the coach demo</a><a class="s-link" href="switch.html">Moving over from a spreadsheet?</a></div>
+  </div>
+
+  <div class="s-wrap">
+    <div class="s-actions s-center"><button type="button" class="btn btn-ghost btn-lg" onclick="openSignupModal('coach')">Start coaching free</button><a class="s-link s-link-go" href="coach.html?demo=1">Open the coach demo</a></div>
+  </div>
+</section>
+
+<!-- WHAT ONLY POWALIFTA DOES FOR A COACH: five real screens from the coach demo. -->
+<section class="s-sec s-tools" id="coach-tools">
+  <div class="s-wrap">
+    <div class="s-head">
+      <h2>Your Sunday night, back.</h2>
+    </div>
+    <div class="s-bento">
+      <article class="s-tile s-tile-photo">
+        <div class="s-tile-copy"><h3>A program from a photo</h3><p>Snap a printout or a screenshot. It reads into the builder and you check every number before it's saved.</p></div>
+        <div class="s-tile-shot"><img src="site-img/coach-photo.webp" width="1320" height="520" alt="Check the program: a photo of a printed block beside what was read from it, four weeks of sets, with one smudged cell flagged to check" loading="lazy" decoding="async"></div>
+      </article>
+      <article class="s-tile s-tile-ai">
+        <div class="s-tile-copy"><h3>Ask about your roster</h3><p>Who's stalled, who's hurting, who owes you. Answered from your own numbers.</p></div>
+        <div class="s-tile-shot"><img src="site-img/coach-askai.webp" width="420" height="512" alt="Ask AI answering Who's stalled: eight lifters with no new e1RM best in four weeks, each name opening the lifter" loading="lazy" decoding="async"></div>
+      </article>
+      <article class="s-tile s-tile-odds">
+        <div class="s-tile-copy"><h3>Attempts with odds</h3><p>Safe, balanced or bold, from the block's top sets. Every attempt shows its odds as you type.</p></div>
+        <div class="s-tile-shot"><img src="site-img/coach-odds.webp" width="1008" height="452" alt="The attempt planner for Fall Nationals: Safe 552.5, Balanced 562.5 and Bold 577.5 kg, with each squat and bench attempt and its odds" loading="lazy" decoding="async"></div>
+      </article>
+      <article class="s-tile s-tile-notes">
+        <div class="s-tile-copy"><h3>Weekly notes</h3><p>A note for every lifter, drafted from their week. Change a word and send.</p></div>
+        <div class="s-tile-shot"><img src="site-img/coach-notes.webp" width="567" height="404" alt="A weekly note to Priya drafted from her log: all three sessions done, squat 120 for 3 at RPE 8, her total up 6 kg, on weight for her class, and a question about her pain" loading="lazy" decoding="async"></div>
+      </article>
+      <article class="s-tile s-tile-invite">
+        <div class="s-tile-copy"><h3>One link per lifter</h3><p>They tap it, get the app and land on your roster.</p></div>
+        <div class="s-tile-shot"><img src="site-img/coach-invite.webp" width="520" height="335" alt="Invite a lifter: share an invite link, copy it or show a QR code. Each link works for one lifter" loading="lazy" decoding="async"></div>
+      </article>
+    </div>
   </div>
 </section>
 
 <!-- COACH DIRECTORY: shown only with three coaches who have written a real bio -->
 <section class="s-sec" id="coaches" hidden>
   <div class="s-wrap">
-    <div class="s-head s-reveal">
+    <div class="s-head">
       <h2>Find a coach.</h2>
       <p class="s-body">Real powerlifting coaches who program in RPE. Open a profile to see how they work.</p>
     </div>
@@ -498,7 +626,7 @@
 <!-- PROGRAMS TEASER: shown only with three published programs (never in the app) -->
 <section class="s-sec" id="marketplace-teaser" hidden>
   <div class="s-wrap">
-    <div class="s-head s-reveal">
+    <div class="s-head">
       <h2>Programs from real coaches.</h2>
       <p class="s-body">Buy once and it lands in your account, ready to train.</p>
     </div>
@@ -510,12 +638,12 @@
 <!-- PRICING (hidden inside the app) -->
 <section class="s-sec" id="pricing">
   <div class="s-wrap">
-    <div class="s-head s-center s-reveal">
+    <div class="s-head s-center">
       <h2>Free for lifters. Forever.</h2>
-      <p class="s-body">Every lifter feature is free. Coaches pay only when their roster grows.</p>
+      <p class="s-body">Every lifter feature is free. Coaches pay only when their roster grows past three.</p>
     </div>
-    <h3 class="s-plans-label s-reveal">Coach plans</h3>
-    <div class="s-plans s-reveal">
+    <h3 class="s-plans-label">Coach plans</h3>
+    <div class="s-plans">
       <div class="s-plan">
         <h3>Free</h3>
         <p class="s-price">$0</p>
@@ -541,19 +669,21 @@
         <p class="s-plan-note">For teams and gyms. Dedicated onboarding.</p>
       </div>
     </div>
-    <div class="s-actions s-center s-reveal"><button type="button" class="btn btn-ghost btn-lg" onclick="openSignupModal('coach')">Start coaching free</button></div>
+    <div class="s-actions s-center"><button type="button" class="btn btn-ghost btn-lg" onclick="openSignupModal('coach')">Start coaching free</button></div>
     <p class="s-fine">No card to start. Upgrade inside the app the day you need the room.</p>
   </div>
 </section>
 
 <!-- CLOSING CALL -->
 <section class="s-sec s-cta" id="start">
-  <div class="s-wrap s-reveal">
-    <h2>Stop training in a spreadsheet.</h2>
+  <div class="s-wrap">
+    <svg class="s-cta-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect class="m1" x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect class="m2" x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect class="m3" x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg>
+    <h2>Load the bar.</h2>
     <div class="s-actions s-center">
       <button type="button" class="btn btn-primary btn-lg" onclick="openSignupModal('solo')">Start free</button>
       <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="156" height="52" alt="Download on the App Store" loading="lazy" decoding="async"></a>
     </div>
+    <p class="s-cta-aux">Coaching? <button type="button" class="s-link" onclick="openSignupModal('coach')">Start with three lifters free</button></p>
   </div>
 </section>
 
