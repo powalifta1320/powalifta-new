@@ -806,12 +806,16 @@ var MeetDay = (function () {
     // Everyone on the roster at the same meet (same name, same day): one planner, a list down the side.
     var grp = groupMeets(s.meets, s.athletes || [], '0000-00-00').find(function (g) { return g.rows.some(function (r) { return r.meetId === meet.id; }); });
     var rows = grp ? grp.rows : [{ meetId: meet.id, athleteId: meet.athleteId, name: (athlete(meet.athleteId) || {}).name || 'Lifter' }];
-    var st = { sel: meet.id, drafts: {}, dirty: {} };
+    // dirty: not saved (a suggested plan too); edited: the coach changed it. Only the coach's own
+    // changes are worth a question on close: an untouched suggestion comes back as it was.
+    var st = { sel: meet.id, drafts: {}, dirty: {}, edited: {} };
     var dirtyIds = function () { return Object.keys(st.dirty).filter(function (k) { return st.dirty[k]; }); };
+    var editedN = function () { return dirtyIds().filter(function (k) { return st.edited[k]; }).length; };
+    var touch = function () { st.dirty[st.sel] = true; st.edited[st.sel] = true; };
     var sh = shell(String(meet.name || 'Meet'), [dayText(iso(meet.date)), meet.federation, meet.division].filter(Boolean).join(' · '), { cls: 'md-planner',
       beforeClose: function (leave) {
         var n = dirtyIds().length;
-        if (!n) return false;
+        if (!n || !editedN()) return false;
         sheet(n === 1 ? 'This plan is not saved' : n + ' plans are not saved', function (card, closeSheet) {
           card.appendChild(E('p', { class: 'md-sheet-sub' }, 'Lifters see a plan in meet mode once it is saved.'));
           card.appendChild(btn(n === 1 ? 'Save plan' : 'Save ' + n + ' plans', 'md-btn-primary md-btn-block', function () { closeSheet(); saveAll(leave); }));
@@ -844,7 +848,8 @@ var MeetDay = (function () {
         var b = E('button', { type: 'button', class: 'md-pl-item' + (r.meetId === st.sel ? ' on' : ''), 'aria-current': r.meetId === st.sel ? 'true' : 'false' },
           E('span', { class: 'md-pl-name' }, r.name),
           E('span', { class: 'md-pl-meta' }, [m.weightClass || '', tot ? loadText(tot, unitNow(), 0) : 'No numbers yet'].filter(Boolean).join(' · ')),
-          E('span', { class: 'md-pl-state' + (st.dirty[r.meetId] ? ' is-dirty' : hasPlan(m) ? ' is-saved' : '') }, st.dirty[r.meetId] ? 'Not saved' : hasPlan(m) ? 'Planned' : ''));
+          E('span', { class: 'md-pl-state' + (st.dirty[r.meetId] && st.edited[r.meetId] ? ' is-dirty' : !st.dirty[r.meetId] && hasPlan(m) ? ' is-saved' : '') },
+            st.dirty[r.meetId] ? (st.edited[r.meetId] ? 'Not saved' : 'Suggested') : hasPlan(m) ? 'Planned' : ''));
         b.addEventListener('click', function () { st.sel = r.meetId; paint(); });
         list.appendChild(b);
       });
@@ -871,7 +876,7 @@ var MeetDay = (function () {
       main.appendChild(planChooser(plans, picked, ev, unit, function (pl) {
         LIFTS.forEach(function (l) { if (pl.lifts[l]) d[l] = pl.lifts[l].map(function (x) { return x.kg; }); });
         d.strategy = pl.strategy;
-        st.dirty[st.sel] = true; haptic('LIGHT'); paint();
+        touch(); haptic('LIGHT'); paint();
       }, !picked && hasNums));
       var grid = E('div', { class: 'md-pl-grid', role: 'table', 'aria-label': 'Attempts' });
       grid.appendChild(E('div', { class: 'md-pl-row md-pl-th', role: 'row' }, E('span', { role: 'columnheader' }, 'Lift'),
@@ -890,7 +895,7 @@ var MeetDay = (function () {
           var cell = E('div', { class: 'md-pl-cell' + (i === 2 ? ' is-third' : ''), role: 'cell' });
           var setKg = function (v) {
             var a2 = (d[l] || [null, null, null]).slice(); a2[i] = v == null ? null : Math.max(MIN_BAR, Math.min(MAX_KG, rStep(v, 0.5)));
-            d[l] = a2; st.dirty[st.sel] = true; paint();
+            d[l] = a2; touch(); paint();
           };
           var minus = E('button', { type: 'button', class: 'md-step', 'aria-label': LIFT_NAME[l] + ' ' + ord(i + 1) + ' lighter' }, '−');
           var plus = E('button', { type: 'button', class: 'md-step', 'aria-label': LIFT_NAME[l] + ' ' + ord(i + 1) + ' heavier' }, '+');
@@ -922,12 +927,12 @@ var MeetDay = (function () {
       sum.appendChild(E('div', { class: 'md-sum-cell' }, E('span', {}, 'Opening'), E('b', {}, tot.opening ? String(loadNum(tot.opening, unit, 0)) : '–'), E('small', {}, unitWord(unit))));
       sum.appendChild(E('div', { class: 'md-sum-cell' }, E('span', {}, tot.score.label), E('b', {}, tot.score.points ? tot.score.points.toFixed(1) : '–')));
       var sexBtn = E('button', { type: 'button', class: 'md-link', 'aria-label': 'Scored as ' + sex + '. Change' }, 'Scored as ' + (sex === 'female' ? 'female' : 'male'));
-      sexBtn.addEventListener('click', function () { d.sex = sex === 'female' ? 'male' : 'female'; st.dirty[st.sel] = true; paint(); });
+      sexBtn.addEventListener('click', function () { d.sex = sex === 'female' ? 'male' : 'female'; touch(); paint(); });
       sum.appendChild(E('div', { class: 'md-sum-note' }, bw ? '' : 'Score after a weigh-in · ', sexBtn));
       main.appendChild(sum);
       var note = E('textarea', { class: 'md-note', rows: '2', maxlength: '280', placeholder: 'A note for ' + first(a.name) + ' (optional): “Open light, the third is the meet.”', 'aria-label': 'Note for the lifter' });
       note.value = d.note || '';
-      note.addEventListener('input', function () { d.note = note.value; st.dirty[st.sel] = true; paintFoot(); paintList(); });
+      note.addEventListener('input', function () { d.note = note.value; touch(); paintFoot(); paintList(); });
       main.appendChild(note);
     };
     var paintFoot = function () {
@@ -935,7 +940,10 @@ var MeetDay = (function () {
       var n = Object.keys(st.dirty).filter(function (k) { return st.dirty[k]; }).length;
       var m = (S().meets || []).find(function (x) { return x.id === st.sel; });
       var who = first((athlete(m.athleteId) || {}).name);
-      foot.appendChild(E('span', { class: 'md-foot-note' }, n ? (n === 1 ? 'One plan not saved' : n + ' plans not saved') : who + ' sees this plan in meet mode'));
+      var note = !n ? who + ' sees this plan in meet mode'
+        : editedN() ? (n === 1 ? 'One plan not saved' : n + ' plans not saved')
+        : n === 1 ? 'Suggested from the block. Save it and ' + who + ' sees it in meet mode' : n + ' suggested plans. Save them and your lifters see them in meet mode';
+      foot.appendChild(E('span', { class: 'md-foot-note' }, note));
       var save = btn(n > 1 ? 'Save ' + n + ' plans' : 'Save plan', 'md-btn-primary', function () { saveAll(); });
       if (!n) save.disabled = true;
       foot.appendChild(save);
@@ -948,7 +956,7 @@ var MeetDay = (function () {
       ids.forEach(function (id) {
         var plan = normalizePlan(Object.assign({}, st.drafts[id], { at: new Date().toISOString(), by: by }));
         chain = chain.then(function () {
-          var put = function () { if (root.Store) root.Store.update(function (x) { (x.meets || []).forEach(function (mm) { if (mm.id === id) mm.attemptPlan = plan; }); }); st.dirty[id] = false; };
+          var put = function () { if (root.Store) root.Store.update(function (x) { (x.meets || []).forEach(function (mm) { if (mm.id === id) mm.attemptPlan = plan; }); }); st.dirty[id] = false; st.edited[id] = false; };
           if (isDemo() || !root.DB || !root.DB.saveAttemptPlan) { put(); return; }
           return root.DB.saveAttemptPlan(id, plan).then(function (r) {
             if (r && r.ok) { put(); var lp = localPlans(); if (lp[id]) { delete lp[id]; lsSet(LOCAL_PLANS, lp); } return; }
