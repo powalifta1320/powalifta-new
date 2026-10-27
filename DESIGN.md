@@ -197,14 +197,18 @@ strengths and never toward a spreadsheet: no "sheet" views or names, no cell-by-
 a home, no two lines of grey text per cell. Phones and the app never see any of it. The system is
 defined once at the top of desk.css; every desk rule (and meetday.css's `html.desk` block) reads it.
 
-- Type, one family (Archivo), six steps, no half pixels: `--fs-1` 12 (meta, column names, counts,
-  keys) · `--fs-2` 13 (buttons, secondary lines) · `--fs-3` 14 (body, names in lists, inputs) ·
-  `--fs-4` 16 (section and card titles) · `--fs-5` 20 (page titles) · `--fs-6` 24 (the lifter's name,
-  big numbers). The meet-day board's load on the bar is the one display size (40). Weights 400 / 500
-  / 600 / 700. Tabular numbers on all data. Avatar initials sit at 12.
-- Radius: `--r-1` 6 (controls: buttons, inputs, chips, menu items, badges) · `--r-2` 10 (surfaces:
-  cards, menus, rows) · `--r-3` 14 (overlays: dialogs, the side card) · `--r-round` for avatars, dots,
-  marks and set bars only. No pills on controls. A control nested in a 2px-padded control takes
+- Type, one family (Archivo), on the coach side's one scale (27 Oct polish): `--fs-1` and `--fs-2` 13
+  (meta, counts, keys, buttons; colour and weight tell them apart) · `--fs-3` 15 (body, names in
+  lists, inputs) · `--fs-4` 16 (row and card titles) · `--fs-5` 20 (section titles, an overlay's
+  title, the block's name in the builder) · `--fs-6` 22 (a number) · `--fs-7` 28 (the page title).
+  Every screen opens with the same 28 px display title on the same line and left edge (`--page-top`
+  28, the rail + `--gut` 24 at every width): Today, Lifters, Programs, Meets, Teams, Messages,
+  Clients, Club, Settings, the first run. Display numbers: 40 (the meet-day board), 56 (a lifter's
+  total). No 12, 14 or 24. Tabular numbers in columns, proportional on a big standalone number.
+  Avatar initials sit at 13, 11 in a 24 px face.
+- Radius: `--r-1` 6 (controls: buttons, inputs, chips, menu items, badges) · `--r-2` 10 (inner
+  surfaces: rows, menus, bubbles, week tabs) · `--r-3` 20 (cards and overlays: the app's card, every
+  desk card, dialogs, the side card, Ask AI) · `--r-round` for avatars, dots, marks and set bars only. No pills on controls. A control nested in a 2px-padded control takes
   `--r-1 - 2px` so the corners stay concentric (segmented buttons).
 - Space: 8pt, `--s-1`..`--s-7` = 4 8 12 16 24 32 48. Controls are 32 high (`--ctl-h`); icons 14 /
   16 / 18.
@@ -227,10 +231,21 @@ defined once at the top of desk.css; every desk rule (and meetday.css's `html.de
   visually hidden word (`.dk-nil`) tells a screen reader why. Status colour never sits on a number
   or a sentence (bodyweight over the class, drift, the Pain count): the dot carries it, the words
   stay ink.
-- Surfaces separate by a step in fill (`--dk-raise`, `--dk-fill`) and by space; hairlines only
-  between rows of one list, inset to the text.
-- Themes: dark by default (`#0a0a0c` ink); light is white paper and `#0b0b0d` ink with the same
-  layout. One token block per theme.
+- One card on every screen (`--dk-card`, `--dk-card-edge`, `--dk-card-lit`, `--dk-card-sheen`): the
+  app's material lit from above, a hairline edge, a lit top edge and a soft sheen in dark; in light a
+  white card with a hairline and a one-pixel shadow. No hue washes on tiles: the hue lives on the icon
+  chip and the marks. Hairlines only between rows of one list, inset to the text.
+- One red per screen, drafting included: a composer (the side card, Messages, Ask AI) sends with the
+  secondary button and a voice note plays from a graphite one. Every `:hover` sits under
+  `(hover: hover) and (pointer: fine)`; what a mouse reveals on hover is simply shown on touch.
+- Motion: a screen arrives with a 140 ms fade (no travel); a lifter swaps in 120 ms; the side card and
+  Ask AI slide 16 px from the right on the drawer curve; the palette never animates; everything is
+  off under reduced motion. While the roster loads the desk shows its own shape (`.dk-skel`).
+- Themes: dark by default (`#0a0a0c` ink); light is the app's light material, a soft grey canvas
+  (`#f4f4f6`) with white cards and `#0b0b0d` ink, fills and hovers as ink at low alpha; role colours
+  go one step deeper in light so status words and deltas clear AA. One token block per theme. The
+  desk keeps its own choice under `powa-desk-theme` (the rail's Light mode, ⌘K, Settings), so
+  `powa-theme` (the site and the lifter app) never turns it.
 - Single-column screens (Club, Meets, Settings) share one page frame: `padding-inline: var(--gut)`
   and `max-width: var(--page-w)` (1040), so the left edge never jumps between screens.
 - Layout: a text sidebar 232px (icons, 64px, below 1200 unless the coach opens it; the old

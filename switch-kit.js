@@ -1174,7 +1174,7 @@ var SwitchKit = (function () {
     var u = me();
     if (!u) return;
     var sub = sheet.querySelector('.ui-sheet-sub');
-    if (sub) sub.textContent = 'Everything you\'ve put into POWALIFTA, as spreadsheets you can open anywhere. Take it whenever you like.';
+    if (sub) sub.textContent = 'Everything you\'ve put into POWALIFTA, as files you can open anywhere. Take it whenever you like.';
     var box = el('div', { class: 'sk-data-acts' });
     var all = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Download everything');
     all.addEventListener('click', function () { exportEverything(all); });

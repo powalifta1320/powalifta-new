@@ -1366,6 +1366,341 @@ html.desk .cs-page .cs-r .cs-st.st-overdue::before { background: var(--cl-pain);
 html.desk .cs-page .cs-r .cs-st:is(.st-ok, .st-none, .st-paused, .st-ended) { color: var(--text-3); }
 html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /* Mark paid in one column, Remind after it */
 
+/* ===== phone polish (27 Oct) =====
+   The coach side of the iPhone app, the design lead's pass before the pitch. Phone only: every rule is
+   scoped to html.native (the app, and the website's phone demo, which adds html.native.web-demo) or to
+   the phone's own components (.cl-phone, .cl-pg-phone), never html.desk; the lifter app never loads
+   this file. The system it holds the screens to: type 13 / 15 / 16 / 20 (+ 22 tile numbers, 32 large
+   title, 44 hero number), a 4-point grid, radii 20 cards / 14 rows / 12 controls / pills for buttons,
+   three button kinds (one red fill a screen, graphite fill, text), inset hairlines, press feedback on
+   everything tappable, 44 pt targets, motion on cubic-bezier(0.23, 1, 0.32, 1). */
+
+/* --- 1. Scroll edges (iOS 26): where floating chrome covers the page, the page softens into it ---
+   Under the floating tab bar the content used to run on crisp (an invite's text showed under and
+   below the capsule); under the docked top bar and the open thread's header it ended on a hairline. */
+html.native:not(.desk) body.powa-app .dash-shell::after {
+  content: ''; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; pointer-events: none;
+  height: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - 12px)) + 96px);
+  background: linear-gradient(to top, var(--bg) 0, color-mix(in srgb, var(--bg) 94%, transparent) 18px, color-mix(in srgb, var(--bg) 72%, transparent) 46%, color-mix(in srgb, var(--bg) 0%, transparent) 100%);
+}
+html.native:not(.desk) body.powa-app .nav.is-docked { box-shadow: none; }
+html.native:not(.desk) body.powa-app .nav::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 20px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(6, 6, 8, 0.9), rgba(6, 6, 8, 0));
+  opacity: 0; transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+html.native:not(.desk) body.powa-app .nav.is-docked::after { opacity: 1; }
+html.native[data-theme="light"]:not(.desk) body.powa-app .nav::after { background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0)); }
+@media (max-width: 720px) {
+  html.native:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head { border-bottom-color: transparent; }
+  html.native:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 20px; pointer-events: none;
+    background: linear-gradient(to bottom, rgba(6, 6, 8, 0.9), rgba(6, 6, 8, 0));
+  }
+  html.native[data-theme="light"]:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head::after { background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0)); }
+}
+/* Reply as a sheet (Lifters › a lifter › Reply): the thread scrolls inside the sheet and fades at its top
+   edge instead of cutting a bubble in half under the title. */
+html.native:not(.desk) #messageModal .msg-list { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
+
+/* --- 2. Push navigation: a sub-screen's back sits in the bar's row, level with the icons ---
+   "‹ Lifters" on the left, the assistant and the bell on the right, the large title under them (it
+   was a row of its own under the icons). Once the bar docks, .cl-navback (coach.html) keeps a back in it. */
+html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .pane-back:first-child {
+  display: flex; width: fit-content; height: 44px; margin: -44px 0 4px -10px; padding: 0 14px 0 4px; gap: 2px;
+
+  font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-2);
+  transition: color 150ms ease-out, transform 140ms ease-out;
+}
+html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .pane-back:first-child svg { width: 22px; height: 22px; }
+html.native:not(.desk) body.powa-app .pane-back:active, html.native:not(.desk) .cl-navback:active { color: var(--text); transform: scale(0.97); }
+html.native:not(.desk) .cl-navback { display: none; }
+html.native:not(.desk) body.powa-app:has(.nav.is-docked):has(.dash-main > section[data-pane]:not(.hidden) > .pane-back) .cl-navback {
+  display: inline-flex; align-items: center; gap: 2px; position: fixed; z-index: 51; top: env(safe-area-inset-top, 0px); left: 6px;
+  height: 44px; padding: 0 14px 0 4px; border: 0; background: none; color: var(--text-2);
+  font: 600 16px/1 var(--font-body, inherit); letter-spacing: -0.01em; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: color 150ms ease-out, transform 140ms ease-out;
+}
+html.native:not(.desk) .cl-navback svg { width: 22px; height: 22px; }
+/* A screen pushed in comes from the right; going back, its parent comes from the left (iOS's direction,
+   kept short: the page arrives as one piece from opacity .45, so a tap during it still lands). Tab
+   switches keep the quiet settle (dash-fx.css). */
+@keyframes clPushIn { from { opacity: 0.45; transform: translate3d(44px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes clPopIn { from { opacity: 0.45; transform: translate3d(-32px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes clFadeIn { from { opacity: 0.45; } to { opacity: 1; } }
+html.native:not(.desk) body.powa-app[data-nav="push"] .dash-main > section[data-pane]:not(.hidden) { animation: clPushIn 340ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-pane]:not(.hidden) { animation: clPopIn 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+
+/* --- 3. Header icons: 36 pt circles with a 44 pt target, and a press --- */
+html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
+html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active { transform: scale(0.92); }
+
+/* --- 4. Lifters --- */
+/* Sections on the 4-point grid: 24 between sections, 8 from a title to its card. */
+.cl-phone .cl-pcol { gap: 0; }
+.cl-phone .cl-pcol > * + * { margin-top: 24px; }
+.cl-phone .cl-pcol > .cl-gh-do { margin: 0 0 8px; }
+.cl-phone .cl-pcol > .cl-gh-do + .cl-do { margin-top: 0; }
+.cl-phone .cl-pcol > .cl-search-ph + .cl-groups { margin-top: 16px; }
+.cl-phone .cl-gh { margin: 0 0 8px; }
+.cl-phone .cl-grp + .cl-grp { margin-top: 24px; }
+.cl-phone .cl-pweek { margin-top: 24px; }
+/* Do first: a list with one red. The most urgent job keeps its fix as the screen's one red button; the
+   others put theirs at the row's end as a small graphite button. The whole row opens the lifter. */
+.cl-do.is-phone .cl-job.is-big { position: relative; gap: 12px; padding: 14px 14px 14px 14px; border-bottom: 0; transition: background-color 140ms ease-out; }
+.cl-do.is-phone .cl-job.is-big + .cl-job.is-big::before { content: ''; position: absolute; top: 0; left: 60px; right: 0; height: 1px; background: var(--cl-line); }
+.cl-do.is-phone .cl-jmain::after { content: ''; position: absolute; inset: 0; }
+.cl-do.is-phone .cl-job :is(.cl-btn, .cl-sbtn) { position: relative; z-index: 1; }
+.cl-do.is-phone .cl-job:has(> .cl-jmain:active) { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
+.cl-do.is-phone .cl-job:has(> .cl-jmain:active)::before, .cl-do.is-phone .cl-job:has(> .cl-jmain:active) + .cl-job::before { opacity: 0; }
+.cl-do.is-phone .cl-jt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; }
+
+
+.cl-do.is-phone .cl-jtx { gap: 2px; }
+.cl-do.is-phone .cl-jd { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.cl-do.is-phone .cl-btn { height: 44px; }
+.cl-do.is-phone .cl-sbtn {
+  align-self: center; height: 34px; padding: 0 14px; border-radius: 999px; box-shadow: none;
+  background: var(--ch-fill-3); color: var(--text); font: 600 15px/1 var(--font-body, inherit) !important;
+}
+.cl-do.is-phone .cl-sbtn::after { content: ''; position: absolute; inset: -5px -4px; }
+.cl-do.is-phone .cl-sbtn:active { transform: scale(0.96); background: var(--ch-fill-4); }
+.cl-do.is-phone .cl-job .cl-sbtn { flex: none; }
+
+/* The groups: inset hairlines from the name (iOS grouped lists), a row lights on press like the lifter app's rows. */
+.cl-phone .cl-list .cl-row { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
+.cl-phone .cl-list .cl-row + .cl-row::before { content: ''; position: absolute; top: 0; left: 66px; right: 0; height: 1px; background: var(--cl-line); }
+.cl-phone .cl-list .cl-row:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
+.cl-phone .cl-list .cl-row:active::before, .cl-phone .cl-list .cl-row:active + .cl-row::before { opacity: 0; }
+.cl-phone .cl-n small { font-size: 13px; }
+.cl-phone .cl-search-ph { height: 44px; }
+
+/* Money owed: one row-card, the same radius as the lists, a press like any tappable card. */
+.cl-phone .cs-dueline { min-height: 56px; padding: 10px 16px 10px 14px; border-radius: var(--cl-r); transition: background-color 140ms ease-out, transform 140ms ease-out; }
+.cl-phone .cs-dueline:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); transform: scale(0.985); }
+/* This week: four tiles, each a number and (where it is a share) one thin bar; no chart needs a key. */
+.cl-pweek .cl-tiles.is-compact { gap: 12px; }
+.cl-pweek .cl-tiles.is-compact .cl-tile { border-radius: var(--cl-r); padding: 14px 14px 13px; gap: 8px; }
+.cl-pweek .cl-tiles.is-compact .cl-tv { margin-top: 2px; }
+.cl-meter { display: flex; gap: 2px; height: 4px; }
+.cl-meter i { flex: 1 1 0; min-width: 3px; border-radius: 2px; background: var(--text-2); }
+.cl-meter i.is-warn { background: var(--cl-down); }
+.cl-meter i.is-rest { background: var(--ch-fill-4); }
+.cl-pweek .cl-nm:active { color: var(--text); opacity: 0.7; }
+
+/* The tab's entrance: the cards and rows rise in reading order (renderPhone numbers them), not on a pop back. */
+html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]) [data-pane="athletes"]:not(.hidden) .cl-phone:not(.is-wide) :is(.cl-do > .cl-job, .cl-list > .cl-row, .cs-dueline, .cl-pweek .cl-tile) {
+  animation: chRise 320ms cubic-bezier(0.23, 1, 0.32, 1) calc(var(--i, 0) * 40ms) backwards;
+}
+/* Pending invites: the same section title as the groups; the code in the body face, not wide display caps. */
+html.native:not(.desk) section[data-pane="athletes"] #invitesWrap { margin-top: 4px; }
+html.native:not(.desk) section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 0 8px; padding: 0 4px; font-size: 20px; }
+html.native:not(.desk) #invitesList .ui-row-title { font-family: var(--font-body); font-stretch: 100%; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+
+/* --- 5. A lifter, pushed in --- */
+/* One card radius (20) for every card on the page; the flag, the links and the small tiles were 16 and 18. */
+.cl-pg-phone :is(.cl-flag, .cl-hero, .cl-lift, .cl-tile, .cl-links, .cl-empty, .cl-wnrow), .cl-pg-phone .cl-tile.is-compact { border-radius: var(--cl-r); }
+
+.cl-pg-phone .cl-wnrow { transition: background-color 140ms ease-out, transform 140ms ease-out; }
+.cl-pg-phone .cl-wnrow:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); transform: scale(0.985); }
+
+/* A lift tile's PR is the app's gold word, not a capsule: "Deadlift" and its PR fit a phone third (it pushed
+   past the tile's edge on a 375 pt iPhone). */
+.cl-pg-phone .cl-lh { gap: 6px; }
+.cl-pg-phone .cl-lh .dot { width: 8px; height: 8px; }
+.cl-pg-phone .cl-pr-b { padding: 0; background: none; border-radius: 0; font-size: 13px; letter-spacing: 0.01em; }
+/* Secondary buttons are a graphite fill (no outline), quiet ones are text; both are 44 pt tall. */
+html:not(.desk) :is(.cl-pg-phone, .cl-phone) .cl-btn:not(.red):not(.quiet) { background: var(--ch-fill-3); box-shadow: none; }
+html:not(.desk) :is(.cl-pg-phone, .cl-phone) .cl-btn:not(.red):not(.quiet):active { background: var(--ch-fill-4); }
+html:not(.desk) .cl-pg-phone .cl-btn { min-height: 44px; }
+html:not(.desk) .cl-pg-phone .cl-quiet { height: 44px; }
+html:not(.desk) .cl-pg-phone .cl-btn.quiet:active, html:not(.desk) .cl-pg-phone .cl-quiet:active { color: var(--text); }
+html:not(.desk) .cl-pg-phone .cl-link { padding: 12px 6px; margin: -12px -6px; }
+html:not(.desk) .cl-pg-phone .cl-mplan { min-height: 44px; margin: -4px 0 -10px; }
+/* The links card: rows light on press, the hairline beside a lit row steps aside. */
+.cl-pg-phone .cl-links .cl-everything { transition: background-color 140ms ease-out; }
+.cl-pg-phone .cl-links .cl-everything:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
+.cl-pg-phone .cl-links .cl-everything:active::before, .cl-pg-phone .cl-links .cl-everything:active + .cl-everything::before { opacity: 0; }
+
+/* --- 6. Messages --- */
+/* The inbox: faces without the old status rings (they came from the roster's faces, which are gone, and
+   had no legend here) and an unread count without a glow; colour is the unread time and count only. */
+html:not(.desk) body.powa-app .msg-inbox .msg-ring { --rc: transparent; padding: 0; }
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-badge { box-shadow: none; }
+/* A thread opened from a lifter (Reply, a sheet) wears the Messages green like every thread: the coach's
+   bubbles and the voice note's play were the fire red of the Lifters tab, the colour of the one action. */
+html:not(.desk) #messageModal { --acc: #34e08c; --acc-2: #10b5a6; --acc-ink: #04140c; }
+/* The inbox on the type scale: the time and the unread count 13 (were 12 and 11), the preview 15 (was 14). */
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-time { font-size: 13px; }
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-badge { min-width: 20px; height: 20px; font-size: 13px; line-height: 20px; }
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-preview { font-size: 15px; }
+/* Their bubbles are a graphite fill like the woven session notes beside them (one had a hairline, the other none). */
+
+html.native:not(.desk) body.powa-app .msg-row.theirs .msg-bubble { border-color: transparent; }
+
+
+/* --- 7. Program --- */
+/* The week chips and a day's ⋯ reach 44 pt; the builder's own look stays. Chips and the maxes press. */
+html:not(.desk) body.powa-app #programArea .week-tab { min-height: 40px; transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html:not(.desk) body.powa-app #programArea :is(.week-tab, .pb-maxes):active { transform: scale(0.96); }
+
+html:not(.desk) body.powa-app #programArea .pb-day-head > .ui-icon-btn { width: 44px; height: 44px; }
+/* Add exercise (the full form, a sheet on the phone): the presets on one row of their own instead of
+   "3×5 @ / 7" wrapped in a cramped switch; every set on one line (the remove button fell to a line of
+   its own); the columns named once; sentence case ("Set 1", not "SET / 1"). */
+html:not(.desk) #addExerciseModal #setsHeader { flex-wrap: wrap; row-gap: 8px; }
+html:not(.desk) #addExerciseModal #presetSeg { flex: 1 1 100%; width: 100%; }
+html:not(.desk) #addExerciseModal #presetSeg button { flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 4px; white-space: nowrap; font-size: 13px; }
+html:not(.desk) #addExerciseModal .set-row { grid-template-columns: 48px repeat(3, minmax(0, 1fr)) 40px; gap: 8px; margin: 0 0 4px; padding: 0; background: none; border: 0; border-radius: 0; }
+html:not(.desk) #addExerciseModal .set-row .set-label { text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 600; color: var(--text-2); text-align: left; white-space: nowrap; }
+html:not(.desk) #addExerciseModal .set-row input { height: 44px; padding: 0 6px; border-radius: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+html:not(.desk) #addExerciseModal .set-row > .btn-icon { width: 40px; height: 44px; display: grid; place-items: center; }
+html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: scale(0.92); color: var(--text); }
+html:not(.desk) #addExerciseModal .set-head { margin-bottom: 2px; }
+html:not(.desk) #addExerciseModal .set-head span { font-size: 13px; font-weight: 600; color: var(--text-3); text-align: center; }
+/* Templates: a card like every other (20), Apply is the screen's red at 44 pt with no glow, delete a quiet graphite circle. */
+html:not(.desk) section[data-pane="templates"] .template-card { border-radius: var(--u-r, 20px); padding: 16px; }
+html:not(.desk) section[data-pane="templates"] .template-card .tpl-actions { gap: 8px; margin-top: 12px; }
+html:not(.desk) section[data-pane="templates"] .template-card .btn { min-height: 44px; padding: 0 20px; border-radius: 999px; box-shadow: none; }
+html:not(.desk) section[data-pane="templates"] .template-card .btn-danger { width: 44px; padding: 0; border-color: transparent; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); }
+html:not(.desk) section[data-pane="templates"] .template-card .btn-danger svg { width: 18px; height: 18px; }
+
+/* --- 8. You › Clients and Lifter progress --- */
+/* One large title size on every screen (32, the lifter app's): Clients and a lifter's name were 28. */
+html:not(.desk) .cs-ph .cl-h1, html:not(.desk) .cl-pg-phone:not(.is-wide) .cl-pname { font-size: 32px; line-height: 1.08; text-wrap: balance; }
+/* Clients: the tiles take the card radius; the rows get inset hairlines and the press of every list row. */
+.cs-page.is-phone .cl-tile { border-radius: var(--cl-r); }
+.cs-r.is-phone { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
+.cs-r.is-phone + .cs-r.is-phone::before { content: ''; position: absolute; top: 0; left: 62px; right: 0; height: 1px; background: var(--cl-line); }
+.cs-r.is-phone:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
+.cs-r.is-phone:active::before, .cs-r.is-phone:active + .cs-r.is-phone::before { opacity: 0; }
+.cs-page.is-phone .cs-filters button { transition: transform 140ms ease-out, background-color 150ms ease-out; }
+.cs-page.is-phone .cs-filters button:active { transform: scale(0.96); }
+
+/* Lifter progress: the head to head's labels in sentence case, like every label in the app (they were
+   11 px tracked capitals). */
+html:not(.desk) section[data-pane="progress"] .cmp-k { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+html:not(.desk) section[data-pane="progress"] #progressArea .ui-label { margin-top: 24px; }
+html:not(.desk) section[data-pane="progress"] #progressArea > .ui-label:first-child { margin-top: 4px; }
+
+
+/* --- 9. Ask AI (the sheet) --- */
+/* No red wash behind the header and no red tint on the coach's own questions: the send arrow is the one
+   red. Controls reach the app's sizes: a 44 pt close, 36 pt segments, 34 pt suggestion chips in 13 px type
+   (they were 26 pt in 11 px), a 44 pt composer with a round send. */
+html.native:not(.desk) .ai-head { background: none; border-bottom-color: var(--line); }
+html.native:not(.desk) .ai-close { position: relative; width: 36px; height: 36px; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html.native:not(.desk) .ai-close::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html.native:not(.desk) .ai-close:active { transform: scale(0.92); }
+html.native:not(.desk) .ai-seg { border: 0; border-radius: 12px; }
+html.native:not(.desk) .ai-seg-btn { min-height: 34px; border-radius: 9px; font-size: 15px; font-weight: 600; }
+html.native:not(.desk) .ai-bubble { border-color: transparent; font-size: 15px; line-height: 1.45; padding: 10px 14px; border-radius: 14px; }
+
+html.native:not(.desk) .ai-msg.user .ai-bubble { background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html.native:not(.desk) .ai-chips { gap: 8px; padding: 8px 16px 6px; }
+html.native:not(.desk) .ai-chip { min-height: 34px; padding: 0 14px; border: 0; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font-size: 13px; font-weight: 600; transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html.native:not(.desk) .ai-chip:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
+html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 999px; padding: 4px 4px 4px 16px; }
+html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%; }
+
+/* The iPad / Duo layout: the lifter page's scroller gives a heavy title's first letter room (the T of
+   "Tom" lost its left arm at the scroller's edge). */
+.cl-phone.is-wide .cl-wpage { padding-left: 3px; margin-left: -3px; }
+
+/* --- 10. The first run (no lifters yet) --- */
+
+/* The sample under "Your roster, once they train" is the real Lifters list (coach.html buildRosterSample). */
+.cl-phone.fr-cl { margin: 0; gap: 0; }
+.cl-phone.fr-cl .cl-row { cursor: default; }
+/* The setup card on the type scale: its headline 22 (was 26), the step numbers and the Sample chip 13. */
+html.native:not(.desk) .fr-wrap .fr-title { font-size: 22px; }
+html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
+
+/* --- 11. Reduced motion (last, so it wins over every press above) --- */
+@media (prefers-reduced-motion: reduce) {
+  /* No sideways travel: the page fades up from .45 instead (dash-fx.css turns the tab settle off). */
+  html.native:not(.desk) body.powa-app:is([data-nav="push"], [data-nav="pop"]) .dash-main > section[data-pane]:not(.hidden) { animation: clFadeIn 180ms ease-out backwards !important; }
+  html:not(.desk) .cl-do.is-phone .cl-sbtn:active, html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active, .cl-phone .cs-dueline:active, .cl-pg-phone .cl-wnrow:active,
+  html:not(.desk) body.powa-app #programArea :is(.week-tab, .pb-maxes):active, .cs-page.is-phone .cs-filters button:active, html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: none; }
+}
+
+/* ===== desk polish (27 Oct) =====
+   Desk only (html.desk); the phone keeps every rule above. One card on every desk screen: the tiles
+   drop their hue wash (the hue stays on the icon chip and the marks, where it has a job) and every
+   card takes the desk's light from above (desk.css --dk-card*). */
+html.desk :is(.cl-do, .cl-tile, .cl-col, .cl-list, .cl-lift, .cl-empty, .cl-calm, .cs-list) {
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit);
+}
+html.desk .cl-links { background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: inset 0 0 0 1px var(--dk-card-edge), var(--dk-card-lit); }
+/* One left edge: Today and Clients start where every other screen starts (the rail + the gutter),
+   folded rail or not, instead of centring (the title jumped 34 px between Today and Lifters). */
+html.desk .cl-today, html.desk .cs-page:not(.is-phone) { margin: 0; max-width: 1400px; }   /* fills a 1440 window folded or not; caps on a wide screen */
+/* A status reads as ink words beside a mark in its colour (a dot, an icon, the chart's line), never as
+   painted words: "1 under the bar" gets a breathing live dot, Tom's weight an amber scale, the meet's
+   label a gold flag, a PR a gold dot. (In light these words also failed AA: 3.2 to 3.6:1.) */
+html.desk .cl-root .t-live { display: inline; color: var(--text); font-weight: 600; }   /* inline: the words keep the sub line's baseline */
+html.desk .cl-root .t-live::before { content: ''; display: inline-block; vertical-align: 1px; margin: 0 7px 0 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--cl-msg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-msg) 22%, transparent); animation: dkLiveBreathe 2.4s ease-in-out infinite; }
+@keyframes dkLiveBreathe { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--cl-msg) 6%, transparent); } }
+html.desk .cl-root .cl-warn { color: var(--text-2); }
+html.desk .cl-root .cl-warn svg { color: var(--cl-down); }
+html.desk .cl-root .cl-mplan, html.desk .cl-root .cl-mplan.is-warn { color: var(--text); font-weight: 600; }
+html.desk .cl-root .cl-mplan svg { color: var(--cl-up); }
+html.desk .cl-root .cl-mplan.is-warn svg { color: var(--cl-down); }
+html.desk .cl-root .cl-hmeet { color: var(--text-2); }
+html.desk .cl-root .cl-hmeet svg { color: var(--cl-meet); }
+html.desk .cl-root .cl-pr-b { display: inline-flex; align-items: center; gap: 6px; padding: 0; background: none; color: var(--text-2); font-weight: 600; }
+html.desk .cl-root .cl-pr-b::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--cl-meet); }
+html.desk .cl-root .cl-reft { fill: var(--text-3); }
+html.desk .cl-root .cl-cd { color: var(--text-3); }
+html.desk .cl-root .cl-cd svg { color: var(--cl-up); }
+/* Program from a photo: the flagged cell carries the colour; its reason and the foot's note are ink beside a dot. */
+html.desk body.powa-app .pp-sheet :is(.pp-why, .pp-why.is-bad) { color: var(--text-2); }
+html.desk body.powa-app .pp-sheet :is(.pp-note.is-bad, .pp-note.is-unsure) { display: inline-flex; align-items: center; gap: 7px; color: var(--text); }
+html.desk body.powa-app .pp-sheet :is(.pp-note.is-bad, .pp-note.is-unsure)::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ch-warn); }
+html.desk body.powa-app .pp-sheet .pp-note.is-bad::before { background: var(--ch-pain); }
+html.desk body.powa-app .pp-sheet .pp-tocheck { display: inline-flex; align-items: center; gap: 6px; color: var(--text); text-decoration-color: var(--line-2); }
+html.desk body.powa-app .pp-sheet .pp-tocheck::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ch-warn); }
+@media (prefers-reduced-motion: reduce) { html.desk .cl-root .t-live::before { animation: none; } }
+/* Light on the desk: the role colours one step deeper, so a delta (+6), a PR dot or a chart label clears AA
+   on white and on the card (the phone's light keeps its own). */
+html.desk[data-theme="light"] :is(.ch-host, .ch-phone, .cl-root, .pp-sheet, .pp-pick, .cs-sheet, .bd-root) {
+  --ch-ok: #0f7d47; --ch-green: #0f7d47; --ch-gold: #8a5a00; --ch-warn: #a15c00; --ch-pain: #c2392c; --ch-bw: #1670b3; --ch-cyan: #0b77a3;
+}
+/* Light: the warm top light is the dark theme's; on the light canvas the white cards are the light. */
+html.desk[data-theme="light"] .cl-today::before { display: none; }
+html.desk[data-theme="light"] .cl-hero { background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--acc, #ff3b4a) 4%, transparent), transparent 55%), var(--dk-card); }
+/* The month's meter is drawn at its value; it never animates a width on the desk. */
+html.desk .cs-meter i { transition: none; }
+/* Also on your list: a job's reason wraps to a second line instead of stopping mid-word ("you wro…"). */
+html.desk .cl-root .cl-cr .cl-jt > span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+/* Lifters: the list's card starts on the column's one left edge (the title's, the search's), not 8 px
+   outside it; the group titles sit on that edge like Today's section titles. */
+html.desk .cl-desk .cl-groups { padding-left: var(--gut, 24px); padding-right: var(--gut, 24px); }
+html.desk .cl-desk .cl-gh { padding: 0 2px; }
+/* A lifter's four small tiles: two by two while the page is narrow (the rail open at 1440: 172 px tiles
+   ran "Training" into "4 weeks" and "Oct 12" into "Oct 19"), four across once there is room. */
+html.desk .cl-page .cl-pg { container: clpg / inline-size; }
+html.desk .cl-page .cl-small { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container clpg (min-width: 880px) { html.desk .cl-page .cl-small { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Moving between lifters (a click or J/K, many times a day): the page swaps with a 120 ms settle, no longer a 180 ms fade. */
+html.desk .cl-pg.is-swap { animation: dkSwap 120ms ease-out; }
+@keyframes dkSwap { from { opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { html.desk .cl-pg.is-swap { animation: none; } }
+/* A list row's unit beside its number: 13, the caption step (it was 12). */
+html.desk .cl-root .cl-n small { font-size: 13px; }
+/* The weekly notes queue takes the desk's overlay radius (20, like the side card and every card). */
+html.desk .wn-box { border-radius: var(--r-3, 20px); }
+/* Block DNA's "down" deltas sit on a tinted chip inside a picked row: one step deeper in light (4.0 → 5:1). */
+html.desk[data-theme="light"] .bd-root { --bd-down: #8f5100; }
+/* Find a lifter wears the desk's one focus ring (a 1 px inline line was easy to miss). */
+html.desk .cl-root .cl-search:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
+/* Clients reads as a list of people, not a ledger: every cell already says what it is ("Overdue 12 days",
+   "Paid Sep 15"), so the column-name row goes (the owner's red line: no table look). */
+html.desk .cs-page .cs-lh { display: none; }
+/* A row answers the press at once (a step of fill on pointer-down), before the lifter's page swaps in. */
+html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
+
 /* ==================== Last week's report (coach-report-ui.js, 2026-10-28) ====================
    The Monday report in the app, the same words as the push and the email. One answer first (how many
    trained, the sessions behind it), then who needs you, wins, meets and money as inset grouped rows.
