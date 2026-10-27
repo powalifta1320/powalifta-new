@@ -2206,8 +2206,12 @@ const DB = {
     return obj || {};
   },
   _csMerge(base, patch) {
-    const out = Object.assign({}, base && typeof base === 'object' && !Array.isArray(base) ? base : {});
-    Object.keys(patch || {}).forEach(k => { if (patch[k] === null || patch[k] === undefined) delete out[k]; else out[k] = patch[k]; });
+    // Own keys only, and never one that reaches an object's prototype (the JSON is the coach's, but still).
+    const bad = k => k === '__proto__' || k === 'constructor' || k === 'prototype';
+    const b = base && typeof base === 'object' && !Array.isArray(base) ? base : {};
+    const out = {};
+    Object.keys(b).forEach(k => { if (!bad(k)) out[k] = b[k]; });
+    Object.keys(patch || {}).forEach(k => { if (bad(k)) return; if (patch[k] === null || patch[k] === undefined) delete out[k]; else out[k] = patch[k]; });
     return out;
   },
   async _csMe(coachId) {

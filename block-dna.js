@@ -775,6 +775,8 @@
       var showList = function () {
         page.hidden = true; page.innerHTML = ''; list.hidden = false; cmp.hidden = false; if (sub) sub.hidden = false; if (head) head.hidden = false;
         sheet.scrollTop = listTop;
+        // back the way it came: the list slides in from the left as the page went out to the right
+        if (!reducedMotion() && list.animate) list.animate([{ opacity: 0.45, transform: 'translateX(-24px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
         var o = opened && list.querySelector('[data-bd-open="' + (window.CSS && CSS.escape ? CSS.escape(opened) : opened) + '"]');
         if (o) o.focus({ preventScroll: true });
       };
