@@ -46,7 +46,7 @@ Each top-level page is its own HTML file with its own inline `<script>` glue at 
 
 ### Website (public pages) — `site.css` + `site.js`
 
-Every public page has `<body class="site">` and loads `site.css` after `styles.css` and `site.js` (deferred); never the dashboards. Classes are `s-*`. One red action per screen (the nav's "Get started" is an ink pill). Homepage sections show real app screens (`site-img/app-*.webp`, captured from `?demo=1` at 393×852 @2x) in a CSS phone; `#desk` shows the laptop view (`site-img/desk-*.webp`, from `coach.html?demo=1` at 1440×900). Programs-shop links (`data-needs-programs`) stay hidden until `siteProgramsReady()` counts 3+ programs. Reveals never hide content by default. One footer (`footer.s-foot`) is pasted into every page. Full notes: vault `Code/Architecture detail.md`.
+Every public page has `<body class="site">` and loads `site.css` after `styles.css` and `site.js` (deferred); never the dashboards. Classes are `s-*`. One red action per screen (the nav's "Get started" is an ink pill). Homepage sections show real app screens (`site-img/app-*.webp`, captured from `?demo=1` in the iPhone app layout at 393×852 with the iPhone's safe areas) in a CSS phone; `#desk` shows the laptop view (`site-img/desk-*.webp`: Today, a lifter, the builder, from `coach.html?demo=1` at 1600×1000). Re-capture them whenever those screens change. Programs-shop links (`data-needs-programs`) stay hidden until `siteProgramsReady()` counts 3+ programs. Reveals never hide content by default. One footer (`footer.s-foot`) is pasted into every page. Full notes: vault `Code/Architecture detail.md`.
 
 ## Brand tokens
 
