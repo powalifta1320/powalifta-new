@@ -1443,3 +1443,10 @@ html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /*
 @media (max-width: 1180px) { .cap-dgrid, .cap-root.is-desk .cap-hero { grid-template-columns: minmax(0, 1fr); } }
 html.desk .cap-root .ui-stepper.cap-step .st-btn { width: 40px; height: 40px; }
 @media (prefers-reduced-motion: reduce) { .cap-bar i, .cap-rv { transition: none; } }
+
+/* ==================== Busy weeks on the coach side (busy-week.js, 2026-10-28) ====================
+   The flag on a lifter's page: the plan, their words, and the quiet way to keep the week as written. */
+.cl-flag .cl-fnote { font-size: 15px; line-height: 1.35; color: var(--text-2); }
+.cl-flag .cl-fkeep { align-self: flex-start; display: inline-flex; align-items: center; min-height: 36px; margin: 2px 0 -6px; font-size: 15px; font-weight: 600; color: var(--text-2); text-decoration-color: var(--line-2); }
+html.native .cl-flag .cl-fkeep, .cl-pg-phone .cl-flag .cl-fkeep { min-height: 44px; margin-bottom: -10px; }
+@media (hover: hover) and (pointer: fine) { .cl-flag .cl-fkeep:hover { color: var(--text); } }

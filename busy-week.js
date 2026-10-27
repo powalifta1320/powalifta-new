@@ -283,9 +283,251 @@
       proposal: proposalOf(left, plan), status: 'pending', note: o.note || null, createdAt: o.createdAt || null, decidedAt: null };
   }
 
+  /* ================================================================ the screens (not pure) */
+  var CAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4"/><path d="M8.5 13.5h2M13.5 13.5h2M8.5 17h2"/></svg>';
+  function esc(v) { return typeof escHtml === 'function' ? escHtml(String(v == null ? '' : v)) : String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function storeOf() { return (typeof Store !== 'undefined' && Store.get) ? Store.get() : {}; }
+  function todayIso() { return typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10); }
+  function me() { try { if (typeof user !== 'undefined' && user && user.id) return user; } catch (e) {} return window._user || null; }
+  function firstName(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
+  function capFirst(t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
+  // The lifter's coach by first name; the demo's "Demo Coach" reads as "your coach" (as the intake does).
+  function coachFirst(u) {
+    var c = u && u.coachId ? (storeOf().coaches || []).filter(function (x) { return x.id === u.coachId; })[0] : null;
+    var f = c ? firstName(c.name) : '';
+    return f && !(window._demoMode && /^demo$/i.test(f)) ? f : 'your coach';
+  }
+  function progOf(aid) { return (storeOf().programs || []).filter(function (p) { return p && p.athleteId === aid; })[0] || null; }
+  function requestOf(aid, weekStart) { return (storeOf().scheduleRequests || []).filter(function (r) { return r && r.athleteId === aid && r.weekStart === weekStart; })[0] || null; }
+  function keep(req) {
+    if (typeof Store === 'undefined') return;
+    Store.update(function (s) { s.scheduleRequests = (s.scheduleRequests || []).filter(function (r) { return !(r.athleteId === req.athleteId && r.weekStart === req.weekStart); }).concat([req]); });
+  }
+  // A day in the device's own words: "Thu", "Thu 29".
+  function weekday(iso) { try { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' }); } catch (e) { return dayShort(iso); } }
+  function dayList(dates) { return dates.map(weekday).join(', '); }
+  function trainedOn(prog, iso) {
+    return ((prog && prog.weeks) || []).some(function (w) { return (w.days || []).some(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).some(function (st) { return st && st.completed && d10(st.completedAt) === iso; }); }); }); });
+  }
+  function intakeDays(u) { var i = (storeOf().intakes || []).filter(function (x) { return x.athleteId === u.id; })[0]; return i && i.answers && Array.isArray(i.answers.days) ? i.answers.days : []; }
+  // The plan as rows: [{ date, title, detail }] and the sessions that wait for next week.
+  function planRows(plan, sessions) {
+    var by = {}; (sessions || []).map(norm).forEach(function (x) { by[x.dayIdx] = x; });
+    var rows = ((plan && plan.assign) || []).slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }).map(function (a) {
+      var h = by[a.dayIdx] || { name: 'Session', lifts: [] };
+      var ins = ((plan.merge || []).filter(function (m) { return m.into === a.dayIdx; })).map(function (m) { return by[m.from]; }).filter(Boolean);
+      if (!ins.length) return { date: a.date, title: h.name, detail: '' };
+      var extra = [];
+      ins.forEach(function (x) { x.lifts.forEach(function (l) { if (h.lifts.indexOf(l) < 0 && extra.indexOf(l) < 0) extra.push(l); }); });
+      var title = h.lifts.length ? capFirst(h.lifts.concat(extra).join(' + ')) : h.name + (extra.length ? ' + ' + extra.join(' + ') : '');
+      var acc = ins.some(function (x) { return x.accessories > 0; });
+      return { date: a.date, title: title, detail: ins.map(function (x) { return x.name; }).join(' and ') + (ins.length > 1 ? ' join it' : ' joins it') + (acc ? ', accessories dropped' : '') };
+    });
+    var later = ((plan && plan.move) || []).map(function (m) { return by[m.dayIdx]; }).filter(Boolean).map(function (x) { return x.name; });
+    return { rows: rows, later: later };
+  }
+
+  /* ---------- the lifter: Train's row ---------- */
+  function rowEl(title, text, act, onAct, cls) {
+    var r = typeof el === 'function' ? el('div', { class: 'today-note tn-row bwk-row' + (cls ? ' ' + cls : '') }) : document.createElement('div');
+    r.innerHTML = '<span class="tn-ic" aria-hidden="true">' + CAL + '</span><span class="tn-body"><span class="tn-title">' + esc(title) + '</span><span class="tn-text">' + esc(text) + '</span></span>';
+    if (act) {
+      var b = el('button', { class: 'btn btn-sm tn-act', type: 'button' }, act);
+      b.addEventListener('click', onAct);
+      r.appendChild(b);
+    }
+    return r;
+  }
+  // The row on Train (today only): an offer when 2 or more sessions are left this week, then the request's state.
+  function row() {
+    var u = me();
+    if (!u) return null;
+    var t = todayIso(), mon = monday(t), prog = progOf(u.id), coach = coachFirst(u);
+    var req = u.coachId ? requestOf(u.id, mon) : null;
+    if (req) {
+      var dates = datesOf(mon, req.days);
+      if (req.status === 'approved') {
+        var pr = req.proposal || {}, text = busyWeekText({ assign: pr.assign || [], merge: pr.merge || [], move: pr.move || [] }, pr.sessions || [], { dayName: weekday });
+        return rowEl(capFirst(coach) + ' approved your busy week', text || dayList(dates), null, null, 'is-approved');
+      }
+      if (req.status === 'declined') return rowEl(capFirst(coach) + ' kept your week as written', 'Message ' + coach + ' if anything changes', 'Message', function () { var tb = document.getElementById('tab-coach'); if (tb) tb.click(); }, 'is-declined');
+      return rowEl('Waiting for ' + coach, (req.local ? 'Saved on your phone · ' : '') + (dates.length ? dayList(dates) : 'No days this week'), 'Change', function () { open(); }, 'is-waiting');
+    }
+    if (!prog || sessionsLeft(prog).sessions.length < 2) return null;
+    return rowEl('Busy week?', u.coachId ? 'Tell ' + coach + ' which days you can train' : 'Pick the days you can train', 'Pick days', function () { open(); });
+  }
+  // The session picker's "Or" entry: the same, as a row.
+  function pickerRow(close) {
+    var u = me();
+    if (!u || typeof uiRow !== 'function' || todayIso() !== (typeof getSessionDate === 'function' ? getSessionDate() : todayIso())) return null;
+    var mon = monday(todayIso()), req = u.coachId ? requestOf(u.id, mon) : null, prog = progOf(u.id);
+    if (req && req.status !== 'pending') return null;
+    if (!req && (!prog || sessionsLeft(prog).sessions.length < 2)) return null;
+    var coach = coachFirst(u);
+    return uiRow({ lead: el('span', { class: 'sp-ic is-date', html: CAL }), title: req ? 'Change your busy week' : 'Busy week?',
+      sub: req ? 'Waiting for ' + coach : (u.coachId ? 'Tell ' + coach + ' which days you can train' : 'Pick the days you can train'), chevron: true,
+      onClick: function () { if (close) close(); setTimeout(open, 220); } });
+  }
+
+  /* ---------- the lifter: the sheet ---------- */
+  function open() {
+    var u = me();
+    if (!u || typeof uiSheet !== 'function') return;
+    var t = todayIso(), mon = monday(t), prog = progOf(u.id);
+    if (!prog) return;
+    var left = sessionsLeft(prog), coached = !!u.coachId, coach = coachFirst(u);
+    var existing = coached ? requestOf(u.id, mon) : null;
+    if (existing && existing.status !== 'pending') return;
+    var dates = datesLeft(t);
+    if (trainedOn(prog, t)) dates = dates.slice(1);   // today's session is under way: the plan starts tomorrow
+    var picked = {};
+    (existing ? datesOf(mon, existing.days) : prepick(dates, intakeDays(u))).forEach(function (d) { if (dates.indexOf(d) >= 0) picked[d] = 1; });
+    uiSheet('Which days can you train?', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'This week · ' + plural(left.sessions.length, 'session') + ' left'));
+      var grid = el('div', { class: 'bwk-days', role: 'group', 'aria-label': 'Days you can train this week' });
+      dates.forEach(function (d) {
+        var b = el('button', { type: 'button', class: 'bwk-day' + (picked[d] ? ' on' : ''), 'aria-pressed': picked[d] ? 'true' : 'false' });
+        b.innerHTML = '<span class="bwk-dn">' + esc(d === t ? 'Today' : weekday(d)) + '</span><b>' + Number(d.slice(8, 10)) + '</b>';
+        if (d === t) b.setAttribute('aria-label', 'Today, ' + weekday(d));
+        b.addEventListener('click', function () {
+          picked[d] = !picked[d];
+          b.classList.toggle('on', !!picked[d]); b.setAttribute('aria-pressed', picked[d] ? 'true' : 'false');
+          try { if (typeof hapticTick === 'function') hapticTick(); } catch (e) {}
+          paint(true);
+        });
+        grid.appendChild(b);
+      });
+      sheet.appendChild(grid);
+      var box = el('div', { class: 'bwk-plan', 'aria-live': 'polite' });
+      sheet.appendChild(box);
+      var note = null;
+      if (coached) {
+        note = el('input', { type: 'text', class: 'bwk-note', maxlength: '280', autocomplete: 'off', placeholder: 'Anything ' + coach + ' should know? (optional)', 'aria-label': 'A note for ' + coach });
+        note.value = existing && existing.note ? existing.note : '';
+        sheet.appendChild(note);
+      }
+      var go = el('button', { class: 'btn btn-primary btn-lg btn-block bwk-go', type: 'button' }, coached ? 'Send to ' + coach : 'Use this plan');
+      sheet.appendChild(go);
+      var cur = null;
+      function paint(changed) {
+        var sel = dates.filter(function (d) { return picked[d]; });
+        var plan = busyWeekPlan({ sessionsLeft: left.sessions, dates: sel, today: t });
+        cur = { sel: sel, plan: plan };
+        var P = planRows(plan, left.sessions);
+        var html = '';
+        if (!sel.length && !coached) html = '<p class="bwk-empty">Pick the days you can train.</p>';
+        else {
+          html = '<div class="bwk-pl">' + (sel.length ? 'The plan' : 'No days this week') + '</div><div class="ui-list bwk-rows">' +
+            P.rows.map(function (r) { return '<div class="bwk-pr"><span class="bwk-pd">' + esc(weekday(r.date)) + '</span><span class="bwk-pt"><b>' + esc(r.title) + '</b>' + (r.detail ? '<small>' + esc(r.detail) + '</small>' : '') + '</span></div>'; }).join('') +
+            P.later.map(function (n) { return '<div class="bwk-pr is-later"><span class="bwk-pd">Next week</span><span class="bwk-pt"><b>' + esc(n) + '</b></span></div>'; }).join('') + '</div>' +
+            // Why, only where the rows don't already say it (one a day, spread out).
+            (plan.merge.length || plan.move.length ? '' : '<p class="bwk-why">' + esc(plan.why) + '</p>');
+        }
+        box.innerHTML = html;
+        if (changed && box.animate && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) box.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        go.disabled = !coached && !sel.length;
+      }
+      paint(false);
+      go.addEventListener('click', function () {
+        if (!cur || go.disabled) return;
+        var sel = cur.sel, plan = cur.plan, days = dayList(sel);
+        if (!coached) {
+          // Self-coached: the plan is theirs to use now. Pins re-render Train (critical fix #2).
+          var next = busyWeekApply(prog, Object.assign({ weekIdx: left.weekIdx }, plan));
+          Store.update(function (s) { var p = (s.programs || []).filter(function (x) { return x.id === prog.id; })[0]; if (p) p.weeks = next.weeks; });
+          if (typeof persistProgram === 'function') persistProgram(prog.id);
+          close();
+          if (typeof populateDaySelect === 'function') populateDaySelect();
+          if (typeof refreshPinButtons === 'function') refreshPinButtons();
+          if (typeof renderToday === 'function') renderToday();
+          if (typeof toast === 'function') toast('Your week is set: ' + days);
+          return;
+        }
+        var req = { id: existing && existing.id ? existing.id : null, athleteId: u.id, coachId: u.coachId, weekStart: mon, days: dayNames(sel),
+          proposal: proposalOf(left, plan), note: note && note.value.trim() ? note.value.trim().slice(0, 280) : null };
+        var done = function (saved, local) {
+          keep(saved);
+          close();
+          if (typeof toast === 'function') toast(local ? 'Saved on your phone. It goes to ' + coach + ' once the app updates.' : 'Sent to ' + coach + '. Train as normal for now.');
+          if (typeof renderToday === 'function') renderToday();
+        };
+        // The demo holds it in memory: nothing leaves the page.
+        if (window._demoMode) { done(Object.assign({}, req, { id: req.id || 'demo-busy-mine', status: 'pending', createdAt: new Date().toISOString(), decidedAt: null }), false); return; }
+        if (!window.DB || !DB.sendScheduleRequest) return;
+        go.disabled = true;
+        DB.sendScheduleRequest(req).then(function (res) {
+          if (!res || !res.ok) {
+            go.disabled = false;
+            if (typeof toast === 'function') toast(res && res.decided ? capFirst(coach) + ' has already answered this week.' : 'That didn’t send. Check your connection and try again.');
+            return;
+          }
+          done(res.request, !!res.local);
+          if (!res.local && DB.sendPush) {
+            var n = left.sessions.length;
+            DB.sendPush({ toUserId: u.coachId, title: (firstName(u.name) || 'Your lifter') + ' has a busy week',
+              body: sel.length ? plural(sel.length, 'day') + ' instead of ' + n + ': ' + dayNames(sel).join(', ') : 'Can’t train this week: ' + plural(n, 'session') + ' to move',
+              url: '/coach.html', tag: 'powa-busy-' + u.id, category: 'messages' }).catch(function () {});
+          }
+        }).catch(function () { go.disabled = false; if (typeof toast === 'function') toast('That didn’t send. Check your connection and try again.'); });
+      });
+    }, { cls: 'bwk-sheet' });
+  }
+
+  /* ---------- the coach: the job, Approve, Keep the week ---------- */
+  // What Today's job says. → { tier, days, left, line, note, first } | null when it's not this week's, or decided.
+  function jobInfo(req, today) {
+    var t = d10(today) || todayIso();
+    if (!req || req.status !== 'pending' || req.weekStart !== monday(t)) return null;
+    var live = livePlan(req, progOf(req.athleteId), t, { dayName: weekday });
+    var sel = datesOf(req.weekStart, req.days).filter(function (d) { return d >= t; });
+    var left = (live.sessions || []).length || ((req.proposal || {}).sessions || []).length;
+    return { tier: sel.length && gap(t, sel[0]) <= 1 ? 0 : 1, days: (req.days || []).length, left: left, line: live.text || 'Can’t train this week', note: req.note || null, live: live, dates: sel };
+  }
+  function nameOf(aid) { var a = (storeOf().athletes || []).filter(function (x) { return x.id === aid; })[0]; return a ? a.name : 'Your lifter'; }
+  function coachMe() { var u = me(); return u ? firstName(u.name) : ''; }
+  function decide(req, status) {
+    var stamp = new Date().toISOString();
+    keep(Object.assign({}, req, { status: status, decidedAt: stamp }));
+    if (window._demoMode || !window.DB || !DB.decideScheduleRequest || !req.id || req.local) return Promise.resolve({ ok: true });
+    return DB.decideScheduleRequest(req.id, status).then(function (res) {
+      if (res && res.ok && res.request) keep(res.request);
+      return res;
+    }).catch(function (e) { return { ok: false, error: e }; });
+  }
+  // Approve: the week goes into the program through the coach's own save (persistProgram, compare-and-swap
+  // on rev), then the request is approved and the lifter hears about it.
+  function approve(req) {
+    if (!req) return;
+    var t = todayIso(), prog = progOf(req.athleteId), first = firstName(nameOf(req.athleteId));
+    var live = livePlan(req, prog, t, { dayName: weekday });
+    if (prog && live.weekIdx >= 0 && (live.plan.assign.length || live.plan.merge.length)) {
+      var next = busyWeekApply(prog, Object.assign({ weekIdx: live.weekIdx }, live.plan));
+      Store.update(function (s) { var p = (s.programs || []).filter(function (x) { return x.id === prog.id; })[0]; if (p) p.weeks = next.weeks; });
+      if (!window._demoMode && typeof persistProgram === 'function') persistProgram(prog.id);
+    }
+    var sel = datesOf(req.weekStart, req.days).filter(function (d) { return d >= t; });
+    if (typeof toast === 'function') toast('Approved. ' + first + (sel.length ? ' trains ' + dayList(sel) + '.' : '’s sessions move to next week.'));
+    return decide(req, 'approved').then(function (res) {
+      if (res && res.ok === false && typeof toast === 'function') toast('The week is in ' + first + '’s program; the approval will show when you’re back online.');
+      if (!window._demoMode && window.DB && DB.sendPush) DB.sendPush({ toUserId: req.athleteId, title: (coachMe() || 'Your coach') + ' approved your busy week', body: live.text || 'Your sessions move to next week', url: '/athlete.html', tag: 'powa-busy-' + req.athleteId, category: 'program' }).catch(function () {});
+      if (window.CoachLifters && CoachLifters.refresh) CoachLifters.refresh();
+    });
+  }
+  function decline(req) {
+    if (!req) return;
+    var first = firstName(nameOf(req.athleteId));
+    if (typeof toast === 'function') toast('Kept ' + first + '’s week as written.');
+    return decide(req, 'declined').then(function () {
+      if (!window._demoMode && window.DB && DB.sendPush) DB.sendPush({ toUserId: req.athleteId, title: (coachMe() || 'Your coach') + ' kept your week as written', body: 'Message them if anything changes', url: '/athlete.html', tag: 'powa-busy-' + req.athleteId, category: 'program' }).catch(function () {});
+      if (window.CoachLifters && CoachLifters.refresh) CoachLifters.refresh();
+    });
+  }
+
   var BusyWeek = { plan: busyWeekPlan, text: busyWeekText, apply: busyWeekApply, sessionsLeft: sessionsLeft, datesLeft: datesLeft, dayNames: dayNames,
     datesOf: datesOf, prepick: prepick, weekPlanned: weekPlanned, dayShort: dayShort, monday: monday, DAYS: DAY_SHORT.slice(), NOTE: BUSY_NOTE,
-    proposalOf: proposalOf, livePlan: livePlan, demoRequest: demoRequest };
+    proposalOf: proposalOf, livePlan: livePlan, demoRequest: demoRequest, jobInfo: jobInfo, approve: approve, decline: decline, weekday: weekday };
+  window.BusyWeekUI = { row: row, open: open, pickerRow: pickerRow };
   window.BusyWeek = BusyWeek;
   window.busyWeekPlan = busyWeekPlan;
   window.busyWeekText = busyWeekText;

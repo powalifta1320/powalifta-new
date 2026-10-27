@@ -4962,6 +4962,26 @@ test('the line, the number and the job texts read in the coach’s words', () =>
    February, leap years), a client's status words, one payment moving the schedule on, the monthly
    value, the roster summary, money words and the intake's maxes and About lines. All dates fixed.
    =========================================================== */
+test('a busy week is a job: after pain, before writing, Approve as its fix, the plan as its line', () => {
+  const pain = clRow({ athlete: { id: 'p', name: 'Pat Lee' }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }], status: { pain: { count: 1, report: { severity: 5, bodyPart: 'knee', day: '2026-10-26' } } } });
+  const busy = clRow({ athlete: { id: 'b', name: 'Nina Petrova' }, reasons: [{ type: 'never', group: 7, text: 'Never logged' }] });
+  const writer = clRow({ athlete: { id: 'w', name: 'Wes Ito' }, reasons: [{ type: 'blockend', group: 8, text: 'Last week of the block' }] });
+  const info = { tier: 1, days: 2, left: 3, line: 'Thu: Squat Day · Sat: Bench + deadlift', note: 'Double shifts', req: { id: 'r1', athleteId: 'b' } };
+  const jobs = CL.clJobs([pain, busy, writer], { today: '2026-10-27', busy: [{ r: busy, info }] });
+  const keys = jobs.map(j => j.r.athlete.id + ':' + j.type);
+  assert(keys.indexOf('b:busy') > keys.indexOf('p:pain'), 'after pain: ' + keys.join());
+  assert(keys.indexOf('b:busy') < keys.indexOf('w:blockend'), 'before writing: ' + keys.join());
+  const j = jobs.find(x => x.type === 'busy');
+  eq(j.kind, 'busy'); eq(j.tier, 1);
+  const t = CL.jobText(j);
+  eq(t.title, 'Busy week · can train 2 days (3 left)'); eq(t.detail, 'Thu: Squat Day · Sat: Bench + deadlift');
+  eq(CL.jobText(Object.assign({}, j, { info: Object.assign({}, info, { days: 1 }) })).title, 'Busy week · can train 1 day (3 left)');
+  eq(CL.jobText(Object.assign({}, j, { info: Object.assign({}, info, { days: 0 }) })).title, 'Busy week · can’t train this week (3 left)');
+  eq(CL.clTopJob(busy, jobs).type, 'busy', 'Nina\'s flag is the busy week');
+  const done = CL.clJobs([busy], { today: '2026-10-27', busy: [{ r: busy, info }], done: { b: 'reply' } });
+  assert(!done.find(x => x.type === 'busy').done, 'a reply doesn\'t answer a busy week: only Approve (or Done) does');
+});
+
 group('clients (clients.js)');
 const CX = typeof Clients !== 'undefined' ? Clients : (window.Clients || null);
 const CT = '2026-10-27';   // "today" in these tests

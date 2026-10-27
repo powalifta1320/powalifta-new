@@ -84,7 +84,7 @@
 
   var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', nocheckin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
     quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write' };
-  var ORDER = ['meetday', 'pain', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
+  var ORDER = ['meetday', 'pain', 'busy', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
     'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
   function waitHours(x) { var m = /(\d+)\s*(h|d)\b/.exec((x && x.text) || ''); if (!m) return 0; return Number(m[1]) * (m[2] === 'd' ? 24 : 1); }
   // How soon: 0 today, 1 this week's health and deadlines, 2 the program and replies, 3 planning and
@@ -93,6 +93,7 @@
     var d = r.meet ? r.meet.days : null, st = r.status || {};
     switch (x.type) {
       case 'meetday': return 0;
+      case 'busy': return x.tier != null ? x.tier : 1;   // a busy week (busy-week.js): today or tomorrow is the first day they can train → 0
       case 'pain': {
         var p = st.pain, rep = p && p.report;
         var recent = rep && rep.day ? daysBetween(rep.day, today || todayIso()) <= 1 : true;
@@ -161,6 +162,13 @@
         if (!best[kind] || jobCmp(it, best[kind]) < 0) best[kind] = it;
       });
       Object.keys(best).forEach(function (k) { items.push(best[k]); });
+    });
+    // Busy weeks (busy-week.js): a lifter's days for this week, waiting for the coach's yes. opts.busy: [{ r, info }]
+    (opts.busy || []).forEach(function (b) {
+      if (!b || !b.r || !b.info) return;
+      var id = b.r.athlete.id, x = { type: 'busy', tier: b.info.tier };
+      items.push({ key: id + ':busy', kind: 'busy', type: 'busy', tier: clTier(b.r, x, t), order: ORDER.indexOf('busy'), r: b.r, reason: x, info: b.info, name: b.r.athlete.name,
+        done: done[id] === 1 || done[id] === true });
     });
     (opts.toWrite || []).forEach(function (w) {
       if (!w || !w.r) return;
@@ -360,6 +368,12 @@
       case 'blockdone': return { icon: 'pen', tone: 'write', title: 'Block finished', detail: 'Every set logged' };
       case 'stalling': return { icon: 'trend', tone: 'quiet', title: 'Flat for 3 weeks', detail: 'No main lift up' };
       case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write', detail: it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready' };
+      case 'busy': {
+        var bi = it.info || {}, nd = Number(bi.days) || 0;
+        // short: the phone's rows and a list line; tiny: the laptop's narrow job columns.
+        return { icon: 'cal', tone: 'write', title: 'Busy week · ' + (nd ? 'can train ' + plural(nd, 'day') : 'can\u2019t train this week') + ' (' + (bi.left || 0) + ' left)', detail: bi.line || '', note: bi.note || null,
+          short: 'Busy week · ' + (nd ? plural(nd, 'day') : 'no days') + ' (' + (bi.left || 0) + ' left)', tiny: 'Busy week · ' + (nd ? plural(nd, 'day') : 'no days') };
+      }
     }
     return { icon: 'eye', tone: 'quiet', title: x.text || 'Worth a look', detail: x.detail || '' };
   }
@@ -368,7 +382,8 @@
     var st = r.status || {}, wk = st.week, se = st.sessions || {};
     if (it) {
       if (it.type === 'meetday') return (it.days <= 0 ? 'Meet today' : 'Meet tomorrow') + (String(it.name).length <= 14 ? ' · ' + it.name : '');
-      return jobText(it).title;
+      var jt0 = jobText(it);
+      return jt0.short || jt0.title;
     }
     if (r.meet && r.meet.days <= 56) return meetLine(r);
     if (wk && wk.total) return 'Week ' + (wk.idx + 1) + ' of ' + wk.total + (se.planned ? ' · ' + (se.done || 0) + ' of ' + se.planned + ' done' : '');
@@ -620,6 +635,8 @@
     var h = home();
     if (it.type === 'meetday') return { k: 'open', ic: 'trophy', label: 'Open meet day', run: openMeetDay };
     if (it.type === 'write') { var a = it.r.athlete; return { k: 'open', ic: 'pen', label: 'Write week ' + (it.week || ''), run: function () { if (typeof openAthleteProgram === 'function') openAthleteProgram(a.id); } }; }
+    // A busy week: Approve puts the plan in their program (busy-week.js BusyWeek.approve).
+    if (it.type === 'busy') { var rq = it.info && it.info.req; return { k: 'apply', ic: 'check', label: 'Approve', run: function () { if (window.BusyWeek && rq) BusyWeek.approve(rq); } }; }
     if (h && h.fixFor) return h.fixFor(it.r, it.reason);
     return { k: 'msg', ic: 'msg', label: 'Message ' + first(it.r.athlete.name), text: '' };
   }
@@ -677,9 +694,24 @@
     });
     return m;
   }
+  // Busy weeks waiting this week (busy-week.js), one per lifter on the roster. → [{ r, info }]
+  function busyOf(rows) {
+    if (!window.BusyWeek || !BusyWeek.jobInfo || typeof Store === 'undefined') return [];
+    var t = todayIso(), by = {};
+    (rows || []).forEach(function (r) { by[r.athlete.id] = r; });
+    var out = [];
+    (Store.get().scheduleRequests || []).forEach(function (req) {
+      var r = req && by[req.athleteId];
+      if (!r) return;
+      var info = null;
+      try { info = BusyWeek.jobInfo(req, t); } catch (e) { info = null; }
+      if (info) out.push({ r: r, info: Object.assign({ req: req }, info) });
+    });
+    return out;
+  }
   function model(opts) {
     var R = rowsNow(opts && opts.reuse), all = R.rows, q = R.q;
-    var jobs = clJobs(all, { today: todayIso(), done: doneMap(q), toWrite: toWriteOf(all) });
+    var jobs = clJobs(all, { today: todayIso(), done: doneMap(q), toWrite: toWriteOf(all), busy: busyOf(all) });
     var order = {};
     jobs.forEach(function (it, i) {
       if (it.done) return;
@@ -748,11 +780,12 @@
     return '<div class="cl-job tone-' + t.tone + (o.big ? ' is-big' : '') + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
       (o.big ? '<span class="cl-jic">' + ic(t.icon) + '</span>' : '') +
       '<button type="button" class="cl-jmain" data-open="' + esc(openId) + '">' + (o.big && !o.phone ? av : (o.big ? '' : av)) +
-        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + esc(t.title) + '</span></span>' + (t.detail ? '<span class="cl-jd">' + detailHtml(t) + '</span>' : '') + '</span></button>' + btn + '</div>';
+        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + esc((o.icon && t.tiny) || (o.phone && t.short) || t.title) + '</span></span>' + (t.detail ? '<span class="cl-jd">' + detailHtml(t) + '</span>' : '') + '</span></button>' + btn + '</div>';
   }
   // One word for a fix in a narrow column: what the button does.
   function shortLabel(f) {
     var l = String((f && f.label) || '');
+    if (/^Approve/.test(l)) return 'Approve';
     if (f && f.k === 'apply') return 'Apply';
     if (/^Reply/.test(l)) return 'Reply';
     if (/^Check in/.test(l)) return 'Check in';
@@ -770,8 +803,10 @@
   var KINDS = [['answer', 'Answer', 'msg'], ['check', 'Check', 'eye'], ['meet', 'Meet prep', 'trophy'], ['write', 'Write', 'pen']];
   function columnsHtml(items, M) {
     return '<div class="cl-cols">' + KINDS.map(function (k) {
-      var list = items.filter(function (it) { return it.kind === k[0] || (k[0] === 'meet' && it.kind === 'meetday'); });
-      var doneN = M.jobs.filter(function (it) { return it.done && (it.kind === k[0] || (k[0] === 'meet' && it.kind === 'meetday')); }).length;
+      // A busy week waits on the coach's answer, so it sits with Answer.
+      var inCol = function (it) { return it.kind === k[0] || (k[0] === 'meet' && it.kind === 'meetday') || (k[0] === 'answer' && it.kind === 'busy'); };
+      var list = items.filter(inCol);
+      var doneN = M.jobs.filter(function (it) { return it.done && inCol(it); }).length;
       var rows = list.map(function (it, i) { return '<div class="cl-cr' + (i >= 5 ? ' is-extra' : '') + '">' + jobHtml(it, { icon: true, short: true }) + '</div>'; }).join('');
       return '<div class="cl-col k-' + k[0] + '"><div class="cl-colh"><span class="cl-tic">' + ic(k[2]) + '</span><b>' + esc(k[1]) + '</b><span class="cl-cn">' + list.length + '</span>' + (doneN ? '<span class="cl-cd">' + ic('check', 2.4) + doneN + ' done</span>' : '') + '</div>' +
         (list.length ? rows + (list.length > 5 ? '<button type="button" class="cl-morebtn" data-more>Show ' + (list.length - 5) + ' more</button>' : '') : '<p class="cl-colnone">' + (k[0] === 'answer' ? 'Nobody waiting on you' : k[0] === 'check' ? 'Nothing to check' : k[0] === 'meet' ? 'No meet prep' : 'Every block is written') + '</p>') + '</div>';
@@ -824,7 +859,8 @@
     // The flag: what needs doing and the fix (the page's one red). Nothing wrong, no flag.
     if (top) {
       var jt = jobText(top.type === 'meetday' ? Object.assign({}, top, { forId: a.id }) : top);
-      html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + detailHtml(jt) + '</span>' : '') + '</span>' +
+      var busyBits = top.type === 'busy' ? (jt.note ? '<span class="cl-fnote">“' + esc(clip(jt.note, 140)) + '”</span>' : '') + '<button type="button" class="cl-link cl-fkeep" data-busy-keep>Keep the week as written</button>' : '';
+      html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + detailHtml(jt) + '</span>' : '') + busyBits + '</span>' +
         '<span class="cl-facts">' + (o.phone ? '' : '<button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button>') + '<button type="button" class="cl-btn red" data-act="fix">' + esc(fix.label) + '</button></span></div>';
     }
     // Nothing logged at all: one clear card instead of a page of dashes.
@@ -835,7 +871,7 @@
       // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
       if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
       if (o.phone) html += linksHtml(a, 'Profile, check-ins, notes', rz(4), blkRow);
-      return { html: html, fix: fix, alt: alt };
+      return { html: html, fix: fix, alt: alt, top: top };
     }
     // The total: one big box for overall progress.
     var T = D.total;
@@ -910,7 +946,7 @@
     if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
     if (o.phone) html += linksHtml(a, 'Lifts, check-ins, notes, meets', rz(6), blkRow);
     if (o.phone && top) html += '<div class="cl-alt"><button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button></div>';
-    return { html: html, fix: fix, alt: alt };
+    return { html: html, fix: fix, alt: alt, top: top };
   }
 
   // The way into a lifter's Career (career.js): its one line ('4 meets · since 2024'), or null when
@@ -1158,6 +1194,12 @@
         return;
       }
       if ((b = t.closest('[data-plan]'))) { e.preventDefault(); var pid = b.getAttribute('data-plan'); if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(pid); return; }
+      if ((b = t.closest('[data-busy-keep]'))) {
+        e.preventDefault();
+        var pg0 = pageOf(host, b), P0 = pg0._P, tj = P0 && P0.top;
+        if (tj && tj.type === 'busy' && tj.info && window.BusyWeek) BusyWeek.decline(tj.info.req);
+        return;
+      }
       if ((b = t.closest('[data-reply]'))) { e.preventDefault(); var pr = pageOf(host, b)._r; if (pr) message(pr, ''); return; }
       if ((b = t.closest('[data-prog]'))) { e.preventDefault(); var pp = pageOf(host, b)._r; if (pp && typeof openAthleteProgram === 'function') openAthleteProgram(pp.athlete.id); return; }
       if ((b = t.closest('[data-blocks]'))) { e.preventDefault(); var pk = pageOf(host, b)._r; if (pk && window.BlockDNA) BlockDNA.open(pk.athlete.id, { from: b }); return; }
@@ -1198,7 +1240,7 @@
   function offDesk() { S.deskOn = false; }
   // The desk rail's Today count: the jobs still open, the same number as Today's header.
   function openCount() {
-    try { var R = rowsNow(true); return clJobs(R.rows, { today: todayIso(), done: doneMap(R.q), toWrite: toWriteOf(R.rows) }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
+    try { var R = rowsNow(true); return clJobs(R.rows, { today: todayIso(), done: doneMap(R.q), toWrite: toWriteOf(R.rows), busy: busyOf(R.rows) }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
   }
 
   window.CoachLifters = { model: model, renderToday: renderToday, renderDesk: renderDesk, renderPhone: renderPhone, renderPane: renderPane, open: open, select: select, refresh: refresh, offDesk: offDesk, openCount: openCount,
