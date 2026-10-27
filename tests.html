@@ -4599,6 +4599,8 @@ group('social sign-in (Apple, Google)');
     eq(S.friendlyError(new Error('The user canceled the sign-in flow.')), '');
     eq(S.isCancel({ message: 'access_denied' }), true);
     eq(S.friendlyError(new Error('Invalid login credentials')), 'Invalid login credentials');
+    eq(S.friendlyError(new Error('The operation couldn’t be completed. (com.apple.AuthenticationServices.AuthorizationError error 1000.)')), 'Sign in to your Apple Account in Settings to use Apple here, or use email.', 'no Apple Account on the iPhone, in plain words');
+    eq(S.friendlyError(new Error('The operation couldn’t be completed. (com.apple.AuthenticationServices.AuthorizationError error 1004.)')), 'Apple sign-in didn’t finish. Try again, or use email.'.replace('’', "'"), 'any other Apple error, in plain words');
     assert(/connection/i.test(S.friendlyError(new Error('Failed to fetch'))), 'offline wording');
     assert(/Apple sign-in/.test(S.friendlyError(new Error('Passed nonce and nonce in id_token should either both exist or not.'))), 'nonce wording');
   });

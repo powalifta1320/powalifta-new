@@ -226,6 +226,9 @@
     var m = String((e && e.message) || e || '');
     if (isCancel(e)) return '';
     if (/nonce/i.test(m)) return 'Apple sign-in didn\'t check out. Try again.';
+    // Apple's own errors in plain words (AuthorizationError 1000 = no Apple Account on this iPhone, 1004 = it failed).
+    if (/AuthorizationError error 1000\b/.test(m) || (e && (e.code === 1000 || e.code === '1000'))) return 'Sign in to your Apple Account in Settings to use Apple here, or use email.';
+    if (/AuthenticationServices|AuthorizationError/.test(m)) return 'Apple sign-in didn\'t finish. Try again, or use email.';
     if (/failed to fetch|network|load failed|timed? ?out/i.test(m)) return 'No connection. Try again when you\'re online.';
     return m;
   }
