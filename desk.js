@@ -3555,7 +3555,9 @@ async function dkAnswerNote(athleteId, date, comment) {
 }
 
 // ---------- past blocks (the one now, then every one before it) ----------
+// Block DNA (block-dna.js) draws them as fingerprints with Compare; this list is the fallback without it.
 function dkWsBlocks(r) {
+  if (window.BlockDNA && BlockDNA.section) return BlockDNA.section(r);
   var a = r.athlete, u = unitLabel(), prog = r.status.program, st = r.status;
   var blocks = (Store.get().programBlocks || []).filter(function (b) { return b.athleteId === a.id; })
     .sort(function (x, y) { return String(y.endedOn || y.createdAt || '').localeCompare(String(x.endedOn || x.createdAt || '')); });

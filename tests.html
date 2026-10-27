@@ -5100,10 +5100,15 @@ test('the block running now: starts on its Monday, runs to today, the deadlift d
   eq(c.weeks[1].rpeWritten, 8.5, 'week 2 as written'); eq(c.weeks[1].rpeFelt, null);
   eq(c.e1rm.squat.start + '|' + c.e1rm.squat.end, '189.5|195', 'where it started is the block before');
   eq(c.fullWeeks, 0);
+  const late = BD.blockDna(prog, { logs: BD_LOGS, painReports: [{ athleteId: 'x', day: '2026-10-19' }, { athleteId: 'x', day: '2026-10-20' }], today: '2026-10-22', after: '2026-10-19' });
+  eq(late.dates.start, '2026-10-20', 'the block before ended on its Monday: this one begins the day after');
+  eq(late.pain + '|' + late.e1rm.squat.start + '|' + late.e1rm.squat.end, '1|195|null', 'that Monday is the old block\'s: its pain report and its squat');
   const cmp = BD.blockCompare(c, bdPast(), { unit: 'kg' });
   const dl = cmp.rows.find(r => r.key === 'deadlift');
   eq(dl.text, 'No deadlift sets logged in Strength yet.');
-  eq(cmp.rows.find(r => r.key === 'squat').text, 'Squat volume was 50% lower so far; squat e1RM rose 6 kg so far (+10 kg in Base).');
+  eq(cmp.rows.find(r => r.key === 'squat').text, 'Squat volume is 50% lower so far; squat e1RM is up 6 kg (+10 kg in Base).', 'a running block reads in the present');
+  eq(cmp.rows.find(r => r.key === 'sessions').text, 'Adherence is higher so far: 100% of sessions, against 80%.');
+  eq(cmp.rows.find(r => r.key === 'effort').text, 'Top sets have felt as written so far; in Base they felt 0.4 RPE harder than written.', 'the top sets, not the back-off felt 7.5');
   eq(cmp.rows.find(r => r.key === 'pain').text, 'No pain reports so far, against 2 in Base.');
 });
 test('no weeks yet (a real account\'s list): the fingerprint from the log', () => {
