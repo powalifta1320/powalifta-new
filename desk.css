@@ -43,7 +43,7 @@ html.desk {
 html.desk.rail-min { --rail-w: 64px; }
 html.desk.ctx-show { --dk-main-w: calc(100vw - var(--rail-w) - var(--ctx-w) - 12px); }
 html.desk[data-density="compact"] { --row-h: 32px; }
-@media (min-width: 1600px) { html.desk { --list-w: 352px; --ctx-w: 380px; --gut: 32px; } }
+@media (min-width: 1600px) { html.desk { --list-w: 352px; --ctx-w: 380px; } }   /* the gutter stays 24: every title on one left edge */
 @media (max-width: 1360px) { html.desk { --list-w: 312px; --ctx-w: 336px; } }
 @media (max-width: 1120px) { html.desk { --list-w: 288px; --gut: 16px; } }
 
@@ -1614,7 +1614,8 @@ html.desk body.powa-app .imp-file:hover { color: var(--text); }
 html.desk section[data-pane="messages"] > .dash-header { display: none; }
 html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); height: 100vh; }
 .dk-msg-list { min-height: 0; }
-.dk-msg-list .dk-title-row { align-items: center; }
+.dk-msg-list .dk-title-row { align-items: flex-start; }   /* the title on every screen's line; the quiet button beside it */
+.dk-msg-list .dk-title-row > .dk-btn { margin-top: -1px; }
 .dk-msg-centre { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100vh; }
 .dk-msg-head { display: flex; align-items: center; gap: var(--s-3); flex: none; min-height: 56px; padding: var(--s-2) var(--s-5); box-sizing: border-box; border-bottom: 1px solid var(--line); }
 .dk-msg-head .dk-ctx-title b { font-size: var(--fs-3); }
@@ -1843,6 +1844,8 @@ html.desk.rail-min .dk-rail .dk-item-sub { padding: 0; }
 
 /* ---------- a page: Teams (and Meets when it's ours) ---------- */
 html.desk .dash-main > section[data-pane="teams"] { padding: 0; height: 100vh; overflow-y: auto; }
+/* Meets and Teams scroll in their own section: never the app's centred 1380 px column on a wide screen. */
+html.desk .dash-main > section:is([data-pane="meets"], [data-pane="teams"]) { max-width: none; margin: 0; }
 html.desk .ds-teams { max-width: 1240px; }
 .ds-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; margin-bottom: var(--s-5); }
 .ds-head-id { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }

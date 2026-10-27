@@ -1413,3 +1413,14 @@ html.desk[data-theme="light"] .cl-today::before { display: none; }
 html.desk[data-theme="light"] .cl-hero { background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--acc, #ff3b4a) 4%, transparent), transparent 55%), var(--dk-card); }
 /* The month's meter is drawn at its value; it never animates a width on the desk. */
 html.desk .cs-meter i { transition: none; }
+/* Also on your list: a job's reason wraps to a second line instead of stopping mid-word ("you wro…"). */
+html.desk .cl-root .cl-cr .cl-jt > span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+/* Lifters: the list's card starts on the column's one left edge (the title's, the search's), not 8 px
+   outside it; the group titles sit on that edge like Today's section titles. */
+html.desk .cl-desk .cl-groups { padding-left: var(--gut, 24px); padding-right: var(--gut, 24px); }
+html.desk .cl-desk .cl-gh { padding: 0 2px; }
+/* A lifter's four small tiles: two by two while the page is narrow (the rail open at 1440: 172 px tiles
+   ran "Training" into "4 weeks" and "Oct 12" into "Oct 19"), four across once there is room. */
+html.desk .cl-page .cl-pg { container: clpg / inline-size; }
+html.desk .cl-page .cl-small { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container clpg (min-width: 880px) { html.desk .cl-page .cl-small { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
