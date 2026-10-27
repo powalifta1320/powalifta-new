@@ -97,6 +97,7 @@
 <script src="meetday.js"></script>
 <script src="social-auth.js"></script>
 <script src="coach-lifters.js"></script>
+<script src="program-photo.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -4621,6 +4622,50 @@ group('social sign-in (Apple, Google)');
    lifter per kind (a meet today is one job), the team summary and a lifter's data, on fixture rows
    shaped like app.js deskRows / coachAthleteStatus.
    =========================================================== */
+group('program from a photo (program-photo.js)');
+test('exercise names: specialty variants stay accessories, "pause" is Paused', () => {
+  const m = (n) => { const r = matchExercise(n); return r.lift + (r.variant ? ':' + r.variant : '') + (r.exerciseName ? '"' + r.exerciseName + '"' : ''); };
+  eq(m('Comp Squat'), 'squat:Competition'); eq(m('Pause Squat'), 'squat:Paused'); eq(m('2-count pause bench'), 'bench:Paused'); eq(m('Paused DL'), 'deadlift:Paused');
+  eq(m('CG Bench'), 'bench:Close Grip'); eq(m('Close-grip bench'), 'bench:Close Grip'); eq(m('Incline bench'), 'bench:Incline'); eq(m('Deficit deadlift'), 'deadlift:Deficit');
+  eq(m('SSB Squat'), 'legs"SSB Squat"'); eq(m('Box squat'), 'legs"Box squat"'); eq(m('High bar squat'), 'legs"High bar squat"');
+  eq(m('Spoto Press'), 'push"Spoto Press"'); eq(m('Feet up bench'), 'push"Feet up bench"'); eq(m('TnG bench'), 'push"TnG bench"');
+  eq(m('Stiff leg deadlift'), 'pull"Stiff leg deadlift"'); eq(m('Block pulls'), 'pull"Block pulls"'); eq(m('Trap bar deadlift'), 'pull"Trap bar deadlift"');
+  eq(m('RDL'), 'deadlift:RDL'); eq(m('Sumo deadlift'), 'deadlift:Competition'); eq(m('Dumbbell bench press'), 'push"Dumbbell bench press"'); eq(m('Front squat'), 'legs"Front squat"');
+});
+test('the sample read becomes a draft: weeks, days, names to lifts, the unsure cell', () => {
+  const PI = window.PhotoImport; assert(PI, 'PhotoImport is loaded');
+  const d = PI.draftFromRead(PI.SAMPLE);
+  eq(d.weeks, 4); eq(d.days.length, 3); eq(d.days.map(x => x.exercises.length).join(','), '4,4,4');
+  eq(d.days[0].exercises[0].lift, 'squat'); eq(d.days[1].exercises[1].lift, 'push'); eq(d.days[1].exercises[2].exerciseName, 'SSB Squat');
+  eq(d.days[1].exercises[1].unsure[2], 'The reps are smudged in the photo');
+  eq(PI.draftFromRead({ notProgram: true }), null); eq(PI.draftFromRead({ weeks: 1, days: [{ name: 'D', exercises: [{ name: 'X', cells: [''] }] }] }), null);
+  const pad = PI.draftFromRead({ weeks: 3, days: [{ name: '', exercises: [{ name: 'Bench', cells: ['3x5 @7'] }] }] });
+  eq(pad.days[0].name, 'Day 1'); eq(pad.days[0].exercises[0].cells.join('|'), '3x5 @7||');
+});
+test('checks: the smudged cell needs a fix, and fixing it clears it', () => {
+  const PI = window.PhotoImport, d = PI.draftFromRead(PI.SAMPLE);
+  let iss = PI.draftIssues(d);
+  eq(iss.bad, 1); eq(iss.unsure, 0); eq(iss.list[0].why, 'The reps are smudged in the photo'); eq(iss.list[0].d + ':' + iss.list[0].e + ':' + iss.list[0].w, '1:1:2');
+  let r = PI.draftToWeeks(d);
+  eq(r.stats.left, 1); eq(r.weeks[2].days[1].exercises.map(e => e.exerciseName || e.lift).join(','), 'deadlift,SSB Squat,Chin-ups');
+  d.days[1].exercises[1].cells[2] = '4x3 @8'; delete d.days[1].exercises[1].unsure[2];
+  iss = PI.draftIssues(d); eq(iss.bad + iss.unsure, 0);
+  r = PI.draftToWeeks(d); eq(r.stats.left, 0); eq(r.weeks[2].days[1].exercises.length, 4);
+});
+test('weeks: % stays %, RIR, pauses, rest weeks, renumbering, lb loads', () => {
+  const PI = window.PhotoImport, d = PI.draftFromRead(PI.SAMPLE), r = PI.draftToWeeks(d);
+  eq(r.weeks.length, 4); eq(r.weeks.map(w => w.number).join(','), '1,2,3,4'); eq(r.stats.days, 3);
+  const sq = r.weeks[0].days[0].exercises[0].sets;
+  eq(sq.length, 4); eq(sq[0].reps, 3); eq(sq[0].rpe, 8); eq(sq[1].pct, 75); eq(sq[1].reps, 4);
+  const row = r.weeks[0].days[0].exercises[2].sets[0]; eq(row.rir, true); eq(row.rpe, 8);
+  const ps = r.weeks[0].days[2].exercises[0].sets[0]; eq(ps.pause, 2); eq(ps.pct, 70);
+  eq(r.weeks[3].days[1].exercises.length, 3);   // no SSB squats in the deload
+  const lb = PI.draftToWeeks(PI.draftFromRead({ weeks: 1, days: [{ name: 'D', exercises: [{ name: 'Squat', cells: ['3x5 315lb @7'] }] }] }));
+  eq(Math.round(lb.weeks[0].days[0].exercises[0].sets[0].weight), 143);
+  const gap = PI.draftToWeeks(PI.draftFromRead({ weeks: 3, days: [{ name: 'D', exercises: [{ name: 'Squat', cells: ['3x5 @7', '', '3x3 @8'] }] }] }));
+  eq(gap.weeks.length, 2); eq(gap.weeks.map(w => w.number).join(','), '1,2');
+});
+
 group('lifters (coach-lifters.js)');
 const CL = typeof CoachLifters !== 'undefined' ? CoachLifters : (window.CoachLifters || null);
 const clRow = (o) => {

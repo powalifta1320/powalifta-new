@@ -13580,13 +13580,25 @@ function _sheetCells(line, delim) {
   return out;
 }
 // "Paused bench" → { lift: 'bench', variant: 'Paused' }; accessories keep their name.
+// A specialty variant the app doesn't track as one of the lift's variants (SSB, box, belt or high-bar
+// squats; Spoto, Larsen, floor, board, feet-up or touch-and-go bench; stiff-leg, snatch-grip, block or
+// rack pulls; trap bar) stays an accessory under its own name, so it never moves the competition e1RM.
 function matchExercise(name) {
-  const n = String(name || '').replace(/\s+/g, ' ').trim(), s = n.toLowerCase();
+  const n = String(name || '').replace(/\s+/g, ' ').trim();
+  const s = n.toLowerCase().replace(/[-_]+/g, ' ').replace(/\bpause\b/g, 'paused').replace(/\bcg\b/g, 'close grip');
   const variantOf = (lift) => Object.keys(VARIANTS[lift]).find(v => v !== 'Competition' && s.includes(v.toLowerCase())) || 'Competition';
   if (/\brdl\b|romanian/.test(s)) return { lift: 'deadlift', variant: 'RDL', exerciseName: '' };
   if (/front squat|hack squat|split squat|goblet|leg press|lunge|leg curl|leg extension|calf|hip thrust|glute|hamstring|\bquad/.test(s)) return { lift: 'legs', variant: '', exerciseName: n };
+  if (/smith|machine|dumbbell|\bdb\b|kettlebell|\bkb\b|cable|landmine/.test(s)) {
+    if (/squat|leg|lunge|calf|glute|hip|step/.test(s)) return { lift: 'legs', variant: '', exerciseName: n };
+    if (/deadlift|row|pull|curl|shrug|chin/.test(s)) return { lift: 'pull', variant: '', exerciseName: n };
+    if (/bench|press|dip|fly|raise|push|tricep/.test(s)) return { lift: 'push', variant: '', exerciseName: n };
+  }
+  if (/\bssb\b|safety (?:bar|squat)|box squat|belt squat|high ?bar|zercher|anderson|cambered|buffalo|hatfield/.test(s)) return { lift: 'legs', variant: '', exerciseName: n };
+  if (/\bspoto\b|larsen|floor press|board press|\b\d ?board\b|feet up|touch (?:and|&|n) go|\bt ?(?:&|n) ?g\b|\btng\b|wide grip|swiss bar|football bar|slingshot/.test(s)) return { lift: 'push', variant: '', exerciseName: n };
+  if (/stiff leg|\bsldl\b|snatch grip|block pull|rack pull|trap bar|hex bar|\bblock deadlift|\brack deadlift/.test(s)) return { lift: 'pull', variant: '', exerciseName: n };
   if (/squat/.test(s)) return { lift: 'squat', variant: variantOf('squat'), exerciseName: '' };
-  if (/bench/.test(s) && !/dumbbell|\bdb\b/.test(s)) return { lift: 'bench', variant: variantOf('bench'), exerciseName: '' };
+  if (/bench/.test(s)) return { lift: 'bench', variant: variantOf('bench'), exerciseName: '' };
   if (/deadlift|\bdl\b|\bdead\b|\bdeads\b/.test(s)) return { lift: 'deadlift', variant: variantOf('deadlift'), exerciseName: '' };
   if (/row|pull|chin|lat\b|pulldown|curl|face pull|shrug|rear delt/.test(s)) return { lift: 'pull', variant: '', exerciseName: n };
   if (/press|dip|tricep|push|raise|fly|flye|pec/.test(s)) return { lift: 'push', variant: '', exerciseName: n };

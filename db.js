@@ -663,6 +663,20 @@ const DB = {
     }
     return data;
   },
+  // Program from a photo (program-photo.js): the picture or PDF goes to the program-read function,
+  // which returns the program in the builder's cell notation. Nothing is stored on the server.
+  async readProgramPhoto(payload) {
+    const { data, error } = await sb.functions.invoke('program-read', { body: payload });
+    if (error) {
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_) { /* ignore */ }
+      const e = new Error((detail && (detail.message || detail.error)) || error.message || 'Read failed');
+      e.detail = detail;
+      e.status = error.context && error.context.status;
+      throw e;
+    }
+    return data;
+  },
 
   // ---------- WEB PUSH ----------
   // Save (upsert by endpoint) the browser's PushManager subscription for the

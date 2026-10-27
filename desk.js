@@ -2410,7 +2410,7 @@ function dkSetAthletes(p, redraw) {
   p.appendChild(el('p', { class: 'dk-set-lead' }, 'One link per athlete. They get the app and land on your roster with every set they log. An unused link holds a seat.'));
   p.appendChild(dkSetGroup([
     dkSetRow('Invite links', inv.length ? inv.length + ' waiting to be used' : 'None out', dkBtn('Invite', { cls: 'dk-btn-sm', icon: DK_IC.plus, onClick: function () { openInviteModal(); } })),
-    dkSetRow('Bring a program in', 'Paste a block you already wrote, or open a .csv file', dkBtn('Paste', { cls: 'dk-btn-sm is-quiet', onClick: function () { openSheetImport(null); } })),
+    dkSetRow('Bring a program in', 'From a photo, a screenshot, a PDF, a pasted block or a .csv file', dkBtn('Bring in', { cls: 'dk-btn-sm is-quiet', onClick: function () { openSheetImport(null); } })),
     dkSetRow('Export your roster', 'Every lifter, their block and last session, as a CSV file', dkBtn('Export CSV', { cls: 'dk-btn-sm is-quiet', onClick: function () { exportRosterCsv(); } }))
   ]));
   if (!inv.length) return;
@@ -3818,7 +3818,7 @@ function dkPaintPbRows(list) {
     });
     var nb = el('button', { type: 'button', class: 'dk-pb-new' });
     nb.insertAdjacentHTML('beforeend', DK_IC.plus);
-    nb.appendChild(el('span', {}, 'Paste a new template'));
+    nb.appendChild(el('span', {}, 'Bring a template in'));
     nb.addEventListener('click', function () { openSheetImport(null); });
     box.appendChild(nb);
     return;
@@ -4036,7 +4036,7 @@ function deskBuilderEmpty(area, athleteId) {
     var tb = dkBtn('Start from a template', { onClick: function () { dkAssignTemplate([athleteId], tb); } });
     acts.appendChild(tb);
   }
-  acts.appendChild(dkBtn('Paste a block', { cls: 'is-quiet', onClick: function () { openSheetImport(athleteId); } }));
+  acts.appendChild(dkBtn('Bring a block in', { cls: 'is-quiet', onClick: function () { openSheetImport(athleteId); } }));
   if (typeof openGoalModal === 'function') acts.appendChild(dkBtn('Build from a goal', { cls: 'is-quiet', onClick: function () { openGoalModal(athleteId); } }));
   box.appendChild(acts);
   area.appendChild(box);
@@ -4303,7 +4303,7 @@ function dkBxTools(box, prog, wi) {
     var p = dkProgOf(aid), items = [{ label: 'Save as a template…', run: function () { openSaveTemplate(p); } }];
     var me = _dkCoachMeId();
     if ((Store.get().programTemplates || []).some(function (t) { return t.coachId === me; })) items.push({ label: 'Start from a template…', run: function () { dkAssignTemplate([aid], tplBtn); } });
-    items.push({ label: 'Replace with a pasted block…', run: function () { openSheetImport(aid); } });
+    items.push({ label: 'Replace with an imported block…', run: function () { openSheetImport(aid); } });
     return items;
   });
   bar.appendChild(tplBtn);
@@ -5217,9 +5217,9 @@ function dkPaintTemplate() {
   if (!tpl) {
     var em = el('div', { class: 'dk-pbempty' });
     em.appendChild(el('h2', { class: 'dk-h2' }, 'No templates yet'));
-    em.appendChild(el('p', {}, 'Save any athlete’s block as a template (Templates in its tools), or paste one you already have. Then hand it to anyone, or a whole team, with their own loads.'));
+    em.appendChild(el('p', {}, 'Save any athlete’s block as a template (Templates in its tools), or bring one in from a photo or a paste. Then hand it to anyone, or a whole team, with their own loads.'));
     var acts = el('div', { class: 'dk-actions' });
-    acts.appendChild(dkBtn('Paste a block', { primary: true, onClick: function () { openSheetImport(null); } }));
+    acts.appendChild(dkBtn('Bring a block in', { primary: true, onClick: function () { openSheetImport(null); } }));
     em.appendChild(acts);
     area.appendChild(em);
     return;

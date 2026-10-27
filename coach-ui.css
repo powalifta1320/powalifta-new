@@ -1,7 +1,7 @@
 /* coach-ui.css: the coach side's new screens (2026-10-25), starting with Home (coach-home.js).
    The app's own material: obsidian surfaces, hairlines, Archivo, one red action per screen,
    lift colours with a job. Everything is prefixed ch- and lives inside .ch-host / .ch-phone. */
-.ch-host, .ch-phone, .cl-root {
+.ch-host, .ch-phone, .cl-root, .pp-sheet, .pp-pick {
   --ch-squat: #38c6ff; --ch-bench: #a98bff; --ch-deadlift: #ffbf3c;
   --ch-ok: #34d982; --ch-warn: #ffb35c; --ch-pain: #ff8f80; --ch-bw: #5ac8fa; --ch-gold: #ffc23d; --ch-green: #34e08c; --ch-cyan: #2ec5ff;
   --ch-fill-1: rgba(255, 255, 255, 0.035); --ch-fill-2: rgba(255, 255, 255, 0.06); --ch-fill-3: rgba(255, 255, 255, 0.08); --ch-fill-4: rgba(255, 255, 255, 0.14);
@@ -9,7 +9,7 @@
   --ch-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --ch-r: var(--u-r, 20px); --ch-r-in: 14px;
 }
-html[data-theme="light"] .ch-host, html[data-theme="light"] .ch-phone, html[data-theme="light"] .cl-root {
+html[data-theme="light"] .ch-host, html[data-theme="light"] .ch-phone, html[data-theme="light"] .cl-root, html[data-theme="light"] .pp-sheet, html[data-theme="light"] .pp-pick {
   --ch-fill-1: rgba(11, 11, 13, 0.035); --ch-fill-2: rgba(11, 11, 13, 0.06); --ch-fill-3: rgba(11, 11, 13, 0.08); --ch-fill-4: rgba(11, 11, 13, 0.14);
   --ch-lit: none; --ch-pain: #d9483c; --ch-warn: #c77a12; --ch-ok: #159a58; --ch-bw: #1577c2; --ch-green: #159a58; --ch-cyan: #0f86b8; --ch-gold: #b4821a;
 }
@@ -638,4 +638,149 @@ html[data-theme="light"] .cl-today::before { opacity: 0.6; }
   .cl-root .rise, .cl-live, .cl-pg.is-swap { animation: none; }
   .cl-seg.on { transition: none; opacity: 1; }
   .cl-pbar i { transition: none; }
+}
+
+
+/* ---------- Program from a photo (program-photo.js) ----------
+   The pick tile sits at the top of "Bring a program in"; the check is a sheet of its own: on the
+   laptop the photo beside an editable grid (rows = day × exercise, columns = weeks), on the phone
+   one week at a time. A cell that doesn't read is tinted in the pain colour, a cell the reader
+   wasn't sure of in amber; everything else stays quiet. One red: Use for {lifter}. */
+.pp-pick { display: flex; align-items: flex-start; gap: 14px; margin: 2px 0 4px; padding: 16px; border-radius: 16px; background: var(--ch-fill-2); transition: background-color 160ms ease-out, box-shadow 160ms ease-out; }
+.pp-pick.is-over { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: inset 0 0 0 1.5px var(--text-2); }
+.pp-pick-ic { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--ch-fill-3); color: var(--text); }
+.pp-pick-ic svg { width: 22px; height: 22px; }
+.pp-pick-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pp-pick-t { font-size: 16px; line-height: 1.3; font-weight: 700; color: var(--text); }
+.pp-pick-s { font-size: 14px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+.pp-pick-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; }
+.pp-pick-hint { font-size: 13px; color: var(--text-3); }
+.pp-pick-thumb { order: 3; width: 104px; height: 72px; flex: none; object-fit: cover; object-position: left top; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+.imp-or { margin: 16px 4px 4px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+html.desk body.powa-app .imp-or { margin: var(--s-4) 0 var(--s-1); font-size: var(--fs-2); }
+html.desk body.powa-app .pp-pick { padding: var(--s-4); border-radius: var(--r-2); background: var(--dk-fill); }
+html.desk body.powa-app .pp-pick-t { font-size: var(--fs-4); }
+html.desk body.powa-app .pp-pick-s { font-size: var(--fs-2); }
+html.desk body.powa-app .pp-pick-acts .btn { margin: 0; }
+@media (max-width: 420px) { .pp-pick-thumb { display: none; } }
+
+/* the check: a sheet of its own (phone: full height; laptop: a wide dialog) */
+.ui-sheet.ui-sheet-form.pp-sheet { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.ui-sheet.ui-sheet-form.pp-sheet.pp-tall { height: calc(100dvh - 20px); max-height: none; }
+.pp-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 16px 10px; }
+.pp-head-t { flex: 1; min-width: 0; }
+.ui-sheet-form .pp-h { margin: 0; }
+.ui-sheet-form .pp-sub { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--text-3); }
+.pp-x { display: grid; place-items: center; width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%; background: var(--ch-fill-3); color: var(--text-2); cursor: pointer; transition: background-color 150ms ease-out, transform 150ms ease-out; }
+.pp-x svg { width: 15px; height: 15px; }
+.pp-x:active { transform: scale(0.95); }
+@media (hover: hover) and (pointer: fine) { .pp-x:hover { background: var(--ch-fill-4); color: var(--text); } }
+.pp-tocheck { padding: 0; border: 0; background: none; color: var(--ch-warn); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.pp-allok { color: var(--text-2); }
+.pp-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
+.pp-main { min-width: 0; }
+
+/* the photo */
+.pp-pic { position: relative; margin: 4px 0 14px; max-height: 172px; overflow: hidden; border-radius: 14px; background: var(--ch-fill-1); }
+.pp-pic.is-open { max-height: none; }
+.pp-pic img { display: block; width: 100%; height: auto; }
+.pp-zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.pp-pic.is-zoom .pp-zoom { cursor: zoom-out; }
+.pp-pic-more { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: rgba(11, 11, 13, 0.78); color: #fff; font: 600 13px/1 var(--font-body, inherit); cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.pp-pic.is-open .pp-pic-more { position: static; transform: none; display: block; margin: 8px auto 4px; background: var(--ch-fill-3); color: var(--text); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.pp-pdf { display: block; width: 100%; height: 100%; min-height: 360px; border: 0; }
+.pp-file { display: flex; align-items: center; gap: 10px; padding: 18px; color: var(--text-2); font-size: 14px; font-weight: 600; }
+.pp-file svg { width: 22px; height: 22px; flex: none; }
+
+/* reading and failing */
+.pp-reading { display: flex; flex-direction: column; gap: 14px; padding: 18px 2px; }
+.pp-reading p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.pp-bar { height: 3px; border-radius: 2px; overflow: hidden; background: var(--ch-fill-3); }
+.pp-bar i { display: block; width: 38%; height: 100%; border-radius: inherit; background: var(--text); animation: ppSlide 1.15s var(--ch-ease) infinite; }
+@keyframes ppSlide { from { transform: translateX(-105%); } to { transform: translateX(270%); } }
+.pp-failed p { color: var(--text); }
+
+/* a lift's dot, an exercise name, a cell */
+.pp-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--lc, var(--text-3)); }
+.pp-dot.l-squat { --lc: var(--ch-squat); } .pp-dot.l-bench { --lc: var(--ch-bench); } .pp-dot.l-deadlift { --lc: var(--ch-deadlift); } .pp-dot.l-acc { --lc: var(--text-4, var(--text-3)); }
+.pp-ex { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ui-sheet .pp-sheet input.pp-name, .pp-sheet input.pp-name, .pp-sheet input.pp-dayname, .pp-sheet textarea.pp-cell {
+  min-height: 0; margin: 0; border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: var(--text); font-family: var(--font-body, inherit); outline: none;
+  transition: background-color 150ms ease-out, box-shadow 150ms ease-out; }
+.pp-sheet input.pp-name { flex: 1; min-width: 0; padding: 6px 6px; font-size: 16px; font-weight: 600; }
+.pp-sheet input.pp-dayname { width: 100%; padding: 6px 0; font-size: 15px; font-weight: 700; }
+.pp-sheet textarea.pp-cell { display: block; width: 100%; padding: 10px 12px; resize: none; overflow: hidden; font-size: 16px; line-height: 1.35; font-weight: 500; font-variant-numeric: tabular-nums; background: var(--ch-fill-2); }
+.pp-sheet textarea.pp-cell::placeholder { color: var(--text-4, var(--text-3)); }
+.pp-sheet :is(input.pp-name, input.pp-dayname, textarea.pp-cell):focus { background: var(--ch-fill-3); box-shadow: 0 0 0 2px var(--dk-focus, color-mix(in srgb, var(--text) 55%, transparent)); }
+.pp-sheet textarea.pp-cell.is-bad { background: color-mix(in srgb, var(--ch-pain) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ch-pain) 60%, transparent); }
+.pp-sheet textarea.pp-cell.is-unsure, .pp-sheet input.pp-name.is-unsure { background: color-mix(in srgb, var(--ch-warn) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ch-warn) 55%, transparent); }
+.pp-why { display: block; padding: 4px 4px 0; font-size: 13px; line-height: 1.35; color: var(--ch-warn); }
+.pp-why.is-bad { color: var(--ch-pain); }
+.pp-why[hidden] { display: none; }
+.pp-rm { display: grid; place-items: center; width: 30px; height: 30px; flex: none; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--text-3); cursor: pointer; opacity: 0.7; transition: opacity 150ms ease-out, background-color 150ms ease-out; }
+.pp-rm svg { width: 13px; height: 13px; }
+@media (hover: hover) and (pointer: fine) { .pp-rm { opacity: 0; } :is(tr, .pp-row):hover .pp-rm, .pp-rm:focus-visible { opacity: 1; } .pp-rm:hover { background: var(--ch-fill-3); color: var(--text); } }
+
+/* phone: one week at a time */
+.pp-weeks { display: flex; gap: 6px; margin: 0 -16px; padding: 2px 16px 8px; overflow-x: auto; scrollbar-width: none; }
+.pp-weeks::-webkit-scrollbar { display: none; }
+.pp-weeks button { position: relative; flex: none; height: 36px; padding: 0 15px; border: 0; border-radius: 18px; background: var(--ch-fill-2); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit); cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.pp-weeks button.on { background: var(--text); color: var(--bg-0, #0b0b0c); }
+.pp-wdot { position: absolute; top: 6px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--ch-warn); }
+.pp-dsec { margin-top: 10px; }
+.pp-row { padding: 8px 0 10px; border-top: 1px solid var(--line); }
+.pp-row .pp-ex { margin: 0 -6px 6px; }
+
+/* the foot: the name, what's left to check, the two ways to keep it */
+.pp-foot { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg-1); }
+.pp-foot-l { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pp-namerow { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 12px; background: var(--ch-fill-2); font-size: 15px; color: var(--text-3); }
+.pp-sheet .pp-namerow input.pp-pname { flex: 1; min-width: 0; min-height: 0; margin: 0; padding: 4px 0; border: 0; background: none; box-shadow: none; color: var(--text); font: 600 16px var(--font-body, inherit); text-align: right; outline: none; }
+.pp-note { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
+.pp-note.is-bad { color: var(--ch-pain); } .pp-note.is-unsure { color: var(--ch-warn); }
+.pp-foot-acts { display: flex; flex-direction: column-reverse; gap: 10px; }
+.pp-foot-acts .btn { width: 100%; min-height: 50px; margin: 0; }
+
+/* laptop: a wide dialog, the photo beside the grid */
+html.desk body.powa-app .ui-sheet.ui-sheet-form.pp-sheet.pp-wide { width: min(1320px, calc(100vw - 48px)); height: min(900px, calc(100vh - 48px)); padding: 0; }
+html.desk body.powa-app .pp-wide .pp-head { padding: var(--s-5) var(--s-5) var(--s-3); }
+html.desk body.powa-app .pp-wide .pp-h { font-size: var(--fs-5); }
+html.desk body.powa-app .pp-wide .pp-sub { margin-top: var(--s-1); font-size: var(--fs-3); }
+html.desk body.powa-app .pp-wide .pp-x { width: 32px; height: 32px; border-radius: var(--r-1); background: var(--dk-fill); }
+html.desk body.powa-app .pp-wide .pp-body { display: grid; grid-template-columns: minmax(300px, 36%) minmax(0, 1fr); gap: var(--s-4); padding: 0 var(--s-5); overflow: hidden; }
+html.desk body.powa-app .pp-wide .pp-pic { max-height: none; margin: 0 0 var(--s-4); overflow: auto; border-radius: var(--r-2); background: var(--dk-raise); overscroll-behavior: contain; }
+html.desk body.powa-app .pp-wide .pp-pic.is-zoom img { width: 220%; max-width: none; }
+html.desk body.powa-app .pp-wide .pp-main { min-height: 0; overflow: auto; margin-bottom: var(--s-4); border-radius: var(--r-2); background: var(--dk-raise); overscroll-behavior: contain; }
+html.desk body.powa-app .pp-wide .pp-reading { padding: var(--s-6) var(--s-5); }
+html.desk body.powa-app .pp-wide .pp-reading p { font-size: var(--fs-3); }
+html.desk body.powa-app .pp-wide .pp-foot { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--s-5); padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line); background: transparent; }
+html.desk body.powa-app .pp-wide .pp-foot-l { flex-direction: row; align-items: center; gap: var(--s-4); }
+html.desk body.powa-app .pp-wide .pp-namerow { width: 320px; padding: 0 var(--s-3); height: var(--ctl-h); border-radius: var(--r-1); background: var(--dk-fill); font-size: var(--fs-2); }
+html.desk body.powa-app .pp-wide .pp-namerow input.pp-pname { min-height: 0; height: 30px; padding: 0; background: none; font-size: var(--fs-3); }
+html.desk body.powa-app .pp-wide .pp-note { font-size: var(--fs-2); }
+html.desk body.powa-app .pp-wide .pp-foot-acts { flex-direction: row; gap: var(--s-2); flex: none; }
+html.desk body.powa-app .pp-wide .pp-foot-acts .btn { width: auto; min-height: var(--ctl-h); margin: 0; }
+/* the grid */
+.pp-gridw { min-width: 0; }
+.pp-grid { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+.pp-grid thead th { position: sticky; top: 0; z-index: 2; padding: 12px 10px 8px; background: var(--dk-raise, var(--bg-1)); text-align: left; font-size: var(--fs-1, 12px); font-weight: 600; color: var(--text-3); white-space: nowrap; }
+.pp-grid .pp-c0 { position: sticky; left: 0; z-index: 1; width: 230px; min-width: 230px; max-width: 230px; background: var(--dk-raise, var(--bg-1)); text-align: left; font-weight: inherit; }
+.pp-grid thead .pp-c0 { z-index: 3; padding-left: 16px; }
+.pp-grid tbody th.pp-c0 { padding: 2px 4px 2px 10px; vertical-align: top; }
+.pp-grid td { width: 200px; min-width: 200px; padding: 2px 3px; vertical-align: top; }
+.pp-grid tbody tr:not(.pp-day) > * { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.pp-grid tr.pp-day > th { position: static; width: auto; max-width: none; padding: 16px 10px 4px 14px; background: none; }
+.pp-grid tr.pp-day:first-child > th { padding-top: 6px; }
+.pp-grid .pp-ex { padding-top: 2px; }
+html.desk body.powa-app .pp-grid input.pp-name { padding: 6px 6px; font-size: var(--fs-3); }
+html.desk body.powa-app .pp-grid input.pp-dayname { padding: 4px 6px; font-size: var(--fs-2); font-weight: 700; color: var(--text-2); }
+html.desk body.powa-app .pp-grid textarea.pp-cell { padding: 7px 8px; font-size: var(--fs-3); background: transparent; }
+@media (hover: hover) and (pointer: fine) {
+  html.desk body.powa-app .pp-grid :is(textarea.pp-cell, input.pp-name, input.pp-dayname):not(:focus):not(.is-bad):not(.is-unsure):hover { background: var(--dk-fill); }
+}
+html.desk body.powa-app .pp-grid .pp-why { padding: 2px 8px 4px; font-size: var(--fs-1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-bar i { animation: none; width: 100%; opacity: 0.45; }
+  .pp-pick, .pp-x, .pp-rm, .pp-weeks button, .pp-sheet :is(input, textarea) { transition: none; }
 }

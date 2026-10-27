@@ -344,6 +344,7 @@
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
+<script src="program-photo.js"></script><!-- Program from a photo: the AI reads a picture or PDF into the builder's cells; the coach checks every one (PhotoImport) -->
 <script>
 // The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
 // dashboard still boots. Function declarations, so the first render can call them.
@@ -1249,7 +1250,7 @@ function coachSetupSteps() {
   const goTemplates = () => { const t = document.querySelector('[data-tab="templates"]'); if (t) t.click(); };
   return [
     { done: hasProgram, title: 'Bring your program in',
-      sub: hasProgram ? 'Saved as a template. Athletes get it in one tap when they join.' : 'Paste it from Google Sheets or Excel. Nothing to retype.',
+      sub: hasProgram ? 'Saved as a template. Athletes get it in one tap when they join.' : 'A photo, a screenshot or a paste from your sheet. Nothing to retype.',
       onClick: () => hasProgram ? goTemplates() : openSheetImport(null) },
     { done: invited, title: 'Invite your athletes',
       sub: invited ? pending + (pending === 1 ? ' invite out. They appear here when they sign up.' : ' invites out. They appear here when they sign up.') : 'One link each. They get the app and land on your roster.',
@@ -2795,10 +2796,47 @@ function _csvToTabs(text) {
     return out.join('\t');
   }).join('\n');
 }
+// The two ways an imported program is kept, shared by Paste a program and Program from a photo
+// (program-photo.js). Use for a lifter: their trained block is archived first, % sets get loads from
+// their maxes, then it replaces their program. The callers confirm the replace and close their sheet.
+async function importUseFor(athleteId, weeks, name, setFields, setCount) {
+  const existing = getProgramForAthlete(athleteId);
+  await archiveProgramIfTrained(existing);   // its logged training stays as a past block
+  const pctRes = applyPctLoads(weeks, athleteId, undefined, existing && existing.maxes);
+  const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name || 'Imported program', weeks, maxes: existing ? existing.maxes || null : null };
+  if (setFields) prog.setFields = setFields;   // the sheet's tempo / pause / band columns and its own columns
+  if (pctRes.noMax.length) setTimeout(() => toast('No max yet for ' + pctRes.noMax.map(l => LIFT_LABELS[l]).join(' and ') + ': those % sets have no load until they log one'), 1600);
+  Store.update(st => { st.programs = st.programs.filter(p => p.athleteId !== athleteId); st.programs.push(prog); });
+  if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
+  toast('Program ready · ' + setCount + ' sets');
+  activeWeekIdx = 0;
+  loadProgram();
+  return prog;
+}
+async function importSaveTemplate(weeks, name, setFields, forAthlete) {
+  const t = { id: uid('tpl'), coachId: user.id, name: name || 'Imported program', createdAt: Date.now(),
+    payload: { weeks: weeks.map(wk => ({ number: wk.number, days: wk.days.map(d => ({ name: d.name,
+      exercises: d.exercises.map(ex => ({ lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
+        sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, rpe: x.rpe, ...rxOf(x) })) })) })) })), setFields: setFields || null } };
+  Store.update(st => { st.programTemplates = st.programTemplates || []; st.programTemplates.push(t); });
+  try { await persistAddTemplate(t); } catch (e) { console.error(e); }
+  toast(forAthlete ? 'Saved as a template' : 'Saved. Athletes get it in one tap when they join');
+  // The checklist, the builder and the templates list all read the templates.
+  [renderTemplates, renderRoster, loadProgram].forEach(fn => { try { fn(); } catch (e) {} });
+  return t;
+}
+window.importUseFor = importUseFor;
+window.importSaveTemplate = importSaveTemplate;
+
 function openSheetImport(athleteId) {
   const ath = athleteId ? ((Store.get().athletes || []).find(a => a.id === athleteId) || {}) : null;
   const first = ath ? (ath.name || 'athlete').split(' ')[0] : '';
-  uiSheet(ath ? 'Paste a program' : 'Paste your program', (sheet, close) => {
+  uiSheet(ath ? 'Bring a program in' : 'Bring your program in', (sheet, close) => {
+    // Program from a photo first (program-photo.js); pasting the text stays right under it.
+    if (window.PhotoImport) {
+      sheet.appendChild(PhotoImport.pickTile({ athleteId, closeImport: close, sheet }));
+      sheet.appendChild(el('div', { class: 'imp-or' }, 'Or paste the text'));
+    }
     sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, _desk() ? 'Paste the block the way you write it ("Week 1", "Day 1", "Squat 3x5 @8"), or a table of weeks, days and sets.' : 'Copy the cells from Google Sheets or Excel and paste them here. Written programs work too: "Week 1", "Day 1", "Squat 3x5 @8".'));
     const ta = el('textarea', { class: 'imp-text', rows: '8', spellcheck: 'false', 'aria-label': 'Program to import',
       placeholder: 'Week\tDay\tExercise\tSets\tReps\tLoad\tRPE\n1\tDay 1\tSquat\t3\t5\t160\t7\n\nor\n\nWeek 1\nDay 1\nSquat 3x5 @7\nBench 4x6 @ 82.5kg' });
@@ -2871,36 +2909,12 @@ function openSheetImport(athleteId) {
     ta.addEventListener('input', paint);
     name.addEventListener('input', () => { if (parsed) parsed.name = name.value.trim() || 'Imported program'; });
     if (use) use.addEventListener('click', () => {
-      const go = async () => {
-        const existing = getProgramForAthlete(athleteId);
-        await archiveProgramIfTrained(existing);   // its logged training stays as a past block
-        const pctRes = applyPctLoads(parsed.weeks, athleteId, undefined, existing && existing.maxes);
-        const prog = { id: existing ? existing.id : uid('prog'), athleteId, coachId: user.id, name: name.value.trim() || 'Imported program', weeks: parsed.weeks, maxes: existing ? existing.maxes || null : null };
-        if (parsed.setFields) prog.setFields = parsed.setFields;   // the sheet's tempo / pause / band columns and its own columns
-        if (pctRes.noMax.length) setTimeout(() => toast('No max yet for ' + pctRes.noMax.map(l => LIFT_LABELS[l]).join(' and ') + ': those % sets have no load until they log one'), 1600);
-        Store.update(st => { st.programs = st.programs.filter(p => p.athleteId !== athleteId); st.programs.push(prog); });
-        if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
-        close();
-        toast('Program ready · ' + parsed.stats.sets + ' sets');
-        activeWeekIdx = 0;
-        loadProgram();
-      };
+      const go = () => { close(); importUseFor(athleteId, parsed.weeks, name.value.trim() || 'Imported program', parsed.setFields || null, parsed.stats.sets); };
       if (getProgramForAthlete(athleteId)) {
         uiActionSheet('Replace ' + first + '\'s program?', [{ label: 'Replace it', danger: true, onClick: go }]);
       } else go();
     });
-    tpl.addEventListener('click', async () => {
-      const t = { id: uid('tpl'), coachId: user.id, name: name.value.trim() || 'Imported program', createdAt: Date.now(),
-        payload: { weeks: parsed.weeks.map(wk => ({ number: wk.number, days: wk.days.map(d => ({ name: d.name,
-          exercises: d.exercises.map(ex => ({ lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
-            sets: ex.sets.map(x => ({ weight: x.weight, reps: x.reps, rpe: x.rpe, ...rxOf(x) })) })) })) })), setFields: parsed.setFields || null } };
-      Store.update(st => { st.programTemplates = st.programTemplates || []; st.programTemplates.push(t); });
-      try { await persistAddTemplate(t); } catch (e) { console.error(e); }
-      close();
-      toast(ath ? 'Saved as a template' : 'Saved. Athletes get it in one tap when they join');
-      // The checklist, the builder and the templates list all read the templates.
-      [renderTemplates, renderRoster, loadProgram].forEach(fn => { try { fn(); } catch (e) {} });
-    });
+    tpl.addEventListener('click', () => { close(); importSaveTemplate(parsed.weeks, name.value.trim() || 'Imported program', parsed.setFields || null, !!ath); });
     setTimeout(() => { try { ta.focus(); } catch (e) {} }, 350);
   }, { cls: 'imp-sheet' });
 }
@@ -2991,7 +3005,7 @@ function openNextBlockSheet(progId, athleteId) {
         loadProgram();
       }) }),
       uiRow({ title: 'A template', sub: 'Pick one from your templates.', chevron: true, onClick: go(() => { const t = document.querySelector('[data-tab="templates"]'); if (t) t.click(); }) }),
-      uiRow({ title: 'Paste from a spreadsheet', sub: 'Copy the cells from Sheets or Excel.', chevron: true, onClick: go(() => openSheetImport(athleteId)) }),
+      uiRow({ title: 'Bring one in', sub: 'From a photo, a screenshot, a PDF or your spreadsheet.', chevron: true, onClick: go(() => openSheetImport(athleteId)) }),
       uiRow({ title: 'Build from a goal', sub: 'A full block from their current and target lifts.', chevron: true, onClick: go(() => openGoalModal(athleteId)) })
     ]));
   }, { cls: 'nb-sheet' });
@@ -3390,8 +3404,8 @@ function loadProgram() {
     } : {
       icon: ICONS.program,
       title: 'Start with your program',
-      text: 'Paste it from your spreadsheet and keep it as a template. Athletes get it in one tap when they join.',
-      primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(null) },
+      text: 'Bring it in from a photo, a screenshot or your spreadsheet, and keep it as a template. Athletes get it in one tap when they join.',
+      primary: { label: 'Bring your program in', onClick: () => openSheetImport(null) },
       secondary: { label: 'Invite an athlete first', onClick: () => openInviteModal() }
     }));
     return;
@@ -3408,7 +3422,7 @@ function loadProgram() {
     create.innerHTML = ICONS.plus + '<span>Create program</span>';
     e.appendChild(create);
     // Most coaches already have it in a spreadsheet: paste it instead of retyping.
-    e.appendChild(el('button', { class: 'btn ui-btn-soft mt-8', type: 'button', onclick: () => openSheetImport(athleteId) }, 'Paste from a spreadsheet'));
+    e.appendChild(el('button', { class: 'btn ui-btn-soft mt-8', type: 'button', onclick: () => openSheetImport(athleteId) }, 'Bring a program in'));
     const tplCount = (Store.get().programTemplates || []).filter(t => t.coachId === user.id).length;
     if (tplCount > 0) {
       e.appendChild(el('p', { class: 'dim text-sm', style: 'margin-top: 18px;' }, 'Or use a saved template:'));
@@ -3451,7 +3465,7 @@ function loadProgram() {
       persistProgram(prog.id); loadProgram();
       toast(res && res.filled ? 'Updated ' + res.filled + (res.filled === 1 ? ' set' : ' sets') + ' from their maxes' : 'No max to work from yet');
     } } : null,
-    { label: 'Replace from a spreadsheet', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
+    { label: 'Replace with an imported program', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
     { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
   ];
@@ -3960,8 +3974,8 @@ function renderTemplates() {
     area.appendChild(uiEmpty({
       icon: ICONS.copy,
       title: 'No templates yet',
-      text: 'Paste a program from your spreadsheet, or save any athlete\'s program from the builder. Then give it to anyone in one tap.',
-      primary: { label: 'Paste from a spreadsheet', onClick: () => openSheetImport(null) }
+      text: 'Bring a program in from a photo or your spreadsheet, or save any athlete\'s program from the builder. Then give it to anyone in one tap.',
+      primary: { label: 'Bring a program in', onClick: () => openSheetImport(null) }
     }));
     return;
   }
@@ -4160,7 +4174,7 @@ function renderCoachMarketplace() {
       text: 'List a template for lifters who train on their own. You set the price and keep 80% of every sale.',
       primary: hasTpl
         ? { label: 'Go to templates', onClick: () => document.querySelector('[data-tab="templates"]').click() }
-        : { label: 'Paste a program in', onClick: () => openSheetImport(null) }
+        : { label: 'Bring a program in', onClick: () => openSheetImport(null) }
     }));
     return;
   }
