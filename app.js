@@ -428,8 +428,8 @@ function _buildCoachDemoData() {
   // Roster engineered to show every flag state
   const roster = [
     { id: 'demo-a1', name: 'Arjun Mehta', email: 'arjun@demo.com', lastTrained: 0, base: { s: 170, b: 110, d: 210 } },
-    { id: 'demo-a2', name: 'Sarah Kim', email: 'sarah@demo.com', lastTrained: 2, base: { s: 120, b: 70, d: 150 } },
-    { id: 'demo-a3', name: 'Tom Boyle', email: 'tom@demo.com', lastTrained: 9, base: { s: 200, b: 140, d: 250 } },
+    { id: 'demo-a2', name: 'Sarah Kim', email: 'sarah@demo.com', lastTrained: 2, base: { s: 120, b: 70, d: 150 }, rise: 1.8 },
+    { id: 'demo-a3', name: 'Tom Boyle', email: 'tom@demo.com', lastTrained: 9, base: { s: 200, b: 140, d: 250 }, rise: 0.5 },
     { id: 'demo-a4', name: 'Nina Petrova', email: 'nina@demo.com', lastTrained: null, base: { s: 90, b: 50, d: 110 } }
   ];
   const igs = { 'demo-a1': 'arjun.pulls', 'demo-a2': 'sarah.lifts' };
@@ -444,7 +444,7 @@ function _buildCoachDemoData() {
         const off = w * 7 + di * 2 + r.lastTrained;
         if (off > 42) return;
         const date = daysAgo(off);
-        const top = base + (5 - w) * 1.25;
+        const top = base + (5 - w) * (r.rise || 1.25);   // each lifter at their own pace: three identical '+19 kg' read as fake
         [[5, 7.5], [5, 8], [3, 8.5]].forEach(([reps, rpe], si) => {
           const wgt = Math.round((top - si * 2.5) / 2.5) * 2.5;
           workoutLogs.push({
