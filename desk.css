@@ -2212,3 +2212,5 @@ html.desk body.powa-app section[data-pane="club"] .club-buddy b { font-size: var
 html.desk body.powa-app section[data-pane="club"] :is(.cbud-av, .cp-av) { font-size: var(--fs-1); }
 html.desk .ai-panel .ai-bubble .ai-li-sub { font-size: var(--fs-1); }
 html.desk body.powa-app :is(#messagesArea, #deskCtx) .vn-speed { border-radius: var(--r-1); }
+/* A list row answers the press at once: a step of fill on pointer-down (rows are too wide to scale). */
+html.desk :is(button.dk-qrow, .dk-msg-row, .dk-mtc-row, .dk-bl-row):active { background: var(--dk-fill-2); }

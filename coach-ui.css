@@ -1376,7 +1376,7 @@ html.desk :is(.cl-do, .cl-tile, .cl-col, .cl-list, .cl-lift, .cl-empty, .cl-calm
 html.desk .cl-links { background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: inset 0 0 0 1px var(--dk-card-edge), var(--dk-card-lit); }
 /* One left edge: Today and Clients start where every other screen starts (the rail + the gutter),
    folded rail or not, instead of centring (the title jumped 34 px between Today and Lifters). */
-html.desk .cl-today, html.desk .cs-page:not(.is-phone) { margin: 0; }
+html.desk .cl-today, html.desk .cs-page:not(.is-phone) { margin: 0; max-width: 1400px; }   /* fills a 1440 window folded or not; caps on a wide screen */
 /* A status reads as ink words beside a mark in its colour (a dot, an icon, the chart's line), never as
    painted words: "1 under the bar" gets a breathing live dot, Tom's weight an amber scale, the meet's
    label a gold flag, a PR a gold dot. (In light these words also failed AA: 3.2 to 3.6:1.) */
@@ -1436,3 +1436,8 @@ html.desk .wn-box { border-radius: var(--r-3, 20px); }
 html.desk[data-theme="light"] .bd-root { --bd-down: #8f5100; }
 /* Find a lifter wears the desk's one focus ring (a 1 px inline line was easy to miss). */
 html.desk .cl-root .cl-search:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
+/* Clients reads as a list of people, not a ledger: every cell already says what it is ("Overdue 12 days",
+   "Paid Sep 15"), so the column-name row goes (the owner's red line: no table look). */
+html.desk .cs-page .cs-lh { display: none; }
+/* A row answers the press at once (a step of fill on pointer-down), before the lifter's page swaps in. */
+html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
