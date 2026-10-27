@@ -366,8 +366,8 @@ window.POWA_SUPPORT_KB = [
    "previous program",
    "start the next block"
   ],
-  "a": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: on a laptop, open the athlete from Roster and scroll to Blocks to see each one with its dates, how much was logged and what it did for their e1RM, and open it as a grid.",
-  "app": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged; open powalifta.com on a laptop and open the athlete from Roster to see every past block with what it did for their e1RM."
+  "a": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: on a laptop, open the athlete and scroll to **Blocks** to see each one as a fingerprint (sets a week per lift, RPE felt against written, sessions, e1RM per lift), open it as a grid, or **Compare** any two.",
+  "app": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: open the lifter from the Lifters tab and tap **Blocks** to see every block with what it did for their e1RM, and tap two to compare them."
  },
  {
   "id": "coach-branding",
@@ -1446,5 +1446,21 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Yes. Open **Bring a program in** (Programs, a lifter's builder, or Templates) and choose **From a photo or screenshot**: a screenshot of your sheet, a photo of a printout, or a PDF. On a laptop you can also drop the file on it or paste a screenshot with ⌘V.\n\nIt takes about 10 seconds to read. Then **Check the program** shows your photo beside the program as a grid: every cell reads the way the builder does (3x5 @8, 1x3 @8, 3x5 75%, 3x8 2RIR, tempo 3-1-0, paused 2s), so you can change any number. A cell that doesn't read is marked in red and a number the reader wasn't sure of in amber; **n to check** takes you to each one. Nothing is saved until you choose **Use for** a lifter (their trained block is kept as a past block first) or **Save as template**.\n\nThe picture is sent to Google's Gemini model to be read and isn't stored. You can read up to 15 programs a day; pasting the text always works too.",
   "app": "Yes. Open **Bring a program in** from the Program tab or Templates and choose **From a photo or screenshot**: take a photo of a printout, pick a screenshot, or a PDF from Files. It takes about 10 seconds. **Check the program** shows one week at a time under your photo: every cell reads like the builder (3x5 @8, 3x5 75%, 3x8 2RIR), so you can change any number, and anything that didn't read is marked. Nothing is saved until you tap **Use for** a lifter or **Save as template**. The picture is read by Google's Gemini model and isn't stored."
+ },
+ {
+  "id": "coach-compare-blocks",
+  "q": "How do I compare two blocks? What is a block's fingerprint?",
+  "t": [
+   "compare blocks",
+   "compare two blocks",
+   "block review",
+   "block dna",
+   "fingerprint",
+   "which block worked",
+   "what changed between blocks",
+   "last block against this one"
+  ],
+  "a": "Every block gets a fingerprint: week by week, the squat, bench and deadlift sets written (the faint part of each bar) and done (the solid part), with a line for how the top sets felt against the RPE you wrote. Beside it: sessions done of the ones that came round, and each lift's e1RM change (its best in the block against the best in the 8 weeks before it).\n\nOn a laptop, open a lifter and scroll to **Blocks**, then **Compare** (or **Blocks** at the top of their summary in Lifters). Tick any two: you get both fingerprints on one week grid and one plain sentence per difference (adherence, felt against written, sets a week and e1RM per lift, the total, pain reports), with both numbers beside it. It says what changed between the blocks, never why: that call is yours.",
+  "app": "Every block gets a fingerprint: week by week, the squat, bench and deadlift sets written (the faint part of each bar) and done (the solid part), with a line for how the top sets felt against the RPE you wrote, plus sessions done and each lift's e1RM change.\n\nOpen a lifter from the Lifters tab and tap **Blocks**, then tap any two blocks: you get both fingerprints on one week grid and one plain sentence per difference (adherence, felt against written, sets a week and e1RM per lift, the total, pain reports). It says what changed between the blocks, never why: that call is yours."
  }
 ];

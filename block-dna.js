@@ -304,7 +304,7 @@
     var da = A.rpe.drift, db = B.rpe.drift;
     if (da != null || db != null) {
       var feel = function (d) { var v = Math.round(d * 10) / 10; return Math.abs(d) < 0.25 ? 'as written' : dec(Math.abs(v)) + ' RPE ' + (v > 0 ? 'harder' : 'easier') + ' than written'; };
-      var ecell = function (r) { return r.drift == null ? { text: '–' } : { text: Math.abs(r.drift) < 0.25 ? 'As written' : (r.drift > 0 ? '+' : '−') + dec(Math.abs(Math.round(r.drift * 10) / 10)), sub: 'wrote ' + dec(r.written) }; };
+      var ecell = function (r) { return r.drift == null ? { text: '–' } : { text: Math.abs(r.drift) < 0.25 ? 'As written' : (r.drift > 0 ? '+' : '−') + dec(Math.abs(Math.round(r.drift * 10) / 10)), sub: 'RPE ' + dec(r.written) + ' written' }; };
       var felt = now ? 'have felt ' : 'felt ';
       var et;
       if (da == null) et = 'No top sets logged against a written RPE in ' + aName + (now ? ' yet.' : '.');
