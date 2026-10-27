@@ -138,7 +138,9 @@ html.desk body.powa-app:has(.demo-banner) { padding-bottom: 0; }
 html.desk .dash-shell { display: block; margin-left: var(--rail-w); min-height: 100vh; }
 html.desk.ctx-show .dash-shell { margin-right: calc(var(--ctx-w) + 12px); }
 html.desk .dash-main { padding: 0; overflow: visible; }
-html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]) { max-width: var(--page-w); margin: 0; padding: var(--s-5) var(--gut) 64px; box-sizing: border-box; }
+html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]):not([data-pane="clients"]) { max-width: var(--page-w); margin: 0; padding: var(--s-5) var(--gut) 64px; box-sizing: border-box; }
+/* Clients scrolls inside #clientsArea, which carries the gutter (coach-ui.css): the same frame, padded once. */
+html.desk .dash-main > section[data-pane="clients"] { max-width: var(--page-w); margin: 0; padding: 0; box-sizing: border-box; }
 html.desk .dash-main > section:is([data-pane="today"], [data-pane="athletes"], [data-pane="program"], [data-pane="messages"], [data-pane="you"]) { max-width: none; margin: 0; height: 100vh; padding: 0; }
 html.desk body.powa-app .dash-shell::before { display: none; }
 html.desk body.powa-app ::selection { background: color-mix(in srgb, var(--text) 22%, transparent); }
@@ -205,9 +207,11 @@ html.desk .dk-views[hidden] { display: none; }
 .dk-view { padding-left: var(--s-2); }
 .dk-view.is-zero .dk-item-label, .dk-view.is-zero .dk-count { color: var(--text-4); }
 .dk-rail-foot { margin-top: auto; padding-top: var(--s-4); }
+/* Shorter still: the footer (Settings, the account) stays pinned and the views scroll under it. */
+html.desk .dk-rail-foot { position: sticky; bottom: 0; z-index: 1; background: var(--dk-rail); box-shadow: 0 var(--s-3) 0 var(--dk-rail); }   /* the shadow paints the rail's bottom padding under it */
 .dk-item-quiet { color: var(--text-3); }
-/* A short window (about 720px): the rail tightens so the account footer always fits unscrolled. */
-@media (max-height: 760px) {
+/* A laptop window (under about 840px tall, e.g. 1440×775): the rail tightens so the account footer fits unscrolled. */
+@media (max-height: 840px) {
   html.desk:not(.rail-min) .dk-views { margin-top: var(--s-3); }
   html.desk:not(.rail-min) .dk-views .dk-item { height: 28px; }
   html.desk:not(.rail-min) .dk-rail-top { height: 48px; }
@@ -276,15 +280,17 @@ html.desk.rail-min .dk-find .dk-kbd { display: none; }
 .dk-av.is-xs { width: 20px; height: 20px; font-size: var(--fs-1); letter-spacing: -0.04em; }
 .dk-av.is-xl { width: 64px; height: 64px; font-size: var(--fs-5); }
 .dk-me-av { width: 28px; height: 28px; font-size: var(--fs-1); }
-html.desk[data-theme="light"] body.powa-app .dk-av { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h0 { background: var(--av-1-bg); color: var(--av-1-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h1 { background: var(--av-2-bg); color: var(--av-2-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h2 { background: var(--av-3-bg); color: var(--av-3-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h3 { background: var(--av-4-bg); color: var(--av-4-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h4 { background: var(--av-5-bg); color: var(--av-5-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h5 { background: var(--av-6-bg); color: var(--av-6-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h6 { background: var(--av-7-bg); color: var(--av-7-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h7 { background: var(--av-8-bg); color: var(--av-8-ink); }
+/* Light: tinted faces with ink initials on every desk screen (Today, Lifters, Clients too), never the phone's gradient balls. */
+html.desk[data-theme="light"] body.powa-app :is(.av-h0, .av-h1, .av-h2, .av-h3, .av-h4, .av-h5, .av-h6, .av-h7) { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
+html.desk[data-theme="light"] body.powa-app .av-h0 { background: var(--av-1-bg); color: var(--av-1-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h1 { background: var(--av-2-bg); color: var(--av-2-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h2 { background: var(--av-3-bg); color: var(--av-3-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h3 { background: var(--av-4-bg); color: var(--av-4-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h4 { background: var(--av-5-bg); color: var(--av-5-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h5 { background: var(--av-6-bg); color: var(--av-6-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h6 { background: var(--av-7-bg); color: var(--av-7-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h7 { background: var(--av-8-bg); color: var(--av-8-ink); }
+html.desk[data-theme="light"] body.powa-app .dk-av:not([class*="av-h"]) { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
 /* B's compliance ring: this week's sessions around the face. */
 .dk-ring-av { position: relative; display: inline-grid; place-items: center; flex: none; width: 40px; height: 40px; }
 .dk-ring-av > svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -1001,6 +1007,10 @@ html.desk body.powa-app .dk-pain .ui-row-sub { color: var(--text-3) !important; 
 
 /* ---------- Meets ---------- */
 html.desk .dash-main > section[data-pane="meets"] { padding: 0; height: 100vh; overflow-y: auto; }
+@media (hover: hover) and (pointer: fine) {
+  html.desk .md-screen .md-meets .md-meet-acts { opacity: 0; transition: opacity var(--t-base) ease; }
+  html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-acts { opacity: 1; }
+}
 .dk-meets { max-width: 980px; padding: var(--s-5) var(--gut) 72px; }
 .dk-page-head { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-5); }
 .dk-page-head .dk-rmeta { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
@@ -1689,7 +1699,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 
 /* ---------- Club keeps the phone's feed, at a column's width, on v2 surfaces ---------- */
 html.desk .dash-main > section[data-pane="club"] { padding: var(--s-5) var(--gut) 72px; }
-html.desk .dash-main > section[data-pane="club"] > * { max-width: none; margin-inline: 0; }
+html.desk .dash-main > section[data-pane="club"] > * { max-width: 680px; margin-inline: 0; }
 /* One badge style: the PR as a gold dot and ink word, the effort as ink "@9" in the lift line. */
 html.desk body.powa-app section[data-pane="club"] .cp-pr { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 0; background: none !important; box-shadow: none !important; color: var(--text) !important; font-weight: var(--fw-3); }
 html.desk body.powa-app section[data-pane="club"] .cp-pr svg { display: none; }

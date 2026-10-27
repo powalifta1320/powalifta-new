@@ -1301,3 +1301,72 @@ html[data-theme="light"] .cs-filters button.on, html[data-theme="light"] .cs-chi
 /* Lifters › This week: the meet's name drops under "Today" instead of "Autumn O…" (the phone tile is narrow). */
 .cl-pweek .cl-tile.t-meets .cl-tv { flex-wrap: wrap; row-gap: 2px; }
 .cl-pweek .cl-tile.t-meets .cl-tv .cl-u { max-width: 100%; }
+
+/* ==================== the desk: one system for Today, Lifters and Clients (2026-10-27) ====================
+   Desk-only (html.desk) overrides. These screens were drawn with the phone's controls (pills, outlines,
+   15px labels) beside the desk's own (Teams, Meets, Settings). On a laptop they take the desk's:
+   one height (32), one radius (--r-1), a quiet fill for secondary, text for tertiary, the fire red for
+   the one primary. The phone rules above are untouched. */
+html.desk :is(.cl-root, .cs-page) .cl-btn {
+  height: var(--ctl-h); padding: 0 var(--s-3); gap: 6px; border-radius: var(--r-1);
+  background: var(--dk-fill); box-shadow: none; color: var(--text);
+  font: var(--fw-2) var(--fs-2)/1 var(--font-body) !important;
+}
+html.desk :is(.cl-root, .cs-page) .cl-btn.red { background: var(--fire); color: #fff !important; font-weight: var(--fw-3) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+html.desk :is(.cl-root, .cs-page) .cl-btn.quiet { background: transparent; color: var(--text-2); padding: 0 var(--s-3); }
+html.desk :is(.cl-root, .cs-page) :is(.cl-sbtn, .cl-quiet) {
+  height: var(--ctl-h); padding: 0 var(--s-3); gap: 6px; border-radius: var(--r-1); box-shadow: none;
+  font: var(--fw-2) var(--fs-2)/1 var(--font-body) !important;
+}
+html.desk :is(.cl-root, .cs-page) .cl-sbtn { background: var(--dk-fill); color: var(--text); }
+html.desk :is(.cl-root, .cs-page) .cl-quiet { padding: 0 var(--s-2); color: var(--text-2); }
+html.desk :is(.cl-root, .cs-page) :is(.cl-quiet, .cl-btn) svg { width: var(--ic-2); height: var(--ic-2); }
+html.desk :is(.cl-root, .cs-page) :is(.cl-ibtn, .cl-search, .cl-vchip, .cl-morebtn) { border-radius: var(--r-1); }
+html.desk .cl-root .cl-vchip { height: 28px; font: var(--fw-2) var(--fs-2)/1 var(--font-body) !important; }
+html.desk .cl-root .cl-morebtn { padding: 6px var(--s-2); margin: 4px 0 0; font-size: var(--fs-2); font-weight: var(--fw-2); color: var(--text-2); }
+@media (hover: hover) and (pointer: fine) {
+  html.desk :is(.cl-root, .cs-page) :is(.cl-btn, .cl-sbtn):hover { background: var(--dk-fill-2); }
+  html.desk :is(.cl-root, .cs-page) .cl-btn.red:hover { background: var(--fire); filter: brightness(1.06); }
+  html.desk :is(.cl-root, .cs-page) :is(.cl-btn.quiet, .cl-quiet):hover { background: var(--dk-hover); color: var(--text); }
+  html.desk .cl-root .cl-morebtn:hover { background: var(--dk-hover); color: var(--text); }
+}
+html.desk :is(.cl-root, .cs-page) :is(.cl-btn, .cl-sbtn, .cl-quiet, .cl-ibtn, .cl-vchip, .cl-morebtn, .cl-nm, .cl-link, .cl-mplan, .cs-due):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+
+/* Today and Lifters: overlapping faces keep their initials (a 2px ring in the surface colour, not a 9px bite). */
+html.desk .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
+html.desk .cl-root .cl-stack .ui-av + .ui-av { margin-left: -6px; }
+html.desk[data-theme="light"] body.powa-app .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
+/* A tile's last line (who is over, who is behind) takes two lines instead of an ellipsis mid-name. */
+html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+/* Two lines of names: a mouse needs no 7px of extra height, and the targets must not overlap the line below. */
+html.desk .cl-root .cl-tf :is(.cl-nm, .cl-link) { padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
+
+/* The side card open (Reply, Notes) on a laptop: Lifters folds its list to the faces and Today goes to two
+   columns, so the lifter and the jobs keep their room beside the thread (under 1200px the card floats over
+   the page, so the fold matters even more). 1920px and up has room for all three. */
+@media (max-width: 1919px) {
+  html.desk.ctx-show.ctx-card .cl-desk { --cl-list-w: 80px; }
+  html.desk.ctx-show.ctx-card .cl-desk :is(.cl-head, .cl-gh) { display: none; }
+  html.desk.ctx-show.ctx-card .cl-desk .cl-groups { padding: 20px 12px 48px; scrollbar-width: none; }
+  html.desk.ctx-show.ctx-card .cl-desk .cl-groups::-webkit-scrollbar { display: none; }
+  html.desk.ctx-show.ctx-card .cl-desk .cl-grp + .cl-grp { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cl-line); }
+  html.desk.ctx-show.ctx-card .cl-desk .cl-list { background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  html.desk.ctx-show.ctx-card .cl-desk .cl-row { position: relative; display: flex; justify-content: center; min-height: 0; padding: 6px 0; border: 0; border-radius: var(--r-2); }
+  html.desk.ctx-show.ctx-card .cl-desk .cl-row :is(.cl-main, .cl-end) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  html.desk.ctx-show.ctx-card .cl-today :is(.cl-tiles, .cl-cols) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Clients on the desk: the shared page frame (the same left edge and top as Today), no glow behind the title,
+   filters as the desk's tabs, and a status as a dot beside ink words, never a painted sentence. */
+html.desk .cs-page::before { display: none; }
+html.desk .cs-page .cs-filters { gap: 2px; }
+html.desk .cs-page .cs-filters button { height: var(--ctl-h); padding: 0 var(--s-3); border-radius: var(--r-1); background: none; color: var(--text-3); font: var(--fw-2) var(--fs-2)/1 var(--font-body) !important; }
+html.desk .cs-page .cs-filters button span { color: var(--text-4); }
+html.desk .cs-page .cs-filters button.on { background: var(--dk-fill); color: var(--text); }
+html.desk .cs-page .cs-filters button.on span { color: var(--text-3); opacity: 1; }
+@media (hover: hover) and (pointer: fine) { html.desk .cs-page .cs-filters button:not(.on):hover { background: var(--dk-hover); color: var(--text); } }
+html.desk .cs-page .cs-r .cs-st { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: var(--fw-2); }
+html.desk .cs-page .cs-r .cs-st:is(.st-overdue, .st-due, .st-soon)::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--cl-down); }
+html.desk .cs-page .cs-r .cs-st.st-overdue::before { background: var(--cl-pain); }
+html.desk .cs-page .cs-r .cs-st:is(.st-ok, .st-none, .st-paused, .st-ended) { color: var(--text-3); }
+html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /* Mark paid in one column, Remind after it */
