@@ -216,7 +216,7 @@ img.s-scr { width: 100%; height: 100%; object-fit: cover; display: none; }
   box-shadow: 0 calc(4 * var(--pt)) calc(14 * var(--pt)) rgba(0, 0, 0, 0.45); z-index: 1;
 }
 .tr-stop.is-k8 { opacity: 0; }   /* under the knob once it lands, as in the app */
-.tr-list .tr-ex:nth-child(n + 2) > * { opacity: 0; }   /* under the rest dock once it docks: the rows' cards still peek */
+.tr-list .tr-ex:nth-child(3) { opacity: 0; }   /* under the rest dock once it docks (the second row still reads above it) */
 .tr-hint { display: grid; margin-top: calc(10 * var(--pt)); font-size: calc(13 * var(--pt)); color: var(--c-dim); white-space: nowrap; }
 .tr-hint > span { grid-area: 1 / 1; }
 .tr-hint b { color: var(--c-text); font-weight: 700; }
@@ -558,7 +558,7 @@ body.site .s-cta h2 { margin: 0 auto 8px; font-stretch: 125%; font-weight: 800; 
   /* how hard it felt: the knob arrives at 6 and settles on 8 */
   .s-phone-live .tr-knob { animation: l-knob 2860ms linear both; }
   .s-phone-live .tr-stop.is-k8 { animation: l-out 140ms 2720ms linear both; }
-  .s-phone-live .tr-list .tr-ex:nth-child(n + 2) > * { animation: l-out 260ms 3980ms linear both; }
+  .s-phone-live .tr-list .tr-ex:nth-child(3) { animation: l-out 260ms 3980ms linear both; }
   .s-phone-live .tr-fill { animation: l-fill 2860ms linear both; }
   .s-phone-live .tr-h0 { animation: l-out 200ms 2860ms var(--l-ease) both; }
   .s-phone-live .tr-h1 { animation: l-in 260ms 2900ms var(--l-ease) both; }
