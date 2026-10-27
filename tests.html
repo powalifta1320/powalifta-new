@@ -5119,6 +5119,18 @@ test('who is due: trained this week, no note in six days, the worst first', () =
     eq(WN.lastNoteOn('wd', { coachId: 'wc' }), '2026-10-25');
   } finally { Store.set(saved); }
 });
+test('records: the note sent and next week’s change, per coach, for a week', () => {
+  const keys = ['powa-weekly-notes-wc-t', 'powa-week-changes-wc-t'];
+  try {
+    eq(WN.lastNoteOn('wz', { coachId: 'wc-t' }), null);
+    WN.markSent('wz', '2026-10-27', 'wc-t');
+    eq(WN.lastNoteOn('wz', { coachId: 'wc-t' }), '2026-10-27', 'this device remembers it');
+    eq(WN.lastNoteOn('wz', { coachId: 'other' }), null, 'per coach');
+    WN.noteApplied('wz', [{ lift: 'bench', title: 'Bench', fromKg: 117.5, toKg: 112.5, reps: 3 }, null], { coachId: 'wc-t', today: '2026-10-27', week: 3 });
+    eq(WN.appliedFor('wz', '2026-10-28', 'wc-t').map(c => c.title + ' ' + c.fromKg + '>' + c.toKg + 'x' + c.reps).join(), 'Bench 117.5>112.5x3');
+    eq(WN.appliedFor('wz', '2026-11-04', 'wc-t').length, 0, 'a week on, it’s old news');
+  } finally { keys.forEach(k => localStorage.removeItem(k)); }
+});
 test('saved replies: four defaults, a round trip through storage, per coach', () => {
   const mem = (() => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; })();
   const first = WN.loadReplies('c1', mem);
