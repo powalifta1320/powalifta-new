@@ -1546,6 +1546,56 @@ window.POWA_SUPPORT_KB = [
   "app": "Yes. In a thread, the bookmark button opens your **Saved replies**: tap one to drop it into the box, change it if you need to, and send. **Save this as a reply** keeps what you just wrote; hold a reply to remove it. They stay on this device."
  },
  {
+  "id": "coach-capacity",
+  "q": "How many more lifters can I take on?",
+  "t": [
+   "capacity",
+   "how many lifters can i coach",
+   "how many more lifters",
+   "take on more lifters",
+   "hours a week",
+   "time per lifter",
+   "minutes per lifter",
+   "where does my time go",
+   "am i at capacity",
+   "too many lifters"
+  ],
+  "a": "Open **Capacity** (You › Capacity on the phone; Settings › **Plan & seats** on the laptop). It counts the work each lifter made you in your last 4 weeks (a week to write for each lifter with a block, the messages you sent, form checks you answered, check-ins and weekly notes) at the minutes each task takes, and says it big: about how many minutes a lifter takes you each week. Set **your hours a week** and it tells you how many lifters fit and how many more than now, with the hours +5, +10 and +20 lifters would need (in amber past your hours). Tap **Where the time goes** to change how long each task takes you, and **Save time** shows what would give you time back. Until you have a few weeks here it uses a typical lifter.",
+  "app": "Open You › **Capacity**. It counts the work each lifter made you in your last 4 weeks (a week to write for each lifter with a block, the messages you sent, form checks you answered, check-ins and weekly notes) at the minutes each task takes, and says it big: about how many minutes a lifter takes you each week. Set **your hours a week** and it tells you how many lifters fit and how many more than now, with the hours +5, +10 and +20 lifters would need (in amber past your hours). Tap **Where the time goes** to change how long each task takes you. Until you have a few weeks here it uses a typical lifter."
+ },
+ {
+  "id": "lifter-busy-week",
+  "q": "I'm busy this week. Can I train fewer days?",
+  "t": [
+   "busy week",
+   "busy this week",
+   "can't train this week",
+   "cant train this week",
+   "fewer days",
+   "only 2 days",
+   "move my sessions",
+   "change my training days",
+   "work trip",
+   "which days can you train"
+  ],
+  "a": "Yes. When you have 2 or more sessions left this week, Train shows **Busy week?** (it's also in Today's session, under Or). Tap **Pick days** and choose the days you can train: the app plans your sessions onto them, one a day with squat and deadlift days apart, and when there are fewer days than sessions, the extra session's main lifts join another day and its accessories are dropped. Send it to your coach with a note if you like; until they approve, train as normal. Once they do, your sessions are on those days. Training on your own? **Use this plan** puts it in your program straight away."
+ },
+ {
+  "id": "coach-busy-week",
+  "q": "A lifter sent a busy week. What do I do?",
+  "t": [
+   "approve busy week",
+   "approve a busy week",
+   "sent a busy week",
+   "busy week request",
+   "can train 2 days",
+   "lifter has a busy week",
+   "schedule request",
+   "keep the week as written"
+  ],
+  "a": "It's a job on **Today** (and on their page): **Busy week · can train 2 days (3 left)** with the plan in one line. **Approve** puts it in their program: each session pinned to its day for that week only, and when there are fewer days than sessions, the extra session's main lifts are copied into the day they join and its own sets are marked skipped, 'Busy week'. Their week then counts the agreed days, so nobody shows as missed for it. **Message** to talk it over, or **Keep the week as written** on their page to say no; they hear either way."
+ },
+ {
   "id": "coach-message-everyone",
   "q": "How do I message all my lifters, or one team, at once?",
   "t": [

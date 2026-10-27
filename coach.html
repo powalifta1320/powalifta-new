@@ -57,6 +57,7 @@
     <button class="sidebar-tab" data-tab="lifter" id="tab-lifter" data-parent="athletes"></button>
     <button class="sidebar-tab" data-tab="clients" id="tab-clients" data-parent="you"></button>
     <button class="sidebar-tab" data-tab="rules" id="tab-rules" data-parent="you"></button>
+    <button class="sidebar-tab" data-tab="capacity" id="tab-capacity" data-parent="you"></button>
     <div class="sidebar-foot">
     </div>
   </aside>
@@ -95,6 +96,8 @@
     <section data-pane="clients" class="hidden"><div id="clientsArea"></div></section>
     <!-- Progression rules (progression.js): how next week moves, in the coach's words. You › Progression rules on the phone; Settings on the laptop. -->
     <section data-pane="rules" class="hidden"><div id="rulesArea"></div></section>
+    <!-- Capacity (capacity.js): how many more lifters fit the coach's hours. You › Capacity on the phone; Settings › Plan & seats on the laptop. -->
+    <section data-pane="capacity" class="hidden"><div id="capacityArea"></div></section>
 
     <!-- PROGRAM BUILDER -->
     <section data-pane="program" class="hidden">
@@ -359,6 +362,8 @@
 <script src="clients.js"></script><!-- Clients + payments and the intake: the pure helpers (window.Clients) for the coach's clients page and a lifter's About -->
 <script src="clients-ui.js"></script><!-- Clients: the screens (ClientsUI): the Clients page, a lifter's Client + About blocks, mark paid, packages, reminders -->
 <script src="career.js"></script><!-- Career: a lifter's lifelong record (careerEvents), read-only from their page: a sheet on the phone, a panel on the desk -->
+<script src="busy-week.js"></script><!-- Busy weeks: a lifter's days for the week and the plan; Today's job, Approve applies it to the program (BusyWeek) -->
+<script src="capacity.js"></script><!-- Capacity: the coach's hours against the work each lifter makes (CapacityUI: You › Capacity, Settings › Plan & seats) -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
@@ -401,6 +406,7 @@ bootstrap('coach', () => {
   setLbl('tab-you', ICONS.user, 'You');
   if (window.ClientsUI) setLbl('tab-clients', ClientsUI.ICON, 'Clients');
   if (window.ProgressionUI) setLbl('tab-rules', ProgressionUI.ICON, 'Progression rules');
+  if (window.CapacityUI) setLbl('tab-capacity', CapacityUI.ICON, 'Capacity');
   // The demo's unread counts come from its Store: in place before the first render paints a badge.
   if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); }
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
@@ -434,6 +440,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'you') renderCoachYou();
       if (btn.dataset.tab === 'clients' && window.ClientsUI) ClientsUI.render(document.getElementById('clientsArea'));
       if (btn.dataset.tab === 'rules' && window.ProgressionUI) ProgressionUI.renderPhone(document.getElementById('rulesArea'));
+      if (btn.dataset.tab === 'capacity' && window.CapacityUI) CapacityUI.renderPhone(document.getElementById('capacityArea'));
       syncPaneBack();
       _syncNavBack();
       window.scrollTo(0, 0);
@@ -564,6 +571,8 @@ function renderCoachYou() {
       { title: 'Coaching', rows: [
         !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
         window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
+        // How many more lifters fit your hours (capacity.js): room left, in lifters.
+        window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
         Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
         { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         // How next week moves (progression.js): a screen of its own, pushed from here.

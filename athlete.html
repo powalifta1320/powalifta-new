@@ -349,6 +349,7 @@
 <script src="clients.js"></script><!-- INTAKE: the questionnaire's helpers (window.Clients.intakeLines / intakeMaxes); nothing about billing is shown here -->
 <script src="intake.js"></script><!-- INTAKE: the lifter's questionnaire for their coach (IntakeUI: the Train row, the sheet, You › Your intake) -->
 <script src="career.js"></script><!-- CAREER: the lifelong record (careerEvents) and its screen, You › Career -->
+<script src="busy-week.js"></script><!-- BUSY WEEKS: the days you can train this week, the plan, sent to your coach (BusyWeekUI: Train's row, the sheet, the picker's entry) -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -1044,6 +1045,9 @@ function openSessionPicker() {
       onClick: () => { try { if (dIn.showPicker) dIn.showPicker(); else dIn.focus(); } catch (e) { dIn.focus(); } } });
     dRow.appendChild(dIn);
     other.push(dRow);
+    // A busy week: tell the coach the days you can train (busy-week.js).
+    const bwRow = window.BusyWeekUI && BusyWeekUI.pickerRow(close);
+    if (bwRow) other.push(bwRow);
     if (curBound && cur && (cur.day.exercises || []).length) {
       other.push(uiRow({ lead: el('span', { class: 'sp-ic is-date', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>' }),
         title: 'Export this session', sub: 'A file to print or take to the gym', chevron: true, onClick: () => { close(); exportTodayCsv(); } }));
@@ -1077,6 +1081,24 @@ function findNextIncompleteDay(forDate) {
   return null;
 }
 
+// The earliest session pinned to a day after `date` with sets still to do (a busy week's plan puts this
+// week's sessions on later days). → { wk, day, date, ord } | null
+function _nextPlannedAhead(date) {
+  const prog = getProgram();
+  if (!prog) return null;
+  let best = null;
+  (prog.weeks || []).forEach((wk, wi) => (wk.days || []).forEach((day, di) => {
+    if (!day.scheduledDate || day.scheduledDate <= date) return;
+    if (!(day.exercises || []).some(ex => (ex.sets || []).some(setOpen))) return;
+    if (!best || day.scheduledDate < best.date) best = { wk, day, date: day.scheduledDate, ord: wi * 1000 + di };
+  }));
+  return best;
+}
+function _dayOrd(x) {
+  const prog = getProgram();
+  const wi = prog ? prog.weeks.indexOf(x.wk) : 0;
+  return Math.max(0, wi) * 1000 + Math.max(0, (x.wk.days || []).indexOf(x.day));
+}
 // Is the selected day bound to this date: pinned to it, or a set logged on it? Train only shows
 // a day as today's session when it is; otherwise it offers the next one ("Start session").
 function _dayBound(cur, date) {
@@ -1087,7 +1109,9 @@ function _dayBound(cur, date) {
 function _startOfferedSession() {
   const cur = getProgram() ? getCurrentDay() : null, date = getSessionDate();
   if (!cur || isRestDay(user.id, date) || _dayBound(cur, date)) return;
-  const next = findNextIncompleteDay(date);
+  let next = findNextIncompleteDay(date);
+  const ahead = _nextPlannedAhead(date);   // Train offers a later-planned session first (a busy week)
+  if (ahead && (!next || ahead.ord < _dayOrd(next))) next = ahead;
   if (!next) return;
   const sel = document.getElementById('daySelect');
   if (sel) sel.value = _dayKey(next.wk, next.day);
@@ -3415,7 +3439,8 @@ function renderToday() {
 
   // The coach's own check-in questions are asked every day, training or not. On a session day they
   // ride in the Today strip; anywhere else Train returns early, so they go here.
-  const _ciAlone = () => { if (date !== todayISO()) return; [customCheckinRow(), window.IntakeUI && IntakeUI.row()].filter(Boolean).forEach(r => area.appendChild(el('div', { class: 'tn-group today-strip ci-alone', role: 'list', 'aria-label': 'Today' }, el('div', { class: 'ts-tile', role: 'listitem' }, r)))); };
+  // A busy week (busy-week.js): the days they can train this week, for their coach to approve.
+  const _ciAlone = () => { if (date !== todayISO()) return; [customCheckinRow(), window.IntakeUI && IntakeUI.row(), window.BusyWeekUI && BusyWeekUI.row()].filter(Boolean).forEach(r => area.appendChild(el('div', { class: 'tn-group today-strip ci-alone', role: 'list', 'aria-label': 'Today' }, el('div', { class: 'ts-tile', role: 'listitem' }, r)))); };
   if (isRestDay(user.id, date)) {
     renderTodayHeader(null, date, 'Rest day');
     _ciAlone();
@@ -3455,6 +3480,27 @@ function renderToday() {
     _ciAlone();
     const e = el('div', { class: 'empty today-start' });
     const next = findNextIncompleteDay(date);
+    // A session planned for a later day this week (a busy week's plan, or a pin) comes before the next
+    // free one: say when it is, and let them train it today instead (pinDayToDate re-renders all three).
+    const ahead = _nextPlannedAhead(date);
+    if (ahead && (!next || ahead.ord < _dayOrd(next))) {
+      e.appendChild(el('div', { class: 'ts-eyebrow' }, 'Next session · ' + new Date(ahead.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' })));
+      e.appendChild(el('h3', {}, ahead.day.name));
+      const aSets = (ahead.day.exercises || []).flatMap(x => x.sets || []).filter(setOpen).length;
+      e.appendChild(el('p', {}, 'Week ' + ahead.wk.number + ' · ' + (ahead.day.exercises || []).length + ' lifts · ' + aSets + ' sets'));
+      const now = el('button', { class: 'btn btn-lg', type: 'button' }, 'Train it today');
+      now.addEventListener('click', () => {
+        const sel = document.getElementById('daySelect');
+        if (sel) sel.value = _dayKey(ahead.wk, ahead.day);
+        pinDayToDate();
+      });
+      e.appendChild(now);
+      const rest = el('button', { class: 'ts-link', type: 'button' }, 'Resting today? Mark a rest day');
+      rest.addEventListener('click', toggleRestDay);
+      e.appendChild(rest);
+      area.appendChild(e);
+      return;
+    }
     if (next) {
       e.appendChild(el('div', { class: 'ts-eyebrow' }, 'Next in your program'));
       e.appendChild(el('h3', {}, next.day.name));
@@ -3545,7 +3591,7 @@ function renderToday() {
     if (!ready && !started) dayRows.unshift(readinessRow(sessionDate));
     else if (ready === 'rough') dayRows.push(readinessDoneRow(sessionDate));
   }
-  if (sessionDate === todayISO()) { const ci = customCheckinRow(); if (ci) dayRows.push(ci); const ik = window.IntakeUI && IntakeUI.row(); if (ik) dayRows.push(ik); }
+  if (sessionDate === todayISO()) { const ci = customCheckinRow(); if (ci) dayRows.push(ci); const ik = window.IntakeUI && IntakeUI.row(); if (ik) dayRows.push(ik); const bw = window.BusyWeekUI && BusyWeekUI.row(); if (bw) dayRows.push(bw); }
   if (sessionDate === todayISO()) dayRows.push(weighInRow());
   dayRows.push(weekGoalRow());
   if (!submitted && user.coachId) {

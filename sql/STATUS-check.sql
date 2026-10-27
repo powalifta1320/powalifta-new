@@ -145,6 +145,9 @@ with checks(n, migration, applied) as (values
         and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard')),
   (51, 'migration-coach-settings-2026-10-28.sql  (a coach''s own settings: progression rules, the capacity check; coach-only)',
         to_regclass('public.coach_settings') is not null
-        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4)
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4),
+  (52, 'migration-schedule-requests-2026-10-28.sql  (busy weeks: a lifter''s days for the week and the plan, their coach approves; after row 43)',
+        to_regclass('public.schedule_requests') is not null
+        and exists (select 1 from pg_trigger where tgname = 'trg_schedule_requests_guard'))
 )
 select n, migration, applied from checks order by n;

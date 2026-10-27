@@ -36,6 +36,10 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   if (theme === 'dark') for (const t of ['today', 'program', 'progress', 'coach', 'library', 'you', 'career']) screens.push({ name: 's-' + t, page: SO, eval: t === 'today' ? null : tab(t) });
   for (const t of ['athletes', 'program', 'messages', 'club', 'you', 'templates', 'progress']) screens.push({ name: 'c-' + t + suf, page: C, theme, eval: t === 'athletes' ? null : tab(t) });
   for (const t of ['athletes', 'program', 'messages', 'you', 'templates']) screens.push({ name: 'f-' + t + suf, page: F, theme, eval: t === 'athletes' ? null : tab(t) });
+  // Capacity (You › Capacity) for the demo coach and a brand-new one; a lifter's busy-week sheet.
+  screens.push({ name: 'c-capacity' + suf, page: C, theme, eval: tab('capacity') }, { name: 'f-capacity' + suf, page: F, theme, eval: tab('capacity') },
+    { name: 'sh-busy' + suf, page: A, theme, eval: 'BusyWeekUI.open()' });
+  if (theme === 'dark') screens.push({ name: 'sh-busy-solo', page: SO, eval: 'BusyWeekUI.open()' }, { name: 'c-lifter-busy', page: C, eval: "CoachLifters.open('demo-a4')" });
   screens.push(
     { name: 'sh-invite' + suf, page: C, theme, eval: 'openInviteModal()' },
     { name: 'sh-athlete' + suf, page: C, theme, eval: "openAthleteSheet('demo-a1')" },
@@ -60,6 +64,8 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   }
 }
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
+// The desk's Settings › Plan & seats with Capacity, dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
 // The desk's Club with the coach's challenge, its whole board, and the planner's Aim for a total, dark and light.

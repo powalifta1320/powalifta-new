@@ -1934,3 +1934,99 @@ html[data-theme="light"] .prg-root.is-desk .prg-rule.is-drag { background: #fff;
 .rb-sheet .rb-line { font-size: 16px; }
 .rb-sheet :is(.rb-note, .rb-warn) { font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .rb-who { animation: none; } .bd-sheet .bd-open:active, .bd-pback:active { transform: none; } }
+
+/* ==================== Capacity (capacity.js, 2026-10-28) ====================
+   You › Capacity on the phone, Settings › Plan & seats on the laptop. One answer big (minutes per lifter),
+   the sentence it means in lifters, the hours, then three quiet lists. Past the coach's hours a status reads
+   as ink words beside an amber dot (the desk polish's rule, and AA in light). Type, phone: 13/15/16/20 with
+   the 32 large title and the 44 hero number; laptop: 15/16/20 with 40 for the number. */
+.cap-root { --cp-ink: color-mix(in srgb, var(--text) 62%, transparent); }
+.cap-root.is-phone { display: flex; flex-direction: column; gap: 16px; padding: 4px 0 32px; }
+.cap-head { padding: 8px 0 0; }
+html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap: balance; }
+.cap-head .cl-sub { margin-top: 4px; }
+.cap-hero { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 16px; overflow: hidden;
+  background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--acc, #a98bff) 10%, transparent), transparent 60%), var(--cl-surface);
+  border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); }
+.cap-big { display: flex; align-items: baseline; gap: 8px; margin: 0; color: var(--text); white-space: nowrap; }
+.cap-big b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 0.95; font-weight: 800; letter-spacing: -0.035em; }
+.cap-about, .cap-unit { font-size: 20px; font-weight: 600; color: var(--text-2); }
+.cap-per { margin: 4px 0 0; font-size: 16px; line-height: 1.3; color: var(--text-2); }
+.cap-say { margin: 0; font-size: 16px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.cap-say b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Over the hours: ink words, an amber dot. */
+.cap-say .cap-warn, .cap-root .cap-over { color: var(--text); font-weight: 600; }
+.cap-say .cap-warn::before, .cap-root .cap-over::before { content: ''; display: inline-block; vertical-align: 1px; width: 7px; height: 7px; margin: 0 7px 0 2px; border-radius: 50%; background: var(--cl-down); }
+.cap-hours { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--cl-line); }
+.cap-hl { font-size: 15px; font-weight: 600; color: var(--text-2); }
+.cap-root .ui-stepper.cap-step { grid-template-columns: 44px minmax(4.5ch, auto) 44px; gap: 6px; }
+.cap-root .ui-stepper.cap-step .st-btn, .cap-msheet .ui-stepper.cap-step .st-btn { width: 44px; height: 44px; }
+.cap-step .st-val { display: inline-flex; align-items: baseline; justify-content: center; gap: 3px; }
+.cap-step .st-val b { font-size: 20px; font-weight: 800; color: var(--text); }
+.cap-step .st-val small { font-size: 15px; font-weight: 600; color: var(--text-3); }
+.cap-invite { width: 100%; height: 48px; margin-top: 4px; }
+.cap-invite svg { width: 18px; height: 18px; flex: none; }
+.cap-gh { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 4px 0 4px; padding: 0 4px; }
+.cap-edit { margin-left: auto; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-2); font: 600 15px/1 var(--font-body, inherit) !important; cursor: pointer; transition: color 150ms ease-out, transform 140ms ease-out; }
+.cap-edit:active { color: var(--text); transform: scale(0.97); }
+.cap-list { display: flex; flex-direction: column; }
+.cap-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid var(--cl-line); }
+.cap-row:last-child, .cap-trow:last-child, .cap-srow:last-child { border-bottom: 0; }
+.cap-rt { font-size: 16px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.cap-rside { display: inline-flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 2px 12px; min-width: 0; }
+.cap-rv { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; transition: color 200ms var(--cl-ease); }
+.cap-root .cap-over { font-size: 15px; white-space: nowrap; }
+.cap-row.is-over .cap-rv { color: var(--text-2); }
+/* where the time goes: a Screen Time list (label and minutes, a thin bar, what it's made of) */
+.cap-trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 12px; row-gap: 6px; width: 100%; min-height: 52px; padding: 12px 16px;
+  border: 0; border-bottom: 1px solid var(--cl-line); background: none; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms ease-out; }
+.cap-tl { font-size: 16px; font-weight: 600; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-tv { font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cap-bar { grid-column: 1 / -1; display: block; height: 6px; }
+.cap-bar i { display: block; height: 100%; width: calc(var(--s, 0) * 100%); min-width: 4px; border-radius: 1px 3px 3px 1px; background: var(--cp-ink); transition: width 250ms var(--cl-ease); }
+.cap-ts { grid-column: 1 / -1; font-size: 15px; line-height: 1.3; color: var(--text-3); text-wrap: pretty; }
+.cap-none { margin: 0; padding: 16px; font-size: 15px; color: var(--text-3); }
+/* save time: rows that open features */
+.cap-srow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 12px 10px 16px;
+  border: 0; border-bottom: 1px solid var(--cl-line); background: none; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms ease-out; }
+.cap-sic { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--ch-fill-3); color: var(--text-2); }
+.cap-sic svg { width: 17px; height: 17px; }
+.cap-stx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cap-st { font-size: 16px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-sv { font-size: 15px; line-height: 1.3; color: var(--text-3); text-wrap: pretty; }
+.cap-chev { display: inline-grid; color: var(--text-3); }
+.cap-chev svg { width: 16px; height: 16px; }
+.cap-trow:active, .cap-srow:active { background: var(--ch-fill-2); }
+.cap-trow:focus-visible, .cap-srow:focus-visible, .cap-edit:focus-visible { outline: 2px solid var(--acc, #ff3b4a); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) { .cap-trow:hover, .cap-srow:hover { background: var(--ch-fill-1); } .cap-edit:hover { color: var(--text); } }
+.cap-plan { margin: 0; padding: 0 4px; font-size: 15px; color: var(--text-3); }
+/* the minutes sheet */
+.cap-msheet .cap-mrow { min-height: 64px; gap: 12px; }
+.cap-msheet .cap-mrow .ui-stepper { grid-template-columns: 44px minmax(5ch, auto) 44px; gap: 4px; }
+.cap-msheet .btn-block { margin-top: 16px; }
+/* the laptop: a section of Settings › Plan & seats */
+.cap-root.is-desk { display: flex; flex-direction: column; gap: 16px; margin-top: 32px; }
+.cap-dh { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin: 0; font-family: var(--font-body); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+.cap-dh span { font-size: 15px; font-weight: 500; color: var(--text-3); letter-spacing: 0; }
+.cap-root.is-desk .cap-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 24px; }
+.cap-hl-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cap-hr-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cap-root.is-desk .cap-hours { padding-top: 0; border-top: 0; flex-direction: column; align-items: stretch; gap: 8px; }
+.cap-root.is-desk .cap-hours .ui-stepper { justify-self: start; align-self: flex-start; }
+.cap-root.is-desk .cap-invite { width: auto; align-self: flex-start; height: 44px; }
+.cap-dgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: start; }
+.cap-dcol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cap-root.is-desk .cap-gh { margin-top: 0; }
+@media (max-width: 1180px) { .cap-dgrid, .cap-root.is-desk .cap-hero { grid-template-columns: minmax(0, 1fr); } }
+html.desk .cap-root .ui-stepper.cap-step .st-btn { width: 40px; height: 40px; }
+/* The laptop: the desk's card material (no hue wash), its number size (40) and 16 for body. */
+html.desk .cap-root .cap-hero { background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit); }
+html.desk .cap-root .cap-big b { font-size: 40px; }
+@media (prefers-reduced-motion: reduce) { .cap-bar i, .cap-rv, .cap-edit { transition: none; } .cap-edit:active { transform: none; } }
+
+/* ==================== Busy weeks on the coach side (busy-week.js, 2026-10-28) ====================
+   The flag on a lifter's page: the plan, their words, and the quiet way to keep the week as written. */
+.cl-flag .cl-fnote { font-size: 15px; line-height: 1.35; color: var(--text-2); }
+.cl-flag .cl-fkeep { align-self: flex-start; display: inline-flex; align-items: center; min-height: 40px; margin: 0 0 -8px; font-size: 15px; font-weight: 600; color: var(--text-2); text-decoration-color: var(--line-2); }
+html.native .cl-flag .cl-fkeep, .cl-pg-phone .cl-flag .cl-fkeep { min-height: 44px; margin-bottom: -10px; }
+@media (hover: hover) and (pointer: fine) { .cl-flag .cl-fkeep:hover { color: var(--text); } }

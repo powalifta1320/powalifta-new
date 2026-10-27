@@ -107,6 +107,8 @@
 <script src="block-dna.js"></script>
 <script src="career.js"></script>
 <script src="challenges.js"></script>
+<script src="capacity.js"></script>
+<script src="busy-week.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -5145,6 +5147,26 @@ test('the line, the number and the job texts read in the coach’s words', () =>
    February, leap years), a client's status words, one payment moving the schedule on, the monthly
    value, the roster summary, money words and the intake's maxes and About lines. All dates fixed.
    =========================================================== */
+test('a busy week is a job: after pain, before writing, Approve as its fix, the plan as its line', () => {
+  const pain = clRow({ athlete: { id: 'p', name: 'Pat Lee' }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }], status: { pain: { count: 1, report: { severity: 5, bodyPart: 'knee', day: '2026-10-26' } } } });
+  const busy = clRow({ athlete: { id: 'b', name: 'Nina Petrova' }, reasons: [{ type: 'never', group: 7, text: 'Never logged' }] });
+  const writer = clRow({ athlete: { id: 'w', name: 'Wes Ito' }, reasons: [{ type: 'blockend', group: 8, text: 'Last week of the block' }] });
+  const info = { tier: 1, days: 2, left: 3, line: 'Thu: Squat Day · Sat: Bench + deadlift', note: 'Double shifts', req: { id: 'r1', athleteId: 'b' } };
+  const jobs = CL.clJobs([pain, busy, writer], { today: '2026-10-27', busy: [{ r: busy, info }] });
+  const keys = jobs.map(j => j.r.athlete.id + ':' + j.type);
+  assert(keys.indexOf('b:busy') > keys.indexOf('p:pain'), 'after pain: ' + keys.join());
+  assert(keys.indexOf('b:busy') < keys.indexOf('w:blockend'), 'before writing: ' + keys.join());
+  const j = jobs.find(x => x.type === 'busy');
+  eq(j.kind, 'busy'); eq(j.tier, 1);
+  const t = CL.jobText(j);
+  eq(t.title, 'Busy week · can train 2 days (3 left)'); eq(t.detail, 'Thu: Squat Day · Sat: Bench + deadlift');
+  eq(CL.jobText(Object.assign({}, j, { info: Object.assign({}, info, { days: 1 }) })).title, 'Busy week · can train 1 day (3 left)');
+  eq(CL.jobText(Object.assign({}, j, { info: Object.assign({}, info, { days: 0 }) })).title, 'Busy week · can’t train this week (3 left)');
+  eq(CL.clTopJob(busy, jobs).type, 'busy', 'Nina\'s flag is the busy week');
+  const done = CL.clJobs([busy], { today: '2026-10-27', busy: [{ r: busy, info }], done: { b: 'reply' } });
+  assert(!done.find(x => x.type === 'busy').done, 'a reply doesn\'t answer a busy week: only Approve (or Done) does');
+});
+
 group('clients (clients.js)');
 const CX = typeof Clients !== 'undefined' ? Clients : (window.Clients || null);
 const CT = '2026-10-27';   // "today" in these tests
@@ -6658,6 +6680,257 @@ test('the coach demo: Arjun\'s Base Block for Sarah, from his maxes to hers', ()
   let logged = 0, sets = 0;
   rbWalk(r.weeks, s => { sets++; if (s.completed || s.actualRpe != null) logged++; });
   assert(sets > 10, 'a whole block'); eq(logged, 0, 'nothing logged comes across');
+});
+
+group('capacity (capacity.js)');
+const CAPM = { program: 10, message: 2, formCheck: 6, checkin: 2, note: 3 };
+const CAPT = { program: 1, messages: 3, formChecks: 0.5, checkins: 1, notes: 1 };   // 10 + 6 + 3 + 2 + 3 = 24 min
+test('20 lifters at 24 min with 10 h: about 25, 5 more; +5 / +10 / +20 need 10 / 12 / 16 h', () => {
+  assert(typeof capacityEstimate === 'function' && window.Capacity, 'capacity.js is loaded');
+  const r = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, minutes: CAPM, hours: 10, seats: 25 });
+  eq(r.minPerLifter, 24); eq(r.weekMinutes, 480); eq(r.capacity, 25); eq(r.more, 5);
+  eq(r.rows.map(x => x.add + ':' + x.lifters + ':' + x.hours + ':' + (x.over ? 'over' : 'ok')).join(), '5:25:10:ok,10:30:12:over,20:40:16:over');
+  eq(r.seats.limit, 25); eq(r.seats.left, 5);
+});
+test('the minutes a task takes default to 10 / 2 / 6 / 2 / 3, and bad ones are clamped', () => {
+  eq(JSON.stringify(Capacity.DEFAULT_MINUTES), JSON.stringify(CAPM));
+  const a = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, hours: 10 });
+  eq(a.minPerLifter, 24, 'no minutes given: the defaults');
+  const b = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, minutes: { program: 'x', message: -4, formCheck: 600 }, hours: 10 });
+  eq(b.minutes.program, 10, 'not a number: the default'); eq(b.minutes.message, 0, 'never below zero'); eq(b.minutes.formCheck, 120, 'two hours at most');
+});
+test('where the time goes: one entry per task, the biggest first, empty tasks left out', () => {
+  const r = capacityEstimate({ lifters: 20, perLifterWeek: Object.assign({}, CAPT, { formChecks: 0 }), minutes: CAPM, hours: 10 });
+  eq(r.tasks.map(t => t.key + ' ' + t.perLifter).join(), 'program 10,messages 6,notes 3,checkins 2');
+  eq(r.tasks[1].count, 3, 'three messages a lifter a week'); eq(r.tasks[1].each, 2, 'two minutes each');
+  eq(r.minPerLifter, 21);
+});
+test('where the time goes in whole minutes that add up to the big number; counts in words', () => {
+  const r = capacityEstimate({ lifters: 4, perLifterWeek: { program: 1, messages: 3.375, formChecks: 0.5, checkins: 0.875, notes: 0.875 }, minutes: CAPM, hours: 10 });
+  eq(r.minPerLifter, 24, '10 + 6.75 + 3 + 1.75 + 2.625');
+  eq(r.tasks.map(t => t.key + ' ' + t.shown).join(), 'program 10,messages 7,formChecks 3,notes 2,checkins 2');
+  eq(r.tasks.reduce((s, t) => s + t.shown, 0), 24, 'the parts add up to the whole');
+  eq(Capacity.countText(3.4, 'message', 'messages'), 'About 3 messages a lifter a week');
+  eq(Capacity.countText(0.9, 'check-in', 'check-ins'), 'About 1 check-in a lifter a week');
+  eq(Capacity.countText(0.5, 'form check', 'form checks'), '1 form check a lifter every 2 weeks');
+  eq(Capacity.countText(0.2, 'form check', 'form checks'), '1 form check a lifter a month');
+  eq(Capacity.countText(0.05, 'form check', 'form checks'), 'Now and then');
+});
+test('over the hours: fewer than now, and the rows over the hours are flagged', () => {
+  const r = capacityEstimate({ lifters: 30, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
+  eq(r.capacity, 25); eq(r.more, -5); eq(r.weekMinutes, 720);
+  assert(r.rows.every(x => x.over), 'every row is over 10 h');
+});
+test('hours needed round up to the half hour; the minutes per lifter round to the minute', () => {
+  const r = capacityEstimate({ lifters: 20, perLifterWeek: { program: 1, messages: 2.3, formChecks: 0.5, checkins: 1, notes: 0.6 }, minutes: CAPM, hours: 10 });
+  eq(r.minPerLifter, 21, '10 + 4.6 + 3 + 2 + 1.8 = 21.4');
+  eq(r.rows.map(x => x.hours).join(), '9,10.5,14', '25 × 21 = 525 min, 30 × 21 = 630, 40 × 21 = 840');
+  eq(r.capacity, 28, '600 / 21');
+});
+test('a new coach: nobody yet, the estimate still answers (typical lifter), and no work at all gives no number', () => {
+  const r = capacityEstimate({ lifters: 0, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
+  eq(r.weekMinutes, 0); eq(r.capacity, 25); eq(r.more, 25);
+  const z = capacityEstimate({ lifters: 4, perLifterWeek: { program: 0, messages: 0, formChecks: 0, checkins: 0, notes: 0 }, minutes: CAPM, hours: 10 });
+  eq(z.minPerLifter, 0); eq(z.capacity, null); eq(z.more, null); eq(z.rows.length, 0);
+});
+test('hours: never negative, at most a week; the plan: no limit at Premium', () => {
+  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: -3 }).capacity, 0);
+  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 'lots' }).hours, 0);
+  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 900 }).hours, 168);
+  const p = capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 10, seats: 9999 });
+  eq(p.seats.limit, null); eq(p.seats.left, null);
+  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 10 }).seats, null, 'no plan given: nothing about seats');
+});
+test('save time: minutes a week each feature saves from your own numbers, the biggest first', () => {
+  const r = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
+  // rules: 20 weeks written × 10 min × ½ = 100; notes: 20 × (3 − 1) = 40; replies: 60 × 2 ÷ 3 = 40; report: 20 × 2 × ½ = 20
+  eq(r.saves.map(s => s.feature + ' ' + s.minutes).join(), 'rules 100,notes 40,replies 40,report 20');
+  const q = capacityEstimate({ lifters: 20, perLifterWeek: Object.assign({}, CAPT, { notes: 0 }), minutes: CAPM, hours: 10 });
+  assert(!q.saves.some(s => s.feature === 'notes'), 'no notes sent: the drafts save nothing, no row');
+});
+test('signals: a block a week per lifter with one, messages and notes from the tally, scaled to the weeks it covers', () => {
+  const T0 = '2026-10-27';
+  const lifters = [{ id: 'a', hasProgram: true }, { id: 'b', hasProgram: true }, { id: 'c', hasProgram: true }, { id: 'd', hasProgram: false }];
+  const s = capacitySignals({ today: T0, lifters, tally: { weeks: 4, messages: 48, notes: 12, formChecks: 8, checkins: 14 } });
+  eq(s.perLifterWeek.program, 0.75); eq(s.perLifterWeek.messages, 3); eq(s.perLifterWeek.notes, 0.75);
+  eq(s.perLifterWeek.formChecks, 0.5); eq(s.perLifterWeek.checkins, 0.875); eq(s.typical.length, 0);
+  const half = capacitySignals({ today: T0, lifters, tally: { weeks: 2, messages: 24, notes: 6 }, trained: true });
+  eq(half.perLifterWeek.messages, 3, '24 in the 2 weeks the last 500 messages cover'); eq(half.perLifterWeek.notes, 0.75);
+});
+test('signals: form checks answered, check-ins and note replies from what the device holds (the last 4 weeks)', () => {
+  const T0 = '2026-10-27';
+  const lifters = [{ id: 'a', hasProgram: true }, { id: 'b', hasProgram: true }, { id: 'c', hasProgram: true }, { id: 'd', hasProgram: true }];
+  const s = capacitySignals({ today: T0, lifters, trained: true, tally: { weeks: 4, messages: 0, notes: 0 },
+    formChecks: [{ coachReplyAt: '2026-10-26T10:00:00Z' }, { coachReplyAt: '2026-10-20T10:00:00Z' }, { coachReplyAt: '2026-10-05T10:00:00Z' }, { coachReplyAt: '2026-10-01T09:00:00Z' }, { coachReplyAt: '2026-09-20T10:00:00Z' }, { coachReplyAt: null }],
+    checkins: [{ athleteId: 'b', weekStart: '2026-10-19', createdAt: '2026-10-20T08:00:00Z' }, { athleteId: 'b', weekStart: '2026-10-05', createdAt: '2026-10-06T08:00:00Z' }],
+    checkinAnswers: ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'].map(d => ({ athleteId: 'a', period: d })).concat([{ athleteId: 'b', period: '2026-10-21' }]),
+    sessionNotes: [{ coachCommentAt: '2026-10-25T09:00:00Z' }, { coachCommentAt: '2026-10-21T09:00:00Z' }, { coachCommentAt: '2026-09-01T09:00:00Z' }, { coachCommentAt: null }] });
+  eq(s.perLifterWeek.formChecks, 0.25, '4 answered in 4 weeks, 4 lifters');
+  eq(s.perLifterWeek.checkins, 0.1875, 'a: one week (seven daily answers), b: two weeks (its answer joins the same week) → 3 lifter-weeks');
+  eq(s.perLifterWeek.messages, 0.125, 'two replies to session notes');
+});
+test('signals: no history yet (nobody trained, no tally) → a typical lifter, and it says which parts', () => {
+  const s = capacitySignals({ today: '2026-10-27', lifters: [{ id: 'a', hasProgram: false }], trained: false });
+  eq(s.perLifterWeek.messages, Capacity.TYPICAL.messages); eq(s.perLifterWeek.notes, Capacity.TYPICAL.notes);
+  eq(s.perLifterWeek.program, 0, 'no block yet: no weeks to write');
+  eq(s.typical.slice().sort().join(), 'checkins,formChecks,messages,notes');
+  const n = capacitySignals({ today: '2026-10-27', lifters: [] });
+  eq(n.perLifterWeek.program, 1, 'nobody yet: a typical lifter has a block'); eq(n.typical.length, 5);
+  const m = capacitySignals({ today: '2026-10-27', lifters: [{ id: 'a', hasProgram: true }], trained: true });
+  eq(m.typical.slice().sort().join(), 'messages,notes', 'messages not loaded yet: typical until the tally comes');
+});
+test('the demo coach: 10 h and an estimate from the demo\'s own four weeks', () => {
+  const CD = _buildCoachDemoData();
+  assert(CD.store.coachTally && CD.store.coachTally.weeks === 4, 'the demo carries four weeks of the coach\'s work');
+  const lifters = CD.store.athletes.map(a => ({ id: a.id, hasProgram: CD.store.programs.some(p => p.athleteId === a.id) }));
+  const s = capacitySignals({ today: todayISO(), lifters, tally: CD.store.coachTally, trained: true });
+  const r = capacityEstimate({ lifters: lifters.length, perLifterWeek: s.perLifterWeek, minutes: CAPM, hours: 10 });
+  assert(r.minPerLifter >= 18 && r.minPerLifter <= 30, 'a believable load per lifter, got ' + r.minPerLifter);
+  eq(Capacity.DEMO_HOURS, 10);
+});
+
+group('busy weeks (busy-week.js)');
+const BWT = '2026-10-27';   // a Tuesday
+const bwS = (dayIdx, name, lifts, acc) => ({ dayIdx, name, lifts, heavy: lifts.indexOf('squat') >= 0 || lifts.indexOf('deadlift') >= 0, accessories: acc == null ? 1 : acc });
+const SBD3 = () => [bwS(0, 'Squat Day', ['squat']), bwS(1, 'Bench Day', ['bench']), bwS(2, 'Deadlift Day', ['deadlift'])];
+const bwPlanStr = (p) => p.assign.map(a => a.dayIdx + '@' + a.date.slice(8)).join(' ') + ' | ' + p.merge.map(m => m.from + '>' + m.into).join(' ') + ' | ' + p.move.map(m => m.dayIdx).join(' ');
+test('enough days: one session a day, in program order', () => {
+  assert(typeof busyWeekPlan === 'function' && window.BusyWeek, 'busy-week.js is loaded');
+  const p = busyWeekPlan({ sessionsLeft: SBD3(), dates: ['2026-10-28', '2026-10-30', '2026-11-01'], today: BWT });
+  eq(bwPlanStr(p), '0@28 1@30 2@01 |  | ');
+});
+test('more days than sessions: spread out, squat and deadlift days apart', () => {
+  const p = busyWeekPlan({ sessionsLeft: SBD3(), dates: ['2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01'], today: BWT });
+  eq(bwPlanStr(p), '0@28 1@30 2@01 |  | ');
+  const q = busyWeekPlan({ sessionsLeft: [bwS(0, 'Squat Day', ['squat']), bwS(1, 'Deadlift Day', ['deadlift']), bwS(2, 'Bench Day', ['bench'])], dates: ['2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31'], today: BWT });
+  eq(bwPlanStr(q), '0@28 1@30 2@31 |  | ', 'squat Wed, deadlift Fri (not Thu), bench Sat');
+});
+test('too few days: the extra session\'s main lifts join a day with room, its accessories dropped', () => {
+  const S = SBD3();
+  const p = busyWeekPlan({ sessionsLeft: S, dates: ['2026-10-29', '2026-10-31'], today: BWT });
+  eq(bwPlanStr(p), '0@29 1@31 | 2>1 | ');
+  eq(busyWeekText(p, S, { dayName: BusyWeek.dayShort }), 'Thu: Squat Day · Sat: Bench + deadlift (accessories dropped)');
+  assert(/3 sessions in 2 days/.test(p.why), 'why: ' + p.why);
+});
+test('a merge keeps squat and deadlift on different days when it can', () => {
+  const S = [bwS(0, 'Bench Day', ['bench']), bwS(1, 'Squat Day', ['squat']), bwS(2, 'Deadlift Day', ['deadlift'], 0)];
+  const p = busyWeekPlan({ sessionsLeft: S, dates: ['2026-10-29', '2026-10-31'], today: BWT });
+  eq(bwPlanStr(p), '0@29 1@31 | 2>0 | ', 'deadlifts join bench, not squat');
+  eq(busyWeekText(p, S, { dayName: BusyWeek.dayShort }), 'Thu: Bench + deadlift · Sat: Squat Day');
+});
+test('no day with room (three main lifts already): the last session moves to next week', () => {
+  const S = [bwS(0, 'Full Day', ['squat', 'bench', 'deadlift']), bwS(1, 'Bench Volume', ['bench'])];
+  const p = busyWeekPlan({ sessionsLeft: S, dates: ['2026-10-30'], today: BWT });
+  eq(bwPlanStr(p), '0@30 |  | 1');
+  eq(busyWeekText(p, S, { dayName: BusyWeek.dayShort }), 'Fri: Full Day · Bench Volume: next week');
+});
+test('one day for three sessions: all three main lifts on it (each join had room)', () => {
+  const p = busyWeekPlan({ sessionsLeft: SBD3(), dates: ['2026-10-31'], today: BWT });
+  eq(bwPlanStr(p), '0@31 | 1>0 2>0 | ');
+  eq(busyWeekText(p, SBD3(), { dayName: BusyWeek.dayShort }), 'Sat: Squat + bench + deadlift (accessories dropped)');
+});
+test('two extras for two days: each joins a different day, never the same lift twice when it can help it', () => {
+  const S = SBD3().concat([bwS(3, 'Bench Volume', ['bench'], 2)]);
+  const p = busyWeekPlan({ sessionsLeft: S, dates: ['2026-10-28', '2026-10-31'], today: BWT });
+  eq(bwPlanStr(p), '0@28 1@31 | 2>1 3>0 | ', 'deadlift with bench, the second bench day with squat');
+});
+test('no days at all: everything moves to next week; past and repeated dates are ignored', () => {
+  const p = busyWeekPlan({ sessionsLeft: SBD3().slice(0, 2), dates: [], today: BWT });
+  eq(bwPlanStr(p), ' |  | 0 1'); assert(/next week/.test(p.why), p.why);
+  const q = busyWeekPlan({ sessionsLeft: SBD3().slice(0, 1), dates: ['2026-10-26', '2026-10-28', '2026-10-28', 'nope'], today: BWT });
+  eq(bwPlanStr(q), '0@28 |  | ');
+  eq(bwPlanStr(busyWeekPlan({ sessionsLeft: [], dates: ['2026-10-28'], today: BWT })), ' |  | ');
+});
+test('pure: the input is untouched and the same answer comes back every time', () => {
+  const S = SBD3(), D = ['2026-10-31', '2026-10-29'];
+  const before = JSON.stringify([S, D]);
+  const a = busyWeekPlan({ sessionsLeft: S, dates: D, today: BWT });
+  eq(JSON.stringify([S, D]), before);
+  eq(JSON.stringify(busyWeekPlan({ sessionsLeft: S, dates: D, today: BWT })), JSON.stringify(a));
+});
+test('the days: today to Sunday, the weekday names stored, and the intake days picked first', () => {
+  eq(BusyWeek.datesLeft('2026-10-29').join(), '2026-10-29,2026-10-30,2026-10-31,2026-11-01');
+  eq(BusyWeek.datesLeft('2026-11-01').join(), '2026-11-01');
+  eq(BusyWeek.dayNames(['2026-10-29', '2026-10-31']).join(), 'Thu,Sat');
+  eq(BusyWeek.datesOf('2026-10-26', ['Sat', 'Thu', 'Funday']).join(), '2026-10-29,2026-10-31');
+  eq(BusyWeek.prepick(BusyWeek.datesLeft(BWT), ['Mon', 'Wed', 'Fri']).join(), '2026-10-28,2026-10-30');
+});
+const bwProg = () => {
+  const set = (o) => Object.assign({ id: uid('set'), weight: 100, reps: 5, rpe: 8, completed: false, actualRpe: null, completedAt: null }, o || {});
+  const ex = (lift, variant, name, sets, o) => Object.assign({ id: uid('ex'), lift, variant, exerciseName: name || '', note: '', sets }, o || {});
+  const wk = (n, done) => ({ id: 'w' + n, number: n, days: [
+    { id: 'w' + n + 'd0', name: 'Squat Day', exercises: [ex('squat', 'Competition', '', [set({ completed: done, completedAt: done ? '2026-10-20' : null }), set({ completed: done })]), ex('legs', '', 'Leg Press', [set()])] },
+    { id: 'w' + n + 'd1', name: 'Bench Day', exercises: [ex('bench', 'Competition', '', [set({ completed: done }), set({ tempo: '3-1-0', pause: 1, pauseAt: 'chest', rpeHi: 8.5 })], { srcId: 'tm-b' }), ex('push', '', 'DB Press', [set()])] },
+    { id: 'w' + n + 'd2', name: 'Deadlift Day', exercises: [ex('deadlift', 'Competition', '', [set({ completed: done })], { srcId: 'tm-d', ovr: true }), ex('deadlift', 'RDL', '', [set({ weight: 140, cx: { Belt: 'off' } })]), ex('pull', '', 'Row', [set()])] },
+    { id: 'w' + n + 'd3', name: 'Rest', exercises: [] }
+  ] });
+  const P = { id: 'bwp', athleteId: 'bw-a', weeks: [wk(1, true), wk(2, false), wk(3, false)] };
+  P.weeks[0].days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => { s.completed = true; s.completedAt = '2026-10-20'; })));   // last week: all done
+  return P;
+};
+test('the sessions left: this week of the block, untouched days only, with their main lifts', () => {
+  const P = bwProg();
+  P.weeks[1].days[0].exercises[0].sets[0].completed = true;   // squat day started: not left to plan
+  const S = BusyWeek.sessionsLeft(P);
+  eq(S.weekIdx, 1); eq(S.sessions.map(s => s.dayIdx + ' ' + s.name + ' ' + s.lifts.join('+') + ' ' + (s.heavy ? 'heavy' : 'light') + ' ' + s.accessories).join(', '),
+    '1 Bench Day bench light 1, 2 Deadlift Day deadlift heavy 1');
+  eq(BusyWeek.sessionsLeft({ weeks: [] }).sessions.length, 0);
+});
+test('applying a plan: pins the dates, copies the main lifts into the host with their set fields, the merged-away day skipped as a busy week', () => {
+  const P = bwProg();
+  P.weeks[2].days[1].scheduledDate = '2026-10-31';   // next week's day pinned to Saturday: one day per date, as Train's pin keeps it
+  P.weeks[2].days[0].scheduledDate = '2026-11-02';   // a pin on another date stays
+  P.weeks[1].days[3].scheduledDate = '2026-10-29';   // this week's rest day pinned to Thu: cleared, Thu is Squat Day's now
+  const S = BusyWeek.sessionsLeft(P).sessions;
+  const plan = busyWeekPlan({ sessionsLeft: S, dates: ['2026-10-29', '2026-10-31'], today: BWT });
+  const out = busyWeekApply(P, Object.assign({ weekIdx: 1 }, plan));
+  const w = out.weeks[1];
+  eq(w.days[0].scheduledDate, '2026-10-29'); eq(w.days[1].scheduledDate, '2026-10-31'); eq(w.days[3].scheduledDate || null, null);
+  eq(out.weeks[2].days[1].scheduledDate, null, 'Saturday is this week\'s Bench Day now'); eq(out.weeks[2].days[0].scheduledDate, '2026-11-02', 'other dates untouched');
+  eq(out.weeks[2].days[1].exercises.length, 2, 'only this week\'s days change');
+  const host = w.days[1].exercises;
+  eq(host.map(e => e.lift + ':' + (e.variant || e.exerciseName)).join(), 'bench:Competition,push:DB Press,deadlift:Competition,deadlift:RDL', 'the deadlifts join, the row stays behind');
+  const moved = host[2];
+  assert(moved.id !== P.weeks[1].days[2].exercises[0].id, 'a fresh exercise id'); eq(moved.srcId, undefined, 'no team link: the coach added it for them'); eq(moved.ovr, undefined);
+  assert(moved.sets.every(s => !s.completed && !s.skipped && s.id), 'fresh sets to do');
+  eq(host[3].sets[0].cx.Belt, 'off', 'the coach\'s columns ride along'); eq(host[3].sets[0].weight, 140);
+  const away = w.days[2];
+  assert(away.exercises.every(e => e.sets.every(s => s.skipped && s.note === 'Busy week' && !s.completed)), 'every set of the merged day skipped, "Busy week"');
+  eq(away.scheduledDate || null, null);
+  eq(P.weeks[1].days[1].exercises.length, 2, 'the program passed in is not changed');
+});
+test('approved week: planned is what was agreed, so a lifter on their agreed days is never "missed"', () => {
+  const req = { status: 'approved', weekStart: '2026-10-26', days: ['Sat', 'Sun'], proposal: { assign: [{ dayIdx: 0, date: '2026-10-31' }, { dayIdx: 1, date: '2026-11-01' }], sessions: [{}, {}, {}] } };
+  const a = BusyWeek.weekPlanned(req, ['2026-10-26'], '2026-10-29');
+  eq(a.planned, 3, 'Monday done before it, then the two agreed'); eq(a.expected, 1, 'by Thursday: Monday only');
+  const b = BusyWeek.weekPlanned(req, ['2026-10-26'], '2026-11-01');
+  eq(b.expected, 2, 'Saturday has passed');
+  eq(BusyWeek.weekPlanned(Object.assign({}, req, { status: 'pending' }), [], '2026-10-29'), null, 'only an approved week counts');
+  eq(BusyWeek.weekPlanned(Object.assign({}, req, { weekStart: '2026-10-19' }), [], '2026-10-29'), null, 'only this week');
+});
+test('coachAthleteStatus: an approved busy week takes the "missed" flag off; without it, Thursday with nothing logged is missed', () => {
+  const before = { programs: Store.get().programs, workoutLogs: Store.get().workoutLogs, scheduleRequests: Store.get().scheduleRequests };
+  const P = bwProg();
+  try {
+    Store.update(s => { s.programs = [P]; s.workoutLogs = [{ id: 'bwl1', athleteId: 'bw-a', lift: 'squat', weight: 100, reps: 5, rpe: 8, date: '2026-10-22' }]; s.scheduleRequests = []; });
+    const a = coachAthleteStatus('bw-a', { today: '2026-10-29' });
+    assert(a.flags.some(f => f.type === 'missed'), 'missed without a busy week');
+    Store.update(s => { s.scheduleRequests = [{ id: 'r1', athleteId: 'bw-a', status: 'approved', weekStart: '2026-10-26', days: ['Sat', 'Sun'], proposal: { assign: [{ dayIdx: 0, date: '2026-10-31' }, { dayIdx: 1, date: '2026-11-01' }], sessions: [{}, {}, {}] } }]; });
+    const b = coachAthleteStatus('bw-a', { today: '2026-10-29' });
+    assert(!b.flags.some(f => f.type === 'missed'), 'no missed flag with the agreed days ahead');
+    eq(b.sessions.planned, 2, 'planned this week: the two agreed days');
+  } finally { Store.update(s => { s.programs = before.programs; s.workoutLogs = before.workoutLogs; s.scheduleRequests = before.scheduleRequests || []; }); }
+});
+test('the coach demo: one busy week waiting, from a lifter with no meet this week, and it plans', () => {
+  const CD = _buildCoachDemoData();
+  const reqs = (CD.store.scheduleRequests || []).filter(r => r.status === 'pending');
+  eq(reqs.length, 1);
+  const r = reqs[0];
+  assert(r.athleteId !== 'demo-a3', 'not Tom: his meet is today');
+  assert(!(CD.store.meets || []).some(m => m.athleteId === r.athleteId && m.date >= r.weekStart && m.date <= _addDaysISO(r.weekStart, 6)), 'no meet that week');
+  eq(r.weekStart, _monISO(todayISO()));
+  assert(r.days.length >= 1 && r.days.length < r.proposal.sessions.length, 'fewer days than sessions');
+  assert(r.proposal.assign.length === r.days.length, 'a session on each day');
 });
 
 function render() {

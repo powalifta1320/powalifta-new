@@ -27,7 +27,9 @@ const defaultStore = () => ({
   // questionnaire, or a coach's roster's (db.js hydrateAll).
   clientBilling: [],
   clientPayments: [],
-  intakes: []
+  intakes: [],
+  // Busy weeks (busy-week.js): a lifter's own requests, or the coach's roster's (db.js hydrateAll).
+  scheduleRequests: []
 });
 
 const Store = {
@@ -121,6 +123,8 @@ function _wipeLocalUserData() {
   try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
   // MEET DAY hook (meetday.js): boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop.
   try { Object.keys(localStorage).filter(k => /^powa-md-|^powa-challenge/.test(k) || k === 'powa-attempt-plans').forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  // A busy week kept on this phone before its table existed (db.js): their days and their note go with them.
+  try { Object.keys(localStorage).filter(k => /^powa-busy-week-/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
 }
 // Stop this device getting the signed-out account's pushes (their coach's messages
 // would otherwise keep arriving for whoever signs in next, and the next account
@@ -385,7 +389,7 @@ function _buildDemoData() {
   const out = {
     user: user,
     store: {
-      checkinQuestions: ciQs, checkinAnswers: ciAs, intakes, clientBilling: [], clientPayments: [],
+      checkinQuestions: ciQs, checkinAnswers: ciAs, intakes, clientBilling: [], clientPayments: [], scheduleRequests: [],
       coaches, athletes: [], invites: [], programs, programTemplates: [], programBlocks,
       workoutLogs, bodyweight, restDays, meets,
       sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
@@ -425,7 +429,7 @@ function _buildCoachDemoData() {
   // so the empty screens can be seen and judged without signing up.
   if (/[?&]fresh=1/.test(location.search)) {
     Object.assign(user, { name: 'Alex Morgan', bio: '', subscriptionTier: 'free', subscriptionStatus: 'inactive', subscriptionPeriodEnd: null, billingProvider: null });
-    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [], painReports: [], coachNotes: [], clientBilling: [], clientPayments: [], intakes: [] } };
+    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [], painReports: [], coachNotes: [], clientBilling: [], clientPayments: [], intakes: [], scheduleRequests: [] } };
   }
 
   // Roster engineered to show every flag state
@@ -816,6 +820,19 @@ function _buildCoachDemoData() {
     bodyweightKg: 68.2, weightClass: '69', federation: 'USAPL', yearsLifting: '<1', daysPerWeek: 3, days: ['Mon', 'Wed', 'Fri'], sessionMinutes: 60,
     equipment: ['Belt'], injuries: { parts: [], note: '' }, goals: 'Squat to depth with confidence, then a first meet next year.', meet: null,
     phone: '+1 555 0177', timezone: 'America/Denver', instagram: '', notes: 'Coming from CrossFit. Never done a meet.' } }];
+  // The coach's last four weeks of work for the capacity check (capacity.js): what a real coach's device
+  // learns from the server's message tally (messages sent, weekly notes) plus form checks answered and
+  // check-ins read. Four lifters here; the desk's twenty carry their own (deskSeedDemo).
+  demo.store.coachTally = { weeks: 4, messages: 54, notes: 14, formChecks: 8, checkins: 14 };
+  // A busy week waiting (busy-week.js): Nina, new this month, can train two days this week and asked to fit
+  // her three sessions in. Not Tom (his meet is today); the coach approves it from Today or her page.
+  demo.store.scheduleRequests = [];
+  try {
+    const np = programs.find(p => p.athleteId === 'demo-a4');
+    const nr = np && window.BusyWeek && BusyWeek.demoRequest ? BusyWeek.demoRequest(np, { id: 'demo-busy-1', athleteId: 'demo-a4', coachId: DC, today: daysAgo(0),
+      note: 'Double shifts at work this week.', createdAt: new Date(Date.now() - 3 * 3600000).toISOString() }) : null;
+    if (nr) demo.store.scheduleRequests.push(nr);
+  } catch (e) { console.warn('demo busy week', e); }
   // The laptop desk (desk.js) seats ~16 more lifters so Today and the roster show real scale.
   // Phones and the iPhone app keep the four above.
   if (document.documentElement.classList.contains('desk') && typeof deskSeedDemo === 'function') {
@@ -11006,8 +11023,13 @@ function coachAthleteStatus(athleteId, opts) {
   const ago = lastDate ? Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastDate + 'T12:00:00Z')) / 86400000) : null;
   const week = programWeekState(prog);
   const mon = _monISO(todayIso);
-  const done = new Set(logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date)).size;
-  const planned = week ? week.sessionsPerWeek : 0;
+  const weekDates = logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date);
+  const done = new Set(weekDates).size;
+  // A busy week the coach approved (busy-week.js): this week's plan is the days agreed, so training on
+  // them is never "missed" and the count reads against what was agreed.
+  const busyReq = (s.scheduleRequests || []).find(r => r.athleteId === athleteId && r.status === 'approved' && r.weekStart === mon);
+  const busy = busyReq && typeof BusyWeek !== 'undefined' && BusyWeek.weekPlanned ? BusyWeek.weekPlanned(busyReq, weekDates, todayIso) : null;
+  const planned = busy ? busy.planned : (week ? week.sessionsPerWeek : 0);
   const flags = [];
   const add = (type, text, severity) => flags.push({ type, text, severity });
   // 1. Training at all
@@ -11017,7 +11039,7 @@ function coachAthleteStatus(athleteId, opts) {
   else if (prog && week && !week.finished && planned > 0) {
     // Behind this week: by today, a lifter on N sessions a week should have about N × days/7 done.
     const dow = (new Date(todayIso + 'T12:00:00Z').getUTCDay() + 6) % 7;   // Mon 0
-    const expected = Math.floor(planned * (dow + 1) / 7);
+    const expected = busy ? busy.expected : Math.floor(planned * (dow + 1) / 7);
     const missed = expected - done;
     if (dow >= 2 && missed >= 1) add('missed', 'Missed ' + missed + (missed === 1 ? ' session' : ' sessions') + ' this week', missed >= 2 ? 3 : 2);
   }
