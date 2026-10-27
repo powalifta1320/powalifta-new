@@ -177,6 +177,17 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'program-photo.js')) ? fs.readFileSync(path.join(ROOT, 'program-photo.js'), 'utf8') : '') + '\n;\n' +
   // CLIENTS + INTAKE: the schedule, a client's status, the summary, money words, the intake lines (tests.html "clients (clients.js)")
   (fs.existsSync(path.join(ROOT, 'clients.js')) ? fs.readFileSync(path.join(ROOT, 'clients.js'), 'utf8') : '');
+// ---- a function declared twice: the later one silently wins for the whole page ------------
+// (27 Oct 2026: a second rpeLoadPct, a percent where the first was a fraction, made every
+// RPE-only load suggestion 100× too heavy on the live site.) Top-level declarations only.
+{
+  const seen = {}, twice = [];
+  const deskSrc = fs.existsSync(path.join(ROOT, 'desk.js')) ? fs.readFileSync(path.join(ROOT, 'desk.js'), 'utf8') : '';
+  [appSrc, deskSrc].forEach(src => {
+    for (const m of src.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) { if (seen[m[1]]) twice.push(m[1]); seen[m[1]] = 1; }
+  });
+  if (twice.length) { console.error('FUNCTION DECLARED TWICE (the later one wins everywhere): ' + twice.join(', ')); process.exit(4); }
+}
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 let testSrc = scripts[scripts.length - 1];
