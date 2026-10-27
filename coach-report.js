@@ -105,6 +105,14 @@
     return 0;
   }
 
+  // A program as the report reads it: the block's JSON, or (the server, which drops the JSON as it
+  // pages) the planned sessions it already worked out.
+  function plannedOf(p) {
+    if (!p) return 0;
+    if (p.planned != null && isFinite(Number(p.planned))) return Math.max(0, Math.round(Number(p.planned)));
+    return plannedPerWeek(p.weeks);
+  }
+
   /* ---------------------------------------------------------------- PRs */
   // stats: [{ athleteId, lifts: { squat: { during, before } } }] (the window's best competition-equivalent
   // e1RM per main lift, and the best ever before it). A PR beats a real earlier best: a lifter's very first
@@ -145,6 +153,7 @@
   //   prs: [{ athleteId, lift, e1rm }], pains: [{ athleteId, date }], checkins: [{ athleteId, date }],
   //   formChecksOpen: [{ athleteId }], overdue: [{ athleteId, amountCents, currency, daysLate }],
   //   meets: [{ athleteId, name, date }], busy: [{ athleteId, weekStart, days }] }
+  //   (a program may carry `planned` instead of `weeks`: the server's lean read)
   // opts: { from, to, today }. Behind: trained none of their sessions, or two or more short (the same
   // line as the This week tile, coach-lifters.js clTeam). An agreed busy week plans the agreed days.
   function teamWeek(input, opts) {
@@ -161,7 +170,7 @@
     people.forEach(function (a) {
       var n = Math.max(0, Math.round(Number(sessions[a.id]) || 0));
       if (n > 0) trained++;
-      var p = prog[a.id] ? plannedPerWeek(prog[a.id].weeks) : 0;
+      var p = plannedOf(prog[a.id]);
       if (busy[a.id] != null) p = Math.min(p, busy[a.id]);
       if (!(p > 0)) return;
       planned += p; done += Math.min(n, p);
@@ -257,7 +266,7 @@
     var busy = {}; busyRows(input.busy).forEach(function (b) { if (b.weekStart === mon) busy[b.athleteId] = b.days; });
     var out = [];
     people.forEach(function (a) {
-      var p = prog[a.id] ? plannedPerWeek(prog[a.id].weeks) : 0;
+      var p = plannedOf(prog[a.id]);
       if (busy[a.id] != null) p = Math.min(p, busy[a.id]);
       if (!(p > 0)) return;
       var expected = Math.floor(p * MIDWEEK_ELAPSED / 7);
@@ -439,7 +448,11 @@
       return (b.coach_id === coachId) - (a.coach_id === coachId) || String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
     });
     var seen = {}, programs = [];
-    progs.forEach(function (p) { if (seen[p.athlete_id]) return; seen[p.athlete_id] = true; programs.push({ athleteId: p.athlete_id, weeks: ensureWeeks(p.weeks) }); });
+    progs.forEach(function (p) {
+      if (seen[p.athlete_id]) return;
+      seen[p.athlete_id] = true;
+      programs.push(p.planned != null && p.weeks == null ? { athleteId: p.athlete_id, planned: p.planned } : { athleteId: p.athlete_id, weeks: ensureWeeks(p.weeks) });
+    });
     var sessions = {}, stats = [];
     people.forEach(function (a) { sessions[a.id] = 0; });
     (rows.stats || []).filter(mine).forEach(function (s) {
@@ -486,7 +499,7 @@
     LIFTS: LIFTS, JOBS: JOBS,
     lastWeek: lastWeek, weekSoFar: weekSoFar, mondayOf: mondayOf, addDays: addDays, daysBetween: daysBetween, isIso: isIso,
     dayLabel: dayLabel, rangeLabel: rangeLabel, whenText: whenText, money: money, loadText: loadText, e1rmText: e1rmText, shortNames: shortNames,
-    plannedPerWeek: plannedPerWeek, prsFromStats: prsFromStats, busyRows: busyRows,
+    plannedPerWeek: plannedPerWeek, plannedOf: plannedOf, prsFromStats: prsFromStats, busyRows: busyRows,
     teamWeek: teamWeek, worthSending: worthSending, needsCount: needsCount, firstUp: firstUp, midweekBehind: midweekBehind,
     reportPush: reportPush, midweekPush: midweekPush, reportEmail: reportEmail,
     fromStore: fromStore, fromRows: fromRows, jobPlan: jobPlan

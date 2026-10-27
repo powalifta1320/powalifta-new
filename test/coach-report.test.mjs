@@ -162,6 +162,14 @@ t('the app and the server build the same week from the same data', () => {
   const srv = CR.teamWeek(CR.fromRows(rowsFor(W.from, W.to), { coachId: 'c1', today: TODAY }), W);
   eq(srv, team);
 });
+t('the server may hand over planned sessions instead of the block (it drops the JSON as it reads)', () => {
+  const rows = rowsFor(W.from, W.to);
+  rows.programs = rows.programs.map(p => ({ athlete_id: p.athlete_id, coach_id: p.coach_id, updated_at: p.updated_at, planned: CR.plannedPerWeek(p.weeks) }));
+  eq(CR.teamWeek(CR.fromRows(rows, { coachId: 'c1', today: TODAY }), W), team);
+  const S = CR.weekSoFar('2026-10-29');
+  const lean = Object.assign(CR.fromRows(rows, { coachId: 'c1', today: '2026-10-29' }), { sessions: { a1: 2, a3: 1, a6: 1 } });
+  eq(CR.midweekBehind(lean, '2026-10-29').map(x => [x.id, x.planned]), [['a2', 4], ['a4', 3], ['a8', 3]]);
+});
 t('an empty roster, and a lifter with nothing at all', () => {
   const none = CR.teamWeek({}, W);
   eq([none.of, none.trained, none.behind.length, none.overdue.n], [0, 0, 0, 0]);
