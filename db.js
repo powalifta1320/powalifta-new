@@ -325,6 +325,60 @@ function mapDbCoachNote(r) {
   return { id: r.id, coachId: r.coach_id, athleteId: r.athlete_id, body: r.body || '', createdAt: r.created_at, updatedAt: r.updated_at || r.created_at };
 }
 const _COACH_NOTE_COLS = 'id, coach_id, athlete_id, body, created_at, updated_at';
+// Clients + payments (migration-clients-2026-10-27.sql): the coach's own record of a lifter's package
+// and of the payments they took elsewhere (no money moves through the app). Coach-only: the athlete
+// never reads either table. The lists mirror the tables' check constraints (clients.js has them too).
+const _CLIENT_CADENCES = ['weekly', 'fortnightly', '4-weekly', 'monthly', 'quarterly', 'yearly', 'one-off'];
+const _CLIENT_METHODS = ['bank', 'card', 'paypal', 'cash', 'other'];
+function _clStr(v, max) { const t = String(v == null ? '' : v).trim(); return t ? t.slice(0, max) : null; }
+function _clCur(c) { const t = String(c || '').trim().toUpperCase(); return /^[A-Z]{3}$/.test(t) ? t : 'USD'; }
+function mapDbClientBilling(r) {
+  return { id: r.id, coachId: r.coach_id, athleteId: r.athlete_id, package: r.package || 'Online coaching',
+    amountCents: Number(r.amount_cents) || 0, currency: r.currency || 'USD', cadence: r.cadence || 'monthly',
+    nextDue: r.next_due || null, dueDay: r.due_day == null ? null : Number(r.due_day), status: r.status || 'active',
+    startedOn: r.started_on || null, phone: r.phone || null, timezone: r.timezone || null, note: r.note || null,
+    createdAt: r.created_at || null, updatedAt: r.updated_at || r.created_at || null };
+}
+// Only the fields the caller gave go to the server (undefined = not given, null = clear it), so a
+// partial save (just nextDue, say) never resets the package to the defaults; a new row takes the
+// table's defaults for the rest.
+function mapJsClientBilling(b) {
+  const row = { coach_id: b.coachId, athlete_id: b.athleteId };
+  const has = (k) => b[k] !== undefined;
+  if (has('package')) row.package = _clStr(b.package, 80) || 'Online coaching';
+  if (has('amountCents')) row.amount_cents = Math.max(0, Math.min(100000000, Math.round(Number(b.amountCents) || 0)));
+  if (has('currency')) row.currency = _clCur(b.currency);
+  if (has('cadence')) row.cadence = _CLIENT_CADENCES.includes(b.cadence) ? b.cadence : 'monthly';
+  if (has('nextDue')) row.next_due = _isoOrNull(b.nextDue);
+  if (has('dueDay')) { const d = Math.round(Number(b.dueDay)); row.due_day = d >= 1 && d <= 31 ? d : null; }
+  if (has('status')) row.status = b.status === 'paused' || b.status === 'ended' ? b.status : 'active';
+  if (has('startedOn')) row.started_on = _isoOrNull(b.startedOn);
+  if (has('phone')) row.phone = _clStr(b.phone, 40);
+  if (has('timezone')) row.timezone = _clStr(b.timezone, 64);
+  if (has('note')) row.note = _clStr(b.note, 500);
+  return row;
+}
+const _CLIENT_BILLING_DEFAULTS = { package: 'Online coaching', amountCents: 0, currency: 'USD', cadence: 'monthly', nextDue: null, dueDay: null,
+  status: 'active', startedOn: null, phone: null, timezone: null, note: null };
+const _CLIENT_BILLING_COLS = 'id, coach_id, athlete_id, package, amount_cents, currency, cadence, next_due, due_day, status, started_on, phone, timezone, note, created_at, updated_at';
+function mapDbClientPayment(r) {
+  return { id: r.id, coachId: r.coach_id, athleteId: r.athlete_id, amountCents: Number(r.amount_cents) || 0, currency: r.currency || 'USD',
+    paidOn: r.paid_on || null, method: r.method || null, period: r.period || null, note: r.note || null, createdAt: r.created_at || null };
+}
+function mapJsClientPayment(p) {
+  return { coach_id: p.coachId, athlete_id: p.athleteId, amount_cents: Math.max(1, Math.min(100000000, Math.round(Number(p.amountCents) || 0))),
+    currency: _clCur(p.currency), paid_on: _isoOrNull(p.paidOn), method: _CLIENT_METHODS.includes(p.method) ? p.method : null,
+    period: _clStr(p.period, 40), note: _clStr(p.note, 200) };
+}
+const _CLIENT_PAYMENT_COLS = 'id, coach_id, athlete_id, amount_cents, currency, paid_on, method, period, note, created_at';
+// The intake (migration-intake-2026-10-27.sql): the lifter's answers, which their current coach reads.
+// answers is one object (the questionnaire's shape lives in clients.js); coach_id is set by the server.
+function mapDbIntake(r) {
+  return { athleteId: r.athlete_id, coachId: r.coach_id || null,
+    answers: r.answers && typeof r.answers === 'object' && !Array.isArray(r.answers) ? r.answers : {},
+    submittedAt: r.submitted_at || null, updatedAt: r.updated_at || null };
+}
+const _INTAKE_COLS = 'athlete_id, coach_id, answers, submitted_at, updated_at';
 function mapDbTemplate(r) {
   return { id: r.id, coachId: r.coach_id, name: r.name, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(), payload: r.payload };
 }
@@ -2118,6 +2172,223 @@ const DB = {
     return { ok: true, local: true };
   },
 
+  // ---------- CLIENTS + PAYMENTS (migration-clients-2026-10-27.sql) ----------
+  // Coach-only: the package, price and cadence a coach keeps per lifter, and the payments they took
+  // elsewhere (bank, card, PayPal, cash). No money moves through the app and the athlete never reads
+  // any of it. Until the migration runs, a coach's packages and payments live on this device
+  // (localStorage, per coach) and every answer carries local: true, so the page can say so. Once the
+  // tables exist, the next load moves the device rows up and clears them here. Nothing here throws.
+  //   listClientBilling(coachId)   → [billing]
+  //   upsertClientBilling(row)     → { ok, billing, local? } | { ok: false, error }   (one row per coach + lifter)
+  //   listClientPayments(coachId)  → [payment] (the last 400 days, newest first)
+  //   addClientPayment(row)        → { ok, payment, local? } | { ok: false, error }
+  //   deleteClientPayment(id)      → { ok, local? } | { ok: false, error }   (an id, or the payment)
+  _clKey(kind, coachId) { return 'powa-client-' + kind + '-' + coachId; },
+  _clLocal(kind, coachId, list) {
+    try {
+      if (list === undefined) return JSON.parse(localStorage.getItem(this._clKey(kind, coachId)) || '[]') || [];
+      if (!list.length) localStorage.removeItem(this._clKey(kind, coachId)); else localStorage.setItem(this._clKey(kind, coachId), JSON.stringify(list));
+    } catch (e) {}
+    return list || [];
+  },
+  _clLocalId() { return 'local-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); },
+  // A row in the device's list, shaped and trimmed exactly as the server would keep it.
+  _clLocalBilling(row, old) {
+    const now = new Date().toISOString();
+    const merged = Object.assign({}, _CLIENT_BILLING_DEFAULTS, old || {});
+    Object.keys(row).forEach(k => { if (row[k] !== undefined) merged[k] = row[k]; });
+    return Object.assign(mapDbClientBilling(Object.assign({ id: (old && old.id) || this._clLocalId(), created_at: (old && old.createdAt) || now, updated_at: now },
+      mapJsClientBilling(merged))), { local: true });
+  },
+  async listClientBilling(coachId) {
+    if (!coachId) return [];
+    const { data, error } = await sb.from('client_billing').select(_CLIENT_BILLING_COLS).eq('coach_id', coachId).limit(1000);
+    if (error) {
+      if (_isNotReady(error)) this._cbReady = false; else console.warn('listClientBilling', error);
+      return this._clLocal('billing', coachId).map(b => Object.assign(b, { local: true }));
+    }
+    this._cbReady = true;
+    const out = (data || []).map(mapDbClientBilling);
+    // Device rows go up, except for a lifter the server already has a package for (that one was
+    // saved after the tables arrived, so it's the newer).
+    const all = this._clLocal('billing', coachId);
+    if (all.length) {
+      const loc = all.filter(b => b && b.athleteId && !out.some(x => x.athleteId === b.athleteId));
+      const rows = loc.map(b => mapJsClientBilling(Object.assign({}, _CLIENT_BILLING_DEFAULTS, b, { coachId })));
+      const up = rows.length ? await sb.from('client_billing').upsert(rows, { onConflict: 'coach_id,athlete_id' }).select(_CLIENT_BILLING_COLS) : { data: [] };
+      const keep = [];
+      if (up.error) {
+        // One lifter who has left fails the whole batch: send them one at a time and keep the misses here.
+        for (let i = 0; i < rows.length; i++) {
+          const one = await sb.from('client_billing').upsert(rows[i], { onConflict: 'coach_id,athlete_id' }).select(_CLIENT_BILLING_COLS).single();
+          if (one.error) keep.push(loc[i]); else out.push(mapDbClientBilling(one.data));
+        }
+      } else (up.data || []).forEach(r => out.push(mapDbClientBilling(r)));
+      this._clLocal('billing', coachId, keep);
+      keep.forEach(b => out.push(Object.assign(b, { local: true })));
+    }
+    return out;
+  },
+  async upsertClientBilling(row) {
+    if (!row || !row.coachId || !row.athleteId) return { ok: false, error: new Error('A package needs a coach and a lifter') };
+    if (this._cbReady !== false) {
+      const { data, error } = await sb.from('client_billing').upsert(mapJsClientBilling(row), { onConflict: 'coach_id,athlete_id' }).select(_CLIENT_BILLING_COLS).single();
+      if (!error) return { ok: true, billing: mapDbClientBilling(data) };
+      if (!_isNotReady(error)) return { ok: false, error };
+      this._cbReady = false;
+    }
+    const list = this._clLocal('billing', row.coachId);
+    const billing = this._clLocalBilling(row, list.find(b => b.athleteId === row.athleteId));
+    this._clLocal('billing', row.coachId, list.filter(b => b.athleteId !== row.athleteId).concat([billing]));
+    return { ok: true, billing, local: true };
+  },
+  async listClientPayments(coachId) {
+    if (!coachId) return [];
+    const since = (() => { const d = new Date(); d.setDate(d.getDate() - 400); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+    const PAGE = 1000, out = [];
+    const newestFirst = (list) => list.filter(p => !p.paidOn || p.paidOn >= since)
+      .sort((a, b) => String(b.paidOn).localeCompare(String(a.paidOn)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    for (let from = 0; from < 20000; from += PAGE) {
+      const { data, error } = await sb.from('client_payments').select(_CLIENT_PAYMENT_COLS).eq('coach_id', coachId).gte('paid_on', since)
+        .order('paid_on', { ascending: false }).order('id', { ascending: true }).range(from, from + PAGE - 1);
+      if (error) {
+        if (from > 0) { console.warn('listClientPayments', error); break; }   // keep the pages that came
+        if (_isNotReady(error)) this._cpReady = false; else console.warn('listClientPayments', error);
+        return newestFirst(this._clLocal('payments', coachId).filter(Boolean).map(p => Object.assign(p, { local: true })));
+      }
+      out.push(...(data || []).map(mapDbClientPayment));
+      if (!data || data.length < PAGE) break;
+    }
+    this._cpReady = true;
+    const all = this._clLocal('payments', coachId);
+    if (all.length) {
+      const loc = all.filter(p => p && p.athleteId && Number(p.amountCents) >= 1);
+      const rows = loc.map(p => mapJsClientPayment(Object.assign({}, p, { coachId, paidOn: _isoOrNull(p.paidOn) || since })));
+      const up = rows.length ? await sb.from('client_payments').insert(rows).select(_CLIENT_PAYMENT_COLS) : { data: [] };
+      const keep = [];
+      if (up.error) {
+        for (let i = 0; i < rows.length; i++) {
+          const one = await sb.from('client_payments').insert(rows[i]).select(_CLIENT_PAYMENT_COLS).single();
+          if (one.error) keep.push(loc[i]); else out.push(mapDbClientPayment(one.data));
+        }
+      } else (up.data || []).forEach(r => out.push(mapDbClientPayment(r)));
+      this._clLocal('payments', coachId, keep);
+      keep.forEach(p => out.push(Object.assign(p, { local: true })));
+    }
+    return newestFirst(out);
+  },
+  async addClientPayment(p) {
+    if (!p || !p.coachId || !p.athleteId) return { ok: false, error: new Error('A payment needs a coach and a lifter') };
+    const cents = Math.round(Number(p.amountCents) || 0);
+    if (!(cents >= 1 && cents <= 100000000)) return { ok: false, error: new Error('Enter an amount above zero') };
+    const today = typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10);
+    const row = mapJsClientPayment(Object.assign({}, p, { paidOn: _isoOrNull(p.paidOn) || today }));
+    if (this._cpReady !== false) {
+      const { data, error } = await sb.from('client_payments').insert(row).select(_CLIENT_PAYMENT_COLS).single();
+      if (!error) return { ok: true, payment: mapDbClientPayment(data) };
+      if (!_isNotReady(error)) return { ok: false, error };
+      this._cpReady = false;
+    }
+    const payment = Object.assign(mapDbClientPayment(Object.assign({ id: this._clLocalId(), created_at: new Date().toISOString() }, row)), { local: true });
+    this._clLocal('payments', p.coachId, [payment].concat(this._clLocal('payments', p.coachId)));
+    return { ok: true, payment, local: true };
+  },
+  async deleteClientPayment(idOrPayment) {
+    const pay = idOrPayment && typeof idOrPayment === 'object' ? idOrPayment : null;
+    const id = pay ? pay.id : idOrPayment;
+    if (!id) return { ok: false, error: new Error('No payment to delete') };
+    if (!(pay && pay.local) && !/^local-/.test(String(id)) && this._cpReady !== false) {
+      const { error } = await sb.from('client_payments').delete().eq('id', id);
+      return error ? { ok: false, error } : { ok: true };
+    }
+    // A device payment: in its coach's list on this device (the signed-in coach's, or whichever holds it).
+    const coachId = (pay && pay.coachId) || (window._user && window._user.id), prefix = this._clKey('payments', '');
+    const coaches = [];
+    if (coachId) coaches.push(coachId);
+    else { try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(prefix) === 0) coaches.push(k.slice(prefix.length)); } } catch (e) {} }
+    let hit = false;
+    coaches.forEach(c => {
+      const list = this._clLocal('payments', c), next = list.filter(x => x && x.id !== id);
+      if (next.length !== list.length) { hit = true; this._clLocal('payments', c, next); }
+    });
+    return hit ? { ok: true, local: true } : { ok: false, local: true, error: new Error('That payment isn\'t on this device') };
+  },
+
+  // ---------- INTAKE (migration-intake-2026-10-27.sql) ----------
+  // The questionnaire a lifter fills in on joining a coach: one row per lifter, the answers one
+  // object. The lifter reads and writes their own; their current coach reads it; nobody deletes.
+  // The server sets coach_id (never sent from here). Until the migration runs, the lifter's answers
+  // stay on their device (localStorage, per lifter; local: true) and go up on the next load after
+  // it; a coach sees none until then. Nothing here throws.
+  //   getMyIntake(athleteId)        → intake | null
+  //   saveMyIntake(row)             → { ok, intake, local? } | { ok: false, error, tooLong? }   (an upsert)
+  //   listIntakes(coachId, ids?)    → [intake] for the roster (ids), else whatever RLS lets the coach read
+  _inKey(athleteId) { return 'powa-intake-' + athleteId; },
+  _inLocal(athleteId, row) {
+    try {
+      if (row === undefined) return JSON.parse(localStorage.getItem(this._inKey(athleteId)) || 'null');
+      if (!row) localStorage.removeItem(this._inKey(athleteId)); else localStorage.setItem(this._inKey(athleteId), JSON.stringify(row));
+    } catch (e) {}
+    return row || null;
+  },
+  _inPayload(athleteId, row) {
+    const out = { athlete_id: athleteId, answers: row.answers && typeof row.answers === 'object' && !Array.isArray(row.answers) ? row.answers : {} };
+    if (row.submittedAt !== undefined) out.submitted_at = row.submittedAt || null;   // undefined = leave it as it is
+    return out;
+  },
+  async getMyIntake(athleteId) {
+    if (!athleteId) return null;
+    const { data, error } = await sb.from('intake').select(_INTAKE_COLS).eq('athlete_id', athleteId).maybeSingle();
+    if (error) {
+      if (_isNotReady(error)) this._inReady = false; else console.warn('getMyIntake', error);
+      const loc = this._inLocal(athleteId);
+      return loc ? Object.assign(loc, { local: true }) : null;
+    }
+    this._inReady = true;
+    let out = data ? mapDbIntake(data) : null;
+    const loc = this._inLocal(athleteId);
+    if (loc && out) this._inLocal(athleteId, null);   // the server's copy was saved after the table arrived: it's the newer
+    else if (loc) {
+      const up = await sb.from('intake').upsert(this._inPayload(athleteId, loc), { onConflict: 'athlete_id' }).select(_INTAKE_COLS).single();
+      if (!up.error) { this._inLocal(athleteId, null); out = mapDbIntake(up.data); }
+      else out = Object.assign(loc, { local: true });
+    }
+    return out;
+  },
+  async saveMyIntake(row) {
+    const athleteId = row && row.athleteId;
+    if (!athleteId) return { ok: false, error: new Error('No lifter to save the answers for') };
+    const payload = this._inPayload(athleteId, row);
+    let bytes = 0;
+    try { const j = JSON.stringify(payload.answers); bytes = typeof TextEncoder === 'function' ? new TextEncoder().encode(j).length : j.length; }
+    catch (e) { return { ok: false, error: e }; }
+    if (bytes > 8192) return { ok: false, tooLong: true, error: new Error('The answers are too long to save. Shorten the longest one.') };
+    if (this._inReady !== false) {
+      const { data, error } = await sb.from('intake').upsert(payload, { onConflict: 'athlete_id' }).select(_INTAKE_COLS).single();
+      if (!error) return { ok: true, intake: mapDbIntake(data) };
+      if (!_isNotReady(error)) return { ok: false, error, tooLong: error.code === '23514' || /intake_answers_check/.test(String(error.message || '')) };
+      this._inReady = false;
+    }
+    const old = this._inLocal(athleteId);
+    const intake = { athleteId, coachId: row.coachId !== undefined ? (row.coachId || null) : (old ? old.coachId || null : null), answers: payload.answers,
+      submittedAt: 'submitted_at' in payload ? payload.submitted_at : (old ? old.submittedAt || null : null), updatedAt: new Date().toISOString(), local: true };
+    this._inLocal(athleteId, intake);
+    return { ok: true, intake, local: true };
+  },
+  async listIntakes(coachId, athleteIds) {
+    if (!coachId) return [];
+    if (Array.isArray(athleteIds) && !athleteIds.length) return [];
+    let q = sb.from('intake').select(_INTAKE_COLS);
+    q = Array.isArray(athleteIds) ? q.in('athlete_id', athleteIds) : q.neq('athlete_id', coachId);
+    const { data, error } = await q.limit(1000);
+    if (error) {
+      if (_isNotReady(error)) this._inReady = false; else console.warn('listIntakes', error);
+      return [];   // a lifter's answers are on their own device until the table exists
+    }
+    this._inReady = true;
+    return (data || []).map(mapDbIntake);
+  },
+
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
@@ -3367,7 +3638,9 @@ const DB = {
       coaches: [], athletes: [], invites: [], programs: [], programTemplates: [],
       workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [],
       checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [], programBlocks: [], painReports: [],
-      marketplacePrograms: [], mySales: [], myPurchases: []
+      marketplacePrograms: [], mySales: [], myPurchases: [],
+      // Clients + payments (coach only, never the athlete's) and the intake (the athlete's own; their coach's roster's).
+      clientBilling: [], clientPayments: [], intakes: []
     };
     // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
     const _ciSince = (() => { const d = new Date(); d.setDate(d.getDate() - 70); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
@@ -3383,7 +3656,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams] = await Promise.all([
+      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes] = await Promise.all([
         ownP,
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
@@ -3400,8 +3673,14 @@ const DB = {
           this.listPainReports(athleteIds).catch(() => []),
           this.listNutritionDaily(athleteIds).catch(() => []),
           this.listCoachNotes(profile.id).catch(() => []),
-          this.listTeams(profile.id).catch(() => [])
+          this.listTeams(profile.id).catch(() => []),
+          this.listClientBilling(profile.id).catch(() => []),
+          this.listClientPayments(profile.id).catch(() => []),
+          this.listIntakes(profile.id, athleteIds).catch(() => [])
         ]);
+        empty.clientBilling = clientBilling;
+        empty.clientPayments = clientPayments;
+        empty.intakes = intakes;
         empty.teams = teams;
         empty.healthDaily = healthDaily;
         empty.nutritionDaily = nutritionDaily;
@@ -3424,7 +3703,7 @@ const DB = {
       empty.coaches = await coachesP;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports, intake] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -3438,8 +3717,11 @@ const DB = {
         profile.coach_id ? this.listCheckinAnswers(_ciSince).catch(() => []) : Promise.resolve([]),
         this.listProgramBlocks([profile.id]).catch(() => []),
         profile.coach_id ? this.getMyCoachBrand().catch(() => null) : Promise.resolve(null),
-        this.listPainReports([profile.id]).catch(() => [])
+        this.listPainReports([profile.id]).catch(() => []),
+        this.getMyIntake(profile.id).catch(() => null)
       ]);
+      // The intake questionnaire: their own answers only (never another lifter's, never billing).
+      empty.intakes = intake ? [intake] : [];
       empty.coachBrand = brand;
       empty.painReports = painReports;
       empty.programBlocks = blocks;
