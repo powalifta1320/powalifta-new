@@ -12193,7 +12193,10 @@ function uiFastTap(node, fn) {
     down = false;
     if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) return;
     _fastTap = { at: Date.now(), x: e.clientX, y: e.clientY };
-    fn(e);
+    // The window counts from the END of the work: iOS sends its late click after this handler
+    // returns, so a slow log + re-render (an older phone, a busy page) must not let it through
+    // onto the next set's Log set.
+    try { fn(e); } finally { _fastTap.at = Date.now(); }
   });
   node.addEventListener('click', (e) => { if (Date.now() - _fastTap.at < 700) return; fn(e); });
   return node;
