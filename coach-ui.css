@@ -1460,7 +1460,8 @@ html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active
 .cl-do.is-phone .cl-job :is(.cl-btn, .cl-sbtn) { position: relative; z-index: 1; }
 .cl-do.is-phone .cl-job:has(> .cl-jmain:active) { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
 .cl-do.is-phone .cl-job:has(> .cl-jmain:active)::before, .cl-do.is-phone .cl-job:has(> .cl-jmain:active) + .cl-job::before { opacity: 0; }
-.cl-do.is-phone .cl-jt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; text-wrap: balance; }
+.cl-do.is-phone .cl-jt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; }
+
 
 .cl-do.is-phone .cl-jtx { gap: 2px; }
 .cl-do.is-phone .cl-jd { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
@@ -1479,6 +1480,8 @@ html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active
 .cl-phone .cl-list .cl-row:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
 .cl-phone .cl-list .cl-row:active::before, .cl-phone .cl-list .cl-row:active + .cl-row::before { opacity: 0; }
 .cl-phone .cl-n small { font-size: 13px; }
+.cl-phone .cl-search-ph { height: 44px; }
+
 /* Money owed: one row-card, the same radius as the lists, a press like any tappable card. */
 .cl-phone .cs-dueline { min-height: 56px; padding: 10px 16px 10px 14px; border-radius: var(--cl-r); transition: background-color 140ms ease-out, transform 140ms ease-out; }
 .cl-phone .cs-dueline:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); transform: scale(0.985); }

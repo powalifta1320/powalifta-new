@@ -66,6 +66,11 @@
   // A job's second line: their words in quotes; a voice note as itself, after a small play glyph.
   function detailHtml(t) { return (t.voice ? '<i class="cl-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + esc(t.detail); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  // Phone text that wraps cleanly (escaped text only, never markup): a " · " holds on to the words either
+  // side (no line starts or ends on the dot), a number keeps its unit ("0.3 kg", "1 day ago").
+  function keepDots(text) { return String(text).replace(/ · /g, ' · ').replace(/(\d) (?=[A-Za-z])/g, '$1 ').replace(/ ago\b/g, ' ago'); }
+
+
   function clsNum(c) { var v = parseFloat(String(c == null ? '' : c).replace(',', '.')); return v > 0 ? v : null; }
   function clsText(c) { var v = clsNum(c); return v ? String(num(v)) : String(c || ''); }
   function namesList(list, max) { max = max || 3; return list.slice(0, max).join(', ') + (list.length > max ? ' +' + (list.length - max) : ''); }
@@ -766,13 +771,16 @@
     var openId = it.r ? it.r.athlete.id : (who[0] ? who[0].athlete.id : '');
     var btn = o.icon ? '<button type="button" class="cl-sbtn" data-fix="' + esc(it.key) + '" aria-label="' + esc(fix.label) + '" title="' + esc(fix.label) + '">' + esc(shortLabel(fix)) + '</button>'
       : '<button type="button" class="cl-btn ' + (o.red ? 'red' : 'soft') + '" data-fix="' + esc(it.key) + '">' + esc(fix.label) + '</button>';
-    // On the phone a title takes two lines beside its button: a " · " never starts a line ("Sarah Low
-    // back / 6/10 · deadlift", not "… 6/10 / · deadlift").
-    var title = o.phone ? esc(t.title).replace(/ · /g, ' · ') : esc(t.title);
+    // On the phone a title and its detail take two lines beside the button: a " · " holds on to the
+    // words either side, so no line starts or ends on the dot ("Sarah Low back / 6/10 · deadlift").
+    var title = o.phone ? keepDots(esc(t.title)) : esc(t.title);
+    var detail = !t.detail ? '' : o.phone ? (t.voice ? '<i class="cl-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(t.detail)) : detailHtml(t);
+
     return '<div class="cl-job tone-' + t.tone + (o.big ? ' is-big' : '') + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
       (o.big ? '<span class="cl-jic">' + ic(t.icon) + '</span>' : '') +
       '<button type="button" class="cl-jmain" data-open="' + esc(openId) + '">' + (o.big && !o.phone ? av : (o.big ? '' : av)) +
-        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + title + '</span></span>' + (t.detail ? '<span class="cl-jd">' + detailHtml(t) + '</span>' : '') + '</span></button>' + btn + '</div>';
+        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + title + '</span></span>' + (detail ? '<span class="cl-jd">' + detail + '</span>' : '') + '</span></button>' + btn + '</div>';
+
 
   }
   // One word for a fix in a narrow column: what the button does.
@@ -811,7 +819,8 @@
     var tone = sevOf(top);
     return '<button type="button" class="cl-row' + (o.sel === a.id ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (o.sel === a.id ? 'true' : 'false') + '" tabindex="' + (o.sel === a.id ? '0' : '-1') + '">' +
       avHtml(a) +
-      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + esc(line) + '</span></span></span>' +
+      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + (o.phone ? keepDots(esc(line)) : esc(line)) + '</span></span></span>' +
+
       '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span>' + pipsHtml(R) + '</span>' +
       (o.phone ? '<span class="cl-chev">' + ic('chev') + '</span>' : '') + '</button>';
   }
