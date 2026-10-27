@@ -476,6 +476,10 @@ var Challenges = (function () {
       var n = (ch.memberIds || []).length;
       var line = st === 'upcoming' ? 'Starts ' + shortDate(ch.startsOn) + ' · ' + plural(n, 'lifter')
         : mineRow && mineRow.rank ? (st === 'ended' ? 'You finished ' : 'You\'re ') + (rows.filter(function (r) { return r.rank === mineRow.rank; }).length > 1 ? 'tied ' : '') + ordinal(mineRow.rank) + ' of ' + n + ' · ' + challengeText(ch.metric, mineRow.value, unitNow())
+        // No value yet: say why in the metric's own terms (training today puts no one on a gain board
+        // without a total from before it started).
+        : ch.metric === 'gain' ? 'No total from before it started'
+        : ch.metric === 'asWritten' ? 'Nothing planned for you so far'
         : 'You\'re on the board once you train';
       var b = E('button', { type: 'button', class: 'chl-card chl-mine', 'aria-label': 'Your coach\'s challenge' + (coach && coach.name ? ' (' + coach.name + ')' : '') + ': ' + ch.name + '. ' + line + '. ' + challengeWhen(ch, t) + '. Open the board' });
       b.appendChild(E('span', { class: 'chl-mine-ic', html: IC.trophy }));
