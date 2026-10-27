@@ -421,6 +421,9 @@ bootstrap('coach', () => {
       window.scrollTo(0, 0);
     });
   });
+  // The demo's meet day (meetday.js): today's planned meets carry their attempt plans from the first
+  // paint, so the lifter page and Today say "attempts set" at once (renderRoster paints before the desk boots).
+  if (window._demoMode && window.MeetDay && MeetDay.deskDemo) { try { MeetDay.deskDemo(); } catch (e) {} }
   renderRoster();
   // A reload on an athlete's page (#athlete=ID) comes back to it.
   try { const m = /#athlete=([\w-]+)/.exec(location.hash || ''); if (m) setTimeout(() => openAthletePage(m[1]), 60); } catch (e) {}

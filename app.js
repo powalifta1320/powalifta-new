@@ -15312,6 +15312,17 @@ function isPlannedMeet(m, todayIso) {
   return none && !!m.date && String(m.date).slice(0, 10) > (todayIso || (typeof todayISO === 'function' ? todayISO() : ''));
 }
 function _isoDay(v) { const s = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; }
+// A meet's attempts are set: the attempt planner saved a plan (meets.attempt_plan, or on this laptop
+// under meetday.js's 'powa-attempt-plans' until the meet-day migration runs), or an older field has
+// them. (27 Oct: Today and Lifters read only the older fields and said "attempts not set" after Save plan.)
+function meetAttemptsSet(m) {
+  if (!m) return false;
+  if (m.attempts || m.openers || m.plan) return true;
+  const has = (p) => !!(p && ['squat', 'bench', 'deadlift'].some(l => Array.isArray(p[l]) && p[l].some(v => Number(v) > 0)));
+  if (has(m.attemptPlan)) return true;
+  if (!m.id) return false;
+  try { const lp = JSON.parse(localStorage.getItem('powa-attempt-plans') || 'null'); return !!(lp && has(lp[m.id])); } catch (e) { return false; }
+}
 function _wkBetween(fromMon, toMon) { return Math.round((Date.parse(toMon + 'T12:00:00Z') - Date.parse(fromMon + 'T12:00:00Z')) / (7 * 86400000)); }
 // "W-3" (three weeks out), "Meet week", "W+1" (the week after).
 function meetWeekLabel(weekStartIso, meetIso) {

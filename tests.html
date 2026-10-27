@@ -5088,6 +5088,27 @@ test('a lifter: weeks trained, effort against what was written, weigh-ins', () =
   const B = CL.clBw([{ athleteId: 'a', date: '2026-10-27', weight: 64.1 }, { athleteId: 'a', date: '2026-10-01', weight: 64.6 }, { athleteId: 'b', date: '2026-10-27', weight: 80 }, { athleteId: 'a', date: '2026-08-01', weight: 66 }], 'a', T, 42);
   eq(B.length, 2); eq(B[0].kg, 64.6); eq(B[1].date, '2026-10-27');
 });
+test('a plan saved in the planner counts as attempts set (Today, Lifters, the lifter page)', () => {
+  // 27 Oct: the planner writes meets.attemptPlan, and Today / Lifters only read the older fields, so
+  // a meet with a saved plan still said "attempts not set".
+  const T = '2026-10-26';
+  const plan = { v: 1, strategy: 'standard', squat: [180, 190, 197.5], bench: [120, 125, 130], deadlift: [220, 232.5, 240] };
+  eq(meetAttemptsSet({ attemptPlan: plan }), true);
+  eq(meetAttemptsSet({ attemptPlan: { v: 1, strategy: 'standard', squat: [null, null, null] } }), false, 'a plan with no numbers sets nothing');
+  eq(meetAttemptsSet({}), false); eq(meetAttemptsSet(null), false);
+  eq(meetAttemptsSet({ openers: { squat: 180 } }), true, 'the older fields still count');
+  try { localStorage.setItem('powa-attempt-plans', JSON.stringify({ 'm-local': plan })); } catch (e) {}
+  eq(meetAttemptsSet({ id: 'm-local' }), true, 'a plan kept on this laptop before the meet-day migration');
+  try { localStorage.removeItem('powa-attempt-plans'); } catch (e) {}
+  const today = clRow({ athlete: { id: 'e', name: 'Elena Rossi' }, meet: { days: 1, meet: { name: 'State', date: '2026-10-27', attemptPlan: plan } }, reasons: [{ type: 'meet', group: 2 }] });
+  const J = CL.clJobs([today], { today: T });
+  eq(J[0].type, 'meetday'); eq(J[0].unplanned.length, 0, 'the meet-day job: nobody without attempts');
+  J[0].forId = 'e';
+  assert(/attempts set/.test(CL.jobText(J[0]).detail) && !/not set/.test(CL.jobText(J[0]).detail), CL.jobText(J[0]).detail);
+  const soon = clRow({ meet: { days: 10, meet: { name: 'Open', date: '2026-11-05', attemptPlan: plan } }, reasons: [{ type: 'meet', group: 2 }] });
+  const j2 = CL.jobText(CL.clJobs([soon], { today: T })[0]);
+  assert(/attempts set/.test(j2.detail) && !/not set/.test(j2.detail), j2.detail);
+});
 test('the line, the number and the job texts read in the coach’s words', () => {
   const T = '2026-10-26';
   const r = clRow({ reasons: [{ type: 'pain' }], status: { pain: { report: { bodyPart: 'low_back', severity: 6, lift: 'deadlift', day: '2026-10-25' }, count: 2 } } });
