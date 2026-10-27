@@ -4888,6 +4888,8 @@ async function renderMessageThread(container, opts) {
     html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>' });
   const syncSend = () => { const has = !!ta.value.trim(); sendBtn.classList.toggle('is-empty', !has); composer.classList.toggle('has-text', has); };
   ta.addEventListener('input', syncSend);
+  // The coach's saved replies (weekly-note.js): a small button before the box; a reply lands in it.
+  if (viewerId && viewerId === coachId && window.WeeklyNote && WeeklyNote.replyButton) composer.appendChild(WeeklyNote.replyButton(ta, { coachId: coachId }));
   composer.appendChild(ta);
   composer.appendChild(sendBtn);
   wrap.appendChild(composer);

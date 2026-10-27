@@ -1378,6 +1378,8 @@ function dkCompose(ids, opts) {
   box.appendChild(ta);
   box.appendChild(el('p', { class: 'dk-modal-note' }, 'Each athlete gets it in their own thread, as if you wrote to them alone.'));
   var row = el('div', { class: 'dk-modal-actions' });
+  // Saved replies (weekly-note.js): one quiet button at the start of the row, a menu above it.
+  if (window.WeeklyNote) { var sr = dkBtn('Saved replies', { cls: 'is-quiet wn-saved-btn', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>', onClick: function () { WeeklyNote.pickReply(sr, ta); } }); sr.setAttribute('aria-haspopup', 'true'); row.appendChild(sr); }
   var cancel = dkBtn('Cancel', { onClick: close });
   var send = dkBtn(who.length === 1 ? 'Send' : 'Send to ' + who.length, { primary: true, onClick: go });
   row.appendChild(cancel); row.appendChild(send);
@@ -1385,7 +1387,7 @@ function dkCompose(ids, opts) {
   veil.appendChild(box);
   veil.addEventListener('mousedown', function (e) { if (e.target === veil) close(); });
   function onKey(e) {
-    if (document.querySelector('.dk-pal')) return;   // a palette on top handles its own keys
+    if (document.querySelector('.dk-pal, .wn-rmenu')) return;   // a palette or the saved replies on top handle their own keys
     if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); go(); }
   }
