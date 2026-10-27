@@ -31,7 +31,7 @@ export const SCHEMA = {
   properties: {
     notProgram: { type: 'BOOLEAN' },
     name: { type: 'STRING' },
-    unit: { type: 'STRING', enum: ['kg', 'lb'] },
+    unit: { type: 'STRING' },
     weeks: { type: 'INTEGER' },
     days: {
       type: 'ARRAY',
