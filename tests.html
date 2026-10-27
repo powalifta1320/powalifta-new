@@ -6236,6 +6236,430 @@ test('an entry: the value now, the gain baseline taken once and kept', () => {
   eq(s.value, 1); eq(s.baseline, null); eq(s.name.length, 60, 'names are cut to the column');
 });
 
+/* ===========================================================
+   Coach settings (app.js CoachSettings): a coach's own settings by key, Store.coachSettings (db.js
+   coach_settings, or this device until the migration runs). The demo keeps them in memory.
+   =========================================================== */
+group('coach settings (CoachSettings)');
+test('get and set by key; the demo writes nothing to the device', () => {
+  const saved = Store.get(), was = window._demoMode, u = window._user;
+  try {
+    Store.set(Object.assign(defaultStore(), { coachSettings: { progression: { v: 1, rules: [], fallback: 'keep' } } }));
+    window._demoMode = true; window._user = { id: 'cs-demo', userType: 'coach' };
+    eq(CoachSettings.get('progression').fallback, 'keep');
+    eq(CoachSettings.get('nothing'), null);
+    const p = CoachSettings.set('capacity', { max: 25 });
+    assert(p && typeof p.then === 'function', 'set returns a promise');
+    eq(Store.get().coachSettings.capacity.max, 25, 'the Store has it at once');
+    eq(Store.get().coachSettings.progression.fallback, 'keep', 'other keys kept');
+    eq(localStorage.getItem('powa-coach-settings-cs-demo'), null, 'nothing on the device in the demo');
+    CoachSettings.set('capacity', null);
+    eq(CoachSettings.get('capacity'), null);
+    assert(!('capacity' in Store.get().coachSettings), 'a null removes the key');
+  } finally { Store.set(saved); window._demoMode = was; window._user = u; }
+});
+test('no database on the page: the device keeps it, on the shared key', () => {
+  const saved = Store.get(), was = window._demoMode, u = window._user;
+  try {
+    Store.set(defaultStore());
+    window._demoMode = false; window._user = { id: 'cs-dev', userType: 'coach' };
+    eq(CoachSettings.get('progression'), null, 'no settings yet');
+    CoachSettings.set('capacity', { max: 10 });
+    eq(JSON.parse(localStorage.getItem('powa-coach-settings-cs-dev')).capacity.max, 10);
+    eq(Store.get().coachSettings.capacity.max, 10);
+  } finally { localStorage.removeItem('powa-coach-settings-cs-dev'); Store.set(saved); window._demoMode = was; window._user = u; }
+});
+
+/* ===========================================================
+   Progression rules (app.js): the coach's own rules for next week ("add 2.5 kg when the top set is
+   RPE 8 or less"). The base is last week's top set as lifted; first match wins; main lifts only; a
+   %-written, a logged, a deload or a rep-change block keeps what's written. And next week's
+   suggestions never compound: a week the coach already set from this evidence holds.
+   =========================================================== */
+group('progression rules');
+const PGR = (lift, when, wv, then, tv, id) => ({ id: id || (lift + when + then), lift, when: { kind: when, value: wv }, then: { kind: then, value: tv } });
+test('a rule reads as one plain sentence, in the coach\'s unit', () => {
+  eq(progressionRuleText(PGR('squat', 'rpeAtOrUnder', 8, 'addLoad', 2.5), 'kg'), 'When the top set feels RPE 8 or easier on squat, add 2.5 kg');
+  eq(progressionRuleText(PGR('all', 'rpeAtOrOver', 9.5, 'cutPct', 5), 'kg'), 'When the top set feels RPE 9.5 or harder, take 5% off');
+  eq(progressionRuleText(PGR('all', 'rpeAtOrUnder', 7.5, 'addLoad', 5 * KG_PER_LB), 'lbs'), 'When the top set feels RPE 7.5 or easier, add 5 lbs');
+  eq(progressionRuleText(PGR('bench', 'easier', 1, 'addSet', null), 'kg'), 'When the top set feels at least 1 RPE easier than written on bench, add a set');
+  eq(progressionRuleText(PGR('all', 'harder', 0.5, 'dropSet', null), 'kg'), 'When the top set feels at least half an RPE harder than written, drop a set');
+  eq(progressionRuleText(PGR('deadlift', 'missedReps', 1, 'hold', null), 'kg'), 'When they miss a rep on deadlift, keep the load');
+  eq(progressionRuleText(PGR('all', 'missedReps', 2, 'cutPct', 10), 'kg'), 'When they miss 2 reps or more, take 10% off');
+  eq(progressionRuleText(null, 'kg'), '');
+});
+test('clean: a saved rule set is checked before anything reads it', () => {
+  const c = progressionClean({ v: 1, fallback: 'nonsense', rules: [
+    PGR('squat', 'rpeAtOrUnder', 8.3, 'addLoad', 2.5, 'a'),       // RPE to the half point
+    PGR('all', 'rpeAtOrOver', 12, 'cutPct', 5, 'b'),               // RPE out of range: dropped
+    PGR('all', 'harder', 1, 'cutPct', 40, 'c'),                    // cut over 20%: dropped
+    PGR('press', 'rpeAtOrUnder', 8, 'addLoad', 2.5, 'd'),          // not a main lift: dropped
+    PGR('all', 'rpeAtOrUnder', 8, 'addLoad', 0, 'e'),              // nothing to add: dropped
+    PGR('bench', 'missedReps', 1.6, 'hold', 'x', 'f'),             // reps whole, hold has no value
+    { id: 'g', lift: 'all', when: { kind: 'feelsBad', value: 1 }, then: { kind: 'hold' } }   // unknown kind
+  ] });
+  eq(c.fallback, 'suggest'); eq(c.v, 1);
+  eq(c.rules.map(r => r.id).join(), 'a,f');
+  eq(c.rules[0].when.value, 8.5); eq(c.rules[1].when.value, 2); eq(c.rules[1].then.value, null);
+  const many = progressionClean({ rules: Array.from({ length: 14 }, (_, i) => PGR('all', 'rpeAtOrUnder', 8, 'addLoad', 2.5, 'r' + i)) });
+  eq(many.rules.length, PROGRESSION_MAX_RULES, 'ten at most');
+  eq(progressionClean(null).rules.length, 0); eq(progressionClean(null).fallback, 'suggest');
+  eq(progressionClean({ fallback: 'keep' }).fallback, 'keep');
+  assert(progressionClean({ rules: [PGR('all', 'rpeAtOrUnder', 8, 'addLoad', 2.5)] }).rules[0].id, 'a rule without an id gets one');
+});
+const PGS = (w, r, rpe, done, actual, extra) => Object.assign({ id: 'pg' + Math.random(), weight: w, reps: r, rpe, completed: !!done, actualRpe: actual == null ? null : actual, completedAt: done ? '2026-10-20' : null }, extra || {});
+const pgProg = () => ({ id: 'pg', weeks: [
+  { number: 1, days: [
+    { name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, true, 7.5), PGS(155, 5, 7, true, 7), PGS(155, 5, 7, true, 7)] }] },
+    { name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [PGS(150, 3, 8, true, 9.5), PGS(130, 5, 7, true, 7.5)] },
+      { lift: 'bench', variant: 'Paused', sets: [PGS(110, 4, null, true, 7, { pct: 70 })] }] },
+    { name: 'Pull', exercises: [{ lift: 'deadlift', variant: 'Competition', sets: [PGS(220, 2, 8, true, 8, { plannedReps: 3 })] },
+      { lift: 'other', exerciseName: 'Barbell row', sets: [PGS(60, 10, 8, true, 7)] }] } ] },
+  { number: 2, days: [
+    { name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, false), PGS(160, 5, 7, false), PGS(160, 5, 7, false)] }] },
+    { name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [PGS(152.5, 3, 8, false), PGS(132.5, 5, 7, false)] },
+      { lift: 'bench', variant: 'Paused', sets: [PGS(112.5, 4, null, false, null, { pct: 72.5 })] }] },
+    { name: 'Pull', exercises: [{ lift: 'deadlift', variant: 'Competition', sets: [PGS(225, 3, 8, false)] },
+      { lift: 'other', exerciseName: 'Barbell row', sets: [PGS(60, 10, 8, false)] }] } ] }
+] });
+const PG_RULES = { v: 1, fallback: 'suggest', rules: [
+  PGR('all', 'rpeAtOrUnder', 7.5, 'addLoad', 2.5, 'easy'),
+  PGR('all', 'rpeAtOrOver', 9.5, 'cutPct', 5, 'hard'),
+  PGR('deadlift', 'missedReps', 1, 'hold', null, 'miss')
+] };
+const pgRow = (rev, title, gi) => rev.rows.find(x => x.title === title && x.gi === (gi || 0));
+test('match: the first rule that fits wins; main lifts only; the evidence each kind needs', () => {
+  const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: null });
+  const sq = pgRow(rev, 'Squat'), bp = pgRow(rev, 'Bench'), dl = pgRow(rev, 'Deadlift'), row = rev.rows.find(x => x.lift === 'other');
+  eq(progressionMatch(PG_RULES.rules, sq).id, 'easy');
+  eq(progressionMatch(PG_RULES.rules, bp).id, 'hard');
+  eq(dl.logged.short, 1, 'the deadlift came up a rep short');
+  eq(progressionMatch(PG_RULES.rules, dl).id, 'miss');
+  eq(progressionMatch(PG_RULES.rules, row), null, 'an accessory never matches');
+  eq(progressionMatch([PGR('bench', 'rpeAtOrUnder', 8, 'addLoad', 2.5, 'b8')].concat(PG_RULES.rules), sq).id, 'easy', 'a bench rule passes over the squat');
+  eq(progressionMatch([PGR('squat', 'rpeAtOrUnder', 8, 'addLoad', 5, 's8')].concat(PG_RULES.rules), sq).id, 's8', 'first match wins');
+  eq(progressionMatch([PGR('all', 'easier', 0.5, 'addLoad', 2.5, 'e')], sq).id, 'e', '7.5 against 8 written is half easier');
+  eq(progressionMatch([PGR('all', 'easier', 1, 'addLoad', 2.5, 'e')], sq), null, 'not a full point easier');
+  eq(progressionMatch([PGR('all', 'harder', 1.5, 'cutPct', 5, 'h')], bp).id, 'h');
+  eq(progressionMatch(PG_RULES.rules, { lift: 'squat', logged: { skipped: true, n: 0, of: 3 }, target: { rpe: 8 } }), null, 'a skipped block isn\'t evidence');
+  eq(progressionMatch(PG_RULES.rules, { lift: 'squat', logged: { weight: 180, reps: 3, rpe: null, n: 1, of: 1 }, target: { rpe: 8 } }), null, 'no felt RPE, no RPE rule');
+  eq(progressionMatch([], sq), null); eq(progressionMatch(null, sq), null);
+});
+test('apply: from the top set as lifted, rounded to the gym\'s jump, against what next week says', () => {
+  const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: null });
+  const sq = pgRow(rev, 'Squat'), sqB = pgRow(rev, 'Squat', 1), bp = pgRow(rev, 'Bench'), dl = pgRow(rev, 'Deadlift');
+  let s = progressionApply(PG_RULES.rules[0], sq, 'kg');
+  eq(s.kg, 182.5); eq(s.delta, 2.5); eq(s.dir, 'up'); eq(s.rule.id, 'easy'); eq(s.rule.text, 'When the top set feels RPE 7.5 or easier, add 2.5 kg');
+  s = progressionApply(PG_RULES.rules[0], sqB, 'kg');
+  eq(s.kg, 160, '155 lifted + 2.5 is 157.5, under the 160 you wrote: an add never takes it lower'); eq(s.dir, 'hold'); eq(s.rule.id, 'easy');
+  s = progressionApply(PG_RULES.rules[0], Object.assign({}, sqB, { next: Object.assign({}, sqB.next, { group: Object.assign({}, sqB.next.group, { weight: 155 }) }) }), 'kg');
+  eq(s.kg, 157.5, 'written as it was lifted: + 2.5'); eq(s.dir, 'up');
+  s = progressionApply(PG_RULES.rules[1], bp, 'kg');
+  eq(s.kg, 142.5, '150 less 5% = 142.5'); eq(s.dir, 'down'); eq(s.delta, -10);
+  s = progressionApply(PG_RULES.rules[2], dl, 'kg');
+  eq(s.kg, 220, 'keep the load they lifted'); eq(s.dir, 'down');
+  s = progressionApply(PGR('all', 'rpeAtOrOver', 9.5, 'cutPct', 3), bp, 'kg');
+  eq(s.kg, 145, '145.5 rounds to 145');
+  s = progressionApply(PGR('all', 'rpeAtOrUnder', 8, 'hold', null), Object.assign({}, sq, { next: Object.assign({}, sq.next, { group: Object.assign({}, sq.next.group, { weight: 180 }) }) }), 'kg');
+  eq(s.dir, 'hold'); eq(s.delta, 0); eq(s.kg, 180);
+  // A top set picked by feel next week (no load written): the rule gives the load.
+  s = progressionApply(PG_RULES.rules[0], Object.assign({}, sq, { next: Object.assign({}, sq.next, { group: Object.assign({}, sq.next.group, { weight: 0 }) }) }), 'kg');
+  eq(s.dir, 'set'); eq(s.kg, 182.5);
+  // In pounds: the jump is 5 lb.
+  s = progressionApply(PGR('all', 'rpeAtOrUnder', 8, 'addLoad', 5 * KG_PER_LB), sq, 'lbs');
+  close(s.kg / KG_PER_LB, Math.round((180 + 5 * KG_PER_LB) / KG_PER_LB / 5) * 5, 0.001, 'a 5 lb multiple');
+});
+test('apply: a rule moves next week its own way only', () => {
+  const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: null });
+  const bp = pgRow(rev, 'Bench'), dl = pgRow(rev, 'Deadlift');
+  const lighter = (row, kg) => Object.assign({}, row, { next: Object.assign({}, row.next, { group: Object.assign({}, row.next.group, { weight: kg }) }) });
+  eq(progressionApply(PG_RULES.rules[1], lighter(bp, 140), 'kg').kg, 140, 'take 5% off never lifts a lighter week you wrote');
+  eq(progressionApply(PG_RULES.rules[1], lighter(bp, 140), 'kg').dir, 'hold');
+  eq(progressionApply(PG_RULES.rules[2], lighter(dl, 215), 'kg').kg, 215, 'keep the load never lifts it either');
+  const more = Object.assign({}, pgRow(rev, 'Squat', 1), { count: 2 });
+  const five = Object.assign({}, more, { next: Object.assign({}, more.next, { count: 5 }) });
+  eq(progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'addSet', null), five, 'kg').sets, undefined, 'you wrote 5 sets: add a set keeps 5');
+  eq(progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'dropSet', null), five, 'kg').sets, 1, 'drop a set: one under last week\'s 2');
+});
+test('apply: add a set, drop a set (1 to 10); the load follows the fallback', () => {
+  const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: null });
+  const sqB = pgRow(rev, 'Squat', 1);
+  eq(sqB.count, 2, 'two back-offs last week');
+  let s = progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'addSet', null), sqB, 'kg');
+  eq(s.sets, 3); eq(s.kg, sqB.suggest.kg, 'the load is the fallback\'s'); eq(s.dir, sqB.suggest.dir);
+  s = progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'dropSet', null), sqB, 'kg');
+  eq(s.sets, 1);
+  const one = Object.assign({}, sqB, { count: 1, next: Object.assign({}, sqB.next, { count: 1 }) });
+  eq(progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'dropSet', null), one, 'kg').sets, undefined, 'never under one set');
+  const ten = Object.assign({}, sqB, { count: 10, next: Object.assign({}, sqB.next, { count: 10 }) });
+  eq(progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'addSet', null), ten, 'kg').sets, undefined, 'never over ten');
+  const noFb = Object.assign({}, sqB, { suggest: null });
+  s = progressionApply(PGR('squat', 'rpeAtOrUnder', 7, 'addSet', null), noFb, 'kg');
+  eq(s.kg, 160, 'no fallback: what next week says'); eq(s.dir, 'hold'); eq(s.sets, 3);
+});
+test('engine: next week follows the rules, the rest follows the fallback', () => {
+  const rev = deskWeekReview(pgProg(), { unit: 'kg', rules: PG_RULES });
+  const by = (t, gi) => pgRow(rev, t, gi).suggest;
+  eq(by('Squat').kg, 182.5); eq(by('Squat').rule.id, 'easy');
+  eq(by('Squat', 1).kg, 160); eq(by('Squat', 1).dir, 'hold'); eq(by('Squat', 1).rule.id, 'easy');
+  eq(by('Bench').kg, 142.5); eq(by('Bench').rule.id, 'hard');
+  eq(by('Bench', 1).dir, 'hold', '130 + 2.5 is what you wrote'); eq(by('Bench', 1).kg, 132.5); eq(by('Bench', 1).rule.id, 'easy');
+  eq(pgRow(rev, 'Paused Bench').suggest, null, 'a % block follows the max');
+  eq(by('Deadlift').kg, 220); eq(by('Deadlift').rule.id, 'miss');
+  const row = rev.rows.find(x => x.lift === 'other').suggest;
+  eq(row.rule, undefined, 'an accessory follows the fallback'); eq(row.dir, 'up');
+  // Fallback "keep what's written": no rule, no change.
+  const keep = deskWeekReview(pgProg(), { unit: 'kg', rules: Object.assign({}, PG_RULES, { fallback: 'keep' }) });
+  const krow = keep.rows.find(x => x.lift === 'other').suggest;
+  eq(krow.dir, 'hold'); eq(krow.kg, 60);
+  // An array of rules works too (the fallback is POWALIFTA's suggestion).
+  eq(pgRow(deskWeekReview(pgProg(), { unit: 'kg', rules: PG_RULES.rules }), 'Squat').suggest.rule.id, 'easy');
+  // No rules: exactly as before.
+  eq(pgRow(deskWeekReview(pgProg(), { unit: 'kg', rules: null }), 'Squat').suggest.rule, undefined);
+});
+test('engine: a rep change, a deload or a logged block keeps what you wrote', () => {
+  const p = pgProg();
+  const nx = p.weeks[1].days[0].exercises[0].sets;
+  nx[0].reps = 2; nx[0].rpe = 8.5;   // heavier double next week: not the same work
+  let s = pgRow(deskWeekReview(p, { unit: 'kg', rules: PG_RULES }), 'Squat').suggest;
+  eq(s.rule, undefined, 'a rep change: the fallback decides');
+  const d = pgProg();
+  d.weeks[1].days[0].exercises[0].sets[0].rpe = 6;   // a deload week
+  s = pgRow(deskWeekReview(d, { unit: 'kg', rules: PG_RULES }), 'Squat').suggest;
+  eq(s.rule, undefined, 'a deload: the fallback decides');
+  const l = pgProg();
+  l.weeks[1].days[1].exercises[0].sets[0].completed = true;   // already lifting next week's bench
+  eq(pgRow(deskWeekReview(l, { unit: 'kg', rules: PG_RULES }), 'Bench').suggest, null, 'a logged block: no suggestion');
+});
+test('no compounding: a published suggestion holds, a hand edit holds, new sets start from the plan', () => {
+  const prog = { id: 'cmp', weeks: [
+    { number: 1, days: [{ name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [PGS(152.5, 3, 8, true, 9.5), PGS(152.5, 3, 8, false)] }] }] },
+    { number: 2, days: [{ name: 'Bench', exercises: [{ lift: 'bench', variant: 'Competition', sets: [PGS(155, 3, 8, false), PGS(155, 3, 8, false)] }] }] }
+  ] };
+  const r1 = deskWeekReview(prog, { unit: 'kg', rules: null });
+  const s1 = r1.rows[0].suggest;
+  eq(s1.dir, 'down'); eq(s1.kg, 147.5);
+  eq(r1.rows[0].next.from, 155, 'the plan\'s own load');
+  const edit = deskSuggestionEdit(prog, r1.nextIdx, r1.rows[0]);
+  eq(deskApplyNextWeek(prog.weeks, r1.nextIdx, [edit]), 1);
+  eq(prog.weeks[1].days[0].exercises[0].sets[0].weight, 147.5);
+  const r2 = deskWeekReview(prog, { unit: 'kg', rules: null });
+  eq(r2.rows[0].suggest.dir, 'hold', 'published: it holds (it suggested 140 before the fix)');
+  eq(r2.rows[0].suggest.kg, 147.5); eq(r2.rows[0].suggest.delta, 0);
+  assert(r2.rows[0].next.acted, 'the week is marked as set from this evidence');
+  eq(r2.rows.filter(x => x.suggest && x.suggest.delta).length, 0, 'nothing left to write');
+  // The coach edits it by hand after publishing: their number stands.
+  prog.weeks[1].days[0].exercises[0].sets.forEach(s => { s.weight = 150; });
+  const r3 = deskWeekReview(prog, { unit: 'kg', rules: null });
+  eq(r3.rows[0].suggest.dir, 'hold'); eq(r3.rows[0].suggest.kg, 150);
+  // New evidence (the second set logged) on the block as published: worked out again from the plan's 155.
+  prog.weeks[1].days[0].exercises[0].sets.forEach(s => { s.weight = 147.5; });
+  Object.assign(prog.weeks[0].days[0].exercises[0].sets[1], { completed: true, actualRpe: 8, completedAt: '2026-10-21' });
+  const r4 = deskWeekReview(prog, { unit: 'kg', rules: null });
+  eq(r4.rows[0].next.acted, false, 'more was logged since');
+  eq(r4.rows[0].next.from, 155, 'still the plan\'s own load');
+  eq(r4.rows[0].suggest.kg, 147.5, 'the heaviest set still felt @9.5: 147.5 again, not 140');
+  eq(r4.rows[0].suggest.dir, 'hold');
+  // After a hand edit, the coach's number is the plan.
+  prog.weeks[1].days[0].exercises[0].sets.forEach(s => { s.weight = 160; });
+  eq(deskWeekReview(prog, { unit: 'kg', rules: null }).rows[0].next.from, 160);
+  // Rules never compound either: from the top set as lifted.
+  const rp = { id: 'cmp2', weeks: JSON.parse(JSON.stringify(prog.weeks)) };
+  rp.weeks[1].days[0].exercises[0].sets.forEach(s => { delete s.adj; s.weight = 155; });
+  const q1 = deskWeekReview(rp, { unit: 'kg', rules: PG_RULES });
+  eq(q1.rows[0].suggest.kg, 145, '152.5 less 5%');
+  deskApplyNextWeek(rp.weeks, q1.nextIdx, [deskSuggestionEdit(rp, q1.nextIdx, q1.rows[0])]);
+  const q2 = deskWeekReview(rp, { unit: 'kg', rules: PG_RULES });
+  eq(q2.rows[0].suggest.dir, 'hold'); eq(q2.rows[0].suggest.kg, 145);
+});
+test('the apply path writes clean sets: no stale range top, no planned load, the count it said', () => {
+  const prog = { id: 'ap', weeks: [
+    { number: 1, days: [{ name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, true, 6.5)] }] }] },
+    { number: 2, days: [{ name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(182.5, 3, 8, false, null, { weightHi: 185, plannedWeight: 180, tempo: '3-1-0', pause: 2 }), PGS(182.5, 3, 8, false, null, { weightHi: 185, plannedWeight: 180, tempo: '3-1-0', pause: 2 })] }] }] }
+  ] };
+  const rev = deskWeekReview(prog, { unit: 'kg', rules: null });
+  eq(rev.rows[0].suggest.kg, 185, 'up to the top of the range');
+  const e = deskSuggestionEdit(prog, rev.nextIdx, rev.rows[0]);
+  eq(e.sets.length, 2); eq(e.sets[0].weight, 185);
+  eq(e.sets[0].weightHi, undefined, 'no 185-185 range left behind'); eq(e.sets[0].plannedWeight, undefined, 'no stale planned load');
+  eq(e.sets[0].tempo, '3-1-0'); eq(e.sets[0].pause, 2, 'the set fields ride along');
+  eq(e.di, 0); eq(e.ei, 0); eq(e.startIdx, 0); eq(e.count, 2); eq(e.sig, rev.rows[0].sig); eq(e.from, 180);
+  // A rule that adds a set: one set last week, two next week, the new one a fresh copy.
+  const one = { id: 'ap1', weeks: [
+    { number: 1, days: [{ name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, true, 6.5)] }] }] },
+    { number: 2, days: [{ name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, false)] }] }] }
+  ] };
+  const add = deskWeekReview(one, { unit: 'kg', rules: [PGR('all', 'rpeAtOrUnder', 7, 'addSet', null)] });
+  eq(add.rows[0].suggest.sets, 2);
+  const ea = deskSuggestionEdit(one, add.nextIdx, add.rows[0]);
+  eq(ea.sets.length, 2); eq(ea.count, 1);
+  assert(ea.sets[1].id && ea.sets[1].id !== ea.sets[0].id, 'the new set has its own id');
+  eq(deskApplyNextWeek(one.weeks, add.nextIdx, [ea]), 1);
+  eq(one.weeks[1].days[0].exercises[0].sets.length, 2);
+  eq(deskWeekReview(one, { unit: 'kg', rules: [PGR('all', 'rpeAtOrUnder', 7, 'addSet', null)] }).rows[0].suggest.dir, 'hold', 'and it holds after');
+  eq(deskSuggestedSets([{ id: 'a', weight: 100, reps: 5 }], 102.5, 3).length, 3);
+  eq(deskSuggestedSets([{ id: 'a', weight: 100 }, { id: 'b', weight: 100 }, { id: 'c', weight: 100 }], 100, 1).map(s => s.id).join(), 'a');
+});
+test('publishing ticks the week to write off, for a lifter with nothing flagged too', () => {
+  const prog = { id: 'tw', athleteId: 'tw-a', weeks: [
+    { number: 1, days: [{ name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, true, 6.5)] }] }] },
+    { number: 2, days: [{ name: 'Squat', exercises: [{ lift: 'squat', variant: 'Competition', sets: [PGS(180, 3, 8, false)] }] }] }
+  ] };
+  const r = { athlete: { id: 'tw-a', name: 'Ryan O\'Neill' }, reasons: [], wins: [], status: { program: prog } };
+  const saved = Store.get();
+  try {
+    Store.set(defaultStore());
+    let tw = CoachLifters.toWriteOf([r], {});
+    eq(tw.length, 1, 'felt easier: a week to write'); eq(tw[0].week, 2);
+    let jobs = CoachLifters.clJobs([r], { today: '2026-10-27', done: {}, toWrite: tw });
+    eq(jobs.filter(j => j.kind === 'write' && !j.done).length, 1);
+    const rev = deskWeekReview(prog, { unit: 'kg' });
+    deskApplyNextWeek(prog.weeks, rev.nextIdx, [deskSuggestionEdit(prog, rev.nextIdx, rev.rows[0])]);
+    eq(CoachLifters.toWriteOf([r], {}).length, 0, 'published: nothing left to write (it suggested again before)');
+    tw = CoachLifters.toWriteOf([r], { 'tw-a': 'apply' });
+    eq(tw.length, 1, 'published this week: the job stays, to show done');
+    jobs = CoachLifters.clJobs([r], { today: '2026-10-27', done: { 'tw-a': 'apply' }, toWrite: tw });
+    eq(jobs.filter(j => j.kind === 'write' && j.done).length, 1, 'ticked off');
+    eq(CoachLifters.toWriteOf([r], { 'tw-a': 1 }).length, 0, 'Done without writing anything adds no write job');
+  } finally { Store.set(saved); }
+});
+test('where a rule shows: the fix says "(your rule)", the week to write too', () => {
+  const saved = Store.get();
+  try {
+    Store.set(Object.assign(defaultStore(), { coachSettings: { progression: PG_RULES } }));
+    const prog = pgProg();
+    const r = { athlete: { id: 'yr-a', name: 'Marcus Doyle' }, reasons: [{ type: 'overshoot', group: 3, tone: 'alert', text: 'Bench @9.5 vs @8' }], wins: [], status: { program: prog } };
+    const fx = CoachHome.fixFor(r, r.reasons[0]);
+    eq(fx.k, 'apply'); eq(fx.label, 'Bench 142.5 × 3 @8 next week (your rule)');
+    eq(fx.short, '142.5 × 3 @8 next week (your rule)'); eq(fx.rule.id, 'hard');
+    const tw = CoachLifters.toWriteOf([r], {});
+    eq(tw[0].rule, true);
+    const job = CoachLifters.clJobs([r], { today: '2026-10-27', done: {}, toWrite: tw }).find(j => j.kind === 'write');
+    eq(CoachLifters.jobText(job).detail, 'Week 2 has suggestions (your rule)');
+    Store.update(st => { st.coachSettings = {}; });
+    eq(CoachHome.fixFor(r, r.reasons[0]).label.indexOf('(your rule)'), -1, 'no rules: POWALIFTA\'s suggestion, no mark');
+  } finally { Store.set(saved); }
+});
+test('the roster preview: what the rules would change this week, changes first', () => {
+  const saved = Store.get();
+  try {
+    Store.set(Object.assign(defaultStore(), { athletes: [{ id: 'pv-a', name: 'Arjun Mehta' }, { id: 'pv-b', name: 'Sarah Kim' }], programs: [Object.assign(pgProg(), { id: 'pv-1', athleteId: 'pv-a' })] }));
+    const p = progressionPreview(PG_RULES, { unit: 'kg' });
+    eq(p.lifters, 1);
+    assert(p.items.length >= 4, 'squat, back-offs, bench, deadlift');
+    eq(p.items[0].name, 'Arjun Mehta');
+    eq(p.items.filter(x => x.dir === 'hold').length, 2, 'two stay');
+    eq(p.items[p.items.length - 1].dir, 'hold', 'stays come last');
+    eq(progressionPreviewText(p.items[0], 'kg'), 'Arjun’s squat 180 → 182.5');
+    eq(progressionPreviewText(p.items.find(x => x.dir === 'hold'), 'kg'), 'Arjun’s squat back-offs stay 160');
+    eq(progressionPreviewText(p.items.find(x => x.title === 'Bench' && x.gi === 0), 'kg'), 'Arjun’s bench 152.5 → 142.5');
+    eq(progressionPreview({ rules: [] }, { unit: 'kg' }).items.length, 0, 'no rules, nothing');
+  } finally { Store.set(saved); }
+});
+
+/* ===========================================================
+   Reuse a block (app.js reuseBlockWeeks / reuseTopSets): a good block given to another lifter, scaled to
+   their maxes through the team pipeline, fresh (nothing logged, no extra sets, no attempts, no dates).
+   =========================================================== */
+group('reuse a block');
+const RBS = (w, r, rpe, extra) => Object.assign({ id: 'rb' + Math.random(), weight: w, reps: r, rpe, completed: false, actualRpe: null, completedAt: null }, extra || {});
+const RB_DONE = { completed: true, actualRpe: 8, completedAt: '2026-10-20', lastLogId: 'log-1', note: 'moved fast' };
+const rbBlock = () => [
+  { id: 'w1', number: 1, days: [
+    { id: 'd1', name: 'Squat Day', scheduledDate: '2026-10-19', exercises: [
+      { id: 'e1', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'Drive hard', srcId: 'm-e1', ovr: true, sets: [
+        RBS(180, 3, 8, Object.assign({ plannedWeight: 0 }, RB_DONE)),             // the top set by feel, lifted at 180
+        RBS(157.5, 4, 7, Object.assign({ plannedWeight: 155, plannedReps: 5 }, RB_DONE)),   // a back-off lifted heavier, a rep short
+        RBS(155, 5, 7, { adj: { from: 150, to: 155, sig: 'x' } }),
+        RBS(100, 5, 6, Object.assign({ extra: true }, RB_DONE)),                  // added on the day
+        RBS(200, 1, 9, { attempt: true, missed: true, skipped: true })           // a PR attempt
+      ] },
+      { id: 'e2', lift: 'squat', variant: 'Paused', exerciseName: '', note: '', sets: [RBS(147.5, 4, null, { pct: 70, pause: 2, pauseAt: 'bottom' })] }
+    ] },
+    { id: 'd2', name: 'Bench Day', exercises: [
+      { id: 'e3', lift: 'bench', variant: 'Competition', exerciseName: '', note: '', sets: [RBS(100, 5, 7, { acc: 'bands', accTxt: 'light' })] },
+      { id: 'e4', lift: 'other', variant: '', exerciseName: 'Barbell row', note: '', sets: [RBS(60, 10, 8)] }
+    ] },
+    { id: 'd3', name: 'Pull Day', exercises: [
+      { id: 'e5', lift: 'deadlift', variant: 'Competition', exerciseName: '', note: '', sets: [RBS(190, 4, 7)] },
+      { id: 'e6', lift: 'deadlift', variant: 'RDL', exerciseName: '', note: '', sets: [RBS(150, 6, 7, { tempo: '3s down' })] }
+    ] }
+  ] },
+  { id: 'w2', number: 2, days: [{ id: 'd4', name: 'Squat Day', exercises: [{ id: 'e7', lift: 'squat', variant: 'Competition', exerciseName: '', note: '', sets: [RBS(160, 5, 7.5)] }] }] }
+];
+const RB_SRC = { squat: 210, bench: 140, deadlift: 255 };
+const rbWalk = (weeks, fn) => weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => fn(s, e, d, w)))));
+test('scaled to their maxes: kg becomes a % of the block\'s maxes, then their own loads', () => {
+  const r = reuseBlockWeeks(rbBlock(), { srcMaxes: RB_SRC, dstMaxes: { squat: 160, bench: 85, deadlift: 200 }, unit: 'kg' });
+  const w1 = r.weeks[0];
+  const sq = w1.days[0].exercises[0].sets;
+  eq(sq.length, 3, 'the extra set and the attempt are gone');
+  eq(sq[0].weight, 0, 'a top set by feel stays by feel (the plan had no load)'); eq(sq[0].reps, 3); eq(sq[0].rpe, 8);
+  eq(sq[1].reps, 5, 'the plan\'s reps, not the 4 lifted');
+  eq(sq[1].weight, 117.5, '155 of 210 is 74%; 74% of 160 = 118.4 → 117.5');
+  eq(sq[2].weight, 117.5);
+  eq(w1.days[0].exercises[1].sets[0].weight, 112.5, 'paused squat 70% of 160 = 112');
+  eq(w1.days[0].exercises[1].sets[0].pause, 2, 'the set fields ride along');
+  eq(w1.days[1].exercises[0].sets[0].weight, 60, 'bench 100 of 140 → 71% of 85 = 60.35 → 60');
+  eq(w1.days[1].exercises[0].sets[0].acc, 'bands');
+  eq(w1.days[1].exercises[1].sets[0].weight, 60, 'an accessory keeps its kg');
+  eq(w1.days[2].exercises[1].sets[0].weight, 117.5, 'an RDL scales against the deadlift max (150 of 255 = 59%, of 200 = 118)');
+  eq(w1.days[2].exercises[1].sets[0].tempo, '3s down');
+  eq(r.weeks[1].days[0].exercises[0].sets[0].weight, 122.5, 'week 2 too');
+  eq(r.noMax.length, 0); eq(r.noSrcMax.length, 0);
+});
+test('fresh: nothing logged, no dates, no team links, no marks, new ids', () => {
+  const src = rbBlock();
+  const r = reuseBlockWeeks(src, { srcMaxes: RB_SRC, dstMaxes: { squat: 160, bench: 85, deadlift: 200 }, unit: 'kg' });
+  let bad = [];
+  rbWalk(r.weeks, (s, e, d, w) => {
+    ['completed', 'actualRpe', 'completedAt', 'lastLogId', 'note', 'plannedWeight', 'plannedReps', 'extra', 'attempt', 'missed', 'skipped', 'adj', 'srcId', 'ovr'].forEach(k => {
+      if (k === 'completed' ? s[k] !== false : s[k] != null && s[k] !== '') bad.push(k);
+    });
+  });
+  eq(bad.join(), '', 'no logged field, mark or link left');
+  eq(r.weeks[0].days[0].scheduledDate, undefined, 'no pinned date');
+  eq(r.weeks[0].days[0].exercises[0].srcId, undefined); eq(r.weeks[0].days[0].exercises[0].ovr, undefined);
+  eq(r.weeks[0].days[0].exercises[0].note, 'Drive hard', 'the coach\'s note stays');
+  assert(r.weeks[0].id !== 'w1' && r.weeks[0].days[0].id !== 'd1' && r.weeks[0].days[0].exercises[0].sets[0].id !== src[0].days[0].exercises[0].sets[0].id, 'new ids');
+  eq(r.weeks[0].number, 1); eq(r.weeks[1].number, 2);
+  eq(src[0].days[0].exercises[0].sets[0].completed, true, 'the block itself is untouched');
+});
+test('no max on either side: by RPE where the set has one', () => {
+  const r = reuseBlockWeeks(rbBlock(), { srcMaxes: { squat: 210, bench: 0, deadlift: 255 }, dstMaxes: { squat: 160, bench: 85 }, unit: 'kg' });
+  eq(r.noSrcMax.join(), 'bench'); eq(r.noMax.join(), 'deadlift');
+  const w1 = r.weeks[0];
+  eq(w1.days[1].exercises[0].sets[0].weight, 0, 'the block had no bench max: bench goes by its RPE (100 kg was Arjun\'s, not hers)');
+  eq(w1.days[1].exercises[0].sets[0].rpe, 7);
+  eq(w1.days[2].exercises[0].sets[0].weight, 0, 'no deadlift max for her: no load');
+  eq(w1.days[2].exercises[0].sets[0].pct, 74.5, 'the % stays, so a max later fills it (190 of 255 = 74.5%)');
+  const lb = reuseBlockWeeks(rbBlock(), { srcMaxes: RB_SRC, dstMaxes: { squat: 160 * 1.0, bench: 85, deadlift: 200 }, unit: 'lbs' });
+  const lbs = lb.weeks[0].days[0].exercises[0].sets[1].weight / KG_PER_LB;
+  close(lbs, Math.round(lbs / 5) * 5, 0.05, 'pound loads land on 5 lb (kg kept to two decimals, like a team push)');
+});
+test('the top sets a preview shows: the heaviest loaded set per lift in week 1, against the block\'s', () => {
+  const src = rbBlock();
+  const r = reuseBlockWeeks(src, { srcMaxes: RB_SRC, dstMaxes: { squat: 160, bench: 85, deadlift: 200 }, unit: 'kg' });
+  const t = reuseTopSets(src, r.weeks);
+  eq(t.map(x => x.lift).join(), 'squat,bench,deadlift');
+  eq(t[0].kg, 117.5); eq(t[0].srcKg, 155); eq(t[0].reps, 5); eq(t[0].rpe, 7); eq(t[0].pct, 76);
+  eq(t[1].kg, 60); eq(t[1].pct, 60);
+  eq(t[2].kg, 150, 'deadlift: the competition lift\'s heaviest loaded set'); eq(t[2].srcKg, 190);
+  eq(reuseTopSetText(t[0], 'Arjun Mehta', 'kg'), 'Squat 117.5 × 5 @7 (76% of Arjun’s)');
+  const byFeel = reuseTopSets([{ days: [{ exercises: [{ lift: 'squat', variant: 'Competition', sets: [RBS(0, 3, 8)] }] }] }], [{ days: [{ exercises: [{ lift: 'squat', variant: 'Competition', sets: [RBS(0, 3, 8)] }] }] }]);
+  eq(reuseTopSetText(byFeel[0], 'Arjun Mehta', 'kg'), 'Squat 3 @8, load by RPE');
+  eq(reuseTopSets([], []).length, 0);
+});
+test('the coach demo: Arjun\'s Base Block for Sarah, from his maxes to hers', () => {
+  const CD = _buildCoachDemoData();
+  const blk = (CD.store.programBlocks || []).find(b => b.athleteId === 'demo-a1' && Array.isArray(b.weeks) && b.weeks.length);
+  assert(blk, 'Arjun has a past block with weeks');
+  const r = reuseBlockWeeks(blk.weeks, { srcMaxes: { squat: 200, bench: 135, deadlift: 245 }, dstMaxes: { squat: 135, bench: 75, deadlift: 175 }, unit: 'kg' });
+  let logged = 0, sets = 0;
+  rbWalk(r.weeks, s => { sets++; if (s.completed || s.actualRpe != null) logged++; });
+  assert(sets > 10, 'a whole block'); eq(logged, 0, 'nothing logged comes across');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

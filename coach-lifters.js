@@ -171,7 +171,7 @@
       if (!w || !w.r) return;
       var id = w.r.athlete.id;
       if (items.some(function (it) { return it.r && it.r.athlete.id === id && it.kind === 'write'; })) return;
-      items.push({ key: id + ':write', kind: 'write', type: 'write', tier: 4, order: ORDER.indexOf('write'), r: w.r, week: w.week, name: w.r.athlete.name, done: covers(done[id], 'write') });
+      items.push({ key: id + ':write', kind: 'write', type: 'write', tier: 4, order: ORDER.indexOf('write'), r: w.r, week: w.week, rule: !!w.rule, name: w.r.athlete.name, done: covers(done[id], 'write') });
     });
     return items.sort(jobCmp);
   }
@@ -284,8 +284,10 @@
       .map(function (b) { return { date: String(b.date).slice(0, 10), kg: Number(b.weight) }; })
       .sort(function (a, b) { return a.date.localeCompare(b.date); });
   }
-  // Lifters whose next week has suggestions from the RPE they logged (a week to write), not already flagged for a block.
-  function toWriteOf(rows) {
+  // Lifters whose next week has suggestions to take (a week to write), not already flagged for a block. done: the
+  // done map (doneMap): a lifter whose next week was published this week ('apply') keeps the job, ticked off,
+  // after its suggestions are written in. → [{ r, week, rule }] (rule: a suggestion comes from the coach's rules)
+  function toWriteOf(rows, done) {
     if (typeof deskWeekReview !== 'function') return [];
     var out = [];
     (rows || []).forEach(function (r) {
@@ -294,7 +296,9 @@
       if (!prog) return;
       try {
         var rev = deskWeekReview(prog);
-        if (rev.nextIdx >= 0 && rev.rows.some(function (x) { return x.suggest && x.suggest.delta; })) out.push({ r: r, week: prog.weeks[rev.nextIdx] ? (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) : '' });
+        if (rev.nextIdx < 0) return;
+        var acts = rev.rows.filter(function (x) { return typeof deskSuggestActionable === 'function' ? deskSuggestActionable(x) : !!(x.suggest && x.suggest.delta); });
+        if (acts.length || (done && done[r.athlete.id] === 'apply')) out.push({ r: r, week: prog.weeks[rev.nextIdx] ? (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) : '', rule: acts.some(function (x) { return !!x.suggest.rule; }) });
       } catch (e) {}
     });
     return out;
@@ -364,7 +368,7 @@
       case 'blockend': return { icon: 'pen', tone: 'write', title: 'Last week of the block', detail: prog ? clip(prog.name, 40) + ' · nothing after it' : '' };
       case 'blockdone': return { icon: 'pen', tone: 'write', title: 'Block finished', detail: 'Every set logged' };
       case 'stalling': return { icon: 'trend', tone: 'quiet', title: 'Flat for 3 weeks', detail: 'No main lift up' };
-      case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write', detail: it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready' };
+      case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write' + (it.rule ? ' (your rule)' : ''), detail: (it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready') + (it.rule ? ' (your rule)' : '') };
     }
     return { icon: 'eye', tone: 'quiet', title: x.text || 'Worth a look', detail: x.detail || '' };
   }
@@ -684,7 +688,8 @@
   }
   function model(opts) {
     var R = rowsNow(opts && opts.reuse), all = R.rows, q = R.q;
-    var jobs = clJobs(all, { today: todayIso(), done: doneMap(q), toWrite: toWriteOf(all) });
+    var dm = doneMap(q);
+    var jobs = clJobs(all, { today: todayIso(), done: dm, toWrite: toWriteOf(all, dm) });
     var order = {};
     jobs.forEach(function (it, i) {
       if (it.done) return;
@@ -786,7 +791,7 @@
   // One word for a fix in a narrow column: what the button does.
   function shortLabel(f) {
     var l = String((f && f.label) || '');
-    if (f && f.k === 'apply') return 'Apply';
+    if (f && f.k === 'apply') return f.rule ? 'Apply rule' : 'Apply';   // the coach's own progression rule wrote it
     if (/^Reply/.test(l)) return 'Reply';
     if (/^Check in/.test(l)) return 'Check in';
     if (/nudge/i.test(l)) return 'Nudge';
@@ -1243,11 +1248,11 @@
   function offDesk() { S.deskOn = false; }
   // The desk rail's Today count: the jobs still open, the same number as Today's header.
   function openCount() {
-    try { var R = rowsNow(true); return clJobs(R.rows, { today: todayIso(), done: doneMap(R.q), toWrite: toWriteOf(R.rows) }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
+    try { var R = rowsNow(true), dm = doneMap(R.q); return clJobs(R.rows, { today: todayIso(), done: dm, toWrite: toWriteOf(R.rows, dm) }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
   }
 
   window.CoachLifters = { model: model, renderToday: renderToday, renderDesk: renderDesk, renderPhone: renderPhone, renderPane: renderPane, open: open, select: select, refresh: refresh, offDesk: offDesk, openCount: openCount,
     teamTilesHtml: teamTilesHtml, paint: paint,
     clRing: clRing, clTier: clTier, clJobs: clJobs, clTopJob: clTopJob, clTeam: clTeam, clWeeks: clWeeks, clEffort: clEffort, clBw: clBw,
-    clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText };
+    clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText, toWriteOf: toWriteOf };
 })();

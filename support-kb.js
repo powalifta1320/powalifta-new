@@ -1595,5 +1595,38 @@ window.POWA_SUPPORT_KB = [
    "prize"
   ],
   "a": "Challenges are for a coach's own lifters, with a board of their own at the top of **Club** (clubs are separate). As a coach, tap **New challenge**: pick what counts (**Most sessions**: days trained while it runs; **Most PRs**: sets that beat their best e1RM; **Biggest gain**: their best total against their best in the 8 weeks before it started; **As written**: sessions done of the ones you wrote), who (all your lifters, or one team), when (this month, or next month near its end; 4 weeks; or your own dates, up to 92 days), the name and a prize if you like, then **Start challenge**. Your lifters get a notification and see it at the top of Club: their place (\"You're 3rd of 12 · 9 sessions\") and the days left; a tap opens the board with them marked. The board shows places, names and values only, never anyone's sessions or program; lifters on the same value share a place. A lifter with no value yet shows a dash instead of a place: on **Biggest gain**, no total from the 8 weeks before it started; on **As written**, nothing planned for them so far. It updates as they log sets. **End challenge** (on the board, with a confirm) stops it early; past challenges stay under **Past challenges** with their winner."
+ },
+ {
+  "id": "coach-progression-rules",
+  "q": "Can I set my own rules for how next week's loads move?",
+  "t": [
+   "progression rules",
+   "my own rules",
+   "add 2.5 kg when",
+   "autoregulation rules",
+   "rules for next week",
+   "rpe rule",
+   "auto progression",
+   "progression rule",
+   "when the top set feels"
+  ],
+  "a": "Yes. On the laptop open **Settings** → **Progression rules**; on the phone, **You** → **Progression rules**. Each rule is one sentence you set with three choices: **When the top set feels RPE 8 or easier on squat, add 2.5 kg**. The condition can be an RPE or easier, an RPE or harder, easier or harder than you wrote by a set amount, or missed reps; the change can add a load (in your unit), take a % off, keep the load, or add or drop a set. You can have up to 10, and the first rule that fits a block wins: drag them into order on the laptop, or use ⋯ on the phone.\n\nA rule works from last week's top set as lifted and moves next week only its own way (an add never takes a load under what you wrote). It only touches squat, bench and deadlift blocks that repeat last week's reps: a deload, a rep change, a % block or a block they've started keeps what you wrote. **When no rule fits** picks POWALIFTA's suggestion (by how the top set felt against what you wrote) or **Keep what's written**.\n\nUnder your rules you see what they would change on your roster this week. Nothing goes to a lifter until you publish their week: in a lifter's week each suggestion from a rule says **· your rule**, with the rule in its tooltip, and Today's fixes say **(your rule)**. Once you publish a week it holds; it doesn't suggest again from the new load.",
+  "app": "Yes. Go to **You** → **Progression rules**. Each rule is one sentence you set with three choices: **When the top set feels RPE 8 or easier on squat, add 2.5 kg**. Tap a choice to change it; the condition can be an RPE or easier, an RPE or harder, easier or harder than you wrote, or missed reps, and the change can add a load, take a % off, keep the load, or add or drop a set. Up to 10 rules; the first that fits wins, and ⋯ moves or deletes one.\n\nA rule works from last week's top set as lifted and only touches squat, bench and deadlift blocks that repeat last week's reps. **When no rule fits** picks POWALIFTA's suggestion or **Keep what's written**. Under your rules you see what they'd change on your roster this week; nothing reaches a lifter until you apply or publish their week, and a fix from a rule says **(your rule)**."
+ },
+ {
+  "id": "coach-reuse-block",
+  "q": "Can I give one lifter's block to another lifter?",
+  "t": [
+   "reuse a block",
+   "use for another lifter",
+   "copy a block",
+   "give a block",
+   "same block for",
+   "reuse program",
+   "duplicate a block",
+   "use this block for"
+  ],
+  "a": "Yes. Open the lifter, then **Blocks**: open a block (or compare two) and choose **Use for another lifter…**. Pick who gets it, and before anything is written you see each lifter's week 1 top sets on their own maxes, like **Squat 140 × 3 @8 (76% of Arjun's)**, and what happens to the block they're on.\n\nThe block is scaled through each lifter's maxes: squat, bench and deadlift loads become a % of the maxes it was written from and come back as theirs, rounded to their unit. Where the block had no max, or the lifter has none yet, that lift goes by its RPE. It starts next Monday, fresh: nothing logged, no attempts, no dates pinned.\n\n**Give to 2 lifters** writes it. If a lifter already logged sets in their current block, that block is kept in their past blocks first; if it can't be kept, nothing changes for them and the message says so. A lifter on a team is told the next team push replaces it. Each lifter gets a heads-up.",
+  "app": "Yes. Open the lifter, tap **Blocks**, then the ⓘ on a block, then **Use for another lifter…**. Tick who gets it and tap **See their loads**: each lifter's week 1 top sets on their own maxes (like **Squat 140 × 3 @8 (76% of Arjun's)**) and what happens to the block they're on.\n\nWhere there's no max for a lift, it goes by RPE. It starts next Monday with nothing logged. **Give to 2 lifters** writes it; a block they've already logged in is kept in their past blocks first, and each lifter gets a heads-up."
  }
 ];

@@ -792,6 +792,12 @@ function _buildCoachDemoData() {
         { id: 'demo-cnote-2', coachId: DC, athleteId: 'demo-a1', body: 'Night shifts Tue and Thu: heavy days go Mon, Wed, Sat.', createdAt: daysAgo(12) + 'T10:00:00Z', updatedAt: daysAgo(12) + 'T10:00:00Z' },
         { id: 'demo-cnote-3', coachId: DC, athleteId: 'demo-a3', body: 'New job since September. If he goes quiet, shorten the sessions before cutting days.', createdAt: daysAgo(20) + 'T10:00:00Z', updatedAt: daysAgo(20) + 'T10:00:00Z' }
       ],
+      // The coach's own settings (CoachSettings): two progression rules, the way a coach writes them. Next week's
+      // suggestions follow them (Sarah's easy squat and bench here; on the laptop, Marcus's bench at @9.5 too).
+      coachSettings: { progression: { v: 1, fallback: 'suggest', rules: [
+        { id: 'demo-rule-easy', lift: 'all', when: { kind: 'rpeAtOrUnder', value: 7.5 }, then: { kind: 'addLoad', value: 2.5 } },
+        { id: 'demo-rule-hard', lift: 'all', when: { kind: 'rpeAtOrOver', value: 9.5 }, then: { kind: 'cutPct', value: 5 } }
+      ] } },
       marketplacePrograms, mySales, myPurchases: []
     }
   };
@@ -11498,19 +11504,264 @@ function deskViewMatch(key, row, nowMs) {
 }
 function deskViewCount(rows, key, nowMs) { return rows.filter(r => deskViewMatch(key, r, nowMs)).length; }
 
+// ===== COACH SETTINGS (2026-10-28) =====
+// A coach's own settings by key: one small JSON object per coach (db.js coach_settings; this device until the
+// migration runs, under 'powa-coach-settings-<coachId>', moved up on the first load after it). db.js hydrates it
+// into Store.coachSettings; the demo seeds it and keeps it in memory. 'progression' holds the progression rules
+// (below); the roster capacity check keeps its own key the same way.
+//   CoachSettings.get(key) → the value, or null
+//   CoachSettings.set(key, value) → Promise<{ ok, data, local? }>: the Store first (screens repaint at once), then
+//     the save; a refused save puts the old value back. A null value removes the key.
+window.CoachSettings = {
+  get: function (key) { const cs = Store.get().coachSettings || {}; return cs[key] === undefined ? null : cs[key]; },
+  set: function (key, value) {
+    const was = (Store.get().coachSettings || {})[key];
+    const put = (v) => Store.update(st => { const o = Object.assign({}, st.coachSettings || {}); if (v === null || v === undefined) delete o[key]; else o[key] = v; st.coachSettings = o; });
+    put(value);
+    if (window._demoMode) return Promise.resolve({ ok: true, data: Store.get().coachSettings, demo: true });
+    const u = getCurrentUser();
+    const patch = {}; patch[key] = value === undefined ? null : value;
+    if (window.DB && typeof DB.saveCoachSettings === 'function') {
+      return DB.saveCoachSettings(patch, u && u.id).then(r => {
+        if (!r || !r.ok) { put(was); return r || { ok: false }; }
+        // The server's copy brings any key saved elsewhere; this key stays what the coach last chose.
+        const mine = (Store.get().coachSettings || {})[key];
+        if (r.data) Store.update(st => { const o = Object.assign({}, r.data); if (mine === undefined) delete o[key]; else o[key] = mine; st.coachSettings = o; });
+        return r;
+      }).catch(e => { put(was); return { ok: false, error: e }; });
+    }
+    // No database on this page: the device keeps it, on the key db.js moves up later.
+    if (u && u.id) { try { localStorage.setItem('powa-coach-settings-' + u.id, JSON.stringify(Store.get().coachSettings || {})); } catch (e) {} }
+    return Promise.resolve({ ok: true, data: Store.get().coachSettings, local: true });
+  }
+};
+
+// ===== PROGRESSION RULES (2026-10-28) =====
+// The coach's own rules for next week, in their words: "add 2.5 kg when the top set is RPE 8 or less". Saved per
+// coach (CoachSettings 'progression'): { v: 1, rules: [rule] (ten at most; the first that fits wins),
+// fallback: 'suggest' (POWALIFTA's suggestion, smartNextLoad) | 'keep' (what's written) }.
+//   rule = { id, lift: 'all' | 'squat' | 'bench' | 'deadlift',
+//            when: { kind, value }: rpeAtOrUnder / rpeAtOrOver (the felt RPE against a number), easier / harder (felt
+//                  against what was written, by value RPE), missedReps (value reps short or more on a set),
+//            then: { kind, value }: addLoad (kg; the coach types it in their unit), cutPct (1-20), hold,
+//                  addSet / dropSet (next week's block count, 1 to 10; the load follows the fallback) }
+// The base is last week's top set as lifted; a load rounds to the gym's jump (loadStepKg). Main lifts only, and only
+// where next week repeats last week's work: a rep change, a deload, a % block or one already lifted keeps what's
+// written. Pure: unit-tested (tests.html "progression rules"). `var`: the coach demo's first render reads them.
+var PROGRESSION_MAX_RULES = 10;
+var PROGRESSION_WHEN = ['rpeAtOrUnder', 'rpeAtOrOver', 'easier', 'harder', 'missedReps'];
+var PROGRESSION_THEN = ['addLoad', 'cutPct', 'hold', 'addSet', 'dropSet'];
+function _prgNum(v) { if (v === '' || v == null) return null; const n = Number(v); return isFinite(n) ? n : null; }
+// A saved rule set, checked before anything reads it (it is coach-written JSON, from any device): unknown kinds,
+// values out of range and other lifts are dropped, RPE goes to the half point, ten rules at most, ids unique.
+// → { v: 1, rules, fallback }
+function progressionClean(p) {
+  const src = p && typeof p === 'object' ? p : {};
+  const list = Array.isArray(src) ? src : (Array.isArray(src.rules) ? src.rules : []);
+  const rules = [], ids = {};
+  list.forEach((r, i) => {
+    if (rules.length >= PROGRESSION_MAX_RULES || !r || typeof r !== 'object') return;
+    const lift = r.lift == null || r.lift === '' ? 'all' : String(r.lift);
+    if (lift !== 'all' && MAIN_LIFTS.indexOf(lift) < 0) return;
+    const wk = r.when && r.when.kind, tk = r.then && r.then.kind;
+    if (PROGRESSION_WHEN.indexOf(wk) < 0 || PROGRESSION_THEN.indexOf(tk) < 0) return;
+    let wv = _prgNum(r.when.value), tv = _prgNum(r.then.value);
+    if (wk === 'rpeAtOrUnder' || wk === 'rpeAtOrOver') { if (wv == null) return; wv = Math.round(wv * 2) / 2; if (wv < 5 || wv > 10) return; }
+    else if (wk === 'easier' || wk === 'harder') { if (wv == null) return; wv = Math.round(wv * 2) / 2; if (wv < 0.5 || wv > 3) return; }
+    else { wv = wv == null ? 1 : Math.round(wv); if (wv < 1 || wv > 5) return; }
+    if (tk === 'addLoad') { if (tv == null || !(tv > 0) || tv > 25) return; tv = Math.round(tv * 1000) / 1000; }
+    else if (tk === 'cutPct') { if (tv == null) return; tv = Math.round(tv * 2) / 2; if (tv < 1 || tv > 20) return; }
+    else tv = null;
+    let id = r.id != null && r.id !== '' ? String(r.id).slice(0, 64) : '';
+    if (!id || ids[id]) id = 'rule-' + Math.random().toString(36).slice(2, 10);
+    ids[id] = 1;
+    rules.push({ id, lift, when: { kind: wk, value: wv }, then: { kind: tk, value: tv } });
+  });
+  return { v: 1, rules, fallback: src.fallback === 'keep' ? 'keep' : 'suggest' };
+}
+// The weight in the coach's unit, as a rule says it: "2.5 kg", "5 lbs".
+function _prgLoad(kg, unit) {
+  const lbs = unit === 'lbs';
+  const v = Math.round((lbs ? Number(kg) / KG_PER_LB : Number(kg)) * 10) / 10;
+  return _num(v) + (lbs ? ' lbs' : ' kg');
+}
+// The part of a rule after the comma: "add 2.5 kg", "take 5% off", "keep the load", "add a set", "drop a set".
+function progressionThenText(then, unit) {
+  const v = Number(then && then.value);
+  switch (then && then.kind) {
+    case 'addLoad': return 'add ' + _prgLoad(v, unit);
+    case 'cutPct': return 'take ' + _num(v) + '% off';
+    case 'hold': return 'keep the load';
+    case 'addSet': return 'add a set';
+    case 'dropSet': return 'drop a set';
+  }
+  return '';
+}
+// The part after "When": "the top set feels RPE 8 or easier", "the top set feels at least 1 RPE harder than
+// written", "they miss a rep". The rules screen shows it as one tappable choice.
+function progressionWhenText(when) {
+  const v = Number(when && when.value);
+  const by = (x) => (x === 0.5 ? 'half an' : _num(x));
+  switch (when && when.kind) {
+    case 'rpeAtOrUnder': return 'the top set feels RPE ' + _num(v) + ' or easier';
+    case 'rpeAtOrOver': return 'the top set feels RPE ' + _num(v) + ' or harder';
+    case 'easier': return 'the top set feels at least ' + by(v) + ' RPE easier than written';
+    case 'harder': return 'the top set feels at least ' + by(v) + ' RPE harder than written';
+    case 'missedReps': return 'they miss ' + (v > 1 ? _num(v) + ' reps or more' : 'a rep');
+  }
+  return '';
+}
+// A rule as one plain sentence: "When the top set feels RPE 8 or easier on squat, add 2.5 kg".
+function progressionRuleText(rule, unit) {
+  if (!rule || !rule.when || !rule.then) return '';
+  const when = progressionWhenText(rule.when), then = progressionThenText(rule.then, unit);
+  if (!when || !then) return '';
+  const on = rule.lift && rule.lift !== 'all' ? ' on ' + String(LIFT_LABELS[rule.lift] || rule.lift).toLowerCase() : '';
+  return 'When ' + when + on + ', ' + then;
+}
+// The first rule that fits a row of deskWeekReview (its lift and the evidence the rule asks for), or null.
+// Main lifts only; a skipped block isn't evidence.
+function progressionMatch(rules, row) {
+  const list = Array.isArray(rules) ? rules : (rules && Array.isArray(rules.rules) ? rules.rules : []);
+  if (!list.length || !row || MAIN_LIFTS.indexOf(row.lift) < 0) return null;
+  const L = row.logged;
+  if (!L || L.skipped || !(Number(L.weight) > 0)) return null;
+  const felt = L.rpe == null || L.rpe === '' ? null : Number(L.rpe);
+  const t = row.target || {};
+  const wrote = t.rpe == null || t.rpe === '' ? null : (t.rpeHi != null && Number(t.rpeHi) > Number(t.rpe) ? Number(t.rpeHi) : Number(t.rpe));
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i];
+    if (!r || !r.when || !r.then) continue;
+    if (r.lift && r.lift !== 'all' && r.lift !== row.lift) continue;
+    const v = Number(r.when.value);
+    switch (r.when.kind) {
+      case 'rpeAtOrUnder': if (felt != null && felt <= v + 1e-9) return r; break;
+      case 'rpeAtOrOver': if (felt != null && felt >= v - 1e-9) return r; break;
+      case 'easier': if (felt != null && wrote != null && felt <= wrote - v + 1e-9) return r; break;
+      case 'harder': if (felt != null && wrote != null && felt >= wrote + v - 1e-9) return r; break;
+      case 'missedReps': if (Number(L.short) >= (v || 1)) return r; break;
+    }
+  }
+  return null;
+}
+// A load against what next week says now: { kg, delta, dir } with dir up | down | hold (within half a jump: what's
+// written) | set (next week has no load yet: picked by feel).
+function _deskSuggestOf(kg, cur, step) {
+  const k = Math.round(Number(kg) * 1000) / 1000, c = Number(cur) || 0;
+  if (!(k > 0)) return { kg: c, delta: 0, dir: 'hold' };
+  if (!(c > 0)) return { kg: k, delta: k, dir: 'set' };
+  const delta = Math.round((k - c) * 1000) / 1000;
+  if (Math.abs(delta) < step / 2) return { kg: c, delta: 0, dir: 'hold' };
+  return { kg: k, delta, dir: k < c ? 'down' : 'up' };
+}
+// What a rule makes of next week's block: → { kg, delta, dir, sets?, rule: { id, text } } or null.
+// row: a deskWeekReview row (row.suggest is the fallback's answer: addSet / dropSet keep its load).
+// The load is worked out from last week's top set as lifted, and a rule moves next week the way it says, never the
+// other way: "add" never takes a load under what's written (you wrote 160 after 155 lifted: 160 stays), "take off"
+// and "keep" never put one over it. Set counts the same way.
+function progressionApply(rule, row, unit) {
+  if (!rule || !rule.then || !row || !row.next || !row.next.group || !row.logged || row.logged.skipped) return null;
+  const step = typeof loadStepKg === 'function' ? loadStepKg(unit) : 2.5;
+  const cur = Number(row.next.group.weight) || 0;
+  const base = Number(row.logged.weight) || 0;
+  const v = Number(rule.then.value);
+  const round = (x) => (x > 0 ? Math.round(x / step) * step : 0);
+  let kg = 0, sets;
+  switch (rule.then.kind) {
+    case 'addLoad': kg = round(base + v); if (cur > 0) kg = Math.max(cur, kg); break;
+    case 'cutPct': kg = round(base * (1 - v / 100)); if (cur > 0) kg = Math.min(cur, kg); break;
+    case 'hold': kg = round(base); if (cur > 0) kg = Math.min(cur, kg); break;
+    case 'addSet': case 'dropSet': {
+      kg = row.suggest && Number(row.suggest.kg) > 0 ? Number(row.suggest.kg) : cur;
+      const was = Number(row.count) > 0 ? Number(row.count) : (Number(row.next.count) || 1);
+      const now = Number(row.next.count) || was;
+      let n = Math.max(1, Math.min(10, was + (rule.then.kind === 'addSet' ? 1 : -1)));
+      n = rule.then.kind === 'addSet' ? Math.max(now, n) : Math.min(now, n);
+      if (n !== now) sets = n;
+      break;
+    }
+    default: return null;
+  }
+  const loads = rule.then.kind !== 'addSet' && rule.then.kind !== 'dropSet';
+  if (loads && !(kg > 0)) return null;
+  const out = _deskSuggestOf(kg, cur, step);
+  if (sets != null) out.sets = sets;
+  out.rule = { id: rule.id, text: progressionRuleText(rule, unit) };
+  return out;
+}
+// What the coach's rules would do to the roster's next weeks, for the rules screen: every block a rule decides,
+// changes first (in roster order), the ones a rule keeps as written last. opts: { unit, programs, athletes } (the
+// Store's by default). → { items: [{ athleteId, name, title, lift, gi, from, to, dir, sets, setsFrom, rule }], lifters }
+function progressionPreview(progression, opts) {
+  opts = opts || {};
+  const unit = opts.unit || (typeof getUnit === 'function' ? getUnit() : 'kg');
+  const st = Store.get();
+  const progs = opts.programs || st.programs || [], people = opts.athletes || st.athletes || [];
+  const prg = progressionClean(progression);
+  const items = [];
+  if (!prg.rules.length) return { items, lifters: 0 };
+  progs.forEach(p => {
+    const a = people.find(x => x && x.id === p.athleteId);
+    if (!a) return;
+    let rev = null;
+    try { rev = deskWeekReview(p, { unit, rules: prg }); } catch (e) { rev = null; }
+    if (!rev || rev.nextIdx < 0) return;
+    rev.rows.forEach(r => {
+      const s = r.suggest;
+      if (!s || !s.rule || !r.next) return;
+      items.push({ athleteId: a.id, name: a.name || 'Lifter', title: r.title, lift: r.lift, gi: r.gi, from: Number(r.next.group.weight) || 0, to: s.kg,
+        dir: s.dir, sets: s.sets, setsFrom: r.next.count, rule: s.rule });
+    });
+  });
+  const changed = (x) => x.dir !== 'hold' || (x.sets != null && x.sets !== x.setsFrom);
+  items.sort((x, y) => (changed(y) ? 1 : 0) - (changed(x) ? 1 : 0));
+  return { items, lifters: new Set(items.map(x => x.athleteId)).size };
+}
+// One preview line, in the coach's unit: "Arjun's squat 180 → 182.5", "Sarah's bench stays 92.5",
+// "Mei's squat back-offs 3 → 4 sets", "Leo's bench gets 117.5" (a load picked by feel until now).
+function progressionPreviewText(it, unit) {
+  if (!it) return '';
+  const w = (kg) => _num(unit === 'lbs' ? Math.round(Number(kg) / KG_PER_LB * 10) / 10 : Number(kg));
+  const first = String(it.name || 'Lifter').trim().split(/\s+/)[0];
+  const many = it.gi > 0;
+  const what = first + '’s ' + String(it.title || LIFT_LABELS[it.lift] || 'lift').toLowerCase() + (many ? ' back-offs' : '');
+  const setsMove = it.sets != null && it.sets !== it.setsFrom;
+  const load = it.dir === 'set' ? ' gets ' + w(it.to) : it.dir === 'hold' ? '' : ' ' + w(it.from) + ' → ' + w(it.to);
+  if (setsMove) return what + ' ' + it.setsFrom + ' → ' + it.sets + ' sets' + (load ? ',' + load : '');
+  if (it.dir === 'hold') return what + (many ? ' stay ' : ' stays ') + w(it.to);
+  return what + load;
+}
+// Next week repeats last week's work: the same reps, not a deload (its RPE more than half a point under, or its
+// load more than 10% under, what was written last week). Only then do the coach's rules move it.
+function _prgSameWork(g, ng, tgt) {
+  if (!g || !ng || !(Number(g.reps) > 0) || Number(ng.reps) !== Number(g.reps)) return false;
+  const nt = ng.rpe == null || ng.rpe === '' ? null : (ng.rpeHi != null && Number(ng.rpeHi) > Number(ng.rpe) ? Number(ng.rpeHi) : Number(ng.rpe));
+  if (nt != null && tgt != null && nt < tgt - 0.5) return false;
+  if (Number(ng.weight) > 0 && Number(g.weight) > 0 && Number(ng.weight) < Number(g.weight) * 0.9) return false;
+  return true;
+}
+
 // ===== THE ATHLETE WORKSPACE (laptop, W1b 2026-10-22) =====
 // "Review last week" and "write next week" as one table. The week reviewed is the latest one
 // with a logged set; next week is the one after it. One row per block of identical sets (a top
 // set, its back-offs) of every exercise: what was written, the heaviest set logged in it, the
 // RPE against the target, and the matching block of next week with a load suggested from how
-// the logged set felt (smartNextLoad, the same rule Train uses set to set). Pure; unit-tested.
-// → { lastIdx, nextIdx, rows: [{ key, di, ei, gi, day, title, lift, target, logged, delta,
-//      next: { di, ei, startIdx, count, group, locked } | null, suggest: { kg, delta, dir } | null }] }
+// the logged set felt (smartNextLoad, the same rule Train uses set to set) or by the coach's own
+// progression rules (opts.rules: the saved object, a list, or null for none; left out: the coach's own).
+// Never compounding (2026-10-28): the suggestion comes from last week's evidence and the plan's own load
+// (row.next.from), and a block already written from this evidence (the mark a publish leaves,
+// deskApplyNextWeek) holds. Pure; unit-tested.
+// → { lastIdx, nextIdx, rows: [{ key, di, ei, gi, day, title, lift, target, count (sets written in the block),
+//      sig (the evidence: week, top set, sets lifted), logged: { weight, reps, rpe, n, of, short } | { skipped },
+//      delta, next: { di, ei, startIdx, count, group, locked, from, acted } | null,
+//      suggest: { kg, delta, dir, sets?, rule?: { id, text }, acted? } | null }] }
 function _deskPlanSets(ex) { return ((ex && ex.sets) || []).map(s => Object.assign({}, s, { weight: planWeight(s), reps: s.plannedReps || s.reps })); }
 function deskWeekReview(prog, opts) {
   opts = opts || {};
   const weeks = (prog && prog.weeks) || [];
   const unit = opts.unit || (typeof getUnit === 'function' ? getUnit() : 'kg');
+  const step = typeof loadStepKg === 'function' ? loadStepKg(unit) : 2.5;
+  const prg = progressionClean(opts.rules !== undefined ? opts.rules : (window.CoachSettings ? CoachSettings.get('progression') : null));
   let last = -1;
   weeks.forEach((w, wi) => { if ((w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s.completed)))) last = wi; });
   if (last < 0) return { lastIdx: -1, nextIdx: weeks.length ? 0 : -1, rows: [] };
@@ -11531,43 +11782,92 @@ function deskWeekReview(prog, opts) {
       const top = done.slice().sort((a, b) => (Number(b.weight) || 0) - (Number(a.weight) || 0) || (Number(b.actualRpe) || 0) - (Number(a.actualRpe) || 0))[0] || null;
       const tgt = g.rpe == null || g.rpe === '' ? null : (g.rpeHi != null && Number(g.rpeHi) > Number(g.rpe) ? Number(g.rpeHi) : Number(g.rpe));
       const felt = top && top.actualRpe != null && top.actualRpe !== '' ? Number(top.actualRpe) : null;
+      // Reps short: a set lifted for fewer reps than written (plannedReps holds what was written).
+      const short = done.reduce((m, s) => { const pr = _prgNum(s.plannedReps); return pr != null && Number(s.reps) < pr ? Math.max(m, pr - Number(s.reps)) : m; }, 0);
       const ng = ngroups[gi] || null;
       const nsets = ng ? nex.sets.slice(ng.startIdx, ng.startIdx + ng.count) : [];
       const locked = nsets.some(s => s.completed);
+      // The evidence, signed: the week, the top set as lifted and how many sets were lifted.
+      const sig = last + ':' + (top ? (Number(top.weight) || 0) + 'x' + (Number(top.reps) || 0) + '@' + (felt == null ? '-' : felt) : '-') + ':' + done.length;
+      // What next week says now, and the plan's own load. A publish marks the block it wrote (adj: { from, to, sig }):
+      // written from this same evidence, it holds; new evidence works from the plan's load again, as long as the
+      // block still says what the publish wrote (a hand edit since is the coach's new plan).
+      const cur = ng ? Number(ng.weight) || 0 : 0;
+      const mark = nsets[0] && nsets[0].adj && typeof nsets[0].adj === 'object' ? nsets[0].adj : null;
+      const acted = !!(mark && mark.sig === sig);
+      const from = mark && !acted && _prgNum(mark.from) != null && Math.abs((_prgNum(mark.to) || 0) - cur) < 0.01 ? Number(mark.from) : cur;
+      const open = !!(top && ng && !locked && ng.pct == null);
       let suggest = null;
-      // A % set's load follows the max, and RPE-less back-offs give nothing to go on: no guess.
-      if (top && ng && !locked && ng.pct == null && felt != null && tgt != null && ng.rpe != null && ng.rpe !== '') {
+      if (open && acted) suggest = { kg: cur, delta: 0, dir: 'hold', acted: true };
+      else if (open && felt != null && tgt != null && ng.rpe != null && ng.rpe !== '') {
+        // A % set's load follows the max, and RPE-less back-offs give nothing to go on: no guess.
         const s = smartNextLoad({ weight: top.weight, planned: g.weight, reps: top.reps, rpe: felt, target: tgt },
-          { weight: ng.weight, reps: ng.reps, rpe: ng.rpe, weightHi: ng.weightHi }, unit);
-        if (s) suggest = { kg: s.kg, delta: s.delta, dir: s.dir };
-        else if (Number(ng.weight) > 0) suggest = { kg: Number(ng.weight), delta: 0, dir: 'hold' };
+          { weight: from, reps: ng.reps, rpe: ng.rpe, weightHi: ng.weightHi }, unit);
+        suggest = s ? _deskSuggestOf(s.kg, cur, step) : (from > 0 ? _deskSuggestOf(from, cur, step) : null);
+        if (suggest && prg.fallback === 'keep') suggest = cur > 0 ? { kg: cur, delta: 0, dir: 'hold' } : null;
       }
-      rows.push({
+      const row = {
         key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(ex), lift: ex.lift,
-        target: g,
-        logged: top ? { weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length }
+        target: g, count: sets.filter(s => !s.extra).length, sig,
+        logged: top ? { weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length, short }
           : (sets.some(s => s.skipped) ? { skipped: true, n: 0, of: sets.length } : null),
         delta: top && felt != null && tgt != null ? Math.round((felt - tgt) * 10) / 10 : null,
-        next: ng ? { di, ei: nei, startIdx: ng.startIdx, count: ng.count, group: ng, locked } : null,
+        next: ng ? { di, ei: nei, startIdx: ng.startIdx, count: ng.count, group: ng, locked, from, acted } : null,
         suggest
-      });
+      };
+      // The coach's rules: first match wins, where next week repeats last week's work.
+      if (open && !acted && prg.rules.length && _prgSameWork(g, ng, tgt)) {
+        const rule = progressionMatch(prg.rules, row);
+        const rs = rule ? progressionApply(rule, row, unit) : null;
+        if (rs) row.suggest = rs;
+      }
+      rows.push(row);
     });
   }));
   return { lastIdx: last, nextIdx: next, rows };
 }
+// A suggestion the coach can take: a load to move, or a set count to change (a hold that only says so is not).
+function deskSuggestActionable(row) {
+  const s = row && row.suggest;
+  return !!(s && row.next && !row.next.locked && (s.dir !== 'hold' || (s.sets != null && s.sets !== row.next.count)));
+}
 // The suggested load written into next week's block: same sets, the new weight (a range keeps its
-// top only while it's still above the new load).
-function deskSuggestedSets(sets, kg) {
-  return (sets || []).map(s => {
+// top only while it's still above the new load), no planned load left behind. count (optional): the
+// block's new size, 1 to 10 (a set added is a fresh copy of the last).
+function deskSuggestedSets(sets, kg, count) {
+  let out = (sets || []).map(s => {
     const n = Object.assign({}, s, { weight: Math.round(Number(kg) * 1000) / 1000 });
     delete n.plannedWeight;
     if (!(Number(n.weightHi) > n.weight)) delete n.weightHi;
     return n;
   });
+  const want = Number(count) > 0 ? Math.max(1, Math.min(10, Math.round(Number(count)))) : out.length;
+  if (want < out.length) out = out.slice(0, want);
+  while (out.length && out.length < want) {
+    const c = Object.assign({}, out[out.length - 1], { id: uid('set'), completed: false, actualRpe: null, completedAt: null });
+    delete c.lastLogId; delete c.skipped; delete c.missed;
+    out.push(c);
+  }
+  return out;
+}
+// The edit that writes a row's suggestion into next week (desk and phone alike): the block's sets at the
+// suggested load and count, signed with the evidence and the plan's own load, so deskApplyNextWeek marks the
+// block and the week holds after. null when there's nothing to write.
+function deskSuggestionEdit(prog, nextIdx, row) {
+  const wk = prog && prog.weeks && prog.weeks[nextIdx];
+  const nx = row && row.next, s = row && row.suggest;
+  if (!wk || !nx || nx.locked || !s) return null;
+  const ex = ((wk.days || [])[nx.di] || { exercises: [] }).exercises[nx.ei];
+  if (!ex) return null;
+  const cur = (ex.sets || []).slice(nx.startIdx, nx.startIdx + nx.count);
+  if (cur.length !== nx.count || cur.some(x => x.completed)) return null;
+  return { di: nx.di, ei: nx.ei, startIdx: nx.startIdx, count: nx.count, sets: deskSuggestedSets(cur, s.kg, s.sets), sig: row.sig, from: nx.from };
 }
 // Apply next week: replace each edited block of sets in week nextIdx. A block with a logged set
-// in it is never touched. edits: [{ di, ei, startIdx, count, sets }]. Mutates weeks; returns how
-// many blocks changed.
+// in it is never touched. edits: [{ di, ei, startIdx, count, sets, sig?, from? }]. An edit that carries
+// the evidence it answers (sig) marks its sets (adj: { from: the plan's own load, to: what this wrote,
+// sig }), so the next review holds instead of suggesting again from the new load. Mutates weeks; returns
+// how many blocks changed.
 function deskApplyNextWeek(weeks, nextIdx, edits) {
   const wk = (weeks || [])[nextIdx];
   if (!wk) return 0;
@@ -11578,7 +11878,8 @@ function deskApplyNextWeek(weeks, nextIdx, edits) {
     if (!ex || !Array.isArray(e.sets) || !e.sets.length) return;
     const cur = (ex.sets || []).slice(e.startIdx, e.startIdx + e.count);
     if (cur.length !== e.count || cur.some(s => s.completed)) return;
-    ex.sets.splice(e.startIdx, e.count, ...e.sets);
+    const sets = e.sig != null ? e.sets.map(s => Object.assign({}, s, { adj: { from: Number(e.from) || 0, to: Number(planWeight(s)) || 0, sig: String(e.sig) } })) : e.sets;
+    ex.sets.splice(e.startIdx, e.count, ...sets);
     // A team program's exercise written for this lifter is theirs: the next team push asks.
     if (ex.srcId != null) ex.ovr = true;
     n++;
@@ -14873,7 +15174,8 @@ function teamLoadKg(pct, maxKg, unit, stepKg) {
 // fields (tempo, pauses, bands...) reach every lifter.
 function _tmRx(ms) {
   const o = {};
-  Object.keys(ms || {}).forEach(k => { if (k !== 'id' && k !== 'srcId' && k !== 'ovr' && TEAM_LOG_FIELDS.indexOf(k) < 0) o[k] = _tmClone(ms[k]); });
+  // (adj: the mark a published suggestion leaves on one lifter's block: never anyone else's.)
+  Object.keys(ms || {}).forEach(k => { if (k !== 'id' && k !== 'srcId' && k !== 'ovr' && k !== 'adj' && TEAM_LOG_FIELDS.indexOf(k) < 0) o[k] = _tmClone(ms[k]); });
   return o;
 }
 function _tmSet(ms, i, xs, lift, opts, ctx) {
@@ -15063,6 +15365,73 @@ function teamMasterFromProgram(prog, maxes) {
     return mw;
   });
   return { weeks, linked };
+}
+// ===== REUSE A BLOCK (2026-10-28) =====
+// A good block given to another lifter, scaled to their maxes. The block's main-lift loads become a % of the maxes
+// it was written from (srcMaxes) and come back as the other lifter's own loads (dstMaxes), through the team pipeline
+// (teamMasterFromProgram → teamMemberWeeks → teamDetachProgram): variants scale against the competition max,
+// accessories keep their kg, loads round to the lifter's jump (unit). Fresh: the plan's own loads and reps, nothing
+// logged, no sets added on the day, no PR attempts, no pinned dates, no team links or publish marks. A main lift with
+// no max for the block goes by its RPE (another lifter's kg means nothing for this one); one with no max for the lifter
+// keeps its % with no load until they have one. Pure; unit-tested.
+// → { weeks, noMax: [lift] (no max for the lifter), noSrcMax: [lift] (none for the block) }
+function reuseBlockWeeks(weeks, opts) {
+  opts = opts || {};
+  const src = opts.srcMaxes || {}, dst = opts.dstMaxes || {};
+  const noSrcMax = MAIN_LIFTS.filter(L => !(teamMaxKg(src, L) > 0));
+  const clean = _tmClone(weeks || []).map(w => Object.assign({}, w, { days: (w.days || []).map(d => {
+    const nd = Object.assign({}, d);
+    delete nd.scheduledDate;
+    nd.exercises = (d.exercises || []).map(e => Object.assign({}, e, { sets: (e.sets || []).filter(s => s && !s.extra && !s.attempt).map(s => {
+      const n = Object.assign({}, s, { weight: planWeight(s) || 0, reps: s.plannedReps || s.reps });
+      TEAM_LOG_FIELDS.forEach(k => { delete n[k]; });
+      delete n.adj; delete n.srcId; delete n.ovr;
+      n.completed = false;
+      // No max for the block on this lift: a load in kg was that lifter's; one with an RPE goes by it instead.
+      if (MAIN_LIFTS.indexOf(e.lift) >= 0 && noSrcMax.indexOf(e.lift) >= 0 && (n.pct == null || n.pct === '') && Number(n.weight) > 0 && n.rpe != null && n.rpe !== '') { n.weight = 0; delete n.weightHi; }
+      return n;
+    }) }));
+    return nd;
+  }) }));
+  const master = teamMasterFromProgram({ weeks: clean }, src).weeks;
+  const member = teamMemberWeeks(master, null, { maxes: dst, unit: opts.unit, stepKg: opts.stepKg });
+  return { weeks: teamDetachProgram(member.weeks), noMax: member.noMax, noSrcMax };
+}
+// The top sets a preview shows: per main lift, the heaviest loaded set of week 1 (the competition lift first, then
+// any variant), with the block's own load beside it. srcWeeks: the block as it was; dstWeeks: reuseBlockWeeks's.
+// → [{ lift, kg, reps, rpe, rpeHi, rir, srcKg, pct }] (kg 0: load by RPE; pct: kg against the block's, rounded)
+function reuseTopSets(srcWeeks, dstWeeks) {
+  const s1 = (srcWeeks || [])[0], d1 = (dstWeeks || [])[0];
+  if (!s1 || !d1) return [];
+  const out = [];
+  MAIN_LIFTS.forEach(L => {
+    const pairs = [];
+    (s1.days || []).forEach((day, di) => (day.exercises || []).forEach((e, ei) => {
+      if (e.lift !== L) return;
+      const de = (((d1.days || [])[di] || {}).exercises || [])[ei];
+      if (!de) return;
+      const ss = (e.sets || []).filter(x => x && !x.extra && !x.attempt);
+      ss.forEach((x, k) => { const y = (de.sets || [])[k]; if (y) pairs.push({ comp: !e.variant || e.variant === 'Competition', src: x, dst: y }); });
+    }));
+    if (!pairs.length) return;
+    const pool = pairs.some(p => p.comp) ? pairs.filter(p => p.comp) : pairs;
+    const loaded = pool.filter(p => Number(p.dst.weight) > 0);
+    const pick = (loaded.length ? loaded : pool).slice().sort((a, b) => (Number(b.dst.weight) || 0) - (Number(a.dst.weight) || 0) || (Number(b.dst.rpe) || 0) - (Number(a.dst.rpe) || 0))[0];
+    const kg = Number(pick.dst.weight) || 0, srcKg = Number(planWeight(pick.src)) || 0;
+    out.push({ lift: L, kg, reps: pick.dst.reps, rpe: pick.dst.rpe == null || pick.dst.rpe === '' ? null : Number(pick.dst.rpe),
+      rpeHi: pick.dst.rpeHi != null ? Number(pick.dst.rpeHi) : null, rir: !!pick.dst.rir, srcKg, pct: kg > 0 && srcKg > 0 ? Math.round(kg / srcKg * 100) : null });
+  });
+  return out;
+}
+// One line of it, in the coach's unit: "Squat 117.5 × 5 @7 (76% of Arjun's)", "Squat 3 @8, load by RPE".
+function reuseTopSetText(t, srcName, unit) {
+  if (!t) return '';
+  const w = (kg) => _num(unit === 'lbs' ? Math.round(Number(kg) / KG_PER_LB * 10) / 10 : Number(kg));
+  const eff = t.rpe == null ? '' : t.rir ? ', ' + _num(10 - (t.rpeHi != null && t.rpeHi > t.rpe ? t.rpeHi : t.rpe)) + ' RIR' : ' @' + _num(t.rpe) + (t.rpeHi != null && t.rpeHi > t.rpe ? '-' + _num(t.rpeHi) : '');
+  const name = LIFT_LABELS[t.lift] || t.lift;
+  if (!(t.kg > 0)) return name + ' ' + t.reps + eff + ', load by RPE';
+  const who = String(srcName || '').trim().split(/\s+/)[0];
+  return name + ' ' + w(t.kg) + ' × ' + t.reps + eff + (t.pct != null && who ? ' (' + t.pct + '% of ' + who + '’s)' : '');
 }
 // The maxes a lifter's % sets work from, with where each came from (printed next to the number):
 // the coach's max for the block, else the best estimated max, else a meet single.

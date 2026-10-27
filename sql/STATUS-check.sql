@@ -142,6 +142,9 @@ with checks(n, migration, applied) as (values
         and to_regclass('public.challenge_entries') is not null
         and to_regprocedure('public.challenge_member_may(uuid, boolean)') is not null
         and to_regprocedure('public.challenge_board(uuid[])') is not null
-        and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard'))
+        and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard')),
+  (51, 'migration-coach-settings-2026-10-28.sql  (a coach''s own settings: progression rules, the capacity check; coach-only)',
+        to_regclass('public.coach_settings') is not null
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4)
 )
 select n, migration, applied from checks order by n;

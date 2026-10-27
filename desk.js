@@ -339,7 +339,8 @@ function dkRowsFresh() {
 function dkNoteHandled(athleteId, via) {
   var st = dkState();
   var r = dkRow(athleteId);
-  if (!r || !r.reasons.length) return;
+  if (!r) return;
+  // A lifter with nothing flagged (only next week to write) counts too: publishing ticks their week off.
   st.handled[athleteId] = { at: Date.now(), sig: deskReasonSig(r.reasons), via: via };
   dkSaveState();
 }
@@ -431,7 +432,7 @@ function deskRoute(first) {
 }
 var DK_TAB_FOR = { roster: 'athletes', programs: 'program', messages: 'messages', club: 'club', settings: 'you' };
 // clients is a desk screen of its own (clients-ui.js draws the same pane on the phone, under You).
-var DK_SCREEN_FOR = { athletes: 'roster', program: 'programs', templates: 'programs', messages: 'messages', club: 'club', you: 'settings', progress: 'settings', marketplace: 'settings', clients: 'clients' };
+var DK_SCREEN_FOR = { athletes: 'roster', program: 'programs', templates: 'programs', messages: 'messages', club: 'club', you: 'settings', progress: 'settings', marketplace: 'settings', clients: 'clients', rules: 'settings' };
 function deskGo(screen, opts) {
   opts = opts || {};
   if (!isDesk()) return;
@@ -2798,6 +2799,14 @@ function dkGroupInput(g) {
   var fx = typeof setFieldsCellText === 'function' ? setFieldsCellText(g) : '';
   return fx ? t + ' ' + fx : t;
 }
+// The words on a next-week chip: "Up to 182.5", "Drop to 145", "Load 117.5" (picked by feel until now), "4 sets".
+function dkSugText(s, row) {
+  if (!s) return '';
+  var kg = _num(kgToDisplay(s.kg));
+  var load = s.dir === 'down' ? 'Drop to ' + kg : s.dir === 'up' ? 'Up to ' + kg : s.dir === 'set' ? 'Load ' + kg : '';
+  var sets = s.sets != null && row && row.next && s.sets !== row.next.count ? s.sets + (s.sets === 1 ? ' set' : ' sets') : '';
+  return [load, sets].filter(Boolean).join(' · ') || 'Hold';
+}
 function dkLoggedRich(l) {
   var span = el('span', { class: 'dk-pres is-logged' });
   if (!l) return span;
@@ -2973,13 +2982,15 @@ function dkWsWeek(r) {
   var W = prog.weeks[rev.lastIdx], N = rev.nextIdx >= 0 ? prog.weeks[rev.nextIdx] : null;
   var wn = W.number || rev.lastIdx + 1, nn = N ? (N.number || rev.nextIdx + 1) : null;
   if (!N) sec.classList.add('no-next');
+  // A suggestion from the coach's own rules reads "Up to 182.5 · your rule": every slot of the week widens with it.
+  if (rev.rows.some(function (x) { return deskSuggestActionable(x) && x.suggest.rule; })) sec.classList.add('has-rules');
   title.textContent = 'Week ' + wn + ', as they lifted it';
   ht.appendChild(el('p', { class: 'dk-wk-sub' }, N ? 'Every set against what you wrote, with week ' + nn + ' beside it to adjust.' : 'Week ' + wn + ' is the last of ' + (prog.name || 'the block') + '.'));
   var pend = N ? dkWsPend(a.id, prog, rev.nextIdx) : { rows: {} };
   // Drop anything that no longer fits (the athlete logged into that block, or the coach changed it elsewhere).
   Object.keys(pend.rows).forEach(function (k) { var row = rev.rows.find(function (x) { return x.key === k; }); if (!row || !row.next || row.next.locked) delete pend.rows[k]; else pend.rows[k].row = row; });
   var takeAll = null;
-  var nSug = rev.rows.filter(function (x) { return x.suggest && x.suggest.dir !== 'hold' && x.next && !x.next.locked; }).length;
+  var nSug = rev.rows.filter(deskSuggestActionable).length;
   var tools = el('div', { class: 'dk-wk-tools' });
   if (N && nSug) {
     takeAll = dkBtn('Take suggestions', { icon: DK_IC.spark, cls: 'dk-btn-sm', kbd: '⇧A', onClick: function () { sec._acceptAll(); } });
@@ -3149,7 +3160,7 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
   inp.value = p ? p.text : cur;
   cell.appendChild(inp);
   var chip = el('button', { type: 'button', class: 'dk-sgc' });
-  var can = !!(row.suggest && row.suggest.dir !== 'hold');
+  var can = deskSuggestActionable(row);
   var pain = MAIN_LIFTS.indexOf(row.lift) >= 0 && row.gi === 0 ? _dkPainOn(a.id, row.lift) : null;
   var swap = null;
   var nsetsOf = function () { return (dkProgOf(a.id).weeks[rev.nextIdx].days[row.next.di].exercises[row.next.ei].sets || []).slice(row.next.startIdx, row.next.startIdx + row.next.count); };
@@ -3175,25 +3186,34 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
     // No suggestion: the slot stays, empty, so every input on the card ends on one line.
     if (!s) { chip.className = 'dk-sgc is-empty'; chip.tabIndex = -1; chip.setAttribute('aria-hidden', 'true'); return; }
     chip.removeAttribute('aria-hidden');
-    var kg = _num(kgToDisplay(s.kg)), dl = s.dir === 'set' ? '' : (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta)));
-    if (s.dir === 'hold') {
-      // On target: hold what's written. A word, not a button: there's nothing to take.
+    var kg = _num(kgToDisplay(s.kg)), dl = s.dir === 'set' || s.dir === 'hold' ? '' : (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta)));
+    if (!can) {
+      // On target, or already written from this week: hold what's written. A word, not a button: there's nothing to take.
       chip.className = 'dk-sgc is-hold';
       chip.tabIndex = -1;
       chip.setAttribute('aria-disabled', 'true');
       chip.insertAdjacentHTML('beforeend', DK_IC.check);
       chip.appendChild(el('span', {}, 'Hold'));
-      dkTip(chip, (why() ? why() + ': ' : '') + 'on target, so it holds');
+      dkTip(chip, s.acted ? 'You set week ' + nn + ' from this. It holds until they log more'
+        : s.rule ? (why() ? why() + '. ' : '') + 'Your rule: ' + s.rule.text + ', which is what you wrote'
+        : (why() ? why() + ': ' : '') + 'on target, so it holds');
       return;
     }
     if (pp && pp.kind === 'accept') {
       chip.classList.add('is-took');
       chip.insertAdjacentHTML('beforeend', DK_IC.check);
-      chip.appendChild(el('span', {}, 'Took ' + kg));
+      chip.appendChild(el('span', {}, 'Took ' + (s.dir === 'hold' ? dkSugText(s, row) : kg)));
       dkTip(chip, 'Undo: back to what was written');
+    } else if (s.rule) {
+      // The coach's own rule decided it: say so, and the rule itself in the tooltip.
+      chip.classList.add('is-rule');
+      chip.insertAdjacentHTML('beforeend', DK_IC.spark);
+      chip.appendChild(el('span', {}, dkSugText(s, row)));
+      chip.appendChild(el('small', {}, '· your rule'));
+      dkTip(chip, (why() ? why() + '. ' : '') + 'Your rule: ' + s.rule.text + '. One click writes it in', 'Tab');
     } else {
       chip.insertAdjacentHTML('beforeend', DK_IC.spark);
-      chip.appendChild(el('span', {}, (s.dir === 'down' ? 'Drop to ' : s.dir === 'up' ? 'Up to ' : 'Load ') + kg));
+      chip.appendChild(el('span', {}, dkSugText(s, row)));
       if (dl) chip.appendChild(el('small', {}, dl));
       dkTip(chip, (why() ? why() + '. ' : '') + 'One click writes it in', 'Tab');
     }
@@ -3209,8 +3229,8 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
   };
   var accept = function () {
     if (!can) return false;
-    var sets = deskSuggestedSets(nsetsOf(), row.suggest.kg);
-    var g = Object.assign({}, row.next.group, { weight: row.suggest.kg, weightHi: Number(row.next.group.weightHi) > row.suggest.kg ? row.next.group.weightHi : null });
+    var sets = deskSuggestedSets(nsetsOf(), row.suggest.kg, row.suggest.sets);
+    var g = Object.assign({}, row.next.group, { weight: row.suggest.kg, weightHi: Number(row.next.group.weightHi) > row.suggest.kg ? row.next.group.weightHi : null, count: sets.length });
     pend.rows[row.key] = { kind: 'accept', text: dkGroupInput(g), sets: sets, row: row };
     inp.value = pend.rows[row.key].text;
     paintRow();
@@ -3298,7 +3318,10 @@ function dkWsApply(aid) {
   if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('dk-wk-in')) document.activeElement.blur();
   var rev = deskWeekReview(prog);
   if (rev.nextIdx < 0 || p.sig !== prog.id + ':' + rev.nextIdx) return;
-  var edits = Object.keys(p.rows).map(function (k) { var x = p.rows[k]; return { di: x.row.next.di, ei: x.row.next.ei, startIdx: x.row.next.startIdx, count: x.row.next.count, sets: x.sets, variant: x.variant }; });
+  // Each edit carries the week it answers (sig) and the plan's own load (from): the block is marked, so the next
+  // review holds instead of suggesting again from the new load (deskApplyNextWeek).
+  var edits = Object.keys(p.rows).map(function (k) { var x = p.rows[k]; return { di: x.row.next.di, ei: x.row.next.ei, startIdx: x.row.next.startIdx, count: x.row.next.count, sets: x.sets, variant: x.variant,
+    sig: x.row.sig, from: x.row.next.from }; });
   if (!edits.length) return;
   // What changed, in words the week's note can say (weekly-note.js): "bench comes down to 112.5 × 3".
   var said = Object.keys(p.rows).map(function (k) { var x = p.rows[k], g = (x.row.next && x.row.next.group) || {}, s0 = (x.sets || [])[0] || {};
@@ -5593,12 +5616,13 @@ var DK_SET_IC = {
   market: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9l1.5-5h13L20 9"/><path d="M4 9h16v11H4z"/><path d="M9 13h6"/></svg>',
   athletes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 8v6M14 11h6"/></svg>',
   prefs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  rules: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19h5v-5h5V9h5V4h3"/></svg>',
   keys: DK_IC.key,
   help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3"/><path d="M12 17h.01"/></svg>'
 };
 function dkSettingsSections() {
   var native = document.documentElement.classList.contains('native');
-  return [['profile', 'Profile'], ['plan', 'Plan & seats'], ['checkins', 'Check-ins'], ['brand', 'Branding'], native ? null : ['market', 'Marketplace'],
+  return [['profile', 'Profile'], ['plan', 'Plan & seats'], ['checkins', 'Check-ins'], window.ProgressionUI ? ['rules', 'Progression rules'] : null, ['brand', 'Branding'], native ? null : ['market', 'Marketplace'],
     ['athletes', 'Invite lifters'], ['prefs', 'Preferences'], ['keys', 'Keyboard'], ['help', 'Help & account']].filter(Boolean);
 }
 // coach.html's renderCoachYou hands the desk its area.
@@ -5623,7 +5647,7 @@ function deskRenderSettings(area) {
   var title = secs.find(function (s) { return s[0] === _dk.setSec; })[1];
   panel.appendChild(el('h2', { class: 'dk-set-title' }, title));
   var redraw = function () { deskRenderSettings(area); try { dkPaintRail(); } catch (e) {} };
-  ({ profile: dkSetProfile, plan: dkSetPlan, checkins: dkSetCheckins, brand: dkSetBrand, market: dkSetMarket, athletes: dkSetAthletes, prefs: dkSetPrefs, keys: dkSetKeys, help: dkSetHelp })[_dk.setSec](panel, redraw);
+  ({ profile: dkSetProfile, plan: dkSetPlan, checkins: dkSetCheckins, rules: dkSetRules, brand: dkSetBrand, market: dkSetMarket, athletes: dkSetAthletes, prefs: dkSetPrefs, keys: dkSetKeys, help: dkSetHelp })[_dk.setSec](panel, redraw);
   area.appendChild(panel);
 }
 // One settings row: label + value on the left, the action on the right.
@@ -5693,6 +5717,8 @@ function dkSetCheckins(p, redraw) {
   acts.appendChild(dkBtn('All questions', { cls: 'is-quiet', onClick: function () { openCheckinQuestionsSheet(); } }));
   p.appendChild(acts);
 }
+// Progression rules (progression.js): how next week moves, in the coach's words.
+function dkSetRules(p) { if (window.ProgressionUI) ProgressionUI.renderDesk(p); }
 function dkSetBrand(p) {
   var u = _dkUser() || {};
   var pro = (TIER_RANK[getCurrentTier()] || 0) >= TIER_RANK.pro;

@@ -60,7 +60,8 @@
     var rev = deskWeekReview(prog);
     if (rev.nextIdx < 0) return null;
     var title = String(reason.text || '').split(' @')[0];
-    var cands = rev.rows.filter(function (x) { return x.suggest && x.suggest.kg > 0 && x.next && !x.next.locked; });
+    // What it would actually change (a hold, or a week already written from this one, offers nothing to apply).
+    var cands = rev.rows.filter(function (x) { return deskSuggestActionable(x) && x.suggest.kg > 0; });
     var mine = cands.filter(function (x) { return x.title === title; });
     if (!mine.length) mine = cands.filter(function (x) { return x.suggest.delta < 0; });
     if (!mine.length) return null;
@@ -69,15 +70,21 @@
     var st = ex && ex.sets ? ex.sets[x.next.startIdx] : null;
     if (!st) return null;
     var reps = st.plannedReps || st.reps, rpe = st.rpe != null && st.rpe !== '' ? '@' + num(st.rpe) : '';
-    return { rows: mine, kg: x.suggest.kg, label: (LIFT[x.lift] || x.title) + ' ' + kg(x.suggest.kg) + (reps ? ' × ' + reps : '') + (rpe ? ' ' + rpe : '') + ' next week', weekNo: wk.number || rev.nextIdx + 1 };
+    var setsTxt = x.suggest.sets != null && x.suggest.sets !== x.next.count ? ', ' + x.suggest.sets + (x.suggest.sets === 1 ? ' set' : ' sets') : '';
+    // The coach's own progression rule wrote it (progression.js): the fix says so.
+    var rule = x.suggest.rule || null, mark = rule ? ' (your rule)' : '';
+    var load = kg(x.suggest.kg) + (reps ? ' × ' + reps : '') + (rpe ? ' ' + rpe : '') + setsTxt;
+    return { rows: mine, kg: x.suggest.kg, label: (LIFT[x.lift] || x.title) + ' ' + load + ' next week' + mark, short: load + ' next week' + mark, rule: rule, weekNo: wk.number || rev.nextIdx + 1 };
   }
+  // The phone's one-tap fix: the same edit the desk's Take writes (deskSuggestionEdit: the suggested load and
+  // count, no stale range top or planned load, signed with the week it answers), published the desk's way.
   function applySuggestion(aid, s) {
     var prog = dkProgOf(aid), rev = deskWeekReview(prog);
     var p = dkWsPend(aid, prog, rev.nextIdx);
     s.rows.forEach(function (x) {
-      var ex = prog.weeks[rev.nextIdx].days[x.next.di].exercises[x.next.ei];
-      var sets = (ex.sets || []).slice(x.next.startIdx, x.next.startIdx + x.next.count).map(function (st) { return Object.assign({}, st, { weight: x.suggest.kg }); });
-      p.rows[x.key] = { row: x, sets: sets };
+      var fresh = rev.rows.filter(function (y) { return y.key === x.key; })[0] || x;
+      var e = deskSuggestionEdit(prog, rev.nextIdx, fresh);
+      if (e) p.rows[fresh.key] = { kind: 'accept', row: fresh, sets: e.sets };
     });
     dkSavePend();
     dkWsApply(aid);
@@ -89,7 +96,7 @@
     switch (t) {
       case 'overshoot': case 'drift': {
         var s = suggestionFor(r, reason);
-        if (s) return { k: 'apply', ic: 'down', label: s.label, run: function () { applySuggestion(aid, s); }, done: 'Week ' + s.weekNo + ' updated' };
+        if (s) return { k: 'apply', ic: 'down', label: s.label, short: s.short, rule: s.rule, run: function () { applySuggestion(aid, s); }, done: 'Week ' + s.weekNo + ' updated' };
         return { k: 'open', ic: 'open', label: 'Check next week', run: open };
       }
       case 'pain': return { k: 'msg', ic: 'msg', label: 'Message ' + f, text: 'How is it feeling today? Keep the lift easy and stop if it hurts.' };
@@ -157,7 +164,7 @@
       var prog = r.status && r.status.program;
       if (!prog || typeof deskWeekReview !== 'function') return false;
       var rev = deskWeekReview(prog);
-      return rev.nextIdx >= 0 && rev.rows.some(function (x) { return x.suggest && x.suggest.delta; });
+      return rev.nextIdx >= 0 && rev.rows.some(deskSuggestActionable);
     });
     var writeIds = {};
     toWrite.forEach(function (r) { var prog = r.status && r.status.program; var rev = prog && typeof deskWeekReview === 'function' ? deskWeekReview(prog) : null; var wk = rev && rev.nextIdx >= 0 && prog.weeks[rev.nextIdx] ? (prog.weeks[rev.nextIdx].number || rev.nextIdx + 1) : ''; writeIds[r.athlete.id] = wk; });

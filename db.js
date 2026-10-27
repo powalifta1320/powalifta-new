@@ -2188,6 +2188,76 @@ const DB = {
     return { ok: true, local: true };
   },
 
+  // ---------- COACH SETTINGS (migration-coach-settings-2026-10-28.sql) ----------
+  // One row per coach: a small JSON object read and written by key (data.progression = the
+  // progression rules; the capacity check keeps its own key). Coach-only (RLS: coach_id = me).
+  // Until the migration runs, the object lives on this device (localStorage, per coach) and every
+  // answer carries local: true. Once the table exists, the next read moves the device copy up
+  // (keys the server already has win) and clears it here. Nothing here throws.
+  //   getCoachSettings(coachId?)        → data ({} when none)
+  //   saveCoachSettings(patch, coachId?) → { ok, data, local? } | { ok: false, error }
+  //     merges the patch's top-level keys into what's saved (a null value removes the key).
+  _csKey(coachId) { return 'powa-coach-settings-' + coachId; },
+  _csLocal(coachId, obj) {
+    try {
+      if (obj === undefined) { const o = JSON.parse(localStorage.getItem(this._csKey(coachId)) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; }
+      if (!obj || !Object.keys(obj).length) localStorage.removeItem(this._csKey(coachId)); else localStorage.setItem(this._csKey(coachId), JSON.stringify(obj));
+    } catch (e) {}
+    return obj || {};
+  },
+  _csMerge(base, patch) {
+    // Own keys only, and never one that reaches an object's prototype (the JSON is the coach's, but still).
+    const bad = k => k === '__proto__' || k === 'constructor' || k === 'prototype';
+    const b = base && typeof base === 'object' && !Array.isArray(base) ? base : {};
+    const out = {};
+    Object.keys(b).forEach(k => { if (!bad(k)) out[k] = b[k]; });
+    Object.keys(patch || {}).forEach(k => { if (bad(k)) return; if (patch[k] === null || patch[k] === undefined) delete out[k]; else out[k] = patch[k]; });
+    return out;
+  },
+  async _csMe(coachId) {
+    if (coachId) return coachId;
+    try { const s = await sb.auth.getSession(); return (s && s.data && s.data.session && s.data.session.user && s.data.session.user.id) || null; } catch (e) { return null; }
+  },
+  async getCoachSettings(coachId) {
+    const me = await this._csMe(coachId);
+    if (!me) return {};
+    const { data, error } = await sb.from('coach_settings').select('data').in('coach_id', [me]).maybeSingle();
+    if (error) {
+      if (_isNotReady(error)) this._csReady = false; else console.warn('getCoachSettings', error);
+      return this._csLocal(me);
+    }
+    this._csReady = true;
+    const server = (data && data.data && typeof data.data === 'object' && !Array.isArray(data.data)) ? data.data : {};
+    const loc = this._csLocal(me);
+    const missing = Object.keys(loc).filter(k => !(k in server));
+    if (!missing.length) { if (Object.keys(loc).length) this._csLocal(me, {}); return server; }
+    // The device copy goes up once: its keys fill what the server doesn't have yet.
+    const merged = this._csMerge(loc, server);
+    const up = await sb.from('coach_settings').upsert({ coach_id: me, data: merged }, { onConflict: 'coach_id' }).select('data').maybeSingle();
+    if (up.error) { console.warn('coach settings move-up', up.error); return merged; }
+    this._csLocal(me, {});
+    return (up.data && up.data.data) || merged;
+  },
+  async saveCoachSettings(patch, coachId) {
+    const me = await this._csMe(coachId);
+    if (!me) return { ok: false, error: new Error('Not signed in') };
+    if (this._csReady !== false) {
+      // Merged onto the server's copy (read fresh), so another key saved from elsewhere is kept.
+      const cur = await sb.from('coach_settings').select('data').in('coach_id', [me]).maybeSingle();
+      if (!cur.error) {
+        const base = (cur.data && cur.data.data) || {};
+        const next = this._csMerge(base, patch);
+        const { data, error } = await sb.from('coach_settings').upsert({ coach_id: me, data: next }, { onConflict: 'coach_id' }).select('data').maybeSingle();
+        if (!error) { this._csReady = true; return { ok: true, data: (data && data.data) || next }; }
+        if (!_isNotReady(error)) return { ok: false, error };
+      } else if (!_isNotReady(cur.error)) return { ok: false, error: cur.error };
+      this._csReady = false;
+    }
+    const next = this._csMerge(this._csLocal(me), patch);
+    this._csLocal(me, next);
+    return { ok: true, data: next, local: true };
+  },
+
   // ---------- CLIENTS + PAYMENTS (migration-clients-2026-10-27.sql) ----------
   // Coach-only: the package, price and cadence a coach keeps per lifter, and the payments they took
   // elsewhere (bank, card, PayPal, cash). No money moves through the app and the athlete never reads
@@ -3674,7 +3744,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes, chal] = await Promise.all([
+      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes, chal, coachSettings] = await Promise.all([
         ownP,
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
@@ -3696,10 +3766,13 @@ const DB = {
           this.listClientPayments(profile.id).catch(() => []),
           this.listIntakes(profile.id, athleteIds).catch(() => []),
           // Coach challenges (challenges.js): the coach's own and their boards.
-          this._chHydrate({ id: profile.id, userType: 'coach' }).catch(() => ({ challenges: [], entries: [] }))
+          this._chHydrate({ id: profile.id, userType: 'coach' }).catch(() => ({ challenges: [], entries: [] })),
+          // The coach's own settings (progression rules…): an object, {} until anything is saved.
+          this.getCoachSettings(profile.id).catch(() => ({}))
         ]);
         empty.challenges = chal.challenges;
         empty.challengeEntries = chal.entries;
+        empty.coachSettings = coachSettings || {};
         empty.clientBilling = clientBilling;
         empty.clientPayments = clientPayments;
         empty.intakes = intakes;

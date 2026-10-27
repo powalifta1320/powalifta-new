@@ -56,6 +56,7 @@
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace" data-parent="you"></button>
     <button class="sidebar-tab" data-tab="lifter" id="tab-lifter" data-parent="athletes"></button>
     <button class="sidebar-tab" data-tab="clients" id="tab-clients" data-parent="you"></button>
+    <button class="sidebar-tab" data-tab="rules" id="tab-rules" data-parent="you"></button>
     <div class="sidebar-foot">
     </div>
   </aside>
@@ -92,6 +93,8 @@
     <section data-pane="lifter" class="hidden"><div id="lifterPage"></div></section>
     <!-- Clients (clients-ui.js): packages and payments the coach takes elsewhere. The laptop desk's rail destination; You › Clients on the phone. -->
     <section data-pane="clients" class="hidden"><div id="clientsArea"></div></section>
+    <!-- Progression rules (progression.js): how next week moves, in the coach's words. You › Progression rules on the phone; Settings on the laptop. -->
+    <section data-pane="rules" class="hidden"><div id="rulesArea"></div></section>
 
     <!-- PROGRAM BUILDER -->
     <section data-pane="program" class="hidden">
@@ -351,6 +354,8 @@
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="weekly-note.js"></script><!-- The week's note (Today's queue on the laptop, a lifter's page on the phone), saved replies, message everyone -->
 <script src="block-dna.js"></script><!-- Block DNA: every block's fingerprint and two blocks compared (BlockDNA; the desk's Blocks, the lifter page's Blocks link) -->
+<script src="reuse-block.js"></script><!-- Reuse a block: give a good block to other lifters, scaled to their maxes (ReuseBlock; from Block DNA on the desk and the phone) -->
+<script src="progression.js"></script><!-- Progression rules: how next week moves, in the coach's words (ProgressionUI; Settings on the desk, You › Progression rules on the phone) -->
 <script src="clients.js"></script><!-- Clients + payments and the intake: the pure helpers (window.Clients) for the coach's clients page and a lifter's About -->
 <script src="clients-ui.js"></script><!-- Clients: the screens (ClientsUI): the Clients page, a lifter's Client + About blocks, mark paid, packages, reminders -->
 <script src="career.js"></script><!-- Career: a lifter's lifelong record (careerEvents), read-only from their page: a sheet on the phone, a panel on the desk -->
@@ -395,6 +400,7 @@ bootstrap('coach', () => {
   setLbl('tab-club', ICONS.club, 'Club');   // not the Roster icon (two people) again
   setLbl('tab-you', ICONS.user, 'You');
   if (window.ClientsUI) setLbl('tab-clients', ClientsUI.ICON, 'Clients');
+  if (window.ProgressionUI) setLbl('tab-rules', ProgressionUI.ICON, 'Progression rules');
   // The demo's unread counts come from its Store: in place before the first render paints a badge.
   if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); }
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
@@ -427,6 +433,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'club' && window.renderClubTab) renderClubTab(document.getElementById('clubArea'));
       if (btn.dataset.tab === 'you') renderCoachYou();
       if (btn.dataset.tab === 'clients' && window.ClientsUI) ClientsUI.render(document.getElementById('clientsArea'));
+      if (btn.dataset.tab === 'rules' && window.ProgressionUI) ProgressionUI.renderPhone(document.getElementById('rulesArea'));
       syncPaneBack();
       _syncNavBack();
       window.scrollTo(0, 0);
@@ -559,6 +566,8 @@ function renderCoachYou() {
         window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
         { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
+        // How next week moves (progression.js): a screen of its own, pushed from here.
+        window.ProgressionUI && roster.length ? { label: 'Progression rules', value: ProgressionUI.summary(), icon: ProgressionUI.ICON, tint: 'teal', onClick: go('rules') } : null,
         brandRow(tier, showPlan),
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
