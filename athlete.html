@@ -6,7 +6,7 @@
 <!-- Native shell detect — runs before app scripts so html.native + viewport-fit=cover are
      set on the first frame (env(safe-area-*) resolves immediately, no nav-under-island
      flash). native-bridge.js re-applies later (idempotent). No-op on the web. -->
-<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
+<script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}else if(/[?&]demo=1/.test(location.search)&&window.matchMedia&&matchMedia('(max-width: 700px)').matches){document.documentElement.classList.add('native','web-demo');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
 <title>Athlete Dashboard · POWALIFTA</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b0b0c">
