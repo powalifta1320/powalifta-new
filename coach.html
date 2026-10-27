@@ -2741,7 +2741,7 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         // Count input
         const countWrap = el('div', { class: 'uniform-cell' });
         countWrap.appendChild(el('input', {
-          type: 'number', min: '1', max: '50', step: '1',
+          type: 'number', min: '1', max: '50', step: '1', 'aria-label': 'Sets',
           value: blk.count,
           onchange: e => setBlockCount(activeWeekIdx, di, ei, blk.startIdx, blk.count, Number(e.target.value))
         }));
@@ -2763,8 +2763,9 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         // Reps input
         const repsWrap = el('div', { class: 'uniform-cell' });
         repsWrap.appendChild(el('input', {
-          type: 'number', min: '1', step: '1',
+          type: 'number', min: '1', step: '1', 'aria-label': 'Reps',
           value: blk.reps,
+
           oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value))
         }));
         repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));

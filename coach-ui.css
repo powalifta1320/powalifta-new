@@ -1504,7 +1504,8 @@ html.native:not(.desk) #invitesList .ui-row-title { font-family: var(--font-body
 
 /* --- 5. A lifter, pushed in --- */
 /* One card radius (20) for every card on the page; the flag, the links and the small tiles were 16 and 18. */
-.cl-pg-phone :is(.cl-flag, .cl-hero, .cl-lift, .cl-tile, .cl-links, .cl-empty, .cl-wnrow) { border-radius: var(--cl-r); }
+.cl-pg-phone :is(.cl-flag, .cl-hero, .cl-lift, .cl-tile, .cl-links, .cl-empty, .cl-wnrow), .cl-pg-phone .cl-tile.is-compact { border-radius: var(--cl-r); }
+
 .cl-pg-phone .cl-wnrow { transition: background-color 140ms ease-out, transform 140ms ease-out; }
 .cl-pg-phone .cl-wnrow:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); transform: scale(0.985); }
 
@@ -1534,7 +1535,12 @@ html:not(.desk) body.powa-app .msg-inbox .msg-inbox-badge { box-shadow: none; }
 /* A thread opened from a lifter (Reply, a sheet) wears the Messages green like every thread: the coach's
    bubbles and the voice note's play were the fire red of the Lifters tab, the colour of the one action. */
 html:not(.desk) #messageModal { --acc: #34e08c; --acc-2: #10b5a6; --acc-ink: #04140c; }
+/* The inbox on the type scale: the time and the unread count 13 (were 12 and 11), the preview 15 (was 14). */
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-time { font-size: 13px; }
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-badge { min-width: 20px; height: 20px; font-size: 13px; line-height: 20px; }
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-preview { font-size: 15px; }
 /* Their bubbles are a graphite fill like the woven session notes beside them (one had a hairline, the other none). */
+
 html.native:not(.desk) body.powa-app .msg-row.theirs .msg-bubble { border-color: transparent; }
 
 
@@ -1600,3 +1606,6 @@ html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%;
 /* The sample under "Your roster, once they train" is the real Lifters list (coach.html buildRosterSample). */
 .cl-phone.fr-cl { margin: 0; gap: 0; }
 .cl-phone.fr-cl .cl-row { cursor: default; }
+/* The setup card on the type scale: its headline 22 (was 26), the step numbers and the Sample chip 13. */
+html.native:not(.desk) .fr-wrap .fr-title { font-size: 22px; }
+html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
