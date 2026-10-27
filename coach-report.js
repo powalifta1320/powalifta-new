@@ -141,7 +141,12 @@
       var st = String(r.status == null ? 'approved' : r.status).toLowerCase();
       if (['approved', 'agreed', 'accepted'].indexOf(st) < 0) return;
       var id = r.athleteId || r.athlete_id, wk = d10(r.weekStart || r.week_start);
-      var days = [r.days, r.agreedDays, r.agreed_days, r.sessions].filter(function (v) { return v != null && v !== '' && isFinite(Number(v)); })[0];
+      // The busy-weeks table keeps days as a list (text[]) and the agreed sessions in proposal.assign
+      // (busy-week.js): count those. A row already read here carries a plain number.
+      var prop = r.proposal && typeof r.proposal === 'object' ? r.proposal : null;
+      var days = prop && Array.isArray(prop.assign) ? prop.assign.length
+        : Array.isArray(r.days) ? r.days.length
+        : [r.days, r.agreedDays, r.agreed_days, r.sessions].filter(function (v) { return v != null && v !== '' && isFinite(Number(v)); })[0];
       if (!id || !isIso(wk) || days == null) return;
       out.push({ athleteId: id, weekStart: mondayOf(wk), days: Math.max(0, Math.round(Number(days))) });
     });

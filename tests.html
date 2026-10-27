@@ -7080,6 +7080,17 @@ test('the in-app report: an empty roster says how it starts', () => {
   eq((h.match(/mr-go red/g) || []).length, 0, 'no red with nobody to open');
 });
 
+test('report: an approved busy week counts its agreed sessions (the table keeps days as a list)', () => {
+  const rows = CoachReport.busyRows([
+    { athleteId: 'a', weekStart: '2026-10-26', status: 'approved', days: ['2026-10-29', '2026-10-31'], proposal: { v: 1, assign: [{ dayIdx: 0, date: '2026-10-29' }, { dayIdx: 2, date: '2026-10-31' }], merge: [{ from: 1, into: 0 }] } },
+    { athlete_id: 'b', week_start: '2026-10-26', status: 'approved', days: ['2026-10-29', '2026-10-30', '2026-11-01'] },
+    { athleteId: 'c', weekStart: '2026-10-26', status: 'pending', days: ['2026-10-29'] }]);
+  eq(rows.length, 2, 'a pending request is not agreed yet');
+  eq(rows[0].days, 2, 'the sessions the coach approved (proposal.assign)');
+  eq(rows[1].days, 3, 'no proposal: the days the lifter gave');
+  eq(CoachReport.busyRows(rows).map(r => r.days).join(), '2,3', 'reading its own rows again keeps the numbers');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

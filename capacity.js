@@ -240,13 +240,13 @@
     report: { label: 'Monday report', icon: 'report' }
   };
   // Each time-saver opens its feature. Progression rules and the Monday report show once their screens
-  // exist (window.ProgressionRules / window.MondayReport, or Capacity.registerSaver(key, open)).
+  // exist (ProgressionUI / CoachReportUI, or Capacity.registerSaver(key, open)).
   var OPENERS = {};
   function opener(key) {
     if (OPENERS[key]) return OPENERS[key];
     if (key === 'notes' && window.WeeklyNote) return openNotes;
     if (key === 'replies' && window.WeeklyNote) return openReplies;
-    var g = key === 'rules' ? window.ProgressionRules : key === 'report' ? window.MondayReport : null;
+    var g = key === 'rules' ? (window.ProgressionRules || window.ProgressionUI) : key === 'report' ? (window.MondayReport || window.CoachReportUI) : null;
     if (g && typeof g.open === 'function') return function () { g.open(); };
     return null;
   }
