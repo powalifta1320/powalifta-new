@@ -1208,6 +1208,12 @@ var MeetDay = (function () {
     // aim: per meet, Aim for a total ({ kg, text, on }): on once the coach fills the attempts for it (or
     // the saved plan has a target); then the row reads the attempts' own chance and the target saves.
     var st = { sel: meet.id, drafts: {}, dirty: {}, edited: {}, aim: {}, flash: null };
+    // The maxes the plans and the odds stand on, read once per lifter while the planner is open: a set
+    // logged meanwhile (a lifter training right now, the desk demo's live lifter) counts from the next
+    // open, so a pick or Fill never moves the plans under the coach's hand.
+    var obs = {};
+    var obOf = function (athleteId) { return obs[athleteId] || (obs[athleteId] = oddsBases(athleteId)); };
+    rows.forEach(function (r) { obOf(r.athleteId); });
     var dirtyIds = function () { return Object.keys(st.dirty).filter(function (k) { return st.dirty[k]; }); };
     var editedN = function () { return dirtyIds().filter(function (k) { return st.edited[k]; }).length; };
     var touch = function () { st.dirty[st.sel] = true; st.edited[st.sel] = true; };
@@ -1258,7 +1264,7 @@ var MeetDay = (function () {
       aimEls = null;
       var m = (S().meets || []).find(function (x) { return x.id === st.sel; });
       var a = athlete(m.athleteId) || { name: 'Lifter' };
-      var d = st.drafts[st.sel], unit = unitNow(), ob = oddsBases(m.athleteId), ev = ob.ev;
+      var d = st.drafts[st.sel], unit = unitNow(), ob = obOf(m.athleteId), ev = ob.ev;
       var bw = latestBw(m.athleteId), sex = d.sex || sexOf(m.athleteId, null, m) || 'male';
       var tot = planTotals(d, { bw: bw, sex: sex, federation: m.federation, division: m.division, weightClass: m.weightClass });
       // A max in words, in the viewer's unit (the number only: the unit is the screen's).
@@ -1387,7 +1393,7 @@ var MeetDay = (function () {
     var aimLive = function (lift, i, kg) {
       if (!aimEls || !aimEls.aim.on) return;
       var m = (S().meets || []).find(function (x) { return x.id === st.sel; });
-      paintAim(aimSays(st.drafts[st.sel], oddsBases(m.athleteId), aimEls.aim, kg == null ? null : { lift: lift, i: i, kg: kg }), unitNow());
+      paintAim(aimSays(st.drafts[st.sel], obOf(m.athleteId), aimEls.aim, kg == null ? null : { lift: lift, i: i, kg: kg }), unitNow());
     };
     var aimRow = function (m, d, ob, unit, aim) {
       var row = E('div', { class: 'md-aim', role: 'group', 'aria-label': 'Aim for a total' });
