@@ -29,7 +29,8 @@
 
    Hooks in shared files (each marked "VIDEO REVIEW hook"): coach.html (script
    tag, openFormCheckReview, refreshFormChecks demo seed), athlete.html (script
-   tag, the demo card and buildFormCheckCard's Watch button, the upload form),
+   tag, the demo's checks (demoAthleteFormChecks: the seeded one + clips sent on
+   the page, played from object URLs), buildFormCheckCard's Watch button, the upload form),
    db.js (the DB methods at the end), tests.html + test/run-unit-tests.js.
    ===================================================================== */
 var VideoReview = (function () {
@@ -312,9 +313,11 @@ var VideoReview = (function () {
       { k: 'arrow', t: 2.35, p: [0.62, 0.36, 0.545, 0.43] }
     ], tags: ['depth'], note: 'Hip crease below the knee. That is depth.', alignT: 1.783 }
   };
+  // Last week's depth check, reviewed (the lifter's thread this week asks for a new clip).
   function demoAthleteCheck() {
     return { id: 'demo-fc-ath', athleteId: 'demo-athlete', coachId: 'demo-coach', storagePath: 'demo/squat-now.mp4', demoSrc: 'demo-media/squat-now.mp4',
-      lift: 'squat', note: 'Depth check on my top single. Felt high?', createdAt: DEMO_AGO(2, 18) };
+      lift: 'squat', note: 'Depth check on my top single. Felt high?', createdAt: DEMO_AGO(9, 18), coachReplyAt: DEMO_AGO(8, 8),
+      coachReply: 'Depth was good: hips broke parallel. You\'re losing the upper back on the way up; cue chest tall and drive through mid-foot. Clean rep.' };
   }
   function isDemo(fc) { return !!(fc && fc.demoSrc) || !!root._demoMode; }
 

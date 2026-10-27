@@ -591,3 +591,7 @@ html.native .ai-launcher::after { display: none; }
 .ai-mode-pill { text-transform: none; letter-spacing: 0; font-size: 0.68rem; font-weight: 700; }
 .ai-input-row:focus-within { border-color: var(--line-2, rgba(255, 255, 255, 0.22)); }
 .ai-send { background: var(--brand-red, #ff2d3f); }
+
+/* A sheet the assistant opens (Insert into builder: which lifter, replace their program?) sits
+   above the panel, so the coach decides with the card in view. */
+.ui-sheet-veil.is-over-ai { z-index: calc(var(--ai-z-panel) + 10); }

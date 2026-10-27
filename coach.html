@@ -387,6 +387,8 @@ bootstrap('coach', () => {
   setLbl('tab-club', ICONS.club, 'Club');   // not the Roster icon (two people) again
   setLbl('tab-you', ICONS.user, 'You');
   if (window.ClientsUI) setLbl('tab-clients', ClientsUI.ICON, 'Clients');
+  // The demo's unread counts come from its Store: in place before the first render paints a badge.
+  if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); }
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
   // progress and marketplace are sub-screens of Program / You.
   buildBottomTabs(['athletes', 'program', 'messages', 'club', 'you']);
@@ -1979,12 +1981,32 @@ function openAthleteNotes(athleteId) {
 // _unreadByAthlete (athleteId -> unread message count) is declared up near the
 // bootstrap call (TDZ fix — renderRoster reads it during the synchronous boot).
 
+// The demo's threads live in the Store: what a lifter sent that nobody has read yet, per lifter
+// (the same count desk.js dkMsgDigest makes). Nothing is fetched.
+function _demoUnreadCounts() {
+  const map = {};
+  (Store.get().messages || []).forEach(m => {
+    if (m.coachId === user.id && m.senderId !== user.id && !m.readAt) map[m.athleteId] = (map[m.athleteId] || 0) + 1;
+  });
+  return map;
+}
+// The counts the demo's roster was last painted with (a var with no initialiser: the boot sets it
+// before this line runs, and a `= null` here would wipe it).
+var _demoUnreadPainted;
+function _unreadSig(map) { return Object.keys(map || {}).filter(k => map[k]).sort().map(k => k + ':' + map[k]).join(','); }
 async function refreshUnreadBadges() {
-  if (window._demoMode) { _unreadByAthlete = {}; return; }
   try {
-    const unread = await DB.listUnreadForUser(user.id);
-    const map = {};
-    unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+    let map = {};
+    if (window._demoMode) {
+      map = _demoUnreadCounts();
+      // The same counts the screen already shows: nothing to repaint (the boot paints them first).
+      const sig = _unreadSig(map);
+      if (sig === _demoUnreadPainted) { _unreadByAthlete = map; return; }
+      _demoUnreadPainted = sig;
+    } else {
+      const unread = await DB.listUnreadForUser(user.id);
+      unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+    }
     _unreadByAthlete = map;
     // The desk repaints its own rows in place (the search box and focus survive a new message).
     if (_desk()) { _deskCall('deskRefresh'); return; }
@@ -2043,8 +2065,10 @@ function subscribeRosterMessages() {
   });
 }
 
-function openAthleteMessages(athleteId, athleteName) {
-  if (window._demoMode) { toast('Messaging is live for real accounts. This is the demo.'); return; }
+// The thread with one lifter. The demo opens the same thread on its in-memory Store (renderMessageThread
+// reads Store.messages and sends locally, nothing leaves the page). draft: words to start the reply with
+// (a fix's suggested message); the coach edits or sends it.
+function openAthleteMessages(athleteId, athleteName, draft) {
   document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
   const host = document.getElementById('messageThreadHost');
   host.innerHTML = '';
@@ -2053,7 +2077,8 @@ function openAthleteMessages(athleteId, athleteName) {
     coachId: user.id,
     athleteId: athleteId,
     viewerId: user.id,
-    otherName: (athleteName || '').split(' ')[0]
+    otherName: (athleteName || '').split(' ')[0],
+    draft: typeof draft === 'string' ? draft : ''
   });
   // Opening the thread marks it read; clear this athlete's badge optimistically
   // and refresh from the server once the modal is closed.
@@ -4419,25 +4444,50 @@ async function confirmApplyTemplate() {
   setTimeout(() => { document.getElementById('progAthlete').value = firstId; activeWeekIdx = 0; loadProgram(); }, 50);
 }
 
-// Hook the AI assistant's "Insert into builder" button. Targets the athlete
-// selected in the Program tab (or the first roster athlete as a fallback),
-// REPLACES their program (reusing the id so the DB row updates), saves it,
-// then jumps to the builder focused on that athlete — same flow as a template.
-window.__applyAIProgram = function (program) {
+// Hook the AI assistant's "Insert into builder" button. The program goes to the lifter the chat was
+// about (opts.athleteId: ai-chat.js reads who the coach named); with nobody named, a sheet asks which
+// lifter. A lifter who already has a program is asked first ("Replace Arjun's program?"), and its
+// logged training is kept as a past block before it is replaced (archiveProgramIfTrained), like a
+// template or an imported sheet. The program keeps their row's id (the DB row updates) and their
+// maxes, then the builder opens on them. Resolves { ok: true, athleteId } once inserted; a cancel
+// leaves the card as it was. The demo writes nothing.
+window.__applyAIProgram = function (program, opts) {
+  opts = opts || {};
   if (!program || !program.weeks) { toast('Nothing to insert'); return { ok: false }; }
-  const sel = document.getElementById('progAthlete');
-  let aid = sel && sel.value ? sel.value : null;
-  if (!aid) { const first = (Store.get().athletes || []).find(a => a.coachId === user.id); aid = first ? first.id : null; }
-  if (!aid) { toast('Add an athlete first'); return { ok: false }; }
-  const existing = Store.get().programs.find(p => p.athleteId === aid);
-  const programId = existing ? existing.id : (program.id || uid('prog'));
-  const prog = Object.assign({}, program, { id: programId, athleteId: aid, coachId: user.id });
-  Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); s.programs.push(prog); });
-  (async () => { try { if (!window._demoMode) await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved locally: sync failed'); } })();
-  toast('Program inserted');
-  document.querySelector('[data-tab="program"]').click();
-  setTimeout(() => { document.getElementById('progAthlete').value = aid; activeWeekIdx = 0; loadProgram(); }, 60);
-  return { ok: true };
+  const roster = (Store.get().athletes || []).filter(a => a.coachId === user.id);
+  if (!roster.length) { toast('Add an athlete first'); return { ok: false }; }
+  const over = { veilCls: 'is-over-ai' };   // the sheets sit above the assistant's panel
+  const firstOf = (a) => String(a.name || 'them').trim().split(/\s+/)[0];
+  return new Promise(resolve => {
+    const insertFor = (a) => {
+      const existing = getProgramForAthlete(a.id);
+      const go = async () => {
+        await archiveProgramIfTrained(existing);   // their logged training stays as a past block
+        const prog = Object.assign({}, program, { id: existing ? existing.id : (program.id || uid('prog')), athleteId: a.id, coachId: user.id,
+          weeks: JSON.parse(JSON.stringify(program.weeks)), maxes: existing ? existing.maxes || null : null });
+        Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== a.id); s.programs.push(prog); });
+        if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
+        toast('Program inserted for ' + firstOf(a));
+        document.querySelector('[data-tab="program"]').click();
+        setTimeout(() => { document.getElementById('progAthlete').value = a.id; activeWeekIdx = 0; loadProgram(); }, 60);
+        resolve({ ok: true, athleteId: a.id });
+      };
+      if (existing) uiActionSheet('Replace ' + firstOf(a) + '\'s program?', [{ label: 'Replace it', danger: true, onClick: go }], over);
+      else go();
+    };
+    const named = opts.athleteId ? roster.find(a => a.id === opts.athleteId) : null;
+    if (named) { insertFor(named); return; }
+    // Nobody named (or not one lifter): ask who it is for.
+    uiSheet('Insert for which lifter?', (sheet, close) => {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, (program.name || 'The program') + ' goes into their builder. You can still edit every set.'));
+      sheet.appendChild(uiList(roster.slice().sort((x, y) => String(x.name).localeCompare(String(y.name))).map(a => {
+        const p = getProgramForAthlete(a.id), wk = p ? programWeekState(p) : null;
+        return uiRow({ av: a.name, title: a.name, chevron: true,
+          sub: p ? (p.name || 'Program') + (wk ? (wk.finished ? ' · finished' : ' · week ' + wk.number + ' of ' + wk.total) : '') : 'No program yet',
+          onClick: () => { close(); setTimeout(() => insertFor(a), 220); } });
+      })));
+    }, Object.assign({ cls: 'ai-pick-sheet' }, over));
+  });
 };
 
 // ===== PROGRESS =====

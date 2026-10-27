@@ -100,6 +100,9 @@
 <script src="program-photo.js"></script>
 <script src="intake.js"></script>
 <script src="clients.js"></script>
+<script src="coach-home.js"></script>
+<script>window.POWA_AI = { enabled: false };   // the assistant's prompt builder only: no Ask AI panel on this page</script>
+<script src="ai-chat.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -5015,6 +5018,141 @@ test('demo seeds: a package each, three periods paid before the next due date', 
   assert(st.clientPayments.every((p, i, a) => !i || a[i - 1].paidOn >= p.paidOn), 'newest first');
   eq(new Set(st.clientPayments.map(p => p.id)).size, st.clientPayments.length, 'ids unique');
 });
+
+/* ===========================================================
+   Check-in nudge (app.js deskReasons 'nocheckin'): someone who has checked in before and not for
+   8+ days, while they still train. Low urgency, in the check-in slot of the triage.
+   =========================================================== */
+group('check-in nudge (nocheckin)');
+test('flags a lifter who checked in before and stopped, never one who never did or went quiet', () => {
+  const saved = Store.get();
+  const t = '2026-10-22', now = Date.parse('2026-10-22T12:00:00Z');
+  const log = (id, a, date) => ({ id, athleteId: a, lift: 'squat', variant: 'Competition', weight: 150, reps: 3, rpe: 8, e1rm: 165, e1rmComp: 165, date });
+  const wk = (id, a, at) => ({ id, athleteId: a, weekStart: _monISO(at), sleep: 7, soreness: 7, stress: 7, feel: 7, note: '', createdAt: at + 'T08:00:00Z' });
+  Store.set(Object.assign(defaultStore(), {
+    athletes: [['a', 'Leo Grant'], ['b', 'Bea Ford'], ['c', 'Cy Ames'], ['d', 'Di Moss'], ['e', 'Ed Park']].map(([id, name]) => ({ id, name, coachId: 'c' })),
+    workoutLogs: [log('l1', 'a', '2026-10-21'), log('l2', 'b', '2026-10-21'), log('l3', 'c', '2026-10-21'), log('l4', 'd', '2026-10-10'), log('l5', 'e', '2026-10-20')],
+    checkins: [wk('w1', 'a', '2026-10-13'), wk('w2', 'b', '2026-10-19'), wk('w4', 'd', '2026-10-05')],
+    checkinAnswers: [{ id: 'x1', questionId: 'q', athleteId: 'e', coachId: 'c', period: '2026-10-14', num: 7, text: null }],
+    sessionNotes: [{ id: 'n1', athleteId: 'a', date: '2026-10-21', note: 'Bar felt slow.', coachComment: null }]
+  }));
+  try {
+    const R = id => deskReasons(id, { coachId: 'c', today: t, now });
+    const a = R('a'), nc = a.find(r => r.type === 'nocheckin');
+    assert(nc, 'Leo checked in 9 days ago and trains');
+    eq(nc.text, 'No check-in for 9 days'); eq(nc.group, 6); eq(nc.tone, 'info');
+    assert(/^Last check-in /.test(nc.detail), 'the detail says when');
+    eq(a.map(r => r.type).join(','), 'note,nocheckin,noprogram', 'their words, then the check-in, then the block (triage order unchanged)');
+    eq(R('b').some(r => r.type === 'nocheckin'), false, 'checked in 3 days ago');
+    eq(R('c').some(r => r.type === 'nocheckin'), false, 'never checked in: nothing to nudge');
+    eq(R('d').some(r => r.type === 'nocheckin'), false, 'gone quiet: one flag, "Quiet"');
+    assert(R('d').some(r => r.type === 'quiet'), 'Di is quiet');
+    eq((R('e').find(r => r.type === 'nocheckin') || {}).text, 'No check-in for 8 days', 'answers to the coach’s questions are check-ins too');
+  } finally { Store.set(saved); }
+});
+test('Lifters and Today: a low-urgency check job in "Check on", fixed by a message with the nudge', () => {
+  const T = '2026-10-22';
+  const r = clRow({ athlete: { id: 'l', name: 'Leo Grant' }, status: { checkinAgo: 11 }, reasons: [{ type: 'nocheckin', group: 6, text: 'No check-in for 11 days', tone: 'info', detail: 'Last check-in Oct 11' }] });
+  const J = CL.clJobs([r], { today: T });
+  eq(J.length, 1); eq(J[0].kind, 'check'); eq(J[0].tier, 3, 'engagement, not this week’s health');
+  eq(CL.jobText(J[0]).title, 'No check-in for 11 days'); eq(CL.jobText(J[0]).detail, 'Last check-in Oct 11');
+  eq(CL.clGroupKey(r), 'need');
+  const p = clRow({ athlete: { id: 'p', name: 'Pat' }, status: { pain: { report: { severity: 6, day: T }, count: 1 } }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }, { type: 'nocheckin', group: 6, text: 'No check-in for 9 days' }] });
+  eq(CL.clTopJob(p, CL.clJobs([p], { today: T })).type, 'pain', 'pain still comes first');
+  const H = window.CoachHome;
+  assert(H && H.fixFor, 'CoachHome is loaded');
+  const f = H.fixFor(r);
+  eq(f.k, 'msg'); eq(f.label, 'Send a check-in nudge');
+  eq(f.text, 'Hey Leo, how did the week go? Fill in your check-in when you get a sec.');
+});
+
+/* ===========================================================
+   Ask AI, the coach's prompt (ai-chat.js coachPrompt): the ai-chat edge function keeps the first
+   6,000 characters, so the rules go first, a roster of 25 fits under 5,500, a longer one says who
+   was left out, and nothing a lifter wrote (notes, messages, check-in words, pain notes) or Apple
+   Health brought in reaches it.
+   =========================================================== */
+group('Ask AI: the coach prompt');
+(() => {
+  const P = window.PowaAIPrompt || null;
+  test('the prompt builder is loaded', () => assert(P && typeof P.coach === 'function', 'window.PowaAIPrompt.coach'));
+  if (!P) return;
+  const SECRET = { note: 'zebra-note-77', log: 'otter-log-71', msg: 'walrus-msg-73', ci: 'ibis-checkin-79', ans: 'heron-answer-83', pain: 'lynx-pain-89', fc: 'yak-video-97', coach: 'kiwi-private-61' };
+  const NAMES = ['Arjun Mehta', 'Sarah Kim', 'Tom Boyle', 'Nina Petrova', 'Leo Grant', 'Priya Shah', 'Marcus Doyle', 'Elena Rossi', 'Jonah Reed', 'Mei Tanaka',
+    'Callum Ward', 'Ines Duarte', 'Kofi Mensah', 'Hannah Berg', 'Dev Patel', 'Sofia Alvarez', 'Ryan O\'Neill', 'Amara Okafor', 'Tomas Novak', 'Grace Liu',
+    'Mateo Fernandez-Garcia', 'Aisha Rahman', 'Lukas Becker', 'Chloe Martin', 'Oskar Lindqvist'];
+  const today = todayISO(), dA = n => _addDaysISO(today, -n);
+  // n lifters like the demo's: six weeks of the three lifts, a 4-week block, and a mix of what a
+  // roster has: meets with a class, pain, notes and messages waiting, a set over its RPE, PRs.
+  function roster(n) {
+    const S = { athletes: [], workoutLogs: [], programs: [], meets: [], bodyweight: [], sessionNotes: [], messages: [], painReports: [], checkins: [], coachNotes: [],
+      checkinQuestions: [{ id: 'q1', coachId: 'c', prompt: 'Anything I should know?', kind: 'text', cadence: 'daily', active: true }], checkinAnswers: [] };
+    for (let i = 0; i < n; i++) {
+      const id = 'ai' + i, base = [150 + (i % 9) * 6, 95 + (i % 7) * 5, 185 + (i % 8) * 7], rise = i % 4 === 0 ? 2.5 : 0;
+      S.athletes.push({ id, name: NAMES[i % NAMES.length] + (i >= NAMES.length ? ' ' + (i + 1) : ''), coachId: 'c' });
+      for (let w = 5; w >= 0; w--) ['squat', 'bench', 'deadlift'].forEach((L, k) => {
+        const kg = base[k] + (5 - w) * rise;
+        S.workoutLogs.push({ id: id + 'l' + w + k, athleteId: id, lift: L, variant: 'Competition', exerciseName: '', weight: kg, reps: 3, rpe: 8,
+          e1rm: calcE1RM(kg, 3, 8), e1rmComp: calcCompE1RM(kg, 3, 8, L, 'Competition'), date: dA(w * 7 + k + (i % 2)), note: SECRET.log });
+      });
+      S.programs.push({ id: id + 'p', athleteId: id, coachId: 'c', name: ['Strength Block', 'Peak', 'Hypertrophy Wave', 'Volume Block'][i % 4],
+        weeks: [1, 2, 3, 4].map(wn => ({ id: id + 'w' + wn, number: wn, days: ['squat', 'bench', 'deadlift'].map((L, di) => ({ id: id + 'd' + wn + di, name: L, exercises: [{ id: id + 'e' + wn + di, lift: L, variant: 'Competition', exerciseName: '', note: 'Brace hard.',
+          sets: [{ id: id + 's' + wn + di, weight: base[di], reps: 3, rpe: 8, completed: wn === 1, actualRpe: wn === 1 ? (i % 5 === 0 && di === 1 ? 9.5 : 8) : null, completedAt: wn === 1 ? dA(8 - di) : null, note: SECRET.log }] }] })) })) });
+      if (i % 3 === 0) {
+        S.meets.push({ id: id + 'm', athleteId: id, name: 'State Open', date: dA(-(12 + i)), weightClass: '93 kg', status: 'planned' });
+        S.bodyweight.push({ id: id + 'bw', athleteId: id, date: dA(2), weight: 92.4 });                 // typed: under the class
+        S.bodyweight.push({ id: healthBwUid(), athleteId: id, date: dA(0), weight: 95.8 });              // from Apple Health: over it, never read
+      }
+      if (i % 4 === 1) S.sessionNotes.push({ id: id + 'n', athleteId: id, date: dA(1), note: SECRET.note, coachComment: null });
+      if (i % 4 === 2) S.messages.push({ id: id + 'g', coachId: 'c', athleteId: id, senderId: id, body: SECRET.msg, createdAt: new Date(Date.now() - 30 * 3600000).toISOString(), readAt: null });
+      if (i % 6 === 3) S.painReports.push({ id: id + 'x', athleteId: id, coachId: 'c', day: dA(1), bodyPart: 'knee', side: 'left', severity: 5, phase: 'top', lift: 'squat', note: SECRET.pain, createdAt: dA(1) + 'T18:00:00Z', resolvedAt: null });
+      S.checkins.push({ id: id + 'c', athleteId: id, weekStart: _monISO(dA(9)), sleep: 7, soreness: 6, stress: 7, feel: 8, note: SECRET.ci, createdAt: dA(9) + 'T08:00:00Z' });
+      S.checkinAnswers.push({ id: id + 'a', questionId: 'q1', athleteId: id, coachId: 'c', period: dA(0), num: null, text: SECRET.ans });
+      S.coachNotes.push({ id: id + 'k', coachId: 'c', athleteId: id, body: SECRET.coach });
+    }
+    return Object.assign(defaultStore(), S);
+  }
+  const lines = s => s.slice(s.indexOf('\nRoster, ')).split('\n- ').length - 1;   // the roster's lines (the rules are bullets too)
+  const saved = Store.get();
+  try {
+    Store.set(roster(25));
+    const fcs = [{ id: 'fc1', athleteId: 'ai0', coachId: 'c', lift: 'squat', note: SECRET.fc, coachReply: null, createdAt: new Date().toISOString() }];
+    const p25 = P.coach({ coachId: 'c', coachName: 'Kay Coach', unit: 'kg', formChecks: fcs });
+    test('the rules come first, before any lifter', () => {
+      assert(/^You are the POWALIFTA coaching assistant for coach Kay Coach\./.test(p25), 'starts with who it is');
+      const firstLifter = Math.min.apply(null, NAMES.map(nm => p25.indexOf(nm + ':')).filter(i => i >= 0));
+      ['Never invent numbers', 'training data only', 'Weights below are kg', 'Under ~120 words'].forEach(rule => {
+        const at = p25.indexOf(rule);
+        assert(at >= 0 && at < firstLifter, '"' + rule + '" before the roster');
+      });
+    });
+    test('25 demo-like lifters fit under 5,500 characters, one line each', () => {
+      assert(p25.length < 5500, 'length ' + p25.length);
+      NAMES.forEach(nm => assert(p25.indexOf('\n- ' + nm + ':') >= 0, nm + ' is in'));
+      eq(lines(p25), 25, 'a line per lifter');
+      assert(p25.indexOf('more lifters not shown') < 0, 'nobody left out');
+      assert(/Arjun Mehta: e1RM \d+ \(S\d+\/B\d+\/D\d+\)/.test(p25), 'the total and the three lifts');
+      assert(/; \d\/\d sessions; /.test(p25), 'sessions done of planned');
+      assert(/Strength Block wk \d\/4/.test(p25), 'the program and its week');
+      assert(/meet in \d+d \(93 kg class\)/.test(p25), 'a meet coming up');
+      assert(/pain left knee 5\/10/.test(p25), 'pain, the part and how bad');
+    });
+    test('nothing a lifter wrote, nor Apple Health, reaches the coach prompt', () => {
+      Object.keys(SECRET).forEach(k => assert(p25.indexOf(SECRET[k]) < 0, 'their ' + k + ' text leaked'));
+      assert(!/over class/.test(p25), 'the Health weigh-in (95.8 for 93) is never read: the typed 92.4 is under');
+      assert(p25.indexOf('Brace hard.') < 0, 'no exercise notes either');
+    });
+    Store.set(roster(60));
+    const p60 = P.coach({ coachId: 'c', coachName: 'Kay Coach', unit: 'lb' });
+    test('a roster past the budget stays under it and says who was left out', () => {
+      assert(p60.length <= 5500, 'length ' + p60.length);
+      const shown = lines(p60), m = /\n\(\+(\d+) more lifters not shown\)$/.exec(p60);
+      assert(m, 'ends with (+N more lifters not shown)');
+      eq(shown + Number(m[1]), 60, 'everyone is either shown or counted');
+      assert(/Answer in lb/.test(p60), 'the coach’s unit');
+    });
+  } finally { Store.set(saved); }
+})();
 
 function render() {
   const sum = document.getElementById('summary');

@@ -1383,9 +1383,9 @@ async function saveCheckin() {
   if (!allValid) return toast('All four scores must be 1–10.');
 
   const c = { athleteId: user.id, weekStart: ctx.weekStart, sleep, soreness, stress, feel, note };
-  if (window._demoMode) { closeModal('checkinModal'); toast('Demo mode: check-ins reach a real coach once you sign up'); return; }
   try {
-    await DB.upsertCheckin(c);
+    // The demo saves it into this page's Store only (nothing is sent), so it shows as done like a real one.
+    if (!window._demoMode) await DB.upsertCheckin(c);
     Store.update(s => {
       const idx = (s.checkins || []).findIndex(x => x.athleteId === user.id && x.weekStart === ctx.weekStart);
       if (idx >= 0) s.checkins[idx] = { ...s.checkins[idx], ...c };
@@ -8932,7 +8932,7 @@ function renderCoach() {
     } else {
       const fc = el('div', { class: 'coach-forms' });
       body.appendChild(fc);
-      if (window._demoMode) renderDemoFormChecks(fc, coach); else renderAthleteFormChecks(fc, coach);
+      renderAthleteFormChecks(fc, coach);   // the demo too: its checks live in this page's memory
     }
   };
   [['messages', 'Messages'], ['forms', 'Form checks']].forEach(([v, label]) => {
@@ -8958,41 +8958,20 @@ function coachSubHead(icon, title, sub) {
   return h;
 }
 
-// --- Demo-only showcase (no Supabase) so the ?demo=1 Coach tab demonstrates the
-// form-check round-trip without faking the storage backend. (Messaging shares
-// the real renderMessageThread, demo-backed by the in-memory Store.) ---
-function renderDemoFormChecks(host, coach) {
-  // Upload form (visual) — the surface the user couldn't find.
-  const form = el('div', { class: 'fc-form' });
-  form.appendChild(el('input', { type: 'file', accept: 'video/*', class: 'fc-file' }));
-  const liftSel = el('select', { class: 'fc-lift' });
-  [['', 'Lift (optional)'], ['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift'], ['other', 'Other']]
-    .forEach(([v, l]) => liftSel.appendChild(el('option', { value: v }, l)));
-  form.appendChild(liftSel);
-  form.appendChild(el('textarea', { class: 'fc-note', rows: '2', placeholder: 'What do you want eyes on? (e.g. "depth on rep 3?")' }));
-  form.appendChild(el('button', { class: 'btn btn-primary',
-    onclick: () => toast('Form-check uploads go live with a real account. This is the demo.') }, 'Send for review'));
-  host.appendChild(form);
-
-  // One illustrative reviewed clip so the round-trip is self-evident.
-  const listHost = el('div', { class: 'fc-list', style: 'margin-top:16px;' });
-  const item = el('div', { class: 'fc-item' });
-  const head = el('div', { class: 'fc-item-head' });
-  head.appendChild(el('span', { class: 'fc-item-lift' }, 'Squat'));
-  head.appendChild(el('span', { class: 'fc-item-date dim text-xs' }, fmtDateShort(new Date(Date.now() - 2 * 864e5).toISOString())));
-  item.appendChild(head);
-  item.appendChild(el('p', { class: 'fc-item-note' }, '“Depth check on my top single. Felt high?”'));
-  const videoWrap = el('div', { class: 'fc-video-wrap' });
-  videoWrap.appendChild(el('button', { class: 'btn btn-sm btn-ghost',
-    // VIDEO REVIEW hook: the demo plays a sample clip with the coach's drawings replayed on it.
-    onclick: () => { if (window.VideoReview) VideoReview.mountReplay(videoWrap, VideoReview.demoAthleteCheck()); else toast('Video playback goes live with a real account. This is the demo.'); } }, '▶ Watch clip'));
-  item.appendChild(videoWrap);
-  const reply = el('div', { class: 'fc-reply' });
-  reply.appendChild(el('div', { class: 'fc-reply-lbl' }, 'Coach reply'));
-  reply.appendChild(el('p', { class: 'fc-reply-body' }, 'Depth was good: hips broke parallel. You\'re losing the upper back on the way up; cue chest tall and drive through mid-foot. Clean rep.'));
-  item.appendChild(reply);
-  listHost.appendChild(item);
-  host.appendChild(listHost);
+// The demo's form checks (?demo=1, no Supabase): the clip the coach already marked up
+// (video-review.js demoAthleteCheck, drawings replayed), and any clip sent here, which plays from
+// this page's memory (an object URL, video-review.js signUrl takes it as demoSrc) and leaves with it.
+var _demoFcSent;   // var: never in the dead zone, set on the first send
+function demoAthleteFormChecks() {
+  const seeded = window.VideoReview && VideoReview.demoAthleteCheck ? [VideoReview.demoAthleteCheck()] : [];
+  return (_demoFcSent || []).concat(seeded);
+}
+function demoSendFormCheck(o) {
+  const fc = { id: 'demo-fc-sent-' + Date.now(), athleteId: o.athleteId, coachId: o.coachId, storagePath: 'demo/' + (o.file.name || 'clip.mp4'),
+    demoSrc: URL.createObjectURL(o.file), lift: o.lift || null, note: String(o.note || '').trim(), coachReply: null, coachReplyAt: null,
+    createdAt: new Date().toISOString() };
+  (_demoFcSent || (_demoFcSent = [])).unshift(fc);
+  return fc;
 }
 
 // Athlete's form-check panel: upload a clip + see past submissions and the
@@ -9028,10 +9007,9 @@ async function renderAthleteFormChecks(host, coach) {
     const orig = uploadBtn.textContent;
     uploadBtn.textContent = 'Uploading…';
     try {
-      await DB.uploadFormCheck({
-        athleteId: user.id, coachId: coach.id, file,
-        lift: liftSel.value, note: noteInput.value
-      });
+      const up = { athleteId: user.id, coachId: coach.id, file, lift: liftSel.value, note: noteInput.value };
+      if (window._demoMode) demoSendFormCheck(up);   // nothing is uploaded: the clip stays on this page
+      else await DB.uploadFormCheck(up);
       toast('Sent to ' + coach.name.split(' ')[0] + ' for review');
       fileInput.value = ''; noteInput.value = ''; liftSel.value = '';
       if (nativePick) nativePick.done();
@@ -9047,8 +9025,11 @@ async function renderAthleteFormChecks(host, coach) {
   async function loadList() {
     listHost.innerHTML = '<p class="dim text-sm">Loading…</p>';
     let checks = [];
-    try { checks = await DB.listFormChecksForAthlete(user.id); }
-    catch (e) { console.warn(e); }
+    if (window._demoMode) checks = demoAthleteFormChecks();
+    else {
+      try { checks = await DB.listFormChecksForAthlete(user.id); }
+      catch (e) { console.warn(e); }
+    }
     listHost.innerHTML = '';
     if (!checks.length) {
       listHost.appendChild(el('p', { class: 'dim text-sm' }, 'No form checks yet. Upload a clip above and your coach can review it.'));

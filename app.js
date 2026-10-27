@@ -305,7 +305,7 @@ function _buildDemoData() {
   const messages = [
     { id: 'demo-amsg-1', coachId: DC, athleteId: DA, senderId: DC, body: 'Top triple on squat today. Film it and drop it in the form-check tab. I want eyes on your brace out of the hole.', createdAt: at(2, 8, 30), readAt: at(2, 9, 0) },
     { id: 'demo-amsg-2a', coachId: DC, athleteId: DA, senderId: DA, body: 'Competition Squat: 160 kg × 3 @ RPE 8 (e1RM 179 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 160, reps: 3, rpe: 8, e1rmKg: 179.0 }, createdAt: at(2, 18, 3), readAt: at(2, 19, 0) },
-    { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Will do. Felt a little soft out of the bottom last week, not sure if it was the brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
+    { id: 'demo-amsg-2', coachId: DC, athleteId: DA, senderId: DA, body: 'Got it on video. Still felt soft out of the hole like last week, not sure if it\'s my brace or just fatigue.', createdAt: at(2, 18, 5), readAt: at(2, 19, 0) },
     { id: 'demo-amsg-3', coachId: DC, athleteId: DA, senderId: DC, body: 'Could be both. Big air, brace hard, then break at the hips. Send the clip and I\'ll tell you which one it is.', createdAt: at(1, 7, 45), readAt: null },
     // A voice note (voice.js): the demo plays a soft murmur shaped by these bars, nothing is fetched.
     { id: 'demo-amsg-4', coachId: DC, athleteId: DA, senderId: DC, body: 'Voice note · 0:19', meta: { type: 'voice', demo: true, dur: 18.6, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[0] }, createdAt: at(1, 7, 47), readAt: null }
@@ -510,14 +510,14 @@ function _buildCoachDemoData() {
     { id: 'demo-msg-1', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'Squat day today: one top single at RPE 8.5, then two back-offs at 8. Don\'t chase a max, just move it clean.', createdAt: at(4, 9, 15), readAt: at(4, 18, 0) },
     { id: 'demo-msg-1b', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Competition Squat: 172.5 kg × 1 @ RPE 8 (e1RM 185 kg)', meta: { type: 'set', lift: 'squat', name: 'Competition Squat', weightKg: 172.5, reps: 1, rpe: 8, e1rmKg: 184.8, pr: true }, createdAt: at(4, 18, 38), readAt: at(4, 19, 0) },
     { id: 'demo-msg-2', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Hit 172.5 for the single, honestly felt like an opener.', createdAt: at(4, 18, 40), readAt: at(4, 19, 0) },
-    { id: 'demo-msg-3', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'That\'s exactly what I wanted to see. We\'ll go to 175 next week and hold the back-offs.', createdAt: at(4, 19, 2), readAt: at(4, 20, 0) },
+    { id: 'demo-msg-3', coachId: DC, athleteId: 'demo-a1', senderId: DC, body: 'Exactly what I wanted to see. Repeat it next week, and if it moves like that again we go to 175.', createdAt: at(4, 19, 2), readAt: at(4, 20, 0) },
     { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one: sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
     { id: 'demo-msg-4v', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Voice note · 0:24', meta: { type: 'voice', demo: true, dur: 23.8, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[1] }, createdAt: at(1, 7, 32), readAt: null },
     { id: 'demo-msg-5', coachId: DC, athleteId: 'demo-a2', senderId: 'demo-a2', body: 'Paused bench is finally clicking, the reps moved way faster this week.', createdAt: at(3, 12, 10), readAt: at(2, 8, 0) },
-    { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Good. Same weights once more, then we add load. The pause is buying you a stronger press off the chest.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
+    { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Love that. Saw the low back flag after your pulls though: keep deadlifts light this week and tell me how it feels.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
     { id: 'demo-msg-6v', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Voice note · 0:12', meta: { type: 'voice', demo: true, dur: 12.2, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[0].slice().reverse() }, createdAt: at(2, 8, 21), readAt: at(2, 9, 0) },
-    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'Haven\'t seen a log in over a week. Everything alright?', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
-    { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Yeah man, work\'s been brutal. Back in Monday, promise.', createdAt: at(1, 22, 15), readAt: null }
+    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'If work\'s busy, keep the sessions short. Just get your openers in before the meet.', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
+    { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Sorry for going quiet, work\'s been mad. Still on for tomorrow. Weighed 105.3 this morning, is that ok?', createdAt: at(1, 22, 15), readAt: null }
   ];
   const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
   // A template is the block as written: a fresh copy, nothing logged in it.
@@ -5192,6 +5192,7 @@ async function renderMessageThread(container, opts) {
       }
       ta.value = '';
       autosize();
+      syncSend();   // the arrow goes quiet again once the box is empty
     } catch (e) {
       console.error('sendMessage', e);
       toast('Could not send: are you still connected to them?');
@@ -5206,6 +5207,13 @@ async function renderMessageThread(container, opts) {
   });
   function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
   ta.addEventListener('input', autosize);
+  // A suggested message (a fix on the coach's Lifters: "Send a check-in nudge") waits in the box,
+  // never sent on its own: the coach edits it or sends it. No focus: the phone keeps its keyboard down.
+  if (opts && typeof opts.draft === 'string' && opts.draft.trim()) {
+    ta.value = opts.draft;
+    syncSend();
+    if (ta.scrollHeight) autosize();   // laid out (an open modal): grow to fit; hidden, keep the default
+  }
   // Anything sent from elsewhere (Train's "Send to coach") lands here on repaint.
   container._msgRefresh = () => {
     if (!demo) return;
@@ -10560,9 +10568,10 @@ function _sheetSwallowEarlyClicks(veil) {
 
 // A bottom sheet with arbitrary content (uiActionSheet is the menu version).
 // build(sheet, close) fills it. Returns close().
+// opts: { cls (the sheet), veilCls (the veil: 'is-over-ai' sits above the Ask AI panel), onClose }
 function uiSheet(title, build, opts) {
   opts = opts || {};
-  const veil = el('div', { class: 'ui-sheet-veil', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Sheet' });
+  const veil = el('div', { class: 'ui-sheet-veil' + (opts.veilCls ? ' ' + opts.veilCls : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Sheet' });
   const sheet = el('div', { class: 'ui-sheet ui-sheet-form' + (opts.cls ? ' ' + opts.cls : '') });
   sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
   if (title) sheet.appendChild(el('h3', { class: 'ui-sheet-h' }, title));
@@ -10743,9 +10752,9 @@ function uiEmpty(opts) {
   return e;
 }
 
-// ⋯ menu as a bottom sheet. actions: [{ label, icon?, danger?, onClick }]
-function uiActionSheet(title, actions) {
-  const veil = el('div', { class: 'ui-sheet-veil', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Options' });
+// ⋯ menu as a bottom sheet. actions: [{ label, icon?, danger?, onClick }]. opts: { veilCls } as uiSheet.
+function uiActionSheet(title, actions, opts) {
+  const veil = el('div', { class: 'ui-sheet-veil' + (opts && opts.veilCls ? ' ' + opts.veilCls : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Options' });
   const sheet = el('div', { class: 'ui-sheet' });
   sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
   if (title) sheet.appendChild(el('div', { class: 'ui-sheet-title' }, title));
@@ -11150,6 +11159,12 @@ function deskReasons(athleteId, opts) {
     if (/^Pain/.test(a.text)) add('pain', 1, a.text, 'alert', 'Said yes to pain on their check-in ' + a.text.replace(/^Pain /, ''));
     else add('checkin', 6, a.text.replace(/(\d) h$/, '$1h'), a.severity >= 2 ? 'warn' : 'info', 'From their check-in');
   });
+  // 6 · stopped checking in: someone who has checked in before (the weekly form or your questions)
+  // and hasn't for 8+ days. Low urgency, and only while they train: a lifter gone quiet already has
+  // that flag, and "Quiet" says it better (one flag per fact).
+  if (st.checkinAgo != null && st.checkinAgo >= 8 && st.ago != null && st.ago < 5) {
+    add('nocheckin', 6, 'No check-in for ' + st.checkinAgo + ' days', 'info', 'Last check-in ' + fmtDateShort(_addDaysISO(t, -st.checkinAgo)));
+  }
   // 2 · a meet inside two weeks, or over the class with one coming
   const nm = deskNextMeet(athleteId, t);
   if (nm && nm.days <= 14) add('meet', 2, nm.days === 0 ? 'Meet today' : 'Meet in ' + nm.days + 'd', 'meet', nm.meet.name + (nm.meet.weightClass ? ' · ' + nm.meet.weightClass : ''));

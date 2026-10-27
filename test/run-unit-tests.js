@@ -178,7 +178,12 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   // INTAKE: the lifter's questionnaire (tests.html "intake")
   (fs.existsSync(path.join(ROOT, 'intake.js')) ? fs.readFileSync(path.join(ROOT, 'intake.js'), 'utf8') : '') + '\n;\n' +
   // CLIENTS + INTAKE: the schedule, a client's status, the summary, money words, the intake lines (tests.html "clients (clients.js)")
-  (fs.existsSync(path.join(ROOT, 'clients.js')) ? fs.readFileSync(path.join(ROOT, 'clients.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'clients.js')) ? fs.readFileSync(path.join(ROOT, 'clients.js'), 'utf8') : '') + '\n;\n' +
+  // HOME: the fixes for a reason (tests.html "check-in nudge")
+  (fs.existsSync(path.join(ROOT, 'coach-home.js')) ? fs.readFileSync(path.join(ROOT, 'coach-home.js'), 'utf8') : '') + '\n;\n' +
+  // ASK AI: the coach's prompt builder only, the panel switched off as tests.html does (tests.html "Ask AI: the coach prompt")
+  'window.POWA_AI = { enabled: false };\n' +
+  (fs.existsSync(path.join(ROOT, 'ai-chat.js')) ? fs.readFileSync(path.join(ROOT, 'ai-chat.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 let testSrc = scripts[scripts.length - 1];

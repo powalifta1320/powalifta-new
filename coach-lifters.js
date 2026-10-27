@@ -73,9 +73,9 @@
     return { n: n, k: Math.min(n, t), trained: t, text: t + ' of ' + n + ' sessions in the last 7 days' };
   }
 
-  var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
+  var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', nocheckin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
     quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write' };
-  var ORDER = ['meetday', 'pain', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'readiness', 'offpace',
+  var ORDER = ['meetday', 'pain', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
     'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
   function waitHours(x) { var m = /(\d+)\s*(h|d)\b/.exec((x && x.text) || ''); if (!m) return 0; return Number(m[1]) * (m[2] === 'd' ? 24 : 1); }
   // How soon: 0 today, 1 this week's health and deadlines, 2 the program and replies, 3 planning and
@@ -97,7 +97,7 @@
       case 'message': return waitHours(x) >= 24 ? 1 : 2;
       case 'checkin': return x.tone === 'warn' ? 1 : 2;
       case 'formcheck': case 'drift': case 'note': case 'readiness': case 'offpace': return 2;
-      case 'blockdone': case 'blockend': case 'quiet': case 'missed': case 'never': return 3;
+      case 'blockdone': case 'blockend': case 'quiet': case 'missed': case 'never': case 'nocheckin': return 3;   // a check-in nudge is engagement: low urgency
       default: return 4;
     }
   }
@@ -328,6 +328,7 @@
       case 'note': { var w = clWords(r); var dd = /(\d+)d$/.exec(x.text || ''); return { icon: 'msg', tone: 'msg', title: 'Left a note' + (dd ? ' · ' + plural(Number(dd[1]), 'day') + ' ago' : ''), detail: w && w.kind === 'note' ? '“' + clip(w.text, 70) + '”' : '' }; }
       case 'formcheck': return { icon: 'video', tone: 'msg', title: 'Form check' + (/·\s*(\w+)/.test(x.text || '') ? ' · ' + /·\s*(\w+)/.exec(x.text)[1] : ''), detail: x.detail || 'Video waiting' };
       case 'checkin': return { icon: 'pulse', tone: 'warn', title: x.text || 'Check-in worth a look', detail: 'From their check-in' };
+      case 'nocheckin': return { icon: 'cal', tone: 'quiet', title: x.text || 'No check-in lately', detail: x.detail || '' };
       case 'readiness': return { icon: 'heart', tone: 'warn', title: 'Readiness low', detail: st.readiness && st.readiness.text ? st.readiness.text : (x.detail || '') };
       case 'quiet': return { icon: 'clock', tone: 'quiet', title: st.ago != null ? plural(st.ago, 'day') + ' since a session' : 'Quiet', detail: st.lastDate ? 'Last trained ' + dateShort(st.lastDate) : '' };
       case 'never': return { icon: 'clock', tone: 'quiet', title: 'No sets logged yet', detail: prog ? clip(prog.name, 40) : '' };
@@ -363,7 +364,7 @@
     return { text: (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), tone: v > 0 ? 'up' : v < 0 ? 'down' : 'flat', title: (v > 0 ? '+' : '') + v + ' ' + unit() + ' of total e1RM in four weeks' };
   }
   // Four groups, a lifter in one only. order: { athleteId: rank } from the jobs, most urgent first.
-  var NEED = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|readiness|quiet|never|missed|stalling)$/;
+  var NEED = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|nocheckin|readiness|quiet|never|missed|stalling)$/;
   var BLOCK = /^(blockend|blockdone|noprogram)$/;
   var GROUPS = [{ key: 'need', title: 'Check on' }, { key: 'block', title: 'Next block due' }, { key: 'meet', title: 'Meet soon' }, { key: 'plan', title: 'On plan' }];
   function clGroupKey(r) {
@@ -620,7 +621,7 @@
   function message(r, text) {
     var h = home();
     if (h && h.message) { h.message(r, text || '', refresh); return; }
-    if (typeof openAthleteMessages === 'function') openAthleteMessages(r.athlete.id, r.athlete.name);
+    if (typeof openAthleteMessages === 'function') openAthleteMessages(r.athlete.id, r.athlete.name, text || '');
   }
   function run(r, f, btn) {
     if (!f) return;
@@ -733,6 +734,7 @@
     if (f && f.k === 'apply') return 'Apply';
     if (/^Reply/.test(l)) return 'Reply';
     if (/^Check in/.test(l)) return 'Check in';
+    if (/nudge/i.test(l)) return 'Nudge';
     if (/^Message/.test(l)) return 'Message';
     if (/cut plan/i.test(l)) return 'Cut plan';
     if (/attempts/i.test(l)) return 'Attempts';
