@@ -6266,9 +6266,9 @@ test('the roster preview: what the rules would change this week, changes first',
     eq(p.items[0].name, 'Arjun Mehta');
     eq(p.items.filter(x => x.dir === 'hold').length, 2, 'two stay');
     eq(p.items[p.items.length - 1].dir, 'hold', 'stays come last');
-    eq(progressionPreviewText(p.items[0], 'kg'), 'Arjun\'s squat 180 → 182.5');
-    eq(progressionPreviewText(p.items.find(x => x.dir === 'hold'), 'kg'), 'Arjun\'s squat back-offs stay 160');
-    eq(progressionPreviewText(p.items.find(x => x.title === 'Bench' && x.gi === 0), 'kg'), 'Arjun\'s bench 152.5 → 142.5');
+    eq(progressionPreviewText(p.items[0], 'kg'), 'Arjun’s squat 180 → 182.5');
+    eq(progressionPreviewText(p.items.find(x => x.dir === 'hold'), 'kg'), 'Arjun’s squat back-offs stay 160');
+    eq(progressionPreviewText(p.items.find(x => x.title === 'Bench' && x.gi === 0), 'kg'), 'Arjun’s bench 152.5 → 142.5');
     eq(progressionPreview({ rules: [] }, { unit: 'kg' }).items.length, 0, 'no rules, nothing');
   } finally { Store.set(saved); }
 });
@@ -6361,7 +6361,7 @@ test('the top sets a preview shows: the heaviest loaded set per lift in week 1, 
   eq(t[0].kg, 117.5); eq(t[0].srcKg, 155); eq(t[0].reps, 5); eq(t[0].rpe, 7); eq(t[0].pct, 76);
   eq(t[1].kg, 60); eq(t[1].pct, 60);
   eq(t[2].kg, 150, 'deadlift: the competition lift\'s heaviest loaded set'); eq(t[2].srcKg, 190);
-  eq(reuseTopSetText(t[0], 'Arjun Mehta', 'kg'), 'Squat 117.5 × 5 @7 (76% of Arjun\'s)');
+  eq(reuseTopSetText(t[0], 'Arjun Mehta', 'kg'), 'Squat 117.5 × 5 @7 (76% of Arjun’s)');
   const byFeel = reuseTopSets([{ days: [{ exercises: [{ lift: 'squat', variant: 'Competition', sets: [RBS(0, 3, 8)] }] }] }], [{ days: [{ exercises: [{ lift: 'squat', variant: 'Competition', sets: [RBS(0, 3, 8)] }] }] }]);
   eq(reuseTopSetText(byFeel[0], 'Arjun Mehta', 'kg'), 'Squat 3 @8, load by RPE');
   eq(reuseTopSets([], []).length, 0);

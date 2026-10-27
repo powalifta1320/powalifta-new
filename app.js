@@ -11715,7 +11715,7 @@ function progressionPreviewText(it, unit) {
   const w = (kg) => _num(unit === 'lbs' ? Math.round(Number(kg) / KG_PER_LB * 10) / 10 : Number(kg));
   const first = String(it.name || 'Lifter').trim().split(/\s+/)[0];
   const many = it.gi > 0;
-  const what = first + "'s " + String(it.title || LIFT_LABELS[it.lift] || 'lift').toLowerCase() + (many ? ' back-offs' : '');
+  const what = first + '’s ' + String(it.title || LIFT_LABELS[it.lift] || 'lift').toLowerCase() + (many ? ' back-offs' : '');
   const setsMove = it.sets != null && it.sets !== it.setsFrom;
   const load = it.dir === 'set' ? ' gets ' + w(it.to) : it.dir === 'hold' ? '' : ' ' + w(it.from) + ' → ' + w(it.to);
   if (setsMove) return what + ' ' + it.setsFrom + ' → ' + it.sets + ' sets' + (load ? ',' + load : '');
@@ -15422,7 +15422,7 @@ function reuseTopSetText(t, srcName, unit) {
   const name = LIFT_LABELS[t.lift] || t.lift;
   if (!(t.kg > 0)) return name + ' ' + t.reps + eff + ', load by RPE';
   const who = String(srcName || '').trim().split(/\s+/)[0];
-  return name + ' ' + w(t.kg) + ' × ' + t.reps + eff + (t.pct != null && who ? ' (' + t.pct + '% of ' + who + '\'s)' : '');
+  return name + ' ' + w(t.kg) + ' × ' + t.reps + eff + (t.pct != null && who ? ' (' + t.pct + '% of ' + who + '’s)' : '');
 }
 // The maxes a lifter's % sets work from, with where each came from (printed next to the number):
 // the coach's max for the block, else the best estimated max, else a meet single.

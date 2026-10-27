@@ -370,7 +370,9 @@
     cmp: '<path d="M4 20V10M9 20V4M15 20v-7M20 20V8"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
-    chev: '<path d="m9 6 6 6-6 6"/>'
+    chev: '<path d="m9 6 6 6-6 6"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.01"/>',
+    back: '<path d="m15 6-6 6 6 6"/>'
   };
   function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC[k] + '</svg>'; }
   function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -587,6 +589,13 @@
         }
         if (!weeks) { view.appendChild(el('p', { class: 'dk-quiet-p' }, 'This block didn\'t open. Check the connection and try again.')); return; }
         if (typeof dkBlockView === 'function') view.appendChild(dkBlockView({ id: b.id, name: b.name, weeks: weeks, maxes: b.maxes }, a.id));
+        // Give this block to someone else (reuse-block.js): their own loads from their own maxes.
+        if (window.ReuseBlock && typeof dkBtn === 'function') {
+          var acts = el('div', { class: 'bd-acts' });
+          var use = dkBtn('Use for another lifter…', { title: 'Give ' + (b.name || 'this block') + ' to other lifters, scaled to their maxes', onClick: function () { ReuseBlock.open({ aid: a.id, block: b, from: use }); } });
+          acts.appendChild(use);
+          view.appendChild(acts);
+        }
       });
       list.appendChild(row);
     });
@@ -601,6 +610,9 @@
   // their fingerprints stacked on one week grid, then one row per difference, a sentence and both values.
   function pickHtml(it, on, o) {
     var d = it.dna;
+    // The phone: beside the tick, an ⓘ opens the block's own page (what it is, and Use for another lifter).
+    if (o.detail) return '<div class="bd-prow2' + (on ? ' is-on' : '') + '">' + pickHtml(it, on, Object.assign({}, o, { detail: false })) +
+      '<button type="button" class="bd-open" data-bd-open="' + esc(d.id) + '" aria-label="' + esc(d.name) + ': open the block">' + ic('info', 2) + '</button></div>';
     return '<button type="button" class="bd-pick" data-bd-pick="' + esc(d.id) + '" aria-pressed="' + on + '">' +
       '<span class="bd-ck" aria-hidden="true">' + ic('check', 2.6) + '</span>' +
       '<span class="bd-pid"><span class="bd-name">' + esc(d.name) + '</span><span class="bd-sub">' + esc(subText(it)) + '</span></span>' +
@@ -640,6 +652,8 @@
         }).join('') + '</div>';
     }
     h += '<p class="bd-foot">Sessions count the ones that came round. e1RM is each block\'s best against the best in the 8 weeks before it' + (A.current ? '; ' + esc(A.name) + ' is still running' : '') + '.</p>';
+    // Give one of the two to someone else (reuse-block.js): a menu of the pair on the desk.
+    if (!o.phone && window.ReuseBlock) h += '<div class="bd-acts"><button type="button" class="dk-btn" data-bd-use aria-haspopup="menu"><span class="dk-btn-l">Use for another lifter…</span></button></div>';
     return h;
   }
   function wirePicks(host, items, state, repaint) {
@@ -708,6 +722,15 @@
       if (swap) { swapIn(right); said.textContent = statusText(items, state.ids); }
     };
     wirePicks(left, items, state, paint);
+    // Use for another lifter… (under what changed): which of the two, then reuse-block.js.
+    right.addEventListener('click', function (e) {
+      var u = e.target.closest && e.target.closest('[data-bd-use]');
+      if (!u || !window.ReuseBlock || typeof dkPopMenu !== 'function') return;
+      var pair = items.filter(function (x) { return state.ids.indexOf(x.dna.id) >= 0; });
+      dkPopMenu(u, [{ node: el('div', { class: 'dk-menu-title', role: 'presentation' }, 'Use which block?') }].concat(pair.map(function (it) {
+        return { label: it.dna.name, hint: subText(it), run: function () { ReuseBlock.open({ aid: aid, block: it.block, from: u }); } };
+      })));
+    });
     paint(false);
     veil.appendChild(box);
     veil.addEventListener('mousedown', function (e) { if (e.target === veil) close(); });
@@ -727,7 +750,7 @@
   function openSheet(aid, items, state) {
     if (typeof uiSheet !== 'function') return;
     var a = athleteOf(aid);
-    uiSheet('Blocks', function (sheet) {
+    uiSheet('Blocks', function (sheet, close) {
       sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, a.name + (items.length >= 2 ? ' · tap two to compare' : '')));
       var list = el('div', { class: 'bd-plist', role: 'group', 'aria-label': 'Blocks to compare' }), cmp = el('div', { class: 'bd-pcmp' }), said = el('p', { class: 'bd-vh', role: 'status' });
       sheet.appendChild(list); sheet.appendChild(cmp); sheet.appendChild(said);
@@ -740,10 +763,69 @@
       };
       scale();
       var paint = function (swap) {
-        list.innerHTML = items.map(function (it) { return pickHtml(it, state.ids.indexOf(it.dna.id) >= 0, { max: max, rpe: rpe, tips: 'title' }); }).join('');
+        list.innerHTML = items.map(function (it) { return pickHtml(it, state.ids.indexOf(it.dna.id) >= 0, { max: max, rpe: rpe, tips: 'title', detail: !!window.ReuseBlock }); }).join('');
         cmp.innerHTML = compareHtml(items, state.ids, { phone: true, tips: 'title' });
         if (swap) { swapIn(cmp); said.textContent = statusText(items, state.ids); }
       };
+      // A block's own page (ⓘ): what it is, week 1 as written, and Use for another lifter… as its one action.
+      // The page takes the sheet's place (its title and line go with the list); back returns to the list where it was.
+      var page = el('div', { class: 'bd-page', hidden: '' }), sub = sheet.querySelector('.ui-sheet-sub'), head = sheet.querySelector('.ui-sheet-h');
+      var listTop = 0, opened = null;
+      sheet.appendChild(page);
+      var showList = function () {
+        page.hidden = true; page.innerHTML = ''; list.hidden = false; cmp.hidden = false; if (sub) sub.hidden = false; if (head) head.hidden = false;
+        sheet.scrollTop = listTop;
+        var o = opened && list.querySelector('[data-bd-open="' + (window.CSS && CSS.escape ? CSS.escape(opened) : opened) + '"]');
+        if (o) o.focus({ preventScroll: true });
+      };
+      var showPage = function (id) {
+        var it = items.find(function (x) { return x.dna.id === id; });
+        if (!it) return;
+        opened = id; listTop = sheet.scrollTop;
+        list.hidden = true; cmp.hidden = true; if (sub) sub.hidden = true; if (head) head.hidden = true;
+        page.innerHTML = '';
+        var back = el('button', { type: 'button', class: 'bd-pback', html: ic('back', 2.2) });
+        back.appendChild(el('span', {}, 'Blocks'));
+        back.addEventListener('click', showList);
+        page.appendChild(back);
+        var title = el('h4', { class: 'bd-ptitle', tabindex: '-1' }, it.dna.name);
+        page.appendChild(title);
+        page.appendChild(el('p', { class: 'bd-psub' }, subText(it)));
+        var fp = el('div', { class: 'bd-pfp2' });
+        fp.innerHTML = fpSvg(it.dna, { size: 'sm', max: max, rpe: rpe, labels: true, tips: 'title' });
+        page.appendChild(fp);
+        var facts = el('div', { class: 'bd-pfacts' });
+        facts.innerHTML = '<span class="bd-ses">' + sessionsHtml(it.dna) + '</span>' + chipsHtml(it.dna);
+        page.appendChild(facts);
+        var wk = it.block && Array.isArray(it.block.weeks) ? it.block.weeks : null;
+        if (wk && wk.length && typeof reuseTopSets === 'function') {
+          var tops = reuseTopSets(wk, wk);
+          if (tops.length) {
+            page.appendChild(el('p', { class: 'bd-plabel' }, 'Week 1, as written'));
+            var tl = el('div', { class: 'bd-ptops' });
+            tops.forEach(function (t) {
+              var ln = el('p', { class: 'bd-ptop' });
+              ln.appendChild(el('i', { class: 'bd-dot ' + CLS[t.lift], 'aria-hidden': 'true' }));
+              ln.appendChild(el('span', {}, reuseTopSetText(t, '', unitNow())));
+              tl.appendChild(ln);
+            });
+            page.appendChild(tl);
+          }
+        }
+        var use = el('button', { type: 'button', class: 'btn btn-primary btn-lg btn-block bd-puse' }, 'Use for another lifter…');
+        use.addEventListener('click', function () { close(); setTimeout(function () { ReuseBlock.open({ aid: aid, block: it.block }); }, 230); });
+        page.appendChild(use);
+        page.hidden = false;
+        sheet.scrollTop = 0;
+        if (!reducedMotion() && page.animate) page.animate([{ opacity: 0.45, transform: 'translateX(24px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        title.focus({ preventScroll: true });
+      };
+      list.addEventListener('click', function (e) {
+        var o = e.target.closest && e.target.closest('[data-bd-open]');
+        if (!o) return;
+        e.preventDefault(); e.stopPropagation();
+        showPage(o.getAttribute('data-bd-open'));
+      }, true);
       wirePicks(list, items, state, paint);
       paint(false);
       ensureWeeks(items, function () { if (sheet.isConnected) { items = listFor(aid); scale(); paint(false); } });

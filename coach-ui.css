@@ -1859,3 +1859,76 @@ html[data-theme="light"] .prg-root.is-desk .prg-rule.is-drag { background: #fff;
   .prg-root .prg-rule, .prg-root .prg-tok, .prg-chip { transition: none; }
   .prg-tok:active, .prg-chip:active { transform: none; }
 }
+
+/* ==================== Reuse a block (reuse-block.js, 2026-10-28) ====================
+   Block DNA's way to give a good block to other lifters. The desk: "Use for another lifter…" under an opened
+   block and under the compare (graphite, 32), the desk's pick dialog, then a preview modal (one red: "Give to 2
+   lifters"). The phone: an ⓘ on each block in the Blocks sheet opens the block's own page (week 1 as written, the
+   one red "Use for another lifter…"), then a checkmark list and a preview sheet. Each lifter in the preview: their
+   name, their top sets on their own maxes with a lift dot, what happens to their block, and a note beside an amber
+   dot when something needs knowing. Type 13 / 15 / 16 / 20. */
+.bd-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.dk-bl-view .bd-acts { margin: 12px 0 8px; }
+/* the phone's list: a tick to compare, an ⓘ for the block's page (two buttons side by side, never one in another) */
+.bd-sheet .bd-prow2 { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: start; border-radius: 16px; background: var(--ch-fill-1); transition: background-color 150ms ease-out; }
+.bd-sheet .bd-prow2.is-on { background: var(--ch-fill-3); }
+.bd-sheet .bd-prow2 > .bd-pick, .bd-sheet .bd-prow2 > .bd-pick[aria-pressed="true"] { background: none; padding-right: 4px; }
+/* with the ⓘ beside it, the name keeps the row's width: the fingerprint and the facts go under it */
+.bd-sheet .bd-prow2 > .bd-pick { grid-template-columns: 22px minmax(0, 1fr); }
+.bd-sheet .bd-prow2 > .bd-pick .bd-pfp { grid-row: 2; grid-column: 2; }
+.bd-sheet .bd-prow2 > .bd-pick .bd-pfacts { grid-row: 3; grid-column: 2; }
+.bd-sheet :is(.bd-plist, .bd-pcmp, .bd-page)[hidden] { display: none; }
+.bd-sheet .bd-open { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-top: 6px; padding: 0; border: 0; border-radius: 12px; background: none; color: var(--text-3); cursor: pointer; transition: color 150ms ease-out, transform 140ms ease-out; }
+.bd-sheet .bd-open svg { width: 22px; height: 22px; }
+.bd-sheet .bd-open:active { color: var(--text); transform: scale(0.92); }
+/* a block's own page, inside the sheet */
+.bd-page { padding: 0 2px 8px; }
+.bd-pback { display: inline-flex; align-items: center; gap: 2px; height: 44px; margin: -6px 0 2px -8px; padding: 0 12px 0 4px; border: 0; background: none; color: var(--text-2); font: 600 16px/1 var(--font-body, inherit); cursor: pointer; }
+.bd-pback svg { width: 22px; height: 22px; }
+.bd-pback:active { color: var(--text); }
+.bd-ptitle { margin: 0; font-size: 20px; line-height: 1.2; font-weight: 700; color: var(--text); }
+.bd-ptitle:focus { outline: none; }
+.bd-sheet .ui-sheet-h[hidden] { display: none; }
+.bd-psub { margin: 4px 0 14px; font-size: 15px; color: var(--text-3); }
+.bd-pfp2 { display: flex; overflow-x: auto; padding: 14px; border-radius: 14px; background: var(--ch-fill-1); scrollbar-width: none; }
+.bd-page .bd-pfacts { margin: 12px 0 0; }
+.bd-plabel { margin: 20px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+.bd-ptops { display: flex; flex-direction: column; border-radius: 14px; background: var(--ch-fill-1); }
+.bd-ptop { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; }
+.bd-ptop + .bd-ptop { border-top: 1px solid var(--line); }
+.bd-page .bd-puse { margin-top: 20px; }
+/* the preview: one lifter after another */
+.dk-modal.rb-modal { width: min(640px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
+.rb-modal .rb-list { overflow-y: auto; overscroll-behavior: contain; margin: 12px -8px 0; padding: 0 8px; scrollbar-width: thin; }
+.rb-who { position: relative; padding: 14px 0; }
+.rb-who + .rb-who { border-top: 1px solid var(--line); }
+.rb-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; color: var(--text); }
+.rb-tops { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0 34px; }
+.rb-line { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 15px; line-height: 1.5; color: var(--text); font-variant-numeric: tabular-nums; }
+.rb-line.is-quiet { color: var(--text-3); }
+.rb-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--lc, var(--text-3)); }
+.rb-dot.l-sq { --lc: var(--ch-squat, #38c6ff); } .rb-dot.l-be { --lc: var(--ch-bench, #a98bff); } .rb-dot.l-dl { --lc: var(--ch-deadlift, #ffbf3c); }
+.rb-note { margin: 8px 0 0 34px; font-size: 13px; line-height: 1.45; color: var(--text-3); }
+.rb-warn { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 0 34px; font-size: 13px; line-height: 1.45; color: var(--text); }
+.rb-wdot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ch-warn, #ffb35c); transform: translateY(-1px); }
+.rb-who { animation: chRise 320ms cubic-bezier(0.23, 1, 0.32, 1) calc(var(--i, 0) * 40ms) backwards; }
+/* the phone: the picker and the preview are sheets */
+.rb-sheet .rb-pick { margin: 4px 0 16px; }
+.rb-sheet .rb-prow { width: 100%; min-height: 56px; text-align: left; }
+.rb-sheet .rb-prow .ui-row-title { font-size: 16px; }
+.rb-sheet .rb-prow .ui-row-sub { font-size: 15px; }
+.rb-sheet .rb-prow:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.rb-ck { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc, var(--text)); }
+.rb-ck svg { width: 20px; height: 20px; }
+.rb-sheet .rb-go { margin-top: 4px; }
+.rb-sheet .rb-back { justify-content: center; margin-top: 6px; min-height: 48px; padding: 0 12px; font-size: 16px; color: var(--text-2); }
+.rb-sheet .rb-back:active { color: var(--text); }
+.rb-sheet .rb-empty { margin: 8px 0 16px; font-size: 15px; color: var(--text-3); }
+.rb-sheet .rb-list { margin: 0 0 16px; }
+.rb-sheet .rb-who { padding: 14px 2px; }
+.rb-sheet .rb-av { width: 30px; height: 30px; font-size: 13px; }
+.rb-sheet .rb-tops, .rb-sheet .rb-note, .rb-sheet .rb-warn { margin-left: 40px; }
+.rb-sheet .rb-line { font-size: 16px; }
+.rb-sheet :is(.rb-note, .rb-warn) { font-size: 15px; }
+@media (prefers-reduced-motion: reduce) { .rb-who { animation: none; } .bd-sheet .bd-open:active { transform: none; } }
