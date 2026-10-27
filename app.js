@@ -4404,20 +4404,27 @@ function emailPrefRow(id, label, sub, checked) {
 async function renderEmailPrefs(container) {
   const u = getCurrentUser();
   if (!container || !u) { if (container) container.innerHTML = ''; return; }
+  // A coach's weekly email is the Monday report (send-weekly-digest's coach job), a lifter's their own recap.
+  const isCoach = u.userType === 'coach';
   const paint = (prefs, demo) =>
     '<p class="dim text-sm mb-8">Email</p>' +
-    emailPrefRow('epWeekly', 'Weekly progress email',
-      'A Monday recap of your last 7 days. Sessions, tonnage, best e1RMs.', prefs.weeklyDigest) +
+    (isCoach ? emailPrefRow('epWeekly', 'Monday report', 'Your team’s week, every Monday', prefs.weeklyDigest)
+      : emailPrefRow('epWeekly', 'Weekly progress email',
+        'A Monday recap of your last 7 days. Sessions, tonnage, best e1RMs.', prefs.weeklyDigest)) +
     emailPrefRow('epProduct', 'Product tips & announcements',
       'Occasional notes on new features. No spam, unsubscribe anytime.', prefs.productEmails) +
     (demo ? '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>' : '') +
-    '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>';
+    '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>' +
+    (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the Monday report</span>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>' : '');
+  const wireExample = () => { const b = document.getElementById('npExample'); if (b) b.addEventListener('click', () => CoachReportUI.open({ example: true })); };
 
   if (window._demoMode) {
     container.innerHTML = paint({ weeklyDigest: true, productEmails: false }, true);
     // Demo: reflect the flip visually, but never hit the network.
     const wire = (id) => { const el = document.getElementById(id); if (el) el.addEventListener('change', () => toast('Preview only in demo mode.')); };
     wire('epWeekly'); wire('epProduct');
+    wireExample();
     return;
   }
 
@@ -4426,6 +4433,7 @@ async function renderEmailPrefs(container) {
   try { prefs = await DB.getEmailPrefs(u.id); }
   catch (e) { prefs = { weeklyDigest: true, productEmails: false }; }
   container.innerHTML = paint(prefs, false);
+  wireExample();
 
   const save = async (patch, box) => {
     const prev = !box.checked; // we're in the change handler; prev is the pre-toggle state
@@ -4457,7 +4465,13 @@ async function renderNotifPrefs(container) {
   // Messages, form checks and program updates come from a coach: a lifter training on their own
   // has none of them (buddy nudges from their club still arrive).
   const coachLinked = u.userType === 'coach' || !!u.coachId;
+  // A coach's own words (coach alerts, 2026-10-28): their lifters write, send form checks, hit PRs and fall
+  // behind; a coach never gets program updates, so that row goes.
+  const isCoach = u.userType === 'coach';
   const catRows = (prefs) => !coachLinked ? '<p class="dim text-xs" style="line-height:1.5;margin:0">Training-buddy nudges from your club arrive here. Messages, form checks and program updates join them once you have a coach.</p>' :
+    isCoach ? emailPrefRow('npMsg', 'Messages', 'When a lifter writes to you', prefs.pushMessages) +
+      emailPrefRow('npForm', 'Form checks', 'When a lifter sends one', prefs.pushFormChecks) +
+      emailPrefRow('npAlerts', 'PRs and missed sessions', 'PRs as they’re logged, who’s behind on Thursday, and Monday’s summary', prefs.pushAlerts !== false) :
     emailPrefRow('npMsg',  'Messages',
       'A push when your coach or an athlete sends you a message.', prefs.pushMessages) +
     emailPrefRow('npForm', 'Form-check replies',
@@ -4470,9 +4484,9 @@ async function renderNotifPrefs(container) {
     container.innerHTML =
       '<p class="dim text-sm mb-8">Push notifications</p>' +
       '<p class="dim text-xs mb-8" style="line-height:1.5">Get alerts even when POWALIFTA is closed.' + (coachLinked ? ' Choose what gets pushed:' : '') + '</p>' +
-      catRows({ pushMessages: true, pushFormChecks: true, pushProgram: true }) +
+      catRows({ pushMessages: true, pushFormChecks: true, pushProgram: true, pushAlerts: true }) +
       '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>';
-    ['npMsg', 'npForm', 'npProg'].forEach(id => {
+    ['npMsg', 'npForm', 'npProg', 'npAlerts'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.addEventListener('change', () => toast('Preview only in demo mode.'));
     });
@@ -4482,7 +4496,7 @@ async function renderNotifPrefs(container) {
   container.innerHTML = '<p class="dim text-sm mb-8">Push notifications</p><p class="dim text-xs">Loading…</p>';
   let prefs;
   try { prefs = await DB.getEmailPrefs(u.id); }
-  catch (e) { prefs = { pushMessages: true, pushFormChecks: true, pushProgram: true }; }
+  catch (e) { prefs = { pushMessages: true, pushFormChecks: true, pushProgram: true, pushAlerts: true }; }
 
   let perm = supported ? PowaPush.permission() : 'unsupported';
   let on = false;
@@ -4529,13 +4543,14 @@ async function renderNotifPrefs(container) {
           toast('Notification preferences saved.');
         } catch (e) {
           box.checked = prev;
-          toast('Couldn’t save that right now.');
+          toast(e && e.notReady ? 'That switch turns on with the next update.' : 'Couldn’t save that right now.');
         }
       });
     };
     wire('npMsg', 'pushMessages');
     wire('npForm', 'pushFormChecks');
     wire('npProg', 'pushProgram');
+    wire('npAlerts', 'pushAlerts');
   };
   paint();
 }
@@ -11151,6 +11166,61 @@ function painFlagFor(athleteId, reports, todayIso) {
 function painPushText(name) {
   const first = String(name || '').trim().split(/\s+/)[0] || 'Your athlete';
   return { title: first + ' sent you a training update', body: 'Open POWALIFTA to see it.' };
+}
+// ===== COACH ALERTS (2026-10-28): a lifter's PR and a new form check, pushed to their coach =====
+// The words, pure: "Arjun hit a squat PR" / "182.5 × 3 · e1RM 205 kg", in the lifter's own unit.
+function prPushText(o) {
+  o = o || {};
+  const first = String(o.name || '').trim().split(/\s+/)[0] || 'Your lifter';
+  const lbs = o.unit === 'lbs' || o.unit === 'lb';
+  const v = (kg) => (lbs ? Number(kg) / KG_PER_LB : Number(kg)) || 0;
+  const lift = String(LIFT_LABELS[o.lift] || o.lift || 'lift').toLowerCase();
+  return { title: first + ' hit a ' + lift + ' PR',
+    body: String(Math.round(v(o.weight) * 10) / 10) + ' × ' + Math.round(Number(o.reps) || 0) + ' · e1RM ' + Math.round(v(o.e1rm)) + ' ' + (lbs ? 'lbs' : 'kg') };
+}
+// "Arjun sent a squat form check" / "Open it to review."
+function formCheckPushText(o) {
+  o = o || {};
+  const first = String(o.name || '').trim().split(/\s+/)[0] || 'Your lifter';
+  return { title: first + ' sent a ' + (MAIN_LIFTS.includes(o.lift) ? LIFT_LABELS[o.lift].toLowerCase() + ' ' : '') + 'form check', body: 'Open it to review.' };
+}
+// One PR push per lift per day: the saved { date, lifts } → { due, next } (next is what to save).
+function prPushDue(stored, todayIso, lift) {
+  const t = String(todayIso || '').slice(0, 10);
+  const had = stored && stored.date === t && Array.isArray(stored.lifts) ? stored.lifts.filter(x => typeof x === 'string') : [];
+  if (had.includes(lift)) return { due: false, next: { date: t, lifts: had } };
+  return { due: true, next: { date: t, lifts: had.concat([lift]) } };
+}
+// Tell the coach about a PR the lifter just logged. Fire and forget: never awaited, never throws, so
+// logging a set is never slower for it. Not in the demo, not without a coach, main lifts only, once
+// per lift per day (localStorage 'powa-pr-pushed-<uid>'). → true when a push went out.
+function pushCoachPR(me, log, opts) {
+  opts = opts || {};
+  try {
+    if (window._demoMode || !me || !me.id || !me.coachId || !log || !MAIN_LIFTS.includes(log.lift)) return false;
+    if (typeof DB === 'undefined' || !DB || typeof DB.sendPush !== 'function') return false;
+    const key = 'powa-pr-pushed-' + me.id;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { saved = null; }
+    const g = prPushDue(saved, opts.today || todayISO(), log.lift);
+    if (!g.due) return false;
+    const text = prPushText({ name: me.name, lift: log.lift, weight: log.weight, reps: log.reps, e1rm: log.e1rmComp, unit: opts.unit || getUnit() });
+    Promise.resolve(DB.sendPush(Object.assign({ toUserId: me.coachId, url: '/coach.html', tag: 'powa-pr-' + me.id + '-' + log.lift, category: 'alerts' }, text))).catch(() => {});
+    try { localStorage.setItem(key, JSON.stringify(g.next)); } catch (e) {}
+    return true;
+  } catch (e) { return false; }
+}
+// Tell the coach a form check just landed (after DB.uploadFormCheck saved it). Only to the lifter's
+// own coach, never in the demo; fire and forget like the PR push.
+function pushCoachFormCheck(me, fc) {
+  try {
+    if (window._demoMode || !me || !me.coachId || !fc) return false;
+    if (fc.coachId && fc.coachId !== me.coachId) return false;
+    if (typeof DB === 'undefined' || !DB || typeof DB.sendPush !== 'function') return false;
+    const text = formCheckPushText({ name: me.name, lift: fc.lift });
+    Promise.resolve(DB.sendPush(Object.assign({ toUserId: me.coachId, url: '/coach.html', tag: 'powa-fcnew-' + (fc.id || me.id + '-' + Date.now()), category: 'form_checks' }, text))).catch(() => {});
+    return true;
+  } catch (e) { return false; }
 }
 // Send a report (the capture sheet, or the outbox replaying it) and tell the coach without naming
 // the body part. Throws when it didn't land.

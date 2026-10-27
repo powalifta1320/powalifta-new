@@ -49,6 +49,10 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-plates' + suf, page: A, theme, eval: 'openGymPlatesSheet()' },
     { name: 'sh-import' + suf, page: C, theme, eval: "openSheetImport('demo-a1')" },
     { name: 'sh-thread' + suf, page: C, theme, eval: "openAthleteMessages('demo-a1', 'Arjun Mehta')" },
+    // Coach alerts (2026-10-28): last week's report, the sample a new coach gets, the coach's Notifications.
+    { name: 'sh-report' + suf, page: C, theme, eval: 'CoachReportUI.open()' },
+    { name: 'sh-report-sample' + suf, page: F, theme, eval: 'CoachReportUI.open({ example: true })' },
+    { name: 'sh-notif-coach' + suf, page: C, theme, eval: 'openNotificationsSheet()' },
     { name: 'ob-welcome' + suf, page: 'index.html', theme },
     { name: 'ob-signup' + suf, page: 'index.html', theme, eval: "obOpen('signup', { role: 'coach' })" },
     { name: 'ob-login' + suf, page: 'index.html', theme, eval: "obOpen('login')" },
@@ -73,6 +77,8 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-coach-club' + suf, page: C, mode: 'web', theme, eval: "deskGo('club')" },
   { name: 'w-chl-board' + suf, page: C, mode: 'web', theme, eval: "deskGo('club');setTimeout(() => { const b = document.querySelector('.chl-all'); if (b) b.click(); }, 200)" },
   { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
+// The desk's Last week report (coach.html at laptop width), dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

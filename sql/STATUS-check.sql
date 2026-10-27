@@ -148,6 +148,10 @@ with checks(n, migration, applied) as (values
         and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4),
   (52, 'migration-schedule-requests-2026-10-28.sql  (busy weeks: a lifter''s days for the week and the plan, their coach approves; after row 43)',
         to_regclass('public.schedule_requests') is not null
-        and exists (select 1 from pg_trigger where tgname = 'trg_schedule_requests_guard'))
+        and exists (select 1 from pg_trigger where tgname = 'trg_schedule_requests_guard')),
+  (53, 'migration-coach-alerts-2026-10-28.sql  (coach alerts: the PRs and missed sessions switch, and the Monday report''s week stats; after migration-email-preferences.sql)',
+        exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'email_preferences' and column_name = 'push_alerts')
+        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null)
 )
 select n, migration, applied from checks order by n;

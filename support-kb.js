@@ -889,8 +889,8 @@ window.POWA_SUPPORT_KB = [
    "turn off notifications",
    "weekly email"
   ],
-  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. On an iPhone browser, push only works once you add POWALIFTA to your Home Screen.",
-  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
+  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report (on a laptop: Settings → Notifications). On an iPhone browser, push only works once you add POWALIFTA to your Home Screen.",
+  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
  },
  {
   "id": "gym-plates",
@@ -1678,5 +1678,40 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Yes. Open the lifter, then **Blocks**: open a block (or compare two) and choose **Use for another lifter…**. Pick who gets it, and before anything is written you see each lifter's week 1 top sets on their own maxes, like **Squat 140 × 3 @8 (76% of Arjun's)**, and what happens to the block they're on.\n\nThe block is scaled through each lifter's maxes: squat, bench and deadlift loads become a % of the maxes it was written from and come back as theirs, rounded to their unit. Where the block had no max, or the lifter has none yet, that lift goes by its RPE. It starts next Monday, fresh: nothing logged, no attempts, no dates pinned.\n\n**Give to 2 lifters** writes it. If a lifter already logged sets in their current block, that block is kept in their past blocks first; if it can't be kept, nothing changes for them and the message says so. A lifter on a team is told the next team push replaces it. Each lifter gets a heads-up.",
   "app": "Yes. Open the lifter, tap **Blocks**, then the ⓘ on a block, then **Use for another lifter…**. Tick who gets it and tap **See their loads**: each lifter's week 1 top sets on their own maxes (like **Squat 140 × 3 @8 (76% of Arjun's)**) and what happens to the block they're on.\n\nWhere there's no max for a lift, it goes by RPE. It starts next Monday with nothing logged. **Give to 2 lifters** writes it; a block they've already logged in is kept in their past blocks first, and each lifter gets a heads-up."
+ },
+ {
+  "id": "coach-alerts",
+  "q": "Can I get a notification when a lifter hits a PR, misses sessions or sends a form check?",
+  "t": [
+   "pr notification",
+   "notify me of prs",
+   "missed sessions",
+   "missed session alert",
+   "who is behind this week",
+   "coach alerts",
+   "form check notification",
+   "push when a lifter",
+   "lifter hit a pr",
+   "thursday notification"
+  ],
+  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and Monday's summary of the team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
+  "app": "Yes. Go to You → Notifications, tap **Enable on this device**, and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and Monday's summary of the team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
+ },
+ {
+  "id": "coach-monday-report",
+  "q": "What is the Monday report?",
+  "t": [
+   "monday report",
+   "weekly report",
+   "team report",
+   "last week's report",
+   "last week report",
+   "weekly summary",
+   "team summary",
+   "report email",
+   "summary of my team"
+  ],
+  "a": "Every Monday you get your team's last week (Monday to Sunday) as a push and an email: how many lifters trained and how many sessions of the ones you wrote, then who needs you (pain reported, behind, form checks waiting, no check-in), the PRs with their e1RM, meets in the next 4 weeks and payments overdue. **Open Today** in the email takes you to your list.\n\nThe same report is in the app any time: **Today › This week › Last week's report** on a laptop, **Lifters › This week › Last week's report** on the phone, and **See an example of the Monday report** in Settings › Notifications. **Start with** opens the first lifter who needs you. Switch the email off with **Monday report** in Settings › Notifications or the link at the bottom of the email; the push goes with **PRs and missed sessions**. A week where nobody trained and nothing is waiting sends nothing.",
+  "app": "Every Monday you get your team's last week as a push and an email: how many lifters trained, who needs you (pain reported, behind, form checks waiting, no check-in), the PRs with their e1RM, meets in the next 4 weeks and payments overdue. The same report is in the app: Lifters › This week › **Last week's report**, and **Start with** opens the first lifter who needs you. Switch the email off with **Monday report** in You › Notifications or the link at the bottom of the email."
  }
 ];

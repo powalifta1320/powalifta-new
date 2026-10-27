@@ -11,8 +11,11 @@
 --      Supabase → SQL Editor.  (The secret lives in two places: the function's
 --      env and this cron job's Authorization header — they must match.)
 --
--- Runs Mondays 14:00 UTC. Athletes with zero sessions in the last 7 days are
--- skipped by the function, so no "you did nothing" emails go out.
+-- Runs Mondays and Thursdays 14:00 UTC (2026-10-28, coach alerts: was Mondays only, moved by
+-- sql/cron-coach-alerts-2026-10-28.sql). The function picks its jobs by the UTC weekday: Monday →
+-- the lifters' digest + the coaches' Monday report; Thursday → the coaches' missed-sessions push.
+-- Athletes with zero sessions in the last 7 days are skipped by the function, so no "you did
+-- nothing" emails go out.
 
 -- pg_cron + pg_net are what schedule the job and make the outbound HTTP call.
 -- Idempotent — safe to re-run.
@@ -26,7 +29,7 @@ where exists (select 1 from cron.job where jobname = 'powa-weekly-digest');
 
 select cron.schedule(
   'powa-weekly-digest',
-  '0 14 * * 1',                              -- Mondays 14:00 UTC
+  '0 14 * * 1,4',                            -- Mondays + Thursdays 14:00 UTC (the function picks the job by weekday)
   $$
     select net.http_post(
       url     := 'https://cxnotrikxvzncupswvio.functions.supabase.co/send-weekly-digest',
@@ -47,9 +50,11 @@ select cron.schedule(
 -- Remove it:
 --   select cron.unschedule('powa-weekly-digest');
 --
--- DRY RUN (no emails sent — returns the audience + computed recaps). From your
--- terminal, with the same secret:
+-- DRY RUN (nothing sent, written or minted — returns what would go out). From your
+-- terminal, with the same secret; "job" picks one ('digest' | 'coach-report' | 'midweek'),
+-- "today" (YYYY-MM-DD) the day it pretends to be (else today, UTC):
 --   curl -X POST 'https://cxnotrikxvzncupswvio.functions.supabase.co/send-weekly-digest' \
 --     -H 'Authorization: Bearer <CRON_SECRET>' \
 --     -H 'Content-Type: application/json' \
---     -d '{"dryRun":true}'
+--     -d '{"dryRun":true,"job":"coach-report"}'
+-- An empty body on a day that isn't Monday or Thursday does nothing (it answers jobs: []).

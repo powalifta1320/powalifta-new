@@ -3799,6 +3799,9 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     const singlePR = MAIN_LIFTS.includes(ex.lift) && newLogObj && Number(newLogObj.reps) === 1 &&
       String(newLogObj.variant || 'Competition') === 'Competition' && newLogObj.weight > prevSingle + 0.01 &&
       (set.attempt || actualRpe >= 9) && (prevSingle > 0 || set.attempt);
+    // COACH ALERTS: a PR (a best e1RM, or a heavier single than ever) tells the coach, once per lift a
+    // day. Fire and forget (app.js pushCoachPR): never awaited, nothing in the demo or without a coach.
+    if ((isPR || singlePR) && newLogObj) pushCoachPR(user, newLogObj, { unit: getUnit() });
     // A PR attempt that lands is THE moment (over a plate milestone); a near-max single that beats
     // the best gets it too unless it also put new plates on the bar.
     if (singlePR && (set.attempt || !plates)) {
@@ -9149,7 +9152,11 @@ async function renderAthleteFormChecks(host, coach) {
     try {
       const up = { athleteId: user.id, coachId: coach.id, file, lift: liftSel.value, note: noteInput.value };
       if (window._demoMode) demoSendFormCheck(up);   // nothing is uploaded: the clip stays on this page
-      else await DB.uploadFormCheck(up);
+      else {
+        const saved = await DB.uploadFormCheck(up);
+        // COACH ALERTS: tell the coach it's there (app.js pushCoachFormCheck; fire and forget).
+        pushCoachFormCheck(user, saved || { coachId: coach.id, lift: up.lift });
+      }
       toast('Sent to ' + coach.name.split(' ')[0] + ' for review');
       fileInput.value = ''; noteInput.value = ''; liftSel.value = '';
       fileInput.dispatchEvent(new Event('change'));   // the picker's label resets with it

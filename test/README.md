@@ -19,6 +19,19 @@ failure) — open `tests.html` in a browser for the full count.
 
 Good for a pre-commit / CI gate on the shared logic in `app.js`.
 
+## Coach alerts and the Monday report (no dependencies)
+
+The report's core (`coach-report.js`, and that its copy in `supabase/functions/_shared` is
+byte-identical), the server's push rules and grouping helpers, and `send-weekly-digest` run end to end
+with its imports swapped for in-memory fakes (no Deno, no network: the secret gate, jobs by weekday,
+dry runs that write nothing, the coach report's push and email, the Thursday push, paging).
+
+```bash
+node test/coach-report.test.mjs
+node test/coach-jobs.test.mjs
+node test/send-weekly-digest.test.mjs
+```
+
 ## Mobile overflow check (needs puppeteer)
 
 Loads every page at 375px in headless Chromium and asserts no horizontal
