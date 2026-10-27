@@ -1430,12 +1430,6 @@ html.native:not(.desk) .cl-navback svg { width: 22px; height: 22px; }
 @keyframes clFadeIn { from { opacity: 0.45; } to { opacity: 1; } }
 html.native:not(.desk) body.powa-app[data-nav="push"] .dash-main > section[data-pane]:not(.hidden) { animation: clPushIn 340ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
 html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-pane]:not(.hidden) { animation: clPopIn 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
-@media (prefers-reduced-motion: reduce) {
-  /* No sideways travel: the page fades up from .45 instead (dash-fx.css turns the tab settle off). */
-  html.native:not(.desk) body.powa-app:is([data-nav="push"], [data-nav="pop"]) .dash-main > section[data-pane]:not(.hidden) { animation: clFadeIn 180ms ease-out backwards !important; }
-  html:not(.desk) .cl-do.is-phone .cl-sbtn:active, html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active, .cl-phone .cs-dueline:active, .cl-pg-phone .cl-wnrow:active { transform: none; }
-}
-
 
 /* --- 3. Header icons: 36 pt circles with a 44 pt target, and a press --- */
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
@@ -1493,6 +1487,8 @@ html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active
 .cl-meter i { flex: 1 1 0; min-width: 3px; border-radius: 2px; background: var(--text-2); }
 .cl-meter i.is-warn { background: var(--cl-down); }
 .cl-meter i.is-rest { background: var(--ch-fill-4); }
+.cl-pweek .cl-nm:active { color: var(--text); opacity: 0.7; }
+
 /* The tab's entrance: the cards and rows rise in reading order (renderPhone numbers them), not on a pop back. */
 html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]) [data-pane="athletes"]:not(.hidden) .cl-phone:not(.is-wide) :is(.cl-do > .cl-job, .cl-list > .cl-row, .cs-dueline, .cl-pweek .cl-tile) {
   animation: chRise 320ms cubic-bezier(0.23, 1, 0.32, 1) calc(var(--i, 0) * 40ms) backwards;
@@ -1545,8 +1541,10 @@ html.native:not(.desk) body.powa-app .msg-row.theirs .msg-bubble { border-color:
 
 
 /* --- 7. Program --- */
-/* The week chips and a day's ⋯ reach 44 pt; the builder's own look stays. */
-html:not(.desk) body.powa-app #programArea .week-tab { min-height: 40px; }
+/* The week chips and a day's ⋯ reach 44 pt; the builder's own look stays. Chips and the maxes press. */
+html:not(.desk) body.powa-app #programArea .week-tab { min-height: 40px; transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html:not(.desk) body.powa-app #programArea :is(.week-tab, .pb-maxes):active { transform: scale(0.96); }
+
 html:not(.desk) body.powa-app #programArea .pb-day-head > .ui-icon-btn { width: 44px; height: 44px; }
 /* Add exercise (the full form, a sheet on the phone): the presets on one row of their own instead of
    "3×5 @ / 7" wrapped in a cramped switch; every set on one line (the remove button fell to a line of
@@ -1577,6 +1575,9 @@ html:not(.desk) .cs-ph .cl-h1, html:not(.desk) .cl-pg-phone:not(.is-wide) .cl-pn
 .cs-r.is-phone + .cs-r.is-phone::before { content: ''; position: absolute; top: 0; left: 62px; right: 0; height: 1px; background: var(--cl-line); }
 .cs-r.is-phone:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
 .cs-r.is-phone:active::before, .cs-r.is-phone:active + .cs-r.is-phone::before { opacity: 0; }
+.cs-page.is-phone .cs-filters button { transition: transform 140ms ease-out, background-color 150ms ease-out; }
+.cs-page.is-phone .cs-filters button:active { transform: scale(0.96); }
+
 /* Lifter progress: the head to head's labels in sentence case, like every label in the app (they were
    11 px tracked capitals). */
 html:not(.desk) section[data-pane="progress"] .cmp-k { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
@@ -1609,3 +1610,11 @@ html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%;
 /* The setup card on the type scale: its headline 22 (was 26), the step numbers and the Sample chip 13. */
 html.native:not(.desk) .fr-wrap .fr-title { font-size: 22px; }
 html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
+
+/* --- 11. Reduced motion (last, so it wins over every press above) --- */
+@media (prefers-reduced-motion: reduce) {
+  /* No sideways travel: the page fades up from .45 instead (dash-fx.css turns the tab settle off). */
+  html.native:not(.desk) body.powa-app:is([data-nav="push"], [data-nav="pop"]) .dash-main > section[data-pane]:not(.hidden) { animation: clFadeIn 180ms ease-out backwards !important; }
+  html:not(.desk) .cl-do.is-phone .cl-sbtn:active, html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active, .cl-phone .cs-dueline:active, .cl-pg-phone .cl-wnrow:active,
+  html:not(.desk) body.powa-app #programArea :is(.week-tab, .pb-maxes):active, .cs-page.is-phone .cs-filters button:active, html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: none; }
+}
