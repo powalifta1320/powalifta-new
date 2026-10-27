@@ -34,6 +34,7 @@ html.desk .pwa-banner { display: none !important; }
 /* ---------- tokens: layout ---------- */
 html.desk {
   --rail-w: 232px; --list-w: 328px; --ctx-w: 348px; --gut: 24px;
+  --page-top: 28px;   /* every screen's title sits on the same line, at the same left edge (the rail + --gut) */
   --page-w: 1040px;   /* single-column screens (Club, Meets, Settings): one frame, one left edge */
   --row-h: 40px;
   --dk-main-w: calc(100vw - var(--rail-w));
@@ -42,25 +43,28 @@ html.desk {
 html.desk.rail-min { --rail-w: 64px; }
 html.desk.ctx-show { --dk-main-w: calc(100vw - var(--rail-w) - var(--ctx-w) - 12px); }
 html.desk[data-density="compact"] { --row-h: 32px; }
-@media (min-width: 1600px) { html.desk { --list-w: 352px; --ctx-w: 380px; --gut: 32px; } }
+@media (min-width: 1600px) { html.desk { --list-w: 352px; --ctx-w: 380px; } }   /* the gutter stays 24: every title on one left edge */
 @media (max-width: 1360px) { html.desk { --list-w: 312px; --ctx-w: 336px; } }
 @media (max-width: 1120px) { html.desk { --list-w: 288px; --gut: 16px; } }
 
 /* ---------- tokens: the system (both themes) ---------- */
 html.desk body.powa-app {
-  /* type: product register, one family (Archivo), six steps */
-  --fs-1: 12px;   /* meta, column heads, counts, keys */
-  --fs-2: 13px;   /* table cells, buttons, secondary lines */
-  --fs-3: 14px;   /* body, inputs */
-  --fs-4: 16px;   /* names, section titles */
-  --fs-5: 20px;   /* page titles */
-  --fs-6: 24px;   /* the athlete's name, the big numbers */
+  /* type: the coach side's one scale (Specs/Coach UI): 13 caption · 15 body · 16 row title · 20 section
+     title · 28 page title, and 22 for a number. Meta and buttons share 13 (colour and weight tell them
+     apart), so Programs, Meets and Settings read on the same steps as Today and Lifters. */
+  --fs-1: 13px;   /* meta, column heads, counts, keys */
+  --fs-2: 13px;   /* buttons, secondary lines */
+  --fs-3: 15px;   /* body, names in lists, inputs */
+  --fs-4: 16px;   /* row and card titles */
+  --fs-5: 20px;   /* section titles, an overlay's title */
+  --fs-6: 22px;   /* the athlete's name, a big number */
+  --fs-7: 28px;   /* the page title: one per screen, the same on every screen */
   --fw-1: 400; --fw-2: 500; --fw-3: 600; --fw-4: 700;
   --lh-1: 1.2; --lh-2: 1.45;
   /* shape */
   --r-1: 6px;     /* controls: buttons, inputs, chips, cells, menu items */
-  --r-2: 10px;    /* surfaces: cards, tables, menus */
-  --r-3: 14px;    /* overlays: modals, sheets, the side card */
+  --r-2: 10px;    /* inner surfaces: rows, menus, bubbles, fields */
+  --r-3: 20px;    /* cards and overlays: the app's card (Today, Lifters), modals, the side card */
   --r-round: 999px;   /* avatars and dots only */
   /* space (8pt) */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
@@ -93,23 +97,31 @@ html.desk:not([data-theme="light"]) body.powa-app {
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%230a0a0c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%230a0a0c' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
   --dk-card-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  /* the card: the app's material, lit from above (a hairline edge, a lit top edge, a soft sheen) */
+  --dk-card: var(--bg-1);
+  --dk-card-edge: rgba(255, 255, 255, 0.07);
+  --dk-card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --dk-card-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0) 168px);
+  --dk-seg-on: color-mix(in srgb, var(--text) 15%, var(--bg-1));   /* the chosen segment: a clear step up from its track */
   background: var(--bg);
 }
-/* Light: white paper, near-black ink; surfaces step to a soft grey. */
+/* Light: the app's light material (its own light theme, Apple Health's): a soft grey canvas, white cards
+   with a hairline and a one-pixel shadow, near-black ink. Fills and hovers are ink at low alpha, so they
+   read the same on the canvas and on a card. */
 html.desk[data-theme="light"] body.powa-app {
-  --bg: #ffffff; --bg-1: #f6f6f7; --bg-2: #efeff1; --bg-3: #e6e6e9;
-  --line: #ececef; --line-2: #dadade;
+  --bg: #f4f4f6; --bg-1: #ffffff; --bg-2: #f0f0f3; --bg-3: #e6e6ea;
+  --line: rgba(11, 11, 13, 0.08); --line-2: rgba(11, 11, 13, 0.14);
   --text: #0b0b0d; --text-2: #34343c; --text-3: #55555e; --text-4: #66666f;
-  --dk-rail: #f7f7f8;
-  --dk-raise: #f6f6f7;
-  --dk-raise-2: #efeff1;
+  --dk-rail: #fafafb;
+  --dk-raise: #ffffff;
+  --dk-raise-2: #f0f0f3;
   --dk-fill: rgba(11, 11, 13, 0.055);
   --dk-fill-2: rgba(11, 11, 13, 0.09);
   --dk-hover: rgba(11, 11, 13, 0.04);
-  --dk-sel: #efeff1; --dk-on: #e9e9ec;
-  --dk-row-hover: #f8f8f9; --dk-row-sel: #f2f2f4;
+  --dk-sel: rgba(11, 11, 13, 0.06); --dk-on: rgba(11, 11, 13, 0.08);
+  --dk-row-hover: rgba(11, 11, 13, 0.03); --dk-row-sel: rgba(11, 11, 13, 0.055);
   --dk-chip: var(--dk-fill);
-  --dk-write: #f8f8f9;
+  --dk-write: rgba(11, 11, 13, 0.025);
   --dk-focus: rgba(11, 11, 13, 0.5);
   --dk-sq: #19a9e6; --dk-bp: #8b6cf0; --dk-dl: #e5a51c;
   --dk-gold: #8a5a00; --dk-alert: #c4162a; --dk-warn: #b4410c; --dk-ok: #0f7d47; --dk-cool: #036f9c;
@@ -120,6 +132,11 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
   --dk-card-shadow: 0 22px 54px -24px rgba(20, 20, 40, 0.28), 0 0 0 1px rgba(11, 11, 13, 0.08);
+  --dk-card: #ffffff;
+  --dk-card-edge: rgba(11, 11, 13, 0.07);
+  --dk-card-lit: 0 1px 2px rgba(11, 11, 13, 0.04);
+  --dk-card-sheen: none;
+  --dk-seg-on: #fff;
   background: var(--bg);
 }
 /* The one red, machined, in both themes (a coach's own brand colour still wins). */
@@ -138,7 +155,7 @@ html.desk body.powa-app:has(.demo-banner) { padding-bottom: 0; }
 html.desk .dash-shell { display: block; margin-left: var(--rail-w); min-height: 100vh; }
 html.desk.ctx-show .dash-shell { margin-right: calc(var(--ctx-w) + 12px); }
 html.desk .dash-main { padding: 0; overflow: visible; }
-html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]):not([data-pane="clients"]) { max-width: var(--page-w); margin: 0; padding: var(--s-5) var(--gut) 64px; box-sizing: border-box; }
+html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]):not([data-pane="clients"]):not([data-pane="teams"]) { max-width: var(--page-w); margin: 0; padding: var(--page-top) var(--gut) 64px; box-sizing: border-box; }
 /* Clients scrolls inside #clientsArea, which carries the gutter (coach-ui.css): the same frame, padded once. */
 html.desk .dash-main > section[data-pane="clients"] { max-width: var(--page-w); margin: 0; padding: 0; box-sizing: border-box; }
 html.desk .dash-main > section:is([data-pane="today"], [data-pane="athletes"], [data-pane="program"], [data-pane="messages"], [data-pane="you"]) { max-width: none; margin: 0; height: 100vh; padding: 0; }
@@ -149,8 +166,13 @@ html.desk #invitesWrap { display: none !important; }   /* Settings › Invite at
 html.desk body.powa-app :is(.dk-btn, .dk-icon-btn, .dk-item, .dk-find, .dk-brand, .dk-me, .dk-link, .dk-back, .dk-seg-btn, .dk-tab, .dk-vchip, .dk-sgc, .dk-sort, .dk-ask-more, .dk-more, .dk-mtc-row, .dk-bl-row, .dk-fr-opt, .dk-pbmeta-btn, .dk-insp-sf-btn, .dk-pn-act, .dk-pn-empty, .dk-demo-link):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 
 /* ---------- type primitives ---------- */
-html.desk body.powa-app :is(.dk-h1, .dk-h2, .dk-sec-title, .dk-ws-name, .dk-wk-title, .dk-mtc-name, .dk-modal-title, .dk-pbtitle, .dk-set-title) { font-stretch: 100%; text-transform: none; font-family: var(--font-body); }
-.dk-h1 { margin: 0; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.015em; color: var(--text); }
+html.desk body.powa-app :is(.dk-h2, .dk-sec-title, .dk-ws-name, .dk-wk-title, .dk-mtc-name, .dk-modal-title, .dk-pbtitle, .dk-set-title) { font-stretch: 100%; text-transform: none; font-family: var(--font-body); }
+/* The page title: one per screen and the same on every screen (Today, Lifters, Programs, Meets, Teams,
+   Messages, Clients, Club, Settings, the first run), so moving between them never changes the voice. */
+html.desk body.powa-app :is(.dk-h1, .md-screen-title, .cl-h1, .cl-h1x) {
+  margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7); line-height: 1.05;
+  font-weight: 800; letter-spacing: -0.025em; text-transform: none; color: var(--text); text-wrap: balance;
+}
 .dk-h2 { margin: 0; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.015em; color: var(--text); text-wrap: balance; }
 .dk-sec-title { margin: 0 0 var(--s-3); font-size: var(--fs-3); font-weight: var(--fw-3); line-height: var(--lh-1); color: var(--text); }
 .dk-rich b { font-weight: var(--fw-3); color: var(--text); font-variant-numeric: tabular-nums; }
@@ -179,7 +201,8 @@ html.desk .dk-rail::-webkit-scrollbar { display: none; }
 .dk-brand .brand-mark { width: 22px; height: 22px; flex: none; }
 .dk-brand .brand-word { font-size: var(--fs-2); letter-spacing: 0.06em; font-weight: var(--fw-4); }
 .dk-fold { opacity: 0; }
-.dk-rail:hover .dk-fold, .dk-fold:focus-visible { opacity: 1; }
+.dk-fold:focus-visible { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-rail:hover .dk-fold { opacity: 1; } }
 
 .dk-nav, .dk-views, .dk-rail-foot { display: flex; flex-direction: column; gap: 2px; }
 .dk-item {
@@ -192,7 +215,7 @@ html.desk .dk-rail::-webkit-scrollbar { display: none; }
 .dk-item[hidden] { display: none; }
 .dk-item svg { width: var(--ic-2); height: var(--ic-2); flex: none; }
 .dk-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dk-item:hover { background: var(--dk-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-item:hover { background: var(--dk-hover); color: var(--text); } }
 .dk-item.on { background: var(--dk-fill); color: var(--text); }
 /* Counts: plain numbers. The two that need the coach (Today, Messages) are in ink. */
 .dk-count { margin-left: auto; font: var(--fw-2) var(--fs-1)/1 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-4); }
@@ -227,13 +250,14 @@ html.desk .dk-rail-foot { position: sticky; bottom: 0; z-index: 1; background: v
 .dk-demo-text b { color: var(--text); font-weight: var(--fw-3); }
 .dk-demo-text span { color: var(--text-3); }
 .dk-demo-link { color: var(--text); font-weight: var(--fw-3); text-decoration: none; white-space: nowrap; padding: var(--s-1) 2px; border-radius: var(--r-1); }
-.dk-demo-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .dk-demo-link:hover { text-decoration: underline; text-underline-offset: 3px; } }
 
 .dk-me {
   display: flex; align-items: center; gap: var(--s-2); width: 100%; margin-top: var(--s-2); padding: var(--s-2) var(--s-2) 0;
   border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; cursor: pointer; color: inherit; text-align: left; font-family: var(--font-body);
 }
-.dk-me:hover .dk-me-name, .dk-me[aria-expanded="true"] .dk-me-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+.dk-me[aria-expanded="true"] .dk-me-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+@media (hover: hover) and (pointer: fine) { .dk-me:hover .dk-me-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); } }
 .dk-me-who { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .dk-me-name { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dk-plan { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -266,18 +290,18 @@ html.desk.rail-min .dk-rail .dk-item.on .dk-count.is-hot { box-shadow: 0 0 0 2px
   transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
 }
 .dk-find svg { width: var(--ic-2); height: var(--ic-2); flex: none; }
-.dk-find:hover { color: var(--text); background: var(--dk-fill-2); }
+@media (hover: hover) and (pointer: fine) { .dk-find:hover { color: var(--text); background: var(--dk-fill-2); } }
 .dk-find .dk-kbd { margin-left: auto; }
 html.desk.rail-min .dk-find { justify-content: center; padding: 0; height: 40px; background: none; }
-html.desk.rail-min .dk-find:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { html.desk.rail-min .dk-find:hover { background: var(--dk-hover); } }
 html.desk.rail-min .dk-find svg { width: var(--ic-3); height: var(--ic-3); }
 html.desk.rail-min .dk-find .dk-kbd { display: none; }
 
 /* ---------- avatars and rings ---------- */
 .dk-av { width: 32px; height: 32px; font-size: var(--fs-1); font-weight: var(--fw-3); border-radius: var(--r-round); }
 .dk-av.is-lg { width: 48px; height: 48px; font-size: var(--fs-4); }
-.dk-av.is-sm { width: 24px; height: 24px; font-size: var(--fs-1); letter-spacing: -0.02em; }
-.dk-av.is-xs { width: 20px; height: 20px; font-size: var(--fs-1); letter-spacing: -0.04em; }
+.dk-av.is-sm { width: 24px; height: 24px; font-size: 11px; letter-spacing: 0; }   /* initials sit inside the face: 11 at 24 px (13 overflowed it) */
+.dk-av.is-xs { width: 20px; height: 20px; font-size: 10px; letter-spacing: 0; }
 .dk-av.is-xl { width: 64px; height: 64px; font-size: var(--fs-5); }
 .dk-me-av { width: 28px; height: 28px; font-size: var(--fs-1); }
 /* Light: tinted faces with ink initials on every desk screen (Today, Lifters, Clients too), never the phone's gradient balls. */
@@ -298,7 +322,7 @@ html.desk[data-theme="light"] body.powa-app .dk-av:not([class*="av-h"]) { box-sh
 .dk-ring-av.is-lg { width: 56px; height: 56px; }
 .dk-ring-av.is-lg .dk-av { width: 46px; height: 46px; font-size: var(--fs-4); }
 .dk-ring-av.is-sm { width: 32px; height: 32px; }
-.dk-ring-av.is-sm .dk-av { width: 26px; height: 26px; font-size: var(--fs-1); letter-spacing: -0.02em; }
+.dk-ring-av.is-sm .dk-av { width: 26px; height: 26px; font-size: 11px; letter-spacing: 0; }
 .dk-ring-bg { fill: none; stroke: var(--line-2); stroke-width: 2.5; }
 .dk-ring-fg { fill: none; stroke: var(--dk-ok); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset 0.6s var(--dk-ease); }
 .dk-avw { position: relative; display: inline-flex; flex: none; }
@@ -343,25 +367,25 @@ html.desk .lift-squat { --lc: var(--dk-sq); } html.desk .lift-bench { --lc: var(
   transition: transform 0.16s var(--dk-ease), background-color var(--t-fast) ease, color var(--t-fast) ease;
 }
 .dk-btn svg { width: var(--ic-2); height: var(--ic-2); flex: none; }
-.dk-btn:hover { background: var(--dk-fill-2); }
+@media (hover: hover) and (pointer: fine) { .dk-btn:hover { background: var(--dk-fill-2); } }
 .dk-btn:active { transform: scale(0.97); }
 .dk-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
 .dk-btn .dk-btn-n { display: inline; min-width: 0; height: auto; padding: 0; background: none; color: inherit; font-weight: inherit; }
 .dk-btn .dk-btn-n::before { content: '· '; }
 /* Primary: the one fire action on a screen. */
 .dk-btn.is-primary { background: var(--fire); color: #fff; font-weight: var(--fw-3); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
-.dk-btn.is-primary:hover { filter: brightness(1.06); background: var(--fire); }
+@media (hover: hover) and (pointer: fine) { .dk-btn.is-primary:hover { filter: brightness(1.06); background: var(--fire); } }
 .dk-btn.is-primary .dk-btn-n { background: none; color: #fff; }
 /* Tertiary: text and an icon; a fill only on hover. */
 .dk-btn.is-quiet { background: transparent; color: var(--text-2); }
 .dk-btn.is-quiet svg { color: var(--text-3); }
-.dk-btn.is-quiet:hover { background: var(--dk-hover); color: var(--text); }
-.dk-btn.is-quiet:hover svg { color: var(--text-2); }
+@media (hover: hover) and (pointer: fine) { .dk-btn.is-quiet:hover { background: var(--dk-hover); color: var(--text); } }
+@media (hover: hover) and (pointer: fine) { .dk-btn.is-quiet:hover svg { color: var(--text-2); } }
 .dk-btn.is-quiet[aria-pressed="true"] { background: var(--dk-fill); color: var(--text); }
 .dk-btn.is-quiet[aria-pressed="true"] svg { color: var(--text); }
 /* Ink (Save, Send in a composer) is the secondary button: one system, no fourth style. */
 .dk-btn.is-ink { background: var(--dk-fill); color: var(--text); }
-.dk-btn.is-ink:hover { background: var(--dk-fill-2); }
+@media (hover: hover) and (pointer: fine) { .dk-btn.is-ink:hover { background: var(--dk-fill-2); } }
 .dk-btn.is-ink:disabled { opacity: 0.45; }
 .dk-btn.is-done:disabled { opacity: 1; background: none; color: var(--text-3); }
 .dk-btn.is-done svg { color: var(--dk-ok); }
@@ -373,7 +397,7 @@ html.desk .lift-squat { --lc: var(--dk-sq); } html.desk .lift-bench { --lc: var(
   transition: background-color var(--t-fast) ease, color var(--t-fast) ease, transform 0.16s var(--dk-ease);
 }
 .dk-icon-btn svg { width: var(--ic-2); height: var(--ic-2); }
-.dk-icon-btn:hover { background: var(--dk-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-icon-btn:hover { background: var(--dk-hover); color: var(--text); } }
 .dk-icon-btn:active { transform: scale(0.94); }
 .dk-icon-btn[aria-pressed="true"], .dk-icon-btn[aria-expanded="true"] { background: var(--dk-fill); color: var(--text); }
 /* A tick box: a 16px outline drawn inside a 24px hit area (WCAG 2.5.8); ticked, it fills with ink. */
@@ -387,7 +411,7 @@ html.desk body.powa-app input.dk-cb::before {
   box-shadow: inset 0 0 0 1.5px var(--text-4); background: none center / 12px 12px no-repeat;
   transition: background-color var(--t-fast) ease, box-shadow var(--t-fast) ease;
 }
-html.desk body.powa-app input.dk-cb:hover::before { box-shadow: inset 0 0 0 1.5px var(--text-2); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dk-cb:hover::before { box-shadow: inset 0 0 0 1.5px var(--text-2); } }
 html.desk body.powa-app input.dk-cb:checked::before, html.desk body.powa-app input.dk-cb:indeterminate::before { background-color: var(--text); box-shadow: none; background-image: var(--dk-cb-tick); }
 html.desk body.powa-app input.dk-cb:indeterminate::before { background-image: var(--dk-cb-dash); }
 html.desk body.powa-app input.dk-cb:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
@@ -416,7 +440,7 @@ html.desk .dk-today.is-setup { display: block; overflow-y: auto; }
 .dk-list { overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--line); padding-bottom: var(--s-5); scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
 .dk-list:focus { outline: none; }
 .dk-list-head, .dk-rhome .dk-rhead {
-  position: sticky; top: 0; z-index: 3; padding: var(--s-5) var(--s-5) var(--s-3);
+  position: sticky; top: 0; z-index: 3; padding: var(--page-top) var(--s-5) var(--s-3);
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
@@ -443,12 +467,12 @@ html.desk .dk-today.is-setup { display: block; overflow-y: auto; }
   position: relative; display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3); box-sizing: border-box;
   border-radius: var(--r-2); cursor: pointer; transition: background-color var(--t-fast) ease;
 }
-.dk-qrow:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-qrow:hover { background: var(--dk-hover); } }
 .dk-qrow.is-sel { background: var(--dk-sel); }
 .dk-qrow:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 .dk-qrow .dk-cb { margin-left: 2px !important; transition: opacity 0.15s ease; }
 /* Wins: the kudos tick shows on hover, or once one is ticked. */
-.dk-wins:not(.has-picks) .dk-qrow:not(:hover):not(.is-sel) .dk-cb { opacity: 0; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) { .dk-wins:not(.has-picks) .dk-qrow:not(:hover):not(.is-sel) .dk-cb { opacity: 0; pointer-events: none; } }
 /* The kudos tick sits on the ring's corner, out of the flow: Wins line up with Needs you. */
 html.desk body.powa-app .dk-wins .dk-qrow input.dk-cb { position: absolute; left: 6px; top: 6px; z-index: 1; margin: 0 !important; }
 .dk-qmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -480,7 +504,7 @@ html.desk body.powa-app .dk-wins .dk-qrow input.dk-cb { position: absolute; left
   display: flex; align-items: center; gap: var(--s-3); width: calc(100% - 2 * var(--s-3)); margin: var(--s-3) var(--s-3) 0; padding: var(--s-3); box-sizing: border-box;
   border: 0; border-radius: var(--r-2); background: none; cursor: pointer; text-align: left; color: inherit; font: inherit;
 }
-.dk-more:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-more:hover { background: var(--dk-hover); } }
 .dk-more > svg { width: var(--ic-2); height: var(--ic-2); margin-left: auto; color: var(--text-3); flex: none; }
 .dk-stack { display: flex; flex: none; }
 .dk-stack .dk-av { box-shadow: 0 0 0 2px var(--bg); }
@@ -507,7 +531,7 @@ html.desk body.powa-app .dk-wins .dk-qrow input.dk-cb { position: absolute; left
 .dk-done .dk-sec { width: 100%; margin-top: var(--s-6); text-align: left; padding: var(--s-4); border-radius: var(--r-2); background: var(--dk-raise); box-sizing: border-box; }
 .dk-who { display: flex; flex-direction: column; }
 .dk-who-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(7, 24px); gap: var(--s-2); align-items: center; height: 28px; padding: 0 var(--s-2); border-radius: var(--r-1); font-size: var(--fs-2); }
-.dk-who-row:not(.is-head):hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-who-row:not(.is-head):hover { background: var(--dk-hover); } }
 .dk-who-row.is-head > span { font-size: var(--fs-1); color: var(--text-3); text-align: center; }
 .dk-who-row.is-head > .is-today { color: var(--text); font-weight: var(--fw-4); }
 .dk-who-name { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -529,13 +553,14 @@ html.desk body.powa-app .dk-wins .dk-qrow input.dk-cb { position: absolute; left
   color: inherit; font: inherit; letter-spacing: inherit; text-align: left; border-radius: var(--r-1);
 }
 .dk-link svg { width: var(--ic-2); height: var(--ic-2); flex: none; color: var(--text-3); opacity: 0; transition: opacity 0.15s ease; }
-.dk-link:hover svg, .dk-link:focus-visible svg { opacity: 1; }
+.dk-link:focus-visible svg { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-link:hover svg { opacity: 1; } }
 .dk-back {
   display: inline-flex; align-items: center; gap: var(--s-1); height: 28px; margin: 0 0 var(--s-4) -6px; padding: 0 var(--s-2) 0 var(--s-1);
   border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-2)/1 var(--font-body);
 }
 .dk-back svg { width: var(--ic-2); height: var(--ic-2); }
-.dk-back:hover { color: var(--text); background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-back:hover { color: var(--text); background: var(--dk-hover); } }
 html.desk .dash-main > section[data-pane="athlete"] { max-width: none; margin: 0; padding: var(--s-5) var(--gut) 72px; }
 
 /* ---------- the side card: thread or private notes, on demand ---------- */
@@ -589,6 +614,9 @@ html.desk body.powa-app .dk-thread :is(.msg-input, textarea):focus { outline: no
 html.desk body.powa-app .dk-thread .msg-composer button { border-radius: var(--r-2); }
 .dk-pn.is-card { flex: 1; max-height: none; }
 .dk-pn.is-card .dk-pn-head { padding-top: var(--s-2); }
+/* In the side card the tab already says Private notes and the head says only you see them: the list keeps its + alone. */
+.dk-pn.is-card .dk-pn-head :is(.dk-pn-title, .dk-pn-who) { display: none; }
+.dk-pn.is-card .dk-pn-head .dk-icon-btn { margin-left: auto; }
 .dk-pv { overflow-y: auto; padding: var(--s-5) var(--s-5) var(--s-6); }
 .dk-meetline { display: flex; flex-direction: column; gap: var(--s-1); font-size: var(--fs-2); color: var(--text-3); }
 .dk-meetline b { color: var(--text); font-weight: var(--fw-3); font-size: var(--fs-3); }
@@ -602,15 +630,15 @@ html.desk body.powa-app .dk-thread .msg-composer button { border-radius: var(--r
   transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
 }
 .dk-seg-btn svg { width: var(--ic-1); height: var(--ic-1); }
-.dk-seg-btn:hover { color: var(--text); }
-.dk-seg-btn.on { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+@media (hover: hover) and (pointer: fine) { .dk-seg-btn:hover { color: var(--text); } }
+.dk-seg-btn.on { background: var(--dk-seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 html.desk[data-theme="light"] .dk-seg-btn.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
 .dk-tabs { display: flex; gap: 2px; margin-top: var(--s-3); }
 .dk-tab {
   display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--s-2); border: 0; border-radius: var(--r-1);
   background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-2)/1 var(--font-body); white-space: nowrap;
 }
-.dk-tab:hover { color: var(--text); background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-tab:hover { color: var(--text); background: var(--dk-hover); } }
 .dk-tab.on { color: var(--text); background: var(--dk-fill); }
 .dk-tab-n { color: var(--text-4); font-variant-numeric: tabular-nums; }
 .dk-tab.on .dk-tab-n { color: var(--text-3); }
@@ -652,7 +680,7 @@ html.desk .dk-rhome { display: grid; grid-template-columns: var(--list-w) minmax
   background: none; color: var(--text-2); font: inherit; cursor: pointer; white-space: nowrap;
 }
 .dk-rmeta-inv::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--dk-cool); }
-.dk-rmeta-inv:hover { background: var(--dk-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-rmeta-inv:hover { background: var(--dk-hover); color: var(--text); } }
 .dk-rmeta-inv:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 0; }
 .dk-rtools { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-3); flex-wrap: wrap; }
 .dk-rhome .dk-rtools .dk-search { order: 3; flex: 1 1 100%; }
@@ -663,7 +691,7 @@ html.desk .dk-rhome { display: grid; grid-template-columns: var(--list-w) minmax
   border: 0; border-radius: var(--r-1); background: var(--dk-fill); cursor: pointer;
   color: var(--text-2); font: var(--fw-2) var(--fs-1)/1 var(--font-body); white-space: nowrap;
 }
-.dk-vchip:hover { color: var(--text); background: var(--dk-fill-2); }
+@media (hover: hover) and (pointer: fine) { .dk-vchip:hover { color: var(--text); background: var(--dk-fill-2); } }
 .dk-vchip.on { background: var(--dk-fill-2); color: var(--text); }
 .dk-x { display: inline-grid; margin-right: -2px; color: var(--text-3); }
 .dk-x svg { width: 12px; height: 12px; }
@@ -702,17 +730,18 @@ html.desk #rosterArea.is-board > div:not([class]) { padding: 0 var(--gut); }
   position: sticky; top: var(--bd-top, 108px); z-index: 4; min-height: 36px; cursor: default; border-radius: 0;
   background: var(--bg); box-shadow: 0 1px 0 var(--line); font-size: var(--fs-1); color: var(--text-3);
 }
-.dk-bd-row:not(.is-head):hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-bd-row:not(.is-head):hover { background: var(--dk-hover); } }
 .dk-bd-row.is-sel, .dk-bd-row.is-picked { background: var(--dk-sel); }
 .dk-bd-row:not(.is-head):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 /* A hairline between rows, inset to the names; gone around the row under the cursor. */
 .dk-bd-group .dk-bd-row + .dk-bd-row::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
-.dk-bd-group .dk-bd-row:is(:hover, .is-sel, .is-picked)::before, .dk-bd-group .dk-bd-row:is(:hover, .is-sel, .is-picked) + .dk-bd-row::before { opacity: 0; }
+.dk-bd-group .dk-bd-row.is-sel::before, .dk-bd-group .dk-bd-row.is-picked::before, .dk-bd-group .dk-bd-row.is-sel + .dk-bd-row::before, .dk-bd-group .dk-bd-row.is-picked + .dk-bd-row::before { opacity: 0; }
+@media (hover: hover) and (pointer: fine) { .dk-bd-group .dk-bd-row:hover::before, .dk-bd-group .dk-bd-row:hover + .dk-bd-row::before { opacity: 0; } }
 .dk-bd-row.is-landed { animation: dkLanded 1.1s var(--dk-ease) 1; }
 .dk-bd-gh { padding: var(--s-5) var(--s-3) var(--s-2); }
 .dk-bd-gh span { display: inline-flex; gap: var(--s-2); font-size: var(--fs-1); color: var(--text-4); font-variant-numeric: tabular-nums; }
 .dk-bd-gh b { font-weight: var(--fw-3); color: var(--text-3); }
-html.desk #rosterArea:not(.has-bulk) .dk-bd-row:not(:hover):not(:focus-within) .c-pick .dk-cb { opacity: 0; }
+@media (hover: hover) and (pointer: fine) { html.desk #rosterArea:not(.has-bulk) .dk-bd-row:not(:hover):not(:focus-within) .c-pick .dk-cb { opacity: 0; } }
 .dk-bd-row .c-pick .dk-cb { transition: opacity var(--t-fast) ease; }
 .dk-bd-row .c-name { display: flex; align-items: center; gap: var(--s-3); }
 .dk-bd-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -721,7 +750,8 @@ html.desk #rosterArea:not(.has-bulk) .dk-bd-row:not(:hover):not(:focus-within) .
 .dk-bd-sub.is-live { color: var(--text-2); }
 .dk-bd-go { display: grid; place-items: center; color: var(--text-4); opacity: 0; transition: opacity var(--t-fast) ease; }
 .dk-bd-go svg { width: var(--ic-1); height: var(--ic-1); }
-.dk-bd-row:hover .dk-bd-go, .dk-bd-row.is-sel .dk-bd-go { opacity: 1; }
+.dk-bd-row.is-sel .dk-bd-go { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-bd-row:hover .dk-bd-go { opacity: 1; } }
 /* This week's sessions: one mark each, the outcome in its colour. */
 .dk-om { display: flex; align-items: center; gap: 6px; }
 .dk-om-mark { display: block; width: 12px; height: 12px; flex: none; box-sizing: border-box; border-radius: var(--r-round); background: var(--text-3); }
@@ -773,12 +803,13 @@ html.desk #rosterArea:not(.has-bulk) .dk-bd-row:not(:hover):not(:focus-within) .
 .dk-bwt-cls { position: absolute; left: 72%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: var(--r-round); background: var(--text-3); }
 .dk-bwt b { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--r-round); background: var(--text-2); box-shadow: 0 0 0 2px var(--bg); }
 .dk-bwt.is-over b { background: var(--dk-warn); }
-.dk-bd-row.is-sel .dk-bwt b, .dk-bd-row:hover .dk-bwt b { box-shadow: none; }
+.dk-bd-row.is-sel .dk-bwt b { box-shadow: none; }
+@media (hover: hover) and (pointer: fine) { .dk-bd-row:hover .dk-bwt b { box-shadow: none; } }
 .dk-sort {
   display: inline-flex; align-items: center; gap: var(--s-1); padding: var(--s-1) 6px; margin: 0 -6px; border: 0; border-radius: var(--r-1);
   background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap;
 }
-.dk-sort:hover { color: var(--text); background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-sort:hover { color: var(--text); background: var(--dk-hover); } }
 .dk-sort.on { color: var(--text); }
 .dk-sort-ar { font-size: var(--fs-1); }
 /* Narrower: bodyweight, then readiness, step away (their facts stay on the lifter's page). */
@@ -836,7 +867,7 @@ html.desk #rosterArea .dk-empty { position: static; width: auto; }
 .dk-ask-t span { font-size: var(--fs-2); color: var(--text-3); min-width: 0; overflow-wrap: anywhere; }
 .dk-asks:not(.is-open) .dk-ask.is-more { display: none; }
 .dk-ask-more { display: block; margin: 0 0 0 var(--s-2); padding: 6px var(--s-2); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-1)/1 var(--font-body); }
-.dk-ask-more:hover { color: var(--text); background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-ask-more:hover { color: var(--text); background: var(--dk-hover); } }
 /* The lifts, one strip. */
 .dk-ls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: var(--s-5); border-radius: var(--r-2); background: var(--line); overflow: hidden; }
 @container dkws (min-width: 760px) { .dk-ls { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -931,7 +962,7 @@ html.desk body.powa-app .dk-ls-big b { font-stretch: var(--num-stretch, 100%); }
 }
 .dk-att > svg { width: var(--ic-1); height: var(--ic-1); flex: none; color: var(--text-3); }
 .dk-att.is-btn { cursor: pointer; transition: background-color var(--t-fast) ease; }
-.dk-att.is-btn:hover { background: var(--dk-fill-2); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-att.is-btn:hover { background: var(--dk-fill-2); color: var(--text); } }
 .dk-att.is-open { color: var(--text); }
 .dk-att-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-3); font-weight: var(--fw-1); }
 .dk-att .dk-btn { height: 24px; margin-right: calc(-1 * var(--s-1)); padding: 0 var(--s-2); font-size: var(--fs-1); }
@@ -959,7 +990,7 @@ html.desk body.powa-app input.dk-wk-in {
   transition: box-shadow var(--t-fast) ease;
 }
 html.desk[data-theme="light"] body.powa-app input.dk-wk-in { background: #fff !important; }
-html.desk body.powa-app input.dk-wk-in:hover { box-shadow: inset 0 0 0 1px var(--line-2) !important; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dk-wk-in:hover { box-shadow: inset 0 0 0 1px var(--line-2) !important; } }
 html.desk body.powa-app input.dk-wk-in:focus { outline: none; box-shadow: 0 0 0 2px var(--dk-focus) !important; }
 /* An edit waiting on Publish: an ink outline until it goes out. */
 html.desk body.powa-app input.dk-wk-in.is-pend { box-shadow: inset 0 0 0 1.5px var(--text) !important; }
@@ -974,7 +1005,7 @@ html.desk body.powa-app input.dk-wk-in.is-bad { box-shadow: inset 0 0 0 1.5px va
 .dk-sgc[hidden] { display: none; }
 .dk-sgc svg { width: 12px; height: 12px; color: var(--text-3); }
 .dk-sgc small { font-size: var(--fs-1); color: var(--text-3); }
-.dk-sgc:hover:not(.is-hold) { background: var(--dk-fill-2); }
+@media (hover: hover) and (pointer: fine) { .dk-sgc:hover:not(.is-hold) { background: var(--dk-fill-2); } }
 .dk-sgc:active:not(.is-hold) { transform: scale(0.97); }
 .dk-sgc { width: 136px; justify-content: flex-start; overflow: hidden; }
 .dk-sgc.is-empty { visibility: hidden; pointer-events: none; }
@@ -1011,7 +1042,7 @@ html.desk .dash-main > section[data-pane="meets"] { padding: 0; height: 100vh; o
   html.desk .md-screen .md-meets .md-meet-acts { opacity: 0; transition: opacity var(--t-base) ease; }
   html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-acts { opacity: 1; }
 }
-.dk-meets { max-width: 980px; padding: var(--s-5) var(--gut) 72px; }
+.dk-meets { max-width: 980px; padding: var(--page-top) var(--gut) 72px; }
 .dk-page-head { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-5); }
 .dk-page-head .dk-rmeta { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dk-mtl { display: flex; flex-direction: column; gap: var(--s-4); }
@@ -1029,7 +1060,7 @@ html.desk .dash-main > section[data-pane="meets"] { padding: 0; height: 100vh; o
 .dk-mtc-rows { display: flex; flex-direction: column; }
 .dk-mtc-row { display: flex; align-items: center; gap: var(--s-3); width: 100%; padding: var(--s-2); box-sizing: border-box; border: 0; border-radius: var(--r-1); background: none; cursor: pointer; text-align: left; color: inherit; font: inherit; }
 .dk-mtc-row + .dk-mtc-row { box-shadow: 0 -1px 0 var(--line); }
-.dk-mtc-row:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-mtc-row:hover { background: var(--dk-hover); } }
 .dk-mtc-row > svg { width: var(--ic-1); height: var(--ic-1); color: var(--text-3); flex: none; }
 .dk-mtc-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .dk-mtc-main b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
@@ -1051,7 +1082,8 @@ html.desk[data-theme="light"] .dk-menu { background: #fff; }
   border: 0; border-radius: var(--r-1); background: none; cursor: pointer; text-align: left;
   color: var(--text); font: var(--fw-1) var(--fs-2)/1 var(--font-body);
 }
-.dk-menu-item:hover, .dk-menu-item:focus-visible { background: var(--dk-hover); outline: none; }
+.dk-menu-item:focus-visible { background: var(--dk-hover); outline: none; }
+@media (hover: hover) and (pointer: fine) { .dk-menu-item:hover { background: var(--dk-hover); outline: none; } }
 .dk-menu-item.is-danger { color: var(--dk-alert); }
 .dk-menu-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dk-menu-hint { color: var(--text-3); font-size: var(--fs-1); }
@@ -1166,7 +1198,7 @@ html.desk body.powa-app textarea.dk-tn-ta { min-height: 60px; font-size: var(--f
   min-height: 44px; padding: var(--s-2) var(--s-3); border: 0; background: none; cursor: pointer; text-align: left; color: inherit; font: inherit;
 }
 .dk-bl-row + .dk-bl-row { border-top: 1px solid var(--line); }
-.dk-bl-row:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-bl-row:hover { background: var(--dk-hover); } }
 .dk-bl-row svg { width: var(--ic-1); height: var(--ic-1); color: var(--text-3); transition: transform var(--t-base) var(--dk-ease); }
 .dk-bl-row[aria-expanded="true"] svg { transform: rotate(90deg); }
 .dk-bl-name { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; }
@@ -1187,11 +1219,12 @@ html.desk body.powa-app textarea.dk-tn-ta { min-height: 60px; font-size: var(--f
 .dk-pn-meta { display: flex; align-items: center; gap: 2px; margin-top: 2px; font-size: var(--fs-1); color: var(--text-3); }
 .dk-pn-meta > span { flex: 1; }
 .dk-pn-act { min-height: 28px; padding: var(--s-1) var(--s-2); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-1) var(--font-body); opacity: 0; transition: opacity 0.15s ease, color 0.15s ease; }
-.dk-pn-item:hover .dk-pn-act, .dk-pn-act:focus-visible, .dk-pn-act[data-armed] { opacity: 1; }
-.dk-pn-act:hover { color: var(--text); background: var(--dk-hover); }
+.dk-pn-act:focus-visible, .dk-pn-act[data-armed] { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-pn-item:hover .dk-pn-act { opacity: 1; } }
+@media (hover: hover) and (pointer: fine) { .dk-pn-act:hover { color: var(--text); background: var(--dk-hover); } }
 .dk-pn-act[data-armed] { color: var(--dk-alert); }
 .dk-pn-empty { display: block; width: 100%; padding: 6px 0 var(--s-1); border: 0; background: none; cursor: pointer; text-align: left; font: var(--fw-1) var(--fs-2)/var(--lh-2) var(--font-body); color: var(--text-3); border-radius: var(--r-1); }
-.dk-pn-empty:hover { color: var(--text-2); }
+@media (hover: hover) and (pointer: fine) { .dk-pn-empty:hover { color: var(--text-2); } }
 .dk-pn-compose { padding: 6px 0 var(--s-1); }
 html.desk body.powa-app .dk-pn-compose textarea.dk-ta { min-height: 72px; font-size: var(--fs-2); }
 .dk-pn-btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: var(--s-2); }
@@ -1205,40 +1238,40 @@ button.dk-qrow { width: 100%; border: 0; background: none; text-align: left; col
 button.dk-qrow.is-sel { background: var(--dk-sel); }
 .dk-pb-row { min-height: 48px; }
 .dk-pb-row:focus-visible, .dk-msg-row:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
-.dk-pb-row .dk-qname { font-size: var(--fs-2); }
+.dk-pb-row .dk-qname { font-size: var(--fs-3); }   /* a name in a list: 15, like Messages and Lifters' second line */
 .dk-pb-sub { display: block; font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dk-pb-sub.dk-dim { color: var(--text-4); }
 .dk-pb-ic { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); }
 .dk-pb-ic svg { width: var(--ic-2); height: var(--ic-2); }
 .dk-pb-new { display: flex; align-items: center; gap: var(--s-2); width: 100%; height: var(--ctl-h); margin-top: var(--s-1); padding: 0 var(--s-3); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-2) var(--font-body); }
 .dk-pb-new svg { width: var(--ic-1); height: var(--ic-1); }
-.dk-pb-new:hover { color: var(--text); background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-pb-new:hover { color: var(--text); background: var(--dk-hover); } }
 /* The builder's header: one title, one quiet meta line; on the right one segmented control, the
    save state (or Notify, the one red) and one overflow menu. */
 .dk-pbhead {
   position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: var(--s-3);
-  min-height: 64px; margin: 0 calc(-1 * var(--s-5)); padding: var(--s-2) var(--s-5); box-sizing: border-box;
+  min-height: 64px; margin: 0 calc(-1 * var(--s-5)); padding: 20px var(--s-5) var(--s-2); box-sizing: border-box;   /* the block's name on the page title's line */
   background: var(--bg);
 }
 .dk-pbid { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
 html.desk body.powa-app input.dk-pbname {
-  flex: none; field-sizing: content; min-width: 96px; max-width: 100%; width: 220px; height: 28px !important; min-height: 0 !important;
+  flex: none; field-sizing: content; min-width: 96px; max-width: 100%; width: 220px; height: 32px !important; min-height: 0 !important;
   margin: 0 0 0 -6px; padding: 0 6px !important; border: 0 !important; border-radius: var(--r-1); background: none !important; box-shadow: none !important;
-  color: var(--text); font: var(--fw-4) var(--fs-4)/1 var(--font-body); letter-spacing: -0.01em;
+  color: var(--text); font: var(--fw-4) var(--fs-5)/1 var(--font-body); letter-spacing: -0.015em;
   transition: background-color var(--t-fast) ease;
 }
 @supports (field-sizing: content) { html.desk body.powa-app input.dk-pbname { width: auto; } }
-html.desk body.powa-app input.dk-pbname:hover { background: var(--dk-hover) !important; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dk-pbname:hover { background: var(--dk-hover) !important; } }
 html.desk body.powa-app input.dk-pbname:focus { outline: none; background: var(--dk-fill) !important; }
-.dk-pbtitle { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dk-pbtitle { margin: 0; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dk-pbmeta { display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden; gap: 0 6px; min-width: 0; font-size: var(--fs-1); line-height: 18px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dk-pbmeta > * { white-space: nowrap; }
 .dk-pbmeta > .dk-pbsf { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 .dk-pbmeta > * + *::before { content: '·'; margin-right: 6px; color: var(--text-4); }
 .dk-pbmeta-btn { min-height: 24px; padding: 0; border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: color var(--t-fast) ease, text-decoration-color var(--t-fast) ease; }
-.dk-pbmeta-btn:hover { color: var(--text); text-decoration-color: var(--line-2); }
+@media (hover: hover) and (pointer: fine) { .dk-pbmeta-btn:hover { color: var(--text); text-decoration-color: var(--line-2); } }
 .dk-pbmeta-btn b { font-weight: var(--fw-2); color: var(--text-2); }
-.dk-pbmeta-btn:hover b { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-pbmeta-btn:hover b { color: var(--text); } }
 .dk-pbpub { display: inline-flex; flex: none; }
 .dk-pbhead .dk-seg { flex: none; }
 /* A narrow centre (the inspector open on a laptop): the meta line wraps; the segmented control steps into ⋯. */
@@ -1256,7 +1289,7 @@ html.desk body.powa-app input.dk-pbname:focus { outline: none; background: var(-
 .dk-pbmax-v { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--text-2); font-weight: var(--fw-2); }
 .dk-pbmax-v .dk-lift-dot { width: 6px; height: 6px; }
 .dk-pbmax-u { color: var(--text-4); }
-.dk-pbmax:hover .dk-pbmax-v { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-pbmax:hover .dk-pbmax-v { color: var(--text); } }
 .dk-bxv { padding-bottom: var(--s-6); }
 .dk-bxv.is-ro { padding-bottom: 0; }
 .dk-bxv.is-ro .dk-tl { margin-bottom: var(--s-4); }
@@ -1268,7 +1301,7 @@ html.desk body.powa-app input.dk-pbname:focus { outline: none; background: var(-
   border: 0; border-radius: var(--r-1); background: none; cursor: pointer; text-align: left; color: var(--text-3); font: inherit;
   transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
 }
-.dk-tl-wk:hover { background: var(--dk-hover); color: var(--text-2); }
+@media (hover: hover) and (pointer: fine) { .dk-tl-wk:hover { background: var(--dk-hover); color: var(--text-2); } }
 .dk-tl-wk.is-sel { background: var(--dk-raise-2); color: var(--text-2); }
 .dk-tl-wk:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 .dk-tl-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-height: 16px; }
@@ -1293,7 +1326,7 @@ html.desk body.powa-app input.dk-pbname:focus { outline: none; background: var(-
 .dk-tl-end b { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--dk-gold); }
 .dk-tl-add { display: grid; place-items: center; flex: none; width: 40px; border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); transition: background-color var(--t-fast) ease, color var(--t-fast) ease; }
 .dk-tl-add svg { width: var(--ic-2); height: var(--ic-2); }
-.dk-tl-add:hover { background: var(--dk-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-tl-add:hover { background: var(--dk-hover); color: var(--text); } }
 .dk-tl-add:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 /* The tools: one quiet row; the save state (or Notify, the one red) at its end. */
 .dk-pbtools { display: flex; align-items: center; gap: var(--s-1); margin: var(--s-3) 0 var(--s-4); }
@@ -1320,11 +1353,12 @@ html.desk body.powa-app input.dk-bxd-name {
   color: var(--text); font: var(--fw-3) var(--fs-3)/1 var(--font-body); transition: background-color var(--t-fast) ease;
 }
 @supports (field-sizing: content) { html.desk body.powa-app input.dk-bxd-name { width: auto; } }
-html.desk body.powa-app input.dk-bxd-name:hover { background: var(--dk-hover) !important; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dk-bxd-name:hover { background: var(--dk-hover) !important; } }
 html.desk body.powa-app input.dk-bxd-name:focus { outline: none; background: var(--dk-fill) !important; }
 .dk-bxd-meta { flex: 1; min-width: 0; font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .dk-bxd-more { opacity: 0.6; }
-.dk-bxd:hover .dk-bxd-more, .dk-bxd-more:focus-visible, .dk-bxd-more[aria-expanded="true"] { opacity: 1; }
+.dk-bxd-more:focus-visible, .dk-bxd-more[aria-expanded="true"] { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-bxd:hover .dk-bxd-more { opacity: 1; } }
 /* An exercise: the lift, what's written (edited in place), what was lifted, its menu. */
 .dk-bx {
   position: relative; display: grid; grid-template-columns: var(--bx-cols); column-gap: var(--s-3); align-items: center;
@@ -1354,7 +1388,7 @@ html.desk body.powa-app input.dk-bx-in {
   transition: box-shadow var(--t-fast) ease, background-color var(--t-fast) ease;
 }
 html.desk body.powa-app input.dk-bx-in::placeholder { color: transparent; }
-html.desk body.powa-app input.dk-bx-in:not([readonly]):hover { box-shadow: inset 0 0 0 1px var(--line-2) !important; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dk-bx-in:not([readonly]):hover { box-shadow: inset 0 0 0 1px var(--line-2) !important; } }
 html.desk body.powa-app input.dk-bx-in[readonly] { cursor: default; }
 html.desk body.powa-app input.dk-bx-in:not([readonly]):focus, html.desk body.powa-app input.dk-bx-in.is-bad { color: var(--text); background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dk-focus) !important; }
 html.desk[data-theme="light"] body.powa-app input.dk-bx-in:not([readonly]):focus { background: #fff !important; }
@@ -1368,12 +1402,13 @@ html.desk body.powa-app input.dk-bx-in[readonly]:focus { box-shadow: inset 0 0 0
 .dk-bx-bars { display: inline-flex; align-items: flex-end; gap: 2px; }
 .dk-bx-bars .dk-sb { height: 28px; padding: 0 4px; }
 .dk-bx-more { width: 28px; height: 28px; opacity: 0; transition: opacity var(--t-fast) ease, background-color var(--t-fast) ease, color var(--t-fast) ease; }
-.dk-bx:hover .dk-bx-more, .dk-bx.is-focus .dk-bx-more, .dk-bx-more:focus-visible, .dk-bx-more[aria-expanded="true"] { opacity: 1; }
+.dk-bx.is-focus .dk-bx-more, .dk-bx-more:focus-visible, .dk-bx-more[aria-expanded="true"] { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-bx:hover .dk-bx-more { opacity: 1; } }
 @media (hover: none) { .dk-bx-more { opacity: 1; } }
 .dk-bx-note { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); padding: 0 0 var(--s-2); font-size: var(--fs-1); line-height: var(--lh-2); color: var(--text-3); }
 .dk-bx-cn { min-height: 24px; padding: 0; border: 0; background: none; color: var(--text-3); font: inherit; text-align: left; text-wrap: pretty; }
 .dk-bx-cn.is-btn { cursor: text; border-radius: var(--r-1); }
-.dk-bx-cn.is-btn:hover { color: var(--text-2); }
+@media (hover: hover) and (pointer: fine) { .dk-bx-cn.is-btn:hover { color: var(--text-2); } }
 .dk-bx-cn.is-btn:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 .dk-bx-an { color: var(--text-2); text-wrap: pretty; }
 html.desk body.powa-app input.dk-bx-notein {
@@ -1385,7 +1420,7 @@ html.desk[data-theme="light"] body.powa-app input.dk-bx-notein { background: #ff
 /* Add an exercise as it's written. */
 .dk-bx-add { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) var(--s-2) 0 var(--s-3); padding: 0 var(--s-1) 0 var(--s-2); border-radius: var(--r-1); color: var(--text-4); transition: background-color var(--t-fast) ease; }
 .dk-bx-add > svg { width: var(--ic-1); height: var(--ic-1); flex: none; }
-.dk-bx-add:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .dk-bx-add:hover { background: var(--dk-hover); } }
 .dk-bx-add:focus-within { background: var(--dk-fill); color: var(--text-3); }
 html.desk body.powa-app input.dk-bx-addin {
   flex: 1; min-width: 0; height: var(--ctl-h) !important; min-height: 0 !important; margin: 0; padding: 0 !important;
@@ -1395,8 +1430,9 @@ html.desk body.powa-app input.dk-bx-addin {
 html.desk body.powa-app input.dk-bx-addin::placeholder { color: var(--text-3); opacity: 1; }
 html.desk body.powa-app input.dk-bx-addin.is-bad { color: var(--dk-alert); }
 .dk-bx-full { flex: none; height: 24px; padding: 0 var(--s-2); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-1)/1 var(--font-body); opacity: 0; transition: opacity var(--t-fast) ease, background-color var(--t-fast) ease; }
-.dk-bx-add:hover .dk-bx-full, .dk-bx-add:focus-within .dk-bx-full, .dk-bx-full:focus-visible { opacity: 1; }
-.dk-bx-full:hover { background: var(--dk-fill-2); color: var(--text); }
+.dk-bx-add:focus-within .dk-bx-full, .dk-bx-full:focus-visible { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .dk-bx-add:hover .dk-bx-full { opacity: 1; } }
+@media (hover: hover) and (pointer: fine) { .dk-bx-full:hover { background: var(--dk-fill-2); color: var(--text); } }
 .dk-bx-full:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 .dk-bx-adddays { display: flex; gap: var(--s-1); margin-top: var(--s-3); }
 /* A narrow card: the exercise on its own line, the writing under it, what was lifted under that. */
@@ -1429,7 +1465,7 @@ html.desk body.powa-app input.dk-bx-addin.is-bad { color: var(--dk-alert); }
 .dk-pg-got { fill: var(--text); stroke: var(--dk-raise); stroke-width: 2; }
 .dk-pg-got.t-warn { fill: var(--dk-warn); } .dk-pg-got.t-alert { fill: var(--dk-alert); } .dk-pg-got.t-cool { fill: var(--dk-cool); }
 .dk-pg-hit { fill: transparent; cursor: pointer; outline: none; }
-.dk-pg-hit:hover { fill: color-mix(in srgb, var(--text) 3%, transparent); }
+@media (hover: hover) and (pointer: fine) { .dk-pg-hit:hover { fill: color-mix(in srgb, var(--text) 3%, transparent); } }
 .dk-pg-hit:focus-visible { stroke: var(--dk-focus); stroke-width: 2; }
 .dk-bxv.is-ro .dk-pg-hit { cursor: default; }
 
@@ -1483,7 +1519,7 @@ html.desk body.powa-app .pg-grid input.pg-cell {
 }
 html.desk body.powa-app .pg-grid input.pg-cell::placeholder { color: transparent; }
 html.desk body.powa-app .pg-grid input.pg-cell[readonly] { cursor: default; }
-html.desk body.powa-app .pg-grid td:hover { background: color-mix(in srgb, var(--text) 3%, var(--dk-raise)); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .pg-grid td:hover { background: color-mix(in srgb, var(--text) 3%, var(--dk-raise)); } }
 /* Editing: the input shows and the drawing steps aside. */
 html.desk body.powa-app .pg-grid input.pg-cell:not([readonly]):focus, html.desk body.powa-app .pg-grid input.pg-cell.is-bad {
   color: var(--text); background: var(--bg); box-shadow: inset 0 0 0 1.5px var(--text);
@@ -1532,7 +1568,7 @@ html.desk body.powa-app #programArea .pb-day { margin: 0; border-radius: var(--r
    day titles at 16, set chips at the control radius, quiet add buttons. */
 html.desk body.powa-app #programArea .week-nav { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-1); background: var(--dk-fill); }
 html.desk body.powa-app #programArea .week-tab { height: 28px; min-height: 0; padding: 0 var(--s-3); border: 0; border-radius: calc(var(--r-1) - 2px); background: none; color: var(--text-3); font: var(--fw-2) var(--fs-2)/1 var(--font-body); box-shadow: none; }
-html.desk body.powa-app #programArea .week-tab:hover { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app #programArea .week-tab:hover { color: var(--text); } }
 html.desk body.powa-app #programArea .week-tab.active { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 html.desk[data-theme="light"] body.powa-app #programArea .week-tab.active { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
 html.desk body.powa-app #programArea .week-tab svg { width: var(--ic-1); height: var(--ic-1); }
@@ -1557,7 +1593,7 @@ html.desk body.powa-app #programArea .pb-chip b { font-weight: var(--fw-1); colo
 html.desk body.powa-app #programArea .pb-ex-note { font-size: var(--fs-1); }
 html.desk body.powa-app #programArea :is(.ui-icon-btn, .pb-more) { width: var(--ctl-h); height: var(--ctl-h); border-radius: var(--r-1); }
 html.desk body.powa-app #programArea .pb-add-ex2 { height: var(--ctl-h); min-height: 0; border-radius: var(--r-1); background: none; color: var(--text-3); font-size: var(--fs-2); font-weight: var(--fw-2); }
-html.desk body.powa-app #programArea .pb-add-ex2:hover { background: var(--dk-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app #programArea .pb-add-ex2:hover { background: var(--dk-hover); color: var(--text); } }
 html.desk body.powa-app #programArea .pb-rest { border: 0; border-radius: var(--r-1); background: var(--dk-raise-2); }
 html.desk body.powa-app #programArea .pb-rest-title { font-size: var(--fs-2); font-weight: var(--fw-2); color: var(--text-3); }
 html.desk body.powa-app #programArea .ui-btn-soft { height: var(--ctl-h); min-height: 0; padding: 0 var(--s-3); border-radius: var(--r-1); background: var(--dk-fill); font-size: var(--fs-2); font-weight: var(--fw-2); }
@@ -1586,13 +1622,14 @@ html.desk body.powa-app .dk-sf input.sf-in { width: 100%; height: 28px; font-siz
 
 /* The import sheet on the desk: open a .csv as well as paste. */
 html.desk body.powa-app .imp-file { display: inline-block; margin: var(--s-2) 0 0; padding: var(--s-1) 0; border: 0; background: none; cursor: pointer; color: var(--text-2); font: var(--fw-2) var(--fs-2) var(--font-body); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
-html.desk body.powa-app .imp-file:hover { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .imp-file:hover { color: var(--text); } }
 
 /* ---------- Messages ---------- */
 html.desk section[data-pane="messages"] > .dash-header { display: none; }
 html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); height: 100vh; }
 .dk-msg-list { min-height: 0; }
-.dk-msg-list .dk-title-row { align-items: center; }
+.dk-msg-list .dk-title-row { align-items: flex-start; }   /* the title on every screen's line; the quiet button beside it */
+.dk-msg-list .dk-title-row > .dk-btn { margin-top: -1px; }
 .dk-msg-centre { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100vh; }
 .dk-msg-head { display: flex; align-items: center; gap: var(--s-3); flex: none; min-height: 56px; padding: var(--s-2) var(--s-5); box-sizing: border-box; border-bottom: 1px solid var(--line); }
 .dk-msg-head .dk-ctx-title b { font-size: var(--fs-3); }
@@ -1621,10 +1658,10 @@ html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--li
 html.desk section[data-pane="you"] { overflow-y: auto; }
 html.desk section[data-pane="you"] > .dash-header { display: none; }
 html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-.dk-set-nav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: var(--s-5) var(--s-3); box-sizing: border-box; border-right: 1px solid var(--line); }
+.dk-set-nav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: var(--page-top) var(--s-4) var(--s-5); box-sizing: border-box; border-right: 1px solid var(--line); }
 .dk-set-nav .dk-h1 { padding: 0 var(--s-2) var(--s-4); }
-.dk-set-panel { width: 100%; max-width: 760px; padding: var(--s-5) var(--s-7) 72px; box-sizing: border-box; }
-.dk-set-title { margin: 0 0 var(--s-4); font-size: var(--fs-4); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); }
+.dk-set-panel { width: 100%; max-width: 760px; padding: var(--page-top) var(--s-7) 72px; box-sizing: border-box; }
+.dk-set-title { margin: 0 0 var(--s-4); font-size: var(--fs-5); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); }
 .dk-set-lead { margin: calc(-1 * var(--s-2)) 0 var(--s-4); max-width: 62ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
 .dk-set-group { margin-bottom: var(--s-5); border-radius: var(--r-2); background: var(--dk-raise); overflow: hidden; }
 .dk-set-row { display: flex; align-items: center; gap: var(--s-4); min-height: 56px; padding: var(--s-2) var(--s-4); box-sizing: border-box; }
@@ -1654,9 +1691,9 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 
 /* ---------- First run ---------- */
 .dk-setup:has(.dk-fr) { max-width: none; padding: 0; }
-.dk-fr { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: var(--s-7); align-items: start; padding: var(--s-6) var(--s-6) 72px; }
+.dk-fr { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: var(--s-7); align-items: start; padding: var(--page-top) var(--gut) 72px; }
 .dk-fr-lead { margin: 6px 0 var(--s-5); font-size: var(--fs-3); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
-.dk-fr-q .dk-sec-title { font-size: var(--fs-3); }
+.dk-fr-q .dk-sec-title { font-size: var(--fs-4); }
 .dk-fr-opts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
 .dk-fr-opt {
   display: flex; flex-direction: column; gap: 2px; padding: var(--s-3); border: 0; border-radius: var(--r-2);
@@ -1666,14 +1703,14 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-fr-opt:active { transform: scale(0.98); }
 .dk-fr-opt b { font-size: var(--fs-2); font-weight: var(--fw-3); }
 .dk-fr-opt span { font-size: var(--fs-1); color: var(--text-3); }
-.dk-fr-opt:hover { background: var(--dk-raise-2); }
+@media (hover: hover) and (pointer: fine) { .dk-fr-opt:hover { background: var(--dk-raise-2); } }
 .dk-fr-opt { position: relative; padding-right: 40px; }
 .dk-fr-opt.on { background: var(--dk-fill-2); }
 .dk-fr-check { position: absolute; top: var(--s-3); right: var(--s-3); display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--r-round); box-shadow: inset 0 0 0 1.5px var(--line-2); color: var(--bg); }
 .dk-fr-opt.on .dk-fr-check { background: var(--text); box-shadow: none; }
 .dk-fr-check svg { width: 12px; height: 12px; }
 .dk-fr-alt { align-self: flex-start; min-height: 24px; margin-top: 2px; padding: 0; font-size: var(--fs-1); color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
-.dk-fr-alt:hover { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .dk-fr-alt:hover { color: var(--text); } }
 .dk-fr-steps { list-style: none; margin: var(--s-5) 0 0; padding: 0; border-radius: var(--r-2); background: var(--dk-raise); }
 .dk-fr-step { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); }
 .dk-fr-step + .dk-fr-step { border-top: 1px solid var(--line); }
@@ -1682,23 +1719,25 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-fr-step.is-next .dk-fr-num { box-shadow: inset 0 0 0 1.5px var(--text); color: var(--text); }
 .dk-fr-step.is-done .dk-fr-num { background: var(--dk-ok); box-shadow: none; color: var(--bg); }
 .dk-fr-step-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.dk-fr-step-main b { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); }
+.dk-fr-step-main b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
 .dk-fr-step-main span { font-size: var(--fs-1); line-height: 1.4; color: var(--text-3); }
 .dk-fr-step.is-done .dk-fr-step-main b { color: var(--text-2); }
 .dk-fr-foot { margin: var(--s-2) 0 0; font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dk-fr-sample { border-radius: var(--r-2); overflow: hidden; background: var(--dk-raise); }
 .dk-fr-lane { padding: 6px var(--s-2) var(--s-2); }
 .dk-qrow.is-sample { cursor: default; }
-.dk-qrow.is-sample:hover { background: none; }
+@media (hover: hover) and (pointer: fine) { .dk-qrow.is-sample:hover { background: none; } }
 .dk-fr-sample-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
-.dk-fr-sample-head b { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); }
+.dk-fr-sample-head b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+/* The sample reads like the real Lifters list: a face, not the old session ring (it read as a spinner). */
+.dk-fr-sample .dk-ring-av > svg { display: none; }
 @media (max-width: 1240px) { .dk-fr { grid-template-columns: minmax(0, 1fr); } .dk-fr-sample { max-width: 760px; } }
 
 /* Set fields on the desk: inspector boxes. */
 /* (The builder header's Fields entry is in its meta line and in ⋯.) */
 
 /* ---------- Club keeps the phone's feed, at a column's width, on v2 surfaces ---------- */
-html.desk .dash-main > section[data-pane="club"] { padding: var(--s-5) var(--gut) 72px; }
+html.desk .dash-main > section[data-pane="club"] { padding: var(--page-top) var(--gut) 72px; }
 html.desk .dash-main > section[data-pane="club"] > * { max-width: 680px; margin-inline: 0; }
 /* One badge style: the PR as a gold dot and ink word, the effort as ink "@9" in the lift line. */
 html.desk body.powa-app section[data-pane="club"] .cp-pr { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 0; background: none !important; box-shadow: none !important; color: var(--text) !important; font-weight: var(--fw-3); }
@@ -1709,12 +1748,12 @@ html.desk body.powa-app section[data-pane="club"] .cp-rpe::before { content: '@'
 html.desk body.powa-app section[data-pane="club"] .cp-rpe b { font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text-2); }
 /* The invite icon: a plain quiet icon button (gold is for PRs and meets). */
 html.desk body.powa-app section[data-pane="club"] .club-invite-icon { background: var(--dk-fill) !important; color: var(--text) !important; box-shadow: none !important; }
-html.desk body.powa-app section[data-pane="club"] .club-invite-icon:hover { background: var(--dk-fill-2) !important; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app section[data-pane="club"] .club-invite-icon:hover { background: var(--dk-fill-2) !important; } }
 html.desk body.powa-app section[data-pane="club"] .dash-header { margin-bottom: var(--s-5); padding: 0; }
 html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero,
 html.desk body.powa-app section[data-pane="club"] :is(.club-buddy, .club-compose, .cp-card) {
-  background: var(--dk-raise) !important; background-image: none !important; border-color: transparent !important;
-  box-shadow: none !important; border-radius: var(--r-2) !important;
+  background-color: var(--dk-card) !important; background-image: var(--dk-card-sheen) !important; border: 1px solid var(--dk-card-edge) !important;
+  box-shadow: var(--dk-card-lit) !important; border-radius: var(--r-3) !important;
 }
 html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero::before,
 html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero::after { display: none !important; }
@@ -1722,10 +1761,10 @@ html.desk body.powa-app section[data-pane="club"] .cp-card.is-pr { box-shadow: i
 html.desk body.powa-app section[data-pane="club"] .club-compose { min-height: 52px; font-size: var(--fs-3); }
 html.desk body.powa-app section[data-pane="club"] .club-compose .cc-plus { width: var(--ctl-h); height: var(--ctl-h); border-radius: var(--r-1); background: var(--dk-fill) !important; box-shadow: none !important; color: var(--text); }
 html.desk body.powa-app section[data-pane="club"] .club-compose .cc-plus svg { width: var(--ic-2); height: var(--ic-2); }
-html.desk body.powa-app section[data-pane="club"] .club-compose:hover .cc-plus { background: var(--dk-fill-2) !important; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app section[data-pane="club"] .club-compose:hover .cc-plus { background: var(--dk-fill-2) !important; } }
 /* The club on the desk's steps: one page title like every screen, controls at 6, chips as status
    words, the PR in gold on its badge only (no gold frame round the card). */
-html.desk body.powa-app section[data-pane="club"] .dash-header h2 { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5) !important; font-weight: var(--fw-4); letter-spacing: -0.015em; line-height: var(--lh-1); }
+html.desk body.powa-app section[data-pane="club"] .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7) !important; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; }
 html.desk body.powa-app section[data-pane="club"] .club-hero-name { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-6); font-weight: var(--fw-4); }
 html.desk body.powa-app section[data-pane="club"] .club-crest { border-radius: var(--r-2); font-size: var(--fs-4); }
 html.desk body.powa-app section[data-pane="club"] :is(.club-desc, .cp-cap, .cp-ex-name) { font-size: var(--fs-3); }
@@ -1739,7 +1778,7 @@ html.desk body.powa-app section[data-pane="club"] .btn { min-height: var(--ctl-h
 html.desk body.powa-app section[data-pane="club"] .club-invite-icon { width: var(--ctl-h); height: var(--ctl-h); }
 html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg { display: inline-flex; width: auto; height: auto; padding: 2px; gap: 2px; border-radius: var(--r-1); background: var(--dk-fill); font-size: var(--fs-2); }
 html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button { flex: none; height: 28px; min-height: 28px; padding: 0 var(--s-3); border-radius: calc(var(--r-1) - 2px); font-size: var(--fs-2); font-weight: var(--fw-2); box-shadow: none; }
-html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: var(--bg-3); }
+html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: var(--dk-seg-on); }
 html.desk[data-theme="light"] body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1); }
 html.desk body.powa-app section[data-pane="club"] .cp-card b { font-variant-numeric: tabular-nums; }
 html.desk body.powa-app section[data-pane="club"] .cp-nums b { font-size: var(--fs-6); }
@@ -1792,7 +1831,7 @@ html.desk body.powa-app .vr textarea { border: 0; border-radius: var(--r-2); bac
 html.desk body.powa-app .vr :is(textarea, .vr-input):focus { outline: none; box-shadow: 0 0 0 2px var(--dk-focus); }
 /* Settings rows: the row's action is a secondary button. */
 html.desk body.powa-app .dk-set-row > .dk-btn.is-quiet, html.desk body.powa-app .dk-set-acts > .dk-btn.is-quiet { background: var(--dk-fill); color: var(--text); }
-html.desk body.powa-app .dk-set-row > .dk-btn.is-quiet:hover, html.desk body.powa-app .dk-set-acts > .dk-btn.is-quiet:hover { background: var(--dk-fill-2); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dk-set-row > .dk-btn.is-quiet:hover, html.desk body.powa-app .dk-set-acts > .dk-btn.is-quiet:hover { background: var(--dk-fill-2); } }
 
 @media (prefers-reduced-motion: reduce) {
   .dk-ring-fg, .dk-ring-fill, .dk-progress-line i { transition: none; }
@@ -1802,7 +1841,7 @@ html.desk body.powa-app .dk-set-row > .dk-btn.is-quiet:hover, html.desk body.pow
 }
 
 /* The closed assistant is invisible, so it holds no tab stops either (it fades out, then hides). */
-html.desk .ai-panel:not(.is-open) { visibility: hidden; transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.28s; }
+html.desk .ai-panel:not(.is-open) { visibility: hidden; transition: opacity 0.18s ease-out, transform 0.2s var(--dk-ease), visibility 0s linear 0.2s; }
 html.desk .ai-panel.is-open { visibility: visible; }
 /* Compact, on: a quiet pressed state (the ink fill is for selection, not a view setting). */
 html.desk body.powa-app .dk-btn.is-quiet.dk-dens[aria-pressed="true"] { background: var(--dk-fill); color: var(--text); }
@@ -1821,11 +1860,13 @@ html.desk.rail-min .dk-rail .dk-item-sub { padding: 0; }
 
 /* ---------- a page: Teams (and Meets when it's ours) ---------- */
 html.desk .dash-main > section[data-pane="teams"] { padding: 0; height: 100vh; overflow-y: auto; }
+/* Meets and Teams scroll in their own section: never the app's centred 1380 px column on a wide screen. */
+html.desk .dash-main > section:is([data-pane="meets"], [data-pane="teams"]) { max-width: none; margin: 0; }
 html.desk .ds-teams { max-width: 1240px; }
 .ds-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; margin-bottom: var(--s-5); }
 .ds-head-id { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .ds-head-id .dk-title-row { justify-content: flex-start; align-items: center; }
-.ds-facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2); margin: 0; font-size: var(--fs-2); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.ds-facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2); margin: 2px 0 0; font-size: var(--fs-3); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .ds-sep { color: var(--text-4); }
 .ds-head-tools { display: flex; align-items: center; gap: var(--s-2); flex: none; }
 .ds-push-slot { display: inline-flex; }
@@ -1841,13 +1882,13 @@ html.desk .ds-teams { max-width: 1240px; }
   transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
 }
 .ds-wk b { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text-2); }
-.ds-wk:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .ds-wk:hover { background: var(--dk-hover); } }
 .ds-wk.is-sel { background: var(--dk-raise); color: var(--text-2); }
 .ds-wk.is-sel b { color: var(--text); }
 .ds-wk:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 .ds-sec { margin-bottom: var(--s-6); }
 .ds-sec-head { display: flex; align-items: baseline; gap: var(--s-3); flex-wrap: wrap; margin-bottom: var(--s-3); }
-html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-4); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); text-transform: none; }
+html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); text-transform: none; }
 .ds-sec-sub { font-size: var(--fs-2); color: var(--text-3); }
 .ds-sec-tool { margin-left: auto; }
 .ds-note { margin: var(--s-3) 0 0; font-size: var(--fs-2); color: var(--text-3); }
@@ -1873,7 +1914,7 @@ html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body)
 .ds-lx-who { display: flex; align-items: center; gap: var(--s-3); }
 .ds-lx-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ds-lx-name { align-self: flex-start; max-width: 100%; padding: 0; border: 0; background: none; cursor: pointer; color: var(--text); font: var(--fw-3) var(--fs-3)/1.25 var(--font-body); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--r-1); }
-.ds-lx-name:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+@media (hover: hover) and (pointer: fine) { .ds-lx-name:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); } }
 .ds-lx-name:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 .ds-lx-sub { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; }
 .ds-live { color: var(--text-2); margin-right: var(--s-2); }
@@ -1882,14 +1923,14 @@ html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body)
 .ds-max .dk-lift-dot { width: 6px; height: 6px; }
 .ds-unit, .ds-nomax { color: var(--text-4); }
 .ds-lx-act { display: flex; justify-content: flex-end; }
-.ds-lx-row:not(:hover):not(:focus-within) .ds-lx-act .dk-icon-btn:not([aria-expanded="true"]) { opacity: 0.4; }
+@media (hover: hover) and (pointer: fine) { .ds-lx-row:not(:hover):not(:focus-within) .ds-lx-act .dk-icon-btn:not([aria-expanded="true"]) { opacity: 0.4; } }
 /* A load: the number in ink, a bar in the lift's colour (against the team's heaviest). */
 .ds-cell {
   display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: var(--s-2) var(--s-2); margin: 0 calc(-1 * var(--s-2)); box-sizing: content-box; max-width: 100%;
   border: 0; border-radius: var(--r-1); background: none; cursor: text; color: inherit; font: inherit; text-align: left;
   transition: background-color var(--t-fast) ease;
 }
-.ds-cell:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .ds-cell:hover { background: var(--dk-hover); } }
 .ds-cell:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 .ds-cell-n { position: relative; display: inline-flex; align-items: baseline; font: var(--fw-3) var(--fs-4)/1 var(--font-num); color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .ds-cell-n small { margin-left: 3px; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); letter-spacing: 0; }
@@ -1944,9 +1985,9 @@ html.desk body.powa-app .ds-in.ds-in-time { width: 96px; flex: none; }
 .ds-check[hidden] { display: none; }
 .ds-pick-list { display: flex; flex-direction: column; max-height: 340px; overflow-y: auto; margin: var(--s-3) calc(-1 * var(--s-2)) 0; }
 .ds-pick-row { display: flex; align-items: center; gap: var(--s-3); min-height: 40px; padding: 0 var(--s-2); border-radius: var(--r-1); cursor: pointer; font-size: var(--fs-3); color: var(--text); }
-.ds-pick-row:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .ds-pick-row:hover { background: var(--dk-hover); } }
 .ds-pick-row.is-off { cursor: default; color: var(--text-3); }
-.ds-pick-row.is-off:hover { background: none; }
+@media (hover: hover) and (pointer: fine) { .ds-pick-row.is-off:hover { background: none; } }
 .ds-pick-n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ds-pick-note { font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; }
 
@@ -1974,10 +2015,10 @@ html.desk body.powa-app .ds-in.ds-in-time { width: 96px; flex: none; }
 .ds-cal-gh b { font-weight: var(--fw-3); color: var(--text-3); }
 .ds-cal-who { display: flex; align-items: center; }
 .ds-cal-whob { display: flex; align-items: center; gap: var(--s-3); min-width: 0; width: 100%; padding: var(--s-1); margin: 0 calc(-1 * var(--s-1)); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: inherit; font: inherit; text-align: left; }
-.ds-cal-whob:hover { background: var(--dk-hover); }
+@media (hover: hover) and (pointer: fine) { .ds-cal-whob:hover { background: var(--dk-hover); } }
 .ds-cal-whob:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 .ds-cal-act { display: flex; align-items: center; justify-content: flex-end; }
-.ds-cal-row:not(.is-head):not(:hover):not(:focus-within) .ds-cal-act .dk-icon-btn { color: var(--text-4); }
+@media (hover: hover) and (pointer: fine) { .ds-cal-row:not(.is-head):not(:hover):not(:focus-within) .ds-cal-act .dk-icon-btn { color: var(--text-4); } }
 /* The track: no rule per week (the heads carry the scale), a faint rule where a month starts, the
    today line; bars on it, markers above, the warning under. An empty week shows "+ Meet" on hover. */
 .ds-cal-track { position: relative; min-height: 56px; }
@@ -2004,7 +2045,7 @@ html.desk body.powa-app .ds-in.ds-in-time { width: 96px; flex: none; }
 .ds-bar.is-past { cursor: default; opacity: 0.55; }
 .ds-bar.is-cut-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .ds-bar.is-cut-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.ds-bar:not(.is-past):hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+@media (hover: hover) and (pointer: fine) { .ds-bar:not(.is-past):hover { box-shadow: inset 0 0 0 1px var(--line-2); } }
 .ds-bar:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 .ds-bar.is-drag { cursor: grabbing; z-index: 3; box-shadow: var(--dk-pop); transition: none; }
 .ds-bar.is-settle { z-index: 3; transition: transform 0.18s var(--dk-ease); }
@@ -2070,6 +2111,112 @@ html.desk body.powa-app .ds-check { font-size: var(--fs-2); color: var(--text-2)
 html.desk body.powa-app .ds-pick-row { display: flex; font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text); }
 html.desk body.powa-app .ds-pick-row.is-off { color: var(--text-3); }
 html.desk body.powa-app .ds-pick-note { font-weight: var(--fw-1); }
+
+/* =====================================================================
+   DESK POLISH (27 Oct): one card on every desk screen. Programs, Meets, Teams, Settings, the first
+   run, Club and the meet-day board wear the card Today and Lifters wear: the app's 20 px radius, a
+   hairline edge, light from above (a lit top edge and a soft sheen). No hue washes anywhere.
+   ===================================================================== */
+html.desk :is(.dk-bxd, .dk-sess, .dk-pg-lift, .dk-set-group, .dk-set-seats, .dk-reasons, .dk-fr-steps, .dk-fr-sample, .dk-bl, .dk-mt-next, .dk-mtc, .dk-wk-empty, .dk-asks, .ds-lx, .ds-end) {
+  border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); border: 1px solid var(--dk-card-edge); box-shadow: var(--dk-card-lit);
+}
+
+/* One red per screen. On the desk a composer sends with the secondary button (Enter sends too), and a
+   voice note plays from a graphite button: the screen's red stays its one action (Open meet day,
+   Reply to Arjun), never a second red arrow beside it while a message is drafted. */
+html.desk body.powa-app .msg-send:not(.is-empty) { background: var(--dk-fill-2); color: var(--text); box-shadow: none; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .msg-send:not(.is-empty):hover { background: color-mix(in srgb, var(--text) 18%, transparent); filter: none; box-shadow: none; } }
+html.desk body.powa-app :is(.msg-row.theirs .vn-play, .vn-preview .vn-play, .tn-voice .vn-play) { background: var(--dk-fill-2); color: var(--text); }
+
+/* ---------- Ask AI on the desk: the desk's own material ----------
+   One red stays the screen's; the assistant answers in plain bubbles (no robot faces, no red tint on the
+   coach's own question), its chips are filled like every desk chip, its badge is a dot and a word. */
+/* Docked where the side card docks (top to bottom on the right, sliding in 16 px from that edge), so its
+   top never slices through a page title and both panels come and go the same way. */
+html.desk .ai-panel { top: 12px; right: 12px; bottom: 12px; width: 400px; height: auto; max-height: none; border-color: var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card);
+  box-shadow: var(--dk-card-shadow); transform-origin: right center; transform: translateX(16px); transition: opacity 0.2s ease-out, transform 0.26s var(--dk-drawer); }
+html.desk .ai-panel.is-open { transform: none; }
+html.desk .ai-panel .ai-head { background: none; padding: 16px 12px 14px 20px; }
+html.desk .ai-panel .ai-head-mark, html.desk .ai-panel .ai-msg-av { display: none; }
+html.desk .ai-panel .ai-head-title { font-size: var(--fs-4); font-weight: var(--fw-4); letter-spacing: -0.01em; }
+html.desk .ai-panel .ai-head-sub { font-size: var(--fs-1); }
+html.desk .ai-panel .ai-mode-pill { display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--s-2); height: 24px; border: 0; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font-size: var(--fs-1); font-weight: var(--fw-2); }
+html.desk .ai-panel .ai-mode-pill::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--dk-gold); }
+html.desk .ai-panel .ai-mode-pill.live::before { background: var(--dk-ok); }
+html.desk .ai-panel .ai-close { border-radius: var(--r-1); }
+html.desk .ai-panel .ai-seg { gap: 2px; margin: 12px 20px 0; padding: 2px; border: 0; border-radius: var(--r-1); background: var(--dk-fill); }
+html.desk .ai-panel .ai-seg-btn { height: 28px; padding: 0 var(--s-3); border-radius: calc(var(--r-1) - 2px); font-size: var(--fs-2); font-weight: var(--fw-2); }
+html.desk .ai-panel .ai-seg-btn.is-on { background: var(--dk-seg-on); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+html.desk .ai-panel .ai-body { padding: 16px 20px 8px; gap: 12px; }
+html.desk .ai-panel .ai-bubble { font-size: var(--fs-3); line-height: var(--lh-2); border: 0; border-radius: var(--r-2); background: var(--dk-fill); }
+html.desk .ai-panel .ai-msg.user .ai-bubble { background: color-mix(in srgb, var(--text) 12%, var(--dk-card)); border: 0; }
+html.desk .ai-panel .ai-chips { gap: var(--s-1); padding: 8px 20px 4px; }
+html.desk .ai-panel .ai-chip { height: 28px; padding: 0 var(--s-3); border: 0; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font-size: var(--fs-2); font-weight: var(--fw-2); }
+html.desk .ai-panel .ai-foot { padding: 12px 20px 14px; }
+html.desk .ai-panel .ai-input-row { border: 0; border-radius: var(--r-2); background: var(--dk-fill); padding: 4px 4px 4px 12px; }
+html.desk .ai-panel .ai-input-row:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
+html.desk .ai-panel .ai-send { width: var(--ctl-h); height: var(--ctl-h); border-radius: var(--r-1); background: var(--dk-fill-2); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk .ai-panel .ai-send:hover { transform: none; background: color-mix(in srgb, var(--text) 18%, transparent); } }
+html.desk .ai-panel .ai-send svg { width: var(--ic-2); height: var(--ic-2); }
+html.desk .ai-panel .ai-foot-note { font-size: var(--fs-1); }
+html.desk .ai-panel .ai-prog-card { border-color: var(--dk-card-edge); background: var(--dk-fill); }
+html.desk .ai-panel .ai-prog-meta { color: var(--text-3); }
+html.desk .ai-panel .ai-prog-apply { height: var(--ctl-h); border-radius: var(--r-1); background: var(--fire); font-size: var(--fs-2); }
+html.desk .ai-panel .ai-human { border: 0; background: var(--dk-fill); }
+html.desk .ai-panel .ai-human::before { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  html.desk .ai-panel .ai-chip:hover { border: 0; background: var(--dk-fill-2); color: var(--text); }
+}
+/* A thread scrolls under its header: the list's top padding (12 px) fades, so a half message never sits
+   cut off under the tabs (a scroll edge, not a hard line); at the top of the thread nothing is faded. */
+html.desk :is(.dk-thread .msg-list, .ai-panel .ai-body) { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px); mask-image: linear-gradient(to bottom, transparent 0, #000 12px); }
+@media (prefers-reduced-motion: reduce) {
+  html.desk .ai-panel, html.desk .ai-panel.is-open, html.desk .ai-panel:not(.is-open) { transform: none; }
+}
+/* Bring a program in: the pasted block is monospace at 13, so a week's tab-separated columns stay on one line. */
+html.desk body.powa-app .ui-sheet textarea.imp-text { font-size: var(--fs-2); line-height: 1.6; }
+/* Hover only with a mouse: every desk :hover sits under (hover: hover) and (pointer: fine), so a touch
+   laptop or an iPad wide enough for the desk never keeps a sticky hover. What a mouse reveals on hover
+   (the rail's fold, a row's ⋯, a note's Edit, a link's arrow) is simply shown on touch. */
+@media (hover: none), (pointer: coarse) {
+  html.desk :is(.dk-fold, .dk-link svg, .dk-bd-go, .dk-pn-act, .dk-bx-more, .dk-bx-full, .dk-bxd-more) { opacity: 1; }
+  html.desk .md-screen .md-meets .md-meet-acts { opacity: 1; }
+}
+/* Motion on the desk (Emil Kowalski's rules): a coach moves between screens tens of times a day, often from
+   the keyboard, so a screen arrives with a 140 ms fade and no travel (the app's 8 px rise is for the phone). */
+html.desk .dash-main > [data-pane]:not(.hidden) { animation: dkPaneIn 140ms ease-out backwards; }
+@keyframes dkPaneIn { from { opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { html.desk .dash-main > [data-pane]:not(.hidden) { animation: none; } }
+/* Loading: before the roster arrives the desk shows its own shape (the rail, Today's title, a card, four
+   tiles) in quiet fills that breathe, instead of a black page; it goes the moment the rail is built. */
+.dk-skel { display: none; }
+html.desk body.powa-app:not(:has(#deskRail)) .dk-skel { display: flex; position: fixed; inset: 0; z-index: 2; background: var(--bg); animation: dkSkelGone 0s linear 8s forwards; }
+/* A safety net: if the desk never builds (its script blocked or failed), the shape steps aside after 8 s. */
+@keyframes dkSkelGone { to { visibility: hidden; } }
+.dk-skel-rail { flex: none; width: var(--rail-w); box-sizing: border-box; background: var(--dk-rail); border-right: 1px solid var(--line); }
+.dk-skel-main { flex: 1 1 auto; min-width: 0; max-width: 1260px; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--page-top) var(--gut); box-sizing: border-box; }
+.dk-skel i { display: block; flex: none; border-radius: var(--r-1); background: var(--dk-fill); animation: dkSkel 1.6s ease-in-out infinite; }
+.dk-skel .t { width: 132px; height: 30px; }
+.dk-skel .s { width: min(420px, 60%); height: 15px; margin-bottom: var(--s-4); }
+.dk-skel .h { width: 96px; height: 20px; margin-top: var(--s-4); }
+.dk-skel .c { height: 216px; border-radius: var(--r-3); }
+.dk-skel .r { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dk-skel .r i { height: 220px; border-radius: var(--r-3); }
+@keyframes dkSkel { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .dk-skel i { animation: none; } }
+/* The last stragglers off the scale (the type census): a voice note's speed, a shared lift's numbers in a
+   thread, the meet board's "not declared" and units, the club's buddy line, Ask AI's sub lines. */
+html.desk body.powa-app :is(#messagesArea, #deskCtx) .vn-speed { font-size: var(--fs-1); }
+html.desk body.powa-app :is(#messagesArea, #deskCtx) .msg-card .mc-nums b { font-size: var(--fs-6); }
+html.desk .md-root .md-up-kg em, html.desk .md-root .md-up em { font-size: var(--fs-1); }
+html.desk .md-root :is(.md-up-kg, .md-dec-kg) small { font-size: var(--fs-3); }
+html.desk body.powa-app section[data-pane="club"] .club-buddy b { font-size: var(--fs-3); }
+html.desk body.powa-app section[data-pane="club"] :is(.cbud-av, .cp-av) { font-size: var(--fs-1); }
+html.desk .ai-panel .ai-bubble .ai-li-sub { font-size: var(--fs-1); }
+html.desk body.powa-app :is(#messagesArea, #deskCtx) .vn-speed { border-radius: var(--r-1); }
+/* A list row answers the press at once: a step of fill on pointer-down (rows are too wide to scale). */
+html.desk :is(button.dk-qrow, .dk-msg-row, .dk-mtc-row, .dk-bl-row):active { background: var(--dk-fill-2); }
+
 /* Next week's suggestion from the coach's own rule ("Up to 182.5 · your rule", progression.js): the week's slots
    widen together, so its fields still end on one line. */
 .dk-wk.has-rules .dk-sgc { width: 184px; }

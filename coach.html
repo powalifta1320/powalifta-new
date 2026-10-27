@@ -36,6 +36,8 @@
 <body class="powa-app">
 
 <a class="skip-link" href="#main">Skip to content</a>
+<!-- The laptop desk's first paint while the roster loads: Today's shape (desk.css .dk-skel), gone the moment the rail is built. Never on a phone. -->
+<div class="dk-skel" aria-hidden="true"><div class="dk-skel-rail"></div><div class="dk-skel-main"><i class="t"></i><i class="s"></i><i class="h"></i><i class="c"></i><i class="h"></i><div class="r"><i></i><i></i><i></i><i></i></div></div></div>
 <nav class="nav" id="nav"></nav>
 
 <div class="dash-shell">
@@ -236,7 +238,7 @@
     <button class="btn btn-sm mt-8" onclick="addSetRow()" id="addSetRowBtn"></button>
 
     <div class="form-group mt-24">
-      <label>Coach note (optional, athlete will see this)</label>
+      <label>Coach note (optional, the lifter sees it)</label>
       <textarea id="exNote" class="coach-note-input" placeholder="e.g. Slow eccentric. Pause 2s at the bottom."></textarea>
     </div>
 
@@ -408,6 +410,10 @@ bootstrap('coach', () => {
       // Sub-screens remember which of the five opened them (back link + lit tab).
       const prev = document.querySelector('.sidebar-tab.active');
       if (btn.dataset.parent && prev && prev !== btn && !prev.dataset.parent) btn.dataset.parent = prev.dataset.tab;
+      // The phone's push and pop (coach-ui.css): into a sub-screen the page comes from the right, back
+      // to its parent from the left; a tab switch keeps the quiet settle.
+      if (!_desk()) document.body.dataset.nav = !prev || prev === btn ? '' : (btn.dataset.parent && btn.dataset.parent === prev.dataset.tab) ? 'push' : (prev.dataset.parent && prev.dataset.parent === btn.dataset.tab) ? 'pop' : '';
+
       document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
@@ -424,7 +430,9 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'clients' && window.ClientsUI) ClientsUI.render(document.getElementById('clientsArea'));
       if (btn.dataset.tab === 'rules' && window.ProgressionUI) ProgressionUI.renderPhone(document.getElementById('rulesArea'));
       syncPaneBack();
+      _syncNavBack();
       window.scrollTo(0, 0);
+
     });
   });
   renderRoster();
@@ -568,6 +576,24 @@ function renderCoachYou() {
   });
 }
 window.renderCoachYou = renderCoachYou;
+
+// The phone's docked top bar keeps a back button on a sub-screen (a lifter, Clients, Templates…): the
+// page's own "‹ Lifters" sits in the bar's row at rest and scrolls away under the docked bar, so the
+// bar shows this copy (coach-ui.css, "Push navigation"). One button, fixed, outside the nav (renderNav
+// can redraw the nav). The laptop desk has its own rail and never gets it.
+function _syncNavBack() {
+  if (_desk() || !document.documentElement.classList.contains('native')) return;
+  const pb = document.querySelector('.dash-main > section[data-pane]:not(.hidden) > .pane-back');
+  let b = document.getElementById('clNavBack');
+  if (!b) {
+    b = el('button', { class: 'cl-navback', id: 'clNavBack', type: 'button' });
+    b.addEventListener('click', () => { const back = document.querySelector('.dash-main > section[data-pane]:not(.hidden) > .pane-back'); if (back) back.click(); });
+    document.body.appendChild(b);
+  }
+  b.innerHTML = pb ? pb.innerHTML : '';
+  b.setAttribute('aria-label', pb ? 'Back to ' + pb.textContent.trim() : 'Back');
+}
+
 
 // Install a generated block onto the athlete currently open in the builder.
 // Replaces their program, so it confirms first — this is destructive and the
@@ -1275,7 +1301,7 @@ function coachSetupSteps() {
     { done: hasProgram, title: 'Bring your program in',
       sub: hasProgram ? 'Saved as a template. Athletes get it in one tap when they join.' : 'A photo, a screenshot or a paste from your sheet. Nothing to retype.',
       onClick: () => hasProgram ? goTemplates() : openSheetImport(null) },
-    { done: invited, title: 'Invite your athletes',
+    { done: invited, title: 'Invite your lifters',
       sub: invited ? pending + (pending === 1 ? ' invite out. They appear here when they sign up.' : ' invites out. They appear here when they sign up.') : 'One link each. They get the app and land on your roster.',
       onClick: () => openInviteModal() },
     { done: profiled, title: 'Put a face to your name',
@@ -1313,8 +1339,28 @@ function buildCoachSetup() {
 }
 // The roster with athletes in it, drawn by the real components from a made-up week. Not tappable.
 function buildRosterSample() {
+  // The phone shows what Lifters becomes, drawn with its real rows (coach-lifters.js: face, name, the one
+  // line in the coach's words, strength over 4 weeks, the week as segments); the old ring and faces it
+  // used to show are no longer the screen. The web layout at tablet widths keeps the old sample.
+  if (document.documentElement.classList.contains('native')) {
+    const chev = '<span class="cl-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>';
+    const pips = (n, k, behind) => '<span class="cl-pips' + (behind ? ' is-behind' : '') + '">' + Array.from({ length: n }, (_, i) => '<i' + (i < k ? ' class="on"' : '') + '></i>').join('') + '</span>';
+    const rows = [
+      { name: 'Maya Chen', line: 'Training now · squat day', live: true, n: '+12', tone: 'up', pips: [3, 2] },
+      { name: 'Leo Grant', line: 'Bench felt @9, you wrote @8', sev: 'watch', n: '+4', tone: 'up', pips: [4, 2] },
+      { name: 'Priya Shah', line: 'Squat PR · 140 × 1', n: '+8', tone: 'up', pips: [3, 3] },
+      { name: 'Jonah Reed', line: 'Quiet for 9 days', sev: 'watch', n: '−3', tone: 'down', pips: [3, 0, true] }
+    ].map(r => '<div class="cl-row">' +
+      '<span class="ui-av av-h' + avatarHue(r.name) + '" data-name="' + escHtml(r.name) + '">' + escHtml(initials(r.name)) + '</span>' +
+      '<span class="cl-main"><span class="cl-name">' + escHtml(r.name) + (r.live ? '<i class="cl-live"></i>' : '') + '</span><span class="cl-line' + (r.sev ? ' sev-' + r.sev : '') + '">' + (r.sev ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + escHtml(r.line) + '</span></span></span>' +
+      '<span class="cl-end"><span class="cl-n t-' + r.tone + '"><b>' + r.n + '</b><small>' + escHtml(unitLabel()) + '</small></span>' + pips(r.pips[0], r.pips[1], r.pips[2]) + '</span>' + chev + '</div>').join('');
+    const s = el('div', { class: 'fr-sample cl-root cl-phone fr-cl', 'aria-hidden': 'true', html: '<div class="cl-list">' + rows + '</div>' });
+    s.inert = true;
+    return s;
+  }
   const box = el('div', { class: 'fr-sample', 'aria-hidden': 'true' });
   box.inert = true;
+
   const people = [
     { id: 'fr-1', name: 'Maya Chen', flag: 'today', ago: 0 },
     { id: 'fr-2', name: 'Leo Grant', flag: 'recent', ago: 1, pr: 1 },
@@ -1705,7 +1751,7 @@ function renderRoster() {
     lbl.appendChild(el('span', { class: 'fr-chip' }, 'Sample'));
     side.appendChild(lbl);
     side.appendChild(buildRosterSample());
-    side.appendChild(el('p', { class: 'fr-cap' }, 'Who trained, who is slipping and every PR, the moment they log a set. No opening a spreadsheet per athlete.'));
+    side.appendChild(el('p', { class: 'fr-cap' }, 'Who trained, who is slipping and every PR, the moment they log a set.'));
     fr.appendChild(side);
     area.appendChild(fr);
   } else {
@@ -2164,9 +2210,10 @@ async function renderMessages() {
     const wrap = el('div', { class: 'fr-msgs' });
     wrap.appendChild(_sampleThread());
     wrap.appendChild(uiEmpty({
-      title: 'Every athlete, one thread',
+      title: 'Every lifter, one thread',
       text: 'The sets they log arrive here as cards you can answer. No more screenshots in your DMs.',
-      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() }
+      primary: { label: 'Invite a lifter', onClick: () => openInviteModal() }
+
     }));
     area.appendChild(wrap);
     return;
@@ -2704,7 +2751,7 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         // Count input
         const countWrap = el('div', { class: 'uniform-cell' });
         countWrap.appendChild(el('input', {
-          type: 'number', min: '1', max: '50', step: '1',
+          type: 'number', min: '1', max: '50', step: '1', 'aria-label': 'Sets',
           value: blk.count,
           onchange: e => setBlockCount(activeWeekIdx, di, ei, blk.startIdx, blk.count, Number(e.target.value))
         }));
@@ -2726,8 +2773,9 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
         // Reps input
         const repsWrap = el('div', { class: 'uniform-cell' });
         repsWrap.appendChild(el('input', {
-          type: 'number', min: '1', step: '1',
+          type: 'number', min: '1', step: '1', 'aria-label': 'Reps',
           value: blk.reps,
+
           oninput: e => setBlockField(activeWeekIdx, di, ei, blk.startIdx, blk.count, 'reps', Number(e.target.value))
         }));
         repsWrap.appendChild(el('span', { class: 'uniform-lbl' }, 'reps'));
@@ -3452,15 +3500,15 @@ function loadProgram() {
     area.appendChild(uiEmpty(tplN ? {
       icon: ICONS.program,
       title: 'Your program is ready',
-      text: 'It\'s saved as a template. Once an athlete joins, open them here and apply it in one tap.',
-      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() },
+      text: 'It\'s saved as a template. Once a lifter joins, open them here and apply it in one tap.',
+      primary: { label: 'Invite a lifter', onClick: () => openInviteModal() },
       secondary: { label: tplN === 1 ? 'See your template' : 'See your ' + tplN + ' templates', onClick: toTemplates }
     } : {
       icon: ICONS.program,
       title: 'Start with your program',
       text: 'Bring it in from a photo, a screenshot or your spreadsheet, and keep it as a template. Athletes get it in one tap when they join.',
       primary: { label: 'Bring your program in', onClick: () => openSheetImport(null) },
-      secondary: { label: 'Invite an athlete first', onClick: () => openInviteModal() }
+      secondary: { label: 'Invite a lifter first', onClick: () => openInviteModal() }
     }));
     return;
   }
@@ -3964,7 +4012,13 @@ function renderSetsBuilder() {
   const lift = document.getElementById('exLift').value;
   const isCardio = lift === 'cardio';
   document.getElementById('presetSeg').style.display = isCardio ? 'none' : 'inline-flex';
+  // The phone names the three columns once above the sets (the fields' placeholders vanish once filled).
+  if (!_desk() && buildingSets.length) {
+    wrap.appendChild(el('div', { class: 'set-row set-head', 'aria-hidden': 'true' },
+      el('span', {}, ''), el('span', {}, isCardio ? 'min' : unitLabel()), el('span', {}, isCardio ? 'km' : 'Reps'), el('span', {}, 'RPE'), el('span', {}, '')));
+  }
   buildingSets.forEach((set, i) => {
+
     const row = el('div', { class: 'set-row' });
     row.appendChild(el('div', { class: 'set-label' }, isCardio ? 'Bout ' + (i + 1) : 'Set ' + (i + 1)));
     row.appendChild(el('input', {
@@ -3976,7 +4030,8 @@ function renderSetsBuilder() {
     }));
     row.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => buildingSets[i].reps = Number(e.target.value) }));
     row.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => buildingSets[i].rpe = Number(e.target.value) }));
-    const x = el('button', { class: 'btn-icon', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => { buildingSets.splice(i, 1); renderSetsBuilder(); } });
+    const x = el('button', { class: 'btn-icon', type: 'button', 'aria-label': 'Remove set ' + (i + 1), style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => { buildingSets.splice(i, 1); renderSetsBuilder(); } });
+
     x.innerHTML = ICONS.x;
     row.appendChild(x);
     wrap.appendChild(row);
@@ -4049,8 +4104,10 @@ function renderTemplates() {
     }
     const del = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => { if (confirm('Delete template "' + t.name + '"?')) { Store.update(s => { s.programTemplates = s.programTemplates.filter(x => x.id !== t.id); }); await persistDeleteTemplate(t.id); renderTemplates(); }}});
     del.innerHTML = ICONS.trash;
+    del.setAttribute('aria-label', 'Delete ' + t.name);
     actions.appendChild(del);
     card.appendChild(actions);
+
     grid.appendChild(card);
   });
   area.appendChild(grid);
@@ -4552,7 +4609,7 @@ function renderRosterAnalytics() {
     if (x.started !== y.started) return x.started ? -1 : 1;
     return (y.daysSince || 0) - (x.daysSince || 0);
   });
-  area.appendChild(uiLabel('Athletes', { count: roster.length }));
+  area.appendChild(uiLabel('Lifters', { count: roster.length }));
   area.appendChild(uiList(rows.map(r => {
     let last;
     if (!r.started) last = 'Not started';
@@ -4666,7 +4723,8 @@ function renderAthleteCompare() {
   const bid = (document.getElementById('compareB') || {}).value;
   body.innerHTML = '';
   if (!aid || !bid || aid === bid) {
-    body.appendChild(uiList([uiRow({ title: 'Pick two different athletes' })]));
+    body.appendChild(uiList([uiRow({ title: 'Pick two different lifters' })]));
+
     return;
   }
 
@@ -4703,7 +4761,7 @@ function renderProgressForAthlete() {
   if (!aid) {
     const hasRoster = Store.get().athletes.some(a => a.coachId === user.id);
     if (hasRoster) { renderRosterAnalytics(); return; }
-    area.appendChild(uiEmpty({ icon: ICONS.chart, title: 'No athletes yet', text: 'Every lift, PR and trend for each athlete lands here once they log.', primary: { label: 'Invite an athlete', onClick: () => openInviteModal() } }));
+    area.appendChild(uiEmpty({ icon: ICONS.chart, title: 'No lifters yet', text: 'Every lift, PR and trend for each lifter lands here once they log.', primary: { label: 'Invite a lifter', onClick: () => openInviteModal() } }));
     return;
   }
 
