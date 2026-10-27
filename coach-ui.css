@@ -1268,6 +1268,8 @@ html.desk .cl-root .cl-stack .ui-av + .ui-av { margin-left: -6px; }
 html.desk[data-theme="light"] body.powa-app .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
 /* A tile's last line (who is over, who is behind) takes two lines instead of an ellipsis mid-name. */
 html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+/* Two lines of names: a mouse needs no 7px of extra height, and the targets must not overlap the line below. */
+html.desk .cl-root .cl-tf :is(.cl-nm, .cl-link) { padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
 
 /* The side card open (Reply, Notes) on a laptop: Lifters folds its list to the faces and Today goes to two
    columns, so the lifter and the jobs keep their room beside the thread (under 1200px the card floats over
