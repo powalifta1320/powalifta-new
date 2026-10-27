@@ -97,6 +97,7 @@ var DK_IC = {
   programs: _dkSvg('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M9.5 9.5V20"/>'),
   meets: _dkSvg('<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7"/>'),
   messages: _dkSvg('<path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.1A8 8 0 1 1 20 12z"/>'),
+  clients: _dkSvg('<path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4h-12A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/><path d="M3 6.5A2.5 2.5 0 0 0 5.5 9h13A1.5 1.5 0 0 1 20 10.5V15h-4a2 2 0 0 1 0-4h4"/>'),
   club: _dkSvg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
   sun: _dkSvg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   moon: _dkSvg('<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/>'),
@@ -404,18 +405,18 @@ function deskBoot() {
   deskRoute(true);
 }
 // The address bar → the screen. #today · #roster · #roster?view=pain · #roster?mode=board ·
-// #programs · #teams · #meets · #messages · #club · #settings. (#athlete=ID is coach.html's athlete page.)
+// #programs · #teams · #meets · #messages · #clients · #club · #settings. (#athlete=ID is coach.html's athlete page.)
 function deskRoute(first) {
   var h = (location.hash || '').replace(/^#/, '');
   if (/^athlete=/.test(h)) return;   // coach.html opens the athlete page itself
-  var m = /^(today|roster|programs|teams|meets|messages|club|settings)(?:\?(.*))?$/.exec(h);
+  var m = /^(today|roster|programs|teams|meets|messages|clients|club|settings)(?:\?(.*))?$/.exec(h);
   var screen = m ? m[1] : 'today';
   var q = {};
   if (m && m[2]) m[2].split('&').forEach(function (kv) { var p = kv.split('='); q[p[0]] = p[1] || ''; });
   var view = q.view && DESK_VIEWS.some(function (v) { return v.key === q.view; }) ? q.view : null;
   if (q.mode === 'sheet') q.mode = 'board';   // an old link
   if (q.mode === 'board' || q.mode === 'list' || q.mode === 'calendar') { if (q.mode === 'board' && _dk.rmode !== 'board') _dk.rsel = null; _dk.rmode = q.mode; }
-  if (first && screen !== 'today' && screen !== 'roster' && screen !== 'meets' && screen !== 'teams') {
+  if (first && screen !== 'today' && screen !== 'roster' && screen !== 'meets' && screen !== 'teams' && screen !== 'clients') {
     // A legacy screen at boot: the demo boots while coach.html's script is still running, and the
     // builder reads lets declared further down it. A microtask runs once that script is done,
     // before the first paint.
@@ -425,7 +426,8 @@ function deskRoute(first) {
   deskGo(screen, { view: view, noPush: true, replace: first && !m });
 }
 var DK_TAB_FOR = { roster: 'athletes', programs: 'program', messages: 'messages', club: 'club', settings: 'you' };
-var DK_SCREEN_FOR = { athletes: 'roster', program: 'programs', templates: 'programs', messages: 'messages', club: 'club', you: 'settings', progress: 'settings', marketplace: 'settings' };
+// clients is a desk screen of its own (clients-ui.js draws the same pane on the phone, under You).
+var DK_SCREEN_FOR = { athletes: 'roster', program: 'programs', templates: 'programs', messages: 'messages', club: 'club', you: 'settings', progress: 'settings', marketplace: 'settings', clients: 'clients' };
 function deskGo(screen, opts) {
   opts = opts || {};
   if (!isDesk()) return;
@@ -439,12 +441,13 @@ function deskGo(screen, opts) {
   if (screen === 'roster') _dk.view = opts.view || null;
   dkSetHash(screen, opts);
   if (screen === 'teams' && typeof dsRenderTeams !== 'function') screen = 'programs';
-  if (screen === 'today' || screen === 'meets' || screen === 'teams') {
+  if (screen === 'clients' && !window.ClientsUI) screen = 'roster';
+  if (screen === 'today' || screen === 'meets' || screen === 'teams' || screen === 'clients') {
     document.querySelectorAll('.sidebar-tab').forEach(function (b) { b.classList.remove('active'); });
     document.querySelectorAll('[data-pane]').forEach(function (p) { p.classList.toggle('hidden', p.dataset.pane !== screen); });
     document.body.dataset.accent = 'fire';
     document.body.dataset.screen = screen;
-    if (screen === 'today') renderDeskToday(); else if (screen === 'teams') dsRenderTeams(); else dkRenderMeets();
+    if (screen === 'today') renderDeskToday(); else if (screen === 'teams') dsRenderTeams(); else if (screen === 'clients') ClientsUI.render(document.getElementById('clientsArea')); else dkRenderMeets();
     try { syncPaneBack(); } catch (e) {}
   } else {
     var tab = document.getElementById('tab-' + DK_TAB_FOR[screen]);
@@ -487,7 +490,7 @@ function dkOnTab(tab) {
 }
 // coach.html calls this when the athlete page opens: the rail keeps the screen it came from.
 function deskOnAthletePage() { if (!isDesk()) return; closeDkMenus(); dkSyncCtx(); dkPaintCard(); dkPaintRail(); }
-function deskBackLabel() { return ({ today: 'Today', roster: 'Lifters', meets: 'Meets', teams: 'Teams', messages: 'Messages', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
+function deskBackLabel() { return ({ today: 'Today', roster: 'Lifters', meets: 'Meets', teams: 'Teams', messages: 'Messages', clients: 'Clients', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
 function dkOnResize() {
   var on = isDesk();
   document.documentElement.classList.toggle('desk', on);
@@ -576,6 +579,7 @@ function dkRepaint() {
   // The roster's head (and its search box) stays; only the rows and the counts repaint.
   if (_dk.screen === 'roster' && !onPage && document.querySelector('#rosterArea .dk-rbody')) { dkPaintRosterBody({ keepCentre: true }); dkPaintRmeta(); }
   if (_dk.screen === 'meets' && !onPage) dkRenderMeets();
+  if (_dk.screen === 'clients' && !onPage && window.ClientsUI && !document.querySelector('.ui-sheet-veil')) ClientsUI.render(document.getElementById('clientsArea'));
   if (_dk.screen === 'teams' && !onPage && typeof dsRenderTeams === 'function' && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#deskTeams input'))) dsRenderTeams();
   // Messages: the list repaints (who wrote last, unread); the open thread updates itself.
   if (_dk.screen === 'messages' && !onPage && document.querySelector('#messagesArea .dk-msg-list')) dkPaintMsgList();
@@ -648,6 +652,8 @@ function dkBuildRail() {
   nav.appendChild(sub);
   nav.appendChild(dkRailItem('meets', 'Meets', DK_IC.meets, function () { deskGo('meets'); }, { go: true, count: true }));
   nav.appendChild(dkRailItem('messages', 'Messages', DK_IC.messages, function () { deskGo('messages'); }, { go: true, count: true }));
+  // Clients (clients-ui.js): packages and payments; the count is who's overdue.
+  if (window.ClientsUI) nav.appendChild(dkRailItem('clients', 'Clients', DK_IC.clients, function () { deskGo('clients'); }, { go: true, count: true }));
   rail.appendChild(nav);
 
   var views = el('div', { class: 'dk-views', role: 'group', 'aria-label': 'Saved views' });
@@ -724,13 +730,13 @@ function dkPaintRail() {
     (Store.get().messages || []).forEach(function (m) { if (u0 && m.senderId !== u0.id && !m.readAt) unread++; });
   } else Object.keys(ur).forEach(function (k) { unread += ur[k] || 0; });
   var meets = dkPlannedMeets();
-  var counts = { today: q ? q.queue.length : 0, roster: rows.length, messages: unread, meets: meets.length };
-  var tipFor = { today: function (n) { return n + ' need you'; }, messages: function (n) { return n + ' unread'; }, roster: function (n) { return n + (n === 1 ? ' athlete' : ' athletes'); }, meets: function (n) { return n + (n === 1 ? ' meet' : ' meets'); } };
+  var counts = { today: q ? q.queue.length : 0, roster: rows.length, messages: unread, meets: meets.length, clients: window.ClientsUI ? ClientsUI.overdueCount() : 0 };
+  var tipFor = { today: function (n) { return n + ' need you'; }, messages: function (n) { return n + ' unread'; }, roster: function (n) { return n + (n === 1 ? ' athlete' : ' athletes'); }, meets: function (n) { return n + (n === 1 ? ' meet' : ' meets'); }, clients: function (n) { return n + ' overdue'; } };
   rail.querySelectorAll('[data-count]').forEach(function (c) {
     var n = counts[c.dataset.count];
     c.textContent = n ? String(n) : '';
     // Today's queue and unread messages need the coach; the others are just counts.
-    c.classList.toggle('is-hot', (c.dataset.count === 'today' || c.dataset.count === 'messages') && n > 0);
+    c.classList.toggle('is-hot', (c.dataset.count === 'today' || c.dataset.count === 'messages' || c.dataset.count === 'clients') && n > 0);
     // Folded to icons the count is a dot: the tooltip says the number.
     var item = c.closest('.dk-item'), lab = item && item.querySelector('.dk-item-label');
     if (item && lab) item.dataset.tip = lab.textContent + (n && tipFor[c.dataset.count] ? ' · ' + tipFor[c.dataset.count](n) : '');
@@ -2070,8 +2076,9 @@ function dkCommands() {
       run: function () { openAthletePage(r.athlete.id); } });
   });
   var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
-  [['today', 'Today'], ['roster', 'Roster'], ['programs', 'Programs'], ['meets', 'Meets'], ['messages', 'Messages'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
+  [['today', 'Today'], ['roster', 'Roster'], ['programs', 'Programs'], ['meets', 'Meets'], ['messages', 'Messages'], ['clients', 'Clients'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
     if (x[0] === 'meets' && !dkPlannedMeets().length) return;
+    if (x[0] === 'clients' && !window.ClientsUI) return;
     if (x[0] === _dk.screen && !onPage) return;   // already here
     cmds.push({ group: 'Go to', label: x[1], run: function () { deskGo(x[0]); } });
   });

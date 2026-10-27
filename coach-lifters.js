@@ -800,6 +800,8 @@
     if (!anyLog) {
       html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p></div></div>';
       if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
+      // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
+      if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
       if (o.phone) html += '<button type="button" class="cl-everything' + rz(4) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Profile, check-ins, notes</span>' + ic('chev') + '</button>';
       return { html: html, fix: fix, alt: alt };
     }
@@ -868,6 +870,8 @@
     html += '<div class="cl-small n' + small.length + rz(4) + '">' + small.join('') + '</div>';
     // Their words.
     if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
+    // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
+    if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
     if (o.phone) html += '<button type="button" class="cl-everything' + rz(6) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Lifts, check-ins, notes, meets</span>' + ic('chev') + '</button>';
     if (o.phone && top) html += '<div class="cl-alt"><button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button></div>';
     return { html: html, fix: fix, alt: alt };
@@ -888,7 +892,7 @@
     var rz = function (i) { return firstPaint ? ' rise" style="--i:' + i : ''; };
     var date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
     var html = '<div class="ch-home cl-root cl-today">' +
-      '<header class="cl-thead' + rz(0) + '"><div><h1 class="cl-h1x">Today</h1><p class="cl-sub">' + esc(date) + ' · ' + plural(M.rows.length, 'lifter') + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + '</p></div>' +
+      '<header class="cl-thead' + rz(0) + '"><div><h1 class="cl-h1x">Today</h1><p class="cl-sub">' + esc(date) + ' · ' + plural(M.rows.length, 'lifter') + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + (window.ClientsUI ? ClientsUI.todayBit() : '') + '</p></div>' +
         (total ? '<div class="cl-prog"><span><b>' + (total - M.done) + '</b> to do this week' + (M.done ? ' · <b>' + M.done + '</b> done' : '') + '</span>' + (M.done ? '<span class="cl-pbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' : '') + '</div>' : '') + '</header>';
     html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2>' + (urgent.length > 3 ? '<span>' + (urgent.length - 3) + ' more urgent below</span>' : '') + '</div>';
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
@@ -986,7 +990,7 @@
     var wide = isWide();
     var wrap = node('div', { class: 'cl-phone cl-root' + (wide ? ' is-wide' : '') });
     var urgent = M.open.filter(function (it) { return it.tier <= 1; }).slice(0, 3);
-    var list = '<div class="cl-pcol">' + teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) +
+    var list = '<div class="cl-pcol">' + teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) + (window.ClientsUI ? ClientsUI.dueLineHtml() : '') +
       (urgent.length ? '<h2 class="cl-gh cl-gh-do">Do first <span>' + urgent.length + '</span></h2><div class="cl-do is-phone">' + urgent.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 && !wide, short: true, phone: true }); }).join('') + '</div>' : '') +
       (M.rows.length > 8 ? '<label class="cl-search cl-search-ph">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"></label>' : '') +
       '<div class="cl-groups">' + groupsHtml(M, { phone: !wide, sel: wide ? S.sel : null }) + '</div></div>';

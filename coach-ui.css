@@ -1,7 +1,7 @@
 /* coach-ui.css: the coach side's new screens (2026-10-25), starting with Home (coach-home.js).
    The app's own material: obsidian surfaces, hairlines, Archivo, one red action per screen,
    lift colours with a job. Everything is prefixed ch- and lives inside .ch-host / .ch-phone. */
-.ch-host, .ch-phone, .cl-root, .pp-sheet, .pp-pick {
+.ch-host, .ch-phone, .cl-root, .pp-sheet, .pp-pick, .cs-sheet {
   --ch-squat: #38c6ff; --ch-bench: #a98bff; --ch-deadlift: #ffbf3c;
   --ch-ok: #34d982; --ch-warn: #ffb35c; --ch-pain: #ff8f80; --ch-bw: #5ac8fa; --ch-gold: #ffc23d; --ch-green: #34e08c; --ch-cyan: #2ec5ff;
   --ch-fill-1: rgba(255, 255, 255, 0.035); --ch-fill-2: rgba(255, 255, 255, 0.06); --ch-fill-3: rgba(255, 255, 255, 0.08); --ch-fill-4: rgba(255, 255, 255, 0.14);
@@ -9,7 +9,7 @@
   --ch-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --ch-r: var(--u-r, 20px); --ch-r-in: 14px;
 }
-html[data-theme="light"] .ch-host, html[data-theme="light"] .ch-phone, html[data-theme="light"] .cl-root, html[data-theme="light"] .pp-sheet, html[data-theme="light"] .pp-pick {
+html[data-theme="light"] .ch-host, html[data-theme="light"] .ch-phone, html[data-theme="light"] .cl-root, html[data-theme="light"] .pp-sheet, html[data-theme="light"] .pp-pick, html[data-theme="light"] .cs-sheet {
   --ch-fill-1: rgba(11, 11, 13, 0.035); --ch-fill-2: rgba(11, 11, 13, 0.06); --ch-fill-3: rgba(11, 11, 13, 0.08); --ch-fill-4: rgba(11, 11, 13, 0.14);
   --ch-lit: none; --ch-pain: #d9483c; --ch-warn: #c77a12; --ch-ok: #159a58; --ch-bw: #1577c2; --ch-green: #159a58; --ch-cyan: #0f86b8; --ch-gold: #b4821a;
 }
@@ -804,3 +804,134 @@ html.desk body.powa-app .pp-grid .pp-why { padding: 2px 8px 4px; font-size: var(
 /* Bring a program in: the paste half keeps the app's sentence case, and its buttons wait visibly */
 .imp-sheet label.imp-name-row, .imp-sheet .imp-name-row span { text-transform: none; letter-spacing: 0; font-weight: 400; }
 .imp-sheet .imp-acts .btn:disabled { opacity: 0.38; pointer-events: none; }
+
+
+/* ---------- Clients + payments (clients-ui.js) ----------
+   The coach's own record of money taken elsewhere. Same tiles, buttons and type as Today and Lifters;
+   colour only where money needs the coach: overdue in the pain colour, due soon in amber. */
+.cs-page .cl-tile.t-received { --tc: var(--cl-up); } .cs-page .cl-tile.t-overdue { --tc: var(--cl-pain); } .cs-page .cl-tile.t-soon { --tc: var(--cl-down); } .cs-page .cl-tile.t-mrr { --tc: var(--cl-write); }
+.cs-st { font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--text-3); }
+.cl-th .cs-st { margin-left: auto; }
+.cs-st.st-overdue { color: var(--cl-pain, var(--ch-pain)); } .cs-st.st-due, .cs-st.st-soon { color: var(--cl-down, var(--ch-warn)); }
+.cs-meter { display: block; height: 6px; margin-top: 2px; border-radius: 999px; background: var(--ch-fill-3); overflow: hidden; }
+.cs-meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-up); transition: width 500ms var(--cl-ease); }
+
+/* the laptop page */
+html.desk [data-pane="clients"] { padding: 0; }
+html.desk #clientsArea { height: 100vh; overflow-y: auto; overscroll-behavior: contain; padding: 28px var(--gut, 24px) 64px; scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
+.cs-page { position: relative; max-width: 1260px; margin: 0 auto; }
+.cs-page:not(.is-phone)::before { content: ''; position: absolute; left: -60px; right: -60px; top: -140px; height: 420px; pointer-events: none; z-index: -1; background: radial-gradient(55% 70% at 30% 0%, color-mix(in srgb, var(--cl-write) 9%, transparent), transparent 72%); }
+.cs-hacts { display: flex; gap: 8px; }
+.cs-bar { display: flex; align-items: center; gap: 16px; margin: 30px 2px 12px; }
+.cs-h2 { margin: 0; font-family: var(--font-body); font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.012em; color: var(--text); }
+.cs-filters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.cs-filters::-webkit-scrollbar { display: none; }
+.cs-filters button { flex: none; height: 34px; padding: 0 14px; border: 0; border-radius: 17px; background: var(--ch-fill-2); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit) !important; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.cs-filters button span { margin-left: 4px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cs-filters button.on { background: var(--text); color: var(--bg-0, #0b0b0c); }
+.cs-filters button.on span { color: inherit; opacity: 0.6; }
+@media (hover: hover) and (pointer: fine) { .cs-filters button:not(.on):hover { background: var(--ch-fill-3); color: var(--text); } }
+.cs-list { display: flex; flex-direction: column; background: var(--cl-surface); border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); overflow: hidden; }
+.cs-lh, .cs-r:not(.is-phone) { display: grid; grid-template-columns: minmax(260px, 1.6fr) minmax(150px, 1fr) minmax(120px, 0.8fr) 236px; align-items: center; gap: 16px; padding: 0 18px; }
+.cs-lh { height: 40px; font-size: 13px; color: var(--text-3); border-bottom: 1px solid var(--cl-line); }
+.cs-r:not(.is-phone) { min-height: 64px; border-bottom: 1px solid var(--cl-line); transition: background-color 150ms ease-out; }
+.cs-r:last-child { border-bottom: 0; }
+@media (hover: hover) and (pointer: fine) { .cs-r:not(.is-phone):hover { background: var(--ch-fill-1); } .cs-rmain:hover .cs-rn b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); } }
+.cs-rmain { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.cs-rmain .ui-av, .cs-r.is-phone .ui-av { width: 36px; height: 36px; font-size: 13px; flex: none; }
+.cs-rn { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-rn b { font-size: 16px; line-height: 1.3; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-rn span { font-size: 15px; line-height: 1.3; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-r .cs-st { font-size: 15px; }
+.cs-r .cs-st.st-ok, .cs-r .cs-st.st-none, .cs-r .cs-st.st-paused, .cs-r .cs-st.st-ended { font-weight: 500; }
+.cs-rl { font-size: 15px; color: var(--text-3); white-space: nowrap; }
+.cs-ra { display: flex; justify-content: flex-end; gap: 4px; }
+.cs-ra .cl-btn { height: 36px; padding: 0 16px; }
+.cs-ra .cl-quiet { height: 36px; }
+.cs-foot { margin: 14px 4px 0; font-size: 13px; color: var(--text-3); }
+.cs-due { display: inline; padding: 0; border: 0; background: none; color: var(--cl-pain, var(--ch-pain)); font: inherit; font-weight: 600; cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .cs-due:hover { text-decoration: underline; text-underline-offset: 3px; } }
+
+/* the phone page (You › Clients) */
+.cs-page.is-phone { padding: 0 16px 28px; display: flex; flex-direction: column; gap: 14px; }
+.cs-ph { padding: 12px 4px 0; }
+.cs-ph .cl-h1 { font-size: 28px; }
+.cs-page.is-phone .cs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cs-page.is-phone .cl-tile { padding: 14px 14px 12px; gap: 8px; }
+.cs-page.is-phone .cl-big2 { font-size: 22px; }
+.cs-page.is-phone .cl-tile .cl-u { font-size: 13px; }
+.cs-page.is-phone .cs-bar { margin: 6px 0 0; }
+.cs-page.is-phone .cs-filters { margin: 0 -16px; padding: 0 16px; }
+.cs-list.is-phone { border-radius: var(--cl-r); }
+.cs-r.is-phone { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 66px; padding: 10px 12px 10px 14px; border: 0; border-bottom: 1px solid var(--cl-line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cs-r.is-phone:active { background: var(--ch-fill-1); }
+.cs-r.is-phone .cs-rn { flex: 1; }
+.cs-r.is-phone .cs-rs { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
+.cs-r.is-phone .cs-st { font-size: 15px; }
+.cs-r.is-phone .cs-rl { font-size: 13px; }
+.cs-r.is-phone > svg { width: 16px; height: 16px; flex: none; color: var(--text-4, var(--text-3)); }
+.cs-dueline { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 10px 14px; border: 1px solid var(--cl-line); border-radius: 16px; background: var(--cl-surface); color: var(--text-2); font: 400 15px/1.3 var(--font-body, inherit); text-align: left; cursor: pointer; --tc: var(--cl-pain); }
+.cs-dueline > span:nth-child(2) { flex: 1; min-width: 0; }
+.cs-dueline b { color: var(--text); font-weight: 600; }
+.cs-dueline > svg { width: 16px; height: 16px; flex: none; color: var(--text-3); }
+.cs-dueline:active { background: var(--ch-fill-1); }
+
+/* a lifter's page: Client + About */
+.cs-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+.cs-pair.is-phone { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.cs-card { gap: 12px; }
+.cs-card.tone-pain { --tc: var(--cl-pain); } .cs-card.tone-warn { --tc: var(--cl-down); }
+.cs-pk { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cs-pk b { font-size: 16px; font-weight: 700; color: var(--text); }
+.cs-pk span { font-size: 15px; color: var(--text-3); }
+.cs-pays { display: flex; flex-wrap: wrap; column-gap: 14px; row-gap: 4px; font-size: 13px; color: var(--text-3); }
+.cs-pay b { color: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cs-pay.is-none { font-style: normal; }
+.cs-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.cs-acts .cl-btn { height: 38px; padding: 0 16px; }
+.cs-acts .cs-more { margin-left: auto; }
+.cs-acts .cs-more svg { width: 14px; height: 14px; }
+.cs-none { margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+.cs-about .cl-ts { margin-left: auto; }
+.cs-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; row-gap: 7px; margin: 0; }
+.cs-dl > div { display: contents; }
+.cs-dl dt { font-size: 13px; line-height: 1.45; color: var(--text-3); white-space: nowrap; }
+.cs-dl dd { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.cs-pair.is-phone .cs-dl { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+.cs-pair.is-phone .cs-dl dd { margin-bottom: 8px; }
+
+/* the sheets: one client, a package, a payment */
+.cs-sheet label.cs-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; text-transform: none; letter-spacing: 0; font-weight: 400; color: inherit; font-size: inherit; }
+.cs-fl { font-size: 13px; font-weight: 600; color: var(--text-3); }
+.cs-fh { font-size: 13px; color: var(--text-3); }
+.cs-sheet .cs-in { width: 100%; }
+.cs-sheet input.cs-in[hidden] { display: none; }
+.cs-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cs-chips + .cs-in { margin-top: 8px; }
+.cs-chips button { height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: var(--ch-fill-2); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit); cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out, transform 120ms ease-out; }
+.cs-chips button:active { transform: scale(0.97); }
+.cs-chips button.on { background: var(--text); color: var(--bg-0, #0b0b0c); }
+.cs-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cs-amtrow { display: flex; gap: 8px; align-items: center; }
+.cs-amtrow .cs-amt { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.cs-amtrow .cs-cur { flex: none; width: 96px; }
+.cs-cur-tag { flex: none; font-size: 15px; font-weight: 600; color: var(--text-3); padding: 0 6px; }
+.cs-sbanner { --tc: var(--text-3); display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--tc) 9%, var(--ch-fill-1)); }
+.cs-sbanner.tone-pain { --tc: var(--ch-pain); } .cs-sbanner.tone-warn { --tc: var(--ch-warn); }
+.cs-sb-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-sb-t b { font-size: 16px; font-weight: 700; color: var(--text); }
+.cs-sbanner.tone-pain .cs-sb-t b { color: var(--ch-pain); } .cs-sbanner.tone-warn .cs-sb-t b { color: var(--ch-warn); }
+.cs-sb-t span { font-size: 13px; color: var(--text-3); }
+.cs-sbanner .cl-tic { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--tc); background: color-mix(in srgb, var(--tc) 16%, transparent); }
+.cs-sbanner .cl-tic svg { width: 17px; height: 17px; }
+.cs-sacts { display: flex; gap: 8px; margin: 0 0 6px; }
+.cs-sacts .btn { flex: 1; margin: 0; }
+html.desk body.powa-app .cs-sacts .btn { flex: none; margin: 0; }
+.cs-del { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--text-3); cursor: pointer; }
+.cs-del svg { width: 14px; height: 14px; }
+@media (hover: hover) and (pointer: fine) { .cs-del:hover { background: var(--ch-fill-3); color: var(--text); } }
+.cs-golifter { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 12px; background: none; color: var(--text-2); font: 600 15px/1 var(--font-body, inherit); cursor: pointer; }
+.cs-golifter svg { width: 15px; height: 15px; }
+@media (hover: hover) and (pointer: fine) { .cs-golifter:hover { background: var(--ch-fill-2); color: var(--text); } }
+html.desk body.powa-app .ui-sheet.cs-client { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+@media (prefers-reduced-motion: reduce) { .cs-meter i, .cs-filters button, .cs-chips button { transition: none; } }

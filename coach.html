@@ -52,6 +52,7 @@
     <button class="sidebar-tab" data-tab="progress" id="tab-progress" data-parent="you"></button>
     <button class="sidebar-tab" data-tab="marketplace" id="tab-marketplace" data-parent="you"></button>
     <button class="sidebar-tab" data-tab="lifter" id="tab-lifter" data-parent="athletes"></button>
+    <button class="sidebar-tab" data-tab="clients" id="tab-clients" data-parent="you"></button>
     <div class="sidebar-foot">
     </div>
   </aside>
@@ -86,6 +87,8 @@
 
     <!-- A LIFTER (phone, coach-lifters.js): pushed in from the Lifters tab; one answer, the block, one red. -->
     <section data-pane="lifter" class="hidden"><div id="lifterPage"></div></section>
+    <!-- Clients (clients-ui.js): packages and payments the coach takes elsewhere. The laptop desk's rail destination; You › Clients on the phone. -->
+    <section data-pane="clients" class="hidden"><div id="clientsArea"></div></section>
 
     <!-- PROGRAM BUILDER -->
     <section data-pane="program" class="hidden">
@@ -342,6 +345,7 @@
 <script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="clients.js"></script><!-- Clients + payments and the intake: the pure helpers (window.Clients) for the coach's clients page and a lifter's About -->
+<script src="clients-ui.js"></script><!-- Clients: the screens (ClientsUI): the Clients page, a lifter's Client + About blocks, mark paid, packages, reminders -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
@@ -382,6 +386,7 @@ bootstrap('coach', () => {
   setLbl('tab-progress', ICONS.chart, 'Athlete progress');
   setLbl('tab-club', ICONS.club, 'Club');   // not the Roster icon (two people) again
   setLbl('tab-you', ICONS.user, 'You');
+  if (window.ClientsUI) setLbl('tab-clients', ClientsUI.ICON, 'Clients');
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
   // progress and marketplace are sub-screens of Program / You.
   buildBottomTabs(['athletes', 'program', 'messages', 'club', 'you']);
@@ -406,6 +411,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'progress') populateAthleteSelect('progressAthlete', renderProgressForAthlete);
       if (btn.dataset.tab === 'club' && window.renderClubTab) renderClubTab(document.getElementById('clubArea'));
       if (btn.dataset.tab === 'you') renderCoachYou();
+      if (btn.dataset.tab === 'clients' && window.ClientsUI) ClientsUI.render(document.getElementById('clientsArea'));
       syncPaneBack();
       window.scrollTo(0, 0);
     });
@@ -528,6 +534,7 @@ function renderCoachYou() {
     groups: [
       { title: 'Coaching', rows: [
         !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
+        window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', onClick: go('clients') } : null,
         { label: 'Athlete progress', onClick: go('progress') },
         { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         brandRow(tier, showPlan),
