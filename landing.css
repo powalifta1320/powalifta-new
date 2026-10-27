@@ -35,6 +35,7 @@ html { scroll-padding-top: 76px; }
 .s-home .nav { min-height: var(--l-nav); transition: background-color var(--l-ui) var(--l-ease), border-color var(--l-ui) var(--l-ease), -webkit-backdrop-filter var(--l-ui) var(--l-ease), backdrop-filter var(--l-ui) var(--l-ease); }
 @media (prefers-reduced-transparency: reduce) {
   .s-home .nav.is-scrolled, .s-home .nav.nav-open { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .s-chip-in, .s-live-c { background: var(--bg-2); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 /* ---------- Shared homepage parts ---------- */
@@ -215,7 +216,7 @@ img.s-scr { width: 100%; height: 100%; object-fit: cover; display: none; }
   box-shadow: 0 calc(4 * var(--pt)) calc(14 * var(--pt)) rgba(0, 0, 0, 0.45); z-index: 1;
 }
 .tr-stop.is-k8 { opacity: 0; }   /* under the knob once it lands, as in the app */
-.tr-list .tr-ex:nth-child(n + 2) { opacity: 0; }   /* under the rest dock once it docks */
+.tr-list .tr-ex:nth-child(n + 2) > * { opacity: 0; }   /* under the rest dock once it docks: the rows' cards still peek */
 .tr-hint { display: grid; margin-top: calc(10 * var(--pt)); font-size: calc(13 * var(--pt)); color: var(--c-dim); white-space: nowrap; }
 .tr-hint > span { grid-area: 1 / 1; }
 .tr-hint b { color: var(--c-text); font-weight: 700; }
@@ -288,7 +289,7 @@ img.s-scr { width: 100%; height: 100%; object-fit: cover; display: none; }
 #lift-mode { --hue: var(--s-fire); }
 #progress, #programs { --hue: var(--s-cyan); }
 #club { --hue: var(--s-gold); }
-.s-tab-meet { gap: 12px; color: var(--text); font: 600 0.92rem/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.02em; }
+.s-tab-meet { gap: 11px; color: var(--text); }
 
 /* ---------- The story (laptops, set by landing.js once the observer runs) ---------- */
 @media (min-width: 900px) {
@@ -417,7 +418,7 @@ body.site #calcShare { margin: 0 auto; }
 .s-laptop-base::before { content: ''; position: absolute; left: 50%; top: 0; width: 13%; height: 42%; transform: translateX(-50%); border-radius: 0 0 8px 8px; background: rgba(0, 0, 0, 0.4); }
 /* The laptop settles flat as it arrives (armed only once the observer has seen it below). */
 .s-desk-stage.is-armed .s-laptop { transform: rotateX(12deg) translateY(36px) scale(0.965); }
-.s-desk-stage.is-in .s-laptop { transform: none; transition: transform 1000ms var(--l-ease); }
+.s-desk-stage.is-in .s-laptop { transform: none; transition: transform 760ms var(--l-ease); }
 
 /* Live touches: one per screen, lit glass on the laptop's corner */
 .s-live { position: absolute; right: -2.5%; bottom: 9%; z-index: 3; width: 0; height: 0; pointer-events: none; }
@@ -479,7 +480,7 @@ body.site .s-tile h3 { font-size: 1.22rem; margin: 0 0 8px; letter-spacing: -0.0
 .s-tile-invite .s-tile-shot img { object-position: left top; }
 /* The screens slide up into their windows, once, as the group arrives. */
 .s-bento.is-armed .s-tile-shot img { opacity: 0; transform: translateY(32px) scale(1.015); }
-.s-bento.is-in .s-tile-shot img { opacity: 1; transform: none; transition: opacity 600ms var(--l-ease), transform 900ms var(--l-ease); transition-delay: calc(var(--i, 0) * 80ms); }
+.s-bento.is-in .s-tile-shot img { opacity: 1; transform: none; transition: opacity 520ms var(--l-ease), transform 680ms var(--l-ease); transition-delay: calc(var(--i, 0) * 70ms); }
 
 /* ============================================================
    PRICING, the two hidden lists, the closing call
@@ -536,15 +537,15 @@ body.site .s-cta h2 { margin: 0 auto 8px; font-stretch: 125%; font-weight: 800; 
    · Log set 3060 · e1RM 3200 · set 2 3700-4420 · rest timer 3900.
    ============================================================ */
 @media (prefers-reduced-motion: no-preference) {
-  .s-land::before { animation: l-fade 1400ms var(--l-ease) both; }
-  .s-hl > span { animation: l-line 760ms var(--l-ease) both; }
+  .s-land::before { animation: l-fade 900ms ease-out both; }
+  .s-hl > span { animation: l-line 680ms var(--l-ease) both; }
   .s-hl:nth-child(1) > span { animation-delay: 80ms; }
   .s-hl:nth-child(2) > span { animation-delay: 160ms; }
-  .s-hero-sub { animation: l-rise 640ms 300ms var(--l-ease) both; }
-  .s-hero .s-actions { animation: l-rise 640ms 380ms var(--l-ease) both; }
-  .s-hero-aux { animation: l-rise 640ms 440ms var(--l-ease) both; }
-  .s-phone-live { animation: l-phone 760ms 520ms var(--l-ease) both; }
-  .s-stage-light { animation: l-fade 1100ms 560ms ease-out both; }
+  .s-hero-sub { animation: l-rise 600ms 280ms var(--l-ease) both; }
+  .s-hero .s-actions { animation: l-rise 600ms 350ms var(--l-ease) both; }
+  .s-hero-aux { animation: l-rise 600ms 410ms var(--l-ease) both; }
+  .s-phone-live { animation: l-phone 700ms 500ms var(--l-ease) both; }
+  .s-stage-light { animation: l-fade 900ms 540ms ease-out both; }
 
   /* the bar loads, heaviest first, the way the app loads it */
   .s-phone-live .pl-k1 { animation: l-plate-on 300ms 1400ms var(--l-ease) both; }
@@ -556,7 +557,7 @@ body.site .s-cta h2 { margin: 0 auto 8px; font-stretch: 125%; font-weight: 800; 
   /* how hard it felt: the knob arrives at 6 and settles on 8 */
   .s-phone-live .tr-knob { animation: l-knob 2860ms linear both; }
   .s-phone-live .tr-stop.is-k8 { animation: l-out 140ms 2720ms linear both; }
-  .s-phone-live .tr-list .tr-ex:nth-child(n + 2) { animation: l-out 260ms 3980ms linear both; }
+  .s-phone-live .tr-list .tr-ex:nth-child(n + 2) > * { animation: l-out 260ms 3980ms linear both; }
   .s-phone-live .tr-fill { animation: l-fill 2860ms linear both; }
   .s-phone-live .tr-h0 { animation: l-out 200ms 2860ms var(--l-ease) both; }
   .s-phone-live .tr-h1 { animation: l-in 260ms 2900ms var(--l-ease) both; }
@@ -579,12 +580,12 @@ body.site .s-cta h2 { margin: 0 auto 8px; font-stretch: 125%; font-weight: 800; 
   .s-phone-live .tr-c1 { animation: l-in 220ms 3840ms var(--l-ease) both; }
   /* the rest timer docks above the tab bar and starts draining */
   .s-phone-live .tr-dock { animation: l-dock 460ms 3900ms var(--l-drawer) both; }
-  .s-phone-live .tr-dock-ring .f { animation: l-drain 180000ms 4360ms linear both; }
+  .s-phone-live .tr-dock-ring .f { animation: l-drain 180000ms 4360ms steps(180, end) both; }   /* one step a second, like the clock: no 3-minute repaint loop */
 }
 @keyframes l-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes l-line { from { transform: translateY(108%); } to { transform: none; } }
 @keyframes l-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-@keyframes l-phone { from { opacity: 0; transform: translateY(64px) scale(0.965); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes l-phone { from { opacity: 0; transform: translateY(56px) scale(0.97); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
 @keyframes l-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes l-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes l-up-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px); } }
