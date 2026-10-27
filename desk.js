@@ -5958,6 +5958,33 @@ function deskSeedDemo(store, h) {
     else if (p.last != null && !p.meet && pi % 4 !== 1) [9, 3].forEach(function (dd, i) { S.bodyweight.push({ id: 'demo-dbw-' + id + '-' + dd, athleteId: id, date: daysAgo(dd), weight: Math.round(((p.bw || p.b[2] / 2.7 + 22) + i * 0.3) * 10) / 10, unit: 'kg' }); });
   });
   dkSeedHealth(S, 'demo-a2', daysAgo, 3, 'ok');
+  // Clients + payments (the coach's own ledger, never the lifters'): with the four above, two overdue
+  // (Tom 5 days, Tomas 12), two due this week (Sarah in 2 days, Elena in 6), Jonah paused while he's
+  // away, Hannah (new, her intake in two days ago, no block yet) with no package set up.
+  if (typeof demoClientsSeed === 'function') demoClientsSeed(S, [
+    ['demo-d1', 'Hybrid', 260, 'monthly', 9, { startedAgo: 240, method: 'card', note: 'In person on Saturdays, programming online the rest of the week.' }],
+    ['demo-d2', 'Meet prep', 220, 'monthly', 24, { startedAgo: 200, method: 'paypal' }],
+    ['demo-d3', 'Online coaching', 150, 'monthly', 15, { startedAgo: 320, method: 'bank', period: true, timezone: 'America/Chicago' }],
+    ['demo-d4', 'Meet prep', 220, 'monthly', 6, { startedAgo: 130, method: 'card' }],
+    ['demo-d5', 'Online coaching', 150, 'monthly', null, { status: 'paused', pausedAgo: 25, startedAgo: 260, method: 'bank', note: 'Paused while he’s away with work. Restart when he’s back.' }],
+    ['demo-d6', 'Online coaching', 150, 'monthly', 12, { startedAgo: 180, method: 'paypal' }],
+    ['demo-d7', 'Meet prep', 220, 'monthly', 27, { startedAgo: 170, method: 'bank' }],
+    ['demo-d8', 'Programming only', 90, '4-weekly', 19, { startedAgo: 150, method: 'card', note: 'Programming only: no check-ins or video review.' }],
+    ['demo-d9', 'Online coaching', 150, 'monthly', 22, { startedAgo: 300, method: 'bank', phone: '+1 555 0119' }],
+    ['demo-d11', 'Online coaching', 150, 'monthly', 10, { startedAgo: 210, method: 'card' }],
+    ['demo-d12', 'Meet prep', 220, 'monthly', 16, { startedAgo: 140, method: 'paypal' }],
+    ['demo-d13', 'Online coaching', 150, 'monthly', 25, { startedAgo: 280, method: 'cash' }],
+    ['demo-d14', 'Online coaching', 150, 'monthly', 13, { startedAgo: 190, method: 'card' }],
+    ['demo-d15', 'Online coaching', 150, 'monthly', -12, { startedAgo: 230, method: 'bank', note: 'Usually pays a few days late. Nudge if it runs past two weeks.' }],
+    ['demo-d16', 'Online coaching', 150, 'monthly', 'start', { startedAgo: 20, method: 'card' }]
+  ], h);
+  // Hannah joined six days ago and sent her intake two days ago; no block yet (the team's next push makes hers).
+  (S.intakes || (S.intakes = [])).push({ athleteId: 'demo-d10', coachId: DC, submittedAt: daysAgo(2) + 'T21:08:00Z', updatedAt: daysAgo(2) + 'T21:08:00Z', answers: {
+    v: 1, best: { squat: { kg: 85, reps: 3, when: daysAgo(40) }, bench: { kg: 47.5, reps: 5, when: daysAgo(40) }, deadlift: { kg: 110, reps: 2, when: daysAgo(33) } },
+    bodyweightKg: 61.8, weightClass: '63', federation: 'USAPL', yearsLifting: '1-2', daysPerWeek: 4, days: ['Mon', 'Tue', 'Thu', 'Sat'], sessionMinutes: 75,
+    equipment: ['Belt', 'Knee sleeves', 'Wrist wraps'], injuries: { parts: ['Left knee'], note: 'Patellar tendon gets cranky if I squat more than twice a week.' },
+    goals: 'First meet in the spring. Squat 100 kg and pull 130.', meet: { name: 'Spring Novice Open', date: daysAgo(-150), federation: 'USAPL' },
+    phone: '+1 555 0198', timezone: 'America/Chicago', instagram: 'hannah.lifts', notes: 'Early shifts at the hospital, so I train after 4 pm.' } });
   // Sarah's three lifts move differently: bench stalls, the deadlift jumps.
   S.workoutLogs.forEach(function (l) {
     if (l.athleteId !== 'demo-a2' || !l.date || l.date < daysAgo(12)) return;

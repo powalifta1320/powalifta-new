@@ -22,7 +22,12 @@ const defaultStore = () => ({
   checkinQuestions: [],
   checkinAnswers: [],
   programBlocks: [],
-  painReports: []
+  painReports: [],
+  // Clients + payments: a coach's own ledger (never loaded for an athlete). intakes: the lifter's own
+  // questionnaire, or a coach's roster's (db.js hydrateAll).
+  clientBilling: [],
+  clientPayments: [],
+  intakes: []
 });
 
 const Store = {
@@ -325,10 +330,18 @@ function _buildDemoData() {
     ciAs.push({ id: 'demo-cia-n1', questionId: 'demo-ciq-3', athleteId: DA, coachId: DC, period: _monISO(daysAgo(7)), num: null, text: 'Mostly' });
   }
 
+  // The intake questionnaire: empty, so Coach shows it to fill in; ?demo=1&intake=1 has it sent.
+  const intakes = /[?&]intake=1/.test(location.search) ? [{ athleteId: DA, coachId: SOLO ? null : DC, submittedAt: daysAgo(2) + 'T20:15:00Z', updatedAt: daysAgo(2) + 'T20:15:00Z', answers: {
+    v: 1, best: { squat: { kg: 185, reps: 1, when: daysAgo(96) }, bench: { kg: 115, reps: 1, when: daysAgo(96) }, deadlift: { kg: 215, reps: 1, when: daysAgo(96) } },
+    bodyweightKg: 83.1, weightClass: '83', federation: 'USAPL', yearsLifting: '3-5', daysPerWeek: 3, days: ['Mon', 'Wed', 'Fri'], sessionMinutes: 90,
+    equipment: ['Belt', 'Knee sleeves', 'Wrist wraps'], injuries: { parts: ['Lower back'], note: 'Tweaked it deadlifting last year, fine now. Warms up slowly.' },
+    goals: 'Total 570 at the next meet. Bench 130.', meet: { name: 'Winter Classic', date: daysAgo(-63), federation: 'USAPL' },
+    phone: '+1 555 0137', timezone: 'America/Chicago', instagram: 'demo.lifter', notes: '' } }] : [];
+
   return {
     user: user,
     store: {
-      checkinQuestions: ciQs, checkinAnswers: ciAs,
+      checkinQuestions: ciQs, checkinAnswers: ciAs, intakes, clientBilling: [], clientPayments: [],
       coaches, athletes: [], invites: [], programs, programTemplates: [],
       workoutLogs, bodyweight, restDays, meets,
       sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
@@ -365,7 +378,7 @@ function _buildCoachDemoData() {
   // so the empty screens can be seen and judged without signing up.
   if (/[?&]fresh=1/.test(location.search)) {
     Object.assign(user, { name: 'Alex Morgan', bio: '', subscriptionTier: 'free', subscriptionStatus: 'inactive', subscriptionPeriodEnd: null, billingProvider: null });
-    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [], painReports: [], coachNotes: [] } };
+    return { user, store: { coaches: [], athletes: [], invites: [], programs: [], programTemplates: [], workoutLogs: [], bodyweight: [], sessionNotes: [], goals: [], restDays: [], checkins: [], messages: [], meets: [], messageReactions: [], marketplacePrograms: [], mySales: [], myPurchases: [], checkinQuestions: [], checkinAnswers: [], painReports: [], coachNotes: [], clientBilling: [], clientPayments: [], intakes: [] } };
   }
 
   // Roster engineered to show every flag state
@@ -642,6 +655,21 @@ function _buildCoachDemoData() {
       marketplacePrograms, mySales, myPurchases: []
     }
   };
+  // Clients + payments (the coach's own ledger; the lifters never see it): Tom is 5 days overdue (a
+  // meet week), Sarah is due in 2 days, Arjun and Nina are paid up. Nina joined last week: she paid
+  // her first month when she started, and her intake came in the day after.
+  demoClientsSeed(demo.store, [
+    ['demo-a1', 'Meet prep', 220, 'monthly', 18, { startedAgo: 330, method: 'bank', period: true, late: 0, phone: '+1 555 0142', timezone: 'America/New_York',
+      note: 'Bank transfer on the day, every month. Meet prep runs to Fall Nationals.' }],
+    ['demo-a2', 'Meet prep', 220, 'monthly', 2, { startedAgo: 160, method: 'paypal', timezone: 'America/Los_Angeles' }],
+    ['demo-a3', 'Meet prep', 220, 'monthly', -5, { startedAgo: 250, method: 'card', note: 'Pays by card. Usually late the week of a meet.' }],
+    ['demo-a4', 'Online coaching', 150, 'monthly', 'start', { startedAgo: 9, method: 'card', timezone: 'America/Denver' }]
+  ], { coachId: DC, daysAgo });
+  demo.store.intakes = [{ athleteId: 'demo-a4', coachId: DC, submittedAt: daysAgo(8) + 'T19:42:00Z', updatedAt: daysAgo(8) + 'T19:42:00Z', answers: {
+    v: 1, best: { squat: { kg: 90, reps: 3, when: daysAgo(30) }, bench: { kg: 50, reps: 5, when: daysAgo(30) }, deadlift: { kg: 110, reps: 3, when: daysAgo(24) } },
+    bodyweightKg: 68.2, weightClass: '69', federation: 'USAPL', yearsLifting: '<1', daysPerWeek: 3, days: ['Mon', 'Wed', 'Fri'], sessionMinutes: 60,
+    equipment: ['Belt'], injuries: { parts: [], note: '' }, goals: 'Squat to depth with confidence, then a first meet next year.', meet: null,
+    phone: '+1 555 0177', timezone: 'America/Denver', instagram: '', notes: 'Coming from CrossFit. Never done a meet.' } }];
   // The laptop desk (desk.js) seats ~16 more lifters so Today and the roster show real scale.
   // Phones and the iPhone app keep the four above.
   if (document.documentElement.classList.contains('desk') && typeof deskSeedDemo === 'function') {
@@ -650,6 +678,50 @@ function _buildCoachDemoData() {
     try { seedTeamDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedTeamDemo', e); }
   }
   return demo;
+}
+
+// Clients + payments for the coach demo: the coach's own ledger, dates relative to today. One spec per
+// lifter: [athleteId, package, price in dollars, cadence, dueIn, opts]. dueIn is days from today to
+// the next payment (negative = overdue), 'start' (one period after the package started) or null (no
+// next date: paused). opts: { startedAgo (days), status, pausedAgo (days since the payment a pause
+// skipped), method, period (label payments with their month), late (days after the due date it's
+// paid; else 0-2 by turns), phone, timezone, note }.
+// Adds one clientBilling row per spec, and one clientPayment per period before the next due date (the
+// last three, never before the start, paid on the day or a day or two late).
+function demoClientsSeed(store, specs, h) {
+  const DC = h.coachId, daysAgo = h.daysAgo, today = daysAgo(0);
+  const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const iso = t => new Date(t).toISOString().slice(0, 10);
+  const utc = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+  // One period on (n > 0) or back (n < 0); months keep the day of the month (clamped to the month's end).
+  const shift = (d, cadence, n, day) => {
+    if (cadence === 'weekly' || cadence === 'fortnightly' || cadence === '4-weekly') return iso(utc(d) + n * { weekly: 7, fortnightly: 14, '4-weekly': 28 }[cadence] * 864e5);
+    const k = +d.slice(5, 7) - 1 + n * ({ quarterly: 3, yearly: 12 }[cadence] || 1), y = +d.slice(0, 4) + Math.floor(k / 12), m = ((k % 12) + 12) % 12;
+    return iso(Date.UTC(y, m, Math.min(day || +d.slice(8, 10), new Date(Date.UTC(y, m + 1, 0)).getUTCDate())));
+  };
+  store.clientBilling = store.clientBilling || [];
+  store.clientPayments = store.clientPayments || [];
+  specs.forEach((sp, si) => {
+    const aid = sp[0], cadence = sp[3], o = sp[5] || {}, cents = Math.round(sp[2] * 100);
+    const startedOn = daysAgo(o.startedAgo || 150), monthly = /^(monthly|quarterly|yearly)$/.test(cadence);
+    const nextDue = sp[4] === 'start' ? shift(startedOn, cadence, 1) : sp[4] == null ? null : daysAgo(-sp[4]);
+    const anchor = nextDue || (o.pausedAgo != null ? daysAgo(o.pausedAgo) : null);
+    const dueDay = monthly && anchor ? +(sp[4] === 'start' ? startedOn : anchor).slice(8, 10) : null;
+    let last = null;
+    for (let k = 3; k >= 1 && anchor; k--) {
+      const due = shift(anchor, cadence, -k, dueDay);
+      if (due < startedOn || due > today) continue;
+      const late = o.late != null ? o.late : [0, 1, 0, 2, 0][(si * 3 + k) % 5];
+      const paidOn = iso(Math.min(utc(due) + late * 864e5, utc(today)));
+      store.clientPayments.push({ id: 'demo-cpay-' + aid + '-' + k, coachId: DC, athleteId: aid, amountCents: cents, currency: 'USD', paidOn,
+        method: o.method || 'bank', period: o.period && monthly ? MONTH[+due.slice(5, 7) - 1] : null, note: null, createdAt: paidOn + 'T18:00:00Z' });
+      last = paidOn;
+    }
+    store.clientBilling.push({ id: 'demo-cbill-' + aid, coachId: DC, athleteId: aid, package: sp[1], amountCents: cents, currency: 'USD', cadence,
+      nextDue, dueDay, status: o.status || 'active', startedOn, phone: o.phone || null, timezone: o.timezone || null, note: o.note || null,
+      createdAt: startedOn + 'T09:00:00Z', updatedAt: (o.status === 'paused' ? daysAgo(o.pausedAgo || 0) : last || startedOn) + 'T18:05:00Z' });
+  });
+  store.clientPayments.sort((a, b) => b.paidOn.localeCompare(a.paidOn));
 }
 
 function _injectDemoBanner(type) {
