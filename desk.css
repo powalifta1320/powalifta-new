@@ -138,7 +138,9 @@ html.desk body.powa-app:has(.demo-banner) { padding-bottom: 0; }
 html.desk .dash-shell { display: block; margin-left: var(--rail-w); min-height: 100vh; }
 html.desk.ctx-show .dash-shell { margin-right: calc(var(--ctx-w) + 12px); }
 html.desk .dash-main { padding: 0; overflow: visible; }
-html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]) { max-width: var(--page-w); margin: 0; padding: var(--s-5) var(--gut) 64px; box-sizing: border-box; }
+html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]):not([data-pane="clients"]) { max-width: var(--page-w); margin: 0; padding: var(--s-5) var(--gut) 64px; box-sizing: border-box; }
+/* Clients scrolls inside #clientsArea, which carries the gutter (coach-ui.css): the same frame, padded once. */
+html.desk .dash-main > section[data-pane="clients"] { max-width: var(--page-w); margin: 0; padding: 0; box-sizing: border-box; }
 html.desk .dash-main > section:is([data-pane="today"], [data-pane="athletes"], [data-pane="program"], [data-pane="messages"], [data-pane="you"]) { max-width: none; margin: 0; height: 100vh; padding: 0; }
 html.desk body.powa-app .dash-shell::before { display: none; }
 html.desk body.powa-app ::selection { background: color-mix(in srgb, var(--text) 22%, transparent); }
@@ -205,9 +207,11 @@ html.desk .dk-views[hidden] { display: none; }
 .dk-view { padding-left: var(--s-2); }
 .dk-view.is-zero .dk-item-label, .dk-view.is-zero .dk-count { color: var(--text-4); }
 .dk-rail-foot { margin-top: auto; padding-top: var(--s-4); }
+/* Shorter still: the footer (Settings, the account) stays pinned and the views scroll under it. */
+html.desk .dk-rail-foot { position: sticky; bottom: 0; z-index: 1; background: var(--dk-rail); box-shadow: 0 var(--s-3) 0 var(--dk-rail); }   /* the shadow paints the rail's bottom padding under it */
 .dk-item-quiet { color: var(--text-3); }
-/* A short window (about 720px): the rail tightens so the account footer always fits unscrolled. */
-@media (max-height: 760px) {
+/* A laptop window (under about 840px tall, e.g. 1440×775): the rail tightens so the account footer fits unscrolled. */
+@media (max-height: 840px) {
   html.desk:not(.rail-min) .dk-views { margin-top: var(--s-3); }
   html.desk:not(.rail-min) .dk-views .dk-item { height: 28px; }
   html.desk:not(.rail-min) .dk-rail-top { height: 48px; }
@@ -1001,6 +1005,10 @@ html.desk body.powa-app .dk-pain .ui-row-sub { color: var(--text-3) !important; 
 
 /* ---------- Meets ---------- */
 html.desk .dash-main > section[data-pane="meets"] { padding: 0; height: 100vh; overflow-y: auto; }
+@media (hover: hover) and (pointer: fine) {
+  html.desk .md-screen .md-meets .md-meet-acts { opacity: 0; transition: opacity var(--t-base) ease; }
+  html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-acts { opacity: 1; }
+}
 .dk-meets { max-width: 980px; padding: var(--s-5) var(--gut) 72px; }
 .dk-page-head { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-5); }
 .dk-page-head .dk-rmeta { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
@@ -1689,7 +1697,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 
 /* ---------- Club keeps the phone's feed, at a column's width, on v2 surfaces ---------- */
 html.desk .dash-main > section[data-pane="club"] { padding: var(--s-5) var(--gut) 72px; }
-html.desk .dash-main > section[data-pane="club"] > * { max-width: none; margin-inline: 0; }
+html.desk .dash-main > section[data-pane="club"] > * { max-width: 680px; margin-inline: 0; }
 /* One badge style: the PR as a gold dot and ink word, the effort as ink "@9" in the lift line. */
 html.desk body.powa-app section[data-pane="club"] .cp-pr { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 0; background: none !important; box-shadow: none !important; color: var(--text) !important; font-weight: var(--fw-3); }
 html.desk body.powa-app section[data-pane="club"] .cp-pr svg { display: none; }

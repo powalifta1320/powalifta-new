@@ -862,7 +862,7 @@
       small.push(tileHtml('effort', 'gauge', 'Effort', 'Top sets',
         Math.abs(avgR) < 0.5 ? '<b class="cl-big3">On target</b>' : '<b class="cl-big3">' + (avgR > 0 ? '+' : '') + avgR + '</b><span class="cl-u">RPE</span>',
         viz('effort', { pts: D.effort.map(function (x) { return { d: x.d, title: dateShort(x.date) + ' · ' + (x.title ? x.title + ' ' : '') + '@' + num(x.felt) + ', you wrote ' + num(x.wrote) }; }) }, o.phone ? 50 : 56),
-        Math.abs(avgR) < 0.5 ? 'Within half a point of what you wrote' : (avgR > 0 ? 'Heavier than you wrote' : 'Easier than you wrote'), { compact: true }));
+        Math.abs(avgR) < 0.5 ? 'Within 0.5 RPE of plan' : (avgR > 0 ? 'Heavier than you wrote' : 'Easier than you wrote'), { compact: true }));
     }
     if (D.bw.length) {
       var lastBw = D.bw[D.bw.length - 1], clsKg = r.bw ? r.bw.cls : (r.meet ? clsNum(r.meet.meet.weightClass) : null);
@@ -929,7 +929,8 @@
     var html = '<div class="ch-home cl-root cl-today">' +
       '<header class="cl-thead' + rz(0) + '"><div><h1 class="cl-h1x">Today</h1><p class="cl-sub">' + esc(date) + ' · ' + plural(M.rows.length, 'lifter') + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + (window.ClientsUI ? ClientsUI.todayBit() : '') + '</p></div>' +
         (total ? '<div class="cl-prog"><span><b>' + (total - M.done) + '</b> to do this week' + (M.done ? ' · <b>' + M.done + '</b> done' : '') + '</span>' + (M.done ? '<span class="cl-pbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' : '') + '</div>' : '') + '</header>';
-    html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2>' + (urgent.length > 3 ? '<span>' + (urgent.length - 3) + ' more urgent below</span>' : '') + '</div>';
+    // One count on Today: the rail, the header and Do first + Also on your list all add up to the same jobs.
+    html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2></div>';
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
       : '<div class="cl-calm' + rz(2) + '"><span class="cl-tic">' + ic('check') + '</span><span><b>Nothing urgent.</b> ' + (M.open.length ? 'The rest is below, by job.' : 'Everyone is on plan.') + '</span></div>';
     // The week's notes (weekly-note.js): a quiet entry at the end of This week, the count still to write.
@@ -1171,8 +1172,12 @@
     if (typeof renderRoster === 'function') renderRoster();
   }
   function offDesk() { S.deskOn = false; }
+  // The desk rail's Today count: the jobs still open, the same number as Today's header.
+  function openCount() {
+    try { var R = rowsNow(true); return clJobs(R.rows, { today: todayIso(), done: doneMap(R.q), toWrite: toWriteOf(R.rows) }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
+  }
 
-  window.CoachLifters = { model: model, renderToday: renderToday, renderDesk: renderDesk, renderPhone: renderPhone, renderPane: renderPane, open: open, select: select, refresh: refresh, offDesk: offDesk,
+  window.CoachLifters = { model: model, renderToday: renderToday, renderDesk: renderDesk, renderPhone: renderPhone, renderPane: renderPane, open: open, select: select, refresh: refresh, offDesk: offDesk, openCount: openCount,
     teamTilesHtml: teamTilesHtml, paint: paint,
     clRing: clRing, clTier: clTier, clJobs: clJobs, clTopJob: clTopJob, clTeam: clTeam, clWeeks: clWeeks, clEffort: clEffort, clBw: clBw,
     clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText };

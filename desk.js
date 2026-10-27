@@ -38,6 +38,10 @@ var _dk = {
   picked: {},               // Roster board: rows ticked for the bulk bar
   wpick: {},                // Today: wins ticked for kudos
   card: null,               // the side card: null | 'thread' | 'notes'
+  cardFor: null,            // Today: the lifter whose card a "Message …" opened (Today has no selected row)
+  cardDraft: null,          // { aid, text }: a fix's words, waiting in that lifter's box once
+  cardSent: null,           // { aid, fn }: the opener's refresh, run after a send from the card
+  cardFrom: null,           // the button that opened the card: focus goes back to it on close
   rows: null,               // last deskRows() result
   queue: null,              // last deskQueue() result
   order: [],                // Today's J/K order: [{ id, lane: 'q' | 'w' }]
@@ -433,7 +437,7 @@ function deskGo(screen, opts) {
   if (!isDesk()) return;
   closeDkMenus();
   if (screen === 'meets' && !dkPlannedMeets().length) screen = 'roster';
-  if (screen !== _dk.screen) _dk.card = null;   // the side card belongs to the screen it opened on
+  if (screen !== _dk.screen) dkCardForget();   // the side card belongs to the screen it opened on
   // The board opens with no row picked out.
   if (screen === 'roster' && _dk.screen !== 'roster' && dkRMode() === 'board') _dk.rsel = null;
   _dk.screen = screen;
@@ -480,7 +484,7 @@ function dkOnTab(tab) {
   if (!screen) return;
   if (screen !== 'programs') _dk.pbInfo = null;
   if (!_dk.fromGo) {
-    if (screen !== _dk.screen) _dk.card = null;
+    if (screen !== _dk.screen) dkCardForget();
     _dk.screen = screen;
     if (screen === 'roster') _dk.view = null;
     dkSetHash(screen, {});
@@ -519,7 +523,7 @@ function dkOnResize() {
 function _dkOnPage() { return !!document.querySelector('[data-pane="athlete"]:not(.hidden)'); }
 function dkCardAid() {
   if (_dkOnPage()) return window._apAthlete || null;
-  if (_dk.screen === 'today') return _dk.sel ? _dk.sel.id : null;
+  if (_dk.screen === 'today') return _dk.cardFor || (_dk.sel ? _dk.sel.id : null);
   if (_dk.screen === 'roster') return _dk.rsel || null;
   return null;
 }
@@ -707,6 +711,7 @@ function dkPaintSubnav(force) {
   try { window.deskProgramsSubnav(slot); } catch (e) { console.warn('deskProgramsSubnav', e); }
 }
 window.deskRepaintSubnav = function () { dkPaintSubnav(true); };
+function _dkTodayIsJobs() { return !!(window.CoachHome && window.CoachLifters && CoachLifters.renderToday && CoachLifters.openCount && !/\bold(today|home)=1\b/.test(location.search)); }
 function dkPaintRail() {
   var rail = document.getElementById('deskRail');
   if (!rail) return;
@@ -730,8 +735,10 @@ function dkPaintRail() {
     (Store.get().messages || []).forEach(function (m) { if (u0 && m.senderId !== u0.id && !m.readAt) unread++; });
   } else Object.keys(ur).forEach(function (k) { unread += ur[k] || 0; });
   var meets = dkPlannedMeets();
-  var counts = { today: q ? q.queue.length : 0, roster: rows.length, messages: unread, meets: meets.length, clients: window.ClientsUI ? ClientsUI.overdueCount() : 0 };
-  var tipFor = { today: function (n) { return n + ' need you'; }, messages: function (n) { return n + ' unread'; }, roster: function (n) { return n + (n === 1 ? ' athlete' : ' athletes'); }, meets: function (n) { return n + (n === 1 ? ' meet' : ' meets'); }, clients: function (n) { return n + ' overdue'; } };
+  // Today drawn as jobs (coach-lifters.js): the rail counts the same open jobs as Today's header.
+  var jobsN = _dkTodayIsJobs() ? CoachLifters.openCount() : null;
+  var counts = { today: jobsN != null ? jobsN : q ? q.queue.length : 0, roster: rows.length, messages: unread, meets: meets.length, clients: window.ClientsUI ? ClientsUI.overdueCount() : 0 };
+  var tipFor = { today: function (n) { return n + (jobsN != null ? ' to do' : ' need you'); }, messages: function (n) { return n + ' unread'; }, roster: function (n) { return n + (n === 1 ? ' athlete' : ' athletes'); }, meets: function (n) { return n + (n === 1 ? ' meet' : ' meets'); }, clients: function (n) { return n + ' overdue'; } };
   rail.querySelectorAll('[data-count]').forEach(function (c) {
     var n = counts[c.dataset.count];
     c.textContent = n ? String(n) : '';
@@ -883,8 +890,13 @@ function dkThreadInto(host, a, opts) {
     dkPaintRail();
   };
   renderMessageThread(box, { coachId: u.id, athleteId: a.id, viewerId: u.id, otherName: _dkFirst(a.name),
-    markRead: !opts.peek, onRead: onRead, emptyText: opts.emptyText,
-    onSent: function (m) { dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body); setTimeout(function () { dkRepaint(); dkWsAsksRefresh(a.id); }, 0); } });
+    markRead: !opts.peek, onRead: onRead, emptyText: opts.emptyText, draft: opts.draft || '',
+    onSent: function (m) {
+      dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body);
+      // Today repaints itself (dkRepaint); a Lifters page asked for its own refresh when it opened the card.
+      var cb = _dk.cardSent && _dk.cardSent.aid === a.id && _dk.screen !== 'today' ? _dk.cardSent.fn : null;
+      setTimeout(function () { dkRepaint(); dkWsAsksRefresh(a.id); if (cb) { try { cb(); } catch (e) {} } }, 0);
+    } });
   if (opts.focus) dkFocusComposer();
   return box;
 }
@@ -911,11 +923,40 @@ function dkOpenCard(tab, opts) {
   if (_dk.card === 'notes' && opts.compose) { var box = host && host.querySelector('.dk-pn'); if (box && box._compose) box._compose(); }
 }
 function dkCloseCard() {
-  _dk.card = null;
+  var from = _dk.cardFrom;
+  dkCardForget();
   dkSyncCtx();
   dkPaintCardButtons();
-  var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : _dk.screen === 'roster' ? document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-bd-row.is-sel') : null;
-  if (back && !_dkOnPage()) back.focus({ preventScroll: true });
+  var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : _dk.screen === 'roster' ? document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-bd-row.is-sel, #rosterArea .cl-row.is-sel') : null;
+  if (from && from.isConnected && !from.disabled) from.focus({ preventScroll: true });
+  else if (back && !_dkOnPage()) back.focus({ preventScroll: true });
+}
+function dkCardForget() { _dk.card = null; _dk.cardFor = null; _dk.cardDraft = null; _dk.cardSent = null; _dk.cardFrom = null; }
+// One lifter's thread, from a button that names them (Lifters' "Reply to Arjun", Today's "Message
+// Priya"): the side card beside Today, Lifters or their page, where a voice note plays and the fix's
+// words wait in the box (never sent on their own). Anywhere else: Messages, their thread open. The
+// composer for two or more is dkCompose. opts: { text, onSent }. False: not the desk, or no such lifter.
+function dkReplyTo(aid, opts) {
+  opts = opts || {};
+  if (!isDesk() || !aid) return false;
+  if (!dkRow(aid)) { dkRowsFresh(); if (!dkRow(aid)) return false; }
+  closeDkMenus();
+  var onPage = _dkOnPage();
+  var here = onPage ? window._apAthlete === aid : _dk.screen === 'today' || (_dk.screen === 'roster' && _dk.rsel === aid);
+  var from = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+  if (!here) {
+    // Messages keeps the thread in the middle, with the athlete beside it.
+    dkCardForget();
+    _dk.msgSel = aid;
+    deskGo('messages');
+    return true;
+  }
+  if (!onPage && _dk.screen === 'today') _dk.cardFor = aid;
+  _dk.cardDraft = opts.text ? { aid: aid, text: String(opts.text) } : null;
+  _dk.cardSent = typeof opts.onSent === 'function' ? { aid: aid, fn: opts.onSent } : null;
+  dkOpenCard('thread');
+  if (_dk.card) _dk.cardFrom = from && !from.closest('#deskCtx') ? from : _dk.cardFrom;
+  return !!_dk.card;
 }
 // The workspace's Message / Notes buttons say which tab is open.
 function dkPaintCardButtons() {
@@ -958,7 +999,9 @@ function dkPaintCard(opts) {
   // Opened on purpose: the thread is read. Following J/K: a peek until the coach touches it.
   var mount = function () {
     if (host.dataset.aid !== key || !dkCtxReady()) return;
-    host._msgCleanupBox = dkThreadInto(host, a, { peek: !opts.intent, emptyText: dkReplyPrompt(r) });
+    var draft = _dk.cardDraft && _dk.cardDraft.aid === a.id ? _dk.cardDraft.text : '';
+    _dk.cardDraft = null;
+    host._msgCleanupBox = dkThreadInto(host, a, { peek: !opts.intent, emptyText: dkReplyPrompt(r), draft: draft });
   };
   if (opts.intent || opts.now) mount(); else _dk.ctxT = setTimeout(mount, 200);
 }
@@ -988,7 +1031,8 @@ function renderDeskToday(opts) {
   var host = document.getElementById('deskToday');
   if (!host) return;
   // Home (coach-home.js) draws Today as the roster summary; ?oldtoday=1 keeps the old list + workspace.
-  if (window.CoachHome && !/\boldtoday=1\b/.test(location.search)) { CoachHome.renderDesk(host); dkSyncCtx(true); dkPaintRail(); return; }
+  // A card a "Message …" button opened stays open while Today repaints around it (a send marks the job done).
+  if (window.CoachHome && !/\boldtoday=1\b/.test(location.search)) { CoachHome.renderDesk(host); dkSyncCtx(!(_dk.card && _dk.cardFor)); dkPaintRail(); return; }
   host.classList.remove('ch-host', 'loaded');
   dkRowsFresh();
   var landed = dkLanded();
@@ -1376,7 +1420,7 @@ function dkCompose(ids, opts) {
   var ta = el('textarea', { class: 'dk-ta', rows: '4', maxlength: '2000', 'aria-label': 'Message' });
   ta.value = opts.text || '';
   box.appendChild(ta);
-  box.appendChild(el('p', { class: 'dk-modal-note' }, 'Each athlete gets it in their own thread, as if you wrote to them alone.'));
+  if (who.length > 1) box.appendChild(el('p', { class: 'dk-modal-note' }, 'Each athlete gets it in their own thread, as if you wrote to them alone.'));
   var row = el('div', { class: 'dk-modal-actions' });
   // Saved replies (weekly-note.js): one quiet button at the start of the row, a menu above it.
   if (window.WeeklyNote) { var sr = dkBtn('Saved replies', { cls: 'is-quiet wn-saved-btn', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>', onClick: function () { WeeklyNote.pickReply(sr, ta); } }); sr.setAttribute('aria-haspopup', 'true'); row.appendChild(sr); }
