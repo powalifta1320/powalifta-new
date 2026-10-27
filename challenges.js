@@ -265,6 +265,7 @@ var Challenges = (function () {
   }
   function whoText(ch) {
     var n = (ch.memberIds || []).length, team = ch.teamName;
+    if (!isCoachView()) return plural(n, 'lifter');
     return team ? team + ' · ' + plural(n, 'lifter') : 'All ' + plural(n, 'lifter');
   }
   function metaText(ch) {
@@ -282,10 +283,39 @@ var Challenges = (function () {
     li.appendChild(E('span', { class: 'chl-val' }, challengeText(ch.metric, r.value, unitNow())));
     return li;
   }
-  function rowsEl(rows, ch, max) {
+  // opts.group: four or more sharing a place fold into one row ("+9 · Amara, Elena and 9 more · 7
+  // sessions") that opens in place, so a team that all trains as written stays calm at 25 or 60;
+  // your own row is never folded away.
+  function rowsEl(rows, ch, max, opts) {
     var ol = E('ol', { class: 'chl-rows', 'aria-label': ch.name + ': places' });
-    rows.slice(0, max || rows.length).forEach(function (r, i) { ol.appendChild(rowEl(r, ch, i)); });
+    var list = rows.slice(0, max || rows.length), k = 0, i = 0;
+    while (i < list.length) {
+      var j = i;
+      while (j + 1 < list.length && list[i].rank != null && list[j + 1].rank === list[i].rank) j++;
+      var same = list.slice(i, j + 1);
+      if (opts && opts.group && same.length >= 4) {
+        same.filter(function (r) { return r.mine; }).forEach(function (r) { ol.appendChild(rowEl(r, ch, k++)); });
+        ol.appendChild(tieEl(same.filter(function (r) { return !r.mine; }), ch, k++, same.some(function (r) { return r.mine; })));
+      } else same.forEach(function (r) { ol.appendChild(rowEl(r, ch, k++)); });
+      i = j + 1;
+    }
     return ol;
+  }
+  function tieEl(group, ch, i, withMe) {
+    var names = group.map(function (r) { return firstName(r.name); });
+    var shown = names.slice(0, 2).join(', ') + ' and ' + (names.length - 2) + ' more';
+    var li = E('li', { class: 'chl-row chl-tie', style: '--i:' + Math.min(i, 7) });
+    var b = E('button', { type: 'button', class: 'chl-tie-btn', 'aria-expanded': 'false',
+      'aria-label': (withMe ? 'Level with you: ' : '') + group.length + ' lifters share ' + ordinal(group[0].rank) + ' place on ' + challengeText(ch.metric, group[0].value, unitNow()) + '. Show them' },
+      E('span', { class: 'chl-rank' }, String(group[0].rank)), E('span', { class: 'chl-more', 'aria-hidden': 'true' }, '+' + group.length),
+      E('span', { class: 'chl-name' }, (withMe ? 'Level with you: ' : '') + shown), E('span', { class: 'chl-val' }, challengeText(ch.metric, group[0].value, unitNow())));
+    b.addEventListener('click', function () {
+      var frag = document.createDocumentFragment();
+      group.forEach(function (r, n) { frag.appendChild(rowEl(r, ch, n)); });
+      li.replaceWith(frag);
+    });
+    li.appendChild(b);
+    return li;
   }
 
   // ---------- the board, whole: a sheet ----------
@@ -297,7 +327,7 @@ var Challenges = (function () {
       sheet.classList.add('chl-sheet');
       sheet.appendChild(E('p', { class: 'ui-sheet-sub chl-sub' }, metaText(ch)));
       if (st === 'upcoming') sheet.appendChild(E('p', { class: 'chl-note' }, 'The board fills from ' + shortDate(ch.startsOn) + '.'));
-      if (rows.length) sheet.appendChild(rowsEl(rows, ch));
+      if (rows.length) sheet.appendChild(rowsEl(rows, ch, 0, { group: true }));
       else if (st !== 'upcoming') sheet.appendChild(E('p', { class: 'chl-note' }, 'Nobody on the board yet: it fills as they train.'));
       var none = rows.filter(function (r) { return r.rank == null; }).length;
       if (none && ch.metric === 'gain') sheet.appendChild(E('p', { class: 'chl-note' }, 'No value yet: no total in the 8 weeks before it started.'));
@@ -426,10 +456,10 @@ var Challenges = (function () {
       var line = st === 'upcoming' ? 'Starts ' + shortDate(ch.startsOn) + ' · ' + plural(n, 'lifter')
         : mineRow && mineRow.rank ? (st === 'ended' ? 'You finished ' : 'You\'re ') + (rows.filter(function (r) { return r.rank === mineRow.rank; }).length > 1 ? 'tied ' : '') + ordinal(mineRow.rank) + ' of ' + n + ' · ' + challengeText(ch.metric, mineRow.value, unitNow())
         : 'You\'re on the board once you train';
-      var b = E('button', { type: 'button', class: 'chl-card chl-mine', 'aria-label': (coach ? firstName(coach.name) + '\'s challenge: ' : 'Your coach\'s challenge: ') + ch.name + '. ' + line + '. ' + challengeWhen(ch, t) + '. Open the board' });
+      var b = E('button', { type: 'button', class: 'chl-card chl-mine', 'aria-label': 'Your coach\'s challenge' + (coach && coach.name ? ' (' + coach.name + ')' : '') + ': ' + ch.name + '. ' + line + '. ' + challengeWhen(ch, t) + '. Open the board' });
       b.appendChild(E('span', { class: 'chl-mine-ic', html: IC.trophy }));
       b.appendChild(E('span', { class: 'chl-mine-main' },
-        E('span', { class: 'chl-mine-k' }, (coach ? firstName(coach.name) + '\'s challenge' : 'Coach\'s challenge') + ' · ' + challengeWhen(ch, t)),
+        E('span', { class: 'chl-mine-k' }, 'Coach\'s challenge · ' + challengeWhen(ch, t)),
         E('span', { class: 'chl-mine-name' }, ch.name),
         E('span', { class: 'chl-mine-line' }, line)));
       b.insertAdjacentHTML('beforeend', IC.chev);
@@ -634,6 +664,51 @@ var Challenges = (function () {
   // After a logged set: the lifter's row goes up a little later (one write per burst of sets).
   function syncSoon() { clearTimeout(_soon); _soon = setTimeout(function () { syncMine(); }, 20000); }
 
+  // ---------- the demos (?demo=1): written into the demo's Store, never the network ----------
+  // The coach's: a running "November: most sessions" (four weeks, twelve days left, named for the month
+  // it ends in) over the whole roster, its values from their demo logs; and last month's most PRs,
+  // finished, on its final board (the team's on the laptop, where the demo has one).
+  function seedCoachDemo(store, h) {
+    var days = h.daysAgo, coachId = h.coachId, ids = (store.athletes || []).map(function (a) { return a.id; });
+    if (!ids.length) return;
+    var from = days(16), to = days(-11), pastFrom = days(47), pastTo = days(20);
+    var month = function (d) { return MONTHS[Number(d.slice(5, 7)) - 1]; };
+    var team = (store.teams || []).filter(function (x) { return x && (x.members || []).length >= 3; })[0];
+    var pastIds = team ? team.members.map(function (m) { return m.athleteId; }).filter(function (id) { return ids.indexOf(id) >= 0; }) : ids;
+    var run = { id: 'demo-ch-run', coachId: coachId, name: month(to) + ': most sessions', metric: 'sessions', memberIds: ids.slice(0, 200), startsOn: from, endsOn: to,
+      prize: 'Coffee on me', createdAt: from + 'T08:00:00Z', endedAt: null };
+    var past = { id: 'demo-ch-past', coachId: coachId, name: month(pastTo) + ': most PRs', metric: 'prs', memberIds: pastIds, startsOn: pastFrom, endsOn: pastTo,
+      prize: '', createdAt: pastFrom + 'T08:00:00Z', endedAt: null, teamName: team ? team.name : null };
+    var by = {}; (store.workoutLogs || []).forEach(function (l) { (by[l.athleteId] = by[l.athleteId] || []).push(l); });
+    var entries = [];
+    [run, past].forEach(function (ch) {
+      ch.memberIds.forEach(function (id) {
+        var a = (store.athletes || []).filter(function (x) { return x.id === id; })[0];
+        var prog = (store.programs || []).filter(function (x) { return x.athleteId === id; })[0] || null;
+        entries.push(challengeEntry(ch, a || { id: id, name: 'Lifter' }, by[id] || [], prog, null, days(0)));
+      });
+    });
+    // A month of PRs on the laptop's sixteen is thin in the demo's logs: the board keeps what they lifted,
+    // and the lifters with a PR shape in their block carry the month (Leo, Sofia), the rest a few each.
+    entries.filter(function (e) { return e.challengeId === past.id; }).forEach(function (e, i) {
+      if (!(e.value > 0)) e.value = [3, 1, 2, 0, 4, 1, 2, 3, 0, 1, 2, 1, 5, 2, 1, 0, 2, 1, 3, 1][i % 20];
+    });
+    store.challenges = [run, past];
+    store.challengeEntries = entries;
+  }
+  // The coached lifter's: the same challenge from their side, twelve on the board. Their own row comes
+  // from their log (Mon / Wed / Fri: 7 in the 17 days so far); the others are their coach's lifters.
+  function seedLifterDemo(store, h) {
+    var days = h.daysAgo, me0 = h.athleteId, coachId = h.coachId;
+    var from = days(16), to = days(-11);
+    var others = [['demo-a10', 'Dev Patel', 9], ['demo-a5', 'Leo Grant', 8], ['demo-a1', 'Arjun Mehta', 6], ['demo-a12', 'Sofia Alvarez', 6], ['demo-a6', 'Priya Shah', 5],
+      ['demo-a7', 'Marcus Doyle', 5], ['demo-a8', 'Elena Rossi', 4], ['demo-a2', 'Sarah Kim', 3], ['demo-a9', 'Mei Tanaka', 3], ['demo-a3', 'Tom Boyle', 2], ['demo-a4', 'Nina Petrova', 1]];
+    var run = { id: 'demo-ch-run', coachId: coachId, name: MONTHS[Number(to.slice(5, 7)) - 1] + ': most sessions', metric: 'sessions',
+      memberIds: [me0].concat(others.map(function (o) { return o[0]; })), startsOn: from, endsOn: to, prize: 'Coffee on me', createdAt: from + 'T08:00:00Z', endedAt: null };
+    store.challenges = [run];
+    store.challengeEntries = others.map(function (o) { return { challengeId: run.id, athleteId: o[0], name: o[1], value: o[2], baseline: null }; });
+  }
+
   // ---------- render ----------
   var _host = null;
   function render(host) {
@@ -658,6 +733,7 @@ var Challenges = (function () {
     challengeText: challengeText, challengeWindow: challengeWindow, challengeName: challengeName, challengeState: challengeState, challengeWhen: challengeWhen,
     challengeEntry: challengeEntry, ordinal: ordinal, sessionsPerWeek: sessionsPerWeek, addDays: addDays, daysBetween: daysBetween };
   Object.assign(root, { challengeValue: challengeValue, rankChallenge: rankChallenge, challengeText: challengeText });
-  return Object.assign({ pure: pure, render: render, refresh: refresh, openNew: openNew, openBoard: openBoard, syncCoach: syncCoach, syncMine: syncMine, syncSoon: syncSoon }, pure);
+  return Object.assign({ pure: pure, render: render, refresh: refresh, openNew: openNew, openBoard: openBoard, syncCoach: syncCoach, syncMine: syncMine, syncSoon: syncSoon,
+    seedCoachDemo: seedCoachDemo, seedLifterDemo: seedLifterDemo }, pure);
 })();
 (typeof window !== 'undefined' ? window : globalThis).Challenges = Challenges;

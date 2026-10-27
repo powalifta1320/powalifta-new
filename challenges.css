@@ -44,6 +44,16 @@ html[data-theme="light"] .chl-card { box-shadow: none; }
 .chl-name { min-width: 0; font-size: 15px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chl-row.is-me .chl-name { font-weight: 700; }
 .chl-val { font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A shared place folded: the same columns, a count where the face goes, and it opens in place. */
+.chl-tie { display: block; padding: 0; }
+.chl-tie-btn { display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; width: 100%; min-height: 52px; padding: 0 8px 0 4px; border: 0; border-radius: 14px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 150ms var(--chl-ease); }
+.chl-tie-btn:active { background: var(--chl-fill-2); }
+@media (hover: hover) and (pointer: fine) { .chl-tie-btn:hover { background: var(--chl-fill-1); } }
+.chl-tie-btn:focus-visible { outline: 2px solid var(--bw, #5ac8fa); outline-offset: 2px; }
+.chl-more { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; box-sizing: border-box; font-size: 13px; font-weight: 700; color: var(--text-2);
+  background: var(--chl-fill-3); font-variant-numeric: tabular-nums; }
+.chl-tie .chl-name { font-weight: 500; color: var(--text-2); }
 .chl-all { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 4px; border: 0; border-top: 1px solid var(--line);
   background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; border-radius: 0; transition: color 150ms var(--chl-ease); }
 .chl-all .ui-chev, .chl-mine .ui-chev, .chl-past-row .ui-chev { width: 18px; height: 18px; color: var(--text-3); transition: transform 200ms var(--chl-ease); }
@@ -117,13 +127,17 @@ html[data-theme="light"] .chl-card { box-shadow: none; }
   .chl-btn:active, .chl-mine:active, .chl-metric:active { transform: none; }
 }
 
-/* ---------- the phone ---------- */
+/* ---------- the phone: 44 pt to tap, the full width for the one button ---------- */
 @media (max-width: 700px) {
   .chl-coach .chl-btn { width: 100%; }
+  .chl-who .ui-chip, .chl-when-seg button { min-height: 44px; }
 }
 
-/* ---------- the desk: its page frame, hover only with a mouse ---------- */
-html.desk .chl-card { border: 0; background: var(--dk-raise, var(--bg-1)); padding: 16px 20px; }
-html.desk .chl-past-list { border: 0; background: var(--dk-raise, var(--bg-1)); }
-html.desk .chl-row { min-height: 48px; }
+/* ---------- the desk: the desk's card (the club's below it), its type scale (16 for a card's
+   title, not 17), hover only with a mouse ---------- */
+html.desk .chl-card, html.desk .chl-past-list { background-color: var(--dk-card, var(--bg-1)); background-image: var(--dk-card-sheen, none); border: 1px solid var(--dk-card-edge, var(--line));
+  box-shadow: var(--dk-card-lit, none); border-radius: var(--r-3, 20px); }
+html.desk .chl-card { padding: 16px 20px; }
+html.desk .chl :is(.chl-title, .chl-mine-name, .chl-empty-main b) { font-size: 16px; }
+html.desk .chl-row, html.desk .chl-tie-btn { min-height: 48px; }
 html.desk .chl .chl-btn { height: 40px; }

@@ -382,7 +382,7 @@ function _buildDemoData() {
     goals: 'Total 570 at the next meet. Bench 130.', meet: { name: 'Winter Classic', date: daysAgo(-63), federation: 'USAPL' },
     phone: '+1 555 0137', timezone: 'America/Chicago', instagram: 'demo.lifter', notes: '' } }] : [];
 
-  return {
+  const out = {
     user: user,
     store: {
       checkinQuestions: ciQs, checkinAnswers: ciAs, intakes, clientBilling: [], clientPayments: [],
@@ -396,6 +396,9 @@ function _buildDemoData() {
       coachBrand: !SOLO && /[?&]brand=1/.test(location.search) ? demoCoachBrand() : null
     }
   };
+  // Coach challenges (challenges.js): the coach's running challenge, from this lifter's side (coached only).
+  if (!SOLO) { try { if (window.Challenges && Challenges.seedLifterDemo) Challenges.seedLifterDemo(out.store, { athleteId: DA, coachId: DC, daysAgo }); } catch (e) { console.warn('seedChallengeDemo', e); } }
+  return out;
 }
 
 // Waveforms for the demo's voice notes (32 bars, 0-100). A var, so the demo boot can't hit a TDZ.
@@ -814,6 +817,9 @@ function _buildCoachDemoData() {
     // A team of six on the desk (brief M4): needs the desk's lifters, so phones keep their four.
     try { seedTeamDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedTeamDemo', e); }
   }
+  // Coach challenges (challenges.js): a running one over the whole roster (the desk's twenty or the
+  // phone's four) and last month's, finished. After the desk's lifters, so it counts every one.
+  try { if (window.Challenges && Challenges.seedCoachDemo) Challenges.seedCoachDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedChallengeDemo', e); }
   return demo;
 }
 

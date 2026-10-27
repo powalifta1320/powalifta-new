@@ -670,3 +670,6 @@ html.desk .md-screen, html.desk .md-root { --md-surface: var(--dk-raise); }
 /* Leaving the planner or the board eases out (it started slow on ease-in, the moment the eye is on it). */
 html.desk .md-root.is-leaving { animation: mdOut 140ms cubic-bezier(0.23, 1, 0.32, 1) forwards; }
 @media (prefers-reduced-motion: reduce) { html.desk .md-root.is-leaving { animation: none; } }
+/* Aim for a total, out of reach, on the desk: the word in ink beside the watch dot (as Reach above it). */
+html.desk .md-root .md-aim-p.is-out { color: var(--text-2); }
+html.desk .md-root .md-aim-p.is-out::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 6px 1px 0; vertical-align: middle; border-radius: 50%; background: var(--md-warn); }
