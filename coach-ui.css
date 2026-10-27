@@ -1435,3 +1435,60 @@ html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-p
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active { transform: scale(0.92); }
+
+/* --- 4. Lifters --- */
+/* Sections on the 4-point grid: 24 between sections, 8 from a title to its card. */
+.cl-phone .cl-pcol { gap: 0; }
+.cl-phone .cl-pcol > * + * { margin-top: 24px; }
+.cl-phone .cl-pcol > .cl-gh-do { margin: 0 0 8px; }
+.cl-phone .cl-pcol > .cl-gh-do + .cl-do { margin-top: 0; }
+.cl-phone .cl-pcol > .cl-search-ph + .cl-groups { margin-top: 16px; }
+.cl-phone .cl-gh { margin: 0 0 8px; }
+.cl-phone .cl-grp + .cl-grp { margin-top: 24px; }
+.cl-phone .cl-pweek { margin-top: 24px; }
+/* Do first: a list with one red. The most urgent job keeps its fix as the screen's one red button; the
+   others put theirs at the row's end as a small graphite button. The whole row opens the lifter. */
+.cl-do.is-phone .cl-job.is-big { position: relative; gap: 12px; padding: 14px 14px 14px 14px; border-bottom: 0; transition: background-color 140ms ease-out; }
+.cl-do.is-phone .cl-job.is-big + .cl-job.is-big::before { content: ''; position: absolute; top: 0; left: 60px; right: 0; height: 1px; background: var(--cl-line); }
+.cl-do.is-phone .cl-jmain::after { content: ''; position: absolute; inset: 0; }
+.cl-do.is-phone .cl-job :is(.cl-btn, .cl-sbtn) { position: relative; z-index: 1; }
+.cl-do.is-phone .cl-job:has(> .cl-jmain:active) { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cl-do.is-phone .cl-job:has(> .cl-jmain:active)::before, .cl-do.is-phone .cl-job:has(> .cl-jmain:active) + .cl-job::before { opacity: 0; }
+.cl-do.is-phone .cl-jt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; text-wrap: balance; }
+
+.cl-do.is-phone .cl-jtx { gap: 2px; }
+.cl-do.is-phone .cl-jd { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.cl-do.is-phone .cl-btn { height: 44px; }
+.cl-do.is-phone .cl-sbtn {
+  align-self: center; height: 34px; padding: 0 14px; border-radius: 999px; box-shadow: none;
+  background: var(--ch-fill-3); color: var(--text); font: 600 15px/1 var(--font-body, inherit) !important;
+}
+.cl-do.is-phone .cl-sbtn::after { content: ''; position: absolute; inset: -5px -4px; }
+.cl-do.is-phone .cl-sbtn:active { transform: scale(0.96); background: var(--ch-fill-4); }
+.cl-do.is-phone .cl-job .cl-sbtn { flex: none; }
+
+/* The groups: inset hairlines from the name (iOS grouped lists), a row lights on press like the lifter app's rows. */
+.cl-phone .cl-list .cl-row { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
+.cl-phone .cl-list .cl-row + .cl-row::before { content: ''; position: absolute; top: 0; left: 66px; right: 0; height: 1px; background: var(--cl-line); }
+.cl-phone .cl-list .cl-row:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cl-phone .cl-list .cl-row:active::before, .cl-phone .cl-list .cl-row:active + .cl-row::before { opacity: 0; }
+.cl-phone .cl-n small { font-size: 13px; }
+/* Money owed: one row-card, the same radius as the lists, a press like any tappable card. */
+.cl-phone .cs-dueline { min-height: 56px; padding: 10px 16px 10px 14px; border-radius: var(--cl-r); transition: background-color 140ms ease-out, transform 140ms ease-out; }
+.cl-phone .cs-dueline:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); transform: scale(0.985); }
+/* This week: four tiles, each a number and (where it is a share) one thin bar; no chart needs a key. */
+.cl-pweek .cl-tiles.is-compact { gap: 12px; }
+.cl-pweek .cl-tiles.is-compact .cl-tile { border-radius: var(--cl-r); padding: 14px 14px 13px; gap: 8px; }
+.cl-pweek .cl-tiles.is-compact .cl-tv { margin-top: 2px; }
+.cl-meter { display: flex; gap: 2px; height: 4px; }
+.cl-meter i { flex: 1 1 0; min-width: 3px; border-radius: 2px; background: var(--text-2); }
+.cl-meter i.is-warn { background: var(--cl-down); }
+.cl-meter i.is-rest { background: var(--ch-fill-4); }
+/* The tab's entrance: the cards and rows rise in reading order (renderPhone numbers them), not on a pop back. */
+html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]) [data-pane="athletes"]:not(.hidden) .cl-phone:not(.is-wide) :is(.cl-do > .cl-job, .cl-list > .cl-row, .cs-dueline, .cl-pweek .cl-tile) {
+  animation: chRise 320ms cubic-bezier(0.23, 1, 0.32, 1) calc(var(--i, 0) * 40ms) backwards;
+}
+/* Pending invites: the same section title as the groups; the code in the body face, not wide display caps. */
+html.native:not(.desk) section[data-pane="athletes"] #invitesWrap { margin-top: 4px; }
+html.native:not(.desk) section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 0 8px; padding: 0 4px; font-size: 20px; }
+html.native:not(.desk) #invitesList .ui-row-title { font-family: var(--font-body); font-stretch: 100%; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
