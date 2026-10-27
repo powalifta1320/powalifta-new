@@ -390,33 +390,38 @@
   function reduced() { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } }
   function firstName(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
 
+  // The hero: the e1RM total big (or, with meets but no sets logged, the best meet total), since when,
+  // then three numbers: the best meet (PRs before a first meet), years lifting, sessions.
   function heroNode(C, o) {
     var h = C.hero, u = h.unit;
+    var meetLeads = h.total == null && h.bestMeetTotal != null;
     var hero = mk('div', 'ui-hero cv-hero');
     var top = mk('div', 'cv-htop');
-    top.appendChild(mk('div', 'ui-hero-label', 'e1RM total'));
+    top.appendChild(mk('div', 'ui-hero-label', meetLeads ? 'Best meet total' : 'e1RM total'));
     var big = mk('div', 'ui-num-xl cv-total');
-    big.innerHTML = h.total != null ? esc(group3(h.total)) + '<small>' + esc(u) + '</small>' : '<span class="cv-none">Not yet</span>';
-    if (h.total == null) big.classList.add('is-empty');
+    var bigKg = meetLeads ? h.bestMeetTotal : h.total;
+    if (bigKg != null) big.innerHTML = esc(group3(bigKg)) + '<small>' + esc(u) + '</small>';
+    else { big.textContent = 'Shows once all three lifts are logged'; big.classList.add('is-empty'); }
     top.appendChild(big);
     var since = h.firstDate ? 'Since ' + monthYear(h.firstDate) : '';
-    var line = [since, h.meets ? plural(h.meets, 'meet') : null].filter(Boolean).join(' · ');
+    var line = [since, h.meets && !meetLeads ? plural(h.meets, 'meet') : null].filter(Boolean).join(' · ');
     if (line) top.appendChild(mk('div', 'cv-since', line));
     hero.appendChild(top);
     var stats = mk('div', 'rh-stats cv-stats');
-    var stat = function (val, small, label, empty) {
+    var stat = function (val, small, label) {
       var c = mk('div', 'rh-stat');
       var b = mk('b');
-      if (empty) { b.className = 'is-empty'; b.textContent = 'None yet'; }
-      else b.innerHTML = esc(val) + (small ? '<small>' + esc(small) + '</small>' : '');
+      b.innerHTML = esc(val) + (small ? '<small>' + esc(small) + '</small>' : '');
       c.appendChild(b);
       c.appendChild(mk('span', null, label));
       stats.appendChild(c);
     };
-    stat(h.bestMeetTotal != null ? group3(h.bestMeetTotal) : '', u, 'Best meet', h.bestMeetTotal == null);
+    if (meetLeads) stat(group3(h.meets), '', h.meets === 1 ? 'Meet' : 'Meets');
+    else if (h.bestMeetTotal != null) stat(group3(h.bestMeetTotal), u, 'Best meet');
+    else stat(group3(h.prs), '', h.prs === 1 ? 'PR' : 'PRs');
     if (h.days >= 365) stat(String(h.years), '', h.years === 1 ? 'Year lifting' : 'Years lifting');
     else { var mo = Math.max(1, Math.round(h.days / 30.4375)); stat(String(mo), '', mo === 1 ? 'Month lifting' : 'Months lifting'); }
-    stat(group3(h.sessions), '', h.sessions === 1 ? 'Session' : 'Sessions');
+    if (h.sessions) stat(group3(h.sessions), '', h.sessions === 1 ? 'Session' : 'Sessions');
     hero.appendChild(stats);
     return hero;
   }
@@ -452,21 +457,23 @@
   }
 
   // A year's moments (meets, class moves, milestones, blocks) as one timeline. Everything shows but
-  // the blocks past the three newest: those wait behind "Show all n".
+  // the blocks past the three newest: those wait behind "Show 3 more blocks".
   function momentsNode(list, o) {
     var box = mk('div', 'ui-list cv-list');
-    box.setAttribute('role', 'list');
+    var rows = mk('div', 'cv-rows');
+    rows.setAttribute('role', 'list');
+    box.appendChild(rows);
     var blocks = 0, hidden = [];
     list.forEach(function (e) {
       var row = eventRow(e);
       if (e.kind === 'block' && ++blocks > 3) { row.hidden = true; row.classList.add('is-more'); hidden.push(row); }
-      box.appendChild(row);
+      rows.appendChild(row);
     });
     if (hidden.length) box.appendChild(moreButton('Show ' + hidden.length + ' more ' + (hidden.length === 1 ? 'block' : 'blocks'), 'Show fewer', function (open) {
       hidden.forEach(function (r) { r.hidden = !open; if (open) reveal(r); });
-      railEnds(box);
+      railEnds(rows);
     }));
-    railEnds(box);
+    railEnds(rows);
     return box;
   }
   // The rail runs from the first chip shown to the last.
@@ -501,7 +508,9 @@
   // then every PR on request, newest first, one line each.
   function recordsNode(Y, prs, o) {
     var box = mk('div', 'ui-list cv-recs');
-    box.setAttribute('role', 'list');
+    var rows = mk('div', 'cv-rows');
+    rows.setAttribute('role', 'list');
+    box.appendChild(rows);
     var recs = yearRecords(prs);
     recs.forEach(function (r) {
       var row = mk('div', 'cv-rec lift-' + r.lift);
@@ -515,15 +524,18 @@
       // '14 PRs · +34 kg this year' (the value is the year's best e1RM), or the one day it happened.
       var sub = r.count === 1 ? 'PR on ' + dayText(r.latest) : plural(r.count, 'PR') + (r.gain && r.gain !== '±0' ? ' · ' + r.gain + ' ' + r.unit + ' this year' : '');
       row.appendChild(mk('span', 'cv-d', sub));
-      box.appendChild(row);
+      rows.appendChild(row);
     });
     // Every PR, one line each: the date, the lift and what it was.
     if (prs.length > recs.length) {
       var all = mk('div', 'cv-prs');
+      all.setAttribute('role', 'list');
+      all.setAttribute('aria-label', 'Every PR in ' + Y.year);
       all.hidden = true;
       // One line each, on the year's grid: the lift's dot, its name and what it was, the date.
       prs.forEach(function (e) {
         var line = mk('div', 'cv-pr');
+        line.setAttribute('role', 'listitem');
         var dc = mk('span', 'cv-dotc');
         dc.setAttribute('aria-hidden', 'true');
         dc.appendChild(mk('i', 'lift-dot lift-' + e.lift));
@@ -635,6 +647,7 @@
     a = a || athleteOf(athleteId) || { id: athleteId, name: '' };
     var old = document.querySelector('.cv-veil');
     if (old && old._close) old._close();
+    var opener = document.activeElement;   // focus goes back there when the panel closes
     var veil = mk('div', 'dk-veil cv-veil');
     var box = mk('div', 'dk-modal cv-modal');
     box.setAttribute('role', 'dialog');
@@ -664,7 +677,11 @@
     render(body, athleteId, { coach: true, desk: true, name: a.name });
     veil.appendChild(box);
     function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); } }
-    function close() { document.removeEventListener('keydown', onKey, true); veil.remove(); }
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      veil.remove();
+      if (opener && opener.isConnected && opener.focus) { try { opener.focus({ preventScroll: true }); } catch (e) {} }
+    }
     veil._close = close;
     x.addEventListener('click', close);
     veil.addEventListener('mousedown', function (e) { if (e.target === veil) close(); });
