@@ -522,7 +522,8 @@ body.site :is(#coaches, #marketplace-teaser, #pricing)::before { display: none; 
 body.site .s-cta h2 { margin: 0 auto 8px; font-stretch: 125%; font-weight: 800; font-size: clamp(2.5rem, 5.4vw, 4.3rem); letter-spacing: -0.03em; line-height: 1; }
 .s-cta .s-actions { margin-top: 34px; }
 .s-cta-aux { margin-top: 22px; color: var(--text-3); font-size: 0.96rem; }
-.s-cta-aux .s-link { color: var(--text); }
+.s-cta-aux .s-link { color: var(--text); text-decoration-color: var(--line-2); }   /* one red per screen: the button */
+.s-cta-aux .s-link:hover { text-decoration-color: var(--text-2); }
 .s-cta.is-armed .s-cta-mark :is(.m1, .m2, .m3) { opacity: 0; transform: translateX(9px); }
 .s-cta.is-in .s-cta-mark :is(.m1, .m2, .m3) { opacity: 1; transform: none; transition: opacity 380ms var(--l-ease), transform 420ms var(--l-ease); }
 .s-cta.is-in .s-cta-mark .m2 { transition-delay: 90ms; }
