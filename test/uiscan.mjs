@@ -45,6 +45,10 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-plates' + suf, page: A, theme, eval: 'openGymPlatesSheet()' },
     { name: 'sh-import' + suf, page: C, theme, eval: "openSheetImport('demo-a1')" },
     { name: 'sh-thread' + suf, page: C, theme, eval: "openAthleteMessages('demo-a1', 'Arjun Mehta')" },
+    // Coach alerts (2026-10-28): last week's report, the sample a new coach gets, the coach's Notifications.
+    { name: 'sh-report' + suf, page: C, theme, eval: 'CoachReportUI.open()' },
+    { name: 'sh-report-sample' + suf, page: F, theme, eval: 'CoachReportUI.open({ example: true })' },
+    { name: 'sh-notif-coach' + suf, page: C, theme, eval: 'openNotificationsSheet()' },
     { name: 'ob-welcome' + suf, page: 'index.html', theme },
     { name: 'ob-signup' + suf, page: 'index.html', theme, eval: "obOpen('signup', { role: 'coach' })" },
     { name: 'ob-login' + suf, page: 'index.html', theme, eval: "obOpen('login')" });
@@ -57,6 +61,8 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
+// The desk's Last week report (coach.html at laptop width), dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

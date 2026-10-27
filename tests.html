@@ -6072,8 +6072,8 @@ test('the in-app report: escaped, in triage order, one red that opens the first 
   assert(h.indexOf('Priya &lt;b&gt;Shah&lt;/b&gt;') > 0, 'escaped name');
   const at = (s) => h.indexOf(s);
   assert(at('Needs you') < at('Wins') && at('Wins') < at('Coming up') && at('Coming up') < at('Money'), 'section order');
-  eq((h.match(/cr-go red/g) || []).length, 1, 'one red');
-  assert(/data-cr-lifter="p"[^>]*>Start with Priya/.test(h), 'the red opens Priya');
+  eq((h.match(/mr-go red/g) || []).length, 1, 'one red');
+  assert(/data-mr-lifter="p"[^>]*>Start with Priya/.test(h), 'the red opens Priya');
 });
 test('the in-app report and the email never name the body part', () => {
   const W = { from: '2026-10-19', to: '2026-10-25', today: '2026-10-27' };
@@ -6090,13 +6090,13 @@ test('the example from Settings, with nobody yet: an inert, labelled sample', ()
   assert(team.of >= 5 && team.prs.length >= 1 && team.behind.length >= 1 && team.meets.length >= 1, 'a sample worth reading');
   const h = CoachReportUI.html(team, { sample: true });
   assert(/A sample/.test(h), 'says it is a sample');
-  assert(!/data-cr-lifter|data-cr-money/.test(h), 'nothing in it opens anything');
-  eq((h.match(/cr-go red/g) || []).length, 0, 'no red in a sample');
+  assert(!/data-mr-lifter|data-mr-money/.test(h), 'nothing in it opens anything');
+  eq((h.match(/mr-go red/g) || []).length, 0, 'no red in a sample');
 });
 test('the in-app report: an empty roster says how it starts', () => {
   const h = CoachReportUI.html(CoachReport.teamWeek({}, { from: '2026-10-19', to: '2026-10-25' }), {});
   assert(/No lifters yet/.test(h), 'empty state');
-  eq((h.match(/cr-go red/g) || []).length, 0, 'no red with nobody to open');
+  eq((h.match(/mr-go red/g) || []).length, 0, 'no red with nobody to open');
 });
 
 function render() {

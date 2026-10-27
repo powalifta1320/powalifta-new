@@ -1146,7 +1146,7 @@
       }
       if ((b = t.closest('[data-more]'))) { e.preventDefault(); var col = b.closest('.cl-col'); if (col) { col.classList.add('is-open'); b.remove(); } return; }
       if ((b = t.closest('[data-wn-queue]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openQueue(); return; }
-      if ((b = t.closest('[data-cr-open]'))) { e.preventDefault(); if (window.CoachReportUI) CoachReportUI.open(); return; }
+      if ((b = t.closest('[data-mr-open]'))) { e.preventDefault(); if (window.CoachReportUI) CoachReportUI.open(); return; }
       if ((b = t.closest('[data-wn-one]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openSheet(b.getAttribute('data-wn-one'), { onSent: refresh }); return; }
       if ((b = t.closest('.cl-row[data-id]'))) {
         e.preventDefault();

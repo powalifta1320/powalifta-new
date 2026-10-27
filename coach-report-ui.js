@@ -35,7 +35,7 @@
   function avHtml(name) {
     var hue = typeof avatarHue === 'function' ? avatarHue(name) : 0;
     var ini = typeof initials === 'function' ? initials(name) : String(name || '?').slice(0, 2).toUpperCase();
-    return '<span class="ui-av av-h' + hue + ' cr-av" data-name="' + esc(name) + '" aria-hidden="true">' + esc(ini) + '</span>';
+    return '<span class="ui-av av-h' + hue + ' mr-av" data-name="' + esc(name) + '" aria-hidden="true">' + esc(ini) + '</span>';
   }
 
   /* ---------------------------------------------------------------- the week, from the Store */
@@ -87,17 +87,17 @@
   // Wins: one row per lifter, each PR a lift dot and its e1RM ("● Bench 150 kg  ● Deadlift 278 kg").
   function winRows(team) { return window.CoachReport ? CoachReport.prsByLifter(team) : []; }
   function row(o, i) {
-    var lead = o.av ? avHtml(o.title) : '<span class="cr-tic' + (o.tone ? ' t-' + o.tone : '') + '">' + ic(o.icon) + '</span>';
-    var dot = o.dot ? '<i class="cr-dot ' + o.dot + '" aria-hidden="true"></i>' : '';
-    var inner = lead + '<span class="cr-rt"><b>' + esc(o.title) + '</b><span' + (o.lineCls ? ' class="' + o.lineCls + '"' : '') + '>' + dot + o.line + '</span></span>' + (o.attrs ? '<span class="cr-chev">' + ic('chev', 2.2) + '</span>' : '');
-    var hide = i >= CAP ? ' cr-extra' : '';
-    return o.attrs ? '<button type="button" class="cr-row' + hide + '" ' + o.attrs + '>' + inner + '</button>' : '<div class="cr-row is-static' + hide + '">' + inner + '</div>';
+    var lead = o.av ? avHtml(o.title) : '<span class="mr-tic' + (o.tone ? ' t-' + o.tone : '') + '">' + ic(o.icon) + '</span>';
+    var dot = o.dot ? '<i class="mr-dot ' + o.dot + '" aria-hidden="true"></i>' : '';
+    var inner = lead + '<span class="mr-rt"><b>' + esc(o.title) + '</b><span' + (o.lineCls ? ' class="' + o.lineCls + '"' : '') + '>' + dot + o.line + '</span></span>' + (o.attrs ? '<span class="mr-chev">' + ic('chev', 2.2) + '</span>' : '');
+    var hide = i >= CAP ? ' mr-extra' : '';
+    return o.attrs ? '<button type="button" class="mr-row' + hide + '" ' + o.attrs + '>' + inner + '</button>' : '<div class="mr-row is-static' + hide + '">' + inner + '</div>';
   }
   function section(title, count, rows, k) {
-    var more = rows.length > CAP + 2 ? '<button type="button" class="cr-more" data-cr-more>Show ' + (rows.length - CAP) + ' more</button>' : '';
-    if (!more) rows = rows.map(function (r) { return r.replace(' cr-extra"', '"'); });
-    return '<div class="cr-sec rise" style="--i:' + k + '"><h3 class="cr-h">' + esc(title) + (count != null ? ' <span>' + count + '</span>' : '') + '</h3>' +
-      '<div class="cr-list">' + rows.join('') + more + '</div></div>';
+    var more = rows.length > CAP + 2 ? '<button type="button" class="mr-more" data-mr-more>Show ' + (rows.length - CAP) + ' more</button>' : '';
+    if (!more) rows = rows.map(function (r) { return r.replace(' mr-extra"', '"'); });
+    return '<div class="mr-sec rise" style="--i:' + k + '"><h3 class="mr-h">' + esc(title) + (count != null ? ' <span>' + count + '</span>' : '') + '</h3>' +
+      '<div class="mr-list">' + rows.join('') + more + '</div></div>';
   }
   // team: CoachReport.teamWeek(...). opts: { unit, sample }. → the report's body, its footer included.
   // A sample opens nothing and has no red.
@@ -106,31 +106,31 @@
     var U = opts.unit || 'kg', CR = window.CoachReport, live = !opts.sample;
     var go = function (attrs) { return live ? attrs : ''; };
     if (!team || !team.of) {
-      return '<div class="cr-body"><div class="cr-empty rise" style="--i:0"><span class="cr-tic">' + ic('calendar') + '</span>' +
-        '<h3 class="cr-h">No lifters yet</h3><p>Once lifters join, their week lands here every Monday: who trained, who needs you, the PRs and what’s coming up.</p></div></div>';
+      return '<div class="mr-body"><div class="mr-empty rise" style="--i:0"><span class="mr-tic">' + ic('calendar') + '</span>' +
+        '<h3 class="mr-h">No lifters yet</h3><p>Once lifters join, their week lands here every Monday: who trained, who needs you, the PRs and what’s coming up.</p></div></div>';
     }
-    var k = 0, h = '<div class="cr-body">';
+    var k = 0, h = '<div class="mr-body">';
     // The answer first: how many trained, then the evidence (sessions done against written), then the PRs.
     var pct = team.sessionsPlanned ? Math.round(team.sessionsDone / team.sessionsPlanned * 100) : null;
     var facts = [];
     if (team.sessionsPlanned) facts.push('<b>' + team.sessionsDone + '</b> of ' + team.sessionsPlanned + ' sessions');
     if (team.prs.length) facts.push('<b>' + team.prs.length + '</b> ' + (team.prs.length === 1 ? 'PR' : 'PRs'));
-    h += '<div class="cr-hero rise" style="--i:' + (k++) + '"><p class="cr-big"><b>' + team.trained + '</b><span>of ' + team.of + ' trained</span></p>' +
-      (pct != null ? '<div class="cr-meter" role="img" aria-label="' + team.sessionsDone + ' of ' + team.sessionsPlanned + ' sessions done"><i style="width:' + pct + '%"></i></div>' : '') +
-      (facts.length ? '<p class="cr-facts">' + facts.join(' · ') + '</p>' : '') + '</div>';
+    h += '<div class="mr-hero rise" style="--i:' + (k++) + '"><p class="mr-big"><b>' + team.trained + '</b><span>of ' + team.of + ' trained</span></p>' +
+      (pct != null ? '<div class="mr-meter" role="img" aria-label="' + team.sessionsDone + ' of ' + team.sessionsPlanned + ' sessions done"><i style="width:' + pct + '%"></i></div>' : '') +
+      (facts.length ? '<p class="mr-facts">' + facts.join(' · ') + '</p>' : '') + '</div>';
     // Needs you, in the triage order.
     var needs = needRows(team);
     var nRows = needs.map(function (r, i) {
-      return row({ av: true, title: r.name, dot: r.tone ? 't-' + r.tone : '', line: esc(r.words.join(' · ')), attrs: go('data-cr-lifter="' + esc(r.id) + '"') }, i);
+      return row({ av: true, title: r.name, dot: r.tone ? 't-' + r.tone : '', line: esc(r.words.join(' · ')), attrs: go('data-mr-lifter="' + esc(r.id) + '"') }, i);
     });
     if (!nRows.length) nRows.push(row({ icon: 'check', tone: 'ok', title: 'Nobody needs you', line: 'Everyone trained as planned.' }, 0));
     h += section('Needs you', needs.length || null, nRows, k++);
     if (team.prs.length) {
       h += section('Wins', plural(team.prs.length, 'e1RM PR'), winRows(team).map(function (r, i) {
         var line = r.prs.map(function (p) {
-          return '<span class="cr-lp"><i class="cr-dot ' + LIFT_CLS[p.lift] + '" aria-hidden="true"></i>' + esc(LIFT[p.lift]) + ' ' + esc(CR ? CR.e1rmText(p.e1rm, U) : Math.round(p.e1rm) + ' kg') + '</span>';
+          return '<span class="mr-lp"><i class="mr-dot ' + LIFT_CLS[p.lift] + '" aria-hidden="true"></i>' + esc(LIFT[p.lift]) + ' ' + esc(CR ? CR.e1rmText(p.e1rm, U) : Math.round(p.e1rm) + ' kg') + '</span>';
         }).join('');
-        return row({ av: true, title: r.name, line: line, lineCls: 'cr-lps', attrs: go('data-cr-lifter="' + esc(r.id) + '"') }, i);
+        return row({ av: true, title: r.name, line: line, lineCls: 'mr-lps', attrs: go('data-mr-lifter="' + esc(r.id) + '"') }, i);
       }), k++);
     }
     if (team.meets.length) {
@@ -143,17 +143,17 @@
     if (team.overdue.n) {
       var od = team.overdue, who2 = od.who.slice(0, 3).map(function (w) { return first(w.name); }).join(', ') + (od.who.length > 3 ? ' +' + (od.who.length - 3) : '');
       var money = CR ? CR.money(od.total, od.currency) : String(od.total / 100);
-      h += section('Money', null, [row({ icon: 'wallet', tone: 'pain', title: plural(od.n, 'payment') + ' overdue', line: esc(money + (od.mixed ? ' and more' : '') + ' · ' + who2), attrs: go('data-cr-money') }, 0)], k++);
+      h += section('Money', null, [row({ icon: 'wallet', tone: 'pain', title: plural(od.n, 'payment') + ' overdue', line: esc(money + (od.mixed ? ' and more' : '') + ' · ' + who2), attrs: go('data-mr-money') }, 0)], k++);
     }
     // One red: the first lifter who needs you. Nobody? Then nothing red to do.
     var up = live && CR ? CR.firstUp(team) : null;
-    h += '<div class="cr-foot rise" style="--i:' + (k++) + '"><p>' + (live ? 'Monday’s push and email say the same.' : 'A sample. Your lifters’ week lands here, and in Monday’s push and email, once they train.') + '</p>' +
-      (up ? '<button type="button" class="cl-btn cr-go red" data-cr-lifter="' + esc(up.id) + '">Start with ' + esc(first(up.name)) + '</button>' : '') + '</div>';
+    h += '<div class="mr-foot rise" style="--i:' + (k++) + '"><p>' + (live ? 'Monday’s push and email say the same.' : 'A sample. Your lifters’ week lands here, and in Monday’s push and email, once they train.') + '</p>' +
+      (up ? '<button type="button" class="cl-btn mr-go red" data-mr-lifter="' + esc(up.id) + '">Start with ' + esc(first(up.name)) + '</button>' : '') + '</div>';
     return h + '</div>';
   }
   // The quiet way in: Today › This week (laptop) and Lifters › This week (phone).
   function entryHtml() {
-    return '<button type="button" class="cl-quiet cr-entry" data-cr-open>Last week’s report' + ic('chev', 2.2) + '</button>';
+    return '<button type="button" class="cl-quiet mr-entry" data-mr-open>Last week’s report' + ic('chev', 2.2) + '</button>';
   }
 
   /* ---------------------------------------------------------------- open, act, close */
@@ -171,13 +171,13 @@
     var opener = document.activeElement;
     if (isDeskNow() || opts.desk) {
       var veil = document.createElement('div');
-      veil.className = 'dk-veil cr-veil';
+      veil.className = 'dk-veil mr-veil';
       var box = document.createElement('div');
-      box.className = 'cr-box cl-root';
+      box.className = 'mr-box cl-root';
       box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'crTitle'); box.tabIndex = -1;
-      box.innerHTML = '<header class="cr-head"><div><h2 class="cr-title" id="crTitle">Last week</h2><p class="cr-sub">' + esc(sub) + '</p></div>' +
-        '<button type="button" class="cl-ibtn cr-x" data-cr-close aria-label="Close the report">' + ic('x') + '</button></header>' +
-        '<div class="cr-scroll">' + body + '</div>';
+      box.innerHTML = '<header class="mr-head"><div><h2 class="mr-title" id="crTitle">Last week</h2><p class="mr-sub">' + esc(sub) + '</p></div>' +
+        '<button type="button" class="cl-ibtn mr-x" data-mr-close aria-label="Close the report">' + ic('x') + '</button></header>' +
+        '<div class="mr-scroll">' + body + '</div>';
       veil.appendChild(box);
       var onKey = function (e) {
         if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
@@ -204,9 +204,9 @@
       S = { close: close, root: box, opener: opener };
       wire(box);
       // The scroll edge: a hairline under the title only once rows pass under it.
-      var sc = box.querySelector('.cr-scroll');
+      var sc = box.querySelector('.mr-scroll');
       if (sc) sc.addEventListener('scroll', function () { box.classList.toggle('is-scrolled', sc.scrollTop > 2); }, { passive: true });
-      var x = box.querySelector('[data-cr-close]');
+      var x = box.querySelector('[data-mr-close]');
       x.addEventListener('click', function () { close(); });
       if (typeof dkTip === 'function') dkTip(x, 'Close', 'Esc');
       try { box.focus({ preventScroll: true }); } catch (e) {}   // the card, not a button: no ring on a mouse open; Tab goes in
@@ -217,11 +217,11 @@
       var p = document.createElement('p'); p.className = 'ui-sheet-sub'; p.textContent = sub;
       sheet.appendChild(p);
       var wrap = document.createElement('div');
-      wrap.className = 'cl-root cr-phone';
+      wrap.className = 'cl-root mr-phone';
       wrap.innerHTML = body;
       sheet.appendChild(wrap);
       wire(wrap);
-    }, { cls: 'cr-sheet', onClose: function () { S = null; } });
+    }, { cls: 'mr-sheet', onClose: function () { S = null; } });
     S = { close: function (then) { closeSheet(); if (typeof then === 'function') setTimeout(then, 210); }, opener: opener };
   }
   function close(then) { if (S) S.close(then); else if (typeof then === 'function') then(); }
@@ -243,15 +243,15 @@
     root.addEventListener('click', function (e) {
       var b = e.target.closest('button');
       if (!b || !root.contains(b)) return;
-      if (b.hasAttribute('data-cr-more')) {
+      if (b.hasAttribute('data-mr-more')) {
         e.preventDefault();
-        var sec = b.closest('.cr-sec');
+        var sec = b.closest('.mr-sec');
         if (sec) sec.classList.add('is-open');
         b.remove();
         return;
       }
-      if (b.hasAttribute('data-cr-lifter')) { e.preventDefault(); var id = b.getAttribute('data-cr-lifter'); close(function () { openLifter(id); }); return; }
-      if (b.hasAttribute('data-cr-money')) { e.preventDefault(); close(goClients); }
+      if (b.hasAttribute('data-mr-lifter')) { e.preventDefault(); var id = b.getAttribute('data-mr-lifter'); close(function () { openLifter(id); }); return; }
+      if (b.hasAttribute('data-mr-money')) { e.preventDefault(); close(goClients); }
     });
   }
   // The Monday push opens coach.html?report=week: show the report once the coach's data is in, then
