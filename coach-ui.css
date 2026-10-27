@@ -1452,7 +1452,7 @@ html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active
 .cl-do.is-phone .cl-job.is-big + .cl-job.is-big::before { content: ''; position: absolute; top: 0; left: 60px; right: 0; height: 1px; background: var(--cl-line); }
 .cl-do.is-phone .cl-jmain::after { content: ''; position: absolute; inset: 0; }
 .cl-do.is-phone .cl-job :is(.cl-btn, .cl-sbtn) { position: relative; z-index: 1; }
-.cl-do.is-phone .cl-job:has(> .cl-jmain:active) { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cl-do.is-phone .cl-job:has(> .cl-jmain:active) { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
 .cl-do.is-phone .cl-job:has(> .cl-jmain:active)::before, .cl-do.is-phone .cl-job:has(> .cl-jmain:active) + .cl-job::before { opacity: 0; }
 .cl-do.is-phone .cl-jt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; }
 
@@ -1471,14 +1471,14 @@ html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active
 /* The groups: inset hairlines from the name (iOS grouped lists), a row lights on press like the lifter app's rows. */
 .cl-phone .cl-list .cl-row { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
 .cl-phone .cl-list .cl-row + .cl-row::before { content: ''; position: absolute; top: 0; left: 66px; right: 0; height: 1px; background: var(--cl-line); }
-.cl-phone .cl-list .cl-row:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cl-phone .cl-list .cl-row:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
 .cl-phone .cl-list .cl-row:active::before, .cl-phone .cl-list .cl-row:active + .cl-row::before { opacity: 0; }
 .cl-phone .cl-n small { font-size: 13px; }
 .cl-phone .cl-search-ph { height: 44px; }
 
 /* Money owed: one row-card, the same radius as the lists, a press like any tappable card. */
 .cl-phone .cs-dueline { min-height: 56px; padding: 10px 16px 10px 14px; border-radius: var(--cl-r); transition: background-color 140ms ease-out, transform 140ms ease-out; }
-.cl-phone .cs-dueline:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); transform: scale(0.985); }
+.cl-phone .cs-dueline:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); transform: scale(0.985); }
 /* This week: four tiles, each a number and (where it is a share) one thin bar; no chart needs a key. */
 .cl-pweek .cl-tiles.is-compact { gap: 12px; }
 .cl-pweek .cl-tiles.is-compact .cl-tile { border-radius: var(--cl-r); padding: 14px 14px 13px; gap: 8px; }
@@ -1503,7 +1503,7 @@ html.native:not(.desk) #invitesList .ui-row-title { font-family: var(--font-body
 .cl-pg-phone :is(.cl-flag, .cl-hero, .cl-lift, .cl-tile, .cl-links, .cl-empty, .cl-wnrow), .cl-pg-phone .cl-tile.is-compact { border-radius: var(--cl-r); }
 
 .cl-pg-phone .cl-wnrow { transition: background-color 140ms ease-out, transform 140ms ease-out; }
-.cl-pg-phone .cl-wnrow:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); transform: scale(0.985); }
+.cl-pg-phone .cl-wnrow:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); transform: scale(0.985); }
 
 /* A lift tile's PR is the app's gold word, not a capsule: "Deadlift" and its PR fit a phone third (it pushed
    past the tile's edge on a 375 pt iPhone). */
@@ -1520,7 +1520,7 @@ html:not(.desk) .cl-pg-phone .cl-link { padding: 12px 6px; margin: -12px -6px; }
 html:not(.desk) .cl-pg-phone .cl-mplan { min-height: 44px; margin: -4px 0 -10px; }
 /* The links card: rows light on press, the hairline beside a lit row steps aside. */
 .cl-pg-phone .cl-links .cl-everything { transition: background-color 140ms ease-out; }
-.cl-pg-phone .cl-links .cl-everything:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cl-pg-phone .cl-links .cl-everything:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
 .cl-pg-phone .cl-links .cl-everything:active::before, .cl-pg-phone .cl-links .cl-everything:active + .cl-everything::before { opacity: 0; }
 
 /* --- 6. Messages --- */
@@ -1573,7 +1573,7 @@ html:not(.desk) .cs-ph .cl-h1, html:not(.desk) .cl-pg-phone:not(.is-wide) .cl-pn
 .cs-page.is-phone .cl-tile { border-radius: var(--cl-r); }
 .cs-r.is-phone { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
 .cs-r.is-phone + .cs-r.is-phone::before { content: ''; position: absolute; top: 0; left: 62px; right: 0; height: 1px; background: var(--cl-line); }
-.cs-r.is-phone:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cs-r.is-phone:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
 .cs-r.is-phone:active::before, .cs-r.is-phone:active + .cs-r.is-phone::before { opacity: 0; }
 .cs-page.is-phone .cs-filters button { transition: transform 140ms ease-out, background-color 150ms ease-out; }
 .cs-page.is-phone .cs-filters button:active { transform: scale(0.96); }
@@ -1595,12 +1595,13 @@ html.native:not(.desk) .ai-close::after { content: ''; position: absolute; inset
 html.native:not(.desk) .ai-close:active { transform: scale(0.92); }
 html.native:not(.desk) .ai-seg { border: 0; border-radius: 12px; }
 html.native:not(.desk) .ai-seg-btn { min-height: 34px; border-radius: 9px; font-size: 15px; font-weight: 600; }
-html.native:not(.desk) .ai-bubble { border-color: transparent; font-size: 15px; line-height: 1.45; padding: 10px 14px; border-radius: 16px; }
+html.native:not(.desk) .ai-bubble { border-color: transparent; font-size: 15px; line-height: 1.45; padding: 10px 14px; border-radius: 14px; }
+
 html.native:not(.desk) .ai-msg.user .ai-bubble { background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
 html.native:not(.desk) .ai-chips { gap: 8px; padding: 8px 16px 6px; }
 html.native:not(.desk) .ai-chip { min-height: 34px; padding: 0 14px; border: 0; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font-size: 13px; font-weight: 600; transition: transform 140ms ease-out, background-color 150ms ease-out; }
 html.native:not(.desk) .ai-chip:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
-html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 24px; padding: 4px 4px 4px 16px; }
+html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 999px; padding: 4px 4px 4px 16px; }
 html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%; }
 
 /* --- 10. The first run (no lifters yet) --- */
