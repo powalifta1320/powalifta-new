@@ -585,6 +585,7 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-pg.is-wide { max-width: none; padding-bottom: 12px; }
 .cl-pg.is-wide .cl-hero { grid-template-columns: 1fr; gap: 12px; }
 .cl-pg.is-wide .cl-hnum b { font-size: 44px; }
+.cl-pg.cl-pg-phone.is-wide .cl-pname { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
 html.native .cl-phone.is-wide .cl-row .cl-chev { display: none; }
 
 /* ---- round-2 details: compact job rows, the ring's count, the list legend, empty states ---- */
