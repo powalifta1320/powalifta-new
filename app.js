@@ -10487,9 +10487,10 @@ function _sheetSwallowEarlyClicks(veil) {
 
 // A bottom sheet with arbitrary content (uiActionSheet is the menu version).
 // build(sheet, close) fills it. Returns close().
+// opts: { cls (the sheet), veilCls (the veil: 'is-over-ai' sits above the Ask AI panel), onClose }
 function uiSheet(title, build, opts) {
   opts = opts || {};
-  const veil = el('div', { class: 'ui-sheet-veil', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Sheet' });
+  const veil = el('div', { class: 'ui-sheet-veil' + (opts.veilCls ? ' ' + opts.veilCls : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Sheet' });
   const sheet = el('div', { class: 'ui-sheet ui-sheet-form' + (opts.cls ? ' ' + opts.cls : '') });
   sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
   if (title) sheet.appendChild(el('h3', { class: 'ui-sheet-h' }, title));
@@ -10670,9 +10671,9 @@ function uiEmpty(opts) {
   return e;
 }
 
-// ⋯ menu as a bottom sheet. actions: [{ label, icon?, danger?, onClick }]
-function uiActionSheet(title, actions) {
-  const veil = el('div', { class: 'ui-sheet-veil', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Options' });
+// ⋯ menu as a bottom sheet. actions: [{ label, icon?, danger?, onClick }]. opts: { veilCls } as uiSheet.
+function uiActionSheet(title, actions, opts) {
+  const veil = el('div', { class: 'ui-sheet-veil' + (opts && opts.veilCls ? ' ' + opts.veilCls : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Options' });
   const sheet = el('div', { class: 'ui-sheet' });
   sheet.appendChild(el('div', { class: 'ui-sheet-grip', 'aria-hidden': 'true' }));
   if (title) sheet.appendChild(el('div', { class: 'ui-sheet-title' }, title));

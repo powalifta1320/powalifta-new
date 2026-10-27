@@ -298,6 +298,30 @@
     });
     return found;
   }
+  // A name as a whole word in lowercased text: "tom" is in "tom's block", never in "tomorrow".
+  function hasWord(t, w) {
+    if (!w) return false;
+    for (var i = t.indexOf(w); i !== -1; i = t.indexOf(w, i + 1)) {
+      if (!/[\p{L}\p{N}]/u.test(t.charAt(i - 1)) && !/[\p{L}\p{N}]/u.test(t.charAt(i + w.length))) return true;
+    }
+    return false;
+  }
+  // Every roster lifter the text names: by full name when any full name is there, else by first name.
+  function matchAthletes(t, roster) {
+    var full = roster.filter(function (r) { var n = String(r.name || '').trim().toLowerCase(); return n.indexOf(' ') > 0 && hasWord(t, n); });
+    if (full.length) return full;
+    return roster.filter(function (r) { var f = String(r.name || '').trim().toLowerCase().split(/\s+/)[0]; return f.length > 1 && hasWord(t, f); });
+  }
+  // Who a program request is for: the one lifter it names, else, when it says "him" or "her", the
+  // one the coach's previous question named ("How's Arjun's week?", then "draft him a block"). null
+  // when that isn't exactly one lifter: Insert into builder then asks which lifter.
+  function programTarget(t, prevT, roster) {
+    var m = matchAthletes(t, roster);
+    if (m.length) return m.length === 1 ? m[0] : null;
+    if (!prevT || !/\b(him|her|his|he|she|them|their|they)\b/.test(t)) return null;
+    var pm = matchAthletes(prevT, roster);
+    return pm.length === 1 ? pm[0] : null;
+  }
 
   function weekRecap(r) {
     var s = r.snap;
@@ -408,15 +432,18 @@
     return Object.keys(e).length ? e : null;
   }
 
-  // Build a program from the user's words + their real numbers.
-  function designProgram(q) {
+  // Build a program from the user's words + their real numbers. prevQ: the coach's question before
+  // this one, for "draft him a block" after "how's Arjun doing?". → { program, text, target }, where
+  // target { id, name } is the lifter it was written for (their e1RMs set the loads), or null.
+  function designProgram(q, prevQ) {
     if (typeof window.generateProgram !== 'function') return null;
     var t = q.toLowerCase();
     var opts = parseProgramOpts(t);
-    var forName = null;
+    var forName = null, target = null;
     if (ROLE === 'coach') {
-      var match = matchAthlete(t, rosterSummary());
+      var match = programTarget(t, prevQ ? String(prevQ).toLowerCase() : '', rosterSummary());
       if (match) {
+        target = { id: match.id, name: match.name };
         forName = (match.name || '').split(/\s+/)[0];
         var ce = pullE1RMs(match.snap);
         if (ce) opts.e1rms = ce;
@@ -432,7 +459,7 @@
     try { program = window.generateProgram(opts); }
     catch (e) { return null; }
     if (!program || !program.weeks || !program.weeks.length) return null;
-    return { program: program, text: programSummary(program, opts, forName) };
+    return { program: program, text: programSummary(program, opts, forName), target: target };
   }
 
   function programSummary(p, opts, forName) {
@@ -457,8 +484,9 @@
     return lines.join("\n");
   }
 
-  // Renders the preview card + one-tap apply under an assistant bubble.
-  function appendProgramCard(bubble, program) {
+  // Renders the preview card + one-tap apply under an assistant bubble. target { id, name }: the
+  // lifter it was written for (the coach's dashboard inserts it for them, else asks which lifter).
+  function appendProgramCard(bubble, program, target) {
     if (!bubble || !program || !program.weeks || !program.weeks.length) return;
     var wk1 = program.weeks[0] || { days: [] };
     var card = h('div', { class: 'ai-prog-card' });
@@ -485,7 +513,7 @@
         '<span class="ai-prog-name">' + esc(program.name) + '</span>' +
         '<span class="ai-prog-meta">' + program.weeks.length + ' wk · ' + wk1.days.length + ' day/wk</span>' +
       '</div>' +
-      '<div class="ai-prog-sub">Week 1 preview</div>' +
+      '<div class="ai-prog-sub">Week 1 preview' + (target && target.name ? ' · for ' + esc(String(target.name).split(/\s+/)[0]) : '') + '</div>' +
       '<div class="ai-prog-days">' + rows + '</div>' +
       '<button class="ai-prog-apply" type="button">Insert into builder</button>';
     bubble.appendChild(card);
@@ -497,12 +525,15 @@
         applyBtn.disabled = true;
         return;
       }
-      var res = window.__applyAIProgram(program);
-      if (res && res.ok) {
-        applyBtn.textContent = 'Inserted ✓';
-        applyBtn.classList.add('done');
-        applyBtn.disabled = true;
-      }
+      // The coach's dashboard may ask first (which lifter, replace their program?): it answers
+      // { ok } now or as a promise once inserted. A cancel leaves the button as it was.
+      Promise.resolve(window.__applyAIProgram(program, { athleteId: target ? target.id : null })).then(function (res) {
+        if (res && res.ok) {
+          applyBtn.textContent = 'Inserted ✓';
+          applyBtn.classList.add('done');
+          applyBtn.disabled = true;
+        }
+      });
     });
   }
 
@@ -874,10 +905,10 @@
         return MODE === askedIn ? renderMsg('assistant', text) : null;
       }
 
-      function answer(text, program) {
+      function answer(text, program, target) {
         typer.remove();
         var bubble = keep(text);
-        if (bubble && program) appendProgramCard(bubble, program);
+        if (bubble && program) appendProgramCard(bubble, program, target);
         busy = false;
         sendBtn.disabled = false;
         input.focus();
@@ -911,9 +942,11 @@
       // can insert with one tap, instead of prose the LLM might malform.
       if (wantsProgram(q.toLowerCase())) {
         if (coached()) { setTimeout(function () { answer(COACHED_PROGRAM_TEXT); }, 320); return; }
-        var designed = designProgram(q);
+        var prevQ = null;   // the coach's question before this one, in this thread
+        for (var pi = thread.length - 2; pi >= 0; pi--) if (thread[pi].role === 'user') { prevQ = thread[pi].content; break; }
+        var designed = designProgram(q, prevQ);
         if (designed && designed.program) {
-          setTimeout(function () { answer(designed.text, designed.program); }, 480);
+          setTimeout(function () { answer(designed.text, designed.program, designed.target); }, 480);
           return;
         }
       }
