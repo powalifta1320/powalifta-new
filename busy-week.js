@@ -464,10 +464,12 @@
         // The demo holds it in memory: nothing leaves the page.
         if (window._demoMode) { done(Object.assign({}, req, { id: req.id || 'demo-busy-mine', status: 'pending', createdAt: new Date().toISOString(), decidedAt: null }), false); return; }
         if (!window.DB || !DB.sendScheduleRequest) return;
-        go.disabled = true;
+        var label = go.textContent;
+        go.disabled = true; go.textContent = 'Sending…'; go.setAttribute('aria-busy', 'true');
+        var again = function () { go.disabled = false; go.textContent = label; go.removeAttribute('aria-busy'); };
         DB.sendScheduleRequest(req).then(function (res) {
           if (!res || !res.ok) {
-            go.disabled = false;
+            again();
             if (typeof toast === 'function') toast(res && res.decided ? capFirst(coach) + ' has already answered this week.' : 'That didn’t send. Check your connection and try again.');
             return;
           }
@@ -478,7 +480,7 @@
               body: sel.length ? plural(sel.length, 'day') + ' instead of ' + n + ': ' + dayNames(sel).join(', ') : 'Can’t train this week: ' + plural(n, 'session') + ' to move',
               url: '/coach.html', tag: 'powa-busy-' + u.id, category: 'messages' }).catch(function () {});
           }
-        }).catch(function () { go.disabled = false; if (typeof toast === 'function') toast('That didn’t send. Check your connection and try again.'); });
+        }).catch(function () { again(); if (typeof toast === 'function') toast('That didn’t send. Check your connection and try again.'); });
       });
     }, { cls: 'bwk-sheet' });
   }

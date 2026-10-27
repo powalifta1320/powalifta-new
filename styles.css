@@ -13011,7 +13011,7 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 
 /* ===== BUSY WEEKS (busy-week.js, 2026-10-28): the lifter's sheet. The days left this week as one row of
    toggles, the plan they make, one red that sends it. Type: 22 title · 20 dates · 17 sessions · 15 the rest. */
-.bwk-sheet .bwk-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 6px; }
+.bwk-sheet .bwk-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 8px; }
 .bwk-sheet .bwk-day { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; padding: 6px 0; border: 0; border-radius: 14px;
   background: var(--fill-2, rgba(255, 255, 255, 0.07)); color: var(--text); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: background-color 150ms cubic-bezier(0.23, 1, 0.32, 1), color 150ms cubic-bezier(0.23, 1, 0.32, 1), transform 140ms ease-out; }
@@ -13029,9 +13029,9 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .bwk-sheet .bwk-pd { font-size: 15px; font-weight: 600; color: var(--text-2); }
 .bwk-sheet .bwk-pt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .bwk-sheet .bwk-pt b { font-size: 17px; font-weight: 600; color: var(--text); }
-.bwk-sheet .bwk-pt small { font-size: 15px; line-height: 1.35; color: var(--text-3); }
+.bwk-sheet .bwk-pt small { font-size: 15px; line-height: 1.35; color: var(--text-3); text-wrap: pretty; }
 .bwk-sheet .bwk-pr.is-later .bwk-pd, .bwk-sheet .bwk-pr.is-later .bwk-pt b { color: var(--text-3); }
-.bwk-sheet .bwk-why { margin: 10px 4px 0; font-size: 15px; line-height: 1.4; color: var(--text-3); }
+.bwk-sheet .bwk-why { margin: 10px 4px 0; font-size: 15px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
 .bwk-sheet .bwk-empty { margin: 0 4px; font-size: 15px; color: var(--text-3); }
 .bwk-sheet .bwk-note { width: 100%; min-height: 48px; margin-top: 16px; font-size: 15px; box-sizing: border-box; }
 .bwk-sheet .bwk-go { margin-top: 16px; }
