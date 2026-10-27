@@ -494,7 +494,7 @@ function dkOnTab(tab) {
 }
 // coach.html calls this when the athlete page opens: the rail keeps the screen it came from.
 function deskOnAthletePage() { if (!isDesk()) return; closeDkMenus(); dkSyncCtx(); dkPaintCard(); dkPaintRail(); }
-function deskBackLabel() { return ({ today: 'Today', roster: 'Lifters', meets: 'Meets', teams: 'Teams', messages: 'Messages', clients: 'Clients', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
+function deskBackLabel() { return ({ today: 'Today', roster: 'Lifters', meets: 'Meets', teams: 'Teams', messages: 'Messages', clients: 'Clients', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Lifters'; }
 function dkOnResize() {
   var on = isDesk();
   document.documentElement.classList.toggle('desk', on);
@@ -980,7 +980,7 @@ function dkPaintCard(opts) {
   var a = r.athlete;
   host.dataset.aid = key;
   var head = el('div', { class: 'dk-card-head' });
-  head.appendChild(dkAv(a, 'is-sm'));
+  head.appendChild(dkAv(a));
   head.appendChild(el('div', { class: 'dk-card-who' }, el('b', {}, a.name), el('span', {}, _dk.card === 'thread' ? (function () { var th = _dkThreadLast(aid); return th ? 'Last message ' + _dkAgoTime(th.lastAt) : 'No messages yet'; })() : 'Only you see these')));
   head.appendChild(dkIconBtn(DK_IC.x, 'Close', dkCloseCard, 'Esc'));
   host.appendChild(head);
@@ -1573,7 +1573,7 @@ function deskRenderRoster(area) {
 
   var head = el('div', { class: 'dk-rhead' });
   var tr = el('div', { class: 'dk-title-row' });
-  tr.appendChild(el('h1', { class: 'dk-h1' }, 'Roster'));
+  tr.appendChild(el('h1', { class: 'dk-h1' }, 'Lifters'));
   tr.appendChild(el('span', { class: 'dk-rmeta' }));
   head.appendChild(tr);
   var tools = el('div', { class: 'dk-rtools' });
@@ -2069,7 +2069,7 @@ function dkAssignTemplate(ids, anchor) {
 function dkRosterEmpty() {
   var box = el('div', { class: 'dk-empty' });
   var head = el('div', { class: 'dk-rhead' });
-  head.appendChild(el('h1', { class: 'dk-h1' }, 'Roster'));
+  head.appendChild(el('h1', { class: 'dk-h1' }, 'Lifters'));
   head.appendChild(el('span', { class: 'dk-sp' }));
   box.appendChild(head);
   var msg = el('div', { class: 'dk-empty-msg' });
@@ -2127,7 +2127,7 @@ function dkCommands() {
       run: function () { openAthletePage(r.athlete.id); } });
   });
   var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
-  [['today', 'Today'], ['roster', 'Roster'], ['programs', 'Programs'], ['meets', 'Meets'], ['messages', 'Messages'], ['clients', 'Clients'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
+  [['today', 'Today'], ['roster', 'Lifters'], ['programs', 'Programs'], ['meets', 'Meets'], ['messages', 'Messages'], ['clients', 'Clients'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
     if (x[0] === 'meets' && !dkPlannedMeets().length) return;
     if (x[0] === 'clients' && !window.ClientsUI) return;
     if (x[0] === _dk.screen && !onPage) return;   // already here
@@ -2151,7 +2151,6 @@ function dkCommands() {
   cmds.push({ group: 'Actions', label: light ? 'Dark theme' : 'Light theme', keys: 'appearance mode', run: function () { toggleTheme(); } });
   cmds.push({ group: 'Actions', label: 'Show weights in ' + (getUnit() === 'kg' ? 'lb' : 'kg'), keys: 'units pounds kilos', run: function () { toggleUnit(); } });
   cmds.push({ group: 'Actions', label: document.documentElement.classList.contains('rail-min') ? 'Expand the sidebar' : 'Collapse the sidebar', hint: '[', run: dkToggleRail });
-  cmds.push({ group: 'Actions', label: dkRMode() === 'board' ? 'Roster as a list' : 'Roster as the live board', hint: 'V', keys: 'view switch board live list', run: function () { if (_dk.screen !== 'roster') deskGo('roster'); dkSetRMode(dkRMode() === 'board' ? 'list' : 'board'); } });
   cmds.push({ group: 'Actions', label: 'Open or close the side card', hint: ']', keys: 'thread notes pane', run: dkToggleCtx });
   cmds.push({ group: 'Actions', label: 'Keyboard shortcuts', hint: '?', run: openDeskKeys });
   cmds.push({ group: 'Actions', label: 'Ask AI', keys: 'assistant help', run: function () { if (typeof openAIAssistant === 'function') openAIAssistant(); } });
@@ -2200,7 +2199,7 @@ function openDeskPalette() {
     shown.forEach(function (c, i) {
       if (c.group !== g) { g = c.group; list.appendChild(el('div', { class: 'dk-pal-group', role: 'presentation' }, g)); }
       var it = el('div', { class: 'dk-pal-item' + (i === idx ? ' on' : ''), role: 'option', id: 'dkPal' + i, 'aria-selected': String(i === idx) });
-      if (c.av) it.appendChild(dkAv(c.av, 'is-xs'));
+      if (c.av) it.appendChild(dkAv(c.av, 'is-sm'));
       it.appendChild(el('span', { class: 'dk-pal-label' }, c.label));
       if (c.hint) it.appendChild(el('span', { class: 'dk-pal-hint' }, c.hint));
       it.addEventListener('mousemove', function () { if (idx !== i) { idx = i; mark(); } });
@@ -2541,9 +2540,9 @@ function dkWsList(id) {
   else if (_dk.screen === 'messages' && _dk.msgOrder.length) out = { ids: _dk.msgOrder.slice(), label: 'in Messages' };
   else if (_dk.screen === 'roster' && _dk.rorder.length) {
     var v = _dk.view ? DESK_VIEWS.find(function (x) { return x.key === _dk.view; }) : null;
-    out = { ids: _dk.rorder.slice(), label: 'in ' + (v ? v.label : 'Roster') };
+    out = { ids: _dk.rorder.slice(), label: 'in ' + (v ? v.label : 'Lifters') };
   }
-  if (!out || out.ids.indexOf(id) < 0) out = { ids: rows.slice().sort(function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); }).map(function (r) { return r.athlete.id; }), label: 'in Roster' };
+  if (!out || out.ids.indexOf(id) < 0) out = { ids: rows.slice().sort(function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); }).map(function (r) { return r.athlete.id; }), label: 'in Lifters' };
   return out;
 }
 // coach.html's renderAthletePage hands the desk its host: the workspace, full width.
@@ -5753,7 +5752,7 @@ function dkKeyGroups() {
     ['Everywhere', [[mod + 'K', 'Command palette'], ['?', 'Shortcuts'], ['[', 'Fold the sidebar'], [']', 'Open or close the side card'], ['/', 'Search'], ['Esc', 'Close the card']]],
     ['Today', [['J  K', 'Next and previous athlete'], ['E', 'Done for this week'], ['S', 'Snooze till tomorrow'], ['U', 'Undo'], ['R', 'Message'], ['N', 'Private note'], ['P', 'Open their program'], ['↵', 'Open their page'], ['X', 'Pick a win'], [mod + '⇧K', 'Send kudos']]],
     ['Their week', [['J  K', 'Next and previous'], ['Tab', 'Take a suggested load'], ['⇧A', 'Take every suggestion'], ['↵', 'Save, go down'], ['R', 'Message'], ['N', 'Private note'], ['P', 'Program'], ['Esc', 'Back to the list']]],
-    ['Roster', [['V', 'Board or list'], ['J  K', 'Move down and up'], ['X', 'Select the row (board)'], ['R', 'Message'], ['P', 'Open their program'], ['↵', 'Open their page'], ['Esc', 'Clear the search or selection']]],
+    ['Lifters', [['J  K', 'Move down and up'], ['R', 'Message'], ['P', 'Open their program'], ['↵', 'Open their page'], ['/', 'Find a lifter'], ['Esc', 'Clear the search']]],
     ['Program builder', [['←  →', 'Previous and next week'], ['1–9', 'Go to a week'], ['V', 'Sessions or Progression'], ['E', 'Write the first exercise'], ['↵  ↑ ↓', 'Save, next exercise'], [mod + '⇧R', 'Progress it through the block'], [mod + 'D', 'Same as the week before'], [']', 'Exercise details'], [mod + 'Z', 'Undo']]],
     ['Messages', [['J  K', 'Next and previous thread'], ['E', 'Done, nothing to answer'], ['R', 'Reply'], ['↵', 'Open their page'], ['/', 'Search messages']]]
   ];
