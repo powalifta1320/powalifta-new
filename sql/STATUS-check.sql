@@ -141,6 +141,7 @@ with checks(n, migration, applied) as (values
         to_regclass('public.coach_challenges') is not null
         and to_regclass('public.challenge_entries') is not null
         and to_regprocedure('public.challenge_member_may(uuid, boolean)') is not null
+        and to_regprocedure('public.challenge_board(uuid[])') is not null
         and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard'))
 )
 select n, migration, applied from checks order by n;

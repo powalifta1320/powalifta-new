@@ -12,8 +12,10 @@
 -- Who sees what:
 --   · the coach: every right on their own challenges, and on their entries;
 --   · a member: reads a challenge when they're in member_ids AND its coach is their coach right now
---     (profiles.coach_id), reads its entries, and inserts or updates only their own entry while it
---     runs (a day's grace either side for time zones; not once the coach ended it);
+--     (profiles.coach_id); reads its board through public.challenge_board(), names and values only
+--     (a teammate's baseline, their best total before it started, is not theirs to read); reads and
+--     writes only their own entry, writing only while it runs (a day's grace either side for time
+--     zones; not once the coach ended it);
 --   · nobody else gets anything (no anon access at all; another coach, a lifter who isn't in it, a
 --     lifter who has left the coach: no rows).
 -- Guards (server side): ids and the coach can't move, created_at / ended_at / updated_at are the
@@ -23,7 +25,8 @@
 -- device and lifters see none (db.js COACH CHALLENGES hook). Idempotent; one transaction.
 -- To take it back out: drop table public.challenge_entries; drop table public.coach_challenges;
 -- drop function public.challenge_my_coach(); drop function public.challenge_coach_may(uuid);
--- drop function public.challenge_member_may(uuid, boolean); and the two guard functions.
+-- drop function public.challenge_member_may(uuid, boolean); drop function public.challenge_board(uuid[]);
+-- and the two guard functions.
 begin;
 
 create table if not exists public.coach_challenges (
@@ -111,11 +114,12 @@ create policy "coach_challenges_delete" on public.coach_challenges
   for delete to authenticated
   using (coach_id = (select auth.uid()));
 
--- Entries: through the challenge's coach; a member reads them all and writes only their own, while it runs.
+-- Entries: through the challenge's coach; a lifter selects only their own row (the board's names and
+-- values come through public.challenge_board) and writes only their own, while it runs.
 drop policy if exists "challenge_entries_select" on public.challenge_entries;
 create policy "challenge_entries_select" on public.challenge_entries
   for select to authenticated
-  using (public.challenge_coach_may(challenge_id) or public.challenge_member_may(challenge_id, false));
+  using (public.challenge_coach_may(challenge_id) or athlete_id = (select auth.uid()));
 
 drop policy if exists "challenge_entries_insert" on public.challenge_entries;
 create policy "challenge_entries_insert" on public.challenge_entries
@@ -192,9 +196,24 @@ revoke all on public.challenge_entries from anon, authenticated;
 grant select, insert, update, delete on public.coach_challenges to authenticated;
 grant select, insert, update, delete on public.challenge_entries to authenticated;
 
+-- A challenge's board as everyone in it sees it: names and values, never a baseline. For the coach
+-- of these challenges, or a member whose coach runs them right now; nobody else gets a row.
+-- → (challenge_id, athlete_id, name, value, updated_at)
+create or replace function public.challenge_board(p_challenges uuid[])
+returns table (challenge_id uuid, athlete_id uuid, name text, value numeric, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select e.challenge_id, e.athlete_id, e.name, e.value, e.updated_at
+    from public.challenge_entries e
+   where e.challenge_id = any (coalesce(p_challenges, '{}'::uuid[]))
+     and (public.challenge_coach_may(e.challenge_id) or public.challenge_member_may(e.challenge_id, false));
+$$;
+revoke all on function public.challenge_board(uuid[]) from public, anon;
+grant execute on function public.challenge_board(uuid[]) to authenticated;
+
 commit;
 
 -- Verify:
 --   select tablename, policyname, cmd from pg_policies
 --    where tablename in ('coach_challenges', 'challenge_entries') order by 1, 2;   -- 8 rows
 --   select tgname from pg_trigger where tgname in ('trg_coach_challenges_guard', 'trg_challenge_entries_guard');
+--   select to_regprocedure('public.challenge_board(uuid[])');

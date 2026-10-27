@@ -4393,7 +4393,7 @@ Object.assign(DB, {
   // Hydrate: the challenges a user sees and their entries. → { challenges, entries }
   async _chHydrate(user) {
     const challenges = await this.listChallenges(user);
-    const entries = challenges.length ? await this.listChallengeEntries(challenges.map(c => c.id), user.userType === 'coach' ? user.id : null) : [];
+    const entries = challenges.length ? await this.listChallengeEntries(challenges.map(c => c.id), user.userType === 'coach' ? user.id : null, user.id) : [];
     return { challenges, entries };
   },
   // A new challenge (the coach's). → { ok, challenge, local } | { ok: false, error }
@@ -4426,11 +4426,23 @@ Object.assign(DB, {
     if (error) return { ok: false, error };
     return { ok: true, endedAt: data && data.ended_at ? data.ended_at : at };
   },
-  // Every entry of these challenges the user may read (RLS: the coach's, or a member's boards).
-  async listChallengeEntries(ids, coachIdForLocal) {
+  // Every entry of these challenges the user may read. The coach: their rows, baselines and all (RLS).
+  // A lifter: the board through challenge_board (names and values only, never a teammate's baseline)
+  // with their own rows from the table (their own baseline, so their gain reads from the same one).
+  async listChallengeEntries(ids, coachIdForLocal, meId) {
     const list = Array.from(new Set((ids || []).filter(Boolean)));
     if (!list.length) return [];
     if (this._chReady === false && coachIdForLocal) return this._chLocal(coachIdForLocal, 'entries').filter(e => list.indexOf(e.challengeId) >= 0);
+    if (!coachIdForLocal) {
+      const [board, own] = await Promise.all([
+        sb.rpc('challenge_board', { p_challenges: list }),
+        meId ? sb.from('challenge_entries').select('*').eq('athlete_id', meId).in('challenge_id', list) : Promise.resolve({ data: [] })
+      ]);
+      if (board.error) { if (!_isNotReady(board.error)) console.warn('challenge_board', board.error); return []; }
+      const mine = {};
+      ((own && own.data) || []).forEach(r => { mine[r.challenge_id] = r; });
+      return (board.data || []).map(r => mapDbChallengeEntry(Object.assign({}, r, r.athlete_id === meId && mine[r.challenge_id] ? { baseline: mine[r.challenge_id].baseline } : {})));
+    }
     const out = [];
     for (let i = 0; i < list.length; i += 100) {
       const { data, error } = await sb.from('challenge_entries').select('*').in('challenge_id', list.slice(i, i + 100)).limit(5000);
