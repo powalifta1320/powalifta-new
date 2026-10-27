@@ -4606,6 +4606,17 @@ test('aim: a saved plan keeps its target (20-1500 kg, on 0.5), inside the 2 KB t
   eq(full.target, 1499.5);
   assert(JSON.stringify(full).length < 2048, 'under 2 KB: ' + JSON.stringify(full).length);
 });
+test('meet day: "Chance of 600 now" in whole percent, never certain, in the viewer-s unit', () => {
+  eq(MP.chancePct(0.412), '41%'); eq(MP.chancePct(0.999), '99%', 'never certain'); eq(MP.chancePct(0.004), 'under 1%'); eq(MP.chancePct(0.006), '1%');
+  const lifts = { squat: [180, 190, 200], bench: [90, 95, 100] }, b = { squat: 200, bench: 100 };
+  eq(MP.chanceNowText(300, lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'kg'), 'Chance of 300 now: 50%', 'the bench third is a coin flip');
+  eq(MP.chanceNowText(295, lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'kg'), '295 made', 'in the bank: said as made, not as a chance');
+  eq(MP.chanceNowText(301, lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'kg'), '301 is out of reach now', 'past what is left to lift');
+  eq(MP.chanceNowText(290, lifts, { squat: ['good', 'no', null], bench: ['good', null, null] }, b, 'kg'), 'Chance of 290 now: ' + MP.chancePct(MP.totalChanceLive(lifts, { squat: ['good', 'no', null], bench: ['good', null, null] }, b, 290)));
+  eq(MP.chanceNowText(MP.targetKg('660', 'lbs'), lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'lbs'), 'Chance of 660 now: 50%', 'an lb target reads in lb');
+  eq(MP.chanceNowText(0, lifts, {}, b, 'kg'), '', 'no target: nothing to say');
+  eq(MP.chanceNowText(300, lifts, {}, {}, 'kg'), '', 'no max: no chance');
+});
 test('aim: under 50 ms for any input', () => {
   const big = [{ squat: 420, bench: 300, deadlift: 450 }, { squat: 560, bench: 560, deadlift: 560 }, { squat: 35, bench: 25, deadlift: 45 }];
   big.forEach(e => {

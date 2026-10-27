@@ -160,6 +160,25 @@ html.md-open .ai-launcher { display: none; }
 .md-plans { display: flex; flex-direction: column; gap: 8px; }
 .md-plans .md-opts { max-width: 600px; }
 .md-plans-note { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+/* Aim for a total: one row under the plans, the attempt cells' own pattern (the words and the chance
+   on the left, the number on the right) so the chance changes in place and nothing moves. */
+.md-aim { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: 12px; max-width: 600px; box-sizing: border-box;
+  min-height: 64px; padding: 10px 10px 10px 16px; border-radius: 16px; background: var(--md-surface); }
+.md-aim-k { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.md-aim-t { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--text); }
+.md-aim-p { min-height: 18px; font-size: 13px; line-height: 18px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-aim-p.is-out { color: var(--md-warn); }
+.md-aim-p .md-aim-likely { padding: 0; font-size: 13px; color: var(--text); }
+.md-aim-in { display: inline-flex; align-items: center; gap: 6px; }
+.md-root .md-aim input.md-aim-kg { width: 88px; height: 44px; box-sizing: border-box; padding: 0 8px; border: 0; border-radius: 12px; background: var(--fill-1, rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 0 0 1px var(--md-hair); color: var(--text); text-align: center; font-family: var(--md-num); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; outline: none; }
+.md-root .md-aim input.md-aim-kg:focus { background: var(--fill-2); box-shadow: inset 0 0 0 1.5px var(--text-3); }
+.md-aim-u { font-size: 13px; color: var(--text-3); }
+.md-aim-fill { height: 44px; padding: 0 18px; }
+[data-theme="light"] .md-root .md-aim input.md-aim-kg { background: #fff; }
+/* Filled from a target: the attempts that moved say so once (state, not decoration). */
+.md-root .md-pl-cell input.md-kg-in.is-filled { animation: mdFilled 700ms cubic-bezier(0.23, 1, 0.32, 1); }
+@keyframes mdFilled { from { background: color-mix(in srgb, var(--text) 16%, transparent); } to { background: transparent; } }
 /* The planner's type, phone and desk alike: 13 · 15 · 16 · 20 · 22. */
 .md-planner :is(.md-pl-meta, .md-pl-state, .md-pl-th, .md-pl-facts, .md-pl-bounce) { font-size: 13px; }
 .md-planner :is(.md-pl-name, .md-pl-cls, .md-btn) { font-size: 15px; }
@@ -269,6 +288,7 @@ html.md-open .ai-launcher { display: none; }
 .md-dec-kg b.is-low { color: var(--md-no); }
 .md-dec-odds { display: flex; justify-content: center; min-height: 18px; margin: -2px 0 12px; }
 /* The board's next attempt: three rows (Safe · Plan · Send), the way the lifter's minute lists them. */
+.md-dec-aim { margin: -6px 0 12px; text-align: center; font-size: 13px; line-height: 18px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .md-dec .md-opts { grid-template-columns: minmax(0, 1fr); margin: 0 0 12px; }
 .md-dec .md-opt { display: grid; grid-template-columns: 48px auto minmax(0, 1fr); align-items: baseline; align-content: center; column-gap: 12px; padding: 0 14px; }
 .md-dec .md-opt .md-odds { justify-self: end; flex-wrap: nowrap; white-space: nowrap; }
@@ -415,6 +435,9 @@ html.md-open .ai-launcher { display: none; }
   .md-pl-odds { grid-area: odds; align-self: start; min-height: 0; margin-top: 0; padding-left: 0; font-size: 13px; line-height: 1.3; }
   .md-root .md-pl-cell input.md-kg-in { width: 88px; min-width: 0; flex: none; padding: 0 4px; font-size: 20px; }
   .md-step { width: 36px; height: 36px; }
+  .md-aim { padding: 10px 8px 10px 14px; column-gap: 8px; }
+  .md-root .md-aim input.md-aim-kg { width: 80px; }
+  .md-aim-fill { padding: 0 16px; }
   /* What a coach taps mid-flight with chalky hands: 44 px at least. */
   .md-root .md-tools .md-btn, .md-tab, .md-flight, .md-hook .md-btn { min-height: 44px; height: 44px; }
   .md-x { width: 44px; height: 44px; }
@@ -430,6 +453,7 @@ html.md-open .ai-launcher { display: none; }
   .md-root, .md-root.is-leaving, .md-sheet { animation: none; }
   .md-btn, .md-cell, .md-cell-kg, .md-opt { transition: none; }
   .md-opt:active { transform: none; }
+  .md-root .md-pl-cell input.md-kg-in.is-filled { animation: none; }
   .md-sync.is-busy::before { animation: none; }
 }
 
@@ -619,5 +643,9 @@ html.desk .md-root.md-planner :is(.md-sub, .md-sum-cell span, .md-sum-cell small
 html.desk .md-root.md-planner :is(.md-note, .md-btn) { font-size: 15px; }
 html.desk .md-root.md-planner .md-step { font-size: 16px; }
 html.desk .md-root .md-side .md-card { background: var(--dk-raise); }
+html.desk .md-root .md-aim { border-radius: var(--r-2); }
+html.desk .md-root .md-aim input.md-aim-kg { height: 40px; border-radius: var(--r-1); background: var(--dk-fill); box-shadow: none; }
+html.desk .md-root .md-aim input.md-aim-kg:focus { box-shadow: 0 0 0 2px var(--dk-focus); }
+html.desk .md-root .md-aim-fill { height: 40px; }
 /* The desk: Meets and the board sit on the desk's own raised surface, so light reads as cards and not white on white. */
 html.desk .md-screen, html.desk .md-root { --md-surface: var(--dk-raise); }

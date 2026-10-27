@@ -545,7 +545,10 @@ function _buildCoachDemoData() {
   [[20, 64.4], [17, 64.0], [14, 64.3], [11, 64.1], [8, 64.2], [5, 63.9], [3, 64.2], [1, 64.1]].forEach(([d, kg]) => {
     bodyweight.push({ id: 'demo-cbw-demo-a2-' + d, athleteId: 'demo-a2', date: daysAgo(d), weight: kg, unit: 'kg' });
   });
-  const goals = [{ id: 'demo-a2', athleteId: 'demo-a2', bodyweight: 63, bwDirection: 'cut', targetClass: 63, cutBy: daysAgo(-21), kcalTarget: 1900, proteinTarget: 130 }];
+  const goals = [{ id: 'demo-a2', athleteId: 'demo-a2', bodyweight: 63, bwDirection: 'cut', targetClass: 63, cutBy: daysAgo(-21), kcalTarget: 1900, proteinTarget: 130 },
+    // Arjun's total for Fall Nationals (the planner's Aim for a total starts on it): within reach of
+    // his 572.5 meet best, a long way off his maxes mid-block, so it opens on an honest chance.
+    { id: 'demo-a1', athleteId: 'demo-a1', squat: null, bench: null, deadlift: null, total: 570, bodyweight: null, bwDirection: 'maintain' }];
   // Seeded conversations so the Messages inbox is alive: an active back-and-forth
   // (Arjun, ends on an unread question), a wrapped-up exchange (Sarah), a re-engaged
   // absentee (Tom, unread), and Nina with nothing yet (shows the empty state).
