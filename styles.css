@@ -9288,7 +9288,7 @@ html.native .rest-timer { left: 12px; right: 12px; width: auto; bottom: calc(76p
 
 /* Done: "Go" on a green ring, a single pop, then the dock drops away. */
 .rest-timer.done .rt-prog { stroke: var(--ok, #34d982); filter: drop-shadow(0 0 8px rgba(52, 217, 130, 0.6)); }
-.rest-timer.done .rt-num { color: var(--ok, #34d982); animation: rtGo 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.rest-timer.done .rt-num { color: var(--ok, #34d982); animation: rtGo 0.42s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)); }
 .rest-timer.done .rt-actions { opacity: 0.35; pointer-events: none; transition: opacity 0.2s ease; }
 @keyframes rtGo { from { transform: scale(0.82); } to { transform: none; } }
 
@@ -9383,7 +9383,7 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
   flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff;
   background: var(--fire, linear-gradient(135deg, #ff3b4a, #ff6a3d));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 10px 22px -10px rgba(255, 59, 74, 0.85);
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.18s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
 }
 .club-compose:active .cc-plus { transform: scale(0.9) rotate(90deg); }
 .club-compose .cc-plus svg { width: 22px; height: 22px; }
@@ -9408,7 +9408,7 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
   border-color: rgba(255, 191, 60, 0.32);
   box-shadow: inset 0 1px 0 rgba(255, 224, 140, 0.12), 0 0 0 1px rgba(255, 191, 60, 0.08), 0 22px 44px -28px rgba(255, 176, 30, 0.75);
 }
-.cp-card.is-fresh { animation: cpPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.cp-card.is-fresh { animation: cpPop 0.55s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)) backwards; }
 @keyframes cpPop { from { opacity: 0.5; transform: translateY(-8px) scale(0.95); } }
 .cp-head { display: flex; align-items: center; gap: 12px; }
 .cp-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -9535,7 +9535,7 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
   box-shadow: inset 0 0 0 2px var(--line-2, rgba(255, 255, 255, 0.2)); color: var(--acc-ink, #fff);
   transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
-.share-radio svg { width: 14px; height: 14px; opacity: 0; transform: scale(0.5); transition: opacity 0.15s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.share-radio svg { width: 14px; height: 14px; opacity: 0; transform: scale(0.5); transition: opacity 0.15s ease, transform 0.22s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)); }
 .share-opt.on .share-radio { background: var(--acc, #ff3b4a); box-shadow: none; }
 .share-opt.on .share-radio svg { opacity: 1; transform: none; }
 .share-opt .cp-pr { margin-left: 0; }
@@ -11934,6 +11934,36 @@ body.powa-app .tx-hero.is-done .tx-done-more :is(.tx-hurt, .tx-resume) { display
 }
 .lift-mode .lm-rest-acts button:active { background: var(--fill-3, rgba(255, 255, 255, 0.14)); color: var(--text); transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) { .lift-mode .lm-log, .lift-mode .lm-log:active, .lift-mode .lm-rest-acts button:active { transition: none; transform: none; } }
+
+/* Progress and You, calmer (2026-10-27, audit #17).
+   Tags: sentence case at the meta size, no tracking; the status is a dot, the word stays ink.
+   Lift balance only tags a lift outside its range (athlete.html renderLiftBalanceCard). */
+body.powa-app .ui-tag {
+  min-height: 24px; padding: 2px 10px; gap: 6px; font-size: var(--fs-meta, 13px); font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: var(--text-2);
+}
+body.powa-app .ui-tag:is(.lagging, .strong, .ok, .warn)::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: currentColor; }
+body.powa-app .ui-tag.lagging::before, body.powa-app .ui-tag.warn::before { background: var(--warn, #ff9f43); }
+body.powa-app .ui-tag.strong::before, body.powa-app .ui-tag.ok::before { background: var(--ok, #34d982); }
+body.powa-app .ui-tag:is(.lagging, .strong, .ok, .warn) { color: var(--text-2); }
+/* You and Progress › Tools: calm neutral icon tiles (about fifteen hues before; a red bell). */
+html:not(.desk) body.powa-app :is(#youArea .yr-ic, .yr-ic.tool-ic) { --yc: var(--text-2); }
+/* Sets this week: the bars in ink, the zone in words; only "over the maximum" carries a dot. */
+body.powa-app .vol-row .vol-fill { background: color-mix(in srgb, var(--text) 82%, transparent); }
+body.powa-app .vol-row .vol-zone { color: var(--text-2); font-weight: 600; }
+body.powa-app .vol-row.vol-over .vol-zone { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+body.powa-app .vol-row.vol-over .vol-zone::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--soft-alert, #ff8f80); }
+body.powa-app .vol-tick-mrv { background: color-mix(in srgb, var(--text) 55%, transparent); }
+/* "207 kg", never "207kg": the e1RM and its unit keep their space in the flex row (audit B13). */
+body.powa-app .pg-e1 { gap: 4px; }
+body.powa-app .pg-e1 .pg-d { margin-left: 4px; }
+
+/* Form checks (2026-10-27): the video picker is one quiet button (the raw file input hides behind
+   it), and the reply's label is sentence case in grey, not red caps. */
+.fc-pick-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+body.powa-app .fc-pick-row .fc-pick { flex: none; min-height: 44px; padding: 0 18px; font-size: var(--fs-sm, 14px); font-weight: 600; }
+.fc-pick-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta, 13px); color: var(--text-3); }
+body.powa-app .fc-reply-lbl { font-size: var(--fs-meta, 13px); font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) { html.native body.powa-app.rest-open:has(.dash-main)::after { animation: none; } }
 
 /* Two-factor in Security: a row like the others, not a heading (2026-10-22). */

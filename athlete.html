@@ -93,7 +93,7 @@
         <div class="session-bar-right">
           <button class="btn btn-sm btn-ghost" id="pinDayDate" title="Lock the selected day to this date so it opens here next time">Pin to this date</button>
           <button class="btn btn-sm btn-ghost" id="unpinDayDate" title="Remove the pin from the selected day" style="display:none;">Unpin</button>
-          <button class="btn btn-sm btn-ghost" id="exportDayBtn" onclick="exportTodayCsv()" title="Download this day's session as a spreadsheet (CSV) you can take to the gym">Export day</button>
+          <button class="btn btn-sm btn-ghost" id="exportDayBtn" onclick="exportTodayCsv()" title="Download this day's session as a CSV file you can take to the gym">Export day</button>
           <button class="btn btn-sm" id="restBtn"></button>
         </div>
       </div>
@@ -981,7 +981,7 @@ function openSessionPicker() {
     const st = _dayStatus(day);
     const here = !!(cur && cur.day.id === day.id && curBound);
     let sub, kind;
-    if (st.rest) { sub = 'Rest'; kind = 'rest'; }
+    if (st.rest) { sub = /recover/i.test(day.name || '') ? null : 'Recovery day'; kind = 'rest'; }   // never "Rest" under "Rest"
     else if (st.open === 0 && st.done > 0) { sub = 'Done' + (st.lastDate ? ', ' + fmtDateShort(st.lastDate) : ''); kind = 'done'; }
     else if (st.open === 0) { sub = 'Skipped'; kind = 'done'; }
     else if (st.done > 0) { sub = st.done + ' of ' + st.total + ' sets done'; kind = 'part'; }
@@ -1042,7 +1042,7 @@ function openSessionPicker() {
     other.push(dRow);
     if (curBound && cur && (cur.day.exercises || []).length) {
       other.push(uiRow({ lead: el('span', { class: 'sp-ic is-date', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>' }),
-        title: 'Export this session', sub: 'A spreadsheet to print or take to the gym', chevron: true, onClick: () => { close(); exportTodayCsv(); } }));
+        title: 'Export this session', sub: 'A file to print or take to the gym', chevron: true, onClick: () => { close(); exportTodayCsv(); } }));
     }
     sheet.appendChild(uiLabel('Or'));
     sheet.appendChild(uiList(other));
@@ -5027,7 +5027,15 @@ function openMeetMode() {
     x.addEventListener('click', close);
     head.appendChild(x);
     head.appendChild(el('div', { class: 'mm-title' }, 'Meet day'));
-    head.appendChild(el('div', { class: 'mm-total' }, el('b', {}, stand.total ? formatWeight(stand.total) : '–'), el('span', {}, stand.taken ? stand.made + ' of ' + stand.taken + ' made' : 'Total')));
+    // Before the first attempt there's no total yet: show the planned one (each lift's top planned
+    // attempt), or nothing; never a lone "–" over "Total".
+    const plannedTotal = ['squat', 'bench', 'deadlift'].reduce((a, l) => {
+      const kgs = ((st.lifts && st.lifts[l] && st.lifts[l].attempts) || []).map(t => Number(t.kg) || 0);
+      return a + (kgs.length ? Math.max(...kgs) : 0);
+    }, 0);
+    if (stand.taken || stand.total) head.appendChild(el('div', { class: 'mm-total' }, el('b', {}, stand.total ? formatWeight(stand.total) : '–'), el('span', {}, stand.taken ? stand.made + ' of ' + stand.taken + ' made' : 'Total')));
+    else if (plannedTotal > 0) head.appendChild(el('div', { class: 'mm-total' }, el('b', {}, formatWeight(plannedTotal)), el('span', {}, 'Planned')));
+    else head.appendChild(el('div', { class: 'mm-total', 'aria-hidden': 'true' }));
     root.appendChild(head);
     // MEET DAY hook (meetday.js): "your next attempt" from the coach's board, when one is running today.
     const mdNext = window.MeetDay && MeetDay.lifterNextEl ? MeetDay.lifterNextEl() : null;
@@ -5810,7 +5818,7 @@ function renderAthleteYou() {
         selfCoached ? null : { label: 'Full program', onClick: go('program') },
         { label: 'Career', value: careerRowValue(), onClick: go('career') },
         { label: 'Goals', onClick: () => openGoalsModal() },
-        window.IntakeUI ? IntakeUI.youRow() : null,
+        window.IntakeUI ? ((r) => r && Object.assign(r, { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg>' }))(IntakeUI.youRow()) : null,
         { label: 'Your wraps', value: wrapsRowValue(), onClick: () => openWrapsArchive() },
         { label: 'Rest and sets', value: restSettingsSummary(), onClick: (row, v) => openRestSettings(() => { v.textContent = restSettingsSummary(); }) },
         // Programs bought on the web marketplace: web only. In the iPhone app they'd point at a
@@ -6633,11 +6641,12 @@ function renderLiftBalanceCard(athleteId) {
   if (!bal) return null;
   // Each lift's share of the total against the typical raw range. The tag is
   // the verdict, so no paragraph is needed under it.
-  const word = { balanced: 'Balanced', lagging: 'Lagging', strong: 'Strong' };
+  // Only a lift outside its range gets a word (a "Balanced" pill on every row said nothing).
+  const word = { lagging: 'Lagging', strong: 'Strong' };
   return uiList(bal.rows.map(r => uiRow({
     title: LIFT_LABELS[r.lift],
     sub: Math.round(r.share * 100) + '% of your total · typical ' + Math.round(r.lo * 100) + '–' + Math.round(r.hi * 100) + '%',
-    endHtml: '<span class="ui-tag ' + r.status + '">' + (word[r.status] || '') + '</span>'
+    endHtml: word[r.status] ? '<span class="ui-tag ' + r.status + '">' + word[r.status] + '</span>' : null
   })));
 }
 
@@ -7033,29 +7042,25 @@ function renderProgOverview(area, logs) {
                  : { value: Math.round(ton).toLocaleString(), unit: u, label: 'Moved' }
   ]));
 
-  // Tools: one tile each, a live line under the name.
+  // Tools: one grouped list, a calm icon and a live line under each name (a 2×3 grid of identical
+  // tiles before, audit #17).
   area.appendChild(uiLabel('Tools'));
-  const grid = el('div', { class: 'tool-grid' });
   const SV = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
-  const tile = (tint, icon, title, sub, onClick) => {
-    const b = el('button', { class: 'tool-tile t-' + tint, type: 'button' });
-    b.appendChild(el('span', { class: 'tt-ic', html: icon }));
-    b.appendChild(el('span', { class: 'tt-t' }, title));
-    b.appendChild(el('span', { class: 'tt-s' }, sub));
-    b.addEventListener('click', onClick);
-    grid.appendChild(b);
-  };
+  const tools = [];
+  const tool = (icon, title, sub, onClick) => tools.push(uiRow({
+    lead: el('span', { class: 'yr-ic t-gray tool-ic', html: icon }), title, sub, chevron: true, onClick
+  }));
   let md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
   const dd = md ? daysUntil(md) : null;
   const bwl = _bwSeries(); const lastBw = bwl[bwl.length - 1];
-  tile('gold', ICONS.trophy, 'Meet day', dd != null && dd >= 0 ? (dd === 0 ? 'It\'s meet day' : dd + (dd === 1 ? ' day out' : ' days out')) : 'Attempts and warm-ups', () => openMeetSheet());
-  tile('fire', SV('<path d="M2 12h20"/><rect x="5" y="6.5" width="3.2" height="11" rx="1"/><rect x="15.8" y="6.5" width="3.2" height="11" rx="1"/>'), 'Plate math', 'What goes on the bar', () => openPlateSheet(0));
-  tile('cyan', SV('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>'), 'Load finder', 'Weight for any reps and RPE', () => openLoadFinder());
-  tile('teal', ICONS.scale, 'Weigh-in', lastBw ? formatWeight(lastBw.weight) + ' · ' + _relDay(lastBw.date) : 'Log your bodyweight', () => openWeighInSheet(() => { try { renderProgress(); } catch (e) {} }));
+  tool(ICONS.trophy, 'Meet day', dd != null && dd >= 0 ? (dd === 0 ? 'It\'s meet day' : dd + (dd === 1 ? ' day out' : ' days out')) : 'Attempts and warm-ups', () => openMeetSheet());
+  tool(SV('<path d="M2 12h20"/><rect x="5" y="6.5" width="3.2" height="11" rx="1"/><rect x="15.8" y="6.5" width="3.2" height="11" rx="1"/>'), 'Plate math', 'What goes on the bar', () => openPlateSheet(0));
+  tool(SV('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>'), 'Load finder', 'Weight for any reps and RPE', () => openLoadFinder());
+  tool(ICONS.scale, 'Weigh-in', lastBw ? formatWeight(lastBw.weight) + ' · ' + _relDay(lastBw.date) : 'Log your bodyweight', () => openWeighInSheet(() => { try { renderProgress(); } catch (e) {} }));
   const wkS = new Set(wkLogs.map(l => l.date)).size;
-  tile('violet', ICONS.share, 'Share my week', wkS + (wkS === 1 ? ' session' : ' sessions') + ' this week', () => shareWeekCard());
-  tile('gray', SV('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'), 'Import history', 'From a spreadsheet', () => openImportModal());
-  area.appendChild(grid);
+  tool(ICONS.share, 'Share my week', wkS + (wkS === 1 ? ' session' : ' sessions') + ' this week', () => shareWeekCard());
+  tool(SV('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'), 'Import history', 'From a file', () => openImportModal());
+  area.appendChild(uiList(tools));
 }
 
 // ── ANALYSIS ──────────────────────────────────────────────────────────
@@ -8242,7 +8247,7 @@ function renderSelfBuilder() {
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
     blockOpen ? { label: 'Build a new block…', icon: ICONS.program, onClick: () => openSoloBlockSheet() } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => sbAddWeek(prog.id) },
-    { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv() }
+    { label: 'Export as a CSV file', icon: ICONS.program, onClick: () => exportProgramCsv() }
   ]));
   headRow.appendChild(progMore);
   head.appendChild(headRow);
@@ -8743,7 +8748,7 @@ function renderFullProgram() {
   head.appendChild(el('div', { class: 'fp-name' }, prog.name || 'Program'));
   const more = el('button', { class: 'ui-icon-btn', type: 'button', 'aria-label': 'Program options', html: UI_DOTS });
   more.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
-    { label: 'Export to spreadsheet', icon: ICONS.copy, onClick: () => exportProgramCsv() },
+    { label: 'Export as a CSV file', icon: ICONS.copy, onClick: () => exportProgramCsv() },
     { label: 'Save week ' + _fpWeek + ' as an image', icon: ICONS.today, onClick: () => exportProgramAsImage(_fpWeek) }
   ]));
   head.appendChild(more);
@@ -8897,10 +8902,14 @@ function renderBodyweight() {
     const verb = dir === 'cut' ? 'Cutting to ' : dir === 'gain' ? 'Gaining to ' : 'Holding ';
     const left = dir === 'cut' ? cur - target : dir === 'gain' ? target - cur : Math.abs(cur - target);
     const atGoal = (dir === 'cut' && cur <= target) || (dir === 'gain' && cur >= target);
+    // A hold has nothing "to go": it reads On weight, or how far over / under the line you are.
+    const off = Number(kgToDisplay(left, 1)) || 0;
+    const holdEnd = !off ? '<span class="ui-up">On weight</span>' : '<b>' + kgToDisplay(left, 1) + '</b> ' + u + (cur > target ? ' over' : ' under');
+    const paceTxt = stats.pace ? stats.pace.text.charAt(0).toUpperCase() + stats.pace.text.slice(1) : null;
     area.appendChild(uiList([uiRow({
       title: verb + kgToDisplay(target) + ' ' + u,
-      sub: stats.pace ? stats.pace.text : null,
-      endHtml: atGoal ? '<span class="ui-up">At goal</span>' : '<b>' + kgToDisplay(Math.max(0, left), 1) + '</b>' + u + ' to go',
+      sub: paceTxt,
+      endHtml: dir !== 'cut' && dir !== 'gain' ? holdEnd : atGoal ? '<span class="ui-up">At goal</span>' : '<b>' + kgToDisplay(Math.max(0, left), 1) + '</b>' + u + ' to go',
       chevron: true,
       onClick: () => openGoalsModal()
     })]));
@@ -9050,6 +9059,21 @@ async function renderAthleteFormChecks(host, coach) {
   // VIDEO REVIEW hook: in the iPhone app the clip comes from the native picker, exported to H.264 MP4
   // (iPhone HEVC plays black in Chrome on Windows). On the web this is null and the file input stays.
   const nativePick = window.VideoReview ? VideoReview.attachNativePicker(fileInput) : null;
+  // No native picker (the web, or a build without the plugin): the browser's raw "Choose File / No
+  // file chosen" control hides behind one quiet button in the app's style, the clip's name beside it.
+  if (!nativePick) {
+    fileInput.hidden = true;
+    const pickBtn = el('button', { class: 'btn ui-btn-soft fc-pick', type: 'button' }, 'Choose a video');
+    const pickLbl = el('span', { class: 'fc-pick-label', 'aria-live': 'polite' });
+    pickBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      const mb = f ? f.size / 1048576 : 0;
+      pickLbl.textContent = f ? f.name + ' · ' + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + ' MB' : '';
+      pickBtn.textContent = f ? 'Choose another' : 'Choose a video';
+    });
+    form.insertBefore(el('div', { class: 'fc-pick-row' }, pickBtn, pickLbl), fileInput.nextSibling);
+  }
 
   const listHost = el('div', { class: 'fc-list', style: 'margin-top:16px;' });
   host.appendChild(listHost);
@@ -9067,6 +9091,7 @@ async function renderAthleteFormChecks(host, coach) {
       else await DB.uploadFormCheck(up);
       toast('Sent to ' + coach.name.split(' ')[0] + ' for review');
       fileInput.value = ''; noteInput.value = ''; liftSel.value = '';
+      fileInput.dispatchEvent(new Event('change'));   // the picker's label resets with it
       if (nativePick) nativePick.done();
       loadList();
     } catch (e) {
@@ -9125,7 +9150,7 @@ function buildFormCheckCard(fc, otherFirst, isAthlete) {
   // Coach reply
   const reply = el('div', { class: 'fc-reply' });
   if (fc.coachReply) {
-    reply.appendChild(el('div', { class: 'fc-reply-lbl' }, 'Coach reply'));
+    reply.appendChild(el('div', { class: 'fc-reply-lbl' }, isAthlete ? 'Coach\'s reply' : 'Your reply'));
     reply.appendChild(el('p', { class: 'fc-reply-body' }, fc.coachReply));
   } else {
     reply.appendChild(el('p', { class: 'dim text-xs' }, isAthlete ? 'Waiting on ' + otherFirst + '’s reply…' : 'No reply yet'));
