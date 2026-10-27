@@ -1565,3 +1565,21 @@ html:not(.desk) section[data-pane="progress"] .cmp-k { font-size: 13px; font-wei
 html:not(.desk) section[data-pane="progress"] #progressArea .ui-label { margin-top: 24px; }
 html:not(.desk) section[data-pane="progress"] #progressArea > .ui-label:first-child { margin-top: 4px; }
 
+
+/* --- 9. Ask AI (the sheet) --- */
+/* No red wash behind the header and no red tint on the coach's own questions: the send arrow is the one
+   red. Controls reach the app's sizes: a 44 pt close, 36 pt segments, 34 pt suggestion chips in 13 px type
+   (they were 26 pt in 11 px), a 44 pt composer with a round send. */
+html.native:not(.desk) .ai-head { background: none; border-bottom-color: var(--line); }
+html.native:not(.desk) .ai-close { position: relative; width: 36px; height: 36px; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html.native:not(.desk) .ai-close::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html.native:not(.desk) .ai-close:active { transform: scale(0.92); }
+html.native:not(.desk) .ai-seg { border: 0; border-radius: 12px; }
+html.native:not(.desk) .ai-seg-btn { min-height: 34px; border-radius: 9px; font-size: 15px; font-weight: 600; }
+html.native:not(.desk) .ai-bubble { border-color: transparent; font-size: 15px; line-height: 1.45; padding: 10px 14px; border-radius: 16px; }
+html.native:not(.desk) .ai-msg.user .ai-bubble { background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html.native:not(.desk) .ai-chips { gap: 8px; padding: 8px 16px 6px; }
+html.native:not(.desk) .ai-chip { min-height: 34px; padding: 0 14px; border: 0; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font-size: 13px; font-weight: 600; transition: transform 140ms ease-out, background-color 150ms ease-out; }
+html.native:not(.desk) .ai-chip:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
+html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 24px; padding: 4px 4px 4px 16px; }
+html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%; }
