@@ -4468,6 +4468,158 @@ test('the basis says what the plans stand on, honest about old maxes', () => {
 });
 
 /* ===========================================================
+   Aim for a total (meetday.js, 2026-10-28): the chance a set of
+   attempts makes a target total (every attempt its own odds, a
+   lift's result its heaviest made attempt, 0 on a bomb-out), and
+   the attempts with the best chance of a target
+   =========================================================== */
+group('aim for a total');
+const _odd = (w, e) => 1 / (1 + Math.exp(0.4 * (w / e * 100 - 100)));
+test('the chance of a total: tiny cases, exactly', () => {
+  // An attempt at the max is a coin flip: one lift, one attempt.
+  close(MP.totalChance({ squat: [200] }, { squat: 200 }, 200), 0.5, 1e-12);
+  close(MP.totalChance({ squat: [200] }, { squat: 200 }, 150), 0.5, 1e-12, 'made or bombed: under the bar is the same as at it');
+  // Two lifts, a coin flip each: both for the sum, either for the heavier alone.
+  const two = { squat: [200], bench: [100] }, b2 = { squat: 200, bench: 100 };
+  close(MP.totalChance(two, b2, 300), 0.25, 1e-12);
+  close(MP.totalChance(two, b2, 200), 0.5, 1e-12, '200 needs the squat; the bench alone never gets there');
+  close(MP.totalChance(two, b2, 100), 0.75, 1e-12, 'either lift makes 100');
+  close(MP.totalChance({ squat: [200], bench: [100], deadlift: [250] }, { squat: 200, bench: 100, deadlift: 250 }, 550), 0.125, 1e-12, 'three thirds at the max: one in eight');
+  // Three attempts on one lift: the result is the heaviest made.
+  const po = _odd(180, 200), ps = _odd(190, 200), pt = _odd(200, 200);
+  const sq = { squat: [180, 190, 200] }, b = { squat: 200 };
+  close(MP.totalChance(sq, b, 200), pt, 1e-12, 'only the third makes 200');
+  close(MP.totalChance(sq, b, 190), 1 - (1 - ps) * (1 - pt), 1e-12, 'the second or the third makes 190');
+  close(MP.totalChance(sq, b, 180), 1 - (1 - po) * (1 - ps) * (1 - pt), 1e-12, 'anything but three misses makes 180');
+  close(MP.totalChance(sq, b, 201), 0, 1e-12, 'nothing planned reaches 201');
+  // A repeat after a miss: the same bar three times.
+  close(MP.totalChance({ squat: [200, 200, 200] }, b, 200), 0.875, 1e-12);
+  // Blank attempts are not taken; attempts in any order still count by weight.
+  close(MP.totalChance({ squat: [200, null, null] }, b, 200), 0.5, 1e-12);
+  close(MP.totalChance({ squat: [200, 180, 190] }, b, 190), 1 - (1 - ps) * (1 - pt), 1e-12);
+});
+test('the chance of a total: no max or no target means no chance (never a guess)', () => {
+  eq(MP.totalChance({ squat: [200] }, { squat: 0 }, 200), null, 'a lift with attempts and no max');
+  eq(MP.totalChance({ squat: [200] }, {}, 200), null);
+  eq(MP.totalChance({ squat: [200] }, { squat: 200 }, 0), null, 'no target');
+  eq(MP.totalChance({ squat: [200] }, { squat: 200 }, 'x'), null);
+  eq(MP.totalChance({}, { squat: 200 }, 200), null, 'no attempts at all');
+  eq(MP.totalChance(null, null, 200), null);
+  close(MP.totalChance({ squat: [200], bench: [] }, { squat: 200 }, 200), 0.5, 1e-12, 'a lift with nothing planned adds nothing');
+});
+test('the chance falls as the target rises', () => {
+  const lifts = { squat: [182.5, 192.5, 200], bench: [115, 122.5, 127.5], deadlift: [217.5, 230, 240] }, bases = { squat: 200, bench: 127, deadlift: 240 };
+  let last = 2;
+  for (let t = 300; t <= 620; t += 2.5) {
+    const p = MP.totalChance(lifts, bases, t);
+    assert(p <= last + 1e-12, t + ': ' + p + ' after ' + last);
+    assert(p >= 0 && p <= 1, 'a probability: ' + p);
+    last = p;
+  }
+  assert(MP.totalChance(lifts, bases, 300) > 0.99, 'a low target only fails on two bomb-outs');
+  close(MP.totalChance(lifts, bases, 567.5), _odd(200, 200) * _odd(127.5, 127) * _odd(240, 240), 1e-12, 'the thirds\' sum: every third has to go');
+  eq(MP.totalChance(lifts, bases, 570), 0, 'past every third');
+});
+test('live: made attempts count, missed ones are gone, the rest keep their odds', () => {
+  const lifts = { squat: [180, 190, 200] }, b = { squat: 200 };
+  close(MP.totalChanceLive(lifts, { squat: ['good', 'no', null] }, b, 190), _odd(200, 200), 1e-12, '180 in, 190 missed: 190 needs the third');
+  close(MP.totalChanceLive(lifts, { squat: ['good', 'no', null] }, b, 180), 1, 1e-12, '180 is in the bank');
+  close(MP.totalChanceLive(lifts, { squat: ['good', 'good', 'good'] }, b, 200), 1, 1e-12);
+  close(MP.totalChanceLive(lifts, { squat: ['no', 'no', 'no'] }, b, 20), 0, 1e-12, 'a bomb-out');
+  close(MP.totalChanceLive(lifts, { squat: [true, false, null] }, b, 190), _odd(200, 200), 1e-12, 'true / false read as made / missed');
+  close(MP.totalChanceLive(lifts, {}, b, 190), MP.totalChance(lifts, b, 190), 1e-12, 'no results yet: the plan\'s own chance');
+  // Every attempt called: no max needed.
+  close(MP.totalChanceLive({ squat: [180, 190, 200] }, { squat: ['good', 'good', 'no'] }, {}, 190), 1, 1e-12, 'nothing left to lift: the odds need no max');
+  eq(MP.totalChanceLive({ squat: [180, 190, 200] }, { squat: ['good', null, null] }, {}, 190), null, 'something left and no max: no chance');
+  // Two lifts: a good bench third moves the total's chance up.
+  const two = { squat: [180, 190, 200], bench: [90, 95, 100] }, b2 = { squat: 200, bench: 100 };
+  const sq3 = ['good', 'good', 'good'];
+  const before = MP.totalChanceLive(two, { squat: sq3 }, b2, 295);
+  const after = MP.totalChanceLive(two, { squat: sq3, bench: ['good', 'good', null] }, b2, 295);
+  assert(after > before, 'two benches in: ' + after + ' > ' + before);
+  close(after, 1, 1e-12, '95 in the bank makes 295');
+  close(MP.totalChanceLive(two, { squat: sq3, bench: ['good', 'good', null] }, b2, 300), _odd(100, 100), 1e-12, '300 still needs the bench third');
+});
+test('aim: the attempts with the best chance of a target, never worse than Safe, Balanced or Bold', () => {
+  const cases = [{ e: { squat: 200, bench: 127, deadlift: 240 } }, { e: { squat: 115, bench: 67.5, deadlift: 147.5 } }, { e: { squat: 262.5, bench: 172.5, deadlift: 300 }, ref: { squat: 240 } },
+    { e: { squat: 96, bench: 54, deadlift: 125 } }, { e: { squat: 205, bench: 132 } }];
+  cases.forEach(c => {
+    const plans = MP.attemptPlans(c.e, { refByLift: c.ref || {} });
+    const sum = Object.keys(c.e).reduce((a, l) => a + c.e[l], 0);
+    for (let t = Math.round(sum * 0.84 / 2.5) * 2.5; t <= sum * 1.03; t += 7.5) {
+      const r = MP.planForTotal(t, c.e, { refByLift: c.ref || {} });
+      if (r.outOfReach) continue;
+      plans.forEach(pl => {
+        const kg = {}; Object.keys(pl.lifts).forEach(l => { kg[l] = pl.lifts[l].map(a => a.kg); });
+        const pc = MP.totalChance(kg, c.e, t);
+        assert(r.p >= pc - 1e-12, pl.key + ' at ' + t + ': ' + pc + ' beats the aim ' + r.p);
+      });
+      close(MP.totalChance(r.lifts, c.e, t), r.p, 1e-12, 'p is the plan\'s own chance');
+      Object.keys(r.lifts).forEach(l => {
+        const a = r.lifts[l];
+        a.forEach(k => assert(Math.abs(k / 2.5 - Math.round(k / 2.5)) < 1e-9 && k >= 20, l + ' ' + k + ' on 2.5 kg'));
+        assert(a[1] - a[0] >= 2.5 - 1e-9 && a[2] - a[1] >= 2.5 - 1e-9, l + ' climbs: ' + a.join());
+      });
+      eq(r.total, Object.keys(r.lifts).reduce((s, l) => s + r.lifts[l][2], 0), 'the total is the thirds');
+    }
+  });
+});
+test('aim: openers as Safe has them, the bouncer still holds them', () => {
+  const e = { squat: 200, bench: 127, deadlift: 240 };
+  const safe = MP.attemptPlans(e)[0];
+  const r = MP.planForTotal(540, e);
+  MP.LIFTS.forEach(l => eq(r.lifts[l][0], safe.lifts[l][0].kg, l + ' opener as Safe'));
+  const held = MP.planForTotal(540, e, { refByLift: { squat: 185 } });
+  assert(held.lifts.squat[0] / 185 <= 0.95, 'an opener past 95% of this month steps down: ' + held.lifts.squat[0]);
+  // A target near the plans: the aim gives it the best chance there is in the window (93-106% of the max).
+  const hi = MP.planForTotal(575, e);
+  assert(!hi.outOfReach && hi.p > 0.01 && hi.total >= 575, 'the thirds reach the target: ' + hi.total);
+  MP.LIFTS.forEach(l => hi.lifts[l].slice(1).forEach(k => assert(k <= e[l] * 1.06 + 1e-9 || k <= safe.lifts[l][2].kg, l + ' ' + k + ' within the window')));
+});
+test('aim: out of reach says so, and what total is likely instead', () => {
+  const e = { squat: 200, bench: 127, deadlift: 240 };
+  const r = MP.planForTotal(640, e);
+  eq(r.outOfReach, true);
+  assert(r.likely > 0 && r.likely < 640 && Math.abs(r.likely / 2.5 - Math.round(r.likely / 2.5)) < 1e-9, 'likely on 2.5 kg: ' + r.likely);
+  assert(MP.planForTotal(r.likely, e).p >= 0.7, 'and it is likely: ' + MP.planForTotal(r.likely, e).p);
+  eq(MP.planForTotal(560, e).outOfReach, undefined, 'a target in reach is a plan');
+  eq(MP.planForTotal(0, e), null); eq(MP.planForTotal(560, {}), null, 'no max: no plan');
+});
+test('aim: lb in, kg inside, the target round-trips in the coach-s unit', () => {
+  eq(MP.targetKg('600', 'kg'), 600); eq(MP.targetKg('600.3', 'kg'), 600.5, 'kg on 0.5');
+  eq(MP.targetKg('1320', 'lbs'), 598.5, '1320 lb on 0.5 kg');
+  eq(MP.targetShown(598.5, 'lbs'), '1320', 'and back in lb');
+  eq(MP.targetShown(MP.targetKg('1325', 'lbs'), 'lbs'), '1325'); eq(MP.targetShown(MP.targetKg('1321', 'lbs'), 'lbs'), '1321');
+  eq(MP.targetShown(600, 'kg'), '600'); eq(MP.targetShown(602.5, 'kg'), '602.5');
+  eq(MP.targetKg('', 'kg'), null); eq(MP.targetKg('abc', 'lbs'), null); eq(MP.targetKg('5', 'kg'), null, 'under 20 kg is not a total');
+  eq(MP.targetKg('1600', 'kg'), null, 'past 1500 kg is not a total');
+  const r = MP.planForTotal(MP.targetKg('1250', 'lbs'), { squat: 230, bench: 150, deadlift: 270 });
+  assert(r && r.lifts && r.lifts.squat.every(k => Math.abs(k / 2.5 - Math.round(k / 2.5)) < 1e-9), 'an lb target plans on kg plates');
+});
+test('aim: a saved plan keeps its target (20-1500 kg, on 0.5), inside the 2 KB the column allows', () => {
+  eq(MP.normalizePlan({ target: 600.3 }).target, 600.5);
+  eq(MP.normalizePlan({ target: '582.5' }).target, 582.5);
+  eq(MP.normalizePlan({ target: 10 }).target, undefined); eq(MP.normalizePlan({ target: 1600 }).target, undefined); eq(MP.normalizePlan({ target: 'x' }).target, undefined);
+  eq(MP.normalizePlan({}).target, undefined, 'no target: none kept');
+  const full = MP.normalizePlan({ squat: [182.5, 192.5, 200], bench: [115, 122.5, 127.5], deadlift: [217.5, 230, 240], strategy: 'standard', sex: 'female',
+    note: 'x'.repeat(400), at: new Date().toISOString(), by: 'y'.repeat(80), target: 1499.5 });
+  eq(full.target, 1499.5);
+  assert(JSON.stringify(full).length < 2048, 'under 2 KB: ' + JSON.stringify(full).length);
+});
+test('aim: under 50 ms for any input', () => {
+  const big = [{ squat: 420, bench: 300, deadlift: 450 }, { squat: 560, bench: 560, deadlift: 560 }, { squat: 35, bench: 25, deadlift: 45 }];
+  big.forEach(e => {
+    const sum = e.squat + e.bench + e.deadlift;
+    [0.85, 0.95, 1.0, 1.04].forEach(f => {
+      const t0 = Date.now();
+      MP.planForTotal(Math.round(sum * f / 2.5) * 2.5, e);
+      const ms = Date.now() - t0;
+      assert(ms < 50, JSON.stringify(e) + ' at ' + f + ': ' + ms + ' ms');
+    });
+  });
+});
+
+/* ===========================================================
    Release check fixes (2026-10-22): weigh-in dates, sleep row, class, cut row,
    chart label, meet opener reference, collars, AI bodyweight
    =========================================================== */
