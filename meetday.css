@@ -634,3 +634,6 @@ html.desk body.powa-app .md-root .md-kg-edit:focus-within { box-shadow: 0 0 0 2p
 @media (hover: hover) and (pointer: fine) { html.desk .md-root .md-kg-edit .md-step:hover { background: var(--dk-fill-2); color: var(--text); } }
 /* The desk: Meets and the board sit on the desk's own raised surface, so light reads as cards and not white on white. */
 html.desk .md-screen, html.desk .md-root { --md-surface: var(--dk-raise); }
+/* Leaving the planner or the board eases out (it started slow on ease-in, the moment the eye is on it). */
+html.desk .md-root.is-leaving { animation: mdOut 140ms cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+@media (prefers-reduced-motion: reduce) { html.desk .md-root.is-leaving { animation: none; } }

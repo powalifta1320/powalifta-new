@@ -1424,3 +1424,7 @@ html.desk .cl-desk .cl-gh { padding: 0 2px; }
 html.desk .cl-page .cl-pg { container: clpg / inline-size; }
 html.desk .cl-page .cl-small { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @container clpg (min-width: 880px) { html.desk .cl-page .cl-small { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Moving between lifters (a click or J/K, many times a day): the page swaps with a 120 ms settle, no longer a 180 ms fade. */
+html.desk .cl-pg.is-swap { animation: dkSwap 120ms ease-out; }
+@keyframes dkSwap { from { opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { html.desk .cl-pg.is-swap { animation: none; } }
