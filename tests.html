@@ -5103,6 +5103,9 @@ test('the block running now: starts on its Monday, runs to today, the deadlift d
   const late = BD.blockDna(prog, { logs: BD_LOGS, painReports: [{ athleteId: 'x', day: '2026-10-19' }, { athleteId: 'x', day: '2026-10-20' }], today: '2026-10-22', after: '2026-10-19' });
   eq(late.dates.start, '2026-10-20', 'the block before ended on its Monday: this one begins the day after');
   eq(late.pain + '|' + late.e1rm.squat.start + '|' + late.e1rm.squat.end, '1|195|null', 'that Monday is the old block\'s: its pain report and its squat');
+  const behind = BD.blockDna(Object.assign({}, prog, { startsOn: '2026-10-26' }), { logs: BD_LOGS, painReports: [{ athleteId: 'x', day: '2026-10-21' }], today: '2026-10-27' });
+  eq(behind.dates.start, '2026-10-19', 'the calendar moved week 1 on, but the block began with its first set logged');
+  eq(behind.pain + '|' + behind.e1rm.squat.end, '1|195', 'so what was lifted and felt in it still counts');
   const cmp = BD.blockCompare(c, bdPast(), { unit: 'kg' });
   const dl = cmp.rows.find(r => r.key === 'deadlift');
   eq(dl.text, 'No deadlift sets logged in Strength yet.');

@@ -986,6 +986,11 @@ html[data-theme="light"] .bd-root { --bd-sq: #0a86c9; --bd-be: #6a4fe0; --bd-dl:
 .bd-row .bd-id { min-width: 0; }
 .bd-row .bd-ses { text-align: right; }
 .bd-fpw { display: flex; align-items: center; min-width: 0; }
+/* a narrow workspace (the desk at its smallest, the side card open): sessions over the chips */
+@container dkws (max-width: 980px) {
+  .bd-list .bd-row { grid-template-columns: minmax(140px, 1fr) var(--bd-fpw, 120px) auto 16px; grid-template-areas: "id fp ses chev" "id fp chips chev"; gap: 6px 20px; }
+  .bd-row .bd-id { grid-area: id; } .bd-row .bd-fpw { grid-area: fp; } .bd-row .bd-ses { grid-area: ses; } .bd-row .bd-chips { grid-area: chips; justify-self: end; } .bd-list .bd-row > svg { grid-area: chev; }
+}
 
 /* ---- the blocks + compare: a modal on the desk ---- */
 .dk-modal.bd-modal { width: min(1120px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; padding: 0; overflow: hidden; --bd-surface: var(--bg-1); }
@@ -995,7 +1000,9 @@ html.desk[data-theme="light"] .dk-modal.bd-modal { --bd-surface: #fff; }
 .bd-modal .dk-modal-title { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; }
 .bd-msub { margin: 4px 0 0; font-size: 13px; color: var(--text-3); }
 .bd-mgrid { display: grid; grid-template-columns: 360px minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
-.bd-mlist { overflow-y: auto; overscroll-behavior: contain; padding: 12px; border-right: 1px solid var(--line); scrollbar-width: thin; }
+.bd-mlist { overflow-y: auto; overscroll-behavior: contain; padding: 12px; border-right: 1px solid var(--line); scrollbar-width: thin; container: bdlist / inline-size; }
+@media (max-width: 1180px) { .bd-mgrid { grid-template-columns: 300px minmax(0, 1fr); } .bd-tbl { grid-template-columns: 104px minmax(0, 1fr) 100px 100px; } .bd-arow { grid-template-columns: 148px minmax(0, 1fr); } .bd-akey { padding-left: 164px; } }
+@container bdlist (max-width: 330px) { .bd-mlist > .bd-pick { grid-template-columns: 22px minmax(0, 1fr); } .bd-mlist > .bd-pick .bd-pfp { grid-row: 2; grid-column: 2; } .bd-mlist > .bd-pick .bd-pfacts { grid-row: 3; grid-column: 2; } }
 .bd-mcmp { overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 24px; scrollbar-width: thin; }
 /* a pick: tick it to compare */
 .bd-pick { display: grid; grid-template-columns: 22px minmax(0, 1fr) var(--bd-fpw, auto); align-items: start; gap: 10px 12px; width: 100%; padding: 12px 12px 14px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms ease-out; }

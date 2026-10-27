@@ -140,7 +140,10 @@
     dates.sort();
     var start, end;
     if (current) {
+      // Where the calendar puts week 1 (programStartsOn moves it on for a lifter running behind), but never after
+      // the first set they logged in it: everything lifted in the block counts.
       start = (typeof programStartsOn === 'function' ? isoDay(programStartsOn(block, today)) : null) || (dates[0] ? monday(dates[0]) : null);
+      if (start && dates[0] && dates[0] < start) start = dates[0];
       var open = (weeksIn || []).some(function (w) { return (w.days || []).some(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).some(function (s) { return s && !reachedSet(s) && !s.extra; }); }); }); });
       end = !open && dates.length ? dates[dates.length - 1] : today;
       var after = isoDay(ctx.after);
@@ -434,7 +437,7 @@
     if (w.planned != null && !future) bits.push(w.done + ' of ' + w.planned + ' sessions');
     else if (w.planned == null && w.done) bits.push(w.done + (w.done === 1 ? ' session' : ' sessions'));
     if (w.rpeWritten != null || w.rpeFelt != null) bits.push('top sets ' + [w.rpeWritten != null ? 'written ' + dec1(w.rpeWritten) : '', w.rpeFelt != null ? 'felt ' + dec1(w.rpeFelt) : ''].filter(Boolean).join(', '));
-    if (w.pct != null) bits.push(Math.round(w.pct) + '% of where e1RM started');
+    if (w.pct != null) bits.push('top sets at ' + Math.round(w.pct) + '% of the e1RM the block started from');
     if (future) bits.push('not lifted yet');
     return bits.join(' · ');
   }
@@ -463,7 +466,7 @@
     var max = o.max || maxSets([d]) || 1;
     var base = g.bh, sTop = g.bh + g.sg;
     var dom = o.rpe || rpeDomain([d]), lo = dom[0], hi = dom[1];
-    var rY = function (r) { var c = Math.max(lo, Math.min(hi, r)); return sTop + 4 + (hi - c) / (hi - lo) * (g.sh - 8); };
+    var rY = function (r) { var c = Math.max(lo, Math.min(hi, r)); return sTop + 5 + (hi - c) / (hi - lo) * (g.sh - 10); };
     var out = ['<line class="bd-base" x1="0" x2="' + W + '" y1="' + (base + 0.5) + '" y2="' + (base + 0.5) + '"/>'];
     d.weeks.forEach(function (w, i) {
       var x0 = i * slot, parts = [], tip = weekTip(d, w);
@@ -483,7 +486,7 @@
       if (!pts.length) return;
       if (pts.length > 1) out.push('<path class="bd-rpe ' + k[1] + '" d="' + pts.map(function (p, i) { return (i ? 'L' : 'M') + f1(p[0]) + ' ' + f1(p[1]); }).join(' ') + '"/>');
       var e = pts[pts.length - 1];
-      out.push('<circle class="bd-end ' + k[1] + '" cx="' + f1(e[0]) + '" cy="' + f1(e[1]) + '" r="4"/>');
+      out.push('<circle class="bd-end ' + k[1] + '" cx="' + f1(e[0]) + '" cy="' + f1(e[1]) + '" r="5"/>');
     });
     return '<svg class="bd-fp is-' + (o.size || 'sm') + '" width="' + W + '" height="' + H + '" style="width:' + W + 'px;height:' + H + 'px" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(fpLabel(d)) + '">' + out.join('') + '</svg>';
   }
@@ -607,7 +610,7 @@
     var byId = {};
     items.forEach(function (x) { byId[x.dna.id] = x; });
     var pick = ids.map(function (id) { return byId[id]; }).filter(Boolean);
-    if (items.length < 2) return '<div class="bd-empty"><b>One block so far</b><p>Compare opens once there are two: the next one starts when this one is replaced.</p></div>';
+    if (items.length < 2) return '<div class="bd-empty"><b>One block so far</b><p>Compare opens once there are two. This one is kept as a past block when the next one starts.</p></div>';
     if (pick.length < 2) return '<div class="bd-empty"><b>Pick one more</b><p>Tick two blocks to see what changed between them.</p></div>';
     // Newest first in the list; the newer is the one described, the older the one it's set against.
     pick.sort(function (x, y) { return items.indexOf(x) - items.indexOf(y); });
@@ -648,6 +651,10 @@
       repaint(true);
     });
   }
+  function statusText(items, ids) {
+    var names = items.filter(function (x) { return ids.indexOf(x.dna.id) >= 0; }).map(function (x) { return x.dna.name; });
+    return names.length === 2 ? 'Comparing ' + names[0] + ' against ' + names[1] : 'Tick two blocks to compare';
+  }
   function swapIn(node) {
     if (!node || reducedMotion() || !node.animate) return;
     node.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
@@ -680,16 +687,18 @@
     head.appendChild(x);
     box.appendChild(head);
     var grid = el('div', { class: 'bd-mgrid' });
-    var left = el('div', { class: 'bd-mlist', role: 'group', 'aria-label': 'Blocks to compare' }), right = el('div', { class: 'bd-mcmp', 'aria-live': 'polite' });
+    var left = el('div', { class: 'bd-mlist', role: 'group', 'aria-label': 'Blocks to compare' }), right = el('div', { class: 'bd-mcmp' });
     grid.appendChild(left); grid.appendChild(right);
     box.appendChild(grid);
+    var said = el('p', { class: 'bd-vh', role: 'status' });
+    box.appendChild(said);
     var dnas = items.map(function (it) { return it.dna; }), max = maxSets(dnas), rpe = rpeDomain(dnas), slots = Math.max.apply(null, dnas.map(function (d) { return d.weeks.length; }).concat([1]));
     left.style.setProperty('--bd-fpw', fpWidth(slots, 'sm') + 'px');
     if (slots > 6) left.classList.add('is-long');
     var paint = function (swap) {
       left.innerHTML = items.map(function (it) { return pickHtml(it, state.ids.indexOf(it.dna.id) >= 0, { max: max, rpe: rpe, tips: 'desk' }); }).join('');
       right.innerHTML = compareHtml(items, state.ids, { tips: 'desk' });
-      if (swap) swapIn(right);
+      if (swap) { swapIn(right); said.textContent = statusText(items, state.ids); }
     };
     wirePicks(left, items, state, paint);
     paint(false);
@@ -713,8 +722,8 @@
     var a = athleteOf(aid);
     uiSheet('Blocks', function (sheet) {
       sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, a.name + (items.length >= 2 ? ' · tap two to compare' : '')));
-      var list = el('div', { class: 'bd-plist', role: 'group', 'aria-label': 'Blocks to compare' }), cmp = el('div', { class: 'bd-pcmp', 'aria-live': 'polite' });
-      sheet.appendChild(list); sheet.appendChild(cmp);
+      var list = el('div', { class: 'bd-plist', role: 'group', 'aria-label': 'Blocks to compare' }), cmp = el('div', { class: 'bd-pcmp' }), said = el('p', { class: 'bd-vh', role: 'status' });
+      sheet.appendChild(list); sheet.appendChild(cmp); sheet.appendChild(said);
       var max, rpe;
       var scale = function () {
         var dnas = items.map(function (it) { return it.dna; }), slots = Math.max.apply(null, dnas.map(function (d) { return d.weeks.length; }).concat([1]));
@@ -726,7 +735,7 @@
       var paint = function (swap) {
         list.innerHTML = items.map(function (it) { return pickHtml(it, state.ids.indexOf(it.dna.id) >= 0, { max: max, rpe: rpe, tips: 'title' }); }).join('');
         cmp.innerHTML = compareHtml(items, state.ids, { phone: true, tips: 'title' });
-        if (swap) swapIn(cmp);
+        if (swap) { swapIn(cmp); said.textContent = statusText(items, state.ids); }
       };
       wirePicks(list, items, state, paint);
       paint(false);
