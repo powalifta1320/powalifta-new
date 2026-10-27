@@ -412,3 +412,15 @@ html.native .nw2-slide { place-items: center; padding: 86px 26px 24px; }
 .ob-sheet .sa-or { margin: 0 0 18px; color: #7d7d88; font-size: 13px; font-weight: 600; }
 .ob-sheet .sa-or::before, .ob-sheet .sa-or::after { background: rgba(255, 255, 255, 0.1); }
 @media (prefers-reduced-motion: reduce) { .ob-sheet .sa-btn:active { transform: none; } }
+
+/* The invite's coach under the code (native-onboard.js paintWho): their team when they have branding. */
+.ob-team { display: flex; align-items: center; gap: 12px; margin: -4px 0 14px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); text-align: left; }
+.ob-team[hidden] { display: none; }
+.ob-team-mark { flex: none; width: 36px; height: 36px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; background: #26262c; color: #fff; font: 800 13px/1 var(--font-display, inherit); }
+.ob-team-mark img { width: 100%; height: 100%; object-fit: cover; }
+.ob-team-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ob-team-tx b { font-size: 15px; font-weight: 700; color: #f3f3f5; }
+.ob-team-tx span { font-size: 13px; color: #9a9aa5; }
+.ob-team.is-none { display: block; padding: 0 4px; background: none; font-size: 13px; color: #ffb35c; }
+html[data-theme="light"] .ob-team { background: rgba(11, 11, 13, 0.05); }
+html[data-theme="light"] .ob-team-tx b { color: #0b0b0d; }

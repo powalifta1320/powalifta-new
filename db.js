@@ -717,6 +717,22 @@ const DB = {
     }
     return data;
   },
+  // Who an invite code belongs to, for the sign-up screens: { coachName, avatarUrl, team, logoUrl, color }
+  // or null for a code that doesn't match an open invite. The team fields come only for a coach whose
+  // plan includes branding (invite_preview, migration-invite-brand-2026-10-27.sql). Cached per code.
+  async invitePreview(code) {
+    const c = String(code || '').trim().toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(c)) return null;
+    this._ipCache = this._ipCache || {};
+    if (c in this._ipCache) return this._ipCache[c];
+    const { data, error } = await sb.rpc('invite_preview', { p_code: c });
+    if (error) return undefined;   // couldn't check (offline, rate limit): say nothing either way
+    const row = Array.isArray(data) ? data[0] : data;
+    const out = row ? { coachName: String(row.coach_name || '').trim(), avatarUrl: row.avatar_url || null, team: String(row.brand_name || '').trim() || null,
+      logoUrl: row.brand_logo_url || null, color: /^#[0-9a-f]{6}$/i.test(String(row.brand_color || '')) ? row.brand_color : null } : null;
+    this._ipCache[c] = out;
+    return out;
+  },
   // Program from a photo (program-photo.js): the picture or PDF goes to the program-read function,
   // which returns the program in the builder's cell notation. Nothing is stored on the server.
   async readProgramPhoto(payload) {

@@ -341,10 +341,37 @@
       navigator.clipboard.readText().then(function (t) {
         var u = String(t || '').toUpperCase();
         var m = /\/J\/([A-HJ-NP-Z2-9]{6})\b/.exec(u) || /CODE[:=\s]+([A-HJ-NP-Z2-9]{6})\b/.exec(u) || /^\s*([A-HJ-NP-Z2-9]{6})\s*$/.exec(u);
-        if (m) { code.value = m[1]; haptic('light'); } else { code.focus(); }
+        if (m) { code.value = m[1]; haptic('light'); code.dispatchEvent(new Event('input')); } else { code.focus(); }
       }).catch(function () { code.focus(); });
     });
-    var codeWrap = h('div', {}, [field('Coach code (optional)', code, paste), h('p', { class: 'ob-fine', style: 'text-align:left;margin:-6px 4px 16px', text: 'In your invite link or email. No code yet? Skip it and connect from the Coach tab later.' })]);
+    // Who the code belongs to, as soon as it's six characters: their team (logo, name, colour) when
+    // the coach has branding, else their first name. A code that matches nothing says so, quietly.
+    var who = h('div', { class: 'ob-team', hidden: '' });
+    var whoFor = '';
+    var paintWho = function () {
+      var c = code.value;
+      if (c === whoFor) return;
+      whoFor = c;
+      who.hidden = true; who.innerHTML = ''; who.className = 'ob-team';
+      if (c.length !== 6 || !(window.DB && DB.invitePreview)) return;
+      DB.invitePreview(c).then(function (r) {
+        if (whoFor !== c || r === undefined) return;
+        if (!r) { who.className = 'ob-team is-none'; who.textContent = 'That code doesn\'t match an invite. Check it, or skip it for now.'; who.hidden = false; return; }
+        var safeLogo = r.logoUrl && typeof brandLogoOk === 'function' && brandLogoOk(r.logoUrl);
+        var mark = h('span', { class: 'ob-team-mark' });
+        if (r.color) mark.style.background = r.color;
+        if (safeLogo) mark.appendChild(h('img', { src: r.logoUrl, alt: '' }));
+        else mark.textContent = String(r.team || r.coachName || '?').split(/\s+/).map(function (w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase();
+        var tx = h('span', { class: 'ob-team-tx' });
+        tx.appendChild(h('b', { text: r.team ? 'Joining ' + r.team : 'Joining ' + (r.coachName || 'your coach') + '\'s lifters' }));
+        if (r.team && r.coachName) tx.appendChild(h('span', { text: 'Coached by ' + r.coachName }));
+        who.appendChild(mark); who.appendChild(tx);
+        who.hidden = false;
+      });
+    };
+    code.addEventListener('input', paintWho);
+    setTimeout(paintWho, 0);
+    var codeWrap = h('div', {}, [field('Coach code (optional)', code, paste), who, h('p', { class: 'ob-fine', style: 'text-align:left;margin:-6px 4px 16px', text: 'In your invite link or email. No code yet? Skip it and connect from the Coach tab later.' })]);
     codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
     s2.appendChild(codeWrap);
     // Units, asked once: lb for a US phone, kg anywhere else; changeable later under You.

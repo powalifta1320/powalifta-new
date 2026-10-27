@@ -688,6 +688,7 @@
     <div class="form-group" id="codeGroup">
       <label id="codeLabel">Invite code <span class="faint">(optional)</span></label>
       <input type="text" id="signupCode" placeholder="6-char code from your coach" maxlength="6" style="text-transform: uppercase">
+      <p class="faint text-xs" id="codeWho" style="margin-top:8px;display:none"></p>
       <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional. You can add it later.</p>
     </div>
     <label class="age-check" for="signupAge">
@@ -757,10 +758,31 @@ _openHashModal();
       setTimeout(() => {
         openSignupModal('athlete');
         const codeInput = document.getElementById('signupCode');
-        if (codeInput) codeInput.value = code.toUpperCase();
+        if (codeInput) { codeInput.value = code.toUpperCase(); codeInput.dispatchEvent(new Event('input')); }
       }, 100);
     }
   } catch (e) {}
+})();
+// Who an invite code belongs to, under the code as it's typed: their team when the coach has
+// branding, else their first name; a code that matches nothing says so (DB.invitePreview).
+(function inviteWho() {
+  const input = document.getElementById('signupCode'), out = document.getElementById('codeWho'), hint = document.getElementById('codeHint');
+  if (!input || !out) return;
+  let forCode = '';
+  input.addEventListener('input', () => {
+    const c = String(input.value || '').trim().toUpperCase();
+    if (c === forCode) return;
+    forCode = c; out.style.display = 'none'; out.textContent = ''; if (hint) hint.style.display = '';
+    if (c.length !== 6 || !(window.DB && DB.invitePreview)) return;
+    DB.invitePreview(c).then(r => {
+      if (forCode !== c || r === undefined) return;
+      out.style.color = r ? '' : '#ffb35c';
+      out.textContent = !r ? 'That code doesn\'t match an invite. Check it, or leave it empty for now.'
+        : r.team ? 'Joining ' + r.team + (r.coachName ? ', coached by ' + r.coachName : '') : 'Joining ' + (r.coachName || 'your coach') + '\'s lifters';
+      out.style.display = '';
+      if (hint) hint.style.display = 'none';
+    });
+  });
 })();
 
 // Back from Apple / Google (social-auth.js)? Finish that sign-in first. handleReturn() resolves
