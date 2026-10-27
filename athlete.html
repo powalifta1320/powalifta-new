@@ -3510,7 +3510,9 @@ function renderToday() {
     n.appendChild(av);
     n.insertAdjacentHTML('beforeend', '<span class="tn-body"><span class="tn-title">' + escHtml(coachName) + '</span><span class="tn-text">' + escHtml(noteForToday.coachComment) + '</span></span>');
     n.addEventListener('click', () => { const o = n.classList.toggle('open'); n.setAttribute('aria-expanded', o ? 'true' : 'false'); });
-    dayRows.push(n);
+    // The coach's words for this session get their own full-width card under the set card, every
+    // word on show (a 300px swipe tile cut them off at "Film the trip…"); only a very long note folds.
+    area.appendChild(el('div', { class: 'tn-group tn-coach' }, n));
   }
   // The coach's latest voice note, playable right here (brief 4.4) until it's been heard.
   if (sessionDate === todayISO()) { const vr = coachVoiceRow(); if (vr) dayRows.push(vr); }
@@ -6234,9 +6236,14 @@ function nativeRestStart(endTimeMs, totalSec, label) {
     try { if (store.getItem(key)) return; store.setItem(key, '1'); } catch (e) {}
     setTimeout(() => toast(msg), 900);
   };
+  // Build diagnostics never reach a lifter: they toast only with localStorage powa-debug = '1'
+  // (the console line always prints). A build that skipped inject-all.sh keeps the in-app timer.
+  let debugOn = false;
+  try { debugOn = localStorage.getItem('powa-debug') === '1'; } catch (e) {}
+  const diag = (key, msg) => { if (isNativeShell && debugOn) once(key, sessionStorage, msg); };
   if (!p) {
     try { console.info('[PowaRest] RestTimer plugin absent (web or unregistered)'); } catch (e) {}
-    if (isNativeShell) once('powa-la-missing', sessionStorage, 'Rest timer: native plugin not loaded. Rebuild the app.');
+    diag('powa-la-missing', 'Rest timer: native plugin not loaded. Rebuild the app.');
     return;
   }
   try {
@@ -6244,7 +6251,7 @@ function nativeRestStart(endTimeMs, totalSec, label) {
     if (r && r.then) r.then(v => {
       try { console.info('[PowaRest] start →', v); } catch (e) {}
       if (isNativeShell && v && v.started === false) {
-        once('powa-la-off', sessionStorage, 'Live Activity didn\'t start: ' + (v.reason || 'unknown') + '.');
+        diag('powa-la-off', 'Live Activity didn\'t start: ' + (v.reason || 'unknown') + '.');
       } else if (isNativeShell && v && v.started === true) {
         // iOS hides an app's OWN Live Activity from the Dynamic Island while the
         // app is foreground, so say once where it lives.
@@ -6252,7 +6259,7 @@ function nativeRestStart(endTimeMs, totalSec, label) {
       }
     }).catch(e => {
       try { console.warn('[PowaRest] start error', e); } catch (_) {}
-      if (isNativeShell) once('powa-la-err', sessionStorage, 'Live Activity error: see console.');
+      diag('powa-la-err', 'Live Activity error: see console.');
     });
   } catch (e) { try { console.warn('[PowaRest] start threw', e); } catch (_) {} }
 }
