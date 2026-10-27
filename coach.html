@@ -1595,7 +1595,9 @@ function renderAthletePage(athleteId) {
   const blocks = (Store.get().programBlocks || []).filter(b => b.athleteId === a.id)
     .sort((x, y) => String(y.endedOn || y.createdAt || '').localeCompare(String(x.endedOn || x.createdAt || '')));
   if (st.program || blocks.length) {
-    host.appendChild(uiLabel('Blocks', blocks.length ? { count: blocks.length + (st.program ? 1 : 0) } : null));
+    // Block DNA (block-dna.js): any two blocks side by side, what changed between them.
+    host.appendChild(uiLabel('Blocks', blocks.length ? Object.assign({ count: blocks.length + (st.program ? 1 : 0) },
+      window.BlockDNA && blocks.length + (st.program ? 1 : 0) >= 2 ? { action: { label: 'Compare', onClick: () => BlockDNA.open(a.id) } } : {}) : null));
     const view = el('div', { class: 'ap-block-view' });
     let openId = null;
     const rowsB = [];
