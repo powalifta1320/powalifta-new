@@ -55,6 +55,8 @@
   var SHELL = document.documentElement.classList.contains('native');
 
   // ---- tiny DOM helper (local; app.js's `el` may not be in scope) ------
+  // A phone or tablet (no hovering pointer): don't raise the keyboard on its own.
+  function touchOnly() { try { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; } catch (e) { return false; } }
   function h(tag, attrs, html) {
     var n = document.createElement(tag);
     if (attrs) Object.keys(attrs).forEach(function (k) {
@@ -1331,7 +1333,8 @@
       panel.classList.add('is-open');
       launcher.classList.add('is-open');
       if (!history.length) greet();
-      setTimeout(function () { input.focus(); }, 260);
+      // On a phone the keyboard would cover the chips and the answers: the box takes focus on a tap.
+      if (!touchOnly()) setTimeout(function () { input.focus(); }, 260);
     }
     function close() {
       panel.classList.remove('is-open');
@@ -1454,7 +1457,7 @@
         if (bubble && program) appendProgramCard(bubble, program, target);
         busy = false;
         sendBtn.disabled = false;
-        input.focus();
+        if (!touchOnly()) input.focus();
       }
 
       function mockAnswer() {
