@@ -314,6 +314,7 @@
   var C = { page: '#0b0b0c', card: '#141416', raised: '#1b1b1f', line: '#26262c', text: '#f4f4f6', text2: '#b8b8c0', text3: '#8c8c96',
     red: '#ff3b4a', pain: '#ff8f80', warn: '#ffb35c', ok: '#34d982', gold: '#ffc23d' };
   var FONT = "Archivo, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+  var EMAIL_NAMES = 8, EMAIL_ROWS = 8;   // a 60-lifter team's email stays short: the app has the rest
   // opts: { coachName, unsubUrl, appUrl, unit } → { subject, html, text, preheader }
   function reportEmail(team, opts) {
     opts = opts || {};
@@ -331,16 +332,19 @@
     T.push('Your team’s week · ' + range, '');
     T.push(team.trained + ' of ' + team.of + ' trained' + (team.sessionsPlanned ? ' · ' + team.sessionsDone + ' of ' + team.sessionsPlanned + ' sessions' : '') + (team.prs.length ? ' · ' + plural(team.prs.length, 'PR') : ''), '');
     var tNeeds = [];
-    if (team.pain.length) tNeeds.push('Pain reported: ' + team.pain.map(function (p) { return p.name + (p.n > 1 ? ' (' + p.n + ' times)' : ''); }).join(', '));
-    if (team.behind.length) tNeeds.push('Behind: ' + team.behind.map(function (b) { return b.name + ' ' + b.done + ' of ' + b.planned; }).join(', '));
-    if (team.formChecks) tNeeds.push('Form checks to review: ' + team.formChecks + ' (' + team.formCheckWho.map(function (f) { return f.name; }).join(', ') + ')');
-    if (team.checkinsMissing.length) tNeeds.push('No check-in last week: ' + team.checkinsMissing.map(function (c) { return c.name; }).join(', '));
+    var capT = function (list, fmt) { var out = list.slice(0, EMAIL_NAMES).map(fmt).join(', '); return list.length > EMAIL_NAMES ? out + ' and ' + (list.length - EMAIL_NAMES) + ' more' : out; };
+    if (team.pain.length) tNeeds.push('Pain reported: ' + capT(team.pain, function (p) { return p.name + (p.n > 1 ? ' (' + p.n + ' times)' : ''); }));
+    if (team.behind.length) tNeeds.push('Behind: ' + capT(team.behind, function (b) { return b.name + ' ' + b.done + ' of ' + b.planned; }));
+    if (team.formChecks) tNeeds.push('Form checks to review: ' + team.formChecks + ' (' + capT(team.formCheckWho, function (f) { return f.name; }) + ')');
+    if (team.checkinsMissing.length) tNeeds.push('No check-in last week: ' + capT(team.checkinsMissing, function (c) { return c.name; }));
     T.push('Needs you');
     if (tNeeds.length) tNeeds.forEach(function (l) { T.push('- ' + l); }); else T.push('- Nobody. Everyone trained as planned.');
     T.push('');
     if (team.prs.length) {
       T.push('Wins (e1RM PRs)');
-      prsByLifter(team).forEach(function (r) { T.push('- ' + r.name + ': ' + r.prs.map(function (p) { return p.lift + ' ' + e1rmText(p.e1rm, U); }).join(', ')); });
+      var wl = prsByLifter(team);
+      wl.slice(0, EMAIL_ROWS).forEach(function (r) { T.push('- ' + r.name + ': ' + r.prs.map(function (p) { return p.lift + ' ' + e1rmText(p.e1rm, U); }).join(', ')); });
+      if (wl.length > EMAIL_ROWS) T.push('- ' + (wl.length - EMAIL_ROWS) + ' more lifters with PRs, in the app');
       T.push('');
     }
     if (team.meets.length) { T.push('Coming up'); team.meets.forEach(function (m) { T.push('- ' + m.name + ', ' + dayLabel(m.date) + ' (' + whenText(m.days) + '): ' + m.lifters.map(function (l) { return l.name; }).join(', ')); }); T.push(''); }
@@ -363,19 +367,24 @@
         '<div style="font-size:15px;line-height:1.35;font-weight:600;color:' + C.text + ';">' + dot + label + '</div>' +
         (value ? '<div style="margin-top:4px;font-size:15px;line-height:1.45;color:' + C.text2 + ';">' + value + '</div>' : '') + '</td></tr>';
     };
-    var names = function (list, fmt) { return list.map(function (x) { return esc(x.name) + (fmt ? fmt(x) : ''); }).join(', '); };
+    var names = function (list, fmt) {
+      var out = list.slice(0, EMAIL_NAMES).map(function (x) { return esc(x.name) + (fmt ? fmt(x) : ''); }).join(', ');
+      return list.length > EMAIL_NAMES ? out + ' <span style="color:' + C.text3 + ';">and ' + (list.length - EMAIL_NAMES) + ' more</span>' : out;
+    };
     var nRows = [];
     if (team.pain.length) nRows.push(row('Pain reported', names(team.pain, function (p) { return p.n > 1 ? ' <span style="color:' + C.text3 + ';">' + p.n + ' times</span>' : ''; }), C.pain, nRows.length));
     if (team.behind.length) nRows.push(row('Behind', names(team.behind, function (b) { return ' <span style="color:' + C.text3 + ';">' + b.done + ' of ' + b.planned + '</span>'; }), C.warn, nRows.length));
     if (team.formChecks) nRows.push(row(plural(team.formChecks, 'form check') + ' to review', names(team.formCheckWho), '', nRows.length));
     if (team.checkinsMissing.length) nRows.push(row('No check-in last week', names(team.checkinsMissing), '', nRows.length));
     if (!nRows.length) nRows.push(row('Nobody', 'Everyone trained as planned.', C.ok, 0));
-    var wRows = prsByLifter(team).map(function (r, i) {
+    var wl2 = prsByLifter(team);
+    var wRows = wl2.slice(0, EMAIL_ROWS).map(function (r, i) {
       return row(esc(r.name), r.prs.map(function (p) {
         return '<span style="white-space:nowrap;"><span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:' + LIFT_COLOR[p.lift] + ';margin:0 8px 1px 0;vertical-align:middle;"></span>' +
           esc(LIFT[p.lift]) + ' <span style="color:' + C.text + ';font-weight:600;">' + esc(e1rmText(p.e1rm, U)) + '</span></span>';
       }).join('&nbsp;&nbsp;&nbsp; '), '', i);
     });
+    if (wl2.length > EMAIL_ROWS) wRows.push(row('<span style="color:' + C.text2 + ';font-weight:600;">' + (wl2.length - EMAIL_ROWS) + ' more lifters with PRs</span>', 'In the app, on Last week\u2019s report.', '', wRows.length));
     var mRows = team.meets.map(function (m, i) {
       return row(esc(m.name), esc(dayLabel(m.date)) + ', ' + esc(whenText(m.days)) + ' · ' + names(m.lifters), C.gold, i);
     });

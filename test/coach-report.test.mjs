@@ -239,6 +239,18 @@ t('email: one row per lifter in Wins, each PR with its lift', () => {
   ok(m.html.indexOf('Bench <span') < m.html.indexOf('Deadlift <span'), 'lifts in squat, bench, deadlift order');
   ok(m.text.includes('- Kenji Sato: bench 150 kg, deadlift 245 kg'), m.text);
 });
+t('email: a big team stays short (8 names a line, 8 PR rows, then how many more)', () => {
+  const people = Array.from({ length: 30 }, (_, i) => ({ id: 'p' + i, name: 'Lifter ' + String(i).padStart(2, '0') }));
+  const big = CR.teamWeek({ athletes: people, programs: people.map(a => ({ athleteId: a.id, planned: 3 })), sessions: { p0: 3 },
+    prs: people.slice(0, 12).map(a => ({ athleteId: a.id, lift: 'squat', e1rm: 150 })) }, W);
+  eq(big.behind.length, 29);
+  const m = CR.reportEmail(big, {});
+  ok(m.html.includes('and 21 more'), 'behind: 8 names, then and 21 more');
+  ok(!m.html.includes('Lifter 29'), 'no 29th name');
+  eq((m.html.match(/Squat <span/g) || []).length, 8, 'eight PR rows');
+  ok(m.html.includes('4 more lifters with PRs'), 'then how many more');
+  ok(m.text.includes('and 21 more'), 'the text too');
+});
 t('email: every name and link is escaped', () => {
   const evil = CR.teamWeek(CR.fromStore({
     athletes: [{ id: 'e', coachId: 'c', name: '<img src=x onerror=alert(1)> "Q" & co' }],
