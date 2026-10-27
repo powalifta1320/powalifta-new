@@ -799,7 +799,7 @@
     // Nothing logged at all: one clear card instead of a page of dashes.
     var anyLog = D.total || D.lifts.some(function (L) { return L.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length;
     if (!anyLog) {
-      html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p></div></div>';
+      html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p>' + deskCareerBtn(a, o) + '</div></div>';
       if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
       // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
       if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
@@ -824,11 +824,11 @@
         (dTxt != null ? '<span class="cl-chip ' + (dTxt > 0 ? 'up' : dTxt < 0 ? 'down' : 'flat') + '">' + ic(dTxt >= 0 ? 'trend' : 'down', 2.2) + (dTxt > 0 ? '+' : dTxt < 0 ? '−' : '') + Math.abs(dTxt) + ' ' + esc(unit()) + ' in 4 weeks</span>' : '') +
         (ctx.length ? '<span class="cl-hctx">' + esc(ctx.join(' · ')) + '</span>' : '') +
         // The desk's way into the lifter's Career (career.js), under the total and the last meet. (The phone's is at the foot.)
-        (!o.phone && careerOf(a) != null ? '<button type="button" class="cl-quiet cl-hcareer" data-career>' + ic('steps') + 'Career</button>' : '') + '</div>' +
+        deskCareerBtn(a, o) + '</div>' +
         '<div class="cl-hc">' + viz('line', line, o.phone ? 120 : 148, 'cl-vz-hero') +
         '<div class="cl-hcap"><span>' + esc(dayMonth(T.pts[0].week)) + '</span>' + (line.flag ? '<span class="cl-hmeet">' + ic('flag') + esc(clip(T.meetName, 22)) + ' · ' + esc(dayMonth(T.meetDate)) + '</span>' : '<span>This week</span>') + '</div></div></div>';
     } else {
-      html += '<div class="cl-hero is-empty' + rz(2) + '"><div class="cl-hl"><span class="cl-hlab">Total e1RM</span><div class="cl-hnum"><b>–</b></div><span class="cl-hctx">Shows once squat, bench and deadlift are all logged.</span></div></div>';
+      html += '<div class="cl-hero is-empty' + rz(2) + '"><div class="cl-hl"><span class="cl-hlab">Total e1RM</span><div class="cl-hnum"><b>–</b></div><span class="cl-hctx">Shows once squat, bench and deadlift are all logged.</span>' + deskCareerBtn(a, o) + '</div></div>';
     }
     // The lifts.
     html += '<div class="cl-lifts' + rz(3) + '">' + D.lifts.map(function (L) {
@@ -885,6 +885,10 @@
   function careerOf(a) {
     if (!window.Career || typeof Store === 'undefined') return null;
     try { var C = Career.careerEvents(a.id, Store.get()); return C.hero.sessions || C.hero.meets ? Career.careerLine(C) : null; } catch (e) { return null; }
+  }
+  // The desk's quiet Career link (in the total's hero, or under "Nothing logged yet"), when there's a career.
+  function deskCareerBtn(a, o) {
+    return !o.phone && careerOf(a) != null ? '<button type="button" class="cl-quiet cl-hcareer" data-career>' + ic('steps') + 'Career</button>' : '';
   }
   // The phone's links at the foot of a lifter: Career (when there is one) and Everything, one card.
   function linksHtml(a, sub, rise) {
