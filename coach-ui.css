@@ -1270,8 +1270,9 @@ html.desk[data-theme="light"] body.powa-app .cl-root .cl-stack .ui-av { box-shad
 html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
 
 /* The side card open (Reply, Notes) on a laptop: Lifters folds its list to the faces and Today goes to two
-   columns, so the lifter and the jobs keep their room beside the thread. Wider screens have room for all three. */
-@media (min-width: 1200px) and (max-width: 1919px) {
+   columns, so the lifter and the jobs keep their room beside the thread (under 1200px the card floats over
+   the page, so the fold matters even more). 1920px and up has room for all three. */
+@media (max-width: 1919px) {
   html.desk.ctx-show.ctx-card .cl-desk { --cl-list-w: 80px; }
   html.desk.ctx-show.ctx-card .cl-desk :is(.cl-head, .cl-gh) { display: none; }
   html.desk.ctx-show.ctx-card .cl-desk .cl-groups { padding: 20px 12px 48px; scrollbar-width: none; }
