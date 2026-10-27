@@ -1026,7 +1026,7 @@ html body.powa-app textarea.wn-ta:focus { outline: none; border: 0; background: 
 .wn-done-s { max-width: 46ch; margin: 0; font-size: 15px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
 .wn-done-a { display: flex; gap: 8px; margin-top: 16px; }
 @media (max-width: 1180px) { .wn-foot { display: none; } }
-@media (prefers-reduced-motion: reduce) { .wn-box { animation: none; } .wn-bar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .wn-box { animation: none; } .wn-bar i, .wn-marks i { transition: none; } }
 
 /* The phone: a lifter's page row, the note sheet */
 .cl-wnrow { --tc: var(--cl-msg); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 16px 10px 14px; box-sizing: border-box;
@@ -1078,7 +1078,7 @@ body.powa-app .msg-bc:active { transform: scale(0.985); }
 .msg-bc > svg { width: 18px; height: 18px; color: var(--text-3); }
 @media (max-width: 720px) { body.powa-app section[data-pane="messages"]:has(.msg-inbox.is-detail-open) .msg-bc { display: none; } }
 .wn-bsheet .wn-bseg { margin: 0 0 14px; }
-body.powa-app .wn-bsheet .wn-bseg button { min-height: 40px; font-size: 15px; }
+body.powa-app .wn-bsheet .wn-bseg button { min-height: 44px; font-size: 15px; }
 .wn-bwho { display: flex; align-items: center; gap: 10px; min-height: 32px; margin: 0 4px 12px; }
 .wn-bstack { display: inline-flex; flex: none; }
 body.powa-app .wn-bstack .ui-av { width: 32px; height: 32px; font: 700 13px/1 var(--font-body); font-stretch: 100%; letter-spacing: -0.02em; box-shadow: 0 0 0 2px #111114; }
