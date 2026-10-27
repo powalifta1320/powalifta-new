@@ -1430,3 +1430,5 @@ html.desk .cl-pg.is-swap { animation: dkSwap 120ms ease-out; }
 @media (prefers-reduced-motion: reduce) { html.desk .cl-pg.is-swap { animation: none; } }
 /* A list row's unit beside its number: 13, the caption step (it was 12). */
 html.desk .cl-root .cl-n small { font-size: 13px; }
+/* The weekly notes queue takes the desk's overlay radius (20, like the side card and every card). */
+html.desk .wn-box { border-radius: var(--r-3, 20px); }
