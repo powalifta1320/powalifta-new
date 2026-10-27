@@ -263,10 +263,27 @@ var Challenges = (function () {
     });
     return rankChallenge(list);
   }
+  // Who's in it, as the coach would say it: the team whose lifters they are, all of them, or a count
+  // (a challenge keeps its lifters, not its team: the team is found again by its members).
+  function teamOf(ch) {
+    if (ch.teamName) return ch.teamName;
+    var ids = (ch.memberIds || []).slice().sort().join();
+    var roster = rosterNow().map(function (a) { return a.id; });
+    var t = (S().teams || []).filter(function (x) {
+      var all = (x.members || []).map(function (m) { return m.athleteId; });
+      // the whole team, or the part of it that was on the roster when it started
+      return all.slice().sort().join() === ids || all.filter(function (id) { return roster.indexOf(id) >= 0; }).sort().join() === ids;
+    })[0];
+    return t ? t.name : null;
+  }
   function whoText(ch) {
-    var n = (ch.memberIds || []).length, team = ch.teamName;
+    var n = (ch.memberIds || []).length;
     if (!isCoachView()) return plural(n, 'lifter');
-    return team ? team + ' · ' + plural(n, 'lifter') : 'All ' + plural(n, 'lifter');
+    var team = teamOf(ch);
+    if (team) return team + ' · ' + plural(n, 'lifter');
+    var roster = rosterNow().map(function (a) { return a.id; });
+    var everyone = roster.length && roster.every(function (id) { return (ch.memberIds || []).indexOf(id) >= 0; });
+    return (everyone ? 'All ' : '') + plural(n, 'lifter');
   }
   function metaText(ch) {
     var bits = [whoText(ch), challengeWhen(ch, today())];
@@ -489,7 +506,8 @@ var Challenges = (function () {
       // Who: everyone, or one team.
       sheet.appendChild(E('div', { class: 'ui-label chl-label' }, 'Who'));
       var who = E('div', { class: 'ui-chips chl-who', role: 'radiogroup', 'aria-label': 'Who' });
-      [{ k: 'all', label: 'All my lifters · ' + roster.length }].concat(teams.map(function (tm) { return { k: tm.id, label: tm.name + ' · ' + tm.members.length }; })).forEach(function (o) {
+      var onRoster = function (tm) { return tm.members.filter(function (m) { return roster.some(function (a) { return a.id === m.athleteId; }); }).length; };
+      [{ k: 'all', label: 'All my lifters · ' + roster.length }].concat(teams.filter(onRoster).map(function (tm) { return { k: tm.id, label: tm.name + ' · ' + onRoster(tm) }; })).forEach(function (o) {
         var c = E('button', { type: 'button', role: 'radio', class: 'ui-chip', 'data-k': o.k }, o.label);
         c.addEventListener('click', function () { st.who = o.k; paint(); });
         who.appendChild(c);
