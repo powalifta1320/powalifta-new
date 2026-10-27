@@ -174,6 +174,122 @@ var MeetDay = (function () {
     return out;
   }
 
+  // ------------------------------------------------------------ pure: attempt odds, plans by risk
+  // The chance of making a single at a load, given the lifter's current max (the e1RM a plan is built
+  // on), read the way RPE reads a single: at the max it is a coin flip; at 96% (a single at RPE 9)
+  // about 85%; at 92% (RPE 8) about 95%; at 90% and under about 98%; at 102% about 30%; at 105%
+  // about 10%. One logistic curve on the percent of the max:
+  //     p = 1 / (1 + e^(ODDS_K × (pct − 100))),   ODDS_K = 0.4
+  // so every 1% past the max multiplies the odds against making it by e^0.4 ≈ 1.5. Shown rounded to
+  // 0.05 and held between 1% and 99%: never certain, never hopeless. No load or no max: no odds
+  // (null), never a guess.
+  //     attemptOdds(weightKg, e1rmKg) → { p, pct, word } | null
+  var ODDS_K = 0.4, ODDS_LO = 0.01, ODDS_HI = 0.99;
+  function oddsRaw(weightKg, e1rmKg) {
+    var w = num(weightKg), e = num(e1rmKg);
+    if (!(w > 0) || !(e > 0)) return null;
+    return 1 / (1 + Math.exp(ODDS_K * (w / e * 100 - 100)));
+  }
+  function oddsWord(p) { return p >= 0.9 ? 'Very likely' : p >= 0.7 ? 'Likely' : p >= 0.4 ? 'Even' : 'Reach'; }
+  function oddsRound(raw, step) {
+    var p = Math.round(Math.round(raw / step) * step * 100) / 100;
+    p = Math.min(ODDS_HI, Math.max(ODDS_LO, p));
+    return { p: p, pct: Math.round(p * 100), word: oddsWord(p) };
+  }
+  function attemptOdds(weightKg, e1rmKg) {
+    var raw = oddsRaw(weightKg, e1rmKg);
+    return raw == null ? null : oddsRound(raw, 0.05);
+  }
+  // The max the plans and their odds stand on: this block's top sets (projectedMax), held to this
+  // month's heavy sets when a Balanced opener (91%) would be past 95% of them, the bouncer's rule
+  // (planLift holds a plan the same way). e: a projectedMax result → { kg, held }.
+  function oddsBase(e) {
+    var max = num(e && e.max), ref = num(e && e.refKg);
+    if (!(max > 0)) return { kg: 0, held: false };
+    var held = ref > 0 && rStep(max * 0.91) / ref > 0.95;
+    return { kg: held ? ref : max, held: held };
+  }
+  // Three plans by risk. Openers about 90 / 91 / 92% of the max, seconds 95 / 96 / 97.5%, thirds 98 /
+  // 100 / 102.5% (Safe / Balanced / Bold), on 2.5 kg (meet plates: the federation's smallest jump),
+  // each attempt at least 2.5 kg over the one before. strategy: what a plan saves as (normalizePlan).
+  var PLANS = [
+    { key: 'safe', label: 'Safe', strategy: 'conservative', pcts: [0.90, 0.95, 0.98] },
+    { key: 'balanced', label: 'Balanced', strategy: 'standard', pcts: [0.91, 0.96, 1.00] },
+    { key: 'bold', label: 'Bold', strategy: 'aggressive', pcts: [0.92, 0.975, 1.025] }
+  ];
+  // e1rmByLift: { squat: kg, bench: kg, deadlift: kg }; a lift with no max is left out of every plan.
+  // opts.refByLift: this month's heavy sets (projectedMax refKg): an opener past 95% of them steps down
+  // 2.5 at a time, so the lifter's own bouncer never calls the coach's opener a max.
+  // → [{ key, label, strategy, lifts: { squat: [{ kg, p, pct, word } × 3], … }, total (the thirds, kg),
+  //     totalP: the chance every third goes (three singles, independent: the product of their odds,
+  //       to 0.01, held to 1%–99%; null without a lift),
+  //     thirds: { p, pct, word } (the typical third: the mean of their odds, rounded like attemptOdds) }]
+  // Plans are computed in kg; loadText shows them in the viewer's unit.
+  function attemptPlans(e1rmByLift, opts) {
+    var refs = (opts && opts.refByLift) || {};
+    return PLANS.map(function (pl) {
+      var out = { key: pl.key, label: pl.label, strategy: pl.strategy, lifts: {}, total: 0, totalP: null, thirds: null };
+      var prod = 1, sum = 0, n = 0;
+      LIFTS.forEach(function (l) {
+        var e1 = num(e1rmByLift && e1rmByLift[l]);
+        if (!(e1 > 0)) return;
+        var kg = pl.pcts.map(function (x) { return Math.max(MIN_BAR, rStep(e1 * x)); });
+        var ref = num(refs[l]);
+        while (ref > 0 && kg[0] / ref > 0.95 && kg[0] - STEP >= MIN_BAR) kg[0] = rStep(kg[0] - STEP);
+        kg = climb(kg);
+        out.lifts[l] = kg.map(function (k) { var o = attemptOdds(k, e1); return { kg: k, p: o.p, pct: o.pct, word: o.word }; });
+        var third = oddsRaw(kg[2], e1);
+        out.total += kg[2]; prod *= third; sum += third; n++;
+      });
+      out.total = r1(out.total);
+      if (n) {
+        out.totalP = Math.min(ODDS_HI, Math.max(ODDS_LO, Math.round(prod * 100) / 100));
+        out.thirds = oddsRound(sum / n, 0.05);
+      }
+      return out;
+    });
+  }
+  // The plan a lifter's attempts are, to the kg (every lift the plan has), or null: the coach's own.
+  function planMatch(plans, draft) {
+    for (var i = 0; i < (plans || []).length; i++) {
+      var pl = plans[i], ls = Object.keys(pl.lifts || {});
+      var same = ls.length && ls.every(function (l) {
+        var a = draft && draft[l];
+        return Array.isArray(a) && [0, 1, 2].every(function (j) { return a[j] != null && num(a[j]) === pl.lifts[l][j].kg; });
+      });
+      if (same) return pl.key;
+    }
+    return null;
+  }
+  // What the plans stand on, in words: honest about a lift with no top sets in this block.
+  function basisText(ev) {
+    var have = LIFTS.filter(function (l) { return ev && ev[l] && num(ev[l].max) > 0; });
+    if (!have.length) return '';
+    var fresh = have.filter(function (l) { return ev[l].source === 'heavy' || ev[l].source === 'recent'; });
+    if (fresh.length === have.length) return 'Based on this block\'s top sets';
+    if (!fresh.length) return 'Based on older maxes: no top sets in this block yet';
+    return 'Based on this block\'s top sets, and older maxes where there are none';
+  }
+  // Loads are computed in kg and shown in the viewer's unit (app.js getUnit: 'kg' | 'lbs'), the way
+  // app.js kgToDisplay shows them: kg as planned, lb to one place (decimals 0 for a total).
+  var KG_PER_LB_ = 0.45359237;
+  function isLb(unit) { return unit === 'lbs' || unit === 'lb'; }
+  function loadNum(kg, unit, decimals) {
+    var v = num(kg);
+    if (!isLb(unit)) return Math.round(v * 100) / 100;
+    var f = Math.pow(10, decimals == null ? 1 : decimals);
+    return Math.round(v / KG_PER_LB_ * f) / f;
+  }
+  function unitWord(unit) { return isLb(unit) ? 'lb' : 'kg'; }
+  function loadText(kg, unit, decimals) { return loadNum(kg, unit, decimals) + ' ' + unitWord(unit); }
+  // A typed attempt (in the viewer's unit) → kg: on 0.5 kg in kg (records go up in 0.5), on the
+  // 2.5 kg plates in lb (a pound figure never lands on a legal bar by itself). null when not a number.
+  function inputKg(text, unit) {
+    var v = parseFloat(String(text == null ? '' : text).replace(',', '.'));
+    if (!isFinite(v)) return null;
+    return isLb(unit) ? rStep(v * KG_PER_LB_, STEP) : rStep(v, 0.5);
+  }
+
   // ------------------------------------------------------------ pure: the board
   // cells: { 'lifterId|lift|n': { lifterId, lift, n, kg, status, changes, at, srvAt } }
   // lifters: [{ id, name, flight, lot, ... }]. Lift by lift; flight by flight; in each round
@@ -480,7 +596,9 @@ var MeetDay = (function () {
     liftingOrder: liftingOrder, position: position, outFor: outFor, etas: etas, warmups: warmups, floorFor: floorFor, applyAction: applyAction,
     localWins: localWins, reconcileCell: reconcileCell, queue: queue, outgoing: outgoing, serverApply: serverApply, afterFlush: afterFlush, mergeIncoming: mergeIncoming,
     markDirty: markDirty, lifterPatch: lifterPatch, mergeLifter: mergeLifter, guestCells: guestCells, uuid: uuid,
-    finishResults: finishResults, groupMeets: groupMeets
+    finishResults: finishResults, groupMeets: groupMeets,
+    ODDS_K: ODDS_K, PLANS: PLANS, attemptOdds: attemptOdds, oddsBase: oddsBase, attemptPlans: attemptPlans, planMatch: planMatch, basisText: basisText,
+    loadNum: loadNum, loadText: loadText, inputKg: inputKg
   };
 
   // =====================================================================

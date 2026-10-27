@@ -4348,6 +4348,116 @@ test('offline: a call the other laptop won is reported, never silently dropped',
 });
 
 /* ===========================================================
+   Attempt odds (meetday.js, 2026-10-27): the chance of a single
+   from % of the max (a logistic curve fitted to RPE), and the
+   three plans by risk (Safe · Balanced · Bold)
+   =========================================================== */
+group('attempt odds');
+test('odds fall as the bar rises past the max, and never claim certainty', () => {
+  let last = 2;
+  for (let pct = 70; pct <= 120; pct += 0.5) {
+    const o = MP.attemptOdds(pct * 2, 200);
+    assert(o.p <= last, pct + '% of the max: ' + o.p + ' after ' + last);
+    assert(o.p >= 0.01 && o.p <= 0.99, 'held to 1%–99% at ' + pct + '%: ' + o.p);
+    assert(Math.abs(o.p * 20 - Math.round(o.p * 20)) < 1e-9 || o.p === 0.01 || o.p === 0.99, 'on 0.05 (or a bound): ' + o.p);
+    eq(o.pct, Math.round(o.p * 100));
+    last = o.p;
+  }
+  assert(MP.attemptOdds(180, 200).p > MP.attemptOdds(200, 200).p && MP.attemptOdds(200, 200).p > MP.attemptOdds(210, 200).p, 'heavier is less likely');
+  eq(MP.ODDS_K, 0.4, 'the documented slope: each 1% past the max cuts the odds by e^0.4');
+});
+test('odds read like RPE: the max a coin flip, RPE 9 about 85%, RPE 8 about 95%', () => {
+  eq(MP.attemptOdds(200, 200).p, 0.5, 'a single at the max');
+  eq(MP.attemptOdds(192, 200).p, 0.85, '96%: a single at RPE 9');
+  eq(MP.attemptOdds(184, 200).p, 0.95, '92%: RPE 8');
+  eq(MP.attemptOdds(180, 200).p, 0.99, '90%: about 98, shown as the top of the scale');
+  eq(MP.attemptOdds(204, 200).p, 0.3, '102%');
+  eq(MP.attemptOdds(210, 200).p, 0.1, '105%');
+  eq(MP.attemptOdds(100, 200).p, 0.99, 'half the max: very likely, never certain');
+  eq(MP.attemptOdds(300, 200).p, 0.01, 'half again: a reach, never impossible');
+});
+test('odds have words, and no max means no odds (never a guess)', () => {
+  eq(MP.attemptOdds(184, 200).word, 'Very likely');
+  eq(MP.attemptOdds(190, 200).word, 'Very likely', '95% → 0.90, the line itself');
+  eq(MP.attemptOdds(192, 200).word, 'Likely');
+  eq(MP.attemptOdds(196, 200).word, 'Likely', '98% → 0.70, the line itself');
+  eq(MP.attemptOdds(198, 200).word, 'Even');
+  eq(MP.attemptOdds(202, 200).word, 'Even', '101% → 0.40');
+  eq(MP.attemptOdds(203, 200).word, 'Reach', '101.5% → 0.35');
+  eq(MP.attemptOdds(200, 0), null); eq(MP.attemptOdds(0, 200), null); eq(MP.attemptOdds('x', 200), null); eq(MP.attemptOdds(200, null), null);
+});
+test('plans: Safe ≤ Balanced ≤ Bold, on 2.5 kg, every attempt over the one before', () => {
+  const plans = MP.attemptPlans({ squat: 200, bench: 100, deadlift: 240 });
+  eq(plans.map(p => p.key).join(), 'safe,balanced,bold'); eq(plans.map(p => p.label).join(), 'Safe,Balanced,Bold');
+  eq(plans[0].lifts.squat.map(a => a.kg).join(), '180,190,195', 'Safe: 90 / 95 / 98%');
+  eq(plans[1].lifts.squat.map(a => a.kg).join(), '182.5,192.5,200', 'Balanced: 91 / 96 / 100%');
+  eq(plans[2].lifts.squat.map(a => a.kg).join(), '185,195,205', 'Bold: 92 / 97.5 / 102.5%');
+  MP.LIFTS.forEach(l => [0, 1, 2].forEach(i => {
+    assert(plans[0].lifts[l][i].kg <= plans[1].lifts[l][i].kg && plans[1].lifts[l][i].kg <= plans[2].lifts[l][i].kg, l + ' attempt ' + (i + 1) + ' ordered');
+  }));
+  assert(plans[0].total < plans[1].total && plans[1].total < plans[2].total, 'totals climb with the risk');
+  eq(plans[1].total, 540, 'the total is the thirds: 200 + 100 + 240');
+  assert(plans[0].totalP > plans[1].totalP && plans[1].totalP > plans[2].totalP, 'and the chance the total goes falls');
+  // Every max from a tiny bench to a heavy pull: loads on 2.5 kg, strictly climbing, never under the bar.
+  for (let e1 = 30; e1 <= 400; e1 += 7.3) {
+    MP.attemptPlans({ squat: e1, bench: e1 * 0.6, deadlift: e1 * 1.2 }).forEach(p => MP.LIFTS.forEach(l => {
+      const kg = p.lifts[l].map(a => a.kg);
+      kg.forEach(k => { assert(Math.abs(k / 2.5 - Math.round(k / 2.5)) < 1e-9, p.key + ' ' + l + ' ' + k + ' on 2.5 kg'); assert(k >= 20, 'never under the bar'); });
+      assert(kg[1] - kg[0] >= 2.5 && kg[2] - kg[1] >= 2.5, p.key + ' ' + l + ' at ' + e1 + ': ' + kg.join());
+    }));
+  }
+});
+test('plans: each attempt carries its odds; the thirds and the total have their own', () => {
+  const b = MP.attemptPlans({ squat: 200, bench: 100, deadlift: 240 })[1];
+  eq(b.lifts.squat[0].word, 'Very likely'); eq(b.lifts.squat[1].word, 'Likely'); eq(b.lifts.squat[2].p, 0.5);
+  eq(b.thirds.word, 'Even'); eq(b.thirds.pct, 50, 'thirds at the max: a coin flip each');
+  eq(b.totalP, 0.13, 'all three thirds: 0.5 × 0.5 × 0.5, to 0.01');
+  const s = MP.attemptPlans({ squat: 200, bench: 100, deadlift: 240 })[0];
+  eq(s.thirds.word, 'Likely'); eq(MP.attemptPlans({ squat: 200, bench: 100, deadlift: 240 })[2].thirds.word, 'Reach');
+  const one = MP.attemptPlans({ squat: 200, bench: 0, deadlift: null });
+  eq(Object.keys(one[1].lifts).join(), 'squat', 'a lift with no max is left out, never guessed');
+  eq(one[1].total, 200);
+  const none = MP.attemptPlans({});
+  eq(none[1].totalP, null); eq(none[1].thirds, null); eq(none[1].total, 0);
+});
+test('plans: an opener past 95% of this month-s heavy sets steps down, still climbing', () => {
+  const p = MP.attemptPlans({ squat: 200 }, { refByLift: { squat: 190 } });
+  eq(p.map(x => x.lifts.squat[0].kg).join(), '180,180,180', 'each opener at or under 95% of 190');
+  p.forEach(x => { const kg = x.lifts.squat.map(a => a.kg); assert(kg[1] > kg[0] && kg[2] > kg[1], kg.join()); });
+  eq(MP.attemptPlans({ squat: 200 }, { refByLift: { squat: 199 } })[2].lifts.squat[0].kg, 185, 'within 95%: untouched');
+  const held = MP.oddsBase({ max: 220, refKg: 195 });
+  eq(held.kg, 195); eq(held.held, true, 'a 200 opener is 103% of this month: plans stand on 195');
+  eq(MP.oddsBase({ max: 220, refKg: 215 }).held, false); eq(MP.oddsBase({ max: 220, refKg: 215 }).kg, 220);
+  eq(MP.oddsBase({ max: 0 }).kg, 0);
+});
+test('plans: the picked plan is the one the attempts are; a coach-s own numbers pick none', () => {
+  const plans = MP.attemptPlans({ squat: 200, bench: 100, deadlift: 240 });
+  const d = { squat: [182.5, 192.5, 200], bench: [90, 95, 100], deadlift: [217.5, 230, 240] };
+  eq(MP.planMatch(plans, d), 'balanced');
+  eq(MP.planMatch(plans, Object.assign({}, d, { squat: [182.5, 192.5, 202.5] })), null, 'one third changed: the coach-s own');
+  eq(MP.planMatch(plans, { squat: [180, 190, 195] }), null, 'a plan needs every lift it has');
+  eq(MP.planMatch(MP.attemptPlans({ squat: 200 }), { squat: [185, 195, 205], bench: [1, 2, 3] }), 'bold', 'lifts the plan has no max for are the coach-s');
+});
+test('lb: plans are computed in kg and shown in the viewer-s unit', () => {
+  const kgPlan = MP.attemptPlans({ squat: 230 })[1];
+  eq(kgPlan.lifts.squat[2].kg, 230, 'the load stays kg whatever the unit');
+  eq(MP.loadText(230, 'kg'), '230 kg'); eq(MP.loadText(207.5, 'kg'), '207.5 kg');
+  eq(MP.loadText(230, 'lbs'), '507.1 lb', 'one place, like kgToDisplay');
+  eq(MP.loadText(672.5, 'lbs', 0), '1483 lb', 'a total in whole pounds');
+  eq(MP.loadNum(100, 'lbs'), 220.5); eq(MP.loadNum(100, 'kg'), 100);
+  eq(MP.inputKg('460', 'lbs'), 207.5, 'a pound figure lands on the 2.5 kg plates');
+  eq(MP.inputKg('457.5', 'lbs'), 207.5, 'and round-trips');
+  eq(MP.inputKg('208', 'kg'), 208, 'kg keeps 0.5 (a record attempt)'); eq(MP.inputKg('207,5', 'kg'), 207.5);
+  eq(MP.inputKg('', 'kg'), null); eq(MP.inputKg('abc', 'lbs'), null);
+});
+test('the basis says what the plans stand on, honest about old maxes', () => {
+  eq(MP.basisText({ squat: { max: 200, source: 'heavy' }, bench: { max: 120, source: 'recent' }, deadlift: { max: 0, source: null } }), 'Based on this block\'s top sets');
+  eq(MP.basisText({ squat: { max: 200, source: 'meet' }, bench: { max: 0 }, deadlift: { max: 0 } }), 'Based on older maxes: no top sets in this block yet');
+  eq(MP.basisText({ squat: { max: 200, source: 'heavy' }, bench: { max: 120, source: 'e1rm' }, deadlift: { max: 0 } }), 'Based on this block\'s top sets, and older maxes where there are none');
+  eq(MP.basisText({ squat: { max: 0 }, bench: { max: 0 }, deadlift: { max: 0 } }), '');
+});
+
+/* ===========================================================
    Release check fixes (2026-10-22): weigh-in dates, sleep row, class, cut row,
    chart label, meet opener reference, collars, AI bodyweight
    =========================================================== */
