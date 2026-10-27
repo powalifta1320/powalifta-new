@@ -280,15 +280,17 @@ html.desk.rail-min .dk-find .dk-kbd { display: none; }
 .dk-av.is-xs { width: 20px; height: 20px; font-size: var(--fs-1); letter-spacing: -0.04em; }
 .dk-av.is-xl { width: 64px; height: 64px; font-size: var(--fs-5); }
 .dk-me-av { width: 28px; height: 28px; font-size: var(--fs-1); }
-html.desk[data-theme="light"] body.powa-app .dk-av { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h0 { background: var(--av-1-bg); color: var(--av-1-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h1 { background: var(--av-2-bg); color: var(--av-2-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h2 { background: var(--av-3-bg); color: var(--av-3-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h3 { background: var(--av-4-bg); color: var(--av-4-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h4 { background: var(--av-5-bg); color: var(--av-5-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h5 { background: var(--av-6-bg); color: var(--av-6-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h6 { background: var(--av-7-bg); color: var(--av-7-ink); }
-html.desk[data-theme="light"] body.powa-app .dk-av.av-h7 { background: var(--av-8-bg); color: var(--av-8-ink); }
+/* Light: tinted faces with ink initials on every desk screen (Today, Lifters, Clients too), never the phone's gradient balls. */
+html.desk[data-theme="light"] body.powa-app :is(.av-h0, .av-h1, .av-h2, .av-h3, .av-h4, .av-h5, .av-h6, .av-h7) { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
+html.desk[data-theme="light"] body.powa-app .av-h0 { background: var(--av-1-bg); color: var(--av-1-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h1 { background: var(--av-2-bg); color: var(--av-2-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h2 { background: var(--av-3-bg); color: var(--av-3-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h3 { background: var(--av-4-bg); color: var(--av-4-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h4 { background: var(--av-5-bg); color: var(--av-5-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h5 { background: var(--av-6-bg); color: var(--av-6-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h6 { background: var(--av-7-bg); color: var(--av-7-ink); }
+html.desk[data-theme="light"] body.powa-app .av-h7 { background: var(--av-8-bg); color: var(--av-8-ink); }
+html.desk[data-theme="light"] body.powa-app .dk-av:not([class*="av-h"]) { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
 /* B's compliance ring: this week's sessions around the face. */
 .dk-ring-av { position: relative; display: inline-grid; place-items: center; flex: none; width: 40px; height: 40px; }
 .dk-ring-av > svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }

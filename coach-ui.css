@@ -1265,6 +1265,7 @@ html.desk :is(.cl-root, .cs-page) :is(.cl-btn, .cl-sbtn, .cl-quiet, .cl-ibtn, .c
 /* Today and Lifters: overlapping faces keep their initials (a 2px ring in the surface colour, not a 9px bite). */
 html.desk .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
 html.desk .cl-root .cl-stack .ui-av + .ui-av { margin-left: -6px; }
+html.desk[data-theme="light"] body.powa-app .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
 /* A tile's last line (who is over, who is behind) takes two lines instead of an ellipsis mid-name. */
 html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
 

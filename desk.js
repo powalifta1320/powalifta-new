@@ -56,7 +56,7 @@ var _dk = {
   wsPend: {},               // next-week edits waiting on Publish, per athlete
   pbMode: 'athletes',       // Programs' list pane: athletes | templates
   pbTpl: null, pbSearch: '', pbSnap: null, pbInfo: null, pbHead: null,
-  msgSel: null, msgFilter: 'all', msgSearch: '', msgOrder: [],
+  msgSel: null, msgFilter: 'all', msgSearch: '', msgOrder: [], msgDraft: null,
   setSec: null, coachStyle: null
 };
 var DK_SORT_KEY = 'powa-desk-sort';
@@ -893,6 +893,7 @@ function dkThreadInto(host, a, opts) {
     markRead: !opts.peek, onRead: onRead, emptyText: opts.emptyText, draft: opts.draft || '',
     onSent: function (m) {
       dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body);
+      var sub = host.querySelector('.dk-card-who span'); if (sub) sub.textContent = 'Last message ' + _dkAgoTime(new Date().toISOString());
       // Today repaints itself (dkRepaint); a Lifters page asked for its own refresh when it opened the card.
       var cb = _dk.cardSent && _dk.cardSent.aid === a.id && _dk.screen !== 'today' ? _dk.cardSent.fn : null;
       setTimeout(function () { dkRepaint(); dkWsAsksRefresh(a.id); if (cb) { try { cb(); } catch (e) {} } }, 0);
@@ -945,10 +946,12 @@ function dkReplyTo(aid, opts) {
   var here = onPage ? window._apAthlete === aid : _dk.screen === 'today' || (_dk.screen === 'roster' && _dk.rsel === aid);
   var from = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
   if (!here) {
-    // Messages keeps the thread in the middle, with the athlete beside it.
+    // Messages keeps the thread in the middle, with the athlete beside it (and the fix's words in its box).
     dkCardForget();
     _dk.msgSel = aid;
+    _dk.msgDraft = opts.text ? { aid: aid, text: String(opts.text) } : null;
     deskGo('messages');
+    _dk.msgDraft = null;
     return true;
   }
   if (!onPage && _dk.screen === 'today') _dk.cardFor = aid;
@@ -2300,7 +2303,7 @@ function dkOnKey(e) {
   if (k === 'Escape' && e.target.closest && e.target.closest('#deskCtx') && _dkTyping(e.target)) {
     e.preventDefault();
     e.target.blur();
-    var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-bd-row.is-sel');
+    var back = _dk.screen === 'today' ? document.querySelector('#deskToday .dk-qrow.is-sel') : document.querySelector('#rosterArea .dk-qrow.is-sel, #rosterArea .dk-bd-row.is-sel, #rosterArea .cl-row.is-sel');
     if (back && !_dkOnPage()) back.focus({ preventScroll: true });
     return;
   }
@@ -5478,6 +5481,7 @@ function dkOpenThread(id, opts) {
   var box = el('div', { class: 'dk-thread' });
   centre.appendChild(box);
   renderMessageThread(box, { coachId: u.id, athleteId: a.id, viewerId: u.id, otherName: _dkFirst(a.name), markRead: true,
+    draft: _dk.msgDraft && _dk.msgDraft.aid === a.id ? _dk.msgDraft.text : '',
     onRead: function () { var un = _dkUnread(); if (un[a.id]) { un[a.id] = 0; if (typeof refreshUnreadBadges === 'function') { try { refreshUnreadBadges(); } catch (e) {} } } dkPaintRail(); setTimeout(dkPaintMsgList, 0); },
     onSent: function (m) {
       dkNoteHandled(a.id, 'reply');
