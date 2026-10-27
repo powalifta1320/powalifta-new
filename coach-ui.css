@@ -1704,8 +1704,10 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 /* ==================== Last week's report (coach-report-ui.js, 2026-10-28) ====================
    The Monday report in the app, the same words as the push and the email. One answer first (how many
    trained, the sessions behind it), then who needs you, wins, meets and money as inset grouped rows.
-   Laptop type 13 / 15 / 17 / 22 + 56; phone 15 / 17 / 20 / 22 + 44. One red (Start with …). Colour only
-   with a job: coral pain, amber behind, green done, gold meets, the lift dots. */
+   On the two systems of the 27 Oct polish: laptop 13 / 15 / 16 / 20 + 56 (an overlay: radius 20, the
+   desk's card, inner groups 10); phone 15 / 16 / 20 (+ the sheet's 22 title, 44 hero). One red (Start
+   with …). Status words stay ink beside a dot: coral pain, amber behind, the lift dots; gold meets on
+   the icon chip. */
 
 /* the ways in: Today › This week (laptop), Lifters › This week (phone) */
 .cl-sh-end { margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 2px; }
@@ -1728,7 +1730,7 @@ html[data-theme="light"] .mr-box { --mr-surface: #fff; }
 .mr-veil.is-leaving .mr-box { opacity: 0.6; transform: translateY(4px) scale(0.99); transition: opacity 150ms ease-out, transform 150ms ease-out; }
 .mr-head { position: relative; z-index: 2; flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 20px 12px 28px; transition: box-shadow 150ms ease-out; }
 .mr-box.is-scrolled .mr-head { box-shadow: 0 1px 0 var(--line); }
-.mr-title { margin: 0; font: 700 22px/1.2 var(--font-body); letter-spacing: -0.015em; color: var(--text); text-wrap: balance; }
+.mr-title { margin: 0; font: 700 20px/1.2 var(--font-body); letter-spacing: -0.012em; color: var(--text); text-wrap: balance; }
 .mr-sub { margin: 4px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-3); }
 .mr-x { margin-top: -4px; background: none; color: var(--text-3); }
 @media (hover: hover) and (pointer: fine) { .mr-x:hover { background: var(--ch-fill-3); color: var(--text); } }
@@ -1740,15 +1742,15 @@ html[data-theme="light"] .mr-box { --mr-surface: #fff; }
 .mr-hero { display: flex; flex-direction: column; gap: 12px; }
 .mr-big { display: flex; align-items: baseline; gap: 10px; margin: 0; }
 .mr-big b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 56px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em; color: var(--text); }
-.mr-big span { font-size: 17px; line-height: 1.3; font-weight: 600; color: var(--text-2); }
+.mr-big span { font-size: 16px; line-height: 1.3; font-weight: 600; color: var(--text-2); }
 .mr-meter { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--cl-up) 18%, transparent); overflow: hidden; }
 .mr-meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-up); transform-origin: left center; animation: mrFill 320ms var(--cl-ease) 80ms backwards; }
 @keyframes mrFill { from { transform: scaleX(0.04); } }
 .mr-facts { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-3); }
 .mr-facts b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .mr-sec { display: flex; flex-direction: column; gap: 10px; }
-.mr-h { display: flex; align-items: baseline; gap: 8px; margin: 0; font: 700 17px/1.25 var(--font-body); letter-spacing: -0.01em; color: var(--text); }
-.mr-h span { font-size: 15px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.mr-h { display: flex; align-items: baseline; gap: 8px; margin: 0; font: 700 16px/1.25 var(--font-body); letter-spacing: -0.01em; color: var(--text); }
+.mr-h span { font-size: 13px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .mr-list { border-radius: 14px; background: var(--bg-2); overflow: hidden; }
 .mr-row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 9px 12px 9px 14px; box-sizing: border-box;
   border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease-out; }
@@ -1789,18 +1791,26 @@ button.mr-row:active { background: var(--ch-fill-2); }
 .mr-phone .mr-body { gap: 28px; padding: 6px 0 0; }
 .mr-phone .mr-big b { font-size: 44px; }
 .mr-phone .mr-h { padding: 0 4px; font-size: 20px; line-height: 1.2; }
+.mr-phone .mr-h span { font-size: 15px; }
 .mr-phone .mr-row { min-height: 64px; padding: 11px 14px; }
 .mr-phone .mr-av.ui-av { width: 40px; height: 40px; font-size: 15px; }   /* the initials on the phone's scale (15), not a fifth size */
 .mr-phone .mr-tic { width: 40px; height: 40px; border-radius: 11px; }
 .mr-phone .mr-row + .mr-row::before, .mr-phone .mr-more::before { left: 66px; }
-.mr-phone .mr-rt b { font-size: 17px; }
+.mr-phone .mr-rt b { font-size: 16px; }
 .mr-phone .mr-rt > span { font-size: 15px; }
 .cl-root.mr-phone .mr-more { padding-left: 66px; font-size: 15px; }
 .mr-phone .mr-rt > span { white-space: normal; flex-wrap: wrap; row-gap: 2px; }   /* the reason wraps on a phone; the name stays one line */
 .mr-phone .mr-foot { position: static; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; padding: 0; background: none; box-shadow: none; }
 .mr-phone .mr-foot p { font-size: 15px; text-align: center; }
-.mr-phone .mr-foot .mr-go { max-width: none; width: 100%; height: 50px; font-size: 17px !important; }
+.mr-phone .mr-foot .mr-go { max-width: none; width: 100%; height: 50px; font-size: 16px !important; }
 .mr-phone .mr-empty { padding: 20px 8px 28px; }
+/* the laptop: the desk's overlay (radius 20, its card material and pop) and inner groups at 10 */
+html.desk .mr-box { --mr-surface: var(--dk-card, var(--bg-1)); border-radius: var(--r-3, 20px); background-color: var(--mr-surface); background-image: var(--dk-card-sheen, none); box-shadow: var(--dk-pop, 0 24px 60px -20px rgba(0, 0, 0, 0.8)); }
+html.desk[data-theme="light"] .mr-box { --mr-surface: #fff; }
+html.desk .mr-list { border-radius: var(--r-2, 10px); background: var(--dk-raise-2, var(--bg-2)); }
+html.desk .mr-foot { background: var(--mr-surface); }
+@media (hover: hover) and (pointer: fine) { html.desk button.mr-row:hover { background: var(--dk-hover); } }
+html.desk button.mr-row:active { background: var(--dk-fill-2, var(--ch-fill-2)); }
 
 /* Settings › Notifications (a coach): the example of Monday's report, one row of its own */
 .settings-sheet .np-example { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 50px; margin: 14px 0 0; padding: 13px 14px; box-sizing: border-box;
