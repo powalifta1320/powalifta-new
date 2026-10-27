@@ -494,8 +494,8 @@
   function fpWidth(slots, size) { var g = GEO[size] || GEO.sm; return Math.max(1, slots) * (3 * g.bw + 2 * g.gi + g.gw) - g.gw; }
   // The key: once per view, never a box per chart.
   function keyHtml() {
-    return '<span class="bd-key" aria-hidden="true"><span><i class="bd-sw l-sq"></i>Squat</span><span><i class="bd-sw l-be"></i>Bench</span><span><i class="bd-sw l-dl"></i>Deadlift</span>' +
-      '<span><i class="bd-sw is-wash"></i>Written, not done</span><span><i class="bd-ln is-felt"></i>RPE felt</span><span><i class="bd-ln is-wr"></i>RPE written</span></span>';
+    return '<span class="bd-key" aria-hidden="true"><span class="bd-kg"><span><i class="bd-sw l-sq"></i>Squat</span><span><i class="bd-sw l-be"></i>Bench</span><span><i class="bd-sw l-dl"></i>Deadlift</span></span>' +
+      '<span class="bd-kg"><span><i class="bd-sw is-wash"></i>Written, not done</span><span><i class="bd-ln is-felt"></i>RPE felt</span><span><i class="bd-ln is-wr"></i>RPE written</span></span></span>';
   }
   // A block's facts beside its fingerprint.
   function subText(it) {
@@ -620,11 +620,12 @@
     var max = maxSets([A, B]), rpe = rpeDomain([A, B]), slots = Math.max(A.weeks.length, B.weeks.length, 1);
     var short = function (n) { return String(n || '').replace(/\s+block$/i, '') || n; };
     var size = o.phone && slots > 8 ? 'sm' : 'md';
-    var h = '<div class="bd-ch"><h3 class="bd-h3">What changed</h3><p class="bd-chs">' + esc(A.name) + ' against ' + esc(B.name) + '</p></div>';
+    // The key rides the heading on the desk (the sentences come up the screen); under the pair on the phone.
+    var h = '<div class="bd-ch"><div class="bd-cht"><h3 class="bd-h3">What changed</h3><p class="bd-chs">' + esc(A.name) + ' against ' + esc(B.name) + '</p></div>' + (o.phone ? '' : keyHtml()) + '</div>';
     h += '<div class="bd-align" style="--bd-fpw:' + fpWidth(slots, size) + 'px">' + [pick[1], pick[0]].map(function (it, i) {
       return '<div class="bd-arow"><span class="bd-aid"><span class="bd-name">' + esc(it.dna.name) + '</span><span class="bd-sub">' + esc(subText(it)) + '</span></span>' +
         '<span class="bd-afp">' + fpSvg(it.dna, { size: size, max: max, rpe: rpe, slots: slots, labels: i === 1, tips: o.tips }) + '</span></div>';
-    }).join('') + '<div class="bd-akey">' + keyHtml() + '</div></div>';
+    }).join('') + (o.phone ? '<div class="bd-akey">' + keyHtml() + '</div>' : '') + '</div>';
     if (o.phone) {
       h += '<div class="bd-plist2">' + c.rows.map(function (r) {
         return '<div class="bd-prow"><span class="bd-tl">' + (r.lift ? '<i class="bd-dot ' + CLS[r.lift] + '"></i>' : '') + esc(r.label) + '</span><p class="bd-tx">' + esc(r.text) + '</p></div>';

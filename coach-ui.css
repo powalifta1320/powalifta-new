@@ -957,7 +957,9 @@ html[data-theme="light"] .bd-root { --bd-sq: #0a86c9; --bd-be: #6a4fe0; --bd-dl:
 @media (hover: hover) and (pointer: fine) { .bd-fp .bd-wk:hover .bd-hit { fill: var(--ch-fill-2); } }
 /* the key: once per view */
 .bd-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; line-height: 1.3; color: var(--text-3); }
-.bd-key > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.bd-kg { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+html.desk .bd-kg { flex-wrap: nowrap; }
+.bd-kg > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .bd-sw { display: inline-block; width: 6px; height: 12px; border-radius: 3px 3px 0 0; background: var(--lc); }
 .bd-sw.is-wash { background: color-mix(in srgb, var(--text-3) 24%, transparent); }
 .bd-ln { display: inline-block; width: 14px; height: 2px; border-radius: 1px; background: var(--text); }
@@ -1023,7 +1025,8 @@ html.desk[data-theme="light"] .dk-modal.bd-modal { --bd-surface: #fff; }
 .bd-pfp { display: flex; justify-content: flex-start; padding-top: 2px; }
 .bd-pfacts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 /* what changed */
-.bd-ch { margin-bottom: 16px; }
+.bd-ch { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 16px; }
+.bd-ch .bd-key { justify-content: flex-end; max-width: 440px; }
 .bd-h3 { margin: 0; font-size: 16px; line-height: 1.25; font-weight: 700; color: var(--text); }
 .bd-chs { margin: 4px 0 0; font-size: 13px; color: var(--text-3); }
 .bd-align { display: flex; flex-direction: column; gap: 14px; width: fit-content; max-width: 100%; box-sizing: border-box; padding: 16px 20px 14px 16px; border-radius: 14px; background: var(--ch-fill-1); }
