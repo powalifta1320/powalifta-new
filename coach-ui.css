@@ -1525,3 +1525,27 @@ html:not(.desk) body.powa-app .msg-inbox .msg-inbox-badge { box-shadow: none; }
 /* A thread opened from a lifter (Reply, a sheet) wears the Messages green like every thread: the coach's
    bubbles and the voice note's play were the fire red of the Lifters tab, the colour of the one action. */
 html:not(.desk) #messageModal { --acc: #34e08c; --acc-2: #10b5a6; --acc-ink: #04140c; }
+
+/* --- 7. Program --- */
+/* The week chips and a day's ⋯ reach 44 pt; the builder's own look stays. */
+html:not(.desk) body.powa-app #programArea .week-tab { min-height: 40px; }
+html:not(.desk) body.powa-app #programArea .pb-day-head > .ui-icon-btn { width: 44px; height: 44px; }
+/* Add exercise (the full form, a sheet on the phone): the presets on one row of their own instead of
+   "3×5 @ / 7" wrapped in a cramped switch; every set on one line (the remove button fell to a line of
+   its own); the columns named once; sentence case ("Set 1", not "SET / 1"). */
+html:not(.desk) #addExerciseModal #setsHeader { flex-wrap: wrap; row-gap: 8px; }
+html:not(.desk) #addExerciseModal #presetSeg { flex: 1 1 100%; width: 100%; }
+html:not(.desk) #addExerciseModal #presetSeg button { flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 4px; white-space: nowrap; font-size: 13px; }
+html:not(.desk) #addExerciseModal .set-row { grid-template-columns: 48px repeat(3, minmax(0, 1fr)) 40px; gap: 8px; margin: 0 0 4px; padding: 0; background: none; border: 0; border-radius: 0; }
+html:not(.desk) #addExerciseModal .set-row .set-label { text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 600; color: var(--text-2); text-align: left; white-space: nowrap; }
+html:not(.desk) #addExerciseModal .set-row input { height: 44px; padding: 0 6px; border-radius: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+html:not(.desk) #addExerciseModal .set-row > .btn-icon { width: 40px; height: 44px; display: grid; place-items: center; }
+html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: scale(0.92); color: var(--text); }
+html:not(.desk) #addExerciseModal .set-head { margin-bottom: 2px; }
+html:not(.desk) #addExerciseModal .set-head span { font-size: 13px; font-weight: 600; color: var(--text-3); text-align: center; }
+/* Templates: a card like every other (20), Apply is the screen's red at 44 pt with no glow, delete a quiet graphite circle. */
+html:not(.desk) section[data-pane="templates"] .template-card { border-radius: var(--u-r, 20px); padding: 16px; }
+html:not(.desk) section[data-pane="templates"] .template-card .tpl-actions { gap: 8px; margin-top: 12px; }
+html:not(.desk) section[data-pane="templates"] .template-card .btn { min-height: 44px; padding: 0 20px; border-radius: 999px; box-shadow: none; }
+html:not(.desk) section[data-pane="templates"] .template-card .btn-danger { width: 44px; padding: 0; border-color: transparent; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); }
+html:not(.desk) section[data-pane="templates"] .template-card .btn-danger svg { width: 18px; height: 18px; }

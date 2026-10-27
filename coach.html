@@ -3980,7 +3980,13 @@ function renderSetsBuilder() {
   const lift = document.getElementById('exLift').value;
   const isCardio = lift === 'cardio';
   document.getElementById('presetSeg').style.display = isCardio ? 'none' : 'inline-flex';
+  // The phone names the three columns once above the sets (the fields' placeholders vanish once filled).
+  if (!_desk() && buildingSets.length) {
+    wrap.appendChild(el('div', { class: 'set-row set-head', 'aria-hidden': 'true' },
+      el('span', {}, ''), el('span', {}, isCardio ? 'min' : unitLabel()), el('span', {}, isCardio ? 'km' : 'Reps'), el('span', {}, 'RPE'), el('span', {}, '')));
+  }
   buildingSets.forEach((set, i) => {
+
     const row = el('div', { class: 'set-row' });
     row.appendChild(el('div', { class: 'set-label' }, isCardio ? 'Bout ' + (i + 1) : 'Set ' + (i + 1)));
     row.appendChild(el('input', {
@@ -3992,7 +3998,8 @@ function renderSetsBuilder() {
     }));
     row.appendChild(el('input', { type: 'number', value: set.reps, placeholder: isCardio ? 'km' : 'reps', oninput: e => buildingSets[i].reps = Number(e.target.value) }));
     row.appendChild(el('input', { type: 'number', value: set.rpe, placeholder: 'RPE', step: '0.5', min: '1', max: '10', oninput: e => buildingSets[i].rpe = Number(e.target.value) }));
-    const x = el('button', { class: 'btn-icon', style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => { buildingSets.splice(i, 1); renderSetsBuilder(); } });
+    const x = el('button', { class: 'btn-icon', type: 'button', 'aria-label': 'Remove set ' + (i + 1), style: 'border:none; background:transparent; color: var(--text-3); cursor:pointer; padding:4px;', onclick: () => { buildingSets.splice(i, 1); renderSetsBuilder(); } });
+
     x.innerHTML = ICONS.x;
     row.appendChild(x);
     wrap.appendChild(row);
@@ -4065,8 +4072,10 @@ function renderTemplates() {
     }
     const del = el('button', { class: 'btn btn-sm btn-danger', onclick: async () => { if (confirm('Delete template "' + t.name + '"?')) { Store.update(s => { s.programTemplates = s.programTemplates.filter(x => x.id !== t.id); }); await persistDeleteTemplate(t.id); renderTemplates(); }}});
     del.innerHTML = ICONS.trash;
+    del.setAttribute('aria-label', 'Delete ' + t.name);
     actions.appendChild(del);
     card.appendChild(actions);
+
     grid.appendChild(card);
   });
   area.appendChild(grid);
