@@ -354,7 +354,15 @@
       if (req.status === 'declined') return rowEl(capFirst(coach) + ' kept your week as written', 'Message ' + coach + ' if anything changes', 'Message', function () { var tb = document.getElementById('tab-coach'); if (tb) tb.click(); }, 'is-declined');
       return rowEl('Waiting for ' + coach, (req.local ? 'Saved on your phone · ' : '') + (dates.length ? dayList(dates) : 'No days this week'), 'Change', function () { open(); }, 'is-waiting');
     }
-    if (!prog || sessionsLeft(prog).sessions.length < 2) return null;
+    if (!prog) return null;
+    var left = sessionsLeft(prog).sessions;
+    // Training on their own with every session left already on a day this week (their plan, or pins):
+    // the week is set; Change plans it again.
+    var sun = addDays(mon, 6);
+    if (!u.coachId && left.length && left.every(function (x) { return x.pinned && x.pinned >= t && x.pinned <= sun; })) {
+      return rowEl('Your week is set', dayList(uniqSorted(left.map(function (x) { return x.pinned; }))), 'Change', function () { open(); }, 'is-set');
+    }
+    if (left.length < 2) return null;
     return rowEl('Busy week?', u.coachId ? 'Tell ' + coach + ' which days you can train' : 'Pick the days you can train', 'Pick days', function () { open(); });
   }
   // The session picker's "Or" entry: the same, as a row.
@@ -363,7 +371,7 @@
     if (!u || typeof uiRow !== 'function' || todayIso() !== (typeof getSessionDate === 'function' ? getSessionDate() : todayIso())) return null;
     var mon = monday(todayIso()), req = u.coachId ? requestOf(u.id, mon) : null, prog = progOf(u.id);
     if (req && req.status !== 'pending') return null;
-    if (!req && (!prog || sessionsLeft(prog).sessions.length < 2)) return null;
+    if (!req && (!prog || sessionsLeft(prog).sessions.length < (u.coachId ? 2 : 1))) return null;
     var coach = coachFirst(u);
     return uiRow({ lead: el('span', { class: 'sp-ic is-date', html: CAL }), title: req ? 'Change your busy week' : 'Busy week?',
       sub: req ? 'Waiting for ' + coach : (u.coachId ? 'Tell ' + coach + ' which days you can train' : 'Pick the days you can train'), chevron: true,
@@ -382,7 +390,8 @@
     var dates = datesLeft(t);
     if (trainedOn(prog, t)) dates = dates.slice(1);   // today's session is under way: the plan starts tomorrow
     var picked = {};
-    (existing ? datesOf(mon, existing.days) : prepick(dates, intakeDays(u))).forEach(function (d) { if (dates.indexOf(d) >= 0) picked[d] = 1; });
+    var pinnedNow = left.sessions.map(function (x) { return x.pinned; }).filter(function (d) { return d && dates.indexOf(d) >= 0; });
+    (existing ? datesOf(mon, existing.days) : (!coached && pinnedNow.length ? pinnedNow : prepick(dates, intakeDays(u)))).forEach(function (d) { if (dates.indexOf(d) >= 0) picked[d] = 1; });
     uiSheet('Which days can you train?', function (sheet, close) {
       sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'This week · ' + plural(left.sessions.length, 'session') + ' left'));
       var grid = el('div', { class: 'bwk-days', role: 'group', 'aria-label': 'Days you can train this week' });

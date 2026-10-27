@@ -226,7 +226,8 @@
   function coachId() { try { if (typeof user !== 'undefined' && user && user.id) return user.id; } catch (e) {} return (window._user && window._user.id) || null; }
   function today() { return typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10); }
   function hoursText(h) { return (Math.round(h * 2) / 2) + ' h'; }
-  function minText(m) { m = Math.round(m); if (m < 60) return m + ' min'; var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + r + ' min' : ''); }
+  // "40 min", "1 h 40 min", "2 h 15 min" (an hour or more to the nearest 5 minutes: it's an estimate).
+  function minText(m) { m = Math.round(m); if (m < 60) return m + ' min'; m = Math.round(m / 5) * 5; var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + r + ' min' : ''); }
   function trimNum(v) { return String(Math.round(v * 10) / 10); }
   // The plan shows only where it already does (renderCoachYou's showPlan): always on the web, in the
   // iPhone app only once in-app purchase is live (Apple 3.1.1: never a plan that can't be bought there).

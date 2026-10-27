@@ -123,6 +123,8 @@ function _wipeLocalUserData() {
   try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
   // MEET DAY hook (meetday.js): boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop.
   try { Object.keys(localStorage).filter(k => /^powa-md-/.test(k) || k === 'powa-attempt-plans').forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  // A busy week kept on this phone before its table existed (db.js): their days and their note go with them.
+  try { Object.keys(localStorage).filter(k => /^powa-busy-week-/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
 }
 // Stop this device getting the signed-out account's pushes (their coach's messages
 // would otherwise keep arriving for whoever signs in next, and the next account
