@@ -1113,8 +1113,11 @@
     var r = S.sel ? rowOf(S.sel) : null;
     if (!r) { host.innerHTML = ''; var tab = document.getElementById('tab-athletes'); if (tab) tab.click(); return; }
     var M = model();
-    var P = summaryHtml(r, M, { phone: true, rise: true });
+    // No staggered rise inside: the page pushes in from the right as one piece (coach-ui.css, the
+    // phone's push), and a refresh after a fix repaints in place instead of replaying an entrance.
+    var P = summaryHtml(r, M, { phone: true, rise: false });
     host.innerHTML = '<div class="cl-pg cl-root cl-pg-phone">' + P.html + '</div>';
+
     host._P = P; host._r = r; host._clM = M;
     if (!host._wired) { host._wired = true; wire(host, { desk: false, page: true }); }
     paint(host);

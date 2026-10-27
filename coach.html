@@ -403,6 +403,10 @@ bootstrap('coach', () => {
       // Sub-screens remember which of the five opened them (back link + lit tab).
       const prev = document.querySelector('.sidebar-tab.active');
       if (btn.dataset.parent && prev && prev !== btn && !prev.dataset.parent) btn.dataset.parent = prev.dataset.tab;
+      // The phone's push and pop (coach-ui.css): into a sub-screen the page comes from the right, back
+      // to its parent from the left; a tab switch keeps the quiet settle.
+      if (!_desk()) document.body.dataset.nav = !prev || prev === btn ? '' : (btn.dataset.parent && btn.dataset.parent === prev.dataset.tab) ? 'push' : (prev.dataset.parent && prev.dataset.parent === btn.dataset.tab) ? 'pop' : '';
+
       document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('[data-pane]').forEach(p => p.classList.add('hidden'));
@@ -418,7 +422,9 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'you') renderCoachYou();
       if (btn.dataset.tab === 'clients' && window.ClientsUI) ClientsUI.render(document.getElementById('clientsArea'));
       syncPaneBack();
+      _syncNavBack();
       window.scrollTo(0, 0);
+
     });
   });
   renderRoster();
@@ -560,6 +566,24 @@ function renderCoachYou() {
   });
 }
 window.renderCoachYou = renderCoachYou;
+
+// The phone's docked top bar keeps a back button on a sub-screen (a lifter, Clients, Templates…): the
+// page's own "‹ Lifters" sits in the bar's row at rest and scrolls away under the docked bar, so the
+// bar shows this copy (coach-ui.css, "Push navigation"). One button, fixed, outside the nav (renderNav
+// can redraw the nav). The laptop desk has its own rail and never gets it.
+function _syncNavBack() {
+  if (_desk() || !document.documentElement.classList.contains('native')) return;
+  const pb = document.querySelector('.dash-main > section[data-pane]:not(.hidden) > .pane-back');
+  let b = document.getElementById('clNavBack');
+  if (!b) {
+    b = el('button', { class: 'cl-navback', id: 'clNavBack', type: 'button' });
+    b.addEventListener('click', () => { const back = document.querySelector('.dash-main > section[data-pane]:not(.hidden) > .pane-back'); if (back) back.click(); });
+    document.body.appendChild(b);
+  }
+  b.innerHTML = pb ? pb.innerHTML : '';
+  b.setAttribute('aria-label', pb ? 'Back to ' + pb.textContent.trim() : 'Back');
+}
+
 
 // Install a generated block onto the athlete currently open in the builder.
 // Replaces their program, so it confirms first — this is destructive and the

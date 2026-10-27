@@ -1365,3 +1365,73 @@ html.desk .cs-page .cs-r .cs-st:is(.st-overdue, .st-due, .st-soon)::before { con
 html.desk .cs-page .cs-r .cs-st.st-overdue::before { background: var(--cl-pain); }
 html.desk .cs-page .cs-r .cs-st:is(.st-ok, .st-none, .st-paused, .st-ended) { color: var(--text-3); }
 html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /* Mark paid in one column, Remind after it */
+
+/* ===== phone polish (27 Oct) =====
+   The coach side of the iPhone app, the design lead's pass before the pitch. Phone only: every rule is
+   scoped to html.native (the app, and the website's phone demo, which adds html.native.web-demo) or to
+   the phone's own components (.cl-phone, .cl-pg-phone), never html.desk; the lifter app never loads
+   this file. The system it holds the screens to: type 13 / 15 / 16 / 20 (+ 22 tile numbers, 32 large
+   title, 44 hero number), a 4-point grid, radii 20 cards / 14 rows / 12 controls / pills for buttons,
+   three button kinds (one red fill a screen, graphite fill, text), inset hairlines, press feedback on
+   everything tappable, 44 pt targets, motion on cubic-bezier(0.23, 1, 0.32, 1). */
+
+/* --- 1. Scroll edges (iOS 26): where floating chrome covers the page, the page softens into it ---
+   Under the floating tab bar the content used to run on crisp (an invite's text showed under and
+   below the capsule); under the docked top bar and the open thread's header it ended on a hairline. */
+html.native:not(.desk) body.powa-app .dash-shell::after {
+  content: ''; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; pointer-events: none;
+  height: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - 12px)) + 96px);
+  background: linear-gradient(to top, var(--bg) 0, color-mix(in srgb, var(--bg) 94%, transparent) 18px, color-mix(in srgb, var(--bg) 72%, transparent) 46%, color-mix(in srgb, var(--bg) 0%, transparent) 100%);
+}
+html.native:not(.desk) body.powa-app .nav.is-docked { box-shadow: none; }
+html.native:not(.desk) body.powa-app .nav::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 20px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(6, 6, 8, 0.9), rgba(6, 6, 8, 0));
+  opacity: 0; transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+html.native:not(.desk) body.powa-app .nav.is-docked::after { opacity: 1; }
+html.native[data-theme="light"]:not(.desk) body.powa-app .nav::after { background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0)); }
+@media (max-width: 720px) {
+  html.native:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head { border-bottom-color: transparent; }
+  html.native:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 20px; pointer-events: none;
+    background: linear-gradient(to bottom, rgba(6, 6, 8, 0.9), rgba(6, 6, 8, 0));
+  }
+  html.native[data-theme="light"]:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head::after { background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0)); }
+}
+/* Reply as a sheet (Lifters › a lifter › Reply): the thread scrolls inside the sheet and fades at its top
+   edge instead of cutting a bubble in half under the title. */
+html.native:not(.desk) #messageModal .msg-list { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
+
+/* --- 2. Push navigation: a sub-screen's back sits in the bar's row, level with the icons ---
+   "‹ Lifters" on the left, the assistant and the bell on the right, the large title under them (it
+   was a row of its own under the icons). Once the bar docks, .cl-navback (coach.html) keeps a back in it. */
+html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .pane-back:first-child {
+  display: flex; width: fit-content; height: 44px; margin: -44px 0 4px -10px; padding: 0 14px 0 4px; gap: 2px;
+
+  font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-2);
+  transition: color 150ms ease-out, transform 140ms ease-out;
+}
+html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .pane-back:first-child svg { width: 22px; height: 22px; }
+html.native:not(.desk) body.powa-app .pane-back:active, html.native:not(.desk) .cl-navback:active { color: var(--text); transform: scale(0.97); }
+html.native:not(.desk) .cl-navback { display: none; }
+html.native:not(.desk) body.powa-app:has(.nav.is-docked):has(.dash-main > section[data-pane]:not(.hidden) > .pane-back) .cl-navback {
+  display: inline-flex; align-items: center; gap: 2px; position: fixed; z-index: 51; top: env(safe-area-inset-top, 0px); left: 6px;
+  height: 44px; padding: 0 14px 0 4px; border: 0; background: none; color: var(--text-2);
+  font: 600 16px/1 var(--font-body, inherit); letter-spacing: -0.01em; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: color 150ms ease-out, transform 140ms ease-out;
+}
+html.native:not(.desk) .cl-navback svg { width: 22px; height: 22px; }
+/* A screen pushed in comes from the right; going back, its parent comes from the left (iOS's direction,
+   kept short: the page arrives as one piece from opacity .45, so a tap during it still lands). Tab
+   switches keep the quiet settle (dash-fx.css). */
+@keyframes clPushIn { from { opacity: 0.45; transform: translate3d(44px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes clPopIn { from { opacity: 0.45; transform: translate3d(-32px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes clFadeIn { from { opacity: 0.45; } to { opacity: 1; } }
+html.native:not(.desk) body.powa-app[data-nav="push"] .dash-main > section[data-pane]:not(.hidden) { animation: clPushIn 340ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-pane]:not(.hidden) { animation: clPopIn 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+
+/* --- 3. Header icons: 36 pt circles with a 44 pt target, and a press --- */
+html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
+html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active { transform: scale(0.92); }
