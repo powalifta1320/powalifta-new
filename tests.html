@@ -5124,6 +5124,9 @@ test('no weeks yet (a real account\'s list): the fingerprint from the log', () =
   eq(d.weeks[0].rpeFelt, 8.25, 'the heaviest squat (8.5) and bench (8)');
   eq(d.totals.sessionsDone, 3); eq(d.totals.adherence, null, 'nothing to count it against');
   eq(d.totals.setsByLift.squat.perWeek, 2); eq(d.totals.rpe.drift, null);
+  const thu = BD.blockDna({ id: 'blk-t', athleteId: 'x', name: 'Thursday', startedOn: '2026-09-10', endedOn: '2026-09-23', weeks: null },
+    { logs: [bdLog('x', 'squat', '2026-09-10', 0, { weight: 150, reps: 3, rpe: 8 }), bdLog('x', 'squat', '2026-09-16', 0, { weight: 150, reps: 3, rpe: 8 }), bdLog('x', 'squat', '2026-09-17', 0, { weight: 150, reps: 3, rpe: 8 }), bdLog('x', 'squat', '2026-09-23', 0, { weight: 150, reps: 3, rpe: 8 })], today: '2026-10-22' });
+  eq(thu.weeks.map(w => w.sets.squat.done).join(','), '2,2', 'a block that began on a Thursday keeps Thursday weeks');
 });
 test('the pair Compare opens on: the two newest with a full week behind them', () => {
   const mk = (id, full, done) => ({ id, fullWeeks: full, totals: { sessionsDone: done } });

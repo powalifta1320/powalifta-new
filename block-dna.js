@@ -220,7 +220,8 @@
     if (!start) return dna;
     var inBlock = logs.filter(function (l) { return l.date >= start && l.date <= end; });
     var feltAll = [];
-    for (var m = monday(start); m <= end; m = addDays(m, 7)) {
+    // Weeks of seven days from the block's first day: a block keeps its own rhythm, whatever day it began on.
+    for (var m = start; m <= end; m = addDays(m, 7)) {
       var wl = inBlock.filter(function (l) { return l.date >= m && l.date <= addDays(m, 6); });
       var wk = { n: dna.weeks.length + 1, sets: lifts(function (L) { return { planned: null, done: wl.filter(function (l) { return l.lift === L; }).length }; }),
         done: Object.keys(wl.reduce(function (o, l) { o[l.date] = 1; return o; }, {})).length, planned: null, due: null, rpeWritten: null, rpeFelt: null, pct: null };
@@ -692,9 +693,14 @@
     box.appendChild(grid);
     var said = el('p', { class: 'bd-vh', role: 'status' });
     box.appendChild(said);
-    var dnas = items.map(function (it) { return it.dna; }), max = maxSets(dnas), rpe = rpeDomain(dnas), slots = Math.max.apply(null, dnas.map(function (d) { return d.weeks.length; }).concat([1]));
-    left.style.setProperty('--bd-fpw', fpWidth(slots, 'sm') + 'px');
-    if (slots > 6) left.classList.add('is-long');
+    var max, rpe;
+    var scale = function () {
+      var dnas = items.map(function (it) { return it.dna; }), slots = Math.max.apply(null, dnas.map(function (d) { return d.weeks.length; }).concat([1]));
+      max = maxSets(dnas); rpe = rpeDomain(dnas);
+      left.style.setProperty('--bd-fpw', fpWidth(slots, 'sm') + 'px');
+      left.classList.toggle('is-long', slots > 6);
+    };
+    scale();
     var paint = function (swap) {
       left.innerHTML = items.map(function (it) { return pickHtml(it, state.ids.indexOf(it.dna.id) >= 0, { max: max, rpe: rpe, tips: 'desk' }); }).join('');
       right.innerHTML = compareHtml(items, state.ids, { tips: 'desk' });
@@ -715,7 +721,7 @@
       if (opts.from && opts.from.isConnected) opts.from.focus({ preventScroll: true });
     }
     veil._close = close;
-    ensureWeeks(items, function () { if (veil.isConnected) { close(); open(aid, { pair: state.ids.slice().reverse(), from: opts.from }); } });
+    ensureWeeks(items, function () { if (veil.isConnected) { items = listFor(aid); scale(); paint(false); } });
   }
   function openSheet(aid, items, state) {
     if (typeof uiSheet !== 'function') return;
