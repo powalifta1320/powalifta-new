@@ -773,7 +773,7 @@
         : "Your coach gives you a 6-character invite code. Enter it on the **Coach** tab to connect. They'll then build and manage your program.";
     }
     if (/(export|download|csv|backup|data)/.test(t)) {
-      return "Settings → **Export** gives you everything as JSON, plus per-program CSV spreadsheets. Your data is always yours to take.";
+      return "Settings → **Export** gives you everything as JSON, plus a CSV file per program. Your data is always yours to take.";
     }
     if (/(help|what can you|who are you|hello|hi\b|hey)/.test(t)) {
       return role === 'coach'
