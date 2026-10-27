@@ -626,5 +626,11 @@ html.desk .md-root.md-planner :is(.md-sub, .md-sum-cell span, .md-sum-cell small
 html.desk .md-root.md-planner :is(.md-note, .md-btn) { font-size: 15px; }
 html.desk .md-root.md-planner .md-step { font-size: 16px; }
 html.desk .md-root .md-side .md-card { background: var(--dk-raise); }
+/* The planner's load: one filled stepper (− 87.5 +), never an outlined box between two filled buttons. */
+html.desk .md-root .md-kg-edit { gap: 0; height: 40px; padding: 0 4px; border-radius: var(--r-1); background: var(--dk-fill); }
+html.desk .md-root .md-kg-edit .md-step { width: 32px; height: 32px; background: transparent; color: var(--text-2); }
+html.desk body.powa-app .md-root .md-kg-edit input.md-kg-in { min-width: 0; height: 40px; border: 0 !important; border-radius: 0; background: transparent !important; box-shadow: none; }
+html.desk body.powa-app .md-root .md-kg-edit:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
+@media (hover: hover) and (pointer: fine) { html.desk .md-root .md-kg-edit .md-step:hover { background: var(--dk-fill-2); color: var(--text); } }
 /* The desk: Meets and the board sit on the desk's own raised surface, so light reads as cards and not white on white. */
 html.desk .md-screen, html.desk .md-root { --md-surface: var(--dk-raise); }
