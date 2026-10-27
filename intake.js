@@ -36,7 +36,7 @@
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(key(k)); if (v === null) localStorage.removeItem(key(k)); else localStorage.setItem(key(k), v); } catch (e) {} return null; }
   function ago(iso) {
     var d = Math.round((Date.now() - Date.parse(iso)) / 86400000);
-    return !isFinite(d) ? '' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return !isFinite(d) ? '' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   }
 
   // ---------- the answers (contract v 1, clients.js) ----------

@@ -70,8 +70,8 @@ window.POWA_SUPPORT_KB = [
    "invite code",
    "join my coach"
   ],
-  "a": "Your coach taps Invite athlete on their Roster tab, then Generate code, and sends you the 6-character code. Enter it in the Invite code field when you sign up, or later from You → Find a coach, where you type it under \"Have an invite code?\" and tap Join. You see \"Joined coach!\", the app reloads, and your coach's program shows on Train once they assign one. If it says the code is invalid or already used, ask your coach for a fresh one from the same button.",
-  "app": "Your coach taps Invite athlete on their Roster tab, then Generate code, and sends you the 6-character code. Enter it when you sign up by choosing I have a coach and filling in the Coach code field, or later from You → Find a coach, where you type it under \"Have an invite code?\" and tap Join. You see \"Joined coach!\", the app reloads, and your coach's program shows on Train once they assign one. If it says the code is invalid or already used, ask your coach for a fresh one."
+  "a": "Your coach taps Invite a lifter (the + on their Lifters tab), then Generate code, and sends you the 6-character code. Enter it in the Invite code field when you sign up, or later from You → Find a coach, where you type it under \"Have an invite code?\" and tap Join. You see \"Joined coach!\", the app reloads, and your coach's program shows on Train once they assign one. If it says the code is invalid or already used, ask your coach for a fresh one from the same button.",
+  "app": "Your coach taps Invite a lifter (the + on their Lifters tab), then Generate code, and sends you the 6-character code. Enter it when you sign up by choosing I have a coach and filling in the Coach code field, or later from You → Find a coach, where you type it under \"Have an invite code?\" and tap Join. You see \"Joined coach!\", the app reloads, and your coach's program shows on Train once they assign one. If it says the code is invalid or already used, ask your coach for a fresh one."
  },
  {
   "id": "request-coach",
@@ -110,7 +110,7 @@ window.POWA_SUPPORT_KB = [
    "invite athlete",
    "send invite code"
   ],
-  "a": "Open Roster and tap \"Invite athlete\" (also under You → Coaching → \"Invite an athlete\"). Enter their email and tap Generate code: a 6-character code appears with Copy code, and we email it to them too (tap Resend email if it didn't arrive). They type it under their \"Find a coach\" tab → \"Have an invite code?\" and tap Join, and they appear on your roster; codes still waiting sit under Pending invites on Roster. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
+  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Enter their email and tap Generate code: a 6-character code appears with Copy code, and we email it to them too (tap Resend email if it didn't arrive). They type it under their \"Find a coach\" tab → \"Have an invite code?\" and tap Join, and they appear on your roster; codes still waiting sit under Pending invites on Lifters. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
  },
  {
   "id": "coach-remove-athlete",

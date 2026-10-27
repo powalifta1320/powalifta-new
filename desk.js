@@ -2138,7 +2138,7 @@ function dkCommands() {
   });
   var u = _dkUser();
   cmds.push({ group: 'Go to', label: 'Templates', keys: 'programs saved blocks', run: function () { _dk.pbMode = 'templates'; deskGo('programs'); } });
-  cmds.push({ group: 'Actions', label: 'Invite an athlete', keys: 'add new', run: function () { openInviteModal(); } });
+  cmds.push({ group: 'Actions', label: 'Invite a lifter', keys: 'add new athlete', run: function () { openInviteModal(); } });
   (Store.get().programTemplates || []).filter(function (t) { return t.coachId === u.id; }).forEach(function (t) {
     cmds.push({ group: 'Actions', label: 'Assign “' + (t.name || 'Template') + '” to…', keys: 'template program apply', run: function () { openApplyTemplate(t); } });
   });
@@ -5600,7 +5600,7 @@ var DK_SET_IC = {
 function dkSettingsSections() {
   var native = document.documentElement.classList.contains('native');
   return [['profile', 'Profile'], ['plan', 'Plan & seats'], ['checkins', 'Check-ins'], ['brand', 'Branding'], native ? null : ['market', 'Marketplace'],
-    ['athletes', 'Invite athletes'], ['prefs', 'Preferences'], ['keys', 'Keyboard'], ['help', 'Help & account']].filter(Boolean);
+    ['athletes', 'Invite lifters'], ['prefs', 'Preferences'], ['keys', 'Keyboard'], ['help', 'Help & account']].filter(Boolean);
 }
 // coach.html's renderCoachYou hands the desk its area.
 function deskRenderSettings(area) {

@@ -312,7 +312,7 @@
           sheet.appendChild(uiList([
             uiRow({ title: 'Package', end: b.package }),
             uiRow({ title: 'Price', end: C().priceText(b) }),
-            uiRow({ title: 'Next payment', end: b.nextDue ? dateShort(b.nextDue) : '–' }),
+            uiRow({ title: b.nextDue && b.nextDue < today() ? 'Was due' : 'Next payment', end: b.nextDue ? dateShort(b.nextDue) : '–' }),
             b.startedOn ? uiRow({ title: 'Coaching since', end: monthYear(b.startedOn) }) : null,
             b.status !== 'active' ? uiRow({ title: 'Status', end: b.status === 'paused' ? 'Paused' : 'Ended' }) : null
           ]));

@@ -542,7 +542,7 @@
     var dayMarks = '';
     for (var i = 6; i >= 0; i--) {
       var iso = addDays(f.today, -i), on = S.days.indexOf(iso) >= 0, lbl = '';
-      try { lbl = new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'narrow' }); } catch (e) {}
+      try { lbl = new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }); } catch (e) {}
       dayMarks += '<span class="wn-day' + (on ? ' on' : '') + (i === 0 ? ' is-today' : '') + '"><i></i><small>' + esc(lbl) + '</small></span>';
     }
     var sessT = '<b>' + S.done + '</b><span>' + (S.planned ? 'of ' + S.planned + ' sessions' : (S.done === 1 ? 'session' : 'sessions')) + '</span>';
