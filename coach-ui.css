@@ -1276,6 +1276,9 @@ html:not(.desk) body.powa-app #btn-invite.is-quiet:hover, html:not(.desk) body.p
   }
   html.native[data-theme="light"] body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head { background: rgba(255, 255, 255, 0.94); }
   html.native body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail { padding-top: 18px; }
+  /* …and like any pushed chat on iOS, the tab bar steps aside too: the reply bar takes the bottom. */
+  html.native body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .bottom-tabs { transform: translateY(calc(100% + 48px)); opacity: 0; pointer-events: none; }
+  html.native body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) #messagesArea .msg-inbox-detail .msg-composer { bottom: max(10px, env(safe-area-inset-bottom)); }
 }
 /* The thread's reply bar in light: a light glass bar (it stayed dark, with dark icons on it). */
 html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer { background: rgba(255, 255, 255, 0.94); border-color: rgba(0, 0, 0, 0.08); box-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.35); }
