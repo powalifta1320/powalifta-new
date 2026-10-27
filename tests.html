@@ -103,6 +103,7 @@
 <script src="coach-home.js"></script>
 <script>window.POWA_AI = { enabled: false };   // the assistant's prompt builder only: no Ask AI panel on this page</script>
 <script src="ai-chat.js"></script>
+<script src="weekly-note.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -5265,6 +5266,168 @@ group('Ask AI: the roster, asked');
     assert(/Omar too/.test(out), 'two Omars: a first name alone is not enough');
   });
 })();
+/* ===========================================================
+   The week's note (weekly-note.js): a draft in the coach's voice from the lifter's last 7 days,
+   who is due one, and the saved replies' storage. One fixture lifter, all dates fixed.
+   =========================================================== */
+group('weekly note (weekly-note.js)');
+const WN = typeof WeeklyNote !== 'undefined' ? WeeklyNote : (window.WeeklyNote || null);
+const WT = '2026-10-28';   // a Wednesday: the note's week is Thu 22 to Wed 28 October
+function wnStore(extra) {
+  const set = (w, r, rpe, felt, at) => ({ id: 'ws' + Math.random(), weight: w, reps: r, rpe, completed: !!at, actualRpe: at ? felt : null, completedAt: at ? at + 'T18:00:00Z' : null });
+  const ex = (lift, sets, variant) => ({ id: 'we' + Math.random(), lift, variant: variant || 'Competition', exerciseName: '', note: '', sets });
+  const day = (name, exs) => ({ id: 'wd' + Math.random(), name, exercises: exs });
+  const ada = { id: 'wp-a', athleteId: 'wa', coachId: 'wc', name: 'Strength Block', weeks: [
+    { id: 'ww1', number: 1, days: [
+      day('Squat Day', [ex('squat', [set(180, 3, 8, 8, '2026-10-22'), set(160, 5, 7, 7, '2026-10-22')])]),
+      day('Bench Day', [ex('bench', [set(117.5, 3, 8, 9, '2026-10-24'), set(100, 5, 7, 7.5, '2026-10-24')])]),
+      // The RDL is heavier work in pounds lifted but not the competition lift: it never wins the top set.
+      day('Deadlift Day', [ex('deadlift', [set(205, 1, 8, 8, '2026-10-26')]), ex('deadlift', [set(150, 5, 7, 6, '2026-10-26')], 'RDL')]),
+      day('Rest', []) ] },
+    { id: 'ww2', number: 2, days: [
+      day('Squat Day', [ex('squat', [set(182.5, 3, 8)])]), day('Bench Day', [ex('bench', [set(117.5, 3, 8)])]), day('Deadlift Day', [ex('deadlift', [set(207.5, 1, 8)])]) ] }
+  ] };
+  const bo = { id: 'wp-b', athleteId: 'wb', coachId: 'wc', name: 'Foundation', weeks: [
+    { id: 'wbw1', number: 1, days: [day('Squat Day', [ex('squat', [set(100, 5, 7)])]), day('Bench Day', [ex('bench', [set(60, 5, 7)])])] } ] };
+  const log = (a, lift, w, r, rpe, date) => ({ id: 'wl-' + a + lift + date + w, athleteId: a, lift, variant: 'Competition', exerciseName: '', weight: w, reps: r, rpe,
+    e1rm: calcE1RM(w, r, rpe), e1rmComp: calcCompE1RM(w, r, rpe, lift, 'Competition'), date });
+  const logs = [];
+  // Five flat weeks before this one: the same triples, so the e1RM barely moves.
+  ['2026-09-17', '2026-09-24', '2026-10-01', '2026-10-08', '2026-10-15'].forEach(d => logs.push(log('wa', 'squat', 185, 3, 8, d), log('wa', 'bench', 120, 3, 8, _addDaysISO(d, 2)), log('wa', 'deadlift', 185, 3, 8, _addDaysISO(d, 4))));
+  logs.push(log('wa', 'squat', 180, 3, 8, '2026-10-22'), log('wa', 'bench', 117.5, 3, 9, '2026-10-24'), log('wa', 'deadlift', 205, 1, 8, '2026-10-26'));
+  logs.push(log('wb', 'squat', 95, 5, 7, '2026-10-12'), log('wd', 'bench', 80, 5, 8, '2026-10-26'));
+  const pain = (id, a, day, part, side, sev, lift, resolvedAt) => ({ id, athleteId: a, coachId: 'wc', day, bodyPart: part, side, severity: sev, phase: 'top', lift, resolvedAt: resolvedAt || null });
+  return Object.assign(defaultStore(), {
+    athletes: [{ id: 'wa', name: 'Ada Lane', coachId: 'wc', unit: 'kg' }, { id: 'wb', name: 'Bo Reed', coachId: 'wc' }, { id: 'wd', name: 'Di Moss', coachId: 'wc' }],
+    programs: [ada, bo], workoutLogs: logs,
+    painReports: [pain('p1', 'wa', '2026-10-26', 'low_back', null, 6, 'deadlift'), pain('p2', 'wa', '2026-10-23', 'low_back', null, 4, 'deadlift'),
+      pain('p3', 'wa', '2026-10-25', 'knee', 'left', 9, 'squat', '2026-10-25T20:00:00Z'), pain('p4', 'wa', '2026-10-12', 'hip', 'left', 8, 'squat')],
+    meets: [{ id: 'wm', athleteId: 'wa', name: 'State Open', date: '2026-11-27', weightClass: '74 kg', planned: true }],
+    bodyweight: [{ id: 'wbw1', athleteId: 'wa', date: '2026-10-20', weight: 75.1 }, { id: 'wbw2', athleteId: 'wa', date: '2026-10-27', weight: 74.8 }],
+    sessionNotes: [{ id: 'wn1', athleteId: 'wa', date: '2026-10-26', note: 'Pull felt fast. Back was a bit tight after.', coachComment: null }]
+  }, extra || {});
+}
+test('the contract: the draft and every helper are there', () => {
+  assert(WN, 'WeeklyNote is loaded');
+  eq(typeof weeklyNoteDraft, 'function');
+  ['draft', 'facts', 'lines', 'due', 'lastNoteOn', 'repliesParse', 'repliesAdd', 'repliesRemove', 'loadReplies', 'saveReplies', 'openQueue', 'openSheet', 'pickReply', 'openBroadcast']
+    .forEach(k => eq(typeof WN[k], 'function', k));
+});
+test('a full week: sessions, the PR, written vs felt, bodyweight near a meet, pain with a question', () => {
+  const saved = Store.get();
+  Store.set(wnStore());
+  try {
+    const text = weeklyNoteDraft('wa', { today: WT, unit: 'kg', applied: [] });
+    const lines = text.split('\n');
+    eq(lines.length, 6, 'six lines');
+    eq(lines[0], 'Ada, all 3 sessions done this week. Good work.', 'first name, done against planned');
+    eq(lines[1], 'Deadlift PR: 205 × 1. Well done.');
+    eq(lines[2], 'Bench 117.5 × 3 felt @9, written @8.', 'off what was written: its own line');
+    eq(lines[3], 'Squat 180 × 3 @8, right where I wrote it.', 'on target, and the PR set is not said twice');
+    eq(lines[4], 'You weighed in at 74.8 kg: 0.8 kg over the 74 kg class, with State Open in 4 weeks.');
+    eq(lines[5], 'You flagged your low back twice this week, 6/10 at worst on deadlifts. How is it today?', 'the question goes last; the resolved knee and last week’s hip stay out');
+    assert(!/[\u{1F300}-\u{1FAFF}☀-➿]/u.test(text), 'no emojis');
+    // Never an invented number: every one is from the log (sessions, sets, RPEs, weigh-in, class, weeks to the meet, the pain scale).
+    const allowed = ['3', '205', '1', '117.5', '9', '8', '180', '74.8', '0.8', '74', '4', '6', '10'];
+    (text.match(/\d+(?:\.\d+)?/g) || []).forEach(n => assert(allowed.indexOf(n) >= 0, 'invented number ' + n));
+    // Next week, as the coach changed it: it makes the cut, the on-target line gives way (six at most).
+    const t2 = weeklyNoteDraft('wa', { today: WT, unit: 'kg', applied: [{ lift: 'bench', title: 'Bench', fromKg: 117.5, toKg: 112.5, reps: 3 }] }).split('\n');
+    eq(t2.length, 6);
+    assert(t2.indexOf('Next week, bench comes down to 112.5 × 3.') >= 0, 'next week’s change');
+    assert(!t2.some(l => /right where I wrote it/.test(l)), 'the least useful line goes first');
+    // In pounds when that's the lifter's unit (the class stays in kg).
+    const lb = weeklyNoteDraft('wa', { today: WT, unit: 'lbs', applied: [] }).split('\n');
+    eq(lb[2], 'Bench 259 × 3 felt @9, written @8.');
+    eq(lb[4], 'You weighed in at 164.9 lbs: 1.8 lbs over the 74 kg class, with State Open in 4 weeks.');
+    // The week as data, for the laptop's panel.
+    const f = WN.facts('wa', { today: WT, unit: 'kg', applied: [] });
+    eq(f.sessions.done, 3); eq(f.sessions.planned, 3); eq(f.sessions.days.join(','), '2026-10-22,2026-10-24,2026-10-26');
+    eq(f.tops.map(x => x.lift + ' ' + x.kg + 'x' + x.reps + ' d' + x.d).join(', '), 'squat 180x3 d0, bench 117.5x3 d1, deadlift 205x1 d0', 'competition first, the RDL never the top set');
+    eq(f.pain.count, 2); eq(f.pain.sev, 6); eq(f.bw.over, 0.8); eq(f.bw.days, 30); eq(f.e1rm.notable, false, 'a few kg on a 570 total is not news');
+    eq(f.words.text, 'Pull felt fast. Back was a bit tight after.');
+  } finally { Store.set(saved); }
+});
+test('a quiet week: three lines, a question, what’s next, and no numbers at all', () => {
+  const saved = Store.get();
+  Store.set(wnStore());
+  try {
+    const lines = weeklyNoteDraft('wb', { today: WT, unit: 'kg', applied: [] }).split('\n');
+    eq(lines.join(' | '), 'Bo, no sessions logged this week. | Everything OK? Tell me what got in the way and we’ll fit the week around it. | Next on your program: Squat Day.');
+    assert(!/\d/.test(lines.join(' ')), 'nothing to count, nothing counted');
+    // A yes on a pain check-in (no report): asked about, still no numbers.
+    Store.update(s => { s.checkinQuestions = [{ id: 'q-pain', coachId: 'wc', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true }];
+      s.checkinAnswers = [{ id: 'qa1', questionId: 'q-pain', athleteId: 'wb', coachId: 'wc', period: '2026-10-27', num: 1 }]; });
+    const l2 = weeklyNoteDraft('wb', { today: WT, unit: 'kg', applied: [] }).split('\n');
+    eq(l2.length, 3); eq(l2[2], 'You said yes to pain on your check-in. Where is it, and how bad?');
+  } finally { Store.set(saved); }
+});
+test('the lines: e1RM when it moved, sessions short of the plan, never more than six', () => {
+  const base = { first: 'Cy', unit: 'kg', sessions: { done: 2, planned: 4, days: [] }, tops: [], prs: [], e1rm: null, pain: null, bw: null, meetNoWeighIn: null, next: [], words: null, nextDay: null };
+  const L = (o) => WN.lines(Object.assign({}, base, o)).map(l => l.text);
+  eq(L({ e1rm: { now: 600, delta: 12.4, weeks: 4, notable: true } }).join(' | '), 'Cy, 2 of 4 sessions done this week. | If the week is getting tight, tell me and we’ll fit the sessions around it. | Your total e1RM is up 12 kg in 4 weeks.');
+  eq(L({ unit: 'lbs', e1rm: { now: 600, delta: 12.4, weeks: 4, notable: true } })[2], 'Your total e1RM is up 27 lbs in 4 weeks.');
+  eq(L({ e1rm: { now: 600, delta: 4, weeks: 4, notable: false } }).join(' | '), 'Cy, 2 of 4 sessions done this week. | If the week is getting tight, tell me and we’ll fit the sessions around it. | Message me if anything feels off.', 'not notable: not said');
+  eq(L({ sessions: { done: 3, planned: 3, days: [] }, week: { finished: true } }).join(' | '), 'Cy, all 3 sessions done this week. Good work. | That’s every set of the block logged. | Message me if anything feels off.', 'never fewer than three lines');
+  eq(L({ sessions: { done: 5, planned: 4, days: [] } })[0], 'Cy, 5 sessions this week, 1 more than planned. Good work.');
+  eq(L({ sessions: { done: 2, planned: 0, days: [] } })[0], 'Cy, 2 sessions logged this week.', 'no block: no plan to compare with');
+  const tops = [{ lift: 'squat', name: 'Squat', kg: 200, reps: 2, felt: 9.5, wrote: 8, wroteLo: 8, wroteHi: null, d: 1.5 },
+    { lift: 'bench', name: 'Bench', kg: 130, reps: 3, felt: 7, wrote: 8.5, wroteLo: 8, wroteHi: 8.5, d: -1 },
+    { lift: 'deadlift', name: 'Deadlift', kg: 230, reps: 3, felt: 8.5, wrote: 9, wroteLo: 8, wroteHi: 9, d: 0 }];
+  const many = L({ tops, prs: [{ lift: 'squat', kg: 200, reps: 2 }, { lift: 'bench', kg: 135, reps: 1 }], e1rm: { now: 600, delta: 20, weeks: 4, notable: true },
+    bw: { kg: 82.4, cls: 83, over: -0.6, meet: 'Regionals', days: 9 }, pain: { part: 'hip', side: 'right', sev: 3, lift: 'squat', count: 1 },
+    next: [{ lift: 'squat', title: 'Squat', fromKg: 200, toKg: 195, reps: 2 }] });
+  eq(many.length, 6, 'eight things to say, six lines');
+  eq(many[0], 'Cy, 2 of 4 sessions done this week.');
+  eq(many[1], 'Squat and bench PRs: 200 × 2 and 135 × 1. Well done.');
+  eq(many[2], 'Squat 200 × 2 felt @9.5, written @8.', 'the furthest off first');
+  assert(many.indexOf('You weighed in at 82.4 kg, on weight for the 83 kg class with Regionals in 9 days.') >= 0, 'on weight, the meet in days');
+  assert(many.indexOf('Next week, squat comes down to 195 × 2.') >= 0);
+  eq(many[5], 'You flagged your right hip at 3/10 on squats. How is it today?');
+});
+test('who is due: trained this week, no note in six days, the worst first', () => {
+  const saved = Store.get();
+  Store.set(wnStore({ messages: [{ id: 'm1', coachId: 'wc', athleteId: 'wd', senderId: 'wc', body: 'Week note', meta: { weekly: '2026-10-25' }, createdAt: '2026-10-25T09:00:00Z' },
+    { id: 'm2', coachId: 'wc', athleteId: 'wa', senderId: 'wa', body: 'Thanks', meta: { weekly: '2026-10-27' }, createdAt: '2026-10-27T09:00:00Z' }] }));
+  try {
+    const rows = [{ athlete: { id: 'wd', name: 'Di Moss' }, reasons: [] }, { athlete: { id: 'wb', name: 'Bo Reed' }, reasons: [{ group: 7 }] }, { athlete: { id: 'wa', name: 'Ada Lane' }, reasons: [{ group: 1 }] }];
+    eq(WN.due(rows, { today: WT, coachId: 'wc' }).map(r => r.athlete.id).join(','), 'wa', 'Bo didn’t train; Di had hers 3 days ago; only the coach’s own notes count');
+    eq(WN.due(rows, { today: '2026-10-31', coachId: 'wc' }).map(r => r.athlete.id).join(','), 'wa,wd', 'six days on, Di is due again');
+    eq(WN.due(rows, { today: WT, coachId: 'wc', threads: { wa: { weeklyAt: '2026-10-27T08:00:00Z' } } }).length, 0, 'a note sent from another device (the thread digest)');
+    eq(WN.lastNoteOn('wd', { coachId: 'wc' }), '2026-10-25');
+  } finally { Store.set(saved); }
+});
+test('records: the note sent and next week’s change, per coach, for a week', () => {
+  const keys = ['powa-weekly-notes-wc-t', 'powa-week-changes-wc-t'];
+  try {
+    eq(WN.lastNoteOn('wz', { coachId: 'wc-t' }), null);
+    WN.markSent('wz', '2026-10-27', 'wc-t');
+    eq(WN.lastNoteOn('wz', { coachId: 'wc-t' }), '2026-10-27', 'this device remembers it');
+    eq(WN.lastNoteOn('wz', { coachId: 'other' }), null, 'per coach');
+    WN.noteApplied('wz', [{ lift: 'bench', title: 'Bench', fromKg: 117.5, toKg: 112.5, reps: 3 }, null], { coachId: 'wc-t', today: '2026-10-27', week: 3 });
+    eq(WN.appliedFor('wz', '2026-10-28', 'wc-t').map(c => c.title + ' ' + c.fromKg + '>' + c.toKg + 'x' + c.reps).join(), 'Bench 117.5>112.5x3');
+    eq(WN.appliedFor('wz', '2026-11-04', 'wc-t').length, 0, 'a week on, it’s old news');
+  } finally { keys.forEach(k => localStorage.removeItem(k)); }
+});
+test('saved replies: four defaults, a round trip through storage, per coach', () => {
+  const mem = (() => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; })();
+  const first = WN.loadReplies('c1', mem);
+  eq(first.length, 4, 'the defaults before anything is saved');
+  eq(first[1], 'Deload week: all loads −10%, RPE caps at 7.');
+  let list = WN.repliesAdd(first, '  Hold the loads. Same bar speed next week.  ');
+  eq(list[0], 'Hold the loads. Same bar speed next week.', 'trimmed, newest first');
+  eq(JSON.stringify(WN.saveReplies('c1', list, mem)), JSON.stringify(list));
+  eq(JSON.stringify(WN.loadReplies('c1', mem)), JSON.stringify(list), 'what goes in comes back');
+  eq(WN.repliesKey('c1'), 'powa-saved-replies-c1'); assert(mem.getItem('powa-saved-replies-c1'), 'stored under the coach’s key');
+  eq(WN.loadReplies('c2', mem).length, 4, 'another coach keeps the defaults');
+  list = WN.repliesAdd(list, 'how did that feel? send me the top set if you can.');
+  eq(list.length, 5, 'saving one you have moves it up, never twice'); eq(list[0], 'how did that feel? send me the top set if you can.');
+  const none = list.reduce((l, x) => WN.repliesRemove(l, x), list);
+  WN.saveReplies('c1', none, mem);
+  eq(WN.loadReplies('c1', mem).length, 0, 'removing them all keeps none (the defaults don’t come back)');
+  mem.setItem('powa-saved-replies-c3', '{not json'); eq(WN.loadReplies('c3', mem).length, 4, 'junk: the defaults, never a crash');
+  mem.setItem('powa-saved-replies-c4', JSON.stringify(['a', '', 'A', 7, null])); eq(JSON.stringify(WN.loadReplies('c4', mem)), '["a","7"]');
+  eq(WN.repliesAdd(['x'], '   ').join(), 'x', 'nothing to save');
+});
 
 function render() {
   const sum = document.getElementById('summary');

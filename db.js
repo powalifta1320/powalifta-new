@@ -3420,6 +3420,8 @@ const DB = {
       }
       // Rows arrive newest-first, so the first one seen per athlete is the last message.
       if (m.senderId !== coachId && !m.readAt) t.unread += 1;
+      // The coach's last week's note (weekly-note.js), so another device knows it went.
+      if (!t.weeklyAt && m.senderId === coachId && m.meta && m.meta.weekly) t.weeklyAt = m.createdAt;
     });
     return Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
   },

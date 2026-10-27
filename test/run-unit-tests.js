@@ -181,6 +181,8 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'clients.js')) ? fs.readFileSync(path.join(ROOT, 'clients.js'), 'utf8') : '') + '\n;\n' +
   // HOME: the fixes for a reason (tests.html "check-in nudge")
   (fs.existsSync(path.join(ROOT, 'coach-home.js')) ? fs.readFileSync(path.join(ROOT, 'coach-home.js'), 'utf8') : '') + '\n;\n' +
+  // WEEKLY NOTE + SAVED REPLIES: the week's draft, who is due one, the replies' storage (tests.html "weekly note (weekly-note.js)")
+  (fs.existsSync(path.join(ROOT, 'weekly-note.js')) ? fs.readFileSync(path.join(ROOT, 'weekly-note.js'), 'utf8') : '') + '\n;\n' +
   // ASK AI: the coach's prompt builder only, the panel switched off as tests.html does (tests.html "Ask AI: the coach prompt")
   'window.POWA_AI = { enabled: false };\n' +
   (fs.existsSync(path.join(ROOT, 'ai-chat.js')) ? fs.readFileSync(path.join(ROOT, 'ai-chat.js'), 'utf8') : '');

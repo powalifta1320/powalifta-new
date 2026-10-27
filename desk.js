@@ -1378,6 +1378,8 @@ function dkCompose(ids, opts) {
   box.appendChild(ta);
   box.appendChild(el('p', { class: 'dk-modal-note' }, 'Each athlete gets it in their own thread, as if you wrote to them alone.'));
   var row = el('div', { class: 'dk-modal-actions' });
+  // Saved replies (weekly-note.js): one quiet button at the start of the row, a menu above it.
+  if (window.WeeklyNote) { var sr = dkBtn('Saved replies', { cls: 'is-quiet wn-saved-btn', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>', onClick: function () { WeeklyNote.pickReply(sr, ta); } }); sr.setAttribute('aria-haspopup', 'true'); row.appendChild(sr); }
   var cancel = dkBtn('Cancel', { onClick: close });
   var send = dkBtn(who.length === 1 ? 'Send' : 'Send to ' + who.length, { primary: true, onClick: go });
   row.appendChild(cancel); row.appendChild(send);
@@ -1385,7 +1387,7 @@ function dkCompose(ids, opts) {
   veil.appendChild(box);
   veil.addEventListener('mousedown', function (e) { if (e.target === veil) close(); });
   function onKey(e) {
-    if (document.querySelector('.dk-pal')) return;   // a palette on top handles its own keys
+    if (document.querySelector('.dk-pal, .wn-rmenu')) return;   // a palette or the saved replies on top handle their own keys
     if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); go(); }
   }
@@ -1408,15 +1410,17 @@ function dkCompose(ids, opts) {
     toast(ok === who.length ? (window._demoMode ? 'Sent to ' + ok + ' in the demo. Nothing leaves this page.' : 'Sent to ' + ok) : 'Sent to ' + ok + ' of ' + who.length + '. Check your connection.');
   }
 }
-async function dkSendMessage(athleteId, body) {
+// meta (optional) rides on the message: weekly-note.js marks a week's note { weekly: 'YYYY-MM-DD' }.
+async function dkSendMessage(athleteId, body, meta) {
   var u = _dkUser();
   try {
     if (window._demoMode) {
-      var s = Store.get();
-      (s.messages || (s.messages = [])).push({ id: 'demo-msg-' + Date.now() + '-' + athleteId, coachId: u.id, athleteId: athleteId, senderId: u.id, body: body, createdAt: new Date().toISOString(), readAt: null });
+      var s = Store.get(), dm = { id: 'demo-msg-' + Date.now() + '-' + athleteId, coachId: u.id, athleteId: athleteId, senderId: u.id, body: body, createdAt: new Date().toISOString(), readAt: null };
+      if (meta) dm.meta = meta;
+      (s.messages || (s.messages = [])).push(dm);
       return true;
     }
-    var m = await DB.sendMessage({ coachId: u.id, athleteId: athleteId, senderId: u.id, body: body });
+    var m = await DB.sendMessage({ coachId: u.id, athleteId: athleteId, senderId: u.id, body: body, meta: meta || undefined });
     if (m) dkNoteSent(athleteId, body);
     if (m && typeof DB.sendPush === 'function') {
       DB.sendPush({ toUserId: athleteId, title: 'New message from ' + _dkFirst(u.name), body: body.slice(0, 140), url: '/athlete.html', tag: 'powa-msg-' + athleteId, category: 'messages' }).catch(function () {});
@@ -3250,6 +3254,9 @@ function dkWsApply(aid) {
   if (rev.nextIdx < 0 || p.sig !== prog.id + ':' + rev.nextIdx) return;
   var edits = Object.keys(p.rows).map(function (k) { var x = p.rows[k]; return { di: x.row.next.di, ei: x.row.next.ei, startIdx: x.row.next.startIdx, count: x.row.next.count, sets: x.sets, variant: x.variant }; });
   if (!edits.length) return;
+  // What changed, in words the week's note can say (weekly-note.js): "bench comes down to 112.5 × 3".
+  var said = Object.keys(p.rows).map(function (k) { var x = p.rows[k], g = (x.row.next && x.row.next.group) || {}, s0 = (x.sets || [])[0] || {};
+    return { lift: x.row.lift, title: x.row.title, fromKg: Number(g.weight) || 0, toKg: Number(s0.weight) || 0, reps: Number(s0.plannedReps || s0.reps) || 0, variant: x.variant || null }; });
   var n = 0;
   Store.update(function (s) {
     var pr = (s.programs || []).find(function (x) { return x.id === prog.id; });
@@ -3261,6 +3268,7 @@ function dkWsApply(aid) {
   dkPendDrop(aid);
   if (!n) { toast('Nothing changed: those sets were logged meanwhile'); dkWsRepaint(); return; }
   persistProgram(prog.id);
+  if (window.WeeklyNote) { try { WeeklyNote.noteApplied(aid, said, { week: prog.weeks[rev.nextIdx].number || rev.nextIdx + 1 }); } catch (e) {} }
   var r = dkRow(aid);
   dkNoteHandled(aid, 'apply');
   dkPublish(aid, { quietDemo: true });
