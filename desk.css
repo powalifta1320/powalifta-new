@@ -2202,3 +2202,12 @@ html.desk body.powa-app:not(:has(#deskRail)) .dk-skel { display: flex; position:
 .dk-skel .r i { height: 220px; border-radius: var(--r-3); }
 @keyframes dkSkel { 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .dk-skel i { animation: none; } }
+/* The last stragglers off the scale (the type census): a voice note's speed, a shared lift's numbers in a
+   thread, the meet board's "not declared" and units, the club's buddy line, Ask AI's sub lines. */
+html.desk body.powa-app :is(#messagesArea, #deskCtx) .vn-speed { font-size: var(--fs-1); }
+html.desk body.powa-app :is(#messagesArea, #deskCtx) .msg-card .mc-nums b { font-size: var(--fs-6); }
+html.desk .md-root .md-up-kg em, html.desk .md-root .md-up em { font-size: var(--fs-1); }
+html.desk .md-root :is(.md-up-kg, .md-dec-kg) small { font-size: var(--fs-3); }
+html.desk body.powa-app section[data-pane="club"] .club-buddy b { font-size: var(--fs-3); }
+html.desk body.powa-app section[data-pane="club"] :is(.cbud-av, .cp-av) { font-size: var(--fs-1); }
+html.desk .ai-panel .ai-bubble .ai-li-sub { font-size: var(--fs-1); }
