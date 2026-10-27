@@ -1380,8 +1380,8 @@ html.desk .cl-today, html.desk .cs-page:not(.is-phone) { margin: 0; max-width: 1
 /* A status reads as ink words beside a mark in its colour (a dot, an icon, the chart's line), never as
    painted words: "1 under the bar" gets a breathing live dot, Tom's weight an amber scale, the meet's
    label a gold flag, a PR a gold dot. (In light these words also failed AA: 3.2 to 3.6:1.) */
-html.desk .cl-root .t-live { display: inline-flex; align-items: center; gap: 7px; color: var(--text); font-weight: 600; }
-html.desk .cl-root .t-live::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--cl-msg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-msg) 22%, transparent); animation: dkLiveBreathe 2.4s ease-in-out infinite; }
+html.desk .cl-root .t-live { display: inline; color: var(--text); font-weight: 600; }   /* inline: the words keep the sub line's baseline */
+html.desk .cl-root .t-live::before { content: ''; display: inline-block; vertical-align: 1px; margin: 0 7px 0 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--cl-msg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cl-msg) 22%, transparent); animation: dkLiveBreathe 2.4s ease-in-out infinite; }
 @keyframes dkLiveBreathe { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--cl-msg) 6%, transparent); } }
 html.desk .cl-root .cl-warn { color: var(--text-2); }
 html.desk .cl-root .cl-warn svg { color: var(--cl-down); }
