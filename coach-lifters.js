@@ -66,6 +66,11 @@
   // A job's second line: their words in quotes; a voice note as itself, after a small play glyph.
   function detailHtml(t) { return (t.voice ? '<i class="cl-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + esc(t.detail); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  // Phone text that wraps cleanly (escaped text only, never markup): a " · " holds on to the words either
+  // side (no line starts or ends on the dot), a number keeps its unit ("0.3 kg", "1 day ago").
+  function keepDots(text) { return String(text).replace(/ · /g, ' · ').replace(/(\d) (?=[A-Za-z])/g, '$1 ').replace(/ ago\b/g, ' ago'); }
+
+
   function clsNum(c) { var v = parseFloat(String(c == null ? '' : c).replace(',', '.')); return v > 0 ? v : null; }
   function clsText(c) { var v = clsNum(c); return v ? String(num(v)) : String(c || ''); }
   function namesList(list, max) { max = max || 3; return list.slice(0, max).join(', ') + (list.length > max ? ' +' + (list.length - max) : ''); }
@@ -739,33 +744,54 @@
     var out = list.slice(0, max).map(function (x) { return '<button type="button" class="cl-nm" data-open="' + esc(x.r.athlete.id) + '">' + esc(fmt(x)) + '</button>'; });
     return out.join('<span class="cl-sep">, </span>') + (list.length > max ? ' <span class="cl-more-n">+' + (list.length - max) + '</span>' : '');
   }
+  // A thin bar for a share on the phone's tiles, read without a legend: the number above says what it
+  // is. segs: [{ f: 0..1, cls }] left to right with 2 px gaps; the rest is the track. Neutral ink by
+  // default, amber only for the part that is wrong (heavier than written, weaker than 4 weeks ago).
+  function meterHtml(segs, label) {
+    var o = '', used = 0;
+    segs.forEach(function (s) {
+      var f = Math.max(0, Math.min(1 - used, Number(s.f) || 0));
+      if (f <= 0.0005) return;
+      used += f;
+      o += '<i' + (s.cls ? ' class="' + s.cls + '"' : '') + ' style="flex-grow:' + f.toFixed(4) + '"></i>';
+    });
+    if (used < 0.9995) o += '<i class="is-rest" style="flex-grow:' + (1 - used).toFixed(4) + '"></i>';
+    return '<span class="cl-meter" role="img" aria-label="' + esc(label || '') + '">' + o + '</span>';
+  }
   function teamTilesHtml(T, o) {
     o = o || {};
     var cx = !!o.compact, tiles = [];
     var tr = T.training;
     var dayLabels = tr.days.map(function (iso) { return localDate(iso, { weekday: 'narrow' }); });
+    // The phone's tiles (compact) carry a plain number and, where it is a share, one thin bar of the
+    // same share: the laptop's per-day columns, strip and timeline need a legend a phone tile has no
+    // room for (phone polish, 27 Oct: "each tile must read without a legend").
     tiles.push(tileHtml('training', 'cal', 'Training', cx ? '7 days' : 'Last 7 days',
-      tr.planned ? '<b class="cl-big2">' + tr.done + '</b><span class="cl-u">of ' + tr.planned + (cx ? '' : ' sessions') + '</span>' : '<b class="cl-big2">–</b><span class="cl-u">no blocks running</span>',
-      viz('cols', { vals: tr.perDay, labels: cx ? null : dayLabels, hi: 6, titles: tr.perDay.map(function (v, i) { return dateShort(tr.days[i]) + ': ' + plural(v, 'session'); }) }, cx ? 28 : 58, 'cl-vz-train'),
+      tr.planned ? '<b class="cl-big2">' + tr.done + '</b><span class="cl-u">of ' + tr.planned + (cx ? ' done' : ' sessions') + '</span>' : '<b class="cl-big2">–</b><span class="cl-u">no blocks running</span>',
+      cx ? (tr.planned ? meterHtml([{ f: tr.done / tr.planned }], tr.done + ' of ' + tr.planned + ' sessions done') : '')
+        : viz('cols', { vals: tr.perDay, labels: dayLabels, hi: 6, titles: tr.perDay.map(function (v, i) { return dateShort(tr.days[i]) + ': ' + plural(v, 'session'); }) }, 58, 'cl-vz-train'),
       tr.behind.length ? 'Behind: ' + nameBtns(tr.behind, cx ? 1 : 3, function (x) { return first(x.r.athlete.name) + ' ' + x.n + '/' + x.p; }) : (tr.planned ? 'Everyone on track' : ''), o));
     var ef = T.effort;
     tiles.push(tileHtml('effort', 'gauge', 'Effort', cx ? '7 days' : 'Last 7 days',
-      ef.total ? '<b class="cl-big2">' + ef.pct + '%</b><span class="cl-u">' + (cx ? 'on RPE' : 'at the RPE you wrote') + '</span>' : '<b class="cl-big2">–</b><span class="cl-u">no RPE yet</span>',
-      viz('bar100', { id: 'e' + (vizSeq + 1), segs: [{ v: ef.at, cls: 'cl-s-at', title: plural(ef.at, 'set') + ' at or under' }, { v: ef.half, cls: 'cl-s-half', title: plural(ef.half, 'set') + ' half a point over' }, { v: ef.over, cls: 'cl-s-over', title: plural(ef.over, 'set') + ' a point or more over' }] }, cx ? 14 : 22, 'cl-vz-effort') +
-        (cx ? '' : '<div class="cl-key"><span><i class="k-at"></i>At or under</span><span><i class="k-half"></i>+0.5</span><span><i class="k-over"></i>+1 or more</span></div>'),
+      ef.total ? '<b class="cl-big2">' + ef.pct + '%</b><span class="cl-u">' + (cx ? 'on target' : 'at the RPE you wrote') + '</span>' : '<b class="cl-big2">–</b><span class="cl-u">no RPE yet</span>',
+      cx ? (ef.total ? meterHtml([{ f: ef.at / ef.total }, { f: (ef.half + ef.over) / ef.total, cls: 'is-warn' }], plural(ef.at, 'set') + ' at the RPE written, ' + plural(ef.half + ef.over, 'set') + ' heavier') : '')
+        : viz('bar100', { id: 'e' + (vizSeq + 1), segs: [{ v: ef.at, cls: 'cl-s-at', title: plural(ef.at, 'set') + ' at or under' }, { v: ef.half, cls: 'cl-s-half', title: plural(ef.half, 'set') + ' half a point over' }, { v: ef.over, cls: 'cl-s-over', title: plural(ef.over, 'set') + ' a point or more over' }] }, 22, 'cl-vz-effort') +
+          '<div class="cl-key"><span><i class="k-at"></i>At or under</span><span><i class="k-half"></i>+0.5</span><span><i class="k-over"></i>+1 or more</span></div>',
       ef.who.length ? 'Over: ' + nameBtns(ef.who, cx ? 1 : 2, function (x) { return first(x.r.athlete.name) + (cx ? '' : ' ' + x.text); }) : (ef.total ? 'Nobody over' : ''), o));
     var sg = T.strength;
     tiles.push(tileHtml('strength', 'trend', 'Strength', cx ? '4 weeks' : '4 weeks',
       sg.n ? '<b class="cl-big2">' + sg.up + '</b><span class="cl-u">of ' + sg.n + ' stronger</span>' : '<b class="cl-big2">–</b><span class="cl-u">no trends yet</span>',
-      sg.n ? viz('strip', { pts: sg.deltas.map(function (x) { return { v: x.d, title: x.r.athlete.name + ': ' + (x.d > 0 ? '+' : '') + x.d + ' ' + unit() }; }), median: sg.median }, cx ? 26 : 42, 'cl-vz-strength') +
-        (cx ? '' : '<div class="cl-key"><span>Typical ' + (sg.median > 0 ? '+' : '') + sg.median + ' ' + esc(unit()) + '</span>' + (sg.down ? '<span>' + sg.down + ' down</span>' : '') + (sg.flat ? '<span>' + sg.flat + ' flat</span>' : '') + '</div>') : '',
+      sg.n ? (cx ? meterHtml([{ f: sg.up / sg.n }, { f: sg.down / sg.n, cls: 'is-warn' }], sg.up + ' of ' + sg.n + ' stronger than 4 weeks ago' + (sg.down ? ', ' + sg.down + ' weaker' : ''))
+        : viz('strip', { pts: sg.deltas.map(function (x) { return { v: x.d, title: x.r.athlete.name + ': ' + (x.d > 0 ? '+' : '') + x.d + ' ' + unit() }; }), median: sg.median }, 42, 'cl-vz-strength') +
+          '<div class="cl-key"><span>Typical ' + (sg.median > 0 ? '+' : '') + sg.median + ' ' + esc(unit()) + '</span>' + (sg.down ? '<span>' + sg.down + ' down</span>' : '') + (sg.flat ? '<span>' + sg.flat + ' flat</span>' : '') + '</div>') : '',
       sg.prs.length ? (cx ? 'PRs: ' : 'PRs this week: ') + nameBtns(sg.prs.map(function (r) { return { r: r }; }), cx ? 2 : 3, function (x) { return first(x.r.athlete.name); }) : 'No PRs this week', o));
     var mt = T.meets, nx = mt.next;
-    var mv = nx ? '<b class="cl-big2">' + (nx.days <= 0 ? 'Today' : nx.days === 1 ? 'Tomorrow' : nx.days + ' days') + '</b><span class="cl-u">' + esc(clip(nx.name, cx ? 12 : 20)) + '</span>' : '<b class="cl-big2">None</b><span class="cl-u">in 8 weeks</span>';
+    var mv = nx ? '<b class="cl-big2">' + (nx.days <= 0 ? 'Today' : nx.days === 1 ? 'Tomorrow' : nx.days + ' days') + '</b><span class="cl-u">' + esc(clip(nx.name, cx ? 24 : 20)) + '</span>' : '<b class="cl-big2">None</b><span class="cl-u">in 8 weeks</span>';
     var bwi = mt.bw[0];
     tiles.push(tileHtml('meets', 'trophy', 'Meets', cx ? '8 weeks' : 'Next 8 weeks', mv,
-      mt.list.length ? viz('timeline', { span: 56, items: mt.list.map(function (g) { return { days: g.days, n: g.rows.length, warn: g.rows.some(function (r) { return r.bw && r.bw.over > 0; }), title: g.name + ' · ' + dayMonth(g.date) + ' · ' + g.rows.map(function (r) { return first(r.athlete.name); }).join(', ') }; }) }, cx ? 22 : 34, 'cl-vz-meets') +
-        (cx ? '' : '<div class="cl-key cl-key-tl"><span>Today</span><span>' + plural(mt.lifters, 'lifter') + ' in ' + plural(mt.list.length, 'meet') + '</span><span>8 weeks</span></div>') : '',
+      mt.list.length && !cx ? viz('timeline', { span: 56, items: mt.list.map(function (g) { return { days: g.days, n: g.rows.length, warn: g.rows.some(function (r) { return r.bw && r.bw.over > 0; }), title: g.name + ' · ' + dayMonth(g.date) + ' · ' + g.rows.map(function (r) { return first(r.athlete.name); }).join(', ') }; }) }, 34, 'cl-vz-meets') +
+        '<div class="cl-key cl-key-tl"><span>Today</span><span>' + plural(mt.lifters, 'lifter') + ' in ' + plural(mt.list.length, 'meet') + '</span><span>8 weeks</span></div>' : '',
+
       bwi ? '<span class="cl-warn">' + ic('scale') + '<button type="button" class="cl-nm" data-open="' + esc(bwi.r.athlete.id) + '">' + esc(first(bwi.r.athlete.name)) + '</button>&nbsp;' + esc(num(kgShow(bwi.over)) + ' ' + unit() + ' over' + (cx ? '' : ' ' + clsText(bwi.cls) + (bwi.days <= 0 ? ', weigh-in today' : ', ' + daysText(bwi.days)))) + '</span>' : (mt.list.length ? 'Everyone on weight' : ''), o));
     return '<div class="cl-tiles' + (cx ? ' is-compact' : '') + '">' + tiles.join('') + '</div>';
   }
@@ -777,10 +803,17 @@
     var openId = it.r ? it.r.athlete.id : (who[0] ? who[0].athlete.id : '');
     var btn = o.icon ? '<button type="button" class="cl-sbtn" data-fix="' + esc(it.key) + '" aria-label="' + esc(fix.label) + '" title="' + esc(fix.label) + '">' + esc(shortLabel(fix)) + '</button>'
       : '<button type="button" class="cl-btn ' + (o.red ? 'red' : 'soft') + '" data-fix="' + esc(it.key) + '">' + esc(fix.label) + '</button>';
+    // On the phone a title and its detail take two lines beside the button: a " · " holds on to the
+    // words either side, so no line starts or ends on the dot ("Sarah Low back / 6/10 · deadlift").
+    // A busy week's title has a short form for the phone and a tiny one for the laptop's narrow columns.
+    var rawTitle = (o.icon && t.tiny) || (o.phone && t.short) || t.title;
+    var title = o.phone ? keepDots(esc(rawTitle)) : esc(rawTitle);
+    var detail = !t.detail ? '' : o.phone ? (t.voice ? '<i class="cl-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(t.detail)) : detailHtml(t);
+
     return '<div class="cl-job tone-' + t.tone + (o.big ? ' is-big' : '') + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
       (o.big ? '<span class="cl-jic">' + ic(t.icon) + '</span>' : '') +
       '<button type="button" class="cl-jmain" data-open="' + esc(openId) + '">' + (o.big && !o.phone ? av : (o.big ? '' : av)) +
-        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + esc((o.icon && t.tiny) || (o.phone && t.short) || t.title) + '</span></span>' + (t.detail ? '<span class="cl-jd">' + detailHtml(t) + '</span>' : '') + '</span></button>' + btn + '</div>';
+        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + title + '</span></span>' + (detail ? '<span class="cl-jd">' + detail + '</span>' : '') + '</span></button>' + btn + '</div>';
   }
   // One word for a fix in a narrow column: what the button does.
   function shortLabel(f) {
@@ -821,7 +854,8 @@
     var tone = sevOf(top);
     return '<button type="button" class="cl-row' + (o.sel === a.id ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (o.sel === a.id ? 'true' : 'false') + '" tabindex="' + (o.sel === a.id ? '0' : '-1') + '">' +
       avHtml(a) +
-      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + esc(line) + '</span></span></span>' +
+      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + (o.phone ? keepDots(esc(line)) : esc(line)) + '</span></span></span>' +
+
       '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span>' + pipsHtml(R) + '</span>' +
       (o.phone ? '<span class="cl-chev">' + ic('chev') + '</span>' : '') + '</button>';
   }
@@ -1085,8 +1119,12 @@
     var urgent = M.open.filter(function (it) { return it.tier <= 1; }).slice(0, 3);
     // The coach's work leads (owner, 27 Oct): Do first, then everyone in their groups. Money owed and
     // the team's week (the four tiles, under the same "This week" title as the laptop's Today) follow.
+    // Do first has one red: the most urgent job's fix, full width under its words. The others keep their
+    // fix one tap away as a small graphite button at the row's end ("Message", "Reply"), so the card reads
+    // as a list with one action, not three stacked pills (phone polish, 27 Oct).
     var list = '<div class="cl-pcol">' +
-      (urgent.length ? '<h2 class="cl-gh cl-gh-do">Do first <span>' + urgent.length + '</span></h2><div class="cl-do is-phone">' + urgent.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 && !wide, short: true, phone: true }); }).join('') + '</div>' : '') +
+      (urgent.length ? '<h2 class="cl-gh cl-gh-do">Do first <span>' + urgent.length + '</span></h2><div class="cl-do is-phone">' + urgent.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 && !wide, icon: i > 0 || wide, short: true, phone: true }); }).join('') + '</div>' : '') +
+
       (M.rows.length > 8 ? '<label class="cl-search cl-search-ph">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"></label>' : '') +
       '<div class="cl-groups">' + groupsHtml(M, { phone: !wide, sel: wide ? S.sel : null }) + '</div>' +
       (window.ClientsUI ? ClientsUI.dueLineHtml() : '') +
@@ -1096,7 +1134,11 @@
     wire(wrap, { desk: false, wide: wide });
     area.appendChild(wrap);
     paint(wrap);
+    // The tab's entrance (coach-ui.css, body.screen-enter): the cards and rows rise in reading order,
+    // 40 ms apart, capped so the last ones don't wait.
+    wrap.querySelectorAll('.cl-do > .cl-job, .cl-list > .cl-row, .cs-dueline, .cl-pweek .cl-tile').forEach(function (n, i) { n.style.setProperty('--i', String(Math.min(i, 9))); });
     if (wide) {
+
       var ids = []; M.groups.forEach(function (g) { g.rows.forEach(function (r) { ids.push(r.athlete.id); }); });
       if (!S.sel || ids.indexOf(S.sel) < 0) S.sel = ids[0] || null;
       S.order = ids;
@@ -1149,8 +1191,11 @@
     var r = S.sel ? rowOf(S.sel) : null;
     if (!r) { host.innerHTML = ''; var tab = document.getElementById('tab-athletes'); if (tab) tab.click(); return; }
     var M = model();
-    var P = summaryHtml(r, M, { phone: true, rise: true });
+    // No staggered rise inside: the page pushes in from the right as one piece (coach-ui.css, the
+    // phone's push), and a refresh after a fix repaints in place instead of replaying an entrance.
+    var P = summaryHtml(r, M, { phone: true, rise: false });
     host.innerHTML = '<div class="cl-pg cl-root cl-pg-phone">' + P.html + '</div>';
+
     host._P = P; host._r = r; host._clM = M;
     if (!host._wired) { host._wired = true; wire(host, { desk: false, page: true }); }
     paint(host);
