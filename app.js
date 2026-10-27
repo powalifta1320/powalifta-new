@@ -180,7 +180,7 @@ function _buildDemoData() {
     tiktok: 'demo.lifter',
     referralCode: 'DEMO42', referredByCode: null
   };
-  const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'This is what your coach sees and writes.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
+  const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'Raw powerlifting coach. Strength blocks, meet prep and first meets, every block written for the lifter in front of me. I read every session and answer within a day.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
 
   // --- 16 weeks of logged history: Mon=squat, Wed=bench, Fri=deadlift ---
   const workoutLogs = [];
@@ -293,7 +293,7 @@ function _buildDemoData() {
       id: uid('wk'), number: wn, days: [
         mkDay('Squat Day', [
           // A top set, then back-offs (RTS: 3 @ 8.5 ≈ 88% of the 207 e1RM, 5 @ 8 ≈ 81%).
-          ['squat', 'Competition', '', [[177.5 + bump, 3, 8.5], [162.5 + bump, 5, 8], [162.5 + bump, 5, 8]], 'Stay tight at the bottom. Drive up hard.', [{ cx: { Belt: 'yes' } }, { tempo: '3-1-0', cx: { Belt: 'no' } }, { tempo: '3-1-0', cx: { Belt: 'no' } }]],
+          ['squat', 'Competition', '', [[177.5 + bump, 3, 8.5], [162.5 + bump, 5, 8], [162.5 + bump, 5, 8]], 'Stay tight at the bottom. Drive up hard.', [{ cx: { Belt: 'on' } }, { tempo: '3-1-0', cx: { Belt: 'off' } }, { tempo: '3-1-0', cx: { Belt: 'off' } }]],
           ['squat', 'Paused', '', [[132.5 + bump, 4, 8, 137.5 + bump], [132.5 + bump, 4, 8, 137.5 + bump]], 'Go to the top of the range if the first one moves.', { pause: 2, pauseAt: 'bottom', cx: { Bar: 'SSB' } }],
           ['legs', '', 'Leg Press', [[120, 10, 8], [120, 10, 8]]]
         ], wkDone, dt, pinToday ? iso(new Date()) : null),
@@ -411,7 +411,7 @@ function _buildCoachDemoData() {
   const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
 
   const user = {
-    id: DC, name: 'Demo Coach', email: 'demo-coach@powalifta.com', bio: 'This is your seat.',
+    id: DC, name: 'Demo Coach', email: 'demo-coach@powalifta.com', bio: 'Raw powerlifting coach. Strength blocks, meet prep and first meets, every block written for the lifter in front of me.',
     coachId: null, userType: 'coach', isAdmin: false,
     subscriptionTier: 'pro', subscriptionStatus: 'active', avatarUrl: null, countryCode: null,
     billingProvider: document.documentElement.classList.contains('native') ? 'apple' : 'ls',  // no TDZ-prone helper this early
@@ -485,7 +485,7 @@ function _buildCoachDemoData() {
         ex2('bench', 'Close Grip', back(cg[0], cg[1], cg[2], cg[3], true).map(s => Object.assign(s, { rir: true, pause: 1, pauseAt: 'chest' }))) ] },
       { id: uid('day'), name: 'Deadlift Day', exercises: [
         ex2('deadlift', 'Competition', top('deadlift', dl[0], dl[1], null).concat(back(dlB[0], dlB[1], dlB[2], dlB[3], false)), { note: 'Slack out of the bar before you pull.' }),
-        ex2('deadlift', 'RDL', back(rdl[0], rdl[1], rdl[2], rdl[3], false).map(s => Object.assign(s, { tempo: '3s down', cx: { Belt: 'no' } }))) ] },
+        ex2('deadlift', 'RDL', back(rdl[0], rdl[1], rdl[2], rdl[3], false).map(s => Object.assign(s, { tempo: '3s down', cx: { Belt: 'off' } }))) ] },
       { id: uid('day'), name: 'Rest', exercises: [] }
     ] };
   });
@@ -638,7 +638,7 @@ function _buildCoachDemoData() {
       actualRpe: l.rpe + (w === 3 && lift === 'squat' && si === 2 ? 1 : 0), completedAt: date }));
     return { id: 'demo-pbd-' + w + lift, name, exercises: [{ id: 'demo-pbe-' + w + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets }] };
   }) }));
-  const programBlocks = [{ id: 'demo-blk-1', athleteId: 'demo-a1', coachId: DC, name: 'Volume Block', weeks: pastWeeks, maxes: null, stats: blockStats(pastWeeks), startedOn: daysAgo(39), endedOn: daysAgo(7), createdAt: daysAgo(6) + 'T09:00:00Z' }];
+  const programBlocks = [{ id: 'demo-blk-1', athleteId: 'demo-a1', coachId: DC, name: 'Base Block', weeks: pastWeeks, maxes: null, stats: blockStats(pastWeeks), startedOn: daysAgo(39), endedOn: daysAgo(7), createdAt: daysAgo(6) + 'T09:00:00Z' }];
   // Block review (block-dna.js: every block a fingerprint, any two compared). Arjun's hypertrophy block in
   // August, after a test day: squat 3×8, bench 4×8, deadlift 3×6, the second deadlift day missed, top sets
   // drifting harder week on week (felt 7, 7.5, 7.5, 8 against 7 written). Sarah's and Tom's last blocks are
