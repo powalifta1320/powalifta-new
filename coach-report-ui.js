@@ -174,8 +174,8 @@
       veil.className = 'dk-veil mr-veil';
       var box = document.createElement('div');
       box.className = 'mr-box cl-root';
-      box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'crTitle'); box.tabIndex = -1;
-      box.innerHTML = '<header class="mr-head"><div><h2 class="mr-title" id="crTitle">Last week</h2><p class="mr-sub">' + esc(sub) + '</p></div>' +
+      box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'mrTitle'); box.tabIndex = -1;
+      box.innerHTML = '<header class="mr-head"><div><h2 class="mr-title" id="mrTitle">Last week</h2><p class="mr-sub">' + esc(sub) + '</p></div>' +
         '<button type="button" class="cl-ibtn mr-x" data-mr-close aria-label="Close the report">' + ic('x') + '</button></header>' +
         '<div class="mr-scroll">' + body + '</div>';
       veil.appendChild(box);
@@ -185,6 +185,7 @@
           var f = [].filter.call(box.querySelectorAll('button:not([disabled])'), function (b) { return b.offsetParent; });
           if (!f.length) return;
           var a = f[0], z = f[f.length - 1];
+          if (f.indexOf(document.activeElement) < 0) { e.preventDefault(); (e.shiftKey ? z : a).focus(); return; }   // from the card itself
           if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
           else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
         }
