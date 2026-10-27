@@ -102,6 +102,7 @@ html.desk:not([data-theme="light"]) body.powa-app {
   --dk-card-edge: rgba(255, 255, 255, 0.07);
   --dk-card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --dk-card-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0) 168px);
+  --dk-seg-on: color-mix(in srgb, var(--text) 15%, var(--bg-1));   /* the chosen segment: a clear step up from its track */
   background: var(--bg);
 }
 /* Light: white paper, near-black ink; surfaces step to a soft grey. */
@@ -133,6 +134,7 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-card-edge: rgba(11, 11, 13, 0.07);
   --dk-card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --dk-card-sheen: none;
+  --dk-seg-on: #fff;
   background: var(--bg);
 }
 /* The one red, machined, in both themes (a coach's own brand colour still wins). */
@@ -294,8 +296,8 @@ html.desk.rail-min .dk-find .dk-kbd { display: none; }
 /* ---------- avatars and rings ---------- */
 .dk-av { width: 32px; height: 32px; font-size: var(--fs-1); font-weight: var(--fw-3); border-radius: var(--r-round); }
 .dk-av.is-lg { width: 48px; height: 48px; font-size: var(--fs-4); }
-.dk-av.is-sm { width: 24px; height: 24px; font-size: var(--fs-1); letter-spacing: -0.02em; }
-.dk-av.is-xs { width: 20px; height: 20px; font-size: var(--fs-1); letter-spacing: -0.04em; }
+.dk-av.is-sm { width: 24px; height: 24px; font-size: 11px; letter-spacing: 0; }   /* initials sit inside the face: 11 at 24 px (13 overflowed it) */
+.dk-av.is-xs { width: 20px; height: 20px; font-size: 10px; letter-spacing: 0; }
 .dk-av.is-xl { width: 64px; height: 64px; font-size: var(--fs-5); }
 .dk-me-av { width: 28px; height: 28px; font-size: var(--fs-1); }
 /* Light: tinted faces with ink initials on every desk screen (Today, Lifters, Clients too), never the phone's gradient balls. */
@@ -316,7 +318,7 @@ html.desk[data-theme="light"] body.powa-app .dk-av:not([class*="av-h"]) { box-sh
 .dk-ring-av.is-lg { width: 56px; height: 56px; }
 .dk-ring-av.is-lg .dk-av { width: 46px; height: 46px; font-size: var(--fs-4); }
 .dk-ring-av.is-sm { width: 32px; height: 32px; }
-.dk-ring-av.is-sm .dk-av { width: 26px; height: 26px; font-size: var(--fs-1); letter-spacing: -0.02em; }
+.dk-ring-av.is-sm .dk-av { width: 26px; height: 26px; font-size: 11px; letter-spacing: 0; }
 .dk-ring-bg { fill: none; stroke: var(--line-2); stroke-width: 2.5; }
 .dk-ring-fg { fill: none; stroke: var(--dk-ok); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset 0.6s var(--dk-ease); }
 .dk-avw { position: relative; display: inline-flex; flex: none; }
@@ -621,7 +623,7 @@ html.desk body.powa-app .dk-thread .msg-composer button { border-radius: var(--r
 }
 .dk-seg-btn svg { width: var(--ic-1); height: var(--ic-1); }
 .dk-seg-btn:hover { color: var(--text); }
-.dk-seg-btn.on { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+.dk-seg-btn.on { background: var(--dk-seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 html.desk[data-theme="light"] .dk-seg-btn.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
 .dk-tabs { display: flex; gap: 2px; margin-top: var(--s-3); }
 .dk-tab {
@@ -1757,7 +1759,7 @@ html.desk body.powa-app section[data-pane="club"] .btn { min-height: var(--ctl-h
 html.desk body.powa-app section[data-pane="club"] .club-invite-icon { width: var(--ctl-h); height: var(--ctl-h); }
 html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg { display: inline-flex; width: auto; height: auto; padding: 2px; gap: 2px; border-radius: var(--r-1); background: var(--dk-fill); font-size: var(--fs-2); }
 html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button { flex: none; height: 28px; min-height: 28px; padding: 0 var(--s-3); border-radius: calc(var(--r-1) - 2px); font-size: var(--fs-2); font-weight: var(--fw-2); box-shadow: none; }
-html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: var(--bg-3); }
+html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: var(--dk-seg-on); }
 html.desk[data-theme="light"] body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1); }
 html.desk body.powa-app section[data-pane="club"] .cp-card b { font-variant-numeric: tabular-nums; }
 html.desk body.powa-app section[data-pane="club"] .cp-nums b { font-size: var(--fs-6); }
@@ -1820,7 +1822,7 @@ html.desk body.powa-app .dk-set-row > .dk-btn.is-quiet:hover, html.desk body.pow
 }
 
 /* The closed assistant is invisible, so it holds no tab stops either (it fades out, then hides). */
-html.desk .ai-panel:not(.is-open) { visibility: hidden; transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.28s; }
+html.desk .ai-panel:not(.is-open) { visibility: hidden; transition: opacity 0.18s ease-out, transform 0.2s var(--dk-ease), visibility 0s linear 0.2s; }
 html.desk .ai-panel.is-open { visibility: visible; }
 /* Compact, on: a quiet pressed state (the ink fill is for selection, not a view setting). */
 html.desk body.powa-app .dk-btn.is-quiet.dk-dens[aria-pressed="true"] { background: var(--dk-fill); color: var(--text); }
@@ -2096,4 +2098,57 @@ html.desk body.powa-app .ds-pick-note { font-weight: var(--fw-1); }
    ===================================================================== */
 html.desk :is(.dk-bxd, .dk-sess, .dk-pg-lift, .dk-set-group, .dk-set-seats, .dk-reasons, .dk-fr-steps, .dk-fr-sample, .dk-bl, .dk-mt-next, .dk-mtc, .dk-wk-empty, .dk-asks, .ds-lx, .ds-end) {
   border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); border: 1px solid var(--dk-card-edge); box-shadow: var(--dk-card-lit);
+}
+
+/* One red per screen. On the desk a composer sends with the secondary button (Enter sends too), and a
+   voice note plays from a graphite button: the screen's red stays its one action (Open meet day,
+   Reply to Arjun), never a second red arrow beside it while a message is drafted. */
+html.desk body.powa-app .msg-send:not(.is-empty) { background: var(--dk-fill-2); color: var(--text); box-shadow: none; }
+html.desk body.powa-app .msg-send:not(.is-empty):hover { background: color-mix(in srgb, var(--text) 18%, transparent); filter: none; box-shadow: none; }
+html.desk body.powa-app :is(.msg-row.theirs .vn-play, .vn-preview .vn-play, .tn-voice .vn-play) { background: var(--dk-fill-2); color: var(--text); }
+
+/* ---------- Ask AI on the desk: the desk's own material ----------
+   One red stays the screen's; the assistant answers in plain bubbles (no robot faces, no red tint on the
+   coach's own question), its chips are filled like every desk chip, its badge is a dot and a word. */
+/* Docked where the side card docks (top to bottom on the right, sliding in 16 px from that edge), so its
+   top never slices through a page title and both panels come and go the same way. */
+html.desk .ai-panel { top: 12px; right: 12px; bottom: 12px; width: 400px; height: auto; max-height: none; border-color: var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card);
+  box-shadow: var(--dk-card-shadow); transform-origin: right center; transform: translateX(16px); transition: opacity 0.2s ease-out, transform 0.26s var(--dk-drawer); }
+html.desk .ai-panel.is-open { transform: none; }
+html.desk .ai-panel .ai-head { background: none; padding: 16px 12px 14px 20px; }
+html.desk .ai-panel .ai-head-mark, html.desk .ai-panel .ai-msg-av { display: none; }
+html.desk .ai-panel .ai-head-title { font-size: var(--fs-4); font-weight: var(--fw-4); letter-spacing: -0.01em; }
+html.desk .ai-panel .ai-head-sub { font-size: var(--fs-1); }
+html.desk .ai-panel .ai-mode-pill { display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--s-2); height: 24px; border: 0; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font-size: var(--fs-1); font-weight: var(--fw-2); }
+html.desk .ai-panel .ai-mode-pill::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--dk-gold); }
+html.desk .ai-panel .ai-mode-pill.live::before { background: var(--dk-ok); }
+html.desk .ai-panel .ai-close { border-radius: var(--r-1); }
+html.desk .ai-panel .ai-seg { gap: 2px; margin: 12px 20px 0; padding: 2px; border: 0; border-radius: var(--r-1); background: var(--dk-fill); }
+html.desk .ai-panel .ai-seg-btn { height: 28px; padding: 0 var(--s-3); border-radius: calc(var(--r-1) - 2px); font-size: var(--fs-2); font-weight: var(--fw-2); }
+html.desk .ai-panel .ai-seg-btn.is-on { background: var(--dk-seg-on); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+html.desk .ai-panel .ai-body { padding: 16px 20px 8px; gap: 12px; }
+html.desk .ai-panel .ai-bubble { font-size: var(--fs-3); line-height: var(--lh-2); border: 0; border-radius: var(--r-2); background: var(--dk-fill); }
+html.desk .ai-panel .ai-msg.user .ai-bubble { background: color-mix(in srgb, var(--text) 12%, var(--dk-card)); border: 0; }
+html.desk .ai-panel .ai-chips { gap: var(--s-1); padding: 8px 20px 4px; }
+html.desk .ai-panel .ai-chip { height: 28px; padding: 0 var(--s-3); border: 0; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font-size: var(--fs-2); font-weight: var(--fw-2); }
+html.desk .ai-panel .ai-foot { padding: 12px 20px 14px; }
+html.desk .ai-panel .ai-input-row { border: 0; border-radius: var(--r-2); background: var(--dk-fill); padding: 4px 4px 4px 12px; }
+html.desk .ai-panel .ai-input-row:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
+html.desk .ai-panel .ai-send { width: var(--ctl-h); height: var(--ctl-h); border-radius: var(--r-1); background: var(--dk-fill-2); color: var(--text); }
+html.desk .ai-panel .ai-send:hover { transform: none; background: color-mix(in srgb, var(--text) 18%, transparent); }
+html.desk .ai-panel .ai-send svg { width: var(--ic-2); height: var(--ic-2); }
+html.desk .ai-panel .ai-foot-note { font-size: var(--fs-1); }
+html.desk .ai-panel .ai-prog-card { border-color: var(--dk-card-edge); background: var(--dk-fill); }
+html.desk .ai-panel .ai-prog-meta { color: var(--text-3); }
+html.desk .ai-panel .ai-prog-apply { height: var(--ctl-h); border-radius: var(--r-1); background: var(--fire); font-size: var(--fs-2); }
+html.desk .ai-panel .ai-human { border: 0; background: var(--dk-fill); }
+html.desk .ai-panel .ai-human::before { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  html.desk .ai-panel .ai-chip:hover { border: 0; background: var(--dk-fill-2); color: var(--text); }
+}
+/* A thread scrolls under its header: the list's top padding (12 px) fades, so a half message never sits
+   cut off under the tabs (a scroll edge, not a hard line); at the top of the thread nothing is faded. */
+html.desk .dk-thread .msg-list { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px); mask-image: linear-gradient(to bottom, transparent 0, #000 12px); }
+@media (prefers-reduced-motion: reduce) {
+  html.desk .ai-panel, html.desk .ai-panel.is-open, html.desk .ai-panel:not(.is-open) { transform: none; }
 }
