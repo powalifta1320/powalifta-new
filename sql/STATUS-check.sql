@@ -136,6 +136,10 @@ with checks(n, migration, applied) as (values
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
         to_regclass('public.intake') is not null),
   (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
-        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0)
+        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0),
+  (50, 'migration-coach-alerts-2026-10-28.sql  (coach alerts: the PRs and missed sessions switch, and the Monday report''s week stats; after migration-email-preferences.sql)',
+        exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'email_preferences' and column_name = 'push_alerts')
+        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null)
 )
 select n, migration, applied from checks order by n;
