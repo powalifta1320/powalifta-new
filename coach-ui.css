@@ -1592,3 +1592,8 @@ html.native:not(.desk) .ai-chip { min-height: 34px; padding: 0 14px; border: 0; 
 html.native:not(.desk) .ai-chip:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
 html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 24px; padding: 4px 4px 4px 16px; }
 html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%; }
+
+/* --- 10. The first run (no lifters yet) --- */
+/* The sample under "Your roster, once they train" is the real Lifters list (coach.html buildRosterSample). */
+.cl-phone.fr-cl { margin: 0; gap: 0; }
+.cl-phone.fr-cl .cl-row { cursor: default; }

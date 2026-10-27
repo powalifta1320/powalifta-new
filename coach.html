@@ -1329,8 +1329,28 @@ function buildCoachSetup() {
 }
 // The roster with athletes in it, drawn by the real components from a made-up week. Not tappable.
 function buildRosterSample() {
+  // The phone shows what Lifters becomes, drawn with its real rows (coach-lifters.js: face, name, the one
+  // line in the coach's words, strength over 4 weeks, the week as segments); the old ring and faces it
+  // used to show are no longer the screen. The web layout at tablet widths keeps the old sample.
+  if (document.documentElement.classList.contains('native')) {
+    const chev = '<span class="cl-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>';
+    const pips = (n, k, behind) => '<span class="cl-pips' + (behind ? ' is-behind' : '') + '">' + Array.from({ length: n }, (_, i) => '<i' + (i < k ? ' class="on"' : '') + '></i>').join('') + '</span>';
+    const rows = [
+      { name: 'Maya Chen', line: 'Training now · squat day', live: true, n: '+12', tone: 'up', pips: [3, 2] },
+      { name: 'Leo Grant', line: 'Bench felt @9, you wrote @8', sev: 'watch', n: '+4', tone: 'up', pips: [4, 2] },
+      { name: 'Priya Shah', line: 'Squat PR · 140 × 1', n: '+8', tone: 'up', pips: [3, 3] },
+      { name: 'Jonah Reed', line: 'Quiet for 9 days', sev: 'watch', n: '−3', tone: 'down', pips: [3, 0, true] }
+    ].map(r => '<div class="cl-row">' +
+      '<span class="ui-av av-h' + avatarHue(r.name) + '" data-name="' + escHtml(r.name) + '">' + escHtml(initials(r.name)) + '</span>' +
+      '<span class="cl-main"><span class="cl-name">' + escHtml(r.name) + (r.live ? '<i class="cl-live"></i>' : '') + '</span><span class="cl-line' + (r.sev ? ' sev-' + r.sev : '') + '">' + (r.sev ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + escHtml(r.line) + '</span></span></span>' +
+      '<span class="cl-end"><span class="cl-n t-' + r.tone + '"><b>' + r.n + '</b><small>' + escHtml(unitLabel()) + '</small></span>' + pips(r.pips[0], r.pips[1], r.pips[2]) + '</span>' + chev + '</div>').join('');
+    const s = el('div', { class: 'fr-sample cl-root cl-phone fr-cl', 'aria-hidden': 'true', html: '<div class="cl-list">' + rows + '</div>' });
+    s.inert = true;
+    return s;
+  }
   const box = el('div', { class: 'fr-sample', 'aria-hidden': 'true' });
   box.inert = true;
+
   const people = [
     { id: 'fr-1', name: 'Maya Chen', flag: 'today', ago: 0 },
     { id: 'fr-2', name: 'Leo Grant', flag: 'recent', ago: 1, pr: 1 },
