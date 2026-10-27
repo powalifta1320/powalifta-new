@@ -29,8 +29,11 @@ const tab = (t) => "document.querySelector('[data-tab=\"" + t + "\"]').click()";
 const A = 'athlete.html?demo=1', SO = 'athlete.html?demo=1&solo=1', C = 'coach.html?demo=1', F = 'coach.html?demo=1&fresh=1';
 const screens = [];
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
-  for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
-  if (theme === 'dark') for (const t of ['today', 'program', 'progress', 'coach', 'library', 'you']) screens.push({ name: 's-' + t, page: SO, eval: t === 'today' ? null : tab(t) });
+  for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library', 'career']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
+  // You › Career with every fold open (the years' blocks, every PR), and the coach's read-only sheet.
+  screens.push({ name: 'a-career-open' + suf, page: A, theme, eval: tab('career') + ";document.querySelectorAll('.cv-more').forEach(b => b.click())" },
+    { name: 'sh-career' + suf, page: C, theme, eval: "Career.openSheet('demo-a1')" });
+  if (theme === 'dark') for (const t of ['today', 'program', 'progress', 'coach', 'library', 'you', 'career']) screens.push({ name: 's-' + t, page: SO, eval: t === 'today' ? null : tab(t) });
   for (const t of ['athletes', 'program', 'messages', 'club', 'you', 'templates', 'progress']) screens.push({ name: 'c-' + t + suf, page: C, theme, eval: t === 'athletes' ? null : tab(t) });
   for (const t of ['athletes', 'program', 'messages', 'you', 'templates']) screens.push({ name: 'f-' + t + suf, page: F, theme, eval: t === 'athletes' ? null : tab(t) });
   screens.push(
@@ -52,6 +55,8 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   }
 }
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
+// The desk's Career panel (coach.html at laptop width), dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

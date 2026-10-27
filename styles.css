@@ -12748,3 +12748,102 @@ button.sa-btn {
 .ik-foot .btn[aria-busy="true"] { opacity: 0.7; cursor: progress; }
 html.desk body.powa-app .ui-sheet.ui-sheet-form.ik-wrap { width: min(560px, calc(100vw - 48px)); height: min(760px, calc(100vh - 48px)); padding: 0; }
 @media (prefers-reduced-motion: reduce) { .ik-chips button, .ik-bar i, .ui-sheet .ik-in { transition: none; } }
+
+/* ============================================ CAREER (career.js, 2026-10-27)
+   You › Career on the lifter's phone, and the same record read by a coach (a sheet on the phone, a
+   panel on the desk). A calm hero, then each year: its moments as one timeline (a hairline rail
+   through the chips), its PRs as one row per lift with every PR on request. Six sizes: the page title
+   and back link (the app's), 56 for the one hero number, 22 (stats, the hero unit, the years), 16
+   (rows) and 13 (everything quiet). Gold only on a meet's chip; a lift's colour only beside its name. */
+.cv-root { --cv-chip: 32px; --cv-pad: 16px; --cv-gap: 12px; --cv-text: calc(var(--cv-pad) + var(--cv-chip) + var(--cv-gap)); }
+.cv-root [hidden] { display: none !important; }
+.cv-hero { padding: 20px 18px 16px; }
+.cv-hero .ui-hero-label { font-size: 13px; }
+body.powa-app .cv-hero .cv-total, .cv-total { margin-top: 8px; font-size: 56px; line-height: 0.95; letter-spacing: -0.035em; font-weight: 800; }
+body.powa-app .cv-hero .cv-total small, .cv-total small { margin-left: 6px; font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.powa-app .cv-hero .cv-total.is-empty, .cv-total.is-empty { font-family: var(--font-body); font-stretch: 100%; font-size: 16px; font-weight: 600; line-height: 1.3; letter-spacing: 0; color: var(--text-3); }
+.cv-since { margin-top: 10px; font-size: 13px; line-height: 1.4; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cv-stats { margin-top: 16px; }
+body.powa-app .cv-stats .rh-stat b { font-size: 22px; font-weight: 700; white-space: nowrap; }
+body.powa-app .cv-stats .rh-stat b small { margin-left: 3px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+body.powa-app .cv-stats .rh-stat span { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+.cv-yh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 32px 2px 12px; }
+body.powa-app .cv-yt { margin: 0; font-family: var(--font-num); font-stretch: var(--num-stretch, 104%); font-size: 22px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.cv-ys { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* A year's moments: one row each, the chip on a hairline rail. */
+.cv-ev { position: relative; display: grid; grid-template-columns: var(--cv-chip) minmax(0, 1fr) auto; column-gap: var(--cv-gap); row-gap: 3px; align-items: baseline; padding: 14px var(--cv-pad); }
+.cv-ev + .cv-ev::after, .cv-rec + .cv-rec::after { content: ''; position: absolute; top: 0; left: var(--cv-text); right: 0; height: 1px; background: var(--hair); }
+.cv-list .cv-ev::before { content: ''; position: absolute; left: calc(var(--cv-pad) + var(--cv-chip) / 2 - 0.5px); top: 0; bottom: 0; width: 1px; background: var(--hair); }
+.cv-list .cv-ev.is-first::before { top: calc(14px + var(--cv-chip) / 2); }
+.cv-list .cv-ev.is-last::before { bottom: calc(100% - 14px - var(--cv-chip) / 2); }
+.cv-list .cv-ev.is-first.is-last::before { display: none; }
+.cv-ic { grid-column: 1; grid-row: 1 / span 3; align-self: start; position: relative; z-index: 1; display: grid; place-items: center; width: var(--cv-chip); height: var(--cv-chip); border-radius: 10px; background: var(--bg-2); color: var(--text-2); }
+.cv-ic svg { width: 17px; height: 17px; }
+.cv-ev.k-meet .cv-ic { color: var(--pr); background: var(--bg-2); background: color-mix(in srgb, var(--pr) 15%, var(--bg-1)); }
+.cv-t { grid-column: 2; grid-row: 1; min-width: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; }
+.cv-v { grid-column: 3; grid-row: 1; justify-self: end; white-space: nowrap; font-size: 16px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.cv-v b { font-family: var(--font-num); font-stretch: var(--num-stretch, 104%); font-weight: 700; color: var(--text); }
+.cv-v small { margin-left: 3px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+.cv-d { grid-column: 2; grid-row: 2; min-width: 0; font-size: 13px; line-height: 1.4; color: var(--text-3); overflow-wrap: anywhere; }
+.cv-dt { grid-column: 3; grid-row: 2; justify-self: end; white-space: nowrap; font-size: 13px; line-height: 1.4; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cv-x { grid-column: 2 / 4; grid-row: 3; font-size: 13px; line-height: 1.4; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cv-t .lift-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; vertical-align: 1px; }
+
+/* A year's PRs: a row per lift, then each PR on one line. */
+.cv-recs { margin-top: 12px; }
+.cv-rec { position: relative; display: grid; grid-template-columns: var(--cv-chip) minmax(0, 1fr) auto; column-gap: var(--cv-gap); row-gap: 3px; align-items: baseline; padding: 14px var(--cv-pad); }
+.cv-dotc { grid-column: 1; grid-row: 1; align-self: start; display: flex; align-items: center; justify-content: flex-end; height: 20.8px; }
+.cv-dotc .lift-dot { width: 10px; height: 10px; }
+.cv-rec .cv-t { grid-column: 2; grid-row: 1; }
+.cv-rec .cv-v { grid-column: 3; grid-row: 1; }
+.cv-rec .cv-d { grid-column: 2 / 4; grid-row: 2; }
+.cv-prs { position: relative; padding: 6px 0; }
+.cv-prs::before { content: ''; position: absolute; top: 0; left: var(--cv-pad); right: 0; height: 1px; background: var(--hair); }
+.cv-pr { display: grid; grid-template-columns: var(--cv-chip) minmax(0, 1fr) auto; column-gap: var(--cv-gap); align-items: baseline; padding: 7px var(--cv-pad); }
+.cv-pr .cv-dotc { height: 18.2px; }
+.cv-pr .cv-dotc .lift-dot { width: 8px; height: 8px; }
+.cv-pt { min-width: 0; font-size: 13px; line-height: 1.4; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.cv-pt b { font-weight: 600; color: var(--text); }
+.cv-pd { font-size: 13px; line-height: 1.4; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.cv-more { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; padding: 0 var(--cv-pad); border: 0; background: none;
+  color: var(--text-2); font: 600 16px/1 var(--font-body); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.cv-list .cv-more::before, .cv-recs .cv-more::before { content: ''; position: absolute; top: 0; left: var(--cv-pad); right: 0; height: 1px; background: var(--hair); }
+.cv-more svg { width: 16px; height: 16px; transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1); }
+.cv-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.cv-more:active { background: var(--fill-2); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .cv-more:hover { color: var(--text); } }
+.cv-more:focus-visible { outline: 2px solid var(--acc, var(--text-2)); outline-offset: -2px; border-radius: 14px; }
+.cv-older-btn { margin-top: 24px; border-radius: 14px; }
+.cv-empty .cv-empty-btn { margin-top: 18px; min-height: 48px; padding: 0 22px; }
+@media (prefers-reduced-motion: reduce) { .cv-more, .cv-more svg { transition: none; } }
+
+/* The coach's phone: the same record in a sheet. */
+.cv-sheet .cv-hero { margin-top: 6px; }
+.cv-sheet .ui-list { margin-bottom: 0; }
+
+/* The desk: a wide panel. The hero in one band, each year as its label, its moments and its PRs side by side. */
+html.desk .dk-modal.cv-modal:focus { outline: none; }   /* focused on open for the keys (Esc), not a target */
+html.desk .dk-modal.cv-modal { width: min(1080px, calc(100vw - 96px)); height: min(760px, calc(100vh - 56px)); max-width: none; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.cv-mh { display: flex; align-items: center; gap: 14px; padding: 20px 20px 16px 24px; border-bottom: 1px solid var(--line); }
+.cv-mh .ui-av { width: 44px; height: 44px; font-size: 13px; }
+.cv-mid { flex: 1 1 auto; min-width: 0; }
+.cv-mt { margin: 0; font-family: var(--font-body); font-size: 22px; font-weight: 700; line-height: 1.15; letter-spacing: -0.015em; color: var(--text); }
+.cv-ms { margin: 3px 0 0; font-size: 13px; color: var(--text-3); }
+.cv-x-btn { flex: none; }
+.cv-mbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 32px; scrollbar-width: thin; }
+.cv-root.is-desk .cv-hero { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 1.5fr); align-items: end; column-gap: 32px; padding: 22px 24px 20px; }
+.cv-root.is-desk .cv-stats { margin-top: 0; padding: 0; border-top: 0; }
+.cv-root.is-desk .cv-year { display: grid; grid-template-columns: 112px minmax(0, 1.3fr) minmax(0, 1fr); column-gap: 24px; align-items: start; margin-top: 28px; }
+.cv-root.is-desk .cv-yh { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 0; flex-direction: column; align-items: flex-start; gap: 4px; margin: 14px 0 0; }
+.cv-root.is-desk .cv-ys { text-align: left; }
+.cv-root.is-desk .cv-list { grid-column: 2; }
+.cv-root.is-desk .cv-recs { grid-column: 3; margin-top: 0; }
+.cv-root.is-desk .cv-year.no-moments .cv-recs { grid-column: 2; }
+html.desk .cv-modal .ui-list, html.desk .cv-modal .ui-hero { box-shadow: none; }
+html.desk .cv-modal .ui-list { background: var(--dk-raise, var(--bg-2)); border-color: transparent; }
+html.desk .cv-modal .cv-ic { background: var(--bg-1); }
+html.desk[data-theme="light"] .cv-modal .cv-ic { background: #fff; }
+html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--pr) 16%, var(--dk-raise, var(--bg-2))); }

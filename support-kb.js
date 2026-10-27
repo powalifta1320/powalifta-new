@@ -617,6 +617,25 @@ window.POWA_SUPPORT_KB = [
   "app": "On the last day of every month your wrap for it drops: a few full-screen stories worked out from the sets you logged, with your sessions, the weight you moved, your top set, PRs and biggest jump, your weeks in a row, how it went against the month before and your bodyweight if you weighed in. It sits at the top of **Train** for a week (October's from 31 October to 6 November), then stays in **You** → **Your wraps** with every month and every year, newest first. Tap right for the next story, left to go back, hold to pause. The last card is the one to post: pick a style under it (**Plates**, **Fire** or **Card**; your pick is remembered and every other story shares in the same style), then tap **Share to Instagram** and pick Instagram in the share sheet, then Stories. **Share this** on any story shares just that one. A month with no sessions has no wrap. On 31 December the year in lifting leads Train and December's wrap waits in Your wraps."
  },
  {
+  "id": "career",
+  "q": "Where can I see my whole lifting history, my career?",
+  "t": [
+   "career",
+   "my career",
+   "lifting history",
+   "my history",
+   "all my prs",
+   "all my meets",
+   "since i started",
+   "timeline",
+   "milestones",
+   "weight class change",
+   "first meet",
+   "how long have i been lifting"
+  ],
+  "a": "Open **You** → **Career**. At the top: your e1RM total, when you started and how many meets, then your best meet total, years lifting and sessions. Under it, every year, newest first: your meets (total, placing, class, federation and the three lifts), a move up or down a weight class, your finished blocks with what they did to your e1RM total, and milestones (your first session, the 50th, 100th, 250th and 500th, your e1RM total past every 50 kg or 100 lb). Each year's PRs sit in one card, a row per lift with how many and how far it went; **Show all** lists every one. A PR counts when it beats your best before it: a new e1RM (paused and tempo work count as their competition equivalent) or a heavier single, triple or five on the competition lift. Meets from before POWALIFTA come in from OpenPowerlifting (Progress → PRs → Meets). If you have a coach, they see the same record, read-only."
+ },
+ {
   "id": "import-history",
   "q": "How do I import my old training history from a spreadsheet?",
   "t": [

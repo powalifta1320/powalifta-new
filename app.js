@@ -223,6 +223,35 @@ function _buildDemoData() {
     });
   }
 
+  // --- Before the 16 weeks: this lifter's first two and a half years (You › Career). Their old
+  // spreadsheet came in through Import history (a top set a session, most weeks three, a fortnight off
+  // before the 16 weeks above), three meets from OpenPowerlifting (93 kg, then the cut to 83) and the
+  // blocks they ran here (programBlocks below). Every number stays under the 16 weeks, so Progress,
+  // the bests, the streak and the latest wraps read as before. ---
+  const HIST_FROM = 990, HIST_TO = 125;
+  const HIST_PATH = { squat: [135, 173], bench: [86, 111], deadlift: [160, 214] };
+  const HIST_CAP = { squat: 177, bench: 113.5, deadlift: 218.5 };   // under the 16 weeks' first top sets
+  const HIST_MEETS = [868, 700, 455, 217];
+  const HIST_OFF = new Set([27, 28, 45, 46, 57, 97, 98]);   // summer and Christmas weeks off, a tweaked back
+  const hNoise = n => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; };
+  const hScheme = [[5, 8], [3, 8.5], [5, 7.5], [4, 8], [3, 8], [5, 8.5], [1, 9]];
+  for (let wk = 0; HIST_FROM - wk * 7 >= HIST_TO; wk++) {
+    if (HIST_OFF.has(wk)) continue;
+    ['squat', 'bench', 'deadlift'].forEach((lift, di) => {
+      const ago = HIST_FROM - wk * 7 - di * 2;
+      if (ago < HIST_TO || HIST_MEETS.some(m => ago >= m - 4 && ago <= m + 1)) return;   // meet week: rest
+      const t = (HIST_FROM - ago) / (HIST_FROM - HIST_TO), p = HIST_PATH[lift];
+      const e1 = (p[0] + (p[1] - p[0]) * (1 - Math.pow(1 - t, 1.6))) * (1 + 0.022 * hNoise(wk * 3 + di));
+      const [reps, rpe] = hScheme[(wk + di * 3) % hScheme.length];
+      let wgt = Math.round(e1 * (1 - ((reps - 1) + (10 - rpe)) * 0.0333) / 2.5) * 2.5;
+      while (wgt > 20 && calcE1RM(wgt, reps, rpe) > HIST_CAP[lift]) wgt -= 2.5;   // never past the 16 weeks above
+      workoutLogs.push({
+        id: 'demo-hlog-' + wk + '-' + di, athleteId: DA, lift, variant: 'Competition', exerciseName: '', weight: wgt, reps, rpe,
+        e1rm: calcE1RM(wgt, reps, rpe), e1rmComp: calcCompE1RM(wgt, reps, rpe, lift, 'Competition'), date: daysAgo(ago), note: ''
+      });
+    });
+  }
+
   // --- Bodyweight: gentle recomp over 16 weeks ---
   const bodyweight = [];
   for (let d = 110; d >= 0; d -= 2) {
@@ -311,12 +340,27 @@ function _buildDemoData() {
     { id: 'demo-amsg-4', coachId: DC, athleteId: DA, senderId: DC, body: 'Voice note · 0:19', meta: { type: 'voice', demo: true, dur: 18.6, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[0] }, createdAt: at(1, 7, 47), readAt: null }
   ];
 
-  // --- Competition history: two past meets so Progress shows a best total + a
-  // PR trend. Best successful lift per discipline (kg). ---
+  // --- Competition history: three meets brought in from OpenPowerlifting (placing, DOTS and the
+  // attempts in the notes, as the import writes them), then the two logged here, so Progress shows a
+  // best total + a PR trend and Career shows a career. Best successful lift per discipline (kg). ---
+  const oplMeet = (id, name, ago, cls, bw, s, b, d, place, att) => ({ id, athleteId: DA, name, date: daysAgo(ago), federation: 'USAPL', weightClass: cls, bodyweight: bw, squat: s, bench: b, deadlift: d,
+    notes: place + ' · Raw · Open · DOTS ' + Math.round(dotsScore(s + b + d, bw, 'male') * 10) / 10 + '. ' + att + ' kg. From OpenPowerlifting', createdAt: daysAgo(ago - 2) + 'T18:00:00Z' });
   const meets = [
-    { id: 'demo-meet-1', athleteId: DA, name: 'Winter Open', date: daysAgo(217), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.6, squat: 175, bench: 110, deadlift: 205, notes: 'First meet: went 8/9, missed third squat.', createdAt: daysAgo(217) + 'T18:00:00Z' },
-    { id: 'demo-meet-2', athleteId: DA, name: 'Spring Classic', date: daysAgo(96), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.9, squat: 185, bench: 115, deadlift: 215, notes: '9/9 day. New total PR.', createdAt: daysAgo(96) + 'T18:00:00Z' }
+    oplMeet('demo-meet-h1', 'Novice Open', 868, '93 kg', 88.6, 140, 87.5, 167.5, '4th place', 'Squat 130, 135, 140 · Bench 82.5, 87.5, x92.5 · Deadlift 155, 167.5, x177.5'),
+    oplMeet('demo-meet-h2', 'Fall Classic', 700, '93 kg', 87.9, 150, 95, 182.5, '2nd place', 'Squat 140, 147.5, 150 · Bench 90, 95, x97.5 · Deadlift 170, 182.5, x190'),
+    oplMeet('demo-meet-h3', 'Summer Open', 455, '83 kg', 82.7, 162.5, 102.5, 197.5, '3rd place', 'Squat 152.5, 160, 162.5 · Bench 97.5, 102.5, x105 · Deadlift 185, 197.5, x205'),
+    { id: 'demo-meet-1', athleteId: DA, name: 'Winter Open', date: daysAgo(217), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.6, squat: 175, bench: 110, deadlift: 205, notes: '2nd place. Went 8/9, missed the third squat.', createdAt: daysAgo(217) + 'T18:00:00Z' },
+    { id: 'demo-meet-2', athleteId: DA, name: 'Spring Classic', date: daysAgo(96), federation: 'USAPL', weightClass: '83kg', bodyweight: 82.9, squat: 185, bench: 115, deadlift: 215, notes: '1st place. 9/9 day, a new total PR.', createdAt: daysAgo(96) + 'T18:00:00Z' }
   ];
+  // The blocks they ran here, each kept when the next began (stats from the sessions logged in it).
+  const programBlocks = [['Strength Block · Wave 1', 59, 27], ['Volume Block', 92, 62], ['Spring Classic peak', 110, 97], ['Strength Block', 175, 126],
+    ['Winter Open peak', 245, 219], ['Hypertrophy Block', 300, 250], ['Off-season Volume', 440, 400], ['Summer Open peak', 483, 457]].map(([name, from, to], i) => {
+    const a = daysAgo(from), b = daysAgo(to);
+    const ds = Array.from(new Set(workoutLogs.filter(l => l.date >= a && l.date <= b).map(l => l.date))).sort();
+    const sets = ds.length * 9;
+    return { id: 'demo-ablk-' + (i + 1), athleteId: DA, coachId: SOLO ? null : DC, name, maxes: null, stats: { sets, done: sets - (i % 3), sessions: ds.length },
+      startedOn: ds[0] || a, endedOn: ds[ds.length - 1] || b, createdAt: (ds[ds.length - 1] || b) + 'T09:00:00Z' };
+  });
 
   // The coach's own check-in questions, answered every day but today (so Train asks).
   const ciQs = SOLO ? [] : CHECKIN_STARTERS.map((q, i) => Object.assign({ id: 'demo-ciq-' + i, coachId: DC, athleteIds: null, position: i, active: true, createdAt: daysAgo(30) + 'T12:00:00Z' }, q, { choices: q.choices || null }));
@@ -342,7 +386,7 @@ function _buildDemoData() {
     user: user,
     store: {
       checkinQuestions: ciQs, checkinAnswers: ciAs, intakes, clientBilling: [], clientPayments: [],
-      coaches, athletes: [], invites: [], programs, programTemplates: [],
+      coaches, athletes: [], invites: [], programs, programTemplates: [], programBlocks,
       workoutLogs, bodyweight, restDays, meets,
       sessionNotes: SOLO ? sessionNotes.map(n => Object.assign({}, n, { coachComment: '', coachCommentAt: null, coachId: null })).filter(n => n.note) : sessionNotes,
       goals, checkins: SOLO ? [] : checkins, messages: SOLO ? [] : messages, healthDaily, nutritionDaily,
@@ -628,6 +672,53 @@ function _buildCoachDemoData() {
   programBlocks.push(keptBlock('demo-a1', 'demo-blk-0', 'Hypertrophy Block', hyWeeks),
     keptBlock('demo-a2', 'demo-blk-a2', 'Strength Block', fromLog('demo-a2', 'demo-pb2-', [5, 4, 3, 2, 1], 2)),
     keptBlock('demo-a3', 'demo-blk-a3', 'Strength Block', fromLog('demo-a3', 'demo-pb3-', [4, 3, 2], 9)));
+  // Arjun before all that (his Career): two and a half years of training (a top set and a back-off a
+  // session; a summer break before the tested triples, so his 12-week chart on the desk starts where it
+  // always did), his first two meets at 83 kg before the cut to 74
+  // (brought in from OpenPowerlifting, below) and the blocks his coach wrote since he joined eleven
+  // months ago, each kept, with its weeks, when the next began. Every number sits under the block
+  // above, so his total, his PRs and this week read as before.
+  {
+    const FROM = 900, TO = 86, PATH = { squat: [160, 204], bench: [105, 132], deadlift: [195, 252] }, MEETS = [700, 560, 334, 152], OFF = new Set([32, 33, 61, 84, 85]);
+    const nz = n => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; };
+    const scheme = [[5, 8], [3, 8.5], [4, 8], [5, 7.5], [3, 8], [1, 9]];
+    for (let wk = 0; FROM - wk * 7 >= TO; wk++) {
+      if (OFF.has(wk)) continue;
+      ['squat', 'bench', 'deadlift'].forEach((lift, di) => {
+        const ago = FROM - wk * 7 - di * 2;
+        if (ago < TO || MEETS.some(m => ago >= m - 4 && ago <= m + 1)) return;
+        const t = (FROM - ago) / (FROM - TO), p = PATH[lift];
+        const e1 = (p[0] + (p[1] - p[0]) * (1 - Math.pow(1 - t, 1.6))) * (1 + 0.022 * nz(wk * 3 + di + 500));
+        const [reps, rpe] = scheme[(wk + di * 2) % scheme.length];
+        let wgt = Math.round(e1 * (1 - ((reps - 1) + (10 - rpe)) * 0.0333) / 2.5) * 2.5;
+        while (wgt > 20 && calcE1RM(wgt, reps, rpe) > p[1] * 1.03) wgt -= 2.5;
+        const back = Math.round(wgt * (reps === 1 ? 0.8 : 0.88) / 2.5) * 2.5;
+        [[wgt, reps, rpe], [back, 5, 7]].forEach(([w, r, e], k) => workoutLogs.push({
+          id: 'demo-chlog-' + wk + '-' + di + '-' + k, athleteId: 'demo-a1', lift, variant: 'Competition', exerciseName: '', weight: w, reps: r, rpe: e,
+          e1rm: calcE1RM(w, r, e), e1rmComp: calcCompE1RM(w, r, e, lift, 'Competition'), date: daysAgo(ago), note: '' }));
+      });
+    }
+    // A past block with its weeks, from the sessions logged in it (so it opens as the grid, offline).
+    const pastBlock = (id, name, from, to) => {
+      const a = daysAgo(from), b = daysAgo(to);
+      const mine = workoutLogs.filter(l => l.athleteId === 'demo-a1' && l.date >= a && l.date <= b);
+      const ds = Array.from(new Set(mine.map(l => l.date))).sort();
+      const start = ds[0] || a, end = ds[ds.length - 1] || b;
+      const n = Math.max(1, Math.ceil((Date.parse(end + 'T12:00:00Z') - Date.parse(start + 'T12:00:00Z')) / 864e5 / 7 + 1 / 7));
+      const weeks = Array.from({ length: n }, (_, wi) => {
+        const wa = _addDaysISO(start, wi * 7), wb = _addDaysISO(start, wi * 7 + 6);
+        return { id: id + '-w' + (wi + 1), number: wi + 1, days: [['squat', 'Squat Day'], ['bench', 'Bench Day'], ['deadlift', 'Deadlift Day']].map(([lift, dn]) => {
+          const sets = mine.filter(l => l.lift === lift && l.date >= wa && l.date <= wb).map((l, si) => ({ id: id + '-s' + wi + lift + si, weight: l.weight, reps: l.reps, rpe: l.rpe,
+            completed: true, actualRpe: l.rpe, completedAt: l.date }));
+          return { id: id + '-d' + wi + lift, name: dn, exercises: sets.length ? [{ id: id + '-e' + wi + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets }] : [] };
+        }) };
+      });
+      return { id, athleteId: 'demo-a1', coachId: DC, name, weeks, maxes: null, stats: blockStats(weeks), startedOn: start, endedOn: end, createdAt: end + 'T09:00:00Z' };
+    };
+    [['demo-blk-2', 'Strength · Wave 1', 112, 86], ['demo-blk-3', 'Off-season', 145, 115], ['demo-blk-4', 'Peak · Spring Classic', 186, 154],
+      ['demo-blk-5', 'Strength · Base', 237, 190], ['demo-blk-6', 'Hypertrophy · Winter', 283, 241], ['demo-blk-7', 'Foundation', 328, 287]]
+      .forEach(([id, name, from, to]) => programBlocks.push(pastBlock(id, name, from, to)));
+  }
   const ans = (qi, a, d, num, text) => ciAs.push({ id: 'demo-cia-' + ciAs.length, questionId: 'demo-ciq-' + qi, athleteId: a, coachId: DC,
     period: qi === 3 ? _monISO(daysAgo(d)) : daysAgo(d), num: num == null ? null : num, text: text || null });
   for (let d = 0; d < 10; d++) {
@@ -659,6 +750,16 @@ function _buildCoachDemoData() {
           notes: '1st place · Raw · Open · DOTS 415.8. Squat 185, 195, 200 · Bench 125, 130, 132.5 · Deadlift 225, 240, x250 kg. From OpenPowerlifting', createdAt: daysAgo(150) + 'T18:00:00Z' },
         { id: 'demo-cmeet-2', athleteId: 'demo-a1', name: 'Winter Open', date: daysAgo(334), federation: 'USAPL', weightClass: '74 kg', bodyweight: 73.9, squat: 187.5, bench: 125, deadlift: 227.5,
           notes: '2nd place · Raw · Open · DOTS 391.1. Squat 175, 182.5, 187.5 · Bench 117.5, 122.5, 125 · Deadlift 210, 227.5, x237.5 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:00:00Z' },
+        // His first two, at 83 kg before the cut to 74 (his Career's class move).
+        { id: 'demo-cmeet-3', athleteId: 'demo-a1', name: 'Spring Open', date: daysAgo(560), federation: 'USAPL', weightClass: '83 kg', bodyweight: 79.6, squat: 182.5, bench: 117.5, deadlift: 220,
+          notes: '4th place · Raw · Open · DOTS ' + Math.round(dotsScore(520, 79.6, 'male') * 10) / 10 + '. Squat 170, 177.5, 182.5 · Bench 110, 117.5, x122.5 · Deadlift 205, 220, x230 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:01:00Z' },
+        { id: 'demo-cmeet-4', athleteId: 'demo-a1', name: 'Novice Classic', date: daysAgo(700), federation: 'USAPL', weightClass: '83 kg', bodyweight: 80.4, squat: 170, bench: 112.5, deadlift: 210,
+          notes: '6th place · Raw · Open · DOTS ' + Math.round(dotsScore(492.5, 80.4, 'male') * 10) / 10 + '. Squat 160, 170, x177.5 · Bench 105, 112.5, x117.5 · Deadlift 190, 200, 210 kg. From OpenPowerlifting', createdAt: daysAgo(330) + 'T18:02:00Z' },
+        // Tom's and Sarah's last meets, logged by hand.
+        { id: 'demo-cmeet-5', athleteId: 'demo-a3', name: 'Ironworks Open', date: daysAgo(210), federation: 'USAPL', weightClass: '105 kg', bodyweight: 104.6, squat: 225, bench: 160, deadlift: 280,
+          notes: '3rd place. Missed the last bench.', createdAt: daysAgo(209) + 'T18:00:00Z' },
+        { id: 'demo-cmeet-6', athleteId: 'demo-a2', name: 'Novice Cup', date: daysAgo(250), federation: 'USPA', weightClass: '63 kg', bodyweight: 63.6, squat: 112.5, bench: 62.5, deadlift: 140,
+          notes: '2nd place. First meet, 8 for 9.', createdAt: daysAgo(249) + 'T18:00:00Z' },
         // Two PLANNED meets (brief M3): dates, never results; they never touch a best total or DOTS.
         { id: 'demo-cmeet-p1', athleteId: 'demo-a1', name: 'Fall Nationals', date: daysAgo(-53), status: 'planned', federation: 'Powerlifting America', division: 'Open', weightClass: '74 kg',
           weighIn: '2h', weighInAt: daysAgo(-53) + 'T07:00:00', bodyweight: null, squat: null, bench: null, deadlift: null, notes: '', createdAt: daysAgo(20) + 'T12:00:00Z' },
@@ -10410,6 +10511,7 @@ const _YI = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const YOU_ROW_META = {
   'Full program':        { tint: 'sky',    icon: () => ICONS.program },
   'Bodyweight':          { tint: 'teal',   icon: () => ICONS.scale },
+  'Career':              { tint: 'iris',   icon: () => _YI('<path d="M4 19h4.5v-4.5H13V10h4.5V5.5H20"/>') },
   'Goals':               { tint: 'gold',   icon: () => _YI('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>') },
   'Rest timer':          { tint: 'orange', icon: () => _YI('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.4 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>') },
   'Your wraps':          { tint: 'gold',   icon: () => _YI('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/>') },
@@ -12103,7 +12205,7 @@ const SCREEN_ACCENT = {
   progress: 'cyan', bodyweight: 'cyan', program: 'cyan', templates: 'cyan',
   club: 'gold',
   coach: 'green', messages: 'green',
-  you: 'violet', library: 'violet', marketplace: 'violet'
+  you: 'violet', library: 'violet', marketplace: 'violet', career: 'violet'
 };
 function screenAccentFor(key) {
   // The athlete's own Program sits in the Coach slot when self-coached.

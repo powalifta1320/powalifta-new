@@ -322,7 +322,8 @@ html.desk[data-theme="light"] body.powa-app .dk-av.av-h7 { background: var(--av-
   border-radius: var(--r-1); background: var(--dk-fill-2); color: var(--text); font: var(--fw-3) var(--fs-1)/1 var(--font-body); font-variant-numeric: tabular-nums;
 }
 .dk-lift-dot { width: 8px; height: 8px; border-radius: var(--r-round); background: var(--lc, var(--text-3)); flex: none; }
-.lift-squat { --lc: var(--dk-sq); } .lift-bench { --lc: var(--dk-bp); } .lift-deadlift { --lc: var(--dk-dl); } .lift-acc { --lc: var(--text-4); }
+/* Scoped to the desk: the --dk-* hues exist only there, and unscoped these greyed every lift dot on the coach's phone. */
+html.desk .lift-squat { --lc: var(--dk-sq); } html.desk .lift-bench { --lc: var(--dk-bp); } html.desk .lift-deadlift { --lc: var(--dk-dl); } html.desk .lift-acc { --lc: var(--text-4); }
 .dk-spark { width: 56px; height: 18px; color: currentColor; display: block; }
 .dk-trend { display: flex; align-items: center; gap: var(--s-2); }
 .dk-trend .dk-spark { color: var(--text-4); }

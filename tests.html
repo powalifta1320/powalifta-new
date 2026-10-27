@@ -105,6 +105,7 @@
 <script src="ai-chat.js"></script>
 <script src="weekly-note.js"></script>
 <script src="block-dna.js"></script>
+<script src="career.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -5734,6 +5735,206 @@ test('compare never says one thing caused another', () => {
   let n = 0;
   all.forEach(c => c.rows.forEach(r => { n++; assert(!CAUSAL.test(r.text), 'causal: ' + r.text); assert(/^[A-Z0-9]/.test(r.text) && /\.$/.test(r.text), 'a sentence: ' + r.text); }));
   assert(n >= 24, 'every row read: ' + n);
+});
+
+/* ===========================================================
+   Career (career.js): a lifter's lifelong record, newest first: PRs, meets, weight-class moves, finished
+   blocks and milestones, each once, in date order.
+   =========================================================== */
+group('career (career.js)');
+const CVT = '2026-10-27';   // "today" in these tests
+const CVL = (id, date, lift, w, reps, rpe, variant) => ({ id, athleteId: 'cv-a', lift, variant: variant || 'Competition', exerciseName: '', weight: w, reps, rpe,
+  e1rm: calcE1RM(w, reps, rpe), e1rmComp: calcCompE1RM(w, reps, rpe, lift, variant || 'Competition'), date, note: '' });
+const CVK = (store, opts) => careerEvents('cv-a', store, Object.assign({ today: CVT, unit: 'kg' }, opts || {}));
+test('the contract; an empty store is an empty career with a sensible hero', () => {
+  assert(window.Career && typeof careerEvents === 'function' && typeof Career.yearRecords === 'function' && typeof Career.render === 'function', 'Career is loaded');
+  const C = careerEvents('nobody', {}, { today: CVT, unit: 'kg' });
+  eq(C.years.length, 0); eq(C.events.length, 0);
+  const h = C.hero;
+  eq(h.total, null); eq(h.bestMeetTotal, null); eq(h.bestMeet, null); eq(h.firstDate, null);
+  eq(h.years, 0); eq(h.days, 0); eq(h.sessions, 0); eq(h.meets, 0); eq(h.prs, 0); eq(h.unit, 'kg'); eq(h.complete, false);
+  eq(careerEvents('x', { workoutLogs: null, meets: [null, { athleteId: 'x' }], programBlocks: [null] }, { today: CVT, unit: 'kg' }).years.length, 0, 'odd rows are skipped');
+  eq(Career.careerLine(C), '', 'no line for nothing');
+});
+test('PRs only when they beat the best before (the first time sets the bar)', () => {
+  const C = CVK({ workoutLogs: [
+    CVL('l1', '2026-01-05', 'squat', 100, 5, 8),    // the bar
+    CVL('l2', '2026-01-07', 'squat', 100, 5, 8),    // the same again
+    CVL('l3', '2026-01-09', 'squat', 97.5, 5, 9),   // lighter
+    CVL('l4', '2026-01-12', 'squat', 102.5, 5, 8),  // a PR: e1RM and the five
+    CVL('l5', '2026-01-14', 'squat', 102.5, 5, 9)   // the same five, harder: nothing new
+  ] });
+  const prs = C.events.filter(e => e.kind === 'pr');
+  eq(prs.length, 1); eq(prs[0].date, '2026-01-12'); eq(prs[0].lift, 'squat'); eq(prs[0].title, 'Squat PR');
+  close(prs[0].e1.fromKg, 124.97, 0.02); eq(prs[0].value, 128); eq(prs[0].valueKind, 'e1rm');
+  eq(prs[0].reps.map(r => r.n + '@' + r.kg).join(), '5@102.5');
+  eq(prs[0].detail, 'e1RM 128 kg (+3) · 102.5 kg × 5');
+  eq(C.hero.prs, 1); eq(C.hero.sessions, 5); eq(C.hero.firstDate, '2026-01-05');
+});
+test('a variant counts for e1RM (competition equivalent), never as a rep PR', () => {
+  const C = CVK({ workoutLogs: [CVL('v1', '2026-02-02', 'squat', 100, 5, 8), CVL('v2', '2026-02-04', 'squat', 95, 5, 8, 'Paused'), CVL('v3', '2026-02-06', 'squat', 100, 3, 8, 'Paused')] });
+  const prs = C.events.filter(e => e.kind === 'pr');
+  eq(prs.length, 1, 'paused 95×5 is a bigger e1RM than 100×5 (×1.07); the paused triple is no rep PR');
+  eq(prs[0].date, '2026-02-04'); eq(prs[0].reps.length, 0); assert(prs[0].e1, 'an e1RM PR');
+});
+test('same day: one event per lift, with the single, triple and five that day', () => {
+  const C = CVK({ workoutLogs: [
+    CVL('a1', '2026-02-02', 'bench', 80, 5, 8), CVL('a2', '2026-02-02', 'bench', 85, 3, 8.5), CVL('a3', '2026-02-02', 'bench', 90, 1, 9),
+    CVL('b1', '2026-02-09', 'bench', 82.5, 5, 8), CVL('b2', '2026-02-09', 'bench', 87.5, 3, 8.5), CVL('b3', '2026-02-09', 'bench', 92.5, 1, 9.5), CVL('b4', '2026-02-09', 'bench', 95, 1, 10),
+    CVL('c1', '2026-02-09', 'deadlift', 180, 5, 8), CVL('s0', '2026-02-04', 'squat', 135, 5, 8),
+    CVL('c2', '2026-02-11', 'deadlift', 185, 5, 8), CVL('s1', '2026-02-11', 'squat', 140, 5, 8)
+  ] });
+  const prs = C.events.filter(e => e.kind === 'pr');
+  eq(prs.map(e => e.date + ' ' + e.lift).join(' | '), '2026-02-11 squat | 2026-02-11 deadlift | 2026-02-09 bench', 'newest first, squat before deadlift on a day');
+  const b = prs[2];
+  eq(b.reps.map(r => r.n + '@' + r.kg).join(), '1@95,3@87.5,5@82.5', 'the heaviest single that day, the triple and the five');
+  eq(b.detail, 'e1RM 103 kg (+3) · 95 kg × 1 · 87.5 kg × 3 · 82.5 kg × 5');
+  eq(new Set(prs.map(e => e.date + e.lift)).size, prs.length, 'never two events for one lift on one day');
+});
+test('meets: competed ones only (a plan never), placing from OpenPowerlifting, the first meet on its own row', () => {
+  const M = [
+    { id: 'm1', athleteId: 'cv-a', name: 'Novice Open', date: '2024-06-11', federation: 'USAPL', weightClass: '93kg', bodyweight: 88.6, squat: 140, bench: 87.5, deadlift: 167.5,
+      notes: '4th place · Raw · Open · DOTS 268.3. Squat 130, 135, 140 · Bench 82.5, 87.5, x90 · Deadlift 155, 167.5, x175 kg. From OpenPowerlifting' },
+    { id: 'm2', athleteId: 'cv-a', name: 'Fall Classic', date: '2024-11-26', federation: 'USAPL', weightClass: '93 kg', squat: 150, bench: null, deadlift: 182.5, notes: 'Bombed bench.' },
+    { id: 'p1', athleteId: 'cv-a', name: 'Nationals', date: '2026-12-19', status: 'planned', weightClass: '83 kg', squat: null, bench: null, deadlift: null },
+    { id: 'p2', athleteId: 'cv-a', name: 'Old plan', date: '2026-11-30', weightClass: '83', squat: null, bench: null, deadlift: null },
+    { id: 'p3', athleteId: 'cv-a', name: 'Stale plan', date: '2026-03-01', status: 'planned', squat: 150, bench: 100, deadlift: 200 },
+    { id: 'o1', athleteId: 'someone-else', name: 'Not theirs', date: '2025-01-01', squat: 300, bench: 200, deadlift: 350 },
+    { id: 'm3', athleteId: 'cv-a', name: 'Summer Open', date: '2025-07-29', federation: 'USAPL', weightClass: '83', squat: 162.5, bench: 102.5, deadlift: 197.5, notes: '1st place, 9 for 9' }
+  ];
+  const C = CVK({ meets: M });
+  const ms = C.events.filter(e => e.kind === 'meet');
+  eq(ms.map(e => e.title).join(' | '), 'Summer Open | Fall Classic | Novice Open');
+  eq(C.hero.meets, 3); eq(C.hero.bestMeetTotal, 462.5); eq(C.hero.bestMeet.name, 'Summer Open'); eq(C.hero.firstDate, '2024-06-11');
+  const first = ms[2];
+  eq(first.first, true); eq(first.detail, 'First meet · 4th place · 93 kg · USAPL'); eq(first.value, 395); eq(first.dots, 268.3); eq(first.source, 'opl');
+  eq(C.events.filter(e => e.kind === 'milestone').length, 0, 'the first meet is one row, never a second');
+  eq(ms[1].value, null); eq(ms[1].detail, '93 kg · USAPL · No total'); eq(ms[1].lifts.bench, null); eq(ms[1].lifts.squat, 150);
+  eq(ms[0].place, '1st place'); eq(ms[0].totalPr, true); eq(ms[0].prLifts.join(), 'squat,bench,deadlift');
+  eq(ms[1].prLifts.join(), 'squat,deadlift', 'heavier singles than the meet before'); eq(first.prLifts.length, 0);
+  eq(Career.placeOf({ place: 2 }), '2nd place'); eq(Career.placeOf({ notes: 'Guest lifter · Raw' }), 'Guest lifter'); eq(Career.placeOf({ notes: 'went 8/9' }), null);
+  eq(Career.careerLine(C), '3 meets · since 2024');
+});
+test('weight-class moves between meets, up or down', () => {
+  const at = (id, date, cls) => ({ id, athleteId: 'cv-a', name: id, date, weightClass: cls, squat: 100, bench: 60, deadlift: 120 });
+  const C = CVK({ meets: [at('A', '2023-03-01', '93'), at('B', '2023-09-01', '93kg'), at('C', '2024-03-01', '-83 kg'), at('D', '2024-09-01', ''),
+    at('E', '2025-03-01', '83'), at('F', '2025-09-01', '120+'), at('G', '2026-01-10', '120'), at('H', '2026-03-10', 'SHW')] });
+  const cl = C.events.filter(e => e.kind === 'class');
+  eq(cl.map(e => e.title).join(' | '), 'Now in SHW | Down to 120 kg | Up to 120+ kg | Down to 83 kg');
+  eq(cl[3].detail, 'From 93 kg · C'); eq(cl[3].direction, 'down'); eq(cl[3].date, '2024-03-01'); eq(cl[0].direction, null);
+  const iMeet = C.events.findIndex(e => e.kind === 'meet' && e.title === 'C'), iCls = C.events.indexOf(cl[3]);
+  assert(iMeet >= 0 && iMeet < iCls, 'the meet, then the class it moved to');
+  eq(Career.classOf('120+ kg').text, '120+ kg'); eq(Career.classOf('74,5').text, '74.5 kg'); eq(Career.classOf('198 lb').text, '198 lb'); eq(Career.classOf(''), null);
+});
+test('blocks: finished ones, with what the e1RM total did in them', () => {
+  const B = { id: 'b1', athleteId: 'cv-a', name: 'Strength Block', startedOn: '2026-03-16', endedOn: '2026-04-06', stats: { sets: 60, done: 57, sessions: 9 } };
+  const C = CVK({
+    workoutLogs: [CVL('x1', '2026-03-02', 'squat', 140, 5, 8), CVL('x2', '2026-03-04', 'bench', 90, 5, 8), CVL('x3', '2026-03-06', 'deadlift', 180, 5, 8),
+      CVL('y1', '2026-03-16', 'squat', 145, 5, 8), CVL('y2', '2026-03-18', 'bench', 92.5, 5, 8), CVL('y3', '2026-03-20', 'deadlift', 185, 5, 8), CVL('y4', '2026-04-06', 'squat', 150, 5, 8)],
+    programBlocks: [B, Object.assign({}, B),
+      { id: 'b2', athleteId: 'cv-a', name: 'Never lifted', startedOn: '2026-05-01', endedOn: '2026-05-20', stats: { sets: 40, done: 0, sessions: 0 } },
+      { id: 'b3', athleteId: 'cv-a', name: 'Not over', startedOn: '2026-10-20', endedOn: '2026-11-02' },
+      { id: 'b4', athleteId: 'cv-a', name: '', startedOn: null, endedOn: '2026-02-01' },
+      { id: 'b5', athleteId: 'other', name: 'Theirs', startedOn: '2026-03-16', endedOn: '2026-04-06' }]
+  });
+  const bl = C.events.filter(e => e.kind === 'block');
+  eq(bl.map(e => e.title).join(' | '), 'Strength Block | Block', 'once each; never one not lifted, not over or not theirs');
+  const b = bl[0];
+  eq(b.date, '2026-04-06'); eq(b.weeks, 3); eq(b.sessions, 9); eq(b.detail, 'e1RM total over 3 weeks · 9 sessions');
+  close(b.changeKg.squat, 150 / 0.8002 - 140 / 0.8002, 0.05); eq(b.value, 22); eq(b.valueText, '+22');
+  eq(bl[1].detail, '1 week'); eq(bl[1].value, null);
+  eq(C.hero.firstDate, '2026-02-01', 'a block can start a career');
+});
+test('milestones: the first session, the 50th and 100th, the e1RM total past each 50 kg', () => {
+  const logs = [];
+  for (let i = 0; i < 100; i++) {
+    const d = _isoAddDays('2024-01-01', i * 2);
+    logs.push(CVL('m' + i + 's', d, 'squat', 100 + i, 5, 8), CVL('m' + i + 'b', d, 'bench', 70 + i * 0.5, 5, 8), CVL('m' + i + 'd', d, 'deadlift', 120 + i, 5, 8));
+  }
+  const C = CVK({ workoutLogs: logs });
+  const ms = C.events.filter(e => e.kind === 'milestone');
+  const first = ms.find(e => e.type === 'first-session');
+  eq(first.date, '2024-01-01'); eq(first.detail, 'Deadlift 120 kg × 5', 'the day\'s top set');
+  eq(ms.filter(e => e.type === 'sessions').map(e => e.title + ' ' + e.date).join(' | '), '100th session 2024-07-17 | 50th session 2024-04-08');
+  eq(ms.find(e => e.n === 50).detail, '3 months after the first');
+  eq(ms.filter(e => e.type === 'total').map(e => e.step).join(), '650,600,550,500,450,400', 'from the first total (362 kg) on, each step once');
+  eq(ms.find(e => e.step === 400).date, '2024-01-27'); eq(ms.find(e => e.step === 400).title, 'Total past 400 kg');
+  const L = careerEvents('cv-a', { workoutLogs: logs }, { today: CVT, unit: 'lbs' }).events.filter(e => e.type === 'total');
+  eq(L.map(e => e.step).join(), '1400,1300,1200,1100,1000,900,800', 'in pounds, every 100 lb'); eq(L[0].title, 'Total past 1,400 lbs');
+  // Two steps in one day: one milestone, at the higher step.
+  const J = CVK({ workoutLogs: [CVL('j1', '2025-01-06', 'squat', 100, 5, 8), CVL('j2', '2025-01-06', 'bench', 70, 5, 8), CVL('j3', '2025-01-06', 'deadlift', 120, 5, 8), CVL('j4', '2025-01-08', 'squat', 180, 5, 8)] });
+  eq(J.events.filter(e => e.type === 'total').map(e => e.title).join(), 'Total past 450 kg');
+  eq(J.events.find(e => e.type === 'total').detail, 'Squat PR · e1RM total 462 kg', 'what took it there');
+  eq(ms.find(e => e.step === 400).detail, 'Squat, bench and deadlift PRs · e1RM total 403 kg');
+});
+test('newest first; years newest first; one day in a fixed order', () => {
+  const C = CVK({
+    workoutLogs: [CVL('d1', '2025-05-01', 'squat', 100, 5, 8), CVL('d2', '2025-05-01', 'bench', 70, 5, 8), CVL('d3', '2025-05-01', 'deadlift', 120, 5, 8),
+      CVL('d4', '2026-04-20', 'squat', 150, 5, 8)],
+    meets: [{ id: 'q1', athleteId: 'cv-a', name: 'Open', date: '2025-09-01', weightClass: '93', squat: 120, bench: 80, deadlift: 150 },
+      { id: 'q2', athleteId: 'cv-a', name: 'Classic', date: '2026-04-20', weightClass: '83', squat: 130, bench: 85, deadlift: 160 }],
+    programBlocks: [{ id: 'k1', athleteId: 'cv-a', name: 'Peak', startedOn: '2026-03-30', endedOn: '2026-04-20', stats: { sets: 30, done: 30, sessions: 7 } }]
+  });
+  eq(C.years.map(y => y.year).join(), '2026,2025');
+  eq(C.years[0].events.map(e => e.kind).join(), 'meet,class,milestone,block,pr', 'meet, class, milestone, block, PR');
+  const ds = C.events.map(e => e.date);
+  assert(ds.every((d, i) => !i || ds[i - 1] >= d), 'never older above newer');
+  eq(C.years[0].counts.meet, 1); eq(C.years[0].counts.pr, 1); eq(C.years[1].counts.milestone, 1);
+});
+test('no duplicates: the same set twice, the same meet twice', () => {
+  const s = CVL('s1', '2026-01-05', 'squat', 100, 5, 8), t = CVL('s2', '2026-01-08', 'squat', 105, 5, 8);
+  const meet = { id: 'n1', athleteId: 'cv-a', name: 'Winter Open', date: '2026-02-01', squat: 110, bench: 70, deadlift: 140 };
+  const C = CVK({ workoutLogs: [s, Object.assign({}, s, { id: 's1b' }), t, Object.assign({}, t, { id: 's2b' })],
+    meets: [meet, Object.assign({}, meet, { id: 'n2', name: ' winter open ', bench: null })] });
+  eq(C.events.filter(e => e.kind === 'pr').length, 1); eq(C.events.filter(e => e.kind === 'meet').length, 1);
+  eq(C.events.find(e => e.kind === 'meet').value, 320, 'the fuller of the two'); eq(C.hero.sessions, 2);
+  eq(new Set(C.events.map(e => e.key)).size, C.events.length, 'every key once');
+});
+test('a year\'s records: PRs per lift, the best e1RM and the gain on the year before', () => {
+  const C = CVK({ workoutLogs: [CVL('r1', '2025-11-03', 'squat', 100, 5, 8), CVL('r2', '2026-01-05', 'squat', 102.5, 5, 8), CVL('r3', '2026-02-02', 'squat', 107.5, 5, 8),
+    CVL('r4', '2025-11-05', 'bench', 70, 5, 8), CVL('r5', '2026-03-04', 'bench', 72.5, 3, 8)] });
+  const y = C.years.find(x => x.year === 2026);
+  const R = Career.yearRecords(y);
+  eq(R.map(r => r.lift + ' ' + r.count).join(), 'squat 2', 'the bench triple is the first triple: the bar, not a PR');
+  eq(R[0].best, 134); eq(R[0].gain, '+9'); eq(R[0].latest, '2026-02-02');
+});
+test('pure and deterministic: the store is untouched, any order gives the same career', () => {
+  const st = { workoutLogs: [CVL('p1', '2026-01-05', 'squat', 100, 5, 8), CVL('p2', '2026-01-09', 'squat', 105, 5, 8), CVL('p3', '2026-01-09', 'bench', 70, 5, 8)],
+    meets: [{ id: 'z1', athleteId: 'cv-a', name: 'Open', date: '2026-02-01', weightClass: '83', squat: 120, bench: 80, deadlift: 150 }],
+    programBlocks: [{ id: 'z2', athleteId: 'cv-a', name: 'Block', startedOn: '2026-01-05', endedOn: '2026-01-09' }] };
+  const before = JSON.stringify(st);
+  const A = CVK(st);
+  eq(JSON.stringify(st), before, 'nothing written');
+  const rev = { workoutLogs: st.workoutLogs.slice().reverse(), meets: st.meets.slice(), programBlocks: st.programBlocks.slice() };
+  eq(JSON.stringify(CVK(rev)), JSON.stringify(A), 'the same answer from any order');
+  eq(JSON.stringify(CVK(st)), JSON.stringify(A), 'and every time');
+});
+test('in pounds: weights converted, estimates round, lifted weights stay exact, classes as written', () => {
+  const C = careerEvents('cv-a', { workoutLogs: [CVL('u1', '2026-01-05', 'squat', 100, 5, 8), CVL('u2', '2026-01-08', 'squat', 102.5, 5, 8)],
+    meets: [{ id: 'u3', athleteId: 'cv-a', name: 'Open', date: '2026-02-01', weightClass: '83 kg', squat: 120, bench: 80, deadlift: 152.5 }] }, { today: CVT, unit: 'lbs' });
+  const pr = C.events.find(e => e.kind === 'pr'), m = C.events.find(e => e.kind === 'meet');
+  eq(pr.unit, 'lbs'); eq(pr.value, 282); eq(pr.reps[0].value, 226); eq(pr.detail, 'e1RM 282 lbs (+7) · 226 lbs × 5');
+  eq(m.value, 777.1); eq(m.lifts.deadlift, 336.2); eq(m.weightClass, '83 kg'); eq(C.hero.bestMeetTotal, 777.1); eq(C.hero.unit, 'lbs');
+});
+test('the demos: a career worth showing (athlete.html?demo=1 and Arjun on coach.html?demo=1)', () => {
+  const D = _buildDemoData();
+  const A = careerEvents(D.user.id, D.store, { unit: 'kg' });
+  assert(A.hero.meets >= 5, 'five meets, got ' + A.hero.meets);
+  assert(A.years.length >= 3, 'three years or more');
+  assert(A.events.some(e => e.kind === 'class'), 'a class move');
+  assert(A.events.filter(e => e.kind === 'block').length >= 5, 'past blocks');
+  eq(A.events.filter(e => e.type === 'sessions').map(e => e.n).join(), '250,100,50');
+  assert(A.events.filter(e => e.type === 'total').length >= 3, 'the total past three steps');
+  eq(A.events.filter(e => e.kind === 'meet' && e.first).length, 1);
+  eq(A.hero.bestMeetTotal, 515, 'Spring Classic stays the best meet');
+  const CD = _buildCoachDemoData();
+  const R = careerEvents('demo-a1', CD.store, { unit: 'kg' });
+  assert(R.hero.meets >= 3, 'Arjun lifted three meets');
+  assert(R.events.some(e => e.kind === 'class' && e.direction === 'down'), 'Arjun cut to 74');
+  assert(R.events.filter(e => e.kind === 'block').length >= 5, 'Arjun\'s blocks');
+  assert(R.hero.years >= 2, 'two years and more');
+  eq(R.hero.bestMeetTotal, 572.5, 'the Spring Classic is his best');
+  eq(careerEvents('demo-a1', CD.store, { unit: 'kg' }).events.filter(e => e.kind === 'meet' && /Fall Nationals/.test(e.title)).length, 0, 'the planned meet is not a result');
 });
 
 function render() {

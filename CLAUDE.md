@@ -136,7 +136,7 @@ The full list, with context, is in the vault (`Code/Gotchas.md`, `History/`). Th
 - Coach branding paints `--fire` under `html body.powa-app.is-branded` (to out-rank the dark theme); the gradient's second stop is `brandTint` in JS, not `color-mix`.
 - Demos: `athlete.html?demo=1` (coached lifter), `&solo=1` (training alone), `&brand=1` (coach branding), `coach.html?demo=1` (full roster; Arjun `demo-a1` carries the showcase block, a past block and meets), `coach.html?demo=1&fresh=1` (a brand-new coach). Never let a first-run screen be an empty black page.
 - The app's generic `input[type=…]` and `body.site a` rules out-rank single-class rules: the onboarding pins its own field and link styles under `.ob-sheet` (native-onboard.css end), and the light theme has its own darker text shades for lift, RPE, PR and alert colours (styles.css "Light theme legibility").
-- Where features live (each one's files and entry points, newest last: Train v9, the grid, the desk, Wrapped, voice notes, Apple Health, Apple/Google sign-in, Program from a photo, Clients, the intake, branded onboarding): vault `Code/Feature map.md`. Read it before touching a feature.
+- Where features live (each one's files and entry points, newest last: Train v9, the grid, the desk, Wrapped, voice notes, Apple Health, Apple/Google sign-in, Program from a photo, Clients, the intake, branded onboarding, Ask AI about the roster, the week's note, attempt odds, Block DNA, Career): vault `Code/Feature map.md`. Read it before touching a feature.
 
 ## Testing
 

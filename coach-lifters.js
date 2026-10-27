@@ -36,7 +36,8 @@
     heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
     open: '<path d="M7 17 17 7M9 7h8v8"/>',
-    blocks: '<path d="M4 20V10M9 20V4M15 20v-7M20 20V8"/>'
+    blocks: '<path d="M4 20V10M9 20V4M15 20v-7M20 20V8"/>',
+    steps: '<path d="M4 19h4.5v-4.5H13V10h4.5V5.5H20"/>'
   };
   function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC.chev) + '</svg>'; }
   function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -809,11 +810,11 @@
     // Nothing logged at all: one clear card instead of a page of dashes.
     var anyLog = D.total || D.lifts.some(function (L) { return L.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length;
     if (!anyLog) {
-      html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p></div></div>';
+      html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p>' + deskCareerBtn(a, o) + '</div></div>';
       if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
       // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
       if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
-      if (o.phone) html += blkRow + '<button type="button" class="cl-everything' + rz(4) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Profile, check-ins, notes</span>' + ic('chev') + '</button>';
+      if (o.phone) html += linksHtml(a, 'Profile, check-ins, notes', rz(4), blkRow);
       return { html: html, fix: fix, alt: alt };
     }
     // The total: one big box for overall progress.
@@ -832,11 +833,13 @@
       }
       html += '<div class="cl-hero' + rz(2) + '"><div class="cl-hl"><span class="cl-hlab">Total e1RM</span><div class="cl-hnum"><b>' + Math.round(kgShow(T.value)) + '</b><span>' + esc(unit()) + '</span></div>' +
         (dTxt != null ? '<span class="cl-chip ' + (dTxt > 0 ? 'up' : dTxt < 0 ? 'down' : 'flat') + '">' + ic(dTxt >= 0 ? 'trend' : 'down', 2.2) + (dTxt > 0 ? '+' : dTxt < 0 ? '−' : '') + Math.abs(dTxt) + ' ' + esc(unit()) + ' in 4 weeks</span>' : '') +
-        (ctx.length ? '<span class="cl-hctx">' + esc(ctx.join(' · ')) + '</span>' : '') + '</div>' +
+        (ctx.length ? '<span class="cl-hctx">' + esc(ctx.join(' · ')) + '</span>' : '') +
+        // The desk's way into the lifter's Career (career.js), under the total and the last meet. (The phone's is at the foot.)
+        deskCareerBtn(a, o) + '</div>' +
         '<div class="cl-hc">' + viz('line', line, o.phone ? 120 : 148, 'cl-vz-hero') +
         '<div class="cl-hcap"><span>' + esc(dayMonth(T.pts[0].week)) + '</span>' + (line.flag ? '<span class="cl-hmeet">' + ic('flag') + esc(clip(T.meetName, 22)) + ' · ' + esc(dayMonth(T.meetDate)) + '</span>' : '<span>This week</span>') + '</div></div></div>';
     } else {
-      html += '<div class="cl-hero is-empty' + rz(2) + '"><div class="cl-hl"><span class="cl-hlab">Total e1RM</span><div class="cl-hnum"><b>–</b></div><span class="cl-hctx">Shows once squat, bench and deadlift are all logged.</span></div></div>';
+      html += '<div class="cl-hero is-empty' + rz(2) + '"><div class="cl-hl"><span class="cl-hlab">Total e1RM</span><div class="cl-hnum"><b>–</b></div><span class="cl-hctx">Shows once squat, bench and deadlift are all logged.</span>' + deskCareerBtn(a, o) + '</div></div>';
     }
     // The lifts.
     html += '<div class="cl-lifts' + rz(3) + '">' + D.lifts.map(function (L) {
@@ -885,9 +888,28 @@
     if (o.phone && window.WeeklyNote) html += WeeklyNote.lifterEntryHtml(r, { rise: o.rise ? 5 : null });
     // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
     if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
-    if (o.phone) html += blkRow + '<button type="button" class="cl-everything' + rz(6) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Lifts, check-ins, notes, meets</span>' + ic('chev') + '</button>';
+    if (o.phone) html += linksHtml(a, 'Lifts, check-ins, notes, meets', rz(6), blkRow);
     if (o.phone && top) html += '<div class="cl-alt"><button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button></div>';
     return { html: html, fix: fix, alt: alt };
+  }
+
+  // The way into a lifter's Career (career.js): its one line ('4 meets · since 2024'), or null when
+  // there's nothing on record yet (no session, no meet).
+  function careerOf(a) {
+    if (!window.Career || typeof Store === 'undefined') return null;
+    try { var C = Career.careerEvents(a.id, Store.get()); return C.hero.sessions || C.hero.meets ? Career.careerLine(C) : null; } catch (e) { return null; }
+  }
+  // The desk's quiet Career link (in the total's hero, or under "Nothing logged yet"), when there's a career.
+  function deskCareerBtn(a, o) {
+    return !o.phone && careerOf(a) != null ? '<button type="button" class="cl-quiet cl-hcareer" data-career>' + ic('steps') + 'Career</button>' : '';
+  }
+  // The phone's links at the foot of a lifter: Career (when there is one) and Everything, one card.
+  // The foot of a lifter's page on the phone: one card of rows. lead: rows that go first (Blocks).
+  function linksHtml(a, sub, rise, lead) {
+    var line = careerOf(a);
+    return '<div class="cl-links' + rise + '">' + (lead || '') +
+      (line != null ? '<button type="button" class="cl-everything" data-career><span class="cl-ev-t">Career</span><span class="cl-ev-sub">' + esc(line) + '</span>' + ic('chev') + '</button>' : '') +
+      '<button type="button" class="cl-everything" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">' + esc(sub) + '</span>' + ic('chev') + '</button></div>';
   }
 
   /* =====================================================================================
@@ -1115,6 +1137,7 @@
       if ((b = t.closest('[data-prog]'))) { e.preventDefault(); var pp = pageOf(host, b)._r; if (pp && typeof openAthleteProgram === 'function') openAthleteProgram(pp.athlete.id); return; }
       if ((b = t.closest('[data-blocks]'))) { e.preventDefault(); var pk = pageOf(host, b)._r; if (pk && window.BlockDNA) BlockDNA.open(pk.athlete.id, { from: b }); return; }
       if ((b = t.closest('[data-go="all"]'))) { e.preventDefault(); var pa = pageOf(host, b)._r; if (pa) openAll(pa.athlete.id); return; }
+      if ((b = t.closest('[data-career]'))) { e.preventDefault(); var pc = pageOf(host, b)._r; if (pc && window.Career) Career.openForCoach(pc.athlete.id, pc.athlete); return; }
       if ((b = t.closest('[data-card]'))) { e.preventDefault(); if (typeof dkOpenCard === 'function') dkOpenCard(b.dataset.card); return; }
       if ((b = t.closest('[data-view-off]'))) { e.preventDefault(); if (typeof deskGo === 'function') deskGo('roster', { view: null }); return; }
       if ((b = t.closest('[data-cal]'))) { e.preventDefault(); if (typeof dkSetRMode === 'function') dkSetRMode('calendar'); return; }
