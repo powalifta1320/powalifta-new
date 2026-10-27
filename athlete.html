@@ -4937,10 +4937,15 @@ function openMeetMode() {
     wrap.appendChild(el('div', { class: 'mmm-bar', role: 'timer', 'aria-label': 'Time to hand in the next attempt' }, fill));
     const best = Math.max(bestE1RM(user.id, L), ...(Store.get().meets || []).filter(m => m.athleteId === user.id && !isPlannedMeet(m)).map(m => Number(m[L]) || 0));
     const slabs = el('div', { class: 'mmm-slabs' });
+    // MEET DAY hook (meetday.js attemptOdds): each choice's chance of going, on the max the coach's
+    // planner uses (this block's top sets). No max yet: no odds, never a guess.
+    const oddsKg = window.MeetDay && MeetDay.oddsMax ? MeetDay.oddsMax(user.id, L) : 0;
     meetAttemptOptions({ kg: A.kg, result: A.result, plannedNext: st.lifts[L].plan[i + 1], best, unit }).forEach(o => {
       const s = el('button', { type: 'button', class: 'mmm-slab is-' + o.key });
       s.appendChild(el('span', { class: 'mmm-key' }, o.key));
       s.appendChild(el('b', { class: 'mmm-kg' }, String(kgToDisplay(o.kg))));
+      const od = oddsKg > 0 && typeof window.attemptOdds === 'function' ? window.attemptOdds(o.kg, oddsKg) : null;
+      if (od) s.appendChild(el('span', { class: 'mmm-odds' + (od.word === 'Reach' ? ' is-reach' : '') }, el('b', {}, od.word), ' ' + od.pct + '%'));
       s.appendChild(el('span', { class: 'mmm-why' }, o.prBy ? 'A PR by ' + formatWeight(o.prBy) : o.why));
       s.addEventListener('click', () => {
         const N = st.lifts[L].attempts[i + 1];

@@ -794,7 +794,7 @@ window.POWA_SUPPORT_KB = [
    "save to my meets",
    "start meet mode"
   ],
-  "a": "Open Progress → Overview, tap Meet day under Tools, then tap \"Start meet mode\" (it works any day, so you can run a mock meet too). Before each opener, open \"Warm-up caller\" and tap − as each attempt before yours goes, and it shows which warm-up to take now. Go through squat, bench and deadlift one attempt at a time: tap \"Good lift\" or \"No lift\" (or each judge's light), and after your first and second attempts a one-minute bar lets you pick Safe, Plan or Send to hand in the next one. After the last deadlift tap \"See the total\", then \"Save to my meets\", \"Make it a card\" or \"Start over\"."
+  "a": "Open Progress → Overview, tap Meet day under Tools, then tap \"Start meet mode\" (it works any day, so you can run a mock meet too). Before each opener, open \"Warm-up caller\" and tap − as each attempt before yours goes, and it shows which warm-up to take now. Go through squat, bench and deadlift one attempt at a time: tap \"Good lift\" or \"No lift\" (or each judge's light), and after your first and second attempts a one-minute bar lets you pick Safe, Plan or Send to hand in the next one, each with its odds of going (from this block's top sets). After the last deadlift tap \"See the total\", then \"Save to my meets\", \"Make it a card\" or \"Start over\"."
  },
  {
   "id": "openpowerlifting-import",
@@ -1334,8 +1334,24 @@ window.POWA_SUPPORT_KB = [
    "plan a meet",
    "meets"
   ],
-  "a": "Open Meets on the laptop desk and choose Plan attempts next to the meet, or Plan attempts on the lifter's next meet (their page on the laptop, their card on the phone) (or Plan a lifter's meet to start one). Each lifter at that meet is listed on the left. For each lift you get an opener, second and third from their max right now (their best estimated max from the last six weeks, with their best recent single shown beside it), as Conservative, Standard or Aggressive. If an opener comes out past 95% of their heavy sets this month it is held down to about 91%. Change any number with − and + or by typing it. The Safe, Plan and Send chips under the second and third are the same choices meet mode gives on the day. Underneath you see the total of the thirds, the opening total, the score the meet's federation uses (IPF GL or DOTS, always named) and their class. Save plan. The lifter then sees your numbers in their meet-day sheet and meet mode instead of their own.",
+  "a": "Open Meets on the laptop desk and choose Plan attempts next to the meet, or Plan attempts on the lifter's next meet (their page on the laptop, their card on the phone) (or Plan a lifter's meet to start one). Each lifter at that meet is listed on the left. At the top, Safe, Balanced and Bold are three plans from their max right now (their best estimated max from this block's top sets, the last six weeks, with their best recent single shown beside it): openers about 90, 91 or 92% of it, seconds 95, 96 or 97.5%, thirds 98, 100 or 102.5%, on 2.5 kg. Each shows its total and the odds of its thirds; pick one and it fills every attempt. If an opener comes out past 95% of their heavy sets this month it is held down. Change any number with − and + or by typing it: each attempt shows its odds (Very likely, Likely, Even or Reach, with the chance), and they update as you type. Underneath you see the total of the thirds, the opening total, the score the meet's federation uses (IPF GL or DOTS, always named) and their class. Save plan. The lifter then sees your numbers in their meet-day sheet and meet mode instead of their own.",
   "app": "Plan attempts is on the laptop desk (Meets) at powalifta.com. Your lifters see the plan in the iPhone app: Meet day and meet mode use your numbers."
+ },
+ {
+  "id": "attempt-odds",
+  "q": "What do the odds next to an attempt mean?",
+  "t": [
+   "attempt odds",
+   "odds",
+   "chance of making",
+   "how likely",
+   "very likely",
+   "reach",
+   "safe balanced bold",
+   "balanced plan",
+   "bold plan"
+  ],
+  "a": "They are the chance of making a single at that weight, from the lifter's max right now: their best estimated max from this block's top sets. They read the way RPE reads a single: at the max it is a coin flip, about 96% of it (a single at RPE 9) about 85%, about 92% (RPE 8) about 95%, and past the max they fall fast (102% is about 30%, 105% about 10%). The words: Very likely (90% and up), Likely (70% and up), Even (40% and up) and Reach (under 40%, shown in amber). They never say 100% or 0%, and with no recent top sets there are no odds rather than a guess. In the attempt planner, Safe, Balanced and Bold each show their total and the odds of their thirds. On meet day the board's declaration and meet mode's Safe, Plan and Send show them too. They are an estimate from training, not a promise."
  },
  {
   "id": "coach-meet-day-board",
@@ -1353,7 +1369,7 @@ window.POWA_SUPPORT_KB = [
    "offline at the meet",
    "warm-up times"
   ],
-  "a": "On the day, open Meets and choose Start meet day for the meet (or Open the board). The board lists your lifters by flight in lifting order: squat, then bench, then deadlift; flight by flight; in each round the lightest bar goes first and the lower lot number breaks a tie. Each cell is an attempt: dim when planned, ink once declared, marked when the declared weight changed, green for a good lift and outlined red for a no lift. The panel on the right shows who is on the platform (with the plates per side) with Good lift and No lift, the next declaration with Safe / Plan / Send and the red Declare button, who is up next and how many attempts out they are, and each lifter's warm-ups with the clock time to take them, counted from the flight's start time. Keys: G good lift, N no lift, + and − change the weight by 2.5, Enter declares, P prints attempt cards. Lifters holds flights, lot numbers, the weigh-in against the class and rack heights. If the venue wifi drops, keep marking: everything is kept on the laptop and goes up when you're back online, cell by cell, and no call is lost (a good lift or a no lift always beats a weight change made elsewhere). On the Lifters tab, set how many lifters are in each flight at the venue (all teams), the seconds an attempt and the break between lifts, or add a lifter from another team with their openers: attempts out and every warm-up time count them. You can start the meet day with the wifi off too; it goes up when you're back online. If two laptops call the same attempt differently, the one that loses says so. Finish meet writes each lifter's result into their meets; their best total and DOTS count it only then. Lifters from other teams are never saved.",
+  "a": "On the day, open Meets and choose Start meet day for the meet (or Open the board). The board lists your lifters by flight in lifting order: squat, then bench, then deadlift; flight by flight; in each round the lightest bar goes first and the lower lot number breaks a tie. Each cell is an attempt: dim when planned, ink once declared, marked when the declared weight changed, green for a good lift and outlined red for a no lift. The panel on the right shows who is on the platform (with the plates per side) with Good lift and No lift, the next declaration with its odds, Safe / Plan / Send each with theirs, and the red Declare button, who is up next and how many attempts out they are, and each lifter's warm-ups with the clock time to take them, counted from the flight's start time. Keys: G good lift, N no lift, + and − change the weight by 2.5, Enter declares, P prints attempt cards. Lifters holds flights, lot numbers, the weigh-in against the class and rack heights. If the venue wifi drops, keep marking: everything is kept on the laptop and goes up when you're back online, cell by cell, and no call is lost (a good lift or a no lift always beats a weight change made elsewhere). On the Lifters tab, set how many lifters are in each flight at the venue (all teams), the seconds an attempt and the break between lifts, or add a lifter from another team with their openers: attempts out and every warm-up time count them. You can start the meet day with the wifi off too; it goes up when you're back online. If two laptops call the same attempt differently, the one that loses says so. Finish meet writes each lifter's result into their meets; their best total and DOTS count it only then. Lifters from other teams are never saved.",
   "app": "The meet-day board is on the laptop desk at powalifta.com. In the iPhone app your lifters see \"Your next attempt\" with how many attempts out they are in meet mode."
  },
  {
