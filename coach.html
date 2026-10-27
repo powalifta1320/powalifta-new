@@ -4655,9 +4655,14 @@ function renderRosterAnalytics() {
   const lb = buildRosterLeaderboard(roster);
   if (lb) area.appendChild(lb);
 
-  const cmp = buildAthleteCompare(roster);
-  if (cmp) area.appendChild(cmp);
+  // The head to head stays on the laptop; on the phone it read as a table (owner, 27 Oct), so the
+  // phone keeps one ranked list.
+  if (_progressWide()) {
+    const cmp = buildAthleteCompare(roster);
+    if (cmp) area.appendChild(cmp);
+  }
 }
+function _progressWide() { return document.documentElement.classList.contains('desk'); }
 
 // Open one athlete's progress from any roster-level row.
 function _drillAthlete(id) {
@@ -4687,10 +4692,19 @@ function buildRosterLeaderboard(roster) {
   const u = unitLabel();
   const wrap = el('div', {});
   wrap.appendChild(uiLabel('Pound for pound'));
-  wrap.appendChild(uiList(ranked.map((r, i) => uiRow({
+  // The phone: one ranked list, a row a lifter (face, name, one number). The laptop adds the rank and
+  // the total at their bodyweight.
+  const wide = _progressWide();
+  wrap.appendChild(uiList(ranked.map((r, i) => uiRow(wide ? {
     lead: el('span', { class: 'p4p-rank' }, String(i + 1)),
     title: r.a.name,
     sub: Math.round(kgToDisplay(r.total)) + ' ' + u + ' at ' + Math.round(kgToDisplay(r.bw)) + ' ' + u + ' bodyweight',
+    endHtml: '<b>' + r.ratio.toFixed(2) + '</b>× BW',
+    chevron: true,
+    onClick: () => _drillAthlete(r.a.id)
+  } : {
+    av: r.a.name, avUrl: r.a.avatarUrl || null,
+    title: r.a.name,
     endHtml: '<b>' + r.ratio.toFixed(2) + '</b>× BW',
     chevron: true,
     onClick: () => _drillAthlete(r.a.id)

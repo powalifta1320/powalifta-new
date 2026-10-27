@@ -1770,7 +1770,7 @@ html.desk body.powa-app section[data-pane="club"] .club-crest { border-radius: v
 html.desk body.powa-app section[data-pane="club"] :is(.club-desc, .cp-cap, .cp-ex-name) { font-size: var(--fs-3); }
 html.desk body.powa-app section[data-pane="club"] :is(.cs-av, .cp-role, .cp-pr, .cp-rpe) { font-size: var(--fs-1); }
 html.desk body.powa-app section[data-pane="club"] .cp-card.is-pr { box-shadow: none !important; }
-html.desk body.powa-app section[data-pane="club"] :is(.cp-pr, .cp-rpe, .cp-role, .react-chip, .react-add, .btn, .club-invite-icon, .cp-more) { border-radius: var(--r-1) !important; }
+html.desk body.powa-app section[data-pane="club"] :is(.cp-pr, .cp-rpe, .cp-role, .react-chip, .react-add, .club-invite-icon, .cp-more) { border-radius: var(--r-1) !important; }
 html.desk body.powa-app section[data-pane="club"] :is(.react-chip, .react-add) { height: 28px; min-height: 28px; box-shadow: none; }
 html.desk body.powa-app section[data-pane="club"] .react-add { background: var(--dk-fill); }
 html.desk body.powa-app section[data-pane="club"] .rc-e { font-size: var(--fs-3); }
@@ -2221,3 +2221,9 @@ html.desk :is(button.dk-qrow, .dk-msg-row, .dk-mtc-row, .dk-bl-row):active { bac
    widen together, so its fields still end on one line. */
 .dk-wk.has-rules .dk-sgc { width: 184px; }
 .dk-sgc.is-rule small { color: var(--text-2); }
+
+/* ---------- buttons are pills on the laptop too (owner, 27 Oct): the same three kinds as the app ----------
+   Every button that says what it does (primary, secondary, quiet) is a pill, so the desk and the iPhone
+   read as one product. Controls keep the desk's 6 px: fields, tabs, segments, grid cells, menu and rail
+   items, the builder's chips and week cells. */
+html.desk body.powa-app :is(.dk-btn, .cl-btn, .cl-sbtn, .md-btn, .btn, .cl-quiet, .dk-pn-act) { border-radius: 999px; }
