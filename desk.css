@@ -2190,7 +2190,9 @@ html.desk .dash-main > [data-pane]:not(.hidden) { animation: dkPaneIn 140ms ease
 /* Loading: before the roster arrives the desk shows its own shape (the rail, Today's title, a card, four
    tiles) in quiet fills that breathe, instead of a black page; it goes the moment the rail is built. */
 .dk-skel { display: none; }
-html.desk body.powa-app:not(:has(#deskRail)) .dk-skel { display: flex; position: fixed; inset: 0; z-index: 2; background: var(--bg); }
+html.desk body.powa-app:not(:has(#deskRail)) .dk-skel { display: flex; position: fixed; inset: 0; z-index: 2; background: var(--bg); animation: dkSkelGone 0s linear 8s forwards; }
+/* A safety net: if the desk never builds (its script blocked or failed), the shape steps aside after 8 s. */
+@keyframes dkSkelGone { to { visibility: hidden; } }
 .dk-skel-rail { flex: none; width: var(--rail-w); box-sizing: border-box; background: var(--dk-rail); border-right: 1px solid var(--line); }
 .dk-skel-main { flex: 1 1 auto; min-width: 0; max-width: 1260px; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--page-top) var(--gut); box-sizing: border-box; }
 .dk-skel i { display: block; flex: none; border-radius: var(--r-1); background: var(--dk-fill); animation: dkSkel 1.6s ease-in-out infinite; }
