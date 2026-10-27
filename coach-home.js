@@ -82,9 +82,9 @@
     dkSavePend();
     dkWsApply(aid);
   }
-  // What the coach does about the worst reason, in the coach's words. k: msg | apply | open.
-  function fixFor(r) {
-    var a = r.athlete, aid = a.id, f = first(a.name), reason = r.reasons[0] || {}, t = reason.type, prog = r.status && r.status.program;
+  // What the coach does about a reason (the worst one when none is given), in the coach's words. k: msg | apply | open.
+  function fixFor(r, why) {
+    var a = r.athlete, aid = a.id, f = first(a.name), reason = why || r.reasons[0] || {}, t = reason.type, prog = r.status && r.status.program;
     var open = function () { openLifter(aid); };
     switch (t) {
       case 'overshoot': case 'drift': {
@@ -93,7 +93,10 @@
         return { k: 'open', ic: 'open', label: 'Check next week', run: open };
       }
       case 'pain': return { k: 'msg', ic: 'msg', label: 'Message ' + f, text: 'How is it feeling today? Keep the lift easy and stop if it hurts.' };
-      case 'weight': case 'offpace': return { k: 'open', ic: 'open', label: 'See the cut plan', run: open };
+      case 'weight': case 'offpace':
+        // Weigh-in within two days: talk to them, the plan is too late.
+        if (t === 'weight' && r.meet && r.meet.days <= 2 && r.bw) return { k: 'msg', ic: 'msg', label: 'Message ' + f, text: 'Weigh-in ' + (r.meet.days <= 0 ? 'today' : r.meet.days === 1 ? 'tomorrow' : 'in 2 days') + ': you are ' + num(r.bw.over) + ' ' + unit() + ' over the ' + r.bw.cls + ' class. Check in with me before you weigh in.' };
+        return { k: 'open', ic: 'open', label: 'See the cut plan', run: open };
       case 'note': case 'message': return { k: 'msg', ic: 'msg', label: 'Reply to ' + f, text: '' };
       case 'checkin': case 'readiness': return { k: 'msg', ic: 'msg', label: 'Message ' + f, text: 'How are you feeling today?' };
       case 'quiet': case 'never': case 'missed': return { k: 'msg', ic: 'msg', label: 'Check in with ' + f, text: 'Missed you this week. All good?' };
@@ -329,10 +332,13 @@
 
   /* ---------- the laptop page ---------- */
   function renderDesk(host) {
-    var M = model();
+    var R0 = rows();
     host.classList.add('ch-host');
     host.classList.remove('is-setup');
-    if (!M.rows.length) { host.classList.add('is-setup'); host.innerHTML = ''; var c = document.createElement('div'); c.className = 'dk-setup'; try { c.appendChild(dkFirstRun()); } catch (e) {} host.appendChild(c); return; }
+    if (!R0.rows.length) { host.classList.add('is-setup'); host.innerHTML = ''; host._clToday = false; var c = document.createElement('div'); c.className = 'dk-setup'; try { c.appendChild(dkFirstRun()); } catch (e) {} host.appendChild(c); return; }
+    // Today (coach-lifters.js): Do first, This week, then every other job by kind.
+    if (window.CoachLifters && CoachLifters.renderToday && !/\boldhome=1\b/.test(location.search)) { CoachLifters.renderToday(host, { reuse: true }); return; }
+    var M = model();
     var W = workFor(M), G = groupsHtml(M);
     var today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
     host.innerHTML = '<div class="ch-home">' +
@@ -376,5 +382,5 @@
     return true;
   }
 
-  window.CoachHome = { model: model, renderDesk: renderDesk, renderPhone: renderPhone, refresh: refresh };
+  window.CoachHome = { model: model, renderDesk: renderDesk, renderPhone: renderPhone, refresh: refresh, fixFor: fixFor, message: message, openLifter: openLifter };
 })();

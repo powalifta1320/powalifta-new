@@ -1403,5 +1403,29 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "On the laptop desk open Roster and choose Calendar. Each lifter is a row (the same filters and search as the board), 16 weeks from this week with ‹ › to move four weeks at a time. Each block is a bar with its name and its W-n to the meet it leads to, planned meets are outlined diamonds and done meets filled with the total, and the line is today. Under a row, plain warnings: a block that ends before its meet, a planned meet no block leads to, weeks with nothing written between two blocks. Drag a bar to move the block's start by whole weeks (or select it and use ← →); Undo is in the message that follows. Plan a meet is in the header and on each row: name, date, weigh-in (2-hour or 24-hour and the time), federation, division and weight class. A planned meet is a date, never a result: totals and DOTS don't change.",
   "app": "The season calendar is on the laptop desk at powalifta.com (Roster › Calendar)."
+ },
+ {
+  "id": "coach-today-lifters",
+  "q": "What's on my Today and Lifters screens? How do I know what to do first?",
+  "t": [
+   "today screen",
+   "do first",
+   "what to prioritise",
+   "what should i do first",
+   "this week",
+   "team summary",
+   "lifters screen",
+   "lifters tab",
+   "roster",
+   "who needs me",
+   "check on",
+   "next block due",
+   "meet soon",
+   "on plan",
+   "week ring",
+   "lifter summary"
+  ],
+  "a": "**Today** (on the laptop) is your to-do list for the team, most urgent first.\n\n- **Do first**: the three jobs that can't wait (a meet or weigh-in today, pain before a meet or reported twice this week, a lifter a full point over what you wrote). The first one's button is red: it does the fix, like opening meet day or messaging the lifter.\n- **This week**: four tiles. **Training** (sessions done against planned over the last 7 days, and who's behind), **Effort** (the share of sets at the RPE you wrote, and who went over), **Strength** (how many lifters are stronger than 4 weeks ago, and this week's PRs) and **Meets** (what's coming in the next 8 weeks, and anyone over their class).\n- **Also on your list**: every other job by kind: Answer (messages, notes, form checks), Check (effort, check-ins, quiet lifters), Meet prep and Write (blocks to write). Each has a one-word button that does it.\n\n**Lifters** is everyone, in four groups: Check on, Next block due, Meet soon and On plan. On each row the ring is their sessions in the last 7 days against the plan (the number inside is how many) and **+kg** is their total e1RM against 4 weeks ago. Click a lifter for their whole picture: what needs doing and the fix, their total over 12 weeks with the next meet and where it's heading, each lift with its trend and the set behind it, training, effort against what you wrote, bodyweight against the class, the meet, and their latest words. **Everything** opens the full page.",
+  "app": "Your **Lifters** tab opens with four tiles (training, effort, strength and meets this week), then **Do first** (the jobs that can't wait, each with its button), then everyone in four groups. The ring on each row is their sessions in the last 7 days against the plan; **+kg** is their total e1RM against 4 weeks ago. Tap a lifter for their whole picture: the fix, their total and where it's heading, each lift, training, effort, bodyweight, the meet and their latest words."
  }
 ];

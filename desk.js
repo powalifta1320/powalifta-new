@@ -487,7 +487,7 @@ function dkOnTab(tab) {
 }
 // coach.html calls this when the athlete page opens: the rail keeps the screen it came from.
 function deskOnAthletePage() { if (!isDesk()) return; closeDkMenus(); dkSyncCtx(); dkPaintCard(); dkPaintRail(); }
-function deskBackLabel() { return ({ today: 'Today', roster: 'Roster', meets: 'Meets', teams: 'Teams', messages: 'Messages', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
+function deskBackLabel() { return ({ today: 'Today', roster: 'Lifters', meets: 'Meets', teams: 'Teams', messages: 'Messages', programs: 'Programs', club: 'Club', settings: 'Settings' })[_dk.screen] || 'Roster'; }
 function dkOnResize() {
   var on = isDesk();
   document.documentElement.classList.toggle('desk', on);
@@ -640,7 +640,7 @@ function dkBuildRail() {
 
   var nav = el('nav', { class: 'dk-nav', 'aria-label': 'Work' });
   nav.appendChild(dkRailItem('today', 'Today', DK_IC.today, function () { deskGo('today'); }, { go: true, count: true }));
-  nav.appendChild(dkRailItem('roster', 'Roster', DK_IC.roster, function () { deskGo('roster'); }, { go: true, count: true }));
+  nav.appendChild(dkRailItem('roster', 'Lifters', DK_IC.roster, function () { deskGo('roster'); }, { go: true, count: true }));
   nav.appendChild(dkRailItem('programs', 'Programs', DK_IC.programs, function () { deskGo('programs'); }, { go: true }));
   // Room for Programs' sub-entries (Teams, from the team-programs track): it draws into this slot
   // through window.deskProgramsSubnav(slot) when it lands. Nothing shows until then.
@@ -1500,9 +1500,14 @@ function dkRosterGroups(rows, flat) {
 function deskRenderRoster(area) {
   if (!area) return;
   dkRowsFresh();
-  area.querySelectorAll('.dk-rhead, .dk-rhome, .dk-rbody, .dk-empty, .dk-bulk').forEach(function (n) { n.remove(); });
+  area.querySelectorAll('.dk-rhead, .dk-rhome, .dk-rbody, .dk-empty, .dk-bulk, .cl-desk').forEach(function (n) { n.remove(); });
+  area.classList.remove('cl-on');
   var rows = _dk.rows;
   var mode = dkRMode();
+  // Lifters (coach-lifters.js) draws the roster: the list beside one lifter's page. The Calendar
+  // keeps its own mode; ?oldroster=1 shows the old board and list.
+  if (rows.length && window.CoachLifters && mode !== 'calendar' && !/\boldroster=1\b/.test(location.search)) { CoachLifters.renderDesk(area); dkPaintRail(); dkSyncCtx(); return; }
+  if (window.CoachLifters) CoachLifters.offDesk();
   area.classList.remove('is-list', 'is-sheet', 'is-board', 'is-cal', 'has-bulk');
   if (!rows.length) { area.appendChild(dkRosterEmpty()); dkPaintRail(); dkSyncCtx(true); return; }
   area.classList.add(mode === 'list' ? 'is-list' : 'is-board');

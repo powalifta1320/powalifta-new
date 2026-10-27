@@ -8375,7 +8375,7 @@ window.flagEmoji = flagEmoji;
 const BTAB_SHORT = {
   today: 'Train', program: 'Program', progress: 'Progress', bodyweight: 'Weight',
   coach: 'Coach', library: 'Library', marketplace: 'Market',
-  athletes: 'Roster', templates: 'Templates', messages: 'Messages',
+  athletes: 'Lifters', templates: 'Templates', messages: 'Messages',
   club: 'Club', you: 'You'
 };
 

@@ -170,7 +170,9 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   // MEET DAY hook: the planner, lifting order and offline reconcile (tests.html "meet day (M8)")
   (fs.existsSync(path.join(ROOT, 'meetday.js')) ? fs.readFileSync(path.join(ROOT, 'meetday.js'), 'utf8') : '') + '\n;\n' +
   // SOCIAL SIGN-IN hook: the nonce hash, role routing and identity mapping (tests.html "social sign-in")
-  (fs.existsSync(path.join(ROOT, 'social-auth.js')) ? fs.readFileSync(path.join(ROOT, 'social-auth.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'social-auth.js')) ? fs.readFileSync(path.join(ROOT, 'social-auth.js'), 'utf8') : '') + '\n;\n' +
+  // LIFTERS: the coach's groups, lines, answers and the block picture (tests.html "lifters")
+  (fs.existsSync(path.join(ROOT, 'coach-lifters.js')) ? fs.readFileSync(path.join(ROOT, 'coach-lifters.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 let testSrc = scripts[scripts.length - 1];
