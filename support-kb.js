@@ -335,8 +335,8 @@ window.POWA_SUPPORT_KB = [
    "paste from a spreadsheet",
    "program builder"
   ],
-  "a": "Open Program builder and pick the athlete in the dropdown at the top. Tap Create program (or Paste from a spreadsheet if you already have it in a sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace from a spreadsheet and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap Notify at the top (or ⋯ → Notify) to tell the athlete it is ready.",
-  "app": "Open Roster, tap the athlete and tap Program (once a program exists you can also switch athletes from the avatars above it). Tap Create program (or Paste from a spreadsheet if you already have it in a sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace from a spreadsheet and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap ⋯ → Notify to tell the athlete it is ready."
+  "a": "Open Program builder and pick the athlete in the dropdown at the top. Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace with an imported program and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap Notify at the top (or ⋯ → Notify) to tell the athlete it is ready.",
+  "app": "Open Roster, tap the athlete and tap Program (once a program exists you can also switch athletes from the avatars above it). Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace with an imported program and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap ⋯ → Notify to tell the athlete it is ready."
  },
  {
   "id": "coach-prescriptions",
@@ -1427,5 +1427,24 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "**Today** (on the laptop) is your to-do list for the team, most urgent first.\n\n- **Do first**: the three jobs that can't wait (a meet or weigh-in today, pain before a meet or reported twice this week, a lifter a full point over what you wrote). The first one's button is red: it does the fix, like opening meet day or messaging the lifter.\n- **This week**: four tiles. **Training** (sessions done against planned over the last 7 days, and who's behind), **Effort** (the share of sets at the RPE you wrote, and who went over), **Strength** (how many lifters are stronger than 4 weeks ago, and this week's PRs) and **Meets** (what's coming in the next 8 weeks, and anyone over their class).\n- **Also on your list**: every other job by kind: Answer (messages, notes, form checks), Check (effort, check-ins, quiet lifters), Meet prep and Write (blocks to write). Each has a one-word button that does it.\n\n**Lifters** is everyone, in four groups: Check on, Next block due, Meet soon and On plan. On each row the ring is their sessions in the last 7 days against the plan (the number inside is how many) and **+kg** is their total e1RM against 4 weeks ago. Click a lifter for their whole picture: what needs doing and the fix, their total over 12 weeks with the next meet and where it's heading, each lift with its trend and the set behind it, training, effort against what you wrote, bodyweight against the class, the meet, and their latest words. **Everything** opens the full page.",
   "app": "Your **Lifters** tab opens with four tiles (training, effort, strength and meets this week), then **Do first** (the jobs that can't wait, each with its button), then everyone in four groups. The ring on each row is their sessions in the last 7 days against the plan; **+kg** is their total e1RM against 4 weeks ago. Tap a lifter for their whole picture: the fix, their total and where it's heading, each lift, training, effort, bodyweight, the meet and their latest words."
+ },
+ {
+  "id": "coach-program-photo",
+  "q": "Can I bring in a program from a photo, a screenshot or a PDF?",
+  "t": [
+   "photo",
+   "screenshot",
+   "picture",
+   "pdf",
+   "scan",
+   "import a program",
+   "bring a program in",
+   "upload my program",
+   "my spreadsheet",
+   "camera",
+   "read my program"
+  ],
+  "a": "Yes. Open **Bring a program in** (Programs, a lifter's builder, or Templates) and choose **From a photo or screenshot**: a screenshot of your sheet, a photo of a printout, or a PDF. On a laptop you can also drop the file on it or paste a screenshot with ⌘V.\n\nIt takes about 10 seconds to read. Then **Check the program** shows your photo beside the program as a grid: every cell reads the way the builder does (3x5 @8, 1x3 @8, 3x5 75%, 3x8 2RIR, tempo 3-1-0, paused 2s), so you can change any number. A cell that doesn't read is marked in red and a number the reader wasn't sure of in amber; **n to check** takes you to each one. Nothing is saved until you choose **Use for** a lifter (their trained block is kept as a past block first) or **Save as template**.\n\nThe picture is sent to Google's Gemini model to be read and isn't stored. You can read up to 15 programs a day; pasting the text always works too.",
+  "app": "Yes. Open **Bring a program in** from the Program tab or Templates and choose **From a photo or screenshot**: take a photo of a printout, pick a screenshot, or a PDF from Files. It takes about 10 seconds. **Check the program** shows one week at a time under your photo: every cell reads like the builder (3x5 @8, 3x5 75%, 3x8 2RIR), so you can change any number, and anything that didn't read is marked. Nothing is saved until you tap **Use for** a lifter or **Save as template**. The picture is read by Google's Gemini model and isn't stored."
  }
 ];

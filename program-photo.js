@@ -276,10 +276,12 @@
       }
       if (f.noPreview) { pic.appendChild(el('div', { class: 'pp-file', html: IC_PHOTO + '<span>' + escHtml(f.name || 'Photo') + '</span>' })); return; }
       var img = el('img', { src: f.url, alt: 'Your program, as you sent it' });
-      var zoom = el('button', { class: 'pp-zoom', type: 'button', 'aria-label': 'Zoom the picture', 'aria-pressed': 'false' });
+      var zoom = el('button', { class: 'pp-zoom', type: 'button', 'aria-label': 'Zoom the picture', 'aria-pressed': 'false', title: 'Click to zoom' });
       zoom.appendChild(img);
       zoom.addEventListener('click', function () { var on = pic.classList.toggle('is-zoom'); zoom.setAttribute('aria-pressed', on ? 'true' : 'false'); });
       pic.appendChild(zoom);
+      // The laptop has room under the photo: how a cell reads, so every edit lands the way the builder reads it.
+      if (desk) pic.appendChild(el('p', { class: 'pp-legend', html: '<b>Click the photo to zoom.</b> Cells read like the builder: <code>3x5 @8</code> · <code>1x3 @8, 3x5 75%</code> · <code>4x6 140kg</code> · <code>3x8 2RIR</code> · <code>3x5 @7 tempo 3-1-0</code> · <code>4x3 70% paused 2s</code>. Leave a cell empty when it isn\'t done that week.' }));
       if (!desk) {
         var more = el('button', { class: 'pp-pic-more', type: 'button' }, 'Show the whole photo');
         more.addEventListener('click', function () { var on = pic.classList.toggle('is-open'); more.textContent = on ? 'Show less' : 'Show the whole photo'; });
@@ -329,14 +331,14 @@
       var iss = draftIssues(draft), res = draftToWeeks(draft), st = res.stats;
       var n = iss.bad + iss.unsure;
       sub.innerHTML = '';
-      sub.appendChild(document.createTextNode((opts.sample ? 'Read from the sample · ' : 'Read from your ' + (file && file.kind === 'pdf' ? 'PDF' : 'photo') + ' · ') +
+      sub.classList.add('pp-subrow');
+      sub.appendChild(el('span', {}, (opts.sample ? 'Read from the sample · ' : 'Read from your ' + (file && file.kind === 'pdf' ? 'PDF' : 'photo') + ' · ') +
         st.weeks + (st.weeks === 1 ? ' week · ' : ' weeks · ') + st.days + (st.days === 1 ? ' day · ' : ' days · ') + st.sets + ' sets'));
       if (n) {
         var nx = el('button', { class: 'pp-tocheck', type: 'button' }, n + ' to check');
         nx.addEventListener('click', function () { var it = draftIssues(draft).list[0]; if (it) focusCell(it.d, it.e, it.w); });
-        sub.appendChild(document.createTextNode(' · '));
         sub.appendChild(nx);
-      } else sub.appendChild(el('span', { class: 'pp-allok' }, ' · all read'));
+      } else sub.appendChild(el('span', { class: 'pp-allok' }, 'All read'));
       paintFootNote(iss);
       return res;
     };
