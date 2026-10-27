@@ -295,7 +295,8 @@
     var cur = null;
     try { cur = CoachSettings.get('capacity'); } catch (e) {}
     if (!cur || typeof cur !== 'object' || typeof cur.then === 'function') cur = {};
-    var next = { hours: patch.hours != null ? patch.hours : cur.hours != null ? cur.hours : null, minutes: Object.assign({}, cur.minutes || {}, patch.minutes || {}) };
+    // The settings' shape: { hours, minutes: { program, message, formCheck, checkin, note } }, all five kept.
+    var next = { hours: patch.hours != null ? patch.hours : cur.hours != null ? cur.hours : null, minutes: minutesOf(Object.assign({}, cur.minutes || {}, patch.minutes || {})) };
     try { var r = CoachSettings.set('capacity', next); if (r && typeof r.catch === 'function') r.catch(function () {}); } catch (e) {}
   }
 

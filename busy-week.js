@@ -427,7 +427,7 @@
         var html = '';
         if (!sel.length && !coached) html = '<p class="bwk-empty">Pick the days you can train.</p>';
         else {
-          html = '<div class="bwk-pl">' + (sel.length ? 'The plan' : 'No days this week') + '</div><div class="ui-list bwk-rows">' +
+          html = '<div class="bwk-pl">' + (sel.length ? 'The plan' : 'No days this week') + '</div><div class="ui-list bwk-rows' + (P.later.length ? ' has-later' : '') + '">' +
             P.rows.map(function (r) { return '<div class="bwk-pr"><span class="bwk-pd">' + esc(weekday(r.date)) + '</span><span class="bwk-pt"><b>' + esc(r.title) + '</b>' + (r.detail ? '<small>' + esc(r.detail) + '</small>' : '') + '</span></div>'; }).join('') +
             P.later.map(function (n) { return '<div class="bwk-pr is-later"><span class="bwk-pd">Next week</span><span class="bwk-pt"><b>' + esc(n) + '</b></span></div>'; }).join('') + '</div>' +
             // Why, only where the rows don't already say it (one a day, spread out).
