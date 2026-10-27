@@ -10309,7 +10309,7 @@ html:not([data-theme="light"]) body.powa-app .tx-hero[class*="lift-"] {
 .msg-bubble:active { transform: scale(0.985); }
 .msg-row.has-react { margin-top: 16px; }
 .msg-react {
-  position: absolute; top: -15px; display: inline-flex; align-items: center; gap: 1px; height: 26px; padding: 0 7px;
+  position: absolute; top: -16px; display: inline-flex; align-items: center; gap: 1px; height: 28px; padding: 0 7px;
   border: 0; border-radius: var(--r-chip); background: #26262c; color: var(--text-2); font-size: var(--fs-sm, 14px); line-height: 1;
   box-shadow: 0 0 0 2.5px var(--bg, #050506), 0 6px 12px -6px rgba(0, 0, 0, 0.8); animation: reactPop var(--t-state) var(--ease-out-quint) both;
 }
@@ -10450,6 +10450,10 @@ body.powa-app .club-podium .cpd-av { box-shadow: 0 0 0 3px var(--bg, #050506), 0
 .ui-field.stacked { grid-template-columns: 1fr; gap: 6px; align-items: start; }
 .ui-field.stacked input { text-align: left; }
 .ui-field textarea { resize: none; line-height: 1.45; }
+/* The field fills its row, so the whole row is what a thumb hits. The content box stays 26 px: nothing moves. */
+.ui-field:not(.stacked) { padding-block: 0; }
+.ui-field:not(.stacked) :is(input, select) { min-height: 50px; padding-block: 12px; }
+.ui-field .input-wrap input { min-height: 44px; margin-block: -9px; padding: 9px 44px 9px 0; }   /* clear of the eye button, which now sits inside it */
 .ui-sheet-note { margin: 10px 4px 16px; font-size: var(--fs-meta, 13px); line-height: 1.45; color: var(--text-3); }
 .set-sheet-box { margin-top: 14px; }
 .set-sheet-box:empty { display: none; }
@@ -10601,6 +10605,7 @@ body.powa-app :is(.meet-date, .bw-date-row) > span { text-transform: none; lette
 .pb-day-id { flex: 1; min-width: 0; }
 .pb-day-name { width: 100%; padding: 0; margin: 0; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--text); font: inherit; font-size: var(--fs-title, 20px); font-weight: 750; letter-spacing: -0.02em; min-height: 0; }
 .pb-day-name:focus { outline: none; }
+html:not(.desk) .pb-day-name { padding-block: 9px; margin-block: -9px; }   /* a 44 px tap target laid out as the 26 px line */
 .pb-day-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: var(--fs-meta, 13px); color: var(--text-3); }
 .pb-day-meta .lift-dot { width: 7px; height: 7px; box-shadow: none; }
 .pb-day-meta .lift-dot + .lift-dot { margin-left: -2px; }
@@ -10839,8 +10844,8 @@ html.meet-mode-open, html.meet-mode-open body { overflow: hidden; }
 .imp-skip { margin-top: 10px; font-size: var(--fs-meta, 13px); color: var(--text-3); }
 .imp-skip summary { cursor: pointer; }
 .imp-skip-list { margin-top: 6px; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--fill-1); white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.imp-name-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 10px 14px; border-radius: var(--r-ctl); background: var(--fill-2); font-size: var(--fs-body, 15px); color: var(--text-2); }
-.imp-name-row input { flex: 1; min-width: 0; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--text); font: inherit; font-weight: 600; text-align: right; padding: 0; min-height: 0; }
+.imp-name-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 0 14px; border-radius: var(--r-ctl); background: var(--fill-2); font-size: var(--fs-body, 15px); color: var(--text-2); }
+.imp-name-row input { flex: 1; min-width: 0; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--text); font: inherit; font-weight: 600; text-align: right; padding: 10px 0; min-height: 0; }   /* the row's height, so the whole row is the target */
 .imp-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 
 /* Clubs (2026-10-17): weekly challenge, invite QR + poster, gym TV mode. */

@@ -7,8 +7,8 @@
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
  * don't match, tiny tap targets (app only) and unreadable text (contrast under 2.6:1).
- * Known and fine: the inline name inputs in the program builder and profile (26px tall inside
- * taller rows), the eye button inside a password field, the 32x26 message reaction chip.
+ * The baseline is 0 findings (27 Oct 2026): anything it reports is new. Inline fields fill their
+ * rows (padding, not a taller look), so the tap target is the row; the eye button sits inside its field.
  *
  * Needs playwright-core and a Chromium (not repo dependencies, like check-mobile-overflow):
  *     npm i -g playwright-core && npx playwright install chromium
