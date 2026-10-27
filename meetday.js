@@ -171,6 +171,9 @@ var MeetDay = (function () {
         return isFinite(v) && v >= MIN_BAR && v <= MAX_KG ? rStep(v, 0.5) : null;
       });
     });
+    // Aim for a total: the total the coach aimed the attempts at (kg on 0.5, 20–1500).
+    var tg = Number(p.target);
+    if (p.target != null && p.target !== '' && isFinite(tg) && tg >= TGT_MIN && tg <= TGT_MAX) out.target = rStep(tg, 0.5);
     if (p.note) out.note = String(p.note).replace(/[<>]/g, '').slice(0, 280);
     if (p.at) out.at = String(p.at).slice(0, 30);
     if (p.by) out.by = String(p.by).slice(0, 60);
@@ -291,6 +294,355 @@ var MeetDay = (function () {
     var v = parseFloat(String(text == null ? '' : text).replace(',', '.'));
     if (!isFinite(v)) return null;
     return isLb(unit) ? rStep(v * KG_PER_LB_, STEP) : rStep(v, 0.5);
+  }
+
+  // ------------------------------------------------------------ pure: aim for a total (2026-10-28)
+  // The chance a set of attempts makes a target total. Every attempt goes with its own odds (oddsRaw
+  // against its lift's max, each independent of the others); a lift's result is its heaviest made
+  // attempt, or 0 when all three miss (a bomb-out). Exact: a lift has at most four results (each
+  // attempt, or nothing), so three lifts have at most 64 totals.
+  //   lifts: { squat: [kg, kg, kg], … } (null = not taken) · bases: { squat: kg, … } (oddsBase)
+  //   results (live, meet day): { squat: ['good' | 'no' | null, …] }: made counts, missed is gone.
+  // → P(total ≥ target), 0..1 | null (no target, nothing planned, or an attempt still to come on a
+  //   lift with no max: never a guess)
+  var TGT_MIN = 20, TGT_MAX = 1500;
+  function madeOf(r) { return r === 'good' || r === true ? 1 : r === 'no' || r === false ? 0 : null; }
+  // One lift's results, heaviest first: [{ kg, p }] ending with { kg: 0 } (the bomb-out). null when an
+  // attempt still to come has no max. Equal bars (a repeat after a miss) are one result.
+  function liftOutcomes(att, base, res) {
+    var list = [];
+    for (var i = 0; i < (att || []).length; i++) {
+      var k = num(att[i]);
+      if (!(k > 0)) continue;
+      var made = res ? madeOf(res[i]) : null;
+      var p = made != null ? made : oddsRaw(k, base);
+      if (p == null) return null;
+      list.push({ kg: k, p: p });
+    }
+    list.sort(function (a, b) { return b.kg - a.kg; });
+    var out = [], none = 1;
+    list.forEach(function (a) {
+      var pr = none * a.p, last = out[out.length - 1];   // made, and every heavier one missed
+      if (last && Math.abs(last.kg - a.kg) < 1e-9) last.p += pr; else out.push({ kg: a.kg, p: pr });
+      none *= 1 - a.p;
+    });
+    out.push({ kg: 0, p: none });
+    return out;
+  }
+  // The totals of independent lifts: [{ kg, p }] (every combination, unmerged).
+  function sumDist(dists) {
+    var acc = [{ kg: 0, p: 1 }];
+    dists.forEach(function (d) {
+      var nx = [];
+      acc.forEach(function (a) { d.forEach(function (b) { if (a.p * b.p > 0) nx.push({ kg: a.kg + b.kg, p: a.p * b.p }); }); });
+      acc = nx;
+    });
+    return acc;
+  }
+  function totalChanceLive(lifts, results, bases, target) {
+    var t = num(target);
+    if (!(t > 0) || !lifts) return null;
+    var dists = [];
+    for (var i = 0; i < LIFTS.length; i++) {
+      var l = LIFTS[i], att = lifts[l];
+      if (!Array.isArray(att) || !att.some(function (k) { return num(k) > 0; })) continue;
+      var d = liftOutcomes(att, num(bases && bases[l]), results && results[l]);
+      if (!d) return null;
+      dists.push(d);
+    }
+    if (!dists.length) return null;
+    var p = 0;
+    sumDist(dists).forEach(function (x) { if (x.kg >= t - 1e-9) p += x.p; });
+    return Math.min(1, Math.max(0, p));
+  }
+  function totalChance(lifts, bases, target) { return totalChanceLive(lifts, null, bases, target); }
+
+  // The attempts with the best chance of a target total (the planner's Aim for a total). Openers as
+  // Safe has them (90% of the max, stepped down under 95% of this month's heavy sets: the bouncer's
+  // rule); seconds and thirds on 2.5 kg from 93% to 106% of the max, each at least 2.5 over the one
+  // before. Exact, and under 20 ms for any input (checked against every choice, tests.html):
+  //   · dominated choices go first (pruneDominated): a third too light to ever count, or seconds
+  //     that differ only below what could count;
+  //   · a lift's chance given the others is p3·f(t) + q3·[p2·f(s) + q2·C] (f(x): the chance the
+  //     other lifts make target − x; C: the opener's share), so for every third the best second is a
+  //     running best: the last lift's best second and third take one pass, not every pair;
+  //   · a branch goes when even its best case can't beat the plan in hand (the best case: every other
+  //     lift at the most it could make each total, which no real choice of attempts beats);
+  //   · maxes past any lifter's (over AIM_WORK steps): seconds and thirds on 5 kg, then two lifts at a
+  //     time on 2.5 kg with the third held, until nothing moves;
+  //   · Safe, Balanced and Bold are in the running too, so the aim is never worse than any of them.
+  //   target: kg · e1rmByLift: the max each lift's odds stand on (oddsBase) · opts.refByLift: this
+  //   month's heavy sets (projectedMax refKg). A lift with no max is left out, as in attemptPlans.
+  // → { lifts: { squat: [opener, second, third], … }, p (0..1), total (the thirds) }
+  //   | { outOfReach: true, likely } (under 1% at best; likely: the heaviest total, on 2.5 kg, one of
+  //     Safe, Balanced or Bold makes at least 70% of the time: "Likely" in the odds' words, or null)
+  //   | null (no target, or no max at all)
+  var AIM_LO = 0.93, AIM_HI = 1.06, AIM_FLOOR = 0.01, AIM_LIKELY = 0.7, AIM_WORK = 1500000, EPS = 1e-12;
+  function safeOpener(e1, ref) {
+    var o = Math.max(MIN_BAR, rStep(e1 * PLANS[0].pcts[0]));
+    while (ref > 0 && o / ref > 0.95 && o - STEP >= MIN_BAR) o = rStep(o - STEP);
+    return o;
+  }
+  // One lift's choices: the opener, the loads a second or third may take, and every (second, third)
+  // as four results (third, second, opener, nothing) in flat arrays: kg[4i..4i+3], p[4i..4i+3].
+  function aimLift(l, e1, ref, canned) {
+    var o = safeOpener(e1, ref), seen = {}, vals = [];
+    var add = function (v) { v = rStep(v); if (v >= o + STEP - 1e-9 && v <= MAX_KG + 1e-9 && !seen[v]) { seen[v] = 1; vals.push(v); } };
+    var lo = Math.ceil(e1 * AIM_LO / STEP - 1e-9) * STEP, hi = Math.floor(e1 * AIM_HI / STEP + 1e-9) * STEP;
+    for (var v = lo; v <= hi + 1e-9; v += STEP) add(v);
+    canned.forEach(function (pl) { if (pl.lifts[l]) { add(pl.lifts[l][1].kg); add(pl.lifts[l][2].kg); } });
+    if (vals.length < 2) { add(o + STEP); add(o + 2 * STEP); }   // a tiny max: room to climb
+    return aimFrom(l, e1, o, vals);
+  }
+  function aimFrom(l, e1, o, list) {
+    var vals = list.slice().sort(function (a, b) { return a - b; });
+    var po = oddsRaw(o, e1), p = vals.map(function (x) { return oddsRaw(x, e1); });
+    var n = vals.length * (vals.length - 1) / 2, kg = new Float64Array(n * 4), pr = new Float64Array(n * 4), si = new Int32Array(n), ti = new Int32Array(n), k = 0;
+    for (var i = 0; i < vals.length; i++) for (var j = i + 1; j < vals.length; j++) {
+      var ps = p[i], pt = p[j];
+      kg[4 * k] = vals[j]; pr[4 * k] = pt;
+      kg[4 * k + 1] = vals[i]; pr[4 * k + 1] = ps * (1 - pt);
+      kg[4 * k + 2] = o; pr[4 * k + 2] = po * (1 - ps) * (1 - pt);
+      kg[4 * k + 3] = 0; pr[4 * k + 3] = (1 - po) * (1 - ps) * (1 - pt);
+      si[k] = i; ti[k] = j; k++;
+    }
+    return { lift: l, e1: e1, o: o, po: po, vals: vals, p: p, n: n, kg: kg, pr: pr, si: si, ti: ti };
+  }
+  // A choice's four results, heaviest first, into kg/p at `at`.
+  function choiceAtoms(L, sv, tv, kg, p, at) {
+    var ps = oddsRaw(sv, L.e1), pt = oddsRaw(tv, L.e1);
+    kg[at] = tv; p[at] = pt; kg[at + 1] = sv; p[at + 1] = ps * (1 - pt);
+    kg[at + 2] = L.o; p[at + 2] = L.po * (1 - ps) * (1 - pt); kg[at + 3] = 0; p[at + 3] = (1 - L.po) * (1 - ps) * (1 - pt);
+  }
+  // Dominated choices go before the search. A result lighter than the target less the most the
+  // other lifts could make can never count (it is as good as a bomb-out), so a choice whose third is
+  // that light is beaten by any other, and choices that differ only in a second that light are the
+  // same choice: one of them stays. → the choices left (indexes), and L.live is set to them.
+  function pruneDominated(L, lo) {
+    var keep = [], dead2 = {};
+    for (var k = 0; k < L.n; k++) {
+      var t = L.kg[4 * k], sv = L.kg[4 * k + 1];
+      if (t < lo - 1e-9) continue;
+      if (sv < lo - 1e-9) { if (dead2[t]) continue; dead2[t] = 1; }
+      keep.push(k);
+    }
+    if (!keep.length) for (var k2 = 0; k2 < L.n; k2++) keep.push(k2);
+    L.live = keep;
+    return keep;
+  }
+  // Totals on a 0.5 kg grid (every load is on 0.5): a survival table, P(X ≥ x) = surv[ceil(2x)].
+  function H(x) { return Math.ceil(x * 2 - 1e-6); }
+  function survTable(kgs, ps, len) {
+    var size = 0, i;
+    for (i = 0; i < len; i++) size = Math.max(size, H(kgs[i]) + 1);
+    var t = new Float64Array(size + 1);
+    for (i = 0; i < len; i++) if (ps[i] > 0) t[H(kgs[i])] += ps[i];
+    for (i = size - 1; i >= 0; i--) t[i] += t[i + 1];
+    return t;
+  }
+  function survLook(t, x) { var h = H(x); return h <= 0 ? 1 : h >= t.length ? 0 : t[h]; }
+  // A lift's best case at every load it could end on (the most likely of its choices to make at
+  // least that much), as results: no real choice beats it at any total. → { kg: [], p: [] }
+  function envelope(L) {
+    var pts = [0, L.o].concat(L.vals), s = pts.map(function (x) {
+      if (x <= 1e-9) return 1;
+      var best = 0;
+      for (var k = 0; k < L.n; k++) {
+        var b = 4 * k, sv = x <= L.kg[b] + 1e-9 ? (x <= L.kg[b + 1] + 1e-9 ? (x <= L.o + 1e-9 ? 1 - L.pr[b + 3] : L.pr[b] + L.pr[b + 1]) : L.pr[b]) : 0;
+        if (sv > best) best = sv;
+      }
+      return best;
+    });
+    var kg = [], p = [];
+    for (var i = 0; i < pts.length; i++) { var d = s[i] - (i + 1 < pts.length ? s[i + 1] : 0); if (d > 0) { kg.push(pts[i]); p.push(d); } }
+    return { kg: kg, p: p };
+  }
+  function conv(a, b) {
+    var kg = [], p = [];
+    for (var i = 0; i < a.kg.length; i++) for (var j = 0; j < b.kg.length; j++) { kg.push(a.kg[i] + b.kg[j]); p.push(a.p[i] * b.p[j]); }
+    return { kg: kg, p: p };
+  }
+  // The last lift's best second and third, given the other lifts' totals (n results in okg/op,
+  // heaviest first): its chance is p3·f(t) + q3·[p2·f(s) + q2·C] (f(x): the chance the others make
+  // target − x), so for every third the best second is a running best, and f is one walk down.
+  function bestInner(C, okg, op, n, T, res) {
+    var ptr = 0, cum = 0, need = T - 1e-9;
+    while (ptr < n && okg[ptr] >= need) { cum += op[ptr]; ptr++; }
+    var f0 = cum;
+    need = T - C.o - 1e-9;
+    while (ptr < n && okg[ptr] >= need) { cum += op[ptr]; ptr++; }
+    var base = C.po * cum + (1 - C.po) * f0, run = -1, sArg = -1, bestP = -1, bs = -1, bt = -1, fPrev = 0;
+    var vals = C.vals, pv = C.p, nv = vals.length;
+    for (var j = 0; j < nv; j++) {
+      need = T - vals[j] - 1e-9;
+      while (ptr < n && okg[ptr] >= need) { cum += op[ptr]; ptr++; }
+      if (j > 0) {
+        var ps = pv[j - 1], w = ps * fPrev + (1 - ps) * base;
+        if (w > run) { run = w; sArg = j - 1; }
+        var pt = pv[j], v = pt * cum + (1 - pt) * run;
+        if (v > bestP) { bestP = v; bs = sArg; bt = j; }
+      }
+      fPrev = cum;
+    }
+    res.p = bestP; res.s = bs; res.t = bt;
+    return res;
+  }
+  // The heaviest total (on 2.5 kg) a plan makes at least `atLeast` of the time.
+  function quantileTotal(dist, atLeast) {
+    var s = dist.slice().sort(function (x, y) { return y.kg - x.kg; }), cum = 0;
+    for (var i = 0; i < s.length; i++) { cum += s[i].p; if (cum >= atLeast - EPS) return s[i].kg; }
+    return null;
+  }
+  function planForTotal(target, e1rmByLift, opts) {
+    var T = num(target), refs = (opts && opts.refByLift) || {};
+    if (!(T > 0)) return null;
+    var have = LIFTS.filter(function (l) { return num(e1rmByLift && e1rmByLift[l]) > 0; });
+    if (!have.length) return null;
+    var bases = {}; have.forEach(function (l) { bases[l] = num(e1rmByLift[l]); });
+    var canned = attemptPlans(bases, { refByLift: refs });
+    // The plans in hand: Safe, Balanced, Bold, exactly.
+    var cand = canned.map(function (pl) {
+      var kg = {}; have.forEach(function (l) { kg[l] = pl.lifts[l].map(function (a) { return a.kg; }); });
+      return { lifts: kg, p: totalChance(kg, bases, T) || 0 };
+    });
+    var bestP = Math.max.apply(null, cand.map(function (c) { return c.p; }));
+    var full = have.map(function (l) { return aimLift(l, bases[l], num(refs[l]), canned); });
+    // The lift with the most loads goes last (one pass); the others take every choice.
+    full.sort(function (a, b) { return a.vals.length - b.vals.length; });
+    var envs = full.map(envelope);
+    // Every lift at its best case at once: under 1% there, no plan gets there.
+    var all = envs.reduce(function (acc, e) { return conv(acc, e); }, { kg: [0], p: [1] });
+    var reach = survLook(survTable(all.kg, all.p, all.kg.length), T);
+    var res = { p: -1, s: -1, t: -1 }, ok = new Float64Array(16), op = new Float64Array(16), found = null;
+    var prune = function (Ls) {
+      var tops = Ls.map(function (L) { return L.vals[L.vals.length - 1]; }), sumTop = tops.reduce(function (a, b) { return a + b; }, 0);
+      Ls.forEach(function (L, i) { pruneDominated(L, T - (sumTop - tops[i])); });
+    };
+    var search = function (Ls, envs2) {
+      prune(Ls);
+      var C = Ls[Ls.length - 1], outer = Ls.slice(0, -1);
+      if (!outer.length) {
+        ok[0] = 0; op[0] = 1;
+        bestInner(C, ok, op, 1, T, res);
+        if (res.s >= 0 && res.p > bestP + EPS) { bestP = res.p; found = [[C, C.vals[res.s], C.vals[res.t]]]; }
+        return;
+      }
+      if (outer.length === 1) {
+        var A1 = outer[0];
+        for (var ai = 0; ai < A1.live.length; ai++) {
+          var a = A1.live[ai];
+          for (var q3 = 0; q3 < 4; q3++) { ok[q3] = A1.kg[4 * a + q3]; op[q3] = A1.pr[4 * a + q3]; }
+          bestInner(C, ok, op, 4, T, res);
+          if (res.s >= 0 && res.p > bestP + EPS) { bestP = res.p; found = [[A1, A1.vals[A1.si[a]], A1.vals[A1.ti[a]]], [C, C.vals[res.s], C.vals[res.t]]]; }
+        }
+        return;
+      }
+      var A = outer[0], B = outer[1], envC = envs2[2];
+      // Each outer choice's best case (the other two lifts at theirs), best first: once one can't
+      // beat the plan in hand, none after it can.
+      var rank = function (L, envX, envY) {
+        var xy = conv(envX, envY), tab = survTable(xy.kg, xy.p, xy.kg.length), out = [];
+        for (var ki = 0; ki < L.live.length; ki++) { var k = L.live[ki], u = 0; for (var q2 = 0; q2 < 4; q2++) u += L.pr[4 * k + q2] * survLook(tab, T - L.kg[4 * k + q2]); out.push({ k: k, ub: u }); }
+        return out.sort(function (x, y) { return y.ub - x.ub; });
+      };
+      var rA = rank(A, envs2[1], envC), rB = rank(B, envs2[0], envC);
+      for (var i = 0; i < rA.length; i++) {
+        if (rA[i].ub < bestP - EPS) break;
+        var ka = rA[i].k, ba = 4 * ka;
+        for (var j2 = 0; j2 < rB.length; j2++) {
+          if (rB[j2].ub < bestP - EPS) break;
+          var kb = rB[j2].k, bb = 4 * kb, m = 0;
+          for (var x1 = 0; x1 < 4; x1++) for (var x2 = 0; x2 < 4; x2++) {
+            var kv = A.kg[ba + x1] + B.kg[bb + x2], pv2 = A.pr[ba + x1] * B.pr[bb + x2], z = m++;
+            while (z > 0 && ok[z - 1] < kv) { ok[z] = ok[z - 1]; op[z] = op[z - 1]; z--; }
+            ok[z] = kv; op[z] = pv2;
+          }
+          bestInner(C, ok, op, 16, T, res);
+          if (res.s >= 0 && res.p > bestP + EPS) {
+            bestP = res.p;
+            found = [[A, A.vals[A.si[ka]], A.vals[A.ti[ka]]], [B, B.vals[B.si[kb]], B.vals[B.ti[kb]]], [C, C.vals[res.s], C.vals[res.t]]];
+          }
+        }
+      }
+    };
+    if (reach >= AIM_FLOOR) {
+      prune(full);
+      var work = full.length === 3 ? full[0].live.length * full[1].live.length * full[2].vals.length : 0;
+      if (work <= AIM_WORK) search(full, envs);
+      else {
+        // Maxes past any lifter's (a window of 25+ loads on every lift): seconds and thirds on 5 kg
+        // first, then each lift's best second and third on 2.5 kg given the other two, until none moves.
+        var coarse = full.map(function (L) {
+          var v5 = L.vals.filter(function (v) { return Math.abs(v / 5 - Math.round(v / 5)) < 1e-9; });
+          return aimFrom(L.lift, L.e1, L.o, v5.length >= 2 ? v5 : L.vals);
+        });
+        search(coarse, coarse.map(envelope));
+        if (found) {
+          // Then two lifts at a time on 2.5 kg, the third held: every choice of one, the other's best in
+          // one pass. Round after round, until no pair moves.
+          var cur = found.map(function (x) { return [full.filter(function (L) { return L.lift === x[0].lift; })[0], x[1], x[2]]; });
+          var hk = new Float64Array(4), hp = new Float64Array(4);
+          for (var round = 0; round < 12; round++) {
+            var moved = false;
+            for (var hold = 0; hold < cur.length; hold++) {
+              var rest = cur.filter(function (_, ii) { return ii !== hold; }).sort(function (x, y) { return x[0].n - y[0].n; });
+              var P = rest[0][0], Q = rest[1][0], pick = null;
+              choiceAtoms(cur[hold][0], cur[hold][1], cur[hold][2], hk, hp, 0);
+              for (var a2 = 0; a2 < P.n; a2++) {
+                var m2 = 0;
+                for (var y1 = 0; y1 < 4; y1++) for (var y2 = 0; y2 < 4; y2++) {
+                  var kv2 = hk[y1] + P.kg[4 * a2 + y2], pv3 = hp[y1] * P.pr[4 * a2 + y2], z2 = m2++;
+                  while (z2 > 0 && ok[z2 - 1] < kv2) { ok[z2] = ok[z2 - 1]; op[z2] = op[z2 - 1]; z2--; }
+                  ok[z2] = kv2; op[z2] = pv3;
+                }
+                bestInner(Q, ok, op, 16, T, res);
+                if (res.s >= 0 && res.p > bestP + EPS) { bestP = res.p; pick = [P, P.vals[P.si[a2]], P.vals[P.ti[a2]], Q, Q.vals[res.s], Q.vals[res.t]]; }
+              }
+              if (pick) {
+                cur = cur.map(function (x) { return x[0] === pick[0] ? [pick[0], pick[1], pick[2]] : x[0] === pick[3] ? [pick[3], pick[4], pick[5]] : x; });
+                moved = true;
+              }
+            }
+            if (!moved) break;
+          }
+          found = cur;
+        }
+      }
+    }
+    var best = null;
+    if (found) {
+      var kgs = {};
+      found.forEach(function (x) { kgs[x[0].lift] = [x[0].o, x[1], x[2]]; });
+      best = { lifts: kgs, p: totalChance(kgs, bases, T) || 0 };
+    }
+    cand.forEach(function (c) { if (!best || c.p > best.p + EPS) best = c; });
+    if (best.p < AIM_FLOOR) {
+      var likely = null;
+      cand.forEach(function (c) {
+        var d = sumDist(have.map(function (l) { return liftOutcomes(c.lifts[l], bases[l], null); }));
+        var qv = quantileTotal(d, AIM_LIKELY);
+        if (qv != null && qv > 0 && (likely == null || qv > likely)) likely = rStep(qv);
+      });
+      return { outOfReach: true, likely: likely };
+    }
+    var lifts = {}, total = 0;
+    LIFTS.forEach(function (l) { if (best.lifts[l]) { lifts[l] = best.lifts[l].slice(); total += lifts[l][2]; } });
+    return { lifts: lifts, p: best.p, total: r1(total) };
+  }
+  // The target as the coach types it, in their unit → kg on 0.5 (20–1500 kg), or null.
+  function targetKg(text, unit) {
+    var v = parseFloat(String(text == null ? '' : text).replace(',', '.'));
+    if (!isFinite(v)) return null;
+    var kg = rStep(isLb(unit) ? v * KG_PER_LB_ : v, 0.5);
+    return kg >= TGT_MIN && kg <= TGT_MAX ? kg : null;
+  }
+  // …and back: kg as stored; lb to the pound, a round five when the 0.5 kg it was stored on came from one.
+  function targetShown(kg, unit) {
+    var k = num(kg);
+    if (!(k > 0)) return '';
+    if (!isLb(unit)) return String(Math.round(k * 100) / 100);
+    var lb = k / KG_PER_LB_, five = Math.round(lb / 5) * 5;
+    return String(Math.abs(lb - five) <= 0.56 ? five : Math.round(lb));
   }
 
   // ------------------------------------------------------------ pure: the board
@@ -601,7 +953,9 @@ var MeetDay = (function () {
     markDirty: markDirty, lifterPatch: lifterPatch, mergeLifter: mergeLifter, guestCells: guestCells, uuid: uuid,
     finishResults: finishResults, groupMeets: groupMeets,
     ODDS_K: ODDS_K, PLANS: PLANS, attemptOdds: attemptOdds, oddsBase: oddsBase, attemptPlans: attemptPlans, planMatch: planMatch, basisText: basisText,
-    loadNum: loadNum, loadText: loadText, inputKg: inputKg
+    loadNum: loadNum, loadText: loadText, inputKg: inputKg,
+    totalChance: totalChance, totalChanceLive: totalChanceLive, planForTotal: planForTotal, targetKg: targetKg, targetShown: targetShown,
+    chancePct: chancePct, chanceNowText: chanceNowText
   };
 
   // =====================================================================
@@ -679,7 +1033,7 @@ var MeetDay = (function () {
       .sort(function (a, b) { return iso(a.date) < iso(b.date) ? -1 : 1; })[0];
     var p = planOf(next);
     if (!p || !LIFTS.some(function (l) { return Array.isArray(p[l]) && p[l][0]; })) return null;
-    var out = { lifts: {}, total: 0, label: 'Your coach\'s plan', coach: true, meet: next };
+    var out = { lifts: {}, total: 0, label: 'Your coach\'s plan', coach: true, meet: next, target: num(p.target) > 0 ? num(p.target) : null };
     LIFTS.forEach(function (l) {
       var a = p[l];
       if (!a || !a[0]) return;
@@ -688,6 +1042,49 @@ var MeetDay = (function () {
       out.total += Math.max.apply(null, att);
     });
     return out;
+  }
+
+  // Aim for a total: the total the field starts on. The lifter's goal total; else where this block's
+  // e1RM total is heading by the meet (strengthProjection, as on the lifter page), held to the Balanced
+  // plan's total (every third at today's max): the odds stand on today's maxes, and a total-series
+  // projection (sets of five in it) can run far past them, so the field would open out of reach.
+  // On 2.5 kg; else nothing. → kg | null
+  function aimDefault(athleteId, meet) {
+    var g = (S().goals || []).filter(function (x) { return x.athleteId === athleteId; })[0];
+    var tg = num(g && g.total);
+    if (tg >= TGT_MIN && tg <= TGT_MAX) return rStep(tg, 0.5);
+    if (meet && meet.date && typeof root.strengthSeries === 'function' && typeof root.strengthProjection === 'function') {
+      try {
+        var logs = (S().workoutLogs || []).filter(function (l) { return l.athleteId === athleteId; });
+        var pr = root.strengthProjection(root.strengthSeries(logs, 'total', { weeks: 12, today: today() }), iso(meet.date));
+        var v = pr ? num(pr.value) : 0;
+        var ob = oddsBases(athleteId), bal = attemptPlans(ob.kg, { refByLift: ob.ref })[1];
+        if (bal && bal.total > 0 && v > bal.total) v = bal.total;
+        v = rStep(v);
+        if (v >= TGT_MIN && v <= TGT_MAX) return v;
+      } catch (e) {}
+    }
+    return null;
+  }
+  // A chance in whole percent, never certain and never nothing ("under 1%" below half a percent).
+  function chancePct(p) { var n = Math.round(num(p) * 100); return n < 1 ? 'under 1%' : Math.min(99, n) + '%'; }
+  // "Chance of 600 now: 52%" for meet day (the board's declare card, the lifter's meet mode): the plan's
+  // target against the results so far and the attempts left. lifts / results / bases as totalChanceLive.
+  // Banked (the made attempts reach it): "600 made"; past what is left to lift: "600 is out of reach now".
+  function chanceNowText(target, lifts, results, bases, unit) {
+    var t = num(target);
+    if (!(t > 0)) return '';
+    var p = totalChanceLive(lifts, results, bases, t);
+    if (p == null) return '';
+    var tt = targetShown(t, unit), bank = 0, most = 0;
+    LIFTS.forEach(function (l) {
+      var a = (lifts && lifts[l]) || [], r = (results && results[l]) || [], b = 0, m = 0;
+      a.forEach(function (kg, i) { var k = num(kg); if (!(k > 0)) return; var made = madeOf(r[i]); if (made === 1 && k > b) b = k; if (made !== 0 && k > m) m = k; });
+      bank += b; most += m;
+    });
+    if (bank >= t - 1e-9) return tt + ' made';
+    if (most < t - 1e-9) return tt + ' is out of reach now';
+    return 'Chance of ' + tt + ' now: ' + chancePct(p);
   }
 
   // ------------------------------------------------------------ the overlay shell
@@ -765,7 +1162,7 @@ var MeetDay = (function () {
   }
   // The planner's plans by risk as one choice: each with its total and the odds of its thirds. Picked
   // = the plan the attempts are now (planMatch); the coach's own numbers pick none.
-  function planChooser(plans, picked, ev, unit, onPick, own) {
+  function planChooser(plans, picked, ev, unit, onPick, own, aiming) {
     var wrap = E('div', { class: 'md-plans' });
     var have = plans.length ? LIFTS.filter(function (l) { return plans[0].lifts[l]; }) : [];
     if (!have.length) { wrap.appendChild(E('p', { class: 'md-plans-note' }, 'Plans and their odds show once this block has top sets.')); return wrap; }
@@ -785,9 +1182,9 @@ var MeetDay = (function () {
     wrap.appendChild(grp);
     var missing = LIFTS.filter(function (l) { return have.indexOf(l) < 0; });
     // own: the attempts are the coach's own numbers (none of the three), said so the pick isn't thought lost.
-    wrap.appendChild(E('p', { class: 'md-plans-note' }, basisText(ev) + '. Odds shown are for the thirds' +
+    wrap.appendChild(E('p', { class: 'md-plans-note' }, (aiming ? 'Aiming for ' + aiming + '. ' : '') + basisText(ev) + '. Odds shown are for the thirds' +
       (missing.length ? '; no ' + missing.map(function (l) { return LIFT_NAME[l].toLowerCase(); }).join(' or ') + ' max yet' : '') + '.' +
-      (own ? ' The attempts below are your own.' : '')));
+      (own && !aiming ? ' The attempts below are your own.' : '')));
     return wrap;
   }
 
@@ -808,7 +1205,15 @@ var MeetDay = (function () {
     var rows = grp ? grp.rows : [{ meetId: meet.id, athleteId: meet.athleteId, name: (athlete(meet.athleteId) || {}).name || 'Lifter' }];
     // dirty: not saved (a suggested plan too); edited: the coach changed it. Only the coach's own
     // changes are worth a question on close: an untouched suggestion comes back as it was.
-    var st = { sel: meet.id, drafts: {}, dirty: {}, edited: {} };
+    // aim: per meet, Aim for a total ({ kg, text, on }): on once the coach fills the attempts for it (or
+    // the saved plan has a target); then the row reads the attempts' own chance and the target saves.
+    var st = { sel: meet.id, drafts: {}, dirty: {}, edited: {}, aim: {}, flash: null };
+    // The maxes the plans and the odds stand on, read once per lifter while the planner is open: a set
+    // logged meanwhile (a lifter training right now, the desk demo's live lifter) counts from the next
+    // open, so a pick or Fill never moves the plans under the coach's hand.
+    var obs = {};
+    var obOf = function (athleteId) { return obs[athleteId] || (obs[athleteId] = oddsBases(athleteId)); };
+    rows.forEach(function (r) { obOf(r.athleteId); });
     var dirtyIds = function () { return Object.keys(st.dirty).filter(function (k) { return st.dirty[k]; }); };
     var editedN = function () { return dirtyIds().filter(function (k) { return st.edited[k]; }).length; };
     var touch = function () { st.dirty[st.sel] = true; st.edited[st.sel] = true; };
@@ -856,9 +1261,10 @@ var MeetDay = (function () {
     };
     var paintMain = function () {
       main.innerHTML = '';
+      aimEls = null;
       var m = (S().meets || []).find(function (x) { return x.id === st.sel; });
       var a = athlete(m.athleteId) || { name: 'Lifter' };
-      var d = st.drafts[st.sel], unit = unitNow(), ob = oddsBases(m.athleteId), ev = ob.ev;
+      var d = st.drafts[st.sel], unit = unitNow(), ob = obOf(m.athleteId), ev = ob.ev;
       var bw = latestBw(m.athleteId), sex = d.sex || sexOf(m.athleteId, null, m) || 'male';
       var tot = planTotals(d, { bw: bw, sex: sex, federation: m.federation, division: m.division, weightClass: m.weightClass });
       // A max in words, in the viewer's unit (the number only: the unit is the screen's).
@@ -871,13 +1277,21 @@ var MeetDay = (function () {
       main.appendChild(head);
       // Plans by risk (Safe · Balanced · Bold), each with its total and the odds of its thirds. A pick
       // fills every attempt below, still the coach's to change; nothing moves until one is picked.
-      var plans = attemptPlans(ob.kg, { refByLift: ob.ref }), picked = planMatch(plans, d);
+      var plans = attemptPlans(ob.kg, { refByLift: ob.ref }), aim = aimOf(m, d, unit);
+      var picked = aim.on ? null : planMatch(plans, d);
       var hasNums = LIFTS.some(function (l) { return (d[l] || []).some(function (v) { return v != null; }); });
-      main.appendChild(planChooser(plans, picked, ev, unit, function (pl) {
+      var plansEl = planChooser(plans, picked, ev, unit, function (pl) {
         LIFTS.forEach(function (l) { if (pl.lifts[l]) d[l] = pl.lifts[l].map(function (x) { return x.kg; }); });
         d.strategy = pl.strategy;
+        // A plan by risk is a pick of its own: the aim stays in the field, waiting for Fill.
+        aim.on = false; delete d.target;
         touch(); haptic('LIGHT'); paint();
-      }, !picked && hasNums));
+      }, !picked && hasNums, aim.on && aim.kg ? targetShown(aim.kg, unit) + ' ' + unitWord(unit) : null);
+      // Aim for a total: a target, its chance, Fill, right under the plans by risk (the other way to pick
+      // the attempts), the note under both. Only with a max for every lift (the odds need them).
+      var aimEl = LIFTS.every(function (l) { return ob.kg[l] > 0; }) ? aimRow(m, d, ob, unit, aim) : null;
+      if (aimEl) plansEl.insertBefore(aimEl, plansEl.lastChild);
+      main.appendChild(plansEl);
       var grid = E('div', { class: 'md-pl-grid', role: 'table', 'aria-label': 'Attempts' });
       grid.appendChild(E('div', { class: 'md-pl-row md-pl-th', role: 'row' }, E('span', { role: 'columnheader' }, 'Lift'),
         E('span', { role: 'columnheader' }, 'Opener'), E('span', { role: 'columnheader' }, 'Second'), E('span', { role: 'columnheader' }, 'Third')));
@@ -911,7 +1325,8 @@ var MeetDay = (function () {
           showOdds(num(kg[i]));
           minus.addEventListener('click', function () { setKg(num(kg[i] || (kg[0] || 60)) - STEP); });
           plus.addEventListener('click', function () { setKg(num(kg[i] || (kg[0] || 60)) + STEP); });
-          inp.addEventListener('input', function () { showOdds(num(inputKg(inp.value, unit))); });
+          inp.addEventListener('input', function () { var v = inputKg(inp.value, unit); showOdds(num(v)); aimLive(l, i, v); });
+          if (st.flash && st.flash[l + i]) inp.classList.add('is-filled');
           inp.addEventListener('change', function () { setKg(inputKg(inp.value, unit)); });
           cell.appendChild(E('span', { class: 'md-pl-n', 'aria-hidden': 'true' }, ['Opener', 'Second', 'Third'][i]));
           cell.appendChild(E('div', { class: 'md-kg-edit' }, minus, inp, plus));
@@ -935,6 +1350,88 @@ var MeetDay = (function () {
       note.addEventListener('input', function () { d.note = note.value; touch(); paintFoot(); paintList(); });
       main.appendChild(note);
     };
+    // ---------- Aim for a total ----------
+    var aimEls = null;   // the row's chance line, while it is on screen (aimLive writes it in place)
+    var aimOf = function (m, d, unit) {
+      if (!st.aim[m.id]) {
+        var kg = d.target ? num(d.target) : aimDefault(m.athleteId, m);
+        st.aim[m.id] = { kg: kg || null, text: kg ? targetShown(kg, unit) : '', on: !!d.target };
+      }
+      return st.aim[m.id];
+    };
+    // What the row says: { text, likely } (likely: the out-of-reach total worth aiming at instead).
+    var aimSays = function (d, ob, aim, override) {
+      if (!(aim.kg > 0)) return { text: 'Type a total' };
+      var best = planForTotal(aim.kg, ob.kg, { refByLift: ob.ref });
+      if (!best) return { text: '' };
+      if (best.outOfReach) return { text: 'Out of reach', likely: best.likely };
+      if (!aim.on) return { text: chancePct(best.p) + ' chance', best: best };
+      var lifts = {};
+      LIFTS.forEach(function (l) { lifts[l] = (d[l] || []).slice(); });
+      if (override) lifts[override.lift][override.i] = override.kg;
+      var p = totalChance(lifts, ob.kg, aim.kg), u = unitNow();
+      // Thirds that don't add up to the target can never make it: say what they come to.
+      var top = 0; LIFTS.forEach(function (l) { top += Math.max.apply(null, [0].concat(lifts[l].map(num))); });
+      if (top < aim.kg - 1e-9) return { text: 'Thirds add up to ' + targetShown(top, u), best: best };
+      return { text: p == null ? '' : 'Chance of ' + targetShown(aim.kg, u) + ': ' + chancePct(p), best: best };
+    };
+    var paintAim = function (said, unit) {
+      if (!aimEls) return;
+      aimEls.p.innerHTML = '';
+      aimEls.p.appendChild(document.createTextNode(said.text));
+      if (said.likely) {
+        var lk = E('button', { type: 'button', class: 'md-link md-aim-likely' }, targetShown(said.likely, unit) + ' is likely');
+        lk.addEventListener('click', function () { aimEls.setTarget(targetShown(said.likely, unit)); });
+        aimEls.p.appendChild(document.createTextNode(' · '));
+        aimEls.p.appendChild(lk);
+      }
+      aimEls.p.classList.toggle('is-out', !!said.likely || said.text === 'Out of reach');
+      aimEls.fill.disabled = !said.best;
+      aimEls.fill.title = said.best ? 'Fill the attempts with the best chance of ' + targetShown(aimEls.aim.kg, unit) + ' ' + unitWord(unit) + ' (' + chancePct(said.best.p) + ')' : '';
+    };
+    // An attempt being typed: the aimed chance follows it, in place.
+    var aimLive = function (lift, i, kg) {
+      if (!aimEls || !aimEls.aim.on) return;
+      var m = (S().meets || []).find(function (x) { return x.id === st.sel; });
+      paintAim(aimSays(st.drafts[st.sel], obOf(m.athleteId), aimEls.aim, kg == null ? null : { lift: lift, i: i, kg: kg }), unitNow());
+    };
+    var aimRow = function (m, d, ob, unit, aim) {
+      var row = E('div', { class: 'md-aim', role: 'group', 'aria-label': 'Aim for a total' });
+      var words = E('div', { class: 'md-aim-k' }, E('span', { class: 'md-aim-t' }, 'Aim for a total'));
+      var chance = E('span', { class: 'md-aim-p', role: 'status', 'aria-live': 'polite' });
+      words.appendChild(chance);
+      var inp = E('input', { type: 'text', inputmode: 'decimal', class: 'md-aim-kg', value: aim.text, placeholder: '–', 'aria-label': 'Total to aim for, ' + unitWord(unit), maxlength: '7' });
+      var fill = btn('Fill', 'md-aim-fill', function () {
+        var r = aim.kg > 0 ? planForTotal(aim.kg, ob.kg, { refByLift: ob.ref }) : null;
+        if (!r || r.outOfReach) return;
+        var flash = {};
+        LIFTS.forEach(function (l) {
+          if (!r.lifts[l]) return;
+          r.lifts[l].forEach(function (kg, i) { if (num((d[l] || [])[i]) !== kg) flash[l + i] = 1; });
+          d[l] = r.lifts[l].slice();
+        });
+        d.strategy = 'conservative'; d.target = aim.kg; aim.on = true;
+        st.flash = flash;
+        touch(); haptic('MEDIUM'); paint();
+        st.flash = null;
+      });
+      aimEls = { p: chance, fill: fill, aim: aim, setTarget: function (text) {
+        inp.value = text; aim.text = text; aim.kg = targetKg(text, unit);
+        if (aim.on) { if (aim.kg) d.target = aim.kg; else { aim.on = false; delete d.target; } touch(); }
+        paint();
+      } };
+      inp.addEventListener('input', function () {
+        aim.text = inp.value; aim.kg = targetKg(inp.value, unit);
+        paintAim(aimSays(d, ob, aim), unit);
+      });
+      inp.addEventListener('change', function () { aimEls.setTarget(inp.value); });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+      row.appendChild(words);
+      row.appendChild(E('div', { class: 'md-aim-in' }, inp, E('span', { class: 'md-aim-u', 'aria-hidden': 'true' }, unitWord(unit))));
+      row.appendChild(fill);
+      paintAim(aimSays(d, ob, aim), unit);
+      return row;
+    };
     var paintFoot = function () {
       foot.innerHTML = '';
       var n = Object.keys(st.dirty).filter(function (k) { return st.dirty[k]; }).length;
@@ -954,7 +1451,9 @@ var MeetDay = (function () {
       var by = me() && me().name ? String(me().name).slice(0, 60) : '';
       var chain = Promise.resolve(), local = 0;
       ids.forEach(function (id) {
-        var plan = normalizePlan(Object.assign({}, st.drafts[id], { at: new Date().toISOString(), by: by }));
+        var dd = Object.assign({}, st.drafts[id], { at: new Date().toISOString(), by: by });
+        if (!(st.aim[id] && st.aim[id].on)) delete dd.target;
+        var plan = normalizePlan(dd);
         chain = chain.then(function () {
           var put = function () { if (root.Store) root.Store.update(function (x) { (x.meets || []).forEach(function (mm) { if (mm.id === id) mm.attemptPlan = plan; }); }); st.dirty[id] = false; st.edited[id] = false; };
           if (isDemo() || !root.DB || !root.DB.saveAttemptPlan) { put(); return; }
@@ -1063,6 +1562,10 @@ var MeetDay = (function () {
         if (ids.indexOf(l.athleteId) < 0) return;
         var plan = { v: 1, strategy: 'standard', sex: l.sex };
         LIFTS.forEach(function (lift) { plan[lift] = [1, 2, 3].map(function (n) { var c = srv.srv[attemptKey(l.id, lift, n)]; return c ? c.kg : null; }); });
+        // Aim for a total: the coach aimed each plan a little under its thirds (5 kg steps), so the board
+        // and the lifter's meet mode show "Chance of … now" from the first attempt.
+        var thirds = planTotals(plan, {}).total;
+        if (thirds > 0) plan.target = Math.floor((thirds - 7.5) / 5) * 5;
         // The demo seeds already plan today's meet for these lifters (same id): it gets the attempts.
         var had = x.meets.find(function (m) { return m.id === l.meetId; });
         if (had) { if (!had.attemptPlan) had.attemptPlan = plan; return; }
@@ -1628,6 +2131,10 @@ var MeetDay = (function () {
       // The odds of the bar being declared, live as it is nudged (none for another team's lifter).
       var oddsKg = boardMax(tl, tg.lift);
       if (oddsKg > 0) dec.appendChild(E('div', { class: 'md-dec-odds', title: 'The chance of making ' + kgText(dk) + ' kg, based on this block\'s top sets' }, oddsTag(attemptOdds(dk, oddsKg))));
+      // Aim for a total, on the day: the chance of the plan's target from the results so far and the
+      // attempts left (this one at the bar being declared), as the bar is nudged.
+      var aimNow = boardAimText(tl, k, dk);
+      if (aimNow) dec.appendChild(E('div', { class: 'md-dec-aim', role: 'status' }, aimNow));
       var prev = B.cells[attemptKey(tg.lifterId, tg.lift, tg.n - 1)];
       if (prev && isResult(prev.status) && typeof root.meetAttemptOptions === 'function') {
         var best = 0;
@@ -1695,6 +2202,23 @@ var MeetDay = (function () {
         }
       }
     }
+  }
+  // "Chance of 600 now: 52%" for one lifter on the board, when their saved plan has a target: their cells
+  // (made, missed, to come; the attempt being declared at draftKg) against the board's maxes. '' otherwise.
+  function boardAimText(l, draftKey, draftKg) {
+    if (!l || !l.meetId) return '';
+    var pl = planOf((S().meets || []).find(function (m) { return m.id === l.meetId; }));
+    if (!pl || !(num(pl.target) > 0)) return '';
+    var lifts = {}, res = {}, bases = {};
+    LIFTS.forEach(function (lift) {
+      lifts[lift] = []; res[lift] = []; bases[lift] = boardMax(l, lift);
+      [1, 2, 3].forEach(function (n) {
+        var key = attemptKey(l.id, lift, n), c = B.cells[key];
+        lifts[lift].push(key === draftKey ? draftKg : c && c.kg != null ? num(c.kg) : null);
+        res[lift].push(c && isResult(c.status) ? c.status : null);
+      });
+    });
+    return chanceNowText(pl.target, lifts, res, bases, 'kg');
   }
   // The max the board's odds stand on for one lifter: their own block (oddsMax). A demo lifter who is
   // not on this demo's roster has the demo's numbers; a guest from another team has none: no odds.
@@ -2273,7 +2797,7 @@ var MeetDay = (function () {
   }
   if (hasDom && typeof location !== 'undefined' && /^https?:|^capacitor:|^file:/.test(String(location.protocol || ''))) ensureCss();
   Object.assign(root, { openAttemptPlanner: openAttemptPlanner, openMeetDayBoard: openMeetDayBoard, renderMeetsScreen: renderMeetsScreen, openMeetsScreen: openMeetsScreen,
-    attemptOdds: attemptOdds, attemptPlans: attemptPlans });
+    attemptOdds: attemptOdds, attemptPlans: attemptPlans, totalChance: totalChance, totalChanceLive: totalChanceLive, planForTotal: planForTotal });
   if (hasDom && typeof location !== 'undefined' && /[?&]meetday=1/.test(String(location.search || ''))) {
     var bootTry = 0;
     var boot = function () { if (me()) bootLifterDemo(); else if (++bootTry < 40) setTimeout(boot, 250); };

@@ -25,6 +25,8 @@ const PRECACHE = [
   '/desk.css',
   '/meetday.js',    // the attempt planner + meet-day board (works offline at the venue)
   '/meetday.css',
+  '/challenges.js',  // coach challenges at the top of Club (both dashboards)
+  '/challenges.css',
   '/app.js',
   '/voice.js',
   '/db.js',

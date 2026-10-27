@@ -2,8 +2,8 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 100 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
- * sheets, the onboarding, every public page at desktop and phone width, dark and light) and
+ * Opens 121 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * sheets (New challenge and a challenge's board among them), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
  * don't match, tiny tap targets (app only) and unreadable text (contrast under 2.6:1).
@@ -47,7 +47,12 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-thread' + suf, page: C, theme, eval: "openAthleteMessages('demo-a1', 'Arjun Mehta')" },
     { name: 'ob-welcome' + suf, page: 'index.html', theme },
     { name: 'ob-signup' + suf, page: 'index.html', theme, eval: "obOpen('signup', { role: 'coach' })" },
-    { name: 'ob-login' + suf, page: 'index.html', theme, eval: "obOpen('login')" });
+    { name: 'ob-login' + suf, page: 'index.html', theme, eval: "obOpen('login')" },
+    // Coach challenges (challenges.js): New challenge, and the board from the lifter's side (you marked);
+    // Aim for a total (meetday.js): the attempt planner with its row under the plans.
+    { name: 'sh-chl-new' + suf, page: C, theme, eval: tab('club') + ';Challenges.openNew()' },
+    { name: 'sh-chl-board' + suf, page: A, theme, eval: tab('club') + ";setTimeout(() => { const b = document.querySelector('.chl-mine'); if (b) b.click(); }, 200)" },
+    { name: 'sh-planner-aim' + suf, page: C, theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
@@ -57,6 +62,11 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
+// The desk's Club with the coach's challenge, its whole board, and the planner's Aim for a total, dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-coach-club' + suf, page: C, mode: 'web', theme, eval: "deskGo('club')" },
+  { name: 'w-chl-board' + suf, page: C, mode: 'web', theme, eval: "deskGo('club');setTimeout(() => { const b = document.querySelector('.chl-all'); if (b) b.click(); }, 200)" },
+  { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

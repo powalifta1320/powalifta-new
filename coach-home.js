@@ -178,7 +178,7 @@
     var groups = {};
     withMeet.forEach(function (r) {
       var m = r.meet.meet, st = r.status || {};
-      var hasPlan = !!(m.attempts || m.openers || m.plan);
+      var hasPlan = meetAttemptsSet(m);
       var step, tone;
       if (r.bw && r.bw.over > 0) { step = 'BW +' + num(r.bw.over) + ' over the ' + m.weightClass + ' class'; tone = 'warn'; }
       else if (r.meet.days <= 21 && !hasPlan) { step = 'attempts not set'; tone = 'warn'; }

@@ -30,6 +30,7 @@
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
 <link rel="stylesheet" href="desk.css"><!-- the laptop coach desk: html.desk only -->
 <link rel="stylesheet" href="coach-ui.css"><!-- the coach side's new screens (coach-home.js): Home on the desk and the phone -->
+<link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the challenge card, its board and New challenge (challenges.js) -->
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -140,6 +141,7 @@
     <!-- CLUB — non-coaching community (clubs.js). A coach can run their team's club. -->
     <section data-pane="club" class="hidden">
       <div class="dash-header"><div><h2>Club</h2></div></div>
+      <div id="challengeArea"></div><!-- COACH CHALLENGES (challenges.js): above the club, never inside it -->
       <div id="clubArea"></div>
     </section>
 
@@ -342,6 +344,7 @@
 <script src="voice.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
+<script src="challenges.js"></script><!-- COACH CHALLENGES: the coach's challenges at the top of Club, their boards, New challenge (window.Challenges) -->
 <script src="desk.js"></script>
 <script src="desk-season.js"></script><!-- the desk's season: Teams, the roster calendar, Plan a meet, the last week of a block -->
 <script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
@@ -420,6 +423,7 @@ bootstrap('coach', () => {
       if (btn.dataset.tab === 'messages') renderMessages();
       if (btn.dataset.tab === 'marketplace') renderCoachMarketplace();
       if (btn.dataset.tab === 'progress') populateAthleteSelect('progressAthlete', renderProgressForAthlete);
+      if (btn.dataset.tab === 'club' && window.Challenges) Challenges.render(document.getElementById('challengeArea'));
       if (btn.dataset.tab === 'club' && window.renderClubTab) renderClubTab(document.getElementById('clubArea'));
       if (btn.dataset.tab === 'you') renderCoachYou();
       if (btn.dataset.tab === 'clients' && window.ClientsUI) ClientsUI.render(document.getElementById('clientsArea'));
@@ -429,6 +433,9 @@ bootstrap('coach', () => {
 
     });
   });
+  // The demo's meet day (meetday.js): today's planned meets carry their attempt plans from the first
+  // paint, so the lifter page and Today say "attempts set" at once (renderRoster paints before the desk boots).
+  if (window._demoMode && window.MeetDay && MeetDay.deskDemo) { try { MeetDay.deskDemo(); } catch (e) {} }
   renderRoster();
   // A reload on an athlete's page (#athlete=ID) comes back to it.
   try { const m = /#athlete=([\w-]+)/.exec(location.hash || ''); if (m) setTimeout(() => openAthletePage(m[1]), 60); } catch (e) {}

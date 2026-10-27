@@ -189,7 +189,9 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   // BLOCK DNA: a block's fingerprint, two blocks compared in plain sentences (tests.html "block DNA (block-dna.js)")
   (fs.existsSync(path.join(ROOT, 'block-dna.js')) ? fs.readFileSync(path.join(ROOT, 'block-dna.js'), 'utf8') : '') + '\n;\n' +
   // CAREER: a lifter's PRs, meets, class moves, blocks and milestones, newest first (tests.html "career (career.js)")
-  (fs.existsSync(path.join(ROOT, 'career.js')) ? fs.readFileSync(path.join(ROOT, 'career.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'career.js')) ? fs.readFileSync(path.join(ROOT, 'career.js'), 'utf8') : '') + '\n;\n' +
+  // COACH CHALLENGES: the values, the ranking and the words (tests.html "coach challenges (challenges.js)")
+  (fs.existsSync(path.join(ROOT, 'challenges.js')) ? fs.readFileSync(path.join(ROOT, 'challenges.js'), 'utf8') : '');
 // ---- a function declared twice: the later one silently wins for the whole page ------------
 // (27 Oct 2026: a second rpeLoadPct, a percent where the first was a fraction, made every
 // RPE-only load suggestion 100× too heavy on the live site.) Top-level declarations only.

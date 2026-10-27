@@ -1,0 +1,145 @@
+/* =====================================================================
+   challenges.css: coach challenges at the top of Club (challenges.js), the coach's and the
+   lifter's, desk and phone, dark and light. Every class is chl-*, so nothing else moves.
+   The coach UI system (coach-ui.css): one card (bg-1, a hairline, 20), rows 14, controls 12,
+   buttons pills; type 13 · 15 · 17 · 20 (the section title); motion on cubic-bezier(.23,1,.32,1),
+   entrances 320 ms with a 40 ms stagger from opacity .45, presses at .97. Gold has one job: the
+   leader's place, the trophy and "you". Values are ink.
+   ===================================================================== */
+.chl, .chl-sheet {
+  --chl-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --chl-fill-1: rgba(255, 255, 255, 0.035); --chl-fill-2: rgba(255, 255, 255, 0.06); --chl-fill-3: rgba(255, 255, 255, 0.085); --chl-fill-4: rgba(255, 255, 255, 0.14);
+  --chl-gold: #ffc23d; --chl-warn: #ffb35c;
+}
+html[data-theme="light"] .chl, html[data-theme="light"] .chl-sheet {
+  --chl-fill-1: rgba(11, 11, 13, 0.035); --chl-fill-2: rgba(11, 11, 13, 0.055); --chl-fill-3: rgba(11, 11, 13, 0.08); --chl-fill-4: rgba(11, 11, 13, 0.13);
+  --chl-gold: #8a5a00; --chl-warn: #9a4a00;
+}
+.chl { margin: 0 0 var(--u-gap, 28px); }
+.chl .chl-h { margin-top: 0; }
+
+/* ---------- the card ---------- */
+.chl-card { display: block; width: 100%; box-sizing: border-box; padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: var(--bg-1); color: var(--text);
+  font: inherit; text-align: left; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); animation: chlRise 320ms var(--chl-ease) backwards; }
+html[data-theme="light"] .chl-card { box-shadow: none; }
+.chl-card + .chl-card { margin-top: 12px; }
+.chl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px; }
+.chl-title { min-width: 0; font-size: 17px; font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chl-when { flex: none; font-size: 13px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chl-when.is-soon { color: var(--text-2); }
+.chl-meta { margin-top: 2px; padding: 0 4px; font-size: 13px; line-height: 1.4; color: var(--text-3); overflow-wrap: anywhere; }
+.chl-note { margin: 12px 4px 0; font-size: 13px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+
+/* ---------- a board: place, face, name, value ---------- */
+.chl-rows { list-style: none; margin: 12px 0 0; padding: 0; }
+.chl-row { position: relative; display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: 52px; padding: 0 8px 0 4px; border-radius: 14px;
+  animation: chlRise 320ms var(--chl-ease) calc(var(--i, 0) * 40ms) backwards; }
+/* Hairlines between rows, inset to where the names start; none around "you". */
+.chl-row + .chl-row::before { content: ''; position: absolute; top: 0; left: 72px; right: 8px; height: 1px; background: var(--line); }
+.chl-row.is-me::before, .chl-row.is-me + .chl-row::before { display: none; }
+.chl-row.is-me { background: color-mix(in srgb, var(--chl-gold) 11%, transparent); }
+.chl-rank { font-size: 15px; font-weight: 700; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
+.chl-row.is-first .chl-rank { color: var(--chl-gold); }
+.chl-av.ui-av { width: 32px; height: 32px; font-size: 13px; font-weight: 700; }
+.chl-name { min-width: 0; font-size: 15px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chl-row.is-me .chl-name { font-weight: 700; }
+.chl-val { font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A shared place folded: the same columns, a count where the face goes, and it opens in place. */
+.chl-tie { display: block; padding: 0; }
+.chl-tie-btn { display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; width: 100%; min-height: 52px; padding: 0 8px 0 4px; border: 0; border-radius: 14px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 150ms var(--chl-ease); }
+.chl-tie-btn:active { background: var(--chl-fill-2); }
+@media (hover: hover) and (pointer: fine) { .chl-tie-btn:hover { background: var(--chl-fill-1); } }
+.chl-tie-btn:focus-visible { outline: 2px solid var(--bw, #5ac8fa); outline-offset: 2px; }
+.chl-more { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; box-sizing: border-box; font-size: 13px; font-weight: 700; color: var(--text-2);
+  background: var(--chl-fill-3); font-variant-numeric: tabular-nums; }
+.chl-tie .chl-name { font-weight: 500; color: var(--text-2); }
+.chl-all { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 4px; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; border-radius: 0; transition: color 150ms var(--chl-ease); }
+.chl-all .ui-chev, .chl-mine .ui-chev, .chl-past-row .ui-chev { width: 18px; height: 18px; color: var(--text-3); transition: transform 200ms var(--chl-ease); }
+@media (hover: hover) and (pointer: fine) { .chl-all:hover { color: var(--text); } .chl-all:hover .ui-chev { transform: translateX(2px); } }
+
+/* ---------- empty, the actions, the past ---------- */
+.chl-empty { display: flex; align-items: flex-start; gap: 14px; }
+.chl-empty-ic, .chl-mine-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--chl-gold); background: color-mix(in srgb, var(--chl-gold) 13%, transparent); }
+.chl-empty-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 2px; }
+.chl-empty-main b { font-size: 17px; font-weight: 650; line-height: 1.3; }
+.chl-empty-main span { font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.chl-acts { margin-top: 12px; }
+.chl-btn { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--chl-fill-3); color: var(--text);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--chl-ease), background-color 150ms var(--chl-ease); }
+.chl-btn:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) { .chl-btn:hover { background: var(--chl-fill-4); } }
+.chl-btn:focus-visible, .chl-all:focus-visible, .chl-mine:focus-visible, .chl-past-btn:focus-visible, .chl-past-row:focus-visible, .chl-metric:focus-visible { outline: 2px solid var(--bw, #5ac8fa); outline-offset: 2px; }
+.chl-past { margin-top: 20px; }
+.chl-past-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.chl-past-n { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; display: inline-grid; place-items: center; box-sizing: border-box; font-size: 13px; background: var(--chl-fill-3); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.chl-past-btn .ui-chev { width: 18px; height: 18px; margin-left: auto; color: var(--text-3); transform: rotate(90deg); transition: transform 200ms var(--chl-ease); }
+.chl-past-btn[aria-expanded="true"] .ui-chev { transform: rotate(-90deg); }
+.chl-past-list { margin-top: 4px; border: 1px solid var(--line); border-radius: 20px; background: var(--bg-1); overflow: hidden; }
+.chl-past-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 16px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.chl-past-row + .chl-past-row::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--line); }
+.chl-past-row:active { background: var(--chl-fill-2); }
+@media (hover: hover) and (pointer: fine) { .chl-past-row:hover { background: var(--chl-fill-1); } }
+.chl-past-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.chl-past-name { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chl-past-sub { font-size: 13px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- the lifter: your coach's challenge ---------- */
+.chl-mine { display: grid; grid-template-columns: 40px minmax(0, 1fr) 18px; align-items: center; column-gap: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms var(--chl-ease), background-color 150ms var(--chl-ease); }
+.chl-mine:active { transform: scale(0.985); }
+@media (hover: hover) and (pointer: fine) { .chl-mine:hover { background: color-mix(in srgb, var(--text) 3%, var(--bg-1)); } }
+.chl-mine-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chl-mine-k { font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.chl-mine-name { font-size: 17px; font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chl-mine-line { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- the sheets: the whole board, New challenge ---------- */
+.chl-sheet .chl-sub { margin: 0 0 4px; }
+.chl-sheet .chl-rows { margin-top: 8px; }
+.chl-sheet .chl-note { margin: 12px 4px 0; }
+.chl-sheet .chl-end { display: block; margin: 16px auto 0; padding: 12px 16px; font-size: 15px; }
+.chl-new .chl-label { margin: 20px 2px 8px; }
+.chl-new .chl-label:first-of-type { margin-top: 8px; }
+.chl-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.chl-metric { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 76px; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--chl-fill-2); color: var(--text-2);
+  font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; box-shadow: inset 0 0 0 1.5px transparent;
+  transition: background-color 180ms var(--chl-ease), box-shadow 180ms var(--chl-ease), color 180ms var(--chl-ease), transform 140ms var(--chl-ease); }
+.chl-metric b { font-size: 15px; font-weight: 650; line-height: 1.3; color: var(--text); }
+.chl-metric span { font-size: 13px; line-height: 1.35; color: var(--text-3); text-wrap: pretty; }
+.chl-metric:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) { .chl-metric:hover:not(.on) { background: var(--chl-fill-3); } }
+/* Picked: raised like the app's segmented control, with an ink edge so a tile in a grid reads as the one. */
+.chl-metric.on { background: var(--bg-3); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--text-2), 0 1px 2px rgba(0, 0, 0, 0.3); }
+html[data-theme="light"] .chl-metric.on { background: #fff; box-shadow: inset 0 0 0 1.5px var(--text-2), 0 1px 2px rgba(11, 11, 13, 0.1); }
+.chl-metric.on span { color: var(--text-2); }
+.chl-who { flex-wrap: wrap; overflow: visible; }
+.chl-who .ui-chip { min-height: 40px; }
+.chl-when-seg button { min-height: 40px; }
+.chl-dates, .chl-fields { margin-top: 12px; }
+.chl-fields { margin-top: 20px; }
+.chl-sum { min-height: 18px; margin: 14px 4px 12px; font-size: 13px; line-height: 18px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.chl-sum.is-warn { color: var(--chl-warn); }
+
+@keyframes chlRise { from { opacity: 0.45; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .chl-card, .chl-row { animation: none; }
+  .chl-btn, .chl-mine, .chl-metric, .chl-all .ui-chev, .chl-past-btn .ui-chev { transition: none; }
+  .chl-btn:active, .chl-mine:active, .chl-metric:active { transform: none; }
+}
+
+/* ---------- the phone: 44 pt to tap, the full width for the one button ---------- */
+@media (max-width: 700px) {
+  .chl-coach .chl-btn { width: 100%; }
+  .chl-who .ui-chip, .chl-when-seg button { min-height: 44px; }
+}
+
+/* ---------- the desk: the desk's card (the club's below it), its type scale (16 for a card's
+   title, not 17), hover only with a mouse ---------- */
+html.desk .chl-card, html.desk .chl-past-list { background-color: var(--dk-card, var(--bg-1)); background-image: var(--dk-card-sheen, none); border: 1px solid var(--dk-card-edge, var(--line));
+  box-shadow: var(--dk-card-lit, none); border-radius: var(--r-3, 20px); }
+html.desk .chl-card { padding: 16px 20px; }
+html.desk .chl :is(.chl-title, .chl-mine-name, .chl-empty-main b) { font-size: 16px; }
+html.desk .chl-row, html.desk .chl-tie-btn { min-height: 48px; }
+html.desk .chl .chl-btn { height: 40px; }

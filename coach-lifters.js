@@ -152,7 +152,7 @@
     Object.keys(md).forEach(function (k) {
       var g = md[k];
       g.over = g.rows.filter(function (r) { return r.bw && r.bw.over > 0; }).sort(function (a, b) { return b.bw.over - a.bw.over; });
-      g.unplanned = g.rows.filter(function (r) { var m = r.meet.meet || {}; return !(m.attempts || m.openers || m.plan); });
+      g.unplanned = g.rows.filter(function (r) { return !meetAttemptsSet(r.meet.meet); });
       g.done = g.rows.every(function (r) { return covers(done[r.athlete.id], 'meetday'); });
       items.push(g);
     });
@@ -325,7 +325,7 @@
           if (mine.bw && mine.bw.over > 0) own.push(num(kgShow(mine.bw.over)) + ' ' + unit() + ' over ' + clsText(mine.bw.cls));
           else if (mine.bw) own.push('On weight for ' + clsText(mine.bw.cls));
           var mm = mine.meet.meet || {};
-          own.push(mm.attempts || mm.openers || mm.plan ? 'attempts set' : 'attempts not set');
+          own.push(meetAttemptsSet(mm) ? 'attempts set' : 'attempts not set');
           if (it.rows.length > 1) own.push('with ' + namesList(who.filter(function (n) { return n !== first(mine.athlete.name); }), 2));
           return { icon: 'trophy', tone: 'meet', title: it.name + (it.days <= 0 ? ' is today' : ' is tomorrow'), detail: own.join(' · ') };
         }
@@ -343,7 +343,7 @@
       case 'weight': return { icon: 'scale', tone: 'bw', title: r.bw ? num(kgShow(r.bw.over)) + ' ' + unit() + ' over the ' + clsText(r.bw.cls) + ' class' : (x.text || 'Over the class'),
         detail: r.meet ? (r.meet.meet.name || 'Meet') + ' ' + daysText(r.meet.days) : '' };
       case 'offpace': return { icon: 'scale', tone: 'bw', title: 'Cut off pace', detail: st.cut && st.cut.flag ? st.cut.flag : '' };
-      case 'meet': { var m = r.meet ? r.meet.meet : {}; var planned = !!(m.attempts || m.openers || m.plan);
+      case 'meet': { var m = r.meet ? r.meet.meet : {}; var planned = meetAttemptsSet(m);
         return { icon: 'trophy', tone: 'meet', title: meetLine(r), detail: (m.name || 'Meet') + (m.weightClass ? ' · ' + clsText(m.weightClass) + ' class' : '') + (planned ? ' · attempts set' : ' · attempts not set') }; }
       case 'overshoot': { var o = /^(.*) @([\d.]+) vs @([\d.]+)$/.exec(x.text || ''); return { icon: 'gauge', tone: 'warn', title: o ? o[1] + ' @' + o[2] + ', you wrote ' + o[3] : (x.text || 'Over what you wrote'), detail: 'Over what you wrote' }; }
       case 'drift': return { icon: 'gauge', tone: 'warn', title: r.drift ? 'RPE +' + r.drift.avg + ' over written' : (x.text || 'RPE drifting up'), detail: r.drift ? 'Across ' + plural(r.drift.n, 'set') + ' this week' : '' };
@@ -929,7 +929,7 @@
         viz('line', bwLine, o.phone ? 50 : 56), bwFoot, { compact: true }));
     }
     if (r.meet && r.meet.days <= 112) {
-      var m = r.meet.meet, planned = !!(m.attempts || m.openers || m.plan);
+      var m = r.meet.meet, planned = meetAttemptsSet(m);
       small.push('<div class="cl-tile t-meets is-compact cl-meet"><div class="cl-th"><span class="cl-tic">' + ic('trophy') + '</span><span class="cl-tl">Meet</span><span class="cl-ts">' + esc(dayMonth(m.date)) + '</span></div>' +
         '<div class="cl-tv"><b class="cl-big3">' + (r.meet.days <= 0 ? 'Today' : r.meet.days === 1 ? 'Tomorrow' : r.meet.days + ' days') + '</b></div>' +
         '<div class="cl-mname">' + esc(clip(m.name || 'Meet', 30)) + '</div>' +

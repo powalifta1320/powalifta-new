@@ -120,7 +120,7 @@ function _wipeLocalUserData() {
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
   try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
   // MEET DAY hook (meetday.js): boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop.
-  try { Object.keys(localStorage).filter(k => /^powa-md-/.test(k) || k === 'powa-attempt-plans').forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { Object.keys(localStorage).filter(k => /^powa-md-|^powa-challenge/.test(k) || k === 'powa-attempt-plans').forEach(k => localStorage.removeItem(k)); } catch (e) {}
 }
 // Stop this device getting the signed-out account's pushes (their coach's messages
 // would otherwise keep arriving for whoever signs in next, and the next account
@@ -382,7 +382,7 @@ function _buildDemoData() {
     goals: 'Total 570 at the next meet. Bench 130.', meet: { name: 'Winter Classic', date: daysAgo(-63), federation: 'USAPL' },
     phone: '+1 555 0137', timezone: 'America/Chicago', instagram: 'demo.lifter', notes: '' } }] : [];
 
-  return {
+  const out = {
     user: user,
     store: {
       checkinQuestions: ciQs, checkinAnswers: ciAs, intakes, clientBilling: [], clientPayments: [],
@@ -396,6 +396,9 @@ function _buildDemoData() {
       coachBrand: !SOLO && /[?&]brand=1/.test(location.search) ? demoCoachBrand() : null
     }
   };
+  // Coach challenges (challenges.js): the coach's running challenge, from this lifter's side (coached only).
+  if (!SOLO) { try { if (window.Challenges && Challenges.seedLifterDemo) Challenges.seedLifterDemo(out.store, { athleteId: DA, coachId: DC, daysAgo }); } catch (e) { console.warn('seedChallengeDemo', e); } }
+  return out;
 }
 
 // Waveforms for the demo's voice notes (32 bars, 0-100). A var, so the demo boot can't hit a TDZ.
@@ -545,7 +548,10 @@ function _buildCoachDemoData() {
   [[20, 64.4], [17, 64.0], [14, 64.3], [11, 64.1], [8, 64.2], [5, 63.9], [3, 64.2], [1, 64.1]].forEach(([d, kg]) => {
     bodyweight.push({ id: 'demo-cbw-demo-a2-' + d, athleteId: 'demo-a2', date: daysAgo(d), weight: kg, unit: 'kg' });
   });
-  const goals = [{ id: 'demo-a2', athleteId: 'demo-a2', bodyweight: 63, bwDirection: 'cut', targetClass: 63, cutBy: daysAgo(-21), kcalTarget: 1900, proteinTarget: 130 }];
+  const goals = [{ id: 'demo-a2', athleteId: 'demo-a2', bodyweight: 63, bwDirection: 'cut', targetClass: 63, cutBy: daysAgo(-21), kcalTarget: 1900, proteinTarget: 130 },
+    // Arjun's total for Fall Nationals (the planner's Aim for a total starts on it): within reach of
+    // his 572.5 meet best, a long way off his maxes mid-block, so it opens on an honest chance.
+    { id: 'demo-a1', athleteId: 'demo-a1', squat: null, bench: null, deadlift: null, total: 570, bodyweight: null, bwDirection: 'maintain' }];
   // Seeded conversations so the Messages inbox is alive: an active back-and-forth
   // (Arjun, ends on an unread question), a wrapped-up exchange (Sarah), a re-engaged
   // absentee (Tom, unread), and Nina with nothing yet (shows the empty state).
@@ -811,6 +817,9 @@ function _buildCoachDemoData() {
     // A team of six on the desk (brief M4): needs the desk's lifters, so phones keep their four.
     try { seedTeamDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedTeamDemo', e); }
   }
+  // Coach challenges (challenges.js): a running one over the whole roster (the desk's twenty or the
+  // phone's four) and last month's, finished. After the desk's lifters, so it counts every one.
+  try { if (window.Challenges && Challenges.seedCoachDemo) Challenges.seedCoachDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedChallengeDemo', e); }
   return demo;
 }
 
@@ -15312,6 +15321,17 @@ function isPlannedMeet(m, todayIso) {
   return none && !!m.date && String(m.date).slice(0, 10) > (todayIso || (typeof todayISO === 'function' ? todayISO() : ''));
 }
 function _isoDay(v) { const s = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; }
+// A meet's attempts are set: the attempt planner saved a plan (meets.attempt_plan, or on this laptop
+// under meetday.js's 'powa-attempt-plans' until the meet-day migration runs), or an older field has
+// them. (27 Oct: Today and Lifters read only the older fields and said "attempts not set" after Save plan.)
+function meetAttemptsSet(m) {
+  if (!m) return false;
+  if (m.attempts || m.openers || m.plan) return true;
+  const has = (p) => !!(p && ['squat', 'bench', 'deadlift'].some(l => Array.isArray(p[l]) && p[l].some(v => Number(v) > 0)));
+  if (has(m.attemptPlan)) return true;
+  if (!m.id) return false;
+  try { const lp = JSON.parse(localStorage.getItem('powa-attempt-plans') || 'null'); return !!(lp && has(lp[m.id])); } catch (e) { return false; }
+}
 function _wkBetween(fromMon, toMon) { return Math.round((Date.parse(toMon + 'T12:00:00Z') - Date.parse(fromMon + 'T12:00:00Z')) / (7 * 86400000)); }
 // "W-3" (three weeks out), "Meet week", "W+1" (the week after).
 function meetWeekLabel(weekStartIso, meetIso) {

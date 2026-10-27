@@ -136,6 +136,12 @@ with checks(n, migration, applied) as (values
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
         to_regclass('public.intake') is not null),
   (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
-        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0)
+        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0),
+  (50, 'migration-coach-challenges-2026-10-28.sql  (coach challenges: the coach''s own lifters on a board of their own in Club; needs only profiles)',
+        to_regclass('public.coach_challenges') is not null
+        and to_regclass('public.challenge_entries') is not null
+        and to_regprocedure('public.challenge_member_may(uuid, boolean)') is not null
+        and to_regprocedure('public.challenge_board(uuid[])') is not null
+        and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard'))
 )
 select n, migration, applied from checks order by n;

@@ -106,6 +106,7 @@
 <script src="weekly-note.js"></script>
 <script src="block-dna.js"></script>
 <script src="career.js"></script>
+<script src="challenges.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -4468,6 +4469,169 @@ test('the basis says what the plans stand on, honest about old maxes', () => {
 });
 
 /* ===========================================================
+   Aim for a total (meetday.js, 2026-10-28): the chance a set of
+   attempts makes a target total (every attempt its own odds, a
+   lift's result its heaviest made attempt, 0 on a bomb-out), and
+   the attempts with the best chance of a target
+   =========================================================== */
+group('aim for a total');
+const _odd = (w, e) => 1 / (1 + Math.exp(0.4 * (w / e * 100 - 100)));
+test('the chance of a total: tiny cases, exactly', () => {
+  // An attempt at the max is a coin flip: one lift, one attempt.
+  close(MP.totalChance({ squat: [200] }, { squat: 200 }, 200), 0.5, 1e-12);
+  close(MP.totalChance({ squat: [200] }, { squat: 200 }, 150), 0.5, 1e-12, 'made or bombed: under the bar is the same as at it');
+  // Two lifts, a coin flip each: both for the sum, either for the heavier alone.
+  const two = { squat: [200], bench: [100] }, b2 = { squat: 200, bench: 100 };
+  close(MP.totalChance(two, b2, 300), 0.25, 1e-12);
+  close(MP.totalChance(two, b2, 200), 0.5, 1e-12, '200 needs the squat; the bench alone never gets there');
+  close(MP.totalChance(two, b2, 100), 0.75, 1e-12, 'either lift makes 100');
+  close(MP.totalChance({ squat: [200], bench: [100], deadlift: [250] }, { squat: 200, bench: 100, deadlift: 250 }, 550), 0.125, 1e-12, 'three thirds at the max: one in eight');
+  // Three attempts on one lift: the result is the heaviest made.
+  const po = _odd(180, 200), ps = _odd(190, 200), pt = _odd(200, 200);
+  const sq = { squat: [180, 190, 200] }, b = { squat: 200 };
+  close(MP.totalChance(sq, b, 200), pt, 1e-12, 'only the third makes 200');
+  close(MP.totalChance(sq, b, 190), 1 - (1 - ps) * (1 - pt), 1e-12, 'the second or the third makes 190');
+  close(MP.totalChance(sq, b, 180), 1 - (1 - po) * (1 - ps) * (1 - pt), 1e-12, 'anything but three misses makes 180');
+  close(MP.totalChance(sq, b, 201), 0, 1e-12, 'nothing planned reaches 201');
+  // A repeat after a miss: the same bar three times.
+  close(MP.totalChance({ squat: [200, 200, 200] }, b, 200), 0.875, 1e-12);
+  // Blank attempts are not taken; attempts in any order still count by weight.
+  close(MP.totalChance({ squat: [200, null, null] }, b, 200), 0.5, 1e-12);
+  close(MP.totalChance({ squat: [200, 180, 190] }, b, 190), 1 - (1 - ps) * (1 - pt), 1e-12);
+});
+test('the chance of a total: no max or no target means no chance (never a guess)', () => {
+  eq(MP.totalChance({ squat: [200] }, { squat: 0 }, 200), null, 'a lift with attempts and no max');
+  eq(MP.totalChance({ squat: [200] }, {}, 200), null);
+  eq(MP.totalChance({ squat: [200] }, { squat: 200 }, 0), null, 'no target');
+  eq(MP.totalChance({ squat: [200] }, { squat: 200 }, 'x'), null);
+  eq(MP.totalChance({}, { squat: 200 }, 200), null, 'no attempts at all');
+  eq(MP.totalChance(null, null, 200), null);
+  close(MP.totalChance({ squat: [200], bench: [] }, { squat: 200 }, 200), 0.5, 1e-12, 'a lift with nothing planned adds nothing');
+});
+test('the chance falls as the target rises', () => {
+  const lifts = { squat: [182.5, 192.5, 200], bench: [115, 122.5, 127.5], deadlift: [217.5, 230, 240] }, bases = { squat: 200, bench: 127, deadlift: 240 };
+  let last = 2;
+  for (let t = 300; t <= 620; t += 2.5) {
+    const p = MP.totalChance(lifts, bases, t);
+    assert(p <= last + 1e-12, t + ': ' + p + ' after ' + last);
+    assert(p >= 0 && p <= 1, 'a probability: ' + p);
+    last = p;
+  }
+  assert(MP.totalChance(lifts, bases, 300) > 0.99, 'a low target only fails on two bomb-outs');
+  close(MP.totalChance(lifts, bases, 567.5), _odd(200, 200) * _odd(127.5, 127) * _odd(240, 240), 1e-12, 'the thirds\' sum: every third has to go');
+  eq(MP.totalChance(lifts, bases, 570), 0, 'past every third');
+});
+test('live: made attempts count, missed ones are gone, the rest keep their odds', () => {
+  const lifts = { squat: [180, 190, 200] }, b = { squat: 200 };
+  close(MP.totalChanceLive(lifts, { squat: ['good', 'no', null] }, b, 190), _odd(200, 200), 1e-12, '180 in, 190 missed: 190 needs the third');
+  close(MP.totalChanceLive(lifts, { squat: ['good', 'no', null] }, b, 180), 1, 1e-12, '180 is in the bank');
+  close(MP.totalChanceLive(lifts, { squat: ['good', 'good', 'good'] }, b, 200), 1, 1e-12);
+  close(MP.totalChanceLive(lifts, { squat: ['no', 'no', 'no'] }, b, 20), 0, 1e-12, 'a bomb-out');
+  close(MP.totalChanceLive(lifts, { squat: [true, false, null] }, b, 190), _odd(200, 200), 1e-12, 'true / false read as made / missed');
+  close(MP.totalChanceLive(lifts, {}, b, 190), MP.totalChance(lifts, b, 190), 1e-12, 'no results yet: the plan\'s own chance');
+  // Every attempt called: no max needed.
+  close(MP.totalChanceLive({ squat: [180, 190, 200] }, { squat: ['good', 'good', 'no'] }, {}, 190), 1, 1e-12, 'nothing left to lift: the odds need no max');
+  eq(MP.totalChanceLive({ squat: [180, 190, 200] }, { squat: ['good', null, null] }, {}, 190), null, 'something left and no max: no chance');
+  // Two lifts: a good bench third moves the total's chance up.
+  const two = { squat: [180, 190, 200], bench: [90, 95, 100] }, b2 = { squat: 200, bench: 100 };
+  const sq3 = ['good', 'good', 'good'];
+  const before = MP.totalChanceLive(two, { squat: sq3 }, b2, 295);
+  const after = MP.totalChanceLive(two, { squat: sq3, bench: ['good', 'good', null] }, b2, 295);
+  assert(after > before, 'two benches in: ' + after + ' > ' + before);
+  close(after, 1, 1e-12, '95 in the bank makes 295');
+  close(MP.totalChanceLive(two, { squat: sq3, bench: ['good', 'good', null] }, b2, 300), _odd(100, 100), 1e-12, '300 still needs the bench third');
+});
+test('aim: the attempts with the best chance of a target, never worse than Safe, Balanced or Bold', () => {
+  const cases = [{ e: { squat: 200, bench: 127, deadlift: 240 } }, { e: { squat: 115, bench: 67.5, deadlift: 147.5 } }, { e: { squat: 262.5, bench: 172.5, deadlift: 300 }, ref: { squat: 240 } },
+    { e: { squat: 96, bench: 54, deadlift: 125 } }, { e: { squat: 205, bench: 132 } }];
+  cases.forEach(c => {
+    const plans = MP.attemptPlans(c.e, { refByLift: c.ref || {} });
+    const sum = Object.keys(c.e).reduce((a, l) => a + c.e[l], 0);
+    for (let t = Math.round(sum * 0.84 / 2.5) * 2.5; t <= sum * 1.03; t += 7.5) {
+      const r = MP.planForTotal(t, c.e, { refByLift: c.ref || {} });
+      if (r.outOfReach) continue;
+      plans.forEach(pl => {
+        const kg = {}; Object.keys(pl.lifts).forEach(l => { kg[l] = pl.lifts[l].map(a => a.kg); });
+        const pc = MP.totalChance(kg, c.e, t);
+        assert(r.p >= pc - 1e-12, pl.key + ' at ' + t + ': ' + pc + ' beats the aim ' + r.p);
+      });
+      close(MP.totalChance(r.lifts, c.e, t), r.p, 1e-12, 'p is the plan\'s own chance');
+      Object.keys(r.lifts).forEach(l => {
+        const a = r.lifts[l];
+        a.forEach(k => assert(Math.abs(k / 2.5 - Math.round(k / 2.5)) < 1e-9 && k >= 20, l + ' ' + k + ' on 2.5 kg'));
+        assert(a[1] - a[0] >= 2.5 - 1e-9 && a[2] - a[1] >= 2.5 - 1e-9, l + ' climbs: ' + a.join());
+      });
+      eq(r.total, Object.keys(r.lifts).reduce((s, l) => s + r.lifts[l][2], 0), 'the total is the thirds');
+    }
+  });
+});
+test('aim: openers as Safe has them, the bouncer still holds them', () => {
+  const e = { squat: 200, bench: 127, deadlift: 240 };
+  const safe = MP.attemptPlans(e)[0];
+  const r = MP.planForTotal(540, e);
+  MP.LIFTS.forEach(l => eq(r.lifts[l][0], safe.lifts[l][0].kg, l + ' opener as Safe'));
+  const held = MP.planForTotal(540, e, { refByLift: { squat: 185 } });
+  assert(held.lifts.squat[0] / 185 <= 0.95, 'an opener past 95% of this month steps down: ' + held.lifts.squat[0]);
+  // A target near the plans: the aim gives it the best chance there is in the window (93-106% of the max).
+  const hi = MP.planForTotal(575, e);
+  assert(!hi.outOfReach && hi.p > 0.01 && hi.total >= 575, 'the thirds reach the target: ' + hi.total);
+  MP.LIFTS.forEach(l => hi.lifts[l].slice(1).forEach(k => assert(k <= e[l] * 1.06 + 1e-9 || k <= safe.lifts[l][2].kg, l + ' ' + k + ' within the window')));
+});
+test('aim: out of reach says so, and what total is likely instead', () => {
+  const e = { squat: 200, bench: 127, deadlift: 240 };
+  const r = MP.planForTotal(640, e);
+  eq(r.outOfReach, true);
+  assert(r.likely > 0 && r.likely < 640 && Math.abs(r.likely / 2.5 - Math.round(r.likely / 2.5)) < 1e-9, 'likely on 2.5 kg: ' + r.likely);
+  assert(MP.planForTotal(r.likely, e).p >= 0.7, 'and it is likely: ' + MP.planForTotal(r.likely, e).p);
+  eq(MP.planForTotal(560, e).outOfReach, undefined, 'a target in reach is a plan');
+  eq(MP.planForTotal(0, e), null); eq(MP.planForTotal(560, {}), null, 'no max: no plan');
+});
+test('aim: lb in, kg inside, the target round-trips in the coach-s unit', () => {
+  eq(MP.targetKg('600', 'kg'), 600); eq(MP.targetKg('600.3', 'kg'), 600.5, 'kg on 0.5');
+  eq(MP.targetKg('1320', 'lbs'), 598.5, '1320 lb on 0.5 kg');
+  eq(MP.targetShown(598.5, 'lbs'), '1320', 'and back in lb');
+  eq(MP.targetShown(MP.targetKg('1325', 'lbs'), 'lbs'), '1325'); eq(MP.targetShown(MP.targetKg('1321', 'lbs'), 'lbs'), '1321');
+  eq(MP.targetShown(600, 'kg'), '600'); eq(MP.targetShown(602.5, 'kg'), '602.5');
+  eq(MP.targetKg('', 'kg'), null); eq(MP.targetKg('abc', 'lbs'), null); eq(MP.targetKg('5', 'kg'), null, 'under 20 kg is not a total');
+  eq(MP.targetKg('1600', 'kg'), null, 'past 1500 kg is not a total');
+  const r = MP.planForTotal(MP.targetKg('1250', 'lbs'), { squat: 230, bench: 150, deadlift: 270 });
+  assert(r && r.lifts && r.lifts.squat.every(k => Math.abs(k / 2.5 - Math.round(k / 2.5)) < 1e-9), 'an lb target plans on kg plates');
+});
+test('aim: a saved plan keeps its target (20-1500 kg, on 0.5), inside the 2 KB the column allows', () => {
+  eq(MP.normalizePlan({ target: 600.3 }).target, 600.5);
+  eq(MP.normalizePlan({ target: '582.5' }).target, 582.5);
+  eq(MP.normalizePlan({ target: 10 }).target, undefined); eq(MP.normalizePlan({ target: 1600 }).target, undefined); eq(MP.normalizePlan({ target: 'x' }).target, undefined);
+  eq(MP.normalizePlan({}).target, undefined, 'no target: none kept');
+  const full = MP.normalizePlan({ squat: [182.5, 192.5, 200], bench: [115, 122.5, 127.5], deadlift: [217.5, 230, 240], strategy: 'standard', sex: 'female',
+    note: 'x'.repeat(400), at: new Date().toISOString(), by: 'y'.repeat(80), target: 1499.5 });
+  eq(full.target, 1499.5);
+  assert(JSON.stringify(full).length < 2048, 'under 2 KB: ' + JSON.stringify(full).length);
+});
+test('meet day: "Chance of 600 now" in whole percent, never certain, in the viewer-s unit', () => {
+  eq(MP.chancePct(0.412), '41%'); eq(MP.chancePct(0.999), '99%', 'never certain'); eq(MP.chancePct(0.004), 'under 1%'); eq(MP.chancePct(0.006), '1%');
+  const lifts = { squat: [180, 190, 200], bench: [90, 95, 100] }, b = { squat: 200, bench: 100 };
+  eq(MP.chanceNowText(300, lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'kg'), 'Chance of 300 now: 50%', 'the bench third is a coin flip');
+  eq(MP.chanceNowText(295, lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'kg'), '295 made', 'in the bank: said as made, not as a chance');
+  eq(MP.chanceNowText(301, lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'kg'), '301 is out of reach now', 'past what is left to lift');
+  eq(MP.chanceNowText(290, lifts, { squat: ['good', 'no', null], bench: ['good', null, null] }, b, 'kg'), 'Chance of 290 now: ' + MP.chancePct(MP.totalChanceLive(lifts, { squat: ['good', 'no', null], bench: ['good', null, null] }, b, 290)));
+  eq(MP.chanceNowText(MP.targetKg('660', 'lbs'), lifts, { squat: ['good', 'good', 'good'], bench: ['good', 'good', null] }, b, 'lbs'), 'Chance of 660 now: 50%', 'an lb target reads in lb');
+  eq(MP.chanceNowText(0, lifts, {}, b, 'kg'), '', 'no target: nothing to say');
+  eq(MP.chanceNowText(300, lifts, {}, {}, 'kg'), '', 'no max: no chance');
+});
+test('aim: under 50 ms for any input', () => {
+  const big = [{ squat: 420, bench: 300, deadlift: 450 }, { squat: 560, bench: 560, deadlift: 560 }, { squat: 35, bench: 25, deadlift: 45 }];
+  big.forEach(e => {
+    const sum = e.squat + e.bench + e.deadlift;
+    [0.85, 0.95, 1.0, 1.04].forEach(f => {
+      const t0 = Date.now();
+      MP.planForTotal(Math.round(sum * f / 2.5) * 2.5, e);
+      const ms = Date.now() - t0;
+      assert(ms < 50, JSON.stringify(e) + ' at ' + f + ': ' + ms + ' ms');
+    });
+  });
+});
+
+/* ===========================================================
    Release check fixes (2026-10-22): weigh-in dates, sleep row, class, cut row,
    chart label, meet opener reference, collars, AI bodyweight
    =========================================================== */
@@ -4935,6 +5099,27 @@ test('a lifter: weeks trained, effort against what was written, weigh-ins', () =
   eq(E[0].w, 160); eq(E[0].d, 1); eq(E[1].d, 0, 'the top of a range counts as written');
   const B = CL.clBw([{ athleteId: 'a', date: '2026-10-27', weight: 64.1 }, { athleteId: 'a', date: '2026-10-01', weight: 64.6 }, { athleteId: 'b', date: '2026-10-27', weight: 80 }, { athleteId: 'a', date: '2026-08-01', weight: 66 }], 'a', T, 42);
   eq(B.length, 2); eq(B[0].kg, 64.6); eq(B[1].date, '2026-10-27');
+});
+test('a plan saved in the planner counts as attempts set (Today, Lifters, the lifter page)', () => {
+  // 27 Oct: the planner writes meets.attemptPlan, and Today / Lifters only read the older fields, so
+  // a meet with a saved plan still said "attempts not set".
+  const T = '2026-10-26';
+  const plan = { v: 1, strategy: 'standard', squat: [180, 190, 197.5], bench: [120, 125, 130], deadlift: [220, 232.5, 240] };
+  eq(meetAttemptsSet({ attemptPlan: plan }), true);
+  eq(meetAttemptsSet({ attemptPlan: { v: 1, strategy: 'standard', squat: [null, null, null] } }), false, 'a plan with no numbers sets nothing');
+  eq(meetAttemptsSet({}), false); eq(meetAttemptsSet(null), false);
+  eq(meetAttemptsSet({ openers: { squat: 180 } }), true, 'the older fields still count');
+  try { localStorage.setItem('powa-attempt-plans', JSON.stringify({ 'm-local': plan })); } catch (e) {}
+  eq(meetAttemptsSet({ id: 'm-local' }), true, 'a plan kept on this laptop before the meet-day migration');
+  try { localStorage.removeItem('powa-attempt-plans'); } catch (e) {}
+  const today = clRow({ athlete: { id: 'e', name: 'Elena Rossi' }, meet: { days: 1, meet: { name: 'State', date: '2026-10-27', attemptPlan: plan } }, reasons: [{ type: 'meet', group: 2 }] });
+  const J = CL.clJobs([today], { today: T });
+  eq(J[0].type, 'meetday'); eq(J[0].unplanned.length, 0, 'the meet-day job: nobody without attempts');
+  J[0].forId = 'e';
+  assert(/attempts set/.test(CL.jobText(J[0]).detail) && !/not set/.test(CL.jobText(J[0]).detail), CL.jobText(J[0]).detail);
+  const soon = clRow({ meet: { days: 10, meet: { name: 'Open', date: '2026-11-05', attemptPlan: plan } }, reasons: [{ type: 'meet', group: 2 }] });
+  const j2 = CL.jobText(CL.clJobs([soon], { today: T })[0]);
+  assert(/attempts set/.test(j2.detail) && !/not set/.test(j2.detail), j2.detail);
 });
 test('the line, the number and the job texts read in the coach’s words', () => {
   const T = '2026-10-26';
@@ -5950,6 +6135,105 @@ test('the demos: a career worth showing (athlete.html?demo=1 and Arjun on coach.
   assert(R.hero.years >= 2, 'two years and more');
   eq(R.hero.bestMeetTotal, 572.5, 'the Spring Classic is his best');
   eq(careerEvents('demo-a1', CD.store, { unit: 'kg' }).events.filter(e => e.kind === 'meet' && /Fall Nationals/.test(e.title)).length, 0, 'the planned meet is not a result');
+});
+
+/* ===========================================================
+   Coach challenges (challenges.js, 2026-10-28): the coach's
+   own lifters (all of them or one team) race on sessions, PRs,
+   gain or training as written; ranked, in the coach's words
+   =========================================================== */
+group('coach challenges (challenges.js)');
+const CH = window.Challenges || {};
+const CHL = (id, date, lift, w, reps, rpe, variant) => ({ id, athleteId: 'ch-a', lift, variant: variant || 'Competition', exerciseName: '', weight: w, reps, rpe,
+  e1rm: calcE1RM(w, reps, rpe), e1rmComp: calcCompE1RM(w, reps, rpe, lift, variant || 'Competition'), date, note: '' });
+const CHW = { from: '2026-11-01', to: '2026-11-28', today: '2026-11-16' };
+test('sessions: days trained in the window, counted to today', () => {
+  assert(typeof CH.challengeValue === 'function' && typeof challengeValue === 'function', 'challengeValue is loaded, on window too');
+  const logs = [CHL('a', '2026-10-31', 'squat', 100, 5, 8), CHL('b', '2026-11-02', 'squat', 100, 5, 8), CHL('c', '2026-11-02', 'bench', 60, 5, 8),
+    CHL('d', '2026-11-05', 'deadlift', 140, 5, 8), { id: 'e', date: '2026-11-09', lift: 'legs', exerciseName: 'Leg Press', weight: 100, reps: 10, rpe: 8, e1rmComp: 0 },
+    CHL('f', '2026-11-20', 'squat', 102.5, 5, 8), CHL('g', '2026-11-29', 'squat', 105, 5, 8)];
+  eq(CH.challengeValue('sessions', logs, CHW), 3, 'Nov 2 (two lifts, one day), Nov 5 and Nov 9 (an accessory day counts); the 31st is before, the 20th after today');
+  eq(CH.challengeValue('sessions', logs, Object.assign({}, CHW, { today: '2026-12-10' })), 4, 'after the end: the 28th is the last day; the 29th never counts');
+  eq(CH.challengeValue('sessions', [], CHW), 0); eq(CH.challengeValue('sessions', null, CHW), 0);
+  eq(CH.challengeValue('sessions', logs, Object.assign({}, CHW, { today: '2026-10-20' })), 0, 'before it starts: nothing yet');
+});
+test('PRs: sets that beat the best e1RM before them, main lifts, the same rule as the PR moment', () => {
+  const logs = [CHL('p1', '2026-10-10', 'squat', 100, 5, 8), CHL('p2', '2026-11-03', 'squat', 102.5, 5, 8), CHL('p3', '2026-11-04', 'squat', 102.5, 5, 8),
+    CHL('p4', '2026-11-06', 'squat', 105, 5, 8), CHL('p5', '2026-11-07', 'bench', 70, 5, 8), CHL('p6', '2026-11-10', 'bench', 72.5, 5, 8),
+    CHL('p7', '2026-11-12', 'squat', 95, 5, 9, 'Paused')];
+  eq(CH.challengeValue('prs', logs, CHW), 3, 'p2 and p4 beat the October best, p6 beats p5 (p5 is bench\'s first set: no PR); the same five again is not');
+  const pausedBest = calcCompE1RM(95, 5, 9, 'squat', 'Paused') > calcCompE1RM(105, 5, 8, 'squat', 'Competition');
+  eq(CH.challengeValue('prs', logs, Object.assign({}, CHW, { today: '2026-11-30' })), pausedBest ? 4 : 3, 'a variant counts on its competition-equivalent e1RM');
+  eq(CH.challengeValue('prs', [CHL('x1', '2026-11-03', 'squat', 100, 5, 8)], CHW), 0, 'a lift\'s first set beats nothing yet');
+});
+test('gain: % on the best total from the 8 weeks before, null without one', () => {
+  const pre = [CHL('g1', '2026-10-10', 'squat', 150, 3, 8), CHL('g2', '2026-10-12', 'bench', 100, 3, 8), CHL('g3', '2026-10-14', 'deadlift', 180, 3, 8)];
+  const base = calcCompE1RM(150, 3, 8, 'squat', 'Competition') + calcCompE1RM(100, 3, 8, 'bench', 'Competition') + calcCompE1RM(180, 3, 8, 'deadlift', 'Competition');
+  close(CH.challengeBaseline(pre, '2026-11-01'), base, 1e-9, 'the best of each lift, added');
+  const inside = pre.concat([CHL('g4', '2026-11-05', 'squat', 157.5, 3, 8)]);
+  const now = base - calcCompE1RM(150, 3, 8, 'squat', 'Competition') + calcCompE1RM(157.5, 3, 8, 'squat', 'Competition');
+  eq(CH.challengeValue('gain', inside, CHW), Math.round((now - base) / base * 1000) / 10, 'a lift not trained yet in the window counts as it was');
+  eq(CH.challengeValue('gain', pre, CHW), 0, 'nothing heavier yet: 0%');
+  eq(CH.challengeValue('gain', inside.slice(1), CHW), null, 'no squat in the 8 weeks before: no baseline');
+  eq(CH.challengeValue('gain', [CHL('o', '2026-08-01', 'squat', 150, 3, 8)].concat(pre.slice(1)), CHW), null, 'a squat older than 8 weeks is no baseline');
+  eq(CH.challengeValue('gain', inside, Object.assign({}, CHW, { baseline: base * 0.9 })), Math.round((now - base * 0.9) / (base * 0.9) * 1000) / 10, 'the baseline kept at the first write never moves');
+  const lower = pre.concat([CHL('g5', '2026-11-05', 'squat', 140, 3, 8)]);
+  eq(CH.challengeValue('gain', lower, CHW), 0, 'a lighter set in the window never makes a lift worse than its best');
+});
+test('as written: sessions done of the sessions planned so far, as a %', () => {
+  const prog = { weeks: [{ days: [1, 2, 3, 4].map(n => ({ name: 'Day ' + n, exercises: [{ lift: 'squat', sets: [{ weight: 100, reps: 5, completed: false }] }] })).concat([{ name: 'Rest', exercises: [] }]) }] };
+  const logs = ['2026-11-02', '2026-11-03', '2026-11-05', '2026-11-06', '2026-11-09', '2026-11-11', '2026-11-12'].map((d, i) => CHL('w' + i, d, 'squat', 100, 5, 8));
+  // 16 days to the 16th, four a week: 9 planned so far (whole sessions), 7 done.
+  eq(CH.challengeValue('asWritten', logs, Object.assign({ program: prog }, CHW)), 78);
+  eq(CH.challengeValue('asWritten', logs.concat(['2026-11-13', '2026-11-14', '2026-11-15'].map((d, i) => CHL('z' + i, d, 'bench', 60, 5, 8))), Object.assign({ program: prog }, CHW)), 100, 'extra sessions never read over 100%');
+  eq(CH.challengeValue('asWritten', logs, CHW), null, 'no program: nothing to train as written');
+  eq(CH.challengeValue('asWritten', logs, Object.assign({ program: prog }, CHW, { today: '2026-11-01' })), null, 'day one: nothing planned yet');
+});
+test('ranking: competition ranking, ties share a place, no value goes last', () => {
+  const r = CH.rankChallenge([{ athleteId: 'a', name: 'Ana', value: 9 }, { athleteId: 'b', name: 'Bo', value: 12 }, { athleteId: 'c', name: 'Cy', value: 9 },
+    { athleteId: 'd', name: 'Di', value: null }, { athleteId: 'e', name: 'Ed', value: 4 }, { athleteId: 'f', name: 'Al', value: 9 }]);
+  eq(r.map(x => x.athleteId).join(), 'b,f,a,c,e,d', 'best first, a tie by name, no value last');
+  eq(r.map(x => x.rank).join(), '1,2,2,2,5,', '1, 2, 2, 2, 5: the next place skips the tie');
+  eq(CH.rankChallenge([]).length, 0); eq(CH.rankChallenge(null).length, 0);
+  eq(CH.rankChallenge([{ athleteId: 'n', name: 'N', value: -1.5 }, { athleteId: 'm', name: 'M', value: 0 }])[0].athleteId, 'm', 'a loss ranks under no change');
+});
+test('the words: sessions, PRs, a signed %, as written', () => {
+  eq(CH.challengeText('sessions', 14), '14 sessions'); eq(CH.challengeText('sessions', 1), '1 session'); eq(CH.challengeText('sessions', 0), '0 sessions');
+  eq(CH.challengeText('prs', 3), '3 PRs'); eq(CH.challengeText('prs', 1), '1 PR');
+  eq(CH.challengeText('gain', 6.2), '+6.2%'); eq(CH.challengeText('gain', -1.4), '−1.4%'); eq(CH.challengeText('gain', 0), '0%');
+  eq(CH.challengeText('asWritten', 92), '92% as written');
+  eq(CH.challengeText('gain', null), '–'); eq(CH.challengeText('sessions', undefined), '–'); eq(CH.challengeText('nope', 3), '–');
+});
+test('windows, names and days left read like a coach would say them', () => {
+  const m = CH.challengeWindow('month', '2026-11-03');
+  eq(m.from, '2026-11-03'); eq(m.to, '2026-11-30'); eq(m.label, 'This month');
+  const late = CH.challengeWindow('month', '2026-10-27');
+  eq(late.from, '2026-11-01'); eq(late.to, '2026-11-30'); eq(late.label, 'November', 'a week or less left in the month: next month');
+  const w4 = CH.challengeWindow('4weeks', '2026-10-27'); eq(w4.from, '2026-10-27'); eq(w4.to, '2026-11-23');
+  eq(CH.challengeName('sessions', '2026-11-01', '2026-11-30'), 'November: most sessions');
+  eq(CH.challengeName('gain', '2026-10-27', '2026-11-23'), 'November: biggest gain', 'named for the month most of it falls in');
+  eq(CH.challengeName('prs', '2026-12-20', '2027-01-16'), 'January: most PRs');
+  eq(CH.challengeName('asWritten', '2026-11-02', '2026-11-08'), 'November: training as written');
+  const ch = { startsOn: '2026-11-01', endsOn: '2026-11-28', endedAt: null };
+  eq(CH.challengeState(ch, '2026-10-30'), 'upcoming'); eq(CH.challengeState(ch, '2026-11-16'), 'running'); eq(CH.challengeState(ch, '2026-11-29'), 'ended');
+  eq(CH.challengeState(Object.assign({}, ch, { endedAt: '2026-11-20T10:00:00Z' }), '2026-11-21'), 'ended', 'the coach ended it');
+  eq(CH.challengeWhen(ch, '2026-11-16'), '13 days left'); eq(CH.challengeWhen(ch, '2026-11-28'), 'Ends today'); eq(CH.challengeWhen(ch, '2026-11-27'), '2 days left');
+  eq(CH.challengeWhen(ch, '2026-10-30'), 'Starts in 2 days'); eq(CH.challengeWhen(ch, '2026-10-31'), 'Starts tomorrow');
+  eq(CH.challengeWhen(ch, '2026-12-02'), 'Ended Nov 28');
+  eq(CH.ordinal(1), '1st'); eq(CH.ordinal(2), '2nd'); eq(CH.ordinal(3), '3rd'); eq(CH.ordinal(11), '11th'); eq(CH.ordinal(22), '22nd');
+});
+test('an entry: the value now, the gain baseline taken once and kept', () => {
+  const ch = { id: 'c1', metric: 'gain', startsOn: '2026-11-01', endsOn: '2026-11-28' };
+  const pre = [CHL('g1', '2026-10-10', 'squat', 150, 3, 8), CHL('g2', '2026-10-12', 'bench', 100, 3, 8), CHL('g3', '2026-10-14', 'deadlift', 180, 3, 8)];
+  const e1 = CH.challengeEntry(ch, { id: 'ch-a', name: 'Ana Lima' }, pre, null, null, '2026-11-16');
+  eq(e1.challengeId, 'c1'); eq(e1.athleteId, 'ch-a'); eq(e1.name, 'Ana Lima'); eq(e1.value, 0);
+  close(e1.baseline, CH.challengeBaseline(pre, '2026-11-01'), 1e-9);
+  const later = pre.slice(1).concat([CHL('g9', '2026-11-08', 'squat', 160, 3, 8)]);   // the October squat got deleted
+  const e2 = CH.challengeEntry(ch, { id: 'ch-a', name: 'Ana Lima' }, later, null, e1, '2026-11-20');
+  eq(e2.baseline, e1.baseline, 'the first write\'s baseline stays');
+  assert(e2.value > 0, 'and the gain reads against it: ' + e2.value);
+  const s = CH.challengeEntry({ id: 'c2', metric: 'sessions', startsOn: '2026-11-01', endsOn: '2026-11-28' }, { id: 'ch-a', name: 'A' + 'x'.repeat(80) }, pre.concat([CHL('s1', '2026-11-03', 'squat', 100, 5, 8)]), null, null, '2026-11-16');
+  eq(s.value, 1); eq(s.baseline, null); eq(s.name.length, 60, 'names are cut to the column');
 });
 
 function render() {
