@@ -8525,7 +8525,13 @@ function weighInDateCheck(dateIso, todayIso) {
 // A plain 'YYYY-MM-DD' reads as that day where the lifter is (UTC midnight is the evening
 // before across the Americas, which showed every date a day early).
 function _dateArg(iso) { return /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? new Date(iso + 'T12:00:00') : new Date(iso); }
-function fmtDate(iso) { return _dateArg(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+// The year only when it isn't this one ("Oct 27", "Mar 3, 2025"): every row repeating ", 2026" was noise.
+function fmtDate(iso) {
+  const d = _dateArg(iso);
+  const opts = { month: 'short', day: 'numeric' };
+  if (isNaN(d) || d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString(undefined, opts);
+}
 function fmtDateShort(iso) { return _dateArg(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
 // Compact relative stamp for inbox/feed rows: "now", "3m", "2h", "4d", else a short date.
 function fmtRelative(iso) {
@@ -10312,7 +10318,7 @@ function bwPace(slopeKgWk, curKg, direction) {
     return { tone: 'fast', text: 'fast: expect more fat gain' };
   }
   // maintain
-  if (Math.abs(pctWk) < 0.25) return { tone: 'good', text: 'steady: holding weight' };
+  if (Math.abs(pctWk) < 0.25) return { tone: 'good', text: 'holding steady' };
   return { tone: 'slow', text: 'drifting ' + (slopeKgWk > 0 ? 'up' : 'down') };
 }
 

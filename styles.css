@@ -9296,7 +9296,7 @@ html.native .rest-timer { left: 12px; right: 12px; width: auto; bottom: calc(76p
 
 /* Done: "Go" on a green ring, a single pop, then the dock drops away. */
 .rest-timer.done .rt-prog { stroke: var(--ok, #34d982); filter: drop-shadow(0 0 8px rgba(52, 217, 130, 0.6)); }
-.rest-timer.done .rt-num { color: var(--ok, #34d982); animation: rtGo 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.rest-timer.done .rt-num { color: var(--ok, #34d982); animation: rtGo 0.42s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)); }
 .rest-timer.done .rt-actions { opacity: 0.35; pointer-events: none; transition: opacity 0.2s ease; }
 @keyframes rtGo { from { transform: scale(0.82); } to { transform: none; } }
 
@@ -9391,7 +9391,7 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
   flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff;
   background: var(--fire, linear-gradient(135deg, #ff3b4a, #ff6a3d));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 10px 22px -10px rgba(255, 59, 74, 0.85);
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.18s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
 }
 .club-compose:active .cc-plus { transform: scale(0.9) rotate(90deg); }
 .club-compose .cc-plus svg { width: 22px; height: 22px; }
@@ -9416,7 +9416,7 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
   border-color: rgba(255, 191, 60, 0.32);
   box-shadow: inset 0 1px 0 rgba(255, 224, 140, 0.12), 0 0 0 1px rgba(255, 191, 60, 0.08), 0 22px 44px -28px rgba(255, 176, 30, 0.75);
 }
-.cp-card.is-fresh { animation: cpPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.cp-card.is-fresh { animation: cpPop 0.55s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)) backwards; }
 @keyframes cpPop { from { opacity: 0.5; transform: translateY(-8px) scale(0.95); } }
 .cp-head { display: flex; align-items: center; gap: 12px; }
 .cp-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -9543,7 +9543,7 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
   box-shadow: inset 0 0 0 2px var(--line-2, rgba(255, 255, 255, 0.2)); color: var(--acc-ink, #fff);
   transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
-.share-radio svg { width: 14px; height: 14px; opacity: 0; transform: scale(0.5); transition: opacity 0.15s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.share-radio svg { width: 14px; height: 14px; opacity: 0; transform: scale(0.5); transition: opacity 0.15s ease, transform 0.22s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)); }
 .share-opt.on .share-radio { background: var(--acc, #ff3b4a); box-shadow: none; }
 .share-opt.on .share-radio svg { opacity: 1; transform: none; }
 .share-opt .cp-pr { margin-left: 0; }
@@ -11855,6 +11855,142 @@ body.powa-app .tx-set.is-skipped .tx-set-sub { color: var(--text-3); }
 [data-theme="light"] body .cp-pr, [data-theme="light"] body.powa-app .cp-pr { color: #8a5d00; }
 [data-theme="light"] body .tn-ready-btn.is-rough, [data-theme="light"] body.powa-app .tn-ready-btn.is-rough { color: #c63a24; }
 [data-theme="light"] body .roster-last.is-stale, [data-theme="light"] body.powa-app .roster-last.is-stale { color: #c63a24; }
+
+/* Light theme, calm (2026-10-27): the v4 restraint the dark theme got, on white paper. One soft stage
+   light, heroes with a 7% corner light and no coloured drop glow, muted avatars (the desk's light
+   tokens), the same machined red for the one primary (no red→orange), and an iOS segmented control
+   whose selected segment is a white key on a grey track. */
+html[data-theme="light"] body.powa-app .dash-shell::before {
+  height: 420px; opacity: 1;
+  background: radial-gradient(75% 62% at 50% -14%, color-mix(in srgb, var(--acc) 8%, transparent), transparent 72%);
+}
+html[data-theme="light"] body.powa-app .ui-hero {
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--acc) 7%, transparent) 0%, transparent 55%),
+    var(--bg-1);
+  border: 1px solid color-mix(in srgb, var(--acc) 12%, var(--edge));
+  box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05);
+}
+html[data-theme="light"] body.powa-app:not(.is-branded) { --fire: linear-gradient(180deg, #ff4a55 0%, #ee2b3b 100%); }
+html[data-theme="light"] body.powa-app .av-h0 { background: #fbe4e7; color: #a3172c; }
+html[data-theme="light"] body.powa-app .av-h1 { background: #fcebde; color: #93380a; }
+html[data-theme="light"] body.powa-app .av-h2 { background: #f8efd3; color: #6f4c00; }
+html[data-theme="light"] body.powa-app .av-h3 { background: #e0f2e6; color: #155f36; }
+html[data-theme="light"] body.powa-app .av-h4 { background: #dcf1ee; color: #0e5f59; }
+html[data-theme="light"] body.powa-app .av-h5 { background: #e1ebfb; color: #1c4f9c; }
+html[data-theme="light"] body.powa-app .av-h6 { background: #e9e5fb; color: #4a37a6; }
+html[data-theme="light"] body.powa-app .av-h7 { background: #f6e3f4; color: #86287d; }
+html[data-theme="light"] body.powa-app :is(.av-h0, .av-h1, .av-h2, .av-h3, .av-h4, .av-h5, .av-h6, .av-h7) {
+  box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.04); font-weight: 700; letter-spacing: 0.01em;
+}
+html[data-theme="light"] body.powa-app :is(.ui-seg, .prog-subtabs) {
+  border: 0; border-radius: 11px; padding: 3px; background: rgba(118, 118, 128, 0.12); box-shadow: none;
+}
+html[data-theme="light"] body.powa-app :is(.ui-seg button.on, .prog-subtab.active) {
+  background: #fff; color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+/* Train (2026-10-27): the coach's note is its own full-width card under the set card, opaque, with
+   every word on show; only a very long note folds (tap opens it). */
+.tn-group.tn-coach { margin-top: 14px; background: var(--bg-1); box-shadow: none; }
+.tn-group.tn-coach .today-note.tn-row { align-items: flex-start; padding: 14px; }
+.tn-group.tn-coach .today-note .tn-text { -webkit-line-clamp: 8; }
+.tn-group.tn-coach .today-note.open .tn-text { -webkit-line-clamp: unset; }
+.tn-group.tn-coach + .today-strip-wrap .today-strip { margin-top: 10px; }
+
+/* Rest dock (2026-10-27): it sits on the tab bar, and the screen fades out behind both, so no slice of
+   the session shows between them and nothing reads as cut letters above the dock. */
+html.native body.powa-app.rest-open:has(.dash-main)::after {
+  content: ''; display: block; position: fixed; left: 0; right: 0; top: auto; bottom: 0; z-index: 89;
+  height: calc(max(10px, calc(env(safe-area-inset-bottom) - 12px)) + 76px + 80px + 36px);
+  background: linear-gradient(180deg, transparent 0, var(--bg) 36px);
+  background-image: linear-gradient(180deg, transparent 0, var(--bg) 36px);
+  opacity: 1; pointer-events: none; animation: rtFade 0.24s ease-out both;
+}
+html.native body.powa-app.rest-open:has(.rest-timer.has-why):has(.dash-main)::after {
+  height: calc(max(10px, calc(env(safe-area-inset-bottom) - 12px)) + 76px + 100px + 36px);
+}
+@keyframes rtFade { from { opacity: 0; } to { opacity: 1; } }
+html.native body.powa-app.rest-open .dash-main { padding-bottom: calc(244px + env(safe-area-inset-bottom)); }   /* the last set clears the fade */
+
+/* Session done (2026-10-27): one red action, the shares in one quiet row, the rest as text. */
+.tx-done-acts .tx-done-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+body.powa-app .tx-done-acts .tx-done-quiet { min-height: 44px; padding: 0 12px; font-size: var(--fs-sm, 14px); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-done-more { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 22px; margin-top: 12px; }
+body.powa-app .tx-hero.is-done .tx-done-more :is(.tx-hurt, .tx-resume) { display: inline-flex; margin: 0; min-height: 44px; }
+
+/* Lift mode in the app's own type (2026-10-27, audit #12): Archivo with tabular numbers (no SF Mono),
+   sentence case (no condensed caps), and the standard red primary for Log set instead of a dark slab
+   with a red rule. The full-screen focus and the huge number stay. */
+.lift-mode .lm-count { font-family: var(--font-num); font-stretch: var(--num-stretch, 104%); font-size: 15px; font-weight: 650; letter-spacing: 0; color: var(--text-2); }
+.lift-mode .lm-lift { font-family: var(--font-body); font-stretch: 100%; font-weight: 700; font-size: 22px; line-height: 1.2; text-transform: none; letter-spacing: -0.015em; color: var(--text); }
+.lift-mode .lm-num b { font-family: var(--font-num); font-stretch: var(--num-stretch, 104%); font-weight: 750; letter-spacing: -0.03em; }
+.lift-mode .lm-num small { font-family: var(--font-body); font-stretch: 100%; font-weight: 600; font-size: 22px; text-transform: none; letter-spacing: 0; }
+.lift-mode .lm-num i { font-family: var(--font-num); font-stretch: var(--num-stretch, 104%); font-weight: 700; }
+.lift-mode .lm-rest-num { font-family: var(--font-num); font-stretch: var(--num-stretch, 104%); font-weight: 750; }
+.lift-mode .lm-log {
+  min-height: 60px; border: 0; border-radius: 999px; background: var(--fire); color: #fff;
+  font-family: var(--font-body); font-stretch: 100%; font-weight: 700; font-size: 18px; text-transform: none; letter-spacing: -0.005em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45);
+  transition: transform var(--t-press, 150ms) var(--ease-out-quint, ease-out), filter var(--t-press, 150ms) linear;
+}
+.lift-mode .lm-log:active { background: var(--fire); color: #fff; filter: brightness(0.92); transform: scale(0.98); }
+.lift-mode .lm-rest-acts { gap: 8px; }
+.lift-mode .lm-rest-acts button {
+  min-height: 56px; border: 0; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.09)); color: var(--text);
+  font-family: var(--font-body); font-stretch: 100%; font-weight: 650; font-size: 16px; text-transform: none; letter-spacing: 0;
+}
+.lift-mode .lm-rest-acts button:active { background: var(--fill-3, rgba(255, 255, 255, 0.14)); color: var(--text); transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) { .lift-mode .lm-log, .lift-mode .lm-log:active, .lift-mode .lm-rest-acts button:active { transition: none; transform: none; } }
+
+/* Progress and You, calmer (2026-10-27, audit #17).
+   Tags: sentence case at the meta size, no tracking; the status is a dot, the word stays ink.
+   Lift balance only tags a lift outside its range (athlete.html renderLiftBalanceCard). */
+body.powa-app .ui-tag {
+  min-height: 24px; padding: 2px 10px; gap: 6px; font-size: var(--fs-meta, 13px); font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: var(--text-2);
+}
+body.powa-app .ui-tag:is(.lagging, .strong, .ok, .warn)::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: currentColor; }
+body.powa-app .ui-tag.lagging::before, body.powa-app .ui-tag.warn::before { background: var(--warn, #ff9f43); }
+body.powa-app .ui-tag.strong::before, body.powa-app .ui-tag.ok::before { background: var(--ok, #34d982); }
+body.powa-app .ui-tag:is(.lagging, .strong, .ok, .warn) { color: var(--text-2); }
+/* You and Progress › Tools: calm neutral icon tiles (about fifteen hues before; a red bell). */
+html:not(.desk) body.powa-app :is(#youArea .yr-ic, .yr-ic.tool-ic) { --yc: var(--text-2); }
+/* Sets this week: the bars in ink, the zone in words; only "over the maximum" carries a dot. */
+body.powa-app .vol-row .vol-fill { background: color-mix(in srgb, var(--text) 82%, transparent); }
+body.powa-app .vol-row .vol-zone { color: var(--text-2); font-weight: 600; }
+body.powa-app .vol-row.vol-over .vol-zone { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+body.powa-app .vol-row.vol-over .vol-zone::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--soft-alert, #ff8f80); }
+body.powa-app .vol-tick-mrv { background: color-mix(in srgb, var(--text) 55%, transparent); }
+/* "207 kg", never "207kg": the e1RM and its unit keep their space in the flex row (audit B13). */
+body.powa-app .pg-e1 { gap: 4px; }
+body.powa-app .pg-e1 .pg-d { margin-left: 4px; }
+
+/* Form checks (2026-10-27): the video picker is one quiet button (the raw file input hides behind
+   it), and the reply's label is sentence case in grey, not red caps. */
+.fc-pick-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+body.powa-app .fc-pick-row .fc-pick { flex: none; min-height: 44px; padding: 0 18px; font-size: var(--fs-sm, 14px); font-weight: 600; }
+.fc-pick-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta, 13px); color: var(--text-3); }
+body.powa-app .fc-reply-lbl { font-size: var(--fs-meta, 13px); font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+
+/* The Coach tab's reply box (2026-10-27): near-opaque so the thread never reads through it, and a
+   light glass bar in the light theme (it stayed a dark slab on white). */
+html.native body.powa-app #coachArea .coach-thread .msg-composer { background: rgba(22, 22, 26, 0.94); }
+html.native[data-theme="light"] body.powa-app #coachArea .coach-thread .msg-composer {
+  background: rgba(250, 250, 252, 0.94); border-color: rgba(15, 15, 25, 0.08); box-shadow: 0 12px 28px -18px rgba(20, 20, 40, 0.4);
+}
+html.native[data-theme="light"] body.powa-app #coachArea .coach-thread .msg-composer :is(input, textarea) { background: rgba(15, 15, 25, 0.05); color: var(--text); }
+
+/* The PR moment in the light theme (2026-10-27): it kept the dark stage with ink text, so the
+   number, the lift line and the club button were near-invisible. Light paper, the same gold light,
+   the gold and green as text in their darker light-theme shades, the club share a soft fill. */
+html[data-theme="light"] body.powa-app .pr-toast.pr-moment { background: rgba(250, 250, 252, 0.96); }
+html[data-theme="light"] .pr-moment .prm-light { background: radial-gradient(60% 42% at 50% 30%, rgba(242, 194, 91, 0.26), transparent 70%); }
+html[data-theme="light"] .pr-moment .prm-tag { color: #8a5d00; }
+html[data-theme="light"] .pr-moment .prm-delta { background: rgba(26, 127, 75, 0.1); color: #1a7f4b; }
+html[data-theme="light"] body.powa-app .pr-moment .prm-acts .btn-ghost { border: 0; background: rgba(15, 15, 25, 0.06); color: var(--text); box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { html.native body.powa-app.rest-open:has(.dash-main)::after { animation: none; } }
 
 /* Two-factor in Security: a row like the others, not a heading (2026-10-22). */
 .ui-sheet-form .ui-list.mfa-status, .mfa-status { margin: 22px 0 0; }
