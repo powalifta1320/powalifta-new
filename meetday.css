@@ -88,7 +88,7 @@ html.md-open .ai-launcher { display: none; }
 .md-opt.on { background: color-mix(in srgb, var(--text) 15%, var(--bg)); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
 [data-theme="light"] .md-opt.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
 .md-opt-k { font-size: 15px; font-weight: 600; line-height: 1.3; }
-.md-opt-n { display: inline-flex; align-items: baseline; gap: 4px; }
+.md-opt-n { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; }
 .md-opt-n b { font-family: var(--md-num); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
 .md-opt-n small { font-size: 13px; color: var(--text-3); }
 .md-odds { display: inline-flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; }
