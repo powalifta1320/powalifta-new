@@ -106,6 +106,7 @@
 <script src="weekly-note.js"></script>
 <script src="block-dna.js"></script>
 <script src="career.js"></script>
+<script src="coach-report.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -5952,6 +5953,110 @@ test('the demos: a career worth showing (athlete.html?demo=1 and Arjun on coach.
   eq(careerEvents('demo-a1', CD.store, { unit: 'kg' }).events.filter(e => e.kind === 'meet' && /Fall Nationals/.test(e.title)).length, 0, 'the planned meet is not a result');
 });
 
+/* ===========================================================
+   Coach alerts + the Monday report (coach-report.js, coach-report-ui.js, app.js pushes)
+   =========================================================== */
+group('coach alerts + Monday report (coach-report.js)');
+test('PR push: their name, the lift, the set and its e1RM', () => {
+  const p = prPushText({ name: 'Arjun Mehta', lift: 'squat', weight: 182.5, reps: 3, e1rm: 205.2, unit: 'kg' });
+  eq(p.title, 'Arjun hit a squat PR'); eq(p.body, '182.5 × 3 · e1RM 205 kg');
+  eq(prPushText({ name: 'Sarah Kim', lift: 'deadlift', weight: 150, reps: 1, e1rm: 150, unit: 'kg' }).body, '150 × 1 · e1RM 150 kg');
+  eq(prPushText({ name: '', lift: 'bench', weight: 100, reps: 5, e1rm: 117, unit: 'kg' }).title, 'Your lifter hit a bench PR');
+});
+test('PR push in the lifter\'s unit (lbs)', () => {
+  eq(prPushText({ name: 'Leo Park', lift: 'bench', weight: 102.0582, reps: 5, e1rm: 120, unit: 'lbs' }).body, '225 × 5 · e1RM 265 lbs');
+});
+test('form-check push: with and without a lift', () => {
+  eq(JSON.stringify(formCheckPushText({ name: 'Arjun Mehta', lift: 'squat' })), JSON.stringify({ title: 'Arjun sent a squat form check', body: 'Open it to review.' }));
+  eq(formCheckPushText({ name: 'Arjun Mehta', lift: 'other' }).title, 'Arjun sent a form check');
+  eq(formCheckPushText({ name: 'Arjun Mehta', lift: '' }).title, 'Arjun sent a form check');
+});
+test('PR push: once per lift per day', () => {
+  let g = prPushDue(null, '2026-10-27', 'squat');
+  eq(g.due, true); eq(JSON.stringify(g.next), JSON.stringify({ date: '2026-10-27', lifts: ['squat'] }));
+  g = prPushDue(g.next, '2026-10-27', 'squat'); eq(g.due, false);
+  g = prPushDue(g.next, '2026-10-27', 'bench'); eq(g.due, true); eq(g.next.lifts.join(), 'squat,bench');
+  g = prPushDue(g.next, '2026-10-28', 'squat'); eq(g.due, true); eq(g.next.lifts.join(), 'squat');   // a new day starts over
+  eq(prPushDue({ date: '2026-10-27', lifts: 'squat' }, '2026-10-27', 'squat').due, true);              // a bad saved value is ignored
+});
+(() => {
+  const realDB = typeof DB === 'undefined' ? undefined : DB, realDemo = window._demoMode;
+  const sent = [];
+  const fakeDB = { sendPush: (o) => { sent.push(o); return Promise.resolve({ ok: true }); } };
+  const me = { id: 'ath-1', name: 'Arjun Mehta', coachId: 'coach-1' };
+  const log = { lift: 'squat', weight: 182.5, reps: 3, e1rmComp: 205.2 };
+  try {
+    window.DB = fakeDB; window._demoMode = false;
+    localStorage.removeItem('powa-pr-pushed-ath-1');
+    test('PR push to the coach: alerts, tagged per lifter and lift, once a day', () => {
+      eq(pushCoachPR(me, log, { unit: 'kg', today: '2026-10-27' }), true);
+      eq(sent.length, 1);
+      eq(JSON.stringify(sent[0]), JSON.stringify({ toUserId: 'coach-1', url: '/coach.html', tag: 'powa-pr-ath-1-squat', category: 'alerts', title: 'Arjun hit a squat PR', body: '182.5 × 3 · e1RM 205 kg' }));
+      eq(pushCoachPR(me, Object.assign({}, log, { weight: 185, e1rmComp: 208 }), { unit: 'kg', today: '2026-10-27' }), false);   // same lift, same day
+      eq(pushCoachPR(me, { lift: 'bench', weight: 120, reps: 2, e1rmComp: 127 }, { unit: 'kg', today: '2026-10-27' }), true);
+      eq(sent.length, 2);
+    });
+    test('PR push: never in the demo, never without a coach, never for an accessory, never throws', () => {
+      const n = sent.length;
+      window._demoMode = true;
+      eq(pushCoachPR(me, { lift: 'deadlift', weight: 200, reps: 1, e1rmComp: 200 }, { today: '2026-10-29' }), false);
+      window._demoMode = false;
+      eq(pushCoachPR({ id: 'solo', name: 'Solo', coachId: null }, log, { today: '2026-10-29' }), false);
+      eq(pushCoachPR(me, { lift: 'row', weight: 80, reps: 8, e1rmComp: 100 }, { today: '2026-10-29' }), false);
+      window.DB = { sendPush: () => { throw new Error('offline'); } };
+      eq(pushCoachPR(me, { lift: 'deadlift', weight: 200, reps: 1, e1rmComp: 200 }, { today: '2026-10-30' }), false);
+      window.DB = { sendPush: () => Promise.reject(new Error('offline')) };
+      eq(pushCoachPR(me, { lift: 'deadlift', weight: 200, reps: 1, e1rmComp: 200 }, { today: '2026-10-31' }), true);   // fire and forget
+      window.DB = fakeDB;
+      eq(sent.length, n);
+    });
+    test('form-check push: to their own coach, tagged by the check, never in the demo', () => {
+      sent.length = 0;
+      eq(pushCoachFormCheck(me, { id: 'fc-9', coachId: 'coach-1', lift: 'bench' }), true);
+      eq(JSON.stringify(sent[0]), JSON.stringify({ toUserId: 'coach-1', url: '/coach.html', tag: 'powa-fcnew-fc-9', category: 'form_checks', title: 'Arjun sent a bench form check', body: 'Open it to review.' }));
+      eq(pushCoachFormCheck(me, { id: 'fc-10', coachId: 'someone-else' }), false);
+      eq(pushCoachFormCheck({ id: 'solo', name: 'Solo', coachId: null }, { id: 'fc-11' }), false);
+      window._demoMode = true;
+      eq(pushCoachFormCheck(me, { id: 'fc-12', coachId: 'coach-1' }), false);
+      eq(sent.length, 1);
+    });
+  } finally {
+    window.DB = realDB; window._demoMode = realDemo;
+    localStorage.removeItem('powa-pr-pushed-ath-1'); localStorage.removeItem('powa-pr-pushed-solo');
+  }
+})();
+test('the core plans what the desk plans (programWeekState) for every demo block', () => {
+  const S = _buildCoachDemoData().store;
+  assert((S.programs || []).length >= 3, 'demo programs');
+  S.programs.forEach(p => {
+    const w = programWeekState(p);
+    eq(CoachReport.plannedPerWeek(p.weeks), w && !w.finished ? w.sessionsPerWeek : 0, 'program of ' + p.athleteId);
+  });
+});
+test('the demo coach has a last week worth reading', () => {
+  const S = _buildCoachDemoData().store, W = CoachReport.lastWeek(todayISO());
+  const team = CoachReport.teamWeek(CoachReport.fromStore(S, 'demo-coach', W), W);
+  assert(team.of >= 4, 'roster ' + team.of);
+  assert(team.trained >= 2, 'trained ' + team.trained);
+  assert(team.sessionsPlanned > 0, 'planned sessions');
+  assert(CoachReport.worthSending(team), 'worth sending');
+});
+test('PRs in the report agree with isPRForLog (lifts with a history before the week)', () => {
+  const S = _buildCoachDemoData().store, W = CoachReport.lastWeek(todayISO());
+  const saved = Store.get();
+  Store.set(Object.assign(defaultStore(), S));
+  try {
+    const team = CoachReport.teamWeek(CoachReport.fromStore(S, 'demo-coach', W), W);
+    const mine = new Set(team.prs.map(p => p.id + ':' + p.lift));
+    const app = new Set();
+    S.workoutLogs.forEach(l => {
+      if (!MAIN_LIFTS.includes(l.lift) || l.date < W.from || l.date > W.to) return;
+      const hadBefore = S.workoutLogs.some(x => x.athleteId === l.athleteId && x.lift === l.lift && x.date < W.from && Number(x.e1rmComp) > 0);
+      if (hadBefore && isPRForLog(l.athleteId, l)) app.add(l.athleteId + ':' + l.lift);
+    });
+    eq([...mine].sort().join(), [...app].sort().join());
+  } finally { Store.set(saved); }
+});
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

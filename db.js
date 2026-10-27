@@ -94,7 +94,10 @@ function mapDbEmailPrefs(r) {
     // Push notification categories (#30) — default on.
     pushMessages: r ? r.push_messages !== false : true,
     pushFormChecks: r ? r.push_form_checks !== false : true,
-    pushProgram: r ? r.push_program !== false : true
+    pushProgram: r ? r.push_program !== false : true,
+    // Coach alerts (migration-coach-alerts-2026-10-28.sql): a lifter's PR, Thursday's missed sessions
+    // and the Monday summary. Absent before the migration = on, like the rest.
+    pushAlerts: r ? r.push_alerts !== false : true
   };
 }
 // ---------- CLUBS (migration-clubs.sql) ----------
@@ -1530,6 +1533,9 @@ const DB = {
   // column-missing error → we strip the push keys and retry with just the email
   // columns, so email prefs keep working before the notif migration lands
   // (same forward-compat pattern as the marketplace-category writes).
+  // pushAlerts (coach alerts, migration-coach-alerts-2026-10-28.sql) works the same way: before that
+  // migration the push_alerts key is dropped and the rest saved. When the only thing asked for is a
+  // column that isn't there yet, it throws (notReady) so the switch goes back instead of saying "saved".
   async updateEmailPrefs(userId, patch) {
     if (!userId) throw new Error('No user');
     const full = { user_id: userId };
@@ -1538,15 +1544,24 @@ const DB = {
     if (typeof patch.pushMessages === 'boolean')   full.push_messages = patch.pushMessages;
     if (typeof patch.pushFormChecks === 'boolean') full.push_form_checks = patch.pushFormChecks;
     if (typeof patch.pushProgram === 'boolean')    full.push_program = patch.pushProgram;
+    if (typeof patch.pushAlerts === 'boolean')     full.push_alerts = patch.pushAlerts;
+    const asked = Object.keys(full).filter(k => k !== 'user_id');
+    let row = full;
     let res = await sb.from('email_preferences')
-      .upsert(full, { onConflict: 'user_id' }).select('*').limit(1);
-    if (res.error && /push_(messages|form_checks|program)/.test(res.error.message || '')) {
-      const { push_messages, push_form_checks, push_program, ...safe } = full;
+      .upsert(row, { onConflict: 'user_id' }).select('*').limit(1);
+    for (let i = 0; i < 2 && res.error; i++) {
+      const msg = String(res.error.message || '');
+      const drop = /push_alerts/.test(msg) && 'push_alerts' in row ? ['push_alerts']
+        : /push_(messages|form_checks|program|alerts)/.test(msg) ? ['push_messages', 'push_form_checks', 'push_program', 'push_alerts'] : null;
+      if (!drop) break;
+      row = Object.assign({}, row);
+      drop.forEach(k => { delete row[k]; });
+      if (!asked.some(k => k in row)) { const e = new Error('That switch turns on with the next update'); e.notReady = true; throw e; }
       res = await sb.from('email_preferences')
-        .upsert(safe, { onConflict: 'user_id' }).select('*').limit(1);
+        .upsert(row, { onConflict: 'user_id' }).select('*').limit(1);
     }
     if (res.error) throw res.error;
-    return mapDbEmailPrefs((res.data && res.data[0]) || full);
+    return mapDbEmailPrefs((res.data && res.data[0]) || row);
   },
 
   // One-click email unsubscribe by token (#36). UNAUTHENTICATED — powers
