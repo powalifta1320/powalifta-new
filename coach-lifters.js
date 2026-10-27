@@ -616,7 +616,7 @@
   function message(r, text) {
     var h = home();
     if (h && h.message) { h.message(r, text || '', refresh); return; }
-    if (typeof openAthleteMessages === 'function') openAthleteMessages(r.athlete.id, r.athlete.name);
+    if (typeof openAthleteMessages === 'function') openAthleteMessages(r.athlete.id, r.athlete.name, text || '');
   }
   function run(r, f, btn) {
     if (!f) return;

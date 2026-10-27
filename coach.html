@@ -380,6 +380,8 @@ bootstrap('coach', () => {
   setLbl('tab-progress', ICONS.chart, 'Athlete progress');
   setLbl('tab-club', ICONS.club, 'Club');   // not the Roster icon (two people) again
   setLbl('tab-you', ICONS.user, 'You');
+  // The demo's unread counts come from its Store: in place before the first render paints a badge.
+  if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); }
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
   // progress and marketplace are sub-screens of Program / You.
   buildBottomTabs(['athletes', 'program', 'messages', 'club', 'you']);
@@ -1970,12 +1972,32 @@ function openAthleteNotes(athleteId) {
 // _unreadByAthlete (athleteId -> unread message count) is declared up near the
 // bootstrap call (TDZ fix — renderRoster reads it during the synchronous boot).
 
+// The demo's threads live in the Store: what a lifter sent that nobody has read yet, per lifter
+// (the same count desk.js dkMsgDigest makes). Nothing is fetched.
+function _demoUnreadCounts() {
+  const map = {};
+  (Store.get().messages || []).forEach(m => {
+    if (m.coachId === user.id && m.senderId !== user.id && !m.readAt) map[m.athleteId] = (map[m.athleteId] || 0) + 1;
+  });
+  return map;
+}
+// The counts the demo's roster was last painted with (a var with no initialiser: the boot sets it
+// before this line runs, and a `= null` here would wipe it).
+var _demoUnreadPainted;
+function _unreadSig(map) { return Object.keys(map || {}).filter(k => map[k]).sort().map(k => k + ':' + map[k]).join(','); }
 async function refreshUnreadBadges() {
-  if (window._demoMode) { _unreadByAthlete = {}; return; }
   try {
-    const unread = await DB.listUnreadForUser(user.id);
-    const map = {};
-    unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+    let map = {};
+    if (window._demoMode) {
+      map = _demoUnreadCounts();
+      // The same counts the screen already shows: nothing to repaint (the boot paints them first).
+      const sig = _unreadSig(map);
+      if (sig === _demoUnreadPainted) { _unreadByAthlete = map; return; }
+      _demoUnreadPainted = sig;
+    } else {
+      const unread = await DB.listUnreadForUser(user.id);
+      unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+    }
     _unreadByAthlete = map;
     // The desk repaints its own rows in place (the search box and focus survive a new message).
     if (_desk()) { _deskCall('deskRefresh'); return; }
@@ -2034,8 +2056,10 @@ function subscribeRosterMessages() {
   });
 }
 
-function openAthleteMessages(athleteId, athleteName) {
-  if (window._demoMode) { toast('Messaging is live for real accounts. This is the demo.'); return; }
+// The thread with one lifter. The demo opens the same thread on its in-memory Store (renderMessageThread
+// reads Store.messages and sends locally, nothing leaves the page). draft: words to start the reply with
+// (a fix's suggested message); the coach edits or sends it.
+function openAthleteMessages(athleteId, athleteName, draft) {
   document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
   const host = document.getElementById('messageThreadHost');
   host.innerHTML = '';
@@ -2044,7 +2068,8 @@ function openAthleteMessages(athleteId, athleteName) {
     coachId: user.id,
     athleteId: athleteId,
     viewerId: user.id,
-    otherName: (athleteName || '').split(' ')[0]
+    otherName: (athleteName || '').split(' ')[0],
+    draft: typeof draft === 'string' ? draft : ''
   });
   // Opening the thread marks it read; clear this athlete's badge optimistically
   // and refresh from the server once the modal is closed.

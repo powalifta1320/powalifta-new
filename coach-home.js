@@ -214,7 +214,8 @@
   function message(r, text, onSent) {
     var a = r.athlete;
     if (isDeskNow() && typeof dkCompose === 'function') { dkCompose([a.id], { title: 'Message ' + first(a.name), text: text || '', onSent: function () { try { dkNoteHandled(a.id, 'reply'); } catch (e) {} if (onSent) onSent(); } }); return; }
-    if (typeof openAthleteMessages === 'function') openAthleteMessages(a.id, a.name);
+    // The phone: the thread, with the fix's words waiting in the box (the coach sends or edits them).
+    if (typeof openAthleteMessages === 'function') openAthleteMessages(a.id, a.name, text || '');
   }
   function refresh() {
     if (isDeskNow()) { var host = document.getElementById('deskToday'); if (host && host.classList.contains('ch-host')) renderDesk(host); }

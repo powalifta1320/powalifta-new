@@ -5120,6 +5120,7 @@ async function renderMessageThread(container, opts) {
       }
       ta.value = '';
       autosize();
+      syncSend();   // the arrow goes quiet again once the box is empty
     } catch (e) {
       console.error('sendMessage', e);
       toast('Could not send: are you still connected to them?');
@@ -5134,6 +5135,13 @@ async function renderMessageThread(container, opts) {
   });
   function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
   ta.addEventListener('input', autosize);
+  // A suggested message (a fix on the coach's Lifters: "Send a check-in nudge") waits in the box,
+  // never sent on its own: the coach edits it or sends it. No focus: the phone keeps its keyboard down.
+  if (opts && typeof opts.draft === 'string' && opts.draft.trim()) {
+    ta.value = opts.draft;
+    syncSend();
+    if (ta.scrollHeight) autosize();   // laid out (an open modal): grow to fit; hidden, keep the default
+  }
   // Anything sent from elsewhere (Train's "Send to coach") lands here on repaint.
   container._msgRefresh = () => {
     if (!demo) return;
