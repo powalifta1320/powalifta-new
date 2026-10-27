@@ -691,19 +691,18 @@ var Challenges = (function () {
   function syncSoon() { clearTimeout(_soon); _soon = setTimeout(function () { syncMine(); }, 20000); }
 
   // ---------- the demos (?demo=1): written into the demo's Store, never the network ----------
-  // The coach's: a running "November: most sessions" (four weeks, twelve days left, named for the month
-  // it ends in) over the whole roster, its values from their demo logs; and last month's most PRs,
+  // The coach's: a running "October: most sessions" (four weeks, twelve days left, named the way a real
+  // one is, for the month most of it falls in: challengeName) over the whole roster, its values from their demo logs; and last month's most PRs,
   // finished, on its final board (the team's on the laptop, where the demo has one).
   function seedCoachDemo(store, h) {
     var days = h.daysAgo, coachId = h.coachId, ids = (store.athletes || []).map(function (a) { return a.id; });
     if (!ids.length) return;
     var from = days(16), to = days(-11), pastFrom = days(47), pastTo = days(20);
-    var month = function (d) { return MONTHS[Number(d.slice(5, 7)) - 1]; };
     var team = (store.teams || []).filter(function (x) { return x && (x.members || []).length >= 3; })[0];
     var pastIds = team ? team.members.map(function (m) { return m.athleteId; }).filter(function (id) { return ids.indexOf(id) >= 0; }) : ids;
-    var run = { id: 'demo-ch-run', coachId: coachId, name: month(to) + ': most sessions', metric: 'sessions', memberIds: ids.slice(0, 200), startsOn: from, endsOn: to,
+    var run = { id: 'demo-ch-run', coachId: coachId, name: challengeName('sessions', from, to), metric: 'sessions', memberIds: ids.slice(0, 200), startsOn: from, endsOn: to,
       prize: 'Coffee on me', createdAt: from + 'T08:00:00Z', endedAt: null };
-    var past = { id: 'demo-ch-past', coachId: coachId, name: month(pastTo) + ': most PRs', metric: 'prs', memberIds: pastIds, startsOn: pastFrom, endsOn: pastTo,
+    var past = { id: 'demo-ch-past', coachId: coachId, name: challengeName('prs', pastFrom, pastTo), metric: 'prs', memberIds: pastIds, startsOn: pastFrom, endsOn: pastTo,
       prize: '', createdAt: pastFrom + 'T08:00:00Z', endedAt: null, teamName: team ? team.name : null };
     var by = {}; (store.workoutLogs || []).forEach(function (l) { (by[l.athleteId] = by[l.athleteId] || []).push(l); });
     var entries = [];
@@ -729,7 +728,7 @@ var Challenges = (function () {
     var from = days(16), to = days(-11);
     var others = [['demo-a10', 'Dev Patel', 9], ['demo-a5', 'Leo Grant', 8], ['demo-a1', 'Arjun Mehta', 6], ['demo-a12', 'Sofia Alvarez', 6], ['demo-a6', 'Priya Shah', 5],
       ['demo-a7', 'Marcus Doyle', 5], ['demo-a8', 'Elena Rossi', 4], ['demo-a2', 'Sarah Kim', 3], ['demo-a9', 'Mei Tanaka', 3], ['demo-a3', 'Tom Boyle', 2], ['demo-a4', 'Nina Petrova', 1]];
-    var run = { id: 'demo-ch-run', coachId: coachId, name: MONTHS[Number(to.slice(5, 7)) - 1] + ': most sessions', metric: 'sessions',
+    var run = { id: 'demo-ch-run', coachId: coachId, name: challengeName('sessions', from, to), metric: 'sessions',
       memberIds: [me0].concat(others.map(function (o) { return o[0]; })), startsOn: from, endsOn: to, prize: 'Coffee on me', createdAt: from + 'T08:00:00Z', endedAt: null };
     store.challenges = [run];
     store.challengeEntries = others.map(function (o) { return { challengeId: run.id, athleteId: o[0], name: o[1], value: o[2], baseline: null }; });
