@@ -23,6 +23,8 @@
   --md-ok: #0f7d47; --md-no: #c4142a; --md-warn: #8a4500;
 }
 html.md-open, html.md-open body { overflow: hidden; }
+/* The planner and the board are whole-screen work surfaces: the Ask AI capsule would sit on Save plan / Declare. */
+html.md-open .ai-launcher { display: none; }
 
 /* ---------- the overlay ---------- */
 .md-root {
@@ -58,7 +60,7 @@ html.md-open, html.md-open body { overflow: hidden; }
 .md-btn:hover:not(:disabled) { background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
 .md-btn:active:not(:disabled) { transform: scale(0.97); }
 .md-btn:disabled { opacity: 0.45; cursor: default; }
-.md-btn:focus-visible, .md-x:focus-visible, .md-cell:focus-visible, .md-alt:focus-visible, .md-step:focus-visible, .md-link:focus-visible { outline: 2px solid var(--bw, #5ac8fa); outline-offset: 2px; }
+.md-btn:focus-visible, .md-x:focus-visible, .md-cell:focus-visible, .md-opt:focus-visible, .md-step:focus-visible, .md-link:focus-visible { outline: 2px solid var(--bw, #5ac8fa); outline-offset: 2px; }
 .md-btn-primary { background: var(--md-fire); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45); }
 .md-btn-primary:hover:not(:disabled) { background: var(--md-fire); filter: brightness(1.06); }
 .md-btn-quiet { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2, rgba(255, 255, 255, 0.12)); }
@@ -75,13 +77,23 @@ html.md-open, html.md-open body { overflow: hidden; }
 .md-step:hover { background: var(--fill-4); }
 .md-step:active { transform: scale(0.94); }
 .md-step-lg { width: 44px; height: 44px; font-size: 22px; }
-.md-alts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-@media (hover: hover) { .md-pl-row:not(:hover):not(:focus-within) .md-alts { visibility: hidden; } }
-.md-alt { display: inline-flex; align-items: baseline; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--fill-1); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: inset 0 0 0 1px var(--md-hair); }
-.md-alt b { font-family: var(--md-num); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text); }
-.md-alt:hover { background: var(--fill-3); }
-.md-alt.on { background: var(--text); color: var(--bg); box-shadow: none; }
-.md-alt.on b { color: var(--bg); }
+/* Options with their odds, one segmented choice: the planner's plans by risk (Safe · Balanced · Bold)
+   and the board's next attempt (Safe · Plan · Send). Name, the number, then the odds; the picked one
+   is raised. Odds are small and in ink; only a reach (past the max) wears amber. */
+.md-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 16px; background: var(--fill-2); }
+.md-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 44px; padding: 9px 12px 10px; border: 0; border-radius: 13px; background: transparent; color: var(--text-2); font: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background-color 180ms var(--md-ease), box-shadow 180ms var(--md-ease), color 180ms var(--md-ease), transform 120ms var(--md-ease); }
+.md-opt:active { transform: scale(0.97); }
+@media (hover: hover) { .md-opt:hover:not(.on) { background: var(--fill-1); } }
+.md-opt.on { background: color-mix(in srgb, var(--text) 15%, var(--bg)); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+[data-theme="light"] .md-opt.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
+.md-opt-k { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.md-opt-n { display: inline-flex; align-items: baseline; gap: 4px; }
+.md-opt-n b { font-family: var(--md-num); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
+.md-opt-n small { font-size: 13px; color: var(--text-3); }
+.md-odds { display: inline-flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.md-odds b { font-weight: 600; color: var(--text-2); }
+.md-odds.is-reach, .md-odds.is-reach b { color: var(--md-warn); }
 .md-seg { align-self: flex-start; display: inline-grid; grid-auto-flow: column; gap: 2px; padding: 3px; border-radius: 999px; background: var(--fill-2); }
 .md-seg button { height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
 .md-seg button.on { background: var(--md-surface-2); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
@@ -144,7 +156,17 @@ html.md-open, html.md-open body { overflow: hidden; }
 .md-root .md-pl-cell input.md-kg-in:hover { background: var(--fill-1); }
 .md-root .md-pl-cell input.md-kg-in:focus { background: var(--fill-2); box-shadow: inset 0 0 0 1.5px var(--text-3); }
 .md-pl-cell.is-third .md-kg-in { font-weight: 800; }
-.md-pl-pct { min-height: 16px; margin-top: 2px; padding-left: 36px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.md-pl-odds { display: block; min-height: 18px; margin-top: 4px; padding-left: 36px; }
+.md-plans { display: flex; flex-direction: column; gap: 8px; }
+.md-plans .md-opts { max-width: 600px; }
+.md-plans-note { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+/* The planner's type, phone and desk alike: 13 · 15 · 16 · 20 · 22. */
+.md-planner :is(.md-pl-meta, .md-pl-state, .md-pl-th, .md-pl-facts, .md-pl-bounce) { font-size: 13px; }
+.md-planner :is(.md-pl-name, .md-pl-cls, .md-btn) { font-size: 15px; }
+.md-planner :is(.md-pl-who, .md-sum-cell b) { font-size: 22px; }
+.md-planner .md-kg-in { font-size: 20px; }
+.md-planner .md-step { font-size: 20px; }
+.md-planner .md-note { font-size: 16px; }
 .md-pl-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 32px; padding: 16px 20px; border-radius: 16px; background: var(--md-surface); }
 .md-sum-cell { display: flex; align-items: baseline; gap: 6px; }
 .md-sum-cell span { font-size: 13px; color: var(--text-3); }
@@ -245,7 +267,11 @@ html.md-open, html.md-open body { overflow: hidden; }
 .md-dec-kg { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .md-dec-kg b { font-family: var(--md-num); font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 800; letter-spacing: -0.025em; }
 .md-dec-kg b.is-low { color: var(--md-no); }
-.md-dec .md-alts { margin: 4px 0 12px; }
+.md-dec-odds { display: flex; justify-content: center; min-height: 18px; margin: -2px 0 12px; }
+/* The board's next attempt: three rows (Safe · Plan · Send), the way the lifter's minute lists them. */
+.md-dec .md-opts { grid-template-columns: minmax(0, 1fr); margin: 0 0 12px; }
+.md-dec .md-opt { display: grid; grid-template-columns: 48px auto minmax(0, 1fr); align-items: baseline; align-content: center; column-gap: 12px; padding: 0 14px; }
+.md-dec .md-opt .md-odds { justify-self: end; flex-wrap: nowrap; white-space: nowrap; }
 .md-dec .md-btn-primary { margin-top: 4px; }
 .md-dec .md-link { margin-top: 6px; }
 .md-next-list, .md-warm-list { list-style: none; margin: 0; padding: 0; }
@@ -361,9 +387,11 @@ html.md-open, html.md-open body { overflow: hidden; }
   .md-pl-row { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 14px; }
   .md-pl-th { display: none; }
   .md-pl-lift { grid-column: 1 / -1; padding-top: 0; }
-  .md-kg-in { width: 56px; font-size: 19px; }
+  .md-kg-in { width: 64px; font-size: 19px; }
   .md-step { width: 28px; height: 28px; }
-  .md-pl-pct { padding-left: 0; }
+  .md-pl-odds { padding-left: 0; }
+  /* The column heads are gone at this width: each attempt says which it is. */
+  .md-pl-n { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-3); }
   .md-board { grid-template-columns: 1fr; padding: 12px 12px 32px; }
   .md-side { position: static; order: -1; }
   .md-tabs { padding: 10px 12px 0; }
@@ -376,16 +404,16 @@ html.md-open, html.md-open body { overflow: hidden; }
   .md-today { flex-direction: column; align-items: stretch; }
   .md-keys { display: none; }
 }
-/* A phone: each attempt on its own line (Opener  − 125 +  90% of max), so the bar is never cut short. */
+/* A phone: each attempt on its own line, its name with its odds under it on the left and the bar on
+   the right (Opener / Very likely 95%   − 125 +), so neither is ever cut short. */
 @media (max-width: 599px) {
-  .md-pl-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  .md-pl-cell { display: grid; grid-template-columns: 64px auto minmax(0, 1fr); align-items: center; column-gap: 10px; }
-  .md-pl-n { display: block; font-size: 13px; font-weight: 600; color: var(--text-2); }
-  .md-root .md-pl-cell input.md-kg-in { width: 88px; min-width: 0; flex: none; padding: 0 4px; font-size: 19px; }
+  .md-pl-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .md-pl-cell { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n edit' 'odds edit'; align-items: center; column-gap: 12px; }
+  .md-pl-n { grid-area: n; align-self: end; display: block; font-size: 15px; font-weight: 600; color: var(--text); }
+  .md-pl-cell .md-kg-edit { grid-area: edit; }
+  .md-pl-odds { grid-area: odds; align-self: start; min-height: 0; margin-top: 1px; padding-left: 0; }
+  .md-root .md-pl-cell input.md-kg-in { width: 88px; min-width: 0; flex: none; padding: 0 4px; font-size: 20px; }
   .md-step { width: 36px; height: 36px; }
-  .md-pl-pct { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .md-pl-pct { margin-top: 0; }
-  .md-pl-cell .md-alts { grid-column: 2 / -1; margin-top: 4px; }
   /* What a coach taps mid-flight with chalky hands: 44 px at least. */
   .md-root .md-tools .md-btn, .md-tab, .md-flight, .md-hook .md-btn { min-height: 44px; height: 44px; }
   .md-x { width: 44px; height: 44px; }
@@ -399,7 +427,8 @@ html.md-open, html.md-open body { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .md-root, .md-root.is-leaving, .md-sheet { animation: none; }
-  .md-btn, .md-cell, .md-cell-kg { transition: none; }
+  .md-btn, .md-cell, .md-cell-kg, .md-opt { transition: none; }
+  .md-opt:active { transform: none; }
   .md-sync.is-busy::before { animation: none; }
 }
 
@@ -453,10 +482,9 @@ html.desk .md-root .md-btn-no { box-shadow: inset 0 0 0 1px color-mix(in srgb, v
 html.desk :is(.md-root, .md-sheet, .md-screen) :is(.md-x, .md-step) { border-radius: var(--r-1); }
 html.desk .md-root .md-step { font-size: var(--fs-4); }
 html.desk .md-root .md-step-lg { width: 40px; height: 40px; font-size: var(--fs-5); }
-html.desk .md-root :is(.md-alt, .md-tab, .md-flight, .md-sync, .md-plate) { border-radius: var(--r-1); }
-html.desk .md-root .md-alt { font-size: var(--fs-1); box-shadow: none; background: var(--dk-fill); }
+html.desk .md-root :is(.md-tab, .md-flight, .md-sync, .md-plate) { border-radius: var(--r-1); }
 html.desk .md-root :is(.md-tab, .md-flight) { height: var(--ctl-h); font-size: var(--fs-2); }
-html.desk .md-root :is(.md-btn, .md-x, .md-cell, .md-alt, .md-step, .md-link, .md-tab, .md-flight):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+html.desk .md-root :is(.md-btn, .md-x, .md-cell, .md-opt, .md-step, .md-link, .md-tab, .md-flight):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 /* surfaces */
 html.desk :is(.md-root, .md-screen) :is(.md-today, .md-meets, .md-days, .md-empty, .md-pl-grid, .md-pl-sum, .md-note, .md-table-wrap, .md-finished, .md-card, .md-fstart) { border-radius: var(--r-2); box-shadow: none; }
 html.desk .md-sheet .md-sheet-card { border-radius: var(--r-3); }
@@ -465,16 +493,15 @@ html.desk .md-screen .md-meet-date { border-radius: var(--r-1); background: var(
 html.desk .md-root .md-legend span:not(.md-keys)::before { border-radius: 2px; }
 /* type: the desk's steps */
 html.desk :is(.md-root, .md-screen) :is(.md-title, .md-screen-title) { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); letter-spacing: -0.015em; }
-html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-sub, .md-screen-sub, .md-meet-meta, .md-meet-who, .md-today-k, .md-today-txt small, .md-sum-cell span, .md-sum-cell small, .md-sum-note, .md-foot-note, .md-where, .md-name small, .md-up-who span, .md-dec-sub, .md-card-k, .md-form-k, .md-link, .md-table td.md-lot, .md-pl-th, .md-pl-pct, .md-pl-meta, .md-pl-state, .md-pl-facts, .md-pl-bounce, .md-next-who small, .md-warm-at, .md-warm-list small, .md-fsize-note, .md-rm, .md-cls-line, .md-days small, .md-meet-plans, .md-fin-who small, .md-fin-tot small, .md-flight small, .md-finished span, .md-root .md-fstart label > span) { font-size: var(--fs-1); }
+html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-sub, .md-screen-sub, .md-meet-meta, .md-meet-who, .md-today-k, .md-today-txt small, .md-where, .md-name small, .md-up-who span, .md-dec-sub, .md-card-k, .md-form-k, .md-link, .md-table td.md-lot, .md-next-who small, .md-warm-at, .md-warm-list small, .md-fsize-note, .md-rm, .md-cls-line, .md-days small, .md-meet-plans, .md-fin-who small, .md-fin-tot small, .md-flight small, .md-finished span) { font-size: var(--fs-1); }
+html.desk .md-root .md-fstart label > span { font-size: var(--fs-1); }
 html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-sub, .md-screen-sub, .md-meet-meta, .md-meet-who, .md-dec-sub, .md-sheet-sub, .md-finished span, .md-up-who span, .md-today-txt small) { font-size: var(--fs-2); }
-html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-meet-count, .md-pl-name, .md-name b, .md-days b, .md-finished b, .md-next-who b, .md-next-out, .md-warm-list b, .md-table, .md-ltable, .md-cell-kg, .md-table td.md-tot, .md-empty span) { font-size: var(--fs-3); }
+html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-meet-count, .md-name b, .md-days b, .md-finished b, .md-next-who b, .md-next-out, .md-warm-list b, .md-table, .md-ltable, .md-cell-kg, .md-table td.md-tot, .md-empty span) { font-size: var(--fs-3); }
 html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-meet-name, .md-pl-liftname, .md-today-txt b, .md-sec-h, .md-sheet-h, .md-up-who b, .md-empty b, .md-fin-tot b) { font-size: var(--fs-4); }
-html.desk .md-root :is(.md-pl-who, .md-sum-cell b) { font-size: var(--fs-6); }
 html.desk .md-root .md-meet-date b, html.desk .md-screen .md-meet-date b { font-size: var(--fs-5); }
 html.desk :is(.md-root, .md-screen) .md-meet-date small { font-size: var(--fs-1); }
 html.desk .md-root :is(.md-up-kg b, .md-dec-kg b) { font-size: 40px; }
 html.desk .md-root .md-chg { font-size: var(--fs-1); }
-html.desk .md-root .md-kg-in { font-size: var(--fs-4); }
 /* status colour on the dot, the words in ink */
 html.desk .md-screen .md-today-k { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-weight: var(--fw-3); }
 html.desk .md-screen .md-today-k::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--md-ok); }
@@ -579,9 +606,17 @@ html.desk .md-ro-next { margin: var(--s-3) 0 0; font-size: var(--fs-1); color: v
 html.desk .md-lb-legend .md-att { flex: none; }
 html.desk .md-lb-row.is-head .md-lb-tot { font-size: var(--fs-1); font-weight: var(--fw-1); color: var(--text-3); }
 /* A chosen attempt option reads as selected (the segmented look), never as a hidden label. */
-html.desk .md-root .md-alt.on { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
-html.desk[data-theme="light"] .md-root .md-alt.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.08); }
-html.desk .md-root .md-alt.on b { color: var(--text); }
+html.desk .md-root .md-opts { padding: 2px; border-radius: var(--r-2); background: var(--dk-fill); }
+html.desk .md-root .md-opt { border-radius: calc(var(--r-2) - 2px); padding: var(--s-2) var(--s-3); }
+html.desk .md-root .md-dec .md-opt { min-height: 40px; padding: 0 var(--s-3); }
+html.desk .md-root .md-dec .md-opt-k { font-size: var(--fs-3); }
+html.desk .md-root .md-opt:hover:not(.on) { background: var(--dk-hover); }
+html.desk .md-root .md-opt.on { background: color-mix(in srgb, var(--text) 14%, var(--bg)); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+html.desk[data-theme="light"] .md-root .md-opt.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.08); }
+/* The planner on the desk keeps the standard's steps too (13 · 15 · 16 · 20 · 22), not the desk's 12 / 14 / 24. */
+html.desk .md-root.md-planner :is(.md-sub, .md-sum-cell span, .md-sum-cell small, .md-sum-note, .md-foot-note, .md-link) { font-size: 13px; }
+html.desk .md-root.md-planner :is(.md-note, .md-btn) { font-size: 15px; }
+html.desk .md-root.md-planner .md-step { font-size: 16px; }
 html.desk .md-root .md-side .md-card { background: var(--dk-raise); }
 /* The desk: Meets and the board sit on the desk's own raised surface, so light reads as cards and not white on white. */
 html.desk .md-screen, html.desk .md-root { --md-surface: var(--dk-raise); }
