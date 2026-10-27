@@ -49,6 +49,25 @@
     return CR.teamWeek(input, W);
   }
 
+  // A brand-new coach asking for an example (Settings › Notifications) gets a sample week, inert and
+  // labelled: never an empty page (the coach first run draws its sample roster the same way).
+  function sampleTeam(today) {
+    var CR = window.CoachReport, W = CR.lastWeek(today || todayIso()), d = function (n) { return CR.addDays(W.from, n); };
+    var A = [['s1', 'Elena Rossi', 4, 4], ['s2', 'Marcus Webb', 3, 1], ['s3', 'Priya Shah', 4, 3], ['s4', 'Tomás Díaz', 3, 0], ['s5', 'Kenji Sato', 4, 4], ['s6', 'Ava Stone', 3, 3]];
+    var sessions = {};
+    A.forEach(function (a) { sessions[a[0]] = a[3]; });
+    return CR.teamWeek({
+      athletes: A.map(function (a) { return { id: a[0], name: a[1] }; }),
+      programs: A.map(function (a) { return { athleteId: a[0], planned: a[2] }; }),
+      sessions: sessions,
+      prs: [{ athleteId: 's1', lift: 'squat', e1rm: 142.5 }, { athleteId: 's5', lift: 'deadlift', e1rm: 245 }, { athleteId: 's5', lift: 'bench', e1rm: 150 }],
+      pains: [{ athleteId: 's3', date: d(2) }],
+      formChecksOpen: [{ athleteId: 's2' }],
+      meets: [{ athleteId: 's1', name: 'Regional Open', date: CR.addDays(W.today, 18) }, { athleteId: 's5', name: 'Regional Open', date: CR.addDays(W.today, 18) }],
+      overdue: [{ athleteId: 's6', amountCents: 12000, currency: 'USD', daysLate: 4 }]
+    }, W);
+  }
+
   /* ---------------------------------------------------------------- the markup (pure) */
   // Needs you: one row per lifter, their reasons in the triage order (pain, behind, form checks, check-in).
   function needRows(team) {
@@ -88,10 +107,12 @@
     return '<div class="cr-sec rise" style="--i:' + k + '"><h3 class="cr-h">' + esc(title) + (count != null ? ' <span>' + count + '</span>' : '') + '</h3>' +
       '<div class="cr-list">' + rows.join('') + more + '</div></div>';
   }
-  // team: CoachReport.teamWeek(...). opts: { unit, phone }. → the report's body, its footer included.
+  // team: CoachReport.teamWeek(...). opts: { unit, sample }. → the report's body, its footer included.
+  // A sample opens nothing and has no red.
   function html(team, opts) {
     opts = opts || {};
-    var U = opts.unit || 'kg', CR = window.CoachReport;
+    var U = opts.unit || 'kg', CR = window.CoachReport, live = !opts.sample;
+    var go = function (attrs) { return live ? attrs : ''; };
     if (!team || !team.of) {
       return '<div class="cr-body"><div class="cr-empty rise" style="--i:0"><span class="cr-tic">' + ic('calendar') + '</span>' +
         '<h3 class="cr-h">No lifters yet</h3><p>Once lifters join, their week lands here every Monday: who trained, who needs you, the PRs and what’s coming up.</p></div></div>';
@@ -108,7 +129,7 @@
     // Needs you, in the triage order.
     var needs = needRows(team);
     var nRows = needs.map(function (r, i) {
-      return row({ av: true, title: r.name, dot: r.tone ? 't-' + r.tone : '', line: esc(r.words.join(' · ')), attrs: 'data-cr-lifter="' + esc(r.id) + '"' }, i);
+      return row({ av: true, title: r.name, dot: r.tone ? 't-' + r.tone : '', line: esc(r.words.join(' · ')), attrs: go('data-cr-lifter="' + esc(r.id) + '"') }, i);
     });
     if (!nRows.length) nRows.push(row({ icon: 'check', tone: 'ok', title: 'Nobody needs you', line: 'Everyone trained as planned.' }, 0));
     h += section('Needs you', needs.length || null, nRows, k++);
@@ -117,7 +138,7 @@
         var line = r.prs.map(function (p) {
           return '<span class="cr-lp"><i class="cr-dot ' + LIFT_CLS[p.lift] + '" aria-hidden="true"></i>' + esc(LIFT[p.lift]) + ' ' + esc(CR ? CR.e1rmText(p.e1rm, U) : Math.round(p.e1rm) + ' kg') + '</span>';
         }).join('');
-        return row({ av: true, title: r.name, line: line, lineCls: 'cr-lps', attrs: 'data-cr-lifter="' + esc(r.id) + '"' }, i);
+        return row({ av: true, title: r.name, line: line, lineCls: 'cr-lps', attrs: go('data-cr-lifter="' + esc(r.id) + '"') }, i);
       }), k++);
     }
     if (team.meets.length) {
@@ -130,11 +151,11 @@
     if (team.overdue.n) {
       var od = team.overdue, who2 = od.who.slice(0, 3).map(function (w) { return first(w.name); }).join(', ') + (od.who.length > 3 ? ' +' + (od.who.length - 3) : '');
       var money = CR ? CR.money(od.total, od.currency) : String(od.total / 100);
-      h += section('Money', null, [row({ icon: 'wallet', tone: 'pain', title: plural(od.n, 'payment') + ' overdue', line: esc(money + (od.mixed ? ' and more' : '') + ' · ' + who2), attrs: 'data-cr-money' }, 0)], k++);
+      h += section('Money', null, [row({ icon: 'wallet', tone: 'pain', title: plural(od.n, 'payment') + ' overdue', line: esc(money + (od.mixed ? ' and more' : '') + ' · ' + who2), attrs: go('data-cr-money') }, 0)], k++);
     }
     // One red: the first lifter who needs you. Nobody? Then nothing red to do.
-    var up = CR ? CR.firstUp(team) : null;
-    h += '<div class="cr-foot rise" style="--i:' + (k++) + '"><p>Monday’s push and email say the same.</p>' +
+    var up = live && CR ? CR.firstUp(team) : null;
+    h += '<div class="cr-foot rise" style="--i:' + (k++) + '"><p>' + (live ? 'Monday’s push and email say the same.' : 'A sample. Your lifters’ week lands here, and in Monday’s push and email, once they train.') + '</p>' +
       (up ? '<button type="button" class="cl-btn cr-go red" data-cr-lifter="' + esc(up.id) + '">Start with ' + esc(first(up.name)) + '</button>' : '') + '</div>';
     return h + '</div>';
   }
@@ -150,9 +171,11 @@
     if (S) return;
     var team = model(opts);
     if (!team) return;
+    var sample = !team.of && !!opts.example;
+    if (sample) team = sampleTeam(todayIso());
     var CR = window.CoachReport, W = CR.lastWeek(todayIso());
-    var sub = CR.rangeLabel(W.from, W.to);
-    var body = html(team, { unit: unit() });
+    var sub = CR.rangeLabel(W.from, W.to) + (sample ? ' · a sample' : '');
+    var body = html(team, { unit: unit(), sample: sample });
     var opener = document.activeElement;
     if (isDeskNow() || opts.desk) {
       var veil = document.createElement('div');
@@ -251,5 +274,5 @@
     return true;
   }
 
-  window.CoachReportUI = { model: model, html: html, entryHtml: entryHtml, open: open, close: close, fromLink: fromLink, isOpen: function () { return !!S; } };
+  window.CoachReportUI = { model: model, html: html, sampleTeam: sampleTeam, entryHtml: entryHtml, open: open, close: close, fromLink: fromLink, isOpen: function () { return !!S; } };
 })();

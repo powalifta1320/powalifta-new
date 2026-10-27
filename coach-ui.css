@@ -1376,6 +1376,8 @@ html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /*
 .cl-sh-end { margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 2px; }
 .cl-sh .cl-sh-end :is(.cl-wn-go, .cl-wn-done) { margin-left: 0; }
 .cr-entry { gap: 4px; padding: 0 8px 0 10px; }
+.cl-root .cr-entry { color: var(--text-2); }   /* .cl-root button would make it ink: a quiet link stays quiet */
+@media (hover: hover) and (pointer: fine) { .cl-root .cr-entry:hover { color: var(--text); } }
 .cr-entry svg { width: 14px; height: 14px; color: var(--text-3); }
 .cl-gh-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
 .cl-gh-row .cl-gh { margin: 0; }
@@ -1405,7 +1407,7 @@ html[data-theme="light"] .cr-box { --cr-surface: #fff; }
 .cr-big b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 56px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em; color: var(--text); }
 .cr-big span { font-size: 17px; line-height: 1.3; font-weight: 600; color: var(--text-2); }
 .cr-meter { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--cl-up) 18%, transparent); overflow: hidden; }
-.cr-meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-up); transform-origin: left center; animation: crFill 640ms var(--cl-ease) 120ms backwards; }
+.cr-meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-up); transform-origin: left center; animation: crFill 320ms var(--cl-ease) 80ms backwards; }
 @keyframes crFill { from { transform: scaleX(0.04); } }
 .cr-facts { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-3); }
 .cr-facts b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }

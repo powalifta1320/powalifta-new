@@ -6085,6 +6085,14 @@ test('the in-app report and the email never name the body part', () => {
   const all = [CoachReportUI.html(team, {}), mail.subject, mail.html, mail.text, JSON.stringify(CoachReport.reportPush(team))].join(' ');
   PAIN_PARTS.forEach(part => assert(!new RegExp('\\b' + part.label + '\\b', 'i').test(all), 'mentions ' + part.label));
 });
+test('the example from Settings, with nobody yet: an inert, labelled sample', () => {
+  const team = CoachReportUI.sampleTeam('2026-10-27');
+  assert(team.of >= 5 && team.prs.length >= 1 && team.behind.length >= 1 && team.meets.length >= 1, 'a sample worth reading');
+  const h = CoachReportUI.html(team, { sample: true });
+  assert(/A sample/.test(h), 'says it is a sample');
+  assert(!/data-cr-lifter|data-cr-money/.test(h), 'nothing in it opens anything');
+  eq((h.match(/cr-go red/g) || []).length, 0, 'no red in a sample');
+});
 test('the in-app report: an empty roster says how it starts', () => {
   const h = CoachReportUI.html(CoachReport.teamWeek({}, { from: '2026-10-19', to: '2026-10-25' }), {});
   assert(/No lifters yet/.test(h), 'empty state');

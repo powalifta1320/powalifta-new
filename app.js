@@ -4385,7 +4385,7 @@ async function renderEmailPrefs(container) {
     '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>' +
     (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the Monday report</span>' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>' : '');
-  const wireExample = () => { const b = document.getElementById('npExample'); if (b) b.addEventListener('click', () => CoachReportUI.open()); };
+  const wireExample = () => { const b = document.getElementById('npExample'); if (b) b.addEventListener('click', () => CoachReportUI.open({ example: true })); };
 
   if (window._demoMode) {
     container.innerHTML = paint({ weeklyDigest: true, productEmails: false }, true);
