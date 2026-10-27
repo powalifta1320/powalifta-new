@@ -105,6 +105,8 @@
 (function () {
   const params = new URLSearchParams(location.search);
   const token = (params.get('token') || '').trim();
+  // A coach's Monday report links here with r=coach: the same switch (weekly_digest), the coach's words.
+  const isCoach = params.get('r') === 'coach';
   const body = document.getElementById('unsubBody');
 
   function esc(s) {
@@ -143,8 +145,8 @@
         '<span class="ur-body">' + esc(note.msg) + '</span></span>' +
       '</div>' +
       '<div class="unsub-prefs-head">Your emails</div>' +
-      prefRow('epWeekly', 'Weekly progress email',
-        'A Monday recap of your last 7 days: sessions, tonnage, best e1RMs.', weekly) +
+      (isCoach ? prefRow('epWeekly', 'Monday report', 'Your team\u2019s week, every Monday.', weekly)
+        : prefRow('epWeekly', 'Weekly progress email', 'A Monday recap of your last 7 days: sessions, tonnage, best e1RMs.', weekly)) +
       prefRow('epProduct', 'Product tips & announcements',
         'Occasional notes on new features. No spam, ever.', product) +
       '<div class="unsub-saving" id="unsubSaving"></div>';
@@ -194,7 +196,10 @@
       renderInvalid('Something went wrong reaching our servers. You can manage every email preference from Settings inside the app.');
       return;
     }
-    renderPrefs(res, {
+    renderPrefs(res, isCoach ? {
+      title: 'You\'re unsubscribed from the Monday report',
+      msg: 'We won\'t email your team\u2019s week anymore. Changed your mind? Flip it back on below.'
+    } : {
       title: 'You\'re unsubscribed from weekly emails',
       msg: 'We won\'t send the Monday progress recap anymore. Changed your mind? Flip it back on below.'
     });

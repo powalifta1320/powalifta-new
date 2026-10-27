@@ -210,6 +210,7 @@ Deno.serve(async (req) => {
     messages: 'push_messages',
     form_checks: 'push_form_checks',
     program: 'push_program',
+    alerts: 'push_alerts',
   }
   const prefCol = CATEGORY_COL[category]
   if (prefCol) {
