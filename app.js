@@ -501,9 +501,9 @@ function _buildCoachDemoData() {
     { id: 'demo-msg-4', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Quick one: sleeves on for the heavy sets or save them for the meet?', createdAt: at(1, 7, 30), readAt: null },
     { id: 'demo-msg-4v', coachId: DC, athleteId: 'demo-a1', senderId: 'demo-a1', body: 'Voice note · 0:24', meta: { type: 'voice', demo: true, dur: 23.8, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[1] }, createdAt: at(1, 7, 32), readAt: null },
     { id: 'demo-msg-5', coachId: DC, athleteId: 'demo-a2', senderId: 'demo-a2', body: 'Paused bench is finally clicking, the reps moved way faster this week.', createdAt: at(3, 12, 10), readAt: at(2, 8, 0) },
-    { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'That\'s the pause doing its job. Same weights once more, then we add load.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
+    { id: 'demo-msg-6', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Love that. Saw the low back flag after your pulls though: keep deadlifts light this week and tell me how it feels.', createdAt: at(2, 8, 20), readAt: at(2, 9, 0) },
     { id: 'demo-msg-6v', coachId: DC, athleteId: 'demo-a2', senderId: DC, body: 'Voice note · 0:12', meta: { type: 'voice', demo: true, dur: 12.2, mime: 'audio/mp4', peaks: DEMO_VOICE_PEAKS[0].slice().reverse() }, createdAt: at(2, 8, 21), readAt: at(2, 9, 0) },
-    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'Saw your note. Keep the sessions short if you need to, just get your openers in before the meet.', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
+    { id: 'demo-msg-7', coachId: DC, athleteId: 'demo-a3', senderId: DC, body: 'If work\'s busy, keep the sessions short. Just get your openers in before the meet.', createdAt: at(8, 10, 0), readAt: at(8, 11, 0) },
     { id: 'demo-msg-8', coachId: DC, athleteId: 'demo-a3', senderId: 'demo-a3', body: 'Sorry for going quiet, work\'s been mad. Still on for tomorrow. Weighed 105.3 this morning, is that ok?', createdAt: at(1, 22, 15), readAt: null }
   ];
   const invites = [{ code: 'DEMO42', coachId: DC, email: '', used: false, createdAt: Date.now() }];
