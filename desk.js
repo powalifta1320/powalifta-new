@@ -5675,6 +5675,8 @@ function dkSetPlan(p) {
     dkSetRow('Pending invites', String((Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; }).length) + ' (an unused invite holds a seat)', null),
     dkSetRow('Refer a coach', 'A month free for each one who subscribes', dkBtn('Get your link', { cls: 'dk-btn-sm is-quiet', onClick: function () { openReferralSheet(); } }))
   ]));
+  // How many more lifters fit your hours (capacity.js), under the seats.
+  if (window.CapacityUI) { try { CapacityUI.renderDesk(p); } catch (e) { console.warn('capacity', e); } }
 }
 function dkSetCheckins(p, redraw) {
   var me = _dkCoachMeId();
@@ -6051,6 +6053,8 @@ function deskSeedDemo(store, h) {
     equipment: ['Belt', 'Knee sleeves', 'Wrist wraps'], injuries: { parts: ['Left knee'], note: 'Patellar tendon gets cranky if I squat more than twice a week.' },
     goals: 'First meet in the spring. Squat 100 kg and pull 130.', meet: { name: 'Spring Novice Open', date: daysAgo(-150), federation: 'USAPL' },
     phone: '+1 555 0198', timezone: 'America/Chicago', instagram: 'hannah.lifts', notes: 'Early shifts at the hospital, so I train after 4 pm.' } });
+  // The coach's last four weeks of work for the capacity check (capacity.js), at the desk's scale of twenty.
+  S.coachTally = { weeks: 4, messages: 272, notes: 72, formChecks: 40, checkins: 72 };
   // Sarah's three lifts move differently: bench stalls, the deadlift jumps.
   S.workoutLogs.forEach(function (l) {
     if (l.athleteId !== 'demo-a2' || !l.date || l.date < daysAgo(12)) return;

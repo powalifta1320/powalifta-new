@@ -379,6 +379,20 @@ function mapDbIntake(r) {
     submittedAt: r.submitted_at || null, updatedAt: r.updated_at || null };
 }
 const _INTAKE_COLS = 'athlete_id, coach_id, answers, submitted_at, updated_at';
+// Busy weeks (migration-schedule-requests-2026-10-28.sql): the days a lifter can train this week and the
+// plan for them (busy-week.js); their coach approves or declines. days: 'Mon'…'Sun'; coach_id is the server's.
+function mapDbScheduleRequest(r) {
+  return { id: r.id, athleteId: r.athlete_id, coachId: r.coach_id || null, weekStart: String(r.week_start || '').slice(0, 10),
+    days: Array.isArray(r.days) ? r.days.map(String) : [], proposal: r.proposal && typeof r.proposal === 'object' && !Array.isArray(r.proposal) ? r.proposal : {},
+    status: r.status || 'pending', note: r.note || null, createdAt: r.created_at || null, decidedAt: r.decided_at || null };
+}
+const _SR_COLS = 'id, athlete_id, coach_id, week_start, days, proposal, status, note, created_at, decided_at';
+const _SR_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Last week's Monday on this device's calendar: requests from then on are the ones that matter.
+function _srWeekAgo() {
+  const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 function mapDbTemplate(r) {
   return { id: r.id, coachId: r.coach_id, name: r.name, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(), payload: r.payload };
 }
@@ -2405,6 +2419,96 @@ const DB = {
     return (data || []).map(mapDbIntake);
   },
 
+  // ---------- BUSY WEEKS (migration-schedule-requests-2026-10-28.sql) ----------
+  // A lifter's days for this week and the plan for them; their coach approves or declines (status only;
+  // the program change is the coach's own save). Until the migration runs, the lifter's request stays on
+  // their device (localStorage, per lifter; local: true) and goes up on the next load after it; a coach
+  // sees none (_srReady false hides the coach's side). Nothing here throws.
+  //   sendScheduleRequest(row)            → { ok, request, local? } | { ok: false, error, decided? }   (the lifter's upsert)
+  //   getMyScheduleRequest(weekStart)     → request | null   (the lifter's, that week)
+  //   listMyScheduleRequests(athleteId)   → [request]        (the lifter's, this week and last; hydrate)
+  //   listScheduleRequests(coachId)       → [request]        (the coach's, this week and last; hydrate)
+  //   decideScheduleRequest(id, status)   → { ok, request } | { ok: false, notReady?, error }
+  _srKey(athleteId) { return 'powa-busy-week-' + athleteId; },
+  _srLocal(athleteId, row) {
+    try {
+      if (row === undefined) return JSON.parse(localStorage.getItem(this._srKey(athleteId)) || 'null');
+      if (!row) localStorage.removeItem(this._srKey(athleteId)); else localStorage.setItem(this._srKey(athleteId), JSON.stringify(row));
+    } catch (e) {}
+    return row || null;
+  },
+  _srPayload(row) {
+    const days = (Array.isArray(row.days) ? row.days : []).map(String).filter((d, i, a) => _SR_DAYS.includes(d) && a.indexOf(d) === i).slice(0, 7);
+    let proposal = row.proposal && typeof row.proposal === 'object' && !Array.isArray(row.proposal) ? row.proposal : {};
+    try { if (JSON.stringify(proposal).length > 7000) proposal = { v: proposal.v || 1, weekIdx: proposal.weekIdx, assign: proposal.assign || [], merge: proposal.merge || [], move: proposal.move || [] }; } catch (e) { proposal = {}; }
+    const note = row.note == null ? null : String(row.note).replace(/\s+/g, ' ').trim().slice(0, 280) || null;
+    const out = { athlete_id: row.athleteId, week_start: String(row.weekStart || '').slice(0, 10), days, proposal, note };
+    if (row.id) out.id = row.id;
+    return out;
+  },
+  async sendScheduleRequest(row) {
+    if (!row || !row.athleteId || !/^\d{4}-\d{2}-\d{2}$/.test(String(row.weekStart || ''))) return { ok: false, error: new Error('No week to send') };
+    const payload = this._srPayload(row);
+    if (this._srReady !== false) {
+      const { data, error } = await sb.from('schedule_requests').upsert(payload, { onConflict: 'athlete_id,week_start' }).select(_SR_COLS).single();
+      if (!error) { this._srReady = true; this._srLocal(row.athleteId, null); return { ok: true, request: mapDbScheduleRequest(data) }; }
+      if (!_isNotReady(error)) {
+        // The row exists and isn't pending any more (decided), or the lifter has no coach: RLS says no.
+        return { ok: false, error, decided: /row-level security/i.test(String(error.message || '')) };
+      }
+      this._srReady = false;
+    }
+    const request = { id: row.id || null, athleteId: row.athleteId, coachId: row.coachId || null, weekStart: payload.week_start, days: payload.days,
+      proposal: payload.proposal, status: 'pending', note: payload.note, createdAt: new Date().toISOString(), decidedAt: null, local: true };
+    this._srLocal(row.athleteId, request);
+    return { ok: true, request, local: true };
+  },
+  async listMyScheduleRequests(athleteId) {
+    if (!athleteId) return [];
+    const since = _srWeekAgo();
+    const { data, error } = await sb.from('schedule_requests').select(_SR_COLS).eq('athlete_id', athleteId).gte('week_start', since).order('week_start', { ascending: false }).limit(10);
+    const loc = this._srLocal(athleteId);
+    if (error) {
+      if (_isNotReady(error)) this._srReady = false; else console.warn('listMyScheduleRequests', error);
+      return loc && loc.weekStart >= since ? [Object.assign(loc, { local: true })] : [];
+    }
+    this._srReady = true;
+    let out = (data || []).map(mapDbScheduleRequest);
+    if (loc) {
+      // Sent before the table existed: it goes up now (unless the week has gone, or one is already there).
+      if (loc.weekStart >= since && !out.some(r => r.weekStart === loc.weekStart)) {
+        const up = await sb.from('schedule_requests').insert(this._srPayload(loc)).select(_SR_COLS).single();
+        if (!up.error) out = [mapDbScheduleRequest(up.data)].concat(out);
+      }
+      this._srLocal(athleteId, null);
+    }
+    return out;
+  },
+  async getMyScheduleRequest(weekStart) {
+    const me = window._user && window._user.id;
+    if (!me || !weekStart) return null;
+    const list = await this.listMyScheduleRequests(me);
+    return list.find(r => r.weekStart === String(weekStart).slice(0, 10)) || null;
+  },
+  async listScheduleRequests(coachId) {
+    if (!coachId) return [];
+    const { data, error } = await sb.from('schedule_requests').select(_SR_COLS).eq('coach_id', coachId).gte('week_start', _srWeekAgo())
+      .order('week_start', { ascending: false }).order('created_at', { ascending: false }).limit(500);
+    if (error) {
+      if (_isNotReady(error)) this._srReady = false; else console.warn('listScheduleRequests', error);
+      return [];
+    }
+    this._srReady = true;
+    return (data || []).map(mapDbScheduleRequest);
+  },
+  async decideScheduleRequest(id, status) {
+    if (!id || !['approved', 'declined'].includes(status)) return { ok: false, error: new Error('Approve or decline') };
+    const { data, error } = await sb.from('schedule_requests').update({ status }).eq('id', id).eq('status', 'pending').select(_SR_COLS).maybeSingle();
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    if (!data) return { ok: false, error: new Error('Already decided, or not one of yours') };
+    return { ok: true, request: mapDbScheduleRequest(data) };
+  },
+
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
@@ -3413,7 +3517,19 @@ const DB = {
       .limit(500);
     if (error) { console.warn('listThreadsForCoach', error); return []; }
     const byAthlete = {};
+    // The coach's own work in the last four weeks (capacity.js): messages sent and weekly notes, over the
+    // weeks these rows cover (500 rows can reach back less than 28 days on a big roster).
+    const now = Date.now(), since = now - 28 * 864e5;
+    let sent = 0, weekly = 0, oldest = null;
     (data || []).map(mapDbMessage).forEach(m => {
+      const at = Date.parse(m.createdAt);
+      if (isFinite(at)) {
+        if (oldest == null || at < oldest) oldest = at;
+        if (m.senderId === coachId && at >= since) {
+          if (m.meta && m.meta.weekly) weekly++;
+          else if (!m.meta || !m.meta.type || m.meta.type === 'text' || m.meta.type === 'voice') sent++;
+        }
+      }
       let t = byAthlete[m.athleteId];
       if (!t) {
         t = byAthlete[m.athleteId] = { athleteId: m.athleteId, lastBody: m.body, lastAt: m.createdAt, lastSenderId: m.senderId, unread: 0 };
@@ -3423,6 +3539,8 @@ const DB = {
       // The coach's last week's note (weekly-note.js), so another device knows it went.
       if (!t.weeklyAt && m.senderId === coachId && m.meta && m.meta.weekly) t.weeklyAt = m.createdAt;
     });
+    const weeks = oldest == null ? 4 : Math.max(1, Math.min(4, (now - oldest) / (7 * 864e5)));
+    this.threadTally = { weeks: Math.round(weeks * 100) / 100, messages: sent, notes: weekly, at: now };
     return Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
   },
 
@@ -3658,7 +3776,7 @@ const DB = {
       checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [], programBlocks: [], painReports: [],
       marketplacePrograms: [], mySales: [], myPurchases: [],
       // Clients + payments (coach only, never the athlete's) and the intake (the athlete's own; their coach's roster's).
-      clientBilling: [], clientPayments: [], intakes: []
+      clientBilling: [], clientPayments: [], intakes: [], scheduleRequests: []
     };
     // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
     const _ciSince = (() => { const d = new Date(); d.setDate(d.getDate() - 70); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
@@ -3674,7 +3792,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes] = await Promise.all([
+      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes, scheduleRequests] = await Promise.all([
         ownP,
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
@@ -3694,11 +3812,13 @@ const DB = {
           this.listTeams(profile.id).catch(() => []),
           this.listClientBilling(profile.id).catch(() => []),
           this.listClientPayments(profile.id).catch(() => []),
-          this.listIntakes(profile.id, athleteIds).catch(() => [])
+          this.listIntakes(profile.id, athleteIds).catch(() => []),
+          this.listScheduleRequests(profile.id).catch(() => [])
         ]);
         empty.clientBilling = clientBilling;
         empty.clientPayments = clientPayments;
         empty.intakes = intakes;
+        empty.scheduleRequests = scheduleRequests;
         empty.teams = teams;
         empty.healthDaily = healthDaily;
         empty.nutritionDaily = nutritionDaily;
@@ -3721,7 +3841,7 @@ const DB = {
       empty.coaches = await coachesP;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports, intake] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports, intake, scheduleRequests] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -3736,10 +3856,13 @@ const DB = {
         this.listProgramBlocks([profile.id]).catch(() => []),
         profile.coach_id ? this.getMyCoachBrand().catch(() => null) : Promise.resolve(null),
         this.listPainReports([profile.id]).catch(() => []),
-        this.getMyIntake(profile.id).catch(() => null)
+        this.getMyIntake(profile.id).catch(() => null),
+        profile.coach_id ? this.listMyScheduleRequests(profile.id).catch(() => []) : Promise.resolve([])
       ]);
       // The intake questionnaire: their own answers only (never another lifter's, never billing).
       empty.intakes = intake ? [intake] : [];
+      // Busy weeks: their own requests, this week and last.
+      empty.scheduleRequests = scheduleRequests;
       empty.coachBrand = brand;
       empty.painReports = painReports;
       empty.programBlocks = blocks;

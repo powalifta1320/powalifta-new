@@ -5977,6 +5977,17 @@ test('where the time goes: one entry per task, the biggest first, empty tasks le
   eq(r.tasks[1].count, 3, 'three messages a lifter a week'); eq(r.tasks[1].each, 2, 'two minutes each');
   eq(r.minPerLifter, 21);
 });
+test('where the time goes in whole minutes that add up to the big number; counts in words', () => {
+  const r = capacityEstimate({ lifters: 4, perLifterWeek: { program: 1, messages: 3.375, formChecks: 0.5, checkins: 0.875, notes: 0.875 }, minutes: CAPM, hours: 10 });
+  eq(r.minPerLifter, 24, '10 + 6.75 + 3 + 1.75 + 2.625');
+  eq(r.tasks.map(t => t.key + ' ' + t.shown).join(), 'program 10,messages 7,formChecks 3,notes 2,checkins 2');
+  eq(r.tasks.reduce((s, t) => s + t.shown, 0), 24, 'the parts add up to the whole');
+  eq(Capacity.countText(3.4, 'message', 'messages'), 'About 3 messages a lifter a week');
+  eq(Capacity.countText(0.9, 'check-in', 'check-ins'), 'About 1 check-in a lifter a week');
+  eq(Capacity.countText(0.5, 'form check', 'form checks'), '1 form check a lifter every 2 weeks');
+  eq(Capacity.countText(0.2, 'form check', 'form checks'), '1 form check a lifter a month');
+  eq(Capacity.countText(0.05, 'form check', 'form checks'), 'Now and then');
+});
 test('over the hours: fewer than now, and the rows over the hours are flagged', () => {
   const r = capacityEstimate({ lifters: 30, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
   eq(r.capacity, 25); eq(r.more, -5); eq(r.weekMinutes, 720);
