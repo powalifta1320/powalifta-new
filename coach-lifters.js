@@ -579,7 +579,8 @@
     if (!R) return '<span class="cl-ring-none" title="No block running"></span>';
     size = size || 26;
     var sw = size >= 40 ? 4.5 : 3.4, rr = (size - sw) / 2, c = 2 * Math.PI * rr, gap = R.n > 1 ? Math.min(4.2, c / R.n * 0.2) : 0, seg = c / R.n - gap;
-    var o = '<svg class="cl-ring' + (R.k >= R.n ? ' is-full' : R.k === 0 ? ' is-zero' : '') + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(R.text) + '"><title>' + esc(R.text) + '</title><g transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')">';
+    var behind = R.n >= 2 && R.trained <= R.n - 2;
+    var o = '<svg class="cl-ring' + (behind ? ' is-behind' : '') + (R.k >= R.n ? ' is-full' : R.k === 0 ? ' is-zero' : '') + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(R.text) + '"><title>' + esc(R.text) + '</title><g transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')">';
     for (var i = 0; i < R.n; i++) {
       o += '<circle class="cl-seg' + (i < R.k ? ' on' : '') + '" style="--d:' + (i * 70) + 'ms" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + f1(rr) + '" stroke-width="' + sw + '" stroke-dasharray="' + f1(seg) + ' ' + f1(c - seg) + '" stroke-dashoffset="' + f1(-(i * (seg + gap))) + '"/>';
     }
@@ -752,10 +753,12 @@
     var a = r.athlete, n = clNumber(r), top = M ? clTopJob(r, M.jobs) : null, line = clLine(r, top);
     var days = typeof trainingDays === 'function' ? trainingDays(a.id, 7) : [];
     var w = r.status && r.status.week, R = clRing(days.filter(function (d) { return d.on; }).length, w && w.sessionsPerWeek && r.status.program ? w.sessionsPerWeek : 0);
-    var tone = top ? jobText(top).tone : '';
+    // The dot before the line is severity, not category: coral for pain, amber for anything to watch, none for routine.
+    var sevOf = function (it) { if (!it) return ''; if (it.type === 'pain') return 'alert'; return /^(meetday|weight|overshoot|drift|checkin|readiness|quiet|never|missed|offpace)$/.test(it.type) ? 'watch' : ''; };
+    var tone = sevOf(top);
     return '<button type="button" class="cl-row' + (o.sel === a.id ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (o.sel === a.id ? 'true' : 'false') + '" tabindex="' + (o.sel === a.id ? '0' : '-1') + '">' +
       avHtml(a) +
-      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' tone-' + tone : '') + '">' + (tone && tone !== 'quiet' && tone !== 'write' ? '<i class="cl-ldot"></i>' : '') + esc(line) + '</span></span>' +
+      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + esc(line) + '</span></span>' +
       '<span class="cl-end">' + ringSvg(R, 26) + '<span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span></span>' +
       (o.phone ? '<span class="cl-chev">' + ic('chev') + '</span>' : '') + '</button>';
   }

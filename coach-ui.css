@@ -615,6 +615,20 @@ html.native .cl-phone.is-wide .cl-row .cl-chev { display: none; }
 .cl-morebtn { min-height: 34px; }
 .cl-tf { padding: 7px 0; margin: -7px 0; }   /* room for the names' tap areas inside the clipped footer */
 
+/* ---- the name list is calm (owner, 27 Oct: "the green design in the name list"): neutral by default,
+   colour only when something is wrong. Ring = white sessions, amber when behind; number = white, amber when
+   down; the line's dot = coral for pain, amber for anything to watch, none for routine (messages, blocks). ---- */
+.cl-list .cl-seg.on, .cl-legend .cl-seg.on { stroke: var(--text-2); }
+.cl-list .cl-ring.is-behind .cl-seg.on { stroke: var(--cl-down); }
+.cl-list .cl-ringt, .cl-list .cl-ring.is-full .cl-ringt, .cl-legend .cl-ringt { fill: var(--text-2); }
+.cl-list .cl-ring.is-behind .cl-ringt { fill: var(--cl-down); }
+.cl-list .cl-ring.is-zero .cl-ringt { fill: var(--text-3); }
+.cl-list .cl-n.t-up b, .cl-list .cl-n.t-flat b { color: var(--text); }
+.cl-list .cl-n.t-down b { color: var(--cl-down); }
+.cl-legend b { color: var(--text); }
+.cl-line.sev-alert { --tc: var(--cl-pain); }
+.cl-line.sev-watch { --tc: var(--cl-down); }
+
 /* ==================== light theme ==================== */
 html[data-theme="light"] .cl-root { --cl-hero: #121216; }
 html[data-theme="light"] .cl-today::before { opacity: 0.6; }
