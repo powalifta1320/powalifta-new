@@ -539,7 +539,8 @@ html.desk .md-root :is(.md-tab, .md-flight) { display: inline-flex; align-items:
 html.desk .md-root :is(.md-tab, .md-flight):hover { background: none; color: var(--text); }
 html.desk .md-root :is(.md-tab, .md-flight).on { background: var(--dk-seg-on, var(--bg-3)); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 html.desk[data-theme="light"] .md-root :is(.md-tab, .md-flight).on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
-html.desk .md-root .md-flight small, html.desk .md-root .md-flight.on small { color: var(--text-3); font-weight: var(--fw-1); }
+html.desk .md-root .md-flight small { color: var(--text-3); font-weight: var(--fw-1); }
+html.desk .md-root .md-flight.on small { color: var(--text-2); font-weight: var(--fw-1); }   /* on the lighter chosen segment text-3 was 4.4:1 */
 html.desk .md-root .md-where { font-size: var(--fs-2); font-weight: var(--fw-2); color: var(--text-2); }
 html.desk .md-root .md-board { grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s-6); padding: var(--s-4) var(--gut) var(--s-6); }
 html.desk .md-root .md-board-left { gap: var(--s-4); }

@@ -1432,3 +1432,7 @@ html.desk .cl-pg.is-swap { animation: dkSwap 120ms ease-out; }
 html.desk .cl-root .cl-n small { font-size: 13px; }
 /* The weekly notes queue takes the desk's overlay radius (20, like the side card and every card). */
 html.desk .wn-box { border-radius: var(--r-3, 20px); }
+/* Block DNA's "down" deltas sit on a tinted chip inside a picked row: one step deeper in light (4.0 → 5:1). */
+html.desk[data-theme="light"] .bd-root { --bd-down: #8f5100; }
+/* Find a lifter wears the desk's one focus ring (a 1 px inline line was easy to miss). */
+html.desk .cl-root .cl-search:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
