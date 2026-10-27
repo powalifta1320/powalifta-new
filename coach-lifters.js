@@ -870,6 +870,8 @@
     html += '<div class="cl-small n' + small.length + rz(4) + '">' + small.join('') + '</div>';
     // Their words.
     if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
+    // The phone: the week's note, drafted from what's above (weekly-note.js).
+    if (o.phone && window.WeeklyNote) html += WeeklyNote.lifterEntryHtml(r, { rise: o.rise ? 5 : null });
     // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
     if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
     if (o.phone) html += '<button type="button" class="cl-everything' + rz(6) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Lifts, check-ins, notes, meets</span>' + ic('chev') + '</button>';
@@ -897,7 +899,8 @@
     html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2>' + (urgent.length > 3 ? '<span>' + (urgent.length - 3) + ' more urgent below</span>' : '') + '</div>';
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
       : '<div class="cl-calm' + rz(2) + '"><span class="cl-tic">' + ic('check') + '</span><span><b>Nothing urgent.</b> ' + (M.open.length ? 'The rest is below, by job.' : 'Everyone is on plan.') + '</span></div>';
-    html += '<div class="cl-sh' + rz(3) + '"><h2>This week</h2></div><div class="cl-wrap-t' + rz(4) + '">' + teamTilesHtml(T, {}) + '</div>';
+    // The week's notes (weekly-note.js): a quiet entry at the end of This week, the count still to write.
+    html += '<div class="cl-sh' + rz(3) + '"><h2>This week</h2>' + (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</div><div class="cl-wrap-t' + rz(4) + '">' + teamTilesHtml(T, {}) + '</div>';
     if (rest.length || M.done) html += '<div class="cl-sh' + rz(5) + '"><h2>Also on your list</h2><span>' + plural(rest.length, 'job') + ', most urgent first</span></div><div class="cl-wrap-c' + rz(6) + '">' + columnsHtml(rest, M) + '</div>';
     html += '</div>';
     host.innerHTML = html;
@@ -1081,6 +1084,8 @@
         return;
       }
       if ((b = t.closest('[data-more]'))) { e.preventDefault(); var col = b.closest('.cl-col'); if (col) { col.classList.add('is-open'); b.remove(); } return; }
+      if ((b = t.closest('[data-wn-queue]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openQueue(); return; }
+      if ((b = t.closest('[data-wn-one]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openSheet(b.getAttribute('data-wn-one'), { onSent: refresh }); return; }
       if ((b = t.closest('.cl-row[data-id]'))) {
         e.preventDefault();
         if (o.desk || o.wide) select(b.dataset.id); else open(b.dataset.id);

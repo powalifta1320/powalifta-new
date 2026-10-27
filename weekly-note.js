@@ -194,7 +194,7 @@
     // 2. PRs.
     if (f.prs.length === 1) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' PR: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + '. Well done.');
     else if (f.prs.length === 2) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' and ' + f.prs[1].lift + ' PRs: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + ' and ' + wTxt(f.prs[1].kg, U) + ' × ' + f.prs[1].reps + '. Well done.');
-    else if (f.prs.length >= 3) add('pr', 3, 2, 'PRs on squat, bench and deadlift this week. Well done.');
+    else if (f.prs.length >= 3) add('pr', 3, 2, 'PRs on squat, bench and deadlift. Well done.');
     // 3. Top sets: what felt off what you wrote, one line each; what landed on it, together.
     var setTxt = function (x) { return wTxt(x.kg, U) + ' × ' + x.reps; };
     var off = f.tops.filter(function (x) { return x.d != null && Math.abs(x.d) >= 0.5; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); });
@@ -429,7 +429,7 @@
     var veil = document.createElement('div');
     veil.className = 'dk-veil wn-veil';
     var box = document.createElement('div');
-    box.className = 'wn-box';
+    box.className = 'wn-box cl-root';
     box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Weekly notes');
     veil.appendChild(box);
     document.body.appendChild(veil);
@@ -459,16 +459,18 @@
     var draft = Q.edits[a.id] != null ? Q.edits[a.id] : weeklyNoteDraft(a.id, { facts: f });
     var meta = st.program ? esc(st.program.name || 'Program') + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block running';
     box.innerHTML =
-      '<header class="wn-head"><h2 class="wn-title">Weekly notes</h2><span class="wn-count"><b>' + (Q.i + 1) + '</b> of ' + N + '</span>' +
-        '<span class="wn-bar" aria-hidden="true"><i style="width:' + Math.round(Q.i / N * 100) + '%"></i></span>' +
-        '<button type="button" class="cl-ibtn wn-x" data-close aria-label="Close weekly notes">' + ic('x') + '</button></header>' +
-      '<div class="wn-body">' +
-        '<section class="wn-write"><div class="wn-who">' + avHtml(a, 'wn-av') + '<div class="wn-whot"><h3 class="wn-name">' + esc(a.name) + '</h3><p class="wn-meta">' + meta + '</p></div></div>' +
+      '<div class="wn-grid">' +
+        '<div class="wn-write">' +
+          '<div class="wn-head"><h2 class="wn-title">Weekly notes</h2><span class="wn-count"><b>' + (Q.i + 1) + '</b> of ' + N + '</span>' +
+            qBar(N, Q.i) + '</div>' +
+          '<div class="wn-who">' + avHtml(a, 'dk-av wn-av') + '<div class="wn-whot"><h3 class="wn-name">' + esc(a.name) + '</h3><p class="wn-meta">' + meta + '</p></div></div>' +
           '<textarea class="wn-ta" maxlength="2000" spellcheck="true" aria-label="Note to ' + esc(firstName(a.name)) + '"></textarea>' +
-          '<p class="wn-foot">Drafted from their last 7 days. Every number comes from their log.</p></section>' +
+          '<div class="wn-actions"><p class="wn-foot">Every number is from their log.</p>' +
+            '<button type="button" class="cl-btn quiet" data-skip>Skip</button><button type="button" class="cl-btn red" data-send>Send to ' + esc(firstName(a.name)) + '</button></div>' +
+        '</div>' +
         weekPanelHtml(f) +
       '</div>' +
-      '<footer class="wn-actions"><button type="button" class="cl-btn quiet" data-skip>Skip</button><button type="button" class="cl-btn red" data-send>Send to ' + esc(firstName(a.name)) + ic('chev') + '</button></footer>';
+      '<button type="button" class="cl-ibtn wn-x" data-close aria-label="Close weekly notes">' + ic('x') + '</button>';
     var ta = box.querySelector('.wn-ta');
     ta.value = draft;
     ta.addEventListener('input', function () { Q.edits[a.id] = ta.value; });
@@ -477,11 +479,18 @@
     var send = box.querySelector('[data-send]');
     send.addEventListener('click', qSend);
     if (typeof dkTip === 'function') { dkTip(send, 'Send and open the next lifter', _mac() ? '⌘↵' : 'Ctrl ↵'); dkTip(box.querySelector('[data-close]'), 'Close', 'Esc'); }
-    var body = box.querySelector('.wn-body');
-    if (!first && !reduced() && body.animate) body.animate([{ opacity: 0.45, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    var swap = box.querySelectorAll('.wn-who, .wn-ta, .wn-week > *');
+    if (!first && !reduced()) swap.forEach(function (n) { if (n.animate) n.animate([{ opacity: 0.45, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }); });
     ta.focus({ preventScroll: true });
     ta.setSelectionRange(0, 0);
     ta.scrollTop = 0;
+  }
+  // The queue as marks: sent or skipped, this one, still to come (a plain bar past 24 lifters).
+  function qBar(N, i) {
+    if (N > 24) return '<span class="wn-bar" aria-hidden="true"><i style="width:' + Math.round(i / N * 100) + '%"></i></span>';
+    var o = '<span class="wn-marks" aria-hidden="true">';
+    for (var k = 0; k < N; k++) o += '<i class="' + (k < i ? 'is-past' : k === i ? 'is-now' : '') + '"></i>';
+    return o + '</span>';
   }
   function _mac() { return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || ''); }
   async function qSend() {
@@ -511,19 +520,17 @@
   }
   function qDone() {
     var n = Q.sent.length, sk = Q.skipped.slice();
+    Q.box.classList.add('is-done');
     Q.box.innerHTML =
-      '<header class="wn-head"><h2 class="wn-title">Weekly notes</h2><span class="wn-count">' + plural(Q.rows.length, 'lifter') + '</span>' +
-        '<span class="wn-bar" aria-hidden="true"><i style="width:100%"></i></span>' +
-        '<button type="button" class="cl-ibtn wn-x" data-close aria-label="Close weekly notes">' + ic('x') + '</button></header>' +
+      '<button type="button" class="cl-ibtn wn-x" data-close aria-label="Close weekly notes">' + ic('x') + '</button>' +
       '<div class="wn-done" role="status"><span class="wn-done-ic">' + ic('check', 2.4) + '</span>' +
         '<h3 class="wn-done-t">' + (n ? plural(n, 'note') + ' sent' : 'Nothing sent') + '</h3>' +
-        '<p class="wn-done-s">' + (n ? 'Each one is in their thread' + (window._demoMode ? ', in the demo only' : '') + '.' : 'Everyone you skipped is still due.') +
-          (sk.length ? ' Skipped: ' + esc(listJoin(sk.map(function (r) { return firstName(r.athlete.name); }))) + '.' : '') + '</p>' +
+        '<p class="wn-done-s">' + (n ? 'Each one is in their thread' + (window._demoMode ? ', in the demo only' : '') + '.' : 'Everyone you skipped is still due.') + '</p>' +
         '<div class="wn-done-a">' + (sk.length ? '<button type="button" class="cl-btn quiet" data-again>Back to the ' + (sk.length === 1 ? 'one' : sk.length) + ' you skipped</button>' : '') +
           '<button type="button" class="cl-btn" data-close>Done</button></div></div>';
     Q.box.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeQueue); });
     var again = Q.box.querySelector('[data-again]');
-    if (again) again.addEventListener('click', function () { Q.rows = sk; Q.skipped = []; Q.i = 0; qPaint(false); });
+    if (again) again.addEventListener('click', function () { Q.rows = sk; Q.skipped = []; Q.i = 0; Q.box.classList.remove('is-done'); qPaint(false); });
     var done = Q.box.querySelector('.wn-done-a .cl-btn:not(.quiet)');
     if (done) done.focus({ preventScroll: true });
   }
@@ -537,9 +544,9 @@
       try { lbl = new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'narrow' }); } catch (e) {}
       dayMarks += '<span class="wn-day' + (on ? ' on' : '') + (i === 0 ? ' is-today' : '') + '"><i></i><small>' + esc(lbl) + '</small></span>';
     }
-    var sessT = S.planned ? '<b>' + S.done + '</b> of ' + S.planned : '<b>' + S.done + '</b>';
+    var sessT = '<b>' + S.done + '</b><span>' + (S.planned ? 'of ' + S.planned + ' sessions' : (S.done === 1 ? 'session' : 'sessions')) + '</span>';
     var html = '<aside class="wn-week" aria-label="Their week"><h4 class="wn-wh">Their week</h4>' +
-      '<div class="wn-sess"><div class="wn-sess-n">' + sessT + '<span>' + (S.planned ? 'sessions' : (S.done === 1 ? 'session' : 'sessions')) + '</span></div><div class="wn-days" aria-label="' + S.done + ' days trained in the last 7">' + dayMarks + '</div></div>';
+      '<div class="wn-sess"><div class="wn-sess-n">' + sessT + '</div><div class="wn-days" role="img" aria-label="' + plural(S.done, 'day') + ' trained in the last 7">' + dayMarks + '</div></div>';
     if (f.tops.length) {
       html += '<div class="wn-tops">' + f.tops.map(function (x) {
         var tone = x.d == null ? '' : x.d >= 1 ? 'alert' : x.d >= 0.5 ? 'warn' : x.d <= -1 ? 'cool' : '';
@@ -548,7 +555,7 @@
         var pr = f.prs.some(function (p) { return p.lift === x.lift; });
         return '<div class="wn-top"><i class="wn-ld ' + LIFT_CLS[x.lift] + '" aria-hidden="true"></i><span class="wn-tn">' + esc(x.name) + (pr ? '<em class="wn-pr">PR</em>' : '') + '</span>' +
           '<span class="wn-tv">' + esc(wTxt(x.kg, U)) + '<small>× ' + x.reps + '</small></span>' +
-          '<span class="wn-te">' + (tone ? '<i class="wn-sd t-' + tone + '" aria-hidden="true"></i>' : '') + '<b>' + esc(eff) + '</b>' + (wrote ? '<small>' + esc(wrote) + '</small>' : '') + '</span></div>';
+          '<span class="wn-te"><i class="wn-sd' + (tone ? ' t-' + tone : '') + '" aria-hidden="true"></i><b>' + esc(eff) + '</b><small>' + esc(wrote) + '</small></span></div>';
       }).join('') + '</div>';
     }
     if (f.e1rm) {
@@ -568,7 +575,7 @@
     if (rows.length) html += '<dl class="wn-facts">' + rows.map(function (x) {
       return '<div class="wn-fact"><dt>' + x[0] + '</dt><dd><b>' + (x[3] ? '<i class="wn-sd t-' + x[3] + '" aria-hidden="true"></i>' : '') + x[1] + '</b>' + (x[2] ? '<span>' + x[2] + '</span>' : '') + '</dd></div>';
     }).join('') + '</dl>';
-    if (f.words) html += '<figure class="wn-words"><blockquote>“' + esc(f.words.text.length > 220 ? f.words.text.slice(0, 219).trim() + '…' : f.words.text) + '”</blockquote><figcaption>' + esc(cap(dayWord(f.words.when))) + ' · ' + (f.words.kind === 'note' ? 'session note' : 'message') + '</figcaption></figure>';
+    if (f.words) html += '<figure class="wn-words"><figcaption>In their words · ' + esc(dayWord(f.words.when)) + '</figcaption><blockquote>“' + esc(f.words.text.length > 220 ? f.words.text.slice(0, 219).trim() + '…' : f.words.text) + '”</blockquote></figure>';
     if (!f.tops.length && !rows.length && !f.words) html += '<p class="wn-none">Nothing else logged this week.</p>';
     return html + '</aside>';
   }
@@ -676,7 +683,7 @@
       var paint = function () {
         sheet.querySelectorAll('.wn-rlist, .wn-rnone, .wn-rsv, .ui-sheet-sub').forEach(function (n) { n.remove(); });
         var list = loadReplies(cid);
-        sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, list.length ? 'Tap one to put it in your message. Hold one to remove it.' : 'Nothing saved yet.'));
+        sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, list.length ? 'Tap one to add it. Hold one to remove it.' : 'Nothing saved yet. Write a message, then save it here.'));
         if (list.length) {
           var ul = uiList(list.map(function (text) {
             // Tap: into the message. Hold: remove it (the click that ends a hold does nothing).
@@ -704,7 +711,7 @@
         }
         var cur = cleanReply(ta.value);
         if (cur) {
-          var sv = el('button', { type: 'button', class: 'ui-text-btn wn-rsv' }, 'Save what you wrote as a reply');
+          var sv = el('button', { type: 'button', class: 'ui-text-btn wn-rsv', html: ic('save') + '<span>Save “' + esc(cur.length > 26 ? cur.slice(0, 25).trim() + '…' : cur) + '”</span>' });
           sv.addEventListener('click', function () { saveReplies(cid, repliesAdd(loadReplies(cid), cur)); if (typeof toast === 'function') toast('Saved to your replies'); paint(); });
           sheet.appendChild(sv);
         }
@@ -733,11 +740,12 @@
       .map(function (t) { return { id: t.id, name: t.name || 'Team', ids: (t.members || []).map(function (m) { return m.athleteId; }).filter(function (id) { return ids[id]; }) }; })
       .filter(function (t) { return t.ids.length; });
   }
+  // One quiet row above the threads (its own surface, so it never reads as a conversation).
   function broadcastRowEl(onOpen) {
     var n = rosterNow().length, teams = teamsNow();
-    var row = el('button', { type: 'button', class: 'msg-inbox-row msg-bc-row' });
-    row.innerHTML = '<span class="msg-bc-ic">' + ic('users') + '</span><div class="msg-inbox-mid"><div class="msg-inbox-row-top"><span class="msg-inbox-name">Message everyone</span></div>' +
-      '<div class="msg-inbox-row-bot"><div class="msg-inbox-preview">' + (teams.length ? 'Your lifters or a team, ' : plural(n, 'lifter') + ', ') + 'each in their own thread</div></div></div>' + ic('chev');
+    var row = el('button', { type: 'button', class: 'msg-bc' });
+    row.innerHTML = '<span class="msg-bc-ic">' + ic('users') + '</span><span class="msg-bc-t"><b>Message everyone</b><span>' +
+      esc(teams.length ? 'Everyone or a team, one thread each' : plural(n, 'lifter') + ', each in their own thread') + '</span></span>' + ic('chev');
     row.addEventListener('click', function () { if (onOpen) onOpen(); else openBroadcast(); });
     return row;
   }
@@ -748,6 +756,7 @@
     if (!all.length) return;
     uiSheet('Message everyone', function (sheet, close) {
       var h = sheet.querySelector('.ui-sheet-h');
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Each lifter gets it in their own thread.'));
       var seg = null;
       if (teams.length) {
         seg = el('div', { class: 'ui-seg wn-bseg', role: 'radiogroup', 'aria-label': 'Who gets it' });
@@ -766,7 +775,6 @@
       var saved = el('button', { type: 'button', class: 'ui-text-btn wn-bsaved', html: ic('save') + '<span>Saved replies</span>' });
       saved.addEventListener('click', function () { pickReply(saved, ta); });
       tools.appendChild(saved);
-      tools.appendChild(el('span', { class: 'wn-bnote' }, 'Each lifter gets it in their own thread.'));
       sheet.appendChild(tools);
       var go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' });
       sheet.appendChild(go);

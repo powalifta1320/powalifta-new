@@ -935,3 +935,109 @@ html.desk body.powa-app .cs-sacts .btn { flex: none; margin: 0; }
 @media (hover: hover) and (pointer: fine) { .cs-golifter:hover { background: var(--ch-fill-2); color: var(--text); } }
 html.desk body.powa-app .ui-sheet.cs-client { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; }
 @media (prefers-reduced-motion: reduce) { .cs-meter i, .cs-filters button, .cs-chips button { transition: none; } }
+
+/* ==================== The week's note, saved replies, message everyone (weekly-note.js, 2026-10-27) ====================
+   Type 13 / 15 / 16 / 20 / 22. Send is the one red. Colour only on a lift dot, a PR (gold) and a status
+   that's a problem (a dot beside ink words). Surfaces separate by a step in fill, hairlines only between rows. */
+
+/* Today: a quiet entry at the end of "This week" */
+.cl-sh .cl-wn-go { margin-left: auto; align-self: center; gap: 7px; padding: 0 8px 0 10px; }
+.cl-wn-go b { margin-left: 2px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.cl-wn-go svg:last-child { width: 14px; height: 14px; color: var(--text-3); }
+.cl-sh .cl-wn-done { margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 6px; font-size: 15px; color: var(--text-3); }
+.cl-wn-done svg { width: 15px; height: 15px; color: var(--cl-up); }
+
+/* The queue (laptop): the draft on the left, their week on the right, one lifter at a time */
+.dk-veil.wn-veil { z-index: 160; }
+.wn-box { position: relative; width: min(1040px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;
+  border-radius: 22px; background: var(--bg-1); color: var(--text); font-family: var(--font-body); box-shadow: var(--dk-pop, 0 24px 60px -20px rgba(0, 0, 0, 0.8));
+  animation: wnIn 220ms cubic-bezier(0.23, 1, 0.32, 1); }
+html[data-theme="light"] .wn-box { background: #fff; }
+.wn-box.is-done { width: min(560px, 100%); }
+.wn-box :is(.cl-btn, .cl-ibtn):focus-visible { outline: 2px solid var(--dk-focus, rgba(243, 243, 245, 0.55)); outline-offset: 2px; }
+@keyframes wnIn { from { opacity: 0.45; transform: translateY(8px) scale(0.99); } }
+.wn-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); min-height: 0; flex: 1 1 auto; }
+.wn-write { display: flex; flex-direction: column; gap: 18px; min-width: 0; min-height: 0; padding: 22px 28px 22px; }
+.wn-head { display: flex; align-items: baseline; gap: 12px; }
+.wn-title { margin: 0; font: 700 20px/1.2 var(--font-body); letter-spacing: -0.012em; color: var(--text); }
+.wn-count { font-size: 15px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wn-count b { color: var(--text); font-weight: 700; }
+.wn-bar { align-self: center; flex: 0 1 160px; height: 4px; margin-left: auto; border-radius: 999px; background: var(--ch-fill-3); overflow: hidden; }
+.wn-marks { align-self: center; display: flex; gap: 3px; margin-left: auto; }
+.wn-marks i { width: 8px; height: 4px; border-radius: 2px; background: var(--ch-fill-4); transition: background-color 200ms var(--cl-ease); }
+.wn-marks i.is-past { background: var(--text-3); }
+.wn-marks i.is-now { width: 16px; background: var(--text); }
+.wn-bar i { display: block; height: 100%; border-radius: inherit; background: var(--text-2); transition: width 260ms var(--cl-ease); }
+.wn-who { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.wn-who .ui-av.wn-av { width: 44px; height: 44px; font-size: 15px; flex: none; }
+.wn-whot { min-width: 0; }
+.wn-name { margin: 0; font: 700 22px/1.15 var(--font-body); letter-spacing: -0.015em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wn-meta { margin: 3px 0 0; font-size: 15px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body.powa-app textarea.wn-ta { flex: 1 1 auto; display: block; width: 100%; min-height: 250px; box-sizing: border-box; margin: 0; padding: 16px 18px; resize: none;
+  border: 0; border-radius: 16px; background: var(--ch-fill-2); box-shadow: none; color: var(--text); font: 400 16px/1.6 var(--font-body); }
+html body.powa-app textarea.wn-ta:focus { outline: none; border: 0; background: var(--ch-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 22%, transparent); }
+.wn-actions { display: flex; align-items: center; gap: 6px; }
+.wn-foot { flex: 1 1 auto; min-width: 0; margin: 0 8px 0 2px; font-size: 13px; line-height: 1.35; color: var(--text-3); }
+.wn-actions .cl-btn { flex: none; }
+.wn-x { position: absolute; top: 16px; right: 16px; z-index: 1; background: none; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { .wn-x:hover { background: var(--ch-fill-3); color: var(--text); } }
+
+.wn-week { display: flex; flex-direction: column; gap: 18px; min-width: 0; min-height: 0; overflow-y: auto; padding: 22px 24px 24px; background: var(--ch-fill-1); scrollbar-width: thin; }
+.wn-wh { margin: 0; padding-right: 44px; font: 700 16px/1.25 var(--font-body); color: var(--text); }
+.wn-sess { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: -4px; }
+.wn-sess-n { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.wn-sess-n b { font: 800 22px/1 var(--font-num); font-stretch: var(--num-stretch, 112%); letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.wn-sess-n span { font-size: 15px; color: var(--text-3); }
+.wn-days { display: flex; gap: 8px; }
+.wn-day { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 16px; }
+.wn-day i { width: 8px; height: 8px; border-radius: 50%; background: var(--ch-fill-4); }
+.wn-day.on i { background: var(--text); }
+.wn-day small { font-size: 13px; line-height: 1; color: var(--text-3); }
+.wn-day.is-today small { color: var(--text); font-weight: 700; }
+.wn-tops { display: flex; flex-direction: column; }
+.wn-top { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: 40px; }
+.wn-top + .wn-top { box-shadow: inset 0 1px 0 var(--line); }
+.wn-ld { width: 8px; height: 8px; border-radius: 50%; background: var(--lc, var(--text-3)); }
+.wn-ld.l-sq { --lc: var(--ch-squat); } .wn-ld.l-be { --lc: var(--ch-bench); } .wn-ld.l-dl { --lc: var(--ch-deadlift); }
+.wn-tn { min-width: 0; font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wn-pr { margin-left: 8px; font-style: normal; font-size: 13px; font-weight: 700; color: var(--cl-meet); }
+.wn-tv { font: 700 16px/1 var(--font-num); font-stretch: var(--num-stretch, 112%); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wn-tv small { margin-left: 4px; font: 600 13px var(--font-body); color: var(--text-3); }
+.wn-te { display: grid; grid-template-columns: 7px 42px 64px; align-items: center; gap: 7px; white-space: nowrap; }
+.wn-te b { font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.wn-te small { font-size: 13px; color: var(--text-3); }
+.wn-sd { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--sd, transparent); }
+.wn-sd.t-warn { --sd: var(--cl-down); } .wn-sd.t-alert { --sd: var(--cl-pain); } .wn-sd.t-cool { --sd: var(--cl-bw); }
+.wn-facts { display: flex; flex-direction: column; margin: 0; }
+.wn-fact { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
+.wn-fact + .wn-fact { box-shadow: inset 0 1px 0 var(--line); }
+.wn-fact dt { padding-top: 1px; font-size: 13px; color: var(--text-3); }
+.wn-fact dd { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin: 0; }
+.wn-fact dd b { display: inline-flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 600; color: var(--text); }
+.wn-fact dd span { font-size: 13px; line-height: 1.35; color: var(--text-3); }
+.wn-words { margin: auto 0 0; padding-top: 4px; }
+.wn-words figcaption { font-size: 13px; color: var(--text-3); }
+.wn-words blockquote { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--text); text-wrap: pretty; }
+.wn-none { margin: 0; font-size: 15px; color: var(--text-3); }
+.wn-done { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 40px 56px; text-align: center; }
+.wn-done-ic { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 8px; border-radius: 50%; color: var(--cl-up); background: color-mix(in srgb, var(--cl-up) 14%, transparent); }
+.wn-done-ic svg { width: 26px; height: 26px; }
+.wn-done-t { margin: 0; font: 700 22px/1.2 var(--font-body); color: var(--text); }
+.wn-done-s { max-width: 46ch; margin: 0; font-size: 15px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+.wn-done-a { display: flex; gap: 8px; margin-top: 16px; }
+@media (max-width: 1180px) { .wn-foot { display: none; } }
+@media (prefers-reduced-motion: reduce) { .wn-box { animation: none; } .wn-bar i { transition: none; } }
+
+/* The phone: a lifter's page row, the note sheet */
+.cl-wnrow { --tc: var(--cl-msg); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 16px 10px 14px; box-sizing: border-box;
+  border: 0; border-radius: 16px; background: var(--cl-surface); box-shadow: inset 0 0 0 1px var(--cl-line); color: var(--text); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out; }
+.cl-wnrow:active { transform: scale(0.985); }
+.cl-wnrow .cl-tic { width: 32px; height: 32px; border-radius: 10px; }
+.cl-wn-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cl-wn-t b { font-size: 16px; font-weight: 600; color: var(--text); }
+.cl-wn-t span { display: flex; align-items: center; gap: 7px; font-size: 15px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-wn-ok { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--cl-up); }
+.cl-wnrow > svg { width: 18px; height: 18px; color: var(--text-3); }
+body.powa-app .wn-sheet textarea.wn-sta { display: block; width: 100%; min-height: 200px; box-sizing: border-box; margin: 0 0 16px; padding: 14px 16px; resize: none;
+  border: 0; border-radius: 14px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font: 400 16px/1.55 var(--font-body); }
+
