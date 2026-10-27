@@ -134,6 +134,8 @@ with checks(n, migration, applied) as (values
         to_regclass('public.client_billing') is not null
         and to_regclass('public.client_payments') is not null),
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
-        to_regclass('public.intake') is not null)
+        to_regclass('public.intake') is not null),
+  (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
+        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0)
 )
 select n, migration, applied from checks order by n;

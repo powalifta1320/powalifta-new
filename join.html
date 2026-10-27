@@ -46,6 +46,12 @@ body.site .jn-card h1 { font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.08
 .jn-alt { margin-top: 18px; color: var(--text-3); font-size: 0.92rem; line-height: 1.5; }
 .jn-alt a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
 .jn-bad h1 { max-width: 18ch; }
+/* A coach with branding (Pro / Premium): their team's logo, name and colour lead the page. */
+.jn-logo { width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 22px; overflow: hidden; display: grid; place-items: center; background: var(--jn-brand, var(--bg-3)); color: #fff; font: 800 1.7rem/1 var(--font-display); font-stretch: 112%; box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px color-mix(in srgb, var(--jn-brand, var(--line-2)) 55%, transparent), 0 18px 44px -18px color-mix(in srgb, var(--jn-brand, #000) 70%, transparent); }
+.jn-logo img { width: 100%; height: 100%; object-fit: cover; }
+.jn-team { margin: -2px 0 12px; color: var(--text-2); font-size: 1rem; font-weight: 600; }
+body.jn-branded .btn-primary { background: var(--jn-brand); background-image: none; border-color: transparent; color: #fff; box-shadow: 0 10px 28px -12px var(--jn-brand); }
+body.jn-branded .jn-step i { border-color: color-mix(in srgb, var(--jn-brand) 45%, var(--line-2)); }
 [hidden] { display: none !important; }
 </style>
 <script defer src="/site.js"></script>
@@ -59,9 +65,11 @@ body.site .jn-card h1 { font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.08
     <a class="jn-brand" href="/" aria-label="POWALIFTA home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg>POWALIFTA</a>
 
     <div id="jnOk">
+      <div class="jn-logo" id="jnLogo" aria-hidden="true" hidden></div>
       <div class="jn-av" id="jnAv" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <h1 id="jnTitle">Your coach invited you to POWALIFTA</h1>
-      <p class="jn-sub">Your program, every set and your progress in one place. Free for athletes.</p>
+      <p class="jn-team" id="jnTeam" hidden></p>
+      <p class="jn-sub" id="jnSub">Your program, every set and your progress in one place. Free for athletes.</p>
       <div class="jn-code">
         <div><span>Your invite code</span><b id="jnCode">------</b></div>
         <button type="button" class="btn btn-ghost btn-sm" id="jnCopy">Copy</button>
@@ -137,6 +145,26 @@ body.site .jn-card h1 { font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.08
       var row = Array.isArray(res.data) ? res.data[0] : res.data;
       if (!row) { $('jnOk').hidden = true; $('jnBad').hidden = false; return; }
       var name = String(row.coach_name || '').trim();
+      // A coach with branding (invite_preview sends it only on Pro / Premium): their team leads.
+      // The logo loads only from our own storage (the same rule as the app's brandLogoOk), the
+      // colour only as #rrggbb.
+      var team = String(row.brand_name || '').trim().slice(0, 40);
+      var color = /^#[0-9a-f]{6}$/i.test(String(row.brand_color || '')) ? row.brand_color : '';
+      var logo = /^https:\/\/cxnotrikxvzncupswvio\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]{36}\/brand[A-Za-z0-9._-]{0,60}(\?t=[0-9]{1,16})?$/.test(String(row.brand_logo_url || '')) ? row.brand_logo_url : '';
+      if (team || logo) {
+        document.body.classList.add('jn-branded');
+        if (color) document.body.style.setProperty('--jn-brand', color);
+        var lg = $('jnLogo');
+        var mono = function () { lg.textContent = (team || name || '?').split(/\s+/).map(function (w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase(); };
+        if (logo) { var li = document.createElement('img'); li.alt = ''; li.onerror = function () { li.remove(); mono(); }; li.src = logo; lg.appendChild(li); } else mono();
+        lg.hidden = false;
+        $('jnAv').hidden = true;
+        $('jnTitle').textContent = team ? 'Join ' + team : (name || 'Your coach') + ' invited you to train';
+        if (team && name) { $('jnTeam').textContent = 'Coached by ' + name; $('jnTeam').hidden = false; }
+        $('jnSub').textContent = 'Your program, every set and your progress in one place, on POWALIFTA. Free for athletes.';
+        document.title = (team ? 'Join ' + team : 'You\'re invited') + ' | POWALIFTA';
+        return;
+      }
       if (name) {
         $('jnTitle').textContent = name + ' invited you to train on POWALIFTA';
         var av = $('jnAv');
