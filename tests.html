@@ -4704,7 +4704,7 @@ test('the team: training, effort, strength, meets', () => {
   eq(X.training.behind.map(x => x.r.athlete.id).join(','), 'c', 'Cal 0 of 4');
   eq(X.training.perDay[6], 2, 'today: Ann and Dee');
   eq(X.effort.total, 3); eq(X.effort.at, 1); eq(X.effort.half, 1); eq(X.effort.over, 1); eq(X.effort.pct, 33);
-  eq(X.effort.who[0].r.athlete.id, 'a', 'the worst first'); eq(X.effort.who[0].text, 'Bench @9.5 vs 8');
+  eq(X.effort.who[0].r.athlete.id, 'a', 'the worst first'); eq(X.effort.who[0].text, '@9.5 vs 8'); eq(X.effort.who[0].lift, 'Bench');
   eq(X.strength.n, 3); eq(X.strength.up, 1); eq(X.strength.down, 1); eq(X.strength.flat, 1); eq(X.strength.median, 0); eq(X.strength.prs.length, 1);
   eq(X.meets.list.length, 2); eq(X.meets.next.name, 'Open'); eq(X.meets.bw[0].r.athlete.id, 'a');
 });
