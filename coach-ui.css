@@ -930,7 +930,7 @@ html.desk #clientsArea { height: 100vh; overflow-y: auto; overscroll-behavior: c
 .cs-sbanner.tone-pain { --tc: var(--ch-pain); } .cs-sbanner.tone-warn { --tc: var(--ch-warn); }
 .cs-sb-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cs-sb-t b { font-size: 16px; font-weight: 700; color: var(--text); }
-.cs-sbanner.tone-pain .cs-sb-t b { color: var(--ch-pain); } .cs-sbanner.tone-warn .cs-sb-t b { color: var(--ch-warn); }
+/* the banner's wash and icon carry the colour; its words stay ink (a status is a dot or a tint, never coloured words) */
 .cs-sb-t span { font-size: 13px; color: var(--text-3); }
 .cs-sbanner .cl-tic { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--tc); background: color-mix(in srgb, var(--tc) 16%, transparent); }
 .cs-sbanner .cl-tic svg { width: 17px; height: 17px; }
@@ -1296,3 +1296,5 @@ html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-ex + .pb-add-ex2::
 html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-ex.is-open + .pb-add-ex2::before { display: none; }
 html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:active { background: var(--fill-1); }
 @media (hover: hover) and (pointer: fine) { html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:hover { background: none; color: var(--text); } }
+/* Clients in light: the chosen filter and the sheets' chosen chip are white on ink (they were ink on ink). */
+html[data-theme="light"] .cs-filters button.on, html[data-theme="light"] .cs-chips button.on { color: #fff; }
