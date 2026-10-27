@@ -104,6 +104,7 @@
 <script>window.POWA_AI = { enabled: false };   // the assistant's prompt builder only: no Ask AI panel on this page</script>
 <script src="ai-chat.js"></script>
 <script src="weekly-note.js"></script>
+<script src="block-dna.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -5540,6 +5541,199 @@ test('saved replies: four defaults, a round trip through storage, per coach', ()
   mem.setItem('powa-saved-replies-c3', '{not json'); eq(WN.loadReplies('c3', mem).length, 4, 'junk: the defaults, never a crash');
   mem.setItem('powa-saved-replies-c4', JSON.stringify(['a', '', 'A', 7, null])); eq(JSON.stringify(WN.loadReplies('c4', mem)), '["a","7"]');
   eq(WN.repliesAdd(['x'], '   ').join(), 'x', 'nothing to save');
+});
+
+/* ===========================================================
+   Block DNA + block review (block-dna.js): a block's fingerprint week by week (main-lift sets written and
+   done, sessions done against the ones that came round, top-set RPE written against felt, % of the starting
+   e1RM), its e1RM from the 8 weeks before it to its best in it, the pain reports inside it, the running
+   block's partial week, the log-only fallback, the default pair, and the compare sentences (what changed,
+   never why). All dates fixed.
+   =========================================================== */
+group('block DNA (block-dna.js)');
+const BD = typeof BlockDNA !== 'undefined' ? BlockDNA : (window.BlockDNA || null);
+const bdSet = (w, reps, rpe, extra) => Object.assign({ weight: w, reps, rpe }, extra || {});
+const bdDone = (w, reps, rpe, felt, at, extra) => Object.assign({ weight: w, reps, rpe, completed: true, actualRpe: felt, completedAt: at }, extra || {});
+const bdEx = (lift, sets, variant) => ({ lift, variant: variant || 'Competition', exerciseName: '', sets });
+// A past block, replaced in week 2: week 1 lifted in full (an RPE range on bench, a meet attempt on the
+// deadlift); week 2's squat day lifted (a back-off skipped, a set added), bench day skipped, deadlift day never reached.
+const BD_PAST = { id: 'blk-p', athleteId: 'x', name: 'Base', startedOn: '2026-09-07', endedOn: '2026-09-14', weeks: [
+  { number: 1, days: [
+    { name: 'Squat Day', exercises: [bdEx('squat', [bdDone(150, 3, 8, 8.5, '2026-09-07'), bdDone(130, 5, 7, 7, '2026-09-07'), bdDone(130, 5, 7, 7, '2026-09-07'), bdDone(130, 5, 7, 7, '2026-09-07')])] },
+    { name: 'Bench Day', exercises: [bdEx('bench', [bdDone(100, 5, 7, 8, '2026-09-09', { rpeHi: 8 }), bdDone(90, 5, 7, 7, '2026-09-09'), bdDone(90, 5, 7, 7, '2026-09-09')]), bdEx('pull', [bdDone(60, 10, 8, 8, '2026-09-09')])] },
+    { name: 'Deadlift Day', exercises: [bdEx('deadlift', [bdDone(180, 3, 8, 9, '2026-09-11'), bdDone(170, 3, 7, 7, '2026-09-11'), bdDone(200, 1, 9, 9.5, '2026-09-11', { attempt: true })])] },
+    { name: 'Rest', exercises: [] }] },
+  { number: 2, days: [
+    { name: 'Squat Day', exercises: [bdEx('squat', [bdDone(155, 3, 8, 8, '2026-09-14'), bdDone(135, 5, 7, 7, '2026-09-14'), bdDone(135, 5, 7, 7, '2026-09-14'), bdSet(135, 5, 7, { skipped: true }), bdDone(135, 5, 7, 8, '2026-09-14', { extra: true })])] },
+    { name: 'Bench Day', exercises: [bdEx('bench', [bdSet(102.5, 5, 7, { rpeHi: 8, skipped: true }), bdSet(92.5, 5, 7, { skipped: true }), bdSet(92.5, 5, 7, { skipped: true })])] },
+    { name: 'Deadlift Day', exercises: [bdEx('deadlift', [bdSet(185, 3, 8), bdSet(172.5, 3, 7)])] },
+    { name: 'Rest', exercises: [] }] }
+] };
+const bdLog = (a, lift, date, e1, extra) => Object.assign({ athleteId: a, lift, variant: 'Competition', date, e1rmComp: e1 }, extra || {});
+const BD_LOGS = [
+  bdLog('x', 'squat', '2026-07-01', 250),                         // more than 8 weeks before: not where it started
+  bdLog('x', 'squat', '2026-08-20', 180), bdLog('x', 'bench', '2026-08-25', 120), bdLog('x', 'deadlift', '2026-08-28', 220),
+  bdLog('x', 'squat', '2026-09-07', 186), bdLog('x', 'squat', '2026-09-14', 189.5), bdLog('x', 'bench', '2026-09-09', 123), bdLog('x', 'deadlift', '2026-09-11', 219),
+  bdLog('x', 'pull', '2026-09-09', 999),                          // not a main lift
+  bdLog('y', 'squat', '2026-09-08', 400),                         // someone else
+  bdLog('x', 'squat', '2026-10-19', 195),                         // the next block
+  bdLog('x', 'squat', '2026-10-30', 300)                          // after both
+];
+const BD_PAIN = [
+  { athleteId: 'x', day: '2026-09-06' }, { athleteId: 'x', day: '2026-09-07' }, { athleteId: 'x', day: '2026-09-14', resolvedAt: '2026-09-15T09:00:00Z' },
+  { athleteId: 'x', day: '2026-09-15' }, { athleteId: 'y', day: '2026-09-10' }
+];
+const bdPast = () => BD.blockDna(BD_PAST, { logs: BD_LOGS, painReports: BD_PAIN, today: '2026-10-22' });
+test('the contract: blockDna, blockCompare, blockDefaultPair', () => {
+  assert(BD, 'BlockDNA is loaded');
+  ['blockDna', 'blockCompare', 'blockDefaultPair'].forEach(k => { eq(typeof BD[k], 'function', k); eq(typeof window[k], 'function', 'window.' + k); });
+  const d = bdPast();
+  eq(d.current, false); eq(d.source, 'weeks'); eq(d.name, 'Base'); eq(d.weeksTotal, 2);
+  eq(d.dates.start + '|' + d.dates.end, '2026-09-07|2026-09-14');
+});
+test('sets per week per lift: written and done, a set added counts as done, the attempt and the pull-ups don\'t touch the top set', () => {
+  const d = bdPast(), w1 = d.weeks[0], w2 = d.weeks[1];
+  eq(w1.n, 1); eq(w2.n, 2);
+  eq(JSON.stringify(w1.sets), JSON.stringify({ squat: { planned: 4, done: 4 }, bench: { planned: 3, done: 3 }, deadlift: { planned: 3, done: 3 } }));
+  eq(JSON.stringify(w2.sets), JSON.stringify({ squat: { planned: 4, done: 4 }, bench: { planned: 3, done: 0 }, deadlift: { planned: 2, done: 0 } }), 'the skipped back-off is written, the added set is done');
+  const L = d.totals.setsByLift;
+  eq(L.squat.perWeek, 4); eq(L.squat.done, 8);
+  eq(L.bench.perWeek, 1.5, 'the skipped bench day came round: it counts');
+  eq(L.deadlift.perWeek, 3, 'week 2\'s deadlift day never came round: one week of deadlifts');
+});
+test('sessions done against the ones that came round (a block replaced in week 2)', () => {
+  const d = bdPast();
+  eq(d.weeks[0].planned + '|' + d.weeks[0].due + '|' + d.weeks[0].done, '3|3|3', 'the rest day is no session');
+  eq(d.weeks[1].planned + '|' + d.weeks[1].due + '|' + d.weeks[1].done, '3|2|1', 'bench skipped, deadlift never reached');
+  eq(d.totals.sessionsDone, 4); eq(d.totals.sessionsPlanned, 5); eq(d.totals.sessionsWritten, 6);
+  eq(d.totals.adherence, 0.8);
+  eq(d.fullWeeks, 1);
+});
+test('RPE written against felt: top sets, the top of a range, averages per week and for the block', () => {
+  const d = bdPast();
+  eq(d.weeks[0].rpeWritten, 8, 'squat 8, bench 7–8 reads 8, deadlift 8 (not the attempt)');
+  eq(d.weeks[0].rpeFelt, 8.5, 'felt 8.5, 8 and 9');
+  eq(d.weeks[1].rpeWritten, 8, 'written counts the sets not lifted');
+  eq(d.weeks[1].rpeFelt, 8, 'felt only what was lifted');
+  const r = d.totals.rpe;
+  eq(r.n, 4, 'four top sets lifted with a written RPE');
+  eq(r.written, 8); eq(r.felt, 8.38); eq(r.drift, 0.38);
+});
+test('e1RM: the best in the 8 weeks before the block against the best in it; the total once all three are there', () => {
+  const d = bdPast(), e = d.e1rm;
+  eq(JSON.stringify(e.squat), JSON.stringify({ start: 180, end: 189.5, delta: 9.5 }), 'not the old 250, not the later 195 or 300, not someone else\'s 400');
+  eq(JSON.stringify(e.bench), JSON.stringify({ start: 120, end: 123, delta: 3 }));
+  eq(JSON.stringify(e.deadlift), JSON.stringify({ start: 220, end: 219, delta: -1 }));
+  eq(JSON.stringify(e.total), JSON.stringify({ start: 520, end: 531.5, delta: 11.5 }));
+  eq(d.weeks[0].pct, 82.8, 'top sets 150, 100 and 180 against 180, 120 and 220');
+  eq(d.weeks[1].pct, 86.1, 'only what was lifted');
+  const thin = BD.blockDna(BD_PAST, { logs: BD_LOGS.filter(l => l.lift !== 'bench'), today: '2026-10-22' });
+  eq(thin.e1rm.bench.delta, null); eq(thin.e1rm.total.delta, null, 'no total without all three');
+});
+test('pain reports dated inside the block (both ends in, resolved or not), only theirs', () => {
+  eq(bdPast().pain, 2);
+  eq(BD.blockDna(BD_PAST, { logs: BD_LOGS, today: '2026-10-22' }).pain, 0, 'none passed');
+});
+test('the block running now: starts on its Monday, runs to today, the deadlift day hasn\'t come round', () => {
+  const prog = { id: 'prog-c', athleteId: 'x', name: 'Strength', startsOn: '2026-10-19', weeks: [
+    { number: 1, days: [
+      { name: 'Squat Day', exercises: [bdEx('squat', [bdDone(160, 3, 8, 8, '2026-10-19'), bdDone(140, 5, 7, 7.5, '2026-10-19')])] },
+      { name: 'Bench Day', exercises: [bdEx('bench', [bdDone(105, 3, 8, 8, '2026-10-21')])] },
+      { name: 'Deadlift Day', exercises: [bdEx('deadlift', [bdSet(190, 3, 8)])] }] },
+    { number: 2, days: [
+      { name: 'Squat Day', exercises: [bdEx('squat', [bdSet(162.5, 3, 8.5), bdSet(142.5, 5, 7.5)])] },
+      { name: 'Bench Day', exercises: [bdEx('bench', [bdSet(107.5, 3, 8.5)])] },
+      { name: 'Deadlift Day', exercises: [bdEx('deadlift', [bdSet(192.5, 3, 8.5)])] }] }] };
+  const c = BD.blockDna(prog, { logs: BD_LOGS, painReports: BD_PAIN, today: '2026-10-22' });
+  eq(c.current, true, 'a program (no endedOn) is the running block');
+  eq(c.dates.start + '|' + c.dates.end, '2026-10-19|2026-10-22');
+  eq(c.weeks[0].due + '|' + c.weeks[0].done + '|' + c.weeks[1].due, '2|2|0');
+  eq(c.totals.adherence, 1, 'two of the two sessions that came round');
+  eq(c.totals.setsByLift.squat.perWeek, 2); eq(c.totals.setsByLift.bench.perWeek, 1);
+  eq(c.totals.setsByLift.deadlift.perWeek, null, 'not a zero: it hasn\'t come round');
+  eq(c.weeks[1].rpeWritten, 8.5, 'week 2 as written'); eq(c.weeks[1].rpeFelt, null);
+  eq(c.e1rm.squat.start + '|' + c.e1rm.squat.end, '189.5|195', 'where it started is the block before');
+  eq(c.fullWeeks, 0);
+  const late = BD.blockDna(prog, { logs: BD_LOGS, painReports: [{ athleteId: 'x', day: '2026-10-19' }, { athleteId: 'x', day: '2026-10-20' }], today: '2026-10-22', after: '2026-10-19' });
+  eq(late.dates.start, '2026-10-20', 'the block before ended on its Monday: this one begins the day after');
+  eq(late.pain + '|' + late.e1rm.squat.start + '|' + late.e1rm.squat.end, '1|195|null', 'that Monday is the old block\'s: its pain report and its squat');
+  const behind = BD.blockDna(Object.assign({}, prog, { startsOn: '2026-10-26' }), { logs: BD_LOGS, painReports: [{ athleteId: 'x', day: '2026-10-21' }], today: '2026-10-27' });
+  eq(behind.dates.start, '2026-10-19', 'the calendar moved week 1 on, but the block began with its first set logged');
+  eq(behind.pain + '|' + behind.e1rm.squat.end, '1|195', 'so what was lifted and felt in it still counts');
+  const cmp = BD.blockCompare(c, bdPast(), { unit: 'kg' });
+  const dl = cmp.rows.find(r => r.key === 'deadlift');
+  eq(dl.text, 'No deadlift sets logged in Strength yet.');
+  eq(cmp.rows.find(r => r.key === 'squat').text, 'Squat volume is 50% lower so far; squat e1RM is up 6 kg (+10 kg in Base).', 'a running block reads in the present');
+  eq(cmp.rows.find(r => r.key === 'sessions').text, 'Adherence is higher so far: 100% of sessions, against 80%.');
+  eq(cmp.rows.find(r => r.key === 'effort').text, 'Top sets have felt as written so far; in Base they felt 0.4 RPE harder than written.', 'the top sets, not the back-off felt 7.5');
+  eq(cmp.rows.find(r => r.key === 'pain').text, 'No pain reports so far, against 2 in Base.');
+});
+test('no weeks yet (a real account\'s list): the fingerprint from the log', () => {
+  const logs = [
+    bdLog('x', 'squat', '2026-09-07', 0, { weight: 150, reps: 3, rpe: 8.5 }), bdLog('x', 'squat', '2026-09-07', 0, { weight: 130, reps: 5, rpe: 7 }), bdLog('x', 'squat', '2026-09-07', 0, { weight: 130, reps: 5, rpe: 7 }),
+    bdLog('x', 'bench', '2026-09-09', 0, { weight: 100, reps: 5, rpe: 8 }), bdLog('x', 'squat', '2026-09-14', 0, { weight: 155, reps: 3, rpe: 8 })];
+  const d = BD.blockDna({ id: 'blk-l', athleteId: 'x', name: 'Listed', startedOn: '2026-09-07', endedOn: '2026-09-14', weeks: null, stats: { sets: 9, done: 5, sessions: 3 } }, { logs, today: '2026-10-22' });
+  eq(d.source, 'logs'); eq(d.weeks.length, 2);
+  eq(d.weeks[0].sets.squat.done + '|' + d.weeks[0].sets.bench.done + '|' + d.weeks[0].done, '3|1|2');
+  eq(d.weeks[0].rpeFelt, 8.25, 'the heaviest squat (8.5) and bench (8)');
+  eq(d.totals.sessionsDone, 3); eq(d.totals.adherence, null, 'nothing to count it against');
+  eq(d.totals.setsByLift.squat.perWeek, 2); eq(d.totals.rpe.drift, null);
+  const thu = BD.blockDna({ id: 'blk-t', athleteId: 'x', name: 'Thursday', startedOn: '2026-09-10', endedOn: '2026-09-23', weeks: null },
+    { logs: [bdLog('x', 'squat', '2026-09-10', 0, { weight: 150, reps: 3, rpe: 8 }), bdLog('x', 'squat', '2026-09-16', 0, { weight: 150, reps: 3, rpe: 8 }), bdLog('x', 'squat', '2026-09-17', 0, { weight: 150, reps: 3, rpe: 8 }), bdLog('x', 'squat', '2026-09-23', 0, { weight: 150, reps: 3, rpe: 8 })], today: '2026-10-22' });
+  eq(thu.weeks.map(w => w.sets.squat.done).join(','), '2,2', 'a block that began on a Thursday keeps Thursday weeks');
+});
+test('the pair Compare opens on: the two newest with a full week behind them', () => {
+  const mk = (id, full, done) => ({ id, fullWeeks: full, totals: { sessionsDone: done } });
+  const c = mk('c', 0, 2), p = mk('p', 1, 4), q = mk('q', 2, 6), e = mk('e', 0, 0);
+  eq(BD.blockDefaultPair([c, p, q]).map(x => x.id).join(','), 'p,q', 'a block in its first week waits');
+  eq(BD.blockDefaultPair([c, p]).map(x => x.id).join(','), 'c,p', 'unless there aren\'t two others');
+  eq(BD.blockDefaultPair([e, p]).map(x => x.id).join(','), 'e,p');
+  eq(BD.blockDefaultPair([c]), null);
+});
+const BD_A = { id: 'a', name: 'Volume', current: false, pain: 1, dates: {},
+  totals: { adherence: 0.92, sessionsDone: 11, sessionsPlanned: 12, rpe: { drift: 0, written: 8 }, setsByLift: { squat: { perWeek: 12 }, bench: { perWeek: 13 }, deadlift: { perWeek: 6 } } },
+  e1rm: { squat: { delta: 7 }, bench: { delta: 6 }, deadlift: { delta: -2 }, total: { delta: 11 } } };
+const BD_B = { id: 'b', name: 'Base', current: false, pain: 0, dates: {},
+  totals: { adherence: 0.78, sessionsDone: 7, sessionsPlanned: 9, rpe: { drift: 0.4, written: 7.5 }, setsByLift: { squat: { perWeek: 12 }, bench: { perWeek: 10 }, deadlift: { perWeek: 6 } } },
+  e1rm: { squat: { delta: 4 }, bench: { delta: 2 }, deadlift: { delta: 3 }, total: { delta: 9 } } };
+test('compare: one plain sentence per difference, in order', () => {
+  const c = BD.blockCompare(BD_A, BD_B, { unit: 'kg' });
+  eq(c.rows.map(r => r.key).join(','), 'sessions,effort,squat,bench,deadlift,total,pain');
+  const t = k => c.rows.find(r => r.key === k).text;
+  eq(t('sessions'), 'Adherence was higher: 92% of sessions, against 78%.');
+  eq(t('effort'), 'Top sets felt as written; in Base they felt 0.4 RPE harder than written.');
+  eq(t('squat'), 'Squat volume held at 12 sets a week; squat e1RM rose 7 kg (+4 kg in Base).');
+  eq(t('bench'), 'Bench volume was 30% higher; bench e1RM rose 6 kg (+2 kg in Base).');
+  eq(t('deadlift'), 'Deadlift volume held at 6 sets a week; deadlift e1RM fell 2 kg (+3 kg in Base).');
+  eq(t('total'), 'Total e1RM rose 11 kg (+9 kg in Base).');
+  eq(t('pain'), '1 pain report, against none in Base.');
+  const s = c.rows.find(r => r.key === 'sessions'), b = c.rows.find(r => r.key === 'bench');
+  eq(s.a.text + '|' + s.a.sub + '|' + s.b.text, '11 of 12|92%|7 of 9');
+  eq(b.a.text + '|' + b.a.sub + '|' + b.b.sub, '13 sets|e1RM +6|e1RM +2');
+  eq(c.rows.find(r => r.key === 'effort').b.text, '+0.4');
+});
+test('compare: the other way round, in lb, and the edges (the same, nothing logged, no pain)', () => {
+  const c = BD.blockCompare(BD_B, BD_A, { unit: 'lbs' });
+  const t = k => c.rows.find(r => r.key === k).text;
+  eq(t('sessions'), 'Adherence was lower: 78% of sessions, against 92%.');
+  eq(t('bench'), 'Bench volume was 23% lower; bench e1RM rose 4 lbs (+13 lbs in Volume).');
+  eq(t('pain'), 'No pain reports, against 1 in Volume.');
+  const same = BD.blockCompare(BD_A, Object.assign({}, BD_A, { name: 'Again' }), { unit: 'kg' });
+  eq(same.rows.find(r => r.key === 'sessions').text, 'Adherence was the same: 92% of sessions.');
+  eq(same.rows.find(r => r.key === 'effort').text, 'Top sets felt as written in both blocks.');
+  eq(same.rows.find(r => r.key === 'pain').text, '1 pain report in each block.');
+  const none = Object.assign({}, BD_A, { pain: 0, totals: Object.assign({}, BD_A.totals, { rpe: { drift: null } }) });
+  const n2 = BD.blockCompare(none, Object.assign({}, BD_B, { pain: 0 }), { unit: 'kg' });
+  eq(n2.rows.find(r => r.key === 'effort').text, 'No top sets logged against a written RPE in Volume.');
+  eq(n2.rows.find(r => r.key === 'pain').text, 'No pain reports in either block.');
+});
+test('compare never says one thing caused another', () => {
+  const CAUSAL = /\b(because|cause[sd]?|causing|made|makes?|led to|leads? to|due to|thanks to|therefore|result(?:ed|s)? in|drove|drives|helped|helps|so that)\b/i;
+  const all = [BD.blockCompare(BD_A, BD_B, { unit: 'kg' }), BD.blockCompare(BD_B, BD_A, { unit: 'lbs' }), BD.blockCompare(bdPast(), BD_A, { unit: 'kg' }),
+    BD.blockCompare(Object.assign({}, BD_A, { current: true, pain: 3 }), BD_B, { unit: 'kg' })];
+  let n = 0;
+  all.forEach(c => c.rows.forEach(r => { n++; assert(!CAUSAL.test(r.text), 'causal: ' + r.text); assert(/^[A-Z0-9]/.test(r.text) && /\.$/.test(r.text), 'a sentence: ' + r.text); }));
+  assert(n >= 24, 'every row read: ' + n);
 });
 
 function render() {

@@ -1,7 +1,7 @@
 /* coach-ui.css: the coach side's new screens (2026-10-25), starting with Home (coach-home.js).
    The app's own material: obsidian surfaces, hairlines, Archivo, one red action per screen,
    lift colours with a job. Everything is prefixed ch- and lives inside .ch-host / .ch-phone. */
-.ch-host, .ch-phone, .cl-root, .pp-sheet, .pp-pick, .cs-sheet {
+.ch-host, .ch-phone, .cl-root, .pp-sheet, .pp-pick, .cs-sheet, .bd-root {
   --ch-squat: #38c6ff; --ch-bench: #a98bff; --ch-deadlift: #ffbf3c;
   --ch-ok: #34d982; --ch-warn: #ffb35c; --ch-pain: #ff8f80; --ch-bw: #5ac8fa; --ch-gold: #ffc23d; --ch-green: #34e08c; --ch-cyan: #2ec5ff;
   --ch-fill-1: rgba(255, 255, 255, 0.035); --ch-fill-2: rgba(255, 255, 255, 0.06); --ch-fill-3: rgba(255, 255, 255, 0.08); --ch-fill-4: rgba(255, 255, 255, 0.14);
@@ -9,7 +9,7 @@
   --ch-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --ch-r: var(--u-r, 20px); --ch-r-in: 14px;
 }
-html[data-theme="light"] .ch-host, html[data-theme="light"] .ch-phone, html[data-theme="light"] .cl-root, html[data-theme="light"] .pp-sheet, html[data-theme="light"] .pp-pick, html[data-theme="light"] .cs-sheet {
+html[data-theme="light"] .ch-host, html[data-theme="light"] .ch-phone, html[data-theme="light"] .cl-root, html[data-theme="light"] .pp-sheet, html[data-theme="light"] .pp-pick, html[data-theme="light"] .cs-sheet, html[data-theme="light"] .bd-root {
   --ch-fill-1: rgba(11, 11, 13, 0.035); --ch-fill-2: rgba(11, 11, 13, 0.06); --ch-fill-3: rgba(11, 11, 13, 0.08); --ch-fill-4: rgba(11, 11, 13, 0.14);
   --ch-lit: none; --ch-pain: #d9483c; --ch-warn: #c77a12; --ch-ok: #159a58; --ch-bw: #1577c2; --ch-green: #159a58; --ch-cyan: #0f86b8; --ch-gold: #b4821a;
 }
@@ -1089,3 +1089,139 @@ body.powa-app .wn-bsheet textarea.wn-bta { min-height: 132px; margin-bottom: 4px
 .wn-btools { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
 body.powa-app .wn-btools .wn-bsaved { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 2px; font-size: 15px; }
 .wn-bsaved svg { width: 16px; height: 16px; }
+
+
+/* ==================== Block DNA (block-dna.js): every block's fingerprint, two blocks compared ====================
+   One scale per view, one week grid, so blocks line up week by week. The lifts own their bars: a 10% wash is
+   what was written, the solid part what was done (2 px between bars). The RPE lines are ink: felt in full ink,
+   written in grey; ringed end dots. Text is never a series colour; only a falling e1RM wears the warning tone. */
+.bd-root { --bd-sq: var(--ch-squat); --bd-be: var(--ch-bench); --bd-dl: var(--ch-deadlift); --bd-down: var(--ch-warn); --bd-surface: var(--bg-1); }
+html[data-theme="light"] .bd-root { --bd-sq: #0a86c9; --bd-be: #6a4fe0; --bd-dl: #a86f00; }
+.bd-root .l-sq { --lc: var(--bd-sq); } .bd-root .l-be { --lc: var(--bd-be); } .bd-root .l-dl { --lc: var(--bd-dl); }
+.bd-fp { display: block; flex: none; overflow: visible; }
+.bd-fp .bd-base { stroke: var(--line-2); stroke-width: 1; }
+.bd-fp .bd-trk { fill: var(--lc); fill-opacity: 0.1; }
+.bd-fp .bd-bar { fill: var(--lc); }
+.bd-fp .bd-hit { fill: transparent; transition: fill 150ms ease-out; }
+.bd-fp .bd-rpe { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.bd-fp .bd-rpe.is-felt { stroke: var(--text); } .bd-fp .bd-rpe.is-wr { stroke: var(--text-3); }
+.bd-fp .bd-end { stroke: var(--bd-surface); stroke-width: 2; pointer-events: none; }
+.bd-fp .bd-end.is-felt { fill: var(--text); } .bd-fp .bd-end.is-wr { fill: var(--text-3); }
+.bd-fp .bd-wkn { font: 600 13px var(--font-body, system-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) { .bd-fp .bd-wk:hover .bd-hit { fill: var(--ch-fill-2); } }
+/* the key: once per view */
+.bd-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; line-height: 1.3; color: var(--text-3); }
+.bd-kg { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+html.desk .bd-kg { flex-wrap: nowrap; }
+.bd-kg > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.bd-sw { display: inline-block; width: 6px; height: 12px; border-radius: 3px 3px 0 0; background: var(--lc); }
+.bd-sw.is-wash { background: color-mix(in srgb, var(--text-3) 24%, transparent); }
+.bd-ln { display: inline-block; width: 14px; height: 2px; border-radius: 1px; background: var(--text); }
+.bd-ln.is-wr { background: var(--text-3); }
+/* a block's facts */
+.bd-name { display: block; font-size: 16px; line-height: 1.25; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-sub { display: block; margin-top: 2px; font-size: 13px; line-height: 1.3; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.bd-ses { font-size: 13px; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bd-ses b { font-weight: 600; color: var(--text); }
+.bd-chips { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.bd-chips.is-none { font-size: 13px; color: var(--text-3); }
+.bd-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 8px; border-radius: 999px; background: var(--ch-fill-2); font-size: 13px; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.bd-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--lc); flex: none; }
+.bd-chip b { font-weight: 600; color: var(--text-3); }
+.bd-chip span { font-weight: 600; }
+.bd-chip.is-down span { color: var(--bd-down); }
+.bd-u { font-size: 13px; color: var(--text-3); }
+.bd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--lc); flex: none; }
+
+/* ---- the desk: an athlete's page, Blocks ---- */
+.bd-sec { --bd-surface: var(--dk-raise, var(--bg-1)); }
+.bd-sec .dk-sec-head { gap: 8px 20px; }
+.bd-list .bd-row { grid-template-columns: minmax(180px, 280px) var(--bd-fpw, 120px) minmax(124px, 1fr) auto 16px; gap: 24px; min-height: 76px; padding: 12px 16px; transition: background-color 150ms ease-out; }
+.bd-list .bd-row > svg { width: 14px; height: 14px; color: var(--text-3); }
+.dk-bl-row.bd-row .bd-fp, .dk-bl-row.bd-row[aria-expanded="true"] .bd-fp { transform: none; transition: none; color: inherit; }
+.bd-row .bd-id { min-width: 0; }
+.bd-row .bd-ses { text-align: right; }
+.bd-fpw { display: flex; align-items: center; min-width: 0; }
+/* a narrow workspace (the desk at its smallest, the side card open): sessions over the chips */
+@container dkws (max-width: 980px) {
+  .bd-list .bd-row { grid-template-columns: minmax(140px, 1fr) var(--bd-fpw, 120px) auto 16px; grid-template-areas: "id fp ses chev" "id fp chips chev"; gap: 6px 20px; }
+  .bd-row .bd-id { grid-area: id; } .bd-row .bd-fpw { grid-area: fp; } .bd-row .bd-ses { grid-area: ses; } .bd-row .bd-chips { grid-area: chips; justify-self: end; } .bd-list .bd-row > svg { grid-area: chev; }
+}
+
+/* ---- the blocks + compare: a modal on the desk ---- */
+.dk-modal.bd-modal { width: min(1120px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; padding: 0; overflow: hidden; --bd-surface: var(--bg-1); }
+html.desk[data-theme="light"] .dk-modal.bd-modal { --bd-surface: #fff; }
+.bd-modal:focus { outline: none; }
+.bd-mhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 20px 16px 24px; border-bottom: 1px solid var(--line); }
+.bd-modal .dk-modal-title { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; }
+.bd-msub { margin: 4px 0 0; font-size: 13px; color: var(--text-3); }
+.bd-mgrid { display: grid; grid-template-columns: 360px minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
+.bd-mlist { overflow-y: auto; overscroll-behavior: contain; padding: 12px; border-right: 1px solid var(--line); scrollbar-width: thin; container: bdlist / inline-size; }
+@media (max-width: 1180px) { .bd-mgrid { grid-template-columns: 300px minmax(0, 1fr); } .bd-tbl { grid-template-columns: 104px minmax(0, 1fr) 100px 100px; } .bd-arow { grid-template-columns: 148px minmax(0, 1fr); } .bd-akey { padding-left: 164px; } }
+@container bdlist (max-width: 330px) { .bd-mlist > .bd-pick { grid-template-columns: 22px minmax(0, 1fr); } .bd-mlist > .bd-pick .bd-pfp { grid-row: 2; grid-column: 2; } .bd-mlist > .bd-pick .bd-pfacts { grid-row: 3; grid-column: 2; } }
+.bd-mcmp { overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 24px; scrollbar-width: thin; }
+/* a pick: tick it to compare */
+.bd-pick { display: grid; grid-template-columns: 22px minmax(0, 1fr) var(--bd-fpw, auto); align-items: start; gap: 10px 12px; width: 100%; padding: 12px 12px 14px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms ease-out; }
+.bd-pick + .bd-pick { margin-top: 4px; }
+.bd-pick .bd-pid { grid-row: 1; grid-column: 2; }
+.bd-pick .bd-pfp { grid-row: 1; grid-column: 3; }
+.bd-pick .bd-pfacts { grid-row: 2; grid-column: 2 / span 2; }
+.is-long > .bd-pick { grid-template-columns: 22px minmax(0, 1fr); }
+.is-long > .bd-pick .bd-pfp { grid-row: 2; grid-column: 2; }
+.is-long > .bd-pick .bd-pfacts { grid-row: 3; grid-column: 2; }
+.bd-pick[aria-pressed="true"] { background: var(--ch-fill-2); }
+@media (hover: hover) and (pointer: fine) { .bd-pick:hover { background: var(--ch-fill-1); } .bd-pick[aria-pressed="true"]:hover { background: var(--ch-fill-3); } }
+.bd-pick:focus-visible { outline: 2px solid var(--text-3); outline-offset: -2px; }
+.bd-ck { grid-row: 1; grid-column: 1; display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-2); color: transparent; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.bd-ck svg { width: 12px; height: 12px; }
+.bd-pick[aria-pressed="true"] .bd-ck { background: var(--text); color: var(--bd-surface); box-shadow: none; }
+.bd-pid { min-width: 0; }
+.bd-pfp { display: flex; justify-content: flex-start; padding-top: 2px; }
+.bd-pfacts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+/* what changed */
+.bd-ch { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 16px; }
+.bd-ch .bd-key { justify-content: flex-end; max-width: 440px; }
+.bd-h3 { margin: 0; font-size: 16px; line-height: 1.25; font-weight: 700; color: var(--text); }
+.bd-chs { margin: 4px 0 0; font-size: 13px; color: var(--text-3); }
+.bd-align { display: flex; flex-direction: column; gap: 14px; width: fit-content; max-width: 100%; box-sizing: border-box; padding: 16px 20px 14px 16px; border-radius: 14px; background: var(--ch-fill-1); }
+.bd-arow { display: grid; grid-template-columns: 168px minmax(0, 1fr); align-items: start; gap: 16px; }
+.bd-aid { min-width: 0; padding-top: 2px; }
+.bd-afp { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.bd-akey { padding-left: 184px; }
+.bd-tbl { display: grid; grid-template-columns: 120px minmax(0, 1fr) 116px 116px; column-gap: 16px; margin-top: 18px; }
+.bd-tr { display: contents; }
+.bd-tr > * { padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
+.bd-tr.is-head > * { padding: 0 0 8px; border-top: 0; font-size: 13px; font-weight: 400; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.bd-tl { display: flex; align-items: center; gap: 8px; font-size: 15px; line-height: 1.4; font-weight: 600; color: var(--text); }
+.bd-tx { font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+.bd-tv { text-align: right; font-size: 15px; line-height: 1.4; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bd-tv small { display: block; font-size: 13px; font-weight: 400; color: var(--text-3); }
+.bd-foot { margin: 14px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-3); max-width: 70ch; }
+.bd-empty { padding: 32px 8px; text-align: center; }
+.bd-empty b { display: block; font-size: 16px; color: var(--text); }
+.bd-empty p { margin: 6px auto 0; max-width: 40ch; font-size: 15px; line-height: 1.45; color: var(--text-3); }
+
+/* ---- the blocks + compare: a sheet on the phone ---- */
+.ui-sheet.bd-sheet { --bd-surface: #111114; }
+html[data-theme="light"] .ui-sheet.bd-sheet { --bd-surface: var(--bg-1); }
+.bd-plist { display: flex; flex-direction: column; gap: 6px; margin: 0 0 18px; }
+.bd-sheet .bd-pick { min-height: 44px; padding: 14px 14px 16px; border-radius: 16px; background: var(--ch-fill-1); }
+.bd-sheet .bd-pick + .bd-pick { margin-top: 0; }
+.bd-sheet .bd-pick[aria-pressed="true"] { background: var(--ch-fill-3); }
+.bd-sheet .bd-pick:active { transform: scale(0.99); }
+.bd-pcmp { padding: 0 2px 8px; }
+.bd-sheet .bd-align { padding: 14px; gap: 12px; }
+.bd-sheet .bd-arow { grid-template-columns: 1fr; gap: 8px; }
+.bd-sheet .bd-akey { padding-left: 0; }
+.bd-plist2 { margin-top: 8px; }
+.bd-prow { padding: 14px 2px; border-top: 1px solid var(--line); }
+.bd-prow:first-child { border-top: 0; }
+.bd-prow .bd-tl { margin-bottom: 4px; }
+.bd-prow .bd-tx { margin: 0; color: var(--text-2); }
+html.desk body.powa-app .ui-sheet.bd-sheet { width: min(600px, calc(100vw - 48px)); max-height: calc(100vh - 48px); }
+/* the coach's lifter page: Blocks, a quiet row above Everything on the phone */
+.cl-everything.cl-blocks .cl-ev-sub { font-variant-numeric: tabular-nums; }
+.cl-page { container: clpage / inline-size; }
+@container clpage (max-width: 900px) { .cl-ptools .cl-quiet { padding: 0 8px; } .cl-ptools :is([data-prog], [data-card], [data-blocks]) > svg { display: none; } }
+@media (prefers-reduced-motion: reduce) { .bd-fp .bd-hit, .bd-pick, .bd-ck, .bd-list .bd-row { transition: none; } .bd-sheet .bd-pick:active { transform: none; } }

@@ -35,7 +35,8 @@
     flag: '<path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/>',
     heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
-    open: '<path d="M7 17 17 7M9 7h8v8"/>'
+    open: '<path d="M7 17 17 7M9 7h8v8"/>',
+    blocks: '<path d="M4 20V10M9 20V4M15 20v-7M20 20V8"/>'
   };
   function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC.chev) + '</svg>'; }
   function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -792,9 +793,13 @@
     var rz = function (i) { return o.rise ? ' rise" style="--i:' + i : ''; };
     var cls = r.meet && r.meet.meet.weightClass ? clsText(r.meet.meet.weightClass) : (r.bw ? clsText(r.bw.cls) : null);
     var meta = [prog ? esc(clip(prog.name, 30)) + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block yet'];
+    // Block DNA (block-dna.js): the blocks + compare, a quiet link beside Everything (a row above it on the phone).
+    var blk = window.BlockDNA && BlockDNA.linkInfo ? BlockDNA.linkInfo(a.id) : null;
+    var blkRow = blk && o.phone ? '<button type="button" class="cl-everything cl-blocks" data-blocks><span class="cl-ev-t">Blocks</span><span class="cl-ev-sub">' + esc(blk.text) + '</span>' + ic('chev') + '</button>' : '';
     if (cls) meta.push(esc(cls) + ' ' + esc(unit()) + ' class');
     var html = '<header class="cl-ph' + rz(0) + '">' + (o.phone ? '' : avHtml(a, 'lg')) + '<div class="cl-pid"><h2 class="cl-pname">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</h2><p class="cl-pmeta">' + meta.join(' · ') + '</p></div>' +
-      (o.phone ? '' : '<div class="cl-ptools"><button type="button" class="cl-quiet" data-prog>' + ic('cal') + 'Program</button><button type="button" class="cl-quiet" data-card="notes">' + ic('pen') + 'Notes</button><button type="button" class="cl-quiet" data-go="all">Everything' + ic('chev') + '</button></div>') + '</header>';
+      (o.phone ? '' : '<div class="cl-ptools"><button type="button" class="cl-quiet" data-prog>' + ic('cal') + 'Program</button><button type="button" class="cl-quiet" data-card="notes">' + ic('pen') + 'Notes</button>' +
+        (blk ? '<button type="button" class="cl-quiet" data-blocks title="' + esc(blk.text) + '">' + ic('blocks') + 'Blocks</button>' : '') + '<button type="button" class="cl-quiet" data-go="all">Everything' + ic('chev') + '</button></div>') + '</header>';
     // The flag: what needs doing and the fix (the page's one red). Nothing wrong, no flag.
     if (top) {
       var jt = jobText(top.type === 'meetday' ? Object.assign({}, top, { forId: a.id }) : top);
@@ -808,7 +813,7 @@
       if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
       // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
       if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
-      if (o.phone) html += '<button type="button" class="cl-everything' + rz(4) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Profile, check-ins, notes</span>' + ic('chev') + '</button>';
+      if (o.phone) html += blkRow + '<button type="button" class="cl-everything' + rz(4) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Profile, check-ins, notes</span>' + ic('chev') + '</button>';
       return { html: html, fix: fix, alt: alt };
     }
     // The total: one big box for overall progress.
@@ -880,7 +885,7 @@
     if (o.phone && window.WeeklyNote) html += WeeklyNote.lifterEntryHtml(r, { rise: o.rise ? 5 : null });
     // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
     if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
-    if (o.phone) html += '<button type="button" class="cl-everything' + rz(6) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Lifts, check-ins, notes, meets</span>' + ic('chev') + '</button>';
+    if (o.phone) html += blkRow + '<button type="button" class="cl-everything' + rz(6) + '" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">Lifts, check-ins, notes, meets</span>' + ic('chev') + '</button>';
     if (o.phone && top) html += '<div class="cl-alt"><button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button></div>';
     return { html: html, fix: fix, alt: alt };
   }
@@ -1108,6 +1113,7 @@
       if ((b = t.closest('[data-plan]'))) { e.preventDefault(); var pid = b.getAttribute('data-plan'); if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(pid); return; }
       if ((b = t.closest('[data-reply]'))) { e.preventDefault(); var pr = pageOf(host, b)._r; if (pr) message(pr, ''); return; }
       if ((b = t.closest('[data-prog]'))) { e.preventDefault(); var pp = pageOf(host, b)._r; if (pp && typeof openAthleteProgram === 'function') openAthleteProgram(pp.athlete.id); return; }
+      if ((b = t.closest('[data-blocks]'))) { e.preventDefault(); var pk = pageOf(host, b)._r; if (pk && window.BlockDNA) BlockDNA.open(pk.athlete.id, { from: b }); return; }
       if ((b = t.closest('[data-go="all"]'))) { e.preventDefault(); var pa = pageOf(host, b)._r; if (pa) openAll(pa.athlete.id); return; }
       if ((b = t.closest('[data-card]'))) { e.preventDefault(); if (typeof dkOpenCard === 'function') dkOpenCard(b.dataset.card); return; }
       if ((b = t.closest('[data-view-off]'))) { e.preventDefault(); if (typeof deskGo === 'function') deskGo('roster', { view: null }); return; }

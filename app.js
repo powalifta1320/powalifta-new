@@ -595,6 +595,39 @@ function _buildCoachDemoData() {
     return { id: 'demo-pbd-' + w + lift, name, exercises: [{ id: 'demo-pbe-' + w + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets }] };
   }) }));
   const programBlocks = [{ id: 'demo-blk-1', athleteId: 'demo-a1', coachId: DC, name: 'Volume Block', weeks: pastWeeks, maxes: null, stats: blockStats(pastWeeks), startedOn: daysAgo(39), endedOn: daysAgo(7), createdAt: daysAgo(6) + 'T09:00:00Z' }];
+  // Block review (block-dna.js: every block a fingerprint, any two compared). Arjun's hypertrophy block in
+  // August, after a test day: squat 3×8, bench 4×8, deadlift 3×6, the second deadlift day missed, top sets
+  // drifting harder week on week (felt 7, 7.5, 7.5, 8 against 7 written). Sarah's and Tom's last blocks are
+  // their logs above, after a test day of their own. Each test day is one day, all three lifts: the
+  // strength charts add up running bests, so the total never starts on one lift.
+  const logIt = (aid, lift, w, reps, rpe, date) => workoutLogs.push({ id: 'demo-clog-' + (seq++), athleteId: aid, lift, variant: 'Competition', exerciseName: '', weight: w, reps, rpe,
+    e1rm: calcE1RM(w, reps, rpe), e1rmComp: calcCompE1RM(w, reps, rpe, lift, 'Competition'), date, note: '' });
+  [['demo-a1', 88, [182.5, 120, 227.5]], ['demo-a2', 50, [137.5, 80, 172.5]], ['demo-a3', 50, [230, 160, 287.5]]]
+    .forEach(([aid, off, kg]) => MAIN_LIFTS.forEach((lift, i) => logIt(aid, lift, kg[i], 3, 9, daysAgo(off))));
+  const DAYS3 = [['squat', 'Squat Day'], ['bench', 'Bench Day'], ['deadlift', 'Deadlift Day']];
+  const keptBlock = (aid, id, name, weeks) => {
+    const on = weeks.flatMap(w => w.days.flatMap(d => d.exercises.flatMap(e => e.sets))).filter(s => s.completed).map(s => s.completedAt).sort();
+    return { id, athleteId: aid, coachId: DC, name, weeks, maxes: null, stats: blockStats(weeks), startedOn: on[0], endedOn: on[on.length - 1], createdAt: on[on.length - 1] + 'T09:00:00Z' };
+  };
+  const hyWeeks = [0, 1, 2, 3].map(k => ({ id: 'demo-hyw-' + k, number: k + 1, days: DAYS3.map(([lift, name], di) => {
+    const date = daysAgo(81 - 7 * k - di * 2), felt = [7, 7.5, 7.5, 8][k], missed = k === 1 && lift === 'deadlift';
+    const kg = { squat: [137.5, 140, 142.5, 142.5], bench: [90, 90, 92.5, 92.5], deadlift: [180, 185, 187.5, 190] }[lift][k];
+    const [n, reps] = { squat: [3, 8], bench: [4, 8], deadlift: [3, 6] }[lift];
+    const sets = Array.from({ length: n }, (_, si) => Object.assign({ id: 'demo-hys-' + k + lift + si, weight: kg, reps, rpe: 7 },
+      missed ? { completed: false, skipped: true, actualRpe: null, completedAt: null } : { completed: true, actualRpe: felt, completedAt: date }));
+    sets.forEach(st => { if (st.completed) logIt('demo-a1', lift, st.weight, st.reps, st.actualRpe, date); });
+    return { id: 'demo-hyd-' + k + lift, name, exercises: [{ id: 'demo-hye-' + k + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets }] };
+  }) }));
+  // A block kept from a lifter's log above: their sets as they logged them, week by week.
+  const fromLog = (aid, idp, ws, last) => ws.map((w, wi) => ({ id: idp + 'w' + w, number: wi + 1, days: DAYS3.map(([lift, name], di) => {
+    const date = daysAgo(w * 7 + di * 2 + last);
+    const sets = workoutLogs.filter(l => l.athleteId === aid && l.lift === lift && l.date === date).map((l, si) => ({ id: idp + 's' + w + lift + si, weight: l.weight, reps: l.reps, rpe: l.rpe,
+      completed: true, actualRpe: l.rpe, completedAt: date }));
+    return { id: idp + 'd' + w + lift, name, exercises: [{ id: idp + 'e' + w + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets }] };
+  }) }));
+  programBlocks.push(keptBlock('demo-a1', 'demo-blk-0', 'Hypertrophy Block', hyWeeks),
+    keptBlock('demo-a2', 'demo-blk-a2', 'Strength Block', fromLog('demo-a2', 'demo-pb2-', [5, 4, 3, 2, 1], 2)),
+    keptBlock('demo-a3', 'demo-blk-a3', 'Strength Block', fromLog('demo-a3', 'demo-pb3-', [4, 3, 2], 9)));
   const ans = (qi, a, d, num, text) => ciAs.push({ id: 'demo-cia-' + ciAs.length, questionId: 'demo-ciq-' + qi, athleteId: a, coachId: DC,
     period: qi === 3 ? _monISO(daysAgo(d)) : daysAgo(d), num: num == null ? null : num, text: text || null });
   for (let d = 0; d < 10; d++) {
