@@ -1405,22 +1405,27 @@ window.POWA_SUPPORT_KB = [
   "app": "The season calendar is on the laptop desk at powalifta.com (Roster › Calendar)."
  },
  {
-  "id": "coach-lifters",
-  "q": "Where do I see all my lifters? (the Lifters screen)",
+  "id": "coach-today-lifters",
+  "q": "What's on my Today and Lifters screens? How do I know what to do first?",
   "t": [
+   "today screen",
+   "do first",
+   "what to prioritise",
+   "what should i do first",
+   "this week",
+   "team summary",
    "lifters screen",
    "lifters tab",
    "roster",
-   "see all my athletes",
    "who needs me",
-   "needs you",
+   "check on",
    "next block due",
    "meet soon",
    "on plan",
-   "open a lifter",
-   "block picture"
+   "week ring",
+   "lifter summary"
   ],
-  "a": "**Lifters** is everyone on your roster, worst first, in four groups: **Needs you** (pain, weight for the class, over what you wrote, wrote you, a check-in, quiet or missed sessions), **Next block due** (the last week of a block, a finished block, no block yet), **Meet soon** (a meet within 8 weeks) and **On plan**. Each row is the lifter, one line in plain words about the one thing that matters today, and their change in total e1RM over the last four weeks.\n\nOpen a lifter and you get one answer big (6/10 for pain, the bodyweight against the class, days to the meet, the RPE they hit against what you wrote), the block as a picture (each week's sessions done or missed, with the strength line and the meet flagged in its week), one red fix with a quiet alternative, their last top set and their latest words. **Everything** opens the full page: lifts, check-ins, notes, meets.\n\nOn the laptop the list sits beside the open lifter: `/` finds a lifter, `J` and `K` move, `Enter` opens everything, `Esc` clears the search. **Calendar** is the season view; the old board is at `?oldroster=1`.",
-  "app": "**Lifters** is the first tab: a ring with how many you've looked at this week, who's first, then everyone in four groups (Needs you, Next block due, Meet soon, On plan). Each row is one line in plain words plus their four-week change in total e1RM. Tap a lifter: the one answer big, the block as a picture, one red fix, their last top set and their words. **Everything** opens the full sheet."
+  "a": "**Today** (on the laptop) is your to-do list for the team, most urgent first.\n\n- **Do first**: the three jobs that can't wait (a meet or weigh-in today, pain before a meet or reported twice this week, a lifter a full point over what you wrote). The first one's button is red: it does the fix, like opening meet day or messaging the lifter.\n- **This week**: four tiles. **Training** (sessions done against planned over the last 7 days, and who's behind), **Effort** (the share of sets at the RPE you wrote, and who went over), **Strength** (how many lifters are stronger than 4 weeks ago, and this week's PRs) and **Meets** (what's coming in the next 8 weeks, and anyone over their class).\n- **Also on your list**: every other job by kind: Answer (messages, notes, form checks), Check (effort, check-ins, quiet lifters), Meet prep and Write (blocks to write). Each has a one-word button that does it.\n\n**Lifters** is everyone, in four groups: Check on, Next block due, Meet soon and On plan. On each row the ring is their sessions in the last 7 days against the plan (the number inside is how many) and **+kg** is their total e1RM against 4 weeks ago. Click a lifter for their whole picture: what needs doing and the fix, their total over 12 weeks with the next meet and where it's heading, each lift with its trend and the set behind it, training, effort against what you wrote, bodyweight against the class, the meet, and their latest words. **Everything** opens the full page.",
+  "app": "Your **Lifters** tab opens with four tiles (training, effort, strength and meets this week), then **Do first** (the jobs that can't wait, each with its button), then everyone in four groups. The ring on each row is their sessions in the last 7 days against the plan; **+kg** is their total e1RM against 4 weeks ago. Tap a lifter for their whole picture: the fix, their total and where it's heading, each lift, training, effort, bodyweight, the meet and their latest words."
  }
 ];
