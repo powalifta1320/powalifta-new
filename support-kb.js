@@ -1586,7 +1586,6 @@ window.POWA_SUPPORT_KB = [
    "copy a block",
    "give a block",
    "same block for",
-   "copy program to",
    "reuse program",
    "duplicate a block",
    "use this block for"
