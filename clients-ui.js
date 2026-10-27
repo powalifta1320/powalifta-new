@@ -408,8 +408,10 @@
       tile('soon', 'clock', 'Due this week', '',
         '<b class="cl-big2">' + soonIds.length + '</b>' + (soonIds.length ? '<span class="cl-u">' + esc(money(sm.dueToday.cents + sm.soon.cents, cur)) + '</span>' : ''),
         '', soonIds.length ? namesFoot(soonIds, dueLabel) : 'Nothing in the next 7 days'),
-      tile('mrr', 'repeat', 'Every month', '',
-        '<b class="cl-big2">' + esc(money(Math.round(sm.mrr / 100) * 100, cur)) + '</b>',
+      // Recurring: every active package as a month's worth (weekly ×52/12…), so it reads apart from
+      // This month's "of $X" (what falls due this calendar month, overdue included).
+      tile('mrr', 'repeat', 'Recurring', '',
+        '<b class="cl-big2">' + esc(money(Math.round(sm.mrr / 100) * 100, cur)) + '</b><span class="cl-u">a month</span>',
         '', plural(sm.active, 'active client') + (sm.paused ? ' · ' + sm.paused + ' paused' : ''))
     ];
     return '<div class="cl-tiles cs-tiles' + (compact ? ' is-compact' : '') + '">' + tiles.join('') + '</div>';
