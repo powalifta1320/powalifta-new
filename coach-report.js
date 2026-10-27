@@ -300,6 +300,16 @@
     return { title: list.length + ' lifters ' + (none ? 'haven’t trained this week' : 'are behind this week'), body: shown.join(' · ') };
   }
 
+  // PRs one lifter at a time, their lifts in squat, bench, deadlift order: [{ id, name, prs }].
+  function prsByLifter(team) {
+    var by = {}, out = [];
+    team.prs.forEach(function (p) {
+      if (!by[p.id]) { by[p.id] = { id: p.id, name: p.name, prs: [] }; out.push(by[p.id]); }
+      by[p.id].prs.push(p);
+    });
+    return out;
+  }
+
   /* ---------------------------------------------------------------- the email */
   var C = { page: '#0b0b0c', card: '#141416', raised: '#1b1b1f', line: '#26262c', text: '#f4f4f6', text2: '#b8b8c0', text3: '#8c8c96',
     red: '#ff3b4a', pain: '#ff8f80', warn: '#ffb35c', ok: '#34d982', gold: '#ffc23d' };
@@ -328,7 +338,11 @@
     T.push('Needs you');
     if (tNeeds.length) tNeeds.forEach(function (l) { T.push('- ' + l); }); else T.push('- Nobody. Everyone trained as planned.');
     T.push('');
-    if (team.prs.length) { T.push('Wins'); team.prs.forEach(function (p) { T.push('- ' + p.name + ': ' + LIFT[p.lift] + ' PR, e1RM ' + e1rmText(p.e1rm, U)); }); T.push(''); }
+    if (team.prs.length) {
+      T.push('Wins (e1RM PRs)');
+      prsByLifter(team).forEach(function (r) { T.push('- ' + r.name + ': ' + r.prs.map(function (p) { return p.lift + ' ' + e1rmText(p.e1rm, U); }).join(', ')); });
+      T.push('');
+    }
     if (team.meets.length) { T.push('Coming up'); team.meets.forEach(function (m) { T.push('- ' + m.name + ', ' + dayLabel(m.date) + ' (' + whenText(m.days) + '): ' + m.lifters.map(function (l) { return l.name; }).join(', ')); }); T.push(''); }
     if (team.overdue.n) { T.push('Money'); T.push('- ' + plural(team.overdue.n, 'payment') + ' overdue: ' + money(team.overdue.total, team.overdue.currency) + (team.overdue.mixed ? ' (plus other currencies)' : '')); T.push(''); }
     T.push('Open Today: ' + appUrl, '');
@@ -337,8 +351,9 @@
     T.push('', 'POWALIFTA');
     // ---- the HTML version (tables and inline styles: email clients)
     var h = [];
-    var sec = function (title, rows, first) {
-      return '<tr><td style="padding:' + (first ? '28px' : '32px') + ' 0 10px;font-family:' + FONT + ';font-size:20px;line-height:1.2;font-weight:700;color:' + C.text + ';">' + esc(title) + '</td></tr>' +
+    var sec = function (title, rows, first, count) {
+      return '<tr><td style="padding:' + (first ? '28px' : '32px') + ' 0 10px;font-family:' + FONT + ';font-size:20px;line-height:1.2;font-weight:700;color:' + C.text + ';">' + esc(title) +
+        (count ? ' <span style="font-size:15px;font-weight:600;color:' + C.text3 + ';">' + esc(count) + '</span>' : '') + '</td></tr>' +
         '<tr><td style="background:' + C.card + ';border:1px solid ' + C.line + ';border-radius:20px;padding:4px 20px;">' +
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">' + rows.join('') + '</table></td></tr>';
     };
@@ -355,8 +370,11 @@
     if (team.formChecks) nRows.push(row(plural(team.formChecks, 'form check') + ' to review', names(team.formCheckWho), '', nRows.length));
     if (team.checkinsMissing.length) nRows.push(row('No check-in last week', names(team.checkinsMissing), '', nRows.length));
     if (!nRows.length) nRows.push(row('Nobody', 'Everyone trained as planned.', C.ok, 0));
-    var wRows = team.prs.map(function (p, i) {
-      return row(esc(p.name), esc(LIFT[p.lift]) + ' PR · e1RM <span style="color:' + C.text + ';font-weight:600;">' + esc(e1rmText(p.e1rm, U)) + '</span>', LIFT_COLOR[p.lift], i);
+    var wRows = prsByLifter(team).map(function (r, i) {
+      return row(esc(r.name), r.prs.map(function (p) {
+        return '<span style="white-space:nowrap;"><span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:' + LIFT_COLOR[p.lift] + ';margin:0 8px 1px 0;vertical-align:middle;"></span>' +
+          esc(LIFT[p.lift]) + ' <span style="color:' + C.text + ';font-weight:600;">' + esc(e1rmText(p.e1rm, U)) + '</span></span>';
+      }).join('&nbsp;&nbsp;&nbsp; '), '', i);
     });
     var mRows = team.meets.map(function (m, i) {
       return row(esc(m.name), esc(dayLabel(m.date)) + ', ' + esc(whenText(m.days)) + ' · ' + names(m.lifters), C.gold, i);
@@ -379,7 +397,7 @@
       '<tr><td style="padding:24px 0 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' + C.card + ';border:1px solid ' + C.line + ';border-radius:20px;">',
       '<tr><td style="padding:22px 20px 20px;font-family:' + FONT + ';">' + big + '<div style="margin-top:8px;font-size:15px;color:' + C.text2 + ';">lifters trained' + (facts.length ? ' · ' + esc(facts.join(' · ')) : '') + '</div></td></tr></table></td></tr>');
     h.push(sec('Needs you', nRows, true));
-    if (wRows.length) h.push(sec('Wins', wRows));
+    if (wRows.length) h.push(sec('Wins', wRows, false, plural(team.prs.length, 'e1RM PR')));
     if (mRows.length) h.push(sec('Coming up', mRows));
     if (team.overdue.n) h.push(sec('Money', [row(plural(team.overdue.n, 'payment') + ' overdue', esc(money(team.overdue.total, team.overdue.currency)) + (team.overdue.mixed ? ' plus other currencies' : '') + ' · ' + names(team.overdue.who), C.pain, 0)]));
     h.push('<tr><td style="padding:32px 0 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:999px;background:' + C.red + ';">',
@@ -500,7 +518,7 @@
     lastWeek: lastWeek, weekSoFar: weekSoFar, mondayOf: mondayOf, addDays: addDays, daysBetween: daysBetween, isIso: isIso,
     dayLabel: dayLabel, rangeLabel: rangeLabel, whenText: whenText, money: money, loadText: loadText, e1rmText: e1rmText, shortNames: shortNames,
     plannedPerWeek: plannedPerWeek, plannedOf: plannedOf, prsFromStats: prsFromStats, busyRows: busyRows,
-    teamWeek: teamWeek, worthSending: worthSending, needsCount: needsCount, firstUp: firstUp, midweekBehind: midweekBehind,
+    teamWeek: teamWeek, worthSending: worthSending, needsCount: needsCount, firstUp: firstUp, prsByLifter: prsByLifter, midweekBehind: midweekBehind,
     reportPush: reportPush, midweekPush: midweekPush, reportEmail: reportEmail,
     fromStore: fromStore, fromRows: fromRows, jobPlan: jobPlan
   };

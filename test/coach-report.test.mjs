@@ -225,11 +225,19 @@ t('email: one red button, Open Today, to the app', () => {
   ok(mail.text.includes('Open Today: https://www.powalifta.com/coach.html'), 'text link');
 });
 t('email: the numbers a coach decides on', () => {
-  ok(mail.html.includes('Squat PR · e1RM'), 'the PR line'); ok(mail.html.includes('205 kg'), 'e1RM in kg');
+  ok(/Wins <span[^>]*>1 e1RM PR<\/span>/.test(mail.html), 'Wins counts the PRs'); ok(/Squat <span[^>]*>205 kg<\/span>/.test(mail.html), 'the PR: lift and e1RM in kg');
+  ok(mail.text.includes('Wins (e1RM PRs)\n- Arjun Mehta: squat 205 kg'), 'the PR in the text');
   ok(mail.text.includes('Behind: Leo Park 0 of 3, Tom Kowalski 0 of 3, Tom Becker 1 of 4'), 'behind in the text');
   ok(mail.text.includes('2 payments overdue: $220 (plus other currencies)'), 'money');
   ok(mail.text.includes('Autumn Open, Sat 7 Nov (in 12 days): Arjun Mehta, Tom Becker'), 'the meet');
   ok(mail.preheader === '5 lifters need you this week, starting with Sarah Kim.', mail.preheader);
+});
+t('email: one row per lifter in Wins, each PR with its lift', () => {
+  const two = CR.teamWeek({ athletes: [{ id: 'k', name: 'Kenji Sato' }], sessions: { k: 4 }, prs: [{ athleteId: 'k', lift: 'deadlift', e1rm: 245 }, { athleteId: 'k', lift: 'bench', e1rm: 150 }] }, W);
+  const m = CR.reportEmail(two, {});
+  eq((m.html.match(/>Kenji Sato</g) || []).length, 1, 'the name once');
+  ok(m.html.indexOf('Bench <span') < m.html.indexOf('Deadlift <span'), 'lifts in squat, bench, deadlift order');
+  ok(m.text.includes('- Kenji Sato: bench 150 kg, deadlift 245 kg'), m.text);
 });
 t('email: every name and link is escaped', () => {
   const evil = CR.teamWeek(CR.fromStore({

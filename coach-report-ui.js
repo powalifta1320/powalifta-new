@@ -85,15 +85,7 @@
     return out;
   }
   // Wins: one row per lifter, each PR a lift dot and its e1RM ("● Bench 150 kg  ● Deadlift 278 kg").
-  function winRows(team) {
-    var by = {}, out = [];
-    team.prs.forEach(function (p) {
-      var r = by[p.id];
-      if (!r) { r = by[p.id] = { id: p.id, name: p.name, prs: [] }; out.push(r); }
-      r.prs.push(p);
-    });
-    return out;
-  }
+  function winRows(team) { return window.CoachReport ? CoachReport.prsByLifter(team) : []; }
   function row(o, i) {
     var lead = o.av ? avHtml(o.title) : '<span class="cr-tic' + (o.tone ? ' t-' + o.tone : '') + '">' + ic(o.icon) + '</span>';
     var dot = o.dot ? '<i class="cr-dot ' + o.dot + '" aria-hidden="true"></i>' : '';
