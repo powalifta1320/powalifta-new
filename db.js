@@ -3674,7 +3674,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes] = await Promise.all([
+      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes, chal] = await Promise.all([
         ownP,
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
@@ -3694,8 +3694,12 @@ const DB = {
           this.listTeams(profile.id).catch(() => []),
           this.listClientBilling(profile.id).catch(() => []),
           this.listClientPayments(profile.id).catch(() => []),
-          this.listIntakes(profile.id, athleteIds).catch(() => [])
+          this.listIntakes(profile.id, athleteIds).catch(() => []),
+          // Coach challenges (challenges.js): the coach's own and their boards.
+          this._chHydrate({ id: profile.id, userType: 'coach' }).catch(() => ({ challenges: [], entries: [] }))
         ]);
+        empty.challenges = chal.challenges;
+        empty.challengeEntries = chal.entries;
         empty.clientBilling = clientBilling;
         empty.clientPayments = clientPayments;
         empty.intakes = intakes;
@@ -3721,7 +3725,7 @@ const DB = {
       empty.coaches = await coachesP;
     } else {
       // Athlete: own data
-      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports, intake] = await Promise.all([
+      const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports, intake, chal] = await Promise.all([
         this.listProgramsForAthlete(profile.id),
         this.listLogsForAthlete(profile.id),
         this.listBwForAthlete(profile.id),
@@ -3736,10 +3740,14 @@ const DB = {
         this.listProgramBlocks([profile.id]).catch(() => []),
         profile.coach_id ? this.getMyCoachBrand().catch(() => null) : Promise.resolve(null),
         this.listPainReports([profile.id]).catch(() => []),
-        this.getMyIntake(profile.id).catch(() => null)
+        this.getMyIntake(profile.id).catch(() => null),
+        // Coach challenges (challenges.js): the ones this lifter is in, with their boards (none without a coach).
+        profile.coach_id ? this._chHydrate({ id: profile.id, userType: 'athlete', coachId: profile.coach_id }).catch(() => ({ challenges: [], entries: [] })) : Promise.resolve({ challenges: [], entries: [] })
       ]);
       // The intake questionnaire: their own answers only (never another lifter's, never billing).
       empty.intakes = intake ? [intake] : [];
+      empty.challenges = chal.challenges;
+      empty.challengeEntries = chal.entries;
       empty.coachBrand = brand;
       empty.painReports = painReports;
       empty.programBlocks = blocks;
@@ -4314,5 +4322,150 @@ Object.assign(DB, {
       }
     }
     return out;
+  }
+});
+
+// ---------- COACH CHALLENGES hook (challenges.js · sql/migration-coach-challenges-2026-10-28.sql) ----------
+// A coach's challenges for their own lifters and each one's board (names and values only). Before the
+// migration runs a coach's challenges and their boards stay on their device (localStorage, per coach)
+// and a lifter sees none; on the first load after it, the ones kept here go up.
+function mapDbChallenge(r) {
+  return { id: r.id, coachId: r.coach_id, name: r.name || 'Challenge', metric: r.metric, memberIds: Array.isArray(r.member_ids) ? r.member_ids : [],
+    startsOn: String(r.starts_on || '').slice(0, 10), endsOn: String(r.ends_on || '').slice(0, 10), prize: r.prize || '', createdAt: r.created_at || null, endedAt: r.ended_at || null };
+}
+function mapDbChallengeEntry(r) {
+  return { challengeId: r.challenge_id, athleteId: r.athlete_id, name: r.name || '', value: r.value == null ? null : Number(r.value),
+    baseline: r.baseline == null ? null : Number(r.baseline), updatedAt: r.updated_at || null };
+}
+function mapJsChallengeEntry(e) {
+  const v = e.value == null || !isFinite(Number(e.value)) ? null : Math.max(-1000, Math.min(100000, Math.round(Number(e.value) * 10) / 10));
+  const b = e.baseline == null || !(Number(e.baseline) > 0) ? null : Math.min(100000, Math.round(Number(e.baseline) * 10) / 10);
+  return { challenge_id: e.challengeId, athlete_id: e.athleteId, name: String(e.name || '').trim().slice(0, 60) || null, value: v, baseline: b };
+}
+Object.assign(DB, {
+  _chReady: undefined,
+  _chKey(coachId, what) { return 'powa-challenge' + (what === 'entries' ? '-entries-' : 's-') + coachId; },
+  _chLocal(coachId, what, list) {
+    try {
+      if (list === undefined) return JSON.parse(localStorage.getItem(this._chKey(coachId, what)) || '[]') || [];
+      if (!list.length) localStorage.removeItem(this._chKey(coachId, what)); else localStorage.setItem(this._chKey(coachId, what), JSON.stringify(list));
+    } catch (e) {}
+    return list || [];
+  },
+  // The challenges a user sees: a coach's own (newest first), or a lifter's (they're in it and its coach
+  // is theirs). user: { id, userType, coachId } (a profile row's user_type / coach_id read too).
+  async listChallenges(user) {
+    if (!user || !user.id) return [];
+    const type = user.userType || user.user_type, coachId = user.coachId || user.coach_id || null;
+    if (type === 'coach') {
+      const { data, error } = await sb.from('coach_challenges').select('*').eq('coach_id', user.id).order('starts_on', { ascending: false }).limit(60);
+      if (error) {
+        if (_isNotReady(error)) this._chReady = false; else console.warn('listChallenges', error);
+        return this._chLocal(user.id).map(c => Object.assign(c, { local: true }));
+      }
+      this._chReady = true;
+      const out = (data || []).map(mapDbChallenge);
+      // Challenges kept on this device before the migration: up they go, their boards with them.
+      const loc = this._chLocal(user.id);
+      if (loc.length) {
+        const left = [], locEntries = this._chLocal(user.id, 'entries');
+        for (const c of loc) {
+          const up = await sb.from('coach_challenges').insert({ id: c.id, coach_id: user.id, name: String(c.name || 'Challenge').slice(0, 60), metric: c.metric,
+            member_ids: (c.memberIds || []).slice(0, 200), starts_on: c.startsOn, ends_on: c.endsOn, prize: c.prize ? String(c.prize).slice(0, 80) : null, ended_at: c.endedAt || null }).select('*').single();
+          if (up.error) { left.push(c); continue; }
+          out.unshift(mapDbChallenge(up.data));
+          const rows = locEntries.filter(e => e.challengeId === c.id).map(mapJsChallengeEntry);
+          if (rows.length) await sb.from('challenge_entries').upsert(rows, { onConflict: 'challenge_id,athlete_id' });
+        }
+        this._chLocal(user.id, null, left);
+        this._chLocal(user.id, 'entries', locEntries.filter(e => left.some(c => c.id === e.challengeId)));
+        left.forEach(c => out.push(Object.assign(c, { local: true })));
+      }
+      return out;
+    }
+    // A lifter: only with a coach, only once the migration has run (before it: none, quietly).
+    if (!coachId) return [];
+    const { data, error } = await sb.from('coach_challenges').select('*').contains('member_ids', [user.id]).eq('coach_id', coachId)
+      .order('starts_on', { ascending: false }).limit(20);
+    if (error) { if (!_isNotReady(error)) console.warn('listChallenges', error); return []; }
+    return (data || []).map(mapDbChallenge);
+  },
+  // Hydrate: the challenges a user sees and their entries. → { challenges, entries }
+  async _chHydrate(user) {
+    const challenges = await this.listChallenges(user);
+    const entries = challenges.length ? await this.listChallengeEntries(challenges.map(c => c.id), user.userType === 'coach' ? user.id : null) : [];
+    return { challenges, entries };
+  },
+  // A new challenge (the coach's). → { ok, challenge, local } | { ok: false, error }
+  async saveChallenge(ch) {
+    if (!ch || !ch.coachId) return { ok: false, error: new Error('No coach') };
+    const row = { id: ch.id || _dbUuid(), coach_id: ch.coachId, name: String(ch.name || '').trim().slice(0, 60), metric: ch.metric, member_ids: (ch.memberIds || []).slice(0, 200),
+      starts_on: ch.startsOn, ends_on: ch.endsOn, prize: ch.prize ? String(ch.prize).trim().slice(0, 80) || null : null };
+    if (this._chReady === false) return this._chSaveLocal(ch, row);
+    const { data, error } = await sb.from('coach_challenges').insert(row).select('*').single();
+    if (error && _isNotReady(error)) { this._chReady = false; return this._chSaveLocal(ch, row); }
+    if (error) return { ok: false, error };
+    return { ok: true, challenge: mapDbChallenge(data) };
+  },
+  _chSaveLocal(ch, row) {
+    const list = this._chLocal(ch.coachId);
+    const saved = Object.assign(mapDbChallenge(Object.assign({ created_at: new Date().toISOString() }, row)), { local: true });
+    list.unshift(saved);
+    this._chLocal(ch.coachId, null, list);
+    return { ok: true, challenge: saved, local: true };
+  },
+  // The coach ends a challenge now (the server stamps the time). → { ok, endedAt }
+  async endChallenge(ch) {
+    const at = new Date().toISOString();
+    if (this._chReady === false || ch.local) {
+      const list = this._chLocal(ch.coachId).map(c => c.id === ch.id ? Object.assign(c, { endedAt: c.endedAt || at }) : c);
+      this._chLocal(ch.coachId, null, list);
+      return { ok: true, endedAt: at, local: true };
+    }
+    const { data, error } = await sb.from('coach_challenges').update({ ended_at: at }).eq('id', ch.id).select('ended_at').single();
+    if (error) return { ok: false, error };
+    return { ok: true, endedAt: data && data.ended_at ? data.ended_at : at };
+  },
+  // Every entry of these challenges the user may read (RLS: the coach's, or a member's boards).
+  async listChallengeEntries(ids, coachIdForLocal) {
+    const list = Array.from(new Set((ids || []).filter(Boolean)));
+    if (!list.length) return [];
+    if (this._chReady === false && coachIdForLocal) return this._chLocal(coachIdForLocal, 'entries').filter(e => list.indexOf(e.challengeId) >= 0);
+    const out = [];
+    for (let i = 0; i < list.length; i += 100) {
+      const { data, error } = await sb.from('challenge_entries').select('*').in('challenge_id', list.slice(i, i + 100)).limit(5000);
+      if (error) {
+        if (_isNotReady(error) && coachIdForLocal) return this._chLocal(coachIdForLocal, 'entries').filter(e => list.indexOf(e.challengeId) >= 0);
+        if (!_isNotReady(error)) console.warn('listChallengeEntries', error);
+        return out;
+      }
+      (data || []).forEach(r => out.push(mapDbChallengeEntry(r)));
+    }
+    // A coach's local challenges (not up yet) keep their boards here.
+    if (coachIdForLocal) this._chLocal(coachIdForLocal, 'entries').forEach(e => { if (list.indexOf(e.challengeId) >= 0 && !out.some(x => x.challengeId === e.challengeId && x.athleteId === e.athleteId)) out.push(e); });
+    return out;
+  },
+  // One or more entries (a lifter's own, or the coach's for their members), in one request. The server
+  // keeps the first baseline it got. → { ok, local } | { ok: false, notReady } | { ok: false, error }
+  async upsertChallengeEntry(entries, opts) {
+    const list = (Array.isArray(entries) ? entries : [entries]).filter(e => e && e.challengeId && e.athleteId);
+    if (!list.length) return { ok: true };
+    const coachId = opts && opts.coachId;
+    const local = () => {
+      if (!coachId) return { ok: false, notReady: true };
+      const have = this._chLocal(coachId, 'entries');
+      list.forEach(e => {
+        const i = have.findIndex(x => x.challengeId === e.challengeId && x.athleteId === e.athleteId);
+        const row = Object.assign({}, e, { baseline: i >= 0 && have[i].baseline != null ? have[i].baseline : (e.baseline == null ? null : e.baseline), updatedAt: new Date().toISOString() });
+        if (i >= 0) have[i] = row; else have.push(row);
+      });
+      this._chLocal(coachId, 'entries', have);
+      return { ok: true, local: true };
+    };
+    if (this._chReady === false || (opts && opts.local)) return local();
+    const { error } = await sb.from('challenge_entries').upsert(list.map(mapJsChallengeEntry), { onConflict: 'challenge_id,athlete_id' });
+    if (error && _isNotReady(error)) { this._chReady = false; return local(); }
+    if (error) { console.warn('upsertChallengeEntry', error); return { ok: false, error }; }
+    return { ok: true };
   }
 });

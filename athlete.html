@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="dash-fx.css">
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
+<link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
@@ -134,6 +135,7 @@
     <!-- CLUB — non-coaching community: your club's board + this week (clubs.js) -->
     <section data-pane="club" id="pane-club" role="tabpanel" aria-labelledby="tab-club" tabindex="0" class="hidden">
       <div class="dash-header"><div><h2>Club</h2></div></div>
+      <div id="challengeArea"></div><!-- COACH CHALLENGES (challenges.js): above the club, never inside it -->
       <div id="clubArea"></div>
     </section>
 
@@ -340,6 +342,7 @@
 <script src="health.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
+<script src="challenges.js"></script><!-- COACH CHALLENGES: your coach's challenge at the top of Club and its board (window.Challenges) -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
 <script src="meetday.js"></script><!-- MEET DAY hook: the coach's attempt plan in meet mode + "your next attempt" -->
@@ -597,6 +600,7 @@ bootstrap('athlete', () => {
       if (btn.dataset.tab === 'program') renderProgramTab();
       if (btn.dataset.tab === 'library') renderLibrary();
       if (btn.dataset.tab === 'marketplace') renderMarketplace();
+      if (btn.dataset.tab === 'club' && window.Challenges) Challenges.render(document.getElementById('challengeArea'));
       if (btn.dataset.tab === 'club' && window.renderClubTab) renderClubTab(document.getElementById('clubArea'));
       if (btn.dataset.tab === 'you') renderAthleteYou();
       if (btn.dataset.tab === 'career') renderCareer();
@@ -3729,6 +3733,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     persistAddLog(newLogObj);
     // Keep the club's weekly board live (one write per burst of sets).
     try { if (window.PowaClubs && PowaClubs.syncSoon) PowaClubs.syncSoon(); } catch (e) {}
+    try { if (window.Challenges && Challenges.syncSoon) Challenges.syncSoon(); } catch (e) {}   // COACH CHALLENGES: your row on your coach's board
     // How that set felt decides the next one.
     const freshEx = (getCurrentDay() || { day: { exercises: [] } }).day.exercises.find(e => e.id === exerciseId);
     const nextSmart = freshEx ? planSmartNext(freshEx, setIndex, actualRpe) : null;
