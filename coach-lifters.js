@@ -126,6 +126,15 @@
   // Every job on the roster, one per lifter per kind (their most urgent reason of that kind), plus one
   // item per meet happening today or tomorrow. opts: { today, done: { athleteId: 1 }, toWrite: [{ r, week }] }.
   // → [{ key, kind: meetday|answer|check|meet|write, type, tier, order, r, rows, reason, meet, done }] most urgent first.
+  // What the coach's action covers, job by job. done[id] is 'reply' (a message answers and checks in),
+  // 'apply' (next week published: it's written, and the RPE that asked for it is settled) or anything
+  // else truthy for everything (Done / E). So a reply to Arjun leaves his next week still to write.
+  function covers(v, kind) {
+    if (!v) return false;
+    if (v === 'reply') return kind === 'answer' || kind === 'check';
+    if (v === 'apply') return kind === 'write' || kind === 'check';
+    return true;
+  }
   function clJobs(rows, opts) {
     opts = opts || {};
     var t = opts.today || todayIso(), done = opts.done || {};
@@ -139,7 +148,7 @@
       var g = md[k];
       g.over = g.rows.filter(function (r) { return r.bw && r.bw.over > 0; }).sort(function (a, b) { return b.bw.over - a.bw.over; });
       g.unplanned = g.rows.filter(function (r) { var m = r.meet.meet || {}; return !(m.attempts || m.openers || m.plan); });
-      g.done = g.rows.every(function (r) { return !!done[r.athlete.id]; });
+      g.done = g.rows.every(function (r) { return covers(done[r.athlete.id], 'meetday'); });
       items.push(g);
     });
     (rows || []).forEach(function (r) {
@@ -148,7 +157,7 @@
         var kind = KIND[x.type];
         if (!kind) return;
         if ((x.type === 'meet' || x.type === 'weight') && r.meet && r.meet.days <= 1 && r.meet.days >= 0) return;   // the meet-day item has it
-        var it = { key: r.athlete.id + ':' + kind, kind: kind, type: x.type, tier: clTier(r, x, t), order: ORDER.indexOf(x.type), r: r, reason: x, name: r.athlete.name, done: !!done[r.athlete.id] };
+        var it = { key: r.athlete.id + ':' + kind, kind: kind, type: x.type, tier: clTier(r, x, t), order: ORDER.indexOf(x.type), r: r, reason: x, name: r.athlete.name, done: covers(done[r.athlete.id], kind) };
         if (!best[kind] || jobCmp(it, best[kind]) < 0) best[kind] = it;
       });
       Object.keys(best).forEach(function (k) { items.push(best[k]); });
@@ -157,7 +166,7 @@
       if (!w || !w.r) return;
       var id = w.r.athlete.id;
       if (items.some(function (it) { return it.r && it.r.athlete.id === id && it.kind === 'write'; })) return;
-      items.push({ key: id + ':write', kind: 'write', type: 'write', tier: 4, order: ORDER.indexOf('write'), r: w.r, week: w.week, name: w.r.athlete.name, done: !!done[id] });
+      items.push({ key: id + ':write', kind: 'write', type: 'write', tier: 4, order: ORDER.indexOf('write'), r: w.r, week: w.week, name: w.r.athlete.name, done: covers(done[id], 'write') });
     });
     return items.sort(jobCmp);
   }
@@ -658,10 +667,17 @@
     if (typeof dkRowsFresh === 'function') { dkRowsFresh(); return { rows: _dk.rows || [], q: _dk.queue }; }
     return { rows: [], q: null };
   }
+  // Per lifter: 1 when the coach marked them done this week, else how they acted ('reply' / 'apply').
   function doneMap(q) {
     var m = {};
     if (!q) return m;
-    (q.handled || []).concat(q.done || [], q.cleared || []).forEach(function (r) { m[r.athlete.id] = 1; });
+    var st = {}; try { if (typeof dkState === 'function') st = dkState() || {}; } catch (e) {}
+    var hm = st.handled || {}, rv = st.reviewed || {};
+    (q.done || []).forEach(function (r) { m[r.athlete.id] = 1; });
+    (q.handled || []).concat(q.cleared || []).forEach(function (r) {
+      var id = r.athlete.id;
+      if (!m[id]) m[id] = rv[id] ? 1 : ((hm[id] && hm[id].via) || 1);
+    });
     return m;
   }
   function model(opts) {

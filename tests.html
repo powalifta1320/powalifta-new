@@ -4882,6 +4882,21 @@ test('jobs: one per lifter per kind; a meet today is one job', () => {
   eq(CL.jobText(J[0]).title, 'Autumn Open is today');
   eq(CL.jobText(J[0]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
 });
+test('jobs: a reply closes what a message can, not the week still to write', () => {
+  const T = '2026-10-26';
+  const r = clRow({ athlete: { id: 'a', name: 'Arjun Mehta' }, reasons: [{ type: 'message', group: 4, text: 'Message 1d', body: 'Bar felt slow' }, { type: 'pain', group: 1, text: 'Pain' }, { type: 'offpace', group: 6, text: 'Cut off pace' }] });
+  const W = [{ r, week: 4 }];
+  const at = (done) => { const J = CL.clJobs([r], { today: T, toWrite: W, done }); const o = {}; J.forEach(j => { o[j.kind] = j.done; }); return o; };
+  const R = at({ a: 'reply' });
+  assert(R.answer && R.check, 'the reply answered him and checked on the pain');
+  assert(!R.write, 'next week is still to write after a reply');
+  assert(!R.meet, 'and the cut plan is still to do');
+  const P = at({ a: 'apply' });
+  assert(P.write && P.check, 'publishing next week writes it and settles the RPE');
+  assert(!P.answer, 'his message still wants an answer');
+  const A = at({ a: 1 });
+  assert(A.answer && A.check && A.meet && A.write, 'Done (E) covers everything');
+});
 test('the team: training, effort, strength, meets', () => {
   const T = '2026-10-26';
   const days = (on) => { const out = []; for (let i = 6; i >= 0; i--) out.push({ iso: _isoAddDays(T, -i), on: on.indexOf(i) >= 0 }); return out; };
