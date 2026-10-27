@@ -609,6 +609,12 @@ html.native .cl-phone.is-wide .cl-row .cl-chev { display: none; }
 .cl-mplan { white-space: nowrap; }
 .cl-mdot.is-warn { fill: var(--cl-down); stroke: var(--cl-surface); }
 
+/* ---- tap areas: text buttons keep their look but get a 30 px+ target (touch) without moving the layout ---- */
+.cl-nm, .cl-link { display: inline-block; padding: 7px 3px; margin: -7px -3px; border-radius: 8px; }
+.cl-mplan { min-height: 34px; padding: 6px 0; margin-bottom: -6px; }
+.cl-morebtn { min-height: 34px; }
+.cl-tf { padding: 7px 0; margin: -7px 0; }   /* room for the names' tap areas inside the clipped footer */
+
 /* ==================== light theme ==================== */
 html[data-theme="light"] .cl-root { --cl-hero: #121216; }
 html[data-theme="light"] .cl-today::before { opacity: 0.6; }
