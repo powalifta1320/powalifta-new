@@ -1703,10 +1703,12 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 
 /* ==================== Progression rules (progression.js, 2026-10-28) ====================
    One screen: the coach's rules as sentences with their choices inline, Add a rule (the one red), When no rule
-   fits, and the roster's next weeks as the rules would write them. The phone: an inset grouped list, 17px
-   sentences with native pickers under each choice (Shortcuts-style tokens, 44pt targets), sizes 28 / 20 / 17 / 15.
-   The desk: the Settings panel's material (raised surface, hairlines, 32px controls, the desk's radii),
-   menus for the choices, drag to reorder, sizes 13 / 15 (+ the panel's own 16 / 20). */
+   fits, and the roster's next weeks as the rules would write them. After the 27 Oct polish sections, and on
+   their system. The phone: an inset grouped list, 16 pt sentences with the iPhone's own picker under each choice
+   (Shortcuts-style tokens, 44 pt targets), 32 / 20 / 16 / 15, 24 between sections and 8 from a title to its card,
+   rows that light on press. The desk: the desk's card (20, hairline edge, light from above), 32 px controls,
+   menus for the choices, drag to reorder, 13 / 15 / 16 (+ Settings' own 20 and 28). A change reads as ink beside
+   a dot in its colour, never a painted number. */
 .prg-root { --pr-ease: cubic-bezier(0.23, 1, 0.32, 1); }
 .prg-root .prg-body { display: flex; flex-direction: column; }
 .prg-said { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -1725,10 +1727,10 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 .prg-pvl { display: flex; flex-direction: column; }
 .prg-pvr { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .prg-pvt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prg-pvd { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-2); }
-.prg-pvd.t-up { color: var(--cl-up, #34d982); }
-.prg-pvd.t-down { color: var(--cl-down, #ffb35c); }
-.prg-pvd.t-hold, .prg-pvd.t-set { color: var(--text-3); font-weight: 500; }
+.prg-pvd { flex: none; display: inline-flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+.prg-pvd::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.prg-pvd.t-up::before { background: var(--cl-up, #34d982); }
+.prg-pvd.t-down::before { background: var(--cl-down, #ffb35c); }
 .prg-empty { display: flex; align-items: flex-start; gap: 14px; }
 .prg-eic { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--cl-write, #2ec5ff); background: color-mix(in srgb, var(--cl-write, #2ec5ff) 15%, transparent); }
 .prg-eic svg { width: 20px; height: 20px; }
@@ -1740,8 +1742,10 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 
 /* ---- the desk ---- */
 .prg-root.is-desk { font-size: 15px; }
-.prg-root.is-desk .prg-list { border-radius: var(--r-2, 10px); background: var(--dk-raise, var(--bg-1)); }
-.prg-root.is-desk .prg-rule { grid-template-columns: 28px 18px minmax(0, 1fr) 32px; column-gap: 6px; min-height: 56px; padding: 10px 12px 10px 4px; transition: transform 180ms var(--pr-ease), background-color 150ms ease-out; }
+html.desk .prg-root.is-desk :is(.prg-list, .prg-pvl, .prg-empty) {
+  border-radius: var(--r-3, 20px); background-color: var(--dk-card, var(--bg-1)); background-image: var(--dk-card-sheen, none); border: 1px solid var(--dk-card-edge, var(--line)); box-shadow: var(--dk-card-lit, none);
+}
+.prg-root.is-desk .prg-rule { grid-template-columns: 28px 18px minmax(0, 1fr) 32px; column-gap: 6px; min-height: 56px; padding: 10px 12px 10px 6px; transition: transform 180ms var(--pr-ease), background-color 150ms ease-out; }
 .prg-root.is-desk .prg-rule + .prg-rule::before { content: ''; position: absolute; top: 0; left: 52px; right: 12px; height: 1px; background: var(--line); }
 .prg-root.is-desk .prg-sent { line-height: 34px; font-size: 15px; }
 .prg-comma { margin-left: 1px; }
@@ -1769,17 +1773,18 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 .prg-root.is-desk :is(.prg-tok, .prg-grip, .prg-del, .prg-pvr):focus-visible { outline: 2px solid var(--dk-focus, var(--text)); outline-offset: 2px; }
 .prg-root.is-desk .prg-acts { margin: 16px 0 0; }
 .prg-root.is-desk :is(.prg-full, .prg-saved) { font-size: 13px; }
-.prg-root.is-desk .prg-empty { padding: 16px; border-radius: var(--r-2, 10px); background: var(--dk-raise, var(--bg-1)); }
+.prg-root.is-desk .prg-empty { padding: 16px 20px; }
 .prg-root.is-desk .prg-et b { font-size: 15px; font-weight: 600; }
 .prg-root.is-desk .prg-et p { font-size: 13px; line-height: 1.45; }
-.prg-root.is-desk .prg-h { font-size: 15px; margin-bottom: 10px; }
+.prg-root.is-desk .prg-h { font-size: 16px; margin-bottom: 8px; }
 .prg-root.is-desk .prg-fb { margin-top: 32px; }
 .prg-root.is-desk .prg-fb .prg-note { margin: 8px 0 0; font-size: 13px; line-height: 1.45; max-width: 62ch; }
 .prg-root.is-desk .prg-pv { margin-top: 32px; }
 .prg-root.is-desk .prg-pv > .prg-note { margin: 8px 0 0; font-size: 13px; line-height: 1.45; }
 .prg-root.is-desk .prg-pv > .prg-note:first-of-type:not(:last-child) { margin: 0 0 8px; }
-.prg-root.is-desk .prg-pvl { border-radius: var(--r-2, 10px); background: var(--dk-raise, var(--bg-1)); padding: 4px; }
-.prg-root.is-desk .prg-pvr { min-height: 40px; padding: 0 12px; border-radius: var(--r-1, 6px); font-size: 15px; transition: background-color 150ms ease-out; }
+.prg-root.is-desk .prg-pvl { padding: 4px; }
+.prg-root.is-desk .prg-pvr { min-height: 40px; padding: 0 12px; border-radius: var(--r-2, 10px); font-size: 15px; transition: background-color 150ms ease-out; }
+.prg-root.is-desk .prg-pvr:active { background: var(--ch-fill-3); }
 .prg-root.is-desk .prg-pvd { font-size: 13px; }
 .prg-root.is-desk .prg-more-n { margin: 8px 0 0 12px; font-size: 13px; }
 /* the menus: a row of choices per kind */
@@ -1803,14 +1808,15 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 .prg-root.is-phone { padding: 0 0 28px; }
 .prg-root.is-phone .prg-ph { padding-bottom: 8px; }
 .prg-root.is-phone .cl-sub { font-size: 15px; }
-.prg-root.is-phone .prg-h2, .prg-root.is-phone .prg-h { margin: 24px 4px 10px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+.prg-root.is-phone .prg-h2, .prg-root.is-phone .prg-h { margin: 24px 4px 8px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
 .prg-root.is-phone .prg-list { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--cl-r, 20px); box-shadow: var(--ch-lit); overflow: hidden; }
 .prg-root.is-phone .prg-rule { grid-template-columns: 22px minmax(0, 1fr) 44px; column-gap: 8px; padding: 8px 4px 8px 14px; }
 .prg-root.is-phone .prg-rule + .prg-rule::before { content: ''; position: absolute; top: 0; left: 44px; right: 0; height: 1px; background: var(--line); }
 .prg-root.is-phone .prg-num { align-self: start; padding-top: 12px; font-size: 15px; }
-.prg-root.is-phone .prg-sent { font-size: 17px; line-height: 44px; }
+.prg-root.is-phone .prg-sent { font-size: 16px; line-height: 44px; }
 /* a choice is a pill that wraps inside itself when it's long (never cut off), 36pt tall, 44pt to tap */
-.prg-root.is-phone .prg-tok { display: inline-block; min-height: 36px; padding: 6px 12px; box-sizing: border-box; border-radius: 12px; background: var(--ch-fill-3); font-size: 17px; line-height: 24px; vertical-align: middle; max-width: 100%; text-align: left; white-space: normal; }
+.prg-root.is-phone .prg-tok { display: inline-block; min-height: 36px; padding: 6px 12px; box-sizing: border-box; border-radius: 12px; background: var(--ch-fill-3); font-size: 16px; line-height: 24px; vertical-align: middle; max-width: 100%; text-align: left; white-space: normal; }
+.prg-root.is-phone .prg-tok:active { background: var(--ch-fill-4); }
 /* the native picker sits on the token: the token reads, the picker opens (iOS's own wheel) */
 .prg-root.is-phone .prg-sel { position: absolute; inset: -4px 0; width: 100%; height: calc(100% + 8px); margin: 0; padding: 0; border: 0; opacity: 0; font-size: 16px; cursor: pointer; -webkit-appearance: none; appearance: none; }
 .prg-root.is-phone .prg-tok:focus-within { box-shadow: 0 0 0 2px var(--text); }
@@ -1818,23 +1824,25 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 .prg-root.is-phone .prg-more svg { width: 20px; height: 20px; }
 .prg-root.is-phone .prg-more:active { background: var(--ch-fill-2); }
 .prg-root.is-phone .prg-acts { margin: 16px 0 0; flex-direction: column; align-items: stretch; gap: 10px; }
-.prg-root.is-phone .prg-add { height: 50px; font-size: 17px !important; }
+.prg-root.is-phone .prg-add { height: 50px; font-size: 16px !important; }
 .prg-root.is-phone .prg-start { height: 44px; font-size: 15px !important; }
 .prg-root.is-phone :is(.prg-full, .prg-saved) { font-size: 15px; text-align: center; }
 .prg-root.is-phone .prg-empty { padding: 16px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--cl-r, 20px); box-shadow: var(--ch-lit); margin-top: 16px; }
-.prg-root.is-phone .prg-et b { font-size: 17px; font-weight: 600; }
+.prg-root.is-phone .prg-et b { font-size: 16px; font-weight: 600; }
 .prg-root.is-phone .prg-et p { font-size: 15px; line-height: 1.45; }
 /* When no rule fits, on the phone: iOS's pick-one list, a check on the chosen row */
 .prg-root.is-phone .prg-pick { margin: 0; }
 .prg-root.is-phone .prg-opt { width: 100%; min-height: 60px; text-align: left; }
-.prg-root.is-phone .prg-opt .ui-row-title { font-size: 17px; }
+.prg-root.is-phone .prg-opt .ui-row-title { font-size: 16px; }
+.prg-root.is-phone :is(.prg-opt, .prg-pvr) { position: relative; transition: background-color 140ms ease-out; }
+.prg-root.is-phone :is(.prg-opt, .prg-pvr):active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
 .prg-root.is-phone .prg-opt .ui-row-sub { font-size: 15px; line-height: 1.35; white-space: normal; }
 .prg-root.is-phone .prg-ck { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc, var(--text)); }
 .prg-root.is-phone .prg-ck svg { width: 20px; height: 20px; }
 .prg-root.is-phone .prg-fb .prg-note, .prg-root.is-phone .prg-pv .prg-note { margin: 10px 4px 0; font-size: 15px; line-height: 1.45; }
 .prg-root.is-phone .prg-pv > .prg-note:first-of-type:not(:last-child) { margin: 0 4px 10px; }
 .prg-root.is-phone .prg-pvl { margin: 0; }
-.prg-root.is-phone .prg-pvr { min-height: 50px; padding: 12px 12px 12px 16px; font-size: 17px; line-height: 1.3; }
+.prg-root.is-phone .prg-pvr { min-height: 50px; padding: 12px 12px 12px 16px; font-size: 16px; line-height: 1.3; }
 .prg-root.is-phone .prg-pvt { white-space: normal; }
 .prg-root.is-phone .prg-pvd { font-size: 15px; }
 .prg-root.is-phone .prg-pvgo { flex: none; display: inline-grid; color: var(--text-3); }
@@ -1843,7 +1851,7 @@ html.desk .cl-root .cl-row:active { background: var(--ch-fill-3); }
 /* the sheet for another amount */
 .prg-sheet .prg-sheet-row { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; }
 .prg-sheet .prg-sheet-in { flex: 1; min-width: 0; height: 52px; font-size: 22px !important; font-variant-numeric: tabular-nums; }
-.prg-sheet .prg-sheet-row span { font-size: 17px; color: var(--text-3); }
+.prg-sheet .prg-sheet-row span { font-size: 16px; color: var(--text-3); }
 .prg-sheet .prg-sheet-err { min-height: 20px; margin: 0 0 8px; font-size: 15px; color: var(--ch-pain, #ff8f80); }
 html[data-theme="light"] .prg-root.is-desk .prg-rule.is-drag { background: #fff; box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.3), inset 0 0 0 1px var(--line-2); }
 @media (prefers-reduced-motion: reduce) {
