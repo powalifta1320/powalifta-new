@@ -1492,3 +1492,27 @@ html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]) [data-pane="ath
 html.native:not(.desk) section[data-pane="athletes"] #invitesWrap { margin-top: 4px; }
 html.native:not(.desk) section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 0 8px; padding: 0 4px; font-size: 20px; }
 html.native:not(.desk) #invitesList .ui-row-title { font-family: var(--font-body); font-stretch: 100%; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+
+/* --- 5. A lifter, pushed in --- */
+/* One card radius (20) for every card on the page; the flag, the links and the small tiles were 16 and 18. */
+.cl-pg-phone :is(.cl-flag, .cl-hero, .cl-lift, .cl-tile, .cl-links, .cl-empty, .cl-wnrow) { border-radius: var(--cl-r); }
+.cl-pg-phone .cl-wnrow { transition: background-color 140ms ease-out, transform 140ms ease-out; }
+.cl-pg-phone .cl-wnrow:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); transform: scale(0.985); }
+
+/* A lift tile's PR is the app's gold word, not a capsule: "Deadlift" and its PR fit a phone third (it pushed
+   past the tile's edge on a 375 pt iPhone). */
+.cl-pg-phone .cl-lh { gap: 6px; }
+.cl-pg-phone .cl-lh .dot { width: 8px; height: 8px; }
+.cl-pg-phone .cl-pr-b { padding: 0; background: none; border-radius: 0; font-size: 13px; letter-spacing: 0.01em; }
+/* Secondary buttons are a graphite fill (no outline), quiet ones are text; both are 44 pt tall. */
+html:not(.desk) :is(.cl-pg-phone, .cl-phone) .cl-btn:not(.red):not(.quiet) { background: var(--ch-fill-3); box-shadow: none; }
+html:not(.desk) :is(.cl-pg-phone, .cl-phone) .cl-btn:not(.red):not(.quiet):active { background: var(--ch-fill-4); }
+html:not(.desk) .cl-pg-phone .cl-btn { min-height: 44px; }
+html:not(.desk) .cl-pg-phone .cl-quiet { height: 44px; }
+html:not(.desk) .cl-pg-phone .cl-btn.quiet:active, html:not(.desk) .cl-pg-phone .cl-quiet:active { color: var(--text); }
+html:not(.desk) .cl-pg-phone .cl-link { padding: 12px 6px; margin: -12px -6px; }
+html:not(.desk) .cl-pg-phone .cl-mplan { min-height: 44px; margin: -4px 0 -10px; }
+/* The links card: rows light on press, the hairline beside a lit row steps aside. */
+.cl-pg-phone .cl-links .cl-everything { transition: background-color 140ms ease-out; }
+.cl-pg-phone .cl-links .cl-everything:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cl-pg-phone .cl-links .cl-everything:active::before, .cl-pg-phone .cl-links .cl-everything:active + .cl-everything::before { opacity: 0; }
