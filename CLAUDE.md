@@ -112,7 +112,7 @@ The website deploys on every push to `main` (Vercel). The backend go-live (migra
 
 ## AI assistant ("Ask AI")
 
-`ai-chat.js` + `ai-chat.css` on both dashboards. LIVE (signed in) → `DB.aiChat()` → the `ai-chat` edge function (Gemini first, Groq fallback, per-user daily cap in `ai_chat_usage`); MOCK (demo, signed out, or any failure) answers locally from Store data. `LIVE_BACKEND` is the master switch. Support mode answers from `support-kb.js` first: give each new user-facing feature an entry there. Details: vault `Code/Ask AI internals.md`.
+`ai-chat.js` + `ai-chat.css` on both dashboards. LIVE (signed in) → `DB.aiChat()` → the `ai-chat` edge function (Gemini first, Groq fallback, per-user daily cap in `ai_chat_usage`); MOCK (demo, signed out, or any failure) answers locally from Store data. `LIVE_BACKEND` is the master switch. Support mode answers from `support-kb.js` first: give each new user-facing feature an entry there. The coach's roster questions ("who's stalled / in pain / owes me", a lifter's name) are answered locally from `deskRows` by `rosterAsk` in every mode (why/what-to-do questions still go live); `linkNames` makes every lifter name in a coach reply open the lifter. Details: vault `Code/Ask AI internals.md`.
 
 ## Gotchas worth remembering
 

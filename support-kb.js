@@ -1446,5 +1446,23 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Yes. Open **Bring a program in** (Programs, a lifter's builder, or Templates) and choose **From a photo or screenshot**: a screenshot of your sheet, a photo of a printout, or a PDF. On a laptop you can also drop the file on it or paste a screenshot with ⌘V.\n\nIt takes about 10 seconds to read. Then **Check the program** shows your photo beside the program as a grid: every cell reads the way the builder does (3x5 @8, 1x3 @8, 3x5 75%, 3x8 2RIR, tempo 3-1-0, paused 2s), so you can change any number. A cell that doesn't read is marked in red and a number the reader wasn't sure of in amber; **n to check** takes you to each one. Nothing is saved until you choose **Use for** a lifter (their trained block is kept as a past block first) or **Save as template**.\n\nThe picture is sent to Google's Gemini model to be read and isn't stored. You can read up to 15 programs a day; pasting the text always works too.",
   "app": "Yes. Open **Bring a program in** from the Program tab or Templates and choose **From a photo or screenshot**: take a photo of a printout, pick a screenshot, or a PDF from Files. It takes about 10 seconds. **Check the program** shows one week at a time under your photo: every cell reads like the builder (3x5 @8, 3x5 75%, 3x8 2RIR), so you can change any number, and anything that didn't read is marked. Nothing is saved until you tap **Use for** a lifter or **Save as template**. The picture is read by Google's Gemini model and isn't stored."
+ },
+ {
+  "id": "coach-ask-roster",
+  "q": "Can I ask the assistant about my lifters?",
+  "t": [
+   "who is stalled",
+   "who needs me",
+   "who is in pain",
+   "ask about my lifters",
+   "ask about my roster",
+   "roster questions",
+   "who owes me",
+   "who is behind",
+   "summarise my week",
+   "ask ai coach"
+  ],
+  "a": "Yes. Open **Ask AI**, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who's working harder than you wrote, form checks or replies waiting, who needs a next block, new intakes, who owes you, or a lifter's name for their week.\n\nThose answers come straight from your roster, the same numbers as **Today** and **Lifters**, worked out on your device: exact, instant, and they work in the demo too. Tap a name to open that lifter. A question that asks why or what to change goes to the live AI instead.",
+  "app": "Yes. Tap the sparkle at the top, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who needs a next block, new intakes, who owes you, or a lifter's name for their week. Those answers come straight from your roster on your phone, the same numbers as **Lifters**, so they're exact and instant. Tap a name to open that lifter."
  }
 ];

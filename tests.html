@@ -5154,6 +5154,118 @@ group('Ask AI: the coach prompt');
   } finally { Store.set(saved); }
 })();
 
+/* ===========================================================
+   Ask AI, the roster asked (ai-chat.js rosterAsk): "who's stalled?", "who's in pain?", "who owes
+   me?" answered from the app's own numbers, a lifter a line, names as on the roster; a first name
+   that is also an everyday word counts only with a capital; linkNames turns every mention into a
+   tap that opens the lifter, never inside a tag or code.
+   =========================================================== */
+group('Ask AI: the roster, asked');
+(() => {
+  const R = window.PowaAIRoster || null;
+  test('the roster engine is loaded', () => assert(R && typeof R.ask === 'function' && typeof R.link === 'function', 'window.PowaAIRoster'));
+  if (!R) return;
+  test('questions find their intent', () => {
+    const cases = { "Who's stalled?": 'stall', 'anyone plateaued': 'stall', "Who's in pain?": 'pain', 'anyone hurt?': 'pain', 'who is injured': 'pain',
+      "Who's over their class?": 'weight', 'will anyone miss weight at the weigh-in': 'weight', 'Meets coming up': 'meet', 'Any PRs this week?': 'pr', "who PR'd": 'pr',
+      'Who owes me money?': 'pay', 'overdue payments': 'pay', 'New intakes?': 'intake', "Who's behind this week?": 'missed', 'who missed sessions': 'missed',
+      "Who's gone quiet?": 'quiet', "who hasn't trained": 'quiet', "Who hasn't checked in?": 'checkin', 'Any form checks?': 'form', "Who's waiting on a reply?": 'reply',
+      'Who needs a new block?': 'block', 'Who needs me today?': 'needs', 'who needs attention': 'needs', 'Most improved?': 'gain', "Who's the strongest?": 'top',
+      'Biggest squat?': 'top', "Who's working harder than written?": 'rpe', 'Summarise this week': 'team', 'Roster overview': 'team' };
+    Object.keys(cases).forEach(q => eq(R.intent(q), cases[q], q));
+    eq(R.intent('How do I export a program?'), null, 'not about the roster');
+  });
+  const today = todayISO(), dA = n => _addDaysISO(today, -n);
+  const log = (id, a, lift, kg, daysAgo) => ({ id, athleteId: a, lift, variant: 'Competition', exerciseName: '', weight: kg, reps: 3, rpe: 8,
+    e1rm: calcE1RM(kg, 3, 8), e1rmComp: calcCompE1RM(kg, 3, 8, lift, 'Competition'), date: dA(daysAgo) });
+  const S = Object.assign(defaultStore(), {
+    athletes: [{ id: 'r1', name: 'Pia Lund', coachId: 'c' }, { id: 'r2', name: 'Omar Haddad', coachId: 'c' }, { id: 'r3', name: 'Lena Brandt', coachId: 'c' },
+      { id: 'r4', name: 'Will Carter', coachId: 'c' }, { id: 'rx', name: 'Zed Other', coachId: 'other' }],
+    workoutLogs: [
+      // Pia: a bench PR yesterday
+      log('p1', 'r1', 'bench', 80, 9), log('p2', 'r1', 'bench', 85, 1), log('p3', 'r1', 'squat', 120, 2),
+      // Omar: a heavy squat six weeks ago, then four weeks under it (stalled); bench and deadlift up every week
+      log('o0', 'r2', 'squat', 200, 42), log('o1', 'r2', 'squat', 180, 22), log('o2', 'r2', 'squat', 182.5, 15), log('o3', 'r2', 'squat', 182.5, 8), log('o4', 'r2', 'squat', 185, 1),
+      log('o5', 'r2', 'bench', 120, 22), log('o6', 'r2', 'bench', 122.5, 15), log('o7', 'r2', 'bench', 125, 8), log('o8', 'r2', 'bench', 127.5, 1),
+      log('o9', 'r2', 'deadlift', 220, 22), log('oa', 'r2', 'deadlift', 225, 15), log('ob', 'r2', 'deadlift', 230, 8), log('oc', 'r2', 'deadlift', 235, 1),
+      // Lena: last trained nine days ago
+      log('l1', 'r3', 'squat', 100, 9),
+      // someone else's lifter, never in the answers
+      log('x1', 'rx', 'squat', 300, 1)
+    ],
+    painReports: [{ id: 'pr1', athleteId: 'r1', coachId: 'c', day: dA(1), bodyPart: 'knee', side: 'left', severity: 6, phase: 'top', lift: 'squat', note: 'secret-pain-words', createdAt: dA(1) + 'T18:00:00Z', resolvedAt: null }],
+    meets: [{ id: 'm2', athleteId: 'r2', name: 'State Open', date: dA(-20), weightClass: '93 kg', status: 'planned' }],
+    bodyweight: [{ id: 'b2', athleteId: 'r2', date: dA(1), weight: 94.1 }],
+    clientBilling: [{ coachId: 'c', athleteId: 'r1', package: 'Online coaching', amountCents: 15000, currency: 'USD', cadence: 'monthly', nextDue: dA(3), status: 'active' },
+      { coachId: 'c', athleteId: 'r2', package: 'Online coaching', amountCents: 12000, currency: 'USD', cadence: 'monthly', nextDue: dA(-2), status: 'active' }],
+    clientPayments: [{ coachId: 'c', athleteId: 'r2', amountCents: 12000, currency: 'USD', paidOn: today, method: 'bank' }],
+    intakes: [{ athleteId: 'r4', coachId: 'c', answers: { v: 1 }, submittedAt: dA(1) + 'T09:00:00Z' }]
+  });
+  const saved = Store.get();
+  try {
+    Store.set(S);
+    const ask = (q, o) => R.ask(q, Object.assign({ coachId: 'c', today, unit: 'kg' }, o || {}));
+    test('who is in pain: the part and how bad, never their note', () => {
+      const a = ask("Who's in pain?");
+      assert(/\*\*One lifter\*\* reported pain:/.test(a), a);
+      assert(/- \*\*Pia Lund\*\*: L knee 6\/10, squat/.test(a), a);
+      assert(a.indexOf('secret-pain-words') < 0 && a.indexOf('Omar') < 0, 'only Pia, and none of her words');
+      eq(ask('Is Omar in pain?'), "**Omar Haddad** hasn't reported pain.");
+    });
+    test('who has stalled: a lift with no new best in 4 weeks', () => {
+      const a = ask("Who's stalled?");
+      assert(/- \*\*Omar Haddad\*\*: Squat$/m.test(a), a);
+      assert(a.indexOf('Pia') < 0, 'too little data on Pia to call it');
+    });
+    test('quiet, over the class, PRs, intakes', () => {
+      assert(/- \*\*Lena Brandt\*\*: Last trained 9 days ago/.test(ask("Who's gone quiet?")), 'Lena is quiet');
+      assert(/- \*\*Omar Haddad\*\*: \+1\.1 kg over the 93 kg class, meet in 20 days/.test(ask("Who's over their class?")), 'Omar is over');
+      assert(/- \*\*Pia Lund\*\*: Bench PR/.test(ask('Any PRs this week?')), 'Pia PR’d');
+      assert(/- \*\*Will Carter\*\*: Sent yesterday, no program yet/.test(ask('New intakes?')), 'Will sent the intake');
+    });
+    test('payments: overdue, due soon, the month so far', () => {
+      const a = ask('Who owes me money?');
+      assert(/\*\*One payment overdue\*\*, \$150:/.test(a), a);
+      assert(/- \*\*Pia Lund\*\*: \$150, 3 days late/.test(a), a);
+      assert(/- \*\*Omar Haddad\*\*: \$120 in 2 days/.test(a), a);
+      assert(/Received this month: \*\*\$120\*\*/.test(a), a);
+      eq(ask('Has Pia paid?'), '**Pia Lund**: $150, overdue 3 days.');
+    });
+    test('an everyday-word first name only counts with a capital', () => {
+      const a = ask('who will make weight?');
+      assert(/Omar Haddad/.test(a) && a.indexOf('Will Carter') < 0, a);
+      eq(ask('Is Will in pain?'), "**Will Carter** hasn't reported pain.");
+    });
+    test('the team in a few lines, and one lifter’s week', () => {
+      const t = ask('Summarise this week');
+      assert(/^\*\*4 lifters\*\*: /.test(t), t);
+      assert(/- \*\*1\*\* in pain: \*\*Pia Lund\*\*/.test(t), t);
+      assert(t.indexOf('Zed') < 0, 'another coach’s lifter never shows');
+      const o = ask("How's Omar doing?");
+      assert(/^\*\*Omar Haddad\*\*\n- /.test(o) && /e1RM total \d+ kg/.test(o) && /State Open in 20 days, 93 kg/.test(o), o);
+    });
+    test('pounds when the coach uses pounds', () => {
+      assert(/\+2\.4 lb over the 93 kg class/.test(ask("Who's over their class?", { unit: 'lb' })), 'the gap in lb');
+      assert(/e1RM total \d+ lb/.test(ask("How's Omar doing?", { unit: 'lb' })), 'the total in lb');
+    });
+    test('not a roster question: nothing', () => {
+      eq(ask('How do I export a program?'), null);
+      eq(R.ask("Who's in pain?", {}), null, 'no coach, no answer');
+    });
+  } finally { Store.set(saved); }
+  test('linkNames: every mention, never inside a tag or code, ids escaped', () => {
+    const roster = [{ id: 'a"1', name: 'Pia Lund' }, { id: 'b2', name: 'Will Carter' }, { id: 'c3', name: 'Omar Haddad' }, { id: 'c4', name: 'Omar Said' }];
+    const html = '<p><strong>Pia Lund</strong> and Pia again, <span title="Pia Lund">x</span> <code>Pia Lund</code> Will said; Omar too; Will Carter; Lena</p>';
+    const out = R.link(html, roster);
+    eq((out.match(/class="ai-who"/g) || []).length, 3, 'Pia twice (full and first) and Will Carter once');
+    assert(out.indexOf('data-ai-lifter="a&quot;1"') >= 0, 'the id is escaped');
+    assert(out.indexOf('<span title="Pia Lund">') >= 0, 'an attribute is never touched');
+    assert(out.indexOf('<code>Pia Lund</code>') >= 0, 'code is never touched');
+    assert(/ Will said/.test(out), '"Will" alone is an everyday word');
+    assert(/Omar too/.test(out), 'two Omars: a first name alone is not enough');
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

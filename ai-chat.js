@@ -35,6 +35,8 @@
   // Set before the enabled switch below, so the test page can read it without the panel.
   var COACH_PROMPT_BUDGET = 5500;   // characters, under the ai-chat edge function's 6,000 cap (coachPrompt)
   window.PowaAIPrompt = { coach: coachPrompt, coachLine: coachLine, BUDGET: COACH_PROMPT_BUDGET };
+  // The roster, asked (rosterAsk): the same switch-independent hook for tests.html.
+  window.PowaAIRoster = { ask: rosterAsk, intent: rosterIntent, link: linkNames };
 
   // Master switch for the real (Gemini) backend. Leave true in production;
   // flip false to force local mock mode everywhere (no API calls at all).
@@ -252,57 +254,465 @@
     return concierge(q, 'athlete');
   }
 
+  // =====================================================================
+  //  THE ROSTER, ASKED: "who's stalled?", "who's in pain?", "who owes me?", answered from the
+  //  app's own numbers (app.js deskRows: the reasons, wins and meets Today works from), most
+  //  urgent first, a lifter a line, each name exactly as on the roster so linkNames can turn it
+  //  into a tap that opens the lifter. Exact and instant, the same in the demo, mock and live; a
+  //  question that asks why or what to do goes to the live model instead (rosterReply). Pure over
+  //  the Store, so tests.html runs it. Everything here is the coach's own data on their device.
+  // =====================================================================
+  function rosterIntent(t) {
+    t = String(t || '').toLowerCase().replace(/[’']/g, "'");
+    var I = [
+      ['pay', /\b(pay|paid|pays|payments?|owe[sd]?|owing|overdue|invoices?|billing|bills?|money|income|revenue|earn(ed|ing|ings)?|packages?)\b/],
+      ['intake', /\b(intakes?|questionnaires?|onboard(ing|ed)?)\b/],
+      ['pain', /\b(pain|painful|hurt(s|ing)?|injur(y|ies|ed)|sore|niggles?|tweak(ed)?|aches?|aching|banged up|beat up)\b/],
+      ['weight', /(over (the |their |his |her )?(weight )?class|(make|making|made) weight|weigh.?ins?|weight class|\bcut(ting)?\b|over ?weight)/],
+      ['meet', /\b(meets?|comps?|competitions?|competing|platform|peak(ing)?)\b/],
+      ['pr', /\b(prs?|pr'd|pbs?|personal (bests?|records?)|records?|new bests?)\b/],
+      ['easy', /(too easy|under ?shoot|under (the |their |my )?rpe|sandbag|easier than)/],
+      ['rpe', /(\brpe\b|too hard|over ?shoot|grind(ing|y)?|harder than|drift)/],
+      ['form', /(form ?checks?|\bvideos?\b|technique)/],
+      ['checkin', /check(ed)?.?ins?\b/],
+      ['reply', /(\bmessages?\b|unanswered|\brepl(y|ies)\b|notes? (waiting|to answer)|waiting on (a |my )?(reply|answer))/],
+      ['block', /(block (end|ends|ending|done|finish|is over)|(next|new) (block|program)|no program|without a program|need(s)? a (new |next )?(program|block)|program (end|ends|ending|finish))/],
+      ['stall', /(stall|plateau|stuck|\bflat\b|not (progress|improv|getting stronger|moving)|no progress|going backwards|regress|declin|dropping|lost strength|weaker)/],
+      ['gain', /(most improved|improv|progress|getting stronger|gaining|on fire|trending up|moving up)/],
+      ['top', /(strongest|biggest|highest|heaviest|\btop\b|\bbest\b|\brank|leaderboard)/],
+      ['missed', /(miss(ed|ing)? (a |any |their )?(sessions?|days?|workouts?|training)|\bskip|behind|on (track|pace)|off (track|pace)|adheren|complian|consisten)/],
+      ['quiet', /(quiet|inactive|not logg|n't logg|not train|n't train|gone dark|ghost|silent|disappear|stale|no sets|\bmissing\b)/],
+      ['needs', /(need(s)? (me|my|you|attention|a look|help)|attention|urgent|priorit|\bfirst\b|to.?do|focus on|should i (look|check|start)|where (do|should) i start|what'?s (up|going on|happening)|anything (i should|to) know|look at)/],
+      ['team', /(summar|recap|review|this week|the week|overview|everyone|whole team|the team|my team|roster|how many (lifters|athletes|clients)|how'?s (everyone|the team|my team)|how (are|is) (everyone|the team|my lifters))/]
+    ];
+    for (var i = 0; i < I.length; i++) if (I[i][1].test(t)) return I[i][0];
+    return null;
+  }
+  function raAnd(list) { return list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1]; }
+  function raCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+  // e1RMs in whole kg or lb (a tenth is false precision); a bodyweight keeps its tenth (tenth: true).
+  function raKg(kg, u) {
+    if (!(kg > 0)) return '–';
+    return Math.round(u === 'lb' ? kg * 2.2046 : kg) + (u === 'lb' ? ' lb' : ' kg');
+  }
+  function raSigned(kg, u, tenth) {
+    var x = u === 'lb' ? kg * 2.2046 : kg, v = tenth ? Math.round(x * 10) / 10 : Math.round(x);
+    return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + (u === 'lb' ? ' lb' : ' kg');
+  }
+  function raAgo(d) { return d == null ? 'never' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
+  function raIn(d) { return d <= 0 ? 'today' : d === 1 ? 'tomorrow' : 'in ' + d + ' days'; }
+  function raClass(wc) { wc = String(wc || '').trim(); return /[a-z]/i.test(wc) ? wc : wc + ' kg'; }
+  function raLifters(n) { return n === 1 ? 'One lifter' : n + ' lifters'; }
+  function raBest(id) {
+    var b = {};
+    ['squat', 'bench', 'deadlift'].forEach(function (L) { b[L] = typeof bestE1RM === 'function' ? bestE1RM(id, L) || 0 : 0; });
+    b.total = b.squat + b.bench + b.deadlift;
+    return b;
+  }
+  function raPrLifts(r) {
+    var out = [];
+    (r.wins || []).forEach(function (w) { if (w.type === 'pr' && w.lifts) w.lifts.forEach(function (L) { if (out.indexOf(L) < 0) out.push(L); }); });
+    return ['squat', 'bench', 'deadlift'].filter(function (L) { return out.indexOf(L) >= 0; });
+  }
+  function raReason(r, types) {
+    return (r.reasons || []).filter(function (x) { return types.indexOf(x.type) >= 0; });
+  }
+  // The lifts with no new e1RM best in the last 4 weeks, among those trained in 3 of them.
+  function raStalledLifts(id, today) {
+    if (typeof strengthSeries !== 'function') return [];
+    var logs = (S().workoutLogs || []).filter(function (l) { return l.athleteId === id; });
+    return ['squat', 'bench', 'deadlift'].filter(function (L) {
+      var pts = strengthSeries(logs, L, { weeks: 4, today: today });
+      return pts.length >= 3 && !pts.some(function (p) { return p.pr; });
+    });
+  }
+  function raPain(r) {
+    var st = r.status || {}, rep = st.pain && st.pain.open && st.pain.report;
+    if (rep) {
+      var part = typeof painPartLabel === 'function' ? painPartLabel(rep.bodyPart, rep.side) : String(rep.bodyPart || 'pain');
+      var lift = rep.lift && typeof painLiftLabel === 'function' ? painLiftLabel(rep.lift) : '';
+      return { sev: Number(rep.severity) || 0, report: true, text: part + (rep.severity != null ? ' ' + Math.round(Number(rep.severity)) + '/10' : '') + (lift ? ', ' + lift.toLowerCase() : '') };
+    }
+    if (raReason(r, ['pain']).length) return { sev: 0, report: false, text: 'said yes to pain on their check-in' };
+    return null;
+  }
+
+  // One intent → { items: [{ row, text, k }] (k sorts, smallest first), head(n), none, noneFor(name) }.
+  function raPick(intent, rows, c) {
+    var u = c.unit, items = [], P = { items: items };
+    var each = function (fn) { rows.forEach(function (r) { var x = fn(r); if (x) items.push({ row: r, text: x.text, k: x.k || 0 }); }); };
+    switch (intent) {
+      case 'pain':
+        each(function (r) { var p = raPain(r); return p && { text: p.text, k: -p.sev }; });
+        P.head = function (n) { return '**' + raLifters(n) + '** reported pain:'; };
+        P.none = 'No one has reported pain this week.';
+        P.noneFor = function (nm) { return nm + " hasn't reported pain."; };
+        break;
+      case 'stall':
+        each(function (r) {
+          var st = r.status || {};
+          if (st.ago == null || st.ago >= 8) return null;
+          var L = raStalledLifts(r.athlete.id, c.today);
+          if (L.length) return { text: raCap(raAnd(L)), k: -L.length };
+          return raReason(r, ['stalling']).length ? { text: 'No main lift up in 3 weeks', k: 0 } : null;
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** stalled, no new e1RM best in 4 weeks:'; };
+        P.none = 'No one has stalled: no lift has gone 4 weeks without a new best.';
+        P.noneFor = function (nm) { return nm + " hasn't stalled: no lift has gone 4 weeks without a new best."; };
+        break;
+      case 'gain':
+        each(function (r) {
+          var d = r.total && r.total.delta;
+          if (!(d > 0)) return null;
+          return { text: raSigned(d, u) + ' in 4 weeks, now ' + raKg(raBest(r.athlete.id).total, u), k: -d };
+        });
+        P.max = 5;
+        P.head = function () { return 'Most improved, e1RM total over the last 4 weeks:'; };
+        P.none = "No one's e1RM total has gone up in the last 4 weeks.";
+        P.noneFor = function (nm) { return nm + "'s e1RM total hasn't gone up in the last 4 weeks."; };
+        break;
+      case 'top':
+        var lift = /squat/.test(c.t) ? 'squat' : /bench/.test(c.t) ? 'bench' : /(dead|\bdl\b)/.test(c.t) ? 'deadlift' : 'total';
+        each(function (r) {
+          var b = raBest(r.athlete.id);
+          if (!(b[lift] > 0)) return null;
+          return { text: raKg(b[lift], u) + (lift === 'total' && b.squat && b.bench && b.deadlift ? ' (S ' + raKg(b.squat, u).replace(/ (kg|lb)$/, '') + ' · B ' + raKg(b.bench, u).replace(/ (kg|lb)$/, '') + ' · D ' + raKg(b.deadlift, u).replace(/ (kg|lb)$/, '') + ')' : ''), k: -b[lift] };
+        });
+        P.max = 5;
+        P.head = function () { return lift === 'total' ? 'Biggest e1RM totals:' : 'Biggest ' + lift + (lift === 'bench' ? 'es' : 's') + ', by e1RM:'; };
+        P.none = 'No e1RMs yet: no one has logged the main lifts.';
+        P.noneFor = function (nm) { return nm + ' has no ' + (lift === 'total' ? 'e1RM total' : lift + ' e1RM') + ' yet.'; };
+        break;
+      case 'quiet':
+        each(function (r) {
+          var st = r.status || {};
+          if (st.ago == null) return { text: 'No sets logged yet', k: -9999 };
+          return st.ago >= 5 ? { text: 'Last trained ' + raAgo(st.ago), k: -st.ago } : null;
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** gone quiet:'; };
+        P.none = 'Everyone has trained in the last 5 days.';
+        P.noneFor = function (nm, r) { var a = r && r.status ? r.status.ago : null; return nm + ' trained ' + raAgo(a) + '.'; };
+        break;
+      case 'missed':
+        each(function (r) {
+          var st = r.status || {}, se = st.sessions || {};
+          var f = (st.flags || []).filter(function (x) { return x.type === 'missed'; })[0];
+          if (!f) return null;
+          return { text: f.text.replace(/ this week$/, '') + ', ' + se.done + ' of ' + se.planned + ' done', k: -(se.planned - se.done) };
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** behind this week:'; };
+        P.none = 'Everyone is on pace this week.';
+        P.noneFor = function (nm, r) { var se = (r && r.status && r.status.sessions) || {}; return se.planned ? nm + ' is on pace: ' + se.done + ' of ' + se.planned + ' sessions done.' : nm + ' has no sessions planned this week.'; };
+        break;
+      case 'weight':
+        each(function (r) {
+          if (!(r.bw && r.bw.over > 0 && r.meet && r.meet.days <= 56)) return null;
+          return { text: raSigned(r.bw.over, u, true) + ' over the ' + raClass(r.meet.meet.weightClass) + ' class, meet ' + raIn(r.meet.days), k: r.meet.days };
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** over their class with a meet coming:'; };
+        P.none = 'No one with a meet in the next 8 weeks is over their class.';
+        P.noneFor = function (nm, r) { return r && r.meet && r.meet.days <= 56 ? nm + ' is inside their class.' : nm + ' has no meet in the next 8 weeks.'; };
+        break;
+      case 'meet':
+        each(function (r) {
+          if (!r.meet) return null;
+          var m = r.meet.meet || {};
+          var when = typeof fmtDateShort === 'function' ? fmtDateShort(String(m.date).slice(0, 10)) : String(m.date).slice(0, 10);
+          return { text: (m.name || 'Meet') + ', ' + when + ' (' + raIn(r.meet.days) + ')' + (m.weightClass ? ' · ' + raClass(m.weightClass) : '') + (r.bw && r.bw.over > 0 && r.meet.days <= 56 ? ', ' + raSigned(r.bw.over, u, true) + ' over' : ''), k: r.meet.days };
+        });
+        P.head = function (n) { return '**' + (n === 1 ? 'One meet' : n + ' meets') + '** coming up:'; };
+        P.none = 'No meets on the calendar.';
+        P.noneFor = function (nm) { return nm + ' has no meet on the calendar.'; };
+        break;
+      case 'pr':
+        each(function (r) {
+          var L = raPrLifts(r), mp = (r.wins || []).filter(function (w) { return w.type === 'meetpr'; })[0];
+          if (!L.length && !mp) return null;
+          return { text: [L.length ? raCap(raAnd(L)) + ' PR' : '', mp ? mp.text : ''].filter(Boolean).join(' · '), k: -L.length };
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** set PRs in the last 7 days:'; };
+        P.none = 'No PRs in the last 7 days yet.';
+        P.noneFor = function (nm) { return 'No PR for ' + nm + ' in the last 7 days.'; };
+        break;
+      case 'rpe':
+        each(function (r) { var x = raReason(r, ['overshoot', 'drift'])[0]; return x && { text: x.text, k: x.type === 'overshoot' ? (x.tone === 'alert' ? 0 : 1) : 2 }; });
+        P.head = function (n) { return '**' + raLifters(n) + '** working harder than you wrote:'; };
+        P.none = "Everyone's RPE is on what you wrote this week.";
+        P.noneFor = function (nm) { return nm + ' is on your RPEs this week.'; };
+        break;
+      case 'easy':
+        each(function (r) { var d = r.drift; return d && d.avg <= -0.5 && d.n >= 3 ? { text: 'RPE ' + String(d.avg).replace('-', '−') + ' across ' + d.n + ' sets', k: d.avg } : null; });
+        P.head = function (n) { return '**' + raLifters(n) + '** under the RPE you wrote:'; };
+        P.none = 'No one is consistently under your RPEs this week.';
+        P.noneFor = function (nm) { return nm + " isn't under your RPEs this week."; };
+        break;
+      case 'form':
+        each(function (r) { var x = raReason(r, ['formcheck'])[0]; return x && { text: x.text }; });
+        P.head = function (n) { return '**' + raLifters(n) + '** sent form checks to review:'; };
+        P.none = 'No form checks waiting on you.';
+        P.noneFor = function (nm) { return 'No form check from ' + nm + ' waiting.'; };
+        break;
+      case 'checkin':
+        // "Who hasn't checked in?": only the lifters who stopped; otherwise the answers worth a look too.
+        if (/(n't|\bnot\b|\bno\b|never|stopped|missing)/.test(c.t)) {
+          each(function (r) { var x = raReason(r, ['nocheckin'])[0]; return x && { text: x.text, k: -((r.status || {}).checkinAgo || 0) }; });
+          P.head = function (n) { return '**' + raLifters(n) + "** haven't checked in for over a week:"; };
+          P.none = 'Everyone who checks in has, this week.';
+          P.noneFor = function (nm) { return nm + ' has checked in this week.'; };
+          break;
+        }
+        each(function (r) { var x = raReason(r, ['checkin', 'nocheckin', 'pain']); return x.length && { text: x.map(function (y) { return y.text; }).join(' · '), k: x[0].group }; });
+        P.head = function (n) { return '**' + raLifters(n) + '** with check-ins to look at:'; };
+        P.none = 'Nothing on check-ins this week.';
+        P.noneFor = function (nm) { return 'Nothing on ' + nm + "'s check-ins this week."; };
+        break;
+      case 'reply':
+        each(function (r) { var x = raReason(r, ['note', 'message']); return x.length && { text: x.map(function (y) { return y.text; }).join(' · ') }; });
+        P.head = function (n) { return '**' + raLifters(n) + '** waiting on a reply:'; };
+        P.none = 'No one is waiting on a reply.';
+        P.noneFor = function (nm) { return nm + " isn't waiting on a reply."; };
+        break;
+      case 'block':
+        each(function (r) {
+          var x = raReason(r, ['noprogram', 'blockdone', 'blockend'])[0];
+          if (!x) return null;
+          return { text: x.type === 'noprogram' ? (/Intake/.test(x.detail) ? 'No program yet, intake in' : 'No program yet') : x.type === 'blockdone' ? 'Block done' : 'Block ends this week', k: x.type === 'blockend' ? 1 : 0 };
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** need their next block:'; };
+        P.none = 'Everyone has a block running.';
+        P.noneFor = function (nm) { return nm + ' has a block running.'; };
+        break;
+      case 'intake':
+        var ins = {};
+        (S().intakes || []).forEach(function (x) { if (x && x.submittedAt) ins[x.athleteId] = x; });
+        each(function (r) {
+          var x = ins[r.athlete.id];
+          if (!x) return null;
+          var d = typeof _deskDays === 'function' ? Math.max(0, _deskDays(String(x.submittedAt).slice(0, 10), c.today)) : null;
+          return { text: 'Sent ' + raAgo(d) + ((r.status || {}).program ? '' : ', no program yet'), k: d == null ? 0 : d };
+        });
+        P.head = function (n) { return '**' + raLifters(n) + '** sent their intake:'; };
+        P.none = 'No intakes yet. New lifters fill one in when they join.';
+        P.noneFor = function (nm) { return nm + " hasn't sent an intake."; };
+        break;
+      default:   // needs: Today's order (the reason's group, then how bad, then how many)
+        var tone = { alert: 0, warn: 1, meet: 2, info: 3 };
+        each(function (r) {
+          var p = raPain(r), rs = (r.reasons || []).filter(function (x) { return !(p && x.type === 'pain'); });
+          var texts = rs.map(function (x) { return x.text; });
+          if (p) texts.unshift(p.report ? 'Pain: ' + p.text : 'Pain on their check-in');
+          if (!texts.length) return null;
+          var g = p ? 1 : rs[0].group, tn = p ? 0 : (tone[rs[0].tone] != null ? tone[rs[0].tone] : 3);
+          return { text: texts.slice(0, 2).join(' · '), k: g * 100 + tn * 10 - Math.min(9, texts.length) };
+        });
+        P.max = 6;
+        P.head = function (n) { return '**' + raLifters(n) + '** need' + (n === 1 ? 's' : '') + ' you, most urgent first:'; };
+        P.none = 'No one needs you right now: everyone is on plan.';
+        P.noneFor = function (nm) { return nm + ' is on plan: nothing needs you.'; };
+    }
+    items.sort(function (a, b) { return a.k - b.k || String(a.row.athlete.name).localeCompare(String(b.row.athlete.name)); });
+    return P;
+  }
+  function raList(P, named) {
+    var items = P.items, max = P.max || 8;
+    if (named) {
+      var ids = named.map(function (r) { return r.athlete.id; });
+      items = items.filter(function (it) { return ids.indexOf(it.row.athlete.id) >= 0; });
+      var miss = named.filter(function (r) { return !items.some(function (it) { return it.row === r; }); });
+      return items.map(function (it) { return '**' + it.row.athlete.name + '**: ' + raCap(it.text) + (/[.!?]$/.test(it.text) ? '' : '.'); })
+        .concat(miss.map(function (r) { return P.noneFor('**' + r.athlete.name + '**', r); })).join('\n\n');
+    }
+    if (!items.length) return P.none;
+    var out = P.head(items.length) + '\n' + items.slice(0, max).map(function (it) { return '- **' + it.row.athlete.name + '**: ' + raCap(it.text); }).join('\n');
+    if (items.length > max) out += '\n\n+' + (items.length - max) + ' more';
+    return out;
+  }
+  // Payments (Clients): what's overdue, what's due in the next 7 days, and the month so far.
+  function raPay(rows, named, c) {
+    var C = window.Clients;
+    if (!C || typeof C.clientsSummary !== 'function') return null;
+    var st = S(), ids = rows.map(function (r) { return String(r.athlete.id); });
+    var billing = (st.clientBilling || []).filter(function (b) { return ids.indexOf(String(b.athleteId)) >= 0; });
+    if (!billing.length) return "No packages set up yet. Add one on a lifter's page or in **Clients**, and I'll keep track of who's paid.";
+    var byId = {}; billing.forEach(function (b) { byId[String(b.athleteId)] = b; });
+    var nameOf = {}; rows.forEach(function (r) { nameOf[String(r.athlete.id)] = r.athlete.name; });
+    var money = function (b) { return C.formatMoney(b.amountCents, b.currency); };
+    if (named) {
+      return named.map(function (r) {
+        var b = byId[String(r.athlete.id)], s = C.clientStatus(b, c.today);
+        if (!b) return '**' + r.athlete.name + '** has no package set up.';
+        if (s.state === 'overdue') return '**' + r.athlete.name + '**: ' + money(b) + ', overdue ' + (-s.days) + (s.days === -1 ? ' day.' : ' days.');
+        if (s.state === 'due' || s.state === 'soon') return '**' + r.athlete.name + '**: ' + money(b) + ' due ' + raIn(s.days) + '.';
+        return '**' + r.athlete.name + '** is ' + (s.state === 'paused' ? 'paused.' : s.state === 'ended' ? 'no longer a client.' : 'paid up. ' + s.label + '.');
+      }).join('\n\n');
+    }
+    var sum = C.clientsSummary(billing, st.clientPayments || [], c.today, ids);
+    var line = function (id, txt) { return '- **' + nameOf[id] + '**: ' + txt; };
+    var out = [];
+    if (sum.overdue.n) {
+      out.push('**' + (sum.overdue.n === 1 ? 'One payment' : sum.overdue.n + ' payments') + ' overdue**, ' + C.formatMoney(sum.overdue.cents, sum.currency) + ':');
+      sum.overdue.who.forEach(function (id) { var s = C.clientStatus(byId[id], c.today); out.push(line(id, money(byId[id]) + ', ' + (-s.days) + (s.days === -1 ? ' day' : ' days') + ' late')); });
+    } else out.push('Everyone is paid up.');
+    var due = sum.dueToday.who.concat(sum.soon.who);
+    if (due.length) {
+      out.push('', 'Due in the next 7 days:');
+      due.forEach(function (id) { var s = C.clientStatus(byId[id], c.today); out.push(line(id, money(byId[id]) + ' ' + raIn(s.days))); });
+    }
+    out.push('', 'Received this month: **' + C.formatMoney(sum.month.received, sum.currency) + '** of ' + C.formatMoney(sum.month.expected, sum.currency) + '.');
+    return out.join('\n');
+  }
+  // The team in a few lines: how the week is going, then a count per thing worth knowing with the
+  // first two names (the full list is one question away: "who's in pain?").
+  function raTeam(rows, c) {
+    var done = 0, planned = 0, trained = 0;
+    rows.forEach(function (r) {
+      var st = r.status || {}, se = st.sessions || {};
+      done += se.done || 0; planned += se.planned || 0;
+      if (se.done) trained++;
+    });
+    // Names sit between middle dots, the app's own separator (a comma reads detached after a name token).
+    var two = function (list) {
+      var ns = list.slice(0, 2).map(function (x) { return '**' + x.row.athlete.name + '**'; });
+      return ns.join(' · ') + (list.length > 2 ? ' · ' + (list.length - 2) + ' more' : '');
+    };
+    var lines = [];
+    var add = function (list, label, names) { if (list.length) lines.push('- **' + list.length + '** ' + label + (names === false ? '' : ': ' + two(list))); };
+    add(raPick('needs', rows, c).items, 'need you');
+    add(raPick('pr', rows, c).items, 'set PRs');
+    add(raPick('pain', rows, c).items, 'in pain');
+    add(raPick('missed', rows, c).items, 'behind');
+    add(raPick('quiet', rows, c).items, 'quiet');
+    var meets = raPick('meet', rows, c).items.filter(function (x) { return x.row.meet.days <= 56; });
+    if (meets.length) lines.push('- **' + meets.length + '** ' + (meets.length === 1 ? 'meet' : 'meets') + ' in the next 8 weeks, the first ' + raIn(meets[0].row.meet.days));
+    return '**' + rows.length + (rows.length === 1 ? ' lifter' : ' lifters') + '**: ' + trained + ' trained this week' +
+      (planned ? ', ' + done + ' of ' + planned + ' planned sessions done so far' : '') + '.' +
+      (lines.length ? '\n' + lines.join('\n') : '\nNothing needs you: everyone is on plan.');
+  }
+  // One lifter's week.
+  function raLifter(r, c) {
+    var a = r.athlete, st = r.status || {}, se = st.sessions || {}, u = c.unit, out = [];
+    if (st.ago == null) out.push('No sets logged yet' + (st.program ? ', on **' + st.program.name + '**' : ', no program yet'));
+    else {
+      out.push((se.planned ? se.done + ' of ' + se.planned + (se.planned === 1 ? ' session' : ' sessions') : se.done + (se.done === 1 ? ' session' : ' sessions')) + ' this week, last trained ' + raAgo(st.ago));
+      var b = raBest(a.id);
+      if (b.total > 0) out.push('e1RM total ' + raKg(b.total, u) + (r.total && r.total.delta != null && isFinite(r.total.delta) ? ', ' + raSigned(r.total.delta, u) + ' in 4 weeks' : ''));
+      if (st.program) out.push('On **' + st.program.name + '**' + (st.week ? (st.week.finished ? ', every set logged' : ', week ' + st.week.number + ' of ' + st.week.total) : ''));
+    }
+    var p = raPain(r);
+    if (p) out.push(p.report ? 'Pain: ' + p.text : 'Said yes to pain on their check-in');
+    var flags = (r.reasons || []).filter(function (x) { return x.type !== 'pain'; }).map(function (x) { return x.text; });
+    if (flags.length) out.push('Needs you: ' + flags.slice(0, 3).join(' · '));
+    var L = raPrLifts(r);
+    if (L.length) out.push(raCap(raAnd(L)) + ' PR in the last 7 days');
+    if (r.meet && r.meet.days <= 112) out.push((r.meet.meet.name || 'Meet') + ' ' + raIn(r.meet.days) + (r.meet.meet.weightClass ? ', ' + raClass(r.meet.meet.weightClass) : ''));
+    return '**' + a.name + '**\n' + out.map(function (x) { return '- ' + x; }).join('\n');
+  }
+  // The lifters a question names (matchAthletes). A first name that is also an everyday word
+  // ("Will", "May", "Grace") counts only when it is written with a capital.
+  function raCommon(w) {
+    return /^(will|may|june|april|august|grace|hope|faith|joy|mark|bill|rob|pat|sue|art|max|ray|dawn|eve|rose|summer|sky|chase|drew|gene|frank|rich|page|bob|kim|lee|young|king|price|case|cash|hunter|chance|sunny|ivy|holly|jade|amber|ruby|crystal|penny|lily|daisy|iris|violet|al|ed|jo|di|sam)$/.test(String(w || '').toLowerCase());
+  }
+  function raNamed(q, t, rows) {
+    return matchAthletes(t, rows.map(function (r) { return { name: r.athlete.name, row: r }; })).filter(function (x) {
+      var full = String(x.name || '').trim().toLowerCase();
+      if (full.indexOf(' ') > 0 && hasWord(t, full)) return true;
+      var f = full.split(/\s+/)[0];
+      if (!raCommon(f)) return true;
+      var F = String(x.name).trim().split(/\s+/)[0];
+      for (var i = q.indexOf(F); i !== -1; i = q.indexOf(F, i + 1)) if (i > 0 && !/[.!?]\s*$/.test(q.slice(0, i))) return true;
+      return false;
+    }).map(function (x) { return x.row; });
+  }
+  // q: the coach's words; o: { coachId, today, now, unit ('kg' | 'lb'), formChecks } → markdown, or
+  // null when it isn't a question about the roster.
+  function rosterAsk(q, o) {
+    o = o || {};
+    var t = String(q || '').toLowerCase().replace(/[’']/g, "'");
+    if (typeof deskRows !== 'function' || !o.coachId) return null;
+    var c = { t: t, unit: o.unit === 'lb' ? 'lb' : 'kg', today: o.today || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10)) };
+    var intent = rosterIntent(t);
+    var rows = deskRows(o.coachId, { today: c.today, now: o.now, formChecks: o.formChecks });
+    var named = raNamed(String(q || ''), t, rows);
+    if (!intent && !named.length) return null;
+    if (!rows.length) return 'No lifters on your roster yet. Send an invite from **Lifters** and their training shows up here.';
+    if (intent === 'pay') return raPay(rows, named.length ? named : null, c);
+    if (!intent || intent === 'team') {
+      if (named.length) return named.slice(0, 3).map(function (r) { return raLifter(r, c); }).join('\n\n');
+      return raTeam(rows, c);
+    }
+    return raList(raPick(intent, rows, c), named.length ? named : null);
+  }
+
+  // Lifter names in a reply (HTML from fmt) become buttons that open the lifter, every mention: the
+  // full name, or a first name only they have on the roster, written as on the roster (and never one
+  // that is also an everyday word). Never inside a tag or <code>. roster: [{ id, name }].
+  function linkNames(html, roster) {
+    if (!html || !roster || !roster.length) return html;
+    var firsts = {};
+    roster.forEach(function (r) { var f = String(r.name || '').trim().split(/\s+/)[0].toLowerCase(); if (f) firsts[f] = (firsts[f] || 0) + 1; });
+    var cands = [];
+    roster.forEach(function (r) {
+      var full = String(r.name || '').trim().replace(/\s+/g, ' ');
+      if (full.length < 2 || r.id == null) return;
+      cands.push({ id: String(r.id), s: esc(full) });
+      var f = full.split(' ')[0];
+      if (f !== full && f.length >= 3 && firsts[f.toLowerCase()] === 1 && /^\p{Lu}/u.test(f) && !raCommon(f)) cands.push({ id: String(r.id), s: esc(f) });
+    });
+    cands.sort(function (a, b) { return b.s.length - a.s.length; });   // full names before first names
+    var word = function (p, s) {
+      for (var i = p.indexOf(s); i !== -1; i = p.indexOf(s, i + 1)) {
+        if (!/[\p{L}\p{N}]/u.test(p.charAt(i - 1)) && !/[\p{L}\p{N}]/u.test(p.charAt(i + s.length))) return i;
+      }
+      return -1;
+    };
+    var slots = [], inCode = 0, parts = String(html).split(/(<[^>]*>)/);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (!p) continue;
+      if (p.charAt(0) === '<') {
+        if (/^<code[\s>]/i.test(p)) inCode++;
+        else if (/^<\/code>/i.test(p)) inCode = Math.max(0, inCode - 1);
+        continue;
+      }
+      if (inCode) continue;
+      for (var k = 0; k < cands.length; k++) {
+        var cd = cands[k];
+        for (var at = word(p, cd.s); at >= 0; at = word(p, cd.s)) {
+          slots.push('<button type="button" class="ai-who" data-ai-lifter="' + cd.id.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + cd.s + '</button>');
+          p = p.slice(0, at) + '\u0001' + (slots.length - 1) + '\u0002' + p.slice(at + cd.s.length);
+        }
+      }
+      parts[i] = p;
+    }
+    return parts.join('').replace(/\u0001(\d+)\u0002/g, function (m, n) { return slots[+n]; });
+  }
+
   function coachAnswer(q) {
     var t = q.toLowerCase();
-    var roster = rosterSummary();
-
     // draft a program
     if (/(draft|build|write|make|create).*(program|block|mesocycle|cycle)/.test(t) || /program.*(draft|template)/.test(t)) {
       return draftProgram(t);
     }
-    // who needs attention / stale
-    if (/(who|which).*(attention|behind|stale|inactive|missing|hasn|not logg|quiet)/.test(t) || /needs? a check/.test(t)) {
-      if (!roster.length) return "No athletes connected yet. Generate an invite code on the **Roster** tab to get your first lifter in.";
-      var stale = roster.filter(function (r) { return r.stale; });
-      if (!stale.length) return "Everyone's logged within the last 7 days. Roster's healthy. Nice.";
-      return "These athletes haven't logged in the last week:\n\n" + stale.map(function (r) {
-        return "• **" + esc(r.name) + "**: last logged " + (r.snap.lastDate || "never");
-      }).join("\n") + "\n\nA quick check-in message from the Roster card usually does it.";
-    }
-    // summarise a named athlete's week
-    if (/(summar|recap|review|how.*(doing|week)|week.*of)/.test(t)) {
-      var match = matchAthlete(t, roster);
-      if (!match && roster.length) {
-        return "Which athlete? I can summarise any of: " + roster.map(function (r) { return "**" + esc(r.name) + "**"; }).join(", ") + ".";
-      }
-      if (!match) return "No athletes connected yet. Invite a lifter from the Roster tab first.";
-      return weekRecap(match);
-    }
-    // roster overview
-    if (/(roster|overview|everyone|all.*athlete|how.*team)/.test(t)) {
-      if (!roster.length) return "No athletes connected yet. Generate an invite code on the Roster tab.";
-      return "You're coaching **" + roster.length + "** athlete" + (roster.length === 1 ? '' : 's') + ":\n\n" +
-        roster.map(function (r) {
-          return "• **" + esc(r.name) + "**: total [[" + fU(r.snap.total) + "]], " + r.snap.last7.sessions + " session" +
-            (r.snap.last7.sessions === 1 ? '' : 's') + " this week" + (r.stale ? " ⚠ quiet" : "");
-        }).join("\n");
-    }
-    // named athlete with no verb → recap
-    var anyMatch = matchAthlete(t, roster);
-    if (anyMatch) return weekRecap(anyMatch);
-
+    var ra = rosterAsk(q, coachAskOpts());
+    if (ra) return ra;
     return concierge(q, 'coach');
   }
-
-  function matchAthlete(t, roster) {
-    var found = null;
-    roster.forEach(function (r) {
-      var first = (r.name || '').toLowerCase().split(/\s+/)[0];
-      if (first && first.length > 1 && t.indexOf(first) !== -1) found = r;
-      else if (r.name && t.indexOf(r.name.toLowerCase()) !== -1) found = r;
-    });
-    return found;
+  function coachFormChecks() {
+    try { if (typeof _coachFormChecks !== 'undefined' && Array.isArray(_coachFormChecks)) return _coachFormChecks; } catch (e) {}
+    return undefined;
   }
+  function coachAskOpts() {
+    var u = me();
+    return { coachId: u && u.id, formChecks: coachFormChecks(), unit: (typeof getUnit === 'function' ? getUnit() : unit()) === 'lb' ? 'lb' : 'kg' };
+  }
+  // The coach's lifters, for linkNames.
+  function coachRoster() {
+    var u = me();
+    if (!u) return [];
+    return (S().athletes || []).filter(function (a) { return a.coachId === u.id || a.coach_id === u.id; })
+      .map(function (a) { return { id: a.id, name: a.name }; });
+  }
+
   // A name as a whole word in lowercased text: "tom" is in "tom's block", never in "tomorrow".
   function hasWord(t, w) {
     if (!w) return false;
@@ -326,24 +736,6 @@
     if (!prevT || !/\b(him|her|his|he|she|them|their|they)\b/.test(t)) return null;
     var pm = matchAthletes(prevT, roster);
     return pm.length === 1 ? pm[0] : null;
-  }
-
-  function weekRecap(r) {
-    var s = r.snap;
-    if (!s.last7.sets) {
-      return "**" + esc(r.name) + "** hasn't logged anything in the last 7 days (last entry " + (s.lastDate || "never") +
-        "). Might be worth a nudge.";
-    }
-    var lines = [
-      "**" + esc(r.name) + " · last 7 days**",
-      "",
-      "• " + s.last7.sessions + " session" + (s.last7.sessions === 1 ? '' : 's') + ", " + s.last7.sets + " sets logged",
-      "• Tonnage [[" + (unit() === 'lb' ? Math.round(s.last7.tonnage * 2.2046) + ' lb' : s.last7.tonnage + ' kg') + "]]",
-      "• Current total [[" + fU(s.total) + "]]  (S " + fU(s.mains.squat.best) + " · B " + fU(s.mains.bench.best) + " · D " + fU(s.mains.deadlift.best) + ")"
-    ];
-    if (s.program) lines.push("• On program **" + esc(s.program.name) + "** (" + s.program.weeks + " wk)");
-    lines.push("", "Open their card on the Roster tab to log a note or send feedback.");
-    return lines.join("\n");
   }
 
   function draftProgram(t) {
@@ -375,7 +767,7 @@
     }
     if (/(invite|connect|coach|athlete|link)/.test(t)) {
       return role === 'coach'
-        ? "Generate a 6-character invite code on the **Roster** tab and send it to your athlete. The moment they enter it, their training shows up in your roster."
+        ? "Make a 6-character invite code on **Lifters** and send it to your lifter. The moment they enter it, their training shows up on your roster."
         : "Your coach gives you a 6-character invite code. Enter it on the **Coach** tab to connect. They'll then build and manage your program.";
     }
     if (/(export|download|csv|backup|data)/.test(t)) {
@@ -383,16 +775,16 @@
     }
     if (/(help|what can you|who are you|hello|hi\b|hey)/.test(t)) {
       return role === 'coach'
-        ? "I'm your coaching assistant. Ask me to **summarise an athlete's week**, flag **who needs attention**, **draft a program**, or explain any part of the app."
+        ? "I'm your coaching assistant. Ask me about your lifters (**who needs you**, **who's stalled**, **who's in pain**, meets, PRs, payments), have me **draft a program**, or ask how any part of the app works."
         : "I'm your training assistant. Ask me your **e1RM** or **total**, what to do **today**, how **RPE** works, or anything about using POWALIFTA.";
     }
     if (window._demoMode) {
       return role === 'coach'
-        ? "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below: week summary, who needs attention, draft a program. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that."
+        ? "Heads up: this is the **demo** assistant. It answers questions about the sample roster (who needs you, who's stalled, who's in pain, meets, PRs, payments) and drafts programs, but open questions like that need the live AI you get when you sign in."
         : "Heads up: this is the **demo** assistant, so I reply with canned sample answers rather than live AI. Try the chips below: your total, squat e1RM, explain RPE, what to do today. Sign in to POWALIFTA and the assistant runs on real AI that can actually answer open questions like that.";
     }
     return role === 'coach'
-      ? "I can summarise an athlete's week, flag who's gone quiet, draft an RPE program, or walk you through any feature. What do you need?"
+      ? "Ask me about your lifters: who needs you, who's stalled, who's in pain, behind or quiet, meets, PRs, payments, or one lifter's week. I can also draft an RPE program or walk you through any feature."
       : "I can pull your e1RMs and total, explain RPE or e1RM, point you to today's session, or help you navigate the app. What's up?";
   }
 
@@ -665,9 +1057,7 @@
     var u = me();
     var ctx;
     if (ROLE === 'coach') {
-      var fcs = null;
-      try { if (typeof _coachFormChecks !== 'undefined' && Array.isArray(_coachFormChecks)) fcs = _coachFormChecks; } catch (e) {}
-      return coachPrompt({ coachId: u && u.id, coachName: u ? u.name : '', formChecks: fcs || undefined,
+      return coachPrompt({ coachId: u && u.id, coachName: u ? u.name : '', formChecks: coachFormChecks(),
         unit: (typeof getUnit === 'function' ? getUnit() : unit()) === 'kg' ? 'kg' : 'lb' });
     } else {
       ctx = "You are the POWALIFTA training assistant for athlete " + (u ? u.name : '') + ".\n" +
@@ -808,7 +1198,7 @@
   // =====================================================================
   var roleMeta = {
     athlete: { title: 'Training assistant', sub: 'e1RM, RPE & your program', chips: ["What's my total?", "Explain RPE", "Build me a 4-week program", "What should I do today?"] },
-    coach: { title: 'Coaching assistant', sub: 'Roster, recaps & program drafts', chips: ["Who needs attention?", "Summarise this week", "Draft a 4-week program", "Roster overview"] }
+    coach: { title: 'Coaching assistant', sub: 'Your lifters, recaps & program drafts', chips: ["Who needs me today?", "Who's stalled?", "Who's in pain?", "Draft a 4-week program"] }
   };
   var supportMeta = {
     title: 'Support', sub: 'The app, your account & your plan',
@@ -965,7 +1355,7 @@
       var text = MODE === 'support'
         ? "Hi " + name + ". Ask me anything about the app, your account or your plan. If I can't help, a human is one tap away below."
         : ROLE === 'coach'
-          ? "Hey " + name + ". I can recap an athlete's week, flag who's gone quiet, or draft a program. Pick a chip or ask away."
+          ? "Hey " + name + ". Ask me about your lifters: who needs you, who's stalled or in pain, meets, PRs, payments, or anyone's week. I can draft a program too."
           : "Hey " + name + ". Ask me your e1RM or total, how RPE works, or what's on for today. Try a chip below.";
       pushMsg('assistant', text);
     }
@@ -991,13 +1381,46 @@
       var msg = h('div', { class: 'ai-msg ' + role });
       var av = h('div', { class: 'ai-msg-av' }, role === 'assistant' ? ICON.bot : 'You');
       var bubble = h('div', { class: 'ai-bubble' });
-      bubble.innerHTML = role === 'assistant' ? fmt(text) : esc(text);
+      var whoLinks = role === 'assistant' && ROLE === 'coach' && MODE !== 'support';
+      bubble.innerHTML = role === 'assistant' ? (whoLinks ? linkNames(fmt(text), coachRoster()) : fmt(text)) : esc(text);
+      if (whoLinks) whoRows(bubble);
       msg.appendChild(av);
       msg.appendChild(bubble);
       body.appendChild(msg);
-      body.scrollTop = body.scrollHeight;
+      // A reply taller than the chat opens at its first line, not its last.
+      body.scrollTop = role === 'assistant' && msg.offsetHeight > body.clientHeight - 24
+        ? body.scrollTop + msg.getBoundingClientRect().top - body.getBoundingClientRect().top - 12 : body.scrollHeight;
       return bubble;
     }
+
+    // A bullet that starts with a lifter's name is a row: the name, what's going on under it, a
+    // chevron; the whole row opens them. A list made only of such rows loses its bullets.
+    function whoRows(bubble) {
+      bubble.querySelectorAll('li').forEach(function (li) {
+        var lead = li.firstChild, btn = lead && lead.nodeType === 1 && (lead.classList.contains('ai-who') ? lead : lead.tagName === 'STRONG' && lead.firstChild === lead.lastChild && lead.firstChild && lead.firstChild.nodeType === 1 && lead.firstChild.classList.contains('ai-who') ? lead.firstChild : null);
+        if (!btn) return;
+        var rest = document.createElement('span');
+        rest.className = 'ai-li-sub';
+        while (lead.nextSibling) rest.appendChild(lead.nextSibling);
+        if (rest.firstChild && rest.firstChild.nodeType === 3) rest.firstChild.nodeValue = rest.firstChild.nodeValue.replace(/^\s*[:\u2013\u2014-]\s*/, '');
+        if (rest.textContent.trim()) li.appendChild(rest);
+        li.classList.add('ai-li-who');
+        li.setAttribute('data-ai-lifter', btn.getAttribute('data-ai-lifter'));
+      });
+      bubble.querySelectorAll('ul').forEach(function (ul) {
+        var lis = ul.querySelectorAll(':scope > li');
+        if (lis.length && Array.prototype.every.call(lis, function (li) { return li.classList.contains('ai-li-who'); })) ul.classList.add('ai-wholist');
+      });
+    }
+    body.addEventListener('click', function (e) {
+      var w = e.target && e.target.closest ? e.target.closest('[data-ai-lifter]') : null;
+      if (!w || !body.contains(w)) return;
+      e.preventDefault();
+      var id = w.getAttribute('data-ai-lifter');
+      close();
+      if (window.CoachLifters && typeof CoachLifters.open === 'function') CoachLifters.open(id);
+      else if (typeof openAthletePage === 'function') openAthletePage(id);
+    });
 
     function typing() {
       var msg = h('div', { class: 'ai-msg assistant ai-typing-row' });
@@ -1060,7 +1483,8 @@
       // Program-design intent short-circuits to the local generator in BOTH
       // live and mock modes — a real, schema-correct program object the user
       // can insert with one tap, instead of prose the LLM might malform.
-      if (wantsProgram(q.toLowerCase())) {
+      var listQ = /^\s*(who|who'?s|which|any|anyone|anybody|list|show)\b/i.test(q.replace(/\u2019/g, "'"));
+      if (wantsProgram(q.toLowerCase()) && !listQ) {
         if (coached()) { setTimeout(function () { answer(COACHED_PROGRAM_TEXT); }, 320); return; }
         var prevQ = null;   // the coach's question before this one, in this thread
         for (var pi = thread.length - 2; pi >= 0; pi--) if (thread[pi].role === 'user') { prevQ = thread[pi].content; break; }
@@ -1069,6 +1493,16 @@
           setTimeout(function () { answer(designed.text, designed.program, designed.target); }, 480);
           return;
         }
+      }
+
+      // The roster, asked: exact and instant from the app's numbers, live or not. A question that
+      // asks why or what to do still goes to the live model, which has the same lines (coachPrompt).
+      if (ROLE === 'coach') {
+        var ra = null;
+        if (!(LIVE && !liveDown && /\b(why|how (do|can|should|would)|what (should|would|do you)|should i|advice|advise|suggest|recommend|fix|adjust|explain|plan for)\b/i.test(q))) {
+          try { ra = rosterAsk(q, coachAskOpts()); } catch (e) { ra = null; }
+        }
+        if (ra) { setTimeout(function () { answer(ra); }, 320 + Math.min(420, ra.length * 2)); return; }
       }
 
       if (LIVE && !liveDown) {

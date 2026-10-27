@@ -242,6 +242,60 @@ html.native .ai-launcher::after { display: none; }
   font-weight: 700;
   color: var(--red, #ff2d3f);
 }
+/* A lifter's name in a coach reply opens the lifter (ai-chat.js linkNames): in running text a quiet
+   mention token, every mention alike; a bullet that starts with one becomes a row: the name, what's
+   going on under it, a chevron, the whole row tappable. No borders: space and a hover tint. */
+.ai-bubble .ai-who {
+  font: inherit;
+  font-weight: 650;
+  color: var(--text, #fff);
+  background: rgba(127, 127, 127, 0.14);
+  background: color-mix(in srgb, var(--text, #fff) 8%, transparent);
+  border: 0;
+  border-radius: 5px;
+  padding: 0 3px;
+  margin: 0;
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 0.15s ease;
+}
+.ai-bubble .ai-who:hover { background: rgba(127, 127, 127, 0.24); background: color-mix(in srgb, var(--text, #fff) 15%, transparent); }
+.ai-bubble .ai-who:active { background: rgba(127, 127, 127, 0.3); background: color-mix(in srgb, var(--text, #fff) 20%, transparent); }
+.ai-bubble .ai-who:focus-visible { outline: 2px solid var(--red, #ff2d3f); outline-offset: 1px; }
+.ai-bubble ul.ai-wholist { list-style: none; padding-left: 0; margin: 0.35em -8px 0.2em; }
+.ai-bubble li.ai-li-who {
+  position: relative;
+  margin: 0;
+  padding: 7px 30px 7px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease;
+}
+.ai-bubble li.ai-li-who::after {
+  content: '';
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-top: 1.6px solid currentColor;
+  border-right: 1.6px solid currentColor;
+  color: var(--text-3, #8a8a93);
+  transform: translateY(-50%) rotate(45deg);
+}
+.ai-bubble li.ai-li-who:hover { background: rgba(127, 127, 127, 0.08); background: color-mix(in srgb, var(--text, #fff) 5%, transparent); }
+.ai-bubble li.ai-li-who:active { background: rgba(127, 127, 127, 0.13); background: color-mix(in srgb, var(--text, #fff) 8%, transparent); }
+.ai-bubble li.ai-li-who .ai-who { display: block; width: 100%; text-align: left; padding: 0; margin: 0; background: none; border-radius: 0; }
+.ai-bubble .ai-li-sub {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.94em;
+  line-height: 1.35;
+  color: var(--text-2, #b8b8c0);
+  font-variant-numeric: tabular-nums;
+}
 .ai-msg.user { flex-direction: row-reverse; }
 .ai-msg.user .ai-bubble {
   background: linear-gradient(135deg, rgba(255, 45, 63, 0.18), rgba(183, 22, 41, 0.16));
@@ -590,6 +644,10 @@ html.native .ai-launcher::after { display: none; }
 .ai-head-mark { background: var(--bg-3, #24242a); color: var(--text, #f4f4f5); }
 .ai-mode-pill { text-transform: none; letter-spacing: 0; font-size: 0.68rem; font-weight: 700; }
 .ai-input-row:focus-within { border-color: var(--line-2, rgba(255, 255, 255, 0.22)); }
+/* The row shows the focus; the app's field ring (styles.css, the light theme) never draws a second box inside it. */
+body.powa-app .ai-panel .ai-input:focus { border-color: transparent; box-shadow: none; outline: none; }
+/* One line until they write more (the global textarea is 80 px tall; the composer grows as they type). */
+.ai-panel .ai-input { min-height: 0; }
 .ai-send { background: var(--brand-red, #ff2d3f); }
 
 /* A sheet the assistant opens (Insert into builder: which lifter, replace their program?) sits
