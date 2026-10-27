@@ -345,6 +345,8 @@
 <script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="weekly-note.js"></script><!-- The week's note (Today's queue on the laptop, a lifter's page on the phone), saved replies, message everyone -->
+<script src="coach-report.js"></script><!-- The coach's week: one core for Last week's report, the Monday push + email and the Thursday check (a byte-identical copy runs in the send-weekly-digest edge function) -->
+<script src="coach-report-ui.js"></script><!-- Last week's report: a sheet on the phone, a card on the laptop (Today › This week, Lifters › This week, Settings › Notifications, the Monday push ?report=week) -->
 <script src="block-dna.js"></script><!-- Block DNA: every block's fingerprint and two blocks compared (BlockDNA; the desk's Blocks, the lifter page's Blocks link) -->
 <script src="clients.js"></script><!-- Clients + payments and the intake: the pure helpers (window.Clients) for the coach's clients page and a lifter's About -->
 <script src="clients-ui.js"></script><!-- Clients: the screens (ClientsUI): the Clients page, a lifter's Client + About blocks, mark paid, packages, reminders -->
@@ -432,7 +434,9 @@ bootstrap('coach', () => {
   refreshUnreadBadges();
   subscribeRosterMessages();
   subscribePainReports();
-  refreshFormChecks();
+  const _fcReady = refreshFormChecks();
+  // The Monday push opens coach.html?report=week: Last week's report, once the form checks are in.
+  if (window.CoachReportUI) CoachReportUI.fromLink(_fcReady);
 
   // A plan bought or changed anywhere (web checkout, the App Store, another device)
   // shows up here at once: app.js watches this coach's profile row (realtime, focus,

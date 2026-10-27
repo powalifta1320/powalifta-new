@@ -107,6 +107,7 @@
 <script src="block-dna.js"></script>
 <script src="career.js"></script>
 <script src="coach-report.js"></script>
+<script src="coach-report-ui.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -6057,6 +6058,39 @@ test('PRs in the report agree with isPRForLog (lifts with a history before the w
     eq([...mine].sort().join(), [...app].sort().join());
   } finally { Store.set(saved); }
 });
+test('the in-app report: escaped, in triage order, one red that opens the first lifter', () => {
+  const W = { from: '2026-10-19', to: '2026-10-25', today: '2026-10-27' };
+  const team = CoachReport.teamWeek({
+    athletes: [{ id: 'p', name: 'Priya <b>Shah</b>' }, { id: 't', name: 'Tom Boyle' }, { id: 'a', name: 'Arjun Mehta' }],
+    programs: [{ athleteId: 't', weeks: [{ days: [1, 2, 3].map(() => ({ exercises: [{ lift: 'squat', sets: [{ reps: 5 }] }] })) }] }],
+    sessions: { a: 3, p: 1 }, pains: [{ athleteId: 'p', date: '2026-10-20' }],
+    prs: [{ athleteId: 'a', lift: 'squat', e1rm: 205 }], meets: [{ athleteId: 'a', name: 'Autumn <i>Open</i>', date: '2026-11-07' }],
+    overdue: [{ athleteId: 't', amountCents: 22000, currency: 'USD', daysLate: 3 }]
+  }, W);
+  const h = CoachReportUI.html(team, { unit: 'kg' });
+  assert(!/<b>Shah|<i>Open/.test(h), 'raw HTML in a name');
+  assert(h.indexOf('Priya &lt;b&gt;Shah&lt;/b&gt;') > 0, 'escaped name');
+  const at = (s) => h.indexOf(s);
+  assert(at('Needs you') < at('Wins') && at('Wins') < at('Coming up') && at('Coming up') < at('Money'), 'section order');
+  eq((h.match(/cr-go red/g) || []).length, 1, 'one red');
+  assert(/data-cr-lifter="p"[^>]*>Start with Priya/.test(h), 'the red opens Priya');
+});
+test('the in-app report and the email never name the body part', () => {
+  const W = { from: '2026-10-19', to: '2026-10-25', today: '2026-10-27' };
+  const S = { athletes: [{ id: 'p', name: 'Priya Shah', coachId: 'c' }], workoutLogs: [{ athleteId: 'p', date: '2026-10-20', lift: 'squat', e1rmComp: 100 }],
+    painReports: PAIN_PARTS.map((part, i) => ({ id: 'r' + i, athleteId: 'p', day: '2026-10-2' + (i % 6), bodyPart: part.key, side: part.paired ? 'left' : null, severity: 8, lift: 'squat' })) };
+  const team = CoachReport.teamWeek(CoachReport.fromStore(S, 'c', W), W);
+  eq(team.pain.length, 1);
+  const mail = CoachReport.reportEmail(team, { coachName: 'Mia' });
+  const all = [CoachReportUI.html(team, {}), mail.subject, mail.html, mail.text, JSON.stringify(CoachReport.reportPush(team))].join(' ');
+  PAIN_PARTS.forEach(part => assert(!new RegExp('\\b' + part.label + '\\b', 'i').test(all), 'mentions ' + part.label));
+});
+test('the in-app report: an empty roster says how it starts', () => {
+  const h = CoachReportUI.html(CoachReport.teamWeek({}, { from: '2026-10-19', to: '2026-10-25' }), {});
+  assert(/No lifters yet/.test(h), 'empty state');
+  eq((h.match(/cr-go red/g) || []).length, 0, 'no red with nobody to open');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

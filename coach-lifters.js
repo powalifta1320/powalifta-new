@@ -953,8 +953,10 @@
     html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2></div>';
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
       : '<div class="cl-calm' + rz(2) + '"><span class="cl-tic">' + ic('check') + '</span><span><b>Nothing urgent.</b> ' + (M.open.length ? 'The rest is below, by job.' : 'Everyone is on plan.') + '</span></div>';
-    // The week's notes (weekly-note.js): a quiet entry at the end of This week, the count still to write.
-    html += '<div class="cl-sh' + rz(3) + '"><h2>This week</h2>' + (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</div><div class="cl-wrap-t' + rz(4) + '">' + teamTilesHtml(T, {}) + '</div>';
+    // This week's quiet ways on: last week's report (coach-report-ui.js) and the week's notes (weekly-note.js,
+    // the count still to write).
+    html += '<div class="cl-sh' + rz(3) + '"><h2>This week</h2><span class="cl-sh-end">' + (window.CoachReportUI && M.rows.length ? CoachReportUI.entryHtml() : '') +
+      (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</span></div><div class="cl-wrap-t' + rz(4) + '">' + teamTilesHtml(T, {}) + '</div>';
     if (rest.length || M.done) html += '<div class="cl-sh' + rz(5) + '"><h2>Also on your list</h2><span>' + plural(rest.length, 'job') + ', most urgent first</span></div><div class="cl-wrap-c' + rz(6) + '">' + columnsHtml(rest, M) + '</div>';
     html += '</div>';
     host.innerHTML = html;
@@ -1054,7 +1056,8 @@
       (M.rows.length > 8 ? '<label class="cl-search cl-search-ph">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"></label>' : '') +
       '<div class="cl-groups">' + groupsHtml(M, { phone: !wide, sel: wide ? S.sel : null }) + '</div>' +
       (window.ClientsUI ? ClientsUI.dueLineHtml() : '') +
-      '<div class="cl-pweek"><h2 class="cl-gh">This week</h2>' + teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) + '</div></div>';
+      '<div class="cl-pweek"><div class="cl-gh-row"><h2 class="cl-gh">This week</h2>' + (window.CoachReportUI ? CoachReportUI.entryHtml() : '') + '</div>' +
+        teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) + '</div></div>';
     wrap.innerHTML = wide ? list + '<div class="cl-wpage" id="clWidePage"></div>' : list;
     wrap._clM = M;
     wire(wrap, { desk: false, wide: wide });
@@ -1143,6 +1146,7 @@
       }
       if ((b = t.closest('[data-more]'))) { e.preventDefault(); var col = b.closest('.cl-col'); if (col) { col.classList.add('is-open'); b.remove(); } return; }
       if ((b = t.closest('[data-wn-queue]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openQueue(); return; }
+      if ((b = t.closest('[data-cr-open]'))) { e.preventDefault(); if (window.CoachReportUI) CoachReportUI.open(); return; }
       if ((b = t.closest('[data-wn-one]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openSheet(b.getAttribute('data-wn-one'), { onSent: refresh }); return; }
       if ((b = t.closest('.cl-row[data-id]'))) {
         e.preventDefault();

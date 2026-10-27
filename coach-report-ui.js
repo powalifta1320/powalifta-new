@@ -1,0 +1,255 @@
+/* coach-report-ui.js: the coach's "Last week" in the app (2026-10-28).
+   The Monday report the push and the email carry (coach-report.js), built from the Store so it always
+   agrees with Today and Lifters: how many trained, then who needs you (pain, behind, form checks,
+   check-ins, in the triage order), the PRs, meets in the next four weeks and money overdue. One red
+   opens the first lifter who needs you. A sheet on the phone, a centred card on the laptop (the desk's
+   modal idiom, like Weekly notes). Entry points: Today › This week and the phone's Lifters › This week
+   ("Last week's report"), Settings › Notifications ("See an example of the Monday report"), and the
+   Monday push (coach.html?report=week). It only reads: ?demo=1 works from the demo Store, writes nothing.
+   html(team) is pure (tests.html "coach alerts + Monday report"). */
+(function () {
+  'use strict';
+  var IC = {
+    chev: '<path d="m9 6 6 6-6 6"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a2.8 2.8 0 0 0 2.8 3.6M16 6h2.5a2.8 2.8 0 0 1-2.8 3.6M12 13v3.5M8.5 20h7M10 16.5h4"/>',
+    wallet: '<rect x="3.5" y="6" width="17" height="13" rx="3"/><path d="M3.5 10h17M16 14.5h1.5"/>',
+    calendar: '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4"/>'
+  };
+  var CAP = 5;   // rows a section shows before "Show N more" (25 and 60 lifters stay calm); never hides fewer than 3
+  var LIFT = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  var LIFT_CLS = { squat: 'l-sq', bench: 'l-be', deadlift: 'l-dl' };
+
+  function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC.chev) + '</svg>'; }
+  function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function first(n) { return String(n || '').trim().split(/\s+/)[0] || 'them'; }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function isDeskNow() { return typeof isDesk === 'function' && isDesk(); }
+  function reduced() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  function todayIso() { return typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10); }
+  function me() { try { return typeof getCurrentUser === 'function' ? getCurrentUser() : null; } catch (e) { return null; } }
+  function unit() { return typeof getUnit === 'function' ? getUnit() : 'kg'; }
+  // The coach's form checks live outside the Store (coach.html keeps them in _coachFormChecks).
+  function formChecks() { try { return _coachFormChecks || []; } catch (e) { return []; } }   // eslint-disable-line no-undef
+  function avHtml(name) {
+    var hue = typeof avatarHue === 'function' ? avatarHue(name) : 0;
+    var ini = typeof initials === 'function' ? initials(name) : String(name || '?').slice(0, 2).toUpperCase();
+    return '<span class="ui-av av-h' + hue + ' cr-av" data-name="' + esc(name) + '" aria-hidden="true">' + esc(ini) + '</span>';
+  }
+
+  /* ---------------------------------------------------------------- the week, from the Store */
+  function model(opts) {
+    opts = opts || {};
+    var CR = window.CoachReport;
+    if (!CR) return null;
+    var t = opts.today || todayIso(), W = CR.lastWeek(t), u = me();
+    var store = typeof Store !== 'undefined' && Store.get ? Store.get() : {};
+    var input = CR.fromStore(store, opts.coachId || (u && u.id), { from: W.from, to: W.to, today: t, formChecks: opts.formChecks || formChecks() });
+    return CR.teamWeek(input, W);
+  }
+
+  /* ---------------------------------------------------------------- the markup (pure) */
+  // Needs you: one row per lifter, their reasons in the triage order (pain, behind, form checks, check-in).
+  function needRows(team) {
+    var by = {}, out = [];
+    var add = function (id, name, words, tone) {
+      var r = by[id];
+      if (!r) { r = by[id] = { id: id, name: name, words: [], tone: '' }; out.push(r); }
+      r.words.push(words);
+      if (!r.tone && tone) r.tone = tone;
+    };
+    team.pain.forEach(function (p) { add(p.id, p.name, p.n === 1 ? 'Pain reported' : 'Pain reported ' + (p.n === 2 ? 'twice' : p.n + ' times'), 'pain'); });
+    team.behind.forEach(function (b) { add(b.id, b.name, b.done + ' of ' + plural(b.planned, 'session'), 'warn'); });
+    team.formCheckWho.forEach(function (f) { add(f.id, f.name, plural(f.n, 'form check') + ' to review', ''); });
+    team.checkinsMissing.forEach(function (c) { add(c.id, c.name, 'No check-in', ''); });
+    return out;
+  }
+  // Wins: one row per lifter, each PR a lift dot and its e1RM ("● Bench 150 kg  ● Deadlift 278 kg").
+  function winRows(team) {
+    var by = {}, out = [];
+    team.prs.forEach(function (p) {
+      var r = by[p.id];
+      if (!r) { r = by[p.id] = { id: p.id, name: p.name, prs: [] }; out.push(r); }
+      r.prs.push(p);
+    });
+    return out;
+  }
+  function row(o, i) {
+    var lead = o.av ? avHtml(o.title) : '<span class="cr-tic' + (o.tone ? ' t-' + o.tone : '') + '">' + ic(o.icon) + '</span>';
+    var dot = o.dot ? '<i class="cr-dot ' + o.dot + '" aria-hidden="true"></i>' : '';
+    var inner = lead + '<span class="cr-rt"><b>' + esc(o.title) + '</b><span' + (o.lineCls ? ' class="' + o.lineCls + '"' : '') + '>' + dot + o.line + '</span></span>' + (o.attrs ? '<span class="cr-chev">' + ic('chev', 2.2) + '</span>' : '');
+    var hide = i >= CAP ? ' cr-extra' : '';
+    return o.attrs ? '<button type="button" class="cr-row' + hide + '" ' + o.attrs + '>' + inner + '</button>' : '<div class="cr-row is-static' + hide + '">' + inner + '</div>';
+  }
+  function section(title, count, rows, k) {
+    var more = rows.length > CAP + 2 ? '<button type="button" class="cr-more" data-cr-more>Show ' + (rows.length - CAP) + ' more</button>' : '';
+    if (!more) rows = rows.map(function (r) { return r.replace(' cr-extra"', '"'); });
+    return '<div class="cr-sec rise" style="--i:' + k + '"><h3 class="cr-h">' + esc(title) + (count != null ? ' <span>' + count + '</span>' : '') + '</h3>' +
+      '<div class="cr-list">' + rows.join('') + more + '</div></div>';
+  }
+  // team: CoachReport.teamWeek(...). opts: { unit, phone }. → the report's body, its footer included.
+  function html(team, opts) {
+    opts = opts || {};
+    var U = opts.unit || 'kg', CR = window.CoachReport;
+    if (!team || !team.of) {
+      return '<div class="cr-body"><div class="cr-empty rise" style="--i:0"><span class="cr-tic">' + ic('calendar') + '</span>' +
+        '<h3 class="cr-h">No lifters yet</h3><p>Once lifters join, their week lands here every Monday: who trained, who needs you, the PRs and what’s coming up.</p></div></div>';
+    }
+    var k = 0, h = '<div class="cr-body">';
+    // The answer first: how many trained, then the evidence (sessions done against written), then the PRs.
+    var pct = team.sessionsPlanned ? Math.round(team.sessionsDone / team.sessionsPlanned * 100) : null;
+    var facts = [];
+    if (team.sessionsPlanned) facts.push('<b>' + team.sessionsDone + '</b> of ' + team.sessionsPlanned + ' sessions');
+    if (team.prs.length) facts.push('<b>' + team.prs.length + '</b> ' + (team.prs.length === 1 ? 'PR' : 'PRs'));
+    h += '<div class="cr-hero rise" style="--i:' + (k++) + '"><p class="cr-big"><b>' + team.trained + '</b><span>of ' + team.of + ' trained</span></p>' +
+      (pct != null ? '<div class="cr-meter" role="img" aria-label="' + team.sessionsDone + ' of ' + team.sessionsPlanned + ' sessions done"><i style="width:' + pct + '%"></i></div>' : '') +
+      (facts.length ? '<p class="cr-facts">' + facts.join(' · ') + '</p>' : '') + '</div>';
+    // Needs you, in the triage order.
+    var needs = needRows(team);
+    var nRows = needs.map(function (r, i) {
+      return row({ av: true, title: r.name, dot: r.tone ? 't-' + r.tone : '', line: esc(r.words.join(' · ')), attrs: 'data-cr-lifter="' + esc(r.id) + '"' }, i);
+    });
+    if (!nRows.length) nRows.push(row({ icon: 'check', tone: 'ok', title: 'Nobody needs you', line: 'Everyone trained as planned.' }, 0));
+    h += section('Needs you', needs.length || null, nRows, k++);
+    if (team.prs.length) {
+      h += section('Wins', plural(team.prs.length, 'e1RM PR'), winRows(team).map(function (r, i) {
+        var line = r.prs.map(function (p) {
+          return '<span class="cr-lp"><i class="cr-dot ' + LIFT_CLS[p.lift] + '" aria-hidden="true"></i>' + esc(LIFT[p.lift]) + ' ' + esc(CR ? CR.e1rmText(p.e1rm, U) : Math.round(p.e1rm) + ' kg') + '</span>';
+        }).join('');
+        return row({ av: true, title: r.name, line: line, lineCls: 'cr-lps', attrs: 'data-cr-lifter="' + esc(r.id) + '"' }, i);
+      }), k++);
+    }
+    if (team.meets.length) {
+      h += section('Coming up', null, team.meets.map(function (m, i) {
+        var names = m.lifters.map(function (l) { return first(l.name); });
+        var who = names.slice(0, 3).join(', ') + (names.length > 3 ? ' +' + (names.length - 3) : '');
+        return row({ icon: 'trophy', tone: 'meet', title: m.name, line: esc((CR ? CR.dayLabel(m.date) + ' · ' + CR.whenText(m.days) : m.date) + ' · ' + who) }, i);
+      }), k++);
+    }
+    if (team.overdue.n) {
+      var od = team.overdue, who2 = od.who.slice(0, 3).map(function (w) { return first(w.name); }).join(', ') + (od.who.length > 3 ? ' +' + (od.who.length - 3) : '');
+      var money = CR ? CR.money(od.total, od.currency) : String(od.total / 100);
+      h += section('Money', null, [row({ icon: 'wallet', tone: 'pain', title: plural(od.n, 'payment') + ' overdue', line: esc(money + (od.mixed ? ' and more' : '') + ' · ' + who2), attrs: 'data-cr-money' }, 0)], k++);
+    }
+    // One red: the first lifter who needs you. Nobody? Then nothing red to do.
+    var up = CR ? CR.firstUp(team) : null;
+    h += '<div class="cr-foot rise" style="--i:' + (k++) + '"><p>Monday’s push and email say the same.</p>' +
+      (up ? '<button type="button" class="cl-btn cr-go red" data-cr-lifter="' + esc(up.id) + '">Start with ' + esc(first(up.name)) + '</button>' : '') + '</div>';
+    return h + '</div>';
+  }
+  // The quiet way in: Today › This week (laptop) and Lifters › This week (phone).
+  function entryHtml() {
+    return '<button type="button" class="cl-quiet cr-entry" data-cr-open>Last week’s report' + ic('chev', 2.2) + '</button>';
+  }
+
+  /* ---------------------------------------------------------------- open, act, close */
+  var S = null;   // the open report: { close, root, opener }
+  function open(opts) {
+    opts = opts || {};
+    if (S) return;
+    var team = model(opts);
+    if (!team) return;
+    var CR = window.CoachReport, W = CR.lastWeek(todayIso());
+    var sub = CR.rangeLabel(W.from, W.to);
+    var body = html(team, { unit: unit() });
+    var opener = document.activeElement;
+    if (isDeskNow() || opts.desk) {
+      var veil = document.createElement('div');
+      veil.className = 'dk-veil cr-veil';
+      var box = document.createElement('div');
+      box.className = 'cr-box cl-root';
+      box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'crTitle'); box.tabIndex = -1;
+      box.innerHTML = '<header class="cr-head"><div><h2 class="cr-title" id="crTitle">Last week</h2><p class="cr-sub">' + esc(sub) + '</p></div>' +
+        '<button type="button" class="cl-ibtn cr-x" data-cr-close aria-label="Close the report">' + ic('x') + '</button></header>' +
+        '<div class="cr-scroll">' + body + '</div>';
+      veil.appendChild(box);
+      var onKey = function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
+        if (e.key === 'Tab') {   // keep focus inside the card
+          var f = [].filter.call(box.querySelectorAll('button:not([disabled])'), function (b) { return b.offsetParent; });
+          if (!f.length) return;
+          var a = f[0], z = f[f.length - 1];
+          if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+          else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+        }
+      };
+      var close = function (then) {
+        if (!S) return;
+        document.removeEventListener('keydown', onKey, true);
+        var done = function () { veil.remove(); if (S && S.opener && S.opener.focus && document.contains(S.opener)) { try { S.opener.focus({ preventScroll: true }); } catch (e) {} } S = null; if (typeof then === 'function') then(); };
+        if (reduced()) { done(); return; }
+        veil.classList.add('is-leaving');
+        setTimeout(done, 150);
+      };
+      veil._close = close;   // the desk closes any open dialog when the window narrows to the phone layout
+      veil.addEventListener('mousedown', function (e) { if (e.target === veil) close(); });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(veil);
+      S = { close: close, root: box, opener: opener };
+      wire(box);
+      // The scroll edge: a hairline under the title only once rows pass under it.
+      var sc = box.querySelector('.cr-scroll');
+      if (sc) sc.addEventListener('scroll', function () { box.classList.toggle('is-scrolled', sc.scrollTop > 2); }, { passive: true });
+      var x = box.querySelector('[data-cr-close]');
+      x.addEventListener('click', function () { close(); });
+      if (typeof dkTip === 'function') dkTip(x, 'Close', 'Esc');
+      try { box.focus({ preventScroll: true }); } catch (e) {}   // the card, not a button: no ring on a mouse open; Tab goes in
+      return;
+    }
+    if (typeof uiSheet !== 'function') return;
+    var closeSheet = uiSheet('Last week', function (sheet) {
+      var p = document.createElement('p'); p.className = 'ui-sheet-sub'; p.textContent = sub;
+      sheet.appendChild(p);
+      var wrap = document.createElement('div');
+      wrap.className = 'cl-root cr-phone';
+      wrap.innerHTML = body;
+      sheet.appendChild(wrap);
+      wire(wrap);
+    }, { cls: 'cr-sheet', onClose: function () { S = null; } });
+    S = { close: function (then) { closeSheet(); if (typeof then === 'function') setTimeout(then, 210); }, opener: opener };
+  }
+  function close(then) { if (S) S.close(then); else if (typeof then === 'function') then(); }
+  function openLifter(id) {
+    if (!window.CoachLifters) return;
+    if (isDeskNow()) {
+      if (typeof deskGo === 'function') deskGo('roster');
+      setTimeout(function () { try { CoachLifters.select(id); } catch (e) {} }, 60);
+      return;
+    }
+    try { CoachLifters.open(id); } catch (e) {}
+  }
+  function goClients() {
+    if (isDeskNow() && typeof deskGo === 'function') { deskGo('clients'); return; }
+    var t = document.getElementById('tab-clients');
+    if (t) t.click();
+  }
+  function wire(root) {
+    root.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b || !root.contains(b)) return;
+      if (b.hasAttribute('data-cr-more')) {
+        e.preventDefault();
+        var sec = b.closest('.cr-sec');
+        if (sec) sec.classList.add('is-open');
+        b.remove();
+        return;
+      }
+      if (b.hasAttribute('data-cr-lifter')) { e.preventDefault(); var id = b.getAttribute('data-cr-lifter'); close(function () { openLifter(id); }); return; }
+      if (b.hasAttribute('data-cr-money')) { e.preventDefault(); close(goClients); }
+    });
+  }
+  // The Monday push opens coach.html?report=week: show the report once the coach's data is in, then
+  // take the flag off the address so a reload doesn't open it again.
+  function fromLink(ready) {
+    if (!/[?&]report=week\b/.test(location.search || '')) return false;
+    try {
+      var q = location.search.replace(/([?&])report=week\b&?/, '$1').replace(/[?&]$/, '');
+      history.replaceState(null, '', location.pathname + q + location.hash);
+    } catch (e) {}
+    Promise.resolve(ready).catch(function () {}).then(function () { setTimeout(function () { open(); }, 120); });
+    return true;
+  }
+
+  window.CoachReportUI = { model: model, html: html, entryHtml: entryHtml, open: open, close: close, fromLink: fromLink, isOpen: function () { return !!S; } };
+})();
