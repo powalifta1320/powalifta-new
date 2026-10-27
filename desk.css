@@ -611,6 +611,9 @@ html.desk body.powa-app .dk-thread :is(.msg-input, textarea):focus { outline: no
 html.desk body.powa-app .dk-thread .msg-composer button { border-radius: var(--r-2); }
 .dk-pn.is-card { flex: 1; max-height: none; }
 .dk-pn.is-card .dk-pn-head { padding-top: var(--s-2); }
+/* In the side card the tab already says Private notes and the head says only you see them: the list keeps its + alone. */
+.dk-pn.is-card .dk-pn-head :is(.dk-pn-title, .dk-pn-who) { display: none; }
+.dk-pn.is-card .dk-pn-head .dk-icon-btn { margin-left: auto; }
 .dk-pv { overflow-y: auto; padding: var(--s-5) var(--s-5) var(--s-6); }
 .dk-meetline { display: flex; flex-direction: column; gap: var(--s-1); font-size: var(--fs-2); color: var(--text-3); }
 .dk-meetline b { color: var(--text); font-weight: var(--fw-3); font-size: var(--fs-3); }
@@ -1647,7 +1650,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-set-nav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: var(--page-top) var(--s-4) var(--s-5); box-sizing: border-box; border-right: 1px solid var(--line); }
 .dk-set-nav .dk-h1 { padding: 0 var(--s-2) var(--s-4); }
 .dk-set-panel { width: 100%; max-width: 760px; padding: var(--page-top) var(--s-7) 72px; box-sizing: border-box; }
-.dk-set-title { margin: 0 0 var(--s-4); font-size: var(--fs-4); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); }
+.dk-set-title { margin: 0 0 var(--s-4); font-size: var(--fs-5); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); }
 .dk-set-lead { margin: calc(-1 * var(--s-2)) 0 var(--s-4); max-width: 62ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
 .dk-set-group { margin-bottom: var(--s-5); border-radius: var(--r-2); background: var(--dk-raise); overflow: hidden; }
 .dk-set-row { display: flex; align-items: center; gap: var(--s-4); min-height: 56px; padding: var(--s-2) var(--s-4); box-sizing: border-box; }
@@ -1679,7 +1682,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-setup:has(.dk-fr) { max-width: none; padding: 0; }
 .dk-fr { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: var(--s-7); align-items: start; padding: var(--page-top) var(--gut) 72px; }
 .dk-fr-lead { margin: 6px 0 var(--s-5); font-size: var(--fs-3); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
-.dk-fr-q .dk-sec-title { font-size: var(--fs-3); }
+.dk-fr-q .dk-sec-title { font-size: var(--fs-4); }
 .dk-fr-opts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
 .dk-fr-opt {
   display: flex; flex-direction: column; gap: 2px; padding: var(--s-3); border: 0; border-radius: var(--r-2);
@@ -1705,7 +1708,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-fr-step.is-next .dk-fr-num { box-shadow: inset 0 0 0 1.5px var(--text); color: var(--text); }
 .dk-fr-step.is-done .dk-fr-num { background: var(--dk-ok); box-shadow: none; color: var(--bg); }
 .dk-fr-step-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.dk-fr-step-main b { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); }
+.dk-fr-step-main b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
 .dk-fr-step-main span { font-size: var(--fs-1); line-height: 1.4; color: var(--text-3); }
 .dk-fr-step.is-done .dk-fr-step-main b { color: var(--text-2); }
 .dk-fr-foot { margin: var(--s-2) 0 0; font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
@@ -1714,7 +1717,9 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-qrow.is-sample { cursor: default; }
 .dk-qrow.is-sample:hover { background: none; }
 .dk-fr-sample-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
-.dk-fr-sample-head b { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); }
+.dk-fr-sample-head b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+/* The sample reads like the real Lifters list: a face, not the old session ring (it read as a spinner). */
+.dk-fr-sample .dk-ring-av > svg { display: none; }
 @media (max-width: 1240px) { .dk-fr { grid-template-columns: minmax(0, 1fr); } .dk-fr-sample { max-width: 760px; } }
 
 /* Set fields on the desk: inspector boxes. */

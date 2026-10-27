@@ -2542,7 +2542,7 @@ function dkWsList(id) {
     var v = _dk.view ? DESK_VIEWS.find(function (x) { return x.key === _dk.view; }) : null;
     out = { ids: _dk.rorder.slice(), label: 'in ' + (v ? v.label : 'Lifters') };
   }
-  if (!out || out.ids.indexOf(id) < 0) out = { ids: rows.slice().sort(function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); }).map(function (r) { return r.athlete.id; }), label: 'in Roster' };
+  if (!out || out.ids.indexOf(id) < 0) out = { ids: rows.slice().sort(function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); }).map(function (r) { return r.athlete.id; }), label: 'in Lifters' };
   return out;
 }
 // coach.html's renderAthletePage hands the desk its host: the workspace, full width.
