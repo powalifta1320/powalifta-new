@@ -1516,3 +1516,12 @@ html:not(.desk) .cl-pg-phone .cl-mplan { min-height: 44px; margin: -4px 0 -10px;
 .cl-pg-phone .cl-links .cl-everything { transition: background-color 140ms ease-out; }
 .cl-pg-phone .cl-links .cl-everything:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
 .cl-pg-phone .cl-links .cl-everything:active::before, .cl-pg-phone .cl-links .cl-everything:active + .cl-everything::before { opacity: 0; }
+
+/* --- 6. Messages --- */
+/* The inbox: faces without the old status rings (they came from the roster's faces, which are gone, and
+   had no legend here) and an unread count without a glow; colour is the unread time and count only. */
+html:not(.desk) body.powa-app .msg-inbox .msg-ring { --rc: transparent; padding: 0; }
+html:not(.desk) body.powa-app .msg-inbox .msg-inbox-badge { box-shadow: none; }
+/* A thread opened from a lifter (Reply, a sheet) wears the Messages green like every thread: the coach's
+   bubbles and the voice note's play were the fire red of the Lifters tab, the colour of the one action. */
+html:not(.desk) #messageModal { --acc: #34e08c; --acc-2: #10b5a6; --acc-ink: #04140c; }
