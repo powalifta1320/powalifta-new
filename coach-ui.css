@@ -1365,3 +1365,15 @@ html.desk .cs-page .cs-r .cs-st:is(.st-overdue, .st-due, .st-soon)::before { con
 html.desk .cs-page .cs-r .cs-st.st-overdue::before { background: var(--cl-pain); }
 html.desk .cs-page .cs-r .cs-st:is(.st-ok, .st-none, .st-paused, .st-ended) { color: var(--text-3); }
 html.desk .cs-page .cs-ra { justify-content: flex-start; gap: var(--s-1); }   /* Mark paid in one column, Remind after it */
+
+/* ===== desk polish (27 Oct) =====
+   Desk only (html.desk); the phone keeps every rule above. One card on every desk screen: the tiles
+   drop their hue wash (the hue stays on the icon chip and the marks, where it has a job) and every
+   card takes the desk's light from above (desk.css --dk-card*). */
+html.desk :is(.cl-do, .cl-tile, .cl-col, .cl-list, .cl-lift, .cl-empty, .cl-calm, .cs-list) {
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit);
+}
+html.desk .cl-links { background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: inset 0 0 0 1px var(--dk-card-edge), var(--dk-card-lit); }
+/* One left edge: Today and Clients start where every other screen starts (the rail + the gutter),
+   folded rail or not, instead of centring (the title jumped 34 px between Today and Lifters). */
+html.desk .cl-today, html.desk .cs-page:not(.is-phone) { margin: 0; }

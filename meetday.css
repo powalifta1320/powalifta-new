@@ -487,13 +487,15 @@ html.desk .md-root :is(.md-tab, .md-flight, .md-sync, .md-plate) { border-radius
 html.desk .md-root :is(.md-tab, .md-flight) { height: var(--ctl-h); font-size: var(--fs-2); }
 html.desk .md-root :is(.md-btn, .md-x, .md-cell, .md-opt, .md-step, .md-link, .md-tab, .md-flight):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 /* surfaces */
-html.desk :is(.md-root, .md-screen) :is(.md-today, .md-meets, .md-days, .md-empty, .md-pl-grid, .md-pl-sum, .md-note, .md-table-wrap, .md-finished, .md-card, .md-fstart) { border-radius: var(--r-2); box-shadow: none; }
+html.desk :is(.md-root, .md-screen) :is(.md-today, .md-meets, .md-days, .md-empty, .md-pl-grid, .md-pl-sum, .md-note, .md-table-wrap, .md-finished, .md-card, .md-fstart, .md-ro) { border-radius: var(--r-3); border: 1px solid var(--dk-card-edge); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
 html.desk .md-sheet .md-sheet-card { border-radius: var(--r-3); }
 html.desk .md-root :is(.md-pl-item, .md-cell, .md-cell-kg, .md-kg-in) { border-radius: var(--r-1); }
 html.desk .md-screen .md-meet-date { border-radius: var(--r-1); background: var(--dk-fill); }
 html.desk .md-root .md-legend span:not(.md-keys)::before { border-radius: 2px; }
 /* type: the desk's steps */
-html.desk :is(.md-root, .md-screen) :is(.md-title, .md-screen-title) { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); letter-spacing: -0.015em; }
+html.desk .md-root .md-title { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); letter-spacing: -0.015em; }
+/* Meets wears the desk's one page title (desk.css: 28 px display, like Today and Lifters). */
+html.desk .md-screen .md-screen-title { font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7); font-weight: 800; line-height: 1.05; letter-spacing: -0.025em; }
 html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-sub, .md-screen-sub, .md-meet-meta, .md-meet-who, .md-today-k, .md-today-txt small, .md-where, .md-name small, .md-up-who span, .md-dec-sub, .md-card-k, .md-form-k, .md-link, .md-table td.md-lot, .md-next-who small, .md-warm-at, .md-warm-list small, .md-fsize-note, .md-rm, .md-cls-line, .md-days small, .md-meet-plans, .md-fin-who small, .md-fin-tot small, .md-flight small, .md-finished span) { font-size: var(--fs-1); }
 html.desk .md-root .md-fstart label > span { font-size: var(--fs-1); }
 html.desk :is(.md-root, .md-screen, .md-sheet) :is(.md-sub, .md-screen-sub, .md-meet-meta, .md-meet-who, .md-dec-sub, .md-sheet-sub, .md-finished span, .md-up-who span, .md-today-txt small) { font-size: var(--fs-2); }
@@ -512,7 +514,7 @@ html.desk .md-screen .md-meet-plans.is-all { color: var(--text-3); }
 html.desk .md-screen .md-meet-plans.is-all::before { background: var(--md-ok); }
 html.desk .md-root :is(.md-pl-bounce, .md-next-warm, .md-up-kg em) { color: var(--text-2); }
 /* the Meets screen: the desk's page frame */
-html.desk .md-screen { max-width: var(--page-w, 1040px); margin: 0; padding: var(--s-5) var(--gut) 72px; gap: var(--s-5); box-sizing: border-box; }
+html.desk .md-screen { max-width: var(--page-w, 1040px); margin: 0; padding: var(--page-top, 28px) var(--gut) 72px; gap: var(--s-5); box-sizing: border-box; }
 html.desk .md-screen .md-meet-season { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--text-3); }
 html.desk .md-screen .md-today { padding: var(--s-4) var(--s-5); }
 html.desk .md-screen .md-meet { padding: var(--s-3) var(--s-4); gap: var(--s-4); border-top-color: var(--line); }

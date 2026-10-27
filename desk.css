@@ -34,6 +34,7 @@ html.desk .pwa-banner { display: none !important; }
 /* ---------- tokens: layout ---------- */
 html.desk {
   --rail-w: 232px; --list-w: 328px; --ctx-w: 348px; --gut: 24px;
+  --page-top: 28px;   /* every screen's title sits on the same line, at the same left edge (the rail + --gut) */
   --page-w: 1040px;   /* single-column screens (Club, Meets, Settings): one frame, one left edge */
   --row-h: 40px;
   --dk-main-w: calc(100vw - var(--rail-w));
@@ -48,19 +49,22 @@ html.desk[data-density="compact"] { --row-h: 32px; }
 
 /* ---------- tokens: the system (both themes) ---------- */
 html.desk body.powa-app {
-  /* type: product register, one family (Archivo), six steps */
-  --fs-1: 12px;   /* meta, column heads, counts, keys */
-  --fs-2: 13px;   /* table cells, buttons, secondary lines */
-  --fs-3: 14px;   /* body, inputs */
-  --fs-4: 16px;   /* names, section titles */
-  --fs-5: 20px;   /* page titles */
-  --fs-6: 24px;   /* the athlete's name, the big numbers */
+  /* type: the coach side's one scale (Specs/Coach UI): 13 caption · 15 body · 16 row title · 20 section
+     title · 28 page title, and 22 for a number. Meta and buttons share 13 (colour and weight tell them
+     apart), so Programs, Meets and Settings read on the same steps as Today and Lifters. */
+  --fs-1: 13px;   /* meta, column heads, counts, keys */
+  --fs-2: 13px;   /* buttons, secondary lines */
+  --fs-3: 15px;   /* body, names in lists, inputs */
+  --fs-4: 16px;   /* row and card titles */
+  --fs-5: 20px;   /* section titles, an overlay's title */
+  --fs-6: 22px;   /* the athlete's name, a big number */
+  --fs-7: 28px;   /* the page title: one per screen, the same on every screen */
   --fw-1: 400; --fw-2: 500; --fw-3: 600; --fw-4: 700;
   --lh-1: 1.2; --lh-2: 1.45;
   /* shape */
   --r-1: 6px;     /* controls: buttons, inputs, chips, cells, menu items */
-  --r-2: 10px;    /* surfaces: cards, tables, menus */
-  --r-3: 14px;    /* overlays: modals, sheets, the side card */
+  --r-2: 10px;    /* inner surfaces: rows, menus, bubbles, fields */
+  --r-3: 20px;    /* cards and overlays: the app's card (Today, Lifters), modals, the side card */
   --r-round: 999px;   /* avatars and dots only */
   /* space (8pt) */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
@@ -93,6 +97,11 @@ html.desk:not([data-theme="light"]) body.powa-app {
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%230a0a0c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%230a0a0c' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
   --dk-card-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  /* the card: the app's material, lit from above (a hairline edge, a lit top edge, a soft sheen) */
+  --dk-card: var(--bg-1);
+  --dk-card-edge: rgba(255, 255, 255, 0.07);
+  --dk-card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --dk-card-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0) 168px);
   background: var(--bg);
 }
 /* Light: white paper, near-black ink; surfaces step to a soft grey. */
@@ -120,6 +129,10 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
   --dk-card-shadow: 0 22px 54px -24px rgba(20, 20, 40, 0.28), 0 0 0 1px rgba(11, 11, 13, 0.08);
+  --dk-card: var(--bg-1);
+  --dk-card-edge: rgba(11, 11, 13, 0.07);
+  --dk-card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --dk-card-sheen: none;
   background: var(--bg);
 }
 /* The one red, machined, in both themes (a coach's own brand colour still wins). */
@@ -138,7 +151,7 @@ html.desk body.powa-app:has(.demo-banner) { padding-bottom: 0; }
 html.desk .dash-shell { display: block; margin-left: var(--rail-w); min-height: 100vh; }
 html.desk.ctx-show .dash-shell { margin-right: calc(var(--ctx-w) + 12px); }
 html.desk .dash-main { padding: 0; overflow: visible; }
-html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]):not([data-pane="clients"]) { max-width: var(--page-w); margin: 0; padding: var(--s-5) var(--gut) 64px; box-sizing: border-box; }
+html.desk .dash-main > section[data-pane]:not([data-pane="today"]):not([data-pane="athletes"]):not([data-pane="program"]):not([data-pane="messages"]):not([data-pane="you"]):not([data-pane="athlete"]):not([data-pane="meets"]):not([data-pane="clients"]):not([data-pane="teams"]) { max-width: var(--page-w); margin: 0; padding: var(--page-top) var(--gut) 64px; box-sizing: border-box; }
 /* Clients scrolls inside #clientsArea, which carries the gutter (coach-ui.css): the same frame, padded once. */
 html.desk .dash-main > section[data-pane="clients"] { max-width: var(--page-w); margin: 0; padding: 0; box-sizing: border-box; }
 html.desk .dash-main > section:is([data-pane="today"], [data-pane="athletes"], [data-pane="program"], [data-pane="messages"], [data-pane="you"]) { max-width: none; margin: 0; height: 100vh; padding: 0; }
@@ -149,8 +162,13 @@ html.desk #invitesWrap { display: none !important; }   /* Settings › Invite at
 html.desk body.powa-app :is(.dk-btn, .dk-icon-btn, .dk-item, .dk-find, .dk-brand, .dk-me, .dk-link, .dk-back, .dk-seg-btn, .dk-tab, .dk-vchip, .dk-sgc, .dk-sort, .dk-ask-more, .dk-more, .dk-mtc-row, .dk-bl-row, .dk-fr-opt, .dk-pbmeta-btn, .dk-insp-sf-btn, .dk-pn-act, .dk-pn-empty, .dk-demo-link):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 
 /* ---------- type primitives ---------- */
-html.desk body.powa-app :is(.dk-h1, .dk-h2, .dk-sec-title, .dk-ws-name, .dk-wk-title, .dk-mtc-name, .dk-modal-title, .dk-pbtitle, .dk-set-title) { font-stretch: 100%; text-transform: none; font-family: var(--font-body); }
-.dk-h1 { margin: 0; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.015em; color: var(--text); }
+html.desk body.powa-app :is(.dk-h2, .dk-sec-title, .dk-ws-name, .dk-wk-title, .dk-mtc-name, .dk-modal-title, .dk-pbtitle, .dk-set-title) { font-stretch: 100%; text-transform: none; font-family: var(--font-body); }
+/* The page title: one per screen and the same on every screen (Today, Lifters, Programs, Meets, Teams,
+   Messages, Clients, Club, Settings, the first run), so moving between them never changes the voice. */
+html.desk body.powa-app :is(.dk-h1, .md-screen-title, .cl-h1, .cl-h1x) {
+  margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7); line-height: 1.05;
+  font-weight: 800; letter-spacing: -0.025em; text-transform: none; color: var(--text); text-wrap: balance;
+}
 .dk-h2 { margin: 0; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: var(--lh-1); letter-spacing: -0.015em; color: var(--text); text-wrap: balance; }
 .dk-sec-title { margin: 0 0 var(--s-3); font-size: var(--fs-3); font-weight: var(--fw-3); line-height: var(--lh-1); color: var(--text); }
 .dk-rich b { font-weight: var(--fw-3); color: var(--text); font-variant-numeric: tabular-nums; }
@@ -416,7 +434,7 @@ html.desk .dk-today.is-setup { display: block; overflow-y: auto; }
 .dk-list { overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--line); padding-bottom: var(--s-5); scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
 .dk-list:focus { outline: none; }
 .dk-list-head, .dk-rhome .dk-rhead {
-  position: sticky; top: 0; z-index: 3; padding: var(--s-5) var(--s-5) var(--s-3);
+  position: sticky; top: 0; z-index: 3; padding: var(--page-top) var(--s-5) var(--s-3);
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
@@ -1011,7 +1029,7 @@ html.desk .dash-main > section[data-pane="meets"] { padding: 0; height: 100vh; o
   html.desk .md-screen .md-meets .md-meet-acts { opacity: 0; transition: opacity var(--t-base) ease; }
   html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-acts { opacity: 1; }
 }
-.dk-meets { max-width: 980px; padding: var(--s-5) var(--gut) 72px; }
+.dk-meets { max-width: 980px; padding: var(--page-top) var(--gut) 72px; }
 .dk-page-head { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-5); }
 .dk-page-head .dk-rmeta { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dk-mtl { display: flex; flex-direction: column; gap: var(--s-4); }
@@ -1621,9 +1639,9 @@ html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--li
 html.desk section[data-pane="you"] { overflow-y: auto; }
 html.desk section[data-pane="you"] > .dash-header { display: none; }
 html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-.dk-set-nav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: var(--s-5) var(--s-3); box-sizing: border-box; border-right: 1px solid var(--line); }
+.dk-set-nav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: var(--page-top) var(--s-4) var(--s-5); box-sizing: border-box; border-right: 1px solid var(--line); }
 .dk-set-nav .dk-h1 { padding: 0 var(--s-2) var(--s-4); }
-.dk-set-panel { width: 100%; max-width: 760px; padding: var(--s-5) var(--s-7) 72px; box-sizing: border-box; }
+.dk-set-panel { width: 100%; max-width: 760px; padding: var(--page-top) var(--s-7) 72px; box-sizing: border-box; }
 .dk-set-title { margin: 0 0 var(--s-4); font-size: var(--fs-4); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); }
 .dk-set-lead { margin: calc(-1 * var(--s-2)) 0 var(--s-4); max-width: 62ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
 .dk-set-group { margin-bottom: var(--s-5); border-radius: var(--r-2); background: var(--dk-raise); overflow: hidden; }
@@ -1654,7 +1672,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 
 /* ---------- First run ---------- */
 .dk-setup:has(.dk-fr) { max-width: none; padding: 0; }
-.dk-fr { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: var(--s-7); align-items: start; padding: var(--s-6) var(--s-6) 72px; }
+.dk-fr { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: var(--s-7); align-items: start; padding: var(--page-top) var(--gut) 72px; }
 .dk-fr-lead { margin: 6px 0 var(--s-5); font-size: var(--fs-3); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
 .dk-fr-q .dk-sec-title { font-size: var(--fs-3); }
 .dk-fr-opts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
@@ -1698,7 +1716,7 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 /* (The builder header's Fields entry is in its meta line and in ⋯.) */
 
 /* ---------- Club keeps the phone's feed, at a column's width, on v2 surfaces ---------- */
-html.desk .dash-main > section[data-pane="club"] { padding: var(--s-5) var(--gut) 72px; }
+html.desk .dash-main > section[data-pane="club"] { padding: var(--page-top) var(--gut) 72px; }
 html.desk .dash-main > section[data-pane="club"] > * { max-width: 680px; margin-inline: 0; }
 /* One badge style: the PR as a gold dot and ink word, the effort as ink "@9" in the lift line. */
 html.desk body.powa-app section[data-pane="club"] .cp-pr { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 0; background: none !important; box-shadow: none !important; color: var(--text) !important; font-weight: var(--fw-3); }
@@ -1713,8 +1731,8 @@ html.desk body.powa-app section[data-pane="club"] .club-invite-icon:hover { back
 html.desk body.powa-app section[data-pane="club"] .dash-header { margin-bottom: var(--s-5); padding: 0; }
 html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero,
 html.desk body.powa-app section[data-pane="club"] :is(.club-buddy, .club-compose, .cp-card) {
-  background: var(--dk-raise) !important; background-image: none !important; border-color: transparent !important;
-  box-shadow: none !important; border-radius: var(--r-2) !important;
+  background-color: var(--dk-card) !important; background-image: var(--dk-card-sheen) !important; border: 1px solid var(--dk-card-edge) !important;
+  box-shadow: var(--dk-card-lit) !important; border-radius: var(--r-3) !important;
 }
 html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero::before,
 html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero::after { display: none !important; }
@@ -1725,7 +1743,7 @@ html.desk body.powa-app section[data-pane="club"] .club-compose .cc-plus svg { w
 html.desk body.powa-app section[data-pane="club"] .club-compose:hover .cc-plus { background: var(--dk-fill-2) !important; }
 /* The club on the desk's steps: one page title like every screen, controls at 6, chips as status
    words, the PR in gold on its badge only (no gold frame round the card). */
-html.desk body.powa-app section[data-pane="club"] .dash-header h2 { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5) !important; font-weight: var(--fw-4); letter-spacing: -0.015em; line-height: var(--lh-1); }
+html.desk body.powa-app section[data-pane="club"] .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7) !important; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; }
 html.desk body.powa-app section[data-pane="club"] .club-hero-name { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-6); font-weight: var(--fw-4); }
 html.desk body.powa-app section[data-pane="club"] .club-crest { border-radius: var(--r-2); font-size: var(--fs-4); }
 html.desk body.powa-app section[data-pane="club"] :is(.club-desc, .cp-cap, .cp-ex-name) { font-size: var(--fs-3); }
@@ -2070,3 +2088,12 @@ html.desk body.powa-app .ds-check { font-size: var(--fs-2); color: var(--text-2)
 html.desk body.powa-app .ds-pick-row { display: flex; font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text); }
 html.desk body.powa-app .ds-pick-row.is-off { color: var(--text-3); }
 html.desk body.powa-app .ds-pick-note { font-weight: var(--fw-1); }
+
+/* =====================================================================
+   DESK POLISH (27 Oct): one card on every desk screen. Programs, Meets, Teams, Settings, the first
+   run, Club and the meet-day board wear the card Today and Lifters wear: the app's 20 px radius, a
+   hairline edge, light from above (a lit top edge and a soft sheen). No hue washes anywhere.
+   ===================================================================== */
+html.desk :is(.dk-bxd, .dk-sess, .dk-pg-lift, .dk-set-group, .dk-set-seats, .dk-reasons, .dk-fr-steps, .dk-fr-sample, .dk-bl, .dk-mt-next, .dk-mtc, .dk-wk-empty, .dk-asks, .ds-lx, .ds-end) {
+  border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); border: 1px solid var(--dk-card-edge); box-shadow: var(--dk-card-lit);
+}
