@@ -136,7 +136,8 @@
     var reason = r.reasons[0] || {};
     var lift = (reason.text || '').toLowerCase();
     var l = /squat/.test(lift) ? 'squat' : /bench/.test(lift) ? 'bench' : /deadlift|pull/.test(lift) ? 'deadlift' : null;
-    var text = reason.type === 'message' && reason.body ? '“' + reason.body + '”' : (reason.text || '');
+    // Their words in quotes; a voice note's body is the app's own label ("Voice note · 0:24"), so no quotes.
+    var text = reason.type === 'message' && reason.body ? (/^Voice note · \d+:\d{2}$/.test(String(reason.body).trim()) ? String(reason.body).trim() : '“' + reason.body + '”') : (reason.text || '');
     if (reason.type === 'pain') text = r.status && r.status.pain && r.status.pain.text ? r.status.pain.text.replace(/^Pain · /, '').replace(/ · \d+\/10/, '') : 'Pain on today’s check-in';
     if ((reason.type === 'weight' || reason.type === 'offpace') && r.bw) text = num(r.bw.bw) + ' ' + unit() + ' for the ' + r.bw.cls + ' class';
     if (reason.type === 'meet' && reason.detail) text = reason.detail;

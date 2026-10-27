@@ -129,7 +129,7 @@
     <!-- PROGRESS -->
     <section data-pane="progress" class="hidden">
       <div class="dash-header">
-        <div><h2>Athlete progress</h2><p class="dim text-sm">e1RM trends, goals, bodyweight per athlete.</p></div>
+        <div><h2>Lifter progress</h2><p class="dim text-sm">e1RM trends, goals, bodyweight per lifter.</p></div>
         <select id="progressAthlete" style="max-width:280px" onchange="renderProgressForAthlete()"></select>
       </div>
       <div id="progressArea"></div>
@@ -386,7 +386,7 @@ bootstrap('coach', () => {
   setLbl('tab-templates', ICONS.copy, 'Templates');
   setLbl('tab-messages', ICONS.chat, 'Messages');
   setLbl('tab-marketplace', ICONS.bar, 'Marketplace');
-  setLbl('tab-progress', ICONS.chart, 'Athlete progress');
+  setLbl('tab-progress', ICONS.chart, 'Lifter progress');
   setLbl('tab-club', ICONS.club, 'Club');   // not the Roster icon (two people) again
   setLbl('tab-you', ICONS.user, 'You');
   if (window.ClientsUI) setLbl('tab-clients', ClientsUI.ICON, 'Clients');
@@ -395,7 +395,7 @@ bootstrap('coach', () => {
   // Native shell: the same five as the sidebar (no-op on the web). Templates,
   // progress and marketplace are sub-screens of Program / You.
   buildBottomTabs(['athletes', 'program', 'messages', 'club', 'you']);
-  document.getElementById('btn-invite').innerHTML = ICONS.plus + '<span>Invite athlete</span>';
+  document.getElementById('btn-invite').innerHTML = ICONS.plus + '<span>Invite a lifter</span>';
   document.getElementById('addSetRowBtn').innerHTML = ICONS.plus + '<span>Add set</span>';
 
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
@@ -483,7 +483,7 @@ function maybeStartCoachTour() {
     {
       selector: '#tab-you',
       title: 'Progress, templates, settings',
-      body: 'Each athlete\'s e1RM trends, PRs and check-ins live under You → Athlete progress, next to your templates and plan.',
+      body: 'Each athlete\'s e1RM trends, PRs and check-ins live under You → Lifter progress, next to your templates and plan.',
       before: () => { const t = document.getElementById('tab-you'); if (t) t.click(); }
     },
     {
@@ -522,6 +522,8 @@ function renderCoachYou() {
   const showPlan = !inShell || !!window._iapReady;
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
   const go = (tab) => () => { const t = document.getElementById('tab-' + tab); if (t) t.click(); };
+  // A row renamed to say "lifter" (like the tab) keeps the icon its old label had in YOU_ROW_META.
+  const rowIcon = (k) => (typeof YOU_ROW_META !== 'undefined' && YOU_ROW_META[k]) ? { icon: YOU_ROW_META[k].icon(), tint: YOU_ROW_META[k].tint } : {};
   renderYouHub(area, {
     name: user.name,
     avatarUrl: user.avatarUrl,
@@ -532,20 +534,20 @@ function renderCoachYou() {
     sub: ['Coach', club].filter(Boolean).join(' · '),
     // Nobody on the roster yet: no row of zeros, the setup steps instead (Coaching, first row).
     stats: !roster.length ? [] : [
-      { label: 'Athletes', value: roster.length },
+      { label: 'Lifters', value: roster.length },
       { label: 'Trained', value: activeWeek + '/' + roster.length, unit: '' },
       showPlan ? { label: 'Plan', value: (TIER_LABELS && TIER_LABELS[tier]) || tier } : { label: 'Notes', value: (Store.get().sessionNotes || []).filter(n => roster.some(r => r.athlete.id === n.athleteId) && !n.coachComment).length }
     ],
     groups: [
       { title: 'Coaching', rows: [
         !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
-        window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', onClick: go('clients') } : null,
-        { label: 'Athlete progress', onClick: go('progress') },
+        window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
+        Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
         { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         brandRow(tier, showPlan),
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
-        { label: 'Invite an athlete', onClick: () => openInviteModal() }
+        Object.assign({ label: 'Invite a lifter', onClick: () => openInviteModal() }, rowIcon('Invite an athlete'))
       ] },
       { title: 'Settings', rows: youSettingsRows('coach', () => renderCoachYou()).concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
       { title: 'Help', rows: [
@@ -1672,6 +1674,10 @@ function renderRoster() {
   if (!area) return;
   area.innerHTML = '';
   const overview = getRosterOverview(user.id);
+  // One red per screen: once anyone is on the roster the header's + is a quiet circle like the
+  // assistant and the bell beside it (coach-ui.css); with nobody yet it is the screen's red action.
+  const inviteBtn = document.getElementById('btn-invite');
+  if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0);
 
   // Join requests (coach discovery) stay pinned at the top, even with no roster.
   const reqHost = el('div', {});
@@ -1875,7 +1881,7 @@ function _paintRosterInvites() {
           } }
         ]);
       });
-      return uiRow({ title: i.code, sub: i.email || 'Any athlete · powalifta.com/j/' + i.code, endNode: more });
+      return uiRow({ title: i.code, sub: i.email || 'Any lifter · powalifta.com/j/' + i.code, endNode: more });
     })));
   }
 }
@@ -2392,8 +2398,8 @@ function _inviteMessage() {
 function openInviteModal() {
   if (!canAddAthlete(user.id)) { openUpgradeModal('cap'); return; }
   const message = _inviteMessage();
-  uiSheet('Invite an athlete', (sheet, close) => {
-    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Send them a link. They get the app, sign up, and land on your roster. Each link works for one athlete.'));
+  uiSheet('Invite a lifter', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Send them a link. They get the app, sign up, and land on your roster. Each link works for one lifter.'));
 
     // One link per sheet: Share, Copy and the QR hand out the same code, so a second tap doesn't
     // take a second seat. A cancelled share gives it back unless it was already copied or shown.
