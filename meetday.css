@@ -513,6 +513,11 @@ html.desk .md-screen .md-meet-plans::before { content: ''; width: 6px; height: 6
 html.desk .md-screen .md-meet-plans.is-all { color: var(--text-3); }
 html.desk .md-screen .md-meet-plans.is-all::before { background: var(--md-ok); }
 html.desk .md-root :is(.md-pl-bounce, .md-next-warm, .md-up-kg em) { color: var(--text-2); }
+/* Over the class, a reach of a third: ink words after a dot in their colour, never painted words. */
+html.desk .md-root :is(.md-pl-over, .md-cls-line.is-over) { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-weight: var(--fw-3); }
+html.desk .md-root :is(.md-pl-over, .md-cls-line.is-over)::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: var(--r-round); background: var(--md-warn); }
+html.desk .md-root .md-odds.is-reach, html.desk .md-root .md-odds.is-reach b { color: var(--text-2); }
+html.desk .md-root .md-odds.is-reach::before { content: ''; flex: none; align-self: center; width: 6px; height: 6px; margin-right: 2px; border-radius: var(--r-round); background: var(--md-warn); }
 /* the Meets screen: the desk's page frame */
 html.desk .md-screen { max-width: var(--page-w, 1040px); margin: 0; padding: var(--page-top, 28px) var(--gut) 72px; gap: var(--s-5); box-sizing: border-box; }
 html.desk .md-screen .md-meet-season { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--text-3); }

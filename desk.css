@@ -105,21 +105,23 @@ html.desk:not([data-theme="light"]) body.powa-app {
   --dk-seg-on: color-mix(in srgb, var(--text) 15%, var(--bg-1));   /* the chosen segment: a clear step up from its track */
   background: var(--bg);
 }
-/* Light: white paper, near-black ink; surfaces step to a soft grey. */
+/* Light: the app's light material (its own light theme, Apple Health's): a soft grey canvas, white cards
+   with a hairline and a one-pixel shadow, near-black ink. Fills and hovers are ink at low alpha, so they
+   read the same on the canvas and on a card. */
 html.desk[data-theme="light"] body.powa-app {
-  --bg: #ffffff; --bg-1: #f6f6f7; --bg-2: #efeff1; --bg-3: #e6e6e9;
-  --line: #ececef; --line-2: #dadade;
+  --bg: #f4f4f6; --bg-1: #ffffff; --bg-2: #f0f0f3; --bg-3: #e6e6ea;
+  --line: rgba(11, 11, 13, 0.08); --line-2: rgba(11, 11, 13, 0.14);
   --text: #0b0b0d; --text-2: #34343c; --text-3: #55555e; --text-4: #66666f;
-  --dk-rail: #f7f7f8;
-  --dk-raise: #f6f6f7;
-  --dk-raise-2: #efeff1;
+  --dk-rail: #fafafb;
+  --dk-raise: #ffffff;
+  --dk-raise-2: #f0f0f3;
   --dk-fill: rgba(11, 11, 13, 0.055);
   --dk-fill-2: rgba(11, 11, 13, 0.09);
   --dk-hover: rgba(11, 11, 13, 0.04);
-  --dk-sel: #efeff1; --dk-on: #e9e9ec;
-  --dk-row-hover: #f8f8f9; --dk-row-sel: #f2f2f4;
+  --dk-sel: rgba(11, 11, 13, 0.06); --dk-on: rgba(11, 11, 13, 0.08);
+  --dk-row-hover: rgba(11, 11, 13, 0.03); --dk-row-sel: rgba(11, 11, 13, 0.055);
   --dk-chip: var(--dk-fill);
-  --dk-write: #f8f8f9;
+  --dk-write: rgba(11, 11, 13, 0.025);
   --dk-focus: rgba(11, 11, 13, 0.5);
   --dk-sq: #19a9e6; --dk-bp: #8b6cf0; --dk-dl: #e5a51c;
   --dk-gold: #8a5a00; --dk-alert: #c4162a; --dk-warn: #b4410c; --dk-ok: #0f7d47; --dk-cool: #036f9c;
@@ -130,9 +132,9 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
   --dk-card-shadow: 0 22px 54px -24px rgba(20, 20, 40, 0.28), 0 0 0 1px rgba(11, 11, 13, 0.08);
-  --dk-card: var(--bg-1);
+  --dk-card: #ffffff;
   --dk-card-edge: rgba(11, 11, 13, 0.07);
-  --dk-card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --dk-card-lit: 0 1px 2px rgba(11, 11, 13, 0.04);
   --dk-card-sheen: none;
   --dk-seg-on: #fff;
   background: var(--bg);
@@ -2148,7 +2150,7 @@ html.desk .ai-panel .ai-human::before { display: none; }
 }
 /* A thread scrolls under its header: the list's top padding (12 px) fades, so a half message never sits
    cut off under the tabs (a scroll edge, not a hard line); at the top of the thread nothing is faded. */
-html.desk .dk-thread .msg-list { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px); mask-image: linear-gradient(to bottom, transparent 0, #000 12px); }
+html.desk :is(.dk-thread .msg-list, .ai-panel .ai-body) { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px); mask-image: linear-gradient(to bottom, transparent 0, #000 12px); }
 @media (prefers-reduced-motion: reduce) {
   html.desk .ai-panel, html.desk .ai-panel.is-open, html.desk .ai-panel:not(.is-open) { transform: none; }
 }
