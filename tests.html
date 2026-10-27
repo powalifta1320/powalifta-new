@@ -98,6 +98,7 @@
 <script src="social-auth.js"></script>
 <script src="coach-lifters.js"></script>
 <script src="program-photo.js"></script>
+<script src="clients.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -4790,6 +4791,201 @@ test('the line, the number and the job texts read in the coach’s words', () =>
   const o = clRow({ reasons: [{ type: 'overshoot', text: 'Bench @9.5 vs @8', tone: 'alert' }] });
   eq(CL.jobText(CL.clJobs([o], { today: T })[0]).title, 'Bench @9.5, you wrote 8');
   eq(CL.clJobs([o], { today: T })[0].tier, 1, 'a point and a half over is this week’s job');
+});
+
+/* ===========================================================
+   Clients + payments and the intake (clients.js): the schedule (month ends, the 31st through
+   February, leap years), a client's status words, one payment moving the schedule on, the monthly
+   value, the roster summary, money words and the intake's maxes and About lines. All dates fixed.
+   =========================================================== */
+group('clients (clients.js)');
+const CX = typeof Clients !== 'undefined' ? Clients : (window.Clients || null);
+const CT = '2026-10-27';   // "today" in these tests
+test('the contract: every helper is there', () => {
+  assert(CX, 'Clients is loaded');
+  ['nextDueAfter', 'clientStatus', 'clientsSummary', 'formatMoney', 'cadenceLabel', 'priceText', 'monthlyCents', 'recordPayment', 'intakeMaxes', 'intakeLines']
+    .forEach(k => eq(typeof CX[k], 'function', k));
+  eq(CX.CADENCES.join(','), 'weekly,fortnightly,4-weekly,monthly,quarterly,yearly,one-off');
+});
+test('nextDueAfter: month ends, the 31st through February, leap years', () => {
+  eq(CX.nextDueAfter('2026-01-31', 'monthly', 31), '2026-02-28');
+  eq(CX.nextDueAfter('2026-02-28', 'monthly', 31), '2026-03-31', 'the 31st comes back in March');
+  eq(CX.nextDueAfter('2026-03-31', 'monthly', 31), '2026-04-30');
+  eq(CX.nextDueAfter('2026-01-31', 'monthly'), '2026-02-28');
+  eq(CX.nextDueAfter('2026-02-28', 'monthly'), '2026-03-28', 'without a due day the date drifts (why dueDay exists)');
+  eq(CX.nextDueAfter('2026-01-31', 'monthly', '31'), '2026-02-28', 'a due day as text');
+  eq(CX.nextDueAfter('2026-10-15', 'monthly', 15), '2026-11-15');
+  eq(CX.nextDueAfter('2026-12-15', 'monthly', 15), '2027-01-15', 'over the year end');
+  eq(CX.nextDueAfter('2028-01-31', 'monthly', 31), '2028-02-29', '2028 is a leap year');
+  eq(CX.nextDueAfter('2028-02-29', 'monthly', 31), '2028-03-31');
+  eq(CX.nextDueAfter('2028-02-29', 'yearly', 29), '2029-02-28');
+  eq(CX.nextDueAfter('2031-02-28', 'yearly', 29), '2032-02-29', 'back on the 29th in the next leap year');
+  eq(CX.nextDueAfter('2026-10-27', 'yearly'), '2027-10-27');
+});
+test('nextDueAfter: quarterly, weekly, fortnightly, 4-weekly, one-off', () => {
+  eq(CX.nextDueAfter('2026-11-30', 'quarterly', 30), '2027-02-28');
+  eq(CX.nextDueAfter('2027-02-28', 'quarterly', 30), '2027-05-30');
+  eq(CX.nextDueAfter('2026-12-15', 'quarterly', 15), '2027-03-15');
+  eq(CX.nextDueAfter('2026-12-29', 'weekly'), '2027-01-05');
+  eq(CX.nextDueAfter('2026-10-22', 'weekly'), '2026-10-29', 'a clock change in between moves nothing (UTC)');
+  eq(CX.nextDueAfter('2026-03-05', 'weekly'), '2026-03-12');
+  eq(CX.nextDueAfter('2026-10-27', 'fortnightly'), '2026-11-10');
+  eq(CX.nextDueAfter('2026-10-27', '4-weekly'), '2026-11-24');
+  eq(CX.nextDueAfter('2026-10-27', '4-weekly', 27), '2026-11-24', 'a due day means nothing to a 4-weekly');
+  eq(CX.nextDueAfter('2026-10-27', 'one-off'), null);
+  eq(CX.nextDueAfter('2026-10-27', 'daily'), null);
+  eq(CX.nextDueAfter('2026-02-30', 'monthly'), null, 'not a date');
+  eq(CX.nextDueAfter('', 'monthly'), null);
+  eq(CX.nextDueAfter(null, 'weekly'), null);
+});
+test('clientStatus: every state and its words', () => {
+  const st = (b) => { const r = CX.clientStatus(b, CT); return r.state + '|' + r.days + '|' + r.label; };
+  const m = (nextDue, o) => Object.assign({ cadence: 'monthly', status: 'active', amountCents: 15000, currency: 'USD', nextDue }, o || {});
+  eq(st(null), 'none|null|No package');
+  eq(st(m('2026-11-20', { status: 'paused' })), 'paused|24|Paused');
+  eq(st(m(null, { status: 'paused' })), 'paused|null|Paused');
+  eq(st(m('2026-10-01', { status: 'ended' })), 'ended|-26|Ended');
+  eq(st(m('2026-10-26')), 'overdue|-1|Overdue 1 day');
+  eq(st(m('2026-10-22')), 'overdue|-5|Overdue 5 days');
+  eq(st(m('2026-10-27')), 'due|0|Due today');
+  eq(st(m('2026-10-28')), 'soon|1|Due tomorrow');
+  eq(st(m('2026-10-30')), 'soon|3|Due in 3 days');
+  eq(st(m('2026-11-03')), 'soon|7|Due in 7 days');
+  eq(st(m('2026-11-04')), 'ok|8|Next payment 4 Nov');
+  eq(st(m('2026-12-01')), 'ok|35|Next payment 1 Dec');
+  eq(st(m('2027-01-05')), 'ok|70|Next payment 5 Jan 2027', 'the year only when it isn’t this year');
+  eq(st(m(null, { cadence: 'one-off' })), 'ok|null|Paid');
+  eq(st(m(null)), 'ok|null|No due date');
+  eq(CX.clientStatus(m('2026-10-22'), CT).due, '2026-10-22');
+  eq(CX.clientStatus(m('2026-10-22', { status: undefined }), CT).state, 'overdue', 'no status reads as active');
+});
+test('recordPayment: one period on from the due date, so the schedule holds', () => {
+  const b = { cadence: 'monthly', nextDue: '2026-10-31', dueDay: 31, amountCents: 15000, currency: 'USD', status: 'active' };
+  const late = CX.recordPayment(b, { paidOn: '2026-11-04', amountCents: 15000 });
+  eq(late.nextDue, '2026-11-30', 'paid four days late: still due on the 30th');
+  eq(CX.recordPayment(b, { paidOn: '2026-10-20' }).nextDue, '2026-11-30', 'paid early: the same');
+  eq(CX.recordPayment(late, { paidOn: '2026-11-30' }).nextDue, '2026-12-31', 'back on the 31st');
+  eq(b.nextDue, '2026-10-31', 'pure: the row passed in is untouched');
+  assert(late !== b && late.amountCents === 15000 && late.status === 'active', 'a new object with the rest kept');
+  const fresh = CX.recordPayment({ cadence: 'monthly', nextDue: null, dueDay: null }, { paidOn: '2026-01-31' });
+  eq(fresh.nextDue, '2026-02-28', 'no due date: one period on from the day it was paid');
+  eq(fresh.dueDay, 31, 'and the day of the month is kept from then on');
+  eq(CX.recordPayment(fresh, { paidOn: '2026-02-28' }).nextDue, '2026-03-31');
+  eq(CX.recordPayment({ cadence: '4-weekly', nextDue: '2026-10-27' }, { paidOn: '2026-10-27' }).nextDue, '2026-11-24');
+  eq(CX.recordPayment({ cadence: 'one-off', nextDue: '2026-10-27', amountCents: 40000 }, { paidOn: '2026-10-27' }).nextDue, null, 'a one-off is paid');
+  const behind = CX.recordPayment({ cadence: 'monthly', nextDue: '2026-09-15', dueDay: 15 }, { paidOn: CT });
+  eq(behind.nextDue, '2026-10-15', 'two periods behind, one paid: one still owed');
+  eq(CX.clientStatus(Object.assign({ status: 'active' }, behind), CT).label, 'Overdue 12 days');
+  eq(CX.recordPayment(null, { paidOn: CT }), null);
+});
+test('monthlyCents: what a package is worth a month', () => {
+  const v = (cadence, amountCents, status) => CX.monthlyCents({ cadence, amountCents, status: status || 'active' });
+  eq(v('monthly', 15000), 15000);
+  eq(v('weekly', 5000), 21667);
+  eq(v('fortnightly', 8000), 17333);
+  eq(v('4-weekly', 9000), 9750);
+  eq(v('quarterly', 40000), 13333);
+  eq(v('yearly', 120000), 10000);
+  eq(v('one-off', 40000), 0);
+  eq(v('monthly', 15000, 'paused'), 0);
+  eq(v('monthly', 15000, 'ended'), 0);
+  eq(CX.monthlyCents(null), 0);
+});
+test('clientsSummary: overdue order, this month, no package, paused out of MRR, mixed currency', () => {
+  const b = (athleteId, cadence, amountCents, nextDue, o) => Object.assign({ athleteId, cadence, amountCents, nextDue, currency: 'USD', status: 'active' }, o || {});
+  const billing = [
+    b('a', 'monthly', 15000, '2026-10-22'), b('b', 'monthly', 22000, '2026-10-15'), b('c', 'monthly', 15000, '2026-10-29'),
+    b('d', '4-weekly', 9000, '2026-11-02'), b('e', 'monthly', 26000, '2026-10-27'), b('f', 'monthly', 15000, null, { status: 'paused' }),
+    b('g', 'monthly', 10000, '2026-11-20', { currency: 'EUR' }), b('z', 'monthly', 99900, '2026-10-01')
+  ];
+  const p = (athleteId, amountCents, paidOn, currency) => ({ athleteId, amountCents, paidOn, currency: currency || 'USD' });
+  const pays = [p('a', 15000, '2026-09-22'), p('c', 15000, '2026-10-01'), p('e', 26000, '2026-09-27'), p('d', 9000, '2026-10-05'),
+    p('g', 10000, '2026-10-20', 'EUR'), p('z', 99900, '2026-10-10'), p('c', 15000, '2025-10-01')];
+  const S = CX.clientsSummary(billing, pays, CT, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+  eq(S.currency, 'USD');
+  eq(S.active + '/' + S.paused + '/' + S.ended, '6/1/0');
+  eq(S.noPackage.join(','), 'h');
+  eq(S.overdue.who.join(','), 'b,a', 'most overdue first');
+  eq(S.overdue.n + '|' + S.overdue.cents, '2|37000');
+  eq(S.dueToday.who.join(',') + '|' + S.dueToday.cents, 'e|26000');
+  eq(S.soon.who.join(',') + '|' + S.soon.n + '|' + S.soon.cents, 'c,d|2|24000', 'soonest first');
+  eq(S.month.received, 24000, 'this month only, main currency, on the roster');
+  eq(S.month.expected, 102000, 'received + still owed by the 31st (the overdue included)');
+  eq(S.mrr, 87750, 'the paused package and the euro one are out');
+  eq(S.mixed, true);
+  const one = CX.clientsSummary([b('a', 'monthly', 15000, '2026-10-22')], [], CT);
+  eq(one.mixed, false); eq(one.noPackage.length, 0, 'no roster given: nobody is missing a package');
+  const wk = CX.clientsSummary([b('w', 'weekly', 5000, '2026-10-20')], [], CT, ['w']);
+  eq(wk.month.expected, 10000, 'a weekly client a week behind owes the 20th and the 27th');
+  eq(wk.overdue.who.join(','), 'w');
+  const none = CX.clientsSummary([], [], CT, ['x', 'y']);
+  eq(none.currency + '|' + none.mrr + '|' + none.noPackage.join(','), 'USD|0|x,y');
+});
+test('formatMoney, cadenceLabel, priceText', () => {
+  eq(CX.formatMoney(15000, 'USD'), '$150');
+  eq(CX.formatMoney(9250, 'USD'), '$92.50');
+  eq(CX.formatMoney(120000, 'GBP'), '£1,200');
+  eq(CX.formatMoney(9000, 'EUR'), '€90');
+  eq(CX.formatMoney(0, 'USD'), '$0');
+  eq(CX.formatMoney(15000, 'usd'), '$150');
+  eq(CX.formatMoney(15000, 'XX'), '$150', 'not a currency: dollars');
+  eq(CX.formatMoney(15000, 'EUR', 'de-DE').replace(/\s/g, ' '), '150 €');
+  eq(['weekly', 'fortnightly', '4-weekly', 'monthly', 'quarterly', 'yearly', 'one-off', 'daily'].map(CX.cadenceLabel).join(','), 'week,2 weeks,4 weeks,month,quarter,year,once,');
+  eq(CX.priceText({ amountCents: 15000, currency: 'USD', cadence: 'monthly' }), '$150 / month');
+  eq(CX.priceText({ amountCents: 9000, currency: 'USD', cadence: '4-weekly' }), '$90 / 4 weeks');
+  eq(CX.priceText({ amountCents: 8000, currency: 'USD', cadence: 'fortnightly' }), '$80 / 2 weeks');
+  eq(CX.priceText({ amountCents: 40000, currency: 'USD', cadence: 'one-off' }), '$400 once');
+  eq(CX.priceText(null), '');
+});
+test('intakeMaxes: e1RM from the best lifts, RPE 10 unless they say', () => {
+  const m = CX.intakeMaxes({ best: { squat: { kg: 180, reps: 1 }, bench: { kg: 120, reps: 3 }, deadlift: { kg: 0, reps: 1 } } });
+  eq(m.squat, 180); eq(m.bench, Math.round(calcE1RM(120, 3, 10) * 10) / 10); eq(m.bench, 128.6); eq(m.deadlift, 0);
+  eq(CX.intakeMaxes({ best: { squat: { kg: 100, reps: 5, rpe: 8 } } }).squat, Math.round(calcE1RM(100, 5, 8) * 10) / 10);
+  eq(CX.intakeMaxes({ best: { deadlift: { kg: 200 } } }).deadlift, 200, 'no reps: a single');
+  eq(JSON.stringify(CX.intakeMaxes(null)), '{"squat":0,"bench":0,"deadlift":0}');
+  eq(JSON.stringify(CX.intakeMaxes({ best: { squat: { kg: 'x', reps: 3 } } })), '{"squat":0,"bench":0,"deadlift":0}');
+});
+test('intakeLines: the About lines in order, empty answers left out', () => {
+  const full = { v: 1, best: { squat: { kg: 180, reps: 1, when: '2026-09-14' }, bench: { kg: 120, reps: 3 }, deadlift: { kg: 220, reps: 1 } },
+    bodyweightKg: 82.4, weightClass: '83', federation: 'IPF', yearsLifting: '3-5', daysPerWeek: 4, days: ['Sat', 'Mon', 'Thu', 'Tue'], sessionMinutes: 90,
+    equipment: ['Belt', 'Knee sleeves', 'SSB', 'Bands'], injuries: { parts: ['Lower back'], note: 'tweaked it deadlifting in 2024, fine now' },
+    goals: 'Total 600 at Nationals', meet: { name: 'Autumn Open', date: '2026-12-12', federation: 'IPF' },
+    phone: '+44 7700 900123', timezone: 'Europe/London', instagram: '@handle', notes: '' };
+  const L = CX.intakeLines(full, { today: CT });
+  eq(L.map(x => x.k).join(','), 'Best lifts,Bodyweight,Training,Equipment,Injuries,Goals,Next meet,Contact');
+  eq(L[0].v, 'S 180×1 · B 120×3 · D 220×1');
+  eq(L[1].v, '82.4 kg · 83 class (IPF)');
+  eq(L[2].v, '3–5 years · 4 days (Mon, Tue, Thu, Sat) · 90 min', 'days in week order');
+  eq(L[3].v, 'Belt, Knee sleeves, SSB, Bands');
+  eq(L[4].v, 'Lower back · “tweaked it deadlifting in 2024, fine now”');
+  eq(L[6].v, 'Autumn Open · 12 Dec (IPF)');
+  eq(L[7].v, '+44 7700 900123 · @handle · Europe/London', 'one @');
+  eq(JSON.stringify(CX.intakeLines({ goals: '  Total 600 ', best: {}, injuries: { parts: [], note: '' }, meet: null, equipment: [] })), '[{"k":"Goals","v":"Total 600"}]');
+  eq(CX.intakeLines({}).length, 0); eq(CX.intakeLines(null).length, 0);
+  const x = CX.intakeLines({ yearsLifting: '<1', days: ['Mon', 'Fri'], weightClass: '63kg', meet: { name: 'Spring Open', date: '2027-03-06' }, injuries: { note: 'old wrist thing' }, notes: 'Early shifts' }, { today: CT });
+  eq(x.map(l => l.k + ':' + l.v).join(' | '), 'Bodyweight:63 class | Training:Under a year · 2 days (Mon, Fri) | Injuries:“old wrist thing” | Next meet:Spring Open · 6 Mar 2027 | Notes:Early shifts');
+  const lb = CX.intakeLines({ best: { squat: { kg: 100, reps: 1 } }, bodyweightKg: 90 }, { unit: 'lbs' });
+  eq(lb.map(l => l.v).join(' | '), 'S 220×1 | 198.4 lb', 'in lb when the coach uses lb');
+});
+test('demo seeds: a package each, three periods paid before the next due date', () => {
+  const D = (n) => { const d = new Date(Date.UTC(2026, 9, 27) - n * 864e5); return d.toISOString().slice(0, 10); };
+  const st = {};
+  demoClientsSeed(st, [
+    ['o', 'Meet prep', 220, 'monthly', -5, { startedAgo: 300, method: 'card' }],
+    ['n', 'Online coaching', 150, 'monthly', 'start', { startedAgo: 9 }],
+    ['p', 'Online coaching', 150, 'monthly', null, { status: 'paused', pausedAgo: 25, startedAgo: 260 }],
+    ['q', 'Programming only', 90, '4-weekly', 19, { startedAgo: 150, period: true }]
+  ], { coachId: 'c', daysAgo: D });
+  const bill = (id) => st.clientBilling.find(b => b.athleteId === id), pays = (id) => st.clientPayments.filter(p => p.athleteId === id);
+  eq(bill('o').nextDue, '2026-10-22'); eq(bill('o').dueDay, 22); eq(CX.clientStatus(bill('o'), CT).label, 'Overdue 5 days');
+  eq(pays('o').length, 3); assert(pays('o').every(p => p.paidOn < '2026-10-22' && p.amountCents === 22000 && p.method === 'card'), 'paid before the overdue date, in full');
+  eq(pays('o').map(p => p.paidOn.slice(5, 7)).sort().join(','), '07,08,09', 'one a month');
+  eq(bill('n').startedOn, '2026-10-18'); eq(bill('n').nextDue, '2026-11-18'); eq(pays('n').map(p => p.paidOn).join(','), '2026-10-18', 'paid the first month on day one');
+  eq(bill('p').status + '|' + bill('p').nextDue, 'paused|null'); eq(CX.clientStatus(bill('p'), CT).label, 'Paused');
+  assert(pays('p').length >= 2 && pays('p').every(p => p.paidOn < '2026-10-02'), 'paid until the pause');
+  eq(bill('q').dueDay, null); eq(pays('q').length, 3); assert(pays('q').every(p => p.period === null), 'no month label on a 4-weekly');
+  assert(st.clientPayments.every((p, i, a) => !i || a[i - 1].paidOn >= p.paidOn), 'newest first');
+  eq(new Set(st.clientPayments.map(p => p.id)).size, st.clientPayments.length, 'ids unique');
 });
 
 function render() {

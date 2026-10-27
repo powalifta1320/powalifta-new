@@ -174,7 +174,9 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   // LIFTERS: the coach's groups, lines, answers and the block picture (tests.html "lifters")
   (fs.existsSync(path.join(ROOT, 'coach-lifters.js')) ? fs.readFileSync(path.join(ROOT, 'coach-lifters.js'), 'utf8') : '') + '\n;\n' +
   // PROGRAM FROM A PHOTO: the read -> draft -> weeks path and its checks (tests.html "program from a photo")
-  (fs.existsSync(path.join(ROOT, 'program-photo.js')) ? fs.readFileSync(path.join(ROOT, 'program-photo.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'program-photo.js')) ? fs.readFileSync(path.join(ROOT, 'program-photo.js'), 'utf8') : '') + '\n;\n' +
+  // CLIENTS + INTAKE: the schedule, a client's status, the summary, money words, the intake lines (tests.html "clients (clients.js)")
+  (fs.existsSync(path.join(ROOT, 'clients.js')) ? fs.readFileSync(path.join(ROOT, 'clients.js'), 'utf8') : '');
 const html = fs.readFileSync(path.join(ROOT, 'tests.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 let testSrc = scripts[scripts.length - 1];
