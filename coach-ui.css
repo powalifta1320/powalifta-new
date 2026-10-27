@@ -1280,3 +1280,19 @@ html:not(.desk) body.powa-app #btn-invite.is-quiet:hover, html:not(.desk) body.p
 /* The thread's reply bar in light: a light glass bar (it stayed dark, with dark icons on it). */
 html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer { background: rgba(255, 255, 255, 0.94); border-color: rgba(0, 0, 0, 0.08); box-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.35); }
 html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer :is(input, textarea) { background: rgba(118, 118, 128, 0.12); }
+
+/* The program builder on the phone: one ⋯ per day, not one per exercise (a week of Arjun's block showed
+   twelve). An exercise's ⋯ (move, duplicate, remove) shows once it is open: tap the row, then ⋯.
+   "Add exercise" is the day list's last row, a quiet text row on the exercises' column, not a
+   full-width button three times a week. The laptop desk keeps its own builder. */
+html:not(.desk) body.powa-app #programArea .pb-ex:not(.is-open) .pb-more { display: none; }
+html:not(.desk) body.powa-app #programArea .pb-ex:not(.is-open) .pb-ex-toggle { padding-right: 16px; }
+html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2 {
+  position: relative; justify-content: flex-start; gap: 12px; height: 48px; margin: 0; padding: 0 16px;
+  border: 0; border-radius: 0; background: none; color: var(--text-2); font-size: 15px; font-weight: 600;
+}
+html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2 svg { width: 38px; height: 18px; flex: none; color: var(--text-3); }
+html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-ex + .pb-add-ex2::before { content: ''; position: absolute; top: 0; left: 64px; right: 0; height: 1px; background: var(--hair); }
+html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-ex.is-open + .pb-add-ex2::before { display: none; }
+html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:active { background: var(--fill-1); }
+@media (hover: hover) and (pointer: fine) { html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:hover { background: none; color: var(--text); } }
