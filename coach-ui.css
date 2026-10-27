@@ -818,7 +818,10 @@ html.desk body.powa-app .pp-grid .pp-why { padding: 2px 8px 4px; font-size: var(
 .cs-page .cl-tile.t-received { --tc: var(--cl-up); } .cs-page .cl-tile.t-overdue { --tc: var(--cl-pain); } .cs-page .cl-tile.t-soon { --tc: var(--cl-down); } .cs-page .cl-tile.t-mrr { --tc: var(--cl-write); }
 .cs-st { font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--text-3); }
 .cl-th .cs-st { margin-left: auto; }
-.cs-st.st-overdue { color: var(--cl-pain, var(--ch-pain)); } .cs-st.st-due, .cs-st.st-soon { color: var(--cl-down, var(--ch-warn)); }
+/* a status that needs the coach: the dot carries the colour, the words stay ink (house rule) */
+.cs-st.st-overdue, .cs-st.st-due, .cs-st.st-soon { display: inline-flex; align-items: center; gap: 7px; color: var(--text); }
+.cs-st.st-overdue::before, .cs-st.st-due::before, .cs-st.st-soon::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--cl-down, var(--ch-warn)); }
+.cs-st.st-overdue::before { background: var(--cl-pain, var(--ch-pain)); }
 .cs-meter { display: block; height: 6px; margin-top: 2px; border-radius: 999px; background: var(--ch-fill-3); overflow: hidden; }
 .cs-meter i { display: block; height: 100%; border-radius: inherit; background: var(--cl-up); transition: width 500ms var(--cl-ease); }
 
@@ -859,8 +862,9 @@ html.desk #clientsArea { height: 100vh; overflow-y: auto; overscroll-behavior: c
 @media (hover: hover) and (pointer: fine) { .cs-due:hover { text-decoration: underline; text-underline-offset: 3px; } }
 
 /* the phone page (You › Clients) */
-.cs-page.is-phone { padding: 0 16px 28px; display: flex; flex-direction: column; gap: 14px; }
-.cs-ph { padding: 12px 4px 0; }
+/* .dash-main already gives every screen its 16 pt gutter: the page adds none (the title sat 36 pt in). */
+.cs-page.is-phone { padding: 0 0 28px; display: flex; flex-direction: column; gap: 14px; }
+.cs-ph { padding: 12px 0 0; }
 .cs-ph .cl-h1 { font-size: 28px; }
 .cs-page.is-phone .cs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .cs-page.is-phone .cl-tile { padding: 14px 14px 12px; gap: 8px; }
@@ -1231,3 +1235,48 @@ html.desk body.powa-app .ui-sheet.bd-sheet { width: min(600px, calc(100vw - 48px
 .cl-page { container: clpage / inline-size; }
 @container clpage (max-width: 900px) { .cl-ptools .cl-quiet { padding: 0 8px; } .cl-ptools :is([data-prog], [data-card], [data-blocks]) > svg { display: none; } }
 @media (prefers-reduced-motion: reduce) { .bd-fp .bd-hit, .bd-pick, .bd-ck, .bd-list .bd-row { transition: none; } .bd-sheet .bd-pick:active { transform: none; } }
+
+/* ==================== Coach phone polish (ui-coachphone, 27 Oct) ====================
+   From the pitch audit: the coach's work first on Lifters, one red per screen, a row's whole reason,
+   Clients on the 16 pt gutter, one header on an open thread. Type stays 13 / 15 / 16 / 20 / 28. */
+
+/* Lifters: the header's + is a quiet circle like the assistant and the bell beside it once anyone is on
+   the roster (renderRoster sets .is-quiet); with nobody yet it stays the screen's one red action. */
+html:not(.desk) body.powa-app #btn-invite.is-quiet { background: rgba(255, 255, 255, 0.07); color: var(--text-2); box-shadow: none; border: 0; }
+html:not(.desk) body.powa-app #btn-invite.is-quiet:hover, html:not(.desk) body.powa-app #btn-invite.is-quiet:active { filter: none; color: var(--text); }
+
+/* Lifters on the phone: Do first leads, the groups follow, then money owed and This week (the tiles). */
+.cl-phone .cl-gh-do { margin: 0 0 -4px; }
+.cl-pweek { display: flex; flex-direction: column; margin-top: 10px; }
+
+/* A row's reason under the name: a span that ellipsises (the flex line cut it mid-word, no "…");
+   on a phone it takes two lines, so "Low back 6/10 · deadlift" reads whole. */
+.cl-line { align-items: flex-start; }
+.cl-ldot { margin-top: calc((1.3em - 7px) / 2); }
+.cl-lt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-phone .cl-lt { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; text-wrap: balance; }
+
+/* A voice note's preview is the app's label, not their words: no quotes, a small play glyph in the job's hue. */
+.cl-vplay { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 6px; border-radius: 50%; vertical-align: middle; position: relative; top: -1px; color: var(--tc, var(--cl-msg)); background: color-mix(in srgb, var(--tc, var(--cl-msg)) 16%, transparent); }
+.cl-vplay svg { width: 8px; height: 8px; margin-left: 1px; fill: currentColor; stroke: none; }
+
+/* Clients on the phone: the package line wraps to a second line instead of "Me…". */
+.cs-r.is-phone .cs-rn span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.cs-r.is-phone .cs-rs { align-self: center; }
+
+/* An open thread on the phone is one pushed screen: its back · avatar · name header takes the top bar's
+   place, no second bar under "Messages". The bar steps aside (it out-stacks anything inside .dash-shell)
+   and comes back on Back or another tab. Gated on :has(): without it (iOS before 15.4) nothing changes. */
+@media (max-width: 720px) {
+  html.native body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .nav { opacity: 0; pointer-events: none; }
+  html.native body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head {
+    top: 0; min-height: calc(env(safe-area-inset-top, 0px) + 52px);
+    padding: calc(env(safe-area-inset-top, 0px) + 4px) 16px 6px;
+    background: rgba(6, 6, 8, 0.94); border-bottom-color: var(--line);
+  }
+  html.native[data-theme="light"] body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head { background: rgba(255, 255, 255, 0.94); }
+  html.native body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail { padding-top: 18px; }
+}
+/* The thread's reply bar in light: a light glass bar (it stayed dark, with dark icons on it). */
+html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer { background: rgba(255, 255, 255, 0.94); border-color: rgba(0, 0, 0, 0.08); box-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.35); }
+html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer :is(input, textarea) { background: rgba(118, 118, 128, 0.12); }

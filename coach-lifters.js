@@ -37,7 +37,8 @@
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
     open: '<path d="M7 17 17 7M9 7h8v8"/>',
     blocks: '<path d="M4 20V10M9 20V4M15 20v-7M20 20V8"/>',
-    steps: '<path d="M4 19h4.5v-4.5H13V10h4.5V5.5H20"/>'
+    steps: '<path d="M4 19h4.5v-4.5H13V10h4.5V5.5H20"/>',
+    play: '<path d="M8 5.8v12.4a.8.8 0 0 0 1.2.7l9.7-6.2a.8.8 0 0 0 0-1.4L9.2 5.1A.8.8 0 0 0 8 5.8z"/>'
   };
   function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC.chev) + '</svg>'; }
   function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -54,10 +55,16 @@
   function mondayOf(iso) { if (typeof _isoMonday === 'function') return _isoMonday(iso); var d = new Date(iso + 'T12:00:00Z'); var k = (d.getUTCDay() + 6) % 7; return addDays(iso, -k); }
   function daysBetween(a, b) { return Math.round((Date.parse(String(b).slice(0, 10) + 'T12:00:00Z') - Date.parse(String(a).slice(0, 10) + 'T12:00:00Z')) / 86400000); }
   function daysText(d) { if (d <= 0) return 'today'; if (d === 1) return 'tomorrow'; if (d < 21) return 'in ' + d + ' days'; var w = Math.round(d / 7); return 'in ' + w + (w === 1 ? ' week' : ' weeks'); }
-  function dateShort(iso) { try { return new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return String(iso).slice(0, 10); } }
-  function dayMonth(iso) { try { return new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); } catch (e) { return String(iso).slice(5, 10); } }
-  function whenText(iso, t) { var d = daysBetween(String(iso).slice(0, 10), t || todayIso()); if (d <= 0) return 'today'; if (d === 1) return 'yesterday'; if (d < 7) return dateShort(iso).split(' ')[0]; return dateShort(iso); }
+  // Dates in the device's own format, like the rest of the app (fmtDateShort): "Sep 7" or "7 Sept".
+  function localDate(iso, o) { try { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, o); } catch (e) { return ''; } }
+  function dateShort(iso) { return localDate(iso, { weekday: 'short', day: 'numeric', month: 'short' }) || String(iso).slice(0, 10); }
+  function dayMonth(iso) { return localDate(iso, { day: 'numeric', month: 'short' }) || String(iso).slice(5, 10); }
+  function whenText(iso, t) { var d = daysBetween(String(iso).slice(0, 10), t || todayIso()); if (d <= 0) return 'today'; if (d === 1) return 'yesterday'; if (d < 7) return localDate(iso, { weekday: 'short' }) || dateShort(iso); return dateShort(iso); }
   function clip(s, n) { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trim() + '…' : s; }
+  // A voice note's message body is the app's own label ("Voice note · 0:24", voice.js / db.js), not words they wrote.
+  function isVoiceBody(b) { return /^Voice note · \d+:\d{2}$/.test(String(b || '').trim()); }
+  // A job's second line: their words in quotes; a voice note as itself, after a small play glyph.
+  function detailHtml(t) { return (t.voice ? '<i class="cl-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + esc(t.detail); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
   function clsNum(c) { var v = parseFloat(String(c == null ? '' : c).replace(',', '.')); return v > 0 ? v : null; }
   function clsText(c) { var v = clsNum(c); return v ? String(num(v)) : String(c || ''); }
@@ -326,7 +333,7 @@
         return { icon: 'trophy', tone: 'meet', title: meetLine(r), detail: (m.name || 'Meet') + (m.weightClass ? ' · ' + clsText(m.weightClass) + ' class' : '') + (planned ? ' · attempts set' : ' · attempts not set') }; }
       case 'overshoot': { var o = /^(.*) @([\d.]+) vs @([\d.]+)$/.exec(x.text || ''); return { icon: 'gauge', tone: 'warn', title: o ? o[1] + ' @' + o[2] + ', you wrote ' + o[3] : (x.text || 'Over what you wrote'), detail: 'Over what you wrote' }; }
       case 'drift': return { icon: 'gauge', tone: 'warn', title: r.drift ? 'RPE +' + r.drift.avg + ' over written' : (x.text || 'RPE drifting up'), detail: r.drift ? 'Across ' + plural(r.drift.n, 'set') + ' this week' : '' };
-      case 'message': { var h = waitHours(x); return { icon: 'msg', tone: 'msg', title: 'Wrote you' + (h ? ' · ' + (h >= 24 ? plural(Math.floor(h / 24), 'day') : plural(h, 'hour')) + ' ago' : ''), detail: x.body ? '“' + clip(x.body, 70) + '”' : '' }; }
+      case 'message': { var h = waitHours(x), vn = isVoiceBody(x.body); return { icon: 'msg', tone: 'msg', title: 'Wrote you' + (h ? ' · ' + (h >= 24 ? plural(Math.floor(h / 24), 'day') : plural(h, 'hour')) + ' ago' : ''), detail: x.body ? (vn ? String(x.body).trim() : '“' + clip(x.body, 70) + '”') : '', voice: vn }; }
       case 'note': { var w = clWords(r); var dd = /(\d+)d$/.exec(x.text || ''); return { icon: 'msg', tone: 'msg', title: 'Left a note' + (dd ? ' · ' + plural(Number(dd[1]), 'day') + ' ago' : ''), detail: w && w.kind === 'note' ? '“' + clip(w.text, 70) + '”' : '' }; }
       case 'formcheck': return { icon: 'video', tone: 'msg', title: 'Form check' + (/·\s*(\w+)/.test(x.text || '') ? ' · ' + /·\s*(\w+)/.exec(x.text)[1] : ''), detail: x.detail || 'Video waiting' };
       case 'checkin': return { icon: 'pulse', tone: 'warn', title: x.text || 'Check-in worth a look', detail: 'From their check-in' };
@@ -691,7 +698,7 @@
     o = o || {};
     var cx = !!o.compact, tiles = [];
     var tr = T.training;
-    var dayLabels = tr.days.map(function (iso) { try { return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'narrow' }); } catch (e) { return ''; } });
+    var dayLabels = tr.days.map(function (iso) { return localDate(iso, { weekday: 'narrow' }); });
     tiles.push(tileHtml('training', 'cal', 'Training', cx ? '7 days' : 'Last 7 days',
       tr.planned ? '<b class="cl-big2">' + tr.done + '</b><span class="cl-u">of ' + tr.planned + (cx ? '' : ' sessions') + '</span>' : '<b class="cl-big2">–</b><span class="cl-u">no blocks running</span>',
       viz('cols', { vals: tr.perDay, labels: cx ? null : dayLabels, hi: 6, titles: tr.perDay.map(function (v, i) { return dateShort(tr.days[i]) + ': ' + plural(v, 'session'); }) }, cx ? 28 : 58, 'cl-vz-train'),
@@ -728,7 +735,7 @@
     return '<div class="cl-job tone-' + t.tone + (o.big ? ' is-big' : '') + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
       (o.big ? '<span class="cl-jic">' + ic(t.icon) + '</span>' : '') +
       '<button type="button" class="cl-jmain" data-open="' + esc(openId) + '">' + (o.big && !o.phone ? av : (o.big ? '' : av)) +
-        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + esc(t.title) + '</span></span>' + (t.detail ? '<span class="cl-jd">' + esc(t.detail) + '</span>' : '') + '</span></button>' + btn + '</div>';
+        '<span class="cl-jtx"><span class="cl-jt">' + name + '<span>' + esc(t.title) + '</span></span>' + (t.detail ? '<span class="cl-jd">' + detailHtml(t) + '</span>' : '') + '</span></button>' + btn + '</div>';
   }
   // One word for a fix in a narrow column: what the button does.
   function shortLabel(f) {
@@ -766,7 +773,7 @@
     var tone = sevOf(top);
     return '<button type="button" class="cl-row' + (o.sel === a.id ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (o.sel === a.id ? 'true' : 'false') + '" tabindex="' + (o.sel === a.id ? '0' : '-1') + '">' +
       avHtml(a) +
-      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + esc(line) + '</span></span>' +
+      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line' + (tone ? ' sev-' + tone : '') + '">' + (tone ? '<i class="cl-ldot"></i>' : '') + '<span class="cl-lt">' + esc(line) + '</span></span></span>' +
       '<span class="cl-end">' + ringSvg(R, 26) + '<span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span></span>' +
       (o.phone ? '<span class="cl-chev">' + ic('chev') + '</span>' : '') + '</button>';
   }
@@ -804,7 +811,7 @@
     // The flag: what needs doing and the fix (the page's one red). Nothing wrong, no flag.
     if (top) {
       var jt = jobText(top.type === 'meetday' ? Object.assign({}, top, { forId: a.id }) : top);
-      html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + esc(jt.detail) + '</span>' : '') + '</span>' +
+      html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + detailHtml(jt) + '</span>' : '') + '</span>' +
         '<span class="cl-facts">' + (o.phone ? '' : '<button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button>') + '<button type="button" class="cl-btn red" data-act="fix">' + esc(fix.label) + '</button></span></div>';
     }
     // Nothing logged at all: one clear card instead of a page of dashes.
@@ -1026,10 +1033,14 @@
     var wide = isWide();
     var wrap = node('div', { class: 'cl-phone cl-root' + (wide ? ' is-wide' : '') });
     var urgent = M.open.filter(function (it) { return it.tier <= 1; }).slice(0, 3);
-    var list = '<div class="cl-pcol">' + teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) + (window.ClientsUI ? ClientsUI.dueLineHtml() : '') +
+    // The coach's work leads (owner, 27 Oct): Do first, then everyone in their groups. Money owed and
+    // the team's week (the four tiles, under the same "This week" title as the laptop's Today) follow.
+    var list = '<div class="cl-pcol">' +
       (urgent.length ? '<h2 class="cl-gh cl-gh-do">Do first <span>' + urgent.length + '</span></h2><div class="cl-do is-phone">' + urgent.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 && !wide, short: true, phone: true }); }).join('') + '</div>' : '') +
       (M.rows.length > 8 ? '<label class="cl-search cl-search-ph">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"></label>' : '') +
-      '<div class="cl-groups">' + groupsHtml(M, { phone: !wide, sel: wide ? S.sel : null }) + '</div></div>';
+      '<div class="cl-groups">' + groupsHtml(M, { phone: !wide, sel: wide ? S.sel : null }) + '</div>' +
+      (window.ClientsUI ? ClientsUI.dueLineHtml() : '') +
+      '<div class="cl-pweek"><h2 class="cl-gh">This week</h2>' + teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) + '</div></div>';
     wrap.innerHTML = wide ? list + '<div class="cl-wpage" id="clWidePage"></div>' : list;
     wrap._clM = M;
     wire(wrap, { desk: false, wide: wide });

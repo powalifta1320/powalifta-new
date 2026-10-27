@@ -46,9 +46,9 @@
     if (isNaN(d)) return '';
     var o = { day: 'numeric', month: 'short' };
     if (String(iso).slice(0, 4) !== today().slice(0, 4)) o.year = 'numeric';
-    return d.toLocaleDateString('en-GB', o);
+    return d.toLocaleDateString(undefined, o);   // the device's format, like the rest of the app (fmtDateShort)
   }
-  function monthYear(iso) { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }); }
+  function monthYear(iso) { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); }
   function ago(iso) {
     var d = Math.round((Date.parse(today() + 'T12:00:00') - Date.parse(String(iso).slice(0, 10) + 'T12:00:00')) / 86400000);
     return isNaN(d) ? '' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : dateShort(iso);
@@ -242,7 +242,7 @@
     var a = athleteOf(aid), b = billingOf(aid);
     if (!b) { editPackage(aid, done); return; }
     var s = C().clientStatus(b, today());
-    var period = s.due ? new Date(s.due + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long' }) : '';
+    var period = s.due ? new Date(s.due + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' }) : '';
     uiSheet('Mark ' + first(a.name) + ' paid', function (sheet, close) {
       sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, b.package + ' · ' + C().priceText(b) + (s.due ? ' · ' + (s.state === 'overdue' ? 'was due ' : 'due ') + dateShort(s.due) : '')));
       var amt = el('input', { type: 'text', inputmode: 'decimal', class: 'cs-in cs-amt', 'aria-label': 'Amount', value: amountText(b.amountCents) });
@@ -280,7 +280,7 @@
         var b = billingOf(aid), s = C().clientStatus(b, today()), pays = paymentsOf(aid), ik = intakeOf(aid);
         sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, b ? b.package + ' · ' + C().priceText(b) : 'No package yet'));
         var head = el('div', { class: 'cs-sbanner' + (TONE[s.state] ? ' tone-' + TONE[s.state] : '') });
-        head.innerHTML = '<span class="cl-tic">' + ic(s.state === 'overdue' ? 'alert' : s.state === 'due' || s.state === 'soon' ? 'clock' : 'wallet') + '</span><span class="cs-sb-t"><b>' + esc(s.label) + '</b>' +
+        head.innerHTML = '<span class="cl-tic">' + ic(s.state === 'overdue' ? 'alert' : s.state === 'due' || s.state === 'soon' ? 'clock' : 'wallet') + '</span><span class="cs-sb-t"><b>' + esc(stateLabel(s)) + '</b>' +
           (s.due && s.state !== 'ok' ? '<span>' + (s.state === 'overdue' ? 'Was due ' : 'Due ') + esc(dateShort(s.due)) + '</span>' : (pays[0] ? '<span>Last paid ' + esc(dateShort(pays[0].paidOn)) + '</span>' : '')) + '</span>';
         sheet.appendChild(head);
         var acts = el('div', { class: 'cs-sacts' });
@@ -342,7 +342,7 @@
     // Client
     var tone = TONE[s.state] ? ' tone-' + TONE[s.state] : '';
     html += '<div class="cl-tile cs-card' + tone + '"><div class="cl-th"><span class="cl-tic">' + ic('wallet') + '</span><span class="cl-tl">Client</span>' +
-      '<span class="cs-st st-' + s.state + '">' + esc(s.label) + '</span></div>';
+      '<span class="cs-st st-' + s.state + '">' + esc(stateLabel(s)) + '</span></div>';
     if (!b) {
       html += '<p class="cs-none">Record what ' + esc(first(a.name)) + ' pays you and when it’s due. You get the reminders; ' + esc(first(a.name)) + ' never sees any of it.</p>' +
         '<div class="cs-acts"><button type="button" class="cl-btn" data-cs="package" data-aid="' + esc(aid) + '">Add a package</button></div>';
@@ -398,7 +398,7 @@
     var dueLabel = function (a, id) { var s = statusOf(id); return first(a.name) + ' ' + (s.state === 'overdue' ? -s.days + 'd' : s.days === 0 ? 'today' : s.days + 'd'); };
     var soonIds = sm.dueToday.who.concat(sm.soon.who);
     var tiles = [
-      tile('received', 'cash', 'This month', compact ? '' : new Date(t + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long' }),
+      tile('received', 'cash', 'This month', compact ? '' : new Date(t + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' }),
         '<b class="cl-big2">' + esc(money(sm.month.received, cur)) + '</b><span class="cl-u">of ' + esc(money(sm.month.expected, cur)) + '</span>',
         '<span class="cs-meter" role="img" aria-label="' + pct + '% received"><i style="width:' + pct + '%"></i></span>',
         sm.month.expected ? pct + '% in' + (sm.month.expected > sm.month.received ? ' · ' + esc(money(sm.month.expected - sm.month.received, cur)) + ' to come' : '') : 'Nothing due this month'),
@@ -428,8 +428,10 @@
         '<span class="cs-rn"><b>' + esc(a.name) + '</b><span>' + esc(sub) + '</span></span><span class="cs-rs"><span class="cs-st st-' + s.state + '">' + esc(shortState(s)) + '</span>' + (last ? '<span class="cs-rl">' + esc(last) + '</span>' : '') + '</span>' + ic('chev', 2.2) + '</button>';
     }
     return '<div class="cs-r st-' + s.state + '"><button type="button" class="cs-rmain" data-cs="open" data-aid="' + esc(a.id) + '">' + av(a) + '<span class="cs-rn"><b>' + esc(a.name) + '</b><span>' + esc(sub) + '</span></span></button>' +
-      '<span class="cs-st st-' + s.state + '">' + esc(s.label) + '</span><span class="cs-rl">' + esc(last) + '</span><span class="cs-ra">' + act + '</span></div>';
+      '<span class="cs-st st-' + s.state + '">' + esc(stateLabel(s)) + '</span><span class="cs-rl">' + esc(last) + '</span><span class="cs-ra">' + act + '</span></div>';
   }
+  // The status in words, its date in the device's format like every other date here (clients.js keeps a fixed "5 Nov").
+  function stateLabel(s) { return s.state === 'ok' && s.due && /^Next payment /.test(s.label) ? 'Next payment ' + dateShort(s.due) : s.label; }
   function shortState(s) {
     if (s.state === 'overdue') return 'Overdue ' + -s.days + 'd';
     if (s.state === 'soon') return s.days === 1 ? 'Tomorrow' : 'In ' + s.days + ' days';
@@ -442,7 +444,7 @@
     var counts = {}; FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return inFilter(r, f[0]); }).length; });
     if (view.filter !== 'all' && !counts[view.filter]) view.filter = 'all';
     var list = all.filter(function (r) { return inFilter(r, view.filter); });
-    var t = today(), month = new Date(t + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long' });
+    var t = today(), month = new Date(t + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' });
     var subBits = ['<b>' + sm.active + '</b> active'];
     if (sm.paused) subBits.push(sm.paused + ' paused');
     if (sm.noPackage.length) subBits.push(plural(sm.noPackage.length, 'lifter') + ' without a package');
