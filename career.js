@@ -547,8 +547,9 @@
         dc.appendChild(mk('i', 'lift-dot lift-' + e.lift));
         line.appendChild(dc);
         // Each record holds together on a line ('162.5 × 5' never splits): no-break spaces inside it.
+        // No gain per line: the list itself shows the climb (207, 204, 201), the lift's row says the year's.
         var parts = [];
-        if (e.e1) parts.push('e1RM\u00a0' + group3(e.e1.value) + '\u00a0(' + e.e1.gain + ')');
+        if (e.e1) parts.push('e1RM\u00a0' + group3(e.e1.value));
         (e.reps || []).forEach(function (r) { parts.push(group3(r.value) + '\u00a0×\u00a0' + r.n); });
         var t = mk('span', 'cv-pt');
         t.appendChild(mk('b', null, LIFT_NAME[e.lift]));
