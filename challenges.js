@@ -302,13 +302,14 @@ var Challenges = (function () {
   }
   // opts.group: four or more sharing a place fold into one row ("+9 · Amara, Elena and 9 more · 7
   // sessions") that opens in place, so a team that all trains as written stays calm at 25 or 60;
-  // your own row is never folded away.
+  // so do four or more with no value yet (biggest gain before anyone has a total to measure from).
+  // Your own row is never folded away.
   function rowsEl(rows, ch, max, opts) {
     var ol = E('ol', { class: 'chl-rows', 'aria-label': ch.name + ': places' });
     var list = rows.slice(0, max || rows.length), k = 0, i = 0;
     while (i < list.length) {
       var j = i;
-      while (j + 1 < list.length && list[i].rank != null && list[j + 1].rank === list[i].rank) j++;
+      while (j + 1 < list.length && (list[i].rank == null ? list[j + 1].rank == null : list[j + 1].rank === list[i].rank)) j++;
       var same = list.slice(i, j + 1);
       if (opts && opts.group && same.length >= 4) {
         same.filter(function (r) { return r.mine; }).forEach(function (r) { ol.appendChild(rowEl(r, ch, k++)); });
@@ -321,11 +322,14 @@ var Challenges = (function () {
   function tieEl(group, ch, i, withMe) {
     var names = group.map(function (r) { return firstName(r.name); });
     var shown = names.slice(0, 2).join(', ') + ' and ' + (names.length - 2) + ' more';
+    var placed = group[0].rank != null, val = challengeText(ch.metric, group[0].value, unitNow());
+    if (!placed) withMe = false;
     var li = E('li', { class: 'chl-row chl-tie', style: '--i:' + Math.min(i, 7) });
     var b = E('button', { type: 'button', class: 'chl-tie-btn', 'aria-expanded': 'false',
-      'aria-label': (withMe ? 'Level with you: ' : '') + group.length + ' lifters share ' + ordinal(group[0].rank) + ' place on ' + challengeText(ch.metric, group[0].value, unitNow()) + '. Show them' },
-      E('span', { class: 'chl-rank' }, String(group[0].rank)), E('span', { class: 'chl-more', 'aria-hidden': 'true' }, '+' + group.length),
-      E('span', { class: 'chl-name' }, (withMe ? 'Level with you: ' : '') + shown), E('span', { class: 'chl-val' }, challengeText(ch.metric, group[0].value, unitNow())));
+      'aria-label': placed ? (withMe ? 'Level with you: ' : '') + group.length + ' lifters share ' + ordinal(group[0].rank) + ' place on ' + val + '. Show them'
+        : group.length + ' lifters with no value yet. Show them' },
+      E('span', { class: 'chl-rank' }, placed ? String(group[0].rank) : ''), E('span', { class: 'chl-more', 'aria-hidden': 'true' }, '+' + group.length),
+      E('span', { class: 'chl-name' }, (withMe ? 'Level with you: ' : '') + shown), E('span', { class: 'chl-val' }, val));
     b.addEventListener('click', function () {
       var frag = document.createDocumentFragment();
       group.forEach(function (r, n) { frag.appendChild(rowEl(r, ch, n)); });
