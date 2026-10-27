@@ -38,3 +38,5 @@ verify_jwt = true
 verify_jwt = true
 [functions.apple-iap]
 verify_jwt = true
+[functions.program-read]
+verify_jwt = true
