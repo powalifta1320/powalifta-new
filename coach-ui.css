@@ -1430,6 +1430,12 @@ html.native:not(.desk) .cl-navback svg { width: 22px; height: 22px; }
 @keyframes clFadeIn { from { opacity: 0.45; } to { opacity: 1; } }
 html.native:not(.desk) body.powa-app[data-nav="push"] .dash-main > section[data-pane]:not(.hidden) { animation: clPushIn 340ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
 html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-pane]:not(.hidden) { animation: clPopIn 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  /* No sideways travel: the page fades up from .45 instead (dash-fx.css turns the tab settle off). */
+  html.native:not(.desk) body.powa-app:is([data-nav="push"], [data-nav="pop"]) .dash-main > section[data-pane]:not(.hidden) { animation: clFadeIn 180ms ease-out backwards !important; }
+  html:not(.desk) .cl-do.is-phone .cl-sbtn:active, html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active, .cl-phone .cs-dueline:active, .cl-pg-phone .cl-wnrow:active { transform: none; }
+}
+
 
 /* --- 3. Header icons: 36 pt circles with a 44 pt target, and a press --- */
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
