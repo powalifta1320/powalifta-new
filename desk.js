@@ -339,7 +339,8 @@ function dkRowsFresh() {
 function dkNoteHandled(athleteId, via) {
   var st = dkState();
   var r = dkRow(athleteId);
-  if (!r || !r.reasons.length) return;
+  if (!r) return;
+  // A lifter with nothing flagged (only next week to write) counts too: publishing ticks their week off.
   st.handled[athleteId] = { at: Date.now(), sig: deskReasonSig(r.reasons), via: via };
   dkSaveState();
 }
@@ -2799,6 +2800,14 @@ function dkGroupInput(g) {
   var fx = typeof setFieldsCellText === 'function' ? setFieldsCellText(g) : '';
   return fx ? t + ' ' + fx : t;
 }
+// The words on a next-week chip: "Up to 182.5", "Drop to 145", "Load 117.5" (picked by feel until now), "4 sets".
+function dkSugText(s, row) {
+  if (!s) return '';
+  var kg = _num(kgToDisplay(s.kg));
+  var load = s.dir === 'down' ? 'Drop to ' + kg : s.dir === 'up' ? 'Up to ' + kg : s.dir === 'set' ? 'Load ' + kg : '';
+  var sets = s.sets != null && row && row.next && s.sets !== row.next.count ? s.sets + (s.sets === 1 ? ' set' : ' sets') : '';
+  return [load, sets].filter(Boolean).join(' · ') || 'Hold';
+}
 function dkLoggedRich(l) {
   var span = el('span', { class: 'dk-pres is-logged' });
   if (!l) return span;
@@ -2980,7 +2989,7 @@ function dkWsWeek(r) {
   // Drop anything that no longer fits (the athlete logged into that block, or the coach changed it elsewhere).
   Object.keys(pend.rows).forEach(function (k) { var row = rev.rows.find(function (x) { return x.key === k; }); if (!row || !row.next || row.next.locked) delete pend.rows[k]; else pend.rows[k].row = row; });
   var takeAll = null;
-  var nSug = rev.rows.filter(function (x) { return x.suggest && x.suggest.dir !== 'hold' && x.next && !x.next.locked; }).length;
+  var nSug = rev.rows.filter(deskSuggestActionable).length;
   var tools = el('div', { class: 'dk-wk-tools' });
   if (N && nSug) {
     takeAll = dkBtn('Take suggestions', { icon: DK_IC.spark, cls: 'dk-btn-sm', kbd: '⇧A', onClick: function () { sec._acceptAll(); } });
@@ -3150,7 +3159,7 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
   inp.value = p ? p.text : cur;
   cell.appendChild(inp);
   var chip = el('button', { type: 'button', class: 'dk-sgc' });
-  var can = !!(row.suggest && row.suggest.dir !== 'hold');
+  var can = deskSuggestActionable(row);
   var pain = MAIN_LIFTS.indexOf(row.lift) >= 0 && row.gi === 0 ? _dkPainOn(a.id, row.lift) : null;
   var swap = null;
   var nsetsOf = function () { return (dkProgOf(a.id).weeks[rev.nextIdx].days[row.next.di].exercises[row.next.ei].sets || []).slice(row.next.startIdx, row.next.startIdx + row.next.count); };
@@ -3176,25 +3185,25 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
     // No suggestion: the slot stays, empty, so every input on the card ends on one line.
     if (!s) { chip.className = 'dk-sgc is-empty'; chip.tabIndex = -1; chip.setAttribute('aria-hidden', 'true'); return; }
     chip.removeAttribute('aria-hidden');
-    var kg = _num(kgToDisplay(s.kg)), dl = s.dir === 'set' ? '' : (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta)));
-    if (s.dir === 'hold') {
-      // On target: hold what's written. A word, not a button: there's nothing to take.
+    var kg = _num(kgToDisplay(s.kg)), dl = s.dir === 'set' || s.dir === 'hold' ? '' : (s.delta > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(s.delta)));
+    if (!can) {
+      // On target, or already written from this week: hold what's written. A word, not a button: there's nothing to take.
       chip.className = 'dk-sgc is-hold';
       chip.tabIndex = -1;
       chip.setAttribute('aria-disabled', 'true');
       chip.insertAdjacentHTML('beforeend', DK_IC.check);
       chip.appendChild(el('span', {}, 'Hold'));
-      dkTip(chip, (why() ? why() + ': ' : '') + 'on target, so it holds');
+      dkTip(chip, s.acted ? 'You set week ' + nn + ' from this. It holds until they log more' : (why() ? why() + ': ' : '') + 'on target, so it holds');
       return;
     }
     if (pp && pp.kind === 'accept') {
       chip.classList.add('is-took');
       chip.insertAdjacentHTML('beforeend', DK_IC.check);
-      chip.appendChild(el('span', {}, 'Took ' + kg));
+      chip.appendChild(el('span', {}, 'Took ' + (s.dir === 'hold' ? dkSugText(s, row) : kg)));
       dkTip(chip, 'Undo: back to what was written');
     } else {
       chip.insertAdjacentHTML('beforeend', DK_IC.spark);
-      chip.appendChild(el('span', {}, (s.dir === 'down' ? 'Drop to ' : s.dir === 'up' ? 'Up to ' : 'Load ') + kg));
+      chip.appendChild(el('span', {}, dkSugText(s, row)));
       if (dl) chip.appendChild(el('small', {}, dl));
       dkTip(chip, (why() ? why() + '. ' : '') + 'One click writes it in', 'Tab');
     }
@@ -3210,8 +3219,8 @@ function dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line) {
   };
   var accept = function () {
     if (!can) return false;
-    var sets = deskSuggestedSets(nsetsOf(), row.suggest.kg);
-    var g = Object.assign({}, row.next.group, { weight: row.suggest.kg, weightHi: Number(row.next.group.weightHi) > row.suggest.kg ? row.next.group.weightHi : null });
+    var sets = deskSuggestedSets(nsetsOf(), row.suggest.kg, row.suggest.sets);
+    var g = Object.assign({}, row.next.group, { weight: row.suggest.kg, weightHi: Number(row.next.group.weightHi) > row.suggest.kg ? row.next.group.weightHi : null, count: sets.length });
     pend.rows[row.key] = { kind: 'accept', text: dkGroupInput(g), sets: sets, row: row };
     inp.value = pend.rows[row.key].text;
     paintRow();
@@ -3299,7 +3308,10 @@ function dkWsApply(aid) {
   if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('dk-wk-in')) document.activeElement.blur();
   var rev = deskWeekReview(prog);
   if (rev.nextIdx < 0 || p.sig !== prog.id + ':' + rev.nextIdx) return;
-  var edits = Object.keys(p.rows).map(function (k) { var x = p.rows[k]; return { di: x.row.next.di, ei: x.row.next.ei, startIdx: x.row.next.startIdx, count: x.row.next.count, sets: x.sets, variant: x.variant }; });
+  // Each edit carries the week it answers (sig) and the plan's own load (from): the block is marked, so the next
+  // review holds instead of suggesting again from the new load (deskApplyNextWeek).
+  var edits = Object.keys(p.rows).map(function (k) { var x = p.rows[k]; return { di: x.row.next.di, ei: x.row.next.ei, startIdx: x.row.next.startIdx, count: x.row.next.count, sets: x.sets, variant: x.variant,
+    sig: x.row.sig, from: x.row.next.from }; });
   if (!edits.length) return;
   // What changed, in words the week's note can say (weekly-note.js): "bench comes down to 112.5 × 3".
   var said = Object.keys(p.rows).map(function (k) { var x = p.rows[k], g = (x.row.next && x.row.next.group) || {}, s0 = (x.sets || [])[0] || {};
