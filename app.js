@@ -11078,6 +11078,12 @@ function deskReasons(athleteId, opts) {
     if (/^Pain/.test(a.text)) add('pain', 1, a.text, 'alert', 'Said yes to pain on their check-in ' + a.text.replace(/^Pain /, ''));
     else add('checkin', 6, a.text.replace(/(\d) h$/, '$1h'), a.severity >= 2 ? 'warn' : 'info', 'From their check-in');
   });
+  // 6 · stopped checking in: someone who has checked in before (the weekly form or your questions)
+  // and hasn't for 8+ days. Low urgency, and only while they train: a lifter gone quiet already has
+  // that flag, and "Quiet" says it better (one flag per fact).
+  if (st.checkinAgo != null && st.checkinAgo >= 8 && st.ago != null && st.ago < 5) {
+    add('nocheckin', 6, 'No check-in for ' + st.checkinAgo + ' days', 'info', 'Last check-in ' + fmtDateShort(_addDaysISO(t, -st.checkinAgo)));
+  }
   // 2 · a meet inside two weeks, or over the class with one coming
   const nm = deskNextMeet(athleteId, t);
   if (nm && nm.days <= 14) add('meet', 2, nm.days === 0 ? 'Meet today' : 'Meet in ' + nm.days + 'd', 'meet', nm.meet.name + (nm.meet.weightClass ? ' · ' + nm.meet.weightClass : ''));

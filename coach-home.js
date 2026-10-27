@@ -99,6 +99,7 @@
         return { k: 'open', ic: 'open', label: 'See the cut plan', run: open };
       case 'note': case 'message': return { k: 'msg', ic: 'msg', label: 'Reply to ' + f, text: '' };
       case 'checkin': case 'readiness': return { k: 'msg', ic: 'msg', label: 'Message ' + f, text: 'How are you feeling today?' };
+      case 'nocheckin': return { k: 'msg', ic: 'msg', label: 'Send a check-in nudge', text: 'Hey ' + f + ', how did the week go? Fill in your check-in when you get a sec.' };
       case 'quiet': case 'never': case 'missed': return { k: 'msg', ic: 'msg', label: 'Check in with ' + f, text: 'Missed you this week. All good?' };
       case 'formcheck': return { k: 'open', ic: 'video', label: 'Review the video', run: function () { if (typeof openFormCheckReview === 'function' && reason.formCheckId) openFormCheckReview(reason.formCheckId); else open(); } };
       case 'meet': return { k: 'open', ic: 'trophy', label: 'Plan attempts', run: function () { if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(aid); else open(); } };
@@ -126,6 +127,7 @@
     if (t === 'blockend' || t === 'blockdone') return { n: 'Block', u: t === 'blockdone' ? 'finished' : 'ends', tone: 'quiet' };
     if (t === 'noprogram') return { n: 'No', u: 'program', tone: 'quiet' };
     if (t === 'checkin') return { n: 'Check-in', u: '', tone: 'quiet' };
+    if (t === 'nocheckin') return { n: st.checkinAgo != null ? String(st.checkinAgo) : '–', u: 'days, no check-in', tone: 'quiet' };
     if (t === 'readiness') return { n: 'Low', u: 'readiness', tone: 'quiet' };
     if (t === 'stalling') return { n: 'Flat', u: '3 weeks', tone: 'quiet' };
     return { n: '', u: '', tone: 'quiet' };
@@ -139,7 +141,7 @@
     if ((reason.type === 'weight' || reason.type === 'offpace') && r.bw) text = num(r.bw.bw) + ' ' + unit() + ' for the ' + r.bw.cls + ' class';
     if (reason.type === 'meet' && reason.detail) text = reason.detail;
     if (reason.type === 'quiet' && reason.detail) text = reason.detail;
-    if ((reason.type === 'note' || reason.type === 'formcheck' || reason.type === 'checkin' || reason.type === 'readiness') && reason.detail) text = reason.detail;
+    if ((reason.type === 'note' || reason.type === 'formcheck' || reason.type === 'checkin' || reason.type === 'nocheckin' || reason.type === 'readiness') && reason.detail) text = reason.detail;
     return { text: text, lift: l };
   }
   function model() {

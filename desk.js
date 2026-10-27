@@ -2664,7 +2664,7 @@ function dkWsNeeds(r, lane) {
     var go = null;
     if (x.type === 'formcheck' && x.formCheckId && typeof openFormCheckReview === 'function') go = dkBtn('Review video', { cls: 'dk-btn-sm', onClick: function () { openFormCheckReview(x.formCheckId); } });
     else if (x.type === 'note') go = dkBtn('Answer', { cls: 'dk-btn-sm', onClick: function () { var ta = _dkVis('.dk-ws[data-aid="' + CSS.escape(r.athlete.id) + '"] .dk-tn-item.is-waiting .dk-btn'); if (ta) { ta.scrollIntoView({ block: 'center' }); ta.click(); } else openAthleteNotes(r.athlete.id); } });
-    else if (/^(message|checkin|quiet|never|readiness)$/.test(x.type)) { if (!replied) go = dkBtn('Reply', { cls: 'dk-btn-sm', kbd: 'R', onClick: function () { dkOpenCard('thread'); } }); replied = true; }
+    else if (/^(message|checkin|nocheckin|quiet|never|readiness)$/.test(x.type)) { if (!replied) go = dkBtn('Reply', { cls: 'dk-btn-sm', kbd: 'R', onClick: function () { dkOpenCard('thread'); } }); replied = true; }
     else if (x.type === 'pain' && x.painReport && typeof openPainResolveSheet === 'function') go = dkBtn('Resolve', { cls: 'dk-btn-sm', onClick: function () { openPainResolveSheet(x.painReport, dkWsRepaint); } });
     else if (x.type === 'pain') go = dkBtn('Ask', { cls: 'dk-btn-sm', onClick: function () { dkOpenCard('thread'); } });
     else if (/^(noprogram|blockdone|blockend|stalling)$/.test(x.type)) go = dkBtn('Program', { cls: 'dk-btn-sm', onClick: function () { openAthleteProgram(r.athlete.id); } });
@@ -5844,7 +5844,8 @@ function deskSeedDemo(store, h) {
   // under its best, or a wave that ends on a PR.
   var SHAPE = { flat: [5, 2.5, 5, 7.5, 2.5, 5], pr: [0, 2.5, 5, 7.5, 2.5, 12.5], up: [0, 2.5, 5, 5, 7.5, 7.5] };
   var people = [
-    { n: 'Leo Grant', b: [182.5, 125, 225], last: 1, shape: 'pr', prog: ['Strength Block', 4, 1, 2], bw: 91.2 },
+    // Leo trains and PRs but stopped checking in 11 days ago (ci): Today's "No check-in for 11 days".
+    { n: 'Leo Grant', b: [182.5, 125, 225], last: 1, shape: 'pr', prog: ['Strength Block', 4, 1, 2], bw: 91.2, ci: 11 },
     // Priya and Callum lift today's meet day (meetday.js): their blocks end this week, dated to it.
     { n: 'Priya Shah', b: [115, 67.5, 147.5], last: 1, shape: 'flat', prog: ['Peak', 3, 2, 1], pain: 0, meetToday: 'md-l1', sex: 'female', bw: 62.4 },
     { n: 'Marcus Doyle', b: [210, 150, 250], last: 2, shape: 'flat', prog: ['Strength Block', 4, 1, 2], over: [1, 1.5] },
@@ -5938,7 +5939,7 @@ function deskSeedDemo(store, h) {
     }
     // Check-ins, notes, messages, meets, health.
     var ans = function (qi, d, num) { S.checkinAnswers.push({ id: 'demo-dcia-' + (++seq), questionId: 'demo-ciq-' + qi, athleteId: id, coachId: DC, period: daysAgo(d), num: num, text: null }); };
-    if (p.last != null && p.last <= 3) for (var d = 0; d < 4; d++) { ans(0, d, [7.5, 8, 7, 7.5][d]); ans(1, d, [4, 3, 5, 4][d]); ans(2, d, 0); }
+    if (p.last != null && p.last <= 3) for (var d = 0; d < 4; d++) { var cd = (p.ci || 0) + d; ans(0, cd, [7.5, 8, 7, 7.5][d]); ans(1, cd, [4, 3, 5, 4][d]); ans(2, cd, 0); }
     if (p.pain != null) { S.checkinAnswers = S.checkinAnswers.filter(function (x) { return !(x.athleteId === id && x.questionId === 'demo-ciq-2' && x.period === daysAgo(p.pain)); }); ans(2, p.pain, 1); }
     if (p.sleep) ans(0, 0, p.sleep);
     if (p.note) S.sessionNotes.push({ id: 'demo-dcn-' + (pi + 1), athleteId: id, weekId: null, dayId: null, date: daysAgo(p.note[0]), note: p.note[1], coachComment: null, coachCommentAt: null, coachId: null });

@@ -97,6 +97,7 @@
 <script src="meetday.js"></script>
 <script src="social-auth.js"></script>
 <script src="coach-lifters.js"></script>
+<script src="coach-home.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -4745,6 +4746,53 @@ test('the line, the number and the job texts read in the coach’s words', () =>
   const o = clRow({ reasons: [{ type: 'overshoot', text: 'Bench @9.5 vs @8', tone: 'alert' }] });
   eq(CL.jobText(CL.clJobs([o], { today: T })[0]).title, 'Bench @9.5, you wrote 8');
   eq(CL.clJobs([o], { today: T })[0].tier, 1, 'a point and a half over is this week’s job');
+});
+
+/* ===========================================================
+   Check-in nudge (app.js deskReasons 'nocheckin'): someone who has checked in before and not for
+   8+ days, while they still train. Low urgency, in the check-in slot of the triage.
+   =========================================================== */
+group('check-in nudge (nocheckin)');
+test('flags a lifter who checked in before and stopped, never one who never did or went quiet', () => {
+  const saved = Store.get();
+  const t = '2026-10-22', now = Date.parse('2026-10-22T12:00:00Z');
+  const log = (id, a, date) => ({ id, athleteId: a, lift: 'squat', variant: 'Competition', weight: 150, reps: 3, rpe: 8, e1rm: 165, e1rmComp: 165, date });
+  const wk = (id, a, at) => ({ id, athleteId: a, weekStart: _monISO(at), sleep: 7, soreness: 7, stress: 7, feel: 7, note: '', createdAt: at + 'T08:00:00Z' });
+  Store.set(Object.assign(defaultStore(), {
+    athletes: [['a', 'Leo Grant'], ['b', 'Bea Ford'], ['c', 'Cy Ames'], ['d', 'Di Moss'], ['e', 'Ed Park']].map(([id, name]) => ({ id, name, coachId: 'c' })),
+    workoutLogs: [log('l1', 'a', '2026-10-21'), log('l2', 'b', '2026-10-21'), log('l3', 'c', '2026-10-21'), log('l4', 'd', '2026-10-10'), log('l5', 'e', '2026-10-20')],
+    checkins: [wk('w1', 'a', '2026-10-13'), wk('w2', 'b', '2026-10-19'), wk('w4', 'd', '2026-10-05')],
+    checkinAnswers: [{ id: 'x1', questionId: 'q', athleteId: 'e', coachId: 'c', period: '2026-10-14', num: 7, text: null }],
+    sessionNotes: [{ id: 'n1', athleteId: 'a', date: '2026-10-21', note: 'Bar felt slow.', coachComment: null }]
+  }));
+  try {
+    const R = id => deskReasons(id, { coachId: 'c', today: t, now });
+    const a = R('a'), nc = a.find(r => r.type === 'nocheckin');
+    assert(nc, 'Leo checked in 9 days ago and trains');
+    eq(nc.text, 'No check-in for 9 days'); eq(nc.group, 6); eq(nc.tone, 'info');
+    assert(/^Last check-in /.test(nc.detail), 'the detail says when');
+    eq(a.map(r => r.type).join(','), 'note,nocheckin,noprogram', 'their words, then the check-in, then the block (triage order unchanged)');
+    eq(R('b').some(r => r.type === 'nocheckin'), false, 'checked in 3 days ago');
+    eq(R('c').some(r => r.type === 'nocheckin'), false, 'never checked in: nothing to nudge');
+    eq(R('d').some(r => r.type === 'nocheckin'), false, 'gone quiet: one flag, "Quiet"');
+    assert(R('d').some(r => r.type === 'quiet'), 'Di is quiet');
+    eq((R('e').find(r => r.type === 'nocheckin') || {}).text, 'No check-in for 8 days', 'answers to the coach’s questions are check-ins too');
+  } finally { Store.set(saved); }
+});
+test('Lifters and Today: a low-urgency check job in "Check on", fixed by a message with the nudge', () => {
+  const T = '2026-10-22';
+  const r = clRow({ athlete: { id: 'l', name: 'Leo Grant' }, status: { checkinAgo: 11 }, reasons: [{ type: 'nocheckin', group: 6, text: 'No check-in for 11 days', tone: 'info', detail: 'Last check-in Oct 11' }] });
+  const J = CL.clJobs([r], { today: T });
+  eq(J.length, 1); eq(J[0].kind, 'check'); eq(J[0].tier, 3, 'engagement, not this week’s health');
+  eq(CL.jobText(J[0]).title, 'No check-in for 11 days'); eq(CL.jobText(J[0]).detail, 'Last check-in Oct 11');
+  eq(CL.clGroupKey(r), 'need');
+  const p = clRow({ athlete: { id: 'p', name: 'Pat' }, status: { pain: { report: { severity: 6, day: T }, count: 1 } }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }, { type: 'nocheckin', group: 6, text: 'No check-in for 9 days' }] });
+  eq(CL.clTopJob(p, CL.clJobs([p], { today: T })).type, 'pain', 'pain still comes first');
+  const H = window.CoachHome;
+  assert(H && H.fixFor, 'CoachHome is loaded');
+  const f = H.fixFor(r);
+  eq(f.k, 'msg'); eq(f.label, 'Send a check-in nudge');
+  eq(f.text, 'Hey Leo, how did the week go? Fill in your check-in when you get a sec.');
 });
 
 function render() {
