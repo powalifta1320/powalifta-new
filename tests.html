@@ -5088,7 +5088,7 @@ test('blocks: finished ones, with what the e1RM total did in them', () => {
   const bl = C.events.filter(e => e.kind === 'block');
   eq(bl.map(e => e.title).join(' | '), 'Strength Block | Block', 'once each; never one not lifted, not over or not theirs');
   const b = bl[0];
-  eq(b.date, '2026-04-06'); eq(b.weeks, 3); eq(b.sessions, 9); eq(b.detail, '3 weeks · 9 sessions');
+  eq(b.date, '2026-04-06'); eq(b.weeks, 3); eq(b.sessions, 9); eq(b.detail, 'e1RM total over 3 weeks · 9 sessions');
   close(b.changeKg.squat, 150 / 0.8002 - 140 / 0.8002, 0.05); eq(b.value, 22); eq(b.valueText, '+22');
   eq(bl[1].detail, '1 week'); eq(bl[1].value, null);
   eq(C.hero.firstDate, '2026-02-01', 'a block can start a career');
@@ -5112,6 +5112,8 @@ test('milestones: the first session, the 50th and 100th, the e1RM total past eac
   // Two steps in one day: one milestone, at the higher step.
   const J = CVK({ workoutLogs: [CVL('j1', '2025-01-06', 'squat', 100, 5, 8), CVL('j2', '2025-01-06', 'bench', 70, 5, 8), CVL('j3', '2025-01-06', 'deadlift', 120, 5, 8), CVL('j4', '2025-01-08', 'squat', 180, 5, 8)] });
   eq(J.events.filter(e => e.type === 'total').map(e => e.title).join(), 'Total past 450 kg');
+  eq(J.events.find(e => e.type === 'total').detail, 'Squat PR · e1RM total 462 kg', 'what took it there');
+  eq(ms.find(e => e.step === 400).detail, 'Squat, bench and deadlift PRs · e1RM total 403 kg');
 });
 test('newest first; years newest first; one day in a fixed order', () => {
   const C = CVK({

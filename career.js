@@ -236,6 +236,7 @@
       }
 
       // The day's best per lift against everything before it.
+      var e1Today = [];
       LIFTS.forEach(function (L) {
         var e1 = 0, top = {};
         D.logs.forEach(function (l) {
@@ -253,6 +254,7 @@
         });
         if (e1 > best[L]) best[L] = e1;
         REP_COUNTS.forEach(function (r) { if ((top[r] || 0) > (rep[L][r] || 0)) rep[L][r] = top[r]; });
+        if (parts.e1) e1Today.push(L);
         if (parts.e1 || parts.reps.length) events.push(prEvent(L, d, parts, u));
       });
 
@@ -262,8 +264,11 @@
         if (stepAt == null) stepAt = k;
         else if (k > stepAt) {
           stepAt = k;
+          // What did it: 'Deadlift PR · e1RM total 552 kg'.
+          var by = e1Today.map(function (L, i) { return i ? LIFT_NAME[L].toLowerCase() : LIFT_NAME[L]; });
+          var did = by.length ? (by.length > 1 ? by.slice(0, -1).join(', ') + ' and ' + by[by.length - 1] + ' PRs' : by[0] + ' PR') + ' · ' : '';
           events.push({ kind: 'milestone', type: 'total', date: d, key: 'ms|total|' + k * step, title: 'Total past ' + group3(k * step) + ' ' + u,
-            detail: 'e1RM total ' + group3(est(tot, u)) + ' ' + u, step: k * step, unit: u });
+            detail: did + 'e1RM total ' + group3(est(tot, u)) + ' ' + u, step: k * step, unit: u, lifts: e1Today.slice() });
         }
       }
     });
@@ -297,7 +302,8 @@
       blockStarts.push(start);
       events.push({
         kind: 'block', date: end, key: 'block|' + id, title: name, blockId: b.id || null,
-        detail: [plural(weeks, 'week'), sess ? plural(sess, 'session') : null].filter(Boolean).join(' · '),
+        // '+19 kg' beside 'e1RM total over 4 weeks · 14 sessions'; without a change, just its length.
+        detail: (any ? 'e1RM total over ' : '') + [plural(weeks, 'week'), sess ? plural(sess, 'session') : null].filter(Boolean).join(' · '),
         value: any ? Math.round(inUnit(total, u)) || 0 : null, valueText: any ? signedWhole(total, u) : null, delta: true, unit: u,
         startedOn: start, endedOn: end, weeks: weeks, sessions: sess, changeKg: any ? change : null, changeTotalKg: any ? total : null
       });
@@ -663,8 +669,7 @@
     head.appendChild(av);
     var id = mk('div', 'cv-mid');
     id.appendChild(mk('h2', 'cv-mt', a.name ? a.name : 'Career'));
-    var C = careerEvents(athleteId, Store.get());
-    id.appendChild(mk('p', 'cv-ms', ['Career', C.hero.firstDate ? 'since ' + monthYear(C.hero.firstDate) : null].filter(Boolean).join(' · ')));
+    id.appendChild(mk('p', 'cv-ms', 'Career'));   // the hero says since when
     head.appendChild(id);
     var x = mk('button', 'dk-icon-btn cv-x-btn');
     x.type = 'button';
