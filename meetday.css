@@ -407,11 +407,12 @@ html.md-open .ai-launcher { display: none; }
 /* A phone: each attempt on its own line, its name with its odds under it on the left and the bar on
    the right (Opener / Very likely 95%   − 125 +), so neither is ever cut short. */
 @media (max-width: 599px) {
-  .md-pl-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .md-pl-cell { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n edit' 'odds edit'; align-items: center; column-gap: 12px; }
-  .md-pl-n { grid-area: n; align-self: end; display: block; font-size: 15px; font-weight: 600; color: var(--text); }
+  .md-pl-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  /* The name and its odds read as one pair (2 px apart), each pair clearly apart from the next. */
+  .md-pl-cell { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n edit' 'odds edit'; align-items: center; column-gap: 12px; row-gap: 2px; }
+  .md-pl-n { grid-area: n; align-self: end; display: block; margin: 0; font-size: 15px; line-height: 1.25; font-weight: 600; color: var(--text); }
   .md-pl-cell .md-kg-edit { grid-area: edit; }
-  .md-pl-odds { grid-area: odds; align-self: start; min-height: 0; margin-top: 1px; padding-left: 0; }
+  .md-pl-odds { grid-area: odds; align-self: start; min-height: 0; margin-top: 0; padding-left: 0; font-size: 13px; line-height: 1.3; }
   .md-root .md-pl-cell input.md-kg-in { width: 88px; min-width: 0; flex: none; padding: 0 4px; font-size: 20px; }
   .md-step { width: 36px; height: 36px; }
   /* What a coach taps mid-flight with chalky hands: 44 px at least. */
