@@ -432,6 +432,7 @@
     box.className = 'wn-box cl-root';
     box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Weekly notes');
     veil.appendChild(box);
+    veil._close = closeQueue;   // the desk closes any open dialog when the window narrows to the phone layout
     document.body.appendChild(veil);
     Q.veil = veil; Q.box = box;
     Q.onKey = function (e) {
@@ -565,10 +566,10 @@
     if (f.bw) rows.push(['Bodyweight', esc(wTxt(f.bw.kg, U)) + ' ' + uTxt(U), (f.bw.over > 0 ? esc(wTxt(f.bw.over, U)) + ' ' + uTxt(U) + ' over ' : 'On weight for ') + esc(String(n1(f.bw.cls))) + ' kg · ' + esc(f.bw.meet || 'Meet') + ' ' + whenMeet(f.bw.days), f.bw.over > 0 ? 'warn' : '']);
     else if (f.meetNoWeighIn) rows.push(['Bodyweight', 'No weigh-in', esc(f.meetNoWeighIn.name || 'Meet') + ' ' + whenMeet(f.meetNoWeighIn.days), '']);
     if (f.pain) {
-      if (f.pain.checkin) rows.push(['Pain', 'Yes on the check-in', f.pain.count >= 2 ? f.pain.count + ' days this week' : dayWord(f.pain.day), 'alert']);
+      if (f.pain.checkin) rows.push(['Pain', 'Yes on the check-in', f.pain.count >= 2 ? f.pain.count + ' days this week' : esc(dayWord(f.pain.day)), 'alert']);
       else {
         var part = typeof painPartLabel === 'function' ? painPartLabel(f.pain.part, f.pain.side) : String(f.pain.part || 'Pain');
-        rows.push(['Pain', esc(part) + ' ' + f.pain.sev + '/10', [f.pain.lift ? (typeof painLiftLabel === 'function' ? painLiftLabel(f.pain.lift) : f.pain.lift) : '', f.pain.count >= 2 ? f.pain.count + ' times this week' : dayWord(f.pain.day)].filter(Boolean).join(' · '), 'alert']);
+        rows.push(['Pain', esc(part) + ' ' + f.pain.sev + '/10', esc([f.pain.lift ? (typeof painLiftLabel === 'function' ? painLiftLabel(f.pain.lift) : f.pain.lift) : '', f.pain.count >= 2 ? f.pain.count + ' times this week' : dayWord(f.pain.day)].filter(Boolean).join(' · ')), 'alert']);
       }
     }
     if (f.next.length) rows.push(['Next week', esc(f.next.slice(0, 2).map(function (c) { return (c.title || LIFT[c.lift] || 'Lift') + ' ' + (Number(c.toKg) > 0 ? wTxt(c.fromKg, U) + ' → ' + wTxt(c.toKg, U) : String(c.variant || '')); }).join(', ')), f.next.length > 2 ? '+' + (f.next.length - 2) + ' more' : 'Applied', '']);
