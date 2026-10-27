@@ -1549,3 +1549,19 @@ html:not(.desk) section[data-pane="templates"] .template-card .tpl-actions { gap
 html:not(.desk) section[data-pane="templates"] .template-card .btn { min-height: 44px; padding: 0 20px; border-radius: 999px; box-shadow: none; }
 html:not(.desk) section[data-pane="templates"] .template-card .btn-danger { width: 44px; padding: 0; border-color: transparent; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text-2); }
 html:not(.desk) section[data-pane="templates"] .template-card .btn-danger svg { width: 18px; height: 18px; }
+
+/* --- 8. You › Clients and Lifter progress --- */
+/* One large title size on every screen (32, the lifter app's): Clients and a lifter's name were 28. */
+html:not(.desk) .cs-ph .cl-h1, html:not(.desk) .cl-pg-phone:not(.is-wide) .cl-pname { font-size: 32px; line-height: 1.08; text-wrap: balance; }
+/* Clients: the tiles take the card radius; the rows get inset hairlines and the press of every list row. */
+.cs-page.is-phone .cl-tile { border-radius: var(--cl-r); }
+.cs-r.is-phone { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
+.cs-r.is-phone + .cs-r.is-phone::before { content: ''; position: absolute; top: 0; left: 62px; right: 0; height: 1px; background: var(--cl-line); }
+.cs-r.is-phone:active { background: color-mix(in srgb, var(--acc, #ff3b4a) 12%, var(--bg-2)); }
+.cs-r.is-phone:active::before, .cs-r.is-phone:active + .cs-r.is-phone::before { opacity: 0; }
+/* Lifter progress: the head to head's labels in sentence case, like every label in the app (they were
+   11 px tracked capitals). */
+html:not(.desk) section[data-pane="progress"] .cmp-k { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+html:not(.desk) section[data-pane="progress"] #progressArea .ui-label { margin-top: 24px; }
+html:not(.desk) section[data-pane="progress"] #progressArea > .ui-label:first-child { margin-top: 4px; }
+
