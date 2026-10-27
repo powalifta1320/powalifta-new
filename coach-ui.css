@@ -1298,3 +1298,6 @@ html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:active { b
 @media (hover: hover) and (pointer: fine) { html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:hover { background: none; color: var(--text); } }
 /* Clients in light: the chosen filter and the sheets' chosen chip are white on ink (they were ink on ink). */
 html[data-theme="light"] .cs-filters button.on, html[data-theme="light"] .cs-chips button.on { color: #fff; }
+/* Lifters › This week: the meet's name drops under "Today" instead of "Autumn O…" (the phone tile is narrow). */
+.cl-pweek .cl-tile.t-meets .cl-tv { flex-wrap: wrap; row-gap: 2px; }
+.cl-pweek .cl-tile.t-meets .cl-tv .cl-u { max-width: 100%; }
