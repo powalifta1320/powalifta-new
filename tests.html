@@ -3952,7 +3952,10 @@ test('team week loads: every main set of the week, each lifter-s own kg', () => 
   eq(mx.cols[0].kind, 'pct'); eq(mx.cols[0].rx, '2×3 75% @8'); eq(mx.cols[0].day, 'Squat day');
   eq(mx.rows[0].cells[0].kg, 150, '75% of 200'); eq(mx.rows[0].cells[0].source, 'e1rm');
   eq(mx.cols[1].kind, 'rpe');
-  eq(rpeLoadPct(3, 8), 86.7, '3 @8 is about 87% of the max');
+  eq(rpePctOfMax(3, 8), 86.7, '3 @8 is about 87% of the max');
+  // The load helpers take the share as a fraction: one global each, never the percent (2026-10-27).
+  eq(Math.round(rpeLoadPct(3, 8) * 1000) / 1000, 0.867, 'rpeLoadPct is a fraction');
+  eq(rpeLoadPct(1, 10), 1, 'a single at 10 is the max');
   eq(mx.rows[0].cells[1].kg, teamLoadKg(86.7, 140, 'kg')); eq(mx.rows[0].cells[1].approx, true);
   eq(mx.rows[1].cells[0].noMax, true); eq(mx.rows[1].cells[0].note, 'No squat max');
   // Kofi's own load stays his and says so.

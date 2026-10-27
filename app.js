@@ -15301,8 +15301,10 @@ function calendarClashes(rows) {
 // DESK v2 SEASON (desk-season.js draws these): the team page, its push preview, the roster
 // calendar (bars, W-n, warnings, drag) and what a block achieved. Data in, data out.
 // =========================================================
-// The share of a max that reps @RPE asks for: the e1RM formula backwards (calcE1RM), floored like it.
-function rpeLoadPct(reps, rpe) {
+// The share of a max that reps @RPE asks for, as a percent (86.7 for 3 @8): the e1RM formula backwards
+// (calcE1RM), floored like it. Not rpeLoadPct above, which is the same share as a fraction (0.867): a
+// second rpeLoadPct here once won for the whole page and made every RPE-only load 100× too heavy.
+function rpePctOfMax(reps, rpe) {
   const r = Number(reps), x = Number(rpe);
   if (!(r > 0) || !(x > 0) || x > 10) return 0;
   return Math.round(Math.max(0.4, 1 - ((r - 1) + (10 - x)) * 0.0333) * 1000) / 10;
@@ -15326,7 +15328,7 @@ function teamWeekLoads(masterWeeks, weekId, members) {
       const rpeSets = sets.filter(s => !(Number(s.weight) > 0) && Number(s.rpe) > 0 && Number(s.reps) > 0);
       let top, kind;
       if (pctSets.length) { kind = 'pct'; top = pctSets.reduce((b, s) => Number(s.pct) > Number(b.pct) ? s : b); }
-      else if (rpeSets.length) { kind = 'rpe'; top = rpeSets.reduce((b, s) => rpeLoadPct(s.reps, s.rpe) > rpeLoadPct(b.reps, b.rpe) ? s : b); }
+      else if (rpeSets.length) { kind = 'rpe'; top = rpeSets.reduce((b, s) => rpePctOfMax(s.reps, s.rpe) > rpePctOfMax(b.reps, b.rpe) ? s : b); }
       else { kind = 'kg'; top = sets.reduce((b, s) => (Number(s.weight) || 0) > (Number(b.weight) || 0) ? s : b); }
       const same = sets.filter(s => s.reps === top.reps && (kind !== 'pct' || Number(s.pct) === Number(top.pct)) && (kind !== 'rpe' || Number(s.rpe) === Number(top.rpe))).length;
       const rx = same + '×' + (top.reps || '') + (kind === 'pct' ? ' ' + _num(Number(top.pct)) + '%' : '') + (top.rpe != null && top.rpe !== '' ? ' @' + _num(Number(top.rpe)) : '');
@@ -15353,7 +15355,7 @@ function teamWeekLoads(masterWeeks, weekId, members) {
       }
       // Written in kg: the same kg for everyone, flagged where it's above this lifter's max.
       if (c.kind === 'kg') return { kg: c.weight, kgHi: null, approx: false, ovr: false, noMax: false, logged, max, source, note: '', over: max > 0 && c.weight > max };
-      const pct = c.kind === 'pct' ? c.pct : rpeLoadPct(c.reps, c.rpe);
+      const pct = c.kind === 'pct' ? c.pct : rpePctOfMax(c.reps, c.rpe);
       const kg = teamLoadKg(pct, max, mb.unit, mb.stepKg);
       const kgHi = c.pctHi ? teamLoadKg(c.pctHi, max, mb.unit, mb.stepKg) : 0;
       return { kg, kgHi: kgHi > kg ? kgHi : null, approx: c.kind === 'rpe', ovr: false, noMax: !(kg > 0), logged, max, source,
@@ -15469,7 +15471,7 @@ function blockAchieved(prog, logs, athleteId, todayIso) {
   const tb = lifts.reduce((s, x) => s + x.before, 0), tn = lifts.reduce((s, x) => s + x.now, 0);
   return { start, lifts, total: both ? { before: Math.round(tb * 10) / 10, now: Math.round(tn * 10) / 10, delta: Math.round((tn - tb) * 10) / 10 } : null };
 }
-if (typeof window !== 'undefined') Object.assign(window, { rpeLoadPct, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved });
+if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved });
 
 // ----- Scoring per federation (brief §8: one number, the formula always named) -----
 // IPF and its member federations score in IPF GL points; everyone else knows DOTS. (SPF is the
