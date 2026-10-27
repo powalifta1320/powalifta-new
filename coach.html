@@ -1291,7 +1291,7 @@ function coachSetupSteps() {
     { done: hasProgram, title: 'Bring your program in',
       sub: hasProgram ? 'Saved as a template. Athletes get it in one tap when they join.' : 'A photo, a screenshot or a paste from your sheet. Nothing to retype.',
       onClick: () => hasProgram ? goTemplates() : openSheetImport(null) },
-    { done: invited, title: 'Invite your athletes',
+    { done: invited, title: 'Invite your lifters',
       sub: invited ? pending + (pending === 1 ? ' invite out. They appear here when they sign up.' : ' invites out. They appear here when they sign up.') : 'One link each. They get the app and land on your roster.',
       onClick: () => openInviteModal() },
     { done: profiled, title: 'Put a face to your name',
@@ -1721,7 +1721,7 @@ function renderRoster() {
     lbl.appendChild(el('span', { class: 'fr-chip' }, 'Sample'));
     side.appendChild(lbl);
     side.appendChild(buildRosterSample());
-    side.appendChild(el('p', { class: 'fr-cap' }, 'Who trained, who is slipping and every PR, the moment they log a set. No opening a spreadsheet per athlete.'));
+    side.appendChild(el('p', { class: 'fr-cap' }, 'Who trained, who is slipping and every PR, the moment they log a set.'));
     fr.appendChild(side);
     area.appendChild(fr);
   } else {
@@ -2180,9 +2180,10 @@ async function renderMessages() {
     const wrap = el('div', { class: 'fr-msgs' });
     wrap.appendChild(_sampleThread());
     wrap.appendChild(uiEmpty({
-      title: 'Every athlete, one thread',
+      title: 'Every lifter, one thread',
       text: 'The sets they log arrive here as cards you can answer. No more screenshots in your DMs.',
-      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() }
+      primary: { label: 'Invite a lifter', onClick: () => openInviteModal() }
+
     }));
     area.appendChild(wrap);
     return;
@@ -3468,15 +3469,15 @@ function loadProgram() {
     area.appendChild(uiEmpty(tplN ? {
       icon: ICONS.program,
       title: 'Your program is ready',
-      text: 'It\'s saved as a template. Once an athlete joins, open them here and apply it in one tap.',
-      primary: { label: 'Invite an athlete', onClick: () => openInviteModal() },
+      text: 'It\'s saved as a template. Once a lifter joins, open them here and apply it in one tap.',
+      primary: { label: 'Invite a lifter', onClick: () => openInviteModal() },
       secondary: { label: tplN === 1 ? 'See your template' : 'See your ' + tplN + ' templates', onClick: toTemplates }
     } : {
       icon: ICONS.program,
       title: 'Start with your program',
       text: 'Bring it in from a photo, a screenshot or your spreadsheet, and keep it as a template. Athletes get it in one tap when they join.',
       primary: { label: 'Bring your program in', onClick: () => openSheetImport(null) },
-      secondary: { label: 'Invite an athlete first', onClick: () => openInviteModal() }
+      secondary: { label: 'Invite a lifter first', onClick: () => openInviteModal() }
     }));
     return;
   }
@@ -4577,7 +4578,7 @@ function renderRosterAnalytics() {
     if (x.started !== y.started) return x.started ? -1 : 1;
     return (y.daysSince || 0) - (x.daysSince || 0);
   });
-  area.appendChild(uiLabel('Athletes', { count: roster.length }));
+  area.appendChild(uiLabel('Lifters', { count: roster.length }));
   area.appendChild(uiList(rows.map(r => {
     let last;
     if (!r.started) last = 'Not started';
@@ -4691,7 +4692,8 @@ function renderAthleteCompare() {
   const bid = (document.getElementById('compareB') || {}).value;
   body.innerHTML = '';
   if (!aid || !bid || aid === bid) {
-    body.appendChild(uiList([uiRow({ title: 'Pick two different athletes' })]));
+    body.appendChild(uiList([uiRow({ title: 'Pick two different lifters' })]));
+
     return;
   }
 
@@ -4728,7 +4730,7 @@ function renderProgressForAthlete() {
   if (!aid) {
     const hasRoster = Store.get().athletes.some(a => a.coachId === user.id);
     if (hasRoster) { renderRosterAnalytics(); return; }
-    area.appendChild(uiEmpty({ icon: ICONS.chart, title: 'No athletes yet', text: 'Every lift, PR and trend for each athlete lands here once they log.', primary: { label: 'Invite an athlete', onClick: () => openInviteModal() } }));
+    area.appendChild(uiEmpty({ icon: ICONS.chart, title: 'No lifters yet', text: 'Every lift, PR and trend for each lifter lands here once they log.', primary: { label: 'Invite a lifter', onClick: () => openInviteModal() } }));
     return;
   }
 
