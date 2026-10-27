@@ -765,7 +765,7 @@ var MeetDay = (function () {
   }
   // The planner's plans by risk as one choice: each with its total and the odds of its thirds. Picked
   // = the plan the attempts are now (planMatch); the coach's own numbers pick none.
-  function planChooser(plans, picked, ev, unit, onPick) {
+  function planChooser(plans, picked, ev, unit, onPick, own) {
     var wrap = E('div', { class: 'md-plans' });
     var have = plans.length ? LIFTS.filter(function (l) { return plans[0].lifts[l]; }) : [];
     if (!have.length) { wrap.appendChild(E('p', { class: 'md-plans-note' }, 'Plans and their odds show once this block has top sets.')); return wrap; }
@@ -784,8 +784,10 @@ var MeetDay = (function () {
     });
     wrap.appendChild(grp);
     var missing = LIFTS.filter(function (l) { return have.indexOf(l) < 0; });
+    // own: the attempts are the coach's own numbers (none of the three), said so the pick isn't thought lost.
     wrap.appendChild(E('p', { class: 'md-plans-note' }, basisText(ev) + '. Odds shown are for the thirds' +
-      (missing.length ? '; no ' + missing.map(function (l) { return LIFT_NAME[l].toLowerCase(); }).join(' or ') + ' max yet' : '') + '.'));
+      (missing.length ? '; no ' + missing.map(function (l) { return LIFT_NAME[l].toLowerCase(); }).join(' or ') + ' max yet' : '') + '.' +
+      (own ? ' The attempts below are your own.' : '')));
     return wrap;
   }
 
@@ -864,12 +866,13 @@ var MeetDay = (function () {
       main.appendChild(head);
       // Plans by risk (Safe · Balanced · Bold), each with its total and the odds of its thirds. A pick
       // fills every attempt below, still the coach's to change; nothing moves until one is picked.
-      var plans = attemptPlans(ob.kg, { refByLift: ob.ref });
-      main.appendChild(planChooser(plans, planMatch(plans, d), ev, unit, function (pl) {
+      var plans = attemptPlans(ob.kg, { refByLift: ob.ref }), picked = planMatch(plans, d);
+      var hasNums = LIFTS.some(function (l) { return (d[l] || []).some(function (v) { return v != null; }); });
+      main.appendChild(planChooser(plans, picked, ev, unit, function (pl) {
         LIFTS.forEach(function (l) { if (pl.lifts[l]) d[l] = pl.lifts[l].map(function (x) { return x.kg; }); });
         d.strategy = pl.strategy;
         st.dirty[st.sel] = true; haptic('LIGHT'); paint();
-      }));
+      }, !picked && hasNums));
       var grid = E('div', { class: 'md-pl-grid', role: 'table', 'aria-label': 'Attempts' });
       grid.appendChild(E('div', { class: 'md-pl-row md-pl-th', role: 'row' }, E('span', { role: 'columnheader' }, 'Lift'),
         E('span', { role: 'columnheader' }, 'Opener'), E('span', { role: 'columnheader' }, 'Second'), E('span', { role: 'columnheader' }, 'Third')));
