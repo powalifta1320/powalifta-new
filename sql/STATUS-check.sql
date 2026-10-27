@@ -129,6 +129,11 @@ with checks(n, migration, applied) as (values
             and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6),
   (46, 'migration-social-sign-in-2026-10-25.sql  (Continue with Apple / Google: finish_social_signup + the guard''s exemption)',
         to_regprocedure('public.finish_social_signup(text, text)') is not null
-        and position('powa.social_role' in pg_get_functiondef('public.guard_profile_privileged_cols()'::regprocedure)) > 0)
+        and position('powa.social_role' in pg_get_functiondef('public.guard_profile_privileged_cols()'::regprocedure)) > 0),
+  (47, 'migration-clients-2026-10-27.sql  (Clients + payments: the coach''s own record of packages and payments, never the athlete''s; after row 43)',
+        to_regclass('public.client_billing') is not null
+        and to_regclass('public.client_payments') is not null),
+  (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
+        to_regclass('public.intake') is not null)
 )
 select n, migration, applied from checks order by n;
