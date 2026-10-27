@@ -55,3 +55,6 @@ supabase/.temp/
 # Browser-proof screenshots (test/social-sign-in.browser.mjs) and a local playwright-core link
 scratchpad-shots/
 node_modules/
+
+# The test tooling links its node_modules here: a symlink is a file, so "node_modules/" never matched it.
+/node_modules
