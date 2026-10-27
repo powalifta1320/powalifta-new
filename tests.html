@@ -98,6 +98,8 @@
 <script src="social-auth.js"></script>
 <script src="coach-lifters.js"></script>
 <script src="coach-home.js"></script>
+<script>window.POWA_AI = { enabled: false };   // the assistant's prompt builder only: no Ask AI panel on this page</script>
+<script src="ai-chat.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -4794,6 +4796,94 @@ test('Lifters and Today: a low-urgency check job in "Check on", fixed by a messa
   eq(f.k, 'msg'); eq(f.label, 'Send a check-in nudge');
   eq(f.text, 'Hey Leo, how did the week go? Fill in your check-in when you get a sec.');
 });
+
+/* ===========================================================
+   Ask AI, the coach's prompt (ai-chat.js coachPrompt): the ai-chat edge function keeps the first
+   6,000 characters, so the rules go first, a roster of 25 fits under 5,500, a longer one says who
+   was left out, and nothing a lifter wrote (notes, messages, check-in words, pain notes) or Apple
+   Health brought in reaches it.
+   =========================================================== */
+group('Ask AI: the coach prompt');
+(() => {
+  const P = window.PowaAIPrompt || null;
+  test('the prompt builder is loaded', () => assert(P && typeof P.coach === 'function', 'window.PowaAIPrompt.coach'));
+  if (!P) return;
+  const SECRET = { note: 'zebra-note-77', log: 'otter-log-71', msg: 'walrus-msg-73', ci: 'ibis-checkin-79', ans: 'heron-answer-83', pain: 'lynx-pain-89', fc: 'yak-video-97', coach: 'kiwi-private-61' };
+  const NAMES = ['Arjun Mehta', 'Sarah Kim', 'Tom Boyle', 'Nina Petrova', 'Leo Grant', 'Priya Shah', 'Marcus Doyle', 'Elena Rossi', 'Jonah Reed', 'Mei Tanaka',
+    'Callum Ward', 'Ines Duarte', 'Kofi Mensah', 'Hannah Berg', 'Dev Patel', 'Sofia Alvarez', 'Ryan O\'Neill', 'Amara Okafor', 'Tomas Novak', 'Grace Liu',
+    'Mateo Fernandez-Garcia', 'Aisha Rahman', 'Lukas Becker', 'Chloe Martin', 'Oskar Lindqvist'];
+  const today = todayISO(), dA = n => _addDaysISO(today, -n);
+  // n lifters like the demo's: six weeks of the three lifts, a 4-week block, and a mix of what a
+  // roster has: meets with a class, pain, notes and messages waiting, a set over its RPE, PRs.
+  function roster(n) {
+    const S = { athletes: [], workoutLogs: [], programs: [], meets: [], bodyweight: [], sessionNotes: [], messages: [], painReports: [], checkins: [], coachNotes: [],
+      checkinQuestions: [{ id: 'q1', coachId: 'c', prompt: 'Anything I should know?', kind: 'text', cadence: 'daily', active: true }], checkinAnswers: [] };
+    for (let i = 0; i < n; i++) {
+      const id = 'ai' + i, base = [150 + (i % 9) * 6, 95 + (i % 7) * 5, 185 + (i % 8) * 7], rise = i % 4 === 0 ? 2.5 : 0;
+      S.athletes.push({ id, name: NAMES[i % NAMES.length] + (i >= NAMES.length ? ' ' + (i + 1) : ''), coachId: 'c' });
+      for (let w = 5; w >= 0; w--) ['squat', 'bench', 'deadlift'].forEach((L, k) => {
+        const kg = base[k] + (5 - w) * rise;
+        S.workoutLogs.push({ id: id + 'l' + w + k, athleteId: id, lift: L, variant: 'Competition', exerciseName: '', weight: kg, reps: 3, rpe: 8,
+          e1rm: calcE1RM(kg, 3, 8), e1rmComp: calcCompE1RM(kg, 3, 8, L, 'Competition'), date: dA(w * 7 + k + (i % 2)), note: SECRET.log });
+      });
+      S.programs.push({ id: id + 'p', athleteId: id, coachId: 'c', name: ['Strength Block', 'Peak', 'Hypertrophy Wave', 'Volume Block'][i % 4],
+        weeks: [1, 2, 3, 4].map(wn => ({ id: id + 'w' + wn, number: wn, days: ['squat', 'bench', 'deadlift'].map((L, di) => ({ id: id + 'd' + wn + di, name: L, exercises: [{ id: id + 'e' + wn + di, lift: L, variant: 'Competition', exerciseName: '', note: 'Brace hard.',
+          sets: [{ id: id + 's' + wn + di, weight: base[di], reps: 3, rpe: 8, completed: wn === 1, actualRpe: wn === 1 ? (i % 5 === 0 && di === 1 ? 9.5 : 8) : null, completedAt: wn === 1 ? dA(8 - di) : null, note: SECRET.log }] }] })) })) });
+      if (i % 3 === 0) {
+        S.meets.push({ id: id + 'm', athleteId: id, name: 'State Open', date: dA(-(12 + i)), weightClass: '93 kg', status: 'planned' });
+        S.bodyweight.push({ id: id + 'bw', athleteId: id, date: dA(2), weight: 92.4 });                 // typed: under the class
+        S.bodyweight.push({ id: healthBwUid(), athleteId: id, date: dA(0), weight: 95.8 });              // from Apple Health: over it, never read
+      }
+      if (i % 4 === 1) S.sessionNotes.push({ id: id + 'n', athleteId: id, date: dA(1), note: SECRET.note, coachComment: null });
+      if (i % 4 === 2) S.messages.push({ id: id + 'g', coachId: 'c', athleteId: id, senderId: id, body: SECRET.msg, createdAt: new Date(Date.now() - 30 * 3600000).toISOString(), readAt: null });
+      if (i % 6 === 3) S.painReports.push({ id: id + 'x', athleteId: id, coachId: 'c', day: dA(1), bodyPart: 'knee', side: 'left', severity: 5, phase: 'top', lift: 'squat', note: SECRET.pain, createdAt: dA(1) + 'T18:00:00Z', resolvedAt: null });
+      S.checkins.push({ id: id + 'c', athleteId: id, weekStart: _monISO(dA(9)), sleep: 7, soreness: 6, stress: 7, feel: 8, note: SECRET.ci, createdAt: dA(9) + 'T08:00:00Z' });
+      S.checkinAnswers.push({ id: id + 'a', questionId: 'q1', athleteId: id, coachId: 'c', period: dA(0), num: null, text: SECRET.ans });
+      S.coachNotes.push({ id: id + 'k', coachId: 'c', athleteId: id, body: SECRET.coach });
+    }
+    return Object.assign(defaultStore(), S);
+  }
+  const lines = s => s.slice(s.indexOf('\nRoster, ')).split('\n- ').length - 1;   // the roster's lines (the rules are bullets too)
+  const saved = Store.get();
+  try {
+    Store.set(roster(25));
+    const fcs = [{ id: 'fc1', athleteId: 'ai0', coachId: 'c', lift: 'squat', note: SECRET.fc, coachReply: null, createdAt: new Date().toISOString() }];
+    const p25 = P.coach({ coachId: 'c', coachName: 'Kay Coach', unit: 'kg', formChecks: fcs });
+    test('the rules come first, before any lifter', () => {
+      assert(/^You are the POWALIFTA coaching assistant for coach Kay Coach\./.test(p25), 'starts with who it is');
+      const firstLifter = Math.min.apply(null, NAMES.map(nm => p25.indexOf(nm + ':')).filter(i => i >= 0));
+      ['Never invent numbers', 'training data only', 'Weights below are kg', 'Under ~120 words'].forEach(rule => {
+        const at = p25.indexOf(rule);
+        assert(at >= 0 && at < firstLifter, '"' + rule + '" before the roster');
+      });
+    });
+    test('25 demo-like lifters fit under 5,500 characters, one line each', () => {
+      assert(p25.length < 5500, 'length ' + p25.length);
+      NAMES.forEach(nm => assert(p25.indexOf('\n- ' + nm + ':') >= 0, nm + ' is in'));
+      eq(lines(p25), 25, 'a line per lifter');
+      assert(p25.indexOf('more lifters not shown') < 0, 'nobody left out');
+      assert(/Arjun Mehta: e1RM \d+ \(S\d+\/B\d+\/D\d+\)/.test(p25), 'the total and the three lifts');
+      assert(/; \d\/\d sessions; /.test(p25), 'sessions done of planned');
+      assert(/Strength Block wk \d\/4/.test(p25), 'the program and its week');
+      assert(/meet in \d+d \(93 kg class\)/.test(p25), 'a meet coming up');
+      assert(/pain left knee 5\/10/.test(p25), 'pain, the part and how bad');
+    });
+    test('nothing a lifter wrote, nor Apple Health, reaches the coach prompt', () => {
+      Object.keys(SECRET).forEach(k => assert(p25.indexOf(SECRET[k]) < 0, 'their ' + k + ' text leaked'));
+      assert(!/over class/.test(p25), 'the Health weigh-in (95.8 for 93) is never read: the typed 92.4 is under');
+      assert(p25.indexOf('Brace hard.') < 0, 'no exercise notes either');
+    });
+    Store.set(roster(60));
+    const p60 = P.coach({ coachId: 'c', coachName: 'Kay Coach', unit: 'lb' });
+    test('a roster past the budget stays under it and says who was left out', () => {
+      assert(p60.length <= 5500, 'length ' + p60.length);
+      const shown = lines(p60), m = /\n\(\+(\d+) more lifters not shown\)$/.exec(p60);
+      assert(m, 'ends with (+N more lifters not shown)');
+      eq(shown + Number(m[1]), 60, 'everyone is either shown or counted');
+      assert(/Answer in lb/.test(p60), 'the coach’s unit');
+    });
+  } finally { Store.set(saved); }
+})();
 
 function render() {
   const sum = document.getElementById('summary');

@@ -31,6 +31,11 @@
 (function () {
   'use strict';
 
+  // The coach's system prompt, pure over the Store (tests.html checks its order, size and privacy).
+  // Set before the enabled switch below, so the test page can read it without the panel.
+  var COACH_PROMPT_BUDGET = 5500;   // characters, under the ai-chat edge function's 6,000 cap (coachPrompt)
+  window.PowaAIPrompt = { coach: coachPrompt, coachLine: coachLine, BUDGET: COACH_PROMPT_BUDGET };
+
   // Master switch for the real (Gemini) backend. Leave true in production;
   // flip false to force local mock mode everywhere (no API calls at all).
   var LIVE_BACKEND = true;
@@ -538,17 +543,132 @@
   }
 
   // =====================================================================
+  //  THE COACH'S PROMPT: the rules first, then one short line per lifter
+  //  The ai-chat edge function keeps the first 6,000 characters of a system prompt (SYSTEM_CAP in
+  //  supabase/functions/ai-chat). The roster used to go first as JSON, about 1,050 characters a
+  //  lifter with raw sets and their notes, so from about six lifters the rules ("never invent
+  //  numbers") and most of the roster were cut. Now the rules lead, then a line per lifter, most
+  //  urgent first, inside COACH_PROMPT_BUDGET (25 lifters fit); whoever doesn't is counted at the end.
+  //  Training data only, like promptSnapshot: no notes, messages, form-check or check-in words, and
+  //  nothing from Apple Health (readiness, sleep, food, Health weigh-ins: the over-class flag reads
+  //  the weigh-ins they typed).
+  // =====================================================================
+  function cpNum(n) { return String(Math.round(Number(n) || 0)); }
+  function cpClip(s, n) { s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trim() + '…' : s; }
+  function cpAgo(d) { return d == null ? 'never' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + 'd ago'; }
+  // kg over the class of the meet, from the latest weigh-in they typed (never one from Apple Health).
+  function cpOverClass(athleteId, meet) {
+    if (!meet || !meet.weightClass || /\+/.test(meet.weightClass)) return 0;
+    var cls = parseFloat(String(meet.weightClass).replace(',', '.'));
+    if (!(cls > 0) || typeof aiBodyweight !== 'function') return 0;
+    var H = window.PowaHealthJS;
+    var bw = aiBodyweight((S().bodyweight || []).filter(function (b) { return b.athleteId === athleteId; }),
+      function (b) { return !!(H && H.fromHealth && H.fromHealth(b)); });
+    return bw ? Math.round((bw - cls) * 10) / 10 : 0;
+  }
+  // The open flags, short, from the app's own reasons (app.js deskReasons) and the next meet. Only
+  // what the app generates from numbers: never a reason's detail or body (their words).
+  function cpFlags(row) {
+    var st = row.status || {}, out = [], seen = {};
+    var add = function (k, t) { if (!seen[k]) { seen[k] = 1; out.push(t); } };
+    // Pain they reported (the part and how bad, never their note), else a yes to pain on a check-in.
+    var rep = st.pain && st.pain.open && st.pain.report;
+    if (rep) {
+      var part = String((typeof painPart === 'function' ? painPart(rep.bodyPart).label : rep.bodyPart) || 'pain').toLowerCase();
+      if (rep.side === 'left' || rep.side === 'right') part = rep.side + ' ' + part;
+      else if (rep.side === 'both') part += ' (both sides)';
+      add('pain', 'pain ' + part + (rep.severity != null ? ' ' + cpNum(rep.severity) + '/10' : ''));
+    }
+    (row.reasons || []).forEach(function (x) {
+      switch (x.type) {
+        case 'pain': add('pain', 'pain on their check-in'); break;
+        case 'overshoot': case 'drift': add('rpe', 'RPE over: ' + cpClip(x.text, 32)); break;
+        case 'note': add('note', 'note unanswered'); break;
+        case 'message': add('msg', 'message unanswered'); break;
+        case 'formcheck': add('fc', 'form check to review'); break;
+        case 'quiet': add('quiet', 'quiet' + (st.ago != null ? ' ' + st.ago + 'd' : '')); break;
+        case 'never': add('never', 'no sets logged yet'); break;
+        case 'missed': add('missed', cpClip(x.text, 24).toLowerCase() + ' this wk'); break;
+        case 'blockdone': add('block', 'block finished'); break;
+        case 'blockend': add('block', 'last week of the block'); break;
+        case 'stalling': add('stall', 'e1RM flat 3 wk'); break;
+        case 'nocheckin': add('ci', 'no check-in' + (st.checkinAgo != null ? ' ' + st.checkinAgo + 'd' : '')); break;
+        // meet / weight come from the meet below; check-in answers, readiness and the cut are never sent.
+      }
+    });
+    var nm = row.meet;
+    if (nm && nm.days >= 0 && nm.days <= 56) {
+      var m = nm.meet || {};
+      add('meet', (nm.days === 0 ? 'meet today' : 'meet in ' + nm.days + 'd') + (m.weightClass ? ' (' + cpClip(m.weightClass, 10) + ' class)' : ''));
+      var over = cpOverClass(row.athlete.id, m);
+      if (over > 0) add('bw', 'BW +' + over + ' kg over class');
+    }
+    return out;
+  }
+  // One lifter, one line: "Arjun Mehta: e1RM 654 (S227/B150/D278), 4wk +19; 1/3 sessions; Strength
+  // Block wk 1/3; trained today; PRs squat+bench; flags: meet in 53d (74 kg class)".
+  // row: an app.js deskRows row ({ athlete, status, reasons, wins, meet, total }).
+  function coachLine(row) {
+    var a = row.athlete || {}, st = row.status || {}, bits = [];
+    var b = {};
+    ['squat', 'bench', 'deadlift'].forEach(function (L) { b[L] = typeof bestE1RM === 'function' ? bestE1RM(a.id, L) || 0 : 0; });
+    var tot = b.squat + b.bench + b.deadlift;
+    var lifts = tot > 0 ? 'e1RM ' + cpNum(tot) + ' (S' + cpNum(b.squat) + '/B' + cpNum(b.bench) + '/D' + cpNum(b.deadlift) + ')' : 'no e1RM yet';
+    var d = row.total ? row.total.delta : null;
+    if (tot > 0 && d != null && isFinite(d)) lifts += ', 4wk ' + (d >= 0 ? '+' : '-') + cpNum(Math.abs(d));
+    bits.push(lifts);
+    var se = st.sessions || {};
+    bits.push((se.done || 0) + (se.planned ? '/' + se.planned : '') + ' sessions');
+    var p = st.program, w = st.week;
+    bits.push(p ? cpClip(p.name || 'Program', 26) + (w ? (w.finished ? ' (finished)' : ' wk ' + w.number + '/' + w.total) : '') : 'no program');
+    bits.push('trained ' + cpAgo(st.ago));
+    var prs = [];
+    (row.wins || []).forEach(function (x) { if (x.type === 'pr' && x.lifts) prs = prs.concat(x.lifts); });
+    if (prs.length) bits.push('PRs ' + prs.join('+'));
+    var flags = cpFlags(row);
+    if (flags.length) bits.push('flags: ' + flags.join(', '));
+    return cpClip(a.name || 'Lifter', 28) + ': ' + bits.join('; ');
+  }
+  // o: { coachId, coachName, unit ('kg' | 'lb'), today, now, formChecks, budget } → the system prompt.
+  function coachPrompt(o) {
+    o = o || {};
+    var budget = o.budget || COACH_PROMPT_BUDGET;
+    var today = o.today || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+    var rows = typeof deskRows === 'function' && o.coachId ? deskRows(o.coachId, { today: today, now: o.now, formChecks: o.formChecks }) : [];
+    // Most urgent first (the app's triage group; reported pain is group 1, as the desk adds it), so a
+    // long roster loses the lifters on plan.
+    var rank = function (r) { var g = r.reasons && r.reasons.length ? r.reasons[0].group : 99; return r.status && r.status.pain && r.status.pain.open ? Math.min(g, 1) : g; };
+    rows.sort(function (x, y) { return rank(x) - rank(y) || String(x.athlete.name).localeCompare(String(y.athlete.name)); });
+    var head = 'You are the POWALIFTA coaching assistant for coach ' + cpClip(o.coachName || '', 40) + '. POWALIFTA is an RPE-native powerlifting app; e1RM = weight/(1-((reps-1)+(10-RPE))*0.0333).\n' +
+      'Rules:\n' +
+      '- Use the roster below for any number about a lifter. Never invent numbers: if it is not there, say you do not have it.\n' +
+      '- The roster is training data only. You have no notes, messages or health data, so never quote or guess them.\n' +
+      '- Weights below are kg. Answer in ' + (o.unit === 'lb' ? 'lb (1 kg = 2.2046 lb)' : 'kg') + '.\n' +
+      '- Be concise, concrete and barbell-literate. Short markdown (**bold**, bullets). Under ~120 words unless asked for a full program.\n' +
+      'Roster, ' + today + ', most urgent first. Each line: name: e1RM total kg (squat/bench/deadlift bests), change over the last 4 weeks; sessions done/planned this week; program and week; last trained; PRs this week; open flags.';
+    if (!rows.length) return head + '\n(No lifters on the roster yet.)';
+    var out = head, shown = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var line = '\n- ' + coachLine(rows[i]);
+      var reserve = i < rows.length - 1 ? 40 : 0;   // room to say who was left out
+      if (out.length + line.length + reserve > budget) break;
+      out += line; shown++;
+    }
+    if (shown < rows.length) out += '\n(+' + (rows.length - shown) + ' more lifters not shown)';
+    return out;
+  }
+
+  // =====================================================================
   //  LIVE — Gemini via the JWT-gated ai-chat edge proxy
   // =====================================================================
   function systemPrompt() {
     var u = me();
     var ctx;
     if (ROLE === 'coach') {
-      var roster = rosterSummary();
-      ctx = "You are the POWALIFTA coaching assistant for coach " + (u ? u.name : '') + ".\n" +
-        "Roster snapshot (JSON): " + JSON.stringify(roster.map(function (r) {
-          return { name: r.name, total: r.snap.total, last7: r.snap.last7, mains: r.snap.mains, stale: r.stale, program: r.snap.program };
-        }));
+      var fcs = null;
+      try { if (typeof _coachFormChecks !== 'undefined' && Array.isArray(_coachFormChecks)) fcs = _coachFormChecks; } catch (e) {}
+      return coachPrompt({ coachId: u && u.id, coachName: u ? u.name : '', formChecks: fcs || undefined,
+        unit: (typeof getUnit === 'function' ? getUnit() : unit()) === 'kg' ? 'kg' : 'lb' });
     } else {
       ctx = "You are the POWALIFTA training assistant for athlete " + (u ? u.name : '') + ".\n" +
         "Their snapshot (JSON): " + JSON.stringify(u ? promptSnapshot(u.id) : {});
