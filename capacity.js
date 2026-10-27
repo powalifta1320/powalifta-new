@@ -323,7 +323,7 @@
     return '<div class="cl-list cap-list cap-more" role="list">' + e.rows.map(function (r) {
       var extra = r.over ? Math.round((r.hours - e.hours) * 2) / 2 : 0;
       return '<div class="cap-row' + (r.over ? ' is-over' : '') + '" role="listitem"><span class="cap-rt">+' + r.add + ' lifters</span>' +
-        '<span class="cap-rv">' + esc(hoursText(r.hours)) + ' a week' + (r.over ? '<span class="cap-over"> · ' + esc(hoursText(extra)) + ' over</span>' : '') + '</span></div>';
+        '<span class="cap-rside"><span class="cap-rv">' + esc(hoursText(r.hours)) + ' a week</span>' + (r.over ? '<span class="cap-over">' + esc(hoursText(extra)) + ' over</span>' : '') + '</span></div>';
     }).join('') + '</div>';
   }
   function timeHtml(M) {
@@ -362,9 +362,9 @@
   /* ---------- the phone: You › Capacity ---------- */
   function renderPhone(host) {
     if (!host) return;
-    var M = model(), first = !host._cp;
-    host._cp = true;
-    var rz = function (i) { return first ? ' rise" style="--i:' + i : ''; };
+    var M = model();
+    // The screen arrives with the app's push (coach.html data-nav): no second entrance inside it.
+    var rz = function () { return ''; };
     host.innerHTML = '<div class="cl-root cap-root is-phone">' +
       '<header class="cap-head' + rz(0) + '"><h1 class="cl-h1">Capacity</h1><p class="cl-sub" data-cp-sub>' + esc(subText(M)) + '</p></header>' +
       '<div class="cap-hero' + rz(1) + '"><div data-cp-big>' + bigHtml(M) + '</div><p class="cap-say" data-cp-say>' + sayHtml(M) + '</p>' +
@@ -376,7 +376,6 @@
       '<div data-cp-plan>' + planHtml(M) + '</div>' +
     '</div>';
     mount(host, M);
-    host.querySelectorAll('.rise').forEach(function (n) { n.addEventListener('animationend', function () { n.classList.remove('rise'); }, { once: true }); });
     // A real account's messages arrive with the thread tally: fetch it once, then repaint.
     if (M.waiting && window.DB && DB.listThreadsForCoach && coachId() && !host._cpTally) {
       host._cpTally = true;
