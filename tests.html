@@ -6273,6 +6273,109 @@ test('the roster preview: what the rules would change this week, changes first',
   } finally { Store.set(saved); }
 });
 
+/* ===========================================================
+   Reuse a block (app.js reuseBlockWeeks / reuseTopSets): a good block given to another lifter, scaled to
+   their maxes through the team pipeline, fresh (nothing logged, no extra sets, no attempts, no dates).
+   =========================================================== */
+group('reuse a block');
+const RBS = (w, r, rpe, extra) => Object.assign({ id: 'rb' + Math.random(), weight: w, reps: r, rpe, completed: false, actualRpe: null, completedAt: null }, extra || {});
+const RB_DONE = { completed: true, actualRpe: 8, completedAt: '2026-10-20', lastLogId: 'log-1', note: 'moved fast' };
+const rbBlock = () => [
+  { id: 'w1', number: 1, days: [
+    { id: 'd1', name: 'Squat Day', scheduledDate: '2026-10-19', exercises: [
+      { id: 'e1', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'Drive hard', srcId: 'm-e1', ovr: true, sets: [
+        RBS(180, 3, 8, Object.assign({ plannedWeight: 0 }, RB_DONE)),             // the top set by feel, lifted at 180
+        RBS(157.5, 4, 7, Object.assign({ plannedWeight: 155, plannedReps: 5 }, RB_DONE)),   // a back-off lifted heavier, a rep short
+        RBS(155, 5, 7, { adj: { from: 150, to: 155, sig: 'x' } }),
+        RBS(100, 5, 6, Object.assign({ extra: true }, RB_DONE)),                  // added on the day
+        RBS(200, 1, 9, { attempt: true, missed: true, skipped: true })           // a PR attempt
+      ] },
+      { id: 'e2', lift: 'squat', variant: 'Paused', exerciseName: '', note: '', sets: [RBS(147.5, 4, null, { pct: 70, pause: 2, pauseAt: 'bottom' })] }
+    ] },
+    { id: 'd2', name: 'Bench Day', exercises: [
+      { id: 'e3', lift: 'bench', variant: 'Competition', exerciseName: '', note: '', sets: [RBS(100, 5, 7, { acc: 'bands', accTxt: 'light' })] },
+      { id: 'e4', lift: 'other', variant: '', exerciseName: 'Barbell row', note: '', sets: [RBS(60, 10, 8)] }
+    ] },
+    { id: 'd3', name: 'Pull Day', exercises: [
+      { id: 'e5', lift: 'deadlift', variant: 'Competition', exerciseName: '', note: '', sets: [RBS(190, 4, 7)] },
+      { id: 'e6', lift: 'deadlift', variant: 'RDL', exerciseName: '', note: '', sets: [RBS(150, 6, 7, { tempo: '3s down' })] }
+    ] }
+  ] },
+  { id: 'w2', number: 2, days: [{ id: 'd4', name: 'Squat Day', exercises: [{ id: 'e7', lift: 'squat', variant: 'Competition', exerciseName: '', note: '', sets: [RBS(160, 5, 7.5)] }] }] }
+];
+const RB_SRC = { squat: 210, bench: 140, deadlift: 255 };
+const rbWalk = (weeks, fn) => weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => e.sets.forEach(s => fn(s, e, d, w)))));
+test('scaled to their maxes: kg becomes a % of the block\'s maxes, then their own loads', () => {
+  const r = reuseBlockWeeks(rbBlock(), { srcMaxes: RB_SRC, dstMaxes: { squat: 160, bench: 85, deadlift: 200 }, unit: 'kg' });
+  const w1 = r.weeks[0];
+  const sq = w1.days[0].exercises[0].sets;
+  eq(sq.length, 3, 'the extra set and the attempt are gone');
+  eq(sq[0].weight, 0, 'a top set by feel stays by feel (the plan had no load)'); eq(sq[0].reps, 3); eq(sq[0].rpe, 8);
+  eq(sq[1].reps, 5, 'the plan\'s reps, not the 4 lifted');
+  eq(sq[1].weight, 117.5, '155 of 210 is 74%; 74% of 160 = 118.4 → 117.5');
+  eq(sq[2].weight, 117.5);
+  eq(w1.days[0].exercises[1].sets[0].weight, 112.5, 'paused squat 70% of 160 = 112');
+  eq(w1.days[0].exercises[1].sets[0].pause, 2, 'the set fields ride along');
+  eq(w1.days[1].exercises[0].sets[0].weight, 60, 'bench 100 of 140 → 71% of 85 = 60.35 → 60');
+  eq(w1.days[1].exercises[0].sets[0].acc, 'bands');
+  eq(w1.days[1].exercises[1].sets[0].weight, 60, 'an accessory keeps its kg');
+  eq(w1.days[2].exercises[1].sets[0].weight, 117.5, 'an RDL scales against the deadlift max (150 of 255 = 59%, of 200 = 118)');
+  eq(w1.days[2].exercises[1].sets[0].tempo, '3s down');
+  eq(r.weeks[1].days[0].exercises[0].sets[0].weight, 122.5, 'week 2 too');
+  eq(r.noMax.length, 0); eq(r.noSrcMax.length, 0);
+});
+test('fresh: nothing logged, no dates, no team links, no marks, new ids', () => {
+  const src = rbBlock();
+  const r = reuseBlockWeeks(src, { srcMaxes: RB_SRC, dstMaxes: { squat: 160, bench: 85, deadlift: 200 }, unit: 'kg' });
+  let bad = [];
+  rbWalk(r.weeks, (s, e, d, w) => {
+    ['completed', 'actualRpe', 'completedAt', 'lastLogId', 'note', 'plannedWeight', 'plannedReps', 'extra', 'attempt', 'missed', 'skipped', 'adj', 'srcId', 'ovr'].forEach(k => {
+      if (k === 'completed' ? s[k] !== false : s[k] != null && s[k] !== '') bad.push(k);
+    });
+  });
+  eq(bad.join(), '', 'no logged field, mark or link left');
+  eq(r.weeks[0].days[0].scheduledDate, undefined, 'no pinned date');
+  eq(r.weeks[0].days[0].exercises[0].srcId, undefined); eq(r.weeks[0].days[0].exercises[0].ovr, undefined);
+  eq(r.weeks[0].days[0].exercises[0].note, 'Drive hard', 'the coach\'s note stays');
+  assert(r.weeks[0].id !== 'w1' && r.weeks[0].days[0].id !== 'd1' && r.weeks[0].days[0].exercises[0].sets[0].id !== src[0].days[0].exercises[0].sets[0].id, 'new ids');
+  eq(r.weeks[0].number, 1); eq(r.weeks[1].number, 2);
+  eq(src[0].days[0].exercises[0].sets[0].completed, true, 'the block itself is untouched');
+});
+test('no max on either side: by RPE where the set has one', () => {
+  const r = reuseBlockWeeks(rbBlock(), { srcMaxes: { squat: 210, bench: 0, deadlift: 255 }, dstMaxes: { squat: 160, bench: 85 }, unit: 'kg' });
+  eq(r.noSrcMax.join(), 'bench'); eq(r.noMax.join(), 'deadlift');
+  const w1 = r.weeks[0];
+  eq(w1.days[1].exercises[0].sets[0].weight, 0, 'the block had no bench max: bench goes by its RPE (100 kg was Arjun\'s, not hers)');
+  eq(w1.days[1].exercises[0].sets[0].rpe, 7);
+  eq(w1.days[2].exercises[0].sets[0].weight, 0, 'no deadlift max for her: no load');
+  eq(w1.days[2].exercises[0].sets[0].pct, 74.5, 'the % stays, so a max later fills it (190 of 255 = 74.5%)');
+  const lb = reuseBlockWeeks(rbBlock(), { srcMaxes: RB_SRC, dstMaxes: { squat: 160 * 1.0, bench: 85, deadlift: 200 }, unit: 'lbs' });
+  const lbs = lb.weeks[0].days[0].exercises[0].sets[1].weight / KG_PER_LB;
+  close(lbs, Math.round(lbs / 5) * 5, 0.05, 'pound loads land on 5 lb (kg kept to two decimals, like a team push)');
+});
+test('the top sets a preview shows: the heaviest loaded set per lift in week 1, against the block\'s', () => {
+  const src = rbBlock();
+  const r = reuseBlockWeeks(src, { srcMaxes: RB_SRC, dstMaxes: { squat: 160, bench: 85, deadlift: 200 }, unit: 'kg' });
+  const t = reuseTopSets(src, r.weeks);
+  eq(t.map(x => x.lift).join(), 'squat,bench,deadlift');
+  eq(t[0].kg, 117.5); eq(t[0].srcKg, 155); eq(t[0].reps, 5); eq(t[0].rpe, 7); eq(t[0].pct, 76);
+  eq(t[1].kg, 60); eq(t[1].pct, 60);
+  eq(t[2].kg, 150, 'deadlift: the competition lift\'s heaviest loaded set'); eq(t[2].srcKg, 190);
+  eq(reuseTopSetText(t[0], 'Arjun Mehta', 'kg'), 'Squat 117.5 × 5 @7 (76% of Arjun\'s)');
+  const byFeel = reuseTopSets([{ days: [{ exercises: [{ lift: 'squat', variant: 'Competition', sets: [RBS(0, 3, 8)] }] }] }], [{ days: [{ exercises: [{ lift: 'squat', variant: 'Competition', sets: [RBS(0, 3, 8)] }] }] }]);
+  eq(reuseTopSetText(byFeel[0], 'Arjun Mehta', 'kg'), 'Squat 3 @8, load by RPE');
+  eq(reuseTopSets([], []).length, 0);
+});
+test('the coach demo: Arjun\'s Base Block for Sarah, from his maxes to hers', () => {
+  const CD = _buildCoachDemoData();
+  const blk = (CD.store.programBlocks || []).find(b => b.athleteId === 'demo-a1' && Array.isArray(b.weeks) && b.weeks.length);
+  assert(blk, 'Arjun has a past block with weeks');
+  const r = reuseBlockWeeks(blk.weeks, { srcMaxes: { squat: 200, bench: 135, deadlift: 245 }, dstMaxes: { squat: 135, bench: 75, deadlift: 175 }, unit: 'kg' });
+  let logged = 0, sets = 0;
+  rbWalk(r.weeks, s => { sets++; if (s.completed || s.actualRpe != null) logged++; });
+  assert(sets > 10, 'a whole block'); eq(logged, 0, 'nothing logged comes across');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

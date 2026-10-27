@@ -15357,6 +15357,73 @@ function teamMasterFromProgram(prog, maxes) {
   });
   return { weeks, linked };
 }
+// ===== REUSE A BLOCK (2026-10-28) =====
+// A good block given to another lifter, scaled to their maxes. The block's main-lift loads become a % of the maxes
+// it was written from (srcMaxes) and come back as the other lifter's own loads (dstMaxes), through the team pipeline
+// (teamMasterFromProgram → teamMemberWeeks → teamDetachProgram): variants scale against the competition max,
+// accessories keep their kg, loads round to the lifter's jump (unit). Fresh: the plan's own loads and reps, nothing
+// logged, no sets added on the day, no PR attempts, no pinned dates, no team links or publish marks. A main lift with
+// no max for the block goes by its RPE (another lifter's kg means nothing for this one); one with no max for the lifter
+// keeps its % with no load until they have one. Pure; unit-tested.
+// → { weeks, noMax: [lift] (no max for the lifter), noSrcMax: [lift] (none for the block) }
+function reuseBlockWeeks(weeks, opts) {
+  opts = opts || {};
+  const src = opts.srcMaxes || {}, dst = opts.dstMaxes || {};
+  const noSrcMax = MAIN_LIFTS.filter(L => !(teamMaxKg(src, L) > 0));
+  const clean = _tmClone(weeks || []).map(w => Object.assign({}, w, { days: (w.days || []).map(d => {
+    const nd = Object.assign({}, d);
+    delete nd.scheduledDate;
+    nd.exercises = (d.exercises || []).map(e => Object.assign({}, e, { sets: (e.sets || []).filter(s => s && !s.extra && !s.attempt).map(s => {
+      const n = Object.assign({}, s, { weight: planWeight(s) || 0, reps: s.plannedReps || s.reps });
+      TEAM_LOG_FIELDS.forEach(k => { delete n[k]; });
+      delete n.adj; delete n.srcId; delete n.ovr;
+      n.completed = false;
+      // No max for the block on this lift: a load in kg was that lifter's; one with an RPE goes by it instead.
+      if (MAIN_LIFTS.indexOf(e.lift) >= 0 && noSrcMax.indexOf(e.lift) >= 0 && (n.pct == null || n.pct === '') && Number(n.weight) > 0 && n.rpe != null && n.rpe !== '') { n.weight = 0; delete n.weightHi; }
+      return n;
+    }) }));
+    return nd;
+  }) }));
+  const master = teamMasterFromProgram({ weeks: clean }, src).weeks;
+  const member = teamMemberWeeks(master, null, { maxes: dst, unit: opts.unit, stepKg: opts.stepKg });
+  return { weeks: teamDetachProgram(member.weeks), noMax: member.noMax, noSrcMax };
+}
+// The top sets a preview shows: per main lift, the heaviest loaded set of week 1 (the competition lift first, then
+// any variant), with the block's own load beside it. srcWeeks: the block as it was; dstWeeks: reuseBlockWeeks's.
+// → [{ lift, kg, reps, rpe, rpeHi, rir, srcKg, pct }] (kg 0: load by RPE; pct: kg against the block's, rounded)
+function reuseTopSets(srcWeeks, dstWeeks) {
+  const s1 = (srcWeeks || [])[0], d1 = (dstWeeks || [])[0];
+  if (!s1 || !d1) return [];
+  const out = [];
+  MAIN_LIFTS.forEach(L => {
+    const pairs = [];
+    (s1.days || []).forEach((day, di) => (day.exercises || []).forEach((e, ei) => {
+      if (e.lift !== L) return;
+      const de = (((d1.days || [])[di] || {}).exercises || [])[ei];
+      if (!de) return;
+      const ss = (e.sets || []).filter(x => x && !x.extra && !x.attempt);
+      ss.forEach((x, k) => { const y = (de.sets || [])[k]; if (y) pairs.push({ comp: !e.variant || e.variant === 'Competition', src: x, dst: y }); });
+    }));
+    if (!pairs.length) return;
+    const pool = pairs.some(p => p.comp) ? pairs.filter(p => p.comp) : pairs;
+    const loaded = pool.filter(p => Number(p.dst.weight) > 0);
+    const pick = (loaded.length ? loaded : pool).slice().sort((a, b) => (Number(b.dst.weight) || 0) - (Number(a.dst.weight) || 0) || (Number(b.dst.rpe) || 0) - (Number(a.dst.rpe) || 0))[0];
+    const kg = Number(pick.dst.weight) || 0, srcKg = Number(planWeight(pick.src)) || 0;
+    out.push({ lift: L, kg, reps: pick.dst.reps, rpe: pick.dst.rpe == null || pick.dst.rpe === '' ? null : Number(pick.dst.rpe),
+      rpeHi: pick.dst.rpeHi != null ? Number(pick.dst.rpeHi) : null, rir: !!pick.dst.rir, srcKg, pct: kg > 0 && srcKg > 0 ? Math.round(kg / srcKg * 100) : null });
+  });
+  return out;
+}
+// One line of it, in the coach's unit: "Squat 117.5 × 5 @7 (76% of Arjun's)", "Squat 3 @8, load by RPE".
+function reuseTopSetText(t, srcName, unit) {
+  if (!t) return '';
+  const w = (kg) => _num(unit === 'lbs' ? Math.round(Number(kg) / KG_PER_LB * 10) / 10 : Number(kg));
+  const eff = t.rpe == null ? '' : t.rir ? ', ' + _num(10 - (t.rpeHi != null && t.rpeHi > t.rpe ? t.rpeHi : t.rpe)) + ' RIR' : ' @' + _num(t.rpe) + (t.rpeHi != null && t.rpeHi > t.rpe ? '-' + _num(t.rpeHi) : '');
+  const name = LIFT_LABELS[t.lift] || t.lift;
+  if (!(t.kg > 0)) return name + ' ' + t.reps + eff + ', load by RPE';
+  const who = String(srcName || '').trim().split(/\s+/)[0];
+  return name + ' ' + w(t.kg) + ' × ' + t.reps + eff + (t.pct != null && who ? ' (' + t.pct + '% of ' + who + '\'s)' : '');
+}
 // The maxes a lifter's % sets work from, with where each came from (printed next to the number):
 // the coach's max for the block, else the best estimated max, else a meet single.
 function teamMemberMaxes(athleteId, prog) {
