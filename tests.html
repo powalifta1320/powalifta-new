@@ -5952,6 +5952,41 @@ test('the demos: a career worth showing (athlete.html?demo=1 and Arjun on coach.
   eq(careerEvents('demo-a1', CD.store, { unit: 'kg' }).events.filter(e => e.kind === 'meet' && /Fall Nationals/.test(e.title)).length, 0, 'the planned meet is not a result');
 });
 
+/* ===========================================================
+   Coach settings (app.js CoachSettings): a coach's own settings by key, Store.coachSettings (db.js
+   coach_settings, or this device until the migration runs). The demo keeps them in memory.
+   =========================================================== */
+group('coach settings (CoachSettings)');
+test('get and set by key; the demo writes nothing to the device', () => {
+  const saved = Store.get(), was = window._demoMode, u = window._user;
+  try {
+    Store.set(Object.assign(defaultStore(), { coachSettings: { progression: { v: 1, rules: [], fallback: 'keep' } } }));
+    window._demoMode = true; window._user = { id: 'cs-demo', userType: 'coach' };
+    eq(CoachSettings.get('progression').fallback, 'keep');
+    eq(CoachSettings.get('nothing'), null);
+    const p = CoachSettings.set('capacity', { max: 25 });
+    assert(p && typeof p.then === 'function', 'set returns a promise');
+    eq(Store.get().coachSettings.capacity.max, 25, 'the Store has it at once');
+    eq(Store.get().coachSettings.progression.fallback, 'keep', 'other keys kept');
+    eq(localStorage.getItem('powa-coach-settings-cs-demo'), null, 'nothing on the device in the demo');
+    CoachSettings.set('capacity', null);
+    eq(CoachSettings.get('capacity'), null);
+    assert(!('capacity' in Store.get().coachSettings), 'a null removes the key');
+  } finally { Store.set(saved); window._demoMode = was; window._user = u; }
+});
+test('no database on the page: the device keeps it, on the shared key', () => {
+  const saved = Store.get(), was = window._demoMode, u = window._user;
+  try {
+    Store.set(defaultStore());
+    window._demoMode = false; window._user = { id: 'cs-dev', userType: 'coach' };
+    eq(CoachSettings.get('progression'), null, 'no settings yet');
+    CoachSettings.set('capacity', { max: 10 });
+    eq(JSON.parse(localStorage.getItem('powa-coach-settings-cs-dev')).capacity.max, 10);
+    eq(Store.get().coachSettings.capacity.max, 10);
+  } finally { localStorage.removeItem('powa-coach-settings-cs-dev'); Store.set(saved); window._demoMode = was; window._user = u; }
+});
+
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

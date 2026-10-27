@@ -136,6 +136,9 @@ with checks(n, migration, applied) as (values
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
         to_regclass('public.intake') is not null),
   (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
-        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0)
+        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0),
+  (50, 'migration-coach-settings-2026-10-28.sql  (a coach''s own settings: progression rules, the capacity check; coach-only)',
+        to_regclass('public.coach_settings') is not null
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4)
 )
 select n, migration, applied from checks order by n;

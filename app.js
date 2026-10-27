@@ -11489,6 +11489,38 @@ function deskViewMatch(key, row, nowMs) {
 }
 function deskViewCount(rows, key, nowMs) { return rows.filter(r => deskViewMatch(key, r, nowMs)).length; }
 
+// ===== COACH SETTINGS (2026-10-28) =====
+// A coach's own settings by key: one small JSON object per coach (db.js coach_settings; this device until the
+// migration runs, under 'powa-coach-settings-<coachId>', moved up on the first load after it). db.js hydrates it
+// into Store.coachSettings; the demo seeds it and keeps it in memory. 'progression' holds the progression rules
+// (below); the roster capacity check keeps its own key the same way.
+//   CoachSettings.get(key) → the value, or null
+//   CoachSettings.set(key, value) → Promise<{ ok, data, local? }>: the Store first (screens repaint at once), then
+//     the save; a refused save puts the old value back. A null value removes the key.
+window.CoachSettings = {
+  get: function (key) { const cs = Store.get().coachSettings || {}; return cs[key] === undefined ? null : cs[key]; },
+  set: function (key, value) {
+    const was = (Store.get().coachSettings || {})[key];
+    const put = (v) => Store.update(st => { const o = Object.assign({}, st.coachSettings || {}); if (v === null || v === undefined) delete o[key]; else o[key] = v; st.coachSettings = o; });
+    put(value);
+    if (window._demoMode) return Promise.resolve({ ok: true, data: Store.get().coachSettings, demo: true });
+    const u = getCurrentUser();
+    const patch = {}; patch[key] = value === undefined ? null : value;
+    if (window.DB && typeof DB.saveCoachSettings === 'function') {
+      return DB.saveCoachSettings(patch, u && u.id).then(r => {
+        if (!r || !r.ok) { put(was); return r || { ok: false }; }
+        // The server's copy brings any key saved elsewhere; this key stays what the coach last chose.
+        const mine = (Store.get().coachSettings || {})[key];
+        if (r.data) Store.update(st => { const o = Object.assign({}, r.data); if (mine === undefined) delete o[key]; else o[key] = mine; st.coachSettings = o; });
+        return r;
+      }).catch(e => { put(was); return { ok: false, error: e }; });
+    }
+    // No database on this page: the device keeps it, on the key db.js moves up later.
+    if (u && u.id) { try { localStorage.setItem('powa-coach-settings-' + u.id, JSON.stringify(Store.get().coachSettings || {})); } catch (e) {} }
+    return Promise.resolve({ ok: true, data: Store.get().coachSettings, local: true });
+  }
+};
+
 // ===== THE ATHLETE WORKSPACE (laptop, W1b 2026-10-22) =====
 // "Review last week" and "write next week" as one table. The week reviewed is the latest one
 // with a logged set; next week is the one after it. One row per block of identical sets (a top
