@@ -5162,6 +5162,26 @@ test('in pounds: weights converted, estimates round, lifted weights stay exact, 
   eq(pr.unit, 'lbs'); eq(pr.value, 282); eq(pr.reps[0].value, 226); eq(pr.detail, 'e1RM 282 lbs (+7) · 226 lbs × 5');
   eq(m.value, 777.1); eq(m.lifts.deadlift, 336.2); eq(m.weightClass, '83 kg'); eq(C.hero.bestMeetTotal, 777.1); eq(C.hero.unit, 'lbs');
 });
+test('the demos: a career worth showing (athlete.html?demo=1 and Arjun on coach.html?demo=1)', () => {
+  const D = _buildDemoData();
+  const A = careerEvents(D.user.id, D.store, { unit: 'kg' });
+  assert(A.hero.meets >= 5, 'five meets, got ' + A.hero.meets);
+  assert(A.years.length >= 3, 'three years or more');
+  assert(A.events.some(e => e.kind === 'class'), 'a class move');
+  assert(A.events.filter(e => e.kind === 'block').length >= 5, 'past blocks');
+  eq(A.events.filter(e => e.type === 'sessions').map(e => e.n).join(), '250,100,50');
+  assert(A.events.filter(e => e.type === 'total').length >= 3, 'the total past three steps');
+  eq(A.events.filter(e => e.kind === 'meet' && e.first).length, 1);
+  eq(A.hero.bestMeetTotal, 515, 'Spring Classic stays the best meet');
+  const CD = _buildCoachDemoData();
+  const R = careerEvents('demo-a1', CD.store, { unit: 'kg' });
+  assert(R.hero.meets >= 3, 'Arjun lifted three meets');
+  assert(R.events.some(e => e.kind === 'class' && e.direction === 'down'), 'Arjun cut to 74');
+  assert(R.events.filter(e => e.kind === 'block').length >= 5, 'Arjun\'s blocks');
+  assert(R.hero.years >= 2, 'two years and more');
+  eq(R.hero.bestMeetTotal, 572.5, 'the Spring Classic is his best');
+  eq(careerEvents('demo-a1', CD.store, { unit: 'kg' }).events.filter(e => e.kind === 'meet' && /Fall Nationals/.test(e.title)).length, 0, 'the planned meet is not a result');
+});
 
 function render() {
   const sum = document.getElementById('summary');

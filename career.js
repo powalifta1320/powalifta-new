@@ -63,6 +63,11 @@
     var r = v >= 1 ? Math.round(v) : Math.round(v * 10) / 10;
     return (kg < 0 ? '−' : '+') + group3(r);
   }
+  // A block's change, an estimate: whole kilos (pounds), '±0' when it rounds away.
+  function signedWhole(kg, unit) {
+    var r = Math.round(inUnit(Math.abs(kg), unit));
+    return r === 0 ? '±0' : (kg < 0 ? '−' : '+') + group3(r);
+  }
   function pos(v) { var n = Number(v); return n > 0 && isFinite(n) ? n : 0; }
   function plural(n, one, many) { return group3(n) + ' ' + (n === 1 ? one : (many || one + 's')); }
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
@@ -222,7 +227,7 @@
       if (n === 1) {
         var top = null;
         D.logs.forEach(function (l) { if (LIFTS.indexOf(l.lift) >= 0 && pos(l.weight) && (!top || e1Of(l) > e1Of(top))) top = l; });
-        events.push({ kind: 'milestone', type: 'first-session', date: d, key: 'ms|first-session', title: 'First session',
+        events.push({ kind: 'milestone', type: 'first-session', date: d, key: 'ms|first-session', title: 'First session logged',
           detail: top ? setName(top) + ' ' + group3(exact(pos(top.weight), u)) + ' ' + u + ' × ' + (Number(top.reps) || 1) : '' });
       }
       if (SESSION_MARKS.indexOf(n) >= 0) {
@@ -293,7 +298,7 @@
       events.push({
         kind: 'block', date: end, key: 'block|' + id, title: name, blockId: b.id || null,
         detail: [plural(weeks, 'week'), sess ? plural(sess, 'session') : null].filter(Boolean).join(' · '),
-        value: any ? Math.round(inUnit(total, u)) : null, valueText: any ? signed(total, u) : null, delta: true, unit: u,
+        value: any ? Math.round(inUnit(total, u)) || 0 : null, valueText: any ? signedWhole(total, u) : null, delta: true, unit: u,
         startedOn: start, endedOn: end, weeks: weeks, sessions: sess, changeKg: any ? change : null, changeTotalKg: any ? total : null
       });
     });
@@ -447,16 +452,15 @@
     return row;
   }
 
-  // A year's moments (meets, class moves, blocks, milestones) as one timeline. Meets and class moves
-  // always show; beyond four of the rest, "Show all n" opens the list.
+  // A year's moments (meets, class moves, milestones, blocks) as one timeline. Everything shows but
+  // the blocks past the three newest: those wait behind "Show all n".
   function momentsNode(list, o) {
     var box = mk('div', 'ui-list cv-list');
     box.setAttribute('role', 'list');
-    var keep = 0, hidden = [];
+    var blocks = 0, hidden = [];
     list.forEach(function (e) {
-      var always = e.kind === 'meet' || e.kind === 'class';
       var row = eventRow(e);
-      if (!always) { keep++; if (keep > 4) { row.hidden = true; row.classList.add('is-more'); hidden.push(row); } }
+      if (e.kind === 'block' && ++blocks > 3) { row.hidden = true; row.classList.add('is-more'); hidden.push(row); }
       box.appendChild(row);
     });
     if (hidden.length) box.appendChild(moreButton('Show all ' + list.length, 'Show fewer', function (open) {
