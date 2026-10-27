@@ -4615,14 +4615,14 @@ group('social sign-in (Apple, Google)');
    Render + boot
    =========================================================== */
 /* ===========================================================
-   Lifters (coach-lifters.js): the four groups, the one line, the number,
-   the one big answer and the block picture, on fixture rows shaped like
-   app.js deskRows / coachAthleteStatus.
+   Lifters + Today (coach-lifters.js): the groups, the week ring, how urgent a job is, one job per
+   lifter per kind (a meet today is one job), the team summary and a lifter's data, on fixture rows
+   shaped like app.js deskRows / coachAthleteStatus.
    =========================================================== */
 group('lifters (coach-lifters.js)');
 const CL = typeof CoachLifters !== 'undefined' ? CoachLifters : (window.CoachLifters || null);
 const clRow = (o) => {
-  const r = { athlete: { id: 'a', name: 'Ada Lee' }, status: { program: null, week: null, sessions: { done: 0, planned: 0 }, pain: null }, reasons: [], meet: null, bw: null, drift: null, total: null, live: null };
+  const r = { athlete: { id: 'a', name: 'Ada Lee' }, status: { program: null, week: null, sessions: { done: 0, planned: 0 }, pain: null }, reasons: [], meet: null, bw: null, drift: null, total: null, live: null, wins: [] };
   Object.keys(o || {}).forEach(k => { r[k] = k === 'athlete' || k === 'status' ? Object.assign({}, r[k], o[k]) : o[k]; });
   return r;
 };
@@ -4638,79 +4638,111 @@ test('groups: the worst group wins and every lifter lands once', () => {
   ];
   const g = CL.clGroups(rows, { order: { p: 0, b: 1, m: 2 } });
   eq(g.map(x => x.key).join(','), 'need,block,meet,plan');
+  eq(g[0].title, 'Check on');
   eq(g[0].rows.map(r => r.athlete.id).join(','), 'p', 'pain beats a meet');
-  eq(g[1].rows.map(r => r.athlete.id).join(','), 'b');
   eq(g[2].rows.map(r => r.athlete.id).join(','), 'm,q', 'nearest meet first');
   eq(g[3].rows.map(r => r.athlete.id).join(','), 'a,z', 'on plan by name');
   eq(g.reduce((n, x) => n + x.rows.length, 0), rows.length, 'nobody twice, nobody lost');
-  eq(CL.clGroups([]).length, 0, 'empty groups are dropped');
   eq(CL.clGroupKey(clRow({ reasons: [{ type: 'meet' }, { type: 'blockend' }], meet: { days: 0, meet: {} } })), 'meet', 'a meet this fortnight beats the block to write');
-  eq(CL.clGroupKey(clRow({ reasons: [{ type: 'blockend' }], meet: { days: 40, meet: {} } })), 'block', 'a far meet waits behind the block');
 });
-test('the line: the coach\'s words, short enough for a row', () => {
-  const pain = clRow({ reasons: [{ type: 'pain' }], status: { pain: { report: { bodyPart: 'low_back', severity: 6, lift: 'deadlift' }, count: 2 } } });
-  eq(CL.clLine(pain), 'Low back 6/10 · deadlift');
-  const w = clRow({ reasons: [{ type: 'weight', text: 'BW +0.8 over class' }], bw: { bw: 74.8, cls: '74', over: 0.8 }, meet: { days: 53, meet: { name: 'Open' } } });
-  eq(CL.clLine(w), '0.8 kg over the 74 class');
-  eq(CL.clLine(clRow({ reasons: [{ type: 'overshoot', text: 'Bench @9.5 vs @8' }] })), 'Bench @9.5, you wrote 8');
-  eq(CL.clLine(clRow({ reasons: [{ type: 'meet', text: 'Meet today' }], meet: { days: 0, meet: { name: 'Autumn Open' } } })), 'Meet today · Autumn Open');
-  eq(CL.clLine(clRow({ meet: { days: 12, meet: { name: 'State Championships 2026' } } })), 'Meet in 12 days', 'a long meet name waits for the page');
-  eq(CL.clLine(clRow({ status: { program: { name: 'Wave' }, week: { idx: 2, total: 6 }, sessions: { done: 3, planned: 3 } } })), 'Week 3 of 6 · 3 of 3 done');
-  eq(CL.clLine(clRow({ reasons: [{ type: 'message', text: 'Message 1d' }] })), 'Wrote you · 1 day ago');
-  eq(CL.clLine(clRow({ reasons: [{ type: 'quiet', text: 'Quiet' }], status: { ago: 9 } })), '9 days since a session');
-  eq(CL.clLine(clRow({ reasons: [{ type: 'missed', text: 'Missed 2 sessions this week' }] })), 'Missed 2 sessions');
-  eq(CL.clLine(clRow({})), 'No block yet');
-  ['pain', 'weight', 'overshoot', 'drift', 'note', 'message', 'formcheck', 'quiet', 'never', 'missed', 'noprogram', 'blockend', 'blockdone', 'stalling'].forEach(t => {
-    const line = CL.clLine(clRow({ reasons: [{ type: t, text: t === 'overshoot' ? 'Bench @9.5 vs @8' : t === 'missed' ? 'Missed 1 session this week' : t === 'formcheck' ? 'Form check · squat' : 'x' }], status: { ago: 9 }, drift: { avg: 0.5, n: 4 } }));
-    assert(line.length <= 28, t + ' fits a row: ' + line);
-  });
+test('the week ring: one segment per planned session', () => {
+  eq(CL.clRing(2, 3).n, 3); eq(CL.clRing(2, 3).k, 2);
+  eq(CL.clRing(5, 3).k, 3, 'extra sessions fill it, never more');
+  eq(CL.clRing(0, 0), null, 'no block, no ring');
+  eq(CL.clRing(1, 3).text, '1 of 3 sessions in the last 7 days');
 });
-test('the number: the four-week change, toned', () => {
-  eq(CL.clNumber(clRow({ total: { values: [600, 622], delta: 22 } })).text, '+22');
-  eq(CL.clNumber(clRow({ total: { values: [600, 622], delta: 22 } })).tone, 'up');
-  eq(CL.clNumber(clRow({ total: { values: [600, 596], delta: -4 } })).tone, 'down');
-  eq(CL.clNumber(clRow({ total: { values: [600, 600], delta: 0 } })).text, '0');
-  eq(CL.clNumber(clRow({ total: null })).text, '—');
+test('urgency: today first, then health and deadlines, then the rest', () => {
+  const T = '2026-10-26';
+  eq(CL.clTier(clRow({ status: { pain: { report: { severity: 6, day: '2026-10-25' }, count: 2 } } }), { type: 'pain' }, T), 0, 'pain twice this week, yesterday');
+  eq(CL.clTier(clRow({ status: { pain: { report: { severity: 4, day: '2026-10-20' }, count: 1 } } }), { type: 'pain' }, T), 1);
+  eq(CL.clTier(clRow({ meet: { days: 1, meet: {} }, status: { pain: { report: { severity: 3, day: '2026-10-20' }, count: 1 } } }), { type: 'pain' }, T), 0, 'pain right before a meet');
+  eq(CL.clTier(clRow({ meet: { days: 12, meet: {} } }), { type: 'weight' }, T), 1);
+  eq(CL.clTier(clRow({ meet: { days: 40, meet: {} } }), { type: 'weight' }, T), 3);
+  eq(CL.clTier(clRow({}), { type: 'message', text: 'Message 1d' }, T), 1, 'waiting a day');
+  eq(CL.clTier(clRow({}), { type: 'message', text: 'Message 14h' }, T), 2);
+  eq(CL.clTier(clRow({}), { type: 'stalling' }, T), 4);
 });
-test('the answer: one big thing per state', () => {
-  const a = CL.clAnswer(clRow({ reasons: [{ type: 'pain' }], status: { pain: { report: { bodyPart: 'low_back', severity: 6, lift: 'deadlift', phase: 'top' }, count: 2 } } }));
-  eq(a.big, '6/10'); eq(a.tone, 'pain'); assert(/^Low back on deadlift, 2nd time this week/.test(a.words), a.words);
-  const m = CL.clAnswer(clRow({ reasons: [{ type: 'meet' }], meet: { days: 0, meet: { name: 'Autumn Open', weightClass: '83' } } }));
-  eq(m.big, 'Today'); eq(m.words, 'Autumn Open · 83 class · attempts not set');
-  const os = CL.clAnswer(clRow({ reasons: [{ type: 'overshoot', text: 'Bench @9.5 vs @8' }] }));
-  eq(os.big, '@9.5'); eq(os.words, 'Bench, you wrote 8');
-  const w = CL.clAnswer(clRow({ reasons: [{ type: 'weight' }], bw: { bw: 74.8, cls: '74', over: 0.8 }, meet: { days: 53, meet: { name: 'Open' } } }));
-  eq(w.big, '74.8 kg'); eq(w.words, '0.8 over the 74 class · meet in 8 weeks');
-  const plan = CL.clAnswer(clRow({ total: { values: [600, 622], delta: 22 }, status: { week: { idx: 2, total: 6 }, sessions: { done: 3, planned: 3 } } }));
-  eq(plan.big, '+22 kg'); eq(plan.tone, 'ok');
-  const q = CL.clAnswer(clRow({ reasons: [{ type: 'message', text: 'Message 2d', body: 'Back feels fine now' }] }));
-  eq(q.quote, true); eq(q.big, '“Back feels fine now”'); eq(q.words, 'no reply yet · waiting 2 days');
-  eq(CL.clAnswer(clRow({ reasons: [{ type: 'checkin', text: 'Slept 5h' }] })).big, '5h');
-  eq(CL.clAnswer(clRow({ reasons: [{ type: 'blockend' }], status: { program: { name: 'Wave' } } })).big, 'Last week');
-});
-test('the block picture: sessions and strength per week, the meet in its week', () => {
-  const set = (done, at, skipped) => ({ id: 's', weight: 100, reps: 5, rpe: 8, completed: !!done, completedAt: at || null, skipped: !!skipped });
-  const day = (n, sets) => ({ id: 'd' + n, name: 'Day ' + n, exercises: [{ lift: 'squat', sets }] });
-  const prog = { id: 'p', startsOn: '2026-10-05', weeks: [
-    { number: 1, days: [day(1, [set(1, '2026-10-05T10:00:00Z')]), day(2, [set(1, '2026-10-07T10:00:00Z')]), day(3, [set(0, null, true)])] },
-    { number: 2, days: [day(1, [set(1, '2026-10-12T10:00:00Z')]), day(2, [set(0)]), day(3, [set(0)])] },
-    { number: 3, days: [day(1, [set(0)]), day(2, [set(0)])] }
-  ] };
-  const logs = [
-    { lift: 'squat', date: '2026-10-05', e1rmComp: 200 }, { lift: 'bench', date: '2026-10-05', e1rmComp: 120 }, { lift: 'deadlift', date: '2026-10-07', e1rmComp: 240 },
-    { lift: 'squat', date: '2026-10-12', e1rmComp: 210 }
+test('jobs: one per lifter per kind; a meet today is one job', () => {
+  const T = '2026-10-26';
+  const meet = { name: 'Autumn Open', date: T, weightClass: '105' };
+  const rows = [
+    clRow({ athlete: { id: 't', name: 'Tom Boyle' }, meet: { days: 0, meet }, bw: { bw: 105.3, cls: 105, over: 0.3 }, reasons: [{ type: 'weight', group: 2 }, { type: 'meet', group: 2 }, { type: 'blockend', group: 8 }] }),
+    clRow({ athlete: { id: 'p', name: 'Priya Shah' }, meet: { days: 0, meet: Object.assign({}, meet, { weightClass: '63' }) }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }, { type: 'meet', group: 2 }] }),
+    clRow({ athlete: { id: 'k', name: 'Kofi Mensah' }, reasons: [{ type: 'note', group: 4, text: 'Note waiting 2d' }, { type: 'message', group: 4, text: 'Message 1d', body: 'Can we move Friday?' }] }),
+    clRow({ athlete: { id: 'g', name: 'Grace Liu' } })
   ];
-  const B = CL.clBlockSeries(prog, logs, { today: '2026-10-13', meetDate: '2026-10-24' });
-  eq(B.weeks.length, 3); eq(B.cur, 1);
-  eq(B.weeks[0].planned, 3); eq(B.weeks[0].done, 2); eq(B.weeks[0].missed, 1); eq(B.weeks[0].state, 'past');
-  eq(B.weeks[0].total, 560, 'all three lifts by the end of week 1');
-  eq(B.weeks[1].state, 'current'); eq(B.weeks[1].done, 1); eq(B.weeks[1].coming, 2); eq(B.weeks[1].missed, 0); eq(B.weeks[1].total, 570);
-  eq(B.weeks[2].state, 'future'); eq(B.weeks[2].total, null); eq(B.weeks[2].coming, 2);
-  eq(B.weeks[2].meet, true, 'the meet sits in week 3'); eq(B.meetAfter, false);
-  eq(B.delta, 10); eq(B.first, 560); eq(B.last, 570);
-  eq(CL.clBlockSeries(prog, logs, { today: '2026-10-13', meetDate: '2026-12-01' }).meetAfter, true, 'a meet after the block');
-  eq(CL.clBlockSeries(null, [], {}), null);
-  eq(CL.clBlockSeries(prog, [], {}).weeks[0].total, null, 'no total until all three lifts exist');
+  const J = CL.clJobs(rows, { today: T, toWrite: [{ r: rows[3], week: 3 }] });
+  const keys = J.map(j => j.key);
+  eq(J[0].type, 'meetday', 'the meet comes first'); eq(J[0].rows.length, 2); eq(J[0].over[0].athlete.id, 't'); eq(J[0].unplanned.length, 2);
+  eq(J[1].type, 'pain', 'then the pain before it');
+  assert(!J.some(j => j.r && j.r.athlete.id === 't' && j.kind === 'meet'), 'Tom’s weight and meet live in the meet-day job');
+  eq(J.filter(j => j.r && j.r.athlete.id === 'k').length, 1, 'Kofi: one answer job for a message and a note');
+  eq(J.find(j => j.key === 'k:answer').type, 'message', 'a message a day old comes before a note');
+  assert(keys.indexOf('t:write') >= 0, 'Tom’s next block still needs writing');
+  assert(keys.indexOf('g:write') >= 0, 'next week to write');
+  const D = CL.clJobs(rows, { today: T, done: { k: 1 } });
+  assert(D.find(j => j.key === 'k:answer').done, 'a handled lifter’s job is done');
+  eq(D[D.length - 1].done, true, 'done jobs sink to the bottom');
+  eq(CL.clTopJob(rows[0], J).type, 'meetday', 'Tom’s flag is the meet');
+  eq(CL.jobText(J[0]).title, 'Autumn Open is today');
+  eq(CL.jobText(J[0]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
+});
+test('the team: training, effort, strength, meets', () => {
+  const T = '2026-10-26';
+  const days = (on) => { const out = []; for (let i = 6; i >= 0; i--) out.push({ iso: _isoAddDays(T, -i), on: on.indexOf(i) >= 0 }); return out; };
+  const set = (date, rpe, felt) => ({ completed: true, completedAt: date + 'T10:00:00Z', weight: 100, reps: 3, rpe, actualRpe: felt });
+  const prog = (sets) => ({ id: 'p', weeks: [{ number: 1, days: [{ id: 'd', name: 'D', exercises: [{ lift: 'bench', sets }] }] }] });
+  const rows = [
+    clRow({ athlete: { id: 'a', name: 'Ann' }, status: { program: prog([set('2026-10-25', 8, 8), set('2026-10-24', 8, 9.5)]), week: { sessionsPerWeek: 3 } }, total: { delta: 12 }, wins: [{ type: 'pr' }], meet: { days: 0, meet: { name: 'Open', date: T } }, bw: { over: 0.3, cls: 105 } }),
+    clRow({ athlete: { id: 'b', name: 'Ben' }, status: { program: prog([set('2026-10-25', 8, 8.5)]), week: { sessionsPerWeek: 3 } }, total: { delta: -3 } }),
+    clRow({ athlete: { id: 'c', name: 'Cal' }, status: { program: prog([]), week: { sessionsPerWeek: 4 } }, total: { delta: 0 }, meet: { days: 20, meet: { name: 'States', date: '2026-11-15' } } }),
+    clRow({ athlete: { id: 'd', name: 'Dee' } })
+  ];
+  const on = { a: [0, 2, 4, 5], b: [1, 3], c: [], d: [0] };
+  const X = CL.clTeam(rows, { today: T, days: id => days(on[id]) });
+  eq(X.training.planned, 10); eq(X.training.done, 5, 'capped at each lifter’s plan');
+  eq(X.training.behind.map(x => x.r.athlete.id).join(','), 'c', 'Cal 0 of 4');
+  eq(X.training.perDay[6], 2, 'today: Ann and Dee');
+  eq(X.effort.total, 3); eq(X.effort.at, 1); eq(X.effort.half, 1); eq(X.effort.over, 1); eq(X.effort.pct, 33);
+  eq(X.effort.who[0].r.athlete.id, 'a', 'the worst first'); eq(X.effort.who[0].text, 'Bench @9.5 vs 8');
+  eq(X.strength.n, 3); eq(X.strength.up, 1); eq(X.strength.down, 1); eq(X.strength.flat, 1); eq(X.strength.median, 0); eq(X.strength.prs.length, 1);
+  eq(X.meets.list.length, 2); eq(X.meets.next.name, 'Open'); eq(X.meets.bw[0].r.athlete.id, 'a');
+});
+test('a lifter: weeks trained, effort against what was written, weigh-ins', () => {
+  const T = '2026-10-28';
+  const logs = ['2026-10-05', '2026-10-07', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-21', '2026-10-26', '2026-10-26', '2026-10-28'].map(d => ({ date: d }));
+  const W = CL.clWeeks(logs, T, 3, 4);
+  eq(W.map(w => w.done).join(','), '2,3,1,2', 'distinct days per week');
+  eq(W[0].mon, '2026-10-05'); eq(W[3].current, true); eq(W[3].planned, 3);
+  const prog = { weeks: [{ days: [{ exercises: [{ lift: 'squat', sets: [
+    { completed: true, completedAt: '2026-10-20T10:00:00Z', weight: 150, reps: 3, rpe: 8, actualRpe: 8.5 },
+    { completed: true, completedAt: '2026-10-20T10:10:00Z', weight: 160, reps: 3, rpe: 8, actualRpe: 9 },
+    { completed: true, completedAt: '2026-10-27T10:00:00Z', weight: 162.5, reps: 3, rpe: 8, rpeHi: 8.5, actualRpe: 8.5 },
+    { completed: true, completedAt: '2026-09-01T10:00:00Z', weight: 140, reps: 3, rpe: 8, actualRpe: 10 }
+  ] }] }] }] };
+  const E = CL.clEffort(prog, T, 12);
+  eq(E.length, 2, 'the heaviest set per lift per day, the last 3 weeks');
+  eq(E[0].w, 160); eq(E[0].d, 1); eq(E[1].d, 0, 'the top of a range counts as written');
+  const B = CL.clBw([{ athleteId: 'a', date: '2026-10-27', weight: 64.1 }, { athleteId: 'a', date: '2026-10-01', weight: 64.6 }, { athleteId: 'b', date: '2026-10-27', weight: 80 }, { athleteId: 'a', date: '2026-08-01', weight: 66 }], 'a', T, 42);
+  eq(B.length, 2); eq(B[0].kg, 64.6); eq(B[1].date, '2026-10-27');
+});
+test('the line, the number and the job texts read in the coach’s words', () => {
+  const T = '2026-10-26';
+  const r = clRow({ reasons: [{ type: 'pain' }], status: { pain: { report: { bodyPart: 'low_back', severity: 6, lift: 'deadlift', day: '2026-10-25' }, count: 2 } } });
+  const J = CL.clJobs([r], { today: T });
+  eq(CL.clLine(r, CL.clTopJob(r, J)), 'Low back 6/10 · deadlift');
+  eq(CL.clLine(clRow({ status: { program: { name: 'Wave' }, week: { idx: 2, total: 6 }, sessions: { done: 3, planned: 3 } } })), 'Week 3 of 6 · 3 of 3 done');
+  eq(CL.clLine(clRow({ meet: { days: 12, meet: { name: 'State Championships 2026' } } })), 'Meet in 12 days', 'a long meet name waits for the page');
+  eq(CL.clLine(clRow({})), 'No block yet');
+  eq(CL.clNumber(clRow({ total: { values: [600, 622], delta: 22 } })).text, '+22');
+  eq(CL.clNumber(clRow({ total: { values: [600, 596], delta: -4 } })).text, '−4');
+  eq(CL.clNumber(clRow({ total: { values: [600, 596], delta: -4 } })).tone, 'down');
+  eq(CL.clNumber(clRow({ total: null })).text, '—');
+  const m = clRow({ reasons: [{ type: 'message', text: 'Message 1d', body: 'Can we move Friday to Saturday this week?' }] });
+  eq(CL.jobText(CL.clJobs([m], { today: T })[0]).title, 'Wrote you · 1 day ago');
+  const o = clRow({ reasons: [{ type: 'overshoot', text: 'Bench @9.5 vs @8', tone: 'alert' }] });
+  eq(CL.jobText(CL.clJobs([o], { today: T })[0]).title, 'Bench @9.5, you wrote 8');
+  eq(CL.clJobs([o], { today: T })[0].tier, 1, 'a point and a half over is this week’s job');
 });
 
 function render() {
