@@ -27,7 +27,13 @@
      branded splash (styles.css) until bootstrap resolves. powa-no-autoroute (set by
      app.js _toWelcome on sign-out / stale session) skips the jump once, so there's no
      bounce loop. Invite deep links (?code=) also skip it. No-op on the web. -->
-<script>(function(){try{var C=window.Capacitor;if(!(C&&C.isNativePlatform&&C.isNativePlatform()))return;var h=document.documentElement;h.classList.add('native');if(!localStorage.getItem('powa-theme'))h.setAttribute('data-theme','dark');var signed=false;for(var i=0;i<localStorage.length;i++){var kk=localStorage.key(i);if(kk&&/^sb-.*-auth-token$/.test(kk)&&localStorage.getItem(kk)){signed=true;break;}}if(!signed)return;h.classList.add('has-session');var skip=sessionStorage.getItem('powa-no-autoroute');if(skip){sessionStorage.removeItem('powa-no-autoroute');return;}if(/[?&]code=/.test(location.search))return;var role=localStorage.getItem('powa-last-role');var dest=role==='coach'?'coach.html':role==='athlete'?'athlete.html':role==='admin'?'admin.html':null;if(dest)location.replace(dest);}catch(e){}})();</script>
+<!-- The website (2026-10-27): a signed-in visitor never sees the homepage first. With a stored session and a
+     remembered role it goes straight to the dashboard before anything paints; without a role, or coming back
+     from Apple / Google (#access_token or the pending sign-in), html.auth-pending shows a quiet loader until
+     bootstrap decides (window.powaAuthDone() clears it; a 9 s fallback too). ?home=1, a password-recovery link,
+     an OAuth error and powa-no-autoroute (a stale session just bounced here) all show the homepage. -->
+<style id="powa-boot-css">html.native .s-home{display:none!important}html.auth-pending body{background:#0b0b0c}html.auth-pending body>*{visibility:hidden!important}html.auth-pending body::after{content:'';position:fixed;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:#ff3b4a;animation:powaBootSpin .8s linear infinite;visibility:visible;z-index:2147483647}html.auth-returning::after{content:'Signing you in…';position:fixed;left:0;right:0;top:calc(50% + 32px);text-align:center;color:#8c8c96;font:500 15px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;z-index:2147483647}@keyframes powaBootSpin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){html.auth-pending body::after{animation-duration:2.4s}}</style>
+<script>(function(){try{var h=document.documentElement,C=window.Capacitor,nat=!!(C&&C.isNativePlatform&&C.isNativePlatform());var tok=null;for(var i=0;i<localStorage.length;i++){var kk=localStorage.key(i);if(kk&&/^sb-.*-auth-token$/.test(kk)){tok=localStorage.getItem(kk);if(tok)break;}}var role=localStorage.getItem('powa-last-role');var dest=role==='coach'?'coach.html':role==='athlete'?'athlete.html':role==='admin'?'admin.html':null;if(nat){h.classList.add('native');if(!localStorage.getItem('powa-theme'))h.setAttribute('data-theme','dark');if(!tok)return;h.classList.add('has-session');var skip=sessionStorage.getItem('powa-no-autoroute');if(skip){sessionStorage.removeItem('powa-no-autoroute');return;}if(/[?&]code=/.test(location.search))return;if(dest)location.replace(dest);return;}var done=function(){h.classList.remove('auth-pending','auth-returning');};window.powaAuthDone=done;var q=location.search,hs=location.hash;if(/[?&]home=1\b/.test(q)||/type=recovery/.test(hs)||/error(_description)?=/.test(hs)||/[?&]error=/.test(q))return;var no=false;try{no=!!sessionStorage.getItem('powa-no-autoroute');if(no)sessionStorage.removeItem('powa-no-autoroute');}catch(e){}if(no)return;var back=/access_token=/.test(hs),pend=false;try{pend=!!sessionStorage.getItem('powa-social-pending');}catch(e){}if(back||pend){h.classList.add('auth-pending','auth-returning');setTimeout(done,9000);return;}if(!tok||tok.indexOf('refresh_token')<0||/[?&]code=/.test(q))return;if(dest){location.replace(dest);return;}h.classList.add('auth-pending');setTimeout(done,9000);}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -761,9 +767,10 @@ _openHashModal();
 // true when it has taken the visit over (the account is on its way to its dashboard) and false
 // when there is nothing to finish, which is every ordinary visit: then the page boots as before.
 if (window.SocialAuth) SocialAuth.mount();
-(window.SocialAuth ? SocialAuth.handleReturn() : Promise.resolve(false)).then((handled) => {
+(window.SocialAuth ? SocialAuth.handleReturn() : Promise.resolve(false)).catch(() => false).then((handled) => {
   if (handled) return;
 bootstrap(null, () => {
+  if (window.powaAuthDone) powaAuthDone();
   // Native shell routing: an app never shows its marketing site / welcome to someone
   // already signed in — send them straight to their dashboard. If the stored session was
   // stale (welcome pre-suppressed by .has-session but auth resolved logged-out), reveal
@@ -783,7 +790,7 @@ bootstrap(null, () => {
   // site there, so the network calls would be wasted.
   if (!nativeShell) { renderCoaches(); renderMarketplaceTeaser(); }
   attachPwdToggles();
-});
+}, { coachesLater: true, stayHome: /[?&]home=1\b/.test(location.search), onCoaches: () => { if (!document.documentElement.classList.contains('native')) renderCoaches(); } });
 });
 
 
@@ -909,11 +916,9 @@ async function doLogin() {
     }
     const session = await DB.getSession();
     const profile = await DB.getProfile(session.user.id);
-    if (profile.user_type !== type) {
-      await DB.signOut();
-      throw new Error('This email is registered as ' + profile.user_type + ', not ' + type);
-    }
-    location.href = profile.user_type === 'coach' ? 'coach.html' : 'athlete.html';
+    // The Athlete / Coach switch is a hint: the account knows what it is, so go to its dashboard.
+    try { localStorage.setItem('powa-last-role', profile.user_type); } catch (e) {}
+    location.replace(profile.user_type === 'coach' ? 'coach.html' : profile.user_type === 'admin' ? 'admin.html' : 'athlete.html');
   } catch (e) {
     toast(e.message || 'Login failed');
     if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }

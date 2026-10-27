@@ -633,13 +633,18 @@ function scaleWeeksToBuyer(weeks, coach1RMs, buyer1RMs) {
 // ============================================================
 const DB = {
   // ---------- AUTH ----------
+  // null = signed out (no session, or the server refused the token). A refresh that couldn't reach the
+  // server is not a sign-out: it throws { transient: true } so the caller can wait or open from the snapshot.
   async getSession() {
-    const { data } = await sb.auth.getSession();
-    return data.session || null;
+    const { data, error } = await sb.auth.getSession();
+    if (data && data.session) return data.session;
+    if (error && (error.name === 'AuthRetryableFetchError' || error.status === 0 || /fetch|network|timed? ?out|load failed/i.test(String(error.message || '')))) {
+      const e = new Error(error.message || 'Network error'); e.transient = true; throw e;
+    }
+    return null;
   },
   async getUserId() {
-    const s = await this.getSession();
-    return s ? s.user.id : null;
+    try { const s = await this.getSession(); return s ? s.user.id : null; } catch (e) { return null; }
   },
 
   // ---------- AI ASSISTANT ----------
@@ -3353,20 +3358,19 @@ const DB = {
     // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
     const _ciSince = (() => { const d = new Date(); d.setDate(d.getDate() - 70); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
 
-    // Always pull coach directory (public)
-    empty.coaches = await this.listCoaches();
+    // The coach directory (public) loads beside everything else, never in front of it.
+    const coachesP = this.listCoaches().catch((e) => { console.warn('coach list', e); return []; });
 
-    if (!profile) return empty;
+    if (!profile) { empty.coaches = await coachesP; return empty; }
 
     if (profile.user_type === 'coach') {
-      // Coach: pull own athletes + their training data
+      // Coach: the roster, and beside it everything that doesn't need the roster's ids.
+      const ownP = Promise.all([this.listInvites(profile.id), this.listProgramsForCoach(profile.id), this.listTemplates(profile.id)]);
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [invs, programs, tpls, logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams] = await Promise.all([
-        this.listInvites(profile.id),
-        this.listProgramsForCoach(profile.id),
-        this.listTemplates(profile.id),
+      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams] = await Promise.all([
+        ownP,
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
         this.listNotesForAthletes(athleteIds),
@@ -3403,6 +3407,7 @@ const DB = {
       empty.meets = meets;
       empty.marketplacePrograms = mp;
       empty.mySales = sales;
+      empty.coaches = await coachesP;
     } else {
       // Athlete: own data
       const [progs, logs, bw, notes, goals, rest, checkins, meets, purchases, ciQs, ciAs, blocks, brand, painReports] = await Promise.all([
@@ -3435,6 +3440,7 @@ const DB = {
       empty.restDays = rest;
       empty.checkins = checkins;
       empty.meets = meets;
+      empty.coaches = await coachesP;
 
       // Athlete also needs to see their own profile + their coach
       empty.athletes = [mapDbProfileToAthlete(profile)];

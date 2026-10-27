@@ -710,6 +710,47 @@ function captureClubFromUrl() {
 }
 window.applyPendingReferral = applyPendingReferral;
 
+// Start-up helpers (2026-10-27): a lifter is never signed out or sent to the homepage because the
+// network blinked. Only the server refusing the token (or the account) signs anyone out.
+function _isAuthError(e) {
+  const st = e && (e.status || (e.cause && e.cause.status));
+  if (st === 401 || st === 403) return true;
+  const code = String((e && e.code) || '');
+  if (code === 'PGRST301' || code === 'PGRST302' || code === 'PGRST116') return true;   // expired / bad JWT, or no profile row (a deleted account)
+  return /jwt|invalid claim|not authenticated|refresh token|token (has )?expired/i.test(String((e && e.message) || ''));
+}
+// The signed-in user's id from the stored session, without the network (for the snapshot).
+function _storedUserId() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !/^sb-.*-auth-token$/.test(k)) continue;
+      const v = JSON.parse(localStorage.getItem(k) || 'null');
+      const u = v && (v.user || (v.currentSession && v.currentSession.user));
+      if (u && u.id) return u.id;
+    }
+  } catch (e) {}
+  return null;
+}
+// Open the dashboard from this device's snapshot (offline, or the server hiccuped). true when it did.
+function _bootFromSnapshot(uid, expectedType, onReady) {
+  const snap = uid ? _readSnapshot(uid) : null;
+  if (!snap || !snap.user || !snap.store || snap.user.userType !== expectedType) return false;
+  window._user = snap.user;
+  Store._data = snap.store;
+  try { _refreshConnBanner(); } catch (e) {}
+  onReady && onReady();
+  return true;
+}
+// No snapshot either: say so and try again, a few times, instead of leaving or signing out.
+let _bootTries = 0;
+function _bootRetry(expectedType, onReady, opts) {
+  _bootTries++;
+  if (_bootTries > 4) { toast('Still can’t reach POWALIFTA. Check your connection and reopen the app.'); return; }
+  toast(_bootTries === 1 ? 'Can’t reach the server. Trying again…' : 'Still trying to reach the server…');
+  setTimeout(() => { bootstrap(expectedType, onReady, opts); }, Math.min(8000, 1500 * _bootTries));
+}
+
 async function bootstrap(expectedType, onReady, opts) {
   opts = opts || {};
 
@@ -735,11 +776,20 @@ async function bootstrap(expectedType, onReady, opts) {
     console.error('getSession failed', e);
     // If we can't even talk to Supabase, still let public pages render
     if (!expectedType) { onReady && onReady(); return; }
-    toast('Could not reach the server. Check your connection.');
+    // A dashboard: open from this device's snapshot, or keep trying. Never the homepage for a network blip.
+    if (_bootFromSnapshot(_storedUserId(), expectedType, onReady)) return;
+    _bootRetry(expectedType, onReady, opts);
     return;
   }
+  _bootTries = 0;
   if (!session) {
     if (expectedType) { _toWelcome(); return; }
+    // The homepage draws (and its Log in button appears) without waiting for the coach list.
+    if (opts.coachesLater) {
+      onReady && onReady();
+      DB.listCoaches().then((c) => { Store._data.coaches = c || []; if (opts.onCoaches) opts.onCoaches(); }).catch((e) => console.warn('coach list', e));
+      return;
+    }
     try { Store._data.coaches = await DB.listCoaches(); } catch (e) { console.warn('coach list', e); }
     onReady && onReady();
     return;
@@ -748,22 +798,23 @@ async function bootstrap(expectedType, onReady, opts) {
   try { profile = await DB.getProfile(session.user.id); }
   catch (e) {
     console.error('profile fetch failed', e);
-    // Offline cold open: the session reads from local storage but the profile
-    // fetch needs the network. Rather than bounce a logged-in user to the login
-    // page, run from the cached snapshot if we have one for this session.
-    if (expectedType && !navigator.onLine) {
-      const snap = _readSnapshot(session.user.id);
-      if (snap && snap.user && snap.user.userType === expectedType) {
-        window._user = snap.user;
-        Store._data = snap.store;
-        _refreshConnBanner();
-        onReady && onReady();
-        return;
-      }
+    // Only a refused token or account signs anyone out. Offline, a timeout or a server hiccup: a dashboard
+    // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
+    if (_isAuthError(e)) {
+      try { await DB.signOut(); } catch {}
+      if (!expectedType) { onReady && onReady(); return; }
+      _toWelcome();
+      return;
     }
-    try { await DB.signOut(); } catch {}
-    if (!expectedType) { onReady && onReady(); return; }
-    _toWelcome();
+    if (expectedType) {
+      if (_bootFromSnapshot(session.user.id, expectedType, onReady)) return;
+      _bootRetry(expectedType, onReady, opts);
+      return;
+    }
+    let role = null;
+    try { role = localStorage.getItem('powa-last-role'); } catch (x) {}
+    if (role && !opts.staticPublic && !opts.stayHome) { location.replace(role === 'coach' ? 'coach.html' : role === 'admin' ? 'admin.html' : 'athlete.html'); return; }
+    onReady && onReady();
     return;
   }
 
@@ -810,14 +861,14 @@ async function bootstrap(expectedType, onReady, opts) {
   applyPendingReferral(window._user.id, !!profile.referred_by_code);
 
   if (!expectedType) {
-    if (opts.staticPublic) {
-      // Legal/info page — just populate user + coach list, don't redirect
+    if (opts.staticPublic || opts.stayHome) {
+      // Legal/info page, or the homepage asked for on purpose (?home=1): populate user + coach list, don't redirect
       try { Store._data.coaches = await DB.listCoaches(); } catch (e) {}
       onReady && onReady();
       return;
     }
-    // Homepage: bounce logged-in users to dashboard
-    location.href = profile.user_type === 'coach' ? 'coach.html' : 'athlete.html';
+    // Homepage: send logged-in users on to their dashboard (replace: the back button never lands on the homepage)
+    location.replace(profile.user_type === 'coach' ? 'coach.html' : profile.user_type === 'admin' ? 'admin.html' : 'athlete.html');
     return;
   }
 
