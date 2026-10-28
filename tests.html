@@ -92,6 +92,9 @@
 <script src="clubs.js"></script>
 <script src="health.js"></script>
 <script src="switch-kit.js"></script>
+<script src="import-lib-xlsx.js"></script><!-- IMPORTS: the vendored readers, loaded here for the real-file tests (the app loads them only when a file needs them) -->
+<script src="import-lib-fflate.js"></script>
+<script src="import-core.js"></script>
 <script src="voice.js"></script>
 <script src="video-review.js"></script>
 <script src="meetday.js"></script>
@@ -3425,6 +3428,371 @@ test('switch kit: a realistic 300-row history', () => {
   const r = SK.planHistoryImport(lines.join('\n'), { athleteId: 'a1', unit: 'kg', today: SK_TODAY });
   eq(r.logs.length, 300); eq(r.sessions, 75); eq(r.skipped.length, 0); eq(r.noRpeCount, 60);
   assert(r.prs.squat.prs > 10 && r.prs.bench.prs > 10 && r.prs.deadlift.prs > 10, 'PRs counted');
+});
+
+/* ===========================================================
+   Imports (import-core.js): the intake that takes any file a
+   coach has. Fixtures come from published headers only; where
+   a header's spelling or a row's values aren't published, the
+   test name says "assumed".
+   =========================================================== */
+group('imports (import-core.js)');
+const IC = window.ImportCore;
+const IM_TODAY = '2026-10-28';
+const imBytes = (arr) => new Uint8Array(arr);
+const imUtf8 = (s) => new TextEncoder().encode(s);
+const imTable = (csv, name) => IC.tablesFromText(csv, name || 'file.csv')[0];
+const imTC_HEAD = 'First Name,Last Name,Email,Compliance Score,Total Workouts Completed,Birthday,Location,Timezone,Phone Number,Client Type,Client State,Height,Weight,Unit Preference,Gender';
+const imCRX_HEAD = 'Client ID,Client Name,Client Email,Coach,Coach Email,Status,Start Date,Archive Date,Height (cm),Weight (kg),Sex,Birthday,Phone Number,Timezone,Location,Address,Emergency Contact,T-Shirt Size,Referred By,Exercise Sessions Completed,Lifestyle Rx\'s Completed,Highest Streak,Tags,Last Consultation,Synced with Stripe,Product,Plan,Card Brand,Card Last 4,Monthly Revenue,Payment Status';
+test('imports: text in any encoding (UTF-8 with a BOM, UTF-16 "Unicode text", Windows-1252)', () => {
+  let r = IC.decodeBytes(imBytes([0xEF, 0xBB, 0xBF, 0x44, 0x61, 0x74, 0x65]));
+  eq(r.text, 'Date'); eq(r.encoding, 'utf-8');
+  r = IC.decodeBytes(imBytes([0xFF, 0xFE, 0x44, 0, 0x61, 0, 0x09, 0, 0xE9, 0]));
+  eq(r.text, 'Da\té'); eq(r.encoding, 'utf-16le');
+  r = IC.decodeBytes(imBytes([0x44, 0, 0x61, 0, 0x74, 0, 0x65, 0, 0x0A, 0, 0x31, 0]));
+  eq(r.text, 'Date\n1'); eq(r.encoding, 'utf-16le');                 // no BOM: every other byte is 0
+  r = IC.decodeBytes(imBytes([0x4A, 0x6F, 0x73, 0xE9, 0x2C, 0x31, 0x38, 0x30, 0x80]));
+  eq(r.text, 'José,180€'); eq(r.encoding, 'windows-1252');           // not valid UTF-8
+  eq(IC.decodeBytes(imUtf8('Squat 180×5 @8')).text, 'Squat 180×5 @8');
+});
+test('imports: what a file is, from its first bytes and a zip\'s file list', () => {
+  eq(IC.sniff('p.pdf', imUtf8('%PDF-1.7 ...')), 'pdf');
+  eq(IC.sniff('a.png', imBytes([0x89, 0x50, 0x4E, 0x47, 13, 10, 26, 10])), 'image');
+  eq(IC.sniff('a.jpg', imBytes([0xFF, 0xD8, 0xFF, 0xE0, 0, 0])), 'image');
+  eq(IC.sniff('old.xls', imBytes([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])), 'xls');
+  eq(IC.sniff('w.json', imUtf8('  {"workouts": []}')), 'json');
+  eq(IC.sniff('log.csv', imUtf8('Date,Exercise\n2026-01-01,Squat')), 'text');
+  const zip = (names) => SwitchKit.zip(names.map(n => ({ name: n, text: 'x' })));
+  eq(IC.sniff('book.xlsx', zip(['[Content_Types].xml', 'xl/workbook.xml', 'xl/worksheets/sheet1.xml'])), 'xlsx');
+  eq(IC.sniff('book.ods', zip(['mimetype', 'content.xml', 'META-INF/manifest.xml'])), 'ods');
+  eq(IC.sniff('export.zip', zip(['workouts.csv', 'profile.csv'])), 'zip');
+  eq(IC.sniff('b.numbers', zip(['Index/Document.iwa'])), 'numbers');
+  const list = IC.zipEntries(zip(['workouts.csv', 'profile.csv']));
+  eq(list.map(e => e.name).join(','), 'workouts.csv,profile.csv'); eq(list[0].size, 1);
+  eq(IC.zipEntries(imUtf8('not a zip')).length, 0);
+});
+test('imports: Excel serial dates, the 1900 system and the 1904 system', () => {
+  eq(IC.excelSerialToISO(44927), '2023-01-01'); eq(IC.excelSerialToISO(45658), '2025-01-01');
+  eq(IC.excelSerialToISO(45658.75), '2025-01-01');                    // a time of day doesn't move the date
+  eq(IC.excelSerialToISO(44927 - 1462, true), '2023-01-01');          // 1904 system (old Mac workbooks)
+  eq(IC.excelSerialToISO(61), '1900-03-01'); eq(IC.excelSerialToISO(60), null);   // 29 Feb 1900 never existed
+  eq(IC.excelSerialToISO('abc'), null); eq(IC.excelSerialToISO(-3), null);
+});
+test('imports: workbook cells to text: dates, percents, units in the format, merged cells, formulas without a value', () => {
+  const ws = { '!ref': 'A1:D5', '!merges': [{ s: { r: 1, c: 0 }, e: { r: 3, c: 0 } }],
+    A1: { t: 's', v: 'Date' }, B1: { t: 's', v: 'Exercise' }, C1: { t: 's', v: 'Load' }, D1: { t: 's', v: '%' },
+    A2: { t: 'd', v: new Date(Date.UTC(2026, 2, 2)) }, B2: { t: 's', v: 'Squat' }, C2: { t: 'n', v: 180, z: '0.0 "kg"' }, D2: { t: 'n', v: 0.75, z: '0%' },
+    B3: { t: 's', v: 'Bench' }, C3: { t: 'n', v: 102.49999999999999 }, D3: { t: 'n', v: 0.7, z: '0.0%' },
+    B4: { t: 's', v: 'Row' }, C4: { t: 'n', f: 'C3*0.5' }, D4: { t: 'b', v: true },
+    A5: { t: 'n', v: 46084, z: 'yyyy-mm-dd' }, B5: { t: 'e', v: 7 } };
+  const t = IC.tablesFromWorkbook({ SheetNames: ['Log'], Sheets: { Log: ws }, Workbook: { WBProps: { date1904: false } } })[0];
+  eq(t.name, 'Log'); eq(t.rows.length, 5);
+  eq(t.rows[1].cells.join('|'), '2026-03-02|Squat|180 kg|75%');
+  eq(t.rows[2].cells.join('|'), '2026-03-02|Bench|102.5|70%');       // the merged date fills down
+  eq(t.rows[3].cells[2], ''); eq(t.noValue, 1);                       // a formula with no saved value
+  eq(t.rows[4].cells[0], '2026-03-03'); eq(t.rows[4].cells[1], '');  // a date-formatted serial; an error cell
+  eq(t.rows[1].line, 2);
+  const hidden = IC.tablesFromWorkbook({ SheetNames: ['A', 'B'], Sheets: { A: { '!ref': 'A1:A1', A1: { t: 's', v: 'x' } }, B: { '!ref': 'A1:A1', A1: { t: 's', v: 'y' } } }, Workbook: { Sheets: [{ Hidden: 0 }, { Hidden: 2 }] } });
+  eq(hidden.length, 1);                                               // a very hidden tab isn't offered
+});
+test('imports: the header row is found under a title and blank rows', () => {
+  const t = imTable('Training log 2026,,,\n,,,\nDate,Exercise,Weight,Reps\n2026-01-05,Squat,150,5');
+  const h = IC.findHeader(t.rows);
+  eq(h.index, 1); assert(h.score >= 3, 'scored');                     // splitRows drops the blank row
+  eq(IC.findHeader(imTable('a,b\n1,2').rows).index, 0);
+});
+test('imports: card, payment and revenue columns are dropped the moment a file is read (CoachRx, published headers)', () => {
+  const csv = imCRX_HEAD + '\nc_1,Maya Chen,maya@example.com,Sam Coach,sam@example.com,Active,2025-01-15,,165,63,Female,1996-04-02,555-0101,America/Denver,Denver,1 Main St,Jo 555-0199,M,Instagram,140,12,9,Powerlifting;Online,2026-09-01,TRUE,Online coaching,Monthly,Visa,4242,150,paid';
+  const a = IC.analyse(imTable(csv));
+  ['Synced with Stripe', 'Product', 'Plan', 'Card Brand', 'Card Last 4', 'Monthly Revenue', 'Payment Status'].forEach(h => assert(a.dropped.indexOf(h) >= 0, h + ' dropped'));
+  const all = JSON.stringify(a.table);
+  assert(all.indexOf('4242') < 0 && all.indexOf('Visa') < 0 && all.indexOf('Monthly') < 0, 'no card data anywhere in the table');
+  eq(a.headers.length, 24);
+  // A training log keeps a column named Plan: only a client list drops it.
+  const log = IC.analyse(imTable('Date,Exercise,Plan,Weight,Reps\n2026-01-05,Squat,3x5 @8,150,5'));
+  eq(log.dropped.length, 0); eq(log.headers.length, 5);
+});
+test('imports: a TrueCoach client list is recognised (published 15 headers; row values assumed)', () => {
+  const csv = imTC_HEAD + '\nMaya,Chen,maya@example.com,92,140,1996-04-02,Denver,America/Denver,555-0101,Online,active,165,63,metric,female\nLeo,Grant,leo@example.com,75,88,,Austin,America/Chicago,,Online,archived,180,93,imperial,male';
+  const a = IC.analyse(imTable(csv));
+  eq(a.kind, 'roster'); eq(a.layout, 'roster'); eq(a.recognised.id, 'truecoach'); eq(a.recognised.sure, 'published');
+  eq(a.fields[0], 'first'); eq(a.fields[1], 'last'); eq(a.fields[2], 'email'); eq(a.fields[9], 'group'); eq(a.fields[10], 'status');
+  eq(a.unplaced.length, 0);                                           // every published column is known
+  const p = IC.planRoster(a, { athletes: [], invites: [] });
+  eq(p.people.length, 2); eq(p.people[0].name, 'Maya Chen'); eq(p.people[0].email, 'maya@example.com');
+  eq(p.people[0].picked, true); eq(p.people[1].archived, true); eq(p.people[1].picked, false);
+  assert(p.leftOut.indexOf('Phone Number') >= 0 && p.leftOut.indexOf('Birthday') >= 0, 'personal columns left out');
+  assert(JSON.stringify(p.people).indexOf('555-0101') < 0, 'phone numbers are not kept');
+});
+test('imports: a CoachRx client list is recognised, and so is a picked subset of its columns (published headers; weight unit spelling assumed)', () => {
+  const csv = imCRX_HEAD + '\nc_1,Maya Chen,maya@example.com,Sam Coach,sam@example.com,Active,2025-01-15,,165,63,Female,1996-04-02,555-0101,America/Denver,Denver,1 Main St,Jo,M,Instagram,140,12,9,Powerlifting;Online,2026-09-01,TRUE,Online coaching,Monthly,Visa,4242,150,paid\nc_2,Leo Grant,leo@example.com,Sam Coach,sam@example.com,Archived,2024-03-01,2025-06-30,180,93,Male,,,,,,,,,,,,Online,,FALSE,,,,,,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.recognised.id, 'coachrx'); eq(a.kind, 'roster');
+  eq(a.fields[a.headers.indexOf('Coach Email')], 'ignore');           // the coach's email is never the lifter's
+  const p = IC.planRoster(a, { athletes: [], invites: [] });
+  eq(p.people[0].name, 'Maya Chen'); eq(p.people[0].groups.join('|'), 'Powerlifting|Online');
+  eq(p.people[1].archived, true); eq(p.groups.Online, 2); eq(p.statuses.Active, 1);
+  const sub = IC.analyse(imTable('Client Name,Client Email,Highest Streak\nMaya Chen,maya@example.com,9'));
+  eq(sub.recognised.id, 'coachrx');
+});
+test('imports: a Trainerize client list by its documented fields (header spelling assumed)', () => {
+  const a = IC.analyse(imTable('First Name,Last Name,Email,Phone Number,Trainer\nMaya,Chen,maya@example.com,555-0101,Sam Coach'));
+  eq(a.recognised.id, 'trainerize'); eq(a.recognised.sure, 'fields'); eq(a.kind, 'roster');
+  eq(IC.planRoster(a, {}).people[0].name, 'Maya Chen');
+});
+test('imports: a TrainHeroic athlete list by its documented fields (header spelling assumed)', () => {
+  const a = IC.analyse(imTable('Name,Email,Start Date\nMaya Chen,maya@example.com,2025-01-15'));
+  eq(a.recognised.id, 'trainheroic'); eq(a.recognised.sure, 'fields'); eq(a.kind, 'roster');
+  eq(IC.planRoster(a, {}).people[0].email, 'maya@example.com');
+});
+test('imports: a client list from anywhere else goes through the mapper, not a recogniser', () => {
+  const a = IC.analyse(imTable('Athlete,E-mail address,Squad,Favourite lift\nMaya Chen,maya@example.com,Juniors,Bench'));
+  eq(a.recognised, null); eq(a.kind, 'roster');
+  eq(a.fields[0], 'fullName'); eq(a.fields[1], 'email'); eq(a.fields[2], 'group');
+  eq(a.unplaced.join(','), '3');                                     // only the column it can't place asks
+});
+test('imports: Strong, Hevy and FitNotes exports are still recognised through the intake', () => {
+  const strong = imTable('Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE\n2025-01-06 07:30:00;Lower;1h;Squat (Barbell);1;315;5;0;0;;;8');
+  let a = IC.analyse(strong); eq(a.recognised.id, 'strong'); eq(a.layout, 'log'); eq(a.kind, 'history');
+  a = IC.analyse(imTable('"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n"Day 1","15 Jan 2025, 08:30","15 Jan 2025, 09:40","","Deadlift (Barbell)","","",1,"normal",220,3,"","",8.5'));
+  eq(a.recognised.id, 'hevy'); eq(a.layout, 'log');
+  a = IC.analyse(imTable('Date,Exercise,Category,Weight (lbs),Reps,Distance,Distance Unit,Time\n2024-11-02,Barbell Squat,Legs,315.0,5,,,'));
+  eq(a.recognised.id, 'fitnotes');
+});
+test('imports: the layout of a sheet: a log, a wide sheet, a program grid, a program table, a client list, a journal', () => {
+  eq(IC.analyse(imTable('Date,Exercise,Weight,Reps,RPE\n2026-01-05,Squat,150,5,8')).layout, 'log');
+  eq(IC.analyse(imTable('Date,Exercise,Set 1 Weight,Set 1 Reps,Set 2 Weight,Set 2 Reps\n2026-01-05,Squat,150,5,155,5')).layout, 'wide');
+  eq(IC.analyse(imTable('Exercise,Week 1,Week 2,Week 3\nSquat,3x5 @7,3x5 @7.5,3x4 @8\nBench,4x6 75%,4x5 77.5%,4x4 80%')).layout, 'grid');
+  eq(IC.analyse(imTable('Week,Day,Exercise,Sets,Reps,Load,RPE\n1,Day 1,Squat,3,5,160,7\n1,Day 1,Bench,4,6,100,7')).layout, 'program');
+  eq(IC.analyse(imTable('Name,Email\nMaya Chen,maya@example.com')).layout, 'roster');
+  const j = IC.tablesFromText('2 Mar 2026\nSquat 180x5 @8, 185x3 @9\nBench 110x5', 'notes.txt')[0];
+  eq(j.kind, 'text'); eq(IC.analyse(j).layout, 'journal');
+  const pt = IC.tablesFromText('Week 1\nDay 1\nSquat 3x5 @7\nBench 4x6 @7', 'program.txt')[0];
+  eq(IC.analyse(pt).layout, 'program-text'); eq(IC.analyse(pt).kind, 'program');
+  eq(IC.analyse(imTable('Colour,Shape\nred,square')).layout, 'unknown');
+});
+test('imports: auto-map places the headers it knows and asks only about the rest', () => {
+  const a = IC.analyse(imTable('Session date,Lift,Load (kg),Reps,RPE,Mood\n2026-01-05,Squat,150,5,8,good'));
+  eq(a.fields.slice(0, 5).join(','), 'date,ex,weight,reps,rpe'); eq(a.unplaced.join(','), '5');
+  const m = IC.historyMap(a); eq(m.date, 0); eq(m.ex, 1); eq(m.weight, 2); eq(m.unit, 'kg');
+  const t = IC.analyse(imTable('Date,Exercise,Target Weight,Target Reps,Target RPE,Actual Weight,Actual Reps,Actual RPE\n2026-01-05,Squat,150,5,8,150,5,8.5'));
+  eq(t.fields.join(','), 'date,ex,tWeight,tReps,tRpe,weight,reps,rpe');
+  const r = IC.analyse(imTable('Date,Exercise,Weight,Reps,RIR,Sets,Notes,Tempo\n2026-01-05,Squat,150,5,2,3,ok,3-1-0'));
+  eq(r.fields.join(','), 'date,ex,weight,reps,rir,sets,note,tempo');
+});
+test('imports: an unknown column is guessed from its values (emails, dates, sets written as text)', () => {
+  const a = IC.analyse(imTable('Who,Contact\nMaya Chen,maya@example.com\nLeo Grant,leo@example.com'));
+  eq(a.fields[1], 'email'); eq(a.guessed[1], true); eq(a.kind, 'roster');
+  const b = IC.analyse(imTable('When,Exercise,What I did\n05/01/2026,Squat,150x5 @8\n07/01/2026,Bench,100x5 @8'));
+  eq(b.fields[0], 'date'); eq(b.guessed[0], true); eq(b.fields[2], 'text'); eq(b.layout, 'log');
+});
+test('imports: a file\'s column fingerprint, and the mapping a coach set is used next time', () => {
+  const fp = IC.fingerprint(['Date', 'Lift', 'Kilos', 'Reps']);
+  eq(fp, IC.fingerprint(['reps', 'kilos', 'lift', 'date'])); assert(fp !== IC.fingerprint(['Date', 'Lift', 'Kilos']), 'different columns');
+  const csv = 'Date,Lift,Kilos,Reps,Feel\n2026-01-05,Squat,150,5,8';
+  let a = IC.analyse(imTable(csv));
+  eq(a.fields[2], null); eq(a.fields[4], null);
+  const fields = a.fields.slice(); fields[2] = 'weight'; fields[4] = 'rpe';
+  const maps = IC.rememberMapping({}, a.headers, fields, IM_TODAY);
+  a = IC.analyse(imTable(csv), { remembered: maps });
+  eq(a.fields[2], 'weight'); eq(a.fields[4], 'rpe'); eq(a.fromMemory, true); eq(a.unplaced.length, 0);
+  let many = {}; for (let i = 0; i < 40; i++) many = IC.rememberMapping(many, ['C' + i, 'Date'], ['ignore', 'date'], '2026-10-' + String(i % 28 + 1).padStart(2, '0'));
+  assert(Object.keys(many).length <= 30, 'remembers 30 files at most');
+});
+test('imports: a wide sheet (Set 1 / Set 2 columns) becomes one row per set', () => {
+  const csv = 'Date,Exercise,Set 1 Weight,Set 1 Reps,Set 1 RPE,Set 2 Weight,Set 2 Reps,Set 2 RPE,Set 3 Weight,Set 3 Reps,Set 3 RPE\n2026-03-02,Squat,180,5,7,180,5,7.5,185,3,8.5\n2026-03-02,Bench,110,5,8,110,5,8.5,,,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.layout, 'wide'); eq(a.wide.length, 3);
+  const long = IC.unpivotWide(a);
+  eq(long.body.length, 5); eq(long.map.weight >= 0 && long.map.reps >= 0 && long.map.rpe >= 0, true);
+  const r = SwitchKit.planHistoryRows(long.body, long.map, { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(r.logs.length, 5); eq(r.logs[2].weight, 185); eq(r.logs[2].rpe, 8.5); eq(r.logs[4].rpe, 8.5);
+  // Other spellings: "S1 Reps", "Set 2 - RPE", "Weight 3"; and one cell per set ("Set 1": "140x5 @8").
+  const b = IC.analyse(imTable('Date,Lift,S1 Weight,S1 Reps,Set 2 - Weight,Set 2 - Reps\n2026-03-02,Squat,150,5,155,4'));
+  eq(b.layout, 'wide'); eq(IC.unpivotWide(b).body.length, 2);
+  const c = IC.analyse(imTable('Date,Exercise,Set 1,Set 2,Set 3\n2026-03-02,Squat,140x5 @7,145x5 @8,150x3 @9'));
+  eq(c.layout, 'wide');
+  const lc = IC.unpivotWide(c);
+  eq(SwitchKit.planHistoryRows(lc.body, lc.map, { athleteId: 'a1', today: IM_TODAY }).logs.map(l => l.weight).join(','), '140,145,150');
+});
+test('imports: planned beside done: the done columns are the history, a planned set not done yet is skipped', () => {
+  const csv = 'Date,Exercise,Target Weight,Target Reps,Target RPE,Actual Weight,Actual Reps,Actual RPE\n2026-01-05,Squat,150,5,8,150,5,8.5\n2026-01-05,Bench,100,5,8,100,5,\n2026-01-08,Squat,155,5,8,,,';
+  const a = IC.analyse(imTable(csv));
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].rpe, 8.5); eq(r.logs[1].rpe, 8); eq(r.rpeFromTarget, 1);   // the bench took its target RPE
+  eq(r.skippedBy['Planned, not done'], 1);
+  // Only planned columns (no done ones): those are the sets.
+  const p = IC.analyse(imTable('Date,Exercise,Planned weight,Planned reps\n2026-01-05,Squat,150,5'));
+  eq(SwitchKit.planHistoryRows(IC.bodyRows(p), IC.historyMap(p), { athleteId: 'a1', today: IM_TODAY }).logs.length, 1);
+});
+test('imports: kg or lb from the header, a unit column, the value, or the coach', () => {
+  const run = (csv, unit) => { const a = IC.analyse(imTable(csv)); return SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: unit || 'kg', today: IM_TODAY }); };
+  close(run('Date,Exercise,Load (lb),Reps\n2026-01-05,Squat,315,5').logs[0].weight, 142.88, 0.01);
+  close(run('Date,Exercise,Weight,Unit,Reps\n2026-01-05,Squat,315,lbs,5\n2026-01-05,Bench,100,kg,5').logs[0].weight, 142.88, 0.01);
+  eq(run('Date,Exercise,Weight,Unit,Reps\n2026-01-05,Squat,315,lbs,5\n2026-01-05,Bench,100,kg,5').logs[1].weight, 100);
+  close(run('Date,Exercise,Weight,Reps\n2026-01-05,Squat,315 lb,5').logs[0].weight, 142.88, 0.01);
+  close(run('Date,Exercise,Weight,Reps\n2026-01-05,Squat,315,5', 'lb').logs[0].weight, 142.88, 0.01);
+  eq(IC.analyse(imTable('Date,Exercise,Weight,Reps\n2026-01-05,Squat,315,5')).unitFromHeader, null);
+  eq(IC.analyse(imTable('Date,Exercise,weight_lbs,reps\n2026-01-05,Squat,315,5')).unitFromHeader, 'lb');
+});
+test('imports: effort as coaches write it in a log: @8, RPE 8.5, 2 RIR, a range, a %, 3x5', () => {
+  const csv = 'Date,Exercise,Weight,Reps,Effort\n2026-01-05,Squat,150,5,@8\n2026-01-05,Squat,150,5,RPE 8.5\n2026-01-05,Bench,100,5,2 RIR\n2026-01-05,Bench,100,5,7-8\n2026-01-05,Row,80,10,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.fields[4], 'rpe');
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(r.logs.map(l => l.rpe).join(','), '8,8.5,8,8,8'); eq(r.noRpeCount, 1);
+  eq(IC.effort('@8').rpe, 8); eq(IC.effort('RPE 8.5').rpe, 8.5); eq(IC.effort('2 RIR').rpe, 8); eq(IC.effort('RIR 1-2').rpe, 8);
+  eq(IC.effort('7-8').rpe, 7); eq(IC.effort('7-8').rpeHi, 8); eq(IC.effort('0.75', { pctColumn: true }).pct, 75); eq(IC.effort('75%').pct, 75);
+  eq(IC.effort('3x5 @8').sets, 3); eq(IC.effort('3x5 @8').reps, 5); eq(IC.effort('easy').rpe, null);
+  // A % with no weight can't be a logged set: it says so.
+  const p = IC.analyse(imTable('Date,Exercise,%1RM,Reps\n2026-01-05,Squat,75%,5'));
+  eq(SwitchKit.planHistoryRows(IC.bodyRows(p), IC.historyMap(p), { athleteId: 'a1', today: IM_TODAY }).skippedBy['A percentage, no weight'], 1);
+});
+test('imports: bodyweight work: "BW" has no load, "BW+20" logs the 20', () => {
+  const a = IC.analyse(imTable('Date,Exercise,Weight,Reps\n2026-01-05,Chin-up,BW,8\n2026-01-05,Dip,BW+20,6\n2026-01-05,Dip,BW + 45 lb,5'));
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].weight, 20); assert(/Bodyweight \+ 20/.test(r.logs[0].note), r.logs[0].note);
+  close(r.logs[1].weight, 20.41, 0.01); eq(r.skippedBy['Bodyweight, no added load'], 1);
+});
+test('imports: a lifter\'s own import keeps their weigh-ins; a coach\'s skips them', () => {
+  const csv = 'Date,Exercise,Weight,Reps,Bodyweight\n2026-01-05,Squat,150,5,82.4\n2026-01-06,Bodyweight,82.1,\n2026-01-06,Bench,100,5,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.fields[4], 'bw');
+  const mine = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'me', today: IM_TODAY, weighIns: true, existingBw: [{ athleteId: 'me', date: '2026-01-06', weight: 82 }] });
+  eq(mine.logs.length, 2); eq(mine.weighIns.length, 1); eq(mine.weighIns[0].date, '2026-01-05'); eq(mine.weighIns[0].weight, 82.4); eq(mine.bwDupes, 1);
+  const coach = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(coach.weighIns.length, 0); eq(coach.skippedBy['A weigh-in, not a set'], 1);
+});
+test('imports: the client list plan: names, emails, who is already here, invited, twice in the file, archived', () => {
+  const csv = 'First Name,Last Name,Email,Status\nMaya,Chen,MAYA@example.com,Active\nLeo,Grant,leo@example.com,Active\nAva,Stone,ava@example.com,Active\nmaya,chen,maya@example.com,Active\nNo,Email,,Active\nBad,Email,bad@,Inactive';
+  const a = IC.analyse(imTable(csv));
+  const p = IC.planRoster(a, { athletes: [{ id: 'x', name: 'Leo Grant', email: 'leo@example.com' }], invites: [{ email: 'ava@example.com', used: false }] });
+  eq(p.people.map(x => x.state).join(','), 'new,onRoster,invited,duplicate,noEmail,badEmail');
+  eq(p.people.map(x => x.picked ? 1 : 0).join(''), '100010');
+  eq(p.people[0].email, 'maya@example.com'); eq(p.counts.onRoster, 1); eq(p.counts.invited, 1); eq(p.counts.archived, 1);
+});
+test('imports: seats left on each plan, with unused invites holding a seat', () => {
+  let s = IC.seats({ limit: 3, athletes: 1, pending: 1 }); eq(s.left, 1); eq(s.used, 2); eq(s.unlimited, false);
+  eq(IC.seats({ limit: 10, athletes: 10, pending: 2 }).left, 0);
+  s = IC.seats({ limit: 9999, athletes: 40, pending: 3 }); eq(s.unlimited, true); eq(s.left, Infinity);
+  eq(IC.pickWithin([1, 1, 1, 1].map((x, i) => ({ i, picked: true })), 2).filter(p => p.picked).length, 2);
+});
+test('imports: a program grid (exercises down, weeks across) becomes cells for the review', () => {
+  const csv = 'Exercise,Week 1,Week 2,Week 3,Week 4\nDay 1,,,,\nSquat,3x5 @7,3x5 @7.5,3x4 @8,2x3 @6\nBench,4x6 75%,4x5 77.5%,4x4 80%,3x5 70%\nDay 2 · Pull,,,,\nDeadlift,3x3 @8,3x3 @8.5,2x2 @9,2x3 @6\nRDL,3x8,3x8,3x6,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.layout, 'grid');
+  const read = IC.gridToRead(a, { unit: 'kg', name: 'Spring block' });
+  eq(read.weeks, 4); eq(read.days.length, 2); eq(read.days[1].name, 'Day 2 · Pull');
+  eq(read.days[0].exercises.map(e => e.name).join(','), 'Squat,Bench');
+  eq(read.days[0].exercises[1].cells.join('|'), '4x6 75%|4x5 77.5%|4x4 80%|3x5 70%');
+  eq(read.days[1].exercises[1].cells[3], '');
+  const draft = PhotoImport.draftFromRead(read);
+  const w = PhotoImport.draftToWeeks(draft);
+  eq(w.stats.weeks, 4); eq(w.stats.left, 0); eq(w.weeks[0].days[0].exercises[0].sets.length, 3);
+  // No day rows: one day, named after the tab.
+  const one = IC.gridToRead(IC.analyse(imTable('Lift,W1,W2\nSquat,3x5 @7,3x5 @8')), { name: 'Block A' });
+  eq(one.days.length, 1); eq(one.weeks, 2);
+});
+test('imports: a grid with each week over Sets / Reps / Load / RPE columns', () => {
+  const csv = 'Exercise,Week 1,,,,Week 2,,,\n,Sets,Reps,Load,RPE,Sets,Reps,Load,RPE\nSquat,3,5,160,7,3,5,165,7.5\nBench,4,6,100,,4,5,102.5,7.5\nPull-up,3,8,,,3,8,,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.layout, 'grid');
+  const read = IC.gridToRead(a, { unit: 'kg' });
+  eq(read.weeks, 2); eq(read.days[0].exercises.length, 3);
+  eq(read.days[0].exercises[0].cells.join('|'), '3x5 160kg @7|3x5 165kg @7.5');
+  eq(read.days[0].exercises[1].cells[0], '4x6 100kg'); eq(read.days[0].exercises[2].cells[1], '3x8');
+});
+test('imports: a program table (Week / Day / Exercise rows) comes into the same review', () => {
+  const csv = 'Week,Day,Exercise,Sets,Reps,Load,RPE\n1,Day 1,Squat,3,5,160,7\n1,Day 1,Bench,4,6,100,7\n1,Day 2,Deadlift,3,3,200,8\n2,Day 1,Squat,3,5,165,7.5\n2,Day 1,Bench,4,5,102.5,7.5\n2,Day 2,Deadlift,3,3,205,8';
+  const read = IC.programToRead(IC.analyse(imTable(csv)), { unit: 'kg', name: 'Block' });
+  eq(read.weeks, 2); eq(read.days.map(d => d.name).join(','), 'Day 1,Day 2');
+  eq(read.days[0].exercises[0].cells.join('|'), '3x5 160kg @7|3x5 165kg @7.5');
+  eq(PhotoImport.draftToWeeks(PhotoImport.draftFromRead(read)).stats.sets, 26);
+});
+test('imports: Hevy API workouts as JSON (published workout fields; the response wrapper assumed)', () => {
+  const json = JSON.stringify({ page: 1, page_count: 1, workouts: [{ id: 'w1', title: 'Lower', start_time: '2025-03-04T12:00:00Z', end_time: '2025-03-04T13:10:00Z', exercises: [
+    { index: 0, title: 'Squat (Barbell)', notes: 'belt on', exercise_template_id: 'x', superset_id: null, sets: [
+      { index: 0, type: 'warmup', weight_kg: 60, reps: 5, distance_meters: null, duration_seconds: null, rpe: null },
+      { index: 1, type: 'normal', weight_kg: 180, reps: 5, rpe: 8 },
+      { index: 2, type: 'failure', weight_kg: 180, reps: 4, rpe: 10 }] }] }] });
+  const t = IC.tablesFromJson(json, 'workouts.json');
+  eq(t.length, 1);
+  const a = IC.analyse(t[0]);
+  eq(a.recognised.id, 'hevy-api'); eq(a.layout, 'log');
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].date, '2025-03-04'); eq(r.logs[0].weight, 180); eq(r.skippedBy['Warm-up set'], 1);
+  assert(/To failure/.test(r.logs[1].note), r.logs[1].note);
+  eq(IC.tablesFromJson('[{"workouts": 1}', 'x.json').length, 0);       // not JSON: nothing, no throw
+});
+test('imports: POWALIFTA\'s own everything.json reads back in', () => {
+  const json = JSON.stringify({ source: 'powalifta.com', role: 'athlete', logs: [{ id: 'l1', athleteId: 'me', date: '2026-01-05', lift: 'squat', variant: 'Paused', exerciseName: '', weight: 150, reps: 3, rpe: 8, note: '' },
+    { id: 'l2', athleteId: 'me', date: '2026-01-05', lift: 'pull', variant: '', exerciseName: 'Barbell Row', weight: 80, reps: 10, rpe: 8 }] });
+  const a = IC.analyse(IC.tablesFromJson(json, 'everything.json')[0]);
+  eq(a.recognised.id, 'powalifta');
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].variant, 'Paused'); eq(r.logs[1].exerciseName, 'Barbell Row');
+});
+test('imports: a zip of CSVs (a TrainHeroic athlete export: its file names and columns aren\'t published, so read as a plain zip)', () => {
+  const zip = SwitchKit.zip([{ name: 'export/workouts.csv', text: 'Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5' }, { name: 'export/profile.csv', text: 'Name,Email\nMaya,maya@example.com' }, { name: '__MACOSX/._workouts.csv', text: 'junk' }, { name: 'photo.jpg', text: 'jpg' }]);
+  assert(window.fflate && fflate.unzipSync, 'fflate loaded');
+  const out = IC.tablesFromZip(IC.unzip(zip));
+  eq(out.tables.map(t => t.name).join(','), 'workouts.csv,profile.csv'); eq(out.skipped.join(','), 'photo.jpg');
+  eq(IC.analyse(out.tables[0]).layout, 'log'); eq(IC.analyse(out.tables[1]).kind, 'roster');
+});
+test('imports: real .xlsx and .ods files through SheetJS: tabs, dates, percents', () => {
+  assert(window.XLSX && XLSX.write, 'SheetJS loaded');
+  const wb = XLSX.utils.book_new();
+  const log = XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps', 'RPE'], [46083, 'Squat', 180, 5, 8], [46083, 'Bench', 110, 5, 8.5]]);
+  log.A2.z = 'd/m/yyyy'; log.A3.z = 'd/m/yyyy';
+  const grid = XLSX.utils.aoa_to_sheet([['Exercise', 'Week 1', 'Week 2'], ['Squat', '3x5 @7', '3x5 @8'], ['Bench', '4x6', 0.75]]);
+  grid.C3.z = '0%';
+  XLSX.utils.book_append_sheet(wb, log, 'Log'); XLSX.utils.book_append_sheet(wb, grid, 'Block');
+  ['xlsx', 'ods'].forEach(type => {
+    const bytes = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: type }));
+    eq(IC.sniff('book.' + type, bytes), type);
+    const tabs = IC.readWorkbook(bytes);
+    eq(tabs.map(t => t.name).join(','), 'Log,Block');
+    eq(tabs[0].rows[1].cells.join('|'), '2026-03-02|Squat|180|5|8');
+    eq(tabs[1].rows[2].cells[2], '75%');
+    eq(IC.analyse(tabs[0]).layout, 'log'); eq(IC.analyse(tabs[1]).layout, 'grid');
+    const quick = IC.readWorkbook(bytes, { sheetRows: 2 });
+    eq(quick[0].rows.length, 2);
+  });
+});
+test('imports: a 20,000-row CSV, read and planned in chunks with the same result as one pass', () => {
+  const lines = ['Date,Exercise,Weight,Reps,RPE'];
+  const lifts = ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'];
+  for (let i = 0; i < 20000; i++) { const d = new Date(Date.UTC(2020, 0, 1) + Math.floor(i / 8) * 86400000).toISOString().slice(0, 10); lines.push([d, lifts[i % 4], 100 + (i % 37), 5, 8].join(',')); }
+  const t0 = Date.now();
+  const a = IC.analyse(imTable(lines.join('\n')));
+  eq(a.layout, 'log'); eq(a.rowsCount, 20000);
+  const body = IC.bodyRows(a), map = IC.historyMap(a), opts = { athleteId: 'a1', unit: 'kg', today: IM_TODAY };
+  const one = SwitchKit.finishHistoryPlan(SwitchKit.extractHistory(body, map, opts), opts);
+  const ms = Date.now() - t0;
+  eq(one.logs.length, 20000);
+  assert(ms < 4000, 'read and planned in ' + ms + ' ms');
+  // A chunk at a time gives the same sets and keys.
+  const x = SwitchKit.extractHistory(body.slice(0, 1500), map, opts);
+  eq(SwitchKit.finishHistoryPlan(x, opts).logs.length, 1500);
+});
+test('imports: the same rows through the mapper keep the import keys the switch kit gave them', () => {
+  const csv = 'date,exercise,weight,reps,rpe\n2026-01-05,Squat,150,5,8\n2026-01-05,Squat,150,5,8';
+  const before = SwitchKit.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  const a = IC.analyse(imTable(csv));
+  const now = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(now.logs.map(l => l.importKey).join(','), before.logs.map(l => l.importKey).join(','));
+  const again = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY, existing: before.logs.map(l => Object.assign({}, l, { athleteId: 'a1' })) });
+  eq(again.logs.length, 0); eq(again.dupes, 2);
+});
+test('imports: the demo\'s sample files read the way the pitch shows them', () => {
+  const S = IC.SAMPLES;
+  const ro = IC.analyse(imTable(S.roster.text, S.roster.name));
+  eq(ro.recognised.id, 'truecoach'); assert(IC.planRoster(ro, {}).people.length >= 8, 'a roster to pick from');
+  const hi = IC.analyse(imTable(S.history.text, S.history.name));
+  eq(hi.recognised.id, 'strong');
+  const wide = IC.analyse(imTable(S.wide.text, S.wide.name)); eq(wide.layout, 'wide');
+  const grid = IC.analyse(imTable(S.grid.text, S.grid.name)); eq(grid.layout, 'grid');
+  eq(PhotoImport.draftToWeeks(PhotoImport.draftFromRead(IC.gridToRead(grid, {}))).stats.left, 0);
 });
 
 /* ===========================================================

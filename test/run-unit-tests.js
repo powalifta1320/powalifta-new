@@ -153,9 +153,15 @@ sandbox.getComputedStyle = () => domStub;
 sandbox.alert = () => {}; sandbox.confirm = () => true; sandbox.prompt = () => null;
 sandbox.URL = URL; sandbox.URLSearchParams = URLSearchParams;
 sandbox.Intl = Intl; sandbox.crypto = require('crypto').webcrypto;
+sandbox.TextDecoder = TextDecoder; sandbox.TextEncoder = TextEncoder;   // IMPORTS: decoding a file's bytes (browsers have both)
 sandbox.btoa = s => Buffer.from(s, 'binary').toString('base64');
 sandbox.atob = s => Buffer.from(s, 'base64').toString('binary');
 vm.createContext(sandbox);
+// IMPORTS: the vendored file readers (SheetJS mini, fflate) as tests.html loads them, each in its own script so their
+// minified code stays out of the duplicate-function check below. The app itself loads them only when a file needs them.
+for (const lib of ['import-lib-xlsx.js', 'import-lib-fflate.js']) {
+  if (fs.existsSync(path.join(ROOT, lib))) vm.runInContext(fs.readFileSync(path.join(ROOT, lib), 'utf8'), sandbox, { filename: lib });
+}
 
 // ---- assemble app.js + the tests.html assertion block -------------------------
 // tests.html loads app.js then clubs.js; mirror that so the club helpers
@@ -164,6 +170,8 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   fs.readFileSync(path.join(ROOT, 'clubs.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'health.js')) ? fs.readFileSync(path.join(ROOT, 'health.js'), 'utf8') : '') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'switch-kit.js')) ? fs.readFileSync(path.join(ROOT, 'switch-kit.js'), 'utf8') : '') + '\n;\n' +
+  // IMPORTS: the intake's parsers, recognisers, layout classifier and mapper (tests.html "imports (import-core.js)")
+  (fs.existsSync(path.join(ROOT, 'import-core.js')) ? fs.readFileSync(path.join(ROOT, 'import-core.js'), 'utf8') : '') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'voice.js')) ? fs.readFileSync(path.join(ROOT, 'voice.js'), 'utf8') : '') + '\n;\n' +
   // VIDEO REVIEW hook: the review tool's pure geometry (tests.html "video review")
   (fs.existsSync(path.join(ROOT, 'video-review.js')) ? fs.readFileSync(path.join(ROOT, 'video-review.js'), 'utf8') : '') + '\n;\n' +
