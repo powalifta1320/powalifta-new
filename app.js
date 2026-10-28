@@ -223,12 +223,16 @@ async function _signedOutByServer(uid, opts) {
 }
 // Nobody is signed in on this device: wipe whatever an account left here (a session that ended
 // while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
-// The queues stay for their own account. → true when there was something to wipe.
+// The queues stay for their own account. → true when an account was here (its offline copy was):
+// the demo's own keys (a meet-day board, attempt plans) are swept quietly, with no "signed out" note.
 function _forgetLeftovers() {
-  if (window._demoMode || !_accountKeys().length) return false;
+  if (window._demoMode) return false;
+  const keys = _accountKeys();
+  if (!keys.length) return false;
+  const hadAccount = keys.some(k => k.indexOf(_SNAP_PREFIX) === 0);
   _wipeLocalUserData({ uid: _lastSnapshotUid(), keepQueue: true });
-  _forgetPushOnThisDevice();
-  return true;
+  if (hadAccount) _forgetPushOnThisDevice();
+  return hadAccount;
 }
 // The one account whose snapshot is on this device (the queue's owner when it was never tagged), or null.
 function _lastSnapshotUid() {
