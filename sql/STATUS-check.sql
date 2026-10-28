@@ -157,6 +157,8 @@ with checks(n, migration, applied) as (values
         coalesce(not has_function_privilege('anon', to_regprocedure('public.handle_new_user()'), 'execute'), false)
         and coalesce(not has_function_privilege('authenticated', to_regprocedure('public.club_members_guard()'), 'execute'), false)
         and exists (select 1 from pg_proc where oid = to_regprocedure('public.touch_email_preferences()') and proconfig is not null)
-        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'edge_rate_limits' and policyname = 'service role only'))
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'edge_rate_limits' and policyname = 'service role only')),
+  (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
+        exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs'))
 )
 select n, migration, applied from checks order by n;
