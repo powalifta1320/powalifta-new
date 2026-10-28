@@ -193,8 +193,76 @@
     Object.keys(opts.unread || {}).forEach(function (k) { unread += Math.max(0, Number(opts.unread[k]) || 0); });
     return { trained: trained, of: (rows || []).length, prs: prs, unread: unread };
   }
+  // This week's wins, the lifters with a PR first: [{ id, name, lifts: ['squat'..], text }]
+  function caWins(rows) {
+    var out = [];
+    (rows || []).forEach(function (r) {
+      var lifts = [], extra = [];
+      (r.wins || []).forEach(function (w) { if (!w) return; if (w.type === 'pr') lifts = lifts.concat(w.lifts || []); else if (w.text) extra.push(w.text); });
+      if (lifts.length || extra.length) out.push({ id: r.athlete.id, name: r.athlete.name, lifts: lifts, extra: extra });
+    });
+    return out.sort(function (a, b) { return b.lifts.length - a.lifts.length || String(a.name).localeCompare(String(b.name)); });
+  }
   // The headline: "3 need you", "1 needs you", or all clear.
   function caHeadline(n) { return n > 0 ? { n: n, words: n === 1 ? 'needs you' : 'need you' } : { n: 0, words: 'All clear' }; }
+  // The focal job as a sentence about the lifter ("Tom's meet is today"), for the one big job on Home and
+  // the flag on a lifter's card. it: a job from clJobs; jt: its jobText (the detail comes from there).
+  function poss(n) { return n ? n + '\u2019s' : 'Their'; }
+  function caFocalTitle(it) {
+    var r = (it && (it.r || (it.rows && it.rows[0]))) || {}, a = r.athlete || {}, f = first(a.name) || 'They', st = r.status || {}, x = (it && it.reason) || {};
+    var days = r.meet ? r.meet.days : null;
+    switch (it && it.type) {
+      case 'meetday': return it.rows && it.rows.length > 1 ? (it.name || 'The meet') + (it.days <= 0 ? ' is today' : ' is tomorrow') : poss(f) + ' meet is ' + (it.days <= 0 ? 'today' : 'tomorrow');
+      case 'meet': return poss(f) + ' meet is ' + (days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days');
+      case 'pain': {
+        var rep0 = st.pain && st.pain.report, part = rep0 && typeof painPartLabel === 'function' ? painPartLabel(rep0.bodyPart, rep0.side) : '';
+        return f + ' reported ' + (part ? String(part).replace(/^([LR]) /, function (m0, s0) { return (s0 === 'L' ? 'left ' : 'right '); }).toLowerCase() + ' pain' : 'pain');
+      }
+      case 'weight': return r.bw ? f + ' is ' + num(kgShow(r.bw.over)) + ' ' + unit() + ' over the ' + String(r.bw.cls).replace(/\s*kg$/i, '') + ' class' : f + ' is over the class';
+      case 'offpace': return poss(f) + ' cut is off pace';
+      case 'overshoot': { var m = /^(.*?) @/.exec(x.text || ''); return poss(f) + ' ' + (m ? m[1].toLowerCase() : 'top set') + ' felt heavier than you wrote'; }
+      case 'drift': return poss(f) + ' effort is drifting up';
+      case 'message': return f + ' wrote you';
+      case 'note': return f + ' left you a note';
+      case 'formcheck': return f + ' sent a form check';
+      case 'checkin': return poss(f) + ' check-in is worth a look';
+      case 'nocheckin': return f + ' hasn\u2019t checked in';
+      case 'readiness': return poss(f) + ' readiness is low';
+      case 'quiet': return f + ' has been quiet' + (st.ago != null ? ' for ' + plural(st.ago, 'day') : '');
+      case 'never': return f + ' hasn\u2019t logged a set yet';
+      case 'missed': return f + ' missed a session';
+      case 'noprogram': return f + ' has no block yet';
+      case 'blockend': return poss(f) + ' block ends this week';
+      case 'blockdone': return f + ' finished the block';
+      case 'stalling': return f + ' has been flat for 3 weeks';
+      case 'write': return poss(f) + ' next week is ready to write';
+      case 'busy': return f + ' has a busy week';
+    }
+    return f;
+  }
+  // The line under it: the evidence, in one short line with at most one dot.
+  function caFocalDetail(it, jt) {
+    jt = jt || {};
+    if (!it) return '';
+    var r = it.r || (it.rows && it.rows[0]) || {}, st = r.status || {};
+    if (it.type === 'pain') {
+      var p = st.pain, rp = p && p.report;
+      if (!rp) return jt.detail || '';
+      var sev = rp.severity != null ? num(rp.severity) + '/10' : '';
+      var lift = rp.lift && typeof painLiftLabel === 'function' ? String(painLiftLabel(rp.lift)).toLowerCase() : '';
+      var times = p.count >= 2 ? (typeof _ordinal === 'function' ? _ordinal(p.count) : p.count + 'th') + ' time this week' : (rp.day ? 'reported ' + whenText(rp.day) : '');
+      return [sev + (lift ? (sev ? ' on ' : 'On ') + lift : ''), times].filter(Boolean).join(', ');
+    }
+    if (it.type === 'message') {
+      var ago = String(jt.title || '').replace(/^Wrote you( · )?/, '');
+      var vm = /^Voice note · (\d+:\d{2})$/.exec(String(jt.detail || ''));
+      var body = vm ? 'voice note ' + vm[1] : (jt.detail || '');
+      return [ago, body].filter(Boolean).join(' \u00b7 ');
+    }
+    if (it.type === 'busy') return String((it.info && it.info.line) || jt.detail || '').replace(/ · /g, ', ');
+    if (it.type === 'overshoot' || it.type === 'weight' || it.type === 'quiet' || it.type === 'never' || it.type === 'noprogram' || it.type === 'readiness') return jt.detail || '';
+    return jt.detail || (jt.title !== caFocalTitle(it) ? jt.title || '' : '');
+  }
   // The roster's next meet, one entry per meet: { days, name, who: [first names] } or null.
   function caNextMeet(rows) {
     var groups = {};
@@ -288,13 +356,13 @@
     var sub = hl.n ? '' : '<p class="ca-hero-sub">Nobody needs you this week. Next weeks and blocks are below.</p>';
     return '<div class="ca-hero ca-rise"><p class="ca-hero-hi">' + esc(hi) + '</p><div class="ca-hero-head">' + head + '</div>' + sub +
       '<div class="ca-stats">' +
-        statHtml(st.trained, '/' + st.of, 'Trained', 'Trained in the last 7 days: ' + st.trained + ' of ' + st.of) +
-        statHtml(st.prs, '', st.prs === 1 ? 'PR' : 'PRs', 'Personal records this week') +
+        statHtml(st.trained, '/' + st.of, 'Trained', 'Trained in the last 7 days: ' + st.trained + ' of ' + st.of + '. Show who is behind', 'data-lifters="behind"') +
+        statHtml(st.prs, '', st.prs === 1 ? 'PR' : 'PRs', plural(st.prs, 'personal record') + ' this week. Show the wins', 'data-wins="1"') +
         '<button type="button" class="ca-stat is-btn" data-go="messages" aria-label="' + esc(plural(st.unread, 'unread message')) + ', open Messages"><b>' + st.unread + '</b><span>Unread</span></button>' +
       '</div></div>';
   }
-  function statHtml(v, small, label, aria) {
-    return '<div class="ca-stat" role="group" aria-label="' + esc(aria) + '"><b>' + esc(String(v)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</b><span>' + esc(label) + '</span></div>';
+  function statHtml(v, small, label, aria, attr) {
+    return '<button type="button" class="ca-stat is-btn" ' + (attr || '') + ' aria-label="' + esc(aria) + '"><b>' + esc(String(v)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</b><span>' + esc(label) + '</span></button>';
   }
   // Needs you: the worst job as one big card with the screen's red, the next two as rows with their fix
   // in graphite, "See all" when there are more. With nobody needing you: what's next (blocks, next weeks).
@@ -313,15 +381,18 @@
     var more = lead.length > 3 ? '<button type="button" class="ca-more" data-lifters="' + (urgent ? 'need' : 'all') + '"><span>See all ' + lead.length + '</span>' + ic('chev', 2.2) + '</button>' : '';
     var html = '<div class="ca-sec' + (urgent ? ' is-deck' : '') + '" aria-label="' + title + '">' + (urgent ? '' : '<div class="ca-h"><h2>' + title + '</h2></div>');
     html += leadCardHtml(top, urgent);
-    if (rest.length || more) html += '<div class="ca-list ca-rise">' + rest.map(function (x) { return jobRowHtml(x); }).join('') + more + '</div>';
+    if (rest.length || more) html += '<div class="ca-plain ca-rise">' + rest.map(function (x) { return jobRowHtml(x); }).join('') + more + '</div>';
     return html + '</div>';
   }
+  // The one big job: open on the page (not a third box), a bigger face, the job as a sentence, the red.
   function leadCardHtml(x, red) {
     var it = x.job, r = x.r, t = jobText(it, r.athlete.id), f = fixOf(it) || {};
-    var detail = t.detail ? '<span class="ca-lead-d">' + (t.voice ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(t.detail)) + '</span>' : '';
-    return '<div class="ca-lead ca-rise tone-' + esc(t.tone) + '" data-job="' + esc(it.key) + '" data-aid="' + esc(r.athlete.id) + '">' +
-      '<button type="button" class="ca-lead-main" data-open="' + esc(r.athlete.id) + '">' + avHtml(r.athlete, 'is-44') +
-        '<span class="ca-lead-tx"><span class="ca-lead-n">' + esc(r.athlete.name) + '</span><span class="ca-lead-t">' + keepDots(esc(t.short || t.title)) + '</span>' + detail + '</span>' + ic('chev', 2.2) + '</button>' +
+    var it1 = it.type === 'meetday' ? Object.assign({}, it, { r: r }) : it;
+    var d = caFocalDetail(it1, t);
+    var sub = '<span class="ca-focal-n">' + esc(r.athlete.name) + '</span>' + (d ? '<span class="ca-focal-d">' + (t.voice && it.type === 'message' ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(d)) + '</span>' : '');
+    return '<div class="ca-focal ca-rise tone-' + esc(t.tone) + '" data-job="' + esc(it.key) + '" data-aid="' + esc(r.athlete.id) + '">' +
+      '<button type="button" class="ca-focal-main" data-open="' + esc(r.athlete.id) + '" aria-label="' + esc(caFocalTitle(it1) + '. Open ' + r.athlete.name) + '">' + avHtml(r.athlete, 'is-56') +
+        '<span class="ca-focal-tx"><span class="ca-focal-t">' + esc(caFocalTitle(it1)) + '</span>' + sub + '</span></button>' +
       '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(it.key) + '">' + esc(f.label || 'Open') + '</button></div>';
   }
   function jobRowHtml(x) {
@@ -437,6 +508,7 @@
       }
       if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open')); return; }
       if ((b = t.closest('[data-lifters]'))) { e.preventDefault(); openLifters(b.getAttribute('data-lifters')); return; }
+      if ((b = t.closest('[data-wins]'))) { e.preventDefault(); openWins(area._X); return; }
       if ((b = t.closest('[data-go]'))) { e.preventDefault(); tab(b.getAttribute('data-go')); return; }
       if ((b = t.closest('[data-sc]'))) { e.preventDefault(); shortcut(b.getAttribute('data-sc'), b); return; }
       if ((b = t.closest('[data-step]'))) {
@@ -490,11 +562,11 @@
     var counts = caFilterCounts(X.rows, { need: X.need, week: X.week });
     if (!counts[L.filter]) L.filter = 'all';
     var search = X.rows.length > 6 ? '<label class="ca-search ca-rise">' + ic('search') + '<input class="ca-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(L.q) + '"></label>' : '';
-    var chips = '<div class="ca-seg ca-rise" role="tablist" aria-label="Show">' + FILTERS.map(function (f) {
+    var chips = '<div class="ca-seg is-hero ca-rise" role="tablist" aria-label="Show">' + FILTERS.map(function (f) {
       var on = L.filter === f[0];
       return '<button type="button" class="ca-seg-b' + (on ? ' on' : '') + '" role="tab" aria-selected="' + on + '" data-filter="' + f[0] + '" aria-label="' + esc(f[1] + ', ' + counts[f[0]]) + '"' + (counts[f[0]] || f[0] === 'all' ? '' : ' disabled') + '><b>' + counts[f[0]] + '</b><span>' + esc(f[1]) + '</span></button>';
     }).join('') + '</div>';
-    wrap.innerHTML = search + chips + '<div class="ca-rows-host"></div>';
+    wrap.innerHTML = chips + search + '<div class="ca-rows-host"></div>';
     area.appendChild(wrap);
     wrap._X = X;
     paintRows(wrap);
@@ -511,7 +583,7 @@
         (!q || String(r.athlete.name).toLowerCase().indexOf(q) >= 0 || String((r.status && r.status.program && r.status.program.name) || '').toLowerCase().indexOf(q) >= 0);
     });
     if (!rows.length) { host.innerHTML = '<p class="ca-none">' + (q ? 'No one called “' + esc(L.q) + '”' : 'Nobody here right now') + '</p>'; return; }
-    host.innerHTML = '<div class="ca-list ca-rows">' + rows.map(function (r, i) { return rowHtml(r, X, i); }).join('') + '</div>';
+    host.innerHTML = '<div class="ca-plain ca-rows">' + rows.map(function (r, i) { return rowHtml(r, X, i); }).join('') + '</div>';
   }
   function rowHtml(r, X, i) {
     var top = topJob(r, X.jobs), w = X.week(r);
@@ -521,7 +593,7 @@
     return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52) +
       '<span class="ca-row-main"><span class="ca-row-n">' + esc(r.athlete.name) + '</span>' +
         '<span class="ca-row-l' + (sev ? ' sev-' + sev : '') + '">' + (sev ? '<i class="ca-dot" aria-hidden="true"></i>' : '') + '<span>' + keepDots(esc(line)) + '</span></span></span>' +
-      '<span class="ca-row-end t-' + esc(n.tone) + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span></button>';
+      (n.tone !== 'none' ? '<span class="ca-row-end t-' + esc(n.tone) + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b><small>' + esc(unit()) + '</small></span>' : '') + '</button>';
   }
   function wireHub(wrap) {
     wrap.addEventListener('click', function (e) {
@@ -582,8 +654,9 @@
       var jt = jobText(top, a.id), f = fixOf(top) || {};
       var busy = top.type === 'busy' ? (jt.note ? '<span class="ca-flag-q">“' + esc(clip(jt.note, 140)) + '”</span>' : '') + '<button type="button" class="ca-link" data-busy-keep>Keep the week as written</button>' : '';
       var red = top.tier <= NEED_TIER;
+      var top1 = top.type === 'meetday' ? Object.assign({}, top, { r: r }) : top, fd = caFocalDetail(top1, jt);
       html += '<div class="ca-flag tone-' + esc(jt.tone) + '" data-job="' + esc(top.key) + '"><span class="ca-flag-ic">' + ic(jt.icon in IC ? jt.icon : 'eye') + '</span>' +
-        '<span class="ca-flag-tx"><b>' + keepDots(esc(jt.title)) + '</b>' + (jt.detail ? '<span>' + (jt.voice ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(jt.detail)) + '</span>' : '') + busy + '</span>' +
+        '<span class="ca-flag-tx"><b>' + esc(caFocalTitle(top1)) + '</b>' + (fd ? '<span>' + (jt.voice && top.type === 'message' ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(fd)) + '</span>' : '') + busy + '</span>' +
         '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(top.key) + '">' + esc(f.label || 'Open') + '</button></div>';
     }
     html += overviewHtml(r, w);
@@ -635,7 +708,7 @@
     var row = function (key, icon, tint, title, sub) {
       return '<button type="button" class="ca-lrow" data-row="' + key + '"><span class="ca-tic ' + tint + '">' + ic(icon) + '</span><span class="ca-lrow-tx"><span class="ca-lrow-t">' + esc(title) + '</span>' + (sub ? '<span class="ca-lrow-s">' + esc(sub) + '</span>' : '') + '</span>' + ic('chev', 2.2) + '</button>';
     };
-    return '<div class="ca-list ca-rowsx">' +
+    return '<div class="ca-plain ca-rowsx">' +
       row('notes', 'note', 't-msg', 'Notes & check-ins', notesSub) +
       (window.WeeklyNote ? row('weeknote', 'pen', 't-msg', 'Week’s note', 'Drafted from their last 7 days') : '') +
       (blk ? row('blocks', 'blocks', 't-prog', 'Blocks', blk.text) : '') +
@@ -837,6 +910,23 @@
       setTimeout(function () { try { inp.focus(); } catch (e) {} }, 420);
     }, { cls: 'ca-search-sheet' });
   }
+  // This week's PRs (Home's PRs number): who, which lifts; a row opens their Progress.
+  function openWins(X) {
+    if (typeof uiSheet !== 'function') return;
+    X = X || model();
+    var wins = caWins(X.rows);
+    var L0 = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+    uiSheet('This week\u2019s wins', function (sheet, close) {
+      if (!wins.length) { sheet.appendChild(el('div', { class: 'ca-empty', html: ic('trophy') + '<b>No PRs yet this week</b><p>Every PR lands here the moment it\u2019s logged.</p>' })); return; }
+      sheet.appendChild(uiList(wins.map(function (w) {
+        var a = (store().athletes || []).find(function (y) { return y.id === w.id; }) || { name: w.name };
+        var sub = w.lifts.length ? w.lifts.map(function (l) { return L0[l] || l; }).join(', ') + ' PR' + (w.lifts.length > 1 ? 's' : '') : '';
+        if (w.extra.length) sub = [sub].concat(w.extra).filter(Boolean).join(' \u00b7 ');
+        return uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: sub, chevron: true,
+          onClick: function () { close(); setTimeout(function () { P.pending = 'progress'; P.id = w.id; if (CL() && CL().open) CL().open(w.id); }, 230); } });
+      })));
+    }, { cls: 'ca-wins-sheet' });
+  }
   function openCheckins() {
     if (typeof uiSheet !== 'function') return;
     uiSheet('Check-ins', function (sheet, close) {
@@ -896,12 +986,12 @@
 
   window.CoachApp = {
     renderHome: renderHome, renderLifters: renderLifters, renderLifter: renderLifter, refresh: refresh, paintHomeIfShown: paintHomeIfShown,
-    openSearch: openSearch, openCheckins: openCheckins, openLifters: openLifters, popView: popView, paintBadges: paintBadges,
+    openSearch: openSearch, openCheckins: openCheckins, openWins: openWins, openLifters: openLifters, popView: popView, paintBadges: paintBadges,
     lifterView: function () { return P.view; }, enterLifter: function () { P.view = P.pending && VIEWS[P.pending] ? P.pending : 'card'; P.pending = null; },
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
     caGreeting: caGreeting, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeroStats: caHeroStats, caHeadline: caHeadline,
-    caCheckins: caCheckins, caNextMeet: caNextMeet, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
+    caCheckins: caCheckins, caNextMeet: caNextMeet, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
   };
 })();

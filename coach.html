@@ -3551,6 +3551,33 @@ function _gridActualHtml(ex) {
     (skipped ? '<i>' + (runs.length ? ' · ' : '') + skipped + ' skipped</i>' : '');
 }
 
+// The program's ⋯ menu: the phone's Programs (coach-program.js), the old set-by-set builder and the desk's
+// builder head all offer the same actions.
+function programMenuActions(prog, athleteId) {
+  const athName = (Store.get().athletes.find(a => a.id === athleteId) || {}).name;
+  const _pbSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
+  const blockOpen = _pbSets.length > 0 && _pbSets.some(s => !s.completed);
+  return [
+    { label: 'Notify ' + ((athName || 'athlete').split(' ')[0]), icon: ICONS.chat, onClick: () => notifyAthleteAssigned() },
+    blockOpen ? { label: 'Rebuild from goal…', icon: ICONS.program, onClick: () => openGoalModal(athleteId) } : null,
+    { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
+    { label: 'Save as template', icon: ICONS.copy, onClick: () => openSaveTemplate(prog) },
+    { label: 'Maxes for % work', icon: ICONS.chart, onClick: () => openMaxesSheet(prog.id, athleteId) },
+    { label: 'Set fields', icon: ICONS.program, onClick: () => openSetFieldsSheet(prog.id, loadProgram) },
+    _pbSets.length ? { label: 'Start the next block', icon: ICONS.program, onClick: () => openNextBlockSheet(prog.id, athleteId) } : null,
+    _pbSets.some(s => s.pct != null && !s.completed) ? { label: 'Update % loads from their maxes', icon: ICONS.chart, onClick: () => {
+      let res = null;
+      Store.update(s => { const p = s.programs.find(x => x.id === prog.id); if (p) res = applyPctLoads(p.weeks, athleteId, undefined, p.maxes); });
+      persistProgram(prog.id); loadProgram();
+      toast(res && res.filled ? 'Updated ' + res.filled + (res.filled === 1 ? ' set' : ' sets') + ' from their maxes' : 'No max to work from yet');
+    } } : null,
+    { label: 'Replace with an imported program', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
+    { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
+    { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
+  ];
+}
+window.programMenuActions = programMenuActions;
+
 function loadProgram() {
   const sel = document.getElementById('progAthlete');
   const athleteId = sel.value;
@@ -3560,6 +3587,9 @@ function loadProgram() {
   // template open there owns the centre.
   const desk = _desk() && typeof deskBuilderFrame === 'function';
   if (desk && deskBuilderFrame()) return;
+  // The phone and the iPhone app (coach-program.js, 28 Oct): one day per page, sets you read like Train,
+  // an editor sheet with steppers. The set-by-set builder below stays the laptop's (its ⋯ view).
+  if (!_desk() && window.CoachProgram && CoachProgram.render && CoachProgram.render(area, athleteId)) return;
 
   // Nobody to pick or notify yet: no empty dropdown, no Notify.
   const notifyBtn = document.getElementById('notifyAthleteBtn');
@@ -3625,24 +3655,7 @@ function loadProgram() {
   // logged program; otherwise it waits in ⋯.
   const _pbSets = prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets);
   const blockOpen = _pbSets.length > 0 && _pbSets.some(s => !s.completed);
-  const progActions = () => [
-    { label: 'Notify ' + ((athName || 'athlete').split(' ')[0]), icon: ICONS.chat, onClick: () => notifyAthleteAssigned() },
-    blockOpen ? { label: 'Rebuild from goal…', icon: ICONS.program, onClick: () => openGoalModal(athleteId) } : null,
-    { label: 'Add week', icon: ICONS.plus, onClick: () => addWeek() },
-    { label: 'Save as template', icon: ICONS.copy, onClick: () => openSaveTemplate(prog) },
-    { label: 'Maxes for % work', icon: ICONS.chart, onClick: () => openMaxesSheet(prog.id, athleteId) },
-    { label: 'Set fields', icon: ICONS.program, onClick: () => openSetFieldsSheet(prog.id, loadProgram) },
-    _pbSets.length ? { label: 'Start the next block', icon: ICONS.program, onClick: () => openNextBlockSheet(prog.id, athleteId) } : null,
-    _pbSets.some(s => s.pct != null && !s.completed) ? { label: 'Update % loads from their maxes', icon: ICONS.chart, onClick: () => {
-      let res = null;
-      Store.update(s => { const p = s.programs.find(x => x.id === prog.id); if (p) res = applyPctLoads(p.weeks, athleteId, undefined, p.maxes); });
-      persistProgram(prog.id); loadProgram();
-      toast(res && res.filled ? 'Updated ' + res.filled + (res.filled === 1 ? ' set' : ' sets') + ' from their maxes' : 'No max to work from yet');
-    } } : null,
-    { label: 'Replace with an imported program', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
-    { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
-    { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
-  ];
+  const progActions = () => programMenuActions(prog, athleteId);
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', progActions()));
   // The desk (desk.js): the block builder. The header (name, maxes, Sessions | Progression, ⋯), then
   // the weeks as a strip, one bar of tools and the week's sessions as cards, or each lift across the

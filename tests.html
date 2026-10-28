@@ -111,6 +111,8 @@
 <script src="busy-week.js"></script>
 <script src="coach-report.js"></script>
 <script src="coach-report-ui.js"></script>
+<script src="coach-app.js"></script>
+<script src="coach-program.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -7089,6 +7091,134 @@ test('report: an approved busy week counts its agreed sessions (the table keeps 
   eq(rows[0].days, 2, 'the sessions the coach approved (proposal.assign)');
   eq(rows[1].days, 3, 'no proposal: the days the lifter gave');
   eq(CoachReport.busyRows(rows).map(r => r.days).join(), '2,3', 'reading its own rows again keeps the numbers');
+});
+
+
+/* ===========================================================
+   The iPhone app's coach screens: Home, Lifters, a lifter (coach-app.js)
+   =========================================================== */
+group('coach app (coach-app.js)');
+const CA = typeof CoachApp !== 'undefined' ? CoachApp : (window.CoachApp || null);
+const caRow = (id, name, o) => Object.assign({ athlete: { id, name }, status: { program: { name: 'Block' }, week: { idx: 0, total: 3, sessionsPerWeek: 3 } }, reasons: [], meet: null, wins: [], live: null }, o || {});
+const caJob = (r, type, tier, extra) => Object.assign({ key: r.athlete.id + ':' + type, type, tier, r, done: false }, extra || {});
+test('greeting follows the clock', () => {
+  assert(CA, 'CoachApp is loaded');
+  eq(CA.caGreeting(7), 'Good morning'); eq(CA.caGreeting(12), 'Good afternoon'); eq(CA.caGreeting(17), 'Good afternoon');
+  eq(CA.caGreeting(18), 'Good evening'); eq(CA.caGreeting(2), 'Good evening', 'the small hours are evening');
+});
+test('who needs you: open jobs due this week, worst first, each lifter once', () => {
+  const a = caRow('a', 'Ada Lee'), b = caRow('b', 'Bo Chen'), c = caRow('c', 'Cy Park');
+  const jobs = [
+    { key: 'md', type: 'meetday', tier: 0, rows: [b, c], done: false },
+    caJob(a, 'pain', 0), caJob(b, 'message', 2), caJob(a, 'write', 4), caJob(c, 'blockend', 3), caJob(a, 'note', 2, { done: true })
+  ];
+  eq(CA.caNeedIds(jobs).join(','), 'b,c,a', 'a meet day counts every lifter at it; planning jobs (3-4) do not');
+  eq(CA.caNeedIds(jobs, 0).join(','), 'b,c,a', 'tier 0 only');
+  eq(CA.caNeedIds([caJob(a, 'write', 4)]).length, 0, 'next week to write is planning, not "needs you"');
+  const lead = CA.caLeadJobs(jobs, CA.caNeedIds(jobs));
+  eq(lead.map(x => x.id + ':' + x.job.type).join(','), 'b:meetday,c:meetday,a:pain', "each lifter's worst open job, in the jobs' order");
+});
+test('the week ring: segments, trained, behind', () => {
+  const w = CA.caWeek(1, 3);
+  eq(w.n, 3); eq(w.k, 1); eq(w.behind, true, 'two short in the last 7 days');
+  eq(CA.caWeek(2, 3).behind, false);
+  eq(CA.caWeek(5, 3).k, 3, 'extra sessions fill it, never past');
+  eq(CA.caWeek(0, 0).n, 0, 'no block, no segments');
+  eq(CA.caWeek(0, 1).behind, false, 'one session planned is never "behind"');
+  const svg = CA.caRingSvg(CA.caWeek(2, 3), 64, 3);
+  assert(/class="ca-ring-track"/.test(svg) && /class="ca-ring-fill"/.test(svg), 'track and fill drawn');
+  assert(/class="ca-ring-none"/.test(CA.caRingSvg(CA.caWeek(0, 0), 64)), 'a faint full circle with no block');
+  assert(!/ca-ring-fill/.test(CA.caRingSvg(CA.caWeek(0, 3), 64)), 'nothing trained, no fill');
+});
+test('filters: counts and matching', () => {
+  const rows = [
+    caRow('a', 'Ada', { meet: { days: 20, meet: { name: 'Open' } } }),
+    caRow('b', 'Bo', { reasons: [{ type: 'quiet' }] }),
+    caRow('c', 'Cy', { meet: { days: 70, meet: { name: 'Nationals' } } })
+  ];
+  const ctx = { need: ['b'], week: r => r.athlete.id === 'c' ? CA.caWeek(0, 3) : CA.caWeek(3, 3) };
+  const n = CA.caFilterCounts(rows, ctx);
+  eq(n.all, 3); eq(n.need, 1); eq(n.meet, 1, 'a meet more than 8 weeks out is not "soon"'); eq(n.behind, 2, 'quiet, or two sessions short');
+  eq(CA.caFilterMatch('meet', rows[0], ctx), true);
+});
+test('the list order: who needs you, then the nearest meets, then by name', () => {
+  const rows = [caRow('z', 'Zed'), caRow('m', 'Mo', { meet: { days: 5, meet: {} } }), caRow('a', 'Al'), caRow('p', 'Pat', { meet: { days: 2, meet: {} } }), caRow('q', 'Quinn')];
+  eq(CA.caSortRows(rows, ['q', 'z']).map(r => r.athlete.id).join(','), 'q,z,p,m,a');
+  const live = rows.map(r => r.athlete.id === 'a' ? Object.assign({}, r, { live: { sets: 2 } }) : r);
+  eq(CA.caFaceOrder(live, ['q']).map(r => r.athlete.id)[0], 'a', 'under the bar first on Home');
+});
+test("a lifter's status: one dot, a few words", () => {
+  const r = caRow('a', 'Ada');
+  eq(CA.caStatus(Object.assign({}, r, { live: { sets: 1 } }), null).text, 'Training now');
+  eq(CA.caStatus(r, { type: 'pain', tier: 0 }).tone, 'alert');
+  eq(CA.caStatus(r, { type: 'message', tier: 2 }).text, 'Needs you');
+  eq(CA.caStatus(Object.assign({}, r, { meet: { days: 12, meet: {} } }), { type: 'write', tier: 4 }).text, 'Meet in 12 days', 'planning is not "needs you"');
+  eq(CA.caStatus(r, null).text, 'On plan');
+  eq(CA.caStatus(caRow('b', 'Bo', { status: { program: null } }), null).text, 'No block yet');
+});
+test("Home's numbers: trained in 7 days, this week's PRs, unread", () => {
+  const rows = [caRow('a', 'Ada', { wins: [{ type: 'pr', lifts: ['squat', 'bench'] }, { type: 'streak', text: '8-week streak' }] }), caRow('b', 'Bo'), caRow('c', 'Cy', { wins: [{ type: 'pr', lifts: ['deadlift'] }] })];
+  const st = CA.caHeroStats(rows, { daysOf: id => id === 'b' ? [] : [{ on: false }, { on: true }], unread: { a: 2, c: 1, x: -3 } });
+  eq(st.trained, 2); eq(st.of, 3); eq(st.prs, 3, 'one per lift'); eq(st.unread, 3, 'never below zero');
+  eq(CA.caHeadline(1).words, 'needs you'); eq(CA.caHeadline(4).words, 'need you'); eq(CA.caHeadline(0).words, 'All clear');
+  const wins = CA.caWins(rows);
+  eq(wins.map(w => w.id).join(','), 'a,c', 'most PRs first, nobody without a win');
+});
+test('the next meet: one entry per meet, the soonest', () => {
+  const rows = [caRow('a', 'Ada Lee', { meet: { days: 9, meet: { name: 'City Open', date: '2026-11-06' } } }), caRow('b', 'Bo Chen', { meet: { days: 9, meet: { name: 'City Open', date: '2026-11-06' } } }), caRow('c', 'Cy', { meet: { days: 30, meet: { name: 'Nationals', date: '2026-11-27' } } }), caRow('d', 'Di', { meet: { days: -2, meet: { name: 'Old', date: '2026-10-26' } } })];
+  const m = CA.caNextMeet(rows);
+  eq(m.name, 'City Open'); eq(m.days, 9); eq(m.who.join(','), 'Ada,Bo');
+  eq(CA.caNextMeet([caRow('x', 'X')]), null);
+});
+test("the focal job as a sentence about the lifter", () => {
+  const r = caRow('t', 'Tom Boyle', { meet: { days: 0, meet: { name: 'Autumn Open' } } });
+  eq(CA.caFocalTitle({ type: 'meetday', tier: 0, rows: [r], days: 0, name: 'Autumn Open' }), 'Tom’s meet is today');
+  eq(CA.caFocalTitle({ type: 'meetday', tier: 0, rows: [r, caRow('s', 'Sam')], days: 1, name: 'Autumn Open' }), 'Autumn Open is tomorrow', 'two lifters: the meet');
+  eq(CA.caFocalTitle(caJob(caRow('a', 'Arjun Mehta'), 'message', 2)), 'Arjun wrote you');
+  eq(CA.caFocalTitle(caJob(caRow('n', 'Nina P'), 'busy', 1)), 'Nina has a busy week');
+  eq(CA.caFocalTitle(caJob(caRow('q', 'Quinn', { status: { program: null, ago: 9 } }), 'quiet', 3)), 'Quinn has been quiet for 9 days');
+  eq(CA.caFocalTitle(caJob(caRow('l', 'Leo'), 'overshoot', 2, { reason: { type: 'overshoot', text: 'Bench @9 vs @8' } })), 'Leo’s bench felt heavier than you wrote');
+  eq(CA.caFocalDetail(caJob(caRow('a', 'Arjun'), 'message', 2), { title: 'Wrote you · 19 hours ago', detail: 'Voice note · 0:24' }), '19 hours ago · voice note 0:24');
+});
+test('check-ins: who answered this week, anything flagged first', () => {
+  const qs = [{ id: 'q1', coachId: 'c', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true }];
+  const t = '2026-10-28';
+  const answers = [{ questionId: 'q1', athleteId: 'a', period: '2026-10-28', num: 9 }, { questionId: 'q1', athleteId: 'b', period: '2026-10-27', num: 3 }, { questionId: 'q1', athleteId: 'c', period: '2026-10-01', num: 2 }];
+  const list = CA.caCheckins(qs, answers, [{ id: 'b', name: 'Bo' }, { id: 'a', name: 'Ada' }, { id: 'c', name: 'Cy' }, { id: 'd', name: 'Di' }], t);
+  eq(list.map(x => x.id).join(','), 'a,b,c', 'the flagged one first, nobody who never answered');
+  eq(list[0].alerts.length, 1); eq(list[1].answered, true); eq(list[2].answered, false, 'last answered weeks ago');
+});
+
+/* ===========================================================
+   The iPhone app's Programs (coach-program.js)
+   =========================================================== */
+group('programs (coach-program.js)');
+const CPg = typeof CoachProgram !== 'undefined' ? CoachProgram : (window.CoachProgram || null);
+test('a block of sets in Train’s words', () => {
+  assert(CPg, 'CoachProgram is loaded');
+  eq(CPg.cpSetText({ weight: 180, reps: 3, rpe: 8, count: 1 }, 'kg'), '180 kg × 3 @ 8');
+  eq(CPg.cpSetText({ weight: 0, reps: 3, rpe: 8, count: 1 }, 'kg'), '3 reps @ 8', 'no load: by feel to the RPE');
+  eq(CPg.cpSetText({ weight: 140, weightHi: 145, reps: 5, rpe: 7, rpeHi: 8, count: 3 }, 'kg'), '140–145 kg × 5 @ 7–8', 'ranges');
+  eq(CPg.cpSetText({ weight: 85, reps: 8, rpe: 8, rir: true, count: 3 }, 'kg'), '85 kg × 8 · 2 RIR', 'reps in reserve');
+  eq(CPg.cpSetText({ weight: 147.5, pct: 70, reps: 4, rpe: null, count: 3 }, 'kg'), '70% × 4', 'a % keeps the coach’s words');
+  eq(CPg.cpSetLine({ weight: 147.5, pct: 70, reps: 4, count: 3 }, 'kg').pctLoad, '147.5 kg', 'and what it comes to');
+  eq(CPg.cpSetLine({ weight: 100, reps: 5, count: 4 }, 'kg').count, 4);
+});
+test('coach-written values are read as numbers, never markup', () => {
+  const L = CPg.cpSetLine({ weight: '100<b>', reps: '5"><img src=x>', rpe: 'x', count: 2 }, 'kg');
+  eq(L.load, '', 'a weight that is not a number is not drawn');
+  assert(!/[<>]/.test(L.reps + L.effort), 'no markup gets through');
+});
+test('a day: its summary, rest days, the day to open', () => {
+  eq(CPg.cpDayMeta({ name: 'Squat Day', exercises: [{ sets: [{}, {}] }, { sets: [{}] }] }), '2 exercises · 3 sets');
+  eq(CPg.cpDayMeta({ name: 'Rest', exercises: [] }), 'Rest');
+  eq(CPg.cpDayMeta({ name: 'Day 4', exercises: [] }), 'No exercises yet');
+  eq(CPg.cpIsRestDay({ name: 'Active recovery', exercises: [] }), true, 'the builder’s rest heuristic');
+  eq(CPg.cpIsRestDay({ name: 'Rest', exercises: [{ sets: [] }] }), false, 'a "rest" day with exercises trains');
+  const wk = { days: [{ exercises: [{ sets: [{ completed: true }] }] }, { exercises: [{ sets: [{ completed: true }, { completed: false }] }] }, { exercises: [{ sets: [{}] }] }] };
+  eq(CPg.cpNextDay(wk), 1, 'the first day with a set still to do');
+  eq(CPg.cpNextDay({ days: [{ exercises: [{ sets: [{ completed: true }] }] }] }), 0, 'all done: the first');
+  eq(CPg.cpLoadStep(false, 'kg'), 2.5); eq(CPg.cpLoadStep(false, 'lb'), 5); eq(CPg.cpLoadStep(true, 'kg'), 2.5);
 });
 
 function render() {
