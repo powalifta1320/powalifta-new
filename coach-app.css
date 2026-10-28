@@ -389,7 +389,7 @@ html:not(.desk) .ca-stats.is-week { display: block; }
 html:not(.desk) .ca-stat.is-week { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; width: 100%; padding: 4px; border-radius: 14px; }
 html:not(.desk) .ca-stat.is-week:active { background: var(--ca-press); }
 html:not(.desk) .ca-wk-ring { position: relative; display: grid; place-items: center; width: 120px; height: 120px; }
-html:not(.desk) .ca-tring { position: absolute; inset: 0; overflow: visible; }
+html:not(.desk) .ca-tring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 html:not(.desk) .ca-tring :is(path, circle) { fill: none; }
 html:not(.desk) .ca-tring-lip { stroke: var(--ca-hair); stroke-width: 1px; }
 html:not(.desk) .ca-tring-track { stroke: var(--pl-viz-ring); }
@@ -500,6 +500,14 @@ html:not(.desk) .ca-lane-mark { position: absolute; top: 50%; left: calc(18px + 
 html:not(.desk) .ca-lane-x { position: relative; height: 18px; margin-top: 10px; font-size: 13px; font-weight: 500; color: var(--text-3); }
 html:not(.desk) .ca-lane-xl { position: absolute; top: 0; left: calc(18px + var(--x) * (100% - 36px)); transform: translateX(-50%); white-space: nowrap; }
 html:not(.desk) .ca-lane-xl:last-child { transform: translateX(calc(-100% + 18px)); }
+
+/* the smallest phones (under 360 pt): a smaller ring, the effort keys wrap, the answers a size down */
+@media (max-width: 359px) {
+  html:not(.desk) .ca-stat.is-week { grid-template-columns: 100px minmax(0, 1fr) auto; column-gap: 12px; }
+  html:not(.desk) .ca-wk-ring { width: 100px; height: 100px; }
+  html:not(.desk) :is(.ca-sum-num, .ca-wk-c b, .ca-stats.is-pr .ca-stat b) { font-size: 28px; }
+  html:not(.desk) .ca-elegend { flex-wrap: wrap; justify-content: flex-start; column-gap: 6px; }
+}
 
 /* 6. PRs: the count, and every face that set one in a gold ring with how many. */
 html:not(.desk) .ca-pr { flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; }

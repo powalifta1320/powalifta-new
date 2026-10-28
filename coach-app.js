@@ -665,9 +665,13 @@
     var X = model();
     var S = summaryModel(X);
     X.S = S;
+    // The week fills on the first look of a visit. The boot can draw Home twice in one task, so every draw before
+    // that task ends counts as the first look; a later redraw (an unread count arriving) shows it filled.
+    if (H.burst == null) { H.burst = true; setTimeout(function () { H.burst = false; }, 0); }
+    var firstLook = H.burst === true;
     // Loaded heaviest-in, worst first: who needs you (the one object), then this week and strength (surfaces),
     // effort, meets and PRs (insets), then the roster on the ground.
-    var html = '<div class="ca-home ca-root' + (H.drawn ? '' : ' is-first') + '">';
+    var html = '<div class="ca-home ca-root' + (firstLook ? ' is-first' : '') + '">';
     html += heroHtml(X, u);
     var monday = new Date().getDay() === 1;
     if (monday) html += reportRowHtml(1);
@@ -688,8 +692,6 @@
     area.querySelectorAll('.ca-rise').forEach(function (n) { n.style.setProperty('--i', String(Math.min(i++, 8))); });
     layoutLane(area);
     wireLine(area);
-    // The week fills once a visit to the app (a satisfying first look); after that Home simply shows it.
-    H.drawn = true;
     paintBadges();
   }
   function heroHtml(X, u) {
