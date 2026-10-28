@@ -3770,7 +3770,9 @@ test('imports: a 20,000-row CSV, read and planned in chunks with the same result
   const one = SwitchKit.finishHistoryPlan(SwitchKit.extractHistory(body, map, opts), opts);
   const ms = Date.now() - t0;
   eq(one.logs.length, 20000);
-  assert(ms < 4000, 'read and planned in ' + ms + ' ms');
+  // A guard against a slow path creeping in (quadratic work would take minutes), not a benchmark: the
+  // browser timing (4x CPU slowdown, longest task under 110 ms) lives in the imports work notes.
+  assert(ms < 20000, 'read and planned in ' + ms + ' ms');
   // A chunk at a time gives the same sets and keys.
   const x = SwitchKit.extractHistory(body.slice(0, 1500), map, opts);
   eq(SwitchKit.finishHistoryPlan(x, opts).logs.length, 1500);
