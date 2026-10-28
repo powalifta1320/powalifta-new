@@ -937,6 +937,8 @@ bootstrap(null, () => {
     }
     document.documentElement.classList.remove('has-session'); // show welcome if session was stale
   }
+  // Signed out without choosing it (app.js): say so once.
+  if (typeof showSignedOutNote === 'function') showSignedOutNote();
   renderNav('#nav');
   // The website's two live lists. Never inside the app: the welcome screen covers the
   // site there, so the network calls would be wasted.

