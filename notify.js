@@ -175,7 +175,8 @@
   function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   function node(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
   function say(msg, ms) { try { if (typeof toast === 'function') toast(msg, ms); } catch (e) {} }
-  function settingsPath() { return document.documentElement.classList.contains('desk') ? 'Settings → Notifications' : 'You → Notifications'; }
+  // The path never breaks at its arrow ("You" alone at a line's end, "→ Notifications" under it).
+  function settingsPath() { return document.documentElement.classList.contains('desk') ? 'Settings → Notifications' : 'You → Notifications'; }
 
   function decisionFor(reason, st) {
     return decide({

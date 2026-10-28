@@ -31,10 +31,13 @@ body.powa-app .pn-acts .pn-on { min-height: 44px; padding: 0 20px; font-size: va
 body.powa-app .pn-acts .pn-on:disabled { opacity: 0.7; cursor: default; }
 body.powa-app .pn-acts .pn-later { min-height: 44px; padding: 0 12px; font-size: var(--fs-sm, 14px); color: var(--text-2); }
 body.powa-app .pn-acts .pn-later:active { opacity: 0.6; }
-/* The laptop's Today (coach-lifters.js placeNotify): one row like the Do first jobs above it, the
-   bell, the words, the two answers at the end. */
-html.desk .pn-card.pn-coach { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 14px 16px 14px 18px; }
-html.desk .pn-card.pn-coach .pn-acts { grid-column: 3; margin-top: 0; flex-wrap: nowrap; }
+/* Wide (a laptop: the coach's Today, the lifter's Train): one row like the jobs around it, the bell,
+   the words, the two answers at the end. A phone keeps the answers under the words. */
+.pn-slot { container-type: inline-size; }
+@container (min-width: 540px) {
+  .pn-card { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 14px 16px 14px 18px; }
+  .pn-card .pn-acts { grid-column: 3; margin-top: 0; flex-wrap: nowrap; }
+}
 /* Alerts on: the bell turns into a check (in the done green), then the card goes. */
 .pn-card.is-on { --pn: #34d982; }
 [data-theme="light"] .pn-card.is-on { --pn: #0c7340; }
