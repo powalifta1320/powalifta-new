@@ -2083,6 +2083,7 @@ function _unreadSig(map) { return Object.keys(map || {}).filter(k => map[k]).sor
 async function refreshUnreadBadges() {
   try {
     let map = {};
+    const heard = (_heardMsgs || []).splice(0);
     if (window._demoMode) {
       map = _demoUnreadCounts();
       // The same counts the screen already shows: nothing to repaint (the boot paints them first).
@@ -2090,8 +2091,9 @@ async function refreshUnreadBadges() {
       if (sig === _demoUnreadPainted) { _unreadByAthlete = map; return; }
       _demoUnreadPainted = sig;
     } else if (_desk() && DB.coachInbox) {
-      // The desk wants who wrote last too: one read gives both (DB.coachInbox), and one repaint.
-      const inbox = await DB.coachInbox(user.id);
+      // The desk wants who wrote last too: DB.coachInbox folds the messages heard live into the digest
+      // it keeps and reads the unread once (one read a message, not two), then one repaint.
+      const inbox = await DB.coachInbox(user.id, heard);
       inbox.unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
       _unreadByAthlete = map;
       _deskCall('deskRefresh', { threads: inbox.threads });
@@ -2116,7 +2118,9 @@ async function refreshUnreadBadges() {
 // per-container subscription; this just keeps the unread counts honest.
 let _rosterMsgCleanup = null;
 let _unreadRefreshTimer = null;
-function scheduleUnreadRefresh() {
+var _heardMsgs;   // messages heard live since the last refresh (a var: read during the demo's first render too)
+function scheduleUnreadRefresh(m) {
+  if (m) (_heardMsgs || (_heardMsgs = [])).push(m);
   clearTimeout(_unreadRefreshTimer);
   _unreadRefreshTimer = setTimeout(refreshUnreadBadges, 450);
 }
@@ -2155,7 +2159,7 @@ function subscribeRosterMessages() {
   if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
   _rosterMsgCleanup = DB.subscribeMessages({ column: 'coach_id', value: user.id }, (m) => {
     if (!m || m.senderId === user.id) return;
-    scheduleUnreadRefresh();
+    scheduleUnreadRefresh(m);
   });
 }
 

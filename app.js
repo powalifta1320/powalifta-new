@@ -3573,15 +3573,15 @@ async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { 
 const _SNAP_PREFIX = 'powa-snapshot-';
 function _snapKey(uid) { return _SNAP_PREFIX + uid; }
 // localStorage holds ~5 MB an origin on iPhones, shared with the outbox and the unsent sets, so the
-// snapshot keeps to ~1.5 M characters (3 MB as UTF-16). Past that it degrades: the big lists keep
-// their newest rows (365 days, then 120, 42, 14; the sets also keep each lifter's best set of every
+// snapshot keeps to 2 M characters (4 MB as UTF-16, the rest left for them). Past that it degrades: the big lists keep
+// their newest rows (365 days, then 120, 42, 14, 7; the sets also keep each lifter's best set of every
 // lift from before, so a PR offline is still a PR), then the big lists go. If even that won't fit,
 // the old snapshot goes too (an out-of-date one would open a stale program offline). Each step is
 // said once a session (the console and error-log.js); nothing fails silently.
-const _SNAP_BUDGET = 1500000;
+const _SNAP_BUDGET = 2000000;
 const _SNAP_LISTS = [['workoutLogs', 'date'], ['bodyweight', 'date'], ['sessionNotes', 'date'], ['checkinAnswers', 'period'], ['messages', 'createdAt'],
   ['checkins', 'weekStart'], ['healthDaily', 'day'], ['nutritionDaily', 'day'], ['painReports', 'day'], ['programBlocks', 'endedOn'], ['coachNotes', 'createdAt']];
-const _SNAP_STEPS = [null, 365, 120, 42, 14, 0];
+const _SNAP_STEPS = [null, 365, 120, 42, 14, 7, 0];
 let _snapSaid = '';
 function _snapSay(what, detail) {
   if (_snapSaid === what) return;

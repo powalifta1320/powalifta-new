@@ -776,6 +776,22 @@ async function _readAllIn(label, ids, size, build, opts) {
   return { rows, count: res.every(r => r.count != null) ? res.reduce((a, r) => a + r.count, 0) : null,
     capped: res.some(r => r.capped), partial: res.some(r => r.partial || (r.error && !r.rows.length)), error: (res.find(r => r.error) || {}).error || null };
 }
+// The thread digest (DB._threadDigest's rows) with messages heard live folded in, as a fresh read would
+// give it: the newest message per lifter is their last, a lifter's unread one counts, a coach's weekly
+// note sets weeklyAt. Copies; newest thread first.
+function _foldThreads(threads, heard, coachId) {
+  const by = {};
+  (threads || []).forEach(t => { if (t && t.athleteId) by[t.athleteId] = Object.assign({}, t); });
+  (heard || []).filter(m => m && m.athleteId && m.coachId === coachId)
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+    .forEach(m => {
+      const t = by[m.athleteId] || (by[m.athleteId] = { athleteId: m.athleteId, lastBody: m.body, lastAt: m.createdAt, lastSenderId: m.senderId, unread: 0 });
+      if (!t.lastAt || String(m.createdAt) >= String(t.lastAt)) { t.lastBody = m.body; t.lastAt = m.createdAt; t.lastSenderId = m.senderId; }
+      if (m.senderId != null && m.senderId !== coachId && !m.readAt) t.unread = (t.unread || 0) + 1;
+      if (m.senderId === coachId && m.meta && m.meta.weekly && (!t.weeklyAt || String(m.createdAt) > String(t.weeklyAt))) t.weeklyAt = m.createdAt;
+    });
+  return Object.values(by).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
+}
 // The pain channel (DB.subscribePainReports): one at a time, for the roster it was given.
 const _pain = { ch: null, cb: null, ids: [] };
 const _PAIN_UNDO_MS = 10000;   // the lifter's Undo stays up 4.6 s (app.js toastAction): looked up again after that
@@ -3767,12 +3783,20 @@ const DB = {
     p.then(done, done);
     return p;
   },
-  // The coach's inbox in one go: the thread digest (listThreadsForCoach) and the unread messages
-  // (listUnreadForUser's, for the coach's threads). When the newest 500 are all the coach's messages,
-  // the unread come out of the same rows: one read where the badges and the digest took two.
-  // → { threads, unread }
-  async coachInbox(coachId) {
+  // The coach's inbox: the thread digest (listThreadsForCoach's: who wrote last, per lifter) and the
+  // unread messages (listUnreadForUser's) for the badges and the desk, which used to take two reads
+  // and two repaints a message. Now: a full read the first time and every 5 minutes (the newest 500;
+  // when those are all the coach's messages the unread come out of the same rows). In between, the
+  // messages the page heard live (heard: mapped rows) are folded into the digest kept here, and only
+  // the unread are read again (their badge columns): one read a message. → { threads, unread }
+  async coachInbox(coachId, heard) {
     if (!coachId) return { threads: [], unread: [] };
+    const c = this._inbox;
+    if (c && c.coachId === coachId && Date.now() - c.at < 5 * 60000) {
+      const unread = await this.listUnreadForUser(coachId);
+      c.threads = _foldThreads(c.threads, heard || [], coachId);
+      return { threads: c.threads.map(t => Object.assign({}, t)), unread };
+    }
     const got = await this._coachThreadRows(coachId);
     if (got.error) { console.warn('coachInbox', got.error); return { threads: [], unread: await this.listUnreadForUser(coachId) }; }
     const threads = this._threadDigest(got.rows, coachId);
@@ -3817,7 +3841,9 @@ const DB = {
     });
     const weeks = oldest == null ? 4 : Math.max(1, Math.min(4, (now - oldest) / (7 * 864e5)));
     this.threadTally = { weeks: Math.round(weeks * 100) / 100, messages: sent, notes: weekly, at: now };
-    return Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
+    const out = Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
+    this._inbox = { coachId, threads: out.map(t => Object.assign({}, t)), at: now };   // coachInbox folds live messages into this
+    return out;
   },
 
   // Live message stream via Supabase Realtime. `filter` is { column, value } —

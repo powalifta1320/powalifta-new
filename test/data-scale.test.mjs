@@ -244,6 +244,23 @@ await t('coach inbox: one read gives the digest and the unread when the coach ha
   x = loadDb({ messages: msgs });
   await Promise.all([x.DB.coachInbox(C), x.DB.listThreadsForCoach(C)]);
   eq(x.client.calls.length, 1, 'one read for both');
+  // A message heard live (a coach past 500 messages): folded into the digest kept, the unread read
+  // again: one read, and the same digest and counts a fresh read gives.
+  const T2 = { messages: many.slice() };
+  x = loadDb(T2);
+  await x.DB.coachInbox(C);
+  const n0 = x.client.calls.length;
+  const mk = (id, A, s, at, body) => ({ id, coach_id: C, athlete_id: A, sender_id: s, body, created_at: at, read_at: null, meta: null });
+  const live = [mk(uuid(r), ids[1], ids[1], new Date(Date.UTC(2026, 9, 28, 10)).toISOString(), 'heavy today?'), mk(uuid(r), ids[2], ids[2], new Date(Date.UTC(2026, 9, 28, 11)).toISOString(), 'done')];
+  live.forEach(m => T2.messages.push(m));
+  const heard = live.map(m => x.sbx.mapDbMessage(m));
+  const after = await x.DB.coachInbox(C, heard);
+  eq(x.client.calls.length - n0, 1, 'one read a message (the unread)');
+  const fresh = loadDb({ messages: T2.messages.slice() });
+  const [th2, un2] = await Promise.all([fresh.DB.listThreadsForCoach(C), fresh.DB.listUnreadForUser(C)]);
+  const lastOf = (list) => list.map(t => [t.athleteId, t.lastAt, t.lastSenderId, t.lastBody, t.weeklyAt || null]);
+  eq(lastOf(after.threads), lastOf(th2), 'who wrote last, as a fresh read says');
+  eq(count(after.unread), count(un2), 'the unread, as a fresh read says');
 });
 await t('hydrate (coach): every list past 1,000 rows comes back whole', async () => {
   const r = rng(11), C = uuid(r), roster = [], T = { profiles: [{ id: C, user_type: 'coach', name: 'C' }] };

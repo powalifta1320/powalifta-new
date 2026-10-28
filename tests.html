@@ -7213,7 +7213,7 @@ group('data scale (index, memos, snapshot)');
       ls = mkLS();
       eq(_saveSnapshot(u, store, { storage: ls, budget: 90000, today: '2026-10-28' }), true);
       const snap = JSON.parse(ls.getItem(key));
-      eq([365, 120, 42, 14].includes(snap.trimmedTo), true, 'a step: ' + snap.trimmedTo);
+      eq([365, 120, 42, 14, 7].includes(snap.trimmedTo), true, 'a step: ' + snap.trimmedTo);
       eq(ls.getItem(key).length <= 90000, true, 'within the budget');
       const since = _addDaysISO('2026-10-28', -snap.trimmedTo);
       eq(snap.store.workoutLogs.filter(l => l.date >= since).length, logs.filter(l => l.date >= since).length, 'every set in the window');
