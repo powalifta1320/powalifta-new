@@ -159,6 +159,8 @@ with checks(n, migration, applied) as (values
         and exists (select 1 from pg_proc where oid = to_regprocedure('public.touch_email_preferences()') and proconfig is not null)
         and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'edge_rate_limits' and policyname = 'service role only')),
   (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
-        exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs'))
+        exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
+  (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',
+        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n'))
 )
 select n, migration, applied from checks order by n;
