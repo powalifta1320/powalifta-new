@@ -2548,10 +2548,17 @@ function openWeighInSheet(onSaved) {
       remMain.appendChild(el('span', { class: 'ui-row-sub' }, 'Press and hold it to type your weight. No need to open the app'));
       remRow.appendChild(remMain);
       const time = el('input', { type: 'time', class: 'bw-remind-time', value: getTime(), 'aria-label': 'Reminder time' });
-      time.addEventListener('change', () => { try { localStorage.setItem('powa-weigh-time', time.value || '08:00'); } catch (e) {} PowaNative.scheduleWeightReminder(); });
+      time.addEventListener('change', () => {
+        // The demo is a preview (the iPhone app's welcome links to it): nothing is stored, nothing scheduled.
+        if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+        try { localStorage.setItem('powa-weigh-time', time.value || '08:00'); } catch (e) {}
+        PowaNative.scheduleWeightReminder();
+      });
       remRow.appendChild(time);
       let busy = false;
       const sw = uiSwitch(getOn() && PowaNative._displayPerm === 'granted', async (on) => {
+        // Demo: the switch flips and that's all. No iOS prompt, no reminder on the phone, nothing stored.
+        if (window._demoMode) { time.disabled = !on; toast('Preview only in demo mode.'); return; }
         try { localStorage.setItem('powa-weigh-remind', on ? '1' : '0'); } catch (e) {}
         time.disabled = !on;
         if (!on) { PowaNative.scheduleWeightReminder(); return; }   // cancels it
