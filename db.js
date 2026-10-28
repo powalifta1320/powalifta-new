@@ -740,11 +740,13 @@ async function _readAll(label, build, opts) {
       lastFull = (r.data || []).length === PAGE;
     }
   }
-  // A row that moved across a page edge while the pages were read comes once.
-  if (tie.length && rows.length > PAGE) {
+  // A row that moved across a page edge while the pages were read comes once (by id, else by the
+  // whole sort key, which is unique: that's what makes the order stable).
+  const dk = tie.includes('id') ? ['id'] : order.map(o => o[0]);
+  if (dk.length && rows.length > PAGE) {
     const seen = new Set(), out = [];
     for (const r of rows) {
-      const vals = tie.map(c => r && r[c]);
+      const vals = dk.map(c => r && r[c]);
       const k = vals.some(v => v == null) ? null : vals.join('\u0001');
       if (k != null && seen.has(k)) continue;
       if (k != null) seen.add(k);

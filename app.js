@@ -8664,11 +8664,15 @@ function getRosterOverview(coachId) {
 function getE1RMMomentum(athleteId, windowDays) {
   const win = windowDays || 21;
   const now = Date.now();
-  if (!Number.isInteger(win) || !_lmemoGet(athleteId, 'momDays', () => _logsOf(athleteId).every(l => {
-    if (!MAIN_LIFTS.includes(l.lift)) return true;
-    const t = Date.parse(l.date);
-    return isNaN(t) || t % 86400000 === 0;
-  }))) return _e1rmMomentum(athleteId, win, now);
+  if (!Number.isInteger(win) || !_lmemoGet(athleteId, 'momDays', () => {
+    const seen = new Set();
+    return _logsOf(athleteId).every(l => {
+      if (!MAIN_LIFTS.includes(l.lift) || seen.has(l.date)) return true;
+      seen.add(l.date);
+      const t = Date.parse(l.date);
+      return isNaN(t) || t % 86400000 === 0;
+    });
+  })) return _e1rmMomentum(athleteId, win, now);
   const m = _lmemoGet(athleteId, 'mom|' + win + '|' + Math.ceil(now / 86400000), () => _e1rmMomentum(athleteId, win, now));
   const perLift = {};
   Object.keys(m.perLift).forEach(k => { perLift[k] = Object.assign({}, m.perLift[k]); });
@@ -8682,10 +8686,12 @@ function _e1rmMomentum(athleteId, win, now) {
   const logs = _logsOf(athleteId).filter(l => MAIN_LIFTS.includes(l.lift));
   const perLift = {};
   let anyPaired = false, anyUp = false;
+  const parsed = new Map();   // Date.parse once per distinct date
+  const tOf = (d) => { let v = parsed.get(d); if (v === undefined) { v = Date.parse(d); parsed.set(d, v); } return v; };
   MAIN_LIFTS.forEach(lift => {
     const ll = logs.filter(l => l.lift === lift);
     const bestIn = (from, to) => ll.reduce((mx, l) => {
-      const t = Date.parse(l.date);
+      const t = tOf(l.date);
       return (t >= from && t < to && l.e1rmComp > mx) ? l.e1rmComp : mx;
     }, 0);
     const recent = bestIn(recentFrom, now + dayMs);
@@ -11734,7 +11740,8 @@ function deskWins(athleteId, opts) {
     out.push({ type: 'pr', text: names.length === 3 ? '3 lift PRs' : names.join(' + ') + ' PR', lifts: prLifts });
   }
   // Consecutive weeks with training, counting back from this week.
-  const weeks = _lmemoGet(athleteId, 'weeks', () => new Set(logs.map(l => _monISO(l.date))));
+  // The Mondays they trained (from each distinct log date once: the same set as one per log).
+  const weeks = _lmemoGet(athleteId, 'weeks', () => new Set(Array.from(logDateSet(athleteId), _monISO)));
   let streak = 0;
   for (let wk = _monISO(t); weeks.has(wk); wk = _addDaysISO(wk, -7)) streak++;
   if (streak >= 4 && streak % 4 === 0) out.push({ type: 'streak', text: streak + '-week streak' });
