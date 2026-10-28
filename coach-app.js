@@ -83,7 +83,26 @@
      PURE (tests.html "coach app (coach-app.js)")
      ==================================================================================================== */
 
-  function caGreeting(hour) { var h = Number(hour) || 0; return h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 18 ? 'Good afternoon' : 'Good evening'; }
+  // Home's first line: the day, and what is happening in it that nothing else on Home says: who is under
+  // the bar now, else who trained today, else that nobody has yet. (It was "Good evening", which the delete
+  // test took.) o: { weekday: 'Tuesday' }. Names are first names; two long ones, or three and more, a count.
+  function caTodayLine(rows, o) {
+    o = o || {};
+    var day = String(o.weekday || '').trim();
+    var names = function (list) { return list.map(function (r) { return first(r.athlete && r.athlete.name); }).filter(Boolean); };
+    var said = function (list, one, many) {
+      var n = names(list);
+      if (n.length === 1) return n[0] + ' ' + one;
+      if (n.length === 2 && (n[0] + n[1]).length <= 18) return n[0] + ' and ' + n[1] + ' ' + many;
+      return list.length + ' lifters ' + many;
+    };
+    var live = (rows || []).filter(function (r) { return r && r.live; });
+    var today = (rows || []).filter(function (r) { return r && !r.live && r.status && r.status.ago === 0; });
+    var fact = live.length ? said(live, 'is training now', 'are training now')
+      : today.length ? said(today, 'trained today', 'trained today')
+      : 'No one has trained yet today';
+    return day ? day + ' \u00b7 ' + fact : fact;
+  }
 
   // Who needs the coach this week: every lifter with an open job due now, today or this week (tiers 0-2
   // of coach-lifters.js clTier; tiers 3-4 are planning: blocks and next weeks to write), worst first.
@@ -392,15 +411,14 @@
     area.querySelectorAll('.ca-rise').forEach(function (n) { n.style.setProperty('--i', String(Math.min(i++, 8))); });
     paintBadges();
   }
-  function greetingName(u) { var f = first(u && u.name); return f && !/^demo$/i.test(f) ? f : ''; }
   function heroHtml(X, u) {
     var st = caHeroStats(X.rows, { daysOf: trainedDays, unread: unreadMap() });
     var hl = caHeadline(X.need.length);
-    var nm = greetingName(u);
-    var hi = caGreeting(new Date().getHours()) + (nm ? ', ' + nm : '');
+    var hi = caTodayLine(X.rows, { weekday: localDate(todayIso(), { weekday: 'long' }) });
     var head = hl.n ? '<b class="ca-big">' + hl.n + '</b><span class="ca-big-w">' + hl.words + '</span>'
       : '<span class="ca-big-ok" aria-hidden="true">' + ic('check', 2.6) + '</span><span class="ca-big-w is-clear">All clear</span>';
-    var sub = hl.n ? '' : '<p class="ca-hero-sub">Nobody needs you this week. Next weeks and blocks are below.</p>';
+    // All clear: say what's below only when something is (the next weeks and blocks to write).
+    var sub = hl.n ? '' : '<p class="ca-hero-sub">' + (caLeadJobs(X.jobs, null).length ? 'Nobody needs you this week. Next weeks and blocks are below.' : 'Nobody needs you this week. Everyone is on plan.') + '</p>';
     return '<div class="ca-hero ca-rise"><p class="ca-hero-hi">' + esc(hi) + '</p><div class="ca-hero-head">' + head + '</div>' + sub +
       '<div class="ca-stats">' +
         statHtml(st.trained, '/' + st.of, 'Trained', 'Trained in the last 7 days: ' + st.trained + ' of ' + st.of + '. Show who is behind', 'data-lifters="behind"') +
@@ -1053,7 +1071,7 @@
     lifterView: function () { return P.view; }, enterLifter: function () { P.view = P.pending && VIEWS[P.pending] ? P.pending : 'card'; P.pending = null; },
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
-    caGreeting: caGreeting, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
+    caTodayLine: caTodayLine, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
     caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
   };

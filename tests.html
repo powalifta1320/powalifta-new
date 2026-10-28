@@ -7101,10 +7101,18 @@ group('coach app (coach-app.js)');
 const CA = typeof CoachApp !== 'undefined' ? CoachApp : (window.CoachApp || null);
 const caRow = (id, name, o) => Object.assign({ athlete: { id, name }, status: { program: { name: 'Block' }, week: { idx: 0, total: 3, sessionsPerWeek: 3 } }, reasons: [], meet: null, wins: [], live: null }, o || {});
 const caJob = (r, type, tier, extra) => Object.assign({ key: r.athlete.id + ':' + type, type, tier, r, done: false }, extra || {});
-test('greeting follows the clock', () => {
+test("Home's first line: the day, and who is training now or trained today", () => {
   assert(CA, 'CoachApp is loaded');
-  eq(CA.caGreeting(7), 'Good morning'); eq(CA.caGreeting(12), 'Good afternoon'); eq(CA.caGreeting(17), 'Good afternoon');
-  eq(CA.caGreeting(18), 'Good evening'); eq(CA.caGreeting(2), 'Good evening', 'the small hours are evening');
+  const day = { weekday: 'Tuesday' };
+  const ago = (id, name, a, live) => caRow(id, name, { status: { program: { name: 'Block' }, ago: a }, live: live ? { sets: 2 } : null });
+  eq(CA.caTodayLine([ago('a', 'Arjun Mehta', 0, true), ago('s', 'Sarah Kim', 0)], day), 'Tuesday · Arjun is training now', 'under the bar now leads');
+  eq(CA.caTodayLine([ago('a', 'Arjun Mehta', 0, true), ago('n', 'Nina P', 3, true)], day), 'Tuesday · Arjun and Nina are training now');
+  eq(CA.caTodayLine([ago('s', 'Sarah Kim', 0), ago('t', 'Tom Boyle', 9)], day), 'Tuesday · Sarah trained today');
+  eq(CA.caTodayLine([ago('s', 'Sarah Kim', 0), ago('n', 'Nina P', 0)], day), 'Tuesday · Sarah and Nina trained today');
+  eq(CA.caTodayLine([ago('x', 'Alexandria Ng', 0), ago('m', 'Maximilian Roe', 0)], day), 'Tuesday · 2 lifters trained today', 'two long names: a count');
+  eq(CA.caTodayLine([ago('a', 'A', 0), ago('b', 'B', 0), ago('c', 'C', 0)], day), 'Tuesday · 3 lifters trained today');
+  eq(CA.caTodayLine([ago('t', 'Tom Boyle', 9), ago('n', 'Nina P', null)], day), 'Tuesday · No one has trained yet today');
+  eq(CA.caTodayLine([], {}), 'No one has trained yet today', 'no day given: the fact alone');
 });
 test('who needs you: open jobs due this week, worst first, each lifter once', () => {
   const a = caRow('a', 'Ada Lee'), b = caRow('b', 'Bo Chen'), c = caRow('c', 'Cy Park');
