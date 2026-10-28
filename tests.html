@@ -7156,6 +7156,24 @@ test("a row's dot: coral for pain, amber to watch, none when the words say it", 
   eq(CA.caSev(caJob(r, 'message', 2)), '', 'a message: the line says "Wrote you"');
   eq(CA.caSev(caJob(r, 'write', 4)), '', 'planning is not "needs you"'); eq(CA.caSev(null), '');
 });
+test('plate families: a job reads in one, a lifter wears the worst that needs them, then the meet', () => {
+  const r = caRow('a', 'Ada');
+  eq(CA.caJobFamily(caJob(r, 'pain', 0)), 'alert', "pain is the 25's red");
+  ['meet', 'meetday', 'weight', 'offpace'].forEach(t => eq(CA.caJobFamily(caJob(r, t, 0)), 'meet', t + ': the meet'));
+  ['message', 'note', 'formcheck'].forEach(t => eq(CA.caJobFamily(caJob(r, t, 2)), 'msg', t + ': their words'));
+  ['overshoot', 'drift', 'checkin', 'readiness', 'quiet', 'never', 'missed', 'busy'].forEach(t => eq(CA.caJobFamily(caJob(r, t, 2)), 'watch', t + ': to watch'));
+  ['write', 'blockend', 'noprogram', 'stalling'].forEach(t => eq(CA.caJobFamily(caJob(r, t, 4)), 'steel', t + ': routine'));
+  eq(CA.caJobFamily(null), '');
+  const peaking = caRow('p', 'Pat', { meet: { days: 40, meet: {} } });
+  eq(CA.caFamily(peaking, caJob(peaking, 'pain', 0)), 'alert', 'pain first, peaking or not');
+  eq(CA.caFamily(peaking, caJob(peaking, 'drift', 2)), 'watch', 'a watch before the meet');
+  eq(CA.caFamily(peaking, caJob(peaking, 'message', 2)), 'meet', 'their words waiting do not colour the lifter: peaking does');
+  eq(CA.caFamily(peaking, caJob(peaking, 'write', 4)), 'meet', 'planning is not "needs you"');
+  eq(CA.caFamily(caRow('f', 'Far', { meet: { days: 90, meet: {} } }), null), '', 'a meet past 8 weeks is not peaking');
+  eq(CA.caFamily(Object.assign({}, r, { live: { sets: 1 } }), null), 'live', 'under the bar now');
+  eq(CA.caFamily(r, Object.assign(caJob(r, 'pain', 0), { done: true })), '', 'a done job no longer colours them');
+  eq(CA.caFamily(r, null), '', 'on plan: ink'); eq(CA.caFamily(null, null), '');
+});
 test('the list order: who needs you, then the nearest meets, then by name', () => {
   const rows = [caRow('z', 'Zed'), caRow('m', 'Mo', { meet: { days: 5, meet: {} } }), caRow('a', 'Al'), caRow('p', 'Pat', { meet: { days: 2, meet: {} } }), caRow('q', 'Quinn')];
   eq(CA.caSortRows(rows, ['q', 'z']).map(r => r.athlete.id).join(','), 'q,z,p,m,a');

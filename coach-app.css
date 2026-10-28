@@ -187,6 +187,8 @@ html:not(.desk) .ca-ring-track { stroke: var(--pl-inset-2); }
 html:not(.desk) .ca-ring-track.is-behind { stroke: color-mix(in srgb, var(--ca-warn) 34%, transparent); }
 html:not(.desk) .ca-ring-fill { stroke: color-mix(in srgb, var(--text) 88%, transparent); }
 html:not(.desk) .ca-face[class*="pf-"] .ca-ring-fill { stroke: var(--pf); }
+/* the sessions still to come keep the lip's colour, faint, so a lifter with none trained yet still wears it */
+html:not(.desk) .ca-face[class*="pf-"] .ca-ring-track { stroke: color-mix(in srgb, var(--pf) 32%, transparent); }
 html:not(.desk) .ca-ring-none { stroke: var(--pl-inset-2); }
 html:not(.desk) .ca-face[class*="pf-"] .ca-ring-none { stroke: color-mix(in srgb, var(--pf) 70%, transparent); }
 html:not(.desk) .ca-live {
@@ -378,6 +380,10 @@ html:not(.desk) .ca-lrow-s { font-size: 13px; line-height: 1.35; color: var(--te
 
 /* the Messages tab's unread count on its icon */
 html.native:not(.desk) .bottom-tab { position: relative; }
+/* the tab bar's resting labels clear 4.5:1 on its glass (iOS's own 50% / 62% grey measured 4.48 and 3.55);
+   styles.css should take the same two values for the lifter app */
+html.native:not(.desk) body.powa-app .bottom-tab:not(.active) { color: rgba(235, 235, 245, 0.64); }
+html.native[data-theme="light"]:not(.desk) body.powa-app .bottom-tab:not(.active) { color: rgba(60, 60, 67, 0.82); }
 html.native:not(.desk) .ca-tbadge {
   position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   background: #34e08c; color: #04140c; font: 700 11px/18px var(--font-num, inherit); text-align: center; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none;
@@ -439,7 +445,7 @@ html:not(.desk) .ca-row-l.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .ca-row-end { flex: none; display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-row-end b { font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 750; color: var(--text-2); letter-spacing: -0.012em; }
 html:not(.desk) .ca-row-end small { font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .ca-row-end.t-down b { color: var(--ca-warn); }
+html:not(.desk) .ca-row-end.t-down::before { content: ''; align-self: center; width: 0; height: 0; margin-right: 3px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--ca-warn); }
 html:not(.desk) .ca-row-end.t-none b { color: var(--text-3); font-weight: 600; }
 html:not(.desk) .ca-row > svg { flex: none; width: 18px; height: 18px; color: var(--text-3); margin-left: -2px; }
 html:not(.desk) .ca-none { margin: 12px 4px; font-size: 15px; color: var(--text-3); }
@@ -494,9 +500,12 @@ html:not(.desk) .ca-ov-go svg { width: 15px; height: 15px; }
 html:not(.desk) .ca-ov-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; }
 html:not(.desk) .ca-ov-num b { font-family: var(--font-num); font-stretch: 112%; font-size: 64px; font-weight: 800; line-height: 0.9; letter-spacing: -0.04em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
 html:not(.desk) .ca-ov-num small { margin-left: -6px; font-size: 22px; font-weight: 650; color: var(--text-3); }
-html:not(.desk) .ca-chg { align-self: center; display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 999px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--pl-inset); color: var(--text-2); }
-html:not(.desk) .ca-chg.up { background: color-mix(in srgb, var(--ca-up) 15%, transparent); color: var(--ca-up); }
-html:not(.desk) .ca-chg.down { background: color-mix(in srgb, var(--ca-warn) 15%, transparent); color: var(--ca-warn); }
+/* the change: ink words on an inset, its direction a mark in its family (status colour never sits on a
+   sentence or a number; the card's own light already says which way) */
+html:not(.desk) .ca-chg { align-self: center; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--pl-inset-2); color: var(--text); }
+html:not(.desk) :is(.ca-chg.up, .ca-chg.down)::before { content: ''; flex: none; width: 0; height: 0; border-left: 4.5px solid transparent; border-right: 4.5px solid transparent; }
+html:not(.desk) .ca-chg.up::before { border-bottom: 7px solid var(--ca-up); }
+html:not(.desk) .ca-chg.down::before { border-top: 7px solid var(--ca-warn); }
 html:not(.desk) .ca-ov-none { margin-top: 8px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
 html:not(.desk) .ca-ov { --spark: color-mix(in srgb, var(--text) 88%, transparent); }
 html:not(.desk) .ca-ov > .ca-spark, html:not(.desk) .ca-ov .ca-spark { display: block; width: 100%; height: 52px; margin-top: 16px; overflow: visible; }
@@ -543,7 +552,9 @@ html:not(.desk) .ca-charts .cl-hlab { font-size: 15px; font-weight: 600; color: 
 html:not(.desk) .ca-charts .cl-hnum b { font-stretch: 112%; font-size: 64px; line-height: 0.9; letter-spacing: -0.04em; font-variant-numeric: lining-nums proportional-nums; }
 html:not(.desk) .ca-charts .cl-hnum span { font-size: 22px; font-weight: 650; }
 html:not(.desk) .ca-charts .cl-chip { height: 28px; padding: 0 11px; }
-html:not(.desk) .ca-charts .cl-chip.up { background: color-mix(in srgb, var(--ca-up) 15%, transparent); }
+html:not(.desk) .ca-charts :is(.cl-chip.up, .cl-chip.down) { background: var(--pl-inset-2); color: var(--text); }
+html:not(.desk) .ca-charts .cl-chip.up svg { color: var(--ca-up); }
+html:not(.desk) .ca-charts .cl-chip.down svg { color: var(--ca-warn); }
 html:not(.desk) .ca-charts .cl-area { opacity: 0.1; }
 html:not(.desk) .ca-charts .cl-lift, html:not(.desk) .ca-charts .cl-tile { background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
 html:not(.desk) .ca-charts .cl-lift {
@@ -556,6 +567,11 @@ html:not(.desk) .ca-charts .cl-tile.cl-meet {
   border-color: color-mix(in srgb, #f2c25b var(--pl-light-edge), var(--ca-edge));
 }
 html:not(.desk) .ca-charts .cl-big3 { font-stretch: 108%; letter-spacing: -0.024em; }
+/* the meet's caption and a weight over its class: ink words, the colour on their mark (the flag, a dot) */
+html:not(.desk) .ca-charts .cl-hmeet { color: var(--text-2); }
+html:not(.desk) .ca-charts .cl-hmeet svg { color: var(--ca-gold); }
+html:not(.desk) .ca-charts .cl-warn { color: var(--text-2); }
+html:not(.desk) .ca-charts .cl-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 0; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
 
 /* sheets: find anything, check-ins */
 html:not(.desk) .ca-search.is-sheet { margin: 6px 0 4px; }
@@ -708,7 +724,7 @@ html:not(.desk) .cp-blk-h { display: flex; align-items: center; justify-content:
 html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
 /* the bar, loaded to the block's load: one sleeve, heaviest plates in, the collar on (app.js uiBarbell, the
    lifter app's own drawing). The set being set is the one real load on this screen, so it's drawn. */
-html:not(.desk) .pl-sleeve { flex: none; display: block; height: 46px; margin: -6px -2px -6px 0; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.55)); }
+html:not(.desk) .pl-sleeve { flex: none; display: block; height: 58px; margin: -10px -4px -8px 0; filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.55)); }
 html[data-theme="light"]:not(.desk) .pl-sleeve { filter: drop-shadow(0 5px 7px rgba(15, 15, 25, 0.18)); }
 html:not(.desk) .pl-sleeve:empty { display: none; }
 html:not(.desk) .pl-sleeve .ui-barbell { height: 100%; }
@@ -857,7 +873,8 @@ html:not(.desk) .ca-none.is-search .ca-link { margin: 0 0 -8px; }
 html:not(.desk) .cp-noweeks { margin-top: 20px; }
 html:not(.desk) .cp-noweeks .ca-btn { margin-top: 16px; }
 /* the editor's saving line: offline, or a change still waiting, it says so (Send now) */
-html:not(.desk) .cp-ed-saved.is-waiting { color: var(--ca-warn); }
+html:not(.desk) .cp-ed-saved.is-waiting { color: var(--text-2); }
+html:not(.desk) .cp-ed-saved.is-waiting::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
 html:not(.desk) body.powa-app .cp-ed-send { display: inline; min-height: 0; margin: 0; vertical-align: baseline; font-size: 13px !important; }
 html:not(.desk) body.powa-app .cp-ed-send::after { inset: -14px -8px; }
 
@@ -894,7 +911,7 @@ html:not(.desk) #challengesArea .chl-h { display: none; }
 @keyframes plFade { from { opacity: 0.7; } to { opacity: 1; } }
 @keyframes plSheetUp { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
 html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-rise { animation: plRise var(--pl-d-state) var(--pl-spring) calc(var(--i, 0) * 40ms) backwards; }
-html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-focal.ca-rise { animation-name: plSet; animation-duration: var(--pl-d-heavy); }
+html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-focal.ca-rise { animation-name: plSet; animation-duration: var(--pl-d-heavy); animation-delay: 0ms; }
 /* the face in flight rides above the page it lands on */
 html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transform; }
 @media (prefers-reduced-motion: no-preference) {
@@ -913,6 +930,8 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
 @media (hover: hover) and (pointer: fine) {
   html:not(.desk) :is(.ca-tile, .ca-rowcard, .ca-lrow, .ca-row, .ca-act):hover { background-color: color-mix(in srgb, var(--text) 4%, var(--ca-card)); }
 }
+/* the offline banner's dot (app.js) only pulses while the banner is up: hidden, it was repainting every frame */
+html:not(.desk) #powa-conn-banner:not(.show) .pcb-dot { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   html:not(.desk) body.powa-app [data-pane] .ca-rise { animation: none !important; }
   html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-fab, .st-btn, .cp-ibtn, .cp-hint-use):active { transform: none !important; }
