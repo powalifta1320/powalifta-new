@@ -79,6 +79,33 @@
   }
   // A step for the load stepper in the unit shown: the lifter's jump (2.5 kg, 5 lb) or 2.5 for a %.
   function cpLoadStep(pctMode, u) { return pctMode ? 2.5 : (u === 'lb' || u === 'lbs' ? 5 : 2.5); }
+  // Text as search reads it: lower case, accents aside ("tomas" finds Tomás).
+  function cpNorm(t) { var x = String(t == null ? '' : t); try { x = x.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {} return x.toLowerCase().trim(); }
+  // The lifter picker's order: the programs opened last on this phone (up to 3, the one open now first),
+  // then who needs you (worst first), then everyone else by name; each lifter once. q keeps the lifters
+  // whose name or block name has it, in the same order, as one list. list: [{ id, name, prog }].
+  // → { groups: [{ key, title, items }], n }
+  function cpPickGroups(list, o) {
+    o = o || {};
+    list = list || [];
+    var byId = {}, used = {};
+    list.forEach(function (a) { byId[a.id] = a; });
+    var recent = (o.current ? [o.current] : []).concat(o.recent || []);
+    var take = function (ids, cap) {
+      var out = [];
+      (ids || []).forEach(function (id) { if (byId[id] && !used[id] && (!cap || out.length < cap)) { used[id] = 1; out.push(byId[id]); } });
+      return out;
+    };
+    var gR = take(recent, 3), gN = take(o.need);
+    var gA = list.filter(function (a) { return !used[a.id]; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    var q = cpNorm(o.q);
+    if (q) {
+      var hit = gR.concat(gN, gA).filter(function (a) { return cpNorm(a.name).indexOf(q) >= 0 || cpNorm(a.prog).indexOf(q) >= 0; });
+      return { groups: hit.length ? [{ key: 'found', title: '', items: hit }] : [], n: hit.length };
+    }
+    var rest = gR.length || gN.length ? 'Everyone else' : 'Everyone';
+    return { groups: [{ key: 'recent', title: 'Recent', items: gR }, { key: 'need', title: 'Needs you', items: gN }, { key: 'all', title: rest, items: gA }].filter(function (g) { return g.items.length; }), n: list.length };
+  }
   // Switching how a block writes its load (kg, or % of their max) or its effort (RPE, or reps in reserve):
   // the patch for its sets (setBlockRx: null clears a field). s: one of the block's sets (they are the same
   // set); kind: 'pct' | 'rir'; maxKg: the max a % works from (0 = none yet). Going to % keeps the load it
@@ -109,7 +136,25 @@
   /* ====================================================================================================
      STATE: whose program, which week, which day (per lifter and week)
      ==================================================================================================== */
-  var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null };
+  var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null, moreOpen: {} };
+  // The programs this coach opened last on this phone, newest first (the picker leads with them).
+  var RECENT_KEY = 'powa-cp-recent';
+  function coachId() { var u = typeof getCurrentUser === 'function' ? getCurrentUser() : null; return u && u.id; }
+  function recentIds() {
+    var id = coachId();
+    try { var all = JSON.parse(localStorage.getItem(RECENT_KEY) || '{}') || {}; return id && Array.isArray(all[id]) ? all[id].slice(0, 8) : []; } catch (e) { return []; }
+  }
+  function noteRecent(aid) {
+    var id = coachId();
+    if (!id || !aid) return;
+    try {
+      var all = JSON.parse(localStorage.getItem(RECENT_KEY) || '{}') || {};
+      var l = Array.isArray(all[id]) ? all[id] : [];
+      if (l[0] === aid) return;
+      all[id] = [aid].concat(l.filter(function (x) { return x !== aid; })).slice(0, 8);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
   function dayKey(aid, wi) { return aid + ':' + wi; }
   function curWeek() { return typeof activeWeekIdx === 'number' ? activeWeekIdx : 0; }
   function setWeek(i) { try { activeWeekIdx = i; } catch (e) {} }
@@ -141,6 +186,7 @@
     var root = el('div', { class: 'cp ca-root' });
     area.appendChild(root);
     if (!aid) { root.appendChild(emptyNoLifters()); return true; }
+    noteRecent(aid);
     var prog = progOf(aid);
     if (!prog) { S.aid = aid; root.appendChild(emptyNoBlock(aid)); return true; }
     prog.weeks.forEach(function (wk) { (wk.days || []).forEach(function (d) { (d.exercises || []).forEach(function (ex) { if (typeof ensureExerciseShape === 'function') ensureExerciseShape(ex); }); }); });
@@ -182,16 +228,41 @@
     h.innerHTML = '<button type="button" class="cp-title" aria-haspopup="dialog" aria-label="' + esc(a.name) + '. Choose a lifter"><span>' + esc(first(a.name)) + '</span>' + CHEV_DOWN + '</button>';
     h.querySelector('.cp-title').addEventListener('click', openPicker);
   }
+  // Whose program: the ones you opened last, then who needs you (with why), then everyone by name. Past
+  // six lifters a search keeps its place at the top (like Lifters); 60 lifters open and filter at once (the
+  // roster's rows are reused, not worked out again).
   function openPicker() {
     var list = roster();
     if (!list.length || typeof uiSheet !== 'function') return;
+    var CL = window.CoachLifters || null, M = null;
+    try { M = CL && CL.model ? CL.model({ reuse: true }) : null; } catch (e) { M = null; }
+    var jobs = (M && M.jobs) || [];
+    var need = window.CoachApp && CoachApp.caNeedIds ? CoachApp.caNeedIds(jobs) : [];
+    var items = list.map(function (a) { var p = progOf(a.id); return { id: a.id, name: a.name, prog: p ? (p.name || 'Program') : '', a: a }; });
+    var many = list.length > 6;
     uiSheet('Programs', function (sheet, close) {
       sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Whose program to open'));
-      sheet.appendChild(uiList(list.map(function (a) {
-        var p = progOf(a.id), r = rowOf(a.id), wk = r && r.status && r.status.week;
-        var sub = p ? (p.name || 'Program') + (wk && wk.total ? ' · week ' + (wk.idx + 1) + ' of ' + wk.total : '') : 'No block yet';
-        var on = a.id === S.aid;
-        var row = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: sub, endHtml: on ? '<span class="cp-pick-on" aria-label="Open now">' + ic('check', 2.6) + '</span>' : '', onClick: function () {
+      var inp = null;
+      if (many) {
+        var box = el('label', { class: 'ca-search cp-pick-search' });
+        box.innerHTML = ic('search');
+        inp = el('input', { type: 'search', class: 'ca-q', placeholder: 'Find a lifter', 'aria-label': 'Find a lifter', autocomplete: 'off', spellcheck: 'false' });
+        box.appendChild(inp);
+        sheet.appendChild(box);
+      }
+      var host = el('div', { class: 'cp-pick-list' });
+      sheet.appendChild(host);
+      var rowFor = function (it, inNeed) {
+        var a = it.a, r = rowOf(a.id), wk = r && r.status && r.status.week, on = a.id === S.aid;
+        var line = it.prog ? it.prog + (wk && wk.total ? ' · week ' + (wk.idx + 1) + ' of ' + wk.total : '') : 'No block yet', sev = '';
+        if (inNeed && r && CL && CL.clTopJob) {
+          var top = CL.clTopJob(r, jobs);
+          if (top) {
+            line = (top.type === 'busy' && window.CoachApp && CoachApp.caBusyLine && CoachApp.caBusyLine(top)) || (CL.clLine ? CL.clLine(r, top) : line);
+            sev = top.type === 'pain' ? 'alert' : 'watch';
+          }
+        }
+        var row = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: line, endHtml: on ? '<span class="cp-pick-on" aria-label="Open now">' + ic('check', 2.6) + '</span>' : '', onClick: function () {
           close();
           if (on) return;
           select(a.id);
@@ -199,10 +270,35 @@
           if (typeof loadProgram === 'function') loadProgram();
           window.scrollTo(0, 0);
         } });
+        if (sev) {
+          var sub = row.querySelector('.ui-row-sub');
+          if (sub) { sub.classList.add('cp-pick-sub', 'sev-' + sev); sub.insertAdjacentHTML('afterbegin', '<i class="ca-dot" aria-hidden="true"></i>'); }
+        }
         if (on) row.setAttribute('aria-current', 'true');
         return row;
-      })));
-    }, { cls: 'cp-picker' });
+      };
+      var paint = function () {
+        var q = inp ? inp.value : '';
+        var G = cpPickGroups(items, { current: S.aid, recent: recentIds(), need: need, q: q });
+        host.innerHTML = '';
+        if (!G.groups.length) { host.appendChild(el('p', { class: 'ca-none' }, 'No one called \u201c' + String(q).trim() + '\u201d')); return; }
+        // Six or fewer: one list in that order (titles over two or three rows read as clutter).
+        var groups = many ? G.groups : [{ key: 'one', title: '', items: G.groups.reduce(function (all, g) { return all.concat(g.items.map(function (it) { return { it: it, g: g.key }; })); }, []) }];
+        groups.forEach(function (g) {
+          if (g.title) host.appendChild(el('h3', { class: 'ca-h3 cp-pick-h' }, g.title));
+          host.appendChild(uiList(g.items.map(function (x) {
+            var it = x.it || x, key = x.g || g.key;
+            return rowFor(it, key === 'need' || (key !== 'recent' && need.indexOf(it.id) >= 0));
+          })));
+        });
+      };
+      paint();
+      if (inp) {
+        var tm = null;
+        inp.addEventListener('input', function () { clearTimeout(tm); tm = setTimeout(paint, 60); });
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Escape' && inp.value) { e.preventDefault(); e.stopPropagation(); inp.value = ''; paint(); } });
+      }
+    }, { cls: 'cp-picker' + (many ? ' is-many' : '') });
   }
 
   // The block: the screen's one lit card.
@@ -749,6 +845,6 @@
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpMoreText: cpMoreText
+    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm
   };
 })();

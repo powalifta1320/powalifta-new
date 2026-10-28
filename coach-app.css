@@ -619,6 +619,15 @@ html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable:focus-visible { outline
 html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 20px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-pick-on { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc); }
 html:not(.desk) .cp-pick-on svg { width: 20px; height: 20px; }
+/* the picker past six lifters: the search keeps its place at the top while the list scrolls under it (the
+   sheet's own colour around it hides the rows going by), the groups have titles, the sheet keeps its height */
+html:not(.desk) .cp-picker.is-many { min-height: min(78vh, 640px); }
+html:not(.desk) .cp-pick-search { position: sticky; top: 0; z-index: 2; margin: 2px 0 4px; background-color: var(--bg-1); background-image: linear-gradient(var(--fill-2, rgba(255, 255, 255, 0.06)), var(--fill-2, rgba(255, 255, 255, 0.06))); box-shadow: 0 -10px 0 var(--bg-1), 0 8px 0 var(--bg-1); }
+html:not(.desk) .cp-pick-h { margin: 18px 4px 8px; }
+html:not(.desk) .cp-pick-list > .ui-list:first-child { margin-top: 4px; }
+html:not(.desk) .cp-pick-sub { display: flex; align-items: flex-start; gap: 7px; }
+html:not(.desk) .cp-pick-sub .ca-dot { margin-top: calc((1.4em - 7px) / 2); }
+html:not(.desk) .cp-pick-sub.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .cp-empty .cp-hero { padding: 20px; }
 
 /* =================================================================== THE TYPE SCALE ON SHARED PIECES

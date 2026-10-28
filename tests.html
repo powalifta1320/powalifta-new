@@ -7263,6 +7263,23 @@ test('a block switches its own load (kg or % of max) and effort (RPE or RIR)', (
   eq(CPg.cpModePatch({}, 'rir', true).rir, true); eq(CPg.cpModePatch({ rir: true }, 'rir', false).rir, null, 'null clears it (setBlockRx)');
   eq(CPg.cpMoreText(''), 'More'); eq(CPg.cpMoreText('3-1-0 · Belt off'), 'More · 3-1-0 · Belt off', 'More names what it holds');
 });
+test('the Programs picker: the last opened, then who needs you, then everyone by name; search by name or block', () => {
+  const L = [{ id: 'a', name: 'Zed Ali', prog: 'Peak' }, { id: 'b', name: 'Bo Chen', prog: 'Base' }, { id: 'c', name: 'Cy Díaz', prog: 'Strength Block' }, { id: 'd', name: 'Di Ng', prog: '' }, { id: 'e', name: 'Ed Ruiz', prog: 'Peak' }];
+  const G = CPg.cpPickGroups(L, { current: 'e', recent: ['b', 'e', 'x'], need: ['d', 'b'] });
+  eq(G.groups.map(g => g.key + ':' + g.items.map(i => i.id).join('')).join(' '), 'recent:eb need:d all:ca', 'open now first, then the last opened; each lifter once; A to Z after');
+  eq(G.groups.map(g => g.title).join(','), 'Recent,Needs you,Everyone else');
+  eq(CPg.cpPickGroups(L, {}).groups.map(g => g.title).join(','), 'Everyone', 'nothing recent or needing you: one list');
+  eq(CPg.cpPickGroups(L, { recent: ['a', 'b', 'c', 'd'] }).groups[0].items.length, 3, 'three recent at most');
+  const S = CPg.cpPickGroups(L, { current: 'e', need: ['d'], q: 'diaz' });
+  eq(S.groups.length + ':' + S.groups[0].items.map(i => i.id).join(''), '1:c', 'accents aside, one list');
+  eq(CPg.cpPickGroups(L, { q: 'PEAK' }).groups[0].items.map(i => i.id).join(''), 'ea', 'a block name finds its lifters, A to Z');
+  eq(CPg.cpPickGroups(L, { current: 'a', q: 'e' }).groups[0].items[0].id, 'a', 'search keeps the order: the open one first');
+  eq(CPg.cpPickGroups(L, { q: 'zzz' }).groups.length, 0, 'nobody: no groups');
+  eq(CPg.cpNorm('  Tomás '), 'tomas'); eq(CA.caNorm('ÉLENA'), 'elena', 'Lifters searches the same way');
+  const many = Array.from({ length: 60 }, (_, i) => ({ id: 'l' + i, name: 'Lifter ' + (60 - i), prog: i % 2 ? 'Peak' : 'Base' }));
+  const t0 = Date.now(); for (let k = 0; k < 50; k++) CPg.cpPickGroups(many, { current: 'l3', recent: ['l9', 'l1'], need: ['l5', 'l7', 'l11'], q: k % 2 ? 'peak' : '' });
+  assert(Date.now() - t0 < 250, '60 lifters, 50 times over, well under a frame each');
+});
 test('the load hint: the top set, or a block with no load yet; never a later block with a load', () => {
   eq(CPg.cpWantsHint(0, { weight: 160 }), true, 'the first block, loaded: the top set');
   eq(CPg.cpWantsHint(0, { weight: 0 }), true, 'the first block by feel');

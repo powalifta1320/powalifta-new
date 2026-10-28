@@ -61,6 +61,8 @@
   function addDays(iso, n) { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function daysBetween(a, b) { return Math.round((Date.parse(String(b).slice(0, 10) + 'T12:00:00Z') - Date.parse(String(a).slice(0, 10) + 'T12:00:00Z')) / 86400000); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  // Text as search reads it: lower case, accents aside ("tomas" finds Tomás). Programs' picker does the same.
+  function caNorm(t) { var x = String(t == null ? '' : t); try { x = x.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {} return x.toLowerCase().trim(); }
   function clip(s, n) { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trim() + '…' : s; }
   function isDeskNow() { return typeof isDesk === 'function' && isDesk(); }
   function localDate(iso, o) { try { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, o); } catch (e) { return ''; } }
@@ -628,10 +630,10 @@
   function paintRows(wrap) {
     var X = wrap._X, host = wrap.querySelector('.ca-rows-host');
     if (!X || !host) return;
-    var q = String(L.q || '').trim().toLowerCase();
+    var q = caNorm(L.q);
     var rows = caSortRows(X.rows, X.need).filter(function (r) {
       return caFilterMatch(L.filter, r, { need: X.need, week: X.week }) &&
-        (!q || String(r.athlete.name).toLowerCase().indexOf(q) >= 0 || String((r.status && r.status.program && r.status.program.name) || '').toLowerCase().indexOf(q) >= 0);
+        (!q || caNorm(r.athlete.name).indexOf(q) >= 0 || caNorm(r.status && r.status.program && r.status.program.name).indexOf(q) >= 0);
     });
     if (!rows.length) { host.innerHTML = '<p class="ca-none">' + (q ? 'No one called “' + esc(L.q) + '”' : 'Nobody here right now') + '</p>'; return; }
     var anyN = CL() && CL().clNumber ? rows.some(function (r) { return CL().clNumber(r).tone !== 'none'; }) : false;
@@ -1053,6 +1055,6 @@
     // pure, for tests
     caGreeting: caGreeting, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
-    caCheckins: caCheckins, caNextMeet: caNextMeet, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
+    caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
   };
 })();
