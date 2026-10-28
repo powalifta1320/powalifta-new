@@ -63,7 +63,7 @@ function fakeSupabase(tables, opts) {
       select(c, o) { if (st.op === 'select') st.cols = c || '*'; if (o && o.count) st.count = o.count; return b; },
       eq(c, v) { st.f.push(r => r[c] != null && String(r[c]) === String(v)); return b; },
       neq(c, v) { st.f.push(r => r[c] != null && String(r[c]) !== String(v)); return b; },
-      in(c, vs) { const s = new Set((vs || []).map(String)); st.inMax = Math.max(st.inMax || 0, (vs || []).length); st.f.push(r => r[c] != null && s.has(String(r[c]))); return b; },
+      in(c, vs) { const s = new Set((vs || []).map(String)); st.inMax = Math.max(st.inMax || 0, (vs || []).length); st.inVals = (vs || []).slice(); st.f.push(r => r[c] != null && s.has(String(r[c]))); return b; },
       gte(c, v) { st.f.push(r => r[c] != null && String(r[c]) >= String(v)); return b; },
       gt(c, v) { st.f.push(r => r[c] != null && String(r[c]) > String(v)); return b; },
       lte(c, v) { st.f.push(r => r[c] != null && String(r[c]) <= String(v)); return b; },
@@ -196,6 +196,19 @@ await t('workout logs: a lifter past 1,000 sets gets all of them, oldest first a
     const exp = logs.filter(l => l.athlete_id === id).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.id < b.id ? -1 : 1)).map(l => l.id);
     eq(got, exp, 'each lifter in their own order');
   });
+});
+await t('a group of lifters whose read fails is tried again; one that keeps failing is said', async () => {
+  const r = rng(6), ids = [], logs = [];
+  for (let k = 0; k < 25; k++) { const A = uuid(r); ids.push(A); for (let i = 0; i < 30; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2026, 0, 1) + i * 864e5), i)); }
+  const inGroup = (st, id) => !!(st.inVals && st.inVals.includes(id));
+  let n = 0;
+  let x = loadDb({ workout_logs: logs }, { fail: (st) => (inGroup(st, ids[12]) && st.from === 0 && n++ === 0 ? { message: 'blip' } : null) });
+  let got = await x.DB.listLogsForAthletes(ids);
+  eq(got.length, logs.length, 'a blip: tried again, every set');
+  x = loadDb({ workout_logs: logs }, { fail: (st) => (inGroup(st, ids[0]) ? { message: 'down' } : null) });   // the first group never comes
+  got = await x.DB.listLogsForAthletes(ids);
+  eq(got.length, logs.length - 300, 'the group that keeps failing is left out');
+  ok(x.warns.some(w => /listLogsForAthletes: 10 of 25 ids could not be read/.test(w)), 'and said: ' + x.warns.join(' | '));
 });
 await t('workout logs: a read that stops at its ceiling keeps the newest sets (and says so)', async () => {
   const r = rng(4), A = uuid(r), logs = [];

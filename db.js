@@ -771,6 +771,13 @@ async function _readAllIn(label, ids, size, build, opts) {
   const res = await Promise.all(chunks.map(c => _readAll(label, (countOpt) => build(c, countOpt), opts)));
   const firstErr = res.find(r => r.error && !r.rows.length);
   if (firstErr && res.every(r => r.error && !r.rows.length)) return { rows: [], count: null, capped: false, partial: false, error: firstErr.error };
+  // Some groups came, some didn't (a blip, not a missing table): those go again once, then it's said.
+  for (let i = 0; i < res.length; i++) {
+    if (!(res[i].error && !res[i].rows.length)) continue;
+    await _raWait(300);
+    res[i] = await _readAll(label, (countOpt) => build(chunks[i], countOpt), opts);
+    if (res[i].error && !res[i].rows.length) _raWarn(label + ': ' + chunks[i].length + ' of ' + list.length + ' ids could not be read', { error: String((res[i].error && res[i].error.message) || res[i].error) });
+  }
   const rows = [];
   res.forEach(r => rows.push(...r.rows));
   return { rows, count: res.every(r => r.count != null) ? res.reduce((a, r) => a + r.count, 0) : null,
