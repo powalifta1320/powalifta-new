@@ -264,7 +264,8 @@ await t('coach inbox: one read gives the digest and the unread when the coach ha
   await x.DB.coachInbox(C);
   const n0 = x.client.calls.length;
   const mk = (id, A, s, at, body) => ({ id, coach_id: C, athlete_id: A, sender_id: s, body, created_at: at, read_at: null, meta: null });
-  const live = [mk(uuid(r), ids[1], ids[1], new Date(Date.UTC(2026, 9, 28, 10)).toISOString(), 'heavy today?'), mk(uuid(r), ids[2], ids[2], new Date(Date.UTC(2026, 9, 28, 11)).toISOString(), 'done')];
+  const live = [mk(uuid(r), ids[1], ids[1], new Date(Date.UTC(2026, 9, 28, 10)).toISOString(), 'heavy today?'), mk(uuid(r), ids[2], ids[2], new Date(Date.UTC(2026, 9, 28, 11)).toISOString(), 'done'),
+    Object.assign(mk(uuid(r), ids[0], C, new Date(Date.UTC(2026, 9, 28, 12)).toISOString(), 'Week 3 notes'), { meta: { weekly: true } })];   // the coach's own, a weekly note
   live.forEach(m => T2.messages.push(m));
   const heard = live.map(m => x.sbx.mapDbMessage(m));
   const after = await x.DB.coachInbox(C, heard);

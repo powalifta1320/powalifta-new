@@ -2158,7 +2158,9 @@ function _repaintRosterSoon() {
 function subscribeRosterMessages() {
   if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
   _rosterMsgCleanup = DB.subscribeMessages({ column: 'coach_id', value: user.id }, (m) => {
-    if (!m || m.senderId === user.id) return;
+    if (!m) return;
+    // The coach's own (this device or another): kept for the desk's who-wrote-last, nothing to refresh.
+    if (m.senderId === user.id) { (_heardMsgs || (_heardMsgs = [])).push(m); return; }
     scheduleUnreadRefresh(m);
   });
 }
