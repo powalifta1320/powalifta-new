@@ -1295,6 +1295,21 @@ const DB = {
     }
     if (error) throw error;
   },
+  // A coach takes a lifter off their roster (the lifter's coach_id becomes null; their training stays
+  // theirs) through coach_release_lifter: a coach's direct update of the lifter's profile is refused
+  // live (42501). Throws a plain-words Error; .notReady when this database doesn't have the function
+  // yet, and then nothing has changed.
+  async releaseLifter(athleteId) {
+    if (!athleteId) throw new Error('No lifter to remove');
+    const { data, error } = await sb.rpc('coach_release_lifter', { p_athlete: athleteId });
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883' || /could not find the function|schema cache/i.test(String(error.message || ''))) {
+        const e = new Error('Removing a lifter switches on with the next update. Nothing changed.'); e.notReady = true; e.cause = error; throw e;
+      }
+      throw error;
+    }
+    return data;
+  },
   async listCoaches() {
     // Public directory: safe columns only (migration-profiles-privacy.sql). Before
     // that migration runs the function doesn't exist and we fall back to the old read.

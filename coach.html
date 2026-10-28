@@ -2040,7 +2040,9 @@ async function removeAthleteFromRoster(athleteId, athleteName) {
               'They lose access to programs you assigned, and they\'ll need a new invite code to rejoin.';
   if (!confirm(msg)) return;
   try {
-    await DB.updateProfile(athleteId, { coach_id: null });
+    // Through the server (DB.releaseLifter → coach_release_lifter): the coach's own update of the
+    // lifter's profile is refused live (42501).
+    await DB.releaseLifter(athleteId);
     Store.update(s => {
       s.athletes = (s.athletes || []).filter(a => a.id !== athleteId);
       s.programs = (s.programs || []).filter(p => p.athleteId !== athleteId);
@@ -2049,7 +2051,7 @@ async function removeAthleteFromRoster(athleteId, athleteName) {
     if (typeof renderRoster === 'function') renderRoster();
   } catch (e) {
     console.error('removeAthleteFromRoster failed', e);
-    toast('Could not remove ' + athleteName + '. Try again');
+    toast(e && e.notReady ? e.message : 'Could not remove ' + athleteName + '. Try again');
   }
 }
 window.removeAthleteFromRoster = removeAthleteFromRoster;
