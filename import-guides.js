@@ -23,7 +23,7 @@ var ImportGuides = (function () {
       does: [
         'A log, one row per set or one row per exercise with Set 1, Set 2 … across, becomes the lifter\'s history: e1RM, PRs and the charts.',
         'A program, exercises down and weeks across or a week / day / exercise table, opens in the program check. Nothing is saved until you say.',
-        'A client list becomes invites. You pick who, within your plan\'s seats.',
+        'A client list becomes invites. You pick who, as many as you have room for.',
         'Dates in either order, kg or lb, RPE, RIR, % and "3x5 @8" are read the way you write them.'
       ] },
     { id: 'trainheroic', name: 'TrainHeroic', title: 'Coming from TrainHeroic',

@@ -3444,6 +3444,56 @@ const imUtf8 = (s) => new TextEncoder().encode(s);
 const imTable = (csv, name) => IC.tablesFromText(csv, name || 'file.csv')[0];
 const imTC_HEAD = 'First Name,Last Name,Email,Compliance Score,Total Workouts Completed,Birthday,Location,Timezone,Phone Number,Client Type,Client State,Height,Weight,Unit Preference,Gender';
 const imCRX_HEAD = 'Client ID,Client Name,Client Email,Coach,Coach Email,Status,Start Date,Archive Date,Height (cm),Weight (kg),Sex,Birthday,Phone Number,Timezone,Location,Address,Emergency Contact,T-Shirt Size,Referred By,Exercise Sessions Completed,Lifestyle Rx\'s Completed,Highest Streak,Tags,Last Consultation,Synced with Stripe,Product,Plan,Card Brand,Card Last 4,Monthly Revenue,Payment Status';
+// A zip built by hand, so a test can make it lie. entries: [{ name, data (bytes or text), method (8 by default,
+// 0 stored), comp (the bytes written: data deflated, or data), size / csize (the sizes it declares: the real
+// ones by default), flags, lx / cx (local / central extra field bytes), offset (where the directory says it
+// is) }]. opts: { onDisk, total (the end record's two counts), cdAt (where it says the directory starts), more
+// (that many extra directory entries pointing at the first file) }.
+const imLE = (v, n) => { const out = []; for (let i = 0; i < n; i++) { out.push(v % 256); v = Math.floor(v / 256); } return out; };
+function imZip(entries, opts) {
+  opts = opts || {};
+  const enc = new TextEncoder(), out = [], central = [];
+  const put = (arr, list) => { for (let i = 0; i < list.length; i++) arr.push(list[i]); };
+  const recs = entries.map(e => {
+    const name = Array.from(enc.encode(e.name));
+    const raw = typeof e.data === 'string' ? enc.encode(e.data) : (e.data || new Uint8Array(0));
+    const method = e.method == null ? 8 : e.method;
+    const comp = e.comp || (method === 8 ? fflate.deflateSync(raw) : raw);
+    const r = { name, method, comp, size: e.size == null ? raw.length : e.size, csize: e.csize == null ? comp.length : e.csize, flags: e.flags || 0, lx: e.lx || [], cx: e.cx || [], at: out.length };
+    put(out, imLE(0x04034b50, 4)); put(out, imLE(20, 2)); put(out, imLE(r.flags, 2)); put(out, imLE(method, 2)); put(out, imLE(0, 4));
+    put(out, imLE(0, 4)); put(out, imLE(r.csize, 4)); put(out, imLE(r.size, 4)); put(out, imLE(name.length, 2)); put(out, imLE(r.lx.length, 2));
+    put(out, name); put(out, r.lx); put(out, comp);
+    r.offset = e.offset == null ? r.at : e.offset;
+    return r;
+  });
+  const cdAt = out.length;
+  const cd = (r) => {
+    put(central, imLE(0x02014b50, 4)); put(central, imLE(20, 2)); put(central, imLE(20, 2)); put(central, imLE(r.flags, 2)); put(central, imLE(r.method, 2)); put(central, imLE(0, 4));
+    put(central, imLE(0, 4)); put(central, imLE(r.csize, 4)); put(central, imLE(r.size, 4)); put(central, imLE(r.name.length, 2)); put(central, imLE(r.cx.length, 2)); put(central, imLE(0, 2));
+    put(central, imLE(0, 2)); put(central, imLE(0, 2)); put(central, imLE(0, 4)); put(central, imLE(r.offset, 4)); put(central, r.name); put(central, r.cx);
+  };
+  recs.forEach(cd);
+  for (let k = 0; k < (opts.more || 0); k++) cd(Object.assign({}, recs[0], { name: Array.from(enc.encode('f' + (k + 1) + '.csv')) }));
+  put(out, central);
+  const n = recs.length + (opts.more || 0);
+  put(out, imLE(0x06054b50, 4)); put(out, imLE(0, 2)); put(out, imLE(0, 2)); put(out, imLE(opts.onDisk == null ? n : opts.onDisk, 2)); put(out, imLE(opts.total == null ? n : opts.total, 2));
+  put(out, imLE(central.length, 4)); put(out, imLE(opts.cdAt == null ? cdAt : opts.cdAt, 4)); put(out, imLE(0, 2));
+  return new Uint8Array(out);
+}
+// A ZIP64 extra field (type 1): an uncompressed and a compressed size.
+const imZip64 = (usz, csz) => [1, 0, 16, 0].concat(imLE(usz, 8), imLE(csz, 8));
+// Reading it must be refused with this code, in words for the coach.
+function imRefused(read, code) {
+  try { read(); } catch (e) { eq(e.code, code, String(e.message)); assert(e.user && e.message.length > 20, 'worded for the coach: ' + e.message); return; }
+  throw new Error('read a file it should refuse (' + code + ')');
+}
+// fflate's inflater with what it gives out counted (imOut.n): a bomb must stop long before its end.
+const imOut = { n: 0 };
+function imCounting(fn) {
+  const realF = window.fflate;
+  window.fflate = Object.assign({}, realF, { Inflate: function (cb) { const inner = new realF.Inflate((c, f) => { imOut.n += c.length; cb(c, f); }); this.push = (d, f) => inner.push(d, f); } });
+  try { fn(); } finally { window.fflate = realF; }
+}
 test('imports: text in any encoding (UTF-8 with a BOM, UTF-16 "Unicode text", Windows-1252)', () => {
   let r = IC.decodeBytes(imBytes([0xEF, 0xBB, 0xBF, 0x44, 0x61, 0x74, 0x65]));
   eq(r.text, 'Date'); eq(r.encoding, 'utf-8');
@@ -3586,16 +3636,27 @@ test('imports: an unknown column is guessed from its values (emails, dates, sets
   const b = IC.analyse(imTable('Trained,Exercise,What I did\n05/01/2026,Squat,150x5 @8\n07/01/2026,Bench,100x5 @8'));
   eq(b.fields[0], 'date'); eq(b.guessed[0], true); eq(b.fields[2], 'text'); eq(b.layout, 'log');
 });
-test('imports: a file\'s column fingerprint, and the mapping a coach set is used next time', () => {
+test('imports: a file\'s column fingerprint, and the mapping a coach set is used next time (kept by place, never as header text)', () => {
+  // The columns in order (the mapping is kept by place): the same columns in another order are another file.
   const fp = IC.fingerprint(['Date', 'Lift', 'Kilos', 'Reps']);
-  eq(fp, IC.fingerprint(['reps', 'kilos', 'lift', 'date'])); assert(fp !== IC.fingerprint(['Date', 'Lift', 'Kilos']), 'different columns');
+  eq(fp, IC.fingerprint(['date', 'LIFT', 'kilos', 'reps'])); assert(fp !== IC.fingerprint(['Reps', 'Kilos', 'Lift', 'Date']), 'order counts');
+  assert(fp !== IC.fingerprint(['Date', 'Lift', 'Kilos']), 'different columns');
   const csv = 'Date,Lift,Bar,Reps,Feel\n2026-01-05,Squat,150,5,8';
   let a = IC.analyse(imTable(csv));
   eq(a.fields[2], null); eq(a.fields[4], null);
   const fields = a.fields.slice(); fields[2] = 'weight'; fields[4] = 'rpe';
-  const maps = IC.rememberMapping({}, a.headers, fields, IM_TODAY);
+  // A map kept the older way (by header text) goes; the new one holds a hash and a field per column, no header text.
+  const maps = IC.rememberMapping({ 'm1-old': { h: { 'maya chen': 'fullName' }, at: '2026-10-01' } }, a.headers, fields, IM_TODAY);
+  eq(Object.keys(maps).length, 1);
+  const kept = JSON.stringify(maps);
+  ['Bar', 'bar', 'Feel', 'feel', 'Lift', 'lift', 'maya'].forEach(w => assert(kept.indexOf(w) < 0, 'no header text kept: ' + kept));
+  eq(maps[IC.fingerprint(a.headers)].f.join(','), 'date,ex,weight,reps,rpe');
   a = IC.analyse(imTable(csv), { remembered: maps });
   eq(a.fields[2], 'weight'); eq(a.fields[4], 'rpe'); eq(a.fromMemory, true); eq(a.unplaced.length, 0);
+  // A field that isn't one (a tampered setting) is ignored.
+  const bad = {}; bad[IC.fingerprint(a.headers)] = { f: ['date', 'ex', '__proto__', 'reps', 'constructor'], at: IM_TODAY };
+  a = IC.analyse(imTable(csv), { remembered: bad });
+  eq(a.fields[2], null); eq(a.fields[4], null);
   let many = {}; for (let i = 0; i < 40; i++) many = IC.rememberMapping(many, ['C' + i, 'Date'], ['ignore', 'date'], '2026-10-' + String(i % 28 + 1).padStart(2, '0'));
   assert(Object.keys(many).length <= 30, 'remembers 30 files at most');
 });
@@ -3670,6 +3731,13 @@ test('imports: the client list plan: names, emails, who is already here, invited
   eq(p.people.map(x => x.state).join(','), 'new,onRoster,invited,duplicate,noEmail,badEmail');
   eq(p.people.map(x => x.picked ? 1 : 0).join(''), '100010');
   eq(p.people[0].email, 'maya@example.com'); eq(p.counts.onRoster, 1); eq(p.counts.invited, 1); eq(p.counts.archived, 1);
+});
+test('imports: a status of "toString", a group of "constructor" or a person called "constructor" is a word like any other', () => {
+  const a = IC.analyse(imTable('Name,Email,Status,Tags\nconstructor,,toString,constructor\nMaya Chen,maya@example.com,toString,__proto__'));
+  const p = IC.planRoster(a, { athletes: [{ id: 'x', name: 'Leo Grant', email: 'leo@example.com' }], invites: [] });
+  eq(p.people[0].state, 'noEmail');                                   // not "on your roster"
+  eq(p.statuses.toString, 2); eq(p.groups.constructor, 1); eq(p.groups.__proto__, 1);
+  eq(Object.keys(p.statuses).join(','), 'toString');
 });
 test('imports: seats left on each plan, with unused invites holding a seat', () => {
   let s = IC.seats({ limit: 3, athletes: 1, pending: 1 }); eq(s.left, 1); eq(s.used, 2); eq(s.unlimited, false);
@@ -3810,6 +3878,183 @@ test('imports: the demo\'s sample files read the way the pitch shows them', () =
   const wide = IC.analyse(imTable(S.wide.text, S.wide.name)); eq(wide.layout, 'wide');
   const grid = IC.analyse(imTable(S.grid.text, S.grid.name)); eq(grid.layout, 'grid');
   eq(PhotoImport.draftToWeeks(PhotoImport.draftFromRead(IC.gridToRead(grid, {}))).stats.left, 0);
+});
+test('imports: a zip is read one way, strictly: entry counts that disagree, ZIP64 and a directory outside the file are refused', () => {
+  const log = 'Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5';
+  eq(IC.tablesFromZip(IC.unzip(imZip([{ name: 'log.csv', data: log }]))).tables[0].rows.length, 2);
+  eq(IC.tablesFromZip(IC.unzip(imZip([{ name: 'log.csv', data: log, method: 0 }]))).tables[0].rows.length, 2);   // stored too
+  // The review's file: the end record says 1 entry in all and 300 on this disk (fflate went by the 300).
+  imRefused(() => IC.unzip(imZip([{ name: 'f0.csv', data: log }], { total: 1, more: 299 })), 'bad_zip');
+  // ZIP64: the classic end record saturated, the real counts elsewhere.
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log }], { total: 0xFFFF, onDisk: 0xFFFF })), 'bad_zip');
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log, size: 0xFFFFFFFF, csize: 0xFFFFFFFF }])), 'bad_zip');
+  // A directory past the end of the file; a file that isn't where the directory says.
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log }], { cdAt: 1 << 20 })), 'bad_zip');
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log, offset: 3 }])), 'bad_zip');
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log, method: 0, size: 3 }])), 'bad_zip');   // stored, sizes disagree
+  // A UTF-8 name without the UTF-8 flag (what macOS writes) is read, not skipped.
+  const z = IC.tablesFromZip(IC.unzip(imZip([{ name: 'José log.csv', data: log }])));
+  eq(z.tables.length, 1); eq(z.tables[0].name, 'José log.csv');
+  // sniff still tells a workbook by its parts, and a zip it refuses by its extension.
+  eq(IC.sniff('x.xlsx', imZip([{ name: 'xl/workbook.xml', data: '<x/>' }])), 'xlsx');
+  eq(IC.sniff('x.xlsx', imZip([{ name: 'xl/workbook.xml', data: '<x/>' }], { total: 1, more: 3 })), 'xlsx');
+  eq(IC.zipEntries(imZip([{ name: 'a.csv', data: log }], { total: 1, more: 3 })).length, 0);
+});
+test('imports: a zip bomb stops before it costs anything: a size that lies, a stream past its size, too many files, too much in all', () => {
+  const zeros = fflate.deflateSync(new Uint8Array(32 << 20));   // 32 MB of zeros in about 32 KB
+  imCounting(() => {
+    // Declared as 100 bytes (deflate never writes more than it was given): refused before a byte is inflated.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip([{ name: 'a.csv', comp: zeros, size: 100 }])), 'too_big'); eq(imOut.n, 0);
+    // Declared as 1 MB, which looks honest: inflating stops within one 16 KB slice, not after all 32 MB.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip([{ name: 'a.csv', comp: zeros, size: 1 << 20 }])), 'too_big');
+    assert(imOut.n < 20 << 20, 'stopped after ' + imOut.n + ' bytes');
+    // 401 files; five declaring 17 MB each (85 MB): refused from the directory, nothing inflated.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip(Array.from({ length: 401 }, (x, i) => ({ name: 'f' + i + '.csv', data: 'a,b\n1,2' })))), 'too_big'); eq(imOut.n, 0);
+    imOut.n = 0; imRefused(() => IC.unzip(imZip(Array.from({ length: 5 }, (x, i) => ({ name: 'f' + i + '.csv', comp: zeros, size: 17 << 20 })))), 'too_big'); eq(imOut.n, 0);
+    // The review's count trick with honest sizes: 300 directory entries of 20 MB each, the end record saying 1.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip([{ name: 'f0.csv', comp: fflate.deflateSync(new Uint8Array(20 << 20)), size: 20 << 20 }], { total: 1, more: 299 })), 'bad_zip'); eq(imOut.n, 0);
+    // A photo or a file over 20 MB is listed, never inflated.
+    imOut.n = 0;
+    const big = IC.unzip(imZip([{ name: 'big.csv', comp: zeros, size: 32 << 20 }, { name: 'photo.jpg', data: 'jpg' }, { name: 'log.csv', data: 'Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5' }]));
+    eq(big.map(f => f.bytes ? 1 : 0).join(''), '001'); assert(imOut.n < 1000, 'only the small CSV inflated');
+  });
+});
+test('imports: a file a deflater made bigger than it was (old .NET ones grow data that won\'t compress by a few percent) still opens', () => {
+  // One fixed-Huffman block, every byte a literal: bytes 144-255 take 9 bits, so random data comes out about 6% bigger.
+  const fixedDeflate = (bytes) => {
+    const out = []; let acc = 0, n = 0;
+    const bits = (v, len) => { for (let i = 0; i < len; i++) { acc |= ((v >> i) & 1) << n; if (++n === 8) { out.push(acc); acc = 0; n = 0; } } };
+    const code = (c, len) => { let r = 0; for (let i = 0; i < len; i++) r |= ((c >> i) & 1) << (len - 1 - i); bits(r, len); };
+    bits(1, 1); bits(1, 2);
+    for (let i = 0; i < bytes.length; i++) { const b = bytes[i]; if (b < 144) code(0x30 + b, 8); else code(0x190 + b - 144, 9); }
+    code(0, 7);
+    if (n) out.push(acc);
+    return new Uint8Array(out);
+  };
+  const data = new Uint8Array(64 * 1024); let x = 12345;
+  for (let i = 0; i < data.length; i++) { x = (x * 1103515245 + 12345) >>> 0; data[i] = x >>> 24; }
+  const comp = fixedDeflate(data);
+  assert(comp.length > data.length * 1.04, 'grew ' + comp.length + ' from ' + data.length);
+  const got = IC.unzip(imZip([{ name: 'export.csv', comp, size: data.length }]))[0].bytes;
+  eq(got.length, data.length); eq(got.every((b, i) => b === data[i]), true);
+});
+test('imports: a workbook is checked as a zip before SheetJS opens it (sizes, ZIP64 fields, a cell of megabytes)', () => {
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps'], ['2026-03-02', 'Squat', 180, 5]]), 'Log');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  const sheet = Object.keys(files).find(n => /sheet1\.xml$/.test(n));
+  const book = (over) => imZip(Object.keys(files).map(n => Object.assign({ name: n, data: files[n] }, n === sheet ? over : {})));
+  eq(IC.readWorkbook(book({}))[0].rows.length, 2);                     // the same parts rebuilt here: read as before
+  const zeros = fflate.deflateSync(new Uint8Array(32 << 20));   // 32 MB of zeros in about 32 KB
+  imCounting(() => {
+    imOut.n = 0; imRefused(() => IC.readWorkbook(book({ comp: zeros, size: 100 })), 'too_big');   // its size lies: only the parts before it inflated
+    assert(imOut.n < 64 * 1024, 'inflated ' + imOut.n + ' bytes');
+    imOut.n = 0; imRefused(() => IC.readWorkbook(book({ comp: zeros, size: 1 << 20 })), 'too_big');               // inflates past it: one 16 KB slice
+    assert(imOut.n < 20 << 20, 'stopped after ' + imOut.n + ' bytes');
+  });
+  // A ZIP64 field asking SheetJS for 8 GB, in the local header or the directory.
+  imRefused(() => IC.readWorkbook(book({ lx: imZip64(8 * Math.pow(2, 30), 100) })), 'too_big');
+  imRefused(() => IC.readWorkbook(book({ cx: imZip64(8 * Math.pow(2, 30), 100) })), 'too_big');
+  // One cell holding 2 MB of text (SheetJS takes about 130 bytes a character), stored or deflated, whatever the part is called.
+  const cell = '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>' + 'a'.repeat(2 << 20) + '</t></is></c></row></sheetData></worksheet>';
+  imRefused(() => IC.readWorkbook(book({ data: cell })), 'long_cell');
+  imRefused(() => IC.readWorkbook(book({ data: cell, method: 0 })), 'long_cell');
+  // The count trick: refused here, as the zip reader refuses it.
+  imRefused(() => IC.readWorkbook(imZip(Object.keys(files).map(n => ({ name: n, data: files[n] })), { onDisk: Object.keys(files).length + 1 })), 'bad_zip');
+});
+test('imports: a client list with no header row: Column A, B, C, the first person kept, the card numbers dropped, nothing remembered', () => {
+  const csv = 'Maya Chen,maya.chen@example.com,4242 4242 4242 4242\nLeo Grant,leo.grant@example.com,4000 0566 5566 5556\nPriya Nair,priya.nair@example.com,5555 5555 5555 4444';
+  const t = imTable(csv, 'clients.csv');
+  eq(t.dropped.join(','), 'Column C');                                // the card numbers go by what they are
+  ['4242', '5556', '4444'].forEach(n => assert(JSON.stringify(t.rows).indexOf(n) < 0, 'no card number left in the table'));
+  const a = IC.analyse(t);
+  eq(a.noHeader, true); eq(a.headerIndex, -1); eq(a.headers.join(','), 'Column A,Column B'); eq(a.kind, 'roster'); eq(a.rowsCount, 3);
+  eq(a.fields.join(','), 'fullName,email');                          // guessed from what's in them
+  const p = IC.planRoster(a, { athletes: [], invites: [] });
+  eq(p.people.length, 3); eq(p.people[0].name, 'Maya Chen'); eq(p.people[0].email, 'maya.chen@example.com'); eq(p.counts.picked, 3);
+  eq(p.leftOut.length, 0); eq(p.dropped.join(','), 'Column C');
+  // A row of data is never remembered as columns' names, and a headerless file never matches a memory.
+  eq(IC.rememberMapping({}, ['Maya Chen', 'maya.chen@example.com'], ['fullName', 'email'], IM_TODAY), null);
+  const mem = {}; mem[IC.fingerprint(a.headers)] = { f: ['email', 'fullName'], at: IM_TODAY };
+  const again = IC.analyse(imTable(csv), { remembered: mem });
+  eq(again.fromMemory, false); eq(again.fields.join(','), 'fullName,email');
+  // A log with no header row keeps its first set; the date column is guessed.
+  const log = IC.analyse(imTable('2026-01-05,Squat,150,5,8\n2026-01-07,Bench,100,5,8\n2026-01-09,Deadlift,200,3,8'));
+  eq(log.noHeader, true); eq(log.rowsCount, 3); eq(log.fields[0], 'date'); eq(IC.bodyRows(log)[0].cells[1], 'Squat');
+  // A list whose status column says "active" (a header word) has no header either: its first row holds an email.
+  eq(IC.analyse(imTable('Maya Chen,maya@example.com,active\nLeo Grant,leo@example.com,active')).noHeader, true);
+  // A header of words it doesn't know is still a header.
+  eq(IC.analyse(imTable('Who,Contact\nMaya Chen,maya@example.com')).noHeader, false);
+  eq(IC.findHeader(imTable('Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5').rows).index, 0);
+});
+test('imports: card and payment columns under other names, and card numbers under any name, are dropped', () => {
+  const pay = ['CC', 'CC Number', 'Visa', 'Amount', 'Amount Due', 'Paid', 'Paid Until', 'Monthly Fee', 'Total Spent', 'Balance', 'Outstanding', 'Discount', 'Coupon',
+    'Charge', 'Cost', 'Venmo', 'PayPal', 'Lifetime Value', 'LTV', 'Earnings', 'Sales', 'Tax', 'VAT', 'Currency', 'Expiry', '$', 'USD', 'Price (€)', 'Last four'];
+  const t = imTable(['Name', 'Email'].concat(pay, ['Notes', 'Squad']).join(',') + '\n' + ['Maya Chen', 'maya@example.com'].concat(pay.map(() => '150'), ['4111 1111 1111 1111', 'Juniors']).join(','));
+  eq(t.dropped.slice().sort().join('|'), pay.concat(['Notes']).sort().join('|'));   // Notes held a card number
+  const a = IC.analyse(t);
+  eq(a.headers.join(','), 'Name,Email,Squad'); eq(a.kind, 'roster');
+  // A client list's billing words go too ("Monthly", "Rate"), a log keeps its own words ("Time spent", "Heart rate").
+  eq(IC.analyse(imTable('Name,Email,Monthly,Rates\nMaya Chen,maya@example.com,150,150')).headers.join(','), 'Name,Email');
+  const log = IC.analyse(imTable('Date,Exercise,Weight,Reps,Time spent,Heart rate,Plan,Logged at\n2026-01-05,Squat,150,5,40,120,3x5 @8,1767600000000'));
+  eq(log.dropped.length, 0); eq(log.headers.length, 8);
+  eq(IC.cardLike('4242 4242 4242 4242'), true); eq(IC.cardLike('4242-4242-4242-4242'), true); eq(IC.cardLike('378282246310005'), true);
+  eq(IC.cardLike('4242 4242 4242 4241'), false); eq(IC.cardLike('1767600000000'), false); eq(IC.cardLike('+44 7911 123456'), false); eq(IC.cardLike('150'), false);
+});
+test('imports: a client list\'s left-out columns say what they hold, never their values', () => {
+  const a = IC.analyse(imTable('Name,Email,Phone,Birthday,Squad,Shoe size,Notes\nMaya Chen,maya@example.com,+1 555 010 1234,1996-04-02,Juniors,38,Bad knee since 2024\nLeo Grant,leo@example.com,+1 555 010 9876,1990-01-02,Seniors,44,'), { kind: 'roster' });
+  const col = (h) => IC.describeColumn(a, a.headers.indexOf(h));
+  eq(col('Name'), 'Names'); eq(col('Email'), 'Emails'); eq(col('Phone'), 'Phone numbers'); eq(col('Birthday'), 'Dates');
+  eq(col('Shoe size'), 'Numbers'); eq(col('Squad'), 'Text'); eq(col('Notes'), 'Text');
+  const t = IC.analyse(imTable('Name,Email,Empty\nMaya Chen,maya@example.com,'), { kind: 'roster' });
+  eq(IC.describeColumn(t, 2), 'Empty');
+});
+test('imports: the seats in words: the plan on the web, only the room for lifters in the iPhone app before in-app purchase', () => {
+  const s = Object.assign(IC.seats({ limit: 25, athletes: 4, pending: 1 }), { athletes: 4, pending: 1, plan: 'Pro' });
+  let w = IC.seatText(s, 2, false);
+  eq(w.big, '18'); eq(w.title, 'seats left after these'); eq(w.sub, 'Pro plan · 4 lifters and 1 unused invite of 25 seats'); eq(w.bar, true);
+  w = IC.seatText(s, 2, true);
+  eq(w.big, '18'); eq(w.title, 'more lifters after these'); eq(w.sub, 'Room for 20 more lifters · 1 unused invite holds a place'); eq(w.bar, false);
+  assert(!/plan|seat|Pro|25/i.test(w.title + ' ' + w.sub), 'no plan name, no seat count: ' + w.sub);
+  const free = Object.assign(IC.seats({ limit: 3, athletes: 0, pending: 0 }), { athletes: 0, pending: 0, plan: 'Free' });
+  eq(IC.seatText(free, 1, true).title, 'more lifters after these'); eq(IC.seatText(free, 2, true).title, 'more lifter after these'); eq(IC.seatText(free, 0, true).sub, 'Room for 3 more lifters');
+  eq(IC.seatText(free, 0, false).sub, 'Free plan · 0 lifters of 3 seats');
+  const all = Object.assign(IC.seats({ limit: 9999, athletes: 40 }), { athletes: 40, pending: 0, plan: 'Premium' });
+  eq(IC.seatText(all, 3, true).big, '∞'); assert(!/plan|seat|Premium/i.test(JSON.stringify(IC.seatText(all, 3, true))), 'tier-blind');
+  // The wall: neutral words in the app, the plan's on the web.
+  const full = IC.seats({ limit: 3, athletes: 3 }), room = IC.seats({ limit: 10, athletes: 6 });
+  eq(IC.wallText(full, 0, true, true), 'You\'ve reached your athlete limit: each lifter and each unused invite counts toward it.');
+  eq(IC.wallText(room, 2, true, true), 'There\'s room for 4 more lifters: 2 other people stay unticked. Untick someone first.');
+  eq(IC.wallText(room, 2, false, false), 'Your plan has room for 4 more lifters: 2 other people stay unticked.');
+  eq(IC.wallText(full, 0, false, false), 'Your plan has no seats left. Each lifter and each unused invite holds one.');
+});
+test('imports: a quick look that filled its rows reads the whole tab when it\'s picked (a sheet with no size tag, or a wrong one)', () => {
+  const rows = [['Date', 'Exercise', 'Weight', 'Reps']]; for (let i = 0; i < 300; i++) rows.push(['2026-01-0' + (1 + i % 9), 'Squat', 100 + i % 20, 5]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Log'); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lift', 'Max'], ['Squat', 200]]), 'Maxes');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  ['', '<dimension ref="A1"/>'].forEach(dim => {
+    const bytes = imZip(Object.keys(files).map(n => ({ name: n, data: /sheet1\.xml$/.test(n) ? new TextDecoder().decode(files[n]).replace(/<dimension[^>]*\/>/, dim) : files[n] })));
+    const quick = IC.readWorkbook(bytes, { sheetRows: 41 });
+    eq(quick[0].rows.length, 41); eq(quick[0].cut, true, 'Log ' + JSON.stringify(dim)); eq(!!quick[1].cut, false);   // Maxes was read whole
+    eq(quick[0].fullRows <= 41, true);                                // no tag to believe: the picker says "over 40"
+    eq(IC.readWorkbook(bytes, { sheets: ['Log'] })[0].rows.length, 301);
+  });
+});
+test('imports: a size tag of a million rows, a stray cell in the last row, a merge down a million rows cost nothing; past 200,000 rows a tab is cut', () => {
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps'], ['2026-03-02', 'Squat', 180, 5], ['2026-03-04', 'Bench', 120, 5]]), 'Log');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  const sheet = (xml) => imZip(Object.keys(files).map(n => ({ name: n, data: /sheet1\.xml$/.test(n) ? xml(new TextDecoder().decode(files[n])) : files[n] })));
+  const t0 = Date.now();
+  let t = IC.readWorkbook(sheet(x => x.replace(/<dimension[^>]*\/>/, '<dimension ref="A1:CB1048576"/>')))[0];
+  eq(t.rows.length, 3); eq(t.rows[0].cells.length, 4); eq(t.fullRows, 1048576);
+  t = IC.readWorkbook(sheet(x => x.replace(/<dimension[^>]*\/>/, '').replace('</sheetData>', '<row r="1048576"><c r="CB1048576" t="inlineStr"><is><t>x</t></is></c></row></sheetData>')))[0];
+  eq(t.rows.length, 4); eq(t.rows[3].line, 1048576); eq(t.rows[0].cells.length, 80);
+  const merged = IC.tablesFromWorkbook({ SheetNames: ['M'], Sheets: { M: { '!ref': 'A1:B1048576', '!merges': [{ s: { r: 1, c: 0 }, e: { r: 1048575, c: 0 } }],
+    A1: { t: 's', v: 'Date' }, B1: { t: 's', v: 'Exercise' }, A2: { t: 's', v: '2026-01-05' }, B2: { t: 's', v: 'Squat' }, B3: { t: 's', v: 'Bench' } } } })[0];
+  eq(merged.rows.length, 3); eq(merged.rows[2].cells.join('|'), '2026-01-05|Bench');   // the merged date fills the row that exists, no other
+  assert(Date.now() - t0 < 15000, 'a million rows that aren\'t there took ' + (Date.now() - t0) + ' ms');
+  const data = []; for (let r = 0; r < IC.MAX_ROWS + 5; r++) data[r] = [{ t: 'n', v: r }, { t: 's', v: 'x' }];
+  const big = IC.tablesFromWorkbook({ SheetNames: ['Big'], Sheets: { Big: { '!ref': 'A1:B' + (IC.MAX_ROWS + 5), '!data': data } } })[0];
+  eq(big.rows.length, IC.MAX_ROWS); eq(big.capped, true); eq(big.rows[IC.MAX_ROWS - 1].cells[0], String(IC.MAX_ROWS - 1));
 });
 
 /* ===========================================================

@@ -58,10 +58,11 @@ var ImportUI = (function () {
     return nm.charAt(0).toUpperCase() + nm.slice(1);
   }
   function errorOf(e) { return Object.assign(new Error(e), { user: true }); }
-  function canSeePlans() {
-    var native = document.documentElement.classList.contains('native');
-    return typeof openUpgradeModal === 'function' && (!native || !!window._iapReady);
-  }
+  // The iPhone app before in-app purchase is live (or its demo, which can't buy): tier-blind like the rest of
+  // the app there (renderPlanPill, renderCoachYou, capacity.js, openUpgradeModal; Apple 3.1.1): no plan
+  // name, no seat count, no See plans. Only the room left for lifters.
+  function tierBlind() { return document.documentElement.classList.contains('native') && (!window._iapReady || isDemo()); }
+  function canSeePlans() { return typeof openUpgradeModal === 'function' && !tierBlind(); }
   function copyText(t) {
     if (window.ImportGuides && ImportGuides.copy) return ImportGuides.copy(t);
     try { return navigator.clipboard.writeText(t); } catch (e) { return Promise.reject(e); }
@@ -80,6 +81,13 @@ var ImportUI = (function () {
     var u = me();
     if (u && u.userType === 'coach' && window.CoachSettings) return CoachSettings.get('importMaps') || {};
     try { return JSON.parse(localStorage.getItem('powa-import-maps-' + (u ? u.id : '')) || '{}') || {}; } catch (e) { return {}; }
+  }
+  // After an import: this file's choices (a hash of its columns and the field of each by place, never a
+  // header's text). A file with no header row isn't remembered: any other headerless file would match it.
+  function remember(a, fields) {
+    if (!a || a.noHeader) return;
+    var maps = IC().rememberMapping(rememberedMaps(), a.headers, fields, today());
+    if (maps) saveMaps(maps);
   }
   function saveMaps(maps) {
     var u = me();
@@ -550,8 +558,9 @@ var ImportUI = (function () {
       }
       if (kind === 'zip') {
         if (size > MAX_ZIP) throw errorOf(TOO_BIG('zip'));
-        return IC().loadUnzip().then(function () {
-          var z = IC().tablesFromZip(IC().unzip(u8));
+        if (rd) rd.line('Opening the zip…');
+        // Off the main thread (import-worker.js), every limit checked as it unpacks.
+        return IC().readZipAsync(u8).then(function (z) {
           if (!z.tables.length) throw errorOf('There\'s no CSV, text or .json file in that zip' + (z.skipped.length ? ' (it holds ' + z.skipped.slice(0, 3).join(', ') + (z.skipped.length > 3 ? '…' : '') + ')' : '') + '.');
           return { name: name, tables: z.tables, skipped: z.skipped };
         });
@@ -584,16 +593,23 @@ var ImportUI = (function () {
     }
 
     // ---------------------------------------------------------------- 3. which tab
+    // Rows in a tab before it's read in full: the size its own tag gives (a quick look read the first 41), or
+    // "over 40" when there's no tag to believe (none, or a used range of a million rows).
+    function tabRows(t) {
+      if (!t.cut) return null;
+      return t.fullRows > (t.rows[t.rows.length - 1] || { line: 0 }).line && t.fullRows <= IC().MAX_ROWS ? t.fullRows : 0;
+    }
     function kindWords(a, t) {
-      var rows = t.fullRows ? Math.max(0, t.fullRows - 1 - a.headerIndex) : a.rowsCount;
-      if (a.kind === 'roster') return { ic: 'roster', text: 'Client list · ' + plural(rows, 'person', 'people') };
-      if (a.layout === 'wide') return { ic: 'log', text: 'Training log, sets across · ' + plural(rows, 'row') };
-      if (a.kind === 'history') return { ic: 'log', text: 'Training log · ' + plural(rows, 'row') };
+      var n = tabRows(t), rows = n == null ? a.rowsCount : Math.max(0, n - 1 - a.headerIndex);
+      var count = function (one, many) { return n === 0 ? 'over 40 ' + (many || one + 's') : plural(rows, one, many); };
+      if (a.kind === 'roster') return { ic: 'roster', text: 'Client list · ' + count('person', 'people') };
+      if (a.layout === 'wide') return { ic: 'log', text: 'Training log, sets across · ' + count('row') };
+      if (a.kind === 'history') return { ic: 'log', text: 'Training log · ' + count('row') };
       if (a.kind === 'program') {
         var w = a.grid ? (a.grid.groups ? a.grid.groups.length : a.grid.weeks.length) : 0;
         return { ic: 'program', text: 'Program' + (w ? ' · ' + plural(w, 'week') : '') };
       }
-      return { ic: 'unknown', text: 'Not sure yet: you\'ll match its columns · ' + plural(rows, 'row') };
+      return { ic: 'unknown', text: 'Not sure yet: you\'ll match its columns · ' + count('row') };
     }
     function pickTab(res, tables, dir) {
       var isZip = !res.book;
@@ -607,11 +623,13 @@ var ImportUI = (function () {
       inner.appendChild(uiList(rows));
       if (res.skipped && res.skipped.length) inner.appendChild(el('p', { class: 'im-note' }, 'Not read: ' + res.skipped.slice(0, 6).join(', ') + (res.skipped.length > 6 ? ' and ' + (res.skipped.length - 6) + ' more' : '') + '. Photos and PDFs come in through Bring a program in.'));
     }
-    // A quick look read the tab's first rows: the whole tab is read once it's picked.
+    // A quick look read the tab's first rows: the whole tab is read once it's picked, whenever the quick look
+    // filled every row it read (a tab without a size tag says nothing about the rest) or the tag says there's more.
     function openTable(t, backTo) {
       st.backToTabs = backTo || null;
-      if (st.res && st.res.book && t.fullRows > t.rows.length) {
-        reading(t.name, 'Reading ' + plural(Math.max(0, t.fullRows - 1), 'row') + '…');
+      if (st.res && st.res.book && (t.cut || t.fullRows > t.rows.length)) {
+        var n = tabRows(t);
+        reading(t.name, n ? 'Reading ' + plural(Math.max(0, n - 1), 'row') + '…' : 'Reading every row…');
         IC().readWorkbookAsync(st.res.book, { sheets: [t.name], name: st.res.name }).then(function (tabs) {
           route(tabs.filter(function (x) { return x.name === t.name; })[0] || t);
         }).catch(readError);
@@ -674,7 +692,7 @@ var ImportUI = (function () {
       var a = st.a, list = rosterList();
       var inner = ui.step({ title: 'Whose history is this?', sub: 'Pick the lifter these sets belong to.', back: backFromStep(), dir: dir || 'fwd' });
       // The file names its lifters (POWALIFTA's own coach export, a team log): match them to the roster.
-      var col = a.fields.indexOf('athlete'), names = {};
+      var col = a.fields.indexOf('athlete'), names = Object.create(null);
       if (col >= 0) IC().bodyRows(a).forEach(function (r) { var n = String(r.cells[col] || '').trim(); if (n) names[n] = (names[n] || 0) + 1; });
       var inFile = Object.keys(names).sort(function (x, y) { return names[y] - names[x]; });
       var norm = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); };
@@ -785,7 +803,8 @@ var ImportUI = (function () {
           missing.forEach(function (t) { al.appendChild(el('p', {}, t)); });
           colsBox.appendChild(al);
         }
-        if (st.a.dropped && st.a.dropped.length) colsBox.appendChild(el('p', { class: 'im-note' }, 'Left out as it was read: ' + plural(st.a.dropped.length, 'payment column') + '. POWALIFTA never keeps them.'));
+        if (st.a.dropped && st.a.dropped.length) colsBox.appendChild(el('p', { class: 'im-note' }, 'Left out as it was read: ' + plural(st.a.dropped.length, 'card or payment column') + '. POWALIFTA never shows or keeps them.'));
+        if (st.table && st.table.capped) colsBox.appendChild(el('p', { class: 'im-note' }, 'This tab has more than ' + nf(IC().MAX_ROWS) + ' rows: the first ' + nf(IC().MAX_ROWS) + ' are read. Save the rest into a copy of the file and bring that in after.'));
         if (st.table && st.table.noValue) colsBox.appendChild(el('p', { class: 'im-note' }, plural(st.table.noValue, 'cell') + ' hold a formula with no saved value, so they read as empty. Open the file in Excel or Sheets, save it, and choose it again to bring them in.'));
       }
       // ---- the plan, a chunk at a time for a big sheet ----
@@ -974,8 +993,7 @@ var ImportUI = (function () {
             toast(r.notReady ? 'Importing history switches on with the next server update. Nothing was lost: try again after it.' : 'Couldn\'t import: check the connection and try again.', 5000);
             return;
           }
-          var maps = IC().rememberMapping(rememberedMaps(), st.a.headers, st.fields, today());
-          saveMaps(maps);
+          remember(st.a, st.fields);
           historyDone(r, p);
         });
       }
@@ -1001,15 +1019,19 @@ var ImportUI = (function () {
       if (!((has('weight') && has('reps')) || has('text') || (has('tWeight') && has('tReps')) || has('tText') || (a2 && a2.wide))) out.push('Which columns have the weight and the reps? Or one with sets written out, like 140x5 @8.');
       return out;
     }
-    // One column's dropdown: its header, three of its values, what it holds.
+    // One column's dropdown: its header, what it holds (three of its values in a log; in a client list only
+    // what kind of thing is in it, never the values: only names, emails, groups and statuses are kept).
     function colRow(i, roster, onChange) {
       var a = st.a, f = st.fields[i];
       var row = el('div', { class: 'im-col' });
       var main = el('div', { class: 'im-col-main' });
       main.appendChild(el('b', {}, a.headers[i]));
-      var vals = [];
-      for (var r = a.headerIndex + 1; r < a.table.rows.length && vals.length < 3; r++) { var v = String(a.table.rows[r].cells[i] == null ? '' : a.table.rows[r].cells[i]).trim(); if (v && vals.indexOf(v) < 0) vals.push(v.slice(0, 24)); }
-      main.appendChild(el('span', {}, vals.length ? vals.join(' · ') : 'Empty'));
+      if (roster) main.appendChild(el('span', {}, IC().describeColumn(a, i)));
+      else {
+        var vals = [];
+        for (var r = a.headerIndex + 1; r < a.table.rows.length && vals.length < 3; r++) { var v = String(a.table.rows[r].cells[i] == null ? '' : a.table.rows[r].cells[i]).trim(); if (v && vals.indexOf(v) < 0) vals.push(v.slice(0, 24)); }
+        main.appendChild(el('span', {}, vals.length ? vals.join(' · ') : 'Empty'));
+      }
       if (a.guessed[i] && f === a.fields[i]) main.appendChild(el('span', { class: 'im-guess' }, 'Guessed from what\'s in it'));
       row.appendChild(main);
       var sel = el('select', { class: 'im-select' + (f == null || f === 'ignore' ? ' is-off' : ''), 'aria-label': 'What\'s in ' + a.headers[i] + '?' });
@@ -1145,15 +1167,15 @@ var ImportUI = (function () {
       var nameMissing = function () { var f = st.fields; return f.indexOf('fullName') < 0 && f.indexOf('first') < 0 && f.indexOf('email') < 0; };
       function paintSeats() {
         seatBox.innerHTML = '';
-        var n = picked().length;
+        var n = picked().length, words = IC().seatText(seats, n, tierBlind());
         var box = el('div', { class: 'im-seats' + (!seats.unlimited && seats.left === 0 ? ' is-full' : '') });
         var big = el('div', { class: 'im-seats-n' });
-        big.appendChild(el('b', {}, seats.unlimited ? '∞' : String(Math.max(0, seats.left - n))));
+        big.appendChild(el('b', {}, words.big));
         box.appendChild(big);
         var main = el('div', { class: 'im-seats-main' });
-        main.appendChild(el('b', {}, seats.unlimited ? 'Unlimited seats' : (seats.left - n === 1 ? 'seat' : 'seats') + ' left after these'));
-        main.appendChild(el('span', {}, seats.plan + ' plan · ' + plural(seats.athletes, 'lifter') + (seats.pending ? ' and ' + plural(seats.pending, 'unused invite') : '') + (seats.unlimited ? '' : ' of ' + seats.limit + ' seats')));
-        if (!seats.unlimited && seats.limit <= 30) {
+        main.appendChild(el('b', {}, words.title));
+        if (words.sub) main.appendChild(el('span', {}, words.sub));
+        if (words.bar) {
           var bar = el('div', { class: 'im-seatbar', 'aria-hidden': 'true' });
           for (var k = 0; k < seats.limit; k++) bar.appendChild(el('i', { class: k < seats.used ? 'is-used' : k < seats.used + n ? 'is-pick' : '' }));
           main.appendChild(bar);
@@ -1245,8 +1267,7 @@ var ImportUI = (function () {
         var full = picked().length >= seats.left;
         if (!on && !(seats.left === 0) && !(full && waiting)) return;
         var al = el('div', { class: 'im-alert im-wall', role: 'status', style: 'margin:0 0 12px' });
-        al.appendChild(el('p', {}, seats.left === 0 ? 'Your plan has no seats left. Each lifter and each unused invite holds one.'
-          : 'Your plan has room for ' + plural(seats.left, 'more lifter') + (waiting ? ': ' + plural(waiting, 'other person', 'other people') + ' stay' + (waiting === 1 ? 's' : '') + ' unticked.' : '.') + (on ? ' Untick someone first.' : '')));
+        al.appendChild(el('p', {}, IC().wallText(seats, waiting, on, tierBlind())));
         if (canSeePlans()) al.appendChild(btn('See plans', 'ui-btn-soft', function () { openUpgradeModal('cap'); }));
         wallBox.appendChild(al);
       }
@@ -1263,7 +1284,7 @@ var ImportUI = (function () {
       }
       var kept = 'Kept: names, emails' + (Object.keys(plan.groups).length ? ' and groups' : '') + '.';
       var left = plan.leftOut.length ? ' Left in the file: ' + plan.leftOut.slice(0, 3).join(', ') + (plan.leftOut.length > 3 ? ' and ' + (plan.leftOut.length - 3) + ' more' : '') + '.' : '';
-      mailSec.appendChild(el('p', { class: 'im-note' }, kept + left + (plan.dropped.length ? ' Card and payment columns are never read.' : '')));
+      mailSec.appendChild(el('p', { class: 'im-note' }, kept + left + (plan.dropped.length ? ' ' + plural(plan.dropped.length, 'card or payment column') + ' left out as it was read: never shown, never kept.' : '')));
       go.addEventListener('click', function () { createInvites(picked(), emailOn); });
       paintSeats(); paintCols(); paintChips(); paintPeople(); wall(false);
       if (!plan.people.length) {
@@ -1274,7 +1295,7 @@ var ImportUI = (function () {
     function createInvites(list, email) {
       var seats = seatsNow();
       if (!list.length) return;
-      if (!seats.unlimited && list.length > seats.left) { toast('Your plan has room for ' + plural(seats.left, 'more lifter') + '.'); return; }
+      if (!seats.unlimited && list.length > seats.left) { toast(IC().wallText(seats, 0, false, tierBlind())); return; }
       var taken = {};
       (Store.get().invites || []).forEach(function (i) { taken[i.code] = 1; });
       var invs = [];
@@ -1294,8 +1315,7 @@ var ImportUI = (function () {
           toast('Couldn\'t save the invites. Check the connection and try again.', 4000);
           return;
         }
-        var maps = IC().rememberMapping(rememberedMaps(), st.a.headers, st.fields, today());
-        saveMaps(maps);
+        remember(st.a, st.fields);
         rosterDone(made, email, made.length < invs.length);
       });
     }
@@ -1304,7 +1324,7 @@ var ImportUI = (function () {
       var d = el('div', { class: 'im-done' });
       d.appendChild(el('span', { class: 'im-done-ic', html: IC_CHECK }));
       d.appendChild(el('b', {}, plural(made.length, 'invite')));
-      d.appendChild(el('p', {}, 'Each link works for one lifter, and holds a seat until it\'s used.' + (partial ? ' Some didn\'t save: pick them again from the file.' : '')));
+      d.appendChild(el('p', {}, 'Each link works for one lifter, and holds a ' + (tierBlind() ? 'place' : 'seat') + ' until it\'s used.' + (partial ? ' Some didn\'t save: pick them again from the file.' : '')));
       if (isDemo()) d.appendChild(el('p', {}, 'Demo: no emails go out and nothing is saved.'));
       inner.appendChild(d);
       var status = el('p', { class: 'im-note', role: 'status', 'aria-live': 'polite', style: 'text-align:center' });

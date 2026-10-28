@@ -1,6 +1,8 @@
 /* import-lib-fflate.js: fflate 0.8.2 (umd/index.js), vendored unchanged for the import intake (import-core.js ·
-   ImportCore.loadUnzip): it unpacks a .zip of CSV files (an athlete's TrainHeroic data export is one). Only unzipSync is
-   used. Loaded only when someone opens a .zip in the import intake: never on page boot.
+   ImportCore.loadUnzip): it unpacks a .zip of CSV files (an athlete's TrainHeroic data export is one) and checks a
+   workbook's zip before SheetJS reads it. Only Inflate (the streaming inflater) is used: import-core.js reads the zip's
+   directory itself and inflates each file a slice at a time, counting what comes out (unzipSync's own limits can be
+   talked past). Loaded only when someone opens a .zip or a spreadsheet in the import intake: never on page boot.
    Source: https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz (npm), fetched 2026-10-28; the tarball matched npm's
    integrity sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==.
    sha256 of the library (everything between the two marker lines): c3b34f2e9f5e74d4d7d64e01cac7a0c01954c6c406414d42185c7b53d6875ddf

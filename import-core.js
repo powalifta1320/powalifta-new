@@ -25,7 +25,11 @@ var ImportCore = (function () {
   var G = typeof window !== 'undefined' ? window : self;
   var SK = function () { return G.SwitchKit; };
   var hkey = function (h) { return SK().hkey(h); };
-  var MAX_COLS = 80, ZIP_MAX_FILES = 400, ZIP_MAX_BYTES = 80 * 1024 * 1024, ZIP_MAX_ONE = 20 * 1024 * 1024;
+  var MB = 1024 * 1024, MAX_COLS = 80, MAX_ROWS = 200000;
+  // A .zip of CSVs: 400 files at most (2,000 entries with folders and macOS's __MACOSX copies), 80 MB once
+  // unpacked, 20 MB for any one file. A workbook is a zip too (.xlsx, .ods): 4,000 parts, 256 MB unpacked.
+  var ZIP = { files: 400, entries: 2000, bytes: 80 * MB, one: 20 * MB };
+  var BOOK = { entries: 4000, bytes: 256 * MB, one: 256 * MB, run: MB };
   var EMAIL_RE = /^[^\s@,;<>"']+@[^\s@,;<>"']+\.[a-z]{2,}$/i;
 
   function toU8(b) {
@@ -66,29 +70,159 @@ var ImportCore = (function () {
     return out;
   }
 
-  // ================================================================= what a file is
-  // A zip's file list from its central directory (no unpacking): [{ name, method, size, compSize, offset }].
-  function zipEntries(bytes) {
-    var u8 = toU8(bytes), out = [], n = u8.length;
-    if (n < 22) return out;
-    var rd16 = function (o) { return u8[o] | (u8[o + 1] << 8); };
-    var rd32 = function (o) { return (u8[o] | (u8[o + 1] << 8) | (u8[o + 2] << 16) | (u8[o + 3] << 24)) >>> 0; };
-    var eocd = -1;
-    for (var i = n - 22; i >= Math.max(0, n - 22 - 65535); i--) {
+  // ================================================================= zips, read with limits
+  // One reader for every zip the intake opens: a .zip of CSVs (unzip) and an .xlsx or .ods before SheetJS
+  // reads it (checkWorkbook). The central directory is read strictly: one disk, its two entry counts equal
+  // (SheetJS counts the entries "on this disk", the spec's total is the other), no ZIP64 sizes, the
+  // directory and every entry inside the file. What's unpacked is exactly what was checked, and each
+  // entry is inflated a slice at a time with what comes out counted: an entry that inflates past the size
+  // it declared stops within one slice (a zip bomb costs milliseconds, not minutes or gigabytes).
+  // Errors carry code 'bad_zip' or 'too_big'; unzip and checkWorkbook word them for the coach.
+  function zipFail(code) { return Object.assign(new Error(code === 'too_big' ? 'The zip is too big' : 'The zip didn\'t open'), { code: code }); }
+  function rd16(u8, o) { return u8[o] | (u8[o + 1] << 8); }
+  function rd32(u8, o) { return (u8[o] | (u8[o + 1] << 8) | (u8[o + 2] << 16) | (u8[o + 3] << 24)) >>> 0; }
+  // → { entries: [{ name, flags, method, compSize, size, offset, xAt, xLen (its extra field) }], cdAt }
+  function zipDir(u8, maxEntries) {
+    var n = u8.length, eocd = -1;
+    // The last end record, looking from the very end as SheetJS does: one inside the last 22 bytes can't be whole.
+    for (var i = n - 4; i >= Math.max(0, n - 22 - 65535); i--) {
       if (u8[i] === 0x50 && u8[i + 1] === 0x4B && u8[i + 2] === 0x05 && u8[i + 3] === 0x06) { eocd = i; break; }
     }
-    if (eocd < 0) return out;
-    var count = rd16(eocd + 10), at = rd32(eocd + 16);
+    if (eocd < 0 || eocd + 22 > n) throw zipFail('bad_zip');
+    var onDisk = rd16(u8, eocd + 8), total = rd16(u8, eocd + 10), cdSize = rd32(u8, eocd + 12), cdAt = rd32(u8, eocd + 16);
+    if (rd16(u8, eocd + 4) || rd16(u8, eocd + 6) || onDisk !== total) throw zipFail('bad_zip');
+    // ZIP64 (past 65,535 entries or 4 GB) is never a file this size: refused, not read another way.
+    if (total === 0xFFFF || cdSize === 0xFFFFFFFF || cdAt === 0xFFFFFFFF) throw zipFail('bad_zip');
+    if (total > maxEntries) throw zipFail('too_big');
+    if (cdAt + cdSize > eocd) throw zipFail('bad_zip');
+    var out = [], at = cdAt, end = cdAt + cdSize;
     var dec = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
-    for (var k = 0; k < Math.min(count, 5000) && at + 46 <= n; k++) {
-      if (rd32(at) !== 0x02014b50) break;
-      var nl = rd16(at + 28), xl = rd16(at + 30), cl = rd16(at + 32);
+    for (var k = 0; k < total; k++) {
+      if (at + 46 > end || rd32(u8, at) !== 0x02014b50) throw zipFail('bad_zip');
+      var nl = rd16(u8, at + 28), xl = rd16(u8, at + 30), cl = rd16(u8, at + 32);
+      if (at + 46 + nl + xl + cl > end) throw zipFail('bad_zip');
+      var e = { flags: rd16(u8, at + 8), method: rd16(u8, at + 10), compSize: rd32(u8, at + 20), size: rd32(u8, at + 24), offset: rd32(u8, at + 42), xAt: at + 46 + nl, xLen: xl };
+      if (e.compSize === 0xFFFFFFFF || e.size === 0xFFFFFFFF || e.offset === 0xFFFFFFFF) throw zipFail('bad_zip');
+      // Names as UTF-8 whatever the flag says (macOS writes UTF-8 without it).
       var nb = u8.subarray(at + 46, at + 46 + nl);
-      out.push({ name: dec ? dec.decode(nb) : String.fromCharCode.apply(null, nb), method: rd16(at + 10), compSize: rd32(at + 20), size: rd32(at + 24), offset: rd32(at + 42) });
+      e.name = dec ? dec.decode(nb) : String.fromCharCode.apply(null, nb);
+      out.push(e);
       at += 46 + nl + xl + cl;
+    }
+    return { entries: out, cdAt: cdAt };
+  }
+  // An entry's local header: where its bytes start, and the method, flags and size it gives (SheetJS goes
+  // by these). Its bytes must sit before the central directory.
+  function zipLocal(u8, e, cdAt) {
+    var at = e.offset;
+    if (at + 30 > cdAt || rd32(u8, at) !== 0x04034b50) throw zipFail('bad_zip');
+    var nl = rd16(u8, at + 26), xl = rd16(u8, at + 28), start = at + 30 + nl + xl;
+    if (start + e.compSize > cdAt) throw zipFail('bad_zip');
+    return { flags: rd16(u8, at + 6), method: rd16(u8, at + 8), compSize: rd32(u8, at + 18), size: rd32(u8, at + 22), start: start, xAt: at + 30 + nl, xLen: xl };
+  }
+  // The sizes a ZIP64 extra field (type 1) gives, read the way SheetJS reads them: the first 8 bytes the
+  // uncompressed size, the next 8 the compressed one, whatever the 32-bit sizes say (bytes past the extra
+  // field count as 0). → { usz, csz }, 0 when there's none.
+  function zip64Sizes(u8, from, len) {
+    var end = from + len, at = from, out = { usz: 0, csz: 0 };
+    var b = function (i) { return i < end ? u8[i] : 0; };
+    var q = function (i) { return ((b(i + 4) | (b(i + 5) << 8) | (b(i + 6) << 16) | (b(i + 7) << 24)) >>> 0) * 4294967296 + ((b(i) | (b(i + 1) << 8) | (b(i + 2) << 16) | (b(i + 3) << 24)) >>> 0); };
+    while (at <= end - 4) {
+      var type = b(at) | (b(at + 1) << 8), sz = b(at + 2) | (b(at + 3) << 8);
+      if (type === 1) { out.usz = Math.max(out.usz, q(at + 4)); out.csz = Math.max(out.csz, q(at + 12)); }
+      at += 4 + sz;
     }
     return out;
   }
+  // A run of text with no '<' in it, watched as a part comes out: a cell holding megabytes of text is no
+  // cell anyone typed (Excel stops at 32,767 characters), and SheetJS takes about 130 bytes of memory per
+  // character of one (a 40 MB cell: gigabytes). Every part is watched whatever its name (a workbook can
+  // call its sheet anything); a binary part has a '<' every few hundred bytes. → see(chunk), throws long_cell.
+  function textRuns(max) {
+    var base = 0, last = 0;
+    return function (chunk) {
+      var n = chunk.length, i = 0;
+      for (;;) {
+        var limit = last + max - base;    // the next '<' has to come at or before this index
+        if (limit >= n) { var r0 = chunk.lastIndexOf(60); if (r0 >= i) last = base + r0; break; }
+        var r = chunk.lastIndexOf(60, limit);
+        if (r < i) throw zipFail('long_cell');
+        last = base + r; i = r + 1;
+      }
+      base += n;
+      if (base - last > max) throw zipFail('long_cell');
+    };
+  }
+  // Far more bytes in than the entry says come out: refused before inflating anything. A deflater grows data
+  // that won't compress by a few bytes a block (old .NET ones by a few percent), a bomb by a thousand times.
+  function sizeLies(e) { return e.compSize > e.size * 1.25 + 1024; }
+  var ZIP_STEP = 16 * 1024;
+  // One entry's bytes: stored ones as they are; deflated ones through fflate's streaming inflater 16 KB at a
+  // time, what comes out counted, refused the moment it passes max (16 KB of input can make about 16 MB, so
+  // that's the most a bomb ever costs). The deflate stream must end inside the entry. keep false: only counts.
+  function inflateEntry(F, data, method, max, keep, see) {
+    if (method === 0) { if (data.length > max) throw zipFail('too_big'); if (see) see(data); return keep ? data : data.length; }
+    if (!data.length) throw zipFail('bad_zip');
+    var parts = [], got = 0;
+    var inf = new F.Inflate(function (chunk) {
+      got += chunk.length;
+      if (got > max) throw zipFail('too_big');
+      if (see) see(chunk);
+      if (keep && chunk.length) parts.push(chunk);
+    });
+    try {
+      for (var i = 0; i < data.length; i += ZIP_STEP) inf.push(data.subarray(i, Math.min(data.length, i + ZIP_STEP)), i + ZIP_STEP >= data.length);
+    } catch (err) { throw err && typeof err.code === 'string' ? err : zipFail('bad_zip'); }
+    if (!keep) return got;
+    if (parts.length === 1) return parts[0];
+    var out = new Uint8Array(got), o = 0;
+    parts.forEach(function (p) { out.set(p, o); o += p.length; });
+    return out;
+  }
+  var ZIP_WORDS = {
+    zip: { too_big: 'That zip is too big to open here. Unzip it and choose the CSV files inside.', bad_zip: 'That zip didn\'t open here. Unzip it and choose the CSV files inside.' },
+    book: { too_big: 'That file is too big to open here. Save the tabs you need into a smaller copy.', bad_zip: 'That spreadsheet didn\'t open here. Open it in Excel or Sheets, save a copy as .xlsx and choose that.',
+      long_cell: 'A cell in that file holds more text than a spreadsheet cell can. Open it in Excel or Sheets, save a copy as .xlsx and choose that.' }
+  };
+  function zipWords(e, kind) {
+    var w = e && typeof e.code === 'string' && ZIP_WORDS[kind][e.code];
+    return w ? Object.assign(new Error(w), { code: e.code, user: true }) : e;
+  }
+  // A workbook is a zip, and SheetJS unpacks every part of it before reading a cell, allocating what each
+  // part's header says. The same checks run first: at most 4,000 parts and 256 MB declared, no part whose
+  // header (or ZIP64 field) asks for more than that, every deflate stream ending inside its part and
+  // inflating to no more than the directory declares, no run of over 1 MB of text without a tag. So a
+  // small file can't make the reader allocate gigabytes or inflate for minutes.
+  function checkWorkbook(bytes) {
+    var F = G.fflate;
+    if (!F || !F.Inflate) throw new Error('The zip reader isn\'t loaded');
+    var u8 = toU8(bytes);
+    try {
+      var dir = zipDir(u8, BOOK.entries), declared = 0, used = 0;
+      dir.entries.forEach(function (e) { declared += e.size; });
+      if (declared > BOOK.bytes) throw zipFail('too_big');
+      dir.entries.forEach(function (e) {
+        var loc = zipLocal(u8, e, dir.cdAt), lx = zip64Sizes(u8, loc.xAt, loc.xLen), cx = zip64Sizes(u8, e.xAt, e.xLen);
+        if (Math.max(loc.size, lx.usz, cx.usz) > BOOK.one) throw zipFail('too_big');
+        if (loc.flags & 0x2041) return;   // encrypted: SheetJS refuses it
+        var see = textRuns(BOOK.run);
+        // Stored: SheetJS takes the bytes as they are, as many as the largest size any header gives.
+        if (loc.method === 0) { see(u8.subarray(loc.start, Math.min(u8.length, loc.start + Math.max(e.compSize, loc.compSize, lx.csz, cx.csz)))); return; }
+        if (loc.method !== 8) return;   // SheetJS refuses any other method
+        if (sizeLies(e)) throw zipFail('too_big');
+        used += inflateEntry(F, u8.subarray(loc.start, loc.start + e.compSize), 8, Math.min(e.size, BOOK.one), false, see);
+        if (used > BOOK.bytes) throw zipFail('too_big');
+      });
+    } catch (e) { throw zipWords(e, 'book'); }
+  }
+  // A zip's file list (nothing unpacked), for telling an .xlsx from an .ods or a zip of CSVs:
+  // [{ name, method, size, compSize, offset }], [] when it isn't a zip this reader opens.
+  function zipEntries(bytes) {
+    try { return zipDir(toU8(bytes), 65535).entries.map(function (e) { return { name: e.name, method: e.method, size: e.size, compSize: e.compSize, offset: e.offset }; }); }
+    catch (e) { return []; }
+  }
+
+  // ================================================================= what a file is
   // → 'pdf' | 'image' | 'xlsx' | 'ods' | 'xls' | 'xlsb' | 'numbers' | 'office' | 'zip' | 'json' | 'text'
   function sniff(name, bytes) {
     var u8 = toU8(bytes);
@@ -109,6 +243,7 @@ var ImportCore = (function () {
       if (has(/^Index\/Document\.iwa$/i) || ext === 'numbers') return 'numbers';
       if (has(/^content\.xml$/i) && (ext === 'ods' || zipMimetype(u8) === 'application/vnd.oasis.opendocument.spreadsheet')) return 'ods';
       if (has(/^(word|ppt)\//i) || has(/^content\.xml$/i)) return 'office';
+      if (!names.length && /^(xlsx|xlsm|ods)$/.test(ext)) return ext === 'ods' ? 'ods' : 'xlsx';   // a zip this reader refuses: the workbook check says why
       return 'zip';
     }
     var head = decodeBytes(u8.subarray(0, 4096)).text.replace(/^[\s\uFEFF]+/, '');
@@ -128,23 +263,46 @@ var ImportCore = (function () {
   // A table: { name, source, kind: 'csv' | 'text' | 'sheet' | 'json', rows: [{ cells, line, raw }], text?
   //   (the original text, only when nothing was dropped: the journal and written-program readers use it),
   //   dropped: [header names left out], noValue (formula cells with no saved value), hidden, recognised? }.
-  // Card, payment and revenue columns: never past here.
-  var PAY_ALWAYS = /\b(card|cards|payment|payments|revenue|stripe|billing|invoices?|iban|cvv|cvc|mrr|bank|routing|sort code|account number|amount paid|price|subscription)\b|\blast ?4\b/i;
-  var PAY_ROSTER = /^(plan|plans|product|products|package|packages|membership|memberships|tier|rate|fee|fees|offer)$/i;
+  // Card, payment and revenue columns: never past here. By their header (words a training log never uses
+  // for a column; a currency sign anywhere in it), and by what's in them: a column holding a card number
+  // goes whatever it's called, a headerless list's included.
+  var PAY_ALWAYS = new RegExp('\\b(card|cards|cc|credit|debit|visa|mastercard|amex|payments?|pay|paid|payouts?|payer|revenue|stripe|paypal|venmo|zelle|cash ?app|' +
+    'billing|billed|invoices?|iban|swift|bic|cvv|cvc|mrr|arr|ltv|lifetime value|bank|routing|sort code|account number|acct|amounts?|prices?|pricing|costs?|fees?|' +
+    'charges?|charged|balances?|owed?|owes|owing|outstanding|arrears|due|refunds?|refunded|discounts?|coupons?|promo|deposits?|subscriptions?|earnings|income|profit|' +
+    'sales|tax|taxes|vat|gst|currency|usd|eur|gbp|aud|cad|expiry|expiration|transactions?)\\b|\\blast ?(4|four)\\b|\\b(total|amount|money) spent\\b|^spent$', 'i');
+  var MONEY_SIGN = /[$€£¥₹]/;
+  var PAY_ROSTER = /^(plan|plans|product|products|package|packages|membership|memberships|tier|tiers|rate|rates|fee|fees|offer|offers|monthly|yearly|annual|annually)$/i;
   function finishTable(t) {
     t.dropped = t.dropped || [];
     if (t.kind === 'text' || !t.rows.length) return t;
-    dropColumns(t, function (key) { return PAY_ALWAYS.test(key); });
+    dropColumns(t, function (key, raw) { return PAY_ALWAYS.test(key) || MONEY_SIGN.test(raw); });
+    var cards = cardColumns(t.rows);
+    if (cards.length) {
+      var h = findHeader(t.rows), head = h.none ? [] : t.rows[h.index].cells;
+      removeColumns(t, cards, cards.map(function (i) { var n = String(head[i] == null ? '' : head[i]).trim(); return n && !dataCell(n) ? n : 'Column ' + colName(i); }));
+    }
     return t;
   }
+  // A card number: 13 to 19 digits (spaces or dashes between the groups allowed) passing the Luhn check, from
+  // the ranges cards are issued in (2 to 6: a 13-digit timestamp in milliseconds starts with 1).
+  function cardLike(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (s.length < 13 || s.length > 23 || !/^[2-6][\d -]*\d$/.test(s)) return false;
+    var d = s.replace(/[ -]/g, '');
+    if (d.length < 13 || d.length > 19 || /\D/.test(d)) return false;
+    var sum = 0;
+    for (var i = 0; i < d.length; i++) { var x = d.charCodeAt(d.length - 1 - i) - 48; if (i % 2) { x *= 2; if (x > 9) x -= 9; } sum += x; }
+    return sum % 10 === 0;
+  }
+  function cardColumns(rows) {
+    var out = [];
+    rows.forEach(function (r) { (r.cells || []).forEach(function (c, i) { if (c && String(c).length >= 13 && out.indexOf(i) < 0 && cardLike(c)) out.push(i); }); });
+    return out.sort(function (a, b) { return a - b; });
+  }
   // Takes columns out of every row (raw rebuilt from what's left, so a skipped row's example never
-  // shows a dropped cell). test(key, raw header) → true to drop.
-  function dropColumns(t, test) {
-    var h = findHeader(t.rows), head = (t.rows[h.index] || { cells: [] }).cells;
-    var drop = [];
-    head.forEach(function (c, i) { if (String(c || '').trim() && test(hkey(c), String(c))) drop.push(i); });
+  // shows a dropped cell). drop: [column], names: what the coach is told was left out.
+  function removeColumns(t, drop, names) {
     if (!drop.length) return [];
-    var names = drop.map(function (i) { return String(head[i]).trim(); });
     t.rows = t.rows.map(function (r) {
       var cells = r.cells.filter(function (c, i) { return drop.indexOf(i) < 0; });
       return { cells: cells, line: r.line, raw: cells.filter(function (c) { return String(c || '').trim(); }).join(', ') };
@@ -152,6 +310,13 @@ var ImportCore = (function () {
     t.dropped = (t.dropped || []).concat(names);
     t.text = null;
     return names;
+  }
+  // The columns whose header passes test(key, raw header), taken out. A file with no header row has none.
+  function dropColumns(t, test) {
+    var h = findHeader(t.rows), head = h.none ? [] : (t.rows[h.index] || { cells: [] }).cells;
+    var drop = [];
+    head.forEach(function (c, i) { if (String(c || '').trim() && test(hkey(c), String(c))) drop.push(i); });
+    return removeColumns(t, drop, drop.map(function (i) { return String(head[i]).trim(); }));
   }
   function tablesFromText(text, name) {
     var s = String(text == null ? '' : text).replace(/^\uFEFF/, '');
@@ -207,45 +372,67 @@ var ImportCore = (function () {
     var col = function (s) { var n = 0; for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64); return n - 1; };
     return { s: { r: +m[2] - 1, c: col(m[1]) }, e: { r: +(m[4] || m[2]) - 1, c: col(m[3] || m[1]) } };
   }
-  function sheetToTable(ws, date1904) {
+  // One tab → { rows, noValue, fullRows, cut (a quick look that filled its rows), capped (past 200,000 rows) }.
+  // Only the cells that exist are visited: a size tag claiming a million rows, or a stray cell in the last
+  // row, costs nothing for the rows in between, and a row is built only once something is in it.
+  function sheetToTable(ws, date1904, sheetRows) {
     var t = { rows: [], noValue: 0 };
     var range = decodeRange(ws && ws['!ref']);
     if (!range) return t;
-    // A quick look (sheetRows) keeps the tab's real size in !fullref: the tab picker says how big it is.
+    // A quick look (sheetRows) keeps the size the tab's own tag gives in !fullref (the tab picker shows it).
+    // A tab without that tag says nothing about the rest: one whose quick look filled every row it read
+    // may go on, so it's read again in full when picked.
     var full = decodeRange(ws['!fullref'] || ws['!ref']);
     t.fullRows = full ? full.e.r - full.s.r + 1 : 0;
-    var dense = Array.isArray(ws['!data']) ? ws['!data'] : null;
+    if (sheetRows && range.e.r - range.s.r + 1 >= sheetRows) t.cut = true;
     var R0 = range.s.r, R1 = range.e.r, C0 = range.s.c, C1 = Math.min(range.e.c, range.s.c + MAX_COLS - 1);
-    var grid = [], lastCol = -1;
-    for (var r = R0; r <= R1; r++) {
-      var row = [];
-      for (var c = C0; c <= C1; c++) {
-        var cell = dense ? (dense[r] && dense[r][c]) : ws[colName(c) + (r + 1)];
-        if (cell && cell.f != null && cell.v === undefined) t.noValue++;
-        var v = cellText(cell, date1904);
-        if (v !== '' && c - C0 > lastCol) lastCol = c - C0;
-        row.push(v);
+    var got = [], byRow = {};
+    var put = function (r, c, cell) {
+      if (cell && cell.f != null && cell.v === undefined) t.noValue++;
+      var v = cellText(cell, date1904);
+      if (v === '') return;
+      var g = byRow[r];
+      if (!g) { if (got.length >= MAX_ROWS) { t.capped = true; return; } g = byRow[r] = { r: r, vals: {} }; got.push(g); }
+      g.vals[c - C0] = v;
+    };
+    var dense = Array.isArray(ws['!data']) ? ws['!data'] : null;
+    if (dense) {
+      for (var r = R0, rEnd = Math.min(R1, dense.length - 1); r <= rEnd; r++) {
+        var dr = dense[r];
+        if (!dr) continue;
+        for (var c = C0, cEnd = Math.min(C1, dr.length - 1); c <= cEnd; c++) if (dr[c]) put(r, c, dr[c]);
       }
-      grid.push(row);
+    } else {
+      Object.keys(ws || {}).forEach(function (k) {
+        var p = k.charCodeAt(0) !== 33 && decodeRange(k);   // '!ref', '!merges' … aren't cells
+        if (p && p.s.r === p.e.r && p.s.c === p.e.c && p.s.r >= R0 && p.s.r <= R1 && p.s.c >= C0 && p.s.c <= C1) put(p.s.r, p.s.c, ws[k]);
+      });
+      got.sort(function (a, b) { return a.r - b.r; });
     }
+    got.forEach(function (g, i) { g.at = i; });
     // Merged cells keep their value in the first cell only. A merge down one column (a date or an
-    // exercise beside its sets) fills every row; one across a row only near the top (a "Week 1" over
-    // its Sets / Reps / Load columns), never a banner in the body.
+    // exercise beside its sets) fills the rows inside it that hold something; one across a row only near
+    // the top (a "Week 1" over its Sets / Reps / Load columns), never a banner in the body. A budget
+    // bounds the work whatever the merges claim.
+    var budget = 1000000;
     (ws['!merges'] || []).forEach(function (m) {
-      if (!m || !m.s || !m.e) return;
-      var v = grid[m.s.r - R0] && grid[m.s.r - R0][m.s.c - C0];
+      if (budget <= 0 || !m || !m.s || !m.e) return;
+      var top = byRow[m.s.r], v = top && top.vals[m.s.c - C0];
       if (!v) return;
       var vertical = m.s.c === m.e.c, across = m.s.r === m.e.r && m.s.r - R0 <= 5;
-      if (!vertical && !across) return;
-      for (var rr = m.s.r; rr <= m.e.r; rr++) for (var cc = m.s.c; cc <= m.e.c; cc++) {
-        var g = grid[rr - R0];
-        if (g && cc - C0 < g.length && cc >= C0 && g[cc - C0] === '') { g[cc - C0] = v; if (cc - C0 > lastCol) lastCol = cc - C0; }
+      if (across && !vertical) {
+        for (var cc = Math.max(m.s.c, C0); cc <= Math.min(m.e.c, C1) && budget-- > 0; cc++) if (top.vals[cc - C0] == null) top.vals[cc - C0] = v;
+        return;
       }
+      if (!vertical) return;
+      for (var k = top.at + 1; k < got.length && got[k].r <= m.e.r && budget-- > 0; k++) if (got[k].vals[m.s.c - C0] == null) got[k].vals[m.s.c - C0] = v;
     });
-    grid.forEach(function (row, i) {
-      var cells = row.slice(0, lastCol + 1);
-      if (!cells.some(function (x) { return x !== ''; })) return;
-      t.rows.push({ cells: cells, line: R0 + i + 1, raw: cells.filter(function (x) { return x !== ''; }).join(', ') });
+    var lastCol = -1;
+    got.forEach(function (g) { Object.keys(g.vals).forEach(function (c) { if (+c > lastCol) lastCol = +c; }); });
+    got.forEach(function (g) {
+      var cells = [];
+      for (var c = 0; c <= lastCol; c++) cells.push(g.vals[c] != null ? g.vals[c] : '');
+      t.rows.push({ cells: cells, line: g.r + 1, raw: cells.filter(function (x) { return x !== ''; }).join(', ') });
     });
     return t;
   }
@@ -258,23 +445,26 @@ var ImportCore = (function () {
       if (meta && meta.Hidden === 2) return;   // "very hidden": a tool's own tab, never the coach's
       var ws = wb.Sheets && wb.Sheets[nm];
       if (!ws) return;
-      var t = sheetToTable(ws, d1904);
+      var t = sheetToTable(ws, d1904, opts.sheetRows);
       t.name = String(nm); t.source = opts.source || ''; t.kind = 'sheet'; t.hidden = !!(meta && meta.Hidden === 1);
       if (t.rows.length) out.push(finishTable(t));
     });
     return out;
   }
-  // A real .xlsx / .ods through SheetJS (import-lib-xlsx.js, loaded first by loadXlsx).
+  // A real .xlsx / .ods through SheetJS (import-lib-xlsx.js and import-lib-fflate.js, loaded first by
+  // loadXlsx; in import-worker.js off the main thread), its zip checked first (checkWorkbook).
   //   opts: { sheetRows (read only the first n rows: the tab picker's quick look), sheets (only these tabs), name }
   function readWorkbook(bytes, opts) {
     opts = opts || {};
     var X = G.XLSX;
     if (!X || !X.read) throw new Error('The spreadsheet reader isn\'t loaded');
+    var u8 = toU8(bytes);
+    if (u8[0] === 0x50 && u8[1] === 0x4B) checkWorkbook(u8);
     var o = { type: 'array', cellDates: true, cellNF: true, cellStyles: false, cellHTML: false, dense: true, WTF: false };
     if (opts.sheetRows) o.sheetRows = opts.sheetRows;
     if (opts.sheets) o.sheets = opts.sheets;
-    var wb = X.read(toU8(bytes), o);
-    return tablesFromWorkbook(wb, { source: opts.name || '' });
+    var wb = X.read(u8, o);
+    return tablesFromWorkbook(wb, { source: opts.name || '', sheetRows: opts.sheetRows || 0 });
   }
 
   // ---- JSON ----
@@ -353,17 +543,31 @@ var ImportCore = (function () {
   // ---- zips ----
   var ZIP_JUNK = /(^|\/)(__MACOSX\/|\.DS_Store$|\._|Thumbs\.db$)|\/$/i;
   var ZIP_READABLE = /\.(csv|tsv|txt|json)$/i;
-  // Unpacks the readable files of a zip (fflate, import-lib-fflate.js, loaded first by loadUnzip):
-  // → [{ name, bytes }] (bytes null for a file it doesn't read: a photo, a PDF). A zip that would
-  // unpack past 80 MB or hold more than 400 files is refused before anything is inflated.
+  // Unpacks the readable files of a zip (fflate's inflater, import-lib-fflate.js, loaded first by loadUnzip;
+  // in import-worker.js off the page's main thread): → [{ name, bytes }] (bytes null for a file it doesn't
+  // read: a photo, a PDF, one over 20 MB, an encrypted one). Refused before anything is inflated when the
+  // directory holds more than 400 files or declares more than 80 MB, or a file declares less than its
+  // compressed bytes; refused while inflating when a file comes out bigger than declared or the files pass
+  // 80 MB together.
   function unzip(bytes) {
     var F = G.fflate;
-    if (!F || !F.unzipSync) throw new Error('The zip reader isn\'t loaded');
-    var u8 = toU8(bytes), list = zipEntries(u8).filter(function (e) { return !ZIP_JUNK.test(e.name); });
-    var total = list.reduce(function (a, e) { return a + (e.size || 0); }, 0);
-    if (list.length > ZIP_MAX_FILES || total > ZIP_MAX_BYTES) throw Object.assign(new Error('That zip is too big to open here. Unzip it and pick the CSV files inside.'), { code: 'too_big' });
-    var got = F.unzipSync(u8, { filter: function (f) { return ZIP_READABLE.test(f.name) && !ZIP_JUNK.test(f.name) && f.originalSize <= ZIP_MAX_ONE; } });
-    return list.map(function (e) { return { name: e.name, bytes: got[e.name] || null }; });
+    if (!F || !F.Inflate) throw new Error('The zip reader isn\'t loaded');
+    var u8 = toU8(bytes);
+    try {
+      var dir = zipDir(u8, ZIP.entries), used = 0;
+      var list = dir.entries.filter(function (e) { return !ZIP_JUNK.test(e.name); });
+      var declared = list.reduce(function (a, e) { return a + e.size; }, 0);
+      if (list.length > ZIP.files || declared > ZIP.bytes) throw zipFail('too_big');
+      return list.map(function (e) {
+        if (!ZIP_READABLE.test(e.name) || e.size > ZIP.one || (e.flags & 1) || (e.method !== 0 && e.method !== 8)) return { name: e.name, bytes: null };
+        var loc = zipLocal(u8, e, dir.cdAt);
+        if (e.method === 0 ? e.compSize !== e.size : sizeLies(e)) throw zipFail(e.method === 0 ? 'bad_zip' : 'too_big');
+        var out = inflateEntry(F, u8.subarray(loc.start, loc.start + e.compSize), e.method, e.size, true);
+        used += out.length;
+        if (used > ZIP.bytes) throw zipFail('too_big');
+        return { name: e.name, bytes: out };
+      });
+    } catch (e) { throw zipWords(e, 'zip'); }
   }
   function tablesFromZip(files) {
     var tables = [], skipped = [];
@@ -457,6 +661,10 @@ var ImportCore = (function () {
   function known(key) { return !!(key && (dictField(LOG_DICT, key) || dictField(ROSTER_DICT, key) || WEEK_HDR.test(key) || wideToken(key))); }
   // The row that names the columns: the first ten rows scored by how many of their cells are header
   // words (numbers count against). A title above the table or a blank row is stepped over.
+  // → { index, score }, or { index: -1, score: 0, none: true } when the file has no header row: the best
+  // row holds an email or a card number, or scores nothing and holds a date or a number. Its columns
+  // are then Column A, B, C… and every row is data: a client list exported without headers keeps its
+  // first person, and nothing in that row is ever taken for a column's name (or remembered as one).
   function findHeader(rows) {
     var best = { index: 0, score: -1 };
     for (var i = 0; i < Math.min((rows || []).length, 10); i++) {
@@ -472,8 +680,17 @@ var ImportCore = (function () {
       if (s > best.score) best = { index: i, score: s };
     }
     if (best.score < 0) best = { index: 0, score: 0 };
+    var head = rows && rows[best.index] ? (rows[best.index].cells || rows[best.index]) : [];
+    var vals = head.map(function (x) { return String(x == null ? '' : x).trim(); }).filter(Boolean);
+    if (vals.some(function (v) { return EMAIL_RE.test(v) || cardLike(v); }) || (best.score <= 0 && vals.some(dataCell))) return { index: -1, score: 0, none: true };
     return best;
   }
+  // A cell that's data, never a column's name: an email, a card number, a date, a plain number.
+  function dataCell(v) {
+    v = String(v == null ? '' : v).trim();
+    return !!v && (EMAIL_RE.test(v) || cardLike(v) || /^[-+]?[\d.,\s]+(%|kg|lb|lbs)?$/i.test(v) || !!SK().parseDate(v, 'dmy'));
+  }
+  function letters(n) { var out = []; for (var i = 0; i < n; i++) out.push('Column ' + colName(i)); return out; }
 
   // ---- wide sheets: a group of columns per set ----
   // "Set 1 Weight", "S1 Reps", "Set 2 - RPE", "Weight 3", "1st set reps", or one cell per set ("Set 1").
@@ -621,9 +838,13 @@ var ImportCore = (function () {
     var rows = table.rows;
     if (!rows.length) return a;
     var hdr = findHeader(rows);
-    var gi = gridInfo(rows, hdr.index);
+    var gi = hdr.none ? null : gridInfo(rows, hdr.index);
     if (gi && gi.headerIndex !== hdr.index) hdr = { index: gi.headerIndex, score: hdr.score };
-    var keys = rows[hdr.index].cells.map(function (c) { return hkey(c); });
+    // No header row: the columns are named by letter, and the first row is data like the rest.
+    var width = 0;
+    if (hdr.none) rows.forEach(function (r) { if (r.cells.length > width) width = r.cells.length; });
+    var headCells = hdr.none ? letters(Math.min(width, MAX_COLS)) : rows[hdr.index].cells;
+    var keys = headCells.map(function (c) { return hkey(c); });
     var body = rows.slice(hdr.index + 1);
     var rec = table.recognised || recogniseByKeys(keys);
     // A client list: names or emails and no exercise, reps or weeks. Weight there is bodyweight.
@@ -637,7 +858,8 @@ var ImportCore = (function () {
       if (gone.length) { var again = analyse(table, opts); again.dropped = a.dropped.concat(gone).filter(function (x, i, l) { return l.indexOf(x) === i; }); return again; }
     }
     a.headerIndex = hdr.index;
-    a.headers = rows[hdr.index].cells.map(function (c) { return String(c == null ? '' : c).trim(); });
+    a.noHeader = !!hdr.none;
+    a.headers = headCells.map(function (c) { return String(c == null ? '' : c).trim(); });
     a.keys = keys;
     a.rowsCount = body.length;
     a.recognised = rec || null;
@@ -654,10 +876,11 @@ var ImportCore = (function () {
     // One column per field: a second "Notes" waits for the coach.
     var seen = {};
     fields = fields.map(function (f) { if (!f || f === 'ignore' || f === 'wide' || f === 'session') return f; if (seen[f]) return null; seen[f] = 1; return f; });
-    // The coach's own mapping for this set of columns wins over every guess.
-    var fp = fingerprint(a.headers), mem = opts.remembered && opts.remembered[fp];
-    if (mem && mem.h) {
-      fields = keys.map(function (k, i) { return mem.h[k] !== undefined ? mem.h[k] : fields[i]; });
+    // The coach's own mapping for these columns wins over every guess (a file with no header row has none:
+    // any other headerless file would match it).
+    var fp = a.noHeader ? null : fingerprint(a.headers), mem = fp && opts.remembered ? opts.remembered[fp] : null;
+    if (mem && Array.isArray(mem.f) && mem.f.length === keys.length) {
+      fields = keys.map(function (k, i) { var f = mem.f[i]; return f === null || MEM_FIELDS.indexOf(f) >= 0 ? f : fields[i]; });
       a.fromMemory = true;
     }
     var guessed = fields.map(function () { return false; });
@@ -773,16 +996,23 @@ var ImportCore = (function () {
   }
 
   // ================================================================= mapping memory
-  // A file's columns as a set, so the next export from the same app is one tap.
+  // A coach's own column choices, so the next export from the same app is one tap. Kept (coach_settings,
+  // or the lifter's device) as a hash of the columns in order and the field of each column by its place:
+  // never a header's text, so nothing a file holds is ever kept by it.
+  var MEM_FIELDS = LOG_FIELDS.concat(ROSTER_DICT.map(function (d) { return d[1]; }), ['wide']);
   function fingerprint(headers) {
-    var keys = (headers || []).map(function (h) { return hkey(h); }).filter(Boolean).sort();
-    return 'm1-' + SK().hash64(keys.join('|'));
+    var keys = (headers || []).map(function (h) { return hkey(h); });
+    return 'm2-' + SK().hash64(keys.join('|'));
   }
-  // → the maps with this file's mapping in (thirty files at most, the oldest go first).
+  // → the maps with this file's choices in (thirty files at most, the oldest go first; maps kept the older
+  // way, by header text, go), or null when there's nothing to keep: a "header" holding an email, a card
+  // number, a date or a number is data (the screens never remember a file with no header row).
   function rememberMapping(maps, headers, fields, today) {
-    var out = Object.assign({}, maps || {}), h = {};
-    (headers || []).forEach(function (x, i) { var k = hkey(x); if (k) h[k] = fields[i] || null; });
-    out[fingerprint(headers)] = { h: h, at: today || '' };
+    headers = headers || [];
+    if (!headers.length || headers.some(dataCell)) return null;
+    var out = {};
+    Object.keys(maps || {}).forEach(function (k) { var m = maps[k]; if (/^m2-/.test(k) && m && Array.isArray(m.f)) out[k] = m; });
+    out[fingerprint(headers)] = { f: headers.map(function (h, i) { var f = fields[i]; return MEM_FIELDS.indexOf(f) >= 0 ? f : null; }), at: today || '' };
     var ks = Object.keys(out);
     if (ks.length > 30) {
       ks.sort(function (x, y) { return String(out[y].at || '').localeCompare(String(out[x].at || '')); });
@@ -802,10 +1032,13 @@ var ImportCore = (function () {
   function planRoster(a, ctx) {
     ctx = ctx || {};
     var f = a.fields, col = function (k) { return f.indexOf(k); };
-    var byEmail = {}, byName = {}, invited = {};
+    // Keyed by what the file says: maps with no prototype, so a status of "toString" or a person called
+    // "constructor" is a word like any other.
+    var dict = function () { return Object.create(null); };
+    var byEmail = dict(), byName = dict(), invited = dict();
     (ctx.athletes || []).forEach(function (x) { if (x && x.email) byEmail[String(x.email).trim().toLowerCase()] = 1; if (x && x.name) byName[normName(x.name)] = 1; });
     (ctx.invites || []).forEach(function (x) { if (x && !x.used && x.email) invited[String(x.email).trim().toLowerCase()] = 1; });
-    var seen = {}, people = [], statuses = {}, groups = {};
+    var seen = dict(), people = [], statuses = dict(), groups = dict();
     var counts = { total: 0, new: 0, onRoster: 0, invited: 0, duplicate: 0, noEmail: 0, badEmail: 0, archived: 0, picked: 0 };
     bodyRows(a).forEach(function (r, i) {
       var get = function (k) { var c = col(k); return c >= 0 ? String(r.cells[c] == null ? '' : r.cells[c]).replace(/\s+/g, ' ').trim() : ''; };
@@ -841,6 +1074,41 @@ var ImportCore = (function () {
     var k = 0;
     (people || []).forEach(function (p) { if (!p.picked) { p.overLimit = false; return; } if (k < n) { k++; p.overLimit = false; } else { p.picked = false; p.overLimit = true; } });
     return people;
+  }
+  function count(n, one, many) { var s; try { s = Number(n).toLocaleString(); } catch (e) { s = String(n); } return s + ' ' + (n === 1 ? one : (many || one + 's')); }
+  // The seats box of a client list in words → { big, title, sub, bar }. s: seats() plus { athletes, pending,
+  // plan (its name) }; picked: how many are ticked. blind: the iPhone app before in-app purchase is live (or
+  // its demo), tier-blind like the rest of the app there (Apple 3.1.1): no plan name and no seat count,
+  // only the room left for lifters.
+  function seatText(s, picked, blind) {
+    var after = s.unlimited ? Infinity : Math.max(0, s.left - (picked || 0));
+    if (blind) {
+      if (s.unlimited) return { big: '∞', title: 'Room for everyone you pick', sub: '', bar: false };
+      return { big: String(after), title: (after === 1 ? 'more lifter' : 'more lifters') + ' after these',
+        sub: 'Room for ' + count(s.left, 'more lifter') + (s.pending ? ' · ' + count(s.pending, 'unused invite') + (s.pending === 1 ? ' holds a place' : ' hold a place each') : ''), bar: false };
+    }
+    return { big: s.unlimited ? '∞' : String(after), title: s.unlimited ? 'Unlimited seats' : (after === 1 ? 'seat' : 'seats') + ' left after these',
+      sub: (s.plan || 'Free') + ' plan · ' + count(s.athletes || 0, 'lifter') + (s.pending ? ' and ' + count(s.pending, 'unused invite') : '') + (s.unlimited ? '' : ' of ' + s.limit + ' seats'),
+      bar: !s.unlimited && s.limit <= 30 };
+  }
+  // What the wall says when the ticks reach the room left (waiting: people still unticked; on: a tick was
+  // refused just now). Tier-blind wording in the app before in-app purchase, like openUpgradeModal's.
+  function wallText(s, waiting, on, blind) {
+    if (s.left === 0) return blind ? 'You\'ve reached your athlete limit: each lifter and each unused invite counts toward it.' : 'Your plan has no seats left. Each lifter and each unused invite holds one.';
+    return (blind ? 'There\'s room for ' : 'Your plan has room for ') + count(s.left, 'more lifter') + (waiting ? ': ' + count(waiting, 'other person', 'other people') + ' stay' + (waiting === 1 ? 's' : '') + ' unticked.' : '.') + (on ? ' Untick someone first.' : '');
+  }
+  // What a column holds, in a word: a client list's left-out columns show this, never their values (only
+  // names, emails, groups and statuses are kept, so nothing else is ever shown).
+  function describeColumn(a, i) {
+    var vals = sample(bodyRows(a), i, 30);
+    if (!vals.length) return 'Empty';
+    var is = function (test) { return share(vals, test) >= 0.6; };
+    if (is(function (v) { return EMAIL_RE.test(v); })) return 'Emails';
+    if (is(looksLikeDate)) return 'Dates';
+    if (is(function (v) { return /^\+?[\d\s().-]{7,}$/.test(v) && v.replace(/\D/g, '').length >= 7; })) return 'Phone numbers';
+    if (is(function (v) { return /^[-+]?[\d.,\s]+(%|kg|kgs|lb|lbs|cm|in)?$/i.test(v); })) return 'Numbers';
+    if (is(looksLikeName)) return 'Names';
+    return 'Text';
   }
 
   // ================================================================= programs → the review grid
@@ -926,7 +1194,7 @@ var ImportCore = (function () {
     opts = opts || {};
     var text;
     if (a.layout === 'program-text') text = a.table.text;
-    else text = a.table.rows.slice(a.headerIndex).map(function (r) { return r.cells.map(function (c) { return String(c == null ? '' : c).replace(/[\t\r\n]+/g, ' '); }).join('\t'); }).join('\n');
+    else text = a.table.rows.slice(Math.max(0, a.headerIndex)).map(function (r) { return r.cells.map(function (c) { return String(c == null ? '' : c).replace(/[\t\r\n]+/g, ' '); }).join('\t'); }).join('\n');
     if (typeof parseProgramSheet !== 'function') return null;
     var p = parseProgramSheet(text, { unit: opts.unit === 'lb' ? 'lbs' : 'kg', name: opts.name || 'Imported program' });
     if (!p.stats.sets) return null;
@@ -949,39 +1217,53 @@ var ImportCore = (function () {
     return loading[src];
   }
   function loadXlsx() { return G.XLSX && G.XLSX.read ? Promise.resolve(G.XLSX) : loadScript('import-lib-xlsx.js').then(function () { return G.XLSX; }); }
-  function loadUnzip() { return G.fflate && G.fflate.unzipSync ? Promise.resolve(G.fflate) : loadScript('import-lib-fflate.js').then(function () { return G.fflate; }); }
-  // A workbook read off the page's main thread (import-worker.js: SheetJS can take a second on a phone for
-  // a big one). The same tables as readWorkbook. No worker (or it can't start): read here, after a frame.
-  var worker = null, wid = 0, waiting = {};
-  function readHere(bytes, opts) {
-    return loadXlsx().then(function () { return new Promise(function (res) { setTimeout(res, 16); }); }).then(function () { return readWorkbook(bytes, opts); });
+  function loadUnzip() { return G.fflate && G.fflate.Inflate ? Promise.resolve(G.fflate) : loadScript('import-lib-fflate.js').then(function () { return G.fflate; }); }
+  // A workbook and a zip are read off the page's main thread (import-worker.js): SheetJS can take a second on
+  // a phone for a big workbook, and a zip can unpack to 80 MB. The same results as reading here. No worker
+  // (or one that can't start): read here, after a frame. A worker that started and then fell over on a
+  // file doesn't hand that file to the main thread: it's refused.
+  var worker = null, workerUp = false, wid = 0, waiting = {};
+  function readHere(job, bytes, opts) {
+    return Promise.all([loadUnzip(), job === 'zip' ? null : loadXlsx()]).then(function () { return new Promise(function (res) { setTimeout(res, 16); }); }).then(function () {
+      if (job === 'zip') { var z = tablesFromZip(unzip(bytes)); return { tables: z.tables, skipped: z.skipped }; }
+      return { tables: readWorkbook(bytes, opts) };
+    });
   }
-  function readWorkbookAsync(bytes, opts) {
-    if (typeof Worker === 'undefined' || G.__imNoWorker) return readHere(bytes, opts);
+  function inWorker(job, bytes, opts) {
+    if (typeof Worker === 'undefined' || G.__imNoWorker) return readHere(job, bytes, opts);
     return new Promise(function (resolve, reject) {
-      var here = function () { readHere(bytes, opts).then(resolve, reject); };
+      var here = function () { readHere(job, bytes, opts).then(resolve, reject); };
       try {
         if (!worker) {
           worker = new Worker('import-worker.js');
+          workerUp = false;
           worker.onmessage = function (e) {
-            var m = e.data || {}, w = waiting[m.id];
+            var m = e.data || {};
+            if (m.ready) { workerUp = true; return; }
+            var w = waiting[m.id];
             if (!w) return;
             delete waiting[m.id];
-            if (m.error) w.reject(new Error(m.error)); else w.resolve(m.tables);
+            if (m.error) w.reject(Object.assign(new Error(m.error), { code: m.code || undefined, user: !!m.user })); else w.resolve(m);
           };
           worker.onerror = function (e) {
-            // The worker didn't start (offline, an old WebView): everything waiting is read here instead.
             if (e && e.preventDefault) e.preventDefault();
-            var ws = waiting; waiting = {}; worker = null; G.__imNoWorker = true;
-            Object.keys(ws).forEach(function (k) { ws[k].here(); });
+            var ws = waiting, up = workerUp;
+            waiting = {}; worker = null;
+            // It never started (offline, an old WebView): everything waiting is read here instead.
+            if (!up) G.__imNoWorker = true;
+            Object.keys(ws).forEach(function (k) { if (up) ws[k].reject(new Error('The worker stopped reading that file')); else ws[k].here(); });
           };
         }
         var id = ++wid, copy = toU8(bytes).slice();
         waiting[id] = { resolve: resolve, reject: reject, here: here };
-        worker.postMessage({ id: id, bytes: copy, opts: opts || {} }, [copy.buffer]);
+        worker.postMessage({ id: id, job: job, bytes: copy, opts: opts || {} }, [copy.buffer]);
       } catch (e) { G.__imNoWorker = true; here(); }
     });
   }
+  // → the tables readWorkbook makes.
+  function readWorkbookAsync(bytes, opts) { return inWorker('book', bytes, opts).then(function (m) { return m.tables; }); }
+  // → { tables, skipped } (tablesFromZip of unzip).
+  function readZipAsync(bytes) { return inWorker('zip', bytes, {}).then(function (m) { return { tables: m.tables || [], skipped: m.skipped || [] }; }); }
 
   // ================================================================= built-in samples (the demo, the tests)
   // A client list in TrueCoach's published columns (the people and values are made up), a Strong export
@@ -1033,13 +1315,14 @@ var ImportCore = (function () {
     decodeBytes: decodeBytes, sniff: sniff, zipEntries: zipEntries,
     // tables
     tablesFromText: tablesFromText, tablesFromWorkbook: tablesFromWorkbook, readWorkbook: readWorkbook, readWorkbookAsync: readWorkbookAsync, tablesFromJson: tablesFromJson,
-    unzip: unzip, tablesFromZip: tablesFromZip, cellText: cellText, excelSerialToISO: excelSerialToISO, isDateFormat: isDateFormat,
+    unzip: unzip, readZipAsync: readZipAsync, checkWorkbook: checkWorkbook, tablesFromZip: tablesFromZip, cellText: cellText, excelSerialToISO: excelSerialToISO, isDateFormat: isDateFormat,
+    cardLike: cardLike, MAX_ROWS: MAX_ROWS,
     // columns
     findHeader: findHeader, analyse: analyse, setFields: setFields, bodyRows: bodyRows, historyMap: historyMap, unpivotWide: unpivotWide,
     wideGroups: wideGroups, effort: effort, fingerprint: fingerprint, rememberMapping: rememberMapping,
     LOG_FIELDS: LOG_FIELDS, ROSTER_FIELDS: ROSTER_FIELDS, ROSTER_USED: ROSTER_USED,
     // client lists
-    planRoster: planRoster, seats: seats, pickWithin: pickWithin, EMAIL_RE: EMAIL_RE,
+    planRoster: planRoster, seats: seats, pickWithin: pickWithin, seatText: seatText, wallText: wallText, describeColumn: describeColumn, EMAIL_RE: EMAIL_RE,
     // programs
     gridToRead: gridToRead, programToRead: programToRead, weeksToRead: weeksToRead, composeCell: composeCell,
     // loading + samples
