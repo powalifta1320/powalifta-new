@@ -129,6 +129,14 @@
   function applyPatch(st, p) { Object.keys(p).forEach(function (k) { if (p[k] == null) delete st[k]; else st[k] = p[k]; }); }
   // The More row's words: "More", and what it holds that the block's line doesn't say (tempo, pauses, bands).
   function cpMoreText(fieldsShort) { var f = String(fieldsShort || '').trim(); return f ? 'More · ' + f : 'More'; }
+  // The editor's last line, about saving: it saves as you go; offline it's kept on this phone until the
+  // connection is back; online with a change still waiting, it says so with Send now. st: { online, pending }
+  function cpSaveLine(st) {
+    st = st || {};
+    if (st.online === false) return { text: 'Offline: saved on this phone. It syncs when you\u2019re back online.', retry: false, waiting: true };
+    if (st.pending) return { text: 'Saved on this phone, not sent yet.', retry: true, waiting: true };
+    return { text: 'Changes save as you make them.', retry: false, waiting: false };
+  }
   // Whether a block gets "about N kg for them": the first block (the top set), or a block with no load yet.
   // Never a later block with a load: back-offs are often written light on purpose (the owner's call, 28 Oct).
   function cpWantsHint(bi, blk) { return Number(bi) === 0 || !(Number(blk && blk.weight) > 0); }
@@ -181,6 +189,9 @@
   function render(area, aid) {
     if (!area || !hasDom) return false;
     S.area = area;
+    // Before the roster is in: the program's skeleton (or, if it couldn't load, the card with Try again).
+    if (window.CoachApp && CoachApp.gate && CoachApp.gate(area, 'program')) return true;
+    area.removeAttribute('data-ca-state');
     paintTitle(aid);
     area.innerHTML = '';
     var root = el('div', { class: 'cp ca-root' });
@@ -197,7 +208,18 @@
     var finished = allSets.length > 0 && allSets.every(function (x) { return x.completed; });
     root.appendChild(heroEl(prog, aid, allSets, finished));
     root.appendChild(weeksEl(prog, aid));
-    if (!wk) { root.appendChild(el('p', { class: 'ca-none' }, 'No weeks yet. Add one with +.')); return true; }
+    if (!wk) {
+      // A block with every week taken out: say so, and the one way on.
+      var nw = el('div', { class: 'cp-daycard cp-addcard cp-noweeks' });
+      nw.appendChild(el('h3', { class: 'cp-add-t' }, 'No weeks yet'));
+      nw.appendChild(el('p', { class: 'cp-add-s' }, 'Add the first week, then its days and exercises.'));
+      var aw = el('button', { type: 'button', class: 'ca-btn is-red' });
+      aw.innerHTML = PLUS + '<span>Add the first week</span>';
+      aw.addEventListener('click', function () { if (typeof addWeek === 'function') addWeek(); });
+      nw.appendChild(aw);
+      root.appendChild(nw);
+      return true;
+    }
     var di = Math.min(S.days[dayKey(aid, wi)] || 0, Math.max(0, (wk.days || []).length));
     S.days[dayKey(aid, wi)] = di;
     root.appendChild(dayChipsEl(wk, di));
@@ -568,7 +590,13 @@
       S.sheetRepaint = paint;
       S.moreOpen = {};
       paint();
-    }, { cls: 'cp-sheet', onClose: function () { S.sheetRepaint = null; S.moreOpen = {}; clearTimeout(S.bg); if (typeof loadProgram === 'function') loadProgram(); } });
+      // The saving line follows the connection and the queue while the sheet is open.
+      S.onSync = function () { var p = sheet.querySelector('.cp-ed-saved'); if (p) paintSaved(p, aid); };
+      ['powa:sync', 'online', 'offline'].forEach(function (ev) { window.addEventListener(ev, S.onSync); });
+    }, { cls: 'cp-sheet', onClose: function () {
+      if (S.onSync) ['powa:sync', 'online', 'offline'].forEach(function (ev) { window.removeEventListener(ev, S.onSync); });
+      S.onSync = null; S.sheetRepaint = null; S.moreOpen = {}; clearTimeout(S.bg); if (typeof loadProgram === 'function') loadProgram();
+    } });
   }
   function paintEditor(body, aid, wi, di, ei, close) {
     var prog = progOf(aid), wk = prog && prog.weeks[wi], day = wk && wk.days[di], ex = day && day.exercises[ei];
@@ -606,7 +634,25 @@
     });
     nl.appendChild(ta);
     body.appendChild(nl);
-    body.appendChild(el('p', { class: 'cp-ed-saved' }, 'Changes save as you make them.'));
+    var saved = el('p', { class: 'cp-ed-saved', role: 'status' });
+    body.appendChild(saved);
+    paintSaved(saved, aid);
+  }
+  function paintSaved(p, aid) {
+    var prog = progOf(aid), pending = false;
+    try { pending = !!(prog && typeof _readOutbox === 'function' && _readOutbox().some(function (e) { return e && e.key === 'program:' + prog.id; })); } catch (e) { pending = false; }
+    var L = cpSaveLine({ online: !(typeof navigator !== 'undefined' && navigator.onLine === false), pending: pending });
+    p.textContent = L.text;
+    p.classList.toggle('is-waiting', L.waiting);
+    if (L.retry) {
+      var b = el('button', { type: 'button', class: 'ca-link cp-ed-send' }, 'Send now');
+      b.addEventListener('click', function () {
+        b.disabled = true; b.textContent = 'Sending\u2026';
+        Promise.resolve(typeof flushOutbox === 'function' ? flushOutbox() : null).catch(function () {}).then(function () { paintSaved(p, aid); });
+      });
+      p.appendChild(document.createTextNode(' '));
+      p.appendChild(b);
+    }
   }
   function segEl(label, opts, onPick) {
     var wrap = el('div', { class: 'cp-tg' });
@@ -845,6 +891,6 @@
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm
+    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();

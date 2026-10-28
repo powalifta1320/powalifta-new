@@ -1468,8 +1468,15 @@ const DB = {
     // and must still only load their own roster.
     let q = sb.from('profiles').select('*').eq('user_type', 'athlete');
     if (coachId) q = q.eq('coach_id', coachId);
-    const { data, error } = await q;
-    if (error) { console.warn('listAthletesForCoach', error); return []; }
+    const { data, error, status } = await q;
+    if (error) {
+      // No connection is not "no lifters": the boot opens this device's copy, or says it couldn't load
+      // (coach.html's Try again), instead of a coach with a roster seeing "Bring in your first lifter".
+      if (!status || /fetch|network|timed? ?out|load failed/i.test(String(error.message || ''))) {
+        const e = new Error('The roster did not load: ' + (error.message || 'network')); e.transient = true; throw e;
+      }
+      console.warn('listAthletesForCoach', error); return [];
+    }
     return (data || []).map(mapDbProfileToAthlete);
   },
 

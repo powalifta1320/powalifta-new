@@ -992,6 +992,16 @@ function _bootFromSnapshot(uid, expectedType, onReady) {
 // No snapshot either: say so and try again, a few times, instead of leaving or signing out.
 let _bootTries = 0;
 function _bootRetry(expectedType, onReady, opts) {
+  // A page that draws its own "couldn't load" with a Try again (opts.onFail, coach.html) gets the word after
+  // two more tries (each read already retries inside supabase-js, about 8 s). It counts its own: a session
+  // read from this phone resets _bootTries on every try, so a profile that never comes back would be tried forever.
+  if (opts && opts.onFail) {
+    opts._tries = (opts._tries || 0) + 1;
+    if (opts._tries > 2) { opts._tries = 0; opts.onFail('unreachable'); return; }
+    toast(opts._tries === 1 ? 'Can’t reach the server. Trying again…' : 'Still trying to reach the server…');
+    setTimeout(() => { bootstrap(expectedType, onReady, opts); }, Math.min(8000, 1500 * opts._tries));
+    return;
+  }
   _bootTries++;
   if (_bootTries > 4) { toast('Still can’t reach POWALIFTA. Check your connection and reopen the app.'); return; }
   toast(_bootTries === 1 ? 'Can’t reach the server. Trying again…' : 'Still trying to reach the server…');
@@ -1139,10 +1149,12 @@ async function bootstrap(expectedType, onReady, opts) {
       liveStart();   // reconnects (and catches up) when the network comes back
       return;
     }
+    if (opts.onFail) { opts._tries = 0; opts.onFail('load'); return; }
     toast('Could not load your data. Try refreshing.');
     return;
   }
 
+  if (opts.onFail) opts._tries = 0;
   onReady && onReady();
   liveStart();   // sets land on the coach's desk as they're logged; a coach's edit reaches the lifter
 }

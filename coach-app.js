@@ -47,7 +47,8 @@
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     user: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/>',
-    play: '<path d="M8 5.8v12.4a.8.8 0 0 0 1.2.7l9.7-6.2a.8.8 0 0 0 0-1.4L9.2 5.1A.8.8 0 0 0 8 5.8z"/>'
+    play: '<path d="M8 5.8v12.4a.8.8 0 0 0 1.2.7l9.7-6.2a.8.8 0 0 0 0-1.4L9.2 5.1A.8.8 0 0 0 8 5.8z"/>',
+    cloudOff: '<path d="M8.2 7.1A6 6 0 0 1 18 11a4 4 0 0 1 1.9 6.9M16 19H7.5a4.75 4.75 0 0 1-1.2-9.35"/><path d="M3.5 3.5l17 17"/>'
   };
   function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC.chev) + '</svg>'; }
   function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -383,12 +384,95 @@
   }
 
   /* ====================================================================================================
+     STATES: before the roster is in, each screen draws a skeleton in its own shape; if it couldn't load,
+     one calm card with Try again. coach.html keeps the boot's state in window._coachBoot ('loading',
+     'ready', 'failed'); Home's skeleton is also in coach.html itself, so it shows before any script runs.
+     ==================================================================================================== */
+  function sk(cls, w) { return '<i class="ca-sk ' + cls + '"' + (w ? ' style="--w:' + w + '"' : '') + '></i>'; }
+  function times(n, f) { var o = ''; for (var i = 0; i < n; i++) o += f(i); return o; }
+  function skeletonHtml(kind) {
+    kind = kind || 'home';
+    var row = function (end) { return '<div class="ca-sk-row">' + sk('ca-sk-av') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '42%') + sk('ca-sk-line', '66%') + '</span>' + sk(end) + '</div>'; };
+    var body;
+    if (kind === 'lifters') {
+      body = '<div class="ca-sk-seg">' + times(4, function () { return '<span>' + sk('ca-sk-num') + sk('ca-sk-cap') + '</span>'; }) + '</div>' +
+        '<div class="ca-sk-rows is-list">' + times(5, function () { return row('ca-sk-end'); }) + '</div>';
+    } else if (kind === 'lifter') {
+      body = '<div class="ca-sk-head">' + sk('ca-sk-av is-96') + sk('ca-sk-name', '56%') + sk('ca-sk-line', '40%') + '</div>' +
+        '<div class="ca-sk-acts">' + times(4, function () { return sk('ca-sk-act'); }) + '</div>' + sk('ca-sk-card');
+    } else if (kind === 'program') {
+      body = '<div class="ca-hero ca-sk-hero is-short">' + sk('ca-sk-t', '48%') + sk('ca-sk-line', '64%') + '</div>' + sk('ca-sk-weeks') +
+        '<div class="ca-sk-chips">' + times(3, function () { return sk('ca-sk-chip'); }) + '</div>' + sk('ca-sk-card');
+    } else {
+      body = '<div class="ca-hero ca-sk-hero">' + sk('ca-sk-line', '46%') + sk('ca-sk-big', '52%') +
+          '<div class="ca-sk-stats">' + times(3, function () { return '<span>' + sk('ca-sk-num') + sk('ca-sk-cap') + '</span>'; }) + '</div></div>' +
+        '<div class="ca-sk-focal">' + sk('ca-sk-av is-56') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '78%') + sk('ca-sk-line', '52%') + '</span></div>' + sk('ca-sk-btn') +
+        '<div class="ca-sk-rows">' + row('ca-sk-pill') + row('ca-sk-pill') + '</div>' +
+        '<div class="ca-sk-faces">' + times(4, function () { return sk('ca-sk-face'); }) + '</div>';
+    }
+    var say = kind === 'program' ? 'Loading the program' : kind === 'lifter' ? 'Loading the lifter' : 'Loading your lifters';
+    return '<div class="ca-root ca-skel is-' + kind + '" role="status"><span class="ca-sr">' + say + '</span><div class="ca-skel-in" aria-hidden="true">' + body + '</div></div>';
+  }
+  function errorHtml() {
+    var off = hasDom && typeof navigator !== 'undefined' && navigator.onLine === false;
+    return '<div class="ca-root ca-state" role="alert"><span class="ca-state-ic">' + ic('cloudOff') + '</span>' +
+      '<h2 class="ca-state-t">' + (off ? 'You\u2019re offline' : 'Your lifters didn\u2019t load') + '</h2>' +
+      '<p class="ca-state-s">' + (off ? 'Your lifters show here once this phone is back online.' : 'POWALIFTA couldn\u2019t be reached just now. Check your connection, then try again.') + '</p>' +
+      '<button type="button" class="ca-btn is-red" data-retry>Try again</button></div>';
+  }
+  var ST = { retry: null };
+  function bootState() { return hasDom && window._coachBoot ? window._coachBoot : 'ready'; }
+  // Before the roster is in, a screen draws its skeleton; when it couldn't load, the card with Try again.
+  function gate(area, kind) {
+    var st = bootState();
+    if (st === 'ready' || !area) return false;
+    area.innerHTML = st === 'failed' ? errorHtml() : skeletonHtml(kind);
+    area.setAttribute('data-ca-state', kind || 'home');
+    wireRetry(area);
+    return true;
+  }
+  function wireRetry(area) {
+    if (area._caRetry) return;
+    area._caRetry = true;
+    area.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-retry]');
+      if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      window._coachBoot = 'loading';
+      area.innerHTML = skeletonHtml(area.getAttribute('data-ca-state') || 'home');
+      if (ST.retry) ST.retry();
+    });
+  }
+  // coach.html's bootstrap couldn't load the roster (and had no copy on this phone): Home says so.
+  function bootFailed(retry) {
+    window._coachBoot = 'failed';
+    ST.retry = retry || ST.retry;
+    var area = hasDom && document.getElementById('homeArea');
+    if (area) gate(area, 'home');
+    // Back online: it tries again without being asked.
+    if (hasDom && !ST.online) {
+      ST.online = true;
+      window.addEventListener('online', function () {
+        if (bootState() !== 'failed' || !ST.retry) return;
+        var a = document.getElementById('homeArea');
+        window._coachBoot = 'loading';
+        if (a) a.innerHTML = skeletonHtml(a.getAttribute('data-ca-state') || 'home');
+        ST.retry();
+      });
+    }
+  }
+  // The unread count loads after the screen (Messages): a skeleton until it's in, a dash if it failed.
+  function unreadState() { try { return typeof _unreadState !== 'undefined' ? _unreadState : 'ready'; } catch (e) { return 'ready'; } }
+
+  /* ====================================================================================================
      HOME
      ==================================================================================================== */
   var H = { host: null };
   function renderHome(area) {
     area = area || (hasDom ? document.getElementById('homeArea') : null);
     if (!area) return;
+    if (gate(area, 'home')) return;
+    area.removeAttribute('data-ca-state');
     H.host = area;
     var u = me() || {};
     var roster = (store().athletes || []).filter(function (a) { return a.coachId === u.id; });
@@ -423,8 +507,14 @@
       '<div class="ca-stats">' +
         statHtml(st.trained, '/' + st.of, 'Trained', 'Trained in the last 7 days: ' + st.trained + ' of ' + st.of + '. Show who is behind', 'data-lifters="behind"') +
         statHtml(st.prs, '', st.prs === 1 ? 'PR' : 'PRs', plural(st.prs, 'personal record') + ' this week. Show the wins', 'data-wins="1"') +
-        '<button type="button" class="ca-stat is-btn" data-go="messages" aria-label="' + esc(plural(st.unread, 'unread message')) + ', open Messages"><b>' + st.unread + '</b><span>Unread</span></button>' +
+        unreadStatHtml(st.unread) +
       '</div></div>';
+  }
+  function unreadStatHtml(n) {
+    var u = unreadState();
+    var v = u === 'loading' ? '<i class="ca-sk ca-sk-stat" aria-hidden="true"></i>' : u === 'failed' ? '\u2013' : String(n);
+    var aria = u === 'loading' ? 'Unread messages loading' : u === 'failed' ? 'Unread messages couldn\u2019t load' : plural(n, 'unread message');
+    return '<button type="button" class="ca-stat is-btn" data-go="messages" aria-label="' + esc(aria) + ', open Messages"><b>' + v + '</b><span>Unread</span></button>';
   }
   function statHtml(v, small, label, aria, attr) {
     return '<button type="button" class="ca-stat is-btn" ' + (attr || '') + ' aria-label="' + esc(aria) + '"><b>' + esc(String(v)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</b><span>' + esc(label) + '</span></button>';
@@ -626,6 +716,7 @@
      ==================================================================================================== */
   var L = { filter: 'all', q: '' };
   function renderLifters(area) {
+    if (bootState() !== 'ready' && area) { var w0 = document.createElement('div'); area.appendChild(w0); return gate(w0, 'lifters'); }
     var X = model();
     if (!X.rows.length) return false;
     var wrap = document.createElement('div');
@@ -653,7 +744,11 @@
       return caFilterMatch(L.filter, r, { need: X.need, week: X.week }) &&
         (!q || caNorm(r.athlete.name).indexOf(q) >= 0 || caNorm(r.status && r.status.program && r.status.program.name).indexOf(q) >= 0);
     });
-    if (!rows.length) { host.innerHTML = '<p class="ca-none">' + (q ? 'No one called “' + esc(L.q) + '”' : 'Nobody here right now') + '</p>'; return; }
+    if (!rows.length) {
+      host.innerHTML = q ? '<div class="ca-none is-search"><p>No one called \u201c' + esc(String(L.q).trim()) + '\u201d</p><button type="button" class="ca-link" data-clear-q>Clear search</button></div>'
+        : '<p class="ca-none">Nobody here right now</p>';
+      return;
+    }
     var anyN = CL() && CL().clNumber ? rows.some(function (r) { return CL().clNumber(r).tone !== 'none'; }) : false;
     var cap = '<div class="ca-rows-cap"><span>' + esc(plural(rows.length, 'lifter')) + '</span>' + (anyN ? '<span>e1RM total, 4 weeks</span>' : '') + '</div>';
     host.innerHTML = cap + '<div class="ca-plain ca-rows">' + rows.map(function (r, i) { return rowHtml(r, X, i); }).join('') + '</div>';
@@ -678,6 +773,13 @@
         paintRows(wrap);
         return;
       }
+      if ((b = t.closest('[data-clear-q]'))) {
+        e.preventDefault();
+        var qi = wrap.querySelector('.ca-q');
+        L.q = ''; if (qi) { qi.value = ''; qi.focus(); }
+        paintRows(wrap);
+        return;
+      }
       if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open')); }
     });
     var q = wrap.querySelector('.ca-q');
@@ -699,6 +801,8 @@
     if (id !== P.id && !P.pending) P.view = 'card';
     P.id = id; P.host = host;
     if (view) P.view = view;
+    if (gate(host, 'lifter')) return;
+    host.removeAttribute('data-ca-state');
     var r = CL() && CL().rowOf ? CL().rowOf(id) : null;
     if (!r) { host.innerHTML = ''; return; }
     var X = model();
@@ -1069,6 +1173,7 @@
     renderHome: renderHome, renderLifters: renderLifters, renderLifter: renderLifter, refresh: refresh, paintHomeIfShown: paintHomeIfShown,
     openSearch: openSearch, openCheckins: openCheckins, openWins: openWins, openLifters: openLifters, popView: popView, paintBadges: paintBadges,
     lifterView: function () { return P.view; }, enterLifter: function () { P.view = P.pending && VIEWS[P.pending] ? P.pending : 'card'; P.pending = null; },
+    skeletonHtml: skeletonHtml, gate: gate, bootFailed: bootFailed, bootState: bootState,
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
     caTodayLine: caTodayLine, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,

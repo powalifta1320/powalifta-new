@@ -644,6 +644,73 @@ html:not(.desk) body.powa-app section[data-pane="athletes"] .fr-side > .ui-label
 html:not(.desk) body.powa-app .cp-sheet .sf-field { font-size: 13px; }
 html:not(.desk) body.powa-app .cp-sheet .sf-edit input.sf-in { font-size: 17px; }
 
+/* =================================================================== STATES: loading, couldn't load, empty
+   A skeleton in each screen's shape while the roster loads (Home's is in coach.html, so it's there before any
+   script runs), one calm card with Try again when it couldn't load, the Unread number waiting for its count. */
+.ca-sr { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+html.ca-booting #btn-home-search { visibility: hidden; }
+html:not(.desk) .ca-skel { padding-top: 4px; }
+html:not(.desk) .ca-sk { position: relative; display: block; flex: none; width: var(--w, 100%); height: 14px; border-radius: 8px; overflow: hidden; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html[data-theme="light"]:not(.desk) .ca-sk { background: rgba(15, 15, 25, 0.07); }
+html:not(.desk) .ca-sk::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent); animation: caShimmer 1.4s ease-in-out infinite; }
+html[data-theme="light"]:not(.desk) .ca-sk::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent); }
+@keyframes caShimmer { to { transform: translateX(100%); } }
+html:not(.desk) .ca-sk-hero { padding-bottom: 0; }
+html:not(.desk) .ca-sk-line { height: 13px; margin-top: 8px; }
+html:not(.desk) .ca-sk-hero > .ca-sk-line:first-child { margin-top: 2px; }
+html:not(.desk) .ca-sk-big { height: 40px; margin-top: 14px; border-radius: 10px; }
+html:not(.desk) .ca-sk-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 20px -20px 0; border-top: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-sk-stats > span { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 18px; }
+html:not(.desk) .ca-sk-num { width: 44%; height: 20px; border-radius: 6px; }
+html:not(.desk) .ca-sk-cap { width: 64%; height: 11px; border-radius: 6px; }
+html:not(.desk) .ca-sk-focal { display: flex; align-items: center; gap: 16px; margin-top: 16px; padding: 4px; }
+html:not(.desk) .ca-sk-av { width: 40px; height: 40px; border-radius: 50%; }
+html:not(.desk) .ca-sk-av.is-56 { width: 56px; height: 56px; }
+html:not(.desk) .ca-sk-av.is-96 { width: 96px; height: 96px; }
+html:not(.desk) .ca-sk-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+html:not(.desk) .ca-sk-t { height: 18px; border-radius: 7px; }
+html:not(.desk) .ca-sk-btn { height: 50px; margin-top: 16px; border-radius: 999px; }
+html:not(.desk) .ca-sk-rows { margin-top: 20px; }
+html:not(.desk) .ca-sk-row { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 0 4px; border-top: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-sk-rows.is-list .ca-sk-row { min-height: 78px; border-top: 0; }
+html:not(.desk) .ca-sk-rows.is-list .ca-sk-av { width: 52px; height: 52px; }
+html:not(.desk) .ca-sk-pill { width: 84px; height: 36px; border-radius: 999px; }
+html:not(.desk) .ca-sk-end { width: 48px; height: 17px; border-radius: 6px; }
+html:not(.desk) .ca-sk-faces { display: flex; gap: 12px; margin-top: 40px; padding: 0 4px; overflow: hidden; }
+html:not(.desk) .ca-sk-face { width: 64px; height: 64px; border-radius: 50%; }
+html:not(.desk) .ca-sk-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 12px 4px; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); }
+html:not(.desk) .ca-sk-seg > span { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+html:not(.desk) .ca-sk-seg .ca-sk-num { width: 30%; }
+html:not(.desk) .ca-sk-head { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 4px; }
+html:not(.desk) .ca-sk-name { height: 28px; margin-top: 6px; border-radius: 9px; }
+html:not(.desk) .ca-sk-acts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 24px; }
+html:not(.desk) .ca-sk-act { height: 64px; border-radius: 16px; }
+html:not(.desk) .ca-sk-card { height: 220px; margin-top: 20px; border-radius: 20px; }
+html:not(.desk) .ca-sk-hero.is-short { padding: 18px 16px 20px; }
+html:not(.desk) .ca-sk-weeks { height: 44px; margin-top: 20px; border-radius: 14px; }
+html:not(.desk) .ca-sk-chips { display: flex; gap: 8px; margin-top: 12px; }
+html:not(.desk) .ca-sk-chip { width: 104px; height: 38px; border-radius: 999px; }
+html:not(.desk) .ca-stat b .ca-sk-stat { display: inline-block; vertical-align: -3px; width: 26px; height: 22px; border-radius: 7px; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-sk::after { animation: none; display: none; } }
+/* couldn't load: the screen's one card, calm, with Try again */
+html:not(.desk) .ca-state { align-items: center; text-align: center; padding: 48px 24px 32px; }
+html:not(.desk) .ca-state-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--text-2); background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) .ca-state-ic svg { width: 26px; height: 26px; }
+html:not(.desk) .ca-state-t { margin: 20px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; color: var(--text); }
+html:not(.desk) .ca-state-s { margin: 8px 0 0; max-width: 34ch; font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .ca-state .ca-btn { width: auto; min-width: 200px; margin-top: 24px; }
+/* Lifters: a search that finds no one says so, with the way back */
+html:not(.desk) .ca-none.is-search { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+html:not(.desk) .ca-none.is-search p { margin: 0; }
+html:not(.desk) .ca-none.is-search .ca-link { margin: 0 0 -8px; }
+/* Programs: a block with no weeks left */
+html:not(.desk) .cp-noweeks { margin-top: 20px; }
+html:not(.desk) .cp-noweeks .ca-btn { margin-top: 16px; }
+/* the editor's saving line: offline, or a change still waiting, it says so (Send now) */
+html:not(.desk) .cp-ed-saved.is-waiting { color: var(--ca-warn); }
+html:not(.desk) body.powa-app .cp-ed-send { display: inline; min-height: 0; margin: 0; vertical-align: baseline; font-size: 13px !important; }
+html:not(.desk) body.powa-app .cp-ed-send::after { inset: -14px -8px; }
+
 /* =================================================================== CHALLENGES (the phone's Home › Challenges) */
 /* The large title says it: the card's own "Challenge" heading steps aside here (the desk keeps it in Club). */
 html:not(.desk) #challengesArea .chl-h { display: none; }

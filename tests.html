@@ -7209,6 +7209,15 @@ test("a lifter's header line: under the bar, the meet with their weight, or on p
   eq(CA.caHeadChip(caRow('a', 'Ada'), null).text, 'On plan');
   eq(CA.caHeadChip(caRow('b', 'Bo', { status: { program: null } }), null), null, 'no block: the line above says it');
 });
+test('loading: each screen a skeleton in its shape, read out once, the blocks hidden from a screen reader', () => {
+  ['home', 'lifters', 'lifter', 'program'].forEach(k => {
+    const h = CA.skeletonHtml(k);
+    assert(h.indexOf('ca-skel is-' + k) > 0 && /role="status"/.test(h) && /class="ca-skel-in" aria-hidden="true"/.test(h), k);
+  });
+  assert(/Loading your lifters/.test(CA.skeletonHtml('home')) && /Loading the program/.test(CA.skeletonHtml('program')) && /Loading the lifter/.test(CA.skeletonHtml('lifter')));
+  eq((CA.skeletonHtml('home').match(/ca-sk ca-sk-face"/g) || []).length, 4, "Home's: the hero, the lead job, two rows, the faces");
+  eq(CA.skeletonHtml(), CA.skeletonHtml('home'), 'Home by default');
+});
 test('check-ins: who answered this week, anything flagged first', () => {
   const qs = [{ id: 'q1', coachId: 'c', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true }];
   const t = '2026-10-28';
@@ -7270,6 +7279,14 @@ test('a block switches its own load (kg or % of max) and effort (RPE or RIR)', (
   eq(back.pct, null); eq(back.pctHi, null); eq('weight' in back, false, 'back to kg keeps the load');
   eq(CPg.cpModePatch({}, 'rir', true).rir, true); eq(CPg.cpModePatch({ rir: true }, 'rir', false).rir, null, 'null clears it (setBlockRx)');
   eq(CPg.cpMoreText(''), 'More'); eq(CPg.cpMoreText('3-1-0 · Belt off'), 'More · 3-1-0 · Belt off', 'More names what it holds');
+});
+test("the editor's saving line: as you go, kept on the phone offline, waiting with Send now", () => {
+  eq(CPg.cpSaveLine({ online: true, pending: false }).text, 'Changes save as you make them.');
+  const off = CPg.cpSaveLine({ online: false, pending: true });
+  eq(off.waiting && !off.retry, true, 'offline: nothing to retry yet, it syncs when back');
+  assert(/saved on this phone/.test(off.text), off.text);
+  const wait = CPg.cpSaveLine({ online: true, pending: true });
+  eq(wait.retry, true, 'online with a change waiting: Send now'); eq(wait.text, 'Saved on this phone, not sent yet.');
 });
 test('the Programs picker: the last opened, then who needs you, then everyone by name; search by name or block', () => {
   const L = [{ id: 'a', name: 'Zed Ali', prog: 'Peak' }, { id: 'b', name: 'Bo Chen', prog: 'Base' }, { id: 'c', name: 'Cy Díaz', prog: 'Strength Block' }, { id: 'd', name: 'Di Ng', prog: '' }, { id: 'e', name: 'Ed Ruiz', prog: 'Peak' }];

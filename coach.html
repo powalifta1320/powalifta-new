@@ -82,7 +82,7 @@
         <div><h2>Home</h2></div>
         <div class="flex gap-8" style="align-items:center;"><button class="ca-hbtn" type="button" id="btn-home-search" aria-label="Search lifters, programs and messages" onclick="if (window.CoachApp) CoachApp.openSearch()"></button></div>
       </div>
-      <div id="homeArea"></div>
+      <div id="homeArea"><div class="ca-root ca-skel is-home" role="status"><span class="ca-sr">Loading your lifters</span><div class="ca-skel-in" aria-hidden="true"><div class="ca-hero ca-sk-hero"><i class="ca-sk ca-sk-line" style="--w:46%"></i><i class="ca-sk ca-sk-big" style="--w:52%"></i><div class="ca-sk-stats"><span><i class="ca-sk ca-sk-num"></i><i class="ca-sk ca-sk-cap"></i></span><span><i class="ca-sk ca-sk-num"></i><i class="ca-sk ca-sk-cap"></i></span><span><i class="ca-sk ca-sk-num"></i><i class="ca-sk ca-sk-cap"></i></span></div></div><div class="ca-sk-focal"><i class="ca-sk ca-sk-av is-56"></i><span class="ca-sk-tx"><i class="ca-sk ca-sk-t" style="--w:78%"></i><i class="ca-sk ca-sk-line" style="--w:52%"></i></span></div><i class="ca-sk ca-sk-btn"></i><div class="ca-sk-rows"><div class="ca-sk-row"><i class="ca-sk ca-sk-av"></i><span class="ca-sk-tx"><i class="ca-sk ca-sk-t" style="--w:42%"></i><i class="ca-sk ca-sk-line" style="--w:66%"></i></span><i class="ca-sk ca-sk-pill"></i></div><div class="ca-sk-row"><i class="ca-sk ca-sk-av"></i><span class="ca-sk-tx"><i class="ca-sk ca-sk-t" style="--w:42%"></i><i class="ca-sk ca-sk-line" style="--w:66%"></i></span><i class="ca-sk ca-sk-pill"></i></div></div><div class="ca-sk-faces"><i class="ca-sk ca-sk-face"></i><i class="ca-sk ca-sk-face"></i><i class="ca-sk ca-sk-face"></i><i class="ca-sk ca-sk-face"></i></div></div></div></div>
     </section>
 
     <!-- CHALLENGES (the phone: Home › Challenges; on the desk they sit at the top of Club). -->
@@ -107,6 +107,21 @@
         <div id="invitesList" class="invites-list"></div>
       </div>
     </section>
+    <script>
+    // Phones land on Home (coach-app.js): while the roster loads, Home's skeleton shows under its title, not
+    // Lifters' under "Lifters". A load that fails draws "didn't load" with Try again (bootstrap's onFail below).
+    // The laptop desk keeps its own boot. window._coachBoot: 'loading' until bootstrap's callback runs.
+    (function () {
+      var d = document.documentElement;
+      window._coachBoot = 'loading';
+      if (!(d.classList.contains('native') || !(window.matchMedia && matchMedia('(min-width: 1000px)').matches))) return;
+      d.classList.add('ca-booting');
+      var h = document.querySelector('section[data-pane="home"]'), a = document.querySelector('section[data-pane="athletes"]');
+      var th = document.getElementById('tab-home'), ta = document.getElementById('tab-athletes');
+      if (h && a) { h.classList.remove('hidden'); a.classList.add('hidden'); }
+      if (th && ta) { ta.classList.remove('active'); th.classList.add('active'); }
+    })();
+    </script>
 
     <!-- ATHLETE PAGE (laptop): one athlete, everything at once. Opened from the roster table. -->
     <section data-pane="athlete" class="hidden"><div id="athletePage"></div></section>
@@ -407,6 +422,8 @@ const _pbOpen = new Set();
 // throwing and leaving the roster blank until the tab is re-clicked.
 let _coachFormChecks = [];
 let _unreadByAthlete = {};
+// Whether the unread counts are in ('loading' until refreshUnreadBadges answers): Home's Unread waits for them.
+let _unreadState = 'loading';
 // Same reason, and the bug the note above was written about: renderRoster()
 // also reads the roster paging state, so a `let`/`const` further down the file
 // sat in the temporal dead zone when bootstrap ran. It threw on every load and
@@ -415,7 +432,18 @@ let _unreadByAthlete = {};
 let _rosterPage = 1;
 const ROSTER_PER_PAGE = 6;
 
-bootstrap('coach', () => {
+// The roster couldn't load and this phone has no copy of it: Home says so with Try again (coach-app.js);
+// the laptop desk keeps its toasts. Try again runs the same boot.
+function _coachRetry() { window._coachBoot = 'loading'; bootstrap('coach', _coachReady, _coachBootOpts); }
+const _coachBootOpts = { onFail: (why) => {
+  window._coachBoot = 'failed';
+  if (!_desk() && window.CoachApp && CoachApp.bootFailed) { CoachApp.bootFailed(_coachRetry); return; }
+  toast(why === 'unreachable' ? 'Still can’t reach POWALIFTA. Check your connection and reopen the app.' : 'Could not load your data. Try refreshing.');
+} };
+bootstrap('coach', _coachReady, _coachBootOpts);
+function _coachReady() {
+  window._coachBoot = 'ready';
+  document.documentElement.classList.remove('ca-booting');
   user = getCurrentUser();
   renderNav('#nav');
 
@@ -435,7 +463,9 @@ bootstrap('coach', () => {
   if (window.ProgressionUI) setLbl('tab-rules', ProgressionUI.ICON, 'Progression rules');
   if (window.CapacityUI) setLbl('tab-capacity', CapacityUI.ICON, 'Capacity');
   // The demo's unread counts come from its Store: in place before the first render paints a badge.
-  if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); }
+  if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); _unreadState = 'ready'; }
+  // The laptop desk never shows the phone's Home: its boot skeleton goes.
+  if (_desk()) { const ha = document.getElementById('homeArea'); if (ha) ha.innerHTML = ''; }
   // Native shell: the phone's five (no-op on the web): Home · Lifters · Messages · Programs · You. Club,
   // Challenges, Templates, Clients and the rest are sub-screens, reached from Home's shortcuts and You.
   _phoneParents();
@@ -522,7 +552,7 @@ bootstrap('coach', () => {
   if (!isTourDone('coach') && !window._demoMode && !_desk()) {   // the tour points at the phone's tabs
     setTimeout(maybeStartCoachTour, 700);
   }
-});
+}
 
 // =========================================================
 // ONBOARDING TOUR — coach flow
@@ -2142,13 +2172,18 @@ async function refreshUnreadBadges() {
       unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
     }
     _unreadByAthlete = map;
+    _unreadState = 'ready';
     // The desk repaints its own rows in place (the search box and focus survive a new message).
     if (_desk()) { _deskCall('deskRefresh'); return; }
     if (document.querySelector('[data-tab="athletes"]').classList.contains('active') ||
         document.getElementById('rosterArea').children.length) {
       renderRoster();
     }
-  } catch (e) { console.warn('refreshUnreadBadges', e); }
+  } catch (e) {
+    console.warn('refreshUnreadBadges', e);
+    // Home's Unread says it couldn't load (a dash), not 0; the next refresh fills it in.
+    if (_unreadState === 'loading') { _unreadState = 'failed'; if (!_desk() && window.CoachApp) CoachApp.paintHomeIfShown(); }
+  }
 }
 
 // Live unread badges: one roster-wide Realtime subscription. Any inbound
