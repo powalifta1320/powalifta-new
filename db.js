@@ -3654,9 +3654,10 @@ const DB = {
   async _myVoicePaths(uid) {
     if (!uid) return [];
     try {
-      const { data, error } = await sb.from('messages').select('meta').eq('sender_id', uid).eq('meta->>type', 'voice').limit(5000);
-      if (error) return [];
-      return (data || []).map(r => r.meta && r.meta.path).filter(p => typeof p === 'string' && p.indexOf(uid + '/') > 0);
+      // Every one of them (paged: a .limit() past 1000 still stopped at 1000, and the rest stayed in storage).
+      const res = await _readAll('voice notes to remove', (countOpt) => sb.from('messages').select('id, meta', countOpt).eq('sender_id', uid).eq('meta->>type', 'voice'), {});
+      if (res.error && !res.rows.length) return [];
+      return res.rows.map(r => r.meta && r.meta.path).filter(p => typeof p === 'string' && p.indexOf(uid + '/') > 0);
     } catch (e) { return []; }
   },
   async _removeVoicePaths(paths) {
