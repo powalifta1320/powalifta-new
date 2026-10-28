@@ -207,7 +207,7 @@
     var allSets = prog.weeks.reduce(function (a, w) { return a.concat((w.days || []).reduce(function (b, d) { return b.concat((d.exercises || []).reduce(function (c, e) { return c.concat(e.sets || []); }, [])); }, [])); }, []);
     var finished = allSets.length > 0 && allSets.every(function (x) { return x.completed; });
     root.appendChild(heroEl(prog, aid, allSets, finished));
-    root.appendChild(weeksEl(prog, aid));
+    if (prog.weeks.length) root.appendChild(weeksEl(prog, aid));
     if (!wk) {
       // A block with every week taken out: say so, and the one way on.
       var nw = el('div', { class: 'cp-daycard cp-addcard cp-noweeks' });
@@ -341,10 +341,14 @@
     h.appendChild(top);
     var done = allSets.filter(function (x) { return x.completed; }).length;
     var sessions = prog.weeks.reduce(function (n, w) { return n + (w.days || []).filter(function (d) { return (d.exercises || []).length; }).length; }, 0);
-    var r = rowOf(aid), wk = r && r.status && r.status.week;
-    var meta = [wk && wk.total ? 'Week ' + (wk.idx + 1) + ' of ' + wk.total : plural(prog.weeks.length, 'week'), plural(sessions, 'session')];
-    if (allSets.length) meta.push(Math.round(done / allSets.length * 100) + '% done');
-    h.appendChild(el('p', { class: 'cp-blockmeta' }, meta.join(' · ')));
+    // Where they are: this week of the block as it stands now (a week added or taken out counts at once; the
+    // roster's copy of the week can be a beat behind). No weeks: the card below says so, the line steps aside.
+    var r = rowOf(aid), wk = r && r.status && r.status.week, nW = prog.weeks.length;
+    if (nW) {
+      var meta = [wk && wk.idx != null && wk.idx < nW ? 'Week ' + (wk.idx + 1) + ' of ' + nW : plural(nW, 'week'), plural(sessions, 'session')];
+      if (allSets.length) meta.push(Math.round(done / allSets.length * 100) + '% done');
+      h.appendChild(el('p', { class: 'cp-blockmeta' }, meta.join(' · ')));
+    }
     // The maxes % sets work from: shown when the block uses them.
     if (allSets.some(function (x) { return x.pct != null; }) || (prog.maxes && Object.keys(prog.maxes).length)) {
       var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; return v > 0 ? LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)) : null; }).filter(Boolean);
@@ -721,17 +725,18 @@
         setBlockRx(wi, di, ei, blk.startIdx, blk.count, { weight: kg, weightHi: hk });
         blk.weight = kg; blk.weightHi = hk; bgRefresh(); paintHead(); paintHint();
       };
-      var loadSt = uiStepper({ value: wD, step: cpLoadStep(false, u), min: 0, max: 1000, label: 'load', fmt: function (v) { return v > 0 ? n2(v) + (hiD ? '–' + n2(v + hiD) : '') + '<small> ' + esc(u) + '</small>' : 'By feel'; }, onChange: onLoad });
-      grid.appendChild(stepCell('Load', typeable(loadSt, 'Type the load in ' + u, onLoad)));
+      // The unit sits in the label ("Load · kg"), so 162.5 fits beside its buttons on a 375 pt phone.
+      var loadSt = uiStepper({ value: wD, step: cpLoadStep(false, u), min: 0, max: 1000, label: 'load', fmt: function (v) { return v > 0 ? n2(v) + (hiD ? '–' + n2(v + hiD) : '') : '<span class="st-word">By feel</span>'; }, onChange: onLoad });
+      grid.appendChild(stepCell('Load \u00b7 ' + u, typeable(loadSt, 'Type the load in ' + u, onLoad)));
     }
     // Effort: RPE in half steps (blank is "none", for back-off sets), or reps in reserve
     if (blk.rir) {
       var rLo = blk.rpe != null ? 10 - (blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) : Number(blk.rpe)) : 2, rSpan = blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) - Number(blk.rpe) : 0;
-      grid.appendChild(stepCell('Reps left', uiStepper({ value: rLo, step: 0.5, min: 0, max: 5, label: 'reps in reserve', fmt: function (v) { return n2(v) + (rSpan ? '–' + n2(v + rSpan) : '') + '<small> RIR</small>'; },
+      grid.appendChild(stepCell('Reps left', uiStepper({ value: rLo, step: 0.5, min: 0, max: 5, label: 'reps in reserve', fmt: function (v) { return n2(v) + (rSpan ? '–' + n2(v + rSpan) : ''); },
         onChange: function (v) { var rpe = 10 - (v + rSpan), rpeHi = rSpan ? 10 - v : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: rpeHi }); blk.rpe = rpe; blk.rpeHi = rpeHi; bgRefresh(); paintHead(); paintHint(); } })));
     } else {
       var eSpan = blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) - Number(blk.rpe) : 0;
-      grid.appendChild(stepCell('RPE', uiStepper({ value: blk.rpe != null ? Number(blk.rpe) : 4.5, step: 0.5, min: 4.5, max: 10 - eSpan, label: 'RPE', fmt: function (v) { return v < 5 ? 'None' : '@ ' + n2(v) + (eSpan ? '–' + n2(v + eSpan) : ''); },
+      grid.appendChild(stepCell('RPE', uiStepper({ value: blk.rpe != null ? Number(blk.rpe) : 4.5, step: 0.5, min: 4.5, max: 10 - eSpan, label: 'RPE', fmt: function (v) { return v < 5 ? '<span class="st-word">None</span>' : '@ ' + n2(v) + (eSpan ? '–' + n2(v + eSpan) : ''); },
         onChange: function (v) { var rpe = v < 5 ? null : v, hi = rpe != null && eSpan ? v + eSpan : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: hi }); blk.rpe = rpe; blk.rpeHi = hi; bgRefresh(); paintHead(); paintHint(); } })));
     }
     box.appendChild(grid);
@@ -768,9 +773,9 @@
     var key = String(ex.id || ei) + ':' + bi, open = !!(S.moreOpen && S.moreOpen[key]);
     var mid = 'cpm-' + wi + '-' + di + '-' + ei + '-' + bi;
     var fx = typeof setFieldsShort === 'function' ? setFieldsShort(blk) : '';
-    var mb = el('button', { type: 'button', class: 'cp-more', 'aria-expanded': open ? 'true' : 'false', 'aria-controls': mid });
-    mb.innerHTML = '<span class="cp-more-t">' + esc(cpMoreText(fx)) + '</span>' + CHEV_DOWN;
-    var mbody = el('div', { class: 'cp-more-body', id: mid });
+    var mb = el('button', { type: 'button', class: 'cp-blkmore', 'aria-expanded': open ? 'true' : 'false', 'aria-controls': mid });
+    mb.innerHTML = '<span class="cp-blkmore-t">' + esc(cpMoreText(fx)) + '</span>' + CHEV_DOWN;
+    var mbody = el('div', { class: 'cp-blkmore-body', id: mid });
     mbody.hidden = !open;
     mb.addEventListener('click', function () {
       var on = mbody.hidden;
@@ -838,6 +843,13 @@
     c.appendChild(el('span', { class: 'cp-step-l' }, label));
     c.appendChild(stepper);
     if (extra) c.appendChild(extra);
+    // A value wider than its cell (a range like 160–165) steps down to 17, never under its buttons.
+    var val = stepper.querySelector('.st-val');
+    if (val && typeof MutationObserver === 'function') {
+      var fit = function () { val.classList.remove('is-tight'); if (val.scrollWidth > val.clientWidth + 1) val.classList.add('is-tight'); };
+      new MutationObserver(function () { requestAnimationFrame(fit); }).observe(val, { childList: true, characterData: true, subtree: true });
+      requestAnimationFrame(fit);
+    }
     return c;
   }
 

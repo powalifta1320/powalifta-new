@@ -46,6 +46,12 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-program-editor' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-page[data-day=\"2\"] .cp-exrow').click(), 400)" },
     { name: 'sh-program-editor-w2' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => { document.querySelectorAll('.cp-wk')[1].click(); setTimeout(() => document.querySelector('.cp-page[data-day=\"0\"] .cp-exrow').click(), 400); }, 400)" },
     { name: 'sh-program-pick' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-title').click(), 400)" },
+    // The editor with a block's More open (its load and effort switches, the set fields, Remove these sets),
+    // the picker past six lifters (its search and groups), Home before the roster is in and when it couldn't load.
+    { name: 'sh-program-editor-more' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => { document.querySelectorAll('.cp-wk')[1].click(); setTimeout(() => { document.querySelector('.cp-page[data-day=\"0\"] .cp-exrow').click(); setTimeout(() => { const m = document.querySelectorAll('.cp-sheet .cp-blkmore')[1]; m.click(); m.scrollIntoView({ block: 'center' }); }, 500); }, 400); }, 400)" },
+    { name: 'sh-program-pick-many' + suf, page: C, theme, eval: "Store.update(st => { ['Leo Grant', 'Priya Shah', 'Marcus Doyle', 'Elena Rossi'].forEach((n, i) => st.athletes.push(Object.assign({}, st.athletes.find(a => a.id === 'demo-a2'), { id: 'demo-x' + i, name: n, email: 'x' + i + '@demo.com', avatarUrl: null }))); });" + tab('program') + ";setTimeout(() => document.querySelector('.cp-title').click(), 400)" },
+    { name: 'c-home-loading' + suf, page: C, theme, eval: "window._coachBoot = 'loading'; CoachApp.renderHome()" },
+    { name: 'c-home-failed' + suf, page: C, theme, eval: "window._coachBoot = 'failed'; CoachApp.renderHome()" },
     { name: 'sh-home-search' + suf, page: C, theme, eval: 'CoachApp.openSearch()' },
     { name: 'sh-home-checkins' + suf, page: C, theme, eval: 'CoachApp.openCheckins()' },
     { name: 'sh-home-wins' + suf, page: C, theme, eval: 'CoachApp.openWins()' });

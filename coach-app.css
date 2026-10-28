@@ -560,7 +560,7 @@ html:not(.desk) .cp-ed-sub { margin-top: -6px !important; }
 html:not(.desk) .cp-ed-last { margin: 4px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
-@media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-more svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-blkmore svg { transition: none; } }
 html:not(.desk) .cp-tg-l { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
 html:not(.desk) .cp-seg button { min-height: 36px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 180ms ease-out, color 180ms ease-out; }
@@ -572,32 +572,36 @@ html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-
 /* More: one quiet row under the steppers (it names the set fields it holds); what a block rarely needs
    opens under it: its load and effort switches, its set fields, Remove these sets */
 html:not(.desk) .cp-blk.has-more { padding-bottom: 2px; }
-html:not(.desk) .cp-more {
+html:not(.desk) .cp-blkmore {
   position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 48px; margin-top: 10px; padding: 0 2px;
   border: 0; border-top: 1px solid var(--ca-hair); border-radius: 0; background: none; color: var(--text-2) !important; font: inherit; font-size: 15px !important; font-weight: 600; text-align: left; cursor: pointer;
   -webkit-tap-highlight-color: transparent; transition: opacity 140ms ease-out;
 }
-html:not(.desk) .cp-more-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-html:not(.desk) .cp-more svg { flex: none; width: 18px; height: 18px; color: var(--text-3); transition: transform 220ms var(--ca-ease); }
-html:not(.desk) .cp-more[aria-expanded="true"] svg { transform: rotate(180deg); }
-html:not(.desk) .cp-more:active { opacity: 0.6; }
-html:not(.desk) .cp-more:focus-visible { outline: 2px solid var(--text-3); outline-offset: -2px; border-radius: 10px; }
-html:not(.desk) .cp-more-body { padding: 2px 0 14px; }
-html:not(.desk) .cp-more-body[hidden] { display: none; }
-html:not(.desk) .cp-more-body .cp-toggles { margin-top: 2px; }
-html:not(.desk) .cp-more-body .cp-sf { margin: 16px 0 0; }
-html:not(.desk) .cp-more-body .cp-sf .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-html:not(.desk) .cp-more-body .cp-sf .sf-field { min-width: 0; min-height: 44px; justify-content: space-between; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
-html:not(.desk) body.powa-app .cp-more-body .cp-sf .sf-edit input.sf-in, html:not(.desk) body.powa-app .cp-more-body .cp-sf input.sf-in { flex: 1; width: 100%; min-width: 0; }
+html:not(.desk) .cp-blkmore-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.desk) .cp-blkmore svg { flex: none; width: 18px; height: 18px; color: var(--text-3); transition: transform 220ms var(--ca-ease); }
+html:not(.desk) .cp-blkmore[aria-expanded="true"] svg { transform: rotate(180deg); }
+html:not(.desk) .cp-blkmore:active { opacity: 0.6; }
+html:not(.desk) .cp-blkmore:focus-visible { outline: 2px solid var(--text-3); outline-offset: -2px; border-radius: 10px; }
+html:not(.desk) .cp-blkmore-body { padding: 2px 0 14px; }
+html:not(.desk) .cp-blkmore-body[hidden] { display: none; }
+html:not(.desk) .cp-blkmore-body .cp-toggles { margin-top: 2px; }
+html:not(.desk) .cp-blkmore-body .cp-sf { margin: 16px 0 0; }
+html:not(.desk) .cp-blkmore-body .cp-sf .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+html:not(.desk) .cp-blkmore-body .cp-sf .sf-field { min-width: 0; min-height: 44px; justify-content: space-between; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-edit input.sf-in, html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf input.sf-in { flex: 1; width: 100%; min-width: 0; }
 html:not(.desk) body.powa-app .cp-blk-rm { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--ca-pain) !important; font: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) body.powa-app .cp-blk-rm:active { opacity: 0.6; }
 html:not(.desk) .cp-blk-logged { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; margin-top: 8px; }
 html:not(.desk) .cp-step { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 html:not(.desk) .cp-step-l { font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .cp-step .ui-stepper { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 4px; width: 100%; }
-html:not(.desk) .cp-step .ui-stepper .st-btn { width: 44px; height: 44px; font-size: 22px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
-html:not(.desk) .cp-step .ui-stepper .st-val { font-size: 20px; font-weight: 800; color: var(--text); white-space: nowrap; letter-spacing: -0.01em; }
+/* the ± are 40 pt circles with a 44 pt target, so the value between them has room for 162.5 on a 375 pt phone */
+html:not(.desk) .cp-step .ui-stepper { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 4px; width: 100%; }
+html:not(.desk) .cp-step .ui-stepper .st-btn { position: relative; width: 40px; height: 40px; font-size: 22px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html:not(.desk) .cp-step .ui-stepper .st-btn::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
+html:not(.desk) .cp-step .ui-stepper .st-val { min-width: 0; overflow: hidden; font-size: 20px; font-weight: 800; color: var(--text); white-space: nowrap; letter-spacing: -0.01em; }
+html:not(.desk) .cp-step .ui-stepper .st-val.is-tight { font-size: 17px; }
+html:not(.desk) .cp-step .ui-stepper .st-val .st-word { font-family: var(--font-body); font-size: 15px; font-weight: 600; color: var(--text-2); letter-spacing: 0; }
 html:not(.desk) .cp-step .ui-stepper .st-val small { font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0; }
 html:not(.desk) .cp-calc { font-size: 13px; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-ed-add { margin-top: 16px; }
