@@ -3764,6 +3764,7 @@ const DB = {
   // user did NOT send (i.e. the ones addressed to them). Clears their badge.
   async markThreadRead(coachId, athleteId, viewerId) {
     if (!coachId || !athleteId || !viewerId) return false;
+    _threadSeq++;   // a thread read already on its way left before this: the badge refresh after it reads again
     const { error } = await sb.from('messages')
       .update({ read_at: new Date().toISOString() })
       .eq('coach_id', coachId)
