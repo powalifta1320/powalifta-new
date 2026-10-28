@@ -55,7 +55,8 @@ with checks(n, migration, applied) as (values
   (22, 'migration-rls-hardening-3.sql',
         exists (select 1 from pg_trigger where tgname = 'trg_guard_profile_privileged_cols_insert')),
   (23, 'migration-admin-plan-comp.sql',
-        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_admin_update')),
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles'
+                 and policyname in ('profiles_admin_update', 'profiles_update'))),   -- row 55 merges it into profiles_update
   (24, 'migration-rls-hardening-4.sql',
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'guard_profile_privileged_cols' and p.prosrc like '%powa.link_ok%')),
@@ -106,7 +107,8 @@ with checks(n, migration, applied) as (values
                  where table_schema = 'public' and table_name = 'meets' and column_name = 'status')
         and exists (select 1 from information_schema.columns
                      where table_schema = 'public' and table_name = 'programs' and column_name = 'starts_on')
-        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets' and policyname = 'meets_coach_plan_insert')),
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets'
+                     and policyname in ('meets_coach_plan_insert', 'meets_insert'))),   -- row 55 merges it into meets_insert
   (42, 'migration-team-programs-2026-10-22.sql  (team programs; needs row 36 first, and row 31 so a replaced block with logged sets is kept)',
         to_regclass('public.program_group_members') is not null
         and to_regprocedure('public.push_group_programs(uuid, bigint, jsonb)') is not null
@@ -158,6 +160,11 @@ with checks(n, migration, applied) as (values
         and coalesce(not has_function_privilege('authenticated', to_regprocedure('public.club_members_guard()'), 'execute'), false)
         and exists (select 1 from pg_proc where oid = to_regprocedure('public.touch_email_preferences()') and proconfig is not null)
         and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'edge_rate_limits' and policyname = 'service role only')),
+  (55, 'migration-rls-perf-2026-10-28.sql  (speed only, nobody''s access changes: policies work out auth.uid() once per query, 26 merged policies, 7 indexes; after row 53, before or after row 54)',
+        to_regclass('public.workout_logs_athlete_date_idx') is not null
+        and to_regclass('public.programs_coach_idx') is not null
+        and (select count(*) from pg_policies where schemaname = 'public'
+              and policyname in ('profiles_select', 'profiles_update', 'meets_insert', 'clubs_select', 'marketplace_programs_select', 'schedule_requests_update')) = 6),
   (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
         exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
   (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',
