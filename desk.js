@@ -557,9 +557,10 @@ function dkCtxClear() {
   host.innerHTML = '';
 }
 // A realtime event (a message, a form check, a logged set): repaint in place, then re-read who
-// wrote last.
-function deskRefresh() {
+// wrote last. opts.threads (DB.coachInbox's digest, read with the unread badges): use it, one repaint.
+function deskRefresh(opts) {
   if (!isDesk() || !_dk.booted) return;
+  if (opts && opts.threads) { clearTimeout(_dk.threadT); _dk.threads = deskThreadDigest(null, opts.threads); dkRepaint(); return; }
   dkRepaint();
   dkFetchThreads(1200);
 }
@@ -6089,6 +6090,7 @@ function deskSeedDemo(store, h) {
     l.e1rm = calcE1RM(l.weight, l.reps, l.rpe);
     l.e1rmComp = calcCompE1RM(l.weight, l.reps, l.rpe, l.lift, l.variant || 'Competition');
   });
+  if (window.Store && Store.bump) Store.bump();   // sets edited in place: anything worked out from them is redone
 }
 function dkNoise(n) { var x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; }
 // A month of Apple Health for one demo lifter: resting HR, HRV and sleep around their own norm.

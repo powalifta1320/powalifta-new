@@ -253,7 +253,7 @@
   function openNotes() {
     var W = window.WeeklyNote;
     if (isDeskNow() && W.openQueue) { W.openQueue(); return; }
-    var rows = typeof deskRows === 'function' ? deskRows() : [];
+    var rows = typeof deskRows === 'function' && coachId() ? deskRows(coachId()) : [];   // the coach's own roster (deskRows filters by it)
     var due = W.due ? W.due(rows, {}) : [];
     if (due.length && W.openSheet) { W.openSheet(due[0].athlete.id, {}); return; }
     if (typeof toast === 'function') toast('Everyone who trained has their note this week');

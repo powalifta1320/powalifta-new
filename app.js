@@ -32,14 +32,94 @@ const defaultStore = () => ({
   scheduleRequests: []
 });
 
+// _v moves on every change the Store is told about (set, update, reset, a live burst, bump/touch);
+// the roster log index (below) rebuilds when it moves, or when workoutLogs is a new list or a new
+// length (a push or a reassignment outside Store.update still counts). _deep moves on the changes
+// that may have edited rows in place (set, update, reset, bump): every memo built on the logs goes.
+// A write that edits a logged set's fields without Store.update must call Store.bump().
 const Store = {
   _data: defaultStore(),
+  _v: 0,
+  _deep: 0,
   get() { return this._data; },
-  set(s) { this._data = s; },
-  update(fn) { fn(this._data); return this._data; },
-  reset() { this._data = defaultStore(); }
+  set(s) { this._data = s; this.bump(); },
+  update(fn) { try { fn(this._data); } finally { this.bump(); } return this._data; },
+  reset() { this._data = defaultStore(); this.bump(); },
+  bump() { this._v++; this._deep++; },
+  touch() { this._v++; }
 };
 window.Store = Store;
+
+// =========================================================
+// ROSTER LOG INDEX + PER-LIFTER MEMOS (2026-10-28)
+// =========================================================
+// A coach's Store holds every lifter's sets (tens of thousands once db.js pages them all in), and
+// the desk asked "this lifter's sets" with a filter over all of them several times per lifter per
+// paint. Now they're grouped by lifter once per data version: the same rows, in the same order, as
+// that filter gave. What is worked out from one lifter's sets is kept per lifter (_lmemoGet) while
+// their stamp holds: it changes when their sets do (a set landing for one lifter leaves the others'
+// numbers as they were) and for everyone after a change that may have edited sets in place.
+const _lix = { list: null, len: -1, v: -1, deep: -1, by: new Map(), stamps: new Map(), seq: 0 };
+function _logIndex() {
+  const list = (Store._data && Store._data.workoutLogs) || [];
+  if (_lix.list === list && _lix.len === list.length && _lix.v === Store._v) return _lix;
+  const by = new Map();
+  for (let i = 0; i < list.length; i++) {
+    const l = list[i];
+    if (!l) continue;
+    const g = by.get(l.athleteId);
+    if (g) g.push(l); else by.set(l.athleteId, [l]);
+  }
+  const keep = _lix.deep === Store._deep, stamps = new Map();
+  by.forEach((g, k) => {
+    const old = keep ? _lix.by.get(k) : null;
+    let same = !!old && old.length === g.length;
+    for (let i = 0; same && i < g.length; i++) same = g[i] === old[i];
+    stamps.set(k, same ? _lix.stamps.get(k) : ++_lix.seq);
+  });
+  _lix.list = list; _lix.len = list.length; _lix.v = Store._v; _lix.deep = Store._deep; _lix.by = by; _lix.stamps = stamps;
+  return _lix;
+}
+// One lifter's sets in Store order: the index's own array, so read it and never change it.
+function _logsOf(athleteId) {
+  if (athleteId !== athleteId) return [];   // NaN: the filter never matched it
+  return _logIndex().by.get(athleteId) || [];
+}
+// The same as a copy, for code outside app.js: (Store.get().workoutLogs).filter(l => l.athleteId === id).
+function rosterLogsFor(athleteId) { return _logsOf(athleteId).slice(); }
+window.rosterLogsFor = rosterLogsFor;
+const _lmemo = new Map();
+function _lmemoOf(athleteId) {
+  const st = _logIndex().stamps.get(athleteId) || 0;
+  let m = _lmemo.get(athleteId);
+  if (!m || m.stamp !== st) { m = { stamp: st, vals: new Map() }; _lmemo.set(athleteId, m); }
+  return m.vals;
+}
+// fn() worked out from this lifter's sets alone (and key's arguments), once per stamp.
+function _lmemoGet(athleteId, key, fn) {
+  const vals = _lmemoOf(athleteId);
+  if (vals.has(key)) return vals.get(key);
+  const v = fn();
+  vals.set(key, v);
+  return v;
+}
+// The days this lifter trained (a Set of their log dates; shared, read it only).
+function logDateSet(athleteId) { return _lmemoGet(athleteId, 'dates', () => new Set(_logsOf(athleteId).map(l => l.date))); }
+window.logDateSet = logDateSet;
+// Every other per-lifter list the desk reads (check-in answers, check-ins, notes, pain, health,
+// food, weigh-ins, meets), grouped the same way: rebuilt when the list, its length or the Store
+// version moves. Rows are read live, never copied, so a field changed in place still shows.
+const _byAthIx = new WeakMap();
+function _ofAthlete(list, athleteId) {
+  if (!Array.isArray(list) || athleteId !== athleteId) return [];
+  let e = _byAthIx.get(list);
+  if (!e || e.len !== list.length || e.v !== Store._v) {
+    const by = new Map();
+    for (let i = 0; i < list.length; i++) { const r = list[i]; if (!r) continue; const g = by.get(r.athleteId); if (g) g.push(r); else by.set(r.athleteId, [r]); }
+    _byAthIx.set(list, e = { len: list.length, v: Store._v, by });
+  }
+  return e.by.get(athleteId) || [];
+}
 
 // =========================================================
 // AUTH
@@ -115,8 +195,32 @@ function requireAuth(expectedType) {
 // Everything of the outgoing user that lives on this device: the snapshot, the offline
 // write queue and the pending-set queue (they'd replay under the next account and be
 // rejected by RLS, burning the attempt counters), and the Home Screen widget.
-function _wipeLocalUserData() {
-  try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
+// The per-user copies kept on this device: the offline snapshot, and the copies db.js kept before a
+// table existed (coach notes, coach settings, clients' packages and payments, the intake, teams;
+// all of those tables are live, so anything left is stale). They go when the user signs out, is
+// signed out, or deletes the account.
+const _USER_CACHE_KEYS = ['powa-snapshot-', 'powa-coach-notes-', 'powa-coach-settings-', 'powa-client-billing-', 'powa-client-payments-', 'powa-intake-', 'powa-teams-'];
+function _wipeUserCaches(uid) {
+  if (!uid) return;
+  _USER_CACHE_KEYS.forEach(p => { try { localStorage.removeItem(p + uid); } catch (e) {} });
+}
+// Signed in as uid: another account's copies on this device (a sign-out that never ran its wipe)
+// have no reason to stay.
+function _sweepOtherUsersCaches(uid) {
+  if (!uid) return;
+  try {
+    const drop = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const p = k && _USER_CACHE_KEYS.find(x => k.indexOf(x) === 0);
+      if (p && k.slice(p.length) !== uid && /^[0-9a-f-]{36}$/i.test(k.slice(p.length))) drop.push(k);
+    }
+    drop.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  } catch (e) {}
+}
+function _wipeLocalUserData(uid) {
+  uid = uid || (window._user && window._user.id) || null;
+  try { _wipeUserCaches(uid); } catch (e) {}
   // Queued (unsent) voice notes are audio on this phone: they leave with the account.
   try { if (window._user && window._user.id && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(window._user.id).catch(() => {}); } catch (e) {}
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
@@ -1048,6 +1152,9 @@ async function bootstrap(expectedType, onReady, opts) {
     // Only a refused token or account signs anyone out. Offline, a timeout or a server hiccup: a dashboard
     // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
     if (_isAuthError(e)) {
+      // Signed out by the server: this account's copy of its data (the snapshot, the stale
+      // pre-migration copies) leaves the device with it. Unsent sets stay queued for the same lifter.
+      _wipeUserCaches(session.user && session.user.id);
       try { await DB.signOut(); } catch {}
       if (!expectedType) { onReady && onReady(); return; }
       _toWelcome();
@@ -1125,8 +1232,7 @@ async function bootstrap(expectedType, onReady, opts) {
   }
 
   try {
-    Store._data = await DB.hydrateAll(profile);
-    _saveSnapshot(window._user, Store._data);
+    Store.set(await DB.hydrateAll(profile));
   } catch (e) {
     console.error('hydrate failed', e);
     // Flaky / offline: fall back to the cached snapshot so the dashboard still
@@ -1145,8 +1251,19 @@ async function bootstrap(expectedType, onReady, opts) {
 
   onReady && onReady();
   liveStart();   // sets land on the coach's desk as they're logged; a coach's edit reaches the lifter
+  // The offline snapshot right after the first paint (never in front of it), and another account's
+  // copies left on this device go.
+  _snapshotSoon();
+  _sweepOtherUsersCaches(profile.id);
 }
 window.bootstrap = bootstrap;
+let _snapSoonT = null;
+function _snapshotSoon() {
+  if (_snapSoonT) return;
+  const run = () => { if (!_snapSoonT) return; clearTimeout(_snapSoonT); _snapSoonT = null; try { _snapshotNow(); } catch (e) {} };
+  _snapSoonT = setTimeout(run, 1500);
+  try { requestAnimationFrame(() => setTimeout(run, 0)); } catch (e) {}
+}
 
 // =========================================================
 // THEME (light / dark)
@@ -3128,6 +3245,9 @@ function liveApplyBatch(store, items, ctx) {
     }
   });
   if (!events.length) return Object.assign(out, { detail: null });
+  // Rows went in or were replaced: the Store's version moves (the roster log index and the per-lifter
+  // lists rebuild; a lifter whose sets didn't change keeps what was worked out for them).
+  Store.touch();
   const top = events.find(e => e.kind === 'set') || events.find(e => e.kind === 'program') || events[events.length - 1];
   return Object.assign(out, { detail: { kind: top.kind, athleteId: top.athleteId, programId: top.programId, items: events, landed, days } });
 }
@@ -3449,11 +3569,84 @@ async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { 
 // =========================================================
 const _SNAP_PREFIX = 'powa-snapshot-';
 function _snapKey(uid) { return _SNAP_PREFIX + uid; }
+// localStorage holds ~5 MB an origin on iPhones, shared with the outbox and the unsent sets, so the
+// snapshot keeps to ~1.5 M characters (3 MB as UTF-16). Past that it degrades: the big lists keep
+// their newest rows (365 days, then 120, 42, 14; the sets also keep each lifter's best set of every
+// lift from before, so a PR offline is still a PR), then the big lists go. If even that won't fit,
+// the old snapshot goes too (an out-of-date one would open a stale program offline). Each step is
+// said once a session (the console and error-log.js); nothing fails silently.
+const _SNAP_BUDGET = 1500000;
+const _SNAP_LISTS = [['workoutLogs', 'date'], ['bodyweight', 'date'], ['sessionNotes', 'date'], ['checkinAnswers', 'period'], ['messages', 'createdAt'],
+  ['checkins', 'weekStart'], ['healthDaily', 'day'], ['nutritionDaily', 'day'], ['painReports', 'day'], ['programBlocks', 'endedOn'], ['coachNotes', 'createdAt']];
+const _SNAP_STEPS = [null, 365, 120, 42, 14, 0];
+let _snapSaid = '';
+function _snapSay(what, detail) {
+  if (_snapSaid === what) return;
+  _snapSaid = what;
+  try {
+    if (typeof window.__powaWarn === 'function') window.__powaWarn('snapshot: ' + what, detail || null);   // error-log.js: kept, forwarded, on the console
+    else console.warn('[POWA] snapshot: ' + what, detail || '');
+  } catch (e) {}
+}
+// The rows of a big list worth keeping offline from `since` on. Sets also keep, per lifter and lift,
+// the best set from before (pure; tested).
+function snapshotTrimList(key, list, field, since) {
+  if (!Array.isArray(list)) return list;
+  if (since == null) return list;
+  const inWin = (r) => !!r && String(r[field] || '').slice(0, 10) >= since;
+  if (key !== 'workoutLogs') return list.filter(inWin);
+  const best = new Map();
+  list.forEach(l => {
+    if (!l || inWin(l) || !(Number(l.e1rmComp) > 0)) return;
+    const k = l.athleteId + '\u0001' + l.lift, b = best.get(k);
+    if (!b || Number(l.e1rmComp) > Number(b.e1rmComp)) best.set(k, l);
+  });
+  const keep = new Set(best.values());
+  return list.filter(l => inWin(l) || keep.has(l));
+}
+// The store as the snapshot keeps it at one step: null = all of it, n = the big lists' last n days.
+function snapshotStoreAt(store, days, todayIso) {
+  if (days == null) return store;
+  const out = Object.assign({}, store);
+  const since = days > 0 ? _addDaysISO(todayIso || todayISO(), -days) : null;
+  _SNAP_LISTS.forEach(([k, f]) => { if (Array.isArray(store[k])) out[k] = days > 0 ? snapshotTrimList(k, store[k], f, since) : []; });
+  return out;
+}
+// Rough size of a store as JSON, from a sample of each big list (no full stringify of 60 000 sets).
+function _snapEstimate(store) {
+  let n = 0;
+  const big = new Set(_SNAP_LISTS.map(x => x[0]));
+  Object.keys(store || {}).forEach(k => {
+    const v = store[k];
+    if (big.has(k) && Array.isArray(v) && v.length > 64) {
+      const step = v.length / 64, sample = [];
+      for (let i = 0; i < 64; i++) sample.push(v[Math.floor(i * step)]);
+      n += Math.ceil(JSON.stringify(sample).length / 64 * v.length);
+    } else { try { n += JSON.stringify(v === undefined ? null : v).length; } catch (e) {} }
+  });
+  return n;
+}
 function _saveSnapshot(user, store) {
   if (window._demoMode || !user || !user.id || !store) return;
-  try {
-    localStorage.setItem(_snapKey(user.id), JSON.stringify({ user, store, ts: Date.now() }));
-  } catch (e) { /* quota (e.g. big coach roster) — skip; online still works */ }
+  const key = _snapKey(user.id), today = todayISO();
+  const full = _snapEstimate(store);
+  for (let i = 0; i < _SNAP_STEPS.length; i++) {
+    const days = _SNAP_STEPS[i];
+    const s = snapshotStoreAt(store, days, today);
+    if (days != null && i < _SNAP_STEPS.length - 1 && _snapEstimate(s) > _SNAP_BUDGET) continue;   // still too big: the next step
+    if (days == null && full > _SNAP_BUDGET) continue;
+    let text;
+    try { text = JSON.stringify({ user, store: s, ts: Date.now(), trimmedTo: days }); } catch (e) { continue; }
+    if (text.length > _SNAP_BUDGET) continue;
+    try {
+      localStorage.setItem(key, text);
+      if (days != null) _snapSay(days > 0 ? 'kept the last ' + days + ' days of the big lists' : 'left the big lists out', { estimate: full });
+      return true;
+    } catch (e) { /* quota: the next, smaller step */ }
+  }
+  try { localStorage.removeItem(key); } catch (e) {}
+  _snapSay('not saved (too big for this device); the old one was removed', { estimate: full });
+  return false;
 }
 function _readSnapshot(uid) {
   try {
@@ -5549,12 +5742,12 @@ function renderCalendarHeatmap(container, opts) {
 
   container.innerHTML = '';
 
-  const trainSet = new Set(Store.get().workoutLogs.filter(l => l.athleteId === athleteId).map(l => l.date));
+  const trainSet = new Set(_logsOf(athleteId).map(l => l.date));
   const restSet = new Set(Store.get().restDays.filter(r => r.athleteId === athleteId).map(r => r.date));
 
   // Volume per day (count of sets logged)
   const volume = {};
-  Store.get().workoutLogs.filter(l => l.athleteId === athleteId).forEach(l => {
+  _logsOf(athleteId).forEach(l => {
     volume[l.date] = (volume[l.date] || 0) + 1;
   });
   const maxV = Math.max(1, ...Object.values(volume));
@@ -8287,8 +8480,7 @@ function deleteTemplate(templateId) {
 // LAST SET FOR EXERCISE (for "see last RPE" while programming)
 // =========================================================
 function getLastSetForExercise(athleteId, lift, variant, exerciseName) {
-  const logs = Store.get().workoutLogs.filter(l => {
-    if (l.athleteId !== athleteId) return false;
+  const logs = _logsOf(athleteId).filter(l => {
     if (l.lift !== lift) return false;
     if (MAIN_LIFTS.includes(lift)) return l.variant === variant;
     return l.exerciseName === exerciseName;
@@ -8298,8 +8490,7 @@ function getLastSetForExercise(athleteId, lift, variant, exerciseName) {
 }
 
 function getProgressionHint(athleteId, lift, variant, exerciseName, prescribedWeight, prescribedRpe) {
-  const logs = Store.get().workoutLogs.filter(l => {
-    if (l.athleteId !== athleteId) return false;
+  const logs = _logsOf(athleteId).filter(l => {
     if (l.lift !== lift) return false;
     if (MAIN_LIFTS.includes(lift)) return l.variant === variant;
     return l.exerciseName === exerciseName;
@@ -8317,7 +8508,47 @@ function getProgressionHint(athleteId, lift, variant, exerciseName, prescribedWe
 // PRs
 // =========================================================
 // Was this log a new comp-equivalent PR for the lift (any variant)?
+// Per lifter and lift, their sets sorted by (date, id) with the running best are kept until the
+// lifter's sets change (_prIndex), so each check is a binary search, not a pass over the roster.
+// The plain filter below answers whenever the rows aren't the usual shape (a date or an id that
+// isn't a string, or an id seen twice): both give the same answer on the same rows.
+function _prIndex(athleteId, lift) {
+  const vals = _lmemoOf(athleteId);
+  let byLift = vals.get('pr');
+  if (!byLift) vals.set('pr', byLift = new Map());
+  if (byLift.has(lift)) return byLift.get(lift);
+  const arr = [], at = new Map();
+  let ok = true;
+  for (const l of _logsOf(athleteId)) {
+    if (l.lift !== lift) continue;
+    if (typeof l.date !== 'string' || typeof l.id !== 'string' || at.has(l.id)) { ok = false; break; }
+    at.set(l.id, l); arr.push(l);
+  }
+  let ix = null;
+  if (ok) {
+    arr.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const best = new Array(arr.length + 1);
+    best[0] = -Infinity;
+    for (let i = 0; i < arr.length; i++) best[i + 1] = Math.max(best[i], arr[i].e1rmComp);
+    ix = { arr, best, at };
+  }
+  byLift.set(lift, ix);
+  return ix;
+}
 function isPRForLog(athleteId, log) {
+  if (log && typeof log.date === 'string' && typeof log.id === 'string') {
+    const ix = _prIndex(athleteId, log.lift);
+    const self = ix && ix.at.get(log.id);
+    if (ix && (!self || self.date === log.date)) {
+      let lo = 0, hi = ix.arr.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1, x = ix.arr[mid];
+        if (x.date < log.date || (x.date === log.date && x.id < log.id)) lo = mid + 1; else hi = mid;
+      }
+      if (!lo) return false;
+      return log.e1rmComp > ix.best[lo] + 0.05;
+    }
+  }
   const earlier = Store.get().workoutLogs.filter(l =>
     l.athleteId === athleteId &&
     l.lift === log.lift &&
@@ -8326,12 +8557,13 @@ function isPRForLog(athleteId, log) {
   );
   // A lift's first set beats nothing yet: no PR moment, no club PR points on day one.
   if (!earlier.length) return false;
-  const prevMax = Math.max(...earlier.map(l => l.e1rmComp));
+  let prevMax = -Infinity;   // Math.max over them (no spread: a long history overflows the arguments)
+  for (let i = 0; i < earlier.length; i++) prevMax = Math.max(prevMax, earlier[i].e1rmComp);
   return log.e1rmComp > prevMax + 0.05;
 }
 
 function getLifetimePRs(athleteId) {
-  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId);
+  const logs = _logsOf(athleteId);
   const result = {};
   ['squat', 'bench', 'deadlift'].forEach(lift => {
     const liftLogs = logs.filter(l => l.lift === lift);
@@ -8375,7 +8607,7 @@ function prTimeline(logs, athleteId, opts) {
 window.prTimeline = prTimeline;
 
 function getWeeklyDelta(athleteId) {
-  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId);
+  const logs = _logsOf(athleteId);
   const today = new Date(); today.setHours(0,0,0,0);
   const range = (offset) => {
     const end = new Date(today); end.setDate(end.getDate() - 7 * offset);
@@ -8401,7 +8633,7 @@ function getRosterOverview(coachId) {
   const s = Store.get();
   return s.athletes.filter(a => a.coachId === coachId).map(a => {
     const prog = s.programs.find(p => p.athleteId === a.id);
-    const logs = s.workoutLogs.filter(l => l.athleteId === a.id);
+    const logs = _logsOf(a.id).slice();   // a copy: sorted below
     const lastLog = logs.sort((x, y) => y.date.localeCompare(x.date))[0];
     const today = new Date(); today.setHours(0,0,0,0);
     const ago = lastLog ? Math.round((today - new Date(lastLog.date)) / 86400000) : null;
@@ -8409,7 +8641,7 @@ function getRosterOverview(coachId) {
     const allSets = prog ? prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets) : [];
     const completed = allSets.filter(s => s.completed).length;
     const total = allSets.length;
-    const lastNote = (s.sessionNotes.filter(n => n.athleteId === a.id).sort((x, y) => y.date.localeCompare(x.date))[0]) || null;
+    const lastNote = (_ofAthlete(s.sessionNotes, a.id).slice().sort((x, y) => y.date.localeCompare(x.date))[0]) || null;
     const lastRpe = lastLog ? lastLog.rpe : null;
     return { athlete: a, program: prog, lastLog, ago, flag, completedSets: completed, totalSets: total, lastNote, lastRpe };
   });
@@ -8425,14 +8657,29 @@ function getRosterOverview(coachId) {
 // is paired across both windows and NONE improved past `tol` — i.e. flat or
 // regressing across the board. Pure read over Store; no DB.
 // =========================================================
+// Kept per lifter for the day: with every main-lift date a whole UTC day ('YYYY-MM-DD', or not a
+// date at all), the windows' edges only cross a set when ceil(now / day) moves, so the answer holds
+// until then. Otherwise (a date with a time in it, a window that isn't whole days) it's worked out
+// each time.
 function getE1RMMomentum(athleteId, windowDays) {
   const win = windowDays || 21;
+  const now = Date.now();
+  if (!Number.isInteger(win) || !_lmemoGet(athleteId, 'momDays', () => _logsOf(athleteId).every(l => {
+    if (!MAIN_LIFTS.includes(l.lift)) return true;
+    const t = Date.parse(l.date);
+    return isNaN(t) || t % 86400000 === 0;
+  }))) return _e1rmMomentum(athleteId, win, now);
+  const m = _lmemoGet(athleteId, 'mom|' + win + '|' + Math.ceil(now / 86400000), () => _e1rmMomentum(athleteId, win, now));
+  const perLift = {};
+  Object.keys(m.perLift).forEach(k => { perLift[k] = Object.assign({}, m.perLift[k]); });
+  return { perLift, hasData: m.hasData, stalling: m.stalling };
+}
+function _e1rmMomentum(athleteId, win, now) {
   const tol = 0.05; // kg — ignore float noise
   const dayMs = 86400000;
-  const now = Date.now();
   const recentFrom = now - win * dayMs;
   const priorFrom = now - 2 * win * dayMs;
-  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId && MAIN_LIFTS.includes(l.lift));
+  const logs = _logsOf(athleteId).filter(l => MAIN_LIFTS.includes(l.lift));
   const perLift = {};
   let anyPaired = false, anyUp = false;
   MAIN_LIFTS.forEach(lift => {
@@ -8491,11 +8738,11 @@ function getRosterAttention(coachId) {
       }
     }
     // 4) Pain the lifter told you about (open, last 14 days)
-    const pain = painFlagFor(aId, Store.get().painReports || []);
+    const pain = painFlagFor(aId, _ofAthlete(Store.get().painReports, aId));
     if (pain) { reasons.unshift({ type: 'pain', text: pain.text, count: pain.count, severity: pain.severity }); severity = Math.max(severity, pain.severity); }
     // Wins — main-lift PRs in the last 7 days
-    const prCount = Store.get().workoutLogs.filter(l =>
-      l.athleteId === aId && MAIN_LIFTS.includes(l.lift) && Date.parse(l.date) >= weekAgo && isPRForLog(aId, l)
+    const prCount = _logsOf(aId).filter(l =>
+      MAIN_LIFTS.includes(l.lift) && Date.parse(l.date) >= weekAgo && isPRForLog(aId, l)
     ).length;
     return { athlete: o.athlete, overview: o, reasons, severity, momentum, prCount };
   });
@@ -8509,7 +8756,7 @@ function getRosterAttention(coachId) {
 // =========================================================
 function getStreak(athleteId) {
   const s = Store.get();
-  const trainSet = new Set(s.workoutLogs.filter(l => l.athleteId === athleteId).map(l => l.date));
+  const trainSet = logDateSet(athleteId);
   const restSet = new Set(s.restDays.filter(r => r.athleteId === athleteId).map(r => r.date));
   if (!trainSet.size) return 0;
 
@@ -8548,7 +8795,7 @@ function removeRestDay(athleteId, date) {
   Store.update(s => { s.restDays = s.restDays.filter(r => !(r.athleteId === athleteId && r.date === date)); });
 }
 function hasAnyLogOnDate(athleteId, date) {
-  return Store.get().workoutLogs.some(l => l.athleteId === athleteId && l.date === date);
+  return _logsOf(athleteId).some(l => l.date === date);
 }
 
 // =========================================================
@@ -9242,7 +9489,7 @@ function computeSignals() {
       out.push({ id: 'cci-' + c.id, type: 'checkin', title: nameOf(c.athleteId) + ' submitted a check-in', body: 'Feeling ' + c.feel + '/10 · sleep ' + c.sleep + '/10 · calm ' + c.stress + '/10', ts: c.createdAt || c.weekStart, tab: 'athletes' });
     });
     (s.athletes || []).filter(a => a.coachId === u.id).forEach(a => {
-      const logs = (s.workoutLogs || []).filter(l => l.athleteId === a.id);
+      const logs = _logsOf(a.id);
       if (!logs.length) return;
       const last = logs.reduce((m, l) => l.date > m ? l.date : m, logs[0].date);
       const days = Math.floor((Date.now() - Date.parse(last)) / 86400000);
@@ -11033,12 +11280,13 @@ function coachAthleteStatus(athleteId, opts) {
   const s = Store.get();
   const todayIso = opts.today || todayISO();
   const prog = (s.programs || []).find(p => p.athleteId === athleteId) || null;
-  const logs = (s.workoutLogs || []).filter(l => l.athleteId === athleteId);
-  const lastDate = logs.reduce((m, l) => (l.date > m ? l.date : m), '');
+  // This lifter's sets (the roster index) and what comes from them alone, kept until they change.
+  const logs = _logsOf(athleteId);
+  const lastDate = _lmemoGet(athleteId, 'last', () => logs.reduce((m, l) => (l.date > m ? l.date : m), ''));
   const ago = lastDate ? Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastDate + 'T12:00:00Z')) / 86400000) : null;
   const week = programWeekState(prog);
   const mon = _monISO(todayIso);
-  const weekDates = logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date);
+  const weekDates = _lmemoGet(athleteId, 'weekDates|' + mon + '|' + todayIso, () => logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date)).slice();
   const done = new Set(weekDates).size;
   // A busy week the coach approved (busy-week.js): this week's plan is the days agreed, so training on
   // them is never "missed" and the count reads against what was agreed.
@@ -11060,22 +11308,22 @@ function coachAthleteStatus(athleteId, opts) {
   }
   // 2. Pain and check-in answers (today or yesterday)
   const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
-  if (myQs.length) checkinAlerts(myQs, s.checkinAnswers, athleteId, todayIso).forEach(a => add('checkin', a.text, a.severity));
+  if (myQs.length) checkinAlerts(myQs, _ofAthlete(s.checkinAnswers, athleteId), athleteId, todayIso).forEach(a => add('checkin', a.text, a.severity));
   // Pain the lifter told you about: "Pain · Low back · Deadlift · 6/10 · 2nd this week". The check-in's
   // "Pain yesterday" says the same thing less well, so it goes (one flag per fact).
-  const pain = painFlagFor(athleteId, s.painReports || [], todayIso);
+  const pain = painFlagFor(athleteId, _ofAthlete(s.painReports, athleteId), todayIso);
   if (pain) {
     for (let i = flags.length - 1; i >= 0; i--) if (flags[i].type === 'checkin' && /^Pain\b/.test(flags[i].text)) flags.splice(i, 1);
     add('pain', pain.text, pain.severity);
   }
   // Readiness (shared Apple Health, Watch lifters only): a dot for the desk, a quiet flag here.
-  const hRows = (s.healthDaily || []).filter(r => r.athleteId === athleteId);
+  const hRows = _ofAthlete(s.healthDaily, athleteId);
   const readiness = hRows.length ? readinessFrom(hRows, todayIso) : null;
   if (readiness && readiness.state === 'low') add('readiness', readiness.flag, 1);
   // The cut: off pace for the class by the date.
   const cut = athleteCut(athleteId, todayIso);
   if (cut && cut.offPace) add('offpace', cut.flag, cut.weeksLeft != null && cut.weeksLeft <= 2 ? 3 : 2);
-  const nRows = (s.nutritionDaily || []).filter(r => r.athleteId === athleteId);
+  const nRows = _ofAthlete(s.nutritionDaily, athleteId);
   const nutrition = nRows.length ? nutritionWeek(nRows, todayIso) : null;
   // 3. Over what was written (last 7 days): "Bench RPE 9.5 (wrote 8)"
   if (prog) {
@@ -11097,11 +11345,11 @@ function coachAthleteStatus(athleteId, opts) {
   }
   flags.sort((a, b) => b.severity - a.severity);
   const weekAgo = Date.parse(_addDaysISO(todayIso, -7) + 'T00:00:00Z');
-  const prCount = logs.filter(l => MAIN_LIFTS.includes(l.lift) && Date.parse(l.date + 'T12:00:00Z') >= weekAgo && isPRForLog(athleteId, l)).length;
-  const series = strengthSeries(logs, 'total', { weeks: 8, today: todayIso }).map(p => p.value);
+  const prCount = _lmemoGet(athleteId, 'prWeek|' + todayIso, () => logs.filter(l => MAIN_LIFTS.includes(l.lift) && Date.parse(l.date + 'T12:00:00Z') >= weekAgo && isPRForLog(athleteId, l)).length);
+  const series = _lmemoGet(athleteId, 'total8|' + todayIso, () => strengthSeries(logs, 'total', { weeks: 8, today: todayIso }).map(p => p.value)).slice();
   const trendDelta = series.length >= 2 ? series[series.length - 1] - series[Math.max(0, series.length - 5)] : null;
-  const ciDates = (s.checkinAnswers || []).filter(a => a.athleteId === athleteId).map(a => a.period)
-    .concat((s.checkins || []).filter(c => c.athleteId === athleteId).map(c => String(c.createdAt || c.weekStart || '').slice(0, 10)));
+  const ciDates = _ofAthlete(s.checkinAnswers, athleteId).map(a => a.period)
+    .concat(_ofAthlete(s.checkins, athleteId).map(c => String(c.createdAt || c.weekStart || '').slice(0, 10)));
   const lastCi = ciDates.reduce((m, d) => (d > m ? d : m), '');
   const checkinAgo = lastCi ? Math.max(0, Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastCi + 'T12:00:00Z')) / 86400000)) : null;
   return { flags, prCount, week, sessions: { done, planned }, ago, lastDate, trend: { values: series, delta: trendDelta }, checkinAgo, program: prog,
@@ -11353,7 +11601,7 @@ function deskWorstOvershoot(prog, todayIso) {
 // The next meet on the calendar (today or later): { meet, days } or null.
 function deskNextMeet(athleteId, todayIso) {
   const t = todayIso || todayISO();
-  const m = (Store.get().meets || []).filter(x => x.athleteId === athleteId && x.date && String(x.date).slice(0, 10) >= t)
+  const m = _ofAthlete(Store.get().meets, athleteId).filter(x => x.date && String(x.date).slice(0, 10) >= t)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
   return m ? { meet: m, days: _deskDays(t, m.date) } : null;
 }
@@ -11363,7 +11611,7 @@ function deskBodyweightVsClass(athleteId, meet) {
   if (!meet || !meet.weightClass || /\+/.test(meet.weightClass)) return null;
   const cls = parseFloat(String(meet.weightClass).replace(',', '.'));
   if (!(cls > 0)) return null;
-  const last = (Store.get().bodyweight || []).filter(b => b.athleteId === athleteId && Number(b.weight) > 0)
+  const last = _ofAthlete(Store.get().bodyweight, athleteId).filter(b => Number(b.weight) > 0)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   if (!last) return null;
   const bw = Number(last.weight);
@@ -11372,7 +11620,7 @@ function deskBodyweightVsClass(athleteId, meet) {
 // Resting heart rate today against the lifter's own recent norm (shared from Apple Health).
 // { delta, tone: 'ok' | 'warn', text } or null without at least four days.
 function deskReadiness(athleteId) {
-  const days = (Store.get().healthDaily || []).filter(h => h.athleteId === athleteId && Number(h.rhr) > 0)
+  const days = _ofAthlete(Store.get().healthDaily, athleteId).filter(h => Number(h.rhr) > 0)
     .sort((a, b) => String(b.day).localeCompare(String(a.day)));
   if (days.length < 4) return null;
   const base = days.slice(1, 31).reduce((s, h) => s + Number(h.rhr), 0) / Math.min(30, days.length - 1);
@@ -11414,7 +11662,7 @@ function deskReasons(athleteId, opts) {
   const add = (type, group, text, tone, detail, extra) => out.push(Object.assign({ type, group, text, tone, detail: detail || '' }, extra || {}));
   // 1 · pain, and 6 · the other check-in answers worth a look
   const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
-  (myQs.length ? checkinAlerts(myQs, s.checkinAnswers, athleteId, t) : []).forEach(a => {
+  (myQs.length ? checkinAlerts(myQs, _ofAthlete(s.checkinAnswers, athleteId), athleteId, t) : []).forEach(a => {
     if (/^Pain/.test(a.text)) add('pain', 1, a.text, 'alert', 'Said yes to pain on their check-in ' + a.text.replace(/^Pain /, ''));
     else add('checkin', 6, a.text.replace(/(\d) h$/, '$1h'), a.severity >= 2 ? 'warn' : 'info', 'From their check-in');
   });
@@ -11439,7 +11687,7 @@ function deskReasons(athleteId, opts) {
     if (dr && dr.avg >= 0.5 && dr.n >= 3) add('drift', 3, 'RPE +' + dr.avg + ' this week', 'warn', 'Across ' + dr.n + ' logged sets');
   }
   // 4 · their words waiting on a reply: session notes, and a message older than 12 hours
-  const waiting = (s.sessionNotes || []).filter(n => n.athleteId === athleteId && n.note && String(n.note).trim() && !n.coachComment)
+  const waiting = _ofAthlete(s.sessionNotes, athleteId).filter(n => n.note && String(n.note).trim() && !n.coachComment)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (waiting.length) {
     const d = Math.max(0, _deskDays(waiting[0].date, t));
@@ -11472,22 +11720,25 @@ function deskWins(athleteId, opts) {
   opts = opts || {};
   const t = opts.today || todayISO();
   const s = Store.get();
-  const logs = (s.workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const logs = _logsOf(athleteId);
   const out = [];
   const since = _addDaysISO(t, -6);
-  const prLifts = [];
-  logs.filter(l => MAIN_LIFTS.includes(l.lift) && l.date >= since && l.date <= t && isPRForLog(athleteId, l))
-    .forEach(l => { if (!prLifts.includes(l.lift)) prLifts.push(l.lift); });
+  const prLifts = _lmemoGet(athleteId, 'winPRs|' + t, () => {
+    const got = [];
+    logs.filter(l => MAIN_LIFTS.includes(l.lift) && l.date >= since && l.date <= t && isPRForLog(athleteId, l))
+      .forEach(l => { if (!got.includes(l.lift)) got.push(l.lift); });
+    return got;
+  }).slice();
   if (prLifts.length) {
     const names = MAIN_LIFTS.filter(L => prLifts.includes(L)).map(L => LIFT_LABELS[L]);
     out.push({ type: 'pr', text: names.length === 3 ? '3 lift PRs' : names.join(' + ') + ' PR', lifts: prLifts });
   }
   // Consecutive weeks with training, counting back from this week.
-  const weeks = new Set(logs.map(l => _monISO(l.date)));
+  const weeks = _lmemoGet(athleteId, 'weeks', () => new Set(logs.map(l => _monISO(l.date))));
   let streak = 0;
   for (let wk = _monISO(t); weeks.has(wk); wk = _addDaysISO(wk, -7)) streak++;
   if (streak >= 4 && streak % 4 === 0) out.push({ type: 'streak', text: streak + '-week streak' });
-  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && !isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) <= t);
+  const meets = _ofAthlete(s.meets, athleteId).filter(m => !isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) <= t);
   const tot = (m) => (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
   const recent = meets.filter(m => _deskDays(m.date, t) <= 10).sort((a, b) => tot(b) - tot(a))[0];
   if (recent && tot(recent) > 0 && meets.filter(m => m !== recent && String(m.date) < String(recent.date)).every(m => tot(m) < tot(recent))) {
@@ -11498,7 +11749,11 @@ function deskWins(athleteId, opts) {
 // The e1RM total over the last 8 weeks, counted only from the week all three lifts have a number
 // (a new lifter's first squat-only week would otherwise read as a +200 jump). { values, delta }.
 function deskTotalTrend(athleteId, todayIso) {
-  const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
+  if (!todayIso) return _deskTotalTrend(_logsOf(athleteId), todayIso);   // "today" read inside: not kept
+  const r = _lmemoGet(athleteId, 'totalTrend|' + todayIso, () => _deskTotalTrend(_logsOf(athleteId), todayIso));
+  return { values: r.values.slice(), delta: r.delta };
+}
+function _deskTotalTrend(logs, todayIso) {
   const per = {};
   MAIN_LIFTS.forEach(L => {
     per[L] = strengthSeries(logs, L, { weeks: 8, today: todayIso });
@@ -12382,7 +12637,7 @@ function athleteCut(athleteId, todayIso) {
   const s = Store.get();
   const g = (s.goals || []).find(x => x.athleteId === athleteId);
   if (!g || !(Number(g.targetClass) > 0)) return null;
-  const series = (s.bodyweight || []).filter(b => b.athleteId === athleteId && Number(b.weight) > 0)
+  const series = _ofAthlete(s.bodyweight, athleteId).filter(b => Number(b.weight) > 0)
     .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: b.date, weight: Number(b.weight) }));
   return cutPlan(series, g.targetClass, g.cutBy || null, todayIso);
 }
