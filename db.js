@@ -664,10 +664,16 @@ function mapJsInvite(i) { return { code: i.code, coach_id: i.coachId, email: i.e
 // PAGED READS (2026-10-28)
 // PostgREST hands back at most 1,000 rows a read (the project's max-rows), however big .limit() is.
 // Every read that can pass that goes through _readAll: a stable order (the columns asked for, then a
-// tiebreak, so pages never overlap or skip), .range() pages, and, when the first page comes back
-// full, the exact count it asked for plans the rest, which go out together (6 at a time across every
-// read). A failed page is tried twice more. Past the ceiling the read stops and says so (the console
-// and error-log.js), never silently.
+// tiebreak), .range() pages, and, when the first page comes back full, the exact count it asked for
+// plans the rest, which go out together (6 at a time across every read). A failed page is tried twice
+// more. Past the ceiling the read stops and says so (the console and error-log.js), never silently.
+// A row written or deleted while the pages are read moves every row after it one place, across the
+// page edges. So: the rows are told apart by their key (_raPlan: id when the order has it, else the
+// whole order, which is unique; it has to be among the columns read, or it's said); each page after
+// the first starts 50 rows into the one before (_RA_OVERLAP), so a row deleted mid-read can't let
+// another slip between two pages, and the rows read twice come once; a page that comes back full is
+// followed by another (rows written mid-read push the oldest past the plan); and two pages that no
+// longer meet (more rows gone mid-read than the overlap) read the whole thing again, once, then say so.
 //   build(countOpt) → a fresh query: sb.from(t).select(cols, countOpt) plus its filters (no order, no range)
 //   opts: { order: [['date', true], ['created_at', true]] (true = ascending), tiebreak: ['id'] | [] ,
 //           count (default true), ceiling (default _RA_CEILING), page (default 1000) }
@@ -676,6 +682,7 @@ function mapJsInvite(i) { return { code: i.code, coach_id: i.coachId, email: i.e
 const _RA_PAGE = 1000;
 const _RA_POOL = 6;
 const _RA_CEILING = 200000;
+const _RA_OVERLAP = 50;
 const _raQ = { active: 0, waiting: [] };
 function _raSlot(fn) {
   return new Promise((resolve, reject) => {
@@ -693,13 +700,20 @@ function _raWarn(label, detail) {
   } catch (e) {}
 }
 const _raWait = (ms) => new Promise(r => setTimeout(r, ms));
+// A read's order (the columns asked for, then the tiebreak's) and its key: the columns that tell two of
+// its rows apart (id when the order has it, else the whole order).
+function _raPlan(opts) {
+  opts = opts || {};
+  const tie = opts.tiebreak === undefined ? ['id'] : (opts.tiebreak || []);
+  const order = (opts.order || []).slice();
+  tie.forEach(c => { if (!order.some(o => o[0] === c)) order.push([c, true]); });
+  return { order, key: order.some(o => o[0] === 'id') ? ['id'] : order.map(o => o[0]) };
+}
 async function _readAll(label, build, opts) {
   opts = opts || {};
   const PAGE = opts.page || _RA_PAGE;
   const ceiling = Math.max(PAGE, opts.ceiling || _RA_CEILING);
-  const tie = opts.tiebreak === undefined ? ['id'] : (opts.tiebreak || []);
-  const order = (opts.order || []).slice();
-  tie.forEach(c => { if (!order.some(o => o[0] === c)) order.push([c, true]); });
+  const { order, key } = _raPlan(opts);
   const page = (from, countOpt) => {
     let q = build(countOpt);
     order.forEach(o => { q = q.order(o[0], { ascending: o[1] !== false }); });
@@ -717,47 +731,60 @@ async function _readAll(label, build, opts) {
   };
   const first = await page(0, opts.count === false ? undefined : { count: 'exact' });
   if (first.error) return { rows: [], count: null, capped: false, partial: false, error: first.error };
-  let rows = (first.data || []).slice();
+  const p0 = first.data || [];
   const count = typeof first.count === 'number' ? first.count : null;
-  if (rows.length < PAGE) return { rows, count: count == null ? rows.length : count, capped: false, partial: false, error: null };
-  let error = null, partial = false, lastFull = true;
+  if (p0.length < PAGE) return { rows: p0.slice(), count: count == null ? p0.length : count, capped: false, partial: false, error: null };
+  // Rows that can't be told apart (a key column isn't read): pages edge to edge, as before, and said.
+  const keyed = key.length > 0 && key.every(c => Object.prototype.hasOwnProperty.call(p0[0] || {}, c));
+  if (!keyed) _raWarn(label + ': its rows carry no ' + (key.join(' + ') || 'order') + ', so a row written mid-read can come twice', null);
+  const OV = keyed && PAGE >= 4 ? Math.min(_RA_OVERLAP, Math.floor(PAGE / 4)) : 0;
+  const STEP = PAGE - OV;
+  const keyOf = (r) => { if (!r) return null; const v = key.map(c => r[c]); return v.some(x => x == null) ? null : v.join('\u0001'); };
+  const pages = [p0];
+  let error = null, partial = false, at = 0;   // at: where the last page read starts
   if (count != null) {
-    // Planned from the count: the rest go out together, kept in page order. (A row written after the
-    // count is taken is the live layer's: it never waits on another round trip here.)
-    const n = Math.ceil(Math.min(count, ceiling) / PAGE);
-    const got = await Promise.all(Array.from({ length: Math.max(0, n - 1) }, (_, i) => _raSlot(() => tries((i + 1) * PAGE))));
-    for (const r of got) {
-      if (r.error) { error = r.error; partial = true; break; }
-      rows.push(...(r.data || []));
-      lastFull = (r.data || []).length === PAGE;
-    }
-  } else {
-    // No count: on, a page at a time, until a short page.
-    while (lastFull && rows.length < ceiling) {
-      const r = await _raSlot(() => tries(rows.length));
-      if (r.error) { error = r.error; partial = true; break; }
-      rows.push(...(r.data || []));
-      lastFull = (r.data || []).length === PAGE;
+    // Planned from the count: the rest go out together, kept in page order.
+    const want = Math.min(count, ceiling), starts = [];
+    for (let s = STEP; s - STEP + PAGE < want; s += STEP) starts.push(s);
+    const got = await Promise.all(starts.map(s => _raSlot(() => tries(s))));
+    for (let i = 0; i < got.length; i++) {
+      if (got[i].error) { error = got[i].error; partial = true; break; }
+      pages.push(got[i].data || []);
+      at = starts[i];
     }
   }
-  // A row that moved across a page edge while the pages were read comes once (by id, else by the
-  // whole sort key, which is unique: that's what makes the order stable).
-  const dk = tie.includes('id') ? ['id'] : order.map(o => o[0]);
-  if (dk.length && rows.length > PAGE) {
-    const seen = new Set(), out = [];
-    for (const r of rows) {
-      const vals = dk.map(c => r && r[c]);
-      const k = vals.some(v => v == null) ? null : vals.join('\u0001');
-      if (k != null && seen.has(k)) continue;
-      if (k != null) seen.add(k);
-      out.push(r);
-    }
-    rows = out;
+  // A last page that came back full may not be the last (no count, or rows written mid-read pushed the
+  // oldest past the plan): on, a page at a time, until a short one or the ceiling.
+  while (!partial && pages[pages.length - 1].length === PAGE && at + PAGE < ceiling) {
+    const r = await _raSlot(() => tries(at + STEP));
+    if (r.error) { error = r.error; partial = true; break; }
+    pages.push(r.data || []);
+    at += STEP;
   }
+  // Each page after a full one holds one of that page's last OV rows, or rows between the two were
+  // never read (more gone mid-read than the overlap covers): then the whole read goes again, once.
+  let torn = false;
+  for (let i = 1; OV && i < pages.length && !torn; i++) {
+    if (pages[i - 1].length < PAGE) continue;
+    const tail = new Set(pages[i - 1].slice(-OV).map(keyOf).filter(k => k != null));
+    torn = tail.size > 0 && !pages[i].some(r => tail.has(keyOf(r)));
+  }
+  if (torn && !opts._again) { await _raWait(200); return _readAll(label, build, Object.assign({}, opts, { _again: true })); }
+  // Every row once, in page order.
+  let rows = [];
+  if (keyed) {
+    const seen = new Set();
+    pages.forEach(pg => pg.forEach(r => {
+      const k = keyOf(r);
+      if (k != null) { if (seen.has(k)) return; seen.add(k); }
+      rows.push(r);
+    }));
+  } else pages.forEach(pg => { rows.push(...pg); });
   if (rows.length > ceiling) rows = rows.slice(0, ceiling);
-  const capped = count != null ? count > ceiling : (rows.length >= ceiling && lastFull);
+  const capped = count != null ? count > ceiling : (!partial && pages[pages.length - 1].length === PAGE);
   if (capped) _raWarn(label + ': read stopped at ' + rows.length + ' rows', { total: count });
   if (partial) _raWarn(label + ': a page failed, ' + rows.length + ' rows kept', { total: count, error: String((error && error.message) || error) });
+  if (torn) { partial = true; _raWarn(label + ': rows moved too far while it was read (twice), ' + rows.length + ' rows kept', { total: count }); }
   return { rows, count, capped, partial, error };
 }
 // The same over an id list (athlete_id in the roster…): `size` ids a read (a short URL, a small sort
@@ -822,7 +849,7 @@ let _noLogGear = false;
 const _logCols = () => _LOG_COLS + (_noLogGear ? '' : ', gear');
 // Read newest first (a read that ever stops at its ceiling, or keeps its pages after one fails, keeps
 // the newest sets), then turned round: the lifter's own order everywhere is by date, then as logged
-// (created_at), then id.
+// (created_at), then id. created_at stays on the server: the pages are joined up by id (_raPlan).
 const _LOG_ORDER_DESC = [['date', false], ['created_at', false], ['id', false]];
 const _BW_COLS = 'id, athlete_id, date, weight';
 const _NOTE_COLS = 'id, athlete_id, week_id, day_id, note, date, coach_comment, coach_comment_at, coach_id';
@@ -2805,7 +2832,7 @@ const DB = {
   // roster's 10 lifters a read (a small sort a page; each lifter's sets in that same order). Use
   // .in() — .eq() fails on UUID columns under RLS in this project.
   async _readLogs(label, ids, size, ceiling) {
-    const run = () => _readAllIn(label, ids, size, (c, countOpt) => sb.from('workout_logs').select(_logCols(), countOpt).in('athlete_id', c), { order: _LOG_ORDER_DESC, tiebreak: [], ceiling });
+    const run = () => _readAllIn(label, ids, size, (c, countOpt) => sb.from('workout_logs').select(_logCols(), countOpt).in('athlete_id', c), { order: _LOG_ORDER_DESC, tiebreak: ['id'], ceiling });
     let res = await run();
     if (res.error && !res.rows.length && !_noLogGear && _missingCol(res.error, ['gear'])) { _noLogGear = true; res = await run(); }
     if (res.error && !res.rows.length) { console.warn(label, res.error); return []; }

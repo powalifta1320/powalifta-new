@@ -1,9 +1,11 @@
 // Data scale (2026-10-28) under Node: no browser, no network.
 // 1. db.js's paged reads against a fake PostgREST that caps every read at 1000 rows (Supabase's max-rows)
 //    and honours order / range / count, and can fail a page: every row comes back once and in order, a
-//    failed page is tried again, then kept partial and said, the ceiling stops a read and says so, the
-//    hydrate's lists are complete on both branches, gear falls back, the coach inbox is one read, and the
-//    pain channel is filtered to the roster (100 ids a binding, no DELETE listener).
+//    failed page is tried again, then kept partial and said, the ceiling stops a read and says so, a set
+//    logged or deleted mid-read neither comes twice nor takes another with it (the overlap, the key, the
+//    page past the plan, the read that goes again), every paged read reads its own key, the hydrate's
+//    lists are complete on both branches, gear falls back, the coach inbox is one read, and the pain
+//    channel is filtered to the roster (100 ids a binding, no DELETE listener).
 // 2. The desk's numbers on generated rosters: app.js as it was at 9cca10b (from git) against this one,
 //    same rows, same clock. deskRows, coachAthleteStatus, isPRForLog, momentum, wins, trends, the roster
 //    overview and attention, the builder's hints, streaks; then again after a push, a live burst, edits in
@@ -60,6 +62,7 @@ function fakeSupabase(tables, opts) {
   function from(table) {
     const st = { table, f: [], orders: [], from: null, to: null, lim: null, count: null, cols: '*', op: 'select', single: false, maybe: false };
     const b = {
+      __st: st,
       select(c, o) { if (st.op === 'select') st.cols = c || '*'; if (o && o.count) st.count = o.count; return b; },
       eq(c, v) { st.f.push(r => r[c] != null && String(r[c]) === String(v)); return b; },
       neq(c, v) { st.f.push(r => r[c] != null && String(r[c]) !== String(v)); return b; },
@@ -134,14 +137,20 @@ await t('_readAll: 2,500 rows in 3 reads (count planned), in order, each once', 
   ok(client.calls.every(c => c.orders.length === 2 && c.orders[1][0] === 'id'), 'every page carries the tiebreak');
   ok(client.calls[0].count === 'exact' && !client.calls[1].count, 'only the first page asks for the count');
 });
-await t('_readAll: no count → a page at a time until a short one; exactly 2,000 → 2 reads', async () => {
+await t('_readAll: no count → a page at a time until a short one; each later page starts 50 rows into the one before', async () => {
   const rows = []; for (let i = 0; i < 2000; i++) rows.push({ id: 'r' + String(i).padStart(5, '0') });
   let x = loadDb({ t: rows });
   let res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id', c), { count: false });
-  eq(res.rows.length, 2000); eq(x.client.calls.length, 3, 'no count: the third read finds the end');
+  eq(res.rows.map(r => r.id), rows.map(r => r.id), 'every row once, in order');
+  eq(x.client.calls.map(c => c.from), [0, 950, 1900], 'no count: the third read finds the end');
   x = loadDb({ t: rows });
   res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id', c), {});
-  eq(res.rows.length, 2000); eq(x.client.calls.length, 2, 'with the count: two reads');
+  eq(res.rows.map(r => r.id), rows.map(r => r.id)); eq(x.client.calls.map(c => c.from), [0, 950, 1900], 'with the count: planned the same');
+  const more = []; for (let i = 0; i < 3456; i++) more.push({ id: 'r' + String(i).padStart(5, '0') });
+  x = loadDb({ t: more });
+  res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id', c), {});
+  eq(res.rows.length, 3456); eq(x.client.calls.map(c => c.from), [0, 950, 1900, 2850]);
+  ok(x.client.calls.every(c => c.to - c.from === 999), 'never more than 1000 rows a read');
 });
 await t('_readAll: the ceiling stops a read and says so', async () => {
   const rows = []; for (let i = 0; i < 2500; i++) rows.push({ id: 'r' + String(i).padStart(5, '0') });
@@ -153,13 +162,14 @@ await t('_readAll: the ceiling stops a read and says so', async () => {
 await t('_readAll: a failed page is tried again; one that keeps failing is kept partial and said', async () => {
   const rows = []; for (let i = 0; i < 3500; i++) rows.push({ id: 'r' + String(i).padStart(5, '0') });
   let n = 0;
-  let x = loadDb({ t: rows }, { fail: (st) => (st.from === 1000 && n++ < 1 ? { message: 'timeout' } : null) });
+  let x = loadDb({ t: rows }, { fail: (st) => (st.from === 950 && n++ < 1 ? { message: 'timeout' } : null) });
   let res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id', c), {});
   eq(res.rows.length, 3500); eq(res.partial, false); eq(x.client.calls.length, 5, '4 pages + 1 retry');
-  x = loadDb({ t: rows }, { fail: (st) => (st.from === 2000 ? { message: 'down' } : null) });
+  x = loadDb({ t: rows }, { fail: (st) => (st.from === 1900 ? { message: 'down' } : null) });
   res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id', c), {});
-  eq(res.partial, true); eq(res.rows.length, 2000, 'the pages before the failed one');
-  ok(x.warns.some(w => /a page failed, 2000 rows kept/.test(w)), 'said: ' + x.warns.join(' | '));
+  eq(res.partial, true); eq(res.rows.length, 1950, 'the pages before the failed one');
+  eq(res.rows.map(r => r.id), rows.slice(0, 1950).map(r => r.id), 'in order, each once');
+  ok(x.warns.some(w => /a page failed, 1950 rows kept/.test(w)), 'said: ' + x.warns.join(' | '));
   x = loadDb({ t: rows }, { fail: (st) => (st.from === 0 ? { message: 'nope', code: '42P01' } : null) });
   res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id', c), {});
   eq(res.rows.length, 0); ok(res.error && res.error.code === '42P01', 'the first page failing hands the error back');
@@ -170,6 +180,112 @@ await t('_readAll: a row written mid-read that shifts a page edge comes once', a
   const x = loadDb({ t: rows }, { after: (st) => { if (!done && st.from === 0) { done = true; rows.unshift({ id: 'a-new', d: '2026-01-01' }); } } });
   const res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('t').select('id, d', c), { order: [['d', true]] });
   eq(new Set(res.rows.map(r => r.id)).size, res.rows.length, 'no row twice');
+});
+// A set logged or deleted while the pages are read moves every row after it one place across the page
+// edges (the newest first: a new set pushes every row down, a deleted one pulls them up). The real
+// database sorts each page afresh, as this fake does.
+const logsDesc = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+const midRead = (logs, change) => { let done = false; return { after: (st) => { if (!done && st.table === 'workout_logs' && !st.from) { done = true; change(logs); } } }; };
+const sameSets = (got, logs, m) => {
+  const ids = got.map(l => l.id), have = new Set(ids);
+  eq(ids.length, have.size, (m || '') + ' no set twice');
+  const missing = logs.filter(l => !have.has(l.id));
+  eq(missing.length, 0, (m || '') + ' every set on the server read');
+};
+await t('workout logs: a set logged mid-read comes once, and the oldest still comes (the lifter, and a roster group)', async () => {
+  // 1,950: the plan ends exactly at the last set, so the new one pushes the oldest past it.
+  for (const n of [1500, 1950, 2000, 2950]) {
+    const r = rng(40 + n), A = uuid(r), logs = [];
+    for (let i = 0; i < n; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2025, 0, 1) + Math.floor(i / 7) * 864e5), i));
+    const oldest = logs.slice().sort(logsDesc).pop().id;
+    const x = loadDb({ workout_logs: logs }, midRead(logs, (L) => L.push(logRow(r, 'zz-new-set', A, '2026-10-28', 4000))));
+    const got = await x.DB.listLogsForAthlete(A);
+    sameSets(got, logs.filter(l => l.id !== 'zz-new-set'), n + ' sets:');
+    ok(got.some(l => l.id === oldest), n + ' sets: the oldest');
+    ok(!x.warns.length, 'nothing to say: ' + x.warns.join(' | '));
+  }
+  // Ten lifters a read: one of them logs while the desk loads.
+  const r = rng(48), ids = [], logs = [];
+  for (let k = 0; k < 10; k++) { const A = uuid(r); ids.push(A); for (let i = 0; i < 190; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2025, 0, 1) + i * 864e5), i)); }
+  const x = loadDb({ workout_logs: logs }, midRead(logs, (L) => L.push(logRow(r, 'zz-new-set', ids[3], '2026-10-28', 4000))));
+  const got = await x.DB.listLogsForAthletes(ids);
+  sameSets(got, logs.filter(l => l.id !== 'zz-new-set'), 'roster:');
+});
+await t('workout logs: a set deleted mid-read (the lifter\'s Undo) never takes another with it', async () => {
+  for (const [n, gone] of [[1500, 1], [2400, 3], [1500, 40]]) {
+    const r = rng(60 + n + gone), A = uuid(r), logs = [];
+    for (let i = 0; i < n; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2025, 0, 1) + Math.floor(i / 7) * 864e5), i));
+    const newest = logs.slice().sort(logsDesc).slice(0, gone).map(l => l.id);
+    const x = loadDb({ workout_logs: logs }, midRead(logs, (L) => newest.forEach(id => L.splice(L.findIndex(l => l.id === id), 1))));
+    const got = await x.DB.listLogsForAthlete(A);
+    sameSets(got, logs, n + ' sets, ' + gone + ' deleted:');
+    eq(x.client.calls.length, Math.ceil((n - 1000) / 950) + 1, 'no read again: the overlap covered it');
+  }
+  const r = rng(77), ids = [], logs = [];
+  for (let k = 0; k < 10; k++) { const A = uuid(r); ids.push(A); for (let i = 0; i < 150; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2025, 0, 1) + i * 864e5), i)); }
+  const victim = logs.slice().sort(logsDesc)[2].id;
+  const x = loadDb({ workout_logs: logs }, midRead(logs, (L) => L.splice(L.findIndex(l => l.id === victim), 1)));
+  sameSets(await x.DB.listLogsForAthletes(ids), logs, 'roster:');
+});
+await t('workout logs: more sets gone mid-read than the overlap covers: read again; still moving, kept and said', async () => {
+  const r = rng(91), A = uuid(r), logs = [];
+  for (let i = 0; i < 2500; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2024, 0, 1) + Math.floor(i / 5) * 864e5), i));
+  const cut = (L) => L.sort(logsDesc).splice(0, 120);   // a session of 120 sets deleted at once
+  let x = loadDb({ workout_logs: logs }, midRead(logs, cut));
+  const got = await x.DB.listLogsForAthlete(A);
+  sameSets(got, logs, 'once:');
+  eq(got.length, 2380, 'the read that went again has none of the deleted');
+  eq(x.client.calls.filter(c => !c.from).length, 2, 'read again from the start, once');
+  ok(!x.warns.length, 'nothing to say: ' + x.warns.join(' | '));
+  // Deleting again before every first page: kept, partial, said.
+  const logs2 = []; for (let i = 0; i < 2500; i++) logs2.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2024, 0, 1) + Math.floor(i / 5) * 864e5), i));
+  x = loadDb({ workout_logs: logs2 }, { after: (st) => { if (st.table === 'workout_logs' && !st.from) cut(logs2); } });
+  const res = await x.sbx._readAll('roster logs', (c) => x.sbx.sb.from('workout_logs').select('id, date', c).in('athlete_id', [A]), { order: [['date', false], ['created_at', false], ['id', false]], tiebreak: ['id'] });
+  eq(res.partial, true);
+  eq(res.rows.length, new Set(res.rows.map(l => l.id)).size, 'still none twice');
+  ok(x.warns.some(w => /roster logs: rows moved too far while it was read \(twice\)/.test(w)), 'said: ' + x.warns.join(' | '));
+});
+await t('_readAll: rows told apart by id whenever the order has it (created_at not read); a key the read lacks is said', async () => {
+  const r = rng(8), A = uuid(r), logs = [];
+  for (let i = 0; i < 1500; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2025, 0, 1) + Math.floor(i / 7) * 864e5), i));
+  let x = loadDb({ workout_logs: logs }, midRead(logs, (L) => L.push(logRow(r, 'zz-new-set', A, '2026-10-28', 4000))));
+  let res = await x.sbx._readAll('t', (c) => x.sbx.sb.from('workout_logs').select('id, date', c).in('athlete_id', [A]), { order: [['date', false], ['created_at', false], ['id', false]], tiebreak: [] });
+  eq(res.rows.length, 1500); eq(new Set(res.rows.map(l => l.id)).size, 1500, 'by id: none twice');
+  eq(JSON.stringify(x.sbx._raPlan({ order: [['date', false], ['created_at', false], ['id', false]], tiebreak: [] }).key), '["id"]');
+  eq(JSON.stringify(x.sbx._raPlan({ order: [['day', false]], tiebreak: ['athlete_id'] }).key), '["day","athlete_id"]', 'no id: the whole order');
+  // A key the read doesn't carry (date ordered, only id read, no id in the order): edge-to-edge pages, as before, and said.
+  x = loadDb({ workout_logs: logs.filter(l => l.id !== 'zz-new-set') });
+  res = await x.sbx._readAll('nokey', (c) => x.sbx.sb.from('workout_logs').select('id', c).in('athlete_id', [A]), { order: [['date', false]], tiebreak: [] });
+  eq(res.rows.length, 1500); eq(x.client.calls.map(c => c.from), [0, 1000]);
+  ok(x.warns.some(w => /nokey: its rows carry no date/.test(w)), 'said: ' + x.warns.join(' | '));
+});
+await t('every paged read in db.js reads its own key (what tells its rows apart), and each one is exercised', async () => {
+  const src = fs.readFileSync(path.join(ROOT, 'db.js'), 'utf8');
+  const labels = new Set([...src.matchAll(/_readAll(?:In)?\('([^']+)'/g), ...src.matchAll(/_readLogs\('([^']+)'/g)].map(m => m[1]));
+  ok(labels.size >= 30, 'found ' + labels.size + ' paged reads');
+  const C = 'c0ffee00-0000-4000-8000-000000000001', A = 'a0000000-0000-4000-8000-000000000002';
+  const x = loadDb({ program_groups: [{ id: 'g1', coach_id: C, name: 'Seniors', created_at: '2026-10-01T00:00:00Z' }] });
+  const seen = {}, orig = x.sbx._readAll;
+  x.sbx._readAll = function (label, build, opts) {
+    const q = build({ count: 'exact' });   // the query as built: its columns (nothing is run)
+    (seen[label] = seen[label] || []).push({ cols: q.__st.cols, key: x.sbx._raPlan(opts).key });
+    return orig.apply(this, arguments);
+  };
+  const D = x.DB, ids = [A];
+  await Promise.all([
+    D.listAthletesForCoach(C), D.listInvites(C), D.listProgramsForAthlete(A), D.listProgramsForCoach(C), D.listNutritionDaily(ids), D.listHealthDaily(ids),
+    D.listPainReports(ids), D.listProgramBlocks(ids), D.listCoachNotes(C), D.listClientBilling(C), D.listClientPayments(C), D.listIntakes(C, ids), D.listIntakes(C),
+    D.listScheduleRequests(C), D.listTemplates(C), D.listLogsForAthlete(A), D.listLogsForAthletes(ids), D.listBwForAthlete(A), D.listBwForAthletes(ids),
+    D.listMeetsForAthlete(A), D.listMeetsForAthletes(ids), D.listTeams(C), D.listNotesForAthlete(A), D.listNotesForAthletes(ids), D.listCheckins(A),
+    D.listCheckinsForAthletes(ids), D.listCheckinAnswers('2026-01-01'), D.listGoalsForAthletes(ids), D.listRestForAthlete(A), D.listMyPublishedPrograms(C),
+    D.listMyPurchases(A), D.listMySales(C), D._myVoicePaths(C), D.listUnreadForUser(C), D.listChallengeEntries(['ch1'], C, C)
+  ]);
+  const missed = [...labels].filter(l => !seen[l]);
+  eq(missed, [], 'every paged read exercised');
+  Object.keys(seen).forEach(l => seen[l].forEach(({ cols, key }) => {
+    const have = cols === '*' ? null : String(cols).split(',').map(c => c.trim());
+    ok(key.length && (have === null || key.every(k => have.includes(k))), l + ': its key ' + key.join(' + ') + ' is not among ' + cols);
+  }));
 });
 await t('workout logs: a lifter past 1,000 sets gets all of them, oldest first and as logged; the roster too', async () => {
   const r = rng(3), A = uuid(r), roster = [A];
