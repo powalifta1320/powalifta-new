@@ -252,6 +252,7 @@ var ImportUI = (function () {
     '.im-box{display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:8px;box-shadow:inset 0 0 0 2px var(--line-2,#34343d);color:transparent;transition:background-color 140ms ease-out,box-shadow 140ms ease-out,color 140ms ease-out}',
     '.im-box svg{width:15px;height:15px}',
     '.im-person input:checked + .im-box{background:var(--im-ok);box-shadow:none;color:#06150d}',
+    '[data-theme="light"] .im-person input:checked + .im-box{color:#fff}',
     '.im-person input:focus-visible + .im-box{outline:2px solid var(--text);outline-offset:2px}',
     '.im-person.is-off .im-box{opacity:.35}',
     '.im-person .ui-av{width:36px;height:36px;flex:none;font-size:13px}',

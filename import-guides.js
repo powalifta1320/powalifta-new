@@ -124,12 +124,12 @@ var ImportGuides = (function () {
     '.ig-src.is-secondary{color:var(--warn,#ff9f43)!important}',
     '.ig-does{margin:0;padding:0 4px 0 22px;display:flex;flex-direction:column;gap:8px;color:var(--text-2);font-size:15px;line-height:1.45}',
     '.ig-does li{padding-left:2px;text-wrap:pretty}',
-    '.ig-acts{display:flex;flex-direction:column;gap:10px;margin-top:20px}',
+    '.ig-acts{position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom));z-index:1;display:flex;flex-direction:column;gap:10px;margin:20px -16px 0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--bg-1);border-top:1px solid var(--line)}',
     '.ig-acts .btn{width:100%;min-height:50px;margin:0}',
     '.ig-checked{margin:14px 4px 0;font-size:13px;line-height:1.45;color:var(--text-3)}',
     '[data-theme="light"] .ig-src.is-secondary{color:#a85a00!important}',
     'html.desk body.powa-app .ui-sheet.ig-sheet{width:min(600px,calc(100vw - 48px));max-height:calc(100vh - 48px);overflow-y:auto}',
-    'html.desk body.powa-app .ig-acts{flex-direction:row-reverse;justify-content:flex-start}',
+    'html.desk body.powa-app .ig-acts{flex-direction:row-reverse;justify-content:flex-start;bottom:calc(-1 * var(--s-5,24px));margin:20px calc(-1 * var(--s-5,24px)) 0;padding:12px var(--s-5,24px)}',
     'html.desk body.powa-app .ig-acts .btn{width:auto;min-height:40px;padding:0 18px}'
   ].join('\n');
   function ensureCss() {

@@ -1010,8 +1010,8 @@ var ImportCore = (function () {
       }
       return lines.join('\n');
     })() },
-    wide: { name: 'training log.csv', from: 'a spreadsheet', text: ['Date,Exercise,Set 1 Weight,Set 1 Reps,Set 1 RPE,Set 2 Weight,Set 2 Reps,Set 2 RPE,Set 3 Weight,Set 3 Reps,Set 3 RPE',
-      '05/10/2026,Squat,160,5,7,165,5,7.5,170,3,8.5', '05/10/2026,Bench,105,5,7.5,105,5,8,,,', '07/10/2026,Deadlift,190,3,7,200,3,8,205,2,8.5', '07/10/2026,Paused bench,95,4,7,95,4,7.5,95,4,8'].join('\n') },
+    wide: { name: 'training log.csv', from: 'a spreadsheet', text: ['Date,Exercise,Set 1 Weight,Set 1 Reps,Set 1 RPE,Set 2 Weight,Set 2 Reps,Set 2 RPE,Set 3 Weight,Set 3 Reps,Set 3 RPE,Feel',
+      '05/10/2026,Squat,160,5,7,165,5,7.5,170,3,8.5,Strong', '05/10/2026,Bench,105,5,7.5,105,5,8,,,,Fine', '07/10/2026,Deadlift,190,3,7,200,3,8,205,2,8.5,Heavy', '07/10/2026,Paused bench,95,4,7,95,4,7.5,95,4,8,Fine'].join('\n') },
     grid: { name: 'Block 3.csv', from: 'a spreadsheet', text: ['Exercise,Week 1,Week 2,Week 3,Week 4', 'Day 1 · Squat / Bench,,,,', 'Squat,"1x3 @8, 3x5 75%","1x2 @8, 3x4 78%","1x1 @8.5, 3x3 82%",3x3 70% @6',
       'Bench,4x6 72.5%,4x5 75%,4x4 80%,3x5 67.5%', 'Barbell Row,4x8 2RIR,4x8 2RIR,4x8 1RIR,3x8 3RIR', 'Day 2 · Deadlift,,,,', 'Deadlift,"1x3 @8, 2x3 75%","1x2 @8, 2x3 78%","1x1 @8.5, 2x2 82%",2x3 70% @6',
       'Paused Bench,4x5 @7,4x4 @7.5,4x3 @8,3x4 @6', 'Leg Curl,3x12,3x12,3x10,2x12'].join('\n') }
