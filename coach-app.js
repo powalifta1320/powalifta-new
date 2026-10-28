@@ -907,7 +907,7 @@
     var wash = path(recent) + ' L' + recent[recent.length - 1][0].toFixed(2) + ' ' + Hh + ' L' + recent[0][0].toFixed(2) + ' ' + Hh + ' Z';
     var mon0 = addDays(caMonday(t), -49);
     var weeks = pts.map(function (p) { return { i: p.i, v: p.v, wk: addDays(mon0, 7 * p.i) }; });
-    var data = esc(JSON.stringify(weeks.map(function (w) { return [w.i, Math.round(w.v), w.wk]; })));
+    var data = esc(JSON.stringify(weeks.map(function (w) { return [w.i, Math.round(w.v), w.wk, +(Y(w.v) / Hh * 100).toFixed(2)]; })));
     var tick = function (i, text, cls) { return '<span class="ca-line-xl' + (cls ? ' ' + cls : '') + '" style="left:' + (X(i) / Wd * 100).toFixed(2) + '%">' + esc(text) + '</span>'; };
     return '<div class="ca-line-w" data-line="' + data + '" role="img" aria-label="Team e1RM total each week: ' + esc(weeks.map(function (w) { return dayMon(w.wk) + ' ' + w.v.toLocaleString() + ' ' + unit(); }).join(', ')) + '">' +
       '<svg class="ca-line" viewBox="0 0 ' + Wd + ' ' + Hh + '" preserveAspectRatio="none" aria-hidden="true">' +
@@ -918,7 +918,7 @@
       (cut > 0 ? '<span class="ca-line-dot is-was" style="left:' + (xy[cut][0]).toFixed(2) + '%;top:' + (xy[cut][1] / Hh * 100).toFixed(2) + '%"></span>' : '') +
       '<span class="ca-line-dot" style="left:' + lp[0].toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"></span>' +
       '<span class="ca-line-end" style="right:' + (100 - lp[0]).toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"><b>' + Math.round(last.v).toLocaleString() + '</b> ' + esc(unit()) + '</span>' +
-      '<span class="ca-line-hair" aria-hidden="true"></span><span class="ca-line-tip" aria-hidden="true"></span>' +
+      '<span class="ca-line-hair" aria-hidden="true"></span><span class="ca-line-sel" aria-hidden="true"></span>' +
       '</div><div class="ca-line-x" aria-hidden="true">' + tick(pts[0].i, dayMon(addDays(mon0, 7 * pts[0].i)), 'is-first') +
         (pts[0].i < 3 ? tick(3, '4 weeks ago') : '') + tick(7, 'Now', 'is-last') + '</div>';
   }
@@ -955,8 +955,10 @@
     }
     var hot = E.hot.map(function (h) { return first(h.name); });
     var segs = [['easier', 'Easier', E.easier], ['on', 'On target', E.on], ['harder', 'Harder', E.harder]];
-    var bar = '<div class="ca-ebar" role="group" aria-label="' + esc(E.total + ' sets: ' + E.on + ' on target, ' + E.harder + ' harder, ' + E.easier + ' easier') + '">' + segs.filter(function (g) { return g[2] > 0; }).map(function (g, i) {
-      return '<button type="button" class="ca-eseg is-' + g[0] + '" data-eff="' + g[0] + '" style="flex-grow:' + g[2] + ';--i:' + i + '" aria-label="' + esc(g[2] + ' ' + g[1].toLowerCase()) + '"></button>';
+    // The bar is the picture: a finger anywhere along it picks the part under it (wireHome). Its keys below are
+    // the 44 pt controls a screen reader and a keyboard use; the parts themselves are too thin to be targets.
+    var bar = '<div class="ca-ebar" aria-hidden="true">' + segs.filter(function (g) { return g[2] > 0; }).map(function (g, i) {
+      return '<i class="ca-eseg is-' + g[0] + '" data-seg="' + g[0] + '" style="flex-grow:' + g[2] + ';--i:' + i + '"></i>';
     }).join('') + '</div>';
     var legend = '<div class="ca-elegend">' + segs.map(function (g) {
       return '<button type="button" class="ca-ekey is-' + g[0] + (g[2] ? '' : ' is-zero') + '" data-eff="' + g[0] + '"><i class="ca-ekey-m" aria-hidden="true"></i><b>' + g[2] + '</b><span>' + esc(g[1].toLowerCase()) + '</span></button>';
@@ -1139,7 +1141,7 @@
     if (area._caWired) return;
     area._caWired = true;
     // A touch anywhere off the strength line puts its readout away.
-    area.addEventListener('pointerdown', function (e) { var w = area.querySelector('.ca-line-w.is-scrub'); if (w && !w.contains(e.target)) w.classList.remove('is-scrub'); });
+    area.addEventListener('pointerdown', function (e) { var w = area.querySelector('.ca-line-w.is-scrub'); if (w && !w.contains(e.target)) lineRest(w); });
     area.addEventListener('click', function (e) {
       var t = e.target, b;
       if ((b = t.closest('[data-fix]'))) {
@@ -1159,6 +1161,11 @@
       // The summary's marks: a day, a part of the effort bar, a face on the meets lane or the PRs.
       if ((b = t.closest('[data-day]'))) { e.preventDefault(); pickDay(area, b); return; }
       if ((b = t.closest('[data-eff]'))) { e.preventDefault(); pickEffort(area, b.getAttribute('data-eff')); return; }
+      if ((b = t.closest('.ca-ebar'))) {
+        var segs = [].slice.call(b.querySelectorAll('[data-seg]')), hit = segs.filter(function (g) { var r = g.getBoundingClientRect(); return e.clientX >= r.left - 1 && e.clientX <= r.right + 1; })[0];
+        if (hit) { e.preventDefault(); pickEffort(area, hit.getAttribute('data-seg')); }
+        return;
+      }
       if ((b = t.closest('[data-sheet]'))) { e.preventDefault(); if (b.getAttribute('data-sheet') === 'movers') openMovers(area._X); else openHot(area._X); return; }
       if ((b = t.closest('[data-meetplan]'))) { e.preventDefault(); var mid = b.getAttribute('data-meetplan'); if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(mid); else openLifter(mid, b); return; }
       if ((b = t.closest('[data-prof]'))) { e.preventDefault(); P.pending = 'progress'; P.id = b.getAttribute('data-prof'); openLifter(P.id, b); return; }
@@ -1736,6 +1743,7 @@
     var now = was === kind ? '' : kind;
     if (now) card.setAttribute('data-pick', now); else card.removeAttribute('data-pick');
     card.querySelectorAll('[data-eff]').forEach(function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-eff') === now)); });
+    card.querySelectorAll('[data-seg]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-seg') === now); });
     var ro = card.querySelector('[data-readout="eff"]');
     if (ro) setReadout(ro, effortReadout(S.effort, now, area._X));
   }
@@ -1748,6 +1756,12 @@
   }
   // The strength line under a finger: the nearest week's total, a hairline at it. Scrubs while the finger moves
   // (pointer capture), and stays on the week it was let go at; a tap outside the line puts it away.
+  // The line put away: the hairline goes, the subtitle comes back.
+  function lineRest(w) {
+    w.classList.remove('is-scrub');
+    var sub = w.closest('.ca-str') && w.closest('.ca-str').querySelector('.ca-sum-s');
+    if (sub && sub.hasAttribute('data-rest')) { sub.classList.remove('is-read'); setReadout(sub, sub.getAttribute('data-rest')); }
+  }
   function wireLine(area) {
     var w = area.querySelector('.ca-line-w');
     if (!w || w._wired) return;
@@ -1755,7 +1769,10 @@
     var pts = [];
     try { pts = JSON.parse(w.getAttribute('data-line') || '[]'); } catch (e) { pts = []; }
     if (!pts.length) return;
-    var tip = w.querySelector('.ca-line-tip'), hair = w.querySelector('.ca-line-hair');
+    // The readout takes the subtitle's place (the way Health reads a chart), so nothing covers the line.
+    var hair = w.querySelector('.ca-line-hair'), sel = w.querySelector('.ca-line-sel');
+    var sub = w.closest('.ca-str') && w.closest('.ca-str').querySelector('.ca-sum-s');
+    if (sub && !sub.hasAttribute('data-rest')) sub.setAttribute('data-rest', sub.textContent);
     var show = function (clientX) {
       var r = w.getBoundingClientRect(), fx = (clientX - r.left) / r.width * 100;
       var best = pts[0], bd = Infinity;
@@ -1763,14 +1780,14 @@
       var x = 2 + best[0] / 7 * 96;
       w.classList.add('is-scrub');
       hair.style.left = x + '%';
-      tip.textContent = 'Week of ' + dayMon(best[2]) + ' · ' + best[1].toLocaleString() + ' ' + unit();
-      tip.style.left = Math.max(14, Math.min(86, x)) + '%';
+      sel.style.left = x + '%'; sel.style.top = best[3] + '%';
+      if (sub) { sub.classList.add('is-read'); setReadout(sub, 'Week of ' + dayMon(best[2]) + ' · ' + best[1].toLocaleString() + ' ' + unit()); }
     };
     var down = false;
     w.addEventListener('pointerdown', function (e) { down = true; try { w.setPointerCapture(e.pointerId); } catch (x) {} show(e.clientX); });
     w.addEventListener('pointermove', function (e) { if (down) show(e.clientX); });
     w.addEventListener('pointerup', function () { down = false; });
-    w.addEventListener('pointercancel', function () { down = false; w.classList.remove('is-scrub'); });
+    w.addEventListener('pointercancel', function () { down = false; lineRest(w); });
   }
   function openCheckins() {
     if (typeof uiSheet !== 'function') return;

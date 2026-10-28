@@ -439,8 +439,9 @@ html:not(.desk) .ca-line-dot.is-was { width: 9px; height: 9px; margin: -4.5px 0 
 html:not(.desk) .ca-line-end { position: absolute; margin: 14px -6px 0 0; font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; pointer-events: none; transition: opacity 140ms ease-out; }
 html:not(.desk) .ca-line-end b { font-family: var(--font-num); font-size: 15px; font-weight: 800; color: var(--text); }
 html:not(.desk) .ca-line-hair { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; background: color-mix(in srgb, var(--text) 32%, transparent); opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
-html:not(.desk) .ca-line-tip { position: absolute; top: -12px; transform: translate(-50%, -100%); padding: 5px 10px; border-radius: 999px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade); font-size: 13px; font-weight: 650; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
-html:not(.desk) .ca-line-w.is-scrub :is(.ca-line-hair, .ca-line-tip) { opacity: 1; }
+html:not(.desk) .ca-line-sel { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 2.5px var(--ca-card); opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-line-w.is-scrub :is(.ca-line-hair, .ca-line-sel) { opacity: 1; }
+html:not(.desk) .ca-sum-s.is-read { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-line-w.is-scrub .ca-line-end { opacity: 0; }
 html:not(.desk) .ca-line-x { position: relative; height: 18px; margin-top: 8px; font-size: 13px; font-weight: 500; color: var(--text-3); }
 html:not(.desk) .ca-line-xl { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
@@ -458,17 +459,16 @@ html:not(.desk) .ca-lift-v { grid-column: 1 / -1; font-family: var(--font-num); 
 
 /* 4. Effort: one bar, easier · on target · harder, each part named and counted beside it; a part tapped stays
    lit and the line under it says what's in it. */
-html:not(.desk) .ca-ebar { display: flex; gap: 2px; height: 16px; margin-top: 20px; }
-html:not(.desk) .ca-eseg { position: relative; flex-basis: 0; min-width: 8px; height: 100%; padding: 0; border: 0; border-radius: 3px; background: var(--pl-viz-steel); cursor: pointer; transition: opacity 180ms ease-out; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .ca-ebar { display: flex; gap: 2px; height: 16px; margin-top: 6px; padding: 14px 0; box-sizing: content-box; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .ca-eseg { display: block; flex-basis: 0; min-width: 8px; height: 100%; border-radius: 3px; background: var(--pl-viz-steel); transition: opacity 180ms ease-out; }
 html:not(.desk) .ca-eseg:first-child { border-radius: 8px 3px 3px 8px; }
 html:not(.desk) .ca-eseg:last-child { border-radius: 3px 8px 8px 3px; }
 html:not(.desk) .ca-eseg:only-child { border-radius: 8px; }
-html:not(.desk) .ca-eseg::after { content: ''; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; }
 html:not(.desk) .ca-eseg.is-on { background: var(--pl-viz-on); }
 html:not(.desk) .ca-eseg.is-harder { background: var(--pl-viz-hard); }
 html:not(.desk) .ca-eseg.is-easier { background: none; box-shadow: inset 0 0 0 2px var(--pl-viz-steel); }
-html:not(.desk) .ca-eff[data-pick] .ca-eseg:not([aria-pressed="true"]) { opacity: 0.3; }
-html:not(.desk) .ca-elegend { display: flex; justify-content: space-between; gap: 2px; margin: 10px -6px 0; }
+html:not(.desk) .ca-eff[data-pick] .ca-eseg:not(.on) { opacity: 0.3; }
+html:not(.desk) .ca-elegend { display: flex; justify-content: space-between; gap: 2px; margin: -4px -6px 0; }
 html:not(.desk) .ca-ekey { display: inline-flex; align-items: center; gap: 7px; min-width: 0; min-height: 44px; padding: 0 8px 0 6px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; white-space: nowrap; cursor: pointer; transition: background-color 140ms ease-out; -webkit-tap-highlight-color: transparent; }
 html:not(.desk) .ca-ekey-m { flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--pl-viz-steel); transition: opacity 180ms ease-out; }
 html:not(.desk) .ca-ekey.is-on .ca-ekey-m { background: var(--pl-viz-on); }
