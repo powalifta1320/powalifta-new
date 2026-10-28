@@ -372,13 +372,15 @@ async function logout() {
 // the widget, this browser's push), except the unsynced sets, changes, voice notes and meet-day boards:
 // they stay for this same account until it signs back in (sweep 2026-10-28 #6). The welcome screen
 // then says so. The account's own settings and records stay, as on any sign-out.
-// opts.signOut false: the session is already gone (SIGNED_OUT).
+// opts.signOut false: the session is already gone (SIGNED_OUT). opts.deleted: the account itself is gone
+// (deleted on another device, Auth says so): nothing waits for a log-in that can't come, so its queues, boards
+// and own keys go as a deletion's do, and the note doesn't say anything waits.
 async function _signedOutByServer(uid, opts) {
   opts = opts || {};
   uid = uid || (window._user && window._user.id) || null;
   window._signingOut = true;   // nothing writes the snapshot back from here (pagehide)
   try { liveStop(); } catch (e) {}
-  _wipeLocalUserData({ uid, keepQueue: true });
+  _wipeLocalUserData(opts.deleted ? { uid, deleted: true } : { uid, keepQueue: true });
   window._user = null;
   Store.reset();
   if (opts.signOut !== false) { try { await DB.signOut('local'); } catch (e) {} }   // this device only: the server has refused the session already
@@ -387,7 +389,22 @@ async function _signedOutByServer(uid, opts) {
   try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
   await _forgetPushOnThisDevice();   // the browser's push subscription goes; the server row needs the account's own session
   _sweepAccountKeys();
-  _noteSignedOut();
+  _noteSignedOut(opts.deleted ? { deleted: true } : undefined);
+}
+// The profile read found no row ("Profile not found"): an account deleted elsewhere, but only when Auth agrees
+// the account itself is gone (GET /user answers user_not_found). A profile the database hides (two-factor
+// owed, row 60) or never made is no deletion: that sign-out keeps what waits, as any other.
+function _isProfileMissing(e) { return /^Profile not found\b/.test(String((e && e.message) || '')); }
+// Pure: an Auth error that means the account itself is gone (GoTrue: 403 user_not_found, "User from sub claim in
+// JWT does not exist"), as opposed to an ended session (session_not_found), a network failure or no error.
+function authErrorUserGone(error) {
+  if (!error) return false;
+  const code = String(error.code || error.error_code || ''), msg = String(error.message || error.msg || '');
+  return (Number(error.status) === 403 && code === 'user_not_found') || /sub claim in JWT does not exist/i.test(msg);
+}
+async function _accountGone(e) {
+  if (!_isProfileMissing(e)) return false;
+  try { return !!(window.DB && typeof DB.authUserError === 'function' && authErrorUserGone(await DB.authUserError())); } catch (x) { return false; }
 }
 // Nobody is signed in on this device: wipe the private data an account left here (a session that ended
 // while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
@@ -409,8 +426,13 @@ function _lastSnapshotUid() {
   return ids.length === 1 ? ids[0] : null;
 }
 // The welcome screen after a sign-out the person didn't choose: why, and what waits on this device.
-function _noteSignedOut() {
-  try { sessionStorage.setItem('powa-signed-out', JSON.stringify({ sets: _readPendingLogs().length, changes: _readOutbox().length, boards: _pendingBoardCount() })); } catch (e) {}
+// opts.deleted: nothing waits (a deleted account's queues went with it), so the note says only that.
+function _signedOutNote(opts) {
+  if (opts && opts.deleted) return { sets: 0, changes: 0, boards: 0 };
+  return { sets: _readPendingLogs().length, changes: _readOutbox().length, boards: _pendingBoardCount() };
+}
+function _noteSignedOut(opts) {
+  try { sessionStorage.setItem('powa-signed-out', JSON.stringify(_signedOutNote(opts))); } catch (e) {}
 }
 // The toast for that note: what waits (sets and changes sync when the account logs back in; a meet-day
 // board goes up when it's opened again, so it only waits).
@@ -1348,7 +1370,9 @@ async function bootstrap(expectedType, onReady, opts) {
     // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
     if (_isAuthError(e)) {
       // The device forgets the account like a chosen log-out (its unsynced sets stay for it): sweep 2026-10-28 #6.
-      await _signedOutByServer(session.user.id);
+      // Deleted on another device (no profile row, and Auth says the account is gone): as a deletion.
+      const gone = await _accountGone(e);
+      await _signedOutByServer(session.user.id, gone ? { deleted: true } : undefined);
       if (!expectedType) { onReady && onReady(); return; }
       _toWelcome();
       return;

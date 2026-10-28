@@ -8384,6 +8384,29 @@ group('security merge follow-ups (demo log-out, deleted elsewhere, one code prom
       eq(localStorage.getItem('powa-md-fu-real-board'), null, 'and the unsent board');
       localStorage.removeItem('powa-saved-replies-' + REAL);
     });
+    test('an account deleted elsewhere: only Auth\'s user_not_found counts, not an ended session or a hiccup (b)', () => {
+      eq(_isProfileMissing(new Error('Profile not found for 1234')), true);
+      eq(_isProfileMissing({ status: 401, message: 'JWT expired' }), false);
+      eq(authErrorUserGone({ status: 403, code: 'user_not_found', message: 'User from sub claim in JWT does not exist' }), true);
+      eq(authErrorUserGone({ message: 'User from sub claim in JWT does not exist' }), true, 'an older Auth with no code');
+      eq(authErrorUserGone({ status: 403, code: 'session_not_found', message: 'Session from session_id claim in JWT does not exist' }), false, 'signed out everywhere is not a deletion');
+      eq(authErrorUserGone({ status: 401, code: 'bad_jwt' }), false);
+      eq(authErrorUserGone(new TypeError('Failed to fetch')), false, 'offline');
+      eq(authErrorUserGone(null), false, 'Auth knows the user: a profile row the database hides (two-factor owed) or never made');
+    });
+    test('deleted elsewhere: the wipe takes its queue, boards and own keys, and the note says only "Log in to carry on" (b)', () => {
+      seedRealWork();
+      // _signedOutByServer(uid, { deleted: true }): the wipe and the note it leaves for the welcome screen
+      _wipeLocalUserData({ uid: REAL, deleted: true }); _sweepAccountKeys();
+      eq(_readPendingLogs().length, 0, 'its sets'); eq(_queueOwner(), null, 'its tag');
+      eq(localStorage.getItem('powa-md-fu-real-board'), null, 'its unsent board');
+      eq(localStorage.getItem('powa-saved-replies-' + REAL), null, 'its own keys (a deletion takes them)');
+      eq(signedOutNoteText(_signedOutNote({ deleted: true })), 'You were signed out. Log in to carry on.');
+      seedRealWork();
+      eq(signedOutNoteText(_signedOutNote({ deleted: true })), 'You were signed out. Log in to carry on.', 'never a "waits" line for a deleted account');
+      eq(signedOutNoteText(_signedOutNote()), 'You were signed out. 1 set and 1 meet-day board wait on this device for when you log back in.', 'the ordinary refused session still says what waits');
+      clearQueues(); localStorage.removeItem('powa-md-fu-real-board'); localStorage.removeItem('powa-saved-replies-' + REAL);
+    });
   } finally {
     window._user = realUser; window._demoMode = realDemo; window._mfaStepUpPending = realPending;
     lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
