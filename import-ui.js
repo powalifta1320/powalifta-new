@@ -627,7 +627,10 @@ var ImportUI = (function () {
     // filled every row it read (a tab without a size tag says nothing about the rest) or the tag says there's more.
     function openTable(t, backTo) {
       st.backToTabs = backTo || null;
-      if (st.res && st.res.book && (t.cut || t.fullRows > t.rows.length)) {
+      // A workbook seen through the quick look (41 rows a tab): the picked tab is read whole, always. Without a
+      // size tag the quick look can't tell it saw every row (Excel leaves blank rows out of the file: rows 1-40
+      // filled and a blank 41 looked complete and imported 40 of 4,503 sets); a small tab costs one more read.
+      if (st.res && st.res.book) {
         var n = tabRows(t);
         reading(t.name, n ? 'Reading ' + plural(Math.max(0, n - 1), 'row') + '…' : 'Reading every row…');
         IC().readWorkbookAsync(st.res.book, { sheets: [t.name], name: st.res.name }).then(function (tabs) {

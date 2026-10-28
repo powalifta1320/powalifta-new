@@ -4039,6 +4039,19 @@ test('imports: a quick look that filled its rows reads the whole tab when it\'s 
     eq(IC.readWorkbook(bytes, { sheets: ['Log'] })[0].rows.length, 301);
   });
 });
+test('imports: a tab whose 41st row is blank looks complete to the quick look; only the full read has every set (why openTable reads a picked tab whole)', () => {
+  const rows = [['Date', 'Exercise', 'Weight', 'Reps']]; for (let i = 0; i < 39; i++) rows.push(['2026-01-0' + (1 + i % 9), 'Squat', 100 + i % 20, 5]);
+  rows.push([]);   // row 41 blank: Excel writes no <row> for it
+  for (let i = 0; i < 260; i++) rows.push(['2026-02-0' + (1 + i % 9), 'Bench', 80 + i % 10, 5]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Log');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  ['', '<dimension ref="A1"/>'].forEach(dim => {
+    const bytes = imZip(Object.keys(files).map(n => ({ name: n, data: /sheet1\.xml$/.test(n) ? new TextDecoder().decode(files[n]).replace(/<dimension[^>]*\/>/, dim) : files[n] })));
+    const quick = IC.readWorkbook(bytes, { sheetRows: 41 })[0];
+    eq(quick.rows.length <= 41, true, 'the quick look stops at 41 rows ' + JSON.stringify(dim));
+    eq(IC.readWorkbook(bytes, { sheets: ['Log'] })[0].rows.length, 300, 'the full read has every set: header + 39 + 260 ' + JSON.stringify(dim));
+  });
+});
 test('imports: a size tag of a million rows, a stray cell in the last row, a merge down a million rows cost nothing; past 200,000 rows a tab is cut', () => {
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps'], ['2026-03-02', 'Squat', 180, 5], ['2026-03-04', 'Bench', 120, 5]]), 'Log');
   const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
