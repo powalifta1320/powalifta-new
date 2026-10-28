@@ -21,7 +21,7 @@
 -- The app copes before this runs: db.js drops push_alerts from a save and says the switch isn't on
 -- yet; send-push fails open (sends) without the column; send-weekly-digest's coach jobs need
 -- coach_week_stats and report "run the migration" without touching the lifters' digest.
--- STATUS-check.sql row 50.
+-- STATUS-check.sql row 53.
 begin;
 
 do $$

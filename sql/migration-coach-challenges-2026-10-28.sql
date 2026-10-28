@@ -185,7 +185,8 @@ begin
   new.updated_at := now();
   return new;
 end $$;
-revoke all on function public.challenge_entries_guard() from public, anon;
+-- A trigger function only: nobody calls it through the API (triggers fire without EXECUTE).
+revoke all on function public.challenge_entries_guard() from public, anon, authenticated;
 drop trigger if exists trg_challenge_entries_guard on public.challenge_entries;
 create trigger trg_challenge_entries_guard before insert or update on public.challenge_entries
   for each row execute function public.challenge_entries_guard();
