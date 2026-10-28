@@ -2830,6 +2830,7 @@ function buildPbExercise(prog, athleteId, wk, day, di, ex, ei) {
       if (exMain && live.length) {
         const lb = el('button', { class: 'uniform-toggle', type: 'button', title: allPct ? 'Write loads as a weight' : 'Write loads as % of their max' }, allPct ? '%' : u);
         lb.addEventListener('click', () => setExerciseRx(activeWeekIdx, di, ei, s => {
+          delete s.pctFeel;   // the app editor's By feel mark (coach-program.js cpModePatch) is its own switch's, never this one's
           if (allPct) { delete s.pct; delete s.pctHi; return; }   // the loads (and a range's top) stay as weights
           const pct = s.pct != null ? s.pct : (exMax && s.weight ? Math.round(s.weight / exMax * 100) : 75);
           s.pct = pct;
@@ -3966,7 +3967,7 @@ function setBlockField(wi, di, ei, startIdx, count, field, val) {
 }
 
 // Several prescription fields at once on a block: { pct, weight, rpe, rpeHi, rir }. null clears an
-// optional one (pct, rpeHi, rir) and blanks rpe. Re-renders only when asked (not mid-typing).
+// optional one (pct, rpeHi, rir, pctFeel: the app's kg/% switch) and blanks rpe. Re-renders only when asked (not mid-typing).
 function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => {
@@ -3976,7 +3977,7 @@ function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
     for (let i = startIdx; i < startIdx + count && i < sets.length; i++) {
       Object.keys(patchObj).forEach(k => {
         const v = patchObj[k];
-        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir' || k === 'pctHi' || k === 'weightHi')) delete sets[i][k];
+        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir' || k === 'pctHi' || k === 'weightHi' || k === 'pctFeel')) delete sets[i][k];
         else sets[i][k] = v;
       });
     }
