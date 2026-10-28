@@ -356,6 +356,14 @@ let user;
 // ?tab=program opens that screen inside the demo's synchronous first render (TDZ otherwise).
 let _fpWeek = null;
 const _fpOpen = new Set();
+// The same for the self-coached builder's week (?demo=1&solo=1&tab=program) and the marketplace's state
+// (?tab=marketplace): both screens can draw in that first render.
+let _selfBuilderActiveWeek = 0;
+let _marketplaceCache = null;
+let _marketplaceStats = {};   // programId → { avg, count } for rating badges
+let _marketplaceDetailId = null;
+let _athMktPage = 1;
+const ATH_MKT_PER_PAGE = 6;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
 // Declared up here because the first render runs inside bootstrap (TDZ).
 const _feltRpe = {};
@@ -8056,11 +8064,8 @@ window.maybeShowPurchaseToast = maybeShowPurchaseToast;
 // Lists all published programs with category filter + search.
 // Click a program → opens detail with Buy button. Buy → LS checkout.
 // =========================================================
-let _marketplaceCache = null;
-let _marketplaceStats = {};   // programId → { avg, count } for rating badges
-let _marketplaceDetailId = null;
-let _athMktPage = 1;
-const ATH_MKT_PER_PAGE = 6;
+// (Its state, _marketplaceCache, _marketplaceStats, _marketplaceDetailId, _athMktPage and ATH_MKT_PER_PAGE,
+// is declared next to `let user`: ?tab=marketplace draws this inside the demo's first render.)
 
 async function renderMarketplace() {
   if (!_marketplaceCache) {
@@ -8256,7 +8261,7 @@ window.buyMarketplaceProgram = buyMarketplaceProgram;
 // SELF-COACHED PROGRAM BUILDER
 // Streamlined version of the coach builder, scoped to the athlete's own program.
 // =========================================================
-let _selfBuilderActiveWeek = 0;
+// (_selfBuilderActiveWeek is declared next to `let user`: ?tab=program draws this in the demo's first render.)
 
 function getOrCreateSelfProgram() {
   let prog = getProgram();
