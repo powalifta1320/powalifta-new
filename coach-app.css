@@ -1,40 +1,122 @@
 /* coach-app.css: the iPhone app's coach screens (2026-10-28): Home, Lifters, a lifter, Programs
    (coach-app.js, coach-program.js). Loaded after coach-ui.css; every rule is under html:not(.desk), so the
    laptop desk never matches one, and on the ca- / cp- classes those screens draw.
-   The system (the vault's Coach UI spec, next to the lifter app):
-     type   13 caption · 15 secondary · 17 row and card titles · 20 section titles · 22 stat numbers ·
-            28 a lifter's name · 32 the large title (the app's) · 44 the hero number. Weights 400/600/700/800.
-     space  4-point: 4 8 12 16 24 32. Card padding 16, the gutter 16, 32 between sections, 12 under a title.
-     shape  cards 20 · rows and tiles inside 14 · controls 12 · buttons and chips are pills.
-     colour ink and graphite; the tab's accent lights its hero (neutral on the red tabs, where red is kept
-            for the one action); links are ink; icon chips graphite (Meets keeps gold: a date coming);
-            lift colours only on lift data; status (ok, warn, coral) only as a dot, a ring or its line.
-     motion 140 ms presses at .97, entrances 320 ms with a 40 ms stagger from opacity .45 (iOS drops a tap
-            on content rising from 0), cubic-bezier(.23, 1, .32, 1); none of it under reduced motion. */
+
+   PLATES (take, 28 Oct): the coach reads the roster the way a loader reads a bar.
+     colour   from the calibrated plates, and only as function. A lifter's state is a plate family: pain the
+              25's red, the meet the 15's yellow (gold), on plan or under the bar the 10's green, effort over
+              the felt scale's amber, everything routine steel. A family shows as a lip (the ring round a
+              face), a mark (a dot, a glyph on its 15% chip) and a light (a pool of at most 13% from a card's
+              top corner, its hairline tinted): never as paint on a fill, a word or a number. A card is lit by
+              the one thing it is about: the job's family, the lifter's trend, the day's or the set's lift
+              (the lifter app's NOW card does the same with its lift). Lift colours stay on lift data.
+     depth    plates on a sleeve: three heights and one key light from above. L1 inset (rows, chips, fields:
+              a fill, no edge), L2 surface (a card: lit top edge, hairline, no shadow), L3 object (the one
+              thing on a screen that is the answer: a step lighter, a lit lip, a contact and a cast shadow).
+              One L3 a screen: Home's job, a lifter's e1RM, the day being written, the top set being set.
+     type     Archivo; the answer is a numeral: 64 for the one hero number (width 112, weight 800, tracking
+              -0.04em), 22 for stats and steppers (tabular), units small, lowercase, in steel. Words on the
+              coach scale 13 · 15 · 17 · 20 · 28 · 32.
+     red      one machined red a screen (#dc2637 to #c41a2c: its white label clears 4.5:1, the brighter fire
+              didn't). Glows, washes and coloured shadows: none.
+     motion   a critically damped spring (k 260, c 33: no overshoot, ever) as a linear() curve, the same
+              shape at three weights: press 380 ms, state 560 ms, heavy 740 ms (90% of the travel lands in
+              170 / 250 / 335 ms). Entrances rise from opacity .45 (iOS drops a tap on content rising from
+              0), heaviest first. Transform and opacity only. Reduced motion: no travel, a short fade. */
 
 html:not(.desk) body.powa-app {
   --ca-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --pl-spring: var(--ca-ease);
+  --pl-d-press: 200ms;
+  --pl-d-state: 340ms;
+  --pl-d-heavy: 440ms;
+  /* the three heights */
   --ca-card: var(--bg-1);
-  --ca-edge: var(--edge, rgba(255, 255, 255, 0.075));
-  --ca-press: color-mix(in srgb, var(--acc) 12%, var(--bg-2));
-  --ca-tint: color-mix(in srgb, var(--acc) 82%, var(--text));
-  --ca-hair: var(--hair, rgba(255, 255, 255, 0.07));
-  --ca-live: #34d982;
-  --ca-warn: #ffb35c;
-  --ca-pain: #ff8f80;
+  --ca-edge: rgba(255, 255, 255, 0.07);
+  --pl-lip: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --pl-obj: #131316;
+  --pl-obj-edge: rgba(255, 255, 255, 0.1);
+  --pl-obj-shade: inset 0 1px 0 rgba(255, 255, 255, 0.085), 0 2px 4px rgba(0, 0, 0, 0.45), 0 18px 36px -14px rgba(0, 0, 0, 0.82);
+  --pl-inset: rgba(255, 255, 255, 0.045);
+  --pl-inset-2: rgba(255, 255, 255, 0.075);
+  --pl-raise: #1f1f23;
+  --pl-raise-shade: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --pl-light: 13%;
+  --pl-light-edge: 24%;
+  --pl-red: linear-gradient(180deg, #dc2637 0%, #c41a2c 100%);
+  --ca-press: var(--pl-inset-2);
+  --ca-tint: var(--text-2);
+  --ca-hair: rgba(255, 255, 255, 0.07);
+  /* the plate families: marks (dark) */
+  --ca-pain: #ff6f7d;
+  --ca-warn: #ff9f43;
   --ca-gold: #f2c25b;
+  --ca-live: #34d982;
   --ca-up: #34d982;
+  --ca-msg: #34e08c;
+  --pf: var(--text-3);
+  --pfl: #c9ced6;
 }
-html:not(.desk) body.powa-app[data-accent="fire"] { --ca-tint: var(--text-2); --ca-press: var(--bg-2); }
+@supports (transition-timing-function: linear(0, 1)) {
+  html:not(.desk) body.powa-app {
+    /* k 260, c 33, mass 1 (zeta 1.02): one shape, timed per weight. tools/spring.mjs */
+    --pl-spring: linear(0, 0.0015 0.6%, 0.0127 1.9%, 0.042 3.6%, 0.0932 5.7%, 0.1653 8.1%, 0.2538 10.9%, 0.3521 13.9%, 0.4532 17.2%, 0.5508 20.8%, 0.6405 24.6%, 0.7192 28.7%, 0.7857 33%, 0.84 37.5%, 0.883 42.2%, 0.9161 47.1%, 0.941 52.3%, 0.9592 57.6%, 0.9723 63.1%, 0.9814 68.8%, 0.9878 74.7%, 0.9921 80.8%, 0.9949 87%, 0.9968 93.4%, 1);
+    --pl-d-press: 380ms;
+    --pl-d-state: 560ms;
+    --pl-d-heavy: 740ms;
+  }
+}
 html[data-theme="light"]:not(.desk) body.powa-app {
-  --ca-tint: color-mix(in srgb, var(--acc) 40%, #16161a);
-  --ca-live: #0f9f5a;
-  --ca-warn: #b25e00;
-  --ca-pain: #c2412f;
-  --ca-gold: #8a6300;
-  --ca-up: #0c7a45;
+  --ca-card: #ffffff;
+  --ca-edge: rgba(15, 15, 25, 0.075);
+  --pl-lip: 0 1px 2px rgba(15, 15, 25, 0.05);
+  --pl-obj: #ffffff;
+  --pl-obj-edge: rgba(15, 15, 25, 0.08);
+  --pl-obj-shade: 0 1px 1px rgba(15, 15, 25, 0.05), 0 3px 8px -3px rgba(15, 15, 25, 0.08), 0 18px 34px -16px rgba(15, 15, 25, 0.28);
+  --pl-inset: rgba(15, 15, 25, 0.045);
+  --pl-inset-2: rgba(15, 15, 25, 0.075);
+  --pl-raise: #ffffff;
+  --pl-raise-shade: 0 1px 3px rgba(15, 15, 25, 0.14), 0 0 0 0.5px rgba(15, 15, 25, 0.06);
+  --pl-light: 8%;
+  --pl-light-edge: 26%;
+  --ca-press: rgba(15, 15, 25, 0.06);
+  --ca-hair: rgba(15, 15, 25, 0.08);
+  --ca-pain: #c4162a;
+  --ca-warn: #b4410c;
+  --ca-gold: #8a5d00;
+  --ca-live: #0f7d47;
+  --ca-up: #0f7d47;
+  --ca-msg: #0c7a45;
+  --pfl: #9aa1ad;
 }
-html[data-theme="light"]:not(.desk) body.powa-app[data-accent="fire"] { --ca-tint: var(--text-2); --ca-press: rgba(15, 15, 25, 0.05); }
+
+/* ---------------------------------------------------------------- the plate families */
+/* --pf: the mark (a ring, a dot, a glyph), deepened in light so it reads; --pfl: the light (always the bright
+   paint: a deep brown pool on white reads as dirt). */
+html:not(.desk) .pf-alert, html:not(.desk) :is(.ca-focal, .ca-flag).tone-pain { --pf: var(--ca-pain); --pfl: #ff5468; }
+html:not(.desk) .pf-watch, html:not(.desk) :is(.ca-focal, .ca-flag).tone-warn, html:not(.desk) .pf-down { --pf: var(--ca-warn); --pfl: #ff9f43; }
+html:not(.desk) .pf-meet, html:not(.desk) :is(.ca-focal, .ca-flag):is(.tone-meet, .tone-bw) { --pf: var(--ca-gold); --pfl: #f2c25b; }
+html:not(.desk) :is(.pf-live, .pf-up) { --pf: var(--ca-live); --pfl: #34d982; }
+html:not(.desk) .pf-msg, html:not(.desk) :is(.ca-focal, .ca-flag).tone-msg { --pf: var(--ca-msg); --pfl: #34e08c; }
+html:not(.desk) .pf-steel, html:not(.desk) :is(.ca-focal, .ca-flag):is(.tone-quiet, .tone-write) { --pf: var(--text-3); --pfl: #c9ced6; }
+html[data-theme="light"]:not(.desk) :is(.pf-steel, .ca-focal.tone-quiet, .ca-focal.tone-write, .ca-flag.tone-quiet, .ca-flag.tone-write) { --pfl: #9aa1ad; }
+/* a card lit by its lift: the day being written, the set being set, a lift's own tile */
+html:not(.desk) :is(.cp-daycard, .cp-blk.is-top)[class*="lift-"] { --pfl: var(--lc); }
+
+/* the three heights, as one recipe each */
+html:not(.desk) :is(.ca-list, .ca-tile, .ca-empty, .cp-hero, .ca-lead) {
+  background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip);
+}
+html:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard) {
+  background:
+    radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--pfl) var(--pl-light), transparent) 0%, transparent 58%),
+    var(--pl-obj);
+  border: 1px solid color-mix(in srgb, var(--pfl) var(--pl-light-edge), var(--pl-obj-edge));
+  border-radius: 20px; box-shadow: var(--pl-obj-shade);
+}
+/* routine (steel) and pain lights are quieter: a red-lit card beside the red action reads as an alarm */
+html:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard):is(.pf-steel, .tone-quiet, .tone-write, .pf-alert, .tone-pain) { --pl-light: 7%; }
+html[data-theme="light"]:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard):is(.pf-steel, .tone-quiet, .tone-write, .pf-alert, .tone-pain) { --pl-light: 5%; }
 
 /* ---------------------------------------------------------------- shared pieces */
 html:not(.desk) .ca-root { display: flex; flex-direction: column; min-width: 0; }
@@ -42,72 +124,54 @@ html:not(.desk) .ca-root button { font: inherit; color: inherit; -webkit-tap-hig
 html:not(.desk) .ca-root :focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: 2px; }
 html:not(.desk) .ca-sec { display: flex; flex-direction: column; margin-top: 32px; min-width: 0; }
 html:not(.desk) .ca-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 4px 12px; min-height: 28px; }
-html:not(.desk) .ca-h h2 { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; color: var(--text); }
+html:not(.desk) .ca-h h2 { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); }
 html:not(.desk) .ca-h-end { position: relative; min-height: 44px; margin: -8px -4px; border: 0; background: none; padding: 0 4px; color: var(--text) !important; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) .ca-h-end::after { content: ''; position: absolute; inset: 0 -8px; }
 html:not(.desk) .ca-h-end:active { opacity: 0.6; }
-html:not(.desk) .ca-h3 { margin: 28px 4px 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; color: var(--text); }
+html:not(.desk) .ca-h3 { margin: 28px 4px 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
 html:not(.desk) .ca-h3:first-child { margin-top: 4px; }
 
-/* the one card material: a hairline edge, a lit top edge, no glow */
-html:not(.desk) :is(.ca-lead, .ca-list, .ca-tile, .ca-rowcard, .ca-flag, .ca-empty) {
-  background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--lit, inset 0 1px 0 rgba(255, 255, 255, 0.055));
-}
-html[data-theme="light"]:not(.desk) :is(.ca-lead, .ca-list, .ca-tile, .ca-rowcard, .ca-flag, .ca-empty) { box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05); }
+/* L2 on the cards that were drawn as one material: the flag sits on the ground (its own rule below) */
+html:not(.desk) :is(.ca-rowcard, .ca-flag) { border-radius: 20px; }
 html:not(.desk) .ca-list { overflow: hidden; display: flex; flex-direction: column; }
 
-/* the hero: the screen's accent as a soft corner light (the lifter app's .ui-hero anatomy) */
-html:not(.desk) :is(.ca-hero, .ca-ov) {
-  position: relative; overflow: hidden; border-radius: 20px;
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--acc) 12%, transparent) 0%, transparent 56%), var(--ca-card);
-  border: 1px solid color-mix(in srgb, var(--acc) 16%, var(--ca-edge));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-html[data-theme="light"]:not(.desk) :is(.ca-hero, .ca-ov) {
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--acc) 8%, transparent) 0%, transparent 56%), var(--ca-card);
-  border-color: color-mix(in srgb, var(--acc) 18%, var(--ca-edge)); box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05);
-}
+/* Home's summary: the platform the work sits on. A surface, lit only by the screen's own light above it. */
+html:not(.desk) .ca-hero { position: relative; overflow: hidden; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+html:not(.desk) .ca-ov { position: relative; overflow: hidden; }
 
-/* On the red tabs (Lifters, a lifter) the hero's light is neutral: a red-lit card reads as an alarm and
-   competes with the one red action. */
-html:not(.desk) body.powa-app[data-accent="fire"] :is(.ca-hero, .ca-ov, .ca-seg.is-hero) {
-  background: radial-gradient(120% 140% at 0% 0%, rgba(255, 255, 255, 0.045) 0%, transparent 56%), var(--ca-card); border-color: var(--ca-edge);
-}
-html[data-theme="light"]:not(.desk) body.powa-app[data-accent="fire"] :is(.ca-hero, .ca-ov, .ca-seg.is-hero) { background: var(--ca-card); border-color: var(--ca-edge); }
-
-/* buttons: the red (one a screen), graphite, and the small graphite pill at a row's end */
+/* buttons: the machined red (one a screen), the graphite, and the small graphite pill at a row's end */
 html:not(.desk) .ca-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 20px;
-  border: 0; border-radius: 999px; font-size: 17px !important; font-weight: 600; letter-spacing: -0.005em; cursor: pointer;
-  transition: transform 140ms var(--ca-ease), filter 140ms ease-out, background-color 150ms ease-out;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 20px;
+  border: 0; border-radius: 999px; font-size: 17px !important; font-weight: 650; letter-spacing: -0.01em; cursor: pointer;
+  transition: transform var(--pl-d-press) var(--pl-spring), filter 160ms ease-out, background-color 160ms ease-out;
 }
 html:not(.desk) .ca-btn svg { width: 20px; height: 20px; flex: none; }
-html:not(.desk) .ca-btn.is-red { background: var(--fire); color: #fff !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
-html:not(.desk) .ca-btn.is-soft { background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text) !important; }
-html:not(.desk) .ca-btn:active { transform: scale(0.97); }
-html:not(.desk) .ca-btn.is-red:active { filter: brightness(0.94); }
+html:not(.desk) .ca-btn.is-red { background: var(--pl-red); color: #fff !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) .ca-btn.is-soft { background: var(--pl-inset-2); color: var(--text) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+html[data-theme="light"]:not(.desk) .ca-btn.is-soft { box-shadow: none; }
+html:not(.desk) .ca-btn:active { transform: scale(0.97); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .ca-btn.is-red:active { filter: brightness(0.92); }
 html:not(.desk) .ca-btn.is-soft:active { background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
 html:not(.desk) .ca-btn[aria-busy="true"] { opacity: 0.6; pointer-events: none; }
 html:not(.desk) .ca-pill {
   position: relative; flex: none; display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
-  background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer;
-  transition: transform 140ms var(--ca-ease), background-color 150ms ease-out;
+  background: var(--pl-inset-2); color: var(--text) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out;
 }
 html:not(.desk) .ca-pill::after { content: ''; position: absolute; inset: -4px -4px; }
-html:not(.desk) .ca-pill:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
+html:not(.desk) .ca-pill:active { transform: scale(0.95); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-link { position: relative; display: inline-block; align-self: flex-start; min-height: 40px; margin: -8px 0 -10px; border: 0; background: none; padding: 0; color: var(--text) !important; font-size: 15px !important; font-weight: 600; cursor: pointer; }
 html:not(.desk) .ca-link::after { content: ''; position: absolute; inset: 0 -8px; }
 
-/* icon chips: the destination's hue at 15% behind its glyph */
+/* icon chips: a glyph on 15% of its own hue (graphite unless the hue has a job: a meet, a done step) */
 html:not(.desk) .ca-tic { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--th, var(--text-2)); background: color-mix(in srgb, var(--th, var(--text-2)) 15%, transparent); }
 html:not(.desk) .ca-tic svg { width: 18px; height: 18px; }
-/* graphite, one family: six hues on one screen was a rainbow. Meets keeps its gold (a date is coming);
-   a tile's status speaks in its own line (overdue, to look at), not in the chip. */
 html:not(.desk) :is(.t-club, .t-clients, .t-you, .t-checkins, .t-msg, .t-tpl, .t-prog, .t-report, .t-neutral, .t-step) { --th: var(--text-2); }
 html:not(.desk) .t-meet { --th: var(--ca-gold); }
 html:not(.desk) .t-done { --th: var(--ca-live); }
 
-/* faces: an avatar inside its week ring, the live dot at its shoulder */
+/* faces: an avatar inside its week ring. The ring is the lifter's lip: its filled segments (sessions this
+   week) take their plate family; on plan they stay ink. The live dot sits still at the shoulder. */
 html:not(.desk) .ca-av { font-weight: 800; letter-spacing: -0.01em; }
 html:not(.desk) .ca-av.is-44 { width: 44px; height: 44px; font-size: 15px; }
 html:not(.desk) .ca-av.is-40 { width: 40px; height: 40px; font-size: 15px; }
@@ -119,68 +183,98 @@ html:not(.desk) .ca-face.is-f52 .ca-av { font-size: 15px; }
 html:not(.desk) .ca-face.is-f64 .ca-av { font-size: 17px; }
 html:not(.desk) .ca-face.is-big .ca-av { width: calc(var(--fs) - 18px); height: calc(var(--fs) - 18px); font-size: 28px; }
 html:not(.desk) .ca-ring circle { fill: none; stroke-linecap: round; }
-html:not(.desk) .ca-ring-track { stroke: var(--fill-4, rgba(255, 255, 255, 0.14)); }
-html:not(.desk) .ca-ring-track.is-behind { stroke: color-mix(in srgb, var(--ca-warn) 62%, transparent); }
+html:not(.desk) .ca-ring-track { stroke: var(--pl-inset-2); }
+html:not(.desk) .ca-ring-track.is-behind { stroke: color-mix(in srgb, var(--ca-warn) 34%, transparent); }
 html:not(.desk) .ca-ring-fill { stroke: color-mix(in srgb, var(--text) 88%, transparent); }
-html:not(.desk) .ca-ring-none { stroke: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html:not(.desk) .ca-face[class*="pf-"] .ca-ring-fill { stroke: var(--pf); }
+html:not(.desk) .ca-ring-none { stroke: var(--pl-inset-2); }
+html:not(.desk) .ca-face[class*="pf-"] .ca-ring-none { stroke: color-mix(in srgb, var(--pf) 70%, transparent); }
 html:not(.desk) .ca-live {
   position: absolute; right: calc(var(--fs) * 0.11); bottom: calc(var(--fs) * 0.11); width: 13px; height: 13px; border-radius: 50%;
   background: var(--ca-live); box-shadow: 0 0 0 2.5px var(--bg);
 }
 html:not(.desk) .ca-face.is-big .ca-live { width: 18px; height: 18px; right: 10px; bottom: 10px; box-shadow: 0 0 0 3px var(--bg); }
+/* a face without a ring (Home's job, a job row) wears its lip as a 2 pt ring 2 pt out */
+html:not(.desk) .ca-av.pl-lip { outline: 2px solid var(--pf); outline-offset: 2px; }
 
 /* the header's search: a 36 pt circle like the assistant and the bell, a 44 pt target */
 html:not(.desk) body.powa-app .ca-hbtn {
   position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07); color: var(--text-2); cursor: pointer; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
+  background: rgba(255, 255, 255, 0.07); color: var(--text-2); cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out, color 150ms ease-out;
 }
 html[data-theme="light"]:not(.desk) body.powa-app .ca-hbtn { background: rgba(15, 15, 25, 0.07); }
 html:not(.desk) body.powa-app .ca-hbtn svg { width: 19px; height: 19px; }
 html:not(.desk) body.powa-app .ca-hbtn::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
-html:not(.desk) body.powa-app .ca-hbtn:active { transform: scale(0.92); color: var(--text); }
+html:not(.desk) body.powa-app .ca-hbtn:active { transform: scale(0.92); color: var(--text); transition-duration: 90ms; }
+
+/* the screen's own light: at most 9% at the top (the lifter app's warm light, quieter), and on a lifter's
+   page the light is theirs: their plate family, so the page reads in it before a word is read */
+html:not([data-theme="light"]):not(.desk) body.powa-app:is([data-screen="home"], [data-screen="athletes"], [data-screen="program"], [data-screen="lifter"]) .dash-shell::before {
+  height: 380px; background: radial-gradient(75% 60% at 50% -14%, color-mix(in srgb, var(--acc) 9%, transparent), transparent 72%);
+}
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-screen="lifter"] .dash-shell::before { background: radial-gradient(75% 60% at 50% -14%, rgba(255, 255, 255, 0.045), transparent 72%); }
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-screen="lifter"]:is([data-pf="meet"], [data-pf="alert"], [data-pf="watch"], [data-pf="live"]) .dash-shell::before {
+  background: radial-gradient(75% 60% at 50% -14%, color-mix(in srgb, var(--pfl) 13%, transparent), transparent 72%);
+}
+html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="meet"] { --pfl: #f2c25b; }
+html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="alert"] { --pfl: #ff5468; }
+html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="watch"] { --pfl: #ff9f43; }
+html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="live"] { --pfl: #34d982; }
 
 /* =================================================================== HOME */
 html:not(.desk) .ca-home { padding-top: 4px; }
-html:not(.desk) .ca-hero { padding: 20px 20px 0; }
+html:not(.desk) .ca-hero { padding: 18px 20px 0; }
+/* Home's summary lies on the ground, under the screen's light: the answer in type, not another box, so the
+   job below is the one thing lifted off it. (The first run's welcome and the skeleton keep their card.) */
+html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) { padding: 2px 4px 0; background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; }
+html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stats { margin: 16px 0 0; border-top: 0; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stat { padding: 12px 16px 13px; }
+html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stat.is-btn:first-child { border-radius: 16px 0 0 16px; }
+html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stat.is-btn:last-child { border-radius: 0 16px 16px 0; }
+html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) + .ca-sec.is-deck { margin-top: 20px; }
 html:not(.desk) .ca-hero-hi { margin: 0; font-size: 15px; font-weight: 600; color: var(--ca-tint); }
-html:not(.desk) .ca-hero-head { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; min-height: 48px; }
-html:not(.desk) .ca-big { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--text); }
-html:not(.desk) .ca-big-w { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; color: var(--text); }
-html:not(.desk) .ca-big-w.is-clear { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+html:not(.desk) .ca-hero-head { display: flex; align-items: baseline; gap: 12px; margin-top: 10px; min-height: 58px; }
+/* the answer: how many need you, set like a plate's printed numeral */
+html:not(.desk) .ca-big { font-family: var(--font-num); font-stretch: 112%; font-size: 64px; font-weight: 800; line-height: 0.9; letter-spacing: -0.04em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-big-w { font-size: 22px; font-weight: 700; letter-spacing: -0.018em; color: var(--text); }
+html:not(.desk) .ca-big-w.is-clear { font-size: 28px; font-weight: 800; letter-spacing: -0.024em; }
 html:not(.desk) .ca-big-ok { align-self: center; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--ca-live) 18%, transparent); color: var(--ca-live); }
 html:not(.desk) .ca-big-ok svg { width: 20px; height: 20px; }
 html:not(.desk) .ca-hero-sub { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); max-width: 42ch; }
 html:not(.desk) .ca-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px -20px 0; border-top: 1px solid var(--ca-hair); }
-html:not(.desk) .ca-stat { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 20px 16px; border: 0; background: none; text-align: left; min-width: 0; }
+html:not(.desk) .ca-stat { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px 20px 16px; border: 0; background: none; text-align: left; min-width: 0; }
 html:not(.desk) .ca-stat + .ca-stat::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 16px; width: 1px; background: var(--ca-hair); }
-html:not(.desk) .ca-stat b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
-html:not(.desk) .ca-stat b small { font-size: 15px; font-weight: 700; color: var(--text-3); letter-spacing: 0; margin-left: 1px; }
+html:not(.desk) .ca-stat b { font-family: var(--font-num); font-stretch: 108%; font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.024em; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-stat b small { font-size: 15px; font-weight: 650; color: var(--text-3); letter-spacing: 0; margin-left: 1px; }
 html:not(.desk) .ca-stat span { font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) .ca-stat.is-btn { cursor: pointer; transition: background-color 140ms ease-out; }
 html:not(.desk) .ca-stat.is-btn:active { background: var(--ca-press); }
 
-/* Needs you: the one big job open on the page (a bigger face, the job as a sentence, the red), then the
-   next two as a plain list on the background (no box around them), "See all" last. */
-html:not(.desk) .ca-focal { display: flex; flex-direction: column; gap: 16px; padding: 4px 4px 0; }
+/* Needs you: the worst job is the one object on Home, lifted off the ground and lit by its family, with the
+   screen's red; the next two lie on the ground as plain rows, "See all" last. */
+html:not(.desk) .ca-focal { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
 html:not(.desk) .ca-focal-main { position: relative; display: flex; align-items: center; gap: 16px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 16px; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-focal-main::after { content: ''; position: absolute; inset: -16px -16px -8px; border-radius: 20px 20px 0 0; }
 html:not(.desk) .ca-focal-main:active { opacity: 0.7; }
 html:not(.desk) .ca-av.is-56 { width: 56px; height: 56px; font-size: 20px; }
 html:not(.desk) .ca-stack { position: relative; flex: none; width: 56px; height: 56px; }
-html:not(.desk) .ca-stack .ca-av { position: absolute; top: 0; left: 0; width: 38px; height: 38px; font-size: 13px; box-shadow: 0 0 0 2.5px var(--bg); }
+html:not(.desk) .ca-stack .ca-av { position: absolute; top: 0; left: 0; width: 38px; height: 38px; font-size: 13px; box-shadow: 0 0 0 2.5px var(--pl-obj); }
 html:not(.desk) .ca-stack .ca-av + .ca-av { top: auto; left: auto; right: 0; bottom: 0; }
 html:not(.desk) .ca-focal-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-html:not(.desk) .ca-focal-t { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; color: var(--text); text-wrap: balance; margin-bottom: 2px; }
+html:not(.desk) .ca-focal-t { font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); text-wrap: balance; margin-bottom: 2px; }
 html:not(.desk) .ca-focal-n { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.35; }
 html:not(.desk) .ca-focal-d { font-size: 15px; line-height: 1.35; color: var(--text-2); text-wrap: pretty; }
-html:not(.desk) .ca-focal + .ca-plain { margin-top: 20px; }
+html:not(.desk) .ca-focal .ca-btn { position: relative; z-index: 1; }
+html:not(.desk) .ca-focal + .ca-plain { margin-top: 12px; }
 html:not(.desk) .ca-plain { position: relative; display: flex; flex-direction: column; }
 html:not(.desk) .ca-plain::before { content: ''; position: absolute; top: 0; left: 4px; right: 4px; height: 1px; background: var(--ca-hair); }
+html:not(.desk) .ca-focal + .ca-plain::before { display: none; }
 html:not(.desk) .ca-plain .ca-jrow { padding-left: 4px; padding-right: 4px; border-radius: 14px; }
-html:not(.desk) .ca-plain .ca-jrow + .ca-jrow::before { left: 56px; right: 4px; }
+html:not(.desk) .ca-plain .ca-jrow + .ca-jrow::before { left: 60px; right: 4px; }
 html:not(.desk) .ca-plain .ca-more { padding: 0 4px; border-radius: 14px; }
 html:not(.desk) .ca-plain .ca-jrow + .ca-more::before { left: 4px; right: 4px; }
 
-/* Needs you: one big card with the red, then rows with their fix at the end */
+/* Needs you as one card with rows (the older lead card, kept for its hooks) */
 html:not(.desk) .ca-lead { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
 html:not(.desk) .ca-lead-main { position: relative; display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
 html:not(.desk) .ca-lead-main::after { content: ''; position: absolute; inset: -16px -16px -6px; border-radius: 20px 20px 0 0; }
@@ -202,60 +296,75 @@ html:not(.desk) .ca-jrow-n { font-size: 17px; font-weight: 600; letter-spacing: 
 html:not(.desk) .ca-jrow-t { font-size: 15px; line-height: 1.35; color: var(--text-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
 html:not(.desk) .ca-jrow:has(> .ca-jrow-main:active) { background: var(--ca-press); }
 html:not(.desk) .ca-jrow:has(> .ca-jrow-main:active)::before, html:not(.desk) .ca-jrow:has(> .ca-jrow-main:active) + .ca-jrow::before { opacity: 0; }
-html:not(.desk) .ca-vplay { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 6px; border-radius: 50%; vertical-align: -3px; color: #34e08c; background: color-mix(in srgb, #34e08c 16%, transparent); }
+html:not(.desk) .ca-vplay { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 6px; border-radius: 50%; vertical-align: -3px; color: var(--ca-msg); background: color-mix(in srgb, var(--ca-msg) 16%, transparent); }
 html:not(.desk) .ca-vplay svg { width: 8px; height: 8px; margin-left: 1px; fill: currentColor; stroke: none; }
 
 html:not(.desk) .ca-sec.is-deck { margin-top: 12px; }
 html:not(.desk) .ca-more { position: relative; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 50px; padding: 0 14px 0 16px; border: 0; background: none; color: var(--text) !important; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: background-color 140ms ease-out; }
-html:not(.desk) .ca-more svg { width: 16px; height: 16px; }
+html:not(.desk) .ca-more svg { width: 16px; height: 16px; color: var(--text-3); }
 html:not(.desk) .ca-jrow + .ca-more::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--ca-hair); }
 html:not(.desk) .ca-more:active { background: var(--ca-press); }
 
-/* Your lifters: faces in a row that scrolls past the edge */
+/* Your lifters: every face on the rack, each in its lip, past the edge */
 html:not(.desk) .ca-faces {
   display: flex; gap: 6px; margin: 0 -16px; padding: 2px 12px 4px; overflow-x: auto; overscroll-behavior-x: contain;
   scroll-padding: 0 12px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
 html:not(.desk) .ca-faces::-webkit-scrollbar { display: none; }
-html:not(.desk) .ca-fb { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 76px; padding: 4px 0 6px; border: 0; border-radius: 16px; background: none; cursor: pointer; transition: transform 140ms var(--ca-ease), background-color 140ms ease-out; }
-html:not(.desk) .ca-fb:active { transform: scale(0.95); }
+html:not(.desk) .ca-fb { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 76px; padding: 4px 0 6px; border: 0; border-radius: 16px; background: none; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
+html:not(.desk) .ca-fb:active { transform: scale(0.94); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-fb-n { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text-2); }
-html:not(.desk) .ca-fb-more { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.06)); font-family: var(--font-num); font-size: 17px; font-weight: 700; color: var(--text-2); }
+html:not(.desk) .ca-fb-more { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--pl-inset); font-family: var(--font-num); font-size: 17px; font-weight: 700; color: var(--text-2); }
 
-/* Coaching: tiles of three sizes, each with its one number */
+/* Coaching: tiles of three weights. The meet is a surface lit gold (a date is coming); Clients and Check-ins
+   are surfaces; the three small ones are insets, a step quieter, so the grid isn't one card six times. */
 html:not(.desk) .ca-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
 html:not(.desk) .ca-tile {
   grid-column: span 3; position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0; min-height: 124px;
-  padding: 14px 14px 14px 16px; text-align: left; cursor: pointer; transition: transform 140ms var(--ca-ease), background-color 140ms ease-out;
+  padding: 14px 14px 14px 16px; text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out;
 }
-html:not(.desk) .ca-tile:active { transform: scale(0.97); background: var(--ca-press); }
+html:not(.desk) .ca-tile:active { transform: scale(0.97); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-tile .ca-tl { margin-top: 12px; font-size: 15px; font-weight: 600; color: var(--text-2); }
-html:not(.desk) .ca-tile .ca-tv { margin-top: 2px; font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); max-width: 100%; overflow-wrap: anywhere; }
+html:not(.desk) .ca-tile .ca-tv { margin-top: 2px; font-family: var(--font-num); font-stretch: 108%; font-size: 22px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.15; color: var(--text); max-width: 100%; overflow-wrap: anywhere; }
 html:not(.desk) .ca-tile .ca-ts { margin-top: 2px; font-size: 13px; line-height: 1.35; color: var(--text-3); text-wrap: pretty; }
 html:not(.desk) .ca-tile .ca-ts.is-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
 html:not(.desk) .ca-tile.is-wide { grid-column: span 6; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 14px; align-items: center; padding: 16px; }
 html:not(.desk) .ca-tile.is-wide .ca-tic { grid-row: 1 / span 3; width: 48px; height: 48px; border-radius: 14px; align-self: center; }
 html:not(.desk) .ca-tile.is-wide .ca-tic svg { width: 24px; height: 24px; }
 html:not(.desk) .ca-tile.is-wide .ca-tl { margin: 0; }
-html:not(.desk) .ca-tile.is-small { grid-column: span 2; min-height: 0; padding: 14px 12px 14px 14px; }
+html:not(.desk) .ca-tile.t-meet {
+  background: radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, #f2c25b var(--pl-light), transparent) 0%, transparent 60%), var(--ca-card);
+  border-color: color-mix(in srgb, #f2c25b var(--pl-light-edge), var(--ca-edge));
+}
+html:not(.desk) .ca-tile.is-small { grid-column: span 2; min-height: 0; padding: 14px 12px 14px 14px; background: var(--pl-inset); border-color: transparent; box-shadow: none; }
 html:not(.desk) .ca-tile.is-small .ca-tl { margin-top: 12px; font-size: 15px; color: var(--text); }
 html:not(.desk) .ca-tile.is-small .ca-ts { margin-top: 1px; }
+html:not(.desk) .ca-tile.is-small .ca-tic { background: var(--pl-inset-2); }
+html:not(.desk) .ca-tile.is-small:active { background: var(--pl-inset-2); }
 
-/* the report: one row-card */
-html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; text-align: left; cursor: pointer; transition: transform 140ms var(--ca-ease), background-color 140ms ease-out; }
+/* the report: one row on an inset */
+html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; border: 0; background: var(--pl-inset); text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
 html:not(.desk) .ca-rowcard.is-top { margin-top: 12px; }
-html:not(.desk) .ca-rowcard:active { transform: scale(0.985); background: var(--ca-press); }
+html:not(.desk) .ca-rowcard:active { transform: scale(0.985); background: var(--pl-inset-2); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-rowcard > svg { flex: none; width: 18px; height: 18px; color: var(--text-3); }
+html:not(.desk) .ca-rowcard .ca-tic { background: var(--pl-inset-2); }
 html:not(.desk) .ca-rowcard-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 html:not(.desk) .ca-rowcard-t { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 html:not(.desk) .ca-rowcard-s { font-size: 13px; color: var(--text-3); }
 
-/* the first run: a welcome with the invite, the other steps, a sample of what Home becomes */
-html:not(.desk) .ca-welcome { padding-bottom: 20px; }
-html:not(.desk) .ca-welcome-t { margin: 8px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; color: var(--text); text-wrap: balance; }
+/* the first run: the bar is empty but for its first plate (a still with a job: what Home is waiting for),
+   the invite as the red, the other steps, a sample of what Home becomes */
+html:not(.desk) .ca-welcome { padding: 0 20px 20px; }
+html:not(.desk) .pl-still { display: block; margin: 0 -20px 4px; aspect-ratio: 1080 / 480; overflow: hidden; border-radius: 19px 19px 0 0; }
+html:not(.desk) .pl-still img { display: block; width: 100%; height: 100%; object-fit: cover; }
+html:not(.desk) .pl-still .is-light { display: none; }
+html[data-theme="light"]:not(.desk) .pl-still .is-dark { display: none; }
+html[data-theme="light"]:not(.desk) .pl-still .is-light { display: block; }
+html:not(.desk) .ca-welcome:not(:has(.pl-still)) { padding-top: 18px; }
+html:not(.desk) .ca-welcome-t { margin: 8px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
 html:not(.desk) .ca-welcome .ca-btn { margin-top: 20px; }
 html:not(.desk) .ca-sample .ca-list { opacity: 0.86; }
-html:not(.desk) .ca-chip-sample { padding: 4px 10px; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) .ca-chip-sample { padding: 4px 10px; border-radius: 999px; background: var(--pl-inset); font-size: 13px; font-weight: 600; color: var(--text-3); }
 
 /* rows with an icon chip (a lifter's links, the first run's steps) */
 html:not(.desk) .ca-lrow { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 14px 10px 16px; border: 0; background: none; text-align: left; cursor: pointer; transition: background-color 140ms ease-out; }
@@ -278,48 +387,41 @@ html.native[data-theme="light"]:not(.desk) .ca-tbadge { background: #0c7a45; col
 
 /* =================================================================== LIFTERS (the hub) */
 html:not(.desk) .ca-hub { padding-top: 4px; }
-html:not(.desk) .ca-search { display: flex; align-items: center; gap: 10px; height: 44px; margin: 0 0 12px; padding: 0 14px; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-3); }
+html:not(.desk) .ca-search { display: flex; align-items: center; gap: 10px; height: 44px; margin: 0 0 12px; padding: 0 14px; border-radius: 12px; background: var(--pl-inset); color: var(--text-3); }
 html:not(.desk) .ca-search svg { flex: none; width: 18px; height: 18px; }
 html:not(.desk) body.powa-app .ca-search input { flex: 1; min-width: 0; height: 44px; padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--text); font-size: 17px; outline: none; -webkit-appearance: none; appearance: none; }
 html:not(.desk) .ca-search input::placeholder { color: var(--text-3); }
 html:not(.desk) .ca-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
 /* the filters: four counts you tap, Reminders-style (they fit a 375 pt screen, chips didn't) */
-html:not(.desk) .ca-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: 16px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) .ca-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: 16px; background: var(--pl-inset); }
 html:not(.desk) .ca-seg-b {
   display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; min-height: 56px; padding: 7px 2px 8px; border: 0; border-radius: 13px; background: none; cursor: pointer;
-  transition: background-color 180ms ease-out, box-shadow 180ms ease-out, transform 140ms var(--ca-ease);
+  transition: background-color 180ms ease-out, box-shadow 180ms ease-out, transform var(--pl-d-press) var(--pl-spring);
 }
-html:not(.desk) .ca-seg-b b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 20px; font-weight: 800; line-height: 1.15; color: var(--text-2); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-seg-b b { font-family: var(--font-num); font-stretch: 108%; font-size: 20px; font-weight: 800; line-height: 1.15; color: var(--text-2); font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-seg-b span { max-width: 100%; font-size: 13px; font-weight: 600; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html:not(.desk) .ca-seg-b.on { background: var(--bg-3); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
-html[data-theme="light"]:not(.desk) .ca-seg-b.on { background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 40, 0.14); }
+html:not(.desk) .ca-seg-b.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); }
 html:not(.desk) .ca-seg-b.on b { color: var(--text); }
 html:not(.desk) .ca-seg-b.on span { color: var(--text); }
-html:not(.desk) .ca-seg-b:active { transform: scale(0.97); }
+html:not(.desk) .ca-seg-b:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .ca-seg-b:disabled { cursor: default; }
 html:not(.desk) .ca-seg-b:disabled b { color: var(--text-3); opacity: 0.6; }
-html:not(.desk) .ca-seg.is-hero {
-  padding: 4px; border-radius: 20px; gap: 4px;
-  background: radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--acc) 12%, transparent) 0%, transparent 60%), var(--ca-card);
-  border: 1px solid color-mix(in srgb, var(--acc) 16%, var(--ca-edge)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-html[data-theme="light"]:not(.desk) .ca-seg.is-hero { background: radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--acc) 7%, transparent) 0%, transparent 60%), var(--ca-card); box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05); }
+html:not(.desk) .ca-seg.is-hero { padding: 4px; border-radius: 20px; gap: 4px; background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
 html:not(.desk) .ca-seg.is-hero .ca-seg-b { min-height: 64px; border-radius: 16px; padding: 9px 2px 10px; }
 html:not(.desk) .ca-seg.is-hero .ca-seg-b b { font-size: 22px; }
-html:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: var(--fill-3, rgba(255, 255, 255, 0.08)); box-shadow: none; }
-html[data-theme="light"]:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: rgba(15, 15, 25, 0.06); }
+html:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: var(--pl-inset-2); box-shadow: none; }
 html:not(.desk) .ca-seg.is-hero + .ca-search { margin-top: 4px; }
 html:not(.desk) .ca-chips { display: flex; gap: 8px; margin: 0 -16px 16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
 html:not(.desk) .ca-chips::-webkit-scrollbar { display: none; }
 html:not(.desk) .ca-chip {
   flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 0; border-radius: 999px;
-  background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer;
-  transition: transform 140ms var(--ca-ease), background-color 160ms ease-out, color 160ms ease-out;
+  background: var(--pl-inset); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: transform var(--pl-d-press) var(--pl-spring), background-color 160ms ease-out, color 160ms ease-out;
 }
 html:not(.desk) .ca-chip b { font-family: var(--font-num); font-weight: 700; color: var(--text-3); font-variant-numeric: tabular-nums; }
-html:not(.desk) .ca-chip.on { background: color-mix(in srgb, var(--text) 15%, transparent); color: var(--text) !important; }
+html:not(.desk) .ca-chip.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text) !important; }
 html:not(.desk) .ca-chip.on b { color: var(--text-2); }
-html:not(.desk) .ca-chip:active { transform: scale(0.96); }
+html:not(.desk) .ca-chip:active { transform: scale(0.96); transition-duration: 90ms; }
 html:not(.desk) .ca-chip:disabled { opacity: 0.45; cursor: default; }
 html:not(.desk) .ca-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 78px; padding: 12px 16px 12px 14px; border: 0; background: none; text-align: left; cursor: pointer; transition: background-color 140ms ease-out; }
 html:not(.desk) .ca-row + .ca-row::before { content: ''; position: absolute; top: 0; left: 78px; right: 0; height: 1px; background: var(--ca-hair); }
@@ -335,7 +437,7 @@ html:not(.desk) .ca-row-l > span { min-width: 0; display: -webkit-box; -webkit-b
 html:not(.desk) .ca-dot { flex: none; width: 7px; height: 7px; margin-top: calc((1.35em - 7px) / 2); border-radius: 50%; background: var(--ca-warn); }
 html:not(.desk) .ca-row-l.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .ca-row-end { flex: none; display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
-html:not(.desk) .ca-row-end b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 17px; font-weight: 700; color: var(--text-2); letter-spacing: -0.01em; }
+html:not(.desk) .ca-row-end b { font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 750; color: var(--text-2); letter-spacing: -0.012em; }
 html:not(.desk) .ca-row-end small { font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) .ca-row-end.t-down b { color: var(--ca-warn); }
 html:not(.desk) .ca-row-end.t-none b { color: var(--text-3); font-weight: 600; }
@@ -351,9 +453,9 @@ html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap > .ui-l
 html:not(.desk) #lifterPage { padding-bottom: 24px; }
 html:not(.desk) .ca-pg { padding-top: 4px; }
 html:not(.desk) .ca-ph { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 4px 8px 0; }
-html:not(.desk) .ca-pname { margin: 12px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; color: var(--text); text-wrap: balance; }
+html:not(.desk) .ca-pname { margin: 12px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
 html:not(.desk) .ca-pmeta { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: balance; }
-html:not(.desk) .ca-status { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; padding: 6px 12px; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); font-size: 13px; font-weight: 600; color: var(--text); }
+html:not(.desk) .ca-status { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; padding: 6px 12px; border-radius: 999px; background: var(--pl-inset); font-size: 13px; font-weight: 600; color: var(--text); }
 html:not(.desk) .ca-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
 html:not(.desk) .ca-status.s-live i { background: var(--ca-live); }
 html:not(.desk) .ca-status.s-ok i { background: var(--ca-live); }
@@ -363,58 +465,54 @@ html:not(.desk) .ca-status.s-meet i { background: var(--ca-gold); }
 html:not(.desk) .ca-acts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 20px; }
 html:not(.desk) .ca-act {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 64px; padding: 8px 4px;
-  border: 0; border-radius: 16px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); cursor: pointer; transition: transform 140ms var(--ca-ease), background-color 140ms ease-out;
+  border: 0; border-radius: 16px; background: var(--pl-inset); cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out;
 }
 html:not(.desk) .ca-act svg { width: 22px; height: 22px; color: var(--text); }
 html:not(.desk) .ca-act span { font-size: 13px; font-weight: 600; color: var(--text-2); }
-html:not(.desk) .ca-act:active { transform: scale(0.96); background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html:not(.desk) .ca-act:active { transform: scale(0.95); background: var(--pl-inset-2); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-act-n { position: absolute; top: 8px; left: calc(50% + 7px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #34e08c; color: #04140c; font: 700 11px/18px var(--font-num, inherit); font-variant-numeric: tabular-nums; text-align: center; }
 html[data-theme="light"]:not(.desk) .ca-act-n { background: #0c7a45; color: #fff; }
+/* the flag: on the ground, its family on the glyph's chip, the screen's red under it */
 html:not(.desk) .ca-flag { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; row-gap: 16px; align-items: start; margin-top: 28px; padding: 0 4px; background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0; }
-html:not(.desk) .ca-flag-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--ft, var(--ca-warn)); background: color-mix(in srgb, var(--ft, var(--ca-warn)) 15%, transparent); }
+html:not(.desk) .ca-flag-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--pf); background: color-mix(in srgb, var(--pf) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pf) 22%, transparent); }
 html:not(.desk) .ca-flag-ic svg { width: 26px; height: 26px; }
-html:not(.desk) .ca-flag.tone-pain { --ft: var(--ca-pain); }
-html:not(.desk) .ca-flag.tone-meet, html:not(.desk) .ca-flag.tone-bw { --ft: var(--ca-gold); }
-html:not(.desk) .ca-flag.tone-msg { --ft: #34e08c; }
-html:not(.desk) .ca-flag.tone-write, html:not(.desk) .ca-flag.tone-quiet { --ft: var(--text-2); }
-html[data-theme="light"]:not(.desk) .ca-flag.tone-msg { --ft: #0c7a45; }
 html:not(.desk) .ca-flag-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; min-height: 56px; justify-content: center; padding-top: 1px; }
-html:not(.desk) .ca-flag-tx b { font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: -0.015em; color: var(--text); text-wrap: balance; }
+html:not(.desk) .ca-flag-tx b { font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: -0.016em; color: var(--text); text-wrap: balance; }
 html:not(.desk) .ca-flag-tx > span { font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .ca-flag-tx > .ca-flag-q { margin-top: 2px; font-size: 17px; line-height: 1.4; color: var(--text); overflow-wrap: anywhere; }
 html:not(.desk) .ca-flag-tx > .ca-flag-voice { display: inline-flex; align-items: center; margin-top: 2px; font-size: 17px; font-weight: 600; color: var(--text); }
 html:not(.desk) .ca-flag-tx .ca-link { margin-top: 6px; }
 html:not(.desk) .ca-flag .ca-btn { grid-column: 1 / -1; }
 
-/* one overview card: the total, its change, the trend, this week */
-html:not(.desk) .ca-ov { display: flex; flex-direction: column; align-items: stretch; width: 100%; margin-top: 16px; padding: 16px 16px 0; text-align: left; cursor: pointer; transition: transform 140ms var(--ca-ease); }
-html:not(.desk) .ca-ov:active { transform: scale(0.985); }
+/* the e1RM: the one object on a lifter's page, lit by where it's going (up green, down amber) */
+html:not(.desk) .ca-ov { display: flex; flex-direction: column; align-items: stretch; width: 100%; margin-top: 20px; padding: 18px 16px 0; text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring); }
+html:not(.desk) .ca-ov:active { transform: scale(0.985); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-ov-h { display: flex; align-items: center; justify-content: space-between; }
-html:not(.desk) .ca-ov-l { font-size: 13px; font-weight: 600; color: var(--ca-tint); }
+html:not(.desk) .ca-ov-l { font-size: 15px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-ov-go { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-ov-go svg { width: 15px; height: 15px; }
-html:not(.desk) .ca-ov-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
-html:not(.desk) .ca-ov-num b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--text); }
-html:not(.desk) .ca-ov-num small { margin-left: -4px; font-size: 22px; font-weight: 700; color: var(--text-3); }
-html:not(.desk) .ca-chg { align-self: center; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); }
-html:not(.desk) .ca-chg.up { background: color-mix(in srgb, var(--ca-up) 16%, transparent); color: var(--ca-up); }
-html:not(.desk) .ca-chg.down { background: color-mix(in srgb, var(--ca-warn) 16%, transparent); color: var(--ca-warn); }
+html:not(.desk) .ca-ov-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; }
+html:not(.desk) .ca-ov-num b { font-family: var(--font-num); font-stretch: 112%; font-size: 64px; font-weight: 800; line-height: 0.9; letter-spacing: -0.04em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-ov-num small { margin-left: -6px; font-size: 22px; font-weight: 650; color: var(--text-3); }
+html:not(.desk) .ca-chg { align-self: center; display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 999px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--pl-inset); color: var(--text-2); }
+html:not(.desk) .ca-chg.up { background: color-mix(in srgb, var(--ca-up) 15%, transparent); color: var(--ca-up); }
+html:not(.desk) .ca-chg.down { background: color-mix(in srgb, var(--ca-warn) 15%, transparent); color: var(--ca-warn); }
 html:not(.desk) .ca-ov-none { margin-top: 8px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
-html:not(.desk) .ca-ov { --spark: color-mix(in srgb, var(--text) 86%, transparent); }
-html:not(.desk) .ca-ov > .ca-spark, html:not(.desk) .ca-ov .ca-spark { display: block; width: 100%; height: 48px; margin-top: 14px; overflow: visible; }
-html:not(.desk) .ca-spark-l { fill: none; stroke: var(--spark); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; }
-html:not(.desk) .ca-spark-a { fill: color-mix(in srgb, var(--text) 9%, transparent); stroke: none; }
-html:not(.desk) .ca-ov { position: relative; }
-html:not(.desk) .ca-spark-w { position: relative; display: block; margin-top: 14px; }
+html:not(.desk) .ca-ov { --spark: color-mix(in srgb, var(--text) 88%, transparent); }
+html:not(.desk) .ca-ov > .ca-spark, html:not(.desk) .ca-ov .ca-spark { display: block; width: 100%; height: 52px; margin-top: 16px; overflow: visible; }
+html:not(.desk) .ca-spark-l { fill: none; stroke: var(--spark); stroke-width: 2.25px; stroke-linecap: round; stroke-linejoin: round; }
+html:not(.desk) .ca-spark-a { fill: color-mix(in srgb, var(--pfl) 10%, transparent); stroke: none; }
+html:not(.desk) .ca-ov:not([class*="pf-"]) .ca-spark-a { fill: color-mix(in srgb, var(--text) 8%, transparent); }
+html:not(.desk) .ca-spark-w { position: relative; display: block; margin-top: 16px; }
 html:not(.desk) .ca-spark-w .ca-spark { margin-top: 0 !important; }
-html:not(.desk) .ca-spark-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 2px var(--ca-card); pointer-events: none; }
-html:not(.desk) .ca-ov-week { display: flex; align-items: center; gap: 12px; margin: 14px -16px 0; padding: 12px 16px 14px; border-top: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-spark-dot { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 2.5px var(--pl-obj); pointer-events: none; }
+html:not(.desk) .ca-ov-week { display: flex; align-items: center; gap: 12px; margin: 16px -16px 0; padding: 12px 16px 14px; border-top: 1px solid var(--ca-hair); }
 html:not(.desk) .ca-ov-wl { font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .ca-ov-wn { margin-left: auto; font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-ov-wn { margin-left: auto; font-size: 15px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-days { display: inline-flex; gap: 5px; }
-html:not(.desk) .ca-days i { width: 9px; height: 9px; border-radius: 50%; background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
+html:not(.desk) .ca-days i { width: 9px; height: 9px; border-radius: 50%; background: var(--pl-inset-2); }
 html:not(.desk) .ca-days i.on { background: var(--text); }
-html:not(.desk) .ca-days i.today { box-shadow: 0 0 0 1.5px var(--ca-card), 0 0 0 3px color-mix(in srgb, var(--text) 40%, transparent); }
+html:not(.desk) .ca-days i.today { box-shadow: 0 0 0 1.5px var(--pl-obj), 0 0 0 3px color-mix(in srgb, var(--text) 40%, transparent); }
 html:not(.desk) .ca-rowsx { margin-top: 20px; }
 html:not(.desk) .ca-plain .ca-lrow { padding-left: 4px; padding-right: 4px; border-radius: 14px; }
 html:not(.desk) .ca-plain .ca-lrow + .ca-lrow::before { left: 50px; right: 4px; }
@@ -429,6 +527,35 @@ html:not(.desk) .ca-empty p { margin: 0; font-size: 15px; line-height: 1.45; col
 html:not(.desk) .ca-notes { display: flex; flex-direction: column; gap: 12px; }
 html:not(.desk) .ca-charts { gap: 12px; padding: 0; max-width: none; }
 html:not(.desk) .ca-client { display: flex; flex-direction: column; gap: 12px; }
+
+/* Progress (coach-lifters.js chartsHtml in .ca-charts): the same heights and lights. The total is the object,
+   lit by its trend; each lift's tile is lit by its own colour (the lifter app's NOW card does the same);
+   the meet is lit gold; training, effort and bodyweight are plain surfaces. */
+html:not(.desk) .ca-charts { --cl-up: var(--ca-up); --cl-down: var(--ca-warn); --cl-pain: var(--ca-pain); --cl-meet: var(--ca-gold); --cl-surface: var(--pl-obj); --cl-line: var(--ca-edge); }
+html:not(.desk) .ca-charts .cl-hero {
+  --pfl: #c9ced6;
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--pfl) var(--pl-light), transparent) 0%, transparent 58%), var(--pl-obj);
+  border: 1px solid color-mix(in srgb, var(--pfl) var(--pl-light-edge), var(--pl-obj-edge)); box-shadow: var(--pl-obj-shade); padding: 18px 16px 12px;
+}
+html:not(.desk) .ca-charts .cl-hero:has(.cl-chip.up) { --pfl: #34d982; }
+html:not(.desk) .ca-charts .cl-hero:has(.cl-chip.down) { --pfl: #ff9f43; }
+html:not(.desk) .ca-charts .cl-hlab { font-size: 15px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-charts .cl-hnum b { font-stretch: 112%; font-size: 64px; line-height: 0.9; letter-spacing: -0.04em; font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-charts .cl-hnum span { font-size: 22px; font-weight: 650; }
+html:not(.desk) .ca-charts .cl-chip { height: 28px; padding: 0 11px; }
+html:not(.desk) .ca-charts .cl-chip.up { background: color-mix(in srgb, var(--ca-up) 15%, transparent); }
+html:not(.desk) .ca-charts .cl-area { opacity: 0.1; }
+html:not(.desk) .ca-charts .cl-lift, html:not(.desk) .ca-charts .cl-tile { background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+html:not(.desk) .ca-charts .cl-lift {
+  background: radial-gradient(140% 120% at 0% 0%, color-mix(in srgb, var(--lc) var(--pl-light), transparent) 0%, transparent 62%), var(--ca-card);
+  border-color: color-mix(in srgb, var(--lc) var(--pl-light-edge), var(--ca-edge));
+}
+html:not(.desk) .ca-charts .cl-lv b { font-stretch: 108%; font-size: 22px; letter-spacing: -0.024em; }
+html:not(.desk) .ca-charts .cl-tile.cl-meet {
+  background: radial-gradient(140% 120% at 0% 0%, color-mix(in srgb, #f2c25b var(--pl-light), transparent) 0%, transparent 62%), var(--ca-card);
+  border-color: color-mix(in srgb, #f2c25b var(--pl-light-edge), var(--ca-edge));
+}
+html:not(.desk) .ca-charts .cl-big3 { font-stretch: 108%; letter-spacing: -0.024em; }
 
 /* sheets: find anything, check-ins */
 html:not(.desk) .ca-search.is-sheet { margin: 6px 0 4px; }
@@ -448,75 +575,78 @@ html:not(.desk) body.powa-app .cp-title svg { flex: none; width: 22px; height: 2
 html:not(.desk) .cp-title:active { opacity: 0.6; }
 html:not(.desk) .cp { padding-top: 4px; padding-bottom: 76px; }
 
-/* the block: the one lit card */
+/* the block: a surface (the day below is the object) */
 html:not(.desk) .cp-hero { padding: 14px 12px 16px 16px; }
 html:not(.desk) .cp-hero-top { display: flex; align-items: center; gap: 8px; }
 html:not(.desk) body.powa-app .cp-name {
   flex: 1; min-width: 0; height: 40px; margin: 0 0 0 -4px; padding: 0 4px; border: 0 !important; border-radius: 10px; background: none !important; box-shadow: none !important;
-  color: var(--text); font-family: var(--font-body); font-size: 20px !important; font-weight: 700; letter-spacing: -0.015em; outline: none; -webkit-appearance: none; appearance: none;
+  color: var(--text); font-family: var(--font-body); font-size: 20px !important; font-weight: 700; letter-spacing: -0.016em; outline: none; -webkit-appearance: none; appearance: none;
 }
-html:not(.desk) body.powa-app .cp-name:focus { background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; }
-html:not(.desk) .cp-ibtn { position: relative; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); cursor: pointer; transition: transform 140ms var(--ca-ease), background-color 150ms ease-out; }
+html:not(.desk) body.powa-app .cp-name:focus { background: var(--pl-inset) !important; }
+html:not(.desk) .cp-ibtn { position: relative; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--pl-inset); color: var(--text-2); cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out; }
 html:not(.desk) .cp-ibtn::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
 html:not(.desk) .cp-ibtn svg { width: 18px; height: 18px; }
-html:not(.desk) .cp-ibtn:active { transform: scale(0.92); background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html:not(.desk) .cp-ibtn:active { transform: scale(0.9); background: var(--pl-inset-2); transition-duration: 90ms; }
 html:not(.desk) .cp-blockmeta { margin: 2px 0 0; font-size: 15px; color: var(--text-2); }
-html:not(.desk) .cp-maxes { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 40px; margin-top: 12px; padding: 0 10px 0 12px; border: 0; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-3); font-size: 13px !important; font-weight: 600; cursor: pointer; transition: transform 140ms var(--ca-ease); }
-html:not(.desk) .cp-maxes b { color: var(--text); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-maxes { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 40px; margin-top: 12px; padding: 0 10px 0 12px; border: 0; border-radius: 12px; background: var(--pl-inset); color: var(--text-3); font-size: 13px !important; font-weight: 600; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring); }
+html:not(.desk) .cp-maxes b { color: var(--text); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-maxes b i { display: inline-block; width: 7px; height: 7px; margin: 0 5px 0 1px; border-radius: 50%; background: var(--lc); vertical-align: 1px; }
 html:not(.desk) .cp-maxes svg { width: 15px; height: 15px; }
-html:not(.desk) .cp-maxes:active { transform: scale(0.97); }
+html:not(.desk) .cp-maxes:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .cp-done { margin: 14px 0 0; font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-hero .ca-btn { margin-top: 12px; }
 
-/* the weeks: a segmented control (scrolls when a block is long), + and ⋯ */
+/* the weeks: a segmented control (scrolls when a block is long), + and ⋯; the week on show sits raised */
 html:not(.desk) .cp-weeks-row { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
-html:not(.desk) .cp-weeks { flex: 1; min-width: 0; display: flex; gap: 2px; padding: 3px; border-radius: 14px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+html:not(.desk) .cp-weeks { flex: 1; min-width: 0; display: flex; gap: 2px; padding: 3px; border-radius: 14px; background: var(--pl-inset); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 html:not(.desk) .cp-weeks::-webkit-scrollbar { display: none; }
-html:not(.desk) .cp-wk { position: relative; flex: 1 0 auto; min-width: 44px; height: 38px; padding: 0 12px; border: 0; border-radius: 11px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: background-color 180ms ease-out, color 180ms ease-out; }
-html:not(.desk) .cp-wk.on { background: var(--bg-3); color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
-html[data-theme="light"]:not(.desk) .cp-wk.on { background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 40, 0.14); }
+html:not(.desk) .cp-wk { position: relative; flex: 1 0 auto; min-width: 44px; height: 38px; padding: 0 12px; border: 0; border-radius: 11px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
+html:not(.desk) .cp-wk.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
 html:not(.desk) .cp-wk.is-now::after { content: ''; position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
 html:not(.desk) .cp-wk-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; display: inline-grid; place-items: center; }
 html:not(.desk) .cp-wk-add svg { width: 18px; height: 18px; }
 
-/* the days: chips over the pages, a dot per main lift in the day */
-html:not(.desk) .cp-days { display: flex; gap: 8px; margin: 12px -16px 12px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+/* the days: chips over the pages, a dot per main lift in the day; the day on show sits raised */
+html:not(.desk) .cp-days { display: flex; gap: 8px; margin: 12px -16px 12px; padding: 0 16px 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 html:not(.desk) .cp-days::-webkit-scrollbar { display: none; }
-html:not(.desk) .cp-day { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 180ms ease-out, color 180ms ease-out, transform 140ms var(--ca-ease); }
-html:not(.desk) .cp-day.on { background: color-mix(in srgb, var(--text) 15%, transparent); color: var(--text) !important; }
+html:not(.desk) .cp-day { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--pl-inset); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 220ms ease-out, color 220ms ease-out, box-shadow 220ms ease-out, transform var(--pl-d-press) var(--pl-spring); }
+html:not(.desk) .cp-day.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
 html:not(.desk) .cp-day.is-rest { color: var(--text-3) !important; }
 html:not(.desk) .cp-day.is-rest.on { color: var(--text) !important; }
-html:not(.desk) .cp-day:active { transform: scale(0.96); }
+html:not(.desk) .cp-day:active { transform: scale(0.95); transition-duration: 90ms; }
 html:not(.desk) .cp-day-add { color: var(--text-3) !important; gap: 4px; padding: 0 14px 0 10px; }
 html:not(.desk) .cp-day-add svg { width: 16px; height: 16px; }
 html:not(.desk) .cp-dots { display: inline-flex; gap: 3px; }
 html:not(.desk) .cp-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--lc, var(--text-3)); }
 
-/* one day per page: swipe between them */
+/* one day per page: swipe between them; the day is the object, lit by its main lift */
 html:not(.desk) .cp-pager { display: flex; align-items: flex-start; margin: 0 -16px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 html:not(.desk) .cp-pager::-webkit-scrollbar { display: none; }
-html:not(.desk) .cp-page { flex: 0 0 100%; box-sizing: border-box; padding: 0 16px 4px; scroll-snap-align: start; scroll-snap-stop: always; }
-html:not(.desk) .cp-daycard { background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--lit, inset 0 1px 0 rgba(255, 255, 255, 0.055)); overflow: hidden; }
-html[data-theme="light"]:not(.desk) .cp-daycard { box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05); }
-html:not(.desk) .cp-dayhead { display: flex; align-items: center; gap: 8px; padding: 12px 10px 8px 16px; }
+html:not(.desk) .cp-page { flex: 0 0 100%; box-sizing: border-box; padding: 0 16px 22px; scroll-snap-align: start; scroll-snap-stop: always; }
+html:not(.desk) .cp-daycard { overflow: hidden; }
+html:not(.desk) .cp-addcard { background: var(--ca-card); border: 1px dashed color-mix(in srgb, var(--text) 16%, transparent); box-shadow: none; }
+html:not(.desk) .cp-dayhead { display: flex; align-items: center; gap: 8px; padding: 14px 10px 8px 16px; }
 html:not(.desk) .cp-dayid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-html:not(.desk) body.powa-app .cp-dayname { width: 100%; height: 34px; margin: 0 0 0 -4px; padding: 0 4px; border: 0 !important; border-radius: 10px; background: none !important; box-shadow: none !important; color: var(--text); font-family: var(--font-body); font-size: 20px !important; font-weight: 700; letter-spacing: -0.015em; outline: none; -webkit-appearance: none; appearance: none; }
-html:not(.desk) body.powa-app .cp-dayname:focus { background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; }
+html:not(.desk) body.powa-app .cp-dayname { width: 100%; height: 34px; margin: 0 0 0 -4px; padding: 0 4px; border: 0 !important; border-radius: 10px; background: none !important; box-shadow: none !important; color: var(--text); font-family: var(--font-body); font-size: 20px !important; font-weight: 700; letter-spacing: -0.016em; outline: none; -webkit-appearance: none; appearance: none; }
+html:not(.desk) body.powa-app .cp-dayname:focus { background: var(--pl-inset) !important; }
 html:not(.desk) .cp-daymeta { font-size: 13px; color: var(--text-3); }
 html:not(.desk) .cp-exs { display: flex; flex-direction: column; }
 html:not(.desk) .cp-exrow { position: relative; display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 14px 14px 14px 16px; border: 0; background: none; text-align: left; cursor: pointer; transition: background-color 140ms ease-out; }
 html:not(.desk) .cp-exrow::before { content: ''; position: absolute; top: 0; left: 70px; right: 0; height: 1px; background: var(--ca-hair); }
 html:not(.desk) .cp-exrow:active { background: var(--ca-press); }
 html:not(.desk) .cp-exrow:active::before, html:not(.desk) .cp-exrow:active + .cp-exrow::before { opacity: 0; }
-html:not(.desk) .cp-tile { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--lc, var(--text-3)) 15%, transparent); color: var(--lc, var(--text-2)); font-family: var(--font-num); font-size: 17px; font-weight: 800; }
+html:not(.desk) .cp-tile { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--lc, var(--text-3)) 15%, transparent); color: var(--lc, var(--text-2)); font-family: var(--font-num); font-size: 17px; font-weight: 800; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc, var(--text-3)) 20%, transparent); }
 html:not(.desk) .cp-exrow.lift-acc { --lc: var(--lift-acc, #9a9aa6); }
 html[data-theme="light"]:not(.desk) .cp-tile { color: color-mix(in srgb, var(--lc, var(--text-2)) 45%, #16161a); background: color-mix(in srgb, var(--lc, var(--text-3)) 20%, #fff); }
 html:not(.desk) .cp-ex-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 1px; }
 html:not(.desk) .cp-ex-t { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
 html:not(.desk) .cp-set { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; }
 html:not(.desk) .cp-set-l { font-family: var(--font-num); font-size: 17px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-html:not(.desk) .cp-set-l b { font-weight: 700; }
+html:not(.desk) .cp-set-l b { font-weight: 750; font-stretch: 104%; }
 html:not(.desk) .cp-set-l i { font-style: normal; color: var(--text-2); }
+/* the top set drives the day: its load reads a step bigger than the back-offs that follow it */
+html:not(.desk) .cp-ex-t + .cp-set .cp-set-l { font-size: 20px; letter-spacing: -0.012em; }
+html:not(.desk) .cp-ex-t + .cp-set .cp-set-l b { font-weight: 800; }
 html:not(.desk) .cp-set-n { font-size: 13px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
 html:not(.desk) .cp-set-x { grid-column: 1 / -1; margin-top: 2px; font-size: 13px; color: var(--text-3); }
 html:not(.desk) .cp-set.is-none { font-size: 15px; color: var(--text-3); }
@@ -531,30 +661,32 @@ html:not(.desk) .cp-rest { display: flex; flex-direction: column; gap: 4px; padd
 html:not(.desk) .cp-rest b { font-size: 17px; font-weight: 600; color: var(--text); }
 html:not(.desk) .cp-rest span { font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-addcard { padding: 20px 16px 16px; }
-html:not(.desk) .cp-add-t { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; color: var(--text); }
+html:not(.desk) .cp-add-t { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
 html:not(.desk) .cp-add-s { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
 html:not(.desk) .cp-add-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
 html:not(.desk) .cp-add-acts .ca-btn { min-height: 48px; padding: 0 12px; font-size: 15px !important; }
 
-/* Add exercise: the screen's red, floating above the tab bar */
+/* Add exercise: the screen's red, an object floating above the tab bar */
 html:not(.desk) .cp-fab {
-  position: fixed; z-index: 90; right: 16px; bottom: 16px; display: inline-flex; align-items: center; gap: 6px; height: 50px; padding: 0 20px 0 16px;
-  border: 0; border-radius: 999px; background: var(--fire); color: #fff !important; font-size: 17px !important; font-weight: 600; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 28px -14px rgba(0, 0, 0, 0.8);
-  transition: transform 160ms var(--ca-ease), opacity 160ms ease-out, filter 140ms ease-out;
+  position: fixed; z-index: 90; right: 16px; bottom: 16px; display: inline-flex; align-items: center; gap: 6px; height: 52px; padding: 0 20px 0 16px;
+  border: 0; border-radius: 999px; background: var(--pl-red); color: #fff !important; font-size: 17px !important; font-weight: 650; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.35), 0 14px 28px -12px rgba(0, 0, 0, 0.85);
+  transition: transform var(--pl-d-press) var(--pl-spring), opacity 200ms ease-out, filter 140ms ease-out;
 }
+html[data-theme="light"]:not(.desk) .cp-fab { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(15, 15, 25, 0.16), 0 14px 26px -12px rgba(15, 15, 25, 0.42); }
 html.native:not(.desk) .cp-fab { bottom: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - 12px)) + 76px); }
 html:not(.desk) .cp-fab svg { width: 20px; height: 20px; }
-html:not(.desk) .cp-fab:active { transform: scale(0.96); filter: brightness(0.94); }
-html:not(.desk) .cp-fab.is-soft { background: var(--bg-3); color: var(--text) !important; }
-html:not(.desk) .cp-fab.is-hidden { opacity: 0; transform: translate3d(0, 10px, 0); pointer-events: none; }
+html:not(.desk) .cp-fab:active { transform: scale(0.95); filter: brightness(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .cp-fab.is-soft { background: var(--pl-raise); color: var(--text) !important; }
+html:not(.desk) .cp-fab.is-hidden { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.96); pointer-events: none; }
 
-/* the editor sheet: a block of sets, four steppers, then one More */
+/* the editor sheet: the top set is the object (lit by its lift, its load drawn as the bar a loader would load),
+   the back-offs insets under it, four steppers each, then one More */
 html:not(.desk) .cp-sheet { position: relative; }
 /* ⋯ and Done sit top right, where iOS puts a sheet's Done (the editor saves as you go; Done only closes) */
 html:not(.desk) .cp-ed-tools { position: absolute; top: 12px; right: 10px; display: flex; align-items: center; gap: 2px; }
-html:not(.desk) body.powa-app .cp-ed-done { min-width: 44px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; transition: transform 140ms var(--ca-ease), opacity 150ms ease-out; }
-html:not(.desk) body.powa-app .cp-ed-done:active { transform: scale(0.96); opacity: 0.7; }
+html:not(.desk) body.powa-app .cp-ed-done { min-width: 44px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), opacity 150ms ease-out; }
+html:not(.desk) body.powa-app .cp-ed-done:active { transform: scale(0.95); opacity: 0.7; transition-duration: 90ms; }
 html:not(.desk) .cp-sheet .ui-sheet-h { padding-right: 112px; }
 html:not(.desk) .cp-ed-sub { margin-top: -6px !important; }
 html:not(.desk) .cp-ed-last { margin: 4px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
@@ -562,13 +694,25 @@ html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-blkmore svg { transition: none; } }
 html:not(.desk) .cp-tg-l { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
-html:not(.desk) .cp-seg button { min-height: 36px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 180ms ease-out, color 180ms ease-out; }
-html:not(.desk) .cp-seg button.on { background: var(--bg-3); color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
-html[data-theme="light"]:not(.desk) .cp-seg button.on { background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 40, 0.14); }
-html:not(.desk) .cp-blk { margin-top: 16px; padding: 12px 14px 16px; border-radius: 16px; background: var(--fill-1, rgba(255, 255, 255, 0.035)); }
+html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--pl-inset); }
+html:not(.desk) .cp-seg button { min-height: 36px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
+html:not(.desk) .cp-seg button.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .cp-blk { margin-top: 16px; padding: 12px 14px 16px; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) .cp-blk.is-top {
+  --pfl: #c9ced6;
+  background: radial-gradient(130% 110% at 100% 0%, color-mix(in srgb, var(--pfl) 12%, transparent) 0%, transparent 60%), var(--pl-inset);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pfl) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+html[data-theme="light"]:not(.desk) .cp-blk.is-top { background: radial-gradient(130% 110% at 100% 0%, color-mix(in srgb, var(--pfl) 9%, transparent) 0%, transparent 60%), var(--pl-inset); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pfl) 30%, transparent); }
 html:not(.desk) .cp-blk-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
-html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+/* the bar, loaded to the block's load: one sleeve, heaviest plates in, the collar on (app.js uiBarbell, the
+   lifter app's own drawing). The set being set is the one real load on this screen, so it's drawn. */
+html:not(.desk) .pl-sleeve { flex: none; display: block; height: 46px; margin: -6px -2px -6px 0; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.55)); }
+html[data-theme="light"]:not(.desk) .pl-sleeve { filter: drop-shadow(0 5px 7px rgba(15, 15, 25, 0.18)); }
+html:not(.desk) .pl-sleeve:empty { display: none; }
+html:not(.desk) .pl-sleeve .ui-barbell { height: 100%; }
+html:not(.desk) .pl-sleeve .ui-barbell .bb-plate { animation: none; }
 /* More: one quiet row under the steppers (it names the set fields it holds); what a block rarely needs
    opens under it: its load and effort switches, its set fields, Remove these sets */
 html:not(.desk) .cp-blk.has-more { padding-bottom: 2px; }
@@ -578,7 +722,7 @@ html:not(.desk) .cp-blkmore {
   -webkit-tap-highlight-color: transparent; transition: opacity 140ms ease-out;
 }
 html:not(.desk) .cp-blkmore-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-html:not(.desk) .cp-blkmore svg { flex: none; width: 18px; height: 18px; color: var(--text-3); transition: transform 220ms var(--ca-ease); }
+html:not(.desk) .cp-blkmore svg { flex: none; width: 18px; height: 18px; color: var(--text-3); transition: transform var(--pl-d-state) var(--pl-spring); }
 html:not(.desk) .cp-blkmore[aria-expanded="true"] svg { transform: rotate(180deg); }
 html:not(.desk) .cp-blkmore:active { opacity: 0.6; }
 html:not(.desk) .cp-blkmore:focus-visible { outline: 2px solid var(--text-3); outline-offset: -2px; border-radius: 10px; }
@@ -587,7 +731,7 @@ html:not(.desk) .cp-blkmore-body[hidden] { display: none; }
 html:not(.desk) .cp-blkmore-body .cp-toggles { margin-top: 2px; }
 html:not(.desk) .cp-blkmore-body .cp-sf { margin: 16px 0 0; }
 html:not(.desk) .cp-blkmore-body .cp-sf .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-html:not(.desk) .cp-blkmore-body .cp-sf .sf-field { min-width: 0; min-height: 44px; justify-content: space-between; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) .cp-blkmore-body .cp-sf .sf-field { min-width: 0; min-height: 44px; justify-content: space-between; background: var(--pl-inset-2); }
 html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-edit input.sf-in, html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf input.sf-in { flex: 1; width: 100%; min-width: 0; }
 html:not(.desk) body.powa-app .cp-blk-rm { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--ca-pain) !important; font: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) body.powa-app .cp-blk-rm:active { opacity: 0.6; }
@@ -595,38 +739,40 @@ html:not(.desk) .cp-blk-logged { margin: 6px 0 0; font-size: 13px; line-height: 
 html:not(.desk) .cp-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; margin-top: 8px; }
 html:not(.desk) .cp-step { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 html:not(.desk) .cp-step-l { font-size: 13px; font-weight: 600; color: var(--text-3); }
-/* the ± are 40 pt circles with a 44 pt target, so the value between them has room for 162.5 on a 375 pt phone */
+/* the ± are 40 pt machined discs with a 44 pt target, so the value between them has room for 162.5 on a 375 pt phone */
 html:not(.desk) .cp-step .ui-stepper { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 4px; width: 100%; }
-html:not(.desk) .cp-step .ui-stepper .st-btn { position: relative; width: 40px; height: 40px; font-size: 22px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
+html:not(.desk) .cp-step .ui-stepper .st-btn { position: relative; width: 40px; height: 40px; font-size: 22px; background: var(--pl-inset-2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out; }
+html[data-theme="light"]:not(.desk) .cp-step .ui-stepper .st-btn { box-shadow: none; }
+html:not(.desk) .cp-step .ui-stepper .st-btn:active { transform: scale(0.9); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 80ms; transition-timing-function: ease-out; }
 html:not(.desk) .cp-step .ui-stepper .st-btn::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
-html:not(.desk) .cp-step .ui-stepper .st-val { min-width: 0; overflow: hidden; font-size: 20px; font-weight: 800; color: var(--text); white-space: nowrap; letter-spacing: -0.01em; }
+html:not(.desk) .cp-step .ui-stepper .st-val { min-width: 0; overflow: hidden; font-size: 22px; font-weight: 800; font-stretch: 104%; color: var(--text); white-space: nowrap; letter-spacing: -0.02em; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-tight { font-size: 17px; }
-html:not(.desk) .cp-step .ui-stepper .st-val .st-word { font-family: var(--font-body); font-size: 15px; font-weight: 600; color: var(--text-2); letter-spacing: 0; }
+html:not(.desk) .cp-step .ui-stepper .st-val .st-word { font-family: var(--font-body); font-size: 15px; font-weight: 600; font-stretch: 100%; color: var(--text-2); letter-spacing: 0; }
 html:not(.desk) .cp-step .ui-stepper .st-val small { font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0; }
 html:not(.desk) .cp-calc { font-size: 13px; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-ed-add { margin-top: 16px; }
 html:not(.desk) .cp-ed-notel { display: block; margin-top: 20px; }
 html:not(.desk) .cp-ed-notel, html:not(.desk) .cp-ed-notel > span { text-transform: none; letter-spacing: 0; }
 html:not(.desk) .cp-ed-notel > span { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) body.powa-app .cp-ed-ta { width: 100%; min-height: 72px; padding: 12px 14px; border: 0 !important; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; color: var(--text); font-size: 17px; line-height: 1.4; resize: vertical; }
+html:not(.desk) body.powa-app .cp-ed-ta { width: 100%; min-height: 72px; padding: 12px 14px; border: 0 !important; border-radius: 12px; background: var(--pl-inset) !important; color: var(--text); font-size: 17px; line-height: 1.4; resize: vertical; }
 html:not(.desk) .cp-ed-saved { margin: 14px 2px 0; font-size: 13px; color: var(--text-3); }
 /* Their e1RM's load for these reps at this effort: a quiet line under the steppers, one tap to use it */
 html:not(.desk) .cp-hint:empty { display: none; }
 html:not(.desk) .cp-hint { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; min-height: 36px; }
 html:not(.desk) .cp-hint-t { min-width: 0; font-size: 13px; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; text-wrap: pretty; }
-html:not(.desk) body.powa-app .cp-hint-use { flex: none; position: relative; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; transition: transform 140ms var(--ca-ease); }
+html:not(.desk) body.powa-app .cp-hint-use { flex: none; position: relative; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text); font: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring); }
 html:not(.desk) body.powa-app .cp-hint-use::after { content: ''; position: absolute; inset: -5px -2px; }
-html:not(.desk) body.powa-app .cp-hint-use:active { transform: scale(0.96); }
+html:not(.desk) body.powa-app .cp-hint-use:active { transform: scale(0.95); transition-duration: 90ms; }
 /* The load and % are typeable: a faint dotted rule under the number says so */
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable { cursor: text; text-decoration: underline dotted color-mix(in srgb, currentColor 32%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 6px; border-radius: 8px; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
-html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 20px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: var(--pl-inset) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-pick-on { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc); }
 html:not(.desk) .cp-pick-on svg { width: 20px; height: 20px; }
 /* the picker past six lifters: the search keeps its place at the top while the list scrolls under it (the
    sheet's own colour around it hides the rows going by), the groups have titles, the sheet keeps its height */
 html:not(.desk) .cp-picker.is-many { min-height: min(78vh, 640px); }
-html:not(.desk) .cp-pick-search { position: sticky; top: 0; z-index: 2; margin: 2px 0 4px; background-color: var(--bg-1); background-image: linear-gradient(var(--fill-2, rgba(255, 255, 255, 0.06)), var(--fill-2, rgba(255, 255, 255, 0.06))); box-shadow: 0 -10px 0 var(--bg-1), 0 8px 0 var(--bg-1); }
+html:not(.desk) .cp-pick-search { position: sticky; top: 0; z-index: 2; margin: 2px 0 4px; background-color: var(--bg-1); background-image: linear-gradient(var(--pl-inset), var(--pl-inset)); box-shadow: 0 -10px 0 var(--bg-1), 0 8px 0 var(--bg-1); }
 html:not(.desk) .cp-pick-h { margin: 18px 4px 8px; }
 html:not(.desk) .cp-pick-list > .ui-list:first-child { margin-top: 12px; }   /* clear of the search's 8 px mask */
 html:not(.desk) .cp-pick-sub { display: flex; align-items: flex-start; gap: 7px; }
@@ -635,7 +781,7 @@ html:not(.desk) .cp-pick-sub.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .cp-empty .cp-hero { padding: 20px; }
 
 /* =================================================================== THE TYPE SCALE ON SHARED PIECES
-   13 · 15 · 17 · 20 · 22 · 28 · 32 · 44 (11 only for a badge's count). The app's shared rows, buttons and
+   13 · 15 · 17 · 20 · 22 · 28 · 32 · 64 (11 only for a badge's count). The app's shared rows, buttons and
    sheets are 16 by default (styles.css --fs-row); on these screens a row's title and a button are 17, a
    small pill 15, a section title 20. */
 html:not(.desk) body.powa-app :is(section[data-pane="athletes"] #invitesWrap, .ca-search-sheet, .ca-ci-sheet, .ca-wins-sheet, .cp-picker, .ca-pg) .ui-row-title { font-size: 17px; }
@@ -654,7 +800,7 @@ html:not(.desk) body.powa-app .cp-sheet .sf-edit input.sf-in { font-size: 17px; 
 .ca-sr { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 html.ca-booting #btn-home-search { visibility: hidden; }
 html:not(.desk) .ca-skel { padding-top: 4px; }
-html:not(.desk) .ca-sk { position: relative; display: block; flex: none; width: var(--w, 100%); height: 14px; border-radius: 8px; overflow: hidden; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) .ca-sk { position: relative; display: block; flex: none; width: var(--w, 100%); height: 14px; border-radius: 8px; overflow: hidden; background: var(--pl-inset); }
 html[data-theme="light"]:not(.desk) .ca-sk { background: rgba(15, 15, 25, 0.07); }
 html:not(.desk) .ca-sk::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent); animation: caShimmer 1.4s ease-in-out infinite; }
 html[data-theme="light"]:not(.desk) .ca-sk::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent); }
@@ -662,7 +808,7 @@ html[data-theme="light"]:not(.desk) .ca-sk::after { background: linear-gradient(
 html:not(.desk) .ca-sk-hero { padding-bottom: 0; }
 html:not(.desk) .ca-sk-line { height: 13px; margin-top: 8px; }
 html:not(.desk) .ca-sk-hero > .ca-sk-line:first-child { margin-top: 2px; }
-html:not(.desk) .ca-sk-big { height: 40px; margin-top: 14px; border-radius: 10px; }
+html:not(.desk) .ca-sk-big { height: 52px; margin-top: 14px; border-radius: 12px; }
 html:not(.desk) .ca-sk-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 20px -20px 0; border-top: 1px solid var(--ca-hair); }
 html:not(.desk) .ca-sk-stats > span { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 18px; }
 html:not(.desk) .ca-sk-num { width: 44%; height: 20px; border-radius: 6px; }
@@ -673,7 +819,7 @@ html:not(.desk) .ca-sk-av.is-56 { width: 56px; height: 56px; }
 html:not(.desk) .ca-sk-av.is-96 { width: 96px; height: 96px; }
 html:not(.desk) .ca-sk-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 html:not(.desk) .ca-sk-t { height: 18px; border-radius: 7px; }
-html:not(.desk) .ca-sk-btn { height: 50px; margin-top: 16px; border-radius: 999px; }
+html:not(.desk) .ca-sk-btn { height: 52px; margin-top: 16px; border-radius: 999px; }
 html:not(.desk) .ca-sk-rows { margin-top: 20px; }
 html:not(.desk) .ca-sk-row { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 0 4px; border-top: 1px solid var(--ca-hair); }
 html:not(.desk) .ca-sk-rows.is-list .ca-sk-row { min-height: 78px; border-top: 0; }
@@ -698,9 +844,9 @@ html:not(.desk) .ca-stat b .ca-sk-stat { display: inline-block; vertical-align: 
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-sk::after { animation: none; display: none; } }
 /* couldn't load: the screen's one card, calm, with Try again */
 html:not(.desk) .ca-state { align-items: center; text-align: center; padding: 48px 24px 32px; }
-html:not(.desk) .ca-state-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--text-2); background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) .ca-state-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--text-2); background: var(--pl-inset); }
 html:not(.desk) .ca-state-ic svg { width: 26px; height: 26px; }
-html:not(.desk) .ca-state-t { margin: 20px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; color: var(--text); }
+html:not(.desk) .ca-state-t { margin: 20px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); }
 html:not(.desk) .ca-state-s { margin: 8px 0 0; max-width: 34ch; font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .ca-state .ca-btn { width: auto; min-width: 200px; margin-top: 24px; }
 /* Lifters: a search that finds no one says so, with the way back */
@@ -731,15 +877,45 @@ html:not(.desk) #challengesArea .chl-h { display: none; }
   html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .dash-header:first-child { padding-right: max(0px, calc(var(--nav-actions-w, 96px) - max(0px, (100vw - 912px) / 2))); }
 }
 
-/* =================================================================== MOTION */
-@keyframes caRise { from { opacity: 0.45; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: none; } }
-html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]) [data-pane]:not(.hidden) .ca-rise { animation: caRise 320ms var(--ca-ease) calc(var(--i, 0) * 40ms) backwards; }
-@keyframes caBreathe { 0%, 100% { box-shadow: 0 0 0 2.5px var(--bg), 0 0 0 2.5px color-mix(in srgb, var(--ca-live) 0%, transparent); } 50% { box-shadow: 0 0 0 2.5px var(--bg), 0 0 0 6px color-mix(in srgb, var(--ca-live) 28%, transparent); } }
-@media (prefers-reduced-motion: no-preference) { html:not(.desk) .ca-live { animation: caBreathe 2.4s ease-in-out infinite; } }
+/* =================================================================== MOTION
+   One spring, three weights, transform and opacity only. Each move has a job:
+     entrance  a screen's first arrival: its pieces rise 10 pt from opacity .45, heaviest first, 40 ms apart;
+               the one object (Home's job) sets down a touch slower and from a touch lower: it carries weight.
+     push/pop  a lifter comes in from the right, back goes the way it came (the bar's push and pop).
+     carry     the face you tapped is the face on the page: it travels there (coach-app.js, WAAPI).
+     press     down in 90 ms, back on the press spring: the release is the spring, never a bounce.
+     load      the bar on the top set reloads only when its load settles (300 ms after the last tap): the
+               collar comes off, the plates that change slide off, the new ones go on heaviest first.
+     value     a stepper's number ticks 6 pt the way it moved. */
+@keyframes plRise { from { opacity: 0.45; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+@keyframes plSet { from { opacity: 0.45; transform: translate3d(0, 16px, 0) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes plPushIn { from { opacity: 0.45; transform: translate3d(44px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes plPopIn { from { opacity: 0.45; transform: translate3d(-32px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes plFade { from { opacity: 0.7; } to { opacity: 1; } }
+@keyframes plSheetUp { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
+html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-rise { animation: plRise var(--pl-d-state) var(--pl-spring) calc(var(--i, 0) * 40ms) backwards; }
+html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-focal.ca-rise { animation-name: plSet; animation-duration: var(--pl-d-heavy); }
+/* the face in flight rides above the page it lands on */
+html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transform; }
+@media (prefers-reduced-motion: no-preference) {
+  html.native:not(.desk) body.powa-app[data-nav="push"] .dash-main > section[data-pane]:not(.hidden) { animation: plPushIn var(--pl-d-state) var(--pl-spring) backwards; }
+  html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-pane]:not(.hidden) { animation: plPopIn var(--pl-d-state) var(--pl-spring) backwards; }
+  /* the carry: the page settles in place while its face travels to it (coach-app.js carry) */
+  html.native:not(.desk) body.powa-app:is([data-nav="carry"], [data-nav="carry-back"]) .dash-main > section[data-pane]:not(.hidden) { animation: plFade 240ms ease-out backwards; }
+  html:not(.desk) .ui-sheet.cp-sheet, html:not(.desk) .ui-sheet.cp-picker { animation: plSheetUp var(--pl-d-state) var(--pl-spring); }
+  html:not(.desk) .pl-sleeve .ui-barbell .bb-plate.is-off { animation: bbOff 220ms cubic-bezier(0.4, 0, 1, 1) calc(var(--i, 0) * 40ms + 120ms) both; }
+  html:not(.desk) .pl-sleeve .ui-barbell .bb-plate.is-on { animation: plPlateOn var(--pl-d-heavy) var(--pl-spring) calc(var(--i, 0) * 90ms + 300ms) both; }
+  html:not(.desk) .pl-sleeve .ui-barbell .bb-collar.is-moving { animation: plCollar calc(var(--pl-d-heavy) + 300ms + var(--n, 1) * 90ms) var(--ca-ease) both; }
+}
+@keyframes plPlateOn { from { transform: translateX(30px); opacity: 0; } 30% { opacity: 1; } to { transform: none; opacity: 1; } }
+/* the collar: off, out of the way while the plates change, back on, and still (no settle past its seat) */
+@keyframes plCollar { 0% { transform: translateX(var(--dx)); } 18% { transform: translateX(var(--out)); } 70% { transform: translateX(var(--out)); } 100% { transform: none; } }
 @media (hover: hover) and (pointer: fine) {
   html:not(.desk) :is(.ca-tile, .ca-rowcard, .ca-lrow, .ca-row, .ca-act):hover { background-color: color-mix(in srgb, var(--text) 4%, var(--ca-card)); }
 }
 @media (prefers-reduced-motion: reduce) {
   html:not(.desk) body.powa-app [data-pane] .ca-rise { animation: none !important; }
-  html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn):active { transform: none !important; }
+  html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-fab, .st-btn, .cp-ibtn, .cp-hint-use):active { transform: none !important; }
+  html:not(.desk) .cp-fab.is-hidden { transform: none; }
+  html:not(.desk) .pl-sleeve .ui-barbell :is(.bb-plate, .bb-collar) { animation: none !important; }
 }

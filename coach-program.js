@@ -144,7 +144,7 @@
   /* ====================================================================================================
      STATE: whose program, which week, which day (per lifter and week)
      ==================================================================================================== */
-  var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null, moreOpen: {} };
+  var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null, moreOpen: {}, sleeve: {} };
   // The programs this coach opened last on this phone, newest first (the picker leads with them).
   var RECENT_KEY = 'powa-cp-recent';
   function coachId() { var u = typeof getCurrentUser === 'function' ? getCurrentUser() : null; return u && u.id; }
@@ -349,9 +349,10 @@
     }
     // The maxes % sets work from: shown when the block uses them.
     if (allSets.some(function (x) { return x.pct != null; }) || (prog.maxes && Object.keys(prog.maxes).length)) {
-      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; return v > 0 ? LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)) : null; }).filter(Boolean);
+      // Each max carries its lift's dot (lift colours live on lift data).
+      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; return v > 0 ? '<i class="lift-' + L + '" aria-hidden="true"></i>' + LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)) : null; }).filter(Boolean);
       var mx = el('button', { type: 'button', class: 'cp-maxes' });
-      mx.innerHTML = '<span>Maxes for %</span><b>' + esc(bits.length ? bits.join(' · ') + ' ' + unit() : 'not set') + '</b>' + ic('chev', 2.4);
+      mx.innerHTML = '<span>Maxes for %</span><b>' + (bits.length ? bits.join(' · ') + ' ' + esc(unit()) : 'not set') + '</b>' + ic('chev', 2.4);
       mx.addEventListener('click', function () { if (typeof openMaxesSheet === 'function') openMaxesSheet(prog.id, aid); });
       h.appendChild(mx);
     }
@@ -451,7 +452,9 @@
   }
   function pageEl(prog, aid, wk, wi, day, di) {
     var page = el('div', { class: 'cp-page', 'data-day': String(di) });
-    var card = el('div', { class: 'cp-daycard' });
+    // The day is lit by its first main lift, as the lifter's Train lights the set they're on.
+    var lead = (day.exercises || []).filter(function (e) { return MAIN.indexOf(e.lift) >= 0; })[0];
+    var card = el('div', { class: 'cp-daycard' + (lead ? ' lift-' + lead.lift : '') });
     var head = el('div', { class: 'cp-dayhead' });
     var id = el('div', { class: 'cp-dayid' });
     var nm = el('input', { type: 'text', class: 'cp-dayname', 'aria-label': 'Day name', autocomplete: 'off', spellcheck: 'false' });
@@ -591,6 +594,7 @@
       var paint = function () { paintEditor(body, aid, wi, di, ei, close); };
       S.sheetRepaint = paint;
       S.moreOpen = {};
+      S.sleeve = {};   // the bar opens loaded as written; it moves only when the load changes
       paint();
       // The saving line follows the connection and the queue while the sheet is open.
       S.onSync = function () { var p = sheet.querySelector('.cp-ed-saved'); if (p) paintSaved(p, aid); };
@@ -671,7 +675,8 @@
   // One block of identical sets: sets, reps, load (or % of max) and effort first, then one More with what a
   // block rarely needs. A block with a logged set reads as it was lifted.
   function blockEl(body, aid, wi, di, ei, ex, blk, bi, nBlocks, main, maxKg, sfDef, close, all) {
-    var box = el('div', { class: 'cp-blk' });
+    // The first block (the top set) is the sheet's object, lit by its lift (coach-app.css .cp-blk.is-top).
+    var box = el('div', { class: 'cp-blk' + (bi === 0 ? ' is-top' + (main ? ' lift-' + ex.lift : '') : '') });
     var sets = (ex.sets || []).slice(blk.startIdx, blk.startIdx + blk.count);
     var logged = sets.some(function (s) { return s.completed; });
     var head = el('div', { class: 'cp-blk-h' });
@@ -683,6 +688,22 @@
     };
     paintHead();
     head.appendChild(headT);
+    // The top set's load as the bar a loader would load for it (the lifter app's own drawing, app.js
+    // uiBarbell): the one real load on this screen, so it's drawn. It reloads when the load settles.
+    var sleeve = null;
+    if (bi === 0 && main && !logged && typeof uiBarbell === 'function') {
+      sleeve = el('span', { class: 'pl-sleeve' });
+      head.appendChild(sleeve);
+    }
+    var sleeveKey = String(ex.id || ei) + ':' + wi + ':' + di;
+    var paintSleeve = function () {
+      if (!sleeve) return;
+      var kg = Number(blk.weight) > 0 ? Number(blk.weight) : 0, was = S.sleeve[sleeveKey];
+      sleeve.innerHTML = kg ? uiBarbell(kg, was != null && was !== kg ? { from: was } : {}) : '';
+      S.sleeve[sleeveKey] = kg;
+    };
+    var sleeveT = null, sleeveSoon = function () { if (!sleeve) return; clearTimeout(sleeveT); sleeveT = setTimeout(paintSleeve, 300); };
+    paintSleeve();
     box.appendChild(head);
     if (logged) {
       box.appendChild(el('p', { class: 'cp-blk-logged' }, 'Logged. A set they lifted keeps what it was; edit the next week instead.'));
@@ -711,7 +732,7 @@
       var onPct = function (v) {
         var kg = maxKg ? pctLoadKg(v, maxKg) : 0, hi = span ? v + span : null, kgHi = hi && maxKg ? pctLoadKg(hi, maxKg) : 0;
         setBlockRx(wi, di, ei, blk.startIdx, blk.count, { pct: v, pctHi: hi, weight: kg || blk.weight || 0, weightHi: kgHi > kg ? kgHi : null });
-        blk.pct = v; blk.pctHi = hi; if (kg) blk.weight = kg; blk.weightHi = kgHi > kg ? kgHi : null; paintCalc(); paintHead(); bgRefresh();
+        blk.pct = v; blk.pctHi = hi; if (kg) blk.weight = kg; blk.weightHi = kgHi > kg ? kgHi : null; paintCalc(); paintHead(); bgRefresh(); sleeveSoon();
       };
       var pctSt = uiStepper({ value: Number(blk.pct) || 0, step: cpLoadStep(true), min: 0, max: 120, label: 'percent', fmt: function (v) { return n2(v) + (span ? '–' + n2(v + span) : '') + '%'; }, onChange: onPct });
       grid.appendChild(stepCell('% of max', typeable(pctSt, 'Type the percent', onPct), calc));
@@ -721,7 +742,7 @@
       var onLoad = function (v) {
         var kg = v > 0 && typeof displayToKg === 'function' ? displayToKg(v) : v, hk = hiD && v > 0 && typeof displayToKg === 'function' ? displayToKg(v + hiD) : null;
         setBlockRx(wi, di, ei, blk.startIdx, blk.count, { weight: kg, weightHi: hk });
-        blk.weight = kg; blk.weightHi = hk; bgRefresh(); paintHead(); paintHint();
+        blk.weight = kg; blk.weightHi = hk; bgRefresh(); paintHead(); paintHint(); sleeveSoon();
       };
       // The unit sits in the label ("Load · kg"), so 162.5 fits beside its buttons on a 375 pt phone.
       var loadSt = uiStepper({ value: wD, step: cpLoadStep(false, u), min: 0, max: 1000, label: 'load', fmt: function (v) { return v > 0 ? n2(v) + (hiD ? '–' + n2(v + hiD) : '') : '<span class="st-word">By feel</span>'; }, onChange: onLoad });
@@ -845,10 +866,26 @@
     var val = stepper.querySelector('.st-val');
     if (val && typeof MutationObserver === 'function') {
       var fit = function () { val.classList.remove('is-tight'); if (val.scrollWidth > val.clientWidth + 1) val.classList.add('is-tight'); };
-      new MutationObserver(function () { requestAnimationFrame(fit); }).observe(val, { childList: true, characterData: true, subtree: true });
+      var last = cpNum(val.textContent);
+      new MutationObserver(function () {
+        requestAnimationFrame(fit);
+        // The number ticks the way it moved: up from below, down from above (6 pt, the press spring).
+        var now = cpNum(val.textContent);
+        if (now != null && last != null && now !== last && !val.querySelector('input')) tick(val, now > last ? 1 : -1);
+        last = now;
+      }).observe(val, { childList: true, characterData: true, subtree: true });
       requestAnimationFrame(fit);
     }
     return c;
+  }
+  function cpNum(t) { var m = /-?\d+(?:\.\d+)?/.exec(String(t || '')); return m ? Number(m[0]) : null; }
+  function tick(node, dir) {
+    if (!node.animate) return;
+    try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
+    if (node._tick) node._tick.cancel();
+    var cs = getComputedStyle(document.body), ease = (cs.getPropertyValue('--pl-spring') || '').trim() || 'cubic-bezier(0.23, 1, 0.32, 1)';
+    var ms = parseFloat(cs.getPropertyValue('--pl-d-press')) || 200, frames = [{ transform: 'translate3d(0,' + (dir * 6) + 'px,0)', opacity: 0.55 }, { transform: 'none', opacity: 1 }];
+    try { node._tick = node.animate(frames, { duration: ms, easing: ease }); } catch (e) { try { node._tick = node.animate(frames, { duration: 200, easing: 'ease-out' }); } catch (e2) {} }
   }
 
   /* ---------------------------------------------------------------- empty states */

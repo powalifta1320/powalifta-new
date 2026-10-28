@@ -192,6 +192,29 @@
     if (top.type === 'pain') return 'alert';
     return /^(meetday|weight|overshoot|drift|checkin|readiness|quiet|never|missed|offpace|busy)$/.test(top.type) ? 'watch' : '';
   }
+  // Plates (coach-app.css .pf-*): the plate family a job reads in. Pain is the 25's red; the meet, making
+  // weight and the cut the 15's yellow (gold); their words waiting the Messages green; effort over, readiness,
+  // going quiet and a busy week the felt scale's amber; planning (blocks, next weeks) steel. it: a job.
+  function caJobFamily(it) {
+    var t = it && it.type;
+    if (!t) return '';
+    if (t === 'pain') return 'alert';
+    if (/^(meet|meetday|weight|offpace)$/.test(t)) return 'meet';
+    if (/^(message|note|formcheck)$/.test(t)) return 'msg';
+    if (/^(overshoot|drift|checkin|readiness|quiet|never|missed|busy)$/.test(t)) return 'watch';
+    return 'steel';
+  }
+  // A lifter's family, worn as the lip round their face and the light on their page: what needs you this week
+  // when it's pain, a watch or the meet (the triage order), else a meet inside 8 weeks (peaking), else under
+  // the bar now, else '' (on plan: ink). Their words waiting don't colour the lifter; the flag says them.
+  function caFamily(r, top) {
+    if (!r) return '';
+    var need = top && !top.done && top.tier <= NEED_TIER ? caJobFamily(top) : '';
+    if (need === 'alert' || need === 'watch' || need === 'meet') return need;
+    if (caIsMeetSoon(r)) return 'meet';
+    if (r.live) return 'live';
+    return '';
+  }
   // The list's order: who needs you (worst first), then the nearest meets, then everyone else by name.
   function caSortRows(rows, need) {
     need = need || [];
@@ -383,12 +406,14 @@
     return lb;
   }
   function runFix(r, f, btn) { if (CL() && CL().runFix) CL().runFix(r, f, btn); }
+  // A face in its week ring. opts.fam: the lifter's plate family (caFamily), worn by the ring.
   function faceHtml(r, w, size, opts) {
     opts = opts || {};
     var a = r.athlete;
-    return '<span class="ca-face is-f' + size + (opts.cls ? ' ' + opts.cls : '') + '" style="--fs:' + size + 'px">' + caRingSvg(w, size, opts.sw || (size >= 80 ? 3.5 : 3)) + avHtml(a) +
+    return '<span class="ca-face is-f' + size + (opts.cls ? ' ' + opts.cls : '') + (opts.fam ? ' pf-' + opts.fam : '') + '" style="--fs:' + size + 'px" data-face="' + esc(a.id) + '">' + caRingSvg(w, size, opts.sw || (size >= 80 ? 3.5 : 3)) + avHtml(a) +
       (r.live ? '<i class="ca-live" title="Training now"></i>' : '') + '</span>';
   }
+  function famOf(r, X) { return caFamily(r, topJob(r, X.jobs)); }
 
   /* ====================================================================================================
      STATES: before the roster is in, each screen draws a skeleton in its own shape; if it couldn't load,
@@ -556,7 +581,8 @@
     var d = group ? caMeetDayDetail(it) : caFocalDetail(it1, t);
     var names = group ? (it.rows || []).map(function (q) { return first(q.athlete.name); }) : null;
     var who = group ? names.slice(0, 3).join(', ') + (names.length > 3 ? ' +' + (names.length - 3) : '') : r.athlete.name;
-    var face = group ? '<span class="ca-stack" aria-hidden="true">' + (it.rows || []).slice(0, 2).map(function (q) { return avHtml(q.athlete); }).join('') + '</span>' : avHtml(r.athlete, 'is-56');
+    // The face wears its lip in the job's family (the card's --pf), like every face on Home.
+    var face = group ? '<span class="ca-stack" aria-hidden="true">' + (it.rows || []).slice(0, 2).map(function (q) { return avHtml(q.athlete); }).join('') + '</span>' : avHtml(r.athlete, 'is-56 pl-lip');
     var sub = '<span class="ca-focal-n">' + esc(who) + '</span>' + (d ? '<span class="ca-focal-d">' + (t.voice && it.type === 'message' ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(d)) + '</span>' : '');
     return '<div class="ca-focal ca-rise tone-' + esc(t.tone) + '" data-job="' + esc(it.key) + '" data-aid="' + esc(r.athlete.id) + '">' +
       '<button type="button" class="ca-focal-main" data-open="' + esc(r.athlete.id) + '" aria-label="' + esc(caFocalTitle(it1) + '. Open ' + r.athlete.name) + '">' + face +
@@ -566,8 +592,9 @@
   function jobRowHtml(x) {
     var it = x.job, r = x.r, t = jobText(it, r.athlete.id), f = fixOf(it) || {};
     var short = CL() && CL().shortLabel ? CL().shortLabel(f) : (f.label || 'Open');
+    var fam = caJobFamily(it);
     return '<div class="ca-jrow" data-job="' + esc(it.key) + '" data-aid="' + esc(r.athlete.id) + '">' +
-      '<button type="button" class="ca-jrow-main" data-open="' + esc(r.athlete.id) + '">' + avHtml(r.athlete, 'is-40') +
+      '<button type="button" class="ca-jrow-main" data-open="' + esc(r.athlete.id) + '">' + avHtml(r.athlete, 'is-40' + (fam && fam !== 'steel' ? ' pl-lip pf-' + fam : '')) +
         '<span class="ca-jrow-tx"><span class="ca-jrow-n">' + esc(first(r.athlete.name)) + '</span><span class="ca-jrow-t">' + keepDots(esc((it.type === 'busy' && caBusyLine(it)) || t.short || t.title)) + '</span></span></button>' +
       '<button type="button" class="ca-pill" data-fix="' + esc(it.key) + '" aria-label="' + esc(f.label || short) + '">' + esc(short) + '</button></div>';
   }
@@ -578,7 +605,7 @@
     var shown = rows.slice(0, 24);
     var faces = shown.map(function (r) {
       var w = X.week(r), live = r.live ? ', training now' : '';
-      return '<button type="button" class="ca-fb" data-open="' + esc(r.athlete.id) + '" aria-label="' + esc(r.athlete.name + ': ' + w.text + live) + '">' + faceHtml(r, w, 64) +
+      return '<button type="button" class="ca-fb" data-open="' + esc(r.athlete.id) + '" aria-label="' + esc(r.athlete.name + ': ' + w.text + live) + '">' + faceHtml(r, w, 64, { fam: famOf(r, X) }) +
         '<span class="ca-fb-n">' + esc(first(r.athlete.name)) + '</span></button>';
     }).join('');
     var more = rows.length > shown.length ? '<button type="button" class="ca-fb is-more" data-lifters="all"><span class="ca-fb-more">+' + (rows.length - shown.length) + '</span><span class="ca-fb-n">More</span></button>' : '';
@@ -635,7 +662,12 @@
     var steps = typeof coachSetupSteps === 'function' ? coachSetupSteps() : [];
     var nm = first(u && u.name);
     var invited = steps[1] && steps[1].done;
-    var html = '<div class="ca-home ca-root is-fresh"><div class="ca-hero ca-welcome ca-rise">' +
+    // The one picture on Home, and only here: the bar Home is waiting to load, its first plate on (assets/3d,
+    // rendered in the brand studio: the gym light for the dark app, daylight for the light one).
+    var alt = 'A 25 kg plate on the bar, face in, the collar on';
+    var still = '<span class="pl-still"><img class="is-dark" src="assets/3d/first-plate-dark.webp" alt="' + alt + '" width="1080" height="480" decoding="async">' +
+      '<img class="is-light" src="assets/3d/first-plate-light.webp" alt="' + alt + '" width="1080" height="480" decoding="async"></span>';
+    var html = '<div class="ca-home ca-root is-fresh"><div class="ca-hero ca-welcome ca-rise">' + still +
       '<p class="ca-hero-hi">' + esc(nm ? 'Welcome, ' + nm : 'Welcome') + '</p>' +
       '<h2 class="ca-welcome-t">' + (invited ? 'Your invite is out' : 'Bring in your first lifter') + '</h2>' +
       '<p class="ca-hero-sub">' + (invited ? 'They land here the moment they sign up with your link. Send another any time.' : 'Send them your link. They get the app and land here, with their week and the fix for anything off.') + '</p>' +
@@ -674,7 +706,7 @@
         runFix(r, fixOf(it), b);
         return;
       }
-      if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open')); return; }
+      if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open'), b); return; }
       if ((b = t.closest('[data-lifters]'))) { e.preventDefault(); openLifters(b.getAttribute('data-lifters')); return; }
       if ((b = t.closest('[data-wins]'))) { e.preventDefault(); openWins(area._X); return; }
       if ((b = t.closest('[data-go]'))) { e.preventDefault(); tab(b.getAttribute('data-go')); return; }
@@ -698,7 +730,69 @@
     if (key === 'invite') { if (typeof openInviteModal === 'function') openInviteModal(); return; }
     if (key === 'search') { openSearch(); return; }
   }
-  function openLifter(id) { if (id && CL() && CL().open) CL().open(id); }
+  // Opening a lifter from a face or a row carries that face to the page's header (coach-app.css MOTION).
+  function openLifter(id, src) {
+    if (!id || !CL() || !CL().open) return;
+    var from = carryFrom(src);
+    CL().open(id);
+    if (from) carry(from, document.querySelector('#lifterPage .ca-ph .ca-face'), 'carry', id, src);
+  }
+
+  /* ---------------------------------------------------------------- the carry
+     The face you tapped is the face on the page: it travels from where you tapped it to the header on the heavy
+     spring while the page settles in place (body[data-nav=carry]), and Back carries it home again. FLIP with
+     WAAPI on transform only, started before the first frame of the new screen, so nothing jumps; a tap during
+     the flight just lands it (the animation is dropped with the screen it was on). Never under reduced motion. */
+  var CARRY = { id: null, kind: '' };
+  function reducedMotion() { try { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } }
+  function faceIn(node) { return node && node.querySelector ? node.querySelector('.ca-face') || node.querySelector('.ca-av') : null; }
+  function rectOf(n) { if (!n) return null; var b = n.getBoundingClientRect(); return b.width > 0 ? { x: b.left, y: b.top, w: b.width, h: b.height } : null; }
+  function carryFrom(src) { return src && hasDom && !reducedMotion() ? rectOf(faceIn(src)) : null; }
+  function springOf(name) {
+    var cs = getComputedStyle(document.body);
+    return { ease: (cs.getPropertyValue('--pl-spring') || '').trim() || 'cubic-bezier(0.23, 1, 0.32, 1)', ms: parseFloat(cs.getPropertyValue(name)) || 440 };
+  }
+  function carry(from, to, nav, id, src) {
+    var b = rectOf(to);
+    if (!from || !b || typeof to.animate !== 'function') return false;
+    // Off screen at either end: no flight, the screen's own push or pop does it.
+    var vh = window.innerHeight || 852;
+    if (from.y + from.h < 0 || from.y > vh || b.y + b.h < 0 || b.y > vh) return false;
+    var dx = (from.x + from.w / 2) - (b.x + b.w / 2), dy = (from.y + from.h / 2) - (b.y + b.h / 2), s = from.w / b.w;
+    document.body.dataset.nav = nav;
+    var sp = springOf('--pl-d-heavy');
+    var frames = [{ transform: 'translate3d(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px,0) scale(' + s.toFixed(3) + ')' }, { transform: 'none' }];
+    to.classList.add('is-carry');
+    var a;
+    try { a = to.animate(frames, { duration: sp.ms, easing: sp.ease }); }
+    catch (e) { try { a = to.animate(frames, { duration: 420, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }); } catch (e2) { a = null; } }
+    var done = function () { to.classList.remove('is-carry'); };
+    if (a) { a.onfinish = done; a.oncancel = done; } else done();
+    if (nav === 'carry' && id) { CARRY.id = id; CARRY.kind = src && src.classList ? ['ca-fb', 'ca-focal-main', 'ca-jrow-main', 'ca-row'].filter(function (k) { return src.classList.contains(k); })[0] || '' : ''; }
+    return true;
+  }
+  // Back from the card (the pane's back or the bar's copy of it) carries the face back to where it came from.
+  if (hasDom) {
+    document.addEventListener('click', function (e) {
+      var back = e.target && e.target.closest && e.target.closest('.pane-back, #clNavBack');
+      if (!back || !CARRY.id || P.view !== 'card' || reducedMotion()) return;
+      var pane = document.querySelector('section[data-pane="lifter"]');
+      if (!pane || pane.classList.contains('hidden') || P.id !== CARRY.id) return;
+      var from = rectOf(document.querySelector('#lifterPage .ca-ph .ca-face'));
+      var id = CARRY.id, kind = CARRY.kind, t0 = Date.now();
+      CARRY.id = null;
+      if (!from) return;
+      // After the tab has switched (window is the last stop of this click), before the frame is drawn.
+      window.addEventListener('click', function land() {
+        if (Date.now() - t0 > 600) return;
+        var shown = document.querySelector('.dash-main > section[data-pane]:not(.hidden)');
+        if (!shown || shown.getAttribute('data-pane') === 'lifter') return;
+        var sel = '[data-open="' + String(id).replace(/"/g, '') + '"]' + (kind ? '.' + kind : '');
+        var src = shown.querySelector(sel) || shown.querySelector('[data-open="' + String(id).replace(/"/g, '') + '"]');
+        carry(from, faceIn(src), 'carry-back');
+      }, { once: true });
+    }, true);
+  }
   function openLifters(filter) {
     L.filter = FILTERS.some(function (f) { return f[0] === filter; }) ? filter : 'all';
     L.q = '';
@@ -765,7 +859,7 @@
     var line = top && top.type === 'busy' && caBusyLine(top) ? caBusyLine(top) : CL() && CL().clLine ? CL().clLine(r, top && top.tier <= 3 ? top : null) : '';
     var sev = caSev(top);
     var n = CL() && CL().clNumber ? CL().clNumber(r) : { text: '', tone: 'none', title: '' };
-    return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52) +
+    return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52, { fam: caFamily(r, top) }) +
       '<span class="ca-row-main"><span class="ca-row-n">' + esc(r.athlete.name) + '</span>' +
         '<span class="ca-row-l' + (sev ? ' sev-' + sev : '') + '">' + (sev ? '<i class="ca-dot" aria-hidden="true"></i>' : '') + '<span>' + keepDots(esc(line)) + '</span></span></span>' +
       (n.tone !== 'none' ? '<span class="ca-row-end t-' + esc(n.tone) + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b><small>' + esc(unit()) + '</small></span>' : '') + '</button>';
@@ -787,7 +881,7 @@
         paintRows(wrap);
         return;
       }
-      if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open')); }
+      if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open'), b); }
     });
     var q = wrap.querySelector('.ca-q');
     if (q) {
@@ -814,6 +908,10 @@
     if (!r) { host.innerHTML = ''; return; }
     var X = model();
     host._X = X; host._r = r;
+    // Their plate family lights their page from the top (coach-app.css body[data-screen=lifter][data-pf]),
+    // on the card and on every view a row pushes in.
+    var fam = caFamily(r, topJob(r, X.jobs));
+    if (hasDom && document.body) { if (fam) document.body.setAttribute('data-pf', fam); else document.body.removeAttribute('data-pf'); }
     host.innerHTML = '<div class="ca-pg ca-root' + (P.view !== 'card' ? ' is-sub' : '') + '">' + (P.view === 'card' ? cardHtml(r, X) : subHtml(r, X, P.view)) + '</div>';
     if (CL() && CL().paint) CL().paint(host);
     if (P.view === 'notes') mountNotes(host.querySelector('[data-notes-host]'), r);
@@ -827,7 +925,7 @@
     if (cls && !caIsMeetSoon(r)) meta.push(cls + ' ' + unit() + ' class');
     var status = caHeadChip(r, top);
     var unread = unreadMap()[a.id] || 0;
-    var html = '<header class="ca-ph">' + faceHtml(r, w, 96, { cls: 'is-big' }) +
+    var html = '<header class="ca-ph">' + faceHtml(r, w, 96, { cls: 'is-big', fam: caFamily(r, top) }) +
       '<h2 class="ca-pname">' + esc(a.name) + '</h2><p class="ca-pmeta">' + keepDots(esc(meta.join(' · '))) + '</p>' +
       (status ? '<span class="ca-status s-' + status.tone + '"><i aria-hidden="true"></i>' + keepDots(esc(status.text)) + '</span>' : '') + '</header>';
     // Four actions, like a contact card.
@@ -868,7 +966,9 @@
     }
     var d = T.delta != null ? Math.round(kgShow(T.delta)) : null;
     var chip = d != null ? '<span class="ca-chg ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat') + '">' + (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' ' + esc(unit()) + ' in 4 weeks</span>' : '';
-    return '<button type="button" class="ca-ov" data-view="progress" aria-label="e1RM total ' + Math.round(kgShow(T.value)) + ' ' + esc(unit()) + (d != null ? ', ' + (d >= 0 ? 'up ' : 'down ') + Math.abs(d) + ' in 4 weeks' : '') + '. Open progress">' + head +
+    // The total is the page's object, lit by where it's going: up green, down amber, flat by the page's own light.
+    var lit = d > 0 ? ' pf-up' : d < 0 ? ' pf-down' : '';
+    return '<button type="button" class="ca-ov' + lit + '" data-view="progress" aria-label="e1RM total ' + Math.round(kgShow(T.value)) + ' ' + esc(unit()) + (d != null ? ', ' + (d >= 0 ? 'up ' : 'down ') + Math.abs(d) + ' in 4 weeks' : '') + '. Open progress">' + head +
       '<span class="ca-ov-num"><b>' + Math.round(kgShow(T.value)) + '</b><small>' + esc(unit()) + '</small>' + chip + '</span>' +
       sparkHtml(T.pts) + weekLine + '</button>';
   }
@@ -1185,6 +1285,7 @@
     // pure, for tests
     caTodayLine: caTodayLine, caSev: caSev, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
-    caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
+    caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER,
+    caJobFamily: caJobFamily, caFamily: caFamily
   };
 })();
