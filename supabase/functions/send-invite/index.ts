@@ -173,12 +173,13 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const detail = await res.text();
       console.error('Resend error:', res.status, detail);
-      return jsonResponse(502, { error: 'Email send failed', status: res.status, detail });
+      // The provider's own words stay in the function log; the caller gets the plain reason.
+      return jsonResponse(502, { error: 'Email send failed', status: res.status });
     }
     const body = await res.json();
     return jsonResponse(200, { sent: true, id: body?.id });
   } catch (e) {
     console.error('send-invite crashed:', e);
-    return jsonResponse(500, { error: 'Unhandled exception', message: String((e as any)?.message || e) });
+    return jsonResponse(500, { error: 'Email send failed' });
   }
 });

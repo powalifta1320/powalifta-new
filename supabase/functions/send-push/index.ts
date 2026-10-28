@@ -212,6 +212,9 @@ Deno.serve(async (req) => {
     program: 'push_program',
     alerts: 'push_alerts',
   }
+  // A push to someone else always answers to one of their switches: no category, or one we don't know, counts
+  // as a message (the self test push and the buddy nudge, whose words the server writes, are the exceptions).
+  if (toUserId !== callerId && category !== 'buddy' && !CATEGORY_COL[category]) category = 'messages'
   const prefCol = CATEGORY_COL[category]
   if (prefCol) {
     try {
