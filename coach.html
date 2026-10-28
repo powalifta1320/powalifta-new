@@ -2547,6 +2547,7 @@ function openInviteModal() {
     mail.addEventListener('keydown', (e) => { if (e.key === 'Enter') send.click(); });
     sheet.appendChild(mailRow);
     sheet.appendChild(status);
+    if (window.SwitchKit && SwitchKit.inviteHook) SwitchKit.inviteHook(sheet, close);   // IMPORTS hook: invite a whole client list (import-ui.js)
   }, { cls: 'invite-sheet' });
 }
 function _copyText(t) {

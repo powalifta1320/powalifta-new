@@ -901,6 +901,7 @@ var SwitchKit = (function () {
     '.sk-data-links{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin:8px 0 4px}',
     '.sk-data-links a,.sk-data-links button{background:none;border:0;padding:0;color:var(--text-2);font:inherit;font-size:var(--fs-meta,13px);text-decoration:underline;text-underline-offset:3px;cursor:pointer}',
     '.sk-busy{opacity:.7;pointer-events:none}',
+    '.ui-sheet .ui-list.sk-invite-list{margin-top:18px;margin-bottom:0}',
     '@media (prefers-reduced-motion:no-preference){.sk-sum{animation:sk-in .2s ease-out}@keyframes sk-in{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}}'
   ].join('\n');
   function ensureCss() {
@@ -1395,7 +1396,7 @@ var SwitchKit = (function () {
   // coach.html openInviteModal: a client list from another app becomes invites in one go.
   function inviteHook(sheet, close) {
     ensureCss();
-    var row = uiList([uiRow({ title: 'Import a client list', sub: 'Invite everyone from a CSV or spreadsheet, or from TrueCoach, CoachRx, Trainerize or TrainHeroic', chevron: true,
+    var row = uiList([uiRow({ title: 'Import a client list', sub: 'From a spreadsheet, TrueCoach, CoachRx, Trainerize or TrainHeroic', chevron: true,
       onClick: function () { close(); setTimeout(function () { openIntake({ mode: 'roster' }); }, 220); } })]);
     row.classList.add('sk-invite-list');
     sheet.appendChild(row);

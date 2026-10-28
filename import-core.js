@@ -21,7 +21,9 @@
    ===================================================================== */
 var ImportCore = (function () {
   'use strict';
-  var SK = function () { return window.SwitchKit; };
+  // The page, or import-worker.js (a workbook is read off the main thread there).
+  var G = typeof window !== 'undefined' ? window : self;
+  var SK = function () { return G.SwitchKit; };
   var hkey = function (h) { return SK().hkey(h); };
   var MAX_COLS = 80, ZIP_MAX_FILES = 400, ZIP_MAX_BYTES = 80 * 1024 * 1024, ZIP_MAX_ONE = 20 * 1024 * 1024;
   var EMAIL_RE = /^[^\s@,;<>"']+@[^\s@,;<>"']+\.[a-z]{2,}$/i;
@@ -266,7 +268,7 @@ var ImportCore = (function () {
   //   opts: { sheetRows (read only the first n rows: the tab picker's quick look), sheets (only these tabs), name }
   function readWorkbook(bytes, opts) {
     opts = opts || {};
-    var X = window.XLSX;
+    var X = G.XLSX;
     if (!X || !X.read) throw new Error('The spreadsheet reader isn\'t loaded');
     var o = { type: 'array', cellDates: true, cellNF: true, cellStyles: false, cellHTML: false, dense: true, WTF: false };
     if (opts.sheetRows) o.sheetRows = opts.sheetRows;
@@ -355,7 +357,7 @@ var ImportCore = (function () {
   // → [{ name, bytes }] (bytes null for a file it doesn't read: a photo, a PDF). A zip that would
   // unpack past 80 MB or hold more than 400 files is refused before anything is inflated.
   function unzip(bytes) {
-    var F = window.fflate;
+    var F = G.fflate;
     if (!F || !F.unzipSync) throw new Error('The zip reader isn\'t loaded');
     var u8 = toU8(bytes), list = zipEntries(u8).filter(function (e) { return !ZIP_JUNK.test(e.name); });
     var total = list.reduce(function (a, e) { return a + (e.size || 0); }, 0);
@@ -946,8 +948,40 @@ var ImportCore = (function () {
     });
     return loading[src];
   }
-  function loadXlsx() { return window.XLSX && window.XLSX.read ? Promise.resolve(window.XLSX) : loadScript('import-lib-xlsx.js').then(function () { return window.XLSX; }); }
-  function loadUnzip() { return window.fflate && window.fflate.unzipSync ? Promise.resolve(window.fflate) : loadScript('import-lib-fflate.js').then(function () { return window.fflate; }); }
+  function loadXlsx() { return G.XLSX && G.XLSX.read ? Promise.resolve(G.XLSX) : loadScript('import-lib-xlsx.js').then(function () { return G.XLSX; }); }
+  function loadUnzip() { return G.fflate && G.fflate.unzipSync ? Promise.resolve(G.fflate) : loadScript('import-lib-fflate.js').then(function () { return G.fflate; }); }
+  // A workbook read off the page's main thread (import-worker.js: SheetJS can take a second on a phone for
+  // a big one). The same tables as readWorkbook. No worker (or it can't start): read here, after a frame.
+  var worker = null, wid = 0, waiting = {};
+  function readHere(bytes, opts) {
+    return loadXlsx().then(function () { return new Promise(function (res) { setTimeout(res, 16); }); }).then(function () { return readWorkbook(bytes, opts); });
+  }
+  function readWorkbookAsync(bytes, opts) {
+    if (typeof Worker === 'undefined' || G.__imNoWorker) return readHere(bytes, opts);
+    return new Promise(function (resolve, reject) {
+      var here = function () { readHere(bytes, opts).then(resolve, reject); };
+      try {
+        if (!worker) {
+          worker = new Worker('import-worker.js');
+          worker.onmessage = function (e) {
+            var m = e.data || {}, w = waiting[m.id];
+            if (!w) return;
+            delete waiting[m.id];
+            if (m.error) w.reject(new Error(m.error)); else w.resolve(m.tables);
+          };
+          worker.onerror = function (e) {
+            // The worker didn't start (offline, an old WebView): everything waiting is read here instead.
+            if (e && e.preventDefault) e.preventDefault();
+            var ws = waiting; waiting = {}; worker = null; G.__imNoWorker = true;
+            Object.keys(ws).forEach(function (k) { ws[k].here(); });
+          };
+        }
+        var id = ++wid, copy = toU8(bytes).slice();
+        waiting[id] = { resolve: resolve, reject: reject, here: here };
+        worker.postMessage({ id: id, bytes: copy, opts: opts || {} }, [copy.buffer]);
+      } catch (e) { G.__imNoWorker = true; here(); }
+    });
+  }
 
   // ================================================================= built-in samples (the demo, the tests)
   // A client list in TrueCoach's published columns (the people and values are made up), a Strong export
@@ -984,7 +1018,7 @@ var ImportCore = (function () {
   };
   // The demo's workbook, built with SheetJS so it goes through the real reader: three tabs.
   function sampleWorkbookBytes() {
-    var X = window.XLSX;
+    var X = G.XLSX;
     var tab = function (text) { return X.utils.aoa_to_sheet(SK().splitRows(text, ',').map(function (r) { return r.cells.map(function (c) { return /^-?\d+(\.\d+)?$/.test(c) ? Number(c) : c; }); })); };
     var wb = X.utils.book_new();
     var log = tab(SAMPLES.wide.text);
@@ -998,7 +1032,7 @@ var ImportCore = (function () {
     // bytes
     decodeBytes: decodeBytes, sniff: sniff, zipEntries: zipEntries,
     // tables
-    tablesFromText: tablesFromText, tablesFromWorkbook: tablesFromWorkbook, readWorkbook: readWorkbook, tablesFromJson: tablesFromJson,
+    tablesFromText: tablesFromText, tablesFromWorkbook: tablesFromWorkbook, readWorkbook: readWorkbook, readWorkbookAsync: readWorkbookAsync, tablesFromJson: tablesFromJson,
     unzip: unzip, tablesFromZip: tablesFromZip, cellText: cellText, excelSerialToISO: excelSerialToISO, isDateFormat: isDateFormat,
     // columns
     findHeader: findHeader, analyse: analyse, setFields: setFields, bodyRows: bodyRows, historyMap: historyMap, unpivotWide: unpivotWide,

@@ -544,13 +544,8 @@ var ImportUI = (function () {
       if (kind === 'office') throw errorOf('That\'s a document, not a spreadsheet. Copy its table into a spreadsheet, or take a screenshot and bring it in as a program.');
       if (kind === 'xlsx' || kind === 'ods') {
         if (size > MAX_BOOK) throw errorOf(TOO_BIG('book'));
-        return IC().loadXlsx().then(function () {
-          rd && rd.line('Opening the tabs…');
-          return new Promise(function (res) { setTimeout(res, 16); });
-        }).then(function () {
-          var tabs = IC().readWorkbook(u8, { sheetRows: 41, name: name });
-          return { name: name, book: u8, tables: tabs };
-        });
+        if (rd) rd.line('Opening the tabs…');
+        return IC().readWorkbookAsync(u8, { sheetRows: 41, name: name }).then(function (tabs) { return { name: name, book: u8, tables: tabs }; });
       }
       if (kind === 'zip') {
         if (size > MAX_ZIP) throw errorOf(TOO_BIG('zip'));
@@ -615,14 +610,10 @@ var ImportUI = (function () {
     function openTable(t, backTo) {
       st.backToTabs = backTo || null;
       if (st.res && st.res.book && t.fullRows > t.rows.length) {
-        var rd = reading(t.name, 'Reading ' + plural(Math.max(0, t.fullRows - 1), 'row') + '…');
-        setTimeout(function () {
-          try {
-            var full = IC().readWorkbook(st.res.book, { sheets: [t.name], name: st.res.name }).filter(function (x) { return x.name === t.name; })[0] || t;
-            route(full);
-          } catch (e) { readError(e); }
-          void rd;
-        }, 30);
+        reading(t.name, 'Reading ' + plural(Math.max(0, t.fullRows - 1), 'row') + '…');
+        IC().readWorkbookAsync(st.res.book, { sheets: [t.name], name: st.res.name }).then(function (tabs) {
+          route(tabs.filter(function (x) { return x.name === t.name; })[0] || t);
+        }).catch(readError);
         return;
       }
       route(t);
