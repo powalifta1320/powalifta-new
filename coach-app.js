@@ -357,7 +357,7 @@
   function faceHtml(r, w, size, opts) {
     opts = opts || {};
     var a = r.athlete;
-    return '<span class="ca-face' + (opts.cls ? ' ' + opts.cls : '') + '" style="--fs:' + size + 'px">' + caRingSvg(w, size, opts.sw || (size >= 80 ? 3.5 : 3)) + avHtml(a) +
+    return '<span class="ca-face is-f' + size + (opts.cls ? ' ' + opts.cls : '') + '" style="--fs:' + size + 'px">' + caRingSvg(w, size, opts.sw || (size >= 80 ? 3.5 : 3)) + avHtml(a) +
       (r.live ? '<i class="ca-live" title="Training now"></i>' : '') + '</span>';
   }
 

@@ -110,10 +110,13 @@ html:not(.desk) .t-done { --th: var(--ca-live); }
 /* faces: an avatar inside its week ring, the live dot at its shoulder */
 html:not(.desk) .ca-av { font-weight: 800; letter-spacing: -0.01em; }
 html:not(.desk) .ca-av.is-44 { width: 44px; height: 44px; font-size: 15px; }
-html:not(.desk) .ca-av.is-40 { width: 40px; height: 40px; font-size: 14px; }
+html:not(.desk) .ca-av.is-40 { width: 40px; height: 40px; font-size: 15px; }
 html:not(.desk) .ca-face { position: relative; flex: none; display: inline-grid; place-items: center; width: var(--fs); height: var(--fs); }
 html:not(.desk) .ca-face .ca-ring { position: absolute; inset: 0; overflow: visible; }
 html:not(.desk) .ca-face .ca-av { width: calc(var(--fs) - 14px); height: calc(var(--fs) - 14px); font-size: calc((var(--fs) - 14px) * 0.34); }
+/* initials on the scale: 15 in a row's 38 pt face, 17 on Home's 50 pt faces, 28 on the card (is-big) */
+html:not(.desk) .ca-face.is-f52 .ca-av { font-size: 15px; }
+html:not(.desk) .ca-face.is-f64 .ca-av { font-size: 17px; }
 html:not(.desk) .ca-face.is-big .ca-av { width: calc(var(--fs) - 18px); height: calc(var(--fs) - 18px); font-size: 28px; }
 html:not(.desk) .ca-ring circle { fill: none; stroke-linecap: round; }
 html:not(.desk) .ca-ring-track { stroke: var(--fill-4, rgba(255, 255, 255, 0.14)); }
@@ -161,7 +164,7 @@ html:not(.desk) .ca-stat.is-btn:active { background: var(--ca-press); }
 html:not(.desk) .ca-focal { display: flex; flex-direction: column; gap: 16px; padding: 4px 4px 0; }
 html:not(.desk) .ca-focal-main { position: relative; display: flex; align-items: center; gap: 16px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 16px; transition: opacity 140ms ease-out; }
 html:not(.desk) .ca-focal-main:active { opacity: 0.7; }
-html:not(.desk) .ca-av.is-56 { width: 56px; height: 56px; font-size: 19px; }
+html:not(.desk) .ca-av.is-56 { width: 56px; height: 56px; font-size: 20px; }
 html:not(.desk) .ca-stack { position: relative; flex: none; width: 56px; height: 56px; }
 html:not(.desk) .ca-stack .ca-av { position: absolute; top: 0; left: 0; width: 38px; height: 38px; font-size: 13px; box-shadow: 0 0 0 2.5px var(--bg); }
 html:not(.desk) .ca-stack .ca-av + .ca-av { top: auto; left: auto; right: 0; bottom: 0; }
@@ -268,7 +271,7 @@ html:not(.desk) .ca-lrow-s { font-size: 13px; line-height: 1.35; color: var(--te
 html.native:not(.desk) .bottom-tab { position: relative; }
 html.native:not(.desk) .ca-tbadge {
   position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
-  background: #34e08c; color: #04140c; font: 700 12px/18px var(--font-num, inherit); text-align: center; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none;
+  background: #34e08c; color: #04140c; font: 700 11px/18px var(--font-num, inherit); text-align: center; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none;
   box-shadow: 0 0 0 2px rgba(12, 12, 15, 0.92);
 }
 html.native[data-theme="light"]:not(.desk) .ca-tbadge { background: #0c7a45; color: #fff; box-shadow: 0 0 0 2px #fff; }
@@ -365,7 +368,7 @@ html:not(.desk) .ca-act {
 html:not(.desk) .ca-act svg { width: 22px; height: 22px; color: var(--text); }
 html:not(.desk) .ca-act span { font-size: 13px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-act:active { transform: scale(0.96); background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
-html:not(.desk) .ca-act-n { position: absolute; top: 8px; left: calc(50% + 7px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #34e08c; color: #04140c; font: 700 12px/18px var(--font-num, inherit); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-act-n { position: absolute; top: 8px; left: calc(50% + 7px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #34e08c; color: #04140c; font: 700 11px/18px var(--font-num, inherit); font-variant-numeric: tabular-nums; text-align: center; }
 html[data-theme="light"]:not(.desk) .ca-act-n { background: #0c7a45; color: #fff; }
 html:not(.desk) .ca-flag { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; row-gap: 16px; align-items: start; margin-top: 28px; padding: 0 4px; background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0; }
 html:not(.desk) .ca-flag-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--ft, var(--ca-warn)); background: color-mix(in srgb, var(--ft, var(--ca-warn)) 15%, transparent); }
@@ -581,13 +584,13 @@ html:not(.desk) .cp-ed-add { margin-top: 16px; }
 html:not(.desk) .cp-ed-notel { display: block; margin-top: 20px; }
 html:not(.desk) .cp-ed-notel, html:not(.desk) .cp-ed-notel > span { text-transform: none; letter-spacing: 0; }
 html:not(.desk) .cp-ed-notel > span { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) body.powa-app .cp-ed-ta { width: 100%; min-height: 72px; padding: 12px 14px; border: 0 !important; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; color: var(--text); font-size: 16px; line-height: 1.4; resize: vertical; }
+html:not(.desk) body.powa-app .cp-ed-ta { width: 100%; min-height: 72px; padding: 12px 14px; border: 0 !important; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)) !important; color: var(--text); font-size: 17px; line-height: 1.4; resize: vertical; }
 html:not(.desk) .cp-ed-saved { margin: 14px 2px 0; font-size: 13px; color: var(--text-3); }
 /* Their e1RM's load for these reps at this effort: a quiet line under the steppers, one tap to use it */
 html:not(.desk) .cp-hint:empty { display: none; }
 html:not(.desk) .cp-hint { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; min-height: 36px; }
 html:not(.desk) .cp-hint-t { min-width: 0; font-size: 13px; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; text-wrap: pretty; }
-html:not(.desk) body.powa-app .cp-hint-use { flex: none; position: relative; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; transition: transform 140ms var(--ca-ease); }
+html:not(.desk) body.powa-app .cp-hint-use { flex: none; position: relative; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; transition: transform 140ms var(--ca-ease); }
 html:not(.desk) body.powa-app .cp-hint-use::after { content: ''; position: absolute; inset: -5px -2px; }
 html:not(.desk) body.powa-app .cp-hint-use:active { transform: scale(0.96); }
 /* The load and % are typeable: a faint dotted rule under the number says so */
@@ -597,6 +600,20 @@ html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-widt
 html:not(.desk) .cp-pick-on { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc); }
 html:not(.desk) .cp-pick-on svg { width: 20px; height: 20px; }
 html:not(.desk) .cp-empty .cp-hero { padding: 20px; }
+
+/* =================================================================== THE TYPE SCALE ON SHARED PIECES
+   13 · 15 · 17 · 20 · 22 · 28 · 32 · 44 (11 only for a badge's count). The app's shared rows, buttons and
+   sheets are 16 by default (styles.css --fs-row); on these screens a row's title and a button are 17, a
+   small pill 15, a section title 20. */
+html:not(.desk) body.powa-app :is(section[data-pane="athletes"] #invitesWrap, .ca-search-sheet, .ca-ci-sheet, .ca-wins-sheet, .cp-picker, .ca-pg) .ui-row-title { font-size: 17px; }
+html:not(.desk) body.powa-app .ca-ci-sheet .ca-sheet-btn { font-size: 17px; }
+html:not(.desk) body.powa-app section[data-pane="program"] .ui-empty :is(.btn, .ui-text-btn) { font-size: 17px; }
+html:not(.desk) body.powa-app .ca-pg .fb-reply .ui-btn-soft { font-size: 15px; }
+html:not(.desk) body.powa-app .ca-client .cs-pk b { font-size: 17px; }
+html:not(.desk) body.powa-app .ca-charts .cl-mplan { font-size: 15px; }
+html:not(.desk) body.powa-app section[data-pane="athletes"] .fr-side > .ui-label { font-size: 20px; }
+html:not(.desk) body.powa-app .cp-sheet .sf-field { font-size: 13px; }
+html:not(.desk) body.powa-app .cp-sheet .sf-edit input.sf-in { font-size: 17px; }
 
 /* =================================================================== CHALLENGES (the phone's Home › Challenges) */
 /* The large title says it: the card's own "Challenge" heading steps aside here (the desk keeps it in Club). */

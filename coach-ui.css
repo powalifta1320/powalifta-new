@@ -1352,7 +1352,7 @@ html.native:not(.desk) #messageModal .msg-list { -webkit-mask-image: linear-grad
 html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .pane-back:first-child {
   display: flex; width: fit-content; height: 44px; margin: -44px 0 4px -10px; padding: 0 14px 0 4px; gap: 2px;
 
-  font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-2);
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-2);
   transition: color 150ms ease-out, transform 140ms ease-out;
 }
 html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .pane-back:first-child svg { width: 22px; height: 22px; }
@@ -1361,7 +1361,7 @@ html.native:not(.desk) .cl-navback { display: none; }
 html.native:not(.desk) body.powa-app:has(.nav.is-docked):has(.dash-main > section[data-pane]:not(.hidden) > .pane-back) .cl-navback {
   display: inline-flex; align-items: center; gap: 2px; position: fixed; z-index: 51; top: env(safe-area-inset-top, 0px); left: 6px;
   height: 44px; padding: 0 14px 0 4px; border: 0; background: none; color: var(--text-2);
-  font: 600 16px/1 var(--font-body, inherit); letter-spacing: -0.01em; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  font: 600 17px/1 var(--font-body, inherit); letter-spacing: -0.01em; cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: color 150ms ease-out, transform 140ms ease-out;
 }
 html.native:not(.desk) .cl-navback svg { width: 22px; height: 22px; }
