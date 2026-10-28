@@ -274,14 +274,15 @@
       }
       var host = el('div', { class: 'cp-pick-list' });
       sheet.appendChild(host);
-      var rowFor = function (it, inNeed) {
+      // A row's line: why they need you, if they do (the Lifters row's words and dot); else their block and week.
+      var rowFor = function (it) {
         var a = it.a, r = rowOf(a.id), wk = r && r.status && r.status.week, on = a.id === S.aid;
         var line = it.prog ? it.prog + (wk && wk.total ? ' · week ' + (wk.idx + 1) + ' of ' + wk.total : '') : 'No block yet', sev = '';
-        if (inNeed && r && CL && CL.clTopJob) {
+        if (need.indexOf(a.id) >= 0 && r && CL && CL.clTopJob) {
           var top = CL.clTopJob(r, jobs);
           if (top) {
             line = (top.type === 'busy' && window.CoachApp && CoachApp.caBusyLine && CoachApp.caBusyLine(top)) || (CL.clLine ? CL.clLine(r, top) : line);
-            sev = top.type === 'pain' ? 'alert' : 'watch';
+            sev = window.CoachApp && CoachApp.caSev ? CoachApp.caSev(top) : (top.type === 'pain' ? 'alert' : 'watch');
           }
         }
         var row = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: line, endHtml: on ? '<span class="cp-pick-on" aria-label="Open now">' + ic('check', 2.6) + '</span>' : '', onClick: function () {
@@ -305,13 +306,10 @@
         host.innerHTML = '';
         if (!G.groups.length) { host.appendChild(el('p', { class: 'ca-none' }, 'No one called \u201c' + String(q).trim() + '\u201d')); return; }
         // Six or fewer: one list in that order (titles over two or three rows read as clutter).
-        var groups = many ? G.groups : [{ key: 'one', title: '', items: G.groups.reduce(function (all, g) { return all.concat(g.items.map(function (it) { return { it: it, g: g.key }; })); }, []) }];
+        var groups = many ? G.groups : [{ title: '', items: G.groups.reduce(function (all, g) { return all.concat(g.items); }, []) }];
         groups.forEach(function (g) {
           if (g.title) host.appendChild(el('h3', { class: 'ca-h3 cp-pick-h' }, g.title));
-          host.appendChild(uiList(g.items.map(function (x) {
-            var it = x.it || x, key = x.g || g.key;
-            return rowFor(it, key === 'need' || (key !== 'recent' && need.indexOf(it.id) >= 0));
-          })));
+          host.appendChild(uiList(g.items.map(rowFor)));
         });
       };
       paint();

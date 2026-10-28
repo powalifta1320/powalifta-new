@@ -185,6 +185,13 @@
     FILTERS.forEach(function (f) { out[f[0]] = (rows || []).filter(function (r) { return caFilterMatch(f[0], r, ctx); }).length; });
     return out;
   }
+  // The dot before a row's line: coral for pain, amber for what to watch; none for a message, a note or a
+  // planning job (the words say it). top: their worst open job.
+  function caSev(top) {
+    if (!top || top.tier > NEED_TIER) return '';
+    if (top.type === 'pain') return 'alert';
+    return /^(meetday|weight|overshoot|drift|checkin|readiness|quiet|never|missed|offpace|busy)$/.test(top.type) ? 'watch' : '';
+  }
   // The list's order: who needs you (worst first), then the nearest meets, then everyone else by name.
   function caSortRows(rows, need) {
     need = need || [];
@@ -756,7 +763,7 @@
   function rowHtml(r, X, i) {
     var top = topJob(r, X.jobs), w = X.week(r);
     var line = top && top.type === 'busy' && caBusyLine(top) ? caBusyLine(top) : CL() && CL().clLine ? CL().clLine(r, top && top.tier <= 3 ? top : null) : '';
-    var sev = !top || top.tier > NEED_TIER ? '' : top.type === 'pain' ? 'alert' : /^(meetday|weight|overshoot|drift|checkin|readiness|quiet|never|missed|offpace|busy)$/.test(top.type) ? 'watch' : '';
+    var sev = caSev(top);
     var n = CL() && CL().clNumber ? CL().clNumber(r) : { text: '', tone: 'none', title: '' };
     return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52) +
       '<span class="ca-row-main"><span class="ca-row-n">' + esc(r.athlete.name) + '</span>' +
@@ -1176,7 +1183,7 @@
     skeletonHtml: skeletonHtml, gate: gate, bootFailed: bootFailed, bootState: bootState,
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
-    caTodayLine: caTodayLine, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
+    caTodayLine: caTodayLine, caSev: caSev, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
     caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
   };

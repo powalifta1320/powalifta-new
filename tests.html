@@ -7150,6 +7150,12 @@ test('filters: counts and matching', () => {
   eq(n.all, 3); eq(n.need, 1); eq(n.meet, 1, 'a meet more than 8 weeks out is not "soon"'); eq(n.behind, 2, 'quiet, or two sessions short');
   eq(CA.caFilterMatch('meet', rows[0], ctx), true);
 });
+test("a row's dot: coral for pain, amber to watch, none when the words say it", () => {
+  const r = caRow('a', 'Ada');
+  eq(CA.caSev(caJob(r, 'pain', 0)), 'alert'); eq(CA.caSev(caJob(r, 'quiet', 2)), 'watch'); eq(CA.caSev(caJob(r, 'busy', 1)), 'watch');
+  eq(CA.caSev(caJob(r, 'message', 2)), '', 'a message: the line says "Wrote you"');
+  eq(CA.caSev(caJob(r, 'write', 4)), '', 'planning is not "needs you"'); eq(CA.caSev(null), '');
+});
 test('the list order: who needs you, then the nearest meets, then by name', () => {
   const rows = [caRow('z', 'Zed'), caRow('m', 'Mo', { meet: { days: 5, meet: {} } }), caRow('a', 'Al'), caRow('p', 'Pat', { meet: { days: 2, meet: {} } }), caRow('q', 'Quinn')];
   eq(CA.caSortRows(rows, ['q', 'z']).map(r => r.athlete.id).join(','), 'q,z,p,m,a');
