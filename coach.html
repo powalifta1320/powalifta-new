@@ -2095,7 +2095,9 @@ async function refreshUnreadBadges() {
       _demoUnreadPainted = sig;
     } else {
       const unread = await DB.listUnreadForUser(user.id);
-      unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      // Only threads with a live link count: a former lifter's thread is read-only (row 59), so its unread
+      // messages can never be marked read and would hold the Messages count up for good.
+      unread.forEach(m => { if (m.coachId === user.id && msgThreadLive(user.id, m.athleteId)) map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
     }
     _unreadByAthlete = map;
     // The desk repaints its own rows in place (the search box and focus survive a new message).
@@ -2159,7 +2161,8 @@ function subscribeRosterMessages() {
 // reads Store.messages and sends locally, nothing leaves the page). draft: words to start the reply with
 // (a fix's suggested message); the coach edits or sends it.
 function openAthleteMessages(athleteId, athleteName, draft) {
-  document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
+  // A former lifter's thread opens read-only (row 59): the title is just their name.
+  document.getElementById('messageModalTitle').textContent = (msgThreadLive(user.id, athleteId) ? 'Message ' : '') + athleteName;
   const host = document.getElementById('messageThreadHost');
   host.innerHTML = '';
   openModal('messageModal');

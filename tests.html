@@ -7208,6 +7208,45 @@ group('sign-out wipe, offline queue owner, CSV cells (security)');
   }
 })();
 
+/* ===========================================================
+   A thread without a live coach-lifter link is read-only (row 59: a former coach, or a lifter who left,
+   reads the thread but can't send, react or mark read). Pure: who's asking and the roster are passed in.
+   =========================================================== */
+group('messages: a thread without a live link is read-only (row 59)');
+test('the lifter: live only with the coach they have now', () => {
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: 'c1' }), true);
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: null }), false, 'left their coach');
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: 'c2' }), false, 'a new coach: the old thread is read-only');
+});
+test('the coach: live only for a lifter on their roster who is linked to them', () => {
+  const roster = [{ id: 'a1', coachId: 'c1' }, { id: 'a2', coachId: 'c1' }];
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, roster), true);
+  eq(msgThreadLive('c1', 'a9', { id: 'c1' }, roster), false, 'not on the roster (released, or left)');
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, [{ id: 'a1', coachId: 'c2' }]), false, 'on a stale list under another coach');
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, []), false, 'nobody yet');
+});
+test('anyone else, or nothing to go on: not live', () => {
+  eq(msgThreadLive('c1', 'a1', { id: 'x9', coachId: 'c1' }, [{ id: 'a1', coachId: 'c1' }]), false, 'not in the thread');
+  eq(msgThreadLive('c1', 'a1', null), false, 'signed out');
+  eq(msgThreadLive('', 'a1', { id: 'a1', coachId: '' }), false, 'no coach id');
+});
+test('a refusal because the link ended is told apart from a hiccup', () => {
+  eq(msgLinkRefused({ code: '42501', message: 'new row violates row-level security policy for table "messages"' }), true);
+  eq(msgLinkRefused(new Error('new row violates row-level security policy for table "message_reactions"')), true, 'reactions (the message only)');
+  eq(msgLinkRefused(Object.assign(new Error('x'), { linkGone: true })), true, 'voice.js marks it');
+  eq(msgLinkRefused({ statusCode: '403', message: 'new row violates row-level security policy' }), true, 'storage (a voice note upload)');
+  eq(msgLinkRefused(new TypeError('Failed to fetch')), false);
+  eq(msgLinkRefused({ code: 'PGRST301', message: 'JWT expired' }), false);
+  eq(msgLinkRefused({ code: '23505', message: 'duplicate key value' }), false);
+  eq(msgLinkRefused(null), false);
+});
+test('what the read-only thread says, from either side', () => {
+  eq(msgClosedText(true, 'Maya'), 'Maya is no longer on your roster, so this thread is read-only.');
+  eq(msgClosedText(false, 'Alex'), 'Alex is no longer your coach, so this thread is read-only.');
+  eq(msgClosedText(true, ''), 'This lifter is no longer on your roster, so this thread is read-only.');
+  eq(msgClosedText(false, null), 'This coach is no longer your coach, so this thread is read-only.');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

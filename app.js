@@ -5214,6 +5214,39 @@ function _msgTime(iso) {
   } catch (e) { return ''; }
 }
 
+// A thread takes writes (a message, a reaction, a read mark) only while its coach-lifter link is live:
+// the lifter's coach is this thread's coach. A former coach, and a lifter who left, can still read the
+// thread but nothing else (migration-security-fixes-2026-10-28.sql, row 59; the server refuses the rest
+// with 42501). Answered from what this page already holds: the coach's roster (only lifters whose
+// coach_id is this coach load into it), or the lifter's own coachId. Pure on its inputs:
+// me = { id, coachId }, roster = [{ id, coachId }].
+function msgThreadLive(coachId, athleteId, me, roster) {
+  if (me === undefined) me = window._user;
+  if (!coachId || !athleteId || !me || !me.id) return false;
+  if (me.id === athleteId) return me.coachId === coachId;
+  if (me.id === coachId) {
+    if (roster === undefined) { try { roster = Store.get().athletes; } catch (e) { roster = []; } }
+    return (roster || []).some(a => a && a.id === athleteId && a.coachId === coachId);
+  }
+  return false;
+}
+window.msgThreadLive = msgThreadLive;
+// The server refused a write in a thread because the link has ended (RLS 42501), as opposed to a
+// network or server hiccup.
+function msgLinkRefused(e) {
+  if (!e) return false;
+  if (e.linkGone) return true;
+  return String(e.code || '') === '42501' || /row-level security/i.test(String(e.message || e.error || ''));
+}
+window.msgLinkRefused = msgLinkRefused;
+// What a read-only thread says at its end, in the viewer's words.
+function msgClosedText(viewerIsCoach, otherName) {
+  const who = String(otherName || '').trim();
+  return viewerIsCoach ? (who || 'This lifter') + ' is no longer on your roster, so this thread is read-only.'
+    : (who || 'This coach') + ' is no longer your coach, so this thread is read-only.';
+}
+window.msgClosedText = msgClosedText;
+
 // Renders one coach<->athlete conversation: chat bubbles PLUS the session notes
 // for this pair, merged into a single time-ordered history. Notes are read-only
 // context (replying to a note still happens in the Notes inbox), so they render
@@ -5223,10 +5256,17 @@ async function renderMessageThread(container, opts) {
   const { coachId, athleteId, viewerId, otherName } = opts || {};
   const weaveNotes = !opts || opts.weaveNotes !== false;
   const demo = !!window._demoMode;
+  // A thread whose coach-lifter link has ended is read-only (row 59): no composer, no reactions, nothing
+  // marked read, and one line at its end saying why. opts.live (true / false) overrides msgThreadLive.
+  // The link can also end while the thread is open: the server refuses the next write, and the thread
+  // closes then (closeThread) instead of showing the refusal.
+  let live = (opts && typeof opts.live === 'boolean') ? opts.live : msgThreadLive(coachId, athleteId);
+  const closedText = () => msgClosedText(viewerId === coachId, otherName);
   // markRead: false (the desk's side pane) waits until the viewer touches the thread before it
   // marks anything read, so stepping through a queue never sends "Seen". opts.onRead runs then.
   let markRead = !opts || opts.markRead !== false;
   const markNow = () => {
+    if (!live) return;   // a read-only thread marks nothing read (the server would refuse it)
     if (demo) {
       (Store.get().messages || []).forEach(m => {
         if (m.coachId === coachId && m.athleteId === athleteId && m.senderId !== viewerId && !m.readAt) m.readAt = new Date().toISOString();
@@ -5263,7 +5303,7 @@ async function renderMessageThread(container, opts) {
   if (viewerId && viewerId === coachId && window.WeeklyNote && WeeklyNote.replyButton) composer.appendChild(WeeklyNote.replyButton(ta, { coachId: coachId }));
   composer.appendChild(ta);
   composer.appendChild(sendBtn);
-  wrap.appendChild(composer);
+  if (live) wrap.appendChild(composer);   // read-only: the closing line at the thread's end takes its place
   container.appendChild(wrap);
   if (!markRead) {
     // Deferred read: the first focus in the composer or click in the thread counts as opening it.
@@ -5279,9 +5319,10 @@ async function renderMessageThread(container, opts) {
   }
   // Voice notes (voice.js): hold the mic to record; it shows while the box is empty, the send
   // arrow once there's text. The laptop pane can drive the same control (container._voice).
-  const voice = (window.PowaVoice && !(opts && opts.noVoice)) ? PowaVoice.attachComposer(composer, { onSend: (rec) => sendVoice(rec) }) : null;
+  const voice = (live && window.PowaVoice && !(opts && opts.noVoice)) ? PowaVoice.attachComposer(composer, { onSend: (rec) => sendVoice(rec) }) : null;
   container._voice = voice;
   let pendingVoice = [];   // recorded offline, waiting to go
+  let unsent = [];         // text the server refused once the link had ended: kept on screen to copy, never sent
   const cleanups = [];
 
   // Reactions: messageId → [{ userId, reaction }]. Demo keeps them in memory.
@@ -5303,6 +5344,7 @@ async function renderMessageThread(container, opts) {
       kind: 'msg', id: p.id, ts: p.createdAt || '', mine: true, body: '', pending: true, readAt: null,
       meta: { type: 'voice', dur: p.dur, peaks: p.peaks, mime: p.mime }
     }); });
+    unsent.forEach(u => items.push({ kind: 'msg', id: u.id, ts: u.ts, mine: true, body: u.body, meta: null, readAt: null, pending: true, unsent: true }));
     (notes || []).forEach(n => {
       if (n.note && n.note.trim()) items.push({
         kind: 'note', label: 'Session note', ts: (n.date || '') + 'T00:00:01Z', body: n.note, meta: ''
@@ -5355,9 +5397,12 @@ async function renderMessageThread(container, opts) {
     lastItems = items;
     const prevTop = list.scrollTop;
     list.innerHTML = '';
+    // Read-only: one quiet line at the thread's end says why there's no reply box.
+    const closedLine = () => { if (!live) list.appendChild(el('div', { class: 'msg-closed' }, closedText())); };
     if (!items.length) {
-      list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
+      if (live) list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
         (opts && opts.emptyText) || ('No messages yet. Say hi to ' + (otherName || 'them') + '.')));
+      closedLine();
       return;
     }
     // The most recent message I sent is the only one that carries a Sent/Seen
@@ -5389,13 +5434,14 @@ async function renderMessageThread(container, opts) {
       if (isCard) bubble.appendChild(setCard(it.meta));
       else if (isVoice) bubble.appendChild(PowaVoice.player(it.meta, { messageId: it.id }));
       else bubble.appendChild(el('div', { class: 'msg-body' }, it.body));
-      bubble.appendChild(el('div', { class: 'msg-meta' }, it.pending ? 'Will send when online' : _msgTime(it.ts)));
+      bubble.appendChild(el('div', { class: 'msg-meta' }, it.unsent ? 'Not sent' : it.pending ? 'Will send when online' : _msgTime(it.ts)));
       if (sum.total) {
-        const tb = el('button', { class: 'msg-react', type: 'button', 'aria-label': 'Reactions' });
+        // Read-only: the reactions still show, as a label (nothing to change).
+        const tb = live ? el('button', { class: 'msg-react', type: 'button', 'aria-label': 'Reactions' }) : el('span', { class: 'msg-react' });
         Object.keys(sum.counts).forEach(k => tb.appendChild(el('span', {}, REACT_EMOJI[k])));
         if (sum.total > 1) tb.appendChild(el('b', {}, String(sum.total)));
         if (sum.mine) tb.classList.add('mine');
-        tb.addEventListener('click', (e) => { e.stopPropagation(); openPicker(it, bubble); });
+        if (live) tb.addEventListener('click', (e) => { e.stopPropagation(); openPicker(it, bubble); });
         bubble.appendChild(tb);
       }
       uiLongPress(bubble, () => openPicker(it, bubble));
@@ -5408,6 +5454,7 @@ async function renderMessageThread(container, opts) {
           seen ? ('Seen' + (rt ? ' · ' + rt : '')) : 'Sent'));
       }
     });
+    closedLine();
     list.scrollTop = keepScroll ? prevTop : list.scrollHeight;
   }
 
@@ -5415,12 +5462,29 @@ async function renderMessageThread(container, opts) {
   function openPicker(it, bubble) {
     const sum = reactionSummary(reacts[it.id], viewerId);
     const extra = [];
+    if (!(it.meta && it.meta.type) && navigator.clipboard) extra.push({ label: 'Copy', onClick: () => { navigator.clipboard.writeText(it.body || '').then(() => toast('Copied'), () => {}); } });
+    if (it.unsent) {   // refused once the link had ended: it can be copied, never sent
+      if (extra.length) openReactionPicker(bubble, [], null, () => {}, extra);
+      return;
+    }
     if (it.pending) {   // not sent yet: nothing to react to, but it can be taken back
       openReactionPicker(bubble, [], null, () => {}, [{ label: 'Delete', onClick: () => { PowaVoice.discard(it.id); } }]);
       return;
     }
-    if (!(it.meta && it.meta.type) && navigator.clipboard) extra.push({ label: 'Copy', onClick: () => { navigator.clipboard.writeText(it.body || '').then(() => toast('Copied'), () => {}); } });
+    if (!live) {   // read-only: copy, no reactions
+      if (extra.length) openReactionPicker(bubble, [], null, () => {}, extra);
+      return;
+    }
     openReactionPicker(bubble, MSG_REACT_KEYS, sum.mine, (key) => react(it, key), extra);
+  }
+  // The link ended while this thread was open (the server refused a write): read-only from here, as if
+  // it had opened that way. note: the toast that says so.
+  function closeThread(note) {
+    live = false;
+    if (composer.parentNode) composer.remove();
+    container._voice = null;
+    paint(buildTimeline(messages, notes), true);
+    if (note) toast(note, 6000);
   }
   async function react(it, key) {
     const before = (reacts[it.id] || []).map(x => Object.assign({}, x));
@@ -5435,8 +5499,10 @@ async function renderMessageThread(container, opts) {
     try {
       await DB.setMessageReaction({ messageId: it.id, coachId, athleteId, userId: viewerId, reaction: key });
     } catch (e) {
-      reacts[it.id] = before; paint(lastItems, true);
-      toast(e.message || 'Could not react');
+      reacts[it.id] = before;
+      if (msgLinkRefused(e)) { closeThread(closedText()); return; }   // never the server's own words
+      paint(lastItems, true);
+      toast(e && e.notReady ? e.message : 'Could not react. Check your connection and try again.');
     }
   }
 
@@ -5488,7 +5554,7 @@ async function renderMessageThread(container, opts) {
           if (messages.some(x => x.id === m.id)) return;
           messages.push(m);
           paint(buildTimeline(messages, notes));
-          if (m.senderId !== viewerId && markRead) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+          if (m.senderId !== viewerId && markRead && live) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
         })
       : null;
     // Live read-receipts — when the other party opens the thread, their read of
@@ -5525,7 +5591,9 @@ async function renderMessageThread(container, opts) {
   if (cleanups.length) container._msgCleanup = () => { cleanups.forEach(fn => { try { fn(); } catch (e) {} }); };
 
   async function sendVoice(rec) {
-    const r = await PowaVoice.send({ coachId, athleteId, senderId: viewerId, rec });
+    let r;
+    try { r = await PowaVoice.send({ coachId, athleteId, senderId: viewerId, rec }); }
+    catch (e) { if (msgLinkRefused(e)) closeThread('Not sent: ' + closedText()); throw e; }   // voice.js says nothing for this one
     if (r && r.msg && !messages.some(x => x.id === r.msg.id)) messages.push(r.msg);
     if (r && r.queued) toast('Saved on this phone. It sends when you\'re back online');
     paint(buildTimeline(messages, notes));
@@ -5567,10 +5635,20 @@ async function renderMessageThread(container, opts) {
       autosize();
       syncSend();   // the arrow goes quiet again once the box is empty
     } catch (e) {
+      if (msgLinkRefused(e)) {
+        // The link ended while this thread was open: what was typed stays on screen (Not sent, it can be
+        // copied) and the thread turns read-only, instead of the server's refusal.
+        console.warn('sendMessage: the coach-lifter link has ended', e);
+        unsent.push({ id: 'unsent-' + Date.now(), ts: new Date().toISOString(), body });
+        ta.value = '';
+        closeThread('Not sent: ' + closedText());
+        return;
+      }
       console.error('sendMessage', e);
-      toast('Could not send: are you still connected to them?');
+      toast('Could not send. Check your connection and try again.');
     } finally {
-      sendBtn.disabled = false; ta.disabled = false; ta.focus();
+      sendBtn.disabled = false; ta.disabled = false;
+      if (live) ta.focus();
     }
   }
   sendBtn.addEventListener('click', doSend);

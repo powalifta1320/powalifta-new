@@ -3235,6 +3235,14 @@ async function _postToCoach(body, meta) {
     toastAction('Sent to your coach', 'Open chat', () => { const t = document.getElementById('tab-coach'); if (t) t.click(); });
     return true;
   } catch (e) {
+    // The coach ended the link since this page loaded (row 59 refuses the message): say that, not "connection".
+    if (typeof msgLinkRefused === 'function' && msgLinkRefused(e)) {
+      console.warn('send to coach: the coach-lifter link has ended', e);
+      const c = (Store.get().coaches || []).find(x => x.id === user.coachId);
+      const first = c && c.name ? String(c.name).split(' ')[0] : '';
+      toast('Not sent: ' + (first ? first + ' is no longer your coach.' : 'you\'re no longer connected to that coach.'), 6000);
+      return false;
+    }
     console.error('send to coach', e);
     toast('Could not send. Check your connection');
     return false;

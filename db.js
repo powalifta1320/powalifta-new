@@ -3624,7 +3624,9 @@ const DB = {
     const { error } = await sb.from('message_reactions').upsert({
       message_id: messageId, user_id: userId, coach_id: coachId, athlete_id: athleteId, reaction: reaction || null
     }, { onConflict: 'message_id,user_id' });
-    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); throw e; }
+    // .code rides along: 42501 is the coach-lifter link having ended (row 59), which the thread shows as
+    // read-only (app.js msgLinkRefused) instead of these words.
+    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); e.code = error.code || ''; throw e; }
     return true;
   },
   subscribeMessageReactions(filter, onChange) {
