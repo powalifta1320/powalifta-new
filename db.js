@@ -4692,3 +4692,35 @@ Object.assign(DB, {
     return { ok: true };
   }
 });
+
+// ---------- IMPORTS hook (import-ui.js · import-core.js: bring your coaching in) ----------
+// Two writes the import intake needs that the app had no bulk path for. Reads, history sets and
+// past blocks go through the switch kit's DB methods above (skListAll, skImportLogs, skAddImportedBlock).
+Object.assign(DB, {
+  // Invites from a client list, 100 a request: the coach's own rows (RLS invites_owner). The plan's
+  // seats are counted before this is called: the server counts lifters on the roster, the app also
+  // counts invites not used yet, and only the app can stop a coach going past the plan with codes.
+  // → { ok: true, saved: [codes] } | { ok: false, saved: [codes written before the error], error }
+  async imAddInvites(invites) {
+    const saved = [];
+    for (let i = 0; i < invites.length; i += 100) {
+      const rows = invites.slice(i, i + 100).map(mapJsInvite);
+      const { error } = await sb.from('invites').insert(rows);
+      if (error) { console.warn('imAddInvites', error); return { ok: false, saved, error }; }
+      rows.forEach(r => saved.push(r.code));
+    }
+    return { ok: true, saved };
+  },
+  // A lifter's own weigh-ins from their file, 500 a request, one a day (their own rows: RLS).
+  // → { ok: true, saved: n } | { ok: false, saved, error }
+  async imUpsertBodyweights(rows) {
+    let saved = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const part = rows.slice(i, i + 500).map(mapJsBw);
+      const { error } = await sb.from('bodyweight').upsert(part, { onConflict: 'athlete_id,date' });
+      if (error) { console.warn('imUpsertBodyweights', error); return { ok: false, saved, error }; }
+      saved += part.length;
+    }
+    return { ok: true, saved };
+  }
+});

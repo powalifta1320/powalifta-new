@@ -209,6 +209,9 @@ var ImportCore = (function () {
     var t = { rows: [], noValue: 0 };
     var range = decodeRange(ws && ws['!ref']);
     if (!range) return t;
+    // A quick look (sheetRows) keeps the tab's real size in !fullref: the tab picker says how big it is.
+    var full = decodeRange(ws['!fullref'] || ws['!ref']);
+    t.fullRows = full ? full.e.r - full.s.r + 1 : 0;
     var dense = Array.isArray(ws['!data']) ? ws['!data'] : null;
     var R0 = range.s.r, R1 = range.e.r, C0 = range.s.c, C1 = Math.min(range.e.c, range.s.c + MAX_COLS - 1);
     var grid = [], lastCol = -1;
@@ -625,11 +628,11 @@ var ImportCore = (function () {
     var exLike = keys.some(function (k) { var f = dictField(LOG_DICT, k); return f === 'ex' || f === 'reps' || f === 'sets' || f === 'text' || f === 'tText' || f === 'rpe' || f === 'rir'; }) || !!wideGroups(keys) || !!gi;
     var emailCol = keys.findIndex(function (k, i) { return dictField(ROSTER_DICT, k) === 'email' || (!k || !known(k)) && share(sample(body, i), function (v) { return EMAIL_RE.test(v); }) >= 0.6; });
     var nameish = keys.some(function (k) { var f = dictField(ROSTER_DICT, k); return f === 'first' || f === 'last' || f === 'fullName'; });
-    var roster = rec ? rec.kind === 'roster' : (!exLike && (emailCol >= 0 || nameish));
+    var roster = opts.kind === 'roster' ? true : opts.kind === 'history' || opts.kind === 'program' ? false : rec ? rec.kind === 'roster' : (!exLike && (emailCol >= 0 || nameish));
     if (roster) {
       // Billing words a client list uses for its plans ("Plan", "Product"): out too, before the mapper.
       var gone = dropColumns(table, function (key) { return PAY_ROSTER.test(key); });
-      if (gone.length) { a.dropped = a.dropped.concat(gone); return analyse(table, opts); }
+      if (gone.length) { var again = analyse(table, opts); again.dropped = a.dropped.concat(gone).filter(function (x, i, l) { return l.indexOf(x) === i; }); return again; }
     }
     a.headerIndex = hdr.index;
     a.headers = rows[hdr.index].cells.map(function (c) { return String(c == null ? '' : c).trim(); });
@@ -671,7 +674,7 @@ var ImportCore = (function () {
       if (free('text') && free('weight') && share(vals, looksLikeSet) >= 0.5) { fields[i] = 'text'; guessed[i] = true; }
     });
     if (!rec) { var byF = roster ? recogniseByFields(fields) : null; if (byF) a.recognised = byF; }
-    if (!roster && !a.recognised && emailCol < 0 && !exLike && fields.indexOf('email') >= 0) roster = true;
+    if (!roster && !opts.kind && !a.recognised && emailCol < 0 && !exLike && fields.indexOf('email') >= 0) roster = true;
     a.fields = fields;
     a.guessed = guessed;
     a.unplaced = fields.map(function (f, i) { return f == null && keys[i] ? i : -1; }).filter(function (i) { return i >= 0; });

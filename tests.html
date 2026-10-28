@@ -3784,6 +3784,21 @@ test('imports: the same rows through the mapper keep the import keys the switch 
   const again = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY, existing: before.logs.map(l => Object.assign({}, l, { athleteId: 'a1' })) });
   eq(again.logs.length, 0); eq(again.dupes, 2);
 });
+test('imports: the coach can say what a file is when the columns don\'t', () => {
+  const t = imTable('Who,Contact,Team\nMaya Chen,maya@example.com,Juniors\nLeo Grant,leo@example.com,Seniors');
+  eq(IC.analyse(t).kind, 'roster');
+  const forced = IC.analyse(imTable('Colour,Shape\nred,square'), { kind: 'roster' });
+  eq(forced.kind, 'roster'); eq(forced.layout, 'roster'); eq(forced.unplaced.join(','), '0,1');
+  const hist = IC.analyse(imTable('Name,Lift,Kilos,Reps\nMaya,Squat,150,5'), { kind: 'history' });
+  eq(hist.kind === 'roster', false);
+});
+test('imports: a quick look at a big tab still knows how many rows it has', () => {
+  assert(window.XLSX && XLSX.write, 'SheetJS loaded');
+  const rows = [['Date', 'Exercise', 'Weight', 'Reps']]; for (let i = 0; i < 300; i++) rows.push(['2026-01-0' + (1 + i % 9), 'Squat', 100 + i % 20, 5]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Log');
+  const quick = IC.readWorkbook(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })), { sheetRows: 40 });
+  eq(quick[0].rows.length, 40); eq(quick[0].fullRows, 301);
+});
 test('imports: the demo\'s sample files read the way the pitch shows them', () => {
   const S = IC.SAMPLES;
   const ro = IC.analyse(imTable(S.roster.text, S.roster.name));
@@ -5321,6 +5336,32 @@ test('weeks: % stays %, RIR, pauses, rest weeks, renumbering, lb loads', () => {
   eq(Math.round(lb.weeks[0].days[0].exercises[0].sets[0].weight), 143);
   const gap = PI.draftToWeeks(PI.draftFromRead({ weeks: 3, days: [{ name: 'D', exercises: [{ name: 'Squat', cells: ['3x5 @7', '', '3x3 @8'] }] }] }));
   eq(gap.weeks.length, 2); eq(gap.weeks.map(w => w.number).join(','), '1,2');
+});
+
+test('a few files in a row: each file\'s days line up by name, a repeated day is its next week', () => {
+  const PI = window.PhotoImport;
+  // Everfit prints one workout per PDF: Day 1 and Day 2 of week 1, then of week 2.
+  const one = (day, sq) => ({ name: 'Block', unit: 'kg', weeks: 1, days: [{ name: day, exercises: [{ name: 'Squat', cells: [sq] }, { name: 'Leg curl', cells: ['3x12'] }] }], unsure: [] });
+  const m = PI.mergeReads([one('Day 1', '3x5 @7'), one('Day 2', '4x4 @7'), one('Day 1', '3x5 @8'), one('Day 2', '4x4 @8')]);
+  eq(m.weeks, 2); eq(m.days.map(d => d.name).join(','), 'Day 1,Day 2');
+  eq(m.days[0].exercises[0].cells.join('|'), '3x5 @7|3x5 @8'); eq(m.days[1].exercises[0].cells.join('|'), '4x4 @7|4x4 @8');
+  eq(PI.draftToWeeks(PI.draftFromRead(m)).stats.sets, 2 * (3 + 3 + 4 + 3));
+  // A file that is a whole week (several days, one week) follows on as the next week; new days append.
+  const wk = (n) => ({ name: 'B', weeks: 1, days: [{ name: 'Lower', exercises: [{ name: 'Squat', cells: ['3x' + n] }] }, { name: 'Upper', exercises: [{ name: 'Bench', cells: ['4x' + n] }] }], unsure: [] });
+  const w = PI.mergeReads([wk(5), wk(4), { name: 'B', weeks: 1, days: [{ name: 'Accessories', exercises: [{ name: 'Row', cells: ['3x10'] }] }], unsure: [] }]);
+  eq(w.weeks, 2); eq(w.days.map(d => d.name).join(','), 'Lower,Upper,Accessories'); eq(w.days[2].exercises[0].cells.join('|'), '3x10|');
+  // A multi-week file keeps its weeks; the unsure marks move with their day; one read comes back as it was.
+  const multi = PI.mergeReads([{ name: 'A', weeks: 2, days: [{ name: 'D1', exercises: [{ name: 'Squat', cells: ['3x5', '3x4'] }] }], unsure: [] },
+    { name: 'A2', weeks: 1, days: [{ name: 'D2', exercises: [{ name: 'Bench', cells: ['4x?'] }] }], unsure: [{ day: 1, exercise: 1, week: 1, why: 'smudged' }] }]);
+  eq(multi.weeks, 2); eq(multi.name, 'A'); eq(multi.unsure.length, 1); eq(multi.unsure[0].day, 2); eq(multi.unsure[0].week, 1);
+  eq(PI.mergeReads([PI.SAMPLE]), PI.SAMPLE);
+  eq(PI.mergeReads([]), null);
+});
+test('a few files in a row: the reader takes 3 a minute, so the next one waits its turn', () => {
+  const PI = window.PhotoImport;
+  eq(PI.readWait([], 1000000), 0); eq(PI.readWait([990000, 995000], 1000000), 0);
+  eq(PI.readWait([950000, 960000, 990000], 1000000), 11000);       // the oldest of three in the last minute + 60 s, and a second spare
+  eq(PI.readWait([900000, 960000, 990000], 1000000), 0);
 });
 
 group('intake (intake.js)');

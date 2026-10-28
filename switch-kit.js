@@ -935,8 +935,13 @@ var SwitchKit = (function () {
   }
 
   // ---------- Import history (coach) ----------
-  // athleteId: whose history. None: pick an athlete first.
+  // The history import opens in the import intake (import-ui.js, loaded on first use: any file, a
+  // column matcher, the same plan and keys as here). This sheet is the fallback when that can't load.
   function openHistoryImport(athleteId) {
+    return openIntake({ mode: 'history', athleteId: athleteId || null }, function () { historySheet(athleteId); });
+  }
+  // athleteId: whose history. None: pick an athlete first.
+  function historySheet(athleteId) {
     ensureCss();
     var u = me();
     if (!u) return;
@@ -1150,7 +1155,7 @@ var SwitchKit = (function () {
   function pickAthlete() {
     var list = rosterAthletes();
     if (!list.length) { toast('Invite an athlete first. Their history comes in once they\'re on your roster.'); return; }
-    if (list.length === 1) return openHistoryImport(list[0].id);
+    if (list.length === 1) return historySheet(list[0].id);
     uiSheet('Whose history?', function (sheet, close) {
       sheet.classList.add('sk-pick');
       sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Pick the athlete the sets belong to.'));
@@ -1158,13 +1163,14 @@ var SwitchKit = (function () {
       sheet.appendChild(uiList(list.map(function (a) {
         var n = logs.filter(function (l) { return l.athleteId === a.id; }).length;
         return uiRow({ av: a.name || '?', title: a.name || 'Athlete', sub: n ? plural(n, 'set') + ' logged' : 'Nothing logged yet', chevron: true,
-          onClick: function () { close(); setTimeout(function () { openHistoryImport(a.id); }, 220); } });
+          onClick: function () { close(); setTimeout(function () { historySheet(a.id); }, 220); } });
       })));
     }, { cls: 'imp-sheet sk-sheet' });
   }
-  // Writes the sets. Demo: into the Store only. Live: chunked upserts that skip a key
-  // the server already has; the Store gets what the server says it inserted.
-  function commitLogs(athleteId, logs, btn, first) {
+  // Writes imported sets. Demo: into the Store only. Live: chunked upserts that skip a key the
+  // server already has; the Store gets what the server says it inserted. Shared with the import
+  // intake. → Promise<{ ok, added: [sets saved], notReady, error, demo }>
+  function writeLogs(athleteId, logs, onProgress) {
     var u = me();
     var rows = logs.map(function (l) {
       var o = {}; Object.keys(l).forEach(function (k) { if (k.charAt(0) !== '_') o[k] = l[k]; });
@@ -1172,28 +1178,30 @@ var SwitchKit = (function () {
       o.athleteId = athleteId; o.importedBy = u ? u.id : null;
       return o;
     });
-    var finish = function (added) {
-      if (added.length) Store.update(function (s) { s.workoutLogs = (s.workoutLogs || []).concat(added); });
-      repaint();
-      var msg = 'Imported ' + plural(added.length, 'set') + (isDemo() ? '. Demo: nothing is saved.' : '');
-      if (!added.length) { toast('Nothing new: those sets were already there'); return true; }
-      if (isDemo()) { toast(msg, 3600); return true; }
-      toastAction(msg, 'Undo', function () { removeImported(athleteId, added); }, 8000);
-      return true;
-    };
-    if (isDemo() || !(window.DB && DB.skImportLogs)) return Promise.resolve(finish(rows));
-    var total = rows.length;
-    btn.textContent = 'Importing… 0 of ' + nf(total);
-    return DB.skImportLogs(rows, function (doneN) { btn.textContent = 'Importing… ' + nf(doneN) + ' of ' + nf(total); }).then(function (r) {
+    var keep = function (added) { if (added.length) Store.update(function (s) { s.workoutLogs = (s.workoutLogs || []).concat(added); }); repaint(); };
+    if (isDemo() || !(window.DB && DB.skImportLogs)) { keep(rows); return Promise.resolve({ ok: true, added: rows, demo: isDemo() }); }
+    return DB.skImportLogs(rows, onProgress).then(function (r) {
       var ids = {}; (r.insertedIds || []).forEach(function (id) { ids[id] = 1; });
       var added = rows.filter(function (x) { return ids[x.id]; });
+      keep(added);
+      return { ok: !!r.ok, added: added, notReady: !!r.notReady, error: r.error || null };
+    }, function (e) { return { ok: false, added: [], error: e }; });
+  }
+  function commitLogs(athleteId, logs, btn, first) {
+    var total = logs.length;
+    if (!isDemo() && window.DB && DB.skImportLogs) btn.textContent = 'Importing… 0 of ' + nf(total);
+    return writeLogs(athleteId, logs, function (doneN) { btn.textContent = 'Importing… ' + nf(doneN) + ' of ' + nf(total); }).then(function (r) {
+      var added = r.added;
       if (!r.ok) {
-        if (added.length) finish(added);
         toast(r.notReady ? 'Importing history switches on with the next server update. Nothing was lost: try again after it.'
           : (added.length ? 'Imported ' + plural(added.length, 'set') + ', then the connection dropped. Import the same file again: it picks up where it stopped.' : 'Couldn\'t import: check the connection and try again.'), 6000);
         return !!added.length;
       }
-      return finish(added);
+      if (!added.length) { toast('Nothing new: those sets were already there'); return true; }
+      var msg = 'Imported ' + plural(added.length, 'set') + (isDemo() ? '. Demo: nothing is saved.' : '');
+      if (isDemo()) { toast(msg, 3600); return true; }
+      toastAction(msg, 'Undo', function () { removeImported(athleteId, added); }, 8000);
+      return true;
     });
   }
   function removeImported(athleteId, logs) {
@@ -1333,19 +1341,64 @@ var SwitchKit = (function () {
     page.addEventListener('click', function (e) { if (typeof openDoc === 'function' && openDoc(page) === false) e.preventDefault(); });
     links.appendChild(page);
     box.parentNode.insertBefore(links, box.nextSibling);
-    if (u.userType === 'coach') {
-      var imp = uiList([uiRow({ title: 'Import an athlete\'s history', sub: 'Past sets or a past block from a spreadsheet', chevron: true,
-        onClick: function () { close(); setTimeout(function () { openHistoryImport(null); }, 220); } })]);
-      imp.style.marginTop = '14px';
-      links.parentNode.insertBefore(imp, links.nextSibling);
-    }
+    var imp = u.userType === 'coach'
+      ? uiList([uiRow({ title: 'Bring your coaching in', sub: 'Client lists, training history and programs, from a file or another app', chevron: true,
+        onClick: function () { close(); setTimeout(function () { openIntake({ mode: 'hub' }); }, 220); } })])
+      : uiList([uiRow({ title: 'Import your training history', sub: 'From Strong, Hevy, FitNotes or your own spreadsheet', chevron: true,
+        onClick: function () { close(); setTimeout(openMyImport, 220); } })]);
+    imp.style.marginTop = '14px';
+    links.parentNode.insertBefore(imp, links.nextSibling);
   }
   // desk.js dkCommands: two palette commands.
   function deskCommands() {
     return [
+      { group: 'Actions', label: 'Bring your coaching in…', keys: 'import file csv excel xlsx ods zip json spreadsheet workbook clients roster history program switch truecoach trainheroic trainerize everfit coachrx hevy coach', run: function () { openIntake({ mode: 'hub' }); } },
+      { group: 'Actions', label: 'Import a client list…', keys: 'import clients client list roster invite invites csv truecoach coachrx trainerize trainheroic', run: function () { openIntake({ mode: 'roster' }); } },
       { group: 'Actions', label: 'Import history…', keys: 'import csv strong hevy fitnotes spreadsheet sheet past logs block upload', run: function () { openHistoryImport(null); } },
       { group: 'Actions', label: 'Export everything', keys: 'download zip backup data csv all', run: function () { exportEverything(); } }
     ];
+  }
+
+  // ---------- the import intake (import-core.js · import-guides.js · import-ui.js) ----------
+  // Loaded on first use, never at page boot (and the readers it needs for .xlsx / .zip load only when
+  // such a file is opened). opts: { mode: 'hub' | 'history' | 'roster' | 'program', athleteId, self
+  // (a lifter's own import), files: [File], sample }. fallback(): what to do when it can't load.
+  var INTAKE = [['ImportCore', 'import-core.js'], ['ImportGuides', 'import-guides.js'], ['ImportUI', 'import-ui.js']], intakeP = null;
+  function loadIntake() {
+    if (INTAKE.every(function (x) { return window[x[0]]; })) return Promise.resolve();
+    if (intakeP) return intakeP;
+    intakeP = INTAKE.reduce(function (p, x) {
+      return p.then(function () {
+        if (window[x[0]]) return null;
+        return new Promise(function (res, rej) {
+          var sc = document.createElement('script'); sc.src = x[1]; sc.async = false;
+          sc.onload = function () { res(); }; sc.onerror = function () { rej(new Error('Couldn\'t load ' + x[1])); };
+          document.head.appendChild(sc);
+        });
+      });
+    }, Promise.resolve()).catch(function (e) { intakeP = null; throw e; });
+    return intakeP;
+  }
+  function openIntake(opts, fallback) {
+    ensureCss();
+    return loadIntake().then(function () { return window.ImportUI.open(opts || {}); }).catch(function (e) {
+      console.warn('import intake', e);
+      if (fallback) return fallback();
+      toast('Couldn\'t open the importer. Check the connection and try again.', 4000);
+    });
+  }
+  // A lifter's own history (athlete.html Progress › Import history, You › Your data). The old
+  // importer (athlete.html openImportModal) is the fallback.
+  function openMyImport() {
+    return openIntake({ mode: 'history', self: true }, function () { if (typeof window.openImportModal === 'function') window.openImportModal(); });
+  }
+  // coach.html openInviteModal: a client list from another app becomes invites in one go.
+  function inviteHook(sheet, close) {
+    ensureCss();
+    var row = uiList([uiRow({ title: 'Import a client list', sub: 'Invite everyone from a CSV or spreadsheet, or from TrueCoach, CoachRx, Trainerize or TrainHeroic', chevron: true,
+      onClick: function () { close(); setTimeout(function () { openIntake({ mode: 'roster' }); }, 220); } })]);
+    row.classList.add('sk-invite-list');
+    sheet.appendChild(row);
   }
 
   return {
@@ -1358,7 +1411,10 @@ var SwitchKit = (function () {
     extractHistoryAsync: extractHistoryAsync, finishHistoryPlan: finishHistoryPlan, finishHistoryPlanAsync: finishHistoryPlanAsync, planBlock: planBlock,
     crc32: crc32, zip: zip, utf8: utf8,
     // UI
-    openHistoryImport: openHistoryImport, exportEverything: exportEverything, dataSheet: dataSheet, deskCommands: deskCommands
+    openHistoryImport: openHistoryImport, exportEverything: exportEverything, dataSheet: dataSheet, deskCommands: deskCommands,
+    // the import intake builds on these
+    openIntake: openIntake, loadIntake: loadIntake, openMyImport: openMyImport, inviteHook: inviteHook, historySheet: historySheet,
+    writeLogs: writeLogs, removeImported: removeImported, commitBlock: commitBlock, rosterAthletes: rosterAthletes
   };
 })();
 if (typeof window !== 'undefined') {
