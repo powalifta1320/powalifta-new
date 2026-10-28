@@ -200,22 +200,25 @@ function requireAuth(expectedType) {
 // all of those tables are live, so anything left is stale). They go when the user signs out, is
 // signed out, or deletes the account.
 const _USER_CACHE_KEYS = ['powa-snapshot-', 'powa-coach-notes-', 'powa-coach-settings-', 'powa-client-billing-', 'powa-client-payments-', 'powa-intake-', 'powa-teams-'];
-function _wipeUserCaches(uid) {
+// (storage: localStorage, or a stand-in in the tests.)
+function _wipeUserCaches(uid, storage) {
+  const ls = storage || localStorage;
   if (!uid) return;
-  _USER_CACHE_KEYS.forEach(p => { try { localStorage.removeItem(p + uid); } catch (e) {} });
+  _USER_CACHE_KEYS.forEach(p => { try { ls.removeItem(p + uid); } catch (e) {} });
 }
 // Signed in as uid: another account's copies on this device (a sign-out that never ran its wipe)
 // have no reason to stay.
-function _sweepOtherUsersCaches(uid) {
+function _sweepOtherUsersCaches(uid, storage) {
+  const ls = storage || localStorage;
   if (!uid) return;
   try {
     const drop = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
       const p = k && _USER_CACHE_KEYS.find(x => k.indexOf(x) === 0);
       if (p && k.slice(p.length) !== uid && /^[0-9a-f-]{36}$/i.test(k.slice(p.length))) drop.push(k);
     }
-    drop.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    drop.forEach(k => { try { ls.removeItem(k); } catch (e) {} });
   } catch (e) {}
 }
 function _wipeLocalUserData(uid) {
@@ -3626,25 +3629,29 @@ function _snapEstimate(store) {
   });
   return n;
 }
-function _saveSnapshot(user, store) {
+// → true (saved: whole, or at the step it says in trimmedTo) | false (nothing kept). opts: { storage,
+// budget, today } stand-ins for the tests.
+function _saveSnapshot(user, store, opts) {
+  opts = opts || {};
   if (window._demoMode || !user || !user.id || !store) return;
-  const key = _snapKey(user.id), today = todayISO();
+  const ls = opts.storage || localStorage, budget = opts.budget || _SNAP_BUDGET;
+  const key = _snapKey(user.id), today = opts.today || todayISO();
   const full = _snapEstimate(store);
   for (let i = 0; i < _SNAP_STEPS.length; i++) {
     const days = _SNAP_STEPS[i];
+    if (days == null && full > budget) continue;   // too big whole: straight to the steps
     const s = snapshotStoreAt(store, days, today);
-    if (days != null && i < _SNAP_STEPS.length - 1 && _snapEstimate(s) > _SNAP_BUDGET) continue;   // still too big: the next step
-    if (days == null && full > _SNAP_BUDGET) continue;
+    if (days != null && i < _SNAP_STEPS.length - 1 && _snapEstimate(s) > budget) continue;   // still too big: the next step
     let text;
     try { text = JSON.stringify({ user, store: s, ts: Date.now(), trimmedTo: days }); } catch (e) { continue; }
-    if (text.length > _SNAP_BUDGET) continue;
+    if (text.length > budget) continue;
     try {
-      localStorage.setItem(key, text);
+      ls.setItem(key, text);
       if (days != null) _snapSay(days > 0 ? 'kept the last ' + days + ' days of the big lists' : 'left the big lists out', { estimate: full });
       return true;
     } catch (e) { /* quota: the next, smaller step */ }
   }
-  try { localStorage.removeItem(key); } catch (e) {}
+  try { ls.removeItem(key); } catch (e) {}
   _snapSay('not saved (too big for this device); the old one was removed', { estimate: full });
   return false;
 }
