@@ -8407,6 +8407,42 @@ group('security merge follow-ups (demo log-out, deleted elsewhere, one code prom
       eq(signedOutNoteText(_signedOutNote()), 'You were signed out. 1 set and 1 meet-day board wait on this device for when you log back in.', 'the ordinary refused session still says what waits');
       clearQueues(); localStorage.removeItem('powa-md-fu-real-board'); localStorage.removeItem('powa-saved-replies-' + REAL);
     });
+    const realDom = typeof HTMLElement !== 'undefined' && document.body instanceof HTMLElement;
+    if (!realDom) {
+      skip('one code prompt at a time; #login on load can\'t cancel it (c)', 'needs a real DOM: open tests.html in a browser');
+    } else {
+      test('one code prompt at a time; #login on load can\'t cancel it (c)', () => {
+        const hash = location.hash, opened = [];
+        const realOpenLogin = window.openLoginModal;
+        try {
+          const p1 = promptMfaChallenge({ cancelLabel: 'Sign out' });
+          const p2 = promptMfaChallenge();
+          assert(p1 === p2, 'asked again while open: the same answer, not a second prompt');
+          eq(document.querySelectorAll('#mfaChallengeModal').length, 1);
+          assert(!!document.querySelector('#mfaChallengeModal.open'), 'open');
+          window.openLoginModal = () => opened.push('login');
+          history.replaceState(history.state, '', location.pathname + location.search + '#login');
+          window._mfaStepUpPending = true;
+          checkHashForModal();
+          assert(!!document.querySelector('#mfaChallengeModal.open'), '#login closed the code prompt (bootstrap\'s step-up)');
+          window._mfaStepUpPending = false;
+          checkHashForModal();
+          assert(!!document.querySelector('#mfaChallengeModal.open'), '#login closed the code prompt (a sign-in screen\'s)');
+          eq(opened.length, 0, 'the log-in modal waits');
+          document.getElementById('mfaChalCancel').click();
+          assert(!document.querySelector('#mfaChallengeModal.open'), 'Cancel answers it');
+          const p3 = promptMfaChallenge();
+          assert(p3 !== p1, 'answered: the next ask is a new prompt');
+          document.getElementById('mfaChalCancel').click();
+          checkHashForModal();
+          eq(opened.join(), 'login', 'with no prompt open, #login opens the log-in modal as before');
+        } finally {
+          window.openLoginModal = realOpenLogin; window._mfaStepUpPending = realPending;
+          history.replaceState(history.state, '', location.pathname + location.search + hash);
+          const m = document.getElementById('mfaChallengeModal'); if (m) { m.classList.remove('open'); m.remove(); }
+        }
+      });
+    }
   } finally {
     window._user = realUser; window._demoMode = realDemo; window._mfaStepUpPending = realPending;
     lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));

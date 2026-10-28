@@ -4606,10 +4606,16 @@ let _mfaPendingFactor = null;
 // the backdrop doesn't: data-sticky). opts.cancelLabel: 'Cancel' on the sign-in screens,
 // 'Sign out' at boot, where cancelling is exactly that. opts.client: the supabase-js client whose
 // session owes the code (reset-password.html's link client; default db.js's). opts.lead: the line
-// under the title.
+// under the title. One prompt at a time: asked again while one is open for the same session (bootstrap
+// and a sign-in screen racing after an Apple / Google return, say), the open one's answer is the answer
+// (the same promise); another client's prompt waits until it's answered, then opens.
+let _mfaOpen = null;   // { promise, client } while a prompt is open
 function promptMfaChallenge(opts) {
   opts = opts || {};
-  return new Promise((resolve) => {
+  const client = opts.client || null;
+  if (_mfaOpen) return _mfaOpen.client === client ? _mfaOpen.promise : _mfaOpen.promise.then(() => promptMfaChallenge(opts));
+  let open = null;
+  const promise = new Promise((resolve) => {
     let modal = document.getElementById('mfaChallengeModal');
     if (!modal) {
       const wrap = document.createElement('div');
@@ -4643,6 +4649,7 @@ function promptMfaChallenge(opts) {
     function cleanup(result) {
       if (settled) return;
       settled = true;
+      if (_mfaOpen === open) _mfaOpen = null;   // answered: the next ask opens a new prompt
       watch.disconnect();
       modal.classList.remove('open');
       verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
@@ -4670,6 +4677,10 @@ function promptMfaChallenge(opts) {
     watch.observe(modal, { attributes: true, attributeFilter: ['class'] });
     setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
   });
+  open = { promise, client };
+  // The executor ran synchronously: still unanswered, this is the open prompt.
+  if (document.querySelector('#mfaChallengeModal.open')) _mfaOpen = open;
+  return promise;
 }
 window.promptMfaChallenge = promptMfaChallenge;
 
@@ -6343,6 +6354,9 @@ document.addEventListener('keydown', function(e) {
 // AND on initial page load. Works on whatever page has the modals (homepage).
 // =========================================================
 function checkHashForModal() {
+  // A two-factor code owed at load (bootstrap's _mfaStepUp, or its prompt already open): #login / #signup must
+  // not close it (closeAllModals would count as Cancel and sign them out). The page's own modal can wait.
+  if (window._mfaStepUpPending || document.querySelector('#mfaChallengeModal.open')) return;
   const h = location.hash;
   if (h === '#login' && typeof window.openLoginModal === 'function') {
     window.closeAllModals();
