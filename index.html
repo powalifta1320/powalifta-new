@@ -937,8 +937,9 @@ bootstrap(null, () => {
     }
     document.documentElement.classList.remove('has-session'); // show welcome if session was stale
   }
-  // Signed out without choosing it (app.js): say so once.
+  // Signed out without choosing it (app.js), or back from an email-confirmation link (db.js): say so once.
   if (typeof showSignedOutNote === 'function') showSignedOutNote();
+  if (window._powaEmailConfirmed && !window._user) toast('Your email is confirmed. Log in to carry on.', 6000);
   renderNav('#nav');
   // The website's two live lists. Never inside the app: the welcome screen covers the
   // site there, so the network calls would be wasted.

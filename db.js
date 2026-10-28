@@ -22,10 +22,88 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   } catch (e) {}
 })();
 
+// A session in the address (login CSRF, sweep 2026-10-28 #9 and #12). supabase-js takes any session
+// it finds in the URL (#access_token=… or ?access_token=…) and saves it over whoever is signed in
+// here, so a link someone sends could sign this browser into their account. Two real flows bring a
+// session in the URL, and only these are taken:
+//   · Apple / Google sign-in on the website, back on the page it left from: this tab saved
+//     social-auth.js's pending state before it went (sessionStorage, 15 minutes). The person asked
+//     for it in this tab, so it may replace whoever was signed in.
+//   · A password-reset link (type=recovery): only reset-password.html reads it, into a client of its
+//     own that never saves it, so it never becomes this browser's sign-in and never replaces one.
+// Anything else is refused and its tokens leave the address bar: a link someone sent, or an email
+// confirmation (the email is confirmed by then and the person logs in, as the sign-up toast says;
+// signed out, the log-in opens). Nothing else in the app puts a session in a URL: the iPhone app signs
+// in with Apple / Google tokens (signInWithIdToken), its links carry invite codes only.
+// Pure (test/url-session.test.cjs): o = { params, path, pending, now } → 'none' (no session in the
+// URL) | 'adopt' | 'recovery' (reset-password.html's own client takes it) | 'forward' (routeRecoveryLink
+// above is moving it there) | 'refuse'.
+const POWA_SOCIAL_PENDING_KEY = 'powa-social-pending';
+const POWA_SOCIAL_PENDING_TTL_MS = 15 * 60 * 1000;   // social-auth.js PENDING_TTL_MS
+const POWA_URL_SESSION_KEYS = ['access_token', 'refresh_token', 'provider_token', 'provider_refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'];
+function powaUrlSessionVerdict(o) {
+  o = o || {};
+  const p = o.params || {};
+  if (!p.access_token && !p.refresh_token) return 'none';
+  if (p.type === 'recovery') return /\/reset-password\.html$/.test(String(o.path || '')) ? 'recovery' : 'forward';
+  let pend = o.pending;
+  try { if (typeof pend === 'string') pend = JSON.parse(pend); } catch (e) { pend = null; }
+  const at = pend && pend.v === 1 ? Number(pend.at) : 0;
+  const now = Number(o.now) || Date.now();
+  return at > 0 && now - at <= POWA_SOCIAL_PENDING_TTL_MS ? 'adopt' : 'refuse';
+}
+// The address without a session's parameters (hash or query); everything else stays.
+function powaUrlWithoutSession(href) {
+  const u = new URL(href);
+  POWA_URL_SESSION_KEYS.forEach(k => u.searchParams.delete(k));
+  let hash = u.hash.replace(/^#/, '');
+  if (hash) {
+    const hp = new URLSearchParams(hash);
+    if (POWA_URL_SESSION_KEYS.some(k => hp.has(k))) { POWA_URL_SESSION_KEYS.forEach(k => hp.delete(k)); hash = hp.toString(); }
+  }
+  const q = u.searchParams.toString();
+  return u.pathname + (q ? '?' + q : '') + (hash ? '#' + hash : '');
+}
+function _powaUrlParams(loc) {
+  const params = {};
+  try { new URLSearchParams(String(loc.hash || '').replace(/^#/, '')).forEach((v, k) => { params[k] = v; }); } catch (e) {}
+  try { new URLSearchParams(String(loc.search || '')).forEach((v, k) => { params[k] = v; }); } catch (e) {}
+  return params;
+}
+function _powaSocialPending() { try { return sessionStorage.getItem(POWA_SOCIAL_PENDING_KEY); } catch (e) { return null; } }
+// A refused session leaves the address before supabase-js (or social-auth.js) reads it.
+(function refuseUrlSession() {
+  try {
+    const params = _powaUrlParams(location);
+    const verdict = powaUrlSessionVerdict({ params, path: location.pathname, pending: _powaSocialPending(), now: Date.now() });
+    // A reset session in the query string (not a real link: Supabase puts it in the hash, which routeRecoveryLink
+    // moves) goes nowhere either: refused like any other.
+    const stray = verdict === 'forward' && !/(^|[#&])type=recovery(&|$)/.test(location.hash);
+    if (verdict !== 'refuse' && !stray) return;
+    let signedIn = false;
+    for (let i = 0; i < localStorage.length; i++) { if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) { signedIn = true; break; } }
+    console.warn('POWALIFTA: a session in this link was not used (only this tab\'s own Apple or Google sign-in, or a password-reset link, signs in from a link).');
+    let clean = powaUrlWithoutSession(location.href);
+    if (params.type === 'signup' && !signedIn && clean.indexOf('#') < 0) { clean += '#login'; window._powaEmailConfirmed = true; }
+    history.replaceState(history.state, '', clean);
+  } catch (e) {}
+})();
+
 if (!window.supabase || !window.supabase.createClient) {
   console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Only the sign-ins above come from the address (powaUrlSessionVerdict). It must answer at once:
+    // supabase-js 2.110 calls it without await, so a Promise would count as yes.
+    detectSessionInUrl: (url, params) => {
+      params = params || {};
+      const v = powaUrlSessionVerdict({ params, path: url && url.pathname, pending: _powaSocialPending(), now: Date.now() });
+      if (v === 'none') return !!(params.error || params.error_description || params.error_code);   // as before: a provider's error
+      return v === 'adopt';
+    }
+  }
+});
 
 // ============================================================
 // MAPPERS — DB row (snake_case) ↔ JS object (camelCase)
