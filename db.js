@@ -797,8 +797,10 @@ async function _painRecheck(ch, id, onChange) {
 const _LOG_COLS = 'id, athlete_id, lift, variant, exercise_name, weight, reps, rpe, e1rm, e1rm_comp, note, date';
 let _noLogGear = false;
 const _logCols = () => _LOG_COLS + (_noLogGear ? '' : ', gear');
-// The lifter's own order everywhere: by date, then as logged (created_at), then id.
-const _LOG_ORDER = [['date', true], ['created_at', true]];
+// Read newest first (a read that ever stops at its ceiling, or keeps its pages after one fails, keeps
+// the newest sets), then turned round: the lifter's own order everywhere is by date, then as logged
+// (created_at), then id.
+const _LOG_ORDER_DESC = [['date', false], ['created_at', false], ['id', false]];
 const _BW_COLS = 'id, athlete_id, date, weight';
 const _NOTE_COLS = 'id, athlete_id, week_id, day_id, note, date, coach_comment, coach_comment_at, coach_id';
 const _ANSWER_COLS = 'id, question_id, athlete_id, coach_id, period, value_num, value_text, updated_at';
@@ -2777,14 +2779,14 @@ const DB = {
 
   // ---------- WORKOUT LOGS ----------
   // Every set, paged (_readAll): the lifter's own oldest first and as logged within a day, the
-  // roster's 10 lifters a read (each lifter's sets in that same order). Use .in() — .eq() fails on
-  // UUID columns under RLS in this project.
-  async _readLogs(label, ids, size) {
-    const run = () => _readAllIn(label, ids, size, (c, countOpt) => sb.from('workout_logs').select(_logCols(), countOpt).in('athlete_id', c), { order: _LOG_ORDER });
+  // roster's 10 lifters a read (a small sort a page; each lifter's sets in that same order). Use
+  // .in() — .eq() fails on UUID columns under RLS in this project.
+  async _readLogs(label, ids, size, ceiling) {
+    const run = () => _readAllIn(label, ids, size, (c, countOpt) => sb.from('workout_logs').select(_logCols(), countOpt).in('athlete_id', c), { order: _LOG_ORDER_DESC, tiebreak: [], ceiling });
     let res = await run();
     if (res.error && !res.rows.length && !_noLogGear && _missingCol(res.error, ['gear'])) { _noLogGear = true; res = await run(); }
     if (res.error && !res.rows.length) { console.warn(label, res.error); return []; }
-    return res.rows.map(mapDbLog);
+    return res.rows.reverse().map(mapDbLog);
   },
   async listLogsForAthlete(athleteId) {
     return this._readLogs('listLogsForAthlete', [athleteId], 1);

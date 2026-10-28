@@ -197,6 +197,16 @@ await t('workout logs: a lifter past 1,000 sets gets all of them, oldest first a
     eq(got, exp, 'each lifter in their own order');
   });
 });
+await t('workout logs: a read that stops at its ceiling keeps the newest sets (and says so)', async () => {
+  const r = rng(4), A = uuid(r), logs = [];
+  for (let i = 0; i < 2500; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2024, 0, 1) + i * 864e5 / 3), i));
+  const x = loadDb({ workout_logs: logs });
+  const got = await x.DB._readLogs('listLogsForAthlete', [A], 1, 1000);
+  eq(got.length, 1000);
+  const newest = logs.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : a.id < b.id ? 1 : -1)).slice(0, 1000).reverse().map(l => l.id);
+  eq(got.map(l => l.id), newest, 'the newest 1000, oldest first');
+  ok(x.warns.some(w => /read stopped at 1000 rows/.test(w)), 'said');
+});
 await t('workout logs: before workout_logs.gear exists, the read goes again without it', async () => {
   const r = rng(5), A = uuid(r), logs = [];
   for (let i = 0; i < 1200; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2026, 0, 1) + i * 864e5 / 4), i));
