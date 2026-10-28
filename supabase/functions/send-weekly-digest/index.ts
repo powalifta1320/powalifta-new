@@ -254,7 +254,7 @@ async function runLifterDigest(admin: any, apiKey: string, dryRun: boolean): Pro
   // opted-in id in one URL.
   // 1) Opted-in preferences (weekly_digest = true), with unsub token.
   let prefs: Row[];
-  try { prefs = await readAll((f, t) => admin.from('email_preferences').select('user_id, unsub_token').eq('weekly_digest', true).order('user_id').range(f, t)); }
+  try { prefs = await readAll((f, t) => admin.from('email_preferences').select('user_id, unsub_token').eq('weekly_digest', true).order('user_id').range(f, t), 'user_id'); }
   catch (e) { console.error('prefs read', errMsg(e)); return { error: 'Preferences read failed' }; }
   if (!prefs.length) return { sent: 0, note: 'No opted-in athletes' };
 
@@ -274,9 +274,9 @@ async function runLifterDigest(admin: any, apiKey: string, dryRun: boolean): Pro
   // 3) The last 90 days of logs + bodyweight for those athletes, grouped in memory (no per-athlete
   //    round trips).
   let logs: Row[];
-  try { logs = await byIds(recipIds, (c) => readAll((f, t) => admin.from('workout_logs').select('athlete_id, lift, weight, reps, e1rm_comp, date').in('athlete_id', c).gte('date', cutoff90).order('id').range(f, t))); }
+  try { logs = await byIds(recipIds, (c) => readAll((f, t) => admin.from('workout_logs').select('id, athlete_id, lift, weight, reps, e1rm_comp, date').in('athlete_id', c).gte('date', cutoff90).order('id').range(f, t))); }
   catch (e) { console.error('logs read', errMsg(e)); return { error: 'Logs read failed' }; }
-  const bws = await optional('bodyweight', () => byIds(recipIds, (c) => readAll((f, t) => admin.from('bodyweight').select('athlete_id, date, weight').in('athlete_id', c).gte('date', cutoff90).order('id').range(f, t))));
+  const bws = await optional('bodyweight', () => byIds(recipIds, (c) => readAll((f, t) => admin.from('bodyweight').select('id, athlete_id, date, weight').in('athlete_id', c).gte('date', cutoff90).order('id').range(f, t))));
 
   const logsBy: Record<string, LogRow[]> = {};
   logs.forEach(l => { (logsBy[String(l.athlete_id)] ||= []).push(l as unknown as LogRow); });
@@ -322,16 +322,32 @@ function errMsg(e: unknown): string { return String((e as { message?: string })?
 function isMissing(e: unknown): boolean { return /does not exist|could not find|schema cache|PGRST20[0-9]|42P01|42703/i.test(errMsg(e) + ' ' + String((e as { code?: string })?.code || '')); }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Every page of a read (ordered, so pages don't overlap).
+// Every page of a read, ordered by a unique key the read selects (`key`, 'id' unless said). Pages overlap by
+// OVERLAP rows and each row is kept once by its key, so a row written or deleted while a big read is going
+// neither comes twice nor pushes another out of it (db.js _readAll does the same in the app). A read whose
+// rows don't carry the key pages edge to edge as before, and says so.
+const OVERLAP = 50;
 // deno-lint-ignore no-explicit-any
-async function readAll(build: (from: number, to: number) => any): Promise<Row[]> {
+async function readAll(build: (from: number, to: number) => any, key = 'id'): Promise<Row[]> {
   const out: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
+  const seen = new Set<string>();
+  let keyed: boolean | null = null;
+  for (let from = 0; ; from += keyed ? PAGE - OVERLAP : PAGE) {
     if (from >= MAX_ROWS) { console.warn('send-weekly-digest: a read stopped at ' + MAX_ROWS + ' rows'); break; }
     const { data, error } = await build(from, from + PAGE - 1);
     if (error) throw error;
-    out.push(...(data || []));
-    if (!data || data.length < PAGE) break;
+    const rows: Row[] = data || [];
+    if (keyed === null && rows.length) {
+      keyed = rows[0][key] != null;
+      if (!keyed && rows.length === PAGE) console.warn('send-weekly-digest: a paged read without its key column (' + key + ')');
+    }
+    for (const r of rows) {
+      if (!keyed) { out.push(r); continue; }
+      const k = String(r[key]);
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(r);
+    }
+    if (rows.length < PAGE) break;
   }
   return out;
 }
@@ -365,10 +381,10 @@ async function loadTeams(admin: any, from: string, to: string) {
     coaches = await byIds(coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, name, email').in('id', c).order('id').range(f, t)));
   }
   const prefs = await optional('email_preferences', async () => {
-    try { return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token, push_alerts').in('user_id', c).order('user_id').range(f, t))); }
+    try { return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token, push_alerts').in('user_id', c).order('user_id').range(f, t), 'user_id')); }
     catch (e) {
       if (!isMissing(e)) throw e;
-      return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token').in('user_id', c).order('user_id').range(f, t)));
+      return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token').in('user_id', c).order('user_id').range(f, t), 'user_id'));
     }
   });
   // Programs: only what the report reads (whose, when it changed, the sessions it plans this week). The
@@ -376,10 +392,10 @@ async function loadTeams(admin: any, from: string, to: string) {
   // that runs, the block's JSON is read 25 lifters at a time and dropped as each page is read.
   let programs: Row[];
   try {
-    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('athlete_id, coach_id, updated_at, planned:programs_planned').in('athlete_id', c).order('id').range(f, t))));
+    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, updated_at, planned:programs_planned').in('athlete_id', c).order('id').range(f, t))));
   } catch (e) {
     if (!isMissing(e)) throw e;
-    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('athlete_id, coach_id, weeks, updated_at').in('athlete_id', c).order('id').range(f, t))), PROG_IDS);
+    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, weeks, updated_at').in('athlete_id', c).order('id').range(f, t))), PROG_IDS);
   }
   const stats = await byIds(athleteIds, async (c) => {
     const { data, error } = await admin.rpc('coach_week_stats', { p_athletes: c, p_from: from, p_to: to });

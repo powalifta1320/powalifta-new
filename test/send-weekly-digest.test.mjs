@@ -46,6 +46,7 @@ class Q {
     if (gone) return { data: null, error: { code: '42703', message: 'column ' + this.t + '.' + gone + ' does not exist' } };
     if (this.inMax > 100) return { data: null, error: { message: 'URI too long: ' + this.inMax + ' ids' } };
     db.reads.push({ t: this.t, cols: this.cols, ids: this.inMax, range: this.rng });
+    if (db.onRead) db.onRead(this.t, this.rng, db);   // a test changes the table between pages
     const rows = rowsOf(db, this.t);
     if (this.op === 'upsert') {
       db.writes.push({ t: this.t, op: 'upsert', row: this.row, opts: this.opts });
@@ -356,6 +357,29 @@ await t('the lifters\' digest: 1,200 opted-in lifters and 1,500 sets one week, a
   ok(db.reads.every(x => x.ids <= 100), 'every read 100 ids at most');
   ok(db.reads.filter(x => x.t === 'email_preferences').length >= 2, 'the preferences paged');
 });
+
+// A set deleted or logged while the 1,500-set read is between pages (Monday 14:00 UTC is a busy hour).
+for (const [what, change, want] of [
+  ['deleted', (db) => { db.tables.workout_logs = db.tables.workout_logs.filter(l => l.id !== 'big00010'); }, 1501],
+  ['logged', (db) => { db.tables.workout_logs.push({ id: 'big00005a', athlete_id: 'dg-0000', date: '2026-10-23', lift: 'bench', e1rm_comp: 101, weight: 80, reps: 5 }); }, 1501],
+]) {
+  await t('the lifters\' digest: a set ' + what + ' between two pages of a read neither comes twice nor pushes another set out', async () => {
+    const db = reset();
+    for (let i = 0; i < 3; i++) {
+      const id = 'dg-' + String(i).padStart(4, '0');
+      db.tables.profiles.push({ id, name: 'Digest ' + i, user_type: 'athlete', coach_id: null, email: id + '@example.com', unit: 'kg' });
+      db.tables.email_preferences.push({ user_id: id, weekly_digest: true, unsub_token: 'tok-' + id });
+    }
+    db.tables.workout_logs.push({ id: 'dl0', athlete_id: 'dg-0000', date: '2026-10-22', lift: 'squat', e1rm_comp: 150, weight: 120, reps: 3 });
+    for (let k = 0; k < 1500; k++) db.tables.workout_logs.push({ id: 'big' + String(k).padStart(5, '0'), athlete_id: 'dg-0000', date: '2026-10-2' + (k % 5), lift: 'bench', e1rm_comp: 100 + (k % 40), weight: 80, reps: 5 });
+    let done = false;
+    db.onRead = (tb, rng) => { if (tb === 'workout_logs' && rng && rng[0] > 0 && !done) { done = true; change(db); } };
+    const r = await call({ today: '2026-10-26', job: 'digest', dryRun: true });
+    ok(done, 'the read went past one page');
+    const big = r.json.digest.preview.find(p => p.email === 'dg-0000@example.com');
+    eq(big && big.sets, want, 'every set the read started with, once (a set ' + what + ' mid-read)');
+  });
+}
 
 if (fail) console.log('server logs:\n  ' + LOGS.join('\n  '));
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
