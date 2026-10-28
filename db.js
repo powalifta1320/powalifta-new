@@ -1637,7 +1637,7 @@ const DB = {
     const res = await _readAll('listAthletesForCoach', (countOpt) => {
       const q = sb.from('profiles').select('*', countOpt).eq('user_type', 'athlete');
       return coachId ? q.eq('coach_id', coachId) : q;
-    }, {});
+    }, { count: false });
     if (res.error && !res.rows.length) { console.warn('listAthletesForCoach', res.error); return []; }
     return res.rows.map(mapDbProfileToAthlete);
   },
@@ -1645,7 +1645,7 @@ const DB = {
   // ---------- INVITES ----------
   async listInvites(coachId) {
     // RLS already filters to current coach's invites — no need for explicit eq
-    const res = await _readAll('listInvites', (countOpt) => sb.from('invites').select('*', countOpt), { tiebreak: ['code'] });
+    const res = await _readAll('listInvites', (countOpt) => sb.from('invites').select('*', countOpt), { tiebreak: ['code'], count: false });
     if (res.error && !res.rows.length) { console.warn('listInvites', res.error); return []; }
     return res.rows.map(mapDbInvite);
   },
@@ -2042,13 +2042,13 @@ const DB = {
   async listProgramsForAthlete(athleteId) {
     // RLS gives athlete access to their own program only (or coach to programs they coach).
     // Use .in() instead of .eq() — .eq() fails on UUID columns with RLS in this project.
-    const res = await _readAll('listProgramsForAthlete', (countOpt) => sb.from('programs').select('*', countOpt).in('athlete_id', [athleteId]), {});
+    const res = await _readAll('listProgramsForAthlete', (countOpt) => sb.from('programs').select('*', countOpt).in('athlete_id', [athleteId]), { count: false });
     if (res.error && !res.rows.length) { console.warn('listProgramsForAthlete', res.error); return []; }
     return res.rows.map(mapDbProgram);
   },
   async listProgramsForCoach(coachId) {
     // RLS already filters to current coach's programs. No need for explicit filter.
-    const res = await _readAll('listProgramsForCoach', (countOpt) => sb.from('programs').select('*', countOpt), {});
+    const res = await _readAll('listProgramsForCoach', (countOpt) => sb.from('programs').select('*', countOpt), { count: false });
     if (res.error && !res.rows.length) { console.warn('listProgramsForCoach', res.error); return []; }
     return res.rows.map(mapDbProgram);
   },
@@ -2230,7 +2230,7 @@ const DB = {
     if (!athleteIds || !athleteIds.length) return [];
     const since = sinceIso || new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
     const res = await _readAllIn('listPainReports', athleteIds, 100, (c, countOpt) => sb.from('pain_reports').select('*', countOpt).in('athlete_id', c).gte('day', since),
-      { order: [['created_at', false]] });
+      { order: [['created_at', false]], count: false });
     if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listPainReports', res.error); return []; }
     return res.rows.map(mapDbPainReport);
   },
@@ -2326,7 +2326,7 @@ const DB = {
   // ---------- PAST BLOCKS (migration-blocks-2026-10-22.sql) ----------
   async listProgramBlocks(athleteIds) {
     if (!athleteIds || !athleteIds.length) return [];
-    const res = await _readAllIn('listProgramBlocks', athleteIds, 100, (c, countOpt) => sb.from('program_blocks').select(_BLOCK_COLS, countOpt).in('athlete_id', c), { order: [['ended_on', false]] });
+    const res = await _readAllIn('listProgramBlocks', athleteIds, 100, (c, countOpt) => sb.from('program_blocks').select(_BLOCK_COLS, countOpt).in('athlete_id', c), { order: [['ended_on', false]], count: false });
     if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listProgramBlocks', res.error); return []; }
     return res.rows.map(mapDbBlock);
   },
@@ -2362,7 +2362,7 @@ const DB = {
   },
   _cnNew(n) { return { id: n.id || ('local-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), coachId: n.coachId, athleteId: n.athleteId, body: String(n.body || '').slice(0, 4000), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), local: true }; },
   async listCoachNotes(coachId) {
-    const res = await _readAll('listCoachNotes', (countOpt) => sb.from('coach_notes').select(_COACH_NOTE_COLS, countOpt).eq('coach_id', coachId), { order: [['created_at', false]] });
+    const res = await _readAll('listCoachNotes', (countOpt) => sb.from('coach_notes').select(_COACH_NOTE_COLS, countOpt).eq('coach_id', coachId), { order: [['created_at', false]], count: false });
     const error = res.rows.length ? null : res.error;
     if (error) {
       if (_isNotReady(error)) this._cnReady = false; else console.warn('listCoachNotes', error);
@@ -2510,7 +2510,7 @@ const DB = {
   },
   async listClientBilling(coachId) {
     if (!coachId) return [];
-    const res = await _readAll('listClientBilling', (countOpt) => sb.from('client_billing').select(_CLIENT_BILLING_COLS, countOpt).eq('coach_id', coachId), {});
+    const res = await _readAll('listClientBilling', (countOpt) => sb.from('client_billing').select(_CLIENT_BILLING_COLS, countOpt).eq('coach_id', coachId), { count: false });
     const error = res.rows.length ? null : res.error;
     if (error) {
       if (_isNotReady(error)) this._cbReady = false; else console.warn('listClientBilling', error);
@@ -2558,7 +2558,7 @@ const DB = {
       .sort((a, b) => String(b.paidOn).localeCompare(String(a.paidOn)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
     // Paged (_readAll; the pages that came are kept if a later one fails).
     const res = await _readAll('listClientPayments', (countOpt) => sb.from('client_payments').select(_CLIENT_PAYMENT_COLS, countOpt).eq('coach_id', coachId).gte('paid_on', since),
-      { order: [['paid_on', false]], ceiling: 20000 });
+      { order: [['paid_on', false]], ceiling: 20000, count: false });
     if (res.error && !res.rows.length) {
       if (_isNotReady(res.error)) this._cpReady = false; else console.warn('listClientPayments', res.error);
       return newestFirst(this._clLocal('payments', coachId).filter(Boolean).map(p => Object.assign(p, { local: true })));
@@ -2684,8 +2684,8 @@ const DB = {
     if (!coachId) return [];
     if (Array.isArray(athleteIds) && !athleteIds.length) return [];
     const res = Array.isArray(athleteIds)
-      ? await _readAllIn('listIntakes', athleteIds, 100, (c, countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'] })
-      : await _readAll('listIntakes', (countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).neq('athlete_id', coachId), { tiebreak: ['athlete_id'] });
+      ? await _readAllIn('listIntakes', athleteIds, 100, (c, countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'], count: false })
+      : await _readAll('listIntakes', (countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).neq('athlete_id', coachId), { tiebreak: ['athlete_id'], count: false });
     if (res.error && !res.rows.length) {
       if (_isNotReady(res.error)) this._inReady = false; else console.warn('listIntakes', res.error);
       return [];   // a lifter's answers are on their own device until the table exists
@@ -2768,7 +2768,7 @@ const DB = {
   async listScheduleRequests(coachId) {
     if (!coachId) return [];
     const res = await _readAll('listScheduleRequests', (countOpt) => sb.from('schedule_requests').select(_SR_COLS, countOpt).eq('coach_id', coachId).gte('week_start', _srWeekAgo()),
-      { order: [['week_start', false], ['created_at', false]] });
+      { order: [['week_start', false], ['created_at', false]], count: false });
     if (res.error && !res.rows.length) {
       if (_isNotReady(res.error)) this._srReady = false; else console.warn('listScheduleRequests', res.error);
       return [];
@@ -2787,7 +2787,7 @@ const DB = {
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
-    const res = await _readAll('listTemplates', (countOpt) => sb.from('program_templates').select('*', countOpt), {});
+    const res = await _readAll('listTemplates', (countOpt) => sb.from('program_templates').select('*', countOpt), { count: false });
     if (res.error && !res.rows.length) { console.warn('listTemplates', res.error); return []; }
     return res.rows.map(mapDbTemplate);
   },
@@ -2846,13 +2846,13 @@ const DB = {
 
   // ---------- MEETS (competition results) ----------
   async listMeetsForAthlete(athleteId) {
-    const res = await _readAll('listMeets', (countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', [athleteId]), { order: [['meet_date', false]] });
+    const res = await _readAll('listMeets', (countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', [athleteId]), { order: [['meet_date', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listMeets', res.error); return []; }
     return res.rows.map(mapDbMeet);
   },
   async listMeetsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const res = await _readAllIn('listMeetsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', c), { order: [['meet_date', false]] });
+    const res = await _readAllIn('listMeetsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', c), { order: [['meet_date', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listMeetsForAthletes', res.error); return []; }
     return res.rows.map(mapDbMeet);
   },
@@ -2952,7 +2952,7 @@ const DB = {
     }
     this._teamsReady = true;
     const ids = (g.data || []).map(r => r.id);
-    const mr = ids.length ? await _readAllIn('listTeams members', ids, 100, (c, countOpt) => sb.from('program_group_members').select('*', countOpt).in('group_id', c), { tiebreak: ['group_id', 'athlete_id'] }) : { rows: [] };
+    const mr = ids.length ? await _readAllIn('listTeams members', ids, 100, (c, countOpt) => sb.from('program_group_members').select('*', countOpt).in('group_id', c), { tiebreak: ['group_id', 'athlete_id'], count: false }) : { rows: [] };
     const m = { data: mr.rows };
     const out = (g.data || []).map(r => this._mapTeam(r, m.data || []));
     // Teams kept on this device before the migration: up they go (members who left are skipped).
@@ -3200,13 +3200,13 @@ const DB = {
 
   // ---------- CHECK-INS ----------
   async listCheckins(athleteId) {
-    const res = await _readAll('listCheckins', (countOpt) => sb.from('checkins').select('*', countOpt).eq('athlete_id', athleteId), { order: [['week_start', false]] });
+    const res = await _readAll('listCheckins', (countOpt) => sb.from('checkins').select('*', countOpt).eq('athlete_id', athleteId), { order: [['week_start', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listCheckins', res.error); return []; }
     return res.rows.map(mapDbCheckin);
   },
   async listCheckinsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const res = await _readAllIn('listCheckinsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('checkins').select('*', countOpt).in('athlete_id', c), { order: [['week_start', false]] });
+    const res = await _readAllIn('listCheckinsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('checkins').select('*', countOpt).in('athlete_id', c), { order: [['week_start', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listCheckinsForAthletes', res.error); return []; }
     return res.rows.map(mapDbCheckin);
   },
@@ -3276,7 +3276,7 @@ const DB = {
   },
   async listGoalsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const res = await _readAllIn('listGoalsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('goals').select('*', countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'] });
+    const res = await _readAllIn('listGoalsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('goals').select('*', countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'], count: false });
     if (res.error && !res.rows.length) { console.warn('listGoalsForAthletes', res.error); return []; }
     return res.rows.map(mapDbGoals);
   },
@@ -3295,7 +3295,7 @@ const DB = {
 
   // ---------- REST DAYS ----------
   async listRestForAthlete(athleteId) {
-    const res = await _readAll('listRest', (countOpt) => sb.from('rest_days').select('*', countOpt).in('athlete_id', [athleteId]), { order: [['date', true]] });
+    const res = await _readAll('listRest', (countOpt) => sb.from('rest_days').select('*', countOpt).in('athlete_id', [athleteId]), { order: [['date', true]], count: false });
     if (res.error && !res.rows.length) { console.warn('listRest', res.error); return []; }
     return res.rows.map(mapDbRest);
   },
@@ -3373,7 +3373,7 @@ const DB = {
 
   // Coach: list every marketplace program I've published (any status)
   async listMyPublishedPrograms(coachId) {
-    const res = await _readAll('listMyPublishedPrograms', (countOpt) => sb.from('marketplace_programs').select(MP_COLS, countOpt).eq('coach_id', coachId), { order: [['created_at', false]] });
+    const res = await _readAll('listMyPublishedPrograms', (countOpt) => sb.from('marketplace_programs').select(MP_COLS, countOpt).eq('coach_id', coachId), { order: [['created_at', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listMyPublishedPrograms', res.error); return []; }
     return res.rows.map(mapDbMarketplaceProgram);
   },
@@ -3387,7 +3387,7 @@ const DB = {
 
   // Sales — buyer side: list everything I've ever bought
   async listMyPurchases(buyerId) {
-    const res = await _readAll('listMyPurchases', (countOpt) => sb.from('program_sales').select('*', countOpt).eq('buyer_id', buyerId), { order: [['created_at', false]] });
+    const res = await _readAll('listMyPurchases', (countOpt) => sb.from('program_sales').select('*', countOpt).eq('buyer_id', buyerId), { order: [['created_at', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listMyPurchases', res.error); return []; }
     return res.rows.map(mapDbSale);
   },
@@ -3486,7 +3486,7 @@ const DB = {
 
   // Sales — coach side: list every sale of my programs (earnings dashboard)
   async listMySales(coachId) {
-    const res = await _readAll('listMySales', (countOpt) => sb.from('program_sales').select('*', countOpt).eq('coach_id', coachId), { order: [['created_at', false]] });
+    const res = await _readAll('listMySales', (countOpt) => sb.from('program_sales').select('*', countOpt).eq('coach_id', coachId), { order: [['created_at', false]], count: false });
     if (res.error && !res.rows.length) { console.warn('listMySales', res.error); return []; }
     return res.rows.map(mapDbSale);
   },
@@ -3678,7 +3678,7 @@ const DB = {
     if (!uid) return [];
     try {
       // Every one of them (paged: a .limit() past 1000 still stopped at 1000, and the rest stayed in storage).
-      const res = await _readAll('voice notes to remove', (countOpt) => sb.from('messages').select('id, meta', countOpt).eq('sender_id', uid).eq('meta->>type', 'voice'), {});
+      const res = await _readAll('voice notes to remove', (countOpt) => sb.from('messages').select('id, meta', countOpt).eq('sender_id', uid).eq('meta->>type', 'voice'), { count: false });
       if (res.error && !res.rows.length) return [];
       return res.rows.map(r => r.meta && r.meta.path).filter(p => typeof p === 'string' && p.indexOf(uid + '/') > 0);
     } catch (e) { return []; }
@@ -4883,7 +4883,7 @@ Object.assign(DB, {
     const out = [];
     for (let i = 0; i < list.length; i += 100) {
       const res = await _readAll('listChallengeEntries', (countOpt) => sb.from('challenge_entries').select('*', countOpt).in('challenge_id', list.slice(i, i + 100)),
-        { tiebreak: ['challenge_id', 'athlete_id'] });
+        { tiebreak: ['challenge_id', 'athlete_id'], count: false });
       const error = res.rows.length ? null : res.error;
       if (error) {
         if (_isNotReady(error) && coachIdForLocal) return this._chLocal(coachIdForLocal, 'entries').filter(e => list.indexOf(e.challengeId) >= 0);
