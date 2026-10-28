@@ -168,6 +168,19 @@ with checks(n, migration, applied) as (values
   (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
         exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
   (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',
-        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n'))
+        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n')),
+  (59, 'migration-security-fixes-2026-10-28.sql  (28 Oct sweep: a coach link only through an invite or an accepted request, coach_release_lifter, session-note replies are the coach''s, a former coach is read-only, signed-in-only policies TO authenticated, invite seats, invite_preview''s IP; after row 58)',
+        (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace
+          and p.proname in ('guard_profile_privileged_cols', 'guard_profile_privileged_cols_insert', 'accept_coach_request', 'guard_session_notes_update',
+                            'invite_preview', 'coach_release_lifter', 'guard_session_notes_insert', 'guard_invite_seats')
+          and position('migration-security-fixes-2026-10-28' in p.prosrc) > 0) = 8
+        and (select count(*) from pg_trigger where tgname in ('trg_guard_session_notes_insert', 'trg_guard_invite_seats')) = 2
+        and (select count(*) from pg_policies where schemaname = 'public'
+              and policyname in ('msg_member_update', 'msg_sender_delete', 'mr_own_insert', 'mr_own_update', 'mr_own_delete')
+              and coalesce(qual, '') || coalesce(with_check, '') like '%FROM profiles p%') = 5
+        and (select count(*) from pg_policies where schemaname = 'public' and roles = '{authenticated}'
+              and policyname in ('checkins_athlete_all', 'checkins_coach_select', 'client_errors_admin_read', 'mp_coach_delete_own',
+                                 'mp_coach_insert', 'mp_coach_update_own', 'ps_admin_all', 'ps_buyer_read', 'ps_coach_read',
+                                 'session_notes_coach_insert', 'session_notes_coach_select', 'session_notes_coach_update')) = 12)
 )
 select n, migration, applied from checks order by n;
