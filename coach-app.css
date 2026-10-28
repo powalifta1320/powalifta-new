@@ -229,10 +229,6 @@ html:not(.desk) .ca-hero { padding: 18px 20px 0; }
 /* Home's summary lies on the ground, under the screen's light: the answer in type, not another box, so the
    job below is the one thing lifted off it. (The first run's welcome and the skeleton keep their card.) */
 html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) { padding: 2px 4px 0; background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; }
-html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stats { margin: 16px 0 0; border-top: 0; border-radius: 16px; background: var(--pl-inset); }
-html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stat { padding: 12px 16px 13px; }
-html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stat.is-btn:first-child { border-radius: 16px 0 0 16px; }
-html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) .ca-stat.is-btn:last-child { border-radius: 0 16px 16px 0; }
 html:not(.desk) .ca-home > .ca-hero:not(.ca-welcome) + .ca-sec.is-deck { margin-top: 20px; }
 html:not(.desk) .ca-hero-hi { margin: 0; font-size: 15px; font-weight: 600; color: var(--ca-tint); }
 html:not(.desk) .ca-hero-head { display: flex; align-items: baseline; gap: 12px; margin-top: 10px; min-height: 58px; }
@@ -243,14 +239,19 @@ html:not(.desk) .ca-big-w.is-clear { font-size: 28px; font-weight: 800; letter-s
 html:not(.desk) .ca-big-ok { align-self: center; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--ca-live) 18%, transparent); color: var(--ca-live); }
 html:not(.desk) .ca-big-ok svg { width: 20px; height: 20px; }
 html:not(.desk) .ca-hero-sub { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); max-width: 42ch; }
-html:not(.desk) .ca-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px -20px 0; border-top: 1px solid var(--ca-hair); }
-html:not(.desk) .ca-stat { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px 20px 16px; border: 0; background: none; text-align: left; min-width: 0; }
-html:not(.desk) .ca-stat + .ca-stat::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 16px; width: 1px; background: var(--ca-hair); }
-html:not(.desk) .ca-stat b { font-family: var(--font-num); font-stretch: 108%; font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.024em; color: var(--text); font-variant-numeric: tabular-nums; }
-html:not(.desk) .ca-stat b small { font-size: 15px; font-weight: 650; color: var(--text-3); letter-spacing: 0; margin-left: 1px; }
-html:not(.desk) .ca-stat span { font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .ca-stat.is-btn { cursor: pointer; transition: background-color 140ms ease-out; }
-html:not(.desk) .ca-stat.is-btn:active { background: var(--ca-press); }
+/* A stat is the tap target for a summary's list (the hooks: data-go=messages, data-lifters=behind, data-wins).
+   Each lives where its fact is: unread beside who needs you, behind on the week, the PR count on the PRs. */
+html:not(.desk) .ca-stats { display: flex; min-width: 0; }
+html:not(.desk) .ca-stat { position: relative; display: flex; align-items: center; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+html:not(.desk) .ca-stat.is-btn { cursor: pointer; transition: background-color 140ms ease-out, opacity 140ms ease-out; -webkit-tap-highlight-color: transparent; }
+/* unread, beside the headline: a quiet pill, its glyph in the Messages green while anything waits */
+html:not(.desk) .ca-stats.is-inbox { margin-left: auto; align-self: center; }
+html:not(.desk) .ca-stats.is-inbox .ca-stat { gap: 6px; min-height: 44px; padding: 0 14px 0 12px; border-radius: 999px; background: var(--pl-inset); }
+html:not(.desk) .ca-stats.is-inbox .ca-stat svg { flex: none; width: 18px; height: 18px; color: var(--text-3); }
+html:not(.desk) .ca-stats.is-inbox .ca-stat:not(.is-zero) svg { color: var(--ca-msg); }
+html:not(.desk) .ca-stats.is-inbox .ca-stat b { font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-stats.is-inbox .ca-stat span { font-size: 15px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-stats.is-inbox .ca-stat:active { background: var(--pl-inset-2); }
 
 /* Needs you: the worst job is the one object on Home, lifted off the ground and lit by its family, with the
    screen's red; the next two lie on the ground as plain rows, "See all" last. */
@@ -318,31 +319,218 @@ html:not(.desk) .ca-fb:active { transform: scale(0.94); transition-duration: 90m
 html:not(.desk) .ca-fb-n { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-fb-more { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--pl-inset); font-family: var(--font-num); font-size: 17px; font-weight: 700; color: var(--text-2); }
 
-/* Coaching: tiles of three weights. The meet is a surface lit gold (a date is coming); Clients and Check-ins
-   are surfaces; the three small ones are insets, a step quieter, so the grid isn't one card six times. */
-html:not(.desk) .ca-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
-html:not(.desk) .ca-tile {
-  grid-column: span 3; position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0; min-height: 124px;
-  padding: 14px 14px 14px 16px; text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out;
+/* =================================================================== HOME'S SUMMARY (28 Oct: "better infographics
+   and summarized data"). The page is loaded heaviest-in, worst first: who needs you is the one object (L3); this
+   week and strength are surfaces (L2); effort, meets and PRs are insets (L1); the roster lies on the ground.
+   One picture a section, its words and numbers beside it, a tap on every mark.
+   Chart colour has a job and went through the dataviz validator in both lights (plates-work/palette): ink for
+   what was lifted, steel for context, the lift colours re-stepped into the mark band (brand foundation 5.6:
+   all pairs pass, CVD 8.0 dark / 8.4 light), on target green and harder amber stepped into the band (CVD 9.5
+   dark; 7.1 light, legal because every part is named and counted beside the bar), easier a hollow steel mark
+   (reps left in the tank is a shape, not a colour), gold for meets and PRs only. Text never wears them. */
+html:not(.desk) body.powa-app {
+  --pl-viz-ink: color-mix(in srgb, var(--text) 90%, transparent);
+  --pl-viz-steel: var(--text-3);
+  --pl-viz-track: var(--pl-inset-2);
+  --pl-viz-sq: #00a1cf; --pl-viz-bp: #987aff; --pl-viz-dl: #c48800;
+  --pl-viz-on: #2cab70; --pl-viz-hard: #d27908;
+  --pl-viz-gold: #f2c25b; --pl-viz-gold-ring: #f2c25b; --pl-viz-gold-edge: transparent;
+  --pl-inset-solid: #101011;
+  --pl-viz-ring: rgba(255, 255, 255, 0.1);
 }
-html:not(.desk) .ca-tile:active { transform: scale(0.97); transition-duration: 90ms; transition-timing-function: ease-out; }
-html:not(.desk) .ca-tile .ca-tl { margin-top: 12px; font-size: 15px; font-weight: 600; color: var(--text-2); }
-html:not(.desk) .ca-tile .ca-tv { margin-top: 2px; font-family: var(--font-num); font-stretch: 108%; font-size: 22px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.15; color: var(--text); max-width: 100%; overflow-wrap: anywhere; }
-html:not(.desk) .ca-tile .ca-ts { margin-top: 2px; font-size: 13px; line-height: 1.35; color: var(--text-3); text-wrap: pretty; }
-html:not(.desk) .ca-tile .ca-ts.is-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
-html:not(.desk) .ca-tile.is-wide { grid-column: span 6; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 14px; align-items: center; padding: 16px; }
-html:not(.desk) .ca-tile.is-wide .ca-tic { grid-row: 1 / span 3; width: 48px; height: 48px; border-radius: 14px; align-self: center; }
-html:not(.desk) .ca-tile.is-wide .ca-tic svg { width: 24px; height: 24px; }
-html:not(.desk) .ca-tile.is-wide .ca-tl { margin: 0; }
-html:not(.desk) .ca-tile.t-meet {
-  background: radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, #f2c25b var(--pl-light), transparent) 0%, transparent 60%), var(--ca-card);
-  border-color: color-mix(in srgb, #f2c25b var(--pl-light-edge), var(--ca-edge));
+html[data-theme="light"]:not(.desk) body.powa-app {
+  --pl-viz-sq: #0092c7; --pl-viz-bp: #8a68f3; --pl-viz-dl: #b47800;
+  --pl-viz-on: #0f7d47; --pl-viz-hard: #b4410c;
+  --pl-viz-gold-ring: #a87400; --pl-viz-gold-edge: #8a5d00;
+  --pl-inset-solid: #ededee;
+  --pl-viz-ring: rgba(15, 15, 25, 0.09);
 }
-html:not(.desk) .ca-tile.is-small { grid-column: span 2; min-height: 0; padding: 14px 12px 14px 14px; background: var(--pl-inset); border-color: transparent; box-shadow: none; }
-html:not(.desk) .ca-tile.is-small .ca-tl { margin-top: 12px; font-size: 15px; color: var(--text); }
-html:not(.desk) .ca-tile.is-small .ca-ts { margin-top: 1px; }
-html:not(.desk) .ca-tile.is-small .ca-tic { background: var(--pl-inset-2); }
-html:not(.desk) .ca-tile.is-small:active { background: var(--pl-inset-2); }
+html:not(.desk) .ca-h-meta { font-size: 13px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
+html:not(.desk) .ca-sum { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 16px; border-radius: 20px; }
+html:not(.desk) .ca-sum.is-l2 { background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+html:not(.desk) .ca-sum.is-l1 { background: var(--pl-inset); }
+/* a surface lit by where it is going: strength up a green light, down an amber one (9% from the top corner) */
+html:not(.desk) .ca-sum.is-l2:is(.pf-up, .pf-down) {
+  background: radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--pfl) 9%, transparent) 0%, transparent 62%), var(--ca-card);
+  border-color: color-mix(in srgb, var(--pfl) 20%, var(--ca-edge));
+}
+html[data-theme="light"]:not(.desk) .ca-sum.is-l2:is(.pf-up, .pf-down) { background: radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--pfl) 6%, transparent) 0%, transparent 62%), var(--ca-card); border-color: color-mix(in srgb, var(--pfl) 12%, var(--ca-edge)); }
+/* a summary's head: its answer as a numeral, two lines of words, and (when it opens a list) a chevron */
+html:not(.desk) .ca-sum-head { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 14px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+html:not(.desk) button.ca-sum-head { min-height: 48px; cursor: pointer; transition: opacity 140ms ease-out; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) button.ca-sum-head::after { content: ''; position: absolute; inset: -16px -16px -8px; border-radius: 20px 20px 14px 14px; }
+html:not(.desk) button.ca-sum-head:active { opacity: 0.68; }
+html:not(.desk) .ca-sum-num { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; white-space: nowrap; }
+html:not(.desk) .ca-sum-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html:not(.desk) .ca-sum-t { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .ca-sum-s { font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .ca-sum-go { display: grid; place-items: center; color: var(--text-3); }
+html:not(.desk) .ca-sum-go svg { width: 18px; height: 18px; }
+html:not(.desk) .ca-sum-none { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-align: left; text-wrap: pretty; }
+html:not(.desk) .ca-sum-none b { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; color: var(--text); }
+html:not(.desk) .ca-readout { margin: 8px 2px 0; min-height: 20px; font-size: 15px; line-height: 1.35; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .ca-readout:empty { display: none; }
+
+/* 2. This week: the team's sessions as one plate-face ring (a segment per session written, the lifted ones in
+   ink, a machined rim round it), the answer in its hub; then Monday to Sunday, a column per day as tall as the
+   share of the team that trained, the chosen day in ink and named below. */
+html:not(.desk) .ca-wk { padding: 12px 12px 14px; }
+html:not(.desk) .ca-stats.is-week { display: block; }
+html:not(.desk) .ca-stat.is-week { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; width: 100%; padding: 4px; border-radius: 14px; }
+html:not(.desk) .ca-stat.is-week:active { background: var(--ca-press); }
+html:not(.desk) .ca-wk-ring { position: relative; display: grid; place-items: center; width: 120px; height: 120px; }
+html:not(.desk) .ca-tring { position: absolute; inset: 0; overflow: visible; }
+html:not(.desk) .ca-tring :is(path, circle) { fill: none; }
+html:not(.desk) .ca-tring-lip { stroke: var(--ca-hair); stroke-width: 1px; }
+html:not(.desk) .ca-tring-track { stroke: var(--pl-viz-ring); }
+html:not(.desk) .ca-tring-fill { stroke: var(--pl-viz-ink); }
+html:not(.desk) .ca-wk-c { position: relative; display: flex; flex-direction: column; align-items: center; }
+html:not(.desk) .ca-wk-c b { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-wk-c small { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-wk-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+html:not(.desk) .ca-wk-k { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) .ca-wk-t { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
+html:not(.desk) .ca-wk-s { font-size: 15px; line-height: 1.35; color: var(--text-2); }
+html:not(.desk) .ca-wk-b { display: inline-flex; align-items: baseline; gap: 7px; margin-top: 8px; font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--text); text-wrap: balance; }
+html:not(.desk) .ca-wk-bdot { flex: none; align-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--ca-warn); }
+html:not(.desk) .ca-wk-b.is-clear { font-weight: 500; color: var(--text-2); }
+html:not(.desk) .ca-wk-bn { padding-left: 15px; font-size: 15px; line-height: 1.3; color: var(--text-2); text-wrap: balance; }
+html:not(.desk) .ca-stat.is-week .ca-sum-go { align-self: center; }
+html:not(.desk) .ca-strip { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 12px; }
+html:not(.desk) .ca-strip::before { content: ''; position: absolute; left: 8px; right: 8px; top: 68px; height: 1px; background: var(--ca-hair); pointer-events: none; }
+html:not(.desk) .ca-sday { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; padding: 0 0 4px; border: 0; border-radius: 14px; background: none; color: inherit; font: inherit; }
+html:not(.desk) button.ca-sday { cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 140ms ease-out; }
+html:not(.desk) button.ca-sday:active { background: var(--ca-press); }
+html:not(.desk) .ca-sday-plot { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; width: 100%; height: 68px; }
+html:not(.desk) .ca-sday-bar { display: block; width: 20px; height: calc(var(--h, 0) * 50px); min-height: 6px; border-radius: 4px 4px 0 0; background: var(--pl-viz-steel); transform-origin: 50% 100%; transition: background-color 160ms ease-out; }
+html:not(.desk) .ca-sday-bar.is-zero { width: 14px; height: 2px; min-height: 2px; border-radius: 1px; background: var(--pl-viz-track); }
+html:not(.desk) .ca-sday.on .ca-sday-bar:not(.is-zero) { background: var(--pl-viz-ink); }
+html:not(.desk) .ca-sday-n { font-family: var(--font-num); font-size: 13px; font-weight: 750; line-height: 1; color: var(--text-3); font-variant-numeric: tabular-nums; transition: color 160ms ease-out; }
+html:not(.desk) .ca-sday.on .ca-sday-n { color: var(--text); }
+html:not(.desk) .ca-sday-dot { display: block; width: 4px; height: 4px; margin-bottom: -1px; border-radius: 50%; background: var(--pl-viz-track); }
+html:not(.desk) .ca-sday-l { font-size: 13px; font-weight: 600; line-height: 1; color: var(--text-3); }
+html:not(.desk) .ca-sday.is-today .ca-sday-l, html:not(.desk) .ca-sday.on .ca-sday-l { color: var(--text); font-weight: 800; }
+
+/* 3. Strength: the team's e1RM total as the answer, its 8 weeks as one line (the 4 weeks the answer compares
+   in ink, the 4 before them in steel, the latest point marked and named), each lift's change under it. */
+html:not(.desk) .ca-line-w { position: relative; height: 92px; margin-top: 20px; touch-action: pan-y; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .ca-line { display: block; width: 100%; height: 100%; overflow: visible; }
+/* the light under the last 4 weeks: from the line down, fading to nothing (in the card's own light) */
+html:not(.desk) .ca-line-a0 { stop-color: var(--text); stop-opacity: 0.1; }
+html:not(.desk) .ca-line-a1 { stop-color: var(--text); stop-opacity: 0; }
+html:not(.desk) .ca-sum:is(.pf-up, .pf-down) :is(.ca-line-a0, .ca-line-a1) { stop-color: var(--pfl); }
+html:not(.desk) .ca-sum:is(.pf-up, .pf-down) .ca-line-a0 { stop-opacity: 0.16; }
+html[data-theme="light"]:not(.desk) .ca-sum:is(.pf-up, .pf-down) .ca-line-a0 { stop-opacity: 0.2; }
+html:not(.desk) .ca-line-old { fill: none; stroke: var(--pl-viz-steel); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; }
+html:not(.desk) .ca-line-now { fill: none; stroke: var(--pl-viz-ink); stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round; }
+html:not(.desk) .ca-line-dot { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 2.5px var(--ca-card); pointer-events: none; }
+html:not(.desk) .ca-line-dot.is-was { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--pl-viz-steel); }
+html:not(.desk) .ca-line-end { position: absolute; margin: 14px -6px 0 0; font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; pointer-events: none; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-line-end b { font-family: var(--font-num); font-size: 15px; font-weight: 800; color: var(--text); }
+html:not(.desk) .ca-line-hair { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; background: color-mix(in srgb, var(--text) 32%, transparent); opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-line-tip { position: absolute; top: -12px; transform: translate(-50%, -100%); padding: 5px 10px; border-radius: 999px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade); font-size: 13px; font-weight: 650; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-line-w.is-scrub :is(.ca-line-hair, .ca-line-tip) { opacity: 1; }
+html:not(.desk) .ca-line-w.is-scrub .ca-line-end { opacity: 0; }
+html:not(.desk) .ca-line-x { position: relative; height: 18px; margin-top: 8px; font-size: 13px; font-weight: 500; color: var(--text-3); }
+html:not(.desk) .ca-line-xl { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+html:not(.desk) .ca-line-xl.is-first { transform: none; }
+html:not(.desk) .ca-line-xl.is-last { transform: translateX(-100%); }
+html:not(.desk) .ca-lifts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-lift { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 7px; row-gap: 2px; min-width: 0; }
+html:not(.desk) .ca-lift + .ca-lift { padding-left: 14px; border-left: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-lift.lift-squat { --lcv: var(--pl-viz-sq); }
+html:not(.desk) .ca-lift.lift-bench { --lcv: var(--pl-viz-bp); }
+html:not(.desk) .ca-lift.lift-deadlift { --lcv: var(--pl-viz-dl); }
+html:not(.desk) .ca-lift-m { width: 8px; height: 8px; border-radius: 50%; background: var(--lcv); }
+html:not(.desk) .ca-lift-l { font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-lift-v { grid-column: 1 / -1; font-family: var(--font-num); font-stretch: 108%; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* 4. Effort: one bar, easier · on target · harder, each part named and counted beside it; a part tapped stays
+   lit and the line under it says what's in it. */
+html:not(.desk) .ca-ebar { display: flex; gap: 2px; height: 16px; margin-top: 20px; }
+html:not(.desk) .ca-eseg { position: relative; flex-basis: 0; min-width: 8px; height: 100%; padding: 0; border: 0; border-radius: 3px; background: var(--pl-viz-steel); cursor: pointer; transition: opacity 180ms ease-out; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .ca-eseg:first-child { border-radius: 8px 3px 3px 8px; }
+html:not(.desk) .ca-eseg:last-child { border-radius: 3px 8px 8px 3px; }
+html:not(.desk) .ca-eseg:only-child { border-radius: 8px; }
+html:not(.desk) .ca-eseg::after { content: ''; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; }
+html:not(.desk) .ca-eseg.is-on { background: var(--pl-viz-on); }
+html:not(.desk) .ca-eseg.is-harder { background: var(--pl-viz-hard); }
+html:not(.desk) .ca-eseg.is-easier { background: none; box-shadow: inset 0 0 0 2px var(--pl-viz-steel); }
+html:not(.desk) .ca-eff[data-pick] .ca-eseg:not([aria-pressed="true"]) { opacity: 0.3; }
+html:not(.desk) .ca-elegend { display: flex; justify-content: space-between; gap: 2px; margin: 10px -6px 0; }
+html:not(.desk) .ca-ekey { display: inline-flex; align-items: center; gap: 7px; min-width: 0; min-height: 44px; padding: 0 8px 0 6px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; white-space: nowrap; cursor: pointer; transition: background-color 140ms ease-out; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .ca-ekey-m { flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--pl-viz-steel); transition: opacity 180ms ease-out; }
+html:not(.desk) .ca-ekey.is-on .ca-ekey-m { background: var(--pl-viz-on); }
+html:not(.desk) .ca-ekey.is-harder .ca-ekey-m { background: var(--pl-viz-hard); }
+html:not(.desk) .ca-ekey.is-easier .ca-ekey-m { background: none; box-shadow: inset 0 0 0 2px var(--pl-viz-steel); }
+html:not(.desk) .ca-ekey b { font-family: var(--font-num); font-size: 17px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-ekey span { font-size: 15px; font-weight: 500; color: var(--text-2); }
+html:not(.desk) .ca-ekey.is-zero :is(b, span) { color: var(--text-3); }
+html:not(.desk) .ca-ekey[aria-pressed="true"] { background: var(--pl-inset-2); }
+html:not(.desk) .ca-eff[data-pick] .ca-ekey:not([aria-pressed="true"]) .ca-ekey-m { opacity: 0.3; }
+
+/* 5. Meets: the next 12 weeks as one lane. Each lifter stands on a stem over their meet's gold diamond, their
+   face in their plate family's lip; a face that would touch the one before steps up a tier. */
+html:not(.desk) .ca-lane { position: relative; margin-top: 18px; }
+html:not(.desk) .ca-lane-faces { position: relative; height: 46px; }
+html:not(.desk) .ca-lane.has-tier .ca-lane-faces { height: 86px; }
+html:not(.desk) .ca-lane-f { position: absolute; bottom: 0; left: calc(var(--x, 0) * (100% - 36px)); z-index: var(--z, 1); display: block; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: inherit; cursor: pointer; transform: translate3d(0, calc(var(--tier, 0) * -40px), 0); -webkit-tap-highlight-color: transparent; transition: transform var(--pl-d-press) var(--pl-spring); }
+html:not(.desk) .ca-lane-f::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) .ca-lane-f:active { transform: translate3d(0, calc(var(--tier, 0) * -40px), 0) scale(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .ca-lane-f .ca-av { position: relative; width: 36px; height: 36px; font-size: 13px; outline: 2px solid var(--pf, var(--text-3)); outline-offset: 2px; }
+html:not(.desk) .ca-lane-stem { position: absolute; left: 50%; top: calc(100% + 4px); width: 2px; height: calc(8px + var(--tier, 0) * 40px); margin-left: -1px; border-radius: 1px; background: color-mix(in srgb, var(--pf, var(--text-3)) 60%, transparent); pointer-events: none; }
+html:not(.desk) .ca-lane-f.is-folded { display: none; }
+html:not(.desk) .ca-lane-more { position: absolute; top: -8px; right: -12px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade); font: 700 11px/20px var(--font-num); font-style: normal; color: var(--text); text-align: center; }
+html:not(.desk) .ca-lane-more:empty { display: none; }
+html:not(.desk) .ca-lane-track { position: relative; height: 6px; margin-top: 12px; border-radius: 3px; background: var(--pl-viz-track); }
+html:not(.desk) .ca-lane-tick { position: absolute; top: 1px; left: calc(18px + var(--x) * (100% - 36px)); width: 1px; height: 4px; background: color-mix(in srgb, var(--text) 16%, transparent); }
+html:not(.desk) .ca-lane-tick.is-major { top: -3px; height: 12px; background: color-mix(in srgb, var(--text) 26%, transparent); }
+html:not(.desk) .ca-lane-mark { position: absolute; top: 50%; left: calc(18px + var(--x) * (100% - 36px)); width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 2px; background: var(--pl-viz-gold); box-shadow: 0 0 0 1.5px var(--pl-viz-gold-edge), 0 0 0 3.5px var(--pl-inset-solid); transform: rotate(45deg); }
+html:not(.desk) .ca-lane-x { position: relative; height: 18px; margin-top: 10px; font-size: 13px; font-weight: 500; color: var(--text-3); }
+html:not(.desk) .ca-lane-xl { position: absolute; top: 0; left: calc(18px + var(--x) * (100% - 36px)); transform: translateX(-50%); white-space: nowrap; }
+html:not(.desk) .ca-lane-xl:last-child { transform: translateX(calc(-100% + 18px)); }
+
+/* 6. PRs: the count, and every face that set one in a gold ring with how many. */
+html:not(.desk) .ca-pr { flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; }
+html:not(.desk) .ca-stats.is-pr { flex: none; }
+html:not(.desk) .ca-stats.is-pr .ca-stat { align-items: center; gap: 6px; min-height: 64px; padding: 0 8px 0 6px; border-radius: 14px; }
+html:not(.desk) .ca-stats.is-pr .ca-stat b { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-stats.is-pr .ca-stat > span { align-self: center; margin-top: 4px; font-size: 17px; font-weight: 650; color: var(--text); }
+html:not(.desk) .ca-stats.is-pr .ca-stat > svg { width: 18px; height: 18px; color: var(--text-3); }
+html:not(.desk) .ca-stats.is-pr .ca-stat:active { background: var(--pl-inset-2); }
+html:not(.desk) .ca-pr.is-none { padding: 16px; }
+html:not(.desk) .ca-pr.is-none .ca-stats.is-pr { flex: 1; }
+html:not(.desk) .ca-pr.is-none .ca-stat { min-height: 0; padding: 0; }
+html:not(.desk) .ca-pr-faces { flex: 1; min-width: 0; display: flex; gap: 10px; padding: 4px 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+html:not(.desk) .ca-pr-faces::-webkit-scrollbar { display: none; }
+html:not(.desk) .ca-pr-faces > :first-child { margin-left: auto; }
+html:not(.desk) .ca-prf { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 56px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring); -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .ca-prf:active { transform: scale(0.94); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .ca-prf-face { position: relative; display: grid; place-items: center; width: 48px; height: 48px; }
+html:not(.desk) .ca-prf-face .ca-av { width: 42px; height: 42px; font-size: 15px; outline: 2px solid var(--pl-viz-gold-ring); outline-offset: 2px; }
+html:not(.desk) .ca-prf-n { position: absolute; right: -4px; bottom: -3px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--pl-viz-gold); color: #1d1606; font: 800 11px/20px var(--font-num); font-style: normal; text-align: center; box-shadow: 0 0 0 2px var(--pl-inset-solid); }
+html:not(.desk) .ca-prf-l { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text-2); }
+
+/* Coaching: what's one tap away, as one quiet grouped list at the end (the summary above carries the numbers
+   that need a look): each row its glyph chip, its name, a line, and the one number worth going there for. The
+   rows keep their tile classes (.is-wide for the two with money or answers waiting, .is-small for the rest). */
+html:not(.desk) .ca-tiles { display: flex; flex-direction: column; overflow: hidden; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+html:not(.desk) .ca-tiles > .ca-tile {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: auto auto; column-gap: 14px; row-gap: 1px; align-items: center;
+  min-width: 0; min-height: 60px; padding: 10px 14px 10px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; cursor: pointer;
+  transition: background-color 140ms ease-out;
+}
+html:not(.desk) .ca-tiles > .ca-tile + .ca-tile::before { content: ''; position: absolute; top: 0; left: 62px; right: 0; height: 1px; background: var(--ca-hair); }
+html:not(.desk) .ca-tiles > .ca-tile:active { background: var(--ca-press); }
+html:not(.desk) .ca-tiles > .ca-tile:active::before, html:not(.desk) .ca-tiles > .ca-tile:active + .ca-tile::before { opacity: 0; }
+html:not(.desk) .ca-tiles > .ca-tile .ca-tic { grid-row: 1 / span 2; width: 32px; height: 32px; border-radius: 10px; background: var(--pl-inset-2); }
+html:not(.desk) .ca-tiles > .ca-tile .ca-tic svg { width: 18px; height: 18px; }
+html:not(.desk) .ca-tiles > .ca-tile .ca-tl { grid-column: 2; margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
+html:not(.desk) .ca-tiles > .ca-tile .ca-ts { grid-column: 2; margin: 0; font-size: 13px; line-height: 1.35; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .ca-tiles > .ca-tile:not(:has(.ca-ts)) .ca-tl { grid-row: 1 / span 2; }
+html:not(.desk) .ca-tiles > .ca-tile .ca-ts.is-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
+html:not(.desk) .ca-tiles > .ca-tile .ca-tv { grid-column: 3; grid-row: 1 / span 2; margin: 0; font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 800; letter-spacing: -0.012em; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html:not(.desk) .ca-tiles > .ca-tile > svg { grid-column: 4; grid-row: 1 / span 2; width: 16px; height: 16px; color: var(--text-3); }
 
 /* the report: one row on an inset */
 html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; border: 0; background: var(--pl-inset); text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
@@ -528,6 +716,8 @@ html:not(.desk) .ca-plain .ca-lrow + .ca-lrow::before { left: 50px; right: 4px; 
 html:not(.desk) .ca-plain.ca-rowsx::before { display: none; }
 
 /* a row's view, pushed in: Progress, Notes & check-ins, Client & About */
+html:not(.desk) .ca-subk { margin: 2px 0 2px; font-size: 15px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-subk + .ca-subt { margin-top: 0; }
 html:not(.desk) .ca-subt { margin: 2px 0 16px; font-family: var(--font-body); font-stretch: 100%; font-size: 32px; font-weight: 750; letter-spacing: -0.028em; line-height: 1.05; color: var(--text); }
 html:not(.desk) .ca-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 20px; color: var(--text-2); }
 html:not(.desk) .ca-empty > svg { width: 24px; height: 24px; color: var(--text-3); margin-bottom: 4px; }
@@ -925,6 +1115,15 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
   html:not(.desk) .pl-sleeve .ui-barbell .bb-collar.is-moving { animation: plCollar calc(var(--pl-d-heavy) + 300ms + var(--n, 1) * 90ms) var(--ca-ease) both; }
 }
 @keyframes plPlateOn { from { transform: translateX(30px); opacity: 0; } 30% { opacity: 1; } to { transform: none; opacity: 1; } }
+/* the week fills once a visit (Home's first render, .is-first): its lifted sessions light up round the ring in
+   order, then each day's column rises from the baseline, Monday first. Never again until the app is reopened:
+   Home is opened tens of times a day, and a chart that replays is noise. Transform and opacity only. */
+@keyframes plSegIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes plColUp { from { transform: scaleY(0.06); } to { transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.desk) .ca-home.is-first .ca-tring-fill { animation: plSegIn 240ms var(--ca-ease) calc(160ms + var(--i, 0) * 28ms) backwards; }
+  html:not(.desk) .ca-home.is-first .ca-sday-bar:not(.is-zero) { animation: plColUp var(--pl-d-state) var(--pl-spring) calc(240ms + var(--i, 0) * 36ms) backwards; }
+}
 /* the collar: off, out of the way while the plates change, back on, and still (no settle past its seat) */
 @keyframes plCollar { 0% { transform: translateX(var(--dx)); } 18% { transform: translateX(var(--out)); } 70% { transform: translateX(var(--out)); } 100% { transform: none; } }
 @media (hover: hover) and (pointer: fine) {

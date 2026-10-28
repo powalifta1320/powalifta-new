@@ -378,6 +378,158 @@
       .sort(function (x, y) { return (y.alerts.length ? 1 : 0) - (x.alerts.length ? 1 : 0) || String(y.last).localeCompare(String(x.last)) || String(x.name).localeCompare(String(y.name)); });
   }
 
+  /* ---------------------------------------------------------------- HOME's summary: the maths (pure)
+     Every number on Home comes from the app's own maths: coach-report.js teamWeek (sessions), app.js
+     getE1RMMomentum (strength), the written-against-felt rule of coach-lifters.js clTeam and app.js
+     setOvershoot (effort), app.js deskNextMeet (meets) and deskWins (PRs). These only gather and count. */
+  var LIFTS3 = ['squat', 'bench', 'deadlift'];
+  var DAY1 = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  var DAYW = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  function caMonday(iso) { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00Z'); return addDays(iso, -((d.getUTCDay() + 6) % 7)); }
+  // This week, Monday to Sunday: who logged on each day. A session is a lifter's training day (coach-report.js
+  // counts them the same way), so the strip adds up to the sessions logged. logs: [{ athleteId, date }];
+  // ids: the roster. → [{ iso, dow (Monday 0), n, who: [ids], today, future }]
+  function caDayStrip(logs, ids, today) {
+    var t = String(today).slice(0, 10), mon = caMonday(t), mine = {}, at = {}, days = [];
+    (ids || []).forEach(function (id) { mine[id] = 1; });
+    for (var i = 0; i < 7; i++) { var iso = addDays(mon, i); at[iso] = i; days.push({ iso: iso, dow: i, n: 0, who: [], today: iso === t, future: iso > t }); }
+    (logs || []).forEach(function (l) {
+      if (!l || !mine[l.athleteId]) return;
+      var k = String(l.date || '').slice(0, 10), j = at[k];
+      if (j == null || k > t) return;
+      if (days[j].who.indexOf(l.athleteId) < 0) { days[j].who.push(l.athleteId); days[j].n++; }
+    });
+    return days;
+  }
+  // One lifter's e1RM total at the end of each of the last n weeks (weeks start on Monday, oldest first): each
+  // main lift's best so far (logs before the window count), summed once all three have one, the rule of app.js
+  // deskTotalTrend, so a squat-only first week never reads as a jump. logs: [{ lift, date, e1rmComp }].
+  // → [n values], null before the lifter has all three.
+  function caTotalSeries(logs, today, n) {
+    n = n || 8;
+    var t = String(today).slice(0, 10), first = addDays(caMonday(t), -7 * (n - 1)), best = { squat: 0, bench: 0, deadlift: 0 };
+    var ls = (logs || []).filter(function (l) { return l && LIFTS3.indexOf(l.lift) >= 0 && Number(l.e1rmComp) > 0 && l.date && String(l.date).slice(0, 10) <= t; })
+      .map(function (l) { return { lift: l.lift, date: String(l.date).slice(0, 10), v: Number(l.e1rmComp) }; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var out = [], i = 0;
+    for (var w = 0; w < n; w++) {
+      var end = addDays(first, 7 * (w + 1));
+      while (i < ls.length && ls[i].date < end) { if (ls[i].v > best[ls[i].lift]) best[ls[i].lift] = ls[i].v; i++; }
+      out.push(best.squat > 0 && best.bench > 0 && best.deadlift > 0 ? best.squat + best.bench + best.deadlift : null);
+    }
+    return out;
+  }
+  // Is the team getting stronger? Each lifter's last 4 weeks against the 4 before them, per main lift (app.js
+  // getE1RMMomentum: the best e1RM of each window), summed over the lifters who have both windows. The total
+  // is the three lifts' sums together, so it always sits between them. list: [{ id, name, m: momentum }].
+  // → { lifts: { squat: { now, before, kg, pct, n } … }, total: { now, before, kg, pct, n },
+  //     movers: [{ id, name, kg, pct }] most first, stalled: [{ id, name, kg }], none: [{ id, name }] }
+  function caTeamStrength(list) {
+    var lifts = {}, total = { now: 0, before: 0, kg: 0, pct: null, n: 0 }, movers = [], stalled = [], none = [];
+    LIFTS3.forEach(function (L) { lifts[L] = { now: 0, before: 0, kg: 0, pct: null, n: 0 }; });
+    (list || []).forEach(function (x) {
+      if (!x) return;
+      var per = (x.m && x.m.perLift) || {}, now = 0, before = 0, k = 0;
+      LIFTS3.forEach(function (L) {
+        var p = per[L];
+        if (!p || p.delta == null || !(Number(p.prior) > 0) || !(Number(p.recent) > 0)) return;
+        lifts[L].now += Number(p.recent); lifts[L].before += Number(p.prior); lifts[L].n++;
+        now += Number(p.recent); before += Number(p.prior); k++;
+      });
+      if (!k) { none.push({ id: x.id, name: x.name }); return; }
+      total.now += now; total.before += before; total.n++;
+      movers.push({ id: x.id, name: x.name, kg: now - before, pct: (now - before) / before * 100 });
+      if (x.m.stalling) stalled.push({ id: x.id, name: x.name, kg: now - before });
+    });
+    LIFTS3.concat(['total']).forEach(function (L) {
+      var o = L === 'total' ? total : lifts[L];
+      o.kg = o.now - o.before; o.pct = o.before > 0 ? o.kg / o.before * 100 : null;
+    });
+    movers.sort(function (a, b) { return b.pct - a.pct || String(a.name).localeCompare(String(b.name)); });
+    return { lifts: lifts, total: total, movers: movers, stalled: stalled, none: none };
+  }
+  // The team's line: the lifters' totals (caTotalSeries) summed, for the weeks they all have one. It starts at
+  // the first week that two thirds of the lifters with a total now already had one, and follows only them, so
+  // a lifter joining later never reads as a jump. list: [{ id, series }]. → { start, values: [null… sums], ids } | null
+  function caTeamLine(list) {
+    var withNow = (list || []).filter(function (x) { return x && x.series && x.series.length && x.series[x.series.length - 1] != null; });
+    if (!withNow.length) return null;
+    var n = withNow[0].series.length, need = Math.max(1, Math.ceil(withNow.length * 2 / 3));
+    for (var s = 0; s < n - 1; s++) {
+      var who = withNow.filter(function (x) { return x.series[s] != null; });
+      if (who.length < need) continue;
+      var vals = [];
+      for (var w = 0; w < n; w++) vals.push(w < s ? null : who.reduce(function (sum, x) { return sum + (x.series[w] || 0); }, 0));
+      return { start: s, values: vals, ids: who.map(function (x) { return x.id; }) };
+    }
+    return null;
+  }
+  // Felt against written for one logged set (coach-lifters.js clTeam and app.js setOvershoot): a range is written
+  // from its low end to its top, so a set is harder when it felt 0.5 or more over the top, easier when 0.5 or
+  // more under the low end, on target otherwise. RIR blocks and meet attempts aren't RPE sets. → { kind, over } | null
+  function caEffortOf(s) {
+    if (!s || s.attempt || s.rir) return null;
+    if (s.actualRpe == null || s.actualRpe === '' || s.rpe == null || s.rpe === '') return null;
+    var felt = Number(s.actualRpe), lo = Number(s.rpe);
+    if (!isFinite(felt) || !isFinite(lo)) return null;
+    var hi = s.rpeHi != null && s.rpeHi !== '' && Number(s.rpeHi) > lo ? Number(s.rpeHi) : lo;
+    var over = felt - hi, under = lo - felt;
+    return { kind: over >= 0.5 ? 'harder' : under >= 0.5 ? 'easier' : 'on', over: over, felt: felt, wrote: hi };
+  }
+  // The team's logged sets split three ways, and who ran hot, worst set first. sets: [{ id, name, set, title,
+  // date }]. → { easier, on, harder, over1 (a full point or more over), total, hot: [{ id, name, n, worst }] }
+  function caEffortSplit(sets) {
+    var out = { easier: 0, on: 0, harder: 0, over1: 0, total: 0, hot: [] }, hot = {};
+    (sets || []).forEach(function (x) {
+      var e = x && caEffortOf(x.set);
+      if (!e) return;
+      out.total++; out[e.kind]++;
+      if (e.kind !== 'harder') return;
+      if (e.over >= 1) out.over1++;
+      var h = hot[x.id] || (hot[x.id] = { id: x.id, name: x.name, n: 0, worst: null });
+      h.n++;
+      if (!h.worst || e.over > h.worst.over || (e.over === h.worst.over && String(x.date) > String(h.worst.date))) h.worst = { over: e.over, felt: e.felt, wrote: e.wrote, title: x.title || '', date: x.date || '' };
+    });
+    out.hot = Object.keys(hot).map(function (k) { return hot[k]; })
+      .sort(function (a, b) { return b.worst.over - a.worst.over || b.n - a.n || String(a.name).localeCompare(String(b.name)); });
+    return out;
+  }
+  // The next 12 weeks of meets: one mark per lifter at their next meet (rows' meet, app.js deskNextMeet), nearest
+  // first, x across the span (0 today, 1 at its end). → { span, next: { days, name, ids }, marks: [{ id, name, days, x, meet }] }
+  function caMeetLane(rows, span) {
+    span = span || 84;
+    var marks = [];
+    (rows || []).forEach(function (r) {
+      var m = r && r.meet;
+      if (!m || m.days == null || m.days < 0 || m.days > span || !r.athlete) return;
+      marks.push({ id: r.athlete.id, name: r.athlete.name, days: m.days, x: m.days / span, meet: String((m.meet && m.meet.name) || 'Meet').trim() || 'Meet' });
+    });
+    marks.sort(function (a, b) { return a.days - b.days || String(a.name).localeCompare(String(b.name)); });
+    var f = marks[0], next = f ? { days: f.days, name: f.meet, ids: marks.filter(function (x) { return x.days === f.days && x.meet === f.meet; }).map(function (x) { return x.id; }) } : null;
+    return { span: span, next: next, marks: marks };
+  }
+  // Faces that would overlap on the lane step up a tier; past the last tier they fold into the face before them
+  // ("+1"). xs: positions in px, nearest first; gap: a face's width. → [tier, or -1 when folded]
+  function caLaneTiers(xs, gap, tiers) {
+    tiers = tiers || 2;
+    var last = [], out = [];
+    for (var t = 0; t < tiers; t++) last.push(-Infinity);
+    (xs || []).forEach(function (x) {
+      var k = -1;
+      for (var t2 = 0; t2 < tiers; t2++) if (x - last[t2] >= gap) { k = t2; break; }
+      if (k >= 0) last[k] = x;
+      out.push(k);
+    });
+    return out;
+  }
+  // A signed percentage the way a coach says it: "+3.1%", "−0.4%", "0%" (one decimal under 10, none over).
+  function caPct(p) {
+    if (p == null || !isFinite(p)) return '';
+    var a = Math.abs(p), r = a >= 10 ? String(Math.round(a)) : (Math.round(a * 10) / 10).toFixed(1);
+    if (Number(r) === 0) return '0%';
+    return (p > 0 ? '+' : '−') + r + '%';
+  }
+
   /* ====================================================================================================
      THE MODEL for a render: CoachLifters' rows and jobs, plus who needs you and each lifter's week.
      ==================================================================================================== */
@@ -511,11 +663,20 @@
     try { if (/#lifter=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
     if (!roster.length) { area.innerHTML = welcomeHtml(u); wireHome(area); return; }
     var X = model();
-    var html = '<div class="ca-home ca-root">';
+    var S = summaryModel(X);
+    X.S = S;
+    // Loaded heaviest-in, worst first: who needs you (the one object), then this week and strength (surfaces),
+    // effort, meets and PRs (insets), then the roster on the ground.
+    var html = '<div class="ca-home ca-root' + (H.drawn ? '' : ' is-first') + '">';
     html += heroHtml(X, u);
     var monday = new Date().getDay() === 1;
     if (monday) html += reportRowHtml(1);
     html += needsHtml(X);
+    html += weekHtml(X, S);
+    html += strengthHtml(X, S);
+    html += effortHtml(X, S);
+    html += meetsHtml(X, S);
+    html += prsHtml(X, S);
     html += facesHtml(X);
     html += tilesHtml(X);
     if (!monday) html += reportRowHtml(0);
@@ -525,6 +686,10 @@
     wireHome(area);
     var i = 0;
     area.querySelectorAll('.ca-rise').forEach(function (n) { n.style.setProperty('--i', String(Math.min(i++, 8))); });
+    layoutLane(area);
+    wireLine(area);
+    // The week fills once a visit to the app (a satisfying first look); after that Home simply shows it.
+    H.drawn = true;
     paintBadges();
   }
   function heroHtml(X, u) {
@@ -535,18 +700,15 @@
       : '<span class="ca-big-ok" aria-hidden="true">' + ic('check', 2.6) + '</span><span class="ca-big-w is-clear">All clear</span>';
     // All clear: say what's below only when something is (the next weeks and blocks to write).
     var sub = hl.n ? '' : '<p class="ca-hero-sub">' + (caLeadJobs(X.jobs, null).length ? 'Nobody needs you this week. Next weeks and blocks are below.' : 'Nobody needs you this week. Everyone is on plan.') + '</p>';
-    return '<div class="ca-hero ca-rise"><p class="ca-hero-hi">' + esc(hi) + '</p><div class="ca-hero-head">' + head + '</div>' + sub +
-      '<div class="ca-stats">' +
-        statHtml(st.trained, '/' + st.of, 'Trained', 'Trained in the last 7 days: ' + st.trained + ' of ' + st.of + '. Show who is behind', 'data-lifters="behind"') +
-        statHtml(st.prs, '', st.prs === 1 ? 'PR' : 'PRs', plural(st.prs, 'personal record') + ' this week. Show the wins', 'data-wins="1"') +
-        unreadStatHtml(st.unread) +
-      '</div></div>';
+    // Their words waiting sit with who needs you: the unread count, one tap to Messages.
+    return '<div class="ca-hero ca-rise"><p class="ca-hero-hi">' + esc(hi) + '</p><div class="ca-hero-head">' + head +
+      '<div class="ca-stats is-inbox">' + unreadStatHtml(st.unread) + '</div></div>' + sub + '</div>';
   }
   function unreadStatHtml(n) {
     var u = unreadState();
     var v = u === 'loading' ? '<i class="ca-sk ca-sk-stat" aria-hidden="true"></i>' : u === 'failed' ? '\u2013' : String(n);
     var aria = u === 'loading' ? 'Unread messages loading' : u === 'failed' ? 'Unread messages couldn\u2019t load' : plural(n, 'unread message');
-    return '<button type="button" class="ca-stat is-btn" data-go="messages" aria-label="' + esc(aria) + ', open Messages"><b>' + v + '</b><span>Unread</span></button>';
+    return '<button type="button" class="ca-stat is-btn' + (u === 'ready' && !n ? ' is-zero' : '') + '" data-go="messages" aria-label="' + esc(aria) + ', open Messages">' + ic('msg', 2.1) + '<b>' + v + '</b><span>unread</span></button>';
   }
   function statHtml(v, small, label, aria, attr) {
     return '<button type="button" class="ca-stat is-btn" ' + (attr || '') + ' aria-label="' + esc(aria) + '"><b>' + esc(String(v)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</b><span>' + esc(label) + '</span></button>';
@@ -598,6 +760,285 @@
         '<span class="ca-jrow-tx"><span class="ca-jrow-n">' + esc(first(r.athlete.name)) + '</span><span class="ca-jrow-t">' + keepDots(esc((it.type === 'busy' && caBusyLine(it)) || t.short || t.title)) + '</span></span></button>' +
       '<button type="button" class="ca-pill" data-fix="' + esc(it.key) + '" aria-label="' + esc(f.label || short) + '">' + esc(short) + '</button></div>';
   }
+  /* ====================================================================================================
+     HOME'S SUMMARY: this week, strength, effort, meets, PRs. One picture each, its words and numbers beside
+     it, a tap on every mark. The facts come from the maths above; nothing here invents a number.
+     ==================================================================================================== */
+  function summaryModel(X) {
+    var s = store(), u = me() || {}, t = todayIso();
+    var ids = X.rows.map(function (r) { return r.athlete.id; });
+    var logsBy = {};
+    ids.forEach(function (id) { logsBy[id] = []; });
+    (s.workoutLogs || []).forEach(function (l) { if (l && logsBy[l.athleteId]) logsBy[l.athleteId].push(l); });
+    // This week (coach-report.js, the Monday report's own maths): Monday to today against the week's plan.
+    var CR = typeof window !== 'undefined' ? window.CoachReport : null, W = null, LW = null, lastStrip = null, range = '';
+    if (CR && CR.teamWeek && CR.fromStore) {
+      var win = CR.weekSoFar(t);
+      W = CR.teamWeek(CR.fromStore(s, u.id, win), win);
+      range = CR.rangeLabel(win.from, CR.addDays(win.from, 6));
+    }
+    var strip = caDayStrip(s.workoutLogs, ids, t);
+    // A quiet week (nothing logged since Monday) shows last week, labelled, never an empty picture.
+    var quiet = !!W && !(W.sessionsDone > 0) && !strip.some(function (d) { return d.n > 0; });
+    if (quiet && CR) { var lw = CR.lastWeek(t); LW = CR.teamWeek(CR.fromStore(s, u.id, lw), lw); lastStrip = caDayStrip(s.workoutLogs, ids, lw.to); }
+    // Behind: the Lifters tab's own Behind (caIsBehind), so the words and the list a tap opens agree.
+    var behind = X.rows.filter(function (r) { return caIsBehind(r, X.week(r)); });
+    // Strength: app.js getE1RMMomentum over 4-week windows; the line from each lifter's running best.
+    var mom = typeof getE1RMMomentum === 'function' ? X.rows.map(function (r) { return { id: r.athlete.id, name: r.athlete.name, m: getE1RMMomentum(r.athlete.id, 28) }; }) : [];
+    var line = caTeamLine(X.rows.map(function (r) { return { id: r.athlete.id, series: caTotalSeries(logsBy[r.athlete.id], t, 8) }; }));
+    // Effort: every set logged in the last 7 days against the RPE written for it.
+    var since = addDays(t, -6), sets = [];
+    X.rows.forEach(function (r) {
+      var prog = r.status && r.status.program;
+      if (!prog || typeof programLoggedSets !== 'function') return;
+      programLoggedSets(prog).forEach(function (x) {
+        if (!x.date || x.date < since || x.date > t) return;
+        sets.push({ id: r.athlete.id, name: r.athlete.name, set: x.set, title: typeof _exShortTitle === 'function' ? _exShortTitle(x.ex) : '', date: x.date });
+      });
+    });
+    var wins = caWins(X.rows).filter(function (w) { return w.lifts.length; });
+    return {
+      t: t, range: range, week: W, lastWeek: LW, strip: strip, lastStrip: lastStrip, quiet: quiet, behind: behind,
+      strength: caTeamStrength(mom), line: line, effort: caEffortSplit(sets), lane: caMeetLane(X.rows, 84),
+      wins: wins, prs: wins.reduce(function (n, w) { return n + w.lifts.length; }, 0), roster: ids.length
+    };
+  }
+  function nameList(names, max) {
+    max = max || 3;
+    names = (names || []).filter(Boolean);
+    if (names.length <= max) return names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : (names[0] || '');
+    return names.slice(0, max).join(', ') + ' and ' + (names.length - max) + ' more';
+  }
+  var MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dayMon(iso) { var p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? Number(p[2]) + ' ' + MON3[Number(p[1]) - 1] : ''; }
+  function firstOf(id) { var a = (store().athletes || []).find(function (x) { return x.id === id; }); return first(a && a.name); }
+  function athleteOf(id) { return (store().athletes || []).find(function (x) { return x.id === id; }) || { id: id, name: '' }; }
+  function secHead(title, end) { return '<div class="ca-h"><h2>' + esc(title) + '</h2>' + (end || '') + '</div>'; }
+  function metaHtml(t) { return '<span class="ca-h-meta">' + esc(t) + '</span>'; }
+  // The team's sessions as one plate-face ring: a segment per session written this week, the lifted ones
+  // filled. Past 24 sessions it's one arc. size: outer diameter; sw: the band.
+  function teamRingSvg(done, planned, size, sw) {
+    var r = (size - sw) / 2 - 4, c = size / 2, n = Math.max(0, Math.round(planned)), k = Math.max(0, Math.min(n, Math.round(done)));
+    var o = '<svg class="ca-tring" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" aria-hidden="true">';
+    var pt = function (a) { return (c + r * Math.sin(a)).toFixed(2) + ' ' + (c - r * Math.cos(a)).toFixed(2); };
+    var arc = function (a0, a1) { return 'M' + pt(a0) + ' A' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' + pt(a1); };
+    o += '<circle class="ca-tring-lip" cx="' + c + '" cy="' + c + '" r="' + (size / 2 - 0.5).toFixed(2) + '"/>';
+    if (!n) return o + '<circle class="ca-tring-track" cx="' + c + '" cy="' + c + '" r="' + r.toFixed(2) + '" stroke-width="' + sw + '"/></svg>';
+    var TAU = Math.PI * 2;
+    if (n > 24) {
+      o += '<circle class="ca-tring-track" cx="' + c + '" cy="' + c + '" r="' + r.toFixed(2) + '" stroke-width="' + sw + '"/>';
+      if (k) o += k >= n ? '<circle class="ca-tring-fill" cx="' + c + '" cy="' + c + '" r="' + r.toFixed(2) + '" stroke-width="' + sw + '"/>' : '<path class="ca-tring-fill" style="--i:0" d="' + arc(0, TAU * k / n) + '" stroke-width="' + sw + '"/>';
+      return o + '</svg>';
+    }
+    var gap = 2.4 / r;   // 2.4 pt between segments, measured on the band's centre line
+    for (var i = 0; i < n; i++) {
+      var a0 = TAU * i / n + gap / 2, a1 = TAU * (i + 1) / n - gap / 2;
+      o += '<path class="' + (i < k ? 'ca-tring-fill' : 'ca-tring-track') + '" style="--i:' + i + '" d="' + arc(a0, a1) + '" stroke-width="' + sw + '"/>';
+    }
+    return o + '</svg>';
+  }
+  // Monday to Sunday: a column per day, as tall as the share of the team that trained that day.
+  function stripHtml(days, roster, label) {
+    // Scaled to the week's busiest day or half the team, whichever is more: a full column is a big day, and a
+    // small team's two sessions still read as two (the number on each column says how many).
+    var max = Math.max(1, roster / 2, Math.max.apply(null, days.map(function (d) { return d.n; })));
+    var sel = days.filter(function (d) { return d.today; })[0] || days.filter(function (d) { return !d.future; }).slice(-1)[0] || days[0];
+    return '<div class="ca-strip" role="group" aria-label="' + esc(label) + '">' + days.map(function (d) {
+      var who = d.who.map(firstOf);
+      var aria = DAYW[d.dow] + (d.today ? ', today' : '') + ': ' + (d.future ? 'still to come' : d.n ? plural(d.n, 'session') + ', ' + nameList(who, 6) : 'no sessions');
+      var inner = '<span class="ca-sday-plot">' + (d.future ? '<i class="ca-sday-dot"></i>' : (d.n ? '<b class="ca-sday-n">' + d.n + '</b>' : '') + '<i class="ca-sday-bar' + (d.n ? '' : ' is-zero') + '" style="--h:' + (d.n / max).toFixed(3) + ';--i:' + d.dow + '"></i>') + '</span>' +
+        '<span class="ca-sday-l">' + DAY1[d.dow] + '</span>';
+      if (d.future) return '<span class="ca-sday is-future" aria-label="' + esc(aria) + '">' + inner + '</span>';
+      return '<button type="button" class="ca-sday' + (d.today ? ' is-today' : '') + (d === sel ? ' on' : '') + '" data-day="' + d.iso + '" aria-pressed="' + (d === sel) + '" aria-label="' + esc(aria) + '">' + inner + '</button>';
+    }).join('') + '</div>';
+  }
+  function dayReadout(d) {
+    if (!d) return '';
+    var who = d.who.map(firstOf);
+    return (d.today ? 'Today' : DAYW[d.dow]) + ' · ' + (d.n ? nameList(who, 4) : 'no sessions');
+  }
+  // 2. This week: the sessions lifted against the sessions written, as one ring, then the days.
+  function weekHtml(X, S) {
+    if (!S.week) return '';
+    var W = S.quiet ? (S.lastWeek || S.week) : S.week, days = S.quiet ? (S.lastStrip || S.strip) : S.strip;
+    var done = W.sessionsDone || 0, planned = W.sessionsPlanned || 0;
+    var names = S.behind.map(function (r) { return first(r.athlete.name); });
+    var behind = S.behind.length ? '<span class="ca-wk-b"><i class="ca-wk-bdot"></i>' + esc(S.behind.length + ' behind') + '</span><span class="ca-wk-bn">' + esc(nameList(names, 2)) + '</span>' : '<span class="ca-wk-b is-clear">Nobody behind</span>';
+    var title = S.quiet ? 'Nothing logged yet' : planned ? (done >= planned ? 'Every session lifted' : 'Sessions lifted') : plural(done, 'session') + ' logged';
+    var sub = S.quiet ? (S.week.sessionsPlanned ? plural(S.week.sessionsPlanned, 'session') + ' written for this week' : 'The week starts today')
+      : W.trained + ' of ' + W.of + ' lifters trained';
+    var centre = planned ? '<b>' + done + '</b><small>of ' + planned + '</small>' : '<b>' + done + '</b><small>logged</small>';
+    var aria = (S.quiet ? 'Nothing logged yet this week. Last week, ' : 'This week, ') + (planned ? done + ' of ' + planned + ' sessions lifted' : plural(done, 'session') + ' logged') +
+      (S.quiet ? '' : ', ' + W.trained + ' of ' + W.of + ' lifters trained') + '. ' + (S.behind.length ? S.behind.length + ' behind: ' + nameList(names, 6) : 'Nobody behind') + '. Show who is behind';
+    var sel = days.filter(function (d) { return d.today; })[0] || days.filter(function (d) { return !d.future; }).slice(-1)[0];
+    return '<div class="ca-sec">' + secHead('This week', metaHtml(S.range)) +
+      '<div class="ca-sum is-l2 ca-wk ca-rise' + (S.quiet ? ' is-quiet' : '') + '">' +
+        '<div class="ca-stats is-week"><button type="button" class="ca-stat is-btn is-week" data-lifters="behind" aria-label="' + esc(aria) + '">' +
+          '<span class="ca-wk-ring">' + teamRingSvg(done, planned, 120, 11) + '<span class="ca-wk-c">' + centre + '</span></span>' +
+          '<span class="ca-wk-tx">' + (S.quiet ? '<span class="ca-wk-k">Last week</span>' : '') + '<b class="ca-wk-t">' + esc(title) + '</b><span class="ca-wk-s">' + esc(sub) + '</span>' + behind + '</span>' +
+          '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button></div>' +
+        stripHtml(days, S.roster, (S.quiet ? 'Last week' : 'This week') + ': sessions logged each day') +
+        '<p class="ca-readout" data-readout="week" aria-live="polite">' + esc((S.quiet ? 'Last week · ' : '') + dayReadout(sel)) + '</p>' +
+      '</div></div>';
+  }
+  // The team's e1RM line: 8 weeks, the last 4 in ink and the 4 before them in steel (the window the headline
+  // compares), the latest point marked and labelled. Drawn in a 100-wide box that stretches to the card; the
+  // dots and labels are HTML, so they stay round and on the type scale.
+  function lineHtml(L, t) {
+    if (!L) return '';
+    var vals = L.values, pts = [];
+    vals.forEach(function (v, i) { if (v != null) pts.push({ i: i, v: Number(kgShow(v)) }); });
+    if (pts.length < 2) return '';
+    var lo = Math.min.apply(null, pts.map(function (p) { return p.v; })), hi = Math.max.apply(null, pts.map(function (p) { return p.v; }));
+    var span = Math.max(hi - lo, hi * 0.01);
+    lo -= span * 0.22; hi += span * 0.12;
+    var Wd = 100, Hh = 40, X = function (i) { return 2 + i / 7 * 96; }, Y = function (v) { return Hh - (v - lo) / (hi - lo) * Hh; };
+    var xy = pts.map(function (p) { return [X(p.i), Y(p.v)]; });
+    var path = function (a) { return typeof _smoothPath === 'function' ? _smoothPath(a) : a.map(function (q, j) { return (j ? 'L' : 'M') + q[0].toFixed(2) + ' ' + q[1].toFixed(2); }).join(' '); };
+    var cut = pts.findIndex(function (p) { return p.i >= 3; });
+    var older = cut > 0 ? xy.slice(0, cut + 1) : null, recent = xy.slice(Math.max(0, cut));
+    var last = pts[pts.length - 1], lp = xy[xy.length - 1];
+    var wash = path(recent) + ' L' + recent[recent.length - 1][0].toFixed(2) + ' ' + Hh + ' L' + recent[0][0].toFixed(2) + ' ' + Hh + ' Z';
+    var mon0 = addDays(caMonday(t), -49);
+    var weeks = pts.map(function (p) { return { i: p.i, v: p.v, wk: addDays(mon0, 7 * p.i) }; });
+    var data = esc(JSON.stringify(weeks.map(function (w) { return [w.i, Math.round(w.v), w.wk]; })));
+    var tick = function (i, text, cls) { return '<span class="ca-line-xl' + (cls ? ' ' + cls : '') + '" style="left:' + (X(i) / Wd * 100).toFixed(2) + '%">' + esc(text) + '</span>'; };
+    return '<div class="ca-line-w" data-line="' + data + '" role="img" aria-label="Team e1RM total each week: ' + esc(weeks.map(function (w) { return dayMon(w.wk) + ' ' + w.v.toLocaleString() + ' ' + unit(); }).join(', ')) + '">' +
+      '<svg class="ca-line" viewBox="0 0 ' + Wd + ' ' + Hh + '" preserveAspectRatio="none" aria-hidden="true">' +
+        '<defs><linearGradient id="caLineWash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="ca-line-a0"/><stop offset="1" class="ca-line-a1"/></linearGradient></defs>' +
+        '<path class="ca-line-a" fill="url(#caLineWash)" d="' + wash + '"/>' +
+        (older ? '<path class="ca-line-old" d="' + path(older) + '" vector-effect="non-scaling-stroke"/>' : '') +
+        '<path class="ca-line-now" d="' + path(recent) + '" vector-effect="non-scaling-stroke"/></svg>' +
+      (cut > 0 ? '<span class="ca-line-dot is-was" style="left:' + (xy[cut][0]).toFixed(2) + '%;top:' + (xy[cut][1] / Hh * 100).toFixed(2) + '%"></span>' : '') +
+      '<span class="ca-line-dot" style="left:' + lp[0].toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"></span>' +
+      '<span class="ca-line-end" style="right:' + (100 - lp[0]).toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"><b>' + Math.round(last.v).toLocaleString() + '</b> ' + esc(unit()) + '</span>' +
+      '<span class="ca-line-hair" aria-hidden="true"></span><span class="ca-line-tip" aria-hidden="true"></span>' +
+      '</div><div class="ca-line-x" aria-hidden="true">' + tick(pts[0].i, dayMon(addDays(mon0, 7 * pts[0].i)), 'is-first') +
+        (pts[0].i < 3 ? tick(3, '4 weeks ago') : '') + tick(7, 'Now', 'is-last') + '</div>';
+  }
+  // 3. Strength: is the team getting stronger? The total's change as the answer, the line, each lift's change.
+  function strengthHtml(X, S) {
+    var st = S.strength, T = st.total;
+    var head = secHead('Strength', metaHtml('Last 4 weeks'));
+    if (!T.n) {
+      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l2 ca-str ca-rise is-none"><p class="ca-sum-none"><b>Shows after 8 weeks of logs</b>' +
+        'Each lifter’s best e1RM of the last 4 weeks against the 4 before, for the team.</p></div></div>';
+    }
+    var lifts = LIFTS3.map(function (L) {
+      var o = st.lifts[L];
+      return '<span class="ca-lift lift-' + L + '"><i class="ca-lift-m" aria-hidden="true"></i><span class="ca-lift-l">' + (L === 'squat' ? 'Squat' : L === 'bench' ? 'Bench' : 'Deadlift') + '</span>' +
+        '<b class="ca-lift-v">' + (o.n ? esc(caPct(o.pct)) : '<span class="ca-sr">no data</span>') + '</b></span>';
+    }).join('');
+    var top = st.movers[0], dir = T.kg > 0.05 ? 'up' : T.kg < -0.05 ? 'down' : 'flat';
+    var sub = plural(T.n, 'lifter') + (st.stalled.length ? ' · ' + st.stalled.length + ' flat' : top && top.kg > 0.05 ? ' · ' + first(top.name) + ' moved most' : '');
+    var aria = 'Team e1RM total ' + (dir === 'up' ? 'up ' : dir === 'down' ? 'down ' : 'flat, ') + caPct(Math.abs(T.pct)).replace(/^[+−]/, '') + ' over the last 4 weeks, ' + plural(T.n, 'lifter') + '. Squat ' + caPct(st.lifts.squat.pct) + ', bench ' + caPct(st.lifts.bench.pct) + ', deadlift ' + caPct(st.lifts.deadlift.pct) + '. Show who moved most and who is flat';
+    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l2 ca-str ca-rise pf-' + (dir === 'down' ? 'down' : dir === 'up' ? 'up' : 'steel') + '">' +
+      '<button type="button" class="ca-sum-head" data-sheet="movers" aria-label="' + esc(aria) + '">' +
+        '<b class="ca-sum-num">' + esc(caPct(T.pct)) + '</b><span class="ca-sum-tx"><span class="ca-sum-t">Team e1RM total</span><span class="ca-sum-s">' + esc(sub) + '</span></span>' +
+        '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button>' +
+      lineHtml(S.line, S.t) +
+      '<div class="ca-lifts">' + lifts + '</div></div></div>';
+  }
+  // 4. Effort against what was written: one bar split three ways, each part named and counted.
+  function effortHtml(X, S) {
+    var E = S.effort;
+    var head = secHead('Effort', metaHtml('Last 7 days'));
+    if (!E.total) {
+      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-eff ca-rise is-none"><p class="ca-sum-none"><b>No RPE logged in the last 7 days</b>' +
+        'Each set lands here against the RPE you wrote for it: on target, harder or easier.</p></div></div>';
+    }
+    var hot = E.hot.map(function (h) { return first(h.name); });
+    var segs = [['easier', 'Easier', E.easier], ['on', 'On target', E.on], ['harder', 'Harder', E.harder]];
+    var bar = '<div class="ca-ebar" role="group" aria-label="' + esc(E.total + ' sets: ' + E.on + ' on target, ' + E.harder + ' harder, ' + E.easier + ' easier') + '">' + segs.filter(function (g) { return g[2] > 0; }).map(function (g, i) {
+      return '<button type="button" class="ca-eseg is-' + g[0] + '" data-eff="' + g[0] + '" style="flex-grow:' + g[2] + ';--i:' + i + '" aria-label="' + esc(g[2] + ' ' + g[1].toLowerCase()) + '"></button>';
+    }).join('') + '</div>';
+    var legend = '<div class="ca-elegend">' + segs.map(function (g) {
+      return '<button type="button" class="ca-ekey is-' + g[0] + (g[2] ? '' : ' is-zero') + '" data-eff="' + g[0] + '"><i class="ca-ekey-m" aria-hidden="true"></i><b>' + g[2] + '</b><span>' + esc(g[1].toLowerCase()) + '</span></button>';
+    }).join('') + '</div>';
+    var headTx = '<b class="ca-sum-num">' + E.on + '</b><span class="ca-sum-tx"><span class="ca-sum-t">of ' + plural(E.total, 'set') + ' on target</span><span class="ca-sum-s">' +
+      esc(E.harder ? 'Running hot: ' + nameList(hot, 2) + (E.over1 ? ' · ' + E.over1 + ' a full point over' : '') : 'Within 0.5 RPE of what you wrote') + '</span></span>';
+    var headEl = E.harder ? '<button type="button" class="ca-sum-head" data-sheet="hot" aria-label="' + esc(E.on + ' of ' + E.total + ' sets on target, ' + E.harder + ' harder than written. Show who is running hot') + '">' + headTx + '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button>'
+      : '<div class="ca-sum-head">' + headTx + '</div>';
+    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-eff ca-rise">' + headEl + bar + legend +
+      '<p class="ca-readout" data-readout="eff" aria-live="polite"></p></div></div>';
+  }
+  function effortReadout(E, kind, X) {
+    if (!kind) return '';
+    if (kind === 'harder') return E.hot.slice(0, 2).map(function (h) { return first(h.name) + ': ' + (h.worst.title ? h.worst.title + ' ' : '') + '@' + num(h.worst.felt) + ' where you wrote @' + num(h.worst.wrote); }).join(' · ') + (E.hot.length > 2 ? ' · ' + (E.hot.length - 2) + ' more' : '');
+    var n = kind === 'on' ? E.on : E.easier;
+    return plural(n, 'set') + (kind === 'on' ? ' within 0.5 RPE of what you wrote' : ' 0.5 RPE or more under what you wrote');
+  }
+  // 5. Meets: the next 12 weeks on one lane, each lifter's face at their meet, the nearest one's countdown.
+  function meetsHtml(X, S) {
+    var L = S.lane;
+    var head = secHead('Meets', '<button type="button" class="ca-h-end" data-sc="meets">All meets</button>');
+    if (!L.marks.length) {
+      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-mt ca-rise is-none"><p class="ca-sum-none"><b>No meets in the next 12 weeks</b>' +
+        'Plan one from a lifter’s page and it lands here, with the countdown.</p></div></div>';
+    }
+    var n = L.next, who = n.ids.map(firstOf);
+    var after = L.marks.filter(function (m) { return n.ids.indexOf(m.id) < 0; })[0] || null;
+    var big = n.days <= 0 ? 'Today' : n.days === 1 ? 'Tomorrow' : n.days + ' days';
+    var rowOf = function (id) { return X.rows.filter(function (r) { return r.athlete.id === id; })[0]; };
+    var faces = L.marks.map(function (m, i) {
+      var r = rowOf(m.id), fam = r ? famOf(r, X) : '';
+      var when = m.days <= 0 ? 'today' : m.days === 1 ? 'tomorrow' : 'in ' + m.days + ' days';
+      return '<button type="button" class="ca-lane-f' + (fam ? ' pf-' + fam : '') + '" data-meetplan="' + esc(m.id) + '" style="--x:' + m.x.toFixed(4) + ';--z:' + (L.marks.length - i) + '" aria-label="' + esc(m.name + ': ' + m.meet + ', ' + when + '. Open the meet plan') + '">' +
+        '<i class="ca-lane-stem" aria-hidden="true"></i>' + avHtml(athleteOf(m.id), 'is-36') + '<i class="ca-lane-more" aria-hidden="true"></i></button>';
+    }).join('');
+    var ticks = '';
+    for (var w = 1; w < 12; w++) ticks += '<i class="ca-lane-tick' + (w % 4 ? '' : ' is-major') + '" style="--x:' + (w / 12).toFixed(4) + '"></i>';
+    var marks = L.marks.map(function (m) { return '<i class="ca-lane-mark" style="--x:' + m.x.toFixed(4) + '"></i>'; }).join('');
+    var lab = function (w, t) { return '<span class="ca-lane-xl" style="--x:' + (w / 12).toFixed(4) + '">' + esc(t) + '</span>'; };
+    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-mt ca-rise">' +
+      '<div class="ca-sum-head"><b class="ca-sum-num">' + esc(big) + '</b><span class="ca-sum-tx"><span class="ca-sum-t">' + esc(n.name) + '</span><span class="ca-sum-s">' +
+        esc(nameList(who, 3) + (after ? ' · then ' + first(after.name) + ' ' + (after.days === 1 ? 'tomorrow' : 'in ' + after.days + ' days') : '')) + '</span></span></div>' +
+      '<div class="ca-lane" role="group" aria-label="Meets in the next 12 weeks"><div class="ca-lane-faces">' + faces + '</div>' +
+        '<div class="ca-lane-track" aria-hidden="true">' + ticks + marks + '</div>' +
+        '<div class="ca-lane-x" aria-hidden="true">' + lab(0, 'Now') + lab(4, '4 wk') + lab(8, '8 wk') + lab(12, '12 wk') + '</div></div>' +
+      '</div></div>';
+  }
+  // The lane's faces step up a tier when they'd touch the one before (caLaneTiers); a third in a cluster folds
+  // into the face before it as "+n". Measured after the lane is laid out, and again when it resizes.
+  function layoutLane(area) {
+    var lane = area && area.querySelector('.ca-lane');
+    if (!lane) return;
+    var place = function () {
+      var w = lane.clientWidth, fs = lane.querySelectorAll('.ca-lane-f');
+      if (!w || !fs.length) return;
+      var F = 36, xs = [].map.call(fs, function (f) { return Number(f.style.getPropertyValue('--x')) * (w - F); });
+      var tiers = caLaneTiers(xs, F + 6, 2), lastShown = -1;
+      fs.forEach(function (f, i) {
+        f.classList.remove('is-folded'); f.removeAttribute('data-more');
+        f.style.setProperty('--tier', String(Math.max(0, tiers[i])));
+        if (tiers[i] < 0) { f.classList.add('is-folded'); if (lastShown >= 0) { var host = fs[lastShown]; host.setAttribute('data-more', String(Number(host.getAttribute('data-more') || 0) + 1)); } }
+        else lastShown = i;
+      });
+      fs.forEach(function (f) { var m = f.querySelector('.ca-lane-more'); if (m) m.textContent = f.getAttribute('data-more') ? '+' + f.getAttribute('data-more') : ''; });
+      lane.classList.toggle('has-tier', tiers.some(function (k) { return k > 0; }));
+    };
+    place();
+    if (typeof ResizeObserver !== 'undefined' && !lane._ro) { lane._ro = new ResizeObserver(function () { place(); }); lane._ro.observe(lane); }
+  }
+  // 6. PRs: the count, and the faces that set them.
+  function prsHtml(X, S) {
+    var head = secHead('PRs', metaHtml('Last 7 days'));
+    if (!S.prs) {
+      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-pr ca-rise is-none"><div class="ca-stats is-pr"><button type="button" class="ca-stat is-btn" data-wins="1" aria-label="No personal records in the last 7 days. Show the wins">' +
+        '<span class="ca-sum-none"><b>No PRs in the last 7 days</b>Every e1RM PR lands here the moment it’s logged.</span></button></div></div></div>';
+    }
+    var L0 = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+    var faces = S.wins.map(function (w) {
+      var lifts = LIFTS3.filter(function (L) { return w.lifts.indexOf(L) >= 0; }).map(function (L) { return L0[L]; });
+      return '<button type="button" class="ca-prf" data-prof="' + esc(w.id) + '" aria-label="' + esc(w.name + ': ' + lifts.join(', ') + ' PR' + (lifts.length > 1 ? 's' : '') + '. Open their progress') + '">' +
+        '<span class="ca-prf-face">' + avHtml(athleteOf(w.id)) + '<i class="ca-prf-n">' + w.lifts.length + '</i></span><span class="ca-prf-l">' + esc(first(w.name)) + '</span></button>';
+    }).join('');
+    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-pr ca-rise">' +
+      '<div class="ca-stats is-pr"><button type="button" class="ca-stat is-btn" data-wins="1" aria-label="' + esc(plural(S.prs, 'personal record') + ' in the last 7 days, by ' + plural(S.wins.length, 'lifter') + '. Show the wins') + '">' +
+        '<b>' + S.prs + '</b><span>' + (S.prs === 1 ? 'PR' : 'PRs') + '</span>' + ic('chev', 2.4) + '</button></div>' +
+      '<div class="ca-pr-faces">' + faces + '</div></div></div>';
+  }
+
   // Your lifters: every face, ringed by this week's sessions, the live dot when they're under the bar.
   function facesHtml(X) {
     var rows = caFaceOrder(X.rows, X.need);
@@ -616,10 +1057,7 @@
   function tilesHtml(X) {
     var s = store(), u = me() || {}, t = todayIso();
     var ids = X.rows.map(function (r) { return r.athlete.id; });
-    // Meets: the next one on the roster.
-    var next = caNextMeet(X.rows);
-    var meetV = next ? (next.days <= 0 ? 'Today' : next.days === 1 ? 'Tomorrow' : 'In ' + next.days + ' days') : 'None planned';
-    var meetS = next ? clip(next.name, 22) + ' · ' + next.who.slice(0, 2).join(', ') + (next.who.length > 2 ? ' +' + (next.who.length - 2) : '') : 'Plan one from a lifter';
+    // (The meets live in Meets above, with their countdown; its All meets is the way in.)
     // Clients: money owed on the coach's own record.
     var cs = null;
     try { if (window.Clients && Clients.clientsSummary) cs = Clients.clientsSummary(s.clientBilling || [], s.clientPayments || [], t, ids); } catch (e) { cs = null; }
@@ -638,12 +1076,11 @@
     var tile = function (key, cls, icon, label, value, sub, aria) {
       return '<button type="button" class="ca-tile ' + cls + '" data-sc="' + key + '" aria-label="' + esc(aria || (label + ': ' + value + (sub ? ', ' + sub : ''))) + '">' +
         '<span class="ca-tic">' + ic(icon) + '</span><span class="ca-tl">' + esc(label) + '</span>' +
-        (value != null ? '<b class="ca-tv">' + esc(value) + '</b>' : '') + (sub ? '<span class="ca-ts' + (key === 'clients' && money ? ' is-warn' : '') + (key === 'checkins' && ciFlag ? ' is-warn' : '') + '">' + esc(sub) + '</span>' : '') + '</button>';
+        (value != null ? '<b class="ca-tv">' + esc(value) + '</b>' : '') + (sub ? '<span class="ca-ts' + (key === 'clients' && money ? ' is-warn' : '') + (key === 'checkins' && ciFlag ? ' is-warn' : '') + '">' + esc(sub) + '</span>' : '') + ic('chev', 2.2) + '</button>';
     };
     return '<div class="ca-sec"><div class="ca-h"><h2>Coaching</h2></div><div class="ca-tiles ca-rise">' +
-      tile('meets', 'is-wide t-meet', 'trophy', 'Meets', meetV, meetS) +
-      tile('clients', 't-clients', 'wallet', 'Clients', clientsV, clientsS) +
-      tile('checkins', 't-checkins', 'clip', 'Check-ins', ciV, ciS) +
+      tile('clients', 'is-wide t-clients' + (money ? ' is-owed' : ''), 'wallet', 'Clients', clientsV, clientsS) +
+      tile('checkins', 'is-wide t-checkins', 'clip', 'Check-ins', ciV, ciS) +
       tile('challenges', 'is-small t-club', 'flag', 'Challenges', null, chRun ? chRun + ' running' : 'Start one', 'Challenges: ' + (chRun ? chRun + ' running' : 'none running')) +
       tile('club', 'is-small t-club', 'shield', 'Club', null, 'Feed and board') +
       tile('templates', 'is-small t-tpl', 'copy', 'Templates', null, tpls ? plural(tpls, 'saved', 'saved') : 'None yet') +
@@ -693,6 +1130,8 @@
   function wireHome(area) {
     if (area._caWired) return;
     area._caWired = true;
+    // A touch anywhere off the strength line puts its readout away.
+    area.addEventListener('pointerdown', function (e) { var w = area.querySelector('.ca-line-w.is-scrub'); if (w && !w.contains(e.target)) w.classList.remove('is-scrub'); });
     area.addEventListener('click', function (e) {
       var t = e.target, b;
       if ((b = t.closest('[data-fix]'))) {
@@ -709,6 +1148,12 @@
       if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open'), b); return; }
       if ((b = t.closest('[data-lifters]'))) { e.preventDefault(); openLifters(b.getAttribute('data-lifters')); return; }
       if ((b = t.closest('[data-wins]'))) { e.preventDefault(); openWins(area._X); return; }
+      // The summary's marks: a day, a part of the effort bar, a face on the meets lane or the PRs.
+      if ((b = t.closest('[data-day]'))) { e.preventDefault(); pickDay(area, b); return; }
+      if ((b = t.closest('[data-eff]'))) { e.preventDefault(); pickEffort(area, b.getAttribute('data-eff')); return; }
+      if ((b = t.closest('[data-sheet]'))) { e.preventDefault(); if (b.getAttribute('data-sheet') === 'movers') openMovers(area._X); else openHot(area._X); return; }
+      if ((b = t.closest('[data-meetplan]'))) { e.preventDefault(); var mid = b.getAttribute('data-meetplan'); if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(mid); else openLifter(mid, b); return; }
+      if ((b = t.closest('[data-prof]'))) { e.preventDefault(); P.pending = 'progress'; P.id = b.getAttribute('data-prof'); openLifter(P.id, b); return; }
       if ((b = t.closest('[data-go]'))) { e.preventDefault(); tab(b.getAttribute('data-go')); return; }
       if ((b = t.closest('[data-sc]'))) { e.preventDefault(); shortcut(b.getAttribute('data-sc'), b); return; }
       if ((b = t.closest('[data-step]'))) {
@@ -894,7 +1339,7 @@
   /* ====================================================================================================
      A LIFTER: the contact card, and the rows it opens (Progress, Notes & check-ins, Client & About)
      ==================================================================================================== */
-  var P = { id: null, view: 'card', host: null, pending: null };
+  var P = { id: null, view: 'card', host: null, pending: null, direct: false };
   var VIEWS = { progress: 'Progress', notes: 'Notes & check-ins', client: 'Client & About' };
   function renderLifter(host, id, view) {
     host = host || (hasDom ? document.getElementById('lifterPage') : null);
@@ -1009,7 +1454,8 @@
       '</div>';
   }
   function subHtml(r, X, view) {
-    var a = r.athlete, html = '<h2 class="ca-subt">' + esc(VIEWS[view] || '') + '</h2>';
+    // Straight in from Home (a PR, a mover) the back says Home, so the view names whose it is.
+    var a = r.athlete, html = (P.direct ? '<p class="ca-subk">' + esc(a.name) + '</p>' : '') + '<h2 class="ca-subt">' + esc(VIEWS[view] || '') + '</h2>';
     if (view === 'progress') {
       var D = CL() && CL().clLifter ? CL().clLifter(r) : null;
       var anyLog = D && (D.total || D.lifts.some(function (L2) { return L2.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length);
@@ -1098,14 +1544,14 @@
   function pushView(v) {
     if (!VIEWS[v] || !P.host) return;
     try { history.pushState({ lifter: P.id, view: v }, '', '#lifter=' + P.id + '/' + v); } catch (e) {}
-    P.view = v;
+    P.view = v; P.direct = false;
     animatePush('push');
     renderLifter(P.host, P.id);
     window.scrollTo(0, 0);
   }
   function popView() {
     if (P.view === 'card' || !P.host) return false;
-    P.view = 'card';
+    P.view = 'card'; P.direct = false;
     try { history.replaceState({ lifter: P.id }, '', '#lifter=' + P.id); } catch (e) {}
     animatePush('pop');
     renderLifter(P.host, P.id);
@@ -1208,8 +1654,8 @@
     X = X || model();
     var wins = caWins(X.rows);
     var L0 = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
-    uiSheet('This week\u2019s wins', function (sheet, close) {
-      if (!wins.length) { sheet.appendChild(el('div', { class: 'ca-empty', html: ic('trophy') + '<b>No PRs yet this week</b><p>Every PR lands here the moment it\u2019s logged.</p>' })); return; }
+    uiSheet('Wins in the last 7 days', function (sheet, close) {
+      if (!wins.length) { sheet.appendChild(el('div', { class: 'ca-empty', html: ic('trophy') + '<b>No PRs in the last 7 days</b><p>Every PR lands here the moment it\u2019s logged.</p>' })); return; }
       sheet.appendChild(uiList(wins.map(function (w) {
         var a = (store().athletes || []).find(function (y) { return y.id === w.id; }) || { name: w.name };
         var sub = w.lifts.length ? w.lifts.map(function (l) { return L0[l] || l; }).join(', ') + ' PR' + (w.lifts.length > 1 ? 's' : '') : '';
@@ -1218,6 +1664,105 @@
           onClick: function () { close(); setTimeout(function () { P.pending = 'progress'; P.id = w.id; if (CL() && CL().open) CL().open(w.id); }, 230); } });
       })));
     }, { cls: 'ca-wins-sheet' });
+  }
+  // Strength's list: who moved most over the last 4 weeks (their total, the same window as Home), who is flat,
+  // and who has no 8 weeks yet. A row opens their Progress.
+  function openMovers(X) {
+    if (typeof uiSheet !== 'function') return;
+    X = X || model();
+    var st = (X.S || summaryModel(X)).strength;
+    var row = function (x, sub, close) {
+      var a = athleteOf(x.id);
+      return uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name || x.name, sub: sub, chevron: true,
+        onClick: function () { close(); setTimeout(function () { P.pending = 'progress'; P.id = x.id; if (CL() && CL().open) CL().open(x.id); }, 230); } });
+    };
+    var kgTxt = function (kg) { var v = Math.round(kgShow(kg)); return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + ' ' + unit(); };
+    uiSheet('Strength, last 4 weeks', function (sheet, close) {
+      var up = st.movers.filter(function (x) { return x.kg > 0.05; }), flat = st.movers.filter(function (x) { return x.kg <= 0.05; });
+      if (up.length) {
+        sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Moved most'));
+        sheet.appendChild(uiList(up.map(function (x) { return row(x, kgTxt(x.kg) + ' e1RM total · ' + caPct(x.pct), close); })));
+      }
+      if (flat.length) {
+        sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Flat or down'));
+        sheet.appendChild(uiList(flat.map(function (x) { return row(x, (Math.round(kgShow(x.kg)) ? kgTxt(x.kg) + ' e1RM total' : 'No lift up') + ' · the best of the last 4 weeks against the 4 before', close); })));
+      }
+      if (st.none.length) {
+        sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Not enough logs yet'));
+        sheet.appendChild(uiList(st.none.map(function (x) { return row(x, 'Needs a main lift logged in both 4-week windows', close); })));
+      }
+    }, { cls: 'ca-movers-sheet' });
+  }
+  // Effort's list: who ran hotter than you wrote in the last 7 days, worst set first. A row opens their page.
+  function openHot(X) {
+    if (typeof uiSheet !== 'function') return;
+    X = X || model();
+    var E = (X.S || summaryModel(X)).effort;
+    uiSheet('Running hot', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ca-sheet-sub' }, 'Sets logged 0.5 RPE or more over what you wrote, the last 7 days.'));
+      if (!E.hot.length) { sheet.appendChild(el('div', { class: 'ca-empty', html: ic('gauge') + '<b>Nobody is running hot</b><p>Every set came in at or under what you wrote.</p>' })); return; }
+      sheet.appendChild(uiList(E.hot.map(function (h) {
+        var a = athleteOf(h.id), w = h.worst;
+        var sub = (w.title ? w.title + ' ' : '') + '@' + num(w.felt) + ', you wrote @' + num(w.wrote) + (h.n > 1 ? ' · ' + plural(h.n, 'set') + ' over' : '');
+        return uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name || h.name, sub: sub, chevron: true,
+          onClick: function () { close(); setTimeout(function () { openLifter(h.id); }, 230); } });
+      })));
+    }, { cls: 'ca-hot-sheet' });
+  }
+  // A day on the strip: its column lifts to ink and the line under the strip names who trained.
+  function pickDay(area, b) {
+    var card = b.closest('.ca-wk'), S = area._X && area._X.S;
+    if (!card || !S) return;
+    var days = card.classList.contains('is-quiet') ? (S.lastStrip || S.strip) : S.strip;
+    var d = days.filter(function (x) { return x.iso === b.getAttribute('data-day'); })[0];
+    card.querySelectorAll('.ca-sday[data-day]').forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+    var ro = card.querySelector('[data-readout="week"]');
+    if (ro) setReadout(ro, (card.classList.contains('is-quiet') ? 'Last week · ' : '') + dayReadout(d));
+  }
+  // A part of the effort bar: it stays lit, the others step back, and the line under the bar says what's in it.
+  // The same part again puts the bar back.
+  function pickEffort(area, kind) {
+    var card = area.querySelector('.ca-eff'), S = area._X && area._X.S;
+    if (!card || !S) return;
+    var was = card.getAttribute('data-pick');
+    var now = was === kind ? '' : kind;
+    if (now) card.setAttribute('data-pick', now); else card.removeAttribute('data-pick');
+    card.querySelectorAll('[data-eff]').forEach(function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-eff') === now)); });
+    var ro = card.querySelector('[data-readout="eff"]');
+    if (ro) setReadout(ro, effortReadout(S.effort, now, area._X));
+  }
+  // Readouts change by a short cross-fade (the words, never the layout).
+  function setReadout(node, text) {
+    if (node.textContent === text) return;
+    node.textContent = text;
+    if (!hasDom || reducedMotion() || !node.animate) return;
+    try { node.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }); } catch (e) {}
+  }
+  // The strength line under a finger: the nearest week's total, a hairline at it. Scrubs while the finger moves
+  // (pointer capture), and stays on the week it was let go at; a tap outside the line puts it away.
+  function wireLine(area) {
+    var w = area.querySelector('.ca-line-w');
+    if (!w || w._wired) return;
+    w._wired = true;
+    var pts = [];
+    try { pts = JSON.parse(w.getAttribute('data-line') || '[]'); } catch (e) { pts = []; }
+    if (!pts.length) return;
+    var tip = w.querySelector('.ca-line-tip'), hair = w.querySelector('.ca-line-hair');
+    var show = function (clientX) {
+      var r = w.getBoundingClientRect(), fx = (clientX - r.left) / r.width * 100;
+      var best = pts[0], bd = Infinity;
+      pts.forEach(function (p) { var d = Math.abs(2 + p[0] / 7 * 96 - fx); if (d < bd) { bd = d; best = p; } });
+      var x = 2 + best[0] / 7 * 96;
+      w.classList.add('is-scrub');
+      hair.style.left = x + '%';
+      tip.textContent = 'Week of ' + dayMon(best[2]) + ' · ' + best[1].toLocaleString() + ' ' + unit();
+      tip.style.left = Math.max(14, Math.min(86, x)) + '%';
+    };
+    var down = false;
+    w.addEventListener('pointerdown', function (e) { down = true; try { w.setPointerCapture(e.pointerId); } catch (x) {} show(e.clientX); });
+    w.addEventListener('pointermove', function (e) { if (down) show(e.clientX); });
+    w.addEventListener('pointerup', function () { down = false; });
+    w.addEventListener('pointercancel', function () { down = false; w.classList.remove('is-scrub'); });
   }
   function openCheckins() {
     if (typeof uiSheet !== 'function') return;
@@ -1279,13 +1824,17 @@
   window.CoachApp = {
     renderHome: renderHome, renderLifters: renderLifters, renderLifter: renderLifter, refresh: refresh, paintHomeIfShown: paintHomeIfShown,
     openSearch: openSearch, openCheckins: openCheckins, openWins: openWins, openLifters: openLifters, popView: popView, paintBadges: paintBadges,
-    lifterView: function () { return P.view; }, enterLifter: function () { P.view = P.pending && VIEWS[P.pending] ? P.pending : 'card'; P.pending = null; },
+    lifterView: function () { return P.view; }, enterLifter: function () { P.direct = !!(P.pending && VIEWS[P.pending]); P.view = P.direct ? P.pending : 'card'; P.pending = null; },
     skeletonHtml: skeletonHtml, gate: gate, bootFailed: bootFailed, bootState: bootState,
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
     caTodayLine: caTodayLine, caSev: caSev, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
     caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER,
-    caJobFamily: caJobFamily, caFamily: caFamily
+    caJobFamily: caJobFamily, caFamily: caFamily,
+    // Home's summary (pure)
+    caDayStrip: caDayStrip, caTotalSeries: caTotalSeries, caTeamStrength: caTeamStrength, caTeamLine: caTeamLine, caEffortOf: caEffortOf,
+    caEffortSplit: caEffortSplit, caMeetLane: caMeetLane, caLaneTiers: caLaneTiers, caPct: caPct,
+    openMovers: openMovers, openHot: openHot
   };
 })();

@@ -7197,6 +7197,91 @@ test("Home's numbers: trained in 7 days, this week's PRs, unread", () => {
   const wins = CA.caWins(rows);
   eq(wins.map(w => w.id).join(','), 'a,c', 'most PRs first, nobody without a win');
 });
+// Home's summary (Plates, 28 Oct): the maths that gathers the app's own numbers into the five pictures.
+test("Home's week strip: Monday to Sunday, one session per lifter per day", () => {
+  const logs = [
+    { athleteId: 'a', date: '2026-10-26' }, { athleteId: 'a', date: '2026-10-26' }, { athleteId: 'b', date: '2026-10-26' },
+    { athleteId: 'a', date: '2026-10-28' }, { athleteId: 'x', date: '2026-10-27' }, { athleteId: 'b', date: '2026-10-25' },
+    { athleteId: 'b', date: '2026-10-30' }, null
+  ];
+  const d = CA.caDayStrip(logs, ['a', 'b'], '2026-10-28');
+  eq(d.length, 7); eq(d[0].iso, '2026-10-26', 'starts on Monday'); eq(d[6].iso, '2026-11-01', 'ends on Sunday');
+  eq(d.map(x => x.n).join(''), '2010000', 'two sets the same day are one session; not on the roster, not counted; last Sunday is last week');
+  eq(d[0].who.join(','), 'a,b');
+  eq(d[2].today, true); eq(d[3].future, true); eq(d[4].n, 0, 'a log dated after today never counts');
+  eq(CA.caDayStrip([], ['a'], '2026-11-01')[0].iso, '2026-10-26', 'Sunday belongs to the week that started on Monday');
+});
+test("Home's strength line: a lifter's total from the week all three lifts have one", () => {
+  const L = (lift, date, e) => ({ lift, date, e1rmComp: e });
+  const logs = [L('squat', '2026-08-01', 150), L('squat', '2026-09-08', 160), L('bench', '2026-09-16', 100), L('deadlift', '2026-09-23', 200), L('squat', '2026-10-27', 170), L('bench', '2026-10-27', 95), L('accessory', '2026-10-27', 900)];
+  const s = CA.caTotalSeries(logs, '2026-10-28', 8);
+  eq(s.length, 8);
+  eq(s[0], null, 'week of 7 Sep: squat only, no total yet');
+  eq(s[1], null, 'bench joins, deadlift still missing');
+  eq(s[2], 460, 'week of 21 Sep: 160 + 100 + 200, logs before the window count');
+  eq(s[7], 470, 'a lighter bench never lowers the best: 170 + 100 + 200');
+  eq(CA.caTotalSeries([L('squat', '2026-10-30', 300), L('bench', '2026-10-27', 1), L('deadlift', '2026-10-27', 1)], '2026-10-28', 8)[7], null, 'logs after today never count');
+  const line = CA.caTeamLine([{ id: 'a', series: [null, 1, 2, 3] }, { id: 'b', series: [null, null, 5, 6] }, { id: 'c', series: [null, null, null, 9] }, { id: 'd', series: [7, 7, 7, null] }]);
+  eq(line.start, 2, 'starts once two thirds of those with a total now have one');
+  eq(line.ids.join(','), 'a,b', 'and follows only them: a later lifter never reads as a jump');
+  eq(line.values.join(','), ',,7,9');
+  eq(CA.caTeamLine([{ id: 'a', series: [null, null, null, 4] }]), null, 'one week is not a line');
+  eq(CA.caTeamLine([]), null);
+});
+test("Home's strength: the last 4 weeks against the 4 before, summed per lift and in total", () => {
+  const m = (sq, bp, dl, stalling) => ({ perLift: { squat: sq, bench: bp, deadlift: dl }, stalling: !!stalling });
+  const st = CA.caTeamStrength([
+    { id: 'a', name: 'Ada', m: m({ recent: 110, prior: 100, delta: 10 }, { recent: 60, prior: 60, delta: 0 }, { recent: 150, prior: 140, delta: 10 }) },
+    { id: 'b', name: 'Bo', m: m({ recent: 200, prior: 200, delta: 0 }, { recent: 100, prior: 101, delta: -1 }, null, true) },
+    { id: 'c', name: 'Cy', m: m({ recent: 90, prior: 0, delta: null }, null, null) },
+    { id: 'd', name: 'Di', m: { perLift: {}, stalling: false } }
+  ]);
+  eq(st.lifts.squat.n, 2, 'only lifters with both windows'); eq(Math.round(st.lifts.squat.pct * 10) / 10, 3.3, 'squat 310 against 300');
+  eq(Math.round(st.lifts.bench.pct * 10) / 10, -0.6); eq(st.lifts.deadlift.n, 1);
+  eq(st.total.now, 620); eq(st.total.before, 601); eq(st.total.n, 2);
+  const lo = Math.min(st.lifts.squat.pct, st.lifts.bench.pct, st.lifts.deadlift.pct), hi = Math.max(st.lifts.squat.pct, st.lifts.bench.pct, st.lifts.deadlift.pct);
+  assert(st.total.pct >= lo && st.total.pct <= hi, 'the total always sits between the lifts');
+  eq(st.movers.map(x => x.id).join(','), 'a,b', 'most first'); eq(Math.round(st.movers[0].kg), 20);
+  eq(st.stalled.map(x => x.id).join(','), 'b', 'flat: no lift up'); eq(st.none.map(x => x.id).join(','), 'c,d', 'not enough logs');
+  eq(CA.caTeamStrength([]).total.pct, null, 'nobody: no percentage, never 0%');
+  eq(CA.caPct(3.06), '+3.1%'); eq(CA.caPct(3), '+3.0%', 'one decimal under 10'); eq(CA.caPct(-0.44), '−0.4%', 'a real minus');
+  eq(CA.caPct(12.4), '+12%'); eq(CA.caPct(0.02), '0%'); eq(CA.caPct(null), '');
+});
+test("Home's effort: each logged set against what was written, three ways", () => {
+  const o = (rpe, felt, extra) => CA.caEffortOf(Object.assign({ completed: true, rpe, actualRpe: felt }, extra || {}));
+  eq(o(8, 8).kind, 'on'); eq(o(8, 8.5).kind, 'harder', 'half a point over is harder (the app flags drift at +0.5)');
+  eq(o(8, 9).over, 1, 'a full point over'); eq(o(8, 7.5).kind, 'easier');
+  eq(o(7, 8, { rpeHi: 8 }).kind, 'on', 'a range is written up to its top'); eq(o(7, 6.5, { rpeHi: 8 }).kind, 'easier', 'and from its low end');
+  eq(o(7, 8.5, { rpeHi: 8 }).kind, 'harder');
+  eq(o(8, null), null, 'no RPE felt'); eq(o('', 8), null, 'no RPE written'); eq(o(2, 3, { rir: true }), null, 'RIR is not RPE'); eq(o(8, 9, { attempt: true }), null, 'a meet attempt is not training');
+  const set = (rpe, felt, extra) => Object.assign({ completed: true, rpe, actualRpe: felt }, extra || {});
+  const E = CA.caEffortSplit([
+    { id: 'a', name: 'Ada', set: set(8, 8), title: 'Squat', date: '2026-10-26' },
+    { id: 'a', name: 'Ada', set: set(8, 9), title: 'Squat', date: '2026-10-26' },
+    { id: 'a', name: 'Ada', set: set(7, 7.5), title: 'Bench', date: '2026-10-27' },
+    { id: 'b', name: 'Bo', set: set(8, 9.5), title: 'Deadlift', date: '2026-10-25' },
+    { id: 'b', name: 'Bo', set: set(8, 7), title: 'Bench', date: '2026-10-25' },
+    { id: 'c', name: 'Cy', set: set(8, null) }
+  ]);
+  eq(E.total, 5, 'sets with both RPEs'); eq(E.on, 1); eq(E.harder, 3); eq(E.easier, 1); eq(E.over1, 2);
+  eq(E.on + E.harder + E.easier, E.total, 'every set in exactly one part');
+  eq(E.hot.map(h => h.id + h.n).join(','), 'b1,a2', 'worst set first');
+  eq(E.hot[0].worst.title + ' @' + E.hot[0].worst.felt + ' vs @' + E.hot[0].worst.wrote, 'Deadlift @9.5 vs @8');
+  eq(CA.caEffortSplit([]).total, 0);
+});
+test("Home's meets: 12 weeks on one lane, the nearest first, faces that would touch step up", () => {
+  const r = (id, name, days, meet) => caRow(id, name, { meet: days == null ? null : { days, meet: { name: meet } } });
+  const L = CA.caMeetLane([r('t', 'Tom', 0, 'Autumn Open'), r('s', 'Sarah', 33, 'City Classic'), r('a', 'Arjun', 53, 'Nationals'), r('x', 'Xi', 90, 'Worlds'), r('y', 'Yu', -2, 'Old'), r('n', 'Nina', null)]);
+  eq(L.marks.map(m => m.id).join(','), 't,s,a', 'past 12 weeks or already gone: not on the lane');
+  eq(L.next.days, 0); eq(L.next.name, 'Autumn Open'); eq(L.next.ids.join(','), 't');
+  eq(Math.round(L.marks[1].x * 1000), 393, '33 of 84 days along');
+  const two = CA.caMeetLane([r('a', 'A', 10, 'Open'), r('b', 'B', 10, 'Open')]);
+  eq(two.next.ids.join(','), 'a,b', 'everyone at the nearest meet');
+  eq(CA.caMeetLane([]).next, null);
+  eq(CA.caLaneTiers([0, 100, 120, 130, 300], 42, 2).join(','), '0,0,1,-1,0', 'a face that would touch goes up a tier; a third folds into the one before');
+  eq(CA.caLaneTiers([0, 0, 0], 42, 3).join(','), '0,1,2');
+  eq(CA.caLaneTiers([], 42).length, 0);
+});
 test('the next meet: one entry per meet, the soonest', () => {
   const rows = [caRow('a', 'Ada Lee', { meet: { days: 9, meet: { name: 'City Open', date: '2026-11-06' } } }), caRow('b', 'Bo Chen', { meet: { days: 9, meet: { name: 'City Open', date: '2026-11-06' } } }), caRow('c', 'Cy', { meet: { days: 30, meet: { name: 'Nationals', date: '2026-11-27' } } }), caRow('d', 'Di', { meet: { days: -2, meet: { name: 'Old', date: '2026-10-26' } } })];
   const m = CA.caNextMeet(rows);
