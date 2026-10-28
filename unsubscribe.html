@@ -7,6 +7,7 @@
 <script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
 <title>Email preferences | POWALIFTA</title>
 <meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer"><!-- the address carries the email token until the page reads it -->
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -69,7 +70,7 @@
 .unsub-loading { color: var(--text-3); font-size: 0.9rem; padding: 8px 0 18px; }
 .unsub-saving { min-height: 18px; font-size: 0.8rem; color: var(--text-3); margin-top: 10px; transition: opacity .2s; }
 </style>
-<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
 <script defer src="site.js"></script>
@@ -104,9 +105,15 @@
 // weekly-digest unsubscribe — then render toggles for granular control + undo.
 (function () {
   const params = new URLSearchParams(location.search);
-  const token = (params.get('token') || '').trim();
+  let token = (params.get('token') || '').trim();
   // A coach's Monday report links here with r=coach: the same switch (weekly_digest), the coach's words.
   const isCoach = params.get('r') === 'coach';
+  // The token is the whole credential: it leaves the address bar at once (kept for this tab, so a
+  // reload still works), so it's never sent on as the next page's referrer (sweep 2026-10-28 #13).
+  try {
+    if (token) sessionStorage.setItem('powa-unsub-token', token); else token = (sessionStorage.getItem('powa-unsub-token') || '').trim();
+    if (params.has('token')) { params.delete('token'); history.replaceState(history.state, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash); }
+  } catch (e) {}
   const body = document.getElementById('unsubBody');
 
   function esc(s) {
