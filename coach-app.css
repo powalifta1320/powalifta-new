@@ -549,7 +549,7 @@ html:not(.desk) .cp-fab:active { transform: scale(0.96); filter: brightness(0.94
 html:not(.desk) .cp-fab.is-soft { background: var(--bg-3); color: var(--text) !important; }
 html:not(.desk) .cp-fab.is-hidden { opacity: 0; transform: translate3d(0, 10px, 0); pointer-events: none; }
 
-/* the editor sheet: a block of sets, four steppers */
+/* the editor sheet: a block of sets, four steppers, then one More */
 html:not(.desk) .cp-sheet { position: relative; }
 /* ⋯ and Done sit top right, where iOS puts a sheet's Done (the editor saves as you go; Done only closes) */
 html:not(.desk) .cp-ed-tools { position: absolute; top: 12px; right: 10px; display: flex; align-items: center; gap: 2px; }
@@ -560,17 +560,37 @@ html:not(.desk) .cp-ed-sub { margin-top: -6px !important; }
 html:not(.desk) .cp-ed-last { margin: 4px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-more svg { transition: none; } }
 html:not(.desk) .cp-tg-l { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
 html:not(.desk) .cp-seg button { min-height: 36px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 180ms ease-out, color 180ms ease-out; }
 html:not(.desk) .cp-seg button.on { background: var(--bg-3); color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
 html[data-theme="light"]:not(.desk) .cp-seg button.on { background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 40, 0.14); }
 html:not(.desk) .cp-blk { margin-top: 16px; padding: 12px 14px 16px; border-radius: 16px; background: var(--fill-1, rgba(255, 255, 255, 0.035)); }
-html:not(.desk) .cp-blk-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+html:not(.desk) .cp-blk-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
 html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-html:not(.desk) .cp-blk-x { position: relative; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); cursor: pointer; }
-html:not(.desk) .cp-blk-x::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
-html:not(.desk) .cp-blk-x svg { width: 16px; height: 16px; }
+/* More: one quiet row under the steppers (it names the set fields it holds); what a block rarely needs
+   opens under it: its load and effort switches, its set fields, Remove these sets */
+html:not(.desk) .cp-blk.has-more { padding-bottom: 2px; }
+html:not(.desk) .cp-more {
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 48px; margin-top: 10px; padding: 0 2px;
+  border: 0; border-top: 1px solid var(--ca-hair); border-radius: 0; background: none; color: var(--text-2) !important; font: inherit; font-size: 15px !important; font-weight: 600; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: opacity 140ms ease-out;
+}
+html:not(.desk) .cp-more-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.desk) .cp-more svg { flex: none; width: 18px; height: 18px; color: var(--text-3); transition: transform 220ms var(--ca-ease); }
+html:not(.desk) .cp-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+html:not(.desk) .cp-more:active { opacity: 0.6; }
+html:not(.desk) .cp-more:focus-visible { outline: 2px solid var(--text-3); outline-offset: -2px; border-radius: 10px; }
+html:not(.desk) .cp-more-body { padding: 2px 0 14px; }
+html:not(.desk) .cp-more-body[hidden] { display: none; }
+html:not(.desk) .cp-more-body .cp-toggles { margin-top: 2px; }
+html:not(.desk) .cp-more-body .cp-sf { margin: 16px 0 0; }
+html:not(.desk) .cp-more-body .cp-sf .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+html:not(.desk) .cp-more-body .cp-sf .sf-field { min-width: 0; min-height: 44px; justify-content: space-between; background: var(--fill-2, rgba(255, 255, 255, 0.06)); }
+html:not(.desk) body.powa-app .cp-more-body .cp-sf .sf-edit input.sf-in, html:not(.desk) body.powa-app .cp-more-body .cp-sf input.sf-in { flex: 1; width: 100%; min-width: 0; }
+html:not(.desk) body.powa-app .cp-blk-rm { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--ca-pain) !important; font: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
+html:not(.desk) body.powa-app .cp-blk-rm:active { opacity: 0.6; }
 html:not(.desk) .cp-blk-logged { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; margin-top: 8px; }
 html:not(.desk) .cp-step { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

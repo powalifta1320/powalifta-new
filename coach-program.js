@@ -79,6 +79,29 @@
   }
   // A step for the load stepper in the unit shown: the lifter's jump (2.5 kg, 5 lb) or 2.5 for a %.
   function cpLoadStep(pctMode, u) { return pctMode ? 2.5 : (u === 'lb' || u === 'lbs' ? 5 : 2.5); }
+  // Switching how a block writes its load (kg, or % of their max) or its effort (RPE, or reps in reserve):
+  // the patch for its sets (setBlockRx: null clears a field). s: one of the block's sets (they are the same
+  // set); kind: 'pct' | 'rir'; maxKg: the max a % works from (0 = none yet). Going to % keeps the load it
+  // comes to (a range keeps its top); going back to kg keeps the load and drops the %.
+  function cpModePatch(s, kind, on, maxKg) {
+    s = s || {};
+    if (kind === 'rir') return { rir: on ? true : null };
+    if (!on) return { pct: null, pctHi: null };
+    var m = Number(maxKg) > 0 ? Number(maxKg) : 0;
+    var toKg = function (p) { return typeof pctLoadKg === 'function' ? pctLoadKg(p, m) : Math.round(m * p / 100 / 2.5) * 2.5; };
+    var pct = s.pct != null && s.pct !== '' ? Number(s.pct) : (m && Number(s.weight) > 0 ? Math.round(Number(s.weight) / m * 100) : 75);
+    var out = { pct: pct };
+    if (m) out.weight = toKg(pct);
+    var hp = s.pctHi != null && s.pctHi !== '' ? Number(s.pctHi) : null;
+    if (hp == null && m && Number(s.weightHi) > 0) { var h2 = Math.round(Number(s.weightHi) / m * 100); if (h2 > pct) hp = h2; }
+    if (hp != null && m) { var hk = toKg(hp); if (hk > out.weight) { out.pctHi = hp; out.weightHi = hk; } else { out.pctHi = null; out.weightHi = null; } }
+    else if (hp != null) out.pctHi = hp;
+    return out;
+  }
+  // A patch onto a set object (the exercise-wide switch in ⋯ goes through setExerciseRx with this).
+  function applyPatch(st, p) { Object.keys(p).forEach(function (k) { if (p[k] == null) delete st[k]; else st[k] = p[k]; }); }
+  // The More row's words: "More", and what it holds that the block's line doesn't say (tempo, pauses, bands).
+  function cpMoreText(fieldsShort) { var f = String(fieldsShort || '').trim(); return f ? 'More · ' + f : 'More'; }
   // Whether a block gets "about N kg for them": the first block (the top set), or a block with no load yet.
   // Never a later block with a load: back-offs are often written light on purpose (the owner's call, 28 Oct).
   function cpWantsHint(bi, blk) { return Number(bi) === 0 || !(Number(blk && blk.weight) > 0); }
@@ -427,10 +450,18 @@
       more.addEventListener('click', function () {
         var prog = progOf(aid), d = prog && prog.weeks[wi] && prog.weeks[wi].days[di];
         if (!d) return;
-        uiActionSheet(exTitle(liveEx(aid, wi, di, ei) || ex0), [
+        var exNow = liveEx(aid, wi, di, ei) || ex0, live = (exNow.sets || []).filter(function (x) { return !x.completed; });
+        var isMain = MAIN.indexOf(exNow.lift) >= 0 && exNow.lift !== 'cardio';
+        var allPct = live.length > 0 && live.every(function (x) { return x.pct != null; }), allRir = live.length > 0 && live.every(function (x) { return x.rir; });
+        var maxKg = isMain && typeof programMaxKg === 'function' ? programMaxKg(prog, aid, exNow.lift) : 0;
+        // How every block writes its load and effort (each block's More switches its own).
+        var every = function (kind, on) { setExerciseRx(wi, di, ei, function (st) { applyPatch(st, cpModePatch(st, kind, on, maxKg)); }); if (S.sheetRepaint) S.sheetRepaint(); };
+        uiActionSheet(exTitle(exNow), [
           ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, -1); persistProgram(prog.id); loadProgram(); } } : null,
           ei < d.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, 1); persistProgram(prog.id); loadProgram(); } } : null,
           { label: 'Duplicate', icon: ICONS.copy, onClick: function () { close(); copyExercise(prog.id, wi, di, ei); persistProgram(prog.id); loadProgram(); } },
+          live.length && isMain ? { label: allPct ? 'Every block in ' + unit() : 'Every block in % of max', icon: ICONS.weight, onClick: function () { every('pct', !allPct); } } : null,
+          live.length && exNow.lift !== 'cardio' ? { label: allRir ? 'Every block as RPE' : 'Every block as reps in reserve', icon: ICONS.flame, onClick: function () { every('rir', !allRir); } } : null,
           { label: 'Remove', icon: ICONS.trash, danger: true, onClick: function () { close(); deleteExercise(wi, di, ei); } }
         ]);
       });
@@ -439,8 +470,9 @@
       sheet.appendChild(body);
       var paint = function () { paintEditor(body, aid, wi, di, ei, close); };
       S.sheetRepaint = paint;
+      S.moreOpen = {};
       paint();
-    }, { cls: 'cp-sheet', onClose: function () { S.sheetRepaint = null; clearTimeout(S.bg); if (typeof loadProgram === 'function') loadProgram(); } });
+    }, { cls: 'cp-sheet', onClose: function () { S.sheetRepaint = null; S.moreOpen = {}; clearTimeout(S.bg); if (typeof loadProgram === 'function') loadProgram(); } });
   }
   function paintEditor(body, aid, wi, di, ei, close) {
     var prog = progOf(aid), wk = prog && prog.weeks[wi], day = wk && wk.days[di], ex = day && day.exercises[ei];
@@ -455,34 +487,9 @@
       body.appendChild(el('p', { class: 'cp-ed-note' }, 'Cardio bouts are edited on the laptop for now.'));
     } else {
       var live = (ex.sets || []).filter(function (s) { return !s.completed; });
-      var allPct = live.length > 0 && live.every(function (s) { return s.pct != null; });
-      var anyRir = live.some(function (s) { return s.rir; });
+      var anyPct = live.some(function (s) { return s.pct != null; });
       var maxKg = main && typeof programMaxKg === 'function' ? programMaxKg(prog, aid, ex.lift) : 0;
-      // How loads and effort are written for this exercise: kg or % of their max, RPE or reps in reserve.
-      if (live.length) {
-        var tg = el('div', { class: 'cp-toggles' });
-        if (main) tg.appendChild(segEl('Load', [[u, !allPct], ['% of max', allPct]], function (k) {
-          var toPct = k === 1;
-          if (toPct === allPct) return;
-          setExerciseRx(wi, di, ei, function (s) {
-            if (!toPct) { delete s.pct; delete s.pctHi; return; }
-            var pct = s.pct != null ? s.pct : (maxKg && s.weight ? Math.round(s.weight / maxKg * 100) : 75);
-            s.pct = pct;
-            if (maxKg) s.weight = pctLoadKg(pct, maxKg);
-            if (s.pctHi == null && maxKg && Number(s.weightHi) > 0) { var hp = Math.round(s.weightHi / maxKg * 100); if (hp > pct) s.pctHi = hp; }
-            if (s.pctHi != null && maxKg) { var hk = pctLoadKg(s.pctHi, maxKg); if (hk > s.weight) s.weightHi = hk; else { delete s.weightHi; delete s.pctHi; } }
-          });
-          paintEditor(body, aid, wi, di, ei, close);
-        }));
-        tg.appendChild(segEl('Effort', [['RPE', !anyRir], ['RIR', anyRir]], function (k) {
-          var toRir = k === 1;
-          if (toRir === anyRir) return;
-          setExerciseRx(wi, di, ei, function (s) { if (toRir) s.rir = true; else delete s.rir; });
-          paintEditor(body, aid, wi, di, ei, close);
-        }));
-        body.appendChild(tg);
-        if (allPct && main && !maxKg) body.appendChild(el('p', { class: 'cp-ed-note' }, 'No max yet: these loads fill in once they log a ' + LIFT_NAME[ex.lift].toLowerCase() + ' set, or set one in Maxes for %.'));
-      }
+      if (anyPct && main && !maxKg) body.appendChild(el('p', { class: 'cp-ed-note' }, 'No max yet: the % loads fill in once they log a ' + LIFT_NAME[ex.lift].toLowerCase() + ' set, or set one in Maxes for %.'));
       var blocks = typeof groupSets === 'function' ? groupSets(ex.sets) : [];
       var sfDef = typeof programSetFields === 'function' ? programSetFields(prog) : { on: [], cols: [] };
       blocks.forEach(function (blk, bi) { body.appendChild(blockEl(body, aid, wi, di, ei, ex, blk, bi, blocks.length, main, maxKg, sfDef, close, blocks)); });
@@ -517,7 +524,8 @@
     wrap.appendChild(seg);
     return wrap;
   }
-  // One block of identical sets: four steppers. A block with a logged set reads as it was lifted.
+  // One block of identical sets: sets, reps, load (or % of max) and effort first, then one More with what a
+  // block rarely needs. A block with a logged set reads as it was lifted.
   function blockEl(body, aid, wi, di, ei, ex, blk, bi, nBlocks, main, maxKg, sfDef, close, all) {
     var box = el('div', { class: 'cp-blk' });
     var sets = (ex.sets || []).slice(blk.startIdx, blk.startIdx + blk.count);
@@ -531,12 +539,6 @@
     };
     paintHead();
     head.appendChild(headT);
-    if (nBlocks > 1 && !logged) {
-      var x = el('button', { type: 'button', class: 'cp-blk-x', 'aria-label': 'Remove these sets' });
-      x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-      x.addEventListener('click', function () { deleteBlock(wi, di, ei, blk.startIdx, blk.count); paintEditor(body, aid, wi, di, ei, close); });
-      head.appendChild(x);
-    }
     box.appendChild(head);
     if (logged) {
       box.appendChild(el('p', { class: 'cp-blk-logged' }, 'Logged. A set they lifted keeps what it was; edit the next week instead.'));
@@ -618,10 +620,44 @@
       }
     }
     paintHint();
-    // Set fields the program shows (tempo, pauses, bands and chains, the coach's own columns).
+    // More: what a block rarely needs, one tap away and nothing lost: how it writes its load and effort (⋯
+    // switches every block at once), its set fields (tempo, pauses, bands, the coach's columns), taking it
+    // off. The row names the set fields it holds, so nothing written hides behind it.
+    var key = String(ex.id || ei) + ':' + bi, open = !!(S.moreOpen && S.moreOpen[key]);
+    var mid = 'cpm-' + wi + '-' + di + '-' + ei + '-' + bi;
+    var fx = typeof setFieldsShort === 'function' ? setFieldsShort(blk) : '';
+    var mb = el('button', { type: 'button', class: 'cp-more', 'aria-expanded': open ? 'true' : 'false', 'aria-controls': mid });
+    mb.innerHTML = '<span class="cp-more-t">' + esc(cpMoreText(fx)) + '</span>' + CHEV_DOWN;
+    var mbody = el('div', { class: 'cp-more-body', id: mid });
+    mbody.hidden = !open;
+    mb.addEventListener('click', function () {
+      var on = mbody.hidden;
+      mbody.hidden = !on;
+      mb.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (!S.moreOpen) S.moreOpen = {};
+      if (on) S.moreOpen[key] = 1; else delete S.moreOpen[key];
+    });
+    // This block's load in kg or % of their max, its effort as RPE or reps in reserve.
+    var mode = function (kind, on) {
+      var now = liveEx(aid, wi, di, ei), s0 = (now && now.sets && now.sets[blk.startIdx]) || sets[0] || {};
+      setBlockRx(wi, di, ei, blk.startIdx, blk.count, cpModePatch(s0, kind, on, maxKg));
+      paintEditor(body, aid, wi, di, ei, close);
+    };
+    var tg = el('div', { class: 'cp-toggles' });
+    if (main) tg.appendChild(segEl('Load', [[u, !pctMode], ['% of max', pctMode]], function (k) { if ((k === 1) !== pctMode) mode('pct', k === 1); }));
+    tg.appendChild(segEl('Effort', [['RPE', !blk.rir], ['RIR', !!blk.rir]], function (k) { if ((k === 1) !== !!blk.rir) mode('rir', k === 1); }));
+    mbody.appendChild(tg);
     if (sfDef && ((sfDef.on || []).length || (sfDef.cols || []).length) && typeof setFieldsEditor === 'function') {
-      box.appendChild(setFieldsEditor(sfDef, sets, function (patch) { setBlockFields(wi, di, ei, blk.startIdx, blk.count, patch); paintEditor(body, aid, wi, di, ei, close); }, { cls: 'pb-sf cp-sf', collapsible: true, key: ex.id + ':' + blk.startIdx }));
+      mbody.appendChild(setFieldsEditor(sfDef, sets, function (patch) { setBlockFields(wi, di, ei, blk.startIdx, blk.count, patch); paintEditor(body, aid, wi, di, ei, close); }, { cls: 'pb-sf cp-sf' }));
     }
+    if (nBlocks > 1) {
+      var rm = el('button', { type: 'button', class: 'cp-blk-x cp-blk-rm' }, 'Remove these sets');
+      rm.addEventListener('click', function () { S.moreOpen = {}; deleteBlock(wi, di, ei, blk.startIdx, blk.count); paintEditor(body, aid, wi, di, ei, close); });
+      mbody.appendChild(rm);
+    }
+    box.classList.add('has-more');
+    box.appendChild(mb);
+    box.appendChild(mbody);
     return box;
   }
   // Tap the number to type it: a load from nothing is seventy taps of the plus. Same path as the buttons.
@@ -713,6 +749,6 @@
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    cpWantsHint: cpWantsHint
+    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpMoreText: cpMoreText
   };
 })();
