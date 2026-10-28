@@ -7286,6 +7286,36 @@ test('a block switches its own load (kg or % of max) and effort (RPE or RIR)', (
   eq(CPg.cpModePatch({}, 'rir', true).rir, true); eq(CPg.cpModePatch({ rir: true }, 'rir', false).rir, null, 'null clears it (setBlockRx)');
   eq(CPg.cpMoreText(''), 'More'); eq(CPg.cpMoreText('3-1-0 · Belt off'), 'More · 3-1-0 · Belt off', 'More names what it holds');
 });
+test('a By feel block switched to % of max and back is By feel again; a % the coach picked keeps its load', () => {
+  // setBlockRx and ⋯'s applyPatch: null clears a field
+  const put = (st, p) => { Object.keys(p).forEach(k => { if (p[k] == null) delete st[k]; else st[k] = p[k]; }); return st; };
+  const feel = { weight: 0, reps: 3, rpe: 8 };
+  const to = CPg.cpModePatch(feel, 'pct', true, 210);
+  eq(to.pct + '% ' + to.weight, '75% ' + pctLoadKg(75, 210), 'by feel starts at 75% (157.5 kg for a 210 max), a load nobody chose');
+  eq(to.pctFeel, 75, 'so the set keeps the % it was given');
+  const inPct = put(Object.assign({}, feel), to);
+  const back = put(Object.assign({}, inPct), CPg.cpModePatch(inPct, 'pct', false, 210));
+  eq(JSON.stringify(back), JSON.stringify({ weight: 0, reps: 3, rpe: 8 }), 'back in kg: By feel again, the % and its mark gone');
+  const picked = put(Object.assign({}, inPct), { pct: 80, weight: pctLoadKg(80, 210) });
+  const kept = CPg.cpModePatch(picked, 'pct', false, 210);
+  eq('weight' in kept, false, 'a % the coach picked keeps the load it comes to'); eq(kept.pctFeel, null, 'and the mark goes');
+  eq('weight' in CPg.cpModePatch(Object.assign({}, inPct, { pctHi: 80, weightHi: pctLoadKg(80, 210) }), 'pct', false, 210), false, 'so does a range they added');
+  eq(CPg.cpModePatch({ weight: 160, pctFeel: 75 }, 'pct', true, 200).pctFeel, null, 'a block with a load has no mark (a stale one goes)');
+  eq('weight' in CPg.cpModePatch({ weight: 150, pctFeel: 75 }, 'pct', false, 200), false, 'a block already in kg keeps its load (⋯ passes every block)');
+  const noMax = put({ weight: 0, reps: 5 }, CPg.cpModePatch({ weight: 0, reps: 5 }, 'pct', true, 0));
+  eq(noMax.pct + ' ' + noMax.weight, '75 0', 'no max yet: 75% and still no load');
+  noMax.weight = pctLoadKg(75, 210);   // the max came in and the % loads filled in
+  eq(put(noMax, CPg.cpModePatch(noMax, 'pct', false, 210)).weight, 0, 'back in kg it is By feel, not the load the % filled in');
+  // ⋯ Every block in kg / in % of max: block by block, the way each block's own switch does it
+  const sets = [put({ weight: 0, reps: 3, rpe: 8 }, to), put({ weight: 0, reps: 3, rpe: 8 }, to), { weight: 190, reps: 4, rpe: 7 }];
+  delete sets[1].pctFeel;   // grown after it went to % (setBlockCount copies the set without the mark)
+  const pts = CPg.cpModePatches(sets, 'pct', false, 210);
+  const after = sets.map((s, i) => put(Object.assign({}, s), pts[i]));
+  eq(after.map(s => s.weight).join(' '), '0 0 190', 'the By feel block comes back whole; the block in kg keeps its 190');
+  eq(groupSets(after).length, 2, 'still two blocks');
+  const all = CPg.cpModePatches([{ weight: 0, reps: 3 }, { weight: 190, reps: 4 }], 'pct', true, 255);
+  eq(all.map(p => p.pct + '/' + p.pctFeel).join(' '), '75/75 ' + Math.round(190 / 255 * 100) + '/null', 'to %: only the block with no load is marked');
+});
 test("the editor's saving line: as you go, kept on the phone offline, waiting with Send now", () => {
   eq(CPg.cpSaveLine({ online: true, pending: false }).text, 'Changes save as you make them.');
   const off = CPg.cpSaveLine({ online: false, pending: true });

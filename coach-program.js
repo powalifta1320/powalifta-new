@@ -109,20 +109,36 @@
   // Switching how a block writes its load (kg, or % of their max) or its effort (RPE, or reps in reserve):
   // the patch for its sets (setBlockRx: null clears a field). s: one of the block's sets (they are the same
   // set); kind: 'pct' | 'rir'; maxKg: the max a % works from (0 = none yet). Going to % keeps the load it
-  // comes to (a range keeps its top); going back to kg keeps the load and drops the %.
+  // comes to (a range keeps its top); going back to kg keeps the load and drops the %. A block with no load
+  // (By feel) starts at 75%, a load nobody chose: the set keeps that % as pctFeel, and back in kg with its %
+  // still at it (no range added) it is By feel again. A % the coach picked keeps the load it comes to.
   function cpModePatch(s, kind, on, maxKg) {
     s = s || {};
     if (kind === 'rir') return { rir: on ? true : null };
-    if (!on) return { pct: null, pctHi: null };
+    var inPct = s.pct != null && s.pct !== '';
+    if (!on) {
+      var back = { pct: null, pctHi: null, pctFeel: null };
+      if (inPct && s.pctFeel != null && s.pctFeel !== '' && Number(s.pct) === Number(s.pctFeel) && !(Number(s.pctHi) > 0)) { back.weight = 0; back.weightHi = null; }
+      return back;
+    }
     var m = Number(maxKg) > 0 ? Number(maxKg) : 0;
     var toKg = function (p) { return typeof pctLoadKg === 'function' ? pctLoadKg(p, m) : Math.round(m * p / 100 / 2.5) * 2.5; };
-    var pct = s.pct != null && s.pct !== '' ? Number(s.pct) : (m && Number(s.weight) > 0 ? Math.round(Number(s.weight) / m * 100) : 75);
+    var pct = inPct ? Number(s.pct) : (m && Number(s.weight) > 0 ? Math.round(Number(s.weight) / m * 100) : 75);
     var out = { pct: pct };
+    if (!inPct) out.pctFeel = Number(s.weight) > 0 ? null : pct;   // from kg: marked only when it had no load
     if (m) out.weight = toKg(pct);
     var hp = s.pctHi != null && s.pctHi !== '' ? Number(s.pctHi) : null;
     if (hp == null && m && Number(s.weightHi) > 0) { var h2 = Math.round(Number(s.weightHi) / m * 100); if (h2 > pct) hp = h2; }
     if (hp != null && m) { var hk = toKg(hp); if (hk > out.weight) { out.pctHi = hp; out.weightHi = hk; } else { out.pctHi = null; out.weightHi = null; } }
     else if (hp != null) out.pctHi = hp;
+    return out;
+  }
+  // ⋯'s switch for every block: each block as its own switch does it (its first set decides), so the two
+  // agree and a block grown after it went to % comes back whole. → one patch per set, by its index.
+  function cpModePatches(sets, kind, on, maxKg) {
+    sets = sets || [];
+    var out = [], blocks = typeof groupSets === 'function' ? groupSets(sets) : sets.map(function (x, i) { return { startIdx: i, count: 1 }; });
+    blocks.forEach(function (b) { var p = cpModePatch(sets[b.startIdx], kind, on, maxKg); for (var i = 0; i < b.count; i++) out[b.startIdx + i] = p; });
     return out;
   }
   // A patch onto a set object (the exercise-wide switch in ⋯ goes through setExerciseRx with this).
@@ -575,7 +591,11 @@
         var allPct = live.length > 0 && live.every(function (x) { return x.pct != null; }), allRir = live.length > 0 && live.every(function (x) { return x.rir; });
         var maxKg = isMain && typeof programMaxKg === 'function' ? programMaxKg(prog, aid, exNow.lift) : 0;
         // How every block writes its load and effort (each block's More switches its own).
-        var every = function (kind, on) { setExerciseRx(wi, di, ei, function (st) { applyPatch(st, cpModePatch(st, kind, on, maxKg)); }); if (S.sheetRepaint) S.sheetRepaint(); };
+        var every = function (kind, on) {
+          var ss = ((liveEx(aid, wi, di, ei) || exNow).sets || []).slice(), pt = cpModePatches(ss, kind, on, maxKg);
+          setExerciseRx(wi, di, ei, function (st) { applyPatch(st, pt[ss.indexOf(st)] || cpModePatch(st, kind, on, maxKg)); });
+          if (S.sheetRepaint) S.sheetRepaint();
+        };
         uiActionSheet(exTitle(exNow), [
           ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, -1); persistProgram(prog.id); loadProgram(); } } : null,
           ei < d.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, 1); persistProgram(prog.id); loadProgram(); } } : null,
@@ -901,6 +921,6 @@
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
+    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();
