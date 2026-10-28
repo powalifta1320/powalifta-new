@@ -25,8 +25,9 @@
 --      runs, so a re-run covers tables added since (STATUS row 60 says false while one is missing).
 --
 -- What it does not cover (on purpose, this week; docs/two-factor.md):
---   - The 36 SECURITY DEFINER functions signed-in users can call (claim_invite, accept_coach_request,
---     get_marketplace_payload, my_checkin_questions, challenge_board, the club functions, admin_set_plan...)
+--   - The 37 SECURITY DEFINER functions signed-in users can call (live 28 Oct, after row 59: claim_invite,
+--     accept_coach_request, coach_release_lifter (take a lifter off the roster), get_marketplace_payload,
+--     my_checkin_questions, challenge_board, the club functions, admin_set_plan...)
 --     skip RLS, so an aal1 session of a 2FA account can still call them; the sharpest is claim_invite (a
 --     lifter's password links them to another coach). PostgREST's db_pre_request hook closes all of them;
 --     it is kept out of the pitch week (if it ever errors, every API request fails) and its tested SQL
@@ -40,10 +41,15 @@
 -- user with no factor at aal1. If it can't (owner can't bypass RLS, no SELECT), the file stops and nothing is
 -- applied. lock_timeout 5 s: a busy table makes it stop rather than queue the app behind it; run it again.
 --
--- Order: after every other row (55, 58 and whatever comes next); run it again after any migration that adds
--- a public table. Idempotent: a re-run changes only what is missing or not as written here. One transaction.
--- Then the edge functions (./deploy.sh functions, or the 8 WITH_JWT ones); the app's code step rides the next
--- web push and iPhone build (until then, see docs/two-factor.md "Old builds").
+-- Order: row 59 (migration-security-fixes-2026-10-28.sql) is live since 28 Oct; this is row 60, the next one,
+-- after every other row; run it again after any migration that adds a public table. Idempotent: a re-run changes
+-- only what is missing or not as written here. One transaction. Then the eight edge functions, named with the
+-- project (./deploy.sh functions would ship the others too):
+--   for fn in delete-account ls-portal apple-iap send-invite send-program-assigned send-push program-read ai-chat; do
+--     npx --yes supabase functions deploy "$fn" --project-ref cxnotrikxvzncupswvio
+--   done
+-- The app's code step rides the next web push and iPhone build (until then, see docs/two-factor.md "Old builds").
+-- If every signed-in page goes empty after a Supabase upgrade, run the undo block below first, then investigate.
 --
 -- Undo (copy and run; nothing else depends on these, unless the deferred pre-request hook in docs/two-factor.md
 -- was applied: undo that first, it calls powa_mfa_ok()):

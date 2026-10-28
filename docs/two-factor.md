@@ -23,7 +23,16 @@ makes that true. Nobody has two-factor on today (28 Oct: 0 verified factors, 1 a
    out this device only (they used to sign the person out everywhere). Live updates get the new
    token as soon as the code is entered.
 
-Order: the SQL (a no-op today), then the functions, then the web push / iPhone build.
+Order: the SQL (a no-op today), then the functions, then the web push / iPhone build. Row 59
+(`migration-security-fixes-2026-10-28.sql`) is live since 28 Oct; this file is row 60, the next one to
+run. The functions: only these eight, each named with the project so a deploy can never land on another
+linked project (`./deploy.sh functions` would also ship functions that aren't part of this):
+
+```bash
+for fn in delete-account ls-portal apple-iap send-invite send-program-assigned send-push program-read ai-chat; do
+  npx --yes supabase functions deploy "$fn" --project-ref cxnotrikxvzncupswvio
+done
+```
 
 ## Old builds, until the next push and build
 
@@ -34,16 +43,18 @@ No data leaves the server. Nobody has two-factor on today.
 
 ## What it does not cover yet: the definer functions
 
-36 database functions that signed-in users can call run with the owner's rights, so table rules
-never see them, and a session that owes its code can still call them. 14 only answer yes/no about
-the caller (is_admin, is_current_coach_of...). The other 22:
+37 database functions that signed-in users can call run with the owner's rights, so table rules
+never see them, and a session that owes its code can still call them (37 live on 28 Oct, read from
+the catalog after row 59). 14 only answer yes/no about the caller (is_admin, is_current_coach_of...).
+The other 23:
 
 - **The sharpest: `claim_invite`.** With only a lifter's password, someone who also has a coach
   account of their own can claim one of their own invite codes for that lifter. The lifter is then
   "coached" by them, and their coach account (no two-factor) reads the lifter's training data.
   `accept_coach_request` is the mirror case for a coach's password (it only links the asker).
 - Actions: join, leave or run a club and its buddies, close a meet day, request a referral
-  reward, finish an Apple/Google sign-up, `admin_set_plan` (admins).
+  reward, finish an Apple/Google sign-up, take a lifter off the roster (`coach_release_lifter`,
+  row 59: a coach's password alone could remove their lifters), `admin_set_plan` (admins).
 - Reads: a bought program's content, the coach's check-in questions and branding, a challenge
   board, club search (the coach list and invite previews are public anyway).
 
@@ -119,6 +130,8 @@ If the hook is on, undo it before undoing row 60 (the hook calls `powa_mfa_ok()`
 
 ## Running it
 
+- **If every signed-in page goes empty after a Supabase upgrade**: run the undo block in the
+  migration's header first (the hook's undo before it, if the hook is on), then investigate.
 - **New tables**: the policy goes on every table that exists when the file runs. After a migration
   that adds a table, STATUS row 60 says false: run `migration-mfa-aal2-2026-10-28.sql` again.
 - **Lost authenticator**: the account is really locked now (one factor, no backup codes). After
