@@ -152,6 +152,11 @@ with checks(n, migration, applied) as (values
   (53, 'migration-coach-alerts-2026-10-28.sql  (coach alerts: the PRs and missed sessions switch, and the Monday report''s week stats; after migration-email-preferences.sql)',
         exists (select 1 from information_schema.columns
                  where table_schema = 'public' and table_name = 'email_preferences' and column_name = 'push_alerts')
-        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null)
+        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null),
+  (54, 'migration-security-tidy-2026-10-28.sql  (trigger functions callable by nobody, a fixed search_path on ten functions, the edge functions'' own tables said to be theirs)',
+        coalesce(not has_function_privilege('anon', to_regprocedure('public.handle_new_user()'), 'execute'), false)
+        and coalesce(not has_function_privilege('authenticated', to_regprocedure('public.club_members_guard()'), 'execute'), false)
+        and exists (select 1 from pg_proc where oid = to_regprocedure('public.touch_email_preferences()') and proconfig is not null)
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'edge_rate_limits' and policyname = 'service role only'))
 )
 select n, migration, applied from checks order by n;
