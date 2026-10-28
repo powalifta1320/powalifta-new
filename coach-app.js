@@ -95,16 +95,23 @@
     });
     return out;
   }
-  // Each lifter's worst open job, in the jobs' order, for the lifters in ids. → [{ id, job }]
+  // Each lifter's worst open job, in the jobs' order, for the lifters in ids. A meet day is one entry for
+  // everyone at it (rows: who). → [{ id, job, r, rows }]
   function caLeadJobs(jobs, ids) {
     var seen = {}, out = [];
     (jobs || []).forEach(function (it) {
       if (!it || it.done) return;
-      (it.r ? [it.r] : (it.rows || [])).forEach(function (r) {
+      var who = (it.r ? [it.r] : (it.rows || [])).filter(function (r) {
         var id = r && r.athlete && r.athlete.id;
-        if (!id || seen[id] || (ids && ids.indexOf(id) < 0)) return;
-        seen[id] = 1; out.push({ id: id, job: it, r: r });
+        return id && !seen[id] && (!ids || ids.indexOf(id) >= 0);
       });
+      if (!who.length) return;
+      if (it.type === 'meetday') {
+        who.forEach(function (r) { seen[r.athlete.id] = 1; });
+        out.push({ id: who[0].athlete.id, job: it, r: who[0], rows: who });
+        return;
+      }
+      who.forEach(function (r) { seen[r.athlete.id] = 1; out.push({ id: r.athlete.id, job: it, r: r, rows: [r] }); });
     });
     return out;
   }
@@ -180,6 +187,23 @@
     if (r && r.status && r.status.program) return { tone: 'ok', text: 'On plan' };
     return { tone: 'none', text: 'No block yet' };
   }
+  // A lifter's header line under their name: under the bar now, else the meet (its name, how far, their
+  // weight against the class), else on plan. Null when the flag below already says it ("Needs you") or the
+  // meta line does ("No block yet"). r.bw: { bw, cls, over } in kg; r.meet: { days, meet: { name } }.
+  function caHeadChip(r, top) {
+    if (!r) return null;
+    if (r.live) return { tone: 'live', text: 'Training now' };
+    if (caIsMeetSoon(r)) {
+      var m = r.meet.meet || {}, nm = clip(String(m.name || '').trim() || 'Meet', 24), d = r.meet.days;
+      var said = top && (top.type === 'meet' || top.type === 'meetday');   // the flag already says when
+      var when = said ? '' : d <= 0 ? ' is today' : d === 1 ? ' is tomorrow' : ' in ' + plural(d, 'day');
+      var bw = r.bw && Number(r.bw.bw) > 0 ? num(kgShow(r.bw.bw)) + ' ' + unit() + ' in the ' + String(r.bw.cls).replace(/\s*kg$/i, '') + 's' : '';
+      return { tone: 'meet', text: nm + when + (bw ? ' \u00b7 ' + bw : '') };
+    }
+    if (top && top.tier <= NEED_TIER) return null;
+    if (r.status && r.status.program) return { tone: 'ok', text: 'On plan' };
+    return null;
+  }
   // Home's three numbers: who trained in the last 7 days (of the roster), this week's PRs, unread messages.
   // opts: { daysOf(id) → [{ on }], unread: { athleteId: n } }
   function caHeroStats(rows, opts) {
@@ -236,9 +260,24 @@
       case 'blockdone': return f + ' finished the block';
       case 'stalling': return f + ' has been flat for 3 weeks';
       case 'write': return poss(f) + ' next week is ready to write';
-      case 'busy': return f + ' has a busy week';
+      case 'busy': { var bl = caBusyLine(it); return bl ? f + ' ' + bl.charAt(0).toLowerCase() + bl.slice(1) : f + ' has a busy week'; }
     }
     return f;
+  }
+  // A busy week in the lifter's words, for a row: "Can train 2 days this week". '' without its info.
+  function caBusyLine(it) {
+    if (!it || !it.info) return '';
+    var nd = Number(it.info.days) || 0;
+    return nd > 0 ? 'Can train ' + plural(nd, 'day') + ' this week' : 'Can\u2019t train this week';
+  }
+  // A meet day with several lifters at it: who's over their class, whether the attempts are in.
+  function caMeetDayDetail(it) {
+    var over = it.over || [], un = it.unplanned || [], rows = it.rows || [];
+    var bits = [];
+    if (over.length === 1) bits.push(first(over[0].athlete.name) + ' ' + num(kgShow(over[0].bw.over)) + ' ' + unit() + ' over');
+    else if (over.length > 1) bits.push(over.length + ' over their class');
+    bits.push(!un.length ? 'attempts set' : un.length === rows.length ? 'attempts not set' : un.length + ' without attempts');
+    return bits.join(' \u00b7 ');
   }
   // The line under it: the evidence, in one short line with at most one dot.
   function caFocalDetail(it, jt) {
@@ -308,6 +347,12 @@
     return CL().jobText(it.type === 'meetday' && forId ? Object.assign({}, it, { forId: forId }) : it);
   }
   function fixOf(it) { return CL() && CL().fixForJob ? CL().fixForJob(it) : null; }
+  // The red's words: the desk's fix label, but a busy week says what Approve agrees to ("Approve 2 days").
+  function caFixLabel(it, f) {
+    var lb = (f && f.label) || 'Open';
+    if (it && it.type === 'busy' && it.info && Number(it.info.days) > 0 && /^Approve$/.test(lb)) return 'Approve ' + plural(Number(it.info.days), 'day');
+    return lb;
+  }
   function runFix(r, f, btn) { if (CL() && CL().runFix) CL().runFix(r, f, btn); }
   function faceHtml(r, w, size, opts) {
     opts = opts || {};
@@ -378,7 +423,9 @@
     var urgent = title === 'Needs you';
     var top = lead[0], rest = lead.slice(1, 3);
     // The hero's headline ("4 need you") is this deck's title: no second title saying it again.
-    var more = lead.length > 3 ? '<button type="button" class="ca-more" data-lifters="' + (urgent ? 'need' : 'all') + '"><span>See all ' + lead.length + '</span>' + ic('chev', 2.2) + '</button>' : '';
+    var shownN = lead.slice(0, 3).reduce(function (n, x) { return n + ((x.rows && x.rows.length) || 1); }, 0);
+    var totalN = urgent ? X.need.length : lead.reduce(function (n, x) { return n + ((x.rows && x.rows.length) || 1); }, 0);
+    var more = lead.length > 3 || totalN > shownN ? '<button type="button" class="ca-more" data-lifters="' + (urgent ? 'need' : 'all') + '"><span>See all ' + totalN + '</span>' + ic('chev', 2.2) + '</button>' : '';
     var html = '<div class="ca-sec' + (urgent ? ' is-deck' : '') + '" aria-label="' + title + '">' + (urgent ? '' : '<div class="ca-h"><h2>' + title + '</h2></div>');
     html += leadCardHtml(top, urgent);
     if (rest.length || more) html += '<div class="ca-plain ca-rise">' + rest.map(function (x) { return jobRowHtml(x); }).join('') + more + '</div>';
@@ -386,21 +433,25 @@
   }
   // The one big job: open on the page (not a third box), a bigger face, the job as a sentence, the red.
   function leadCardHtml(x, red) {
-    var it = x.job, r = x.r, t = jobText(it, r.athlete.id), f = fixOf(it) || {};
+    var it = x.job, r = x.r, group = it.type === 'meetday' && (it.rows || []).length > 1;
+    var t = jobText(it, group ? null : r.athlete.id), f = fixOf(it) || {};
     var it1 = it.type === 'meetday' ? Object.assign({}, it, { r: r }) : it;
-    var d = caFocalDetail(it1, t);
-    var sub = '<span class="ca-focal-n">' + esc(r.athlete.name) + '</span>' + (d ? '<span class="ca-focal-d">' + (t.voice && it.type === 'message' ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(d)) + '</span>' : '');
+    var d = group ? caMeetDayDetail(it) : caFocalDetail(it1, t);
+    var names = group ? (it.rows || []).map(function (q) { return first(q.athlete.name); }) : null;
+    var who = group ? names.slice(0, 3).join(', ') + (names.length > 3 ? ' +' + (names.length - 3) : '') : r.athlete.name;
+    var face = group ? '<span class="ca-stack" aria-hidden="true">' + (it.rows || []).slice(0, 2).map(function (q) { return avHtml(q.athlete); }).join('') + '</span>' : avHtml(r.athlete, 'is-56');
+    var sub = '<span class="ca-focal-n">' + esc(who) + '</span>' + (d ? '<span class="ca-focal-d">' + (t.voice && it.type === 'message' ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(d)) + '</span>' : '');
     return '<div class="ca-focal ca-rise tone-' + esc(t.tone) + '" data-job="' + esc(it.key) + '" data-aid="' + esc(r.athlete.id) + '">' +
-      '<button type="button" class="ca-focal-main" data-open="' + esc(r.athlete.id) + '" aria-label="' + esc(caFocalTitle(it1) + '. Open ' + r.athlete.name) + '">' + avHtml(r.athlete, 'is-56') +
+      '<button type="button" class="ca-focal-main" data-open="' + esc(r.athlete.id) + '" aria-label="' + esc(caFocalTitle(it1) + '. Open ' + r.athlete.name) + '">' + face +
         '<span class="ca-focal-tx"><span class="ca-focal-t">' + esc(caFocalTitle(it1)) + '</span>' + sub + '</span></button>' +
-      '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(it.key) + '">' + esc(f.label || 'Open') + '</button></div>';
+      '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(it.key) + '">' + esc(caFixLabel(it, f)) + '</button></div>';
   }
   function jobRowHtml(x) {
     var it = x.job, r = x.r, t = jobText(it, r.athlete.id), f = fixOf(it) || {};
     var short = CL() && CL().shortLabel ? CL().shortLabel(f) : (f.label || 'Open');
     return '<div class="ca-jrow" data-job="' + esc(it.key) + '" data-aid="' + esc(r.athlete.id) + '">' +
       '<button type="button" class="ca-jrow-main" data-open="' + esc(r.athlete.id) + '">' + avHtml(r.athlete, 'is-40') +
-        '<span class="ca-jrow-tx"><span class="ca-jrow-n">' + esc(first(r.athlete.name)) + '</span><span class="ca-jrow-t">' + keepDots(esc(t.short || t.title)) + '</span></span></button>' +
+        '<span class="ca-jrow-tx"><span class="ca-jrow-n">' + esc(first(r.athlete.name)) + '</span><span class="ca-jrow-t">' + keepDots(esc((it.type === 'busy' && caBusyLine(it)) || t.short || t.title)) + '</span></span></button>' +
       '<button type="button" class="ca-pill" data-fix="' + esc(it.key) + '" aria-label="' + esc(f.label || short) + '">' + esc(short) + '</button></div>';
   }
   // Your lifters: every face, ringed by this week's sessions, the live dot when they're under the bar.
@@ -583,11 +634,13 @@
         (!q || String(r.athlete.name).toLowerCase().indexOf(q) >= 0 || String((r.status && r.status.program && r.status.program.name) || '').toLowerCase().indexOf(q) >= 0);
     });
     if (!rows.length) { host.innerHTML = '<p class="ca-none">' + (q ? 'No one called “' + esc(L.q) + '”' : 'Nobody here right now') + '</p>'; return; }
-    host.innerHTML = '<div class="ca-plain ca-rows">' + rows.map(function (r, i) { return rowHtml(r, X, i); }).join('') + '</div>';
+    var anyN = CL() && CL().clNumber ? rows.some(function (r) { return CL().clNumber(r).tone !== 'none'; }) : false;
+    var cap = '<div class="ca-rows-cap"><span>' + esc(plural(rows.length, 'lifter')) + '</span>' + (anyN ? '<span>e1RM total, 4 weeks</span>' : '') + '</div>';
+    host.innerHTML = cap + '<div class="ca-plain ca-rows">' + rows.map(function (r, i) { return rowHtml(r, X, i); }).join('') + '</div>';
   }
   function rowHtml(r, X, i) {
     var top = topJob(r, X.jobs), w = X.week(r);
-    var line = CL() && CL().clLine ? CL().clLine(r, top && top.tier <= 3 ? top : null) : '';
+    var line = top && top.type === 'busy' && caBusyLine(top) ? caBusyLine(top) : CL() && CL().clLine ? CL().clLine(r, top && top.tier <= 3 ? top : null) : '';
     var sev = !top || top.tier > NEED_TIER ? '' : top.type === 'pain' ? 'alert' : /^(meetday|weight|overshoot|drift|checkin|readiness|quiet|never|missed|offpace|busy)$/.test(top.type) ? 'watch' : '';
     var n = CL() && CL().clNumber ? CL().clNumber(r) : { text: '', tone: 'none', title: '' };
     return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52) +
@@ -640,12 +693,12 @@
     var a = r.athlete, st = r.status || {}, prog = st.program, w = X.week(r), top = topJob(r, X.jobs);
     var cls = r.meet && r.meet.meet && r.meet.meet.weightClass ? String(r.meet.meet.weightClass).replace(/\s*kg$/i, '') : (r.bw ? String(r.bw.cls) : null);
     var meta = [prog ? clip(prog.name, 28) + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block yet'];
-    if (cls) meta.push(cls + ' ' + unit() + ' class');
-    var status = caStatus(r, top);
+    if (cls && !caIsMeetSoon(r)) meta.push(cls + ' ' + unit() + ' class');
+    var status = caHeadChip(r, top);
     var unread = unreadMap()[a.id] || 0;
     var html = '<header class="ca-ph">' + faceHtml(r, w, 96, { cls: 'is-big' }) +
       '<h2 class="ca-pname">' + esc(a.name) + '</h2><p class="ca-pmeta">' + keepDots(esc(meta.join(' · '))) + '</p>' +
-      '<span class="ca-status s-' + status.tone + '"><i aria-hidden="true"></i>' + esc(status.text) + '</span></header>';
+      (status ? '<span class="ca-status s-' + status.tone + '"><i aria-hidden="true"></i>' + keepDots(esc(status.text)) + '</span>' : '') + '</header>';
     // Four actions, like a contact card.
     var act = function (key, icon, label, badge) { return '<button type="button" class="ca-act" data-act="' + key + '">' + ic(icon) + '<span>' + label + '</span>' + (badge ? '<b class="ca-act-n" aria-label="' + esc(plural(badge, 'unread')) + '">' + badge + '</b>' : '') + '</button>'; };
     html += '<div class="ca-acts">' + act('message', 'msg', 'Message', unread) + act('program', 'cal', 'Program') + act('progress', 'chart', 'Progress') + act('client', 'wallet', 'Client') + '</div>';
@@ -655,28 +708,36 @@
       var busy = top.type === 'busy' ? (jt.note ? '<span class="ca-flag-q">“' + esc(clip(jt.note, 140)) + '”</span>' : '') + '<button type="button" class="ca-link" data-busy-keep>Keep the week as written</button>' : '';
       var red = top.tier <= NEED_TIER;
       var top1 = top.type === 'meetday' ? Object.assign({}, top, { r: r }) : top, fd = caFocalDetail(top1, jt);
+      var said = '';
+      if (top.type === 'message') {
+        // What they wrote, not a summary of it: the message (or the voice note), then when.
+        var body = String((top.reason && top.reason.body) || '').trim(), vm = /(\d+:\d{2})/.exec(String(jt.detail || ''));
+        said = jt.voice ? '<span class="ca-flag-voice"><i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>Voice note' + (vm ? ' \u00b7 ' + esc(vm[1]) : '') + '</span>'
+          : body ? '<span class="ca-flag-q">\u201c' + esc(clip(body, 160)) + '\u201d</span>' : '';
+        fd = String(jt.title || '').replace(/^Wrote you( · )?/, '');
+      }
       html += '<div class="ca-flag tone-' + esc(jt.tone) + '" data-job="' + esc(top.key) + '"><span class="ca-flag-ic">' + ic(jt.icon in IC ? jt.icon : 'eye') + '</span>' +
-        '<span class="ca-flag-tx"><b>' + esc(caFocalTitle(top1)) + '</b>' + (fd ? '<span>' + (jt.voice && top.type === 'message' ? '<i class="ca-vplay" aria-hidden="true">' + ic('play') + '</i>' : '') + keepDots(esc(fd)) + '</span>' : '') + busy + '</span>' +
-        '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(top.key) + '">' + esc(f.label || 'Open') + '</button></div>';
+        '<span class="ca-flag-tx"><b>' + esc(caFocalTitle(top1)) + '</b>' + said + (fd ? '<span>' + keepDots(esc(fd)) + '</span>' : '') + busy + '</span>' +
+        '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(top.key) + '">' + esc(caFixLabel(top, f)) + '</button></div>';
     }
     html += overviewHtml(r, w);
     html += rowsHtml(r);
     return html;
   }
-  // One overview card: the total e1RM, its change over 4 weeks and a small trend, then this week.
+  // One overview card: the e1RM total, its change over 4 weeks and a small trend, then this week.
   function overviewHtml(r, w) {
     var D = CL() && CL().clLifter ? CL().clLifter(r) : null;
     var T = D && D.total;
     var days = trainedDays(r.athlete.id);
     var dots = '<span class="ca-days" aria-hidden="true">' + days.map(function (d, i) { return '<i class="' + (d.on ? 'on' : '') + (i === days.length - 1 ? ' today' : '') + '"></i>'; }).join('') + '</span>';
     var weekLine = '<span class="ca-ov-week"><span class="ca-ov-wl">Last 7 days</span>' + dots + '<span class="ca-ov-wn">' + (w.n ? w.k + ' of ' + w.n : plural(w.trained, 'session')) + '</span></span>';
-    var head = '<span class="ca-ov-h"><span class="ca-ov-l">Total e1RM</span><span class="ca-ov-go">Progress' + ic('chev', 2.4) + '</span></span>';
+    var head = '<span class="ca-ov-h"><span class="ca-ov-l">e1RM total</span><span class="ca-ov-go">Progress' + ic('chev', 2.4) + '</span></span>';
     if (!T) {
       return '<button type="button" class="ca-ov is-empty" data-view="progress">' + head + '<span class="ca-ov-none">Shows once squat, bench and deadlift are all logged.</span>' + weekLine + '</button>';
     }
     var d = T.delta != null ? Math.round(kgShow(T.delta)) : null;
     var chip = d != null ? '<span class="ca-chg ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat') + '">' + (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' ' + esc(unit()) + ' in 4 weeks</span>' : '';
-    return '<button type="button" class="ca-ov" data-view="progress" aria-label="Total e1RM ' + Math.round(kgShow(T.value)) + ' ' + esc(unit()) + (d != null ? ', ' + (d >= 0 ? 'up ' : 'down ') + Math.abs(d) + ' in 4 weeks' : '') + '. Open progress">' + head +
+    return '<button type="button" class="ca-ov" data-view="progress" aria-label="e1RM total ' + Math.round(kgShow(T.value)) + ' ' + esc(unit()) + (d != null ? ', ' + (d >= 0 ? 'up ' : 'down ') + Math.abs(d) + ' in 4 weeks' : '') + '. Open progress">' + head +
       '<span class="ca-ov-num"><b>' + Math.round(kgShow(T.value)) + '</b><small>' + esc(unit()) + '</small>' + chip + '</span>' +
       sparkHtml(T.pts) + weekLine + '</button>';
   }
@@ -991,7 +1052,7 @@
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
     caGreeting: caGreeting, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
-    caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeroStats: caHeroStats, caHeadline: caHeadline,
+    caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
     caCheckins: caCheckins, caNextMeet: caNextMeet, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER
   };
 })();

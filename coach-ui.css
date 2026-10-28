@@ -537,8 +537,6 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-hero .cl-ln { stroke-width: 2.5; }
 
 /* ==================== iPhone and phone web ==================== */
-.cl-phone { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
-.cl-pcol { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .cl-tiles.is-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .cl-tiles.is-compact .cl-tile { padding: 12px 14px 11px; gap: 7px; border-radius: 18px; }
 .cl-tiles.is-compact .cl-tic { width: 24px; height: 24px; border-radius: 8px; }
@@ -547,31 +545,9 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-tiles.is-compact .cl-ts { font-size: 13px; }
 .cl-tiles.is-compact .cl-big2 { font-size: 22px; }
 .cl-tiles.is-compact .cl-u { font-size: 13px; }
-.cl-gh-do { margin: 6px 0 -4px; padding: 0 4px; }
-.cl-do.is-phone .cl-job.is-big { padding: 12px 12px 12px 14px; gap: 12px; flex-wrap: wrap; }
-.cl-do.is-phone .cl-jic { width: 34px; height: 34px; border-radius: 10px; }
-.cl-do.is-phone .cl-jic svg { width: 18px; height: 18px; }
-.cl-do.is-phone .cl-jmain { flex: 1 1 0; }
-.cl-do.is-phone .cl-jt { white-space: normal; }
-.cl-do.is-phone .cl-jd { font-size: 13px; white-space: normal; }
-.cl-do.is-phone .cl-btn { flex: 1 0 100%; height: 44px; margin-left: 46px; flex-basis: calc(100% - 46px); }
-.cl-search-ph { height: 40px; border-radius: 12px; }
-.cl-phone .cl-groups { padding: 0; overflow: visible; }
-.cl-phone .cl-grp + .cl-grp { margin-top: 18px; }
-.cl-phone .cl-gh { padding: 0 4px; }
-.cl-phone .cl-row { grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; min-height: 66px; padding: 10px 12px 10px 14px; }
-.cl-phone .cl-end { min-width: 44px; }
-.cl-phone .cl-row .ui-av { width: 42px; height: 42px; }
-
 /* a lifter, pushed in */
 #lifterPage { padding-bottom: 24px; }
 .cl-pg-phone { gap: 12px; }
-.cl-pg-phone .cl-ph { gap: 0; margin: 0 0 2px; }
-.cl-pg-phone .cl-pname { font-family: var(--font-display); font-size: 28px; font-weight: 800; font-stretch: var(--display-stretch, 118%); letter-spacing: -0.025em; }
-.cl-pg-phone .cl-flag { flex-wrap: wrap; }
-.cl-pg-phone .cl-ftx { flex: 1 1 0; }
-.cl-pg-phone .cl-facts { flex: 1 0 100%; }
-.cl-pg-phone .cl-facts .cl-btn { width: 100%; height: 48px; }
 .cl-pg-phone .cl-hero { grid-template-columns: 1fr; gap: 12px; padding: 16px 16px 12px; }
 .cl-pg-phone .cl-hnum b { font-size: 44px; }
 .cl-pg-phone .cl-hnum span { font-size: 22px; }
@@ -584,16 +560,6 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-pg-phone .cl-pr-b { padding: 1px 6px; }
 .cl-pg-phone .cl-small { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .cl-pg-phone .cl-tile.is-compact { border-radius: 18px; }
-
-/* wide screens in the app or on a tablet (the iPhone Duo open, iPad): the list beside the lifter */
-.cl-phone.is-wide { display: grid; grid-template-columns: minmax(330px, 400px) minmax(0, 1fr); gap: 22px; align-items: start; padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
-.cl-phone.is-wide .cl-pcol { min-width: 0; }
-.cl-wpage { position: sticky; top: calc(var(--nav-h, 58px) + env(safe-area-inset-top, 0px) + 10px); max-height: calc(100dvh - var(--nav-h, 58px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 120px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; border-radius: var(--cl-r); }
-.cl-pg.is-wide { max-width: none; padding-bottom: 12px; }
-.cl-pg.is-wide .cl-hero { grid-template-columns: 1fr; gap: 12px; }
-.cl-pg.is-wide .cl-hnum b { font-size: 44px; }
-.cl-pg.cl-pg-phone.is-wide .cl-pname { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
-html.native .cl-phone.is-wide .cl-row .cl-chev { display: none; }
 
 /* ---- round-2 details: compact job rows, the ring's count, the list legend, empty states ---- */
 .cl-sbtn { flex: none; display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--ch-fill-2); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); font: 600 13px/1 var(--font-body, inherit) !important; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, transform 140ms ease-out; }
@@ -1237,16 +1203,11 @@ html.desk body.powa-app .ui-sheet.bd-sheet { width: min(600px, calc(100vw - 48px
 html:not(.desk) body.powa-app #btn-invite.is-quiet { background: rgba(255, 255, 255, 0.07); color: var(--text-2); box-shadow: none; border: 0; }
 html:not(.desk) body.powa-app #btn-invite.is-quiet:hover, html:not(.desk) body.powa-app #btn-invite.is-quiet:active { filter: none; color: var(--text); }
 
-/* Lifters on the phone: Do first leads, the groups follow, then money owed and This week (the tiles). */
-.cl-phone .cl-gh-do { margin: 0 0 -4px; }
-.cl-pweek { display: flex; flex-direction: column; margin-top: 10px; }
-
 /* A row's reason under the name: a span that ellipsises (the flex line cut it mid-word, no "…");
    on a phone it takes two lines, so "Low back 6/10 · deadlift" reads whole. */
 .cl-line { align-items: flex-start; }
 .cl-ldot { margin-top: calc((1.3em - 7px) / 2); }
 .cl-lt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cl-phone .cl-lt { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; text-wrap: balance; }
 
 /* A voice note's preview is the app's label, not their words: no quotes, a small play glyph in the job's hue. */
 .cl-vplay { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 6px; border-radius: 50%; vertical-align: middle; position: relative; top: -1px; color: var(--tc, var(--cl-msg)); background: color-mix(in srgb, var(--tc, var(--cl-msg)) 16%, transparent); }
@@ -1276,26 +1237,8 @@ html:not(.desk) body.powa-app #btn-invite.is-quiet:hover, html:not(.desk) body.p
 html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer { background: rgba(255, 255, 255, 0.94); border-color: rgba(0, 0, 0, 0.08); box-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.35); }
 html.native[data-theme="light"] body.powa-app #messagesArea .msg-inbox-detail .msg-composer :is(input, textarea) { background: rgba(118, 118, 128, 0.12); }
 
-/* The program builder on the phone: one ⋯ per day, not one per exercise (a week of Arjun's block showed
-   twelve). An exercise's ⋯ (move, duplicate, remove) shows once it is open: tap the row, then ⋯.
-   "Add exercise" is the day list's last row, a quiet text row on the exercises' column, not a
-   full-width button three times a week. The laptop desk keeps its own builder. */
-html:not(.desk) body.powa-app #programArea .pb-ex:not(.is-open) .pb-more { display: none; }
-html:not(.desk) body.powa-app #programArea .pb-ex:not(.is-open) .pb-ex-toggle { padding-right: 16px; }
-html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2 {
-  position: relative; justify-content: flex-start; gap: 12px; height: 48px; margin: 0; padding: 0 16px;
-  border: 0; border-radius: 0; background: none; color: var(--text-2); font-size: 15px; font-weight: 600;
-}
-html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2 svg { width: 38px; height: 18px; flex: none; color: var(--text-3); }
-html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-ex + .pb-add-ex2::before { content: ''; position: absolute; top: 0; left: 64px; right: 0; height: 1px; background: var(--hair); }
-html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-ex.is-open + .pb-add-ex2::before { display: none; }
-html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:active { background: var(--fill-1); }
-@media (hover: hover) and (pointer: fine) { html:not(.desk) body.powa-app #programArea .pb-day-body > .pb-add-ex2:hover { background: none; color: var(--text); } }
 /* Clients in light: the chosen filter and the sheets' chosen chip are white on ink (they were ink on ink). */
 html[data-theme="light"] .cs-filters button.on, html[data-theme="light"] .cs-chips button.on { color: #fff; }
-/* Lifters › This week: the meet's name drops under "Today" instead of "Autumn O…" (the phone tile is narrow). */
-.cl-pweek .cl-tile.t-meets .cl-tv { flex-wrap: wrap; row-gap: 2px; }
-.cl-pweek .cl-tile.t-meets .cl-tv .cl-u { max-width: 100%; }
 
 /* ==================== the desk: one system for Today, Lifters and Clients (2026-10-27) ====================
    Desk-only (html.desk) overrides. These screens were drawn with the phone's controls (pills, outlines,
@@ -1436,92 +1379,23 @@ html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { posi
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
 html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active { transform: scale(0.92); }
 
-/* --- 4. Lifters --- */
-/* Sections on the 4-point grid: 24 between sections, 8 from a title to its card. */
-.cl-phone .cl-pcol { gap: 0; }
-.cl-phone .cl-pcol > * + * { margin-top: 24px; }
-.cl-phone .cl-pcol > .cl-gh-do { margin: 0 0 8px; }
-.cl-phone .cl-pcol > .cl-gh-do + .cl-do { margin-top: 0; }
-.cl-phone .cl-pcol > .cl-search-ph + .cl-groups { margin-top: 16px; }
-.cl-phone .cl-gh { margin: 0 0 8px; }
-.cl-phone .cl-grp + .cl-grp { margin-top: 24px; }
-.cl-phone .cl-pweek { margin-top: 24px; }
-/* Do first: a list with one red. The most urgent job keeps its fix as the screen's one red button; the
-   others put theirs at the row's end as a small graphite button. The whole row opens the lifter. */
-.cl-do.is-phone .cl-job.is-big { position: relative; gap: 12px; padding: 14px 14px 14px 14px; border-bottom: 0; transition: background-color 140ms ease-out; }
-.cl-do.is-phone .cl-job.is-big + .cl-job.is-big::before { content: ''; position: absolute; top: 0; left: 60px; right: 0; height: 1px; background: var(--cl-line); }
-.cl-do.is-phone .cl-jmain::after { content: ''; position: absolute; inset: 0; }
-.cl-do.is-phone .cl-job :is(.cl-btn, .cl-sbtn) { position: relative; z-index: 1; }
-.cl-do.is-phone .cl-job:has(> .cl-jmain:active) { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
-.cl-do.is-phone .cl-job:has(> .cl-jmain:active)::before, .cl-do.is-phone .cl-job:has(> .cl-jmain:active) + .cl-job::before { opacity: 0; }
-.cl-do.is-phone .cl-jt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; }
-
-
-.cl-do.is-phone .cl-jtx { gap: 2px; }
-.cl-do.is-phone .cl-jd { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
-.cl-do.is-phone .cl-btn { height: 44px; }
-.cl-do.is-phone .cl-sbtn {
-  align-self: center; height: 34px; padding: 0 14px; border-radius: 999px; box-shadow: none;
-  background: var(--ch-fill-3); color: var(--text); font: 600 15px/1 var(--font-body, inherit) !important;
-}
-.cl-do.is-phone .cl-sbtn::after { content: ''; position: absolute; inset: -5px -4px; }
-.cl-do.is-phone .cl-sbtn:active { transform: scale(0.96); background: var(--ch-fill-4); }
-.cl-do.is-phone .cl-job .cl-sbtn { flex: none; }
-
-/* The groups: inset hairlines from the name (iOS grouped lists), a row lights on press like the lifter app's rows. */
-.cl-phone .cl-list .cl-row { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
-.cl-phone .cl-list .cl-row + .cl-row::before { content: ''; position: absolute; top: 0; left: 66px; right: 0; height: 1px; background: var(--cl-line); }
-.cl-phone .cl-list .cl-row:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
-.cl-phone .cl-list .cl-row:active::before, .cl-phone .cl-list .cl-row:active + .cl-row::before { opacity: 0; }
-.cl-phone .cl-n small { font-size: 13px; }
-.cl-phone .cl-search-ph { height: 44px; }
-
-/* Money owed: one row-card, the same radius as the lists, a press like any tappable card. */
-.cl-phone .cs-dueline { min-height: 56px; padding: 10px 16px 10px 14px; border-radius: var(--cl-r); transition: background-color 140ms ease-out, transform 140ms ease-out; }
-.cl-phone .cs-dueline:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); transform: scale(0.985); }
-/* This week: four tiles, each a number and (where it is a share) one thin bar; no chart needs a key. */
-.cl-pweek .cl-tiles.is-compact { gap: 12px; }
-.cl-pweek .cl-tiles.is-compact .cl-tile { border-radius: var(--cl-r); padding: 14px 14px 13px; gap: 8px; }
-.cl-pweek .cl-tiles.is-compact .cl-tv { margin-top: 2px; }
-.cl-meter { display: flex; gap: 2px; height: 4px; }
-.cl-meter i { flex: 1 1 0; min-width: 3px; border-radius: 2px; background: var(--text-2); }
-.cl-meter i.is-warn { background: var(--cl-down); }
-.cl-meter i.is-rest { background: var(--ch-fill-4); }
-.cl-pweek .cl-nm:active { color: var(--text); opacity: 0.7; }
-
-/* The tab's entrance: the cards and rows rise in reading order (renderPhone numbers them), not on a pop back. */
-html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]) [data-pane="athletes"]:not(.hidden) .cl-phone:not(.is-wide) :is(.cl-do > .cl-job, .cl-list > .cl-row, .cs-dueline, .cl-pweek .cl-tile) {
-  animation: chRise 320ms cubic-bezier(0.23, 1, 0.32, 1) calc(var(--i, 0) * 40ms) backwards;
-}
 /* Pending invites: the same section title as the groups; the code in the body face, not wide display caps. */
 html.native:not(.desk) section[data-pane="athletes"] #invitesWrap { margin-top: 4px; }
 html.native:not(.desk) section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 0 8px; padding: 0 4px; font-size: 20px; }
 html.native:not(.desk) #invitesList .ui-row-title { font-family: var(--font-body); font-stretch: 100%; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 
-/* --- 5. A lifter, pushed in --- */
-/* One card radius (20) for every card on the page; the flag, the links and the small tiles were 16 and 18. */
-.cl-pg-phone :is(.cl-flag, .cl-hero, .cl-lift, .cl-tile, .cl-links, .cl-empty, .cl-wnrow), .cl-pg-phone .cl-tile.is-compact { border-radius: var(--cl-r); }
-
-.cl-pg-phone .cl-wnrow { transition: background-color 140ms ease-out, transform 140ms ease-out; }
-.cl-pg-phone .cl-wnrow:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); transform: scale(0.985); }
+/* --- 4. Lifters and 5. a lifter: the phone draws them in coach-app.js / coach-app.css since 28 Oct. What stays
+   here dresses the charts its Progress view borrows from coach-lifters.js (chartsHtml in a .cl-pg-phone). --- */
+/* One card radius (20) for every chart card. */
+.cl-pg-phone :is(.cl-hero, .cl-lift, .cl-tile), .cl-pg-phone .cl-tile.is-compact { border-radius: var(--cl-r); }
 
 /* A lift tile's PR is the app's gold word, not a capsule: "Deadlift" and its PR fit a phone third (it pushed
    past the tile's edge on a 375 pt iPhone). */
 .cl-pg-phone .cl-lh { gap: 6px; }
 .cl-pg-phone .cl-lh .dot { width: 8px; height: 8px; }
 .cl-pg-phone .cl-pr-b { padding: 0; background: none; border-radius: 0; font-size: 13px; letter-spacing: 0.01em; }
-/* Secondary buttons are a graphite fill (no outline), quiet ones are text; both are 44 pt tall. */
-html:not(.desk) :is(.cl-pg-phone, .cl-phone) .cl-btn:not(.red):not(.quiet) { background: var(--ch-fill-3); box-shadow: none; }
-html:not(.desk) :is(.cl-pg-phone, .cl-phone) .cl-btn:not(.red):not(.quiet):active { background: var(--ch-fill-4); }
-html:not(.desk) .cl-pg-phone .cl-btn { min-height: 44px; }
-html:not(.desk) .cl-pg-phone .cl-quiet { height: 44px; }
-html:not(.desk) .cl-pg-phone .cl-btn.quiet:active, html:not(.desk) .cl-pg-phone .cl-quiet:active { color: var(--text); }
-html:not(.desk) .cl-pg-phone .cl-link { padding: 12px 6px; margin: -12px -6px; }
+/* The meet tile's Set attempts: a 44 pt target. */
 html:not(.desk) .cl-pg-phone .cl-mplan { min-height: 44px; margin: -4px 0 -10px; }
-/* The links card: rows light on press, the hairline beside a lit row steps aside. */
-.cl-pg-phone .cl-links .cl-everything { transition: background-color 140ms ease-out; }
-.cl-pg-phone .cl-links .cl-everything:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
-.cl-pg-phone .cl-links .cl-everything:active::before, .cl-pg-phone .cl-links .cl-everything:active + .cl-everything::before { opacity: 0; }
 
 /* --- 6. Messages --- */
 /* The inbox: faces without the old status rings (they came from the roster's faces, which are gone, and
@@ -1540,12 +1414,8 @@ html:not(.desk) body.powa-app .msg-inbox .msg-inbox-preview { font-size: 15px; }
 html.native:not(.desk) body.powa-app .msg-row.theirs .msg-bubble { border-color: transparent; }
 
 
-/* --- 7. Program --- */
-/* The week chips and a day's ⋯ reach 44 pt; the builder's own look stays. Chips and the maxes press. */
-html:not(.desk) body.powa-app #programArea .week-tab { min-height: 40px; transition: transform 140ms ease-out, background-color 150ms ease-out; }
-html:not(.desk) body.powa-app #programArea :is(.week-tab, .pb-maxes):active { transform: scale(0.96); }
+/* --- 7. Program (the phone's Programs is coach-program.js since 28 Oct; Add exercise and Templates stay here) --- */
 
-html:not(.desk) body.powa-app #programArea .pb-day-head > .ui-icon-btn { width: 44px; height: 44px; }
 /* Add exercise (the full form, a sheet on the phone): the presets on one row of their own instead of
    "3×5 @ / 7" wrapped in a cramped switch; every set on one line (the remove button fell to a line of
    its own); the columns named once; sentence case ("Set 1", not "SET / 1"). */
@@ -1568,7 +1438,7 @@ html:not(.desk) section[data-pane="templates"] .template-card .btn-danger svg { 
 
 /* --- 8. You › Clients and Lifter progress --- */
 /* One large title size on every screen (32, the lifter app's): Clients and a lifter's name were 28. */
-html:not(.desk) .cs-ph .cl-h1, html:not(.desk) .cl-pg-phone:not(.is-wide) .cl-pname { font-size: 32px; line-height: 1.08; text-wrap: balance; }
+html:not(.desk) .cs-ph .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap: balance; }
 /* Clients: the tiles take the card radius; the rows get inset hairlines and the press of every list row. */
 .cs-page.is-phone .cl-tile { border-radius: var(--cl-r); }
 .cs-r.is-phone { position: relative; border-bottom: 0; transition: background-color 140ms ease-out; }
@@ -1604,15 +1474,8 @@ html.native:not(.desk) .ai-chip:active { transform: scale(0.96); background: var
 html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 999px; padding: 4px 4px 4px 16px; }
 html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%; }
 
-/* The iPad / Duo layout: the lifter page's scroller gives a heavy title's first letter room (the T of
-   "Tom" lost its left arm at the scroller's edge). */
-.cl-phone.is-wide .cl-wpage { padding-left: 3px; margin-left: -3px; }
-
 /* --- 10. The first run (no lifters yet) --- */
 
-/* The sample under "Your roster, once they train" is the real Lifters list (coach.html buildRosterSample). */
-.cl-phone.fr-cl { margin: 0; gap: 0; }
-.cl-phone.fr-cl .cl-row { cursor: default; }
 /* The setup card on the type scale: its headline 22 (was 26), the step numbers and the Sample chip 13. */
 html.native:not(.desk) .fr-wrap .fr-title { font-size: 22px; }
 html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
@@ -1621,8 +1484,8 @@ html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   /* No sideways travel: the page fades up from .45 instead (dash-fx.css turns the tab settle off). */
   html.native:not(.desk) body.powa-app:is([data-nav="push"], [data-nav="pop"]) .dash-main > section[data-pane]:not(.hidden) { animation: clFadeIn 180ms ease-out backwards !important; }
-  html:not(.desk) .cl-do.is-phone .cl-sbtn:active, html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active, .cl-phone .cs-dueline:active, .cl-pg-phone .cl-wnrow:active,
-  html:not(.desk) body.powa-app #programArea :is(.week-tab, .pb-maxes):active, .cs-page.is-phone .cs-filters button:active, html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: none; }
+  html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active,
+  .cs-page.is-phone .cs-filters button:active, html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: none; }
 }
 
 /* ===== desk polish (27 Oct) =====

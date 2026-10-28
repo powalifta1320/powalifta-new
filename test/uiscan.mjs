@@ -34,8 +34,21 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   screens.push({ name: 'a-career-open' + suf, page: A, theme, eval: tab('career') + ";document.querySelectorAll('.cv-more').forEach(b => b.click())" },
     { name: 'sh-career' + suf, page: C, theme, eval: "Career.openSheet('demo-a1')" });
   if (theme === 'dark') for (const t of ['today', 'program', 'progress', 'coach', 'library', 'you', 'career']) screens.push({ name: 's-' + t, page: SO, eval: t === 'today' ? null : tab(t) });
-  for (const t of ['athletes', 'program', 'messages', 'club', 'you', 'templates', 'progress']) screens.push({ name: 'c-' + t + suf, page: C, theme, eval: t === 'athletes' ? null : tab(t) });
-  for (const t of ['athletes', 'program', 'messages', 'you', 'templates']) screens.push({ name: 'f-' + t + suf, page: F, theme, eval: t === 'athletes' ? null : tab(t) });
+  // The coach app lands on Home (coach-app.js, 28 Oct); Lifters, Programs and the rest are a tab away.
+  for (const t of ['home', 'athletes', 'program', 'messages', 'club', 'challenges', 'you', 'templates', 'progress']) screens.push({ name: 'c-' + t + suf, page: C, theme, eval: t === 'home' ? null : tab(t) });
+  for (const t of ['home', 'athletes', 'program', 'messages', 'you', 'templates']) screens.push({ name: 'f-' + t + suf, page: F, theme, eval: t === 'home' ? null : tab(t) });
+  // A lifter's card and the views its rows push in; Programs' editor sheet and lifter picker; Home's sheets.
+  screens.push(
+    { name: 'c-lifter' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1')" },
+    { name: 'c-lifter-progress' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1');setTimeout(() => document.querySelector('[data-act=progress]').click(), 300)" },
+    { name: 'c-lifter-notes' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1');setTimeout(() => document.querySelector('[data-row=notes]').click(), 300)" },
+    { name: 'c-lifter-client' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1');setTimeout(() => document.querySelector('[data-act=client]').click(), 300)" },
+    { name: 'sh-program-editor' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-page[data-day=\"2\"] .cp-exrow').click(), 400)" },
+    { name: 'sh-program-editor-w2' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => { document.querySelectorAll('.cp-wk')[1].click(); setTimeout(() => document.querySelector('.cp-page[data-day=\"0\"] .cp-exrow').click(), 400); }, 400)" },
+    { name: 'sh-program-pick' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-title').click(), 400)" },
+    { name: 'sh-home-search' + suf, page: C, theme, eval: 'CoachApp.openSearch()' },
+    { name: 'sh-home-checkins' + suf, page: C, theme, eval: 'CoachApp.openCheckins()' },
+    { name: 'sh-home-wins' + suf, page: C, theme, eval: 'CoachApp.openWins()' });
   // Capacity (You › Capacity) for the demo coach and a brand-new one; a lifter's busy-week sheet.
   screens.push({ name: 'c-capacity' + suf, page: C, theme, eval: tab('capacity') }, { name: 'f-capacity' + suf, page: F, theme, eval: tab('capacity') },
     { name: 'sh-busy' + suf, page: A, theme, eval: 'BusyWeekUI.open()' });

@@ -7116,7 +7116,8 @@ test('who needs you: open jobs due this week, worst first, each lifter once', ()
   eq(CA.caNeedIds(jobs, 0).join(','), 'b,c,a', 'tier 0 only');
   eq(CA.caNeedIds([caJob(a, 'write', 4)]).length, 0, 'next week to write is planning, not "needs you"');
   const lead = CA.caLeadJobs(jobs, CA.caNeedIds(jobs));
-  eq(lead.map(x => x.id + ':' + x.job.type).join(','), 'b:meetday,c:meetday,a:pain', "each lifter's worst open job, in the jobs' order");
+  eq(lead.map(x => x.id + ':' + x.job.type).join(','), 'b:meetday,a:pain', "each lifter's worst open job, in the jobs' order; a meet day once");
+  eq(lead[0].rows.map(r => r.athlete.id).join(','), 'b,c', 'everyone at the meet');
 });
 test('the week ring: segments, trained, behind', () => {
   const w = CA.caWeek(1, 3);
@@ -7180,6 +7181,26 @@ test("the focal job as a sentence about the lifter", () => {
   eq(CA.caFocalTitle(caJob(caRow('l', 'Leo'), 'overshoot', 2, { reason: { type: 'overshoot', text: 'Bench @9 vs @8' } })), 'Leo’s bench felt heavier than you wrote');
   eq(CA.caFocalDetail(caJob(caRow('a', 'Arjun'), 'message', 2), { title: 'Wrote you · 19 hours ago', detail: 'Voice note · 0:24' }), '19 hours ago · voice note 0:24');
 });
+test('a busy week names its days, and Approve says what it agrees to', () => {
+  const n = caRow('n', 'Nina P');
+  eq(CA.caFocalTitle(caJob(n, 'busy', 1, { info: { days: 2 } })), 'Nina can train 2 days this week');
+  eq(CA.caFocalTitle(caJob(n, 'busy', 0, { info: { days: 0 } })), 'Nina can’t train this week');
+  eq(CA.caFixLabel(caJob(n, 'busy', 1, { info: { days: 2 } }), { label: 'Approve' }), 'Approve 2 days');
+  eq(CA.caFixLabel(caJob(n, 'busy', 1, { info: { days: 1 } }), { label: 'Approve' }), 'Approve 1 day');
+  eq(CA.caFixLabel(caJob(n, 'busy', 0, { info: { days: 0 } }), { label: 'Approve' }), 'Approve', 'no days left: the plain word');
+  eq(CA.caFixLabel(caJob(n, 'pain', 0), { label: 'Ask how it feels' }), 'Ask how it feels', 'every other job keeps its fix’s words');
+  eq(CA.caFixLabel(caJob(n, 'pain', 0), null), 'Open');
+});
+test("a lifter's header line: under the bar, the meet with their weight, or on plan", () => {
+  const r = caRow('t', 'Tom', { meet: { days: 23, meet: { name: 'Autumn Open' } }, bw: { bw: 84.1, cls: 83, over: 1.1 } });
+  eq(CA.caHeadChip(Object.assign({}, r, { live: { sets: 1 } }), null).text, 'Training now');
+  eq(CA.caHeadChip(r, null).text, 'Autumn Open in 23 days · 84.1 kg in the 83s');
+  eq(CA.caHeadChip(r, { type: 'meet', tier: 1 }).text, 'Autumn Open · 84.1 kg in the 83s', 'the flag already says when');
+  eq(CA.caHeadChip(caRow('m', 'Mo', { meet: { days: 1, meet: { name: 'City Open' } } }), null).text, 'City Open is tomorrow');
+  eq(CA.caHeadChip(caRow('a', 'Ada'), { type: 'message', tier: 2 }), null, 'needs you: the flag below says it');
+  eq(CA.caHeadChip(caRow('a', 'Ada'), null).text, 'On plan');
+  eq(CA.caHeadChip(caRow('b', 'Bo', { status: { program: null } }), null), null, 'no block: the line above says it');
+});
 test('check-ins: who answered this week, anything flagged first', () => {
   const qs = [{ id: 'q1', coachId: 'c', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true }];
   const t = '2026-10-28';
@@ -7219,6 +7240,16 @@ test('a day: its summary, rest days, the day to open', () => {
   eq(CPg.cpNextDay(wk), 1, 'the first day with a set still to do');
   eq(CPg.cpNextDay({ days: [{ exercises: [{ sets: [{ completed: true }] }] }] }), 0, 'all done: the first');
   eq(CPg.cpLoadStep(false, 'kg'), 2.5); eq(CPg.cpLoadStep(false, 'lb'), 5); eq(CPg.cpLoadStep(true, 'kg'), 2.5);
+});
+test('the load their e1RM points to: the app’s own RPE table, rounded to their jump', () => {
+  eq(CPg.cpExpectedLoad(200, 1, 3, 8, 2.5), 172.5, '3 @ 8 from a 200 e1RM');
+  eq(CPg.cpExpectedLoad(200, 1, 1, 10, 2.5), 200, 'a single at 10 is the e1RM');
+  eq(CPg.cpExpectedLoad(200, 1.1, 3, 8, 2.5), 157.5, 'a harder variant asks for less');
+  eq(CPg.cpExpectedLoad(200, 1, 3, 8, 2.5), Math.round(200 * rpeLoadPct(3, 8) / 2.5) * 2.5, 'the same table as Train’s suggestion');
+  eq(CPg.cpExpectedLoad(0, 1, 3, 8, 2.5), 0, 'no e1RM, no hint');
+  eq(CPg.cpExpectedLoad(200, 1, 0, 8, 2.5), 0, 'no reps, no hint');
+  eq(CPg.cpExpectedLoad(200, 1, 3, null, 2.5), 0, 'no RPE (a back-off by feel), no hint');
+  eq(CPg.cpExpectedLoad(200, 1, 3, 4, 2.5), 0, 'below RPE 5 is not a number to work from');
 });
 
 function render() {

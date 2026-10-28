@@ -69,6 +69,14 @@
     }
     return 0;
   }
+  // The load their best e1RM points to for reps at an RPE (the app's own math: suggestNewLoad), rounded to
+  // their jump. e1: competition-equivalent e1RM in kg; mult: the variant's multiplier. 0 when it can't say.
+  function cpExpectedLoad(e1, mult, reps, rpe, stepKg) {
+    var e = Number(e1), m = Number(mult) || 1, r = Number(reps), p = Number(rpe), st = Number(stepKg) || 2.5;
+    if (!(e > 0) || !(r >= 1) || !(p >= 5 && p <= 10)) return 0;
+    var adj = (r - 1) + (10 - p), pct = typeof rpeLoadPct === 'function' ? rpeLoadPct(r, p) : adj <= 0 ? 1 : Math.max(0.4, 1 - adj * 0.0333);
+    return Math.round(e / m * pct / st) * st;
+  }
   // A step for the load stepper in the unit shown: the lifter's jump (2.5 kg, 5 lb) or 2.5 for a %.
   function cpLoadStep(pctMode, u) { return pctMode ? 2.5 : (u === 'lb' || u === 'lbs' ? 5 : 2.5); }
 
@@ -145,8 +153,8 @@
     if (!h) return;
     var a = (Store.get().athletes || []).find(function (x) { return x.id === aid; });
     if (!a) { h.textContent = 'Programs'; return; }
-    h.innerHTML = '<button type="button" class="cp-who" aria-haspopup="dialog" aria-label="' + esc(a.name) + '. Choose a lifter"><span>' + esc(first(a.name)) + '</span>' + CHEV_DOWN + '</button>';
-    h.querySelector('.cp-who').addEventListener('click', openPicker);
+    h.innerHTML = '<button type="button" class="cp-title" aria-haspopup="dialog" aria-label="' + esc(a.name) + '. Choose a lifter"><span>' + esc(first(a.name)) + '</span>' + CHEV_DOWN + '</button>';
+    h.querySelector('.cp-title').addEventListener('click', openPicker);
   }
   function openPicker() {
     var list = roster();
@@ -191,8 +199,8 @@
     var sessions = prog.weeks.reduce(function (n, w) { return n + (w.days || []).filter(function (d) { return (d.exercises || []).length; }).length; }, 0);
     var r = rowOf(aid), wk = r && r.status && r.status.week;
     var meta = [wk && wk.total ? 'Week ' + (wk.idx + 1) + ' of ' + wk.total : plural(prog.weeks.length, 'week'), plural(sessions, 'session')];
-    if (allSets.length) meta.push(Math.round(done / allSets.length * 100) + '% logged');
-    h.appendChild(el('p', { class: 'cp-meta' }, meta.join(' · ')));
+    if (allSets.length) meta.push(Math.round(done / allSets.length * 100) + '% done');
+    h.appendChild(el('p', { class: 'cp-blockmeta' }, meta.join(' · ')));
     // The maxes % sets work from: shown when the block uses them.
     if (allSets.some(function (x) { return x.pct != null; }) || (prog.maxes && Object.keys(prog.maxes).length)) {
       var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; return v > 0 ? LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)) : null; }).filter(Boolean);
@@ -338,7 +346,7 @@
   function tileOf(ex) { return typeof _pbTile === 'function' ? _pbTile(ex) : String(exTitle(ex)).charAt(0).toUpperCase(); }
   // An exercise: its tile and name, then each block of sets as Train says it, the note, what was lifted.
   function exRowEl(prog, aid, wi, di, ex, ei) {
-    var b = el('button', { type: 'button', class: 'cp-ex' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc'), 'aria-label': 'Edit ' + exTitle(ex) });
+    var b = el('button', { type: 'button', class: 'cp-exrow' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc'), 'aria-label': 'Edit ' + exTitle(ex) });
     var html = '<span class="cp-tile" aria-hidden="true">' + esc(tileOf(ex)) + '</span><span class="cp-ex-main"><span class="cp-ex-t">' + esc(exTitle(ex)) + '</span>';
     if (ex.lift === 'cardio') {
       html += '<span class="cp-set"><span class="cp-set-l">' + esc(plural((ex.sets || []).length, 'bout')) + '</span></span>';
@@ -409,6 +417,9 @@
     setWeek(wi);
     uiSheet(exTitle(ex0), function (sheet, close) {
       var body = el('div', { class: 'cp-ed' });
+      var tools = el('div', { class: 'cp-ed-tools' });
+      var doneTop = el('button', { type: 'button', class: 'cp-ed-done' }, 'Done');
+      doneTop.addEventListener('click', function () { close(); });
       var more = el('button', { type: 'button', class: 'cp-ibtn cp-ed-more', 'aria-label': 'Exercise options', html: DOTS });
       more.addEventListener('click', function () {
         var prog = progOf(aid), d = prog && prog.weeks[wi] && prog.weeks[wi].days[di];
@@ -420,7 +431,8 @@
           { label: 'Remove', icon: ICONS.trash, danger: true, onClick: function () { close(); deleteExercise(wi, di, ei); } }
         ]);
       });
-      sheet.appendChild(more);
+      tools.appendChild(more); tools.appendChild(doneTop);
+      sheet.appendChild(tools);
       sheet.appendChild(body);
       var paint = function () { paintEditor(body, aid, wi, di, ei, close); };
       S.sheetRepaint = paint;
@@ -470,7 +482,7 @@
       }
       var blocks = typeof groupSets === 'function' ? groupSets(ex.sets) : [];
       var sfDef = typeof programSetFields === 'function' ? programSetFields(prog) : { on: [], cols: [] };
-      blocks.forEach(function (blk, bi) { body.appendChild(blockEl(body, aid, wi, di, ei, ex, blk, bi, blocks.length, main, maxKg, sfDef, close)); });
+      blocks.forEach(function (blk, bi) { body.appendChild(blockEl(body, aid, wi, di, ei, ex, blk, bi, blocks.length, main, maxKg, sfDef, close, blocks)); });
       var addB = el('button', { type: 'button', class: 'ca-btn is-soft cp-ed-add' });
       addB.innerHTML = PLUS + '<span>Add sets</span>';
       addB.addEventListener('click', function () { addBlock(wi, di, ei); paintEditor(body, aid, wi, di, ei, close); });
@@ -482,15 +494,13 @@
     var ta = el('textarea', { class: 'coach-note-input cp-ed-ta', rows: '2', placeholder: 'Slow down, pause at the bottom, belt on...' });
     ta.value = ex.note || '';
     ta.addEventListener('input', function () {
-      Store.update(function (s) { var p = s.programs.find(function (x) { return x.athleteId === aid; }); var e2 = p && p.weeks[wi] && p.weeks[wi].days[di] && p.weeks[wi].days[di].exercises[ei]; if (e2) e2.note = ta.value; });
+      Store.update(function (s) { var p = s.programs.find(function (x) { return x.id === prog.id; }); var e2 = p && p.weeks[wi] && p.weeks[wi].days[di] && p.weeks[wi].days[di].exercises[ei]; if (e2) e2.note = ta.value; });
       if (typeof persistProgram === 'function') persistProgram(prog.id);
       bgRefresh();
     });
     nl.appendChild(ta);
     body.appendChild(nl);
-    var done = el('button', { type: 'button', class: 'ca-btn is-soft cp-ed-done' }, 'Done');
-    done.addEventListener('click', close);
-    body.appendChild(done);
+    body.appendChild(el('p', { class: 'cp-ed-saved' }, 'Changes save as you make them.'));
   }
   function segEl(label, opts, onPick) {
     var wrap = el('div', { class: 'cp-tg' });
@@ -505,12 +515,19 @@
     return wrap;
   }
   // One block of identical sets: four steppers. A block with a logged set reads as it was lifted.
-  function blockEl(body, aid, wi, di, ei, ex, blk, bi, nBlocks, main, maxKg, sfDef, close) {
+  function blockEl(body, aid, wi, di, ei, ex, blk, bi, nBlocks, main, maxKg, sfDef, close, all) {
     var box = el('div', { class: 'cp-blk' });
     var sets = (ex.sets || []).slice(blk.startIdx, blk.startIdx + blk.count);
     var logged = sets.some(function (s) { return s.completed; });
     var head = el('div', { class: 'cp-blk-h' });
-    head.appendChild(el('span', { class: 'cp-blk-t' }, nBlocks > 1 ? (bi === 0 ? 'First' : bi === 1 && nBlocks === 2 ? 'Then' : 'Then') + ' · ' + cpSetText(blk, unit(), disp) : cpSetText(blk, unit(), disp)));
+    // The block's line in Train's words, kept true as the steppers move.
+    var headT = el('span', { class: 'cp-blk-t' });
+    var paintHead = function () {
+      var role = nBlocks < 2 ? '' : bi === 0 ? (blk.count === 1 ? 'Top set' : 'First') : 'Back-offs';
+      headT.textContent = (role ? role + ' · ' : '') + cpSetText(blk, unit(), disp);
+    };
+    paintHead();
+    head.appendChild(headT);
     if (nBlocks > 1 && !logged) {
       var x = el('button', { type: 'button', class: 'cp-blk-x', 'aria-label': 'Remove these sets' });
       x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -526,47 +543,114 @@
     var u = unit(), pctMode = blk.pct != null;
     // Sets
     grid.appendChild(stepCell('Sets', uiStepper({ value: blk.count, step: 1, min: 1, max: 20, label: 'sets', fmt: function (v) { return String(v); },
-      onChange: function (v) { setBlockCount(wi, di, ei, blk.startIdx, blk.count, v); blk.count = v; } })));
+      onChange: function (v) {
+        var delta = v - blk.count;
+        setBlockCount(wi, di, ei, blk.startIdx, blk.count, v);
+        blk.count = v;
+        // The blocks after this one start later (or earlier) now: keep their steppers on their own sets.
+        (all || []).forEach(function (b2, j) { if (j > bi) b2.startIdx += delta; });
+        paintHead();
+      } })));
     // Reps
     grid.appendChild(stepCell('Reps', uiStepper({ value: Number(blk.reps) || 1, step: 1, min: 1, max: 30, label: 'reps', fmt: function (v) { return String(v); },
-      onChange: function (v) { setBlockRx(wi, di, ei, blk.startIdx, blk.count, { reps: v }); blk.reps = v; bgRefresh(); } })));
+      onChange: function (v) { setBlockRx(wi, di, ei, blk.startIdx, blk.count, { reps: v }); blk.reps = v; bgRefresh(); paintHead(); paintHint(); } })));
     // Load: a weight in the unit shown, or a % of their max (worked out to a load beside it)
     var calc = el('span', { class: 'cp-calc' });
     var paintCalc = function () { calc.textContent = pctMode ? (blk.weight > 0 ? '= ' + disp(blk.weight) + (blk.weightHi > blk.weight ? '–' + disp(blk.weightHi) : '') + ' ' + u : (main ? 'No max yet' : '')) : ''; };
     if (pctMode) {
       var span = blk.pctHi != null ? Number(blk.pctHi) - Number(blk.pct) : null;
-      grid.appendChild(stepCell('% of max', uiStepper({ value: Number(blk.pct) || 0, step: cpLoadStep(true), min: 0, max: 120, label: 'percent', fmt: function (v) { return n2(v) + (span ? '–' + n2(v + span) : '') + '%'; },
-        onChange: function (v) {
-          var kg = maxKg ? pctLoadKg(v, maxKg) : 0, hi = span ? v + span : null, kgHi = hi && maxKg ? pctLoadKg(hi, maxKg) : 0;
-          setBlockRx(wi, di, ei, blk.startIdx, blk.count, { pct: v, pctHi: hi, weight: kg || blk.weight || 0, weightHi: kgHi > kg ? kgHi : null });
-          blk.pct = v; blk.pctHi = hi; if (kg) blk.weight = kg; blk.weightHi = kgHi > kg ? kgHi : null; paintCalc(); bgRefresh();
-        } }), calc));
+      var onPct = function (v) {
+        var kg = maxKg ? pctLoadKg(v, maxKg) : 0, hi = span ? v + span : null, kgHi = hi && maxKg ? pctLoadKg(hi, maxKg) : 0;
+        setBlockRx(wi, di, ei, blk.startIdx, blk.count, { pct: v, pctHi: hi, weight: kg || blk.weight || 0, weightHi: kgHi > kg ? kgHi : null });
+        blk.pct = v; blk.pctHi = hi; if (kg) blk.weight = kg; blk.weightHi = kgHi > kg ? kgHi : null; paintCalc(); paintHead(); bgRefresh();
+      };
+      var pctSt = uiStepper({ value: Number(blk.pct) || 0, step: cpLoadStep(true), min: 0, max: 120, label: 'percent', fmt: function (v) { return n2(v) + (span ? '–' + n2(v + span) : '') + '%'; }, onChange: onPct });
+      grid.appendChild(stepCell('% of max', typeable(pctSt, 'Type the percent', onPct), calc));
       paintCalc();
     } else {
       var wD = Number(blk.weight) > 0 ? Number(disp(blk.weight)) : 0, hiD = Number(blk.weightHi) > Number(blk.weight) ? Number(disp(blk.weightHi)) - wD : 0;
-      grid.appendChild(stepCell('Load', uiStepper({ value: wD, step: cpLoadStep(false, u), min: 0, max: 1000, label: 'load', fmt: function (v) { return v > 0 ? n2(v) + (hiD ? '–' + n2(v + hiD) : '') + '<small> ' + esc(u) + '</small>' : 'By feel'; },
-        onChange: function (v) {
-          var kg = v > 0 && typeof displayToKg === 'function' ? displayToKg(v) : v, hk = hiD && v > 0 && typeof displayToKg === 'function' ? displayToKg(v + hiD) : null;
-          setBlockRx(wi, di, ei, blk.startIdx, blk.count, { weight: kg, weightHi: hk });
-          blk.weight = kg; blk.weightHi = hk; bgRefresh();
-        } })));
+      var onLoad = function (v) {
+        var kg = v > 0 && typeof displayToKg === 'function' ? displayToKg(v) : v, hk = hiD && v > 0 && typeof displayToKg === 'function' ? displayToKg(v + hiD) : null;
+        setBlockRx(wi, di, ei, blk.startIdx, blk.count, { weight: kg, weightHi: hk });
+        blk.weight = kg; blk.weightHi = hk; bgRefresh(); paintHead(); paintHint();
+      };
+      var loadSt = uiStepper({ value: wD, step: cpLoadStep(false, u), min: 0, max: 1000, label: 'load', fmt: function (v) { return v > 0 ? n2(v) + (hiD ? '–' + n2(v + hiD) : '') + '<small> ' + esc(u) + '</small>' : 'By feel'; }, onChange: onLoad });
+      grid.appendChild(stepCell('Load', typeable(loadSt, 'Type the load in ' + u, onLoad)));
     }
     // Effort: RPE in half steps (blank is "none", for back-off sets), or reps in reserve
     if (blk.rir) {
       var rLo = blk.rpe != null ? 10 - (blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) : Number(blk.rpe)) : 2, rSpan = blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) - Number(blk.rpe) : 0;
       grid.appendChild(stepCell('Reps left', uiStepper({ value: rLo, step: 0.5, min: 0, max: 5, label: 'reps in reserve', fmt: function (v) { return n2(v) + (rSpan ? '–' + n2(v + rSpan) : '') + '<small> RIR</small>'; },
-        onChange: function (v) { var rpe = 10 - (v + rSpan), rpeHi = rSpan ? 10 - v : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: rpeHi }); blk.rpe = rpe; blk.rpeHi = rpeHi; bgRefresh(); } })));
+        onChange: function (v) { var rpe = 10 - (v + rSpan), rpeHi = rSpan ? 10 - v : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: rpeHi }); blk.rpe = rpe; blk.rpeHi = rpeHi; bgRefresh(); paintHead(); paintHint(); } })));
     } else {
       var eSpan = blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) - Number(blk.rpe) : 0;
       grid.appendChild(stepCell('RPE', uiStepper({ value: blk.rpe != null ? Number(blk.rpe) : 4.5, step: 0.5, min: 4.5, max: 10 - eSpan, label: 'RPE', fmt: function (v) { return v < 5 ? 'None' : '@ ' + n2(v) + (eSpan ? '–' + n2(v + eSpan) : ''); },
-        onChange: function (v) { var rpe = v < 5 ? null : v, hi = rpe != null && eSpan ? v + eSpan : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: hi }); blk.rpe = rpe; blk.rpeHi = hi; bgRefresh(); } })));
+        onChange: function (v) { var rpe = v < 5 ? null : v, hi = rpe != null && eSpan ? v + eSpan : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: hi }); blk.rpe = rpe; blk.rpeHi = hi; bgRefresh(); paintHead(); paintHint(); } })));
     }
     box.appendChild(grid);
+    // The load their e1RM points to for these reps at this effort: a suggestion, never a change on its own.
+    var hint = el('div', { class: 'cp-hint' });
+    box.appendChild(hint);
+    function paintHint() {
+      hint.innerHTML = '';
+      if (!main || pctMode || blk.rpe == null) return;
+      var e1 = typeof bestE1RM === 'function' ? bestE1RM(aid, ex.lift) : 0;
+      var stepKg = typeof loadStepKg === 'function' ? loadStepKg(u === 'lb' || u === 'lbs' ? 'lbs' : 'kg') : 2.5;
+      var mult = typeof multiplierFor === 'function' ? multiplierFor(ex.lift, ex.variant) : 1;
+      var top = blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) : Number(blk.rpe);
+      var kg = cpExpectedLoad(e1, mult, blk.reps, top, stepKg);
+      if (!kg) return;
+      var who = first(((Store.get().athletes || []).find(function (a) { return a.id === aid; }) || {}).name) || 'them';
+      var off = Math.abs((Number(blk.weight) || 0) - kg) >= stepKg * 2;
+      var rx = blk.rir ? n2(blk.reps) + ' with ' + n2(10 - top) + ' left' : n2(blk.reps) + ' @ ' + n2(top);
+      hint.appendChild(el('span', { class: 'cp-hint-t' }, rx + ' is about ' + disp(kg) + ' ' + u + ' for ' + who));
+      if (off) {
+        var use = el('button', { type: 'button', class: 'cp-hint-use' }, 'Use ' + disp(kg));
+        use.addEventListener('click', function () {
+          setBlockRx(wi, di, ei, blk.startIdx, blk.count, { weight: kg, weightHi: null });
+          blk.weight = kg; blk.weightHi = null; bgRefresh();
+          paintEditor(body, aid, wi, di, ei, close);
+        });
+        hint.appendChild(use);
+      }
+    }
+    paintHint();
     // Set fields the program shows (tempo, pauses, bands and chains, the coach's own columns).
     if (sfDef && ((sfDef.on || []).length || (sfDef.cols || []).length) && typeof setFieldsEditor === 'function') {
       box.appendChild(setFieldsEditor(sfDef, sets, function (patch) { setBlockFields(wi, di, ei, blk.startIdx, blk.count, patch); paintEditor(body, aid, wi, di, ei, close); }, { cls: 'pb-sf cp-sf', collapsible: true, key: ex.id + ':' + blk.startIdx }));
     }
     return box;
+  }
+  // Tap the number to type it: a load from nothing is seventy taps of the plus. Same path as the buttons.
+  function typeable(st, label, onSet) {
+    var val = st.querySelector('.st-val');
+    if (!val) return st;
+    val.classList.add('is-typeable');
+    val.setAttribute('role', 'button'); val.setAttribute('tabindex', '0'); val.setAttribute('aria-label', label);
+    var open = function () {
+      if (val.querySelector('input')) return;
+      var cur = st.getValue(), done = false;
+      var inp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', class: 'st-input cp-type', 'aria-label': label, placeholder: '0' });
+      inp.value = cur > 0 ? String(cur) : '';
+      val.innerHTML = '';
+      val.appendChild(inp);
+      inp.focus();
+      if (inp.select) inp.select();
+      var commit = function () {
+        if (done) return;
+        done = true;
+        var n = Number(inp.value);
+        if (inp.value !== '' && isFinite(n) && n >= 0) { st.setValue(n); if (st.getValue() !== cur) onSet(st.getValue()); } else st.setValue(cur);
+      };
+      inp.addEventListener('blur', commit);
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); done = true; st.setValue(cur); }
+      });
+    };
+    val.addEventListener('click', open);
+    val.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target === val) { e.preventDefault(); open(); } });
+    return st;
   }
   function stepCell(label, stepper, extra) {
     var c = el('div', { class: 'cp-step' });
@@ -625,6 +709,6 @@
     render: render, openEditor: openEditor, openPicker: openPicker, reset: reset,
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
-    cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep
+    cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad
   };
 })();
