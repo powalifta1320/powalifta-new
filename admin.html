@@ -482,7 +482,8 @@ function renderCoaches() {
         try {
           // Ask PostgREST to return the row so we can tell a real write from an
           // RLS-filtered no-op (0 rows, no error) — the exact silent-failure the
-          // missing profiles_admin_update policy caused. `.select()` makes it honest.
+          // missing admin UPDATE policy on profiles caused (profiles_admin_update; since migration-rls-perf-2026-10-28.sql
+          // the is_admin() arm of profiles_update). `.select()` makes it honest.
           // admin_set_plan (migration-payments-2026-10-22.sql) also clears the biller and the
           // end date, so a comp never lapses; before that migration, the direct update.
           let data = null, error = null;

@@ -1254,7 +1254,7 @@ const DB = {
     if (error) throw error;
     return data;
   },
-  // Coach declines → ordinary status UPDATE (allowed by cr_coach_update).
+  // Coach declines → ordinary status UPDATE (allowed by coach_requests_update, its coach_id = auth.uid() arm; cr_coach_update before migration-rls-perf-2026-10-28.sql).
   async declineCoachRequest(requestId) {
     const { error } = await sb.from('coach_requests')
       .update({ status: 'declined', updated_at: new Date().toISOString() }).in('id', [requestId]);

@@ -181,7 +181,8 @@ functions (`./deploy.sh functions`) so the server knows the new ids, then archiv
 - Admin dashboard → coaches table → the **plan `<select>`** writes `subscription_tier`.
 - This was **silently failing** until `migration-admin-plan-comp.sql`: there was no RLS policy
   admitting an admin to another user's `profiles` row, so PostgREST updated 0 rows and returned
-  no error (the toast lied). The migration adds `profiles_admin_update` (`USING is_admin()`),
+  no error (the toast lied). The migration adds `profiles_admin_update` (`USING is_admin()`; since
+  `migration-rls-perf-2026-10-28.sql` it is the `is_admin()` arm of the merged `profiles_update`),
   and the client now `.select()`s the row back and throws if 0 rows came back — so a missing
   policy surfaces as a real error instead of a fake success.
 - The privilege-guard trigger still blocks normal users from self-setting their tier, so this
