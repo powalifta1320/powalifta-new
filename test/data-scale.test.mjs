@@ -4,8 +4,9 @@
 //    failed page is tried again, then kept partial and said, the ceiling stops a read and says so, a set
 //    logged or deleted mid-read neither comes twice nor takes another with it (the overlap, the key, the
 //    page past the plan, the read that goes again), every paged read reads its own key, the hydrate's
-//    lists are complete on both branches, gear falls back, the coach inbox is one read, and the pain
-//    channel is filtered to the roster (100 ids a binding, no DELETE listener).
+//    lists are complete on both branches, gear falls back, the coach inbox is read fresh (one read under
+//    500 messages; a reply Realtime missed is still the last word), and the pain channel is filtered to
+//    the roster (100 ids a binding, no DELETE listener).
 // 2. The desk's numbers on generated rosters: app.js as it was at 9cca10b (from git) against this one,
 //    same rows, same clock. deskRows, coachAthleteStatus, isPRForLog, momentum, wins, trends, the roster
 //    overview and attention, the builder's hints, streaks; then again after a push, a live burst, edits in
@@ -373,24 +374,44 @@ await t('coach inbox: one read gives the digest and the unread when the coach ha
   x = loadDb({ messages: msgs });
   await Promise.all([x.DB.coachInbox(C), x.DB.listThreadsForCoach(C)]);
   eq(x.client.calls.length, 1, 'one read for both');
-  // A message heard live (a coach past 500 messages): folded into the digest kept, the unread read
-  // again: one read, and the same digest and counts a fresh read gives.
-  const T2 = { messages: many.slice() };
-  x = loadDb(T2);
-  await x.DB.coachInbox(C);
-  const n0 = x.client.calls.length;
-  const mk = (id, A, s, at, body) => ({ id, coach_id: C, athlete_id: A, sender_id: s, body, created_at: at, read_at: null, meta: null });
-  const live = [mk(uuid(r), ids[1], ids[1], new Date(Date.UTC(2026, 9, 28, 10)).toISOString(), 'heavy today?'), mk(uuid(r), ids[2], ids[2], new Date(Date.UTC(2026, 9, 28, 11)).toISOString(), 'done'),
-    Object.assign(mk(uuid(r), ids[0], C, new Date(Date.UTC(2026, 9, 28, 12)).toISOString(), 'Week 3 notes'), { meta: { weekly: true } })];   // the coach's own, a weekly note
-  live.forEach(m => T2.messages.push(m));
-  const heard = live.map(m => x.sbx.mapDbMessage(m));
-  const after = await x.DB.coachInbox(C, heard);
-  eq(x.client.calls.length - n0, 1, 'one read a message (the unread)');
-  const fresh = loadDb({ messages: T2.messages.slice() });
-  const [th2, un2] = await Promise.all([fresh.DB.listThreadsForCoach(C), fresh.DB.listUnreadForUser(C)]);
-  const lastOf = (list) => list.map(t => [t.athleteId, t.lastAt, t.lastSenderId, t.lastBody, t.weeklyAt || null]);
-  eq(lastOf(after.threads), lastOf(th2), 'who wrote last, as a fresh read says');
-  eq(count(after.unread), count(un2), 'the unread, as a fresh read says');
+  // Nothing is kept between refreshes: the coach's reply that Realtime never delivered (a socket half
+  // open after sleep, websockets blocked) is the last word at the next one, on both sides of 500.
+  const mk = (id, A, s, at, body, meta) => ({ id, coach_id: C, athlete_id: A, sender_id: s, body, created_at: at, read_at: null, meta: meta || null });
+  for (const [name, base, reads] of [['under 500', msgs, 1], ['past 500', many, 2]]) {
+    const T2 = { messages: base.slice() };
+    x = loadDb(T2);
+    T2.messages.push(Object.assign(mk(uuid(r), ids[1], ids[1], new Date(Date.UTC(2026, 9, 27, 6)).toISOString(), 'how was my squat?'), { read_at: '2026-10-27T07:00:00Z' }));
+    let got = await x.DB.coachInbox(C);
+    eq(got.threads.find(t => t.athleteId === ids[1]).lastSenderId, ids[1], name + ': their message waits');
+    T2.messages.push(mk(uuid(r), ids[1], C, new Date(Date.UTC(2026, 9, 28, 12)).toISOString(), 'looked solid'));   // never heard live
+    T2.messages.push(mk(uuid(r), ids[2], ids[2], new Date(Date.UTC(2026, 9, 28, 12, 5)).toISOString(), 'quick question'));   // the message that brings the refresh
+    T2.messages.push(mk(uuid(r), ids[0], C, new Date(Date.UTC(2026, 9, 28, 12, 10)).toISOString(), 'Week 3 notes', { weekly: '2026-10-27' }));
+    const n0 = x.client.calls.length;
+    got = await x.DB.coachInbox(C);
+    eq(x.client.calls.length - n0, reads, name + ': reads a refresh');
+    eq(got.threads.find(t => t.athleteId === ids[1]).lastSenderId, C, name + ': the reply is the last word');
+    const fresh = loadDb({ messages: T2.messages.slice() });
+    const [th2, un2] = await Promise.all([fresh.DB.listThreadsForCoach(C), fresh.DB.listUnreadForUser(C)]);
+    const lastOf = (list) => list.map(t => [t.athleteId, t.lastAt, t.lastSenderId, t.lastBody, t.weeklyAt || null]);
+    eq(lastOf(got.threads), lastOf(th2), name + ': who wrote last, as a fresh read says');
+    eq(count(got.unread), count(un2), name + ': the unread, as a fresh read says');
+  }
+  // A message heard live while a thread read is on its way: the read asked for after it is its own
+  // (the one on its way can't have it); with nothing heard in between, the two share one.
+  x = loadDb({ messages: msgs.slice() });
+  x.DB.subscribeMessages({ column: 'coach_id', value: C }, () => {});
+  const ch = x.client.chans[x.client.chans.length - 1];
+  const first = x.DB.coachInbox(C);
+  ch.binds[0].fn({ new: mk(uuid(r), ids[0], ids[0], '2026-10-28T13:00:00.000000+00:00', 'new') });
+  await Promise.all([first, x.DB.coachInbox(C)]);
+  eq(x.client.calls.length, 2, 'a read of its own after a message was heard');
+  x = loadDb({ messages: msgs.slice() });
+  await Promise.all([x.DB.coachInbox(C), x.DB.coachInbox(C)]);
+  eq(x.client.calls.length, 1, 'nothing heard between: one read');
+  // A failed read hands back no digest (the desk keeps what it shows), and the unread on their own.
+  x = loadDb({ messages: msgs.slice() }, { fail: (st) => (st.table === 'messages' && st.lim === 500 ? { message: 'down' } : null) });
+  const failed = await x.DB.coachInbox(C);
+  eq(failed.threads, null); eq(count(failed.unread), count(unread));
 });
 await t('hydrate (coach): every list past 1,000 rows comes back whole', async () => {
   const r = rng(11), C = uuid(r), roster = [], T = { profiles: [{ id: C, user_type: 'coach', name: 'C' }] };

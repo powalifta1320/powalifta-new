@@ -810,22 +810,9 @@ async function _readAllIn(label, ids, size, build, opts) {
   return { rows, count: res.every(r => r.count != null) ? res.reduce((a, r) => a + r.count, 0) : null,
     capped: res.some(r => r.capped), partial: res.some(r => r.partial || (r.error && !r.rows.length)), error: (res.find(r => r.error) || {}).error || null };
 }
-// The thread digest (DB._threadDigest's rows) with messages heard live folded in, as a fresh read would
-// give it: the newest message per lifter is their last, a lifter's unread one counts, a coach's weekly
-// note sets weeklyAt. Copies; newest thread first.
-function _foldThreads(threads, heard, coachId) {
-  const by = {};
-  (threads || []).forEach(t => { if (t && t.athleteId) by[t.athleteId] = Object.assign({}, t); });
-  (heard || []).filter(m => m && m.athleteId && m.coachId === coachId)
-    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
-    .forEach(m => {
-      const t = by[m.athleteId] || (by[m.athleteId] = { athleteId: m.athleteId, lastBody: m.body, lastAt: m.createdAt, lastSenderId: m.senderId, unread: 0 });
-      if (!t.lastAt || String(m.createdAt) >= String(t.lastAt)) { t.lastBody = m.body; t.lastAt = m.createdAt; t.lastSenderId = m.senderId; }
-      if (m.senderId != null && m.senderId !== coachId && !m.readAt) t.unread = (t.unread || 0) + 1;
-      if (m.senderId === coachId && m.meta && m.meta.weekly && (!t.weeklyAt || String(m.createdAt) > String(t.weeklyAt))) t.weeklyAt = m.createdAt;
-    });
-  return Object.values(by).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
-}
+// Bumped by every message this page sends or hears live: a thread read already on its way when one
+// lands can't stand in for a read asked for after it (DB._coachThreadRows).
+let _threadSeq = 0;
 // The pain channel (DB.subscribePainReports): one at a time, for the roster it was given.
 const _pain = { ch: null, cb: null, ids: [] };
 const _PAIN_UNDO_MS = 10000;   // the lifter's Undo stays up 4.6 s (app.js toastAction): looked up again after that
@@ -3617,6 +3604,7 @@ const DB = {
       ({ data, error } = await sb.from('messages').insert(row).select('*'));
     }
     if (error) throw error;
+    _threadSeq++;
     const m = data && data[0] ? mapDbMessage(data[0]) : null;
     if (m && !m.meta && meta) m.meta = meta;
     return m;
@@ -3664,13 +3652,14 @@ const DB = {
     catch (e) { res = { error: e }; }
     if (res.error && /duplicate|unique|23505/i.test(String(res.error.message || '') + ' ' + res.error.code)) {
       const again = await sb.from('messages').select('*').eq('id', id).maybeSingle();
-      if (again && again.data) return mapDbMessage(again.data);
+      if (again && again.data) { _threadSeq++; return mapDbMessage(again.data); }
     }
     if (res.error) {
       // The row didn't land: take the file back out (best effort; the queue re-uploads on retry).
       try { await sb.storage.from('voice-notes').remove([path]); } catch (e) {}
       throw this._voiceErr(res.error);
     }
+    _threadSeq++;
     const m = res.data && res.data[0] ? mapDbMessage(res.data[0]) : null;
     if (m && !m.meta) m.meta = meta;
     return m;
@@ -3799,10 +3788,13 @@ const DB = {
     return res.rows.map(mapDbMessage);
   },
   // The coach's newest 500 messages (the thread digest's rows). → { rows (mapped), error }. Callers at
-  // the same moment (the badges and the desk at boot) share one read; a later call always reads again.
+  // the same moment (the badges and the desk at boot) share one read; a later call always reads again,
+  // and so does one made after a message was sent or heard live while the shared read was on its way
+  // (_threadSeq): that read can't have it.
   _coachThreadRows(coachId) {
     const k = String(coachId);
-    if (this._threadReads && this._threadReads[k]) return this._threadReads[k];
+    const cur = this._threadReads && this._threadReads[k];
+    if (cur && cur.seq === _threadSeq) return cur.p;
     const p = (async () => {
       const { data, error } = await sb.from('messages')
         .select('*')
@@ -3812,27 +3804,23 @@ const DB = {
       if (error) return { rows: [], error };
       return { rows: (data || []).map(mapDbMessage), error: null };
     })();
-    (this._threadReads || (this._threadReads = {}))[k] = p;
-    const done = () => { if (this._threadReads[k] === p) delete this._threadReads[k]; };
+    const entry = { p, seq: _threadSeq };
+    (this._threadReads || (this._threadReads = {}))[k] = entry;
+    const done = () => { if (this._threadReads[k] === entry) delete this._threadReads[k]; };
     p.then(done, done);
     return p;
   },
   // The coach's inbox: the thread digest (listThreadsForCoach's: who wrote last, per lifter) and the
   // unread messages (listUnreadForUser's) for the badges and the desk, which used to take two reads
-  // and two repaints a message. Now: a full read the first time and every 5 minutes (the newest 500;
-  // when those are all the coach's messages the unread come out of the same rows). In between, the
-  // messages the page heard live (heard: mapped rows) are folded into the digest kept here, and only
-  // the unread are read again (their badge columns): one read a message. → { threads, unread }
-  async coachInbox(coachId, heard) {
+  // and two repaints a message. One read of the newest 500 gives both when those are all the coach's
+  // messages; past 500 the unread are read on their own (two). Read every time, never kept: a digest
+  // kept between reads and topped up from Realtime went stale whenever Realtime missed the coach's own
+  // reply, and put "Message waiting" back on a lifter they had answered. → { threads (null when the
+  // read failed: the desk keeps its own and reads them again shortly), unread }
+  async coachInbox(coachId) {
     if (!coachId) return { threads: [], unread: [] };
-    const c = this._inbox;
-    if (c && c.coachId === coachId && Date.now() - c.at < 5 * 60000) {
-      const unread = await this.listUnreadForUser(coachId);
-      c.threads = _foldThreads(c.threads, heard || [], coachId);
-      return { threads: c.threads.map(t => Object.assign({}, t)), unread };
-    }
     const got = await this._coachThreadRows(coachId);
-    if (got.error) { console.warn('coachInbox', got.error); return { threads: [], unread: await this.listUnreadForUser(coachId) }; }
+    if (got.error) { console.warn('coachInbox', got.error); return { threads: null, unread: await this.listUnreadForUser(coachId) }; }
     const threads = this._threadDigest(got.rows, coachId);
     const unread = got.rows.length < 500 ? got.rows.filter(m => m.senderId != null && m.senderId !== coachId && !m.readAt).reverse() : await this.listUnreadForUser(coachId);
     return { threads, unread };
@@ -3875,9 +3863,7 @@ const DB = {
     });
     const weeks = oldest == null ? 4 : Math.max(1, Math.min(4, (now - oldest) / (7 * 864e5)));
     this.threadTally = { weeks: Math.round(weeks * 100) / 100, messages: sent, notes: weekly, at: now };
-    const out = Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
-    this._inbox = { coachId, threads: out.map(t => Object.assign({}, t)), at: now };   // coachInbox folds live messages into this
-    return out;
+    return Object.values(byAthlete).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
   },
 
   // Live message stream via Supabase Realtime. `filter` is { column, value } —
@@ -3893,7 +3879,7 @@ const DB = {
       const ch = sb.channel(tag)
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: filter.column + '=eq.' + filter.value },
-          payload => { try { onInsert(mapDbMessage(payload.new)); } catch (e) { console.warn('subscribeMessages cb', e); } })
+          payload => { _threadSeq++; try { onInsert(mapDbMessage(payload.new)); } catch (e) { console.warn('subscribeMessages cb', e); } })
         .subscribe();
       return () => { try { sb.removeChannel(ch); } catch (e) {} };
     } catch (e) { console.warn('subscribeMessages', e); return null; }

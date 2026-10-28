@@ -7240,6 +7240,64 @@ group('data scale (index, memos, snapshot)');
   } finally { Store.set(saved); }
 })();
 
+/* ===========================================================
+   The desk's who-wrote-last (2026-10-28): a digest is read fresh every time (DB.coachInbox keeps none),
+   the coach's own reply moves the thread at once (sent here, or heard live from their phone), and a
+   digest read before that reply went can't put "Message waiting" back (deskThreadSaw / deskThreadsMerge).
+   =========================================================== */
+group('desk threads (who wrote last)');
+(() => {
+  const C = 'c', A = 'a';
+  const row = (aid, sender, at, body, extra) => Object.assign({ athleteId: aid, lastAt: at, lastSenderId: sender, lastBody: body, unread: 0 }, extra || {});
+  const msg = (aid, sender, at, body, meta) => ({ id: 'm-' + at, coachId: C, athleteId: aid, senderId: sender, body, createdAt: at, readAt: null, meta: meta || null });
+  test('the coach\'s reply moves who wrote last and is kept local; an older message never replaces a newer one', () => {
+    const th = deskThreadsMerge(null, [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 1 })]);
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid')), true);
+    eq(th[A].lastSenderId, C); eq(th[A].lastBody, 'looked solid'); eq(th[A].local, true); eq(th[A].unread, 1, 'the other fields stay');
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid')), false, 'its echo after the send: nothing to do');
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T11:00:00Z', 'an older one')), false, 'older than what the thread shows');
+    eq(th[A].lastBody, 'looked solid');
+    eq(deskThreadSaw(th, msg('b', C, '2026-10-28T12:01:00Z', 'Week 3 notes', { weekly: '2026-10-27' })), true, 'a thread the desk had no row for');
+    eq(th.b.weeklyAt, '2026-10-28T12:01:00Z', 'a week\'s note sets weeklyAt');
+    eq(deskThreadSaw(null, msg(A, C, '2026-10-28T12:00:00Z', 'x')), false);
+  });
+  test('a digest read before the reply went keeps the reply; one that has it (or anything newer) is the server\'s word', () => {
+    const before = [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 1 }), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')];
+    let th = deskThreadsMerge(null, before);
+    deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'));
+    th = deskThreadsMerge(th, before);   // a read already on its way when the reply went
+    eq(th[A].lastSenderId, C, 'still the coach\'s'); eq(th[A].local, true); eq(th[A].unread, 1, 'the read\'s own fields');
+    eq(th.b.lastBody, 'hi');
+    th = deskThreadsMerge(th, [row(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')]);
+    eq(th[A].lastSenderId, C); eq(th[A].local, undefined, 'the server has it now: no longer local');
+    th = deskThreadsMerge(th, [row(A, A, '2026-10-28T13:00:00Z', 'thanks! next week?'), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')]);
+    eq(th[A].lastSenderId, A, 'the lifter wrote again after it: the server\'s word');
+    deskThreadSaw(th, msg('z', C, '2026-10-28T14:00:00Z', 'welcome'));
+    th = deskThreadsMerge(th, [row(A, A, '2026-10-28T13:00:00Z', 'thanks! next week?')]);
+    eq(th.z.lastBody, 'welcome', 'a thread the read hasn\'t got yet stays');
+    eq(th.b, undefined, 'a thread that is the server\'s alone goes with the server');
+    th = deskThreadsMerge(th, [row('z', C, '2026-10-28T14:00:00Z', 'welcome', { weeklyAt: '2026-10-21T08:00:00Z' })]);
+    eq(th.z.local, undefined); eq(th.z.weeklyAt, '2026-10-21T08:00:00Z');
+    const kept = deskThreadsMerge({ w: row('w', C, '2026-10-28T15:00:00Z', 'Week 4 notes', { local: true, weeklyAt: '2026-10-28T15:00:00Z' }) }, [row('w', 'w', '2026-10-28T10:00:00Z', 'ok', { weeklyAt: '2026-10-21T08:00:00Z' })]);
+    eq(kept.w.weeklyAt, '2026-10-28T15:00:00Z', 'the newer week\'s note is kept with it');
+  });
+  test('Today: an answered lifter stays answered when the next refresh brings a digest from before the reply', () => {
+    const saved = Store.get();
+    try {
+      Store.set(Object.assign(defaultStore(), { athletes: [{ id: A, name: 'Ana', coachId: C, createdAt: Date.parse('2026-01-01T12:00:00Z') }], workoutLogs: [] }));
+      const now = Date.parse('2026-10-28T12:30:00Z'), today = '2026-10-28';
+      const digest = [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 0 })];
+      let th = deskThreadsMerge(null, digest);
+      const waiting = (threads) => deskReasons(A, { coachId: C, today, now, threads }).some(r => r.type === 'message');
+      eq(waiting(th), true, 'their message has waited 30 hours');
+      deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'));
+      eq(waiting(th), false, 'answered');
+      th = deskThreadsMerge(th, digest);
+      eq(waiting(th), false, 'a digest from before the reply doesn\'t bring it back');
+    } finally { Store.set(saved); }
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

@@ -11662,6 +11662,37 @@ function deskThreadDigest(coachId, rows) {
   });
   return out;
 }
+// The coach's own message, sent from this desk or heard live (m: the server's row, created_at and all):
+// who wrote last in its thread moves to it, unless the thread already shows something newer. Marked
+// local, so a digest read before it went (deskThreadsMerge) can't put the lifter's older message back.
+// threads: the desk's { athleteId: thread }, changed in place. → true when it changed.
+function deskThreadSaw(threads, m) {
+  if (!threads || !m || !m.athleteId) return false;
+  const t = threads[m.athleteId];
+  const at = m.createdAt || new Date().toISOString();
+  const ms = Date.parse(at), tms = t ? Date.parse(t.lastAt) : NaN;
+  if (t && isFinite(tms) && isFinite(ms) && (tms > ms || (tms === ms && t.lastSenderId === m.senderId))) return false;
+  const next = Object.assign({ athleteId: m.athleteId }, t || {}, { lastAt: at, lastSenderId: m.senderId, lastBody: m.body || '', local: true });
+  if (m.meta && m.meta.weekly && !(Date.parse(next.weeklyAt) >= ms)) next.weeklyAt = at;
+  threads[m.athleteId] = next;
+  return true;
+}
+// The desk's threads after a fresh digest (rows: DB.coachInbox's or listThreadsForCoach's): the
+// server's word, except a thread where this desk knows of a newer message of the coach's own
+// (deskThreadSaw) than the read has: a read already on its way when the reply went comes back without
+// it. Server times on both sides (created_at). → a new { athleteId: thread }.
+function deskThreadsMerge(prev, rows) {
+  const out = deskThreadDigest(null, rows || []);
+  Object.keys(prev || {}).forEach(id => {
+    const p = prev[id];
+    if (!p || !p.local) return;
+    const s = out[id], pa = Date.parse(p.lastAt), sa = s ? Date.parse(s.lastAt) : NaN;
+    if (s && isFinite(sa) && !(pa > sa)) return;   // the read has it, or something newer
+    const weekly = p.weeklyAt && !(s && Date.parse(s.weeklyAt) >= Date.parse(p.weeklyAt)) ? { weeklyAt: p.weeklyAt } : {};
+    out[id] = Object.assign({}, s || {}, { athleteId: id, lastAt: p.lastAt, lastSenderId: p.lastSenderId, lastBody: p.lastBody, local: true }, weekly);
+  });
+  return out;
+}
 // Why this athlete needs the coach, worst first. opts: { coachId, today, now, status, threads,
 // formChecks }. Each: { type, group, text, tone: alert | warn | info | meet, detail }.
 function deskReasons(athleteId, opts) {
