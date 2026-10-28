@@ -111,6 +111,7 @@
 <script src="busy-week.js"></script>
 <script src="coach-report.js"></script>
 <script src="coach-report-ui.js"></script>
+<script src="notify.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -7089,6 +7090,106 @@ test('report: an approved busy week counts its agreed sessions (the table keeps 
   eq(rows[0].days, 2, 'the sessions the coach approved (proposal.assign)');
   eq(rows[1].days, 3, 'no proposal: the days the lifter gave');
   eq(CoachReport.busyRows(rows).map(r => r.days).join(), '2,3', 'reading its own rows again keeps the numbers');
+});
+
+group('allow notifications (notify.js)');
+// One calm ask (PowaNotify.decide): with a reason, never while alerts are on or blocked, never twice
+// in two weeks after "Not now", never in the first minute on a new device; the demo always previews.
+const _pnNow = Date.parse('2026-10-28T18:00:00Z');
+const _pnBase = (o) => Object.assign({ now: _pnNow, reason: PowaNotify.LINES.coached, capability: 'web', permission: 'default',
+  subscribed: false, optedOut: false, snoozedAt: 0, firstSeenAt: _pnNow - 10 * 60 * 1000 }, o || {});
+test('asks, with Turn on, when nothing has been decided yet', () => {
+  const d = PowaNotify.decide(_pnBase());
+  eq(d.show, true); eq(d.mode, 'ask'); eq(d.why, 'ok');
+  eq(PowaNotify.decide(_pnBase({ capability: 'native' })).mode, 'ask', 'the iPhone app asks iOS');
+});
+test('no reason, no card', () => {
+  const d = PowaNotify.decide(_pnBase({ reason: null }));
+  eq(d.show, false); eq(d.why, 'no-reason');
+});
+test('alerts already on: never', () => {
+  eq(PowaNotify.decide(_pnBase({ permission: 'granted', subscribed: true })).why, 'on');
+  // the iPhone app re-registers by itself at launch once iOS allows it
+  eq(PowaNotify.decide(_pnBase({ capability: 'native', permission: 'granted', subscribed: false })).why, 'on');
+});
+test('a browser that allows alerts but holds no subscription for this account still asks', () => {
+  const d = PowaNotify.decide(_pnBase({ permission: 'granted', subscribed: false }));
+  eq(d.show, true, 'Turn on then subscribes without a prompt'); eq(d.mode, 'ask');
+});
+test('blocked: never (the browser or iPhone Settings decides now)', () => {
+  eq(PowaNotify.decide(_pnBase({ permission: 'denied' })).why, 'denied');
+  eq(PowaNotify.decide(_pnBase({ capability: 'native', permission: 'denied' })).why, 'denied');
+  eq(PowaNotify.decide(_pnBase({ permission: 'denied', snoozedAt: _pnNow - 20 * 864e5 })).show, false, 'not even after two weeks');
+});
+test('switched off in the app: never asks again', () => {
+  eq(PowaNotify.decide(_pnBase({ optedOut: true })).why, 'opted-out');
+  eq(PowaNotify.decide(_pnBase({ optedOut: true, permission: 'granted' })).show, false);
+});
+test('Not now waits 14 days', () => {
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 60 * 1000 })).why, 'snoozed');
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 13 * 864e5 })).why, 'snoozed');
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 14 * 864e5 - 1000 })).show, true, 'day 15 asks again');
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow + 400 * 864e5 })).show, true, 'a stamp from a clock far ahead is ignored');
+});
+test('never in the first minute of the first session', () => {
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: _pnNow - 30 * 1000 })).why, 'first-minute');
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: _pnNow })).why, 'first-minute');
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: 0 })).why, 'first-minute', 'no stamp = this is the first minute');
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: _pnNow - 61 * 1000 })).show, true);
+});
+test('an iPhone browser tab says how (the app) instead of a Turn on that cannot work', () => {
+  const d = PowaNotify.decide(_pnBase({ capability: 'ios-app', permission: 'unsupported' }));
+  eq(d.show, true); eq(d.mode, 'how');
+  eq(PowaNotify.decide(_pnBase({ capability: 'ios-app', permission: 'unsupported', snoozedAt: _pnNow - 864e5 })).why, 'snoozed', 'Not now holds there too');
+  eq(PowaNotify.decide(_pnBase({ capability: 'none', permission: 'unsupported' })).why, 'unsupported', 'nowhere to deliver: no card');
+});
+test('the demo always previews, whatever the device says', () => {
+  const d = PowaNotify.decide(_pnBase({ demo: true, permission: 'denied', optedOut: true, snoozedAt: _pnNow, firstSeenAt: _pnNow, capability: 'none' }));
+  eq(d.show, true); eq(d.mode, 'preview');
+  eq(PowaNotify.decide(_pnBase({ demo: true, reason: null })).show, false, 'still needs a reason');
+});
+test('what this device can do', () => {
+  const web = { secure: true, sw: true, pushManager: true, notification: true };
+  eq(PowaNotify.capability({ native: true }), 'native');
+  eq(PowaNotify.capability(web), 'web', 'desktop and Android browsers');
+  eq(PowaNotify.capability(Object.assign({ ios: true }, web)), 'web', 'an iPhone Home Screen app on iOS 16.4+');
+  eq(PowaNotify.capability({ ios: true, secure: true, sw: true, notification: false, pushManager: false }), 'ios-app', 'a Safari tab on iPhone');
+  eq(PowaNotify.capability(Object.assign({}, web, { secure: false })), 'none', 'no HTTPS, no push');
+  eq(PowaNotify.capability({}), 'none');
+});
+test('the line fits the person (and only when a ping would come)', () => {
+  eq(PowaNotify.reasonFor('athlete', { coached: true, club: true, native: true }), 'Get a ping when your coach replies.');
+  eq(PowaNotify.reasonFor('athlete', { club: true, native: true }), 'Get a ping when a training buddy nudges you.');
+  eq(PowaNotify.reasonFor('athlete', { native: true }), 'Get a ping when rest is up, even with the app closed.');
+  eq(PowaNotify.reasonFor('athlete', {}), null, 'a lifter alone on the web: nothing to ping about');
+  eq(PowaNotify.reasonFor('coach', {}), 'Get a ping for PRs, messages and missed sessions.');
+  eq(PowaNotify.reasonFor('coach', { lifters: 0 }), null, 'a coach with no lifters yet');
+  eq(PowaNotify.hueFor('buddy'), 'gold'); eq(PowaNotify.hueFor('coached'), 'green'); eq(PowaNotify.hueFor('coach'), 'green');
+});
+test('demo card: Turn on and Not now write nothing and ask for nothing', () => {
+  const was = window._demoMode, enable = PowaPush.enable;
+  let asked = 0;
+  PowaPush.enable = () => { asked++; return Promise.resolve(false); };
+  try {
+    window._demoMode = true; PowaNotify.reset();
+    localStorage.removeItem('powa-notify-snooze');
+    const slot = PowaNotify.lifterCard({ coached: true });
+    assert(slot && slot.querySelector('.pn-card'), 'the card shows in the demo');
+    eq(slot.querySelector('.pn-line').textContent, 'Get a ping when your coach replies.');
+    eq(slot.querySelector('.pn-on').textContent, 'Turn on'); eq(slot.querySelector('.pn-later').textContent, 'Not now');
+    assert(/hue-green/.test(slot.querySelector('.pn-card').className), 'coach replies: the Coach green');
+    slot.querySelector('.pn-on').click();
+    eq(asked, 0, 'no permission asked'); eq(localStorage.getItem('powa-notify-snooze'), null, 'nothing stored');
+    assert(/Preview only/.test(slot.querySelector('.pn-sub').textContent), 'says it is a preview');
+    eq(PowaNotify.lifterCard({ coached: true }), null, 'gone for the rest of this page');
+    PowaNotify.reset();
+    const again = PowaNotify.coachCard({});
+    assert(again && /PRs, messages and missed sessions/.test(again.querySelector('.pn-line').textContent), 'the coach line');
+    again.querySelector('.pn-later').click();
+    eq(localStorage.getItem('powa-notify-snooze'), null, 'Not now stores nothing in the demo');
+    eq(PowaNotify.coachCard({}), null);
+    eq(PowaNotify.coachCard({ lifters: 0 }), null, 'no lifters, no card');
+  } finally { window._demoMode = was; PowaPush.enable = enable; PowaNotify.reset(); }
 });
 
 function render() {

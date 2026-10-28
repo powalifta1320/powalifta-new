@@ -142,8 +142,12 @@
     // (powa-weigh-remind = '0') in the weigh-in sheet. Press-and-hold the
     // notification and type the number: the "Log weight" text action opens the
     // app with it, and the athlete dashboard saves it (applyPendingWeighIn).
-    scheduleWeightReminder: async function () {
+    // { quiet: true } (the dashboard's launch): schedule only when iOS already allows
+    // notifications, never show the prompt. The prompt follows a tap: Turn on in the
+    // allow-notifications card (notify.js) or the reminder's own switch in the weigh-in sheet.
+    scheduleWeightReminder: async function (opts) {
       if (!isNative) return false;
+      var quiet = !!(opts && opts.quiet);
       var LN = plugins().LocalNotifications;
       if (!LN) return false;
       try {
@@ -157,7 +161,7 @@
         } catch (e) {}
         if (!on) return true;
         var perm = await LN.checkPermissions();
-        if (perm.display !== 'granted') perm = await LN.requestPermissions();
+        if (perm.display !== 'granted' && !quiet) perm = await LN.requestPermissions();
         if (perm.display !== 'granted') return false;
         try {
           await LN.registerActionTypes({ types: [{ id: 'POWA_WEIGH_IN', actions: [
@@ -180,8 +184,8 @@
     // can't make a sound when it ends, so a lifter with the phone in a pocket missed it. When
     // the app leaves the screen mid-rest the page schedules one local notification for the
     // end; coming back, stopping, pausing or finishing cancels it. Never asks for permission
-    // mid-set: it only schedules when notifications are already allowed (the weigh-in
-    // reminder asks once, at sign-in).
+    // mid-set: it only schedules when notifications are already allowed (Turn on in the
+    // allow-notifications card, notify.js, or the weigh-in reminder's switch).
     scheduleRestEnd: async function (endTimeMs, nextLabel) {
       if (!isNative) return false;
       var LN = plugins().LocalNotifications;

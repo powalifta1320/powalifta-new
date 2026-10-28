@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="dash-fx.css">
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
+<link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card after a finished session (notify.js) -->
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
@@ -350,6 +351,7 @@
 <script src="intake.js"></script><!-- INTAKE: the lifter's questionnaire for their coach (IntakeUI: the Train row, the sheet, You › Your intake) -->
 <script src="career.js"></script><!-- CAREER: the lifelong record (careerEvents) and its screen, You › Career -->
 <script src="busy-week.js"></script><!-- BUSY WEEKS: the days you can train this week, the plan, sent to your coach (BusyWeekUI: Train's row, the sheet, the picker's entry) -->
+<script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: one calm ask after a finished session, with the reason that fits (PowaNotify.lifterCard) -->
 <script>
 let user;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
@@ -546,8 +548,10 @@ bootstrap('athlete', () => {
 
   // Native shell: mirror the five into an iOS-style bottom bar (no-op on the web).
   buildBottomTabs(['today', 'progress', 'club', _selfCoached ? 'program' : 'coach', 'you']);
-  // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo).
-  if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder();
+  // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo). Quietly: on
+  // a first open iOS's prompt would come with no reason and a "Don't Allow" is for good, so the
+  // ask waits for a tap (Turn on after a finished session, notify.js, or the reminder's switch).
+  if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder({ quiet: true });
   if (!window._demoMode) applyPendingWeighIn();
   // Came in through a club invite (QR / link) before signing up: take them to it.
   try {
@@ -3559,6 +3563,18 @@ function renderToday() {
   }
 
   area.appendChild(buildTodayHero(cur));
+  // ALLOW NOTIFICATIONS (notify.js): today's session is done, so ask once, with the reason that fits
+  // (the coach's reply, a buddy's nudge, rest is up). Never in the first minute on a new phone,
+  // never while alerts are on or blocked; "Not now" waits two weeks.
+  if (!nextKey && date === todayISO() && window.PowaNotify) {
+    const nc = PowaNotify.lifterCard({
+      coached: !!user.coachId,
+      club: !!(window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName()),
+      // Alerts on in the iPhone app: the morning weigh-in reminder starts (its switch is in the weigh-in sheet).
+      onOn: () => { try { if (window.PowaNative && PowaNative.scheduleWeightReminder) PowaNative.scheduleWeightReminder({ quiet: true }); } catch (e) {} }
+    });
+    if (nc) area.appendChild(nc);
+  }
 
   // Around the work, one grouped list: the coach's note for this session, the
   // morning weigh-in (bodyweight is a daily habit, so it lives here), and the

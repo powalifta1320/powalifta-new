@@ -31,6 +31,7 @@
 <link rel="stylesheet" href="desk.css"><!-- the laptop coach desk: html.desk only -->
 <link rel="stylesheet" href="coach-ui.css"><!-- the coach side's new screens (coach-home.js): Home on the desk and the phone -->
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the challenge card, its board and New challenge (challenges.js) -->
+<link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card for coach Home (notify.js) -->
 <script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -370,6 +371,7 @@
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
 <script src="program-photo.js"></script><!-- Program from a photo: the AI reads a picture or PDF into the builder's cells; the coach checks every one (PhotoImport) -->
+<script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: PowaNotify.coachCard() returns the ask for coach Home (where it goes: notify.js header) -->
 <script>
 // The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
 // dashboard still boots. Function declarations, so the first render can call them.
