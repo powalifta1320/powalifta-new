@@ -69,8 +69,8 @@
 -- 7 indexes are dropped.
 --
 -- Tested in PGlite (scratchpad/pgtest/rls-perf-equivalence.mjs): the live schema rebuilt from the
--- catalog (tables, constraints, every function and grant, triggers, all 191 policies, which print back
--- identically); a seeded world (admin, two coaches and their lifters, a coachless lifter, a stranger, an
+-- catalog (tables, constraints, every function and grant, triggers, every policy, each of which prints
+-- back identically); a seeded world (admin, two coaches and their lifters, a coachless lifter, a stranger, an
 -- auth user with no profile, clubs, a meet day, challenges, busy weeks, messages, form checks, the
 -- marketplace...); every table x anon and 9 users: rows visible (also FOR UPDATE) and every insert,
 -- insert-returning, upsert, update and delete probe allowed or refused the same before and after, after a
