@@ -7125,6 +7125,14 @@ test('switched off in the app: never asks again', () => {
   eq(PowaNotify.decide(_pnBase({ optedOut: true })).why, 'opted-out');
   eq(PowaNotify.decide(_pnBase({ optedOut: true, permission: 'granted' })).show, false);
 });
+test('two Not nows are a no: the card stops asking', () => {
+  eq(PowaNotify.MAX_SNOOZES, 2);
+  eq(PowaNotify.decide(_pnBase({ snoozes: 1, snoozedAt: _pnNow - 15 * 864e5 })).show, true, 'after the first, it asks once more two weeks later');
+  const d = PowaNotify.decide(_pnBase({ snoozes: 2, snoozedAt: _pnNow - 400 * 864e5 }));
+  eq(d.show, false); eq(d.why, 'declined', 'after the second, never (You → Notifications stays the way in)');
+  eq(PowaNotify.decide(_pnBase({ snoozes: 2, capability: 'ios-app', permission: 'unsupported' })).show, false, 'the iPhone tab card too');
+  eq(PowaNotify.decide(_pnBase({ snoozes: 5, demo: true })).mode, 'preview', 'the demo still previews');
+});
 test('Not now waits 14 days', () => {
   eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 60 * 1000 })).why, 'snoozed');
   eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 13 * 864e5 })).why, 'snoozed');
@@ -7168,28 +7176,49 @@ test('the line fits the person (and only when a ping would come)', () => {
 });
 test('demo card: Turn on and Not now write nothing and ask for nothing', () => {
   const was = window._demoMode, enable = PowaPush.enable;
+  // admin.html runs this page on the live site: whatever "Not now" this device holds stays as it was.
+  const keys = ['powa-notify-snooze', 'powa-notify-snoozes'];
+  const kept = keys.map(k => localStorage.getItem(k));
+  const stored = () => keys.map(k => localStorage.getItem(k)).join('|');
   let asked = 0;
   PowaPush.enable = () => { asked++; return Promise.resolve(false); };
   try {
     window._demoMode = true; PowaNotify.reset();
-    localStorage.removeItem('powa-notify-snooze');
+    const before = stored();
     const slot = PowaNotify.lifterCard({ coached: true });
     assert(slot && slot.querySelector('.pn-card'), 'the card shows in the demo');
     eq(slot.querySelector('.pn-line').textContent, 'Get a ping when your coach replies.');
     eq(slot.querySelector('.pn-on').textContent, 'Turn on'); eq(slot.querySelector('.pn-later').textContent, 'Not now');
     assert(/hue-green/.test(slot.querySelector('.pn-card').className), 'coach replies: the Coach green');
     slot.querySelector('.pn-on').click();
-    eq(asked, 0, 'no permission asked'); eq(localStorage.getItem('powa-notify-snooze'), null, 'nothing stored');
+    eq(asked, 0, 'no permission asked'); eq(stored(), before, 'nothing stored');
     assert(/Preview only/.test(slot.querySelector('.pn-sub').textContent), 'says it is a preview');
     eq(PowaNotify.lifterCard({ coached: true }), null, 'gone for the rest of this page');
     PowaNotify.reset();
     const again = PowaNotify.coachCard({});
     assert(again && /PRs, messages and missed sessions/.test(again.querySelector('.pn-line').textContent), 'the coach line');
     again.querySelector('.pn-later').click();
-    eq(localStorage.getItem('powa-notify-snooze'), null, 'Not now stores nothing in the demo');
+    eq(stored(), before, 'Not now stores nothing in the demo');
     eq(PowaNotify.coachCard({}), null);
     eq(PowaNotify.coachCard({ lifters: 0 }), null, 'no lifters, no card');
-  } finally { window._demoMode = was; PowaPush.enable = enable; PowaNotify.reset(); }
+    // The coach's first screen leaves a spot; placeCoach fills it, or takes it away.
+    PowaNotify.reset();
+    const mk = () => { const root = document.createElement('div'), a = document.createElement('div'), spot = document.createElement('div'), b = document.createElement('div');
+      a.className = 'cl-do'; spot.className = 'pn-host'; b.className = 'cl-pweek'; root.appendChild(a); root.appendChild(spot); root.appendChild(b); return root; };
+    const r1 = mk(), placed = PowaNotify.placeCoach(r1, 6);
+    assert(placed && placed.querySelector('.pn-card'), 'the card takes the spot');
+    eq(Array.from(r1.children).map(n => n.className.split(' ')[0]).join(','), 'cl-do,pn-slot,cl-pweek', 'after Do first, before This week, the spot gone');
+    PowaNotify.reset();
+    const r2 = mk();
+    eq(PowaNotify.placeCoach(r2, 0), null, 'no lifters yet: no card');
+    eq(Array.from(r2.children).map(n => n.className).join(','), 'cl-do,cl-pweek', 'and no empty spot left behind');
+    eq(PowaNotify.placeCoach(document.createElement('div'), 6), null, 'no spot: nothing placed');
+    PowaNotify.reset();
+    eq(stored(), before, 'reset() leaves the device\'s answers alone');
+  } finally {
+    window._demoMode = was; PowaPush.enable = enable; PowaNotify.reset();
+    keys.forEach((k, i) => { try { if (kept[i] == null) localStorage.removeItem(k); else localStorage.setItem(k, kept[i]); } catch (e) {} });
+  }
 });
 
 function render() {

@@ -6,26 +6,30 @@
  *   LIFTER: Train's "Session done" screen (athlete.html renderToday, today's session only), with the
  *     reason that fits: coached → "Get a ping when your coach replies."; training alone in a club →
  *     a training buddy's nudge; the iPhone app → rest is up. Nothing to deliver → no card.
- *   COACH: PowaNotify.coachCard() returns the node for coach Home. The Home code places it:
- *       var n = window.PowaNotify && PowaNotify.coachCard({ lifters: rosterCount });
- *       if (n) home.appendChild(n);
- *     Put it after the lifters who need the coach (never above the one red fix), before meets and
- *     who's training now; phone and laptop alike (desktop browsers get Web Push). null = no card.
- *     Re-render freely: the decision is cached for the page and the entrance plays once.
+ *   COACH: the coach's first screen leaves a spot in its markup, <div class="pn-host" hidden></div>,
+ *     after the lifters who need the coach (Do first: its one red fix stays on top) and before This
+ *     week, then calls PowaNotify.placeCoach(root, rosterCount), which puts the card there or takes
+ *     the spot away (coach-lifters.js: the laptop's Today and the phone's Lifters). coachCard() is
+ *     the bare node. Re-render freely: the decision is cached for the page, the entrance plays once.
  *
  * When (decide(), pure, tests.html "allow notifications (notify.js)"): never when alerts are already
- * on or blocked, switched off in the app (powa-push-off), "Not now" in the last 14 days, or in the
- * first minute of the first session on this device (powa-notify-first).
+ * on or blocked, switched off in the app (powa-push-off), "Not now" in the last 14 days, after the
+ * second "Not now" (powa-notify-snoozes: You → Notifications stays the way in), or in the first
+ * minute of the first session on this device (powa-notify-first).
  * Turn on (the system prompt only ever follows that tap): the iPhone app asks iOS and registers with
  * APNs, the web subscribes where Web Push works (desktop browsers, Android, an iPhone Home Screen app
- * on iOS 16.4+); both through PowaPush.enable() in app.js. An iPhone browser tab can't get alerts,
- * so there the card says to use the app instead of offering a Turn on that can't work.
+ * on iOS 16.4+); both through PowaPush.enable() in app.js. A "rest is up" promise comes from the
+ * phone itself, so there iOS's yes is enough ({ local: true }); Apple's token follows quietly. An
+ * iPhone browser tab can't get alerts, so there the card says to use the app instead of offering a
+ * Turn on that can't work. A "Don't Allow" / "Block" just now gets no lecture: the card just goes.
  * Demo (?demo=1): the card shows, and Turn on / Not now write nothing and ask for nothing.
  */
 (function () {
   'use strict';
 
   var SNOOZE_KEY = 'powa-notify-snooze';   // when "Not now" was tapped (ms)
+  var SNOOZES_KEY = 'powa-notify-snoozes'; // how many times "Not now" was tapped on this device
+  var MAX_SNOOZES = 2;                     // after the second, the card stops asking
   var FIRST_KEY = 'powa-notify-first';     // when this device first opened a dashboard (ms)
   var OFF_KEY = 'powa-push-off';           // switched off in the app (app.js PowaPush.disable)
   var SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -81,7 +85,7 @@
   function hueFor(key) { return key === 'buddy' ? 'gold' : 'green'; }
 
   // o: { now, demo, reason, capability, permission ('default'|'granted'|'denied'|'unsupported'),
-  //      subscribed, optedOut, snoozedAt, firstSeenAt }
+  //      subscribed, optedOut, snoozedAt, snoozes (how many "Not now"s), firstSeenAt }
   // → { show, why, mode: 'ask' (Turn on) | 'how' (use the app) | 'preview' (demo) }
   function decide(o) {
     o = o || {};
@@ -98,6 +102,8 @@
     // a browser that allows it but holds no subscription for this account (someone else signed out
     // here) still gets the card: Turn on then subscribes without a prompt.
     if (perm === 'granted' && (o.subscribed || cap === 'native')) return out(false, 'on');
+    // Two "Not now"s are a no: the card stops asking (You → Notifications stays the way in).
+    if ((Number(o.snoozes) || 0) >= MAX_SNOOZES) return out(false, 'declined');
     var snoozed = Number(o.snoozedAt) || 0;
     if (snoozed && Math.abs(now - snoozed) < SNOOZE_MS) return out(false, 'snoozed');
     var first = Number(o.firstSeenAt) || now;
@@ -176,8 +182,13 @@
       now: Date.now(), demo: isDemo(), reason: reason,
       capability: st ? st.capability : 'none', permission: st ? st.permission : 'unsupported',
       subscribed: st && st.subscribed, optedOut: st && st.optedOut,
-      snoozedAt: Number(lsGet(SNOOZE_KEY)) || 0, firstSeenAt: _firstSeen
+      snoozedAt: Number(lsGet(SNOOZE_KEY)) || 0, snoozes: Number(lsGet(SNOOZES_KEY)) || 0, firstSeenAt: _firstSeen
     });
+  }
+  // "Not now" (or a prompt closed with no answer): two weeks' quiet, and one of the two it takes to stop.
+  function snooze() {
+    lsSet(SNOOZE_KEY, String(Date.now()));
+    lsSet(SNOOZES_KEY, String((Number(lsGet(SNOOZES_KEY)) || 0) + 1));
   }
 
   // The card leaves the way it came in: it fades back down, then its space closes.
@@ -238,7 +249,7 @@
     later.type = 'button';
     later.textContent = 'Not now';
     later.addEventListener('click', function () {
-      if (isDemo()) _demoGone = true; else lsSet(SNOOZE_KEY, String(Date.now()));
+      if (isDemo()) _demoGone = true; else snooze();
       leave(card);
     });
     acts.appendChild(on);
@@ -262,7 +273,7 @@
     btn.disabled = true;
     btn.textContent = 'Turning on…';
     var p;
-    try { p = PowaPush.enable({ quiet: true }); } catch (e) { p = Promise.resolve(false); }
+    try { p = PowaPush.enable({ quiet: true, local: !!(opts && opts.local) }); } catch (e) { p = Promise.resolve(false); }
     Promise.resolve(p).then(function (ok) {
       var last = PowaPush._last || (ok ? 'on' : 'error');
       if (ok) {
@@ -273,7 +284,7 @@
       }
       if (last === 'dismissed') {
         // The prompt was closed without a choice: that's a "not now" too.
-        lsSet(SNOOZE_KEY, String(Date.now()));
+        snooze();
         say('Alerts stay off. Turn them on any time in ' + settingsPath() + '.');
         leave(card);
         return;
@@ -283,7 +294,10 @@
         btn.textContent = 'Turn on';
         return;
       }
-      state(true);   // denied, unsupported, signed out: PowaPush.enable said why; the card goes
+      // "Don't Allow" / "Block" just now: the answer stands, the card goes without a word (iPhone
+      // Settings or the browser is the way back, and You → Notifications says so). Unsupported or
+      // signed out: PowaPush.enable said why.
+      state(true);
       leave(card);
     });
   }
@@ -317,7 +331,8 @@
   function lifterCard(ctx) {
     ctx = ctx || {};
     var key = reasonKey('athlete', { coached: !!ctx.coached, club: !!ctx.club, native: capability(envNow()) === 'native' });
-    return card('lifter', key ? LINES[key] : null, { onOn: ctx.onOn, hue: hueFor(key) });
+    // Rest is up is the phone's own alert: iOS's yes is all it takes (no wait for Apple's token).
+    return card('lifter', key ? LINES[key] : null, { onOn: ctx.onOn, hue: hueFor(key), local: key === 'rest' });
   }
   // opts: { lifters } (0 = nothing to ping about yet, no card), onOn
   function coachCard(opts) {
@@ -325,12 +340,23 @@
     var key = reasonKey('coach', { lifters: opts.lifters });
     return card('coach', key ? LINES[key] : null, { onOn: opts.onOn, hue: hueFor(key) });
   }
+  // The coach's first screen leaves a spot for the card in its markup, <div class="pn-host" hidden></div>,
+  // after the lifters who need the coach (so the one red fix stays on top) and before the team's week.
+  // This fills the spot, or takes it away when there's no card. Returns the card's slot or null.
+  function placeCoach(root, lifters) {
+    var spot = root && root.querySelector ? root.querySelector('.pn-host') : null;
+    if (!spot || !spot.parentNode) return null;
+    var n = coachCard({ lifters: lifters });
+    if (n) spot.parentNode.replaceChild(n, spot); else spot.parentNode.removeChild(spot);
+    return n;
+  }
 
   window.PowaNotify = {
     decide: decide, capability: capability, reasonFor: reasonFor, reasonKey: reasonKey, hueFor: hueFor, LINES: LINES,
-    state: state, lifterCard: lifterCard, coachCard: coachCard,
-    SNOOZE_MS: SNOOZE_MS, FIRST_MS: FIRST_MS,
-    // For checks and support: forget "Not now" on this device and ask the device again.
-    reset: function () { try { localStorage.removeItem(SNOOZE_KEY); } catch (e) {} _state = null; _stateP = null; _demoGone = false; _shown = {}; }
+    state: state, lifterCard: lifterCard, coachCard: coachCard, placeCoach: placeCoach,
+    SNOOZE_MS: SNOOZE_MS, FIRST_MS: FIRST_MS, MAX_SNOOZES: MAX_SNOOZES,
+    // For checks: forget this page's answers (the device's, the demo's, which entrances played).
+    // Storage is left alone: tests.html runs on the live site (admin.html), and a "Not now" stays.
+    reset: function () { _state = null; _stateP = null; _demoGone = false; _shown = {}; }
   };
 })();

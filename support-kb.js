@@ -261,7 +261,7 @@ window.POWA_SUPPORT_KB = [
    "weigh in reminder"
   ],
   "a": "Reminders are only in the iPhone app. On the web, weigh in from the Morning weigh-in tile on Train each day; your trend and streak still build up.",
-  "app": "In the iPhone app the morning weigh-in reminder is on by default at 08:00 once you allow notifications. To change the time or switch it off, open the Weigh-in sheet (tap Morning weigh-in on Train before you have weighed in today, or Progress → Tools → Weigh-in) and use the \"Morning reminder\" row. When the notification arrives, press and hold it, tap Log weight, type your weight and tap Save: the app opens and saves it as today's weigh-in."
+  "app": "In the iPhone app the morning weigh-in reminder is on by default at 08:00 once you allow notifications. To change the time or switch it off, open the Weigh-in sheet (tap Morning weigh-in on Train before you have weighed in today, or Progress → Tools → Weigh-in) and use the \"Morning reminder\" row; until you allow notifications its switch shows off, and turning it on asks iOS. When the notification arrives, press and hold it, tap Log weight, type your weight and tap Save: the app opens and saves it as today's weigh-in."
  },
  {
   "id": "lock-screen-log-set",
@@ -889,8 +889,28 @@ window.POWA_SUPPORT_KB = [
    "turn off notifications",
    "weekly email"
   ],
-  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report (on a laptop: Settings → Notifications). On an iPhone browser, push only works once you add POWALIFTA to your Home Screen.",
-  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
+  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report (on a laptop: Settings → Notifications). The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); **Not now** waits two weeks. On an iPhone, alerts come through the POWALIFTA app: a browser tab can't get them.",
+  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report. The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); iOS only asks when you tap it, and **Not now** waits two weeks. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
+ },
+ {
+  "id": "allow-notifications",
+  "q": "Why did the app ask me to turn on notifications?",
+  "t": [
+   "alerts card",
+   "ask again",
+   "asked me to turn on notifications",
+   "get a ping",
+   "not now",
+   "notifications card",
+   "ping when my coach replies",
+   "ping when rest is up",
+   "stop asking",
+   "turn on alerts",
+   "turn on card",
+   "why did it ask"
+  ],
+  "a": "Once today's session is done, POWALIFTA asks once whether you want alerts, with the reason that fits you: your coach's replies, a training buddy's nudge, or (in the iPhone app) rest being up with the app closed. Coaches see it on their first screen, for PRs, messages and missed sessions. Your browser only asks for permission after you tap **Turn on**. **Not now** puts it away for two weeks, and after a second Not now it stops asking. Turn alerts on any time in You → Notifications (on a laptop: Settings → Notifications). On an iPhone, alerts come through the POWALIFTA app: a browser tab can't get them.",
+  "app": "Once today's session is done, POWALIFTA asks once whether you want alerts, with the reason that fits you: your coach's replies, a training buddy's nudge, or rest being up with the app closed. Coaches see it on their first screen, for PRs, messages and missed sessions. iOS only asks for permission after you tap **Turn on**. **Not now** puts it away for two weeks, and after a second Not now it stops asking. Turn alerts on any time in You → Notifications. If you tapped Don't Allow, change it in iPhone Settings → Notifications → POWALIFTA."
  },
  {
   "id": "gym-plates",
@@ -1694,8 +1714,8 @@ window.POWA_SUPPORT_KB = [
    "lifter hit a pr",
    "thursday notification"
   ],
-  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and Monday's summary of the team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
-  "app": "Yes. Go to You → Notifications, tap **Enable on this device**, and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and Monday's summary of the team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
+  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**, or tap **Turn on** when the app offers it on your first screen) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and Monday's summary of the team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
+  "app": "Yes. Go to You → Notifications and tap **Enable on this device** (or tap **Turn on** when the app offers it on your first screen), and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and Monday's summary of the team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
  },
  {
   "id": "coach-monday-report",

@@ -2535,7 +2535,10 @@ function openWeighInSheet(onSaved) {
       try { if (typeof renderAthleteYou === 'function') renderAthleteYou(); } catch (e) {}
     });
     sheet.appendChild(save);
-    // iPhone: a morning notification you can answer with the number itself.
+    // iPhone: a morning notification you can answer with the number itself. The switch shows what
+    // will happen: on only while the lifter wants it AND iOS lets POWALIFTA show alerts (the app no
+    // longer asks at first open, so that yes may not have been given yet). Turning it on asks iOS,
+    // from this tap; a no flips it back and says where to change it.
     if (window.PowaNative && PowaNative.isNative && PowaNative.isNative() && PowaNative.scheduleWeightReminder) {
       const getOn = () => { try { return localStorage.getItem('powa-weigh-remind') !== '0'; } catch (e) { return true; } };
       const getTime = () => { try { return localStorage.getItem('powa-weigh-time') || '08:00'; } catch (e) { return '08:00'; } };
@@ -2545,15 +2548,30 @@ function openWeighInSheet(onSaved) {
       remMain.appendChild(el('span', { class: 'ui-row-sub' }, 'Press and hold it to type your weight. No need to open the app'));
       remRow.appendChild(remMain);
       const time = el('input', { type: 'time', class: 'bw-remind-time', value: getTime(), 'aria-label': 'Reminder time' });
-      time.disabled = !getOn();
       time.addEventListener('change', () => { try { localStorage.setItem('powa-weigh-time', time.value || '08:00'); } catch (e) {} PowaNative.scheduleWeightReminder(); });
       remRow.appendChild(time);
-      remRow.appendChild(uiSwitch(getOn(), (on) => {
+      let busy = false;
+      const sw = uiSwitch(getOn() && PowaNative._displayPerm === 'granted', async (on) => {
         try { localStorage.setItem('powa-weigh-remind', on ? '1' : '0'); } catch (e) {}
         time.disabled = !on;
-        PowaNative.scheduleWeightReminder();
-      }, 'Morning weigh-in reminder'));
+        if (!on) { PowaNative.scheduleWeightReminder(); return; }   // cancels it
+        busy = true;
+        const ok = await PowaNative.scheduleWeightReminder();       // iOS asks now if it hasn't yet
+        busy = false;
+        if (ok) return;
+        sw.input.checked = false; time.disabled = true;
+        const p = PowaNative.notifyPermission ? await PowaNative.notifyPermission() : null;
+        toast(p === 'denied' ? 'Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.' : 'Couldn’t set the reminder. Try again in a minute.', 5000);
+      }, 'Morning weigh-in reminder');
+      time.disabled = !sw.input.checked;
+      remRow.appendChild(sw);
       sheet.appendChild(uiList([remRow]));
+      // What iOS says right now (iPhone Settings may have changed it since the app last asked).
+      if (PowaNative.notifyPermission) PowaNative.notifyPermission().then((p) => {
+        const on = getOn() && p === 'granted';
+        if (busy || sw.input.checked === on) return;
+        sw.input.checked = on; time.disabled = !on;
+      });
     }
   }, { cls: 'weigh-sheet' });
 }

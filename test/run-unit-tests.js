@@ -67,6 +67,12 @@ class El {
   }
   appendChild(c) { c.parentNode = this; this.childNodes.push(c); if (c instanceof El) this.children.push(c); return c; }
   removeChild(c) { this.childNodes = this.childNodes.filter(x => x !== c); this.children = this.children.filter(x => x !== c); return c; }
+  replaceChild(n, old) {   // PowaNotify.placeCoach puts the card where its spot was
+    const i = this.childNodes.indexOf(old); if (i < 0) return old;
+    n.parentNode = this; this.childNodes[i] = n; old.parentNode = null;
+    this.children = this.childNodes.filter(x => x instanceof El);
+    return old;
+  }
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   setAttribute(k, v) { this.attributes[k] = String(v); if (k === 'class') this.className = String(v); if (k === 'id') this.id = String(v); }
   getAttribute(k) { if (k === 'class') return this.className || null; return k in this.attributes ? this.attributes[k] : null; }
