@@ -26,6 +26,16 @@ if (!window.supabase || !window.supabase.createClient) {
   console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Two-factor (sql/migration-mfa-aal2-2026-10-28.sql): supabase-js gives Realtime a new token only on SIGNED_IN /
+// TOKEN_REFRESHED. After a code is entered (MFA_CHALLENGE_VERIFIED: at sign-in, at boot, or turning 2FA on) the
+// socket would keep the aal1 token, on which the database sends a 2FA account nothing: hand it the aal2 one.
+try {
+  sb.auth.onAuthStateChange((ev, s) => {
+    if (ev === 'MFA_CHALLENGE_VERIFIED' && s && s.access_token) {
+      try { Promise.resolve(sb.realtime.setAuth(s.access_token)).catch(() => {}); } catch (e) {}
+    }
+  });
+} catch (e) {}
 
 // ============================================================
 // MAPPERS — DB row (snake_case) ↔ JS object (camelCase)
@@ -976,8 +986,10 @@ const DB = {
     if (error) throw error;
     return data;
   },
-  async signOut() {
-    await sb.auth.signOut();
+  // scope 'local' = this device only (a cancelled two-factor prompt: the person's other sessions stay signed in).
+  // No scope = supabase-js's default, 'global': every session of the account (the Log out button).
+  async signOut(scope) {
+    await sb.auth.signOut(scope ? { scope } : undefined);
   },
 
   // Password reset — sends an email with a recovery link that lands on
@@ -998,8 +1010,10 @@ const DB = {
   },
 
   // ---------- 2FA / MFA (TOTP, Supabase Auth native) ----------
-  // All of this runs entirely against Supabase Auth (GoTrue) with the anon
-  // client — NO service role, NO edge function, NO migration, NO new secret.
+  // These run against Supabase Auth (GoTrue) with the anon client. The database
+  // enforces the result (sql/migration-mfa-aal2-2026-10-28.sql: an account with a
+  // verified factor reads and writes nothing below aal2), so do the edge functions
+  // (supabase/functions/_shared/aal.ts); the prompt is app.js promptMfaChallenge().
   // Every wrapper is soft-failing: it returns {ok:false, reason} instead of
   // throwing, so the UI can degrade gracefully if the project has TOTP MFA
   // disabled in the dashboard (Authentication → Multi-Factor). `unsupported`

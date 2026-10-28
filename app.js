@@ -1029,6 +1029,13 @@ async function bootstrap(expectedType, onReady, opts) {
     return;
   }
   _bootTries = 0;
+  // Two-factor (migration-mfa-aal2-2026-10-28.sql): a session that still owes its code asks for it here,
+  // in place, before anything reads data. Sign out instead: this device only, then signed out as usual.
+  if (session) {
+    const step = await _mfaStepUp();
+    if (step === 'out') session = null;
+    else if (step === 'in') { try { session = (await DB.getSession()) || session; } catch (e) {} }
+  }
   if (!session) {
     if (expectedType) { _toWelcome(); return; }
     // The homepage draws (and its Log in button appears) without waiting for the coach list.
@@ -3369,7 +3376,7 @@ function _queuePendingLog(log) {
 let _flushingLogs = false;
 async function flushPendingLogs() {
   if (window._demoMode) return;
-  if (_flushingLogs) return;
+  if (_flushingLogs || window._mfaStepUpPending) return;   // _mfaStepUp flushes once the code is in
   const q = _readPendingLogs();
   if (!q.length) return;
   _flushingLogs = true;
@@ -3577,7 +3584,7 @@ function _enqueueOutbox(kind, payload, key) {
 }
 let _flushingOutbox = false;
 async function flushOutbox() {
-  if (window._demoMode || _flushingOutbox) return;
+  if (window._demoMode || _flushingOutbox || window._mfaStepUpPending) return;   // _mfaStepUp flushes once the code is in
   const q = _readOutbox();
   if (!q.length) return;
   _flushingOutbox = true;
@@ -4074,11 +4081,104 @@ window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 
 // ---------- Two-factor authentication (#37) ----------
-// Client-only TOTP 2FA on top of Supabase Auth's native MFA. No secret, no
-// edge function, no migration — see DB.mfa* wrappers in db.js. The Settings
-// card shows status + enable/disable; the enroll modal renders the QR + secret
-// and verifies a code; the login-time challenge lives in index.html's doLogin.
+// TOTP 2FA on Supabase Auth's native MFA (DB.mfa* wrappers in db.js). The database holds it:
+// an account with a verified authenticator reads and writes nothing until its session has
+// entered the code (aal2; sql/migration-mfa-aal2-2026-10-28.sql), and the edge functions
+// check the same (supabase/functions/_shared/aal.ts). Here: the Settings card (status +
+// enable/disable), the enroll sheet (QR + secret + code), and the code prompt, which the
+// sign-in screens (index.html doLogin, native-onboard.js, social-auth.js) and bootstrap()
+// share: a session that still owes its code asks for it before anything reads data.
 let _mfaPendingFactor = null;
+
+// The code prompt. Resolves true once the code verifies (the session is now aal2), false when
+// the person cancels: the second button, Esc, or anything else closing the modal (a tap on
+// the backdrop doesn't: data-sticky). opts.cancelLabel: 'Cancel' on the sign-in screens,
+// 'Sign out' at boot, where cancelling is exactly that.
+function promptMfaChallenge(opts) {
+  opts = opts || {};
+  return new Promise((resolve) => {
+    let modal = document.getElementById('mfaChallengeModal');
+    if (!modal) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = '<div class="modal-backdrop" id="mfaChallengeModal" data-sticky="1">' +
+        '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mfaChalTitle">' +
+          '<h3 id="mfaChalTitle" style="margin-bottom:6px">Two-factor verification</h3>' +
+          '<p class="dim text-sm mb-16" style="line-height:1.5">Enter the 6-digit code from your authenticator app to finish signing in.</p>' +
+          '<div class="form-group"><label for="mfaChalCode">Code</label>' +
+            '<input type="text" id="mfaChalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
+          '<div id="mfaChalErr" class="text-xs" role="alert" style="color:var(--brand-red);min-height:16px;margin-bottom:8px"></div>' +
+          '<button type="button" class="btn btn-primary btn-block" id="mfaChalVerify">Verify</button>' +
+          '<button type="button" class="btn btn-block btn-ghost mt-8" id="mfaChalCancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+      modal = wrap.firstChild;
+      document.body.appendChild(modal);
+    }
+    const codeInp = modal.querySelector('#mfaChalCode');
+    const err = modal.querySelector('#mfaChalErr');
+    const verifyBtn = modal.querySelector('#mfaChalVerify');
+    const cancelBtn = modal.querySelector('#mfaChalCancel');
+    codeInp.value = ''; err.textContent = '';
+    verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+    cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+    let settled = false;
+    // Esc (closeAllModals) or any other script taking .open away counts as Cancel, so the caller
+    // never waits on a prompt nobody can see.
+    const watch = new MutationObserver(() => { if (!modal.classList.contains('open')) cleanup(false); });
+    function cleanup(result) {
+      if (settled) return;
+      settled = true;
+      watch.disconnect();
+      modal.classList.remove('open');
+      verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
+      resolve(result);
+    }
+    async function attempt() {
+      const code = (codeInp.value || '').replace(/\D/g, '');
+      if (code.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
+      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…'; err.textContent = '';
+      const res = await DB.mfaChallengeVerify(code);
+      if (settled) return;
+      verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+      if (res.ok) return cleanup(true);
+      err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
+        ? 'That code didn\'t match. Try the current one.' : (res.reason || 'Verification failed.');
+    }
+    verifyBtn.onclick = attempt;
+    cancelBtn.onclick = function () { cleanup(false); };
+    codeInp.onkeydown = function (e) { if (e.key === 'Enter') attempt(); };
+    // index.html hides the page while it works out where a signed-in visitor goes (html.auth-pending on
+    // the website, back from Apple / Google too; html.has-session's splash in the app): a prompt that
+    // opens then must be seen, so the page shows behind it.
+    try { document.documentElement.classList.remove('auth-pending', 'auth-returning', 'has-session'); } catch (e) {}
+    modal.classList.add('open');
+    watch.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
+  });
+}
+window.promptMfaChallenge = promptMfaChallenge;
+
+// bootstrap(): a session that still owes its code (the password step is done, the code isn't:
+// a reload during the sign-in prompt, or /athlete.html or /coach.html opened straight after the
+// password) asks for it in place, before anything reads data. The check reads the stored session
+// (no network); the database refuses such a session anyway. Returns 'none' (nothing owed, or it
+// couldn't tell), 'in' (code entered: the session is aal2) or 'out' (they chose to sign out:
+// this device only, never their other sessions).
+async function _mfaStepUp() {
+  let aal = null;
+  try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
+  if (!aal || !aal.ok || aal.nextLevel !== 'aal2' || aal.currentLevel === 'aal2') return 'none';
+  window._mfaStepUpPending = true;   // the offline queues wait: replayed at aal1 they'd be refused and burn their tries
+  let passed = false;
+  try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out' }); } catch (e) { passed = false; }
+  window._mfaStepUpPending = false;
+  if (passed) {
+    setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
+    return 'in';
+  }
+  try { await DB.signOut('local'); } catch (e) {}
+  return 'out';
+}
 
 // Status line + tinted pill, mirroring renderPlanManageCard's badge treatment.
 // One row like the rest of Security (title, what it does, On / Off at the end), then one button.
@@ -5623,8 +5723,9 @@ window.closeAllModals = function() {
   document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
 };
 document.addEventListener('click', function(e) {
-  // If user clicked the backdrop element itself (not a child), close it
-  if (e.target.classList && e.target.classList.contains('modal-backdrop') && e.target.classList.contains('open')) {
+  // If user clicked the backdrop element itself (not a child), close it. Not a data-sticky one
+  // (the two-factor prompt): a stray tap beside it must not count as Cancel and sign them out.
+  if (e.target.classList && e.target.classList.contains('modal-backdrop') && e.target.classList.contains('open') && !e.target.hasAttribute('data-sticky')) {
     e.target.classList.remove('open');
   }
 });

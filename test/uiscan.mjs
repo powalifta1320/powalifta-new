@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 121 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 149 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
@@ -60,7 +60,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     // Aim for a total (meetday.js): the attempt planner with its row under the plans.
     { name: 'sh-chl-new' + suf, page: C, theme, eval: tab('club') + ';Challenges.openNew()' },
     { name: 'sh-chl-board' + suf, page: A, theme, eval: tab('club') + ";setTimeout(() => { const b = document.querySelector('.chl-mine'); if (b) b.click(); }, 200)" },
-    { name: 'sh-planner-aim' + suf, page: C, theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
+    { name: 'sh-planner-aim' + suf, page: C, theme, eval: "openAttemptPlanner('demo-cmeet-p1')" },
+    // Two-factor (2026-10-28): the code prompt a dashboard shows when a session still owes its code, and the
+    // one after the password in the app's log-in sheet. Only drawn here: nothing is sent until Verify.
+    { name: 'sh-2fa' + suf, page: C, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" },
+    { name: 'ob-2fa' + suf, page: 'index.html', theme, eval: "obOpen('login'); setTimeout(() => promptMfaChallenge(), 400); true" });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
@@ -79,6 +83,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
+// The two-factor code prompt on the website (after the password, over the log-in modal) and on the desk, dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-2fa-login' + suf, page: 'index.html', mode: 'web', theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
+  { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
+  { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

@@ -1064,7 +1064,8 @@ async function doLogin() {
     const aal = await DB.mfaAssurance();
     if (aal && aal.ok && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
       const passed = await promptMfaChallenge();
-      if (!passed) { await DB.signOut(); throw new Error('Two-factor verification required'); }
+      // Cancel ends this half-finished sign-in on this device only, never the person's other sessions.
+      if (!passed) { await DB.signOut('local'); throw new Error('Two-factor verification required'); }
     }
     const session = await DB.getSession();
     const profile = await DB.getProfile(session.user.id);
@@ -1077,57 +1078,8 @@ async function doLogin() {
   }
 }
 
-// Login-time 2FA challenge (#37). Resolves true once the code verifies (session
-// elevates to AAL2), false on cancel. Self-contained modal reusing the shared
-// .modal-backdrop styles; DB.mfaChallengeVerify does the challenge+verify.
-function promptMfaChallenge() {
-  return new Promise((resolve) => {
-    let modal = document.getElementById('mfaChallengeModal');
-    if (!modal) {
-      const wrap = document.createElement('div');
-      wrap.innerHTML = '<div class="modal-backdrop" id="mfaChallengeModal">' +
-        '<div class="modal">' +
-          '<h2 style="margin-bottom:6px">Two-factor verification</h2>' +
-          '<p class="dim text-sm mb-16" style="line-height:1.5">Enter the 6-digit code from your authenticator app to finish signing in.</p>' +
-          '<div class="form-group"><label>Code</label>' +
-            '<input type="text" id="mfaChalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
-          '<div id="mfaChalErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
-          '<button class="btn btn-primary btn-block" id="mfaChalVerify">Verify</button>' +
-          '<button class="btn btn-block btn-ghost mt-8" id="mfaChalCancel">Cancel</button>' +
-        '</div>' +
-      '</div>';
-      modal = wrap.firstChild;
-      document.body.appendChild(modal);
-    }
-    const codeInp = modal.querySelector('#mfaChalCode');
-    const err = modal.querySelector('#mfaChalErr');
-    const verifyBtn = modal.querySelector('#mfaChalVerify');
-    const cancelBtn = modal.querySelector('#mfaChalCancel');
-    codeInp.value = ''; err.textContent = '';
-    modal.classList.add('open');
-    setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
-
-    function cleanup(result) {
-      modal.classList.remove('open');
-      verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
-      resolve(result);
-    }
-    async function attempt() {
-      const code = (codeInp.value || '').replace(/\D/g, '');
-      if (code.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
-      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…'; err.textContent = '';
-      const res = await DB.mfaChallengeVerify(code);
-      verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
-      if (res.ok) return cleanup(true);
-      err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
-        ? 'That code didn\'t match. Try the current one.' : (res.reason || 'Verification failed.');
-    }
-    verifyBtn.onclick = attempt;
-    cancelBtn.onclick = function () { cleanup(false); };
-    codeInp.onkeydown = function (e) { if (e.key === 'Enter') attempt(); };
-  });
-}
-window.promptMfaChallenge = promptMfaChallenge;
+// The two-factor code prompt (#37) is app.js promptMfaChallenge(): the dashboards ask for the code too
+// when a session still owes it (bootstrap), so it lives where every page has it.
 
 async function doSignup() {
   const btn = event && event.target;
