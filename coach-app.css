@@ -715,11 +715,16 @@ html:not(.desk) body.powa-app .cp-ed-send::after { inset: -14px -8px; }
 /* The large title says it: the card's own "Challenge" heading steps aside here (the desk keeps it in Club). */
 html:not(.desk) #challengesArea .chl-h { display: none; }
 
-/* =================================================================== TABLETS (700 to 999, off the desk) */
-/* The same screens, held to a readable column on the title's left edge (the iPad, the Duo open). */
+/* =================================================================== TABLETS (700 to 999, off the desk)
+   The same screens in the app's iPad column (styles.css: every pane is a centred 880 px column, so the title
+   doesn't jump between tabs). They fill it, as the lifter app's do: a 720 px cap left Pending invites, the
+   header's search and Add exercise each on a different right edge. */
 @media (min-width: 700px) {
-  html:not(.desk) :is(.ca-root, .cp) { max-width: 720px; }
-  html:not(.desk) .cp-fab { right: max(16px, calc(100vw - 736px)); }
+  /* Add exercise sits on the column's right edge */
+  html:not(.desk) .cp-fab { right: calc(16px + max(0px, (100vw - 912px) / 2)); }
+  /* Past 912 px the column stops short of the window: the header's own buttons (Home's search, Lifters' +)
+     close up to the assistant and the bell, which stay at the window's edge */
+  html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .dash-header:first-child { padding-right: max(0px, calc(var(--nav-actions-w, 96px) - max(0px, (100vw - 912px) / 2))); }
 }
 
 /* =================================================================== MOTION */
