@@ -152,6 +152,9 @@ with checks(n, migration, applied) as (values
   (53, 'migration-coach-alerts-2026-10-28.sql  (coach alerts: the PRs and missed sessions switch, and the Monday report''s week stats; after migration-email-preferences.sql)',
         exists (select 1 from information_schema.columns
                  where table_schema = 'public' and table_name = 'email_preferences' and column_name = 'push_alerts')
-        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null)
+        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null),
+  (56, 'migration-data-scale-2026-10-28.sql  (the Monday report reads each block''s planned sessions, not its JSON: programs_planned; send-weekly-digest only)',
+        to_regprocedure('public.program_planned_per_week(jsonb)') is not null
+        and to_regprocedure('public.programs_planned(public.programs)') is not null)
 )
 select n, migration, applied from checks order by n;

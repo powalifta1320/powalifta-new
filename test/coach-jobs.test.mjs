@@ -64,6 +64,8 @@ t('programs read lean: planned sessions worked out, the JSON dropped', () => {
   const lean = leanPrograms([{ athlete_id: 'a1', coach_id: 'c1', updated_at: 'u', weeks }, { athlete_id: 'a2', coach_id: 'c1', updated_at: 'u', weeks: JSON.stringify(weeks) }, { athlete_id: 'a3', weeks: null }]);
   eq(lean, [{ athlete_id: 'a1', coach_id: 'c1', updated_at: 'u', planned: 2 }, { athlete_id: 'a2', coach_id: 'c1', updated_at: 'u', planned: 2 }, { athlete_id: 'a3', coach_id: null, updated_at: null, planned: 0 }]);
   ok(!('weeks' in lean[0]), 'no JSON kept');
+  // The database's count (programs_planned, sql/migration-data-scale-2026-10-28.sql): taken as it is.
+  eq(leanPrograms([{ athlete_id: 'a4', coach_id: 'c1', updated_at: 'u', planned: 3 }, { athlete_id: 'a5', planned: null }, { athlete_id: 'a6', planned: '2' }]).map(p => p.planned), [3, 0, 2]);
 });
 t('the unsubscribe link: the coach\'s token, marked as the Monday report', () => {
   eq(unsubLink('https://powalifta.com/unsubscribe.html?token=', '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed'), 'https://powalifta.com/unsubscribe.html?token=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed&r=coach');
