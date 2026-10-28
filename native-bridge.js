@@ -167,6 +167,7 @@
       try {
         var perm = await Push.checkPermissions();
         this._perm = perm.receive;
+        this._displayPerm = perm.receive === 'granted' ? 'granted' : perm.receive === 'denied' ? 'denied' : 'prompt';
         var off = false;
         try { off = localStorage.getItem('powa-push-off') === '1'; } catch (e) {}
         if (perm.receive !== 'granted' || off) return false;
