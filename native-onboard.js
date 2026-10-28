@@ -538,7 +538,8 @@
         var aal = await DB.mfaAssurance();
         if (aal && aal.ok && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
           var passed = typeof promptMfaChallenge === 'function' ? await promptMfaChallenge() : false;
-          if (!passed) { await DB.signOut(); throw new Error('Two-factor verification is required.'); }
+          // Cancel ends this half-finished sign-in on this device only, never the person's other sessions.
+          if (!passed) { await DB.signOut('local'); throw new Error('Two-factor verification is required.'); }
         }
         var session = await DB.getSession();
         var profile = await DB.getProfile(session.user.id);

@@ -43,6 +43,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 import { verifyAppleJws } from "../_shared/apple-jws.ts";
 import { lsLive, sandboxAllowed, selectProfilesSoft, updateProfileSoft } from "../_shared/billing.ts";
+import { owesSecondFactor, SECOND_FACTOR } from "../_shared/aal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -84,6 +85,9 @@ Deno.serve(async (req) => {
   const { data: userData, error: userErr } = await authed.auth.getUser();
   const uid = userData?.user?.id;
   if (userErr || !uid) return json(401, { error: "unauthorized" });
+  // Two-factor (migration-mfa-aal2): an account with an authenticator acts here only at aal2 (_shared/aal.ts).
+  const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (owesSecondFactor(jwt, userData.user)) return json(403, SECOND_FACTOR);
 
   const rl = await rateLimit(admin, { bucket: "apple-iap", identity: uid, limit: 60, windowSecs: 3600 });
   if (!rl.ok) return rateLimitResponse(rl, CORS);

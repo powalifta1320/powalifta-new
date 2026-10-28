@@ -2,8 +2,8 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 163 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
- * sheets (New challenge and a challenge's board among them, the import intake's steps), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
+ * Opens 173 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
  * don't match, tiny tap targets (app only) and unreadable text (contrast under 2.6:1).
@@ -71,7 +71,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-im-tabs' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'hub', sample: 'workbook' }).then(() => new Promise(r => setTimeout(r, 900)))" },
     { name: 'sh-im-guide' + suf, page: C, theme, eval: "SwitchKit.loadIntake().then(() => ImportGuides.open('truecoach'))" },
     { name: 'sh-im-self' + suf, page: A, theme, eval: "SwitchKit.openIntake({ mode: 'history', self: true, sample: 'history' })" },
-    { name: 'sh-im-program' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'program', athleteId: 'demo-a2', sample: 'grid' }).then(() => new Promise(r => setTimeout(r, 700)))" });
+    { name: 'sh-im-program' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'program', athleteId: 'demo-a2', sample: 'grid' }).then(() => new Promise(r => setTimeout(r, 700)))" },
+    // Two-factor (2026-10-28): the code prompt a dashboard shows when a session still owes its code, and the
+    // one after the password in the app's log-in sheet. Only drawn here: nothing is sent until Verify.
+    { name: 'sh-2fa' + suf, page: C, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" },
+    { name: 'ob-2fa' + suf, page: 'index.html', theme, eval: "obOpen('login'); setTimeout(() => promptMfaChallenge(), 400); true" });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
@@ -96,6 +100,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-im-roster' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.openIntake({ mode: 'roster', sample: 'roster' })" },
   { name: 'w-im-history' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.openIntake({ mode: 'history', athleteId: 'demo-a1', sample: 'history' })" },
   { name: 'w-im-guide' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.loadIntake().then(() => ImportGuides.open('coachrx'))" });
+// The two-factor code prompt on the website (after the password, over the log-in modal) and on the desk, dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-2fa-login' + suf, page: 'index.html', mode: 'web', theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
+  { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
+  { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

@@ -33,6 +33,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 import { rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts'
+import { owesSecondFactor, SECOND_FACTOR } from '../_shared/aal.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -116,6 +117,8 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
   const { data: userData, error: userErr } = await admin.auth.getUser(jwt)
   if (userErr || !userData?.user) return json({ error: 'invalid session' }, 401)
+  // Two-factor (migration-mfa-aal2): an account with an authenticator acts here only at aal2 (_shared/aal.ts).
+  if (owesSecondFactor(jwt, userData.user)) return json(SECOND_FACTOR, 403)
   const callerId = userData.user.id
 
   // Per-caller ceiling. Push is authorized to self or a linked party, but a

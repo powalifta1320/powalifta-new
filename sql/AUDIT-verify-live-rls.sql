@@ -27,11 +27,13 @@ ORDER BY c.relrowsecurity ASC, c.relname;   -- false (danger) sorts to the top
 -- RLS-on + no-policy = fully locked (only service role). That's SAFE for
 -- ai_chat_usage / client_errors / edge_rate_limits. It is a BUG for anything the
 -- app reads/writes with the anon key (users would get empty results).
+-- Only PERMISSIVE policies grant anything: the RESTRICTIVE two-factor policy every table carries
+-- (powa_mfa_aal2, migration-mfa-aal2-2026-10-28.sql) only narrows them, so it isn't counted.
 SELECT c.relname AS table_name,
        count(p.polname) AS policy_count
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
-LEFT JOIN pg_policy p ON p.polrelid = c.oid
+LEFT JOIN pg_policy p ON p.polrelid = c.oid AND p.polpermissive
 WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
 GROUP BY c.relname
 HAVING count(p.polname) = 0
