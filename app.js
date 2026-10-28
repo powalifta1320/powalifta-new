@@ -1417,28 +1417,64 @@ const PowaPush = {
       return !!(await reg.pushManager.getSubscription());
     } catch { return false; }
   },
-  // Ask permission, subscribe, persist. Returns true on success.
-  async enable() {
+  // Ask permission, subscribe, persist. Returns true on success; PowaPush._last says how it went:
+  // 'on' | 'denied' | 'dismissed' (the prompt closed with no answer) | 'error' | 'unsupported' |
+  // 'signin' | 'demo'. { quiet: true } (the allow-notifications card, notify.js): no toast for
+  // 'on' or 'dismissed', the card answers those in place, and none for a "Don't Allow" / "Block"
+  // given just now (an answer to respect, not to argue with); every other failure still says why.
+  // { local: true } (iPhone app): the promise is an alert from the phone itself (rest is up, the
+  // morning weigh-in), so iOS's yes is the whole job; Apple's token follows in the background.
+  async enable(opts) {
+    const quiet = !!(opts && opts.quiet);
     // Native shell: register with APNs/FCM through the Capacitor plugin instead
     // of Web Push. The rest of the app (Settings toggle, send-push) is unchanged.
     if (_isNativeShell()) {
-      if (window._demoMode) { toast('Notifications need a real account'); return false; }
+      if (window._demoMode) { this._last = 'demo'; toast('Notifications need a real account'); return false; }
       try { localStorage.removeItem('powa-push-off'); } catch (e) {}
-      const ok = await PowaNative.registerPush();
-      try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
-      toast(ok ? 'Notifications on' : 'Couldn’t turn them on. Allow notifications in iPhone Settings → Notifications → POWALIFTA.');
-      return ok;
+      if (opts && opts.local && PowaNative.askPermission) {
+        const p = await PowaNative.askPermission();
+        if (p === 'granted') {
+          this._last = 'on';
+          // Server pushes too, once Apple answers: no prompt, nothing to wait for here.
+          Promise.resolve(PowaNative.registerPush(true)).then((ok) => {
+            try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
+          }, () => {});
+          if (!quiet) toast('Notifications on');
+          return true;
+        }
+        this._last = p === 'denied' ? 'denied' : 'error';
+      } else {
+        const ok = await PowaNative.registerPush();
+        try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
+        // iOS never closes its prompt without an answer: not on is either "Don't Allow" (now or
+        // earlier) or a registration that didn't come back from Apple (or couldn't be saved).
+        this._last = ok ? 'on' : PowaNative._perm === 'denied' ? 'denied' : 'error';
+        if (ok) { if (!quiet) toast('Notifications on'); return true; }
+      }
+      if (this._last === 'denied') {
+        if (!(quiet && PowaNative._asked)) toast('Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.', 5000);
+      } else if (opts && opts.local) toast('Couldn’t turn alerts on. Try again in a minute.', 4000);
+      else if (PowaNative._regErr === 'save') toast('Couldn’t save your alert settings. Please try again', 4000);
+      else toast('Couldn’t reach Apple to turn alerts on. Try again in a minute.', 4000);
+      return false;
     }
-    if (!this.supported()) { toast('Notifications are not supported on this browser'); return false; }
-    if (!this.configured()) { toast('Push not configured yet. Add a VAPID key'); return false; }
-    if (window._demoMode) { toast('Notifications need a real account'); return false; }
+    if (!this.supported()) { this._last = 'unsupported'; toast('Notifications are not supported on this browser'); return false; }
+    if (!this.configured()) { this._last = 'error'; toast('Push not configured yet. Add a VAPID key'); return false; }
+    if (window._demoMode) { this._last = 'demo'; toast('Notifications need a real account'); return false; }
 
+    const before = Notification.permission;
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications blocked: enable them in browser settings' : 'Notifications not enabled'); return false; }
+    if (perm !== 'granted') {
+      this._last = perm === 'denied' ? 'denied' : 'dismissed';
+      // Blocked from before (no prompt could show), or asked from You → Notifications: where to change it.
+      if (perm === 'denied') { if (!(quiet && before !== 'denied')) toast('Notifications blocked: enable them in browser settings'); }
+      else if (!quiet) toast('Notifications not enabled');
+      return false;
+    }
 
     // Need a real signed-in user before we subscribe — there's nowhere to save it otherwise.
     const userId = window.DB ? await DB.getUserId() : null;
-    if (!userId) { toast('Sign in to enable notifications'); return false; }
+    if (!userId) { this._last = 'signin'; toast('Sign in to enable notifications'); return false; }
 
     // 1) Subscribe with the browser's push service (FCM / Mozilla / Apple).
     //    This is the step that fails on http origins or browsers without a push service.
@@ -1454,6 +1490,7 @@ const PowaPush = {
       }
     } catch (err) {
       console.warn('Push subscribe failed:', err);
+      this._last = 'error';
       toast(window.isSecureContext
         ? 'Your browser couldn’t reach a push service. Try Chrome or the installed app'
         : 'Notifications need HTTPS or the installed app');
@@ -1467,11 +1504,14 @@ const PowaPush = {
     } catch (err) {
       console.warn('Saving push subscription failed:', err);
       try { await sub.unsubscribe(); } catch {}
+      this._last = 'error';
       toast('Couldn’t save your alert settings. Please try again');
       return false;
     }
 
-    toast('Notifications on');
+    try { localStorage.removeItem('powa-push-off'); } catch (e) {}
+    this._last = 'on';
+    if (!quiet) toast('Notifications on');
     return true;
   },
   // Unsubscribe this device and forget it server-side.
@@ -1493,6 +1533,7 @@ const PowaPush = {
         if (window.DB) { try { await DB.deletePushSubscription(sub.endpoint); } catch {} }
         await sub.unsubscribe();
       }
+      try { localStorage.setItem('powa-push-off', '1'); } catch (e) {}   // a choice: the allow-notifications card (notify.js) never asks again
       toast('Notifications off');
       return true;
     } catch (err) {
@@ -4704,7 +4745,7 @@ async function renderNotifPrefs(container) {
 
   const deviceHtml = () => {
     const wrap = (inner) => '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">' + inner + '</div>';
-    if (!supported) return wrap('<span class="dim text-xs">This browser doesn’t support push. On iPhone, add POWALIFTA to your Home Screen to get alerts.</span>');
+    if (!supported) return wrap('<span class="dim text-xs">This browser can’t get alerts. On iPhone, they come through the POWALIFTA app.</span>');
     if (perm === 'denied') return wrap('<span class="dim text-xs">' + (_isNativeShell()
       ? 'Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.'
       : 'Alerts are blocked: turn notifications back on for POWALIFTA in your browser settings.') + '</span>');

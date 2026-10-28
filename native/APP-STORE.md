@@ -192,7 +192,9 @@ Apple Health (optional, off until the lifter turns it on under You → Apple Hea
 
 ## Signing & capabilities checklist (Xcode — you drive)
 - [ ] Signing & Capabilities → select your Team (your Apple Developer account).
-- [ ] Add capability: **Push Notifications**.
+- [ ] Add capability: **Push Notifications**. `inject-push.rb` (run by `inject-all.sh`) adds it,
+      with the aps-environment entitlement and the two AppDelegate.swift methods that hand
+      Apple's device token to Capacitor; without those methods no token ever reaches the app.
 - [ ] Create an **APNs Auth Key (.p8)** in the Developer portal → Keys; note the
       Key ID + your Team ID. (These become the `send-push` secrets — see
       `docs/native-app-spike.md` Phase B. Not needed to UPLOAD, needed for push to

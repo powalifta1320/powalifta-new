@@ -1,0 +1,56 @@
+/* ALLOW NOTIFICATIONS (notify.js, 2026-10-28): one calm card. A bell in the screen's hue, one line
+   of value, Turn on (soft, never the screen's red) and Not now. Same surface as the coach's note
+   card under it (.tn-group); the slot holds the gap above it and closes when it goes. */
+.pn-slot { margin-top: 12px; }
+.pn-slot:empty { display: none; }
+.pn-card {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 12px;
+  padding: 16px; border-radius: var(--u-r, 20px); border: 1px solid var(--edge, var(--line));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.006)), var(--bg-1);
+  box-shadow: var(--lit, none);
+}
+[data-theme="light"] .pn-card { background: var(--bg-1); box-shadow: var(--lit, none), 0 10px 24px -20px rgba(20, 20, 40, 0.3); }
+/* The bell wears the hue of where the ping comes from: Coach / Messages green (the green of the
+   "Session done" card above it too), Club gold for a training buddy. Never the screen's red. */
+.pn-card { --pn: #34d982; }
+.pn-card.hue-gold { --pn: #ffc23d; }
+[data-theme="light"] .pn-card { --pn: #0c7340; }
+[data-theme="light"] .pn-card.hue-gold { --pn: #8a6300; }
+.pn-ic {
+  width: 40px; height: 40px; border-radius: var(--r-ctl, 12px); display: grid; place-items: center;
+  color: var(--pn); background: color-mix(in srgb, var(--pn) 15%, transparent);
+}
+[data-theme="light"] .pn-ic { background: color-mix(in srgb, var(--pn) 11%, transparent); }
+.pn-ic svg { width: 20px; height: 20px; }
+.pn-text { min-width: 0; }
+.pn-line { display: block; font-size: var(--fs-row, 16px); font-weight: 650; line-height: 1.3; letter-spacing: -0.005em; color: var(--text); text-wrap: pretty; }
+.pn-sub { display: block; margin-top: 3px; font-size: var(--fs-meta, 13px); font-weight: 500; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+/* The two answers line up under the words, not the bell. */
+.pn-acts { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: -2px; }
+body.powa-app .pn-acts .pn-on { min-height: 44px; padding: 0 20px; font-size: var(--fs-sm, 14px); font-weight: 650; text-decoration: none; }
+body.powa-app .pn-acts .pn-on:disabled { opacity: 0.7; cursor: default; }
+body.powa-app .pn-acts .pn-later { min-height: 44px; padding: 0 12px; font-size: var(--fs-sm, 14px); color: var(--text-2); }
+body.powa-app .pn-acts .pn-later:active { opacity: 0.6; }
+/* Wide (a laptop: the coach's Today, the lifter's Train): one row like the jobs around it, the bell,
+   the words, the two answers at the end. A phone keeps the answers under the words. */
+.pn-slot { container-type: inline-size; }
+@container (min-width: 540px) {
+  .pn-card { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 14px 16px 14px 18px; }
+  .pn-card .pn-acts { grid-column: 3; margin-top: 0; flex-wrap: nowrap; }
+}
+/* Alerts on: the bell turns into a check (in the done green), then the card goes. */
+.pn-card.is-on { --pn: #34d982; }
+[data-theme="light"] .pn-card.is-on { --pn: #0c7340; }
+.pn-card.is-on .pn-ic svg { animation: pnCheck 0.32s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)); }
+.pn-card.is-on .pn-text { animation: pnSwap 0.22s ease; }
+
+/* In: after the "Session done" card settles, from just below (opacity from 0.45: iOS drops taps on
+   content rising from 0). Out: notify.js leave() fades it back down, then closes the slot. */
+.pn-card.is-in { animation: pnIn var(--t-enter, 420ms) var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1)) 0.16s backwards; }
+@keyframes pnIn { from { opacity: 0.45; transform: translateY(10px) scale(0.985); } }
+@keyframes pnCheck { from { transform: scale(0.6); opacity: 0.5; } }
+@keyframes pnSwap { from { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .pn-card.is-in { animation: pnSwap 0.2s ease backwards; }
+  .pn-card.is-on .pn-ic svg { animation: none; }
+}
