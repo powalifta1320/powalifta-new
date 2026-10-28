@@ -8343,6 +8343,54 @@ test('what the read-only thread says, from either side', () => {
   eq(msgClosedText(false, null), 'This coach is no longer your coach, so this thread is read-only.');
 });
 
+/* ===========================================================
+   The security merge's follow-ups (28 Oct: sec-sql + sec-2fa + sec-client on integ). The demo's log-out
+   leaves a real account's kept work alone; an account deleted elsewhere (Auth says so) goes as a deletion;
+   one two-factor prompt at a time, which a #login / #signup on load can't cancel. Like the sign-out group:
+   every powa-* and sb-* key is put back exactly as it was, and nothing here sends anything.
+   =========================================================== */
+group('security merge follow-ups (demo log-out, deleted elsewhere, one code prompt)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  const realUser = window._user, realDemo = window._demoMode, realPending = window._mfaStepUpPending;
+  const put = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  const REAL = 'fu-real-0000-1111';
+  const clearQueues = () => [_PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  const seedRealWork = () => {
+    clearQueues();
+    put(_PENDING_LOGS_KEY, [{ id: 'fu-l1', athleteId: REAL, lift: 'squat', weight: 100, reps: 5, rpe: 8, date: '2026-10-28' }]);
+    put(_QUEUE_OWNER_KEY, REAL);
+    put('powa-md-fu-real-board', { day: { name: 'Real meet' }, lifters: [], cells: { a: 1 }, outbox: { a: 1 }, pendingCreate: true });
+    put('powa-saved-replies-' + REAL, '["kept"]');
+  };
+  try {
+    test('the demo\'s log-out leaves a real account\'s tagged queue and unsent meet-day board on this device; the demo\'s own keys go (a)', () => {
+      seedRealWork();
+      put('powa-attempt-plans', { demo: 1 }); put('powa-md-demo-fu', { day: {}, lifters: [], cells: {}, outbox: {} });
+      window._demoMode = true; window._user = { id: 'demo-coach' };
+      // logout()'s demo path: _wipeLocalUserData({ uid, demo }), then the last sweep without the pending boards
+      _wipeLocalUserData({ uid: 'demo-coach', demo: true }); _sweepAccountKeys({ pending: false });
+      eq(_readPendingLogs().length, 1, 'the real account\'s unsent set'); eq(_queueOwner(), REAL, 'still tagged with its account');
+      assert(!!localStorage.getItem('powa-md-fu-real-board'), 'its unsent meet-day board was dropped');
+      eq(localStorage.getItem('powa-saved-replies-' + REAL), '["kept"]', 'its own saved replies');
+      eq(localStorage.getItem('powa-attempt-plans'), null, 'the demo\'s attempt plans stay behind');
+      eq(localStorage.getItem('powa-md-demo-fu'), null, 'the demo\'s board stays behind');
+      // the control: a chosen log-out of a real account still takes its queue and boards
+      window._demoMode = false; window._user = { id: REAL };
+      _wipeLocalUserData({ uid: REAL }); _sweepAccountKeys({ pending: true });
+      eq(_readPendingLogs().length, 0, 'a real log-out drops the sets'); eq(_queueOwner(), null);
+      eq(localStorage.getItem('powa-md-fu-real-board'), null, 'and the unsent board');
+      localStorage.removeItem('powa-saved-replies-' + REAL);
+    });
+  } finally {
+    window._user = realUser; window._demoMode = realDemo; window._mfaStepUpPending = realPending;
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

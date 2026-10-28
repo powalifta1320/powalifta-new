@@ -287,7 +287,9 @@ function _forgetAccountKeys(uid) {
 // the next account must never send them. opts.keepQueue (a sign-out the person didn't choose) keeps them
 // for this same account instead: tagged with its id, sent only when it signs back in (another account
 // signing in on this device drops them). The account's own settings and records stay either way;
-// opts.deleted takes them too. opts.uid: the account, when window._user is already gone.
+// opts.deleted takes them too. opts.uid: the account, when window._user is already gone. opts.demo (the
+// demo's Log out): the demo queued nothing, so the queues on this device are a real account's (kept for it
+// through a sign-out it didn't choose) and stay exactly as they are: neither dropped nor tagged.
 function _wipeLocalUserData(opts) {
   opts = opts || {};
   const uid = opts.uid || (window._user && window._user.id) || null;
@@ -298,7 +300,8 @@ function _wipeLocalUserData(opts) {
     try { if (uid && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(uid).catch(() => {}); } catch (e) {}
   }
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
-  if (opts.keepQueue) _tagQueueOwner(uid); else _dropQueues();
+  if (opts.demo) { /* a real account's queues: left as they are */ }
+  else if (opts.keepQueue) _tagQueueOwner(uid); else _dropQueues();
   _sweepAccountKeys();
   if (opts.deleted) _forgetAccountKeys(uid);
 }
@@ -345,18 +348,22 @@ async function _okToDropUnsynced() {
   const one = st.sets + st.changes + st.boards === 1;
   return confirm(_unsyncedWords(st) + (one ? ' hasn’t' : ' haven’t') + ' synced yet. Log out now and ' + (one ? 'it’s' : 'they’re') + ' lost. Log out anyway?');
 }
+// The demo's Log out (window._demoMode): its own keys go (attempt plans, its meet-day boards, the club cache), but
+// a real account's work kept on this device (a tagged sets queue, an unsent meet-day board) stays for it, and
+// nothing is sent: no sign-out call (the demo signed nobody in; a session stored here is a real account's).
 async function logout() {
   const uid = window._user && window._user.id;
-  if (!window._demoMode && !(await _okToDropUnsynced())) return;
+  const demo = !!window._demoMode;
+  if (!demo && !(await _okToDropUnsynced())) return;
   window._signingOut = true;   // from here nothing writes this account's snapshot back (pagehide, visibilitychange)
-  if (!window._demoMode) await _forgetPushOnThisDevice();
+  if (!demo) await _forgetPushOnThisDevice();
   liveStop();
-  _wipeLocalUserData({ uid });
-  try { await DB.signOut(); } catch (e) { console.warn(e); }
+  _wipeLocalUserData({ uid, demo });
+  if (!demo) { try { await DB.signOut(); } catch (e) { console.warn(e); } }
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
-  _sweepAccountKeys({ pending: true });   // once more: nothing written while signing out survives it
+  _sweepAccountKeys({ pending: !demo });   // once more: nothing written while signing out survives it
   _toWelcome();
 }
 // Signed out without choosing it: the server refused this session (a password change or "sign out
