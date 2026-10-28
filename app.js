@@ -217,6 +217,9 @@ async function _signedOutByServer(uid, opts) {
   window._user = null;
   Store.reset();
   if (opts.signOut !== false) { try { await DB.signOut('local'); } catch (e) {} }   // this device only: the server has refused the session already
+  // supabase-js keeps the session when that call itself fails (no network): the server refused it, so it goes anyway,
+  // or the welcome screen would route straight back into the dashboard.
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
   await _forgetPushOnThisDevice();   // the browser's push subscription goes; the server row needs the account's own session
   _sweepAccountKeys();
   _noteSignedOut();
