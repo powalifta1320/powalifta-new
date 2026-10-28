@@ -32,6 +32,17 @@ node test/coach-jobs.test.mjs
 node test/send-weekly-digest.test.mjs
 ```
 
+## Two-factor in the edge functions (no dependencies)
+
+The eight functions that act for a signed-in user, run for real under Node with the supabase client,
+web-push, jose and fetch faked: an account with a verified authenticator gets 403 `aal2_required` at
+aal1 (or with no or unreadable claims) and nothing else happens; at aal2, and for accounts without a
+verified factor, every function answers exactly as it does without the guard.
+
+```bash
+node test/edge-aal.test.mjs
+```
+
 ## Mobile overflow check (needs puppeteer)
 
 Loads every page at 375px in headless Chromium and asserts no horizontal

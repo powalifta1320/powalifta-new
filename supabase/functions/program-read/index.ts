@@ -17,6 +17,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { rateLimit } from '../_shared/rate-limit.ts';
+import { owesSecondFactor, SECOND_FACTOR } from '../_shared/aal.ts';
 import { PROMPT, SCHEMA, cleanRead, parseReply } from './shape.ts';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -52,6 +53,8 @@ Deno.serve(async (req) => {
   const { data: who, error: whoErr } = await admin.auth.getUser(jwt);
   const uid = who && who.user && who.user.id;
   if (whoErr || !uid) return jsonResponse(401, { error: 'Not authenticated' });
+  // Two-factor (migration-mfa-aal2): an account with an authenticator acts here only at aal2 (_shared/aal.ts).
+  if (owesSecondFactor(jwt, who.user)) return jsonResponse(403, SECOND_FACTOR);
 
   // ---- the file ----
   let body: any;
