@@ -112,27 +112,70 @@ function requireAuth(expectedType) {
   }
   return user;
 }
-// Everything of one account kept on this device besides its settings: the snapshot of every account
-// (one account is signed in per browser), drafts and local copies that hold names, notes, health,
-// intake answers or billing, the club board and the meet-day sheets (sweep 2026-10-28 #4 and #6).
-// Device settings (theme, units, layout, consent) stay. The offline queues are handled on their own.
+// What one account keeps on this device, by what a sign-out does with it (sweep 2026-10-28 #4 and #6,
+// and its review). Device settings (theme, units, layout, consent) aren't account keys: they always stay.
+//   private  copies of server data and private records: the offline snapshot, lifters' names, intake
+//            answers, Apple Health readings (sleep, heart, food), billing, notes, teams, challenges, a busy
+//            week, cut targets, a form check's drawings, readiness picks, the club's cache, and meet-day
+//            boards and attempt plans with nothing left to send. Every sign-out removes them.
+//   own      the account's own settings and records that exist only on this device, kept like theme and
+//            unit: a coach's saved replies and weekly-note records, the lifter's OpenPowerlifting link, the
+//            Apple Health switch and its bookkeeping (which weigh-ins came from Health, which sessions went
+//            in, a switch-off still to confirm). Each key names its account, so no other account reads it.
+//            Only deleting the account takes them, with every other key that names it (the desk's drafts too).
+//   pending  meet-day work not sent yet: a board whose marks, lifters, settings or the board itself still
+//            have to go up, and the list of boards started on this laptop. Like the sets queue: kept for the
+//            same account through a sign-out it didn't choose, named before a chosen log-out drops it, and
+//            dropped when another account signs in.
 const _ACCOUNT_KEY_RE = /^powa-(snapshot-|intake-|health-|opl-|cut-|saved-replies-|weekly-notes-|week-changes-|coach-notes-|client-|teams-|fca-|ready-|md-|challenge|busy-week-)|^powa-(ds-names|attempt-plans|club-stats|club-name|club-board)$/;
-function _accountKeys() {
+const _OWN_KEY_RE = /^powa-(saved-replies-|weekly-notes-|week-changes-|opl-|health-(on|access|decided|imported|sessions|share|since|times)-)/;
+// A meet-day board as meetday.js keeps it (persist), with something still to go up.
+function _mdUnsent(b) {
+  const n = (o) => (o && typeof o === 'object') ? Object.keys(o).length : 0;
+  return !!(b && typeof b === 'object' && (b.pendingCreate || b.dirtyDay || n(b.outbox) || n(b.dirtyLifters)));
+}
+// 'private' | 'own' | 'pending' for an account key, null for anything else (a device setting).
+function _accountKeyKind(k) {
+  if (!k || !_ACCOUNT_KEY_RE.test(k)) return null;
+  if (_OWN_KEY_RE.test(k)) return 'own';
+  if (/^powa-md-/.test(k) && !/^powa-md-demo-/.test(k)) {
+    let v = null;
+    try { v = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { v = null; }
+    if (/^powa-md-local-/.test(k)) return Array.isArray(v) && v.length ? 'pending' : 'private';   // the boards started here
+    return _mdUnsent(v) ? 'pending' : 'private';
+  }
+  return 'private';
+}
+function _accountKeys(kind) {
+  kind = kind || 'private';
   const out = [];
-  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && _ACCOUNT_KEY_RE.test(k)) out.push(k); } } catch (e) {}
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && _accountKeyKind(k) === kind) out.push(k); } } catch (e) {}
   return out;
 }
-function _sweepAccountKeys() {
-  const keys = _accountKeys();
+// Meet-day boards on this device with something not sent yet (the list of boards started here isn't one).
+function _pendingBoardCount() { return _accountKeys('pending').filter(k => !/^powa-md-local-/.test(k)).length; }
+// Removes the private keys; opts.pending: unsent meet-day work too (a chosen log-out, after asking; a deletion).
+function _sweepAccountKeys(opts) {
+  const keys = _accountKeys('private').concat(opts && opts.pending ? _accountKeys('pending') : []);
   keys.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
   return keys.length;
 }
-// Everything of the outgoing user that lives on this device: the snapshot, the Home Screen widget
-// and every account key above. A chosen log-out or a deleted account also takes the offline queues
-// (sets and changes not sent yet, queued voice notes): signed out they can't be sent, and the next
-// account must never send them. opts.keepQueue (a sign-out the person didn't choose) keeps them for
-// this same account instead: tagged with its id, sent only when it signs back in (another account
-// signing in on this device drops them). opts.uid: the account, when window._user is already gone.
+// A deleted account: every key that names it goes too (its own settings and records above, the desk's
+// drafts and review state, read marks). Other accounts' keys on this device stay.
+function _forgetAccountKeys(uid) {
+  if (!uid || String(uid).length < 8) return 0;
+  const keys = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('powa-') === 0 && k.indexOf(uid) >= 0) keys.push(k); } } catch (e) {}
+  keys.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  return keys.length;
+}
+// Everything of the outgoing user that lives on this device: the snapshot, the Home Screen widget and
+// the private keys above. A chosen log-out or a deleted account also takes the offline queues (sets and
+// changes not sent yet, queued voice notes, unsent meet-day boards): signed out they can't be sent, and
+// the next account must never send them. opts.keepQueue (a sign-out the person didn't choose) keeps them
+// for this same account instead: tagged with its id, sent only when it signs back in (another account
+// signing in on this device drops them). The account's own settings and records stay either way;
+// opts.deleted takes them too. opts.uid: the account, when window._user is already gone.
 function _wipeLocalUserData(opts) {
   opts = opts || {};
   const uid = opts.uid || (window._user && window._user.id) || null;
@@ -144,9 +187,8 @@ function _wipeLocalUserData(opts) {
   }
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
   if (opts.keepQueue) _tagQueueOwner(uid); else _dropQueues();
-  // The meet-day boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop,
-  // and a busy week kept on this phone before its table existed (db.js), are account keys too.
   _sweepAccountKeys();
+  if (opts.deleted) _forgetAccountKeys(uid);
 }
 // Stop this device getting the signed-out account's pushes (their coach's messages
 // would otherwise keep arriving for whoever signs in next, and the next account
@@ -170,22 +212,25 @@ async function _forgetPushOnThisDevice() {
   })().catch(() => {});
   await Promise.race([work, new Promise(r => setTimeout(r, 2500))]);
 }
-// "3 sets and 1 change": what the offline queues hold for the signed-in account (powaSyncState()).
+// "3 sets, 1 change and 1 meet-day board": what waits unsent for the signed-in account (powaSyncState()
+// and _pendingBoardCount()).
 function _unsyncedWords(st) {
   const p = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
-  return [st.sets ? p(st.sets, 'set') : '', st.changes ? p(st.changes, 'change') : ''].filter(Boolean).join(' and ');
+  const parts = [st.sets ? p(st.sets, 'set') : '', st.changes ? p(st.changes, 'change') : '', st.boards ? p(st.boards, 'meet-day board') : ''].filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : (parts[0] || '');
 }
-// A chosen log-out takes this account's unsynced sets and changes with it. Online they're sent first;
-// whatever still waits is named and the person decides. → true to go on.
+// A chosen log-out takes this account's unsynced sets, changes and meet-day boards with it. Online the
+// sets and changes are sent first; whatever still waits is named and the person decides. → true to go on.
 async function _okToDropUnsynced() {
-  let st = powaSyncState();
-  if (!(st.sets + st.changes)) return true;
-  if (navigator.onLine) {
+  const waiting = () => { const st = powaSyncState(); return { sets: st.sets, changes: st.changes, boards: _pendingBoardCount() }; };
+  let st = waiting();
+  if (!(st.sets + st.changes + st.boards)) return true;
+  if (navigator.onLine && st.sets + st.changes) {
     try { await Promise.race([Promise.all([flushPendingLogs(), flushOutbox()]), new Promise(r => setTimeout(r, 4000))]); } catch (e) {}
-    st = powaSyncState();
-    if (!(st.sets + st.changes)) return true;
+    st = waiting();
+    if (!(st.sets + st.changes + st.boards)) return true;
   }
-  const one = st.sets + st.changes === 1;
+  const one = st.sets + st.changes + st.boards === 1;
   return confirm(_unsyncedWords(st) + (one ? ' hasn’t' : ' haven’t') + ' synced yet. Log out now and ' + (one ? 'it’s' : 'they’re') + ' lost. Log out anyway?');
 }
 async function logout() {
@@ -199,14 +244,15 @@ async function logout() {
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
-  _sweepAccountKeys();   // once more: nothing written while signing out survives it
+  _sweepAccountKeys({ pending: true });   // once more: nothing written while signing out survives it
   _toWelcome();
 }
 // Signed out without choosing it: the server refused this session (a password change or "sign out
 // everywhere" on another device, a deleted account, a revoked token), or it ended in another tab.
-// The device forgets the account like a chosen log-out does (snapshot, names, notes, the widget, this
-// browser's push), except the unsynced sets, changes and voice notes: they stay for this same account
-// and sync when it signs back in (sweep 2026-10-28 #6). The welcome screen then says so.
+// The device forgets the account's private data like a chosen log-out does (snapshot, names, notes,
+// the widget, this browser's push), except the unsynced sets, changes, voice notes and meet-day boards:
+// they stay for this same account until it signs back in (sweep 2026-10-28 #6). The welcome screen
+// then says so. The account's own settings and records stay, as on any sign-out.
 // opts.signOut false: the session is already gone (SIGNED_OUT).
 async function _signedOutByServer(uid, opts) {
   opts = opts || {};
@@ -224,10 +270,11 @@ async function _signedOutByServer(uid, opts) {
   _sweepAccountKeys();
   _noteSignedOut();
 }
-// Nobody is signed in on this device: wipe whatever an account left here (a session that ended
+// Nobody is signed in on this device: wipe the private data an account left here (a session that ended
 // while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
-// The queues stay for their own account. → true when an account was here (its offline copy was):
-// the demo's own keys (a meet-day board, attempt plans) are swept quietly, with no "signed out" note.
+// The queues stay for their own account, and every account's own settings stay. → true when an account
+// was here (its offline copy was): the demo's own keys (a meet-day board, attempt plans) are swept
+// quietly, with no "signed out" note.
 function _forgetLeftovers() {
   if (window._demoMode) return false;
   const keys = _accountKeys();
@@ -244,15 +291,22 @@ function _lastSnapshotUid() {
 }
 // The welcome screen after a sign-out the person didn't choose: why, and what waits on this device.
 function _noteSignedOut() {
-  try { sessionStorage.setItem('powa-signed-out', JSON.stringify({ sets: _readPendingLogs().length, changes: _readOutbox().length })); } catch (e) {}
+  try { sessionStorage.setItem('powa-signed-out', JSON.stringify({ sets: _readPendingLogs().length, changes: _readOutbox().length, boards: _pendingBoardCount() })); } catch (e) {}
+}
+// The toast for that note: what waits (sets and changes sync when the account logs back in; a meet-day
+// board goes up when it's opened again, so it only waits).
+function signedOutNoteText(note) {
+  const sets = Number(note && note.sets) || 0, changes = Number(note && note.changes) || 0, boards = Number(note && note.boards) || 0;
+  const n = sets + changes + boards;
+  if (!n) return 'You were signed out. Log in to carry on.';
+  const words = 'You were signed out. ' + _unsyncedWords({ sets, changes, boards }) + (n === 1 ? ' waits' : ' wait') + ' on this device';
+  return boards ? words + ' for when you log back in.' : words + ' and sync' + (n === 1 ? 's' : '') + ' when you log back in.';
 }
 function showSignedOutNote() {
   let note = null;
   try { note = JSON.parse(sessionStorage.getItem('powa-signed-out') || 'null'); sessionStorage.removeItem('powa-signed-out'); } catch (e) {}
   if (!note || window._user) return;
-  const n = (Number(note.sets) || 0) + (Number(note.changes) || 0);
-  toast(n ? 'You were signed out. ' + _unsyncedWords({ sets: Number(note.sets) || 0, changes: Number(note.changes) || 0 }) + (n === 1 ? ' waits' : ' wait') + ' on this device and sync' + (n === 1 ? 's' : '') + ' when you log back in.'
-    : 'You were signed out. Log in to carry on.', 6000);
+  toast(signedOutNoteText(note), 6000);
 }
 window.showSignedOutNote = showSignedOutNote;
 
@@ -3474,15 +3528,15 @@ const _PENDING_ATTEMPTS_KEY = 'powa-pending-log-attempts';
 // athlete, malformed row) must not live in the queue forever — past this many
 // attempts we drop it so it can't block every future flush.
 const _MAX_LOG_ATTEMPTS = 5;
-// Whose unsynced work the two queues (sets here, other changes in the outbox below) hold: the account
-// that queued it (sweep 2026-10-28 #6). Only that account ever sends it, and never while nobody is
-// signed in: a chosen log-out drops the queues (logout() asks first when something still waits); a
-// sign-out the person didn't choose keeps them for the same account; another account signing in on
-// this device drops them before it queues anything. A queue from before this tag belongs to whoever
-// signs in next, as it always did.
+// Whose unsynced work the two queues (sets here, other changes in the outbox below) and the unsent
+// meet-day boards (meetday.js, one key per board) hold: the account that made it (sweep 2026-10-28 #6).
+// Only that account ever sends it, and never while nobody is signed in: a chosen log-out drops it
+// (logout() asks first when something still waits); a sign-out the person didn't choose keeps it for
+// the same account; another account signing in on this device drops it before it queues anything. A
+// queue from before this tag belongs to whoever signs in next, as it always did.
 const _QUEUE_OWNER_KEY = 'powa-queue-owner';
 function _queueOwner() { try { return localStorage.getItem(_QUEUE_OWNER_KEY) || null; } catch (e) { return null; } }
-function _queueHasItems() { return _readPendingLogs().length + _readOutbox().length > 0; }
+function _queueHasItems() { return _readPendingLogs().length + _readOutbox().length > 0 || _accountKeys('pending').length > 0; }
 // The signed-in account may send (and count) what's queued: it queued it, or the queue predates the tag.
 function _queueIsMine() {
   const me = window._user && window._user.id;
@@ -3502,13 +3556,15 @@ function _tagQueueOwner(uid) {
   try { if (!_queueOwner()) localStorage.setItem(_QUEUE_OWNER_KEY, uid); } catch (e) {}
 }
 function _dropQueues() {
-  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  const boards = _accountKeys('pending');   // unsent meet-day boards, and the list of boards started here
+  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].concat(boards).forEach(k => localStorage.removeItem(k)); } catch (e) {}
 }
-// An account has signed in on this device: another account's queue is never sent as this one.
+// An account has signed in on this device: another account's queue is never sent as this one. (A tag
+// left with nothing under it just goes.)
 function _reconcileQueueOwner(uid) {
   const owner = _queueOwner();
   if (!uid || !owner || owner === uid) return;
-  console.warn('Another account\'s unsynced changes were on this device: removed (only that account could send them).');
+  if (_queueHasItems()) console.warn('Another account\'s unsynced changes were on this device: removed (only that account could send them).');
   _dropQueues();
 }
 // Both queues empty: nobody owns them any more.
@@ -5787,12 +5843,14 @@ async function confirmDeleteMyAccount() {
     // (a coach's roster, notes, intake answers) back on the device right after this wipe (sweep 2026-10-28 #4).
     window._signingOut = true;
     toast('Account deleted. Signing you out…');
-    _wipeLocalUserData({ uid });
+    // Everything of it: its own settings and records too (saved replies, the Health switch, the desk's drafts).
+    _wipeLocalUserData({ uid, deleted: true });
     try { await DB.signOut(); } catch (_) {}
     try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (_) {}
     window._user = null;
     Store.reset();
-    _sweepAccountKeys();
+    _sweepAccountKeys({ pending: true });
+    _forgetAccountKeys(uid);
     _toWelcome();
     return;
   }
