@@ -243,12 +243,15 @@ var SwitchKit = (function () {
 
   // ---------------------------------------------------------------- keys
   // FNV-1a over a string, twice with different seeds: 64 bits as 16 hex chars.
-  function fnv(str, seed) {
-    var h = seed >>> 0;
-    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-    return ('0000000' + h.toString(16)).slice(-8);
+  // Two 32-bit FNV-1a passes with different seeds, in one loop (a 20,000-set import hashes every
+  // set). Keys already stored were made this way: never change the seeds or the order.
+  var H1 = 2166136261 >>> 0, H2 = (2166136261 ^ 0x5bd1e995) >>> 0;
+  function hex8(h) { var x = h.toString(16); return x.length < 8 ? '00000000'.slice(x.length) + x : x; }
+  function hash64(str) {
+    var a = H1, b = H2;
+    for (var i = 0; i < str.length; i++) { var c = str.charCodeAt(i); a = Math.imul(a ^ c, 16777619) >>> 0; b = Math.imul(b ^ c, 16777619) >>> 0; }
+    return hex8(a) + hex8(b);
   }
-  function hash64(str) { return fnv(str, 2166136261) + fnv(str, 2166136261 ^ 0x5bd1e995); }
   // What makes two sets the same set: day, lift, variant, accessory name, load, reps, RPE.
   // loose: without the RPE (for a set whose RPE the coach assumed, not the file).
   function tupleOf(l, loose) {
@@ -373,6 +376,17 @@ var SwitchKit = (function () {
   //   beside what was done), pct (a % of max), bw (a bodyweight column).
   //   opts: as planHistoryImport, plus format (the label) and weighIns (keep weigh-ins: a lifter's own import).
   // makeExtractor(...).step(from, to) reads rows [from, to); .result() → { res, cand }.
+  // An RPE or RIR cell as people write them: "8", "8,5", "@8", "RPE 8.5", "2 RIR", "7-8". A range logs as
+  // its top RPE (the cautious e1RM). A plain number stays as it is, so 12 is still refused as an RPE.
+  function effortNum(cell, kind) {
+    var s = String(cell == null ? '' : cell).trim().replace(/(\d),(\d)/g, '$1.$2');
+    if (!s) return NaN;
+    if (/^-?\d+(\.\d+)?$/.test(s)) return kind === 'rir' ? 10 - Number(s) : Number(s);
+    if (typeof parsePrescription !== 'function') return num(s);
+    var p = parsePrescription(kind === 'rir' ? 'rir ' + s : (/^\d/.test(s) && !/rir/i.test(s) ? '@' + s : s), 'kg');
+    if (p.rpe == null) return NaN;
+    return p.rpeHi != null ? p.rpeHi : p.rpe;
+  }
   var BW_RE = /^(?:bw|body ?weight)\s*(?:\+\s*(\d+(?:[.,]\d+)?)\s*(kgs?|lbs?)?)?$/i;
   var WEIGH_IN_RE = /^(body ?weight|bw|weigh ?-?in)$/i;
   function makeExtractor(body, map, opts) {
@@ -456,8 +470,8 @@ var SwitchKit = (function () {
       if (has(V.weight || 'weight') && !u) { var wm = wRaw.toLowerCase().match(/\d\s*(kgs?|lbs?)\b/); if (wm) u = /lb/.test(wm[1]) ? 'lb' : 'kg'; }
       if (get('unitCol')) u = /lb|pound|imperial/i.test(get('unitCol')) ? 'lb' : /kg|kilo|metric/i.test(get('unitCol')) ? 'kg' : u;
       if (num(get('sets')) >= 1) sets = Math.floor(num(get('sets')));
-      if (get('rpe') !== '') rpe = num(get('rpe'));
-      else if (get('rir') !== '' && isFinite(num(get('rir')))) rpe = 10 - num(get('rir'));
+      if (get('rpe') !== '') rpe = effortNum(get('rpe'), 'rpe');
+      else if (get('rir') !== '' && isFinite(effortNum(get('rir'), 'rir'))) rpe = effortNum(get('rir'), 'rir');
       else if (!planOnly && !(rpe >= 1) && raw('tRpe') !== '' && num(raw('tRpe')) >= 5 && num(raw('tRpe')) <= 10) { rpe = num(raw('tRpe')); fromPlan = true; }
       if (!(reps > 0) && ((has('dist') && num(get('dist')) > 0) || (has('secs') && num(get('secs')) > 0))) return skip('Cardio or a timed set');
       if (!(kg > 0) && !bw && get('pct') !== '' && get('weight') === '') return skip('A percentage, no weight');
@@ -488,17 +502,18 @@ var SwitchKit = (function () {
 
   // ---------------------------------------------------------------- candidates → the plan
   // Units, the assumed RPE, keys, duplicates, PRs. Doesn't change ext, so the coach can switch kg/lb
-  // or the assumed RPE and the preview redraws without reading the rows again.
-  function finishHistoryPlan(ext, opts) {
+  // or the assumed RPE and the preview redraws without reading the rows again. makeFinisher runs it a
+  // chunk at a time (finishHistoryPlanAsync): a 20,000-set file never holds the page for long.
+  function makeFinisher(ext, opts) {
     opts = opts || {};
     var unit = /lb/.test(String(opts.unit || 'kg')) ? 'lb' : 'kg';
     var noRpe = Number(opts.noRpe) >= 5 && Number(opts.noRpe) <= 10 ? Number(opts.noRpe) : 8;
     var today = opts.today || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
     var res = Object.assign(emptyPlan(), ext.res, { skipped: ext.res.skipped.slice(), skippedBy: {}, logs: [], dupes: 0, noRpeCount: 0, rpeFromTarget: 0, weighIns: [], bwDupes: 0 });
     var skip = function (r, reason) { skipRow(res, r, reason); };
+    var built = [], lifts = {};
     // 4. Candidates → sets (kg), each with its key; skip what can't be a set.
-    var built = [];
-    ext.cand.forEach(function (c) {
+    var build = function (c) {
       var u = c.unit || res.unitFromFile || unit;
       if (!(c.reps > 0)) return skip(c.r, 'No reps');
       if (c.reps > 50 || Math.floor(c.reps) !== c.reps) return skip(c.r, 'Reps don\'t look right');
@@ -512,7 +527,8 @@ var SwitchKit = (function () {
         rpe = noRpe; assumed = true;
       }
       rpe = Math.round(rpe * 2) / 2;
-      var ex = matchLift(c.name, c.variant);
+      var lk = c.name + '\u0001' + (c.variant || '');
+      var ex = lifts[lk] || (lifts[lk] = matchLift(c.name, c.variant));   // a 20,000-row log has a few dozen exercises
       var main = MAIN.indexOf(ex.lift) >= 0;
       var w = Math.round(kg * 100) / 100;
       var n = Math.max(1, Math.min(20, Math.floor(c.sets || 1)));
@@ -523,8 +539,7 @@ var SwitchKit = (function () {
           weight: w, reps: c.reps, rpe: rpe, e1rm: e1, e1rmComp: main && typeof calcCompE1RM === 'function' ? calcCompE1RM(w, c.reps, rpe, ex.lift, ex.variant || 'Competition') : e1,
           note: noteWithFields(c.note, c.fx), date: c.date, source: 'import', _assumed: assumed, _plan: !!c.fromPlan, _line: c.r.line, _ft: ft });
       }
-    });
-
+    };
     // 5. Keys and duplicates: a set already in POWALIFTA (by key from an earlier import,
     //    or the same set logged in the app or re-imported from an export) is left out.
     //    The key comes from what the file says; the match against sets already there
@@ -536,37 +551,65 @@ var SwitchKit = (function () {
       var t = tupleOf(l), tl = tupleOf(l, true);
       haveTuples[t] = (haveTuples[t] || 0) + 1; haveLoose[tl] = (haveLoose[tl] || 0) + 1;
     });
-    var seenK = {}, seenT = {}, seenL = {};
-    built.forEach(function (l) {
+    var seenK = {}, seenT = {}, seenL = {}, allKeys = [];
+    var key = function (l) {
       var kn = seenK[l._ft] = (seenK[l._ft] || 0) + 1;
       l.importKey = importKey(l._ft, kn);
+      allKeys.push(l.importKey);
       var t = tupleOf(l), tl = tupleOf(l, true);
       var n = seenT[t] = (seenT[t] || 0) + 1, nl = seenL[tl] = (seenL[tl] || 0) + 1;
       if (haveKeys[l.importKey] || (l._assumed ? nl <= (haveLoose[tl] || 0) : n <= (haveTuples[t] || 0))) { res.dupes++; return; }
       if (l._assumed) res.noRpeCount++;
       if (l._plan) res.rpeFromTarget++;
       res.logs.push(l);
+    };
+    var done = function () {
+      res.allKeys = allKeys;
+      res.kind = (res.logs.length || res.dupes) ? 'logs' : 'empty';
+      // Weigh-ins (a lifter's own import): kg, one a day, not one already logged that day.
+      var haveBw = {};
+      (opts.existingBw || []).forEach(function (b) { if (!opts.athleteId || b.athleteId === opts.athleteId) haveBw[String(b.date).slice(0, 10)] = 1; });
+      (ext.res.weighIns || []).forEach(function (b) {
+        var u = b.unit || res.unitFromFile || unit, kg = Math.round((u === 'lb' ? b.kg * KG_LB : b.kg) * 100) / 100;
+        if (!(kg >= 25 && kg <= 300) || b.date > today) return;
+        if (haveBw[b.date]) { res.bwDupes++; return; }
+        res.weighIns.push({ date: b.date, weight: kg });
+      });
+      if (res.weighIns.length && res.kind === 'empty') res.kind = 'logs';
+      res.skipped.forEach(function (s) { res.skippedBy[s.reason] = (res.skippedBy[s.reason] || 0) + 1; });
+      if (res.logs.length) {
+        var ds = res.logs.map(function (l) { return l.date; }).sort();
+        res.range = { from: ds[0], to: ds[ds.length - 1] };
+        res.sessions = Object.keys(res.logs.reduce(function (a, l) { a[l.date] = 1; return a; }, {})).length;
+      }
+      res.prs = planPRs(existing, res.logs);
+      return res;
+    };
+    return {
+      cand: ext.cand.length, built: function () { return built.length; },
+      build: function (from, to) { for (var i = from; i < Math.min(to, ext.cand.length); i++) build(ext.cand[i]); },
+      keys: function (from, to) { for (var i = from; i < Math.min(to, built.length); i++) key(built[i]); },
+      done: done
+    };
+  }
+  function finishHistoryPlan(ext, opts) {
+    var f = makeFinisher(ext, opts);
+    f.build(0, f.cand); f.keys(0, f.built());
+    return f.done();
+  }
+  // The same, a chunk at a time: onProgress(done, total) between chunks.
+  function finishHistoryPlanAsync(ext, opts, onProgress, chunk) {
+    var f = makeFinisher(ext, opts), size = chunk || 2000, at = 0, phase = 0;
+    return new Promise(function (resolve) {
+      var run = function () {
+        if (phase === 0) { f.build(at, at + size); at += size; if (at >= f.cand) { phase = 1; at = 0; } }
+        else { f.keys(at, at + size); at += size; if (at >= f.built()) return resolve(f.done()); }
+        if (onProgress) { try { onProgress(phase === 0 ? at / 2 : f.cand / 2 + Math.min(at, f.built()) / 2, f.cand); } catch (e) {} }
+        setTimeout(run, 0);
+      };
+      if (!f.cand) return resolve(f.done());
+      run();
     });
-    res.allKeys = built.map(function (l) { return l.importKey; });
-    res.kind = (res.logs.length || res.dupes) ? 'logs' : 'empty';
-    // Weigh-ins (a lifter's own import): kg, one a day, not one already logged that day.
-    var haveBw = {};
-    (opts.existingBw || []).forEach(function (b) { if (!opts.athleteId || b.athleteId === opts.athleteId) haveBw[String(b.date).slice(0, 10)] = 1; });
-    (ext.res.weighIns || []).forEach(function (b) {
-      var u = b.unit || res.unitFromFile || unit, kg = Math.round((u === 'lb' ? b.kg * KG_LB : b.kg) * 100) / 100;
-      if (!(kg >= 25 && kg <= 300) || b.date > today) return;
-      if (haveBw[b.date]) { res.bwDupes++; return; }
-      res.weighIns.push({ date: b.date, weight: kg });
-    });
-    if (res.weighIns.length && res.kind === 'empty') res.kind = 'logs';
-    res.skipped.forEach(function (s) { res.skippedBy[s.reason] = (res.skippedBy[s.reason] || 0) + 1; });
-    if (res.logs.length) {
-      var ds = res.logs.map(function (l) { return l.date; }).sort();
-      res.range = { from: ds[0], to: ds[ds.length - 1] };
-      res.sessions = Object.keys(res.logs.reduce(function (a, l) { a[l.date] = 1; return a; }, {})).length;
-    }
-    res.prs = planPRs(existing, res.logs);
-    return res;
   }
 
   // PRs the import makes, per main lift: running bests over everything already there
@@ -1312,7 +1355,7 @@ var SwitchKit = (function () {
     planHistoryImport: planHistoryImport, planPRs: planPRs, buildExportFiles: buildExportFiles, logsCsv: logsCsv,
     // the import intake (import-core.js / import-ui.js) builds on these
     hkey: hkey, hash64: hash64, formatOf: formatOf, planHistoryRows: planHistoryRows, extractHistory: extractHistory,
-    extractHistoryAsync: extractHistoryAsync, finishHistoryPlan: finishHistoryPlan, planBlock: planBlock,
+    extractHistoryAsync: extractHistoryAsync, finishHistoryPlan: finishHistoryPlan, finishHistoryPlanAsync: finishHistoryPlanAsync, planBlock: planBlock,
     crc32: crc32, zip: zip, utf8: utf8,
     // UI
     openHistoryImport: openHistoryImport, exportEverything: exportEverything, dataSheet: dataSheet, deskCommands: deskCommands
