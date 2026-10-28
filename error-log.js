@@ -118,6 +118,13 @@
     });
   });
 
+  // A warning the app wants on record (a read that stopped at its ceiling, a snapshot that had to
+  // shrink): kept and forwarded like an error, as kind 'warn' (deduped per message, like the rest).
+  window.__powaWarn = function (msg, detail) {
+    var d = null;
+    try { d = detail == null ? null : JSON.stringify(detail).slice(0, 2000); } catch (e) {}
+    record('warn', { msg: String(msg || 'warning').slice(0, 300), stack: d });
+  };
   window.__powaErrors = function () { return read(); };
   window.__powaErrorsClear = function () { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} };
   // Inspect forwarding throttle in prod: { forwarded, uniqueSignatures, cap }.

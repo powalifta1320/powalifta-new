@@ -7091,6 +7091,213 @@ test('report: an approved busy week counts its agreed sessions (the table keeps 
   eq(CoachReport.busyRows(rows).map(r => r.days).join(), '2,3', 'reading its own rows again keeps the numbers');
 });
 
+/* ===========================================================
+   Data scale (2026-10-28): the roster's sets indexed per lifter, the per-lifter memos, the snapshot's
+   budget and the per-user wipes. (db.js paging and old-vs-new on generated rosters: test/data-scale.test.mjs)
+   =========================================================== */
+group('data scale (index, memos, snapshot)');
+(() => {
+  const saved = Store.get();
+  const L = (id, a, lift, date, e) => ({ id, athleteId: a, lift, variant: 'Competition', exerciseName: '', weight: Math.round(e * 0.8), reps: 3, rpe: 8, e1rm: e, e1rmComp: e, note: '', date });
+  // The plain filter isPRForLog always was: the reference the index has to agree with.
+  const prRef = (logs, aid, log) => {
+    const earlier = logs.filter(l => l.athleteId === aid && l.lift === log.lift && l.id !== log.id && (l.date < log.date || (l.date === log.date && l.id < log.id)));
+    if (!earlier.length) return false;
+    return log.e1rmComp > Math.max(...earlier.map(l => l.e1rmComp)) + 0.05;
+  };
+  let seed = 7;
+  const rnd = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
+  const randomLogs = (n, lifters) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const a = 'A' + Math.floor(rnd() * lifters), lift = ['squat', 'bench', 'deadlift'][Math.floor(rnd() * 3)];
+      const d = '2026-' + String(1 + Math.floor(rnd() * 9)).padStart(2, '0') + '-' + String(1 + Math.floor(rnd() * 28)).padStart(2, '0');
+      out.push(L('x' + Math.floor(rnd() * 1e9).toString(36) + i, a, lift, d, rnd() < 0.2 ? 150 : Math.round(100 + rnd() * 100)));
+    }
+    return out;
+  };
+  try {
+    test('the index gives each lifter the rows the filter did, in the same order', () => {
+      const logs = randomLogs(600, 5);
+      Store.set(Object.assign(defaultStore(), { workoutLogs: logs }));
+      ['A0', 'A1', 'A4', 'nobody'].forEach(a => eq(_logsOf(a).map(l => l.id).join(), logs.filter(l => l.athleteId === a).map(l => l.id).join(), a));
+      eq(rosterLogsFor('A1') !== _logsOf('A1'), true, 'rosterLogsFor hands out a copy');
+      eq(Array.from(logDateSet('A2')).sort().join(), Array.from(new Set(logs.filter(l => l.athleteId === 'A2').map(l => l.date))).sort().join());
+    });
+    test('the index follows a push, a new list and Store.update; a live burst moves only its own lifter', () => {
+      const logs = randomLogs(200, 3);
+      Store.set(Object.assign(defaultStore(), { workoutLogs: logs, athletes: [{ id: 'A0' }, { id: 'A1' }, { id: 'A2' }] }));
+      const n0 = _logsOf('A0').length;
+      Store.get().workoutLogs.push(L('p1', 'A0', 'squat', '2026-10-01', 200));   // no Store.update: the length says so
+      eq(_logsOf('A0').length, n0 + 1, 'a push');
+      Store.get().workoutLogs = Store.get().workoutLogs.filter(l => l.athleteId !== 'A2');
+      eq(_logsOf('A2').length, 0, 'a new list');
+      const k0 = _lmemoGet('A0', 'probe', () => 'kept'), st1 = _logIndex().stamps.get('A1');
+      liveApplyBatch(Store.get(), [{ kind: 'log', row: L('live1', 'A0', 'bench', '2026-10-02', 140) }], { role: 'coach', me: 'c' });
+      eq(_lmemoOf('A0').has('probe'), false, 'the lifter who logged: worked out again');
+      eq(_logIndex().stamps.get('A1'), st1, 'the others keep their stamp (and what was kept for them)');
+      _lmemoGet('A1', 'probe', () => 1);
+      Store.update(s => { s.workoutLogs.find(l => l.athleteId === 'A1').e1rmComp = 999; });
+      eq(_lmemoOf('A1').has('probe'), false, 'Store.update may edit sets in place: everyone starts again');
+      eq(k0, 'kept');
+    });
+    test('isPRForLog = the plain filter, on random rows (ties on a day, equal e1RMs, a set not in the Store, a repeated id)', () => {
+      for (let round = 0; round < 6; round++) {
+        const logs = randomLogs(400, 4);
+        if (round === 3) logs.push(Object.assign({}, logs[7], { date: '2026-01-01' }));   // an id twice: the plain path answers
+        if (round === 4) logs.forEach((l, i) => { if (i % 5 === 0) l.id = i; });            // numeric ids: the plain path again
+        Store.set(Object.assign(defaultStore(), { workoutLogs: logs }));
+        const probes = logs.concat([L('zz', 'A1', 'squat', '2026-12-31', 300), L(logs[3].id, logs[3].athleteId, logs[3].lift, '2026-02-02', 999), Object.assign({}, logs[10], { e1rmComp: 1000 })]);
+        probes.forEach((l, i) => eq(isPRForLog(l.athleteId, l), prRef(logs, l.athleteId, l), 'round ' + round + ' log ' + i));
+        probes.forEach((l, i) => eq(isPRForLog('A0', l), prRef(logs, 'A0', l), 'round ' + round + ' as A0, log ' + i));
+      }
+    });
+    test('getE1RMMomentum is kept for the day, and right on either side of UTC midnight', () => {
+      const realNow = Date.now;
+      try {
+        const logs = [];
+        ['squat', 'bench', 'deadlift'].forEach((lift, k) => { for (let d = 0; d < 50; d++) logs.push(L(lift + d, 'M', lift, _isoAddDays('2026-10-01', d), 100 + d * (k === 1 ? 0 : 1))); });
+        Store.set(Object.assign(defaultStore(), { workoutLogs: logs }));
+        const ref = (now, win) => {   // the old body, worked out fresh every call
+          const w = win || 21, dayMs = 864e5, rf = now - w * dayMs, pf = now - 2 * w * dayMs, out = {};
+          let paired = false, up = false;
+          MAIN_LIFTS.forEach(lift => {
+            const ll = logs.filter(l => l.lift === lift);
+            const best = (a, b) => ll.reduce((m, l) => { const x = Date.parse(l.date); return x >= a && x < b && l.e1rmComp > m ? l.e1rmComp : m; }, 0);
+            const r = best(rf, now + dayMs), p = best(pf, rf);
+            if (r && p) { paired = true; if (r - p > 0.05) up = true; out[lift] = { recent: r, prior: p, delta: r - p }; } else if (r) out[lift] = { recent: r, prior: 0, delta: null };
+          });
+          return { perLift: out, hasData: paired, stalling: paired && !up };
+        };
+        const mid = Date.parse('2026-11-10T00:00:00Z');
+        [mid - 1, mid, mid + 1, mid + 864e5 - 1, mid + 7 * 36e5].forEach(at => {
+          Date.now = () => at;
+          [21, 14, 9].forEach(w => {
+            eq(JSON.stringify(getE1RMMomentum('M', w)), JSON.stringify(ref(at, w)), new Date(at).toISOString() + ' window ' + w);
+            eq(JSON.stringify(getE1RMMomentum('M', w)), JSON.stringify(ref(at, w)), 'kept, again');
+          });
+        });
+        const m = getE1RMMomentum('M'); m.perLift.squat.recent = -1; m.stalling = 'x';
+        eq(getE1RMMomentum('M').perLift.squat.recent > 0, true, 'a caller changing its copy never changes the kept one');
+      } finally { Date.now = realNow; }
+    });
+    test('_ofAthlete groups any Store list and lets go on a new version or a new length', () => {
+      const ans = [{ id: 1, athleteId: 'a' }, { id: 2, athleteId: 'b' }, { id: 3, athleteId: 'a' }];
+      Store.set(Object.assign(defaultStore(), { checkinAnswers: ans }));
+      eq(_ofAthlete(Store.get().checkinAnswers, 'a').map(x => x.id).join(), '1,3');
+      Store.get().checkinAnswers.push({ id: 4, athleteId: 'a' });
+      eq(_ofAthlete(Store.get().checkinAnswers, 'a').map(x => x.id).join(), '1,3,4', 'a push');
+      Store.get().checkinAnswers[0] = { id: 9, athleteId: 'b' }; Store.touch();   // replaced in place (a live upsert)
+      eq(_ofAthlete(Store.get().checkinAnswers, 'b').map(x => x.id).join(), '9,2', 'replaced, after the version moved');
+      eq(_ofAthlete(null, 'a').length, 0); eq(_ofAthlete(Store.get().checkinAnswers, NaN).length, 0);
+    });
+    test('snapshotTrimList keeps the window, and each lifter\'s best set of each lift from before it', () => {
+      const logs = [L('o1', 'a', 'squat', '2025-01-01', 200), L('o2', 'a', 'squat', '2025-02-01', 210), L('o3', 'a', 'bench', '2025-03-01', 120), L('o4', 'b', 'squat', '2025-03-01', 190),
+        L('n1', 'a', 'squat', '2026-10-01', 205), L('n2', 'b', 'bench', '2026-10-02', 100)];
+      eq(snapshotTrimList('workoutLogs', logs, 'date', '2026-09-01').map(l => l.id).join(), 'o2,o3,o4,n1,n2', 'window + the best before it, in Store order');
+      eq(snapshotTrimList('bodyweight', [{ date: '2026-01-01' }, { date: '2026-10-01' }], 'date', '2026-09-01').length, 1);
+      eq(snapshotTrimList('workoutLogs', logs, 'date', null), logs, 'no window: the list itself');
+      const s = snapshotStoreAt({ workoutLogs: logs, programs: [{ id: 'p' }], bodyweight: [{ date: '2026-01-01' }] }, 0, '2026-10-28');
+      eq(s.workoutLogs.length + s.bodyweight.length, 0, 'step 0: the big lists left out'); eq(s.programs.length, 1, 'the rest kept');
+    });
+    test('_saveSnapshot: whole when it fits, the steps when it doesn\'t, the old one removed when nothing fits', () => {
+      const mkLS = (limit) => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { if (limit && String(v).length > limit) { const e = new Error('quota'); e.name = 'QuotaExceededError'; throw e; } m.set(k, String(v)); }, removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; }, m }; };
+      const logs = [];
+      for (let d = 0; d < 700; d++) ['squat', 'bench', 'deadlift'].forEach((lift, k) => logs.push(L('s' + d + k, 'a', lift, _isoAddDays('2024-12-01', d), 100 + (d % 90))));
+      const store = Object.assign(defaultStore(), { workoutLogs: logs, programs: [{ id: 'p', weeks: [] }] });
+      const u = { id: '00000000-0000-4000-8000-0000000000aa', userType: 'athlete' }, key = _snapKey(u.id);
+      let ls = mkLS();
+      eq(_saveSnapshot(u, store, { storage: ls, budget: 5e6, today: '2026-10-28' }), true);
+      eq(JSON.parse(ls.getItem(key)).trimmedTo, null, 'fits: whole');
+      eq(JSON.parse(ls.getItem(key)).store.workoutLogs.length, logs.length);
+      ls = mkLS();
+      eq(_saveSnapshot(u, store, { storage: ls, budget: 90000, today: '2026-10-28' }), true);
+      const snap = JSON.parse(ls.getItem(key));
+      eq([365, 120, 42, 14, 7].includes(snap.trimmedTo), true, 'a step: ' + snap.trimmedTo);
+      eq(ls.getItem(key).length <= 90000, true, 'within the budget');
+      const since = _addDaysISO('2026-10-28', -snap.trimmedTo);
+      eq(snap.store.workoutLogs.filter(l => l.date >= since).length, logs.filter(l => l.date >= since).length, 'every set in the window');
+      eq(snap.store.workoutLogs.filter(l => l.date < since).length, 3, 'one best set a lift from before it');
+      ls = mkLS(70000);   // the device says no at 70 000 characters
+      eq(_saveSnapshot(u, store, { storage: ls, budget: 5e6, today: '2026-10-28' }), true);
+      eq(ls.getItem(key).length <= 70000, true, 'a quota error goes to the next step');
+      ls = mkLS(); ls.setItem(key, '{"old":1}');
+      const huge = Object.assign({}, store, { programs: [{ id: 'p', weeks: 'x'.repeat(200000) }] });
+      eq(_saveSnapshot(u, huge, { storage: ls, budget: 100000, today: '2026-10-28' }), false, 'nothing fits');
+      eq(ls.getItem(key), null, 'the old snapshot is gone (it would open a stale program offline)');
+    });
+    test('the per-user copies: a wipe takes this user\'s, the sweep takes other accounts\', nothing else', () => {
+      const m = new Map(), ls = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; } };
+      const A = '00000000-0000-4000-8000-00000000000a', B = '00000000-0000-4000-8000-00000000000b';
+      ['powa-snapshot-', 'powa-coach-notes-', 'powa-coach-settings-', 'powa-client-billing-', 'powa-client-payments-', 'powa-intake-', 'powa-teams-'].forEach(p => { ls.setItem(p + A, '1'); ls.setItem(p + B, '1'); });
+      ls.setItem('powa-theme', 'dark'); ls.setItem('powa-outbox', '[]'); ls.setItem('powa-snapshot-not-a-uuid', '1');
+      _sweepOtherUsersCaches(A, ls);
+      eq([...m.keys()].filter(k => k.endsWith(B)).length, 0, 'the other account\'s copies go');
+      eq([...m.keys()].filter(k => k.endsWith(A)).length, 7, 'mine stay');
+      _wipeUserCaches(A, ls);
+      eq([...m.keys()].sort().join(), 'powa-outbox,powa-snapshot-not-a-uuid,powa-theme', 'signed out: mine go, the rest stay');
+    });
+  } finally { Store.set(saved); }
+})();
+
+/* ===========================================================
+   The desk's who-wrote-last (2026-10-28): a digest is read fresh every time (DB.coachInbox keeps none),
+   the coach's own reply moves the thread at once (sent here, or heard live from their phone), and a
+   digest read before that reply went can't put "Message waiting" back (deskThreadSaw / deskThreadsMerge).
+   =========================================================== */
+group('desk threads (who wrote last)');
+(() => {
+  const C = 'c', A = 'a';
+  const row = (aid, sender, at, body, extra) => Object.assign({ athleteId: aid, lastAt: at, lastSenderId: sender, lastBody: body, unread: 0 }, extra || {});
+  const msg = (aid, sender, at, body, meta) => ({ id: 'm-' + at, coachId: C, athleteId: aid, senderId: sender, body, createdAt: at, readAt: null, meta: meta || null });
+  test('the coach\'s reply moves who wrote last and is kept local; an older message never replaces a newer one', () => {
+    const th = deskThreadsMerge(null, [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 1 })]);
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid')), true);
+    eq(th[A].lastSenderId, C); eq(th[A].lastBody, 'looked solid'); eq(th[A].local, true); eq(th[A].unread, 1, 'the other fields stay');
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid')), false, 'its echo after the send: nothing to do');
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T11:00:00Z', 'an older one')), false, 'older than what the thread shows');
+    eq(th[A].lastBody, 'looked solid');
+    eq(deskThreadSaw(th, msg('b', C, '2026-10-28T12:01:00Z', 'Week 3 notes', { weekly: '2026-10-27' })), true, 'a thread the desk had no row for');
+    eq(th.b.weeklyAt, '2026-10-28T12:01:00Z', 'a week\'s note sets weeklyAt');
+    eq(deskThreadSaw(null, msg(A, C, '2026-10-28T12:00:00Z', 'x')), false);
+  });
+  test('a digest read before the reply went keeps the reply; one that has it (or anything newer) is the server\'s word', () => {
+    const before = [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 1 }), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')];
+    let th = deskThreadsMerge(null, before);
+    deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'));
+    th = deskThreadsMerge(th, before);   // a read already on its way when the reply went
+    eq(th[A].lastSenderId, C, 'still the coach\'s'); eq(th[A].local, true); eq(th[A].unread, 1, 'the read\'s own fields');
+    eq(th.b.lastBody, 'hi');
+    th = deskThreadsMerge(th, [row(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')]);
+    eq(th[A].lastSenderId, C); eq(th[A].local, undefined, 'the server has it now: no longer local');
+    th = deskThreadsMerge(th, [row(A, A, '2026-10-28T13:00:00Z', 'thanks! next week?'), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')]);
+    eq(th[A].lastSenderId, A, 'the lifter wrote again after it: the server\'s word');
+    deskThreadSaw(th, msg('z', C, '2026-10-28T14:00:00Z', 'welcome'));
+    th = deskThreadsMerge(th, [row(A, A, '2026-10-28T13:00:00Z', 'thanks! next week?')]);
+    eq(th.z.lastBody, 'welcome', 'a thread the read hasn\'t got yet stays');
+    eq(th.b, undefined, 'a thread that is the server\'s alone goes with the server');
+    th = deskThreadsMerge(th, [row('z', C, '2026-10-28T14:00:00Z', 'welcome', { weeklyAt: '2026-10-21T08:00:00Z' })]);
+    eq(th.z.local, undefined); eq(th.z.weeklyAt, '2026-10-21T08:00:00Z');
+    const kept = deskThreadsMerge({ w: row('w', C, '2026-10-28T15:00:00Z', 'Week 4 notes', { local: true, weeklyAt: '2026-10-28T15:00:00Z' }) }, [row('w', 'w', '2026-10-28T10:00:00Z', 'ok', { weeklyAt: '2026-10-21T08:00:00Z' })]);
+    eq(kept.w.weeklyAt, '2026-10-28T15:00:00Z', 'the newer week\'s note is kept with it');
+  });
+  test('Today: an answered lifter stays answered when the next refresh brings a digest from before the reply', () => {
+    const saved = Store.get();
+    try {
+      Store.set(Object.assign(defaultStore(), { athletes: [{ id: A, name: 'Ana', coachId: C, createdAt: Date.parse('2026-01-01T12:00:00Z') }], workoutLogs: [] }));
+      const now = Date.parse('2026-10-28T12:30:00Z'), today = '2026-10-28';
+      const digest = [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 0 })];
+      let th = deskThreadsMerge(null, digest);
+      const waiting = (threads) => deskReasons(A, { coachId: C, today, now, threads }).some(r => r.type === 'message');
+      eq(waiting(th), true, 'their message has waited 30 hours');
+      deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'));
+      eq(waiting(th), false, 'answered');
+      th = deskThreadsMerge(th, digest);
+      eq(waiting(th), false, 'a digest from before the reply doesn\'t bring it back');
+    } finally { Store.set(saved); }
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

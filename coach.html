@@ -909,7 +909,7 @@ window.exportRosterCsv = exportRosterCsv;
 // Which of the last n days an athlete logged anything (oldest → today).
 function trainingDays(athleteId, n) {
   const days = [];
-  const set = new Set((Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId).map(l => l.date));
+  const set = logDateSet(athleteId);   // app.js: the lifter's log dates, kept until their sets change
   const t = new Date(); t.setHours(12, 0, 0, 0);
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(t.getTime() - i * 86400000);
@@ -2089,6 +2089,14 @@ async function refreshUnreadBadges() {
       const sig = _unreadSig(map);
       if (sig === _demoUnreadPainted) { _unreadByAthlete = map; return; }
       _demoUnreadPainted = sig;
+    } else if (_desk() && DB.coachInbox) {
+      // The desk wants who wrote last too: one read gives the thread digest and the unread (two past
+      // 500 messages), then one repaint. No digest (that read failed): the desk reads its own shortly.
+      const inbox = await DB.coachInbox(user.id);
+      inbox.unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      _unreadByAthlete = map;
+      _deskCall('deskRefresh', inbox.threads ? { threads: inbox.threads } : undefined);
+      return;
     } else {
       const unread = await DB.listUnreadForUser(user.id);
       unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
@@ -2124,6 +2132,7 @@ window.addEventListener('powa:program-merged', (e) => {
 });
 // Pain flags arrive live (migration-pain-reports-2026-10-22.sql puts pain_reports in Realtime):
 // the roster repaints with the new flag. Hook for the desk: the Store's painReports + 'powa:pain'.
+// Only this roster's reports (filtered server-side; db.js keeps the channel on the live roster).
 var _painSubCleanup = null;
 function subscribePainReports() {
   if (window._demoMode || !user || _painSubCleanup || typeof DB.subscribePainReports !== 'function') return;
@@ -2133,7 +2142,7 @@ function subscribePainReports() {
     else Store.update(s => { const list = s.painReports || (s.painReports = []); const i = list.findIndex(x => x.id === r.id); if (i >= 0) list[i] = r; else list.unshift(r); });
     try { window.dispatchEvent(new CustomEvent('powa:pain', { detail: Object.assign({ eventType: ev || 'INSERT' }, r) })); } catch (e) {}
     _repaintRosterSoon();
-  });
+  }, (Store.get().athletes || []).map(a => a.id));
 }
 var _rosterRepaintT = null;
 function _repaintRosterSoon() {
@@ -2146,7 +2155,10 @@ function _repaintRosterSoon() {
 function subscribeRosterMessages() {
   if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
   _rosterMsgCleanup = DB.subscribeMessages({ column: 'coach_id', value: user.id }, (m) => {
-    if (!m || m.senderId === user.id) return;
+    if (!m) return;
+    // The coach's own (this device or another): no badge changes. The desk takes it as who wrote last
+    // at once (desk.js deskHeard: a reply from their phone clears "Message waiting" here too), no read.
+    if (m.senderId === user.id) { _deskCall('deskHeard', m); return; }
     scheduleUnreadRefresh();
   });
 }

@@ -165,6 +165,9 @@ with checks(n, migration, applied) as (values
         and to_regclass('public.programs_coach_idx') is not null
         and (select count(*) from pg_policies where schemaname = 'public'
               and policyname in ('profiles_select', 'profiles_update', 'meets_insert', 'clubs_select', 'marketplace_programs_select', 'schedule_requests_update')) = 6),
+  (56, 'migration-data-scale-2026-10-28.sql  (the Monday report reads each block''s planned sessions, not its JSON: programs_planned; send-weekly-digest only)',
+        to_regprocedure('public.program_planned_per_week(jsonb)') is not null
+        and to_regprocedure('public.programs_planned(public.programs)') is not null),
   (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
         exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
   (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',

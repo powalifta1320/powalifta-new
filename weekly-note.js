@@ -72,7 +72,7 @@
     var a = (s.athletes || []).filter(function (x) { return x.id === athleteId; })[0] || { id: athleteId, name: '' };
     var unit = opts.unit || a.unit || (typeof getUnit === 'function' ? getUnit() : 'kg');
     var prog = (s.programs || []).filter(function (p) { return p.athleteId === athleteId; })[0] || null;
-    var logs = (s.workoutLogs || []).filter(function (l) { return l.athleteId === athleteId && l.date; });
+    var logs = (typeof rosterLogsFor === 'function' ? rosterLogsFor(athleteId) : (s.workoutLogs || []).filter(function (l) { return l.athleteId === athleteId; })).filter(function (l) { return l.date; });
     var wl = logs.filter(function (l) { return inWin(l.date); });
     var setsWin = prog && typeof programLoggedSets === 'function' ? programLoggedSets(prog).filter(function (x) { return x.date && inWin(x.date); }) : [];
     // Sessions: the days they logged (the program's own dates only when the log has none).
@@ -317,7 +317,9 @@
   }
   function trainedThisWeek(athleteId, t) {
     var since = addDays(t, -6);
-    return (storeOf().workoutLogs || []).some(function (l) { return l.athleteId === athleteId && d10(l.date) >= since && d10(l.date) <= t; });
+    // app.js rosterLogsFor: this lifter's sets without a pass over the roster's (called once a lifter).
+    var mine = typeof rosterLogsFor === 'function' ? rosterLogsFor(athleteId) : (storeOf().workoutLogs || []).filter(function (l) { return l.athleteId === athleteId; });
+    return mine.some(function (l) { return d10(l.date) >= since && d10(l.date) <= t; });
   }
   // Lifters who trained in the last 7 days and haven't had a note in the last six. rows: desk rows
   // ({ athlete, reasons }); the worst first (Today's order), then by name.
