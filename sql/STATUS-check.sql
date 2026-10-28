@@ -55,7 +55,8 @@ with checks(n, migration, applied) as (values
   (22, 'migration-rls-hardening-3.sql',
         exists (select 1 from pg_trigger where tgname = 'trg_guard_profile_privileged_cols_insert')),
   (23, 'migration-admin-plan-comp.sql',
-        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_admin_update')),
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles'
+                 and policyname in ('profiles_admin_update', 'profiles_update'))),   -- row 55 merges it into profiles_update
   (24, 'migration-rls-hardening-4.sql',
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'guard_profile_privileged_cols' and p.prosrc like '%powa.link_ok%')),
@@ -106,7 +107,8 @@ with checks(n, migration, applied) as (values
                  where table_schema = 'public' and table_name = 'meets' and column_name = 'status')
         and exists (select 1 from information_schema.columns
                      where table_schema = 'public' and table_name = 'programs' and column_name = 'starts_on')
-        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets' and policyname = 'meets_coach_plan_insert')),
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets'
+                     and policyname in ('meets_coach_plan_insert', 'meets_insert'))),   -- row 55 merges it into meets_insert
   (42, 'migration-team-programs-2026-10-22.sql  (team programs; needs row 36 first, and row 31 so a replaced block with logged sets is kept)',
         to_regclass('public.program_group_members') is not null
         and to_regprocedure('public.push_group_programs(uuid, bigint, jsonb)') is not null
@@ -152,6 +154,11 @@ with checks(n, migration, applied) as (values
   (53, 'migration-coach-alerts-2026-10-28.sql  (coach alerts: the PRs and missed sessions switch, and the Monday report''s week stats; after migration-email-preferences.sql)',
         exists (select 1 from information_schema.columns
                  where table_schema = 'public' and table_name = 'email_preferences' and column_name = 'push_alerts')
-        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null)
+        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null),
+  (55, 'migration-rls-perf-2026-10-28.sql  (speed only, nobody''s access changes: policies work out auth.uid() once per query, 26 merged policies, 7 indexes; after row 53, before or after row 54)',
+        to_regclass('public.workout_logs_athlete_date_idx') is not null
+        and to_regclass('public.programs_coach_idx') is not null
+        and (select count(*) from pg_policies where schemaname = 'public'
+              and policyname in ('profiles_select', 'profiles_update', 'meets_insert', 'clubs_select', 'marketplace_programs_select', 'schedule_requests_update')) = 6)
 )
 select n, migration, applied from checks order by n;
