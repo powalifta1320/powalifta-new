@@ -19,6 +19,17 @@ failure) — open `tests.html` in a browser for the full count.
 
 Good for a pre-commit / CI gate on the shared logic in `app.js`.
 
+## Sessions in a URL (no dependencies)
+
+Which sign-in sessions in an address db.js lets supabase-js take (login CSRF, security sweep of
+28 Oct): this tab's own Apple/Google return yes, a reset link only on reset-password.html (its own
+unsaved client), anything else refused and cleaned out of the address. db.js runs in a vm against a
+stub client, so nothing reaches Supabase.
+
+```bash
+node test/url-session.test.cjs
+```
+
 ## Coach alerts and the Monday report (no dependencies)
 
 The report's core (`coach-report.js`, and that its copy in `supabase/functions/_shared` is
