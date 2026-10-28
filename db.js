@@ -84,6 +84,9 @@ function _powaSocialPending() { try { return sessionStorage.getItem(POWA_SOCIAL_
     let signedIn = false;
     for (let i = 0; i < localStorage.length; i++) { if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) { signedIn = true; break; } }
     console.warn('POWALIFTA: a session in this link was not used (only this tab\'s own Apple or Google sign-in, or a password-reset link, signs in from a link).');
+    // An Apple / Google return this tab can't take (it started in another tab or window, or over an hour
+    // ago), seen by nobody signed in: social-auth.js says the sign-in didn't finish instead of nothing.
+    if (verdict === 'refuse' && !signedIn && (params.provider_token || !params.type)) window._powaSocialRefused = true;
     let clean = powaUrlWithoutSession(location.href);
     if (params.type === 'signup' && !signedIn && clean.indexOf('#') < 0) { clean += '#login'; window._powaEmailConfirmed = true; }
     history.replaceState(history.state, '', clean);

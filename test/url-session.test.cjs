@@ -44,6 +44,7 @@ function load(href, opts) {
     return out.opts.auth.detectSessionInUrl(v, params);
   };
   out.confirmed = !!sandbox._powaEmailConfirmed;
+  out.socialRefused = !!sandbox._powaSocialRefused;
   return out;
 }
 
@@ -110,6 +111,19 @@ assert.strictEqual(r.detect(), false);
 r = load('https://www.powalifta.com/#error=access_denied&error_code=403&error_description=Cancelled');
 assert.strictEqual(r.replaced, null);
 assert.strictEqual(r.detect(), true, 'a provider\'s error still reaches supabase-js as before');
+
+// A provider's return this tab can't take: signed out, the homepage says the sign-in didn't finish.
+r = load('https://www.powalifta.com/#' + TOK + '&provider_token=PT');
+assert.strictEqual(r.replaced, '/', 'refused: out of the address');
+assert.strictEqual(r.socialRefused, true, 'signed out: social-auth.js says the sign-in didn\'t finish');
+r = load('https://www.powalifta.com/#' + TOK + '&provider_token=PT', { session: { 'powa-social-pending': JSON.stringify({ v: 1, at: NOW - 61 * 60000 }) } });
+assert.strictEqual(r.socialRefused, true, 'back after more than an hour: the same');
+r = load('https://www.powalifta.com/#' + TOK + '&provider_token=PT', { local: { 'sb-cxnotrikxvzncupswvio-auth-token': '{}' } });
+assert.strictEqual(r.socialRefused, false, 'someone signed in here did nothing: no note');
+r = load('https://www.powalifta.com/#' + TOK + '&type=signup');
+assert.strictEqual(r.socialRefused, false, 'an email confirmation has its own note');
+r = load('https://www.powalifta.com/#' + TOK + '&provider_token=PT', { session: { 'powa-social-pending': fresh } });
+assert.strictEqual(r.socialRefused, false, 'taken: nothing to say');
 
 r = load('https://www.powalifta.com/coach.html#athlete=abc');
 assert.strictEqual(r.replaced, null);

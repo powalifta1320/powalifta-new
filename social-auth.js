@@ -290,6 +290,9 @@
     var pending = loadPending();
     var parsed = parseReturnHash(location.hash);
     if (parsed.recovery) return false;
+    // A return db.js refused (this tab never started it, or started it over an hour ago): its tokens have
+    // left the address already. Say it didn't finish, as a return that found no session does below.
+    if (!pending && !parsed.tokens && !parsed.error && window._powaSocialRefused) { window._powaSocialRefused = false; say('Sign-in didn\'t finish. Try again.'); return false; }
     if (!pending && !parsed.tokens && !parsed.error) return false;
     if (parsed.error) {
       clearPending(); cleanHash();
