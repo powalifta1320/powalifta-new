@@ -5880,12 +5880,19 @@ document.addEventListener('keydown', function(e) {
 // AND on initial page load. Works on whatever page has the modals (homepage).
 // =========================================================
 function checkHashForModal() {
-  if (location.hash === '#login' && typeof window.openLoginModal === 'function') {
+  const h = location.hash;
+  if (h === '#login' && typeof window.openLoginModal === 'function') {
     window.closeAllModals();
     window.openLoginModal();
-  } else if (location.hash === '#signup' && typeof window.openSignupModal === 'function') {
+  } else if (/^#signup(-solo|-athlete|-coach)?$/.test(h) && typeof window.openSignupModal === 'function') {
+    // Read the hash the way index.html's own _openHashModal does (#signup = a lifter on their own): this
+    // runs 50 ms after it and on every hash change, so it must agree or it flips the sign-up to
+    // "Lifter, with a coach" under the visitor's eyes. Already open as that type: leave it be.
+    const type = h === '#signup-athlete' ? 'athlete' : h === '#signup-coach' ? 'coach' : 'solo';
+    const modal = document.getElementById('signupModal'), sel = document.getElementById('signupType');
+    if (modal && modal.classList.contains('open') && sel && sel.value === type) return;
     window.closeAllModals();
-    window.openSignupModal('athlete');
+    window.openSignupModal(type);
   }
 }
 window.addEventListener('hashchange', checkHashForModal);
