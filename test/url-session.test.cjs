@@ -56,7 +56,8 @@ assert.strictEqual(verdict({ params: P(TOK), path: '/athlete.html', now: NOW }),
 assert.strictEqual(verdict({ params: P('refresh_token=R'), path: '/athlete.html', now: NOW }), 'refuse', 'a refresh token alone');
 assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: fresh, now: NOW }), 'adopt', 'this tab\'s own Google sign-in');
 assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: JSON.parse(fresh), now: NOW }), 'adopt');
-assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: JSON.stringify({ v: 1, at: NOW - 16 * 60000 }), now: NOW }), 'refuse', 'a pending sign-in older than 15 minutes');
+assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: JSON.stringify({ v: 1, at: NOW - 40 * 60000 }), now: NOW }), 'adopt', 'a slow sign-in (40 minutes at Apple) still comes in');
+assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: JSON.stringify({ v: 1, at: NOW - 61 * 60000 }), now: NOW }), 'refuse', 'a pending sign-in older than an hour');
 assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: JSON.stringify({ v: 2, at: NOW }), now: NOW }), 'refuse');
 assert.strictEqual(verdict({ params: P(TOK), path: '/', pending: 'not json', now: NOW }), 'refuse');
 assert.strictEqual(verdict({ params: P(TOK + '&type=signup'), path: '/', now: NOW }), 'refuse', 'an email confirmation');

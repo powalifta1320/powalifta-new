@@ -27,8 +27,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // here, so a link someone sends could sign this browser into their account. Two real flows bring a
 // session in the URL, and only these are taken:
 //   · Apple / Google sign-in on the website, back on the page it left from: this tab saved
-//     social-auth.js's pending state before it went (sessionStorage, 15 minutes). The person asked
-//     for it in this tab, so it may replace whoever was signed in.
+//     social-auth.js's pending state before it went (sessionStorage; taken up to an hour later, so a
+//     slow Apple ID or two-factor step still signs in). The person asked for it in this tab, so it
+//     may replace whoever was signed in.
 //   · A password-reset link (type=recovery): only reset-password.html reads it, into a client of its
 //     own that never saves it, so it never becomes this browser's sign-in and never replaces one.
 // Anything else is refused and its tokens leave the address bar: a link someone sent, or an email
@@ -39,7 +40,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // URL) | 'adopt' | 'recovery' (reset-password.html's own client takes it) | 'forward' (routeRecoveryLink
 // above is moving it there) | 'refuse'.
 const POWA_SOCIAL_PENDING_KEY = 'powa-social-pending';
-const POWA_SOCIAL_PENDING_TTL_MS = 15 * 60 * 1000;   // social-auth.js PENDING_TTL_MS
+const POWA_SOCIAL_PENDING_TTL_MS = 60 * 60 * 1000;   // social-auth.js keeps what the modal knew for 15 minutes; past that it asks again
 const POWA_URL_SESSION_KEYS = ['access_token', 'refresh_token', 'provider_token', 'provider_refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'];
 function powaUrlSessionVerdict(o) {
   o = o || {};
