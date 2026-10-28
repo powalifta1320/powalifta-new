@@ -180,9 +180,12 @@ var SwitchKit = (function () {
   // machine / dumbbell / specialty-bar work is never the competition lift ("Squat
   // (Smith Machine)", "Bench Press (Dumbbell)", "Trap Bar Deadlift"), and a variant
   // column ("Paused") is honoured when it names one of the lift's variants.
+  // A lift written as its initials in a log column ("S", "BP", "DL").
+  var LIFT_ABBR = { s: 'Squat', sq: 'Squat', bs: 'Squat', b: 'Bench', bp: 'Bench', d: 'Deadlift', dl: 'Deadlift', dead: 'Deadlift' };
   function matchLift(name, variant) {
     var n = String(name || '').replace(/\s+/g, ' ').trim();
     var s = n.toLowerCase();
+    if (LIFT_ABBR[s]) { n = LIFT_ABBR[s]; s = n.toLowerCase(); }
     if (/smith|machine|dumbbell|\bdb\b|kettlebell|\bkb\b|cable|landmine|trap bar|hex bar|belt squat|zercher|goblet/.test(s)) {
       var bucket = /squat|leg|lunge|calf|glute|hip|step/.test(s) ? 'legs' : /deadlift|row|pull|curl|shrug|chin/.test(s) ? 'pull' : /bench|press|dip|fly|raise|push|tricep/.test(s) ? 'push' : 'other';
       return { lift: bucket, variant: '', exerciseName: n };
@@ -225,6 +228,7 @@ var SwitchKit = (function () {
     map.pause = find(/^(pause|paused|pause s|pause secs?|pause seconds)$/);
     map.pauseAt = find(/^(pause at|pause where|pause position)$/);
     map.acc = find(/^(bands?|chains?|bands chains|bands\/chains|bands and chains|accommodating( resistance)?)$/);
+    map.accKey = map.acc >= 0 ? keys[map.acc] : '';
     map.isLog = map.ex >= 0 && (map.date >= 0) && ((map.weight >= 0 && map.reps >= 0) || map.text >= 0);
     return map;
   }
@@ -278,121 +282,68 @@ var SwitchKit = (function () {
   // Returns { kind: 'logs'|'block'|'empty', format, logs (new sets to write), dupes,
   //   skipped [{ line, reason, text }], skippedBy {reason: n}, range {from, to}, sessions,
   //   noRpeCount, unitFromFile, dateOrder, dateAmbiguous, prs, block }.
+  // A sheet with a header row goes through planHistoryRows, the same path the import intake's
+  // column mapper takes (import-core.js); a training journal and a past block are read here.
+  function emptyPlan() {
+    return { kind: 'empty', format: null, logs: [], dupes: 0, skipped: [], skippedBy: {}, range: null, sessions: 0,
+      noRpeCount: 0, unitFromFile: null, dateOrder: null, dateAmbiguous: false, rows: 0, carried: 0, prs: null, block: null,
+      rpeFromTarget: 0, weighIns: [], bwDupes: 0 };
+  }
+  function skipRow(res, r, reason) { res.skipped.push({ line: r.line, reason: reason, text: String(r.raw || '').slice(0, 140) }); }
   function planHistoryImport(text, opts) {
     opts = opts || {};
     var unit = /lb/.test(String(opts.unit || 'kg')) ? 'lb' : 'kg';
-    var noRpe = Number(opts.noRpe) >= 5 && Number(opts.noRpe) <= 10 ? Number(opts.noRpe) : 8;
-    var today = opts.today || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
-    var res = { kind: 'empty', format: null, logs: [], dupes: 0, skipped: [], skippedBy: {}, range: null, sessions: 0,
-      noRpeCount: 0, unitFromFile: null, dateOrder: null, dateAmbiguous: false, rows: 0, carried: 0, prs: null, block: null };
+    var res = emptyPlan();
     var src = String(text || '');
     if (!src.trim()) return res;
     var delim = detectDelim(src);
     var rows = splitRows(src, delim);
     var cand = [];   // { line, raw, date, name, variant, kg, unit, reps, sets, rpe, note }
-    var skip = function (r, reason) { res.skipped.push({ line: r.line, reason: reason, text: String(r.raw || '').slice(0, 140) }); };
+    var skip = function (r, reason) { skipRow(res, r, reason); };
 
     // 1. A sheet with a header row.
-    var hi = -1, map = null;
-    if (delim) for (var i = 0; i < Math.min(rows.length, 6); i++) { var mp = mapHeader(rows[i].cells); if (mp.isLog) { hi = i; map = mp; break; } }
-    if (map) {
-      res.format = formatOf(rows[hi].cells.map(hkey));
-      res.unitFromFile = map.unit;
-      var body = rows.slice(hi + 1);
-      var dateVals = body.map(function (r) { return r.cells[map.date]; });
-      var ord = dateOrderOf(dateVals);
-      res.dateAmbiguous = ord === 'ambiguous';
-      res.dateOrder = ord === 'ambiguous' ? (opts.dateOrder || 'dmy') : (ord || opts.dateOrder || 'dmy');
-      // A sheet of several lifters (POWALIFTA's own coach export): keep this athlete's rows.
-      var who = map.athlete >= 0 ? body.map(function (r) { return String(r.cells[map.athlete] || '').trim().toLowerCase(); }).filter(Boolean) : [];
-      var many = who.length && who.some(function (w) { return w !== who[0]; });
-      var mine = String(opts.athleteName || '').trim().toLowerCase();
-      // Coach sheets write the date (and often the athlete and exercise) only on the first
-      // row of a session or exercise; merged cells paste as blanks. A row that has a set on
-      // it but a blank there takes the value from the row above, within this file.
-      var last = { athlete: '', date: '', ex: '', variant: '' };
-      body.forEach(function (r) {
-        var c = r.cells, get = function (k) { return map[k] >= 0 ? String(c[map[k]] == null ? '' : c[map[k]]).trim() : ''; };
+    if (delim) for (var i = 0; i < Math.min(rows.length, 6); i++) {
+      var mp = mapHeader(rows[i].cells);
+      if (mp.isLog) return planHistoryRows(rows.slice(i + 1), mp, Object.assign({}, opts, { format: formatOf(rows[i].cells.map(hkey)) }));
+    }
+    // 2. A training journal: a date (on its own line or leading a line), then
+    //    "Squat 140x5 @8, 145x3 @9" / "Bench: 100kg x 5 x 3".
+    var cur = null, curRaw = '', journal = [], dates = [];
+    rows.forEach(function (r) { var t = r.cells.join(' '); var dm = t.match(/^\s*([0-9]{1,4}[-\/.][0-9]{1,2}[-\/.][0-9]{1,4})/); if (dm) dates.push(dm[1]); });
+    var jord = dateOrderOf(dates);
+    res.dateAmbiguous = jord === 'ambiguous';
+    res.dateOrder = jord === 'ambiguous' ? (opts.dateOrder || 'dmy') : (jord || opts.dateOrder || 'dmy');
+    var SET_RE = /(\d+(?:[.,]\d+)?)\s*(?:kgs?|lbs?)?\s*(?:x|×|\*|for)\s*\d/i;
+    rows.forEach(function (r) {
+      var t = r.cells.join(delim === '\t' ? ' ' : (delim || ' '));
+      // A journal line is a date and a few sets: a huge one is skipped before the regexes run.
+      if (t.length > JOURNAL_LINE_MAX) { journal.push({ r: r, kind: 'none' }); return; }
+      t = t.replace(/^[\s•\-*–]+/, '').trim();
+      var lead = t.match(/^((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+)?([0-9]{4}[-\/.][0-9]{1,2}[-\/.][0-9]{1,2}|[0-9]{1,2}[-\/.][0-9]{1,2}[-\/.][0-9]{2,4}|[0-9]{1,2}(?:st|nd|rd|th)?\s+[a-z]{3,9}\.?,?\s+[0-9]{2,4}|[a-z]{3,9}\.?\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})\b[\s:,\-–]*/i);
+      var d = lead ? parseDate(lead[2], res.dateOrder) : null;
+      if (d) { cur = d; curRaw = lead[2]; t = t.slice(lead[0].length).trim(); if (!t) return; }
+      var at = t.search(SET_RE);
+      if (at < 0) { journal.push({ r: r, kind: 'none' }); return; }
+      var name = t.slice(0, at).replace(/[\s:–\-,|@]+$/, '').trim();
+      if (!name || /^\d/.test(name)) { journal.push({ r: r, kind: 'none' }); return; }
+      if (!cur) { journal.push({ r: r, kind: 'nodate' }); return; }
+      // A decimal comma inside a set ("142,5x5", "142,5 kg x 5", "@8,5") isn't a separator.
+      var work = t.slice(at).replace(/(\d),(\d{1,2})(?=\s*(?:kgs?|lbs?)?\s*(?:x|×|\*|for)\s*\d)/gi, '$1.$2')
+        .replace(/(@\s*(?:rpe\s*)?\d),(5)(?!\d)/gi, '$1.$2').replace(/(\d),(5)(?=\s*rir\b)/gi, '$1.$2');
+      work.split(/\s*[,;|]\s*|\s{2,}/).filter(Boolean).forEach(function (piece) {
+        var p = parseSetText(piece);
+        if (!p) return;
+        journal.push({ r: r, kind: 'set', c: { r: r, date: cur, rawDate: curRaw, name: name, variant: '', kg: p.kg, unit: p.unit, reps: p.reps, sets: p.sets, rpe: p.rpe == null ? NaN : p.rpe, note: '', fx: p.fields } });
+      });
+    });
+    if (journal.some(function (j) { return j.kind === 'set'; })) {
+      res.format = 'Training journal';
+      journal.forEach(function (j) {
         res.rows++;
-        var hasWork = (map.weight >= 0 && get('weight') !== '') || (map.reps >= 0 && get('reps') !== '') || (map.text >= 0 && get('text') !== '');
-        var who1 = get('athlete'), rawDate = get('date'), name = get('ex'), variant = get('variant'), carried = false;
-        if (name) { last.ex = name; last.variant = variant; }
-        if (rawDate) last.date = rawDate;
-        if (who1) last.athlete = who1;
-        if (hasWork) {
-          if (!who1 && map.athlete >= 0 && last.athlete) { who1 = last.athlete; }
-          if (!name && last.ex) { name = last.ex; if (!variant) variant = last.variant; carried = true; }
-          if (!rawDate && last.date) { rawDate = last.date; carried = true; }
-        }
-        if (many && who1.toLowerCase() !== mine) return skip(r, 'Another athlete');
-        if (!name) return skip(r, 'No exercise');
-        if (/^(body ?weight|bw|weigh ?in)$/i.test(name)) return skip(r, 'A weigh-in, not a set');
-        var date = parseDate(rawDate, res.dateOrder);
-        if (!date) return skip(r, rawDate ? 'Date not readable' : 'No date');
-        if (carried) res.carried++;
-        var type = get('type').toLowerCase(), order = get('order').toLowerCase();
-        if (/warm/.test(type) || order === 'w') return skip(r, 'Warm-up set');
-        var kg = NaN, reps = NaN, sets = 1, rpe = NaN, u = map.unit, fx = {};
-        if (map.weight >= 0) kg = num(get('weight'));
-        if (map.reps >= 0) reps = num(get('reps'));
-        if (map.text >= 0 && (!(kg > 0) || !(reps > 0))) {
-          var p = parseSetText(get('text'));
-          if (p) { if (p.kg != null) kg = p.kg; if (p.reps != null) reps = p.reps; sets = p.sets || 1; if (p.rpe != null) rpe = p.rpe; if (p.unit) u = p.unit; fx = p.fields || {}; }
-        }
-        if (typeof parseSetFields === 'function') {
-          if (get('tempo')) fx.tempo = parseSetFields('tempo ' + get('tempo')).fields.tempo || get('tempo').slice(0, 24);
-          if (get('pause') && !/^(no|none|-|0)$/i.test(get('pause'))) { var pf = parseSetFields('pause ' + get('pause')).fields; if (pf.pause) fx.pause = pf.pause; if (pf.pauseAt) fx.pauseAt = pf.pauseAt; }
-          if (get('pauseAt')) fx.pauseAt = get('pauseAt').toLowerCase().slice(0, 24);
-          if (get('acc') && !/^(no|none|-)$/i.test(get('acc'))) { var af = parseSetFields(get('acc')).fields; if (!af.acc) af = parseSetFields((/chain/.test(hkey(rows[hi].cells[map.acc])) ? 'chains ' : '+ ') + get('acc') + (/chain/.test(hkey(rows[hi].cells[map.acc])) ? '' : ' bands')).fields; ['acc', 'accTxt', 'accKg'].forEach(function (k) { if (af[k] != null) fx[k] = af[k]; }); }
-        }
-        if (map.weight >= 0 && !u) { var wm = get('weight').toLowerCase().match(/\d\s*(kgs?|lbs?)\b/); if (wm) u = /lb/.test(wm[1]) ? 'lb' : 'kg'; }
-        if (map.unitCol >= 0 && get('unitCol')) u = /lb/i.test(get('unitCol')) ? 'lb' : /kg/i.test(get('unitCol')) ? 'kg' : u;
-        if (map.sets >= 0 && num(get('sets')) >= 1) sets = Math.floor(num(get('sets')));
-        if (map.rpe >= 0 && get('rpe') !== '') rpe = num(get('rpe'));
-        else if (map.rir >= 0 && get('rir') !== '' && isFinite(num(get('rir')))) rpe = 10 - num(get('rir'));
-        if (!(reps > 0) && ((map.dist >= 0 && num(get('dist')) > 0) || (map.secs >= 0 && num(get('secs')) > 0))) return skip(r, 'Cardio or a timed set');
-        cand.push({ r: r, date: date, rawDate: rawDate, name: name, variant: variant, kg: kg, unit: u, reps: reps, sets: sets, rpe: rpe, note: get('note'), fx: fx });
+        if (j.kind === 'set') cand.push(j.c);
+        else if (j.kind === 'nodate') skip(j.r, 'No date above it');
+        else skip(j.r, 'Not a set');
       });
-    } else {
-      // 2. A training journal: a date (on its own line or leading a line), then
-      //    "Squat 140x5 @8, 145x3 @9" / "Bench: 100kg x 5 x 3".
-      var cur = null, curRaw = '', journal = [], dates = [];
-      rows.forEach(function (r) { var t = r.cells.join(' '); var dm = t.match(/^\s*([0-9]{1,4}[-\/.][0-9]{1,2}[-\/.][0-9]{1,4})/); if (dm) dates.push(dm[1]); });
-      var jord = dateOrderOf(dates);
-      res.dateAmbiguous = jord === 'ambiguous';
-      res.dateOrder = jord === 'ambiguous' ? (opts.dateOrder || 'dmy') : (jord || opts.dateOrder || 'dmy');
-      var SET_RE = /(\d+(?:[.,]\d+)?)\s*(?:kgs?|lbs?)?\s*(?:x|×|\*|for)\s*\d/i;
-      rows.forEach(function (r) {
-        var t = r.cells.join(delim === '\t' ? ' ' : (delim || ' '));
-        // A journal line is a date and a few sets: a huge one is skipped before the regexes run.
-        if (t.length > JOURNAL_LINE_MAX) { journal.push({ r: r, kind: 'none' }); return; }
-        t = t.replace(/^[\s•\-*–]+/, '').trim();
-        var lead = t.match(/^((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+)?([0-9]{4}[-\/.][0-9]{1,2}[-\/.][0-9]{1,2}|[0-9]{1,2}[-\/.][0-9]{1,2}[-\/.][0-9]{2,4}|[0-9]{1,2}(?:st|nd|rd|th)?\s+[a-z]{3,9}\.?,?\s+[0-9]{2,4}|[a-z]{3,9}\.?\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4})\b[\s:,\-–]*/i);
-        var d = lead ? parseDate(lead[2], res.dateOrder) : null;
-        if (d) { cur = d; curRaw = lead[2]; t = t.slice(lead[0].length).trim(); if (!t) return; }
-        var at = t.search(SET_RE);
-        if (at < 0) { journal.push({ r: r, kind: 'none' }); return; }
-        var name = t.slice(0, at).replace(/[\s:–\-,|@]+$/, '').trim();
-        if (!name || /^\d/.test(name)) { journal.push({ r: r, kind: 'none' }); return; }
-        if (!cur) { journal.push({ r: r, kind: 'nodate' }); return; }
-        // A decimal comma inside a set ("142,5x5", "142,5 kg x 5", "@8,5") isn't a separator.
-        var work = t.slice(at).replace(/(\d),(\d{1,2})(?=\s*(?:kgs?|lbs?)?\s*(?:x|×|\*|for)\s*\d)/gi, '$1.$2')
-          .replace(/(@\s*(?:rpe\s*)?\d),(5)(?!\d)/gi, '$1.$2').replace(/(\d),(5)(?=\s*rir\b)/gi, '$1.$2');
-        work.split(/\s*[,;|]\s*|\s{2,}/).filter(Boolean).forEach(function (piece) {
-          var p = parseSetText(piece);
-          if (!p) return;
-          journal.push({ r: r, kind: 'set', c: { r: r, date: cur, rawDate: curRaw, name: name, variant: '', kg: p.kg, unit: p.unit, reps: p.reps, sets: p.sets, rpe: p.rpe == null ? NaN : p.rpe, note: '', fx: p.fields } });
-        });
-      });
-      var sets = journal.filter(function (j) { return j.kind === 'set'; });
-      if (sets.length) {
-        res.format = 'Training journal';
-        journal.forEach(function (j) {
-          if (j.kind === 'set') { res.rows++; cand.push(j.c); }
-          else if (j.kind === 'nodate') { res.rows++; skip(j.r, 'No date above it'); }
-          else { res.rows++; skip(j.r, 'Not a set'); }
-        });
-      }
     }
 
     // 3. Neither: a past block laid out like a program ("Week 1", "Squat 3x5 @8", or a
@@ -409,10 +360,145 @@ var SwitchKit = (function () {
       }
       return res;
     }
+    return finishHistoryPlan({ res: res, cand: cand }, opts);
+  }
 
+  // ---------------------------------------------------------------- a sheet's rows → candidate sets
+  // The rows under a header → the sets they hold, before any unit, assumed RPE or duplicate check
+  // (finishHistoryPlan does those, so changing an option doesn't read the rows again).
+  //   body: [{ cells, line, raw }]; map: the column of each field (mapHeader's shape, -1 or missing
+  //   when the sheet has none; map.unit the header's own unit; map.accKey the bands/chains header).
+  //   The intake's column mapper (import-core.js) builds the same map from the coach's picks, and
+  //   may add what mapHeader doesn't look for: tWeight, tReps, tRpe, tSets, tText (what was planned,
+  //   beside what was done), pct (a % of max), bw (a bodyweight column).
+  //   opts: as planHistoryImport, plus format (the label) and weighIns (keep weigh-ins: a lifter's own import).
+  // makeExtractor(...).step(from, to) reads rows [from, to); .result() → { res, cand }.
+  var BW_RE = /^(?:bw|body ?weight)\s*(?:\+\s*(\d+(?:[.,]\d+)?)\s*(kgs?|lbs?)?)?$/i;
+  var WEIGH_IN_RE = /^(body ?weight|bw|weigh ?-?in)$/i;
+  function makeExtractor(body, map, opts) {
+    opts = opts || {};
+    var res = emptyPlan(), cand = [];
+    var has = function (k) { return map[k] != null && map[k] >= 0; };
+    res.format = opts.format || 'Spreadsheet';
+    res.unitFromFile = map.unit || null;
+    var ord = dateOrderOf(has('date') ? body.map(function (r) { return r.cells[map.date]; }) : []);
+    res.dateAmbiguous = ord === 'ambiguous';
+    res.dateOrder = ord === 'ambiguous' ? (opts.dateOrder || 'dmy') : (ord || opts.dateOrder || 'dmy');
+    // A sheet of several lifters (POWALIFTA's own coach export): keep this athlete's rows.
+    var who = has('athlete') ? body.map(function (r) { return String(r.cells[map.athlete] || '').trim().toLowerCase(); }).filter(Boolean) : [];
+    var many = who.length && who.some(function (w) { return w !== who[0]; });
+    var mine = String(opts.athleteName || '').trim().toLowerCase();
+    // Done and planned side by side: the done columns are the history. A sheet with only one
+    // set of columns is a log whichever words its headers use.
+    var hasDone = has('weight') || has('reps') || has('text');
+    var hasPlan = has('tWeight') || has('tReps') || has('tText') || has('tSets');
+    var planOnly = hasPlan && !hasDone;
+    var V = planOnly ? { weight: 'tWeight', reps: 'tReps', rpe: 'tRpe', sets: 'tSets', text: 'tText' } : {};
+    var accChains = /chain/.test(String(map.accKey || ''));
+    var bwByDate = {};
+    // Coach sheets write the date (and often the athlete and exercise) only on the first
+    // row of a session or exercise; merged cells paste as blanks. A row that has a set on
+    // it but a blank there takes the value from the row above, within this file.
+    var last = { athlete: '', date: '', ex: '', variant: '' };
+    var row = function (r) {
+      var c = r.cells, get = function (k) { k = V[k] || k; return has(k) ? String(c[map[k]] == null ? '' : c[map[k]]).trim() : ''; };
+      var raw = function (k) { return has(k) ? String(c[map[k]] == null ? '' : c[map[k]]).trim() : ''; };
+      var skip = function (reason) { skipRow(res, r, reason); };
+      res.rows++;
+      var hasWork = get('weight') !== '' || get('reps') !== '' || get('text') !== '';
+      var planned = !planOnly && hasPlan && !hasWork && (raw('tWeight') !== '' || raw('tReps') !== '' || raw('tText') !== '' || raw('tSets') !== '');
+      var who1 = get('athlete'), rawDate = get('date'), name = get('ex'), variant = get('variant'), carried = false;
+      if (name) { last.ex = name; last.variant = variant; }
+      if (rawDate) last.date = rawDate;
+      if (who1) last.athlete = who1;
+      if (hasWork || planned) {
+        if (!who1 && has('athlete') && last.athlete) { who1 = last.athlete; }
+        if (!name && last.ex) { name = last.ex; if (!variant) variant = last.variant; carried = true; }
+        if (!rawDate && last.date) { rawDate = last.date; carried = true; }
+      }
+      // A bodyweight column: that day's weigh-in (a lifter's own import keeps it).
+      if (opts.weighIns && has('bw') && get('bw') !== '' && rawDate) {
+        var bd = parseDate(rawDate, res.dateOrder), bk = num(get('bw'));
+        if (bd && bk > 0) bwByDate[bd] = { date: bd, kg: bk, unit: /lb/i.test(get('bw')) ? 'lb' : /kg/i.test(get('bw')) ? 'kg' : null };
+      }
+      if (many && who1.toLowerCase() !== mine) return skip('Another athlete');
+      if (planned) return skip('Planned, not done');
+      if (!name) return skip(hasWork ? 'No exercise' : 'Nothing to read');
+      if (WEIGH_IN_RE.test(name)) {
+        var wd = parseDate(rawDate, res.dateOrder), wk = num(get('weight'));
+        if (opts.weighIns && wd && wk > 0) { bwByDate[wd] = { date: wd, kg: wk, unit: /lb/i.test(get('weight')) ? 'lb' : /kg/i.test(get('weight')) ? 'kg' : null }; return; }
+        return skip('A weigh-in, not a set');
+      }
+      var date = parseDate(rawDate, res.dateOrder);
+      if (!date) return skip(rawDate ? 'Date not readable' : 'No date');
+      if (carried) res.carried++;
+      var type = get('type').toLowerCase(), order = get('order').toLowerCase();
+      if (/warm/.test(type) || order === 'w') return skip('Warm-up set');
+      var kg = NaN, reps = NaN, sets = 1, rpe = NaN, u = map.unit || null, fx = {}, note = get('note'), fromPlan = false;
+      var wRaw = get('weight'), bw = wRaw.match(BW_RE);
+      if (bw) {
+        // Bodyweight work: "BW" has no load to log; "BW+20" logs the 20 it adds.
+        if (!bw[1]) return skip('Bodyweight, no added load');
+        kg = num(bw[1]); if (bw[2]) u = /lb/i.test(bw[2]) ? 'lb' : 'kg';
+        note = [note, 'Bodyweight + ' + bw[1] + (bw[2] ? ' ' + bw[2].toLowerCase().replace(/s$/, '') : '')].filter(Boolean).join(' · ');
+      } else if (has(V.weight || 'weight')) kg = num(wRaw);
+      if (has(V.reps || 'reps')) reps = num(get('reps'));
+      if (has(V.text || 'text') && (!(kg > 0) || !(reps > 0))) {
+        var p = parseSetText(get('text'));
+        if (p) { if (p.kg != null) kg = p.kg; if (p.reps != null) reps = p.reps; sets = p.sets || 1; if (p.rpe != null) rpe = p.rpe; if (p.unit) u = p.unit; fx = p.fields || {}; }
+      }
+      if (typeof parseSetFields === 'function') {
+        if (get('tempo')) fx.tempo = parseSetFields('tempo ' + get('tempo')).fields.tempo || get('tempo').slice(0, 24);
+        if (get('pause') && !/^(no|none|-|0)$/i.test(get('pause'))) { var pf = parseSetFields('pause ' + get('pause')).fields; if (pf.pause) fx.pause = pf.pause; if (pf.pauseAt) fx.pauseAt = pf.pauseAt; }
+        if (get('pauseAt')) fx.pauseAt = get('pauseAt').toLowerCase().slice(0, 24);
+        if (get('acc') && !/^(no|none|-)$/i.test(get('acc'))) { var af = parseSetFields(get('acc')).fields; if (!af.acc) af = parseSetFields((accChains ? 'chains ' : '+ ') + get('acc') + (accChains ? '' : ' bands')).fields; ['acc', 'accTxt', 'accKg'].forEach(function (k) { if (af[k] != null) fx[k] = af[k]; }); }
+      }
+      if (has(V.weight || 'weight') && !u) { var wm = wRaw.toLowerCase().match(/\d\s*(kgs?|lbs?)\b/); if (wm) u = /lb/.test(wm[1]) ? 'lb' : 'kg'; }
+      if (get('unitCol')) u = /lb|pound|imperial/i.test(get('unitCol')) ? 'lb' : /kg|kilo|metric/i.test(get('unitCol')) ? 'kg' : u;
+      if (num(get('sets')) >= 1) sets = Math.floor(num(get('sets')));
+      if (get('rpe') !== '') rpe = num(get('rpe'));
+      else if (get('rir') !== '' && isFinite(num(get('rir')))) rpe = 10 - num(get('rir'));
+      else if (!planOnly && !(rpe >= 1) && raw('tRpe') !== '' && num(raw('tRpe')) >= 5 && num(raw('tRpe')) <= 10) { rpe = num(raw('tRpe')); fromPlan = true; }
+      if (!(reps > 0) && ((has('dist') && num(get('dist')) > 0) || (has('secs') && num(get('secs')) > 0))) return skip('Cardio or a timed set');
+      if (!(kg > 0) && !bw && get('pct') !== '' && get('weight') === '') return skip('A percentage, no weight');
+      cand.push({ r: r, date: date, rawDate: rawDate, name: name, variant: variant, kg: kg, unit: u, reps: reps, sets: sets, rpe: rpe, note: note, fx: fx, fromPlan: fromPlan });
+    };
+    return {
+      step: function (from, to) { for (var i = from; i < Math.min(to, body.length); i++) row(body[i]); },
+      result: function () {
+        res.weighIns = Object.keys(bwByDate).sort().map(function (d) { return bwByDate[d]; });
+        return { res: res, cand: cand };
+      }
+    };
+  }
+  function extractHistory(body, map, opts) { var x = makeExtractor(body, map, opts); x.step(0, body.length); return x.result(); }
+  // The same, a chunk at a time so a big sheet never freezes the page: onProgress(done, total).
+  function extractHistoryAsync(body, map, opts, onProgress, chunk) {
+    var x = makeExtractor(body, map, opts), n = body.length, size = chunk || 1500, at = 0;
+    return new Promise(function (resolve) {
+      var run = function () {
+        x.step(at, at + size); at += size;
+        if (onProgress) { try { onProgress(Math.min(at, n), n); } catch (e) {} }
+        if (at < n) setTimeout(run, 0); else resolve(x.result());
+      };
+      run();
+    });
+  }
+  function planHistoryRows(body, map, opts) { return finishHistoryPlan(extractHistory(body, map, opts), opts); }
+
+  // ---------------------------------------------------------------- candidates → the plan
+  // Units, the assumed RPE, keys, duplicates, PRs. Doesn't change ext, so the coach can switch kg/lb
+  // or the assumed RPE and the preview redraws without reading the rows again.
+  function finishHistoryPlan(ext, opts) {
+    opts = opts || {};
+    var unit = /lb/.test(String(opts.unit || 'kg')) ? 'lb' : 'kg';
+    var noRpe = Number(opts.noRpe) >= 5 && Number(opts.noRpe) <= 10 ? Number(opts.noRpe) : 8;
+    var today = opts.today || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10));
+    var res = Object.assign(emptyPlan(), ext.res, { skipped: ext.res.skipped.slice(), skippedBy: {}, logs: [], dupes: 0, noRpeCount: 0, rpeFromTarget: 0, weighIns: [], bwDupes: 0 });
+    var skip = function (r, reason) { skipRow(res, r, reason); };
     // 4. Candidates → sets (kg), each with its key; skip what can't be a set.
     var built = [];
-    cand.forEach(function (c) {
+    ext.cand.forEach(function (c) {
       var u = c.unit || res.unitFromFile || unit;
       if (!(c.reps > 0)) return skip(c.r, 'No reps');
       if (c.reps > 50 || Math.floor(c.reps) !== c.reps) return skip(c.r, 'Reps don\'t look right');
@@ -435,7 +521,7 @@ var SwitchKit = (function () {
         var e1 = typeof calcE1RM === 'function' ? calcE1RM(w, c.reps, rpe) : 0;
         built.push({ athleteId: opts.athleteId || null, lift: ex.lift, variant: main ? (ex.variant || 'Competition') : '', exerciseName: main ? '' : ex.exerciseName,
           weight: w, reps: c.reps, rpe: rpe, e1rm: e1, e1rmComp: main && typeof calcCompE1RM === 'function' ? calcCompE1RM(w, c.reps, rpe, ex.lift, ex.variant || 'Competition') : e1,
-          note: noteWithFields(c.note, c.fx), date: c.date, source: 'import', _assumed: assumed, _line: c.r.line, _ft: ft });
+          note: noteWithFields(c.note, c.fx), date: c.date, source: 'import', _assumed: assumed, _plan: !!c.fromPlan, _line: c.r.line, _ft: ft });
       }
     });
 
@@ -458,10 +544,21 @@ var SwitchKit = (function () {
       var n = seenT[t] = (seenT[t] || 0) + 1, nl = seenL[tl] = (seenL[tl] || 0) + 1;
       if (haveKeys[l.importKey] || (l._assumed ? nl <= (haveLoose[tl] || 0) : n <= (haveTuples[t] || 0))) { res.dupes++; return; }
       if (l._assumed) res.noRpeCount++;
+      if (l._plan) res.rpeFromTarget++;
       res.logs.push(l);
     });
     res.allKeys = built.map(function (l) { return l.importKey; });
     res.kind = (res.logs.length || res.dupes) ? 'logs' : 'empty';
+    // Weigh-ins (a lifter's own import): kg, one a day, not one already logged that day.
+    var haveBw = {};
+    (opts.existingBw || []).forEach(function (b) { if (!opts.athleteId || b.athleteId === opts.athleteId) haveBw[String(b.date).slice(0, 10)] = 1; });
+    (ext.res.weighIns || []).forEach(function (b) {
+      var u = b.unit || res.unitFromFile || unit, kg = Math.round((u === 'lb' ? b.kg * KG_LB : b.kg) * 100) / 100;
+      if (!(kg >= 25 && kg <= 300) || b.date > today) return;
+      if (haveBw[b.date]) { res.bwDupes++; return; }
+      res.weighIns.push({ date: b.date, weight: kg });
+    });
+    if (res.weighIns.length && res.kind === 'empty') res.kind = 'logs';
     res.skipped.forEach(function (s) { res.skippedBy[s.reason] = (res.skippedBy[s.reason] || 0) + 1; });
     if (res.logs.length) {
       var ds = res.logs.map(function (l) { return l.date; }).sort();
@@ -1213,6 +1310,9 @@ var SwitchKit = (function () {
     detectDelim: detectDelim, splitRows: splitRows, num: num, parseDate: parseDate, dateOrderOf: dateOrderOf,
     parseSetText: parseSetText, matchLift: matchLift, mapHeader: mapHeader, tupleOf: tupleOf, importKey: importKey,
     planHistoryImport: planHistoryImport, planPRs: planPRs, buildExportFiles: buildExportFiles, logsCsv: logsCsv,
+    // the import intake (import-core.js / import-ui.js) builds on these
+    hkey: hkey, hash64: hash64, formatOf: formatOf, planHistoryRows: planHistoryRows, extractHistory: extractHistory,
+    extractHistoryAsync: extractHistoryAsync, finishHistoryPlan: finishHistoryPlan, planBlock: planBlock,
     crc32: crc32, zip: zip, utf8: utf8,
     // UI
     openHistoryImport: openHistoryImport, exportEverything: exportEverything, dataSheet: dataSheet, deskCommands: deskCommands
