@@ -74,7 +74,6 @@ const MAIN_LIFTS = ['squat', 'bench', 'deadlift'] as const;
 const LIFT_LABELS: Record<string, string> = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
 const DAY_MS = 86400000;
 
-
 interface LogRow { athlete_id: string; lift: string; weight: number; reps: number; e1rm_comp: number; date: string; }
 interface BwRow { athlete_id: string; date: string; weight: number; }
 
