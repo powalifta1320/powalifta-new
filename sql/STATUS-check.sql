@@ -131,14 +131,14 @@ with checks(n, migration, applied) as (values
             and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6),
   (46, 'migration-social-sign-in-2026-10-25.sql  (Continue with Apple / Google: finish_social_signup + the guard''s exemption)',
         to_regprocedure('public.finish_social_signup(text, text)') is not null
-        and position('powa.social_role' in pg_get_functiondef('public.guard_profile_privileged_cols()'::regprocedure)) > 0),
+        and coalesce(position('powa.social_role' in pg_get_functiondef(to_regprocedure('public.guard_profile_privileged_cols()'))) > 0, false)),
   (47, 'migration-clients-2026-10-27.sql  (Clients + payments: the coach''s own record of packages and payments, never the athlete''s; after row 43)',
         to_regclass('public.client_billing') is not null
         and to_regclass('public.client_payments') is not null),
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
         to_regclass('public.intake') is not null),
   (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
-        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0),
+        coalesce(position('brand_name' in pg_get_function_result(to_regprocedure('public.invite_preview(text)'))) > 0, false)),
   (50, 'migration-coach-challenges-2026-10-28.sql  (coach challenges: the coach''s own lifters on a board of their own in Club; needs only profiles)',
         to_regclass('public.coach_challenges') is not null
         and to_regclass('public.challenge_entries') is not null
