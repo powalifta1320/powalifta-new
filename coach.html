@@ -2035,9 +2035,11 @@ window.notifyAthleteAssigned = notifyAthleteAssigned;
 async function removeAthleteFromRoster(athleteId, athleteName) {
   if (!athleteId) return;
   if (window._demoMode) { toast('Preview only in demo mode'); return; }
+  // What the server does (coach_release_lifter, then trg_programs_release_on_coach_change): the program
+  // you wrote becomes the lifter's own copy, and you stop seeing their training.
   const msg = 'Remove ' + athleteName + ' from your roster?\n\n' +
-              'Their training data (logs, programs, bodyweight, goals) stays with them. ' +
-              'They lose access to programs you assigned, and they\'ll need a new invite code to rejoin.';
+              'They keep their training, including the program you wrote for them, and you stop seeing it. ' +
+              'They\'ll need a new invite to rejoin.';
   if (!confirm(msg)) return;
   try {
     // Through the server (DB.releaseLifter → coach_release_lifter): the coach's own update of the
