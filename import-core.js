@@ -417,10 +417,10 @@ var ImportCore = (function () {
     [/^(pause at|pause where|pause position)$/, 'pauseAt'],
     [/^(bands?|chains?|bands chains|bands\/chains|bands and chains|accommodating( resistance)?)$/, 'acc'],
     [/^(bodyweight|body weight|bw|weigh in|weighin|bodyweight (kgs?|lbs?)|bodyweight \((kgs?|lbs?)\)|bw (kgs?|lbs?))$/, 'bw'],
-    [/^(distance|distance km|distance m|distance mi|distance meters|distance miles|distance \((m|km|meters|miles|mi)\)|distance unit)$/, 'dist'],
-    [/^(seconds|duration|duration seconds|time)$/, 'secs'],
+    [/^(distance|distance km|distance m|distance mi|distance meters|distance miles|distance \((m|km|meters|miles|mi)\))$/, 'dist'],
+    [/^(seconds|duration seconds|time)$/, 'secs'],
     [/^(e1rm|e1rm kg|e1rm lb|estimated 1rm|est 1rm|e1rm \((kgs?|lbs?)\)|1rm|estimated max)$/, 'e1rm'],
-    [/^(week|wk|week #|week no|block|block name|phase|cycle|mesocycle|session|session name|workout|workout name|workout notes|title|routine|routine name|day name|training day|day|description|category|duration \(sec\)|duration sec|superset id|exercise template id|workout #|id|end time|end time|done|completed|complete|source)$/, 'session']
+    [/^(week|wk|week #|week no|block|block name|phase|cycle|mesocycle|session|session name|workout|workout name|workout notes|title|routine|routine name|day name|training day|day|description|category|duration|duration \(sec\)|duration sec|distance unit|superset id|exercise template id|workout #|id|end time|done|completed|complete|source)$/, 'session']
   ];
   // Fields a log's planner reads (switch-kit.js makeExtractor) and the coach can pick.
   var LOG_FIELDS = ['date', 'ex', 'weight', 'reps', 'rpe', 'rir', 'sets', 'text', 'note', 'athlete', 'variant', 'order', 'type', 'unitCol', 'pct',
@@ -698,7 +698,6 @@ var ImportCore = (function () {
     if (a.wide && has('ex')) { a.kind = 'history'; a.layout = 'wide'; }
     else if (has('ex') && has('date') && work) { a.kind = 'history'; a.layout = 'log'; }
     else if (has('ex') && !has('date') && (has('sets') || has('reps') || has('tText') || has('text'))) { a.kind = 'program'; a.layout = 'program'; }
-    else if (has('ex') && has('date')) { a.kind = 'history'; a.layout = 'log'; }
     else { a.kind = 'unknown'; a.layout = 'unknown'; }
     return a;
   }
@@ -956,11 +955,12 @@ var ImportCore = (function () {
   var SAMPLE_PEOPLE = [
     ['Maya', 'Chen', 'active', 'Online'], ['Leo', 'Grant', 'active', 'Online'], ['Priya', 'Nair', 'active', 'In person'], ['Sam', 'Okafor', 'active', 'Online'],
     ['Lena', 'Novak', 'active', 'Online'], ['Diego', 'Ruiz', 'active', 'In person'], ['Hana', 'Sato', 'active', 'Online'], ['Owen', 'Walsh', 'archived', 'Online'],
-    ['Zoe', 'Adams', 'active', 'Online'], ['Ben', 'Carter', 'archived', 'In person'], ['Ava', 'Stone', 'active', 'Online'], ['Tom', 'Becker', 'active', 'Online']
+    ['Zoe', 'Adams', 'active', 'Online'], ['Ben', 'Carter', 'archived', 'In person'], ['Ava', 'Stone', 'active', 'Online'], ['Tom', 'Becker', 'active', 'Online'],
+    ['Arjun', 'Mehta', 'active', 'In person', 'arjun@demo.com']
   ];
   var SAMPLES = {
     roster: { name: 'clients.csv', from: 'TrueCoach', text: ['First Name,Last Name,Email,Compliance Score,Total Workouts Completed,Birthday,Location,Timezone,Phone Number,Client Type,Client State,Height,Weight,Unit Preference,Gender']
-      .concat(SAMPLE_PEOPLE.map(function (p, i) { return [p[0], p[1], p[0].toLowerCase() + '.' + p[1].toLowerCase() + '@example.com', 70 + (i * 7) % 30, 40 + i * 11, '', '', '', '', p[3], p[2], '', '', i % 3 ? 'metric' : 'imperial', ''].join(','); })).join('\n') },
+      .concat(SAMPLE_PEOPLE.map(function (p, i) { return [p[0], p[1], p[4] || p[0].toLowerCase() + '.' + p[1].toLowerCase() + '@example.com', 70 + (i * 7) % 30, 40 + i * 11, '', '', '', '', p[3], p[2], '', '', i % 3 ? 'metric' : 'imperial', ''].join(','); })).join('\n') },
     history: { name: 'strong_workouts.csv', from: 'Strong', text: (function () {
       var lines = ['Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE'];
       var day = Date.UTC(2026, 7, 3), top = { 'Squat (Barbell)': 150, 'Bench Press (Barbell)': 100, 'Deadlift (Barbell)': 185, 'Barbell Row': 80 };
@@ -978,18 +978,18 @@ var ImportCore = (function () {
     })() },
     wide: { name: 'training log.csv', from: 'a spreadsheet', text: ['Date,Exercise,Set 1 Weight,Set 1 Reps,Set 1 RPE,Set 2 Weight,Set 2 Reps,Set 2 RPE,Set 3 Weight,Set 3 Reps,Set 3 RPE',
       '05/10/2026,Squat,160,5,7,165,5,7.5,170,3,8.5', '05/10/2026,Bench,105,5,7.5,105,5,8,,,', '07/10/2026,Deadlift,190,3,7,200,3,8,205,2,8.5', '07/10/2026,Paused bench,95,4,7,95,4,7.5,95,4,8'].join('\n') },
-    grid: { name: 'Block 3.csv', from: 'a spreadsheet', text: ['Exercise,Week 1,Week 2,Week 3,Week 4', 'Day 1 · Squat / Bench,,,,', 'Squat,1x3 @8 3x5 75%,1x2 @8 3x4 78%,1x1 @8.5 3x3 82%,3x3 70% @6',
-      'Bench,4x6 72.5%,4x5 75%,4x4 80%,3x5 67.5%', 'Barbell Row,4x8 2RIR,4x8 2RIR,4x8 1RIR,3x8 3RIR', 'Day 2 · Deadlift,,,,', 'Deadlift,1x3 @8 2x3 75%,1x2 @8 2x3 78%,1x1 @8.5 2x2 82%,2x3 70% @6',
+    grid: { name: 'Block 3.csv', from: 'a spreadsheet', text: ['Exercise,Week 1,Week 2,Week 3,Week 4', 'Day 1 · Squat / Bench,,,,', 'Squat,"1x3 @8, 3x5 75%","1x2 @8, 3x4 78%","1x1 @8.5, 3x3 82%",3x3 70% @6',
+      'Bench,4x6 72.5%,4x5 75%,4x4 80%,3x5 67.5%', 'Barbell Row,4x8 2RIR,4x8 2RIR,4x8 1RIR,3x8 3RIR', 'Day 2 · Deadlift,,,,', 'Deadlift,"1x3 @8, 2x3 75%","1x2 @8, 2x3 78%","1x1 @8.5, 2x2 82%",2x3 70% @6',
       'Paused Bench,4x5 @7,4x4 @7.5,4x3 @8,3x4 @6', 'Leg Curl,3x12,3x12,3x10,2x12'].join('\n') }
   };
   // The demo's workbook, built with SheetJS so it goes through the real reader: three tabs.
   function sampleWorkbookBytes() {
     var X = window.XLSX;
-    var tab = function (text) { return X.utils.aoa_to_sheet(text.split('\n').map(function (l) { return l.split(',').map(function (c) { return /^-?\d+(\.\d+)?$/.test(c) ? Number(c) : c; }); })); };
+    var tab = function (text) { return X.utils.aoa_to_sheet(SK().splitRows(text, ',').map(function (r) { return r.cells.map(function (c) { return /^-?\d+(\.\d+)?$/.test(c) ? Number(c) : c; }); })); };
     var wb = X.utils.book_new();
     var log = tab(SAMPLES.wide.text);
     X.utils.book_append_sheet(wb, log, 'Training log');
-    X.utils.book_append_sheet(wb, tab(SAMPLES.grid.text.replace(/,(\d+x\d+[^,]*?) (\d+x)/g, ',$1, $2')), 'Block 3');
+    X.utils.book_append_sheet(wb, tab(SAMPLES.grid.text), 'Block 3');
     X.utils.book_append_sheet(wb, tab('Lift,Max (kg),Tested\nSquat,190,2026-09-12\nBench,125,2026-09-12\nDeadlift,225,2026-09-13'), 'Maxes');
     return new Uint8Array(X.write(wb, { type: 'array', bookType: 'xlsx' }));
   }

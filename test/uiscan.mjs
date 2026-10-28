@@ -2,8 +2,8 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 121 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
- * sheets (New challenge and a challenge's board among them), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
+ * Opens 163 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * sheets (New challenge and a challenge's board among them, the import intake's steps), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
  * don't match, tiny tap targets (app only) and unreadable text (contrast under 2.6:1).
@@ -60,7 +60,18 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     // Aim for a total (meetday.js): the attempt planner with its row under the plans.
     { name: 'sh-chl-new' + suf, page: C, theme, eval: tab('club') + ';Challenges.openNew()' },
     { name: 'sh-chl-board' + suf, page: A, theme, eval: tab('club') + ";setTimeout(() => { const b = document.querySelector('.chl-mine'); if (b) b.click(); }, 200)" },
-    { name: 'sh-planner-aim' + suf, page: C, theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
+    { name: 'sh-planner-aim' + suf, page: C, theme, eval: "openAttemptPlanner('demo-cmeet-p1')" },
+    // Imports (import-ui.js, loaded on first use): the intake, a client list against the plan's seats (a full
+    // roster and a brand-new coach's 3), a lifter's history with its preview, a workbook's tabs, a guide, the
+    // lifter's own import, a program grid in the check.
+    { name: 'sh-im-intake' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'hub' })" },
+    { name: 'sh-im-roster' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'roster', sample: 'roster' })" },
+    { name: 'sh-im-roster-fresh' + suf, page: F, theme, eval: "SwitchKit.openIntake({ mode: 'roster', sample: 'roster' })" },
+    { name: 'sh-im-history' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'history', athleteId: 'demo-a1', sample: 'history' })" },
+    { name: 'sh-im-tabs' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'hub', sample: 'workbook' }).then(() => new Promise(r => setTimeout(r, 900)))" },
+    { name: 'sh-im-guide' + suf, page: C, theme, eval: "SwitchKit.loadIntake().then(() => ImportGuides.open('truecoach'))" },
+    { name: 'sh-im-self' + suf, page: A, theme, eval: "SwitchKit.openIntake({ mode: 'history', self: true, sample: 'history' })" },
+    { name: 'sh-im-program' + suf, page: C, theme, eval: "SwitchKit.openIntake({ mode: 'program', athleteId: 'demo-a2', sample: 'grid' }).then(() => new Promise(r => setTimeout(r, 700)))" });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
@@ -79,6 +90,12 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
+// Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-im-intake' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.openIntake({ mode: 'hub' })" },
+  { name: 'w-im-roster' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.openIntake({ mode: 'roster', sample: 'roster' })" },
+  { name: 'w-im-history' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.openIntake({ mode: 'history', athleteId: 'demo-a1', sample: 'history' })" },
+  { name: 'w-im-guide' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.loadIntake().then(() => ImportGuides.open('coachrx'))" });
 
 const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});

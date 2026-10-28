@@ -37,6 +37,10 @@
       '.pp-readnotes p{margin:0}.pp-readnotes p+p{margin-top:4px}',
       '.pp-sheet.is-sheet .pp-pic{max-height:none}',
       '.pp-sheet.is-sheet .pp-file{padding:14px 16px}',
+      /* the name field fills its row, so the row is the tap target; the picked week reads in light too (--bg-0 isn't a token) */
+      '.pp-sheet .pp-namerow{padding-top:0;padding-bottom:0}',
+      '.pp-sheet .pp-namerow input.pp-pname{min-height:44px;padding:10px 0}',
+      '.pp-sheet .pp-weeks button.on{color:var(--bg,#0b0b0c)}',
       '@media (prefers-reduced-motion:reduce){.pp-pager button{transition:none}}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(st);
