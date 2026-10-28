@@ -590,8 +590,8 @@ async function renderDetail(id) {
     });
     buyBtn.style.cursor = 'pointer';
     buyCard.appendChild(buyBtn);
-    // Refund note + share link
-    buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. Refunds available within 7 days if you haven\'t opened the program.'));
+    // Sales note (the terms' Refunds section says the same) + share link
+    buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. You get the program straight away, so sales are final. If it doesn\'t arrive or you\'re charged twice, email us and we\'ll make it right.'));
   }
   wrap.appendChild(buyCard);
 
