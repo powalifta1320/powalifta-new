@@ -32,7 +32,7 @@
 <link rel="stylesheet" href="coach-ui.css"><!-- the coach side's new screens (coach-home.js): Home on the desk and the phone -->
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the challenge card, its board and New challenge (challenges.js) -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card for coach Home (notify.js) -->
-<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 </head>
 <body class="powa-app">
@@ -2037,12 +2037,16 @@ window.notifyAthleteAssigned = notifyAthleteAssigned;
 async function removeAthleteFromRoster(athleteId, athleteName) {
   if (!athleteId) return;
   if (window._demoMode) { toast('Preview only in demo mode'); return; }
+  // What the server does (coach_release_lifter, then trg_programs_release_on_coach_change): the program
+  // you wrote becomes the lifter's own copy, and you stop seeing their training.
   const msg = 'Remove ' + athleteName + ' from your roster?\n\n' +
-              'Their training data (logs, programs, bodyweight, goals) stays with them. ' +
-              'They lose access to programs you assigned, and they\'ll need a new invite code to rejoin.';
+              'They keep their training, including the program you wrote for them, and you stop seeing it. ' +
+              'They\'ll need a new invite to rejoin.';
   if (!confirm(msg)) return;
   try {
-    await DB.updateProfile(athleteId, { coach_id: null });
+    // Through the server (DB.releaseLifter → coach_release_lifter): the coach's own update of the
+    // lifter's profile is refused live (42501).
+    await DB.releaseLifter(athleteId);
     Store.update(s => {
       s.athletes = (s.athletes || []).filter(a => a.id !== athleteId);
       s.programs = (s.programs || []).filter(p => p.athleteId !== athleteId);
@@ -2051,7 +2055,7 @@ async function removeAthleteFromRoster(athleteId, athleteName) {
     if (typeof renderRoster === 'function') renderRoster();
   } catch (e) {
     console.error('removeAthleteFromRoster failed', e);
-    toast('Could not remove ' + athleteName + '. Try again');
+    toast(e && e.notReady ? e.message : 'Could not remove ' + athleteName + '. Try again');
   }
 }
 window.removeAthleteFromRoster = removeAthleteFromRoster;
@@ -2095,13 +2099,16 @@ async function refreshUnreadBadges() {
       // The desk wants who wrote last too: one read gives the thread digest and the unread (two past
       // 500 messages), then one repaint. No digest (that read failed): the desk reads its own shortly.
       const inbox = await DB.coachInbox(user.id);
-      inbox.unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      // As below: only threads with a live link count (a former lifter's thread is read-only, row 59).
+      inbox.unread.forEach(m => { if (m.coachId === user.id && msgThreadLive(user.id, m.athleteId)) map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
       _unreadByAthlete = map;
       _deskCall('deskRefresh', inbox.threads ? { threads: inbox.threads } : undefined);
       return;
     } else {
       const unread = await DB.listUnreadForUser(user.id);
-      unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      // Only threads with a live link count: a former lifter's thread is read-only (row 59), so its unread
+      // messages can never be marked read and would hold the Messages count up for good.
+      unread.forEach(m => { if (m.coachId === user.id && msgThreadLive(user.id, m.athleteId)) map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
     }
     _unreadByAthlete = map;
     // The desk repaints its own rows in place (the search box and focus survive a new message).
@@ -2169,7 +2176,8 @@ function subscribeRosterMessages() {
 // reads Store.messages and sends locally, nothing leaves the page). draft: words to start the reply with
 // (a fix's suggested message); the coach edits or sends it.
 function openAthleteMessages(athleteId, athleteName, draft) {
-  document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
+  // A former lifter's thread opens read-only (row 59): the title is just their name.
+  document.getElementById('messageModalTitle').textContent = (msgThreadLive(user.id, athleteId) ? 'Message ' : '') + athleteName;
   const host = document.getElementById('messageThreadHost');
   host.innerHTML = '';
   openModal('messageModal');

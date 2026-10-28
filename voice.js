@@ -459,7 +459,9 @@
       return { msg };
     } catch (e) {
       if (e && e.offline) { await qPut(item); rememberLocal(id, rec.blob); emit({ queued: item }); return { queued: item }; }
-      say(e && e.notReady ? 'Voice notes switch on with the next update' : 'Could not send: are you still connected to them?');
+      // The coach-lifter link has ended (row 59): the thread says so itself and turns read-only (app.js).
+      if (typeof msgLinkRefused === 'function' && msgLinkRefused(e)) { e.linkGone = true; throw e; }
+      say(e && e.notReady ? 'Voice notes switch on with the next update' : 'Could not send the voice note. Check your connection and try again.');
       throw e;
     }
   }

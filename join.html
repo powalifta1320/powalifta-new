@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="strict-origin"><!-- the invite code is in this address (/j/CODE): the next page and Plausible get the origin only (sweep 2026-10-28 #13) -->
 <!-- iPhone app: tag the document as native before first paint (same snippet as every public page). -->
 <script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
@@ -55,7 +56,7 @@ body.jn-branded .jn-step i { border-color: color-mix(in srgb, var(--jn-brand) 45
 [hidden] { display: none !important; }
 </style>
 <script defer src="/site.js"></script>
-<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="/error-log.js"></script>
 <script defer src="/cookie-consent.js"></script>
 </head>

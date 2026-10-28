@@ -122,7 +122,7 @@ window.POWA_SUPPORT_KB = [
    "remove athlete",
    "remove from roster"
   ],
-  "a": "Open Roster, tap ⋯ on the athlete's row and choose \"Remove from roster\", then confirm. Their logs, bodyweight and goals stay with them; they lose access to the programs you assigned and need a new invite code to rejoin."
+  "a": "Open Roster, tap ⋯ on the athlete's row and choose \"Remove from roster\", then confirm. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
  },
  {
   "id": "mobile-app",

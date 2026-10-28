@@ -10317,6 +10317,10 @@ html:not([data-theme="light"]) body.powa-app .tx-hero[class*="lift-"] {
 .msg-row.theirs .msg-react { right: -10px; }
 .msg-react b { font-size: var(--fs-label, 11px); font-weight: 700; margin-left: 3px; font-variant-numeric: tabular-nums; }
 .msg-react.mine { background: color-mix(in srgb, var(--acc, #34d982) 42%, #26262c); color: #fff; }
+/* A thread whose coach-lifter link has ended: read-only, said once at its end where the reply box was
+   (app.js renderMessageThread). The reactions it has stay, as a label. */
+.msg-closed { align-self: center; max-width: 92%; margin: 14px 0 4px; padding: 10px 14px; border-radius: var(--r-inner); background: var(--fill-2); color: var(--text-3); font-size: var(--fs-meta, 13px); line-height: 1.4; text-align: center; text-wrap: pretty; }
+span.msg-react { cursor: default; }
 .msg-bubble.is-card { padding: 5px; min-width: 236px; max-width: 86%; }
 .msg-bubble.is-card .msg-meta { padding: 5px 8px 2px; }
 .msg-card { --lc: var(--lift-acc); position: relative; padding: 12px 12px 11px; border-radius: var(--r-inner); background: color-mix(in srgb, var(--lc) 13%, rgba(0, 0, 0, 0.32)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 26%, transparent); color: var(--text); }

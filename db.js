@@ -22,10 +22,92 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   } catch (e) {}
 })();
 
+// A session in the address (login CSRF, sweep 2026-10-28 #9 and #12). supabase-js takes any session
+// it finds in the URL (#access_token=… or ?access_token=…) and saves it over whoever is signed in
+// here, so a link someone sends could sign this browser into their account. Two real flows bring a
+// session in the URL, and only these are taken:
+//   · Apple / Google sign-in on the website, back on the page it left from: this tab saved
+//     social-auth.js's pending state before it went (sessionStorage; taken up to an hour later, so a
+//     slow Apple ID or two-factor step still signs in). The person asked for it in this tab, so it
+//     may replace whoever was signed in.
+//   · A password-reset link (type=recovery): only reset-password.html reads it, into a client of its
+//     own that never saves it, so it never becomes this browser's sign-in and never replaces one.
+// Anything else is refused and its tokens leave the address bar: a link someone sent, or an email
+// confirmation (the email is confirmed by then and the person logs in, as the sign-up toast says;
+// signed out, the log-in opens). Nothing else in the app puts a session in a URL: the iPhone app signs
+// in with Apple / Google tokens (signInWithIdToken), its links carry invite codes only.
+// Pure (test/url-session.test.cjs): o = { params, path, pending, now } → 'none' (no session in the
+// URL) | 'adopt' | 'recovery' (reset-password.html's own client takes it) | 'forward' (routeRecoveryLink
+// above is moving it there) | 'refuse'.
+const POWA_SOCIAL_PENDING_KEY = 'powa-social-pending';
+const POWA_SOCIAL_PENDING_TTL_MS = 60 * 60 * 1000;   // social-auth.js keeps what the modal knew for 15 minutes; past that it asks again
+const POWA_URL_SESSION_KEYS = ['access_token', 'refresh_token', 'provider_token', 'provider_refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'];
+function powaUrlSessionVerdict(o) {
+  o = o || {};
+  const p = o.params || {};
+  if (!p.access_token && !p.refresh_token) return 'none';
+  if (p.type === 'recovery') return /\/reset-password\.html$/.test(String(o.path || '')) ? 'recovery' : 'forward';
+  let pend = o.pending;
+  try { if (typeof pend === 'string') pend = JSON.parse(pend); } catch (e) { pend = null; }
+  const at = pend && pend.v === 1 ? Number(pend.at) : 0;
+  const now = Number(o.now) || Date.now();
+  return at > 0 && now - at <= POWA_SOCIAL_PENDING_TTL_MS ? 'adopt' : 'refuse';
+}
+// The address without a session's parameters (hash or query); everything else stays.
+function powaUrlWithoutSession(href) {
+  const u = new URL(href);
+  POWA_URL_SESSION_KEYS.forEach(k => u.searchParams.delete(k));
+  let hash = u.hash.replace(/^#/, '');
+  if (hash) {
+    const hp = new URLSearchParams(hash);
+    if (POWA_URL_SESSION_KEYS.some(k => hp.has(k))) { POWA_URL_SESSION_KEYS.forEach(k => hp.delete(k)); hash = hp.toString(); }
+  }
+  const q = u.searchParams.toString();
+  return u.pathname + (q ? '?' + q : '') + (hash ? '#' + hash : '');
+}
+function _powaUrlParams(loc) {
+  const params = {};
+  try { new URLSearchParams(String(loc.hash || '').replace(/^#/, '')).forEach((v, k) => { params[k] = v; }); } catch (e) {}
+  try { new URLSearchParams(String(loc.search || '')).forEach((v, k) => { params[k] = v; }); } catch (e) {}
+  return params;
+}
+function _powaSocialPending() { try { return sessionStorage.getItem(POWA_SOCIAL_PENDING_KEY); } catch (e) { return null; } }
+// A refused session leaves the address before supabase-js (or social-auth.js) reads it.
+(function refuseUrlSession() {
+  try {
+    const params = _powaUrlParams(location);
+    const verdict = powaUrlSessionVerdict({ params, path: location.pathname, pending: _powaSocialPending(), now: Date.now() });
+    // A reset session in the query string (not a real link: Supabase puts it in the hash, which routeRecoveryLink
+    // moves) goes nowhere either: refused like any other.
+    const stray = verdict === 'forward' && !/(^|[#&])type=recovery(&|$)/.test(location.hash);
+    if (verdict !== 'refuse' && !stray) return;
+    let signedIn = false;
+    for (let i = 0; i < localStorage.length; i++) { if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) { signedIn = true; break; } }
+    console.warn('POWALIFTA: a session in this link was not used (only this tab\'s own Apple or Google sign-in, or a password-reset link, signs in from a link).');
+    // An Apple / Google return this tab can't take (it started in another tab or window, or over an hour
+    // ago), seen by nobody signed in: social-auth.js says the sign-in didn't finish instead of nothing.
+    if (verdict === 'refuse' && !signedIn && (params.provider_token || !params.type)) window._powaSocialRefused = true;
+    let clean = powaUrlWithoutSession(location.href);
+    if (params.type === 'signup' && !signedIn && clean.indexOf('#') < 0) { clean += '#login'; window._powaEmailConfirmed = true; }
+    history.replaceState(history.state, '', clean);
+  } catch (e) {}
+})();
+
 if (!window.supabase || !window.supabase.createClient) {
   console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Only the sign-ins above come from the address (powaUrlSessionVerdict). It must answer at once:
+    // supabase-js 2.110 calls it without await, so a Promise would count as yes.
+    detectSessionInUrl: (url, params) => {
+      params = params || {};
+      const v = powaUrlSessionVerdict({ params, path: url && url.pathname, pending: _powaSocialPending(), now: Date.now() });
+      if (v === 'none') return !!(params.error || params.error_description || params.error_code);   // as before: a provider's error
+      return v === 'adopt';
+    }
+  }
+});
 // Two-factor (sql/migration-mfa-aal2-2026-10-28.sql): supabase-js gives Realtime a new token only on SIGNED_IN /
 // TOKEN_REFRESHED. After a code is entered (MFA_CHALLENGE_VERIFIED: at sign-in, at boot, or turning 2FA on) the
 // socket would keep the aal1 token, on which the database sends a 2FA account nothing: hand it the aal2 one.
@@ -1168,10 +1250,19 @@ const DB = {
     if (error) throw error;
     return data;
   },
-  // scope 'local' = this device only (a cancelled two-factor prompt: the person's other sessions stay signed in).
-  // No scope = supabase-js's default, 'global': every session of the account (the Log out button).
+  // scope 'local': this device only (a session the server already refused, or a cancelled two-factor prompt: the
+  // person's other sessions stay signed in). Default: every device (a chosen log-out).
   async signOut(scope) {
-    await sb.auth.signOut(scope ? { scope } : undefined);
+    await sb.auth.signOut(scope === 'local' ? { scope: 'local' } : undefined);
+  },
+  // fn() when this browser's session ends: a log-out (here or in another tab), or one the server
+  // refused while it refreshed. fn must not await supabase-js inside (its auth lock is held there).
+  // → unsubscribe function.
+  onSignedOut(fn) {
+    try {
+      const { data } = sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { try { fn(); } catch (e) {} } });
+      return () => { try { data.subscription.unsubscribe(); } catch (e) {} };
+    } catch (e) { return () => {}; }
   },
 
   // Password reset — sends an email with a recovery link that lands on
@@ -1254,24 +1345,26 @@ const DB = {
   },
   // Current vs required assurance level. After a password login on an account
   // WITH 2FA, currentLevel='aal1' + nextLevel='aal2' → a challenge is owed.
-  async mfaAssurance() {
+  // client: another supabase-js client (reset-password.html's link client); default this one.
+  async mfaAssurance(client) {
     try {
-      const { data, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data, error } = await (client || sb).auth.mfa.getAuthenticatorAssuranceLevel();
       if (error) return { ok: false, reason: error.message };
       return { ok: true, currentLevel: data.currentLevel, nextLevel: data.nextLevel };
     } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
   },
   // Login-time step-up: verify a 6-digit code against the first VERIFIED TOTP
-  // factor to lift the fresh session from AAL1 → AAL2.
-  async mfaChallengeVerify(code) {
+  // factor to lift the fresh session from AAL1 → AAL2. client: as mfaAssurance.
+  async mfaChallengeVerify(code, client) {
+    const c = client || sb;
     try {
-      const list = await sb.auth.mfa.listFactors();
+      const list = await c.auth.mfa.listFactors();
       if (list.error) return { ok: false, reason: list.error.message };
       const factor = ((list.data && list.data.totp) || []).find(f => f.status === 'verified');
       if (!factor) return { ok: false, reason: 'no verified authenticator on this account' };
-      const ch = await sb.auth.mfa.challenge({ factorId: factor.id });
+      const ch = await c.auth.mfa.challenge({ factorId: factor.id });
       if (ch.error) return { ok: false, reason: ch.error.message };
-      const { error } = await sb.auth.mfa.verify({ factorId: factor.id, challengeId: ch.data.id, code: String(code || '').trim() });
+      const { error } = await c.auth.mfa.verify({ factorId: factor.id, challengeId: ch.data.id, code: String(code || '').trim() });
       if (error) return { ok: false, reason: error.message };
       return { ok: true };
     } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
@@ -1402,6 +1495,21 @@ const DB = {
       const e = new Error('Saved. ' + (dropped === 'tiktok' ? 'TikTok' : 'Instagram') + ' links switch on with the next update'); e.partial = true; throw e;
     }
     if (error) throw error;
+  },
+  // A coach takes a lifter off their roster (the lifter's coach_id becomes null; their training stays
+  // theirs) through coach_release_lifter: a coach's direct update of the lifter's profile is refused
+  // live (42501). Throws a plain-words Error; .notReady when this database doesn't have the function
+  // yet, and then nothing has changed.
+  async releaseLifter(athleteId) {
+    if (!athleteId) throw new Error('No lifter to remove');
+    const { data, error } = await sb.rpc('coach_release_lifter', { p_athlete: athleteId });
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883' || /could not find the function|schema cache/i.test(String(error.message || ''))) {
+        const e = new Error('Removing a lifter switches on with the next update. Nothing changed.'); e.notReady = true; e.cause = error; throw e;
+      }
+      throw error;
+    }
+    return data;
   },
   async listCoaches() {
     // Public directory: safe columns only (migration-profiles-privacy.sql). Before
@@ -3733,7 +3841,9 @@ const DB = {
     const { error } = await sb.from('message_reactions').upsert({
       message_id: messageId, user_id: userId, coach_id: coachId, athlete_id: athleteId, reaction: reaction || null
     }, { onConflict: 'message_id,user_id' });
-    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); throw e; }
+    // .code rides along: 42501 is the coach-lifter link having ended (row 59), which the thread shows as
+    // read-only (app.js msgLinkRefused) instead of these words.
+    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); e.code = error.code || ''; throw e; }
     return true;
   },
   subscribeMessageReactions(filter, onChange) {

