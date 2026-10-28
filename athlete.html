@@ -2575,7 +2575,10 @@ window.openWeighInSheet = openWeighInSheet;
 async function applyPendingWeighIn() {
   let p = null;
   try { p = JSON.parse(localStorage.getItem('powa-pending-weighin') || 'null'); localStorage.removeItem('powa-pending-weighin'); } catch (e) {}
-  if (!p || window._demoMode || !user) return;
+  if (!p || typeof p !== 'object' || window._demoMode || !user) return;
+  // Typed under another account (or with nobody signed in): never saved as this one's (sweep 2026-10-28 #6).
+  // A note from before the owner was kept (no uid at all) is taken as before.
+  if ('uid' in p && p.uid !== user.id) return;
   if (Date.now() - (Number(p.at) || 0) > 36 * 3600 * 1000) return;
   const v = parseFloat(String(p.v || '').replace(',', '.').replace(/[^0-9.]/g, ''));
   if (!(v > 20 && v < 700)) { toast('Couldn\'t read "' + String(p.v).slice(0, 12) + '" as a weight. Log it here instead'); return; }
@@ -6107,9 +6110,12 @@ async function drainWidgetPending() {
     // on this device until the program has loaded (takePending has already cleared them).
     let held = [];
     try { held = JSON.parse(localStorage.getItem('powa-widget-sets') || '[]') || []; } catch (e) {}
+    // Held sets carry the account that held them: another account's are never logged as this one's
+    // (sweep 2026-10-28 #6). Untagged ones (held before this) are taken as before.
+    held = held.filter(x => x && (!x.uid || x.uid === user.id));
     const wsets = held.concat(r.sets || []).filter(x => x && x.key && x.date === todayISO());
     if (wsets.length && !getCurrentDay()) {
-      try { localStorage.setItem('powa-widget-sets', JSON.stringify(wsets.slice(-20))); } catch (e) {}
+      try { localStorage.setItem('powa-widget-sets', JSON.stringify(wsets.slice(-20).map(x => Object.assign({}, x, { uid: user.id })))); } catch (e) {}
     } else {
       try { localStorage.removeItem('powa-widget-sets'); } catch (e) {}
       let logged = 0;

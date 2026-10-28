@@ -412,7 +412,11 @@
           // A weight typed into the morning reminder: keep it until the athlete
           // dashboard is up, which saves it as today's weigh-in.
           if (action && action.actionId === 'log' && action.inputValue) {
-            try { localStorage.setItem('powa-pending-weighin', JSON.stringify({ v: String(action.inputValue).slice(0, 16), at: Date.now() })); } catch (e) {}
+            // With the account it was typed under (the signed-in one, or the session stored on this phone):
+            // only that account saves it, never whoever signs in next (sweep 2026-10-28 #6).
+            var owner = null;
+            try { owner = (window._user && window._user.id) || (typeof _storedUserId === 'function' ? _storedUserId() : null) || null; } catch (e) {}
+            try { localStorage.setItem('powa-pending-weighin', JSON.stringify({ v: String(action.inputValue).slice(0, 16), at: Date.now(), uid: owner })); } catch (e) {}
             if (typeof window.applyPendingWeighIn === 'function') { window.applyPendingWeighIn(); return; }
           }
           var url = action && action.notification && action.notification.extra && action.notification.extra.url;
