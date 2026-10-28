@@ -147,7 +147,8 @@ with checks(n, migration, applied) as (values
         and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard')),
   (51, 'migration-coach-settings-2026-10-28.sql  (a coach''s own settings: progression rules, the capacity check; coach-only)',
         to_regclass('public.coach_settings') is not null
-        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4),
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings'
+              and policyname <> 'powa_mfa_aal2') = 4),   -- row 60 adds its two-factor policy to every table
   (52, 'migration-schedule-requests-2026-10-28.sql  (busy weeks: a lifter''s days for the week and the plan, their coach approves; after row 43)',
         to_regclass('public.schedule_requests') is not null
         and exists (select 1 from pg_trigger where tgname = 'trg_schedule_requests_guard')),
@@ -168,6 +169,14 @@ with checks(n, migration, applied) as (values
   (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
         exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
   (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',
-        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n'))
+        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n')),
+  (60, 'migration-mfa-aal2-2026-10-28.sql  (two-factor in the database: an account with an authenticator enters its code before it reads or writes anything; run it after every other row, and again after any migration that adds a table)',
+        coalesce((select r.rolbypassrls or r.rolsuper from pg_proc p join pg_roles r on r.oid = p.proowner
+                   where p.oid = to_regprocedure('public.powa_mfa_ok()') and p.prosecdef), false)
+        and exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'powa_mfa_aal2')
+        and not exists (select 1 from pg_class c join pg_namespace s on s.oid = c.relnamespace
+                         where s.nspname = 'public' and c.relkind in ('r', 'p')
+                           and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname
+                                            and p.policyname = 'powa_mfa_aal2' and p.permissive = 'RESTRICTIVE')))
 )
 select n, migration, applied from checks order by n;
