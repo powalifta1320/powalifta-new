@@ -131,14 +131,14 @@ with checks(n, migration, applied) as (values
             and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6),
   (46, 'migration-social-sign-in-2026-10-25.sql  (Continue with Apple / Google: finish_social_signup + the guard''s exemption)',
         to_regprocedure('public.finish_social_signup(text, text)') is not null
-        and position('powa.social_role' in pg_get_functiondef('public.guard_profile_privileged_cols()'::regprocedure)) > 0),
+        and coalesce(position('powa.social_role' in pg_get_functiondef(to_regprocedure('public.guard_profile_privileged_cols()'))) > 0, false)),
   (47, 'migration-clients-2026-10-27.sql  (Clients + payments: the coach''s own record of packages and payments, never the athlete''s; after row 43)',
         to_regclass('public.client_billing') is not null
         and to_regclass('public.client_payments') is not null),
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
         to_regclass('public.intake') is not null),
   (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
-        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0),
+        coalesce(position('brand_name' in pg_get_function_result(to_regprocedure('public.invite_preview(text)'))) > 0, false)),
   (50, 'migration-coach-challenges-2026-10-28.sql  (coach challenges: the coach''s own lifters on a board of their own in Club; needs only profiles)',
         to_regclass('public.coach_challenges') is not null
         and to_regclass('public.challenge_entries') is not null
@@ -171,6 +171,19 @@ with checks(n, migration, applied) as (values
   (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
         exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
   (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',
-        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n'))
+        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n')),
+  (59, 'migration-security-fixes-2026-10-28.sql  (28 Oct sweep: a coach link only through an invite or an accepted request, coach_release_lifter, session-note replies are the coach''s, a former coach is read-only, signed-in-only policies TO authenticated, invite seats, invite_preview''s IP; after row 58)',
+        (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace
+          and p.proname in ('guard_profile_privileged_cols', 'guard_profile_privileged_cols_insert', 'accept_coach_request', 'guard_session_notes_update',
+                            'invite_preview', 'coach_release_lifter', 'guard_session_notes_insert', 'guard_invite_seats')
+          and position('migration-security-fixes-2026-10-28' in p.prosrc) > 0) = 8
+        and (select count(*) from pg_trigger where tgname in ('trg_guard_session_notes_insert', 'trg_guard_invite_seats')) = 2
+        and (select count(*) from pg_policies where schemaname = 'public'
+              and policyname in ('msg_member_update', 'msg_sender_delete', 'mr_own_insert', 'mr_own_update', 'mr_own_delete')
+              and coalesce(qual, '') || coalesce(with_check, '') like '%FROM profiles p%') = 5
+        and (select count(*) from pg_policies where schemaname = 'public' and roles = '{authenticated}'
+              and policyname in ('checkins_athlete_all', 'checkins_coach_select', 'client_errors_admin_read', 'mp_coach_delete_own',
+                                 'mp_coach_insert', 'mp_coach_update_own', 'ps_admin_all', 'ps_buyer_read', 'ps_coach_read',
+                                 'session_notes_coach_insert', 'session_notes_coach_select', 'session_notes_coach_update')) = 12)
 )
 select n, migration, applied from checks order by n;
