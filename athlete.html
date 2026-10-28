@@ -352,6 +352,10 @@
 <script src="busy-week.js"></script><!-- BUSY WEEKS: the days you can train this week, the plan, sent to your coach (BusyWeekUI: Train's row, the sheet, the picker's entry) -->
 <script>
 let user;
+// The full program's selected week number (survives re-renders) and its opened day ids. Up here because
+// ?tab=program opens that screen inside the demo's synchronous first render (TDZ otherwise).
+let _fpWeek = null;
+const _fpOpen = new Set();
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
 // Declared up here because the first render runs inside bootstrap (TDZ).
 const _feltRpe = {};
@@ -630,10 +634,12 @@ bootstrap('athlete', () => {
   // Deep-link: ?tab=<name> opens that tab on load — e.g. an athlete who signed
   // up "with a coach" but skipped the invite code is dropped on the Coach tab,
   // where the "Join coach" input is waiting.
+  // Only a tab's own name opens anything: the value is compared with each tab's data-tab and never
+  // goes into a selector, where "],.nav-logout,[x=" once clicked Log out at load (sweep 2026-10-28 #8).
   (function () {
     const want = new URLSearchParams(location.search).get('tab');
-    if (!want) return;
-    const t = document.querySelector('.sidebar-tab[data-tab="' + want + '"]');
+    if (!want || !/^[a-z]{2,20}$/.test(want)) return;
+    const t = Array.prototype.find.call(document.querySelectorAll('.sidebar-tab[data-tab]'), b => b.getAttribute('data-tab') === want);
     if (t) t.click();
   })();
 
@@ -8787,9 +8793,8 @@ function sbDeleteBlock(progId, wi, di, ei, startIdx, count) {
   renderSelfBuilder();
 }
 
-// One week at a time: week chips, then the days as rows you open in place.
-let _fpWeek = null;               // selected week number (survives re-renders)
-const _fpOpen = new Set();        // opened day ids
+// One week at a time: week chips, then the days as rows you open in place. (_fpWeek and _fpOpen,
+// the selected week and the opened days, are declared next to `let user`: TDZ.)
 function _fpSetsLine(ex) {
   const isCardio = ex.lift === 'cardio';
   const sum = formatSetsSummary(ex.sets, isCardio);
