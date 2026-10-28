@@ -79,6 +79,9 @@
   }
   // A step for the load stepper in the unit shown: the lifter's jump (2.5 kg, 5 lb) or 2.5 for a %.
   function cpLoadStep(pctMode, u) { return pctMode ? 2.5 : (u === 'lb' || u === 'lbs' ? 5 : 2.5); }
+  // Whether a block gets "about N kg for them": the first block (the top set), or a block with no load yet.
+  // Never a later block with a load: back-offs are often written light on purpose (the owner's call, 28 Oct).
+  function cpWantsHint(bi, blk) { return Number(bi) === 0 || !(Number(blk && blk.weight) > 0); }
 
   /* ====================================================================================================
      STATE: whose program, which week, which day (per lifter and week)
@@ -593,7 +596,7 @@
     box.appendChild(hint);
     function paintHint() {
       hint.innerHTML = '';
-      if (!main || pctMode || blk.rpe == null) return;
+      if (!main || pctMode || blk.rpe == null || !cpWantsHint(bi, blk)) return;
       var e1 = typeof bestE1RM === 'function' ? bestE1RM(aid, ex.lift) : 0;
       var stepKg = typeof loadStepKg === 'function' ? loadStepKg(u === 'lb' || u === 'lbs' ? 'lbs' : 'kg') : 2.5;
       var mult = typeof multiplierFor === 'function' ? multiplierFor(ex.lift, ex.variant) : 1;
@@ -709,6 +712,7 @@
     render: render, openEditor: openEditor, openPicker: openPicker, reset: reset,
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
-    cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad
+    cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
+    cpWantsHint: cpWantsHint
   };
 })();
