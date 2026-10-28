@@ -912,6 +912,25 @@
       if (o.phone) html += linksHtml(a, 'Profile, check-ins, notes', rz(4), blkRow);
       return { html: html, fix: fix, alt: alt, top: top };
     }
+    html += chartsHtml(r, D, o);
+    // Their words.
+    if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
+    // The phone: the week's note, drafted from what's above (weekly-note.js).
+    if (o.phone && window.WeeklyNote) html += WeeklyNote.lifterEntryHtml(r, { rise: o.rise ? 5 : null });
+    // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
+    if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
+    if (o.phone) html += linksHtml(a, 'Lifts, check-ins, notes, meets', rz(6), blkRow);
+    if (o.phone && top) html += '<div class="cl-alt"><button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button></div>';
+    return { html: html, fix: fix, alt: alt, top: top };
+  }
+
+  // The lifter's progress as charts: the total e1RM (12 weeks, the meet and where the block points),
+  // a tile per lift, then training, effort, bodyweight and the meet. Shared by the laptop's lifter page
+  // and the phone's Progress (coach-app.js). D: clLifter(r). o: { phone, rise }.
+  function chartsHtml(r, D, o) {
+    o = o || {};
+    var a = r.athlete, st = r.status || {}, prog = st.program, html = '';
+    var rz = function (i) { return o.rise ? ' rise" style="--i:' + i : ''; };
     // The total: one big box for overall progress.
     var T = D.total;
     if (T) {
@@ -977,15 +996,7 @@
         '<button type="button" class="cl-mplan' + (planned ? '' : ' is-warn') + '" data-plan="' + esc(a.id) + '">' + (planned ? ic('check') + 'Attempts set' : ic('alert') + 'Set attempts') + '</button></div>');
     }
     html += '<div class="cl-small n' + small.length + rz(4) + '">' + small.join('') + '</div>';
-    // Their words.
-    if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
-    // The phone: the week's note, drafted from what's above (weekly-note.js).
-    if (o.phone && window.WeeklyNote) html += WeeklyNote.lifterEntryHtml(r, { rise: o.rise ? 5 : null });
-    // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
-    if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 6 : null });
-    if (o.phone) html += linksHtml(a, 'Lifts, check-ins, notes, meets', rz(6), blkRow);
-    if (o.phone && top) html += '<div class="cl-alt"><button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button></div>';
-    return { html: html, fix: fix, alt: alt, top: top };
+    return html;
   }
 
   // The way into a lifter's Career (career.js): its one line ('4 meets · since 2024'), or null when
@@ -1198,6 +1209,8 @@
     if (typeof dkRowsFresh === 'function') dkRowsFresh();
     var r = S.sel ? rowOf(S.sel) : null;
     if (!r) { host.innerHTML = ''; var tab = document.getElementById('tab-athletes'); if (tab) tab.click(); return; }
+    // The iPhone app's lifter card (coach-app.js, 28 Oct) draws the pushed page when it is loaded.
+    if (window.CoachApp && CoachApp.renderLifter) { CoachApp.renderLifter(host, r.athlete.id); return; }
     var M = model();
     // No staggered rise inside: the page pushes in from the right as one piece (coach-ui.css, the
     // phone's push), and a refresh after a fix repaints in place instead of replaying an entrance.
@@ -1289,6 +1302,8 @@
     }
     var lp = document.querySelector('[data-pane="lifter"]:not(.hidden)');
     if (lp) { renderPane(); return; }
+    // The phone's Home (coach-app.js) and Programs redraw after a fix, like the roster.
+    if (window.CoachApp && CoachApp.refresh && CoachApp.refresh()) return;
     if (typeof renderRoster === 'function') renderRoster();
   }
   function offDesk() { S.deskOn = false; }
@@ -1299,6 +1314,8 @@
 
   window.CoachLifters = { model: model, renderToday: renderToday, renderDesk: renderDesk, renderPhone: renderPhone, renderPane: renderPane, open: open, select: select, refresh: refresh, offDesk: offDesk, openCount: openCount,
     teamTilesHtml: teamTilesHtml, paint: paint,
+    // for the iPhone app's screens (coach-app.js): a job's fix and running it, a message, a lifter's data and charts
+    fixForJob: fixForJob, shortLabel: shortLabel, runFix: run, message: message, clLifter: clLifter, chartsHtml: chartsHtml, rowOf: rowOf, selected: function () { return S.sel; },
     clRing: clRing, clTier: clTier, clJobs: clJobs, clTopJob: clTopJob, clTeam: clTeam, clWeeks: clWeeks, clEffort: clEffort, clBw: clBw,
     clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText, toWriteOf: toWriteOf };
 })();
