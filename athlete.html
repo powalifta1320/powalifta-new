@@ -6951,7 +6951,7 @@ function renderProgress() {
       title: 'Your progress starts here',
       text: 'Log one set and your e1RM, total and PRs show up.',
       primary: { label: 'Log your first set', onClick: () => document.getElementById('tab-today')?.click() },
-      secondary: { label: 'Import history', onClick: () => openImportModal() }
+      secondary: { label: 'Import history', onClick: () => (window.SwitchKit && SwitchKit.openMyImport ? SwitchKit.openMyImport() : openImportModal()) }   // IMPORTS hook: the import intake (old modal as fallback)
     }));
     return;
   }
@@ -7164,7 +7164,7 @@ function renderProgOverview(area, logs) {
   tool(ICONS.scale, 'Weigh-in', lastBw ? formatWeight(lastBw.weight) + ' · ' + _relDay(lastBw.date) : 'Log your bodyweight', () => openWeighInSheet(() => { try { renderProgress(); } catch (e) {} }));
   const wkS = new Set(wkLogs.map(l => l.date)).size;
   tool(ICONS.share, 'Share my week', wkS + (wkS === 1 ? ' session' : ' sessions') + ' this week', () => shareWeekCard());
-  tool(SV('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'), 'Import history', 'From a file', () => openImportModal());
+  tool(SV('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'), 'Import history', 'From Strong, Hevy or a spreadsheet', () => (window.SwitchKit && SwitchKit.openMyImport ? SwitchKit.openMyImport() : openImportModal()));   // IMPORTS hook
   area.appendChild(uiList(tools));
 }
 
