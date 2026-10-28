@@ -592,7 +592,7 @@
           '<div class="ca-sk-stats">' + times(3, function () { return '<span>' + sk('ca-sk-num') + sk('ca-sk-cap') + '</span>'; }) + '</div></div>' +
         '<div class="ca-sk-focal">' + sk('ca-sk-av is-56') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '78%') + sk('ca-sk-line', '52%') + '</span></div>' + sk('ca-sk-btn') +
         '<div class="ca-sk-rows">' + row('ca-sk-pill') + row('ca-sk-pill') + '</div>' +
-        '<div class="ca-sk-faces">' + times(4, function () { return sk('ca-sk-face'); }) + '</div>';
+        '<div class="ca-sk-wk">' + sk('ca-sk-ring') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '72%') + sk('ca-sk-line', '58%') + sk('ca-sk-line', '40%') + '</span></div>';
     }
     var say = kind === 'program' ? 'Loading the program' : kind === 'lifter' ? 'Loading the lifter' : 'Loading your lifters';
     return '<div class="ca-root ca-skel is-' + kind + '" role="status"><span class="ca-sr">' + say + '</span><div class="ca-skel-in" aria-hidden="true">' + body + '</div></div>';
@@ -780,7 +780,10 @@
     var strip = caDayStrip(s.workoutLogs, ids, t);
     // A quiet week (nothing logged since Monday) shows last week, labelled, never an empty picture.
     var quiet = !!W && !(W.sessionsDone > 0) && !strip.some(function (d) { return d.n > 0; });
-    if (quiet && CR) { var lw = CR.lastWeek(t); LW = CR.teamWeek(CR.fromStore(s, u.id, lw), lw); lastStrip = caDayStrip(s.workoutLogs, ids, lw.to); }
+    if (quiet && CR) {
+      var lw = CR.lastWeek(t); LW = CR.teamWeek(CR.fromStore(s, u.id, lw), lw);
+      lastStrip = caDayStrip(s.workoutLogs, ids, lw.to).map(function (d) { d.today = false; return d; });
+    }
     // Behind: the Lifters tab's own Behind (caIsBehind), so the words and the list a tap opens agree.
     var behind = X.rows.filter(function (r) { return caIsBehind(r, X.week(r)); });
     // Strength: app.js getE1RMMomentum over 4-week windows; the line from each lifter's running best.
@@ -838,11 +841,14 @@
     return o + '</svg>';
   }
   // Monday to Sunday: a column per day, as tall as the share of the team that trained that day.
+  function stripPick(days) {
+    return days.filter(function (d) { return d.today; })[0] || days.filter(function (d) { return !d.future && d.n; }).slice(-1)[0] || days.filter(function (d) { return !d.future; }).slice(-1)[0] || days[0];
+  }
   function stripHtml(days, roster, label) {
     // Scaled to the week's busiest day or half the team, whichever is more: a full column is a big day, and a
     // small team's two sessions still read as two (the number on each column says how many).
     var max = Math.max(1, roster / 2, Math.max.apply(null, days.map(function (d) { return d.n; })));
-    var sel = days.filter(function (d) { return d.today; })[0] || days.filter(function (d) { return !d.future; }).slice(-1)[0] || days[0];
+    var sel = stripPick(days);
     return '<div class="ca-strip" role="group" aria-label="' + esc(label) + '">' + days.map(function (d) {
       var who = d.who.map(firstOf);
       var aria = DAYW[d.dow] + (d.today ? ', today' : '') + ': ' + (d.future ? 'still to come' : d.n ? plural(d.n, 'session') + ', ' + nameList(who, 6) : 'no sessions');
@@ -865,17 +871,17 @@
     var names = S.behind.map(function (r) { return first(r.athlete.name); });
     var behind = S.behind.length ? '<span class="ca-wk-b"><i class="ca-wk-bdot"></i>' + esc(S.behind.length + ' behind') + '</span><span class="ca-wk-bn">' + esc(nameList(names, 2)) + '</span>' : '<span class="ca-wk-b is-clear">Nobody behind</span>';
     var title = S.quiet ? 'Nothing logged yet' : planned ? (done >= planned ? 'Every session lifted' : 'Sessions lifted') : plural(done, 'session') + ' logged';
-    var sub = S.quiet ? (S.week.sessionsPlanned ? plural(S.week.sessionsPlanned, 'session') + ' written for this week' : 'The week starts today')
+    var sub = S.quiet ? (S.week.sessionsPlanned ? plural(S.week.sessionsPlanned, 'session') + ' written this week' : 'Nothing written for this week yet')
       : W.trained + ' of ' + W.of + ' lifters trained';
-    var centre = planned ? '<b>' + done + '</b><small>of ' + planned + '</small>' : '<b>' + done + '</b><small>logged</small>';
+    var centre = (planned ? '<b>' + done + '</b><small>of ' + planned + '</small>' : '<b>' + done + '</b><small>logged</small>') + (S.quiet ? '<small class="ca-wk-lw">last week</small>' : '');
     var aria = (S.quiet ? 'Nothing logged yet this week. Last week, ' : 'This week, ') + (planned ? done + ' of ' + planned + ' sessions lifted' : plural(done, 'session') + ' logged') +
       (S.quiet ? '' : ', ' + W.trained + ' of ' + W.of + ' lifters trained') + '. ' + (S.behind.length ? S.behind.length + ' behind: ' + nameList(names, 6) : 'Nobody behind') + '. Show who is behind';
-    var sel = days.filter(function (d) { return d.today; })[0] || days.filter(function (d) { return !d.future; }).slice(-1)[0];
+    var sel = stripPick(days);
     return '<div class="ca-sec">' + secHead('This week', metaHtml(S.range)) +
       '<div class="ca-sum is-l2 ca-wk ca-rise' + (S.quiet ? ' is-quiet' : '') + '">' +
         '<div class="ca-stats is-week"><button type="button" class="ca-stat is-btn is-week" data-lifters="behind" aria-label="' + esc(aria) + '">' +
           '<span class="ca-wk-ring">' + teamRingSvg(done, planned, 120, 11) + '<span class="ca-wk-c">' + centre + '</span></span>' +
-          '<span class="ca-wk-tx">' + (S.quiet ? '<span class="ca-wk-k">Last week</span>' : '') + '<b class="ca-wk-t">' + esc(title) + '</b><span class="ca-wk-s">' + esc(sub) + '</span>' + behind + '</span>' +
+          '<span class="ca-wk-tx"><b class="ca-wk-t">' + esc(title) + '</b><span class="ca-wk-s">' + esc(sub) + '</span>' + behind + '</span>' +
           '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button></div>' +
         stripHtml(days, S.roster, (S.quiet ? 'Last week' : 'This week') + ': sessions logged each day') +
         '<p class="ca-readout" data-readout="week" aria-live="polite">' + esc((S.quiet ? 'Last week · ' : '') + dayReadout(sel)) + '</p>' +
@@ -1116,15 +1122,17 @@
           '<span class="ca-lrow-tx"><span class="ca-lrow-t">' + esc(x.title) + '</span><span class="ca-lrow-s">' + esc(x.sub) + '</span></span>' + ic('chev', 2.2) + '</button>';
       }).join('') + '</div></div>';
     }
-    // The sample: what Needs you looks like once they train.
-    var sample = [
-      { name: 'Maya Chen', line: 'Bench felt @9, you wrote @8', fix: 'Apply', tone: 'warn' },
-      { name: 'Jonah Reed', line: 'Quiet for 9 days', fix: 'Check in', tone: 'quiet' }
+    // What Home becomes once they train: the summary's sections, in words. No sample numbers: a made-up week
+    // would be the only invented figures in the app, and the first thing a new coach reads.
+    var soon = [
+      ['alert', 'Who needs you', 'Pain, a close meet, a set over plan: worst first'],
+      ['cal', 'This week', 'Sessions lifted against the ones you wrote'],
+      ['trend', 'Strength and effort', 'The team\u2019s e1RM, and every set against its RPE'],
+      ['trophy', 'Meets and PRs', 'The next 12 weeks, and every PR as it lands']
     ];
-    html += '<div class="ca-sec ca-sample" aria-hidden="true"><div class="ca-h"><h2>Home, once they train</h2><span class="ca-chip-sample">Sample</span></div>' +
-      '<div class="ca-list" inert>' + sample.map(function (x) {
-        return '<div class="ca-jrow"><span class="ca-jrow-main">' + avHtml({ name: x.name }, 'is-40') + '<span class="ca-jrow-tx"><span class="ca-jrow-n">' + esc(first(x.name)) + '</span><span class="ca-jrow-t">' + esc(x.line) + '</span></span></span><span class="ca-pill">' + esc(x.fix) + '</span></div>';
-      }).join('') + '</div></div>';
+    html += '<div class="ca-sec ca-soon"><div class="ca-h"><h2>Once they train</h2></div><div class="ca-list ca-rise" role="list">' + soon.map(function (x) {
+      return '<div class="ca-lrow is-static" role="listitem"><span class="ca-tic t-step">' + ic(x[0]) + '</span><span class="ca-lrow-tx"><span class="ca-lrow-t">' + esc(x[1]) + '</span><span class="ca-lrow-s">' + esc(x[2]) + '</span></span></div>';
+    }).join('') + '</div></div>';
     return html + '</div>';
   }
   function wireHome(area) {
@@ -1818,8 +1826,9 @@
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
   }
-  // Home's accent: gold (meets and wins), so the screen's one red reads as the action, not as the light.
-  try { if (window.SCREEN_ACCENT && !SCREEN_ACCENT.home) SCREEN_ACCENT.home = 'gold'; } catch (e) {}
+  // Home's light is the warm fire of the lifter app's Train (foundation v2: Today is the kilos under the warm
+  // top light); the action under it is fire with an ink label, so the two never read as one.
+  try { if (window.SCREEN_ACCENT && !SCREEN_ACCENT.home) SCREEN_ACCENT.home = 'fire'; } catch (e) {}
 
   window.CoachApp = {
     renderHome: renderHome, renderLifters: renderLifters, renderLifter: renderLifter, refresh: refresh, paintHomeIfShown: paintHomeIfShown,

@@ -43,12 +43,13 @@ html:not(.desk) body.powa-app {
   --pl-raise-shade: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.45);
   --pl-light: 13%;
   --pl-light-edge: 24%;
-  --pl-red: linear-gradient(180deg, #dc2637 0%, #c41a2c 100%);
+  --pl-red: linear-gradient(135deg, #ff3b4a 0%, #ff6a3d 100%);
+  --pl-red-ink: #0a0a0b;
   --ca-press: var(--pl-inset-2);
   --ca-tint: var(--text-2);
   --ca-hair: rgba(255, 255, 255, 0.07);
   /* the plate families: marks (dark) */
-  --ca-pain: #ff6f7d;
+  --ca-pain: #ff9f43;
   --ca-warn: #ff9f43;
   --ca-gold: #f2c25b;
   --ca-live: #34d982;
@@ -81,7 +82,7 @@ html[data-theme="light"]:not(.desk) body.powa-app {
   --pl-light-edge: 26%;
   --ca-press: rgba(15, 15, 25, 0.06);
   --ca-hair: rgba(15, 15, 25, 0.08);
-  --ca-pain: #c4162a;
+  --ca-pain: #b4410c;
   --ca-warn: #b4410c;
   --ca-gold: #8a5d00;
   --ca-live: #0f7d47;
@@ -93,7 +94,9 @@ html[data-theme="light"]:not(.desk) body.powa-app {
 /* ---------------------------------------------------------------- the plate families */
 /* --pf: the mark (a ring, a dot, a glyph), deepened in light so it reads; --pfl: the light (always the bright
    paint: a deep brown pool on white reads as dirt). */
-html:not(.desk) .pf-alert, html:not(.desk) :is(.ca-focal, .ca-flag).tone-pain { --pf: var(--ca-pain); --pfl: #ff5468; }
+/* pain wears the felt scale's orange like any watch (foundation v2: red is never a status); its word and its
+   triangle say which it is */
+html:not(.desk) .pf-alert, html:not(.desk) :is(.ca-focal, .ca-flag).tone-pain { --pf: var(--ca-pain); --pfl: #ff9f43; }
 html:not(.desk) .pf-watch, html:not(.desk) :is(.ca-focal, .ca-flag).tone-warn, html:not(.desk) .pf-down { --pf: var(--ca-warn); --pfl: #ff9f43; }
 html:not(.desk) .pf-meet, html:not(.desk) :is(.ca-focal, .ca-flag):is(.tone-meet, .tone-bw) { --pf: var(--ca-gold); --pfl: #f2c25b; }
 html:not(.desk) :is(.pf-live, .pf-up) { --pf: var(--ca-live); --pfl: #34d982; }
@@ -146,7 +149,9 @@ html:not(.desk) .ca-btn {
   transition: transform var(--pl-d-press) var(--pl-spring), filter 160ms ease-out, background-color 160ms ease-out;
 }
 html:not(.desk) .ca-btn svg { width: 20px; height: 20px; flex: none; }
-html:not(.desk) .ca-btn.is-red { background: var(--pl-red); color: #fff !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) .ca-btn.is-red { background: var(--pl-red); color: var(--pl-red-ink) !important; font-weight: 700; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.16); }
+/* on chalk the action takes a 1 pt ink edge, so the fire never melts into a light ground */
+html[data-theme="light"]:not(.desk) .ca-btn.is-red { box-shadow: inset 0 0 0 1px var(--pl-red-ink), inset 0 2px 0 rgba(255, 255, 255, 0.3); }
 html:not(.desk) .ca-btn.is-soft { background: var(--pl-inset-2); color: var(--text) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
 html[data-theme="light"]:not(.desk) .ca-btn.is-soft { box-shadow: none; }
 html:not(.desk) .ca-btn:active { transform: scale(0.97); transition-duration: 90ms; transition-timing-function: ease-out; }
@@ -199,6 +204,11 @@ html:not(.desk) .ca-face.is-big .ca-live { width: 18px; height: 18px; right: 10p
 /* a face without a ring (Home's job, a job row) wears its lip as a 2 pt ring 2 pt out */
 html:not(.desk) .ca-av.pl-lip { outline: 2px solid var(--pf); outline-offset: 2px; }
 
+/* the assistant's entry is a plain "Ask" (foundation v2: no sparkle, robot or persona); the same 36 pt height */
+html.native:not(.desk) body.powa-app .nav-ai { width: auto; min-width: 0; padding: 0 14px; border-radius: 999px; }
+html.native:not(.desk) body.powa-app .nav-ai svg { display: none; }
+html.native:not(.desk) body.powa-app .nav-ai::before { content: 'Ask'; font-family: var(--font-body); font-size: 15px; font-weight: 650; line-height: 1; letter-spacing: -0.005em; color: var(--text); }
+html.native[data-theme="light"]:not(.desk) body.powa-app .nav-ai { background: rgba(15, 15, 25, 0.07); }
 /* the header's search: a 36 pt circle like the assistant and the bell, a 44 pt target */
 html:not(.desk) body.powa-app .ca-hbtn {
   position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
@@ -219,7 +229,7 @@ html:not([data-theme="light"]):not(.desk) body.powa-app[data-screen="lifter"]:is
   background: radial-gradient(75% 60% at 50% -14%, color-mix(in srgb, var(--pfl) 13%, transparent), transparent 72%);
 }
 html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="meet"] { --pfl: #f2c25b; }
-html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="alert"] { --pfl: #ff5468; }
+html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="alert"] { --pfl: #ff9f43; }
 html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="watch"] { --pfl: #ff9f43; }
 html:not(.desk) body.powa-app[data-screen="lifter"][data-pf="live"] { --pfl: #34d982; }
 
@@ -332,8 +342,8 @@ html:not(.desk) body.powa-app {
   --pl-viz-ink: color-mix(in srgb, var(--text) 90%, transparent);
   --pl-viz-steel: var(--text-3);
   --pl-viz-track: var(--pl-inset-2);
-  --pl-viz-sq: #00a1cf; --pl-viz-bp: #987aff; --pl-viz-dl: #c48800;
-  --pl-viz-on: #2cab70; --pl-viz-hard: #d27908;
+  --pl-viz-sq: #38c6ff; --pl-viz-bp: #a98bff; --pl-viz-dl: #ffbf3c;
+  --pl-viz-on: #34d982; --pl-viz-hard: #ff9f43;
   --pl-viz-gold: #f2c25b; --pl-viz-gold-ring: #f2c25b; --pl-viz-gold-edge: transparent;
   --pl-inset-solid: #101011;
   --pl-viz-ring: rgba(255, 255, 255, 0.1);
@@ -387,12 +397,13 @@ html:not(.desk) .ca-tring-fill { stroke: var(--pl-viz-ink); }
 html:not(.desk) .ca-wk-c { position: relative; display: flex; flex-direction: column; align-items: center; }
 html:not(.desk) .ca-wk-c b { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
 html:not(.desk) .ca-wk-c small { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-wk-c small.ca-wk-lw { margin-top: 2px; font-weight: 500; color: var(--text-3); }
 html:not(.desk) .ca-wk-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
 html:not(.desk) .ca-wk-k { font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) .ca-wk-t { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
-html:not(.desk) .ca-wk-s { font-size: 15px; line-height: 1.35; color: var(--text-2); }
+html:not(.desk) .ca-wk-s { font-size: 15px; line-height: 1.35; color: var(--text-2); text-wrap: balance; }
 html:not(.desk) .ca-wk-b { display: inline-flex; align-items: baseline; gap: 7px; margin-top: 8px; font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--text); text-wrap: balance; }
-html:not(.desk) .ca-wk-bdot { flex: none; align-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--ca-warn); }
+html:not(.desk) .ca-wk-bdot { flex: none; align-self: center; width: 10px; height: 9px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 html:not(.desk) .ca-wk-b.is-clear { font-weight: 500; color: var(--text-2); }
 html:not(.desk) .ca-wk-bn { padding-left: 15px; font-size: 15px; line-height: 1.3; color: var(--text-2); text-wrap: balance; }
 html:not(.desk) .ca-stat.is-week .ca-sum-go { align-self: center; }
@@ -528,7 +539,7 @@ html:not(.desk) .ca-tiles > .ca-tile .ca-tic svg { width: 18px; height: 18px; }
 html:not(.desk) .ca-tiles > .ca-tile .ca-tl { grid-column: 2; margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
 html:not(.desk) .ca-tiles > .ca-tile .ca-ts { grid-column: 2; margin: 0; font-size: 13px; line-height: 1.35; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html:not(.desk) .ca-tiles > .ca-tile:not(:has(.ca-ts)) .ca-tl { grid-row: 1 / span 2; }
-html:not(.desk) .ca-tiles > .ca-tile .ca-ts.is-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
+html:not(.desk) .ca-tiles > .ca-tile .ca-ts.is-warn::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 6px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
 html:not(.desk) .ca-tiles > .ca-tile .ca-tv { grid-column: 3; grid-row: 1 / span 2; margin: 0; font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 800; letter-spacing: -0.012em; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html:not(.desk) .ca-tiles > .ca-tile > svg { grid-column: 4; grid-row: 1 / span 2; width: 16px; height: 16px; color: var(--text-3); }
 
@@ -554,6 +565,8 @@ html:not(.desk) .ca-welcome:not(:has(.pl-still)) { padding-top: 18px; }
 html:not(.desk) .ca-welcome-t { margin: 8px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
 html:not(.desk) .ca-welcome .ca-btn { margin-top: 20px; }
 html:not(.desk) .ca-sample .ca-list { opacity: 0.86; }
+html:not(.desk) .ca-lrow.is-static { cursor: default; }
+html:not(.desk) .ca-lrow.is-static:active { background: none; }
 html:not(.desk) .ca-chip-sample { padding: 4px 10px; border-radius: 999px; background: var(--pl-inset); font-size: 13px; font-weight: 600; color: var(--text-3); }
 
 /* rows with an icon chip (a lifter's links, the first run's steps) */
@@ -628,7 +641,7 @@ html:not(.desk) .ca-row-main { flex: 1; min-width: 0; display: flex; flex-direct
 html:not(.desk) .ca-row-n { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.25; overflow-wrap: anywhere; }
 html:not(.desk) .ca-row-l { display: flex; align-items: flex-start; gap: 7px; font-size: 15px; line-height: 1.35; color: var(--text-2); }
 html:not(.desk) .ca-row-l > span { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
-html:not(.desk) .ca-dot { flex: none; width: 7px; height: 7px; margin-top: calc((1.35em - 7px) / 2); border-radius: 50%; background: var(--ca-warn); }
+html:not(.desk) .ca-dot { flex: none; width: 9px; height: 8px; margin-top: calc((1.35em - 8px) / 2); background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 html:not(.desk) .ca-row-l.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .ca-row-end { flex: none; display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-row-end b { font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 750; color: var(--text-2); letter-spacing: -0.012em; }
@@ -730,6 +743,8 @@ html:not(.desk) .ca-client { display: flex; flex-direction: column; gap: 12px; }
 /* Progress (coach-lifters.js chartsHtml in .ca-charts): the same heights and lights. The total is the object,
    lit by its trend; each lift's tile is lit by its own colour (the lifter app's NOW card does the same);
    the meet is lit gold; training, effort and bodyweight are plain surfaces. */
+/* the lift colours on a chart are the re-stepped set Home's summary uses (validated in both lights) */
+html:not(.desk) .ca-charts { --lift-squat: var(--pl-viz-sq); --lift-bench: var(--pl-viz-bp); --lift-deadlift: var(--pl-viz-dl); }
 html:not(.desk) .ca-charts { --cl-up: var(--ca-up); --cl-down: var(--ca-warn); --cl-pain: var(--ca-pain); --cl-meet: var(--ca-gold); --cl-surface: var(--pl-obj); --cl-line: var(--ca-edge); }
 html:not(.desk) .ca-charts .cl-hero {
   --pfl: #c9ced6;
@@ -801,6 +816,22 @@ html:not(.desk) .cp-maxes svg { width: 15px; height: 15px; }
 html:not(.desk) .cp-maxes:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .cp-done { margin: 14px 0 0; font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-hero .ca-btn { margin-top: 12px; }
+/* Programs owns blue 20 (foundation v2: every tab owns a plate, its paint on one focal object, matte enamel with
+   a lit lip, since blue against the platform is only 2.8:1). The block is that object: chalk type on the paint
+   (6.1:1), its numbers in a recessed well, never on the paint. A finished block carries the screen's action, and
+   the action never sits on paint, so then it stays a plain surface. */
+html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) {
+  background: #1f53b8; border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.45), 0 14px 28px -14px rgba(0, 0, 0, 0.8);
+}
+html[data-theme="light"]:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.22), 0 1px 2px rgba(15, 15, 25, 0.12), 0 12px 24px -14px rgba(15, 15, 25, 0.4); }
+html:not(.desk) body.powa-app section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-name { color: #f3f3f5; }
+html:not(.desk) body.powa-app section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-name:focus { background: rgba(255, 255, 255, 0.12) !important; }
+html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-blockmeta { color: #f0efec; }
+html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-ibtn { background: rgba(255, 255, 255, 0.16); color: #f3f3f5; }
+html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-maxes { background: rgba(8, 10, 18, 0.5); color: rgba(240, 239, 236, 0.86); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35); }
+html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-maxes b { color: #f3f3f5; }
+html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-maxes b i { box-shadow: 0 0 0 1.5px rgba(8, 10, 18, 0.6); }
 
 /* the weeks: a segmented control (scrolls when a block is long), + and ⋯; the week on show sits raised */
 html:not(.desk) .cp-weeks-row { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
@@ -875,11 +906,11 @@ html:not(.desk) .cp-add-acts .ca-btn { min-height: 48px; padding: 0 12px; font-s
 /* Add exercise: the screen's red, an object floating above the tab bar */
 html:not(.desk) .cp-fab {
   position: fixed; z-index: 90; right: 16px; bottom: 16px; display: inline-flex; align-items: center; gap: 6px; height: 52px; padding: 0 20px 0 16px;
-  border: 0; border-radius: 999px; background: var(--pl-red); color: #fff !important; font-size: 17px !important; font-weight: 650; cursor: pointer;
+  border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 700; cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.35), 0 14px 28px -12px rgba(0, 0, 0, 0.85);
   transition: transform var(--pl-d-press) var(--pl-spring), opacity 200ms ease-out, filter 140ms ease-out;
 }
-html[data-theme="light"]:not(.desk) .cp-fab { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(15, 15, 25, 0.16), 0 14px 26px -12px rgba(15, 15, 25, 0.42); }
+html[data-theme="light"]:not(.desk) .cp-fab { box-shadow: inset 0 0 0 1px var(--pl-red-ink), inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 2px 4px rgba(15, 15, 25, 0.16), 0 14px 26px -12px rgba(15, 15, 25, 0.42); }
 html.native:not(.desk) .cp-fab { bottom: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - 12px)) + 76px); }
 html:not(.desk) .cp-fab svg { width: 20px; height: 20px; }
 html:not(.desk) .cp-fab:active { transform: scale(0.95); filter: brightness(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
@@ -982,7 +1013,7 @@ html:not(.desk) .cp-pick-search { position: sticky; top: 0; z-index: 2; margin: 
 html:not(.desk) .cp-pick-h { margin: 18px 4px 8px; }
 html:not(.desk) .cp-pick-list > .ui-list:first-child { margin-top: 12px; }   /* clear of the search's 8 px mask */
 html:not(.desk) .cp-pick-sub { display: flex; align-items: flex-start; gap: 7px; }
-html:not(.desk) .cp-pick-sub .ca-dot { margin-top: calc((1.4em - 7px) / 2); }
+html:not(.desk) .cp-pick-sub .ca-dot { margin-top: calc((1.4em - 8px) / 2); }
 html:not(.desk) .cp-pick-sub.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .cp-empty .cp-hero { padding: 20px; }
 
@@ -1033,6 +1064,9 @@ html:not(.desk) .ca-sk-rows.is-list .ca-sk-av { width: 52px; height: 52px; }
 html:not(.desk) .ca-sk-pill { width: 84px; height: 36px; border-radius: 999px; }
 html:not(.desk) .ca-sk-end { width: 48px; height: 17px; border-radius: 6px; }
 html:not(.desk) .ca-sk-faces { display: flex; gap: 12px; margin-top: 40px; padding: 0 4px; overflow: hidden; }
+html:not(.desk) .ca-sk-wk { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; column-gap: 16px; margin-top: 40px; padding: 16px; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); }
+html:not(.desk) .ca-sk-ring { width: 120px; height: 120px; border-radius: 50%; }
+html:not(.desk) .ca-sk-wk .ca-sk-tx { gap: 10px; }
 html:not(.desk) .ca-sk-face { width: 64px; height: 64px; border-radius: 50%; }
 html:not(.desk) .ca-sk-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 12px 4px; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); }
 html:not(.desk) .ca-sk-seg > span { display: flex; flex-direction: column; align-items: center; gap: 8px; }
