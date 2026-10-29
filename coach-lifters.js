@@ -637,6 +637,8 @@
   function home() { return window.CoachHome || null; }
   function openMeetDay() {
     if (isDeskNow() && typeof deskGo === 'function') { deskGo('meets'); return; }
+    // The phone: today's board straight away when there is one (one tap from Home's red), else the Meets screen.
+    if (window.MeetDay && MeetDay.openTodayBoard) { MeetDay.openTodayBoard(); return; }
     if (window.MeetDay && MeetDay.openMeetsScreen) { MeetDay.openMeetsScreen(); return; }
     if (typeof openMeetsScreen === 'function') openMeetsScreen();
   }

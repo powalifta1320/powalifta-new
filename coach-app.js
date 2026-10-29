@@ -169,9 +169,24 @@
   // The filters on Lifters, with counts. ctx: { need: [ids], week(r) → caWeek }.
   var FILTERS = [['all', 'All'], ['need', 'Needs you'], ['meet', 'Meet soon'], ['behind', 'Behind']];
   function caIsMeetSoon(r) { return !!(r && r.meet && r.meet.days != null && r.meet.days >= 0 && r.meet.days <= 56); }
+  // Meet week: the meet is today or inside the next 7 days. The taper is short by design, so a lifter in it is
+  // never "behind" (a coach would never call Tom behind on the morning of his meet).
+  function caIsMeetWeek(r) { return !!(r && r.meet && r.meet.days != null && r.meet.days >= 0 && r.meet.days <= 7); }
   function caIsBehind(r, w) {
+    if (caIsMeetWeek(r)) return false;
     if (w && w.behind) return true;
-    return (r.reasons || []).some(function (x) { return x && (x.type === 'quiet' || x.type === 'missed'); });
+    return (r.reasons || []).some(function (x) { return x && (x.type === 'quiet' || x.type === 'missed' || x.type === 'never'); });
+  }
+  // Why a lifter is behind, in the coach's words, for their row under the Behind filter: the sessions short in the
+  // last 7 days, or the quiet / missed / never-logged flag behind it. '' when they aren't behind.
+  function caBehindLine(r, w) {
+    if (!caIsBehind(r, w)) return '';
+    if (w && w.n && w.trained < w.n) return w.trained + ' of ' + plural(w.n, 'session') + ' in the last 7 days';
+    var q = (r.reasons || []).filter(function (x) { return x && /^(quiet|missed|never)$/.test(x.type); })[0];
+    if (!q) return '';
+    if (q.type === 'never') return 'No sets logged yet';
+    if (q.type === 'quiet') return r.status && r.status.ago != null ? 'Nothing logged for ' + plural(r.status.ago, 'day') : 'Quiet';
+    return q.detail || q.text || '';
   }
   function caFilterMatch(key, r, ctx) {
     ctx = ctx || {};
@@ -464,9 +479,11 @@
     }
     return null;
   }
-  // Felt against written for one logged set (coach-lifters.js clTeam and app.js setOvershoot): a range is written
-  // from its low end to its top, so a set is harder when it felt 0.5 or more over the top, easier when 0.5 or
-  // more under the low end, on target otherwise. RIR blocks and meet attempts aren't RPE sets. → { kind, over } | null
+  // Felt against written for one logged set, the lifter page's rule: on target within 0.5 RPE of what was written
+  // (a range counts from its low end to its top), harder more than 0.5 over the top, easier more than 0.5 under the
+  // low end. RPE moves in half points, so harder is a full point over: app.js setOvershoot's line, the one the
+  // triage flags. RIR blocks and meet attempts aren't RPE sets. → { kind, over, felt, wrote } | null
+  var HALF = 0.5 + 1e-9;
   function caEffortOf(s) {
     if (!s || s.attempt || s.rir) return null;
     if (s.actualRpe == null || s.actualRpe === '' || s.rpe == null || s.rpe === '') return null;
@@ -474,25 +491,70 @@
     if (!isFinite(felt) || !isFinite(lo)) return null;
     var hi = s.rpeHi != null && s.rpeHi !== '' && Number(s.rpeHi) > lo ? Number(s.rpeHi) : lo;
     var over = felt - hi, under = lo - felt;
-    return { kind: over >= 0.5 ? 'harder' : under >= 0.5 ? 'easier' : 'on', over: over, felt: felt, wrote: hi };
+    return { kind: over > HALF ? 'harder' : under > HALF ? 'easier' : 'on', over: over, felt: felt, wrote: hi };
   }
-  // The team's logged sets split three ways, and who ran hot, worst set first. sets: [{ id, name, set, title,
-  // date }]. → { easier, on, harder, over1 (a full point or more over), total, hot: [{ id, name, n, worst }] }
+  // The team's logged sets split three ways, and who is running hot by the triage's own rule (app.js deskReasons):
+  // a set a full point or more over what was written, or their sets drifting half a point over on average across 3
+  // or more (deskRpeDrift, rounded the same way). One set half a point over is noise, and stays on target.
+  // sets: [{ id, name, set, title, date }]. → { easier, on, harder, over1, total,
+  //   hot: [{ id, name, n (sets harder), why: 'over' | 'drift', avg, count, worst }] worst first }
   function caEffortSplit(sets) {
-    var out = { easier: 0, on: 0, harder: 0, over1: 0, total: 0, hot: [] }, hot = {};
+    var out = { easier: 0, on: 0, harder: 0, over1: 0, total: 0, hot: [], hard: [] }, by = {};
     (sets || []).forEach(function (x) {
       var e = x && caEffortOf(x.set);
       if (!e) return;
       out.total++; out[e.kind]++;
-      if (e.kind !== 'harder') return;
       if (e.over >= 1) out.over1++;
-      var h = hot[x.id] || (hot[x.id] = { id: x.id, name: x.name, n: 0, worst: null });
-      h.n++;
+      if (e.kind === 'harder') out.hard.push({ id: x.id, name: x.name, title: x.title || '', felt: e.felt, wrote: e.wrote, over: e.over, date: x.date || '' });
+      var h = by[x.id] || (by[x.id] = { id: x.id, name: x.name, n: 0, sum: 0, count: 0, worst: null });
+      h.count++; h.sum += e.over;
+      if (e.kind === 'harder') h.n++;
       if (!h.worst || e.over > h.worst.over || (e.over === h.worst.over && String(x.date) > String(h.worst.date))) h.worst = { over: e.over, felt: e.felt, wrote: e.wrote, title: x.title || '', date: x.date || '' };
     });
-    out.hot = Object.keys(hot).map(function (k) { return hot[k]; })
-      .sort(function (a, b) { return b.worst.over - a.worst.over || b.n - a.n || String(a.name).localeCompare(String(b.name)); });
+    out.hot = Object.keys(by).map(function (k) {
+      var h = by[k], avg = Math.round(h.sum / h.count * 10) / 10;
+      var why = h.worst && h.worst.over >= 1 ? 'over' : (h.count >= 3 && avg >= 0.5 ? 'drift' : '');
+      return why ? { id: h.id, name: h.name, n: h.n, why: why, avg: avg, count: h.count, worst: h.worst } : null;
+    }).filter(Boolean).sort(function (a, b) { return b.worst.over - a.worst.over || b.avg - a.avg || String(a.name).localeCompare(String(b.name)); });
+    out.hard.sort(function (a, b) { return b.over - a.over || String(b.date).localeCompare(String(a.date)); });
     return out;
+  }
+  // Is the team getting stronger, week by week, on the headline's own measure? For each of the last n weeks, the
+  // best e1RM of each lifter's lift in the window of win days ending that week (app.js getE1RMMomentum's windows,
+  // slid back a week at a time), summed over the pairs the headline counts: the lifter-and-lift pairs with a
+  // number in both the last window and the one before it. So the line's last point is the headline's "now" and the
+  // point a window back is its "before", and the change the line shows is the change the number says.
+  // A week with no log for a pair keeps that pair's last best (it never dips because a lift wasn't trained).
+  // list: [{ id, logs: [{ lift, date, e1rmComp }] }]; now: ms. → { values: [n sums], now, before, pct, pairs } | null
+  function caStrengthSeries(list, now, n, win) {
+    n = n || 8; win = win || 28;
+    var D = 86400000, back = Math.round(win / 7);
+    if (back >= n) return null;
+    var pairs = [];
+    (list || []).forEach(function (x) {
+      if (!x) return;
+      LIFTS3.forEach(function (L) {
+        var ls = (x.logs || []).filter(function (l) { return l && l.lift === L && Number(l.e1rmComp) > 0 && l.date; })
+          .map(function (l) { return { t: Date.parse(l.date), v: Number(l.e1rmComp) }; }).filter(function (l) { return isFinite(l.t); });
+        // The window that ends o weeks ago (the newest one runs a day past now, as getE1RMMomentum's does).
+        var best = function (o) {
+          var to = now - o * 7 * D + (o === 0 ? D : 0), from = now - o * 7 * D - win * D;
+          return ls.reduce(function (m, l) { return l.t >= from && l.t < to && l.v > m ? l.v : m; }, 0);
+        };
+        var vals = [];
+        for (var o = n - 1; o >= 0; o--) vals.push(best(o));
+        if (!(vals[n - 1] > 0) || !(vals[n - 1 - back] > 0)) return;
+        var firstSeen = -1;
+        for (var i = 0; i < n; i++) { if (vals[i] > 0) { if (firstSeen < 0) firstSeen = i; } else if (firstSeen >= 0) vals[i] = vals[i - 1]; }
+        for (var j = 0; j < firstSeen; j++) vals[j] = vals[firstSeen];
+        pairs.push({ id: x.id, lift: L, vals: vals });
+      });
+    });
+    if (!pairs.length) return null;
+    var values = [];
+    for (var k = 0; k < n; k++) values.push(pairs.reduce(function (s, p) { return s + p.vals[k]; }, 0));
+    var nowV = values[n - 1], before = values[n - 1 - back];
+    return { values: values, now: nowV, before: before, pct: before > 0 ? (nowV - before) / before * 100 : null, pairs: pairs.length, back: back };
   }
   // The next 12 weeks of meets: one mark per lifter at their next meet (rows' meet, app.js deskNextMeet), nearest
   // first, x across the span (0 today, 1 at its end). → { span, next: { days, name, ids }, marks: [{ id, name, days, x, meet }] }
@@ -507,6 +569,31 @@
     marks.sort(function (a, b) { return a.days - b.days || String(a.name).localeCompare(String(b.name)); });
     var f = marks[0], next = f ? { days: f.days, name: f.meet, ids: marks.filter(function (x) { return x.days === f.days && x.meet === f.meet; }).map(function (x) { return x.id; }) } : null;
     return { span: span, next: next, marks: marks };
+  }
+  // The lane's stops: one per meet (its name and date), with everyone going to it, nearest first. A crowded meet is
+  // one face with "+N", never a face for each lifter piled on one date. marks: caMeetLane's. → [{ key, days, x, meet, ids }]
+  function caLaneGroups(marks) {
+    var by = {}, out = [];
+    (marks || []).forEach(function (m) {
+      var k = String(m.meet || 'Meet').trim().toLowerCase() + '|' + m.days;
+      if (!by[k]) { by[k] = { key: k, days: m.days, x: m.x, meet: m.meet, ids: [] }; out.push(by[k]); }
+      by[k].ids.push(m.id);
+    });
+    return out.sort(function (a, b) { return a.days - b.days || String(a.meet).localeCompare(String(b.meet)); });
+  }
+  // The countdown Home sets big: the nearest meet, unless Needs you above already leads with it (Tom's meet today
+  // is the focal job), then the one after it, so the page never says the same meet twice in big type.
+  // groups: caLaneGroups'; skip: ids the focal job is about. → { days, meet, ids, after: group | null, skipped } | null
+  function caCountdown(groups, skip) {
+    skip = skip || [];
+    var gs = groups || [];
+    var said = function (g) { return g.ids.every(function (id) { return skip.indexOf(id) >= 0; }); };
+    var i = 0;
+    while (i < gs.length && said(gs[i])) i++;
+    if (i >= gs.length) i = 0;
+    var g = gs[i];
+    if (!g) return null;
+    return { days: g.days, meet: g.meet, ids: g.ids, after: gs[i + 1] || null, skipped: i > 0 ? gs.slice(0, i) : [] };
   }
   // Faces that would overlap on the lane step up a tier; past the last tier they fold into the face before them
   // ("+1"). xs: positions in px, nearest first; gap: a face's width. → [tier, or -1 when folded]
@@ -588,11 +675,12 @@
       body = '<div class="ca-hero ca-sk-hero is-short">' + sk('ca-sk-t', '48%') + sk('ca-sk-line', '64%') + '</div>' + sk('ca-sk-weeks') +
         '<div class="ca-sk-chips">' + times(3, function () { return sk('ca-sk-chip'); }) + '</div>' + sk('ca-sk-card');
     } else {
-      body = '<div class="ca-hero ca-sk-hero">' + sk('ca-sk-line', '46%') + sk('ca-sk-big', '52%') +
-          '<div class="ca-sk-stats">' + times(3, function () { return '<span>' + sk('ca-sk-num') + sk('ca-sk-cap') + '</span>'; }) + '</div></div>' +
-        '<div class="ca-sk-focal">' + sk('ca-sk-av is-56') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '78%') + sk('ca-sk-line', '52%') + '</span></div>' + sk('ca-sk-btn') +
-        '<div class="ca-sk-rows">' + row('ca-sk-pill') + row('ca-sk-pill') + '</div>' +
-        '<div class="ca-sk-wk">' + sk('ca-sk-ring') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '72%') + sk('ca-sk-line', '58%') + sk('ca-sk-line', '40%') + '</span></div>';
+      // Home's own shape: the week's hero (its line, the ring, the words, the days), the two tiles, who needs you.
+      body = '<div class="ca-sk-tw">' + sk('ca-sk-line', '58%') + '<div class="ca-sk-twb">' + sk('ca-sk-ring') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '82%') + sk('ca-sk-line', '56%') +
+          '<span class="ca-sk-cols">' + times(7, function () { return sk('ca-sk-col'); }) + '</span></span></div></div>' +
+        '<div class="ca-sk-duo">' + times(2, function () { return '<span class="ca-sk-t2">' + sk('ca-sk-line', '46%') + sk('ca-sk-num2', '58%') + sk('ca-sk-line', '40%') + sk('ca-sk-spark') + '</span>'; }) + '</div>' +
+        '<div class="ca-sk-need">' + sk('ca-sk-t', '38%') + '</div>' +
+        '<div class="ca-sk-focal">' + sk('ca-sk-av is-56') + '<span class="ca-sk-tx">' + sk('ca-sk-t', '78%') + sk('ca-sk-line', '52%') + '</span></div>' + sk('ca-sk-btn');
     }
     var say = kind === 'program' ? 'Loading the program' : kind === 'lifter' ? 'Loading the lifter' : 'Loading your lifters';
     return '<div class="ca-root ca-skel is-' + kind + '" role="status"><span class="ca-sr">' + say + '</span><div class="ca-skel-in" aria-hidden="true">' + body + '</div></div>';
@@ -669,21 +757,22 @@
     // that task ends counts as the first look; a later redraw (an unread count arriving) shows it filled.
     if (H.burst == null) { H.burst = true; setTimeout(function () { H.burst = false; }, 0); }
     var firstLook = H.burst === true;
-    // Loaded heaviest-in, worst first: who needs you (the one object), then this week and strength (surfaces),
-    // effort, meets and PRs (insets), then the roster on the ground.
-    var html = '<div class="ca-home ca-root' + (firstLook ? ' is-first' : '') + '">';
-    html += heroHtml(X, u);
-    var monday = new Date().getDay() === 1;
-    if (monday) html += reportRowHtml(1);
+    // THE FIRST SCREEN IS THE TEAM (lead, 28 Oct 16:40): the week as the lit hero, strength and effort as two
+    // pictures, then who needs you with the one red action, all above the tab bar on a 393 x 852 phone. On a short
+    // screen (an SE, 667 tall) the job comes straight after the week, so the red is never below the fold; the two
+    // trends follow it. Then the next jobs, the meets, the PRs, the roster, everything else.
+    var short = hasDom && window.innerHeight && window.innerHeight < SHORT_H;
+    H.short = !!short;
+    var html = '<div class="ca-home ca-root' + (firstLook ? ' is-first' : '') + (short ? ' is-short' : '') + '">';
+    html += teamWeekHtml(X, S);
+    if (!short) html += duoHtml(X, S);
     html += needsHtml(X);
-    html += weekHtml(X, S);
-    html += strengthHtml(X, S);
-    html += effortHtml(X, S);
+    if (short) html += duoHtml(X, S);
     html += meetsHtml(X, S);
     html += prsHtml(X, S);
     html += facesHtml(X);
     html += tilesHtml(X);
-    if (!monday) html += reportRowHtml(0);
+    html += reportRowHtml(0);
     html += '</div>';
     area.innerHTML = html;
     area._X = X;
@@ -691,19 +780,27 @@
     var i = 0;
     area.querySelectorAll('.ca-rise').forEach(function (n) { n.style.setProperty('--i', String(Math.min(i++, 8))); });
     layoutLane(area);
-    wireLine(area);
+    wireStrip(area);
     paintBadges();
   }
-  function heroHtml(X, u) {
+  // Below this height the first screen can't hold the week, both trends and the job: the job goes second.
+  var SHORT_H = 720;
+  if (hasDom && window.matchMedia) {
+    try {
+      var mqShort = window.matchMedia('(max-height: ' + (SHORT_H - 1) + 'px)');
+      var onShort = function () { if (H.host && !isDeskNow() && (window.innerHeight < SHORT_H) !== H.short && shown('home')) renderHome(H.host); };
+      if (mqShort.addEventListener) mqShort.addEventListener('change', onShort); else if (mqShort.addListener) mqShort.addListener(onShort);
+    } catch (e) {}
+  }
+  // Needs you's head: how many need you, and their words waiting (the unread count, one tap to Messages).
+  function heroHtml(X) {
     var st = caHeroStats(X.rows, { daysOf: trainedDays, unread: unreadMap() });
     var hl = caHeadline(X.need.length);
-    var hi = caTodayLine(X.rows, { weekday: localDate(todayIso(), { weekday: 'long' }) });
     var head = hl.n ? '<b class="ca-big">' + hl.n + '</b><span class="ca-big-w">' + hl.words + '</span>'
       : '<span class="ca-big-ok" aria-hidden="true">' + ic('check', 2.6) + '</span><span class="ca-big-w is-clear">All clear</span>';
     // All clear: say what's below only when something is (the next weeks and blocks to write).
     var sub = hl.n ? '' : '<p class="ca-hero-sub">' + (caLeadJobs(X.jobs, null).length ? 'Nobody needs you this week. Next weeks and blocks are below.' : 'Nobody needs you this week. Everyone is on plan.') + '</p>';
-    // Their words waiting sit with who needs you: the unread count, one tap to Messages.
-    return '<div class="ca-hero ca-rise"><p class="ca-hero-hi">' + esc(hi) + '</p><div class="ca-hero-head">' + head +
+    return '<div class="ca-hero ca-rise"><div class="ca-hero-head">' + head +
       '<div class="ca-stats is-inbox">' + unreadStatHtml(st.unread) + '</div></div>' + sub + '</div>';
   }
   function unreadStatHtml(n) {
@@ -723,16 +820,16 @@
     if (!lead.length) {
       // Planning work (tiers 3-4): nothing urgent, so show what's next, calm, no red.
       var nxt = caLeadJobs(X.jobs, null);
-      if (!nxt.length) return '';
+      if (!nxt.length) return '<div class="ca-sec is-deck ca-need" aria-label="Needs you">' + heroHtml(X) + '</div>';
       lead = nxt; title = 'Up next';
     }
     var urgent = title === 'Needs you';
     var top = lead[0], rest = lead.slice(1, 3);
-    // The hero's headline ("4 need you") is this deck's title: no second title saying it again.
+    // Its head ("4 need you", the .ca-hero) is this deck's title: no second title saying it again.
     var shownN = lead.slice(0, 3).reduce(function (n, x) { return n + ((x.rows && x.rows.length) || 1); }, 0);
     var totalN = urgent ? X.need.length : lead.reduce(function (n, x) { return n + ((x.rows && x.rows.length) || 1); }, 0);
     var more = lead.length > 3 || totalN > shownN ? '<button type="button" class="ca-more" data-lifters="' + (urgent ? 'need' : 'all') + '"><span>See all ' + totalN + '</span>' + ic('chev', 2.2) + '</button>' : '';
-    var html = '<div class="ca-sec' + (urgent ? ' is-deck' : '') + '" aria-label="' + title + '">' + (urgent ? '' : '<div class="ca-h"><h2>' + title + '</h2></div>');
+    var html = '<div class="ca-sec is-deck ca-need" aria-label="' + title + '">' + heroHtml(X) + (urgent ? '' : '<div class="ca-h"><h2>' + title + '</h2></div>');
     html += leadCardHtml(top, urgent);
     if (rest.length || more) html += '<div class="ca-plain ca-rise">' + rest.map(function (x) { return jobRowHtml(x); }).join('') + more + '</div>';
     return html + '</div>';
@@ -788,9 +885,11 @@
     }
     // Behind: the Lifters tab's own Behind (caIsBehind), so the words and the list a tap opens agree.
     var behind = X.rows.filter(function (r) { return caIsBehind(r, X.week(r)); });
-    // Strength: app.js getE1RMMomentum over 4-week windows; the line from each lifter's running best.
+    // Strength: app.js getE1RMMomentum over 4-week windows (the headline and each lift), and the line on the same
+    // measure, its windows slid back a week at a time, so its last 4 weeks rise by exactly the headline.
     var mom = typeof getE1RMMomentum === 'function' ? X.rows.map(function (r) { return { id: r.athlete.id, name: r.athlete.name, m: getE1RMMomentum(r.athlete.id, 28) }; }) : [];
-    var line = caTeamLine(X.rows.map(function (r) { return { id: r.athlete.id, series: caTotalSeries(logsBy[r.athlete.id], t, 8) }; }));
+    var ser = caStrengthSeries(X.rows.map(function (r) { return { id: r.athlete.id, logs: logsBy[r.athlete.id] }; }), Date.now(), 8, 28);
+    var line = ser ? { start: 0, values: ser.values, back: ser.back } : null;
     // Effort: every set logged in the last 7 days against the RPE written for it.
     var since = addDays(t, -6), sets = [];
     X.rows.forEach(function (r) {
@@ -802,9 +901,12 @@
       });
     });
     var wins = caWins(X.rows).filter(function (w) { return w.lifts.length; });
+    var lane = caMeetLane(X.rows, 84), groups = caLaneGroups(lane.marks);
+    // The focal job above: when it is a meet, the countdown sets the next one big instead (never the same meet twice).
+    var f = X.lead && X.lead[0], skip = f && f.job && /^(meet|meetday)$/.test(f.job.type) ? (f.rows || [f.r]).map(function (r) { return r.athlete.id; }) : [];
     return {
       t: t, range: range, week: W, lastWeek: LW, strip: strip, lastStrip: lastStrip, quiet: quiet, behind: behind,
-      strength: caTeamStrength(mom), line: line, effort: caEffortSplit(sets), lane: caMeetLane(X.rows, 84),
+      strength: caTeamStrength(mom), line: line, effort: caEffortSplit(sets), lane: lane, groups: groups, countdown: caCountdown(groups, skip),
       wins: wins, prs: wins.reduce(function (n, w) { return n + w.lifts.length; }, 0), roster: ids.length
     };
   }
@@ -846,52 +948,92 @@
   function stripPick(days) {
     return days.filter(function (d) { return d.today; })[0] || days.filter(function (d) { return !d.future && d.n; }).slice(-1)[0] || days.filter(function (d) { return !d.future; }).slice(-1)[0] || days[0];
   }
-  function stripHtml(days, roster, label) {
+  // The strip is one picture under one finger: touching anywhere along it picks the nearest day (like a chart in
+  // Health), so the whole strip is the target, never a 27 pt column. A screen reader and a keyboard get it as a
+  // slider over the days, with every day's count and names in its label (the table a chart owes them).
+  function stripHtml(days, roster, last) {
     // Scaled to the week's busiest day or half the team, whichever is more: a full column is a big day, and a
     // small team's two sessions still read as two (the number on each column says how many).
     var max = Math.max(1, roster / 2, Math.max.apply(null, days.map(function (d) { return d.n; })));
     var sel = stripPick(days);
-    return '<div class="ca-strip" role="group" aria-label="' + esc(label) + '">' + days.map(function (d) {
-      var who = d.who.map(firstOf);
-      var aria = DAYW[d.dow] + (d.today ? ', today' : '') + ': ' + (d.future ? 'still to come' : d.n ? plural(d.n, 'session') + ', ' + nameList(who, 6) : 'no sessions');
-      var inner = '<span class="ca-sday-plot">' + (d.future ? '<i class="ca-sday-dot"></i>' : (d.n ? '<b class="ca-sday-n">' + d.n + '</b>' : '') + '<i class="ca-sday-bar' + (d.n ? '' : ' is-zero') + '" style="--h:' + (d.n / max).toFixed(3) + ';--i:' + d.dow + '"></i>') + '</span>' +
-        '<span class="ca-sday-l">' + DAY1[d.dow] + '</span>';
-      if (d.future) return '<span class="ca-sday is-future" aria-label="' + esc(aria) + '">' + inner + '</span>';
-      return '<button type="button" class="ca-sday' + (d.today ? ' is-today' : '') + (d === sel ? ' on' : '') + '" data-day="' + d.iso + '" aria-pressed="' + (d === sel) + '" aria-label="' + esc(aria) + '">' + inner + '</button>';
-    }).join('') + '</div>';
+    var said = function (d) { return DAYW[d.dow] + (d.today ? ', today' : '') + ': ' + (d.future ? 'still to come' : d.n ? plural(d.n, 'session') + ', ' + nameList(d.who.map(firstOf), 6) : 'no sessions'); };
+    var label = (last ? 'Last week' : 'This week') + ', sessions logged each day. ' + days.map(said).join('. ');
+    var picks = days.filter(function (d) { return !d.future; });
+    return '<div class="ca-strip' + (last ? ' is-last' : '') + '" role="slider" tabindex="0" aria-label="' + esc(label) + '" aria-valuemin="0" aria-valuemax="' + Math.max(0, picks.length - 1) + '" aria-valuenow="' + Math.max(0, picks.indexOf(sel)) + '" aria-valuetext="' + esc(said(sel)) + '">' +
+      days.map(function (d) {
+        var inner = '<span class="ca-sday-plot">' + (d.future ? '<i class="ca-sday-dot"></i>' : (d.n ? '<b class="ca-sday-n">' + d.n + '</b>' : '') + '<i class="ca-sday-bar' + (d.n ? '' : ' is-zero') + '" style="--h:' + (d.n / max).toFixed(3) + ';--i:' + d.dow + '"></i>') + '</span>' +
+          '<span class="ca-sday-l">' + DAY1[d.dow] + '</span>';
+        return '<span class="ca-sday' + (d.today && !last ? ' is-today' : '') + (d.future ? ' is-future' : '') + (d === sel ? ' on' : '') + '"' + (d.future ? '' : ' data-day="' + d.iso + '"') + ' aria-hidden="true">' + inner + '</span>';
+      }).join('') + '</div>';
+  }
+  // The line over the hero says what the chosen day was: today's own line (who is training, who trained), or a day
+  // picked on the strip ("Monday · Arjun and Sarah trained"); last week's days say so.
+  function dayLine(d, X, last) {
+    if (!d) return '';
+    if (d.today && !last) return caTodayLine(X.rows, { weekday: DAYW[d.dow] });
+    var who = d.who.map(firstOf);
+    return (last ? 'Last ' : '') + DAYW[d.dow] + ' · ' + (d.n ? nameList(who, 3) + ' trained' : 'no one trained');
   }
   function dayReadout(d) {
     if (!d) return '';
     var who = d.who.map(firstOf);
     return (d.today ? 'Today' : DAYW[d.dow]) + ' · ' + (d.n ? nameList(who, 4) : 'no sessions');
   }
-  // 2. This week: the sessions lifted against the sessions written, as one ring, then the days.
-  function weekHtml(X, S) {
+  // 2. THE HERO: this week. The team's sessions lifted against the sessions written, as one ring (a segment per
+  // session written, the lifted ones lit in the green that means done), who is behind beside it, and Monday to
+  // Sunday under the words. The line on top is the day: today's, or the one a finger picks on the strip.
+  // A quiet week (nothing logged since Monday) keeps this week's ring as its plan, unlit, says so, and draws last
+  // week's days, labelled: never an empty chart.
+  function teamWeekHtml(X, S) {
     if (!S.week) return '';
-    var W = S.quiet ? (S.lastWeek || S.week) : S.week, days = S.quiet ? (S.lastStrip || S.strip) : S.strip;
+    var W = S.week, quiet = S.quiet, LW = S.lastWeek;
     var done = W.sessionsDone || 0, planned = W.sessionsPlanned || 0;
+    var days = quiet ? (S.lastStrip || S.strip) : S.strip, last = !!(quiet && S.lastStrip);
     var names = S.behind.map(function (r) { return first(r.athlete.name); });
-    var behind = S.behind.length ? '<span class="ca-wk-b"><i class="ca-wk-bdot"></i>' + esc(S.behind.length + ' behind') + '</span><span class="ca-wk-bn">' + esc(nameList(names, 2)) + '</span>' : '<span class="ca-wk-b is-clear">Nobody behind</span>';
-    var title = S.quiet ? 'Nothing logged yet' : planned ? (done >= planned ? 'Every session lifted' : 'Sessions lifted') : plural(done, 'session') + ' logged';
-    var sub = S.quiet ? (S.week.sessionsPlanned ? plural(S.week.sessionsPlanned, 'session') + ' written this week' : 'Nothing written for this week yet')
-      : W.trained + ' of ' + W.of + ' lifters trained';
-    var centre = (planned ? '<b>' + done + '</b><small>of ' + planned + '</small>' : '<b>' + done + '</b><small>logged</small>') + (S.quiet ? '<small class="ca-wk-lw">last week</small>' : '');
-    var aria = (S.quiet ? 'Nothing logged yet this week. Last week, ' : 'This week, ') + (planned ? done + ' of ' + planned + ' sessions lifted' : plural(done, 'session') + ' logged') +
-      (S.quiet ? '' : ', ' + W.trained + ' of ' + W.of + ' lifters trained') + '. ' + (S.behind.length ? S.behind.length + ' behind: ' + nameList(names, 6) : 'Nobody behind') + '. Show who is behind';
-    var sel = stripPick(days);
-    return '<div class="ca-sec">' + secHead('This week', metaHtml(S.range)) +
-      '<div class="ca-sum is-l2 ca-wk ca-rise' + (S.quiet ? ' is-quiet' : '') + '">' +
+    var hi = caTodayLine(X.rows, { weekday: localDate(todayIso(), { weekday: 'long' }) });
+    var t1 = quiet ? 'Nothing logged yet' : planned ? W.trained + ' of ' + W.of + ' lifters trained' : plural(done, 'session') + ' logged';
+    var t2 = quiet ? '<span class="ca-wk-s">' + esc(LW && LW.sessionsPlanned ? 'Last week ' + LW.sessionsDone + ' of ' + LW.sessionsPlanned + ' lifted' : 'Sessions light up as they land') + '</span>'
+      : S.behind.length ? '<span class="ca-wk-b"><i class="ca-wk-bdot" aria-hidden="true"></i><span>' + esc(S.behind.length + ' behind') + '</span><span class="ca-wk-bn">' + esc(nameList(names, 1)) + '</span>' + ic('chev', 2.4) + '</span>'
+      : '<span class="ca-wk-b is-clear">Nobody behind' + ic('chev', 2.4) + '</span>';
+    var digits = String(done).length + String(planned).length;
+    var centre = planned ? '<b' + (digits > 3 ? ' class="is-long"' : '') + '>' + done + '</b><small>of ' + planned + '</small>' : '<b>' + done + '</b><small>logged</small>';
+    var aria = (quiet ? 'Nothing logged yet this week, ' + plural(planned, 'session') + ' written' + (LW && LW.sessionsPlanned ? '. Last week ' + LW.sessionsDone + ' of ' + LW.sessionsPlanned + ' lifted' : '')
+      : 'This week, ' + (planned ? done + ' of ' + planned + ' sessions lifted' : plural(done, 'session') + ' logged') + ', ' + W.trained + ' of ' + W.of + ' lifters trained') + '. ' +
+      (S.behind.length ? S.behind.length + ' behind: ' + nameList(names, 6) : 'Nobody behind') + '. Show who is behind';
+    return '<div class="ca-sum ca-tw ca-rise' + (quiet ? ' is-quiet' : '') + '">' +
+      '<div class="ca-tw-top"><p class="ca-hero-hi" data-readout="week" aria-live="polite">' + esc(hi) + '</p><span class="ca-h-meta">' + esc(S.range) + '</span></div>' +
+      '<div class="ca-tw-body">' +
         '<div class="ca-stats is-week"><button type="button" class="ca-stat is-btn is-week" data-lifters="behind" aria-label="' + esc(aria) + '">' +
           '<span class="ca-wk-ring">' + teamRingSvg(done, planned, 120, 11) + '<span class="ca-wk-c">' + centre + '</span></span>' +
-          '<span class="ca-wk-tx"><b class="ca-wk-t">' + esc(title) + '</b><span class="ca-wk-s">' + esc(sub) + '</span>' + behind + '</span>' +
-          '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button></div>' +
-        stripHtml(days, S.roster, (S.quiet ? 'Last week' : 'This week') + ': sessions logged each day') +
-        '<p class="ca-readout" data-readout="week" aria-live="polite">' + esc((S.quiet ? 'Last week · ' : '') + dayReadout(sel)) + '</p>' +
+          '<span class="ca-wk-tx"><b class="ca-wk-t">' + esc(t1) + '</b>' + t2 + '</span>' +
+        '</button></div>' +
+        stripHtml(days, S.roster, last) +
       '</div></div>';
   }
-  // The team's e1RM line: 8 weeks, the last 4 in ink and the 4 before them in steel (the window the headline
-  // compares), the latest point marked and labelled. Drawn in a 100-wide box that stretches to the card; the
-  // dots and labels are HTML, so they stay round and on the type scale.
+  // A small line for a tile: the 8 weeks as one stroke, the 4 the number compares in ink, the 4 before them in
+  // steel, the latest point marked. No labels: the tile's number says it, and its sheet has the full chart.
+  function miniLineHtml(L) {
+    if (!L) return '';
+    var pts = [];
+    L.values.forEach(function (v, i) { if (v != null) pts.push({ i: i, v: Number(kgShow(v)) }); });
+    if (pts.length < 2) return '';
+    var lo = Math.min.apply(null, pts.map(function (p) { return p.v; })), hi = Math.max.apply(null, pts.map(function (p) { return p.v; }));
+    var span = Math.max(hi - lo, hi * 0.01);
+    lo -= span * 0.12; hi += span * 0.12;
+    var n = L.values.length - 1, Hh = 40, X = function (i) { return 2 + i / n * 96; }, Y = function (v) { return Hh - (v - lo) / (hi - lo) * Hh; };
+    var xy = pts.map(function (p) { return [X(p.i), Y(p.v)]; });
+    var path = function (a) { return typeof _smoothPath === 'function' ? _smoothPath(a) : a.map(function (q, j) { return (j ? 'L' : 'M') + q[0].toFixed(2) + ' ' + q[1].toFixed(2); }).join(' '); };
+    var cutAt = n - (L.back || 4), cut = pts.findIndex(function (p) { return p.i >= cutAt; });
+    var older = cut > 0 ? xy.slice(0, cut + 1) : null, recent = xy.slice(Math.max(0, cut)), lp = xy[xy.length - 1];
+    return '<div class="ca-mline" aria-hidden="true"><svg viewBox="0 0 100 ' + Hh + '" preserveAspectRatio="none">' +
+      (older ? '<path class="ca-line-old" d="' + path(older) + '" vector-effect="non-scaling-stroke"/>' : '') +
+      '<path class="ca-line-now" d="' + path(recent) + '" vector-effect="non-scaling-stroke"/></svg>' +
+      (cut > 0 ? '<span class="ca-line-dot is-was" style="left:' + xy[cut][0].toFixed(2) + '%;top:' + (xy[cut][1] / Hh * 100).toFixed(2) + '%"></span>' : '') +
+      '<span class="ca-line-dot" style="left:' + lp[0].toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"></span></div>';
+  }
+  // The team's e1RM line, full size (the strength sheet): 8 weeks, the last 4 in ink and the 4 before them in
+  // steel (the window the headline compares), the latest point marked and labelled. Drawn in a 100-wide box that
+  // stretches to the card; the dots and labels are HTML, so they stay round and on the type scale.
   function lineHtml(L, t) {
     if (!L) return '';
     var vals = L.values, pts = [];
@@ -900,18 +1042,19 @@
     var lo = Math.min.apply(null, pts.map(function (p) { return p.v; })), hi = Math.max.apply(null, pts.map(function (p) { return p.v; }));
     var span = Math.max(hi - lo, hi * 0.01);
     lo -= span * 0.22; hi += span * 0.12;
-    var Wd = 100, Hh = 40, X = function (i) { return 2 + i / 7 * 96; }, Y = function (v) { return Hh - (v - lo) / (hi - lo) * Hh; };
+    var n = vals.length - 1, cutAt = n - (L.back || 4);
+    var Wd = 100, Hh = 40, X = function (i) { return 2 + i / n * 96; }, Y = function (v) { return Hh - (v - lo) / (hi - lo) * Hh; };
     var xy = pts.map(function (p) { return [X(p.i), Y(p.v)]; });
     var path = function (a) { return typeof _smoothPath === 'function' ? _smoothPath(a) : a.map(function (q, j) { return (j ? 'L' : 'M') + q[0].toFixed(2) + ' ' + q[1].toFixed(2); }).join(' '); };
-    var cut = pts.findIndex(function (p) { return p.i >= 3; });
+    var cut = pts.findIndex(function (p) { return p.i >= cutAt; });
     var older = cut > 0 ? xy.slice(0, cut + 1) : null, recent = xy.slice(Math.max(0, cut));
     var last = pts[pts.length - 1], lp = xy[xy.length - 1];
     var wash = path(recent) + ' L' + recent[recent.length - 1][0].toFixed(2) + ' ' + Hh + ' L' + recent[0][0].toFixed(2) + ' ' + Hh + ' Z';
-    var mon0 = addDays(caMonday(t), -49);
+    var mon0 = addDays(caMonday(t), -7 * n);
     var weeks = pts.map(function (p) { return { i: p.i, v: p.v, wk: addDays(mon0, 7 * p.i) }; });
-    var data = esc(JSON.stringify(weeks.map(function (w) { return [w.i, Math.round(w.v), w.wk, +(Y(w.v) / Hh * 100).toFixed(2)]; })));
+    var data = esc(JSON.stringify(weeks.map(function (w) { return [w.i, Math.round(w.v), w.wk, +(Y(w.v) / Hh * 100).toFixed(2), +(X(w.i)).toFixed(2)]; })));
     var tick = function (i, text, cls) { return '<span class="ca-line-xl' + (cls ? ' ' + cls : '') + '" style="left:' + (X(i) / Wd * 100).toFixed(2) + '%">' + esc(text) + '</span>'; };
-    return '<div class="ca-line-w" data-line="' + data + '" role="img" aria-label="Team e1RM total each week: ' + esc(weeks.map(function (w) { return dayMon(w.wk) + ' ' + w.v.toLocaleString() + ' ' + unit(); }).join(', ')) + '">' +
+    return '<div class="ca-line-w" data-line="' + data + '" role="img" aria-label="Team e1RM total each week: ' + esc(weeks.map(function (w) { return 'week of ' + dayMon(w.wk) + ', ' + Math.round(w.v).toLocaleString() + ' ' + unit(); }).join('; ')) + '">' +
       '<svg class="ca-line" viewBox="0 0 ' + Wd + ' ' + Hh + '" preserveAspectRatio="none" aria-hidden="true">' +
         '<defs><linearGradient id="caLineWash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="ca-line-a0"/><stop offset="1" class="ca-line-a1"/></linearGradient></defs>' +
         '<path class="ca-line-a" fill="url(#caLineWash)" d="' + wash + '"/>' +
@@ -922,120 +1065,135 @@
       '<span class="ca-line-end" style="right:' + (100 - lp[0]).toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"><b>' + Math.round(last.v).toLocaleString() + '</b> ' + esc(unit()) + '</span>' +
       '<span class="ca-line-hair" aria-hidden="true"></span><span class="ca-line-sel" aria-hidden="true"></span>' +
       '</div><div class="ca-line-x" aria-hidden="true">' + tick(pts[0].i, dayMon(addDays(mon0, 7 * pts[0].i)), 'is-first') +
-        (pts[0].i < 3 ? tick(3, '4 weeks ago') : '') + tick(7, 'Now', 'is-last') + '</div>';
+        (pts[0].i < cutAt ? tick(cutAt, '4 weeks ago') : '') + tick(n, 'Now', 'is-last') + '</div>';
   }
-  // 3. Strength: is the team getting stronger? The total's change as the answer, the line, each lift's change.
+  var LIFT_W = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' }, LIFT_K = { squat: 'S', bench: 'B', deadlift: 'D' };
+  // Each lift's change: its letter on a mark in its lift colour (the colour is the mark, the words stay ink).
+  function liftChipsHtml(st, full) {
+    return '<div class="ca-lchips' + (full ? ' is-full' : '') + '">' + LIFTS3.map(function (L) {
+      var o = st.lifts[L];
+      return '<span class="ca-lchip lift-' + L + '"><i class="ca-lchip-k" aria-hidden="true">' + (full ? '' : LIFT_K[L]) + '</i>' + (full ? '<span class="ca-lchip-l">' + LIFT_W[L] + '</span>' : '<span class="ca-sr">' + LIFT_W[L] + '</span>') +
+        '<b>' + (o.n ? esc(full ? caPct(o.pct) : caPct(o.pct).replace('%', '')) : '<span class="ca-sr">no data</span>–') + '</b>' + (o.n && !full ? '<span class="ca-sr">%</span>' : '') + '</span>';
+    }).join('') + '</div>';
+  }
+  function strengthAria(st) {
+    var T = st.total, dir = T.kg > 0.05 ? 'up' : T.kg < -0.05 ? 'down' : 'flat';
+    return 'Team e1RM total ' + (dir === 'flat' ? 'flat' : dir + ' ' + caPct(Math.abs(T.pct)).replace(/^[+−]/, '')) + ' over the last 4 weeks, ' + plural(T.n, 'lifter') + '. ' +
+      LIFTS3.map(function (L) { return LIFT_W[L] + ' ' + (st.lifts[L].n ? caPct(st.lifts[L].pct) : 'no data'); }).join(', ');
+  }
+  // A tile's head: its name and its window on one line, the answer as a numeral, a few words. The head is the
+  // tile's one button: its target is the whole tile (it opens the sheet with the full chart and the people).
+  function tileHead(name, win, num, words, attr, aria) {
+    return '<button type="button" class="ca-sum-head is-tile" ' + attr + ' aria-label="' + esc(aria) + '">' +
+      '<span class="ca-t2-top"><span class="ca-t2-l">' + esc(name) + '</span><span class="ca-h-meta">' + esc(win) + '</span></span>' +
+      '<b class="ca-sum-num">' + num + '</b><span class="ca-sum-s">' + esc(words) + '</span></button>';
+  }
+  // 3. Strength, as a tile: the team's e1RM change over 4 weeks, its 8-week line, each lift's change.
   function strengthHtml(X, S) {
     var st = S.strength, T = st.total;
-    var head = secHead('Strength', metaHtml('Last 4 weeks'));
     if (!T.n) {
-      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l2 ca-str ca-rise is-none"><p class="ca-sum-none"><b>Shows after 8 weeks of logs</b>' +
-        'Each lifter’s best e1RM of the last 4 weeks against the 4 before, for the team.</p></div></div>';
+      return '<div class="ca-sum ca-str ca-t2 ca-rise is-none"><span class="ca-t2-top"><span class="ca-t2-l">Strength</span><span class="ca-h-meta">4 weeks</span></span>' +
+        '<p class="ca-sum-none"><b>After 8 weeks of logs</b>Each lifter’s best e1RM now against 4 weeks ago.</p></div>';
     }
-    var lifts = LIFTS3.map(function (L) {
-      var o = st.lifts[L];
-      return '<span class="ca-lift lift-' + L + '"><i class="ca-lift-m" aria-hidden="true"></i><span class="ca-lift-l">' + (L === 'squat' ? 'Squat' : L === 'bench' ? 'Bench' : 'Deadlift') + '</span>' +
-        '<b class="ca-lift-v">' + (o.n ? esc(caPct(o.pct)) : '<span class="ca-sr">no data</span>') + '</b></span>';
-    }).join('');
-    var top = st.movers[0], dir = T.kg > 0.05 ? 'up' : T.kg < -0.05 ? 'down' : 'flat';
-    var sub = plural(T.n, 'lifter') + (st.stalled.length ? ' · ' + st.stalled.length + ' flat' : top && top.kg > 0.05 ? ' · ' + first(top.name) + ' moved most' : '');
-    var aria = 'Team e1RM total ' + (dir === 'up' ? 'up ' : dir === 'down' ? 'down ' : 'flat, ') + caPct(Math.abs(T.pct)).replace(/^[+−]/, '') + ' over the last 4 weeks, ' + plural(T.n, 'lifter') + '. Squat ' + caPct(st.lifts.squat.pct) + ', bench ' + caPct(st.lifts.bench.pct) + ', deadlift ' + caPct(st.lifts.deadlift.pct) + '. Show who moved most and who is flat';
-    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l2 ca-str ca-rise pf-' + (dir === 'down' ? 'down' : dir === 'up' ? 'up' : 'steel') + '">' +
-      '<button type="button" class="ca-sum-head" data-sheet="movers" aria-label="' + esc(aria) + '">' +
-        '<b class="ca-sum-num">' + esc(caPct(T.pct)) + '</b><span class="ca-sum-tx"><span class="ca-sum-t">Team e1RM total</span><span class="ca-sum-s">' + esc(sub) + '</span></span>' +
-        '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button>' +
-      lineHtml(S.line, S.t) +
-      '<div class="ca-lifts">' + lifts + '</div></div></div>';
+    var words = st.stalled.length ? plural(st.stalled.length, 'lifter') + ' flat' : 'Team e1RM';
+    return '<div class="ca-sum ca-str ca-t2 ca-rise">' + tileHead('Strength', '4 weeks', esc(caPct(T.pct)), words, 'data-sheet="movers"', strengthAria(st) + '. Show who moved most and who is flat') +
+      miniLineHtml(S.line) + liftChipsHtml(st) + '</div>';
   }
-  // 4. Effort against what was written: one bar split three ways, each part named and counted.
+  // 4. Effort against what was written, as a tile: how many sets came in on target, one bar split three ways.
+  function effortBar(E, mini) {
+    var segs = [['easier', E.easier], ['on', E.on], ['harder', E.harder]];
+    return '<div class="ca-ebar' + (mini ? ' is-mini' : '') + '" aria-hidden="true">' + segs.filter(function (g) { return g[1] > 0; }).map(function (g, i) {
+      return '<i class="ca-eseg is-' + g[0] + '" data-seg="' + g[0] + '" style="flex-grow:' + g[1] + ';--i:' + i + '"></i>';
+    }).join('') + '</div>';
+  }
   function effortHtml(X, S) {
     var E = S.effort;
-    var head = secHead('Effort', metaHtml('Last 7 days'));
     if (!E.total) {
-      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-eff ca-rise is-none"><p class="ca-sum-none"><b>No RPE logged in the last 7 days</b>' +
-        'Each set lands here against the RPE you wrote for it: on target, harder or easier.</p></div></div>';
+      return '<div class="ca-sum ca-eff ca-t2 ca-rise is-none"><span class="ca-t2-top"><span class="ca-t2-l">Effort</span><span class="ca-h-meta">7 days</span></span>' +
+        '<p class="ca-sum-none"><b>No RPE logged</b>Each set lands here against the RPE you wrote.</p></div>';
     }
     var hot = E.hot.map(function (h) { return first(h.name); });
-    var segs = [['easier', 'Easier', E.easier], ['on', 'On target', E.on], ['harder', 'Harder', E.harder]];
-    // The bar is the picture: a finger anywhere along it picks the part under it (wireHome). Its keys below are
-    // the 44 pt controls a screen reader and a keyboard use; the parts themselves are too thin to be targets.
-    var bar = '<div class="ca-ebar" aria-hidden="true">' + segs.filter(function (g) { return g[2] > 0; }).map(function (g, i) {
-      return '<i class="ca-eseg is-' + g[0] + '" data-seg="' + g[0] + '" style="flex-grow:' + g[2] + ';--i:' + i + '"></i>';
-    }).join('') + '</div>';
-    var legend = '<div class="ca-elegend">' + segs.map(function (g) {
-      return '<button type="button" class="ca-ekey is-' + g[0] + (g[2] ? '' : ' is-zero') + '" data-eff="' + g[0] + '"><i class="ca-ekey-m" aria-hidden="true"></i><b>' + g[2] + '</b><span>' + esc(g[1].toLowerCase()) + '</span></button>';
-    }).join('') + '</div>';
-    var headTx = '<b class="ca-sum-num">' + E.on + '</b><span class="ca-sum-tx"><span class="ca-sum-t">of ' + plural(E.total, 'set') + ' on target</span><span class="ca-sum-s">' +
-      esc(E.harder ? 'Running hot: ' + nameList(hot, 2) + (E.over1 ? ' · ' + E.over1 + ' a full point over' : '') : 'Within 0.5 RPE of what you wrote') + '</span></span>';
-    var headEl = E.harder ? '<button type="button" class="ca-sum-head" data-sheet="hot" aria-label="' + esc(E.on + ' of ' + E.total + ' sets on target, ' + E.harder + ' harder than written. Show who is running hot') + '">' + headTx + '<span class="ca-sum-go">' + ic('chev', 2.4) + '</span></button>'
-      : '<div class="ca-sum-head">' + headTx + '</div>';
-    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-eff ca-rise">' + headEl + bar + legend +
-      '<p class="ca-readout" data-readout="eff" aria-live="polite"></p></div></div>';
+    var aria = E.on + ' of ' + plural(E.total, 'set') + ' on target in the last 7 days, ' + E.harder + ' harder, ' + E.easier + ' easier' + (hot.length ? '. Running hot: ' + nameList(hot, 6) : '') + '. Show the sets and who is running hot';
+    return '<div class="ca-sum ca-eff ca-t2 ca-rise' + (E.harder ? ' has-hard' : '') + '">' + tileHead('Effort', '7 days', E.on + '<small> of ' + E.total + '</small>', hot.length ? 'Running hot: ' + nameList(hot, 1) : 'sets on target', 'data-sheet="hot"', aria) +
+      effortBar(E, true) +
+      '<p class="ca-ekeys" aria-hidden="true"><span class="is-harder"><i></i><b>' + E.harder + '</b> harder</span><span class="is-easier"><i></i><b>' + E.easier + '</b> easier</span></p></div>';
   }
-  function effortReadout(E, kind, X) {
+  function duoHtml(X, S) { return '<div class="ca-duo">' + strengthHtml(X, S) + effortHtml(X, S) + '</div>'; }
+  function effortReadout(E, kind) {
     if (!kind) return '';
-    if (kind === 'harder') return E.hot.slice(0, 2).map(function (h) { return first(h.name) + ': ' + (h.worst.title ? h.worst.title + ' ' : '') + '@' + num(h.worst.felt) + ' where you wrote @' + num(h.worst.wrote); }).join(' · ') + (E.hot.length > 2 ? ' · ' + (E.hot.length - 2) + ' more' : '');
+    if (kind === 'harder') return E.hard.slice(0, 2).map(function (h) { return first(h.name) + ': ' + (h.title ? h.title + ' ' : '') + '@' + num(h.felt) + ' where you wrote @' + num(h.wrote); }).join(' · ') + (E.hard.length > 2 ? ' · ' + (E.hard.length - 2) + ' more' : '') || 'No set a full point over what you wrote';
     var n = kind === 'on' ? E.on : E.easier;
-    return plural(n, 'set') + (kind === 'on' ? ' within 0.5 RPE of what you wrote' : ' 0.5 RPE or more under what you wrote');
+    return plural(n, 'set') + (kind === 'on' ? ' within 0.5 RPE of what you wrote' : ' a full point or more under what you wrote');
   }
-  // 5. Meets: the next 12 weeks on one lane, each lifter's face at their meet, the nearest one's countdown.
+  // 5. Meets, as a tile: the next 12 weeks on one lane, a face at each meet (a crowded meet is one face and "+N"),
+  // the nearest meet the page hasn't already led with set big as its countdown.
   function meetsHtml(X, S) {
-    var L = S.lane;
-    var head = secHead('Meets', '<button type="button" class="ca-h-end" data-sc="meets">All meets</button>');
-    if (!L.marks.length) {
-      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-mt ca-rise is-none"><p class="ca-sum-none"><b>No meets in the next 12 weeks</b>' +
-        'Plan one from a lifter’s page and it lands here, with the countdown.</p></div></div>';
+    var G = S.groups || [], C = S.countdown;
+    var top = '<span class="ca-t2-top"><span class="ca-t2-l">Meets</span><button type="button" class="ca-h-end" data-sc="meets">All meets</button></span>';
+    if (!G.length || !C) {
+      return '<div class="ca-sum ca-mt ca-rise is-none">' + top + '<p class="ca-sum-none"><b>No meets in the next 12 weeks</b>' +
+        'Plan one from a lifter’s page and it lands here, with the countdown.</p></div>';
     }
-    var n = L.next, who = n.ids.map(firstOf);
-    var after = L.marks.filter(function (m) { return n.ids.indexOf(m.id) < 0; })[0] || null;
-    var big = n.days <= 0 ? 'Today' : n.days === 1 ? 'Tomorrow' : n.days + ' days';
-    var rowOf = function (id) { return X.rows.filter(function (r) { return r.athlete.id === id; })[0]; };
-    var faces = L.marks.map(function (m, i) {
-      var r = rowOf(m.id), fam = r ? famOf(r, X) : '';
-      var when = m.days <= 0 ? 'today' : m.days === 1 ? 'tomorrow' : 'in ' + m.days + ' days';
-      return '<button type="button" class="ca-lane-f' + (fam ? ' pf-' + fam : '') + '" data-meetplan="' + esc(m.id) + '" style="--x:' + m.x.toFixed(4) + ';--z:' + (L.marks.length - i) + '" aria-label="' + esc(m.name + ': ' + m.meet + ', ' + when + '. Open the meet plan') + '">' +
-        '<i class="ca-lane-stem" aria-hidden="true"></i>' + avHtml(athleteOf(m.id), 'is-36') + '<i class="ca-lane-more" aria-hidden="true"></i></button>';
+    var who = C.ids.map(firstOf);
+    var big = C.days <= 0 ? 'Today' : C.days === 1 ? 'Tomorrow' : C.days + ' days';
+    var sub = nameList(who, 3);
+    if (C.skipped.length) sub += ' · ' + nameList(C.skipped.reduce(function (a, g) { return a.concat(g.ids.map(firstOf)); }, []), 2) + ' compete' + (C.skipped.reduce(function (n, g) { return n + g.ids.length; }, 0) === 1 ? 's' : '') + (C.skipped[0].days <= 0 ? ' today' : C.skipped[0].days === 1 ? ' tomorrow' : ' in ' + C.skipped[0].days + ' days');
+    else if (C.after) sub += ' · then ' + nameList(C.after.ids.map(firstOf), 1) + ' ' + (C.after.days === 1 ? 'tomorrow' : 'in ' + C.after.days + ' days');
+    var faces = G.map(function (g, i) {
+      var when = g.days <= 0 ? 'today' : g.days === 1 ? 'tomorrow' : 'in ' + g.days + ' days';
+      var one = g.ids.length === 1, a = athleteOf(g.ids[0]);
+      var label = (one ? a.name : nameList(g.ids.map(firstOf), 6)) + ': ' + g.meet + ', ' + when + (one ? '. Open the meet plan' : '. Open the meets');
+      return '<button type="button" class="ca-lane-f" ' + (one ? 'data-meetplan="' + esc(g.ids[0]) + '" data-plan="' + esc(g.ids[0]) + '"' : 'data-sc="meets"') + ' data-more="' + (g.ids.length - 1) + '" data-label="' + esc(label) + '" style="--x:' + g.x.toFixed(4) + ';--z:' + (G.length - i) + '" aria-label="' + esc(label) + '">' +
+        '<i class="ca-lane-stem" aria-hidden="true"></i>' + avHtml(a, 'is-36') + '<i class="ca-lane-more" aria-hidden="true">' + (one ? '' : '+' + (g.ids.length - 1)) + '</i></button>';
     }).join('');
     var ticks = '';
     for (var w = 1; w < 12; w++) ticks += '<i class="ca-lane-tick' + (w % 4 ? '' : ' is-major') + '" style="--x:' + (w / 12).toFixed(4) + '"></i>';
-    var marks = L.marks.map(function (m) { return '<i class="ca-lane-mark" style="--x:' + m.x.toFixed(4) + '"></i>'; }).join('');
+    var marks = G.map(function (g) { return '<i class="ca-lane-mark" style="--x:' + g.x.toFixed(4) + '"></i>'; }).join('');
     var lab = function (w, t) { return '<span class="ca-lane-xl" style="--x:' + (w / 12).toFixed(4) + '">' + esc(t) + '</span>'; };
-    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-mt ca-rise">' +
-      '<div class="ca-sum-head"><b class="ca-sum-num">' + esc(big) + '</b><span class="ca-sum-tx"><span class="ca-sum-t">' + esc(n.name) + '</span><span class="ca-sum-s">' +
-        esc(nameList(who, 3) + (after ? ' · then ' + first(after.name) + ' ' + (after.days === 1 ? 'tomorrow' : 'in ' + after.days + ' days') : '')) + '</span></span></div>' +
+    return '<div class="ca-sum ca-mt ca-rise">' + top +
+      '<div class="ca-sum-head"><b class="ca-sum-num">' + esc(big) + '</b><span class="ca-sum-tx"><span class="ca-sum-t">' + esc(C.meet) + '</span><span class="ca-sum-s">' + esc(sub) + '</span></span></div>' +
       '<div class="ca-lane" role="group" aria-label="Meets in the next 12 weeks"><div class="ca-lane-faces">' + faces + '</div>' +
         '<div class="ca-lane-track" aria-hidden="true">' + ticks + marks + '</div>' +
         '<div class="ca-lane-x" aria-hidden="true">' + lab(0, 'Now') + lab(4, '4 wk') + lab(8, '8 wk') + lab(12, '12 wk') + '</div></div>' +
-      '</div></div>';
+      '</div>';
   }
-  // The lane's faces step up a tier when they'd touch the one before (caLaneTiers); a third in a cluster folds
-  // into the face before it as "+n". Measured after the lane is laid out, and again when it resizes.
+  // The lane's faces step up a tier when they'd touch the one before (caLaneTiers). A face is a whole meet, so a
+  // fold (only when three tiers are full) folds a whole meet into the one before it: that face then opens the
+  // list of meets, never one lifter's plan. Measured after the lane is laid out, and again when it resizes.
   function layoutLane(area) {
     var lane = area && area.querySelector('.ca-lane');
     if (!lane) return;
     var place = function () {
-      var w = lane.clientWidth, fs = lane.querySelectorAll('.ca-lane-f');
+      var w = lane.clientWidth, fs = [].slice.call(lane.querySelectorAll('.ca-lane-f'));
       if (!w || !fs.length) return;
-      var F = 36, xs = [].map.call(fs, function (f) { return Number(f.style.getPropertyValue('--x')) * (w - F); });
-      var tiers = caLaneTiers(xs, F + 6, 2), lastShown = -1;
+      var F = 36, xs = fs.map(function (f) { return Number(f.style.getPropertyValue('--x')) * (w - F); });
+      var tiers = caLaneTiers(xs, F + 6, 3), lastShown = -1, extra = {};
       fs.forEach(function (f, i) {
-        f.classList.remove('is-folded'); f.removeAttribute('data-more');
+        f.classList.toggle('is-folded', tiers[i] < 0);
         f.style.setProperty('--tier', String(Math.max(0, tiers[i])));
-        if (tiers[i] < 0) { f.classList.add('is-folded'); if (lastShown >= 0) { var host = fs[lastShown]; host.setAttribute('data-more', String(Number(host.getAttribute('data-more') || 0) + 1)); } }
+        if (tiers[i] < 0) { if (lastShown >= 0) extra[lastShown] = (extra[lastShown] || 0) + Number(f.getAttribute('data-more') || 0) + 1; }
         else lastShown = i;
       });
-      fs.forEach(function (f) { var m = f.querySelector('.ca-lane-more'); if (m) m.textContent = f.getAttribute('data-more') ? '+' + f.getAttribute('data-more') : ''; });
-      lane.classList.toggle('has-tier', tiers.some(function (k) { return k > 0; }));
+      fs.forEach(function (f, i) {
+        var more = Number(f.getAttribute('data-more') || 0) + (extra[i] || 0), m = f.querySelector('.ca-lane-more'), plan = f.getAttribute('data-plan');
+        if (m) m.textContent = more ? '+' + more : '';
+        if (!more && plan) { f.setAttribute('data-meetplan', plan); f.removeAttribute('data-sc'); }
+        else { f.removeAttribute('data-meetplan'); f.setAttribute('data-sc', 'meets'); }
+        f.setAttribute('aria-label', (f.getAttribute('data-label') || '').replace(/\. Open the (meet plan|meets)$/, '') + (extra[i] ? ', and ' + plural(extra[i], 'lifter') + ' at meets beside it' : '') + (!more && plan ? '. Open the meet plan' : '. Open the meets'));
+      });
+      var top = Math.max.apply(null, tiers.concat([0]));
+      lane.style.setProperty('--tiers', String(top));
+      lane.classList.toggle('has-tier', top > 0);
     };
     place();
     if (typeof ResizeObserver !== 'undefined' && !lane._ro) { lane._ro = new ResizeObserver(function () { place(); }); lane._ro.observe(lane); }
   }
-  // 6. PRs: the count, and the faces that set them.
+  // 6. PRs, as a tile: the count, and the faces that set them.
   function prsHtml(X, S) {
-    var head = secHead('PRs', metaHtml('Last 7 days'));
+    var top = '<span class="ca-t2-top"><span class="ca-t2-l">PRs</span><span class="ca-h-meta">7 days</span></span>';
     if (!S.prs) {
-      return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-pr ca-rise is-none"><div class="ca-stats is-pr"><button type="button" class="ca-stat is-btn" data-wins="1" aria-label="No personal records in the last 7 days. Show the wins">' +
-        '<span class="ca-sum-none"><b>No PRs in the last 7 days</b>Every e1RM PR lands here the moment it’s logged.</span></button></div></div></div>';
+      return '<div class="ca-sum ca-pr ca-rise is-none">' + top + '<div class="ca-stats is-pr"><button type="button" class="ca-stat is-btn" data-wins="1" aria-label="No personal records in the last 7 days. Show the wins">' +
+        '<span class="ca-sum-none"><b>No PRs in the last 7 days</b>Every e1RM PR lands here the moment it’s logged.</span></button></div></div>';
     }
     var L0 = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
     var faces = S.wins.map(function (w) {
@@ -1043,7 +1201,7 @@
       return '<button type="button" class="ca-prf" data-prof="' + esc(w.id) + '" aria-label="' + esc(w.name + ': ' + lifts.join(', ') + ' PR' + (lifts.length > 1 ? 's' : '') + '. Open their progress') + '">' +
         '<span class="ca-prf-face">' + avHtml(athleteOf(w.id)) + '<i class="ca-prf-n">' + w.lifts.length + '</i></span><span class="ca-prf-l">' + esc(first(w.name)) + '</span></button>';
     }).join('');
-    return '<div class="ca-sec">' + head + '<div class="ca-sum is-l1 ca-pr ca-rise">' +
+    return '<div class="ca-sum ca-pr ca-rise">' + top + '<div class="ca-pr-body">' +
       '<div class="ca-stats is-pr"><button type="button" class="ca-stat is-btn" data-wins="1" aria-label="' + esc(plural(S.prs, 'personal record') + ' in the last 7 days, by ' + plural(S.wins.length, 'lifter') + '. Show the wins') + '">' +
         '<b>' + S.prs + '</b><span>' + (S.prs === 1 ? 'PR' : 'PRs') + '</span>' + ic('chev', 2.4) + '</button></div>' +
       '<div class="ca-pr-faces">' + faces + '</div></div></div>';
@@ -1084,7 +1242,7 @@
     var chRun = (s.challenges || []).filter(function (c) { return c && c.coachId === u.id && !c.endedAt && (!c.endsOn || String(c.endsOn).slice(0, 10) >= t); }).length;
     var tpls = (s.programTemplates || []).filter(function (x) { return x.coachId === u.id; }).length;
     var tile = function (key, cls, icon, label, value, sub, aria) {
-      return '<button type="button" class="ca-tile ' + cls + '" data-sc="' + key + '" aria-label="' + esc(aria || (label + ': ' + value + (sub ? ', ' + sub : ''))) + '">' +
+      return '<button type="button" class="ca-tile ' + cls + '" data-sc="' + key + '" aria-label="' + esc(aria || (label + (value != null ? ': ' + value : '') + (sub ? ', ' + sub : ''))) + '">' +
         '<span class="ca-tic">' + ic(icon) + '</span><span class="ca-tl">' + esc(label) + '</span>' +
         (value != null ? '<b class="ca-tv">' + esc(value) + '</b>' : '') + (sub ? '<span class="ca-ts' + (key === 'clients' && money ? ' is-warn' : '') + (key === 'checkins' && ciFlag ? ' is-warn' : '') + '">' + esc(sub) + '</span>' : '') + ic('chev', 2.2) + '</button>';
     };
@@ -1097,8 +1255,10 @@
       '</div></div>';
   }
   function reportRowHtml(top) {
+    // Its line is the week it covers: its own numbers (last week's PRs, last week's trained) sat under this week's
+    // on the same page and read as two answers to one question.
     var line = '';
-    try { var T = window.CoachReportUI && CoachReportUI.model ? CoachReportUI.model() : null; if (T && T.of) line = T.trained + ' of ' + T.of + ' trained' + (T.prs && T.prs.length ? ' · ' + plural(T.prs.length, 'PR') : ''); } catch (e) {}
+    try { var CR = window.CoachReport; if (CR && CR.lastWeek && CR.rangeLabel) { var lw = CR.lastWeek(todayIso()); line = CR.rangeLabel(lw.from, lw.to); } } catch (e) {}
     if (!window.CoachReportUI) return '';
     return '<button type="button" class="ca-rowcard ca-rise' + (top ? ' is-top' : '') + '" data-sc="report"><span class="ca-tic t-report">' + ic('chart') + '</span>' +
       '<span class="ca-rowcard-tx"><span class="ca-rowcard-t">Last week’s report</span>' + (line ? '<span class="ca-rowcard-s">' + esc(line) + '</span>' : '') + '</span>' + ic('chev', 2.2) + '</button>';
@@ -1109,12 +1269,9 @@
     var steps = typeof coachSetupSteps === 'function' ? coachSetupSteps() : [];
     var nm = first(u && u.name);
     var invited = steps[1] && steps[1].done;
-    // The one picture on Home, and only here: the bar Home is waiting to load, its first plate on (assets/3d,
-    // rendered in the brand studio: the gym light for the dark app, daylight for the light one).
-    var alt = 'A 25 kg plate on the bar, face in, the collar on';
-    var still = '<span class="pl-still"><img class="is-dark" src="assets/3d/first-plate-dark.webp" alt="' + alt + '" width="1080" height="480" decoding="async">' +
-      '<img class="is-light" src="assets/3d/first-plate-light.webp" alt="' + alt + '" width="1080" height="480" decoding="async"></span>';
-    var html = '<div class="ca-home ca-root is-fresh"><div class="ca-hero ca-welcome ca-rise">' + still +
+    // No picture: the owner's answer of 28 Oct (no plate, bar or lamp renders on Home). The welcome is the app's own
+    // lit card, the invite its one red; what Home becomes is said below in words, never sample numbers.
+    var html = '<div class="ca-home ca-root is-fresh"><div class="ca-hero ca-welcome ca-rise">' +
       '<p class="ca-hero-hi">' + esc(nm ? 'Welcome, ' + nm : 'Welcome') + '</p>' +
       '<h2 class="ca-welcome-t">' + (invited ? 'Your invite is out' : 'Bring in your first lifter') + '</h2>' +
       '<p class="ca-hero-sub">' + (invited ? 'They land here the moment they sign up with your link. Send another any time.' : 'Send them your link. They get the app and land here, with their week and the fix for anything off.') + '</p>' +
@@ -1142,8 +1299,6 @@
   function wireHome(area) {
     if (area._caWired) return;
     area._caWired = true;
-    // A touch anywhere off the strength line puts its readout away.
-    area.addEventListener('pointerdown', function (e) { var w = area.querySelector('.ca-line-w.is-scrub'); if (w && !w.contains(e.target)) lineRest(w); });
     area.addEventListener('click', function (e) {
       var t = e.target, b;
       if ((b = t.closest('[data-fix]'))) {
@@ -1160,14 +1315,9 @@
       if ((b = t.closest('[data-open]'))) { e.preventDefault(); openLifter(b.getAttribute('data-open'), b); return; }
       if ((b = t.closest('[data-lifters]'))) { e.preventDefault(); openLifters(b.getAttribute('data-lifters')); return; }
       if ((b = t.closest('[data-wins]'))) { e.preventDefault(); openWins(area._X); return; }
-      // The summary's marks: a day, a part of the effort bar, a face on the meets lane or the PRs.
+      // The summary's marks: a day on the week's strip (wireStrip picks it under a finger; a click lands here too),
+      // a tile's sheet, a face on the meets lane or the PRs.
       if ((b = t.closest('[data-day]'))) { e.preventDefault(); pickDay(area, b); return; }
-      if ((b = t.closest('[data-eff]'))) { e.preventDefault(); pickEffort(area, b.getAttribute('data-eff')); return; }
-      if ((b = t.closest('.ca-ebar'))) {
-        var segs = [].slice.call(b.querySelectorAll('[data-seg]')), hit = segs.filter(function (g) { var r = g.getBoundingClientRect(); return e.clientX >= r.left - 1 && e.clientX <= r.right + 1; })[0];
-        if (hit) { e.preventDefault(); pickEffort(area, hit.getAttribute('data-seg')); }
-        return;
-      }
       if ((b = t.closest('[data-sheet]'))) { e.preventDefault(); if (b.getAttribute('data-sheet') === 'movers') openMovers(area._X); else openHot(area._X); return; }
       if ((b = t.closest('[data-meetplan]'))) { e.preventDefault(); var mid = b.getAttribute('data-meetplan'); if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(mid); else openLifter(mid, b); return; }
       if ((b = t.closest('[data-prof]'))) { e.preventDefault(); P.pending = 'progress'; P.id = b.getAttribute('data-prof'); openLifter(P.id, b); return; }
@@ -1318,8 +1468,10 @@
   }
   function rowHtml(r, X, i) {
     var top = topJob(r, X.jobs), w = X.week(r);
-    var line = top && top.type === 'busy' && caBusyLine(top) ? caBusyLine(top) : CL() && CL().clLine ? CL().clLine(r, top && top.tier <= 3 ? top : null) : '';
-    var sev = caSev(top);
+    // Under Behind, the line says what they're behind on (Home's "1 behind" opens this list, so it answers why).
+    var bl = L.filter === 'behind' ? caBehindLine(r, w) : '';
+    var line = bl || (top && top.type === 'busy' && caBusyLine(top) ? caBusyLine(top) : CL() && CL().clLine ? CL().clLine(r, top && top.tier <= 3 ? top : null) : '');
+    var sev = bl ? 'watch' : caSev(top);
     var n = CL() && CL().clNumber ? CL().clNumber(r) : { text: '', tone: 'none', title: '' };
     return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52, { fam: caFamily(r, top) }) +
       '<span class="ca-row-main"><span class="ca-row-n">' + esc(r.athlete.name) + '</span>' +
@@ -1682,12 +1834,13 @@
       })));
     }, { cls: 'ca-wins-sheet' });
   }
-  // Strength's list: who moved most over the last 4 weeks (their total, the same window as Home), who is flat,
-  // and who has no 8 weeks yet. A row opens their Progress.
+  // Strength's sheet: the rule in one sentence, the team's 8 weeks as the full chart (scrub it for any week), each
+  // lift's change, then the people: who moved most over the last 4 weeks (their total, the same window as Home and
+  // their own page), who is flat, and who has no 8 weeks yet. A row opens their Progress.
   function openMovers(X) {
     if (typeof uiSheet !== 'function') return;
     X = X || model();
-    var st = (X.S || summaryModel(X)).strength;
+    var S = X.S || summaryModel(X), st = S.strength, T = st.total;
     var row = function (x, sub, close) {
       var a = athleteOf(x.id);
       return uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name || x.name, sub: sub, chevron: true,
@@ -1695,6 +1848,15 @@
     };
     var kgTxt = function (kg) { var v = Math.round(kgShow(kg)); return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + ' ' + unit(); };
     uiSheet('Strength, last 4 weeks', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ca-sheet-sub' }, 'Each lifter’s best e1RM on each main lift in the last 4 weeks, against their best in the 4 weeks before, added up for the team.'));
+      if (T.n) {
+        var dk = T.kg;
+        var card = el('div', { class: 'ca-sum ca-str is-sheet', html:
+          '<div class="ca-sum-head"><b class="ca-sum-num">' + esc(caPct(T.pct)) + '</b><span class="ca-sum-tx"><span class="ca-sum-t">Team e1RM total</span>' +
+          '<span class="ca-sum-s">' + esc(kgTxt(dk) + ' in all · ' + plural(T.n, 'lifter')) + '</span></span></div>' + lineHtml(S.line, S.t) + liftChipsHtml(st, true) });
+        sheet.appendChild(card);
+        wireLine(card);
+      }
       var up = st.movers.filter(function (x) { return x.kg > 0.05; }), flat = st.movers.filter(function (x) { return x.kg <= 0.05; });
       if (up.length) {
         sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Moved most'));
@@ -1710,44 +1872,99 @@
       }
     }, { cls: 'ca-movers-sheet' });
   }
-  // Effort's list: who ran hotter than you wrote in the last 7 days, worst set first. A row opens their page.
+  // Effort's sheet: the rule in one sentence, the bar with its three parts named and counted (each part a 44 pt
+  // key: tap it and the line under the bar says what's in it), then who is running hot by the triage's rule, worst
+  // set first. A row opens their page.
   function openHot(X) {
     if (typeof uiSheet !== 'function') return;
     X = X || model();
     var E = (X.S || summaryModel(X)).effort;
-    uiSheet('Running hot', function (sheet, close) {
-      sheet.appendChild(el('p', { class: 'ca-sheet-sub' }, 'Sets logged 0.5 RPE or more over what you wrote, the last 7 days.'));
-      if (!E.hot.length) { sheet.appendChild(el('div', { class: 'ca-empty', html: ic('gauge') + '<b>Nobody is running hot</b><p>Every set came in at or under what you wrote.</p>' })); return; }
+    uiSheet('Effort, last 7 days', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ca-sheet-sub' }, 'Every set logged with an RPE, against the RPE you wrote. On target is within half a point of it; harder or easier is a full point or more past it.'));
+      if (E.total) {
+        var segs = [['easier', 'Easier', E.easier], ['on', 'On target', E.on], ['harder', 'Harder', E.harder]];
+        var legend = '<div class="ca-elegend">' + segs.map(function (g) {
+          return '<button type="button" class="ca-ekey is-' + g[0] + (g[2] ? '' : ' is-zero') + '" data-eff="' + g[0] + '" aria-pressed="false" aria-label="' + esc(plural(g[2], 'set') + ' ' + g[1].toLowerCase()) + '"><i class="ca-ekey-m" aria-hidden="true"></i><b>' + g[2] + '</b><span>' + esc(g[1].toLowerCase()) + '</span></button>';
+        }).join('') + '</div>';
+        var card = el('div', { class: 'ca-sum ca-eff is-sheet', html:
+          '<div class="ca-sum-head"><b class="ca-sum-num">' + E.on + '<small> of ' + E.total + '</small></b><span class="ca-sum-tx"><span class="ca-sum-t">sets on target</span>' +
+          '<span class="ca-sum-s">' + esc(E.over1 ? plural(E.over1, 'set') + ' a full point or more over' : 'None a full point over what you wrote') + '</span></span></div>' +
+          effortBar(E, false) + legend + '<p class="ca-readout" data-readout="eff" aria-live="polite"></p>' });
+        sheet.appendChild(card);
+        card.addEventListener('click', function (e) {
+          var k = e.target.closest && e.target.closest('[data-eff]');
+          if (k) { pickEffort(card, k.getAttribute('data-eff'), E); return; }
+          var bar = e.target.closest && e.target.closest('.ca-ebar');
+          if (!bar) return;
+          var hit = [].slice.call(bar.querySelectorAll('[data-seg]')).filter(function (g) { var r = g.getBoundingClientRect(); return e.clientX >= r.left - 1 && e.clientX <= r.right + 1; })[0];
+          if (hit) pickEffort(card, hit.getAttribute('data-seg'), E);
+        });
+      }
+      sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Running hot'));
+      if (!E.hot.length) { sheet.appendChild(el('div', { class: 'ca-empty', html: ic('gauge') + '<b>Nobody is running hot</b><p>No set a full point over what you wrote, and nobody drifting half a point over across 3 or more sets.</p>' })); return; }
       sheet.appendChild(uiList(E.hot.map(function (h) {
         var a = athleteOf(h.id), w = h.worst;
-        var sub = (w.title ? w.title + ' ' : '') + '@' + num(w.felt) + ', you wrote @' + num(w.wrote) + (h.n > 1 ? ' · ' + plural(h.n, 'set') + ' over' : '');
+        var sub = h.why === 'over' ? (w.title ? w.title + ' ' : '') + '@' + num(w.felt) + ', you wrote @' + num(w.wrote) + (h.n > 1 ? ' · ' + plural(h.n, 'set') + ' a point or more over' : '')
+          : '+' + num(h.avg) + ' RPE across ' + plural(h.count, 'set');
         return uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name || h.name, sub: sub, chevron: true,
           onClick: function () { close(); setTimeout(function () { openLifter(h.id); }, 230); } });
       })));
     }, { cls: 'ca-hot-sheet' });
   }
-  // A day on the strip: its column lifts to ink and the line under the strip names who trained.
+  // A day on the week's strip: its column lifts to full colour and the line over the hero says who trained.
   function pickDay(area, b) {
-    var card = b.closest('.ca-wk'), S = area._X && area._X.S;
+    var card = b.closest('.ca-tw'), S = area._X && area._X.S;
     if (!card || !S) return;
-    var days = card.classList.contains('is-quiet') ? (S.lastStrip || S.strip) : S.strip;
+    var last = card.querySelector('.ca-strip.is-last') != null;
+    var days = last ? (S.lastStrip || S.strip) : S.strip;
     var d = days.filter(function (x) { return x.iso === b.getAttribute('data-day'); })[0];
-    card.querySelectorAll('.ca-sday[data-day]').forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+    if (!d) return;
+    var strip = card.querySelector('.ca-strip');
+    card.querySelectorAll('.ca-sday[data-day]').forEach(function (x) { x.classList.toggle('on', x === b); });
+    if (strip) {
+      var picks = days.filter(function (x) { return !x.future; });
+      strip.setAttribute('aria-valuenow', String(Math.max(0, picks.indexOf(d))));
+      strip.setAttribute('aria-valuetext', DAYW[d.dow] + ': ' + (d.n ? plural(d.n, 'session') + ', ' + nameList(d.who.map(firstOf), 6) : 'no sessions'));
+    }
     var ro = card.querySelector('[data-readout="week"]');
-    if (ro) setReadout(ro, (card.classList.contains('is-quiet') ? 'Last week · ' : '') + dayReadout(d));
+    if (ro) setReadout(ro, dayLine(d, area._X, last));
   }
-  // A part of the effort bar: it stays lit, the others step back, and the line under the bar says what's in it.
-  // The same part again puts the bar back.
-  function pickEffort(area, kind) {
-    var card = area.querySelector('.ca-eff'), S = area._X && area._X.S;
-    if (!card || !S) return;
+  // The strip under a finger: the nearest day, picked while the finger moves along it; arrows on a keyboard.
+  function wireStrip(area) {
+    var strip = area.querySelector('.ca-tw .ca-strip');
+    if (!strip || strip._wired) return;
+    strip._wired = true;
+    var cols = function () { return [].slice.call(strip.querySelectorAll('.ca-sday[data-day]')); };
+    var at = function (x) {
+      var best = null, bd = Infinity;
+      cols().forEach(function (c) { var r = c.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - x); if (d < bd) { bd = d; best = c; } });
+      return best;
+    };
+    var down = false;
+    strip.addEventListener('pointerdown', function (e) { down = true; try { strip.setPointerCapture(e.pointerId); } catch (x) {} var c = at(e.clientX); if (c) pickDay(area, c); });
+    strip.addEventListener('pointermove', function (e) { if (!down) return; var c = at(e.clientX); if (c && !c.classList.contains('on')) pickDay(area, c); });
+    strip.addEventListener('pointerup', function () { down = false; });
+    strip.addEventListener('pointercancel', function () { down = false; });
+    strip.addEventListener('click', function (e) { e.stopPropagation(); var c = e.target.closest && e.target.closest('[data-day]'); if (c) pickDay(area, c); });
+    strip.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+      e.preventDefault();
+      var cs = cols(), i = cs.indexOf(strip.querySelector('.ca-sday.on'));
+      var j = e.key === 'Home' ? 0 : e.key === 'End' ? cs.length - 1 : Math.max(0, Math.min(cs.length - 1, i + (e.key === 'ArrowLeft' ? -1 : 1)));
+      if (cs[j]) pickDay(area, cs[j]);
+    });
+  }
+  // A part of the effort bar (in its sheet): it stays lit, the others step back, and the line under the bar says
+  // what's in it. The same part again puts the bar back.
+  function pickEffort(card, kind, E) {
+    if (!card || !E) return;
     var was = card.getAttribute('data-pick');
     var now = was === kind ? '' : kind;
     if (now) card.setAttribute('data-pick', now); else card.removeAttribute('data-pick');
     card.querySelectorAll('[data-eff]').forEach(function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-eff') === now)); });
     card.querySelectorAll('[data-seg]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-seg') === now); });
     var ro = card.querySelector('[data-readout="eff"]');
-    if (ro) setReadout(ro, effortReadout(S.effort, now, area._X));
+    if (ro) setReadout(ro, effortReadout(E, now));
   }
   // Readouts change by a short cross-fade (the words, never the layout).
   function setReadout(node, text) {
@@ -1756,16 +1973,16 @@
     if (!hasDom || reducedMotion() || !node.animate) return;
     try { node.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }); } catch (e) {}
   }
-  // The strength line under a finger: the nearest week's total, a hairline at it. Scrubs while the finger moves
-  // (pointer capture), and stays on the week it was let go at; a tap outside the line puts it away.
+  // The strength line under a finger (its sheet): the nearest week's total, a hairline at it. Scrubs while the
+  // finger moves (pointer capture), and stays on the week it was let go at; a tap outside the line puts it away.
   // The line put away: the hairline goes, the subtitle comes back.
   function lineRest(w) {
     w.classList.remove('is-scrub');
     var sub = w.closest('.ca-str') && w.closest('.ca-str').querySelector('.ca-sum-s');
     if (sub && sub.hasAttribute('data-rest')) { sub.classList.remove('is-read'); setReadout(sub, sub.getAttribute('data-rest')); }
   }
-  function wireLine(area) {
-    var w = area.querySelector('.ca-line-w');
+  function wireLine(root) {
+    var w = root && root.querySelector('.ca-line-w');
     if (!w || w._wired) return;
     w._wired = true;
     var pts = [];
@@ -1778,11 +1995,10 @@
     var show = function (clientX) {
       var r = w.getBoundingClientRect(), fx = (clientX - r.left) / r.width * 100;
       var best = pts[0], bd = Infinity;
-      pts.forEach(function (p) { var d = Math.abs(2 + p[0] / 7 * 96 - fx); if (d < bd) { bd = d; best = p; } });
-      var x = 2 + best[0] / 7 * 96;
+      pts.forEach(function (p) { var d = Math.abs(p[4] - fx); if (d < bd) { bd = d; best = p; } });
       w.classList.add('is-scrub');
-      hair.style.left = x + '%';
-      sel.style.left = x + '%'; sel.style.top = best[3] + '%';
+      hair.style.left = best[4] + '%';
+      sel.style.left = best[4] + '%'; sel.style.top = best[3] + '%';
       if (sub) { sub.classList.add('is-read'); setReadout(sub, 'Week of ' + dayMon(best[2]) + ' · ' + best[1].toLocaleString() + ' ' + unit()); }
     };
     var down = false;
@@ -1790,6 +2006,8 @@
     w.addEventListener('pointermove', function (e) { if (down) show(e.clientX); });
     w.addEventListener('pointerup', function () { down = false; });
     w.addEventListener('pointercancel', function () { down = false; lineRest(w); });
+    var host = root.closest ? (root.closest('.ui-sheet') || root) : root;
+    host.addEventListener('pointerdown', function (e) { if (w.classList.contains('is-scrub') && !w.contains(e.target)) lineRest(w); });
   }
   function openCheckins() {
     if (typeof uiSheet !== 'function') return;
@@ -1845,8 +2063,8 @@
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
   }
-  // Home's light is the warm fire of the lifter app's Train (foundation v2: Today is the kilos under the warm
-  // top light); the action under it is fire with an ink label, so the two never read as one.
+  // Home's light is the warm fire of the lifter app's Train, at most 9% from above; the one action under it is the
+  // owner's crimson with a white label (28 Oct), so the light and the action never read as one.
   try { if (window.SCREEN_ACCENT && !SCREEN_ACCENT.home) SCREEN_ACCENT.home = 'fire'; } catch (e) {}
 
   window.CoachApp = {
@@ -1863,6 +2081,7 @@
     // Home's summary (pure)
     caDayStrip: caDayStrip, caTotalSeries: caTotalSeries, caTeamStrength: caTeamStrength, caTeamLine: caTeamLine, caEffortOf: caEffortOf,
     caEffortSplit: caEffortSplit, caMeetLane: caMeetLane, caLaneTiers: caLaneTiers, caPct: caPct,
+    caIsMeetWeek: caIsMeetWeek, caBehindLine: caBehindLine, caStrengthSeries: caStrengthSeries, caLaneGroups: caLaneGroups, caCountdown: caCountdown,
     openMovers: openMovers, openHot: openHot
   };
 })();

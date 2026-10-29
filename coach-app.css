@@ -17,8 +17,10 @@
      type     Archivo; the answer is a numeral: 64 for the one hero number (width 112, weight 800, tracking
               -0.04em), 22 for stats and steppers (tabular), units small, lowercase, in steel. Words on the
               coach scale 13 · 15 · 17 · 20 · 28 · 32.
-     red      one machined red a screen (#dc2637 to #c41a2c: its white label clears 4.5:1, the brighter fire
-              didn't). Glows, washes and coloured shadows: none.
+     red      one machined red a screen, the owner's crimson with a white label (28 Oct: "darker crimson,
+              white text"; #dc2637 to #c41a2c, the label 4.8 to 5.95:1), the same in both lights. Red is the
+              logo and that action only: pain, behind, over and missed are an orange triangle beside the ink
+              word. Glows, washes and coloured shadows: none.
      motion   a critically damped spring (k 260, c 33: no overshoot, ever) as a linear() curve, the same
               shape at three weights: press 380 ms, state 560 ms, heavy 740 ms (90% of the travel lands in
               170 / 250 / 335 ms). Entrances rise from opacity .45 (iOS drops a tap on content rising from
@@ -43,8 +45,8 @@ html:not(.desk) body.powa-app {
   --pl-raise-shade: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.45);
   --pl-light: 13%;
   --pl-light-edge: 24%;
-  --pl-red: linear-gradient(135deg, #ff3b4a 0%, #ff6a3d 100%);
-  --pl-red-ink: #0a0a0b;
+  --pl-red: linear-gradient(135deg, #dc2637 0%, #c41a2c 100%);
+  --pl-red-ink: #ffffff;
   --ca-press: var(--pl-inset-2);
   --ca-tint: var(--text-2);
   --ca-hair: rgba(255, 255, 255, 0.07);
@@ -82,8 +84,8 @@ html[data-theme="light"]:not(.desk) body.powa-app {
   --pl-light-edge: 26%;
   --ca-press: rgba(15, 15, 25, 0.06);
   --ca-hair: rgba(15, 15, 25, 0.08);
-  --ca-pain: #b4410c;
-  --ca-warn: #b4410c;
+  --ca-pain: #e06414;
+  --ca-warn: #e06414;
   --ca-gold: #8a5d00;
   --ca-live: #0f7d47;
   --ca-up: #0f7d47;
@@ -149,9 +151,9 @@ html:not(.desk) .ca-btn {
   transition: transform var(--pl-d-press) var(--pl-spring), filter 160ms ease-out, background-color 160ms ease-out;
 }
 html:not(.desk) .ca-btn svg { width: 20px; height: 20px; flex: none; }
-html:not(.desk) .ca-btn.is-red { background: var(--pl-red); color: var(--pl-red-ink) !important; font-weight: 700; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.16); }
-/* on chalk the action takes a 1 pt ink edge, so the fire never melts into a light ground */
-html[data-theme="light"]:not(.desk) .ca-btn.is-red { box-shadow: inset 0 0 0 1px var(--pl-red-ink), inset 0 2px 0 rgba(255, 255, 255, 0.3); }
+html:not(.desk) .ca-btn.is-red { background: var(--pl-red); color: var(--pl-red-ink) !important; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+/* in light the crimson sits on white by its own weight: a lit top edge and a soft contact shadow, no outline */
+html[data-theme="light"]:not(.desk) .ca-btn.is-red { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(120, 10, 20, 0.18), 0 6px 14px -8px rgba(120, 10, 20, 0.45); }
 html:not(.desk) .ca-btn.is-soft { background: var(--pl-inset-2); color: var(--text) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
 html[data-theme="light"]:not(.desk) .ca-btn.is-soft { box-shadow: none; }
 html:not(.desk) .ca-btn:active { transform: scale(0.97); transition-duration: 90ms; transition-timing-function: ease-out; }
@@ -343,14 +345,14 @@ html:not(.desk) body.powa-app {
   --pl-viz-steel: var(--text-3);
   --pl-viz-track: var(--pl-inset-2);
   --pl-viz-sq: #38c6ff; --pl-viz-bp: #a98bff; --pl-viz-dl: #ffbf3c;
-  --pl-viz-on: #34d982; --pl-viz-hard: #ff9f43;
+  --pl-viz-on: color-mix(in srgb, var(--text) 78%, transparent); --pl-viz-hard: #ff9f43; --pl-viz-done: #34d982;
   --pl-viz-gold: #f2c25b; --pl-viz-gold-ring: #f2c25b; --pl-viz-gold-edge: transparent;
   --pl-inset-solid: #101011;
   --pl-viz-ring: rgba(255, 255, 255, 0.1);
 }
 html[data-theme="light"]:not(.desk) body.powa-app {
   --pl-viz-sq: #0092c7; --pl-viz-bp: #8a68f3; --pl-viz-dl: #b47800;
-  --pl-viz-on: #0f7d47; --pl-viz-hard: #b4410c;
+  --pl-viz-on: color-mix(in srgb, var(--text) 78%, transparent); --pl-viz-hard: #e06414; --pl-viz-done: #12804a;
   --pl-viz-gold-ring: #a87400; --pl-viz-gold-edge: #8a5d00;
   --pl-inset-solid: #ededee;
   --pl-viz-ring: rgba(15, 15, 25, 0.09);
@@ -532,6 +534,165 @@ html:not(.desk) .ca-prf-face .ca-av { width: 42px; height: 42px; font-size: 15px
 html:not(.desk) .ca-prf-n { position: absolute; right: -4px; bottom: -3px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--pl-viz-gold); color: #1d1606; font: 800 11px/20px var(--font-num); font-style: normal; text-align: center; box-shadow: 0 0 0 2px var(--pl-inset-solid); }
 html:not(.desk) .ca-prf-l { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text-2); }
 
+/* =================================================================== THE FIRST SCREEN IS THE TEAM (synthesis, 29 Oct)
+   The lead's call after all three takes kept Needs you on the whole first screen: the first screen at 393 x 852
+   reads as the team. The week is the lit hero (the lifter app's ring hero: the ring, its number big, the words
+   beside it, Monday to Sunday under them), strength and effort are two pictures side by side, then who needs you
+   with the one red action, all above the tab bar. On a short screen (under 720 tall, an SE) the job comes second,
+   so the red never drops below the fold (coach-app.js SHORT_H). Every tile is one button: its whole face opens its
+   sheet, where the full chart and the people are. Type: 13 · 15 · 17 · 20 · 28 · 34 · 40, weights 500/650/800. */
+html:not(.desk) .ca-home > .ca-tw { margin-top: 2px; }
+/* the hero: lit by what it is about (sessions done, the green of done) from its top corner, like the lifter
+   app's Progress hero; an object (L3) with its contact shadow */
+html:not(.desk) .ca-tw {
+  padding: 14px 16px 16px; border-radius: 20px;
+  background: radial-gradient(120% 95% at 0% 0%, color-mix(in srgb, var(--pl-viz-done) 9%, transparent) 0%, transparent 62%), var(--pl-obj);
+  border: 1px solid color-mix(in srgb, var(--pl-viz-done) 18%, var(--pl-obj-edge)); box-shadow: var(--pl-obj-shade);
+}
+html[data-theme="light"]:not(.desk) .ca-tw { background: radial-gradient(120% 95% at 0% 0%, color-mix(in srgb, var(--pl-viz-done) 6%, transparent) 0%, transparent 62%), var(--pl-obj); border-color: color-mix(in srgb, var(--pl-viz-done) 14%, var(--pl-obj-edge)); }
+html:not(.desk) .ca-tw-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+html:not(.desk) .ca-tw .ca-hero-hi { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.005em; line-height: 1.3; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .ca-tw-body { position: relative; }
+html:not(.desk) .ca-tw .ca-stats.is-week { display: block; }
+html:not(.desk) .ca-tw .ca-stat.is-week { display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 16px; align-items: start; width: 100%; min-height: 120px; padding: 0; border-radius: 16px; }
+html:not(.desk) .ca-tw .ca-stat.is-week:active { background: none; }
+html:not(.desk) .ca-tw .ca-stat.is-week:active .ca-wk-tx { opacity: 0.6; }
+html:not(.desk) .ca-tw .ca-wk-b > svg { flex: none; width: 15px; height: 15px; margin-left: -1px; color: var(--text-3); }
+html:not(.desk) .ca-tw .ca-wk-ring { width: 120px; height: 120px; }
+html:not(.desk) .ca-tw .ca-tring-lip { stroke: transparent; }
+html:not(.desk) .ca-tw .ca-tring-fill { stroke: var(--pl-viz-done); }
+html:not(.desk) .ca-tw .ca-tring-track { stroke: var(--pl-viz-ring); }
+html:not(.desk) .ca-tw .ca-wk-c b { font-size: 40px; letter-spacing: -0.04em; }
+html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 30px; }
+html:not(.desk) .ca-tw .ca-wk-c small { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-tw .ca-wk-tx { gap: 4px; padding-top: 2px; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-tw .ca-wk-t { font-size: 17px; font-weight: 650; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+html:not(.desk) .ca-tw .ca-wk-s { font-size: 15px; line-height: 1.3; color: var(--text-2); }
+html:not(.desk) .ca-tw .ca-wk-b { display: flex; align-items: center; gap: 6px; max-width: 100%; margin-top: 0; font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+html:not(.desk) .ca-tw .ca-wk-b > span { flex: none; }
+html:not(.desk) .ca-tw .ca-wk-b.is-clear { font-weight: 500; color: var(--text-2); }
+html:not(.desk) .ca-tw .ca-wk-b .ca-wk-bn { flex: 0 1 auto; min-width: 0; padding: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: var(--text-2); }
+html:not(.desk) .ca-tw .ca-wk-bn::before { content: '\00b7\00a0'; }
+/* Monday to Sunday under the words: one picture under one finger (coach-app.js wireStrip) */
+html:not(.desk) .ca-tw .ca-strip { position: absolute; left: 136px; right: 0; bottom: 0; height: 62px; margin: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); touch-action: pan-y; cursor: pointer; border-radius: 12px; -webkit-tap-highlight-color: transparent; outline-offset: 2px; }
+html:not(.desk) .ca-tw .ca-strip::before { left: 2px; right: 2px; top: 42px; }
+html:not(.desk) .ca-tw .ca-sday { gap: 6px; padding: 0; border-radius: 10px; }
+html:not(.desk) .ca-tw .ca-sday-plot { height: 42px; gap: 3px; }
+html:not(.desk) .ca-tw .ca-sday-bar { width: 12px; height: calc(var(--h, 0) * 24px); min-height: 4px; border-radius: 3px 3px 0 0; background: var(--pl-viz-done); }
+html:not(.desk) .ca-tw .ca-sday-bar.is-zero { width: 10px; height: 2px; min-height: 2px; border-radius: 1px; background: var(--pl-viz-track); }
+html:not(.desk) .ca-tw .ca-sday.on .ca-sday-bar:not(.is-zero) { background: var(--pl-viz-done); }
+html:not(.desk) .ca-tw .ca-sday-n { font-size: 13px; color: var(--text-2); }
+html:not(.desk) .ca-tw .ca-sday.on .ca-sday-n { color: var(--text); }
+html:not(.desk) .ca-tw .ca-sday-l { display: grid; place-items: center; width: 20px; height: 16px; border-radius: 6px; font-size: 13px; color: var(--text-3); }
+html:not(.desk) .ca-tw .ca-sday.is-today .ca-sday-l { color: var(--text); font-weight: 800; }
+html:not(.desk) .ca-tw .ca-sday.on .ca-sday-l { color: var(--text); font-weight: 800; background: var(--pl-inset-2); }
+/* a quiet week: this week's ring is the plan, unlit; the strip is last week's, said under it */
+html:not(.desk) .ca-tw.is-quiet .ca-strip.is-last .ca-sday-bar:not(.is-zero) { background: color-mix(in srgb, var(--pl-viz-done) 70%, var(--pl-obj)); }
+html:not(.desk) .ca-tw.is-quiet .ca-strip.is-last::after { content: 'Last week'; position: absolute; right: 0; top: -2px; font-size: 13px; font-weight: 600; color: var(--text-3); pointer-events: none; }
+
+@media (max-width: 389px) {
+  html:not(.desk) .ca-tw .ca-stat.is-week { grid-template-columns: 112px minmax(0, 1fr); column-gap: 14px; min-height: 112px; }
+  html:not(.desk) .ca-tw .ca-wk-ring { width: 112px; height: 112px; }
+  html:not(.desk) .ca-tw .ca-strip { left: 126px; }
+  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 36px; }
+}
+@media (max-width: 369px) {
+  html:not(.desk) .ca-tw .ca-stat.is-week { grid-template-columns: 100px minmax(0, 1fr); column-gap: 12px; min-height: 100px; }
+  html:not(.desk) .ca-tw .ca-wk-ring { width: 100px; height: 100px; }
+  html:not(.desk) .ca-tw .ca-strip { left: 112px; }
+  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 32px; }
+}
+@media (max-width: 339px) {
+  html:not(.desk) .ca-tw .ca-strip { position: relative; left: auto; height: 62px; margin-top: 12px; }
+}
+/* strength and effort: two pictures side by side (one column under 390 pt, where a half is too narrow to read) */
+html:not(.desk) .ca-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+html:not(.desk) .ca-home.is-short .ca-duo { margin-top: 24px; }
+@media (max-width: 389px) { html:not(.desk) .ca-duo { grid-template-columns: minmax(0, 1fr); } }
+html:not(.desk) :is(.ca-t2, .ca-mt, .ca-pr) { padding: 14px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) .ca-t2-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 22px; }
+html:not(.desk) .ca-t2-l { font-size: 15px; font-weight: 650; letter-spacing: -0.005em; color: var(--text); }
+html:not(.desk) .ca-t2-top .ca-h-meta { font-weight: 500; }
+html:not(.desk) .ca-t2-top .ca-h-end { margin: -11px -4px; }
+html:not(.desk) .ca-sum-head.is-tile { position: static; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
+html:not(.desk) .ca-sum-head.is-tile::after { content: ''; position: absolute; inset: 0; border-radius: 20px; }
+html:not(.desk) .ca-sum-head.is-tile:active { opacity: 1; }
+html:not(.desk) .ca-t2:has(> .ca-sum-head.is-tile:active) { background: color-mix(in srgb, var(--text) 5%, var(--ca-card)); }
+html:not(.desk) .ca-sum-head.is-tile .ca-sum-num { margin-top: 8px; font-size: 34px; }
+html:not(.desk) .ca-sum-num small { margin-left: 4px; font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; color: var(--text-2); }
+html:not(.desk) .ca-sum-head.is-tile .ca-sum-s { margin-top: 3px; font-size: 13px; font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+html:not(.desk) .ca-t2.is-none .ca-sum-none { margin-top: 10px; font-size: 13px; }
+html:not(.desk) .ca-t2.is-none .ca-sum-none b { font-size: 15px; }
+/* the tile's small line: no labels, its number says it */
+html:not(.desk) .ca-mline { position: relative; height: 40px; margin-top: 12px; pointer-events: none; }
+html:not(.desk) .ca-mline svg { display: block; width: 100%; height: 100%; overflow: visible; }
+html:not(.desk) .ca-mline .ca-line-dot { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; }
+html:not(.desk) .ca-mline .ca-line-dot.is-was { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; }
+/* each lift's change: its letter on a mark in its lift colour, the number in ink */
+html:not(.desk) .ca-lchips { display: flex; justify-content: space-between; gap: 4px; margin-top: 12px; }
+html:not(.desk) .ca-lchip { display: inline-flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
+html:not(.desk) .ca-lchip.lift-squat { --lcv: var(--pl-viz-sq); }
+html:not(.desk) .ca-lchip.lift-bench { --lcv: var(--pl-viz-bp); }
+html:not(.desk) .ca-lchip.lift-deadlift { --lcv: var(--pl-viz-dl); }
+html:not(.desk) .ca-lchip-k { flex: none; display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 5px; background: var(--lcv); color: #0a0a0b; font: 800 11px/1 var(--font-num); font-style: normal; }
+html:not(.desk) .ca-lchip b { font-family: var(--font-num); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-lchips.is-full { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-lchips.is-full .ca-lchip { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 7px; row-gap: 2px; }
+html:not(.desk) .ca-lchips.is-full .ca-lchip + .ca-lchip { padding-left: 14px; border-left: 1px solid var(--ca-hair); }
+html:not(.desk) .ca-lchips.is-full .ca-lchip-k { width: 8px; height: 8px; border-radius: 50%; }
+html:not(.desk) .ca-lchips.is-full .ca-lchip-l { font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .ca-lchips.is-full b { grid-column: 1 / -1; font-size: 20px; font-weight: 800; }
+/* the tile's effort bar and its keys (the 44 pt keys live in its sheet, with the readout) */
+html:not(.desk) .ca-ebar.is-mini { height: 10px; margin-top: 14px; padding: 0; pointer-events: none; }
+html:not(.desk) .ca-ebar.is-mini .ca-eseg:first-child { border-radius: 5px 2px 2px 5px; }
+html:not(.desk) .ca-ebar.is-mini .ca-eseg:last-child { border-radius: 2px 5px 5px 2px; }
+html:not(.desk) .ca-ebar.is-mini .ca-eseg:only-child { border-radius: 5px; }
+html:not(.desk) .ca-ekeys { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 2px; margin: 12px 0 0; font-size: 13px; line-height: 16px; color: var(--text-2); }
+html:not(.desk) .ca-ekeys > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+html:not(.desk) .ca-ekeys b { font-family: var(--font-num); font-weight: 750; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-ekeys .is-harder i { width: 9px; height: 8px; background: var(--pl-viz-hard); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) .ca-ekeys .is-easier i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--pl-viz-steel); }
+html:not(.desk) .ca-eff.has-hard .ca-sum-s::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 5px; background: var(--pl-viz-hard); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+/* the sheets: the full chart on its card, the people under it */
+html:not(.desk) .ca-sum.is-sheet { margin: 4px 0 4px; padding: 16px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; }
+html:not(.desk) .ca-sum.is-sheet .ca-ebar { margin-top: 10px; }
+html:not(.desk) .ca-sheet-sub { margin: 0 4px 14px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+
+/* who needs you: its head ("4 need you", the unread beside it) on the ground, the one job lifted under it */
+html:not(.desk) .ca-need { margin-top: 24px; }
+html:not(.desk) .ca-home.is-short .ca-need { margin-top: 20px; }
+html:not(.desk) .ca-need > .ca-hero { padding: 0 4px; margin: 0 0 10px; background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; }
+html:not(.desk) .ca-need .ca-hero-head { align-items: center; gap: 8px; margin: 0; min-height: 44px; }
+html:not(.desk) .ca-need .ca-big { font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+html:not(.desk) .ca-need .ca-big-w { font-size: 20px; font-weight: 700; letter-spacing: -0.016em; }
+html:not(.desk) .ca-need .ca-big-w.is-clear { font-size: 20px; font-weight: 700; }
+html:not(.desk) .ca-need .ca-big-ok { width: 28px; height: 28px; }
+html:not(.desk) .ca-need .ca-big-ok svg { width: 16px; height: 16px; }
+html:not(.desk) .ca-need .ca-hero-sub { margin: 0 0 4px; }
+html:not(.desk) .ca-need .ca-hero + .ca-h { margin-top: 20px; }
+
+/* meets and PRs: pictures too, so tiles with their names inside, like the two above */
+html:not(.desk) .ca-home > .ca-mt { margin-top: 32px; }
+html:not(.desk) .ca-home > .ca-pr { margin-top: 12px; }
+html:not(.desk) .ca-mt > .ca-sum-head { margin-top: 10px; }
+html:not(.desk) .ca-mt.is-none .ca-sum-none, html:not(.desk) .ca-pr.is-none .ca-sum-none { margin-top: 10px; }
+html:not(.desk) .ca-lane-faces { height: calc(46px + var(--tiers, 0) * 40px); }
+html:not(.desk) .ca-lane.has-tier .ca-lane-faces { height: calc(46px + var(--tiers, 1) * 40px); }
+html:not(.desk) .ca-lane-more { font-family: var(--font-num); }
+html:not(.desk) .ca-pr { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 14px; }
+html:not(.desk) .ca-pr-body { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+html:not(.desk) .ca-pr.is-none { padding: 14px; }
+html:not(.desk) .ca-pr.is-none .ca-stats.is-pr { margin-top: 0; }
+
+/* the bell's dot: news, not an alarm (red is the logo and the one action) */
+html:not(.desk) body.powa-app .sig-badge { background: var(--text); box-shadow: 0 0 0 2px var(--bg); }
+
+/* the one action elsewhere on the phone (the meet-day board and planner, a sheet's primary): the same crimson,
+   the same white label */
+html:not(.desk) body.powa-app :is(.md-btn-primary, .ui-sheet .btn-primary) { background: var(--pl-red); color: #fff !important; border-color: transparent; }
+html:not(.desk) body.powa-app .md-root :is(.md-pl-over, .md-cls-line.is-over) { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+html:not(.desk) body.powa-app .md-root :is(.md-pl-over, .md-cls-line.is-over)::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
 /* Coaching: what's one tap away, as one quiet grouped list at the end (the summary above carries the numbers
    that need a look): each row its glyph chip, its name, a line, and the one number worth going there for. The
    rows keep their tile classes (.is-wide for the two with money or answers waiting, .is-small for the rest). */
@@ -563,15 +724,10 @@ html:not(.desk) .ca-rowcard-tx { flex: 1; min-width: 0; display: flex; flex-dire
 html:not(.desk) .ca-rowcard-t { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 html:not(.desk) .ca-rowcard-s { font-size: 13px; color: var(--text-3); }
 
-/* the first run: the bar is empty but for its first plate (a still with a job: what Home is waiting for),
-   the invite as the red, the other steps, a sample of what Home becomes */
+/* the first run: the welcome is the app's own lit card with the invite as the red (no render: the owner's
+   answer of 28 Oct), the other steps, then what Home becomes, in words */
 html:not(.desk) .ca-welcome { padding: 0 20px 20px; }
-html:not(.desk) .pl-still { display: block; margin: 0 -20px 4px; aspect-ratio: 1080 / 480; overflow: hidden; border-radius: 19px 19px 0 0; }
-html:not(.desk) .pl-still img { display: block; width: 100%; height: 100%; object-fit: cover; }
-html:not(.desk) .pl-still .is-light { display: none; }
-html[data-theme="light"]:not(.desk) .pl-still .is-dark { display: none; }
-html[data-theme="light"]:not(.desk) .pl-still .is-light { display: block; }
-html:not(.desk) .ca-welcome:not(:has(.pl-still)) { padding-top: 18px; }
+html:not(.desk) .ca-welcome { padding-top: 20px; }
 html:not(.desk) .ca-welcome-t { margin: 8px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
 html:not(.desk) .ca-welcome .ca-btn { margin-top: 20px; }
 html:not(.desk) .ca-sample .ca-list { opacity: 0.86; }
@@ -826,22 +982,17 @@ html:not(.desk) .cp-maxes svg { width: 15px; height: 15px; }
 html:not(.desk) .cp-maxes:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .cp-done { margin: 14px 0 0; font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-hero .ca-btn { margin-top: 12px; }
-/* Programs owns blue 20 (foundation v2: every tab owns a plate, its paint on one focal object, matte enamel with
-   a lit lip, since blue against the platform is only 2.8:1). The block is that object: chalk type on the paint
-   (6.1:1), its numbers in a recessed well, never on the paint. A finished block carries the screen's action, and
-   the action never sits on paint, so then it stays a plain surface. */
-html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) {
-  background: #1f53b8; border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.45), 0 14px 28px -14px rgba(0, 0, 0, 0.8);
+/* the block: the app's own surface, lit from its top corner by the Programs cyan (the lifter app's hero light,
+   9%, its hairline tinted), the way every tab is lit by its own hue. No paint (the owner, 28 Oct: no plate
+   colours on the app). */
+html:not(.desk) section[data-pane="program"] .cp-hero {
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--acc) 9%, transparent) 0%, transparent 60%), var(--ca-card);
+  border-color: color-mix(in srgb, var(--acc) 18%, var(--ca-edge));
 }
-html[data-theme="light"]:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.22), 0 1px 2px rgba(15, 15, 25, 0.12), 0 12px 24px -14px rgba(15, 15, 25, 0.4); }
-html:not(.desk) body.powa-app section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-name { color: #f3f3f5; }
-html:not(.desk) body.powa-app section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-name:focus { background: rgba(255, 255, 255, 0.12) !important; }
-html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-blockmeta { color: #f0efec; }
-html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-ibtn { background: rgba(255, 255, 255, 0.16); color: #f3f3f5; }
-html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-maxes { background: rgba(8, 10, 18, 0.5); color: rgba(240, 239, 236, 0.86); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35); }
-html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-maxes b { color: #f3f3f5; }
-html:not(.desk) section[data-pane="program"] .cp-hero:not(:has(.ca-btn)) .cp-maxes b i { box-shadow: 0 0 0 1.5px rgba(8, 10, 18, 0.6); }
+html[data-theme="light"]:not(.desk) section[data-pane="program"] .cp-hero {
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--acc) 6%, transparent) 0%, transparent 60%), var(--ca-card);
+  border-color: color-mix(in srgb, var(--acc) 14%, var(--ca-edge));
+}
 
 /* the weeks: a segmented control (scrolls when a block is long), + and ⋯; the week on show sits raised */
 html:not(.desk) .cp-weeks-row { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
@@ -900,7 +1051,8 @@ html:not(.desk) .cp-set.is-none { font-size: 15px; color: var(--text-3); }
 html:not(.desk) .cp-note { font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .cp-lifted { font-size: 13px; line-height: 1.4; color: var(--text); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-lifted > span:first-child { color: var(--text-3); font-weight: 600; margin-right: 2px; }
-html:not(.desk) .cp-lifted .is-over { color: var(--ca-warn); }
+html:not(.desk) .cp-lifted .is-over { color: var(--text); font-weight: 650; }
+html:not(.desk) .cp-lifted .is-over::before { content: ''; display: inline-block; width: 8px; height: 7px; margin: 0 4px 0 1px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
 html:not(.desk) .cp-lifted s { color: var(--text-3); }
 html:not(.desk) .cp-lifted i { font-style: normal; color: var(--text-3); }
 html:not(.desk) .cp-exrow > svg { flex: none; width: 18px; height: 18px; margin-top: 11px; color: var(--text-3); }
@@ -916,11 +1068,11 @@ html:not(.desk) .cp-add-acts .ca-btn { min-height: 48px; padding: 0 12px; font-s
 /* Add exercise: the screen's red, an object floating above the tab bar */
 html:not(.desk) .cp-fab {
   position: fixed; z-index: 90; right: 16px; bottom: 16px; display: inline-flex; align-items: center; gap: 6px; height: 52px; padding: 0 20px 0 16px;
-  border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 700; cursor: pointer;
+  border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 650; cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.35), 0 14px 28px -12px rgba(0, 0, 0, 0.85);
   transition: transform var(--pl-d-press) var(--pl-spring), opacity 200ms ease-out, filter 140ms ease-out;
 }
-html[data-theme="light"]:not(.desk) .cp-fab { box-shadow: inset 0 0 0 1px var(--pl-red-ink), inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 2px 4px rgba(15, 15, 25, 0.16), 0 14px 26px -12px rgba(15, 15, 25, 0.42); }
+html[data-theme="light"]:not(.desk) .cp-fab { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(120, 10, 20, 0.16), 0 14px 26px -12px rgba(120, 10, 20, 0.42); }
 html.native:not(.desk) .cp-fab { bottom: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - 12px)) + 76px); }
 html:not(.desk) .cp-fab svg { width: 20px; height: 20px; }
 html:not(.desk) .cp-fab:active { transform: scale(0.95); filter: brightness(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
@@ -980,7 +1132,7 @@ html:not(.desk) .cp-blkmore-body .cp-sf { margin: 16px 0 0; }
 html:not(.desk) .cp-blkmore-body .cp-sf .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 html:not(.desk) .cp-blkmore-body .cp-sf .sf-field { min-width: 0; min-height: 44px; justify-content: space-between; background: var(--pl-inset-2); }
 html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-edit input.sf-in, html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf input.sf-in { flex: 1; width: 100%; min-width: 0; }
-html:not(.desk) body.powa-app .cp-blk-rm { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--ca-pain) !important; font: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
+html:not(.desk) body.powa-app .cp-blk-rm { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--text) !important; font: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) body.powa-app .cp-blk-rm:active { opacity: 0.6; }
 html:not(.desk) .cp-blk-logged { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; margin-top: 8px; }
@@ -1090,6 +1242,18 @@ html:not(.desk) .ca-sk-hero.is-short { padding: 18px 16px 20px; }
 html:not(.desk) .ca-sk-weeks { height: 44px; margin-top: 20px; border-radius: 14px; }
 html:not(.desk) .ca-sk-chips { display: flex; gap: 8px; margin-top: 12px; }
 html:not(.desk) .ca-sk-chip { width: 104px; height: 38px; border-radius: 999px; }
+/* Home's skeleton in its new shape: the week's hero, the two tiles, who needs you */
+html:not(.desk) .ca-sk-tw { padding: 14px 16px 16px; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); }
+html:not(.desk) .ca-sk-tw > .ca-sk-line:first-child { margin-top: 2px; }
+html:not(.desk) .ca-sk-twb { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: start; column-gap: 16px; margin-top: 14px; }
+html:not(.desk) .ca-sk-twb .ca-sk-tx { gap: 8px; padding-top: 4px; }
+html:not(.desk) .ca-sk-cols { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 9px; align-items: end; height: 44px; margin-top: 14px; }
+html:not(.desk) .ca-sk-col { height: 24px; border-radius: 4px; }
+html:not(.desk) .ca-sk-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+html:not(.desk) .ca-sk-t2 { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); }
+html:not(.desk) .ca-sk-num2 { height: 30px; border-radius: 8px; }
+html:not(.desk) .ca-sk-spark { height: 40px; border-radius: 10px; }
+html:not(.desk) .ca-sk-need { margin-top: 32px; padding: 0 4px; }
 html:not(.desk) .ca-stat b .ca-sk-stat { display: inline-block; vertical-align: -3px; width: 26px; height: 22px; border-radius: 7px; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-sk::after { animation: none; display: none; } }
 /* couldn't load: the screen's one card, calm, with Try again */

@@ -2703,6 +2703,14 @@ var MeetDay = (function () {
     if (daysBetween(today(), iso(meet.date)) <= 1) wrap.appendChild(btn('Meet day', 'md-btn-quiet', function (e) { e.stopPropagation(); before(); setTimeout(function () { openMeetsScreen(); }, opts && opts.before ? 220 : 0); }));
     return wrap;
   }
+  // Today's board, if one is set up and not finished (the demo has Autumn Open): open it; else the Meets screen,
+  // where today's meet can be started. The phone's "Open meet day" lands here.
+  function openTodayBoard() {
+    var t = today(), live = null;
+    try { live = listBoards().filter(function (b) { return b.date === t && b.status !== 'done'; })[0] || null; } catch (e) { live = null; }
+    if (live) { openMeetDayBoard(live.id); return; }
+    openMeetsScreen();
+  }
   function openMeetsScreen() {
     var sh = shell('Meets', '', { cls: 'md-meets-root' });
     sh.titles.innerHTML = '';
@@ -2809,7 +2817,7 @@ var MeetDay = (function () {
   function planFor(athleteId) { if (hasDom && athleteId) openAttemptPlanner(athleteId); }
   // The desk demo: today's meet day and its planned meets in the roster from the start.
   function deskDemo() { if (isDemo() && me() && me().userType !== 'athlete') demoStoreMeets(demoSeed()); }
-  return { pure: pure, lifterPlan: lifterPlan, lifterNextEl: lifterNextEl, openMeetsScreen: openMeetsScreen, plannerLink: plannerLink, planFor: planFor, deskDemo: deskDemo, buildPrint: buildPrint,
+  return { pure: pure, lifterPlan: lifterPlan, lifterNextEl: lifterNextEl, openMeetsScreen: openMeetsScreen, openTodayBoard: openTodayBoard, plannerLink: plannerLink, planFor: planFor, deskDemo: deskDemo, buildPrint: buildPrint,
     oddsMax: oddsMax,
     platesPerSide: platesPerSide, DEMO_ID: DEMO_ID, _board: function () { return B; } };
 })();

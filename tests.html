@@ -7247,12 +7247,14 @@ test("Home's strength: the last 4 weeks against the 4 before, summed per lift an
   eq(CA.caPct(3.06), '+3.1%'); eq(CA.caPct(3), '+3.0%', 'one decimal under 10'); eq(CA.caPct(-0.44), '−0.4%', 'a real minus');
   eq(CA.caPct(12.4), '+12%'); eq(CA.caPct(0.02), '0%'); eq(CA.caPct(null), '');
 });
-test("Home's effort: each logged set against what was written, three ways", () => {
+test("Home's effort: each logged set against what was written, three ways (the lifter page's within 0.5)", () => {
   const o = (rpe, felt, extra) => CA.caEffortOf(Object.assign({ completed: true, rpe, actualRpe: felt }, extra || {}));
-  eq(o(8, 8).kind, 'on'); eq(o(8, 8.5).kind, 'harder', 'half a point over is harder (the app flags drift at +0.5)');
-  eq(o(8, 9).over, 1, 'a full point over'); eq(o(8, 7.5).kind, 'easier');
-  eq(o(7, 8, { rpeHi: 8 }).kind, 'on', 'a range is written up to its top'); eq(o(7, 6.5, { rpeHi: 8 }).kind, 'easier', 'and from its low end');
-  eq(o(7, 8.5, { rpeHi: 8 }).kind, 'harder');
+  eq(o(8, 8).kind, 'on'); eq(o(8, 8.5).kind, 'on', 'half a point over is within 0.5: on target, as the lifter page says');
+  eq(o(8, 7.5).kind, 'on', 'and half a point under');
+  eq(o(8, 9).kind, 'harder', 'a full point over is harder (setOvershoot, the line the triage flags)'); eq(o(8, 9).over, 1);
+  eq(o(8, 7).kind, 'easier', 'a full point under');
+  eq(o(7, 8, { rpeHi: 8 }).kind, 'on', 'a range is written up to its top'); eq(o(7, 8.5, { rpeHi: 8 }).kind, 'on', 'half a point past its top is still within');
+  eq(o(7, 9, { rpeHi: 8 }).kind, 'harder', 'a point past its top'); eq(o(7, 6, { rpeHi: 8 }).kind, 'easier', 'a point under its low end');
   eq(o(8, null), null, 'no RPE felt'); eq(o('', 8), null, 'no RPE written'); eq(o(2, 3, { rir: true }), null, 'RIR is not RPE'); eq(o(8, 9, { attempt: true }), null, 'a meet attempt is not training');
   const set = (rpe, felt, extra) => Object.assign({ completed: true, rpe, actualRpe: felt }, extra || {});
   const E = CA.caEffortSplit([
@@ -7263,11 +7265,64 @@ test("Home's effort: each logged set against what was written, three ways", () =
     { id: 'b', name: 'Bo', set: set(8, 7), title: 'Bench', date: '2026-10-25' },
     { id: 'c', name: 'Cy', set: set(8, null) }
   ]);
-  eq(E.total, 5, 'sets with both RPEs'); eq(E.on, 1); eq(E.harder, 3); eq(E.easier, 1); eq(E.over1, 2);
+  eq(E.total, 5, 'sets with both RPEs'); eq(E.on, 2); eq(E.harder, 2); eq(E.easier, 1); eq(E.over1, 2);
   eq(E.on + E.harder + E.easier, E.total, 'every set in exactly one part');
-  eq(E.hot.map(h => h.id + h.n).join(','), 'b1,a2', 'worst set first');
+  eq(E.hot.map(h => h.id + ':' + h.why).join(','), 'b:over,a:over', 'a set a full point over runs hot, worst set first');
   eq(E.hot[0].worst.title + ' @' + E.hot[0].worst.felt + ' vs @' + E.hot[0].worst.wrote, 'Deadlift @9.5 vs @8');
+  eq(E.hard.map(h => h.id).join(','), 'b,a', 'the harder sets, worst first, for the readout');
   eq(CA.caEffortSplit([]).total, 0);
+});
+test("Home's effort: who is running hot is the triage's rule, never one half point", () => {
+  const set = (rpe, felt) => ({ completed: true, rpe, actualRpe: felt });
+  const S = (id, felts) => felts.map(f => ({ id, name: id.toUpperCase(), set: set(8, f), title: 'Squat', date: '2026-10-26' }));
+  const E = CA.caEffortSplit([].concat(S('cy', [8.5, 8.5, 8.5]), S('di', [8.5, 8.5]), S('ed', [8.5, 8, 8, 8, 8, 8, 8, 8]), S('fi', [8.5, 8.5, 8])));
+  eq(E.harder, 0, 'no set a point over'); eq(E.on, E.total, 'all within half a point');
+  eq(E.hot.map(h => h.id + ':' + h.why).join(','), 'cy:drift', 'half a point over across 3 or more sets is a drift (deskRpeDrift); 2 sets, or one, is noise');
+  eq(E.hot[0].avg, 0.5); eq(E.hot[0].count, 3);
+  eq(CA.caEffortSplit(S('fi', [8.5, 8.5, 8])).hot.length, 0, 'an average of +0.3 is not a drift');
+});
+test("Home's behind: the Lifters filter's rule, never a lifter in meet week", () => {
+  const w = (n, trained) => CA.caWeek(trained, n);
+  const r = (extra) => caRow('x', 'Xi', extra || {});
+  eq(CA.caIsBehind(r(), w(3, 1)), true, 'two sessions short in the last 7 days');
+  eq(CA.caIsBehind(r(), w(3, 2)), false, 'one short is not behind');
+  eq(CA.caIsBehind(r({ meet: { days: 0, meet: { name: 'Open' } } }), w(3, 0)), false, 'meet today: the taper is short by design');
+  eq(CA.caIsBehind(r({ meet: { days: 7, meet: { name: 'Open' } } }), w(3, 0)), false, 'meet inside the week');
+  eq(CA.caIsBehind(r({ meet: { days: 8, meet: { name: 'Open' } } }), w(3, 0)), true, 'a meet past the week does not excuse it');
+  eq(CA.caIsBehind(r({ reasons: [{ type: 'never', text: 'No sets yet' }] }), w(0, 0)), true, 'never logged a set, with a block written');
+  eq(CA.caBehindLine(r(), w(3, 1)), '1 of 3 sessions in the last 7 days', 'the row says what they are behind on');
+  eq(CA.caBehindLine(r({ reasons: [{ type: 'never' }] }), w(0, 0)), 'No sets logged yet');
+  eq(CA.caBehindLine(r(), w(3, 3)), '', 'not behind: no line');
+  eq(CA.caIsMeetWeek(r({ meet: { days: 3, meet: {} } })), true); eq(CA.caIsMeetWeek(r({ meet: { days: -1, meet: {} } })), false);
+});
+test("Home's strength line: the headline's own windows, slid back a week at a time", () => {
+  const D = 86400000, now = Date.parse('2026-10-29T12:00:00Z');
+  const day = (n) => new Date(now - n * D).toISOString().slice(0, 10);
+  const L = (lift, ago, e) => ({ lift, date: day(ago), e1rmComp: e });
+  // Ada: squat in both 4-week windows; bench only recently (not counted: the headline needs both windows).
+  const ada = [L('squat', 50, 200), L('squat', 40, 205), L('squat', 20, 210), L('squat', 3, 214), L('bench', 2, 120), L('accessory', 2, 999)];
+  // Bo: deadlift 45 days ago, then nothing until 5 days ago (the weeks between keep his best).
+  const bo = [L('deadlift', 45, 250), L('deadlift', 5, 255)];
+  const s = CA.caStrengthSeries([{ id: 'a', logs: ada }, { id: 'b', logs: bo }, { id: 'c', logs: [] }], now, 8, 28);
+  eq(s.values.length, 8); eq(s.pairs, 2, 'squat for Ada, deadlift for Bo: the pairs with both windows');
+  eq(s.now, 214 + 255, 'the last point is each pair’s best of the last 4 weeks (getE1RMMomentum recent)');
+  eq(s.before, 205 + 250, '4 weeks back it is the best of the 4 weeks before (getE1RMMomentum prior)');
+  eq(s.values[7], s.now); eq(s.values[3], s.before);
+  eq(Math.round(s.pct * 100) / 100, Math.round((469 - 455) / 455 * 10000) / 100, 'so the line rises by exactly the headline');
+  assert(s.values.every(v => v > 0), 'a week without a log keeps the last best: it never dips to nothing');
+  eq(CA.caStrengthSeries([{ id: 'a', logs: [L('squat', 3, 200)] }], now, 8, 28), null, 'one window only: no line');
+  eq(CA.caStrengthSeries([], now), null);
+});
+test("Home's meets: one face per meet, and the countdown never repeats the meet Needs you leads with", () => {
+  const m = (id, days, meet) => ({ id, name: id, days, x: days / 84, meet });
+  const G = CA.caLaneGroups([m('t', 0, 'Autumn Open'), m('e', 0, 'Autumn Open'), m('s', 33, 'City Classic'), m('a', 53, 'Nationals'), m('z', 33, 'Other Open')]);
+  eq(G.map(g => g.meet + ':' + g.ids.join('+')).join(','), 'Autumn Open:t+e,City Classic:s,Other Open:z,Nationals:a', 'same meet and date: one face; two meets on a date stay two');
+  const C = CA.caCountdown(G, ['t', 'e']);
+  eq(C.meet, 'City Classic', 'the meet above is skipped'); eq(C.days, 33); eq(C.skipped.length, 1); eq(C.after.meet, 'Other Open');
+  eq(CA.caCountdown(G, ['t']).meet, 'Autumn Open', 'a meet with someone not above still leads');
+  eq(CA.caCountdown(G, []).meet, 'Autumn Open');
+  eq(CA.caCountdown(CA.caLaneGroups([m('t', 0, 'Open')]), ['t']).meet, 'Open', 'nothing after it: it stays');
+  eq(CA.caCountdown([], ['t']), null);
 });
 test("Home's meets: 12 weeks on one lane, the nearest first, faces that would touch step up", () => {
   const r = (id, name, days, meet) => caRow(id, name, { meet: days == null ? null : { days, meet: { name: meet } } });
@@ -7325,8 +7380,9 @@ test('loading: each screen a skeleton in its shape, read out once, the blocks hi
   });
   assert(/Loading your lifters/.test(CA.skeletonHtml('home')) && /Loading the program/.test(CA.skeletonHtml('program')) && /Loading the lifter/.test(CA.skeletonHtml('lifter')));
   const hs = CA.skeletonHtml('home');
-  eq((hs.match(/class="ca-sk-row"/g) || []).length, 2, "Home's: the hero, the lead job, two rows");
-  eq((hs.match(/ca-sk ca-sk-ring"/g) || []).length, 1, "then this week's ring, the summary's first picture");
+  eq((hs.match(/ca-sk ca-sk-ring"/g) || []).length, 1, "Home's: the week's hero first, its ring");
+  eq((hs.match(/class="ca-sk-t2"/g) || []).length, 2, 'then the two tiles, strength and effort');
+  eq((hs.match(/class="ca-sk-focal"/g) || []).length, 1, 'then the one job');
   eq(CA.skeletonHtml(), CA.skeletonHtml('home'), 'Home by default');
 });
 test('check-ins: who answered this week, anything flagged first', () => {
