@@ -1093,6 +1093,8 @@ html:not(.desk) body.powa-app .athlete-sheet .aq-1rm { font-size: 13px; color: v
 html:not(.desk) body.powa-app .athlete-sheet .ui-label { font-size: 20px; }
 html:not(.desk) body.powa-app .athlete-sheet .ui-row-title { font-size: 17px; }
 html:not(.desk) body.powa-app .athlete-sheet .ui-row > .ui-dot.cut-dot.bad { display: none; }
+/* the last 14 days: today's pip sits still, as the live dot does (a ring breathed out of it on a loop) */
+html:not(.desk) body.powa-app .athlete-sheet .roster-days i.on.today::after { animation: none; }
 html:not(.desk) body.powa-app .athlete-sheet .md-hook .md-btn {
   position: relative; height: 36px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
   background: var(--pl-inset-2); box-shadow: none; color: var(--text); font-size: 15px; font-weight: 600;
