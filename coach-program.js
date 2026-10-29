@@ -493,7 +493,7 @@
     card.appendChild(head);
     var exs = day.exercises || [];
     if (!exs.length) {
-      if (REST_RX.test(day.name || '')) card.appendChild(el('div', { class: 'cp-rest' }, el('b', {}, 'Rest'), el('span', {}, 'No training. Rename the day to train on it.')));
+      if (REST_RX.test(day.name || '')) card.appendChild(el('div', { class: 'cp-rest' }, el('b', {}, 'A day off'), el('span', {}, 'No training. Rename the day to train on it.')));
       else card.appendChild(el('div', { class: 'cp-rest' }, el('b', {}, 'No exercises yet'), el('span', {}, 'Add the first with Add exercise below.')));
     } else {
       var list = el('div', { class: 'cp-exs' });
