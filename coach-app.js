@@ -1066,8 +1066,8 @@
       '<span class="ca-line-dot" style="left:' + lp[0].toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"></span>' +
       '<span class="ca-line-end" style="right:' + (100 - lp[0]).toFixed(2) + '%;top:' + (lp[1] / Hh * 100).toFixed(2) + '%"><b>' + Math.round(last.v).toLocaleString() + '</b> ' + esc(unit()) + '</span>' +
       '<span class="ca-line-hair" aria-hidden="true"></span><span class="ca-line-sel" aria-hidden="true"></span>' +
-      '</div><div class="ca-line-x" aria-hidden="true">' + tick(pts[0].i, dayMon(addDays(mon0, 7 * pts[0].i)), 'is-first') +
-        (pts[0].i < cutAt ? tick(cutAt, '4 weeks ago') : '') + tick(n, 'Now', 'is-last') + '</div>';
+      '</div><div class="ca-line-x" aria-hidden="true">' + tick(pts[0].i, (n - pts[0].i) + ' weeks ago', 'is-first') +
+        (pts[0].i < cutAt ? tick(cutAt, (n - cutAt) + ' weeks ago') : '') + tick(n, 'Now', 'is-last') + '</div>';
   }
   var LIFT_W = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' }, LIFT_K = { squat: 'S', bench: 'B', deadlift: 'D' };
   // Each lift's change: its letter on a mark in its lift colour (the colour is the mark, the words stay ink).

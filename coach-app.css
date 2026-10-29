@@ -476,7 +476,8 @@ html:not(.desk) .ca-elegend { display: flex; justify-content: space-between; gap
 html:not(.desk) .ca-ekey { display: inline-flex; align-items: center; gap: 7px; min-width: 0; min-height: 44px; padding: 0 8px 0 6px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; white-space: nowrap; cursor: pointer; transition: background-color 140ms ease-out; -webkit-tap-highlight-color: transparent; }
 html:not(.desk) .ca-ekey-m { flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--pl-viz-steel); transition: opacity 180ms ease-out; }
 html:not(.desk) .ca-ekey.is-on .ca-ekey-m { background: var(--pl-viz-on); }
-html:not(.desk) .ca-ekey.is-harder .ca-ekey-m { background: var(--pl-viz-hard); }
+html:not(.desk) .ca-ekey.is-harder .ca-ekey-m { width: 11px; height: 10px; border-radius: 0; background: var(--pl-viz-hard); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) .ca-ekey.is-easier .ca-ekey-m { border-radius: 50%; }
 html:not(.desk) .ca-ekey.is-easier .ca-ekey-m { background: none; box-shadow: inset 0 0 0 2px var(--pl-viz-steel); }
 html:not(.desk) .ca-ekey b { font-family: var(--font-num); font-size: 17px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-ekey span { font-size: 15px; font-weight: 500; color: var(--text-2); }
@@ -540,7 +541,8 @@ html:not(.desk) .ca-prf-l { max-width: 56px; overflow: hidden; text-overflow: el
    beside it, Monday to Sunday under them), strength and effort are two pictures side by side, then who needs you
    with the one red action, all above the tab bar. On a short screen (under 720 tall, an SE) the job comes second,
    so the red never drops below the fold (coach-app.js SHORT_H). Every tile is one button: its whole face opens its
-   sheet, where the full chart and the people are. Type: 13 · 15 · 17 · 20 · 28 · 34 · 40, weights 500/650/800. */
+   sheet, where the full chart and the people are. Type on the coach scale: 13 · 15 · 17 · 20 · 28 · 34 and the
+   display 44 (11 only on a badge's letter). */
 html:not(.desk) .ca-home > .ca-tw { margin-top: 2px; }
 /* the hero: lit by what it is about (sessions done, the green of done) from its top corner, like the lifter
    app's Progress hero; an object (L3) with its contact shadow */
@@ -563,8 +565,8 @@ html:not(.desk) .ca-tw .ca-wk-ring { width: 120px; height: 120px; }
 html:not(.desk) .ca-tw .ca-tring-lip { stroke: transparent; }
 html:not(.desk) .ca-tw .ca-tring-fill { stroke: var(--pl-viz-done); }
 html:not(.desk) .ca-tw .ca-tring-track { stroke: var(--pl-viz-ring); }
-html:not(.desk) .ca-tw .ca-wk-c b { font-size: 40px; letter-spacing: -0.04em; }
-html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 30px; }
+html:not(.desk) .ca-tw .ca-wk-c b { font-size: 44px; letter-spacing: -0.04em; }
+html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 34px; }
 html:not(.desk) .ca-tw .ca-wk-c small { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-tw .ca-wk-tx { gap: 4px; padding-top: 2px; transition: opacity 140ms ease-out; }
 html:not(.desk) .ca-tw .ca-wk-t { font-size: 17px; font-weight: 650; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -594,13 +596,14 @@ html:not(.desk) .ca-tw.is-quiet .ca-strip.is-last .ca-sday-bar:not(.is-zero) { b
   html:not(.desk) .ca-tw .ca-stat.is-week { grid-template-columns: 112px minmax(0, 1fr); column-gap: 14px; min-height: 112px; }
   html:not(.desk) .ca-tw .ca-wk-ring { width: 112px; height: 112px; }
   html:not(.desk) .ca-tw .ca-strip { left: 126px; }
-  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 36px; }
+  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 34px; }
 }
 @media (max-width: 369px) {
   html:not(.desk) .ca-tw .ca-stat.is-week { grid-template-columns: 100px minmax(0, 1fr); column-gap: 12px; min-height: 100px; }
   html:not(.desk) .ca-tw .ca-wk-ring { width: 100px; height: 100px; }
   html:not(.desk) .ca-tw .ca-strip { left: 112px; }
-  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 32px; }
+  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 34px; }
+  html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 28px; }
 }
 @media (max-width: 339px) {
   html:not(.desk) .ca-tw .ca-strip { position: relative; left: auto; height: 62px; margin-top: 12px; }
@@ -635,7 +638,7 @@ html:not(.desk) .ca-lchip.lift-squat { --lcv: var(--pl-viz-sq); }
 html:not(.desk) .ca-lchip.lift-bench { --lcv: var(--pl-viz-bp); }
 html:not(.desk) .ca-lchip.lift-deadlift { --lcv: var(--pl-viz-dl); }
 html:not(.desk) .ca-lchip-k { flex: none; display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 5px; background: var(--lcv); color: #0a0a0b; font: 800 11px/1 var(--font-num); font-style: normal; }
-html:not(.desk) .ca-lchip b { font-family: var(--font-num); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-lchip b { font-family: var(--font-num); font-size: 13px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-lchips.is-full { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ca-hair); }
 html:not(.desk) .ca-lchips.is-full .ca-lchip { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 7px; row-gap: 2px; }
 html:not(.desk) .ca-lchips.is-full .ca-lchip + .ca-lchip { padding-left: 14px; border-left: 1px solid var(--ca-hair); }
@@ -649,7 +652,7 @@ html:not(.desk) .ca-ebar.is-mini .ca-eseg:last-child { border-radius: 2px 5px 5p
 html:not(.desk) .ca-ebar.is-mini .ca-eseg:only-child { border-radius: 5px; }
 html:not(.desk) .ca-ekeys { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 2px; margin: 12px 0 0; font-size: 13px; line-height: 16px; color: var(--text-2); }
 html:not(.desk) .ca-ekeys > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-html:not(.desk) .ca-ekeys b { font-family: var(--font-num); font-weight: 750; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .ca-ekeys b { font-family: var(--font-num); font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
 html:not(.desk) .ca-ekeys .is-harder i { width: 9px; height: 8px; background: var(--pl-viz-hard); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 html:not(.desk) .ca-ekeys .is-easier i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--pl-viz-steel); }
 html:not(.desk) .ca-eff.has-hard .ca-sum-s::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 5px; background: var(--pl-viz-hard); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
