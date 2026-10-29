@@ -1,0 +1,18 @@
+Vendored scripts for the website (the site's CSP allows scripts from self; nothing third-party is loaded from a CDN).
+
+gsap.min.js            GSAP 3.15.0 (core)
+ScrollTrigger.min.js   ScrollTrigger 3.15.0 (plugin)
+
+Used by:  home.js only (the homepage's scroll-driven motion). Never loaded inside the iPhone app (native/copy-web.sh
+          leaves vendor/ out of the bundle) and never for readers who prefer reduced motion.
+Source:   https://cdnjs.cloudflare.com/ajax/libs/gsap/3.15.0/<file>, downloaded with curl on 28 Oct 2026 (cdnjs
+          last-modified 20 Jul 2026), copied unchanged. Not shipped: SplitText, DrawSVGPlugin, Flip, MotionPathPlugin,
+          CustomEase, ScrollSmoother (no smooth-scroll layer: native scrolling is never fought).
+SHA-256:
+          b0b14d67b55b0c43c756ac0b106cfcb09d0879945f6ead64451065b0672916a2  ScrollTrigger.min.js
+          92bb9a96476f983d212a2bc4f54c889039c1696dd4461d40a736860938570fbb  gsap.min.js
+Licence:  GreenSock Standard "No Charge" License, https://gsap.com/standard-license . Free to use, including
+          commercially, with every plugin, since GSAP 3.13. The copyright header stays in each file.
+Loading:  index.html's head script adds both (in order, async = false) after the page's load event and once the
+          arrival animation has settled; 46 KB gzipped together. Upgrading: replace both files with the same version,
+          update the hashes above and the version in home.js's header.

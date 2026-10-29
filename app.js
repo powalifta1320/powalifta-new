@@ -9946,6 +9946,10 @@ const BRAND_MARK = '<svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://ww
 // =========================================================
 function renderNav(target) {
   const user = getCurrentUser();
+  // The website's bar (site.css .bar) is drawn in every public page's own HTML, so it is there before any script:
+  // only its account end changes here.
+  const bar = document.querySelector(target);
+  if (bar && bar.classList.contains('bar')) { renderSiteBar(bar, user); return; }
   const navInner = el('div', { class: 'nav-inner' });
   // Logo destination: a signed-in user goes STRAIGHT to their own dashboard.
   // Pointing it at index.html made the marketing page flash for a beat before
@@ -9959,28 +9963,6 @@ function renderNav(target) {
   const brand = el('a', { href: brandHref, class: 'brand' });
   brand.innerHTML = BRAND_MARK + '<span class="brand-word">POWALIFTA</span>';
   navInner.appendChild(brand);
-
-  // The website (<body class="site">) gets its page links; on phones they open from a
-  // menu button (site.js). web-only: the iPhone app never links to pricing or programs.
-  const onSite = !!(document.body && document.body.classList.contains('site'));
-  if (onSite) {
-    const links = el('div', { class: 'nav-links web-only', id: 'navLinks' });
-    const here = (location.pathname.split('/').pop() || 'index.html');
-    [['index.html#train', 'Features'], ['marketplace.html', 'Programs'], ['guides.html', 'Guides'], ['index.html#pricing', 'Pricing']].forEach(([href, label]) => {
-      const a = el('a', { href }, label);
-      if (href === 'marketplace.html') a.setAttribute('data-needs-programs', '');
-      if (href === here || (here.indexOf('guide') === 0 && href === 'guides.html')) a.setAttribute('aria-current', 'page');
-      links.appendChild(a);
-    });
-    if (!user) {
-      const login = el('a', { href: 'javascript:void(0)', class: 'nav-links-login' }, 'Log in');
-      login.setAttribute('onclick', "if(window.openLoginModal){openLoginModal()}else{location.href='/index.html#login'}");
-      links.appendChild(login);
-    }
-    navInner.appendChild(links);
-    // The app never shows the website (or the shop), so it never asks.
-    if (!document.documentElement.classList.contains('native')) siteProgramsReady();
-  }
 
   const actions = el('div', { class: 'nav-actions ' + (user ? 'auth' : 'guest') });
 
@@ -10045,23 +10027,33 @@ function renderNav(target) {
   } else {
     // BULLETPROOF: inline string onclick — browser evaluates in global scope at click time.
     // This is the same mechanism as the hero CTAs which always work.
-    const loginA = el('a', { href: 'javascript:void(0)', class: 'btn btn-sm btn-ghost' }, 'Log in');
-    loginA.setAttribute('onclick', "if(window.openLoginModal){openLoginModal()}else{location.href='/index.html#login'}");
+    // Real addresses (crawlable, they work without JS); the modal takes over where the page has one.
+    const loginA = el('a', { href: '/index.html#login', class: 'btn btn-sm btn-ghost' }, 'Log in');
+    loginA.setAttribute('onclick', "if(window.openLoginModal){openLoginModal();return false}");
     actions.appendChild(loginA);
-    const cta = el('a', { href: 'javascript:void(0)', class: 'btn btn-sm btn-primary' }, 'Get started');
-    cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('solo')}else{location.href='/index.html#signup'}");
+    const cta = el('a', { href: '/index.html#signup', class: 'btn btn-sm btn-primary' }, 'Get started');
+    cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('solo');return false}");
     actions.appendChild(cta);
-  }
-  if (onSite) {
-    const menu = el('button', { class: 'nav-menu web-only', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false', 'aria-controls': 'navLinks' });
-    menu.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>';
-    actions.appendChild(menu);
   }
   navInner.appendChild(actions);
 
   const wrap = document.querySelector(target);
   if (wrap) { wrap.innerHTML = ''; wrap.appendChild(navInner); }
   if (typeof refreshSignalBadge === 'function') refreshSignalBadge();
+}
+
+// The website's bar (every public page draws it in its own HTML, site.css .bar): Log in and Start free for a visitor;
+// a signed-in one gets their dashboard in their place, and the wordmark takes them there too. On the website (never
+// inside the app) the programs count is taken for the shop's links and the homepage's programs band.
+function renderSiteBar(bar, user) {
+  const login = bar.querySelector('[data-bar="login"]'), cta = bar.querySelector('[data-bar="cta"]'), brand = bar.querySelector('.bar-brand');
+  if (user) {
+    const dash = user.userType === 'coach' ? 'coach.html' : 'athlete.html';
+    if (brand) brand.setAttribute('href', '/' + (user.userType === 'admin' ? 'admin.html' : dash));
+    if (login) login.hidden = true;
+    if (cta) { cta.textContent = 'Dashboard'; cta.setAttribute('href', '/' + dash); cta.removeAttribute('data-intent'); }
+  }
+  if (!document.documentElement.classList.contains('native')) siteProgramsReady();
 }
 
 // The website links to the programs shop only once it has something in it: three published

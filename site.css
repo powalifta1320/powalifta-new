@@ -1,20 +1,116 @@
 /* ============================================================
-   site.css — the POWALIFTA website (redesign 2026-10-22).
+   site.css — the website's shared layer (2026-10-29), loaded by every public page and never by the dashboards.
 
-   The site wears the app's own language so the two read as one product:
-   · obsidian surfaces lit from above, hairline edges, no glows;
-   · Archivo in sentence case (caps only in the POWALIFTA wordmark);
-   · one machined red for the action;
-   · each section in the hue of the app tab it shows: Train fire,
-     Progress and Programs cyan, Club gold, Coaching green;
-   · real app screens in a phone frame as the imagery.
+   The top half is what every public page shares with the homepage the owner approved (29 Oct): Archivo,
+   self-hosted; the bar (the site's nav: POWALIFTA, the homepage's chapters, which are the coach's week, then
+   Log in and Start free); the footer. Its classes (.bar, .foot) are its own, so it reads the same over the
+   inside pages' styles.css. The homepage's own chapters live in home.css; its body is .home, not .site.
 
-   Loaded after styles.css on every public page (<body class="site">), never on
-   the dashboards. The homepage's own sections (the hero and the phone story,
-   the calculator, the coaching desk, pricing) live in landing.css, which only
-   index.html loads, so a homepage change can't move another page.
+   The bottom half (body.site and the s-* classes) styles the inside pages (About, the FAQ, the guides,
+   programs, the leaderboard...) until they are restyled in the new look.
    ============================================================ */
 
+/* ---------- Type: Archivo, self-hosted, trimmed to weight 400 to 800, width 100 to 125, Latin (OFL, fonts/OFL-Archivo.txt).
+   Until it lands, Arial sized to Archivo (measured size and line overrides), so lines wrap the same and nothing moves. */
+@font-face { font-family: 'Archivo'; src: url(/fonts/archivo-tw.woff2) format('woff2'); font-weight: 400 800; font-stretch: 100% 125%; font-display: swap; }
+@font-face { font-family: 'Archivo Fallback'; src: local('Arial'), local('ArialMT'), local('Helvetica'); font-weight: 100 549; size-adjust: 97.8%; ascent-override: 89.8%; descent-override: 21.5%; line-gap-override: 0%; }
+@font-face { font-family: 'Archivo Fallback'; src: local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Bold'); font-weight: 550 1000; size-adjust: 97%; ascent-override: 90.5%; descent-override: 21.6%; line-gap-override: 0%; }
+body.site { --font-display: 'Archivo', 'Archivo Fallback', 'Arial Black', system-ui, sans-serif; --font-body: 'Archivo', 'Archivo Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif; --font-num: 'Archivo', 'Archivo Fallback', system-ui, sans-serif; }
+
+/* ---------- The bar and the footer: their own tokens and type, the homepage's frame (1440 at most, centred). */
+.bar, .foot {
+  --bar-fx: calc((100vw - min(100vw, 1440px)) / 2);
+  --bar-gut: clamp(16px, 4.45vw, 64px);
+  --bar-cg: clamp(16px, 2.23vw, 32px);
+  --bar-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --bar-io: cubic-bezier(0.77, 0, 0.175, 1);
+  --bar-t: 220ms;
+  --bar-font: 'Archivo', 'Archivo Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  box-sizing: border-box; margin: 0; border: 0; text-align: left;
+  font: 400 15px/1.55 var(--bar-font); letter-spacing: -0.006em; text-transform: none;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+.bar *, .bar *::before, .bar *::after, .foot *, .foot *::before, .foot *::after { box-sizing: border-box; }
+.bar :focus-visible, .foot :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
+
+/* The bar: the app's glass. Dark over dark floors; daylight glass over the homepage's daylight and on inside pages in
+   the light theme. The homepage floats it over its opening (transparent at the very top, home.css); every other page
+   keeps it at the top of the page (sticky). */
+.bar {
+  position: fixed; z-index: 40; top: 0; left: 0; right: 0; height: 64px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 calc(var(--bar-fx) + var(--bar-gut)); color: #f4f4f6;
+  background: rgba(10, 10, 12, 0.92); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  transition: background-color var(--bar-t) ease, box-shadow var(--bar-t) ease, color var(--bar-t) ease;
+}
+body.site .bar { position: sticky; }
+.bar-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.bar-mark { display: block; flex: none; width: 26px; height: 26px; }
+.bar-word { font-family: var(--bar-font); font-weight: 800; font-stretch: 125%; font-size: 16px; letter-spacing: 0.01em; }
+.bar-r { display: flex; align-items: center; gap: 28px; margin: 0; padding: 0; }
+.bar .bar-link { font-size: 15px; font-weight: 600; color: #c4c4cc; text-decoration: none; transition: color var(--bar-t) ease; }
+/* The contents of the coach's week. The chapter in view is ink-bright, and a 2 px marker on the bar's lower edge slides
+   to it (home.js; a tab indicator, fired often, so 250 ms). */
+.bar-toc { position: relative; display: flex; align-items: center; gap: 26px; margin-right: 12px; }
+.bar .bar-toc .bar-link[aria-current] { color: #f4f4f6; }
+.bar-mk { position: absolute; left: 0; bottom: -22px; width: 100px; height: 2px; border-radius: 1px; background: currentColor; pointer-events: none;
+  transform-origin: 0 50%; transform: translateX(var(--x, 0px)) scaleX(var(--w, 0)); opacity: 0;
+  transition: transform 250ms var(--bar-io), opacity var(--bar-t) ease; }
+.bar-toc.has-on .bar-mk { opacity: 1; }
+.bar .bar-pill { display: inline-flex; align-items: center; height: 38px; padding: 0 16px; border-radius: 999px; background: #f4f4f6; color: #0b0b0d; font-size: 15px; font-weight: 650; text-decoration: none; white-space: nowrap;
+  transition: opacity var(--bar-t) var(--bar-out), transform var(--bar-t) var(--bar-out), visibility 0s linear 0s, background-color var(--bar-t) ease, color var(--bar-t) ease; }
+.bar.is-day, html[data-theme="light"] body.site .bar { background-color: rgba(246, 246, 248, 0.94); color: #0b0b0d; box-shadow: inset 0 -1px 0 rgba(15, 15, 25, 0.08); }
+.bar.is-day .bar-link, html[data-theme="light"] body.site .bar .bar-link { color: #3d3d45; }
+.bar.is-day .bar-toc .bar-link[aria-current], html[data-theme="light"] body.site .bar .bar-toc .bar-link[aria-current] { color: #0b0b0d; }
+.bar.is-day .bar-pill, html[data-theme="light"] body.site .bar .bar-pill { background: #0b0b0d; color: #f4f4f6; }
+@media (hover: hover) and (pointer: fine) {
+  .bar .bar-link:hover { color: #f4f4f6; }
+  .bar.is-day .bar-link:hover, html[data-theme="light"] body.site .bar .bar-link:hover { color: #0b0b0d; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .bar { background-color: #0b0b0c; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .bar.is-day, html[data-theme="light"] body.site .bar { background-color: #f4f4f6; }
+}
+/* An inside page shown inside the iPhone app: the bar clears the status bar. */
+html.native body.site .bar { height: auto; min-height: calc(56px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
+/* Skip to the page: hidden until focused. */
+.bar-skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 10px; background: #f4f4f6; color: #0b0b0d; font: 650 15px/1.3 'Archivo', 'Archivo Fallback', system-ui, sans-serif; text-decoration: none; }
+.bar-skip:focus { top: 12px; }
+
+/* The footer: the brand and its line, three columns of links, the demo's names. */
+.foot { padding: 64px 0 40px; background: #050506; color: #f4f4f6; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.foot-in { width: min(100% - 2 * var(--bar-gut), 1312px); margin: 0 auto; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--bar-cg); row-gap: 40px; align-items: start; }
+.foot-brand { grid-column: 1 / span 4; }
+.foot-brand p { margin: 12px 0 0; padding: 0; font-size: 15px; color: #b8b8c0; }
+.foot-cols { grid-column: 7 / span 6; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--bar-cg); }
+.foot-cols div { display: grid; gap: 10px; align-content: start; }
+.foot .fc-h { margin: 0 0 4px; padding: 0; font-size: 13px; font-weight: 650; color: #8c8c96; }
+.foot .foot-cols a { font-size: 15px; font-weight: 550; color: #c8c8d0; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .foot .foot-cols a:hover { color: #f4f4f6; } }
+.foot .foot-c { grid-column: 1 / -1; margin: 0; padding: 24px 0 0; border-top: 1px solid rgba(255, 255, 255, 0.07); font-size: 13px; color: #8c8c96; }
+.foot-c span { display: block; max-width: 70ch; }
+
+@media (max-width: 1099px) {
+  .foot-in { grid-template-columns: minmax(0, 1fr); }
+  .foot-brand, .foot-cols { grid-column: 1; }
+}
+/* Phone width: the brand and two buttons; the chapters stay on the homepage itself. */
+@media (max-width: 759px) {
+  .bar { height: 56px; }
+  .bar-mark { width: 24px; height: 24px; }
+  .bar-word { font-size: 15px; }
+  .bar-r { gap: 16px; }
+  .bar-toc { display: none; }
+  .foot-in { row-gap: 36px; }
+  .foot-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 28px; }
+}
+
+/* The programs shop is linked only once it has three published programs (app.js siteProgramsReady). */
+[data-needs-programs] { display: none !important; }
+html.has-programs [data-needs-programs] { display: revert !important; }
+
+/* ============================================================
+   The inside pages (body.site), until they are restyled.
+   ============================================================ */
 body.site {
   --s-max: 1180px;
   --s-gutter: clamp(20px, 5vw, 48px);
@@ -88,58 +184,6 @@ body.site a:hover { color: var(--text); }
 .s-link { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--hue) 70%, transparent); text-underline-offset: 4px; text-decoration-thickness: 1.5px; transition: text-decoration-color 0.2s; }
 .s-link:hover { text-decoration-color: var(--hue); }
 
-/* ---------- Nav ---------- */
-body.site .nav {
-  position: sticky; top: 0; z-index: 50;
-  background: transparent; border-bottom: 1px solid transparent;
-  -webkit-backdrop-filter: none; backdrop-filter: none;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-body.site .nav.is-scrolled, body.site .nav.nav-open {
-  background: var(--nav-bg);
-  -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
-  border-bottom-color: var(--line);
-}
-body.site .nav-inner { max-width: calc(var(--s-max) + 2 * var(--s-gutter)); padding: 12px max(var(--s-gutter), env(safe-area-inset-right)) 12px max(var(--s-gutter), env(safe-area-inset-left)); gap: 8px; justify-content: flex-start; }
-body.site .brand { font-size: 1.05rem; letter-spacing: 0.06em; gap: 10px; font-stretch: 125%; color: var(--text); }
-body.site .brand .brand-mark { width: 24px; height: 24px; filter: none; }
-body.site .nav-links { display: flex; align-items: center; gap: 2px; margin-left: 20px; }
-body.site .nav-links a { color: var(--text-2); font-size: 0.94rem; font-weight: 550; padding: 8px 12px; border-radius: 999px; transition: color 0.15s, background-color 0.15s; }
-body.site .nav-links a:hover, body.site .nav-links a[aria-current="page"] { color: var(--text); background: var(--s-surface-2); }
-body.site .nav-actions { margin-left: auto; gap: 8px; }
-body.site .nav-actions .btn-sm { padding: 0 16px; min-height: 40px; font-size: 0.9rem; }
-/* One red action per screen: the nav's Get started is an ink pill, the page keeps the red. */
-body.site .nav-actions .btn-primary { background: var(--text); color: var(--bg); box-shadow: none; }
-body.site .nav-actions .btn-primary:hover { filter: none; opacity: 0.88; color: var(--bg); }
-body.site .unit-toggle { display: none; }
-body.site[data-units] .unit-toggle { display: inline-flex; }
-body.site .theme-toggle { border-radius: 999px; }
-body.site .nav-menu { display: none; }
-body.site .nav-links .nav-links-login { display: none; }
-@media (max-width: 880px) {
-  body.site .nav-links {
-    display: none; position: fixed; left: 0; right: 0; top: var(--s-nav-h, 61px);
-    flex-direction: column; align-items: stretch; gap: 0; margin: 0;
-    padding: 8px max(var(--s-gutter), env(safe-area-inset-left)) 20px;
-    background: var(--bg); border-bottom: 1px solid var(--line);
-    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6);
-  }
-  body.site .nav.nav-open .nav-links { display: flex; animation: s-drop 0.28s var(--s-ease) both; }
-  body.site .nav-links a { font-size: 1.15rem; font-weight: 650; padding: 14px 4px; border-radius: 0; border-bottom: 1px solid var(--line); background: none !important; color: var(--text); }
-  body.site .nav-links a:last-child { border-bottom: 0; }
-  body.site .nav-menu {
-    display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-left: 2px;
-    border-radius: 999px; border: 1px solid var(--line-2); background: var(--s-surface); color: var(--text); cursor: pointer;
-  }
-  body.site .nav-menu svg { width: 18px; height: 18px; }
-  body.site .theme-toggle { display: none; }
-}
-@media (max-width: 420px) {
-  body.site .nav-actions .btn-ghost:not(.nav-logout) { display: none; } /* Log in moves into the menu */
-  body.site .nav-links .nav-links-login { display: block; }
-}
-@keyframes s-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-
 /* ---------- Buttons: capsules, one machined red, no glow ---------- */
 body.site .btn { border-radius: 999px; font-weight: 650; letter-spacing: -0.005em; transition: transform 0.16s var(--s-ease), background-color 0.2s, border-color 0.2s, color 0.2s, filter 0.2s; }
 body.site .btn:hover { transform: none; border-color: var(--line-2); }
@@ -160,21 +204,6 @@ body.site :is(.btn, a, button, input, select, textarea, [tabindex]):focus-visibl
 
 .s-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 32px; }
 .s-actions.s-center { justify-content: center; }
-
-/* ---------- Footer (one footer, every public page) ---------- */
-body.site footer.s-foot { padding: 64px 0 32px; border-top: 1px solid var(--line); background: var(--bg); margin: 0; text-align: left; color: var(--text-3); font-size: 0.94rem; }
-.s-foot-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 40px; }
-.s-foot-brand .brand { display: inline-flex; align-items: center; gap: 10px; font: 800 1rem/1 var(--font-display); font-stretch: 125%; letter-spacing: 0.06em; color: var(--text); }
-.s-foot-brand .brand svg { width: 24px; height: 24px; color: var(--text); }
-.s-foot-brand p { margin: 16px 0 20px; max-width: 22rem; color: var(--text-3); font-size: 0.94rem; line-height: 1.55; }
-.s-foot-brand .s-store img { height: 44px; }
-.s-foot-col { display: flex; flex-direction: column; align-items: flex-start; gap: 11px; }
-.s-foot-col h5 { font: 650 0.9rem/1.2 var(--font-body); color: var(--text); text-transform: none; letter-spacing: 0; margin-bottom: 4px; }
-body.site .s-foot-col a { color: var(--text-3); font-size: 0.94rem; transition: color 0.15s; }
-body.site .s-foot-col a:hover { color: var(--text); }
-.s-foot-base { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 0.86rem; }
-.s-foot-base button { background: none; border: 0; color: var(--text-3); font: inherit; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
-.s-foot-base button:hover { color: var(--text); }
 
 /* ---------- Inside pages: shared page header + content column ---------- */
 .s-page-head { padding: clamp(40px, 7vw, 88px) 0 clamp(28px, 4vw, 48px); }
@@ -274,7 +303,6 @@ body.site .lb-dots { color: var(--text); }
 body.site .lb-row { border-radius: 16px; }
 body.site .lb-me { border-color: var(--line-2); box-shadow: none; }
 body.site .lb-head { text-transform: none; letter-spacing: 0; }
-body.site[data-units] .unit-toggle { align-items: center; justify-content: center; height: 40px; min-width: 44px; padding: 0 12px; border-radius: 999px; background: var(--s-surface); border-color: var(--line-2); color: var(--text); font: 650 0.9rem/1 var(--font-body); letter-spacing: 0; text-transform: lowercase; }
 body.site .nf-wrap::before { display: none; }
 body.site .exlib-card { border-radius: 22px; background: var(--bg-1); box-shadow: var(--s-lit); }
 body.site .exlib-name { text-transform: none; font-stretch: 100%; letter-spacing: -0.02em; font-size: 1.25rem; }
@@ -285,20 +313,12 @@ body.site .exlib-cues li::before { background: var(--s-cyan); }
 body.site .exlib-note { border-radius: 16px; background: var(--bg-1); }
 [data-theme="light"] body.site .lb-seg-btn.active { background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 40, 0.16); }
 
-/* The programs shop is linked only once it has three published programs (siteProgramsReady). */
-body.site [data-needs-programs] { display: none !important; }
-html.has-programs body.site [data-needs-programs] { display: revert !important; }
 
 body.site .lb-unit-btn.active { background: var(--bg-3); color: var(--text); box-shadow: var(--s-lit), 0 1px 3px rgba(0, 0, 0, 0.35); }
 [data-theme="light"] body.site .lb-unit-btn.active { background: #fff; box-shadow: 0 1px 3px rgba(20, 20, 40, 0.16); }
 
 /* ---------- Small screens ---------- */
-@media (max-width: 960px) {
-  .s-foot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .s-foot-brand { grid-column: 1 / -1; }
-}
 @media (max-width: 560px) {
-  .s-foot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; }
   .s-actions { gap: 12px; }
   .s-actions .btn-lg { flex: 1 1 auto; }
 }

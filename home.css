@@ -1,0 +1,841 @@
+/* =====================================================================
+   home.css — the homepage (index.html, the website only; never inside the iPhone app). Approved 29 Oct 2026:
+   "A coach's week, on the real product". The coach-led page with the motion-led page's act one as its one
+   signature move. The app is the brand: its tokens, Archivo in three roles, real screens, lift colours on lift
+   data only, gold for PRs, green for "up", the orange mark for flags, and one crimson action per screen
+   (#dc2637 to #c41a2c, white label).
+   Floors carry meaning: the gym's dark (the lifter's side), the coach's daylight (his desk), the platform's black
+   (meet day). Floors change by hard edges as chapters scroll, and once by a wipe out of the laptop's own screen.
+   One frame (1440 at most, centred), one 12-column grid, one type scale, one caption style.
+   site.css draws the bar, the footer and Archivo (shared with every public page); home.js is the page layer and
+   the motion score. The app's own styles.css arrives only with the log-in and sign-up modals, slotted in before
+   site.css: everything here is written so the page reads the same before and after it does.
+   ===================================================================== */
+
+/* ---------- Tokens (the app's) */
+:root {
+  --font-display: 'Archivo', 'Archivo Fallback', system-ui, sans-serif;
+  --font-body: 'Archivo', 'Archivo Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-num: 'Archivo', 'Archivo Fallback', system-ui, sans-serif;
+  --num-stretch: 112%;                              /* the app's display numbers: Archivo at 112% width, weight 800 */
+  --sq: #38c6ff; --be: #a98bff; --dl: #ffbf3c; --c-gold: #f2c25b;
+  --c-fire: #ff3b4a; --c-green: #34e08c; --up: #34d982;
+  --act-top: #dc2637; --act-bot: #c41a2c;           /* the one action: darker crimson, white label (4.8:1 at the top) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);       /* arriving and state: strong ease-out, no overshoot */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);   /* moving on screen */
+  --t-press: 140ms; --t-state: 220ms;
+  --night: #050506; --day: #f4f4f6; --black: #030304;
+  /* The frame: 1440 wide at most, centred on wider screens; the nav, the act and every chapter share its edges. */
+  --fw: min(100vw, 1440px);
+  --fx: calc((100vw - var(--fw)) / 2);
+  --gut: clamp(16px, 4.45vw, 64px);
+  --wrap: 1312px;
+  --cg: clamp(16px, 2.23vw, 32px);                  /* the grid's column gap */
+  --sec: clamp(96px, 10vw, 152px);                  /* the space between chapters */
+  --fold: max(640px, 100svh);
+  /* Arjun's phone in the act: true size (393 x 852) up to 27.3% of the frame. --pin: the share of it above the fold. */
+  --pw: min(393px, var(--fw) * 0.273);
+  --ph: calc(var(--pw) * 2.16794);
+  --pin: 0.42;
+  --pl: calc(var(--fx) + var(--fw) * 0.417);
+}
+.t-dark {
+  --bg: var(--night); --bg-1: #0f0f11; --bg-2: #161619;
+  --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96;
+  --edge: rgba(255, 255, 255, 0.075); --hair: rgba(255, 255, 255, 0.09);
+  color-scheme: dark; background: var(--bg); color: var(--text);
+}
+.t-light {
+  --bg: var(--day); --bg-1: #ffffff; --bg-2: #ececf0;
+  --text: #0b0b0d; --text-2: #45454d; --text-3: #5f5f68;
+  --edge: rgba(15, 15, 25, 0.08); --hair: rgba(15, 15, 25, 0.1);
+  --lit: 0 1px 2px rgba(15, 15, 25, 0.05), 0 18px 40px -22px rgba(15, 15, 25, 0.22);
+  --warn: #e06414;
+  color-scheme: light; background: var(--bg); color: var(--text);
+}
+
+/* ---------- Base */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: clip; background: var(--night); scroll-padding-top: 72px; scroll-behavior: auto; }
+body.home { max-width: none; margin: 0; padding: 0; background: var(--night); color: #f4f4f6; font-family: var(--font-body); font-size: 17px; line-height: 1.55; letter-spacing: -0.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow-x: clip; }
+body.home::before, body.home::after { content: none; display: none; }   /* the app's film grain and splash, never on the website */
+:where(.s-home) :is(img, svg) { display: block; max-width: 100%; }
+:where(.s-home) img { height: auto; }
+:where(.s-home) :is(p, figure, ul, ol, dl, dd, h1, h2, h3) { margin: 0; padding: 0; }
+:where(.s-home) :is(ul, ol) { list-style: none; }
+:where(.s-home) a { color: inherit; }
+:where(.s-home) :is(h1, h2, h3, h4) { text-transform: none; text-wrap: wrap; }
+:where(.s-home) .num { font-family: inherit; letter-spacing: inherit; }
+:where(.s-home) button { font: inherit; color: inherit; }
+:where(.s-home) :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
+.wrap { width: min(100% - 2 * var(--gut), var(--wrap)); margin-inline: auto; }
+.num { font-variant-numeric: tabular-nums; }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---------- One type scale. Display: 58 (h1) / 46 (h2) / 74 (the close) / 28 (h3), big numbers in the app's own number
+   width. Text: 19 lead / 17 body / 16 small / 15 secondary / 14 caption / 13 meta. Sentence case, never poster-wide. */
+.h1 { font-family: var(--font-display); font-weight: 800; font-stretch: 100%; font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; text-wrap: balance; }
+.h2 { font-family: var(--font-display); font-weight: 800; font-stretch: 100%; font-size: clamp(30px, 0.95rem + 2.15vw, 46px); line-height: 1.05; letter-spacing: -0.031em; text-wrap: balance; }
+.h3 { font-family: var(--font-display); font-weight: 800; font-stretch: 100%; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); line-height: 1.12; letter-spacing: -0.024em; }
+.lead, .sub { max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); text-wrap: pretty; }
+/* Captions read like a magazine's: a bold lead in ink, then one plain sentence; the dot says whose side it is. */
+.cap { display: flex; align-items: baseline; gap: 10px; font-size: 14px; font-weight: 500; line-height: 1.5; letter-spacing: -0.003em; color: var(--text-2); text-wrap: pretty; }
+.cap b { font-weight: 700; color: var(--text); }
+.cap .hue { transform: translateY(-1px); }
+.hue, .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.hue-fire { background: var(--c-fire); }
+.hue-green { background: var(--c-green); }
+.t-light .hue-green { background: #10a86a; }
+.dot-sq { background: var(--sq); } .dot-be { background: var(--be); } .dot-dl { background: var(--dl); }
+
+/* ---------- The one action (crimson, white label) and the quiet link */
+.act-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 54px; padding: 0 30px; border: 0; border-radius: 999px;
+  background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff;
+  font: 650 16px/1 var(--font-body); letter-spacing: -0.005em; text-decoration: none; white-space: nowrap; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform var(--t-press) var(--ease-out), filter var(--t-press) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.act-btn:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) { .act-btn:hover { filter: brightness(1.07); } }
+.act-btn:focus-visible { outline: 2px solid var(--text, #f4f4f6); outline-offset: 3px; border-radius: 999px; }
+/* One crimson per screen: while the app's own crimson button (Log set) is on screen, the page's steps back to ink. */
+html.red-busy #heroCta .act-btn { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
+.quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 600; color: var(--text); text-decoration: none; }
+.quiet .arr { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .quiet:hover .arr { transform: translateX(3px); } }
+.cta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; }
+.cta-note { font-size: 14px; font-weight: 550; color: var(--text-3); }
+
+/* ---------- The bar (site.css) on the homepage: with JavaScript, transparent over the top of the opening, then the app's
+   glass, dark over dark floors and daylight over day (home.js sets is-on and is-day). Without JavaScript it is always
+   dark glass. While a page crimson action is on screen, its ink pill steps back and leaves the tab order. */
+html.js .bar:not(.is-on) { background-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.js .bar:not(.is-on) .bar-mk { opacity: 0; }
+html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px); visibility: hidden; pointer-events: none; transition: opacity var(--t-state) var(--ease-out), transform var(--t-state) var(--ease-out), visibility 0s linear var(--t-state); }
+
+/* ---------- The iPhone: the screen at its true size inside a black-titanium frame drawn round it (rings, so the
+   screen keeps its own geometry), side buttons, the status bar drawn live. --pw is the screen's width. */
+.ph { position: relative; width: var(--pw); }
+.ph-scr { position: relative; overflow: hidden; border-radius: calc(var(--pw) * 0.142); background: #050506; isolation: isolate;
+  box-shadow: 0 0 0 calc(var(--pw) * 0.0305) #0b0b0d, 0 0 0 calc(var(--pw) * 0.0305 + 1px) #3c3c42, 0 0 0 calc(var(--pw) * 0.0305 + 2px) #141417, 0 50px 90px -40px rgba(0, 0, 0, 0.9); }
+.t-light .ph-scr { box-shadow: 0 0 0 calc(var(--pw) * 0.0305) #0b0b0d, 0 0 0 calc(var(--pw) * 0.0305 + 1px) #3c3c42, 0 0 0 calc(var(--pw) * 0.0305 + 2px) #141417, 0 46px 80px -44px rgba(15, 15, 25, 0.55); }
+.ph-scr > picture img, .ph-img, .ph-next, .thread-img { width: 100%; aspect-ratio: 393 / 852; }
+.ph-btn { position: absolute; width: 3px; border-radius: 2px; background: linear-gradient(90deg, #2e2e33, #47474d); }
+.ph-btn-a { left: calc(var(--pw) * -0.0305 - 3px); top: 17%; height: 3.6%; }
+.ph-btn-b { left: calc(var(--pw) * -0.0305 - 3px); top: 24.5%; height: 7%; }
+.ph-btn-c { left: calc(var(--pw) * -0.0305 - 3px); top: 33%; height: 7%; }
+.ph-btn-p { right: calc(var(--pw) * -0.0305 - 3px); top: 26%; height: 10.5%; background: linear-gradient(90deg, #47474d, #2e2e33); }
+.sb { position: absolute; z-index: 3; left: 0; right: 0; top: 0; height: 3.4em; display: flex; align-items: center; justify-content: space-between; padding: 0 2.05em 0 2.25em; color: #f4f4f6; pointer-events: none; font-size: calc(var(--pw) / 393 * 16); }
+.sb b { font-family: var(--font-num); font-size: 1.0625em; font-weight: 650; letter-spacing: -0.01em; }
+.sb-isl { position: absolute; left: 50%; top: 0.7em; width: 7.6em; height: 2.2em; margin-left: -3.8em; border-radius: 999px; background: #000; }
+.sb-bat { width: 1.6em; height: 0.78em; border-radius: 0.24em; box-shadow: inset 0 0 0 0.09em rgba(244, 244, 246, 0.55); position: relative; }
+.sb-bat::before { content: ''; position: absolute; left: 0.16em; top: 0.16em; bottom: 0.16em; width: 72%; border-radius: 0.1em; background: #f4f4f6; }
+.sb-bat::after { content: ''; position: absolute; right: -0.18em; top: 0.26em; width: 0.1em; height: 0.26em; border-radius: 0 0.1em 0.1em 0; background: rgba(244, 244, 246, 0.55); }
+
+/* =====================================================================
+   ACT ONE: the flow (the still, phones, tablets, short laptops). The stage (below) re-places it on laptops.
+   ===================================================================== */
+.s-home .act { position: relative; z-index: 3; isolation: isolate; padding: 0; }
+.stage { position: relative; padding-top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) + 120px); }
+/* The lifter app's warm light from the top of the screen (Train), never behind a device. */
+.glow-top { position: absolute; inset: 0 0 auto; height: var(--fold); pointer-events: none; z-index: -1;
+  background: radial-gradient(42% 46% at 36% -16%, rgba(255, 59, 74, 0.13), transparent 70%); }
+.open-copy { position: absolute; left: calc(var(--fx) + var(--gut)); top: calc(64px + clamp(32px, 8vh, 96px)); width: min(var(--fw) * 0.37, 548px); z-index: 4; }
+.lede { margin-top: 26px; display: grid; gap: 12px; font-size: clamp(17px, 0.95rem + 0.3vw, 19px); line-height: 1.45; color: var(--text-2); }
+.who-line { display: flex; align-items: flex-start; gap: 12px; text-wrap: pretty; }
+.who-line .hue { margin-top: calc(0.725em - 4px); }
+.who-line b { color: var(--text); font-weight: 650; }
+.open-copy .cta { margin-top: 32px; }
+.open-copy .cta-note { margin-top: 14px; }
+
+/* Sam's laptop, a real device: the screen at 1440 x 900 desk px, scaled as one (lid, screen, base).
+   One desk px is 1em inside the laptop (the container's width / 1440). */
+.laptop { position: absolute; z-index: 1; right: calc(var(--fx) + var(--gut) + var(--fw) * 0.012); top: 120px; width: calc(var(--fw) * 0.49); aspect-ratio: 1440 / 900; margin: 0; container-type: inline-size; }
+.lt-cam { position: absolute; left: 0; top: 0; width: 1440em; height: 900em; font-size: calc(100cqw / 1440); transform-origin: 0 0; }
+.lt-body { position: absolute; inset: 0; }
+/* The lid: a dark bezel 26 desk px wide, a hairline edge catching the light, the camera dot. */
+.lt-lid { position: absolute; inset: -26em -26em -30em; border-radius: 40em 40em 22em 22em; background: #0b0b0d;
+  box-shadow: inset 0 0 0 2px #1d1d22, inset 0 2px 0 rgba(255, 255, 255, 0.07), 0 0 0 2px #000; }
+.lt-cam-dot { position: absolute; left: 50%; top: 9em; width: 9em; height: 9em; margin-left: -4.5em; border-radius: 50%; background: #1d1d22; }
+.lt-screen, .lt-screen img { position: absolute; inset: 0; width: 1440em; height: 900em; max-width: none; border-radius: 14em; }
+.lt-screen img { object-fit: cover; }
+/* The base: aluminium, a little wider than the lid, a thumb notch. */
+.lt-base { position: absolute; left: -150em; right: -150em; top: calc(100% + 30em); height: 40em; border-radius: 4em 4em 34em 34em;
+  background: linear-gradient(180deg, #d9dbe0 0%, #b9bcc4 38%, #8f939b 100%); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.65), inset 0 -3px 6px rgba(0, 0, 0, 0.25); }
+.lt-base::before { content: ''; position: absolute; left: 50%; top: 0; width: 230em; height: 12em; margin-left: -115em; border-radius: 0 0 14em 14em; background: linear-gradient(180deg, #a9acb4, #c6c9cf); }
+/* The coach's daylight, held under the screen: on the stage it grows out of the screen's edges to fill the room. */
+.lt-day { display: none; }
+/* Its shadow on the desk: a soft ellipse that follows the device. */
+.lt-shadow { position: absolute; left: -6%; right: -6%; bottom: -15%; height: 22%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0)); pointer-events: none; }
+/* Over the laptop's lid, at its left edge: the first thing the eye meets after the headline. */
+.lt-cap { position: absolute; left: 0; bottom: calc(100% + 1.806cqw + 12px); white-space: nowrap; }
+/* The camera's window: the same screen, live. Only on the stage. */
+.win, .win-shadow { display: none; }
+
+/* Arjun's phone: the real lifter app (iPhone app layout), true size on a laptop. */
+.hphone { position: absolute; z-index: 3; left: var(--pl); top: calc(var(--fold) - var(--ph) * var(--pin)); width: var(--pw); margin: 0; font-size: calc(var(--pw) / 393 * 16); }
+.ph-body { position: relative; }
+.hphone .ph-scr { box-shadow: 0 0 0 calc(var(--pw) * 0.0305) #0b0b0d, 0 0 0 calc(var(--pw) * 0.0305 + 1px) #3c3c42, 0 0 0 calc(var(--pw) * 0.0305 + 2px) #141417; }
+.ph-shadow { position: absolute; left: 8%; right: 8%; bottom: -3%; height: 10%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0)); pointer-events: none; }
+.ph-next { position: absolute; inset: 0; height: 100%; display: none; }
+html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
+/* As the logged set lifts off, the screen under it steps back, so no two sets' numbers ever share a frame. */
+.ph-dim { position: absolute; inset: 0; z-index: 4; background: #050506; opacity: 0; pointer-events: none; }
+/* Log set over the capture, in the one-action crimson (the app's geometry: 35, 409 / 323 x 52). */
+.log { position: absolute; left: 2.1875em; top: 25.575em; width: 20.1875em; height: 3.25em; display: flex; align-items: center; justify-content: center; border-radius: 999px;
+  background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
+.log-in { display: inline-flex; align-items: center; gap: 0.5em; font: 650 1.0625em/1 var(--font-body); letter-spacing: -0.005em; }
+.log svg { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The labels: each points at its row of the set card (the app's own geometry, out of 852). */
+.labels { position: absolute; top: 0; bottom: 0; left: calc(100% + var(--pw) * 0.0305); width: 330px; font-size: 16px; pointer-events: none; }
+.lab-cap { position: absolute; left: 30px; top: calc(168 / 852 * 100%); display: flex; align-items: baseline; gap: 10px; font-size: 14px; font-weight: 500; color: var(--text-2); white-space: nowrap; transform: translateY(-50%); }
+.lab-cap b { color: var(--text); font-weight: 700; }
+.lab { position: absolute; left: 30px; top: calc(var(--y) / 852 * 100%); display: flex; align-items: center; transform: translateY(-50%); white-space: nowrap; }
+.lab-n { display: none; }
+.lab-l { position: absolute; right: calc(100% + 10px); top: 50%; width: calc(36px + var(--pw) * 0.0305); height: 1px; background: rgba(244, 244, 246, 0.42); transform-origin: 0 50%; }
+.lab-l::before { content: ''; position: absolute; left: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: #f4f4f6; }
+.lab-t { font-size: 17px; font-weight: 650; letter-spacing: -0.012em; color: #f4f4f6; }
+.pin { display: none; }
+/* With motion on a laptop the leaders draw on in the act: they start drawn back from the first paint, so a slow script
+   never shows them and then takes them away. (Without motion, or if the script misses 4 s, they simply show.) */
+@media (min-width: 1100px) and (min-height: 640px) {
+  html.m .lab-cap, html.m .lab-t { opacity: 0; visibility: hidden; }
+  html.m .lab-l { transform: scaleX(0); }
+}
+/* In the flow on a laptop the phone stands in front of the laptop's base, so its caption sits under the labels. */
+@media (min-width: 1100px) { html:not(.stage-on) .lab-cap { top: calc(520 / 852 * 100%); } }
+
+/* What the app worked out: one big number (white, as the app sets a PR), its plain label, the line it moved. */
+.max { position: absolute; left: calc(var(--fx) + var(--gut)); top: calc(var(--fold) + 40px); width: calc(var(--pl) - var(--fx) - var(--gut) - 56px); max-width: 500px; z-index: 2; }
+.max-k { margin-bottom: 4px; font-size: 16px; font-weight: 650; color: var(--text); text-wrap: pretty; }
+.max-k .dot { margin: 0 10px 1px 0; vertical-align: middle; }
+.max-k2 { font-weight: 500; color: var(--text-3); }
+.max-num { margin-top: 2px; display: flex; align-items: baseline; font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(96px, 10.6vw, 160px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.max-num small { margin-left: 0.12em; font-family: var(--font-body); font-stretch: 100%; font-size: 0.17em; font-weight: 600; letter-spacing: 0; color: var(--text-3); }
+/* The odometer: three cells the width of a digit; only the last one rolls (its strip holds 3 to 8). */
+.odo { display: flex; }
+.odo-d { display: block; width: 0.68em; height: 1em; line-height: 1; text-align: center; }
+.odo-roll { overflow: hidden; }
+.odo-strip { display: block; transform: translateY(-5em); }
+.odo-strip > span { display: block; height: 1em; line-height: 1; }
+.max-tags { margin-top: 18px; display: flex; align-items: center; gap: 14px; }
+.up-tag { padding: 5px 12px; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: var(--up); font-family: var(--font-num); font-size: 15px; font-weight: 750; }
+.pr-tag { font-size: 15px; font-weight: 750; color: var(--c-gold); }
+.max-chart { position: relative; height: 132px; margin-top: 24px; }
+.max-svg { width: 100%; height: 100%; overflow: visible; }
+.max-area { fill: url(#maxGrad); }
+.max-line { fill: none; stroke: var(--sq); stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.max-pt, .max-end { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #050506; box-shadow: inset 0 0 0 2px var(--c-gold); }
+.max-end { width: 14px; height: 14px; margin: -7px 0 0 -7px; background: var(--c-gold); box-shadow: 0 0 0 3px #050506; }
+.max-x { position: absolute; left: 0; right: 0; top: calc(100% + 10px); display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--text-3); }
+.max-from { margin-top: 42px; max-width: 30em; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+
+/* Today, in the flow: two daylight panels below the opening (the landing, then the list). */
+.land, .who { position: relative; padding: clamp(88px, 9vw, 128px) calc(var(--fx) + var(--gut)); }
+.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "h fw" "s fw" "c fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; }
+.land .h2 { grid-area: h; align-self: end; }
+.land .sub { grid-area: s; margin-top: 20px; max-width: 26em; }
+.land-cap { grid-area: c; margin-top: 24px; align-self: start; }
+.land .fw { grid-area: fw; }
+.who { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "h fw" "s fw" "l fw" "r fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; box-shadow: inset 0 1px 0 var(--hair); }
+.who .h2 { grid-area: h; }
+.who .sub { grid-area: s; margin-top: 18px; max-width: 28em; }
+.who .chain { grid-area: l; }
+.who .rules { grid-area: r; }
+.who .fw { grid-area: fw; align-self: center; }
+
+/* A true-size window onto the laptop's screen. */
+.fw { margin: 0; }
+.fw-port { position: relative; overflow: hidden; width: min(756px, 54vw); aspect-ratio: 756 / 576; border-radius: 16px; background: #f3f3f5; box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.1), 0 34px 70px -40px rgba(15, 15, 25, 0.42); }
+.fw-still img { width: 100%; aspect-ratio: 756 / 576; }
+.fw-live { display: none; position: absolute; left: 0; top: 0; width: 756px; height: 576px; transform-origin: 0 0; }
+html.js .fw-a .fw-still { display: none; }
+html.js .fw-a .fw-live { display: block; }
+.fw-base { width: 756px; height: 576px; max-width: none; }
+/* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). */
+.fw-port-list { width: 420px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
+.fw-port-list picture { display: block; overflow: hidden; border-radius: 16px; background: #f3f3f5; box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.1), 0 34px 70px -40px rgba(15, 15, 25, 0.42); }
+.fw-port-list img { width: 100%; }
+.fpin { position: absolute; left: 0; top: calc(var(--y) / 700 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #0b0b0d; color: #f4f4f6; font: 800 12px/1 var(--font-num); }
+.fw-b .cap { margin-top: 14px; padding-left: 34px; }
+.was { position: absolute; max-width: none; opacity: 0; pointer-events: none; }
+.ring { position: absolute; border-radius: 22px; box-shadow: 0 0 0 2px rgba(26, 127, 75, 0.62), 0 0 0 7px rgba(26, 127, 75, 0.1); opacity: 0; pointer-events: none; }
+
+/* Live numbers over the capture, in the desk's own type (light theme, measured from the app). */
+.ov { position: absolute; display: flex; align-items: center; white-space: nowrap; color: #0b0b0d; font-family: var(--font-num); pointer-events: none; }
+.ov-total { font-size: 56px; font-weight: 800; font-stretch: 104%; letter-spacing: -1.96px; line-height: 53.2px; }
+.ov-chip { gap: 6px; height: 28px; padding: 0 10px; font: 700 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #0f7d47; }
+.ov-chip svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.ov-pr { gap: 6px; height: 20.8px; font: 600 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #34343c; }
+.ov-pr i { width: 6px; height: 6px; border-radius: 50%; background: #8a5a00; }
+.ov-sq { font-size: 28px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.84px; line-height: 28px; }
+.ov-d { font: 700 15px/24px var(--font-body); letter-spacing: -0.08px; color: #0f7d47; }
+.ov-foot, .ov-trf { font: 400 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #55555e; }
+.ov-trf { line-height: 17.55px; }
+.ov-tr { font-size: 22px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.44px; line-height: 23.1px; }
+.ov-row { font: 600 15px/20px var(--font-body); font-stretch: 104%; color: #34343c; }
+/* Two-state words: the still shows the last state; with motion the script plays the first to the last. */
+.swap { display: inline-grid; }
+.swap > * { grid-area: 1 / 1; }
+.swap > :not(:last-child) { visibility: hidden; }
+
+/* The chain: why each lifter is where they are, in the app's own order (a real sequence, so it is numbered), and the
+   fix the app hands the coach for each, as the desk labels it. */
+.chain { margin-top: 30px; display: grid; gap: 2px; counter-reset: ch; max-width: 31em; }
+.chain li { position: relative; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; column-gap: 14px; align-items: center; padding: 7px 0; counter-increment: ch; }
+.chain li::before { content: counter(ch); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #0b0b0d; color: #f4f4f6; font: 800 12px/1 var(--font-num); }
+.ch-t { display: flex; flex-direction: column; min-width: 0; }
+.ch-t b { font-size: 17px; font-weight: 700; letter-spacing: -0.012em; line-height: 1.3; }
+.ch-t span { font-size: 15px; line-height: 1.4; color: var(--text-2); }
+/* The fix: the desk's quiet button; the one the coach's own rule wrote is ink, with the load the lifter will see. */
+.fix { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border-radius: 999px; background: rgba(11, 11, 13, 0.06); font-size: 13px; font-weight: 650; color: #16161a; white-space: nowrap; }
+.fix svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fix-apply { background: #0b0b0d; color: #f4f4f6; }
+/* How the order works: one disclosure, closed until opened. */
+.rules { margin-top: 18px; max-width: 31em; }
+.rules summary { display: inline-flex; align-items: center; gap: 10px; padding: 6px 0; list-style: none; cursor: pointer; font-size: 16px; font-weight: 650; color: var(--text); }
+.rules summary::-webkit-details-marker { display: none; }
+.rules .qi { width: 22px; height: 22px; }
+.rules .qi::before, .rules .qi::after { width: 9px; margin-left: -4.5px; }
+.rules-body { margin-top: 10px; padding: 16px 18px 14px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px var(--edge), var(--lit); }
+.tiers { display: grid; gap: 10px; }
+.tiers div { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 12px; }
+.tiers dt { font-size: 14px; font-weight: 700; color: var(--text); }
+.tiers dd { font-size: 14px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.tiers-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--text-3); }
+.grp, .mk { display: none; }
+
+/* =====================================================================
+   ANSWERS (dark): the lifter's phone, the reply arriving; their words next to what they lifted.
+   ===================================================================== */
+.s-home .answers { position: relative; padding: var(--sec) 0; isolation: isolate; }
+.answers::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(40% 48% at 26% -10%, rgba(255, 59, 74, 0.08), transparent 70%); }
+.answers-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
+.thread { grid-column: 2 / span 4; justify-self: center; --pw: min(393px, 27.3vw); width: var(--pw); }
+.thread .cap { margin-top: 30px; justify-content: center; }
+.tl { position: absolute; max-width: none; pointer-events: none; }
+/* The layers, placed in the screen's own points (out of 393 x 852). */
+.tl-reply { left: 0; top: calc(494 / 852 * 100%); width: 100%; height: auto; }
+.tl-seen, .tl-sent { left: calc(280 / 393 * 100%); top: calc(466 / 852 * 100%); width: calc(100 / 393 * 100%); height: auto; }
+.tl-sent { display: none; }
+html.m .tl-sent { display: block; }
+.answers-copy { grid-column: 7 / span 6; }
+.answers-copy .lead { margin-top: 24px; }
+.also { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--hair); max-width: 34em; font-size: 17px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+.also b { color: var(--text); font-weight: 700; }
+
+/* =====================================================================
+   NEXT WEEK (daylight): one lifter's week at its real size, written against lifted; the suggestion taken; published.
+   ===================================================================== */
+.s-home .next { position: relative; padding: var(--sec) 0; }
+.next-head .lead { margin-top: 16px; max-width: 40em; }
+.wk { margin-top: clamp(28px, 2.6vw, 38px); width: min(1192px, 100%); }
+/* What each column is, pinned above it: what Sam wrote, what Marcus lifted (and how it felt), next week. */
+.wk-cols { position: relative; height: 34px; margin: 0 16px; }
+.wk-cols span { position: absolute; left: calc(var(--x) / 1160 * 100%); top: 2px; padding-left: 12px; font-size: 14px; font-weight: 650; color: var(--text); white-space: nowrap; }
+.wk-cols span::before { content: ''; position: absolute; left: 0; top: 4px; height: 28px; width: 1.5px; border-radius: 1px; background: #10a86a; }
+.wk-port { position: relative; overflow: hidden; padding: 14px 16px 4px; border-radius: 18px; outline-offset: 4px; background: #f3f3f5; box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.09), 0 34px 70px -42px rgba(15, 15, 25, 0.4); }
+.wk-in { position: relative; aspect-ratio: 1160 / 387; }
+.wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wk-before { display: none; }
+html.m .wk-before { display: block; }
+.tap { position: absolute; left: calc(959 / 1160 * 100%); top: calc(294.8 / 387 * 100%); width: calc(184 / 1160 * 100%); height: calc(32 / 387 * 100%); border-radius: 999px; box-shadow: 0 0 0 2px rgba(11, 11, 13, 0.85); opacity: 0; pointer-events: none; }
+.wk-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px 40px; margin-top: 18px; }
+.wk-foot .cap { flex: 1 1 26em; max-width: 40em; }
+.wk-pub { display: inline-flex; align-items: center; gap: 14px; font-size: 16px; font-weight: 650; color: var(--text); }
+/* The app's own Publish (desk.css .dk-btn primary): the one crimson on this screen. */
+.pub { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: 15px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(15, 15, 25, 0.2); }
+.pub svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.next-also { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--hair); max-width: 40em; font-size: 17px; line-height: 1.55; font-weight: 600; color: var(--text); }
+
+/* =====================================================================
+   MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
+   Sam's board (right). With motion on a laptop the stage holds the screen (sticky) while the reader's scroll runs it;
+   the camera starts close on the dark lights and pulls back to the team.
+   ===================================================================== */
+.s-home .meet { padding: 0; }
+.meet { position: relative; background: var(--black); color: #f4f4f6; --bg: var(--black); --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --hair: rgba(255, 255, 255, 0.1); color-scheme: dark; }
+.meet-stage { display: flex; flex-direction: column; width: min(100% - 2 * var(--gut), var(--wrap)); margin: 0 auto; padding: var(--sec) 0 clamp(64px, 6vw, 96px); }
+@media (min-width: 1100px) and (min-height: 700px) {
+  html.m .meet { height: 330vh; }
+  html.m .meet-stage { position: sticky; top: 0; height: 100vh; height: 100svh; padding: calc(64px + clamp(16px, 3.4vh, 34px)) 0 clamp(14px, 2.6vh, 26px); }
+}
+.meet-h { margin-bottom: clamp(18px, 3.2vh, 34px); max-width: none; }
+.scene-clip { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: -18px -18px 0; padding: 18px 18px 0; overflow: clip; }
+.scene { display: grid; grid-template-columns: minmax(0, clamp(240px, 21vw, 300px)) minmax(0, 1fr) minmax(0, clamp(380px, 30.5vw, 440px)); grid-template-areas: "phone mid board";
+  column-gap: clamp(24px, 3.4vw, 64px); align-items: start; flex: 1 1 auto; min-height: 0; }
+.mid { grid-area: mid; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2px 0 clamp(20px, 3.2vh, 32px); }
+.stage-meta { font-size: 14px; font-weight: 600; color: #8c8c96; }
+.judges { display: flex; gap: clamp(16px, 1.9vw, 28px); margin-top: 18px; }
+/* The three lights (IPF): white for good, all three at once. Flat discs lit by fill, shaded like the app's, never a halo. */
+.judges i { width: clamp(68px, 7.6vw, 110px); aspect-ratio: 1; border-radius: 50%; background: #f4f4f6; box-shadow: inset 0 -6px 14px rgba(0, 0, 0, 0.12); }
+.judges i.is-off { background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.verdict { margin-top: 16px; font-size: clamp(18px, 0.9rem + 0.6vw, 22px); font-weight: 750; letter-spacing: -0.015em; }
+.clock { display: flex; flex-direction: column; align-items: center; margin-top: clamp(14px, 3vh, 30px); }
+.clock-n { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(80px, 2rem + 6vw, 128px); font-weight: 800; line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.clock-l { margin-top: 12px; font-size: 15px; font-weight: 600; color: #b8b8c0; }
+.clock-bar { position: relative; width: min(360px, 70vw); height: 6px; margin-top: 14px; border-radius: 3px; background: rgba(255, 255, 255, 0.09); overflow: hidden; }
+.clock-bar i { position: absolute; inset: 0; border-radius: inherit; background: #f4f4f6; transform-origin: 0 50%; transform: scaleX(0.6833); }
+.side { position: relative; min-width: 0; }
+/* The room's light going down: a black scrim over each part of the stage but the platform (the words keep their colour). */
+.mdim { position: absolute; z-index: 5; inset: -24px; background: var(--black); opacity: 0; pointer-events: none; }
+.meet-low { position: relative; }
+.side > .cap { margin-bottom: 14px; }
+.side-phone { grid-area: phone; align-self: stretch; display: flex; flex-direction: column; --pw: clamp(220px, 19vw, 272px); }
+.side-board { grid-area: board; padding-bottom: clamp(20px, 3.2vh, 32px); }
+/* Tom's phone: the lifter app's meet-day screen (meet mode, styles.css .mm-*; the next-attempt card, meetday.css
+   .md-next-slab), in the screen's own points (1em = 16 pt at 393), so it scales with the phone. The crop takes the
+   row's height, never the phone's: the phone runs on below the stage's rule. */
+.mp-crop { position: relative; flex: 1 1 0; min-height: 280px; overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px); margin: calc((var(--pw) * 0.0305 + 2px) * -1); }
+.mp { position: relative; }
+.mp-scr { aspect-ratio: 393 / 852; font-size: calc(var(--pw) / 393 * 16); background: #050506; }
+.mp-on { position: absolute; inset: 0; padding: 4.2em 1em 0; color: #f4f4f6; }
+.mp-head { display: grid; grid-template-columns: 2.75em minmax(0, 1fr) auto; align-items: center; gap: 0.5em; min-height: 3.25em; }
+.mp-x { display: grid; place-items: center; width: 2.5em; height: 2.5em; border-radius: 50%; background: rgba(255, 255, 255, 0.07); }
+.mp-x svg { width: 1.125em; height: 1.125em; fill: none; stroke: #f4f4f6; stroke-width: 2; stroke-linecap: round; }
+.mp-titles { display: flex; flex-direction: column; gap: 0.125em; min-width: 0; }
+.mp-titles b { font-family: var(--font-display); font-weight: 750; font-size: 1.25em; letter-spacing: -0.02em; line-height: 1.15; }
+.mp-titles small { font-size: 0.8125em; line-height: 1.3; color: #8c8c96; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.mp-total { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.mp-total b { font-family: var(--font-num); font-size: 1em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-total small { font-size: 0.8125em; color: #8c8c96; }
+.slab { position: relative; margin: 0.25em 0 0.75em; padding: 1.125em 1.125em 1em; border-radius: 0.25em; background: #0b0b0c; color: #f4f4f6; overflow: hidden; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.slab-rule { position: absolute; left: 0; right: 0; top: 0; height: 0.25em; background: #e5262f; }
+.slab-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75em; font-size: 0.9375em; font-weight: 800; letter-spacing: 0.01em; }
+.slab-top b { font-family: var(--font-num); font-size: 1.4667em; font-weight: 700; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.slab-top .swap { justify-items: end; }
+.slab-kg { display: flex; align-items: baseline; gap: 0.5em; margin-top: 0.375em; }
+.slab-kg b { font-family: var(--font-num); font-size: 3.5em; font-weight: 750; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.slab-kg small { font-size: 0.9375em; color: rgba(244, 244, 246, 0.6); }
+.slab-line { margin-top: 0.375em; font-size: 0.875em; color: rgba(244, 244, 246, 0.72); }
+.slab-dec { display: inline-grid; }
+.mp-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375em; margin: 0.625em 0 0.375em; }
+.mp-tab { display: flex; flex-direction: column; align-items: center; gap: 0.4286em; padding: 0.7143em 0.4286em; border-radius: 1em; background: rgba(255, 255, 255, 0.035); color: #b8b8c0; font-size: 0.875em; font-weight: 650; }
+.mp-tab.on { background: rgba(255, 255, 255, 0.08); color: #f4f4f6; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sq) 55%, transparent); }
+.mp-tn { display: inline-flex; align-items: center; gap: 0.4286em; }
+.mp-tn .dot { width: 0.5714em; height: 0.5714em; }
+.mp-marks { display: flex; gap: 0.2857em; }
+.mp-marks i { width: 1em; height: 0.4286em; border-radius: 0.2143em; background: rgba(255, 255, 255, 0.08); }
+.mp-marks i.good { background: #f4f4f6; }
+.mp-body { display: flex; flex-direction: column; align-items: center; padding-top: 0.875em; }
+.mp-att { font-size: 0.875em; font-weight: 650; color: #b8b8c0; }
+.mp-kg { display: flex; align-items: baseline; gap: 0.375em; margin-top: 0.375em; }
+.mp-kg b { font-family: var(--font-num); font-size: 4em; font-weight: 750; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.mp-kg small { font-size: 1.125em; font-weight: 650; color: #8c8c96; }
+/* Sam's board: Tom's row and the Declare card, in the app's dark board styles (meetday.css). */
+.board { display: grid; gap: 10px; }
+.bd-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 12px 9px 14px; border-radius: 14px; background: #121214; }
+.bd-who b { display: block; font-size: 15px; font-weight: 650; }
+.bd-who small { display: block; font-size: 13px; color: #8c8c96; }
+.bd-cells { display: flex; gap: 2px; }
+.cell { display: inline-grid; align-items: center; }
+.cell > span, .cell.is-plan { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border-radius: 9px; font-family: var(--font-num); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; color: #8c8c96; }
+.cell i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+.cell .is-dec { color: #f4f4f6; font-weight: 750; }
+.cell .is-dec i { background: #f4f4f6; box-shadow: none; }
+.cell .is-good { color: var(--up); font-weight: 750; background: rgba(52, 217, 130, 0.13); }
+.cell .is-good i { background: var(--up); box-shadow: none; }
+.cell .is-tgt { color: #f4f4f6; box-shadow: inset 0 0 0 1.5px #8c8c96; }
+.cell.is-plan { color: #8c8c96; font-weight: 500; }
+.dec { padding: 14px 16px 16px; border-radius: 16px; background: #121214; }
+.dec-k { font-size: 13px; font-weight: 650; color: #8c8c96; }
+.dec-sub { margin-top: 2px; font-size: 13px; color: #b8b8c0; font-variant-numeric: tabular-nums; }
+.dec-kg { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.dec-kg b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; font-size: 36px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
+.dstep { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); font-size: 20px; font-weight: 600; color: #f4f4f6; }
+.dec-odds, .dec-aim { margin-top: 2px; text-align: center; font-size: 13px; color: #8c8c96; font-variant-numeric: tabular-nums; }
+.dec-odds b { color: #b8b8c0; font-weight: 600; }
+/* Safe / Plan / Send: a real radio group (arrow keys move it; the odds and the total follow). */
+.dec-opts { margin-top: 12px; display: grid; gap: 2px; padding: 3px; border-radius: 16px; background: rgba(255, 255, 255, 0.06); }
+.dec-opts button { display: grid; grid-template-columns: 48px auto minmax(0, 1fr); align-items: baseline; column-gap: 12px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 13px; background: transparent; color: #b8b8c0; text-align: left; cursor: pointer;
+  transition: background-color var(--t-state) ease, color var(--t-state) ease; -webkit-tap-highlight-color: transparent; align-content: center; }
+.dec-opts button .ok { font-size: 15px; font-weight: 600; }
+.dec-opts button.on { background: #2a2a2e; color: #f4f4f6; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+@media (hover: hover) and (pointer: fine) { .dec-opts button:not(.on):not([aria-disabled="true"]):hover { background: rgba(255, 255, 255, 0.04); } }
+.dec-opts button:focus-visible { outline: 2px solid #5ac8fa; outline-offset: -2px; border-radius: 13px; }
+.dec-opts button[aria-disabled="true"] { cursor: default; }
+.dec-opts button > b { font-family: var(--font-num); font-size: 20px; font-weight: 700; color: #f4f4f6; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.dec-opts em { justify-self: end; font-style: normal; font-size: 13px; color: #8c8c96; white-space: nowrap; }
+.dec-opts em b { font-weight: 600; color: #b8b8c0; }
+.dec-opts button.on em { color: #a8a8b2; }
+.dec-btn { position: relative; isolation: isolate; display: grid; place-items: center; height: 44px; margin-top: 10px; border-radius: 999px; background: #1e1e22; color: #f4f4f6; font-size: 15px; font-weight: 650; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.dec-btn .swap { position: relative; z-index: 1; }
+.dec-btn .swap > span { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.dec-btn svg { width: 18px; height: 18px; fill: none; stroke: var(--up); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+/* Before the call the button is the board's one crimson action; the script lays this layer over the ink ground. */
+.dec-red { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+/* Plan, Board, Call: what each step of the stage is, lit as the stage reaches it. */
+.beats { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--cg); padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.14); background: var(--black); }
+.beat { position: relative; font-size: 14px; line-height: 1.48; color: #8c8c96; text-wrap: pretty; transition: color 300ms ease; }
+.beat b { color: #f4f4f6; font-weight: 700; }
+.beat::before { content: ''; position: absolute; left: 0; top: -17px; width: 100%; height: 1px; background: #f4f4f6; transform-origin: 0 50%; transform: scaleX(var(--on, 1)); transition: transform 500ms var(--ease-out); }
+html.m .beat { --on: 0; }
+html.m .beat.is-on { --on: 1; color: #b8b8c0; }
+.meet-foot { margin-top: clamp(10px, 2vh, 18px); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 32px; }
+.meet-cap { font-size: 17px; font-weight: 650; line-height: 1.45; color: #f4f4f6; }
+.meet-after { font-size: 14px; color: #8c8c96; }
+
+/* =====================================================================
+   MOVING OVER, AND THE MONEY (dark).
+   ===================================================================== */
+.s-home .moving { position: relative; padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.moving-h { max-width: 15em; }
+.move { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; margin-top: clamp(44px, 4.5vw, 64px); }
+.msteps { grid-column: 1 / span 6; }
+.step-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; padding: 24px 0 26px; border-top: 1px solid var(--hair); }
+.step-i:last-child { border-bottom: 1px solid var(--hair); }
+.sn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 14px/1 var(--font-num); font-style: normal; }
+.st p { font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
+.st b { color: var(--text); font-weight: 700; }
+.st .becomes { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-weight: 650; color: var(--text); }
+.becomes svg { flex: none; width: 24px; height: 12px; fill: none; stroke: var(--c-green); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 32; stroke-dashoffset: 0; }
+.imp { grid-column: 8 / span 5; justify-self: end; width: min(100%, 496px); margin-top: 8px; }
+.sheet-crop { overflow: hidden; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 40px 80px -40px rgba(0, 0, 0, 0.9); }
+.sheet-crop img { width: 100%; }
+.imp .cap, .cl .cap { margin-top: 14px; }
+.move-foot { margin-top: 28px; max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 16px; color: var(--text-2); }
+.move-foot .quiet { font-size: 16px; }
+.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 36px; margin-top: clamp(88px, 9vw, 136px); padding-top: clamp(56px, 5vw, 72px); border-top: 1px solid var(--hair); }
+.money-copy { grid-column: 1 / span 6; }
+.money-copy p { margin-top: 16px; max-width: 34em; font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
+.money-copy .money-2 { margin-top: 12px; font-size: 16px; color: var(--text-3); }
+.cl { grid-column: 1 / -1; width: min(100%, 992px); }
+.sheet-desk { background: #f3f3f5; }
+
+/* =====================================================================
+   PRICING (daylight): one roster scale, four bands, Sam's twenty lifters filling it.
+   ===================================================================== */
+.s-home .prices { padding: clamp(88px, 8.4vw, 120px) 0 clamp(56px, 5vw, 72px); }
+.plans-top { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
+.plans-head { grid-column: 1 / span 7; }
+.plans-head .lead { margin-top: 22px; }
+.plans-head .plans-cta { margin-top: 34px; }
+.brand-ph { position: relative; grid-column: 9 / span 4; justify-self: end; margin: 0 calc(var(--pw) * 0.0305 + 3px) 0 0; --pw: clamp(236px, 18vw, 260px); width: var(--pw); }
+/* The crop ends just under Log set (480 of the screen's 852 pt), on the scale's rule. */
+.bp-crop { height: calc(var(--pw) * 480 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); }
+.brand-ph .ph-scr { font-size: calc(var(--pw) / 393 * 16); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.brand-ph .ph-scr img { width: 100%; aspect-ratio: 393 / 520; }
+/* On a laptop the screen is labelled where branding shows (the team's name and logo, its colour on Log set), the way the
+   act labels the set card; the caption carries the same words on smaller screens. */
+.brand-ph .cap { position: absolute; right: calc(100% + 32px); bottom: 20px; width: 15.5em; }
+.bp-lab { position: absolute; right: calc(100% - 14px); top: calc(var(--pw) * 0.0305 + 2px + var(--pw) * var(--y) / 393); display: flex; align-items: center; gap: 10px; transform: translateY(-50%); white-space: nowrap; pointer-events: none; }
+.bp-t { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; color: var(--text); }
+.bp-l { position: relative; display: block; width: calc(44px + var(--pw) * 0.0305); height: 1px; background: rgba(11, 11, 13, 0.45); }
+.bp-l::after { content: ''; position: absolute; right: -4px; top: -3.5px; width: 8px; height: 8px; border-radius: 50%; background: #f4f4f6; box-shadow: 0 0 0 1.5px #0b0b0d; }
+@media (min-width: 1100px) { .brand-ph .cap { display: none; } }
+@media (max-width: 1099px) { .bp-lab { display: none; } }
+.scale { padding-top: clamp(40px, 4vw, 56px); border-top: 1px solid var(--hair); }
+.bands { display: grid; grid-template-columns: 3fr 7fr 15fr 5fr; }
+.band { min-width: 0; padding-right: clamp(8px, 1vw, 14px); }
+.band:last-child { padding-right: 0; }
+.seats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); justify-items: start; align-items: center; height: clamp(30px, 2.9vw, 42px); }
+.f { display: grid; place-items: center; width: clamp(26px, 2.6vw, 38px); aspect-ratio: 1; border-radius: 50%; font-family: var(--font-body); font-size: clamp(9.5px, 0.92vw, 13px); font-weight: 750; letter-spacing: -0.01em;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), box-shadow 200ms ease, background-color 200ms ease, color 200ms ease; }
+/* Avatars: the app's avatarHue palette (light: pale ground, deep ink). */
+.av-h0 { background: #fbe4e7; color: #a3172c; } .av-h1 { background: #fcebde; color: #93380a; } .av-h2 { background: #f8efd3; color: #6f4c00; } .av-h3 { background: #e0f2e6; color: #155f36; }
+.av-h4 { background: #dcf1ee; color: #0e5f59; } .av-h5 { background: #e1ebfb; color: #1c4f9c; } .av-h6 { background: #e9e5fb; color: #4a37a6; } .av-h7 { background: #f6e3f4; color: #86287d; }
+.f-open, .f.is-open { background: transparent !important; color: transparent !important; box-shadow: inset 0 0 0 1.5px rgba(15, 15, 25, 0.16); }
+.f.is-open { transform: scale(0.92); }
+.f-more { font-size: 18px; font-weight: 500; color: var(--text-3); line-height: 1; }
+.band-k { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 16px; padding-top: 14px; border-top: 2px solid rgba(15, 15, 25, 0.12); font-size: 14px; color: var(--text-3); transition: border-color var(--t-state) ease, color var(--t-state) ease; }
+.band-k b { flex-basis: 100%; font-size: 19px; font-weight: 750; letter-spacing: -0.012em; color: var(--text-2); transition: color var(--t-state) ease; }
+.band-k em { font-style: normal; font-size: 13px; font-weight: 650; color: #0f7d47; }
+.price { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; }
+.price b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(26px, 0.9rem + 1.6vw, 40px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--text-2); font-variant-numeric: tabular-nums; transition: color var(--t-state) ease; }
+.price small { font-size: 14px; color: var(--text-3); }
+.band.is-on .band-k { border-top-color: #0b0b0d; }
+.band.is-on .band-k b, .band.is-on .price b { color: var(--text); }
+/* The still: Sam's twenty sit in Pro. */
+.b-pro .band-k { border-top-color: #0b0b0d; }
+.b-pro .band-k b, .b-pro .price b { color: var(--text); }
+html.m .b-pro:not(.is-on) .band-k { border-top-color: rgba(15, 15, 25, 0.12); }
+html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color: var(--text-2); }
+.scale-cap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--hair); }
+.sc-state { display: flex; align-items: baseline; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); font-weight: 650; color: var(--text); }
+.sc-n b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-weight: 800; font-variant-numeric: tabular-nums; }
+.sc-sep { padding: 0 0.45em; color: var(--text-3); }
+#scPlan > :not(:last-child) { visibility: hidden; }
+.sc-each { font-size: 15px; color: var(--text-3); }
+.plans-foot { margin-top: 26px; }
+.fine { max-width: 40em; font-size: 15px; line-height: 1.55; color: var(--text-2); }
+.plans-cta { gap: 12px 20px; }
+
+/* =====================================================================
+   QUESTIONS (daylight): closed until opened.
+   ===================================================================== */
+.s-home .faq { padding: clamp(40px, 4vw, 56px) 0 var(--sec); }
+.faq-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; padding-top: clamp(56px, 5vw, 80px); border-top: 1px solid var(--hair); }
+.faq-side { grid-column: 1 / span 4; position: sticky; top: 112px; }
+.faq-demo { margin-top: 22px; max-width: 22em; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+.faq-demo .quiet { display: flex; width: max-content; margin-top: 12px; font-size: 16px; }
+.qs { grid-column: 6 / span 7; border-bottom: 1px solid var(--hair); }
+.q { border-top: 1px solid var(--hair); }
+.q summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; list-style: none; cursor: pointer; font-size: 19px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.35; }
+.q summary::-webkit-details-marker { display: none; }
+.q summary:focus-visible { outline-offset: 6px; }
+.qi { position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; background: rgba(11, 11, 13, 0.06); transition: background-color var(--t-state) ease; }
+.qi::before, .qi::after { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.8px; margin: -0.9px 0 0 -6px; border-radius: 1px; background: currentColor; transition: transform 260ms var(--ease-out); }
+.qi::after { transform: rotate(90deg); }
+details[open] > summary .qi::after { transform: rotate(0deg); }
+@media (hover: hover) and (pointer: fine) { .q summary:hover .qi, .rules summary:hover .qi { background: rgba(11, 11, 13, 0.1); } }
+.qa p { max-width: 40em; padding: 0 0 24px; font-size: 17px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+
+/* =====================================================================
+   CLOSE (dark): one line, one action.
+   ===================================================================== */
+.s-home .close { position: relative; padding: clamp(120px, 12vw, 176px) 0; isolation: isolate; overflow: hidden; }
+.glow-close { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(38% 60% at 30% -10%, rgba(255, 59, 74, 0.12), transparent 70%); }
+.close-in { position: relative; z-index: 1; }
+.close-h { font-size: clamp(40px, 1rem + 4vw, 74px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
+.close .lead { margin-top: 24px; }
+.close .cta { margin-top: 40px; }
+
+/* ---------- The set in flight (only while motion plays the story): fixed to the screen, placed every frame. Lifted,
+   it carries the deeper shadow of something held above the phone. */
+.fly { position: fixed; z-index: 30; left: 0; top: 0; width: 268px; pointer-events: none; display: none; will-change: transform, opacity; }
+html.m .fly { display: block; visibility: hidden; }
+.fy { --lc: var(--sq); display: block; padding: 12px 12px 11px; border-radius: 14px; background: color-mix(in srgb, var(--lc) 13%, #121216); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 28%, transparent); color: #f4f4f6; text-align: left; }
+.fy > span { display: block; }
+.fy-k { font-size: 13px; font-weight: 650; color: var(--c-gold); }
+.fy .fy-t { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.fy .fy-n { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px; margin-top: 8px; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.fy-n b { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; line-height: 1; }
+.fy-n small { font-size: 13px; font-weight: 600; color: #c8c8d0; }
+.fy-n em { font-style: normal; color: #c8c8d0; margin: 0 4px; }
+.fy-rpe { align-self: center; margin-left: 8px; padding: 4px 9px; border-radius: 999px; background: rgba(207, 203, 76, 0.16); color: #e2de6c; font-family: var(--font-body); font-size: 13px; font-weight: 700; }
+.fy-fly { background: color-mix(in srgb, var(--sq) 14%, #101012); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 32%, transparent), 0 30px 60px -20px rgba(0, 0, 0, 0.85), 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
+
+/* ---------- The arrival settles once on load: the devices turn a few degrees toward the reader (transform only; the
+   words never move, so everything is readable from the first frame). The motion layer loads once it has finished. */
+@keyframes settleLaptop { from { transform: perspective(2200px) rotateY(-7deg) translateY(14px); } to { transform: perspective(2200px) rotateY(0deg) translateY(0); } }
+@keyframes settlePhone { from { transform: perspective(2200px) rotateY(6deg) translateY(22px); } to { transform: perspective(2200px) rotateY(0deg) translateY(0); } }
+@keyframes glowUp { from { opacity: 0.4; } }
+html.m:not(.stage-on) .laptop { animation: settleLaptop 1100ms var(--ease-out) both; }
+html.m:not(.stage-on) .hphone { animation: settlePhone 1200ms var(--ease-out) 60ms both; }
+html.m .glow-top { animation: glowUp 1300ms var(--ease-out) both; }
+
+/* =====================================================================
+   THE STAGE (laptops with motion, set by the script): act one holds the screen. Every part sits where the first
+   frame has it; the camera (the script) moves them from there.
+   ===================================================================== */
+html.stage-on .stage { height: 100vh; height: 100svh; padding: 0; overflow: hidden; perspective: 2400px; perspective-origin: 60% 45%; }
+html.stage-on .glow-top { height: 100%; }
+html.stage-on .laptop { right: auto; left: 0; top: 0; width: 1440px; height: 900px; aspect-ratio: auto; transform: none; animation: none; container-type: normal; }
+html.stage-on .lt-cam { font-size: 1px; }
+html.stage-on .lt-cap { left: 0; top: 0; bottom: auto; transform-origin: 0 0; }
+html.stage-on .lt-shadow { left: 2%; right: 2%; bottom: -14%; height: 20%; }
+html.stage-on .lt-day { display: block; position: absolute; left: 0; top: 0; width: 1440px; height: 900px; background: var(--day); transform-origin: 0 0; visibility: hidden; }
+html.stage-on .win { display: block; position: absolute; left: 668px; top: 16px; width: 756px; height: 576px; overflow: hidden; border-radius: 14px; }
+html.stage-on .win-in { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform: translate(-668px, -16px); }
+html.stage-on .win-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; opacity: 0; }
+html.stage-on .win-base.is-ready { opacity: 1; }
+html.stage-on .win .ov, html.stage-on .win .was, html.stage-on .win .ring, html.stage-on .win .grp, html.stage-on .win .mk { visibility: hidden; }
+html.stage-on .win.is-live .ov, html.stage-on .win.is-live .was, html.stage-on .win.is-live .ring, html.stage-on .win.is-live .grp, html.stage-on .win.is-live .mk { visibility: visible; }
+html.stage-on .win-shadow { display: block; position: absolute; left: 668px; top: 16px; width: 756px; height: 576px; border-radius: 14px; box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.12), 0 40px 80px -44px rgba(15, 15, 25, 0.5); opacity: 0; pointer-events: none; }
+html.stage-on .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(11, 11, 13, 0.85); opacity: 0; }
+html.stage-on .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #0b0b0d; color: #f4f4f6; font: 800 12px/1 var(--font-num); opacity: 0; }
+html.stage-on .hphone { left: 0; top: 0; width: 393px; --pw: 393px; font-size: 16px; transform-origin: 0 0; animation: none; }
+html.stage-on .labels { width: 360px; }
+html.stage-on .lab-t { font-size: 20px; }
+html.stage-on .lab-cap { font-size: 16px; }
+html.stage-on .max { left: calc(var(--fx) + var(--gut)); top: 0; width: 470px; transform-origin: 0 0; }
+html.stage-on .land, html.stage-on .who { position: absolute; z-index: 5; left: calc(var(--fx) + var(--gut)); top: 0; width: min(500px, 36vw); padding: 0; display: block; background: transparent; box-shadow: none; }
+html.stage-on .land .fw, html.stage-on .who .fw { display: none; }
+html.stage-on .land .sub { margin-top: 18px; }
+html.stage-on .land-cap { margin-top: 22px; }
+html.stage-on .who .chain { margin-top: 22px; }
+html.stage-on .chain li { padding: 5px 0; }
+/* On the stage the rules open over the chain they explain (a card), so the held screen never runs off its foot. */
+html.stage-on .rules { position: relative; margin-top: 12px; }
+html.stage-on .rules-body { position: absolute; left: -18px; right: -18px; bottom: calc(100% + 8px); min-height: calc(var(--chain-h, 0px) + 12px); margin: 0; z-index: 2; }
+
+/* =====================================================================
+   Tablet and small laptop (760 to 1099), and laptops without the stage below 1100: the flow, stacked.
+   ===================================================================== */
+@media (max-width: 1099px) and (min-width: 760px) {
+  :root { --pw: min(340px, 40vw); --pl: 0px; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr); padding: 112px var(--gut) 0; }
+  .glow-top { height: 100%; }
+  .open-copy { position: static; width: min(680px, 100%); }
+  .laptop { position: relative; right: auto; top: auto; width: calc(100% - 52px); margin: 56px auto 96px; }
+  .lt-cap { left: 0; bottom: auto; top: calc(100% + 44px); }
+  .hphone { position: relative; left: auto; top: auto; width: auto; margin: 56px 0 0; display: flex; align-items: flex-start; gap: 48px; }
+  .ph-body { flex: none; width: var(--pw); }
+  .labels { position: static; width: auto; margin-top: calc(var(--pw) * 0.36); display: grid; gap: 10px; }
+  .lab-cap { position: static; transform: none; margin-bottom: 4px; }
+  .lab { position: static; transform: none; gap: 12px; }
+  .lab-l { display: none; }
+  .lab-n { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 13px/1 var(--font-num); font-style: normal; }
+  .pin { position: absolute; z-index: 2; left: calc(377 / 393 * 100%); top: calc(var(--y) / 852 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+    background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); font-style: normal; box-shadow: 0 0 0 3px #050506; }
+  .max { position: static; width: auto; max-width: 560px; margin-top: 64px; padding-bottom: 96px; }
+  .land, .who { margin: 0 calc(-1 * var(--gut)); padding-inline: var(--gut); }
+  .land, .who { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "s" "c" "fw"; row-gap: 0; }
+  .who { grid-template-areas: "h" "s" "l" "r" "fw"; }
+  .land .fw, .who .fw { margin-top: 40px; }
+  .fw-port { width: 100%; }
+  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 40px; }
+  .thread, .answers-copy, .msteps, .imp, .money-copy, .cl, .faq-side, .qs, .plans-head { grid-column: 1; }
+  .thread { justify-self: start; --pw: min(340px, 44vw); }
+  .imp { justify-self: start; }
+  .scene { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid mid" "phone board"; row-gap: 32px; }
+  .side-phone { --pw: min(272px, 34vw); }
+  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 12px; margin-top: 28px; }
+  .beat::before { display: none; }
+  .bands { grid-template-columns: 3fr 7fr; row-gap: 32px; }
+  .brand-ph { grid-column: 1; justify-self: start; margin-top: 8px; }
+  .brand-ph .cap { right: auto; left: calc(100% + 32px); bottom: 24px; }
+  .faq-side { position: static; }
+}
+
+/* =====================================================================
+   Phone width (the website on a phone, 393 x 852): the lifter's phone alone opens; it composes, it doesn't shrink.
+   ===================================================================== */
+@media (max-width: 759px) {
+  :root { --pw: min(306px, 78vw); --pl: 0px; --sec: 88px; }
+  body { font-size: 16px; }
+  .stage { padding: 84px 16px 0; }
+  .glow-top { height: 100%; }
+  .open-copy { position: static; width: auto; }
+  .h1 { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
+  .lede { margin-top: 16px; gap: 10px; font-size: 16px; line-height: 1.42; }
+  .open-copy .cta { margin-top: 22px; gap: 12px 20px; }
+  .open-copy .cta-note { margin-top: 12px; }
+  .act-btn { height: 50px; padding: 0 24px; }
+  /* The coach's laptop is too small to read here: the coach's side opens below, at its real size. */
+  .laptop { display: none; }
+  .hphone { position: relative; left: auto; top: auto; margin: 44px auto 0; display: flex; flex-direction: column; width: var(--pw); }
+  .labels { order: -1; position: static; width: auto; margin: 0 0 28px; display: grid; gap: 8px; font-size: 16px; }
+  .lab-cap { position: static; transform: none; margin-bottom: 4px; white-space: normal; }
+  .lab { position: static; transform: none; gap: 12px; }
+  .lab-l { display: none; }
+  .lab-n { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 13px/1 var(--font-num); font-style: normal; }
+  .lab-t { font-size: 16px; }
+  .pin { position: absolute; z-index: 2; left: calc(377 / 393 * 100%); top: calc(var(--y) / 852 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+    background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); font-style: normal; box-shadow: 0 0 0 3px #050506; }
+  .max { position: static; width: auto; margin-top: 52px; padding-bottom: 88px; }
+  .max-num { font-size: clamp(88px, 27vw, 120px); }
+  .max-chart { height: 112px; }
+  .land, .who { margin: 0 -16px; padding: 88px 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "s" "c" "fw"; }
+  .who { grid-template-areas: "h" "s" "l" "r" "fw"; }
+  .land .fw, .who .fw { margin-top: 32px; }
+  /* A true-size window onto the laptop: Arjun's name, his total and his squat, as they read on the desk. */
+  .fw-port { width: 100%; aspect-ratio: auto; height: 576px; }
+  .fw-still { display: block; width: 756px; }
+  .fw-still img { width: 756px; max-width: none; }
+  .fw-port-list { width: 100%; height: auto; padding-left: 32px; }
+  .fw-b .cap { padding-left: 32px; }
+  .chain li { grid-template-columns: 26px minmax(0, 1fr); row-gap: 8px; padding: 8px 0; }
+  .chain .fix { grid-column: 2; justify-self: start; height: 28px; font-size: 13px; }
+  .ch-t b { font-size: 16px; }
+  .tiers div { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 36px; }
+  .thread, .answers-copy, .msteps, .imp, .money-copy, .cl, .faq-side, .qs, .plans-head { grid-column: 1; }
+  .answers-copy { order: -1; }
+  .thread { --pw: min(300px, 74vw); }
+  /* The week: a true-size strip the reader's scroll pans across (without motion it scrolls sideways). */
+  .wk-cols { display: none; }
+  .wk-port { margin-inline: -16px; padding: 10px 16px 2px; border-radius: 0; overflow-x: auto; overflow-y: hidden; }
+  .wk-in { width: calc(1160px * 0.78); }
+  html.m .wk-port { overflow: hidden; }
+  .wk-foot { flex-direction: column; align-items: flex-start; }
+  .wk-pub { flex-wrap: wrap; }
+  .meet-stage { padding: 88px 0 56px; }
+  .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 28px; }
+  .judges { gap: 14px; }
+  .judges i { width: 76px; }
+  .clock-n { font-size: 96px; }
+  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 12px; margin-top: 28px; }
+  .beat::before { display: none; }
+  .side-phone { --pw: min(260px, 66vw); }
+  .mp-crop { flex: none; height: calc(var(--pw) * 1.12); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+  .mp { margin: 0 auto; }
+  .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; }
+  .sn { width: 28px; height: 28px; font-size: 13px; }
+  .st p { font-size: 16px; }
+  .imp { margin-inline: -16px; width: auto; }
+  .imp .sheet-crop { border-radius: 0; }
+  .imp .cap { margin-inline: 16px; }
+  .cl .sheet-crop { width: 251px; border-radius: 14px; }
+  .bands { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
+  .band { padding-right: 0; }
+  /* Each plan reads as one block: its rule and name, its price, then the lifters it seats. */
+  .band { display: flex; flex-direction: column; }
+  .seats { order: 3; margin-top: 14px; grid-auto-flow: row; grid-template-columns: repeat(8, minmax(0, 1fr)); row-gap: 8px; height: auto; }
+  .f { width: 32px; font-size: 11px; }
+  .scale-cap { flex-direction: column; align-items: flex-start; }
+  .q summary { font-size: 17px; padding: 18px 0; }
+  .qa p { padding-right: 0; font-size: 16px; }
+  .plans-top { display: block; }
+  .brand-ph { display: flex; flex-direction: column-reverse; margin: 40px auto 0; --pw: min(280px, 72vw); }
+  .brand-ph .cap { position: static; width: auto; margin: 0 0 18px; }
+  .bp-crop { align-self: center; }
+  .faq-side { position: static; }
+}
+
+/* =====================================================================
+   THE SITE'S FURNITURE ON THIS PAGE: the iPhone app's welcome (never on the website), the account modals (the app's
+   own, styled by styles.css once it arrives with them), the privacy banner, the programs band, the max calculator.
+   ===================================================================== */
+html:not(.native) .native-welcome { display: none !important; }
+/* The modals stay put until the app and its styles have loaded; the page opens them after (index.html). */
+html:not(.native) .modal-backdrop { display: none; }
+html:not(.native) .modal-backdrop.open { display: flex; }
+/* A modal's one action is the page's crimson with a white label. */
+body.home .modal .btn-primary { background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; border: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3); }
+body.home .modal .btn-primary::after { display: none; }
+body.home .modal a { color: var(--text); }   /* links in ink, as on every public page */
+/* The privacy banner (cookie-consent.css) reads the app's tokens; on this page it carries its own. */
+body.home .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --bg: #0b0b0c; --bg-1: #111114; --bg-2: #16161a; --bg-3: #1d1d22; --line: #25252c; --line-2: #34343d;
+  --text: #f4f4f6; --text-2: #b8b8c0; --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); --ring: 0 0 0 3px rgba(255, 255, 255, 0.16);
+  font-family: var(--font-body); color: var(--text); line-height: 1.5; }
+
+/* #pricing and #marketplace-teaser keep their ids (the iPhone app hides them by id); the app's styles.css still dresses
+   both for its old landing page: not here. */
+.s-home #pricing, .s-home #marketplace-teaser { position: static; background-image: none; }
+.s-home #pricing::before, .s-home #marketplace-teaser::before { content: none; display: none; }
+.s-home #marketplace-teaser { padding: 36px 0; }
+
+/* The programs band: quiet, before the footer, only once the shop has three published programs (data-needs-programs). */
+.s-home .teaser { padding: 36px 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.teaser-in { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; }
+.teaser-in p { max-width: 40em; font-size: 17px; line-height: 1.55; color: var(--text-2); }
+.teaser-in b { font-weight: 700; color: var(--text); }
+
+/* How the app works out a max: the eighth question holds the calculator (the live site's ids, unchanged). */
+.qa .mx { max-width: 40em; margin: 0 0 26px; padding: 20px 20px 18px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px var(--edge), var(--lit); }
+.mx .mx-in { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.mx .mx-f { display: grid; gap: 6px; margin: 0; font: inherit; color: inherit; text-transform: none; letter-spacing: normal; }
+.mx .mx-f span { font-size: 13px; font-weight: 650; color: var(--text-3); }
+.mx .mx-f input { width: 96px; height: 48px; margin: 0; padding: 0 12px; border: 0; border-radius: 12px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--hair);
+  font: 700 20px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text); -moz-appearance: textfield; appearance: textfield; }
+.mx .mx-f input::-webkit-outer-spin-button, .mx .mx-f input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mx .mx-f input:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 12px; }
+.mx .mx-x { padding-bottom: 13px; font-size: 17px; font-weight: 600; color: var(--text-3); }
+.mx .mx-unit { display: inline-flex; margin-left: auto; padding: 3px; border-radius: 999px; background: var(--bg-2); }
+.mx .mx-unit button { height: 42px; min-width: 52px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; font-size: 15px; font-weight: 650; color: var(--text-2); cursor: pointer; }
+.mx .mx-unit button.active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(15, 15, 25, 0.16); }
+.mx .mx-k { margin-top: 20px; font-size: 14px; font-weight: 650; color: var(--text-2); }
+.mx .mx-n { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--text); }
+.mx .mx-n small { font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 600; letter-spacing: 0; color: var(--text-3); }
+.mx .mx-att { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 14px; font-size: 15px; color: var(--text-2); }
+.mx .mx-att b { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.mx .mx-bar { margin-top: 6px; font-size: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.mx .mx-share { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; padding: 0; border: 0; background: none; font-size: 15px; font-weight: 650; color: var(--text); cursor: pointer; }
+.mx .mx-share .arr { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .mx .mx-share:hover .arr { transform: translateX(3px); } }
+@media (max-width: 759px) {
+  .qa .mx { padding: 16px; }
+  .mx .mx-f input { width: 84px; }
+  .mx .mx-unit { margin-left: 0; }
+  .mx .mx-n { font-size: 48px; }
+  .mx .mx-share { min-height: 44px; }   /* a thumb's tap target */
+}
+
+/* ---------- Reduced motion: the designed still. No settle, no scroll play; every chapter at its last frame. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 1ms !important; }
+}

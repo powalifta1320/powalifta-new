@@ -107,8 +107,9 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-im-guide' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.loadIntake().then(() => ImportGuides.open('coachrx'))" });
 // The two-factor code prompt on the website (after the password, over the log-in modal) and on the desk, dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
-  { name: 'w-2fa-login' + suf, page: 'index.html', mode: 'web', theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
-  { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
+  // The homepage loads the app on intent (2026-10-29): the modal and the prompt wait for it.
+  { name: 'w-2fa-login' + suf, page: 'index.html', mode: 'web', theme, eval: 'PowaApp.load().then(() => { openLoginModal(); promptMfaChallenge(); return true; })' },
+  { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'PowaApp.load().then(() => { openLoginModal(); promptMfaChallenge(); return true; })' },
   { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
