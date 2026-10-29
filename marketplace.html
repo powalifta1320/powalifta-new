@@ -57,8 +57,14 @@
 </header>
 
 <main id="mkRoot">
-  <div class="mk-loading" aria-label="Loading marketplace">
-    <div class="s-wrap">
+  <!-- The shop's head is here before the script draws the page (the same markup renderBrowse draws, so it does not
+       move): the page has its h1 at once, for assistive tech and search, and the cards wait under it. -->
+  <div class="s-wrap mk-body">
+    <header class="s-page-head">
+      <h1>Program marketplace</h1>
+      <p>Programs from real powerlifting coaches, written in RPE. Buy once and it lands in your account, ready to train.</p>
+    </header>
+    <div class="mk-loading mk-skel" role="status" aria-label="Loading programs">
       <div class="skel-grid">
         <div class="skel-card"><div class="skel-line skel-w60"></div><div class="skel-line skel-w90"></div><div class="skel-line skel-w80"></div><div class="skel-line skel-w40 skel-tall"></div></div>
         <div class="skel-card"><div class="skel-line skel-w60"></div><div class="skel-line skel-w90"></div><div class="skel-line skel-w80"></div><div class="skel-line skel-w40 skel-tall"></div></div>
@@ -239,7 +245,7 @@ function sortPrograms(programs, sort, statsByProgram) {
 async function loadAndRenderGrid(tier, search, sort, category) {
   const grid = document.getElementById('mkGrid');
   if (!grid) return;
-  grid.innerHTML = '<div class="mk-loading"><p>Loading programs…</p></div>';
+  grid.innerHTML = '<div class="mk-loading" role="status"><p>Loading programs…</p></div>';
 
   let programs = [];
   try {
@@ -339,7 +345,7 @@ function renderMkPage() {
 
 async function renderDetail(id) {
   const root = document.getElementById('mkRoot');
-  root.innerHTML = '<div class="mk-loading"><p>Loading program…</p></div>';
+  root.innerHTML = '<div class="mk-loading" role="status"><p>Loading program…</p></div>';
 
   let program;
   try { program = await DB.getMarketplaceProgram(id); }
