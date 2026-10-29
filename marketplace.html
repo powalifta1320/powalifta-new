@@ -59,7 +59,7 @@
 
 <main id="mkRoot">
   <div class="mk-loading" aria-label="Loading marketplace">
-    <div class="container">
+    <div class="s-wrap">
       <div class="skel-grid">
         <div class="skel-card"><div class="skel-line skel-w60"></div><div class="skel-line skel-w90"></div><div class="skel-line skel-w80"></div><div class="skel-line skel-w40 skel-tall"></div></div>
         <div class="skel-card"><div class="skel-line skel-w60"></div><div class="skel-line skel-w90"></div><div class="skel-line skel-w80"></div><div class="skel-line skel-w40 skel-tall"></div></div>
@@ -101,6 +101,14 @@ let _mkStats = {};
 let _mkPage = 1;
 const MK_PER_PAGE = 6;
 
+// The homepage's quiet link with its arrow (back: the arrow points the other way).
+function quietLink(href, label, back) {
+  const a = el('a', { href, class: 'quiet' + (back ? ' quiet-back mk-detail-back' : '') });
+  a.innerHTML = (back ? '<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg>' : '') + escapeHtml(label) +
+    (back ? '' : '<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg>');
+  return a;
+}
+
 // Read the program id from the URL — if present, render the detail view
 function getProgramIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -129,16 +137,12 @@ async function renderBrowse() {
   const root = document.getElementById('mkRoot');
   root.innerHTML = '';
 
-  // Hero
-  const hero = el('section', { class: 'mk-hero' });
-  const heroIn = el('div', { class: 'container' });
-  heroIn.appendChild(el('h1', {}, 'Program marketplace'));
-  heroIn.appendChild(el('p', {}, 'Programs from real powerlifting coaches, written in RPE. Buy once and it lands in your account, ready to train.'));
-  hero.appendChild(heroIn);
-  root.appendChild(hero);
-
-  // Body container
-  const body = el('div', { class: 'container', style: 'padding-top: 28px; padding-bottom: 60px;' });
+  // The page head and the shop, in the homepage's frame (pages.css)
+  const body = el('div', { class: 's-wrap mk-body' });
+  const head = el('header', { class: 's-page-head' });
+  head.appendChild(el('h1', {}, 'Program marketplace'));
+  head.appendChild(el('p', {}, 'Programs from real powerlifting coaches, written in RPE. Buy once and it lands in your account, ready to train.'));
+  body.appendChild(head);
 
   // Filters
   const filters = el('div', { class: 'mk-filters', id: 'mkFilters' });
@@ -344,10 +348,10 @@ async function renderDetail(id) {
 
   if (!program || program.status !== 'published') {
     root.innerHTML = '';
-    const empty = el('div', { class: 'mk-empty container' });
-    empty.appendChild(el('h3', {}, 'Program not available'));
-    empty.appendChild(el('p', {}, 'This program is no longer listed, or the link is wrong.'));
-    empty.appendChild(el('p', { style: 'margin-top: 18px;' }, el('a', { href: 'marketplace.html', class: 'btn btn-ghost' }, '← Browse all programs')));
+    const empty = el('div', { class: 'mk-empty mk-detail' });
+    empty.appendChild(el('h1', { class: 'mk-detail-title' }, 'Program not available'));
+    empty.appendChild(el('p', { class: 'mk-detail-meta' }, 'This program is no longer listed, or the link is wrong.'));
+    empty.appendChild(quietLink('marketplace.html', 'Browse all programs'));
     root.appendChild(empty);
     return;
   }
@@ -356,17 +360,17 @@ async function renderDetail(id) {
 
   root.innerHTML = '';
   const wrap = el('div', { class: 'mk-detail' });
-  wrap.appendChild(el('a', { href: 'marketplace.html', class: 'mk-detail-back' }, '← Back to marketplace'));
+  wrap.appendChild(quietLink('marketplace.html', 'All programs', true));
   const detCat = (typeof marketCategoryLabel === 'function' && program.category) ? marketCategoryLabel(program.category) : '';
-  const tierRow = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:20px 0 12px' });
-  tierRow.appendChild(el('span', { class: 'mk-detail-tier', style: 'margin:0' }, TIER_LABELS_MK[program.tier] || 'Program'));
+  const tierRow = el('div', { class: 'mk-detail-head' });
+  tierRow.appendChild(el('span', { class: 'mk-detail-tier' }, TIER_LABELS_MK[program.tier] || 'Program'));
   if (detCat) tierRow.appendChild(el('span', { class: 'mk-cat-tag' }, detCat));
   wrap.appendChild(tierRow);
   wrap.appendChild(el('h1', { class: 'mk-detail-title' }, program.title));
 
   const meta = el('p', { class: 'mk-detail-meta' });
   meta.innerHTML = 'by <strong>' + (coach ? escapeHtml(coach.name) : 'a POWALIFTA coach') + '</strong> · ' +
-                   program.weekCount + ' weeks · ' + program.soldCount + ' athletes own this';
+                   program.weekCount + ' weeks · ' + program.soldCount + ' lifters own this';
   wrap.appendChild(meta);
 
   wrap.appendChild(el('div', { class: 'mk-detail-desc' }, program.description || ''));
@@ -381,8 +385,8 @@ async function renderDetail(id) {
   // web payment. On native, replace the buy CTA with a plain, non-linked note.
   const _nativeShell = !!(window.PowaNative && PowaNative.isNative());
   if (_nativeShell) {
-    buyCard.appendChild(el('div', { class: 'btn btn-lg', style: 'opacity:.6; cursor:default; pointer-events:none;' }, 'Available on the web'));
-    buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Programs are purchased on powalifta.com. Once you own one, it appears in your library here.'));
+    buyCard.appendChild(el('div', { class: 'btn btn-lg mk-buy-off' }, 'Available on the web'));
+    buyCard.appendChild(el('p', { class: 'mk-buy-fine' }, 'Programs are purchased on powalifta.com. Once you own one, it appears in your library here.'));
   } else {
     const buyBtn = el('a', { class: 'btn btn-primary btn-lg', id: 'mkBuyBtn' }, 'Buy program');
     // Wire the buy button
@@ -393,7 +397,7 @@ async function renderDetail(id) {
     buyBtn.style.cursor = 'pointer';
     buyCard.appendChild(buyBtn);
     // Sales note (the terms' Refunds section says the same) + share link
-    buyCard.appendChild(el('p', { class: 'faded text-xs', style: 'margin-top: 18px;' }, 'Secure checkout via Lemon Squeezy. You get the program straight away, so sales are final. If it doesn\'t arrive or you\'re charged twice, email us and we\'ll make it right.'));
+    buyCard.appendChild(el('p', { class: 'mk-buy-fine' }, 'Secure checkout via Lemon Squeezy. You get the program straight away, so sales are final. If it doesn\'t arrive or you\'re charged twice, email us and we\'ll make it right.'));
   }
   wrap.appendChild(buyCard);
 
@@ -488,7 +492,7 @@ function renderReviewForm(host, program, existing) {
   form.appendChild(ta);
 
   const actions = el('div', { class: 'mk-rf-actions' });
-  const submit = el('button', { class: 'btn btn-primary' }, existing ? 'Update review' : 'Post review');
+  const submit = el('button', { class: 'btn' }, existing ? 'Update review' : 'Post review');
   submit.addEventListener('click', async () => {
     if (!picked) { toast('Pick a star rating first.'); return; }
     const reviewText = checkUserText([ta.value.trim()]);   // public review: the content filter applies
@@ -514,7 +518,7 @@ function renderReviewForm(host, program, existing) {
   actions.appendChild(submit);
 
   if (existing) {
-    const del = el('button', { class: 'btn btn-ghost' }, 'Delete');
+    const del = el('button', { class: 'btn' }, 'Delete');
     del.addEventListener('click', async () => {
       if (!confirm('Delete your review?')) return;
       try { await DB.deleteProgramReview(existing.id); toast('Review deleted.'); renderReviews(program); }
