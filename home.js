@@ -684,9 +684,10 @@
   var seats = $$('#scale .f:not(.f-open)'), bands = $$('#scale .band'), scN = $('#scN'), plan = $('#scPlan');
   var planKids = plan ? Array.prototype.slice.call(plan.children) : [];
   var shown = -1;
+  seats.forEach(function (f) { f.dataset.i = f.textContent; });   // an open seat is empty: its initials come back as it fills
   function paintRoster(n) {
     if (n === shown) return; shown = n;
-    seats.forEach(function (f, i) { f.classList.toggle('is-open', i >= n); });
+    seats.forEach(function (f, i) { var open = i >= n; f.classList.toggle('is-open', open); f.textContent = open ? '' : f.dataset.i; });
     var t = n <= 3 ? 0 : n <= 10 ? 1 : 2;
     bands.forEach(function (el, i) { el.classList.toggle('is-on', i === t); });
     scN.textContent = String(n);
