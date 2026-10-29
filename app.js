@@ -397,7 +397,8 @@ function _dropStoredSession() {
 }
 // The profile read found no row ("Profile not found"): an account deleted elsewhere, but only when Auth agrees
 // the account itself is gone (GET /user answers user_not_found). A profile the database hides (two-factor
-// owed, row 60) or never made is no deletion: that sign-out keeps what waits, as any other.
+// owed, row 60) is no deletion: the code is asked for (_profileMissingWhy). One never made isn't either: that
+// sign-out keeps what waits, as any other.
 function _isProfileMissing(e) { return /^Profile not found\b/.test(String((e && e.message) || '')); }
 // Pure: an Auth error that means the account itself is gone (GoTrue: 403 user_not_found, "User from sub claim in
 // JWT does not exist"), as opposed to an ended session (session_not_found), a network failure or no error.
@@ -406,9 +407,27 @@ function authErrorUserGone(error) {
   const code = String(error.code || error.error_code || ''), msg = String(error.message || error.msg || '');
   return (Number(error.status) === 403 && code === 'user_not_found') || /sub claim in JWT does not exist/i.test(msg);
 }
-async function _accountGone(e) {
-  if (!_isProfileMissing(e)) return false;
-  try { return !!(window.DB && typeof DB.authUserError === 'function' && authErrorUserGone(await DB.authUserError())); } catch (x) { return false; }
+// Pure: the code is owed. Auth's user (GET /user) has a verified factor and this token is still aal1, so the
+// database answers nothing until the code is in (row 60). Auth's answer, not the stored session's copy of the
+// user: that copy can predate a factor turned on from another device (and then mfaAssurance() says nothing is owed).
+function mfaCodeOwed(user, currentLevel) {
+  if (!user || currentLevel !== 'aal1') return false;
+  return (Array.isArray(user.factors) ? user.factors : []).some(f => !!f && f.status === 'verified');
+}
+// Why the profile read found no row, from Auth's answer (GET /user, asked once): 'gone' (the account was deleted,
+// user_not_found), 'code' (a verified factor and an aal1 token: a session stored before two-factor was turned on,
+// whose copy of the user shows no factor, so boot asked for no code) or null (an ended session, a network failure,
+// a profile never made: the ordinary refused session).
+async function _profileMissingWhy(e) {
+  if (!_isProfileMissing(e) || !window.DB || typeof DB.authUser !== 'function') return null;
+  let r = null;
+  try { r = await DB.authUser(); } catch (x) { return null; }
+  if (!r) return null;
+  if (authErrorUserGone(r.error)) return 'gone';
+  if (r.error || !r.user) return null;
+  let aal = null;
+  try { aal = await DB.mfaAssurance(); } catch (x) { aal = null; }
+  return aal && aal.ok && mfaCodeOwed(r.user, aal.currentLevel) ? 'code' : null;
 }
 // Nobody is signed in on this device: wipe the private data an account left here (a session that ended
 // while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
@@ -1373,10 +1392,13 @@ async function bootstrap(expectedType, onReady, opts) {
     // Only a refused token or account signs anyone out. Offline, a timeout or a server hiccup: a dashboard
     // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
     if (_isAuthError(e)) {
+      // No profile row: Auth says why (_profileMissingWhy). The code owed by a session stored before two-factor was
+      // turned on elsewhere (no code was asked above): asked now, in place, then the profile is read again at aal2.
+      const why = await _profileMissingWhy(e);
+      if (why === 'code' && (await _mfaStepUp({ owed: true })) === 'in') return bootstrap(expectedType, onReady, opts);
       // The device forgets the account like a chosen log-out (its unsynced sets stay for it): sweep 2026-10-28 #6.
-      // Deleted on another device (no profile row, and Auth says the account is gone): as a deletion.
-      const gone = await _accountGone(e);
-      await _signedOutByServer(session.user.id, gone ? { deleted: true } : undefined);
+      // That's also "Sign out" on the prompt above. Deleted on another device (Auth says the account is gone): as a deletion.
+      await _signedOutByServer(session.user.id, why === 'gone' ? { deleted: true } : undefined);
       if (!expectedType) { onReady && onReady(); return; }
       _toWelcome();
       return;
@@ -4694,10 +4716,14 @@ window.promptMfaChallenge = promptMfaChallenge;
 // (no network); the database refuses such a session anyway. Returns 'none' (nothing owed, or it
 // couldn't tell), 'in' (code entered: the session is aal2) or 'out' (they chose to sign out:
 // this device only, never their other sessions).
-async function _mfaStepUp() {
+// opts.owed: Auth (GET /user) shows a verified factor that the stored session's copy of the user predates
+// (two-factor turned on from another device): the aal1 token alone says the code is owed.
+async function _mfaStepUp(opts) {
+  opts = opts || {};
   let aal = null;
   try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
-  if (!aal || !aal.ok || aal.nextLevel !== 'aal2' || aal.currentLevel === 'aal2') return 'none';
+  if (!aal || !aal.ok || aal.currentLevel === 'aal2') return 'none';
+  if (aal.nextLevel !== 'aal2' && !(opts.owed && aal.currentLevel === 'aal1')) return 'none';
   window._mfaStepUpPending = true;   // the offline queues wait: replayed at aal1 they'd be refused and burn their tries
   let passed = false;
   try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out' }); } catch (e) { passed = false; }

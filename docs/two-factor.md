@@ -22,6 +22,11 @@ makes that true. Nobody has two-factor on today (28 Oct: 0 verified factors, 1 a
    password) asks for the code in place. "Sign out" there, and Cancel on the sign-in screens, sign
    out this device only (they used to sign the person out everywhere), and leave no session behind
    even with no network. Live updates get the new token as soon as the code is entered.
+   Two-factor turned on from another device while a session here is older than the factor (its copy
+   of the account shows none, so nothing asks): the profile the database hides at the next load
+   makes the app ask Auth (GET /user); a verified factor with an aal1 token opens the same code
+   prompt in place, and the dashboard opens at aal2 once the code is in. "Sign out" there keeps what
+   waits for the account, as on any sign-out it didn't choose.
 
 Order: the SQL (a no-op today), then the functions, then the web push / iPhone build. Row 59
 (`migration-security-fixes-2026-10-28.sql`) is live since 28 Oct; this file is row 60, the next one to

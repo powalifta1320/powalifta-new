@@ -8452,7 +8452,9 @@ group('security merge follow-ups (demo log-out, deleted elsewhere, one code prom
 
 /* ===========================================================
    The merge review's two-factor follow-ups (29 Oct). "Sign out" on the code prompt takes the stored session even
-   when the sign-out call fails offline (_dropStoredSession). Every powa-* and sb-* key is put back as it was.
+   when the sign-out call fails offline (_dropStoredSession). Two-factor turned on from another device: Auth's own
+   answer (GET /user) says the code is owed when this session's stored copy of the user can't (mfaCodeOwed). The
+   prompt itself is async: browser flows drive it. Every powa-* and sb-* key is put back as it was.
    =========================================================== */
 group('the merge review\'s two-factor follow-ups (29 Oct)');
 (() => {
@@ -8469,6 +8471,16 @@ group('the merge review\'s two-factor follow-ups (29 Oct)');
       eq(localStorage.getItem('sb-fu-test-auth-token-code-verifier'), 'v', 'only the session itself');
       eq(localStorage.getItem('powa-fu-test-keep'), '1', 'nothing else on the device');
       localStorage.removeItem('sb-fu-test-auth-token-code-verifier'); localStorage.removeItem('powa-fu-test-keep');
+    });
+    test('the code is owed by Auth\'s own answer: a verified factor and a token still at aal1', () => {
+      const user = { id: 'u1', factors: [{ id: 'f1', factor_type: 'totp', status: 'verified' }] };
+      eq(mfaCodeOwed(user, 'aal1'), true);
+      eq(mfaCodeOwed(user, 'aal2'), false, 'the code is in');
+      eq(mfaCodeOwed(user, null), false, 'a token with no level: no prompt on a guess');
+      eq(mfaCodeOwed({ factors: [{ id: 'f2', status: 'unverified' }] }, 'aal1'), false, 'an abandoned enroll protects nothing');
+      eq(mfaCodeOwed({ factors: [] }, 'aal1'), false);
+      eq(mfaCodeOwed({ id: 'u2' }, 'aal1'), false, 'no factors at all (the stored copy from before two-factor looks like this)');
+      eq(mfaCodeOwed(null, 'aal1'), false, 'Auth gave no user');
     });
   } finally {
     lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
