@@ -646,7 +646,8 @@
       if (MAIN.indexOf(lift) >= 0 || lift === 'cardio') return;
       try {
         if (!Array.isArray(buildingSets) || !buildingSets.length || !buildingSets.every(function (b) { return Number(b.weight) === Number(_autoLoad); })) return;
-        var w = typeof suggestNewLoad === 'function' ? suggestNewLoad(aid, lift, '', exSel && exSel.value || '', 5, 7) : 0;
+        var who = (document.getElementById('progAthlete') || {}).value || aid;   // the change listener outlives this call
+        var w = typeof suggestNewLoad === 'function' ? suggestNewLoad(who, lift, '', exSel && exSel.value || '', 5, 7) : 0;
         buildingSets.forEach(function (b) { b.weight = w; });
         _autoLoad = w;
         if (typeof renderSetsBuilder === 'function') renderSetsBuilder();
