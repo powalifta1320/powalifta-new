@@ -8764,6 +8764,56 @@ test('what the read-only thread says, from either side', () => {
 });
 
 /* ===========================================================
+   The coach's inbox on the phone (coach.html renderMessages): threads waiting on the coach (the lifter wrote
+   last) first, then the rest, then everyone with no thread; its one answer counts the waiting threads and
+   names who has waited longest. Pure (app.js msgInboxOrder / msgInboxHead / msgAgoWords).
+   =========================================================== */
+group('messages: the coach inbox (waiting on you)');
+(() => {
+  const NOW = Date.parse('2026-10-29T12:00:00Z');
+  const at = (h) => new Date(NOW - h * 3600e3).toISOString();
+  const roster = [{ id: 'a1', name: 'Arjun Mehta' }, { id: 'a2', name: 'Sarah Kim' }, { id: 'a3', name: 'Tom Boyle' }, { id: 'a4', name: 'Nina Petrova' }, { id: 'a5', name: 'Ben Ode' }];
+  const digest = {
+    a1: { lastAt: at(21), lastSenderId: 'a1', unread: 2 },
+    a2: { lastAt: at(30), lastSenderId: 'c1', unread: 0 },
+    a3: { lastAt: at(6), lastSenderId: 'a3', unread: 1 },
+    a5: { lastAt: at(2), lastSenderId: 'c1', unread: 0 }
+  };
+  test('waiting first (the lifter wrote last), newest first; then the rest, newest first; then no thread, A to Z', () => {
+    const o = msgInboxOrder(roster, digest, 'c1');
+    eq(o.list.map(a => a.id).join(), 'a3,a1,a5,a2,a4');
+    eq(o.waiting.join(), 'a3,a1');
+  });
+  test('read but not answered still waits; a set they sent waits too (it came to be answered)', () => {
+    const o = msgInboxOrder(roster.slice(0, 2), { a1: { lastAt: at(3), lastSenderId: 'a1', unread: 0 }, a2: { lastAt: at(1), lastSenderId: 'a2', unread: 0 } }, 'c1');
+    eq(o.waiting.join(), 'a2,a1');
+  });
+  test('the answer: how many wait, and who has waited longest (12 hours and up), or who wrote last', () => {
+    const o = msgInboxOrder(roster, digest, 'c1');
+    const h = msgInboxHead(o, digest, NOW);
+    eq(h.n, 2); eq(h.title, 'waiting on you'); eq(h.sub, 'Arjun has waited 21 hours');
+    const one = msgInboxOrder([roster[2]], digest, 'c1');
+    eq(msgInboxHead(one, digest, NOW).sub, 'Tom wrote 6 hours ago', 'under 12 hours: when they wrote');
+    eq(msgInboxHead(msgInboxOrder([roster[2]], { a3: { lastAt: new Date(NOW - 20e3).toISOString(), lastSenderId: 'a3' } }, 'c1'), { a3: { lastAt: new Date(NOW - 20e3).toISOString(), lastSenderId: 'a3' } }, NOW).sub, 'Tom wrote just now');
+  });
+  test('nothing waiting: all answered; no thread at all: says where messages will land', () => {
+    const d2 = { a2: digest.a2, a5: digest.a5 };
+    const h = msgInboxHead(msgInboxOrder(roster, d2, 'c1'), d2, NOW);
+    eq(h.n, 0); eq(h.title, 'All answered'); eq(h.sub, '');
+    const h0 = msgInboxHead(msgInboxOrder(roster, {}, 'c1'), {}, NOW);
+    eq(h0.title, 'No messages yet'); eq(/land here/.test(h0.sub), true);
+  });
+  test('ages in a coach\'s words', () => {
+    eq(msgAgoWords(new Date(NOW - 30e3).toISOString(), NOW), '');
+    eq(msgAgoWords(new Date(NOW - 60e3).toISOString(), NOW), '1 minute');
+    eq(msgAgoWords(at(1), NOW), '1 hour');
+    eq(msgAgoWords(at(47), NOW), '47 hours');
+    eq(msgAgoWords(at(72), NOW), '3 days');
+    eq(msgAgoWords('not a date', NOW), '');
+  });
+})();
+
+/* ===========================================================
    The security merge's follow-ups (28 Oct: sec-sql + sec-2fa + sec-client on integ). The demo's log-out
    leaves a real account's kept work alone; an account deleted elsewhere (Auth says so) goes as a deletion;
    one two-factor prompt at a time, which a #login / #signup on load can't cancel. Like the sign-out group:
