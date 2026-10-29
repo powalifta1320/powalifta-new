@@ -84,7 +84,7 @@ window.POWA_SUPPORT_KB = [
    "get a coach",
    "request to join"
   ],
-  "a": "Go to You → Find a coach (under Community; if you have no program yet, Train also offers it under \"Or start another way\"). Scroll to Available coaches and tap \"Request to join\" on a coach, or tap View profile first to read about them. The button changes to Requested, and the coach taps Accept or Decline in the Join requests card at the top of their Roster. Once accepted, the Coach tab appears the next time you open the app and whatever they program for you shows on Train."
+  "a": "Go to You → Find a coach (under Community; if you have no program yet, Train also offers it under \"Or start another way\"). Scroll to Available coaches and tap \"Request to join\" on a coach, or tap View profile first to read about them. The button changes to Requested, and the coach taps Accept or Decline under Join requests at the top of their Lifters. Once accepted, the Coach tab appears the next time you open the app and whatever they program for you shows on Train."
  },
  {
   "id": "leave-coach",
@@ -110,7 +110,7 @@ window.POWA_SUPPORT_KB = [
    "invite athlete",
    "send invite code"
   ],
-  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Enter their email and tap Generate code: a 6-character code appears with Copy code, and we email it to them too (tap Resend email if it didn't arrive). They type it under their \"Find a coach\" tab → \"Have an invite code?\" and tap Join, and they appear on your roster; codes still waiting sit under Pending invites on Lifters. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
+  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Tap Share an invite link to send it in any app, or Copy link, or Show QR code for someone next to you; each link works for one lifter. Or type their email and tap Send. They open the link, get the app, sign up and appear on your roster (a lifter can also type the 6-character code under Find a coach → \"Have an invite code?\"). Links still waiting sit under Pending invites on Lifters: tap one to share it again, copy it or revoke it. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
  },
  {
   "id": "coach-remove-athlete",
@@ -122,7 +122,36 @@ window.POWA_SUPPORT_KB = [
    "remove athlete",
    "remove from roster"
   ],
-  "a": "Open Roster, tap ⋯ on the athlete's row and choose \"Remove from roster\", then confirm. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
+  "a": "On the iPhone: open the lifter, tap Client, then Remove from roster at the bottom (or Clients, tap them, Remove from roster), and confirm in the sheet. On the laptop: open the lifter, More, Remove from roster. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
+ },
+ {
+  "id": "coach-clients-payments",
+  "q": "As a coach, how do I keep track of what my lifters pay me?",
+  "t": [
+   "client payments",
+   "coaching fees",
+   "mark as paid",
+   "mark paid",
+   "overdue payment",
+   "payment reminder",
+   "my clients pay",
+   "record a payment",
+   "what my lifters pay",
+   "who owes me"
+  ],
+  "a": "Use **Clients** (on the iPhone: You → Clients, or open a lifter and tap Client; on a laptop, Clients in the left rail). Give each lifter a package: what they pay, how often and when it's next due. Clients then shows this month's money in and still to come, who owes you (the most overdue first, with **Mark paid** and **Remind**) and everyone with their next payment. Mark paid records a payment (the amount, the day and how they paid) and moves the next due date on by one period; Remind opens a message to them with the amount and the date filled in, for you to edit and send. POWALIFTA doesn't take or move any money: it keeps your record and the dates, and lifters never see any of it."
+ },
+ {
+  "id": "coach-join-requests",
+  "q": "As a coach, how do I accept a lifter who asked to train with me?",
+  "t": [
+   "accept a lifter",
+   "asked to train with me",
+   "lifter asked to join",
+   "requested to join me",
+   "wants to train with me"
+  ],
+  "a": "Lifters who find you under Find a coach can ask to join you. Their requests wait under **Join requests** at the top of Lifters, each with the note they wrote: tap **Accept** to add them to your roster (they take a seat on your plan) or **Decline**. A lifter you accept sees whatever you program for them on their Train screen."
  },
  {
   "id": "mobile-app",
@@ -1222,7 +1251,7 @@ window.POWA_SUPPORT_KB = [
    "plan limit",
    "roster full"
   ],
-  "a": "Unused invite codes count toward your limit as well as connected athletes, so 2 athletes plus 1 pending invite fills a Free plan. On Roster, scroll to Pending invites and tap Revoke on the codes you don't need, or upgrade under You → Plan & billing."
+  "a": "Unused invite codes count toward your limit as well as connected athletes, so 2 athletes plus 1 pending invite fills a Free plan. On the iPhone, open Lifters, scroll to Pending invites, tap the one you don't need and choose Revoke (on a laptop: Settings → Invite athletes → Revoke), or upgrade under You → Plan & billing."
  },
  {
   "id": "marketplace-programs",

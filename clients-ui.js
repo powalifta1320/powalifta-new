@@ -244,7 +244,7 @@
     var s = C().clientStatus(b, today());
     var period = s.due ? new Date(s.due + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' }) : '';
     uiSheet('Mark ' + first(a.name) + ' paid', function (sheet, close) {
-      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, b.package + ' · ' + C().priceText(b) + (s.due ? ' · ' + (s.state === 'overdue' ? 'was due ' : 'due ') + dateShort(s.due) : '')));
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, b.package + ' · ' + (isDeskNow() ? C().priceText(b) : perText(b)) + (s.due ? ' · ' + (s.state === 'overdue' ? 'was due ' : 'due ') + dateShort(s.due) : '')));
       var amt = el('input', { type: 'text', inputmode: 'decimal', class: 'cs-in cs-amt', 'aria-label': 'Amount', value: amountText(b.amountCents) });
       sheet.appendChild(field('Amount', el('div', { class: 'cs-amtrow' }, amt, el('span', { class: 'cs-cur-tag' }, b.currency || 'USD'))));
       var on = el('input', { type: 'date', class: 'cs-in', 'aria-label': 'Paid on', value: today() });
@@ -271,9 +271,93 @@
   }
   function lastMethod(aid) { var p = paymentsOf(aid)[0]; return (p && p.method) || 'bank'; }
 
+  // Off the roster, from the phone's own ask (coach.html openRemoveLifterSheet: the same server path and words as
+  // the laptop's confirm). then(): once they're gone.
+  function openRemove(aid, then) {
+    var a = athleteOf(aid);
+    if (typeof openRemoveLifterSheet === 'function') openRemoveLifterSheet(aid, a.name, { onDone: then });
+    else if (typeof removeAthleteFromRoster === 'function') removeAthleteFromRoster(aid, a.name);
+  }
+  // The phone's client sheet: who, where their money stands (lit when it's owed) with the one red and the quiet
+  // way out, then the payments, the package, how to reach them, their page, and leaving the roster last.
+  function paintClientPhone(sheet, aid, close, paint) {
+    var a = athleteOf(aid), b = billingOf(aid), s = C().clientStatus(b, today()), pays = paymentsOf(aid), ik = intakeOf(aid), f = first(a.name), w = stateWords(s);
+    while (sheet.children.length > 1) sheet.removeChild(sheet.lastChild);   // keep the grip
+    var head = el('div', { class: 'cs-shead' });
+    head.innerHTML = av(a, 'cs-sface');
+    var tx = el('div', { class: 'cs-shead-tx' });
+    tx.appendChild(el('h3', { class: 'ui-sheet-h' }, a.name));
+    // Who and since when. The package and its price are under Package and the money now is the card: each fact once.
+    if (b && b.startedOn) tx.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Coaching since ' + monthYear(b.startedOn)));
+    head.appendChild(tx);
+    sheet.appendChild(head);
+    var owed = s.state === 'overdue' || s.state === 'due' || s.state === 'soon';
+    var card = el('div', { class: 'cs-scard' + (w.warn ? ' is-late' : '') });
+    if (b) {
+      // The second line: when it was due (late), when it's due (this week; today says it already), or else when
+      // they last paid (paid up, paused, ended: a paused client's next date isn't a date anyone owes).
+      var sub = s.state === 'overdue' ? 'Was due ' + dateShort(s.due) : s.state === 'soon' ? 'Due ' + dateShort(s.due) :
+        s.state === 'due' ? '' : (pays[0] ? 'Last paid ' + dateShort(pays[0].paidOn) : '');
+      card.innerHTML = '<span class="cs-sc-k">Payment</span><b class="cs-sc-v">' + (w.warn ? triHtml() : '') + '<span>' + esc(w.text) + '</span></b>' +
+        (sub || owed ? '<span class="cs-sc-s">' + esc([sub, owed ? money(b.amountCents, b.currency) : ''].filter(Boolean).join(' \u00b7 ')) + '</span>' : '');
+      // The red only while money is owed (that's the job); paid up, paused or ended, recording one is graphite.
+      var mp = el('button', { class: 'ca-btn ' + (owed ? 'is-red' : 'is-soft'), type: 'button' }, 'Mark ' + f + ' paid');
+      mp.addEventListener('click', function () { close(); markPaid(aid); });
+      card.appendChild(mp);
+      if (owed) {
+        var rm = el('button', { class: 'cs-alt', type: 'button' }, 'Remind ' + f);
+        rm.addEventListener('click', function () { close(); remind(aid); });
+        card.appendChild(rm);
+      }
+    } else {
+      card.innerHTML = '<b class="cs-sc-v"><span>No package yet</span></b><span class="cs-sc-s">Record what ' + esc(f) + ' pays you and when. You get the reminders; ' + esc(f) + ' never sees any of it.</span>';
+      var ad = el('button', { class: 'ca-btn is-red', type: 'button' }, 'Add a package');
+      ad.addEventListener('click', function () { close(); editPackage(aid); });
+      card.appendChild(ad);
+    }
+    sheet.appendChild(card);
+    if (pays.length) {
+      sheet.appendChild(uiLabel('Payments', { count: pays.length }));
+      sheet.appendChild(uiList(pays.slice(0, 12).map(function (p) {
+        var del = el('button', { class: 'cs-del', type: 'button', 'aria-label': 'Delete the payment of ' + money(p.amountCents, p.currency) + ' on ' + dateShort(p.paidOn), html: ic('x', 2.2) });
+        del.addEventListener('click', function (e) { e.stopPropagation(); deletePayment(p, paint); });
+        return uiRow({ title: money(p.amountCents, p.currency), sub: [dateShort(p.paidOn), METHOD[p.method], p.period].filter(Boolean).join(' \u00b7 '), endNode: del });
+      })));
+    }
+    if (b) {
+      sheet.appendChild(uiLabel('Package', { action: { label: 'Edit', onClick: function () { close(); editPackage(aid); } } }));
+      // What they pay, once: the next date is the card's, since when the header's, paused or ended the card's.
+      sheet.appendChild(uiList([
+        uiRow({ title: 'Package', end: b.package }),
+        uiRow({ title: 'Price', end: perText(b) })
+      ]));
+    }
+    var phone = (b && b.phone) || (ik && ik.answers && ik.answers.phone) || '';
+    var ig = a.instagram || (ik && ik.answers && ik.answers.instagram) || '';
+    var contact = [a.email ? uiRow({ title: 'Email', end: a.email }) : null, phone ? uiRow({ title: 'Phone', end: phone }) : null, ig ? uiRow({ title: 'Instagram', end: '@' + String(ig).replace(/^@/, '') }) : null].filter(Boolean);
+    if (contact.length) { sheet.appendChild(uiLabel('Contact')); sheet.appendChild(uiList(contact)); }
+    var ends = el('div', { class: 'cs-sends' });
+    if (window.CoachLifters) {
+      var go = el('button', { class: 'cs-golifter', type: 'button' }, 'Open ' + f + '\u2019s page');
+      go.insertAdjacentHTML('beforeend', ic('chev', 2.2));
+      go.addEventListener('click', function () { close(); openLifter(aid); });
+      ends.appendChild(go);
+    }
+    var out = el('button', { class: 'cs-remove', type: 'button' }, 'Remove from roster');
+    out.addEventListener('click', function () { openRemove(aid, close); });
+    ends.appendChild(out);
+    sheet.appendChild(ends);
+  }
   // One client: what's due, the payments, the package, how to reach them.
   function openClient(aid) {
     var a = athleteOf(aid);
+    if (!isDeskNow()) {
+      uiSheet(a.name, function (sheet, close) {
+        var paint = function () { paintClientPhone(sheet, aid, close, paint); };
+        paint();
+      }, { cls: 'cs-sheet cs-client is-phone' });
+      return;
+    }
     uiSheet(a.name, function (sheet, close) {
       var paint = function () {
         while (sheet.children.length > 2) sheet.removeChild(sheet.lastChild);   // keep the grip and the title
@@ -342,13 +426,13 @@
     // Client
     var tone = TONE[s.state] ? ' tone-' + TONE[s.state] : '';
     html += '<div class="cl-tile cs-card' + tone + '"><div class="cl-th"><span class="cl-tic">' + ic('wallet') + '</span><span class="cl-tl">Client</span>' +
-      '<span class="cs-st st-' + s.state + '">' + esc(stateLabel(s)) + '</span></div>';
+      '<span class="cs-st st-' + s.state + '">' + esc(o.phone && !isDeskNow() ? stateWords(s).text : stateLabel(s)) + '</span></div>';
     if (!b) {
       html += '<p class="cs-none">Record what ' + esc(first(a.name)) + ' pays you and when it’s due. You get the reminders; ' + esc(first(a.name)) + ' never sees any of it.</p>' +
         '<div class="cs-acts"><button type="button" class="cl-btn" data-cs="package" data-aid="' + esc(aid) + '">Add a package</button></div>';
     } else {
       var since = b.startedOn ? 'since ' + monthYear(b.startedOn) : '';
-      html += '<div class="cs-pk"><b>' + esc(b.package) + '</b><span>' + esc([C().priceText(b), since].filter(Boolean).join(' · ')) + '</span></div>';
+      html += '<div class="cs-pk"><b>' + esc(b.package) + '</b><span>' + esc([o.phone && !isDeskNow() ? perText(b) : C().priceText(b), since].filter(Boolean).join(' · ')) + '</span></div>';
       html += '<div class="cs-pays">' + (pays.length ? pays.slice(0, o.phone ? 2 : 3).map(function (p) {
         return '<span class="cs-pay"><b>' + esc(money(p.amountCents, p.currency)) + '</b> ' + esc(dateShort(p.paidOn)) + (p.method ? ' · ' + esc(METHOD[p.method] || '') : '') + '</span>';
       }).join('') : '<span class="cs-pay is-none">No payments recorded yet</span>') + '</div>';
@@ -365,6 +449,8 @@
           '<dl class="cs-dl">' + lines.slice(0, o.phone ? 8 : 9).map(function (l) { return '<div><dt>' + esc(l.k) + '</dt><dd>' + esc(l.v) + '</dd></div>'; }).join('') + '</dl></div>';
       }
     }
+    // The phone's way off the roster: last, quiet, with its own ask (openRemove).
+    if (o.phone && !isDeskNow()) html += '<button type="button" class="cs-remove" data-cs="remove" data-aid="' + esc(aid) + '">Remove from roster</button>';
     return html + '</div>';
   }
 
@@ -440,8 +526,106 @@
     if (s.state === 'ok' && s.due) return dateShort(s.due);
     return s.label;
   }
+  // ===================================================================== the Clients screen on the phone
+  // The approved look (29 Oct): one answer (this month's money and its meter, lit by the green of money in), the
+  // one job (the payment most overdue, with the screen's one red and one quiet way out), then everyone as calm
+  // rows: face, name, one line in the coach's words, the next payment's date. Status is never red: late is the
+  // orange triangle beside ink words. Nothing here moves money; the foot says so.
+  // The words live in clients.js (pure, tested): '$220 a month'; '5 days late' (warn) / 'Due in 2 days' / ...
+  function perText(b) { return C().perText(b); }
+  function late(s) { return C().paceWords(s).text; }
+  function stateWords(s) { return C().paceWords(s, dateShort); }
+  function triHtml() { return '<i class="cs-tri" aria-hidden="true"></i>'; }
+  function phoneHeroHtml(sm, month) {
+    var cur = sm.currency, got = sm.month.received, exp = sm.month.expected, any = (st().clientBilling || []).some(function (b) { return roster().some(function (a) { return a.id === b.athleteId; }); });
+    var head = '<span class="cs-hh"><span class="cs-hl">This month</span><span class="cs-hm">' + esc(month) + '</span></span>';
+    if (!any) {
+      return '<div class="cs-hero is-empty ca-rise">' + head + '<b class="cs-hnone">No packages yet</b>' +
+        '<p class="cs-hs">Add what each lifter pays you and when it\u2019s due. You get the reminders; they never see any of it.</p></div>';
+    }
+    var pct = exp ? Math.max(0, Math.min(100, Math.round(got / exp * 100))) : 0;
+    var num = '<span class="cs-hn"><b>' + esc(money(got, cur)) + '</b>' + (exp ? '<span>of ' + esc(money(exp, cur)) + '</span>' : '') + '</span>';
+    var meter = exp ? '<span class="cs-meter is-hero" role="img" aria-label="' + pct + '% of ' + esc(money(exp, cur)) + ' in"><i style="--p:' + (pct / 100).toFixed(3) + '"></i></span>' : '';
+    var line = exp ? pct + '% in' + (exp > got ? ' \u00b7 ' + esc(money(exp - got, cur)) + ' to come' : '') : 'Nothing due in ' + esc(month);
+    // The month's clients and, when it isn't the same number, what the packages bring in a month.
+    var mrr = Math.round(sm.mrr / 100) * 100, foot = [plural(sm.active, 'active client')];
+    if (mrr && mrr !== exp) foot.push(esc(money(mrr, cur)) + ' a month');
+    if (sm.paused) foot.push(sm.paused + ' paused');
+    var mixed = sm.mixed ? '<p class="cs-hx">Payments in other currencies aren\u2019t in this total.</p>' : '';
+    return '<div class="cs-hero ca-rise">' + head + num + meter + '<p class="cs-hs">' + line + '</p><p class="cs-hf">' + foot.join(' \u00b7 ') + '</p>' + mixed + '</div>';
+  }
+  // Who owes you: the payment most overdue as the one job (late first; due today when nothing is late), the next
+  // two as rows with their own Mark paid. Nothing owed today: no section (due this week reads in the list).
+  function phoneOweHtml(all) {
+    var owed = all.filter(function (r) { return r.b && (r.s.state === 'overdue' || r.s.state === 'due'); });
+    if (!owed.length) return '';
+    var r0 = owed[0], a0 = r0.a, f0 = first(a0.name), s0 = r0.s, w0 = stateWords(s0);
+    var title = s0.state === 'overdue' ? esc(f0) + '\u2019s payment is ' + esc(late(s0)) : esc(f0) + '\u2019s payment is due today';
+    var detail = [money(r0.b.amountCents, r0.b.currency), r0.b.package, s0.state === 'overdue' ? 'was due ' + dateShort(s0.due) : ''].filter(Boolean).join(' \u00b7 ');
+    var head = '<div class="ca-h cs-oh"><h2><b class="cs-on">' + owed.length + '</b> ' + (owed.length === 1 ? 'owes' : 'owe') + ' you</h2></div>';
+    var lead = '<div class="cs-lead ca-rise' + (w0.warn ? ' is-late' : '') + '" data-aid="' + esc(a0.id) + '">' +
+      '<button type="button" class="cs-lead-who" data-cs="open" data-aid="' + esc(a0.id) + '">' + av(a0, 'cs-face') +
+        '<span class="cs-lead-tx"><b>' + (w0.warn ? triHtml() : '') + '<span>' + title + '</span></b><span>' + esc(detail) + '</span></span></button>' +
+      '<button type="button" class="ca-btn is-red" data-cs="paid" data-aid="' + esc(a0.id) + '">Mark ' + esc(f0) + ' paid</button>' +
+      '<button type="button" class="cs-alt" data-cs="remind" data-aid="' + esc(a0.id) + '">Remind ' + esc(f0) + '</button></div>';
+    var more = owed.slice(1, 3).map(function (r) {
+      var w = stateWords(r.s);
+      return '<div class="cs-orow"><button type="button" class="cs-orow-who" data-cs="open" data-aid="' + esc(r.a.id) + '">' + av(r.a, 'cs-face') +
+        '<span class="cs-rn"><b>' + esc(r.a.name) + '</b><span class="cs-line' + (w.warn ? ' is-warn' : '') + '">' + (w.warn ? triHtml() : '') + '<span>' + esc(w.text + ' \u00b7 ' + money(r.b.amountCents, r.b.currency)) + '</span></span></span></button>' +
+        '<button type="button" class="ca-pill" data-cs="paid" data-aid="' + esc(r.a.id) + '">Mark paid</button></div>';
+    }).join('');
+    return '<div class="ca-sec cs-owe">' + head + lead + (more ? '<div class="cs-orows">' + more + '</div>' : '') + '</div>';
+  }
+  function phoneRowHtml(r) {
+    var a = r.a, b = r.b, s = r.s, w = stateWords(s);
+    var line = !b ? w.text : (s.state === 'ok' || s.state === 'paused' || s.state === 'ended')
+      ? (s.state === 'ok' ? perText(b) + ' \u00b7 ' + b.package : w.text + ' \u00b7 ' + b.package)
+      : w.text + ' \u00b7 ' + perText(b);
+    var end = b && s.due && s.state !== 'paused' && s.state !== 'ended' ? '<span class="cs-rd">' + esc(dateShort(s.due)) + '</span>' : '';
+    return '<button type="button" class="cs-r is-phone st-' + s.state + '" data-cs="open" data-aid="' + esc(a.id) + '">' + av(a, 'cs-face') +
+      '<span class="cs-rn"><b>' + esc(a.name) + '</b><span class="cs-line' + (w.warn ? ' is-warn' : '') + '">' + (w.warn ? triHtml() : '') + '<span>' + esc(line) + '</span></span></span>' + end + '</button>';
+  }
+  var filled = false;   // the meter fills on the first visit of an app open, never again (coach-ui.css csMeterIn)
+  var meterWas = null;  // where the meter stood when Clients last drew (a payment moves it)
+  function renderPhone(host) {
+    var sm = summary(), all = rows(), t = today(), firstVisit = !filled;
+    var month = new Date(t + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' });
+    var html = '<div class="cl-root cs-zone cs-page is-phone' + (firstVisit ? ' is-first' : '') + '">';
+    filled = true;
+    html += '<header class="cs-ph"><h1 class="cl-h1">Clients</h1></header>';
+    if (!roster().length) {
+      host.innerHTML = html + '<div class="cs-hero is-empty ca-rise"><b class="cs-hnone">No clients yet</b><p class="cs-hs">Invite a lifter, then record their package here: what they pay you and when. You get the reminders; they never see it.</p>' +
+        '<button type="button" class="ca-btn is-red cs-hgo" data-cs="invite">Invite a lifter</button></div></div>';
+      return;
+    }
+    var counts = {}; FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return inFilter(r, f[0]); }).length; });
+    // Filters past six clients (a short list reads whole); the one chosen holds while it has anyone.
+    var filters = all.length > 6;
+    if (!filters || (view.filter !== 'all' && !counts[view.filter])) view.filter = 'all';
+    var list = all.filter(function (r) { return inFilter(r, view.filter); });
+    html += phoneHeroHtml(sm, month);
+    html += phoneOweHtml(all);
+    // The list's title, or (past six clients) its filters in its place: the chips say Everyone and the count once.
+    html += '<div class="ca-sec cs-every' + (filters ? ' has-filters' : '') + '">' + (filters ? '' : '<div class="ca-h"><h2>Everyone</h2><span class="ca-h-meta">' + all.length + '</span></div>');
+    if (filters) {
+      html += '<div class="cs-bar"><div class="cs-filters" role="tablist" aria-label="Show">' + FILTERS.filter(function (f) { return f[0] === 'all' || counts[f[0]]; }).map(function (f) {
+        return '<button type="button" role="tab" class="' + (view.filter === f[0] ? 'on' : '') + '" aria-selected="' + (view.filter === f[0] ? 'true' : 'false') + '" data-cs="filter" data-f="' + f[0] + '">' + esc(f[1]) + ' <span>' + counts[f[0]] + '</span></button>';
+      }).join('') + '</div></div>';
+    }
+    html += '<div class="cs-list is-phone">' + list.map(phoneRowHtml).join('') + '</div></div>';
+    html += '<p class="cs-foot">Only you see this. POWALIFTA doesn\u2019t take payments; it keeps your record and the dates.</p></div>';
+    host.innerHTML = html;
+    // A payment just recorded: the meter grows from where it was to where it is now.
+    var mi = host.querySelector('.cs-meter.is-hero i'), now = mi ? parseFloat(mi.style.getPropertyValue('--p')) || 0 : null;
+    if (mi && meterWas != null && now !== meterWas && !firstVisit && typeof mi.animate === 'function' && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      var cs = getComputedStyle(document.body), ease = (cs.getPropertyValue('--pl-spring') || '').trim() || 'cubic-bezier(0.23, 1, 0.32, 1)', ms = parseFloat(cs.getPropertyValue('--pl-d-state')) || 560;
+      try { mi.animate([{ transform: 'scaleX(' + meterWas + ')' }, { transform: 'scaleX(' + now + ')' }], { duration: ms, easing: ease }); } catch (e) {}
+    }
+    meterWas = now;
+  }
   function render(host) {
     if (!host || !C()) return;
+    if (!isDeskNow()) { renderPhone(host); return; }
     var phone = !isDeskNow(), sm = summary(), all = rows();
     var counts = {}; FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return inFilter(r, f[0]); }).length; });
     if (view.filter !== 'all' && !counts[view.filter]) view.filter = 'all';
@@ -521,6 +705,8 @@
     else if (k === 'package') editPackage(aid);
     else if (k === 'clients') goClients();
     else if (k === 'csv') downloadCsv();
+    else if (k === 'invite') { if (typeof openInviteModal === 'function') openInviteModal(); }
+    else if (k === 'remove') openRemove(aid);
     else if (k === 'filter') { view.filter = b.getAttribute('data-f') || 'all'; var area = document.getElementById('clientsArea'); if (area) render(area); }
   });
 
