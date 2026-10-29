@@ -45,9 +45,9 @@ Each top-level page is its own HTML file with its own inline `<script>` glue at 
 - The website and both dashboards share `app.js` (store, modals, sign-up / log-in, RPE math, charts, programming helpers) and `db.js` (Supabase client + mappers).
 - **`supabase.js` (repo root) is the VENDORED `@supabase/supabase-js` v2.110.0 UMD build** — never re-add a CDN `<script>` for it (a hung jsDelivr once froze every page). Any third-party script: vendor it or load it `async`.
 
-### Website (public pages) — `site.css`, the homepage's `home.css` + `home.js`
+### Website (public pages) — `site.css`, `pages.css`, the homepage's `home.css` + `home.js`
 
-Every other public page is `<body class="site">`: `styles.css`, then `site.css` (Archivo self-hosted from `fonts/`, the bar `header.bar#nav` and `footer.foot`, both pasted into every page; `renderNav` only swaps a signed-in visitor's Dashboard in), never the dashboards. The homepage is `body.home`: `home.css`, `home.js` (page layer and scroll score; GSAP from `vendor/gsap-3.15.0/` after load, never under reduced motion), pictures in `site-img/home/` (re-take them with `test/site-capture/`, see test/README.md), share card `og-home.jpg`. Its head writes either the website's files or the app's (`html.native`); the app bundle and `styles.css` load only on intent (Log in, Start free) through `PowaApp`, and `home.css` answers what styles.css would change (section padding, headings, ids). One crimson action per screen (#dc2637, white label). `data-needs-programs` stays hidden until `siteProgramsReady()` counts 3+ programs. Full notes: vault `Code/Architecture detail.md`.
+Every other public page is `<body class="site">`: `styles.css`, `site.css` (Archivo from `fonts/`, the bar `header.bar#nav` and `footer.foot`, pasted into every page; `renderNav` only swaps in a signed-in visitor's Dashboard), then `pages.css` (the homepage's look for them), never the dashboards. The homepage is `body.home`: `home.css`, `home.js` (page layer, scroll score; GSAP from `vendor/gsap-3.15.0/` after load, not with reduced motion), pictures in `site-img/home/` (re-take: `test/site-capture/`), share card `og-home.jpg` (every public page's). Its head writes the website's files or the app's (`html.native`); the app bundle and `styles.css` load only on intent (Log in, Start free) through `PowaApp`, and `home.css` answers what styles.css would change. One crimson action per screen (#dc2637, white label). `data-needs-programs` hides until `siteProgramsReady()` counts 3+ programs. Full notes: vault `Code/Architecture detail.md`.
 
 ## Brand tokens
 
@@ -151,11 +151,11 @@ The full list, with context, is in the vault (`Code/Gotchas.md`, `History/`). Th
 - Inline `<script>` blocks at the bottom of each HTML page wire up the page-specific glue. `app.js` is the shared library.
 - Don't introduce a build step. Vercel serves the files raw.
 - Don't add new JS frameworks. Pure vanilla.
-- Website classes use the `s-*` prefix (site.css); app motion lives in styles.css / dash-fx.css.
+- Website classes use the `s-*` prefix (pages.css); app motion lives in styles.css / dash-fx.css.
 - New tables and policies go in their own `sql/migration-*.sql` file for the owner to run.
 
 ## When in doubt
 
 - Editing the homepage: keep the calculator ids, the three modals, `#nativeWelcome`, `#pricing` and `#marketplace-teaser` (the iPhone app hides those two by id for Apple 3.1.1).
 - Adding a new feature that touches DB: write a migration + check if you need to add a mapper in `db.js`.
-- Adding a new public page: `<body class="site">`, include `styles.css` then `site.css`, the Archivo preload, `error-log.js`, the Plausible tag and the native-detect snippet, plus the bar (`header.bar#nav`, renderNav) and `footer.foot` (copy both from any public page). Use `.s-page-head` + `.s-wrap.s-narrow` + `.s-prose` for a text page.
+- Adding a new public page: `<body class="site">`, `styles.css`, `site.css`, `pages.css`, the Archivo preload, `error-log.js`, the Plausible tag and the native-detect snippet, plus the bar (`header.bar#nav`, renderNav) and `footer.foot` (copy both from any public page). Use `.s-page-head` + `.s-wrap.s-narrow` + `.s-prose` for a text page.
