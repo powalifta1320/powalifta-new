@@ -235,10 +235,11 @@ function _sweepOtherUsersCaches(uid, storage) {
 //            dropped when another account signs in.
 // Not account keys, so a sign-out leaves them too: the desk's own records per coach (next week's
 // unpublished drafts powa-desk-pend-, reviews and snoozes powa-desk-review-, the first-run answers
-// powa-coach-style-, the last-published program cells powa-pb-pub-), read marks (powa-signals-read-,
-// powa-pr-pushed-); each names its account, like the own keys, and a deletion takes them. A few lifter
-// keys name no account and stay with the device until they are keyed per account: powa-meet-live,
-// powa-meet-date, powa-meet-strategy, powa-cmd-log, powa-bouncer-log, powa-sex, powa-week-goal.
+// powa-coach-style-, the last-published program cells powa-pb-pub-, the Programs picker's recent lifters
+// powa-cp-recent-), read marks (powa-signals-read-, powa-pr-pushed-); each names its account, like the own
+// keys, and a deletion takes them. A few lifter keys name no account and stay with the device until they are
+// keyed per account: powa-meet-live, powa-meet-date, powa-meet-strategy, powa-cmd-log, powa-bouncer-log,
+// powa-sex, powa-week-goal.
 const _ACCOUNT_KEY_RE = /^powa-(snapshot-|intake-|health-|opl-|cut-|saved-replies-|weekly-notes-|week-changes-|coach-notes-|coach-settings-|client-|teams-|fca-|ready-|md-|challenge|busy-week-)|^powa-(ds-names|attempt-plans|club-stats|club-name|club-board)$/;
 const _OWN_KEY_RE = /^powa-(saved-replies-|weekly-notes-|week-changes-|opl-|health-(on|access|decided|imported|sessions|share|since|times)-)/;
 // A meet-day board as meetday.js keeps it (persist), with something still to go up.

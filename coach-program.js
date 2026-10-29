@@ -161,22 +161,23 @@
      STATE: whose program, which week, which day (per lifter and week)
      ==================================================================================================== */
   var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null, moreOpen: {}, sleeve: {} };
-  // The programs this coach opened last on this phone, newest first (the picker leads with them).
-  var RECENT_KEY = 'powa-cp-recent';
+  // The programs this coach opened last on this phone, newest first (the picker leads with them). The key names its
+  // account, like the desk's own records per coach (app.js, what a sign-out leaves): no other account reads it, and
+  // deleting the account takes it with every key that names it.
+  var RECENT_KEY = 'powa-cp-recent-';
   function coachId() { var u = typeof getCurrentUser === 'function' ? getCurrentUser() : null; return u && u.id; }
   function recentIds() {
     var id = coachId();
-    try { var all = JSON.parse(localStorage.getItem(RECENT_KEY) || '{}') || {}; return id && Array.isArray(all[id]) ? all[id].slice(0, 8) : []; } catch (e) { return []; }
+    if (!id) return [];
+    try { var l = JSON.parse(localStorage.getItem(RECENT_KEY + id) || '[]'); return Array.isArray(l) ? l.slice(0, 8) : []; } catch (e) { return []; }
   }
   function noteRecent(aid) {
     var id = coachId();
     if (!id || !aid) return;
     try {
-      var all = JSON.parse(localStorage.getItem(RECENT_KEY) || '{}') || {};
-      var l = Array.isArray(all[id]) ? all[id] : [];
+      var l = recentIds();
       if (l[0] === aid) return;
-      all[id] = [aid].concat(l.filter(function (x) { return x !== aid; })).slice(0, 8);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(all));
+      localStorage.setItem(RECENT_KEY + id, JSON.stringify([aid].concat(l.filter(function (x) { return x !== aid; })).slice(0, 8)));
     } catch (e) {}
   }
   function dayKey(aid, wi) { return aid + ':' + wi; }
