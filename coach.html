@@ -927,7 +927,7 @@ async function renderJoinRequests(host) {
 }
 
 // Join requests on the phone (the approved look): a section like every other, one calm row each (face, name, their
-// note in their words), Decline quiet and Accept in graphite. No glow and no red: a request isn't an alarm, and the
+// note in their words, whole), Decline quiet and Accept in graphite under it. No glow and no red: a request isn't an alarm, and the
 // screen's one red stays the invite. The same accept and decline as the desk's card.
 function _joinRequestsPhone(reqs) {
   const sec = el('div', { class: 'jr-sec' });
@@ -2199,7 +2199,7 @@ window.notifyAthleteAssigned = notifyAthleteAssigned;
 // A function, not a const: hoisted, so no first-render path can meet it in the TDZ.
 function _removeLifterWords() {
   return 'They keep their training, including the program you wrote for them, and you stop seeing it. ' +
-         'They\'ll need a new invite to rejoin.';
+         'They\u2019ll need a new invite to rejoin.';
 }
 // opts.confirmed: the phone's sheet (openRemoveLifterSheet) has already asked. → true once they're off the roster.
 async function removeAthleteFromRoster(athleteId, athleteName, opts) {
