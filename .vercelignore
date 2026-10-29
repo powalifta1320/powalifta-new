@@ -4,8 +4,10 @@
 # Nothing the site loads lives here (checked: no page, script or sw.js refers to
 # these paths). tests.html stays: admin.html runs it in an iframe.
 
-# Notes, docs and design records
+# Notes, docs and design records (VENDOR.txt: where a vendored library came from, its hashes and how it ships;
+# each library's licence stays in its own file's header)
 *.md
+VENDOR.txt
 docs/
 .impeccable/
 

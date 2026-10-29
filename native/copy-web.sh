@@ -46,6 +46,7 @@ rsync -a --delete \
   --exclude '.impeccable' \
   --exclude '*.db' \
   --exclude 'scratchpad' \
+  --exclude 'scratchpad-shots' \
   --exclude 'ds-bundle' \
   --exclude '.design-sync' \
   --exclude 'showreel' \
