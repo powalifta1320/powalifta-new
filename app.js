@@ -5705,6 +5705,62 @@ function msgClosedText(viewerIsCoach, otherName) {
 }
 window.msgClosedText = msgClosedText;
 
+// The coach's inbox on the phone (coach.html renderMessages), pure on its inputs.
+// digest: { [athleteId]: { lastAt, lastSenderId, unread } } (DB.listThreadsForCoach's, or the demo's Store).
+// A thread waits on the coach when the lifter wrote last (a set they sent counts: it came to be answered).
+// Those come first, newest first; then the other threads, newest first; then everyone with no thread yet,
+// A to Z. → { list: [athlete], waiting: [athleteId] }
+function msgInboxOrder(roster, digest, coachId) {
+  digest = digest || {};
+  const waiting = [], answered = [], none = [];
+  (roster || []).forEach(a => {
+    if (!a || !a.id) return;
+    const d = digest[a.id];
+    if (!d || !d.lastAt) none.push(a);
+    else if (d.lastSenderId && d.lastSenderId !== coachId) waiting.push(a);
+    else answered.push(a);
+  });
+  const newest = (x, y) => String(digest[y.id].lastAt).localeCompare(String(digest[x.id].lastAt));
+  waiting.sort(newest); answered.sort(newest);
+  none.sort((x, y) => String(x.name || '').localeCompare(String(y.name || '')));
+  return { list: waiting.concat(answered, none), waiting: waiting.map(a => a.id) };
+}
+window.msgInboxOrder = msgInboxOrder;
+// How long ago, in words a coach says ("6 hours", "2 days"); '' under a minute.
+function msgAgoWords(iso, now) {
+  const t = Date.parse(iso || ''), n = typeof now === 'number' ? now : Date.now();
+  if (!isFinite(t)) return '';
+  const m = Math.max(0, Math.floor((n - t) / 60000));
+  if (m < 1) return '';
+  if (m < 60) return m + (m === 1 ? ' minute' : ' minutes');
+  const h = Math.floor(m / 60);
+  if (h < 48) return h + (h === 1 ? ' hour' : ' hours');
+  const d = Math.floor(h / 24);
+  return d + ' days';
+}
+window.msgAgoWords = msgAgoWords;
+// The inbox's one answer: how many threads wait on the coach, and who has waited longest (by their last
+// message; 12 hours is when the triage counts their words as waiting too). → { n, title, sub }
+function msgInboxHead(order, digest, now) {
+  order = order || { list: [], waiting: [] };
+  digest = digest || {};
+  const n = order.waiting.length;
+  if (!n) {
+    const any = order.list.some(a => digest[a.id] && digest[a.id].lastAt);
+    return { n: 0, title: any ? 'All answered' : 'No messages yet', sub: any ? '' : 'What they write, and the sets they send you, land here.' };
+  }
+  let oldest = null;
+  order.waiting.forEach(id => { if (oldest == null || String(digest[id].lastAt) < String(digest[oldest].lastAt)) oldest = id; });
+  const a = order.list.find(x => x.id === oldest) || {};
+  const first = String(a.name || '').trim().split(/\s+/)[0] || 'They';
+  const t = Date.parse(digest[oldest].lastAt), nn = typeof now === 'number' ? now : Date.now();
+  const ago = msgAgoWords(digest[oldest].lastAt, nn);
+  const sub = !ago ? first + ' wrote just now'
+    : (nn - t >= 12 * 3600e3 ? first + ' has waited ' + ago : first + ' wrote ' + ago + ' ago');
+  return { n, title: 'waiting on you', sub };
+}
+window.msgInboxHead = msgInboxHead;
+
 // Renders one coach<->athlete conversation: chat bubbles PLUS the session notes
 // for this pair, merged into a single time-ordered history. Notes are read-only
 // context (replying to a note still happens in the Notes inbox), so they render

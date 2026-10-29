@@ -1894,6 +1894,407 @@ html:not(.desk) body.powa-app .cp-ed-send::after { inset: -14px -8px; }
 /* The large title says it: the card's own "Challenge" heading steps aside here (the desk keeps it in Club). */
 html:not(.desk) #challengesArea .chl-h { display: none; }
 
+/* =================================================================== MESSAGES (rollout, 29 Oct)
+   The question: what did they say, next to what they did? The inbox answers who is waiting on you (the lifter
+   wrote last, read or not) in type on the ground, as Home does, then one list: waiting first. A row is face,
+   name, their last words, when (and how many unread). A thread is pushed in: back, face, name and what they
+   are doing; bubbles in the family of the lifter app's thread (theirs graphite, yours a tint of the Messages
+   green, no glow); a set they send is a card lit by its lift, never a barbell picture; the one red is Send
+   (and the mic while it records). Type on the coach scale, 13 · 15 · 17 · 20 · 22 · 28 · 44 (11 for a
+   count on a reaction). Every rule is the phone's (html:not(.desk)); the laptop desk keeps its own. */
+html:not([data-theme="light"]):not(.desk) body.powa-app:is([data-screen="messages"], [data-screen="club"], [data-screen="challenges"]) .dash-shell::before {
+  height: 380px; background: radial-gradient(75% 60% at 50% -14%, color-mix(in srgb, var(--acc) 9%, transparent), transparent 72%);
+}
+/* the header's Message everyone (coach.html _msgAllBtn): a 36 pt circle like Home's search */
+html:not(.desk) body.powa-app .ca-hbtn[hidden] { display: none; }
+/* the one red on these screens is the owner's crimson with a white label (the first run's Invite, the club's
+   Start a club / Join): the same token as Home's */
+html:not(.desk) body.powa-app :is(#messagesArea, #clubArea, #challengesArea) .btn-primary { background: var(--pl-red); color: #fff !important; border-color: transparent; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+
+/* -- the answer, on the ground (coach.html renderMessages, app.js msgInboxHead) */
+html:not(.desk) .msg-root { padding-top: 4px; }
+html:not(.desk) .msg-sum { padding: 2px 4px 0; margin: 0 0 20px; }
+html:not(.desk) .msg-sum-head { display: flex; align-items: baseline; gap: 10px; min-height: 44px; }
+html:not(.desk) .msg-sum-n { font-family: var(--font-num); font-stretch: 112%; font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; color: var(--text); font-variant-numeric: lining-nums tabular-nums; }
+html:not(.desk) .msg-sum-w { font-size: 22px; font-weight: 700; letter-spacing: -0.018em; line-height: 1.2; color: var(--text); }
+html:not(.desk) .msg-sum-w.is-clear { font-size: 28px; font-weight: 800; letter-spacing: -0.024em; }
+html:not(.desk) .msg-sum-ok { align-self: center; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--ca-live) 18%, transparent); color: var(--ca-live); }
+html:not(.desk) .msg-sum-ok svg { width: 20px; height: 20px; }
+html:not(.desk) .msg-sum-sub { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+
+/* -- the list: one card, rows as in Lifters (face 44, name 17, their words 15, when 13) */
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-list { padding: 0; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row {
+  position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 76px; padding: 12px 14px 12px 16px;
+  border: 0; border-radius: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 140ms ease-out;
+}
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row + .msg-inbox-row::before { content: ''; position: absolute; top: 0; left: 72px; right: 0; height: 1px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row:active, html:not(.desk) body.powa-app #messagesArea .msg-inbox-row.active { background: var(--ca-press); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row:active::before, html:not(.desk) body.powa-app #messagesArea .msg-inbox-row:active + .msg-inbox-row::before { opacity: 0; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row:focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: -3px; border-radius: 14px; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox .msg-ring { padding: 0; background: none; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row .av { width: 44px; height: 44px; border-radius: 50%; font-family: var(--font-body); font-stretch: 100%; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-mid { display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row-top { align-items: baseline; gap: 12px; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-time { font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row.is-unread .msg-inbox-time { color: var(--ca-msg); font-weight: 650; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-preview { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-2); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row.is-unread .msg-inbox-preview { color: var(--text); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-preview.faint { font-style: normal; color: var(--text-3); }
+/* the lifters with no thread yet, last, under one caption (their rows say what they're doing) */
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-cap { padding: 14px 16px 2px; border-top: 1px solid var(--ca-hair); font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-row-bot { align-items: flex-start; gap: 12px; }
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-badge {
+  flex: none; align-self: center; min-width: 22px; height: 22px; margin-top: 0; padding: 0 7px; border-radius: 11px; box-sizing: border-box;
+  background: var(--ca-msg); color: #04140c; box-shadow: none; font: 700 13px/22px var(--font-num); text-align: center; font-variant-numeric: tabular-nums;
+}
+html[data-theme="light"]:not(.desk) body.powa-app #messagesArea .msg-inbox-badge { background: #0c7a45; color: #fff; }
+/* a voice note's preview: the app's label with a small play glyph in the Messages green (Home's .ca-vplay) */
+html:not(.desk) .msg-vplay { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 6px; border-radius: 50%; vertical-align: -2px; color: var(--ca-msg); background: color-mix(in srgb, var(--ca-msg) 16%, transparent); }
+html:not(.desk) .msg-vplay svg { width: 8px; height: 8px; margin-left: 1px; fill: currentColor; }
+/* the first visit's shape while the one read is out */
+html:not(.desk) .msg-skel .msg-sk-head { display: flex; flex-direction: column; gap: 10px; padding: 6px 4px 24px; }
+html:not(.desk) .msg-skel .msg-sk-list { border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); }
+html:not(.desk) .msg-skel .msg-sk-row { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 0 16px; }
+html:not(.desk) .msg-skel .msg-sk-row + .msg-sk-row { border-top: 1px solid var(--ca-hair); }
+html:not(.desk) .msg-skel .ca-sk-tx { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+html:not(.desk) .msg-skel .ca-sk-av.is-44 { flex: none; width: 44px; height: 44px; border-radius: 50%; }
+@media (max-width: 720px) {
+  /* an open thread is its own screen: the answer steps aside with the list */
+  html:not(.desk) #messagesArea:has(.msg-inbox.is-detail-open) .msg-sum { display: none; }
+}
+
+/* -- a thread pushed in (the phone): its bar is back, face, name and what they're doing */
+@media (max-width: 720px) {
+  html.native:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head {
+    display: flex; align-items: center; gap: 10px; min-height: calc(env(safe-area-inset-top, 0px) + 56px);
+    padding: calc(env(safe-area-inset-top, 0px) + 6px) 16px 8px 8px; background: rgba(6, 6, 8, 0.86);
+  }
+  html.native[data-theme="light"]:not(.desk) body.powa-app:has(section[data-pane="messages"]:not(.hidden) .msg-inbox.is-detail-open) .msg-inbox.is-detail-open .msg-inbox-detail-head { background: rgba(255, 255, 255, 0.9); }
+  html.native:not(.desk) body.powa-app .msg-inbox.is-detail-open .msg-inbox-detail { padding-top: 72px; }
+}
+html:not(.desk) body.powa-app .msg-inbox-back {
+  position: relative; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--pl-inset-2); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out;
+}
+html:not(.desk) body.powa-app .msg-inbox-back::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+/* side by side (a tablet's column, past 720): the list stays beside the thread, so no back */
+@media (min-width: 721px) { html:not(.desk) body.powa-app .msg-inbox-back { display: none; } }
+html:not(.desk) body.powa-app .msg-inbox-back svg { width: 20px; height: 20px; margin-left: -2px; }
+html:not(.desk) body.powa-app .msg-inbox-back:active { transform: scale(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) body.powa-app .msg-inbox-detail-head .av { flex: none; width: 40px; height: 40px; border-radius: 50%; font-family: var(--font-body); font-stretch: 100%; font-size: 15px; font-weight: 800; }
+html:not(.desk) .msg-inbox-detail-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+html:not(.desk) body.powa-app .msg-inbox-detail-name { font-size: 17px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.25; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .msg-inbox-detail-sub { font-size: 13px; line-height: 1.3; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* -- the thread (the pushed screen and the Reply sheet alike) */
+html:not(.desk) body.powa-app .msg-list { gap: 6px; }
+html:not(.desk) body.powa-app .msg-daysep { margin: 16px 0 6px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-daysep:first-child { margin-top: 4px; }
+html:not(.desk) body.powa-app .msg-bubble { max-width: 80%; padding: 9px 14px 8px; border: 0; border-radius: 20px; font-size: 15px; line-height: 1.45; }
+html:not(.desk) body.powa-app .msg-row.theirs .msg-bubble { background: var(--bg-2); color: var(--text); border-bottom-left-radius: 6px; }
+html:not(.desk) body.powa-app .msg-row.mine .msg-bubble { background: color-mix(in srgb, #34e08c 24%, #0c0d0e); color: #f2fbf6; border-bottom-right-radius: 6px; box-shadow: none; }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-row.theirs .msg-bubble { background: #ececf0; }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-row.mine .msg-bubble { background: color-mix(in srgb, #34e08c 22%, #ffffff); color: #0b2418; }
+html:not(.desk) body.powa-app .msg-body { font-size: 15px; line-height: 1.45; }
+html:not(.desk) body.powa-app .msg-meta { margin-top: 3px; font-family: var(--font-body); font-size: 13px; font-weight: 500; opacity: 1; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app .msg-row.mine .msg-meta { color: rgba(242, 251, 246, 0.64); }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-row.mine .msg-meta { color: rgba(11, 36, 24, 0.68); }
+html:not(.desk) body.powa-app .msg-status { margin: 0 6px 2px 0; font-family: var(--font-body); font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-status.is-seen { color: var(--text-2); }
+/* their session notes, woven in: an inset with its label, not a bubble of their own */
+html:not(.desk) body.powa-app .msg-note { max-width: 80%; padding: 10px 14px; border: 0; border-radius: 20px 20px 20px 6px; background: var(--pl-inset); box-shadow: inset 0 0 0 1px var(--ca-hair); }
+html:not(.desk) body.powa-app .msg-note-lbl { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-note-body { font-size: 15px; line-height: 1.45; color: var(--text); }
+html:not(.desk) body.powa-app .msg-note-meta { font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-empty, html:not(.desk) body.powa-app .msg-loading { font-size: 15px; color: var(--text-3); }
+
+/* a set or a session they sent: the card is the bubble (no card in a bubble), lit from its top corner by
+   its lift (the lifter app's NOW card does the same), the load big; no barbell picture */
+html:not(.desk) body.powa-app .msg-bubble.is-card { min-width: 248px; max-width: 86%; padding: 0; background: none !important; box-shadow: none; }
+html:not(.desk) body.powa-app .msg-bubble.is-card .msg-meta { padding: 4px 8px 0; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-card {
+  --lc: var(--text-3); --lcl: #c9ced6; padding: 14px 16px 14px; border-radius: 20px 20px 20px 6px; color: var(--text);
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--lcl) 13%, transparent) 0%, transparent 58%), var(--pl-obj);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lcl) 24%, var(--pl-obj-edge));
+}
+html:not(.desk) body.powa-app .msg-row.mine .msg-card { border-radius: 20px 20px 6px 20px; }
+html:not(.desk) body.powa-app .msg-card.lift-squat { --lc: var(--pl-viz-sq); --lcl: #38c6ff; }
+html:not(.desk) body.powa-app .msg-card.lift-bench { --lc: var(--pl-viz-bp); --lcl: #a98bff; }
+html:not(.desk) body.powa-app .msg-card.lift-deadlift { --lc: var(--pl-viz-dl); --lcl: #ffbf3c; }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-card { background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--lcl) 9%, transparent) 0%, transparent 58%), var(--pl-obj); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lcl) 30%, var(--pl-obj-edge)), 0 1px 2px rgba(15, 15, 25, 0.05); }
+html:not(.desk) body.powa-app .msg-card .mc-bar { display: none; }
+html:not(.desk) body.powa-app .msg-card .mc-kind { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-card.is-pr .mc-kind { color: var(--ca-gold); }
+html:not(.desk) body.powa-app .msg-card.is-missed .mc-kind { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+html:not(.desk) body.powa-app .msg-card.is-missed .mc-kind::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .msg-card .mc-title { margin-top: 2px; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app .msg-card .mc-title .lift-dot { width: 8px; height: 8px; background: var(--lc); }
+html:not(.desk) body.powa-app .msg-card .mc-nums { margin-top: 10px; gap: 4px; align-items: baseline; }
+html:not(.desk) body.powa-app .msg-card .mc-nums b { font-family: var(--font-num); font-stretch: 112%; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+html:not(.desk) body.powa-app .msg-card .mc-nums small { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-card .mc-nums i { margin: 0 3px; font-size: 17px; color: var(--text-3); }
+/* the effort they felt: ink beside the load ("RPE 8"), never a coloured chip (red is the one action) */
+html:not(.desk) body.powa-app .msg-card .mc-rpe { align-self: baseline; margin-left: 8px; padding: 0; border-radius: 0; background: none; color: var(--text-2); font-family: var(--font-body); font-size: 17px; font-weight: 650; }
+html:not(.desk) body.powa-app .msg-card .mc-e1 { margin-top: 8px; font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-card .mc-best-lift { height: 28px; padding: 0 10px; background: var(--pl-inset-2); font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .msg-card .mc-best-lift .lift-dot.lift-squat { background: var(--pl-viz-sq); }
+html:not(.desk) body.powa-app .msg-card .mc-best-lift .lift-dot.lift-bench { background: var(--pl-viz-bp); }
+html:not(.desk) body.powa-app .msg-card .mc-best-lift .lift-dot.lift-deadlift { background: var(--pl-viz-dl); }
+
+/* a voice note: their play in the Messages green, yours on your tint; the speed a 44 pt target */
+html:not(.desk) body.powa-app .msg-row.theirs .vn-play { background: var(--ca-msg); color: #04140c; }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-row.theirs .vn-play { background: #0c7a45; color: #fff; }
+html:not(.desk) body.powa-app .msg-bubble.is-voice { min-width: 248px; padding: 8px 12px 8px 8px; }
+html:not(.desk) body.powa-app .vn-time { font-size: 13px; font-weight: 600; opacity: 1; }
+html:not(.desk) body.powa-app .vn-speed { position: relative; height: 32px; font-size: 13px; }
+html:not(.desk) body.powa-app .vn-speed::after { content: ''; position: absolute; inset: -6px -2px; }
+html:not(.desk) body.powa-app .msg-bubble.is-voice .msg-meta { padding-left: 6px; }
+
+/* reactions: the pill on a bubble's shoulder and the picker, on the app's raised material */
+html:not(.desk) body.powa-app .msg-react { height: 28px; padding: 0 8px; background: var(--pl-raise); color: var(--text-2); box-shadow: 0 0 0 2.5px var(--bg), 0 4px 10px -4px rgba(0, 0, 0, 0.7); animation: none; }
+html:not(.desk) body.powa-app .msg-react.mine { background: color-mix(in srgb, var(--ca-msg) 26%, var(--pl-raise)); color: var(--text); }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-react { box-shadow: 0 0 0 2.5px var(--bg, #fff), 0 3px 8px -3px rgba(15, 15, 25, 0.3); }
+html:not(.desk) body.powa-app .msg-react b { font: 700 11px/1 var(--font-num); }
+@keyframes msgPopIn { from { opacity: 0.45; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+html:not(.desk) body.powa-app .react-pop { padding: 6px; border-radius: 999px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade), 0 18px 40px -14px rgba(0, 0, 0, 0.9); animation: msgPopIn var(--pl-d-press) var(--pl-spring) both; }
+html[data-theme="light"]:not(.desk) body.powa-app .react-pop { box-shadow: var(--pl-raise-shade), 0 18px 40px -16px rgba(15, 15, 25, 0.35); }
+html:not(.desk) body.powa-app .react-pop > button { font-size: 24px; }
+html:not(.desk) body.powa-app .react-pop > button.on { background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .react-extra { margin-left: 4px; padding-left: 6px; box-shadow: inset 1px 0 0 var(--ca-hair); }
+html:not(.desk) body.powa-app .react-extra button { min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--text); font-size: 15px; font-weight: 600; }
+
+/* the composer: saved replies, the box, the mic; Send is the screen's one red (the owner's crimson) */
+html:not(.desk) body.powa-app .msg-composer { gap: 8px; align-items: flex-end; }
+html:not(.desk) body.powa-app .msg-composer :is(.msg-attach, .msg-saved, .vn-mic, .vn-del) { width: 44px; height: 44px; background: var(--pl-inset-2); color: var(--text-2); box-shadow: none; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out, color 150ms ease-out; }
+html:not(.desk) body.powa-app .msg-composer .vn-del { background: none; }
+html:not(.desk) body.powa-app .msg-composer :is(.msg-attach, .msg-saved, .vn-mic):active { transform: scale(0.92); background: var(--fill-4, rgba(255, 255, 255, 0.14)); color: var(--text); transition-duration: 90ms; }
+html:not(.desk) body.powa-app .msg-composer .msg-input { min-height: 44px; padding: 10px 16px; border: 0; border-radius: 22px; background: var(--pl-inset); color: var(--text); font-size: 17px; line-height: 1.3; box-shadow: none; }
+html:not(.desk) body.powa-app .msg-composer .msg-input::placeholder { color: var(--text-3); }
+html:not(.desk) body.powa-app .msg-composer :is(.msg-send, .vn-send) {
+  flex: none; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50% !important;
+  display: grid; place-items: center; background: var(--pl-red); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out, color 150ms ease-out;
+}
+html:not(.desk) body.powa-app .msg-composer :is(.msg-send, .vn-send) svg { width: 20px; height: 20px; }
+html:not(.desk) body.powa-app .msg-composer :is(.msg-send, .vn-send):active { transform: scale(0.92); filter: brightness(0.92); transition-duration: 90ms; }
+/* nothing to send yet (a composer without the mic): the arrow waits, quiet. With the mic, one of the two
+   shows: the mic while the box is empty, Send once there's text (voice.js's has-mic / has-text) */
+html:not(.desk) body.powa-app .msg-composer .msg-send.is-empty { background: var(--pl-inset-2); color: var(--text-3); box-shadow: none; }
+html:not(.desk) body.powa-app .msg-composer.has-mic:not(.has-text) .msg-send, html:not(.desk) body.powa-app .msg-composer.has-text .vn-mic { display: none; }
+/* recording: the mic is the action while it's held (crimson), its dot the same; the hint on the scale */
+html:not(.desk) body.powa-app :is(.vn-mic.is-held, .msg-composer.is-recording .vn-mic) { background: var(--pl-red); color: #fff; transform: scale(1.08); }
+html:not(.desk) body.powa-app .msg-composer.is-cancel .vn-mic { background: var(--pl-inset-2); color: var(--text-2); transform: none; }
+html:not(.desk) body.powa-app .vn-rec-dot { background: #dc2637; }
+html:not(.desk) body.powa-app .vn-rec-hint { font-size: 13px; }
+html:not(.desk) body.powa-app .vn-rec-time { font-size: 17px; }
+/* the pushed thread's composer: the app's glass bar over the thread */
+html.native:not(.desk) body.powa-app .msg-inbox-detail .msg-composer { padding: 6px; border-radius: 28px; border-color: var(--ca-edge); background: rgba(20, 20, 23, 0.82); }
+html.native[data-theme="light"]:not(.desk) body.powa-app .msg-inbox-detail .msg-composer { background: rgba(255, 255, 255, 0.92); border-color: rgba(15, 15, 25, 0.08); }
+
+/* a thread whose link has ended: no reply box, one line where it was saying why (sec-client, row 59) */
+html:not(.desk) body.powa-app .msg-closed {
+  align-self: stretch; max-width: none; margin: 20px 8px 8px; padding: 16px 12px 0; border-top: 1px solid var(--ca-hair); border-radius: 0;
+  background: none; color: var(--text-2); font-size: 15px; line-height: 1.4; text-align: center; text-wrap: balance;
+}
+html:not(.desk) body.powa-app .msg-closed::before {
+  content: ''; display: inline-block; width: 13px; height: 15px; margin-right: 7px; vertical-align: -2px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 15'%3E%3Cpath d='M3.25 6V4.25a3.25 3.25 0 0 1 6.5 0V6h.5A1.75 1.75 0 0 1 12 7.75v5.5A1.75 1.75 0 0 1 10.25 15h-7.5A1.75 1.75 0 0 1 1 13.25v-5.5A1.75 1.75 0 0 1 2.75 6zm1.5 0h3.5V4.25a1.75 1.75 0 0 0-3.5 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 15'%3E%3Cpath d='M3.25 6V4.25a3.25 3.25 0 0 1 6.5 0V6h.5A1.75 1.75 0 0 1 12 7.75v5.5A1.75 1.75 0 0 1 10.25 15h-7.5A1.75 1.75 0 0 1 1 13.25v-5.5A1.75 1.75 0 0 1 2.75 6zm1.5 0h3.5V4.25a1.75 1.75 0 0 0-3.5 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* -- Saved replies and Message everyone (weekly-note.js sheets) */
+html:not(.desk) body.powa-app :is(.wn-rsheet, .wn-bsheet) .ui-sheet-sub { font-size: 15px; line-height: 1.4; color: var(--text-2); }
+html:not(.desk) body.powa-app .wn-rsheet .wn-rrow .ui-row-title { font-size: 17px; font-weight: 400; line-height: 1.4; letter-spacing: -0.005em; color: var(--text); }
+html:not(.desk) body.powa-app .wn-rsheet .wn-rrow { min-height: 56px; }
+html:not(.desk) body.powa-app .wn-rsheet .wn-rsv { min-height: 44px; font-size: 15px; font-weight: 600; color: var(--text); }
+html:not(.desk) body.powa-app .wn-bsheet .wn-bwho { margin: 4px 4px 12px; }
+html:not(.desk) body.powa-app .wn-bsheet .wn-bnames { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app .wn-bsheet textarea.wn-sta { min-height: 168px; padding: 14px 16px; border-radius: 14px; background: var(--pl-inset); box-shadow: none; font-size: 17px; line-height: 1.45; }
+html:not(.desk) body.powa-app .wn-bsheet textarea.wn-sta::placeholder { color: var(--text-3); }
+html:not(.desk) body.powa-app .wn-bsheet .wn-btools { margin: -4px 0 12px; }
+html:not(.desk) body.powa-app .wn-bsheet .wn-bsaved { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px; font-size: 15px; font-weight: 600; color: var(--text); }
+html:not(.desk) body.powa-app .wn-bsheet .wn-bsaved svg { width: 18px; height: 18px; color: var(--text-2); }
+html:not(.desk) body.powa-app .wn-bsheet .btn-primary { min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 650; }
+
+/* =================================================================== CLUB and CHALLENGES (rollout, 29 Oct)
+   Home › Club and Home › Challenges on the phone. They wear the Club's gold (they were lit fire red: as
+   sub-screens of Home they took Home's hue, and red is only the logo and the one action). The club card is a
+   surface lit gold from its corner; posts are cards on the coach scale with the load big and no barbell
+   picture; the one red is the composer's +, in the owner's crimson. Rules under #clubArea / #challengesArea
+   (and the chl- sheets) only, and only on the phone. */
+html:not(.desk) body.powa-app:is([data-screen="club"], [data-screen="challenges"]) { --acc: #ffc23d; --acc-2: #ff8f1f; --acc-ink: #1a1203; }
+
+/* -- the club card */
+html:not(.desk) body.powa-app #clubArea .club-hero {
+  padding: 20px; border-radius: 20px; border: 1px solid color-mix(in srgb, #f2c25b 22%, var(--ca-edge)); box-shadow: var(--pl-lip);
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, #f2c25b 10%, transparent) 0%, transparent 58%), var(--ca-card);
+}
+html[data-theme="light"]:not(.desk) body.powa-app #clubArea .club-hero { background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, #f2c25b 8%, transparent) 0%, transparent 58%), var(--ca-card); border-color: color-mix(in srgb, #c9961c 26%, var(--ca-edge)); }
+html:not(.desk) body.powa-app #clubArea .club-hero::before, html:not(.desk) body.powa-app #clubArea .club-hero::after { display: none; }
+html:not(.desk) body.powa-app #clubArea .club-crest { width: 56px; height: 56px; border-radius: 16px; background: color-mix(in srgb, var(--ca-gold) 15%, transparent); color: var(--ca-gold); font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 800; box-shadow: none; }
+html:not(.desk) body.powa-app #clubArea .club-hero .ui-hero-label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) body.powa-app #clubArea .club-hero-name { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; text-wrap: balance; }
+html:not(.desk) body.powa-app #clubArea .club-invite-icon { position: relative; width: 36px; height: 36px; background: var(--pl-inset-2); color: var(--text-2); box-shadow: none; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out; }
+html:not(.desk) body.powa-app #clubArea .club-invite-icon::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app #clubArea .club-invite-icon svg { width: 18px; height: 18px; }
+html:not(.desk) body.powa-app #clubArea .club-invite-icon:active { transform: scale(0.92); transition-duration: 90ms; }
+html:not(.desk) body.powa-app #clubArea .club-desc { margin-top: 14px; font-size: 15px; line-height: 1.45; color: var(--text-2); }
+/* the card's answer first ("8 of 10 trained this week", on its own line), then the faces of who trained */
+html:not(.desk) body.powa-app #clubArea .club-stack { flex-wrap: wrap; margin-top: 16px; gap: 10px 12px; }
+html:not(.desk) body.powa-app #clubArea .cs-av { width: 28px; height: 28px; font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px var(--ca-card); }
+html:not(.desk) body.powa-app #clubArea .cs-txt { order: -1; flex: 1 0 100%; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+html:not(.desk) body.powa-app #clubArea :is(.club-spot) { border-radius: 20px; }
+
+/* -- a training buddy, a request: one row on a surface, its answer a graphite pill */
+html:not(.desk) body.powa-app #clubArea :is(.club-buddy, .club-req-row) { margin-top: 12px; padding: 12px 14px 12px 16px; gap: 12px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #clubArea .cbud-av { width: 40px; height: 40px; font-size: 15px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .cbud-t b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app #clubArea .cbud-t span { font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .club-buddy .btn { position: relative; height: 36px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text); box-shadow: none; font-size: 15px; font-weight: 600; }
+html:not(.desk) body.powa-app #clubArea .club-buddy .btn::after { content: ''; position: absolute; inset: -4px; }
+html:not(.desk) body.powa-app #clubArea .club-buddy .btn:disabled { color: var(--text-3); }
+
+/* -- Feed | Board, and the board's four: the app's segmented control */
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) { margin-top: 20px; padding: 3px; border-radius: 12px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button { min-height: 38px; border-radius: 9px; color: var(--text-2); font-size: 15px; font-weight: 600; }
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button.on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
+html:not(.desk) body.powa-app #clubArea .ui-seg.club-rank-seg { margin-top: 16px; }
+html:not(.desk) body.powa-app #clubArea .ui-seg.club-rank-seg button { font-size: 13px; }
+
+/* -- the composer: you, Share a lift, and the screen's one red + */
+html:not(.desk) body.powa-app #clubArea .club-compose { margin-top: 16px; min-height: 68px; padding: 12px 12px 12px 16px; gap: 12px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #clubArea .club-compose .cp-av { width: 40px; height: 40px; font-size: 15px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .club-compose .cc-text { font-size: 17px; font-weight: 500; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .club-compose .cc-plus { width: 44px; height: 44px; background: var(--pl-red); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) body.powa-app #clubArea .club-compose .cc-plus svg { width: 20px; height: 20px; }
+html:not(.desk) body.powa-app #clubArea .club-compose:active { background: color-mix(in srgb, var(--text) 3%, var(--ca-card)); }
+
+/* -- a post: a surface, face 40, name 17, the load big, the effort as ink, no barbell picture */
+html:not(.desk) body.powa-app #clubArea .club-feed { gap: 12px; }
+html:not(.desk) body.powa-app #clubArea .cp-card { padding: 16px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #clubArea .cp-head { gap: 12px; align-items: center; }
+html:not(.desk) body.powa-app #clubArea .cp-av { width: 40px; height: 40px; font-size: 15px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .cp-who b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app #clubArea .cp-who span { font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .cp-role { padding: 2px 8px; border-radius: 999px; background: var(--pl-inset-2); color: var(--text-2); font-size: 13px; font-style: normal; font-weight: 600; letter-spacing: 0; text-transform: none; }
+html:not(.desk) body.powa-app #clubArea .cp-more { position: relative; width: 36px; height: 36px; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .cp-more::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app #clubArea .cp-lift { margin-top: 14px; padding: 0; background: none; border: 0; box-shadow: none; }
+html:not(.desk) body.powa-app #clubArea .cp-lift.has-bar { padding-right: 0; }
+html:not(.desk) body.powa-app #clubArea .cp-bar { display: none; }
+html:not(.desk) body.powa-app #clubArea .cp-ex { gap: 8px; }
+html:not(.desk) body.powa-app #clubArea .cp-ex-name { font-size: 15px; font-weight: 650; }
+html:not(.desk) body.powa-app #clubArea .cp-lift .lift-dot.lift-squat { background: var(--pl-viz-sq); }
+html:not(.desk) body.powa-app #clubArea .cp-lift .lift-dot.lift-bench { background: var(--pl-viz-bp); }
+html:not(.desk) body.powa-app #clubArea .cp-lift .lift-dot.lift-deadlift { background: var(--pl-viz-dl); }
+html:not(.desk) body.powa-app #clubArea .cp-pr { gap: 4px; padding: 3px 9px 3px 7px; background: color-mix(in srgb, var(--ca-gold) 15%, transparent); color: var(--ca-gold); font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+html:not(.desk) body.powa-app #clubArea .cp-pr svg { width: 13px; height: 13px; }
+html:not(.desk) body.powa-app #clubArea .cp-nums { margin-top: 8px; gap: 4px; align-items: baseline; }
+html:not(.desk) body.powa-app #clubArea .cp-nums b { font-family: var(--font-num); font-stretch: 112%; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+html:not(.desk) body.powa-app #clubArea .cp-nums small { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .cp-nums i { margin: 0 3px; font-size: 17px; font-style: normal; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .cp-rpe { align-self: baseline; margin-left: 8px; padding: 0; border-radius: 0; background: none; color: var(--text-2); font-size: 17px; font-weight: 650; letter-spacing: 0; text-transform: none; }
+html:not(.desk) body.powa-app #clubArea .cp-rpe b { font: inherit; color: inherit; letter-spacing: 0; }
+html:not(.desk) body.powa-app #clubArea .cp-e1 { margin-top: 8px; font-size: 13px; font-weight: 500; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .cp-cap { margin: 12px 0 0; font-size: 15px; line-height: 1.45; color: var(--text); }
+html:not(.desk) body.powa-app #clubArea .cp-card .cp-reacts { margin-top: 14px; }
+html:not(.desk) body.powa-app #clubArea .cp-card :is(.react-chip, .react-add) { position: relative; height: 32px; background: var(--pl-inset-2); color: var(--text-2); }
+html:not(.desk) body.powa-app #clubArea .cp-card :is(.react-chip, .react-add)::after { content: ''; position: absolute; inset: -6px -3px; }
+html:not(.desk) body.powa-app #clubArea .cp-card .react-chip.mine { background: color-mix(in srgb, var(--ca-gold) 18%, var(--pl-inset-2)); color: var(--text); box-shadow: none; }
+html:not(.desk) body.powa-app #clubArea .cp-card .react-chip b { font-family: var(--font-num); font-size: 13px; }
+
+/* -- the board: rows like Lifters' (place, face, name and one line, the number), the podium on the same ground */
+html:not(.desk) body.powa-app #clubArea .club-board-note { margin: 12px 4px 0; font-size: 13px; line-height: 1.45; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .club-board.ui-list { margin-top: 16px; padding: 0; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #clubArea .club-row { min-height: 64px; padding: 10px 14px 10px 12px; gap: 12px; }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-rank { font-family: var(--font-num); font-size: 15px; font-weight: 700; color: var(--text-2); }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-av { width: 36px; height: 36px; font-size: 13px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-meta { font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-val { display: inline-flex; align-items: baseline; gap: 3px; }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-val b { display: inline; font-family: var(--font-num); font-size: 17px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-val small { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea :is(.club-fine, .club-fine.tight) { font-size: 13px; line-height: 1.45; color: var(--text-3); }
+/* the podium: gold is the leader's alone (the challenges' rule); second and third stand on steel, not a
+   bronze that reads as the warning orange */
+html:not(.desk) body.powa-app #clubArea .cpd-col { --md: #9aa1ad; }
+html:not(.desk) body.powa-app #clubArea .cpd-col.p1 { --md: var(--ca-gold); }
+html:not(.desk) body.powa-app #clubArea .cpd-block { font-family: var(--font-num); font-stretch: 112%; font-size: 22px; color: var(--text-3); background: var(--pl-inset); box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) body.powa-app #clubArea .cpd-col.p1 .cpd-block { color: var(--ca-gold); background: color-mix(in srgb, var(--ca-gold) 14%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ca-gold) 30%, transparent); }
+html:not(.desk) body.powa-app #clubArea .cpd-name { font-size: 15px; font-weight: 600; }
+html:not(.desk) body.powa-app #clubArea .cpd-col.is-me .cpd-name { color: var(--text); }
+html:not(.desk) body.powa-app #clubArea .cpd-val b { font-family: var(--font-num); font-size: 17px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .cpd-val small { font-size: 13px; }
+html:not(.desk) body.powa-app #clubArea .crec-lbl { font-size: 13px; font-weight: 600; }
+html:not(.desk) body.powa-app #clubArea .crec-val { font-family: var(--font-num); font-size: 22px; font-weight: 800; }
+html:not(.desk) body.powa-app #clubArea .crec-val small { font-size: 13px; }
+html:not(.desk) body.powa-app #clubArea .crec-who { font-size: 13px; }
+
+/* -- the foot: the club's code, Manage, Leave, Report as 44 pt words */
+html:not(.desk) body.powa-app #clubArea .club-foot { align-items: center; margin-top: 24px; padding: 0 4px; gap: 4px 16px; }
+html:not(.desk) body.powa-app #clubArea .club-code { font-family: var(--font-num); font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0.02em; }
+html:not(.desk) body.powa-app #clubArea .club-link { min-height: 44px; padding: 0 2px; font-size: 15px; font-weight: 600; color: var(--text-2); }
+
+/* -- Challenges (Home › Challenges): the card on the coach scale, New challenge the one red when none runs */
+html:not(.desk) body.powa-app #challengesArea .chl-card { padding: 16px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #challengesArea .chl-title { font-size: 17px; font-weight: 650; }
+html:not(.desk) body.powa-app :is(#challengesArea, .chl-sheet) .chl-row { grid-template-columns: 24px 36px minmax(0, 1fr) auto; min-height: 56px; }
+html:not(.desk) body.powa-app :is(#challengesArea, .chl-sheet) .chl-row + .chl-row::before { left: 76px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app :is(#challengesArea, .chl-sheet) .chl-av.ui-av { width: 36px; height: 36px; font-size: 13px; font-weight: 800; }
+html:not(.desk) body.powa-app :is(#challengesArea, .chl-sheet) .chl-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app :is(#challengesArea, .chl-sheet) .chl-rank { font-family: var(--font-num); }
+html:not(.desk) body.powa-app :is(#challengesArea, .chl-sheet) .chl-val { font-size: 15px; font-weight: 650; }
+html:not(.desk) body.powa-app #challengesArea .chl-all { min-height: 48px; margin-top: 8px; border-top-color: var(--ca-hair); color: var(--text); }
+html:not(.desk) body.powa-app #challengesArea .chl-acts { margin-top: 16px; }
+html:not(.desk) body.powa-app #challengesArea .chl-btn { width: 100%; height: 52px; border-radius: 999px; background: var(--pl-inset-2); color: var(--text); font-size: 17px; font-weight: 650; }
+html:not(.desk) body.powa-app #challengesArea .chl-coach:has(> .chl-empty) .chl-btn { background: var(--pl-red); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) body.powa-app #challengesArea .chl-empty-ic { background: color-mix(in srgb, var(--ca-gold) 15%, transparent); color: var(--ca-gold); }
+html:not(.desk) body.powa-app #challengesArea .chl-past { margin-top: 24px; }
+html:not(.desk) body.powa-app #challengesArea .chl-past-btn { color: var(--text); font-size: 17px; }
+html:not(.desk) body.powa-app #challengesArea .chl-past-n { background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app #challengesArea .chl-past-list { margin-top: 8px; background: var(--ca-card); border-color: var(--ca-edge); box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #challengesArea .chl-past-name { font-size: 17px; }
+/* the board sheet's End challenge: a plain ink word (Programs' "Remove these sets" too); its confirm asks */
+html:not(.desk) body.powa-app .chl-sheet .chl-end { min-height: 44px; color: var(--text) !important; font-weight: 600; }
+/* New challenge: the picked tile raised like the app's segmented control, its edge in ink */
+html:not(.desk) body.powa-app .chl-new .chl-metric { min-height: 80px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app .chl-new .chl-metric b { font-size: 17px; }
+html:not(.desk) body.powa-app .chl-new .chl-metric.on { background: var(--pl-raise); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 72%, transparent), var(--pl-raise-shade); }
+html:not(.desk) body.powa-app .chl-new .chl-who .ui-chip { background: var(--pl-inset); color: var(--text-2); font-size: 15px; font-weight: 600; }
+html:not(.desk) body.powa-app .chl-new .chl-who .ui-chip.on { background: var(--pl-raise); color: var(--text); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 72%, transparent), var(--pl-raise-shade); }
+/* a club member's card: their Instagram is a graphite button like its neighbours; the pink glyph alone says
+   whose link it is (the pink wash read as a second red beside the screen's one) */
+html:not(.desk) body.powa-app .lifter-sheet .ig-chip.is-big { background: var(--pl-inset-2); box-shadow: none; font-size: 15px; font-weight: 600; }
+/* its lift tiles: the lift's name in ink beside a dot in the lift's colour (text never wears the lift colours:
+   on white they read 1.6 to 2.7:1), on the scale (13, was 12) */
+html:not(.desk) body.powa-app .lifter-sheet .lc-l { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-l::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--lc, var(--text-3)); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-squat { --lc: var(--pl-viz-sq); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-bench { --lc: var(--pl-viz-bp); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-deadlift { --lc: var(--pl-viz-dl); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-total { --lc: var(--ca-gold); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift b { font-size: 17px; font-weight: 800; }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift b small { font-size: 13px; }
+/* the club's invite: its code in ink (it read in a warm red), the QR on white as it must be */
+html:not(.desk) body.powa-app .invite-sheet .club-qr-code span { font-size: 13px; }
+html:not(.desk) body.powa-app .invite-sheet .club-qr-code b { color: var(--text); font-size: 28px; font-weight: 800; }
+
+/* -- motion: a thread comes in from the right; back, the list comes from the left (the app's push and pop).
+   The thread's bar and reply box are fixed, so they settle in place; only the bubbles travel. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.desk) body.powa-app .msg-inbox.is-detail-open .msg-inbox-detail .msg-list { animation: plPushIn var(--pl-d-state) var(--pl-spring) backwards; }
+  html:not(.desk) body.powa-app .msg-inbox.is-detail-open .msg-inbox-detail :is(.msg-inbox-detail-head, .msg-composer) { animation: plFade 240ms ease-out backwards; }
+  html:not(.desk) .msg-root.is-pop :is(.msg-sum, .msg-inbox) { animation: plPopIn var(--pl-d-state) var(--pl-spring) backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not(.desk) body.powa-app .react-pop { animation: plFade 160ms ease-out both; }
+  html:not(.desk) body.powa-app :is(.msg-inbox-back, .msg-composer .msg-send, .msg-composer .vn-send, .msg-composer .msg-saved, .msg-composer .vn-mic, #clubArea .club-invite-icon):active { transform: none; }
+  html:not(.desk) body.powa-app :is(.vn-mic.is-held, .msg-composer.is-recording .vn-mic) { transform: none; }
+}
+
 /* =================================================================== TABLETS (700 to 999, off the desk)
    The same screens in the app's iPad column (styles.css: every pane is a centred 880 px column, so the title
    doesn't jump between tabs). They fill it, as the lifter app's do: a 720 px cap left Pending invites, the

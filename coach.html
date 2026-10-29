@@ -2454,16 +2454,52 @@ function _sampleThread() {
   return box;
 }
 
-async function renderMessages() {
+// The phone's Messages header: Message everyone as a 36 pt circle beside the assistant and the bell (Home's
+// search sits in the same place), only while there is someone to write to. Never on the laptop desk.
+function _msgAllBtn(show) {
+  const head = document.querySelector('section[data-pane="messages"] > .dash-header');
+  if (!head) return;
+  let b = document.getElementById('btn-msg-all');
+  if (!b) {
+    const wrap = el('div', { class: 'flex gap-8 msg-head-acts', style: 'align-items:center;' });
+    b = el('button', { class: 'ca-hbtn msg-all-btn', type: 'button', id: 'btn-msg-all', 'aria-label': 'Message everyone',
+      html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5H7A2.5 2.5 0 0 0 4.5 7v10A2.5 2.5 0 0 0 7 19.5h10a2.5 2.5 0 0 0 2.5-2.5v-5.5"/><path d="M17.6 3.6a1.9 1.9 0 0 1 2.8 2.8L13 13.8l-3.6.8.8-3.6z"/></svg>' });
+    b.addEventListener('click', () => { if (window.WeeklyNote && WeeklyNote.openBroadcast) WeeklyNote.openBroadcast({ onSent: () => renderMessages() }); });
+    wrap.appendChild(b);
+    head.appendChild(wrap);
+  }
+  b.hidden = !(show && window.WeeklyNote && WeeklyNote.openBroadcast) || _desk();
+}
+// What a lifter is doing, under their name in an open thread: the line Lifters gives them (their meet, or
+// where they are in the block). '' when it can't be had.
+function _msgLifterLine(athleteId) {
+  try {
+    const CL = window.CoachLifters;
+    const r = CL && CL.rowOf ? CL.rowOf(athleteId) : null;
+    return r && CL.clLine ? String(CL.clLine(r, null) || '') : '';
+  } catch (e) { return ''; }
+}
+// The inbox's shape while its one read is out (a first visit, signed in): the answer, then four rows.
+function _msgInboxSkeleton() {
+  const row = '<div class="msg-sk-row"><i class="ca-sk ca-sk-av is-44"></i><span class="ca-sk-tx"><i class="ca-sk ca-sk-t" style="--w:46%"></i><i class="ca-sk ca-sk-line" style="--w:78%"></i></span></div>';
+  return '<div class="ca-root ca-skel msg-skel" role="status"><span class="ca-sr">Loading messages</span><div aria-hidden="true">' +
+    '<div class="msg-sk-head"><i class="ca-sk ca-sk-t" style="--w:56%"></i><i class="ca-sk ca-sk-line" style="--w:40%"></i></div>' +
+    '<div class="msg-sk-list">' + row + row + row + row + '</div></div></div>';
+}
+let _msgInboxY = 0;   // where the inbox was scrolled when a thread opened (the phone): back lands there
+
+async function renderMessages(opts) {
+  opts = opts || {};
   const area = document.getElementById('messagesArea');
   if (!area) return;
   area.classList.remove('dk-msgs');
   // The laptop desk: threads, the thread and the athlete's context side by side (desk.js).
   if (_desk() && _deskCall('deskRenderMessages', area)) return;
-  area.innerHTML = '';
 
   const roster = getRosterOverview(user.id).map(o => o.athlete);
+  _msgAllBtn(roster.length > 0);
   if (!roster.length) {
+    area.innerHTML = '';
     // Nobody yet: a sample of the thread it becomes (a logged set arrives as a card), then the invite.
     const wrap = el('div', { class: 'fr-msgs' });
     wrap.appendChild(_sampleThread());
@@ -2477,14 +2513,17 @@ async function renderMessages() {
     return;
   }
 
-  // Message everyone (or a team), one thread per lifter: weekly-note.js, the desk's send path.
-  if (window.WeeklyNote && WeeklyNote.broadcastRowEl) area.appendChild(WeeklyNote.broadcastRowEl(() => WeeklyNote.openBroadcast({ onSent: () => renderMessages() })));
+  // A first visit draws the inbox's shape while its one read is out; a re-render (back from a thread, a
+  // broadcast sent) keeps what is on screen until the new list is ready, then swaps it in one go.
+  if (!window._demoMode && !area.querySelector('.msg-inbox')) area.innerHTML = _msgInboxSkeleton();
+  // Message everyone (or a team), one thread per lifter (weekly-note.js, the desk's send path) is the
+  // header's button on the phone (_msgAllBtn above).
+  const root = el('div', { class: 'ca-root msg-root' + (opts.pop ? ' is-pop' : '') });
   const shell = el('div', { class: 'msg-inbox' });
   const listCol = el('div', { class: 'msg-inbox-list' });
   const detailCol = el('div', { class: 'msg-inbox-detail' });
   shell.appendChild(listCol);
   shell.appendChild(detailCol);
-  area.appendChild(shell);
 
   function showDetailPlaceholder() {
     detailCol.innerHTML = '';
@@ -2514,32 +2553,47 @@ async function renderMessages() {
     } catch (e) { console.warn('renderMessages digest', e); }
   }
 
-  // Threaded athletes (most-recent first), then the rest alphabetically.
-  const sorted = roster.slice().sort((a, b) => {
-    const da = digestByAthlete[a.id], db = digestByAthlete[b.id];
-    if (da && db) return String(db.lastAt).localeCompare(String(da.lastAt));
-    if (da) return -1;
-    if (db) return 1;
-    return a.name.localeCompare(b.name);
-  });
+  // Waiting on you first (the lifter wrote last, newest first), then the other threads, then everyone with
+  // no thread yet (app.js msgInboxOrder). The answer above the list counts the waiting ones.
+  const order = msgInboxOrder(roster, digestByAthlete, user.id);
+  const sorted = order.list;
+  const waitingIds = {};
+  order.waiting.forEach(id => { waitingIds[id] = true; });
+  const phone = window.innerWidth <= 720;
 
   function openThread(athlete, rowEl) {
+    if (phone && !shell.classList.contains('is-detail-open')) _msgInboxY = window.scrollY || 0;
     _activeThreadAthlete = athlete.id;
     listCol.querySelectorAll('.msg-inbox-row').forEach(r => r.classList.remove('active'));
     if (rowEl) rowEl.classList.add('active');
     shell.classList.add('is-detail-open');
+    const prevHost = detailCol.querySelector('.msg-inbox-thread-host');
+    if (prevHost && prevHost._msgCleanup) { try { prevHost._msgCleanup(); } catch (e) {} prevHost._msgCleanup = null; }
     detailCol.innerHTML = '';
 
+    // The pushed thread's own bar: back to the list, their face, their name and what they're doing.
     const head = el('div', { class: 'msg-inbox-detail-head' });
-    head.appendChild(el('button', { class: 'btn-icon msg-inbox-back', 'aria-label': 'Back to conversations',
-      onclick: () => shell.classList.remove('is-detail-open') }, '‹'));
+    head.appendChild(el('button', { class: 'btn-icon msg-inbox-back', type: 'button', 'aria-label': 'Back to Messages',
+      html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5.5-6.5 6.5 6.5 6.5"/></svg>',
+      onclick: () => {
+        shell.classList.remove('is-detail-open');
+        // Back re-reads the list (a reply moves the thread out of waiting) and lands where the coach was.
+        if (phone) renderMessages({ pop: true, y: _msgInboxY });
+      } }));
     head.appendChild(el('div', { class: 'av', 'data-name': athlete.name }, initials(athlete.name)));
-    head.appendChild(el('div', { class: 'msg-inbox-detail-name' }, athlete.name));
+    const idc = el('div', { class: 'msg-inbox-detail-id' });
+    idc.appendChild(el('div', { class: 'msg-inbox-detail-name' }, athlete.name));
+    const line = _msgLifterLine(athlete.id);
+    if (line) idc.appendChild(el('div', { class: 'msg-inbox-detail-sub' }, line));
+    head.appendChild(idc);
     detailCol.appendChild(head);
 
     const host = el('div', { class: 'msg-inbox-thread-host' });
     detailCol.appendChild(host);
-    renderMessageThread(host, { coachId: user.id, athleteId: athlete.id, viewerId: user.id, otherName: (athlete.name || '').split(' ')[0] });
+    const drawn = renderMessageThread(host, { coachId: user.id, athleteId: athlete.id, viewerId: user.id, otherName: (athlete.name || '').split(' ')[0] });
+    // The thread marks itself read once it has loaded: count again then, so the Messages tab's number drops
+    // (the count below runs before that and read the old unread).
+    if (drawn && drawn.then) drawn.then(() => refreshUnreadBadges(), () => {});
     // On a phone the thread scrolls with the page: land on the newest message.
     if (window.innerWidth <= 720) [80, 450, 1100].forEach(ms => setTimeout(() => {
       if (shell.classList.contains('is-detail-open')) window.scrollTo(0, document.documentElement.scrollHeight);
@@ -2553,13 +2607,23 @@ async function renderMessages() {
     refreshUnreadBadges();
   }
 
-  // Same status ring as the Roster faces: trained today / PR / needs you / quiet.
+  // Same status ring as the Roster faces: trained today / PR / needs you / quiet (the phone draws the face plain).
   const ovById = {}, attById = {};
   getRosterOverview(user.id).forEach(o => { ovById[o.athlete.id] = o; });
   getRosterAttention(user.id).forEach(i => { attById[i.athlete.id] = i; });
+  // Everyone with no thread yet comes last under one caption, each with what they're doing (not "No messages
+  // yet" said on every row); with no thread at all, the answer above already says so.
+  const anyThread = sorted.some(a => digestByAthlete[a.id] && digestByAthlete[a.id].lastAt);
+  let capDone = false;
   sorted.forEach(athlete => {
-    const d = digestByAthlete[athlete.id];
-    const row = el('div', { class: 'msg-inbox-row', onclick: () => openThread(athlete, row) });
+    const d0 = digestByAthlete[athlete.id];
+    const d = d0 && d0.lastAt ? d0 : null;
+    if (!d && anyThread && !capDone) { capDone = true; listCol.appendChild(el('div', { class: 'msg-inbox-cap' }, 'No messages yet')); }
+    const unread = d ? d.unread : 0;
+    // A row is a button: face, name, their last words, when (and how many unread).
+    const row = el('div', { class: 'msg-inbox-row' + (waitingIds[athlete.id] ? ' is-waiting' : '') + (unread > 0 ? ' is-unread' : ''),
+      role: 'button', tabindex: '0', 'data-athlete': athlete.id, onclick: () => openThread(athlete, row) });
+    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openThread(athlete, row); } });
     const st = ovById[athlete.id] ? rosterStatus(ovById[athlete.id], attById[athlete.id]) : 'quiet';
     const ring = el('span', { class: 'msg-ring st-' + st });
     ring.appendChild(el('div', { class: 'av', 'data-name': athlete.name }, initials(athlete.name)));
@@ -2569,21 +2633,50 @@ async function renderMessages() {
     top.appendChild(el('span', { class: 'msg-inbox-name' }, athlete.name));
     if (d && d.lastAt) top.appendChild(el('span', { class: 'msg-inbox-time' }, fmtRelative(d.lastAt)));
     mid.appendChild(top);
-    const prevText = d ? ((d.lastSenderId === user.id ? 'You: ' : '') + d.lastBody) : 'No messages yet';
     // Preview + unread count share the second line, so the time always sits on
-    // the same right edge whether or not a row has a badge.
+    // the same right edge whether or not a row has a badge. A voice note's preview is the app's label
+    // ("Voice note · 0:24"), so it wears a small play glyph instead of reading as their words.
     const bot = el('div', { class: 'msg-inbox-row-bot' });
-    bot.appendChild(el('div', { class: 'msg-inbox-preview' + (d ? '' : ' faint') }, prevText));
-    const unread = d ? d.unread : 0;
-    if (unread > 0) bot.appendChild(el('span', { class: 'msg-badge msg-inbox-badge' }, String(unread)));
+    const prev = el('div', { class: 'msg-inbox-preview' + (d ? '' : ' faint') });
+    if (d) {
+      if (d.lastSenderId === user.id) prev.appendChild(document.createTextNode('You: '));
+      if (/^Voice note · \d/.test(String(d.lastBody || ''))) prev.appendChild(el('span', { class: 'msg-vplay', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>' }));
+      prev.appendChild(document.createTextNode(String(d.lastBody || '')));
+    } else prev.textContent = _msgLifterLine(athlete.id) || 'No messages yet';
+    bot.appendChild(prev);
+    if (unread > 0) bot.appendChild(el('span', { class: 'msg-badge msg-inbox-badge', 'aria-label': unread + ' unread' }, String(unread)));
     mid.appendChild(bot);
     row.appendChild(mid);
     listCol.appendChild(row);
   });
 
+  // The one answer, on the ground above the list (as Home's): how many threads wait on you, and who has
+  // waited longest; nothing waiting reads "All answered".
+  const headAns = msgInboxHead(order, digestByAthlete);
+  const sum = el('div', { class: 'msg-sum ca-rise', style: '--i:0' });
+  const sumHead = el('div', { class: 'msg-sum-head' });
+  if (headAns.n) {
+    sumHead.appendChild(el('span', { class: 'msg-sum-n' }, String(headAns.n)));
+    sumHead.appendChild(el('span', { class: 'msg-sum-w' }, headAns.title));
+  } else {
+    if (headAns.title === 'All answered') sumHead.appendChild(el('span', { class: 'msg-sum-ok', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>' }));
+    sumHead.appendChild(el('span', { class: 'msg-sum-w is-clear' }, headAns.title));
+  }
+  sum.appendChild(sumHead);
+  if (headAns.sub) sum.appendChild(el('p', { class: 'msg-sum-sub' }, headAns.sub));
+  root.appendChild(sum);
+  shell.classList.add('ca-rise');
+  shell.style.setProperty('--i', '1');
+  root.appendChild(shell);
+
   showDetailPlaceholder();
+  // A thread left open in this area: its realtime goes with it.
+  area.querySelectorAll('.msg-inbox-thread-host').forEach(h => { if (h._msgCleanup) { try { h._msgCleanup(); } catch (e) {} h._msgCleanup = null; } });
+  area.innerHTML = '';
+  area.appendChild(root);
+  if (typeof opts.y === 'number') window.scrollTo(0, opts.y);
   // Wide screens: open the most-recent conversation immediately (inbox feel).
-  if (window.innerWidth > 720) {
+  if (!phone) {
     openThread(sorted[0], listCol.querySelector('.msg-inbox-row'));
   }
 }
