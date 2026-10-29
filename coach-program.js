@@ -625,6 +625,13 @@
     var liftSel = document.getElementById('exLift'), varSel = document.getElementById('exVariant');
     var prog = progOf(aid), wk = prog && prog.weeks[wi], day = wk && wk.days[di];
     if (!box || !liftSel || !varSel || !day) return;
+    // The day's own lift comes picked (the form opens on a squat): a Deadlift Day's next exercise is a deadlift
+    // variant or an accessory far more often than a squat. Its first main lift, as the day's light; its loads follow.
+    var leadEx = (day.exercises || []).filter(function (e) { return MAIN.indexOf(e.lift) >= 0; })[0];
+    if (leadEx && liftSel.value !== leadEx.lift && Array.prototype.some.call(liftSel.options, function (o) { return o.value === leadEx.lift; })) {
+      liftSel.value = leadEx.lift;
+      if (typeof onLiftChange === 'function') onLiftChange();
+    }
     box.classList.add('cp-addx');
     var h = box.querySelector('h3'), sub = box.querySelector('.cp-addx-sub');
     if (!sub && h) { sub = el('p', { class: 'cp-addx-sub' }); h.insertAdjacentElement('afterend', sub); }
