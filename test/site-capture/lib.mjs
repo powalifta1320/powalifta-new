@@ -55,7 +55,9 @@ export async function deskCtx(browser, { theme = 'light', dpr = 2, w = 1440, h =
 }
 // One story on one page: the demo coach gets a believable name (the app's own demo calls him "Demo Coach"); Tom made
 // weight for the 105 class (his last check-in reads 104.3, the meet board's weigh-in 103.8); no live sets land
-// mid-capture; optionally the desk's twenty lifters on the phone too (the app seats them only on the laptop).
+// mid-capture; Arjun wears no Apple Watch (Apple Health reaches the App Store app only with 1.3, so the site never
+// shows it: no "Resting HR 8 above your usual" on Train or under the rest timer); optionally the desk's twenty lifters
+// on the phone too (the app seats them only on the laptop).
 // Every patch is checked: a demo that changed under it stops the capture instead of quietly drawing something else.
 export async function patchDemo(ctx, { twenty = false } = {}) {
   await ctx.route(/\/app\.js(\?.*)?$/, async (route) => {
@@ -64,6 +66,7 @@ export async function patchDemo(ctx, { twenty = false } = {}) {
     swap("'Demo Coach'", "'" + COACH + "'");
     swap("{ a: 'demo-a3', kg: 105.3 }", "{ a: 'demo-a3', kg: 104.3 }");
     swap('function liveDemoStart() {', 'function liveDemoStart() { return;');
+    swap('const healthDaily = SOLO ? [] :', 'const healthDaily = true ? [] :');
     if (twenty) swap("if (document.documentElement.classList.contains('desk') && typeof deskSeedDemo === 'function') {", "if (typeof deskSeedDemo === 'function') {");
     await route.fulfill({ response: r, body, headers: { ...r.headers(), 'content-type': 'text/javascript' } });
   });
