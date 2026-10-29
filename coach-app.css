@@ -876,14 +876,15 @@ html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn:active { back
    and Accept in graphite. No glow, no red. */
 html:not(.desk) .jr-sec { margin: 0 0 24px; }
 html:not(.desk) .jr-list { display: flex; flex-direction: column; }
-html:not(.desk) .jr-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 12px 12px 14px; }
+html:not(.desk) .jr-row { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: start; padding: 14px 12px 10px 14px; }
 html:not(.desk) .jr-row + .jr-row::before { content: ''; position: absolute; top: 0; left: 70px; right: 0; height: 1px; background: var(--ca-hair); }
-html:not(.desk) body.powa-app .jr-av { flex: none; width: 44px; height: 44px; font-size: 15px; font-weight: 800; }
-html:not(.desk) .jr-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html:not(.desk) body.powa-app .jr-av { grid-column: 1; grid-row: 1 / span 2; width: 44px; height: 44px; font-size: 15px; font-weight: 800; }
+html:not(.desk) .jr-tx { grid-column: 2; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
 html:not(.desk) .jr-tx b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
-html:not(.desk) .jr-tx span { font-size: 15px; line-height: 1.35; color: var(--text-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
-html:not(.desk) .jr-acts { flex: none; display: flex; align-items: center; gap: 2px; }
-html:not(.desk) body.powa-app .jr-no { position: relative; min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--text-2) !important; font-family: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; }
+/* their words read whole (up to four lines): the actions sit under them, not beside, so the note isn't squeezed */
+html:not(.desk) .jr-tx span { font-size: 15px; line-height: 1.35; color: var(--text-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; text-wrap: pretty; }
+html:not(.desk) .jr-acts { grid-column: 2; justify-self: end; display: flex; align-items: center; gap: 4px; }
+html:not(.desk) body.powa-app .jr-no { position: relative; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--text-2) !important; font-family: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) .jr-no:active { opacity: 0.55; }
 html:not(.desk) .jr-yes::after { inset: -4px -4px; }
 
