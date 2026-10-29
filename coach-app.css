@@ -865,7 +865,7 @@ html:not(.desk) body.powa-app #invitesList .inv-row-p + .inv-row-p { border-top:
 html:not(.desk) body.powa-app #invitesList .inv-row-p + .inv-row-p::before { content: ''; position: absolute; top: 0; left: 58px; right: 0; height: 1px; background: var(--ca-hair); }
 html:not(.desk) body.powa-app #invitesList .inv-tic { background: var(--pl-inset-2); color: var(--text-2); }
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-title { font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: normal; overflow-wrap: anywhere; }
-html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-sub { font-size: 13px; line-height: 1.35; color: var(--text-3); overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-sub { font-size: 13px; line-height: 1.35; color: var(--text-2); overflow-wrap: anywhere; }
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; color: var(--text-2); }
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn:active { background: var(--pl-inset-2); }
 
