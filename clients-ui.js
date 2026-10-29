@@ -244,7 +244,7 @@
     var s = C().clientStatus(b, today());
     var period = s.due ? new Date(s.due + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' }) : '';
     uiSheet('Mark ' + first(a.name) + ' paid', function (sheet, close) {
-      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, b.package + ' · ' + C().priceText(b) + (s.due ? ' · ' + (s.state === 'overdue' ? 'was due ' : 'due ') + dateShort(s.due) : '')));
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, b.package + ' · ' + (isDeskNow() ? C().priceText(b) : perText(b)) + (s.due ? ' · ' + (s.state === 'overdue' ? 'was due ' : 'due ') + dateShort(s.due) : '')));
       var amt = el('input', { type: 'text', inputmode: 'decimal', class: 'cs-in cs-amt', 'aria-label': 'Amount', value: amountText(b.amountCents) });
       sheet.appendChild(field('Amount', el('div', { class: 'cs-amtrow' }, amt, el('span', { class: 'cs-cur-tag' }, b.currency || 'USD'))));
       var on = el('input', { type: 'date', class: 'cs-in', 'aria-label': 'Paid on', value: today() });
@@ -424,13 +424,13 @@
     // Client
     var tone = TONE[s.state] ? ' tone-' + TONE[s.state] : '';
     html += '<div class="cl-tile cs-card' + tone + '"><div class="cl-th"><span class="cl-tic">' + ic('wallet') + '</span><span class="cl-tl">Client</span>' +
-      '<span class="cs-st st-' + s.state + '">' + esc(stateLabel(s)) + '</span></div>';
+      '<span class="cs-st st-' + s.state + '">' + esc(o.phone && !isDeskNow() ? stateWords(s).text : stateLabel(s)) + '</span></div>';
     if (!b) {
       html += '<p class="cs-none">Record what ' + esc(first(a.name)) + ' pays you and when it’s due. You get the reminders; ' + esc(first(a.name)) + ' never sees any of it.</p>' +
         '<div class="cs-acts"><button type="button" class="cl-btn" data-cs="package" data-aid="' + esc(aid) + '">Add a package</button></div>';
     } else {
       var since = b.startedOn ? 'since ' + monthYear(b.startedOn) : '';
-      html += '<div class="cs-pk"><b>' + esc(b.package) + '</b><span>' + esc([C().priceText(b), since].filter(Boolean).join(' · ')) + '</span></div>';
+      html += '<div class="cs-pk"><b>' + esc(b.package) + '</b><span>' + esc([o.phone && !isDeskNow() ? perText(b) : C().priceText(b), since].filter(Boolean).join(' · ')) + '</span></div>';
       html += '<div class="cs-pays">' + (pays.length ? pays.slice(0, o.phone ? 2 : 3).map(function (p) {
         return '<span class="cs-pay"><b>' + esc(money(p.amountCents, p.currency)) + '</b> ' + esc(dateShort(p.paidOn)) + (p.method ? ' · ' + esc(METHOD[p.method] || '') : '') + '</span>';
       }).join('') : '<span class="cs-pay is-none">No payments recorded yet</span>') + '</div>';
@@ -612,7 +612,8 @@
     var list = all.filter(function (r) { return inFilter(r, view.filter); });
     html += phoneHeroHtml(sm, month);
     html += phoneOweHtml(all);
-    html += '<div class="ca-sec cs-every"><div class="ca-h"><h2>Everyone</h2><span class="ca-h-meta">' + all.length + '</span></div>';
+    // The list's title, or (past six clients) its filters in its place: the chips say Everyone and the count once.
+    html += '<div class="ca-sec cs-every' + (filters ? ' has-filters' : '') + '">' + (filters ? '' : '<div class="ca-h"><h2>Everyone</h2><span class="ca-h-meta">' + all.length + '</span></div>');
     if (filters) {
       html += '<div class="cs-bar"><div class="cs-filters" role="tablist" aria-label="Show">' + FILTERS.filter(function (f) { return f[0] === 'all' || counts[f[0]]; }).map(function (f) {
         return '<button type="button" role="tab" class="' + (view.filter === f[0] ? 'on' : '') + '" aria-selected="' + (view.filter === f[0] ? 'true' : 'false') + '" data-cs="filter" data-f="' + f[0] + '">' + esc(f[1]) + ' <span>' + counts[f[0]] + '</span></button>';
