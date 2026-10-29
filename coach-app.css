@@ -1073,9 +1073,8 @@ html:not(.desk) .cp-lifted .is-over::before { content: ''; display: inline-block
 html:not(.desk) .cp-lifted s { color: var(--text-3); }
 html:not(.desk) .cp-lifted i { font-style: normal; color: var(--text-3); }
 html:not(.desk) .cp-exrow > svg { flex: none; width: 18px; height: 18px; margin-top: 11px; color: var(--text-3); }
-html:not(.desk) .cp-rest { display: flex; flex-direction: column; gap: 4px; padding: 6px 16px 20px; }
-html:not(.desk) .cp-rest b { font-size: 17px; font-weight: 600; color: var(--text); }
-html:not(.desk) .cp-rest span { font-size: 15px; color: var(--text-2); }
+/* an empty day (a rest day, or one with nothing in it yet): one line under its name, never the name again */
+html:not(.desk) .cp-rest { margin: 0; padding: 2px 16px 20px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .cp-addcard { padding: 20px 16px 16px; }
 html:not(.desk) .cp-add-t { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
 html:not(.desk) .cp-add-s { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
@@ -1096,8 +1095,16 @@ html:not(.desk) .cp-fab:active { transform: scale(0.95); filter: brightness(0.92
 html:not(.desk) .cp-fab.is-soft { background: var(--pl-raise); color: var(--text) !important; }
 html:not(.desk) .cp-fab.is-hidden { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.96); pointer-events: none; }
 
-/* the editor sheet: the top set is the object (lit by its lift, its load drawn as the bar a loader would load),
-   the back-offs insets under it, four steppers each, then one More */
+/* the ⋯ menus (coach-program.js menu): rows on the scale (17), the groups apart as iOS draws them, and the row
+   that takes something away last, in ink beside its bin (red is the screen's one action, never a menu row) */
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button { font-size: 17px; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.cp-sep { position: relative; margin-top: 9px; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.cp-sep::before { content: ''; position: absolute; top: -5px; left: 12px; right: 12px; height: 1px; background: var(--ca-hair); pointer-events: none; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.danger { color: var(--text); }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.danger svg { color: var(--text-2); }
+
+/* the editor sheet: the top set is the object (lit by its lift; no bar drawn: plate paint, and loading is the
+   lifter's job), the back-offs insets under it, four steppers each, then one More */
 html:not(.desk) .cp-sheet { position: relative; }
 /* ⋯ and Done sit top right, where iOS puts a sheet's Done (the editor saves as you go; Done only closes) */
 html:not(.desk) .cp-ed-tools { position: absolute; top: 12px; right: 10px; display: flex; align-items: center; gap: 2px; }
@@ -1122,13 +1129,6 @@ html:not(.desk) .cp-blk.is-top {
 html[data-theme="light"]:not(.desk) .cp-blk.is-top { background: radial-gradient(130% 110% at 100% 0%, color-mix(in srgb, var(--pfl) 9%, transparent) 0%, transparent 60%), var(--pl-inset); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pfl) 30%, transparent); }
 html:not(.desk) .cp-blk-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
 html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
-/* the bar, loaded to the block's load: one sleeve, heaviest plates in, the collar on (app.js uiBarbell, the
-   lifter app's own drawing). The set being set is the one real load on this screen, so it's drawn. */
-html:not(.desk) .pl-sleeve { flex: none; display: block; height: 58px; margin: -10px -4px -8px 0; filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.55)); }
-html[data-theme="light"]:not(.desk) .pl-sleeve { filter: drop-shadow(0 5px 7px rgba(15, 15, 25, 0.18)); }
-html:not(.desk) .pl-sleeve:empty { display: none; }
-html:not(.desk) .pl-sleeve .ui-barbell { height: 100%; }
-html:not(.desk) .pl-sleeve .ui-barbell .bb-plate { animation: none; }
 /* More: one quiet row under the steppers (it names the set fields it holds); what a block rarely needs
    opens under it: its load and effort switches, its set fields, Remove these sets */
 html:not(.desk) .cp-blk.has-more { padding-bottom: 2px; }
@@ -1163,6 +1163,9 @@ html:not(.desk) .cp-step .ui-stepper .st-btn:active { transform: scale(0.9); bac
 html:not(.desk) .cp-step .ui-stepper .st-btn::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
 html:not(.desk) .cp-step .ui-stepper .st-val { min-width: 0; overflow: hidden; font-size: 22px; font-weight: 800; font-stretch: 104%; color: var(--text); white-space: nowrap; letter-spacing: -0.02em; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-tight { font-size: 17px; }
+/* a range too wide for one line even at 17 (162.5–167.5 in a 375 or 393 pt phone's cell): its two ends stack,
+   "162.5–" over "167.5" (it breaks after the dash), centred in the stepper's 40 pt height */
+html:not(.desk) .cp-step .ui-stepper .st-val.is-stack { font-size: 17px; line-height: 1.05; white-space: normal; overflow-wrap: normal; letter-spacing: -0.03em; }
 html:not(.desk) .cp-step .ui-stepper .st-val .st-word { font-family: var(--font-body); font-size: 15px; font-weight: 600; font-stretch: 100%; color: var(--text-2); letter-spacing: 0; }
 html:not(.desk) .cp-step .ui-stepper .st-val small { font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0; }
 html:not(.desk) .cp-calc { font-size: 13px; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
@@ -1182,6 +1185,8 @@ html:not(.desk) body.powa-app .cp-hint-use:active { transform: scale(0.95); tran
 /* The load and % are typeable: a faint dotted rule under the number says so */
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable { cursor: text; text-decoration: underline dotted color-mix(in srgb, currentColor 32%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 6px; border-radius: 8px; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
+/* a stacked range keeps one dotted rule, under its second line (an underline per line ran through it) */
+html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable.is-stack { text-decoration: none; padding-bottom: 3px; border-bottom: 1.5px dotted color-mix(in srgb, currentColor 32%, transparent); border-radius: 0; }
 html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: var(--pl-inset) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-pick-on { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc); }
 html:not(.desk) .cp-pick-on svg { width: 20px; height: 20px; }
@@ -1316,8 +1321,6 @@ html:not(.desk) #challengesArea .chl-h { display: none; }
      push/pop  a lifter comes in from the right, back goes the way it came (the bar's push and pop).
      carry     the face you tapped is the face on the page: it travels there (coach-app.js, WAAPI).
      press     down in 90 ms, back on the press spring: the release is the spring, never a bounce.
-     load      the bar on the top set reloads only when its load settles (300 ms after the last tap): the
-               collar comes off, the plates that change slide off, the new ones go on heaviest first.
      value     a stepper's number ticks 6 pt the way it moved. */
 @keyframes plRise { from { opacity: 0.45; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
 @keyframes plSet { from { opacity: 0.45; transform: translate3d(0, 16px, 0) scale(0.985); } to { opacity: 1; transform: none; } }
@@ -1339,11 +1342,7 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
   /* the carry: the page settles in place while its face travels to it (coach-app.js carry) */
   html.native:not(.desk) body.powa-app:is([data-nav="carry"], [data-nav="carry-back"]) .dash-main > section[data-pane]:not(.hidden) { animation: plFade 240ms ease-out backwards; }
   html:not(.desk) .ui-sheet.cp-sheet, html:not(.desk) .ui-sheet.cp-picker { animation: plSheetUp var(--pl-d-state) var(--pl-spring); }
-  html:not(.desk) .pl-sleeve .ui-barbell .bb-plate.is-off { animation: bbOff 220ms cubic-bezier(0.4, 0, 1, 1) calc(var(--i, 0) * 40ms + 120ms) both; }
-  html:not(.desk) .pl-sleeve .ui-barbell .bb-plate.is-on { animation: plPlateOn var(--pl-d-heavy) var(--pl-spring) calc(var(--i, 0) * 90ms + 300ms) both; }
-  html:not(.desk) .pl-sleeve .ui-barbell .bb-collar.is-moving { animation: plCollar calc(var(--pl-d-heavy) + 300ms + var(--n, 1) * 90ms) var(--ca-ease) both; }
 }
-@keyframes plPlateOn { from { transform: translateX(30px); opacity: 0; } 30% { opacity: 1; } to { transform: none; opacity: 1; } }
 /* the week fills once a visit (Home's first render, .is-first): its lifted sessions light up round the ring in
    order, then each day's column rises from the baseline, Monday first. Never again until the app is reopened:
    Home is opened tens of times a day, and a chart that replays is noise. Transform and opacity only. */
@@ -1353,8 +1352,6 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
   html:not(.desk) .ca-home.is-first .ca-tring-fill { animation: plSegIn 240ms var(--ca-ease) calc(160ms + var(--i, 0) * 28ms) backwards; }
   html:not(.desk) .ca-home.is-first .ca-sday-bar:not(.is-zero) { animation: plColUp var(--pl-d-state) var(--pl-spring) calc(240ms + var(--i, 0) * 36ms) backwards; }
 }
-/* the collar: off, out of the way while the plates change, back on, and still (no settle past its seat) */
-@keyframes plCollar { 0% { transform: translateX(var(--dx)); } 18% { transform: translateX(var(--out)); } 70% { transform: translateX(var(--out)); } 100% { transform: none; } }
 @media (hover: hover) and (pointer: fine) {
   html:not(.desk) :is(.ca-tile, .ca-rowcard, .ca-lrow, .ca-row, .ca-act):hover { background-color: color-mix(in srgb, var(--text) 4%, var(--ca-card)); }
 }
@@ -1364,5 +1361,4 @@ html:not(.desk) #powa-conn-banner:not(.show) .pcb-dot { animation: none; }
   html:not(.desk) body.powa-app [data-pane] .ca-rise { animation: none !important; }
   html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-fab, .st-btn, .cp-ibtn, .cp-hint-use):active { transform: none !important; }
   html:not(.desk) .cp-fab.is-hidden { transform: none; }
-  html:not(.desk) .pl-sleeve .ui-barbell :is(.bb-plate, .bb-collar) { animation: none !important; }
 }
