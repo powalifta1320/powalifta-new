@@ -966,6 +966,153 @@ html:not(.desk) .ca-charts .cl-hmeet svg { color: var(--ca-gold); }
 html:not(.desk) .ca-charts .cl-warn { color: var(--text-2); }
 html:not(.desk) .ca-charts .cl-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 0; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
 
+/* =================================================================== A LIFTER: ROLLED OUT (29 Oct)
+   Every view and sheet reached from a lifter's page on the approved look: the type scale (13 · 15 · 17 · 20 ·
+   22 · 28 · 32 · 44, 11 for a badge, 64 only for the page's one numeral), cards at 20 with rows at 14 and
+   controls at 12, one crimson action with a white label a screen, and a status (pain, behind, over, harder,
+   missed, a reach) as the orange triangle beside ink words. Colour on a word or a number: never. */
+
+/* the card: the flag's weight over the class wears the triangle beside its ink words */
+html:not(.desk) .ca-flag-tx .ca-over { white-space: nowrap; }
+html:not(.desk) .ca-flag-tx .ca-over::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 6px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 1px; }
+
+/* Progress: a tile's chip is graphite unless its hue has a job (the meet); a lift's change is ink on its mark;
+   PR is the PR badge Home's faces wear; the meet's planner is a graphite pill; over the class, the triangle */
+html:not(.desk) .ca-charts .cl-tile:is(.t-training, .t-effort, .t-bw) { --tc: var(--text-2); }
+html:not(.desk) .ca-charts .cl-tile .cl-tic { width: 28px; height: 28px; border-radius: 9px; background: var(--pl-inset-2); }
+html:not(.desk) .ca-charts .cl-tile.cl-meet .cl-tic { background: color-mix(in srgb, var(--ca-gold) 16%, transparent); }
+html:not(.desk) .ca-charts .cl-ld { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
+html:not(.desk) .ca-charts .cl-ld:is(.up, .down)::before { content: ''; flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+html:not(.desk) .ca-charts .cl-ld.up::before { border-bottom: 6px solid var(--ca-up); }
+html:not(.desk) .ca-charts .cl-ld.down::before { border-top: 6px solid var(--ca-warn); }
+html:not(.desk) body.powa-app .ca-charts .cl-pr-b { display: inline-grid; place-items: center; height: 20px; padding: 0 7px; border-radius: 10px; background: var(--pl-viz-gold); color: #1d1606; font: 800 11px/20px var(--font-num); letter-spacing: 0.02em; }
+html:not(.desk) body.powa-app .ca-charts .cl-mplan {
+  position: relative; align-self: flex-start; gap: 7px; height: 36px; min-height: 36px; margin: 6px 0 0; padding: 0 14px; border-radius: 999px;
+  background: var(--pl-inset-2); color: var(--text); font-size: 15px; font-weight: 600; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out;
+}
+html:not(.desk) body.powa-app .ca-charts .cl-mplan::after { content: ''; position: absolute; inset: -4px -4px; }
+html:not(.desk) body.powa-app .ca-charts .cl-mplan.is-warn svg { display: none; }
+html:not(.desk) body.powa-app .ca-charts .cl-mplan:not(.is-warn) svg { color: var(--ca-live); }
+html:not(.desk) body.powa-app .ca-charts .cl-mplan:active { transform: scale(0.95); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .ca-charts .cl-warn::before { width: 9px; height: 8px; margin-right: 6px; border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+html:not(.desk) .ca-charts .cl-tile .cl-tf { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+
+/* Notes & check-ins: a reply being written is a field and the screen's two kinds of button */
+html:not(.desk) body.powa-app .ca-pg .fb-input { font-size: 17px; line-height: 1.45; border-radius: 14px; }
+html:not(.desk) body.powa-app .ca-pg .fb-actions .btn { min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 15px !important; font-weight: 600; }
+html:not(.desk) body.powa-app .ca-pg :is(.fb-actions, .fb-reply) .ui-text-btn { min-height: 44px; font-size: 15px; }
+html:not(.desk) body.powa-app .ca-pg .fb-meta { font-size: 13px; }
+
+/* Client: the title says Client until their intake is in; overdue is the triangle beside the ink words; the
+   wallet stays graphite (money owed is not an alarm); Mark paid a 44 pt pill */
+html:not(.desk) .ca-client .cs-card { --tc: var(--text-3); }
+html:not(.desk) .ca-client .cs-card .cl-tic { color: var(--text-2); background: var(--pl-inset-2); }
+/* only the Client card: the title already says Client, so its head is just its status */
+html:not(.desk) .ca-client .cs-pair:not(:has(.cs-about)) .cs-card .cl-th > :is(.cl-tic, .cl-tl) { display: none; }
+html:not(.desk) .ca-client .cs-pair:not(:has(.cs-about)) .cs-card .cl-th .cs-st { margin-left: 0; }
+html:not(.desk) .ca-client .cs-st.st-overdue::before { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) .ca-client .cs-st:is(.st-due, .st-soon)::before { background: var(--ca-warn); }
+html:not(.desk) body.powa-app .ca-client .cs-acts .cl-btn { height: 44px; padding: 0 18px; background: var(--pl-inset-2); box-shadow: none; }
+html:not(.desk) body.powa-app .ca-client .cs-acts .cl-quiet { min-height: 44px; font-size: 15px; }
+
+/* Form checks: each video a row, the waiting ones with Review at their end */
+html:not(.desk) .ca-fcs .ca-fcrow .ca-tic { background: var(--pl-inset-2); }
+html:not(.desk) .ca-fcs .ca-fcrow.is-waiting .ca-tic { color: var(--ca-msg); background: color-mix(in srgb, var(--ca-msg) 15%, transparent); }
+html:not(.desk) .ca-fcs .ca-fc-go { pointer-events: none; }
+
+/* the sheets a lifter's page opens: the one action is the crimson pill (52 pt, 17) every coach screen uses */
+html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn.btn-lg {
+  min-height: 52px; height: auto; padding: 0 20px; border-radius: 999px; font-size: 17px !important; font-weight: 650; letter-spacing: -0.01em;
+}
+html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) body.powa-app .ui-sheet:has(> textarea.pain-note) textarea.pain-note { font-size: 17px; line-height: 1.45; }
+
+/* The week's note: the draft on the sheet's inset at 17, like every field a coach types into here */
+html:not(.desk) body.powa-app .wn-sheet:not(.wn-bsheet) textarea.wn-sta { font-size: 17px; line-height: 1.5; background: var(--pl-inset); box-shadow: none; }
+
+/* Blocks: each block a card (20) on the sheet, the two being compared raised; names 17, What changed a section
+   title (20); a falling e1RM ink beside its mark */
+html:not(.desk) .bd-sheet .bd-prow2 { border-radius: 20px; background: var(--ca-card); box-shadow: inset 0 0 0 1px var(--ca-edge); }
+html:not(.desk) .bd-sheet .bd-prow2.is-on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .bd-sheet .bd-pick { border-radius: 20px; }
+html:not(.desk) .bd-sheet .bd-name { font-size: 17px; }
+html:not(.desk) .bd-sheet .bd-h3 { font-size: 20px; line-height: 1.2; letter-spacing: -0.016em; }
+html:not(.desk) .bd-sheet .bd-chip { background: var(--pl-inset-2); }
+html:not(.desk) .bd-sheet .bd-chip.is-down span { display: inline-flex; align-items: center; gap: 3px; color: var(--text); }
+html:not(.desk) .bd-sheet .bd-chip.is-down span::before { content: ''; flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--ca-warn); }
+html:not(.desk) .bd-sheet .bd-align { border-radius: 20px; background: var(--ca-card); box-shadow: inset 0 0 0 1px var(--ca-edge); }
+html:not(.desk) .bd-sheet .bd-prow .bd-tl { font-size: 17px; }
+html:not(.desk) .bd-sheet :is(.bd-pfp2, .bd-ptops) { background: var(--pl-inset); }
+html:not(.desk) .bd-sheet .bd-ptop { font-size: 17px; }
+html:not(.desk) body.powa-app .bd-sheet .bd-pback { font-size: 17px; }
+html:not(.desk) .bd-sheet .bd-empty b { font-size: 17px; }
+
+/* Career: the total is the sheet's object (the lifter page's e1RM card, lit neutral: no red light on a record),
+   the one numeral at 44; the moments and PRs read as rows (17) */
+html:not(.desk) body.powa-app .cv-sheet .cv-hero {
+  background: radial-gradient(130% 110% at 0% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 58%), var(--pl-obj);
+  border: 1px solid var(--pl-obj-edge); border-radius: 20px; box-shadow: var(--pl-obj-shade);
+}
+html[data-theme="light"]:not(.desk) body.powa-app .cv-sheet .cv-hero { background: var(--pl-obj); }
+html:not(.desk) body.powa-app .cv-sheet .cv-hero .ui-hero-label { font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+html:not(.desk) body.powa-app .cv-sheet .cv-hero .cv-total { font-size: 44px; line-height: 1; letter-spacing: -0.03em; }
+html:not(.desk) body.powa-app .cv-sheet .cv-hero .cv-total.is-empty { font-size: 17px; line-height: 1.3; letter-spacing: 0; }
+html:not(.desk) body.powa-app .cv-sheet :is(.cv-t, .cv-v) { font-size: 17px; }
+html:not(.desk) body.powa-app .cv-sheet .cv-more { font-size: 15px; }
+
+/* Everything: on the scale, its lifts lit by their own colour like Progress's, a change ink beside its mark,
+   a status the triangle (the cut's row says off pace once, under it), Plan attempts a graphite pill, and Message
+   the one crimson with Program and Progress quiet under it */
+html:not(.desk) body.powa-app .athlete-sheet { --lift-squat: var(--pl-viz-sq); --lift-bench: var(--pl-viz-bp); --lift-deadlift: var(--pl-viz-dl); }
+html:not(.desk) body.powa-app .athlete-sheet .aq-av { font-size: 22px; }
+html:not(.desk) body.powa-app .athlete-sheet .aq-sub { margin-top: 2px; font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app .athlete-sheet .ui-stat span { font-size: 13px; }
+html:not(.desk) body.powa-app .athlete-sheet .aq-lift {
+  padding: 12px; border-radius: 20px; box-shadow: var(--pl-lip);
+  background: radial-gradient(140% 120% at 0% 0%, color-mix(in srgb, var(--lc) var(--pl-light), transparent) 0%, transparent 62%), var(--ca-card);
+  border: 1px solid color-mix(in srgb, var(--lc) var(--pl-light-edge), var(--ca-edge));
+}
+html:not(.desk) body.powa-app .athlete-sheet .aq-d { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .athlete-sheet .aq-d:is(.up, .down) { color: var(--text); }
+html:not(.desk) body.powa-app .athlete-sheet .aq-d:is(.up, .down)::before { content: ''; flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+html:not(.desk) body.powa-app .athlete-sheet .aq-d.up::before { border-bottom: 6px solid var(--ca-up); }
+html:not(.desk) body.powa-app .athlete-sheet .aq-d.down::before { border-top: 6px solid var(--ca-warn); }
+html:not(.desk) body.powa-app .athlete-sheet .aq-1rm { font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .athlete-sheet .ui-label { font-size: 20px; }
+html:not(.desk) body.powa-app .athlete-sheet .ui-row-title { font-size: 17px; }
+html:not(.desk) body.powa-app .athlete-sheet .ui-row > .ui-dot.cut-dot.bad { display: none; }
+html:not(.desk) body.powa-app .athlete-sheet .md-hook .md-btn {
+  position: relative; height: 36px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: var(--pl-inset-2); box-shadow: none; color: var(--text); font-size: 15px; font-weight: 600;
+}
+html:not(.desk) body.powa-app .athlete-sheet .md-hook .md-btn::after { content: ''; position: absolute; inset: -4px; }
+html:not(.desk) body.powa-app .athlete-sheet .aq-acts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+html:not(.desk) body.powa-app .athlete-sheet .aq-acts .btn-primary { grid-column: 1 / -1; }
+html:not(.desk) body.powa-app .athlete-sheet .aq-acts .ui-btn-soft { background: var(--pl-inset-2); box-shadow: none; color: var(--text); }
+
+/* Last week's report: on the scale (17 rows and the answer's words), its lists the sheet's cards, a status the
+   triangle beside ink words (pain, behind; money owed on its title), the wallet graphite, Start with … crimson */
+html:not(.desk) body.powa-app .mr-phone .mr-big span { font-size: 17px; }
+html:not(.desk) body.powa-app .mr-phone .mr-rt b { font-size: 17px; }
+html:not(.desk) body.powa-app .mr-phone .mr-list { border-radius: 20px; background: var(--ca-card); box-shadow: inset 0 0 0 1px var(--ca-edge); }
+html:not(.desk) body.powa-app .mr-phone .mr-dot:is(.t-pain, .t-warn) { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .mr-phone .mr-tic.t-pain { --tc: var(--text-2); background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .mr-phone [data-mr-money] .mr-rt b::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 7px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 1px; }
+html:not(.desk) body.powa-app .mr-phone .mr-foot .mr-go {
+  height: 52px; font-size: 17px !important; font-weight: 650 !important; background: var(--pl-red); color: var(--pl-red-ink) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* The attempt planner from a lifter (meetday.js): each lift's name a row title (17); a reach is ink beside the
+   triangle (it wore the warning colour on its words) */
+html:not(.desk) body.powa-app .md-root.md-planner .md-pl-liftname { font-size: 17px; }
+html:not(.desk) body.powa-app .md-root.md-planner :is(.md-odds.is-reach, .md-odds.is-reach b) { color: var(--text-2); }
+html:not(.desk) body.powa-app .md-root.md-planner .md-odds.is-reach::before { content: ''; align-self: center; flex: none; width: 9px; height: 8px; margin-right: 2px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+/* A form check's review (video-review.js), opened from Form checks or the flag: its title 17, Send the crimson */
+html:not(.desk) body.powa-app .vr .vr-title { font-size: 17px; }
+html:not(.desk) body.powa-app .vr .btn-primary.vr-send { min-height: 44px; background: var(--pl-red); color: var(--pl-red-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+
 /* sheets: find anything, check-ins */
 html:not(.desk) .ca-search.is-sheet { margin: 6px 0 4px; }
 html:not(.desk) .ca-search-sheet .ca-h3 { margin: 22px 4px 10px; font-size: 20px; }

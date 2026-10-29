@@ -1379,7 +1379,8 @@ function openAthleteSheet(athleteId) {
     const prog = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Program');
     prog.addEventListener('click', () => { close(); setTimeout(() => openAthleteProgram(a.id), 220); });
     const prg = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Progress');
-    prg.addEventListener('click', () => { close(); setTimeout(() => openAthleteNotes(a.id), 220); });
+    // From their page on the phone, their own Progress pushes in (coach-app.js); elsewhere, Lifter progress.
+    prg.addEventListener('click', () => { close(); setTimeout(() => { if (!(window.CoachApp && CoachApp.showView && CoachApp.showView(a.id, 'progress'))) openAthleteNotes(a.id); }, 220); });
     acts.appendChild(msg); acts.appendChild(prog); acts.appendChild(prg);
     sheet.appendChild(acts);
   }, { cls: 'athlete-sheet' });

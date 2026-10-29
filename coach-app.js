@@ -1520,7 +1520,38 @@
      A LIFTER: the contact card, and the rows it opens (Progress, Notes & check-ins, Client & About)
      ==================================================================================================== */
   var P = { id: null, view: 'card', host: null, pending: null, direct: false };
-  var VIEWS = { progress: 'Progress', notes: 'Notes & check-ins', client: 'Client & About' };
+  var VIEWS = { progress: 'Progress', notes: 'Notes & check-ins', client: 'Client & About', videos: 'Form checks' };
+  // A cut that ends on a word ("…like an opener…", never "…Wan…").
+  function clipWords(s, n) {
+    s = String(s || '').replace(/\s+/g, ' ').trim();
+    if (s.length <= n) return s;
+    var cut = s.slice(0, n - 1), sp = cut.lastIndexOf(' ');
+    if (sp > n * 0.55) cut = cut.slice(0, sp);
+    return cut.replace(/[\s,.;:!?\u2013\u2014-]+$/, '') + '\u2026';
+  }
+  // Their form-check videos (coach.html loads them at boot: _coachFormChecks; the demo seeds two of Arjun's),
+  // waiting ones first, newest first.
+  function formChecksOf(id) {
+    var all;
+    try { all = typeof _coachFormChecks !== 'undefined' && Array.isArray(_coachFormChecks) ? _coachFormChecks : []; } catch (e) { all = []; }
+    return all.filter(function (f) { return f && f.athleteId === id; }).sort(function (x, y) {
+      return (x.coachReply ? 1 : 0) - (y.coachReply ? 1 : 0) || String(y.createdAt || '').localeCompare(String(x.createdAt || ''));
+    });
+  }
+  var FC_LIFT = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  function fcLift(f) { return FC_LIFT[f && f.lift] || 'Form check'; }
+  // A review closed (sent or not): the card and the list redraw with what changed (the flag moves on).
+  function watchReview() {
+    if (!hasDom || typeof MutationObserver === 'undefined') return;
+    var de = document.documentElement;
+    if (!de.classList.contains('vr-open')) return;
+    var mo = new MutationObserver(function () {
+      if (de.classList.contains('vr-open')) return;
+      mo.disconnect();
+      if (shown('lifter') && P.host && P.id) renderLifter(P.host, P.id);
+    });
+    mo.observe(de, { attributes: true, attributeFilter: ['class'] });
+  }
   function renderLifter(host, id, view) {
     host = host || (hasDom ? document.getElementById('lifterPage') : null);
     if (!host) return;
@@ -1570,8 +1601,11 @@
           : body ? '<span class="ca-flag-q">\u201c' + esc(clip(body, 160)) + '\u201d</span>' : '';
         fd = String(jt.title || '').replace(/^Wrote you( · )?/, '');
       }
-      html += '<div class="ca-flag tone-' + esc(jt.tone) + '" data-job="' + esc(top.key) + '"><span class="ca-flag-ic">' + ic(jt.icon in IC ? jt.icon : 'eye') + '</span>' +
-        '<span class="ca-flag-tx"><b>' + esc(caFocalTitle(top1)) + '</b>' + said + (fd ? '<span>' + keepDots(esc(fd)) + '</span>' : '') + busy + '</span>' +
+      // Pain wears the status's one shape (the triangle), and a weight over the class its mark beside the ink words.
+      var glyph = jt.tone === 'pain' ? 'warn' : jt.icon in IC ? jt.icon : 'eye';
+      var fdHtml = fd ? keepDots(esc(fd)).replace(/(\d+(?:\.\d+)?[\s\u00a0](?:kg|lbs?)[\s\u00a0]over[\s\u00a0][^\u00b7<]+?)(?=[\s\u00a0]\u00b7|$)/, '<span class="ca-over">$1</span>') : '';
+      html += '<div class="ca-flag tone-' + esc(jt.tone) + '" data-job="' + esc(top.key) + '"><span class="ca-flag-ic">' + ic(glyph) + '</span>' +
+        '<span class="ca-flag-tx"><b>' + esc(caFocalTitle(top1)) + '</b>' + said + (fdHtml ? '<span>' + fdHtml + '</span>' : '') + busy + '</span>' +
         '<button type="button" class="ca-btn ' + (red ? 'is-red' : 'is-soft') + '" data-fix="' + esc(top.key) + '">' + esc(caFixLabel(top, f)) + '</button></div>';
     }
     html += overviewHtml(r, w);
@@ -1618,7 +1652,14 @@
     var a = r.athlete, s = store();
     var words = CL() && CL().clWords ? CL().clWords(r) : null;
     var notesN = (s.sessionNotes || []).filter(function (n) { return n.athleteId === a.id && n.note && String(n.note).trim() && !n.coachComment; }).length;
-    var notesSub = notesN ? plural(notesN, 'note') + ' waiting' + (words ? ' · “' + clip(words.text, 34) + '”' : '') : words ? '“' + clip(words.text, 44) + '”' : 'Their session notes and check-ins';
+    var notesSub = notesN ? plural(notesN, 'note') + ' waiting' + (words ? ' · “' + clipWords(words.text, 34) + '”' : '') : words ? '“' + clipWords(words.text, 44) + '”' : 'Their session notes and check-ins';
+    // Their videos, when they send them: how many wait on you, the newest's lift and day.
+    var fcs = formChecksOf(a.id), fcWait = fcs.filter(function (f) { return !f.coachReply; });
+    var fcSub = fcWait.length ? plural(fcWait.length, 'video') + ' waiting \u00b7 ' + fcLift(fcWait[0]).toLowerCase() + ', ' + whenText(fcWait[0].createdAt || todayIso())
+      : plural(fcs.length, 'video') + ' \u00b7 all answered';
+    // The week's note: when the last one went (a note covers 7 days), else what it's drafted from.
+    var sentOn = window.WeeklyNote && WeeklyNote.lastNoteOn ? WeeklyNote.lastNoteOn(a.id) : null;
+    var noteSub = sentOn && daysBetween(sentOn, todayIso()) >= 0 && daysBetween(sentOn, todayIso()) < 7 ? 'Sent ' + whenText(sentOn) : 'Drafted from their last 7 days';
     var blk = window.BlockDNA && BlockDNA.linkInfo ? BlockDNA.linkInfo(a.id) : null;
     var car = null;
     try { if (window.Career && Career.careerEvents && Career.careerLine) { var C = Career.careerEvents(a.id, s); if (C.hero.sessions || C.hero.meets) car = Career.careerLine(C); } } catch (e) { car = null; }
@@ -1627,7 +1668,8 @@
     };
     return '<div class="ca-plain ca-rowsx">' +
       row('notes', 'note', 't-msg', 'Notes & check-ins', notesSub) +
-      (window.WeeklyNote ? row('weeknote', 'pen', 't-msg', 'Week’s note', 'Drafted from their last 7 days') : '') +
+      (fcs.length ? row('videos', 'video', 't-msg', 'Form checks', fcSub) : '') +
+      (window.WeeklyNote ? row('weeknote', 'pen', 't-msg', 'Week’s note', noteSub) : '') +
       (blk ? row('blocks', 'blocks', 't-prog', 'Blocks', blk.text) : '') +
       (car != null ? row('career', 'steps', 't-you', 'Career', car) : '') +
       row('everything', 'list', 't-neutral', 'Everything', 'Lifts, check-ins, recovery, meets') +
@@ -1635,7 +1677,8 @@
   }
   function subHtml(r, X, view) {
     // Straight in from Home (a PR, a mover) the back says Home, so the view names whose it is.
-    var a = r.athlete, html = (P.direct ? '<p class="ca-subk">' + esc(a.name) + '</p>' : '') + '<h2 class="ca-subt">' + esc(VIEWS[view] || '') + '</h2>';
+    var a = r.athlete, kick = P.direct ? '<p class="ca-subk">' + esc(a.name) + '</p>' : '';
+    var html = kick + '<h2 class="ca-subt">' + esc(VIEWS[view] || '') + '</h2>';
     if (view === 'progress') {
       var D = CL() && CL().clLifter ? CL().clLifter(r) : null;
       var anyLog = D && (D.total || D.lifts.some(function (L2) { return L2.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length);
@@ -1644,10 +1687,28 @@
     }
     if (view === 'client') {
       var c = window.ClientsUI ? ClientsUI.sectionHtml(a.id, { phone: true }) : '';
-      return html + (c ? '<div class="ca-client cl-root">' + c + '</div>' : '<div class="ca-empty"><b>Clients is not loaded</b></div>');
+      // The title names what is there: About joins it only once they have sent their intake.
+      var both = c.indexOf('cs-about') >= 0;
+      return kick + '<h2 class="ca-subt">' + (both ? esc(VIEWS.client) : 'Client') + '</h2>' + (c ? '<div class="ca-client cl-root">' + c + '</div>' : '<div class="ca-empty"><b>Clients is not loaded</b></div>');
     }
     if (view === 'notes') return html + '<div data-notes-host></div>';
+    if (view === 'videos') return html + videosHtml(a);
     return html;
+  }
+  // Form checks: each video they sent, waiting ones first. A waiting one opens the review (video-review.js);
+  // a replied one opens it again to see or change what you sent.
+  function videosHtml(a) {
+    var list = formChecksOf(a.id);
+    if (!list.length) return '<div class="ca-empty">' + ic('video') + '<b>No form checks yet</b><p>When ' + esc(first(a.name)) + ' sends a video from a session, it shows here to review.</p></div>';
+    return '<div class="ca-list ca-fcs">' + list.map(function (f) {
+      var day = f.createdAt ? whenText(String(f.createdAt).slice(0, 10)) : '';
+      var title = fcLift(f) + (day ? ' \u00b7 ' + day.charAt(0).toUpperCase() + day.slice(1) : '');
+      var line = f.coachReply ? 'You replied' + (f.coachReplyAt ? ' ' + whenText(String(f.coachReplyAt).slice(0, 10)) : '')
+        : f.note ? '\u201c' + clipWords(f.note, 90) + '\u201d' : 'Waiting on your review';
+      return '<button type="button" class="ca-lrow ca-fcrow' + (f.coachReply ? '' : ' is-waiting') + '" data-fc="' + esc(f.id) + '"><span class="ca-tic t-msg">' + ic('video') + '</span>' +
+        '<span class="ca-lrow-tx"><span class="ca-lrow-t">' + esc(title) + '</span><span class="ca-lrow-s">' + esc(line) + '</span></span>' +
+        (f.coachReply ? ic('chev', 2.2) : '<span class="ca-pill ca-fc-go" aria-hidden="true">Review</span>') + '</button>';
+    }).join('') + '</div>';
   }
   // Notes & check-ins: their session notes with your reply (coach.html _feedbackCard), their answers to your
   // check-in questions, and the weekly check-ins, newest first.
@@ -1691,7 +1752,14 @@
         e.preventDefault();
         var key = b.getAttribute('data-fix'), it = null;
         ((X && X.jobs) || []).some(function (j) { if (j.key === key) { it = j; return true; } return false; });
-        if (it) runFix(it.r || r, fixOf(it), b);
+        if (it) { runFix(it.r || r, fixOf(it), b); watchReview(); }
+        return;
+      }
+      // The meet tile's Set attempts / Attempts set (Progress, coach-lifters.js chartsHtml): their attempt planner.
+      if ((b = t.closest('[data-plan]'))) { e.preventDefault(); if (window.MeetDay && MeetDay.planFor) MeetDay.planFor(b.getAttribute('data-plan')); return; }
+      if ((b = t.closest('[data-fc]'))) {
+        e.preventDefault();
+        if (typeof openFormCheckReview === 'function') { openFormCheckReview(b.getAttribute('data-fc')); watchReview(); }
         return;
       }
       if ((b = t.closest('[data-busy-keep]'))) {
@@ -1713,6 +1781,7 @@
         e.preventDefault();
         var row = b.getAttribute('data-row');
         if (row === 'notes') pushView('notes');
+        else if (row === 'videos') pushView('videos');
         else if (row === 'weeknote' && window.WeeklyNote) WeeklyNote.openSheet(aid, { onSent: function () { renderLifter(host, aid); } });
         else if (row === 'blocks' && window.BlockDNA) BlockDNA.open(aid, { from: b });
         else if (row === 'career' && window.Career) Career.openForCoach(aid, r.athlete);
@@ -2081,7 +2150,10 @@
   window.CoachApp = {
     renderHome: renderHome, renderLifters: renderLifters, renderLifter: renderLifter, refresh: refresh, paintHomeIfShown: paintHomeIfShown,
     openSearch: openSearch, openCheckins: openCheckins, openWins: openWins, openLifters: openLifters, popView: popView, paintBadges: paintBadges,
-    lifterView: function () { return P.view; }, enterLifter: function () { P.direct = !!(P.pending && VIEWS[P.pending]); P.view = P.direct ? P.pending : 'card'; P.pending = null; },
+    lifterView: function () { return P.view; },
+    // A view of the lifter whose page is open (the Everything sheet's Progress): true when it pushed it.
+    showView: function (id, v) { if (P.id === id && VIEWS[v] && P.host && shown('lifter')) { pushView(v); return true; } return false; },
+    enterLifter: function () { P.direct = !!(P.pending && VIEWS[P.pending]); P.view = P.direct ? P.pending : 'card'; P.pending = null; },
     skeletonHtml: skeletonHtml, gate: gate, bootFailed: bootFailed, bootState: bootState,
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
