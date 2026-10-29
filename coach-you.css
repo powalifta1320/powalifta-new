@@ -132,6 +132,13 @@ html:not(.desk) .cy-fr-sample .fr-chip { padding: 4px 10px; background: var(--pl
 /* Programs: the card in the Programs light (coach-app.css section[data-pane="program"] .cp-hero), its quiet row */
 html:not(.desk) .cp-empty.cy-fr-wrap .cp-hero.cy-fr { padding: 20px; }
 /* Lifters' header +: quiet while the card below carries the invite as the labelled red (coach.html renderRoster) */
+/* Home › Challenges with nobody to challenge: its one button is the invite, so it is the crimson (challenges.js) */
+html:not(.desk) body.powa-app .chl-acts .chl-btn.is-invite {
+  height: 52px; border: 0; border-radius: 999px; background: var(--crimson); color: var(--crimson-ink); font-size: 17px; font-weight: 650; letter-spacing: -0.01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  transition: transform var(--pl-d-press, 200ms) var(--pl-spring, ease-out), filter 160ms ease-out;
+}
+html:not(.desk) body.powa-app .chl-acts .chl-btn.is-invite:active { transform: scale(0.97); filter: brightness(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
 
 /* =================================================================== YOU'S SHEETS */
 /* Get set up: the three steps, numbered; the one still to do next reads first */

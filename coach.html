@@ -2764,7 +2764,7 @@ function populateAthleteSelect(selectId, onChange) {
   const myAthletes = s.athletes.filter(a => a.coachId === user.id);
   const cur = sel.value;
   sel.innerHTML = '';
-  if (!myAthletes.length) sel.appendChild(el('option', { value: '' }, 'No athletes yet'));
+  if (!myAthletes.length) sel.appendChild(el('option', { value: '' }, 'No lifters yet'));
   else {
     // The progress view gets a roster-wide overview as its default (empty value).
     if (selectId === 'progressAthlete') sel.appendChild(el('option', { value: '' }, 'Whole roster'));
