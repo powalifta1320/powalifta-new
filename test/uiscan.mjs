@@ -15,7 +15,10 @@
  * Serve the repo root, then run:
  *     python3 -m http.server 4191 --bind 127.0.0.1
  *     node test/uiscan.mjs [outDir]          # BASE=http://host:port/ to point elsewhere
+ *     UISCAN_ONLY='^w-index' node test/uiscan.mjs   # only the screens whose name matches
  * Screens with findings are screenshotted into outDir (default /tmp/powa-uiscan) with issues.json.
+ * A screen that throws (FAILED) counts as a finding. Nothing reaches Supabase or Plausible: both are refused
+ * on this machine (the public pages then show their offline states).
  */
 import fs from 'node:fs';
 let chromium;
@@ -125,8 +128,20 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
   { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
+// Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
+// coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
+// pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)
+// and by route in every context (HTTP and WebSockets). The pages then draw their offline states, as with no network.
+const LIVE_HOSTS = ['supabase.co', 'plausible.io'];
+const LIVE_URL = new RegExp('^(https?|wss?)://([^/?#]*\\.)?(' + LIVE_HOSTS.map((h) => h.replace(/\./g, '\\.')).join('|') + ')(:\\d+)?([/?#]|$)', 'i');
+let liveRefused = 0;
+// A run of some screens only: UISCAN_ONLY=<regex on the screen name>, e.g. UISCAN_ONLY='^w-(index|join)'.
+const ONLY = process.env.UISCAN_ONLY ? new RegExp(process.env.UISCAN_ONLY) : null;
+const run = ONLY ? screens.filter((s) => ONLY.test(s.name)) : screens;
+
 const EXE = process.env.CHROME_PATH || undefined;
-const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});
+const browser = await chromium.launch(Object.assign(EXE ? { executablePath: EXE } : {},
+  { args: ['--host-resolver-rules=' + LIVE_HOSTS.map((h) => `MAP ${h} ~NOTFOUND, MAP *.${h} ~NOTFOUND`).join(', ')] }));
 
 function scan(isApp) {
   const vw = innerWidth;
@@ -300,13 +315,15 @@ function scan(isApp) {
 }
 
 const all = {};
-let total = 0;
-for (const s of screens) {
+let total = 0, failed = 0;
+for (const s of run) {
   const app = (s.mode || 'app') === 'app';
   const ctx = await browser.newContext(app
     ? { viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148' }
     : { viewport: { width: s.w || 1440, height: s.h || 900 }, deviceScaleFactor: 1, isMobile: (s.w || 1440) < 600, hasTouch: (s.w || 1440) < 600 });
+  await ctx.route(LIVE_URL, (route) => { liveRefused++; return route.abort('blockedbyclient'); });
+  await ctx.routeWebSocket(LIVE_URL, (ws) => { liveRefused++; ws.close(); });
   await ctx.addInitScript(([theme, native]) => {
     if (native) {
       const add = () => { if (!document.documentElement) return false; document.documentElement.classList.add('native', 'native-ios'); return true; };
@@ -343,9 +360,15 @@ for (const s of screens) {
     issues.forEach(i => { counts[i.type] = (counts[i.type] || 0) + 1; });
     console.log(s.name.padEnd(28), issues.length ? JSON.stringify(counts) : 'clean');
     if (issues.length) await page.screenshot({ path: `${outDir}/${s.name}.png` });
-  } catch (e) { console.log('FAILED', s.name, String(e).slice(0, 200)); }
+  } catch (e) {
+    // A screen that throws was never scanned: it counts as a finding, so "0 findings" means every screen was looked at.
+    console.log('FAILED', s.name, String(e).slice(0, 200));
+    all[s.name] = [{ type: 'failed', detail: String(e).slice(0, 300) }];
+    total++; failed++;
+  }
   await ctx.close();
 }
 fs.writeFileSync(outDir + '/issues.json', JSON.stringify(all, null, 1));
-console.log('\n' + screens.length + ' screens, ' + total + ' findings. Details: ' + outDir + '/issues.json');
+console.log('\n' + run.length + ' screens, ' + total + ' findings' + (failed ? ' (' + failed + ' of them screens that failed to load)' : '') + '. '
+  + liveRefused + ' calls to Supabase / Plausible refused on this machine. Details: ' + outDir + '/issues.json');
 await browser.close();
