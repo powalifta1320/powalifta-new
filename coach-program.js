@@ -228,6 +228,7 @@
   function render(area, aid) {
     if (!area || !hasDom) return false;
     S.area = area;
+    S.applyFor = null;   // Use a template's lifter is for the Templates visit it opened
     // Before the roster is in: the program's skeleton (or, if it couldn't load, the card with Try again).
     if (window.CoachApp && CoachApp.gate && CoachApp.gate(area, 'program')) return true;
     area.removeAttribute('data-ca-state');
@@ -1206,7 +1207,8 @@
         sheet.appendChild(inv);
         return;
       }
-      var picked = [];
+      // From a lifter with no block yet (their Use a template): they're already ticked.
+      var picked = S.applyFor && list.some(function (a) { return a.id === S.applyFor; }) && !progOf(S.applyFor) ? [S.applyFor] : [];
       var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' });
       var all = el('button', { type: 'button', class: 'ca-link cp-apply-all' });
       var rows = [];
@@ -1299,7 +1301,7 @@
     var tplN = (Store.get().programTemplates || []).filter(function (t) { var u = getCurrentUser(); return u && t.coachId === u.id; }).length;
     var rows = [
       { icon: 'trend', title: 'Build from their goal', sub: 'A full block from their lifts and where they want to be', run: function () { openGoalModal(aid); } },
-      tplN ? { icon: 'copy', title: 'Use a template', sub: plural(tplN, 'template') + ' saved', run: function () { var t = document.getElementById('tab-templates'); if (t) t.click(); } } : null,
+      tplN ? { icon: 'copy', title: 'Use a template', sub: plural(tplN, 'template') + ' saved', run: function () { S.applyFor = aid; toTemplates(); } } : null,
       { icon: 'clip', title: 'Bring a program in', sub: 'A photo, a screenshot or a paste from your sheet', run: function () { openSheetImport(aid); } }
     ].filter(Boolean);
     var list = el('div', { class: 'ca-plain ca-rowsx' });

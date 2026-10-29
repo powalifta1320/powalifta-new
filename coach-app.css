@@ -1215,7 +1215,7 @@ html:not(.desk) body.powa-app .cp-chip.on i { box-shadow: 0 0 0 1.5px var(--text
 html:not(.desk) body.powa-app .cp-chip:active { transform: scale(0.95); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) body.powa-app .cp-chip:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
 html:not(.desk) .cp-chips-br { flex: 0 0 100%; height: 0; }
-@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .cp-chip:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app :is(.cp-chip, .cp-addx #presetSeg button, .cp-addx .btn-primary, #goalModal #goalBuildBtn):active { transform: none; } }
 
 /* Add exercise (coach.html's form, dressed by coach-program.js dressAdd): which day it adds to under the title,
    the lift and its variant as chips (the selects stay, hidden, for the form's own code), the sets as fields on
