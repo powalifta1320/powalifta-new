@@ -998,6 +998,7 @@ html:not(.desk) body.powa-app .ca-charts .cl-mplan::after { content: ''; positio
 html:not(.desk) body.powa-app .ca-charts .cl-mplan.is-warn svg { display: none; }
 html:not(.desk) body.powa-app .ca-charts .cl-mplan:not(.is-warn) svg { color: var(--ca-live); }
 html:not(.desk) body.powa-app .ca-charts .cl-mplan:active { transform: scale(0.95); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; transition-timing-function: ease-out; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .ca-charts .cl-mplan:active { transform: none; } }
 html:not(.desk) .ca-charts .cl-warn::before { width: 9px; height: 8px; margin-right: 6px; border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
 html:not(.desk) .ca-charts .cl-tile .cl-tf { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
 /* a lift's top set on the smallest phones: two lines (217.5 × 5 / @7.5) instead of '217.5 × 5 @…' */
