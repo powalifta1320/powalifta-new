@@ -8450,6 +8450,32 @@ group('security merge follow-ups (demo log-out, deleted elsewhere, one code prom
   }
 })();
 
+/* ===========================================================
+   The merge review's two-factor follow-ups (29 Oct). "Sign out" on the code prompt takes the stored session even
+   when the sign-out call fails offline (_dropStoredSession). Every powa-* and sb-* key is put back as it was.
+   =========================================================== */
+group('the merge review\'s two-factor follow-ups (29 Oct)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  try {
+    test('"Sign out" on the code prompt: the stored session goes even when the sign-out call can\'t (offline)', () => {
+      localStorage.setItem('sb-fu-test-auth-token', '{"access_token":"x.y.z"}');
+      localStorage.setItem('sb-fu-test-auth-token-code-verifier', 'v');
+      localStorage.setItem('powa-fu-test-keep', '1');
+      _dropStoredSession();
+      eq(localStorage.getItem('sb-fu-test-auth-token'), null, 'the half-finished sign-in stays, and the prompt comes back next load');
+      eq(localStorage.getItem('sb-fu-test-auth-token-code-verifier'), 'v', 'only the session itself');
+      eq(localStorage.getItem('powa-fu-test-keep'), '1', 'nothing else on the device');
+      localStorage.removeItem('sb-fu-test-auth-token-code-verifier'); localStorage.removeItem('powa-fu-test-keep');
+    });
+  } finally {
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

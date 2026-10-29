@@ -20,8 +20,8 @@ makes that true. Nobody has two-factor on today (28 Oct: 0 verified factors, 1 a
 3. **App** (web on the next push, iPhone on the next build): a dashboard opened with a session that
    still owes its code (reload during the code prompt, or /athlete.html straight after the
    password) asks for the code in place. "Sign out" there, and Cancel on the sign-in screens, sign
-   out this device only (they used to sign the person out everywhere). Live updates get the new
-   token as soon as the code is entered.
+   out this device only (they used to sign the person out everywhere), and leave no session behind
+   even with no network. Live updates get the new token as soon as the code is entered.
 
 Order: the SQL (a no-op today), then the functions, then the web push / iPhone build. Row 59
 (`migration-security-fixes-2026-10-28.sql`) is live since 28 Oct; this file is row 60, the next one to

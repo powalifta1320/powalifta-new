@@ -384,12 +384,16 @@ async function _signedOutByServer(uid, opts) {
   window._user = null;
   Store.reset();
   if (opts.signOut !== false) { try { await DB.signOut('local'); } catch (e) {} }   // this device only: the server has refused the session already
-  // supabase-js keeps the session when that call itself fails (no network): the server refused it, so it goes anyway,
-  // or the welcome screen would route straight back into the dashboard.
-  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
+  _dropStoredSession();
   await _forgetPushOnThisDevice();   // the browser's push subscription goes; the server row needs the account's own session
   _sweepAccountKeys();
   _noteSignedOut(opts.deleted ? { deleted: true } : undefined);
+}
+// supabase-js keeps the stored session when its sign-out call itself fails (no network). A session that must go
+// (the server refused it, or "Sign out" on the code prompt) goes anyway, or the next load finds it: the welcome
+// screen routes straight back into the dashboard, or the code prompt comes back.
+function _dropStoredSession() {
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
 }
 // The profile read found no row ("Profile not found"): an account deleted elsewhere, but only when Auth agrees
 // the account itself is gone (GET /user answers user_not_found). A profile the database hides (two-factor
@@ -4703,6 +4707,7 @@ async function _mfaStepUp() {
     return 'in';
   }
   try { await DB.signOut('local'); } catch (e) {}
+  _dropStoredSession();   // offline that call keeps the session, and the next load would ask for the code again
   return 'out';
 }
 
