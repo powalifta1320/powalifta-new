@@ -11,7 +11,7 @@
 <meta name="description" content="Your coach invited you to train on POWALIFTA. Get the app, sign up, and your program is waiting.">
 <meta name="robots" content="noindex">
 <meta property="og:title" content="You're invited to train on POWALIFTA">
-<meta property="og:description" content="Your coach set you up. Get the app and your program is waiting. Free for athletes.">
+<meta property="og:description" content="Your coach set you up. Get the app and your program is waiting. Free for lifters.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://www.powalifta.com/og-home.jpg">
 <meta property="og:image:width" content="1200">
@@ -40,7 +40,7 @@
       <div class="jn-av" id="jnAv" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <h1 id="jnTitle">Your coach invited you to POWALIFTA</h1>
       <p class="jn-team" id="jnTeam" hidden></p>
-      <p class="jn-sub" id="jnSub">Your program, every set and your progress in one place. Free for athletes.</p>
+      <p class="jn-sub" id="jnSub">Your program, every set and your progress in one place. Free for lifters.</p>
       <div class="jn-code">
         <div><span>Your invite code</span><b id="jnCode">------</b></div>
         <button type="button" class="btn btn-ghost btn-sm" id="jnCopy">Copy</button>
@@ -70,7 +70,7 @@
     <div id="jnBad" class="jn-bad" hidden>
       <h1>This invite link doesn't work</h1>
       <p class="jn-sub">It may have been used already. Ask your coach to send you a new one, or start on your own for free.</p>
-      <div class="jn-actions"><a class="btn btn-ghost btn-lg" href="/">Go to POWALIFTA</a></div>
+      <div class="jn-actions"><a class="quiet" href="/">Go to POWALIFTA<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a></div>
     </div>
   </div>
 </main>
@@ -132,7 +132,7 @@
         $('jnAv').hidden = true;
         $('jnTitle').textContent = team ? 'Join ' + team : (name || 'Your coach') + ' invited you to train';
         if (team && name) { $('jnTeam').textContent = 'Coached by ' + name; $('jnTeam').hidden = false; }
-        $('jnSub').textContent = 'Your program, every set and your progress in one place, on POWALIFTA. Free for athletes.';
+        $('jnSub').textContent = 'Your program, every set and your progress in one place, on POWALIFTA. Free for lifters.';
         document.title = (team ? 'Join ' + team : 'You\'re invited') + ' | POWALIFTA';
         return;
       }

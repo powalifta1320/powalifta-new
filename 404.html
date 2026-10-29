@@ -9,70 +9,34 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="site.css">
-<link rel="stylesheet" href="cookie-consent.css">
-<style>
-  .nf-wrap {
-    min-height: 100svh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 40px 20px;
-    position: relative;
-    overflow: hidden;
-  }
-  .nf-wrap::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 80% 60% at 50% 110%, rgba(255,45,63,0.18), transparent 65%);
-    pointer-events: none;
-  }
-  .nf-ghost {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800;
-    font-size: clamp(14rem, 42vw, 34rem);
-    line-height: 1;
-    color: transparent;
-    -webkit-text-stroke: 1.5px var(--ghost-stroke);
-    pointer-events: none;
-    user-select: none;
-  }
-  .nf-inner { position: relative; z-index: 2; }
-  .nf-inner h1 { font-size: clamp(2.6rem, 7vw, 5rem); margin-bottom: 16px; }
-  .nf-inner h1 .accent {
-    background: var(--grad-red);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    font-style: italic;
-  }
-  .nf-inner p { color: var(--text-2); margin-bottom: 30px; font-size: 1.02rem; }
-  .nf-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-</style>
+<!-- Any missing address lands here, at any depth: every file it loads is absolute. No app files (styles.css): the bar
+     (site.css), the page (pages.css) and the privacy banner are all it needs. -->
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/pages.css">
+<link rel="stylesheet" href="/cookie-consent.css">
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
-<script defer src="error-log.js"></script>
-<script defer src="cookie-consent.js"></script>
+<script defer src="/error-log.js"></script>
+<script defer src="/cookie-consent.js"></script>
 </head>
 <body class="site">
-<div class="nf-wrap">
-  <div class="nf-ghost" aria-hidden="true">404</div>
-  <div class="nf-inner">
-    <h1>Missed lift.</h1>
-    <p>This page doesn't exist. Three red lights. Rack the bar and head back.</p>
-    <div class="nf-actions">
-      <a href="/" class="btn btn-primary btn-lg">Back to the platform</a>
-      <a href="/marketplace.html" class="btn btn-ghost btn-lg">Browse programs</a>
-    </div>
-  </div>
-</div>
+
+<a class="skip-link" href="#main">Skip to content</a>
+<!-- The bar (site.css), the same as every public page's. -->
+<header class="bar" id="nav">
+  <a class="bar-brand" href="/" aria-label="POWALIFTA home"><svg class="bar-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span class="bar-word">POWALIFTA</span></a>
+  <nav class="bar-r" aria-label="Site">
+    <div class="bar-toc web-only"><a class="bar-link" href="/#today">Today</a><a class="bar-link" href="/#answers">Answers</a><a class="bar-link" href="/#program">Next week</a><a class="bar-link" href="/#meet">Meet day</a><a class="bar-link" href="/#pricing">Pricing</a></div>
+    <a class="bar-link" href="/index.html#login" data-bar="login">Log in</a>
+    <a class="bar-pill" href="/index.html#signup" data-bar="cta">Start free</a>
+  </nav>
+</header>
+
+<main id="main" class="nf-wrap">
+  <h1>Missed lift.</h1>
+  <p>This page doesn’t exist. Three red lights. Rack the bar and head back.</p>
+  <div class="s-actions"><a href="/" class="btn btn-primary btn-lg">Back to the platform</a></div>
+</main>
 </body>
 </html>
