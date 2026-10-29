@@ -1306,6 +1306,8 @@ html:not(.desk) body.powa-app .ca-client .cs-pk b { font-size: 17px; }
 html:not(.desk) body.powa-app .ca-charts .cl-mplan { font-size: 15px; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] .fr-side > .ui-label { font-size: 20px; }
 html:not(.desk) body.powa-app .cp-sheet .sf-field { font-size: 13px; }
+/* an action sheet (uiActionSheet: a ⋯ menu's items and its Cancel) is rows: 17, not the shared 16 */
+html:not(.desk) body.powa-app .ui-sheet:has(> .ui-sheet-cancel) > button { font-size: 17px; }
 html:not(.desk) body.powa-app .cp-sheet .sf-edit input.sf-in { font-size: 17px; }
 
 /* =================================================================== STATES: loading, couldn't load, empty
