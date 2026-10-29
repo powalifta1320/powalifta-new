@@ -791,10 +791,6 @@ body.home .modal .btn-primary { background: linear-gradient(180deg, var(--act-to
 body.home .modal .btn-primary::after { display: none; }
 body.home .modal-backdrop { color: var(--text); }   /* the app's text colour, light or dark theme */
 body.home .modal a { color: var(--text); }   /* links in ink, as on every public page */
-/* The privacy banner (cookie-consent.css) reads the app's tokens; on this page it carries its own. */
-body.home .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --bg: #0b0b0c; --bg-1: #111114; --bg-2: #16161a; --bg-3: #1d1d22; --line: #25252c; --line-2: #34343d;
-  --text: #f4f4f6; --text-2: #b8b8c0; --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); --ring: 0 0 0 3px rgba(255, 255, 255, 0.16);
-  font-family: var(--font-body); color: var(--text); line-height: 1.5; }
 
 /* #pricing and #marketplace-teaser keep their ids (the iPhone app hides them by id); the app's styles.css still dresses
    both for its old landing page: not here. */

@@ -518,9 +518,6 @@ body.site .nf-wrap .s-actions { margin-top: 40px; }
 /* Its crimson action is always on screen (one screen, no app.js), so the bar's ink pill is stepped back from the start. */
 body.nf-page .bar .bar-pill { display: none; }
 
-/* The privacy banner reads the page's tokens; here it carries the few the app would have given it. */
-body.site .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); --ring: 0 0 0 3px rgba(127, 127, 140, 0.3); font-family: var(--font-body); }
-
 /* =====================================================================
    Phone width: the same pages, composed for the thumb (the homepage's phone values).
    ===================================================================== */
