@@ -311,6 +311,9 @@ body.site .mk-loading p { font-size: 16px; }
 body.site .mk-empty h3 { margin: 0 0 8px; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); font-weight: 800; letter-spacing: -0.024em; color: var(--text); }
 body.site .mk-empty p { font-size: 17px; color: var(--text-2); }
 body.site .mk-empty .btn { margin-top: 22px; }
+/* A program that isn't listed: the headline, one line, the way back to all programs. */
+body.site .mk-empty .mk-detail-meta { font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .mk-empty .quiet { margin-top: 28px; }
 body.site .skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--cg); padding: var(--head-top) 0 var(--end); }
 body.site .skel-card { padding: 24px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
 body.site .skel-line { background: var(--fill-2); animation: none; }
@@ -439,8 +442,8 @@ body.site .cp-cta { max-width: var(--col); padding: 48px 0 0; border: 0; border-
 body.site .cp-cta h2 { margin: 0; font-size: clamp(30px, 0.95rem + 2.15vw, 46px); line-height: 1.05; letter-spacing: -0.031em; }
 body.site .cp-cta p { margin: 18px 0 0; max-width: 34em; font-size: 17px; color: var(--text-2); }
 body.site .cp-cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 32px; }
-body.site :is(.cp-loading, .cp-error) { padding: var(--head-top) 0 var(--end); color: var(--text-2); }
-body.site .cp-error h2 { margin: 0 0 14px; font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; }
+body.site :is(.cp-loading, .cp-error) { padding-top: var(--head-top); padding-bottom: var(--end); color: var(--text-2); }   /* the sides are the frame's (.s-wrap) */
+body.site .cp-error h1 { margin: 0 0 18px; }
 body.site .cp-error p { max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
 body.site .cp-error .quiet { margin-top: 28px; }
 
@@ -523,7 +526,7 @@ body.site .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --ea
    ===================================================================== */
 @media (max-width: 759px) {
   body.site { font-size: 16px; }
-  body.site h1, body.site :is(.guide-title, .mk-detail-title, .cp-name, .cp-error h2) { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
+  body.site h1, body.site :is(.guide-title, .mk-detail-title, .cp-name) { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
   body.site .s-page-head { padding: 40px 0 32px; }
   body.site .guide-wrap, body.site .mk-detail { padding-top: 32px; }
   body.site .cp-hero { padding-top: 32px; }
