@@ -930,6 +930,8 @@ html:not(.desk) .ca-charts .cl-chip { height: 28px; padding: 0 11px; }
 html:not(.desk) .ca-charts :is(.cl-chip.up, .cl-chip.down) { background: var(--pl-inset-2); color: var(--text); }
 html:not(.desk) .ca-charts .cl-chip.up svg { color: var(--ca-up); }
 html:not(.desk) .ca-charts .cl-chip.down svg { color: var(--ca-warn); }
+/* a line's label (the weight class on the bodyweight chart) is words: ink, the colour stays on its line */
+html:not(.desk) .ca-charts .cl-reft { fill: var(--text-2); }
 html:not(.desk) .ca-charts .cl-area { opacity: 0.1; }
 html:not(.desk) .ca-charts .cl-lift, html:not(.desk) .ca-charts .cl-tile { background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
 html:not(.desk) .ca-charts .cl-lift {
