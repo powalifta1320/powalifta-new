@@ -1241,7 +1241,8 @@
         S.aid = null; S.landFresh = ids[0];   // Programs lands on the first of them, on week 1 of the new block
         applyTemplateToLifters(t, ids, { noun: 'lifters' });
       });
-      sheet.appendChild(go);
+      // The red stays in reach under a long roster: the list scrolls behind it.
+      sheet.appendChild(el('div', { class: 'cp-sheet-foot' }, go));
       paint();
     }, { cls: 'cp-apply-sheet' });
   }
