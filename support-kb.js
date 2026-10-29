@@ -28,7 +28,7 @@ window.POWA_SUPPORT_KB = [
    "no card needed",
    "trial"
   ],
-  "a": "Yes, free for lifters, forever: logging, estimated maxes, progress, clubs, meet day, your coach's programs, messages and form checks all cost nothing, and it is not a trial. Coaches are free too with up to 3 athletes and every feature unlocked, no card needed. Only coaches with a bigger roster pay for a plan."
+  "a": "Yes, free for lifters, forever: logging, estimated maxes, progress, clubs, meet day, your coach's programs, messages and form checks all cost nothing, and it is not a trial. Coaches are free too with up to 3 lifters and every feature unlocked, no card needed. Only coaches with a bigger roster pay for a plan."
  },
  {
   "id": "coach-vs-athlete",
@@ -41,8 +41,8 @@ window.POWA_SUPPORT_KB = [
    "sign up as an athlete",
    "which account should i pick"
   ],
-  "a": "An athlete account is for your own training: Train, Progress, Club and You, plus Coach when you are linked to one or Program (the program builder) when you lift on your own, with every set logged, estimated maxes, bodyweight and goals. A coach account is for programming other people: Roster, Program, Messages, Club and You, where you make invite codes, build and assign programs, message your athletes and see who trained today. On the web sign-up pick Lifter · On my own, Lifter · With a coach, or Coach · I train people.",
-  "app": "An athlete account is for your own training: Train, Progress, Club and You, plus Coach when you are linked to one or Program (the program builder) when you lift on your own, with every set logged, estimated maxes, bodyweight and goals. A coach account is for programming other people: Roster, Program, Messages, Club and You, where you make invite codes, build and assign programs, message your athletes and see who trained today. When you sign up in the app choose I train on my own, I have a coach, or I coach lifters."
+  "a": "A lifter account is for your own training: Train, Progress, Club and You, plus Coach when you are linked to one or Program (the program builder) when you lift on your own, with every set logged, estimated maxes, bodyweight and goals. A coach account is for programming other people: Home, Lifters, Messages, Programs and You (on a laptop: Today, Lifters, Programs, Meets, Messages, Clients and Club), where you invite lifters, build and assign programs, message your lifters and see who trained today. On the web sign-up pick Lifter · On my own, Lifter · With a coach, or Coach · I train people.",
+  "app": "A lifter account is for your own training: Train, Progress, Club and You, plus Coach when you are linked to one or Program (the program builder) when you lift on your own, with every set logged, estimated maxes, bodyweight and goals. A coach account is for programming other people: Home, Lifters, Messages, Programs and You (on a laptop: Today, Lifters, Programs, Meets, Messages, Clients and Club), where you invite lifters, build and assign programs, message your lifters and see who trained today. When you sign up in the app choose I train on my own, I have a coach, or I coach lifters."
  },
  {
   "id": "use-without-coach",
@@ -112,7 +112,7 @@ window.POWA_SUPPORT_KB = [
    "invite lifter",
    "send invite code"
   ],
-  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Tap Share an invite link to send it in any app, or Copy link, or Show QR code for someone next to you; each link works for one lifter. Or type their email and tap Send. They open the link, get the app, sign up and appear on your roster (a lifter can also type the 6-character code under Find a coach → \"Have an invite code?\"). Links still waiting sit under Pending invites on Lifters: tap one to share it again, copy it or revoke it. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
+  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Tap Share an invite link to send it in any app, or Copy link, or Show QR code for someone next to you; each link works for one lifter. Or type their email and tap Send. They open the link, get the app, sign up and appear on your roster (a lifter can also type the 6-character code under Find a coach → \"Have an invite code?\"). Links still waiting sit under Pending invites on Lifters: tap one to share it again, copy it or revoke it. If your plan's lifter limit is full, you'll be asked to upgrade your plan instead."
  },
  {
   "id": "coach-remove-athlete",
@@ -334,7 +334,7 @@ window.POWA_SUPPORT_KB = [
    "send a set to my coach",
    "unread messages"
   ],
-  "a": "Athletes: once you're connected to a coach, open the Coach tab, stay on Messages, type and tap Send; the + in the composer opens Send a set so you can send a recent set as a card, and the \"Send to coach\" button on a logged set does the same. Coaches: open Messages and pick a name, or on Roster tap an athlete and choose Message. Real conversations need a real account; the demo only shows a sample chat that isn't saved."
+  "a": "Lifters: once you're connected to a coach, open the Coach tab, stay on Messages, type and tap Send; the + in the composer opens Send a set so you can send a recent set as a card, and the \"Send to coach\" button on a logged set does the same. Coaches: open Messages and pick a name, or open a lifter from Lifters and tap Message. Real conversations need a real account; the demo only shows a sample chat that isn't saved."
  },
  {
   "id": "form-checks",
@@ -351,8 +351,8 @@ window.POWA_SUPPORT_KB = [
    "compare clips",
    "coach drawings"
   ],
-  "a": "Athletes: open the Coach tab, switch to Form checks, choose a video (up to 100 MB), pick the lift, say what you want eyes on and tap \"Send for review\"; tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: Roster lists Form checks waiting for a review; tap one to open the review: step frame by frame (the , and . keys on a laptop), pause on the frame that matters, draw a line, arrow, circle, angle (it shows the degrees) or freehand, tick what you judged (depth, lockout, pause, bar path, set-up), add a caption and a reply, then Send. Compare puts two of the lifter's clips side by side: tap Align here on the same moment in each, like the bottom of the squat, and they play together. Videos and drawings are private to the two of you.",
-  "app": "Athletes: open the Coach tab, switch to Form checks, tap Film a set or Choose a clip, pick the lift, say what you want eyes on and tap \"Send for review\"; the app converts iPhone video so your coach can play it on any computer. Tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: Roster lists Form checks waiting for a review; tap one to step frame by frame, draw on the frame that matters (line, arrow, circle, angle with the degrees, freehand), tick what you judged, add a caption and a reply, then Send. Compare puts two clips side by side, aligned on the same moment. Videos and drawings are private to the two of you."
+  "a": "Lifters: open the Coach tab, switch to Form checks, choose a video (up to 100 MB), pick the lift, say what you want eyes on and tap \"Send for review\"; tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: a form check waiting for a review shows on Home (Today on a laptop) and under Form checks on the lifter's page; tap one to open the review: step frame by frame (the , and . keys on a laptop), pause on the frame that matters, draw a line, arrow, circle, angle (it shows the degrees) or freehand, tick what you judged (depth, lockout, pause, bar path, set-up), add a caption and a reply, then Send. Compare puts two of the lifter's clips side by side: tap Align here on the same moment in each, like the bottom of the squat, and they play together. Videos and drawings are private to the two of you.",
+  "app": "Lifters: open the Coach tab, switch to Form checks, tap Film a set or Choose a clip, pick the lift, say what you want eyes on and tap \"Send for review\"; the app converts iPhone video so your coach can play it on any computer. Tap Watch clip to see your coach's reply and any lines, angles or circles they drew, replayed on your video at the moments they drew them. Coaches: a form check waiting for a review shows on Home (Today on a laptop) and under Form checks on the lifter's page; tap one to step frame by frame, draw on the frame that matters (line, arrow, circle, angle with the degrees, freehand), tick what you judged, add a caption and a reply, then Send. Compare puts two clips side by side, aligned on the same moment. Videos and drawings are private to the two of you."
  },
  {
   "id": "coach-build-program",
@@ -367,8 +367,8 @@ window.POWA_SUPPORT_KB = [
    "paste from a spreadsheet",
    "program builder"
   ],
-  "a": "Open Program builder and pick the athlete in the dropdown at the top. Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace with an imported program and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap Notify at the top (or ⋯ → Notify) to tell the athlete it is ready.",
-  "app": "Open Roster, tap the athlete and tap Program (once a program exists you can also switch athletes from the avatars above it). Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace with an imported program and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap ⋯ → Notify to tell the athlete it is ready."
+  "a": "Open Programs and pick the lifter (on a phone from the title, on a laptop in the list on the left). Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace with an imported program and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap Notify at the top (or ⋯ → Notify) to tell the lifter it is ready.",
+  "app": "Open Programs and pick the lifter from the title, or open the lifter and tap Program. Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet), then use Add exercise inside each day and Add day / Add rest day at the bottom of the week; ⋯ next to the program name has Add week, Save as template, Replace with an imported program and Delete program. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap ⋯ → Notify to tell the lifter it is ready."
  },
  {
   "id": "coach-prescriptions",
@@ -383,8 +383,8 @@ window.POWA_SUPPORT_KB = [
    "weight range",
    "140-145"
   ],
-  "a": "Type them the way you'd write them. In the load box: a weight (140), or a range (140-145); tap the kg header to switch the exercise to % of their max (75, or 70-75). In the effort box: an RPE (8) or a range (7-8); tap the RPE header to write reps in reserve instead (2, or 1-2). On a laptop the Grid view takes a whole cell at once: 3x5 @8, 3x5 140-145kg @7, 4x6 70-75%, 3x8 2RIR, 1x3 @8, 3x5 160kg. The athlete starts at the bottom of a range and Train shows how far to go (\"Up to 145 kg\"); if a set feels easy, the next one moves up, never past the top. Percentages work from the maxes you set for the block (⋯ → Maxes for % work), else their best estimated max.",
-  "app": "Type them the way you'd write them. In the load box: a weight (140); tap the kg header to switch the exercise to % of their max (75). In the effort box: an RPE (8) or a range (7-8); tap the RPE header to write reps in reserve instead (2, or 1-2). Weight and % ranges (140-145, 70-75) are easiest on a laptop at powalifta.com, where the Grid view takes a whole cell at once (3x5 140-145kg @7), or in a pasted spreadsheet. The athlete starts at the bottom of a range and Train shows how far to go; if a set feels easy, the next one moves up, never past the top. Percentages work from the maxes you set for the block (⋯ → Maxes for % work), else their best estimated max."
+  "a": "Type them the way you'd write them. In the load box: a weight (140), or a range (140-145); tap the kg header to switch the exercise to % of their max (75, or 70-75). In the effort box: an RPE (8) or a range (7-8); tap the RPE header to write reps in reserve instead (2, or 1-2). On a laptop the Grid view takes a whole cell at once: 3x5 @8, 3x5 140-145kg @7, 4x6 70-75%, 3x8 2RIR, 1x3 @8, 3x5 160kg. The lifter starts at the bottom of a range and Train shows how far to go (\"Up to 145 kg\"); if a set feels easy, the next one moves up, never past the top. Percentages work from the maxes you set for the block (⋯ → Maxes for % work), else their best estimated max.",
+  "app": "Type them the way you'd write them. In the load box: a weight (140); tap the kg header to switch the exercise to % of their max (75). In the effort box: an RPE (8) or a range (7-8); tap the RPE header to write reps in reserve instead (2, or 1-2). Weight and % ranges (140-145, 70-75) are easiest on a laptop at powalifta.com, where the Grid view takes a whole cell at once (3x5 140-145kg @7), or in a pasted spreadsheet. The lifter starts at the bottom of a range and Train shows how far to go; if a set feels easy, the next one moves up, never past the top. Percentages work from the maxes you set for the block (⋯ → Maxes for % work), else their best estimated max."
  },
  {
   "id": "coach-next-block",
@@ -398,8 +398,8 @@ window.POWA_SUPPORT_KB = [
    "previous program",
    "start the next block"
   ],
-  "a": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: on a laptop, open the athlete and scroll to **Blocks** to see each one as a fingerprint (sets a week per lift, RPE felt against written, sessions, e1RM per lift), open it as a grid, or **Compare** any two.",
-  "app": "In Program builder, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: open the lifter from the Lifters tab and tap **Blocks** to see every block with what it did for their e1RM, and tap two to compare them."
+  "a": "In Programs, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: on a laptop, open the lifter and scroll to **Blocks** to see each one as a fingerprint (sets a week per lift, RPE felt against written, sessions, e1RM per lift), open it as a grid, or **Compare** any two.",
+  "app": "In Programs, tap ⋯ → Start the next block (it's the red button once a block is finished). Pick the same block heavier (every week again, main lifts +2.5 kg or +2.5% on % sets), a template, a pasted spreadsheet or a block built from a goal. The block you replace is kept with everything they logged: open the lifter from the Lifters tab and tap **Blocks** to see every block with what it did for their e1RM, and tap two to compare them."
  },
  {
   "id": "coach-branding",
@@ -413,8 +413,8 @@ window.POWA_SUPPORT_KB = [
    "team name",
    "white label"
   ],
-  "a": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your athletes see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. On a lower plan you can set it up now and it switches on when you move to Pro; if a plan ends, the app goes back to its own look.",
-  "app": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your athletes see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. If a plan ends, the app goes back to its own look."
+  "a": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your lifters see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. On a lower plan you can set it up now and it switches on when you move to Pro; if a plan ends, the app goes back to its own look.",
+  "app": "Yes, on Pro and Premium. Go to You → Branding, add your team name, upload a logo (a square PNG works best) and pick a colour, then Save branding. Your lifters see the logo and team name above their day on Train and in My coach, and their Log set button takes your colour, the next time they open the app. If a plan ends, the app goes back to its own look."
  },
  {
   "id": "apple-health",
@@ -446,7 +446,7 @@ window.POWA_SUPPORT_KB = [
    "resolve pain",
    "pain flag"
   ],
-  "a": "On Train, tap Something hurt under the exercise you're on (on a phone it's the plaster icon beside the note pencil) (it's also in Finish session, and after you pick Beat up). Tap where it hurts on the body map, then how bad it is from 1 to 10: tapping the number sends it to your coach, with the lift and set filled in. Change Warm-up / Working sets / After first if it wasn't the set you were on. Tapped the wrong spot? Undo is on the message that appears. Your coach gets a notification that only says you logged a check-in (it never names the body part), and only you and your current coach can see your reports; deleting your account deletes them. Coaches: it shows on the roster as a Pain flag and in the athlete's sheet, where you tap it to resolve it with a note. This is a way to talk to your coach, not medical advice: for anything sharp, swelling or not getting better, see a doctor or physio."
+  "a": "On Train, tap Something hurt under the exercise you're on (on a phone it's the plaster icon beside the note pencil) (it's also in Finish session, and after you pick Beat up). Tap where it hurts on the body map, then how bad it is from 1 to 10: tapping the number sends it to your coach, with the lift and set filled in. Change Warm-up / Working sets / After first if it wasn't the set you were on. Tapped the wrong spot? Undo is on the message that appears. Your coach gets a notification that only says you logged a check-in (it never names the body part), and only you and your current coach can see your reports; deleting your account deletes them. Coaches: it shows as a Pain flag on Home and Lifters (Today on a laptop) and in the lifter's sheet, where you tap it to resolve it with a note. This is a way to talk to your coach, not medical advice: for anything sharp, swelling or not getting better, see a doctor or physio."
  },
  {
   "id": "voice-notes",
@@ -512,7 +512,7 @@ window.POWA_SUPPORT_KB = [
    "save as template",
    "template"
   ],
-  "a": "In Program tap ⋯ next to the program name and choose \"Save as template\", then give it a name and tap Save template. Your templates live under You → Templates (the screen is called Program templates; an athlete with no program yet also shows a View templates button). Tap Apply on a template, tick the athletes to give it to (it replaces their current program) and tap Apply template. The bin icon deletes a template."
+  "a": "In Program tap ⋯ next to the program name and choose \"Save as template\", then give it a name and tap Save template. Your templates live under You → Templates (the screen is called Program templates; a lifter with no program yet also shows a View templates button). Tap Apply on a template, tick the lifters to give it to (it replaces their current program) and tap Apply template. The bin icon deletes a template."
  },
  {
   "id": "ai-assistant",
@@ -995,8 +995,8 @@ window.POWA_SUPPORT_KB = [
    "json",
    "spreadsheet"
   ],
-  "a": "Go to You → Your data (on a laptop: Settings → Your data; coaches on the desk can also press ⌘K → Export everything) and tap Download everything. You get one zip of CSV files that open in Sheets, Excel or Numbers: your training log, your program and every past block, weigh-ins, goals, meets, check-ins, notes and messages, plus everything.json with the same data in one file. Coaches get all of it for every athlete on the roster, with the athlete's name on each row, plus their templates. Weights are in kilograms. \"Just the training log\" saves only the log as one CSV, which imports back in as it is. On Train, Export day saves just the selected day's session (on a phone, tap ⋯ first), and coaches can tap ⋯ on the Program tab → Export spreadsheet for one athlete's program. More on what we keep and who sees it: powalifta.com/data.html.",
-  "app": "Go to You → Your data and tap Download everything. You get one zip of CSV files: your training log, your program and every past block, weigh-ins, goals, meets, check-ins, notes and messages, plus everything.json with the same data in one file (coaches get all of it for every athlete, plus their templates). The iPhone share sheet opens: tap Save to Files to keep it on your iPhone or in iCloud Drive, or send it with AirDrop or Mail. \"Just the training log\" saves only the log as one CSV. The same sheet opens from Train → ⋯ → Export day (just that day's session) and, for coaches, from the Program tab → ⋯ → Export spreadsheet (an athlete's program)."
+  "a": "Go to You → Your data (on a laptop: Settings → Your data; coaches on the desk can also press ⌘K → Export everything) and tap Download everything. You get one zip of CSV files that open in Sheets, Excel or Numbers: your training log, your program and every past block, weigh-ins, goals, meets, check-ins, notes and messages, plus everything.json with the same data in one file. Coaches get all of it for every lifter on the roster, with the lifter's name on each row, plus their templates. Weights are in kilograms. \"Just the training log\" saves only the log as one CSV, which imports back in as it is. On Train, Export day saves just the selected day's session (on a phone, tap ⋯ first), and coaches can tap ⋯ in Programs → Export as a file (Export spreadsheet on a laptop) for one lifter's program. More on what we keep and who sees it: powalifta.com/data.html.",
+  "app": "Go to You → Your data and tap Download everything. You get one zip of CSV files: your training log, your program and every past block, weigh-ins, goals, meets, check-ins, notes and messages, plus everything.json with the same data in one file (coaches get all of it for every lifter, plus their templates). The iPhone share sheet opens: tap Save to Files to keep it on your iPhone or in iCloud Drive, or send it with AirDrop or Mail. \"Just the training log\" saves only the log as one CSV. The same sheet opens from Train → ⋯ → Export day (just that day's session) and, for coaches, from Programs → ⋯ → Export as a file (a lifter's program)."
  },
  {
   "id": "coach-import-history",
@@ -1013,7 +1013,7 @@ window.POWA_SUPPORT_KB = [
    "switch from spreadsheet",
    "import history"
   ],
-  "a": "Coaches: on a laptop, click a lifter on the Roster and choose Import their history, or press ⌘K and choose Import history…; on the phone, You → Your data → Bring your coaching in, then pick the lifter. Choose a file (a CSV, an Excel or Google Sheets workbook, an .ods, a .zip of CSVs or a .json export) or paste the cells; a workbook asks which tab. One row per set works best (date, exercise, weight, reps, RPE if you have it), and so does a row per exercise with Set 1, Set 2 … across. Exports from Strong, Hevy and FitNotes work as they are, so does a written log (\"2 Mar 2026\" then \"Squat 180x5 @8\"), and a block written like a program is kept as a past block. Columns it can't place get a dropdown, and it remembers your choices for the next file like it. Before anything is saved you see the sets it read, the first few as they'll be saved, the rows it left out and why, the dates and the PRs it makes; set kg or lb, day or month first, and the RPE to assume for sets without one. Importing the same file twice adds nothing, and Undo (or importing the same file again → Remove) takes an import back out. A lifter not on your roster yet can bring it in themselves: Progress → Tools → Import history.",
+  "a": "Coaches: on a laptop, click a lifter on Lifters and choose Import their history, or press ⌘K and choose Import history…; on the phone, You → Your data → Bring your coaching in, then pick the lifter. Choose a file (a CSV, an Excel or Google Sheets workbook, an .ods, a .zip of CSVs or a .json export) or paste the cells; a workbook asks which tab. One row per set works best (date, exercise, weight, reps, RPE if you have it), and so does a row per exercise with Set 1, Set 2 … across. Exports from Strong, Hevy and FitNotes work as they are, so does a written log (\"2 Mar 2026\" then \"Squat 180x5 @8\"), and a block written like a program is kept as a past block. Columns it can't place get a dropdown, and it remembers your choices for the next file like it. Before anything is saved you see the sets it read, the first few as they'll be saved, the rows it left out and why, the dates and the PRs it makes; set kg or lb, day or month first, and the RPE to assume for sets without one. Importing the same file twice adds nothing, and Undo (or importing the same file again → Remove) takes an import back out. A lifter not on your roster yet can bring it in themselves: Progress → Tools → Import history.",
   "app": "Coaches: You → Your data → Bring your coaching in, then pick the lifter. Choose a file (a CSV, an Excel or Google Sheets workbook, an .ods, a .zip of CSVs or a .json export) or paste the cells; a workbook asks which tab. One row per set works best (date, exercise, weight, reps, RPE if you have it), and so does a row per exercise with Set 1, Set 2 … across. Exports from Strong, Hevy and FitNotes work as they are, and a block written like a program is kept as a past block. Columns it can't place get a dropdown, and it remembers your choices. Before anything is saved you see the sets it read, the rows it left out and why, the dates and the PRs it makes. Importing the same file twice adds nothing, and Undo takes an import back out. A lifter not on your roster yet can bring it in themselves: Progress → Tools → Import history."
  },
  {
@@ -1113,8 +1113,8 @@ window.POWA_SUPPORT_KB = [
    "price",
    "pricing"
   ],
-  "a": "Coaching is free for up to 3 athletes; Basic is $24.99 a month (up to 10), Pro $49.99 a month (up to 25) and Premium $99.99 a month (unlimited), in USD with any tax shown at checkout. Go to You → Plan & billing to see your plan, its renewal date and how many athlete slots you are using; See plans lists the plans. Plans are on sale in the POWALIFTA iPhone app now, and on the web through Lemon Squeezy checkout once it opens. A web subscriber's Manage billing opens the secure Lemon Squeezy portal to update the card, switch or cancel and find invoices. Coaches bill their own athletes however they like; POWALIFTA takes no cut of that and only charges for the platform.",
-  "app": "Coaching is free for up to 3 athletes; bigger rosters need a coach plan, Basic (up to 10), Pro (up to 25) or Premium (unlimited), bought as an Apple in-app subscription billed monthly to your Apple ID. Go to You → Plan & billing to see your plan and how many athlete slots you are using; See plans (Change plan once you pay) shows each plan's monthly price in your local currency. Once you pay, Manage subscription opens your Apple ID subscriptions in the App Store, the same list as iPhone Settings → Apple ID → Subscriptions, where you can switch or cancel. Coaches bill their own athletes however they like; POWALIFTA takes no cut of that and only charges for the platform."
+  "a": "Coaching is free for up to 3 lifters; Basic is $24.99 a month (up to 10), Pro $49.99 a month (up to 25) and Premium $99.99 a month (unlimited), in USD with any tax shown at checkout. Go to You → Plan & billing to see your plan, its renewal date and how many lifter slots you are using; See plans lists the plans. Plans are on sale in the POWALIFTA iPhone app now, and on the web through Lemon Squeezy checkout once it opens. A web subscriber's Manage billing opens the secure Lemon Squeezy portal to update the card, switch or cancel and find invoices. Coaches bill their own lifters however they like; POWALIFTA takes no cut of that and only charges for the platform.",
+  "app": "Coaching is free for up to 3 lifters; bigger rosters need a coach plan, Basic (up to 10), Pro (up to 25) or Premium (unlimited), bought as an Apple in-app subscription billed monthly to your Apple ID. Go to You → Plan & billing to see your plan and how many lifter slots you are using; See plans (Change plan once you pay) shows each plan's monthly price in your local currency. Once you pay, Manage subscription opens your Apple ID subscriptions in the App Store, the same list as iPhone Settings → Apple ID → Subscriptions, where you can switch or cancel. Coaches bill their own lifters however they like; POWALIFTA takes no cut of that and only charges for the platform."
  },
  {
   "id": "upgrade-coach-plan",
@@ -1128,8 +1128,8 @@ window.POWA_SUPPORT_KB = [
    "subscribe",
    "upgrade"
   ],
-  "a": "Tap Upgrade on the plan bar at the top of Roster (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Subscribe in the iPhone app, or on the web once checkout opens: checkout opens in a new tab with Lemon Squeezy, and this page switches to your new plan the moment the payment goes through, on every device you're signed in on. The plan picker also opens on its own when you tap Invite athlete on Roster, or Invite an athlete under You, once your plan is full.",
-  "app": "Tap Upgrade on the plan bar at the top of Roster (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Tap Subscribe on the plan you want, or Switch if you already pay; it is an Apple in-app subscription billed to your Apple ID and usually activates as soon as the purchase goes through. The plan picker also opens on its own when you tap Invite athlete on Roster, or Invite an athlete under You, once your plan is full."
+  "a": "Tap Upgrade on the plan bar at the top of Lifters (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Subscribe in the iPhone app, or on the web once checkout opens: checkout opens in a new tab with Lemon Squeezy, and this page switches to your new plan the moment the payment goes through, on every device you're signed in on. The plan picker also opens on its own when you tap + (Invite a lifter) on Lifters, or Invite a lifter under You, once your plan is full.",
+  "app": "Tap Upgrade on the plan bar at the top of Lifters (it says Upgrade now when your plan is full), or go to You → Plan & billing and tap See plans (Change plan if you already pay). Tap Subscribe on the plan you want, or Switch if you already pay; it is an Apple in-app subscription billed to your Apple ID and usually activates as soon as the purchase goes through. The plan picker also opens on its own when you tap + (Invite a lifter) on Lifters, or Invite a lifter under You, once your plan is full."
  },
  {
   "id": "change-coach-plan",
@@ -1142,7 +1142,7 @@ window.POWA_SUPPORT_KB = [
    "move to pro",
    "switch plan"
   ],
-  "a": "Go to You → Plan & billing → Change plan and tap the plan you want: the switch happens in the secure Lemon Squeezy billing portal (never a second checkout, so you're never charged twice), and your new athlete limit shows here as soon as it's confirmed. If you subscribed in the iPhone app, switch on your iPhone in Settings → your name → Subscriptions instead.",
+  "a": "Go to You → Plan & billing → Change plan and tap the plan you want: the switch happens in the secure Lemon Squeezy billing portal (never a second checkout, so you're never charged twice), and your new lifter limit shows here as soon as it's confirmed. If you subscribed in the iPhone app, switch on your iPhone in Settings → your name → Subscriptions instead.",
   "app": "Go to You → Plan & billing → Manage subscription (or iPhone Settings → Apple ID → Subscriptions), pick POWALIFTA and choose the plan you want. Apple handles the change: upgrades usually apply straight away and downgrades start at your next renewal date. If your plan was started outside the App Store, the app shows it but can't change it, and it won't let you buy a second one."
  },
  {
@@ -1156,8 +1156,8 @@ window.POWA_SUPPORT_KB = [
    "stop paying",
    "unsubscribe from plan"
   ],
-  "a": "Go to You → Plan & billing → Manage billing, which opens your Lemon Squeezy billing portal, and cancel there. If you subscribed in the iPhone app, cancel in iPhone Settings → Apple ID → Subscriptions instead. Your plan stays active until the end of the current billing period, then drops to Free (3 athletes). Nothing is deleted and your athletes stay connected.",
-  "app": "Open iPhone Settings → Apple ID → Subscriptions, pick POWALIFTA and tap Cancel Subscription (You → Plan & billing → Manage subscription takes you to the same place). Cancel at least 24 hours before your renewal date; you keep the plan until the period ends, then it drops to Free (3 athletes). A plan you started somewhere else has no Manage subscription button and is not listed there, so cancel it where you first subscribed. Nothing is deleted and your athletes stay connected."
+  "a": "Go to You → Plan & billing → Manage billing, which opens your Lemon Squeezy billing portal, and cancel there. If you subscribed in the iPhone app, cancel in iPhone Settings → Apple ID → Subscriptions instead. Your plan stays active until the end of the current billing period, then drops to Free (3 lifters). Nothing is deleted and your lifters stay connected.",
+  "app": "Open iPhone Settings → Apple ID → Subscriptions, pick POWALIFTA and tap Cancel Subscription (You → Plan & billing → Manage subscription takes you to the same place). Cancel at least 24 hours before your renewal date; you keep the plan until the period ends, then it drops to Free (3 lifters). A plan you started somewhere else has no Manage subscription button and is not listed there, so cancel it where you first subscribed. Nothing is deleted and your lifters stay connected."
  },
  {
   "id": "restore-purchases",
@@ -1186,8 +1186,8 @@ window.POWA_SUPPORT_KB = [
    "payment problem",
    "update my card"
   ],
-  "a": "A red Payment problem banner appears on your coach dashboard when a card payment fails. Tap Fix billing (or You → Plan & billing → Manage billing) to update your card in Lemon Squeezy; repeated failures drop you to Free (3 athletes), and your athletes stay connected. Still stuck? WhatsApp +968 71518133 or powalifta1320@gmail.com.",
-  "app": "If Apple can't take your payment, update your card in iPhone Settings → Apple ID → Payment & Shipping; Apple keeps retrying, and your plan comes back once the payment goes through. Until then your plan can drop to Free (3 athletes), but nothing is deleted and your athletes stay connected. Still stuck? WhatsApp +968 71518133 or powalifta1320@gmail.com.",
+  "a": "A red Payment problem banner appears on your coach dashboard when a card payment fails. Tap Fix billing (or You → Plan & billing → Manage billing) to update your card in Lemon Squeezy; repeated failures drop you to Free (3 lifters), and your lifters stay connected. Still stuck? WhatsApp +968 71518133 or powalifta1320@gmail.com.",
+  "app": "If Apple can't take your payment, update your card in iPhone Settings → Apple ID → Payment & Shipping; Apple keeps retrying, and your plan comes back once the payment goes through. Until then your plan can drop to Free (3 lifters), but nothing is deleted and your lifters stay connected. Still stuck? WhatsApp +968 71518133 or powalifta1320@gmail.com.",
   "esc": true
  },
  {
@@ -1245,8 +1245,8 @@ window.POWA_SUPPORT_KB = [
    "plan expired",
    "roster after cancelling"
   ],
-  "a": "Your athletes stay on your roster: your plan ending or going back to Free never disconnects anyone or deletes anything, so programs, logs and messages all stay. While you're at or over the Free limit of 3 athletes (unused invite codes count too), you can't add anyone new, and tapping Invite athlete on Roster opens the plan picker instead. To add more, go to You → Plan & billing and tap See plans.",
-  "app": "Your athletes stay on your roster: your plan ending or going back to Free never disconnects anyone or deletes anything, so programs, logs and messages all stay. While you're at or over the Free limit of 3 athletes (unused invite codes count too), you can't add anyone new, and tapping Invite athlete on Roster tells you you've hit your limit. To add more, go to You → Plan & billing, tap See plans and subscribe in the app with your Apple ID."
+  "a": "Your lifters stay on your roster: your plan ending or going back to Free never disconnects anyone or deletes anything, so programs, logs and messages all stay. While you're at or over the Free limit of 3 lifters (unused invite codes count too), you can't add anyone new, and tapping + (Invite a lifter) on Lifters opens the plan picker instead. To add more, go to You → Plan & billing and tap See plans.",
+  "app": "Your lifters stay on your roster: your plan ending or going back to Free never disconnects anyone or deletes anything, so programs, logs and messages all stay. While you're at or over the Free limit of 3 lifters (unused invite codes count too), you can't add anyone new, and tapping + (Invite a lifter) on Lifters tells you you've hit your limit. To add more, go to You → Plan & billing, tap See plans and subscribe in the app with your Apple ID."
  },
  {
   "id": "limit-reached-pending-invites",
@@ -1259,7 +1259,7 @@ window.POWA_SUPPORT_KB = [
    "plan limit",
    "roster full"
   ],
-  "a": "Unused invite codes count toward your limit as well as connected athletes, so 2 athletes plus 1 pending invite fills a Free plan. On the iPhone, open Lifters, scroll to Pending invites, tap the one you don't need and choose Revoke (on a laptop: Settings → Invite athletes → Revoke), or upgrade under You → Plan & billing."
+  "a": "Unused invite codes count toward your limit as well as connected lifters, so 2 lifters plus 1 pending invite fills a Free plan. On the iPhone, open Lifters, scroll to Pending invites, tap the one you don't need and choose Revoke (on a laptop: Settings → Invite lifters → Revoke), or upgrade under You → Plan & billing."
  },
  {
   "id": "marketplace-programs",
@@ -1307,7 +1307,7 @@ window.POWA_SUPPORT_KB = [
    "command palette",
    "cmd k"
   ],
-  "a": "On a laptop (a window at least 1000px wide) the coach dashboard opens on Today: every athlete who needs you this week, worst first (pain on a check-in, a meet close, a set well over the RPE you wrote, a note or message waiting, going quiet, a block ending). Press J and K to move, E when you've dealt with someone (they drop off until something new comes up), S to snooze them till tomorrow, U to undo, R to reply and Enter to open their page. Work down to \"All caught up\", then send kudos to the Wins lane. Press ⌘K (Ctrl K on Windows) for the command palette and ? for every shortcut. Your phone and the iPhone app keep the usual layout.",
+  "a": "On a laptop (a window at least 1000px wide) the coach dashboard opens on Today: every lifter who needs you this week, worst first (pain on a check-in, a meet close, a set well over the RPE you wrote, a note or message waiting, going quiet, a block ending). Press J and K to move, E when you've dealt with someone (they drop off until something new comes up), S to snooze them till tomorrow, U to undo, R to reply and Enter to open their page. Work down to \"All caught up\", then send kudos to the Wins lane. Press ⌘K (Ctrl K on Windows) for the command palette and ? for every shortcut. Your phone and the iPhone app keep the usual layout.",
   "app": "Today and the keyboard shortcuts are part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app the coach screens keep their usual layout."
  },
  {
@@ -1342,8 +1342,8 @@ window.POWA_SUPPORT_KB = [
    "athlete workspace",
    "rpe suggestion"
   ],
-  "a": "On a laptop, pick an athlete in Today or open their page (Enter, or double-click a roster row). The top of their workspace is a table: every block of sets from the last week they logged, what you wrote, what they lifted and how far the RPE was off (amber half a point, red a full point over), and next week beside it. Next week is typed straight in, like the grid (3x5 160 @8). Where they logged a set with an RPE, next week shows a suggested load from how it felt, the same rule Train uses set to set (never more than 10% either way, nothing for % sets): press Tab in that row to take it, Shift A to take every suggestion, then \"Apply next week\". Applying saves the week and lets the athlete know. J and K move to the next and previous athlete in the list you came from, Esc goes back to it.",
-  "app": "The athlete workspace with next-week suggestions is part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app, open the athlete and their program as usual."
+  "a": "On a laptop, pick a lifter in Today or open their page (Enter, or double-click their row on Lifters). The top of their workspace is a table: every block of sets from the last week they logged, what you wrote, what they lifted and how far the RPE was off (amber half a point, red a full point over), and next week beside it. Next week is typed straight in, like the grid (3x5 160 @8). Where they logged a set with an RPE, next week shows a suggested load from how it felt, the same rule Train uses set to set (never more than 10% either way, nothing for % sets): press Tab in that row to take it, Shift A to take every suggestion, then \"Apply next week\". Applying saves the week and lets the lifter know. J and K move to the next and previous lifter in the list you came from, Esc goes back to it.",
+  "app": "The workspace with next-week suggestions is part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app, open the lifter and their program as usual."
  },
  {
   "id": "coach-private-notes",
@@ -1357,7 +1357,7 @@ window.POWA_SUPPORT_KB = [
    "hidden notes",
    "note about client"
   ],
-  "a": "Yes. On a laptop, the right-hand pane of an athlete (in Today, their page and Messages) starts with Private notes: press N or the + to add one, Cmd Enter to save. Only you see them: never the athlete, never another coach, and if the athlete leaves your roster the notes are hidden until they come back. Deleting either account deletes the notes. If your account is still waiting on a database update, notes are kept on that computer for now and say \"on this device\".",
+  "a": "Yes. On a laptop, the right-hand pane of a lifter (in Today, their page and Messages) starts with Private notes: press N or the + to add one, Cmd Enter to save. Only you see them: never the lifter, never another coach, and if the lifter leaves your roster the notes are hidden until they come back. Deleting either account deletes the notes. If your account is still waiting on a database update, notes are kept on that computer for now and say \"on this device\".",
   "app": "Private notes are on the coach dashboard on a laptop or desktop browser at powalifta.com for now."
  },
  {
@@ -1374,7 +1374,7 @@ window.POWA_SUPPORT_KB = [
    "inspector",
    "weeks view"
   ],
-  "a": "On a laptop, Programs opens on the Grid: weeks across, days and exercises down, typed like a sheet (3x5 @8, 4x6 75%, 1x3 180). Pick the athlete or a template in the list on the left (templates now live here, under the Templates tab). Click a cell and the pane on the right shows what was written, what they lifted, the RPE against what you wrote and what a % comes to, plus buttons to fill the weeks after it (+2.5 kg a week, RPE +0.5 a week, +2.5% a week or the same). Cmd Shift R picks a fill from the cell, Cmd D copies the cell above, Cmd Z undoes. Everything saves as you type; cells changed since you last published get a thin outline and the red button counts them: \"Publish to Arjun · 7 changes\" sends them a push and an email that their program changed. Weeks (one click away) shows a whole week's days side by side.",
+  "a": "On a laptop, Programs opens on the Grid: weeks across, days and exercises down, typed like a sheet (3x5 @8, 4x6 75%, 1x3 180). Pick the lifter or a template in the list on the left (templates now live here, under the Templates tab). Click a cell and the pane on the right shows what was written, what they lifted, the RPE against what you wrote and what a % comes to, plus buttons to fill the weeks after it (+2.5 kg a week, RPE +0.5 a week, +2.5% a week or the same). Cmd Shift R picks a fill from the cell, Cmd D copies the cell above, Cmd Z undoes. Everything saves as you type; cells changed since you last published get a thin outline and the red button counts them: \"Publish to Arjun · 7 changes\" sends them a push and an email that their program changed. Weeks (one click away) shows a whole week's days side by side.",
   "app": "The grid builder is part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app the program builder keeps its week-by-week layout."
  },
  {
@@ -1389,8 +1389,8 @@ window.POWA_SUPPORT_KB = [
    "threads",
    "message everyone"
   ],
-  "a": "On a laptop, Messages shows every thread on the left (All, Needs reply, Unread, and a search), the conversation in the middle and the athlete beside it: their block and week, last three sessions with top sets and RPE, flags, next meet and bodyweight, the latest form check and your private notes. J and K move between threads, R jumps to the reply box, E marks a thread done when there is nothing to answer (it comes back if they write again), and Enter opens their page. \"Message everyone\" sends one message to each athlete in their own thread.",
-  "app": "On a laptop or desktop browser at powalifta.com, Messages has filters and the athlete's details beside the thread. In the iPhone app, open Messages from the tab bar."
+  "a": "On a laptop, Messages shows every thread on the left (All, Needs reply, Unread, and a search), the conversation in the middle and the lifter beside it: their block and week, last three sessions with top sets and RPE, flags, next meet and bodyweight, the latest form check and your private notes. J and K move between threads, R jumps to the reply box, E marks a thread done when there is nothing to answer (it comes back if they write again), and Enter opens their page. \"Message everyone\" sends one message to each lifter in their own thread.",
+  "app": "On a laptop or desktop browser at powalifta.com, Messages has filters and the lifter's details beside the thread. In the iPhone app, open Messages from the tab bar."
  },
  {
   "id": "train-sync-chip",
@@ -1502,8 +1502,8 @@ window.POWA_SUPPORT_KB = [
    "W-n",
    "weeks out"
   ],
-  "a": "On the laptop desk open Roster and choose Calendar. Each lifter is a row (the same filters and search as the board), 16 weeks from this week with ‹ › to move four weeks at a time. Each block is a bar with its name and its W-n to the meet it leads to, planned meets are outlined diamonds and done meets filled with the total, and the line is today. Under a row, plain warnings: a block that ends before its meet, a planned meet no block leads to, weeks with nothing written between two blocks. Drag a bar to move the block's start by whole weeks (or select it and use ← →); Undo is in the message that follows. Plan a meet is in the header and on each row: name, date, weigh-in (2-hour or 24-hour and the time), federation, division and weight class. A planned meet is a date, never a result: totals and DOTS don't change.",
-  "app": "The season calendar is on the laptop desk at powalifta.com (Roster › Calendar)."
+  "a": "On the laptop desk open Lifters and choose Calendar. Each lifter is a row (the same filters and search as the board), 16 weeks from this week with ‹ › to move four weeks at a time. Each block is a bar with its name and its W-n to the meet it leads to, planned meets are outlined diamonds and done meets filled with the total, and the line is today. Under a row, plain warnings: a block that ends before its meet, a planned meet no block leads to, weeks with nothing written between two blocks. Drag a bar to move the block's start by whole weeks (or select it and use ← →); Undo is in the message that follows. Plan a meet is in the header and on each row: name, date, weigh-in (2-hour or 24-hour and the time), federation, division and weight class. A planned meet is a date, never a result: totals and DOTS don't change.",
+  "app": "The season calendar is on the laptop desk at powalifta.com (Lifters › Calendar)."
  },
  {
   "id": "coach-today-lifters",
@@ -1852,7 +1852,7 @@ window.POWA_SUPPORT_KB = [
    "trainheroic",
    "trainheroic export"
   ],
-  "a": "In three parts, from TrainHeroic's own help pages. **Your athlete list**: on the web, Athletes → ⋯ (top right) → Export Athletes → pick a team or group → Download CSV (active athletes only); bring it in with **Import a client list** to send invites. **Each athlete's history**: a coach can't export it, but each athlete can, at account.trainheroic.com/data-export on a computer → Export, and a zip downloads. They send it to you, or import it themselves (You → Your data → Import your training history). TrainHeroic doesn't publish what's in the zip, so POWALIFTA opens it and asks about any column it can't place; RPE lives in exercise notes there, so you pick what sets without one count as. **Programs**: TrainHeroic has no program export; print the calendar to PDF or take screenshots, then **Bring a program in**, a few files at once."
+  "a": "In three parts, from TrainHeroic's own help pages. **Your lifter list**: on the web, Athletes → ⋯ (top right) → Export Athletes → pick a team or group → Download CSV (active athletes only); bring it in with **Import a client list** to send invites. **Each lifter's history**: a coach can't export it, but each lifter can, at account.trainheroic.com/data-export on a computer → Export, and a zip downloads. They send it to you, or import it themselves (You → Your data → Import your training history). TrainHeroic doesn't publish what's in the zip, so POWALIFTA opens it and asks about any column it can't place; RPE lives in exercise notes there, so you pick what sets without one count as. **Programs**: TrainHeroic has no program export; print the calendar to PDF or take screenshots, then **Bring a program in**, a few files at once."
  },
  {
   "id": "switch-from-truecoach",
