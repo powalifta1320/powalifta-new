@@ -1534,12 +1534,25 @@
   function formChecksOf(id) {
     var all;
     try { all = typeof _coachFormChecks !== 'undefined' && Array.isArray(_coachFormChecks) ? _coachFormChecks : []; } catch (e) { all = []; }
-    return all.filter(function (f) { return f && f.athleteId === id; }).sort(function (x, y) {
+    return caFcOrder(all.filter(function (f) { return f && f.athleteId === id; }));
+  }
+  // (pure) waiting on a review first, then the newest first.
+  function caFcOrder(list) {
+    return (list || []).slice().sort(function (x, y) {
       return (x.coachReply ? 1 : 0) - (y.coachReply ? 1 : 0) || String(y.createdAt || '').localeCompare(String(x.createdAt || ''));
     });
   }
   var FC_LIFT = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
   function fcLift(f) { return FC_LIFT[f && f.lift] || 'Form check'; }
+  // (pure) the Form checks row's line: '1 video waiting \u00b7 squat, today', or '2 videos \u00b7 all answered'.
+  // list: caFcOrder'd; when(iso) names the day ('today', 'Tuesday', '12 Oct').
+  function caFcLine(list, when) {
+    list = list || [];
+    var wait = list.filter(function (f) { return !f.coachReply; });
+    if (!wait.length) return plural(list.length, 'video') + ' \u00b7 all answered';
+    var w = wait[0], lift = FC_LIFT[w.lift] ? FC_LIFT[w.lift].toLowerCase() : 'a video';
+    return plural(wait.length, 'video') + ' waiting \u00b7 ' + lift + (w.createdAt && when ? ', ' + when(String(w.createdAt).slice(0, 10)) : '');
+  }
   // A review closed (sent or not): the card and the list redraw with what changed (the flag moves on).
   function watchReview() {
     if (!hasDom || typeof MutationObserver === 'undefined') return;
@@ -1654,9 +1667,7 @@
     var notesN = (s.sessionNotes || []).filter(function (n) { return n.athleteId === a.id && n.note && String(n.note).trim() && !n.coachComment; }).length;
     var notesSub = notesN ? plural(notesN, 'note') + ' waiting' + (words ? ' · “' + clipWords(words.text, 34) + '”' : '') : words ? '“' + clipWords(words.text, 44) + '”' : 'Their session notes and check-ins';
     // Their videos, when they send them: how many wait on you, the newest's lift and day.
-    var fcs = formChecksOf(a.id), fcWait = fcs.filter(function (f) { return !f.coachReply; });
-    var fcSub = fcWait.length ? plural(fcWait.length, 'video') + ' waiting \u00b7 ' + fcLift(fcWait[0]).toLowerCase() + ', ' + whenText(fcWait[0].createdAt || todayIso())
-      : plural(fcs.length, 'video') + ' \u00b7 all answered';
+    var fcs = formChecksOf(a.id), fcSub = caFcLine(fcs, whenText);
     // The week's note: when the last one went (a note covers 7 days), else what it's drafted from.
     var sentOn = window.WeeklyNote && WeeklyNote.lastNoteOn ? WeeklyNote.lastNoteOn(a.id) : null;
     var noteSub = sentOn && daysBetween(sentOn, todayIso()) >= 0 && daysBetween(sentOn, todayIso()) < 7 ? 'Sent ' + whenText(sentOn) : 'Drafted from their last 7 days';
@@ -2162,6 +2173,8 @@
     caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
     caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER,
     caJobFamily: caJobFamily, caFamily: caFamily,
+    // a lifter's page (pure)
+    caClipWords: clipWords, caFcOrder: caFcOrder, caFcLine: caFcLine,
     // Home's summary (pure)
     caDayStrip: caDayStrip, caTotalSeries: caTotalSeries, caTeamStrength: caTeamStrength, caTeamLine: caTeamLine, caEffortOf: caEffortOf,
     caEffortSplit: caEffortSplit, caMeetLane: caMeetLane, caLaneTiers: caLaneTiers, caPct: caPct,
