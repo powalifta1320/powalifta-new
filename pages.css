@@ -173,7 +173,9 @@ body.site .s-steps > li:last-child { border-bottom: 1px solid var(--hair); }
 body.site .s-steps > li::before { content: counter(s-step); grid-row: span 2; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); font: 800 14px/1 var(--font-num); font-variant-numeric: tabular-nums; }
 body.site .s-steps b { color: var(--text); font-weight: 700; font-size: 17px; }
 body.site .s-steps span { text-wrap: pretty; }
-body.site .s-prose + .s-steps, body.site .s-steps + .s-prose { margin-top: 28px; }
+body.site .s-prose + .s-steps { margin-top: 20px; }
+body.site .s-steps + .s-prose { margin-top: 24px; }
+body.site .s-steps + .s-prose > h2:first-child { margin-top: 32px; }
 
 /* =====================================================================
    THE QUESTIONS (faq.html): the page head, then the homepage's questions in one column.
