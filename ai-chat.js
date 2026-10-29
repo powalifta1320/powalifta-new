@@ -1205,7 +1205,7 @@
   var supportMeta = {
     title: 'Support', sub: 'The app, your account & your plan',
     chips: ROLE === 'coach'
-      ? ["Invite an athlete", SHELL ? "Manage my plan" : "Change my plan", "Export a program"]
+      ? ["Invite a lifter", SHELL ? "Manage my plan" : "Change my plan", "Export a program"]   // the coach's words (coach copy says lifter)
       : ["Connect to my coach", "Export my data", "Change my units", "Delete my account"]   // (the human row below the chat is the way to a person)
   };
   var meta = roleMeta[ROLE];

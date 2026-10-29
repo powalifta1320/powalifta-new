@@ -106,8 +106,10 @@ window.POWA_SUPPORT_KB = [
    "add athlete to roster",
    "generate code",
    "how do athletes join me",
+   "invite a lifter",
    "invite an athlete",
    "invite athlete",
+   "invite lifter",
    "send invite code"
   ],
   "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Tap Share an invite link to send it in any app, or Copy link, or Show QR code for someone next to you; each link works for one lifter. Or type their email and tap Send. They open the link, get the app, sign up and appear on your roster (a lifter can also type the 6-character code under Find a coach → \"Have an invite code?\"). Links still waiting sit under Pending invites on Lifters: tap one to share it again, copy it or revoke it. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
@@ -120,7 +122,8 @@ window.POWA_SUPPORT_KB = [
    "drop an athlete",
    "free up a slot",
    "remove athlete",
-   "remove from roster"
+   "remove from roster",
+   "remove lifter"
   ],
   "a": "On the iPhone: open the lifter, tap Client, then Remove from roster at the bottom (or Clients, tap them, Remove from roster), and confirm in the sheet. On the laptop: open the lifter, More, Remove from roster. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
  },
@@ -735,7 +738,10 @@ window.POWA_SUPPORT_KB = [
    "club poster",
    "create a club",
    "gym tv mode",
+   "invite a lifter to my club",
+   "invite lifters to the club",
    "invite to my club",
+   "invite to the club",
    "new club",
    "share my club",
    "start a club"
@@ -802,6 +808,8 @@ window.POWA_SUPPORT_KB = [
    "delete my post",
    "fake lift",
    "harassment",
+   "lifter from my club",
+   "remove from my club",
    "remove post",
    "report a post",
    "report club",
