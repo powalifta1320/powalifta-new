@@ -45,8 +45,8 @@ html:not(.desk) body.powa-app {
   --pl-raise-shade: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.45);
   --pl-light: 13%;
   --pl-light-edge: 24%;
-  --pl-red: linear-gradient(135deg, #dc2637 0%, #c41a2c 100%);
-  --pl-red-ink: #ffffff;
+  --pl-red: var(--crimson);   /* styles.css's one token (29 Oct: the lifter app, the desk and the site wear it too) */
+  --pl-red-ink: var(--crimson-ink);
   --ca-press: var(--pl-inset-2);
   --ca-tint: var(--text-2);
   --ca-hair: rgba(255, 255, 255, 0.07);

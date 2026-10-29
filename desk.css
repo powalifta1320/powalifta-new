@@ -141,7 +141,7 @@ html.desk[data-theme="light"] body.powa-app {
 }
 /* The one red, machined, in both themes (a coach's own brand colour still wins). */
 /* One step deeper than the phone's, so its white label clears 4.5:1 (WCAG AA) top to bottom. */
-html.desk body.powa-app:not(.is-branded) { --fire: linear-gradient(180deg, #dc2637 0%, #c41a2c 100%); }
+html.desk body.powa-app:not(.is-branded) { --fire: var(--crimson); }   /* styles.css --crimson: the same values, now one token everywhere */
 
 /* ---------- the shell: the phone's chrome steps aside ---------- */
 html.desk body.powa-app > .nav,

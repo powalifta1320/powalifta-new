@@ -224,7 +224,7 @@ img.s-scr { width: 100%; height: 100%; object-fit: cover; display: none; }
 .tr-log {
   position: absolute; left: calc(19 * var(--pt)); width: calc(323 * var(--pt)); top: calc(270 * var(--pt)); height: calc(52 * var(--pt));
   display: flex; align-items: center; justify-content: center; gap: calc(8 * var(--pt)); border-radius: 999px;
-  background: linear-gradient(180deg, #ff4a55 0%, #ee2b3b 100%); color: #fff; font-size: calc(16 * var(--pt)); font-weight: 650;
+  background: var(--crimson); color: var(--crimson-ink); font-size: calc(16 * var(--pt)); font-weight: 650;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .tr-log svg { width: calc(18 * var(--pt)); height: calc(18 * var(--pt)); stroke-width: 2.8; }

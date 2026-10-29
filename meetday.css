@@ -13,7 +13,7 @@
   --md-hair: var(--hair, rgba(255, 255, 255, 0.07));
   --md-sq: #38c6ff; --md-bp: #a98bff; --md-dl: #ffbf3c;
   --md-ok: #34d982; --md-no: #ff6b6b; --md-warn: #ffb35c;
-  --md-fire: var(--fire, linear-gradient(180deg, #ff4a55 0%, #ee2b3b 100%));
+  --md-fire: var(--fire, var(--crimson));
   --md-num: var(--font-num, 'Archivo', system-ui, sans-serif);
   --md-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
