@@ -10059,6 +10059,30 @@ function renderSiteBar(bar, user) {
     if (cta) { cta.textContent = 'Dashboard'; cta.setAttribute('href', '/' + dash); cta.removeAttribute('data-intent'); }
   }
   if (!document.documentElement.classList.contains('native')) siteProgramsReady();
+  if (document.body && document.body.classList.contains('site')) _barPillStepsBack(bar);
+}
+
+// An inside page (body.site; the homepage runs its own in home.js): while one of the page's crimson actions is on
+// screen, the bar's ink pill steps back (pages.css .bar.pill-back), one action per screen as on the homepage. Actions
+// drawn later (the shop's Buy program, the leaderboard's card, a coach's profile) are picked up as they arrive.
+function _barPillStepsBack(bar) {
+  if (!bar || bar._pillBack || !('IntersectionObserver' in window)) return;
+  const main = document.querySelector('main');
+  if (!main) return;
+  bar._pillBack = true;
+  const watched = new Set(), on = new Set();
+  const paint = () => bar.classList.toggle('pill-back', on.size > 0);
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting && e.target.isConnected) on.add(e.target); else on.delete(e.target); });
+    paint();
+  });
+  const scan = () => {
+    watched.forEach((b) => { if (!b.isConnected) { io.unobserve(b); watched.delete(b); on.delete(b); } });
+    main.querySelectorAll('.btn-primary').forEach((b) => { if (!watched.has(b)) { watched.add(b); io.observe(b); } });
+    paint();
+  };
+  scan();
+  try { new MutationObserver(scan).observe(main, { childList: true, subtree: true }); } catch (e) {}
 }
 
 // The website links to the programs shop only once it has something in it: three published

@@ -30,23 +30,11 @@
 <link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="pages.css">
 <link rel="stylesheet" href="cookie-consent.css">
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
-<style>
-/* data.html only (site.css is shared with the homepage track; this page keeps its few rules here). */
-.dt-who { margin: 0.9em 0 0; border-top: 1px solid var(--line); }
-.dt-who > div { display: grid; grid-template-columns: minmax(7.5rem, 11rem) minmax(0, 1fr); gap: 4px 20px; padding: 14px 0; border-bottom: 1px solid var(--line); }
-.dt-who dt { color: var(--text); font-weight: 650; }
-.dt-who dd { margin: 0; text-wrap: pretty; }
-body.site .s-prose ul.dt-files { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 0; list-style: none; }
-body.site .s-prose .dt-files li + li { margin-top: 0; }
-.dt-files code { white-space: nowrap; }
-.dt-promise { margin-top: 2.4em; padding: 20px 22px; border-radius: 20px; background: var(--s-surface-2); color: var(--text-2); }
-.dt-promise b { color: var(--text); font-weight: 650; }
-@media (max-width: 560px) { .dt-who > div { grid-template-columns: minmax(0, 1fr); } }
-</style>
 </head>
 <body class="site">
 

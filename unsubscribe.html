@@ -19,55 +19,8 @@
 <link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="pages.css">
 <link rel="stylesheet" href="cookie-consent.css">
-<style>
-.unsub-wrap {
-  min-height: calc(100vh - 60px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-}
-.unsub-card {
-  width: 100%;
-  max-width: 440px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 36px 32px;
-  box-shadow: var(--shadow);
-}
-.unsub-card h1 {
-  font-size: 1.7rem;
-  letter-spacing: 0.005em;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-.unsub-card .unsub-sub { color: var(--text-2); font-size: 0.92rem; margin-bottom: 22px; line-height: 1.55; }
-/* Result banner atop the card once the one-click has resolved. */
-.unsub-result {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px 16px; border-radius: var(--r);
-  margin-bottom: 22px; font-size: 0.92rem; line-height: 1.5;
-}
-.unsub-result.ok  { background: rgba(78,216,132,0.07); border: 1px solid rgba(78,216,132,0.28); color: var(--text); }
-.unsub-result.err { background: rgba(255,45,63,0.07);  border: 1px solid rgba(255,45,63,0.3);  color: var(--text); }
-.unsub-result .ur-ic {
-  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; font-weight: 700;
-}
-.unsub-result.ok  .ur-ic { background: rgba(78,216,132,0.16); color: var(--green); }
-.unsub-result.err .ur-ic { background: rgba(255,45,63,0.16);  color: var(--red); }
-.unsub-result .ur-title { display: block; font-weight: 700; margin-bottom: 3px; }
-.unsub-result .ur-body  { display: block; color: var(--text-2); }
-.unsub-prefs-head {
-  font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--text-3); font-weight: 700; margin: 4px 0 4px;
-}
-.unsub-loading { color: var(--text-3); font-size: 0.9rem; padding: 8px 0 18px; }
-.unsub-saving { min-height: 18px; font-size: 0.8rem; color: var(--text-3); margin-top: 10px; transition: opacity .2s; }
-</style>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>

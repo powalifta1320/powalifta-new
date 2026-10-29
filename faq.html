@@ -58,57 +58,8 @@
 <link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="pages.css">
 <link rel="stylesheet" href="cookie-consent.css">
-<style>
-.faq-item {
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-.faq-q {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 24px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--text);
-  transition: background 0.15s;
-}
-.faq-q:hover { background: var(--bg-2); }
-.faq-q .toggler {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--bg-2);
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800; font-size: 1.2rem; color: var(--text-3);
-  transition: transform 0.2s, color 0.2s;
-}
-.faq-item.open .faq-q .toggler { transform: rotate(45deg); color: var(--red); }
-.faq-a {
-  padding: 0 24px;
-  max-height: 0;
-  overflow: hidden;
-  color: var(--text-2);
-  line-height: 1.7;
-  transition: max-height 0.3s, padding 0.3s;
-}
-.faq-item.open .faq-a {
-  padding: 0 24px 22px;
-  max-height: 600px;
-}
-.faq-contact {
-  margin: 28px 0 0;
-  padding: 18px 24px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  color: var(--text-2);
-  line-height: 1.6;
-}
-.faq-contact a { color: var(--text); font-weight: 700; }
-</style>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>

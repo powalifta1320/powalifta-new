@@ -30,76 +30,8 @@
 <link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="pages.css">
 <link rel="stylesheet" href="cookie-consent.css">
-<style>
-.exlib-hero {
-  padding: 60px 0 30px;
-  border-bottom: 1px solid var(--line);
-  background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,45,63,0.10), transparent 70%);
-}
-.exlib-hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); letter-spacing: 0.005em; margin-bottom: 14px; }
-.exlib-hero p { color: var(--text-2); font-size: 1.05rem; max-width: 640px; }
-.exlib-toolbar {
-  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-  margin: 28px 0 8px;
-}
-.exlib-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.exlib-chip {
-  padding: 7px 15px; border-radius: 100px; cursor: pointer;
-  background: var(--bg-2); border: 1px solid var(--line); color: var(--text-2);
-  font: inherit; font-weight: 600; font-size: 0.85rem; transition: all 0.18s ease;
-}
-.exlib-chip:hover { color: var(--text); border-color: var(--line-2); }
-.exlib-chip.active { background: var(--grad-red); color: #fff; border-color: transparent; }
-.exlib-search {
-  flex: 1 1 200px; min-width: 0; max-width: 320px; margin-left: auto;
-  padding: 9px 14px; border-radius: 10px;
-  background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
-  font: inherit; font-size: 0.9rem;
-}
-.exlib-search::placeholder { color: var(--text-3); }
-.exlib-search:focus { outline: none; border-color: var(--red); }
-.exlib-count { color: var(--text-3); font-size: 0.82rem; font-family: var(--font-num); margin: 0 0 22px; }
-.exlib-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 18px; align-items: start;
-}
-.exlib-card {
-  border: 1px solid var(--line); border-radius: 16px; background: var(--bg-1);
-  padding: 22px 22px 8px; transition: border-color 0.2s ease, transform 0.2s ease;
-}
-.exlib-card:hover { border-color: var(--line-2); }
-.exlib-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-.exlib-name { font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: 800; font-size: 1.3rem; letter-spacing: 0.01em; line-height: 1.1; text-transform: uppercase; }
-.exlib-pattern { color: var(--text-3); font-size: 0.72rem; font-family: var(--font-num); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; display: block; }
-.exlib-mult {
-  font-family: var(--font-num); font-size: 0.7rem; font-weight: 700;
-  padding: 3px 9px; border-radius: 100px; white-space: nowrap;
-  background: rgba(255,45,63,0.10); color: var(--red); border: 1px solid var(--line-red);
-}
-.exlib-mult.is-base { background: var(--bg-2); color: var(--text-2); border-color: var(--line); }
-.exlib-summary { color: var(--text-2); font-size: 0.92rem; line-height: 1.6; margin-bottom: 14px; }
-.exlib-block { margin-bottom: 14px; }
-.exlib-block-title {
-  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
-  color: var(--text-3); margin-bottom: 7px;
-}
-.exlib-block ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
-.exlib-block li { position: relative; padding-left: 18px; color: var(--text-2); font-size: 0.88rem; line-height: 1.5; }
-.exlib-block li::before { content: ''; position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
-.exlib-cues li::before { background: var(--red); }
-.exlib-faults li::before { width: 0; height: 0; border-radius: 0; left: 0; top: 4px; content: '\2192'; background: none; color: var(--text-3); font-weight: 700; }
-.exlib-empty { color: var(--text-3); padding: 40px 0; text-align: center; }
-.exlib-note {
-  margin: 30px 0 0; padding: 16px 18px; border-radius: 12px;
-  background: var(--bg-2); border: 1px solid var(--line); color: var(--text-2);
-  font-size: 0.86rem; line-height: 1.6;
-}
-@media (max-width: 560px) {
-  .exlib-grid { grid-template-columns: 1fr; }
-  .exlib-search { margin-left: 0; max-width: none; }
-}
-</style>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>

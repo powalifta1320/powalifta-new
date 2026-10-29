@@ -1,0 +1,560 @@
+/* =====================================================================
+   pages.css: every public page but the homepage, in the look the owner approved for it on 29 Oct ("Yes, build it").
+   About, the questions, the guides, Your data, Bring your history in, the terms and privacy, the programs shop, the
+   leaderboard, the exercise library, a coach's profile, an invite link, a new password, email preferences and 404.
+
+   Nothing new: the homepage's own system (home.css), carried over. Its floors: the gym's dark by default, the coach's
+   daylight in the light theme (white cards on #f4f4f6). Its frame: 1440 at most, centred, the bar's 64 px edge.
+   Its type: Archivo at normal width, sentence case; display 58 (a page's one headline) and 28, text 19 lead /
+   17 body / 16 / 15 / 14 / 13. Its components: the crimson action (#dc2637 to #c41a2c, white label, one per screen),
+   the quiet link with its arrow, the questions that open in place, the numbered steps, the app's card. Text pages stay
+   calm: a page head, then a narrow column.
+
+   Loaded after styles.css (the app's, which these pages still need for app.js's rows, toasts and the privacy banner)
+   and site.css (Archivo, the bar, the footer), so every rule is under body.site and out-ranks the app's defaults.
+   The homepage never loads this file.
+   ===================================================================== */
+
+/* ---------- Tokens: the homepage's, per floor */
+body.site {
+  --gut: clamp(16px, 4.45vw, 64px);
+  --wrap: 1312px;
+  --cg: clamp(16px, 2.23vw, 32px);
+  --col: 720px;                                   /* the reading column: lines near 70 to 80 characters */
+  --act-top: #dc2637; --act-bot: #c41a2c;           /* the one action: darker crimson, white label */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --t-press: 140ms; --t-state: 220ms;
+  --head-top: clamp(48px, 6.6vw, 96px);
+  --end: clamp(88px, 9vw, 136px);
+  --num-stretch: 112%;
+  /* The gym's dark */
+  --bg: #050506; --bg-1: #0f0f11; --bg-2: #161619; --bg-3: #1e1e22;
+  --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --text-4: #8c8c96;
+  --line: rgba(255, 255, 255, 0.09); --line-2: rgba(255, 255, 255, 0.15); --hair: rgba(255, 255, 255, 0.09);
+  --fill-1: rgba(255, 255, 255, 0.04); --fill-2: rgba(255, 255, 255, 0.07); --fill-3: rgba(255, 255, 255, 0.11);
+  --card: #0f0f11;
+  --card-sh: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --qi-bg: rgba(255, 255, 255, 0.08); --qi-bg-h: rgba(255, 255, 255, 0.13);
+  --up: #34d982; --gold: #f2c25b; --warn: #ff9f43; --soft-alert: #ff8f80;
+  --sq: #38c6ff; --be: #a98bff; --dl: #ffbf3c;
+  color-scheme: dark;
+}
+html[data-theme="light"] body.site {
+  /* The coach's daylight */
+  --bg: #f4f4f6; --bg-1: #ffffff; --bg-2: #ececf0; --bg-3: #e2e2e8;
+  --text: #0b0b0d; --text-2: #45454d; --text-3: #5f5f68; --text-4: #5f5f68;
+  --line: rgba(15, 15, 25, 0.1); --line-2: rgba(15, 15, 25, 0.18); --hair: rgba(15, 15, 25, 0.1);
+  --fill-1: rgba(11, 11, 13, 0.035); --fill-2: rgba(11, 11, 13, 0.06); --fill-3: rgba(11, 11, 13, 0.1);
+  --card: #ffffff;
+  --card-sh: 0 0 0 1px rgba(15, 15, 25, 0.08), 0 1px 2px rgba(15, 15, 25, 0.05);
+  --qi-bg: rgba(11, 11, 13, 0.06); --qi-bg-h: rgba(11, 11, 13, 0.1);
+  --up: #0f7d47; --gold: #8a6300; --warn: #b4530f; --soft-alert: #c63a24;
+  --sq: #0a7db0; --be: #6b4fd6; --dl: #946200;
+  color-scheme: light;
+}
+html:has(> body.site) { background: #050506; }
+html[data-theme="light"]:has(> body.site) { background: #f4f4f6; }
+
+/* ---------- Base. The app's reset, at no weight, for the page that loads without styles.css (404). */
+:where(body.site), :where(body.site) :where(*, *::before, *::after) { box-sizing: border-box; }
+:where(body.site) :where(h1, h2, h3, h4, p, ul, ol, dl, dd, figure, blockquote) { margin: 0; }
+body.site { margin: 0; padding: 0; max-width: none; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 17px; line-height: 1.55; letter-spacing: -0.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body.site::before { content: none; display: none; }    /* the app's film grain, never on the website */
+body.site ::selection { background: rgba(220, 38, 55, 0.28); color: var(--text); }
+body.site :is(h1, h2, h3, h4) { margin: 0; font-family: var(--font-display); font-stretch: 100%; font-weight: 800; text-transform: none; color: var(--text); text-wrap: balance; }
+body.site h1 { font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; }
+body.site h2 { font-size: clamp(24px, 0.95rem + 0.85vw, 28px); line-height: 1.12; letter-spacing: -0.024em; }
+body.site h3 { font-size: 19px; font-weight: 700; line-height: 1.3; letter-spacing: -0.012em; }
+body.site h4 { font-size: 17px; font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; }
+body.site p { text-wrap: pretty; }
+body.site a { color: var(--text); }
+body.site a:hover { color: var(--text); }
+body.site :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--text); outline-offset: 3px; box-shadow: none; }
+body.site label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+body.site [hidden] { display: none !important; }
+body.site .num { font-variant-numeric: tabular-nums; }
+/* Skip to the page: the bar's own (site.css), never the app's red one. */
+body.site .skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 10px; background: #f4f4f6; color: #0b0b0d; font: 650 15px/1.3 var(--font-body); text-decoration: none; box-shadow: none; opacity: 1; transform: none; transition: none; }
+body.site .skip-link:focus { top: 12px; outline: 2px solid #0b0b0d; outline-offset: 2px; }
+
+/* ---------- The frame: the homepage's (1440 at most, centred; the content's left edge is the bar's) */
+body.site :is(.s-wrap, .container) { box-sizing: border-box; width: 100%; max-width: calc(var(--wrap) + 2 * var(--gut)); margin-inline: auto;
+  padding-left: max(var(--gut), env(safe-area-inset-left)); padding-right: max(var(--gut), env(safe-area-inset-right)); }
+/* A text page: its head, then one narrow column on the frame's left edge. */
+body.site .s-narrow { padding-bottom: var(--end); }
+body.site .s-narrow > * { max-width: var(--col); }
+body.site .s-page-head { padding: var(--head-top) 0 clamp(36px, 4vw, 56px); }
+body.site .s-page-head h1 { max-width: 15em; }
+body.site .s-page-head p { margin-top: 22px; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .s-page-head p.s-updated { margin-top: 16px; font-size: 15px; color: var(--text-3); }
+
+/* Prose: 17 px, the homepage's measure; section titles 28 px; links in ink. */
+body.site .s-prose { font-size: 17px; line-height: 1.65; color: var(--text-2); }
+body.site .s-prose > * + * { margin-top: 1em; }
+body.site .s-prose > h2 { margin-top: 56px; scroll-margin-top: 88px; }
+body.site .s-prose > h2:first-child { margin-top: 0; }
+body.site .s-prose > h2 + * { margin-top: 14px; }
+body.site .s-prose h3 { margin-top: 32px; }
+body.site .s-prose h3 + * { margin-top: 8px; }
+body.site .s-prose :is(strong, b) { color: var(--text); font-weight: 650; }
+body.site :is(.s-prose, .prose, .qa, .s-note, .faq-contact) a:not(.btn):not(.quiet) { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; text-decoration-color: var(--line-2); border: 0; transition: text-decoration-color var(--t-state) ease; }
+@media (hover: hover) and (pointer: fine) { body.site :is(.s-prose, .prose, .qa, .s-note, .faq-contact) a:not(.btn):not(.quiet):hover { text-decoration-color: currentColor; } }
+body.site .s-prose :is(ul, ol) { padding-left: 1.25em; }
+body.site .s-prose li + li { margin-top: 0.5em; }
+body.site .s-prose li::marker { color: var(--text-3); }
+body.site :is(.s-prose, .prose, .qa, .s-steps) :is(code, kbd) { display: inline-block; padding: 1px 7px; border: 0; border-radius: 6px; background: var(--fill-2) !important; color: var(--text); font: 600 0.88em/1.5 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
+
+/* ---------- The one action (crimson, white label), the quiet button, the quiet link with its arrow */
+body.site .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 999px;
+  background: var(--fill-2); color: var(--text); box-shadow: none; filter: none; transform: none; overflow: visible;
+  font: 650 15px/1 var(--font-body); letter-spacing: -0.005em; text-decoration: none; text-transform: none; white-space: nowrap; cursor: pointer;
+  transition: transform var(--t-press) var(--ease-out), background-color var(--t-state) ease, filter var(--t-press) ease, opacity var(--t-state) ease; -webkit-tap-highlight-color: transparent; }
+body.site .btn::after { content: none; display: none; }
+@media (hover: hover) and (pointer: fine) { body.site .btn:hover { background: var(--fill-3); color: var(--text); border-color: transparent; transform: none; box-shadow: none; } }
+body.site .btn:active { transform: scale(0.97); }
+body.site .btn-primary { background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3); }
+@media (hover: hover) and (pointer: fine) { body.site .btn-primary:hover { background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; filter: brightness(1.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3); } }
+body.site .btn-lg { height: 54px; padding: 0 30px; font-size: 16px; }
+body.site .btn-sm { height: 36px; padding: 0 14px; font-size: 14px; }
+body.site .btn-block { display: flex; width: 100%; }
+body.site .btn:disabled { opacity: 0.5; cursor: default; }
+body.site .quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text); text-decoration: none; }
+body.site .quiet .arr { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { body.site .quiet:hover .arr { transform: translateX(3px); } }
+body.site .quiet-back .arr { transform: scaleX(-1); }
+@media (hover: hover) and (pointer: fine) { body.site .quiet-back:hover .arr { transform: scaleX(-1) translateX(3px); } }
+/* An action row: the one crimson action, then a quiet link (the homepage's .cta). */
+body.site .s-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 56px; }
+/* While one of the page's crimson actions is on screen, the bar's ink pill steps back (app.js; as on the homepage). */
+body.site .bar .bar-pill { transition: opacity var(--t-state) var(--ease-out), transform var(--t-state) var(--ease-out), visibility 0s linear 0s, background-color var(--t-state) ease, color var(--t-state) ease; }
+body.site .bar.pill-back .bar-pill { opacity: 0; transform: translateY(-4px); visibility: hidden; pointer-events: none; transition: opacity var(--t-state) var(--ease-out), transform var(--t-state) var(--ease-out), visibility 0s linear var(--t-state); }
+
+/* Chips (a filter) and fields */
+body.site :is(.chip, .mk-tier-btn, .mk-cat-btn, .exlib-chip) { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2);
+  font: 600 14px/1 var(--font-body); letter-spacing: -0.005em; text-transform: none; cursor: pointer; transition: background-color var(--t-state) ease, color var(--t-state) ease; -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) and (pointer: fine) { body.site :is(.chip, .mk-tier-btn, .mk-cat-btn, .exlib-chip):hover { background: var(--fill-3); color: var(--text); border-color: transparent; } }
+body.site :is(.chip, .mk-tier-btn, .mk-cat-btn, .exlib-chip).active { background: var(--text); color: var(--bg); }
+body.site :is(input[type=text], input[type=email], input[type=password], input[type=number], input[type=search], select, textarea) { width: 100%; height: 48px; margin: 0; padding: 0 14px; border: 0; border-radius: 12px;
+  background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); font: 500 16px/1.3 var(--font-body); letter-spacing: -0.005em; transition: box-shadow var(--t-state) ease; }
+body.site textarea { height: auto; min-height: 96px; padding: 12px 14px; line-height: 1.5; }
+body.site :is(input, select, textarea):focus { outline: none; border-color: transparent; box-shadow: inset 0 0 0 1.5px var(--text); }
+body.site :is(input, textarea)::placeholder { color: var(--text-3); opacity: 1; }
+body.site .form-group { margin-bottom: 16px; }
+
+/* The app's card: its material, a hairline edge (and a one-pixel shadow in daylight). */
+body.site .s-card { border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+
+/* ---------- The questions: the homepage's (closed until opened; the answer arrives as it opens) */
+body.site .qs { max-width: var(--col); border-bottom: 1px solid var(--hair); }
+body.site .q { border-top: 1px solid var(--hair); }
+body.site .q > summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; list-style: none; cursor: pointer;
+  font-size: 19px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.35; color: var(--text); }
+body.site .q > summary::-webkit-details-marker { display: none; }
+body.site .q > summary:focus-visible { outline-offset: 6px; border-radius: 6px; }
+body.site .qi { position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--qi-bg); transition: background-color var(--t-state) ease; }
+body.site .qi::before, body.site .qi::after { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.8px; margin: -0.9px 0 0 -6px; border-radius: 1px; background: currentColor; transition: transform 260ms var(--ease-out); }
+body.site .qi::after { transform: rotate(90deg); }
+body.site details[open] > summary .qi::after { transform: rotate(0deg); }
+body.site details.q:not([open]) > .qa { display: none; }
+@media (hover: hover) and (pointer: fine) { body.site .q > summary:hover .qi { background: var(--qi-bg-h); } }
+body.site .qa { padding: 0 0 26px; }
+body.site .qa p { max-width: 40em; font-size: 17px; line-height: 1.6; color: var(--text-2); }
+body.site .qa p + p, body.site .qa p + .formula, body.site .qa .formula + p { margin-top: 12px; }
+body.site .qa strong { color: var(--text); font-weight: 650; }
+/* A formula: the app's numbers on its card, never a code slab. */
+body.site .formula { max-width: 40em; padding: 16px 20px; border-radius: 14px; background: var(--card); box-shadow: var(--card-sh); color: var(--text);
+  font: 600 16px/1.6 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.005em; overflow-x: auto; }
+body.site .s-note { max-width: var(--col); margin-top: 40px; font-size: 16px; line-height: 1.6; color: var(--text-2); }
+
+/* ---------- Numbered steps (a real sequence): the homepage's moving-over steps */
+body.site .s-steps { list-style: none; counter-reset: s-step; margin: 0; padding: 0; }
+body.site .s-steps > li { counter-increment: s-step; display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; row-gap: 4px; padding: 24px 0 26px; border-top: 1px solid var(--hair); color: var(--text-2); font-size: 17px; line-height: 1.55; }
+body.site .s-steps > li:last-child { border-bottom: 1px solid var(--hair); }
+body.site .s-steps > li::before { content: counter(s-step); grid-row: span 2; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); font: 800 14px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+body.site .s-steps b { color: var(--text); font-weight: 700; font-size: 17px; }
+body.site .s-steps span { text-wrap: pretty; }
+body.site .s-prose + .s-steps, body.site .s-steps + .s-prose { margin-top: 28px; }
+
+/* =====================================================================
+   THE QUESTIONS (faq.html): the page head, then the homepage's questions in one column.
+   ===================================================================== */
+/* The homepage's questions chapter: the head on the left (it stays while the answers scroll), the questions on the right. */
+body.site .s-faq { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; padding-top: var(--head-top); padding-bottom: var(--end); }
+body.site .s-faq > .s-page-head { grid-column: 1 / span 4; grid-row: 1 / span 2; position: sticky; top: 112px; padding: 0; }
+body.site .s-faq > .s-page-head p { font-size: 17px; max-width: 22em; }
+body.site .s-faq > :is(.qs, .faq-contact) { grid-column: 6 / span 7; max-width: none; }
+body.site .faq-contact { max-width: var(--col); margin-top: 40px; font-size: 16px; line-height: 1.6; color: var(--text-2); }
+@media (max-width: 1099px) {
+  body.site .s-faq { display: block; padding-top: 0; }
+  body.site .s-faq > .s-page-head { position: static; padding: var(--head-top) 0 clamp(36px, 4vw, 56px); }
+  body.site .s-faq > .s-page-head p { font-size: clamp(17px, 0.9rem + 0.32vw, 19px); max-width: 34em; }
+  body.site .s-faq > :is(.qs, .faq-contact) { max-width: var(--col); }
+}
+body.site .faq-contact a { white-space: nowrap; }
+
+/* =====================================================================
+   YOUR DATA (data.html): who sees what, the files, the promise.
+   ===================================================================== */
+body.site .dt-who { margin: 18px 0 0; border-top: 1px solid var(--hair); }
+body.site .dt-who > div { display: grid; grid-template-columns: minmax(7.5rem, 11rem) minmax(0, 1fr); gap: 4px 24px; padding: 16px 0; border-bottom: 1px solid var(--hair); }
+body.site .dt-who dt { color: var(--text); font-weight: 650; }
+body.site .dt-who dd { margin: 0; text-wrap: pretty; }
+body.site .s-prose ul.dt-files { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+body.site .s-prose .dt-files li + li { margin-top: 0; }
+body.site .dt-promise { margin-top: 48px; padding: 22px 24px; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); color: var(--text-2); }
+body.site .dt-promise b { color: var(--text); font-weight: 700; }
+
+/* =====================================================================
+   THE GUIDES (guides.html, guide-*.html): the crumbs, the article's head, the contents, the prose, the close.
+   ===================================================================== */
+body.site .guide-wrap { box-sizing: border-box; width: 100%; max-width: calc(var(--wrap) + 2 * var(--gut)); margin: 0 auto; padding: var(--head-top) max(var(--gut), env(safe-area-inset-right)) var(--end) max(var(--gut), env(safe-area-inset-left)); }
+body.site .guide-wrap > * { max-width: var(--col); }
+body.site .guide-wrap.wide > * { max-width: none; }
+body.site .guide-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 28px; font-size: 14px; color: var(--text-3); }
+body.site .guide-crumbs a { color: var(--text-2); font-weight: 550; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { body.site .guide-crumbs a:hover { color: var(--text); } }
+body.site .guide-crumbs .sep { color: var(--text-3); }
+body.site .guide-crumbs .here { color: var(--text-3); }
+body.site .guide-title { margin: 0; font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; text-transform: none; font-stretch: 100%; max-width: 15em; }
+body.site .guide-standfirst { margin: 22px 0 0; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .guide-meta { display: block; margin: 18px 0 0; padding: 0 0 clamp(36px, 4vw, 48px); border: 0; font: 550 15px/1.4 var(--font-body); color: var(--text-3); }
+/* The contents: one quiet list, numbered. */
+body.site .guide-toc { margin: 0 0 8px; padding: 18px 0 20px; border: 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); border-radius: 0; background: none; box-shadow: none; }
+body.site .guide-toc h2 { margin: 0 0 10px; font: 650 14px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .guide-toc ol { list-style: none; counter-reset: toc; margin: 0; padding: 0; }
+body.site .guide-toc li { counter-increment: toc; margin: 0; }
+body.site .guide-toc li + li { margin-top: 0; }
+body.site .guide-toc a { display: flex; gap: 14px; align-items: baseline; padding: 7px 0; color: var(--text); font-size: 16px; font-weight: 550; text-decoration: none; transition: none; }
+body.site .guide-toc a::before { content: counter(toc); min-width: 1.2em; font: 650 14px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { body.site .guide-toc a:hover { color: var(--text); padding-left: 0; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; } body.site .guide-toc a:hover::before { color: var(--text-3); } }
+/* The article: the same prose as every text page. */
+body.site .prose { font-size: 17px; line-height: 1.65; color: var(--text-2); }
+body.site .prose > * + * { margin-top: 1em; }
+body.site .prose > h2 { margin: 56px 0 0; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); line-height: 1.12; letter-spacing: -0.024em; text-transform: none; font-stretch: 100%; scroll-margin-top: 88px; }
+body.site .prose > h2::before { content: none; display: none; }
+body.site .prose > h2 + * { margin-top: 14px; }
+body.site .prose h3 { margin-top: 32px; font-size: 19px; }
+body.site .prose p { max-width: none; }
+body.site .prose strong { color: var(--text); font-weight: 650; }
+body.site .prose :is(ul, ol) { max-width: none; padding-left: 1.25em; }
+body.site .prose li + li { margin-top: 0.5em; }
+body.site .prose li::marker { content: normal; color: var(--text-3); }
+body.site .prose ol > li::marker { font-weight: 650; font-variant-numeric: tabular-nums; }
+body.site .prose blockquote { margin-inline: 0; padding: 22px 0; border: 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); border-radius: 0; background: none; color: var(--text); font-size: 19px; line-height: 1.5; font-weight: 600; letter-spacing: -0.012em; }
+body.site .prose blockquote p { max-width: none; margin: 0; }
+body.site .guide-formula { padding: 18px 22px; border: 0; border-radius: 14px; background: var(--card); box-shadow: var(--card-sh); color: var(--text);
+  font: 600 16px/1.65 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.005em; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+body.site .guide-formula .fx-note { display: block; margin-top: 10px; font: 500 14px/1.5 var(--font-body); color: var(--text-3); }
+/* The app, in one line: a caption's bold lead, then the sentence (no icon, no wash). */
+body.site .guide-callout { display: block; margin: 40px 0; padding: 20px 22px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .guide-callout .gc-body strong { display: block; margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text); }
+body.site .guide-callout .gc-body p { margin: 0; max-width: none; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+body.site .guide-callout .gc-body a { color: var(--text); white-space: nowrap; }
+/* The close: one line, one action (the homepage's close, at the article's size). */
+body.site .guide-cta { margin: 72px 0 0; padding: 48px 0 0; border: 0; border-top: 1px solid var(--hair); border-radius: 0; background: none; box-shadow: none; text-align: left; }
+body.site .guide-cta h2 { margin: 0; font-size: clamp(30px, 0.95rem + 2.15vw, 46px); line-height: 1.05; letter-spacing: -0.031em; text-transform: none; font-stretch: 100%; }
+body.site .guide-cta h2::before { content: none; display: none; }
+body.site .guide-cta p { margin: 18px 0 0; max-width: 34em; color: var(--text-2); font-size: 17px; }
+body.site .guide-cta .btn { margin-top: 32px; }
+/* Keep reading: the other guides as quiet rows. */
+body.site .guide-related { margin-top: 72px; }
+body.site .guide-related h2 { margin: 0 0 6px; font: 650 14px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .guide-related h2::before { content: none; display: none; }
+body.site .guide-rel-grid { display: block; border-bottom: 1px solid var(--hair); }
+body.site .guide-rel-card { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 20px; flex-wrap: wrap; padding: 16px 0; border: 0; border-top: 1px solid var(--hair); border-radius: 0; background: none; text-decoration: none; transform: none; transition: none; }
+body.site .guide-rel-card .grc-title { order: -1; margin: 0; color: var(--text); font-size: 17px; font-weight: 650; line-height: 1.35; }
+body.site :is(.guide-rel-card .grc-kicker, .guide-hub-card .ghc-kicker) { font: 550 14px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { body.site .guide-rel-card:hover { border-color: var(--hair); transform: none; } body.site .guide-rel-card:hover .grc-title { text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; } }
+/* The guides hub: each guide one row, its title, one line and a quiet link. */
+body.site .guides-hub-grid { display: block; margin: clamp(40px, 4.4vw, 64px) 0 0; border-bottom: 1px solid var(--hair); }
+body.site .guide-hub-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 40px; row-gap: 10px; padding: 32px 0 34px; border: 0; border-top: 1px solid var(--hair); border-radius: 0; background: none; box-shadow: none; text-decoration: none; transform: none; transition: none; }
+body.site .guide-hub-card h2 { grid-column: 1; margin: 0; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); line-height: 1.12; letter-spacing: -0.024em; text-transform: none; font-stretch: 100%; }
+body.site .guide-hub-card p { grid-column: 1; margin: 0; max-width: 40em; color: var(--text-2); font-size: 17px; line-height: 1.55; }
+body.site .guide-hub-card .ghc-kicker { grid-column: 1; grid-row: 3; margin: 2px 0 0; }
+body.site .guide-hub-card .ghc-read { grid-column: 2; grid-row: 1; display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 16px; font-weight: 600; white-space: nowrap; }
+body.site .guide-hub-card .ghc-read .arr { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: inherit; transition: transform var(--t-state) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { body.site .guide-hub-card:hover { border-color: var(--hair); transform: none; box-shadow: none; } body.site .guide-hub-card:hover .ghc-read .arr { transform: translateX(3px); } }
+body.site .guide-wrap.wide .guide-cta { max-width: var(--col); }
+
+/* =====================================================================
+   THE PROGRAMS SHOP (marketplace.html): the page head, filters, the programs as the app's cards; one program and its
+   one crimson action (Buy program); the reviews.
+   ===================================================================== */
+body.site #mkRoot { min-height: 60vh; }
+body.site .mk-body { padding-bottom: var(--end); }
+body.site .mk-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+body.site .mk-filters.mk-cat-row { margin: 0 0 28px; }
+body.site .mk-cat-row-label { margin-right: 6px; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .mk-filters-right { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-left: auto; }
+body.site input.mk-search { flex: 1 1 220px; min-width: 200px; max-width: 320px; height: 40px; border-radius: 999px; padding: 0 16px; }
+body.site select.mk-sort { height: 40px; width: auto; padding: 0 38px 0 16px; border-radius: 999px; font-weight: 600; font-size: 15px; cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c8c96' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 14px center; }
+body.site .mk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--cg); }
+body.site .mk-card { display: flex; flex-direction: column; padding: 24px; border: 0; border-radius: 20px; background: var(--card); background-image: none; box-shadow: var(--card-sh); cursor: pointer; transform: none; transition: box-shadow var(--t-state) ease, transform var(--t-press) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { body.site .mk-card:hover { border-color: transparent; transform: none; box-shadow: var(--card-sh), 0 0 0 1px var(--line-2); } }
+body.site .mk-card:active { transform: scale(0.99); }
+body.site :is(.mk-card-tier, .mk-detail-tier) { display: block; margin: 0 0 8px; padding: 0; border-radius: 0; background: none; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .mk-cat-tag { align-self: flex-start; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+body.site .mk-card-title { margin: 0 0 6px; font-family: var(--font-display); font-size: 22px; font-weight: 750; line-height: 1.18; letter-spacing: -0.018em; text-transform: none; font-stretch: 100%; color: var(--text); }
+body.site .mk-card-coach { margin: 0 0 12px; font-size: 15px; color: var(--text-3); }
+body.site .mk-card-desc { flex: 1; margin: 0 0 20px; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+body.site .mk-card-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--hair); }
+body.site :is(.mk-card-price, .mk-buy-price) { background: none; -webkit-background-clip: border-box; background-clip: border-box; -webkit-text-fill-color: currentColor; color: var(--text);
+  font-family: var(--font-num); font-stretch: var(--num-stretch); font-weight: 800; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+body.site .mk-card-price { font-size: 28px; }
+body.site .mk-card-meta { font: 550 14px/1.3 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-3); }
+body.site .mk-rating { margin: 0 0 10px; font-size: 14px; color: var(--text-3); }
+body.site .mk-rating .mk-rating-num { color: var(--text); }
+body.site .stars .st-on { color: var(--gold); }
+body.site .stars .st-off { color: var(--line-2); }
+body.site :is(.mk-loading, .mk-empty) { padding: 56px 0 24px; text-align: left; color: var(--text-2); }
+body.site .mk-loading p { font-size: 16px; }
+body.site .mk-empty h3 { margin: 0 0 8px; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); font-weight: 800; letter-spacing: -0.024em; color: var(--text); }
+body.site .mk-empty p { font-size: 17px; color: var(--text-2); }
+body.site .mk-empty .btn { margin-top: 22px; }
+body.site .skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--cg); padding: var(--head-top) 0 var(--end); }
+body.site .skel-card { padding: 24px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .skel-line { background: var(--fill-2); animation: none; }
+body.site .grid-pager { margin: 40px 0 0; justify-content: flex-start; }
+body.site .grid-pager .gp-btn { min-width: 44px; height: 44px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2); font: 650 15px/1 var(--font-body); font-variant-numeric: tabular-nums; transform: none; }
+@media (hover: hover) and (pointer: fine) { body.site .grid-pager .gp-btn:hover:not(:disabled):not(.active) { background: var(--fill-3); color: var(--text); border-color: transparent; transform: none; } }
+body.site .grid-pager .gp-btn.active { background: var(--text); color: var(--bg); }
+body.site .grid-pager .gp-ellip { color: var(--text-3); }
+/* One program */
+body.site .mk-detail { box-sizing: border-box; width: 100%; max-width: calc(var(--wrap) + 2 * var(--gut)); margin: 0 auto; padding: var(--head-top) max(var(--gut), env(safe-area-inset-right)) var(--end) max(var(--gut), env(safe-area-inset-left)); }
+body.site .mk-detail > * { max-width: var(--col); }
+body.site .mk-detail-back { margin-bottom: 28px; font-size: 15px; color: var(--text-2); }
+body.site .mk-detail-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; }
+body.site .mk-detail-head .mk-detail-tier { margin: 0; }
+body.site .mk-detail-title { margin: 0; font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; text-transform: none; font-stretch: 100%; }
+body.site .mk-detail-meta { margin: 18px 0 0; font-size: 16px; color: var(--text-3); }
+body.site .mk-detail-meta strong { color: var(--text-2); font-weight: 650; }
+body.site .mk-detail-desc { margin: 32px 0 0; font-size: 17px; line-height: 1.65; color: var(--text-2); white-space: pre-wrap; }
+body.site .mk-buy-card { margin: 40px 0 0; padding: 28px; border: 0; border-radius: 20px; background: var(--card); background-image: none; box-shadow: var(--card-sh); text-align: left; }
+body.site .mk-buy-price { margin: 0; font-size: clamp(44px, 1.6rem + 1.6vw, 56px); }
+body.site .mk-buy-cur { margin-top: 10px; font-size: 14px; letter-spacing: 0; color: var(--text-3); }
+body.site .mk-buy-note { margin: 16px 0 24px; max-width: 34em; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+body.site .mk-buy-fine { margin-top: 18px; max-width: 34em; font-size: 14px; line-height: 1.5; color: var(--text-3); }
+body.site .mk-buy-off { opacity: 1; cursor: default; pointer-events: none; }
+/* Reviews */
+body.site .mk-reviews-section { margin-top: 64px; }
+body.site .mk-reviews-title { margin: 0 0 18px; }
+body.site .mk-rating-summary { display: flex; align-items: center; gap: 18px; margin: 0 0 8px; padding: 0; border: 0; border-radius: 0; background: none; }
+body.site .mk-rating-big { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--text); }
+body.site .mk-reviews { margin-top: 20px; border-bottom: 1px solid var(--hair); }
+body.site .mk-review { padding: 18px 0; border-top: 1px solid var(--hair); }
+body.site .mk-review:first-of-type { border-top: 1px solid var(--hair); }
+body.site .mk-review-name { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 650; color: var(--text); }
+body.site .mk-review-date { font-size: 14px; color: var(--text-3); }
+body.site .mk-review-body { margin-top: 6px; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+body.site .mk-reviews-empty { padding: 0; font-size: 16px; color: var(--text-2); }
+body.site .mk-review-form { margin-top: 28px; padding: 22px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .mk-review-form h3 { margin: 0 0 12px; }
+body.site .star-picker button { color: var(--line-2); }
+body.site .star-picker button.on { color: var(--gold); }
+body.site .mk-review-form .mk-rf-actions { gap: 10px; margin-top: 14px; }
+
+/* =====================================================================
+   THE LEADERBOARD (leaderboard.html)
+   ===================================================================== */
+body.site .lb-body { padding-bottom: var(--end); }
+body.site .lb-main { max-width: 880px; }
+body.site .lb-cta-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; margin: 0 0 32px; padding: 20px 22px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .lb-cta-card .lcc-t { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text); }
+body.site .lb-cta-card .lcc-s { font-size: 16px; line-height: 1.5; color: var(--text-2); }
+body.site .lb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 18px; }
+/* A segmented control: the homepage calculator's kg | lb. */
+body.site .lb-seg { display: inline-flex; gap: 0; padding: 3px; border: 0; border-radius: 999px; background: var(--bg-2); }
+html[data-theme="light"] body.site .lb-seg { background: var(--bg-2); }
+body.site :is(.lb-seg-btn, .lb-unit-btn) { height: 38px; min-width: 52px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: var(--text-2); font: 650 15px/1 var(--font-body); cursor: pointer; transition: background-color var(--t-state) ease, color var(--t-state) ease; }
+body.site :is(.lb-seg-btn, .lb-unit-btn).active { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+html[data-theme="light"] body.site :is(.lb-seg-btn, .lb-unit-btn).active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(15, 15, 25, 0.16); }
+body.site .lb-units { margin-left: auto; }
+body.site .lb-count { font: 550 15px/1.3 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-3); }
+body.site .lb-head { padding: 0 16px 10px; font: 650 13px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .lb-board { gap: 8px; }
+body.site .lb-row { padding: 14px 16px; border: 0; border-radius: 14px; background: var(--card); box-shadow: var(--card-sh); transform: none; }
+@media (hover: hover) and (pointer: fine) { body.site .lb-row:hover { transform: none; border-color: transparent; } }
+body.site :is(.lb-rank, .lb-cls, .lb-total, .lb-dots) { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+body.site .lb-rank { font-weight: 750; color: var(--text-2); }
+body.site .lb-name { font-weight: 650; color: var(--text); }
+body.site .lb-total { color: var(--text-2); font-weight: 600; }
+body.site .lb-dots { color: var(--text); font-weight: 800; }
+body.site .lb-medal-1, body.site .lb-medal-2, body.site .lb-medal-3 { background: var(--card); border-color: transparent; }
+body.site .lb-medal-1 .lb-rank { color: var(--gold); }
+body.site .lb-me { box-shadow: var(--card-sh), inset 0 0 0 1.5px var(--text); }
+body.site .lb-you { background: var(--text); color: var(--bg); }
+body.site .lb-empty { padding: 32px 20px; border: 0; border-radius: 14px; background: var(--card); box-shadow: var(--card-sh); color: var(--text-2); font-size: 16px; text-align: left; }
+
+/* =====================================================================
+   THE EXERCISE LIBRARY (exercises.html)
+   ===================================================================== */
+body.site .exlib-body { padding-bottom: var(--end); }
+body.site .exlib-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; }
+body.site .exlib-chips { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+body.site input.exlib-search { flex: 1 1 220px; min-width: 0; max-width: 320px; height: 40px; margin-left: auto; padding: 0 16px; border-radius: 999px; }
+body.site .exlib-count { margin: 0 0 24px; font: 550 15px/1.3 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-3); }
+body.site .exlib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: var(--cg); align-items: start; }
+body.site .exlib-card { padding: 24px 24px 10px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); transform: none; }
+body.site .exlib-card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 12px; margin-bottom: 4px; }
+body.site .exlib-name { font-family: var(--font-display); font-size: 22px; font-weight: 750; line-height: 1.18; letter-spacing: -0.018em; text-transform: none; font-stretch: 100%; color: var(--text); }
+body.site .exlib-pattern { display: block; margin: 0 0 14px; font: 550 14px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .exlib-mult { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2); font: 650 13px/1 var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+body.site .exlib-summary { margin: 0 0 16px; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+body.site .exlib-block { margin-bottom: 16px; }
+body.site .exlib-block-title { margin: 0 0 8px; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text); }
+body.site .exlib-block ul { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
+body.site .exlib-block li { position: relative; padding-left: 18px; font-size: 15px; line-height: 1.5; color: var(--text-2); }
+body.site .exlib-block li::before { content: ''; position: absolute; left: 3px; top: 0.62em; width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
+body.site .exlib-faults li::before { content: '\2192'; top: 0; left: 0; width: auto; height: auto; border-radius: 0; background: none; color: var(--text-3); font-weight: 700; }
+body.site .exlib-empty { padding: 40px 0; text-align: left; font-size: 16px; color: var(--text-2); }
+body.site .exlib-note { max-width: var(--col); margin: 40px 0 0; padding: 0; border: 0; border-radius: 0; background: none; font-size: 15px; line-height: 1.6; color: var(--text-3); }
+
+/* =====================================================================
+   A COACH'S PROFILE (coach-profile.html)
+   ===================================================================== */
+body.site .cp-hero { padding: var(--head-top) 0 0; }
+body.site .cp-back { display: inline-flex; margin-bottom: 32px; font-size: 15px; color: var(--text-2); }
+body.site .cp-card { display: flex; flex-wrap: wrap; align-items: center; gap: 24px 32px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; animation: none; }   /* not the app's club post card (styles.css shares the name) */
+body.site .cp-av { display: grid; place-items: center; flex: none; width: 112px; height: 112px; overflow: hidden; border-radius: 50%; background: var(--bg-3); color: var(--text); box-shadow: none;
+  font: 800 40px/1 var(--font-display); letter-spacing: -0.02em; }
+body.site .cp-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+body.site .cp-meta { flex: 1; min-width: min(100%, 280px); }
+body.site .cp-name { margin: 0 0 12px; font-family: var(--font-display); font-size: clamp(36px, 1.15rem + 2.75vw, 58px); font-weight: 800; line-height: 1.03; letter-spacing: -0.034em; text-transform: none; font-stretch: 100%; color: var(--text); }
+body.site .cp-flag { margin-left: 10px; font-size: 0.62em; vertical-align: 0.12em; }
+body.site .cp-bio { margin: 0 0 18px; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .cp-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+body.site .cp-stat { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2); font-size: 14px; font-weight: 600; }
+body.site .cp-stat strong { margin: 0; color: var(--text); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+body.site .cp-ig { margin-top: 14px; }
+body.site .cp-section { padding: clamp(72px, 7vw, 104px) 0 0; }
+body.site .cp-section:last-child { padding-bottom: var(--end); }
+body.site .cp-section-head h2 { font-size: clamp(30px, 0.95rem + 2.15vw, 46px); line-height: 1.05; letter-spacing: -0.031em; }
+body.site .cp-section-head p { margin-top: 16px; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .cp-steps { max-width: var(--col); margin-top: 32px; }
+body.site .cp-review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--cg); margin-top: 32px; }
+body.site .cp-review-card { display: flex; flex-direction: column; gap: 12px; padding: 24px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .cp-review-body { flex: 1; margin: 0; font-size: 17px; line-height: 1.6; color: var(--text); }
+body.site .cp-review-by { font-size: 14px; font-weight: 650; color: var(--text-3); }
+body.site .cp-cta { max-width: var(--col); padding: 48px 0 0; border: 0; border-top: 1px solid var(--hair); border-radius: 0; background: none; text-align: left; }
+body.site .cp-cta h2 { margin: 0; font-size: clamp(30px, 0.95rem + 2.15vw, 46px); line-height: 1.05; letter-spacing: -0.031em; }
+body.site .cp-cta p { margin: 18px 0 0; max-width: 34em; font-size: 17px; color: var(--text-2); }
+body.site .cp-cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 32px; }
+body.site :is(.cp-loading, .cp-error) { padding: var(--head-top) 0 var(--end); color: var(--text-2); }
+body.site .cp-error h2 { margin: 0 0 14px; font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; }
+body.site .cp-error p { max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .cp-error .quiet { margin-top: 28px; }
+
+/* =====================================================================
+   ONE TASK ON A CARD: an invite link (join.html), a new password (reset-password.html), email preferences
+   (unsubscribe.html). The app's card on the floor; the task's one crimson action.
+   ===================================================================== */
+body.site :is(.jn-wrap, .reset-wrap, .unsub-wrap) { box-sizing: border-box; display: grid; place-items: center; min-height: calc(100svh - 64px); padding: clamp(32px, 6vw, 72px) max(var(--gut), env(safe-area-inset-right)) clamp(56px, 8vw, 104px) max(var(--gut), env(safe-area-inset-left)); }
+body.site .jn-wrap { min-height: 100svh; }
+body.site :is(.reset-card, .unsub-card) { width: 100%; max-width: 440px; padding: 32px 28px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site :is(.reset-card, .unsub-card, .jn-card) h1 { margin: 0 0 10px; font-size: clamp(30px, 1rem + 1.6vw, 38px); line-height: 1.06; letter-spacing: -0.03em; text-transform: none; max-width: none; }
+body.site :is(.reset-sub, .unsub-sub) { margin: 0 0 24px; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+body.site .reset-sub b { color: var(--text); font-weight: 650; word-break: break-all; }
+body.site .reset-status { margin-top: 14px; padding: 12px 14px; border: 0; border-radius: 14px; font-size: 15px; line-height: 1.5; }
+body.site .reset-status.err { background: rgba(255, 143, 128, 0.1); color: var(--soft-alert); }
+body.site .reset-status.ok { background: rgba(52, 217, 130, 0.1); color: var(--up); }
+body.site :is(.reset-alt, .unsub-alt) { margin-top: 20px; font-size: 15px; color: var(--text-3); text-align: left; }
+body.site :is(.reset-alt, .unsub-alt) a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1.5px; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+/* An invite link: the coach (or their team) leads, then the code, then how to join. */
+body.site .jn-card { width: 100%; max-width: 440px; text-align: left; }
+body.site .jn-brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 40px; color: var(--text); font: 800 16px/1 var(--font-display); font-stretch: 125%; letter-spacing: 0.01em; text-decoration: none; }
+body.site .jn-brand svg { width: 26px; height: 26px; }
+body.site .jn-av { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 0 20px; overflow: hidden; border-radius: 50%; background: var(--bg-3); color: var(--text); font: 750 26px/1 var(--font-body); box-shadow: none; }
+body.site .jn-av img { width: 100%; height: 100%; object-fit: cover; }
+body.site .jn-card h1 { max-width: 14em; }
+body.site .jn-team { margin: 0 0 10px; font-size: 16px; font-weight: 650; color: var(--text-2); }
+body.site .jn-sub { margin: 0 0 24px; max-width: 30em; font-size: 17px; line-height: 1.55; color: var(--text-2); }
+body.site .jn-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 24px; padding: 16px 16px 16px 20px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .jn-code span { display: block; font-size: 14px; font-weight: 650; color: var(--text-3); }
+body.site .jn-code b { display: block; margin-top: 4px; color: var(--text); font: 800 28px/1.1 var(--font-num); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
+body.site .jn-steps { display: grid; gap: 14px; margin: 0 0 24px; text-align: left; }
+body.site .jn-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; align-items: start; }
+body.site .jn-step i { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); font: 800 13px/1 var(--font-num); font-style: normal; }
+body.site .jn-step p { margin: 3px 0 0; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+body.site .jn-step b { color: var(--text); font-weight: 650; }
+body.site .jn-actions { display: grid; gap: 12px; justify-items: start; }
+body.site .jn-actions .btn { width: 100%; }
+body.site .jn-store img { display: block; width: auto; height: 54px; }
+body.site .jn-alt { margin-top: 20px; font-size: 15px; line-height: 1.55; color: var(--text-3); }
+body.site .jn-alt a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1.5px; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+/* A coach with branding (Pro and Premium): their team's logo, name and colour lead the page. */
+body.site .jn-logo { display: grid; place-items: center; width: 80px; height: 80px; margin: 0 0 20px; overflow: hidden; border-radius: 20px; background: var(--jn-brand, var(--bg-3)); color: #fff; font: 800 28px/1 var(--font-display); font-stretch: 112%; box-shadow: none; }
+body.site .jn-logo img { width: 100%; height: 100%; object-fit: cover; }
+body.jn-branded.site .btn-primary { background: var(--jn-brand); color: #fff; box-shadow: none; }
+body.jn-branded.site .jn-step i { background: var(--jn-brand); color: #fff; }
+/* Email preferences */
+body.site .unsub-result { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 22px; padding: 14px 16px; border: 0; border-radius: 14px; font-size: 15px; line-height: 1.5; color: var(--text); }
+body.site .unsub-result.ok { background: rgba(52, 217, 130, 0.09); }
+body.site .unsub-result.err { background: rgba(255, 143, 128, 0.1); }
+body.site .unsub-result .ur-ic { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; font-size: 15px; font-weight: 800; }
+body.site .unsub-result.ok .ur-ic { background: rgba(52, 217, 130, 0.16); color: var(--up); }
+body.site .unsub-result.err .ur-ic { background: rgba(255, 143, 128, 0.16); color: var(--soft-alert); }
+body.site .unsub-result .ur-title { display: block; margin-bottom: 3px; font-weight: 700; }
+body.site .unsub-result .ur-body { display: block; color: var(--text-2); }
+body.site .unsub-prefs-head { margin: 6px 0 2px; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+body.site .unsub-loading { padding: 4px 0 18px; font-size: 15px; color: var(--text-3); }
+body.site .unsub-saving { min-height: 20px; margin-top: 10px; font-size: 14px; color: var(--text-3); transition: opacity 0.2s; }
+body.site .email-pref-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 0; padding: 14px 0; border-bottom: 1px solid var(--hair); cursor: pointer; text-transform: none; letter-spacing: normal; }
+body.site .email-pref-row:last-of-type { border-bottom: 0; }
+body.site .email-pref-row .epr-label { font-size: 16px; font-weight: 650; color: var(--text); }
+body.site .email-pref-row .epr-sub { font-size: 14px; line-height: 1.45; color: var(--text-3); }
+body.site .email-pref-row input[type=checkbox] { flex: none; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--text); cursor: pointer; }
+
+/* =====================================================================
+   404: the homepage's close, at the edge of the frame. One line, one action.
+   ===================================================================== */
+body.site .nf-wrap { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; min-height: calc(100svh - 64px); width: 100%; max-width: calc(var(--wrap) + 2 * var(--gut)); margin: 0 auto;
+  padding: 72px max(var(--gut), env(safe-area-inset-right)) 104px max(var(--gut), env(safe-area-inset-left)); }
+body.site .nf-wrap h1 { font-size: clamp(40px, 1rem + 4vw, 74px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
+body.site .nf-wrap p { margin-top: 24px; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
+body.site .nf-wrap .s-actions { margin-top: 40px; }
+
+/* The privacy banner reads the page's tokens; here it carries the few the app would have given it. */
+body.site .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); --ring: 0 0 0 3px rgba(127, 127, 140, 0.3); font-family: var(--font-body); }
+
+/* =====================================================================
+   Phone width: the same pages, composed for the thumb (the homepage's phone values).
+   ===================================================================== */
+@media (max-width: 759px) {
+  body.site { font-size: 16px; }
+  body.site h1, body.site :is(.guide-title, .mk-detail-title, .cp-name, .cp-error h2) { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
+  body.site .s-page-head { padding: 40px 0 32px; }
+  body.site .guide-wrap, body.site .mk-detail { padding-top: 32px; }
+  body.site .cp-hero { padding-top: 32px; }
+  body.site .s-prose, body.site .prose { font-size: 16px; }
+  body.site .s-prose > h2, body.site .prose > h2 { margin-top: 44px; }
+  body.site .btn-lg { height: 50px; padding: 0 24px; }
+  body.site .s-actions { margin-top: 44px; gap: 12px 20px; }
+  body.site .q > summary { padding: 18px 0; font-size: 17px; }
+  body.site .qa p { font-size: 16px; }
+  body.site .s-steps > li { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; font-size: 16px; }
+  body.site .s-steps > li::before { width: 28px; height: 28px; font-size: 13px; }
+  body.site .dt-who > div { grid-template-columns: minmax(0, 1fr); }
+  body.site .guide-hub-card { grid-template-columns: minmax(0, 1fr); padding: 26px 0 28px; }
+  body.site .guide-hub-card .ghc-read { grid-column: 1; grid-row: auto; margin-top: 6px; }
+  body.site .guide-hub-card .ghc-kicker { grid-row: auto; }
+  body.site .guide-cta { margin-top: 56px; padding-top: 40px; }
+  body.site .mk-filters-right { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  body.site input.mk-search { max-width: none; }
+  body.site input.exlib-search { margin-left: 0; max-width: none; }
+  body.site .lb-units { margin-left: 0; }
+  body.site .cp-av { width: 88px; height: 88px; font-size: 32px; }
+  body.site .cp-card { gap: 20px; }
+  body.site :is(.reset-card, .unsub-card) { padding: 26px 20px; border-radius: 20px; }
+  body.site .nf-wrap h1 { font-size: clamp(40px, 11vw, 52px); }
+}
+
+/* Inside the iPhone app (html.native): the bar clears the status bar (site.css); single-task cards fill the screen. */
+html.native body.site :is(.reset-wrap, .unsub-wrap) { min-height: calc(100svh - 56px - env(safe-area-inset-top)); }
+
+/* Reduced motion: no press or arrow travel, no answer arriving. */
+@media (prefers-reduced-motion: reduce) {
+  body.site :is(.btn, .quiet .arr, .qi::before, .qi::after, .bar-pill) { transition: none !important; }
+  body.site .btn:active { transform: none; }
+}
