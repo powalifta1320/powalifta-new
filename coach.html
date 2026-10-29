@@ -562,35 +562,39 @@ function _coachReady() {
 // ONBOARDING TOUR — coach flow
 // =========================================================
 function maybeStartCoachTour() {
+  // The tabs in the bar's order (Home, Lifters, Messages, Programs, You), in the coach's words: a brand-new coach's
+  // first minute on the phone (29 Oct; it used to name a Roster tab and athletes, and skipped Home).
+  const go = (tab) => () => { const t = document.getElementById('tab-' + tab); if (t) t.click(); };
   const steps = [
     {
-      selector: '#tab-athletes',
-      title: 'Your roster lives here',
-      body: 'Every athlete you coach shows up in the Roster tab. From here you generate invite codes, see who logged today, and drill into anyone\'s training.',
-      before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+      selector: '#tab-home',
+      title: 'Who needs you, first',
+      body: 'Home is your team\'s week: who needs you first with the fix beside it, then meets and PRs. It fills in as your lifters train.',
+      before: go('home')
     },
     {
       selector: '#btn-invite',
-      title: 'Invite your first athlete',
-      body: 'Tap this to generate a 6-character invite code. Send it to your athlete via text/email/IG. They sign up with that code and join your roster automatically.'
-    },
-    {
-      selector: '#tab-program',
-      title: 'Build their training',
-      body: 'Pick an athlete, build their program week-by-week. Top sets, back-down sets, accessories: full PL coverage with RPE-native programming.',
-      before: () => { const t = document.getElementById('tab-program'); if (t) t.click(); }
-    },
-    {
-      selector: '#tab-you',
-      title: 'Progress, templates, settings',
-      body: 'Each athlete\'s e1RM trends, PRs and check-ins live under You → Lifter progress, next to your templates and plan.',
-      before: () => { const t = document.getElementById('tab-you'); if (t) t.click(); }
+      title: 'Bring in your lifters',
+      body: 'Tap + to send a lifter their own link. They sign up with it and land here, on your roster.',
+      before: go('athletes')
     },
     {
       selector: '#tab-messages',
-      title: 'Message your roster',
-      body: 'Every athlete conversation in one place, plus their form-check videos. Pick a name to open the thread and reply. They get it on their dashboard and as a push.',
-      before: () => { const t = document.getElementById('tab-messages'); if (t) t.click(); }
+      title: 'Every lifter, one thread',
+      body: 'What they write beside what they lifted: their logged sets arrive as cards you can answer, form checks too.',
+      before: go('messages')
+    },
+    {
+      selector: '#tab-program',
+      title: 'Write their training',
+      body: 'A lifter\'s block, a day at a time: top sets and back-offs by RPE or %. They see it on Train the moment you save.',
+      before: go('program')
+    },
+    {
+      selector: '#tab-you',
+      title: 'Your account',
+      body: 'Your profile, plan, branding and notifications, with check-in questions and templates. Replay this tour under Help on You.',
+      before: go('you')
     },
   ];
   // Apple 3.1.1: this step names the free tier + an "upgrade" path AND points at
@@ -599,8 +603,8 @@ function maybeStartCoachTour() {
     steps.push({
       selector: '#planPill',
       title: 'Your plan',
-      body: 'Free tier covers 3 athletes. When you grow past that, click here anytime to upgrade. Tap "Show tour again" in settings to replay this walkthrough.',
-      before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+      body: 'Free covers 3 lifters. When you grow past that, upgrade here any time.',
+      before: go('athletes')
     });
   }
   startTour('coach', steps);
@@ -619,7 +623,7 @@ function renderCoachYou() {
   const area = document.getElementById('youArea');
   if (!area) return;
   // The laptop desk: Settings in two columns (desk.js). The phone keeps the You list.
-  area.classList.remove('dk-set');
+  area.classList.remove('dk-set', 'cy-you');
   if (_desk() && typeof deskRenderSettings === 'function') { deskRenderSettings(area); return; }
   const roster = getRosterOverview(user.id);
   const tier = getCurrentTier();
