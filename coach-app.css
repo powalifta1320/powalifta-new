@@ -836,6 +836,14 @@ html:not(.desk) .ca-rows-cap { display: flex; align-items: baseline; justify-con
 /* pending invites (coach.html #invitesWrap) after the hub: a section's gap and the one title size */
 html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap { margin-top: 32px; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 4px 12px; padding: 0; font-size: 20px; font-weight: 700; }
+/* the search's clear button: iOS's grey disc with a cross, a 44 pt target inside the field's end */
+html:not(.desk) .ca-search .ca-q-x { position: relative; flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-right: -2px; padding: 0; border: 0; background: none; color: var(--text-3); cursor: pointer; --ca-q-x-ink: var(--bg, #0b0b0c); }
+html:not(.desk) .ca-search .ca-q-x[hidden] { display: none; }
+html:not(.desk) .ca-search .ca-q-x::after { content: ''; position: absolute; inset: -11px; }
+html:not(.desk) .ca-search .ca-q-x svg { width: 18px; height: 18px; }
+html[data-theme="light"]:not(.desk) .ca-search .ca-q-x { --ca-q-x-ink: #fff; }
+html:not(.desk) .ca-search .ca-q-x:active { color: var(--text-2); }
+
 /* the filters' thumb (coach-app.js renderLifters --k): the chosen count sits on it and it slides to the next one,
    on transform only, the press weight of the spring; under reduced motion it jumps */
 html:not(.desk) .ca-seg.has-thumb { position: relative; }

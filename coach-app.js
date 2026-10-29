@@ -1445,7 +1445,9 @@
     wrap.className = 'ca-hub ca-root';
     var counts = caFilterCounts(X.rows, { need: X.need, week: X.week });
     if (!counts[L.filter]) L.filter = 'all';
-    var search = X.rows.length > 6 ? '<label class="ca-search ca-rise">' + ic('search') + '<input class="ca-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(L.q) + '"></label>' : '';
+    // Past six lifters a search, with iOS's clear button inside it while it holds text (the hub's data-clear-q).
+    var search = X.rows.length > 6 ? '<label class="ca-search ca-rise">' + ic('search') + '<input class="ca-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(L.q) + '">' +
+      '<button type="button" class="ca-q-x" data-clear-q aria-label="Clear search"' + (L.q ? '' : ' hidden') + '><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m8.5 8.5 7 7m0-7-7 7" stroke="var(--ca-q-x-ink, #0b0b0c)" stroke-width="2.2" stroke-linecap="round"/></svg></button></label>' : '';
     // The chosen filter sits on a thumb that slides to the next one (a segmented control's own motion: where the
     // choice went, on transform only; it jumps under reduced motion). --k is the chosen one's place.
     var k = FILTERS.map(function (f) { return f[0]; }).indexOf(L.filter);
@@ -1516,6 +1518,7 @@
         e.preventDefault();
         var qi = wrap.querySelector('.ca-q');
         L.q = ''; if (qi) { qi.value = ''; qi.focus(); }
+        var qx = wrap.querySelector('.ca-q-x'); if (qx) qx.hidden = true;
         paintRows(wrap);
         return;
       }
@@ -1524,8 +1527,9 @@
     var q = wrap.querySelector('.ca-q');
     if (q) {
       var tm = null;
-      q.addEventListener('input', function () { L.q = q.value; clearTimeout(tm); tm = setTimeout(function () { paintRows(wrap); }, 60); });
-      q.addEventListener('keydown', function (e) { if (e.key === 'Escape') { q.value = ''; L.q = ''; paintRows(wrap); q.blur(); } });
+      var qx = wrap.querySelector('.ca-q-x');
+      q.addEventListener('input', function () { L.q = q.value; if (qx) qx.hidden = !q.value; clearTimeout(tm); tm = setTimeout(function () { paintRows(wrap); }, 60); });
+      q.addEventListener('keydown', function (e) { if (e.key === 'Escape') { q.value = ''; L.q = ''; if (qx) qx.hidden = true; paintRows(wrap); q.blur(); } });
     }
   }
 
