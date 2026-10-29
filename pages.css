@@ -97,8 +97,8 @@ body.site .s-prose > h2 + * { margin-top: 14px; }
 body.site .s-prose h3 { margin-top: 32px; }
 body.site .s-prose h3 + * { margin-top: 8px; }
 body.site .s-prose :is(strong, b) { color: var(--text); font-weight: 650; }
-body.site :is(.s-prose, .prose, .qa, .s-note, .faq-contact) a:not(.btn):not(.quiet) { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; text-decoration-color: var(--line-2); border: 0; transition: text-decoration-color var(--t-state) ease; }
-@media (hover: hover) and (pointer: fine) { body.site :is(.s-prose, .prose, .qa, .s-note, .faq-contact) a:not(.btn):not(.quiet):hover { text-decoration-color: currentColor; } }
+body.site :is(.s-prose, .prose, .qa, .faq-contact) a:not(.btn):not(.quiet) { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; text-decoration-color: var(--line-2); border: 0; transition: text-decoration-color var(--t-state) ease; }
+@media (hover: hover) and (pointer: fine) { body.site :is(.s-prose, .prose, .qa, .faq-contact) a:not(.btn):not(.quiet):hover { text-decoration-color: currentColor; } }
 body.site .s-prose :is(ul, ol) { padding-left: 1.25em; }
 body.site .s-prose li + li { margin-top: 0.5em; }
 body.site .s-prose li::marker { color: var(--text-3); }
@@ -130,19 +130,16 @@ body.site .bar .bar-pill { transition: opacity var(--t-state) var(--ease-out), t
 body.site .bar.pill-back .bar-pill { opacity: 0; transform: translateY(-4px); visibility: hidden; pointer-events: none; transition: opacity var(--t-state) var(--ease-out), transform var(--t-state) var(--ease-out), visibility 0s linear var(--t-state); }
 
 /* Chips (a filter) and fields */
-body.site :is(.chip, .mk-tier-btn, .mk-cat-btn, .exlib-chip) { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2);
+body.site :is(.mk-tier-btn, .mk-cat-btn, .exlib-chip) { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--text-2);
   font: 600 14px/1 var(--font-body); letter-spacing: -0.005em; text-transform: none; cursor: pointer; transition: background-color var(--t-state) ease, color var(--t-state) ease; -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) and (pointer: fine) { body.site :is(.chip, .mk-tier-btn, .mk-cat-btn, .exlib-chip):hover { background: var(--fill-3); color: var(--text); border-color: transparent; } }
-body.site :is(.chip, .mk-tier-btn, .mk-cat-btn, .exlib-chip).active { background: var(--text); color: var(--bg); }
+@media (hover: hover) and (pointer: fine) { body.site :is(.mk-tier-btn, .mk-cat-btn, .exlib-chip):hover { background: var(--fill-3); color: var(--text); border-color: transparent; } }
+body.site :is(.mk-tier-btn, .mk-cat-btn, .exlib-chip).active { background: var(--text); color: var(--bg); }
 body.site :is(input[type=text], input[type=email], input[type=password], input[type=number], input[type=search], select, textarea) { width: 100%; height: 48px; margin: 0; padding: 0 14px; border: 0; border-radius: 12px;
   background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); font: 500 16px/1.3 var(--font-body); letter-spacing: -0.005em; transition: box-shadow var(--t-state) ease; }
 body.site textarea { height: auto; min-height: 96px; padding: 12px 14px; line-height: 1.5; }
 body.site :is(input, select, textarea):focus { outline: none; border-color: transparent; box-shadow: inset 0 0 0 1.5px var(--text); }
 body.site :is(input, textarea)::placeholder { color: var(--text-3); opacity: 1; }
 body.site .form-group { margin-bottom: 16px; }
-
-/* The app's card: its material, a hairline edge (and a one-pixel shadow in daylight). */
-body.site .s-card { border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
 
 /* ---------- The questions: the homepage's (closed until opened; the answer arrives as it opens) */
 body.site .qs { max-width: var(--col); border-bottom: 1px solid var(--hair); }
@@ -164,7 +161,6 @@ body.site .qa strong { color: var(--text); font-weight: 650; }
 /* A formula: the app's numbers on its card, never a code slab. */
 body.site .formula { max-width: 40em; padding: 16px 20px; border-radius: 14px; background: var(--card); box-shadow: var(--card-sh); color: var(--text);
   font: 600 16px/1.6 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.005em; overflow-x: auto; }
-body.site .s-note { max-width: var(--col); margin-top: 40px; font-size: 16px; line-height: 1.6; color: var(--text-2); }
 
 /* ---------- Numbered steps (a real sequence): the homepage's moving-over steps */
 body.site .s-steps { list-style: none; counter-reset: s-step; margin: 0; padding: 0; }
