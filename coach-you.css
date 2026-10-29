@@ -34,6 +34,7 @@ html:not(.desk) body.powa-app #youArea.cy-you .you-id h2 {
 }
 html:not(.desk) body.powa-app #youArea.cy-you .you-sub { margin-top: 6px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: balance; }
 html:not(.desk) body.powa-app #youArea.cy-you .you-hero .social-chips { justify-content: center; margin-top: 12px; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-hero .social-chips .ig-chip { width: 44px; height: 44px; }   /* a 44 pt target each */
 /* the actions: a brand-new coach's invite (the one red, full width), then Edit profile, the quiet one */
 html:not(.desk) body.powa-app #youArea.cy-you .you-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; margin-top: 20px; }
 html:not(.desk) body.powa-app #youArea.cy-you .you-primary { width: 100%; }
@@ -105,6 +106,9 @@ html:not(.desk) body.powa-app #youArea.cy-you .yr-value:empty { display: none; }
 html:not(.desk) body.powa-app #youArea.cy-you :is(.yr-value, .yr-sub).is-warn { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
 html:not(.desk) body.powa-app #youArea.cy-you :is(.yr-value, .yr-sub).is-warn::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 html:not(.desk) body.powa-app #youArea.cy-you .yr-chev { width: 16px; height: 16px; color: var(--text-3); }
+/* a keyboard's focus ring, in the screen's hue (inside a row, so the list's rounded edge never clips it) */
+html:not(.desk) body.powa-app #youArea.cy-you :is(.you-av, .you-action, .you-primary):focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: 3px; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-row:focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: -3px; border-radius: 16px; }
 /* your account: Log out and Delete account, ink (red is the logo and the one action, never a word) */
 html:not(.desk) body.powa-app #youArea.cy-you .you-row.tone-plain .yr-label { color: var(--text); }
 @media (hover: hover) and (pointer: fine) {
@@ -176,6 +180,11 @@ html:not(.desk) body.powa-app .settings-sheet .plan-card-problem { display: flex
 html:not(.desk) body.powa-app .settings-sheet .plan-card-problem::before { content: ''; flex: none; width: 9px; height: 8px; margin-top: 5px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 html:not(.desk) body.powa-app .settings-sheet .plan-card-note { font-size: 13px; }
 html:not(.desk) body.powa-app .settings-sheet .plan-card-actions .btn { min-height: 52px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+/* the plan picker (the App Store's, or the web's): the popular plan is named by its badge and its edge, with no red
+   wash behind it; the badge is the graphite chip, the plan's own button the one crimson */
+html:not(.desk) body.powa-app :is(#iapPaywallModal, #upgradeModal) .upgrade-tier.featured { background: var(--bg-2); }
+html:not(.desk) body.powa-app :is(#iapPaywallModal, #upgradeModal) .upgrade-badge { top: -12px; padding: 4px 12px; background: var(--text); color: var(--bg); font-size: 11px; letter-spacing: 0.02em; }
+html:not(.desk) body.powa-app :is(#iapPaywallModal, #upgradeModal) .upgrade-tier.current { background: var(--bg-2); }
 /* Branding and Check-in questions: their labels on the scale */
 html:not(.desk) body.powa-app .brand-sheet .bs-label { font-size: 13px; }
 html:not(.desk) body.powa-app .brand-sheet .bs-pv-btn { height: 52px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
