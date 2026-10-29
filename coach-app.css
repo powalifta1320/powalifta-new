@@ -181,6 +181,10 @@ html:not(.desk) .t-done { --th: var(--ca-live); }
 html:not(.desk) body.powa-app .ui-row-sub.alert::before,
 html[data-theme="light"]:not(.desk) body.powa-app .ui-row-sub.alert::before { top: calc(0.7em - 4px); width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 html:not(.desk) body.powa-app .ui-dot.bad { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+/* a field in focus on a fire-lit screen (Home, Lifters, a lifter and their sheets) rang in the screen's red, which
+   reads as an error: it takes the neutral ring the app uses elsewhere */
+html:not(.desk) body.powa-app[data-accent="fire"] :is(input, select, textarea):focus { border-color: var(--text-3); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 14%, transparent); }
+html:not(.desk) body.powa-app[data-accent="fire"] .ca-root :focus-visible { outline-color: color-mix(in srgb, var(--text) 72%, transparent); }
 
 /* faces: an avatar inside its week ring. The ring is the lifter's lip: its filled segments (sessions this
    week) take their plate family; on plan they stay ink. The live dot sits still at the shoulder. */
