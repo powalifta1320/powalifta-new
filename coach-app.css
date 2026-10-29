@@ -839,10 +839,10 @@ html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap > .ui-l
 /* the header's quiet + in light: the grey circle of Home's search beside it (it was white on white, a bare glyph) */
 html[data-theme="light"]:not(.desk) body.powa-app #btn-invite.is-quiet { background: rgba(15, 15, 25, 0.07); }
 
-/* the search's clear button: iOS's grey disc with a cross, a 44 pt target inside the field's end */
-html:not(.desk) .ca-search .ca-q-x { position: relative; flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-right: -2px; padding: 0; border: 0; background: none; color: var(--text-3); cursor: pointer; --ca-q-x-ink: var(--bg, #0b0b0c); }
+/* the search's clear button: iOS's grey disc with a cross; the button itself is the 44 pt target (the disc sits where
+   a 22 pt one would, the negative margins keep the field's layout) */
+html:not(.desk) .ca-search .ca-q-x { position: relative; flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: 0 -13px 0 -11px; padding: 0; border: 0; background: none; color: var(--text-3); cursor: pointer; --ca-q-x-ink: var(--bg, #0b0b0c); }
 html:not(.desk) .ca-search .ca-q-x[hidden] { display: none; }
-html:not(.desk) .ca-search .ca-q-x::after { content: ''; position: absolute; inset: -11px; }
 html:not(.desk) .ca-search .ca-q-x svg { width: 18px; height: 18px; }
 html[data-theme="light"]:not(.desk) .ca-search .ca-q-x { --ca-q-x-ink: #fff; }
 html:not(.desk) .ca-search .ca-q-x:active { color: var(--text-2); }
