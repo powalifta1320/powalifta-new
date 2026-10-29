@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 175 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 233 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
@@ -88,6 +88,16 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   }
 }
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
+// Every other public page (29 Oct: pages.css carries the homepage's look to them), and every public page in the light
+// theme too (they follow it; the homepage's floors don't). Offline, the shop is empty, a coach's profile says the coach
+// isn't found, email preferences say the link isn't valid; the leaderboard's demo board is local.
+const MORE_PUBLIC = ['data.html', 'switch.html', 'guide-e1rm.html', 'guide-dots.html', 'guide-peaking.html', 'coach-profile.html?id=none', 'unsubscribe.html', 'leaderboard.html?demo=1', '404.html'];
+const ALL_PUBLIC = ['about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html'].concat(MORE_PUBLIC);
+const pubName = (p) => 'w-' + p.replace(/\.html.*/, '') + (p.includes('demo=1') ? '-demo' : '');
+for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
+  for (const p of MORE_PUBLIC) screens.push({ name: pubName(p) + suf, page: p, mode: 'web', w, h });
+  for (const p of ALL_PUBLIC) screens.push({ name: pubName(p) + suf + '-l', page: p, mode: 'web', w, h, theme: 'light' });
+}
 // The desk's Settings › Plan & seats with Capacity, dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
 // The desk's Career panel (coach.html at laptop width), dark and light.

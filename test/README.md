@@ -70,7 +70,7 @@ blocks a machine that doesn't have a browser installed.
 
 ## Small-stuff scanner (needs playwright-core)
 
-Opens 175 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
+Opens 233 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
 public page at desktop and phone width, dark and light) and reports overlapping text or buttons,
 text cut off by its box, sideways scroll, controls outside their card, side-by-side buttons that
 don't match, tiny tap targets and unreadable text. A screen that fails to load counts as a finding.
