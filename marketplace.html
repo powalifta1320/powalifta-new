@@ -306,8 +306,8 @@ function renderMkPage() {
   const g = el('div', { class: 'mk-grid' });
   pagePrograms.forEach(p => {
     const coach = _allCoaches.find(c => c.id === p.coachId);
-    const card = el('div', { class: 'mk-card' });
-    card.addEventListener('click', () => { location.href = 'marketplace.html?id=' + p.id; });
+    // A link, so a keyboard, a screen reader and a middle click reach the program too.
+    const card = el('a', { class: 'mk-card', href: 'marketplace.html?id=' + encodeURIComponent(p.id) });
     card.appendChild(el('div', { class: 'mk-card-tier' }, TIER_LABELS_MK[p.tier] || 'Program'));
     const cardCat = (typeof marketCategoryLabel === 'function' && p.category) ? marketCategoryLabel(p.category) : '';
     if (cardCat) card.appendChild(el('div', { class: 'mk-cat-tag', style: 'margin-bottom:10px' }, cardCat));

@@ -56,7 +56,7 @@ html:has(> body.site) { background: #050506; }
 html[data-theme="light"]:has(> body.site) { background: #f4f4f6; }
 
 /* ---------- Base. The app's reset, at no weight, for the page that loads without styles.css (404). */
-:where(body.site), :where(body.site) :where(*, *::before, *::after) { box-sizing: border-box; }
+:where(body.site), :where(body.site) *, :where(body.site) *::before, :where(body.site) *::after { box-sizing: border-box; }
 :where(body.site) :where(h1, h2, h3, h4, p, ul, ol, dl, dd, figure, blockquote) { margin: 0; }
 body.site { margin: 0; padding: 0; max-width: none; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 17px; line-height: 1.55; letter-spacing: -0.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body.site::before { content: none; display: none; }    /* the app's film grain, never on the website */
@@ -293,7 +293,7 @@ body.site select.mk-sort { height: 40px; width: auto; padding: 0 38px 0 16px; bo
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c8c96' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat; background-position: right 14px center; }
 body.site .mk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--cg); }
-body.site .mk-card { display: flex; flex-direction: column; padding: 24px; border: 0; border-radius: 20px; background: var(--card); background-image: none; box-shadow: var(--card-sh); cursor: pointer; transform: none; transition: box-shadow var(--t-state) ease, transform var(--t-press) var(--ease-out); }
+body.site .mk-card { display: flex; flex-direction: column; color: var(--text); text-decoration: none; padding: 24px; border: 0; border-radius: 20px; background: var(--card); background-image: none; box-shadow: var(--card-sh); cursor: pointer; transform: none; transition: box-shadow var(--t-state) ease, transform var(--t-press) var(--ease-out); }
 @media (hover: hover) and (pointer: fine) { body.site .mk-card:hover { border-color: transparent; transform: none; box-shadow: var(--card-sh), 0 0 0 1px var(--line-2); } }
 body.site .mk-card:active { transform: scale(0.99); }
 body.site :is(.mk-card-tier, .mk-detail-tier) { display: block; margin: 0 0 8px; padding: 0; border-radius: 0; background: none; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-3); }
@@ -516,6 +516,8 @@ body.site .nf-wrap { box-sizing: border-box; display: flex; flex-direction: colu
 body.site .nf-wrap h1 { font-size: clamp(40px, 1rem + 4vw, 74px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
 body.site .nf-wrap p { margin-top: 24px; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
 body.site .nf-wrap .s-actions { margin-top: 40px; }
+/* Its crimson action is always on screen (one screen, no app.js), so the bar's ink pill is stepped back from the start. */
+body.nf-page .bar .bar-pill { display: none; }
 
 /* The privacy banner reads the page's tokens; here it carries the few the app would have given it. */
 body.site .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); --ring: 0 0 0 3px rgba(127, 127, 140, 0.3); font-family: var(--font-body); }
@@ -546,6 +548,8 @@ body.site .cc-banner { --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --ea
   body.site input.mk-search { max-width: none; }
   body.site input.exlib-search { margin-left: 0; max-width: none; }
   body.site .lb-units { margin-left: 0; }
+  body.site .lb-id { flex-wrap: wrap; row-gap: 4px; }
+  body.site .lb-name { flex-basis: 100%; white-space: normal; overflow: visible; }   /* the whole name, its marks under it */
   body.site .cp-av { width: 88px; height: 88px; font-size: 32px; }
   body.site .cp-card { gap: 20px; }
   body.site :is(.reset-card, .unsub-card) { padding: 26px 20px; border-radius: 20px; }
@@ -557,6 +561,6 @@ html.native body.site :is(.reset-wrap, .unsub-wrap) { min-height: calc(100svh - 
 
 /* Reduced motion: no press or arrow travel, no answer arriving. */
 @media (prefers-reduced-motion: reduce) {
-  body.site :is(.btn, .quiet .arr, .qi::before, .qi::after, .bar-pill) { transition: none !important; }
+  body.site :is(.btn, .quiet .arr, .bar-pill), body.site .qi::before, body.site .qi::after { transition: none !important; }
   body.site .btn:active { transform: none; }
 }
