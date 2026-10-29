@@ -1613,7 +1613,7 @@ html:not(.desk) body.powa-app #clubArea .cp-card .react-chip b { font-family: va
 html:not(.desk) body.powa-app #clubArea .club-board-note { margin: 12px 4px 0; font-size: 13px; line-height: 1.45; color: var(--text-3); }
 html:not(.desk) body.powa-app #clubArea .club-board.ui-list { margin-top: 16px; padding: 0; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
 html:not(.desk) body.powa-app #clubArea .club-row { min-height: 64px; padding: 10px 14px 10px 12px; gap: 12px; }
-html:not(.desk) body.powa-app #clubArea .club-row .cr-rank { font-family: var(--font-num); font-size: 15px; font-weight: 700; color: var(--text-3); }
+html:not(.desk) body.powa-app #clubArea .club-row .cr-rank { font-family: var(--font-num); font-size: 15px; font-weight: 700; color: var(--text-2); }
 html:not(.desk) body.powa-app #clubArea .club-row .cr-av { width: 36px; height: 36px; font-size: 13px; font-weight: 800; }
 html:not(.desk) body.powa-app #clubArea .club-row .cr-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 html:not(.desk) body.powa-app #clubArea .club-row .cr-meta { font-size: 13px; color: var(--text-3); }
@@ -1671,6 +1671,16 @@ html:not(.desk) body.powa-app .chl-new .chl-who .ui-chip.on { background: var(--
 /* a club member's card: their Instagram is a graphite button like its neighbours; the pink glyph alone says
    whose link it is (the pink wash read as a second red beside the screen's one) */
 html:not(.desk) body.powa-app .lifter-sheet .ig-chip.is-big { background: var(--pl-inset-2); box-shadow: none; font-size: 15px; font-weight: 600; }
+/* its lift tiles: the lift's name in ink beside a dot in the lift's colour (text never wears the lift colours:
+   on white they read 1.6 to 2.7:1), on the scale (13, was 12) */
+html:not(.desk) body.powa-app .lifter-sheet .lc-l { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-l::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--lc, var(--text-3)); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-squat { --lc: var(--pl-viz-sq); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-bench { --lc: var(--pl-viz-bp); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-deadlift { --lc: var(--pl-viz-dl); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift.lift-total { --lc: var(--ca-gold); }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift b { font-size: 17px; font-weight: 800; }
+html:not(.desk) body.powa-app .lifter-sheet .lc-lift b small { font-size: 13px; }
 /* the club's invite: its code in ink (it read in a warm red), the QR on white as it must be */
 html:not(.desk) body.powa-app .invite-sheet .club-qr-code span { font-size: 13px; }
 html:not(.desk) body.powa-app .invite-sheet .club-qr-code b { color: var(--text); font-size: 28px; font-weight: 800; }
