@@ -1694,7 +1694,7 @@ html:not(.desk) body.powa-app .invite-sheet .club-qr-code b { color: var(--text)
 }
 @media (prefers-reduced-motion: reduce) {
   html:not(.desk) body.powa-app .react-pop { animation: plFade 160ms ease-out both; }
-  html:not(.desk) body.powa-app :is(.msg-inbox-back, .msg-composer .msg-send, .msg-composer .vn-send, .msg-composer .msg-saved, .msg-composer .vn-mic):active { transform: none; }
+  html:not(.desk) body.powa-app :is(.msg-inbox-back, .msg-composer .msg-send, .msg-composer .vn-send, .msg-composer .msg-saved, .msg-composer .vn-mic, #clubArea .club-invite-icon):active { transform: none; }
   html:not(.desk) body.powa-app :is(.vn-mic.is-held, .msg-composer.is-recording .vn-mic) { transform: none; }
 }
 
