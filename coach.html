@@ -1087,7 +1087,7 @@ function openBrandSheet() {
   const canUpgrade = !document.documentElement.classList.contains('native') || !!window._iapReady;
   const st = { name: user.brandName || '', color: user.brandColor || null, logoUrl: user.brandLogoUrl || null };
   uiSheet('Branding', (sheet, close) => {
-    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, pro ? 'Your team name, logo and colour on your athletes\' app.' : 'Your team name, logo and colour on your athletes\' app. Set it up now: they see it once you\'re on Pro.'));
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, pro ? 'Your team name, logo and colour on your lifters\' app.' : 'Your team name, logo and colour on your lifters\' app. Set it up now: they see it once you\'re on Pro.'));
     // What Train looks like to them.
     const pv = el('div', { class: 'bs-preview', 'aria-label': 'Preview of your athletes\' Train screen' });
     const pvBrand = el('div', { class: 'bs-pv-brand' });
@@ -1171,7 +1171,7 @@ function openBrandSheet() {
       }
       user.brandName = fields.name; user.brandColor = fields.color; user.brandLogoUrl = fields.logoUrl;
       close();
-      toast(window._demoMode ? 'Saved in the demo' : pro ? 'Saved. Your athletes see it next time they open the app' : 'Saved. Your athletes see it once you\'re on Pro');
+      toast(window._demoMode ? 'Saved in the demo' : pro ? 'Saved. Your lifters see it next time they open the app' : 'Saved. Your lifters see it once you\'re on Pro');
       try { renderCoachYou(); } catch (e) {}
     });
     acts.appendChild(save);
@@ -1193,7 +1193,7 @@ function openCheckinQuestionsSheet() {
       const body = el('div', { class: 'ciq-body' });
       const qs = _myCheckinQs().slice().sort((a, b) => (a.position || 0) - (b.position || 0));
       if (!qs.length) {
-        body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your own questions, answered in seconds on Train: sleep, soreness, pain, anything. Daily or weekly, for everyone or for chosen athletes. Answers show on each athlete\'s sheet with averages.'));
+        body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your own questions, answered in seconds on Train: sleep, soreness, pain, anything. Daily or weekly, for everyone or for chosen lifters. Answers show on each lifter\'s page with averages.'));
         const starter = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Start with four good ones');
         starter.addEventListener('click', async () => {
           starter.disabled = true;
@@ -1209,7 +1209,7 @@ function openCheckinQuestionsSheet() {
         sheet.querySelector('.ciq-foot') ? sheet.insertBefore(body, sheet.querySelector('.ciq-foot')) : sheet.appendChild(body);
         return;
       }
-      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your athletes answer these on Train. Tap one to change it.'));
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your lifters answer these on Train. Tap one to change it.'));
       body.appendChild(uiList(qs.map(q => uiRow({
         title: q.prompt,
         sub: [CHECKIN_KINDS[q.kind] + (q.kind === 'choice' && q.choices ? ': ' + q.choices.join(', ') : ''), q.cadence === 'daily' ? 'Every day' : 'Every week', _ciWho(q), q.active === false ? 'Paused' : ''].filter(Boolean).join(' · '),

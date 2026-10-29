@@ -2332,7 +2332,7 @@ function openUpgradeModal(reason) {
   // Lemon Squeezy modal below never renders in the shell either way.
   if (_isNativeShell()) {
     if (window._iapReady) { openNativePaywall(reason); return; }
-    if (reason === 'cap') toast('You\'ve reached your athlete limit.');
+    if (reason === 'cap') toast('You\'ve reached your lifter limit.');
     return;
   }
   ensureUpgradeModal();
@@ -2355,13 +2355,13 @@ function openUpgradeModal(reason) {
     title.textContent = 'You\'ve hit your plan limit';
     const aCount = getAthleteCount(u.id);
     const pCount = getPendingInviteCount(u.id);
-    let breakdown = aCount + ' athlete' + (aCount === 1 ? '' : 's');
+    let breakdown = aCount + ' lifter' + (aCount === 1 ? '' : 's');
     if (pCount > 0) breakdown += ' + ' + pCount + ' pending invite' + (pCount === 1 ? '' : 's');
     sub.textContent = 'Your ' + (TIER_LABELS[current] || 'Free') + ' plan supports up to ' +
-      getCurrentTierLimit() + ' athletes. You\'re at ' + breakdown + '.';
+      getCurrentTierLimit() + ' lifters. You\'re at ' + breakdown + '.';
   } else {
     title.textContent = 'Choose your plan';
-    sub.textContent = 'Scale your coaching as your roster grows. Athletes always train free.';
+    sub.textContent = 'Scale your coaching as your roster grows. Lifters always train free.';
   }
   foot.textContent = appleSub
     ? 'Your plan is billed through the App Store. Change or cancel it on your iPhone: ' + APPLE_MANAGE_STEPS + '.'
@@ -2373,8 +2373,8 @@ function openUpgradeModal(reason) {
 
   const tiers = [
     { key: 'basic',   blurb: 'Solo coach, growing roster.' },
-    { key: 'pro',     blurb: 'Full-time independent coach. Your brand on your athletes\' app.', featured: true },
-    { key: 'premium', blurb: 'Studios, teams, federations. Your brand on your athletes\' app.' }
+    { key: 'pro',     blurb: 'Full-time independent coach. Your brand on your lifters\' app.', featured: true },
+    { key: 'premium', blurb: 'Studios, teams, federations. Your brand on your lifters\' app.' }
   ];
   const grid = document.getElementById('upgradeTiers');
   // Yearly shows only for a new checkout once the yearly variants are set up (a plan already
@@ -2392,7 +2392,7 @@ function openUpgradeModal(reason) {
     if (t.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'Popular'));
     card.appendChild(el('h4', {}, TIER_LABELS[t.key]));
     card.appendChild(_priceNode(period === 'year' ? TIER_PRICES_YEARLY[t.key] : TIER_PRICES[t.key], period));
-    card.appendChild(el('div', { class: 'upgrade-limit' }, limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + limit + ' athletes'));
+    card.appendChild(el('div', { class: 'upgrade-limit' }, limit >= 9999 ? 'Unlimited lifters' : 'Up to ' + limit + ' lifters'));
     card.appendChild(el('p', { class: 'upgrade-blurb' }, t.blurb));
     const verb = mine === 'free' ? 'Subscribe' : (TIER_RANK[t.key] > TIER_RANK[mine] ? 'Upgrade' : 'Switch');
     // One red action: the featured plan for a new coach, upgrades for a paying one.
@@ -2496,7 +2496,7 @@ function _settlePlanWait(detail) {
   box.innerHTML = '';
   box.appendChild(el('div', { class: 'upgrade-wait-ring done', 'aria-hidden': 'true' }));
   box.appendChild(el('h3', {}, now === 'free' ? 'You\'re on Free' : 'You\'re on ' + (TIER_LABELS[now] || now)));
-  box.appendChild(el('p', { class: 'dim text-sm' }, limit >= 9999 ? 'Unlimited athletes. Invite away.' : 'Up to ' + limit + ' athletes on your roster.'));
+  box.appendChild(el('p', { class: 'dim text-sm' }, limit >= 9999 ? 'Unlimited lifters. Invite away.' : 'Up to ' + limit + ' lifters on your roster.'));
   const row = el('div', { class: 'upgrade-wait-actions' });
   const ok = el('button', { class: 'btn btn-primary', type: 'button' }, 'Done');
   ok.addEventListener('click', () => closeModal('upgradeModal'));
@@ -2517,11 +2517,11 @@ function _settlePlanWait(detail) {
 // App Store Connect yet simply doesn't come back from StoreKit, and the paywall shows monthly.
 const IAP_TIER_META = {
   'com.powalifta.app.coach.basic':   { key: 'basic',   limit: 10,   period: 'month', blurb: 'Solo coach, growing roster.' },
-  'com.powalifta.app.coach.pro':     { key: 'pro',     limit: 25,   period: 'month', blurb: 'Full-time independent coach. Your brand on your athletes\' app.', featured: true },
-  'com.powalifta.app.coach.premium': { key: 'premium', limit: 9999, period: 'month', blurb: 'Studios, teams, federations. Your brand on your athletes\' app.' },
+  'com.powalifta.app.coach.pro':     { key: 'pro',     limit: 25,   period: 'month', blurb: 'Full-time independent coach. Your brand on your lifters\' app.', featured: true },
+  'com.powalifta.app.coach.premium': { key: 'premium', limit: 9999, period: 'month', blurb: 'Studios, teams, federations. Your brand on your lifters\' app.' },
   'com.powalifta.app.coach.basic.yearly':   { key: 'basic',   limit: 10,   period: 'year', blurb: 'Solo coach, growing roster.' },
-  'com.powalifta.app.coach.pro.yearly':     { key: 'pro',     limit: 25,   period: 'year', blurb: 'Full-time independent coach. Your brand on your athletes\' app.', featured: true },
-  'com.powalifta.app.coach.premium.yearly': { key: 'premium', limit: 9999, period: 'year', blurb: 'Studios, teams, federations. Your brand on your athletes\' app.' }
+  'com.powalifta.app.coach.pro.yearly':     { key: 'pro',     limit: 25,   period: 'year', blurb: 'Full-time independent coach. Your brand on your lifters\' app.', featured: true },
+  'com.powalifta.app.coach.premium.yearly': { key: 'premium', limit: 9999, period: 'year', blurb: 'Studios, teams, federations. Your brand on your lifters\' app.' }
 };
 
 function ensureIapPaywall() {
@@ -2564,10 +2564,10 @@ async function openNativePaywall(reason) {
   } else if (reason === 'cap') {
     document.getElementById('iapPaywallTitle').textContent = 'You\'ve hit your plan limit';
     document.getElementById('iapPaywallSubtitle').textContent =
-      'Your roster is full on the ' + (TIER_LABELS[current] || 'Free') + ' plan. Upgrade to add more athletes.';
+      'Your roster is full on the ' + (TIER_LABELS[current] || 'Free') + ' plan. Upgrade to add more lifters.';
   } else {
     document.getElementById('iapPaywallTitle').textContent = 'Choose your plan';
-    document.getElementById('iapPaywallSubtitle').textContent = 'Scale your coaching as your roster grows. Athletes always train free.';
+    document.getElementById('iapPaywallSubtitle').textContent = 'Scale your coaching as your roster grows. Lifters always train free.';
   }
   grid.innerHTML = '<p class="dim text-sm">Loading plans…</p>';
   document.getElementById('iapPaywallModal').classList.add('open');
@@ -2617,7 +2617,7 @@ async function openNativePaywall(reason) {
     if (meta.featured) card.appendChild(el('div', { class: 'upgrade-badge' }, 'Popular'));
     card.appendChild(el('h4', {}, TIER_LABELS[meta.key] || p.displayName));
     card.appendChild(el('div', { class: 'upgrade-price' }, p.displayPrice, el('span', { class: 'unit' }, meta.period === 'year' ? '/yr' : '/mo')));
-    card.appendChild(el('div', { class: 'upgrade-limit' }, meta.limit >= 9999 ? 'Unlimited athletes' : 'Up to ' + meta.limit + ' athletes'));
+    card.appendChild(el('div', { class: 'upgrade-limit' }, meta.limit >= 9999 ? 'Unlimited lifters' : 'Up to ' + meta.limit + ' lifters'));
     card.appendChild(el('p', { class: 'upgrade-blurb' }, meta.blurb));
     if (isCurrent) {
       card.appendChild(el('button', { class: 'btn btn-block', disabled: 'true', type: 'button' }, 'Current plan'));
@@ -2948,7 +2948,7 @@ function renderPlanManageCard(container, opts) {
   // limit after a plan ends: everyone already on the roster stays (the database only refuses
   // new links), so say that instead of "5 of 3".
   const aN = getAthleteCount(u.id), pN = getPendingInviteCount(u.id);
-  const who = aN + (aN === 1 ? ' athlete' : ' athletes') + (pN ? ' + ' + pN + ' pending invite' + (pN === 1 ? '' : 's') : '');
+  const who = aN + (aN === 1 ? ' lifter' : ' lifters') + (pN ? ' + ' + pN + ' pending invite' + (pN === 1 ? '' : 's') : '');
   lines.appendChild(el('p', {}, limit < 9999 && occupied > limit
     ? who + ' on a plan for ' + limit + '. Everyone stays; adding more needs a bigger plan.'
     : who + ' · ' + (limit >= 9999 ? 'unlimited' : limit + ' slots')));
@@ -2994,7 +2994,7 @@ function dunningInfo() {
   if (tier === 'free') return null; // nothing to dun on the free plan
   const status = String(u.subscriptionStatus || '').toLowerCase();
   const label = TIER_LABELS[tier] || 'your';
-  const floor = 'Free (' + (TIER_LIMITS.free || 3) + ' athletes)';
+  const floor = 'Free (' + (TIER_LIMITS.free || 3) + ' lifters)';
   switch (status) {
     case 'past_due':
     case 'unpaid':
@@ -4949,7 +4949,7 @@ async function renderReferralCard(container) {
   const link = referralLink(code);
   container.innerHTML =
     '<p class="dim text-sm mb-8">Refer a lifter</p>' +
-    '<p class="dim text-xs mb-8" style="line-height:1.5">Share your link. Anyone who signs up through it shows up here. Athletes and coaches both count.</p>' +
+    '<p class="dim text-xs mb-8" style="line-height:1.5">Share your link. Anyone who signs up through it shows up here. Lifters and coaches both count.</p>' +
     '<div class="flex gap-8" style="align-items:stretch">' +
       '<input type="text" id="refLinkInput" readonly value="' + escHtml(link) + '" ' +
         'style="flex:1; min-width:0; font-family:var(--font-num); font-size:13px" onclick="this.select()">' +
@@ -4966,7 +4966,6 @@ async function renderReferralCard(container) {
     const demoClaims = (window._demoRewardClaims || []);
     if (list) list.innerHTML = referralMilestoneHtml(demoCount) +
       '<p class="mb-4 mt-12" style="color:var(--text)"><strong>2</strong> lifters joined through you</p>' +
-      '<p style="color:var(--text-2)">Share your link and everyone who signs up shows up right here.</p>' +
       (_tierBlind ? '' : referralRewardsHtml(referralRewardsLedger(demoCount, demoClaims)));
     return;
   }
@@ -12990,7 +12989,7 @@ function blockSummary(block, athleteId) {
 // (saved as no colour).
 function brandColors() {
   return [
-    { hex: null, name: 'POWALIFTA red', swatch: '#ff3b4a' },
+    { hex: null, name: 'POWALIFTA red', swatch: '#dc2637' },   // the crimson the one action wears (styles.css --crimson)
     { hex: '#f2661d', name: 'Orange' },
     { hex: '#15a35a', name: 'Green' },
     { hex: '#0b9da3', name: 'Teal' },

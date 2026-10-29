@@ -1329,7 +1329,7 @@ var SwitchKit = (function () {
     all.addEventListener('click', function () { exportEverything(all); });
     box.appendChild(all);
     box.appendChild(el('p', { class: 'sk-data-sub' }, u.userType === 'coach'
-      ? 'A zip of CSV files: every athlete\'s programs, past blocks, sets, check-ins, notes and messages.'
+      ? 'A zip of CSV files: every lifter\'s programs, past blocks, sets, check-ins, notes and messages.'
       : 'A zip of CSV files: every set, program, past block, weigh-in, check-in and message.'));
     if (row && row.parentNode) { row.parentNode.insertBefore(box, row); row.hidden = true; row.style.display = "none"; }
     else sheet.appendChild(box);
