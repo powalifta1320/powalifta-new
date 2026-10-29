@@ -7605,6 +7605,14 @@ function planFeasibility(start, target, weeks, bodyweightKg) {
   };
 }
 
+// The total's gain over the lifts with both numbers: a lift with no target (or no current number) adds nothing.
+function goalTotalGain(start, target) {
+  return ['squat', 'bench', 'deadlift'].reduce(function (a, l) {
+    const s0 = Number((start || {})[l]) || 0, t0 = Number((target || {})[l]) || 0;
+    return a + (s0 > 0 && t0 > 0 ? t0 - s0 : 0);
+  }, 0);
+}
+
 // The target actually worth training toward: the ask where it's achievable,
 // the reachable number where it isn't. Feeds generateProgram({targets}).
 function feasibleTargets(start, target, weeks, bodyweightKg) {
@@ -7623,6 +7631,7 @@ if (typeof window !== 'undefined') {
   window.gainCeilingFactor = gainCeilingFactor;
   window.liftFeasibility = liftFeasibility;
   window.planFeasibility = planFeasibility;
+  window.goalTotalGain = goalTotalGain;
   window.feasibleTargets = feasibleTargets;
 }
 
@@ -7995,7 +8004,9 @@ function refreshGoalReadout() {
   });
 
   const over = GOAL_LIFTS.filter(l => feas.perLift[l] && feas.perLift[l].verdict === 'unrealistic');
-  const gain = Math.round(kgToDisplay(feas.gainTotal));
+  // The gain is over the lifts that have a target: with one target set, the others' blank targets are not a
+  // drop to zero (the total read "+-414kg" with only the squat's set).
+  const gain = Math.round(kgToDisplay(goalTotalGain(start, target)));
   if (over.length) {
     out.innerHTML =
       '<p class="goal-msg bad"><strong>That will not fit in ' + weeks + ' weeks.</strong> ' +
@@ -8004,7 +8015,7 @@ function refreshGoalReadout() {
       'Build it anyway and the numbers get capped at what is reachable &mdash; the rest of the plan is unchanged.</p>';
   } else {
     out.innerHTML =
-      '<p class="goal-msg ok"><strong>+' + gain + unitLabel() + ' on the total across ' + weeks + ' weeks.</strong> ' +
+      '<p class="goal-msg ok"><strong>' + (gain < 0 ? '\u2212' + Math.abs(gain) : '+' + gain) + ' ' + unitLabel() + ' on the total across ' + weeks + ' weeks.</strong> ' +
       'That is ' + escHtml(_goalArticle((_GOAL_TONE[feas.verdict] || {}).word || 'realistic')) + ' ask. Loads climb week to week and deload before the heaviest work.</p>';
   }
 }
