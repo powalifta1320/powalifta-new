@@ -911,6 +911,8 @@
 
   /* ---------------------------------------------------------------- empty states */
   function emptyNoLifters() {
+    // The first run (29 Oct): the invite as the one red, the program in as the quiet row (coach-you.js).
+    if (window.CoachYou && CoachYou.programsWelcome) return CoachYou.programsWelcome();
     var tplN = (Store.get().programTemplates || []).filter(function (t) { var u = getCurrentUser(); return u && t.coachId === u.id; }).length;
     var toTemplates = function () { var t = document.getElementById('tab-templates'); if (t) t.click(); };
     return uiEmpty(tplN ? {

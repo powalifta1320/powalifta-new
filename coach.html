@@ -1849,7 +1849,8 @@ function renderRoster() {
   // One red per screen: once anyone is on the roster the header's + is a quiet circle like the
   // assistant and the bell beside it (coach-ui.css); with nobody yet it is the screen's red action.
   const inviteBtn = document.getElementById('btn-invite');
-  if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0);
+  // (A first run with coach-you.js: the card below carries the invite as the labelled red, so the + is quiet too.)
+  if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0 || (!_desk() && !!window.CoachYou));
 
   // Join requests (coach discovery) stay pinned at the top, even with no roster.
   const reqHost = el('div', {});
@@ -1861,6 +1862,12 @@ function renderRoster() {
   if (overview.length && _rosterWide()) {
     renderRosterTable(area);
     appendRosterExtras(area);
+  } else if (!overview.length && window.CoachYou) {
+    // The first run (29 Oct): the invite as the screen's one red, then what Lifters becomes (coach-you.js). The three
+    // setup steps live on Home (While you wait) and You (Get set up).
+    const fr = el('div', { class: 'fr-wrap' });
+    fr.appendChild(CoachYou.liftersWelcome(buildRosterSample()));
+    area.appendChild(fr);
   } else if (!overview.length) {
     const fr = el('div', { class: 'fr-wrap' });
     fr.appendChild(buildCoachSetup());
@@ -2349,6 +2356,13 @@ async function renderMessages() {
   area.innerHTML = '';
 
   const roster = getRosterOverview(user.id).map(o => o.athlete);
+  if (!roster.length && window.CoachYou) {
+    // Nobody yet (29 Oct): the invite as the screen's one red, then a sample of the thread it becomes (coach-you.js).
+    const wrap = el('div', { class: 'fr-msgs' });
+    wrap.appendChild(CoachYou.messagesWelcome(_sampleThread()));
+    area.appendChild(wrap);
+    return;
+  }
   if (!roster.length) {
     // Nobody yet: a sample of the thread it becomes (a logged set arrives as a card), then the invite.
     const wrap = el('div', { class: 'fr-msgs' });
