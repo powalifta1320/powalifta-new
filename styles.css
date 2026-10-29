@@ -31,6 +31,15 @@
   --display-stretch: 125%;
   --num-stretch:     112%;
 
+  /* THE ACTION (29 Oct, the owner's pick: "a darker crimson with white text, everywhere"): one machined crimson,
+     the same in both themes, on every surface: the lifter app's Log set, the coach app, the laptop desk, the
+     website. Lit from above like the cards (180deg). Its white label clears 4.8:1 on the top stop and 5.95:1 on
+     the bottom one. A coach's own brand colour still replaces it for their lifters (body.is-branded's --fire). */
+  --crimson-1:   #dc2637;
+  --crimson-2:   #c41a2c;
+  --crimson:     linear-gradient(180deg, #dc2637 0%, #c41a2c 100%);
+  --crimson-ink: #ffffff;
+
   /* The ONE action colour. In the app, red means "tap this" and nothing else —
      see REBRAND · RED IS RATIONED at the end of this file. */
   --brand-red:   #ff2d3f;
@@ -396,9 +405,9 @@ h4 { font-size: 1.05rem; letter-spacing: 0.04em; }
 }
 .btn:active { transform: translateY(0); }
 .btn-primary {
-  background: var(--grad-red);
+  background: var(--crimson);
   border-color: transparent;
-  color: #fff;
+  color: var(--crimson-ink);
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.18);
   overflow: hidden;
 }
@@ -7155,8 +7164,8 @@ body.powa-app ::selection { background: rgba(255, 255, 255, 0.22); color: var(--
 
 /* --- The one red thing: the primary action ------------------- */
 body.powa-app .btn-primary {
-  background: var(--brand-red);
-  color: #fff;
+  background: var(--crimson);
+  color: var(--crimson-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 24px -12px rgba(255, 45, 63, 0.75);
 }
 body.powa-app .btn-primary::after { display: none; }   /* no sheen sweep — calm chrome */
@@ -8782,7 +8791,7 @@ body.powa-app .cmp-v .cmp-unit { margin-left: 3px; font-family: var(--font-body)
      · MOTION — press feedback on touch-down, lists rise in when a screen
        opens (body.screen-enter), rings fill, numbers count up, the tab
        pill glides. All of it has a prefers-reduced-motion fallback.
-   The primary action stays brand fire on every screen.
+   The primary action is the crimson (--crimson, 29 Oct) on every screen.
    ============================================================ */
 @property --acc   { syntax: '<color>'; inherits: true; initial-value: #ff3b4a; }
 @property --acc-2 { syntax: '<color>'; inherits: true; initial-value: #ff7a3d; }
@@ -8794,7 +8803,7 @@ body.powa-app {
   --ok: #34d982;
   --warn: #ff9f43;
   --acc: #ff3b4a; --acc-2: #ff7a3d; --acc-ink: #ffffff;
-  --fire: linear-gradient(135deg, #ff3b4a 0%, #ff6a3d 100%);
+  --fire: var(--crimson);   /* the one action (29 Oct: crimson everywhere); a coach's brand colour replaces it */
   --edge: rgba(255, 255, 255, 0.075);
   --lit: inset 0 1px 0 rgba(255, 255, 255, 0.055);
   --drop: 0 18px 40px -26px rgba(0, 0, 0, 0.95);
@@ -8896,7 +8905,7 @@ body.powa-app .prog-subtab.active {
 }
 body.powa-app .ui-seg button, body.powa-app .prog-subtab { transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
 
-/* Primary action: brand fire on every screen, lit, presses in. */
+/* Primary action: the crimson on every screen, lit, presses in. */
 body.powa-app .btn-primary {
   background: var(--fire); border-color: transparent; color: #fff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 12px 28px -12px rgba(255, 59, 74, 0.75);
@@ -9401,8 +9410,8 @@ body.powa-app .club-view-seg { margin: 16px 0 14px; }
 .club-compose .cc-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .club-compose .cc-plus {
   flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff;
-  background: var(--fire, linear-gradient(135deg, #ff3b4a, #ff6a3d));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 10px 22px -10px rgba(255, 59, 74, 0.85);
+  background: var(--fire, var(--crimson));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 10px 22px -10px rgba(196, 26, 44, 0.85);
   transition: transform 0.18s var(--ease-out-quint, cubic-bezier(0.22, 1, 0.36, 1));
 }
 .club-compose:active .cc-plus { transform: scale(0.9) rotate(90deg); }
@@ -9712,7 +9721,7 @@ html:not([data-theme="light"]) body.powa-app {
   --edge: rgba(255, 255, 255, 0.07);
   --lit: inset 0 1px 0 rgba(255, 255, 255, 0.035);
   --drop: 0 1px 0 rgba(0, 0, 0, 0.4);
-  --fire: linear-gradient(180deg, #ff4a55 0%, #ee2b3b 100%);
+  --fire: var(--crimson);
   --soft-alert: #ff8f80;
   --soft-warn: #ffb35c;
   background: var(--bg);
@@ -11894,7 +11903,7 @@ html[data-theme="light"] body.powa-app .ui-hero {
   border: 1px solid color-mix(in srgb, var(--acc) 12%, var(--edge));
   box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05);
 }
-html[data-theme="light"] body.powa-app:not(.is-branded) { --fire: linear-gradient(180deg, #ff4a55 0%, #ee2b3b 100%); }
+html[data-theme="light"] body.powa-app:not(.is-branded) { --fire: var(--crimson); }
 html[data-theme="light"] body.powa-app .av-h0 { background: #fbe4e7; color: #a3172c; }
 html[data-theme="light"] body.powa-app .av-h1 { background: #fcebde; color: #93380a; }
 html[data-theme="light"] body.powa-app .av-h2 { background: #f8efd3; color: #6f4c00; }
@@ -12483,7 +12492,7 @@ html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2
 .brand-sheet .bs-preview { margin: 8px 0 6px; padding: 16px; border-radius: 18px; background: var(--bg-1); border: 1px solid var(--line); }
 .brand-sheet .bs-pv-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--text-2); }
 .brand-sheet .bs-pv-day { margin: 6px 0 14px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
-.brand-sheet .bs-pv-btn { display: grid; place-items: center; height: 46px; border-radius: 999px; background: linear-gradient(135deg, #ff3b4a 0%, #ff6a3d 100%); color: #fff; font-weight: 700; }
+.brand-sheet .bs-pv-btn { display: grid; place-items: center; height: 46px; border-radius: 999px; background: var(--crimson); color: var(--crimson-ink); font-weight: 700; }
 .brand-sheet .bs-label { margin: 18px 2px 8px; font-size: 13px; font-weight: 650; color: var(--text-2); }
 .brand-sheet input.bs-input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-1); color: var(--text); font: inherit; font-size: 16px; }
 .brand-sheet .bs-logo { display: flex; align-items: center; gap: 12px; }
