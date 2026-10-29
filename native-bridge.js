@@ -394,12 +394,15 @@
 
   // Keep the native status bar in sync with the in-app theme toggle: light
   // theme → dark text, dark theme → light text. (app.js fires 'themechange'.)
+  // A plugin call answers with a promise, so its refusal is caught on the promise (a try can't see it),
+  // or error-log.js reports it as an unhandled rejection. setBackgroundColor is Android-only: on iOS it
+  // always answers "not implemented", which put a row in client_errors on every page the app opened.
   function syncStatusBar(theme) {
     var SB = plugins().StatusBar;
     if (!SB) return;
     var light = theme === 'light';
-    try { SB.setStyle({ style: light ? 'LIGHT' : 'DARK' }); } catch (e) {}
-    try { SB.setBackgroundColor({ color: light ? '#ffffff' : '#0b0b0c' }); } catch (e) {}
+    try { SB.setStyle({ style: light ? 'LIGHT' : 'DARK' }).catch(function () {}); } catch (e) {}
+    if (platform === 'android') { try { SB.setBackgroundColor({ color: light ? '#ffffff' : '#0b0b0c' }).catch(function () {}); } catch (e) {} }
   }
   window.addEventListener('themechange', function (e) {
     syncStatusBar(e && e.detail && e.detail.theme);
@@ -423,7 +426,7 @@
     // on a white bar on first launch.
     syncStatusBar(document.documentElement.getAttribute('data-theme'));
     // Hide the splash once the web app has painted.
-    if (P.SplashScreen) { setTimeout(function () { try { P.SplashScreen.hide(); } catch (e) {} }, 450); }
+    if (P.SplashScreen) { setTimeout(function () { try { P.SplashScreen.hide().catch(function () {}); } catch (e) {} }, 450); }
     // Tapping a push → follow its deep link.
     if (P.PushNotifications) {
       try {
