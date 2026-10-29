@@ -970,9 +970,9 @@
   // picked on the strip ("Monday · Arjun and Sarah trained"); last week's days say so.
   function dayLine(d, X, last) {
     if (!d) return '';
-    if (d.today && !last) return caTodayLine(X.rows, { weekday: DAYW[d.dow] });
+    if (d.today && !last) return caTodayLine(X.rows, {});
     var who = d.who.map(firstOf);
-    return (last ? 'Last ' : '') + DAYW[d.dow] + ' · ' + (d.n ? nameList(who, 3) + ' trained' : 'no one trained');
+    return (last ? 'Last ' : '') + DAYW[d.dow] + ' · ' + (d.n ? nameList(who, 2) + ' trained' : 'no one trained');
   }
   function dayReadout(d) {
     if (!d) return '';
@@ -990,18 +990,20 @@
     var done = W.sessionsDone || 0, planned = W.sessionsPlanned || 0;
     var days = quiet ? (S.lastStrip || S.strip) : S.strip, last = !!(quiet && S.lastStrip);
     var names = S.behind.map(function (r) { return first(r.athlete.name); });
-    var hi = caTodayLine(X.rows, { weekday: localDate(todayIso(), { weekday: 'long' }) });
+    // The line top right reads the strip: today's (who is training, who trained), or the day a finger picks; in a
+    // quiet week the strip is last week's, so its line says which of last week's days it is.
+    var hi = last ? dayLine(stripPick(days), X, true) : caTodayLine(X.rows, {});
     var t1 = quiet ? 'Nothing logged yet' : planned ? W.trained + ' of ' + W.of + ' lifters trained' : plural(done, 'session') + ' logged';
     var t2 = quiet ? '<span class="ca-wk-s">' + esc(LW && LW.sessionsPlanned ? 'Last week ' + LW.sessionsDone + ' of ' + LW.sessionsPlanned + ' lifted' : 'Sessions light up as they land') + '</span>'
       : S.behind.length ? '<span class="ca-wk-b"><i class="ca-wk-bdot" aria-hidden="true"></i><span>' + esc(S.behind.length + ' behind') + '</span><span class="ca-wk-bn">' + esc(nameList(names, 1)) + '</span>' + ic('chev', 2.4) + '</span>'
       : '<span class="ca-wk-b is-clear">Nobody behind' + ic('chev', 2.4) + '</span>';
     var digits = String(done).length + String(planned).length;
     var centre = planned ? '<b' + (digits > 3 ? ' class="is-long"' : '') + '>' + done + '</b><small>of ' + planned + '</small>' : '<b>' + done + '</b><small>logged</small>';
-    var aria = (quiet ? 'Nothing logged yet this week, ' + plural(planned, 'session') + ' written' + (LW && LW.sessionsPlanned ? '. Last week ' + LW.sessionsDone + ' of ' + LW.sessionsPlanned + ' lifted' : '')
+    var aria = (S.range ? 'Week of ' + S.range + '. ' : '') + (quiet ? 'Nothing logged yet this week, ' + plural(planned, 'session') + ' written' + (LW && LW.sessionsPlanned ? '. Last week ' + LW.sessionsDone + ' of ' + LW.sessionsPlanned + ' lifted' : '')
       : 'This week, ' + (planned ? done + ' of ' + planned + ' sessions lifted' : plural(done, 'session') + ' logged') + ', ' + W.trained + ' of ' + W.of + ' lifters trained') + '. ' +
       (S.behind.length ? S.behind.length + ' behind: ' + nameList(names, 6) : 'Nobody behind') + '. Show who is behind';
-    return '<div class="ca-sum ca-tw ca-rise' + (quiet ? ' is-quiet' : '') + '">' +
-      '<div class="ca-tw-top"><p class="ca-hero-hi" data-readout="week" aria-live="polite">' + esc(hi) + '</p><span class="ca-h-meta">' + esc(S.range) + '</span></div>' +
+    return '<div class="ca-sum ca-tw ca-wk ca-rise' + (quiet ? ' is-quiet' : '') + '">' +
+      '<div class="ca-tw-top"><span class="ca-t2-l">This week</span><p class="ca-hero-hi" data-readout="week" aria-live="polite">' + esc(hi) + '</p></div>' +
       '<div class="ca-tw-body">' +
         '<div class="ca-stats is-week"><button type="button" class="ca-stat is-btn is-week" data-lifters="behind" aria-label="' + esc(aria) + '">' +
           '<span class="ca-wk-ring">' + teamRingSvg(done, planned, 120, 11) + '<span class="ca-wk-c">' + centre + '</span></span>' +
