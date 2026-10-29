@@ -873,11 +873,11 @@
     <div class="sa-row" data-social-buttons="login"></div>
     <div class="sa-or"><span>or with email</span></div>
     <div class="auth-seg" data-for="loginType" role="radiogroup" aria-label="Account type">
-      <button type="button" data-v="athlete" class="on">Athlete</button>
+      <button type="button" data-v="athlete" class="on">Lifter</button>
       <button type="button" data-v="coach">Coach</button>
     </div>
     <select id="loginType" class="auth-seg-src" aria-hidden="true" tabindex="-1">
-      <option value="athlete">Athlete</option>
+      <option value="athlete">Lifter</option>
       <option value="coach">Coach</option>
     </select>
     <div class="form-group">
@@ -922,8 +922,8 @@
       <button type="button" data-v="coach"><b>Coach</b><span>I train people</span></button>
     </div>
     <select id="signupType" class="auth-seg-src" onchange="onSignupTypeChange()" aria-hidden="true" tabindex="-1">
-      <option value="solo">Solo athlete (no coach)</option>
-      <option value="athlete">Athlete with a coach</option>
+      <option value="solo">Lifter on my own</option>
+      <option value="athlete">Lifter with a coach</option>
       <option value="coach">Coach</option>
     </select>
     <!-- Continue with Apple / Google: the tile above, a typed name, the invite code and the 16+
@@ -1256,7 +1256,7 @@ async function doLogin() {
     }
     const session = await DB.getSession();
     const profile = await DB.getProfile(session.user.id);
-    // The Athlete / Coach switch is a hint: the account knows what it is, so go to its dashboard.
+    // The Lifter / Coach switch is a hint: the account knows what it is, so go to its dashboard.
     try { localStorage.setItem('powa-last-role', profile.user_type); } catch (e) {}
     location.replace(profile.user_type === 'coach' ? 'coach.html' : profile.user_type === 'admin' ? 'admin.html' : 'athlete.html');
   } catch (e) {
