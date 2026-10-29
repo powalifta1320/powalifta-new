@@ -1489,7 +1489,9 @@
     var n = CL() && CL().clNumber ? CL().clNumber(r) : { text: '', tone: 'none', title: '' };
     return '<button type="button" class="ca-row' + (i < 9 ? ' ca-rise' : '') + '" data-open="' + esc(r.athlete.id) + '">' + faceHtml(r, w, 52, { fam: caFamily(r, top) }) +
       '<span class="ca-row-main"><span class="ca-row-n">' + esc(r.athlete.name) + '</span>' +
-        '<span class="ca-row-l' + (sev ? ' sev-' + sev : '') + '">' + (sev ? '<i class="ca-dot" aria-hidden="true"></i>' : '') + '<span>' + keepDots(esc(line)) + '</span></span></span>' +
+        '<span class="ca-row-l' + (sev ? ' sev-' + sev : '') + '">' + (sev ? '<i class="ca-dot" aria-hidden="true"></i>' : '') + '<span>' + keepDots(esc(line)) + '</span></span>' +
+        // The ring is drawn (aria-hidden): VoiceOver hears the week it shows, unless the line already says it (Behind).
+        (w && w.text && !bl ? '<span class="ca-sr">, ' + esc(w.text) + '</span>' : '') + '</span>' +
       (n.tone !== 'none' ? '<span class="ca-row-end t-' + esc(n.tone) + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b><small>' + esc(unit()) + '</small></span>' : '') + '</button>';
   }
   // A new filter's list settles in from .45 (a short fade, opacity only, WAAPI so the next tap cancels it): the rows
