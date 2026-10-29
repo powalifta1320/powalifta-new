@@ -1396,7 +1396,10 @@ var SwitchKit = (function () {
   // coach.html openInviteModal: a client list from another app becomes invites in one go.
   function inviteHook(sheet, close) {
     ensureCss();
-    var row = uiList([uiRow({ title: 'Import a client list', sub: 'From a spreadsheet, TrueCoach, CoachRx, Trainerize or TrainHeroic', chevron: true,
+    // The coach phone says what the file is, in the words of Lifters' first run (a sheet that sells the move by
+    // naming the apps a coach is leaving reads as a comparison); the intake's own guides still name them.
+    var phone = !document.documentElement.classList.contains('desk');
+    var row = uiList([uiRow({ title: 'Import a client list', sub: phone ? 'A file of names and emails. You pick who gets an invite.' : 'From a spreadsheet, TrueCoach, CoachRx, Trainerize or TrainHeroic', chevron: true,
       onClick: function () { close(); setTimeout(function () { openIntake({ mode: 'roster' }); }, 220); } })]);
     row.classList.add('sk-invite-list');
     sheet.appendChild(row);

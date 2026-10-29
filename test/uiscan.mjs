@@ -109,7 +109,15 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     // Two-factor (2026-10-28): the code prompt a dashboard shows when a session still owes its code, and the
     // one after the password in the app's log-in sheet. Only drawn here: nothing is sent until Verify.
     { name: 'sh-2fa' + suf, page: C, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" },
-    { name: 'ob-2fa' + suf, page: 'index.html', theme, eval: "obOpen('login'); setTimeout(() => promptMfaChallenge(), 400); true" });
+    { name: 'ob-2fa' + suf, page: 'index.html', theme, eval: "obOpen('login'); setTimeout(() => promptMfaChallenge(), 400); true" },
+    // The overlays the coach roll-out's final review measured (29 Oct): the Ask sheet (Coaching and Support), the
+    // bell's list, the first-run tour, Progression rules and the form-check review.
+    { name: 'sh-ask' + suf, page: C, theme, eval: 'openAIAssistant(); true' },
+    { name: 'sh-ask-support' + suf, page: C, theme, eval: "openAIAssistant(); document.querySelector('.ai-seg-btn[data-mode=support]').click(); true" },
+    { name: 'sh-bell' + suf, page: C, theme, eval: "document.querySelector('.sig-bell').click(); true" },
+    { name: 'c-rules' + suf, page: C, theme, eval: tab('rules') },
+    { name: 'sh-formcheck' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1'); new Promise(r => setTimeout(r, 500)).then(() => { document.querySelector('#lifterPage [data-row=videos]').click(); return new Promise(r => setTimeout(r, 700)); }).then(() => { document.querySelector('[data-fc]').click(); return new Promise(r => setTimeout(r, 900)); })" },
+    { name: 'f-tour' + suf, page: F, theme, eval: "localStorage.removeItem('powa-tour-coach-done'); window.replayCoachTour(); true" });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
