@@ -129,15 +129,6 @@ html:not(.desk) .cy-fr-h { margin-bottom: 12px; }
 html:not(.desk) .cy-fr-sample .fr-sample { gap: 0; }
 html:not(.desk) .cy-fr-cap { margin: 12px 4px 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
 html:not(.desk) .cy-fr-rows { margin-top: 20px; }
-/* the screen's one quiet alternative under the red (Lifters: Import a client list): a text button, 44 pt, never a
-   second fill; the card's foot tightens so the label sits where the padding was */
-html:not(.desk) .cy-fr:has(> .cy-fr-alt) { padding-bottom: 8px; }
-html:not(.desk) body.powa-app .cy-fr-alt {
-  display: block; min-height: 44px; margin: 4px auto 0; padding: 0 16px; border: 0; border-radius: 999px; background: none;
-  color: var(--text) !important; font-family: inherit; font-size: 17px !important; font-weight: 600; letter-spacing: -0.01em; cursor: pointer;
-  transition: opacity 140ms ease-out;
-}
-html:not(.desk) .cy-fr-alt:active { opacity: 0.55; }
 /* Messages: the sample thread under the card, its own Sample chip on the coach scale */
 html:not(.desk) .fr-msgs .cy-fr-wrap { max-width: none; }
 html:not(.desk) .cy-fr-sample .fr-thread { background: var(--ca-card); border-color: var(--ca-edge); box-shadow: var(--pl-lip); border-radius: 20px; }
@@ -201,7 +192,7 @@ html:not(.desk) body.powa-app .brand-sheet .bs-hint { font-size: 13px; }
 
 /* Delete account: one sheet, one red. Its words on the scale, Cancel the quiet button, "Delete everything" the
    crimson once DELETE is typed (dim until then, so the red is never offered before the answer). */
-html:not(.desk) body.powa-app #deleteAccountModal .modal h3 { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 750; letter-spacing: -0.02em; text-transform: none; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal h3 { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; text-transform: none; }   /* every sheet's title: 22 at 800 (the roll-out's one system) */
 html:not(.desk) body.powa-app #deleteAccountModal .modal :is(p.text-sm, p.text-xs, label.text-xs) { font-size: 15px !important; }
 html:not(.desk) body.powa-app #deleteAccountModal .modal div > p.text-xs { font-size: 13px !important; }
 html:not(.desk) body.powa-app #deleteAccountModal .modal [style*="--red"] { color: var(--text) !important; }

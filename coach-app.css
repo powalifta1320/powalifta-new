@@ -171,7 +171,7 @@ html:not(.desk) .ca-pill {
 html:not(.desk) .ca-pill::after { content: ''; position: absolute; inset: -4px -4px; }
 html:not(.desk) .ca-pill:active { transform: scale(0.95); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-link { position: relative; display: inline-block; align-self: flex-start; min-height: 40px; margin: -8px 0 -10px; border: 0; background: none; padding: 0; color: var(--text) !important; font-size: 15px !important; font-weight: 600; cursor: pointer; }
-html:not(.desk) .ca-link::after { content: ''; position: absolute; inset: 0 -8px; }
+html:not(.desk) .ca-link::after { content: ''; position: absolute; inset: -2px -8px; }
 
 /* icon chips: a glyph on 15% of its own hue (graphite unless the hue has a job: a meet, a done step) */
 html:not(.desk) .ca-tic { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--th, var(--text-2)); background: color-mix(in srgb, var(--th, var(--text-2)) 15%, transparent); }
@@ -384,7 +384,7 @@ html:not(.desk) .ca-sum-head { position: relative; display: grid; grid-template-
 html:not(.desk) button.ca-sum-head { min-height: 48px; cursor: pointer; transition: opacity 140ms ease-out; -webkit-tap-highlight-color: transparent; }
 html:not(.desk) button.ca-sum-head::after { content: ''; position: absolute; inset: -16px -16px -8px; border-radius: 20px 20px 14px 14px; }
 html:not(.desk) button.ca-sum-head:active { opacity: 0.68; }
-html:not(.desk) .ca-sum-num { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; white-space: nowrap; }
+html:not(.desk) .ca-sum-num { font-family: var(--font-num); font-stretch: 112%; font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; white-space: nowrap; }
 html:not(.desk) .ca-sum-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html:not(.desk) .ca-sum-t { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
 html:not(.desk) .ca-sum-s { font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--text-2); text-wrap: pretty; }
@@ -409,7 +409,7 @@ html:not(.desk) .ca-tring-lip { stroke: var(--ca-hair); stroke-width: 1px; }
 html:not(.desk) .ca-tring-track { stroke: var(--pl-viz-ring); }
 html:not(.desk) .ca-tring-fill { stroke: var(--pl-viz-ink); }
 html:not(.desk) .ca-wk-c { position: relative; display: flex; flex-direction: column; align-items: center; }
-html:not(.desk) .ca-wk-c b { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-wk-c b { font-family: var(--font-num); font-stretch: 112%; font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
 html:not(.desk) .ca-wk-c small { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-wk-c small.ca-wk-lw { margin-top: 2px; font-weight: 500; color: var(--text-3); }
 html:not(.desk) .ca-wk.is-quiet .ca-wk-c b { font-size: 28px; }
@@ -530,7 +530,7 @@ html:not(.desk) .ca-lane-xl:last-child { transform: translateX(calc(-100% + 18px
 html:not(.desk) .ca-pr { flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; }
 html:not(.desk) .ca-stats.is-pr { flex: none; }
 html:not(.desk) .ca-stats.is-pr .ca-stat { align-items: center; gap: 6px; min-height: 64px; padding: 0 8px 0 6px; border-radius: 14px; }
-html:not(.desk) .ca-stats.is-pr .ca-stat b { font-family: var(--font-num); font-stretch: 112%; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
+html:not(.desk) .ca-stats.is-pr .ca-stat b { font-family: var(--font-num); font-stretch: 112%; font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.032em; color: var(--text); font-variant-numeric: lining-nums proportional-nums; }
 html:not(.desk) .ca-stats.is-pr .ca-stat > span { align-self: center; margin-top: 4px; font-size: 17px; font-weight: 650; color: var(--text); }
 html:not(.desk) .ca-stats.is-pr .ca-stat > svg { width: 18px; height: 18px; color: var(--text-3); }
 html:not(.desk) .ca-stats.is-pr .ca-stat:active { background: var(--pl-inset-2); }
@@ -578,7 +578,7 @@ html:not(.desk) .ca-tw .ca-tring-lip { stroke: transparent; }
 html:not(.desk) .ca-tw .ca-tring-fill { stroke: var(--pl-viz-done); }
 html:not(.desk) .ca-tw .ca-tring-track { stroke: var(--pl-viz-ring); }
 html:not(.desk) .ca-tw .ca-wk-c b { font-size: 44px; letter-spacing: -0.04em; }
-html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 34px; }
+html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 32px; }
 html:not(.desk) .ca-tw .ca-wk-c small { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--text-2); }
 html:not(.desk) .ca-tw .ca-wk-tx { gap: 4px; padding-top: 2px; transition: opacity 140ms ease-out; }
 html:not(.desk) .ca-tw .ca-wk-t { font-size: 17px; font-weight: 650; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -608,13 +608,13 @@ html:not(.desk) .ca-tw.is-quiet .ca-strip.is-last .ca-sday-bar:not(.is-zero) { b
   html:not(.desk) .ca-tw .ca-stat.is-week { grid-template-columns: 112px minmax(0, 1fr); column-gap: 14px; min-height: 112px; }
   html:not(.desk) .ca-tw .ca-wk-ring { width: 112px; height: 112px; }
   html:not(.desk) .ca-tw .ca-strip { left: 126px; }
-  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 34px; }
+  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 32px; }
 }
 @media (max-width: 369px) {
   html:not(.desk) .ca-tw .ca-stat.is-week { grid-template-columns: 100px minmax(0, 1fr); column-gap: 12px; min-height: 100px; }
   html:not(.desk) .ca-tw .ca-wk-ring { width: 100px; height: 100px; }
   html:not(.desk) .ca-tw .ca-strip { left: 112px; }
-  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 34px; }
+  html:not(.desk) .ca-tw .ca-wk-c b { font-size: 32px; }
   html:not(.desk) .ca-tw .ca-wk-c b.is-long { font-size: 28px; }
 }
 @media (max-width: 339px) {
@@ -633,7 +633,7 @@ html:not(.desk) .ca-sum-head.is-tile { position: static; display: flex; flex-dir
 html:not(.desk) .ca-sum-head.is-tile::after { content: ''; position: absolute; inset: 0; border-radius: 20px; }
 html:not(.desk) .ca-sum-head.is-tile:active { opacity: 1; }
 html:not(.desk) .ca-t2:has(> .ca-sum-head.is-tile:active) { background: color-mix(in srgb, var(--text) 5%, var(--ca-card)); }
-html:not(.desk) .ca-sum-head.is-tile .ca-sum-num { margin-top: 8px; font-size: 34px; }
+html:not(.desk) .ca-sum-head.is-tile .ca-sum-num { margin-top: 8px; font-size: 32px; }
 html:not(.desk) .ca-sum-num small { margin-left: 4px; font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; color: var(--text-2); }
 html:not(.desk) .ca-sum-head.is-tile .ca-sum-s { margin-top: 3px; font-size: 13px; font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 html:not(.desk) .ca-t2.is-none .ca-sum-none { margin-top: 10px; font-size: 13px; }
@@ -901,8 +901,8 @@ html:not(.desk) .jr-no:active { opacity: 0.55; }
 html:not(.desk) .jr-yes::after { inset: -4px -4px; }
 
 /* the Lifters tab with nobody yet (coach.html buildLiftersEmpty): the first run's lit welcome card every tab shares
-   (coach-you.css .cy-fr: the answer, the invite as the one red, the import as the quiet way), then what a lifter looks
-   like here (the real rows, Sample). Its .le-* classes are hooks for the tab's flows; the card's look is the welcome's. */
+   (coach-you.css .cy-fr: the answer, the invite as the one red), the import as the quiet row under it, then what a
+   lifter looks like here (the real rows, Sample). Its .le-* classes are hooks for the tab's flows; the look is the welcome's. */
 html:not(.desk) .le-wrap { padding-top: 4px; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] .le-wrap ~ #invitesWrap, html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap.after-first-run { margin-top: 32px; }
 
@@ -2278,6 +2278,66 @@ html:not(.desk) body.powa-app .invite-sheet .club-qr-code b { color: var(--text)
   html:not(.desk) body.powa-app :is(.msg-inbox-back, .msg-composer .msg-send, .msg-composer .vn-send, .msg-composer .msg-saved, .msg-composer .vn-mic, #clubArea .club-invite-icon):active { transform: none; }
   html:not(.desk) body.powa-app :is(.vn-mic.is-held, .msg-composer.is-recording .vn-mic) { transform: none; }
 }
+
+/* =================================================================== ONE SYSTEM ACROSS THE FIVE AREAS (the roll-out's assembly, 29 Oct)
+   Lifters, a lifter, Programs, Messages and You were built side by side; measured together (every screen and sheet
+   in the iPhone app layout) they drifted in a few shared pieces. One answer for each, here, on the coach phone only
+   (html:not(.desk): the laptop desk and the lifter app are untouched):
+   - type: a row's title and a row-like button are 17 (the shared --fs-row was 16, off the scale), a section title 20,
+     a segmented control's words 15, a caption 13 (never 12.5); a sheet's title is 22 at 800 whether it is a uiSheet or
+     an older modal; a pushed screen's large title 32 at 750; a person's or a board's name 28 at 800;
+   - the crimson: one size, 52 pt, 17 at 650 (a sheet's .btn-primary was 44, 47, 50, 54 or 55, at 15, 16 or 17);
+     a sheet's full-width graphite button the same 52 and 17 at 600 (a pair side by side keeps 15, to fit);
+   - red is the logo and the one action: a destructive item in a ⋯ menu (Revoke, Remove from roster, Delete post,
+     Leave club, End challenge…) is ink beside its icon, as Programs' menus already were (red words read 3.9:1);
+   - a person's line in a sheet's list is 15, as on Lifters, Clients and Messages (it was 13);
+   - a sheet's corners are 22, the older modal sheets' too (26);
+   - 44 pt to the touch, drawn as before (hit areas only). */
+html:not(.desk) body.powa-app { --fs-row: 17px; }
+html:not(.desk) body.powa-app .ui-label { font-size: 20px; }
+html:not(.desk) body.powa-app .chl-new .ui-seg button { font-size: 15px; }
+html:not(.desk) body.powa-app :is(.ui-stat span, .rh-stat span, .plan-card-note, .mx-sheet .mx-hint, .brand-sheet .bs-hint, .vn-rec-hint, .cut-sheet .cut-foot, .pain-sheet .pain-sev-ends, .hc-sheet .hc-opt small, .health-sheet .hs-foot, .opl-sheet .opl-credit, .ci-health) { font-size: 13px; }
+html:not(.desk) body.powa-app .rb-sheet .rb-name { font-size: 17px; }
+html:not(.desk) body.powa-app .rb-sheet .rb-line { font-size: 15px; }
+html:not(.desk) body.powa-app .rb-sheet .rb-back { font-size: 17px; font-weight: 600; }
+html:not(.desk) body.powa-app :is(.modal-backdrop .modal h3, .ui-sheet:is(.athlete-sheet, .lifter-sheet) h3:not(.cv-yt)) { font-weight: 800; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app .modal .btn-sm.btn-ghost { font-size: 15px !important; }
+html:not(.desk) body.powa-app h1.cl-h1 { font-weight: 750; letter-spacing: -0.028em; }
+html:not(.desk) body.powa-app .md-board-root .md-title { font-weight: 800; }
+html:not(.desk) body.powa-app :is(.chl-new, .profile-sheet, .set-sheet-box, .brand-sheet) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea) { font-size: 17px; }
+/* the crimson, one size */
+html:not(.desk) body.powa-app :is(.ui-sheet, .modal, [data-pane]) .btn.btn-primary:not(.is-quiet):not(.btn-sm):not(.btn-icon),
+html:not(.desk) body.powa-app #deleteAccountModal .btn-danger {
+  height: auto; min-height: 52px; padding-top: 0; padding-bottom: 0; border-radius: 999px; font-size: 17px !important; font-weight: 650;
+}
+/* a sheet's full-width graphite button, the same size */
+html:not(.desk) body.powa-app :is(.ui-sheet, .modal) .btn:is(.btn-lg, .btn-block):not(.btn-primary):not(.btn-danger):not(.btn-sm) {
+  height: auto; min-height: 52px; padding-top: 0; padding-bottom: 0; border-radius: 999px; font-size: 17px !important; font-weight: 600;
+}
+/* a destructive item in a ⋯ menu: ink beside its icon (red is the logo and the one action) */
+html:not(.desk) body.powa-app .ui-sheet > button.danger { color: var(--text); }
+html:not(.desk) body.powa-app .ui-sheet > button.danger svg { color: var(--text-2); }
+/* a person's line in a sheet's list, as on Lifters, Clients and Messages */
+html:not(.desk) body.powa-app .ui-sheet .ui-row:has(> .ui-av) .ui-row-sub { font-size: 15px; }
+/* a picked chip is ink on the chip (Programs' Add exercise, Clients' sheets, New challenge's Who) */
+html:not(.desk) body.powa-app .chl-new .chl-who .ui-chip.on { background: var(--text); color: var(--bg) !important; box-shadow: none; }
+/* every sheet's corners: 22 */
+html.native:not(.desk) body.powa-app .modal-backdrop .modal { border-radius: 22px 22px 0 0; }
+/* 44 pt to the touch, drawn as they were */
+/* (the close button, the password eye and a reaction are positioned already: their hit area needs nothing more) */
+html:not(.desk) body.powa-app :is(.vn-play, button.cbud-av, button.cp-av, .bs-sw, .ig-chip, .ui-label-end, .md-board-root .md-btn-quiet, :is(.ui-sheet, .modal) .btn-sm.btn-ghost, .ui-seg button, .sk-data-links :is(button, a)) { position: relative; }
+html:not(.desk) body.powa-app :is(.vn-play, .modal .modal-close, .input-toggle)::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+html:not(.desk) body.powa-app :is(button.cbud-av, button.cp-av, .bs-sw)::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
+html:not(.desk) body.powa-app :is(.msg-react)::after { content: ''; position: absolute; inset: -8px -5px; }
+html:not(.desk) body.powa-app :is(.ig-chip, :is(.ui-sheet, .modal) .btn-sm.btn-ghost)::after { content: ''; position: absolute; inset: -7px 0; }
+html:not(.desk) body.powa-app .ui-seg button::after { content: ''; position: absolute; inset: -3px 0; }
+html:not(.desk) body.powa-app .chl-new .chl-when-seg button { min-height: 38px; }
+html:not(.desk) body.powa-app .sk-data-links :is(button, a)::after { content: ''; position: absolute; inset: -12px -4px; }
+html:not(.desk) body.powa-app :is(.ui-label-end, .md-board-root .md-btn-quiet)::after { content: ''; position: absolute; inset: -2px 0; }
+/* the meet-day board's lifters table scrolls sideways: its narrowest field (a lifter's class) is 44 wide like the rest */
+html:not(.desk) body.powa-app .md-board-root .md-in { min-width: 44px; }
+html:not(.desk) body.powa-app .ca-pg .ui-text-btn { position: relative; }
+html:not(.desk) body.powa-app .ca-pg .ui-text-btn::after { content: ''; position: absolute; inset: 0 -7px; }
 
 /* =================================================================== TABLETS (700 to 999, off the desk)
    The same screens in the app's iPad column (styles.css: every pane is a centred 880 px column, so the title

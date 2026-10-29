@@ -1500,12 +1500,12 @@ function buildCoachSetup() {
 }
 // The iPhone app's Lifters tab with nobody on it yet (the approved look, 29 Oct): the first run's lit welcome card that
 // Messages and Programs open on too (coach-you.js), saying what this tab is for, the invite as the screen's one red
-// and the client list import as the quiet way; then what a lifter will look like here, drawn with the real rows
-// and marked Sample, and what the ring means. (The .le-* hooks are this tab's, the .cy-fr* ones the first run's.)
+// and the client list import as the quiet row under it (as Programs' and Home's first run); then what a lifter will look
+// like here, drawn with the real rows and marked Sample, and what the ring means. (The .le-* hooks are this tab's, the .cy-fr* ones the first run's.)
 function _liftersEmptyOwn() { return !_desk() && !!(window.CoachYou && CoachYou.liftersWelcome); }
 function buildLiftersEmpty() {
   const wrap = el('div', { class: 'ca-hub ca-root le-wrap' });
-  const alt = (window.SwitchKit && SwitchKit.openIntake) ? { label: 'Import a client list', cls: 'le-alt', onClick: () => SwitchKit.openIntake({ mode: 'roster' }) } : null;
+  const alt = (window.SwitchKit && SwitchKit.openIntake) ? { label: 'Import a client list', sub: 'A file of names and emails. You pick who gets an invite.', cls: 'le-alt', onClick: () => SwitchKit.openIntake({ mode: 'roster' }) } : null;
   wrap.appendChild(CoachYou.liftersWelcome(buildRosterSample(), { alt: alt, own: true }));
   return wrap;
 }

@@ -28,7 +28,8 @@
     list: '<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>',
     trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
     thread: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/>',
-    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    tray: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'
   };
   function ic(k, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (G[k] || G.chev) + '</svg>'; }
   function esc(s) { return typeof escHtml === 'function' ? escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -150,17 +151,11 @@
   /* ---------------------------------------------------------------- the first run */
   // A first-run card: the app's own lit card (coach-app.css .ca-welcome, as Home's welcome), one line of what the
   // screen becomes, and the invite as the screen's one red. o: { hi, title, sub, label, cls, onClick }
-  // o.alt: { label, cls, onClick }, the screen's one quiet alternative under the red (a text button, never a second fill).
   function welcomeCard(o) {
     var card = node('<div class="ca-hero ca-welcome cy-fr ca-rise' + (o.cls ? ' ' + o.cls : '') + '">' +
       '<p class="ca-hero-hi">' + esc(o.hi) + '</p><h2 class="ca-welcome-t">' + esc(o.title) + '</h2><p class="ca-hero-sub">' + esc(o.sub) + '</p>' +
       '<button type="button" class="ca-btn is-red' + (o.btnCls ? ' ' + o.btnCls : '') + '" data-sc="invite">' + ic('plus', 2.4) + '<span>' + esc(o.label || 'Invite a lifter') + '</span></button></div>');
     card.querySelector('[data-sc=invite]').addEventListener('click', function () { (o.onClick || invite)(); });
-    if (o.alt && o.alt.label) {
-      var alt = node('<button type="button" class="cy-fr-alt' + (o.alt.cls ? ' ' + o.alt.cls : '') + '" data-sc="alt">' + esc(o.alt.label) + '</button>');
-      alt.addEventListener('click', function () { if (o.alt.onClick) o.alt.onClick(); });
-      card.appendChild(alt);
-    }
     return card;
   }
   function invite() { if (typeof openInviteModal === 'function') openInviteModal(); }
@@ -191,8 +186,16 @@
       sub: 'One link for each lifter. They get the app and land here, with their week and anything that needs you.'
     };
     if (o.own) { card.cls = 'le-card'; card.btnCls = 'le-go'; }
-    card.alt = o.alt || null;
     wrap.appendChild(welcomeCard(card));
+    // the one quiet way (Import a client list): a row under the card, as Programs' and Home's first run have theirs
+    if (o.alt && o.alt.label) {
+      var list = node('<div class="ca-plain ca-rowsx cy-fr-rows ca-rise"></div>');
+      var b = node('<button type="button" class="ca-lrow cy-fr-alt' + (o.alt.cls ? ' ' + o.alt.cls : '') + '" data-fr="clients"><span class="ca-tic">' + ic('tray') + '</span>' +
+        '<span class="ca-lrow-tx"><span class="ca-lrow-t">' + esc(o.alt.label) + '</span>' + (o.alt.sub ? '<span class="ca-lrow-s">' + esc(o.alt.sub) + '</span>' : '') + '</span>' + ic('chev', 2.2) + '</button>');
+      b.addEventListener('click', function () { if (o.alt.onClick) o.alt.onClick(); });
+      list.appendChild(b);
+      wrap.appendChild(list);
+    }
     if (sample) {
       var s = node('<div class="ca-sec cy-fr-sample' + (o.own ? ' le-sample' : '') + '"></div>');
       s.appendChild(label('Once they train', 'Sample'));

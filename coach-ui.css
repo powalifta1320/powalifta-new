@@ -1074,15 +1074,16 @@ html:not(.desk) body.powa-app .cs-sheet .cs-amtrow select.cs-cur { flex: none; w
 html:not(.desk) body.powa-app .cs-sheet input.cs-amt { height: 60px; font-family: var(--font-num); font-stretch: 112%; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 html:not(.desk) body.powa-app .cs-sheet .cs-cur-tag { padding: 0 8px; font-size: 17px; font-weight: 650; color: var(--text-2); }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips button {
-  height: 40px; padding: 0 16px; border-radius: 999px; background: var(--pl-inset); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit);
+  position: relative; height: 38px; padding: 0 16px; border-radius: 999px; background: var(--pl-inset); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit);
   transition: transform var(--pl-d-press) var(--pl-spring), background-color 160ms ease-out, color 160ms ease-out;
 }
-html:not(.desk) body.powa-app .cs-sheet .cs-chips button.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text); }
-html[data-theme="light"]:not(.desk) body.powa-app .cs-sheet .cs-chips button.on { color: var(--text); }
+/* a picked chip is ink on the chip, as Programs' Add exercise and the lifter app's picked RPE (the segmented track below keeps its raised thumb) */
+html:not(.desk) body.powa-app .cs-sheet .cs-chips:not(.is-seg) button.on { background: var(--text); box-shadow: none; color: var(--bg) !important; }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips button::after { content: ''; position: absolute; inset: -3px -2px; }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips button:active { transform: scale(0.96); transition-duration: 90ms; }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--pl-inset); }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button { border-radius: 12px; background: none; }
-html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button.on { background: var(--pl-raise); }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text) !important; }
 html:not(.desk) body.powa-app .cs-sheet > .btn-primary { margin-top: 8px; min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 650; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .cs-sheet .cs-chips button:active { transform: none; } }
 
@@ -1106,7 +1107,7 @@ html:not(.desk) body.powa-app .cs-pair.is-phone .cs-pays { font-size: 13px; colo
 html:not(.desk) body.powa-app .cs-pair.is-phone .cs-pay b { color: var(--text-2); }
 html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts { gap: 8px; margin-top: 4px; }
 html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-btn {
-  height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text) !important; box-shadow: none;
+  height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text) !important; box-shadow: none;
   font-family: inherit; font-size: 15px !important; font-weight: 600; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out;
 }
 html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-btn:active { transform: scale(0.96); transition-duration: 90ms; }
