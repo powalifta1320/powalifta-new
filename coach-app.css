@@ -135,6 +135,9 @@ html:not(.desk) .ca-h-end::after { content: ''; position: absolute; inset: 0 -8p
 html:not(.desk) .ca-h-end:active { opacity: 0.6; }
 html:not(.desk) .ca-h3 { margin: 28px 4px 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
 html:not(.desk) .ca-h3:first-child { margin-top: 4px; }
+/* a toast's action (Undo): 44 pt to the touch inside its 52 pt toast, the 34 pt pill drawn as it was */
+html:not(.desk) body.powa-app .toast.toast-act .ta-btn { position: relative; }
+html:not(.desk) body.powa-app .toast.toast-act .ta-btn::after { content: ''; position: absolute; inset: -5px -8px; }
 
 /* L2 on the cards that were drawn as one material: the flag sits on the ground (its own rule below) */
 html:not(.desk) :is(.ca-rowcard, .ca-flag) { border-radius: 20px; }
