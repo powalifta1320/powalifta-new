@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 173 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 175 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
  * by its box, things poking out of the screen or out of their card, side-by-side buttons that
@@ -75,6 +75,8 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     // Two-factor (2026-10-28): the code prompt a dashboard shows when a session still owes its code, and the
     // one after the password in the app's log-in sheet. Only drawn here: nothing is sent until Verify.
     { name: 'sh-2fa' + suf, page: C, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" },
+    // The same prompt on an open dashboard whose writes are refused: two-factor turned on from another device (29 Oct).
+    { name: 'sh-2fa-inplace' + suf, page: A, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out', lead: _MFA_IN_PLACE_LEAD }); true" },
     { name: 'ob-2fa' + suf, page: 'index.html', theme, eval: "obOpen('login'); setTimeout(() => promptMfaChallenge(), 400); true" });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {

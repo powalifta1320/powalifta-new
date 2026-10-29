@@ -414,6 +414,14 @@ function mfaCodeOwed(user, currentLevel) {
   if (!user || currentLevel !== 'aal1') return false;
   return (Array.isArray(user.factors) ? user.factors : []).some(f => !!f && f.status === 'verified');
 }
+// Pure: the database refused a write by its rules (row-level security: 42501, a 403, "permission denied"), as
+// opposed to a network failure, a duplicate or a bad row. An aal1 session of a two-factor account gets exactly
+// this from row 60, for every insert and upsert.
+function writeRefusedByPolicy(err) {
+  if (!err) return false;
+  const code = String(err.code || ''), msg = String(err.message || '');
+  return code === '42501' || Number(err.status) === 403 || /row-level security|permission denied/i.test(msg);
+}
 // Why the profile read found no row, from Auth's answer (GET /user, asked once): 'gone' (the account was deleted,
 // user_not_found), 'code' (a verified factor and an aal1 token: a session stored before two-factor was turned on,
 // whose copy of the user shows no factor, so boot asked for no code) or null (an ended session, a network failure,
@@ -3105,7 +3113,7 @@ function persistProgram(programId) { if (window._demoMode) return;
       console.error('persistProgram', e);
       // The copy carries the version it was edited from, so the replay can merge instead of overwrite.
       _enqueueOutbox('program', Object.assign({}, prog, { _base: (DB.programBase && DB.programBase(prog.id)) || prog._base || null }), 'program:' + prog.id);
-      toast('No connection: saved on this device, will sync');
+      _askCodeIfRefused(e).then((asked) => { if (!asked) toast('No connection: saved on this device, will sync'); });   // two-factor turned on elsewhere: the code instead
     } finally {
       if (!--_progSaving[programId]) delete _progSaving[programId];
     }
@@ -3836,12 +3844,20 @@ async function flushPendingLogs() {
   const failed = [];
   let synced = 0;
   let dropped = 0;
-  for (const log of q) {
+  let codeOwed = null;   // asked once per flush, at the first refusal
+  for (let i = 0; i < q.length; i++) {
+    const log = q[i];
     try { await DB.addLog(log); synced++; }
     catch (e) {
       const msg = String((e && e.message) || '');
       // Duplicate key = it actually saved on a previous attempt → safe to drop.
       if (/duplicate|unique|23505/i.test(msg)) { synced++; continue; }
+      // Refused at aal1 because the account turned two-factor on elsewhere (row 60): not these sets' fault. They
+      // all wait, no try counted, while the code is asked for in place; then they go up at aal2.
+      if (writeRefusedByPolicy(e) && (codeOwed === null ? (codeOwed = await _codeOwedPerAuth()) : codeOwed)) {
+        failed.push(...q.slice(i));
+        break;
+      }
       const n = (attempts[log.id] || 0) + 1;
       if (n >= _MAX_LOG_ATTEMPTS) {
         // Give up on this one — it's never going to land. Drop it rather than
@@ -3862,6 +3878,7 @@ async function flushPendingLogs() {
   _writeLogAttempts(attempts);
   _releaseQueueIfEmpty();
   _flushingLogs = false;
+  if (codeOwed) _mfaStepUpInPlace();
   if (synced > 0 && !failed.length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
   if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced: please re-log");
@@ -3877,6 +3894,7 @@ async function persistAddLog(log) {
     console.error('addLog', e);
     _queuePendingLog(log);
     _scheduleConnBanner();
+    if (await _askCodeIfRefused(e)) return;   // two-factor turned on elsewhere: the code now, then the set goes up
     toast('No connection: set saved on this device, will sync automatically');
   }
 }
@@ -3891,10 +3909,10 @@ async function persistDeleteLog(id) {
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
 async function persistDeleteInvite(code)  { if (window._demoMode) return; try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
 async function persistAddNote(n)          { if (window._demoMode) return; try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
-async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); toast('No connection: saved on this device, will sync'); } }
+async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); if (!(await _askCodeIfRefused(e))) toast('No connection: saved on this device, will sync'); } }
 async function persistBw(b)               { try { if (window.PowaHealthJS) PowaHealthJS.weightSaved(b); } catch (e) {}   // Apple Health (on the phone, when on)
-                                           if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection: saved on this device, will sync'); } }
-async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); } }
+                                           if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); if (!(await _askCodeIfRefused(e))) toast('No connection: saved on this device, will sync'); } }
+async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); _askCodeIfRefused(e); } }
 async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); _enqueueOutbox('deleteRest', { athleteId: aid, date: d }, 'rest:' + aid + ':' + d); } }
 async function persistAddTemplate(t)      { if (window._demoMode) return; try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
 async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { await DB.deleteTemplate(id); } catch (e) { console.error('template del', e); } }
@@ -4125,12 +4143,20 @@ async function flushOutbox() {
   const attempts = _readOutboxAttempts();
   const failed = [];
   let synced = 0, dropped = 0;
-  for (const e of q) {
+  let codeOwed = null;   // asked once per flush, at the first refusal
+  for (let i = 0; i < q.length; i++) {
+    const e = q[i];
     const fn = _OUTBOX_DISPATCH[e.kind];
     if (!fn) continue; // unknown kind (stale build) — drop quietly
     try { await fn(e.payload); synced++; }
     catch (err) {
       const msg = String((err && err.message) || '');
+      // Refused at aal1 because the account turned two-factor on elsewhere (row 60): this change and the rest
+      // wait, no try counted, while the code is asked for in place; then they go up at aal2.
+      if (writeRefusedByPolicy(err) && (codeOwed === null ? (codeOwed = await _codeOwedPerAuth()) : codeOwed)) {
+        failed.push(...q.slice(i).filter(x => _OUTBOX_DISPATCH[x.kind]));
+        break;
+      }
       const n = (attempts[e.key] || 0) + 1;
       if (n >= _MAX_OUTBOX_ATTEMPTS) {
         console.error('flushOutbox: dropping ' + e.kind + ' after ' + n + ' attempts', e.key, msg);
@@ -4148,6 +4174,7 @@ async function flushOutbox() {
   _writeOutboxAttempts(attempts);
   _releaseQueueIfEmpty();
   _flushingOutbox = false;
+  if (codeOwed) _mfaStepUpInPlace();
   if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
   if (dropped > 0) toast("Some changes couldn't be synced. Please re-check");
@@ -4717,7 +4744,8 @@ window.promptMfaChallenge = promptMfaChallenge;
 // couldn't tell), 'in' (code entered: the session is aal2) or 'out' (they chose to sign out:
 // this device only, never their other sessions).
 // opts.owed: Auth (GET /user) shows a verified factor that the stored session's copy of the user predates
-// (two-factor turned on from another device): the aal1 token alone says the code is owed.
+// (two-factor turned on from another device): the aal1 token alone says the code is owed. opts.lead: the
+// prompt's line. opts.inPlace: an open dashboard asks (_mfaStepUpInPlace), which signs out itself on 'out'.
 async function _mfaStepUp(opts) {
   opts = opts || {};
   let aal = null;
@@ -4726,15 +4754,61 @@ async function _mfaStepUp(opts) {
   if (aal.nextLevel !== 'aal2' && !(opts.owed && aal.currentLevel === 'aal1')) return 'none';
   window._mfaStepUpPending = true;   // the offline queues wait: replayed at aal1 they'd be refused and burn their tries
   let passed = false;
-  try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out' }); } catch (e) { passed = false; }
+  try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out', lead: opts.lead }); } catch (e) { passed = false; }
   window._mfaStepUpPending = false;
   if (passed) {
     setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
     return 'in';
   }
+  if (opts.inPlace) window._signingOut = true;   // this sign-out is the caller's, not one for _watchSignOut to chase
   try { await DB.signOut('local'); } catch (e) {}
   _dropStoredSession();   // offline that call keeps the session, and the next load would ask for the code again
   return 'out';
+}
+// A write refused mid-session: is the code owed? Two-factor turned on for this account after this session was
+// stored (from another device, say) makes row 60 refuse it, and the stored session can't tell (its copy of the
+// user predates the factor), so this asks Auth (GET /user) while the token is aal1. Yes while a prompt is open.
+async function _codeOwedPerAuth() {
+  if (window._mfaStepUpPending) return true;
+  if (window._demoMode || !window.DB || typeof DB.mfaAssurance !== 'function' || typeof DB.authUser !== 'function') return false;
+  let aal = null;
+  try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
+  if (!aal || !aal.ok || aal.currentLevel !== 'aal1') return false;
+  if (aal.nextLevel === 'aal2') return true;   // the stored session knows already
+  let r = null;
+  try { r = await DB.authUser(); } catch (e) { r = null; }
+  return !!(r && !r.error && mfaCodeOwed(r.user, aal.currentLevel));
+}
+// The code, asked for in place on an open dashboard whose writes are refused at aal1 (the account turned two-factor
+// on elsewhere). One prompt however many writes were refused; meanwhile nothing replays (_mfaStepUpPending), so no
+// try is counted. Code entered: _mfaStepUp sends what waits, at aal2. "Sign out": this device only, and what waits
+// stays for this account, as on any sign-out it didn't choose; then the welcome. → 'in' | 'out' | 'none'.
+const _MFA_IN_PLACE_LEAD = 'Two-factor is on for this account now. Enter the 6-digit code from your authenticator app to keep syncing. Until then, your changes wait on this device.';
+let _mfaInPlace = null;
+function _mfaStepUpInPlace() {
+  if (_mfaInPlace) return _mfaInPlace;
+  if (window._demoMode || window._signingOut || !window._user) return Promise.resolve('none');
+  window._mfaStepUpPending = true;
+  const uid = window._user.id;
+  const run = (async () => {
+    let step = 'none';
+    try { step = await _mfaStepUp({ owed: true, inPlace: true, lead: _MFA_IN_PLACE_LEAD }); }
+    catch (e) { step = 'none'; }
+    window._mfaStepUpPending = false;
+    if (step === 'out') { await _signedOutByServer(uid, { signOut: false }); _toWelcome(); }
+    return step;
+  })();
+  _mfaInPlace = run;
+  run.then(() => { _mfaInPlace = null; }, () => { _mfaInPlace = null; });
+  return run;
+}
+// A write that just failed went to a queue. Refused at aal1 because the code is owed (see _codeOwedPerAuth): it's
+// asked for now, not at the next reconnect or reload. → true when the prompt is up (the caller's toast can go).
+async function _askCodeIfRefused(e) {
+  if (!writeRefusedByPolicy(e) || window._demoMode) return false;
+  if (!(await _codeOwedPerAuth())) return false;
+  _mfaStepUpInPlace();
+  return !!(_mfaInPlace || window._mfaStepUpPending);
 }
 
 // Status line + tinted pill, mirroring renderPlanManageCard's badge treatment.

@@ -8453,8 +8453,10 @@ group('security merge follow-ups (demo log-out, deleted elsewhere, one code prom
 /* ===========================================================
    The merge review's two-factor follow-ups (29 Oct). "Sign out" on the code prompt takes the stored session even
    when the sign-out call fails offline (_dropStoredSession). Two-factor turned on from another device: Auth's own
-   answer (GET /user) says the code is owed when this session's stored copy of the user can't (mfaCodeOwed). The
-   prompt itself is async: browser flows drive it. Every powa-* and sb-* key is put back as it was.
+   answer (GET /user) says the code is owed when this session's stored copy of the user can't (mfaCodeOwed); a
+   write refused by the database's rules (writeRefusedByPolicy) then asks for it in place instead of counting
+   tries. The prompt and the queues themselves are async: browser flows drive them. Every powa-* and sb-* key is
+   put back as it was.
    =========================================================== */
 group('the merge review\'s two-factor follow-ups (29 Oct)');
 (() => {
@@ -8481,6 +8483,18 @@ group('the merge review\'s two-factor follow-ups (29 Oct)');
       eq(mfaCodeOwed({ factors: [] }, 'aal1'), false);
       eq(mfaCodeOwed({ id: 'u2' }, 'aal1'), false, 'no factors at all (the stored copy from before two-factor looks like this)');
       eq(mfaCodeOwed(null, 'aal1'), false, 'Auth gave no user');
+    });
+    test('a write the database refused by its rules, not a network failure, a duplicate or an expired token', () => {
+      eq(writeRefusedByPolicy({ code: '42501', message: 'new row violates row-level security policy for table "workout_logs"' }), true, 'row 60 at aal1');
+      eq(writeRefusedByPolicy({ message: 'new row violates row-level security policy for table "bodyweight"' }), true, 'no code');
+      eq(writeRefusedByPolicy({ status: 403, message: 'Forbidden' }), true);
+      eq(writeRefusedByPolicy({ status: '403', message: 'new row violates row-level security policy' }), true, 'a status as text (Storage)');
+      eq(writeRefusedByPolicy({ code: '42501', message: 'permission denied for table workout_logs' }), true);
+      eq(writeRefusedByPolicy(new TypeError('Failed to fetch')), false, 'offline');
+      eq(writeRefusedByPolicy({ code: '23505', message: 'duplicate key value violates unique constraint "workout_logs_pkey"' }), false, 'a duplicate (it landed before)');
+      eq(writeRefusedByPolicy({ code: 'PGRST301', message: 'JWT expired' }), false, 'an expired token (supabase-js refreshes it)');
+      eq(writeRefusedByPolicy({ code: '23503', message: 'insert or update on table "workout_logs" violates foreign key constraint' }), false, 'a bad row');
+      eq(writeRefusedByPolicy(null), false);
     });
   } finally {
     lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
