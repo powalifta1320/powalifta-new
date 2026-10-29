@@ -978,7 +978,8 @@
       small.push(tileHtml('effort', 'gauge', 'Effort', 'Top sets',
         Math.abs(avgR) < 0.5 ? '<b class="cl-big3">On target</b>' : '<b class="cl-big3">' + (avgR > 0 ? '+' : '') + avgR + '</b><span class="cl-u">RPE</span>',
         viz('effort', { pts: D.effort.map(function (x) { return { d: x.d, title: dateShort(x.date) + ' · ' + (x.title ? x.title + ' ' : '') + '@' + num(x.felt) + ', you wrote ' + num(x.wrote) }; }) }, o.phone ? 50 : 56),
-        Math.abs(avgR) < 0.5 ? 'Within 0.5 RPE of plan' : (avgR > 0 ? 'Heavier than you wrote' : 'Easier than you wrote'), { compact: true }));
+        // Harder is a status: on the phone it wears the triangle beside its ink words (coach-app.css .ca-charts .cl-warn).
+        Math.abs(avgR) < 0.5 ? 'Within 0.5 RPE of plan' : (avgR > 0 ? (o.phone ? '<span class="cl-warn">Heavier than you wrote</span>' : 'Heavier than you wrote') : 'Easier than you wrote'), { compact: true }));
     }
     if (D.bw.length) {
       var lastBw = D.bw[D.bw.length - 1], clsKg = r.bw ? r.bw.cls : (r.meet ? clsNum(r.meet.meet.weightClass) : null);
