@@ -5706,8 +5706,8 @@ test('jobs: one per lifter per kind; a meet today is one job', () => {
   ];
   const J = CL.clJobs(rows, { today: T, toWrite: [{ r: rows[3], week: 3 }] });
   const keys = J.map(j => j.key);
-  eq(J[0].type, 'meetday', 'the meet comes first'); eq(J[0].rows.length, 2); eq(J[0].over[0].athlete.id, 't'); eq(J[0].unplanned.length, 2);
-  eq(J[1].type, 'pain', 'then the pain before it');
+  eq(J[0].type, 'pain', 'pain comes first'); eq(J[0].r.athlete.id, 'p');
+  eq(J[1].type, 'meetday', 'then the meet today'); eq(J[1].rows.length, 2); eq(J[1].over[0].athlete.id, 't'); eq(J[1].unplanned.length, 2);
   assert(!J.some(j => j.r && j.r.athlete.id === 't' && j.kind === 'meet'), 'Tom’s weight and meet live in the meet-day job');
   eq(J.filter(j => j.r && j.r.athlete.id === 'k').length, 1, 'Kofi: one answer job for a message and a note');
   eq(J.find(j => j.key === 'k:answer').type, 'message', 'a message a day old comes before a note');
@@ -5717,8 +5717,28 @@ test('jobs: one per lifter per kind; a meet today is one job', () => {
   assert(D.find(j => j.key === 'k:answer').done, 'a handled lifter’s job is done');
   eq(D[D.length - 1].done, true, 'done jobs sink to the bottom');
   eq(CL.clTopJob(rows[0], J).type, 'meetday', 'Tom’s flag is the meet');
-  eq(CL.jobText(J[0]).title, 'Autumn Open is today');
-  eq(CL.jobText(J[0]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
+  eq(CL.clTopJob(rows[1], J).type, 'pain', 'Priya’s flag is her pain, meet or not');
+  eq(CL.jobText(J[1]).title, 'Autumn Open is today');
+  eq(CL.jobText(J[1]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
+});
+test('the Lifters list keeps Home’s order: pain, then a meet today, then deskReasons’ groups', () => {
+  // The owner's call (29 Oct): one worst-first order everywhere. The kind decides first; how soon only breaks ties.
+  const T = '2026-10-26';
+  const rows = [
+    clRow({ athlete: { id: 'q', name: 'Quinn Hale' }, reasons: [{ type: 'quiet', group: 7, text: 'Quiet' }], status: { ago: 9 } }),
+    clRow({ athlete: { id: 'k', name: 'Kofi Mensah' }, reasons: [{ type: 'message', group: 4, text: 'Message 1d' }] }),
+    clRow({ athlete: { id: 'i', name: 'Ines Duarte' }, reasons: [{ type: 'drift', group: 3, text: 'RPE +0.5 this week' }] }),
+    clRow({ athlete: { id: 'e', name: 'Elena Rossi' }, meet: { days: 12, meet: { name: 'State', date: '2026-11-07', weightClass: '57' } }, bw: { over: 1.4 }, reasons: [{ type: 'meet', group: 2 }, { type: 'weight', group: 2, text: 'BW +1.4 over class' }] }),
+    clRow({ athlete: { id: 'm', name: 'Mo Diaz' }, meet: { days: 0, meet: { name: 'Autumn Open', date: T } }, reasons: [{ type: 'meet', group: 2, text: 'Meet today' }] }),
+    clRow({ athlete: { id: 'p', name: 'Pat Lee' }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }], status: { pain: { report: { severity: 4, day: '2026-10-20' }, count: 1 } } })
+  ];
+  const J = CL.clJobs(rows, { today: T });
+  eq(J.map(j => j.type).join(','), 'pain,meetday,weight,drift,message,quiet');
+  eq(J[0].tier, 1, 'a pain this week still leads a meet today (tier 0)');
+  eq(J[1].tier, 0);
+  assert(J.findIndex(j => j.type === 'drift') < J.findIndex(j => j.type === 'message'), 'RPE (group 3) before their words (group 4), whatever the wait');
+  const order = {}; J.forEach((it, i) => (it.r ? [it.r] : it.rows).forEach(r => { if (order[r.athlete.id] == null) order[r.athlete.id] = i; }));
+  eq(CL.clGroups(rows, { order })[0].rows.map(r => r.athlete.id).join(','), 'p,e,i,k,q', 'Check on reads the same order');
 });
 test('jobs: a reply closes what a message can, not the week still to write', () => {
   const T = '2026-10-26';
